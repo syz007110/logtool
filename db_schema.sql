@@ -19,9 +19,18 @@ CREATE TABLE IF NOT EXISTS roles (
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id INT NOT NULL,
   role_id INT NOT NULL,
+  assigned_by INT,                    -- 分配角色的用户ID（可选）
+  assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- 分配时间
+  expires_at TIMESTAMP NULL,          -- 角色过期时间（可选）
+  is_active BOOLEAN DEFAULT TRUE,     -- 角色是否激活
+  notes TEXT,                         -- 分配备注（可选）
   PRIMARY KEY (user_id, role_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+  FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_role_id (role_id),
+  INDEX idx_assigned_by (assigned_by)
 );
 
 -- 故障码表

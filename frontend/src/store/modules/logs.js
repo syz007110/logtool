@@ -1,0 +1,85 @@
+import api from '../../api'
+
+const state = {
+  logs: [],
+  loading: false,
+  total: 0
+}
+
+const mutations = {
+  SET_LOGS(state, logs) {
+    state.logs = logs
+  },
+  SET_LOADING(state, loading) {
+    state.loading = loading
+  },
+  SET_TOTAL(state, total) {
+    state.total = total
+  }
+}
+
+const actions = {
+  async fetchLogs({ commit }, params = {}) {
+    commit('SET_LOADING', true)
+    try {
+      const response = await api.logs.getList(params)
+      commit('SET_LOGS', response.data.logs)
+      commit('SET_TOTAL', response.data.total)
+      return response
+    } catch (error) {
+      throw error
+    } finally {
+      commit('SET_LOADING', false)
+    }
+  },
+
+  async uploadLog({ commit }, formData) {
+    try {
+      const response = await api.logs.upload(formData)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async parseLog({ commit }, logId) {
+    try {
+      const response = await api.logs.parse(logId)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async downloadLog({ commit }, logId) {
+    try {
+      const response = await api.logs.download(logId)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async deleteLog({ commit }, logId) {
+    try {
+      const response = await api.logs.delete(logId)
+      return response
+    } catch (error) {
+      throw error
+    }
+  }
+}
+
+const getters = {
+  logsList: state => state.logs,
+  isLoading: state => state.loading,
+  totalCount: state => state.total
+}
+
+export default {
+  namespaced: true,
+  state,
+  mutations,
+  actions,
+  getters
+} 

@@ -2,12 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { sequelize } = require('./models');
+const { defineAssociations } = require('./models/associations');
 const authRouter = require('./routes/auth');
 const errorCodesRouter = require('./routes/errorCodes');
 const xmlExportRouter = require('./routes/xmlExport');
 const i18nRouter = require('./routes/i18n');
 const usersRouter = require('./routes/users');
 const rolesRouter = require('./routes/roles');
+const userRolesRouter = require('./routes/userRoles');
 
 // 加载环境变量
 dotenv.config({ path: '../.env' });
@@ -31,6 +33,7 @@ app.use('/api/error-codes/export', xmlExportRouter);
 app.use('/api/i18n', i18nRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/roles', rolesRouter);
+app.use('/api/user-roles', userRolesRouter);
 // app.use('/api/logs', require('./routes/logs'));
 
 // 错误处理中间件
@@ -45,6 +48,10 @@ const PORT = process.env.PORT || 3000;
   try {
     await sequelize.authenticate();
     console.log('数据库连接成功');
+    
+    // 定义模型关联
+    defineAssociations();
+    
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
