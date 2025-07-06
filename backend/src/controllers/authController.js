@@ -1,10 +1,11 @@
 const User = require('../models/user');
+const UserRole = require('../models/user_role');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const register = async (req, res) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, password, email, roles } = req.body;
     if (!username || !password) {
       return res.status(400).json({ message: '用户名和密码不能为空' });
     }
@@ -14,6 +15,19 @@ const register = async (req, res) => {
     }
     const password_hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, password_hash, email });
+    
+    // 如果提供了角色，为用户分配角色
+    if (roles && Array.isArray(roles) && roles.length > 0) {
+      for (const roleId of roles) {
+        await UserRole.create({
+          user_id: user.id,
+          role_id: roleId,
+          assigned_by: user.id, // 自己分配给自己
+          notes: '注册时分配'
+        });
+      }
+    }
+    
     res.status(201).json({ message: '注册成功', user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
     res.status(500).json({ message: '注册失败', error: err.message });

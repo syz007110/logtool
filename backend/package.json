@@ -2,9 +2,15 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+      "scripts": {
+      "start": "node src/app.js",
+      "dev": "nodemon src/app.js",
+      "init-roles": "node src/scripts/initRoles.js",
+      "init-permissions": "node src/scripts/initPermissions.js",
+      "clear-data": "node src/scripts/clearTestData.js",
+      "reset-db": "npm run clear-data && npm run init-roles",
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -18,5 +24,8 @@
     "mysql2": "^3.14.1",
     "sequelize": "^6.37.7",
     "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   }
 }
