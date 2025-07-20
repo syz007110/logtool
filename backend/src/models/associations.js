@@ -4,6 +4,7 @@ const UserRole = require('./user_role');
 const ErrorCode = require('./error_code');
 const Log = require('./log');
 const I18nText = require('./i18n_text');
+const OperationLog = require('./operation_log');
 
 // 定义模型关联关系
 function defineAssociations() {
@@ -65,6 +66,8 @@ function defineAssociations() {
     foreignKey: 'uploader_id',
     as: 'logs'
   });
+
+  // 目前不做关联，后续可扩展
 
   console.log('✅ 模型关联定义完成');
 }

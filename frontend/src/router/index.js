@@ -84,7 +84,8 @@ router.beforeEach((to, from, next) => {
     next('/login')
   } else if (to.meta.requiresAdmin && userRole !== 'admin') {
     next('/dashboard')
-  } else if (to.path === '/login' && isAuthenticated) {
+  } else if (to.path === '/login' && isAuthenticated && from.path !== '/login') {
+    // 仅在不是后退到login时才跳转，避免破坏历史
     next('/dashboard')
   } else {
     next()

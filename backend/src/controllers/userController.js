@@ -2,12 +2,40 @@ const User = require('../models/user');
 const Role = require('../models/role');
 const UserRole = require('../models/user_role');
 const bcrypt = require('bcryptjs');
+const { logOperation } = require('../utils/operationLogger');
 
 // 查询用户列表
 const getUsers = async (req, res) => {
   try {
-    const users = await User.findAll({ attributes: { exclude: ['password_hash'] } });
-    res.json({ users });
+    // 查询所有用户及其角色
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'email', 'is_active', 'created_at'],
+      include: [
+        {
+          model: UserRole,
+          as: 'UserRoles',
+          attributes: ['role_id'],
+          required: false,
+          include: [
+            {
+              model: Role,
+              as: 'Role',
+              attributes: ['name']
+            }
+          ]
+        }
+      ]
+    });
+    // 整理返回格式，合并角色
+    const result = users.map(u => ({
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      is_active: u.is_active,
+      created_at: u.created_at,
+      role: u.UserRoles && u.UserRoles.length > 0 && u.UserRoles[0].Role ? u.UserRoles[0].Role.name : null
+    }));
+    res.json({ users: result, total: result.length });
   } catch (err) {
     res.status(500).json({ message: '查询失败', error: err.message });
   }
@@ -26,6 +54,20 @@ const createUser = async (req, res) => {
     for (const roleId of roles) {
       await UserRole.create({ user_id: user.id, role_id: roleId });
     }
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '添加用户',
+        description: `添加用户: ${username}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { username, email, roles }
+      });
+    } catch (logErr) {
+      console.error('操作日志记录失败:', logErr);
+    }
     res.status(201).json({ message: '创建成功', user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
     res.status(500).json({ message: '创建失败', error: err.message });
@@ -36,15 +78,41 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, is_active, roles } = req.body;
+    const { email, is_active, roles, password, oldPassword } = req.body;
     const user = await User.findByPk(id);
     if (!user) return res.status(404).json({ message: '未找到用户' });
     await user.update({ email, is_active });
+    // 密码修改逻辑
+    if (password) {
+      if (!oldPassword) {
+        return res.status(400).json({ message: '请输入原密码' });
+      }
+      const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+      if (!isMatch) {
+        return res.status(400).json({ message: '原密码不正确' });
+      }
+      const password_hash = await bcrypt.hash(password, 10);
+      await user.update({ password_hash });
+    }
     if (Array.isArray(roles)) {
       await UserRole.destroy({ where: { user_id: id } });
       for (const roleId of roles) {
         await UserRole.create({ user_id: id, role_id: roleId });
       }
+    }
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '修改用户',
+        description: `修改用户: ${user.username}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { id, email, is_active, roles }
+      });
+    } catch (logErr) {
+      console.error('操作日志记录失败:', logErr);
     }
     res.json({ message: '更新成功' });
   } catch (err) {
@@ -59,6 +127,20 @@ const deleteUser = async (req, res) => {
     const user = await User.findByPk(id);
     if (!user) return res.status(404).json({ message: '未找到用户' });
     await user.destroy();
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '删除用户',
+        description: `删除用户: ${user.username}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { id, username: user.username }
+      });
+    } catch (logErr) {
+      console.error('操作日志记录失败:', logErr);
+    }
     res.json({ message: '删除成功' });
   } catch (err) {
     res.status(500).json({ message: '删除失败', error: err.message });

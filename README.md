@@ -19,6 +19,17 @@
 - 日志表（logs）：存储上传日志的元数据、解密状态等
 - 多语言配置表（i18n_texts）：便于后续扩展多语言内容
 
+ 用户管理相关操作（已实现日志记录）
+添加用户
+路由：POST /api/users
+日志内容：操作类型“添加用户”，描述、操作人、IP、UA、详情（用户名、邮箱、角色等）
+修改用户
+路由：PUT /api/users/:id
+日志内容：操作类型“修改用户”，描述、操作人、IP、UA、详情（用户ID、邮箱、状态、角色等）
+删除用户
+路由：DELETE /api/users/:id
+日志内容：操作类型“删除用户”，描述、操作人、IP、UA、详情（用户ID、用户名）
+
 ## 前端
 需要有登入页面：包含以下功能
     1.登入功能；
@@ -81,6 +92,29 @@
 #### 普通用户 (ID: 3)
 基础操作权限，可以查询故障码、上传和管理自己的日志，但不能进行管理操作。
 
+## 账户管理与个人信息权限细化
+
+### 账户管理（用户管理板块）
+- 仅管理员用户可以在dashboard左侧菜单看到“账户管理”板块（即“用户管理”页面）。
+- 管理员可以：
+  - 查看所有用户的账户信息，信息以列表形式展现，字段包括：用户名、密码（仅支持重置/修改入口，不显示明文）、账户类型（角色）、是否启用（状态）、注册时间。
+  - 支持修改所有用户的密码（重置密码功能，点击按钮弹窗输入新密码）。
+  - 支持修改所有用户的账户类型（角色分配/变更）。
+  - 支持搜索、编辑、删除所有用户。
+  - 每行最后有“修改”按钮，可编辑该用户信息。
+- 非管理员用户（专家用户、普通用户）无法看到“账户管理”板块，也无法访问用户管理相关页面和接口。
+
+### 个人信息（右上角个人菜单）
+- 所有登录用户（包括管理员、专家用户、普通用户）都可以通过右上角菜单进入“个人信息”页面。
+- 登录后，右上角始终显示当前用户的用户名。
+- 个人信息页面仅显示当前登录用户自己的信息（用户名、邮箱、角色、注册时间等）。
+- 所有用户都可以在个人信息页面修改自己的邮箱和密码。
+- 个人信息页面不允许用户修改自己的角色、用户名等敏感信息。
+
+### 典型场景
+- 管理员登录后，左侧菜单有“用户管理”入口，可管理所有账户。
+- 普通用户或专家用户登录后，左侧菜单没有“用户管理”入口，只能通过右上角菜单查看和修改自己的个人信息。
+
 ## 进展记录
 - 完成数据库表结构设计，已写入 db_schema.sql
 - 明确项目需求与技术选型
@@ -131,85 +165,4 @@ NODE_ENV=development
 ```
 
 ### 重要说明
-- `.env` 文件必须位于项目根目录（与README.md同级）
-- 数据库模型配置路径：`backend/src/models/index.js` 中的 `../../../.env`
-- 应用配置路径：`backend/src/app.js` 中的 `../.env`
-- 请根据实际MySQL配置修改 `DB_PASSWORD` 和 `DB_USER`
-
-## 快速启动
-
-### 1. 启动后端服务
-```bash
-# 方法一：使用启动脚本（推荐）
-start-backend.bat
-
-# 方法二：手动启动
-cd backend
-npm install
-npm start
-```
-
-### 2. 启动前端服务
-```bash
-# 方法一：使用启动脚本（推荐）
-start-frontend.bat
-
-# 方法二：手动启动
-cd frontend
-npm install
-npm run dev
-```
-
-### 3. 访问系统
-- 前端地址：http://localhost:8080
-- 后端API：http://localhost:3000
-
-### 4. 运行API测试
-```bash
-# 安装axios
-npm install axios
-
-# 运行测试脚本
-node test-api.js
-```
-
-### 权限初始化与测试
-```bash
-# 初始化角色权限
-cd backend
-npm run init-roles
-
-# 初始化用户角色分配
-npm run init-permissions
-
-# 测试权限控制
-node test-permission-control.js
-
-# 验证权限系统
-node test-permission-verification.js
-```
-
-## 项目文件说明
-
-### 后端文件
-- `backend/` - 后端Node.js项目目录
-- `start-backend.bat` - 后端启动脚本
-
-### 前端文件
-- `frontend/` - 前端Vue.js项目目录
-- `start-frontend.bat` - 前端启动脚本
-
-### 测试工具
-- `test-api.js` - 自动化API测试脚本
-- `test-user-management.js` - 用户管理功能测试脚本
-- `test-role-permissions.js` - 角色权限测试脚本
-- `test-permission-control.js` - 权限控制测试脚本
-- `test-permission-fix.js` - 权限检查修复验证脚本
-- `test-auth-flow.js` - 认证流程测试脚本
-- `test-env-loading.js` - 环境变量加载测试脚本
-- `test-permission-verification.js` - 权限验证测试脚本
-- `API_TEST_GUIDE.md` - 详细测试指南
-
-### 数据库文件
-- `db_schema.sql` - 数据库表结构
-- `clear_test_data.sql` - 清理测试数据SQL
+- `.env`

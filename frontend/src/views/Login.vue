@@ -1,24 +1,22 @@
 <template>
   <div class="login-container">
+    <div class="login-lang-switch">
+      <el-dropdown @command="changeLanguage">
+        <el-button type="text">
+          <el-icon><Globe /></el-icon>
+          {{ currentLanguage === 'zh-CN' ? '中文' : 'English' }}
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+            <el-dropdown-item command="en-US">English</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+    </div>
     <div class="login-box">
       <div class="login-header">
         <h1>{{ $t('login.title') }}</h1>
-        <div class="language-switch">
-          <el-button 
-            :type="currentLanguage === 'zh-CN' ? 'primary' : 'default'"
-            size="small"
-            @click="changeLanguage('zh-CN')"
-          >
-            中文
-          </el-button>
-          <el-button 
-            :type="currentLanguage === 'en-US' ? 'primary' : 'default'"
-            size="small"
-            @click="changeLanguage('en-US')"
-          >
-            English
-          </el-button>
-        </div>
       </div>
       
       <el-form 
@@ -78,9 +76,11 @@ import { ref, reactive, computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Globe } from '@element-plus/icons-vue'
 
 export default {
   name: 'Login',
+  components: { Globe },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -121,6 +121,7 @@ export default {
     
     const changeLanguage = (language) => {
       store.dispatch('auth/setLanguage', language)
+      window.location.reload()
     }
     
     return {
@@ -130,7 +131,8 @@ export default {
       rules,
       currentLanguage,
       handleLogin,
-      changeLanguage
+      changeLanguage,
+      Globe
     }
   }
 }
@@ -143,6 +145,23 @@ export default {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+}
+.login-lang-switch {
+  position: absolute;
+  top: 30px;
+  right: 40px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+}
+.login-lang-switch .el-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
 }
 
 .login-box {
@@ -167,9 +186,7 @@ export default {
 }
 
 .language-switch {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
+  display: none;
 }
 
 .login-form {

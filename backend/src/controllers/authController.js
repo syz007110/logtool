@@ -1,5 +1,6 @@
 const User = require('../models/user');
 const UserRole = require('../models/user_role');
+const Role = require('../models/role');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -45,8 +46,15 @@ const login = async (req, res) => {
     if (!valid) {
       return res.status(401).json({ message: '用户名或密码错误' });
     }
+    // 查询用户角色
+    const userRole = await UserRole.findOne({ where: { user_id: user.id } });
+    let roleName = null;
+    if (userRole) {
+      const role = await Role.findByPk(userRole.role_id);
+      roleName = role ? role.name : null;
+    }
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '12h' });
-    res.json({ message: '登录成功', token, user: { id: user.id, username: user.username, email: user.email } });
+    res.json({ message: '登录成功', token, user: { id: user.id, username: user.username, email: user.email, role: roleName } });
   } catch (err) {
     res.status(500).json({ message: '登录失败', error: err.message });
   }
