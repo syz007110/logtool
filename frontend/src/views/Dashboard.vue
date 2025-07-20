@@ -26,7 +26,7 @@
         
         <el-menu-item index="/dashboard/account">
           <el-icon><User /></el-icon>
-          <span>{{ $t('nav.account') }}</span>
+          <span>个人信息</span>
         </el-menu-item>
         
         <el-menu-item index="/dashboard/history">
@@ -72,12 +72,12 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          
+          <!-- 用户名显示 -->
+          <span v-if="currentUser && currentUser.username" class="header-username">{{ currentUser.username }}</span>
           <!-- 用户菜单 -->
           <el-dropdown @command="handleUserCommand">
             <el-button type="text">
               <el-icon><User /></el-icon>
-              {{ currentUser?.username }}
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
@@ -102,23 +102,25 @@ import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import { Globe } from '@element-plus/icons-vue'
 
 export default {
   name: 'Dashboard',
+  components: { Globe },
   setup() {
     const store = useStore()
     const router = useRouter()
     const route = useRoute()
     
-    const currentUser = computed(() => store.getters.currentUser)
-    const currentLanguage = computed(() => store.getters.currentLanguage)
-    const isAdmin = computed(() => store.getters.userRole === 'admin')
+    const currentUser = computed(() => store.getters['auth/currentUser'])
+    const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
+    const isAdmin = computed(() => store.getters['auth/userRole'] === 'admin')
     
     const getPageTitle = () => {
       const routeMap = {
         '/dashboard/error-codes': '故障码管理',
         '/dashboard/logs': '日志解析',
-        '/dashboard/account': '账户管理',
+        '/dashboard/account': '个人信息',
         '/dashboard/history': '历史记录',
         '/dashboard/users': '用户管理',
         '/dashboard/roles': '角色管理'
@@ -128,6 +130,7 @@ export default {
     
     const changeLanguage = (language) => {
       store.dispatch('auth/setLanguage', language)
+      window.location.reload()
     }
     
     const handleUserCommand = async (command) => {
@@ -218,6 +221,15 @@ export default {
   gap: 20px;
 }
 
+.header-right .el-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
+}
+
 .main-content {
   background: #f5f5f5;
   padding: 20px;
@@ -227,5 +239,13 @@ export default {
 .el-divider {
   margin: 8px 0;
   border-color: #435266;
+}
+
+.header-username {
+  margin: 0 12px;
+  font-weight: 500;
+  color: #333;
+  font-size: 15px;
+  letter-spacing: 1px;
 }
 </style> 

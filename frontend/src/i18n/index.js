@@ -22,7 +22,7 @@ const messages = {
     },
     // 登录页面
     login: {
-      title: 'LogTool 故障码管理系统',
+      title: '故障码管理工具',
       username: '用户名',
       password: '密码',
       login: '登录',

@@ -1,7 +1,7 @@
 <template>
   <div class="account-container">
     <el-row :gutter="20">
-      <!-- 个人信息 -->
+      <!-- 基本信息 -->
       <el-col :span="12">
         <el-card class="profile-card">
           <template #header>
@@ -9,44 +9,25 @@
               <span>个人信息</span>
             </div>
           </template>
-          
-          <el-form
-            ref="profileForm"
-            :model="profileForm"
-            :rules="profileRules"
-            label-width="100px"
-          >
-            <el-form-item label="用户名" prop="username">
-              <el-input v-model="profileForm.username" disabled />
+          <el-form ref="profileForm" :model="profileData" :rules="profileRules" label-width="100px">
+            <el-form-item label="用户名">
+              <el-input v-model="profileData.username" disabled />
             </el-form-item>
-            
             <el-form-item label="邮箱" prop="email">
-              <el-input v-model="profileForm.email" />
+              <el-input v-model="profileData.email" />
             </el-form-item>
-            
             <el-form-item label="角色">
-              <el-tag :type="getRoleType(profileForm.role)">
-                {{ getRoleText(profileForm.role) }}
-              </el-tag>
+              <el-tag>{{ getRoleText(profileData.role) }}</el-tag>
             </el-form-item>
-            
             <el-form-item label="注册时间">
-              <span>{{ formatDate(profileForm.createdAt) }}</span>
+              <span>{{ formatDate(profileData.created_at) }}</span>
             </el-form-item>
-            
             <el-form-item>
-              <el-button 
-                type="primary" 
-                @click="handleUpdateProfile"
-                :loading="updatingProfile"
-              >
-                更新信息
-              </el-button>
+              <el-button type="primary" @click="handleUpdateProfile" :loading="updatingProfile">保存</el-button>
             </el-form-item>
           </el-form>
         </el-card>
       </el-col>
-      
       <!-- 修改密码 -->
       <el-col :span="12">
         <el-card class="password-card">
@@ -55,45 +36,18 @@
               <span>修改密码</span>
             </div>
           </template>
-          
-          <el-form
-            ref="passwordForm"
-            :model="passwordForm"
-            :rules="passwordRules"
-            label-width="100px"
-          >
+          <el-form ref="passwordForm" :model="passwordData" :rules="passwordRules" label-width="100px">
             <el-form-item label="原密码" prop="oldPassword">
-              <el-input
-                v-model="passwordForm.oldPassword"
-                type="password"
-                show-password
-              />
+              <el-input v-model="passwordData.oldPassword" type="password" show-password />
             </el-form-item>
-            
             <el-form-item label="新密码" prop="newPassword">
-              <el-input
-                v-model="passwordForm.newPassword"
-                type="password"
-                show-password
-              />
+              <el-input v-model="passwordData.newPassword" type="password" show-password />
             </el-form-item>
-            
             <el-form-item label="确认密码" prop="confirmPassword">
-              <el-input
-                v-model="passwordForm.confirmPassword"
-                type="password"
-                show-password
-              />
+              <el-input v-model="passwordData.confirmPassword" type="password" show-password />
             </el-form-item>
-            
             <el-form-item>
-              <el-button 
-                type="primary" 
-                @click="handleChangePassword"
-                :loading="changingPassword"
-              >
-                修改密码
-              </el-button>
+              <el-button type="primary" @click="handleChangePassword" :loading="changingPassword">修改密码</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -122,7 +76,7 @@ export default {
       username: '',
       email: '',
       role: '',
-      createdAt: ''
+      created_at: ''
     })
     
     const passwordData = reactive({
@@ -166,12 +120,13 @@ export default {
     
     // 方法
     const loadUserProfile = () => {
-      if (currentUser.value) {
+      const user = store.getters['auth/currentUser']
+      if (user) {
         Object.assign(profileData, {
-          username: currentUser.value.username,
-          email: currentUser.value.email,
-          role: currentUser.value.role,
-          createdAt: currentUser.value.createdAt
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          created_at: user.created_at
         })
       }
     }
@@ -180,13 +135,10 @@ export default {
       try {
         await profileForm.value.validate()
         updatingProfile.value = true
-        
-        // 这里需要调用更新用户信息的API
-        // await store.dispatch('users/updateUser', {
-        //   id: currentUser.value.id,
-        //   data: { email: profileData.email }
-        // })
-        
+        await store.dispatch('users/updateUser', {
+          id: store.getters['auth/currentUser'].id,
+          data: { email: profileData.email }
+        })
         ElMessage.success('更新成功')
       } catch (error) {
         ElMessage.error('更新失败')
@@ -199,21 +151,16 @@ export default {
       try {
         await passwordForm.value.validate()
         changingPassword.value = true
-        
-        // 这里需要调用修改密码的API
-        // await store.dispatch('auth/changePassword', {
-        //   oldPassword: passwordData.oldPassword,
-        //   newPassword: passwordData.newPassword
-        // })
-        
-        ElMessage.success('密码修改成功')
-        
-        // 清空表单
-        Object.assign(passwordData, {
-          oldPassword: '',
-          newPassword: '',
-          confirmPassword: ''
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+          ElMessage.error('两次输入的新密码不一致')
+          return
+        }
+        await store.dispatch('users/updateUser', {
+          id: store.getters['auth/currentUser'].id,
+          data: { password: passwordData.newPassword }
         })
+        ElMessage.success('密码修改成功')
+        Object.assign(passwordData, { oldPassword: '', newPassword: '', confirmPassword: '' })
         passwordForm.value.resetFields()
       } catch (error) {
         ElMessage.error('密码修改失败')

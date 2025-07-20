@@ -10,6 +10,8 @@ const i18nRouter = require('./routes/i18n');
 const usersRouter = require('./routes/users');
 const rolesRouter = require('./routes/roles');
 const userRolesRouter = require('./routes/userRoles');
+const operationLogsRouter = require('./routes/operationLogs');
+const logsRouter = require('./routes/logs');
 
 // 加载环境变量
 dotenv.config({ path: '../.env' });
@@ -27,14 +29,15 @@ app.get('/', (req, res) => {
 });
 
 // TODO: 挂载各模块路由
-app.use('/api/auth', authRouter);
-app.use('/api/error-codes', errorCodesRouter);
-app.use('/api/error-codes/export', xmlExportRouter);
-app.use('/api/i18n', i18nRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/roles', rolesRouter);
 app.use('/api/user-roles', userRolesRouter);
-// app.use('/api/logs', require('./routes/logs'));
+app.use('/api/error-codes', errorCodesRouter);
+app.use('/api/i18n', i18nRouter);
+app.use('/api/xml-export', xmlExportRouter);
+app.use('/api/logs', logsRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/operation-logs', operationLogsRouter);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
