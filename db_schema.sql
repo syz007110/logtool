@@ -1,3 +1,4 @@
+create database logtool
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 CREATE TABLE IF NOT EXISTS error_codes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   subsystem VARCHAR(100),
-  code VARCHAR(50) NOT NULL UNIQUE,
+  code VARCHAR(50) NOT NULL,
   is_axis_error BOOLEAN DEFAULT FALSE,
   is_arm_error BOOLEAN DEFAULT FALSE,
   short_message TEXT,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS error_codes (
   tech_solution TEXT,
   explanation TEXT,
   category VARCHAR(100)
+  UNIQUE KEY unique_subsystem_code (subsystem, code)
 );
 
 -- 日志表

@@ -17,6 +17,9 @@ const createErrorCode = async (req, res) => {
 const getErrorCodes = async (req, res) => {
   try {
     const { code, subsystem, level, category, keyword } = req.query;
+    let { page = 1, limit = 10 } = req.query;
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
     const where = {};
     if (code) where.code = code;
     if (subsystem) where.subsystem = subsystem;
@@ -31,8 +34,12 @@ const getErrorCodes = async (req, res) => {
         { code: { [ErrorCode.sequelize.Op.like]: `%${keyword}%` } }
       ];
     }
-    const errorCodes = await ErrorCode.findAll({ where });
-    res.json({ errorCodes });
+    const { count: total, rows: errorCodes } = await ErrorCode.findAndCountAll({
+      where,
+      offset: (page - 1) * limit,
+      limit
+    });
+    res.json({ errorCodes, total });
   } catch (err) {
     res.status(500).json({ message: '查询失败', error: err.message });
   }

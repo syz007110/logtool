@@ -2,7 +2,7 @@
 const ROLES = {
   ADMIN: {
     id: 1,
-    name: '管理员',
+    name: 'admin',
     description: '拥有所有权限，可以管理用户和角色',
     permissions: [
       // 用户管理权限
@@ -43,7 +43,7 @@ const ROLES = {
   
   EXPERT: {
     id: 2,
-    name: '专家用户',
+    name: 'expert',
     description: '拥有故障码管理权限，可查看所有日志，但不能管理用户',
     permissions: [
       // 故障码管理权限
@@ -68,7 +68,7 @@ const ROLES = {
   
   USER: {
     id: 3,
-    name: '普通用户',
+    name: 'user',
     description: '基础权限，可查询故障码、上传日志、查看自己的日志',
     permissions: [
       // 故障码查询权限

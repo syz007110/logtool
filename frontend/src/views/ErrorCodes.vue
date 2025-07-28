@@ -45,37 +45,18 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="code" label="故障码" width="120" />
-        <el-table-column prop="name" label="名称" width="200" />
-        <el-table-column prop="description" label="描述" show-overflow-tooltip />
-        <el-table-column prop="category" label="分类" width="120" />
-        <el-table-column prop="severity" label="严重程度" width="100">
+        <el-table-column prop="subsystem" label="子系统" width="80" show-overflow-tooltip />
+        <el-table-column prop="code" label="故障码" width="100" show-overflow-tooltip />
+        <el-table-column label="提示信息" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag :type="getSeverityType(row.severity)">
-              {{ row.severity }}
-            </el-tag>
+            {{ [row.user_hint, row.operation].filter(Boolean).join(', ') }}
           </template>
         </el-table-column>
-        
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button 
-              v-if="canUpdate"
-              size="small" 
-              @click="handleEdit(row)"
-            >
-              编辑
-            </el-button>
-            <el-button 
-              v-if="canDelete"
-              size="small" 
-              type="danger" 
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
+        <el-table-column prop="param1" label="参数1" show-overflow-tooltip />
+        <el-table-column prop="param2" label="参数2" show-overflow-tooltip />
+        <el-table-column prop="param3" label="参数3" show-overflow-tooltip />
+        <el-table-column prop="param4" label="参数4" show-overflow-tooltip />
+        <el-table-column prop="category" label="分类" show-overflow-tooltip />
       </el-table>
       
       <!-- 分页 -->
@@ -170,7 +151,7 @@ export default {
     const editingErrorCode = ref(null)
     const searchQuery = ref('')
     const currentPage = ref(1)
-    const pageSize = ref(20)
+    const pageSize = ref(10)
     
     const errorCodeForm = reactive({
       code: '',

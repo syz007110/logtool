@@ -2,15 +2,15 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
-      "scripts": {
-      "start": "node src/app.js",
-      "dev": "nodemon src/app.js",
-      "init-roles": "node src/scripts/initRoles.js",
-      "init-permissions": "node src/scripts/initPermissions.js",
-      "clear-data": "node src/scripts/clearTestData.js",
-      "reset-db": "npm run clear-data && npm run init-roles",
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "init-roles": "node src/scripts/initRoles.js",
+    "init-permissions": "node src/scripts/initPermissions.js",
+    "clear-data": "node src/scripts/clearTestData.js",
+    "reset-db": "npm run clear-data && npm run init-roles",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -18,6 +18,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",

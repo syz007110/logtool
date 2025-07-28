@@ -17,7 +17,7 @@ TRUNCATE TABLE roles;
 
 -- 清空故障码表
 TRUNCATE TABLE error_codes;
-
+ALTER TABLE error_codes AUTO_INCREMENT = 1;
 -- 清空日志表
 TRUNCATE TABLE logs;
 
@@ -46,4 +46,7 @@ SELECT 'error_codes' AS table_name, COUNT(*) AS count FROM error_codes
 UNION ALL
 SELECT 'logs' AS table_name, COUNT(*) AS count FROM logs
 UNION ALL
-SELECT 'i18n_texts' AS table_name, COUNT(*) AS count FROM i18n_texts; 
+SELECT 'i18n_texts' AS table_name, COUNT(*) AS count FROM i18n_texts;
+
+-- 添加唯一索引
+ALTER TABLE error_codes ADD UNIQUE KEY unique_subsystem_code (subsystem, code);

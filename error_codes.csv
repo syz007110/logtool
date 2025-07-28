@@ -1,0 +1,918 @@
+subsystem,code,is_axis_error,is_arm_error,short_message,short_message_en,user_hint,user_hint_en,operation,operation_en,detail,method,param1,param2,param3,param4,solution,for_expert,for_novice,related_log,stop_report,level,tech_solution,explanation,category
+3,0X010A,TRUE,FALSE,硬件异常,Hardware fault,人机位置调整异常,Ergonomic adjustment fault,请点击“解除”恢复,Click REMOVE to restore,双码盘偏差超限,读取每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差超过阈值则进行报警,医生台车状态机,绝对码盘位置,电机码盘位置,0,recoverable,TRUE,TRUE,FALSE,,高级,,双码盘偏差超限报警时，医生台车状态为{0:4}，绝对码盘位置0.{1:0}，电机码盘位置0.{2:0},硬件
+9,0X010A,TRUE,FALSE,硬件异常,Hardware fault,人机位置调整异常,Ergonomic adjustment fault,请点击“解除”恢复,Click REMOVE to restore,双码盘偏差超限,读取每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差超过阈值则进行报警,医生台车状态机,绝对码盘位置,电机码盘位置,0,recoverable,TRUE,TRUE,FALSE,,高级,,双码盘偏差超限报警时，医生台车状态为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},硬件
+1,0X010A,TRUE,FALSE,硬件异常,Hardware fault,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,双码盘偏差超限,监测每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差持续1.25ms超过阈值则进行报警,电机码盘位置,绝对码盘位置,实际速度,实际力矩,recoverable,TRUE,TRUE,FALSE,,高级,,双码盘偏差超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，实际速度{2:0}，实际力矩{3:0},硬件
+1,0X490E,FALSE,FALSE,Take/Give按键指令日志记录,Take/Live key command logging,Take/Give按键指令日志记录,Take/Live key command logging,,,记录交互软件中“让出”、“获取”按钮日志,记录交互软件中“让出”、“获取”按钮日志,本地端让出按钮,本地端获取按钮,远程端让出按钮,远程端获取按钮,log,TRUE,TRUE,FALSE,,无,,本地端让出按钮{0:16}按下，本地端获取按钮{1:16}按下，远程端让出按钮{2:16}按下，远程端获取按钮{3:16}按下,日志记录
+8,0X010A,TRUE,FALSE,硬件异常,Hardware fault,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,双码盘偏差超限,监测每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差持续1.25ms超过阈值则进行报警,电机码盘位置,绝对码盘位置,实际速度,实际力矩,recoverable,TRUE,TRUE,FALSE,,高级,,双码盘偏差超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，实际速度{2:0}，实际力矩{3:0},硬件
+9,0X010D,TRUE,FALSE,人机位置调整异常,Ergonomic adjustment fault,人机位置异常,Ergonomic adjustment fault,,,双码盘偏差超限,自检后医生台车故障由A类故障降级为D类提示，读取每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差超过阈值则进行提示,医生台车状态机,绝对码盘位置,电机码盘位置,0,tip,TRUE,TRUE,FALSE,,无,,双码盘偏差超限报警时，医生台车状态机为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},硬件
+3,0X010D,TRUE,FALSE,人机位置异常,Ergonomic adjustment fault,人机位置异常,Ergonomic adjustment fault,,,双码盘偏差超限,自检后医生台车故障由A类故障降级为D类提示，读取每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差超过阈值则进行提示,医生台车状态机,绝对码盘位置,电机码盘位置,0,tip,TRUE,TRUE,FALSE,,无,,双码盘偏差超限报警时，医生台车状态机为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},硬件
+1,0X010D,FALSE,FALSE,运动偏差,Exceed the motion deviation limit,运动偏差,Exceed the motion deviation limit,请联系售后,Please contact customer service,双码盘偏差超限,监测每个关节增量式码盘计算的位置值和绝对码盘计算的位置值，其偏差持续1.25ms超过阈值则进行提示,电机码盘位置,绝对码盘位置,实际速度,实际力矩,tip,TRUE,TRUE,FALSE,,无,,双码盘偏差超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，实际速度{2:0}，实际力矩{3:0},硬件
+8,0X010D,FALSE,FALSE,运动偏差,Exceed the motion deviation limit,运动偏差,Exceed the motion deviation limit,请联系售后,Please contact customer service,双码盘偏差超限,监测每个关节增量式码盘计算的位置值和绝对码盘计算的位置值，其偏差持续1.25ms超过阈值则进行提示,电机码盘位置,绝对码盘位置,实际速度,实际力矩,tip,TRUE,TRUE,FALSE,,无,,双码盘偏差超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，实际速度{2:0}，实际力矩{3:0},硬件
+1,0X020A,TRUE,FALSE,运动异常,Abnormal movement,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,期望位置偏差超限,监测每个关节期望位置和实际位置，若期望位置与实际位置偏差超过阈值持续2ms则进行报警,指令位置,实际位置,指令速度,实际速度,recoverable,TRUE,TRUE,FALSE,,高级,,期望位置偏差超限报警时，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+8,0X020A,TRUE,FALSE,运动异常,Abnormal movement,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,期望位置偏差超限,监测每个关节期望位置和实际位置，若期望位置与实际位置偏差超过阈值持续2ms则进行报警,指令位置,实际位置,指令速度,实际速度,recoverable,TRUE,TRUE,FALSE,,高级,,期望位置偏差超限报警时，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+1,0X020C,TRUE,FALSE,非预期运动,Unexpected motion,运动偏差,Exceed the motion deviation limit,可忽略,Ignorable,期望位置偏差超限,自检前监测主手1、2、3关节的期望位置和实际位置，若期望位置与实际位置偏差超过阈值持续2ms则进行报警,指令位置,实际位置,指令速度,实际速度,ignorable,TRUE,TRUE,FALSE,,低级,,期望位置偏差超限报警时，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+8,0X020C,TRUE,FALSE,非预期运动,Unexpected motion,运动偏差,Exceed the motion deviation limit,可忽略,Ignorable,期望位置偏差超限,自检前监测主手1、2、3关节的期望位置和实际位置，若期望位置与实际位置偏差超过阈值持续2ms则进行报警,指令位置,实际位置,指令速度,实际速度,ignorable,TRUE,TRUE,FALSE,,低级,,期望位置偏差超限报警时，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+1,0X020D,TRUE,FALSE,运动偏差,Exceed the motion deviation limit,运动偏差,Exceed the motion deviation limit,请注意,attention,期望位置偏差超限,监测关节期望位置和实际位置，若期望位置与实际位置偏差超过阈值持续2ms则进行提示,指令位置,实际位置,指令速度,实际速度,tip,TRUE,TRUE,FALSE,,无,,期望位置偏差超限报警时，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+8,0X020D,TRUE,FALSE,运动偏差,Exceed the motion deviation limit,运动偏差,Exceed the motion deviation limit,请注意,attention,期望位置偏差超限,监测关节期望位置和实际位置，若期望位置与实际位置偏差超过阈值持续2ms则进行提示,指令位置,实际位置,指令速度,实际速度,tip,TRUE,TRUE,FALSE,,无,,期望位置偏差超限报警时，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+1,0X022A,TRUE,FALSE,异常操作,Abnormal operation,从手非预期运动,Unexpected motion of slave arm ,请点击“解除”恢复,Click REMOVE to restore,非预期运动报警,监控每个关节的运动，若非预期速度（实际速度-柔顺速度）超过阈值持续5ms则报警。,指令速度,非预期速度（实际速度-柔顺速度）,指令位置,指令力矩,recoverable,TRUE,TRUE,FALSE,,高级,,非预期运动报警报警时，指令速度{0:0}，非预期速度（实际速度-柔顺速度）{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+8,0X022A,TRUE,FALSE,异常操作,Abnormal operation,从手非预期运动,Unexpected motion of slave arm ,请点击“解除”恢复,Click REMOVE to restore,非预期运动报警,监控每个关节的运动，若非预期速度（实际速度-柔顺速度）超过阈值持续5ms则报警。,指令速度,非预期速度（实际速度-柔顺速度）,指令位置,指令力矩,recoverable,TRUE,TRUE,FALSE,,高级,,非预期运动报警报警时，指令速度{0:0}，非预期速度（实际速度-柔顺速度）{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+3,0X022C,TRUE,FALSE,非预期运动,Unexpected motion,人机位置调整非预期运动,Unexpected motion during ergonomic adjustment,可忽略,Ignorable,非预期运动报警,监控每个关节的运动，若实际速度超过阈值则进行报警。,医生台车状态机,期望速度,实际速度,绝对码盘位置,ignorable,TRUE,TRUE,FALSE,,低级,,非预期运动报警报警时，医生台车状态机为{0:4}，期望速度{1:0}，实际速度{2:0}，绝对码盘位置{3:0},安全保护
+9,0X022C,TRUE,FALSE,非预期运动,Unexpected motion,人机位置调整非预期运动,Unexpected motion during ergonomic adjustment,可忽略,Ignorable,非预期运动报警,监控每个关节的运动，若实际速度超过阈值则进行报警。,医生台车状态机,期望速度,实际速度,绝对码盘位置,ignorable,TRUE,TRUE,FALSE,,低级,,非预期运动报警报警时，医生台车状态机为{0:4}，期望速度{1:0}，实际速度{2:0}，绝对码盘位置{3:0},安全保护
+1,0X022C,TRUE,FALSE,非预期运动,Unexpected motion,主手非预期运动,unexpected motion of master arm,可忽略,Ignorable,非预期运动报警,监控主手1、2、3关节运动，若非预期速度（实际速度-柔顺速度）超过阈值持续5ms则报警。,指令速度,非预期速度（实际速度-柔顺速度）,指令位置,指令力矩,ignorable,TRUE,TRUE,FALSE,,低级,,非预期运动报警报警时，指令速度{0:0}，非预期速度（实际速度-柔顺速度）{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+8,0X022C,TRUE,FALSE,非预期运动,Unexpected motion,主手非预期运动,unexpected motion of master arm,可忽略,Ignorable,非预期运动报警,监控主手1、2、3关节运动，若非预期速度（实际速度-柔顺速度）超过阈值持续5ms则报警。,指令速度,非预期速度（实际速度-柔顺速度）,指令位置,指令力矩,ignorable,TRUE,TRUE,FALSE,,低级,,非预期运动报警报警时，指令速度{0:0}，非预期速度（实际速度-柔顺速度）{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+9,0X022D,TRUE,FALSE,人机位置调整非预期运动,Unexpected motion during ergonomic adjustment,人机位置非预期运动,Unexpected motion during ergonomic adjustment,,,非预期运动报警,自检后医生台车故障由C类故障降级为D类提示，监控每个关节的运动，若实际速度超过阈值则进行提示,医生台车状态机,期望速度,实际速度,实际位置,tip,TRUE,TRUE,FALSE,,无,,非预期运动报警报警时，医生台车状态为{0:4}，期望速度{1:0}，实际速度{2:0}，实际位置{3:0},安全保护
+3,0X022D,TRUE,FALSE,人机位置非预期运动,Unexpected motion during ergonomic adjustment,人机位置非预期运动,Unexpected motion during ergonomic adjustment,,,非预期运动报警,自检后医生台车故障由C类故障降级为D类提示，监控每个关节的运动，若实际速度超过阈值则进行提示,医生台车状态机,期望速度,实际速度,实际位置,tip,TRUE,TRUE,FALSE,,无,,非预期运动报警报警时，医生台车状态为{0:4}，期望速度{1:0}，实际速度{2:0}，实际位置{3:0},安全保护
+1,0X030A,TRUE,FALSE,硬件异常,Hardware fault,位置超限,Exceed the position limit,请点击“解除”恢复,Click REMOVE to restore,位置超限,监测每个关节的反馈位置值，当反馈位置超出阈值并且关节持续往超出阈值方向运动2ms则报警。,电机码盘位置,绝对码盘位置,指令位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,高级,,位置超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},安全保护
+8,0X030A,TRUE,FALSE,硬件异常,Hardware fault,位置超限,Exceed the position limit,请点击“解除”恢复,Click REMOVE to restore,位置超限,监测每个关节的反馈位置值，当反馈位置超出阈值并且关节持续往超出阈值方向运动2ms则报警。,电机码盘位置,绝对码盘位置,指令位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,高级,,位置超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},安全保护
+1,0X030B,TRUE,FALSE,硬件异常,Hardware fault,位置超限,Exceed the position limit,请点击“解除”恢复,Click REMOVE to restore,位置超限,监测每个关节的反馈位置值，当反馈位置超出阈值并且关节持续往超出阈值方向运动2ms则报警。,电机码盘位置,绝对码盘位置,指令位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,中级,,位置超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},安全保护
+8,0X030B,TRUE,FALSE,硬件异常,Hardware fault,位置超限,Exceed the position limit,请点击“解除”恢复,Click REMOVE to restore,位置超限,监测每个关节的反馈位置值，当反馈位置超出阈值并且关节持续往超出阈值方向运动2ms则报警。,电机码盘位置,绝对码盘位置,指令位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,中级,,位置超限报警时，电机码盘位置{0:0}，绝对码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},安全保护
+3,0X030C,TRUE,FALSE,人机位置调整超限,Exceed ergonomic position limit,人机位置调整超限,Exceed ergonomic position limit,,,位置超限,读取每个关节的位置值，超出阈值范围进行报警。,医生台车状态机,绝对码盘位置,电机码盘位置,0,ignorable,TRUE,TRUE,FALSE,,低级,,位置超限报警时，医生台车状态机为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},安全保护
+9,0X030C,TRUE,FALSE,人机位置调整超限,Exceed ergonomic position limit,人机位置调整超限,Exceed ergonomic position limit,,,位置超限,读取每个关节的位置值，超出阈值范围进行报警。,医生台车状态机,绝对码盘位置,电机码盘位置,0,ignorable,TRUE,TRUE,FALSE,,低级,,位置超限报警时，医生台车状态机为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},安全保护
+3,0X030D,TRUE,FALSE,人机位置超限,Exceed ergonomic position limit,人机位置超限,Exceed ergonomic position limit,,,位置超限,自检后医生台车故障由C类故障降级为D类提示，读取每个关节的位置值，超出阈值范围进行报警。,医生台车状态机,绝对码盘位置,电机码盘位置,0,tip,TRUE,TRUE,FALSE,,无,,位置超限报警时，医生台车状态机为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},安全保护
+9,0X030D,TRUE,FALSE,人机位置调整超限,Exceed ergonomic position limit,人机位置超限,Exceed ergonomic position limit,,,位置超限,自检后医生台车故障由C类故障降级为D类提示，读取每个关节的位置值，超出阈值范围进行报警。,医生台车状态机,绝对码盘位置,电机码盘位置,0,tip,TRUE,TRUE,FALSE,,无,,位置超限报警时，医生台车状态机为{0:4}，绝对码盘位置{1:0}，电机码盘位置{2:0},安全保护
+1,0X030D,TRUE,FALSE,位置超限,Exceed the position limit,位置超限,Exceed the position limit,请移回,Please move back,位置超限,监测每个关节的反馈位置值，当反馈位置超出阈值则提示。,电机码盘位置,绝对码盘位置,指令位置,实际力矩,tip,TRUE,TRUE,FALSE,,无,,位置超限触发提示时，电机码盘位置{0:0}，绝对码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},操作提示
+8,0X030D,TRUE,FALSE,位置超限,Exceed the position limit,位置超限,Exceed the position limit,请移回,Please move back,位置超限,监测每个关节的反馈位置值，当反馈位置超出阈值则提示。,电机码盘位置,绝对码盘位置,指令位置,实际力矩,tip,TRUE,TRUE,FALSE,,无,,位置超限触发提示时，电机码盘位置{0:0}，绝对码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},操作提示
+1,0X031A,TRUE,FALSE,运动异常,Abnormal movement,指令错误,False control data,请点击“解除”恢复,Click REMOVE to restore,指令位置超限,监测每个关节的指令位置值，超出阈值范围持续2ms则报警,指令位置,电机码盘位置,指令速度,实际速度,recoverable,TRUE,TRUE,FALSE,,高级,,指令位置超限报警时，指令位置{0:0}，电机码盘位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+8,0X031A,TRUE,FALSE,运动异常,Abnormal movement,指令错误,False control data,请点击“解除”恢复,Click REMOVE to restore,指令位置超限,监测每个关节的指令位置值，超出阈值范围持续2ms则报警,指令位置,电机码盘位置,指令速度,实际速度,recoverable,TRUE,TRUE,FALSE,,高级,,指令位置超限报警时，指令位置{0:0}，电机码盘位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+1,0X031B,TRUE,FALSE,运动异常,Abnormal movement,指令错误,False control data,请点击“解除”恢复,Click REMOVE to restore,指令位置超限,监测每个关节的指令位置值，超出阈值范围持续2ms则报警,指令位置,电机码盘位置,指令速度,实际速度,recoverable,TRUE,TRUE,FALSE,,中级,,指令位置超限报警时，指令位置{0:0}，电机码盘位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+8,0X031B,TRUE,FALSE,运动异常,Abnormal movement,指令错误,False control data,请点击“解除”恢复,Click REMOVE to restore,指令位置超限,监测每个关节的指令位置值，超出阈值范围持续2ms则报警,指令位置,电机码盘位置,指令速度,实际速度,recoverable,TRUE,TRUE,FALSE,,中级,,指令位置超限报警时，指令位置{0:0}，电机码盘位置{1:0}，指令速度{2:0}，实际速度{3:0},安全保护
+1,0X040B,TRUE,FALSE,操作过快,Too fast operation,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,期望速度偏差超限,监测每个关节期望速度值和实际速度值，偏差超过阈值持续2ms则报警,指令速度,实际速度,指令位置,指令力矩,recoverable,TRUE,TRUE,FALSE,,中级,,期望速度偏差超限报警时，指令速度{0:0}，实际速度{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+8,0X040B,TRUE,FALSE,操作过快,Too fast operation,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,期望速度偏差超限,监测每个关节期望速度值和实际速度值，偏差超过阈值持续2ms则报警,指令速度,实际速度,指令位置,指令力矩,recoverable,TRUE,TRUE,FALSE,,中级,,期望速度偏差超限报警时，指令速度{0:0}，实际速度{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+1,0X050B,TRUE,FALSE,操作过快,Too fast operation,速度过快,Exceed the speed limit,请点击“解除”恢复,Click REMOVE to restore,速度超限,监测每个关节速度值，超过阈值持续2.75ms则报警。,指令速度,实际速度,实际位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,中级,,速度超限报警时，指令速度{0:0}，实际速度{1:0}，实际位置{2:0}，实际力矩{3:0},安全保护
+8,0X050B,TRUE,FALSE,操作过快,Too fast operation,速度过快,Exceed the speed limit,请点击“解除”恢复,Click REMOVE to restore,速度超限,监测每个关节速度值，超过阈值持续2.75ms则报警。,指令速度,实际速度,实际位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,中级,,速度超限报警时，指令速度{0:0}，实际速度{1:0}，实际位置{2:0}，实际力矩{3:0},安全保护
+3,0X050D,TRUE,FALSE,运动异常,Abnormal movement,运动异常,Exceed the speed limit,,,速度超限,读取每个关节速度值，超过阈值进行报警,医生台车状态机,期望速度,实际速度,实际位置,tip,TRUE,TRUE,FALSE,,无,,速度超限报警时，医生台车状态为{0:4}，期望速度{1:0}，实际速度{2:0}，实际位置{3:0},安全保护
+9,0X050D,TRUE,FALSE,运动异常,Abnormal movement,运动异常,Exceed the speed limit,,,速度超限,读取每个关节速度值，超过阈值进行报警,医生台车状态机,期望速度,实际速度,实际位置,tip,TRUE,TRUE,FALSE,,无,,速度超限报警时，医生台车状态为{0:4}，期望速度{1:0}，实际速度{2:0}，实际位置{3:0},安全保护
+1,0X051B,TRUE,FALSE,操作过快,Too fast operation,指令错误,False control data,请点击“解除”恢复,Click REMOVE to restore,指令速度超限,监测每个关节指令速度值，超过阈值持续2ms则报警。,指令速度,实际速度,实际位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,中级,,指令速度超限报警时，指令速度{0:0}，实际速度{1:0}，实际位置{2:0}，实际力矩{3:0},安全保护
+8,0X051B,TRUE,FALSE,操作过快,Too fast operation,指令错误,False control data,请点击“解除”恢复,Click REMOVE to restore,指令速度超限,监测每个关节指令速度值，超过阈值持续2ms则报警。,指令速度,实际速度,实际位置,实际力矩,recoverable,TRUE,TRUE,FALSE,,中级,,指令速度超限报警时，指令速度{0:0}，实际速度{1:0}，实际位置{2:0}，实际力矩{3:0},安全保护
+1,0X060B,FALSE,FALSE,硬件异常,Hardware fault,位置超限,Exceed the position limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔位置超限,计算主、从手的末端笛卡尔位置，若超出阈值则报错,笛卡尔反馈位置X,笛卡尔反馈位置Y,笛卡尔反馈位置Z,0,recoverable,TRUE,TRUE,FALSE,,中级,,笛卡尔位置超限，笛卡尔X方向反馈位置{0:0}，笛卡尔Y方向反馈位置{1:0}，笛卡尔Z方向反馈位置{2:0},安全保护
+8,0X060B,FALSE,FALSE,硬件异常,Hardware fault,位置超限,Exceed the position limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔位置超限,计算主、从手的末端笛卡尔位置，若超出阈值则报错,笛卡尔反馈位置X,笛卡尔反馈位置Y,笛卡尔反馈位置Z,0,recoverable,TRUE,TRUE,FALSE,,中级,,笛卡尔位置超限，笛卡尔X方向反馈位置{0:0}，笛卡尔Y方向反馈位置{1:0}，笛卡尔Z方向反馈位置{2:0},安全保护
+1,0X061A,FALSE,FALSE,异常操作,Abnormal operation,非预期运动,Unexpected motion of slave arm ,请点击“解除”恢复,Click REMOVE to restore,笛卡尔非预期运动报警,监测主、从手末端笛卡尔线速度，若超出阈值持续0.019s则报错。,笛卡尔反馈速度X,笛卡尔反馈速度Y,笛卡尔反馈速度Z,笛卡尔线速度,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔非预期运动报警，笛卡尔X方向反馈速度{0:0}，笛卡尔Y方向反馈速度{1:0}，笛卡尔Z方向反馈速度{2:0}，笛卡尔线速度{3:0},安全保护
+8,0X061A,FALSE,FALSE,异常操作,Abnormal operation,非预期运动,Unexpected motion of slave arm ,请点击“解除”恢复,Click REMOVE to restore,笛卡尔非预期运动报警,监测主、从手末端笛卡尔线速度，若超出阈值持续0.019s则报错。,笛卡尔反馈速度X,笛卡尔反馈速度Y,笛卡尔反馈速度Z,笛卡尔线速度,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔非预期运动报警，笛卡尔X方向反馈速度{0:0}，笛卡尔Y方向反馈速度{1:0}，笛卡尔Z方向反馈速度{2:0}，笛卡尔线速度{3:0},安全保护
+1,0X062A,FALSE,FALSE,运动异常,Abnormal movement,运动过快,Exceed the speed limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔速度超限,监测从手末端笛卡尔线速度，若超出阈值持续0.7s则报错,笛卡尔反馈速度X,笛卡尔反馈速度Y,笛卡尔反馈速度Z,笛卡尔线速度,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔速度超限，笛卡尔X方向反馈速度{0:0}，笛卡尔Y方向反馈速度{1:0}，笛卡尔Z方向反馈速度{2:0}，笛卡尔线速度{3:0},安全保护
+8,0X062A,FALSE,FALSE,运动异常,Abnormal movement,运动过快,Exceed the speed limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔速度超限,监测从手末端笛卡尔线速度，若超出阈值持续0.7s则报错,笛卡尔反馈速度X,笛卡尔反馈速度Y,笛卡尔反馈速度Z,笛卡尔线速度,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔速度超限，笛卡尔X方向反馈速度{0:0}，笛卡尔Y方向反馈速度{1:0}，笛卡尔Z方向反馈速度{2:0}，笛卡尔线速度{3:0},安全保护
+1,0X063A,FALSE,FALSE,运动异常,Abnormal movement,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔期望和实际位置偏差超限,监测主、从手末端笛卡尔位置，若笛卡尔位置偏差超过阈值持续(工具臂0.8s，主控制臂2s)则报警,笛卡尔指令与实际位置偏差X,笛卡尔指令与实际位置偏差Y,笛卡尔指令与实际位置偏差Z,0,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔期望和实际位置偏差超限，笛卡尔指令与实际位置X方向偏差{0:0}，笛卡尔指令与实际位置Y方向偏差{1:0}，笛卡尔指令与实际位置Z方向偏差{2:0},安全保护
+8,0X063A,FALSE,FALSE,运动异常,Abnormal movement,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔期望和实际位置偏差超限,监测主、从手末端笛卡尔位置，若笛卡尔位置偏差超过阈值持续(工具臂0.8s，主控制臂2s)则报警,笛卡尔指令与实际位置偏差X,笛卡尔指令与实际位置偏差Y,笛卡尔指令与实际位置偏差Z,0,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔期望和实际位置偏差超限，笛卡尔指令与实际位置X方向偏差{0:0}，笛卡尔指令与实际位置Y方向偏差{1:0}，笛卡尔指令与实际位置Z方向偏差{2:0},安全保护
+1,0X064A,FALSE,FALSE,运动异常,Abnormal movement,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔期望和实际姿态偏差超限,监测主、从手末端笛卡尔姿态，若笛卡尔实际姿态与期望姿态偏差超过阈值持续(工具臂0s，主控制臂2s)则报错,笛卡尔指令与实际位置偏差X,笛卡尔指令与实际位置偏差Y,笛卡尔指令与实际位置偏差Z,0,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔期望和实际姿态偏差超限，笛卡尔指令与实际姿态X方向偏差{0:0}，笛卡尔指令与实际姿态Y方向偏差{1:0}，笛卡尔指令与实际姿态Z方向偏差{2:0},安全保护
+8,0X064A,FALSE,FALSE,运动异常,Abnormal movement,运动偏差,Exceed the motion deviation limit,请点击“解除”恢复,Click REMOVE to restore,笛卡尔期望和实际姿态偏差超限,监测主、从手末端笛卡尔姿态，若笛卡尔实际姿态与期望姿态偏差超过阈值持续(工具臂0s，主控制臂2s)则报错,笛卡尔指令与实际位置偏差X,笛卡尔指令与实际位置偏差Y,笛卡尔指令与实际位置偏差Z,0,recoverable,TRUE,TRUE,FALSE,,高级,,笛卡尔期望和实际姿态偏差超限，笛卡尔指令与实际姿态X方向偏差{0:0}，笛卡尔指令与实际姿态Y方向偏差{1:0}，笛卡尔指令与实际姿态Z方向偏差{2:0},安全保护
+1,0X065A,FALSE,FALSE,运动异常,Abnormal movement,操作异常,Abnormal operation,请点击“解除”恢复,Click REMOVE to restore,主手笛卡尔位姿增量超限,监测主手末端笛卡尔位姿增量，若增量超过一定阈值且持续0.01s则报报警,笛卡尔位置增量,笛卡尔姿态增量,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,主手笛卡尔位姿增量超限报警时，笛卡尔位置增量{0:0}，笛卡尔姿态增量{1:0},安全保护
+8,0X065A,FALSE,FALSE,运动异常,Abnormal movement,操作异常,Abnormal operation,请点击“解除”恢复,Click REMOVE to restore,主手笛卡尔位姿增量超限,监测主手末端笛卡尔位姿增量，若增量超过一定阈值且持续0.01s则报报警,笛卡尔位置增量,笛卡尔姿态增量,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,主手笛卡尔位姿增量超限报警时，笛卡尔位置增量{0:0}，笛卡尔姿态增量{1:0},安全保护
+1,0X066A,FALSE,FALSE,运动异常,Abnormal movement,操作异常,Abnormal operation,请点击“解除”恢复,Click REMOVE to restore,主从笛卡尔位姿增量超限,主从控制下，分别监测主手与从手的位姿增量，主手与从手之间的位姿增量偏差超过一定阈值则报错,笛卡尔位置增量偏差X,笛卡尔位置增量偏差Y,笛卡尔位置增量偏差Z,笛卡尔线速度偏差,recoverable,TRUE,TRUE,FALSE,,高级,,主从笛卡尔位姿增量超限，笛卡尔位置增量偏差X{0:0}，笛卡尔位置增量偏差Y{1:0}，笛卡尔位置增量偏差Z{2:0}，笛卡尔线速度偏差{3:0},安全保护
+8,0X066A,FALSE,FALSE,运动异常,Abnormal movement,操作异常,Abnormal operation,请点击“解除”恢复,Click REMOVE to restore,主从笛卡尔位姿增量超限,主从控制下，分别监测主手与从手的位姿增量，主手与从手之间的位姿增量偏差超过一定阈值则报错,笛卡尔位置增量偏差X,笛卡尔位置增量偏差Y,笛卡尔位置增量偏差Z,笛卡尔线速度偏差,recoverable,TRUE,TRUE,FALSE,,高级,,主从笛卡尔位姿增量超限，笛卡尔位置增量偏差X{0:0}，笛卡尔位置增量偏差Y{1:0}，笛卡尔位置增量偏差Z{2:0}，笛卡尔线速度偏差{3:0},安全保护
+1,0X067A,FALSE,FALSE,自检失败,Self-test failed,自检失败,Self-test failed,请点击“解除”恢复,Click REMOVE to restore,自检失败,在首次开机后进行自检过程，无法正常完成自检，可能的原因：从手臂运动干涉，规划算法故障，其他硬件固件故障,自检成功标志位,指令位置,实际位置,自检偏差阈值,recoverable,TRUE,TRUE,FALSE,,高级,,自检不成功，指令位置{1:0}，实际位置{2:0}，自检偏差阈值{3:0},安全保护
+8,0X067A,FALSE,FALSE,自检失败,Self-test failed,自检失败,Self-test failed,请点击“解除”恢复,Click REMOVE to restore,自检失败,在首次开机后进行自检过程，无法正常完成自检，可能的原因：从手臂运动干涉，规划算法故障，其他硬件固件故障,自检成功标志位,指令位置,实际位置,自检偏差阈值,recoverable,TRUE,TRUE,FALSE,,高级,,自检不成功，指令位置{1:0}，实际位置{2:0}，自检偏差阈值{3:0},安全保护
+1,0X068A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器初始化失败,监测驱动器在初始化过程中状态字跳转是否正确,控制字,状态字,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器初始化失败，控制字{0:0}，状态字{1:0},硬件
+8,0X068A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器初始化失败,监测驱动器在初始化过程中状态字跳转是否正确,控制字,状态字,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器初始化失败，控制字{0:0}，状态字{1:0},硬件
+1,0X068B,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器初始化失败,监测驱动器在初始化过程中状态字跳转是否正确,控制字,状态字,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,驱动器初始化失败，控制字{0:0}，状态字{1:0},硬件
+1,0X335E,FALSE,FALSE,电源控制开关触发,Power supply control switch triggered,电源控制开关触发,Power supply control switch triggered,,,电源信号变化,监测电源信号变化,当前电源状态,变化前的电源状态,0,0,log,TRUE,TRUE,FALSE,,无,,电源{1:19},日志记录
+8,0X335E,FALSE,FALSE,电源控制开关触发,Power supply control switch triggered,电源控制开关触发,Power supply control switch triggered,,,电源信号变化,监测电源信号变化,当前电源状态,变化前的电源状态,0,0,log,TRUE,TRUE,FALSE,,无,,电源{1:19},日志记录
+8,0X068B,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器初始化失败,监测驱动器在初始化过程中状态字跳转是否正确,控制字,状态字,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,驱动器初始化失败，控制字{0:0}，状态字{1:0},硬件
+1,0X069D,FALSE,FALSE,,,,,请联系售后,Please contact customer service,MotionControl初始化失败,监测运动控制软件是否正常启动运行,运控启动标志位,0,0,0,tip,TRUE,TRUE,FALSE,,无,,MotionControl初始化失败，运动控制软件{0:2}启动,操作提示
+8,0X069D,FALSE,FALSE,,,,,请联系售后,Please contact customer service,MotionControl初始化失败,监测运动控制软件是否正常启动运行,运控启动标志位,0,0,0,tip,TRUE,TRUE,FALSE,,无,,MotionControl初始化失败，运动控制软件{0:2}启动,操作提示
+1,0X070D,FALSE,FALSE,,,,,请联系售后,Please contact customer service,配置文件错误,检测配置文件各文件的版本号是否一致,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,配置文件错误,操作提示
+8,0X070D,FALSE,FALSE,,,,,请联系售后,Please contact customer service,配置文件错误,检测配置文件各文件的版本号是否一致,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,配置文件错误,操作提示
+1,0X071D,FALSE,FALSE,,,,,请联系售后,Please contact customer service,请确认霍尔传感器值或拟合参数,请确认主手霍尔拟合参数和霍尔传感器值,Hall传感器值,计算的主手开合角度,计算的主手开合角度检测上限,计算的主手开合角度检测下限,tip,TRUE,TRUE,FALSE,,无,,请确认霍尔传感器值或拟合参数，Hall传感器值{0:0}，主手开合角度{1:0}rad，主手开合角检测范围：{3:0}~{2:0}rad,操作提示
+8,0X071D,FALSE,FALSE,,,,,请联系售后,Please contact customer service,请确认霍尔传感器值或拟合参数,请确认主手霍尔拟合参数和霍尔传感器值,Hall传感器值,计算的主手开合角度,计算的主手开合角度检测上限,计算的主手开合角度检测下限,tip,TRUE,TRUE,FALSE,,无,,请确认霍尔传感器值或拟合参数，Hall传感器值{0:0}，主手开合角度{1:0}rad，主手开合角检测范围：{3:0}~{2:0}rad,操作提示
+1,0X080B,TRUE,FALSE,运动受阻,Arm is blocked,机械臂受阻过大,Arm is blocked,请点击“解除”恢复,Click REMOVE to restore,关节外力矩超限,监测每个关节的外力矩值，超过阈值（根据关节确定）则报错提示,实际位置,实际速度,关节外力矩,0,recoverable,TRUE,TRUE,FALSE,,中级,,关节外力矩超限报警时，实际位置{0:0}，实际速度{1:0}，关节外力矩{2:0},安全保护
+8,0X080B,TRUE,FALSE,运动受阻,Arm is blocked,机械臂受阻过大,Arm is blocked,请点击“解除”恢复,Click REMOVE to restore,关节外力矩超限,监测每个关节的外力矩值，超过阈值（根据关节确定）则报错提示,实际位置,实际速度,关节外力矩,0,recoverable,TRUE,TRUE,FALSE,,中级,,关节外力矩超限报警时，实际位置{0:0}，实际速度{1:0}，关节外力矩{2:0},安全保护
+1,0X080C,TRUE,FALSE,机械臂受阻过大,Arm is blocked,机械臂受阻过大,Arm is blocked,,,力矩超限,监测各关节反馈力矩，其超过阈值持续一定时间(大于800持续5s，大于700持续10 s， 大于600 持续 20s)则进行报警，报警后该关节力矩限制为500，持续3min后恢复。,实际力矩,指令力矩,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,力矩超限报警时，实际力矩{0:0}，指令力矩{1:0},安全保护
+1,0X337E,FALSE,FALSE,工具臂期望位置,Expected position of instrument arm,工具臂期望位置,Expected position of instrument arm,,,工具臂期望位置,实际位置为{0}/1000，期望位置为{1}/1000，实际力矩为{2}/1000,实际位置,指令位置,实际力矩,0,log,TRUE,TRUE,FALSE,,无,,工具臂期望位置，实际位置{0:0}，指令位置{1:0}，实际力矩{2:0},日志记录
+8,0X337E,FALSE,FALSE,工具臂期望位置,Expected position of instrument arm,工具臂期望位置,Expected position of instrument arm,,,工具臂期望位置,实际位置为{0}/1000，期望位置为{1}/1000，实际力矩为{2}/1000,实际位置,指令位置,实际力矩,0,log,TRUE,TRUE,FALSE,,无,,工具臂期望位置，实际位置{0:0}，指令位置{1:0}，实际力矩{2:0},日志记录
+8,0X080C,TRUE,FALSE,机械臂受阻过大,Arm is blocked,机械臂受阻过大,Arm is blocked,,,力矩超限,监测各关节反馈力矩，其超过阈值持续一定时间(大于800持续5s，大于700持续10 s， 大于600 持续 20s)则进行报警，报警后该关节力矩限制为500，持续3min后恢复。,实际力矩,指令力矩,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,力矩超限报警时，实际力矩{0:0}，指令力矩{1:0},安全保护
+3,0X080D,TRUE,FALSE,力矩超限,Exceed torque limit,力矩超限,Exceed torque limit,,,力矩超限,读取各关节反馈力矩，其超过阈值持续一定时间(大于800持续5s)则进行报警,医生台车状态机,实际位置,实际速度,实际力矩,tip,TRUE,TRUE,FALSE,,无,,力矩超限报警时，医生台车状态为{0:4}，实际位置{1:0}，实际速度{2:0}，实际力矩{3:0},安全保护
+9,0X080D,TRUE,FALSE,力矩超限,Exceed torque limit,力矩超限,Exceed torque limit,,,力矩超限,读取各关节反馈力矩，其超过阈值持续一定时间(大于800持续5s)则进行报警,医生台车状态机,实际位置,实际速度,实际力矩,tip,TRUE,TRUE,FALSE,,无,,力矩超限报警时，医生台车状态为{0:4}，实际位置{1:0}，实际速度{2:0}，实际力矩{3:0},安全保护
+1,0X08AD,FALSE,FALSE,不能休眠,Arm disable failed,不能休眠,Arm disable failed,请重试,Please retry,当前状态不能休眠工具臂或调整臂,离合控制、内窥镜控制、主从控制、初始化状态、自检状态下无法执行臂休眠,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,当前状态不能休眠工具臂或调整臂,操作提示
+1,0X08BD,FALSE,FALSE,不能激活,Arm enable failed,不能激活,Arm enable failed,请重试,Please retry,当前状态不能激活工具臂或调整臂,离合控制、内窥镜控制、主从控制、初始化状态、自检状态下无法执行臂激活,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,当前状态不能激活工具臂或调整臂,操作提示
+1,0X08CD,FALSE,FALSE,激活中,Arm enabling,激活中,Arm enabling,,,工具臂或调整臂在激活中,臂激活过程中，无法再次执行臂休眠或臂激活,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂或调整臂在激活中,操作提示
+1,0X08DD,FALSE,FALSE,激活失败,Arm enable failed,激活失败,Arm enable failed,,,工具臂或调整臂在激活失败,执行臂激活，关节初始化过程中失败,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂或调整臂在激活失败,操作提示
+1,0X08ED,FALSE,FALSE,休眠中,Arm is disabled,休眠中,Arm is disabled,,,调整臂休眠中无法一键展开或一键收起,执行一键展开或一键收起时检测是否有臂被休眠,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,调整臂休眠中无法一键展开或一键收起,操作提示
+3,0X090D,FALSE,FALSE,自动调整失败,Automatic ergonomic adjustment failed,自动调整失败,Automatic ergonomic adjustment failed,请手动调整,Please manually adjust,指令位置超限,读取交互下发的指令位置，若超限则报警。,报错时超限的位置值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,因为指令位置超限自动调整失败，超限的位置值{0:0},安全保护
+9,0X090D,FALSE,FALSE,自动调整位置失败,Automatic ergonomic adjustment failed,自动调整失败,Automatic ergonomic adjustment failed,请手动调整,Please manually adjust,指令位置超限,读取交互下发的指令位置，若超限则报警。,报错时超限的位置值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,因为指令位置超限自动调整失败，超限的位置值{0:0},安全保护
+1,0X090D,TRUE,FALSE,,,,,请联系售后,Please contact customer service,重力配平检测,自检监测机械臂的重力配平情况,0,电机码盘位置,静力平衡检测初始位置,0,tip,TRUE,TRUE,FALSE,,无,,重力配平检测，电机码盘位置{1:0}，静力平衡检测初始位置{2:0},操作提示
+8,0X090D,TRUE,FALSE,,,,,请联系售后,Please contact customer service,重力配平检测,自检监测机械臂的重力配平情况,0,电机码盘位置,静力平衡检测初始位置,0,tip,TRUE,TRUE,FALSE,,无,,重力配平检测，电机码盘位置{1:0}，静力平衡检测初始位置{2:0},操作提示
+1,0X092D,FALSE,FALSE,调整臂异常,Set arm fault,调整臂异常,Set arm fault,请联系售后,Please contact customer service,调整臂配平检测未成功,通过比较解抱闸前和抱闸后的关节3位置差，要是超过阈值，则报警配平未成功,臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,{0:0}号调整臂配平检测异常,操作提示
+8,0X092D,FALSE,TRUE,调整臂异常,Set arm fault,调整臂异常,Set arm fault,请术后联系售后,Please contact customer service,调整臂配平检测未成功,通过比较解抱闸前和抱闸后的关节3位置差，要是超过阈值，则报警配平未成功,臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,{0:0}号调整臂配平检测异常,操作提示
+3,0X100A,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,Ethercat断网,读取每条臂网络状态，若非正常则进行报警,医生台车状态机,从站节点数,网络状态,0,recoverable,TRUE,TRUE,FALSE,,高级,,Ethercat断网报警时，医生台车状态为{0:4}，剩余从站{1:0}个，网络通讯状态{2:0},硬件
+9,0X100A,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,Ethercat断网,读取每条臂网络状态，若非正常则进行报警,医生台车状态机,从站节点数,网络状态,0,recoverable,TRUE,TRUE,FALSE,,高级,,Ethercat断网报警时，医生台车状态为{0:4}，剩余从站{1:0}个，网络通讯状态{2:0},硬件
+1,0X100A,TRUE,FALSE,通讯异常,Network fault,网络异常,Network fault,请点击“解除”恢复,Click REMOVE to restore, Ethercat物理断网,监测每条臂网络状态，若非正常则进行报错,网络物理节点数,网络通讯状态,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,Ethercat物理断网报警时，剩余从站{0:0}个，网络通讯状态{1:0},硬件
+8,0X100A,TRUE,FALSE,通讯异常,Network fault,网络异常,Network fault,请点击“解除”恢复,Click REMOVE to restore, Ethercat物理断网,监测每条臂网络状态，若非正常则进行报错,网络物理节点数,网络通讯状态,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,Ethercat物理断网报警时，剩余从站{0:0}个，网络通讯状态{1:0},硬件
+3,0X100B,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,Ethercat断网,读取每条臂网络状态，若非正常则进行报警,医生台车状态机,从站节点数,网络状态,0,recoverable,TRUE,TRUE,FALSE,,中级,,Ethercat断网报警时，医生台车状态为{0:4}，剩余从站{1:0}个，网络通讯状态{2:0},硬件
+9,0X100B,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,Ethercat断网,读取每条臂网络状态，若非正常则进行报警,医生台车状态机,从站节点数,网络状态,0,recoverable,TRUE,TRUE,FALSE,,中级,,Ethercat断网报警时，医生台车状态为{0:4}，剩余从站{1:0}个，网络通讯状态{2:0},硬件
+3,0X100D,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,,,Ethercat断网,自检后医生台车故障由B类故障降级为D类提示，读取每条臂网络状态，若非正常则进行报警,医生台车状态机,从站节点数,网络状态,0,tip,TRUE,TRUE,FALSE,,无,,Ethercat断网报警时，医生台车状态为{0:4}，剩余从站{1:0}个，网络通讯状态{2:0},硬件
+9,0X100D,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,,,Ethercat断网,自检后医生台车故障由B类故障降级为D类提示，读取每条臂网络状态，若非正常则进行报警,医生台车状态机,从站节点数,网络状态,0,tip,TRUE,TRUE,FALSE,,无,,Ethercat断网报警时，医生台车状态为{0:4}，剩余从站{1:0}个，网络通讯状态{2:0},硬件
+1,0X101A,FALSE,FALSE,,,,,请重启系统,Please restart system,控制软件通讯异常,监测PLC Logic与PLC MotionControl、Kinematic、ForceControl等软件通讯是否正常，若非正常则报错,运控启动标志位,0,0,0,unrecoverable,TRUE,TRUE,FALSE,,高级,,控制软件通讯异常，运动控制软件{0:2}启动,软件
+8,0X101A,FALSE,FALSE,,,,,请重启系统,Please restart system,控制软件通讯异常,监测PLC Logic与PLC MotionControl、Kinematic、ForceControl等软件通讯是否正常，若非正常则报错,运控启动标志位,0,0,0,unrecoverable,TRUE,TRUE,FALSE,,高级,,控制软件通讯异常，运动控制软件{0:2}启动,软件
+1,0X102A,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore, Ethercat网络通讯状态异常,监测每条臂网络通讯状态，若非正常则进行报错,网络通讯状态,网络链路状态,0,0,recoverable,TRUE,TRUE,FALSE,,高级,, Ethercat网络通讯状态异常，剩余从站{0:0}个，网络通讯状态{1:0},硬件
+8,0X102A,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore, Ethercat网络通讯状态异常,监测每条臂网络通讯状态，若非正常则进行报错,网络通讯状态,网络链路状态,0,0,recoverable,TRUE,TRUE,FALSE,,高级,, Ethercat网络通讯状态异常，剩余从站{0:0}个，网络通讯状态{1:0},硬件
+1,0X110A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态故障：驱动器状态字{0},使能后，监测每个关节驱动器的状态字，若非正常则进行报警。,控制字,驱动器状态字,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误，控制字{0:0}，驱动器状态字{1:0},硬件
+3,0X110A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态字错误,读取每个关节驱动器的状态字，若非正常则进行报警;医生控制台旋转报A类错误,医生台车状态机,控制字,状态字,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误，医生台车状态为{0:4}，控制字{1:0}，状态字{2:0},硬件
+8,0X110A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态故障：驱动器状态字{0},使能后，监测每个关节驱动器的状态字，若非正常则进行报警。,控制字,驱动器状态字,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误，控制字{0:0}，驱动器状态字{1:0},硬件
+9,0X110A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态字错误,读取每个关节驱动器的状态字，若非正常则进行报警;医生控制台旋转报A类错误,医生台车状态机,控制字,状态字,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误，医生台车状态为{0:4}，控制字{1:0}，状态字{2:0},硬件
+3,0X110D,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,,,驱动器状态字错误,自检后医生台车故障由A类故障降级为D类提示，读取每个关节驱动器的状态字，若非正常则进行报警;医生控制台旋转报A类错误,医生台车状态机,控制字,状态字,0,tip,TRUE,TRUE,FALSE,,无,,驱动器状态字错误，医生台车状态为{0:4}，控制字{1:0}，状态字{2:0},硬件
+9,0X110D,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,,,驱动器状态字错误,自检后医生台车故障由A类故障降级为D类提示，读取每个关节驱动器的状态字，若非正常则进行报警;医生控制台旋转报A类错误,医生台车状态机,控制字,状态字,0,tip,TRUE,TRUE,FALSE,,无,,驱动器状态字错误，医生台车状态为{0:4}，控制字{1:0}，状态字{2:0},硬件
+1,0X114A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态故障：驱动器状态字{0},使能后，监测子悬吊关节驱动器的状态字，若非正常则进行报警。,控制字,驱动器状态字,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误，控制字{0:0}，驱动器状态字{1:0},硬件
+8,0X114A,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态故障：驱动器状态字{0},使能后，监测子悬吊关节驱动器的状态字，若非正常则进行报警。,控制字,驱动器状态字,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误，控制字{0:0}，驱动器状态字{1:0},硬件
+1,0X114C,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,,,驱动器状态故障：驱动器状态字{0},使能后，监测子悬吊关节驱动器的状态字，若非正常则进行报警。,控制字,驱动器状态字,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,驱动器状态字错误，控制字{0:0}，驱动器状态字{1:0},硬件
+8,0X114C,TRUE,FALSE,硬件异常,Hardware fault,硬件异常,Hardware fault,,,驱动器状态故障：驱动器状态字{0},使能后，监测子悬吊关节驱动器的状态字，若非正常则进行报警。,控制字,驱动器状态字,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,驱动器状态字错误，控制字{0:0}，驱动器状态字{1:0},硬件
+1,0X120C,FALSE,FALSE,电池故障,Battery fault,电池故障,Battery fault,请检查UPS状态,Please check UPS status,UPS错误：UPS状态字{0},监测UPS通电状态，未通电则进行报警（不通电即为UPS供电）,UPS状态,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,UPS故障，{0:32},硬件
+8,0X120C,FALSE,FALSE,电池故障,Battery fault,电池故障,Battery fault,请检查UPS状态,Please check UPS status,UPS错误：UPS状态字{0},监测UPS通电状态，未通电则进行报警（不通电即为UPS供电）,UPS状态,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,UPS故障，{0:32},硬件
+3,0X120D,FALSE,FALSE,医生控制台需维护,Surgeon console needs to be repaired,医生控制台需维护,Surgeon console needs to be repaired,请术后联系售后,Please contact customer service,医生控制台在手术中发生故障,医生控制台在手术中发生故障,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台在手术中发生故障,操作提示
+9,0X120D,FALSE,FALSE,医生控制台需维护,Surgeon console needs to be repaired,医生控制台需维护,Surgeon console needs to be repaired,请术后联系售后,Please contact customer service,医生控制台在手术中发生故障,医生控制台在手术中发生故障,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台在手术中发生故障,操作提示
+1,0X121D,FALSE,FALSE,急停开关触发,Emergency stop switch is triggered ,急停开关触发,Emergency stop switch is triggered ,,,急停开关触发告警：急停开关状态{0},监测急停开关状况，如急停开关触发,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,急停开关被触发,操作提示
+8,0X121D,FALSE,FALSE,急停开关触发,Emergency stop switch is triggered ,急停开关触发,Emergency stop switch is triggered ,,,急停开关触发告警：急停开关状态{0},监测急停开关状况，如急停开关触发,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,急停开关被触发,操作提示
+1,0X124D,FALSE,FALSE,等待患者台车恢复,Waiting for the patient cart to recover,等待患者台车恢复,Waiting for the patient cart to recover,,,开机后插上患者台车与医生台车之间的网线或急停线等待网络恢复中,患者台车与医生台车之间的网线与急停线未连接，开机后重新插上网线或急停线等待网络恢复中,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机后插上患者台车与医生台车之间的网线或急停线等待网络恢复中,操作提示
+1,0X125D,FALSE,FALSE,患者台车网电源故障,Patient cart power failure,患者台车网电源故障,Patient cart power failure,,,患者台车与医生台车之间的网线与急停线未连接,开机时监测患者台车与医生台车之间的网线与急停线是否连接，若未连接则触发提示信息,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,患者台车与医生台车之间的网线与急停线未连接,操作提示
+1,0X131C,FALSE,FALSE,磁盘空间不足,Insufficient disk space,磁盘空间不足,Insufficient disk space,,,磁盘空间不足,监测本地剩余磁盘空间大小，小于阈值时进行报警,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,磁盘空间不足,操作提示
+8,0X131C,FALSE,FALSE,磁盘空间不足,Insufficient disk space,磁盘空间不足,Insufficient disk space,,,磁盘空间不足,监测本地剩余磁盘空间大小，小于阈值时进行报警,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,磁盘空间不足,操作提示
+1,0X132D,FALSE,FALSE,患者台车需维护,Patient cart failure,患者台车需维护,Patient cart failure,请联系售后,Please contact customer service,患者台车故障,通过检测患者台车传递的状态来判断患者台车是否异常,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,患者台车故障，患者台车状态为{0:5},操作提示
+8,0X132D,FALSE,FALSE,患者台车需维护,Patient cart failure,患者台车需维护,Patient cart failure,请术后联系售后,Please contact customer service,患者台车故障,通过检测患者台车传递的状态来判断患者台车是否异常,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,患者台车故障，患者台车状态为{0:5},操作提示
+1,0X133D,FALSE,FALSE,,,,,请先启动患者台车,Please start patient cart,患者台车断电,通过检测患者台车传递的状态来判断患者台车是否异常,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,患者台车断电，患者台车状态为{0:5},操作提示
+8,0X133D,FALSE,FALSE,,,,,请先启动患者台车,Please start patient cart,患者台车断电,通过检测患者台车传递的状态来判断患者台车是否异常,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,患者台车断电，患者台车状态为{0:5},操作提示
+1,0X140D,FALSE,FALSE,电池充电异常,Battery fault,电池充电异常,Battery fault,请联系售后,Please contact customer service,UPS电池无法充电,监测UPS状态,UPS状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,UPS电池无法充电，{0:32},硬件
+8,0X140D,FALSE,FALSE,电池充电异常,Battery fault,电池充电异常,Battery fault,请联系售后,Please contact customer service,UPS电池无法充电,监测UPS状态,UPS状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,UPS电池无法充电，{0:32},硬件
+1,0X141D,FALSE,FALSE,电池无效,Battery fault,电池无效,Battery fault,请联系售后,Please contact customer service,UPS电池不输出,监测UPS状态,UPS状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,UPS电池不输出，{0:32},硬件
+8,0X141D,FALSE,FALSE,电池无效,Battery fault,电池无效,Battery fault,请联系售后,Please contact customer service,UPS电池不输出,监测UPS状态,UPS状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,UPS电池不输出，{0:32},硬件
+1,0X142D,FALSE,FALSE,电池需更换,Battery needs to be replaced,电池需更换,Battery needs to be replaced,请联系售后,Please contact customer service,UPS电池故障需要更换,监测UPS状态,UPS状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,UPS电池故障需要更换，{0:32},硬件
+8,0X142D,FALSE,FALSE,电池需更换,Battery needs to be replaced,电池需更换,Battery needs to be replaced,请联系售后,Please contact customer service,UPS电池故障需要更换,监测UPS状态,UPS状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,UPS电池故障需要更换，{0:32},硬件
+9,0X160D,TRUE,FALSE,调整达到上限位,Reach the upper position limit,调整达到上限位,Reach the upper position limit,请注意,attention,医生台车关节运动达到上限位,运动达到上限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到上限位，医生台车状态为{0:4},操作提示
+3,0X160D,TRUE,FALSE,调整达到上限位,Reach the upper position limit,调整达到上限位,Reach the upper position limit,请注意,attention,医生台车关节运动达到上限位,运动达到上限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到上限位，医生台车状态为{0:4},操作提示
+9,0X161D,TRUE,FALSE,调整达到下限位,Reach the lower position limit,调整达到下限位,Reach the lower position limit,请注意,attention,医生台车关节运动达到下限位,运动达到下限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到下限位，医生台车状态为{0:4},操作提示
+3,0X161D,TRUE,FALSE,调整达到下限位,Reach the lower position limit,调整达到下限位,Reach the lower position limit,请注意,attention,医生台车关节运动达到下限位,运动达到下限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到下限位，医生台车状态为{0:4},操作提示
+3,0X162D,TRUE,FALSE,主手到达限位,Master arm reaches the position limit,主手到达限位,Master arm reaches the position limit,请升高监视器立柱,Please raise the 3D-viewer,医生台车关节运动达到下限位,运动达到下限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到下限位，医生台车状态为{0:4},操作提示
+9,0X162D,TRUE,FALSE,主手到达限位,Master arm reaches the position limit,主手到达限位,Master arm reaches the position limit,请升高监视器立柱,Please raise the 3D-viewer,医生台车关节运动达到下限位,运动达到下限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到下限位，医生台车状态机{0:4},操作提示
+3,0X163D,TRUE,FALSE,监视器立柱到达限位,3D-Viewer reaches the height limit,监视器立柱到达限位,3D-Viewer reaches the height limit,请降低主控制臂,Please lower master arm,医生台车关节运动达到下限位,运动达到下限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到下限位，医生台车状态机{0:4},操作提示
+9,0X163D,TRUE,FALSE,监视器立柱到达限位,3D-Viewer reaches the height limit,监视器立柱到达限位,3D-Viewer reaches the height limit,请降低主控制臂,Please lower master arm,医生台车关节运动达到下限位,运动达到下限位,医生台车状态机,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生台车关节运动达到下限位，医生台车状态机{0:4},操作提示
+1,0X2A1A,FALSE,FALSE,电源故障,Power fault,电源故障,Power fault,请点击“解除”恢复,Click REMOVE to restore,1号臂电源供电断电,1号臂电源供电断电,电源状态,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,1号臂电源供电断电，电源状态{0:0},硬件
+8,0X2A1A,FALSE,FALSE,电源故障,Power fault,电源故障,Power fault,请点击“解除”恢复,Click REMOVE to restore,1号臂电源供电断电,1号臂电源供电断电,电源状态,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,1号臂电源供电断电，电源状态{0:0},硬件
+1,0X2A2A,FALSE,FALSE,电源故障,Power fault,电源故障,Power fault,请点击“解除”恢复,Click REMOVE to restore,2号臂电源供电断电,2号臂电源供电断电,电源状态,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,2号臂电源供电断电，电源状态{0:0},硬件
+8,0X2A2A,FALSE,FALSE,电源故障,Power fault,电源故障,Power fault,请点击“解除”恢复,Click REMOVE to restore,2号臂电源供电断电,2号臂电源供电断电,电源状态,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,2号臂电源供电断电，电源状态{0:0},硬件
+1,0X2B1D,FALSE,FALSE,能量脚踏无效,Pedal failure ,能量脚踏无效,Pedal failure ,,,非主从状态下试图输出器械能量,非主从跟随状态下试图输出器械能量,头灯检测信号,状态机,脚踏激发状态,0,tip,TRUE,TRUE,FALSE,,无,,非主从状态下试图输出器械能量，此时头灯{0:2}遮挡，脚踏{2:2}激发，状态机：{1:1},操作提示
+8,0X2B1D,FALSE,FALSE,能量脚踏无效,Pedal failure ,能量脚踏无效,Pedal failure ,,,非主从状态下试图输出器械能量,非主从跟随状态下试图输出器械能量,头灯检测信号,状态机,脚踏激发状态,0,tip,TRUE,TRUE,FALSE,,无,,非主从状态下试图输出器械能量，此时头灯{0:2遮挡，脚踏{2:2}激发，状态机：{1:1},操作提示
+1,0X2B2D,FALSE,FALSE,不能同时安装3把能量器械,Cannot install 3 energy instrument at the same time,不能同时安装3把能量器械,Cannot install 3 energy instrument at the same time,,,相同类型器械（单极、双极）不应同时输出能量,非主从跟随状态下试图输出器械能量,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,相同类型器械（单极、双极）不应同时输出能量,操作提示
+8,0X2B2D,FALSE,FALSE,不能同时安装3把能量器械,Cannot install 3 energy instrument at the same time,不能同时安装3把能量器械,Cannot install 3 energy instrument at the same time,,,相同类型器械（单极、双极）不应同时输出能量,非主从跟随状态下试图输出器械能量,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,相同类型器械（单极、双极）不应同时输出能量,操作提示
+1,0X2B3D,FALSE,FALSE,不能切换至无器械的臂,Cannot switch to the arm with no instrument,不能切换至无器械的臂,Cannot switch to the arm with no instrument,,,不能切换至无器械的臂,监测保持臂上是否安装器械,保持臂的器械状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不能切换至无器械的臂，保持臂的器械状态为{0:6},操作提示
+8,0X2B3D,FALSE,FALSE,不能切换至无器械的臂,Cannot switch to the arm with no instrument,不能切换至无器械的臂,Cannot switch to the arm with no instrument,,,不能切换至无器械的臂,监测保持臂上是否安装器械,保持臂的器械状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不能切换至无器械的臂，保持臂的器械状态为{0:6},操作提示
+1,0X2B4D,FALSE,FALSE,器械被取下,Instrument is dismounted,器械被取下,Instrument is dismounted,,,主从状态下器械被拔出,主从状态下器械被拔出,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,主从状态下器械被拔出,操作提示
+8,0X2B4D,FALSE,FALSE,器械被取下,Instrument is dismounted,器械被取下,Instrument is dismounted,,,主从状态下器械被拔出,主从状态下器械被拔出,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,主从状态下器械被拔出,操作提示
+1,0X2B5D,FALSE,FALSE,姿态不匹配,The master arm pose does not match the slave arm ,姿态不匹配,The master arm pose does not match the slave arm ,请放松手指,Please relax hold on the hand control to continue,主手姿态未匹配,检测主控制臂是否跟随到位,主从笛卡尔姿态偏差,偏差的关节号,关节偏差,偏差检测状态,tip,TRUE,TRUE,FALSE,,无,,主手姿态不匹配，主从笛卡尔姿态偏差{0:0}，{1:18}偏差{2:0}，偏差检测状态为{3:0},操作提示
+8,0X2B5D,FALSE,FALSE,姿态不匹配,The master arm pose does not match the slave arm ,姿态不匹配,The master arm pose does not match the slave arm ,请放松手指,Please relax hold on the hand control to continue,主手姿态未匹配,检测主控制臂是否跟随到位,主从笛卡尔姿态偏差,偏差的关节号,关节偏差,偏差检测状态,tip,TRUE,TRUE,FALSE,,无,,主手姿态不匹配，主从笛卡尔姿态偏差{0:0}，{1:18}偏差{2:0}，偏差检测状态为{3:0},操作提示
+1,0X2B6D,FALSE,FALSE,,,,,请使用能量器械输出能量,Only energy instrument can be activated,非能量器械无法输出能量,非能量器械无法输出能量,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,非能量器械无法输出能量,操作提示
+8,0X2B6D,FALSE,FALSE,,,,,请使用能量器械输出能量,Only energy instrument can be activated,非能量器械无法输出能量,非能量器械无法输出能量,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,非能量器械无法输出能量,操作提示
+1,0X2B7D,FALSE,FALSE,,,,,请降低扶手或升高主手,Please lower armrest or raise master arm before self-testing,医生控制台距离过近无法进行自检,医生控制台的距离低于阈值,监视器与主手之间的距离,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台距离过近无法进行自检，监视器与主手之间的距离{0:0},操作提示
+4,0X150B,TRUE,FALSE,硬件异常,Over the position upper limit,手术台车到上限位,Over the position upper limit,请点击“解除”恢复,Click REMOVE to restore,上电气限位开关触发,检测各关节上限位电气限位开关是否触发，若触发则报错,报错时状态机,电气限位开关状态,,,recoverable,TRUE,TRUE,FALSE,,中级,,上电气限位开关触发，报错时状态机为{0:0}，电气限位开关状态{1:14},安全保护
+4,0X151B,TRUE,FALSE,硬件异常,Over the position lower limit,手术台车到下限位,Over the position lower limit,请点击“解除”恢复,Click REMOVE to restore,下电气限位开关触发,检测各关节下限位电气限位开关是否触发，若触发则报错,报错时状态机,电气限位开关状态,,,recoverable,TRUE,TRUE,FALSE,,中级,,下电气限位开关触发，报错时状态机为{0:0}，电气限位开关状态{1:14},安全保护
+4,0X080B,TRUE,FALSE,手术台车运动受阻,Surgical trolley motion obstructed,手术台车运动受阻,Surgical trolley motion obstructed,请点击“解除”恢复,Click REMOVE to restore,力矩超限,读取各关节反馈力矩，其超过阈值持续一定时间(大于800持续5s)则进行报警,报错时状态机,,,,recoverable,TRUE,TRUE,FALSE,,中级,,力矩超限报警时，报错时状态机{0:0},硬件
+8,0X2B7D,FALSE,FALSE,,,,,自检前请先降低扶手或抬高主手,Please lower armrest or raise master arm before self-testing,医生控制台距离过近无法进行自检,医生控制台的距离低于阈值,监视器与主手之间的距离,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台距离过近无法进行自检，监视器与主手之间的距离{0:0}m,操作提示
+1,0X2B8D,FALSE,FALSE,,,,,请取下器械与隔离板,Please dismount instrument and adapter before self-testing,自检前请取下器械与隔离板,自检前有隔离板或者器械安装在工具臂上,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,自检前请取下器械与隔离板,操作提示
+8,0X2B8D,FALSE,FALSE,,,,,请取下器械与隔离板,Please dismount instrument and adapter before self-testing,自检前请取下器械与隔离板,自检前有隔离板或者器械安装在工具臂上,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,自检前请取下器械与隔离板,操作提示
+1,0X2B9D,TRUE,FALSE,左手移动到边界,Left instrument reaches the position boundary,左手移动到边界,Left instrument reaches the position boundary,请注意,attention,左手控制臂运动达到边界，请退回正常操作区域,检测左手控制的工具臂是否运动到位置边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手控制臂运动达到边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2B9D,FALSE,FALSE,左手移动到边界,Left instrument reaches the position boundary,左手移动到边界,Left instrument reaches the position boundary,请注意,attention,左手控制臂运动达到边界，请退回正常操作区域,检测左手控制的工具臂是否运动到位置边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手控制臂运动达到边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2BAD,TRUE,FALSE,右手移动到边界,Right instrument reaches the position boundary,右手移动到边界,Right instrument reaches the position boundary,请注意,attention,右手控制臂运动达到边界，请退回正常操作区域,检测右手控制的工具臂是否运动到位置边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手控制臂运动达到边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2BAD,FALSE,FALSE,右手移动到边界,Right instrument reaches the position boundary,右手移动到边界,Right instrument reaches the position boundary,请注意,attention,右手控制臂运动达到边界，请退回正常操作区域,检测右手控制的工具臂是否运动到位置边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手控制臂运动达到边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2BBD,TRUE,FALSE,左手旋转到边界,Left instrument reaches the rotation boundary,左手旋转到边界,Left instrument reaches the rotation boundary,请注意,attention,左手自转到达边界，请退回正常操作区域,检测左手控制的工具臂是否自转到边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手自转到达边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2BBD,FALSE,FALSE,左手旋转到边界,Left instrument reaches the rotation boundary,左手旋转到边界,Left instrument reaches the rotation boundary,请注意,attention,左手自转到达边界，请退回正常操作区域,检测左手控制的工具臂是否自转到边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手自转到达边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+4,0X040B,TRUE,FALSE,速度过快,Over the speed limit,速度过快,Over the speed limit,请点击“解除”恢复,Click REMOVE to restore,速度超限,读取每个关节速度值，超过阈值（根据关节确定）持续0.1s进行报警。,报错时状态机,,,,recoverable,TRUE,TRUE,FALSE,,中级,,速度超限报警时，报错时状态机{0:0},安全保护
+8,0X2BCD,FALSE,FALSE,右手旋转到边界,Right instrument reaches the rotation boundary,右手旋转到边界,Right instrument reaches the rotation boundary,请注意,attention,右手自转到达边界，请退回正常操作区域,检测右手控制的工具臂是否自转到边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手自转到达边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发，,操作提示
+1,0X2BCD,FALSE,FALSE,右手旋转到边界,Right instrument reaches the rotation boundary,右手旋转到边界,Right instrument reaches the rotation boundary,请注意,attention,右手自转到达边界，请退回正常操作区域,检测右手控制的工具臂是否自转到边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手自转到达边界，请退回正常操作区域，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2BED,TRUE,TRUE,器械过高,The instrument is too high,器械过高,The instrument is too high,请向下调整,Please adjust the height downwards,器械超出可动范围，请调整器械,尝试进入主从控制时，检测工具臂3关节位置是否超过可动范围,从臂号,是否在可动范围标志位,工具臂3关节实际位置,0,tip,TRUE,TRUE,FALSE,,无,,{0:11}器械超出可动范围，请调整器械，{1:2}在可动范围，工具臂3关节实际位置{2:0},操作提示
+8,0X2BED,TRUE,TRUE,器械过高,The instrument is too high,器械过高,The instrument is too high,请向下调整,Please adjust the height downwards,器械超出可动范围，请调整器械,尝试进入主从控制时，检测工具臂3关节位置是否超过可动范围,从臂号,是否在可动范围标志位,工具臂3关节实际位置,0,tip,TRUE,TRUE,FALSE,,无,,{0:11}器械超出可动范围，请调整器械，{1:2}在可动范围，工具臂3关节实际位置{2:0},操作提示
+1,0X2BFD,TRUE,TRUE,器械隔离板未安装成功,Instrument adapter is failed to be mounted,器械隔离板未安装成功,Instrument adapter is failed to be mounted,,,器械隔离板未安装成功,尝试进入主从控制时或进入内窥镜控制时，检测是否安装隔离板,从臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,{0:0}号臂器械隔离板未安装成功,操作提示
+8,0X2BFD,TRUE,TRUE,器械隔离板未安装成功,Instrument adapter is failed to be mounted,器械隔离板未安装成功,Instrument adapter is failed to be mounted,,,器械隔离板未安装成功,尝试进入主从控制时或进入内窥镜控制时，检测是否安装隔离板,从臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,{0:0}号臂器械隔离板未安装成功,操作提示
+1,0X2C0D,TRUE,TRUE,器械未安装成功,Instrument is failed to be mounted,器械未安装成功,Instrument is failed to be mounted,,,器械未安装成功,尝试进入主从控制时，在已安装隔离板的状态下，检测是否安装器械,从臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,{0:0}号臂器械未安装成功,操作提示
+8,0X2C0D,TRUE,TRUE,器械未安装成功,Instrument is failed to be mounted,器械未安装成功,Instrument is failed to be mounted,,,器械未安装成功,尝试进入主从控制时，在已安装隔离板的状态下，检测是否安装器械,从臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,{0:0}号臂器械未安装成功,操作提示
+1,0X2C1D,FALSE,FALSE,内窥镜未安装,Endoscope is failed to be mounted,内窥镜未安装,Endoscope is failed to be mounted,,,内窥镜未安装,任何状态下，踩脚踏时，检测是否安装内窥镜,内窥镜臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜未安装，{0:12}为内窥镜臂,操作提示
+8,0X2C1D,FALSE,FALSE,内窥镜未安装,Endoscope is failed to be mounted,内窥镜未安装,Endoscope is failed to be mounted,,,内窥镜未安装,任何状态下，踩脚踏时，检测是否安装内窥镜,内窥镜臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜未安装，{0:12}为内窥镜臂,操作提示
+1,0X2C2D,FALSE,TRUE,器械超出使用次数,Exceed the usage limit of instrument,器械超出使用次数,Exceed the usage limit of instrument,请更换新器械,please replace,器械已超出使用次数，请更换器械,安装器械后从驱动器中读取器械次数，判断是否满足使用条件,读取的器械寿命,器械当前寿命,施夹钳夹持寿命,器械超期寿命,tip,TRUE,TRUE,FALSE,,无,,器械已超出使用次数，从驱动器读取到器械剩余{0:0}次，器械剩余{1:0}次，施夹钳夹持剩余{2:0}次，器械超期{3:0}次,操作提示
+8,0X2C2D,TRUE,TRUE,器械超出使用次数,Exceed the usage limit of instrument,器械超出使用次数,Exceed the usage limit of instrument,请更换新器械,please replace,器械已超出使用次数，请更换器械,安装器械后从驱动器中读取器械次数，判断是否满足使用条件,读取的器械寿命,器械当前寿命,施夹钳夹持寿命,器械超期寿命,tip,TRUE,TRUE,FALSE,,无,,器械已超出使用次数，从驱动器读取到器械剩余{0:0}次，器械剩余{1:0}次，施夹钳夹持剩余{2:0}次，器械超期{3:0}次,操作提示
+1,0X2C3D,FALSE,FALSE,,,,,请在患者台车端确认手术,Please click START on the patient cart,请在患者台车端确认手术,进入主从准备状态后，患者台车未确认手术,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,请在患者台车端确认手术，患者台车状态为{0:5},操作提示
+8,0X2C3D,FALSE,FALSE,,,,,请在患者台车端确认手术,Please click START on the patient cart,请在患者台车端确认手术,进入主从准备状态后，患者台车未确认手术,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,请在患者台车端确认手术，患者台车状态为{0:5},操作提示
+1,0X2C4D,FALSE,FALSE,内窥镜转接座可使用次数少于5次,The endoscope adapter can be used less than 5 times,内窥镜转接座可使用次数少于5次,The endoscope adapter can be used less than 5 times,,,内窥镜转接座少于5次,安装内窥镜转接座后从驱动器中读取内窥镜转接座次数，判断是否满足使用条件,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜转接座少于5次,操作提示
+8,0X2C4D,FALSE,FALSE,内窥镜转接座可使用次数少于5次,The endoscope adapter can be used less than 5 times,内窥镜转接座可使用次数少于5次,The endoscope adapter can be used less than 5 times,,,内窥镜转接座少于5次,安装内窥镜转接座后从驱动器中读取内窥镜转接座次数，判断是否满足使用条件,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜转接座少于5次,操作提示
+1,0X2C5D,FALSE,FALSE,内窥镜转接座可使用次数即将耗尽，请注意更换,The endoscope adapter usage wil be exhausted， please replace it,内窥镜转接座可使用次数即将耗尽，请注意更换,The endoscope adapter usage wil be exhausted， please replace it,,,内窥镜转接座仅剩1次,安装内窥镜转接座后从驱动器中读取内窥镜转接座次数，判断是否满足使用条件,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜转接座仅剩1次,操作提示
+8,0X2C5D,FALSE,FALSE,内窥镜转接座可使用次数即将耗尽，请注意更换,The endoscope adapter usage wil be exhausted， please replace it,内窥镜转接座可使用次数即将耗尽，请注意更换,The endoscope adapter usage wil be exhausted， please replace it,,,内窥镜转接座仅剩1次,安装内窥镜转接座后从驱动器中读取内窥镜转接座次数，判断是否满足使用条件,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜转接座仅剩1次,操作提示
+1,0X2C6D,FALSE,FALSE,内窥镜安装臂号错误,Endoscope is mounted on not-allowed arm ,内窥镜安装臂号错误,Endoscope is mounted on not-allowed arm ,,,内窥镜安装臂号错误,检测安装了内窥镜转接座的工具臂，当数量大于1时则提示异常,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜安装臂号错误，患者台车状态为{0:5},操作提示
+8,0X2C6D,FALSE,FALSE,内窥镜安装臂号错误,Endoscope is mounted on not-allowed arm ,内窥镜安装臂号错误,Endoscope is mounted on not-allowed arm ,,,内窥镜安装臂号错误,检测安装了内窥镜转接座的工具臂，当数量大于1时则提示异常,患者台车状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜安装臂号错误，患者台车状态为{0:5},操作提示
+1,0X2C8D,FALSE,FALSE,不支持多把超声刀器械,Just single ultrasonic knife is supported,不支持多把超声刀器械,Just single ultrasonic knife is supported,,,不支持多把超声刀器械,安装了超过一把超声刀器械时提示异常,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不支持多把超声刀器械,操作提示
+8,0X2C8D,FALSE,FALSE,不支持多把超声刀器械,Just single ultrasonic knife is supported,不支持多把超声刀器械,Just single ultrasonic knife is supported,,,不支持多把超声刀器械,安装了超过一把超声刀器械时提示异常,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不支持多把超声刀器械,操作提示
+1,0X2C9D,FALSE,FALSE,左手器械伸缩到边界,Left instrument reaches the depth boundary,左手器械伸缩到边界,Left instrument reaches the depth boundary,请注意,attention,左手器械伸缩到边界,检测左手控制的工具臂是否运动到伸缩关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手器械伸缩到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2C9D,FALSE,FALSE,左手器械伸缩到边界,Left instrument reaches the depth boundary,左手器械伸缩到边界,Left instrument reaches the depth boundary,请注意,attention,左手器械伸缩到边界,检测左手控制的工具臂是否运动到伸缩关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手器械伸缩到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2CAD,FALSE,FALSE,右手器械伸缩到边界,Right instrument reaches the depth boundary,右手器械伸缩到边界,Right instrument reaches the depth boundary,请注意,attention,右手器械伸缩到边界,检测右手控制的工具臂是否运动到伸缩关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手器械伸缩到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2CAD,FALSE,FALSE,右手器械伸缩到边界,Right instrument reaches the depth boundary,右手器械伸缩到边界,Right instrument reaches the depth boundary,请注意,attention,右手器械伸缩到边界,检测右手控制的工具臂是否运动到伸缩关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手器械伸缩到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2CBD,FALSE,FALSE,左手器械姿态到边界,Left instrument reaches the pose boundary,左手器械姿态到边界,Left instrument reaches the pose boundary,请注意,attention,左手器械姿态到边界,检测左手控制的工具臂是否运动到姿态关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手器械姿态到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2CBD,FALSE,FALSE,左手器械姿态到边界,Left instrument reaches the pose boundary,左手器械姿态到边界,Left instrument reaches the pose boundary,请注意,attention,左手器械姿态到边界,检测左手控制的工具臂是否运动到姿态关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手器械姿态到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2CCD,FALSE,FALSE,右手器械姿态到边界,Right instrument reaches the pose boundary,右手器械姿态到边界,Right instrument reaches the pose boundary,请注意,attention,右手器械姿态到边界,检测右手控制的工具臂是否运动到姿态关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手器械姿态到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+8,0X2CCD,FALSE,FALSE,右手器械姿态到边界,Right instrument reaches the pose boundary,右手器械姿态到边界,Right instrument reaches the pose boundary,请注意,attention,右手器械姿态到边界,检测右手控制的工具臂是否运动到姿态关节的边界,位置边界标志位,伸缩边界标志位,姿态边界标志位,自转边界标志位,tip,TRUE,TRUE,FALSE,,无,,右手器械姿态到边界，位置边界标志位{0:2}触发，伸缩边界标志位{1:2}触发，姿态边界标志位{2:2}触发，自转边界标志位{3:2}触发,操作提示
+1,0X2CDD,FALSE,FALSE,,,,,请不要踩多个脚踏,Please step on correct pedal,多个脚踏被触发,检测是否多个脚踏被触发,脚踏激发状态,状态机,脚踏激光信号和脚踏传感器信号按位或,0,tip,TRUE,TRUE,FALSE,,无,,多个脚踏被触发，脚踏激发状态为{0:0}，脚踏激光信号和脚踏传感器信号按位或状态为{2:0}，状态机为{1:1},操作提示
+8,0X2CDD,FALSE,FALSE,,,,,请不要踩多个脚踏,Please step on correct pedal,多个脚踏被触发,检测是否多个脚踏被触发,脚踏激发状态,状态机,脚踏激光信号和脚踏传感器信号按位或,0,tip,TRUE,TRUE,FALSE,,无,,多个脚踏被触发，脚踏激发状态为{0:0}，脚踏激光信号和脚踏传感器信号按位或状态为{2:0}，状态机为{1:1},操作提示
+1,0X2CED,FALSE,FALSE,脚踏信号未被激活,Pedal signal is not activated,脚踏信号未被激活,Pedal signal is not activated,请调整踩踏角度,Please adjust foot angle ,脚踏信号被激发但激光未遮挡,检测脚踏信号和激光信号，脚踏被激发但激光未被遮挡时则提示异常,脚踏激发状态,状态机,脚踏激光信号和脚踏传感器信号按位或,0,tip,TRUE,TRUE,FALSE,,无,,脚踏信号被激发但激光未遮挡，脚踏激发状态为{0:0}，脚踏激光信号和脚踏传感器信号按位或状态为{2:0}，状态机为{1:1},操作提示
+8,0X2CED,FALSE,FALSE,脚踏信号未被激活,Pedal signal is not activated,脚踏信号未被激活,Pedal signal is not activated,请调整踩踏角度,Please adjust foot angle ,脚踏信号被激发但激光未遮挡,检测脚踏信号和激光信号，脚踏被激发但激光未被遮挡时则提示异常,脚踏激发状态,状态机,脚踏激光信号和脚踏传感器信号按位或,0,tip,TRUE,TRUE,FALSE,,无,,脚踏信号被激发但激光未遮挡，脚踏激发状态为{0:0}，脚踏激光信号和脚踏传感器信号按位或状态为{2:0}，状态机为{1:1},操作提示
+1,0X2CFD,FALSE,FALSE,不支持多把单极器械,Just single monopolar instrument is supported,不支持多把单极器械,Just single monopolar instrument is supported,,,不支持多把单极器械,检测是否安装了多把单极器械,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不支持多把单极器械,操作提示
+8,0X2CFD,FALSE,FALSE,不支持多把单极器械,Just single monopolar instrument is supported,不支持多把单极器械,Just single monopolar instrument is supported,,,不支持多把单极器械,检测是否安装了多把单极器械,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不支持多把单极器械,操作提示
+1,0X2D0D,FALSE,FALSE,不支持多把双极器械,Just single bipolar instrument is supported,不支持多把双极器械,Just single bipolar instrument is supported,,,不支持多把双极器械,检测是否安装了多把双极器械,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不支持多把双极器械,操作提示
+8,0X2D0D,FALSE,FALSE,不支持多把双极器械,Just single bipolar instrument is supported,不支持多把双极器械,Just single bipolar instrument is supported,,,不支持多把双极器械,检测是否安装了多把双极器械,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不支持多把双极器械,操作提示
+1,0X2D1D,FALSE,FALSE,,,,,请恢复调整按键,Please release adjustment button,不可调整状态下调整臂按钮被触发,初始化、自检、内窥镜、主从控制、离合状态下触发调整臂调整按钮,臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不可调整状态下{0:11}调整按钮被触发,操作提示
+8,0X2D1D,FALSE,FALSE,,,,,请恢复调整按键,Please release adjustment button,不可调整状态下调整臂按钮被触发,初始化、自检、内窥镜、主从控制、离合状态下触发调整臂调整按钮,臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不可调整状态下{0:11}调整按钮被触发,操作提示
+1,0X2D2D,FALSE,FALSE,,,,,请恢复子悬吊按键,Please release shoulder adjustment button,不可调整状态下子悬吊按钮被触发,初始化、自检、内窥镜、主从控制、离合状态下触发子悬吊调整按钮,臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不可调整状态下{0:15}子悬吊调整按钮被触发,操作提示
+8,0X2D2D,FALSE,FALSE,,,,,请恢复悬吊盘按键,Please release shoulder adjustment button,不可调整状态下子悬吊按钮被触发,初始化、自检、内窥镜、主从控制、离合状态下触发子悬吊调整按钮,臂号,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不可调整状态下{0:15}子悬吊调整按钮被触发,操作提示
+1,0X2D3D,TRUE,FALSE,,,,,请旋转激活,Please match grips on control by rotating the grip,旋转激活,必须旋转进主从的器械未旋转尝试进入主从时提示,主手7关节旋转位置偏差,主手开合角,0,0,tip,TRUE,TRUE,FALSE,,无,,旋转激活，主手7关节旋转位置偏差为{0:0}，主手开合角为{1:0},操作提示
+8,0X2D3D,TRUE,FALSE,,,,,请旋转激活,Please match grips on control by rotating the grip,旋转激活,必须旋转进主从的器械未旋转尝试进入主从时提示,主手7关节旋转位置偏差,主手开合角,0,0,tip,TRUE,TRUE,FALSE,,无,,旋转激活，主手7关节旋转位置偏差为{0:0}，主手开合角为{1:0},操作提示
+1,0X2D4D,TRUE,FALSE,旋转偏差大,Excessive rotation deviation,旋转偏差大,Excessive rotation deviation,请重新捏合进主从,Plese match grips on control by squeezing,器械已经闭合必须捏合进入主从,器械开合角已经闭合尝试进入主从时未捏合主手则提示,主手7关节旋转位置偏差,主手开合角,开合状态,0,tip,TRUE,TRUE,FALSE,,无,,器械已经闭合必须捏合进入主从，主手7关节旋转位置偏差为{0:0}rad，主手开合角为{1:0}rad，{2:33},操作提示
+8,0X2D4D,TRUE,FALSE,旋转偏差大,Excessive rotation deviation,旋转偏差大,Excessive rotation deviation,请重新捏合进主从,Plese match grips on control by squeezing,器械已经闭合必须捏合进入主从,器械开合角已经闭合尝试进入主从时未捏合主手则提示,主手7关节旋转位置偏差,主手开合角,开合状态,0,tip,TRUE,TRUE,FALSE,,无,,器械已经闭合必须捏合进入主从，主手7关节旋转位置偏差为{0:0}rad，主手开合角为{1:0}rad，{2:33},操作提示
+8,0X2D5D,FALSE,FALSE,超声刀能量激发过久,Ultrasonic knife is activated for too long,超声刀能量激发过久,Ultrasonic knife is activated for too long,请松开脚踏,Please release pedal,超声刀激发时间超过6s,检测激发超声刀的持续时间，若超过6s则提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,超声刀激发时间超过6s,操作提示
+1,0X2D5D,FALSE,FALSE,超声刀能量激发过久,Ultrasonic knife is activated for too long,超声刀能量激发过久,Ultrasonic knife is activated for too long,请松开脚踏,Please release pedal,超声刀激发时间超过6s,检测激发超声刀的持续时间，若超过6s则提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,超声刀激发时间超过6s,操作提示
+1,0X2D6D,FALSE,FALSE,超声刀能量激发时自转关节保护,Do not rotate the rotation joint during ultrasonic knife is activated,超声刀能量激发时自转关节保护,Do not rotate the rotation joint during ultrasonic knife is activated,,,超声刀激发时旋转自转关节,新手模式下，激发超声刀时旋转自转关节则提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,超声刀激发时旋转自转关节,操作提示
+8,0X2D6D,FALSE,FALSE,超声刀能量激发时自转关节保护,Do not rotate the rotation joint during ultrasonic knife is activated,超声刀能量激发时自转关节保护,Do not rotate the rotation joint during ultrasonic knife is activated,,,超声刀激发时旋转自转关节,新手模式下，激发超声刀时旋转自转关节则提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,超声刀激发时旋转自转关节,操作提示
+1,0X2D7D,FALSE,FALSE,,,,,请退出器械记忆模式,Please exit the instrument height memory mode,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,无,操作提示
+8,0X2D7D,FALSE,FALSE,,,,,请退出器械记忆模式,Please exit the instrument height memory mode,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,无,操作提示
+1,0X2D8D,FALSE,FALSE,,,,,请登录,Please login,用户未登入账户，尝试主从操作,检测用户类型，若未登入账户时尝试进入主从操作则提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,用户未登入账户，不能主从操作,操作提示
+8,0X2D8D,FALSE,FALSE,,,,,请登录,Please login,用户未登入账户，尝试主从操作,检测用户类型，若未登入账户时尝试进入主从操作则提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,用户未登入账户，不能主从操作,操作提示
+1,0X2D9D,FALSE,FALSE,内窥镜到达边界,Endoscope reaches position boundary,内窥镜到达边界,Endoscope reaches position boundary,请注意,attention,内窥镜到达边界,内窥镜控制状态下，内窥镜臂移动到位置边界,臂号,内窥镜位置边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜到达边界，内窥镜位置边界标志位{1:2}触发,操作提示
+8,0X2D9D,FALSE,FALSE,内窥镜到达边界,Endoscope reaches position boundary,内窥镜到达边界,Endoscope reaches position boundary,请注意,attention,内窥镜到达边界,内窥镜控制状态下，内窥镜臂移动到位置边界,臂号,内窥镜位置边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜到达边界，内窥镜位置边界标志位{1:2}触发,操作提示
+1,0X2DAD,FALSE,FALSE,,,,,请拉近视野,Please zoom in,内窥镜控制状态下，内窥镜移动到上边界位置,内窥镜控制状态下，内窥镜移动到上边界位置,臂号,内窥镜位置上边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜控制状态下，内窥镜移动到上边界位置，内窥镜位置上边界标志位{1:2}触发,操作提示
+8,0X2DAD,FALSE,FALSE,,,,,请拉近视野,Please zoom in,内窥镜控制状态下，内窥镜移动到上边界位置,内窥镜控制状态下，内窥镜移动到上边界位置,臂号,内窥镜位置上边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜控制状态下，内窥镜移动到上边界位置，内窥镜位置上边界标志位{1:2}触发,操作提示
+1,0X2DBD,FALSE,FALSE,,,,,请拉远视野,Please zoom out,内窥镜控制状态下，内窥镜移动到下边界位置,内窥镜控制状态下，内窥镜移动到下边界位置,臂号,内窥镜位置下边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜控制状态下，内窥镜移动到下边界位置，内窥镜位置下边界标志位{1:2}触发,操作提示
+8,0X2DBD,FALSE,FALSE,,,,,请拉远视野,Please zoom out,内窥镜控制状态下，内窥镜移动到下边界位置,内窥镜控制状态下，内窥镜移动到下边界位置,臂号,内窥镜位置下边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜控制状态下，内窥镜移动到下边界位置，内窥镜位置下边界标志位{1:2}触发,操作提示
+1,0X2DCD,FALSE,FALSE,,,,,请顺时针旋转视野,Please rotate endoscope clockwise,内窥镜旋转关节到左边界,内窥镜控制状态下，内窥镜臂自转关节到达左边界,臂号,内窥镜位置左边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜旋转关节到左边界，内窥镜位置左边界标志位{1:2}触发,操作提示
+8,0X2DCD,FALSE,FALSE,,,,,请顺时针旋转视野,Please rotate endoscope clockwise,内窥镜旋转关节到左边界,内窥镜控制状态下，内窥镜臂自转关节到达左边界,臂号,内窥镜位置左边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜旋转关节到左边界，内窥镜位置左边界标志位{1:2}触发,操作提示
+1,0X2DDD,FALSE,FALSE,,,,,请逆时针旋转视野,Please rotate endoscope counterclockwise,内窥镜旋转关节到右边界,内窥镜控制状态下，内窥镜臂自转关节到达右边界,臂号,内窥镜位置右边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜旋转关节到右边界，内窥镜位置右边界标志位{1:2}触发,操作提示
+8,0X2DDD,FALSE,FALSE,,,,,请逆时针旋转视野,Please rotate endoscope counterclockwise,内窥镜旋转关节到右边界,内窥镜控制状态下，内窥镜臂自转关节到达右边界,臂号,内窥镜位置右边界标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜旋转关节到右边界，内窥镜位置右边界标志位{1:2}触发,操作提示
+1,0X2DED,FALSE,FALSE,,,,,请向下调整内窥镜,Please adjust endoscope downward ,内窥镜过高无法进入主从,尝试进入主从控制时，内窥镜臂3关节位置过高,内窥镜臂3关节位置合适标志位,内窥镜3关节实际位置,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜过高无法进入主从，内窥镜臂3关节位置{1:43}主从，内窥镜3关节实际位置为{2:0},操作提示
+8,0X2DED,FALSE,FALSE,,,,,请向下调整内窥镜,Please adjust endoscope downward ,内窥镜过高无法进入主从,尝试进入主从控制时，内窥镜臂3关节位置过高,内窥镜臂3关节位置合适标志位,内窥镜3关节实际位置,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜过高无法进入主从，内窥镜臂3关节位置{1:43}主从，内窥镜3关节实际位置为{2:0},操作提示
+1,0X2DFD,FALSE,FALSE,请降低主手或升高监视器,Lower master arm or raise 3D-viewer before self-testing,请降低主手或升高监视器,Lower master arm or raise 3D-viewer before self-testing,,,主手与扶手距离过近,检测主手和扶手距离之间的距离，空间无法满足自检,主手与扶手距离之间的距离,0,0,0,tip,TRUE,TRUE,FALSE,,无,,主手与扶手距离过近，主手与扶手距离之间的距离为{0:0},操作提示
+8,0X2DFD,FALSE,FALSE,自检前降低主控制臂或抬高医生监视器,Lower master arm or raise 3D-viewer before self-testing,请降低主手或升高监视器,Lower master arm or raise 3D-viewer before self-testing,,,主手与扶手距离过近,检测主手和扶手距离之间的距离，空间无法满足自检,主手与扶手距离之间的距离,0,0,0,tip,TRUE,TRUE,FALSE,,无,,主手与扶手距离过近，主手与扶手距离之间的距离为{0:0},操作提示
+1,0X2E0D,FALSE,FALSE,,,,,请检查臂切换脚踏是否被触发,Please check arm switch pedal,开机初始化时臂切换脚踏信号被触发,初始化时，监测臂切换脚踏信号值是否被触发,臂切换脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时臂切换脚踏{0:2}踩下,操作提示
+8,0X2E0D,FALSE,FALSE,,,,,请检查臂切换脚踏是否被触发,Please check arm switch pedal,开机初始化时臂切换脚踏信号被触发,初始化时，监测臂切换脚踏信号值是否被触发,臂切换脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时臂切换脚踏{0:2}踩下,操作提示
+1,0X2E1D,FALSE,FALSE,,,,,请检查离合脚踏,Please check clutch pedal,开机初始化时离合脚踏信号被触发,初始化时，监测离合脚踏信号值是否被触发,离合脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时离合脚踏{0:2}踩下,操作提示
+8,0X2E1D,FALSE,FALSE,,,,,请检查离合脚踏,Please check clutch pedal,开机初始化时离合脚踏信号被触发,初始化时，监测离合脚踏信号值是否被触发,离合脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时离合脚踏{0:2}踩下,操作提示
+1,0X2E2D,FALSE,FALSE,,,,,请检查内窥镜脚踏,Please check endoscope pedal,开机初始化时内窥镜脚踏被触发,初始化时，监测内窥镜脚踏信号值是否被触发,内窥镜脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时内窥镜脚踏{0:2}踩下,操作提示
+8,0X2E2D,FALSE,FALSE,,,,,请检查内窥镜脚踏,Please check endoscope pedal,开机初始化时内窥镜脚踏被触发,初始化时，监测内窥镜脚踏信号值是否被触发,内窥镜脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时内窥镜脚踏{0:2}踩下,操作提示
+1,0X2E3D,FALSE,FALSE,,,,,请检查左电切脚踏,Check left cut pedal,开机初始化时左电切脚踏被触发,初始化时，监测左电切脚踏信号值是否被触发,左电切脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时左电切脚踏{0:2}踩下,操作提示
+8,0X2E3D,FALSE,FALSE,,,,,请检查左电切脚踏,Check left cut pedal,开机初始化时左电切脚踏被触发,初始化时，监测左电切脚踏信号值是否被触发,左电切脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时左电切脚踏{0:2}踩下,操作提示
+1,0X2E4D,FALSE,FALSE,,,,,请检查左电凝脚踏,Check left coag pedal,开机初始化时左电凝脚踏信号被触发,初始化时，监测左电凝脚踏信号值是否被触发,左电凝脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时左电凝脚踏{0:2}踩下,操作提示
+8,0X2E4D,FALSE,FALSE,,,,,请检查左电凝脚踏,Check left coag pedal,开机初始化时左电凝脚踏信号被触发,初始化时，监测左电凝脚踏信号值是否被触发,左电凝脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时左电凝脚踏{0:2}踩下,操作提示
+1,0X2E5D,FALSE,FALSE,,,,,请检查右电切脚踏,Check right cut pedal,开机初始化时右电切脚踏被触发,初始化时，监测右电切脚踏信号值是否被触发,右电切脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时右电切脚踏{0:2}踩下,操作提示
+8,0X2E5D,FALSE,FALSE,,,,,请检查右电切脚踏,Check right cut pedal,开机初始化时右电切脚踏被触发,初始化时，监测右电切脚踏信号值是否被触发,右电切脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时右电切脚踏{0:2}踩下,操作提示
+1,0X2E6D,FALSE,FALSE,,,,,请检查右电凝脚踏,Check right coag pedal,开机初始化时右电凝脚踏被触发,初始化时，监测右电凝脚踏信号值是否被触发,右电凝脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时右电凝脚踏{0:2}踩下,操作提示
+8,0X2E6D,FALSE,FALSE,,,,,请检查右电凝脚踏,Check right coag pedal,开机初始化时右电凝脚踏被触发,初始化时，监测右电凝脚踏信号值是否被触发,右电凝脚踏信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时右电凝脚踏{0:2}踩下,操作提示
+4,0X090B,TRUE,FALSE,硬件异常,Hardware Fault,硬件异常,Hardware Fault,请点击“解除”恢复,Click REMOVE to restore,手术台车扶手力传感初始值异常,在初始化状态，检测助力扶手力传感器值，如果偏离设置值超过一定阈值，则报错,报错时状态机,左力矩传感器值,右力矩传感器值,,recoverable,TRUE,TRUE,FALSE,,中级,,手术台车扶手力传感初始值异常，报错时状态机为{0:0}，左力矩传感器值为{1:0}，右力矩传感器值为{2:0},硬件
+1,0X2E7D,FALSE,FALSE,,,,,请检查工具臂调整按键,Check slave arm adjustment button,开机初始化时工具臂调整按键被触发,初始化时，监测工具臂调整按键值是否被触发,工具臂调整按键值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时工具臂调整按键{0:16}按下,操作提示
+8,0X2E7D,FALSE,FALSE,,,,,请检查工具臂调整按键,Check slave arm adjustment button,开机初始化时工具臂调整按键被触发,初始化时，监测工具臂调整按键值是否被触发,工具臂调整按键值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时工具臂调整按键{0:16}按下,操作提示
+1,0X2EAD,FALSE,FALSE,,,,,请检查监视器头部激光,Please check head-in sensor,开机初始化时头部激光信号被触发,初始化时，监测头部激光信号值是否被触发,头部激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时头部激光{0:16}遮挡,操作提示
+8,0X2EAD,FALSE,FALSE,,,,,请检查监视器头部激光,Please check head-in sensor,开机初始化时头部激光信号被触发,初始化时，监测头部激光信号值是否被触发,头部激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时头部激光{0:16}遮挡,操作提示
+1,0X2EBD,FALSE,FALSE,,,,,请检查左侧脚踏激光,Check left foot sensor,开机初始化时左侧脚踏激光信号被触发,初始化时，监测左侧脚踏激光信号值是否被触发,左侧脚踏激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时左侧脚踏激光{0:16}遮挡,操作提示
+8,0X2EBD,FALSE,FALSE,,,,,请检查左侧脚踏激光,Check left foot sensor,开机初始化时左侧脚踏激光信号被触发,初始化时，监测左侧脚踏激光信号值是否被触发,左侧脚踏激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时左侧脚踏激光{0:16}遮挡,操作提示
+1,0X2ECD,FALSE,FALSE,,,,,请检查右侧脚踏激光,Check right foot sensor,开机初始化时右侧脚踏激光信号被触发,初始化时，监测右侧脚踏激光信号值是否被触发,右侧脚踏激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时右侧脚踏激光{0:16}遮挡,操作提示
+8,0X2ECD,FALSE,FALSE,,,,,请检查右侧脚踏激光,Check right foot sensor,开机初始化时右侧脚踏激光信号被触发,初始化时，监测右侧脚踏激光信号值是否被触发,右侧脚踏激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机初始化时右侧脚踏激光{0:16}遮挡,操作提示
+1,0X2EDD,FALSE,FALSE,,,,,请结束调整,Please finish the adjustment before self-testing,调整臂/子悬吊按钮按下后，不允许进入自检,使能状态，调整臂/子悬吊按钮按下后，不允许进入自检或快速自检状态,1号臂按键触发状态,2号臂按键触发状态,3号臂按键触发状态,4号臂按键触发状态,tip,TRUE,TRUE,FALSE,,无,,调整臂/子悬吊按钮按下后，不允许进入自检，1号臂按键{0:16}按下，2号臂按键{1:16}按下，3号臂按键{2:16}按下，4号臂按键{3:16}按下,操作提示
+8,0X2EDD,FALSE,FALSE,,,,,请结束调整,Please finish the adjustment before self-testing,调整臂/子悬吊按钮按下后，不允许进入自检,使能状态，调整臂/子悬吊按钮按下后，不允许进入自检或快速自检状态,1号臂按键触发状态,2号臂按键触发状态,3号臂按键触发状态,4号臂按键触发状态,tip,TRUE,TRUE,FALSE,,无,,调整臂/子悬吊按钮按下后，不允许进入自检，1号臂按键{0:16}按下，2号臂按键{1:16}按下，3号臂按键{2:16}按下，4号臂按键{3:16}按下,操作提示
+1,0X2EFD,FALSE,FALSE,请检查主手离合信号,Please check the clutch signal,请检查主手离合信号,Please check the clutch signal,,,开机时检测到主手离合信号触发,监测离合IO信号是否被触发,左手离合IO信号,右手离合IO信号,0,0,tip,TRUE,TRUE,FALSE,,无,,开机时检测到主手离合信号触发，左手离合{0:16}触发，右手离合{0:16}触发,操作提示
+8,0X2EFD,FALSE,TRUE,请检查主手离合信号,Please check the clutch signal,请检查主手离合信号,Please check the clutch signal,,,开机时检测到主手离合信号触发,监测离合IO信号是否被触发,左手离合IO信号,右手离合IO信号,0,0,tip,TRUE,TRUE,FALSE,,无,,开机时检测到主手离合信号触发，左手离合{0:16}触发，右手离合{0:16}触发,操作提示
+1,0X2F0D,TRUE,FALSE,电池电量低,Low Battery ,电池电量低,Low Battery ,请联系售后,Please contact customer service,工具臂关节3电池电压低于3V,检查调整臂调整按键信号第4位,调整臂调整按键值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂关节3电池电压低于3V，调整臂调整按键值{0:0},操作提示
+8,0X2F0D,TRUE,FALSE,电池电量低,Low Battery ,电池电量低,Low Battery ,请术后联系售后,Please contact customer service,工具臂关节3电池电压低于3V,检查调整臂调整按键信号第4位,调整臂调整按键值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂关节3电池电压低于3V，调整臂调整按键值{0:0},操作提示
+1,0X2F1D,TRUE,FALSE,电池电量低,Low Battery ,电池电量低,Low Battery ,请联系售后,Please contact customer service,工具臂关节3电池电压低于2.46V,检查调整臂调整按键信号第5位,调整臂调整按键值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂关节3电池电压低于2.46V，调整臂调整按键值{0:0},操作提示
+8,0X2F1D,TRUE,FALSE,电池电量低,Low Battery ,电池电量低,Low Battery ,请术后联系售后,Please contact customer service,工具臂关节3电池电压低于2.46V,检查调整臂调整按键信号第5位,调整臂调整按键值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂关节3电池电压低于2.46V，调整臂调整按键值{0:0},操作提示
+8,0X2F2D,FALSE,FALSE,戳卡超出使用次数,Exceed the usage limit of trocar ,戳卡超出使用次数,Exceed the usage limit of trocar ,请更换戳卡,Please replace it,力感知戳卡次数到期,监测力感知戳卡寿命,戳卡序列号,戳卡次数,0,0,tip,TRUE,TRUE,FALSE,,无,,力感知戳卡次数到期，戳卡序列号{0:0}，戳卡剩余{1:0}次,操作提示
+1,0X2F2D,FALSE,FALSE,戳卡超出使用次数,Exceed the usage limit of trocar ,戳卡超出使用次数,Exceed the usage limit of trocar ,请更换戳卡,Please replace it,力感知戳卡次数到期,监测力感知戳卡寿命,戳卡序列号,戳卡次数,0,0,tip,TRUE,TRUE,FALSE,,无,,力感知戳卡次数到期，戳卡序列号{0:0}，戳卡剩余{1:0}次,操作提示
+1,0X2F3D,FALSE,FALSE,左右手不可安装同类型能量器械,Don't mount the same type energy insruments,左右手不可安装同类型能量器械,Don't mount the same type energy insruments,,,左右手都对应双极器械,能量脚踏触发时监测,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,左右手都对应双极器械,操作提示
+8,0X2F3D,FALSE,FALSE,左右手不可安装同类型能量器械,Don't mount the same type energy insruments,左右手不可安装同类型能量器械,Don't mount the same type energy insruments,,,左右手都对应双极器械,能量脚踏触发时监测,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,左右手都对应双极器械,操作提示
+1,0X2F4D,FALSE,FALSE,多把双极1号无能量输出,Slave arm 1 unable to output energy when Multiple bipolar mounted,多把双极1号无能量输出,Slave arm 1 unable to output energy when Multiple bipolar mounted,,,多把双极且左手控制1号臂为双极时不能输出能量（内窥镜臂号3）,能量脚踏触发时监测,内窥镜臂号,左手对应器械臂号,右手对应器械臂号,0,tip,TRUE,TRUE,FALSE,,无,,多把双极且左手控制1号臂为双极时不能输出能量（内窥镜臂号3），内窥镜臂为{0:12}，左手对应{1:12}，右手对应{2:12},操作提示
+8,0X2F4D,FALSE,FALSE,多把双极1号无能量输出,Slave arm 1 unable to output energy when Multiple bipolar mounted,多把双极1号无能量输出,Slave arm 1 unable to output energy when Multiple bipolar mounted,,,多把双极且左手控制1号臂为双极时不能输出能量（内窥镜臂号3）,能量脚踏触发时监测,内窥镜臂号,左手对应器械臂号,右手对应器械臂号,0,tip,TRUE,TRUE,FALSE,,无,,多把双极且左手控制1号臂为双极时不能输出能量（内窥镜臂号3），内窥镜臂为{0:12}，左手对应{1:12}，右手对应{2:12},操作提示
+1,0X2F5D,FALSE,FALSE,多把双极4号无能量输出,Slave arm 4 unable to output energy when Multiple bipolar mounted,多把双极4号无能量输出,Slave arm 4 unable to output energy when Multiple bipolar mounted,,,多把双极且右手控制4号臂为双极时不能输出能量（内窥镜臂号2）,能量脚踏触发时监测,内窥镜臂号,左手对应器械臂号,右手对应器械臂号,0,tip,TRUE,TRUE,FALSE,,无,,多把双极且右手控制4号臂为双极时不能输出能量（内窥镜臂号2），内窥镜臂为{0:12}，左手对应{1:12}，右手对应{2:12},操作提示
+8,0X2F5D,FALSE,FALSE,多把双极4号无能量输出,Slave arm 4 unable to output energy when Multiple bipolar mounted,多把双极4号无能量输出,Slave arm 4 unable to output energy when Multiple bipolar mounted,,,多把双极且右手控制4号臂为双极时不能输出能量（内窥镜臂号2）,能量脚踏触发时监测,内窥镜臂号,左手对应器械臂号,右手对应器械臂号,0,tip,TRUE,TRUE,FALSE,,无,,多把双极且右手控制4号臂为双极时不能输出能量（内窥镜臂号2），内窥镜臂为{0:12}，左手对应{1:12}，右手对应{2:12},操作提示
+1,0X2F6D,FALSE,FALSE,主手离合触发超过1分钟,Clutch is triggered for more than 1 minute,主手离合触发超过1分钟,Clutch is triggered for more than 1 minute,,,主手离合触发超过1分钟,主从时监测IO触发是否超过1分钟,左手离合IO信号,右手离合IO信号,0,0,tip,TRUE,TRUE,FALSE,,无,,主手离合触发超过1分钟，左手离合IO信号{0:16}触发，右手离合IO信号{1:16}触发,操作提示
+8,0X2F6D,FALSE,FALSE,主手离合触发超过1分钟,Clutch is triggered for more than 1 minute,主手离合触发超过1分钟,Clutch is triggered for more than 1 minute,,,主手离合触发超过1分钟,主从时监测IO触发是否超过1分钟,左手离合IO信号,右手离合IO信号,0,0,tip,TRUE,TRUE,FALSE,,无,,主手离合触发超过1分钟，左手离合IO信号{0:16}触发，右手离合IO信号{1:16}触发,操作提示
+1,0X2F9D,FALSE,FALSE,内窥镜连接异常,Endoscope connection abnormal,内窥镜连接异常,Endoscope connection abnormal,请重新插拔内窥镜,Please reinsert the endoscope,内窥镜未连接到图像主机,主从准备状态尝试进主从时检测是否有内窥镜类型,图像传递的内窥镜类型,图像主机已连接状态位,0,0,tip,TRUE,TRUE,FALSE,,无,,接收到的内窥镜类型为{0:30}，与图像主机{1:2}建立通信,操作提示
+8,0X2F9D,FALSE,FALSE,内窥镜连接异常,Endoscope connection abnormal,内窥镜连接异常,Endoscope connection abnormal,请重新插拔内窥镜,Please reinsert the endoscope,内窥镜未连接到图像主机,主从准备状态尝试进主从时检测是否有内窥镜类型,图像传递的内窥镜类型,图像主机已连接状态位,0,0,tip,TRUE,TRUE,FALSE,,无,,接收到的内窥镜类型为{0:30}，与图像主机{1:2}建立通信,操作提示
+1,0X2FAD,FALSE,TRUE,请重新安装隔离板,Please remount the instrument adapter,请重新安装隔离板,Please remount the instrument adapter,,,隔离板未安装成功,已安装器械的状态下未检测到隔离板信号,隔离板安装完成标志位,器械状态,0,0,tip,TRUE,TRUE,FALSE,,无,,隔离板未安装成功，隔离板{0:2}安装完成，器械状态为{1:6},操作提示
+1,0X2FBD,FALSE,FALSE,能量激发中,Energy activing,能量激发中,Energy activing,,,能量激发中无法臂切换,臂切换时检测能量是否激发中,能量激发标志位,0,0,0,tip,TRUE,TRUE,FALSE,,无,,能量激发中无法臂切换，能量{0:2}激发,操作提示
+1,0X2FFD,FALSE,TRUE,器械未安装成功,Instrument is failed to be mounted,器械未安装成功,Instrument is failed to be mounted,请重新安装器械,Please remount it,芯片校验时间过长，器械未安装成功,安装器械时芯片校验时间超过阈值则提示异常,器械状态,0,0,0,tip,TRUE,TRUE,FALSE,,无,,芯片校验时间过长，器械未安装成功，器械状态为{0:6},操作提示
+8,0X338D,FALSE,FALSE,人机调整中,In ergonomic adjustment process,人机调整中,In ergonomic adjustment process,请勿移动主手,Please don't move the master arm,医生控制台调整时尝试进主从控制,确认是否在医生控制台调整时尝试进主从控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时尝试进主从控制,操作提示
+1,0X338D,FALSE,FALSE,人机调整中,In ergonomic adjustment process,人机调整中,In ergonomic adjustment process,请勿移动主手,Please don't move the master arm,医生控制台调整时尝试进主从控制,确认是否在医生控制台调整时尝试进主从控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时尝试进主从控制,操作提示
+8,0X339D,FALSE,FALSE,人机调整中,In ergonomic adjustment process,人机调整中,In ergonomic adjustment process,请勿移动主手,Please don't move the master arm,医生控制台调整时尝试进离合控制,确认是否在医生控制台调整时尝试进离合控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时尝试进离合控制,操作提示
+1,0X339D,FALSE,FALSE,人机调整中,In ergonomic adjustment process,人机调整中,In ergonomic adjustment process,请勿移动主手,Please don't move the master arm,医生控制台调整时尝试进离合控制,确认是否在医生控制台调整时尝试进离合控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时尝试进离合控制,操作提示
+8,0X33AD,FALSE,FALSE,人机调整中,In ergonomic adjustment process,人机调整中,In ergonomic adjustment process,请勿移动主手,Please don't move the master arm,医生控制台调整时尝试进内窥镜控制,确认是否在医生控制台调整时尝试进内窥镜控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时尝试进内窥镜控制,操作提示
+1,0X33AD,FALSE,FALSE,人机调整中,In ergonomic adjustment process,人机调整中,In ergonomic adjustment process,请勿移动主手,Please don't move the master arm,医生控制台调整时尝试进内窥镜控制,确认是否在医生控制台调整时尝试进内窥镜控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时尝试进内窥镜控制,操作提示
+1,0X33BD,FALSE,FALSE,当前状态不可人机调整,Ergonomic adjustment denied,当前状态不可人机调整,Ergonomic adjustment denied,,,在非允许状态下尝试进医生控制台调整,初始化状态、待机状态、调整状态、主从准备状态、离合状态下尝试进入医生控制台调整,状态机,医生控制台运动标志,0,0,tip,TRUE,TRUE,FALSE,,无,,在非允许状态下尝试进医生控制台调整，状态机为{0:1}，{1:20}人机调整页面,操作提示
+8,0X33BD,FALSE,FALSE,当前状态不可人机调整,Ergonomic adjustment denied,当前状态不可人机调整,Ergonomic adjustment denied,,,在非允许状态下尝试进医生控制台调整,初始化状态、待机状态、调整状态、主从准备状态、离合状态下尝试进入医生控制台调整,状态机,医生控制台运动标志,0,0,tip,TRUE,TRUE,FALSE,,无,,在非允许状态下尝试进医生控制台调整，状态机为{0:1}，{1:20}人机调整页面,操作提示
+4,0X010A,TRUE,FALSE,硬件异常,Hardware fault,运动偏差,Motion deviation,请点击“解除”恢复,Click REMOVE to restore,双码盘偏差,读取每个关节电机码盘计算位置值和绝对码盘计算的位置值，其偏差超过阈值则进行报警,报错时状态机,绝对码盘位置,电机码盘位置,,recoverable,TRUE,TRUE,FALSE,,高级,,双码盘偏差，报错时状态机{0:0}，绝对码盘位置{1:0}，电机码盘位置{2:0},硬件
+1,0X33CD,FALSE,FALSE,,,,,请头部进入立体监视器,Please put head in the 3D viewer,头部激光未遮挡,尝试进入主从控制时或内窥镜控制时，头部激光未遮挡,头部激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,头部激光{0:16}遮挡,操作提示
+8,0X33CD,FALSE,FALSE,,,,,请头部进入立体监视器,Please put head in the 3D viewer,头部激光未遮挡,尝试进入主从控制时或内窥镜控制时，头部激光未遮挡,头部激光信号值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,头部激光{0:16}遮挡,操作提示
+1,0X33DD,FALSE,FALSE,,,,,请回到主页面,Please back to the main page,普通账户未锁屏,普通账户下尝试进入主从控制时或内窥镜控制时，未退回到主页面,账户类型,交互软件锁屏标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,普通账户未锁屏，{0:31}下交互软件{1:2}锁屏,操作提示
+8,0X33DD,FALSE,FALSE,,,,,请回到主页面,Please back to the main page,普通账户未锁屏,普通账户下尝试进入主从控制时或内窥镜控制时，未退回到主页面,账户类型,交互软件锁屏标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,普通账户未锁屏，{0:31}下交互软件{1:2}锁屏,操作提示
+1,0X33ED,FALSE,FALSE,图像台车通讯异常,Endoscope controller communication fault,图像台车通讯异常,Endoscope controller communication fault,,,图像台车与医生台车未通信,主从准备状态，尝试进主从时监测图像主机通信状态,图像台车内窥镜类型,图像台车通讯状态,0,0,tip,TRUE,TRUE,FALSE,,无,,接收到的内窥镜类型为{0:30}，与图像主机{1:2}建立通信,操作提示
+1,0X33FD,FALSE,TRUE,戳卡连接断开,Trocar connection failed,戳卡连接断开,Trocar connection failed,,,主从时戳卡脱落,主从时监测戳卡安装状态，状态改变并且非安装状态,进主从时戳卡安装状态,当前戳卡安装状态,0,0,tip,TRUE,TRUE,FALSE,,无,,主从时戳卡脱落，进主从时戳卡{0:2}安装，当前戳卡{0:2}安装,操作提示
+1,0X340D,FALSE,FALSE,戳卡未安装,Trocar is not installed,戳卡未安装,Trocar is not installed,,,进入主从检测戳卡是否安装,尝试进入主从检测戳卡是否安装,安装戳卡标志位,戳卡检测开关标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,进入主从检测戳卡是否安装，当前戳卡{0:2}安装，戳卡检测{1:2}打开,操作提示
+1,0X341D,FALSE,FALSE,,,,,请松开能量脚踏,Please release the energy pedal,踩能量脚踏时不能进主从,踩下能量脚踏时尝试进主从,左电切IO信号值,左电凝IO信号值,右电切IO信号值,右电凝IO信号值,tip,TRUE,TRUE,FALSE,,无,,踩能量脚踏时不能进主从，左电切{0:16}踩下，左电凝{1:16}踩下，右电切{2:16}踩下，右电凝{3:16}踩下,操作提示
+8,0X341D,FALSE,FALSE,,,,,请松开能量脚踏,Please release the energy pedal,踩能量脚踏时不能进主从,踩下能量脚踏时尝试进主从,左电切IO信号值,左电凝IO信号值,右电切IO信号值,右电凝IO信号值,tip,TRUE,TRUE,FALSE,,无,,踩能量脚踏时不能进主从，左电切{0:16}踩下，左电凝{1:16}踩下，右电切{2:16}踩下，右电凝{3:16}踩下,操作提示
+1,0X342D,FALSE,TRUE,请联系工程师,Please contact customer service,请联系工程师,Please contact customer service,,,SDO读取失败,SDO操作,ADS通信异常故障码,SDO地址,SDO子地址,0,tip,TRUE,TRUE,FALSE,,无,,SDO读取失败，ADS通信异常故障码{0:0}，SDO地址{1:0}，SDO子地址{2:0},操作提示
+1,0X343D,FALSE,TRUE,请联系工程师,Please contact customer service,请联系工程师,Please contact customer service,,,SDO写入失败,SDO操作,ADS通信异常故障码,SDO地址,SDO子地址,0,tip,TRUE,TRUE,FALSE,,无,,SDO写入失败，ADS通信异常故障码{0:0}，SDO地址{1:0}，SDO子地址{2:0},操作提示
+1,0X350D,FALSE,FALSE,工具臂自动调整中,Slave arm auto adjusting,工具臂自动调整中,Slave arm auto adjusting,请将双手置于扶手处,Please keep your hands on the armrests,模拟器长踩左电切后 虚拟工具臂进行自动调整 约9秒 完成后会进行姿态匹配,模拟器非task内 长踩左电切3秒后 会在UI上出现提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,模拟器长踩左电切后虚拟工具臂进行自动调整（约9秒）完成后会进行姿态匹配,操作提示
+1,0X400B,FALSE,FALSE,手术通讯质量差,Poor network quality,手术通讯质量差,Poor network quality,请点击“解除”恢复,Click REMOVE to restore,网络通信通信断开,远程模式下，网络延时超过阈值持续1s则报警,机器类型,延时ping值,RTT延时值,丢包率,recoverable,TRUE,TRUE,FALSE,,中级,,网络通信通信断开，{0:8}，延时ping值{1:0}ms，RTT延时值{2:0}ms，丢包率{3:0},操作提示
+4,0X135D,TRUE,FALSE,支撑收起故障,Base released fail,支撑收起故障,Base released fail,,,支撑收起时，如果超过15秒还没有触发限位信号，则表示支撑收起故障,15s后检测两个上限位信号是否为true，其中有1个为false就代表支撑收起故障,,,,,tip,TRUE,TRUE,FALSE,,无,,支撑收起时，如果超过15秒还没有触发限位信号，则表示支撑收起故障,硬件
+4,0X134D,TRUE,FALSE,支撑下降故障,Base locked fail,支撑下降故障,Base locked fail,,,支撑下降时，如果超过5秒还没有到达限位，则表示支撑故障下降故障,5s后检测压力信号和4个下限位信号是否为true，其中有1个为false就代表支撑下降故障,,,,,tip,TRUE,TRUE,FALSE,,无,,支撑下降时，如果超过5秒还没有到达限位，则表示支撑故障下降故障,硬件
+4,0X136D,TRUE,FALSE,支撑油压异常,Abnormal support oil pressure,支撑油压异常,Abnormal support oil pressure,,,,,,,,,tip,TRUE,TRUE,FALSE,,无,,,硬件
+8,0X400B,FALSE,FALSE,手术通讯质量差,Poor network quality,手术通讯质量差,Poor network quality,请点击“解除”恢复,Click REMOVE to restore,网络通信通信断开,远程模式下，网络延时超过阈值持续1s则报警,机器类型,延时ping值,RTT延时值,丢包率,recoverable,TRUE,TRUE,FALSE,,中级,,网络通信通信断开，{0:8}，延时ping值{1:0}ms，RTT延时值{2:0}ms，丢包率{3:0},操作提示
+8,0X400D,FALSE,FALSE,手术通讯质量差,Poor communication quality,手术通讯质量差,Poor communication quality,,,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+1,0X400D,FALSE,FALSE,手术通讯质量差,Poor communication quality,手术通讯质量差,Poor communication quality,,,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+8,0X401D,FALSE,FALSE,网络质量差,Poor network quality,网络质量差,Poor network quality,不允许手术,No surgery allowed,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+8,0X402D,FALSE,FALSE,网络质量差,Poor network quality,网络质量差,Poor network quality,不建议手术,Operation not recommended,网络质量差,远程模式下，网络延时超过阈值持续0.5s则报警,机器类型,延时ping值,RTT延时值,丢包率,tip,TRUE,TRUE,FALSE,,无,,网络质量差，{0:8}，延时ping值{1:0}ms，RTT延时值{2:0}ms，丢包率{3:0},操作提示
+8,0X403D,FALSE,FALSE,网络质量中等,Medium network quality,网络质量中等,Medium network quality,请慎重慢速操作,Please operate slowly with caution,网络质量中等,远程模式下，网络延时超过阈值持续0.2s则报警,机器类型,延时ping值,RTT延时值,丢包率,tip,TRUE,TRUE,FALSE,,无,,网络质量中等，{0:8}，延时ping值{1:0}ms，RTT延时值{2:0}ms，丢包率{3:0},操作提示
+8,0X404D,FALSE,FALSE,网络质量一般,Average network quality,网络质量一般,Average network quality,请慢速操作,Please operate slowly,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+8,0X410D,FALSE,FALSE,本地主端故障,Local terminal fault,本地主端故障,Local terminal fault,,,远程模式下，本地主端存在故障报警,远程模式下，本地主端存在故障报警仅提示不影响操作,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,远程模式下，本地主端存在故障报警,操作提示
+1,0X410D,FALSE,FALSE,本地主端故障,Local terminal fault,本地主端故障,Local terminal fault,,,远程模式下，本地主端存在故障报警,远程模式下，本地主端存在故障报警仅提示不影响操作,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,远程模式下，本地主端存在故障报警,操作提示
+8,0X411D,FALSE,FALSE,本地退出登录,Local terminal Log out,本地退出登录,Local terminal Log out,,,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+1,0X411D,FALSE,FALSE,本地退出登录,Local terminal Log out,本地退出登录,Local terminal Log out,,,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+8,0X412D,FALSE,TRUE,控制权切换到本地端,Switch control to local terminal,控制权切换到本地端,Switch control to local terminal,,,制权切换到本地端,在远程控制时控制权切换到本地端,机器类型,上一个控制权状态(本地控制/远程控制),当前控制权状态(本地控制/远程控制),状态机,tip,TRUE,TRUE,FALSE,,无,,{0:8}控制权切换到本地端，{1:9}—>{2:9}，状态机为{3:1},操作提示
+1,0X412D,FALSE,TRUE,控制权切换到本地端,Switch control to local terminal,控制权切换到本地端,Switch control to local terminal,,,控制权切换到本地端,在远程控制时控制权切换到本地端,机器类型,上一个控制权状态(本地控制/远程控制),当前控制权状态(本地控制/远程控制),状态机,tip,TRUE,TRUE,FALSE,,无,,{0:8}控制权切换到本地端，{1:9}—>{2:9}，状态机为{3:1},操作提示
+8,0X413D,FALSE,TRUE,控制权切换到远程端,Switch control to remote terminal,控制权切换到远程端,Switch control to remote terminal,,,控制权切换到远程端,在本地控制时控制权切换到远程端,机器类型,上一个控制权状态(本地控制/远程控制),当前控制权状态(本地控制/远程控制),状态机,tip,TRUE,TRUE,FALSE,,无,,{0:8}控制权切换到远程端，{1:9}—>{2:9}，状态机为{3:1},操作提示
+1,0X413D,FALSE,TRUE,控制权切换到远程端,Switch control to Romote terminal,控制权切换到远程端,Switch control to Romote terminal,,,控制权切换到远程端,在本地控制时控制权切换到远程端,机器类型,上一个控制权状态(本地控制/远程控制),当前控制权状态(本地控制/远程控制),状态机,tip,TRUE,TRUE,FALSE,,无,,{0:8}控制权切换到远程端，{1:9}—>{2:9}，状态机为{3:1},操作提示
+8,0X414D,FALSE,FALSE,请检查网络设置,Please check network settings,请检查网络设置,Please check network settings,,,IP地址验证失败,IP地址验证失败,目标IP第一段,目标IP第二段,目标IP第三段,目标IP第四段,tip,TRUE,TRUE,FALSE,,无,,IP地址验证失败，目标IP第一段{0:0}，目标IP第二段{1:0}，目标IP第三段{2:0}，目标IP第四段{3:0},操作提示
+8,0X415D,FALSE,FALSE,请检查验证码,Please check the verification code,请检查验证码,Please check the verification code,,,验证码验证失败,验证码验证失败,目标IP第一段,目标IP第二段,目标IP第三段,目标IP第四段,tip,TRUE,TRUE,FALSE,,无,,验证码验证失败，目标IP第一段{0:0}，目标IP第二段{1:0}，目标IP第三段{2:0}，目标IP第四段{3:0},操作提示
+1,0X416D,FALSE,FALSE,网络已连接,Network is connected,网络已连接,Network is connected,,,网络已连接,网络已连接,机器类型,状态机,自己IP,目标IP,tip,TRUE,TRUE,FALSE,,无,,网络已连接，{0:8}，状态机{1:1}，本地IP{2:0}，目标IP{3:0},操作提示
+8,0X416D,FALSE,FALSE,网络已连接,Network is connected,网络已连接,Network is connected,,,网络已连接,网络已连接,机器类型,状态机,自己IP,目标IP,tip,TRUE,TRUE,FALSE,,无,,网络已连接，{0:8}，状态机{1:1}，本地IP{2:0}，目标IP{3:0},操作提示
+1,0X417D,FALSE,FALSE,网络已断开,The network is disconnected,网络已断开,The network is disconnected,,,网络已断开,网络已断开,机器类型,状态机,自己IP,目标IP,tip,TRUE,TRUE,FALSE,,无,,网络已断开，{0:8}，状态机{1:1}，本地IP{2:0}，目标IP{3:0},操作提示
+8,0X417D,FALSE,FALSE,网络已断开,The network is disconnected,网络已断开,The network is disconnected,,,网络已断开,网络已断开,机器类型,状态机,自己IP,目标IP,tip,TRUE,TRUE,FALSE,,无,,网络已断开，{0:8}，状态机{1:1}，本地IP{2:0}，目标IP{3:0},操作提示
+8,0X420D,FALSE,FALSE,本地没有控制权，无法关机,Please take over before shutdown,本地没有控制权，无法关机,Please take over before shutdown,,,本地没有控制权，无法关机,本地没有控制权，无法关机,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,本地没有控制权，无法关机,操作提示
+1,0X420D,FALSE,FALSE,本地没有控制权，无法关机,Please take the control  before shutdown,本地没有控制权，无法关机,Please take the control  before shutdown,,,本地没有控制权，无法关机,本地没有控制权，无法关机,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,本地没有控制权，无法关机,操作提示
+8,0X450B,FALSE,FALSE,通信工作站异常,Communication workstation error,通讯代理软件异常,The agent software is abnormal,请点击“解除”恢复,Click REMOVE to restore,远程通信软件心跳异常,远程通信软件心跳异常，确认远程通信软件是否正常工作,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,远程通信软件心跳异常,安全保护
+1,0X450B,FALSE,FALSE,通信工作站异常,Communication workstation error,通讯代理软件异常,The agent software is abnormal,请点击“解除”恢复,Click REMOVE to restore,远程通信软件心跳异常,远程通信软件心跳异常，确认远程通信软件是否正常工作,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,远程通信软件心跳异常,安全保护
+1,0X451D,FALSE,FALSE,远程通讯工作站通讯异常,The communication of the remote communication workstation is abnormal,远程通讯工作站通讯异常,The communication of the remote communication workstation is abnormal,,,远程通讯工作站通讯异常,远程通讯工作站通讯异常，确认远程会议系统是否正常工作,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,远程通讯工作站通讯异常,操作提示
+8,0X451D,FALSE,FALSE,远程通讯工作站通讯异常,The communication of the remote communication workstation is abnormal,远程通讯工作站通讯异常,The communication of the remote communication workstation is abnormal,,,远程通讯工作站通讯异常,远程通讯工作站通讯异常，确认远程会议系统是否正常工作,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,远程通讯工作站通讯异常,操作提示
+1,0X452B,FALSE,FALSE,通信工作站异常,Communication workstation error,本地通讯工作站通讯异常,Local TSA fault,请点击“解除”恢复,Click REMOVE to restore,本地通讯工作站通讯异常,本地通讯工作站通讯异常，确认远程会议系统是否正常工作,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,本地通讯工作站通讯异常,安全保护
+8,0X452B,FALSE,FALSE,通信工作站异常,Communication workstation error,本地通讯工作站通讯异常,Local TSA fault,请点击“解除”恢复,Click REMOVE to restore,本地通讯工作站通讯异常,本地通讯工作站通讯异常，确认远程会议系统是否正常工作,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,本地通讯工作站通讯异常,安全保护
+1,0X453B,FALSE,FALSE,通信工作站异常,Communication workstation error,视频编解码器异常,Video codec fault,请点击“解除”恢复,Click REMOVE to restore,视频编解码器异常,远程通信工作站传输的内窥镜视野图像异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,视频编解码器异常,安全保护
+8,0X453B,FALSE,FALSE,通信工作站异常,Communication workstation error,视频编解码器异常,Video codec fault,请点击“解除”恢复,Click REMOVE to restore,视频编解码器异常,远程通信工作站传输的内窥镜视野图像异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,视频编解码器异常,安全保护
+1,0X454D,FALSE,FALSE,通信工作站软件版本不兼容,The TSA software version is incompatible,通信工作站软件版本不兼容,The TSA software version is incompatible,,,通信工作站软件版本不兼容,通信工作站软件版本不兼容,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,通信工作站软件版本不兼容,操作提示
+8,0X454D,FALSE,FALSE,通信工作站软件版本不兼容,The TSA software version is incompatible,通信工作站软件版本不兼容,The TSA software version is incompatible,,,通信工作站软件版本不兼容,通信工作站软件版本不兼容,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,通信工作站软件版本不兼容,操作提示
+1,0X455A,FALSE,FALSE,数据异常,Data exception,数据异常,Data exception,请点击“解除”恢复,Click REMOVE to restore,远程控制下，远程端接收的本地端工具臂臂号数据异常,远程控制下，远程端接收的本地端工具臂臂号数据异常,EAP中内窥镜臂号,EAP中保持臂臂号,EAP中左手控制臂臂号,EAP中右手控制臂臂号,recoverable,TRUE,TRUE,FALSE,,高级,,远程控制下，远程端接收的本地端工具臂臂号数据异常报警时，EAP中内窥镜臂为{0:12}，EAP中保持臂为{1:12}，EAP中左手控制臂为{2:12}，EAP中右手控制臂为{3:12},安全保护
+8,0X500D,FALSE,FALSE,指令异常,False control data,指令异常,False control data,,,5g模式，本地至远端或远端至本地的指令卡顿,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,5g模式，本地至远端或远端至本地的指令卡顿,操作提示
+1,0X533D,FALSE,TRUE,通信异常,Abnormal communication,通信异常,Abnormal communication,,,EtherCAT CRC通信异常,监测EtherCAT中CRC值是否持续累加,CRC值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,EtherCAT CRC通信异常，CRC值为{0:0},操作提示
+8,0X533D,FALSE,TRUE,通信异常,Abnormal communication,通信异常,Abnormal communication,,,EtherCAT CRC通信异常,监测EtherCAT中CRC值是否持续累加,CRC值,0,0,0,tip,TRUE,TRUE,FALSE,,无,,EtherCAT CRC通信异常，CRC值为{0:0},操作提示
+8,0X606D,FALSE,FALSE,主手收回失败,Master arm is failed to be stowed,主手收回失败,Master arm is failed to be stowed,,,主手收回失败,检测主手回收是否异常,主手回收完成标志位,主手回收成功标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,主手收回失败，回收过程{0:2}完成，主手回收{1:2}成功,操作提示
+1,0X606D,FALSE,FALSE,主手收回失败,Master arm is failed to be stowed,主手收回异常,Master arm is failed to be stowed,,,主手收回失败,检测主手回收是否异常,主手回收完成标志位,主手回收成功标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,主手收回失败，回收过程{0:2}完成，主手回收{1:2}成功,操作提示
+1,0X607D,FALSE,FALSE,一键展开失败,Deploy failed,一键展开失败,Deploy failed,,,手术台车一键展开操作失败,十秒内操作臂没有展开到目标位置，则展开失败,展开完成标志位,展开成功标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,手术台车一键展开操作失败，展开{0:2}完成，展开{1:2}成功,操作提示
+1,0X608D,FALSE,FALSE,一键收起失败,Stow failed,一键收起失败,Stow failed,,,手术台车一键收起操作失败,十秒内操作臂没有收起到目标位置，则收起失败,收起完成标志位,收起成功标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,手术台车一键收起操作失败，收起{0:2}完成，收起{0:2}成功,操作提示
+5,0X610A,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,Ethercat断网故障,Ethercat网络通讯故障,0,0,0,0,recoverable,TRUE,TRUE,,,高级,,Ethercat断网故障,安全保护
+A,0X610A,TRUE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,Ethercat断网故障,Ethercat网络通讯故障,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,Ethercat断网故障,安全保护
+5,0X622B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,Nikon编码器报错,根据尼康编码器报错码检测、通讯故障都通过CPLD获取（故障细化）,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,Nikon编码器报错,硬件
+A,0X622B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,Nikon编码器报错,根据尼康编码器报错码检测、通讯故障都通过CPLD获取（故障细化）,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,Nikon编码器报错,硬件
+A,0X623B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,Nikon编码器通讯故障,连续30个周期，尼康编码器值保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,Nikon编码器通讯故障,硬件
+5,0X623B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,Nikon编码器通讯故障,连续30个周期，尼康编码器值保持不变,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,Nikon编码器通讯故障,硬件
+5,0X626B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,模拟霍尔传感器断路,读取模拟霍尔传感器的值，2ms内连续低于设定下限1000或连续高于设定上限3000（万利确定）或保持不变,0,0,0,0,recoverable,TRUE,TRUE,,读取模拟霍尔传感器的值，2.5ms内连续高于设定下限1000,中级,,模拟霍尔传感器断路,硬件
+A,0X626B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,模拟霍尔传感器断路,读取模拟霍尔传感器的值，2ms内连续低于设定下限1000或连续高于设定上限3000（万利确定）或保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,读取模拟霍尔传感器的值，2.5ms内连续高于设定下限1000,中级,,模拟霍尔传感器断路,硬件
+1,0X626D,TRUE,FALSE,硬件需维护,Motor fault,硬件需维护,Hardware fault,请联系售后,Please contact customer service,模拟霍尔传感器断路,监测模拟霍尔传感器的值，2ms内连续低于设定下限1000或连续高于设定上限3000（万利确定）或保持不变,0,0,0,0,tip,,,FALSE,,无,,模拟霍尔传感器断路,操作提示
+8,0X626D,TRUE,FALSE,硬件需维护,Motor fault,硬件需维护,Hardware fault,,,模拟霍尔传感器断路,监测模拟霍尔传感器的值，2ms内连续低于设定下限1000或连续高于设定上限3000（万利确定）或保持不变,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,模拟霍尔传感器断路,操作提示
+5,0X627B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,非期望运动,1. 抱闸关闭后，1s后，读取抱闸电机电流反馈值，电流高于阈值**，连续超限200ms； 2. 抱闸使能后，1s后，读取抱闸电机电流反馈值，电流低于正常值1/9，连续超限200ms；3.读取抱闸电机电流反馈值，电流超过正常值1.5倍，连续超限2.5ms,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,非期望运动,硬件
+A,0X627B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,非期望运动,1. 抱闸关闭后，1s后，读取抱闸电机电流反馈值，电流高于阈值**，连续超限200ms； 2. 抱闸使能后，1s后，读取抱闸电机电流反馈值，电流低于正常值1/9，连续超限200ms；3.读取抱闸电机电流反馈值，电流超过正常值1.5倍，连续超限2.5ms,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,非期望运动,硬件
+5,0X640B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片连接故障,无法读出器械相关信息，如RomID,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,加密芯片连接故障,硬件
+A,0X640B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片连接故障,无法读出器械相关信息，如RomID,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,加密芯片连接故障,硬件
+5,0X641B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片校验错误,器械插好后，识别码与要求值不匹配,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,加密芯片校验错误,硬件
+A,0X641B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片校验错误,器械插好后，识别码与要求值不匹配,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,加密芯片校验错误,硬件
+5,0X642B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片减一故障,无法对加密芯片进行减一操作,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,加密芯片减一故障,硬件
+A,0X642B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片减一故障,无法对加密芯片进行减一操作,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,加密芯片减一故障,硬件
+5,0X643B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片使用范围故障,加密芯片有效值超出范围,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,加密芯片使用范围故障,硬件
+A,0X643B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,加密芯片使用范围故障,加密芯片有效值超出范围,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,加密芯片使用范围故障,硬件
+5,0X651B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电路板温度模块故障,电路板温度长时间不更新,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电路板温度模块故障,硬件
+A,0X651B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电路板温度模块故障,电路板温度长时间不更新,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电路板温度模块故障,硬件
+5,0X652B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电路板低温故障,电路板温度低于-10度,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电路板低温故障,硬件
+A,0X652B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电路板低温故障,电路板温度低于-10度,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电路板低温故障,硬件
+5,0X653B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电路板超温故障,电路板温度超过70度,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电路板超温故障,硬件
+A,0X653B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电路板超温故障,电路板温度超过70度,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电路板超温故障,硬件
+5,0X660B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1输出电流过流,输出电流超过容忍值额定力矩1.6倍，且超时时间（秒）*额定力矩倍数 > 8,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机1输出电流过流,硬件
+A,0X660B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1输出电流过流,输出电流超过容忍值额定力矩1.6倍，且超时时间（秒）*额定力矩倍数 > 8,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1输出电流过流,硬件
+5,0X662B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1低温故障,电机温度低于-10度,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机1低温故障,硬件
+A,0X662B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1低温故障,电机温度低于-10度,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1低温故障,硬件
+5,0X663B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1超温故障,电机端温度超过70度,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机1超温故障,硬件
+A,0X663B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1超温故障,电机端温度超过70度,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1超温故障,硬件
+8,0X090E,TRUE,TRUE,静力检测接近阈值,Motor fault,静力检测接近阈值,,静力检测接近阈值,,静力检测接近阈值,静力监测接近阈值,0,实际位置,检测初始化位置,0,Log,TRUE,TRUE,FALSE,,无,,静力检测接近阈值，实际位置为{1:0}，检测初始化位置为{2:0},操作提示
+8,0X665A,FALSE,FALSE,数据异常,Data exception,数据异常,Data exception,请点击“解除”恢复,Click REMOVE to restore,远程控制下，远程端接收的本地端主控制臂数据异常,远程控制下，远程端接收的本地端主控制臂数据异常,臂号,关节号,异常位置值,异常速度值,recoverable,TRUE,TRUE,FALSE,,高级,,远程控制下，远程端接收的本地端{0:11}{1:18}的异常数据时报警，异常位置值为{2:0}，异常速度值为{3:0},安全保护
+5,0X665B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1电流回采异常,双电流采样差距太大，大于20%,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机1电流回采异常,硬件
+A,0X665B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1电流回采异常,双电流采样差距太大，大于20%,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1电流回采异常,硬件
+5,0X666B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1断路,PWM占空比70%以上时， 电流为0附近（额定电流5%以内），连续5ms。电流为0和电机跑飞时的电流值得中间值,0,0,0,0,recoverable,TRUE,TRUE,,电机电流值在正常范围内，且连续25ms，则清除故障,中级,,电机1断路,硬件
+A,0X666B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1断路,PWM占空比70%以上时， 电流为0附近（额定电流5%以内），连续5ms。电流为0和电机跑飞时的电流值得中间值,0,0,0,0,recoverable,TRUE,TRUE,FALSE,电机电流值在正常范围内，且连续25ms，则清除故障,中级,,电机1断路,硬件
+5,0X66AB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1 IIT过载,电机的IIT超过最大值800*800*7s，物理意义 /1.6倍额定力矩,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机1 IIT过载,硬件
+A,0X66AB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1 IIT过载,电机的IIT超过最大值800*800*7s，物理意义 /1.6倍额定力矩,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1 IIT过载,硬件
+5,0X66CB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1短路,低侧采样电阻过流阈值大于3倍额定电流或者第二路电流采样结果大于2.5倍额定力矩时，持续时间大于200ms，则认为短路。器械驱动器只考虑第二路电流采样（根据预驱动芯片故障信号判断）,0,0,0,0,recoverable,TRUE,TRUE,,两路ADC采样检测当前电机母线电流值在正常范围内，且连续1.2s，则清除故障（器械只有1路ADC检测）,中级,,电机1短路,硬件
+A,0X66CB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机1短路,低侧采样电阻过流阈值大于3倍额定电流或者第二路电流采样结果大于2.5倍额定力矩时，持续时间大于200ms，则认为短路。器械驱动器只考虑第二路电流采样（根据预驱动芯片故障信号判断）,0,0,0,0,recoverable,TRUE,TRUE,FALSE,两路ADC采样检测当前电机母线电流值在正常范围内，且连续1.2s，则清除故障（器械只有1路ADC检测）,中级,,电机1短路,硬件
+5,0X680B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2输出电流过流,输出电流超过容忍值额定力矩1.6倍，且超时时间（秒）*额定力矩倍数 > 8,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机2输出电流过流,硬件
+A,0X680B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2输出电流过流,输出电流超过容忍值额定力矩1.6倍，且超时时间（秒）*额定力矩倍数 > 8,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2输出电流过流,硬件
+5,0X682B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2低温故障,电机温度低于-10度,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机2低温故障,硬件
+A,0X682B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2低温故障,电机温度低于-10度,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2低温故障,硬件
+5,0X683B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2超温故障,电机端温度超过70度,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机2超温故障,硬件
+A,0X683B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2超温故障,电机端温度超过70度,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2超温故障,硬件
+5,0X685B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2电流回采异常,双电流采样差距太大，大于20%,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机2电流回采异常,硬件
+A,0X685B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2电流回采异常,双电流采样差距太大，大于20%,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2电流回采异常,硬件
+5,0X686B,TRUE,FALSE,电机异常,Motor fault,电机输出异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2断路,PWM占空比70%以上时， 电流为0附近（额定电流5%以内），连续5ms。电流为0和电机跑飞时的电流值得中间值,0,0,0,0,recoverable,TRUE,TRUE,,电机电流值在正常范围内，且连续25ms，则清除故障,中级,,电机2断路,硬件
+A,0X686B,TRUE,FALSE,电机异常,Motor fault,电机输出异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2断路,PWM占空比70%以上时， 电流为0附近（额定电流5%以内），连续5ms。电流为0和电机跑飞时的电流值得中间值,0,0,0,0,recoverable,TRUE,TRUE,FALSE,电机电流值在正常范围内，且连续25ms，则清除故障,中级,,电机2断路,硬件
+5,0X68AB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2 IIT过载,电机的IIT超过最大值800*800*7s，物理意义 /1.6倍额定力矩,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机2 IIT过载,硬件
+A,0X68AB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2 IIT过载,电机的IIT超过最大值800*800*7s，物理意义 /1.6倍额定力矩,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2 IIT过载,硬件
+5,0X68CB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2短路,低侧采样电阻过流阈值大于3倍额定电流或者第二路电流采样结果大于2.5倍额定力矩时，持续时间大于200ms，则认为短路。器械驱动器只考虑第二路电流采样,0,0,0,0,recoverable,TRUE,TRUE,,两路ADC采样检测当前电机母线电流值在正常范围内，且连续1.2s，则清除故障（器械只有1路ADC检测）,中级,,电机2短路,硬件
+A,0X68CB,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,电机2短路,低侧采样电阻过流阈值大于3倍额定电流或者第二路电流采样结果大于2.5倍额定力矩时，持续时间大于200ms，则认为短路。器械驱动器只考虑第二路电流采样,0,0,0,0,recoverable,TRUE,TRUE,FALSE,两路ADC采样检测当前电机母线电流值在正常范围内，且连续1.2s，则清除故障（器械只有1路ADC检测）,中级,,电机2短路,硬件
+5,0X6A0B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器通讯故障,硬件
+A,0X6A0B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器通讯故障,硬件
+5,0X6A4B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器4通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器4通讯故障,硬件
+A,0X6A4B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器4通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器4通讯故障,硬件
+5,0X6A5B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器5通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器5通讯故障,硬件
+A,0X6A5B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器5通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器5通讯故障,硬件
+5,0X6A6B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器6通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器6通讯故障,硬件
+A,0X6A6B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器6通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器6通讯故障,硬件
+5,0X6A7B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器7通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器7通讯故障,硬件
+A,0X6A7B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,磁编码器7通讯故障,连续1000个周期完全保持不变,0,0,0,0,recoverable,TRUE,TRUE,FALSE,连续检测回读码盘值有正常的数值跳动，则清除故障,中级,,磁编码器7通讯故障,硬件
+5,0X6B0B,TRUE,FALSE,电机异常,Motor fault,指令异常,False control data,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,接到的力矩指令不在指令范围内,硬件
+A,0X6B0B,TRUE,FALSE,电机异常,Motor fault,指令异常,False control data,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,接到的力矩指令不在指令范围内,硬件
+5,0X6B1B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,接到的力矩指令不在指令范围内,硬件
+A,0X6B1B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,接到的力矩指令不在指令范围内,硬件
+5,0X6B2B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,接到的力矩指令不在指令范围内,硬件
+A,0X6B2B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,接到的力矩指令不在指令范围内,硬件
+5,0X6B4B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,接到的力矩指令不在指令范围内,硬件
+A,0X6B4B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,接到的力矩指令不在指令范围内,硬件
+5,0X6B5B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,接到的力矩指令不在指令范围内,硬件
+A,0X6B5B,TRUE,FALSE,指令异常,Motor fault,指令异常,False Software Command,请点击“解除”恢复,Click REMOVE to restore,接到的力矩指令不在指令范围内,判断力矩是否在±1000，电机去使能,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,接到的力矩指令不在指令范围内,硬件
+5,0X6C0B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,特定任务有严格的时序要求，必须在某个或某几个任务执行完毕才能进行，不能被非法打断。,检测软件标志位，判断任务执行状态,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,特定任务有严格的时序要求，必须在某个或某几个任务执行完毕才能进行，不能被非法打断,硬件
+A,0X6C0B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,特定任务有严格的时序要求，必须在某个或某几个任务执行完毕才能进行，不能被非法打断。,检测软件标志位，判断任务执行状态,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,特定任务有严格的时序要求，必须在某个或某几个任务执行完毕才能进行，不能被非法打断,硬件
+5,0X6C1B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C1B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C2B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C2B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C3B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+4,0X030A,TRUE,FALSE,硬件异常,Motor fault,硬件异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,位置超限,读取每个关节的位置值，超出阈值范围进行报警,报错时状态机,绝对码盘位置,电机码盘位置,,unrecoverable,TRUE,TRUE,FALSE,,高级,,位置超限报警时，报错时状态机为{0:0}，绝对码盘位置为{1:0}，电机码盘位置为{2:0},硬件
+4,0X100A,TRUE,FALSE,通讯异常,Motor fault,网络异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,手术台车网络通讯故障,读取每条臂网络状态，若非正常则进行报警,报错时状态机,,,,unrecoverable,TRUE,TRUE,FALSE,,高级,,手术台车网络通讯故障报警时，报错时状态机为{0:0},硬件
+4,0X110A,TRUE,FALSE,通讯异常,Motor fault,通讯异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,驱动器状态字错误,读取每个关节驱动器的状态字，若非正常则进行报警,报错时状态机,驱动器状态字,,,unrecoverable,TRUE,TRUE,FALSE,,高级,,驱动器状态字错误报警时，报错时状态机为{0:0}，驱动器状态字为{1:0},硬件
+A,0X6C3B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C4B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C4B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C5B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C5B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C6B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C6B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C7B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C7B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C8B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C8B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6C9B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,软件异常,硬件
+A,0X6C9B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,软件异常,软件异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,软件异常,硬件
+5,0X6D0B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片电源电压过压,控制芯片电源电压过压,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,控制芯片电源电压过压,硬件
+A,0X6D0B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片电源电压过压,控制芯片电源电压过压,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,控制芯片电源电压过压,硬件
+5,0X6D1B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片电源电压欠压,控制芯片电源电压欠压,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,控制芯片电源电压过压,硬件
+A,0X6D1B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片电源电压欠压,控制芯片电源电压欠压,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,控制芯片电源电压过压,硬件
+5,0X6D2B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片温度过高,采样控制芯片自身集成的温度传感器进行温度监测，当监测温度超过阈值XXms,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,控制芯片温度过高,硬件
+A,0X6D2B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片温度过高,采样控制芯片自身集成的温度传感器进行温度监测，当监测温度超过阈值XXms,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,控制芯片温度过高,硬件
+5,0X6D3B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片温度过低,采样控制芯片自身集成的温度传感器进行温度监测，当监测温度超过阈值XXms,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,控制芯片温度过高,硬件
+A,0X6D3B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,控制芯片温度过低,采样控制芯片自身集成的温度传感器进行温度监测，当监测温度超过阈值XXms,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,控制芯片温度过高,硬件
+5,0X6D4B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,电机驱动芯片本身过欠压、高温等故障,多次检测nFAULT引脚，若该引角被拉低，且持续XXXms，则为故障,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电机驱动芯片本身过欠压、高温等故障,硬件
+A,0X6D4B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,电机驱动芯片本身过欠压、高温等故障,多次检测nFAULT引脚，若该引角被拉低，且持续XXXms，则为故障,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机驱动芯片本身过欠压、高温等故障,硬件
+5,0X6D5B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,MCU与9252之间的SPI通讯,间隔固定周期读取9252特定寄存器固定值，若回读有差异则通讯异常,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,MCU与9252之间的SPI通讯,硬件
+A,0X6D5B,TRUE,FALSE,电机异常,Motor fault,电机异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,MCU与9252之间的SPI通讯,间隔固定周期读取9252特定寄存器固定值，若回读有差异则通讯异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,MCU与9252之间的SPI通讯,硬件
+5,0X6D6A,TRUE,FALSE,硬件异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,抱闸驱动芯片本身过欠压等故障,多次检测nFAULT引脚，若该引角被拉低，且持续XXXms，则为故障,0,0,0,0,recoverable,TRUE,TRUE,,,高级,,抱闸驱动芯片本身过欠压等故障,硬件
+A,0X6D6A,TRUE,FALSE,硬件异常,Motor fault,硬件异常,Motor fault,请点击“解除”恢复,Click REMOVE to restore,抱闸驱动芯片本身过欠压等故障,多次检测nFAULT引脚，若该引角被拉低，且持续XXXms，则为故障,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,抱闸驱动芯片本身过欠压等故障,硬件
+5,0X6D7B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware Fault,请点击“解除”恢复,Click REMOVE to restore,电路板母电压故障,母电压检测，连续检测XXms，过低报警（未读）,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电路板母电压故障,硬件
+A,0X6D7B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,电路板母电压故障,母电压检测，连续检测XXms，过低报警（未读）,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电路板母电压故障,硬件
+5,0X6D7D,TRUE,TRUE,电路板欠压,Motor fault,电路板欠压,Motor fault,,,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,无,硬件
+5,0X6D8B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,电路板母电压故障,母电压检测，连续检测XXms，过高报警（未读）,0,0,0,0,recoverable,TRUE,TRUE,,,中级,,电路板母电压故障,硬件
+A,0X6D8B,TRUE,FALSE,电机异常,Motor fault,硬件异常,Hardware fault,请点击“解除”恢复,Click REMOVE to restore,电路板母电压故障,母电压检测，连续检测XXms，过高报警（未读）,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电路板母电压故障,硬件
+5,0X6D9B,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,5V过压,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,5V过压,硬件
+A,0X6D9B,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,5V过压,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,5V过压,硬件
+5,0X6DAB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,5V欠压,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,5V过压,硬件
+A,0X6DAB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,5V欠压,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,5V过压,硬件
+5,0X6DCB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,电机1过温,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1过温,硬件
+A,0X6DCB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,电机1过温,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机1过温,硬件
+5,0X6DDB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,电机2过温,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2过温,硬件
+A,0X6DDB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,电机2过温,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,电机2过温,硬件
+5,0X6DEB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,STO故障,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,STO故障,硬件
+A,0X6DEB,TRUE,FALSE,电机异常,Motor fault,驱动器故障,Motor driver failure,请点击“解除”恢复,Click REMOVE to restore,STO故障,,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,STO故障,硬件
+8,0X555E,FALSE,FALSE,协助模式开关变化,,协助模式开关变化,,协助模式开关变化,,协助模式按键变化,监测UI按键开关状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}协助模式,操作提示
+8,0X556E,FALSE,FALSE,臂调整协助模式开关变化,,臂调整协助模式开关变化,,臂调整协助模式开关变化,,各工具臂调整臂调整协助模式按键变化,监测UI按键开关状态变化,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}{0:0}号工具臂和调整臂调整协助模式,操作提示
+8,0X557E,FALSE,FALSE,子悬吊协助模式开关变化,,子悬吊协助模式开关变化,,子悬吊协助模式开关变化,,子悬吊调整协助模式按键变化,监测UI按键开关状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}子悬吊调整协助模式,操作提示
+8,0X558E,FALSE,FALSE,脚踏协助模式开关变化,,脚踏协助模式开关变化,,脚踏协助模式开关变化,,脚踏协助模式按键变化,监测UI按键开关状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}脚踏协助模式,操作提示
+1,0X70BD,FALSE,FALSE,运行信息读取超时,Running information reading timed out,运行信息读取超时,Running information reading timed out,,,CPU数值读取失败,检测Core2和Core3的CPU值,状态机,Core2 CPU读取ADS故障码,Core3 CPU读取ADS故障码,0,tip,TRUE,TRUE,FALSE,,无,,CPU数值读取失败，状态机{0:1}，Core2 CPU读取ADS故障码{1:0}，Core3 CPU读取ADS故障码{2:0},操作提示
+8,0X70BD,FALSE,FALSE,运行信息读取超时,Running information reading timed out,运行信息读取超时,Running information reading timed out,,,CPU数值读取失败,检测Core2和Core3的CPU值,状态机,Core2 CPU读取ADS故障码,Core3 CPU读取ADS故障码,0,tip,TRUE,TRUE,FALSE,,无,,CPU数值读取失败，状态机{0:1}，Core2 CPU读取ADS故障码{1:0}，Core3 CPU读取ADS故障码{2:0},操作提示
+1,0X70CD,FALSE,FALSE,运行缓慢请注意,CPU is overloaded,运行缓慢请注意,CPU is overloaded,,,CPU过高,检测Core2和Core3的CPU值,状态机,Core2 CPU使用率,Core3 CPU使用率,0,tip,TRUE,TRUE,FALSE,,无,,CPU过高，状态机{0:1}，Core2 CPU使用率：{1:0}%，Core3 CPU使用率：{2:0}%,软件
+8,0X70CD,FALSE,FALSE,运行缓慢请注意,CPU is overloaded,运行缓慢请注意,CPU is overloaded,,,CPU过高,检测Core2和Core3的CPU值,状态机,Core2 CPU使用率,Core3 CPU使用率,0,tip,TRUE,TRUE,FALSE,,无,,CPU过高，状态机{0:1}，Core2 CPU使用率：{1:0}%，Core3 CPU使用率：{2:0}%,软件
+1,0X70DD,FALSE,FALSE,脚踏信号通讯中断,Pedal signal disconnected,脚踏信号通讯中断,Pedal signal disconnected,,,UI与MODBUS通讯中断，且激发能量脚踏,UI与MODBUS通讯中断，且激发能量脚踏,MODBUS连接标志位,控制信息高八位,0,0,tip,TRUE,TRUE,FALSE,,无,,UI与MODBUS通讯中断，且激发能量脚踏，MODBUS{0:2}连接，控制信息高八位为{1:0},操作提示
+5,0X801D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,工控机命令异常,工控机命令不在有效范围内,0,0,0,0,tip,TRUE,TRUE,,,无,,工控机命令异常,操作提示
+A,0X801D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,工控机命令异常,工控机命令不在有效范围内,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工控机命令异常,操作提示
+5,0X802D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,收到指令力矩,收到不为0的指令力矩,0,0,0,0,tip,TRUE,TRUE,,,无,,收到指令力矩,操作提示
+A,0X802D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,收到指令力矩,收到不为0的指令力矩,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,收到指令力矩,操作提示
+5,0X803D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,抱闸使能,收到抱闸使能的命令,0,0,0,0,tip,TRUE,TRUE,,,无,,抱闸使能,操作提示
+A,0X803D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,抱闸使能,收到抱闸使能的命令,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,抱闸使能,操作提示
+5,0X804D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,抱闸禁止使能,收到抱闸禁止使能的命令,0,0,0,0,tip,TRUE,TRUE,,,无,,抱闸禁止使能,操作提示
+A,0X804D,TRUE,FALSE,驱动器故障,Motor driver failure,驱动器故障,Motor driver failure,,,抱闸禁止使能,收到抱闸禁止使能的命令,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,抱闸禁止使能,操作提示
+6,0XB01B,FALSE,FALSE,图像异常,Abnormal image,图像采集异常,Abnormal image acquisition,请点击“解除”恢复,Click REMOVE to restore,无图像输出,USB连接断开时进行报警,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,无图像输出,硬件
+6,0XB02B,FALSE,FALSE,内窥镜连接异常,Endoscope connection abnormal,内窥镜连接异常,Endoscope connection abnormal,请插拔内窥镜恢复,Please reinsert the endoscope,无图像输出,USB连接异常时进行报警,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,无图像输出,硬件
+6,0XB03B,FALSE,FALSE,内窥镜连接中断,Endoscope disconnected,内窥镜连接中断,Endoscope disconnected,请点击“解除”恢复,Click REMOVE to restore,无图像输出,内窥镜连接断开时进行报警,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,无图像输出,硬件
+6,0XB03D,FALSE,FALSE,内窥镜连接中断,Endoscope disconnected,内窥镜连接中断,Endoscope disconnected,,,无图像输出,内窥镜连接断开时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,无图像输出,操作提示
+6,0XB04B,FALSE,FALSE,图像异常,Abnormal image,图像卡顿,Uncontinuous Image,请点击“解除”恢复,Click REMOVE to restore,图像卡顿,图像传输带宽低于阈值（40帧）时进行报警,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,中级,,图像卡顿,硬件
+6,0XB05D,FALSE,FALSE,,,,,请重启图像主机,Please restart endoscope controller ,日志配置文件读取失败,日志配置文件读取失败时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,日志配置文件读取失败,操作提示
+6,0XB06D,FALSE,FALSE,,,,,请重启图像主机,Please restart endoscope controller ,视觉配置文件读取失败,视觉配置文件读取失败时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,视觉配置文件读取失败,操作提示
+6,0XB07A,FALSE,FALSE,通讯异常,Network fault,通讯异常,Network fault,请点击“解除”恢复,Click REMOVE to restore,网络通讯异常,网络通讯异常时进行报警,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,网络通讯异常,安全保护
+6,0XB50C,FALSE,FALSE,U盘连接异常,USB flash disk connection abnormality,U盘连接异常,USB flash disk connection abnormality,,,U盘连接异常,U盘连接异常时进行报警,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,U盘连接异常,硬件
+6,0XB50D,FALSE,FALSE,U盘连接异常,USB flash disk connection abnormality,U盘连接异常,USB flash disk connection abnormality,,,U盘连接异常,U盘连接异常时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,U盘连接异常,操作提示
+6,0XB51C,FALSE,FALSE,图像台车磁盘空间不足,Insufficient endoscope controller disk space,图像台车磁盘空间不足,Insufficient endoscope controller disk space,请联系售后,Please contact customer service,图像台车磁盘空间不足,图像台车磁盘空间不足时进行报警,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,图像台车磁盘空间不足,硬件
+6,0XB51D,FALSE,FALSE,图像台车磁盘空间不足,Insufficient endoscope controller disk space,图像台车磁盘空间不足,Insufficient endoscope controller disk space,请联系售后,Please contact customer service,图像台车磁盘空间不足,图像台车磁盘空间不足时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,图像台车磁盘空间不足,操作提示
+6,0XB52C,FALSE,FALSE,图像台车CPU过载,Endoscope controller CPU is overloaded,图像台车CPU过载,Endoscope controller CPU is overloaded,,,图像台车CPU异常,图像台车CPU使用率高于阈值（95%）时进行报警,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,图像台车CPU异常,安全保护
+6,0XB52D,FALSE,FALSE,图像台车CPU过载,Endoscope controller CPU is overloaded,图像台车CPU过载,Endoscope controller CPU is overloaded,,,图像台车CPU异常,图像台车CPU使用率高于阈值（95%）时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,图像台车CPU异常,操作提示
+6,0XB53C,FALSE,FALSE,U盘空间不足,Insufficient USB flash disk space,U盘空间不足,Insufficient USB flash disk space,请更换,Please replace it,U盘空间不足,拍照时，U盘可用空间小于阈值（5M）时进行报警,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,U盘空间不足,硬件
+6,0XB53D,FALSE,FALSE,U盘空间不足,Insufficient USB flash disk space,U盘空间不足,Insufficient USB flash disk space,请更换,Please replace it,U盘空间不足,拍照时，U盘可用空间小于阈值（5M）时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,U盘空间不足,操作提示
+6,0XBA0D,FALSE,FALSE,连接不成功,Out-Sync Image,连接不成功,Out-Sync Image,请插拔内窥镜恢复,Please reinsert the endoscope,图像左右眼不同步,双路信号同步检测，FPGA传输错误信息,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,图像左右眼不同步,操作提示
+6,0XBA1A,FALSE,FALSE,,,,,请重启图像主机,Please restart endoscope controller ,图像Sensor异常,FPGA传输错误信息,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,图像Sensor异常,硬件
+6,0XBA2A,FALSE,FALSE,无立体效果显示,Poor 3D effect display effect,无立体效果显示,Poor 3D effect display effect,请重启图像主机,Please restart endoscope controller ,无立体效果显示,FPGA传输错误信息,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,无立体效果显示,硬件
+6,0XBA3D,FALSE,FALSE,,,,,请重启图像主机,Please restart endoscope controller ,图像校准异常,FPGA检测10次失败后传输错误信息,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,图像校准异常,操作提示
+6,0XBA5C,FALSE,FALSE,Aero桌面无法开启,Aero desktop started failed,Aero桌面无法开启,Aero desktop started failed,,,Aero桌面无法开启,通过控制面板个性化来开启Aero桌面，开启Composing双缓冲技术。,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,Aero桌面无法开启,安全保护
+6,0XBA5D,FALSE,FALSE,Aero桌面无法开启,Aero desktop started failed,Aero桌面无法开启,Aero desktop started failed,,,Aero桌面无法开启,通过控制面板个性化来开启Aero桌面，开启Composing双缓冲技术。,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,Aero桌面无法开启,操作提示
+6,0XBA6C,FALSE,FALSE,U盘未认证,USB flash disk unauthorized,U盘未认证,USB flash disk unauthorized,请认证后使用,Please use it after authentication,U盘已被禁止，请联系管理员,需要开启U盘安全后台监控程序来识别U盘，否则U盘不会被视觉程序使用！,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,U盘已被禁止，请联系管理员,安全保护
+6,0XBA6D,FALSE,FALSE,U盘未认证,USB flash disk unauthorized,U盘未认证,USB flash disk unauthorized,请认证后使用,Please use it after authentication,U盘已被禁止，请联系管理员,需要开启U盘安全后台监控程序来识别U盘，否则U盘不会被视觉程序使用！,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,U盘已被禁止，请联系管理员,操作提示
+6,0XBA7D,FALSE,FALSE,能量平台通讯异常,Energy platform connection failed,能量平台通讯异常,Energy platform connection failed,请联系售后,Please contact customer service,Modbus连接失败,检测Modbus是否正常连接,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,Modbus连接失败,操作提示
+6,0XBA8D,FALSE,FALSE,内窥镜类型识别失败,Endoscope type identification failed,内窥镜类型识别失败,Endoscope type identification failed,请更换内窥镜,Please replace the endoscope,内窥镜类型读取失败，或为一代内窥镜,查看内窥镜序列号显示是否正常,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜类型读取失败，或为一代内窥镜,操作提示
+1,0X310E,FALSE,FALSE,状态机跳转,,状态机跳转,,状态机跳转,,状态机跳转,状态机跳转时记录,前一个状态机,当前状态机,0,0,log,TRUE,TRUE,FALSE,,无,,状态机跳转，{0:1}—>{1:1},日志记录
+1,0X500E,FALSE,FALSE,器械状态变化,,器械状态变化,,器械状态变化,,器械状态变化,器械状态变化,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:12}器械状态变化，{1:6}—>{2:6},日志记录
+1,0X501E,FALSE,FALSE,器械类型变化,,器械类型变化,,器械类型变化,,器械类型变化,器械类型变化,臂号,上一个器械类型,当前器械类型,0,log,TRUE,TRUE,TRUE,,无,,{0:12}器械类型变化，{1:3}—>{2:3},日志记录
+1,0X502E,FALSE,FALSE,器械寿命变化,,器械寿命变化,,器械寿命变化,,器械寿命变化,器械寿命变化,器械寿命变化前的寿命,器械当前寿命,读取的器械寿命,器械超期寿命,log,TRUE,TRUE,FALSE,,无,,器械寿命变化，器械寿命从{0:0}次变为{1:0}次，从驱动器读取到器械剩余{2:0}次，器械超期{3:0}次,日志记录
+1,0X503E,FALSE,FALSE,器械记忆状态变化,,器械记忆状态变化,,器械记忆状态变化,,器械记忆状态变化,器械记忆状态变化,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:12}器械{2:20}记忆状态,日志记录
+1,0X504E,FALSE,FALSE,电切能量激发状态变化,,电切能量激发状态变化,,电切能量激发状态变化,,电切能量激发状态变化,电切能量激发状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:21}电切能量,日志记录
+1,0X505E,FALSE,FALSE,电凝能量激发状态变化,,电凝能量激发状态变化,,电凝能量激发状态变化,,电凝能量激发状态变化,电凝能量激发状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:21}电凝能量,日志记录
+1,0X506E,FALSE,FALSE,超声刀额定能量状态变化,,超声刀额定能量状态变化,,超声刀额定能量状态变化,,超声刀额定能量状态变化,超声刀额定能量状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:21}超声刀额定能量,日志记录
+1,0X507E,FALSE,FALSE,超声刀最大能量状态变化,,超声刀最大能量状态变化,,超声刀最大能量状态变化,,超声刀最大能量状态变化,超声刀最大能量状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:21}超声刀最大能量,日志记录
+1,0X508E,FALSE,TRUE,器械安装 - 4336,,器械安装 - 4336,,器械安装 - 4336,,器械安装 - 4336,器械安装 - 4336,ROMID1,ROMID2,ROMID3,ROMID4,log,TRUE,TRUE,FALSE,,无,,器械安装 - 4336，ROMID1{0:0}，ROMID2{1:0}，ROMID3{2:0}，ROMID4{3:0},日志记录
+1,0X509E,FALSE,TRUE,器械取下 - 4336,,器械取下 - 4336,,器械取下 - 4336,,器械取下 - 4336,器械取下 - 4336,ROMID1,ROMID2,ROMID3,ROMID4,log,TRUE,TRUE,FALSE,,无,,器械取下 - 4336，ROMID1{0:0}，ROMID2{1:0}，ROMID3{2:0}，ROMID4{3:0},日志记录
+1,0X50AE,FALSE,FALSE,器械使用时间累计 - 4336,,器械使用时间累计 - 4336,,器械使用时间累计 - 4336,,器械使用时间累计 - 4336,器械使用时间累计 - 4336,器械类型,剩余使用次数,累计使用时长,0,log,TRUE,TRUE,FALSE,,无,,器械使用时间累计 - 4336，器械类型{0:8}，剩余{1:0}次，累计使用时长{2:0}s,日志记录
+1,0X50BE,FALSE,FALSE,器械自检完成状态,,器械自检完成状态,,器械自检完成状态,,器械自检完成状态,器械自检完成状态,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:12}器械自检完成，{1:6}—>{2:6},日志记录
+1,0X50CE,FALSE,FALSE,器械辨识角信息写入SDO,,器械辨识角信息写入SDO,,器械辨识角信息写入SDO,,器械辨识角信息写入SDO,器械辨识角信息写入SDO,臂号,器械类型,辨识角,零位角,log,TRUE,TRUE,FALSE,,无,,{0:12}器械辨识角信息写入SDO，器械类型：{1:3}，辨识角{2:0}，零位角{3:0},日志记录
+1,0X50DE,FALSE,FALSE,器械辨识角信息变化,,器械辨识角信息变化,,器械辨识角信息变化,,器械辨识角信息变化,器械辨识角信息变化,臂号,器械类型,辨识角,零位角,log,TRUE,TRUE,FALSE,,无,,{0:12}器械辨识角信息变化，器械类型：{1:3}，辨识角{2:0}，零位角{3:0},日志记录
+1,0X50EE,FALSE,TRUE,器械使用时间变化,,器械使用时间变化,,器械使用时间变化,,器械使用时间变化,器械使用时间变化,使用时间：小时,使用时间：分钟,器械寿命,0,log,TRUE,TRUE,FALSE,,无,,器械使用时间变化，使用时间：{0:0}小时{1:0}分钟，器械寿命剩余{2:0}次,日志记录
+1,0X510E,FALSE,FALSE,器械UDI码,,器械UDI码,,器械UDI码,,器械UDI码,器械UDI码,器械UDI年月,器械UDI序号,器械UDI批次,器械UDIASCII,log,TRUE,TRUE,FALSE,,无,,器械UDI码，器械UDI(年月)：{0:0}，器械UDI序号：{1:0}，器械UDI批次：{2:0}，器械UDIASCII：{3:0},日志记录
+1,0X511E,FALSE,FALSE,驱动器器械IO状态变化,,驱动器器械IO状态变化,,驱动器器械IO状态变化,,驱动器器械IO状态变化,驱动器器械IO状态变化,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:12}驱动器器械IO状态变化，{1:0}—>{2:0},日志记录
+1,0X550E,FALSE,FALSE,工具臂调整按键变化,,工具臂调整按键变化,,工具臂调整按键变化,,工具臂调整按键变化,工具臂调整按键变化,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,TRUE,,无,,{2:22}{0:12}调整按钮,日志记录
+1,0X551E,FALSE,FALSE,调整臂调整按键变化,,调整臂调整按键变化,,调整臂调整按键变化,,调整臂调整按键变化,调整臂调整按键变化,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,TRUE,,无,,{2:47}{0:13}调整按钮,日志记录
+1,0X552E,FALSE,FALSE,左手控制状态变化,,左手控制状态变化,,左手控制状态变化,,左手控制状态变化,左手控制状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,左手{1:23},日志记录
+1,0X553E,FALSE,FALSE,右手控制状态变化,,右手控制状态变化,,右手控制状态变化,,右手控制状态变化,右手控制状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,右手{1:23},日志记录
+1,0X554E,FALSE,FALSE,子悬吊调整按键变化,,子悬吊调整按键变化,,子悬吊调整按键变化,,子悬吊调整按键变化,子悬吊调整按键变化,臂号,上一个状态,当前状态,0,log,TRUE,TRUE,TRUE,,无,,{2:22}{0:15}子悬吊调整按钮,日志记录
+1,0X555E,FALSE,FALSE,协助模式开关变化,,协助模式开关变化,,协助模式开关变化,,协助模式开关变化,协助模式开关变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,TRUE,,无,,{1:19}协助模式,日志记录
+1,0X556E,FALSE,FALSE,臂调整协助模式开关变化,,臂调整协助模式开关变化,,臂调整协助模式开关变化,,臂调整协助模式开关变化,臂调整协助模式开关变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,TRUE,,无,,{1:19}臂调整协助模式,日志记录
+1,0X557E,FALSE,FALSE,子悬吊协助模式开关变化,,子悬吊协助模式开关变化,,子悬吊协助模式开关变化,,子悬吊协助模式开关变化,子悬吊协助模式开关变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,TRUE,,无,,{1:19}子悬吊协助模式,日志记录
+1,0X558E,FALSE,FALSE,脚踏协助模式开关变化,,脚踏协助模式开关变化,,脚踏协助模式开关变化,,脚踏协助模式开关变化,脚踏协助模式开关变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,TRUE,,无,,{1:19}脚踏协助模式,日志记录
+1,0X570E,FALSE,FALSE,从端看门狗状态变化,,从端看门狗状态变化,,从端看门狗状态变化,,从端看门狗状态变化,从端看门狗状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,从端看门狗状态变化，{0:0}变化为{1:0},日志记录
+1,0X571E,FALSE,FALSE,主端看门狗状态变化,,主端看门狗状态变化,,主端看门狗状态变化,,主端看门狗状态变化,主端看门狗状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,主端看门狗状态变化，{0:0}变化为{1:0},日志记录
+1,0X572E,FALSE,FALSE,主端看门狗异常信号变化,,主端看门狗异常信号变化,,主端看门狗异常信号变化,,主端看门狗异常信号变化,主端看门狗异常信号变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,主端看门狗异常信号变化，{0:0}变化为{1:0},日志记录
+1,0X700E,FALSE,FALSE,左电切脚踏信号状态变化,,左电切脚踏信号状态变化,,左电切脚踏信号状态变化,,左电切脚踏信号状态变化,左电切脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}左电切脚踏,日志记录
+1,0X701E,FALSE,FALSE,左电凝脚踏信号状态变化,,左电凝脚踏信号状态变化,,左电凝脚踏信号状态变化,,左电凝脚踏信号状态变化,左电凝脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}左电凝脚踏,日志记录
+1,0X702E,FALSE,FALSE,右电切脚踏信号状态变化,,右电切脚踏信号状态变化,,右电切脚踏信号状态变化,,右电切脚踏信号状态变化,右电切脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}右电切脚踏,日志记录
+1,0X703E,FALSE,FALSE,右电凝脚踏信号状态变化,,右电凝脚踏信号状态变化,,右电凝脚踏信号状态变化,,右电凝脚踏信号状态变化,右电凝脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}右电凝脚踏,日志记录
+1,0X704E,FALSE,FALSE,臂切换脚踏信号状态变化,,臂切换脚踏信号状态变化,,臂切换脚踏信号状态变化,,臂切换脚踏信号状态变化,臂切换脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}臂切换脚踏,日志记录
+1,0X705E,FALSE,FALSE,内窥镜脚踏信号状态变化,,内窥镜脚踏信号状态变化,,内窥镜脚踏信号状态变化,,内窥镜脚踏信号状态变化,内窥镜脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}内窥镜脚踏,日志记录
+1,0X706E,FALSE,FALSE,离合脚踏信号状态变化,,离合脚踏信号状态变化,,离合脚踏信号状态变化,,离合脚踏信号状态变化,离合脚踏信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:17}离合脚踏,日志记录
+1,0X707E,FALSE,FALSE,左脚踏激光信号状态变化,,左脚踏激光信号状态变化,,左脚踏激光信号状态变化,,左脚踏激光信号状态变化,左脚踏激光信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,左脚踏激光{1:16}遮挡,日志记录
+1,0X708E,FALSE,FALSE,右脚踏激光信号状态变化,,右脚踏激光信号状态变化,,右脚踏激光信号状态变化,,右脚踏激光信号状态变化,右脚踏激光信号状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,右脚踏激光{1:16}遮挡,日志记录
+1,0X709E,FALSE,FALSE,患者台车手术确认状态变化,,患者台车手术确认状态变化,,患者台车手术确认状态变化,,患者台车手术确认状态变化,患者台车手术确认状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,患者台车{1:24},日志记录
+1,0X70AE,FALSE,FALSE,手离合信号变化,,手离合信号变化,,手离合信号变化,,手离合信号变化,手离合信号变化,前一个状态,当前状态,臂号,0,log,TRUE,TRUE,FALSE,,无,,{1:25}{2:11}离合,日志记录
+1,0X70CE,FALSE,FALSE,CPU日志,,CPU日志,,CPU日志,,CPU日志记录,CPU日志,状态机,core2cpu,core3cpu,0,log,TRUE,TRUE,FALSE,,无,,CPU日志记录，状态机{0:1}，Core2 CPU使用率：{1:0}%，Core3 CPU使用率：{2:0}%,日志记录
+1,0X710E,FALSE,TRUE,主手最大角度偏小,,主手最大角度偏小,,主手最大角度偏小,,主手最大角度偏小,主手最大角度偏小,当前使用的主手最大角度,实际主手最大角度,0,0,log,TRUE,TRUE,FALSE,,无,,主手最大角度偏小，当前使用的主手最大角度{0:0}，实际主手最大角度{1:0},日志记录
+1,0X405E,FALSE,FALSE,网络状态日志,,网络状态日志,,网络状态日志,,网络状态日志,网络状态日志,控制状态,连接状态,本地/远端ping值,EAP质量,log,TRUE,TRUE,TRUE,,无,,网络状态日志，{0:9}，{1:2}连接，ping值{2:0}，EAP质量{3:0},日志记录
+8,0X405E,FALSE,FALSE,网络状态日志,,网络状态日志,,网络状态日志,,网络状态日志,网络状态日志,控制状态,连接状态,本地/远端ping值,EAP质量,log,TRUE,TRUE,TRUE,,无,,网络状态日志，{0:9}，{1:2}连接，ping值{2:0}，EAP质量{3:0},日志记录
+1,0X66BD,FALSE,FALSE,,,请联系售后,Please contact customer service,,,检测调整臂3关节配平效果,自检时检测调整臂3关节的配平效果,关节号,初始位置,平衡偏差位置,0,tip,TRUE,TRUE,FALSE,,无,,检测调整臂3关节配平效果，{0:0}初始位置{1:0}，平衡偏差位置{2:0},操作提示
+1,0X143D,FALSE,FALSE,电池电量即将耗尽,Exhausted battery,电池电量即将耗尽,Exhausted battery,,,电池电量小于20%,根据看门狗透传的电池电量值判断此时电池电量情况,看门狗电池状态,电池电量,0,0,tip,TRUE,TRUE,FALSE,,无,,电池电量小于20%，看门狗电池状态{0:0}，电池电量{1:0}%,操作提示
+8,0X143D,FALSE,FALSE,电池电量即将耗尽,Exhausted battery,电池电量即将耗尽,Exhausted battery,,,电池电量小于20%,根据看门狗透传的电池电量值判断此时电池电量情况,看门狗电池状态,电池电量,0,0,tip,TRUE,TRUE,FALSE,,无,,电池电量小于20%，看门狗电池状态{0:0}，电池电量{1:0}%,操作提示
+1,0X144D,FALSE,FALSE,电池电量低,Low battery,电池电量低,Low battery,,,电池电量小于20%,根据看门狗透传的电池电量值判断此时电池电量情况,看门狗电池状态,电池电量,0,0,tip,TRUE,TRUE,FALSE,,无,,电池电量小于20%，看门狗电池状态{0:0}，电池电量{1:0}%,操作提示
+8,0X144D,FALSE,FALSE,电池电量低,Low battery,电池电量低,Low battery,,,电池电量小于40%且大于20%,根据看门狗透传的电池电量值判断此时电池电量情况,看门狗电池状态,电池电量,0,0,tip,TRUE,TRUE,FALSE,,无,,电池电量小于40%且大于20%，看门狗电池状态{0:0}，电池电量{1:0}%,操作提示
+6,0XBA9D,FALSE,FALSE,内窥镜参数配置中,Endoscope parameters are being configured,内窥镜参数配置中,Endoscope parameters are being configured,,,内窥镜参数配置中,内窥镜参数配置中,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,内窥镜参数配置中,操作提示
+1,0X2BDD,FALSE,FALSE,左手和右手都旋转到边界,Right and left instrument reaches the rotation boundary,左手和右手都旋转到边界,Right and left instrument reaches the rotation boundary,,,判断器械是否在自转边界,判断左右手器械是否都在自转边界,左手自转到边界标志位,左手姿态到边界标志位,右手自转到边界标志位,右手姿态到边界标志位,tip,TRUE,TRUE,FALSE,,无,,左手和右手都旋转到边界，左手自转到边界标志位{0:2}，左手姿态到边界标志位{1:2}，右手自转到边界标志位{2:2}，右手姿态到边界标志位{3:2},操作提示
+1,0X666D,FALSE,FALSE,软件版本不一致,The software version is inconsistent,软件版本不一致,The software version is inconsistent,,,本地端与远程端软件版本不一致,监测本地端与远程端的软件版本号是否一致,机器类型,0,0,0,tip,TRUE,TRUE,FALSE,,无,,本地端与远程端软件版本不一致，{0:8},操作提示
+8,0X666D,FALSE,FALSE,软件版本不一致,The software version is inconsistent,软件版本不一致,The software version is inconsistent,,,本地端与远程端软件版本不一致,监测本地端与远程端的软件版本号是否一致,机器类型,0,0,0,tip,TRUE,TRUE,FALSE,,无,,本地端与远程端软件版本不一致，{0:8},操作提示
+8,0X614D,FALSE,FALSE,切换为远程端,Switch to the remote system,切换为远程端,Switch to the remote system,,,切换为远程端的医生端,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,切换为远程端,操作提示
+1,0X624D,FALSE,FALSE,切换为本地端,Switch to the local system,切换为本地端,Switch to the local system,,,切换为本地端的医生端,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,切换为本地端,操作提示
+1,0X404A,FALSE,FALSE,与患者端连接断开,Disconnect with patient cart,与患者端连接断开,Disconnect with patient cart,,,患者端与医生端连接断开,监测与患者端的心跳丢失持续100ms,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,患者端与医生端连接断开,硬件
+1,0X021D,FALSE,TRUE,器械运动受阻,Instrument is blocked,器械运动受阻,Instrument is blocked,,,工具臂动力盒关节安装器械后触发期望位置偏差故障仅提示021D，器械运动受阻,监测动力盒关节的指令位置与实际位置的偏差,指令位置,实际位置,指令速度,实际速度,tip,TRUE,TRUE,FALSE,,无,,工具臂动力盒关节安装器械后触发期望位置偏差故障仅提示021D，器械运动受阻，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},操作提示
+1,0X022E,FALSE,FALSE,工具臂位置关节指令位置全0,,工具臂位置关节指令位置全0,,工具臂位置关节指令位置全0,,工具臂位置关节指令位置全0,工具臂位置关节指令位置全0,关节1指令速度,0,关节1指令位置,关节1指令力矩,Log,TRUE,TRUE,FALSE,,无,,工具臂位置关节指令位置全0，关节1指令速度{0:0}，关节1指令位置{2:0}，关节1指令力矩{3:0},日志记录
+1,0X030E,TRUE,TRUE,位置接近限位,,位置接近限位,,位置接近限位,,位置接近限位,位置接近限位,电机码盘位置,关节码盘位置,指令位置,实际力矩,Log,TRUE,TRUE,FALSE,,无,,位置接近限位，电机码盘位置{0:0}，关节码盘位置{1:0}，指令位置{2:0}，实际力矩{3:0},日志记录
+1,0X050E,TRUE,TRUE,速度接近阈值,,速度接近阈值,,速度接近阈值,,速度接近阈值,速度接近阈值,指令速度,实际速度,实际位置,实际力矩,Log,TRUE,TRUE,FALSE,,无,,速度接近阈值，指令速度{0:0}，实际速度{1:0}，实际位置{2:0}，实际力矩{3:0},日志记录
+1,0X040E,TRUE,TRUE,速度偏差接近阈值,,速度偏差接近阈值,,速度偏差接近阈值,,速度偏差接近阈值,速度偏差接近阈值,指令速度,实际速度,指令位置,指令力矩,Log,TRUE,TRUE,FALSE,,无,,速度偏差接近阈值，指令速度{0:0}，实际速度{1:0}，指令位置{2:0}，指令力矩{3:0},日志记录
+1,0X090E,FALSE,TRUE,静力检测接近阈值,,静力检测接近阈值,,静力检测接近阈值,,静力检测接近阈值,静力监测接近阈值,2,实际位置,检测初始化位置,0,Log,TRUE,TRUE,FALSE,,无,,静力检测接近阈值，2{0:0}，实际位置{1:0}，检测初始化位置{2:0},日志记录
+1,0X010E,TRUE,TRUE,双码盘偏差接近阈值,,双码盘偏差接近阈值,,双码盘偏差接近阈值,,双码盘偏差接近阈值,双码盘偏差接近阈值,电机码盘位置,绝对码盘位置,实际速度,实际力矩,Log,TRUE,TRUE,FALSE,,无,,双码盘偏差接近阈值，电机码盘位置{0:0}，绝对码盘位置{1:0}，实际速度{2:0}，实际力矩{3:0},日志记录
+1,0X020E,TRUE,TRUE,位置偏差接近阈值,,位置偏差接近阈值,,位置偏差接近阈值,,位置偏差接近阈值,位置偏差接近阈值,指令位置,实际位置,指令速度,实际速度,Log,TRUE,TRUE,FALSE,,无,,位置偏差接近阈值，指令位置{0:0}，实际位置{1:0}，指令速度{2:0}，实际速度{3:0},日志记录
+1,0X559E,FALSE,TRUE,进主从时工具臂位置,,进主从时工具臂位置,,进主从时工具臂位置,,进主从时工具臂位置,进主从时工具臂位置,关节1实际位置,关节2实际位置,关节3实际位置,0,Log,TRUE,TRUE,FALSE,,无,,进主从时工具臂位置，关节1实际位置{0:0}，关节2实际位置{1:0}，关节3实际位置{2:0},日志记录
+1,0X55AE,FALSE,TRUE,进主从时调整臂位置,,进主从时调整臂位置,,进主从时调整臂位置,,进主从时调整臂位置,进主从时调整臂位置,关节1实际位置,关节2实际位置,关节3实际位置,关节4实际位置,Log,TRUE,TRUE,FALSE,,无,,进主从时调整臂位置，关节1实际位置{0:0}，关节2实际位置{1:0}，关节3实际位置{2:0}，关节4实际位置{3:0},日志记录
+1,0X55BE,FALSE,TRUE,进主从时子悬吊位置,,进主从时子悬吊位置,,进主从时子悬吊位置,,进主从时子悬吊位置,进主从时子悬吊位置,实际位置,0,0,0,Log,TRUE,TRUE,FALSE,,无,,进主从时子悬吊位置，实际位置{0:0},日志记录
+1,0X092E,FALSE,TRUE,主手重力配平异常,,主手重力配平异常,,主手重力配平异常,,自检结束时,自检结束时,0,0,0,0,Log,TRUE,TRUE,FALSE,,无,,自检结束，主手重力配平异常,日志记录
+1,0X344D,FALSE,TRUE,,,,,请检查隔离板安装状态,Please check adapter,隔离板松脱,监测器械verify值,工具臂关节4驱动器故障标志位,工具臂关节6驱动器故障标志位,隔离板故障标志位,器械Verify值,tip,TRUE,TRUE,FALSE,,无,,隔离板松脱，工具臂关节4驱动器故障标志位{0:14}，工具臂关节6驱动器故障标志位{1:14}，隔离板故障标志位{2:14}，器械Verify值{3:0},操作提示
+1,0X345D,FALSE,TRUE,,,,,请检查器械安装状态，并重新安装隔离板,Please check instrument， and reinstall adapter,器械霍尔异常,监测驱动器报错：626D,工具臂关节4驱动器故障标志位,工具臂关节6驱动器故障标志位,隔离板故障标志位,器械Verify值,tip,TRUE,TRUE,FALSE,,无,,器械霍尔异常，工具臂关节4驱动器故障标志位{0:14}，工具臂关节6驱动器故障标志位{1:14}，隔离板故障标志位{2:14}，器械Verify值{3:0},操作提示
+1,0X360D,FALSE,FALSE,请取下器械,Please take off the instrument,请取下器械,Please take off the instrument,,,操作一键展开、一键收起、无菌部署、无菌存放时，请取下所有器械,任意臂插上器械后，点击一键展开或一键收起或无菌部署或无菌存放，查看是否出现提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,操作一键展开、一键收起、无菌部署、无菌存放时，请取下所有器械,操作提示
+1,0X361D,FALSE,FALSE,请取下隔离板,Please take off the adapter,请取下隔离板,Please take off the adapter,,,操作一键展开、一键收起、无菌部署时，请取下所有隔离板,任意臂插上隔离板后，点击一键展开或一键收起或无菌部署，查看是否出现提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,操作一键展开、一键收起、无菌部署时，请取下所有隔离板,操作提示
+1,0X362D,FALSE,FALSE,请安装隔离板,Please install the adapter,请安装隔离板,Please install the adapter,,,操作无菌存放时，请至少安装一个隔离板,所有臂都取下隔离板后，点击无菌存放，查看是否出现提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,操作无菌存放时，请至少安装一个隔离板,操作提示
+1,0X128D,FALSE,FALSE,主手回零失败,Master back to zero fail,主手回零失败,Master back to zero fail,,,医生控制台调整时，主手位置关节回零失败,主手位置关节均不在零位时，恢复人机位置，主手回零是否成功,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生控制台调整时，主手位置关节回零失败,操作提示
+1,0X127D,FALSE,FALSE,,,,,请重新捏合进主从,Plese match grips on control by squeezing,主从操作时，触发安全报警，退回到主从准备，需要重新捏合进主从,退回到主从准备后，未松开主手到最大开合角的0.7倍,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,主从操作时，触发安全报警，退回到主从准备，需要重新捏合进主从,操作提示
+8,0X127D,FALSE,FALSE,,,,,请重新捏合进主从,Plese match grips on control by squeezing,主从操作时，触发安全报警，退回到主从准备，需要重新捏合进主从,退回到主从准备后，未松开主手到最大开合角的0.7倍,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,主从操作时，触发安全报警，退回到主从准备，需要重新捏合进主从,操作提示
+6,0X129D,FALSE,FALSE,翻转失败,Failed to reverse,翻转失败,Failed to reverse,请检查连接状态,Please check the connection status,执行一键翻转时失败,执行一键翻转时触发提示，判断逻辑在UI，通过UI将故障码传递给运动控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,执行一键翻转时失败,操作提示
+1,0X130D,FALSE,FALSE,,,,,请重新插拔内窥镜,Please reinsert the endoscope,执行一键翻转时触发提示，判断逻辑在运动控制,执行一键翻转时触发提示，判断逻辑在运动控制,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,执行一键翻转时触发提示，判断逻辑在运动控制,操作提示
+6,0X144C,FALSE,FALSE,翻转失败,Failed to reverse,翻转失败,Failed to reverse,请执行复位操作,Please reset,执行一键翻转时失败，需要执行复位操作,执行一键翻转时触发提示，判断逻辑在UI，通过UI将故障码传递给运动控制，需要执行复位操作,0,0,0,0,ignorable,TRUE,TRUE,FALSE,,低级,,执行一键翻转时失败，需要执行复位操作,安全保护
+1,0X145D,FALSE,FALSE,当前状态不能调整患者台车,The patient cart cannot be adjusted in the current status.,当前状态不能调整患者台车,The patient cart cannot be adjusted in the current status.,,,当安装了戳卡、已确认了手术或任意一个工具臂安装了器械时不能进行肩部和主悬吊解锁,当安装了戳卡、已确认了手术或任意一个工具臂安装了器械时不能进行肩部和主悬吊解锁,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,当安装了戳卡、已确认了手术或任意一个工具臂安装了器械时不能进行肩部和主悬吊解锁,操作提示
+1,0X146D,FALSE,FALSE,请在患者台车上操作,Please operate on the patient cart,请在患者台车上操作,Please operate on the patient cart,,,当患者台车在任意关节的调整页面时，无法通过调整臂和子悬吊按钮解锁肩部或主悬吊,当患者台车在任意关节的调整页面时，无法通过调整臂和子悬吊按钮解锁肩部或主悬吊,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,当患者台车在任意关节的调整页面时，无法通过调整臂和子悬吊按钮解锁肩部或主悬吊,操作提示
+1,0X520E,FALSE,FALSE,施夹钳记录,,施夹钳记录,,,,施夹钳记录,,从臂号,器械类型,施夹钳夹持寿命,施夹钳夹持标志位,log,TRUE,TRUE,FALSE,,无,,{0:12}{1:3}寿命{2:0}次，夹持标志位{3:14}，,日志记录
+1,0X533E,FALSE,TRUE,CRC日志记录,,CRC日志记录,,,,主从状态下有驱动器从站报CRC异常，但未超过10个CRC值,给驱动器长时间通电后（是否使能无所谓），可在TwinCAT软件中观察其是否有CRC值增加，增加可尝试更换通讯线缆，如无效则考虑驱动器网口或芯片问题,CRC值,0,0,0,log,TRUE,TRUE,FALSE,,无,,主从状态下有驱动器从站报CRC异常，但未超过10个CRC值，CRC值{0:0},日志记录
+3,0X300E,TRUE,FALSE,台车各关节往上调整,,台车各关节往上调整,,,,医生台车关节往上调整,台车关节往上调整，交互软件按钮被按下,医生台车状态机,当前状态,电机位置,指令速度,log,TRUE,TRUE,FALSE,,无,,医生台车关节{1:22}往上调整，医生台车状态机：{0:4}，电机位置{2:0}，指令速度{3:0},日志记录
+3,0X301E,TRUE,FALSE,台车各关节往下调整,,台车各关节往下调整,,,,医生台车关节往下调整,台车关节往下调整，交互软件按钮被按下,医生台车状态机,当前状态,电机位置,指令速度,log,TRUE,TRUE,FALSE,,无,,医生台车关节{1:22}往下调整，医生台车状态机：{0:4}，电机位置{2:0}，指令速度{3:0},日志记录
+9,0X300E,TRUE,FALSE,台车各关节往上调整,,台车各关节往上调整,,,,医生台车关节往上调整,台车关节往上调整，交互软件按钮被按下,医生台车状态机,当前状态,电机位置,指令速度,log,TRUE,TRUE,FALSE,,无,,医生台车关节{1:22}往上调整，医生台车状态机：{0:4}，电机位置{2:0}，指令速度{3:0},日志记录
+9,0X301E,TRUE,FALSE,台车各关节往下调整,,台车各关节往下调整,,,,医生台车关节往下调整,台车关节往下调整，交互软件按钮被按下,医生台车状态机,当前状态,电机位置,指令速度,log,TRUE,TRUE,FALSE,,无,,医生台车关节{1:22}往下调整，医生台车状态机：{0:4}，电机位置{2:0}，指令速度{3:0},日志记录
+3,0X302E,FALSE,FALSE,执行自动台车调整（自检/记忆位置恢复/关机）,,执行自动台车调整（自检/记忆位置恢复/关机）,,,,执行自动台车调整（自检/记忆位置恢复/关机）,执行自动台车调整（自检/记忆位置恢复/关机），交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,执行自动台车调整（自检/记忆位置恢复/关机），医生台车状态机：{0:4}，{2:2}执行位置恢复,日志记录
+3,0X303E,FALSE,FALSE,脚踏开关,,脚踏开关,,,,脚踏开关,脚踏开关，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}脚踏开关，医生台车状态机{0:4},日志记录
+3,0X304E,FALSE,FALSE,监视器的色温调整,,监视器的色温调整,,,,监视器的色温调整,监视器的色温调整，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的色温调整{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+3,0X305E,FALSE,FALSE,监视器的对比度调节,,监视器的对比度调节,,,,监视器的对比度调节,监视器的对比度调节，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的对比度调节{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+3,0X306E,FALSE,FALSE,监视器的亮度调节,,监视器的亮度调节,,,,监视器的亮度调节,监视器的亮度调节，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的亮度调节{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+3,0X307E,FALSE,FALSE,监视器的亮度调节,,监视器的亮度调节,,,,监视器的亮度调节,监视器的亮度调节，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的亮度调节{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+3,0X308E,FALSE,FALSE,激活协助模式的单机台车调整,,激活协助模式的单机台车调整,,,,激活协助模式的单机台车调整,激活协助模式的单机台车调整，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}协助模式的单机台车调整，医生台车状态机：{0:4},日志记录
+3,0X309E,FALSE,FALSE,医生控制台单关节休眠,,医生控制台单关节休眠,,,,医生控制台单关节休眠,医生控制台单关节休眠，交互软件按钮被按下,医生台车状态机,关节号,前一个状态,当前状态,log,TRUE,TRUE,FALSE,,无,,{3:19}医生控制台{1:0}关节休眠，医生台车状态机：{0:4},日志记录
+9,0X302E,FALSE,FALSE,执行自动台车调整（自检/记忆位置恢复/关机）,,执行自动台车调整（自检/记忆位置恢复/关机）,,,,执行自动台车调整（自检/记忆位置恢复/关机）,执行自动台车调整（自检/记忆位置恢复/关机），交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,执行自动台车调整（自检/记忆位置恢复/关机），医生台车状态机：{0:4}，{2:2}执行位置恢复,日志记录
+9,0X303E,FALSE,FALSE,脚踏开关,,脚踏开关,,,,脚踏开关,脚踏开关，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}脚踏开关，医生台车状态为{0:4},日志记录
+9,0X304E,FALSE,FALSE,监视器的色温调整,,监视器的色温调整,,,,监视器的色温调整,监视器的色温调整，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的色温调整{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+9,0X305E,FALSE,FALSE,监视器的对比度调节,,监视器的对比度调节,,,,监视器的对比度调节,监视器的对比度调节，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的对比度调节{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+9,0X306E,FALSE,FALSE,监视器的亮度调节,,监视器的亮度调节,,,,监视器的亮度调节,监视器的亮度调节，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的亮度调节{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+9,0X307E,FALSE,FALSE,监视器的亮度调节,,监视器的亮度调节,,,,监视器的亮度调节,监视器的亮度调节，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,监视器的亮度调节{1:2}—>{2:2}，医生台车状态机：{0:4},日志记录
+9,0X308E,FALSE,FALSE,激活协助模式的单机台车调整,,激活协助模式的单机台车调整,,,,激活协助模式的单机台车调整,激活协助模式的单机台车调整，交互软件按钮被按下,医生台车状态机,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}激活协助模式的单机台车调整，医生台车状态机：{0:4},日志记录
+9,0X309E,FALSE,FALSE,医生控制台单关节休眠,,医生控制台单关节休眠,,,,医生控制台单关节休眠,医生控制台单关节休眠，交互软件按钮被按下,医生台车状态机,关节号,前一个状态,当前状态,log,TRUE,TRUE,FALSE,,无,,{3:19}医生控制台{1:0}关节休眠，医生台车状态机：{0:4},日志记录
+1,0X57DE,FALSE,FALSE,器械控制,,器械控制,,,,器械夹持力增强-交互软件按钮,器械夹持力增强按钮，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:36}器械夹持力增强设置，强度{1:0}—>{2:0},日志记录
+1,0X57AE,FALSE,FALSE,5G主手滤波参数设置,,5G主手滤波参数设置,,,,5G主手滤波参数设置,5G主手滤波参数设置,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,5G主手滤波参数{0:0}—>{1:0}（-1时滤波不生效）,日志记录
+1,0X57BE,FALSE,FALSE,5G工具臂滤波参数设置,,5G工具臂滤波参数设置,,,,5G工具臂滤波参数设置,5G工具臂滤波参数设置,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,5G工具臂滤波参数{0:0}—>{1:0}（-1时滤波不生效）,日志记录
+8,0X57DE,FALSE,FALSE,器械控制,,器械控制,,,,器械夹持力增强设置,器械夹持力增强设置,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:36}器械夹持力增强设置，强度{1:0}—>{2:0},日志记录
+8,0X57AE,FALSE,FALSE,5G主手滤波参数设置,,5G主手滤波参数设置,,,,5G主手滤波参数设置,5G主手滤波参数设置,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,5G主手滤波参数{0:0}—>{1:0}（-1时滤波不生效）,日志记录
+8,0X57BE,FALSE,FALSE,5G工具臂滤波参数设置,,5G工具臂滤波参数设置,,,,5G工具臂滤波参数设置,5G工具臂滤波参数设置,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,5G工具臂滤波参数{0:0}—>{1:0}（-1时滤波不生效）,日志记录
+1,0X579E,FALSE,FALSE,设置控制精度,,设置控制精度,,,,设置控制精度,设置控制精度,前一个状态*100,当前状态*100,0,0,log,TRUE,TRUE,FALSE,,无,,设置控制精度，{0:34}—>{1:34},日志记录
+1,0X57CE,FALSE,FALSE,开启屏蔽,,开启屏蔽,,,,开启屏蔽-交互软件按钮,开启屏蔽，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}屏蔽功能,日志记录
+1,0X514E,FALSE,FALSE,自检/准备,,自检/准备,,,,自检/准备-交互软件按钮,自检/准备，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“自检/准备”按钮,日志记录
+1,0X515E,FALSE,FALSE,解除,,解除,,,,解除-交互软件按钮,解除，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“解除”按钮,日志记录
+1,0X516E,FALSE,FALSE,忽略,,忽略,,,,忽略-交互软件按钮,忽略，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“忽略”按钮,日志记录
+1,0X517E,FALSE,FALSE,进入人机调整,,进入人机调整,,,,进入人机调整-交互软件按钮,进入人机调整，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“人机调整”按钮,日志记录
+1,0X518E,FALSE,FALSE,恢复,,恢复,,,,恢复-交互软件按钮,恢复，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“恢复”按钮,日志记录
+1,0X519E,FALSE,FALSE,关机,,关机,,,,关机-交互软件按钮,关机，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:40},日志记录
+1,0X521E,FALSE,FALSE,快速自检,,快速自检,,,,快速自检-交互软件按钮,快速自检，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“快速自检”按钮,日志记录
+1,0X522E,FALSE,FALSE,主界面喇叭开关,,主界面喇叭开关,,,,主界面喇叭开关-交互软件按钮,主界面喇叭开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“主界面喇叭开关”按钮,日志记录
+1,0X523E,FALSE,FALSE,激光开关,,激光开关,,,,激光开关-交互软件按钮,激光开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“激光开关”按钮,日志记录
+1,0X524E,FALSE,FALSE,协助模式-确认手术,,协助模式-确认手术,,,,协助模式-确认手术按钮,协助模式-确认手术，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-确认手术,日志记录
+1,0X525E,FALSE,FALSE,协助模式-离合开关,,协助模式-离合开关,,,,协助模式-离合开关按钮,协助模式-离合开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-离合,日志记录
+1,0X526E,FALSE,FALSE,协助模式-内窥镜控制,,协助模式-内窥镜控制,,,,协助模式-内窥镜控制按钮,协助模式-内窥镜控制，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-内窥镜控制,日志记录
+1,0X527E,FALSE,FALSE,协助模式-臂切换,,协助模式-臂切换,,,,协助模式-臂切换按钮,协助模式-臂切换，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-臂切换,日志记录
+1,0X528E,FALSE,FALSE,协助模式-激光开关,,协助模式-激光开关,,,,协助模式-激光开关按钮,协助模式-激光开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-头灯开关,日志记录
+1,0X529E,FALSE,FALSE,协助模式-调整臂按钮,,协助模式-调整臂按钮,,,,协助模式-调整臂按钮,协助模式-调整臂按钮，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-{0:35}调整按钮,日志记录
+1,0X52AE,FALSE,FALSE,协助模式-工具臂按钮,,协助模式-工具臂按钮,,,,协助模式-工具臂按钮,协助模式-工具臂按钮，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-{0:36}调整按钮,日志记录
+1,0X52BE,FALSE,FALSE,协助模式-子悬吊按钮,,协助模式-子悬吊按钮,,,,协助模式-12号臂子悬吊按钮,协助模式-12号臂子悬吊按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-12号臂子悬吊调整按钮,日志记录
+1,0X52CE,FALSE,FALSE,协助模式-子悬吊按钮,,协助模式-子悬吊按钮,,,,协助模式-34号臂子悬吊按钮,协助模式-子悬吊按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-34号臂子悬吊调整按钮,日志记录
+1,0X52DE,FALSE,FALSE,UI账户登录/登出,,UI账户登录/登出,,,,UI账户登录/登出-交互软件按钮,UI账户登录/登出，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“账户登录/登出”按钮,日志记录
+1,0X52EE,FALSE,FALSE,协助模式-左电切,,协助模式-左电切,,,,协助模式-左电切按钮,协助模式-左电切，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-左电切,日志记录
+1,0X52FE,FALSE,FALSE,协助模式-左电凝,,协助模式-左电凝,,,,协助模式-左电凝按钮,协助模式-左电凝，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-左电凝,日志记录
+1,0X530E,FALSE,FALSE,协助模式-右电切,,协助模式-右电切,,,,协助模式-右电切按钮,协助模式-右电切，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-右电切,日志记录
+1,0X531E,FALSE,FALSE,协助模式-右电凝,,协助模式-右电凝,,,,协助模式-右电凝按钮,协助模式-右电凝，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-右电凝,日志记录
+1,0X532E,FALSE,FALSE,协助模式-左对射激光,,协助模式-左对射激光,,,,协助模式-左对射激光按钮,协助模式-左对射激光，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-左对射激光,日志记录
+1,0X57EE,FALSE,FALSE,协助模式-右对射激光,,协助模式-右对射激光,,,,协助模式-右对射激光按钮,协助模式-右对射激光，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-右对射激光,日志记录
+1,0X534E,FALSE,FALSE,内窥镜翻转,,内窥镜翻转,,,,内窥镜翻转-交互软件按钮,内窥镜翻转，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:39},日志记录
+1,0X535E,FALSE,FALSE,左/右手离合屏蔽,,左/右手离合屏蔽,,,,左/右手离合屏蔽-交互软件按钮,左/右手离合屏蔽，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}{0:37}手离合屏蔽,日志记录
+1,0X536E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手重力补偿在线调参的确认按钮,主手重力补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手重力补偿在线调参的“确认”按钮,日志记录
+1,0X537E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手关节阻尼补偿在线调参的确认按钮,主手关节阻尼补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手关节阻尼补偿在线调参的“确认”按钮,日志记录
+1,0X538E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手笛卡尔阻尼补偿在线调参的确认按钮,主手笛卡尔阻尼补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手笛卡尔阻尼补偿在线调参的“确认”按钮,日志记录
+1,0X539E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手摩擦补偿在线调参的确认按钮,主手摩擦补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手摩擦补偿在线调参的“确认”按钮,日志记录
+1,0X53AE,FALSE,FALSE,协助模式-内窥镜类型选择,,协助模式-内窥镜类型选择,,,,协助模式-内窥镜类型选择按钮,协助模式-内窥镜类型选择，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,协助模式-内窥镜类型选择{1:30},日志记录
+1,0X53BE,FALSE,FALSE,无限转接座开关,,无限转接座开关,,,,无限转接座开关-交互软件按钮,无限转接座开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}无限转接座开关,日志记录
+1,0X53CE,FALSE,FALSE,开始手术,,开始手术,,,,开始手术-交互软件按钮,开始手术，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“开始手术”按钮,日志记录
+1,0X53DE,FALSE,FALSE,数据采集,,数据采集,,,,数据采集-交互软件按钮,数据采集，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}数据采集,日志记录
+1,0X53EE,FALSE,FALSE,选择长短内窥镜,,选择长短内窥镜,,,,选择长短内窥镜-交互软件按钮,选择长短内窥镜，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}选择长短内窥镜,日志记录
+1,0X53FE,FALSE,FALSE,5G模式切换,,5G模式切换,,,,5G模式切换-交互软件按钮,5G模式切换-交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“5G模式切换”按钮,日志记录
+1,0X540E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-本地端让出按钮,5G控制权切换-本地端让出按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-本地端“让出”按钮,日志记录
+1,0X541E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-本地端获取按钮,5G控制权切换-本地端获取按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-本地端“获取”按钮,日志记录
+1,0X542E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-远程端让出按钮,5G控制权切换-远程端让出按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-远程端“让出”按钮,日志记录
+1,0X543E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-远程端获取按钮,5G控制权切换-远程端获取按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-远程端“获取”按钮,日志记录
+1,0X544E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-本地端确认按钮,5G控制权切换-本地端确认按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-本地端“确认”按钮,日志记录
+1,0X545E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-远程端确认按钮,5G控制权切换-远程端确认按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-远程端“确认”按钮,日志记录
+1,0X546E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-取消按钮,5G控制权切换-取消按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换“取消”按钮,日志记录
+1,0X547E,FALSE,FALSE,5G网络延时阈值设置,,5G网络延时阈值设置,,,,设置5G网络延时阈值,设置5G网络延时阈值,前一个阈值,当前阈值,0,0,log,TRUE,TRUE,FALSE,,无,,5G网络延时阈值设置{1:0}ms,日志记录
+1,0X548E,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G连接-目标IP设置,5G连接-目标IP设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G连接-目标IP设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+1,0X549E,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-本地IP设置,5G安全连接-本地IP设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G安全连接-本地IP设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+1,0X54AE,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-本地验证码设置,5G安全连接-本地验证码设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G安全连接-本地验证码设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+1,0X54BE,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-目标IP设置,5G安全连接-目标IP设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G安全连接-目标IP设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+1,0X54CE,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-连接断开按钮,5G安全连接-连接断开按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G安全连接“连接断开”按钮,日志记录
+1,0X54DE,FALSE,FALSE,专家模式,,专家模式,,,,专家模式-交互软件按钮,专家模式，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}专家模式,日志记录
+1,0X54EE,FALSE,FALSE,修改霍尔阈值,,修改霍尔阈值,,,,修改霍尔阈值,修改霍尔阈值,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}修改霍尔阈值“确认”按钮,日志记录
+1,0X54FE,FALSE,FALSE,器械寿命,,器械寿命,,,,器械寿命解锁,器械寿命解锁，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}器械寿命解锁,日志记录
+1,0X560E,FALSE,FALSE,臂休眠,,臂休眠,,,,调整臂臂休眠按钮,调整臂臂休眠，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:28}{0:35},日志记录
+1,0X561E,FALSE,FALSE,臂休眠,,臂休眠,,,,工具臂臂休眠按钮,臂休眠，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:28}{0:36},日志记录
+1,0X562E,FALSE,FALSE,臂休眠,,臂休眠,,,,调整臂臂休眠按钮可用状态,调整臂臂休眠按钮可用状态,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:35}臂休眠按钮{2:29},日志记录
+1,0X563E,FALSE,FALSE,臂休眠,,臂休眠,,,,工具臂臂休眠按钮可用状态,工具臂臂休眠按钮可用状态,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:36}臂休眠按钮{2:29},日志记录
+1,0X564E,FALSE,FALSE,戳卡感知开关,,戳卡感知开关,,,,戳卡感知开关-交互软件按钮,戳卡感知开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}戳卡感知开关,日志记录
+1,0X565E,FALSE,FALSE,手离合清错开关,,手离合清错开关,,,,手离合清错开关-交互软件按钮,手离合清错开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}手离合清错开关,日志记录
+1,0X567E,FALSE,FALSE,语言类型,,语言类型,,,,语言类型-交互软件按钮,语言类型，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,语言类型-交互软件按钮，切换为{1:42},日志记录
+1,0X568E,FALSE,FALSE,音量大小,,音量大小,,,,音量大小-交互软件按钮,音量大小，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,音量大小-交互软件按钮，{0:2}—>{1:2},日志记录
+1,0X569E,FALSE,FALSE,展会模式,,展会模式,,,,展会模式-交互软件按钮,展会模式，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,切换为{1:41},日志记录
+1,0X56AE,FALSE,FALSE,执行人机位置恢复,,执行人机位置恢复,,,,执行人机位置恢复-交互软件按钮,执行人机位置恢复，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,执行人机位置恢复-交互软件按钮，前一个状态{0:2}，当前状态{1:2},日志记录
+1,0X56CE,FALSE,FALSE,5G触发关机流程,,5G触发关机流程,,,,5G触发关机流程-交互软件按钮,5G触发关机流程，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,5G触发关机流程-交互软件按钮，前一个状态{0:2}，当前状态{1:2},日志记录
+1,0X56DE,FALSE,FALSE,工具臂在线调参,,工具臂在线调参,,,,工具臂重力补偿在线调参的确认按钮,工具臂重力补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}工具臂重力补偿在线调参的“确认”按钮,日志记录
+1,0X56EE,FALSE,FALSE,工具臂在线调参,,工具臂在线调参,,,,工具臂摩擦补偿在线调参的确认按钮,工具臂摩擦补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}工具臂摩擦补偿在线调参的“确认”按钮,日志记录
+1,0X56FE,FALSE,FALSE,工具臂在线调参,,工具臂在线调参,,,,工具臂惯性补偿在线调参的确认按钮,工具臂惯性补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}工具臂惯性补偿在线调参的“确认”按钮,日志记录
+1,0X573E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂摩擦补偿在线调参的确认按钮,调整臂摩擦补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂摩擦补偿在线调参的“确认”按钮,日志记录
+1,0X574E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂启动力补偿在线调参的确认按钮,调整臂启动力补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂启动力补偿在线调参的“确认”按钮,日志记录
+1,0X575E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂弹簧补偿在线调参的确认按钮,调整臂弹簧补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂弹簧补偿在线调参的“确认”按钮,日志记录
+1,0X576E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂阻尼补偿在线调参的确认按钮,调整臂阻尼补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂阻尼补偿在线调参的“确认”按钮,日志记录
+1,0X577E,FALSE,FALSE,一键展开收起,,一键展开收起,,,,一键展开收状态,一键展开收状态,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,一键展开收状态，前一个状态{0:2}，当前状态{1:2},日志记录
+1,0X578E,FALSE,FALSE,头灯,,头灯,,,,头灯状态变化,头灯状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,头灯{1:2}触发,日志记录
+8,0X579E,FALSE,FALSE,设置控制精度,,设置控制精度,,,,设置控制精度,设置控制精度,前一个状态*100,当前状态*100,0,0,log,TRUE,TRUE,FALSE,,无,,设置控制精度，{0:34}—>{1:34},日志记录
+8,0X57CE,FALSE,FALSE,开启屏蔽,,开启屏蔽,,,,开启屏蔽-交互软件按钮,开启屏蔽，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}屏蔽功能,日志记录
+8,0X514E,FALSE,FALSE,自检/准备,,自检/准备,,,,自检/准备-交互软件按钮,自检/准备，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“自检/准备”按钮,日志记录
+8,0X515E,FALSE,FALSE,解除,,解除,,,,解除-交互软件按钮,解除，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“解除”按钮,日志记录
+8,0X516E,FALSE,FALSE,忽略,,忽略,,,,忽略-交互软件按钮,忽略，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“忽略”按钮,日志记录
+8,0X517E,FALSE,FALSE,进入人机调整,,进入人机调整,,,,进入人机调整-交互软件按钮,进入人机调整，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“人机调整”按钮,日志记录
+8,0X518E,FALSE,FALSE,恢复,,恢复,,,,恢复-交互软件按钮,恢复，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“恢复”按钮,日志记录
+8,0X519E,FALSE,FALSE,关机,,关机,,,,关机-交互软件按钮,关机，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:40},日志记录
+8,0X521E,FALSE,FALSE,快速自检,,快速自检,,,,快速自检-交互软件按钮,快速自检，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“快速自检”按钮,日志记录
+8,0X522E,FALSE,FALSE,主界面喇叭开关,,主界面喇叭开关,,,,主界面喇叭开关-交互软件按钮,主界面喇叭开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“主界面喇叭开关”按钮,日志记录
+8,0X523E,FALSE,FALSE,激光开关,,激光开关,,,,激光开关-交互软件按钮,激光开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“激光开关”按钮,日志记录
+8,0X524E,FALSE,FALSE,协助模式-确认手术,,协助模式-确认手术,,,,协助模式-确认手术按钮,协助模式-确认手术，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-确认手术,日志记录
+8,0X525E,FALSE,FALSE,协助模式-离合开关,,协助模式-离合开关,,,,协助模式-离合开关按钮,协助模式-离合开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-离合,日志记录
+8,0X526E,FALSE,FALSE,协助模式-内窥镜控制,,协助模式-内窥镜控制,,,,协助模式-内窥镜控制按钮,协助模式-内窥镜控制，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-内窥镜控制,日志记录
+8,0X527E,FALSE,FALSE,协助模式-臂切换,,协助模式-臂切换,,,,协助模式-臂切换按钮,协助模式-臂切换，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-臂切换,日志记录
+8,0X528E,FALSE,FALSE,协助模式-激光开关,,协助模式-激光开关,,,,协助模式-激光开关按钮,协助模式-激光开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-头灯开关,日志记录
+8,0X529E,FALSE,FALSE,协助模式-调整臂按钮,,协助模式-调整臂按钮,,,,协助模式-调整臂按钮,协助模式-调整臂按钮，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-{0:35}调整按钮,日志记录
+8,0X52AE,FALSE,FALSE,协助模式-工具臂按钮,,协助模式-工具臂按钮,,,,协助模式-工具臂按钮,协助模式-工具臂按钮，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-{0:36}调整按钮,日志记录
+8,0X52BE,FALSE,FALSE,协助模式-子悬吊按钮,,协助模式-子悬吊按钮,,,,协助模式-12号臂子悬吊按钮,协助模式-12号臂子悬吊按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-12号臂子悬吊调整按钮,日志记录
+8,0X52CE,FALSE,FALSE,协助模式-子悬吊按钮,,协助模式-子悬吊按钮,,,,协助模式-34号臂子悬吊按钮,协助模式-子悬吊按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-34号臂子悬吊调整按钮,日志记录
+8,0X52DE,FALSE,FALSE,UI账户登录/登出,,UI账户登录/登出,,,,UI账户登录/登出-交互软件按钮,UI账户登录/登出，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“账户登录/登出”按钮,日志记录
+8,0X52EE,FALSE,FALSE,协助模式-左电切,,协助模式-左电切,,,,协助模式-左电切按钮,协助模式-左电切，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-左电切,日志记录
+8,0X52FE,FALSE,FALSE,协助模式-左电凝,,协助模式-左电凝,,,,协助模式-左电凝按钮,协助模式-左电凝，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-左电凝,日志记录
+8,0X530E,FALSE,FALSE,协助模式-右电切,,协助模式-右电切,,,,协助模式-右电切按钮,协助模式-右电切，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-右电切,日志记录
+8,0X531E,FALSE,FALSE,协助模式-右电凝,,协助模式-右电凝,,,,协助模式-右电凝按钮,协助模式-右电凝，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-右电凝,日志记录
+8,0X532E,FALSE,FALSE,协助模式-左对射激光,,协助模式-左对射激光,,,,协助模式-左对射激光按钮,协助模式-左对射激光，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-左对射激光,日志记录
+8,0X57EE,FALSE,FALSE,协助模式-右对射激光,,协助模式-右对射激光,,,,协助模式-右对射激光按钮,协助模式-右对射激光，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19} 协助模式-右对射激光,日志记录
+8,0X534E,FALSE,FALSE,内窥镜翻转,,内窥镜翻转,,,,内窥镜翻转-交互软件按钮,内窥镜翻转，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:39},日志记录
+8,0X535E,FALSE,FALSE,左/右手离合屏蔽,,左/右手离合屏蔽,,,,左/右手离合屏蔽-交互软件按钮,左/右手离合屏蔽，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:19}{0:37}手离合屏蔽,日志记录
+8,0X536E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手重力补偿在线调参的确认按钮,主手重力补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手重力补偿在线调参的“确认”按钮,日志记录
+8,0X537E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手关节阻尼补偿在线调参的确认按钮,主手关节阻尼补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手关节阻尼补偿在线调参的“确认”按钮,日志记录
+8,0X538E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手笛卡尔阻尼补偿在线调参的确认按钮,主手笛卡尔阻尼补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手笛卡尔阻尼补偿在线调参的“确认”按钮,日志记录
+8,0X539E,FALSE,FALSE,主手在线调参的确认按钮,,主手在线调参的确认按钮,,,,主手摩擦补偿在线调参的确认按钮,主手摩擦补偿在线调参的确认按钮，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}主手摩擦补偿在线调参的“确认”按钮,日志记录
+8,0X53AE,FALSE,FALSE,协助模式-内窥镜类型选择,,协助模式-内窥镜类型选择,,,,协助模式-内窥镜类型选择按钮,协助模式-内窥镜类型选择，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,协助模式-内窥镜类型选择{1:30},日志记录
+8,0X53BE,FALSE,FALSE,无限转接座开关,,无限转接座开关,,,,无限转接座开关-交互软件按钮,无限转接座开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}无限转接座开关,日志记录
+8,0X53CE,FALSE,FALSE,开始手术,,开始手术,,,,开始手术-交互软件按钮,开始手术，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“开始手术”按钮,日志记录
+8,0X53DE,FALSE,FALSE,数据采集,,数据采集,,,,数据采集-交互软件按钮,数据采集，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}数据采集,日志记录
+8,0X53EE,FALSE,FALSE,选择长短内窥镜,,选择长短内窥镜,,,,选择长短内窥镜-交互软件按钮,选择长短内窥镜，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}选择长短内窥镜,日志记录
+8,0X53FE,FALSE,FALSE,5G模式切换,,5G模式切换,,,,5G模式切换-交互软件按钮,5G模式切换-交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}“5G模式切换”按钮,日志记录
+8,0X540E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-本地端让出按钮,5G控制权切换-本地端让出按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-本地端“让出”按钮,日志记录
+8,0X541E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-本地端获取按钮,5G控制权切换-本地端获取按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-本地端“获取”按钮,日志记录
+8,0X542E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-远程端让出按钮,5G控制权切换-远程端让出按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-远程端“让出”按钮,日志记录
+8,0X543E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-远程端获取按钮,5G控制权切换-远程端获取按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-远程端“获取”按钮,日志记录
+8,0X544E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-本地端确认按钮,5G控制权切换-本地端确认按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-本地端“确认”按钮,日志记录
+8,0X545E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-远程端确认按钮,5G控制权切换-远程端确认按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换-远程端“确认”按钮,日志记录
+8,0X546E,FALSE,FALSE,5G控制权切换,,5G控制权切换,,,,5G控制权切换-取消按钮,5G控制权切换-取消按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G控制权切换“取消”按钮,日志记录
+8,0X547E,FALSE,FALSE,5G网络延时阈值设置,,5G网络延时阈值设置,,,,设置5G网络延时阈值,设置5G网络延时阈值,前一个阈值,当前阈值,0,0,log,TRUE,TRUE,FALSE,,无,,5G网络延时阈值设置{1:0}ms,日志记录
+8,0X548E,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G连接-目标IP设置,5G连接-目标IP设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G连接-目标IP设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+8,0X549E,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-本地IP设置,5G安全连接-本地IP设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G安全连接-本地IP设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+8,0X54AE,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-本地验证码设置,5G安全连接-本地验证码设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G安全连接-本地验证码设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+8,0X54BE,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-目标IP设置,5G安全连接-目标IP设置,前一个状态高16位,前一个状态低16位,当前状态高16位,当前状态低16位,log,TRUE,TRUE,FALSE,,无,,5G安全连接-目标IP设置，前一个状态高16位{0:0}，前一个状态低16位{1:0}，当前状态高16位{2:0}，当前状态低16位{3:0},日志记录
+8,0X54CE,FALSE,FALSE,5G安全连接,,5G安全连接,,,,5G安全连接-连接断开按钮,5G安全连接-连接断开按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}5G安全连接“连接断开”按钮,日志记录
+8,0X54DE,FALSE,FALSE,专家模式,,专家模式,,,,专家模式-交互软件按钮,专家模式，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}专家模式,日志记录
+8,0X54EE,FALSE,FALSE,修改霍尔阈值,,修改霍尔阈值,,,,修改霍尔阈值,修改霍尔阈值,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}修改霍尔阈值“确认”按钮,日志记录
+8,0X54FE,FALSE,FALSE,器械寿命,,器械寿命,,,,器械寿命解锁,器械寿命解锁，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}器械寿命解锁,日志记录
+8,0X560E,FALSE,FALSE,臂休眠,,臂休眠,,,,调整臂臂休眠按钮,调整臂臂休眠，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:28}{0:35},日志记录
+8,0X561E,FALSE,FALSE,臂休眠,,臂休眠,,,,工具臂臂休眠按钮,臂休眠，交互软件按钮被按下,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{2:28}{0:36},日志记录
+8,0X562E,FALSE,FALSE,臂休眠,,臂休眠,,,,调整臂臂休眠按钮可用状态,调整臂臂休眠按钮可用状态,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:35}臂休眠按钮{2:29},日志记录
+8,0X563E,FALSE,FALSE,臂休眠,,臂休眠,,,,工具臂臂休眠按钮可用状态,工具臂臂休眠按钮可用状态,臂号,前一个状态,当前状态,0,log,TRUE,TRUE,FALSE,,无,,{0:36}臂休眠按钮{2:29},日志记录
+8,0X564E,FALSE,FALSE,戳卡感知开关,,戳卡感知开关,,,,戳卡感知开关-交互软件按钮,戳卡感知开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}戳卡感知开关,日志记录
+8,0X565E,FALSE,FALSE,手离合清错开关,,手离合清错开关,,,,手离合清错开关-交互软件按钮,手离合清错开关，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:19}手离合清错开关,日志记录
+8,0X567E,FALSE,FALSE,语言类型,,语言类型,,,,语言类型-交互软件按钮,语言类型，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,语言类型-交互软件按钮，切换为{1:42},日志记录
+8,0X568E,FALSE,FALSE,音量大小,,音量大小,,,,音量大小-交互软件按钮,音量大小，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,音量大小-交互软件按钮，{0:2}—>{1:2},日志记录
+8,0X569E,FALSE,FALSE,展会模式,,展会模式,,,,展会模式-交互软件按钮,展会模式，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,切换为{1:41},日志记录
+8,0X56AE,FALSE,FALSE,执行人机位置恢复,,执行人机位置恢复,,,,执行人机位置恢复-交互软件按钮,执行人机位置恢复，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,执行人机位置恢复-交互软件按钮，前一个状态{0:2}，当前状态{1:2},日志记录
+8,0X56CE,FALSE,FALSE,5G触发关机流程,,5G触发关机流程,,,,5G触发关机流程-交互软件按钮,5G触发关机流程，交互软件按钮被按下,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,5G触发关机流程-交互软件按钮，前一个状态{0:2}，当前状态{1:2},日志记录
+8,0X56DE,FALSE,FALSE,工具臂在线调参,,工具臂在线调参,,,,工具臂重力补偿在线调参的确认按钮,工具臂重力补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}工具臂重力补偿在线调参的“确认”按钮,日志记录
+8,0X56EE,FALSE,FALSE,工具臂在线调参,,工具臂在线调参,,,,工具臂摩擦补偿在线调参的确认按钮,工具臂摩擦补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}工具臂摩擦补偿在线调参的“确认”按钮,日志记录
+8,0X56FE,FALSE,FALSE,工具臂在线调参,,工具臂在线调参,,,,工具臂惯性补偿在线调参的确认按钮,工具臂惯性补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}工具臂惯性补偿在线调参的“确认”按钮,日志记录
+8,0X573E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂摩擦补偿在线调参的确认按钮,调整臂摩擦补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂摩擦补偿在线调参的“确认”按钮,日志记录
+8,0X574E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂启动力补偿在线调参的确认按钮,调整臂启动力补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂启动力补偿在线调参的“确认”按钮,日志记录
+8,0X575E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂弹簧补偿在线调参的确认按钮,调整臂弹簧补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂弹簧补偿在线调参的“确认”按钮,日志记录
+8,0X576E,FALSE,FALSE,调整臂在线调参,,调整臂在线调参,,,,调整臂阻尼补偿在线调参的确认按钮,调整臂阻尼补偿在线调参的确认按钮,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,{1:26}调整臂阻尼补偿在线调参的“确认”按钮,日志记录
+8,0X577E,FALSE,FALSE,一键展开收起,,一键展开收起,,,,一键展开收状态,一键展开收状态,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,一键展开收状态，前一个状态{0:2}，当前状态{1:2},日志记录
+8,0X578E,FALSE,FALSE,头灯,,头灯,,,,头灯状态变化,头灯状态变化,前一个状态,当前状态,0,0,log,TRUE,TRUE,FALSE,,无,,头灯{1:2}触发,日志记录
+1,0X580C,TRUE,FALSE,器械计次异常,Fail to Calculate Instrument Life,器械计次异常,Fail to Calculate Instrument Life,,,器械寿命减次数失败,器械寿命减次数失败,器械寿命扣除结果,器械当前寿命,读取的器械寿命,0,ignorable,TRUE,TRUE,FALSE,,低级,,{0:38}，器械当前剩余{1:0}次，从驱动器读取到器械剩余{2:0}次,安全保护
+1,0X580E,TRUE,FALSE,器械寿命减一指令下发,,器械寿命减一指令下发,,,,器械寿命减一指令下发日志记录,器械寿命减一指令下发日志记录,器械寿命减一指令,器械当前寿命,读取的器械寿命,0,log,TRUE,TRUE,FALSE,,无,,器械{0:44}指令，器械当前寿命{1:0}，读取的器械寿命{2:0},日志记录
+1,0X512E,FALSE,FALSE,记录内窥镜翻转指令,,记录内窥镜翻转指令,,,,记录内窥镜翻转指令,记录内窥镜翻转指令,内窥镜臂臂号,内窥镜臂4关节实际位置,0,0,log,TRUE,TRUE,FALSE,,无,,记录内窥镜翻转指令，{0:12}为内窥镜臂，内窥镜臂4关节实际位置{1:0},日志记录
+1,0X513E,FALSE,FALSE,记录内窥镜翻转完成,,记录内窥镜翻转完成,,,,记录内窥镜翻转完成,记录内窥镜翻转完成,内窥镜臂臂号,内窥镜臂4关节实际位置,0,0,log,TRUE,TRUE,FALSE,,无,,记录内窥镜翻转完成，{0:12}为内窥镜臂，内窥镜臂4关节实际位置{1:0},日志记录
+1,0X590E,FALSE,FALSE,工具臂关节位置记录,,工具臂调整按键变化,,工具臂调整按键变化,,工具臂关节位置记录,工具臂关节位置记录,实际位置,指令位置,实际力矩,指令力矩,log,TRUE,TRUE,TRUE,,无,,工具臂关节位置记录，实际位置{0:0}，指令位置{1:0}，实际力矩{2:0}，指令力矩{3:0},日志记录
+1,0X591E,FALSE,FALSE,调整臂关节位置记录,,调整臂调整按键变化,,调整臂调整按键变化,,调整臂关节位置记录,调整臂关节位置记录,实际位置,指令位置,实际力矩,指令力矩,log,TRUE,TRUE,TRUE,,无,,调整臂关节位置记录，实际位置{0:0}，指令位置{1:0}，实际力矩{2:0}，指令力矩{3:0},日志记录
+1,0X594E,FALSE,FALSE,子悬吊关节位置记录,,子悬吊调整按键变化,,子悬吊调整按键变化,,子悬吊关节位置记录,子悬吊关节位置记录,实际位置,指令位置,实际力矩,指令力矩,log,TRUE,TRUE,TRUE,,无,,子悬吊关节位置记录，实际位置{0:0}，指令位置{1:0}，实际力矩{2:0}，指令力矩{3:0},日志记录
+1,0X040D,TRUE,FALSE,运动偏差,Exceed the motion deviation limit,运动偏差,Exceed the motion deviation limit,请注意,attention,期望速度偏差超限,监测每个关节期望速度值和实际速度值，偏差超过阈值持续2ms则报警,指令速度,实际速度,指令位置,指令力矩,tip,TRUE,TRUE,FALSE,,无,,期望速度偏差超限报警时，指令速度{0:0}，实际速度{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+8,0X040D,TRUE,FALSE,运动偏差,Exceed the motion deviation limit,运动偏差,Exceed the motion deviation limit,请注意,attention,期望速度偏差超限,监测每个关节期望速度值和实际速度值，偏差超过阈值持续2ms则报警,指令速度,实际速度,指令位置,指令力矩,tip,TRUE,TRUE,FALSE,,无,,期望速度偏差超限报警时，指令速度{0:0}，实际速度{1:0}，指令位置{2:0}，指令力矩{3:0},安全保护
+1,0X665A,FALSE,FALSE,数据异常,Data exception,数据异常,Data exception,请点击“解除”恢复,Click REMOVE to restore,远程控制下，本地端接收的远程端主控制臂数据异常,远程控制下，本地端接收的远程端主控制臂数据异常,臂号,关节号,异常位置值,异常速度值,recoverable,TRUE,TRUE,FALSE,,高级,,远程控制下，本地端接收远程端{0:27}{1:18}的异常数据时报警，异常位置值为{2:0}，异常速度值为{3:0},安全保护
+8,0X455A,FALSE,FALSE,数据异常,Data exception,数据异常,Data exception,请点击“解除”恢复,Click REMOVE to restore,远程控制下，远程端接收的本地端工具臂臂号数据异常,远程控制下，远程端接收的本地端工具臂臂号数据异常,EAP中内窥镜臂号,EAP中保持臂臂号,EAP中左手控制臂臂号,EAP中右手控制臂臂号,recoverable,TRUE,TRUE,FALSE,,高级,,远程控制下，远程端接收的本地端{0:11}{1:18}的异常数据时报警，异常位置值为{2:0}，异常速度值为{3:0},安全保护
+8,0X70CE,FALSE,FALSE,CPU日志,,CPU日志,,CPU日志,,CPU日志记录,CPU日志,状态机,core2cpu,core3cpu,0,log,TRUE,TRUE,FALSE,,无,,CPU日志记录，状态机{0:1}，Core2 CPU使用率：{1:0}%，Core3 CPU使用率：{2:0}%,日志记录
+1,0X581E,FALSE,FALSE,超声刀UDI记录码,,超声刀UDI记录码,,超声刀UDI记录码,,超声刀UDI记录,超声刀UDI记录,器械UDI年月,器械UDI日期,器械UDI批次,器械UDI序号,log,TRUE,TRUE,FALSE,,无,,超声刀UDI记录，器械UDI年月{0:0}，器械UDI日期{1:0}，器械UDI批次{2:0}，器械UDI序号{3:0},日志记录
+8,0X2BDD,FALSE,FALSE,左手和右手都旋转到边界,Right and left instrument reaches the rotation boundary,左手和右手都旋转到边界,Right and left instrument reaches the rotation boundary,,,判断器械是否在自转边界,判断左右手器械是否都在自转边界,左手自转到边界标志位,左手姿态到边界标志位,右手自转到边界标志位,右手姿态到边界标志位,tip,TRUE,TRUE,FALSE,,无,,判断器械是否在自转边界，左手自转{0:2}到边界，左手姿态{1:2}到边界，右手自转{2:2}到边界，右手姿态{3:2}到边界,操作提示
+6,0XB07D,FALSE,FALSE,通信未建立,Network not connect,通信未建立,Network not connect,请检查图像台车通讯线缆,Please check communication cable,通信未建立,通信未建立时进行报警,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,通信未建立,操作提示
+1,0x580D,FALSE,FALSE,等待自检完成,Wait for the self-test to end,等待自检完成,Wait for the self-test to end,,,用户在自检状态机下操作了一键展开或一键收起或无菌部署或无菌存放,在自检状态机(02)中检查来自UI的按钮信号,一键展开按钮状态（0是松开，1是按下）,一键收起按钮状态（0是松开，1是按下）,无菌部署按钮状态（0是松开，1是按下）,无菌存放按钮状态（0是松开，1是按下）,tip,TRUE,TRUE,FALSE,无,无,,用户在自检状态机下操作了一键展开或一键收起或无菌部署或无菌存放，{0:2}按下一键展开按钮状态，{0:2}按下一键收起按钮状态，{0:2}按下无菌部署按钮状态，{0:2}按下无菌存放按钮状态,操作提示
+1,0x581D,FALSE,FALSE,请先退出调整模式,Exit adjustment first,请先退出调整模式,Exit adjustment first,,,用户在臂调整状态机下操作了一键展开或一键收起或无菌部署或无菌存放,在调整状态机(12)中检查来自UI的按钮信号,一键展开按钮状态（0是松开，1是按下）,一键收起按钮状态（0是松开，1是按下）,无菌部署按钮状态（0是松开，1是按下）,无菌存放按钮状态（0是松开，1是按下）,tip,TRUE,TRUE,FALSE,无,无,,用户在臂调整状态机下操作了一键展开或一键收起或无菌部署或无菌存放，{0:2}按下一键展开按钮状态，{0:2}按下一键收起按钮状态，{0:2}按下无菌部署按钮状态，{0:2}按下无菌存放按钮状态,操作提示
+1,0x582D,FALSE,FALSE,请先在患者台车上取消确认手术,Exit surgical confirmed state first,请先在患者台车上取消确认手术,Exit surgical confirmed state first,,,用户已经点击了“确认手术”后继续操作一键展开或一键收起或无菌部署或无菌存放,在主从准备状态机(13)中检查来自UI的按钮信号,一键展开按钮状态（0是松开，1是按下）,一键收起按钮状态（0是松开，1是按下）,无菌部署按钮状态（0是松开，1是按下）,无菌存放按钮状态（0是松开，1是按下）,tip,TRUE,TRUE,FALSE,无,无,,用户已经点击了“确认手术”后继续操作一键展开或一键收起或无菌部署或无菌存放，{0:2}按下一键展开按钮状态，{0:2}按下一键收起按钮状态，{0:2}按下无菌部署按钮状态，{0:2}按下无菌存放按钮状态,操作提示
+1,0x583D,FALSE,FALSE,请先退出离合模式,Exit clutch control first,请先退出离合模式,Exit clutch control first,,,用户在使用离合功能的时候操作一键展开或一键收起或无菌部署或无菌存放,在离合状态机(14)中检查来自UI的按钮信号,一键展开按钮状态（0是松开，1是按下）,一键收起按钮状态（0是松开，1是按下）,无菌部署按钮状态（0是松开，1是按下）,无菌存放按钮状态（0是松开，1是按下）,tip,TRUE,TRUE,FALSE,无,无,,用户在使用离合功能的时候操作一键展开或一键收起或无菌部署或无菌存放，{0:2}按下一键展开按钮状态，{0:2}按下一键收起按钮状态，{0:2}按下无菌部署按钮状态，{0:2}按下无菌存放按钮状态,操作提示
+1,0x584D,FALSE,FALSE,请先退出主从控制模式,Exit master-slave control first,请先退出主从控制模式,Exit master-slave control first,,,用户在主从控制下操作一键展开或一键收起或无菌部署或无菌存放,在主从状态机(20)中检查来自UI的按钮信号,一键展开按钮状态（0是松开，1是按下）,一键收起按钮状态（0是松开，1是按下）,无菌部署按钮状态（0是松开，1是按下）,无菌存放按钮状态（0是松开，1是按下）,tip,TRUE,TRUE,FALSE,无,无,,用户在主从控制下操作一键展开或一键收起或无菌部署或无菌存放，{0:2}按下一键展开按钮状态，{0:2}按下一键收起按钮状态，{0:2}按下无菌部署按钮状态，{0:2}按下无菌存放按钮状态,操作提示
+1,0x585D,FALSE,FALSE,请先退出内窥镜控制模式,Exit endoscope control first,请先退出内窥镜控制模式,Exit endoscope control first,,,用户在内窥镜控制下操作一键展开或一键收起或无菌部署或无菌存放,在内窥镜状态机(21)中检查来自UI的按钮信号,一键展开按钮状态（0是松开，1是按下）,一键收起按钮状态（0是松开，1是按下）,无菌部署按钮状态（0是松开，1是按下）,无菌存放按钮状态（0是松开，1是按下）,tip,TRUE,TRUE,FALSE,无,无,,用户在内窥镜控制下操作一键展开或一键收起或无菌部署或无菌存放，{0:2}按下一键展开按钮状态，{0:2}按下一键收起按钮状态，{0:2}按下无菌部署按钮状态，{0:2}按下无菌存放按钮状态,操作提示
+6,0XB54D,FALSE,FALSE,串口异常,Serial port abnormal,串口异常,Serial port abnormal,请联系工程师,Please contact customer service,开机后，串口建立通信失败,开机后，串口建立通信失败,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,串口建立通信失败,操作提示
+6,0XB55D,FALSE,FALSE,图像参数下发失败,Failed to set image parameter ,图像参数下发失败,Failed to set image parameter ,请重试,Please retry,任意参数下发次数超过5次,任意参数下发次数超过5次,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,任意参数下发次数超过5次,操作提示
+6,0XB56D,FALSE,FALSE,器械距离视野中心过远,The instrument is too far from the center of the field of view,器械距离视野中心过远,The instrument is too far from the center of the field of view,,,器械出视野超出距离过远时（超出屏幕200像素）,器械出视野超出距离过远时（超出屏幕200像素）,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,器械出视野超出距离过远时（超出屏幕200像素）,操作提示
+1,0x586D,FALSE,FALSE,请调整{0}号和{1}号臂间距离,Please adjust the distance between arm {0} and arm {1},请调整{0}号和{1}号臂间距离,Please adjust the distance between arm {0} and arm {1},,,点击自检时，各臂间距过小会造成自检时臂碰撞时会提示,相邻工具臂伸缩杆末端的位置沿X向的间距小于阈值,臂号,相邻臂号,0,0,tip,TRUE,TRUE,FALSE,,无,,请调整{0:36}和{1:36}间距离,操作提示
+1,0x55CE,TRUE,TRUE,记录工具臂进入柔顺状态和退出柔顺状态,,记录工具臂进入柔顺状态和退出柔顺状态,,,,记录工具臂进入柔顺状态和退出柔顺状态,记录工具臂进入柔顺状态和退出柔顺状态,柔顺状态,关节1实际位置,关节2实际位置,关节3实际位置,log,TRUE,TRUE,FALSE,,无,,{0:45}，此时关节1实际位置{1:0}，关节2实际位置{2:0}，关节3实际位置{3:0},日志记录
+6,0XB57D,FALSE,FALSE,图像参数配置异常,Failed to configure image parameter,图像参数配置异常,Failed to configure image parameter,请联系工程师,Please contact customer service,插拔内窥镜，Ocam软核版本与当前内窥镜类型不符,插拔内窥镜，Ocam软核版本与当前内窥镜类型不符,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,插拔内窥镜，Ocam软核版本与当前内窥镜类型不符,操作提示
+6,0XB58A,FALSE,FALSE,图像主机启动异常,Endoscope controller startup abnormal,图像主机启动异常,Endoscope controller startup abnormal,请重启图像主机,Please restart endoscope controller,内部FPGA时钟配置错误，导致图像主机无法出图,内部FPGA时钟配置错误，导致图像主机无法出图,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,内部FPGA时钟配置错误，导致图像主机无法出图,软件
+6,0XB59A,FALSE,FALSE,图像主机接口配置异常,Failed to configure endoscope controller interface,图像主机接口配置异常,Failed to configure endoscope controller interface,请重启图像主机,Please restart endoscope controller,HDMI配置异常，导致立体监视（HDMI）出图异常,HDMI配置异常，导致立体监视（HDMI）出图异常,0,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,HDMI配置异常，导致立体监视（HDMI）出图异常,硬件
+1,0X456A,FALSE,FALSE,数据异常,Data exception,参数传输失败,Failed to transfer parameters,请检查,Please check,本地远程建立连接时，静态参数传输异常,本地远程建立连接时，静态参数传输异常,系统类型，本地=1，远程=2,当前RTT延时[ms],0,0,recoverable,TRUE,TRUE,FALSE,,高级,,本地远程建立连接时，{0:8}静态参数传输异常，RTT延时{1:0}[ms],安全保护
+8,0X456A,FALSE,FALSE,数据异常,Data exception,参数传输失败,Failed to transfer parameters,请检查,Please check,本地远程建立连接时，静态参数传输异常,本地远程建立连接时，静态参数传输异常,系统类型，本地=1，远程=2,当前RTT延时[ms],0,0,recoverable,TRUE,TRUE,FALSE,,高级,,本地远程建立连接时，{0:8}静态参数传输异常，RTT延时{1:0}[ms],安全保护
+1,0X457A,FALSE,FALSE,数据异常,Data exception,参数校验验败,Failed to verify parameters,请重新连接,Please reconnect,本地远程建立连接时，静态参数校验异常,本地远程建立连接时，静态参数校验异常,系统类型，本地=1，远程=2,对端发过来的校验和,自己端计算的校验和,0,recoverable,TRUE,TRUE,FALSE,,高级,,本地远程建立连接时，{0:8}静态参数校验异常，对端发过来的校验和{1:0}，自己端计算的校验和{2:0},安全保护
+8,0X457A,FALSE,FALSE,数据异常,Data exception,参数校验验败,Failed to verify parameters,请重新连接,Please reconnect,本地远程建立连接时，静态参数校验异常,本地远程建立连接时，静态参数校验异常,系统类型，本地=1，远程=2,对端发过来的校验和,自己端计算的校验和,0,recoverable,TRUE,TRUE,FALSE,,高级,,本地远程建立连接时，{0:8}静态参数校验异常，对端发过来的校验和{1:0}，自己端计算的校验和{2:0},安全保护
+1,0X458E,FALSE,FALSE,数据传输开始/结束,start/stop  transferring parameters,数据传输开始/结束,start/stop  transferring parameters,,,数据传输开始/结束,数据传输开始/结束,系统类型，本地=1，远程=2,开始传输标志位,传输结束标志位,0,log,TRUE,TRUE,FALSE,,无,,{0:8}数据传输开始/结束,日志记录
+1,0X459E,FALSE,FALSE,数据传输成功,Succeed to  transferring parameters,数据传输成功,Succeed to  transferring parameters,,,数据传输成功,数据传输成功,系统类型，本地=1，远程=2,传输成功标志位,0,0,log,TRUE,TRUE,FALSE,,无,,{0:8}数据传输成功,日志记录
+1,0X131D,FALSE,FALSE,快速重启失败,Failed to restart,快速重启失败,Failed to quick restart,,,快速重启超时,快速重启超时，网络状态未恢复,MIO重新上电标志位,SIO重新上电标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,快速重启超时，网络状态未恢复,操作提示
+8,0X131D,FALSE,FALSE,快速重启失败,Failed to restart,快速重启失败,Failed to quick restart,,,快速重启超时,快速重启超时，网络状态未恢复,MIO重新上电标志位,SIO重新上电标志位,0,0,tip,TRUE,TRUE,FALSE,,无,,快速重启超时，网络状态未恢复,操作提示
+1,0X453D,FALSE,FALSE,帧率偏低,FPS is low,帧率偏低,FPS is low,请慢速操作,Please be careful,帧率偏低,帧率偏低,系统类型，本地=1，远程=2,当前控制权状态(本地控制/远程控制),状态机,0,tip,TRUE,TRUE,FALSE,,无,,{2:1}帧率偏低{0:8}{1:9},操作提示
+8,0X453D,FALSE,FALSE,帧率偏低,FPS is low,帧率偏低,FPS is low,请慢速操作,Please be careful,帧率偏低,帧率偏低,系统类型，本地=1，远程=2,当前控制权状态(本地控制/远程控制),状态机,0,tip,TRUE,TRUE,FALSE,,无,,{2:1}帧率偏低{0:8}{1:9},操作提示
+1,0X587D,FALSE,FALSE,主手复位操作中,The Master is resetting,主手复位操作中,The Master is resetting,,,点击UI“自动复位”，提示主手复位操作,点击UI“自动复位”，提示主手复位操作,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,点击UI“自动复位”，提示主手复位操作,操作提示
+1,0X88BE,FALSE,FALSE,非主从状态下主控制臂关节进入电机热保护,,非主从状态下主控制臂关节进入电机热保护,,,,非主从状态下主控制臂关节进入电机热保护,非主从状态下主控制臂关节进入电机热保护,0,0,0,0,log,TRUE,TRUE,FALSE,,无,,非主从状态下主控制臂关节进入电机热保护,日志记录
+8,0X587D,FALSE,FALSE,主手复位操作中,The Master is resetting,主手复位操作中,The Master is resetting,,,点击UI“自动复位”，提示主手复位操作,点击UI“自动复位”，提示主手复位操作,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,点击UI“自动复位”，提示主手复位操作,操作提示
+8,0X88BE,FALSE,FALSE,非主从状态下主控制臂关节进入电机热保护,,非主从状态下主控制臂关节进入电机热保护,,,,非主从状态下主控制臂关节进入电机热保护,非主从状态下主控制臂关节进入电机热保护,0,0,0,0,log,TRUE,TRUE,FALSE,,无,,非主从状态下主控制臂关节进入电机热保护,日志记录
+1,0X103A,FALSE,FALSE,通讯异常,Network fault,手术台车通信线缆断开,Patient network cable connection failed,请检查并点击“解除”恢复,Please check and click REMOVE to restore,患者台车和医生台车的通信线断开,通过检测患者端的网络拓扑节点来判断,SIO节点数,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,患者台车和医生台车的通信线断开,安全保护
+1,0X104A,FALSE,FALSE,通讯异常,Network fault,急停线断开,Emergency cable connection failed,请检查并点击“解除”恢复,Please check and click REMOVE to restore,患者台车和医生台车的急停线断开,通过检测患者端的网络拓扑节点来判断,SIO节点数,0,0,0,recoverable,TRUE,TRUE,FALSE,,高级,,患者台车和医生台车的急停线断开,安全保护
+1,0X105A,FALSE,FALSE,硬件异常,Hardware Fault,授权证书失效,Certificate of authorization invalidated,请重启系统,Please restart system,授权证书异常,通过授权证书的状态位来判断,Dongle状态,0,0,0,unrecoverable,TRUE,TRUE,FALSE,,高级,,通过授权证书{0:46},安全保护
+8,0X105A,FALSE,FALSE,硬件异常,Hardware Fault,授权证书失效,Certificate of authorization invalidated,请重启系统,Please restart system,授权证书异常,通过授权证书的状态位来判断,Dongle状态,0,0,0,unrecoverable,TRUE,TRUE,FALSE,,高级,,通过授权证书{0:46},安全保护
+1,0X588D,FALSE,FALSE,医生端音频设备未连接,Surgeon console audio device not connect,医生端音频设备未连接,Surgeon console audio device not connect,请联系工程师,Please contact customer service,医生端音频设备未连接,医生端音频设备未连接,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生端音频设备未连接,操作提示
+1,0X589D,FALSE,FALSE,图像端音频设备未连接,Endoscope controller audio device not connect,图像端音频设备未连接,Endoscope controller audio device not connect,请联系工程师,Please contact customer service,图像端音频设备未连接,图像端音频设备未连接,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,图像端音频设备未连接,操作提示
+1,0X591D,FALSE,FALSE,音频服务连接异常,Audio service exception,音频服务连接异常,Audio service exception,请联系工程师,Please contact customer service,音频服务连接异常,音频服务连接异常,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,音频服务连接异常,操作提示
+1,0X592D,FALSE,FALSE,医生端音频接口控制服务异常,Surgeon console interface control service is abnormal,医生端音频接口控制服务异常,Surgeon console interface control service is abnormal,请联系工程师,Please contact customer service,医生端音频接口控制服务异常,医生端音频接口控制服务异常,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,医生端音频接口控制服务异常,操作提示
+1,0X593D,FALSE,TRUE,器械调整位置过高，请适当向下调节,"Instrument too high, please adjust downwards",器械调整位置过高，请适当向下调节,"Instrument too high, please adjust downwards",,,器械调整位置过高,ForceControl检测装有器械或镜子的工具臂关节3位置是否过高,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,器械调整位置过高,操作提示
+1,0X594D,FALSE,FALSE,左手和右手间存在干涉,Interference between the left and the right,左手和右手间存在干涉,Interference between the left and the right,请调整,Please adjust,用户点击了UI上的“自动复位”，此时两主手复位存在碰撞，则提示且不执行复位,左右手的手柄位置在Y向存在交叉或左右手手柄的位置在Oxy面投影的距离小于5cm,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,用户点击了UI上的“自动复位”，此时两主手复位存在碰撞，则提示且不执行复位,操作提示
+1,0X88DE,FALSE,FALSE,/,/,,,,,器械丝松了夹持力不足,更换器械,0,0,0,0,log,TRUE,TRUE,TRUE,,无,,器械丝松了夹持力不足,日志记录
+8,0X594D,FALSE,FALSE,左手和右手间存在干涉,Interference between the left and the right,左手和右手间存在干涉,Interference between the left and the right,请调整,Please adjust,用户点击了UI上的“自动复位”，此时两主手复位存在碰撞，则提示且不执行复位,左右手的手柄位置在Y向存在交叉或左右手手柄的位置在Oxy面投影的距离小于5cm,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,用户点击了UI上的“自动复位”，此时两主手复位存在碰撞，则提示且不执行复位,操作提示
+1,0X072A,FALSE,FALSE,操作过快,Too fast operation,捏合过快,squeeze too much,请检查并点击“解除”恢复,Please check and click REMOVE to restore,每秒的捏合次数过多，为了防止数值异常产生的异常捏合,计算每秒内的捏合次数，超过阈值则报警,霍尔值,捏合次数,0,0,recoverable,TRUE,TRUE,TRUE,,高级,,每秒捏合次数过快，报警时霍尔值为{0:0}，每秒捏合次数{1:0},安全保护
+1,0X072D,FALSE,FALSE,捏合过快,squeeze too much,捏合过快,squeeze too much,,,每秒的捏合次数过多，为了防止数值异常产生的异常捏合,计算每秒内的捏合次数，超过阈值则报警,霍尔值,捏合次数,0,0,tip,TRUE,TRUE,TRUE,,无,,每秒捏合次数过快，提示时霍尔值为{0:0}，每秒捏合次数{1:0},操作提示
+1,0X073A,FALSE,FALSE,硬件异常,Hardware fault,霍尔数据异常,Hall anomaly,请检查并点击“解除”恢复,Please check and click REMOVE to restore,霍尔数值发生跳变，跳变超过阈值,比较IO接收到的前后两个周期的霍尔值，超过阈值则报警,霍尔值,上一个周期霍尔值,0,0,recoverable,TRUE,TRUE,TRUE,,高级,,霍尔值跳变，霍尔值为{0:0}，跳变前的霍尔值为{1:0},安全保护
+8,0X072A,FALSE,FALSE,操作过快,Too fast operation,捏合过快,squeeze too much,请检查并点击“解除”恢复,Please check and click REMOVE to restore,每秒的捏合次数过多，为了防止数值异常产生的异常捏合,计算每秒内的捏合次数，超过阈值则报警,霍尔值,捏合次数,0,0,recoverable,TRUE,TRUE,TRUE,,高级,,每秒捏合次数过快，报警时霍尔值为{0:0}，每秒捏合次数{1:0},安全保护
+8,0X072D,FALSE,FALSE,捏合过快,squeeze too much,捏合过快,squeeze too much,,,每秒的捏合次数过多，为了防止数值异常产生的异常捏合,计算每秒内的捏合次数，超过阈值则报警,霍尔值,捏合次数,0,0,tip,TRUE,TRUE,TRUE,,无,,每秒捏合次数过快，提示时霍尔值为{0:0}，每秒捏合次数{1:0},操作提示
+8,0X073A,FALSE,FALSE,硬件异常,Hardware fault,霍尔数据异常,Hall anomaly,请检查并点击“解除”恢复,Please check and click REMOVE to restore,霍尔数值发生跳变，跳变超过阈值,比较IO接收到的前后两个周期的霍尔值，超过阈值则报警,霍尔值,上一个周期霍尔值,0,0,recoverable,TRUE,TRUE,TRUE,,高级,,霍尔值跳变，霍尔值为{0:0}，跳变前的霍尔值为{1:0},安全保护
+1,0X595D,FALSE,FALSE,医生端音频设备异常,Surgeon console audio device is abnormal,医生端音频设备异常,Surgeon console audio device is abnormal,请联系工程师,Please contact customer service,医生端音频数据异常,医生端音频数据异常,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,医生端音频数据异常,操作提示
+1,0X596D,FALSE,FALSE,图像端音频设备异常,Endoscope controller audio device is abnormal,图像端音频设备异常,Endoscope controller audio device is abnormal,请联系工程师,Please contact customer service,图像端音频设备异常,图像端音频设备异常,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,图像端音频设备异常,操作提示
+1,0X460D,FALSE,FALSE,控制权切换状态不允许操作,Operation is not allowed during control switch,控制权切换状态不允许操作,Operation is not allowed during control switch,,,控制权切换状态不允许操作,控制权切换状态不允许操作,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,控制权切换状态不允许操作,操作提示
+8,0X460D,FALSE,FALSE,控制权切换状态不允许操作,Operation is not allowed during control switch,控制权切换状态不允许操作,Operation is not allowed during control switch,,,控制权切换状态不允许操作,控制权切换状态不允许操作,0,0,0,0,tip,TRUE,TRUE,TRUE,,无,,控制权切换状态不允许操作,操作提示
+6,0XB60D,FALSE,FALSE,导光束连接异常,Optical beam connection abnormal,导光束连接异常,Optical beam connection abnormal,请检查连线,Please inspect the connections.,导光束没有正常连接冷光源,导光束没有正常连接冷光源,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,导光束连接异常,操作提示
+6,0XB61D,FALSE,FALSE,冷光源控制线连接异常,Cold light source control line abnormal,冷光源控制线连接异常,Cold light source control line abnormal,请检查连线,Please inspect the connections.,未开启冷光源或冷光源控制线未连接；,开启冷光源并正确连接冷光源控制线,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,冷光源控制线连接异常,操作提示
+1,0X597E,FALSE,FALSE,培训器械信号变化,,培训器械信号变化,,,,培训器械信号变化,培训器械信号变化,信号前一个状态,信号当前状态,器械类型,0,log,TRUE,TRUE,FALSE,,无,,{3:3}切换为{1:48},日志记录
+6,0XB62D,FALSE,FALSE,冷光源温度过高,The temperature of the cold light source is too high,冷光源温度过高,The temperature of the cold light source is too high,,,,,,,,,tip,TRUE,TRUE,FALSE,,无,,冷光源温度过高,操作提示
+6,0XB63D,FALSE,FALSE,冷光源灯泡寿命已接近使用寿命,The Cold light bulb life is close to the service life,冷光源灯泡寿命已接近使用寿命,The Cold light bulb life is close to the service life,,,,,,,,,tip,TRUE,TRUE,FALSE,,无,,冷光源灯泡寿命已接近使用寿命,操作提示
+6,0XB64D,FALSE,FALSE,冷光源灯泡到达使用寿命,The Cold light bulb life is close to the service life,冷光源灯泡到达使用寿命,The Cold light bulb life is close to the service life,,,,,,,,,tip,TRUE,TRUE,FALSE,,无,,冷光源灯泡到达使用寿命,操作提示
+1,0X122D,FALSE,FALSE,手术台车急停开关触发,Paitent cart Emergency stop switch is triggered ,手术台车急停开关触发,Paitent cart Emergency stop switch is triggered ,,,手术台车急停开关触发,手术台车急停开关触发,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,手术台车急停开关触发,操作提示
+8,0X122D,FALSE,FALSE,手术台车急停开关触发,Paitent cart Emergency stop switch is triggered ,手术台车急停开关触发,Paitent cart Emergency stop switch is triggered ,,,手术台车急停开关触发,手术台车急停开关触发,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,手术台车急停开关触发,操作提示
+1,0X588E,FALSE,FALSE,手术类型记录,,手术类型记录,,,,手术类型记录,手术类型记录,上一个手术类型,当前手术类型,0,0,log,TRUE,TRUE,FALSE,,无,,手术类型为{1:0},日志记录
+1,0X597D,FALSE,FALSE,手术端音频设备未连接,Patient cart audio device not connect,手术端音频设备未连接,Patient cart audio device not connect,请联系工程师,Please contact customer service,手术端音频设备未连接,手术端音频设备未连接,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,手术端音频设备未连接,操作提示
+1,0X598D,FALSE,FALSE,手术端音频设备异常,Patient cart audio device is abnormal,手术端音频设备异常,Patient cart audio device is abnormal,请联系工程师,Please contact customer service,手术端音频设备异常,手术端音频设备异常,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,手术端音频设备异常,操作提示
+1,0X353D,FALSE,FALSE,模拟器模式下请断开与手术台车之间的线缆,Disconnect the cables with  Patient cart in simulation mode,模拟器模式下请断开与手术台车之间的线缆,Disconnect the cables with  Patient cart in simulation mode,,,模拟器模式下断开与手术台车之间的通信线或急停线,模拟器模式下断开与手术台车之间的通信线或急停线,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,模拟器模式下断开与手术台车之间的通信线或急停线,操作提示
+1,0X352C,FALSE,FALSE,模拟器通信中断,Simulator communication disconnect,模拟器通信中断,Simulator communication is disconnected,请检查网线是否连接正常,Check the network cable is connected,"模拟器通信中断,与背包的EAP通信中断","模拟器通信中断,与背包的EAP通信中断",0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,"模拟器通信中断,与背包的EAP通信中断",操作提示
+1,0X023D,FALSE,TRUE,运动受阻,Arm is blocked,运动受阻,Arm is blocked,,,关机时主手运动受阻提示,监测主手关节的指令位置与实际位置的偏差,指令位置,实际位置,指令速度,实际速度,tip,TRUE,TRUE,FALSE,,无,,关机时主手运动受阻提示,操作提示
+1,0X599D,FALSE,TRUE,请确认机械臂序列号,Please check arm serial number,请确认机械臂序列号,Please check arm serial number,,,通过SDOIndex2056读取机械臂序列号,"通过SDOIndex2056读取机械臂序列号,未读取到触发提示",左/右手类型识别结果,序列号第三位,序列号第四位,0,tip,TRUE,TRUE,FALSE,,无,,未读取到机械臂序列号,操作提示
+1,0X129D,FALSE,FALSE,请重新踩下内窥镜脚踏,Please step  endoscope  pedal again,请重新踩下内窥镜脚踏,Please step  endoscope  pedal again,,,内窥镜状态下触发020A后降级处理，但会退出控制状态,内窥镜状态下触发020A后降级处理，但会退出控制状态，退出后未松开脚踏触发提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,请重新踩下内窥镜脚踏,操作提示
+1,0X602E,FALSE,FALSE,记录臂号设置结果,,记录臂号设置结果,,,,记录臂号设置结果,记录臂号设置结果日志记录,左手控制的臂号,内窥镜臂号,右手控制的臂号,保持臂臂号,log,TRUE,TRUE,FALSE,,无,,记录臂号设置结果：左手控制{0:12}，右手控制{2:12}，内窥镜臂为{1:12}，保持臂为{3:0},日志记录
+1,0X602D,FALSE,FALSE,,,,,请回到主页面,Please back to the main page,UI处于权限设置界面时提示,UI处于权限设置界面时（ArmCtrlAuthorityValidity==false）提示,左手控制的臂号,内窥镜臂号,右手控制的臂号,保持臂臂号,tip,TRUE,TRUE,FALSE,,无,,UI处于权限设置界面时提示,操作提示
+1,0X603E,FALSE,FALSE,记录臂权限设置结果,,记录臂权限设置结果,,,,记录臂权限设置结果,,ArmCtrlAuthority[0],ArmCtrlAuthority[1],ArmCtrlAuthority[2],ArmCtrlAuthority[3],log,TRUE,TRUE,FALSE,,无,,记录臂号设置结果：左手控制{0:12}，右手控制{2:12}，内窥镜臂为{1:12}，保持臂为{3:0},日志记录
+8,0X08AD,FALSE,FALSE,不能休眠,Arm disable failed,不能休眠,Arm disable failed,请重试,Please retry,当前状态不能休眠工具臂或调整臂或主控制臂,离合控制、内窥镜控制、主从控制、初始化状态、自检状态下无法执行臂休眠,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,当前状态不能休眠工具臂或调整臂或主控制臂,操作提示
+8,0X08BD,FALSE,FALSE,不能激活,Arm enable failed,不能激活,Arm enable failed,请重试,Please retry,当前状态不能激活工具臂或调整臂或主控制臂,离合控制、内窥镜控制、主从控制、初始化状态、自检状态下无法执行臂激活,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,当前状态不能激活工具臂或调整臂或主控制臂,操作提示
+8,0X08CD,FALSE,FALSE,激活中,Arm enabling,激活中,Arm enabling,,,工具臂或调整臂或主控制臂在激活中,臂激活过程中，无法再次执行臂休眠或臂激活,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂或调整臂或主控制臂在激活中,操作提示
+8,0X08DD,FALSE,FALSE,激活失败,Arm enable failed,激活失败,Arm enable failed,,,工具臂或调整臂或主控制臂在激活失败,执行臂激活，关节初始化过程中失败,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂或调整臂或主控制臂在激活失败,操作提示
+8,0X08ED,FALSE,FALSE,休眠中,Arm is disabled,休眠中,Arm is disabled,,,调整臂休眠中无法一键展开或一键收起,执行一键展开或一键收起时检测是否有臂被休眠,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,调整臂休眠中无法一键展开或一键收起,操作提示
+1,0X461D,FALSE,FALSE,内窥镜臂被锁定,Endoscope arm locked,内窥镜臂被锁定,Endoscope arm locked,,,双控台内镜操作时，另外一端再触发内镜控制后，触发“刹车”效果,双控台内镜操作时，另外一端再触发内镜控制后，触发“刹车”效果,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,不允许同时触发内窥镜控制,操作提示
+6,0XB88D,FALSE,FALSE,3D全屏画中画未正确连接输入源,3D Full Screen Picture-in-Picture is not connected to the input source correctly,3D全屏画中画未正确连接输入源,3D Full Screen Picture-in-Picture is not connected to the input source correctly,,,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,3D全屏画中画未正确连接输入源,操作提示
+1,0X462D,FALSE,FALSE,请关闭荧光灵敏模式后操作,Please turn off the fluorescence sensitive mode before operating,请关闭荧光灵敏模式后操作,Please turn off the fluorescence sensitive mode before operating,,,触发荧光灵敏模式时，不允许进入主从,触发荧光灵敏模式时，不允许进入主从,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,触发荧光灵敏模式时，不允许进入主从,操作提示
+1,0X424D,TRUE,TRUE,本地端获取,Local take,本地端获取,Local take,,,本地端获取触发按钮提示信息,本地端获取触发按钮提示信息,本地端状态机,远程端状态机,各臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,本地端获取触发按钮提示信息,操作提示
+1,0X425D,TRUE,TRUE,本地端让出,Local give,本地端让出,Local give,,,本地端让出触发按钮提示信息,本地端让出触发按钮提示信息,本地端状态机,远程端状态机,各臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,本地端让出触发按钮提示信息,操作提示
+1,0X426D,FALSE,FALSE,本地端全部获取,Local take all,本地端全部获取,Local take all,,,本地端全部获取触发按钮提示信息,本地端全部获取触发按钮提示信息,本地端状态机,远程端状态机,四条臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,本地端全部获取触发按钮提示信息,操作提示
+8,0X424D,TRUE,TRUE,远程端获取,Remote take,远程端获取,Remote take,,,远程端获取触发按钮提示信息,远程端获取触发按钮提示信息,本地端状态机,远程端状态机,各臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,远程端获取触发按钮提示信息,操作提示
+8,0X425D,TRUE,TRUE,远程端让出,Remote give,远程端让出,Remote give,,,远程端让出触发按钮提示信息,远程端让出触发按钮提示信息,本地端状态机,远程端状态机,各臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,远程端让出触发按钮提示信息,操作提示
+8,0X426D,FALSE,FALSE,远程端全部获取,Remote take all,远程端全部获取,Remote take all,,,远程端全部获取触发按钮提示信息,远程端全部获取触发按钮提示信息,本地端状态机,远程端状态机,四条臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,远程端全部获取触发按钮提示信息,操作提示
+6,0XB65D,FALSE,FALSE,输入源HDMI 1未连接,Input source HDMI 1 not connected,输入源HDMI 1未连接,Input source HDMI 1 not connected,,,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,输入源HDMI 1未连接,操作提示
+6,0XB66D,FALSE,FALSE,输入源HDMI 2未连接,Input source HDMI 2 not connected,输入源HDMI 2未连接,Input source HDMI 2 not connected,,,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,输入源HDMI 2未连接,操作提示
+6,0XB67D,FALSE,FALSE,输入源SDI 1未连接,Input source SDI 1 not connected,输入源SDI 1未连接,Input source SDI 1 not connected,,,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,输入源SDI 1未连接,操作提示
+6,0XB68D,FALSE,FALSE,输入源SDI 2未连接,Input source SDI 2 not connected,输入源SDI 2未连接,Input source SDI 2 not connected,,,,,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,输入源SDI 2未连接,操作提示
+1,0X2EED,FALSE,FALSE,,,,,两端请不要同时踩脚踏,Please do not step on the pedals at both ends at the same time,两端同时触发脚踏，能量输出停止,两端同时触发脚踏，能量输出停止,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,两端同时触发脚踏，能量输出停止,操作提示
+8,0X2EED,FALSE,FALSE,,,,,两端请不要同时踩脚踏,Please do not step on the pedals at both ends at the same time,两端同时触发脚踏，能量输出停止,两端同时触发脚踏，能量输出停止,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,两端同时触发脚踏，能量输出停止,操作提示
+1,0X2FCD,FALSE,FALSE,无可切换的臂,No arm to switch,无可切换的臂,No arm to switch,,,没有可以切换的臂,没有可以切换的臂,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,没有可以切换的臂,操作提示
+8,0X2FCD,FALSE,FALSE,无可切换的臂,No arm to switch,无可切换的臂,No arm to switch,,,没有可以切换的臂,没有可以切换的臂,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,没有可以切换的臂,操作提示
+4,0X143D,TRUE,FALSE,电池电量即将耗尽,Exhausted battery,电池电量即将耗尽,Exhausted battery,,,电池电量小于20%,根据看门狗透传的电池电量值判断此时电池电量情况,看门狗电池状态,电池电量,0,0,tip,TRUE,TRUE,FALSE,,无,,电池电量小于20%，看门狗电池状态{0:0}，电池电量{1:0}%,操作提示
+4,0X144D,TRUE,FALSE,电池电量低,Low battery,电池电量低,Low battery,,,电池电量小于20%,根据看门狗透传的电池电量值判断此时电池电量情况,看门狗电池状态,电池电量,0,0,tip,TRUE,TRUE,FALSE,,无,,电池电量小于20%，看门狗电池状态{0:0}，电池电量{1:0}%,操作提示
+1,0X193D,FALSE,FALSE,大血管壁合器断网清检查线缆,"Large vessel wall closure device disconnection, cleaning and inspection of cables",大血管壁合器断网清检查线缆,"Large vessel wall closure device disconnection, cleaning and inspection of cables",请检查连线,Please inspect the connections.,大血管壁合器断网清检查线缆,大血管壁合器断网清检查线缆,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,大血管壁合器断网清检查线缆,操作提示
+1,0X192D,FALSE,FALSE,大血管闭合器驱动器故障请检查,Please check if there is a malfunction in the driver of the large vessel closure device,大血管闭合器驱动器故障请检查,Please check if there is a malfunction in the driver of the large vessel closure device,请检查连线,Please inspect the connections.,大血管闭合器驱动器故障请检查,大血管闭合器驱动器故障请检查,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,大血管闭合器驱动器故障请检查,操作提示
+1,0X138D,FALSE,FALSE,吻合器订舱已使用请更换,"The stapler booking has been used, please replace it",吻合器订舱已使用请更换,"The stapler booking has been used, please replace it",更换订舱,Change booking,吻合器订舱已使用请更换,吻合器订舱已使用请更换,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,吻合器订舱已使用请更换,操作提示
+1,0X137D,FALSE,FALSE,吻合器已退刀完成请更新订舱,The stapler has been returned and completed. Please update the booking,吻合器已退刀完成请更新订舱,The stapler has been returned and completed. Please update the booking,更换订舱,Change booking,吻合器已退刀完成请更新订舱,吻合器已退刀完成请更新订舱,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,吻合器已退刀完成请更新订舱,操作提示
+1,0X430D,FALSE,FALSE,画面帧率异常，不满足手术操作要求,The screen frame rate is unsuitable for surgery,画面帧率异常，不满足手术操作要求,The screen frame rate is unsuitable for surgery,,,画面帧率异常，不满足手术操作要求,远程控制时，解码端检测到画面帧率异常，但是尝试进入主从或内窥镜操作时,机器类型,控制权状态,本地端帧率,远程端帧率,tip,TRUE,TRUE,FALSE,,无,,画面帧率异常，不满足手术操作要求,操作提示
+1,0X429B,FALSE,FALSE,数据源异常变化,Abnormal data source change,数据源异常变化,Abnormal data source change,请检查网络设置,please check network settings,数据源异常变化，请检查网络设置,远程控制时，数据源变化，触发报错,机器类型,目标IP,数据源IP,上周期的数据源IP,recoverable,TRUE,TRUE,FALSE,,中级,,数据源异常变化，请检查网络设置,安全保护
+8,0X429B,FALSE,FALSE,数据源异常变化,Abnormal data source change,数据源异常变化,Abnormal data source change,请检查网络设置,please check network settings,数据源异常变化，请检查网络设置,远程控制时，数据源变化，触发报错,机器类型,目标IP,数据源IP,上周期的数据源IP,recoverable,TRUE,TRUE,FALSE,,中级,,数据源异常变化，请检查网络设置,安全保护
+1,0X611D,TRUE,TRUE,戳卡安装成功,Tocar mount successful,戳卡安装成功,Tocar mount successful,,,戳卡安装提示,戳卡安装提示,前一个状态,当前状态,0,0,tip,TRUE,TRUE,FALSE,,无,,戳卡安装提示,操作提示
+1,0X33FE,TRUE,FALSE,主从时戳卡状态变化,Tocar status changes ,主从时戳卡状态变化,Tocar status changes ,,,主从时戳卡状态变化，记录一次,主从时戳卡状态变化，记录一次,前一个状态,当前状态,0,0,tip,TRUE,TRUE,FALSE,,无,,主从时戳卡状态变化，记录一次,日志记录
+1,0XA01E,FALSE,FALSE,开机日志记录,Startup log record,开机日志记录,Startup log record,,,开机记录日志,开机记录日志,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机,日志记录
+1,0XA02E,FALSE,FALSE,关机日志记录,Shutdown log record,关机日志记录,Shutdown log record,,,关机记录日志,关机记录日志,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,关机,日志记录
+8,0XA01E,FALSE,FALSE,开机日志记录,Startup log record,开机日志记录,Startup log record,,,开机记录日志,开机记录日志,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,开机,日志记录
+8,0XA02E,FALSE,FALSE,关机日志记录,Shutdown log record,关机日志记录,Shutdown log record,,,关机记录日志,关机记录日志,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,关机,日志记录
+1,0X612D,TRUE,FALSE,,,,,请移除器械,Please remove the Instrument,请移除器械,请移除器械,器械类型,0,0,0,tip,TRUE,TRUE,FALSE,,无,,请移除器械,操作提示
+1,0X427D,FALSE,FALSE,本地端全部让出,Local give all,本地端全部让出,Local give all,,,本地端全部让出触发按钮提示信息,本地端全部让出触发按钮提示信息,本地端状态机,远程端状态机,四条臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,本地端全部让出触发按钮提示信息,操作提示
+8,0X427D,FALSE,FALSE,远程端全部让出,Remote give all,远程端全部让出,Remote give all,,,远程端全部让出触发按钮提示信息,远程端全部让出触发按钮提示信息,本地端状态机,远程端状态机,四条臂的控制权状态,0,tip,TRUE,TRUE,FALSE,,无,,远程端全部让出触发按钮提示信息,操作提示
+1,0X401D,FALSE,FALSE,网络质量差,Poor network quality,网络质量差,Poor network quality,不允许手术,No surgery allowed,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+1,0X402D,FALSE,FALSE,网络质量差,Poor network quality,网络质量差,Poor network quality,不建议手术,Operation not recommended,网络质量差,远程模式下，网络延时超过阈值持续0.5s则报警,机器类型,延时ping值,RTT延时值,丢包率,tip,TRUE,TRUE,FALSE,,无,,网络质量差，{0:8}，延时ping值{1:0}ms，RTT延时值{2:0}ms，丢包率{3:0},操作提示
+1,0X403D,FALSE,FALSE,网络质量中等,Medium network quality,网络质量中等,Medium network quality,请慎重慢速操作,Please operate slowly with caution,网络质量中等,远程模式下，网络延时超过阈值持续0.2s则报警,机器类型,延时ping值,RTT延时值,丢包率,tip,TRUE,TRUE,FALSE,,无,,网络质量中等，{0:8}，延时ping值{1:0}ms，RTT延时值{2:0}ms，丢包率{3:0},操作提示
+1,0X404D,FALSE,FALSE,网络质量一般,Average network quality,网络质量一般,Average network quality,请慢速操作,Please operate slowly,/,/,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,,操作提示
+1,0X463D,FALSE,FALSE,内窥镜运动中,Endoscope in motion,内窥镜运动中,Endoscope in motion,请等待,Please wait,用于在一端内窥镜操作过程中，另一端尝试进主从时的提示,用于在一端内窥镜操作过程中，另一端尝试进主从时的提示,机器类型,内窥镜臂控制状态,本地状态机,远端状态机,tip,TRUE,TRUE,FALSE,,无,,用于在一端内窥镜操作过程中，另一端尝试进主从时的提示,操作提示
+8,0X463D,FALSE,FALSE,内窥镜运动中,Endoscope in motion,内窥镜运动中,Endoscope in motion,请等待,Please wait,用于在一端内窥镜操作过程中，另一端尝试进主从时的提示,用于在一端内窥镜操作过程中，另一端尝试进主从时的提示,机器类型,内窥镜臂控制状态,本地状态机,远端状态机,tip,TRUE,TRUE,FALSE,,无,,用于在一端内窥镜操作过程中，另一端尝试进主从时的提示,操作提示
+1,0X464D,FALSE,TRUE,工具臂碰撞,Tool arm collision,工具臂碰撞,Tool arm collision,请注意,attention,工具臂碰撞提示,工具臂碰撞提示,0,0,0,0,tip,TRUE,TRUE,FALSE,,无,,工具臂碰撞提示,操作提示
+1,0X623D,FALSE,FALSE,白光模式,Normal mode,白光模式,White light mode,,,切换为白光模式,白光模式,前一个状态,当前状态,0,0,tip,TRUE,TRUE,FALSE,,无,,切换为白光模式,操作提示
+1,0X627D,FALSE,FALSE,荧光模式,Fluorescence mode,荧光模式,Fluorescence mode,,,切换为荧光模式,荧光模式,前一个状态,当前状态,0,0,tip,TRUE,TRUE,FALSE,,无,,切换为荧光模式,操作提示
+1,0X629D,FALSE,FALSE,图像融合,Image fusion,图像融合,Image fusion,,,切换为图像融合,图像融合,前一个状态,当前状态,0,0,tip,TRUE,TRUE,FALSE,,无,,切换为图像融合,操作提示
