@@ -132,7 +132,13 @@ const checkLogPermission = (action) => {
         }]
       });
       
-      // 检查是否有查看所有日志的权限
+      // 检查是否有管理员权限（管理员拥有所有权限）
+      if (hasPermission(userRoles, 'user:update')) {
+        next();
+        return;
+      }
+      
+      // 检查是否有专家权限（专家可以查看所有日志，但删除权限有限制）
       if (action === 'read_all' && hasPermission(userRoles, 'log:read_all')) {
         next();
         return;
@@ -144,6 +150,28 @@ const checkLogPermission = (action) => {
         return;
       }
       
+      // 检查删除权限
+      if (action === 'delete') {
+        // 如果有删除任何日志的权限
+        if (hasPermission(userRoles, 'log:delete')) {
+          next();
+          return;
+        }
+        // 如果只有删除自己日志的权限，需要检查资源所有权
+        if (hasPermission(userRoles, 'log:delete_own')) {
+          // 对于删除操作，需要检查是否是自己的日志
+          const logId = req.params.id;
+          if (logId) {
+            const Log = require('../models/log');
+            const log = await Log.findByPk(logId);
+            if (log && log.uploader_id === userId) {
+              next();
+              return;
+            }
+          }
+        }
+      }
+      
       // 检查其他日志相关权限
       if (hasPermission(userRoles, `log:${action}`)) {
         next();
@@ -153,7 +181,7 @@ const checkLogPermission = (action) => {
       res.status(403).json({ 
         message: '日志操作权限不足',
         requiredAction: action,
-        userRoles: userRoles.map(ur => ur.Role.name)
+        userRoles: userRoles.map(ur => ur.Role ? ur.Role.name : '未知角色')
       });
       
     } catch (error) {

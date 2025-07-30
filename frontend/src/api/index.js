@@ -74,7 +74,8 @@ const logs = {
   }),
   parse: (id) => api.post(`/logs/${id}/parse`),
   download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
-  delete: (id) => api.delete(`/logs/${id}`)
+  delete: (id) => api.delete(`/logs/${id}`),
+  getEntries: (id) => api.get(`/logs/${id}/entries`)
 }
 
 const users = {

@@ -65,18 +65,6 @@ CREATE TABLE IF NOT EXISTS error_codes (
   UNIQUE KEY unique_subsystem_code (subsystem, code)
 );
 
--- 日志表
-CREATE TABLE IF NOT EXISTS logs (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  filename VARCHAR(255) NOT NULL,
-  original_path VARCHAR(255),
-  uploader_id INT,
-  upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  size BIGINT,
-  status VARCHAR(50) DEFAULT 'uploaded',
-  decrypted_path VARCHAR(255),
-  FOREIGN KEY (uploader_id) REFERENCES users(id) ON DELETE SET NULL
-);
 
 -- 多语言配置表（可选，便于后续扩展）
 CREATE TABLE IF NOT EXISTS i18n_texts (
@@ -85,4 +73,34 @@ CREATE TABLE IF NOT EXISTS i18n_texts (
   lang VARCHAR(10) NOT NULL,
   text TEXT,
   UNIQUE KEY unique_key_lang (key_name, lang)
+); 
+
+-- 设备日志文件元数据表
+CREATE TABLE IF NOT EXISTS logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  filename VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255),
+  size INT,
+  status VARCHAR(50) DEFAULT 'uploaded',
+  upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  parse_time DATETIME,
+  uploader_id INT,
+  device_id VARCHAR(100),
+  key_id VARCHAR(100),
+  decrypted_path VARCHAR(255),
+  remark TEXT
+);
+
+-- 日志解密后内容表
+CREATE TABLE IF NOT EXISTS log_entries (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  log_id INT NOT NULL,
+  timestamp DATETIME,
+  error_code VARCHAR(50),
+  param1 VARCHAR(100),
+  param2 VARCHAR(100),
+  param3 VARCHAR(100),
+  param4 VARCHAR(100),
+  explanation TEXT,
+  FOREIGN KEY (log_id) REFERENCES logs(id) ON DELETE CASCADE
 ); 

@@ -188,7 +188,7 @@ export default {
         await store.dispatch('errorCodes/fetchErrorCodes', {
           page: currentPage.value,
           limit: pageSize.value,
-          search: searchQuery.value
+          keyword: searchQuery.value // 这里改为 keyword
         })
       } catch (error) {
         ElMessage.error('加载故障码失败')

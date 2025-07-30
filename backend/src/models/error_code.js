@@ -32,4 +32,7 @@ const ErrorCode = sequelize.define('error_codes', {
   timestamps: false
 });
 
+ErrorCode.sequelize = sequelize;
+ErrorCode.Op = require('sequelize').Op;
+
 module.exports = ErrorCode; 

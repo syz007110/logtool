@@ -1,4 +1,5 @@
 const ErrorCode = require('../models/error_code');
+const { Op } = require('sequelize');
 
 // 新增故障码
 const createErrorCode = async (req, res) => {
@@ -26,12 +27,12 @@ const getErrorCodes = async (req, res) => {
     if (level) where.level = level;
     if (category) where.category = category;
     if (keyword) {
-      where[ErrorCode.sequelize.Op.or] = [
-        { short_message: { [ErrorCode.sequelize.Op.like]: `%${keyword}%` } },
-        { short_message_en: { [ErrorCode.sequelize.Op.like]: `%${keyword}%` } },
-        { user_hint: { [ErrorCode.sequelize.Op.like]: `%${keyword}%` } },
-        { user_hint_en: { [ErrorCode.sequelize.Op.like]: `%${keyword}%` } },
-        { code: { [ErrorCode.sequelize.Op.like]: `%${keyword}%` } }
+      where[Op.or] = [
+        { short_message: { [Op.like]: `%${keyword}%` } },
+        { short_message_en: { [Op.like]: `%${keyword}%` } },
+        { user_hint: { [Op.like]: `%${keyword}%` } },
+        { user_hint_en: { [Op.like]: `%${keyword}%` } },
+        { code: { [Op.like]: `%${keyword}%` } }
       ];
     }
     const { count: total, rows: errorCodes } = await ErrorCode.findAndCountAll({

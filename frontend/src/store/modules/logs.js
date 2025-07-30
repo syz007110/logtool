@@ -67,6 +67,15 @@ const actions = {
     } catch (error) {
       throw error
     }
+  },
+
+  async fetchLogEntries({ commit }, logId) {
+    try {
+      const response = await api.logs.getEntries(logId)
+      return response
+    } catch (error) {
+      throw error
+    }
   }
 }
 
