@@ -76,6 +76,33 @@ const actions = {
     } catch (error) {
       throw error
     }
+  },
+
+  async fetchBatchLogEntries({ commit }, params) {
+    try {
+      const response = await api.logs.getBatchEntries(params)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async autoFillDeviceId({ commit }, key) {
+    try {
+      const response = await api.logs.autoFillDeviceId(key)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async autoFillKey({ commit }, deviceId) {
+    try {
+      const response = await api.logs.autoFillKey(deviceId)
+      return response
+    } catch (error) {
+      throw error
+    }
   }
 }
 

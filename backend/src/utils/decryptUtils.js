@@ -183,7 +183,12 @@ function translatePerLine(line, key) {
     }
     
     // 解密错误码
-    const errCodeDec = decryptErrorCode(errCode, key);
+    let errCodeDec = decryptErrorCode(errCode, key);
+    
+    // 如果解密后的故障码为"310e"，补全成"100310e"
+    if (errCodeDec === '310e') {
+      errCodeDec = '100310e';
+    }
     
     // 解密参数
     const p1 = decryptPara(p1Hex, key);
@@ -218,9 +223,13 @@ function translatePerLine(line, key) {
  * @returns {Array} 解密后的日志条目数组
  */
 function decryptLogContent(content, key) {
+  console.log(`开始解析日志内容，总长度: ${content.length}`);
+  
   const lines = content.split(/\r?\n/).filter(line => line.trim());
+  console.log(`过滤后有效行数: ${lines.length}`);
   
   const entries = [];
+  let errorCount = 0;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -229,9 +238,16 @@ function decryptLogContent(content, key) {
       const entry = translatePerLine(line, key);
       entries.push(entry);
     } catch (error) {
-      console.warn(`解析日志行失败: ${line}`, error.message);
+      errorCount++;
+      console.warn(`解析日志行 ${i + 1} 失败: ${line}`, error.message);
       // 可以选择跳过错误的行或添加错误标记
     }
+  }
+  
+  console.log(`解析完成，成功: ${entries.length} 行，失败: ${errorCount} 行`);
+  
+  if (entries.length === 0 && lines.length > 0) {
+    throw new Error(`所有 ${lines.length} 行日志解析都失败了`);
   }
   
   return entries;

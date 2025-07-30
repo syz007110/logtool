@@ -8,6 +8,28 @@
         </div>
       </template>
       
+      <!-- 总体进度条 -->
+      <div v-if="uploading" class="overall-progress">
+        <el-progress 
+          :percentage="overallProgress" 
+          :status="overallProgress >= 100 ? 'success' : ''"
+          :stroke-width="12"
+          :show-text="true"
+          :format="progressFormat"
+        />
+        <div class="progress-stages">
+          <span class="stage" :class="{ active: overallProgress >= 0, completed: overallProgress >= 30 }">
+            文件上传
+          </span>
+          <span class="stage" :class="{ active: overallProgress >= 30, completed: overallProgress >= 60 }">
+            解密处理
+          </span>
+          <span class="stage" :class="{ active: overallProgress >= 60, completed: overallProgress >= 100 }">
+            解析完成
+          </span>
+        </div>
+      </div>
+
       <el-upload
         ref="uploadRef"
         :action="uploadUrl"
@@ -18,13 +40,15 @@
         :on-exceed="onExceed"
         :on-change="onFileChange"
         :on-remove="onFileRemove"
+        :on-progress="onUploadProgress"
         :auto-upload="false"
-        :show-file-list="true"
+        :show-file-list="false"
         :multiple="true"
         :limit="50"
         accept=".medbot"
         drag
         name="file"
+        :disabled="uploading"
       >
         <el-icon class="el-icon--upload"><upload-filled /></el-icon>
         <div class="el-upload__text">
@@ -32,24 +56,69 @@
         </div>
         <template #tip>
           <div class="el-upload__tip">
-            支持上传 .medbot 文件，最多50个文件，总大小不超过200MB，上传后将自动解密并解析
+            <div v-if="!uploading">
+              支持上传 .medbot 文件，最多50个文件，总大小不超过200MB，上传后将自动解密并解析
+            </div>
+            <div v-else class="parsing-tip">
+              <el-icon class="is-loading"><Refresh /></el-icon>
+              正在解析中，请勿刷新页面...
+            </div>
           </div>
         </template>
       </el-upload>
+      
+      <!-- 自定义文件列表 -->
+      <div v-if="uploadFileList.length > 0" class="custom-file-list">
+        <div class="file-list-header">
+          <span>已选择的文件 ({{ uploadFileList.length }})</span>
+          <el-button type="text" size="small" @click="clearUpload" :disabled="uploading">
+            清空
+          </el-button>
+        </div>
+        <div class="file-items">
+          <div 
+            v-for="(file, index) in uploadFileList" 
+            :key="index" 
+            class="file-item"
+          >
+            <el-icon><Document /></el-icon>
+            <span class="file-name">{{ file.name || file.originalname }}</span>
+            <span class="file-size">{{ formatFileSize(file.size || file.raw?.size || 0) }}</span>
+            <el-button 
+              type="text" 
+              size="small" 
+              @click="removeFile(index)"
+              :disabled="uploading"
+            >
+              <el-icon><Delete /></el-icon>
+            </el-button>
+          </div>
+        </div>
+      </div>
       
       <!-- 密钥输入区域 -->
       <div class="key-input-section">
         <div class="key-input-row">
           <el-input
             v-model="decryptKey"
-            placeholder="请输入解密密钥"
+            placeholder="请输入解密密钥（MAC地址格式，如：00-01-05-77-6a-09）"
             style="width: 300px;"
             clearable
+            @blur="validateKeyFormat"
           >
             <template #prefix>
               <el-icon><Key /></el-icon>
             </template>
           </el-input>
+          
+          <el-button 
+            type="primary" 
+            plain 
+            @click="autoFillDeviceId"
+            :disabled="!decryptKey.trim()"
+          >
+            自动填充设备编号
+          </el-button>
           
           <span class="key-separator">或</span>
           
@@ -74,27 +143,55 @@
             {{ keyFileName }}
           </el-tag>
         </div>
+        
+        <div v-if="keyError" class="key-error">
+          <el-tag type="danger" size="small">
+            {{ keyError }}
+          </el-tag>
+        </div>
       </div>
       
       <!-- 设备编号输入区域 -->
       <div class="device-input-section">
-        <el-input
-          v-model="deviceId"
-          placeholder="设备编号（可选，格式：XXXX-XX，例：4371-01）"
-          style="width: 300px;"
-          clearable
-        >
-          <template #prefix>
-            <el-icon><Monitor /></el-icon>
-          </template>
-        </el-input>
+        <div class="device-input-row">
+          <el-input
+            v-model="deviceId"
+            placeholder="设备编号（格式：数字或字母组合，例：4371-01、ABC-12，默认为0000-00）"
+            style="width: 300px;"
+            clearable
+            @blur="validateDeviceIdFormat"
+          >
+            <template #prefix>
+              <el-icon><Monitor /></el-icon>
+            </template>
+          </el-input>
+          
+          <el-button 
+            type="primary" 
+            plain 
+            @click="autoFillKey"
+            :disabled="!deviceId.trim()"
+          >
+            自动填充密钥
+          </el-button>
+        </div>
+        
+        <div v-if="deviceIdError" class="device-error">
+          <el-tag type="danger" size="small">
+            {{ deviceIdError }}
+          </el-tag>
+        </div>
       </div>
       
       <div class="upload-actions">
-        <el-button type="primary" @click="submitUpload" :loading="uploading">
-          上传并解析
+        <el-button 
+          type="primary" 
+          @click="submitUpload" 
+          :loading="uploading"
+          :disabled="uploading || !decryptKey.trim() || uploadFileList.length === 0"
+        >
+          {{ uploading ? '解析中...' : '上传并解析' }}
         </el-button>
-        <el-button @click="clearUpload">清空</el-button>
       </div>
     </el-card>
     
@@ -115,10 +212,11 @@
                 <el-icon><Search /></el-icon>
               </template>
             </el-input>
-          <el-button type="primary" size="small" @click="loadLogs">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+            <el-button type="primary" size="small" @click="loadLogs">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+
           </div>
         </div>
       </template>
@@ -138,12 +236,25 @@
           </template>
         </el-table-column>
         
+        <el-table-column label="状态" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+            <div v-if="!canOperate(row)" class="status-tip">
+              <el-icon><Warning /></el-icon>
+              <span>处理中，请稍候</span>
+            </div>
+          </template>
+        </el-table-column>
+        
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button 
               size="small" 
               type="primary"
-              @click="showEntries(row)"
+              @click="goToLogDetail(row)"
+              :disabled="!canOperate(row)"
             >
               分析
             </el-button>
@@ -152,6 +263,7 @@
               size="small" 
               type="success"
               @click="handleDownload(row)"
+              :disabled="!canOperate(row)"
             >
               下载
             </el-button>
@@ -160,6 +272,8 @@
               size="small" 
               type="danger" 
               @click="handleDelete(row)"
+              v-if="canDeleteLog(row)"
+              :disabled="!canOperate(row)"
             >
               删除
             </el-button>
@@ -180,35 +294,41 @@
         />
       </div>
     </el-card>
-  </div>
 
-  <el-dialog v-model="showEntriesDialog" title="日志分析" width="900px">
-    <el-table :data="logEntries" style="width: 100%">
-      <el-table-column prop="timestamp" label="时间戳" width="180" />
-      <el-table-column prop="error_code" label="故障码" width="100" />
-      <el-table-column prop="param1" label="参数1" width="100" />
-      <el-table-column prop="param2" label="参数2" width="100" />
-      <el-table-column prop="param3" label="参数3" width="100" />
-      <el-table-column prop="param4" label="参数4" width="100" />
-      <el-table-column prop="explanation" label="日志解释" />
-    </el-table>
-  </el-dialog>
+    <!-- 日志分析弹窗 -->
+    <el-dialog v-model="showEntriesDialog" title="日志分析" width="900px">
+      <el-table :data="logEntries" style="width: 100%">
+        <el-table-column prop="timestamp" label="时间戳" width="180" />
+        <el-table-column prop="error_code" label="故障码" width="100" />
+        <el-table-column prop="param1" label="参数1" width="100" />
+        <el-table-column prop="param2" label="参数2" width="100" />
+        <el-table-column prop="param3" label="参数3" width="100" />
+        <el-table-column prop="param4" label="参数4" width="100" />
+        <el-table-column prop="explanation" label="日志解释" />
+      </el-table>
+    </el-dialog>
+
+
+  </div>
 </template>
 
 <script>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled } from '@element-plus/icons-vue'
+import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning } from '@element-plus/icons-vue'
 
 export default {
   name: 'Logs',
   setup() {
     const store = useStore()
+    const router = useRouter()
     
     // 响应式数据
     const loading = ref(false)
     const uploading = ref(false)
+    const overallProgress = ref(0) // 总体进度
     const uploadRef = ref(null)
     const keyUploadRef = ref(null)
     const currentPage = ref(1)
@@ -218,6 +338,10 @@ export default {
     const deviceId = ref('') // 设备编号
     const filterDeviceId = ref('') // 筛选设备编号
     const uploadFileList = ref([]) // 手动跟踪上传文件列表
+    const keyError = ref('') // 密钥格式错误提示
+    const deviceIdError = ref('') // 设备编号格式错误提示
+    
+
     
     // 计算属性
     const logs = computed(() => store.getters['logs/logsList'])
@@ -228,6 +352,30 @@ export default {
       'X-Decrypt-Key': decryptKey.value, // 添加密钥到请求头
       'X-Device-ID': deviceId.value // 添加设备编号到请求头
     }))
+    
+    // 权限相关计算属性
+    const userRole = computed(() => store.state.auth.user?.role_id)
+    const userId = computed(() => store.state.auth.user?.id)
+    
+    // 检查是否可以删除日志
+    const canDeleteLog = (log) => {
+      console.log('检查删除权限:', {
+        userRole: userRole.value,
+        userId: userId.value,
+        logUploaderId: log.uploader_id,
+        userInfo: store.state.auth.user
+      })
+      
+      // 管理员可以删除任何日志
+      if (userRole.value === 1) return true
+      // 专家可以删除任何日志
+      if (userRole.value === 2) return true
+      // 普通用户只能删除自己的日志
+      if (userRole.value === 3) {
+        return log.uploader_id === userId.value
+      }
+      return false
+    }
     
     // 方法
     const loadLogs = async () => {
@@ -245,6 +393,8 @@ export default {
       }
     }
     
+
+    
     const handleSizeChange = (size) => {
       pageSize.value = size
       currentPage.value = 1
@@ -261,6 +411,33 @@ export default {
         ElMessage.error('请输入解密密钥或上传密钥文件')
         return
       }
+      
+      // 验证密钥格式
+      const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+      if (!macRegex.test(decryptKey.value)) {
+        ElMessage.error('密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
+        return
+      }
+      
+      // 检查设备编号是否输入
+      if (!deviceId.value.trim()) {
+        ElMessage.warning('请输入设备编号，或使用默认值0000-00')
+        return
+      }
+      
+      // 验证设备编号格式 - 允许数字+字母组合
+      if (deviceId.value && deviceId.value !== '0000-00') {
+        const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
+        if (!deviceIdRegex.test(deviceId.value)) {
+          ElMessage.error('设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）')
+          return
+        }
+      } else {
+        // 如果没有输入设备编号，弹窗提示
+        ElMessage.warning('请输入设备编号，或使用默认值0000-00')
+        return
+      }
+      
       if (!uploadRef.value) {
         ElMessage.error('上传组件未初始化')
         return
@@ -309,10 +486,15 @@ export default {
     
     const beforeKeyUpload = (file) => {
       const isTxtFile = file.name.endsWith('.txt')
+      const isSystemInfoFile = file.name === 'systemInfo.txt'
       const isLt1M = file.size / 1024 / 1024 < 1
       
       if (!isTxtFile) {
         ElMessage.error('密钥文件必须是 .txt 格式!')
+        return false
+      }
+      if (!isSystemInfoFile) {
+        ElMessage.error('密钥文件名必须是 systemInfo.txt!')
         return false
       }
       if (!isLt1M) {
@@ -326,8 +508,17 @@ export default {
       const reader = new FileReader()
       reader.onload = (e) => {
         const content = e.target.result.trim()
+        
+        // 验证文件内容是否为MAC地址格式
+        const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+        if (!macRegex.test(content)) {
+          ElMessage.error('密钥文件内容格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
+          return
+        }
+        
         decryptKey.value = content
         keyFileName.value = file.name
+        keyError.value = '' // 清除错误提示
         ElMessage.success('密钥文件读取成功')
       }
       reader.readAsText(file.raw)
@@ -344,19 +535,122 @@ export default {
       decryptKey.value = ''
       keyFileName.value = ''
       deviceId.value = ''
+      keyError.value = ''
+      deviceIdError.value = ''
+      // 重置上传状态和进度
+      uploading.value = false
+      overallProgress.value = 0
     }
+
+    // 进度格式化方法
+    const progressFormat = (percentage) => {
+      if (percentage < 30) {
+        return `文件上传中 ${percentage}%`
+      } else if (percentage < 60) {
+        return `解密处理中 ${percentage}%`
+      } else if (percentage < 100) {
+        return `解析处理中 ${percentage}%`
+      } else {
+        return `处理完成 ${percentage}%`
+      }
+    }
+
+    // 防止页面刷新导致解析中断
+    const preventRefresh = () => {
+      if (uploading.value) {
+        return '解析正在进行中，刷新页面可能导致解析失败。确定要离开吗？'
+      }
+    }
+
+    // 监听页面刷新事件
+    onMounted(() => {
+      window.addEventListener('beforeunload', preventRefresh)
+    })
     
+    const onUploadProgress = (event, file, fileList) => {
+      // 上传进度处理，显示文件上传阶段（占总进度的30%）
+      const uploadProgress = Math.floor(event.percent * 0.3) // 上传占30%
+      overallProgress.value = uploadProgress
+      console.log(`文件 ${file.name} 上传进度: ${event.percent}%, 总体进度: ${uploadProgress}%`)
+    }
+
     const onUploadSuccess = (response, file, fileList) => {
-      ElMessage.success(`文件 ${file.name} 上传并解析成功`)
+      // 上传成功，开始解密和解析阶段
+      console.log(`文件 ${file.name} 上传成功，开始解密和解析...`)
+      
       // 更新手动跟踪的文件列表
       uploadFileList.value = fileList
-      // 所有文件上传完成后清空
+      
+      // 检查是否所有文件都上传完成
       if (fileList.length === 0) {
-        decryptKey.value = ''
-        keyFileName.value = ''
-        deviceId.value = ''
-        uploadFileList.value = []
-        loadLogs()
+        // 所有文件上传完成，开始解密和解析阶段
+        uploading.value = true
+        ElMessage.success('文件上传完成，正在解密和解析中...')
+        
+        // 模拟解密和解析进度（占总进度的70%）
+        let decryptProgress = 30 // 从30%开始（上传已完成）
+        let parseProgress = 0
+        
+        // 解密阶段（30% -> 60%）
+        const decryptInterval = setInterval(() => {
+          if (decryptProgress < 60) {
+            decryptProgress += 2
+            overallProgress.value = decryptProgress
+            console.log(`解密进度: ${decryptProgress}%`)
+          } else {
+            clearInterval(decryptInterval)
+            // 开始解析阶段
+            startParsePhase()
+          }
+        }, 100)
+        
+        // 解析阶段（60% -> 100%）
+        const startParsePhase = () => {
+          const parseInterval = setInterval(() => {
+            if (parseProgress < 40) {
+              parseProgress += 1
+              overallProgress.value = 60 + parseProgress
+              console.log(`解析进度: ${parseProgress}%, 总体进度: ${60 + parseProgress}%`)
+            } else {
+              clearInterval(parseInterval)
+              // 解析完成
+              finishProcessing()
+            }
+          }, 200)
+        }
+        
+        // 完成处理
+        const finishProcessing = async () => {
+          try {
+            await loadLogs()
+            // 检查是否所有日志都已解析完成
+            const allParsed = logs.value.every(log => log.status === 'parsed')
+            if (allParsed) {
+              overallProgress.value = 100
+              uploading.value = false
+              // 显示具体的文件名
+              const uploadedFiles = uploadFileList.value.map(f => f.name || f.originalname).join(', ')
+              ElMessage.success(`${uploadedFiles} 上传成功，解析完成`)
+              // 清空表单
+              clearUpload()
+            } else {
+              // 如果后端解析还未完成，继续等待
+              setTimeout(finishProcessing, 1000)
+            }
+          } catch (error) {
+            uploading.value = false
+            overallProgress.value = 0
+            ElMessage.error('检查解析状态失败')
+            clearUpload()
+          }
+        }
+        
+        // 开始解密阶段
+        setTimeout(() => {
+          // 解密阶段开始
+        }, 500)
+      } else {
+        ElMessage.success(`文件 ${file.name} 上传成功，正在处理中...`)
       }
     }
     
@@ -374,6 +668,11 @@ export default {
     
     const onFileRemove = (file, fileList) => {
       uploadFileList.value = fileList
+    }
+
+    // 删除单个文件
+    const removeFile = (index) => {
+      uploadFileList.value.splice(index, 1)
     }
     
     const handleParse = async (row) => {
@@ -425,6 +724,12 @@ export default {
         }
       }
     }
+
+    // 跳转到日志详情页面
+    const goToLogDetail = (row) => {
+      // 使用路由跳转到新的日志详情页面
+      router.push(`/dashboard/log-detail/${row.id}`)
+    }
     
     const formatFileSize = (bytes) => {
       if (bytes === 0) return '0 B'
@@ -441,7 +746,9 @@ export default {
     
     const getStatusType = (status) => {
       const typeMap = {
-        uploaded: 'warning',
+        uploading: 'warning',
+        decrypting: 'warning',
+        parsing: 'warning',
         parsed: 'success',
         failed: 'danger'
       }
@@ -450,25 +757,75 @@ export default {
     
     const getStatusText = (status) => {
       const textMap = {
-        uploaded: '已上传',
-        parsed: '已解析',
+        uploading: '上传中',
+        decrypting: '解密中',
+        parsing: '解析中',
+        parsed: '完成',
         failed: '解析失败'
       }
       return textMap[status] || status
     }
+
+    // 检查是否可以操作日志（只有完成状态才能操作）
+    const canOperate = (log) => {
+      return log.status === 'parsed'
+    }
     
-    // 明细弹窗相关
-    const showEntriesDialog = ref(false)
-    const logEntries = ref([])
-    const selectedLog = ref(null)
-    const showEntries = async (row) => {
-      selectedLog.value = row
-      showEntriesDialog.value = true
+
+    
+
+    
+    // 自动填充密钥
+    const autoFillKey = async () => {
       try {
-        const res = await store.dispatch('logs/fetchLogEntries', row.id)
-        logEntries.value = res.entries || []
-      } catch (e) {
-        logEntries.value = []
+        const response = await store.dispatch('logs/autoFillKey', deviceId.value)
+        if (response.data.key) {
+          decryptKey.value = response.data.key
+          ElMessage.success('已自动填充密钥')
+        } else {
+          ElMessage.warning('未找到该设备编号对应的密钥')
+        }
+      } catch (error) {
+        console.error('自动填充密钥错误:', error)
+        const errorMessage = error.response?.data?.message || error.message || '自动填充密钥失败'
+        ElMessage.error(errorMessage)
+      }
+    }
+
+    // 验证密钥格式
+    const validateKeyFormat = () => {
+      const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+      if (decryptKey.value && !macRegex.test(decryptKey.value)) {
+        keyError.value = '请输入有效的MAC地址格式密钥 (如: 00-01-05-77-6a-09)'
+      } else {
+        keyError.value = ''
+      }
+    }
+
+    // 自动填充设备编号
+    const autoFillDeviceId = async () => {
+      try {
+        const response = await store.dispatch('logs/autoFillDeviceId', decryptKey.value)
+        if (response.data.device_id) {
+          deviceId.value = response.data.device_id
+          ElMessage.success('已自动填充设备编号')
+        } else {
+          ElMessage.warning('未找到该密钥对应的设备编号')
+        }
+      } catch (error) {
+        console.error('自动填充设备编号错误:', error)
+        const errorMessage = error.response?.data?.message || error.message || '自动填充设备编号失败'
+        ElMessage.error(errorMessage)
+      }
+    }
+
+    // 验证设备编号格式
+    const validateDeviceIdFormat = () => {
+      const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
+      if (deviceId.value && !deviceIdRegex.test(deviceId.value)) {
+        deviceIdError.value = '请输入有效的设备编号格式 (如: 4371-01、ABC-12、123-XY)'
+      } else {
+        deviceIdError.value = ''
       }
     }
     
@@ -480,6 +837,8 @@ export default {
     return {
       loading,
       uploading,
+      overallProgress,
+      progressFormat,
       uploadRef,
       currentPage,
       pageSize,
@@ -498,6 +857,7 @@ export default {
       onExceed,
       onFileChange,
       onFileRemove,
+      removeFile,
       handleParse,
       handleDownload,
       handleDelete,
@@ -505,10 +865,7 @@ export default {
       formatDate,
       getStatusType,
       getStatusText,
-      showEntriesDialog,
-      logEntries,
-      selectedLog,
-      showEntries,
+      goToLogDetail,
       decryptKey,
       keyUploadRef,
       keyFileName,
@@ -516,7 +873,16 @@ export default {
       filterDeviceId,
       uploadFileList,
       beforeKeyUpload,
-      onKeyFileChange
+      onKeyFileChange,
+      canDeleteLog,
+      canOperate,
+      keyError,
+      deviceIdError,
+      autoFillKey,
+      validateKeyFormat,
+      autoFillDeviceId,
+      validateDeviceIdFormat,
+
     }
   }
 }
@@ -567,8 +933,22 @@ export default {
   margin-top: 10px;
 }
 
+.key-error {
+  margin-top: 10px;
+}
+
 .device-input-section {
   margin-top: 15px;
+}
+
+.device-input-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.device-error {
+  margin-top: 10px;
 }
 
 .list-card {
@@ -580,4 +960,135 @@ export default {
   justify-content: center;
   margin-top: 20px;
 }
+
+.parsing-tip {
+  color: #e6a23c;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parsing-tip .el-icon {
+  animation: rotating 2s linear infinite;
+}
+
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.overall-progress {
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.progress-stages {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  padding: 0 10px;
+}
+
+.stage {
+  font-size: 12px;
+  color: #909399;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.stage.active {
+  color: #409eff;
+  background-color: #ecf5ff;
+  font-weight: 500;
+}
+
+.stage.completed {
+  color: #67c23a;
+  background-color: #f0f9ff;
+  font-weight: 500;
+}
+
+.custom-file-list {
+  margin-top: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.file-items {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 15px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item:hover {
+  background-color: #f5f7fa;
+}
+
+.file-item .el-icon {
+  margin-right: 8px;
+  color: #909399;
+}
+
+.file-name {
+  flex: 1;
+  margin-right: 10px;
+  font-size: 14px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  margin-right: 10px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.status-tip {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #e6a23c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.status-tip .el-icon {
+  font-size: 12px;
+}
+
 </style> 

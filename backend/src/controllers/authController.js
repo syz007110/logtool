@@ -49,12 +49,14 @@ const login = async (req, res) => {
     // 查询用户角色
     const userRole = await UserRole.findOne({ where: { user_id: user.id } });
     let roleName = null;
+    let roleId = null;
     if (userRole) {
       const role = await Role.findByPk(userRole.role_id);
       roleName = role ? role.name : null;
+      roleId = role ? role.id : null;
     }
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '12h' });
-    res.json({ message: '登录成功', token, user: { id: user.id, username: user.username, email: user.email, role: roleName } });
+    res.json({ message: '登录成功', token, user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId } });
   } catch (err) {
     res.status(500).json({ message: '登录失败', error: err.message });
   }

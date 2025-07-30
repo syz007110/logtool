@@ -75,7 +75,10 @@ const logs = {
   parse: (id) => api.post(`/logs/${id}/parse`),
   download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/logs/${id}`),
-  getEntries: (id) => api.get(`/logs/${id}/entries`)
+  getEntries: (id) => api.get(`/logs/${id}/entries`),
+  getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
+  autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
+  autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } })
 }
 
 const users = {
