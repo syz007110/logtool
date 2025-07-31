@@ -8,6 +8,7 @@ const {
   parseLog, 
   downloadLog, 
   deleteLog, 
+  batchDeleteLogs,
   getLogEntries,
   getBatchLogEntries,
   autoFillDeviceId,
@@ -40,6 +41,9 @@ router.post('/upload', auth, checkPermission('log:upload'), upload.array('file',
 router.post('/:id/parse', auth, checkPermission('log:parse'), parseLog);
 router.get('/:id/download', auth, checkPermission('log:download'), downloadLog);
 router.delete('/:id', auth, checkLogPermission('delete'), deleteLog);
+
+// 批量删除日志
+router.delete('/batch', auth, checkLogPermission('delete'), batchDeleteLogs);
 // 获取日志明细 - 根据用户角色决定查看权限
 router.get('/:id/entries', auth, checkLogPermission('read_all'), getLogEntries);
 

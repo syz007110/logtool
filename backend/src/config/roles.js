@@ -37,7 +37,11 @@ const ROLES = {
       'i18n:create',
       'i18n:read',
       'i18n:update',
-      'i18n:delete'
+      'i18n:delete',
+      
+      // 历史记录权限
+      'history:read_all', // 查看所有历史记录
+      'history:export'    // 导出历史记录
     ]
   },
   
@@ -62,14 +66,17 @@ const ROLES = {
       'log:delete_own', // 只能删除自己的日志
       
       // 多语言管理权限
-      'i18n:read'
+      'i18n:read',
+      
+      // 历史记录权限（专家可以查看自己的历史记录）
+      'history:read_own'
     ]
   },
   
   USER: {
     id: 3,
     name: 'user',
-    description: '基础权限，可查询故障码、上传日志、查看自己的日志',
+    description: '基础权限，可查询故障码、上传日志、查看所有日志但只能删除自己的日志',
     permissions: [
       // 故障码查询权限
       'error_code:read',
@@ -77,13 +84,33 @@ const ROLES = {
       
       // 日志管理权限
       'log:upload',
-      'log:read_own', // 只能查看自己的日志
+      'log:read_all', // 可以查看所有用户的日志
+      'log:read_own', // 查看自己的日志
       'log:parse',
       'log:download',
       'log:delete_own', // 只能删除自己的日志
       
       // 多语言查询权限
-      'i18n:read'
+      'i18n:read',
+      
+      // 历史记录权限（普通用户只能查看自己的历史记录）
+      'history:read_own'
+    ]
+  },
+  
+  // 新增角色示例
+  AUDITOR: {
+    id: 4,
+    name: 'auditor',
+    description: '审计员，只能查看历史记录和日志，不能进行修改操作',
+    permissions: [
+      // 只读权限
+      'error_code:read',
+      'log:read_all',
+      'log:read_own',
+      'i18n:read',
+      'history:read_all',
+      'history:export'
     ]
   }
 };

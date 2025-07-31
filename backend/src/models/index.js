@@ -13,9 +13,17 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT,
     dialect: 'mysql',
     logging: false,
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
     define: {
       freezeTableName: true,
       timestamps: false
+    },
+    dialectOptions: {
+      charset: 'utf8mb4',
+      collate: 'utf8mb4_unicode_ci',
+      supportBigNumbers: true,
+      bigNumberStrings: true
     }
   }
 );

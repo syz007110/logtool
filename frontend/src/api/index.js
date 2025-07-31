@@ -64,7 +64,26 @@ const errorCodes = {
   create: (data) => api.post('/error-codes', data),
   update: (id, data) => api.put(`/error-codes/${id}`, data),
   delete: (id) => api.delete(`/error-codes/${id}`),
-  exportXML: (params) => api.get('/xml-export', { params, responseType: 'blob' })
+  exportXML: (language = 'zh') => api.get('/error-codes/export/xml', { 
+    params: { language }, 
+    responseType: 'blob' 
+  }),
+  exportMultiXML: (languages = 'zh') => api.get('/error-codes/export/multi-xml', { 
+    params: { languages },
+    responseType: 'json'
+  })
+}
+
+const i18nErrorCodes = {
+  getList: (params) => api.get('/i18n-error-codes', { params }),
+  upsert: (data) => api.post('/i18n-error-codes', data),
+  delete: (id) => api.delete(`/i18n-error-codes/${id}`),
+  batchImport: (data) => api.post('/i18n-error-codes/batch-import', data),
+  uploadCSV: (formData) => api.post('/i18n-error-codes/upload-csv', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getLanguages: () => api.get('/i18n-error-codes/languages'),
+  getSubsystems: () => api.get('/i18n-error-codes/subsystems')
 }
 
 const logs = {
@@ -75,10 +94,15 @@ const logs = {
   parse: (id) => api.post(`/logs/${id}/parse`),
   download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/logs/${id}`),
+  batchDelete: (logIds) => api.delete('/logs/batch', { data: { logIds } }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } })
+}
+
+const operationLogs = {
+  getList: (params) => api.get('/operation-logs', { params })
 }
 
 const users = {
@@ -106,7 +130,9 @@ const i18n = {
 export default {
   auth,
   errorCodes,
+  i18nErrorCodes,
   logs,
+  operationLogs,
   users,
   roles,
   i18n

@@ -144,7 +144,7 @@ const checkLogPermission = (action) => {
         return;
       }
       
-      // 检查是否有专家权限（专家可以查看所有日志，但删除权限有限制）
+      // 检查是否有查看所有日志的权限（现在所有用户都可以查看所有日志）
       if (action === 'read_all' && hasPermission(userRoles, 'log:read_all')) {
         console.log('用户具有查看所有日志权限，允许访问');
         next();

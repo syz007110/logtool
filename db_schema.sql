@@ -1,4 +1,4 @@
-create database logtool
+create database logtool CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -103,4 +103,38 @@ CREATE TABLE IF NOT EXISTS log_entries (
   param4 VARCHAR(100),
   explanation TEXT,
   FOREIGN KEY (log_id) REFERENCES logs(id) ON DELETE CASCADE
-); 
+);
+
+-- 操作日志表
+CREATE TABLE IF NOT EXISTS operation_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  operation VARCHAR(100) NOT NULL,
+  description TEXT,
+  user_id INT,
+  username VARCHAR(100),
+  status VARCHAR(50) DEFAULT 'success',
+  ip VARCHAR(45),
+  user_agent TEXT,
+  details JSON,
+  time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_operation (operation),
+  INDEX idx_time (time)
+);
+
+-- 故障码多语言表
+CREATE TABLE IF NOT EXISTS i18n_error_codes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  error_code_id INT NOT NULL,
+  lang VARCHAR(10) NOT NULL,
+  short_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  user_hint TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  operation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (error_code_id) REFERENCES error_codes(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_error_code_lang (error_code_id, lang),
+  INDEX idx_error_code_id (error_code_id),
+  INDEX idx_lang (lang)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 

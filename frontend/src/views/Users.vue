@@ -415,10 +415,8 @@ export default {
     }
     
     // 生命周期
-    onMounted(() => {
-      // 调试输出
-      console.log('userRole in Users.vue:', userRole.value)
-      if (userRole.value !== 'admin') {
+          onMounted(() => {
+        if (userRole.value !== 'admin') {
         router.replace('/dashboard/account')
         return
       }

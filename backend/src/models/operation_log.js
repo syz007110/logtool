@@ -11,7 +11,26 @@ const OperationLog = sequelize.define('operation_logs', {
   status: { type: DataTypes.STRING(50), defaultValue: 'success' },
   ip: { type: DataTypes.STRING(50) },
   user_agent: { type: DataTypes.STRING(255) },
-  details: { type: DataTypes.JSON }
+  details: { 
+    type: DataTypes.TEXT,
+    get() {
+      const value = this.getDataValue('details');
+      if (!value) return null;
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        console.warn('解析操作日志 details 失败:', error.message);
+        return { rawData: value };
+      }
+    },
+    set(value) {
+      if (value === null || value === undefined) {
+        this.setDataValue('details', null);
+      } else {
+        this.setDataValue('details', JSON.stringify(value));
+      }
+    }
+  }
 }, {
   timestamps: false
 });

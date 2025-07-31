@@ -24,6 +24,19 @@ const routes = [
     component: () => import('../views/ForgotPassword.vue'),
     meta: { requiresAuth: false }
   },
+  // 独立的分析页面路由（不需要侧边导航栏）
+  {
+    path: '/analysis/:id',
+    name: 'Analysis',
+    component: () => import('../views/Analysis.vue'),
+    meta: { requiresAuth: true, noSidebar: true }
+  },
+  {
+    path: '/batch-analysis/:logIds',
+    name: 'BatchAnalysisStandalone',
+    component: () => import('../views/BatchAnalysis.vue'),
+    meta: { requiresAuth: true, noSidebar: true }
+  },
   {
     path: '/dashboard',
     component: () => import('../views/Dashboard.vue'),
@@ -40,6 +53,11 @@ const routes = [
         component: () => import('../views/ErrorCodes.vue')
       },
       {
+        path: 'i18n-error-codes',
+        name: 'I18nErrorCodes',
+        component: () => import('../views/I18nErrorCodes.vue')
+      },
+      {
         path: 'logs',
         name: 'Logs',
         component: () => import('../views/Logs.vue')
@@ -50,6 +68,16 @@ const routes = [
         component: () => import('../views/LogDetail.vue')
       },
       {
+        path: 'log-analysis/:id',
+        name: 'LogAnalysis',
+        component: () => import('../views/LogAnalysis.vue')
+      },
+      {
+        path: 'batch-analysis/:logIds',
+        name: 'BatchAnalysis',
+        component: () => import('../views/BatchAnalysis.vue')
+      },
+      {
         path: 'account',
         name: 'Account',
         component: () => import('../views/Account.vue')
@@ -57,7 +85,8 @@ const routes = [
       {
         path: 'history',
         name: 'History',
-        component: () => import('../views/History.vue')
+        component: () => import('../views/History.vue'),
+        meta: { requiresAdmin: true }
       },
       {
         path: 'users',

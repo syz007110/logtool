@@ -19,6 +19,11 @@
           <span>{{ $t('nav.errorCodes') }}</span>
         </el-menu-item>
         
+        <el-menu-item index="/dashboard/i18n-error-codes">
+          <el-icon><Globe /></el-icon>
+          <span>{{ $t('i18nErrorCodes.title') }}</span>
+        </el-menu-item>
+        
         <el-menu-item index="/dashboard/logs">
           <el-icon><Upload /></el-icon>
           <span>{{ $t('nav.logs') }}</span>
@@ -26,10 +31,11 @@
         
         <el-menu-item index="/dashboard/account">
           <el-icon><User /></el-icon>
-          <span>个人信息</span>
+          <span>{{ $t('account.title') }}</span>
         </el-menu-item>
         
-        <el-menu-item index="/dashboard/history">
+        <!-- 只有管理员可以看到历史记录 -->
+        <el-menu-item v-if="isAdmin" index="/dashboard/history">
           <el-icon><Clock /></el-icon>
           <span>{{ $t('nav.history') }}</span>
         </el-menu-item>
@@ -39,12 +45,12 @@
           <el-divider />
           <el-menu-item index="/dashboard/users">
             <el-icon><Avatar /></el-icon>
-            <span>用户管理</span>
+            <span>{{ $t('users.title') }}</span>
           </el-menu-item>
           
           <el-menu-item index="/dashboard/roles">
             <el-icon><Setting /></el-icon>
-            <span>角色管理</span>
+            <span>{{ $t('roles.title') }}</span>
           </el-menu-item>
         </template>
       </el-menu>
@@ -55,20 +61,20 @@
       <!-- 顶部导航栏 -->
       <el-header class="header">
         <div class="header-left">
-          <h3>{{ getPageTitle() }}</h3>
+          <h3>{{ $t(getPageTitleKey) }}</h3>
         </div>
         
         <div class="header-right">
-          <!-- 语言切换 -->
-          <el-dropdown @command="changeLanguage">
-            <el-button type="text">
+          <!-- 语言切换（暂时只显示中文） -->
+          <el-dropdown @command="changeLanguage" disabled>
+            <el-button type="text" disabled>
               <el-icon><Globe /></el-icon>
-              {{ currentLanguage === 'zh-CN' ? '中文' : 'English' }}
+              中文
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
-                <el-dropdown-item command="en-US">English</el-dropdown-item>
+                <el-dropdown-item command="en-US" disabled>English (暂不可用)</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -81,8 +87,8 @@
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人信息</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                <el-dropdown-item command="profile">{{ $t('nav.profile') }}</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>{{ $t('nav.logout') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -102,11 +108,11 @@ import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Globe } from '@element-plus/icons-vue'
+import { Globe, Document, Upload, User, Clock, Avatar, Setting } from '@element-plus/icons-vue'
 
 export default {
   name: 'Dashboard',
-  components: { Globe },
+  components: { Globe, Document, Upload, User, Clock, Avatar, Setting },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -116,17 +122,18 @@ export default {
     const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
     const isAdmin = computed(() => store.getters['auth/userRole'] === 'admin')
     
-    const getPageTitle = () => {
+    const getPageTitleKey = computed(() => {
       const routeMap = {
-        '/dashboard/error-codes': '故障码管理',
-        '/dashboard/logs': '日志解析',
-        '/dashboard/account': '个人信息',
-        '/dashboard/history': '历史记录',
-        '/dashboard/users': '用户管理',
-        '/dashboard/roles': '角色管理'
+        '/dashboard/error-codes': 'errorCodes.title',
+        '/dashboard/i18n-error-codes': 'i18nErrorCodes.title',
+        '/dashboard/logs': 'logs.title',
+        '/dashboard/account': 'account.title',
+        '/dashboard/history': 'history.title',
+        '/dashboard/users': 'users.title',
+        '/dashboard/roles': 'roles.title'
       }
-      return routeMap[route.path] || '首页'
-    }
+      return routeMap[route.path] || 'nav.dashboard'
+    })
     
     const changeLanguage = (language) => {
       store.dispatch('auth/setLanguage', language)
@@ -155,7 +162,7 @@ export default {
       currentUser,
       currentLanguage,
       isAdmin,
-      getPageTitle,
+      getPageTitleKey,
       changeLanguage,
       handleUserCommand
     }

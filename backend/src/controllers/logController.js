@@ -22,12 +22,9 @@ const getLogs = async (req, res) => {
       where.device_id = device_id;
     }
     
-    // 权限控制：普通用户只能看到自己的日志，专家用户和管理员可以看到所有日志
-    // 通过中间件已经检查了权限，这里只需要根据用户角色过滤数据
-    const userRole = req.user.role_id;
-    if (userRole === 3) { // 普通用户
-      where.uploader_id = req.user.id;
-    }
+    // 权限控制：所有用户都可以看到所有日志，但删除权限在删除接口中单独控制
+    // 普通用户、专家用户和管理员都可以查看所有日志
+    // 删除权限在deleteLog函数中单独检查
     
     const { count: total, rows: logs } = await Log.findAndCountAll({
       where,
@@ -501,7 +498,7 @@ const deleteLog = async (req, res) => {
     // 权限控制：普通用户只能删除自己的日志，专家用户和管理员可以删除任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
-      return res.status(403).json({ message: '权限不足，只能删除自己的日志' });
+      return res.status(403).json({ message: '权限不足，只能删除自己上传的日志' });
     }
     
     // 删除解密文件（如果存在）
@@ -586,6 +583,71 @@ const validateDeviceId = (deviceId) => {
   return deviceIdRegex.test(deviceId);
 };
 
+// 批量删除日志
+const batchDeleteLogs = async (req, res) => {
+  try {
+    const { logIds } = req.body;
+    
+    if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+      return res.status(400).json({ message: '请提供要删除的日志ID列表' });
+    }
+    
+    const userRole = req.user.role_id;
+    const userId = req.user.id;
+    
+    // 获取所有要删除的日志
+    const logs = await Log.findAll({ where: { id: logIds } });
+    
+    if (logs.length === 0) {
+      return res.status(404).json({ message: '未找到要删除的日志' });
+    }
+    
+    // 权限检查：普通用户只能删除自己的日志
+    if (userRole === 3) {
+      const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
+      if (unauthorizedLogs.length > 0) {
+        return res.status(403).json({ 
+          message: '权限不足，只能删除自己上传的日志',
+          unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
+        });
+      }
+    }
+    
+    let successCount = 0;
+    let failCount = 0;
+    const failedLogs = [];
+    
+    for (const log of logs) {
+      try {
+        // 删除解密文件（如果存在）
+        if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
+          fs.unlinkSync(log.decrypted_path);
+        }
+        
+        // 删除相关的日志明细
+        await LogEntry.destroy({ where: { log_id: log.id } });
+        
+        // 删除日志记录
+        await log.destroy();
+        successCount++;
+      } catch (error) {
+        console.error(`删除日志 ${log.original_name} 失败:`, error);
+        failCount++;
+        failedLogs.push({ id: log.id, original_name: log.original_name, error: error.message });
+      }
+    }
+    
+    res.json({ 
+      message: `批量删除完成，成功 ${successCount} 个，失败 ${failCount} 个`,
+      successCount,
+      failCount,
+      failedLogs
+    });
+  } catch (err) {
+    res.status(500).json({ message: '批量删除失败', error: err.message });
+  }
+};
+
 module.exports = { 
   getLogs, 
   uploadLog, 
@@ -594,6 +656,7 @@ module.exports = {
   getBatchLogEntries,
   downloadLog, 
   deleteLog,
+  batchDeleteLogs,
   autoFillDeviceId,
   autoFillKey,
   validateKey,

@@ -69,6 +69,15 @@ const actions = {
     }
   },
 
+  async batchDeleteLogs({ commit }, logIds) {
+    try {
+      const response = await api.logs.batchDelete(logIds)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
   async fetchLogEntries({ commit }, logId) {
     try {
       const response = await api.logs.getEntries(logId)

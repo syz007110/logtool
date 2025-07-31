@@ -2,6 +2,7 @@ const User = require('./user');
 const Role = require('./role');
 const UserRole = require('./user_role');
 const ErrorCode = require('./error_code');
+const I18nErrorCode = require('./i18n_error_code');
 const Log = require('./log');
 const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
@@ -67,7 +68,27 @@ function defineAssociations() {
     as: 'logs'
   });
 
-  // 目前不做关联，后续可扩展
+  // ErrorCode 和 I18nErrorCode 的一对多关联
+  ErrorCode.hasMany(I18nErrorCode, {
+    foreignKey: 'error_code_id',
+    as: 'i18nContents'
+  });
+
+  I18nErrorCode.belongsTo(ErrorCode, {
+    foreignKey: 'error_code_id',
+    as: 'errorCode'
+  });
+
+  // OperationLog 和 User 的关联
+  OperationLog.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'User'
+  });
+
+  User.hasMany(OperationLog, {
+    foreignKey: 'user_id',
+    as: 'operationLogs'
+  });
 
   console.log('✅ 模型关联定义完成');
 }

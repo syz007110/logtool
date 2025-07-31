@@ -33,7 +33,48 @@ const actions = {
       commit('SET_LOADING', false)
     }
   },
-  // 可扩展：create/update/delete 等
+  
+  async createErrorCode({ dispatch }, errorCodeData) {
+    try {
+      const response = await api.errorCodes.create(errorCodeData)
+      // 创建成功后重新获取列表
+      await dispatch('fetchErrorCodes')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  async updateErrorCode({ dispatch }, { id, data }) {
+    try {
+      const response = await api.errorCodes.update(id, data)
+      // 更新成功后重新获取列表
+      await dispatch('fetchErrorCodes')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  async deleteErrorCode({ dispatch }, id) {
+    try {
+      const response = await api.errorCodes.delete(id)
+      // 删除成功后重新获取列表
+      await dispatch('fetchErrorCodes')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  async exportXML(_, language = 'chinese') {
+    try {
+      const response = await api.errorCodes.exportXML(language)
+      return response
+    } catch (error) {
+      throw error
+    }
+  }
 }
 
 const getters = {

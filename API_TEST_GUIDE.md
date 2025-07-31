@@ -97,10 +97,7 @@ npm run init-roles
 npm start
 
 # 3. 运行测试（新开命令行窗口）
-node test-api.js              # 基础API测试
-node test-user-management.js  # 用户管理测试
-node test-role-permissions.js # 角色权限测试
-node test-user-roles.js       # 用户角色管理测试
+# 测试脚本已删除，请使用手动测试方法
 ```
 
 ## API 接口列表

@@ -201,6 +201,47 @@
         <div class="card-header">
           <span>日志列表</span>
           <div class="header-actions">
+            <!-- 批量操作按钮组 -->
+            <div v-if="selectedLogs.length > 0" class="batch-actions">
+              <el-button 
+                type="primary" 
+                size="small" 
+                @click="handleBatchAnalyze"
+                :disabled="!canBatchOperate"
+              >
+                <el-icon><Monitor /></el-icon>
+                批量分析 ({{ selectedLogs.length }})
+              </el-button>
+              
+              <el-button 
+                type="success" 
+                size="small" 
+                @click="handleBatchDownload"
+                :disabled="!canBatchOperate"
+              >
+                <el-icon><Download /></el-icon>
+                批量下载 ({{ selectedLogs.length }})
+              </el-button>
+              
+              <el-button 
+                type="danger" 
+                size="small" 
+                @click="handleBatchDelete"
+                :disabled="!canBatchDelete"
+              >
+                <el-icon><Delete /></el-icon>
+                批量删除 ({{ selectedLogs.length }})
+              </el-button>
+              
+              <el-button 
+                type="info" 
+                size="small" 
+                @click="clearSelection"
+              >
+                取消选择
+              </el-button>
+            </div>
+            
             <el-input
               v-model="filterDeviceId"
               placeholder="按设备编号筛选"
@@ -216,7 +257,6 @@
               <el-icon><Refresh /></el-icon>
               刷新
             </el-button>
-
           </div>
         </div>
       </template>
@@ -226,7 +266,9 @@
         :loading="loading"
         style="width: 100%"
         v-loading="loading"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="original_name" label="原始文件名" width="200" />
         <el-table-column prop="device_id" label="设备编号" width="120" />
         <el-table-column prop="uploader_id" label="上传用户ID" width="100" />
@@ -253,7 +295,7 @@
             <el-button 
               size="small" 
               type="primary"
-              @click="goToLogDetail(row)"
+              @click="goToLogAnalysis(row)"
               :disabled="!canOperate(row)"
             >
               分析
@@ -309,6 +351,8 @@
     </el-dialog>
 
 
+
+
   </div>
 </template>
 
@@ -341,6 +385,9 @@ export default {
     const keyError = ref('') // 密钥格式错误提示
     const deviceIdError = ref('') // 设备编号格式错误提示
     
+    // 批量操作相关数据
+    const selectedLogs = ref([]) // 选中的日志
+    
 
     
     // 计算属性
@@ -357,20 +404,23 @@ export default {
     const userRole = computed(() => store.state.auth.user?.role_id)
     const userId = computed(() => store.state.auth.user?.id)
     
+    // 批量操作相关计算属性
+    const canBatchOperate = computed(() => {
+      return selectedLogs.value.length > 0 && selectedLogs.value.every(log => canOperate(log))
+    })
+    
+    const canBatchDelete = computed(() => {
+      return selectedLogs.value.length > 0 && selectedLogs.value.every(log => canDeleteLog(log))
+    })
+    
     // 检查是否可以删除日志
     const canDeleteLog = (log) => {
-      console.log('检查删除权限:', {
-        userRole: userRole.value,
-        userId: userId.value,
-        logUploaderId: log.uploader_id,
-        userInfo: store.state.auth.user
-      })
       
       // 管理员可以删除任何日志
       if (userRole.value === 1) return true
       // 专家可以删除任何日志
       if (userRole.value === 2) return true
-      // 普通用户只能删除自己的日志
+      // 普通用户只能删除自己上传的日志
       if (userRole.value === 3) {
         return log.uploader_id === userId.value
       }
@@ -571,12 +621,12 @@ export default {
       // 上传进度处理，显示文件上传阶段（占总进度的30%）
       const uploadProgress = Math.floor(event.percent * 0.3) // 上传占30%
       overallProgress.value = uploadProgress
-      console.log(`文件 ${file.name} 上传进度: ${event.percent}%, 总体进度: ${uploadProgress}%`)
+      
     }
 
     const onUploadSuccess = (response, file, fileList) => {
       // 上传成功，开始解密和解析阶段
-      console.log(`文件 ${file.name} 上传成功，开始解密和解析...`)
+      
       
       // 更新手动跟踪的文件列表
       uploadFileList.value = fileList
@@ -596,7 +646,7 @@ export default {
           if (decryptProgress < 60) {
             decryptProgress += 2
             overallProgress.value = decryptProgress
-            console.log(`解密进度: ${decryptProgress}%`)
+    
           } else {
             clearInterval(decryptInterval)
             // 开始解析阶段
@@ -610,7 +660,7 @@ export default {
             if (parseProgress < 40) {
               parseProgress += 1
               overallProgress.value = 60 + parseProgress
-              console.log(`解析进度: ${parseProgress}%, 总体进度: ${60 + parseProgress}%`)
+      
             } else {
               clearInterval(parseInterval)
               // 解析完成
@@ -725,10 +775,11 @@ export default {
       }
     }
 
-    // 跳转到日志详情页面
-    const goToLogDetail = (row) => {
-      // 使用路由跳转到新的日志详情页面
-      router.push(`/dashboard/log-detail/${row.id}`)
+    // 跳转到日志分析页面
+    const goToLogAnalysis = (row) => {
+      // 在新页面中打开日志分析
+      const routeData = router.resolve(`/analysis/${row.id}`)
+      window.open(routeData.href, '_blank')
     }
     
     const formatFileSize = (bytes) => {
@@ -764,6 +815,98 @@ export default {
         failed: '解析失败'
       }
       return textMap[status] || status
+    }
+    
+    // 批量操作相关方法
+    const handleSelectionChange = (selection) => {
+      selectedLogs.value = selection
+    }
+    
+    const clearSelection = () => {
+      selectedLogs.value = []
+    }
+    
+    // 批量分析
+    const handleBatchAnalyze = () => {
+      const logIds = selectedLogs.value.map(log => log.id).join(',')
+      // 在新页面中打开批量分析
+      const routeData = router.resolve(`/batch-analysis/${logIds}`)
+      window.open(routeData.href, '_blank')
+    }
+    
+    // 批量下载
+    const handleBatchDownload = async () => {
+      try {
+        ElMessage.info('开始批量下载...')
+        
+        for (const log of selectedLogs.value) {
+          try {
+            const response = await store.dispatch('logs/downloadLog', log.id)
+            
+            // 创建下载链接
+            const blob = new Blob([response.data])
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = log.original_name.replace('.medbot', '_decrypted.txt')
+            link.click()
+            window.URL.revokeObjectURL(url)
+            
+            // 添加延迟避免浏览器阻止多个下载
+            await new Promise(resolve => setTimeout(resolve, 500))
+          } catch (error) {
+            console.error(`下载日志 ${log.original_name} 失败:`, error)
+            ElMessage.warning(`下载日志 ${log.original_name} 失败`)
+          }
+        }
+        
+        ElMessage.success('批量下载完成')
+      } catch (error) {
+        ElMessage.error('批量下载失败')
+      }
+    }
+    
+    // 批量删除
+    const handleBatchDelete = async () => {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除选中的 ${selectedLogs.value.length} 个日志文件吗？此操作不可恢复！`, 
+          '批量删除确认', 
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+        
+        ElMessage.info('开始批量删除...')
+        
+        const logIds = selectedLogs.value.map(log => log.id)
+        const response = await store.dispatch('logs/batchDeleteLogs', logIds)
+        
+        ElMessage.success(response.data.message)
+        loadLogs() // 重新加载日志列表
+        clearSelection() // 清空选择
+      } catch (error) {
+        if (error !== 'cancel') {
+          ElMessage.error('批量删除失败')
+        }
+      }
+    }
+    
+
+    
+    // 格式化时间戳
+    const formatTimestamp = (timestamp) => {
+      if (!timestamp) return '-'
+      const date = new Date(timestamp)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     }
 
     // 检查是否可以操作日志（只有完成状态才能操作）
@@ -865,7 +1008,7 @@ export default {
       formatDate,
       getStatusType,
       getStatusText,
-      goToLogDetail,
+      goToLogAnalysis,
       decryptKey,
       keyUploadRef,
       keyFileName,
@@ -882,7 +1025,16 @@ export default {
       validateKeyFormat,
       autoFillDeviceId,
       validateDeviceIdFormat,
-
+      
+      // 批量操作相关
+      selectedLogs,
+      canBatchOperate,
+      canBatchDelete,
+      handleSelectionChange,
+      clearSelection,
+      handleBatchAnalyze,
+      handleBatchDownload,
+      handleBatchDelete
     }
   }
 }
@@ -1090,5 +1242,19 @@ export default {
 .status-tip .el-icon {
   font-size: 12px;
 }
+
+/* 批量操作样式 */
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 15px;
+  padding: 8px 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 6px;
+}
+
+
 
 </style> 

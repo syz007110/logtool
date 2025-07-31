@@ -1,36 +1,28 @@
 <template>
-  <div class="log-detail-container">
-    <!-- 加载进度条 -->
-    <el-card v-if="loading" class="loading-card">
-      <div class="loading-content">
-        <el-progress 
-          :percentage="loadingProgress" 
-          :status="loadingProgress >= 100 ? 'success' : ''"
-          :stroke-width="8"
-        />
-        <p class="loading-text">正在加载日志内容... {{ loadingProgress }}%</p>
-      </div>
-    </el-card>
-
-    <el-card class="detail-card">
+  <div class="log-analysis-container">
+    <el-card class="analysis-card">
       <template #header>
         <div class="card-header">
           <div class="header-left">
             <el-button @click="goBack" icon="ArrowLeft" size="small">
               返回
             </el-button>
-            <span class="title">日志详情</span>
+            <span class="title">日志分析</span>
+            <el-tag v-if="logInfo.original_name" type="info" size="small">
+              {{ logInfo.original_name }}
+            </el-tag>
           </div>
           <div class="header-right">
-            <el-tag :type="getStatusType(logInfo.status)" size="small">
-              {{ getStatusText(logInfo.status) }}
-            </el-tag>
+            <el-button @click="exportToCSV" type="success" size="small">
+              <el-icon><Download /></el-icon>
+              导出CSV
+            </el-button>
           </div>
         </div>
       </template>
 
       <!-- 日志基本信息 -->
-      <div class="log-info">
+      <div class="log-info" v-if="logInfo.id">
         <el-descriptions :column="3" border>
           <el-descriptions-item label="文件名">{{ logInfo.original_name }}</el-descriptions-item>
           <el-descriptions-item label="设备编号">{{ logInfo.device_id }}</el-descriptions-item>
@@ -41,34 +33,52 @@
         </el-descriptions>
       </div>
 
+      <!-- 搜索和筛选 -->
+      <div class="search-section">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索释义内容或故障码"
+          style="width: 300px; margin-right: 15px;"
+          clearable
+          @input="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        
+        <el-date-picker
+          v-model="timeRange"
+          type="datetimerange"
+          range-separator="至"
+          start-placeholder="开始时间"
+          end-placeholder="结束时间"
+          format="YYYY-MM-DD HH:mm:ss"
+          value-format="YYYY-MM-DD HH:mm:ss"
+          :disabled-date="disabledDate"
+          style="width: 350px; margin-right: 15px;"
+          @change="handleTimeRangeChange"
+        />
+        <el-tag v-if="timeRangeLimit" type="info" size="small" style="margin-left: 10px;">
+          时间范围: {{ formatTimestamp(timeRangeLimit[0]) }} 至 {{ formatTimestamp(timeRangeLimit[1]) }}
+        </el-tag>
+        
+        <el-button @click="clearFilters" type="info" size="small">
+          清除筛选
+        </el-button>
+      </div>
+
       <!-- 日志条目表格 -->
       <div class="entries-section">
         <div class="section-header">
-          <h3>日志条目 ({{ logEntries.length }})</h3>
-          <div class="header-actions">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索释义内容或故障码"
-              style="width: 300px; margin-right: 10px;"
-              clearable
-              @input="filterEntries"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-button @click="exportToCSV" type="success" size="small">
-              <el-icon><Download /></el-icon>
-              导出CSV
-            </el-button>
-          </div>
+          <h3>日志条目 ({{ filteredEntries.length }})</h3>
         </div>
 
         <el-table 
           :data="paginatedEntries" 
           style="width: 100%"
           v-loading="loading"
-          height="600"
+          height="1000"
           stripe
         >
           <el-table-column prop="timestamp" label="时间戳" width="180" sortable>
@@ -109,7 +119,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Download, ArrowLeft } from '@element-plus/icons-vue'
 
 export default {
-  name: 'LogDetail',
+  name: 'LogAnalysis',
   components: {
     Search,
     Download,
@@ -122,22 +132,48 @@ export default {
     
     const logId = route.params.id
     const loading = ref(false)
-    const loadingProgress = ref(0)
     const logInfo = ref({})
     const logEntries = ref([])
     const searchKeyword = ref('')
+    const timeRange = ref(null)
     const currentPage = ref(1)
     const pageSize = ref(100)
 
+    // 获取时间范围限制
+    const timeRangeLimit = computed(() => {
+      if (logEntries.value.length === 0) return null
+      
+      const timestamps = logEntries.value.map(entry => new Date(entry.timestamp))
+      const minTime = new Date(Math.min(...timestamps))
+      const maxTime = new Date(Math.max(...timestamps))
+      
+      return [minTime, maxTime]
+    })
+
     // 过滤后的条目
     const filteredEntries = computed(() => {
-      if (!searchKeyword.value) {
-        return logEntries.value
+      let entries = logEntries.value
+      
+      // 搜索过滤
+      if (searchKeyword.value) {
+        entries = entries.filter(entry => 
+          entry.explanation.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+          entry.error_code.toLowerCase().includes(searchKeyword.value.toLowerCase())
+        )
       }
-      return logEntries.value.filter(entry => 
-        entry.explanation.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-        entry.error_code.toLowerCase().includes(searchKeyword.value.toLowerCase())
-      )
+      
+      // 时间范围过滤
+      if (timeRange.value && timeRange.value.length === 2) {
+        const [startTime, endTime] = timeRange.value
+        entries = entries.filter(entry => {
+          const entryTime = new Date(entry.timestamp)
+          const start = new Date(startTime)
+          const end = new Date(endTime)
+          return entryTime >= start && entryTime <= end
+        })
+      }
+      
+      return entries
     })
 
     // 分页后的条目
@@ -170,37 +206,36 @@ export default {
     const loadLogEntries = async () => {
       try {
         loading.value = true
-        loadingProgress.value = 0
-        
-        // 模拟加载进度
-        const progressInterval = setInterval(() => {
-          if (loadingProgress.value < 90) {
-            loadingProgress.value += 10
-          }
-        }, 100)
-        
         const response = await store.dispatch('logs/fetchLogEntries', logId)
         logEntries.value = response.data?.entries || response.entries || []
-        
-        // 完成加载
-        clearInterval(progressInterval)
-        loadingProgress.value = 100
-        
-        // 延迟隐藏进度条
-        setTimeout(() => {
-          loading.value = false
-          loadingProgress.value = 0
-        }, 500)
-        
       } catch (error) {
         ElMessage.error('加载日志条目失败')
+      } finally {
         loading.value = false
-        loadingProgress.value = 0
       }
     }
 
-    // 过滤条目
-    const filterEntries = () => {
+    // 搜索处理
+    const handleSearch = () => {
+      currentPage.value = 1
+    }
+
+    // 时间范围变化处理
+    const handleTimeRangeChange = () => {
+      currentPage.value = 1
+    }
+
+    // 禁用日期函数
+    const disabledDate = (time) => {
+      if (!timeRangeLimit.value) return false
+      const [minTime, maxTime] = timeRangeLimit.value
+      return time < minTime || time > maxTime
+    }
+
+    // 清除筛选
+    const clearFilters = () => {
+      searchKeyword.value = ''
+      timeRange.value = null
       currentPage.value = 1
     }
 
@@ -223,7 +258,7 @@ export default {
       const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `${logInfo.value.original_name}_entries.csv`
+      link.download = `${logInfo.value.original_name}_analysis.csv`
       link.click()
       URL.revokeObjectURL(link.href)
       
@@ -261,7 +296,6 @@ export default {
 
     const formatTimestamp = (timestamp) => {
       if (!timestamp) return '-'
-      // 将时间戳格式化为 YYYY-MM-DD HH:mm:ss 格式
       const date = new Date(timestamp)
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -272,24 +306,6 @@ export default {
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     }
 
-    const getStatusType = (status) => {
-      const typeMap = {
-        uploaded: 'warning',
-        parsed: 'success',
-        failed: 'danger'
-      }
-      return typeMap[status] || 'info'
-    }
-
-    const getStatusText = (status) => {
-      const textMap = {
-        uploaded: '已上传',
-        parsed: '已解析',
-        failed: '解析失败'
-      }
-      return textMap[status] || '未知'
-    }
-
     onMounted(() => {
       loadLogInfo()
       loadLogEntries()
@@ -297,17 +313,19 @@ export default {
 
     return {
       loading,
-      loadingProgress,
       logInfo,
       logEntries,
       searchKeyword,
+      timeRange,
       currentPage,
       pageSize,
       filteredEntries,
       paginatedEntries,
       loadLogInfo,
       loadLogEntries,
-      filterEntries,
+      handleSearch,
+      handleTimeRangeChange,
+      clearFilters,
       exportToCSV,
       handleSizeChange,
       handleCurrentChange,
@@ -315,36 +333,21 @@ export default {
       formatFileSize,
       formatDate,
       formatTimestamp,
-      getStatusType,
-      getStatusText
+      disabledDate,
+      timeRangeLimit
     }
   }
 }
 </script>
 
 <style scoped>
-.log-detail-container {
+.log-analysis-container {
   padding: 20px;
   height: 100vh;
   overflow: hidden;
 }
 
-.loading-card {
-  margin-bottom: 20px;
-}
-
-.loading-content {
-  text-align: center;
-  padding: 20px;
-}
-
-.loading-text {
-  margin-top: 10px;
-  color: #606266;
-  font-size: 14px;
-}
-
-.detail-card {
+.analysis-card {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -371,6 +374,15 @@ export default {
   margin-bottom: 20px;
 }
 
+.search-section {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 6px;
+}
+
 .entries-section {
   flex: 1;
   display: flex;
@@ -388,11 +400,6 @@ export default {
 .section-header h3 {
   margin: 0;
   color: #303133;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
 }
 
 .pagination-wrapper {

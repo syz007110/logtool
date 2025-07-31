@@ -1,15 +1,15 @@
 <template>
   <div class="login-container">
     <div class="login-lang-switch">
-      <el-dropdown @command="changeLanguage">
-        <el-button type="text">
+      <el-dropdown @command="changeLanguage" disabled>
+        <el-button type="text" disabled>
           <el-icon><Globe /></el-icon>
-          {{ currentLanguage === 'zh-CN' ? '中文' : 'English' }}
+          中文
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
-            <el-dropdown-item command="en-US">English</el-dropdown-item>
+            <el-dropdown-item command="en-US" disabled>English (暂不可用)</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
