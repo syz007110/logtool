@@ -57,19 +57,39 @@ const analyzeErrorCode = (code) => {
 const validateErrorCodeData = (data) => {
   const errors = [];
   
-  // 必填字段验证
-  const requiredFields = [
+  // 基础必填字段验证
+  const basicRequiredFields = [
     'subsystem', 'code', 'is_axis_error', 'is_arm_error', 
-    'short_message', 'short_message_en', 'user_hint', 'user_hint_en', 
-    'operation', 'operation_en', 'detail', 'method', 
-    'param1', 'param2', 'param3', 'param4', 'category'
+    'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'category'
   ];
   
-  requiredFields.forEach(field => {
+  basicRequiredFields.forEach(field => {
     if (!data[field] && data[field] !== false && data[field] !== 0) {
       errors.push(`${field} 是必填字段`);
     }
   });
+  
+  // 英文字段验证：short_message_en和operation_en不都为空，user_hint_en和operation_en不都为空
+  if ((!data.short_message_en || data.short_message_en.trim() === '') && 
+      (!data.operation_en || data.operation_en.trim() === '')) {
+    errors.push('英文精简提示信息和英文操作信息不能都为空');
+  }
+  
+  if ((!data.user_hint_en || data.user_hint_en.trim() === '') && 
+      (!data.operation_en || data.operation_en.trim() === '')) {
+    errors.push('英文用户提示信息和英文操作信息不能都为空');
+  }
+  
+  // 中文字段验证：short_message和operation不都为空，user_hint和operation不都为空
+  if ((!data.short_message || data.short_message.trim() === '') && 
+      (!data.operation || data.operation.trim() === '')) {
+    errors.push('精简提示信息和操作信息不能都为空');
+  }
+  
+  if ((!data.user_hint || data.user_hint.trim() === '') && 
+      (!data.operation || data.operation.trim() === '')) {
+    errors.push('用户提示信息和操作信息不能都为空');
+  }
   
   // 子系统验证 - 仅允许1-9,A
   if (data.subsystem && !/^[1-9A]$/.test(data.subsystem)) {
@@ -102,12 +122,6 @@ const createErrorCode = async (req, res) => {
         message: '输入验证失败', 
         errors: validationErrors 
       });
-    }
-    
-    // 检查故障码是否已存在
-    const exist = await ErrorCode.findOne({ where: { code: data.code } });
-    if (exist) {
-      return res.status(409).json({ message: '故障码已存在' });
     }
     
     // 检查子系统+故障码组合是否唯一
@@ -235,19 +249,6 @@ const updateErrorCode = async (req, res) => {
         message: '输入验证失败', 
         errors: validationErrors 
       });
-    }
-    
-    // 检查故障码唯一性（排除当前记录）
-    if (data.code && data.code !== errorCode.code) {
-      const exist = await ErrorCode.findOne({ 
-        where: { 
-          code: data.code,
-          id: { [Op.ne]: id }
-        } 
-      });
-      if (exist) {
-        return res.status(409).json({ message: '故障码已存在' });
-      }
     }
     
     // 检查子系统+故障码组合唯一性（排除当前记录）

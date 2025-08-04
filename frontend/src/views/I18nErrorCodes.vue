@@ -299,7 +299,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Download } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
@@ -362,17 +362,47 @@ export default {
 
     const exportLanguageOptions = ref([])
 
-    const rules = {
-      subsystem: [{ required: true, message: '请选择子系统', trigger: 'change' }],
-      code: [
-        { required: true, message: '请输入故障码', trigger: 'blur' },
-        { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: '故障码格式不正确，应为0X加3位16进制数字加A、B、C、D、E中的一个字母', trigger: 'blur' }
-      ],
-      lang: [{ required: true, message: '请选择语言', trigger: 'change' }],
-      short_message: [{ required: true, message: '请输入精简提示', trigger: 'blur' }],
-      user_hint: [{ required: true, message: '请输入用户提示', trigger: 'blur' }],
-      operation: [{ required: true, message: '请输入操作信息', trigger: 'blur' }]
-    }
+    // 动态验证规则
+    const rules = computed(() => {
+      const baseRules = {
+        subsystem: [{ required: true, message: '请选择子系统', trigger: 'change' }],
+        code: [
+          { required: true, message: '请输入故障码', trigger: 'blur' },
+          { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: '故障码格式不正确，应为0X加3位16进制数字加A、B、C、D、E中的一个字母', trigger: 'blur' }
+        ],
+        lang: [{ required: true, message: '请选择语言', trigger: 'change' }]
+      };
+
+      // 动态验证字段：short_message和operation不都为空，user_hint和operation不都为空
+      const hasOperation = form.operation && form.operation.trim() !== '';
+      
+      baseRules.short_message = [
+        { 
+          required: !hasOperation, 
+          message: '精简提示信息和操作信息不能都为空', 
+          trigger: 'blur' 
+        }
+      ];
+      
+      baseRules.user_hint = [
+        { 
+          required: !hasOperation, 
+          message: '用户提示信息和操作信息不能都为空', 
+          trigger: 'blur' 
+        }
+      ];
+      
+      baseRules.operation = [
+        { 
+          required: !(form.short_message && form.short_message.trim() !== '') && 
+                    !(form.user_hint && form.user_hint.trim() !== ''), 
+          message: '精简提示信息、用户提示信息和操作信息至少需要填写两项', 
+          trigger: 'blur' 
+        }
+      ];
+
+      return baseRules;
+    });
 
     // 权限检查
     const canCreate = computed(() => {
@@ -380,7 +410,7 @@ export default {
         if (!store.getters['auth/isAuthenticated']) {
           return false
         }
-        return store.getters['auth/hasPermission']('error_code:update')
+        return store.getters['auth/hasPermission']('i18n:create')
       } catch (error) {
         console.error('Permission check error:', error)
         return false
@@ -391,7 +421,7 @@ export default {
         if (!store.getters['auth/isAuthenticated']) {
           return false
         }
-        return store.getters['auth/hasPermission']('error_code:update')
+        return store.getters['auth/hasPermission']('i18n:update')
       } catch (error) {
         console.error('Permission check error:', error)
         return false
@@ -402,7 +432,7 @@ export default {
         if (!store.getters['auth/isAuthenticated']) {
           return false
         }
-        return store.getters['auth/hasPermission']('error_code:delete')
+        return store.getters['auth/hasPermission']('i18n:delete')
       } catch (error) {
         console.error('Permission check error:', error)
         return false
@@ -843,7 +873,7 @@ export default {
           
         // 为每种语言添加XML文件到ZIP
         for (const [language, xmlContent] of Object.entries(response.data.xmlResults)) {
-          const langDisplayName = getLangDisplayName(language)
+          const langDisplayName = getLangfileName(language)
           zip.file(`FaultAnalysis_${langDisplayName}.xml`, xmlContent)
         }
         
@@ -881,7 +911,25 @@ export default {
         nl: '荷兰语',
         sk: '斯洛伐克语',
         ro: '罗马尼亚语',
-        da: '丹麦语'
+        da: '德语'
+      }
+      return langMap[lang] || lang
+    }
+
+     // 导出文件名称后缀
+     const getLangfileName = (lang) => {
+      const langMap = {
+        zh: 'Chinese',
+        en: 'English',
+        fr: 'French',
+        de: 'German',
+        es: 'Spanish',
+        it: 'Italian',
+        pt: 'Portugal',
+        nl: 'Dutch',
+        sk: 'Czechoslovakia',
+        ro: 'Romania',
+        da: 'Denmark'
       }
       return langMap[lang] || lang
     }
@@ -904,6 +952,25 @@ export default {
       return typeMap[lang] || ''
     }
 
+    // 监听字段变化，重新验证表单
+    watch(
+      [
+        () => form.short_message,
+        () => form.user_hint,
+        () => form.operation
+      ],
+      () => {
+        // 当相关字段变化时，重新验证表单
+        if (formRef.value) {
+          formRef.value.clearValidate([
+            'short_message',
+            'user_hint', 
+            'operation'
+          ])
+        }
+      }
+    )
+    
     onMounted(() => {
       // 确保在客户端环境下运行
       isClient.value = true
@@ -968,6 +1035,7 @@ export default {
       handleExport,
       handleExportConfirm,
       getLangDisplayName,
+      getLangfileName,
       getLangTagType,
       uploadRef
     }

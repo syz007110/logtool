@@ -66,7 +66,10 @@ const ROLES = {
       'log:delete_own', // 只能删除自己的日志
       
       // 多语言管理权限
+      'i18n:create',
       'i18n:read',
+      'i18n:update',
+      'i18n:delete',
       
       // 历史记录权限（专家可以查看自己的历史记录）
       'history:read_own'

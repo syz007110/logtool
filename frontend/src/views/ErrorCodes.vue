@@ -291,7 +291,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
@@ -344,54 +344,97 @@ export default {
        category: ''
      })
     
-    const rules = {
-      subsystem: [
-        { required: true, message: '请选择子系统', trigger: 'change' }
-      ],
-      code: [
-        { required: true, message: '请输入故障码', trigger: 'blur' },
-        { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: '故障码格式不正确，必须以0X开头+16进制的故障码（最后一位表示等级分类）', trigger: 'blur' }
-      ],
-      short_message: [
-        { required: true, message: '请输入精简提示信息', trigger: 'blur' }
-      ],
-      short_message_en: [
-        { required: true, message: '请输入英文精简提示信息', trigger: 'blur' }
-      ],
-      user_hint: [
-        { required: true, message: '请输入给用户的提示信息', trigger: 'blur' }
-      ],
-      user_hint_en: [
-        { required: true, message: '请输入英文给用户的提示信息', trigger: 'blur' }
-      ],
-      operation: [
-        { required: true, message: '请输入操作信息', trigger: 'blur' }
-      ],
-      operation_en: [
-        { required: true, message: '请输入英文操作信息', trigger: 'blur' }
-      ],
-      detail: [
-        { required: true, message: '请输入详细信息', trigger: 'blur' }
-      ],
-      method: [
-        { required: true, message: '请输入检测方法', trigger: 'blur' }
-      ],
-      param1: [
-        { required: true, message: '请输入参数1', trigger: 'blur' }
-      ],
-      param2: [
-        { required: true, message: '请输入参数2', trigger: 'blur' }
-      ],
-      param3: [
-        { required: true, message: '请输入参数3', trigger: 'blur' }
-      ],
-      param4: [
-        { required: true, message: '请输入参数4', trigger: 'blur' }
-      ],
-      category: [
-        { required: true, message: '请选择故障分类', trigger: 'change' }
-      ]
-    }
+    // 动态验证规则
+    const rules = computed(() => {
+      const baseRules = {
+        subsystem: [
+          { required: true, message: '请选择子系统', trigger: 'change' }
+        ],
+        code: [
+          { required: true, message: '请输入故障码', trigger: 'blur' },
+          { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: '故障码格式不正确，必须以0X开头+16进制的故障码（最后一位表示等级分类）', trigger: 'blur' }
+        ],
+        detail: [
+          { required: true, message: '请输入详细信息', trigger: 'blur' }
+        ],
+        method: [
+          { required: true, message: '请输入检测方法', trigger: 'blur' }
+        ],
+        param1: [
+          { required: true, message: '请输入参数1', trigger: 'blur' }
+        ],
+        param2: [
+          { required: true, message: '请输入参数2', trigger: 'blur' }
+        ],
+        param3: [
+          { required: true, message: '请输入参数3', trigger: 'blur' }
+        ],
+        param4: [
+          { required: true, message: '请输入参数4', trigger: 'blur' }
+        ],
+        category: [
+          { required: true, message: '请选择故障分类', trigger: 'change' }
+        ]
+      };
+
+      // 动态验证中文字段
+      const hasOperation = errorCodeForm.operation && errorCodeForm.operation.trim() !== '';
+      
+      baseRules.short_message = [
+        { 
+          required: !hasOperation, 
+          message: '精简提示信息和操作信息不能都为空', 
+          trigger: 'blur' 
+        }
+      ];
+      
+      baseRules.user_hint = [
+        { 
+          required: !hasOperation, 
+          message: '用户提示信息和操作信息不能都为空', 
+          trigger: 'blur' 
+        }
+      ];
+      
+      baseRules.operation = [
+        { 
+          required: !(errorCodeForm.short_message && errorCodeForm.short_message.trim() !== '') && 
+                    !(errorCodeForm.user_hint && errorCodeForm.user_hint.trim() !== ''), 
+          message: '精简提示信息、用户提示信息和操作信息至少需要填写两项', 
+          trigger: 'blur' 
+        }
+      ];
+
+      // 动态验证英文字段
+      const hasOperationEn = errorCodeForm.operation_en && errorCodeForm.operation_en.trim() !== '';
+      
+      baseRules.short_message_en = [
+        { 
+          required: !hasOperationEn, 
+          message: '英文精简提示信息和英文操作信息不能都为空', 
+          trigger: 'blur' 
+        }
+      ];
+      
+      baseRules.user_hint_en = [
+        { 
+          required: !hasOperationEn, 
+          message: '英文用户提示信息和英文操作信息不能都为空', 
+          trigger: 'blur' 
+        }
+      ];
+      
+      baseRules.operation_en = [
+        { 
+          required: !(errorCodeForm.short_message_en && errorCodeForm.short_message_en.trim() !== '') && 
+                    !(errorCodeForm.user_hint_en && errorCodeForm.user_hint_en.trim() !== ''), 
+          message: '英文精简提示信息、英文用户提示信息和英文操作信息至少需要填写两项', 
+          trigger: 'blur' 
+        }
+      ];
+
+      return baseRules;
+    });
     
     // 根据故障码自动判断故障等级和处理措施
     const analyzeErrorCode = (code) => {
@@ -589,16 +632,37 @@ export default {
       }
     }
     
-
-    
-
+    // 监听字段变化，重新验证表单
+    watch(
+      [
+        () => errorCodeForm.short_message,
+        () => errorCodeForm.user_hint,
+        () => errorCodeForm.operation,
+        () => errorCodeForm.short_message_en,
+        () => errorCodeForm.user_hint_en,
+        () => errorCodeForm.operation_en
+      ],
+      () => {
+        // 当相关字段变化时，重新验证表单
+        if (errorCodeFormRef.value) {
+          errorCodeFormRef.value.clearValidate([
+            'short_message',
+            'user_hint', 
+            'operation',
+            'short_message_en',
+            'user_hint_en',
+            'operation_en'
+          ])
+        }
+      }
+    )
     
     // 生命周期
     onMounted(() => {
       loadErrorCodes()
     })
     
-         return {
+    return {
        loading,
        saving,
        showAddDialog,

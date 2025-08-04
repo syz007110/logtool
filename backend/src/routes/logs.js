@@ -12,7 +12,8 @@ const {
   getLogEntries,
   getBatchLogEntries,
   autoFillDeviceId,
-  autoFillKey
+  autoFillKey,
+  analyzeSurgeryData
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -49,5 +50,8 @@ router.get('/:id/entries', auth, checkLogPermission('read_all'), getLogEntries);
 
 // 批量获取日志明细（用于分析功能）
 router.get('/entries/batch', auth, checkLogPermission('read_all'), getBatchLogEntries);
+
+// 手术统计分析
+router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), analyzeSurgeryData);
 
 module.exports = router; 

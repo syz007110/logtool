@@ -9,6 +9,7 @@
     "init-permissions": "node src/scripts/initPermissions.js",
     "clear-data": "node src/scripts/clearTestData.js",
     "reset-db": "npm run clear-data && npm run init-roles",
+    "create-surgery-table": "node scripts/run_surgery_statistics_migration.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

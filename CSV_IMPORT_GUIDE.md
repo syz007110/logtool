@@ -32,7 +32,7 @@ subsystem,code,lang,short_message,user_hint,operation
 
 #### 内容验证规则
 必须满足以下条件之一：
-1. `short_message` 和 `user_hint` 至少一个不为空
+1. `user_hint` 和 `operation` 至少一个不为空
 2. `short_message` 和 `operation` 至少一个不为空
 
 #### 故障码验证

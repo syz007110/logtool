@@ -1,6 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
+
+// 加载环境变量
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 const { sequelize } = require('./models');
 const { defineAssociations } = require('./models/associations');
 const authRouter = require('./routes/auth');
@@ -13,9 +18,7 @@ const rolesRouter = require('./routes/roles');
 const userRolesRouter = require('./routes/userRoles');
 const operationLogsRouter = require('./routes/operationLogs');
 const logsRouter = require('./routes/logs');
-
-// 加载环境变量
-dotenv.config({ path: '../.env' });
+const surgeryStatisticsRouter = require('./routes/surgeryStatistics');
 
 const app = express();
 
@@ -40,6 +43,7 @@ app.use('/api/xml-export', xmlExportRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/operation-logs', operationLogsRouter);
+app.use('/api/surgery-statistics', surgeryStatisticsRouter);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

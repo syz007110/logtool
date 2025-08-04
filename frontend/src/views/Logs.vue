@@ -207,11 +207,20 @@
                 type="primary" 
                 size="small" 
                 @click="handleBatchAnalyze"
-                :disabled="!canBatchOperate"
+                :disabled="!canBatchOperate || !isSameDevice"
+                :title="deviceCheckMessage"
               >
                 <el-icon><Monitor /></el-icon>
                 批量分析 ({{ selectedLogs.length }})
               </el-button>
+              
+              <!-- 设备检测提示 -->
+              <div v-if="deviceCheckMessage" class="device-check-tip">
+                <el-tag type="warning" size="small">
+                  <el-icon><Warning /></el-icon>
+                  {{ deviceCheckMessage }}
+                </el-tag>
+              </div>
               
               <el-button 
                 type="success" 
@@ -240,6 +249,8 @@
               >
                 取消选择
               </el-button>
+              
+
             </div>
             
             <el-input
@@ -407,6 +418,23 @@ export default {
     // 批量操作相关计算属性
     const canBatchOperate = computed(() => {
       return selectedLogs.value.length > 0 && selectedLogs.value.every(log => canOperate(log))
+    })
+    
+    // 检查选中的日志是否属于同一设备
+    const isSameDevice = computed(() => {
+      if (selectedLogs.value.length === 0) return true
+      const firstDeviceId = selectedLogs.value[0].device_id
+      return selectedLogs.value.every(log => log.device_id === firstDeviceId)
+    })
+    
+    // 获取设备检测提示信息
+    const deviceCheckMessage = computed(() => {
+      if (selectedLogs.value.length === 0) return ''
+      if (!isSameDevice.value) {
+        const deviceIds = [...new Set(selectedLogs.value.map(log => log.device_id))]
+        return `选中日志包含不同的设备: ${deviceIds.join(', ')}`
+      }
+      return ''
     })
     
     const canBatchDelete = computed(() => {
@@ -820,6 +848,12 @@ export default {
     // 批量操作相关方法
     const handleSelectionChange = (selection) => {
       selectedLogs.value = selection
+      // 保存选中的日志到sessionStorage，供手术统计页面使用
+      try {
+        sessionStorage.setItem('selectedLogs', JSON.stringify(selection))
+      } catch (error) {
+        console.warn('保存选中日志到sessionStorage失败:', error)
+      }
     }
     
     const clearSelection = () => {
@@ -893,6 +927,8 @@ export default {
         }
       }
     }
+    
+
     
 
     
@@ -1030,6 +1066,8 @@ export default {
       selectedLogs,
       canBatchOperate,
       canBatchDelete,
+      isSameDevice,
+      deviceCheckMessage,
       handleSelectionChange,
       clearSelection,
       handleBatchAnalyze,
@@ -1253,6 +1291,21 @@ export default {
   background-color: #f0f9ff;
   border: 1px solid #b3d8ff;
   border-radius: 6px;
+}
+
+.device-check-tip {
+  margin-left: 10px;
+}
+
+.device-check-tip .el-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 

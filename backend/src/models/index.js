@@ -1,8 +1,4 @@
 const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
-const path = require('path');
-
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -14,14 +10,12 @@ const sequelize = new Sequelize(
     dialect: 'mysql',
     logging: false,
     charset: 'utf8mb4',
-    collate: 'utf8mb4_unicode_ci',
     define: {
       freezeTableName: true,
       timestamps: false
     },
     dialectOptions: {
       charset: 'utf8mb4',
-      collate: 'utf8mb4_unicode_ci',
       supportBigNumbers: true,
       bigNumberStrings: true
     }

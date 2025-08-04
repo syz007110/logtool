@@ -73,6 +73,17 @@ const upsertI18nErrorCode = async (req, res) => {
       return res.status(400).json({ message: '语言代码是必填字段' });
     }
     
+    // 验证字段组合：short_message和operation不都为空，user_hint和operation不都为空
+    if ((!short_message || short_message.trim() === '') && 
+        (!operation || operation.trim() === '')) {
+      return res.status(400).json({ message: '精简提示信息和操作信息不能都为空' });
+    }
+    
+    if ((!user_hint || user_hint.trim() === '') && 
+        (!operation || operation.trim() === '')) {
+      return res.status(400).json({ message: '用户提示信息和操作信息不能都为空' });
+    }
+    
     let errorCode;
     let error_code_id_to_use;
     
@@ -220,17 +231,16 @@ const batchImportI18nErrorCodes = async (req, res) => {
           continue;
         }
         
-        // 验证内容字段：short_message和user_hint至少一个不为空，或short_message和operation至少一个不为空
-        const hasShortMessage = short_message && short_message.trim() !== '';
-        const hasUserHint = user_hint && user_hint.trim() !== '';
-        const hasOperation = operation && operation.trim() !== '';
+        // 验证字段组合：short_message和operation不都为空，user_hint和operation不都为空
+        if ((!short_message || short_message.trim() === '') && 
+            (!operation || operation.trim() === '')) {
+          errors.push({ item, error: '精简提示信息和操作信息不能都为空' });
+          continue;
+        }
         
-        // 检查条件：short_message和user_hint至少一个不为空，或short_message和operation至少一个不为空
-        const condition1 = hasShortMessage || hasUserHint; // short_message和user_hint至少一个不为空
-        const condition2 = hasShortMessage || hasOperation; // short_message和operation至少一个不为空
-        
-        if (!condition1 && !condition2) {
-          errors.push({ item, error: '需要满足以下条件之一：1) short_message和user_hint至少一个不为空，或2) short_message和operation至少一个不为空' });
+        if ((!user_hint || user_hint.trim() === '') && 
+            (!operation || operation.trim() === '')) {
+          errors.push({ item, error: '用户提示信息和操作信息不能都为空' });
           continue;
         }
         

@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard-container">
     <!-- 侧边栏 -->
-    <el-aside width="250px" class="sidebar">
+    <el-aside v-if="!$route.meta.noSidebar" width="250px" class="sidebar">
       <div class="sidebar-header">
         <h2>LogTool</h2>
       </div>
@@ -59,7 +59,7 @@
     <!-- 主内容区域 -->
     <el-container class="main-container">
       <!-- 顶部导航栏 -->
-      <el-header class="header">
+      <el-header v-if="!$route.meta.noSidebar" class="header">
         <div class="header-left">
           <h3>{{ $t(getPageTitleKey) }}</h3>
         </div>

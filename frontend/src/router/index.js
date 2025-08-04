@@ -38,6 +38,12 @@ const routes = [
     meta: { requiresAuth: true, noSidebar: true }
   },
   {
+    path: '/surgery-statistics',
+    name: 'SurgeryStatistics',
+    component: () => import('../views/SurgeryStatistics.vue'),
+    meta: { requiresAuth: true, noSidebar: true }
+  },
+  {
     path: '/dashboard',
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },
@@ -99,7 +105,8 @@ const routes = [
         name: 'Roles',
         component: () => import('../views/Roles.vue'),
         meta: { requiresAdmin: true }
-      }
+      },
+
     ]
   }
 ]

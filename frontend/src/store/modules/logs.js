@@ -112,6 +112,15 @@ const actions = {
     } catch (error) {
       throw error
     }
+  },
+
+  async analyzeSurgery({ commit }, logId) {
+    try {
+      const response = await api.logs.analyzeSurgery(logId)
+      return response
+    } catch (error) {
+      throw error
+    }
   }
 }
 

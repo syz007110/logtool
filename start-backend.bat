@@ -1,3 +1,4 @@
+chcp 65001
 @echo off
 echo 正在启动logTool后端服务...
 echo.

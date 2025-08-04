@@ -6,6 +6,7 @@ import i18n from './i18n'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import '@fortawesome/fontawesome-free/css/all.css'
 
 // 创建应用实例
 const app = createApp(App)

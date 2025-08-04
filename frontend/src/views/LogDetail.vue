@@ -61,6 +61,10 @@
               <el-icon><Download /></el-icon>
               导出CSV
             </el-button>
+            <el-button @click="goToSurgeryAnalysis" type="primary" size="small" style="margin-left: 10px;">
+              <el-icon><DataAnalysis /></el-icon>
+              手术统计
+            </el-button>
           </div>
         </div>
 
@@ -106,14 +110,15 @@ import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Download, ArrowLeft } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, DataAnalysis } from '@element-plus/icons-vue'
 
 export default {
   name: 'LogDetail',
   components: {
     Search,
     Download,
-    ArrowLeft
+    ArrowLeft,
+    DataAnalysis
   },
   setup() {
     const store = useStore()
@@ -245,6 +250,66 @@ export default {
       router.go(-1)
     }
 
+    // 跳转到手术统计页面
+const goToSurgeryAnalysis = () => {
+  // 准备日志条目数据
+  const entriesData = {
+    logId: logId,
+    logName: logInfo.value.original_name,
+    entries: logEntries.value,
+    totalCount: logEntries.value.length,
+    timeRange: {
+      start: logEntries.value.length > 0 ? logEntries.value[0].timestamp : null,
+      end: logEntries.value.length > 0 ? logEntries.value[logEntries.value.length - 1].timestamp : null
+    }
+  }
+  
+  // 压缩数据以减少传输大小
+  const compressedData = compressLogEntries(entriesData.entries)
+  
+  // 存储到sessionStorage
+  sessionStorage.setItem('surgeryAnalysisData', JSON.stringify({
+    ...entriesData,
+    entries: compressedData,
+    compressed: true,
+    timestamp: Date.now()
+  }))
+  
+  // 设置自动分析标志
+  sessionStorage.setItem('autoAnalyze', 'true')
+  
+  // 跳转到手术统计页面
+  router.push('/surgery-statistics')
+}
+
+// 压缩日志条目数据
+const compressLogEntries = (entries) => {
+  return entries.map(entry => ({
+    t: entry.timestamp,
+    e: entry.error_code,
+    p1: entry.param1,
+    p2: entry.param2,
+    p3: entry.param3,
+    p4: entry.param4,
+    exp: entry.explanation,
+    ln: entry.log_name || logInfo.value.original_name
+  }))
+}
+
+// 解压缩日志条目数据
+const decompressLogEntries = (compressedEntries) => {
+  return compressedEntries.map(entry => ({
+    timestamp: entry.t,
+    error_code: entry.e,
+    param1: entry.p1,
+    param2: entry.p2,
+    param3: entry.p3,
+    param4: entry.p4,
+    explanation: entry.exp,
+    log_name: entry.ln
+  }))
+}
+
     // 格式化函数
     const formatFileSize = (bytes) => {
       if (bytes === 0) return '0 B'
@@ -312,6 +377,7 @@ export default {
       handleSizeChange,
       handleCurrentChange,
       goBack,
+      goToSurgeryAnalysis,
       formatFileSize,
       formatDate,
       formatTimestamp,

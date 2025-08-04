@@ -1,7 +1,6 @@
 <template>
   <div class="analysis-container">
     <el-card class="analysis-card">
-      <template #header>
         <div class="card-header">
           <div class="header-left">
             <span class="title">日志分析</span>
@@ -14,19 +13,36 @@
               <el-icon><Download /></el-icon>
               导出CSV
             </el-button>
+            <el-button @click="showSurgeryStatistics" type="primary" size="small" style="margin-left: 10px;">
+              <el-icon><DataAnalysis /></el-icon>
+              手术分析
+            </el-button>
           </div>
         </div>
-      </template>
 
       <!-- 日志基本信息 -->
       <div class="log-info" v-if="logInfo.id">
-        <el-descriptions :column="3" border size="small">
-          <el-descriptions-item label="文件名">{{ logInfo.original_name }}</el-descriptions-item>
-          <el-descriptions-item label="设备编号">{{ logInfo.device_id }}</el-descriptions-item>
-          <el-descriptions-item label="文件大小">{{ formatFileSize(logInfo.size) }}</el-descriptions-item>
-          <el-descriptions-item label="上传时间">{{ formatDate(logInfo.upload_time) }}</el-descriptions-item>
-          <el-descriptions-item label="解析时间">{{ formatDate(logInfo.parse_time) }}</el-descriptions-item>
-          <el-descriptions-item label="上传用户ID">{{ logInfo.uploader_id }}</el-descriptions-item>
+        <el-descriptions :column="4" border size="small">
+          <el-descriptions-item label="文件名" :label-style="{ width: '100px' }" :content-style="{ width: '100px' }">
+            <el-tag v-if="logInfo.original_name" size="small">
+            {{ logInfo.original_name }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="设备编号">
+            <el-tag v-if="logInfo.device_id" size="small">
+              {{ logInfo.device_id }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="文件大小">
+            <el-tag v-if="logInfo.size" size="small">
+              {{ formatFileSize(logInfo.size) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="上传用户ID">
+            <el-tag v-if="logInfo.uploader_id" size="small">
+              {{ logInfo.uploader_id }}
+            </el-tag>
+          </el-descriptions-item>
         </el-descriptions>
       </div>
 
@@ -127,6 +143,36 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 手术统计对话框 -->
+    <el-dialog 
+      title="手术统计分析" 
+      v-model="surgeryStatisticsVisible"
+      width="90%"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
+      <div class="surgery-statistics-content">
+        <!-- 分析按钮 -->
+        <div class="analysis-section" v-if="!surgeryData">
+          <el-card>
+            <div class="analysis-content">
+              <el-icon><DataAnalysis /></el-icon>
+              <h3>分析当前日志的手术数据</h3>
+              <p>将对当前日志文件进行手术统计分析</p>
+              <el-button type="primary" @click="analyzeSurgeryData" :loading="analyzing">
+                开始分析
+              </el-button>
+            </div>
+          </el-card>
+        </div>
+
+        <!-- 手术统计内容 -->
+        <div v-else>
+          <el-empty description="手术数据分析完成，详细统计信息请查看手术统计页面" />
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -135,14 +181,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Download, ArrowLeft } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, DataAnalysis } from '@element-plus/icons-vue'
+import api from '@/api'
 
 export default {
   name: 'Analysis',
   components: {
     Search,
     Download,
-    ArrowLeft
+    ArrowLeft,
+    DataAnalysis
   },
   setup() {
     const store = useStore()
@@ -157,6 +205,11 @@ export default {
     const timeRange = ref(null)
     const currentPage = ref(1)
     const pageSize = ref(100)
+    
+    // 手术统计相关
+    const surgeryStatisticsVisible = ref(false)
+    const surgeryData = ref(null)
+    const analyzing = ref(false)
 
     // 获取时间范围限制
     const timeRangeLimit = computed(() => {
@@ -165,12 +218,6 @@ export default {
       const timestamps = logEntries.value.map(entry => new Date(entry.timestamp))
       const minTime = new Date(Math.min(...timestamps))
       const maxTime = new Date(Math.max(...timestamps))
-      
-      console.log('时间范围限制:', {
-        minTime: minTime.toISOString(),
-        maxTime: maxTime.toISOString(),
-        entriesCount: logEntries.value.length
-      })
       
       return [minTime, maxTime]
     })
@@ -233,6 +280,13 @@ export default {
         loading.value = true
         const response = await store.dispatch('logs/fetchLogEntries', logId)
         logEntries.value = response.data?.entries || response.entries || []
+        
+        // 保存到sessionStorage供手术统计页面使用
+        try {
+          sessionStorage.setItem('batchLogEntries', JSON.stringify(logEntries.value))
+        } catch (error) {
+          // console.warn('保存日志条目到sessionStorage失败:', error)
+        }
       } catch (error) {
         ElMessage.error('加载日志条目失败')
       } finally {
@@ -326,6 +380,30 @@ export default {
       }
     }
 
+    // 跳转到手术统计页面
+    const showSurgeryStatistics = () => {
+      router.push('/surgery-statistics')
+    }
+
+    // 分析手术数据
+    const analyzeSurgeryData = async () => {
+      analyzing.value = true
+      try {
+        const response = await api.surgeryStatistics.analyze(logId)
+        // 如果返回的是数组，取第一个手术数据
+        if (Array.isArray(response.data.data)) {
+          surgeryData.value = response.data.data[0] || null
+        } else {
+          surgeryData.value = response.data.data
+        }
+        ElMessage.success('手术数据分析完成')
+      } catch (error) {
+        ElMessage.error('分析手术数据失败')
+      } finally {
+        analyzing.value = false
+      }
+    }
+
     onMounted(() => {
       loadLogInfo()
       loadLogEntries()
@@ -353,7 +431,12 @@ export default {
       formatDate,
       formatTimestamp,
       timeRangeLimit,
-      setFullTimeRange
+      setFullTimeRange,
+      showSurgeryStatistics,
+      analyzeSurgeryData,
+      surgeryStatisticsVisible,
+      surgeryData,
+      analyzing
     }
   }
 }
@@ -396,16 +479,22 @@ export default {
 }
 
 .log-info {
-  margin: 5px 20px;
+  margin: 10px 20px;
 }
 
 .log-info .el-descriptions {
-  font-size: 5px;
+  font-size: 12px;
 }
 
 .log-info .el-descriptions__label {
   font-size: 11px;
-  font-weight: 300;
+  font-weight: 600;
+}
+
+.log-info .el-descriptions__label,
+.log-info .el-descriptions__content {
+  white-space: normal;
+  word-break: break-word;
 }
 
 .search-section {
@@ -468,5 +557,37 @@ export default {
   background-color: white;
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 手术统计对话框样式 */
+.surgery-statistics-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.analysis-section {
+  margin: 40px 0;
+}
+
+.analysis-content {
+  text-align: center;
+  padding: 40px;
+}
+
+.analysis-content .el-icon {
+  font-size: 48px;
+  color: #165dff;
+  margin-bottom: 16px;
+}
+
+.analysis-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #1d2129;
+}
+
+.analysis-content p {
+  margin: 0 0 24px 0;
+  color: #86909c;
 }
 </style> 

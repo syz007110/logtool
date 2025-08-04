@@ -98,7 +98,8 @@ const logs = {
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
-  autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } })
+  autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
+  analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`)
 }
 
 const operationLogs = {
@@ -127,6 +128,12 @@ const i18n = {
   delete: (id) => api.delete(`/i18n/${id}`)
 }
 
+const surgeryStatistics = {
+  getList: (params) => api.get('/surgery-statistics', { params }),
+  analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
+  exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' })
+}
+
 export default {
   auth,
   errorCodes,
@@ -135,5 +142,6 @@ export default {
   operationLogs,
   users,
   roles,
-  i18n
+  i18n,
+  surgeryStatistics
 } 
