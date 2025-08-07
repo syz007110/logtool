@@ -13,12 +13,17 @@
           </el-tag>
         </div>
         <div class="header-right">
-          <el-button @click="exportToCSV" type="success" size="small">
+          <el-button 
+            v-if="!loading && batchLogEntries.length > 0" 
+            @click="exportToCSV" 
+            type="success" 
+            size="small"
+          >
             <el-icon><Download /></el-icon>
             导出CSV
           </el-button>
           <el-button 
-            v-if="selectedLogs.length > 0 && batchLogEntries.length > 0" 
+            v-if="!loading && selectedLogs.length > 0 && batchLogEntries.length > 0" 
             @click="showSurgeryStatistics" 
             type="primary" 
             size="small" 
@@ -286,23 +291,8 @@ export default {
         // 按时间戳排序
         batchLogEntries.value = allEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
         
-        // 保存到sessionStorage
-        try {
-          const dataToSave = batchLogEntries.value.map(entry => ({
-            timestamp: entry.timestamp,
-            error_code: entry.error_code,
-            param1: entry.param1,
-            param2: entry.param2,
-            param3: entry.param3,
-            param4: entry.param4,
-            explanation: entry.explanation,
-            log_name: entry.log_name
-          }))
-          
-          sessionStorage.setItem('batchLogEntries', JSON.stringify(dataToSave))
-        } catch (error) {
-          ElMessage.warning('保存数据失败，可能影响手术分析功能')
-        }
+        // 不再保存到sessionStorage，改为在手术分析页面重新加载
+        // 这样可以避免大数据量的存储问题
         
         ElMessage.success(`批量分析完成，共 ${batchLogEntries.value.length} 条记录`)
       } catch (error) {
@@ -403,32 +393,13 @@ export default {
         return
       }
       
-      // 保存数据到sessionStorage
-      try {
-        const dataToSave = batchLogEntries.value.map(entry => ({
-          timestamp: entry.timestamp,
-          error_code: entry.error_code,
-          param1: entry.param1,
-          param2: entry.param2,
-          param3: entry.param3,
-          param4: entry.param4,
-          explanation: entry.explanation,
-          log_name: entry.log_name
-        }))
-        
-        sessionStorage.setItem('batchLogEntries', JSON.stringify(dataToSave))
-      } catch (error) {
-        ElMessage.error('保存数据失败')
-        return
-      }
-      
       // 传递选中的日志ID到手术统计页面
       const logIds = selectedLogs.value.map(log => log.id)
       
       // 设置自动分析标志
       sessionStorage.setItem('autoAnalyze', 'true')
       
-      // 在新窗口中打开手术统计页面
+      // 在新窗口中打开手术统计页面，通过URL参数传递日志ID
       const routeData = router.resolve({
         path: '/surgery-statistics',
         query: { logIds: logIds.join(',') }
@@ -440,18 +411,17 @@ export default {
     const analyzeSurgeryData = async () => {
       analyzing.value = true
       try {
-        // 批量分析所有选中的日志
+        // 使用统一的接口，一次性分析所有选中的日志
         const logIds = selectedLogs.value.map(log => log.id)
-        for (const logId of logIds) {
-          try {
-            await api.surgeryStatistics.analyze(logId)
-          } catch (error) {
-            // 静默处理单个日志分析失败
-          }
+        const response = await api.surgeryStatistics.analyzeByLogIds(logIds)
+        
+        if (response.data.success) {
+          ElMessage.success(response.data.message || `成功分析出 ${response.data.data?.length || 0} 场手术`)
+        } else {
+          ElMessage.error(response.data.message || '批量分析手术数据失败')
         }
-        ElMessage.success('批量手术数据分析完成')
       } catch (error) {
-        ElMessage.error('批量分析手术数据失败')
+        ElMessage.error('批量分析手术数据失败: ' + (error.response?.data?.message || error.message))
       } finally {
         analyzing.value = false
       }

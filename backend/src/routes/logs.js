@@ -9,6 +9,7 @@ const {
   downloadLog, 
   deleteLog, 
   batchDeleteLogs,
+  batchDownloadLogs,
   getLogEntries,
   getBatchLogEntries,
   autoFillDeviceId,
@@ -38,13 +39,16 @@ router.get('/auto-fill/key', auth, checkPermission('log:read_own'), autoFillKey)
 // 上传日志 - 所有用户都可以上传
 router.post('/upload', auth, checkPermission('log:upload'), upload.array('file', 50), uploadLog); // 最多50个文件
 
+// 批量删除日志 - 必须放在带参数的路由之前
+router.delete('/batch', auth, checkLogPermission('delete'), batchDeleteLogs);
+
+// 批量下载日志 - 必须放在带参数的路由之前
+router.post('/batch/download', auth, checkLogPermission('download'), batchDownloadLogs);
+
 // 带参数的路由 - 必须放在具体路径之后
 router.post('/:id/parse', auth, checkPermission('log:parse'), parseLog);
 router.get('/:id/download', auth, checkPermission('log:download'), downloadLog);
 router.delete('/:id', auth, checkLogPermission('delete'), deleteLog);
-
-// 批量删除日志
-router.delete('/batch', auth, checkLogPermission('delete'), batchDeleteLogs);
 // 获取日志明细 - 根据用户角色决定查看权限
 router.get('/:id/entries', auth, checkLogPermission('read_all'), getLogEntries);
 

@@ -95,6 +95,7 @@ const logs = {
   download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/logs/${id}`),
   batchDelete: (logIds) => api.delete('/logs/batch', { data: { logIds } }),
+  batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }, { responseType: 'blob' }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
@@ -130,7 +131,9 @@ const i18n = {
 
 const surgeryStatistics = {
   getList: (params) => api.get('/surgery-statistics', { params }),
+  analyze: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
+  analyzeByLogIds: (logIds) => api.post('/surgery-statistics/analyze-by-log-ids', { logIds }),
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' })
 }
 

@@ -78,6 +78,15 @@ const actions = {
     }
   },
 
+  async batchDownloadLogs({ commit }, logIds) {
+    try {
+      const response = await api.logs.batchDownload(logIds)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
   async fetchLogEntries({ commit }, logId) {
     try {
       const response = await api.logs.getEntries(logId)

@@ -588,6 +588,8 @@ const batchDeleteLogs = async (req, res) => {
   try {
     const { logIds } = req.body;
     
+
+    
     if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
       return res.status(400).json({ message: '请提供要删除的日志ID列表' });
     }
@@ -595,12 +597,36 @@ const batchDeleteLogs = async (req, res) => {
     const userRole = req.user.role_id;
     const userId = req.user.id;
     
-    // 获取所有要删除的日志
-    const logs = await Log.findAll({ where: { id: logIds } });
+    // 确保logIds是数字类型
+    const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+    
+    if (numericLogIds.length === 0) {
+      return res.status(400).json({ message: '提供的日志ID格式不正确' });
+    }
+    
+    // 测试数据库查询
+    console.log('测试数据库查询...');
+    const testLog = await Log.findByPk(numericLogIds[0]);
+    console.log('测试查询结果:', testLog ? `找到日志 ${testLog.id}: ${testLog.original_name}` : '未找到日志');
+    
+    // 获取所有要删除的日志 - 使用与单个删除相同的方式
+    const logs = [];
+    for (const id of numericLogIds) {
+      const log = await Log.findByPk(id);
+      if (log) {
+        logs.push(log);
+      }
+    }
     
     if (logs.length === 0) {
-      return res.status(404).json({ message: '未找到要删除的日志' });
+      return res.status(404).json({ 
+        message: '未找到要删除的日志',
+        requestedIds: numericLogIds,
+        foundCount: logs.length
+      });
     }
+    
+    console.log(`找到 ${logs.length} 个日志，用户角色: ${userRole}, 用户ID: ${userId}`);
     
     // 权限检查：普通用户只能删除自己的日志
     if (userRole === 3) {
@@ -617,7 +643,12 @@ const batchDeleteLogs = async (req, res) => {
     let failCount = 0;
     const failedLogs = [];
     
+    // 使用事务来确保数据一致性
+    const { sequelize } = require('../models/index');
+    
     for (const log of logs) {
+      const transaction = await sequelize.transaction();
+      
       try {
         // 删除解密文件（如果存在）
         if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
@@ -625,13 +656,22 @@ const batchDeleteLogs = async (req, res) => {
         }
         
         // 删除相关的日志明细
-        await LogEntry.destroy({ where: { log_id: log.id } });
+        await LogEntry.destroy({ 
+          where: { log_id: log.id },
+          transaction 
+        });
         
         // 删除日志记录
-        await log.destroy();
+        await log.destroy({ transaction });
+        
+        // 提交事务
+        await transaction.commit();
+        
         successCount++;
       } catch (error) {
-        console.error(`删除日志 ${log.original_name} 失败:`, error);
+        // 回滚事务
+        await transaction.rollback();
+        
         failCount++;
         failedLogs.push({ id: log.id, original_name: log.original_name, error: error.message });
       }
@@ -644,7 +684,169 @@ const batchDeleteLogs = async (req, res) => {
       failedLogs
     });
   } catch (err) {
-    res.status(500).json({ message: '批量删除失败', error: err.message });
+    console.error('批量删除失败:', err);
+    res.status(500).json({ 
+      message: '批量删除失败', 
+      error: err.message
+    });
+  }
+};
+
+// 批量下载日志
+const batchDownloadLogs = async (req, res) => {
+  try {
+    const { logIds } = req.body;
+    
+    if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+      return res.status(400).json({ message: '请提供要下载的日志ID列表' });
+    }
+    
+    const userRole = req.user.role_id;
+    const userId = req.user.id;
+    
+    // 确保logIds是数字类型
+    const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+    
+    if (numericLogIds.length === 0) {
+      return res.status(400).json({ message: '提供的日志ID格式不正确' });
+    }
+    
+    // 获取所有要下载的日志
+    const logs = [];
+    for (const id of numericLogIds) {
+      const log = await Log.findByPk(id);
+      if (log) {
+        logs.push(log);
+      }
+    }
+    
+    if (logs.length === 0) {
+      return res.status(404).json({ 
+        message: '未找到要下载的日志',
+        requestedIds: numericLogIds,
+        foundCount: logs.length
+      });
+    }
+    
+    // 权限检查：普通用户只能下载自己的日志
+    if (userRole === 3) {
+      const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
+      if (unauthorizedLogs.length > 0) {
+        return res.status(403).json({ 
+          message: '权限不足，只能下载自己上传的日志',
+          unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
+        });
+      }
+    }
+    
+    // 检查是否所有日志都已解析完成
+    const unparsedLogs = logs.filter(log => log.status !== 'parsed');
+    if (unparsedLogs.length > 0) {
+      return res.status(400).json({ 
+        message: '部分日志尚未解析完成，无法下载',
+        unparsedLogs: unparsedLogs.map(log => ({ id: log.id, original_name: log.original_name, status: log.status }))
+      });
+    }
+    
+    // 创建临时目录用于存放文件
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    // 生成ZIP文件名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const zipFileName = `logs_batch_${timestamp}.zip`;
+    const zipFilePath = path.join(tempDir, zipFileName);
+    
+    // 创建ZIP文件
+    const archiver = require('archiver');
+    const output = fs.createWriteStream(zipFilePath);
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // 设置压缩级别
+    });
+    
+    output.on('close', () => {
+      console.log(`ZIP文件创建完成: ${zipFilePath}, 大小: ${archive.pointer()} bytes`);
+    });
+    
+    archive.on('error', (err) => {
+      throw err;
+    });
+    
+    archive.pipe(output);
+    
+    // 添加文件到ZIP
+    for (const log of logs) {
+      try {
+        let fileContent = '';
+        let fileName = '';
+        
+        // 优先从保存的解密文件中读取
+        if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
+          fileContent = fs.readFileSync(log.decrypted_path, 'utf-8');
+          fileName = path.basename(log.decrypted_path);
+        } else {
+          // 如果解密文件不存在，从数据库生成
+          const entries = await LogEntry.findAll({ 
+            where: { log_id: log.id }, 
+            order: [['timestamp', 'ASC']] 
+          });
+          
+          if (entries.length > 0) {
+            fileContent = entries.map(entry => {
+              return `${entry.timestamp} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
+            }).join('\n');
+            fileName = log.original_name.replace('.medbot', '_decrypted.txt');
+          }
+        }
+        
+        if (fileContent) {
+          // 在ZIP中创建子目录，按设备编号分组
+          const deviceDir = log.device_id || 'unknown';
+          const zipPath = `${deviceDir}/${fileName}`;
+          archive.append(fileContent, { name: zipPath });
+        }
+      } catch (error) {
+        console.error(`处理日志 ${log.id} 时出错:`, error);
+        // 继续处理其他文件
+      }
+    }
+    
+    // 完成ZIP文件
+    await archive.finalize();
+    
+    // 等待文件写入完成
+    await new Promise((resolve, reject) => {
+      output.on('close', resolve);
+      output.on('error', reject);
+    });
+    
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+    res.setHeader('Content-Length', fs.statSync(zipFilePath).size);
+    
+    // 发送ZIP文件
+    const fileStream = fs.createReadStream(zipFilePath);
+    fileStream.pipe(res);
+    
+    // 文件发送完成后删除临时文件
+    fileStream.on('end', () => {
+      try {
+        fs.unlinkSync(zipFilePath);
+        console.log(`临时文件已删除: ${zipFilePath}`);
+      } catch (error) {
+        console.error('删除临时文件失败:', error);
+      }
+    });
+    
+  } catch (err) {
+    console.error('批量下载失败:', err);
+    res.status(500).json({ 
+      message: '批量下载失败', 
+      error: err.message
+    });
   }
 };
 
@@ -662,21 +864,37 @@ const analyzeSurgeryData = async (req, res) => {
     // 获取日志条目
     const entries = await LogEntry.findAll({
       where: { log_id: logId },
-      order: [['timestamp', 'ASC']]
+      order: [['timestamp', 'ASC']],
+      raw: true
     });
     
     if (entries.length === 0) {
       return res.status(404).json({ message: '日志条目不存在' });
     }
     
-    // 分析手术数据
-    const surgeryData = analyzeSurgeryFromEntries(entries, log);
+    // 为每个条目添加日志文件名信息
+    const entriesWithLogName = entries.map(entry => ({
+      ...entry,
+      log_name: log.original_name
+    }));
+    
+    // 使用更完善的手术分析逻辑
+    const { analyzeSurgeries } = require('./surgeryStatisticsController');
+    const surgeries = analyzeSurgeries(entriesWithLogName);
+    
+    // 为每个手术分配唯一ID
+    surgeries.forEach((surgery, index) => {
+      surgery.id = index + 1;
+      surgery.log_filename = log.original_name;
+    });
     
     res.json({
       success: true,
-      data: surgeryData
+      data: surgeries,
+      message: `成功分析出 ${surgeries.length} 场手术数据`
     });
   } catch (err) {
+    console.error('手术统计分析失败:', err);
     res.status(500).json({ message: '手术统计分析失败', error: err.message });
   }
 };
@@ -890,5 +1108,6 @@ module.exports = {
   autoFillDeviceId,
   autoFillKey,
   batchDeleteLogs,
+  batchDownloadLogs,
   analyzeSurgeryData
 }; 

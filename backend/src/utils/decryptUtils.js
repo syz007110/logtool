@@ -24,9 +24,14 @@ function parseDateTime(dateTimeStr) {
     
     const formattedInput = dateStr.replace(/-(\d{2}:\d{2}:\d{2})$/, ' $1');
 
-    // 解析并格式化
-    const dt = dayjs(formattedInput).format("YYYY-MM-DD HH:mm:ss");
-
+    // 使用dayjs解析并返回Date对象
+    const dt = dayjs(formattedInput).toDate();
+    
+    // 验证解析结果
+    if (isNaN(dt.getTime())) {
+      throw new Error(`dayjs解析失败: ${formattedInput}`);
+    }
+    
     return dt;
   } catch (error) {
     console.error(`解析日期时间失败: ${dateTimeStr}`, error.message);

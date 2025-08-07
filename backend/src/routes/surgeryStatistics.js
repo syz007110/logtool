@@ -10,6 +10,9 @@ router.get('/', auth, checkPermission('log:read'), surgeryStatisticsController.g
 // 新增：使用已排序日志条目进行分析
 router.post('/analyze-sorted-entries', auth, checkPermission('log:read'), surgeryStatisticsController.analyzeSortedLogEntries);
 
+// 新增：通过日志ID列表直接分析手术数据
+router.post('/analyze-by-log-ids', auth, checkPermission('log:read'), surgeryStatisticsController.analyzeByLogIds);
+
 // 导出手术报告PDF
 router.get('/:id/export', auth, checkPermission('log:read'), surgeryStatisticsController.exportSurgeryReport);
 

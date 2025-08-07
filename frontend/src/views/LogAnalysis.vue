@@ -156,7 +156,11 @@
                   </div>
                   <div class="time-content">
                     <div class="time-label">开机时间</div>
-                    <div class="time-value">{{ formatTime(surgeryData.power_on_time) }}</div>
+                    <div class="time-value">
+                      <div v-for="(time, index) in getAllPowerOnTimes(surgeryData)" :key="index" class="time-item">
+                        {{ formatTime(time) }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </el-col>
@@ -167,7 +171,11 @@
                   </div>
                   <div class="time-content">
                     <div class="time-label">关机时间</div>
-                    <div class="time-value">{{ formatTime(surgeryData.power_off_time) }}</div>
+                    <div class="time-value">
+                      <div v-for="(time, index) in getAllPowerOffTimes(surgeryData)" :key="index" class="time-item">
+                        {{ formatTime(time) }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </el-col>
@@ -939,6 +947,40 @@ export default {
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     }
 
+    // 获取所有开机时间
+    const getAllPowerOnTimes = (surgery) => {
+      if (!surgery) return []
+      
+      // 如果有开机时间数组，返回所有
+      if (surgery.power_on_times && surgery.power_on_times.length > 0) {
+        return surgery.power_on_times
+      }
+      
+      // 兼容旧版本：如果有单个开机时间，返回数组
+      if (surgery.power_on_time) {
+        return [surgery.power_on_time]
+      }
+      
+      return []
+    }
+
+    // 获取所有关机时间
+    const getAllPowerOffTimes = (surgery) => {
+      if (!surgery) return []
+      
+      // 如果有关机时间数组，返回所有
+      if (surgery.shutdown_times && surgery.shutdown_times.length > 0) {
+        return surgery.shutdown_times
+      }
+      
+      // 兼容旧版本：如果有单个关机时间，返回数组
+      if (surgery.power_off_time) {
+        return [surgery.power_off_time]
+      }
+      
+      return []
+    }
+
     onMounted(() => {
       loadLogInfo()
       loadLogEntries()
@@ -989,7 +1031,9 @@ export default {
       surgeryStatisticsVisible,
       surgeryData,
       analyzing,
-      armDetailsVisible
+      armDetailsVisible,
+      getAllPowerOnTimes,
+      getAllPowerOffTimes
     }
   }
 }
@@ -1531,6 +1575,27 @@ export default {
   border: 1px solid rgba(22, 93, 255, 0.2);
   box-shadow: 0 1px 3px rgba(22, 93, 255, 0.1);
   backdrop-filter: blur(4px);
+}
+
+/* 多个时间显示样式 */
+.time-item {
+  margin-bottom: 4px;
+  padding: 2px 0;
+  font-size: 13px;
+  color: #606266;
+}
+
+.time-item:last-child {
+  margin-bottom: 0;
+}
+
+.time-item:not(:last-child) {
+  border-bottom: 1px solid #EBEEF5;
+  padding-bottom: 4px;
+}
+
+.time-value {
+  min-height: 20px;
 }
 
 .toggle-details:hover {

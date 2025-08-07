@@ -6,6 +6,45 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="icon" href="<%= BASE_URL %>favicon.ico">
     <title>LogTool - 故障码管理与日志分析系统</title>
+    <script>
+      // 在页面加载时立即拦截 ResizeObserver 错误
+      (function() {
+        // 保存原始的 console.error
+        const originalError = console.error;
+        
+        // 重写 console.error 来过滤 ResizeObserver 错误
+        console.error = function(...args) {
+          const message = args[0];
+          if (typeof message === 'string' && message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            return; // 静默处理
+          }
+          originalError.apply(console, args);
+        };
+        
+        // 拦截全局错误事件
+        window.addEventListener('error', function(event) {
+          if (event.message && event.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            event.preventDefault();
+            return false;
+          }
+        });
+        
+        // 拦截未处理的 Promise 错误
+        window.addEventListener('unhandledrejection', function(event) {
+          if (event.reason && event.reason.message && event.reason.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            event.preventDefault();
+            return false;
+          }
+        });
+        
+        // 覆盖 webpack-dev-server 的 handleError
+        window.handleError = function(error) {
+          if (error && error.message && error.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            return; // 静默处理
+          }
+        };
+      })();
+    </script>
   </head>
   <body>
     <noscript>

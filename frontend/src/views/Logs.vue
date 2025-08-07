@@ -201,73 +201,84 @@
         <div class="card-header">
           <span>日志列表</span>
           <div class="header-actions">
-            <!-- 批量操作按钮组 -->
-            <div v-if="selectedLogs.length > 0" class="batch-actions">
-              <el-button 
-                type="primary" 
-                size="small" 
-                @click="handleBatchAnalyze"
-                :disabled="!canBatchOperate || !isSameDevice"
-                :title="deviceCheckMessage"
-              >
-                <el-icon><Monitor /></el-icon>
-                批量分析 ({{ selectedLogs.length }})
-              </el-button>
+            <!-- 批量操作区域 -->
+            <div v-if="selectedLogs.length > 0" class="batch-operations">
+              <!-- 批量操作按钮组 -->
+              <div class="batch-actions">
+                <el-button 
+                  type="primary" 
+                  size="small" 
+                  @click="handleBatchAnalyze"
+                  :disabled="!canBatchOperate || !isSameDevice"
+                  :title="deviceCheckMessage"
+                >
+                  <el-icon><Monitor /></el-icon>
+                  批量分析 ({{ selectedLogs.length }})
+                </el-button>
+                
+                <el-button 
+                  type="success" 
+                  size="small" 
+                  @click="handleBatchDownload"
+                  :disabled="!canBatchOperate"
+                >
+                  <el-icon><Download /></el-icon>
+                  批量下载 ({{ selectedLogs.length }})
+                </el-button>
+                
+                <el-button 
+                  type="danger" 
+                  size="small" 
+                  @click="handleBatchDelete"
+                  :disabled="!canBatchDelete"
+                >
+                  <el-icon><Delete /></el-icon>
+                  批量删除 ({{ selectedLogs.length }})
+                </el-button>
+                <el-tooltip 
+                  content="普通用户只能删除自己上传的日志" 
+                  placement="top" 
+                  v-if="userRole === 3"
+                >
+                  <el-icon class="info-icon"><InfoFilled /></el-icon>
+                </el-tooltip>
+                
+                <el-button 
+                  type="info" 
+                  size="small" 
+                  @click="clearSelection"
+                >
+                  取消选择
+                </el-button>
+              </div>
               
               <!-- 设备检测提示 -->
               <div v-if="deviceCheckMessage" class="device-check-tip">
                 <el-tag type="warning" size="small">
                   <el-icon><Warning /></el-icon>
-                  {{ deviceCheckMessage }}
+                  <span class="device-message">{{ deviceCheckMessage }}</span>
                 </el-tag>
               </div>
-              
-              <el-button 
-                type="success" 
-                size="small" 
-                @click="handleBatchDownload"
-                :disabled="!canBatchOperate"
-              >
-                <el-icon><Download /></el-icon>
-                批量下载 ({{ selectedLogs.length }})
-              </el-button>
-              
-              <el-button 
-                type="danger" 
-                size="small" 
-                @click="handleBatchDelete"
-                :disabled="!canBatchDelete"
-              >
-                <el-icon><Delete /></el-icon>
-                批量删除 ({{ selectedLogs.length }})
-              </el-button>
-              
-              <el-button 
-                type="info" 
-                size="small" 
-                @click="clearSelection"
-              >
-                取消选择
-              </el-button>
-              
-
             </div>
             
-            <el-input
-              v-model="filterDeviceId"
-              placeholder="按设备编号筛选"
-              style="width: 200px; margin-right: 10px;"
-              clearable
-              @keyup.enter="loadLogs"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-button type="primary" size="small" @click="loadLogs">
-              <el-icon><Refresh /></el-icon>
-              刷新
-            </el-button>
+            <!-- 搜索和刷新区域 -->
+            <div class="search-section">
+              <el-input
+                v-model="filterDeviceId"
+                placeholder="按设备编号筛选"
+                class="search-input"
+                clearable
+                @keyup.enter="loadLogs"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-button type="primary" size="small" @click="loadLogs">
+                <el-icon><Refresh /></el-icon>
+                刷新
+              </el-button>
+            </div>
           </div>
         </div>
       </template>
@@ -282,8 +293,8 @@
         <el-table-column type="selection" width="55" />
         <el-table-column prop="original_name" label="原始文件名" width="200" />
         <el-table-column prop="device_id" label="设备编号" width="120" />
-        <el-table-column prop="uploader_id" label="上传用户ID" width="100" />
-        <el-table-column prop="upload_time" label="上传时间" width="180">
+        <el-table-column prop="uploader_id" label="用户ID" width="80" />
+        <el-table-column prop="upload_time" label="上传时间" width="150">
           <template #default="{ row }">
             {{ formatDate(row.upload_time) }}
           </template>
@@ -372,7 +383,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning } from '@element-plus/icons-vue'
+import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled } from '@element-plus/icons-vue'
 
 export default {
   name: 'Logs',
@@ -845,7 +856,7 @@ export default {
       return textMap[status] || status
     }
     
-    // 批量操作相关方法
+        // 批量操作相关方法
     const handleSelectionChange = (selection) => {
       selectedLogs.value = selection
       // 保存选中的日志到sessionStorage，供手术统计页面使用
@@ -871,32 +882,29 @@ export default {
     // 批量下载
     const handleBatchDownload = async () => {
       try {
-        ElMessage.info('开始批量下载...')
+        ElMessage.info('正在打包文件，请稍候...')
         
-        for (const log of selectedLogs.value) {
-          try {
-            const response = await store.dispatch('logs/downloadLog', log.id)
-            
-            // 创建下载链接
-            const blob = new Blob([response.data])
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = log.original_name.replace('.medbot', '_decrypted.txt')
-            link.click()
-            window.URL.revokeObjectURL(url)
-            
-            // 添加延迟避免浏览器阻止多个下载
-            await new Promise(resolve => setTimeout(resolve, 500))
-          } catch (error) {
-            console.error(`下载日志 ${log.original_name} 失败:`, error)
-            ElMessage.warning(`下载日志 ${log.original_name} 失败`)
-          }
-        }
+        const logIds = selectedLogs.value.map(log => log.id)
+        const response = await store.dispatch('logs/batchDownloadLogs', logIds)
+        
+        // 创建下载链接
+        const blob = new Blob([response.data])
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        
+        // 生成ZIP文件名
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        link.download = `logs_batch_${timestamp}.zip`
+        
+        link.click()
+        window.URL.revokeObjectURL(url)
         
         ElMessage.success('批量下载完成')
       } catch (error) {
-        ElMessage.error('批量下载失败')
+        console.error('批量下载失败:', error)
+        const errorMessage = error.response?.data?.message || error.message || '批量下载失败'
+        ElMessage.error(errorMessage)
       }
     }
     
@@ -915,15 +923,65 @@ export default {
         
         ElMessage.info('开始批量删除...')
         
-        const logIds = selectedLogs.value.map(log => log.id)
-        const response = await store.dispatch('logs/batchDeleteLogs', logIds)
+        // 保存选中的日志数据，避免在验证过程中被清空
+        const selectedLogsData = [...selectedLogs.value]
+        const logIds = selectedLogsData.map(log => parseInt(log.id)).filter(id => !isNaN(id))
         
-        ElMessage.success(response.data.message)
+        if (logIds.length === 0) {
+          ElMessage.error('选中的日志ID格式不正确')
+          return
+        }
+        
+
+        
+        // 执行批量删除
+        let response;
+        try {
+          response = await store.dispatch('logs/batchDeleteLogs', logIds)
+        } catch (apiError) {
+          console.error('批量删除失败:', apiError)
+          const errorMessage = apiError.response?.data?.message || apiError.message || '批量删除失败'
+          ElMessage.error(errorMessage)
+          return
+        }
+        
+        // 检查响应中的失败信息
+        if (response.data.failCount > 0) {
+          ElMessage.warning(`批量删除完成，成功 ${response.data.successCount} 个，失败 ${response.data.failCount} 个`)
+          if (response.data.failedLogs && response.data.failedLogs.length > 0) {
+            console.error('删除失败的日志:', response.data.failedLogs)
+          }
+        } else {
+          ElMessage.success(response.data.message)
+        }
+        
         loadLogs() // 重新加载日志列表
         clearSelection() // 清空选择
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('批量删除失败')
+          console.error('批量删除错误:', error)
+          console.error('错误详情:', {
+            name: error.name,
+            message: error.message,
+            code: error.code,
+            response: error.response?.data,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            config: {
+              url: error.config?.url,
+              method: error.config?.method,
+              data: error.config?.data
+            }
+          })
+          
+          let errorMessage = '批量删除失败'
+          if (error.response?.data?.message) {
+            errorMessage = error.response.data.message
+          } else if (error.message) {
+            errorMessage = error.message
+          }
+          
+          ElMessage.error(errorMessage)
         }
       }
     }
@@ -1090,12 +1148,15 @@ export default {
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .header-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .upload-actions {
@@ -1282,32 +1343,127 @@ export default {
 }
 
 /* 批量操作样式 */
+.batch-operations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* 搜索区域样式 */
+.search-section {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.search-input {
+  width: 200px;
+}
+
 .batch-actions {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-right: 15px;
   padding: 8px 12px;
   background-color: #f0f9ff;
   border: 1px solid #b3d8ff;
   border-radius: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .device-check-tip {
-  margin-left: 10px;
+  margin-left: 0;
 }
 
 .device-check-tip .el-tag {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   font-size: 12px;
   max-width: 300px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
+.device-message {
+  white-space: normal;
+  word-wrap: break-word;
+}
 
+.info-icon {
+  color: #909399;
+  margin-left: 4px;
+  cursor: help;
+  font-size: 14px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1024px) {
+  .header-actions {
+    gap: 15px;
+  }
+  
+  .batch-actions {
+    gap: 8px;
+  }
+  
+  .batch-actions .el-button {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .search-section {
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+  
+  .batch-actions {
+    justify-content: flex-start;
+  }
+  
+  .batch-actions .el-button {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .batch-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .batch-actions .el-button {
+    width: 100%;
+  }
+  
+  .search-section {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .search-section .search-input {
+    width: 100% !important;
+  }
+}
 
 </style> 

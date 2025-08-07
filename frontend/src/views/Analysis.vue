@@ -9,11 +9,22 @@
             </el-tag>
           </div>
           <div class="header-right">
-            <el-button @click="exportToCSV" type="success" size="small">
+            <el-button 
+              v-if="!loading && logEntries.length > 0" 
+              @click="exportToCSV" 
+              type="success" 
+              size="small"
+            >
               <el-icon><Download /></el-icon>
               导出CSV
             </el-button>
-            <el-button @click="showSurgeryStatistics" type="primary" size="small" style="margin-left: 10px;">
+            <el-button 
+              v-if="!loading && logEntries.length > 0" 
+              @click="showSurgeryStatistics" 
+              type="primary" 
+              size="small" 
+              style="margin-left: 10px;"
+            >
               <el-icon><DataAnalysis /></el-icon>
               手术分析
             </el-button>
@@ -169,7 +180,25 @@
 
         <!-- 手术统计内容 -->
         <div v-else>
-          <el-empty description="手术数据分析完成，详细统计信息请查看手术统计页面" />
+          <div v-if="surgeryData">
+            <el-result
+              icon="success"
+              title="手术数据分析完成"
+              sub-title="已成功分析出手术数据，详细统计信息请查看手术统计页面"
+            >
+              <template #extra>
+                <el-button type="primary" @click="showSurgeryStatistics">
+                  查看详细统计
+                </el-button>
+                <el-button @click="surgeryStatisticsVisible = false">
+                  关闭
+                </el-button>
+              </template>
+            </el-result>
+          </div>
+          <div v-else>
+            <el-empty description="未分析出手术数据，请检查日志内容" />
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -258,7 +287,6 @@ export default {
     // 加载日志信息
     const loadLogInfo = async () => {
       try {
-        loading.value = true
         const response = await store.dispatch('logs/fetchLogs', { page: 1, limit: 1000 })
         const log = response.data.logs.find(l => l.id == logId)
         if (log) {
@@ -269,15 +297,12 @@ export default {
         }
       } catch (error) {
         ElMessage.error('加载日志信息失败')
-      } finally {
-        loading.value = false
       }
     }
 
     // 加载日志条目
     const loadLogEntries = async () => {
       try {
-        loading.value = true
         const response = await store.dispatch('logs/fetchLogEntries', logId)
         logEntries.value = response.data?.entries || response.entries || []
         
@@ -289,8 +314,6 @@ export default {
         }
       } catch (error) {
         ElMessage.error('加载日志条目失败')
-      } finally {
-        loading.value = false
       }
     }
 
@@ -382,31 +405,45 @@ export default {
 
     // 跳转到手术统计页面
     const showSurgeryStatistics = () => {
-      router.push('/surgery-statistics')
+      // 直接传递日志ID，避免传递大量日志条目数据
+      router.push({
+        path: '/surgery-statistics',
+        query: { logIds: logId }
+      })
     }
 
     // 分析手术数据
     const analyzeSurgeryData = async () => {
       analyzing.value = true
       try {
-        const response = await api.surgeryStatistics.analyze(logId)
-        // 如果返回的是数组，取第一个手术数据
-        if (Array.isArray(response.data.data)) {
-          surgeryData.value = response.data.data[0] || null
+        // 使用统一的接口，传递单个日志ID数组
+        const response = await api.surgeryStatistics.analyzeByLogIds([logId])
+        if (response.data.success) {
+          // 如果返回的是数组，取第一个手术数据
+          if (Array.isArray(response.data.data)) {
+            surgeryData.value = response.data.data[0] || null
+          } else {
+            surgeryData.value = response.data.data
+          }
+          ElMessage.success('手术数据分析完成')
         } else {
-          surgeryData.value = response.data.data
+          ElMessage.error(response.data.message || '分析手术数据失败')
         }
-        ElMessage.success('手术数据分析完成')
       } catch (error) {
-        ElMessage.error('分析手术数据失败')
+        ElMessage.error('分析手术数据失败: ' + (error.response?.data?.message || error.message))
       } finally {
         analyzing.value = false
       }
     }
 
-    onMounted(() => {
-      loadLogInfo()
-      loadLogEntries()
+    onMounted(async () => {
+      loading.value = true
+      try {
+        await loadLogInfo()
+        await loadLogEntries()
+      } finally {
+        loading.value = false
+      }
     })
 
     return {
