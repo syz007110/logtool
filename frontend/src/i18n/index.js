@@ -29,7 +29,7 @@ const messages = {
       password: '密码',
       login: '登录',
       register: '注册',
-      forgotPassword: '忘记密码？'
+
     },
     // 注册页面
     register: {
@@ -43,15 +43,7 @@ const messages = {
       registerSuccess: '注册成功',
       registerFailed: '注册失败'
     },
-    // 忘记密码
-    forgotPassword: {
-      title: '忘记密码',
-      email: '邮箱',
-      submit: '提交',
-      backToLogin: '返回登录',
-      submitSuccess: '重置邮件已发送',
-      submitFailed: '提交失败'
-    },
+
     // 导航
     nav: {
       dashboard: '首页',
@@ -216,7 +208,7 @@ const messages = {
       password: 'Password',
       login: 'Login',
       register: 'Register',
-      forgotPassword: 'Forgot password?'
+
     },
     // Register page
     register: {
@@ -230,15 +222,7 @@ const messages = {
       registerSuccess: 'Registration successful',
       registerFailed: 'Registration failed'
     },
-    // Forgot password
-    forgotPassword: {
-      title: 'Forgot Password',
-      email: 'Email',
-      submit: 'Submit',
-      backToLogin: 'Back to Login',
-      submitSuccess: 'Reset email sent',
-      submitFailed: 'Submit failed'
-    },
+
     // Navigation
     nav: {
       dashboard: 'Dashboard',

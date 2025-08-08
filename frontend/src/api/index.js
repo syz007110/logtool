@@ -29,9 +29,16 @@ api.interceptors.response.use(
       const { status, data } = error.response
       switch (status) {
         case 401:
-          ElMessage.error('登录已过期，请重新登录')
-          store.dispatch('auth/logout')
-          router.push('/login')
+          // 检查是否是登录接口的错误，如果是则显示具体的错误信息
+          if (error.config.url && error.config.url.includes('/auth/login')) {
+            // 登录接口的错误，显示后端返回的具体错误信息
+            ElMessage.error(data.message || '用户名或密码错误')
+          } else {
+            // 其他接口的401错误，说明token过期
+            ElMessage.error('登录已过期，请重新登录')
+            store.dispatch('auth/logout')
+            router.push('/login')
+          }
           break
         case 403:
           ElMessage.error('权限不足')
@@ -55,8 +62,7 @@ api.interceptors.response.use(
 // API模块
 const auth = {
   login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
-  forgotPassword: (email) => api.post('/auth/forgot-password', { email })
+  register: (userData) => api.post('/auth/register', userData)
 }
 
 const errorCodes = {

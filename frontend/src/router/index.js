@@ -18,12 +18,7 @@ const routes = [
     component: () => import('../views/Register.vue'),
     meta: { requiresAuth: false }
   },
-  {
-    path: '/forgot-password',
-    name: 'ForgotPassword',
-    component: () => import('../views/ForgotPassword.vue'),
-    meta: { requiresAuth: false }
-  },
+
   // 独立的分析页面路由（不需要侧边导航栏）
   {
     path: '/analysis/:id',

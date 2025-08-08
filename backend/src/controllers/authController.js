@@ -17,7 +17,7 @@ const register = async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, password_hash, email });
     
-    // 如果提供了角色，为用户分配角色
+    // 如果提供了角色，为用户分配角色，否则默认分配普通用户角色
     if (roles && Array.isArray(roles) && roles.length > 0) {
       for (const roleId of roles) {
         await UserRole.create({
@@ -27,6 +27,14 @@ const register = async (req, res) => {
           notes: '注册时分配'
         });
       }
+    } else {
+      // 默认分配普通用户角色 (role_id: 3)
+      await UserRole.create({
+        user_id: user.id,
+        role_id: 3, // 普通用户角色ID
+        assigned_by: user.id,
+        notes: '注册时默认分配普通用户权限'
+      });
     }
     
     res.status(201).json({ message: '注册成功', user: { id: user.id, username: user.username, email: user.email } });

@@ -51,14 +51,7 @@ const actions = {
     }
   },
 
-  async forgotPassword({ commit }, email) {
-    try {
-      const response = await api.auth.forgotPassword(email)
-      return response
-    } catch (error) {
-      throw error
-    }
-  },
+
 
   logout({ commit }) {
     commit('SET_TOKEN', null)
@@ -95,9 +88,9 @@ const getters = {
       
       // 简化的权限检查逻辑 - 根据角色判断
       const rolePermissions = {
-        'admin': ['error_code:create', 'error_code:read', 'error_code:update', 'error_code:delete', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete', 'i18n:create', 'i18n:read', 'i18n:update', 'i18n:delete', 'user:create', 'user:read', 'user:update', 'user:delete', 'user:role:assign', 'role:create', 'role:read', 'role:update', 'role:delete', 'history:read_all', 'history:export'],
-        'expert': ['error_code:create', 'error_code:read', 'error_code:update', 'error_code:delete', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete_own', 'i18n:create', 'i18n:read', 'i18n:update', 'i18n:delete', 'history:read_own'],
-        'user': ['error_code:read', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete_own', 'i18n:read', 'history:read_own']
+        'admin': ['error_code:create', 'error_code:read', 'error_code:update', 'error_code:delete', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete', 'i18n:create', 'i18n:read', 'i18n:update', 'i18n:delete', 'user:create', 'user:read', 'user:update', 'user:delete', 'user:role:assign', 'role:create', 'role:read', 'role:update', 'role:delete', 'history:read_all', 'history:export', 'surgery:analyze', 'surgery:read', 'surgery:export'],
+        'expert': ['error_code:create', 'error_code:read', 'error_code:update', 'error_code:delete', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete_own', 'i18n:create', 'i18n:read', 'i18n:update', 'i18n:delete', 'history:read_own', 'surgery:analyze', 'surgery:read', 'surgery:export'],
+        'user': ['error_code:read', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete_own', 'i18n:read', 'history:read_own', 'surgery:analyze', 'surgery:read', 'surgery:export']
       };
       
       // 首先检查单个角色

@@ -41,14 +41,19 @@ const ROLES = {
       
       // 历史记录权限
       'history:read_all', // 查看所有历史记录
-      'history:export'    // 导出历史记录
+      'history:export',    // 导出历史记录
+      
+      // 手术分析权限
+      'surgery:analyze',
+      'surgery:read',
+      'surgery:export'
     ]
   },
   
   EXPERT: {
     id: 2,
     name: 'expert',
-    description: '拥有故障码管理权限，可查看所有日志，但不能管理用户',
+    description: '拥有故障码管理权限，可查看所有日志，但不能管理用户，具有手术分析权限',
     permissions: [
       // 故障码管理权限
       'error_code:create',
@@ -72,14 +77,19 @@ const ROLES = {
       'i18n:delete',
       
       // 历史记录权限（专家可以查看自己的历史记录）
-      'history:read_own'
+      'history:read_own',
+      
+      // 手术分析权限
+      'surgery:analyze',
+      'surgery:read',
+      'surgery:export'
     ]
   },
   
   USER: {
     id: 3,
     name: 'user',
-    description: '基础权限，可查询故障码、上传日志、查看所有日志但只能删除自己的日志',
+    description: '基础权限，可查询故障码、上传日志、查看所有日志但只能删除自己的日志，具有手术分析权限',
     permissions: [
       // 故障码查询权限
       'error_code:read',
@@ -97,7 +107,12 @@ const ROLES = {
       'i18n:read',
       
       // 历史记录权限（普通用户只能查看自己的历史记录）
-      'history:read_own'
+      'history:read_own',
+      
+      // 手术分析权限
+      'surgery:analyze',
+      'surgery:read',
+      'surgery:export'
     ]
   },
   

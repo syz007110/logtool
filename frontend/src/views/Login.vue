@@ -63,9 +63,6 @@
         <router-link to="/register" class="register-link">
           {{ $t('login.register') }}
         </router-link>
-        <router-link to="/forgot-password" class="forgot-link">
-          {{ $t('login.forgotPassword') }}
-        </router-link>
       </div>
     </div>
   </div>
@@ -113,7 +110,8 @@ export default {
         ElMessage.success('登录成功')
         router.push('/dashboard')
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || '登录失败')
+        // 不在这里显示错误信息，因为响应拦截器已经处理了
+        console.error('登录失败:', error)
       } finally {
         loading.value = false
       }
