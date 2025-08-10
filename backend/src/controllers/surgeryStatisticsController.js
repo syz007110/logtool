@@ -148,11 +148,7 @@ function analyzeSurgeries(logEntries) {
   let PowerOnTimes = [];
   let ShutDownTimes = [];
   
-  // 为每场手术单独记录关机时间
-  const surgeryShutdownTimes = new Map(); // key: surgery_id, value: [shutdown_times]
-  
-  // 记录每场手术的开机时间
-  const surgeryPowerOnTimes = new Map(); // key: surgery_id, value: [power_on_times]
+
 
   // 使用排序后的日志条目进行分析
   for (let i = 0; i < sortedLogEntries.length; i++) {
@@ -218,9 +214,8 @@ function analyzeSurgeries(logEntries) {
       if (shouldClearSurgery) {
         currentSurgery = null;
         console.log(`清空当前手术的所有状态`);
-        // 清空全局开机时间列表，只保留当前的开机时间
-        console.log(`清空前全局开机时间列表: ${PowerOnTimes.length} 个`, PowerOnTimes);
-        PowerOnTimes = [entry.timestamp]; // 只保留当前的开机时间
+        // 保留全局开机时间数组用于后续分析，但不再复制给新手术
+        PowerOnTimes.push(entry.timestamp);
                
         surgeryStarted = false;
         errFlag = false;
@@ -235,7 +230,15 @@ function analyzeSurgeries(logEntries) {
         activeAlarms.clear();
       } else {
         // 重启需要记录开机时间
-        PowerOnTimes.push(entry.timestamp); 
+        PowerOnTimes.push(entry.timestamp);
+        // 如果有当前手术，将开机时间记录到手术中
+        if (currentSurgery) {
+          if (!currentSurgery.power_on_times) {
+            currentSurgery.power_on_times = [];
+          }
+          currentSurgery.power_on_times.push(entry.timestamp);
+          console.log(`为手术 ${currentSurgery.surgery_id} 记录开机时间: ${entry.timestamp}, 当前开机时间数量: ${currentSurgery.power_on_times.length}`);
+        }
       }
 
       // 记录开机事件
@@ -245,7 +248,7 @@ function analyzeSurgeries(logEntries) {
         surgery_id: currentSurgery ? currentSurgery.surgery_id : null,
         isRestart: !shouldClearSurgery // 如果不是清空手术，则认为是重启
       });
-      
+      shouldClearSurgery = false;
       // 开机时不创建新手术，只记录开机时间
       // 新手术的创建将在手术开始时进行
       console.log(`开机事件记录: ${entry.timestamp}, 当前手术: ${currentSurgery ? currentSurgery.surgery_id : '无'}`);
@@ -253,7 +256,7 @@ function analyzeSurgeries(logEntries) {
     // 关机事件处理 - 支持两种关机条件
      // 情况1：errCode后四位为 'A02E'
      // 情况2：检查errcode=310e且p2=31
-     if ((errCodeSuffix === 'A02E')|| (errCodeSuffix === '310e' && p2 === 31)){
+    if ((errCodeSuffix === 'A02E')|| (errCodeSuffix === '310e' && p2 === 31)){
        console.log(`检测到A02E关机事件: 时间=${entry.timestamp}`);
        isPowerOn = false;
        // 记录关机事件
@@ -262,25 +265,31 @@ function analyzeSurgeries(logEntries) {
          timestamp: entry.timestamp,
          surgery_id: currentSurgery ? currentSurgery.surgery_id : null
        });
-        // 记录关机时间，无论是否有手术对象
-        ShutDownTimes.push(entry.timestamp); // 记录所有关机时间
-       //更新手术信息
-        if (currentSurgery) {
-          // 初始化关机时间数组
-          if (!currentSurgery.shutdown_times) {
-            currentSurgery.shutdown_times = [];
-          }
-          // 添加当前关机时间到手术的关机时间列表
-          currentSurgery.shutdown_times.push(entry.timestamp);
-          
-          // 为当前手术记录关机时间
-          if (!surgeryShutdownTimes.has(currentSurgery.surgery_id)) {
-            surgeryShutdownTimes.set(currentSurgery.surgery_id, []);
-          }
-          surgeryShutdownTimes.get(currentSurgery.surgery_id).push(entry.timestamp);
-          
-          console.log(`为手术 ${currentSurgery.surgery_id} 记录关机时间: ${entry.timestamp}, 当前关机时间数量: ${currentSurgery.shutdown_times.length}`);
+       // 记录关机时间，无论是否有手术对象
+       ShutDownTimes.push(entry.timestamp); // 记录所有关机时间
+             //更新手术信息
+      if (currentSurgery) {
+        // 初始化关机时间数组
+        if (!currentSurgery.shutdown_times) {
+          currentSurgery.shutdown_times = [];
         }
+        // 初始化开机时间数组（防止未定义错误）
+        if (!currentSurgery.power_on_times) {
+          currentSurgery.power_on_times = [];
+        }
+        // 添加当前关机时间到手术的关机时间列表
+        currentSurgery.shutdown_times.push(entry.timestamp);
+                 //清空手术开机和关机时间，
+        if(surgeryStarted === false){
+          PowerOnTimes = [];
+          ShutDownTimes = [];
+        }
+        console.log(`为手术 ${currentSurgery.surgery_id} 记录关机时间: ${entry.timestamp}, 
+         当前关机时间数量: ${currentSurgery.shutdown_times.length}, 当前开机时间数量: ${currentSurgery.power_on_times.length}`);
+
+      }
+
+      
      }
 
          // 状态机事件处理
@@ -296,252 +305,6 @@ function analyzeSurgeries(logEntries) {
          stateName: getStateMachineStateName(newState.toString())
        });
       
-      // 手术开始判断
-      if (currentState === 20 && surgeryStarted === false) {
-        console.log(`检测到手术开始: 状态=${newState}, 开机状态=${isPowerOn}, 时间=${entry.timestamp}`)
-        console.log(`手术开始时的器械类型: ${armInsts}`);
-        //手术是否开始标志位
-        surgeryStarted = true;
-        
-        // 检查是否是重启后的手术继续
-        const lastPowerOff = powerEvents.filter(e => e.type === 'power_off').pop();
-        const lastPowerOn = powerEvents.filter(e => e.type === 'power_on').pop();
-        let isRestart = false;
-        
-        if (lastPowerOff && lastPowerOn && currentSurgery) {
-          const timeDiff = Math.floor((new Date(lastPowerOn.timestamp) - new Date(lastPowerOff.timestamp)) / 1000 / 60);
-          isRestart = timeDiff < 30;
-          console.log(`距离上次关机${timeDiff}分钟，${isRestart ? '判定为重启' : '判定为新手术'}`);
-        }
-        
-        // 手术开始时，检查是否已有手术前的手术对象
-        if (!currentSurgery) {
-          surgeryCount++;
-          currentSurgery = {
-            id: surgeryCount,
-            surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
-            log_id: entry.log_id,
-            power_on_times: [],
-            shutdown_times: [],
-            arm1_usage: [],
-            arm2_usage: [],
-            arm3_usage: [],
-            arm4_usage: [],
-            arm1_total_activation: { startTime: null, endTime: null },
-            arm2_total_activation: { startTime: null, endTime: null },
-            arm3_total_activation: { startTime: null, endTime: null },
-            arm4_total_activation: { startTime: null, endTime: null },
-            alarm_details: [],
-            state_machine_changes: [],
-            foot_pedal_stats: {},
-            hand_clutch_stats: {},
-            error_recovery_time: 0
-          };
-          console.log(`手术开始时创建新手术对象: ${currentSurgery.surgery_id}`);
-        } else if (currentSurgery.is_pre_surgery) {
-          // 如果已有手术前的手术对象，将其转换为正式手术对象
-          console.log(`将手术前的手术对象 ${currentSurgery.surgery_id} 转换为正式手术对象`);
-          currentSurgery.is_pre_surgery = false;
-          
-          // 更新手术前安装的器械标记
-          for (let armIndex = 0; armIndex < 4; armIndex++) {
-            const armUsageKey = `arm${armIndex + 1}_usage`;
-            const currentUsage = currentSurgery[armUsageKey] || [];
-            currentUsage.forEach(usage => {
-              if (usage.is_pre_surgery) {
-                usage.is_pre_surgery = false;
-                console.log(`更新器械 ${usage.instrumentName} 标记：从手术前安装转为手术中使用`);
-              }
-            });
-          }
-          
-          // 为新手术分配开机时间
-          if (PowerOnTimes && PowerOnTimes.length > 0) {
-            // 找到该手术时间范围内的所有开机时间
-            const surgeryStartTime = new Date(entry.timestamp).getTime();
-            let surgeryPowerOnTimesArray = [];
-            
-            console.log(`开始为手术分配开机时间，手术开始时间: ${entry.timestamp}`);
-            console.log(`全局开机时间列表: ${PowerOnTimes.length} 个`, PowerOnTimes);
-            console.log(`全局关机时间列表: ${ShutDownTimes.length} 个`, ShutDownTimes);
-            
-            // 查找手术开始时间之前的所有开机时间
-            for (let i = 0; i < PowerOnTimes.length; i++) {
-              const powerOnTime = new Date(PowerOnTimes[i]).getTime();
-              if (powerOnTime <= surgeryStartTime) {
-                console.log(`检查开机时间 ${PowerOnTimes[i]} (索引${i})，时间戳: ${powerOnTime}`);
-                
-                // 检查这个开机时间是否应该被包含在当前手术中
-                let shouldInclude = true;
-                
-                // 查找该开机时间之前的最近关机时间
-                const previousShutdownTime = ShutDownTimes
-                  .filter(shutdownTime => new Date(shutdownTime).getTime() < powerOnTime)
-                  .pop();
-                
-                if (previousShutdownTime) {
-                  const timeDiff = powerOnTime - new Date(previousShutdownTime).getTime();
-                  const timeDiffMinutes = timeDiff / (1000 * 60);
-                  
-                  console.log(`找到上一个关机时间: ${previousShutdownTime}，间隔: ${timeDiffMinutes}分钟`);
-                  
-                  // 如果距离上次关机超过30分钟，检查是否需要只保留最近的开机时间
-                  if (timeDiffMinutes > 30) {
-                    // 查找该关机时间之后的所有开机时间
-                    const subsequentPowerOnTimes = PowerOnTimes.filter(poTime => {
-                      const poTimestamp = new Date(poTime).getTime();
-                      return poTimestamp > new Date(previousShutdownTime).getTime() && 
-                             poTimestamp <= surgeryStartTime;
-                    });
-                    
-                    console.log(`关机后找到 ${subsequentPowerOnTimes.length} 个开机时间:`, subsequentPowerOnTimes);
-                    
-                    // 如果当前开机时间不是最近的一个，则跳过
-                    if (subsequentPowerOnTimes.length > 0) {
-                      const latestPowerOnTime = subsequentPowerOnTimes[subsequentPowerOnTimes.length - 1];
-                      if (PowerOnTimes[i] !== latestPowerOnTime) {
-                        shouldInclude = false;
-                        console.log(`跳过开机时间 ${PowerOnTimes[i]}，距离上次关机${timeDiffMinutes}分钟，保留最近的开机时间 ${latestPowerOnTime}`);
-                      } else {
-                        console.log(`保留开机时间 ${PowerOnTimes[i]}，这是最近的开机时间`);
-                      }
-                    }
-                  }
-                  // 如果距离上次关机小于30分钟，保留所有开机时间
-                  else {
-                    console.log(`保留开机时间 ${PowerOnTimes[i]}，距离上次关机${timeDiffMinutes}分钟 < 30分钟（重启）`);
-                  }
-                } else {
-                  // 没有找到之前的关机时间，保留该开机时间
-                  console.log(`保留开机时间 ${PowerOnTimes[i]}，没有找到之前的关机时间`);
-                }
-                
-                if (shouldInclude) {
-                  surgeryPowerOnTimesArray.push(PowerOnTimes[i]);
-                  console.log(`已添加开机时间 ${PowerOnTimes[i]} 到手术开机时间列表`);
-                }
-              } else {
-                console.log(`跳过开机时间 ${PowerOnTimes[i]}，晚于手术开始时间`);
-              }
-            }
-            
-            currentSurgery.power_on_times = surgeryPowerOnTimesArray;
-            surgeryPowerOnTimes.set(currentSurgery.surgery_id, surgeryPowerOnTimesArray);
-            console.log(`为手术 ${currentSurgery.surgery_id} 分配开机时间: ${surgeryPowerOnTimesArray.length} 个`, surgeryPowerOnTimesArray);
-          }
-        } else if (!isRestart) {
-          // 如果不是重启，说明是新手术，需要清空当前手术并创建新的
-          console.log(`检测到新手术开始，清空当前手术 ${currentSurgery.surgery_id} 并创建新手术`);
-          
-          // 将当前手术添加到手术列表（如果还没有添加过）
-          const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
-          if (!isAlreadyAdded) {
-            surgeries.push(currentSurgery);
-            console.log(`将手术 ${currentSurgery.surgery_id} 添加到手术列表`);
-          } else {
-            console.log(`手术 ${currentSurgery.surgery_id} 已经存在于手术列表中，跳过添加`);
-          }
-          
-          // 创建新手术
-          surgeryCount++;
-          currentSurgery = {
-            id: surgeryCount,
-            surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
-            log_id: entry.log_id,
-            power_on_times: [],
-            shutdown_times: [],
-            arm1_usage: [],
-            arm2_usage: [],
-            arm3_usage: [],
-            arm4_usage: [],
-            arm1_total_activation: { startTime: null, endTime: null },
-            arm2_total_activation: { startTime: null, endTime: null },
-            arm3_total_activation: { startTime: null, endTime: null },
-            arm4_total_activation: { startTime: null, endTime: null },
-            alarm_details: [],
-            state_machine_changes: [],
-            foot_pedal_stats: {},
-            hand_clutch_stats: {},
-            error_recovery_time: 0
-          };
-          console.log(`创建新手术对象: ${currentSurgery.surgery_id}`);
-          
-          // 为新手术分配开机时间
-          if (PowerOnTimes && PowerOnTimes.length > 0) {
-            // 找到该手术时间范围内的所有开机时间
-            const surgeryStartTime = new Date(entry.timestamp).getTime();
-            let surgeryPowerOnTimesArray = [];
-            
-            // 查找手术开始时间之前的所有开机时间
-            for (let i = 0; i < PowerOnTimes.length; i++) {
-              const powerOnTime = new Date(PowerOnTimes[i]).getTime();
-              if (powerOnTime <= surgeryStartTime) {
-                // 检查这个开机时间是否应该被包含在当前手术中
-                let shouldInclude = true;
-                
-                // 查找该开机时间之前的最近关机时间
-                const previousShutdownTime = ShutDownTimes
-                  .filter(shutdownTime => new Date(shutdownTime).getTime() < powerOnTime)
-                  .pop();
-                
-                if (previousShutdownTime) {
-                  const timeDiff = powerOnTime - new Date(previousShutdownTime).getTime();
-                  const timeDiffMinutes = timeDiff / (1000 * 60);
-                  
-                  // 如果距离上次关机超过30分钟，检查是否需要只保留最近的开机时间
-                  if (timeDiffMinutes > 30) {
-                    // 查找该关机时间之后的所有开机时间
-                    const subsequentPowerOnTimes = PowerOnTimes.filter(poTime => {
-                      const poTimestamp = new Date(poTime).getTime();
-                      return poTimestamp > new Date(previousShutdownTime).getTime() && 
-                             poTimestamp <= surgeryStartTime;
-                    });
-                    
-                    // 如果当前开机时间不是最近的一个，则跳过
-                    if (subsequentPowerOnTimes.length > 0) {
-                      const latestPowerOnTime = subsequentPowerOnTimes[subsequentPowerOnTimes.length - 1];
-                      if (PowerOnTimes[i] !== latestPowerOnTime) {
-                        shouldInclude = false;
-                        console.log(`跳过开机时间 ${PowerOnTimes[i]}，距离上次关机${timeDiffMinutes}分钟，保留最近的开机时间 ${latestPowerOnTime}`);
-                      }
-                    }
-                  }
-                  // 如果距离上次关机小于30分钟，保留所有开机时间
-                  else {
-                    console.log(`保留开机时间 ${PowerOnTimes[i]}，距离上次关机${timeDiffMinutes}分钟 < 30分钟（重启）`);
-                  }
-                } else {
-                  // 没有找到之前的关机时间，保留该开机时间
-                  console.log(`保留开机时间 ${PowerOnTimes[i]}，没有找到之前的关机时间`);
-                }
-                
-                if (shouldInclude) {
-                  surgeryPowerOnTimesArray.push(PowerOnTimes[i]);
-                }
-              }
-            }
-            
-            currentSurgery.power_on_times = surgeryPowerOnTimesArray;
-            surgeryPowerOnTimes.set(currentSurgery.surgery_id, surgeryPowerOnTimesArray);
-            console.log(`为手术 ${currentSurgery.surgery_id} 分配开机时间: ${surgeryPowerOnTimesArray.length} 个`, surgeryPowerOnTimesArray);
-          }
-          
-          // 重置所有状态
-          errFlag = false;
-          armStates.fill(-1);
-          armInsts.fill(-1);
-          armUDIs.fill('');
-          armUDIHistory.forEach(history => history.length = 0);
-          stateMachineChanges.length = 0;
-          currentState = -1;
-          alarmDetails.length = 0;
-          alarmRecords.clear();
-          activeAlarms.clear();
-        }
-        
-        // 设置手术开始时间
-        currentSurgery.surgery_start_time = entry.timestamp;
-      }
       
       // 故障恢复判断
       if (p1 === 0 && p2 === 1 && errFlag) {
@@ -586,15 +349,6 @@ function analyzeSurgeries(logEntries) {
         console.log(`已处理 ${recoveredCodes.length} 个激活状态的故障`);
         console.log(`剩余活跃故障数量: ${activeAlarms.size}`);
       }
-      
-      // 故障恢复后重新进入主从控制
-      if (errRecover && newState === 20) {
-        errRecover = false;
-        if (Trecover && currentSurgery) {
-          const errRecoverTime = Math.floor((entry.timestamp - Trecover) / 1000 / 60);
-          currentSurgery.error_recovery_time = errRecoverTime;
-        }
-      }
     }
     
     // 器械状态更新
@@ -614,16 +368,22 @@ function analyzeSurgeries(logEntries) {
          
          // 修改逻辑：只要系统开机就记录器械使用时间，不依赖于手术对象的存在
          if (isPowerOn) {
-           // 如果还没有手术对象，创建一个临时的来记录器械使用时间
-           if (!currentSurgery) {
-             console.log(`系统开机但未开始手术，创建临时手术对象记录器械使用时间`);
+           // 连台手术场景：上一台已结束但下一台尚未正式开始。如果发生器械安装事件，归属到下一台的临时对象。
+           if (!currentSurgery || (currentSurgery && currentSurgery.surgery_end_time)) {
+             const prevEnd = currentSurgery ? currentSurgery.surgery_end_time : null;
+             if (!currentSurgery) {
+               console.log(`系统开机但未开始手术，创建临时手术对象记录器械使用时间`);
+             } else {
+               console.log(`上一台手术(${currentSurgery.surgery_id})已结束，创建新的临时手术对象记录连台间隙的器械安装事件`);
+             }
              surgeryCount++;
              currentSurgery = {
                id: surgeryCount,
                surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
                log_id: entry.log_id,
-               power_on_times: [...PowerOnTimes], // 复制当前的开机时间
-               shutdown_times: [],
+               // 连台：使用上一台手术的结束时间作为新时间轴起点；否则使用全局开机时间
+               power_on_times: prevEnd ? [prevEnd] : [...PowerOnTimes],
+               shutdown_times: [...ShutDownTimes],
                arm1_usage: [],
                arm2_usage: [],
                arm3_usage: [],
@@ -632,14 +392,11 @@ function analyzeSurgeries(logEntries) {
                arm2_total_activation: { startTime: null, endTime: null },
                arm3_total_activation: { startTime: null, endTime: null },
                arm4_total_activation: { startTime: null, endTime: null },
-               alarm_details: [],
-               state_machine_changes: [],
-               foot_pedal_stats: {},
-               hand_clutch_stats: {},
-               error_recovery_time: 0,
-               is_pre_surgery: true // 标记为手术前状态
+               is_pre_surgery: true, // 手术开始前的临时容器
+               is_consecutive_surgery: !!prevEnd,
+               previous_surgery_end_time: prevEnd
              };
-             console.log(`创建临时手术对象: ${currentSurgery.surgery_id} 用于记录手术前器械使用时间`);
+             console.log(`创建临时手术对象: ${currentSurgery.surgery_id} 用于记录手术前/连台间隙器械使用时间`);
            }
            
            const armUsageKey = `arm${armIndex + 1}_usage`;
@@ -666,6 +423,7 @@ function analyzeSurgeries(logEntries) {
                currentSurgery[armActivationKey].startTime = entry.timestamp;
              }
            } else {
+  
              // 器械拔下 - 找到最近的未完成记录并设置结束时间
              if (currentUsage.length > 0) {
                const lastUsage = currentUsage[currentUsage.length - 1];
@@ -689,15 +447,128 @@ function analyzeSurgeries(logEntries) {
        }
      }
      
+     // 手术开始判断
+     if (currentState === 20 && surgeryStarted === false) {  
+      // 手术开始时，检查是否已有手术前的手术对象，通常不会这样
+      if (!currentSurgery) {
+        //手术是否开始标志位
+        surgeryStarted = true;
+        surgeryCount++;
+        currentSurgery = {
+          id: surgeryCount,
+          surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
+          log_id: entry.log_id,
+          power_on_times: [...PowerOnTimes], // 复制全局开机时间
+          shutdown_times: [...ShutDownTimes], // 复制全局关机时间
+          arm1_usage: [],
+          arm2_usage: [],
+          arm3_usage: [],
+          arm4_usage: [],
+          arm1_total_activation: { startTime: null, endTime: null },
+          arm2_total_activation: { startTime: null, endTime: null },
+          arm3_total_activation: { startTime: null, endTime: null },
+          arm4_total_activation: { startTime: null, endTime: null },
+          alarm_details: [],
+          state_machine_changes: [],
+          foot_pedal_stats: {},
+          hand_clutch_stats: {},
+          error_recovery_time: 0,
+          is_pre_surgery: false,
+          surgery_start_time: entry.timestamp,
+          surgery_end_time: null,
+          total_duration: 0,
+          alarm_count: 0,
+          alarm_details: [],
+          state_machine_changes: [],
+        };
+        // 重置所有状态
+        errFlag = false;
+        armStates.fill(-1);
+        armInsts.fill(-1);
+        armUDIs.fill('');
+        armUDIHistory.forEach(history => history.length = 0);
+        stateMachineChanges.length = 0;
+        currentState = -1;
+        alarmDetails.length = 0;
+        alarmRecords.clear();
+        activeAlarms.clear();
+        console.log(`手术开始时创建新手术对象: ${currentSurgery.surgery_id}, 包含开机时间: ${currentSurgery.power_on_times.length} 个`, currentSurgery.power_on_times);
+      } else if (currentSurgery.is_pre_surgery) {
+         //手术是否开始标志位
+         surgeryStarted = true;
+        // 如果已有手术前的手术对象，将其转换为正式手术对象,通常情况，安装了器械还没开始手术
+        // 更新全局时间数据到手术对象
+        currentSurgery.power_on_times = [...PowerOnTimes];
+        currentSurgery.shutdown_times = [...ShutDownTimes];
+        console.log(`将手术前的手术对象 ${currentSurgery.surgery_id} 转换为正式手术对象,当前开机时间数量: ${currentSurgery.power_on_times.length}, 关机时间数量: ${currentSurgery.shutdown_times.length}`);
+        currentSurgery.is_pre_surgery = false;
+        // 设置手术开始时间
+        currentSurgery.surgery_start_time = entry.timestamp;
+        console.log(`手术开始时间: ${currentSurgery.surgery_start_time}`);
+      }else if(currentSurgery.is_pre_surgery === false){
+        // 如果已有手术对象，且不是手术前的手术对象，重启
+        if(surgeryStarted){
+          currentSurgery.is_pre_surgery = false;
+        }// 连台
+        else{
+          // 连台手术：记录上一台手术结束时间
+          let previousSurgeryEndTime = null;
+          if (currentSurgery && currentSurgery.surgery_end_time) {
+            previousSurgeryEndTime = currentSurgery.surgery_end_time;
+            console.log(`连台手术：记录上一台手术 ${currentSurgery.surgery_id} 结束时间: ${previousSurgeryEndTime}`);        
+          }
+          
+          currentSurgery = null;
+          //手术是否开始标志位 
+          surgeryCount++;
+          surgeryStarted = true;
+          currentSurgery = {
+            id: surgeryCount,
+            surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
+            log_id: entry.log_id,
+            power_on_times: previousSurgeryEndTime ? [previousSurgeryEndTime] : [...PowerOnTimes], // 连台手术：用上一台手术结束时间替换开机时间
+            shutdown_times: [...ShutDownTimes], // 复制全局关机时间
+            arm1_usage: [],
+            arm2_usage: [],
+            arm3_usage: [],
+            arm4_usage: [],
+            arm1_total_activation: { startTime: null, endTime: null },
+            arm2_total_activation: { startTime: null, endTime: null },
+            arm3_total_activation: { startTime: null, endTime: null },
+            arm4_total_activation: { startTime: null, endTime: null },
+            alarm_details: [],
+            state_machine_changes: [],
+            foot_pedal_stats: {},
+            hand_clutch_stats: {},
+            error_recovery_time: 0,
+            is_pre_surgery: false,
+            surgery_start_time: entry.timestamp,
+            surgery_end_time: null,
+            total_duration: 0,
+            alarm_count: alarmDetails.length,
+            alarm_details: [...alarmDetails],
+            state_machine_changes: [],
+            is_consecutive_surgery: previousSurgeryEndTime !== null, // 标记是否为连台手术
+            previous_surgery_end_time: previousSurgeryEndTime // 记录上一台手术结束时间
+          }     
+          if (previousSurgeryEndTime) {
+            console.log(`连台手术，手术开始时间: ${currentSurgery.surgery_start_time}，开机时间已替换为上一台手术结束时间: ${previousSurgeryEndTime}`);
+          } else {
+            console.log(`连台手术，手术开始时间: ${currentSurgery.surgery_start_time}`);
+          }
+        }
+      }          
+    } 
+     
      // 手术结束判断：检查是否满足结束条件（500e错误码特定条件）
      if (errCodeSuffix === '500e' && p2 !== 0 && p3 === 0) {
 
        // 检查所有器械状态=0或-1 且当前 state 在特定值范围内（10、12、13 或 30）
-       const allInstrumentsRemoved = armInsts.every(instrument => instrument === 0 || instrument === -1);
+       const allarmStateZero = armStates.every(armStates => armStates === 0 || armStates === -1);
        const hasValidEndState = currentState === 10 || currentState === 12 || currentState === 13;
 
-       if (allInstrumentsRemoved && hasValidEndState) {
-         console.log(`满足手术结束条件: 器械类型=${armInsts}, 当前状态=${currentState}(${getStateMachineStateName(currentState.toString())}), 时间=${entry.timestamp}`);
+       if (allarmStateZero && hasValidEndState) {
+         console.log(`满足手术结束条件: 器械状态=${armStates}, 当前状态=${currentState}(${getStateMachineStateName(currentState.toString())}), 时间=${entry.timestamp}`);
          if (currentSurgery) {
            currentSurgery.surgery_end_time = entry.timestamp;
            
@@ -705,20 +576,6 @@ function analyzeSurgeries(logEntries) {
            currentSurgery.total_duration = Math.floor(
              (new Date(currentSurgery.surgery_end_time) - new Date(currentSurgery.surgery_start_time)) / 1000 / 60
            );
-           
-           // 处理手术结束时还未拔下的器械
-           for (let armIndex = 0; armIndex < 4; armIndex++) {
-             const armUsageKey = `arm${armIndex + 1}_usage`;
-             const currentUsage = currentSurgery[armUsageKey] || [];
-             if (currentUsage.length > 0) {
-               const lastUsage = currentUsage[currentUsage.length - 1];
-               if (lastUsage && lastUsage.endTime === null) {
-                 lastUsage.endTime = currentSurgery.surgery_end_time;
-                 lastUsage.duration = Math.floor((new Date(lastUsage.endTime) - new Date(lastUsage.startTime)) / 1000 / 60);
-                 console.log(`手术正常结束时处理工具臂${armIndex + 1}未拔下器械: ${lastUsage.instrumentName}, 总使用时长: ${lastUsage.duration}分钟`);
-               }
-             }
-           }
            
            // 设置手术的最终数据
            currentSurgery.alarm_count = alarmDetails.length;
@@ -731,91 +588,15 @@ function analyzeSurgeries(logEntries) {
              const changeTime = new Date(change.time).getTime();
              return changeTime >= surgeryStartTimeForStateMachine && changeTime <= surgeryEndTimeForStateMachine;
            });
-           currentSurgery.state_machine_changes = [...surgeryStateChanges]; // 复制数组
-           console.log(`手术 ${currentSurgery.surgery_id} 状态机变化: ${surgeryStateChanges.length} 个`);
-           
-           currentSurgery.foot_pedal_stats = { ...footPedalStats }; // 复制对象
-           currentSurgery.hand_clutch_stats = { ...handClutchStats }; // 复制对象
-           
-           // 使用手术专属的关机时间，而不是所有关机时间
-           const surgerySpecificShutdownTimes = surgeryShutdownTimes.get(currentSurgery.surgery_id) || [];
-           
-           // 添加手术结束时间之后的所有关机时间
-           const surgeryEndTimeForShutdown = new Date(currentSurgery.surgery_end_time).getTime();
-           const allShutdownTimes = [...surgerySpecificShutdownTimes];
-           
-           // 查找手术结束时间之后的所有关机时间
-           for (const shutdownTime of ShutDownTimes) {
-             const shutdownTimestamp = new Date(shutdownTime).getTime();
-             if (shutdownTimestamp >= surgeryEndTimeForShutdown && !allShutdownTimes.includes(shutdownTime)) {
-               allShutdownTimes.push(shutdownTime);
-             }
-           }
-           
-           currentSurgery.shutdown_times = allShutdownTimes;
-           
-           // 重新计算手术的开机时间，包含手术期间的所有开机时间
-           const surgeryStartTimeForPowerOn = new Date(currentSurgery.surgery_start_time).getTime();
-           const surgeryEndTimeForPowerOn = new Date(currentSurgery.surgery_end_time).getTime();
-           let finalPowerOnTimes = [];
-           
-           // 查找手术时间范围内的所有开机时间
-           for (let i = 0; i < PowerOnTimes.length; i++) {
-             const powerOnTime = new Date(PowerOnTimes[i]).getTime();
-             if (powerOnTime <= surgeryEndTimeForPowerOn) {
-               // 检查这个开机时间是否应该被包含在当前手术中
-               let shouldInclude = true;
-               
-               // 查找该开机时间之前的最近关机时间
-               const previousShutdownTime = ShutDownTimes
-                 .filter(shutdownTime => new Date(shutdownTime).getTime() < powerOnTime)
-                 .pop();
-               
-               if (previousShutdownTime) {
-                 const timeDiff = powerOnTime - new Date(previousShutdownTime).getTime();
-                 const timeDiffMinutes = timeDiff / (1000 * 60);
-                 
-                 // 如果距离上次关机超过30分钟，检查是否需要只保留最近的开机时间
-                 if (timeDiffMinutes > 30) {
-                   // 查找该关机时间之后的所有开机时间
-                   const subsequentPowerOnTimes = PowerOnTimes.filter(poTime => {
-                     const poTimestamp = new Date(poTime).getTime();
-                     return poTimestamp > new Date(previousShutdownTime).getTime() && 
-                            poTimestamp <= surgeryEndTimeForPowerOn;
-                   });
-                   
-                   // 如果当前开机时间不是最近的一个，则跳过
-                   if (subsequentPowerOnTimes.length > 0) {
-                     const latestPowerOnTime = subsequentPowerOnTimes[subsequentPowerOnTimes.length - 1];
-                     if (PowerOnTimes[i] !== latestPowerOnTime) {
-                       shouldInclude = false;
-                     }
-                   }
-                 }
-                 // 如果距离上次关机小于30分钟，保留所有开机时间
-               }
-               
-               if (shouldInclude) {
-                 // 检查是否已经包含这个开机时间（去重）
-                 const isDuplicate = finalPowerOnTimes.some(existingTime => 
-                   new Date(existingTime).getTime() === powerOnTime
-                 );
-                 
-                 if (!isDuplicate) {
-                   finalPowerOnTimes.push(PowerOnTimes[i]);
-                 } else {
-                   console.log(`跳过重复的开机时间: ${PowerOnTimes[i]}`);
-                 }
-               }
-             }
-           }
-           
-           currentSurgery.power_on_times = finalPowerOnTimes;
-           
-           // 设置最后一条日志时间，用于时间轴计算
-           currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
-           
-           console.log(`手术 ${currentSurgery.surgery_id} 正常完成，关机时间: ${allShutdownTimes.length} 个，开机时间: ${finalPowerOnTimes.length} 个`);
+                     currentSurgery.state_machine_changes = [...surgeryStateChanges]; // 复制数组
+          console.log(`手术 ${currentSurgery.surgery_id} 状态机变化: ${surgeryStateChanges.length} 个`);
+          
+
+             
+          // 设置最后一条日志时间，用于时间轴计算
+          currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
+          
+          console.log(`手术 ${currentSurgery.surgery_id} 正常完成，关机时间: ${currentSurgery.shutdown_times.length} 个，开机时间: ${currentSurgery.power_on_times.length} 个`);
            
            // 将完成的手术添加到手术列表中（如果还没有添加过）
            const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
@@ -828,7 +609,6 @@ function analyzeSurgeries(logEntries) {
          }
          
          // 手术结束时不清空当前手术对象，保持数据用于后续可能的关机事件
-         // 只有在下次开机距离上次关机超过30分钟或下次手术开始时才清空
          console.log(`手术结束，保持当前手术对象 ${currentSurgery.surgery_id} 用于后续关机事件`);
          
          // 重置手术开始标志，但不清空手术对象
@@ -876,86 +656,62 @@ function analyzeSurgeries(logEntries) {
           console.log(`记录工具臂${armIndex + 1}的UDI码: ${udi}, 时间: ${entry.timestamp}`);
         }
      }
+
+     // 处理无使用次数事件：errCodeSuffix = '2c2d'
+     // 依据需求：armIndex = errCode.charAt(1) - 3
+     if (errCodeSuffix === '2c2d') {
+       const armIndex = errCode.charAt(1) - 3;
+       if (armIndex >= 0 && armIndex < 4) {
+         console.log(`检测到2c2d（无使用次数）: 臂${armIndex + 1}, 时间=${entry.timestamp}，清除该臂的器械类型并回退最近一次使用记录`);
+         // 重置该工具臂的器械类型为0（无器械）
+         armInsts[armIndex] = 0;
+         // 删除对应臂 currentUsage 上一个添加的事件
+         if (currentSurgery) {
+           const armUsageKey = `arm${armIndex + 1}_usage`;
+           const currentUsage = currentSurgery[armUsageKey] || [];
+           if (currentUsage.length > 0) {
+             const removed = currentUsage.pop();
+             console.log(`移除工具臂${armIndex + 1}最近一次使用记录:`, {
+               instrumentName: removed.instrumentName,
+               startTime: removed.startTime,
+               endTime: removed.endTime,
+               udi: removed.udi
+             });
+             currentSurgery[armUsageKey] = currentUsage;
+           } else {
+             console.log(`工具臂${armIndex + 1}无可回退的使用记录`);
+           }
+         }
+       }
+     }
    }
    
-   // 如果还有未完成的手术，检查是否有关机时间作为手术结束时间
-   // 检查当前手术是否已经在surgeries数组中（避免重复添加）
-   const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery?.surgery_id);
-   if (currentSurgery && !currentSurgery.surgery_end_time && !isAlreadyAdded) {
-     console.log(`手术未正常结束，检查是否有关机时间可用作手术结束时间`)
-     
-     // 查找手术开始时间之后的关机时间
-     const surgeryStartTimeForShutdown = new Date(currentSurgery.surgery_start_time).getTime();
-     let shutdownTimeForSurgery = null;
-     let nextPowerOnTime = null;
-     
-     if (ShutDownTimes && ShutDownTimes.length > 0) {
-       for (const shutdownTime of ShutDownTimes) {
-         const shutdownTimestamp = new Date(shutdownTime).getTime();
-         if (shutdownTimestamp > surgeryStartTimeForShutdown) {
-           // 找到关机时间后，检查是否有后续的开机时间
-           if (PowerOnTimes && PowerOnTimes.length > 0) {
-             for (const powerOnTime of PowerOnTimes) {
-               const powerOnTimestamp = new Date(powerOnTime).getTime();
-               if (powerOnTimestamp > shutdownTimestamp) {
-                 nextPowerOnTime = powerOnTime;
-                 break; // 找到关机后的第一个开机时间
-               }
-             }
-           }
-           
-           // 如果有关机后的开机时间，检查时间间隔
-           if (nextPowerOnTime) {
-             const timeDiff = Math.floor((new Date(nextPowerOnTime) - new Date(shutdownTime)) / 1000 / 60);
-             console.log(`关机时间: ${shutdownTime}, 下次开机时间: ${nextPowerOnTime}, 间隔: ${timeDiff}分钟`);
-             
-             if (timeDiff < 30) {
-               console.log(`关机到开机间隔${timeDiff}分钟 < 30分钟，判定为重启，不使用此关机时间作为手术结束时间`);
-               // 继续查找下一个关机时间
-               continue;
-             } else {
-               console.log(`关机到开机间隔${timeDiff}分钟 >= 30分钟，判定为手术结束，使用关机时间作为手术结束时间`);
-               shutdownTimeForSurgery = shutdownTime;
-               break; // 使用这个关机时间作为手术结束时间
-             }
-           } else {
-             // 没有找到后续开机时间，使用关机时间作为手术结束时间
-             console.log(`未找到关机后的开机时间，使用关机时间作为手术结束时间: ${shutdownTime}`);
-             shutdownTimeForSurgery = shutdownTime;
-             break;
-           }
-         }
-       }
-     }
-     
-     // 如果没有找到合适的关机时间，使用最后一条日志作为结束
-     if (!shutdownTimeForSurgery) {
-       console.log(`未找到合适的关机时间，使用最后一条日志作为结束时间`)
-       const lastEntry = logEntries[logEntries.length - 1];
-       currentSurgery.surgery_end_time = lastEntry.timestamp;
-     } else {
-       console.log(`使用关机时间作为手术结束时间: ${shutdownTimeForSurgery}`)
-       currentSurgery.surgery_end_time = shutdownTimeForSurgery;
-     }
-     
-     currentSurgery.total_duration = Math.floor(
-       (currentSurgery.surgery_end_time - currentSurgery.surgery_start_time) / 1000 / 60
-     );
-     
-     // 处理手术结束时还未拔下的器械
-     for (let armIndex = 0; armIndex < 4; armIndex++) {
-       const armUsageKey = `arm${armIndex + 1}_usage`;
-       const currentUsage = currentSurgery[armUsageKey] || [];
-       if (currentUsage.length > 0) {
-         const lastUsage = currentUsage[currentUsage.length - 1];
-         if (lastUsage && lastUsage.endTime === null) {
-           lastUsage.endTime = currentSurgery.surgery_end_time;
-           lastUsage.duration = Math.floor((new Date(lastUsage.endTime) - new Date(lastUsage.startTime)) / 1000 / 60);
-           console.log(`手术异常结束时处理工具臂${armIndex + 1}未拔下器械: ${lastUsage.instrumentName}, 总使用时长: ${lastUsage.duration}分钟`);
-         }
-       }
-     }
-     
+  // 处理未完成的手术：如果没有手术结束时间，使用最后一条日志时间作为手术结束时间，并计算总时长
+  if (currentSurgery && !currentSurgery.surgery_end_time) {
+    const lastLogTime = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
+    currentSurgery.surgery_end_time = lastLogTime;
+    currentSurgery.last_log_time = lastLogTime;
+    if (currentSurgery.surgery_start_time) {
+      currentSurgery.total_duration = Math.floor(
+        (new Date(currentSurgery.surgery_end_time) - new Date(currentSurgery.surgery_start_time)) / 1000 / 60
+      );
+    }
+    console.log(`手术 ${currentSurgery.surgery_id}，手术结束时间(暂用最后日志时间): ${currentSurgery.surgery_end_time}`);
+  } else if (currentSurgery) {
+    // 记录最后日志时间，便于前端时间轴兜底
+    currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
+    console.log(`手术 ${currentSurgery.surgery_id}，手术未结束标记: ${currentSurgery.surgery_end_time}`);
+  }
+  
+    // 将完成的手术添加到手术列表中（如果还没有添加过）
+    const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
+    if (!isAlreadyAdded) {
+      surgeries.push(currentSurgery);
+      console.log(`完成手术: ${currentSurgery.surgery_id}, 时长: ${currentSurgery.total_duration} 分钟`);
+    } else {
+      console.log(`手术 ${currentSurgery.surgery_id} 已经存在于手术列表中，跳过添加`);
+    }
+
      currentSurgery.alarm_count = alarmDetails.length;
      currentSurgery.alarm_details = alarmDetails;
      console.log(`手术 ${currentSurgery.surgery_id} 异常完成，故障统计:`, {
@@ -976,100 +732,25 @@ function analyzeSurgeries(logEntries) {
      currentSurgery.foot_pedal_stats = footPedalStats;
      currentSurgery.hand_clutch_stats = handClutchStats;
      
-     // 使用手术专属的关机时间，而不是所有关机时间
-     const surgerySpecificShutdownTimes = surgeryShutdownTimes.get(currentSurgery.surgery_id) || [];
-     
-     // 添加手术开始时间之后的所有关机时间
-     const allShutdownTimes = [...surgerySpecificShutdownTimes];
-     
-     // 查找手术开始时间之后的所有关机时间
-     for (const shutdownTime of ShutDownTimes) {
-       const shutdownTimestamp = new Date(shutdownTime).getTime();
-       if (shutdownTimestamp >= surgeryStartTimeForShutdown && !allShutdownTimes.includes(shutdownTime)) {
-         allShutdownTimes.push(shutdownTime);
-       }
-     }
-     
-     currentSurgery.shutdown_times = allShutdownTimes;
-     
-     // 重新计算手术的开机时间，包含手术期间的所有开机时间
-     const surgeryStartTimeForPowerOn = new Date(currentSurgery.surgery_start_time).getTime();
-     const surgeryEndTimeForPowerOn = new Date(currentSurgery.surgery_end_time).getTime();
-     let finalPowerOnTimes = [];
-     
-     // 查找手术时间范围内的所有开机时间
-     for (let i = 0; i < PowerOnTimes.length; i++) {
-       const powerOnTime = new Date(PowerOnTimes[i]).getTime();
-       if (powerOnTime <= surgeryEndTimeForPowerOn) {
-         // 检查这个开机时间是否应该被包含在当前手术中
-         let shouldInclude = true;
-         
-         // 查找该开机时间之前的最近关机时间
-         const previousShutdownTime = ShutDownTimes
-           .filter(shutdownTime => new Date(shutdownTime).getTime() < powerOnTime)
-           .pop();
-         
-         if (previousShutdownTime) {
-           const timeDiff = powerOnTime - new Date(previousShutdownTime).getTime();
-           const timeDiffMinutes = timeDiff / (1000 * 60);
-           
-           // 如果距离上次关机超过30分钟，检查是否需要只保留最近的开机时间
-           if (timeDiffMinutes > 30) {
-             // 查找该关机时间之后的所有开机时间
-             const subsequentPowerOnTimes = PowerOnTimes.filter(poTime => {
-               const poTimestamp = new Date(poTime).getTime();
-               return poTimestamp > new Date(previousShutdownTime).getTime() && 
-                      poTimestamp <= surgeryEndTimeForPowerOn;
-             });
-             
-             // 如果当前开机时间不是最近的一个，则跳过
-             if (subsequentPowerOnTimes.length > 0) {
-               const latestPowerOnTime = subsequentPowerOnTimes[subsequentPowerOnTimes.length - 1];
-               if (PowerOnTimes[i] !== latestPowerOnTime) {
-                 shouldInclude = false;
-               }
-             }
-           }
-           // 如果距离上次关机小于30分钟，保留所有开机时间
-         }
-         
-         if (shouldInclude) {
-           // 检查是否已经包含这个开机时间（去重）
-           const isDuplicate = finalPowerOnTimes.some(existingTime => 
-             new Date(existingTime).getTime() === powerOnTime
-           );
-           
-           if (!isDuplicate) {
-             finalPowerOnTimes.push(PowerOnTimes[i]);
-           } else {
-             console.log(`跳过重复的开机时间: ${PowerOnTimes[i]}`);
-           }
-         }
-       }
-     }
-     
-     currentSurgery.power_on_times = finalPowerOnTimes;
-     
-     // 设置最后一条日志时间，用于时间轴计算
-     currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
-     
-     console.log(`手术 ${currentSurgery.surgery_id} 异常完成，关机时间: ${allShutdownTimes.length} 个，开机时间: ${finalPowerOnTimes.length} 个`);
-     
-     // 将异常完成的手术添加到手术列表中（如果还没有添加过）
-     const isAlreadyAddedForAbnormal = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
-     if (!isAlreadyAddedForAbnormal) {
-       surgeries.push(currentSurgery);
-       console.log(`完成手术: ${currentSurgery.surgery_id}, 时长: ${currentSurgery.total_duration} 分钟 (使用${shutdownTimeForSurgery ? '关机时间' : '最后一条日志'}作为结束)`);
-     } else {
-       console.log(`手术 ${currentSurgery.surgery_id} 已经存在于手术列表中，跳过添加`);
-     }
-   }
-   
-   // 记录所有手术的开机和关机时间信息
-   console.log(`完成 ${surgeries.length} 场手术的开机和关机时间记录`);
-   console.log(`记录到的电源事件: ${powerEvents.length} 个`, powerEvents.slice(0, 5));
-   
+   // 兜底处理：为未闭合的器械使用段补充 endTime，使前端可见
+   const globalLastLogTime = sortedLogEntries[sortedLogEntries.length - 1]?.timestamp;
    surgeries.forEach((surgery, surgeryIndex) => {
+     const fallbackEnd = surgery.surgery_end_time || surgery.last_log_time || globalLastLogTime;
+     ['arm1_usage','arm2_usage','arm3_usage','arm4_usage'].forEach(key => {
+       const usages = surgery[key] || [];
+       usages.forEach(u => {
+         if (u && u.startTime && !u.endTime && fallbackEnd) {
+           const startMs = new Date(u.startTime).getTime();
+           const endMs = new Date(fallbackEnd).getTime();
+           const adjustedEndMs = Math.max(startMs + 1000, endMs); // 至少1秒
+           u.endTime = new Date(adjustedEndMs).toISOString();
+           const durationSeconds = Math.max(1, Math.floor((adjustedEndMs - startMs) / 1000));
+           u.duration_seconds = durationSeconds;
+           u.duration = Math.floor(durationSeconds / 60);
+         }
+       });
+       surgery[key] = usages;
+     });
      console.log(`手术 ${surgery.surgery_id}: 开机时间数量=${surgery.power_on_times ? surgery.power_on_times.length : 0}, 关机时间数量=${surgery.shutdown_times ? surgery.shutdown_times.length : 0}`);
    });
    

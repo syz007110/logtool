@@ -92,26 +92,25 @@
                         @click="scrollToAlarmCard(surgery.id)"
                         style="cursor: pointer;"
                       >
-                        故障手术
+                        查看手术故障
                       </el-tag>
                     </div>
                   </div>
 
-                  <!-- 按时间顺序排序的时间线 -->
-                  <el-timeline>
-                    <el-timeline-item
+                  <!-- 按时间顺序排序的时间线（AntD Steps progressDot 风格） -->
+                  <a-steps
+                    direction="vertical"
+                    :current="getSortedTimelineEvents(surgery).length - 1"
+                    :progress-dot="true"
+                    class="surgery-steps"
+                  >
+                    <a-step
                       v-for="(event, index) in getSortedTimelineEvents(surgery)"
                       :key="`event-${index}`"
-                      :timestamp="formatTime(event.time)"
-                      :color="event.color"
-                      size="large"
-                    >
-                      <div class="timeline-content" :class="`timeline-${event.type}`">
-                        <el-icon class="timeline-icon"><component :is="event.icon" /></el-icon>
-                        <span class="timeline-text">{{ event.label }}</span>
-                      </div>
-                    </el-timeline-item>
-                  </el-timeline>
+                      :title="event.label"
+                      :description="formatTime(event.time)"
+                    />
+                  </a-steps>
                 </el-card>
               </div>
 
@@ -385,7 +384,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, nextTick, computed, watch } from 'vue'
+import { ref, reactive, onMounted, nextTick, computed, watch, h, resolveComponent } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -432,6 +431,7 @@ export default {
     Loading
   },
   setup() {
+    // 不需要悬停效果：移除自定义 progressDot 渲染与状态区分
     const store = useStore()
     const router = useRouter()
     const route = useRoute()
@@ -1186,9 +1186,9 @@ export default {
     const getEnergyTime = (armUsage) => {
       if (!armUsage || armUsage.length === 0) return '0分0秒'
       
-      // 计算所有完整使用时间段的总时长（排除手术前安装的器械）
+      // 计算所有完整使用时间段的总时长（不再过滤术前安装的器械）
       const totalSeconds = armUsage
-        .filter(usage => usage.startTime && usage.endTime && usage.is_pre_surgery !== true)
+        .filter(usage => usage.startTime && usage.endTime)
         .reduce((total, usage) => {
           const duration = Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000)
           return total + duration
@@ -1279,11 +1279,31 @@ export default {
       
       // 添加开机事件 - 支持多个开机时间
       const powerOnTimes = getAllPowerOnTimes(surgery)
+      
+      // 调试信息：检查连台手术数据
+      if (surgery.is_consecutive_surgery) {
+        console.log('连台手术调试信息:', {
+          surgery_id: surgery.surgery_id,
+          is_consecutive_surgery: surgery.is_consecutive_surgery,
+          previous_surgery_end_time: surgery.previous_surgery_end_time,
+          power_on_times: surgery.power_on_times,
+          powerOnTimes: powerOnTimes
+        })
+      }
+      
       powerOnTimes.forEach((time, index) => {
+        // 检查是否为连台手术，如果是则显示"上一场手术结束时间"
+        let label = '开机'
+        if (surgery.is_consecutive_surgery && index === 0) {
+          label = '上一场手术结束时间'
+        } else if (powerOnTimes.length > 1) {
+          label = `开机 ${index + 1}`
+        }
+        
         events.push({
           time: new Date(time),
           type: 'powerOn',
-          label: powerOnTimes.length > 1 ? `开机 ${index + 1}` : '开机',
+          label: label,
           color: 'green',
           icon: 'PowerOff'
         })
@@ -1461,10 +1481,7 @@ export default {
     const getGroupedUsagesByUdi = (armUsage) => {
       const grouped = {}
       armUsage.forEach((usage, index) => {
-        // 过滤掉手术前安装的器械
-        if (usage.is_pre_surgery === true) {
-          return
-        }
+        // 不过滤术前安装的器械，详情中需要完整显示
         
         // 使用UDI码作为分组键，如果没有UDI则使用器械名称和索引
         const udi = usage.udi || `${usage.instrumentName}_${index}`
@@ -1486,7 +1503,7 @@ export default {
       if (!groupedUsage || groupedUsage.usages.length === 0) return '0分钟'
       
       const totalDuration = groupedUsage.usages
-        .filter(usage => usage.startTime && usage.endTime && usage.is_pre_surgery !== true)
+        .filter(usage => usage.startTime && usage.endTime)
         .reduce((total, usage) => {
           const duration = Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)
           return total + duration
@@ -1562,6 +1579,9 @@ export default {
       // 返回第一个找到的器械名称
       return instrumentsInSegment[0].instrumentName || '未知器械'
     }
+
+    
+
 
     // 标签页点击处理 - 使用防抖和安全的 nextTick
     const handleTabClick = debounce((tab) => {
@@ -3288,47 +3308,52 @@ export default {
   transform: scale(0.95);
 }
 
-/* 时间线样式 */
-.el-timeline {
-  padding: 0;
-  flex: 1;
-  overflow-y: auto;
-  /* 确保时间线圆点不被遮挡 */
-  padding-left: 8px;
+/* AntD Steps 时间线样式 */
+.surgery-steps {
+  padding-left: 2px;
 }
 
-.el-timeline-item {
-  padding-bottom: 15px;
-  /* 确保时间线节点有足够空间 */
-  padding-left: 5px;
+:deep(.ant-steps-vertical) {
+  align-items: stretch;
 }
 
-.el-timeline-item:last-child {
+:deep(.ant-steps-item) {
+  padding-bottom: 10px;
+}
+
+:deep(.ant-steps-item:last-child) {
   padding-bottom: 0;
 }
 
-/* 确保时间线圆点完全可见 */
-:deep(.el-timeline-item__node) {
-  z-index: 4;
-  position: relative;
-  /* 确保圆点不被遮挡 */
-  margin-left: 7px;
+:deep(.ant-steps-item-container) {
+  align-items: flex-start;
 }
 
-:deep(.el-timeline-item__node--large) {
-  width: 10px;
-  height: 10px;
+:deep(.ant-steps-item-title) {
+  font-weight: 500;
+  font-size: 14px;
 }
 
-/* 确保时间线连接线不被遮挡 */
-:deep(.el-timeline-item__tail) {
-  z-index: 5;
-  position: relative;
+:deep(.ant-steps-item-description) {
+  color: #606266; /* 统一时间字体颜色，不按类型区分 */
+}
+:deep(.ant-steps-item-icon),
+:deep(.ant-steps-item-tail) {
+  color: #dcdfe6; /* 统一连接线/节点颜色 */
 }
 
-/* 确保时间线内容区域有足够空间 */
-:deep(.el-timeline-item__wrapper) {
-  padding-left: 8px;
+:deep(.ant-steps-item-finish) .ant-steps-item-icon,
+:deep(.ant-steps-item-process) .ant-steps-item-icon,
+:deep(.ant-steps-item-wait) .ant-steps-item-icon,
+:deep(.ant-steps-item-error) .ant-steps-item-icon {
+  color: #dcdfe6;
+}
+
+:deep(.ant-steps-item-finish) .ant-steps-item-title::after,
+:deep(.ant-steps-item-process) .ant-steps-item-title::after,
+:deep(.ant-steps-item-wait) .ant-steps-item-title::after,
+:deep(.ant-steps-item-error) .ant-steps-item-title::after {
+  background-color: #dcdfe6; /* 统一连接线颜色 */
 }
 
 .timeline-content {

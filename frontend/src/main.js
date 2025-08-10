@@ -5,6 +5,8 @@ import store from './store'
 import i18n from './i18n'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import Antd from 'ant-design-vue'
+import 'ant-design-vue/dist/reset.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
 import { initResizeObserverFix } from './utils/resizeObserverFix'
@@ -46,6 +48,9 @@ app.use(ElementPlus, {
     // 禁用某些实验性功能
   }
 })
+
+// 注册 Ant Design Vue（用于 Steps 等组件）
+app.use(Antd)
 
 
 

@@ -71,7 +71,7 @@ const routes = [
       {
         path: 'log-analysis/:id',
         name: 'LogAnalysis',
-        component: () => import('../views/LogAnalysis.vue')
+        redirect: (to) => ({ path: '/surgery-statistics', query: { logIds: to.params.id }})
       },
       {
         path: 'batch-analysis/:logIds',
