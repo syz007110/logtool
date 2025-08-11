@@ -655,7 +655,11 @@ function analyzeSurgeries(logEntries) {
          }
          
          // 手术结束时不清空当前手术对象，保持数据用于后续可能的关机事件
-         console.log(`手术结束，保持当前手术对象 ${currentSurgery.surgery_id} 用于后续关机事件`);
+         if (currentSurgery) {
+           console.log(`手术结束，保持当前手术对象 ${currentSurgery.surgery_id} 用于后续关机事件`);
+         } else {
+           console.log('手术结束，当前无手术对象，保持为空以等待后续关机事件');
+         }
          
          // 重置手术开始标志，但不清空手术对象
          surgeryStarted = false;
@@ -762,7 +766,9 @@ function analyzeSurgeries(logEntries) {
     currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
     console.log(`手术 ${currentSurgery.surgery_id}，手术未结束标记: ${currentSurgery.surgery_end_time}`);
   }
-  
+
+  // 若当前无手术对象，则跳过后续汇总与入列逻辑
+  if (currentSurgery) {
     // 将完成的手术添加到手术列表中（如果还没有添加过）
     const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
     if (!isAlreadyAdded) {
@@ -772,28 +778,31 @@ function analyzeSurgeries(logEntries) {
       console.log(`手术 ${currentSurgery.surgery_id} 已经存在于手术列表中，跳过添加`);
     }
 
-     currentSurgery.alarm_count = alarmDetails.length;
-     currentSurgery.alarm_details = alarmDetails;
-     console.log(`手术 ${currentSurgery.surgery_id} 异常完成，故障统计:`, {
-       alarm_count: currentSurgery.alarm_count,
-       alarm_details_length: alarmDetails.length,
-       alarm_details: alarmDetails.map(d => ({ code: d.code, status: d.status }))
-     });
-     
-  // 状态机变化：使用与时间线一致的时间范围（最早-最晚事件）
-  const { start: tlStart2, end: tlEnd2 } = computeTimelineRangeForSurgery(currentSurgery, sortedLogEntries[sortedLogEntries.length - 1]?.timestamp);
-  const tlStartMs2 = tlStart2 ? tlStart2.getTime() : null;
-  const tlEndMs2 = tlEnd2 ? tlEnd2.getTime() : null;
-  const surgeryStateChanges = stateMachineChanges.filter(change => {
-    const changeTime = new Date(change.time).getTime();
-    // 连台：如果有上一台结束时间，严格从上一台结束时间开始；否则用计算的起点
-    const startBoundary2 = tlStartMs2;
-    return (startBoundary2 === null || changeTime >= startBoundary2) && (tlEndMs2 === null || changeTime <= tlEndMs2);
-  });
-  currentSurgery.state_machine_changes = surgeryStateChanges;
-  console.log(`手术 ${currentSurgery.surgery_id} 状态机变化(时间线范围): ${surgeryStateChanges.length} 个`);
-     currentSurgery.foot_pedal_stats = footPedalStats;
-     currentSurgery.hand_clutch_stats = handClutchStats;
+    currentSurgery.alarm_count = alarmDetails.length;
+    currentSurgery.alarm_details = alarmDetails;
+    console.log(`手术 ${currentSurgery.surgery_id} 异常完成，故障统计:`, {
+      alarm_count: currentSurgery.alarm_count,
+      alarm_details_length: alarmDetails.length,
+      alarm_details: alarmDetails.map(d => ({ code: d.code, status: d.status }))
+    });
+
+    // 状态机变化：使用与时间线一致的时间范围（最早-最晚事件）
+    const { start: tlStart2, end: tlEnd2 } = computeTimelineRangeForSurgery(currentSurgery, sortedLogEntries[sortedLogEntries.length - 1]?.timestamp);
+    const tlStartMs2 = tlStart2 ? tlStart2.getTime() : null;
+    const tlEndMs2 = tlEnd2 ? tlEnd2.getTime() : null;
+    const surgeryStateChanges = stateMachineChanges.filter(change => {
+      const changeTime = new Date(change.time).getTime();
+      // 连台：如果有上一台结束时间，严格从上一台结束时间开始；否则用计算的起点
+      const startBoundary2 = tlStartMs2;
+      return (startBoundary2 === null || changeTime >= startBoundary2) && (tlEndMs2 === null || changeTime <= tlEndMs2);
+    });
+    currentSurgery.state_machine_changes = surgeryStateChanges;
+    console.log(`手术 ${currentSurgery.surgery_id} 状态机变化(时间线范围): ${surgeryStateChanges.length} 个`);
+    currentSurgery.foot_pedal_stats = footPedalStats;
+    currentSurgery.hand_clutch_stats = handClutchStats;
+  } else {
+    console.log('当前无手术对象，无需汇总与入列处理');
+  }
      
    // 兜底处理：为未闭合的器械使用段补充 endTime，使前端可见
    const globalLastLogTime = sortedLogEntries[sortedLogEntries.length - 1]?.timestamp;
