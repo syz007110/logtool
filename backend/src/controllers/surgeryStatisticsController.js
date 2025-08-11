@@ -31,6 +31,43 @@ function getStateMachineStateName(stateCode) {
   return STATE_MACHINE_STATES[stateCode] || '未知状态';
 }
 
+// 计算与时间线一致的起止时间（最早-最晚事件）
+function computeTimelineRangeForSurgery(surgery, globalLastLogTime) {
+  if (!surgery) return { start: null, end: null };
+
+  // 起点：连台优先使用上一台结束时间；否则使用开机时间与手术开始时间中的最早者
+  let start = null;
+  if (surgery.is_consecutive_surgery && surgery.previous_surgery_end_time) {
+    start = new Date(surgery.previous_surgery_end_time);
+  } else {
+    const startCandidates = [];
+    if (Array.isArray(surgery.power_on_times)) {
+      surgery.power_on_times.forEach(t => t && startCandidates.push(new Date(t).getTime()));
+    } else if (surgery.power_on_time) {
+      startCandidates.push(new Date(surgery.power_on_time).getTime());
+    }
+    if (surgery.surgery_start_time) startCandidates.push(new Date(surgery.surgery_start_time).getTime());
+    if (startCandidates.length > 0) {
+      start = new Date(Math.min(...startCandidates));
+    }
+  }
+
+  // 终点：在关机、手术结束、最后日志中取最晚者
+  const endCandidates = [];
+  if (Array.isArray(surgery.shutdown_times)) {
+    surgery.shutdown_times.forEach(t => t && endCandidates.push(new Date(t).getTime()));
+  } else if (surgery.power_off_time) {
+    endCandidates.push(new Date(surgery.power_off_time).getTime());
+  }
+  if (surgery.surgery_end_time) endCandidates.push(new Date(surgery.surgery_end_time).getTime());
+  if (surgery.last_log_time) endCandidates.push(new Date(surgery.last_log_time).getTime());
+  if (globalLastLogTime) endCandidates.push(new Date(globalLastLogTime).getTime());
+
+  const end = endCandidates.length > 0 ? new Date(Math.max(...endCandidates)) : null;
+
+  return { start, end };
+}
+
 // 查找指定时间之前的最近UDI码
 function findNearestUDI(udiHistory, targetTime) {
   if (!udiHistory || udiHistory.length === 0) return '未知';
@@ -162,8 +199,8 @@ function analyzeSurgeries(logEntries) {
     const p3 = parseInt(entry.param3) || 0;
     const p4 = parseInt(entry.param4) || 0;
    
-    // 安全报警检查 - 支持故障去重处理
-    if (errCodeSuffix && /[ABC]$/i.test(errCodeSuffix)) {
+    // 安全报警检查（仅A/B类故障计入未处理，等待故障恢复后改为已处理）
+    if (errCodeSuffix && /[AB]$/i.test(errCodeSuffix)) {
       //故障手术
       errFlag = true;
       // 记录新的故障（允许相同故障码在不同时间出现）
@@ -199,6 +236,7 @@ function analyzeSurgeries(logEntries) {
     if (((errCodeSuffix === 'A01E') || (errCodeSuffix === '570e' && p1 === 0 && p2 !== 0)) && (isPowerOn === false)){
       console.log(`检测到开机事件: 时间=${entry.timestamp}`);
       //开机标志位
+      errFlag = false;
       isPowerOn = true;
       // 获取最后一个关机时间
       const lastPowerOff = powerEvents.filter(e => e.type === 'power_off').pop();
@@ -248,6 +286,7 @@ function analyzeSurgeries(logEntries) {
         surgery_id: currentSurgery ? currentSurgery.surgery_id : null,
         isRestart: !shouldClearSurgery // 如果不是清空手术，则认为是重启
       });
+
       shouldClearSurgery = false;
       // 开机时不创建新手术，只记录开机时间
       // 新手术的创建将在手术开始时进行
@@ -259,6 +298,7 @@ function analyzeSurgeries(logEntries) {
     if ((errCodeSuffix === 'A02E')|| (errCodeSuffix === '310e' && p2 === 31)){
        console.log(`检测到A02E关机事件: 时间=${entry.timestamp}`);
        isPowerOn = false;
+       errFlag = false;
        // 记录关机事件
        powerEvents.push({
          type: 'power_off',
@@ -313,40 +353,43 @@ function analyzeSurgeries(logEntries) {
 
         console.log('故障已恢复，更新当前活跃故障记录状态');
         
-        // 处理故障恢复：取消激活状态，修改状态为"已处理"
-        const recoveredCodes = []
-        const recoveredKeys = []
-        
-        // 查找所有激活状态的故障
-        activeAlarms.forEach((alarm, alarmKey) => {
-          if (alarm.isActive === true) {
-            // 取消激活状态
-            alarm.isActive = false;
-            // 修改状态为"已处理"
-            alarm.status = '已处理';
-            alarm.recoveryTime = entry.timestamp;
-            recoveredCodes.push(alarm.code); // 提取故障码
-            recoveredKeys.push(alarmKey); // 记录要删除的键
-            
-            console.log(`故障恢复: ${alarm.code}, 取消激活状态，状态改为"已处理"`);
-          }
-        });
-        
-        // 从活跃故障记录中删除已处理的故障
-        recoveredKeys.forEach(key => {
-          activeAlarms.delete(key);
-        });
-        
-        // 更新报警详情列表中对应故障的状态
-        alarmDetails.forEach(detail => {
-          if (detail.isActive === true && recoveredCodes.includes(detail.code)) {
+        // 处理故障恢复：仅将最近一次触发的激活报警标记为"已处理"
+        let processedCount = 0;
+
+        // 从报警详情列表末尾向前查找最近一个处于激活状态的报警
+        for (let i = alarmDetails.length - 1; i >= 0; i--) {
+          const detail = alarmDetails[i];
+          if (detail && detail.isActive === true) {
+            // 更新详情项
             detail.isActive = false;
             detail.status = '已处理';
             detail.recoveryTime = entry.timestamp;
+
+            // 同步更新到活跃故障记录并移除该条
+            try {
+              const alarmKey = generateAlarmKey(detail.code, new Date(detail.time));
+              const active = activeAlarms.get(alarmKey);
+              if (active) {
+                active.isActive = false;
+                active.status = '已处理';
+                active.recoveryTime = entry.timestamp;
+                activeAlarms.delete(alarmKey);
+              }
+            } catch (e) {
+              console.warn('根据报警详情生成键失败，已跳过活跃故障同步:', e);
+            }
+
+            processedCount = 1;
+            console.log(`故障恢复: ${detail.code}, 仅将最近一次触发的报警标记为"已处理"`);
+            break;
           }
-        });
-      
-        console.log(`已处理 ${recoveredCodes.length} 个激活状态的故障`);
+        }
+
+        if (processedCount === 0) {
+          console.log('未找到处于激活状态的报警用于恢复处理');
+        }
+
+        console.log(`已处理 ${processedCount} 个激活状态的故障`);
         console.log(`剩余活跃故障数量: ${activeAlarms.size}`);
       }
     }
@@ -581,15 +624,18 @@ function analyzeSurgeries(logEntries) {
            currentSurgery.alarm_count = alarmDetails.length;
            currentSurgery.alarm_details = [...alarmDetails]; // 复制数组
            
-           // 过滤出该手术时间范围内的状态机变化
-           const surgeryStartTimeForStateMachine = new Date(currentSurgery.surgery_start_time).getTime();
-           const surgeryEndTimeForStateMachine = new Date(currentSurgery.surgery_end_time).getTime();
-           const surgeryStateChanges = stateMachineChanges.filter(change => {
+           // 状态机变化：使用与时间线一致的时间范围（最早-最晚事件）
+           const { start: tlStart, end: tlEnd } = computeTimelineRangeForSurgery(currentSurgery, sortedLogEntries[sortedLogEntries.length - 1]?.timestamp);
+           const tlStartMs = tlStart ? tlStart.getTime() : null;
+           const tlEndMs = tlEnd ? tlEnd.getTime() : null;
+           const filteredChanges = stateMachineChanges.filter(change => {
              const changeTime = new Date(change.time).getTime();
-             return changeTime >= surgeryStartTimeForStateMachine && changeTime <= surgeryEndTimeForStateMachine;
+             // 连台：如果有上一台结束时间，严格从上一台结束时间开始；否则用计算的起点
+             const startBoundary = tlStartMs;
+             return (startBoundary === null || changeTime >= startBoundary) && (tlEndMs === null || changeTime <= tlEndMs);
            });
-                     currentSurgery.state_machine_changes = [...surgeryStateChanges]; // 复制数组
-          console.log(`手术 ${currentSurgery.surgery_id} 状态机变化: ${surgeryStateChanges.length} 个`);
+           currentSurgery.state_machine_changes = [...filteredChanges];
+           console.log(`手术 ${currentSurgery.surgery_id} 状态机变化(时间线范围): ${filteredChanges.length} 个`);
           
 
              
@@ -639,8 +685,22 @@ function analyzeSurgeries(logEntries) {
           } else {
               // 原样输出 p1 的十进制表示
               formattedP1 = String(p1);
-              // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
-              udi = `${formattedP1}${p2}${p3}${String.fromCharCode(p4)}`;
+              // p2 补零为 3 位
+              const p2Padded = String(p2).padStart(3, '0');
+              if ((armInsts[armIndex] === 9) || (armInsts[armIndex] === 10) || (armInsts[armIndex] === 11))
+              {
+                // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
+                udi = `ECO${p3}${String.fromCharCode(p4)}-${formattedP1}${p2Padded}`;
+              }else if(armInsts[armIndex] === 17){
+                const p3Padded = String(p3).padStart(3, '0');
+                const p4Padded = String(p4).padStart(3, '0');
+                // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
+                udi = `F${formattedP1}${p2}${p3Padded}${p4Padded}`;
+              }
+              else{
+                // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
+                udi = `IN${p3}${String.fromCharCode(p4)}-${formattedP1}${p2Padded}`;
+              }
           }
 
           // 更新当前UDI码并保存到历史记录
@@ -720,15 +780,18 @@ function analyzeSurgeries(logEntries) {
        alarm_details: alarmDetails.map(d => ({ code: d.code, status: d.status }))
      });
      
-     // 过滤出该手术时间范围内的状态机变化
-     const surgeryStartTimeForStateMachine = new Date(currentSurgery.surgery_start_time).getTime();
-     const surgeryEndTimeForStateMachine = new Date(currentSurgery.surgery_end_time).getTime();
-     const surgeryStateChanges = stateMachineChanges.filter(change => {
-       const changeTime = new Date(change.time).getTime();
-       return changeTime >= surgeryStartTimeForStateMachine && changeTime <= surgeryEndTimeForStateMachine;
-     });
-     currentSurgery.state_machine_changes = surgeryStateChanges;
-     console.log(`手术 ${currentSurgery.surgery_id} 状态机变化: ${surgeryStateChanges.length} 个`);
+  // 状态机变化：使用与时间线一致的时间范围（最早-最晚事件）
+  const { start: tlStart2, end: tlEnd2 } = computeTimelineRangeForSurgery(currentSurgery, sortedLogEntries[sortedLogEntries.length - 1]?.timestamp);
+  const tlStartMs2 = tlStart2 ? tlStart2.getTime() : null;
+  const tlEndMs2 = tlEnd2 ? tlEnd2.getTime() : null;
+  const surgeryStateChanges = stateMachineChanges.filter(change => {
+    const changeTime = new Date(change.time).getTime();
+    // 连台：如果有上一台结束时间，严格从上一台结束时间开始；否则用计算的起点
+    const startBoundary2 = tlStartMs2;
+    return (startBoundary2 === null || changeTime >= startBoundary2) && (tlEndMs2 === null || changeTime <= tlEndMs2);
+  });
+  currentSurgery.state_machine_changes = surgeryStateChanges;
+  console.log(`手术 ${currentSurgery.surgery_id} 状态机变化(时间线范围): ${surgeryStateChanges.length} 个`);
      currentSurgery.foot_pedal_stats = footPedalStats;
      currentSurgery.hand_clutch_stats = handClutchStats;
      

@@ -19,11 +19,11 @@ const routes = [
     meta: { requiresAuth: false }
   },
 
-  // 独立的分析页面路由（不需要侧边导航栏）
+  // 将旧的单日志分析路由重定向到批量分析（兼容单个ID）
   {
     path: '/analysis/:id',
     name: 'Analysis',
-    component: () => import('../views/Analysis.vue'),
+    redirect: (to) => ({ path: `/batch-analysis/${to.params.id}` }),
     meta: { requiresAuth: true, noSidebar: true }
   },
   {

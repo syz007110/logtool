@@ -121,51 +121,17 @@
                     <div class="chart-title">手术状态机变化图</div>
                   </div>
                   
-                  <!-- 状态机曲线图容器 -->
+                  <!-- 状态机曲线图容器（ECharts） -->
                   <div 
                     class="state-chart-container"
                   >
-                    <canvas :id="`stateMachineChart_${surgery.id}`"></canvas>
+                    <div :id="`stateMachineChart_${surgery.id}`" style="width: 100%; height: 100%"></div>
                   </div>
-                  
-                                     <!-- 横向滚动条 -->
-                   <div class="chart-scrollbar-container">
-                     <div class="scrollbar-track" @click="handleTrackClick($event, surgery)">
-                       <div 
-                         class="scrollbar-thumb"
-                         :style="getScrollbarThumbStyle(surgery, scrollbarUpdateTrigger)"
-                         @mousedown="startScrollbarDrag($event, surgery)"
-                       ></div>
-                     </div>
-                     <div class="scrollbar-controls">
-                       <el-button 
-                         size="small" 
-                         type="primary" 
-                         plain
-                         @click="scrollChartLeft(surgery)"
-                         :disabled="!canScrollLeft(surgery)"
-                       >
-                         <el-icon><ArrowLeft /></el-icon>
-                       </el-button>
-                       <span class="scrollbar-info">
-                         {{ getScrollbarInfo(surgery, scrollbarUpdateTrigger) }}
-                       </span>
-                       <el-button 
-                         size="small" 
-                         type="primary" 
-                         plain
-                         @click="scrollChartRight(surgery)"
-                         :disabled="!canScrollRight(surgery)"
-                       >
-                         <el-icon><ArrowRight /></el-icon>
-                       </el-button>
-                     </div>
-                   </div>
                 </el-card>
               </div>
             </div>
                         
-            <!-- 手术时长统计 -->
+            <!-- 手术统计（恢复整行宽度），并在卡片内下方显示手术器械表 -->
             <el-card class="arm-usage-card">
               <template #header>
                 <div class="card-header">
@@ -173,37 +139,20 @@
                   <el-tag type="info">总手术时长: {{ surgery.total_duration }} 分钟</el-tag>
                 </div>
               </template>
-              
+
               <!-- 统一时间轴视图 - 结合手术时长和工具臂使用 -->
               <div class="unified-timeline-view">
-                <!-- 
-                  设计理念：
-                  1. 顶部：主时间轴坐标轴 - 显示手术全程时间刻度
-                  2. 底部：工具臂时间线 - 显示各工具臂的激活时间段
-                  
-                  优势：
-                  - 统一的时间基准，便于对比分析
-                  - 直观显示工具臂使用与手术进程的对应关系
-                  - 多层信息叠加，节省空间
-                -->
-                
-                <!-- 手术时长进度条 - 参照 operationTIme.vue 样式 -->
+                <!-- 手术时长进度条 -->
                 <div class="surgery-progress-container">
-                  <!-- 手术时长信息 - 移动到前侧 -->
                   <div class="surgery-duration-info">
                     <span class="duration-text">手术时长：{{ surgery.total_duration }} 分钟</span>
                     <span class="time-range">手术时间：{{ formatTime(surgery.surgery_start_time) }} - {{ formatTime(surgery.surgery_end_time) }}</span>
                   </div>
-                  
-                  <!-- 手术时间轴容器 -->
                   <div class="surgery-timeline-wrapper">
-                    <!-- 手术标签 -->
                     <div class="surgery-label">
                       <div class="surgery-color"></div>
                       <span class="surgery-name">手术时间段</span>
                     </div>
-                    
-                    <!-- 手术进度条 -->
                     <div class="surgery-timeline-container">
                       <div class="surgery-timeline-bar">
                         <div 
@@ -215,15 +164,13 @@
                       </div>
                     </div>
                   </div>
-                  
-                  <!-- 时间刻度标签 -->
                   <div class="progress-labels">
                     <span class="time-label">{{ formatTimeShort(getProgressTimelineRange(surgery).start) }}</span>
                     <span class="time-label">{{ formatTimeShort(getProgressTimelineRange(surgery).end) }}</span>
                   </div>
                 </div>
-                
-                <!-- 工具臂时间线 -->
+
+                <!-- 工具臂时间线（更紧凑） -->
                 <div class="arm-timeline">
                   <div 
                     v-for="(armUsage, index) in getArmUsages(surgery)" 
@@ -241,11 +188,9 @@
                           <el-icon><ArrowDown /></el-icon>
                           详情
                         </el-button>
-                       
                       </div>
                     </div>
-                    
-                    <!-- 工具臂总激活时间 -->
+
                     <div class="arm-timeline-container">
                       <div class="arm-label">
                         <div class="arm-color" :class="`arm-${index + 1}`"></div>
@@ -272,11 +217,9 @@
                         </div>
                       </div>
                     </div>
-                    
-                    <!-- 工具臂详细器械使用时间 -->
+
                     <el-collapse-transition>
                       <div v-show="armDetailsVisible[surgery.id + '_' + index]" class="arm-details">
-                        <!-- 按UID码分组的器械使用 -->
                         <div 
                           v-for="(groupedUsage, udiCode) in getGroupedUsagesByUdi(armUsage)" 
                           :key="udiCode"
@@ -291,10 +234,7 @@
                               <div class="usage-group-duration">总使用时长: {{ getGroupedUsageDuration(groupedUsage) }}</div>
                             </div>
                           </div>
-                          
-                          <!-- 使用与arm-timeline-container相同的容器结构，确保基于容器左边偏移相同距离 -->
                           <div class="arm-timeline-container">
-                         
                             <div class="arm-timeline-bar">
                               <div 
                                 v-for="(usage, usageIndex) in groupedUsage.usages" 
@@ -317,8 +257,6 @@
                             </div>
                           </div>
                         </div>
-                        
-                        <!-- 能量激发时间 -->
                         <div class="energy-time">
                           <el-icon class="energy-icon"><Lightning /></el-icon>
                           器械总使用时间: {{ getEnergyTime(armUsage) }}
@@ -327,6 +265,17 @@
                     </el-collapse-transition>
                   </div>
                 </div>
+              </div>
+
+              <!-- 手术器械（位于手术统计卡片内，工具臂激活时间下方） -->
+              <div class="instruments-inside">
+                <div class="card-header" style="margin-top: 12px; margin-bottom: 8px;">
+                  <span>手术器械</span>
+                </div>
+                <el-table :data="getInstrumentRows(surgery)" size="small" style="width: 100%">
+                  <el-table-column prop="instrumentName" label="器械名称" min-width="180" />
+                  <el-table-column prop="udi" label="UDI码" min-width="220" />
+                </el-table>
               </div>
             </el-card>
             
@@ -406,8 +355,7 @@ import {
   Loading
 } from '@element-plus/icons-vue'
 import { debounce, safeNextTick } from '@/utils/resizeObserverFix'
-import { Chart, registerables } from 'chart.js'
-Chart.register(...registerables)
+import * as echarts from 'echarts'
 
 import api from '@/api'
 
@@ -766,6 +714,54 @@ export default {
       ]
     }
 
+      // 手术器械表数据
+      const getInstrumentRows = (surgery) => {
+        if (!surgery) return []
+        const grouped = new Map()
+        const allArms = getArmUsages(surgery)
+        allArms.forEach(armUsage => {
+          (armUsage || []).forEach(u => {
+            if (!u) return
+            if (!u.startTime || !u.endTime) return
+            const udi = u.udi || '未知'
+            const key = `${udi}__${u.instrumentName || '未知器械'}`
+            if (!grouped.has(key)) {
+              grouped.set(key, {
+                instrumentName: u.instrumentName || '未知器械',
+                udi: udi,
+                segments: []
+              })
+            }
+            grouped.get(key).segments.push({ startTime: u.startTime, endTime: u.endTime })
+          })
+        })
+        // 合并相邻/重叠的段，并计算整体起止
+        const rows = Array.from(grouped.values()).map(item => {
+          // 排序
+          item.segments.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+          // 合并重叠或相邻
+          const merged = []
+          for (const seg of item.segments) {
+            if (merged.length === 0) { merged.push({ ...seg }); continue }
+            const last = merged[merged.length - 1]
+            const lastEnd = new Date(last.endTime).getTime()
+            const curStart = new Date(seg.startTime).getTime()
+            const curEnd = new Date(seg.endTime).getTime()
+            if (curStart <= lastEnd) {
+              if (curEnd > lastEnd) last.endTime = seg.endTime
+            } else {
+              merged.push({ ...seg })
+            }
+          }
+          const startTime = merged.length ? merged[0].startTime : null
+          const endTime = merged.length ? merged[merged.length - 1].endTime : null
+          return { ...item, segments: merged, startTime, endTime }
+        })
+        // 按起始时间排序
+        rows.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+        return rows
+      }
+
     // 获取工具臂总时间
     const getArmTotalTime = (armUsage) => {
       if (!armUsage || armUsage.length === 0) return '0分钟'
@@ -879,6 +875,22 @@ export default {
       })
       
       return { start, end }
+    }
+
+    // 获取“手术时间线”事件范围：起点为第一个事件时间，终点为最后一个事件时间
+    const getEventTimelineRange = (surgery) => {
+      try {
+        const events = getSortedTimelineEvents(surgery)
+        if (!events || events.length === 0) {
+          // 回退到进度条时间轴范围（开机-关机）
+          return getProgressTimelineRange(surgery)
+        }
+        const start = events[0].time
+        const end = events[events.length - 1].time
+        return { start, end }
+      } catch (e) {
+        return getProgressTimelineRange(surgery)
+      }
     }
 
     // 获取进度条时间轴范围（使用开机时间和关机时间）
@@ -1054,8 +1066,8 @@ export default {
       let totalWidth = 0
       const segments = []
       
-      // 使用进度条时间轴范围（开机时间到关机时间）
-      const timelineRange = getProgressTimelineRange(surgery)
+      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件）
+      const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) return { left: '0%', width: '0%' }
       
       mergedTimeRanges.forEach(range => {
@@ -1095,8 +1107,8 @@ export default {
       // 计算所有合并后时间段的样式
       const segments = []
       
-      // 使用进度条时间轴范围（开机时间到关机时间）
-      const timelineRange = getProgressTimelineRange(surgery)
+      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件）
+      const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) return []
       
       mergedTimeRanges.forEach((range, index) => {
@@ -1121,8 +1133,8 @@ export default {
         return { left: '0%', width: '0%' }
       }
       
-      // 使用进度条时间轴范围（开机时间到关机时间）
-      const timelineRange = getProgressTimelineRange(surgery)
+      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件）
+      const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) {
         return { left: '0%', width: '0%' }
       }
@@ -1159,8 +1171,8 @@ export default {
         return { left: '0%', width: '0%' }
       }
       
-      // 使用进度条时间轴范围（开机时间到关机时间），确保与arm-timeline-bar完全对齐
-      const timelineRange = getProgressTimelineRange(surgery)
+      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件），确保与时间线完全对齐
+      const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) {
         return { left: '0%', width: '0%' }
       }
@@ -1600,7 +1612,11 @@ export default {
       // 清理所有图表实例
       stateMachineCharts.forEach((chart, surgeryId) => {
         console.log('销毁图表实例:', surgeryId)
-        chart.destroy()
+        try {
+          chart.dispose && chart.dispose()
+        } catch (e) {
+          console.warn('图表实例释放失败', surgeryId, e)
+        }
       })
       stateMachineCharts.clear()
       // 清理响应式对象的所有属性
@@ -1611,247 +1627,76 @@ export default {
       chartCurrentTime.value = null
     }
 
-    // 获取状态机图表数据
+    // 获取状态机图表数据（全时段，ECharts）
     const getStateMachineChartData = (surgery) => {
-      console.log('开始获取状态机图表数据:', surgery?.surgery_id)
-      
-      if (!surgery) {
-        console.log('手术对象为空')
-        return null
-      }
-      
-      if (!surgery.state_machine_changes) {
-        console.log('手术没有状态机变化数据:', surgery.surgery_id)
-        return null
-      }
-      
-      let stateMachineChanges = []
-      
-      if (typeof surgery.state_machine_changes === 'string') {
-        try {
-          stateMachineChanges = JSON.parse(surgery.state_machine_changes)
-        } catch (error) {
-          console.error('解析state_machine_changes字符串失败:', error)
-          return null
-        }
-      } else {
-        stateMachineChanges = surgery.state_machine_changes || []
-      }
-      
-      console.log('状态机变化数据:', surgery.surgery_id, stateMachineChanges)
-      
-      if (stateMachineChanges.length === 0) {
-        console.log('状态机变化数据为空')
-        return null
-      }
-      
-      // 过滤出手术开始后的数据
-      const surgeryStartTime = surgery.surgery_start_time ? new Date(surgery.surgery_start_time) : null
-      if (!surgeryStartTime) return null
-      
-      const filteredChanges = stateMachineChanges.filter(change => {
-        const changeTime = new Date(change.time)
-        return changeTime >= surgeryStartTime
-      })
-      
-      if (filteredChanges.length === 0) return null
-      
-      // 获取或创建当前手术的图表状态
-      let surgeryState = surgeryChartStates[surgery.id]
-      if (!surgeryState) {
-        surgeryState = {
-          currentTime: surgeryStartTime,
-          viewRange: chartViewRange.value
-        }
-        surgeryChartStates[surgery.id] = surgeryState
-      }
-      
-      // 重新设计：图表显示范围从手术开始到手术结束
-      const totalSurgeryStartTime = new Date(surgery.surgery_start_time)
-      const totalSurgeryEndTime = new Date(surgery.surgery_end_time)
-      const totalDuration = totalSurgeryEndTime.getTime() - totalSurgeryStartTime.getTime()
-      
-      // 计算视图窗口大小（5分钟）
-      const viewWindowDuration = chartViewRange.value * 60 * 1000 // 5分钟
-      
-      // 计算当前视图的中心时间
-      let viewCenterTime = surgeryState.currentTime
-      
-      // 重新设计：确保视图中心时间在手术时间范围内
-        const minCenterTime = new Date(totalSurgeryStartTime.getTime() + viewWindowDuration / 2)
-        const maxCenterTime = new Date(totalSurgeryEndTime.getTime() - viewWindowDuration / 2)
-        
-      // 如果总时间范围小于视图窗口，允许在整个范围内移动
-      if (totalDuration <= viewWindowDuration) {
-        // 总时间范围太小，允许在整个范围内移动，但确保不超出边界
-        const clampedTime = new Date(Math.max(totalSurgeryStartTime.getTime(), Math.min(totalSurgeryEndTime.getTime(), viewCenterTime.getTime())))
-        viewCenterTime = clampedTime
-      } else {
-        // 正常的时间范围限制
-        if (viewCenterTime.getTime() < minCenterTime.getTime()) {
-          viewCenterTime = minCenterTime
-        } else if (viewCenterTime.getTime() > maxCenterTime.getTime()) {
-          viewCenterTime = maxCenterTime
+      if (!surgery) return null
+      let changes = []
+      if (surgery.state_machine_changes) {
+        if (typeof surgery.state_machine_changes === 'string') {
+          try {
+            changes = JSON.parse(surgery.state_machine_changes)
+          } catch (e) {
+            console.error('解析state_machine_changes失败', e)
+            return null
+          }
+        } else {
+          changes = surgery.state_machine_changes || []
         }
       }
-      
-      // 计算视图的开始和结束时间
-      const viewStartTime = new Date(viewCenterTime.getTime() - viewWindowDuration / 2)
-      const viewEndTime = new Date(viewCenterTime.getTime() + viewWindowDuration / 2)
-      
-      // 确保视图范围不超出手术总时间范围
-      let finalViewStartTime = viewStartTime
-      let finalViewEndTime = viewEndTime
-      
-      if (finalViewStartTime.getTime() < totalSurgeryStartTime.getTime()) {
-        finalViewStartTime = totalSurgeryStartTime
-        finalViewEndTime = new Date(totalSurgeryStartTime.getTime() + viewWindowDuration)
+
+      // 时间范围：使用时间线事件的最早与最晚时间；若无事件，回退到状态机数据
+      const events = getSortedTimelineEvents(surgery)
+      let xMin = null
+      let xMax = null
+      if (events.length > 0) {
+        xMin = new Date(events[0].time).getTime()
+        xMax = new Date(events[events.length - 1].time).getTime()
       }
-      
-      if (finalViewEndTime.getTime() > totalSurgeryEndTime.getTime()) {
-        finalViewEndTime = totalSurgeryEndTime
-        finalViewStartTime = new Date(totalSurgeryEndTime.getTime() - viewWindowDuration)
-        
-        // 确保调整后的开始时间不早于手术开始时间
-        if (finalViewStartTime.getTime() < totalSurgeryStartTime.getTime()) {
-          finalViewStartTime = totalSurgeryStartTime
-          finalViewEndTime = new Date(totalSurgeryStartTime.getTime() + viewWindowDuration)
+
+      if (changes.length === 0) {
+        if (!xMin || !xMax) return null
+        return { points: [], rawData: [], xMin, xMax }
+      }
+
+      // 排序并构建阶梯数据点
+      changes.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+      if (!xMin || !xMax) {
+        xMin = new Date(changes[0].time).getTime()
+        xMax = new Date(changes[changes.length - 1].time).getTime()
+      }
+
+      const positionMap = getStateToYPositionMap()
+
+      // 仅使用与时间线相同范围内的状态机数据，并在边界补点
+      const changesWithin = []
+      let lastBefore = null
+      for (const ch of changes) {
+        const t = new Date(ch.time).getTime()
+        if (t <= xMin) {
+          lastBefore = ch
+        }
+        if (t > xMin && t <= xMax) {
+          changesWithin.push(ch)
         }
       }
-      
-      // 过滤在视图时间范围内的数据
-      const viewData = filteredChanges.filter(change => {
-        const changeTime = new Date(change.time)
-        return changeTime >= finalViewStartTime && changeTime <= finalViewEndTime
-      })
-      
-      // 重新设计：允许滚动到手术结束时间，即使没有更多数据
-      // 如果当前视图范围内没有数据，但不强制调整视图位置
-      if (viewData.length === 0) {
-        console.log('视图范围内没有数据，但允许用户滚动到手术结束时间:', {
-          surgeryId: surgery.surgery_id,
-          viewStartTime: finalViewStartTime.toISOString(),
-          viewEndTime: finalViewEndTime.toISOString(),
-          lastDataTime: filteredChanges.length > 0 ? new Date(filteredChanges[filteredChanges.length - 1].time).toISOString() : 'N/A',
-          surgeryEndTime: totalSurgeryEndTime.toISOString()
-        })
-        
-        // 不强制调整视图，允许用户看到空白区域（表示没有状态机变化的时间段）
-        // 这样用户可以滚动到手术结束时间
+
+      const points = []
+      // 起点：xMin 使用边界前最后状态（若无，则用第一个变化的状态）
+      let startState = lastBefore ? lastBefore.state : (changes.length > 0 ? changes[0].state : '0')
+      points.push([xMin, positionMap[parseInt(startState)] ?? parseInt(startState), startState])
+
+      // 区间内变化
+      for (const ch of changesWithin) {
+        const t = new Date(ch.time).getTime()
+        const y = positionMap[parseInt(ch.state)] ?? parseInt(ch.state)
+        points.push([t, y, ch.state])
       }
-      
-      // 重新设计：即使没有数据，也允许生成图表数据，以便用户可以滚动到手术结束时间
-        if (viewData.length === 0) {
-        console.log('没有状态机数据，但允许生成空白图表:', {
-          surgeryId: surgery.surgery_id,
-          viewStartTime: finalViewStartTime.toISOString(),
-          viewEndTime: finalViewEndTime.toISOString(),
-          surgeryEndTime: totalSurgeryEndTime.toISOString()
-        })
-      }
-      
-             // 生成均匀的时间刻度 - 确保x轴刻度与滚动条完全同步
-       const timeStep = viewWindowDuration / 10 // 将5分钟分成10个均匀间隔
-       const timeLabels = []
-       const timeData = []
-       const rawData = []
-       
-       for (let i = 0; i <= 10; i++) {
-         const currentTime = new Date(finalViewStartTime.getTime() + i * timeStep)
-         
-         // 生成时间标签 - 确保格式一致
-         const timeLabel = currentTime.toLocaleTimeString('zh-CN', { 
-           hour: '2-digit', 
-           minute: '2-digit', 
-           second: '2-digit' 
-         })
-         timeLabels.push(timeLabel)
-         
-         // 重新设计：找到最接近当前时间的数据点状态
-         let closestState = '0'
-         let minDiff = Infinity
-         
-         // 首先在视图范围内查找数据点
-         for (const dataPoint of viewData) {
-           const dataTime = new Date(dataPoint.time)
-           const diff = Math.abs(dataTime.getTime() - currentTime.getTime())
-           if (diff < minDiff) {
-             minDiff = diff
-             closestState = dataPoint.state
-           }
-         }
-         
-         // 如果视图范围内没有数据点，在整个过滤后的数据中查找
-         if (minDiff === Infinity) {
-           for (const dataPoint of filteredChanges) {
-             const dataTime = new Date(dataPoint.time)
-             const diff = Math.abs(dataTime.getTime() - currentTime.getTime())
-             if (diff < minDiff) {
-               minDiff = diff
-               closestState = dataPoint.state
-             }
-           }
-         }
-         
-         // 如果仍然没有找到数据点，使用前一个状态或默认状态
-         if (minDiff === Infinity && i > 0) {
-           // 使用前一个数据点的状态值
-           const prevStateValue = timeData[i - 1]
-           if (prevStateValue !== undefined) {
-             // 从Y轴位置值反向查找对应的状态值
-             const positionMap = getStateToYPositionMap()
-             const reverseMap = {}
-             Object.keys(positionMap).forEach(key => {
-               reverseMap[positionMap[key]] = key
-             })
-             closestState = reverseMap[prevStateValue] || '0'
-           }
-         }
-         
-         const stateValue = parseInt(closestState)
-         const positionMap = getStateToYPositionMap()
-         const yPosition = positionMap[stateValue] || stateValue
-         timeData.push(yPosition)
-         
-         rawData.push({
-           time: currentTime.toISOString(),
-           state: closestState
-         })
-         
-         console.log(`时间点 ${i}: ${timeLabel} -> 状态 ${closestState} -> Y位置 ${yPosition}`)
-       }
-      
-      const result = {
-        labels: timeLabels,
-        data: timeData,
-        rawData: rawData,
-        startTime: finalViewStartTime,
-        endTime: finalViewEndTime,
-        viewCenterTime: viewCenterTime,
-        totalStartTime: totalSurgeryStartTime,
-        totalEndTime: totalSurgeryEndTime
-      }
-      
-      console.log('状态机图表数据准备完成 (重新设计):', {
-        surgeryId: surgery.surgery_id,
-        labelsCount: timeLabels.length,
-        dataCount: timeData.length,
-        viewStartTime: finalViewStartTime.toISOString(),
-        viewEndTime: finalViewEndTime.toISOString(),
-        viewDuration: (finalViewEndTime.getTime() - finalViewStartTime.getTime()) / (1000 * 60),
-        totalStartTime: totalSurgeryStartTime.toISOString(),
-        totalEndTime: totalSurgeryEndTime.toISOString(),
-        totalDuration: totalDuration / (1000 * 60),
-        viewCenterTime: viewCenterTime.toISOString(),
-        isAtEnd: finalViewEndTime.getTime() === totalSurgeryEndTime.getTime(),
-        isAtStart: finalViewStartTime.getTime() === totalSurgeryStartTime.getTime(),
-        // 添加调试信息
-        surgeryStartTime: surgery.surgery_start_time,
-        surgeryEndTime: surgery.surgery_end_time,
-        timelineRange: getTimelineRange(surgery)
-      })
-      
-      return result
+
+      // 终点：xMax 使用区间内最后状态（或起点状态）
+      const lastState = changesWithin.length > 0 ? changesWithin[changesWithin.length - 1].state : startState
+      points.push([xMax, positionMap[parseInt(lastState)] ?? parseInt(lastState), lastState])
+
+      return { points, rawData: changesWithin, xMin, xMax }
     }
 
     // 获取状态机图表配置
@@ -1969,249 +1814,116 @@ export default {
 
     // 更新状态机图表 - 确保所有组件同步
     const updateStateMachineChart = (surgery) => {
-      console.log('开始更新状态机图表:', surgery?.surgery_id)
-      
-      if (!surgery) {
-        console.log('手术对象为空，无法更新图表')
+      if (!surgery) return
+      const container = document.getElementById(`stateMachineChart_${surgery.id}`)
+      if (!container) {
+        setTimeout(() => updateStateMachineChart(surgery), 50)
         return
       }
-      
-      // 销毁当前手术的现有图表
-      const existingChart = stateMachineCharts.get(surgery.id)
-      if (existingChart) {
-        console.log('销毁现有图表:', surgery.surgery_id)
-        existingChart.destroy()
+
+      const data = getStateMachineChartData(surgery)
+      // 清理旧实例
+      const existing = stateMachineCharts.get(surgery.id)
+      if (existing) {
+        try { existing.dispose && existing.dispose() } catch (_) {}
         stateMachineCharts.delete(surgery.id)
       }
-      
-      // 获取图表数据
-      const chartData = getStateMachineChartData(surgery)
-      console.log('获取到的图表数据:', chartData)
-      
-      if (!chartData || !chartData.labels || !chartData.data || 
-          chartData.labels.length === 0 || chartData.data.length === 0) {
-        console.log('没有有效的状态机数据可显示')
-        // 显示空状态
-        const ctx = document.getElementById(`stateMachineChart_${surgery.id}`)
-        if (ctx) {
-          const ctx2d = ctx.getContext('2d')
-          ctx2d.clearRect(0, 0, ctx.width, ctx.height)
-          ctx2d.font = '14px Arial'
-          ctx2d.fillStyle = '#909399'
-          ctx2d.textAlign = 'center'
-          ctx2d.fillText('暂无状态机数据', ctx.width / 2, ctx.height / 2)
-        }
-        
-        // 即使没有数据，也要触发滚动条更新
-        scrollbarUpdateTrigger.value++
+
+      if (!data) {
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#909399;">暂无状态机数据</div>'
         return
       }
-      
-      // 创建新图表
-      const ctx = document.getElementById(`stateMachineChart_${surgery.id}`)
-      if (!ctx) {
-        console.error('找不到状态机图表canvas元素:', `stateMachineChart_${surgery.id}`)
-        // 尝试等待一下再查找
-        setTimeout(() => {
-          const retryCtx = document.getElementById(`stateMachineChart_${surgery.id}`)
-          if (retryCtx) {
-            console.log('重试成功，找到canvas元素:', `stateMachineChart_${surgery.id}`)
-            updateStateMachineChart(surgery)
-          } else {
-            console.error('重试失败，仍然找不到canvas元素:', `stateMachineChart_${surgery.id}`)
+
+      const chart = echarts.init(container)
+      stateMachineCharts.set(surgery.id, chart)
+
+      const positionMap = getStateToYPositionMap()
+      const reverseMap = {}
+      Object.keys(positionMap).forEach(k => { reverseMap[positionMap[k]] = k })
+
+      const fiveMinutesMs = 5 * 60 * 1000
+      const initialEnd = Math.min(data.xMin + fiveMinutesMs, data.xMax)
+
+      chart.setOption({
+        grid: { left: 60, right: 20, top: 70, bottom: 80, containLabel: true },
+        toolbox: {
+          right: 10,
+          top: 10,
+          feature: {
+            dataZoom: { yAxisIndex: 'none' },
+            restore: {},
+            saveAsImage: {}
           }
-        }, 50)
-        return
-      }
-      
-      try {
-        // 确保数据完整性
-        if (!chartData.labels || !chartData.data || chartData.labels.length === 0 || chartData.data.length === 0) {
-          throw new Error('图表数据不完整')
-        }
-        
-        // 确保canvas元素有效
-        if (!ctx || !ctx.getContext) {
-          throw new Error('Canvas元素无效')
-        }
-        
-        // 使用简化的图表配置，确保与滚动条完全同步
-        const chartConfig = {
-          type: 'line',
-          data: {
-            labels: chartData.labels,
-            datasets: [{
-              label: '系统状态',
-              data: chartData.data,
-              borderColor: '#409EFF',
-              backgroundColor: 'rgba(64, 158, 255, 0.1)',
-              fill: false, // 不填充区域
-              tension: 0, // 直线连接，无曲线
-              stepped: true, // 阶梯式线条
-              pointRadius: 0, // 数据点半径
-              pointHoverRadius: 4, // 悬停时数据点半径
-              pointBackgroundColor: '#409EFF', // 数据点背景色
-              pointBorderColor: '#ffffff', // 数据点边框色
-              pointBorderWidth: 2, // 数据点边框宽度
-              hitRadius: 10, // 点击检测半径
-              borderWidth: 3 // 线条宽度
-            }]
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'line' },
+          formatter: (params) => {
+            if (!params || !params[0]) return ''
+            const p = params[0]
+            const t = new Date(p.value[0])
+            const yMapped = p.value[1]
+            const originalState = p.value[2] ?? reverseMap[yMapped] ?? yMapped
+            const stateName = getStateMachineStateName(String(originalState))
+            return `${t.toLocaleString('zh-CN')}<br/>状态: ${originalState}（${stateName}）`
+          }
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            xAxisIndex: 0,
+            filterMode: 'none',
+            zoomOnMouseWheel: true,
+            moveOnMouseWheel: true,
+            moveOnMouseMove: true,
+            startValue: data.xMin,
+            endValue: initialEnd
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-              mode: 'index',
-              intersect: false,
-            },
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                callbacks: {
-                  title: function(context) {
-                    const dataIndex = context[0].dataIndex
-                    const rawData = context[0].chart.data.rawData
-                    if (rawData && rawData[dataIndex]) {
-                      const time = new Date(rawData[dataIndex].time)
-                      return time.toLocaleTimeString('zh-CN')
-                    }
-                    return context[0].label
-                  },
-                  label: function(context) {
-                    const dataIndex = context.dataIndex
-                    const rawData = context.chart.data.rawData
-                    if (rawData && rawData[dataIndex]) {
-                      const originalState = parseInt(rawData[dataIndex].state)
-                      const stateName = getStateMachineStateName(originalState.toString())
-                      return `状态: ${originalState} (${stateName})`
-                    }
-                    return `状态: ${context.parsed.y}`
-                  }
-                }
-              }
-            },
-            scales: {
-              x: {
-                title: {
-                  display: true,
-                  text: '时间'
-                },
-                ticks: {
-                  maxTicksLimit: 11, // 显示11个刻度点（0-10）
-                  callback: function(value, index, ticks) {
-                    // 直接使用预生成的时间标签，确保与数据完全同步
-                    if (chartData.labels && chartData.labels.length > 0) {
-                      const labelIndex = Math.round((index / (ticks.length - 1)) * (chartData.labels.length - 1))
-                      const clampedIndex = Math.max(0, Math.min(chartData.labels.length - 1, labelIndex))
-                      return chartData.labels[clampedIndex]
-                    }
-                    
-                    // 如果没有预生成的标签，使用原始数据的时间
-                    if (chartData.rawData && chartData.rawData.length > 0) {
-                      const dataIndex = Math.round((index / (ticks.length - 1)) * (chartData.rawData.length - 1))
-                      const clampedIndex = Math.max(0, Math.min(chartData.rawData.length - 1, dataIndex))
-                      
-                      if (chartData.rawData[clampedIndex]) {
-                        const time = new Date(chartData.rawData[clampedIndex].time)
-                        return time.toLocaleTimeString('zh-CN', { 
-                          hour: '2-digit', 
-                          minute: '2-digit', 
-                          second: '2-digit' 
-                        })
-                      }
-                    }
-                    
-                    return value
-                  },
-                  font: {
-                    size: 10 // 减小字体大小，避免重叠
-                  },
-                  maxRotation: 45, // 允许旋转标签，避免重叠
-                  minRotation: 0
-                }
-              },
-              y: {
-                beginAtZero: true,
-                min: 0,  // 从0开始
-                max: 65, // 到映射后的最大位置值
-                title: {
-                  display: true,
-                  text: '状态机状态'
-                },
-                // 使用固定间隔 - 显示指定的刻度值
-                ...yAxisConfig.fixedInterval,
-                ticks: {
-                  // 使用afterBuildTicks自定义刻度
-                  autoSkip: false, // 显示所有刻度
-                  maxRotation: 0, // 不旋转标签
-                  minRotation: 0, // 不旋转标签
-                  padding: 8, // 标签内边距
-                  font: {
-                    size: 11 // 字体大小
-                  },
-                  // 添加回调函数确保显示正确的标签
-                  callback: function(value, index, ticks) {
-                    // 根据Y轴位置值反向查找对应的状态值
-                    const positionMap = getStateToYPositionMap()
-                    const reverseMap = {}
-                    Object.keys(positionMap).forEach(key => {
-                      reverseMap[positionMap[key]] = key
-                    })
-                    return reverseMap[value] || value.toString()
-                  }
-                }
-              }
-            },
-            animation: {
-              duration: 300
+          {
+            type: 'slider',
+            xAxisIndex: 0,
+            filterMode: 'none',
+            height: 40,
+            bottom: 20,
+            showDataShadow: true,
+            brushSelect: true,
+            startValue: data.xMin,
+            endValue: initialEnd
+          }
+        ],
+        xAxis: {
+          type: 'time',
+          min: data.xMin,
+          max: data.xMax,
+          axisLabel: { formatter: (value) => new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
+        },
+        yAxis: {
+          type: 'value',
+          min: 0,
+          max: 65,
+          axisLabel: {
+            formatter: (val) => {
+              const original = reverseMap[val]
+              return original ? String(original) : ''
             }
-          }
-        }
-        
-        // 添加原始数据到图表配置中，供tooltip使用
-        chartConfig.data.rawData = chartData.rawData
-        
-        const newChart = new Chart(ctx, chartConfig)
-        stateMachineCharts.set(surgery.id, newChart)
-        
-        // 触发滚动条重新渲染，确保所有组件同步
-        scrollbarUpdateTrigger.value++
-        
-        console.log('状态机图表创建成功:', surgery.surgery_id, {
-          chartStartTime: chartData.startTime ? new Date(chartData.startTime).toISOString() : 'N/A',
-          chartEndTime: chartData.endTime ? new Date(chartData.endTime).toISOString() : 'N/A',
-          chartDuration: chartData.startTime && chartData.endTime ? 
-            ((new Date(chartData.endTime).getTime() - new Date(chartData.startTime).getTime()) / (1000 * 60)).toFixed(1) + '分钟' : 'N/A',
-          dataPoints: chartData.data.length,
-          timeLabels: chartData.labels.length,
-          scrollbarTrigger: scrollbarUpdateTrigger.value
-        })
-        
-                 // 验证同步性
-         setTimeout(() => {
-           checkSynchronization(surgery)
-         }, 100)
-      } catch (error) {
-        console.error('创建状态机图表失败:', error)
-        // 显示错误状态
-        if (ctx && ctx.getContext) {
-          try {
-        const ctx2d = ctx.getContext('2d')
-        ctx2d.clearRect(0, 0, ctx.width, ctx.height)
-        ctx2d.font = '14px Arial'
-        ctx2d.fillStyle = '#F56C6C'
-        ctx2d.textAlign = 'center'
-        ctx2d.fillText('图表创建失败', ctx.width / 2, ctx.height / 2)
-          } catch (canvasError) {
-            console.error('Canvas绘制失败:', canvasError)
-          }
-        }
-        
-        // 显示错误信息在控制台
-        ElMessage.error('状态机图表创建失败，请检查数据')
-      }
+          },
+          axisTick: { show: false },
+          splitNumber: 8
+        },
+        series: [{
+          type: 'line',
+          step: 'end',
+          showSymbol: false,
+          lineStyle: { width: 2, color: '#409EFF' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(64,158,255,0.25)' },
+              { offset: 1, color: 'rgba(64,158,255,0.05)' }
+            ])
+          },
+          data: data.points
+        }]
+      })
     }
 
     // 获取状态机状态名称
@@ -3021,6 +2733,7 @@ export default {
         toggleAlarms,
         scrollToAlarmCard,
         getArmUsages,
+        getInstrumentRows,
         getArmTotalTime,
         getArmTimelineStyle,
               getArmTimelineSegments,
@@ -3240,14 +2953,17 @@ export default {
 }
 
 .timeline-section {
-  width: 30%;
+  width: 25%;
   flex-shrink: 0;
 }
 
 .state-chart-section {
-  width: 70%;
+  width: 75%;
   flex-shrink: 0;
 }
+
+/* 第二行布局：器械卡片 + 手术统计卡片 */
+/* 删除外部分栏后的残留样式（不再使用） */
 
 /* 手术信息卡片样式 */
 .info-card {
@@ -3479,13 +3195,14 @@ export default {
 
 .state-chart-container {
   position: relative;
-  height: 300px;
+  height: 380px;
   background-color: #FAFAFA;
   border-radius: 6px;
   border: 1px solid #E4E7ED;
   overflow: hidden;
   flex: 1;
   cursor: grab;
+  padding-left: 4px; /* 为图形左边界留出空间，避免截断 */
   padding-right: 10px; /* 为Y轴标签留出空间 */
 }
 
@@ -3999,27 +3716,26 @@ export default {
 .arm-timeline {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  margin-top: 20px;
+  gap: 12px; /* 更紧凑 */
+  margin-top: 12px; /* 更紧凑 */
   position: relative;
   z-index: 2;
-  /* 优化渲染性能 */
   contain: layout style paint;
 }
 
 .arm-item {
   border: 1px solid #E4E7ED;
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 6px; /* 更紧凑 */
+  padding: 10px; /* 更紧凑 */
   background-color: #FAFAFA;
-  margin-bottom: 16px;
+  margin-bottom: 8px; /* 更紧凑 */
 }
 
 .arm-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px; /* 更紧凑 */
 }
 
 .arm-info {
@@ -4053,12 +3769,11 @@ export default {
 .arm-timeline-container {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px; /* 更紧凑 */
+  margin-bottom: 8px; /* 更紧凑 */
   width: 100%;
   box-sizing: border-box;
   padding: 0;
-  /* 确保对齐 */
   position: relative;
 }
 
@@ -4075,18 +3790,17 @@ export default {
 .arm-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 120px;
+  gap: 6px; /* 更紧凑 */
+  min-width: 110px; /* 稍微收窄 */
   flex-shrink: 0;
   padding: 0;
   margin: 0;
-  /* 确保对齐 */
   position: relative;
 }
 
 .arm-timeline-bar {
   position: relative;
-  height: 20px;
+  height: 16px; /* 更紧凑 */
   background: #F5F7FA;
   border-radius: 4px;
   overflow: hidden;
@@ -4096,7 +3810,6 @@ export default {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  /* 确保对齐 */
   left: 0;
   right: 0;
 }
@@ -4132,7 +3845,7 @@ export default {
 }
 
 .segment-text {
-  font-size: 11px;
+  font-size: 10px; /* 更紧凑 */
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -4141,7 +3854,7 @@ export default {
   text-align: center;
   color: white;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  min-height: 20px;
+  min-height: 16px; /* 与bar高度匹配 */
   display: flex;
   align-items: center;
   justify-content: center;

@@ -4,6 +4,7 @@ const UserRole = require('./user_role');
 const ErrorCode = require('./error_code');
 const I18nErrorCode = require('./i18n_error_code');
 const Log = require('./log');
+const LogEntry = require('./log_entry');
 const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
 
@@ -66,6 +67,17 @@ function defineAssociations() {
   User.hasMany(Log, {
     foreignKey: 'uploader_id',
     as: 'logs'
+  });
+
+  // Log 与 LogEntry 的关联
+  Log.hasMany(LogEntry, {
+    foreignKey: 'log_id',
+    as: 'LogEntries'
+  });
+
+  LogEntry.belongsTo(Log, {
+    foreignKey: 'log_id',
+    as: 'Log'
   });
 
   // ErrorCode 和 I18nErrorCode 的一对多关联

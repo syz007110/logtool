@@ -106,7 +106,9 @@ const logs = {
   getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
-  analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`)
+  analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
+  getSearchTemplates: () => api.get('/logs/search-templates'),
+  importSearchTemplates: (templates) => api.post('/logs/search-templates/import', { templates })
 }
 
 const operationLogs = {

@@ -1,0 +1,83 @@
+[
+  {
+    "name": "报错",
+    "description": "匹配器械/UDI/工具臂等关键词",
+    "filters": {
+      "logic": "OR",
+      "conditions": [
+        {
+          "field": "error_code",
+          "operator": "endsWith",
+          "value": "a"
+        },
+        {
+          "field": "error_code",
+          "operator": "endsWith",
+          "value": "b"
+        },
+        {
+          "field": "error_code",
+          "operator": "endsWith",
+          "value": "c"
+        }
+      ]
+    }
+  },
+  {
+    "name": "状态机",
+    "description": "状态机跳转",
+    "filters": {
+      "logic": "OR",
+      "conditions": [
+        {
+          "field": "error_code",
+          "operator": "contains",
+          "value": "310e"
+        }
+      ]
+    }
+  },
+  {
+    "name": "器械相关",
+    "description": "器械状态、器械类型、器械UDI",
+    "filters": {
+      "logic": "OR",
+      "conditions": [
+        {
+          "field": "error_code",
+          "operator": "contains",
+          "value": "500e"
+        },
+		    {
+          "field": "error_code",
+          "operator": "contains",
+          "value": "510e"
+        },
+		    {
+          "field": "error_code",
+          "operator": "contains",
+          "value": "501e"
+        },
+		    {
+          "field": "error_code",
+          "operator": "contains",
+          "value": "50ee"
+        }
+      ]
+    }
+  },
+  {
+    "name": "CPU",
+    "description": "CPU负载",
+    "filters": {
+      "logic": "OR",
+      "conditions": [
+        {
+          "field": "error_code",
+          "operator": "contains",
+          "value": "70ce"
+        }
+      ]
+    }
+  }
+]

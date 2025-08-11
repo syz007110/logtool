@@ -5,6 +5,38 @@ const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
+const SequelizeLib = require('sequelize');
+const Op = SequelizeLib.Op;
+const os = require('os');
+const templatesPath = path.join(__dirname, '../config/searchTemplates.json');
+
+// 读取预设搜索模板
+const getSearchTemplates = async (req, res) => {
+  try {
+    if (!fs.existsSync(templatesPath)) {
+      return res.json({ templates: [] });
+    }
+    const raw = fs.readFileSync(templatesPath, 'utf-8');
+    const data = JSON.parse(raw || '[]');
+    return res.json({ templates: data });
+  } catch (e) {
+    return res.status(500).json({ message: '读取搜索模板失败', error: e.message });
+  }
+};
+
+// 导入搜索模板（覆盖式）
+const importSearchTemplates = async (req, res) => {
+  try {
+    const { templates } = req.body;
+    if (!Array.isArray(templates)) {
+      return res.status(400).json({ message: '无效的模板格式，应为数组' });
+    }
+    fs.writeFileSync(templatesPath, JSON.stringify(templates, null, 2), 'utf-8');
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ message: '导入搜索模板失败', error: e.message });
+  }
+};
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -353,7 +385,8 @@ const getBatchLogEntries = async (req, res) => {
       start_time, 
       end_time, 
       page = 1, 
-      limit = 100 
+      limit = 100,
+      filters // 高级筛选条件（JSON字符串或对象）
     } = req.query;
     
     // 构建查询条件
@@ -362,28 +395,167 @@ const getBatchLogEntries = async (req, res) => {
     // 日志ID筛选
     if (log_ids) {
       const ids = log_ids.split(',').map(id => parseInt(id.trim()));
-      where.log_id = { [require('sequelize').Op.in]: ids };
+      where.log_id = { [Op.in]: ids };
     }
     
     // 故障码筛选
     if (error_code) {
-      where.error_code = { [require('sequelize').Op.like]: `%${error_code}%` };
+      where.error_code = { [Op.like]: `%${error_code}%` };
     }
     
     // 时间范围筛选
     if (start_time || end_time) {
       where.timestamp = {};
       if (start_time) {
-        where.timestamp[require('sequelize').Op.gte] = new Date(start_time);
+        where.timestamp[Op.gte] = new Date(start_time);
       }
       if (end_time) {
-        where.timestamp[require('sequelize').Op.lte] = new Date(end_time);
+        where.timestamp[Op.lte] = new Date(end_time);
       }
     }
     
     // 搜索功能（在释义中搜索）
     if (search) {
-      where.explanation = { [require('sequelize').Op.like]: `%${search}%` };
+      where.explanation = { [Op.like]: `%${search}%` };
+    }
+
+    // 高级筛选：解析 filters
+    // 允许的字段与操作符白名单
+    const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
+    const buildCondition = (field, operator, value) => {
+      // 保护：字段白名单
+      if (!allowedFields.has(field)) return null;
+
+      // 针对参数数值比较，使用 CAST
+      const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(field);
+
+      const buildOpValue = (sequelizeOperator, val) => {
+        if (isNumericParam) {
+          const castCol = SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)');
+          // IN/NOT IN 需要确保是数组形式 IN (...)
+          if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+            const arr = Array.isArray(val) ? val : [val];
+            const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
+            if (nums.length === 0) return null;
+            return SequelizeLib.where(castCol, sequelizeOperator, nums);
+          }
+          // BETWEEN/NOT BETWEEN 需要两个数值
+          if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+            if (!Array.isArray(val) || val.length !== 2) return null;
+            const a = Number(val[0]);
+            const b = Number(val[1]);
+            return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
+          }
+          // 其他比较运算符，单值数值
+          const n = Number(val);
+          if (Number.isNaN(n)) return null;
+          return SequelizeLib.where(castCol, sequelizeOperator, n);
+        }
+        if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
+          const toDate = (d) => d instanceof Date ? d : new Date(d);
+          return { [field]: sequelizeOperator === Op.between ? { [Op.between]: [toDate(val[0]), toDate(val[1])] } : { [sequelizeOperator]: toDate(val) } };
+        }
+        if (sequelizeOperator === Op.regexp) {
+          // 正则长度限制
+          if (typeof val !== 'string' || val.length > 200) return null;
+          return { [field]: { [Op.regexp]: val } };
+        }
+        if (sequelizeOperator === Op.like) {
+          return { [field]: { [Op.like]: `%${val}%` } };
+        }
+        if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+          const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
+          return { [field]: { [sequelizeOperator]: arr } };
+        }
+        if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+          if (!Array.isArray(val) || val.length !== 2) return null;
+          if (isNumericParam) {
+            return SequelizeLib.where(
+              SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'),
+              sequelizeOperator,
+              [Number(val[0]), Number(val[1])]
+            );
+          }
+          return { [field]: { [sequelizeOperator]: val } };
+        }
+        // 其他比较运算符
+        return isNumericParam
+          ? SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, Number(val))
+          : { [field]: { [sequelizeOperator]: val } };
+      };
+
+      switch ((operator || '').toLowerCase()) {
+        case '=': return buildOpValue(Op.eq, value);
+        case '!=':
+        case '<>': return buildOpValue(Op.ne, value);
+        case '>': return buildOpValue(Op.gt, value);
+        case '>=': return buildOpValue(Op.gte, value);
+        case '<': return buildOpValue(Op.lt, value);
+        case '<=': return buildOpValue(Op.lte, value);
+        case 'between': return buildOpValue(Op.between, value);
+        case 'notbetween': return buildOpValue(Op.notBetween, value);
+        case 'in': return buildOpValue(Op.in, value);
+        case 'notin': return buildOpValue(Op.notIn, value);
+        case 'like':
+        case 'contains': return buildOpValue(Op.like, value);
+        case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
+        case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
+        case 'regex': return buildOpValue(Op.regexp, value);
+        default: return null;
+      }
+    };
+
+    const normalizeFilters = (raw) => {
+      if (!raw) return null;
+      let parsed = raw;
+      if (typeof raw === 'string') {
+        try { parsed = JSON.parse(raw); } catch (e) { return null; }
+      }
+      return parsed;
+    };
+
+    const advancedFilters = normalizeFilters(filters);
+
+    // 递归构建 Sequelize 条件，完整支持嵌套(AND/OR)
+    const buildFromNode = (node) => {
+      if (!node) return null;
+      if (Array.isArray(node)) {
+        const parts = node.map(n => buildFromNode(n)).filter(Boolean);
+        if (parts.length === 0) return null;
+        // 默认用 AND 连接数组节点
+        return { [Op.and]: parts };
+      }
+      if (node.field && node.operator) {
+        return buildCondition(node.field, node.operator, node.value);
+      }
+      if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+        const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean);
+        if (childConds.length === 0) return null;
+        return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
+      }
+      return null;
+    };
+
+    const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
+    if (advancedWhere) {
+      // 与其他顶层条件（时间/搜索/日志ID）按 AND 组合
+      if (where[Op.and]) {
+        where[Op.and].push(advancedWhere);
+      } else {
+        // 如果 where 已有键值（如 log_id、timestamp、explanation），需要与 advancedWhere 合并为 AND
+        const baseConds = [];
+        Object.keys(where).forEach(k => {
+          if (k !== Op.and && k !== Op.or) {
+            baseConds.push({ [k]: where[k] });
+            delete where[k];
+          }
+        });
+        if (baseConds.length > 0) {
+          where[Op.and] = baseConds.concat([advancedWhere]);
+        } else {
+          where[Op.and] = [advancedWhere];
+        }
+      }
     }
     
     // 权限控制：普通用户只能查看自己的日志明细
@@ -398,13 +570,13 @@ const getBatchLogEntries = async (req, res) => {
       
       if (where.log_id) {
         // 如果已经指定了log_ids，需要取交集
-        const requestedIds = Array.isArray(where.log_id[require('sequelize').Op.in]) 
-          ? where.log_id[require('sequelize').Op.in] 
-          : [where.log_id[require('sequelize').Op.in]];
+        const requestedIds = Array.isArray(where.log_id[Op.in]) 
+          ? where.log_id[Op.in] 
+          : [where.log_id[Op.in]];
         const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
-        where.log_id = { [require('sequelize').Op.in]: allowedIds };
+        where.log_id = { [Op.in]: allowedIds };
       } else {
-        where.log_id = { [require('sequelize').Op.in]: userLogIds };
+        where.log_id = { [Op.in]: userLogIds };
       }
     }
     
@@ -1109,5 +1281,7 @@ module.exports = {
   autoFillKey,
   batchDeleteLogs,
   batchDownloadLogs,
-  analyzeSurgeryData
+  analyzeSurgeryData,
+  getSearchTemplates,
+  importSearchTemplates
 }; 

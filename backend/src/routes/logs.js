@@ -14,7 +14,9 @@ const {
   getBatchLogEntries,
   autoFillDeviceId,
   autoFillKey,
-  analyzeSurgeryData
+  analyzeSurgeryData,
+  getSearchTemplates,
+  importSearchTemplates
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -57,5 +59,9 @@ router.get('/entries/batch', auth, checkLogPermission('read_all'), getBatchLogEn
 
 // 手术统计分析
 router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), analyzeSurgeryData);
+
+// 搜索模板
+router.get('/search-templates', auth, checkLogPermission('read_all'), getSearchTemplates);
+router.post('/search-templates/import', auth, checkLogPermission('read_all'), importSearchTemplates);
 
 module.exports = router; 

@@ -80,7 +80,9 @@
           format="YYYY-MM-DD HH:mm:ss"
           value-format="YYYY-MM-DD HH:mm:ss"
           style="width: 300px; margin-right: 15px;"
-          @change="handleTimeRangeChange"
+           :default-value="defaultPickerRange"
+           :disabled-date="disableOutOfRangeDates"
+           @change="handleTimeRangeChange"
         />
         <el-tag v-if="timeRangeLimit" type="info" size="small" style="margin-left: 10px;">
           可选范围: {{ formatTimestamp(timeRangeLimit[0]) }} 至 {{ formatTimestamp(timeRangeLimit[1]) }}
@@ -324,6 +326,20 @@ export default {
 
     // 时间范围变化处理
     const handleTimeRangeChange = () => {
+      // 越界纠正：确保选择范围始终在可选范围内
+      if (timeRangeLimit.value && timeRange.value && timeRange.value.length === 2) {
+        const min = new Date(timeRangeLimit.value[0])
+        const max = new Date(timeRangeLimit.value[1])
+        let [start, end] = timeRange.value
+        const startDate = new Date(start)
+        const endDate = new Date(end)
+        let changed = false
+        if (startDate < min) { start = timeRangeLimit.value[0]; changed = true }
+        if (endDate > max) { end = timeRangeLimit.value[1]; changed = true }
+        if (changed) {
+          timeRange.value = [formatTimestamp(start), formatTimestamp(end)]
+        }
+      }
       currentPage.value = 1
     }
 
@@ -399,9 +415,27 @@ export default {
     // 设置时间范围为全部
     const setFullTimeRange = () => {
       if (timeRangeLimit.value) {
-        timeRange.value = [timeRangeLimit.value[0], timeRangeLimit.value[1]]
+        timeRange.value = [
+          formatTimestamp(timeRangeLimit.value[0]),
+          formatTimestamp(timeRangeLimit.value[1])
+        ]
       }
     }
+
+    // 禁用超出范围的日期（按天限制）
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+    const disableOutOfRangeDates = (date) => {
+      if (!timeRangeLimit.value || !date) return false
+      const [min, max] = timeRangeLimit.value
+      return date < startOfDay(new Date(min)) || date > endOfDay(new Date(max))
+    }
+
+    // 打开面板时默认展示的页（左右两侧月份/日期依据最小、最大值）
+    const defaultPickerRange = computed(() => {
+      if (!timeRangeLimit.value) return null
+      return [timeRangeLimit.value[0], timeRangeLimit.value[1]]
+    })
 
     // 跳转到手术统计页面
     const showSurgeryStatistics = () => {
@@ -441,6 +475,13 @@ export default {
       try {
         await loadLogInfo()
         await loadLogEntries()
+        // 默认选择全部时间范围（最早至最晚）
+        if (timeRangeLimit.value) {
+          timeRange.value = [
+            formatTimestamp(timeRangeLimit.value[0]),
+            formatTimestamp(timeRangeLimit.value[1])
+          ]
+        }
       } finally {
         loading.value = false
       }
@@ -469,6 +510,8 @@ export default {
       formatTimestamp,
       timeRangeLimit,
       setFullTimeRange,
+      defaultPickerRange,
+      disableOutOfRangeDates,
       showSurgeryStatistics,
       analyzeSurgeryData,
       surgeryStatisticsVisible,
