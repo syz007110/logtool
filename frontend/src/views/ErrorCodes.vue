@@ -39,18 +39,34 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="subsystem" label="子系统" width="80" show-overflow-tooltip />
-        <el-table-column prop="code" label="故障码" width="120" show-overflow-tooltip />
-        <el-table-column label="提示信息" show-overflow-tooltip>
+        <el-table-column prop="subsystem" label="子系统" width="80" />
+        <el-table-column prop="code" label="故障码" width="120" />
+        <el-table-column label="提示信息" min-width="140">
           <template #default="{ row }">
-            {{ [row.user_hint, row.operation].filter(Boolean).join(', ') }}
+            <ExplanationCell :text="[row.user_hint, row.operation].filter(Boolean).join(', ')" />
           </template>
         </el-table-column>
-        <el-table-column prop="param1" label="参数1" show-overflow-tooltip />
-        <el-table-column prop="param2" label="参数2" show-overflow-tooltip />
-        <el-table-column prop="param3" label="参数3" show-overflow-tooltip />
-        <el-table-column prop="param4" label="参数4" show-overflow-tooltip />
-        <el-table-column prop="category" label="分类" width="100" show-overflow-tooltip />
+        <el-table-column prop="param1" label="参数1" min-width="100">
+          <template #default="{ row }">
+            <ExplanationCell :text="String(row.param1 ?? '')" :always="true" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="param2" label="参数2" min-width="100">
+          <template #default="{ row }">
+            <ExplanationCell :text="String(row.param2 ?? '')" :always="true" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="param3" label="参数3" min-width="100">
+          <template #default="{ row }">
+            <ExplanationCell :text="String(row.param3 ?? '')" :always="true" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="param4" label="参数4" min-width="100">
+          <template #default="{ row }">
+            <ExplanationCell :text="String(row.param4 ?? '')" :always="true" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="category" label="分类" width="100" />
         <el-table-column label="操作" width="180" v-if="canUpdate || canDelete">
           <template #default="{ row }">
             <el-button
@@ -291,7 +307,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, onBeforeUnmount, h, resolveComponent } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
@@ -301,7 +317,63 @@ export default {
   name: 'ErrorCodes',
   components: {
     Search,
-    Plus
+    Plus,
+    ExplanationCell: {
+      name: 'ExplanationCell',
+      props: { 
+        text: { type: String, default: '' },
+        always: { type: Boolean, default: false }
+      },
+      setup(props) {
+        const containerRef = ref(null)
+        const needsTooltip = ref(false)
+        let resizeObserver = null
+
+        const measure = () => {
+          const el = containerRef.value
+          if (!el) return
+          needsTooltip.value = (el.scrollWidth - el.clientWidth) > 1
+        }
+
+        const handleMouseEnter = () => {
+          measure()
+        }
+
+        onMounted(() => {
+          measure()
+          if ('ResizeObserver' in window) {
+            resizeObserver = new ResizeObserver(() => measure())
+            if (containerRef.value) resizeObserver.observe(containerRef.value)
+          } else {
+            window.addEventListener('resize', measure)
+          }
+        })
+
+        onBeforeUnmount(() => {
+          if (resizeObserver && containerRef.value) resizeObserver.unobserve(containerRef.value)
+          if (resizeObserver) resizeObserver.disconnect()
+          resizeObserver = null
+          window.removeEventListener('resize', measure)
+        })
+
+        return () => h(resolveComponent('el-tooltip'), {
+          content: props.text,
+          placement: 'top',
+          effect: 'dark',
+          popperClass: 'explanation-tooltip dark',
+          teleported: true,
+          showAfter: 120,
+          disabled: ((props.text ?? '') === '') || (!props.always && !needsTooltip.value)
+        }, {
+          default: () => h('span', {
+            ref: containerRef,
+            class: 'explanation-ellipsis',
+            style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+            onMouseenter: handleMouseEnter
+          }, props.text)
+        })
+      }
+    }
   },
   setup() {
     const store = useStore()
@@ -728,5 +800,28 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* 让提示信息列的 tooltip 在表格外也能显示，沿用批量分析样式 */
+.explanation-tooltip {
+  max-width: 60vw;
+  white-space: normal;
+  word-break: break-word;
+  z-index: 3000;
+}
+.el-popper.explanation-tooltip {
+  overflow: visible;
+}
+.explanation-ellipsis {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explanation-tooltip.dark {
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  border: none;
 }
 </style>

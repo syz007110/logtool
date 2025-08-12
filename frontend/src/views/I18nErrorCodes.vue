@@ -78,19 +78,19 @@
             <el-tag :type="getLangTagType(row.lang)">{{ getLangDisplayName(row.lang) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="short_message" :label="$t('i18nErrorCodes.shortMessage')" show-overflow-tooltip>
+        <el-table-column :label="$t('i18nErrorCodes.shortMessage')" min-width="180">
           <template #default="{ row }">
-            {{ row.short_message || 'N/A' }}
+            <ExplanationCell :text="row.short_message || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column prop="user_hint" :label="$t('i18nErrorCodes.userHint')" show-overflow-tooltip>
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="220">
           <template #default="{ row }">
-            {{ row.user_hint || 'N/A' }}
+            <ExplanationCell :text="row.user_hint || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column prop="operation" :label="$t('i18nErrorCodes.operation')" show-overflow-tooltip>
+        <el-table-column :label="$t('i18nErrorCodes.operation')" min-width="200">
           <template #default="{ row }">
-            {{ row.operation || 'N/A' }}
+            <ExplanationCell :text="row.operation || 'N/A'" />
           </template>
         </el-table-column>
         <el-table-column :label="$t('common.operation')" width="150" v-if="canUpdate || canDelete">
@@ -299,7 +299,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, computed, watch, onBeforeUnmount, h, resolveComponent } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Download } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
@@ -309,6 +309,64 @@ import JSZip from 'jszip'
 
 export default {
   name: 'I18nErrorCodes',
+  components: {
+    ExplanationCell: {
+      name: 'ExplanationCell',
+      props: { 
+        text: { type: String, default: '' },
+        always: { type: Boolean, default: false }
+      },
+      setup(props) {
+        const containerRef = ref(null)
+        const needsTooltip = ref(false)
+        let resizeObserver = null
+
+        const measure = () => {
+          const el = containerRef.value
+          if (!el) return
+          needsTooltip.value = (el.scrollWidth - el.clientWidth) > 1
+        }
+
+        const handleMouseEnter = () => {
+          measure()
+        }
+
+        onMounted(() => {
+          measure()
+          if ('ResizeObserver' in window) {
+            resizeObserver = new ResizeObserver(() => measure())
+            if (containerRef.value) resizeObserver.observe(containerRef.value)
+          } else {
+            window.addEventListener('resize', measure)
+          }
+        })
+
+        onBeforeUnmount(() => {
+          if (resizeObserver && containerRef.value) resizeObserver.unobserve(containerRef.value)
+          if (resizeObserver) resizeObserver.disconnect()
+          resizeObserver = null
+          window.removeEventListener('resize', measure)
+        })
+
+        return () => h(resolveComponent('el-tooltip'), {
+          content: props.text,
+          placement: 'top',
+          effect: 'dark',
+          popperClass: 'explanation-tooltip dark',
+          teleported: true,
+          showAfter: 120,
+          disabled: ((props.text ?? '') === '') || (!props.always && !needsTooltip.value)
+        }, {
+          default: () => h('span', {
+            ref: containerRef,
+            class: 'explanation-ellipsis',
+            style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+            onMouseenter: handleMouseEnter
+          }, props.text)
+        })
+      }
+    }
+  },
   setup() {
     const store = useStore()
     const { t } = useI18n()
@@ -1107,3 +1165,27 @@ export default {
   word-break: break-all;
 }
 </style> 
+<style>
+/* 统一悬停样式，避免被表格裁剪，并保持一致的暗色气泡 */
+.explanation-tooltip {
+  max-width: 60vw;
+  white-space: normal;
+  word-break: break-word;
+  z-index: 3000;
+}
+.el-popper.explanation-tooltip {
+  overflow: visible;
+}
+.explanation-ellipsis {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explanation-tooltip.dark {
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  border: none;
+}
+</style>
