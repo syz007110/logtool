@@ -145,6 +145,15 @@ const surgeryStatistics = {
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' })
 }
 
+const devices = {
+  getList: (params) => api.get('/devices', { params }),
+  create: (data) => api.post('/devices', data),
+  update: (id, data) => api.put(`/devices/${id}`, data),
+  delete: (id) => api.delete(`/devices/${id}`),
+  autoFillDeviceId: (key) => api.get('/devices/auto-fill/device-id', { params: { key } }),
+  autoFillKey: (deviceId) => api.get('/devices/auto-fill/key', { params: { device_id: deviceId } })
+}
+
 export default {
   auth,
   errorCodes,
@@ -155,4 +164,5 @@ export default {
   roles,
   i18n,
   surgeryStatistics
+  ,devices
 } 

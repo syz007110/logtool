@@ -201,6 +201,25 @@
             <span class="label">表达式预览：</span>
             <span class="expr">{{ advancedExpression }}</span>
           </div>
+          <!-- 常用搜索表达式（内嵌于条件组下，位于表达式预览下侧） -->
+          <div class="common-templates" v-if="templates && templates.length">
+            <div class="section-title">常用搜索表达式</div>
+            <div class="tags-ops">
+              <el-button size="small" type="primary" plain @click="applySelectedTemplate" :disabled="!selectedTemplateName">应用选择表达式</el-button>
+              <span class="hint">选择表达式并应用，条件会自动填充进“添加条件”区域</span>
+            </div>
+            <div class="tags-wrap antd-tags single-select">
+              <a-checkable-tag
+                v-for="tpl in templates"
+                :key="tpl.name"
+                :checked="selectedTemplateName === tpl.name"
+                @change="(checked) => onTemplateSingleSelect(tpl.name, checked)"
+                class="tpl-tag bordered"
+              >
+                {{ tpl.name }}
+              </a-checkable-tag>
+            </div>
+          </div>
           <div class="group-root">
             <div class="group-header">
               <span>根组逻辑：</span>
@@ -226,29 +245,9 @@
           </div>
         </div>
 
-        <!-- 3. 常用搜索表达式（Ant Design 单选线框标签） -->
-        <div class="section" v-if="templates && templates.length">
-          <div class="section-title">3. 常用搜索表达式</div>
-          <div class="tags-ops">
-            <el-button size="small" type="primary" plain @click="applySelectedTemplate" :disabled="!selectedTemplateName">应用选择表达式</el-button>
-            <span class="hint">选择表达式并应用，条件会自动填充进“添加条件”区域</span>
-          </div>
-          <div class="tags-wrap antd-tags single-select">
-            <a-checkable-tag
-              v-for="tpl in templates"
-              :key="tpl.name"
-              :checked="selectedTemplateName === tpl.name"
-              @change="(checked) => onTemplateSingleSelect(tpl.name, checked)"
-              class="tpl-tag bordered"
-            >
-              {{ tpl.name }}
-            </a-checkable-tag>
-          </div>
-        </div>
-
-        <!-- 4. 导入表达式 -->
+        <!-- 2. 导入表达式 -->
         <div class="section">
-          <div class="section-title">4. 导入表达式</div>
+          <div class="section-title">2. 导入表达式</div>
         <div class="import-row">
           <el-upload 
             :show-file-list="false" 
@@ -1572,6 +1571,9 @@ export default {
 }
 .advanced-filter .group-header.nested {
   margin-left: 8px;
+}
+.advanced-filter .group-root {
+  margin-top: 10px;
 }
 .template-tags, .tags-wrap {
   display: flex;

@@ -19,6 +19,7 @@ const userRolesRouter = require('./routes/userRoles');
 const operationLogsRouter = require('./routes/operationLogs');
 const logsRouter = require('./routes/logs');
 const surgeryStatisticsRouter = require('./routes/surgeryStatistics');
+const devicesRouter = require('./routes/devices');
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/i18n-error-codes', i18nErrorCodesRouter);
 app.use('/api/i18n', i18nRouter);
 app.use('/api/xml-export', xmlExportRouter);
 app.use('/api/logs', logsRouter);
+app.use('/api/devices', devicesRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/operation-logs', operationLogsRouter);
 app.use('/api/surgery-statistics', surgeryStatisticsRouter);

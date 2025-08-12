@@ -20,6 +20,8 @@ TRUNCATE TABLE error_codes;
 ALTER TABLE error_codes AUTO_INCREMENT = 1;
 -- 清空日志表
 TRUNCATE TABLE logs;
+-- 清空设备表
+TRUNCATE TABLE devices;
 
 -- 清空多语言配置表
 TRUNCATE TABLE i18n_texts;
@@ -32,6 +34,7 @@ ALTER TABLE users AUTO_INCREMENT = 1;
 ALTER TABLE roles AUTO_INCREMENT = 1;
 ALTER TABLE error_codes AUTO_INCREMENT = 1;
 ALTER TABLE logs AUTO_INCREMENT = 1;
+ALTER TABLE devices AUTO_INCREMENT = 1;
 ALTER TABLE i18n_texts AUTO_INCREMENT = 1;
 
 -- 显示清空结果

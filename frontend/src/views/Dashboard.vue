@@ -28,6 +28,11 @@
           <el-icon><Upload /></el-icon>
           <span>{{ $t('nav.logs') }}</span>
         </el-menu-item>
+
+        <el-menu-item v-if="isAdminOrExpert" index="/dashboard/devices">
+          <el-icon><Setting /></el-icon>
+          <span>设备管理</span>
+        </el-menu-item>
         
         <el-menu-item index="/dashboard/account">
           <el-icon><User /></el-icon>
@@ -121,6 +126,10 @@ export default {
     const currentUser = computed(() => store.getters['auth/currentUser'])
     const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
     const isAdmin = computed(() => store.getters['auth/userRole'] === 'admin')
+    const isAdminOrExpert = computed(() => {
+      const role = store.getters['auth/userRole']
+      return role === 'admin' || role === 'expert'
+    })
     
     const getPageTitleKey = computed(() => {
       const routeMap = {
@@ -162,6 +171,7 @@ export default {
       currentUser,
       currentLanguage,
       isAdmin,
+      isAdminOrExpert,
       getPageTitleKey,
       changeLanguage,
       handleUserCommand

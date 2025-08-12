@@ -38,6 +38,12 @@ const ROLES = {
       'i18n:read',
       'i18n:update',
       'i18n:delete',
+
+      // 设备管理权限
+      'device:create',
+      'device:read',
+      'device:update',
+      'device:delete',
       
       // 历史记录权限
       'history:read_all', // 查看所有历史记录
@@ -75,6 +81,12 @@ const ROLES = {
       'i18n:read',
       'i18n:update',
       'i18n:delete',
+
+      // 设备管理权限（专家允许管理）
+      'device:create',
+      'device:read',
+      'device:update',
+      'device:delete',
       
       // 历史记录权限（专家可以查看自己的历史记录）
       'history:read_own',

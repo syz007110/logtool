@@ -7,6 +7,7 @@ const Log = require('./log');
 const LogEntry = require('./log_entry');
 const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
+const Device = require('./device');
 
 // 定义模型关联关系
 function defineAssociations() {
@@ -78,6 +79,19 @@ function defineAssociations() {
   LogEntry.belongsTo(Log, {
     foreignKey: 'log_id',
     as: 'Log'
+  });
+
+  // Device 与 Log 的关联（通过 device_id 文本字段进行非外键关联）
+  // 我们保留 Log.device_id 为字符串，但提供便捷查询：Device.hasMany(Log, { sourceKey: 'device_id', foreignKey: 'device_id' })
+  Device.hasMany(Log, {
+    sourceKey: 'device_id',
+    foreignKey: 'device_id',
+    as: 'logs'
+  });
+  Log.belongsTo(Device, {
+    targetKey: 'device_id',
+    foreignKey: 'device_id',
+    as: 'Device'
   });
 
   // ErrorCode 和 I18nErrorCode 的一对多关联

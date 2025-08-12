@@ -101,6 +101,11 @@ const routes = [
         component: () => import('../views/Roles.vue'),
         meta: { requiresAdmin: true }
       },
+      {
+        path: 'devices',
+        name: 'Devices',
+        component: () => import('../views/Devices.vue')
+      },
 
     ]
   }

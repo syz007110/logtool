@@ -3,6 +3,7 @@ const path = require('path');
 const Log = require('../models/log');
 const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
+const Device = require('../models/device');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
 const SequelizeLib = require('sequelize');
@@ -99,21 +100,66 @@ const uploadLog = async (req, res) => {
     const uploadedLogs = [];
     
     for (const file of files) {
+      let log;
       try {
         console.log(`开始处理文件: ${file.originalname}, 大小: ${file.size} bytes`);
         
-        // 创建日志记录，初始状态为上传中
-        const log = await Log.create({
-          filename: file.filename,
-          original_name: file.originalname,
-          size: file.size,
-          status: 'uploading', // 初始状态为上传中
-          upload_time: new Date(),
-          uploader_id: req.user ? req.user.id : null,
-          device_id: deviceId || null,
-          key_id: decryptKey || null
+        // 如果已存在相同 device_id + original_name 的日志，则覆盖原数据而不是新增
+        log = await Log.findOne({
+          where: {
+            device_id: deviceId || null,
+            original_name: file.originalname
+          }
         });
+
+        if (log) {
+          // 覆盖：更新现有日志为上传中状态，并刷新关键元数据
+          await log.update({
+            filename: file.filename,
+            size: file.size,
+            status: 'uploading',
+            upload_time: new Date(),
+            uploader_id: req.user ? req.user.id : null,
+            device_id: deviceId || null,
+            key_id: decryptKey || null
+          });
+        } else {
+          // 新增
+          log = await Log.create({
+            filename: file.filename,
+            original_name: file.originalname,
+            size: file.size,
+            status: 'uploading', // 初始状态为上传中
+            upload_time: new Date(),
+            uploader_id: req.user ? req.user.id : null,
+            device_id: deviceId || null,
+            key_id: decryptKey || null
+          });
+        }
         
+        // 同步设备信息到设备表（若存在）
+        try {
+          if (deviceId && deviceId !== '0000-00') {
+            const [device, created] = await Device.findOrCreate({
+              where: { device_id: deviceId },
+              defaults: {
+                device_model: null,
+                device_key: decryptKey,
+                hospital: null,
+                created_at: new Date(),
+                updated_at: new Date()
+              }
+            });
+            if (!created && decryptKey && !device.device_key) {
+              device.device_key = decryptKey;
+              device.updated_at = new Date();
+              await device.save();
+            }
+          }
+        } catch (e) {
+          console.warn('设备信息同步失败（忽略，不影响日志处理）:', e.message);
+        }
+
         // 读取文件内容
         const content = fs.readFileSync(file.path, 'utf-8');
         console.log(`文件内容长度: ${content.length} 字符`);
@@ -188,6 +234,8 @@ const uploadLog = async (req, res) => {
         // 更新状态为解析中
         await log.update({ status: 'parsing' });
         
+        // 覆盖式写入：清空旧的明细再写入新的
+        await LogEntry.destroy({ where: { log_id: log.id } });
         if (entries.length > 0) {
           await LogEntry.bulkCreate(entries);
           console.log('数据库插入完成');
@@ -689,7 +737,7 @@ const deleteLog = async (req, res) => {
   }
 };
 
-// 根据密钥自动填充设备编号
+// 根据密钥自动填充设备编号（优先从设备表查询，其次从日志表推断）
 const autoFillDeviceId = async (req, res) => {
   try {
     const { key } = req.query;
@@ -698,7 +746,15 @@ const autoFillDeviceId = async (req, res) => {
       return res.status(400).json({ message: '请提供密钥' });
     }
     
-    // 在logs表中查找使用过该密钥的设备编号
+    // 1) 设备表
+    try {
+      const device = await Device.findOne({ where: { device_key: key } });
+      if (device && device.device_id) {
+        return res.json({ device_id: device.device_id });
+      }
+    } catch (_) {}
+
+    // 2) 在logs表中查找使用过该密钥的设备编号
     const log = await Log.findOne({
       where: { key_id: key },
       order: [['upload_time', 'DESC']], // 获取最新的记录
@@ -715,7 +771,7 @@ const autoFillDeviceId = async (req, res) => {
   }
 };
 
-// 根据设备编号自动填充密钥
+// 根据设备编号自动填充密钥（优先从设备表查询，其次从日志表推断）
 const autoFillKey = async (req, res) => {
   try {
     const { device_id } = req.query;
@@ -724,7 +780,15 @@ const autoFillKey = async (req, res) => {
       return res.status(400).json({ message: '请提供设备编号' });
     }
     
-    // 在logs表中查找该设备编号使用过的密钥
+    // 1) 设备表
+    try {
+      const device = await Device.findOne({ where: { device_id } });
+      if (device && device.device_key) {
+        return res.json({ key: device.device_key });
+      }
+    } catch (_) {}
+
+    // 2) 在logs表中查找该设备编号使用过的密钥
     const log = await Log.findOne({
       where: { device_id: device_id },
       order: [['upload_time', 'DESC']], // 获取最新的记录

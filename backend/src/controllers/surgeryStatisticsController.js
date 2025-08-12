@@ -293,44 +293,70 @@ function analyzeSurgeries(logEntries) {
       console.log(`开机事件记录: ${entry.timestamp}, 当前手术: ${currentSurgery ? currentSurgery.surgery_id : '无'}`);
     }
     // 关机事件处理 - 支持两种关机条件
-     // 情况1：errCode后四位为 'A02E'
-     // 情况2：检查errcode=310e且p2=31
-    if ((errCodeSuffix === 'A02E')|| (errCodeSuffix === '310e' && p2 === 31)){
-       console.log(`检测到A02E关机事件: 时间=${entry.timestamp}`);
-       isPowerOn = false;
-       errFlag = false;
-       // 记录关机事件
-       powerEvents.push({
-         type: 'power_off',
-         timestamp: entry.timestamp,
-         surgery_id: currentSurgery ? currentSurgery.surgery_id : null
-       });
-       // 记录关机时间，无论是否有手术对象
-       ShutDownTimes.push(entry.timestamp); // 记录所有关机时间
-             //更新手术信息
-      if (currentSurgery) {
-        // 初始化关机时间数组
-        if (!currentSurgery.shutdown_times) {
-          currentSurgery.shutdown_times = [];
+    // 情况1：errCode后四位为 'A02E'
+    // 情况2：检查 errcode=310e 且 p2=31，且在后续30s内没有出现 errcode=310e 且 p1=31 且 p2!=31
+    {
+      let isShutdownEvent = false;
+      if (errCodeSuffix === 'A02E') {
+        isShutdownEvent = true;
+      } else if (errCodeSuffix === '310e' && p2 === 31) {
+        const endTempleMs = new Date(entry.timestamp).getTime();
+        let canceledByFollowup = false;
+        // 向后查找30秒内的日志是否出现取消关机的事件
+        for (let j = i + 1; j < sortedLogEntries.length; j++) {
+          const nextEntry = sortedLogEntries[j];
+          const nextTimeMs = new Date(nextEntry.timestamp).getTime();
+          if (nextTimeMs - endTempleMs > 30 * 1000) break;
+          const nextSuffix = nextEntry.error_code ? nextEntry.error_code.slice(-4) : '';
+          const nextP1 = parseInt(nextEntry.param1) || 0;
+          const nextP2 = parseInt(nextEntry.param2) || 0;
+          if (nextSuffix === '310e' && nextP1 === 31 && nextP2 !== 31) {
+            canceledByFollowup = true;
+            console.log(`检测到疑似关机(310e p2=31)后的取消事件(30s内): 时间=${nextEntry.timestamp}`);
+            break;
+          }
         }
-        // 初始化开机时间数组（防止未定义错误）
-        if (!currentSurgery.power_on_times) {
-          currentSurgery.power_on_times = [];
+        if (!canceledByFollowup) {
+          isShutdownEvent = true;
+        } else {
+          // 明确记录未判定为关机
+          console.log(`310e p2=31 未判定为关机(30s内出现310e p1=31且p2!=31): 起始时间=${entry.timestamp}`);
         }
-        // 添加当前关机时间到手术的关机时间列表
-        currentSurgery.shutdown_times.push(entry.timestamp);
-                 //清空手术开机和关机时间，
-        if(surgeryStarted === false){
-          PowerOnTimes = [];
-          ShutDownTimes = [];
-        }
-        console.log(`为手术 ${currentSurgery.surgery_id} 记录关机时间: ${entry.timestamp}, 
-         当前关机时间数量: ${currentSurgery.shutdown_times.length}, 当前开机时间数量: ${currentSurgery.power_on_times.length}`);
-
       }
 
-      
-     }
+      if (isShutdownEvent) {
+        console.log(`检测到关机事件: 时间=${entry.timestamp}`);
+        isPowerOn = false;
+        errFlag = false;
+        // 记录关机事件
+        powerEvents.push({
+          type: 'power_off',
+          timestamp: entry.timestamp,
+          surgery_id: currentSurgery ? currentSurgery.surgery_id : null
+        });
+        // 记录关机时间，无论是否有手术对象
+        ShutDownTimes.push(entry.timestamp); // 记录所有关机时间
+        // 更新手术信息
+        if (currentSurgery) {
+          // 初始化关机时间数组
+          if (!currentSurgery.shutdown_times) {
+            currentSurgery.shutdown_times = [];
+          }
+          // 初始化开机时间数组（防止未定义错误）
+          if (!currentSurgery.power_on_times) {
+            currentSurgery.power_on_times = [];
+          }
+          // 添加当前关机时间到手术的关机时间列表
+          currentSurgery.shutdown_times.push(entry.timestamp);
+          // 清空手术开机和关机时间（若手术尚未开始）
+          if (surgeryStarted === false) {
+            PowerOnTimes = [];
+            ShutDownTimes = [];
+          }
+          console.log(`为手术 ${currentSurgery.surgery_id} 记录关机时间: ${entry.timestamp}, 当前关机时间数量: ${currentSurgery.shutdown_times.length}, 当前开机时间数量: ${currentSurgery.power_on_times.length}`);
+        }
+      }
+    }
 
          // 状态机事件处理
      if (errCodeSuffix === '310e') {
