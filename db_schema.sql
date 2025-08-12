@@ -138,3 +138,36 @@ CREATE TABLE IF NOT EXISTS i18n_error_codes (
   INDEX idx_error_code_id (error_code_id),
   INDEX idx_lang (lang)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
+
+--设备管理
+CREATE TABLE IF NOT EXISTS devices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  device_id VARCHAR(100) NOT NULL UNIQUE,   -- 设备编号（唯一，例如 4371-01 / ABC-12）
+  device_model VARCHAR(100),                -- 设备型号
+  device_key VARCHAR(100),                  -- 设备密钥（MAC，如 00-01-05-77-6a-09）
+  hospital VARCHAR(255),                    -- 所属医院
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- 修复数据库字符集为UTF-8
+-- 执行此脚本前请备份数据库
+
+-- 1. 修改数据库字符集
+ALTER DATABASE logtool CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 2. 修改多语言故障码表字符集
+ALTER TABLE i18n_error_codes CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 3. 修改故障码表字符集（如果需要）
+ALTER TABLE error_codes CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 4. 修改其他相关表的字符集
+ALTER TABLE users CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE roles CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE user_roles CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE logs CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE log_entries CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE operation_logs CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE i18n_texts CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
