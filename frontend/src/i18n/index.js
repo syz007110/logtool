@@ -69,9 +69,9 @@ const messages = {
       exportXML: '导出XML',
       searchPlaceholder: '搜索故障码...'
     },
-    // 多语言故障码管理
+    // 多语言管理
     i18nErrorCodes: {
-      title: '多语言故障码管理',
+      title: '多语言管理',
       addContent: '添加多语言内容',
       batchImport: '批量导入',
       exportXML: '导出XML',
@@ -111,6 +111,26 @@ const messages = {
       exportSuccess: '导出成功',
       multiLanguageExportSuccess: '多语言导出成功',
       exportFailed: '导出失败'
+    },
+    // 设备管理
+    devices: {
+      title: '设备管理'
+    },
+    // 数据诊断
+    dataReplay: {
+      title: '数据诊断'
+    },
+    // 缺陷反馈
+    feedback: {
+      title: '缺陷反馈'
+    },
+    // 日志详情
+    logDetail: {
+      title: '日志详情'
+    },
+    // 批量日志分析
+    batchAnalysis: {
+      title: '批量日志分析'
     },
     // 日志管理
     logs: {
@@ -248,9 +268,9 @@ const messages = {
       exportXML: 'Export XML',
       searchPlaceholder: 'Search error codes...'
     },
-    // I18n Error Codes management
+    // I18n management
     i18nErrorCodes: {
-      title: 'I18n Error Code Management',
+      title: 'I18n Management',
       addContent: 'Add I18n Content',
       batchImport: 'Batch Import',
       exportXML: 'Export XML',
@@ -290,6 +310,26 @@ const messages = {
       exportSuccess: 'Export successful',
       multiLanguageExportSuccess: 'Multi-language export successful',
       exportFailed: 'Export failed'
+    },
+    // Devices
+    devices: {
+      title: 'Devices'
+    },
+    // Data Replay
+    dataReplay: {
+      title: 'Data Diagnostics'
+    },
+    // Feedback
+    feedback: {
+      title: 'Feedback'
+    },
+    // Log Detail
+    logDetail: {
+      title: 'Log Detail'
+    },
+    // Batch Analysis
+    batchAnalysis: {
+      title: 'Batch Log Analysis'
     },
     // Log management
     logs: {

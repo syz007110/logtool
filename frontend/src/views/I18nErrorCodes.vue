@@ -63,17 +63,17 @@
 
       <!-- 多语言内容列表 -->
       <el-table :data="i18nErrorCodes" :loading="loading" style="width: 100%">
-        <el-table-column :label="$t('i18nErrorCodes.subsystemNumber')" width="120">
+        <el-table-column :label="$t('i18nErrorCodes.subsystemNumber')" width="90">
           <template #default="{ row }">
             {{ (row && row.errorCode && row.errorCode.subsystem) ? row.errorCode.subsystem : 'N/A' }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('i18nErrorCodes.errorCode')" width="120">
+        <el-table-column :label="$t('i18nErrorCodes.errorCode')" width="90">
           <template #default="{ row }">
             {{ (row && row.errorCode && row.errorCode.code) ? row.errorCode.code : 'N/A' }}
           </template>
         </el-table-column>
-        <el-table-column prop="lang" :label="$t('i18nErrorCodes.language')" width="80">
+        <el-table-column prop="lang" :label="$t('i18nErrorCodes.language')" width="110">
           <template #default="{ row }">
             <el-tag :type="getLangTagType(row.lang)">{{ getLangDisplayName(row.lang) }}</el-tag>
           </template>

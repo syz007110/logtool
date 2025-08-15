@@ -1,6 +1,7 @@
 const Device = require('../models/device');
 const Log = require('../models/log');
 const { Op } = require('sequelize');
+const { logOperation } = require('../utils/operationLogger');
 
 // 列表
 const listDevices = async (req, res) => {
@@ -45,6 +46,22 @@ const createDevice = async (req, res) => {
     const existed = await Device.findOne({ where: { device_id } });
     if (existed) return res.status(409).json({ message: '设备编号已存在' });
     const record = await Device.create({ device_id, device_model, device_key, hospital, created_at: new Date(), updated_at: new Date() });
+
+    // 操作日志
+    try {
+      await logOperation({
+        operation: '创建设备',
+        description: `创建设备: ${device_id}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { device_id, device_model, device_key: device_key ? '***' : null, hospital }
+      });
+    } catch (logErr) {
+      console.warn('记录操作日志失败（创建设备）:', logErr.message);
+    }
+
     res.json({ device: record });
   } catch (e) {
     res.status(500).json({ message: '创建设备失败', error: e.message });
@@ -76,6 +93,22 @@ const updateDevice = async (req, res) => {
     device.hospital = hospital ?? device.hospital;
     device.updated_at = new Date();
     await device.save();
+
+    // 操作日志
+    try {
+      await logOperation({
+        operation: '更新设备',
+        description: `更新设备: ${device.device_id}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { id: device.id, device_id: device.device_id, device_model, device_key: device_key ? '***' : undefined, hospital }
+      });
+    } catch (logErr) {
+      console.warn('记录操作日志失败（更新设备）:', logErr.message);
+    }
+
     res.json({ device });
   } catch (e) {
     res.status(500).json({ message: '更新设备失败', error: e.message });
@@ -90,6 +123,22 @@ const deleteDevice = async (req, res) => {
     if (!device) return res.status(404).json({ message: '设备不存在' });
     // 若日志存在引用该 device_id，仍允许删除，但不级联更改日志，保持历史一致。
     await device.destroy();
+
+    // 操作日志
+    try {
+      await logOperation({
+        operation: '删除设备',
+        description: `删除设备: ${device.device_id}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { id: device.id, device_id: device.device_id }
+      });
+    } catch (logErr) {
+      console.warn('记录操作日志失败（删除设备）:', logErr.message);
+    }
+
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ message: '删除设备失败', error: e.message });

@@ -125,10 +125,18 @@ function analyzeSurgeries(logEntries) {
   const logSources = new Set(logEntries.map(entry => entry.log_name || 'unknown'));
   console.log('日志来源:', Array.from(logSources));
   
-  // 检查时间范围
-  const timestamps = logEntries.map(entry => new Date(entry.timestamp));
-  const minTime = new Date(Math.min(...timestamps));
-  const maxTime = new Date(Math.max(...timestamps));
+  // 检查时间范围（避免使用 ... 展开导致的大数组栈溢出）
+  let minTs = Infinity;
+  let maxTs = -Infinity;
+  for (const entry of logEntries) {
+    const t = new Date(entry.timestamp).getTime();
+    if (!Number.isNaN(t)) {
+      if (t < minTs) minTs = t;
+      if (t > maxTs) maxTs = t;
+    }
+  }
+  const minTime = minTs === Infinity ? null : new Date(minTs);
+  const maxTime = maxTs === -Infinity ? null : new Date(maxTs);
   console.log('数据时间范围:', {
     start: minTime.toISOString(),
     end: maxTime.toISOString(),
@@ -139,7 +147,8 @@ function analyzeSurgeries(logEntries) {
   });
   
   // 确保日志条目按时间戳排序
-  const sortedLogEntries = logEntries.sort((a, b) => {
+  // 排序（使用非原地的浅拷贝，避免意外副作用）
+  const sortedLogEntries = [...logEntries].sort((a, b) => {
     const timeA = new Date(a.timestamp).getTime();
     const timeB = new Date(b.timestamp).getTime();
     return timeA - timeB;

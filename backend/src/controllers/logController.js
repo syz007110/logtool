@@ -6,10 +6,12 @@ const ErrorCode = require('../models/error_code');
 const Device = require('../models/device');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
+// 已移除 HanLP 相关调用
 const SequelizeLib = require('sequelize');
 const Op = SequelizeLib.Op;
 const os = require('os');
 const templatesPath = path.join(__dirname, '../config/searchTemplates.json');
+// 已移除 NLP 自然语言解析
 
 // 读取预设搜索模板
 const getSearchTemplates = async (req, res) => {
@@ -38,6 +40,8 @@ const importSearchTemplates = async (req, res) => {
     return res.status(500).json({ message: '导入搜索模板失败', error: e.message });
   }
 };
+
+// 已移除 NLP 相关接口
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -424,7 +428,7 @@ const getLogEntries = async (req, res) => {
 };
 
 // 批量获取日志明细（用于分析功能）
-const getBatchLogEntries = async (req, res) => {
+  const getBatchLogEntries = async (req, res) => {
   try {
     const { 
       log_ids, 
@@ -462,14 +466,33 @@ const getBatchLogEntries = async (req, res) => {
       }
     }
     
-    // 搜索功能（在释义中搜索）
+    // 搜索功能：在 explanation 与 error_code 中模糊匹配（OR）
     if (search) {
-      where.explanation = { [Op.like]: `%${search}%` };
+      const keywordOr = {
+        [Op.or]: [
+          { explanation: { [Op.like]: `%${search}%` } },
+          { error_code: { [Op.like]: `%${search}%` } }
+        ]
+      };
+      if (where[Op.and]) {
+        where[Op.and].push(keywordOr);
+      } else {
+        // 将已有的顶层键合并进 AND，避免覆盖已有条件
+        const baseConds = [];
+        Object.keys(where).forEach(k => {
+          if (k !== Op.and && k !== Op.or) {
+            baseConds.push({ [k]: where[k] });
+            delete where[k];
+          }
+        });
+        where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
+      }
     }
 
     // 高级筛选：解析 filters
     // 允许的字段与操作符白名单
     const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
+    let firstOccurrenceRequested = false;
     const buildCondition = (field, operator, value) => {
       // 保护：字段白名单
       if (!allowedFields.has(field)) return null;
@@ -492,6 +515,7 @@ const getBatchLogEntries = async (req, res) => {
             if (!Array.isArray(val) || val.length !== 2) return null;
             const a = Number(val[0]);
             const b = Number(val[1]);
+            if (Number.isNaN(a) || Number.isNaN(b)) return null;
             return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
           }
           // 其他比较运算符，单值数值
@@ -500,8 +524,23 @@ const getBatchLogEntries = async (req, res) => {
           return SequelizeLib.where(castCol, sequelizeOperator, n);
         }
         if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
-          const toDate = (d) => d instanceof Date ? d : new Date(d);
-          return { [field]: sequelizeOperator === Op.between ? { [Op.between]: [toDate(val[0]), toDate(val[1])] } : { [sequelizeOperator]: toDate(val) } };
+          const toDate = (d) => {
+            if (d instanceof Date) return d;
+            if (typeof d === 'string' || typeof d === 'number') return new Date(d);
+            return null;
+          };
+          
+          if (sequelizeOperator === Op.between) {
+            if (!Array.isArray(val) || val.length !== 2) return null;
+            const startDate = toDate(val[0]);
+            const endDate = toDate(val[1]);
+            if (!startDate || !endDate) return null;
+            return { [field]: { [Op.between]: [startDate, endDate] } };
+          } else {
+            const date = toDate(val);
+            if (!date) return null;
+            return { [field]: { [sequelizeOperator]: date } };
+          }
         }
         if (sequelizeOperator === Op.regexp) {
           // 正则长度限制
@@ -518,21 +557,32 @@ const getBatchLogEntries = async (req, res) => {
         if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
           if (!Array.isArray(val) || val.length !== 2) return null;
           if (isNumericParam) {
+            const a = Number(val[0]);
+            const b = Number(val[1]);
+            if (Number.isNaN(a) || Number.isNaN(b)) return null;
             return SequelizeLib.where(
               SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'),
               sequelizeOperator,
-              [Number(val[0]), Number(val[1])]
+              [a, b]
             );
           }
           return { [field]: { [sequelizeOperator]: val } };
         }
         // 其他比较运算符
-        return isNumericParam
-          ? SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, Number(val))
-          : { [field]: { [sequelizeOperator]: val } };
+        if (isNumericParam) {
+          const n = Number(val);
+          if (Number.isNaN(n)) return null;
+          return SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, n);
+        }
+        return { [field]: { [sequelizeOperator]: val } };
       };
 
       switch ((operator || '').toLowerCase()) {
+        case 'firstof':
+          // 特殊标志：请求每个 (log_id, error_code) 的首次出现。
+          // 若指定了 error_code 的其他条件，会与之共同作用。
+          firstOccurrenceRequested = true;
+          return null;
         case '=': return buildOpValue(Op.eq, value);
         case '!=':
         case '<>': return buildOpValue(Op.ne, value);
@@ -546,8 +596,10 @@ const getBatchLogEntries = async (req, res) => {
         case 'notin': return buildOpValue(Op.notIn, value);
         case 'like':
         case 'contains': return buildOpValue(Op.like, value);
+        case 'notcontains': return { [field]: { [Op.notLike]: `%${value}%` } };
         case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
         case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
+        case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
         case 'regex': return buildOpValue(Op.regexp, value);
         default: return null;
       }
@@ -628,31 +680,326 @@ const getBatchLogEntries = async (req, res) => {
       }
     }
     
-    // 分页
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    // 分页参数
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 100;
+    const offset = (pageNum - 1) * limitNum;
     
-    const { count: total, rows: entries } = await LogEntry.findAndCountAll({
-      where,
-      offset,
-      limit: parseInt(limit),
-      order: [['timestamp', 'ASC']],
-      include: [{
-        model: Log,
-        as: 'Log',
-        attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
-      }]
-    });
+    // 优化查询：只选择必要的字段
+    const attributes = [
+      'id', 'log_id', 'timestamp', 'error_code', 
+      'param1', 'param2', 'param3', 'param4', 'explanation'
+    ];
     
-    res.json({ 
-      entries, 
-      total, 
-      page: parseInt(page), 
-      limit: parseInt(limit),
-      totalPages: Math.ceil(total / parseInt(limit))
-    });
+    if (firstOccurrenceRequested) {
+      console.log('[NLP] firstof enabled: fetching all matched entries for first-occurrence reduction');
+      // 为保证首次过滤正确，先取全量匹配（不分页），再按 (log_id, error_code) 取最早一条
+      const all = await LogEntry.findAll({
+        where,
+        attributes,
+        order: [['timestamp', 'ASC']],
+        include: [{
+          model: Log,
+          as: 'Log',
+          attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
+        }]
+      });
+      console.log(`[NLP] firstof total matched before reduce: ${all.length}`);
+      const seen = new Set();
+      const reduced = [];
+      for (const e of all) {
+        const key = `${e.log_id}::${e.error_code}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          reduced.push(e);
+        }
+      }
+      console.log(`[NLP] firstof after reduce: ${reduced.length}`);
+      const total = reduced.length;
+      const start = offset;
+      const end = offset + limitNum;
+      const entries = reduced.slice(start, end);
+      // 计算总体时间范围（基于 reduced）
+      let minTimestamp = null;
+      let maxTimestamp = null;
+      if (reduced.length > 0) {
+        const ms = reduced.map(e => new Date(e.timestamp).getTime()).filter(n => !Number.isNaN(n));
+        if (ms.length > 0) {
+          minTimestamp = new Date(Math.min(...ms));
+          maxTimestamp = new Date(Math.max(...ms));
+        }
+      }
+      return res.json({
+        entries,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        minTimestamp,
+        maxTimestamp
+      });
+    } else {
+      // 优化查询：使用 findAndCountAll 进行高效分页
+      const { count: total, rows: entries } = await LogEntry.findAndCountAll({
+        where,
+        attributes,
+        offset,
+        limit: limitNum,
+        order: [['timestamp', 'ASC']],
+        include: [{
+          model: Log,
+          as: 'Log',
+          attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
+        }],
+        // 添加查询优化选项
+        distinct: true,
+        subQuery: false
+      });
+      // 计算总体时间范围（基于相同 where 条件的聚合）
+      let minTimestamp = null;
+      let maxTimestamp = null;
+      try {
+        const agg = await LogEntry.findOne({
+          where,
+          attributes: [
+            [SequelizeLib.fn('MIN', SequelizeLib.col('timestamp')), 'min_ts'],
+            [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'max_ts']
+          ]
+        });
+        if (agg) {
+          minTimestamp = agg.get('min_ts');
+          maxTimestamp = agg.get('max_ts');
+        }
+      } catch (_) {}
+
+      return res.json({ 
+        entries, 
+        total, 
+        page: pageNum, 
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        minTimestamp,
+        maxTimestamp
+      });
+    }
   } catch (err) {
     console.error('批量获取日志明细失败:', err);
     res.status(500).json({ message: '获取日志明细失败', error: err.message });
+  }
+};
+
+// 导出批量日志明细为 CSV（服务端生成，单请求下载）
+const exportBatchLogEntriesCSV = async (req, res) => {
+  try {
+    const {
+      log_ids,
+      search,
+      error_code,
+      start_time,
+      end_time,
+      filters
+    } = req.query;
+
+    // 构建查询条件（与 getBatchLogEntries 保持一致）
+    const where = {};
+    if (log_ids) {
+      const ids = log_ids.split(',').map(id => parseInt(id.trim()));
+      where.log_id = { [Op.in]: ids };
+    }
+    if (error_code) {
+      where.error_code = { [Op.like]: `%${error_code}%` };
+    }
+    if (start_time || end_time) {
+      where.timestamp = {};
+      if (start_time) where.timestamp[Op.gte] = new Date(start_time);
+      if (end_time) where.timestamp[Op.lte] = new Date(end_time);
+    }
+    if (search) {
+      const keywordOr = {
+        [Op.or]: [
+          { explanation: { [Op.like]: `%${search}%` } },
+          { error_code: { [Op.like]: `%${search}%` } }
+        ]
+      };
+      if (where[Op.and]) {
+        where[Op.and].push(keywordOr);
+      } else {
+        const baseConds = [];
+        Object.keys(where).forEach(k => {
+          if (k !== Op.and && k !== Op.or) {
+            baseConds.push({ [k]: where[k] });
+            delete where[k];
+          }
+        });
+        where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
+      }
+    }
+
+    const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
+    let firstOccurrenceRequested = false;
+    const buildCondition = (field, operator, value) => {
+      if (!allowedFields.has(field)) return null;
+      const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(field);
+      const buildOpValue = (sequelizeOperator, val) => {
+        if (isNumericParam) {
+          const castCol = SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)');
+          if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+            const arr = Array.isArray(val) ? val : [val];
+            const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
+            if (nums.length === 0) return null;
+            return SequelizeLib.where(castCol, sequelizeOperator, nums);
+          }
+          if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+            if (!Array.isArray(val) || val.length !== 2) return null;
+            const a = Number(val[0]); const b = Number(val[1]);
+            if (Number.isNaN(a) || Number.isNaN(b)) return null;
+            return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
+          }
+          const n = Number(val);
+          if (Number.isNaN(n)) return null;
+          return SequelizeLib.where(castCol, sequelizeOperator, n);
+        }
+        if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
+          const toDate = (d) => {
+            if (d instanceof Date) return d; if (typeof d === 'string' || typeof d === 'number') return new Date(d); return null;
+          };
+          if (sequelizeOperator === Op.between) {
+            if (!Array.isArray(val) || val.length !== 2) return null;
+            const a = toDate(val[0]); const b = toDate(val[1]);
+            if (!a || !b) return null; return { [field]: { [Op.between]: [a, b] } };
+          }
+          const d = toDate(val); if (!d) return null; return { [field]: { [sequelizeOperator]: d } };
+        }
+        if (sequelizeOperator === Op.regexp) {
+          if (typeof val !== 'string' || val.length > 200) return null; return { [field]: { [Op.regexp]: val } };
+        }
+        if (sequelizeOperator === Op.like) return { [field]: { [Op.like]: `%${val}%` } };
+        if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+          const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
+          return { [field]: { [sequelizeOperator]: arr } };
+        }
+        if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+          if (!Array.isArray(val) || val.length !== 2) return null; return { [field]: { [sequelizeOperator]: val } };
+        }
+        if (isNumericParam) {
+          const n = Number(val); if (Number.isNaN(n)) return null; return SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, n);
+        }
+        return { [field]: { [sequelizeOperator]: val } };
+      };
+      switch ((operator || '').toLowerCase()) {
+        case 'firstof': firstOccurrenceRequested = true; return null;
+        case '=': return buildOpValue(Op.eq, value);
+        case '!=':
+        case '<>': return buildOpValue(Op.ne, value);
+        case '>': return buildOpValue(Op.gt, value);
+        case '>=': return buildOpValue(Op.gte, value);
+        case '<': return buildOpValue(Op.lt, value);
+        case '<=': return buildOpValue(Op.lte, value);
+        case 'between': return buildOpValue(Op.between, value);
+        case 'notbetween': return buildOpValue(Op.notBetween, value);
+        case 'in': return buildOpValue(Op.in, value);
+        case 'notin': return buildOpValue(Op.notIn, value);
+        case 'like':
+        case 'contains': return buildOpValue(Op.like, value);
+        case 'notcontains': return { [field]: { [Op.notLike]: `%${value}%` } };
+        case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
+        case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
+        case 'regex': return buildOpValue(Op.regexp, value);
+        default: return null;
+      }
+    };
+
+    const normalizeFilters = (raw) => {
+      if (!raw) return null; let parsed = raw; if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch (e) { return null; } } return parsed;
+    };
+    const advancedFilters = normalizeFilters(filters);
+    const buildFromNode = (node) => {
+      if (!node) return null;
+      if (Array.isArray(node)) {
+        const parts = node.map(n => buildFromNode(n)).filter(Boolean); if (parts.length === 0) return null; return { [Op.and]: parts };
+      }
+      if (node.field && node.operator) return buildCondition(node.field, node.operator, node.value);
+      if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+        const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean); if (childConds.length === 0) return null; return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
+      }
+      return null;
+    };
+    const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
+    if (advancedWhere) {
+      if (where[Op.and]) where[Op.and].push(advancedWhere);
+      else {
+        const baseConds = []; Object.keys(where).forEach(k => { if (k !== Op.and && k !== Op.or) { baseConds.push({ [k]: where[k] }); delete where[k]; } });
+        where[Op.and] = baseConds.length > 0 ? baseConds.concat([advancedWhere]) : [advancedWhere];
+      }
+    }
+
+    // 权限：普通用户只能下载自己的日志明细
+    const userRole = req.user.role_id;
+    if (userRole === 3) {
+      const userLogs = await Log.findAll({ where: { uploader_id: req.user.id }, attributes: ['id'] });
+      const userLogIds = userLogs.map(log => log.id);
+      if (where.log_id) {
+        const requestedIds = Array.isArray(where.log_id[Op.in]) ? where.log_id[Op.in] : [where.log_id[Op.in]];
+        const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
+        where.log_id = { [Op.in]: allowedIds };
+      } else {
+        where.log_id = { [Op.in]: userLogIds };
+      }
+    }
+
+    // 响应头
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="batch_log_entries_${Date.now()}.csv"`);
+    // UTF-8 BOM
+    res.write('\uFEFF');
+    // 表头
+    const headers = ['日志文件','时间戳','故障码','参数1','参数2','参数3','参数4','释义'];
+    res.write(headers.join(',') + '\n');
+
+    const attributes = ['id','log_id','timestamp','error_code','param1','param2','param3','param4','explanation'];
+    const idToNameCache = new Map();
+    const getLogName = async (logId) => {
+      if (idToNameCache.has(logId)) return idToNameCache.get(logId);
+      const lg = await Log.findByPk(logId, { attributes: ['original_name'] });
+      const name = lg?.original_name || '';
+      idToNameCache.set(logId, name);
+      return name;
+    };
+    const csvEscape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    const limit = 5000;
+    let pageNum = 1;
+    while (true) {
+      const offset = (pageNum - 1) * limit;
+      const rows = await LogEntry.findAll({
+        where,
+        attributes,
+        offset,
+        limit,
+        order: [['timestamp','ASC']]
+      });
+      if (!rows || rows.length === 0) break;
+      for (const row of rows) {
+        const logName = await getLogName(row.log_id);
+        const line = [
+          csvEscape(logName),
+          csvEscape(new Date(row.timestamp).toISOString().replace('T',' ').slice(0,19)),
+          csvEscape(row.error_code),
+          csvEscape(row.param1),
+          csvEscape(row.param2),
+          csvEscape(row.param3),
+          csvEscape(row.param4),
+          csvEscape(row.explanation)
+        ].join(',');
+        res.write(line + '\n');
+      }
+      if (rows.length < limit) break;
+      pageNum += 1;
+    }
+    return res.end();
+  } catch (err) {
+    console.error('导出日志明细CSV失败:', err);
+    return res.status(500).json({ message: '导出CSV失败', error: err.message });
   }
 };
 
@@ -1337,6 +1684,7 @@ module.exports = {
   getLogs,
   uploadLog,
   parseLog,
+  exportBatchLogEntriesCSV,
   getLogEntries,
   getBatchLogEntries,
   downloadLog,
@@ -1347,5 +1695,6 @@ module.exports = {
   batchDownloadLogs,
   analyzeSurgeryData,
   getSearchTemplates,
-  importSearchTemplates
+  importSearchTemplates,
+  
 }; 

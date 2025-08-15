@@ -1,0 +1,101 @@
+{
+  "fields": {
+    "error_code": ["错误码", "故障码", "code","日志", "记录","故障","报错"],
+    "explanation": [
+      "释义", "描述", "内容", "文本", "消息", "explanation", 
+      "1号臂", "臂1", "arm1", "器械", "工具臂", "调整臂","左手","右手"
+    ],
+    "param1": ["参数1", "参1", "p1"],
+    "param2": ["参数2", "参2", "p2"],
+    "param3": ["参数3", "参3", "p3"],
+    "param4": ["参数4", "参4", "p4"],
+    "timestamp": ["时间", "起止时间", "timestamp"]
+  },
+  "operators": {
+    "contains": ["包含", "包括", "含", "like", "有关", "关于"],
+    "notcontains": ["不包含", "不包括", "不含"],
+    "=": ["等于", "为", "="],
+    "!=": ["不等于", "不为", "!=", "<>", "<>"],
+    ">=": ["大于等于", ">="],
+    "<=": ["小于等于", "<="],
+    ">": ["大于", ">"],
+    "<": ["小于", "<"],
+    "between": ["介于", "之间", "从..到..", "在..到..之间"],
+    "in": ["之一", "属于", "在{..}中"],
+    "regex": ["正则", "匹配正则"]
+  },
+  "logic": {
+    "AND": ["且", "并且", "和", "与", "以及", "and"],
+    "OR": ["或", "或者", "or"]
+  },
+  "range_joiners": ["到", "至", "~", "-", "与"],
+  "time_phrases": {
+    "今天": "today",
+    "昨天": "yesterday",
+    "前天": "day_before_yesterday",
+    "上周": "last_week",
+    "上月": "last_month",
+    "上一小时": "last_hour"
+  },
+  "units": {
+    "ms": ["毫秒", "ms"],
+    "s": ["秒", "s"],
+    "C": ["摄氏度", "℃", "度"]
+  },
+  "lookups": {
+    "state_to_p2": {
+      "S20": 20,
+      "S10": 10,
+      "S30": 30
+    },
+    "kw2canon": {
+      "开机": "开机",
+      "power on": "开机",
+      "系统启动": "开机"
+    }
+  },
+  "patterns": [
+    {
+      "name": "X相关的故障码",
+      "regex": "(.+?)相关的(故障码|错误码)",
+      "conditions": [
+        { "field": "explanation", "operator": "contains", "value_from_group": 1 }
+      ]
+    },
+    {
+      "name": "状态机跳转到Sxx的故障码",
+      "regex": "状态机[跳转迁移切换变更]*到\\s*(S\\d+).*?(故障码|错误码)?",
+      "conditions": [
+        { "field": "error_code", "operator": "=", "value": "310e" },
+        { "field": "param2", "operator": "=", "value_from_lookup": { "table": "state_to_p2", "key_from_group": 1 } }
+      ]
+    },
+    {
+      "name": "1号臂优先规则：error_code第二位为3 或 释义包含1号臂",
+      "regex": "(1号臂|臂1|arm1)",
+      "group": {
+        "logic": "OR",
+        "conditions": [
+          { "field": "error_code", "operator": "regex", "value": "^.[3].*" },
+          { "field": "explanation", "operator": "contains", "value_from_group": 1 }
+        ]
+      }
+    },
+    {
+      "name": "设备开机（同义归一到开机）",
+      "regex": "(开机|power on|系统启动)",
+      "conditions": [
+        { "field": "explanation", "operator": "contains", "value_from_lookup": { "table": "kw2canon", "key_from_group": 1 } }
+      ]
+    },
+    {
+      "name": "相机相关（字段定向到 explanation）",
+      "regex": "(相机|镜头|camera)",
+      "conditions": [
+        { "field": "explanation", "operator": "contains", "value": "相机" }
+      ]
+    }
+  ]
+}
+
+

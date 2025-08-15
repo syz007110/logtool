@@ -20,6 +20,9 @@ const operationLogsRouter = require('./routes/operationLogs');
 const logsRouter = require('./routes/logs');
 const surgeryStatisticsRouter = require('./routes/surgeryStatistics');
 const devicesRouter = require('./routes/devices');
+const motionDataRouter = require('./routes/motionData');
+const feedbackRouter = require('./routes/feedback');
+const dashboardRouter = require('./routes/dashboard');
 
 const app = express();
 
@@ -27,6 +30,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// 静态资源：反馈图片
+app.use('/static/feedback', express.static(path.resolve(__dirname, '../uploads/feedback')));
 
 // 路由占位
 app.get('/', (req, res) => {
@@ -43,9 +48,12 @@ app.use('/api/i18n', i18nRouter);
 app.use('/api/xml-export', xmlExportRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/devices', devicesRouter);
+app.use('/api/motion-data', motionDataRouter);
+app.use('/api/feedback', feedbackRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/operation-logs', operationLogsRouter);
 app.use('/api/surgery-statistics', surgeryStatisticsRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

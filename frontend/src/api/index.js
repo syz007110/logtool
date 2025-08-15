@@ -104,6 +104,7 @@ const logs = {
   batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }, { responseType: 'blob' }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
+  exportBatchEntries: (params) => api.get('/logs/entries/export', { params, responseType: 'blob' }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
   analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
@@ -154,6 +155,30 @@ const devices = {
   autoFillKey: (deviceId) => api.get('/devices/auto-fill/key', { params: { device_id: deviceId } })
 }
 
+// Motion data APIs
+const motionData = {
+  getConfig: () => api.get('/motion-data/config'),
+  getDhModel: () => api.get('/motion-data/dh-model'),
+  upload: (formData) => api.post('/motion-data/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  preview: (id, params) => api.get(`/motion-data/${id}/preview`, { params }),
+  downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' })
+}
+
+const feedback = {
+  create: (formData) => api.post('/feedback', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getList: (params) => api.get('/feedback', { params }),
+  getDetail: (id) => api.get(`/feedback/${id}`),
+  updateStatus: (id, status) => api.put(`/feedback/${id}/status`, { status })
+}
+
+const dashboard = {
+  getStats: () => api.get('/dashboard/stats')
+}
+
 export default {
   auth,
   errorCodes,
@@ -163,6 +188,9 @@ export default {
   users,
   roles,
   i18n,
-  surgeryStatistics
-  ,devices
+  surgeryStatistics,
+  devices,
+  motionData,
+  feedback,
+  dashboard
 } 

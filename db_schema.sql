@@ -171,3 +171,32 @@ ALTER TABLE logs CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE log_entries CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE operation_logs CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE i18n_texts CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 缺陷反馈主表
+CREATE TABLE IF NOT EXISTS feedbacks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  title VARCHAR(100) NOT NULL,
+  description VARCHAR(500) NOT NULL,
+  status ENUM('open','in_progress','resolved') NOT NULL DEFAULT 'open',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_status (status),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 缺陷反馈图片表
+CREATE TABLE IF NOT EXISTS feedback_images (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  feedback_id INT NOT NULL,
+  url VARCHAR(255) NOT NULL,
+  storage_key VARCHAR(255) NULL,
+  width INT NULL,
+  height INT NULL,
+  size_bytes INT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE,
+  INDEX idx_feedback_id (feedback_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;

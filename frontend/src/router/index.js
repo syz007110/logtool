@@ -30,13 +30,13 @@ const routes = [
     path: '/batch-analysis/:logIds',
     name: 'BatchAnalysisStandalone',
     component: () => import('../views/BatchAnalysis.vue'),
-    meta: { requiresAuth: true, noSidebar: true }
+    meta: { requiresAuth: true, noSidebar: true, requiresAdmin: true }
   },
   {
     path: '/surgery-statistics',
     name: 'SurgeryStatistics',
     component: () => import('../views/SurgeryStatistics.vue'),
-    meta: { requiresAuth: true, noSidebar: true }
+    meta: { requiresAuth: true, noSidebar: true, requiresAdmin: true }
   },
   {
     path: '/dashboard',
@@ -76,7 +76,8 @@ const routes = [
       {
         path: 'batch-analysis/:logIds',
         name: 'BatchAnalysis',
-        component: () => import('../views/BatchAnalysis.vue')
+        component: () => import('../views/BatchAnalysis.vue'),
+        meta: { requiresAdmin: true }
       },
       {
         path: 'account',
@@ -105,6 +106,33 @@ const routes = [
         path: 'devices',
         name: 'Devices',
         component: () => import('../views/Devices.vue')
+      },
+      {
+        path: 'data-replay',
+        name: 'DataReplay',
+        component: () => import('../views/DataReplay.vue'),
+        meta: { requiresAdmin: true }
+      },
+      {
+        path: 'feedback',
+        name: 'Feedback',
+        component: () => import('../views/Feedback.vue')
+      },
+      {
+        path: 'feedback-list',
+        name: 'FeedbackList',
+        component: () => import('../views/FeedbackList.vue')
+      },
+      {
+        path: 'feedback-detail/:id',
+        name: 'FeedbackDetail',
+        component: () => import('../views/FeedbackDetail.vue'),
+        props: true
+      },
+      {
+        path: 'global-dashboard',
+        name: 'GlobalDashboard',
+        component: () => import('../views/GlobalDashboard.vue')
       },
 
     ]

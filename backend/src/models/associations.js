@@ -8,6 +8,8 @@ const LogEntry = require('./log_entry');
 const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
 const Device = require('./device');
+const Feedback = require('./feedback');
+const FeedbackImage = require('./feedback_image');
 
 // 定义模型关联关系
 function defineAssociations() {
@@ -115,6 +117,14 @@ function defineAssociations() {
     foreignKey: 'user_id',
     as: 'operationLogs'
   });
+
+  // Feedback 与 User 的关联
+  Feedback.belongsTo(User, { foreignKey: 'user_id', as: 'User' });
+  User.hasMany(Feedback, { foreignKey: 'user_id', as: 'feedbacks' });
+
+  // Feedback 与 FeedbackImage 的关联
+  Feedback.hasMany(FeedbackImage, { foreignKey: 'feedback_id', as: 'images' });
+  FeedbackImage.belongsTo(Feedback, { foreignKey: 'feedback_id', as: 'feedback' });
 
   console.log('✅ 模型关联定义完成');
 }

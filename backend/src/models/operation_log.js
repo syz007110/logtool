@@ -15,13 +15,23 @@ const OperationLog = sequelize.define('operation_logs', {
     type: DataTypes.TEXT,
     get() {
       const value = this.getDataValue('details');
-      if (!value) return null;
-      try {
-        return JSON.parse(value);
-      } catch (error) {
-        console.warn('解析操作日志 details 失败:', error.message);
-        return { rawData: value };
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'object') return value;
+      if (typeof value === 'string') {
+        const s = value.trim();
+        const looksJson = (s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'));
+        if (looksJson) {
+          try {
+            return JSON.parse(s);
+          } catch (_) {
+            // 解析失败则回退为原始字符串包装
+            return { rawData: s };
+          }
+        }
+        // 非 JSON 字符串，直接返回包装，避免告警噪音
+        return { rawData: s };
       }
+      return value;
     },
     set(value) {
       if (value === null || value === undefined) {

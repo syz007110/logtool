@@ -76,6 +76,8 @@
               class="search-input"
               clearable
               @input="handleSearch"
+              @compositionstart="onCompositionStart"
+              @compositionend="onCompositionEnd"
               size="small"
             >
               <template #prefix>
@@ -122,12 +124,39 @@
 
         <!-- 数据表格 -->
         <div v-else class="table-container">
+          <!-- 虚拟滚动表格 -->
+          <VirtualTable
+            v-if="useVirtualScroll"
+            ref="virtualTableRef"
+            :data="paginatedEntries"
+            :columns="tableColumns"
+            :item-height="40"
+            :buffer="10"
+            style="height: 60vh;"
+            class="antd-table"
+            @load-more="handleLoadMore"
+          >
+            <template #log_name="{ row }">
+              <ExplanationCell :text="row.log_name" />
+            </template>
+            <template #timestamp="{ row }">
+              {{ formatTimestamp(row.timestamp) }}
+            </template>
+            <template #explanation="{ row }">
+              <ExplanationCell :text="row.explanation" />
+            </template>
+          </VirtualTable>
+          
+          <!-- 传统表格（备用） -->
           <el-table 
+            v-else
             :data="paginatedEntries" 
             style="width: 100%"
             v-loading="loading"
             height="60vh"
-            stripe
+            :stripe="false"
+            class="antd-table"
+            table-layout="fixed"
             @current-change="forceRelayout"
             @selection-change="forceRelayout"
             @sort-change="forceRelayout"
@@ -149,7 +178,7 @@
             <el-table-column prop="param2" label="参数2" width="100" />
             <el-table-column prop="param3" label="参数3" width="100" />
             <el-table-column prop="param4" label="参数4" width="100" />
-            <el-table-column prop="explanation" label="释义" min-width="300">
+            <el-table-column prop="explanation" label="释义" width="400">
               <template #default="{ row }">
                 <ExplanationCell :text="row.explanation" />
               </template>
@@ -163,7 +192,7 @@
             :current-page="currentPage"
             :page-size="pageSize"
             :page-sizes="[50, 100, 200, 500]"
-            :total="filteredEntries.length"
+            :total="totalCount"
             layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
@@ -197,7 +226,7 @@
               >清空所有条件</el-button>
             </div>
           </div>
-          <div class="expr-preview" v-if="advancedExpression">
+          <div class="expr-preview" v-if="advancedExpression" ref="exprPreviewRef">
             <span class="label">表达式预览：</span>
             <span class="expr">{{ advancedExpression }}</span>
           </div>
@@ -257,19 +286,9 @@
               <el-button size="small">从文件导入(JSON)</el-button>
           </el-upload>
         </div>
-          <div class="import-text">
-            <el-input
-              v-model="importExpressionText"
-              type="textarea"
-              :rows="3"
-              placeholder='粘贴表达式JSON，如 { "logic": "AND", "conditions": [{"field":"error_code","operator":"contains","value":"E"}] }'
-            />
-            <div class="import-actions">
-              <el-button size="small" type="primary" plain @click="applyExpressionJSON" :disabled="!importExpressionText">解析并应用</el-button>
-              <el-button size="small" text @click="importExpressionText = ''" :disabled="!importExpressionText">清空</el-button>
-          </div>
         </div>
-        </div>
+
+        
       </div>
       <template #footer>
         <span class="dialog-footer">
@@ -288,6 +307,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Download, ArrowLeft, DataAnalysis, Warning } from '@element-plus/icons-vue'
 import api from '@/api'
+import VirtualTable from '@/components/VirtualTable.vue'
 
 export default {
   name: 'BatchAnalysis',
@@ -297,6 +317,7 @@ export default {
     ArrowLeft,
     DataAnalysis,
     Warning,
+    VirtualTable,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { text: { type: String, default: '' } },
@@ -380,7 +401,17 @@ export default {
               modelValue: node.field,
               style: 'width: 140px;',
               placeholder: '字段',
-              'onUpdate:modelValue': (v) => { node.field = v; props.onFieldChange(node) }
+              'onUpdate:modelValue': (v) => { 
+                // 确保node是一个对象，而不是原始类型
+                if (typeof node === 'object' && node !== null) {
+                  node.field = v; 
+                  props.onFieldChange(node)
+                } else {
+                  // 如果node是原始类型，需要重新创建对象
+                  Object.assign(node, { field: v })
+                  props.onFieldChange(node)
+                }
+              }
             }, {
               default: () => [
                 h(ElOption, { label: '时间戳', value: 'timestamp' }),
@@ -396,7 +427,17 @@ export default {
               modelValue: node.operator,
               style: 'width: 150px; margin-left: 8px;',
               placeholder: '操作符',
-              'onUpdate:modelValue': (v) => { node.operator = v; props.onOperatorChange(node) }
+              'onUpdate:modelValue': (v) => { 
+                // 确保node是一个对象，而不是原始类型
+                if (typeof node === 'object' && node !== null) {
+                  node.operator = v; 
+                  props.onOperatorChange(node)
+                } else {
+                  // 如果node是原始类型，需要重新创建对象
+                  Object.assign(node, { operator: v })
+                  props.onOperatorChange(node)
+                }
+              }
             }, {
               default: () => (props.getOperatorOptions(node.field) || []).map(op => h(ElOption, { label: op.label, value: op.value, key: op.value }))
             }),
@@ -406,20 +447,36 @@ export default {
                     modelValue: Array.isArray(node.value) ? node.value[0] : '',
                     placeholder: '起',
                     style: 'width: 140px; margin-left:8px;',
-                    'onUpdate:modelValue': (v) => { const arr = Array.isArray(node.value) ? node.value.slice(0,2) : ['', '']; arr[0] = v; node.value = arr }
+                    'onUpdate:modelValue': (v) => { 
+                      const arr = Array.isArray(node.value) ? node.value.slice(0,2) : ['', '']; 
+                      arr[0] = v; 
+                      node.value = arr 
+                    }
                   }),
                   h(ElInput, {
                     modelValue: Array.isArray(node.value) ? node.value[1] : '',
                     placeholder: '止',
                     style: 'width: 140px; margin-left:8px;',
-                    'onUpdate:modelValue': (v) => { const arr = Array.isArray(node.value) ? node.value.slice(0,2) : ['', '']; arr[1] = v; node.value = arr }
+                    'onUpdate:modelValue': (v) => { 
+                      const arr = Array.isArray(node.value) ? node.value.slice(0,2) : ['', '']; 
+                      arr[1] = v; 
+                      node.value = arr 
+                    }
                   })
                 ]
               : h(ElInput, {
                   modelValue: Array.isArray(node.value) ? node.value.join(',') : (node.value ?? ''),
                   placeholder: '值',
                   style: 'width: 300px; margin-left:8px;',
-                  'onUpdate:modelValue': (v) => { node.value = v }
+                  'onUpdate:modelValue': (v) => { 
+                    // 确保node.value是一个对象，而不是原始类型
+                    if (typeof node.value === 'object' && node.value !== null) {
+                      node.value = v
+                    } else {
+                      // 如果node.value是原始类型，需要重新创建对象
+                      Object.assign(node, { value: v })
+                    }
+                  }
                 }),
             h(ElButton, { type: 'danger', text: true, style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => '删除' })
           ])
@@ -438,7 +495,15 @@ export default {
                   h('span', null, '组逻辑：'),
                   h(ElRadioGroup, {
                     modelValue: node.logic || 'AND',
-                    'onUpdate:modelValue': (v) => { node.logic = v }
+                    'onUpdate:modelValue': (v) => { 
+                      // 确保node是一个对象，而不是原始类型
+                      if (typeof node === 'object' && node !== null) {
+                        node.logic = v
+                      } else {
+                        // 如果node是原始类型，需要重新创建对象
+                        Object.assign(node, { logic: v })
+                      }
+                    }
                   }, {
                     default: () => [
                       h(ElRadioButton, { label: 'AND' }, { default: () => 'AND' }),
@@ -485,8 +550,29 @@ export default {
     const timeRange = ref(null)
     const currentPage = ref(1)
     const pageSize = ref(100)
+    const totalCount = ref(0)
+    const totalPages = ref(0)
+    // 全量时间范围（来自后端聚合），用于限制时间选择器
+    const globalMinTs = ref(null)
+    const globalMaxTs = ref(null)
     const advancedMode = ref(false)
     const useLocalAdvanced = ref(false)
+    
+    // 虚拟滚动相关
+    const useVirtualScroll = ref(true)
+    // 是否允许滚动自动加载下一页（按需开启，默认关闭）
+    const allowAutoLoad = ref(false)
+    const virtualTableRef = ref(null)
+    const tableColumns = ref([
+      { prop: 'log_name', label: '日志文件', width: '150px' },
+      { prop: 'timestamp', label: '时间戳', width: '180px' },
+      { prop: 'error_code', label: '故障码', width: '120px' },
+      { prop: 'param1', label: '参数1', width: '100px' },
+      { prop: 'param2', label: '参数2', width: '100px' },
+      { prop: 'param3', label: '参数3', width: '100px' },
+      { prop: 'param4', label: '参数4', width: '100px' },
+      { prop: 'explanation', label: '释义', width: '400px' }
+    ])
 
     // 高级筛选弹窗与条件
     const showAdvancedFilter = ref(false)
@@ -553,32 +639,12 @@ export default {
     }
     const leafConditionCount = computed(() => countLeafConditions(filtersRoot.value))
 
-    // 过滤后的条目
+    // 过滤后的条目（后端分页，前端只做简单过滤）
     const filteredEntries = computed(() => {
       const list = Array.isArray(batchLogEntries.value) ? batchLogEntries.value : []
       let entries = list
 
-      // 搜索过滤
-      if (searchKeyword.value) {
-        const kw = searchKeyword.value.toLowerCase()
-        entries = entries.filter(entry => 
-          String(entry.explanation || '').toLowerCase().includes(kw) ||
-          String(entry.error_code || '').toLowerCase().includes(kw)
-        )
-      }
-
-      // 时间范围过滤
-      if (timeRange.value && timeRange.value.length === 2) {
-        const [startTime, endTime] = timeRange.value
-        const start = new Date(startTime)
-        const end = new Date(endTime)
-        entries = entries.filter(entry => {
-          const entryTime = new Date(entry.timestamp)
-          return entryTime >= start && entryTime <= end
-        })
-      }
-
-      // 本地高级筛选
+      // 本地高级筛选（仅在本地模式下）
       if (advancedMode.value && useLocalAdvanced.value && leafConditionCount.value > 0) {
         entries = entries.filter(e => evaluateAdvanced(e))
       }
@@ -588,10 +654,19 @@ export default {
 
     const batchCount = computed(() => Array.isArray(batchLogEntries.value) ? batchLogEntries.value.length : 0)
     const selectedLogsCount = computed(() => Array.isArray(selectedLogs.value) ? selectedLogs.value.length : 0)
-    const filteredCount = computed(() => Array.isArray(filteredEntries.value) ? filteredEntries.value.length : 0)
+    const filteredCount = computed(() => totalCount.value)
 
     // 计算时间范围限制（取已加载条目中的最早与最晚）
     const timeRangeLimit = computed(() => {
+      // 优先使用后端聚合范围
+      if (globalMinTs.value && globalMaxTs.value) {
+        const min = new Date(globalMinTs.value)
+        const max = new Date(globalMaxTs.value)
+        if (!Number.isNaN(min.getTime()) && !Number.isNaN(max.getTime())) {
+          return [min, max]
+        }
+      }
+      // 回退：使用当前已加载页的条目范围
       const entries = batchLogEntries.value
       if (!entries || entries.length === 0) return null
       const times = entries
@@ -603,11 +678,9 @@ export default {
       return [min, max]
     })
 
-    // 分页后的条目
+    // 分页后的条目（后端分页，直接使用当前页数据）
     const paginatedEntries = computed(() => {
-      const start = (currentPage.value - 1) * pageSize.value
-      const end = start + pageSize.value
-      return filteredEntries.value.slice(start, end)
+      return filteredEntries.value
     })
 
     // 从路由参数获取选中的日志
@@ -638,8 +711,8 @@ export default {
       }
     }
 
-    // 加载批量日志条目
-    const loadBatchLogEntries = async () => {
+    // 加载批量日志条目（后端分页）
+    const loadBatchLogEntries = async (page = 1, resetData = false) => {
       // 如果没有选中的日志，直接返回
       if (selectedLogs.value.length === 0) {
         return
@@ -647,97 +720,126 @@ export default {
       
       try {
         loading.value = true
+        
+        // 重置数据或初始化
+        if (resetData) {
         batchLogEntries.value = []
-        if (advancedMode.value || leafConditionCount.value > 0) {
-          if (useLocalAdvanced.value) {
-            // 本地执行：先加载所有条目，再前端过滤
-            const allEntries = []
-            for (const log of selectedLogs.value) {
-              try {
-                const response = await store.dispatch('logs/fetchLogEntries', log.id)
-                const entries = response.data?.entries || response.entries || []
-                const entriesWithLogName = entries.map(entry => ({
-                  ...entry,
-                  log_name: log.original_name,
-                }))
-                allEntries.push(...entriesWithLogName)
-              } catch (error) {
-                ElMessage.warning(`获取日志 ${log.original_name} 条目失败`)
-              }
-            }
-            batchLogEntries.value = allEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-            ElMessage.success(`批量分析完成，共 ${batchLogEntries.value.length} 条记录（本地筛选）`)
-            return
-          }
-          // 服务端过滤（分页抓取，直到取完全部记录）
+          currentPage.value = page
+        }
+        
+        // 构建查询参数
           const logIds = selectedLogs.value.map(l => l.id).join(',')
-          const filtersPayload = buildFiltersPayload()
           const baseParams = {
-            log_ids: logIds
+          log_ids: logIds,
+          page,
+          limit: pageSize.value
           }
+        
+        // 添加高级筛选条件
+        if (advancedMode.value && leafConditionCount.value > 0) {
+          const filtersPayload = buildFiltersPayload()
           if (filtersPayload) {
             baseParams.filters = JSON.stringify(filtersPayload)
           }
-          // 与简易搜索联动：时间与关键词（与高级条件为 AND 关系）
+        }
+        
+        // 添加时间范围筛选
           if (timeRange.value && timeRange.value.length === 2) {
             baseParams.start_time = timeRange.value[0]
             baseParams.end_time = timeRange.value[1]
           }
-          if (searchKeyword.value) baseParams.search = searchKeyword.value
-
-          const idToName = new Map(selectedLogs.value.map(l => [l.id, l.original_name]))
-          const all = []
-          let page = 1
-          const limit = 2000 // 单次抓取批量大小
-          let total = 0
-          while (true) {
-            const response = await store.dispatch('logs/fetchBatchLogEntries', { ...baseParams, page, limit })
-            const entries = response.data?.entries || []
-            total = response.data?.total ?? (page === 1 ? entries.length : total)
-            if (entries.length === 0) break
-            all.push(...entries.map(e => ({ ...e, log_name: idToName.get(e.log_id) || '' })))
-            if (all.length >= total) break
-            page += 1
-          }
-          batchLogEntries.value = all
-          ElMessage.success(`加载完成，共 ${batchLogEntries.value.length} 条记录`)
-        } else {
-          // 现有逻辑：客户端聚合
-          const allEntries = []
-          for (const log of selectedLogs.value) {
-            try {
-              const response = await store.dispatch('logs/fetchLogEntries', log.id)
-              const entries = response.data?.entries || response.entries || []
-              const entriesWithLogName = entries.map(entry => ({
+        
+        // 添加关键词搜索
+        if (searchKeyword.value) {
+          baseParams.search = searchKeyword.value
+        }
+        
+        // 调用后端分页接口
+        const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams)
+        const { entries, total, totalPages: serverTotalPages, page: serverPage, minTimestamp, maxTimestamp } = response.data
+        
+        // 处理返回的数据
+        const idToName = new Map(selectedLogs.value.map(l => [l.id, l.original_name]))
+        const processedEntries = entries.map(entry => ({
                 ...entry,
-                log_name: log.original_name,
-              }))
-              allEntries.push(...entriesWithLogName)
-            } catch (error) {
-              ElMessage.warning(`获取日志 ${log.original_name} 条目失败`)
+          log_name: idToName.get(entry.log_id) || ''
+        }))
+        
+        // 更新数据
+        if (resetData) {
+          batchLogEntries.value = processedEntries
+        } else {
+          // 追加数据（用于虚拟滚动）
+          batchLogEntries.value.push(...processedEntries)
+        }
+        
+        // 更新分页信息
+        totalCount.value = total
+        totalPages.value = serverTotalPages
+        if (typeof serverPage === 'number' && !Number.isNaN(serverPage)) {
+          currentPage.value = serverPage
+        }
+
+        // 更新时间范围限制（以后端返回的整体范围为准）
+        if (minTimestamp && maxTimestamp) {
+          // 确保是 Date 对象
+          const min = new Date(minTimestamp)
+          const max = new Date(maxTimestamp)
+          if (!Number.isNaN(min.getTime()) && !Number.isNaN(max.getTime())) {
+            globalMinTs.value = min
+            globalMaxTs.value = max
+            // 仅当当前 timeRange 超出范围或尚未设置时才回填
+            const needInit = !timeRange.value || timeRange.value.length !== 2
+            const [curStart, curEnd] = needInit ? [null, null] : timeRange.value
+            const curStartDate = curStart ? new Date(curStart) : null
+            const curEndDate = curEnd ? new Date(curEnd) : null
+            const outOfRange = !curStartDate || !curEndDate || curStartDate < min || curEndDate > max
+            if (needInit || outOfRange) {
+              timeRange.value = [
+                formatTimestamp(min),
+                formatTimestamp(max)
+              ]
             }
           }
-          batchLogEntries.value = allEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          ElMessage.success(`批量分析完成，共 ${batchLogEntries.value.length} 条记录`)
         }
+        
+        // 翻页/加载完成时不显示全量数量提示，避免频繁打扰
+        
       } catch (error) {
-        ElMessage.error('批量分析失败')
+        ElMessage.error('批量分析失败: ' + (error.response?.data?.message || error.message))
       } finally {
         loading.value = false
       }
     }
 
-    // 搜索处理
+    // 搜索输入状态：中文输入法组合中不触发
+    const isComposing = ref(false)
+    const onCompositionStart = () => { isComposing.value = true }
+    const onCompositionEnd = () => { 
+      isComposing.value = false 
+      // 组合结束后再触发一次
+      debouncedSearch()
+    }
+
+    // 防抖的搜索触发（300ms）
+    let searchTimer = null
+    const debouncedSearch = () => {
+      if (isComposing.value) return
+      if (searchTimer) clearTimeout(searchTimer)
+      searchTimer = setTimeout(() => {
+        currentPage.value = 1
+        loadBatchLogEntries(1, true)
+      }, 300)
+    }
+
+    // 供输入框 @input 调用
     const handleSearch = () => {
-      currentPage.value = 1
+      debouncedSearch()
     }
 
     const handleQuery = async () => {
       currentPage.value = 1
-      // 自动选择：有高级条件或时间/关键词等条件时走服务端；否则本地
-      if (leafConditionCount.value > 0) {
-        await loadBatchLogEntries()
-      }
+      await loadBatchLogEntries(1, true)
     }
 
     // 时间范围变化处理
@@ -754,6 +856,7 @@ export default {
         if (changed) timeRange.value = [formatTimestamp(start), formatTimestamp(end)]
       }
       currentPage.value = 1
+      loadBatchLogEntries(1, true)
     }
 
     // 清除筛选
@@ -764,7 +867,7 @@ export default {
       advancedMode.value = false
       currentPage.value = 1
       // 立即重新加载，显示全部条目
-      await loadBatchLogEntries()
+      await loadBatchLogEntries(1, true)
     }
 
     // 仅清空高级条件，不影响其他筛选（供弹窗内一键清空使用）
@@ -792,43 +895,61 @@ export default {
       return [timeRangeLimit.value[0], timeRangeLimit.value[1]]
     })
 
-    // 导出CSV
-    const exportToCSV = () => {
-      const headers = ['日志文件', '时间戳', '故障码', '参数1', '参数2', '参数3', '参数4', '释义']
-      const csvContent = [
-        headers.join(','),
-        ...filteredEntries.value.map(entry => [
-          entry.log_name,
-          formatTimestamp(entry.timestamp),
-          entry.error_code,
-          entry.param1,
-          entry.param2,
-          entry.param3,
-          entry.param4,
-          `"${entry.explanation.replace(/"/g, '""')}"`
-        ].join(','))
-      ].join('\n')
+    // 导出CSV（服务端生成 + axios 带鉴权单请求下载）
+    const exportToCSV = async () => {
+      try {
+        ElMessage.info('正在导出，请稍候...')
+        const logIds = selectedLogs.value.map(l => l.id).join(',')
+        const params = {
+          log_ids: logIds
+        }
+        if (advancedMode.value && leafConditionCount.value > 0) {
+          const filtersPayload = buildFiltersPayload()
+          if (filtersPayload) params.filters = JSON.stringify(filtersPayload)
+        }
+        if (timeRange.value && timeRange.value.length === 2) {
+          params.start_time = timeRange.value[0]
+          params.end_time = timeRange.value[1]
+        }
+        if (searchKeyword.value) params.search = searchKeyword.value
 
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      const isSingle = selectedLogs.value.length === 1
-      const singleName = isSingle ? `${selectedLogs.value[0].original_name}_analysis.csv` : null
-      link.download = isSingle ? singleName : `batch_logs_analysis_${new Date().toISOString().slice(0, 10)}.csv`
-      link.click()
-      URL.revokeObjectURL(link.href)
-      
-      ElMessage.success('CSV文件导出成功')
+        const resp = await api.logs.exportBatchEntries(params)
+        const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `batch_logs_analysis_${new Date().toISOString().slice(0, 10)}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        ElMessage.success('CSV导出完成')
+      } catch (error) {
+        ElMessage.error('导出CSV失败: ' + (error.response?.data?.message || error.message))
+      }
     }
 
     // 分页处理
     const handleSizeChange = (size) => {
       pageSize.value = size
       currentPage.value = 1
+      loadBatchLogEntries(1, true)
     }
 
-    const handleCurrentChange = (page) => {
+    const handleCurrentChange = async (page) => {
       currentPage.value = page
+      // 手动分页不自动累加，直接替换为当前页数据
+      await loadBatchLogEntries(page, true)
+    }
+    
+    // 虚拟滚动加载更多数据
+    const handleLoadMore = async () => {
+      if (!allowAutoLoad.value) return
+      // 如果还有更多数据，加载下一页
+      if (currentPage.value < totalPages.value && !loading.value) {
+        currentPage.value++
+        await loadBatchLogEntries(currentPage.value, false)
+      }
     }
 
     // 表格分页/排序等交互后，强制触发一次重测量以保证 tooltip 判断正确
@@ -938,15 +1059,28 @@ export default {
     const normalizeValue = (field, operator, value) => {
       const op = String(operator || '').toLowerCase()
       const isNumeric = numericFields.has(field)
+      
+      // 处理空值
+      if (value === undefined || value === null || value === '') {
+        return null
+      }
+      
       if (op === 'between' || op === 'notbetween') {
-        const arr = Array.isArray(value) ? value : String(value ?? '').split(',')
+        const arr = Array.isArray(value) ? value : String(value).split(',')
+        if (arr.length < 2) return null
+        
         const a = (arr[0] ?? '').toString().trim()
         const b = (arr[1] ?? '').toString().trim()
+        
         if (isNumeric) {
-          return [Number(a), Number(b)]
+          const numA = Number(a)
+          const numB = Number(b)
+          if (Number.isNaN(numA) || Number.isNaN(numB)) return null
+          return [numA, numB]
         }
         return [a, b]
       }
+      
       if (op === 'in' || op === 'notin') {
         const arr = Array.isArray(value) ? value : [value]
         const trimmed = arr.map(s => s.toString().trim()).filter(s => s !== '')
@@ -955,10 +1089,12 @@ export default {
         }
         return trimmed
       }
+      
       if (isNumeric) {
         const n = Number(value)
         return Number.isNaN(n) ? value : n
       }
+      
       return value
     }
 
@@ -1026,6 +1162,9 @@ export default {
       if (op === 'contains' || op === 'like') {
         return String(raw).toLowerCase().includes(String(value ?? '').toLowerCase())
       }
+      if (op === 'notcontains') {
+        return !String(raw).toLowerCase().includes(String(value ?? '').toLowerCase())
+      }
       if (op === 'startswith') {
         return String(raw).startsWith(String(value ?? ''))
       }
@@ -1085,7 +1224,9 @@ export default {
 
     const evaluateAdvanced = (entry) => evaluateNode(filtersRoot.value, entry)
 
-    const applyExpressionJSON = () => {
+    const exprPreviewRef = ref(null)
+
+    const applyExpressionJSON = async () => {
       if (!importExpressionText.value) return
       try {
         const obj = JSON.parse(importExpressionText.value)
@@ -1095,6 +1236,11 @@ export default {
           filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
           // 仅填充，不立即执行；等待点击“应用”
           ElMessage.success('表达式已填充，请点击“应用”执行搜索')
+          showAdvancedFilter.value = true
+          await nextTick()
+          if (exprPreviewRef.value && exprPreviewRef.value.scrollIntoView) {
+            exprPreviewRef.value.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          }
         } else {
           ElMessage.error('JSON格式不正确，缺少 conditions')
         }
@@ -1102,6 +1248,26 @@ export default {
         ElMessage.error('解析失败：' + e.message)
       }
     }
+
+    const applyExpressionSmart = async () => {
+      if (!importExpressionText.value) return
+      // 仅支持 JSON 导入
+      try {
+        const obj = JSON.parse(importExpressionText.value)
+        if (obj && (Array.isArray(obj.conditions) || Array.isArray(obj.filters?.conditions))) {
+          const logic = obj.logic || obj.filters?.logic || 'AND'
+          const conds = Array.isArray(obj.conditions) ? obj.conditions : obj.filters?.conditions
+          filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
+          ElMessage.success('表达式已填充，请点击“应用”执行搜索')
+          return
+        }
+        ElMessage.warning('未识别到可用的表达式内容')
+      } catch (_) {
+        ElMessage.error('仅支持 JSON 格式的表达式导入')
+      }
+    }
+
+    
 
     // 分析手术数据（批量分析）
     const analyzeSurgeryData = async () => {
@@ -1129,10 +1295,14 @@ export default {
         if (!node) return null
         if (node.field && node.operator) {
           if (node.value === undefined || node.value === null || node.value === '') return null
+          
+          const normalizedValue = normalizeValue(node.field, node.operator, node.value)
+          if (normalizedValue === null) return null
+          
           return {
             field: node.field,
             operator: node.operator,
-            value: normalizeValue(node.field, node.operator, node.value)
+            value: normalizedValue
           }
         }
         if (Array.isArray(node.conditions)) {
@@ -1161,6 +1331,7 @@ export default {
         { label: '=', value: '=' },
         { label: '!=', value: '!=' },
         { label: '包含(Like)', value: 'contains' },
+        { label: '不包含', value: 'notcontains' },
         { label: '正则', value: 'regex' },
         { label: '前缀', value: 'startsWith' },
         { label: '后缀', value: 'endsWith' }
@@ -1174,7 +1345,8 @@ export default {
         { label: '<=', value: '<=' },
         { label: 'Between', value: 'between' },
         { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' }
+        { label: '包含(Like)', value: 'contains' },
+        { label: '不包含', value: 'notcontains' }
       ],
       param2: [
         { label: '=', value: '=' },
@@ -1185,7 +1357,8 @@ export default {
         { label: '<=', value: '<=' },
         { label: 'Between', value: 'between' },
         { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' }
+        { label: '包含(Like)', value: 'contains' },
+        { label: '不包含', value: 'notcontains' }
       ],
       param3: [
         { label: '=', value: '=' },
@@ -1196,7 +1369,8 @@ export default {
         { label: '<=', value: '<=' },
         { label: 'Between', value: 'between' },
         { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' }
+        { label: '包含(Like)', value: 'contains' },
+        { label: '不包含', value: 'notcontains' }
       ],
       param4: [
         { label: '=', value: '=' },
@@ -1207,10 +1381,12 @@ export default {
         { label: '<=', value: '<=' },
         { label: 'Between', value: 'between' },
         { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' }
+        { label: '包含(Like)', value: 'contains' },
+        { label: '不包含', value: 'notcontains' }
       ],
       explanation: [
         { label: '包含(Like)', value: 'contains' },
+        { label: '不包含', value: 'notcontains' },
         { label: '正则', value: 'regex' },
         { label: '前缀', value: 'startsWith' },
         { label: '后缀', value: 'endsWith' }
@@ -1260,7 +1436,7 @@ export default {
       showAdvancedFilter.value = false
       advancedMode.value = true
       currentPage.value = 1
-      await loadBatchLogEntries()
+      await loadBatchLogEntries(1, true)
     }
 
     const applySelectedTemplate = () => {
@@ -1292,7 +1468,6 @@ export default {
 
     onMounted(async () => {
       await loadSelectedLogs()
-      await loadBatchLogEntries()
       await loadTemplates()
       // 默认选择全部时间范围（最早至最晚）
       if (timeRangeLimit.value) {
@@ -1301,6 +1476,8 @@ export default {
           formatTimestamp(timeRangeLimit.value[1])
         ]
       }
+      // 初始化加载数据
+      await loadBatchLogEntries(1, true)
     })
 
     return {
@@ -1311,8 +1488,13 @@ export default {
       timeRange,
       currentPage,
       pageSize,
+      totalCount,
+      totalPages,
       advancedMode,
         useLocalAdvanced,
+      useVirtualScroll,
+      virtualTableRef,
+      tableColumns,
       showAdvancedFilter,
       filtersRoot,
       filteredEntries,
@@ -1333,6 +1515,7 @@ export default {
       exportToCSV,
       handleSizeChange,
       handleCurrentChange,
+      handleLoadMore,
       forceRelayout,
       formatTimestamp,
       formatFileSize,
@@ -1351,10 +1534,13 @@ export default {
       onTemplateSingleSelect,
       applySelectedTemplate,
       importExpressionText,
+      
       applyExpressionJSON,
+      applyExpressionSmart,
       addConditionToGroup,
       addGroupToGroup,
       removeNodeAt,
+      exprPreviewRef,
       applyAdvancedFilters,
       clearAllConditionsOnly,
       // expose helpers for operator dropdowns
@@ -1643,6 +1829,55 @@ export default {
   flex: 1;
   overflow: hidden;
   padding: 0 20px 20px 20px;
+}
+
+/* Ant Design Table-like styles */
+.antd-table {
+  --antd-border: #f0f0f0;
+  --antd-header-bg: #fafafa;
+  --antd-row-hover: #f5f5f5;
+  --antd-text: #1f1f1f;
+}
+
+.antd-table .el-table__header-wrapper th,
+.antd-table .virtual-table-header .virtual-table-cell {
+  background-color: var(--antd-header-bg) !important;
+  color: var(--antd-text);
+  font-weight: 600;
+  border-bottom: 1px solid var(--antd-border) !important;
+}
+
+.antd-table .el-table,
+.antd-table .el-table__body-wrapper,
+.antd-table .el-table__inner-wrapper {
+  border: 1px solid var(--antd-border);
+  border-radius: 8px;
+}
+
+.antd-table .el-table__row,
+.antd-table .virtual-table-row {
+  border-bottom: 1px solid var(--antd-border);
+}
+
+.antd-table .el-table__row:hover,
+.antd-table .virtual-table-row:hover {
+  background: var(--antd-row-hover);
+}
+
+.antd-table .el-table__cell,
+.antd-table .virtual-table-cell {
+  padding: 12px 16px;
+  color: var(--antd-text);
+}
+
+.antd-table .el-table__header tr:first-child th:first-child,
+.antd-table .el-table__body tr td:first-child {
+  padding-left: 16px;
+}
+
+.antd-table .el-table__header tr:first-child th:last-child,
+.antd-table .el-table__body tr td:last-child {
+  padding-right: 16px;
 }
 
 /* 让释义列的 tooltip 在表格外也能显示 */

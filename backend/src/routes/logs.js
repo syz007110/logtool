@@ -16,7 +16,8 @@ const {
   autoFillKey,
   analyzeSurgeryData,
   getSearchTemplates,
-  importSearchTemplates
+  importSearchTemplates,
+  exportBatchLogEntriesCSV
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -57,11 +58,16 @@ router.get('/:id/entries', auth, checkLogPermission('read_all'), getLogEntries);
 // 批量获取日志明细（用于分析功能）
 router.get('/entries/batch', auth, checkLogPermission('read_all'), getBatchLogEntries);
 
+// 批量导出日志明细 CSV（服务端流式导出）
+router.get('/entries/export', auth, checkLogPermission('read_all'), exportBatchLogEntriesCSV);
+
 // 手术统计分析
 router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), analyzeSurgeryData);
 
 // 搜索模板
 router.get('/search-templates', auth, checkLogPermission('read_all'), getSearchTemplates);
 router.post('/search-templates/import', auth, checkLogPermission('read_all'), importSearchTemplates);
+
+// 已移除：自然语言 -> 高级筛选表达式
 
 module.exports = router; 
