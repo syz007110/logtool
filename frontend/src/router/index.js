@@ -30,13 +30,15 @@ const routes = [
     path: '/batch-analysis/:logIds',
     name: 'BatchAnalysisStandalone',
     component: () => import('../views/BatchAnalysis.vue'),
-    meta: { requiresAuth: true, noSidebar: true, requiresAdmin: true }
+    // 允许拥有手术分析权限的用户访问（管理员、专家、普通用户）
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:analyze' }
   },
   {
     path: '/surgery-statistics',
     name: 'SurgeryStatistics',
     component: () => import('../views/SurgeryStatistics.vue'),
-    meta: { requiresAuth: true, noSidebar: true, requiresAdmin: true }
+    // 查看手术统计需要读权限
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:read' }
   },
   {
     path: '/dashboard',
@@ -77,7 +79,7 @@ const routes = [
         path: 'batch-analysis/:logIds',
         name: 'BatchAnalysis',
         component: () => import('../views/BatchAnalysis.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'surgery:analyze' }
       },
       {
         path: 'account',
@@ -154,11 +156,22 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const isAuthenticated = store.getters['auth/isAuthenticated']
   const userRole = store.getters['auth/userRole']
+  const hasPermission = store.getters['auth/hasPermission']
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login')
   } else if (to.meta.requiresAdmin && userRole !== 'admin') {
     next('/dashboard')
+  } else if (to.meta.requiresPermission) {
+    const required = to.meta.requiresPermission
+    const allowed = Array.isArray(required)
+      ? required.some((p) => hasPermission?.(p))
+      : hasPermission?.(required)
+    if (!allowed) {
+      next('/dashboard')
+    } else {
+      next()
+    }
   } else if (to.path === '/login' && isAuthenticated && from.path !== '/login') {
     // 仅在不是后退到login时才跳转，避免破坏历史
     next('/dashboard')
