@@ -112,6 +112,13 @@
             </template>
             <span>{{ $t('roles.title') }}</span>
           </a-menu-item>
+
+          <a-menu-item key="/dashboard/explanation-tester">
+            <template #icon>
+              <ExperimentOutlined />
+            </template>
+            <span>释义测试</span>
+          </a-menu-item>
         </template>
       </a-menu>
     </a-layout-sider>

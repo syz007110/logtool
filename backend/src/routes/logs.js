@@ -17,7 +17,9 @@ const {
   analyzeSurgeryData,
   getSearchTemplates,
   importSearchTemplates,
-  exportBatchLogEntriesCSV
+  exportBatchLogEntriesCSV,
+  reparseLog,
+  batchReparseLogs
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -48,8 +50,13 @@ router.delete('/batch', auth, checkLogPermission('delete'), batchDeleteLogs);
 // 批量下载日志 - 必须放在带参数的路由之前
 router.post('/batch/download', auth, checkLogPermission('download'), batchDownloadLogs);
 
+// 批量重新解析（仅管理员）
+router.post('/batch/reparse', auth, checkPermission('log:reparse'), batchReparseLogs);
+
 // 带参数的路由 - 必须放在具体路径之后
 router.post('/:id/parse', auth, checkPermission('log:parse'), parseLog);
+// 单个重新解析（仅管理员）
+router.post('/:id/reparse', auth, checkPermission('log:reparse'), reparseLog);
 router.get('/:id/download', auth, checkPermission('log:download'), downloadLog);
 router.delete('/:id', auth, checkLogPermission('delete'), deleteLog);
 // 获取日志明细 - 根据用户角色决定查看权限

@@ -276,15 +276,17 @@
     >
       <el-form :model="exportForm" label-width="120px">
         <el-form-item :label="$t('i18nErrorCodes.selectLanguages')" required>
-          <el-checkbox-group v-model="exportForm.languages">
-            <el-checkbox 
-              v-for="lang in exportLanguageOptions" 
-              :key="lang.value" 
-              :label="lang.value"
-            >
-              {{ lang.label }}
-            </el-checkbox>
-          </el-checkbox-group>
+          <div class="export-language-checkboxes" :style="{ '--lang-col-width': exportLangColWidth + 'px' }">
+            <el-checkbox-group v-model="exportForm.languages">
+              <el-checkbox 
+                v-for="lang in exportLanguageOptions" 
+                :key="lang.value" 
+                :label="lang.value"
+              >
+                {{ lang.label }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -419,6 +421,7 @@ export default {
     })
 
     const exportLanguageOptions = ref([])
+    const exportLangColWidth = ref(140)
 
     // 动态验证规则
     const rules = computed(() => {
@@ -560,6 +563,8 @@ export default {
       try {
         const response = await api.i18nErrorCodes.getLanguages()
         exportLanguageOptions.value = response.data?.languages || []
+        // 计算最长标签宽度，给每列一个统一的最小宽度，保证多列左对齐
+        exportLangColWidth.value = calcLangColumnWidth(exportLanguageOptions.value)
       } catch (error) {
         console.error('Load export languages error:', error)
         // 如果API调用失败，使用默认的导出语言选项
@@ -576,7 +581,19 @@ export default {
           { value: 'ro', label: '罗马尼亚语' },
           { value: 'da', label: '丹麦语' }
         ]
+        exportLangColWidth.value = calcLangColumnWidth(exportLanguageOptions.value)
       }
+    }
+
+    const calcLangColumnWidth = (options) => {
+      const basePadding = 28 // 复选框控件左右内边距与图标所占宽度
+      const maxLabelLength = (options || []).reduce((max, o) => {
+        const len = (o.label || '').length
+        return Math.max(max, len)
+      }, 0)
+      // 粗略按每汉字/字符 14px 估算，再加上控件内边距，限制最小和最大范围
+      const estimated = Math.min(Math.max(Math.ceil(maxLabelLength * 14) + basePadding, 120), 240)
+      return estimated
     }
 
     // 加载多语言故障码列表
@@ -969,7 +986,7 @@ export default {
         nl: '荷兰语',
         sk: '斯洛伐克语',
         ro: '罗马尼亚语',
-        da: '德语'
+        da: '丹麦语'
       }
       return langMap[lang] || lang
     }
@@ -1132,6 +1149,23 @@ export default {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+.export-language-checkboxes {
+  width: 100%;
+}
+.export-language-checkboxes :deep(.el-checkbox-group) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--lang-col-width, 10px), var(--lang-col-width, 140px)));
+  justify-content: start;
+  column-gap: 12px;
+  row-gap: 6px;
+}
+.export-language-checkboxes :deep(.el-checkbox) {
+  width: var(--lang-col-width, 140px);
+  margin-right: 0;
+  padding-right: 12px;
+  box-sizing: border-box;
 }
 
 .csv-format-tip {

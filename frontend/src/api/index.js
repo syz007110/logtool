@@ -44,7 +44,7 @@ api.interceptors.response.use(
           ElMessage.error('权限不足')
           break
         case 404:
-          ElMessage.error('请求的资源不存在')
+          ElMessage.error(data?.message || '请求的资源不存在')
           break
         case 500:
           ElMessage.error('服务器内部错误')
@@ -98,10 +98,12 @@ const logs = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   parse: (id) => api.post(`/logs/${id}/parse`),
+  reparse: (id) => api.post(`/logs/${id}/reparse`),
   download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/logs/${id}`),
   batchDelete: (logIds) => api.delete('/logs/batch', { data: { logIds } }),
   batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }, { responseType: 'blob' }),
+  batchReparse: (logIds) => api.post('/logs/batch/reparse', { logIds }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params, responseType: 'blob' }),
@@ -179,6 +181,10 @@ const dashboard = {
   getStats: () => api.get('/dashboard/stats')
 }
 
+const explanations = {
+  preview: (payload) => api.post('/explanations/preview', payload)
+}
+
 export default {
   auth,
   errorCodes,
@@ -192,5 +198,6 @@ export default {
   devices,
   motionData,
   feedback,
-  dashboard
+  dashboard,
+  explanations
 } 

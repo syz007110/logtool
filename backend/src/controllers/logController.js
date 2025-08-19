@@ -4,6 +4,7 @@ const Log = require('../models/log');
 const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
 const Device = require('../models/device');
+const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
 // 已移除 HanLP 相关调用
@@ -50,6 +51,8 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const getLogs = async (req, res) => {
   try {
     let { page = 1, limit = 20, device_id } = req.query;
+    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀）
+    const { only_own, year, month, day, hour, time_prefix } = req.query;
     page = parseInt(page, 10);
     limit = parseInt(limit, 10);
     
@@ -57,6 +60,31 @@ const getLogs = async (req, res) => {
     const where = {};
     if (device_id) {
       where.device_id = device_id;
+    }
+    // 仅看自己：uploader_id 等于当前用户
+    const truthy = (v) => {
+      if (v === undefined || v === null) return false;
+      const s = String(v).toLowerCase();
+      return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+    };
+    if (truthy(only_own) && req.user && req.user.id) {
+      where.uploader_id = req.user.id;
+    }
+    // 时间前缀筛选：original_name 以 YYYY[MM][DD][HH] 开头
+    // 优先使用直接传入的 time_prefix，其次使用 year/month/day/hour 组合
+    const prefixFromParam = (p) => typeof p === 'string' ? p.trim() : (p ?? '').toString();
+    const tp = prefixFromParam(time_prefix);
+    if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
+      where.original_name = { [Op.like]: `${tp}%` };
+    } else if (year) {
+      const y = String(year).padStart(4, '0');
+      const m = month ? String(month).padStart(2, '0') : '';
+      const d = day ? String(day).padStart(2, '0') : '';
+      const h = hour ? String(hour).padStart(2, '0') : '';
+      const prefix = `${y}${m}${d}${h}`;
+      if (prefix && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(prefix)) {
+        where.original_name = { [Op.like]: `${prefix}%` };
+      }
     }
     
     // 权限控制：所有用户都可以看到所有日志，但删除权限在删除接口中单独控制
@@ -193,7 +221,7 @@ const uploadLog = async (req, res) => {
           
           if (errorCodeStr && errorCodeStr.length >= 5) {
             subsystem = errorCodeStr.charAt(0); // 首位
-            code = '0X' + errorCodeStr.slice(-4);; // '0X' + 后4位
+            code = '0X' + errorCodeStr.slice(-4); // '0X' + 后4位
           }
           
           // 查询error_codes表获取正确的释义
@@ -217,7 +245,13 @@ const uploadLog = async (req, res) => {
             entry.param1, // 参数0
             entry.param2, // 参数1
             entry.param3, // 参数2
-            entry.param4  // 参数3
+            entry.param4, // 参数3
+            {
+              error_code: entry.error_code,
+              subsystem,
+              arm: errorCodeStr?.charAt(1) || null,
+              joint: errorCodeStr?.charAt(2) || null
+            }
           );
           
           entries.push({
@@ -261,7 +295,8 @@ const uploadLog = async (req, res) => {
         
         // 生成解密后的文件内容，使用解析后的释义
         const decryptedContent = entries.map(entry => {
-          return `${entry.timestamp} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
+          const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
+          return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
         }).join('\n');
         
         // 保存解密后的文件
@@ -346,7 +381,7 @@ const parseLog = async (req, res) => {
       
       if (errorCodeStr && errorCodeStr.length >= 5) {
         subsystem = errorCodeStr.charAt(0); // 首位
-        code = '0X' + errorCodeStr.slice(-4);; // '0X' + 后4位
+        code = '0X' + errorCodeStr.slice(-4); // '0X' + 后4位
       }
       // 查询error_codes表获取正确的释义
       let explanation = entry.explanation; // 默认使用原始释义
@@ -370,7 +405,13 @@ const parseLog = async (req, res) => {
         entry.param1, // 参数0
         entry.param2, // 参数1
         entry.param3, // 参数2
-        entry.param4  // 参数3
+        entry.param4, // 参数3
+        {
+          error_code: entry.error_code,
+          subsystem,
+          arm: errorCodeStr?.charAt(1) || null,
+          joint: errorCodeStr?.charAt(2) || null
+        }
       );
       
       entries.push({
@@ -440,6 +481,8 @@ const getLogEntries = async (req, res) => {
       limit = 100,
       filters // 高级筛选条件（JSON字符串或对象）
     } = req.query;
+    // 仅在首次加载或未选择时间范围时，返回建议的时间范围（min/max）
+    const shouldIncludeTimeSuggestion = !start_time && !end_time;
     
     // 构建查询条件
     const where = {};
@@ -735,8 +778,8 @@ const getLogEntries = async (req, res) => {
         page: pageNum,
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
-        minTimestamp,
-        maxTimestamp
+        minTimestamp: shouldIncludeTimeSuggestion ? minTimestamp : null,
+        maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
       });
     } else {
       // 优化查询：使用 findAndCountAll 进行高效分页
@@ -778,8 +821,8 @@ const getLogEntries = async (req, res) => {
         page: pageNum, 
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
-        minTimestamp,
-        maxTimestamp
+        minTimestamp: shouldIncludeTimeSuggestion ? minTimestamp : null,
+        maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
       });
     }
   } catch (err) {
@@ -981,9 +1024,10 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       if (!rows || rows.length === 0) break;
       for (const row of rows) {
         const logName = await getLogName(row.log_id);
+        const localTs = dayjs(row.timestamp).format('YYYY-MM-DD HH:mm:ss');
         const line = [
           csvEscape(logName),
-          csvEscape(new Date(row.timestamp).toISOString().replace('T',' ').slice(0,19)),
+          csvEscape(localTs),
           csvEscape(row.error_code),
           csvEscape(row.param1),
           csvEscape(row.param2),
@@ -1041,7 +1085,8 @@ const downloadLog = async (req, res) => {
     
     // 生成解密后的文件内容
     const fileContent = entries.map(entry => {
-      return `${entry.timestamp} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
+      const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
+      return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
     }).join('\n');
     
     // 设置响应头
@@ -1052,6 +1097,238 @@ const downloadLog = async (req, res) => {
     res.send(fileContent);
   } catch (err) {
     res.status(500).json({ message: '下载失败', error: err.message });
+  }
+};
+
+// 重新解析（仅更新释义）并同步更新本地解密文件 - 仅管理员
+const reparseLog = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const log = await Log.findByPk(id);
+    if (!log) return res.status(404).json({ message: '日志不存在' });
+
+    // 权限由路由中间件控制，这里不再重复校验角色，避免因 JWT 未包含角色导致误判
+
+    // 标记为解析中，便于前端显示状态
+    try {
+      log.status = 'parsing';
+      await log.save();
+    } catch (_) {}
+
+    // 读取现有明细
+    const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
+    if (!entries || entries.length === 0) {
+      return res.status(404).json({ message: '该日志没有明细可重新解析' });
+    }
+
+    // 为减少数据库查询，按 (subsystem, code) 预取 ErrorCode
+    const pairKey = (s, c) => `${s}::${c}`;
+    const requiredPairs = new Map();
+    for (const e of entries) {
+      const errorCodeStr = e.error_code || '';
+      if (errorCodeStr.length >= 5) {
+        const subsystem = errorCodeStr.charAt(0);
+        const code = '0X' + errorCodeStr.slice(-4);
+        requiredPairs.set(pairKey(subsystem, code), { subsystem, code });
+      }
+    }
+
+    const pairList = Array.from(requiredPairs.values());
+    const explanationsMap = new Map();
+    if (pairList.length > 0) {
+      for (const p of pairList) {
+        try {
+          const rec = await ErrorCode.findOne({ where: { subsystem: p.subsystem, code: p.code } });
+          if (rec && rec.explanation) {
+            explanationsMap.set(pairKey(p.subsystem, p.code), rec.explanation);
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 更新释义（仅 explanation 字段）
+    let updatedCount = 0;
+    for (const e of entries) {
+      const errorCodeStr = e.error_code || '';
+      let explanationTemplate = e.explanation || '';
+      if (errorCodeStr.length >= 5) {
+        const subsystem = errorCodeStr.charAt(0);
+        const code = '0X' + errorCodeStr.slice(-4);
+        const tpl = explanationsMap.get(pairKey(subsystem, code));
+        if (tpl) explanationTemplate = tpl;
+        const parsed = parseExplanation(
+          explanationTemplate,
+          e.param1,
+          e.param2,
+          e.param3,
+          e.param4,
+          {
+            error_code: e.error_code,
+            subsystem,
+            arm: errorCodeStr?.charAt(1) || null,
+            joint: errorCodeStr?.charAt(2) || null
+          }
+        );
+        if (parsed !== e.explanation) {
+          await LogEntry.update({ explanation: parsed }, { where: { id: e.id } });
+          updatedCount += 1;
+          // 同步内存值，供后续写文件
+          e.explanation = parsed;
+        }
+      }
+    }
+
+    // 生成并覆盖本地解密文件
+    const decryptedLines = entries.map(r => {
+      const localTs = dayjs(r.timestamp).format('YYYY-MM-DD HH:mm:ss');
+      return `${localTs} ${r.error_code} ${r.param1} ${r.param2} ${r.param3} ${r.param4} ${r.explanation || ''}`;
+    }).join('\n');
+
+    let outPath = log.decrypted_path;
+    try {
+      if (!outPath) {
+        // 若之前未生成过，按设备目录与原始名推导
+        let deviceFolder = UPLOAD_DIR;
+        if (log.device_id) {
+          deviceFolder = path.join(UPLOAD_DIR, log.device_id);
+          if (!fs.existsSync(deviceFolder)) fs.mkdirSync(deviceFolder, { recursive: true });
+        }
+        const decryptedFileName = (log.original_name || `log_${log.id}.medbot`).replace('.medbot', '.txt');
+        outPath = path.join(deviceFolder, decryptedFileName);
+        log.decrypted_path = outPath;
+      }
+      fs.writeFileSync(outPath, decryptedLines, 'utf-8');
+    } catch (fileErr) {
+      console.error('写入解密文件失败:', fileErr);
+    }
+
+    // 更新日志元数据
+    log.status = 'parsed';
+    log.parse_time = new Date();
+    await log.save();
+
+    return res.json({ message: '重新解析完成', updated: updatedCount, total: entries.length, output: log.decrypted_path });
+  } catch (err) {
+    console.error('重新解析失败:', err);
+    try {
+      const { id } = req.params || {};
+      if (id) {
+        const log = await Log.findByPk(id);
+        if (log) {
+          log.status = 'failed';
+          await log.save();
+        }
+      }
+    } catch (_) {}
+    return res.status(500).json({ message: '重新解析失败', error: err.message });
+  }
+};
+
+// 批量重新解析（仅更新释义）并同步文件 - 仅管理员
+const batchReparseLogs = async (req, res) => {
+  try {
+    const { logIds } = req.body || {};
+    if (!Array.isArray(logIds) || logIds.length === 0) {
+      return res.status(400).json({ message: '请提供要重新解析的日志ID列表' });
+    }
+    // 权限由路由中间件控制，这里不再重复校验角色
+
+    const results = [];
+    let success = 0;
+    let fail = 0;
+    for (const id of logIds) {
+      try {
+        // 复用单个的逻辑：直接调用内部函数不走 HTTP 层
+        req.params.id = id;
+        const fakeRes = {
+          status: (code) => ({ json: (obj) => ({ code, obj }) }),
+          json: (obj) => obj
+        };
+        // 手动执行核心逻辑（抽取为辅助函数可更优，这里直接调用以减少重构风险）
+        // 为避免改路由参数副作用，这里临时调用一个轻量实现
+        const log = await Log.findByPk(id);
+        if (!log) {
+          results.push({ id, status: 'not_found' });
+          fail++;
+          continue;
+        }
+        // 标记解析中
+        try { log.status = 'parsing'; await log.save(); } catch (_) {}
+        const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
+        if (!entries || entries.length === 0) {
+          results.push({ id, status: 'no_entries' });
+          fail++;
+          continue;
+        }
+        const pairKey = (s, c) => `${s}::${c}`;
+        const requiredPairs = new Map();
+        for (const e of entries) {
+          const ec = e.error_code || '';
+          if (ec.length >= 5) {
+            requiredPairs.set(pairKey(ec.charAt(0), '0X' + ec.slice(-4)), null);
+          }
+        }
+        const explanationsMap = new Map();
+        for (const k of requiredPairs.keys()) {
+          const [s, c] = k.split('::');
+          const rec = await ErrorCode.findOne({ where: { subsystem: s, code: c } });
+          if (rec?.explanation) explanationsMap.set(k, rec.explanation);
+        }
+        let updatedCount = 0;
+        for (const e of entries) {
+          const ec = e.error_code || '';
+          if (ec.length >= 5) {
+            const s = ec.charAt(0);
+            const c = '0X' + ec.slice(-4);
+            const tpl = explanationsMap.get(pairKey(s, c)) || e.explanation || '';
+            const parsed = parseExplanation(tpl, e.param1, e.param2, e.param3, e.param4, {
+              error_code: e.error_code,
+              subsystem: s,
+              arm: ec?.charAt(1) || null,
+              joint: ec?.charAt(2) || null
+            });
+            if (parsed !== e.explanation) {
+              await LogEntry.update({ explanation: parsed }, { where: { id: e.id } });
+              e.explanation = parsed;
+              updatedCount += 1;
+            }
+          }
+        }
+        const decryptedLines = entries.map(r => {
+          const localTs = dayjs(r.timestamp).format('YYYY-MM-DD HH:mm:ss');
+          return `${localTs} ${r.error_code} ${r.param1} ${r.param2} ${r.param3} ${r.param4} ${r.explanation || ''}`;
+        }).join('\n');
+        let outPath = log.decrypted_path;
+        if (!outPath) {
+          let deviceFolder = UPLOAD_DIR;
+          if (log.device_id) {
+            deviceFolder = path.join(UPLOAD_DIR, log.device_id);
+            if (!fs.existsSync(deviceFolder)) fs.mkdirSync(deviceFolder, { recursive: true });
+          }
+          const decryptedFileName = (log.original_name || `log_${log.id}.medbot`).replace('.medbot', '.txt');
+          outPath = path.join(deviceFolder, decryptedFileName);
+          log.decrypted_path = outPath;
+        }
+        try { fs.writeFileSync(outPath, decryptedLines, 'utf-8'); } catch (_) {}
+        log.status = 'parsed';
+        log.parse_time = new Date();
+        await log.save();
+        results.push({ id, status: 'ok', updated: updatedCount, total: entries.length });
+        success++;
+      } catch (e) {
+        try {
+          const log = await Log.findByPk(id);
+          if (log) { log.status = 'failed'; await log.save(); }
+        } catch (_) {}
+        results.push({ id, status: 'error', error: e.message });
+        fail++;
+      }
+    }
+
+    return res.json({ message: '批量重新解析完成', success, fail, results });
+  } catch (err) {
+    console.error('批量重新解析失败:', err);
+    return res.status(500).json({ message: '批量重新解析失败', error: err.message });
   }
 };
 
@@ -1378,7 +1655,8 @@ const batchDownloadLogs = async (req, res) => {
           
           if (entries.length > 0) {
             fileContent = entries.map(entry => {
-              return `${entry.timestamp} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
+              const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
+              return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
             }).join('\n');
             fileName = log.original_name.replace('.medbot', '_decrypted.txt');
           }
@@ -1684,6 +1962,8 @@ module.exports = {
   getLogs,
   uploadLog,
   parseLog,
+  reparseLog,
+  batchReparseLogs,
   exportBatchLogEntriesCSV,
   getLogEntries,
   getBatchLogEntries,

@@ -3,6 +3,9 @@ chcp 65001
 echo 正在启动logTool后端服务...
 echo.
 
+REM 进入backend目录
+cd backend
+
 REM 检查.env文件是否存在
 if not exist ".env" (
     echo 错误：未找到.env配置文件
@@ -11,8 +14,6 @@ if not exist ".env" (
     exit /b 1
 )
 
-REM 进入backend目录
-cd backend
 
 REM 检查node_modules是否存在
 if not exist "node_modules" (

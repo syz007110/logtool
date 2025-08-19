@@ -1,0 +1,7 @@
+{"time":"2025-08-17T13:37:36.607Z","operation":"新增故障码","description":"新增故障码: 0X164D","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":922,"code":"0X164D","subsystem":"3"}}
+{"time":"2025-08-17T13:41:27.770Z","operation":"新增故障码","description":"新增故障码: 0X165D","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":923,"code":"0X165D","subsystem":"3"}}
+{"time":"2025-08-17T13:56:26.648Z","operation":"新增故障码","description":"新增故障码: 0X164D","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":924,"code":"0X164D","subsystem":"9"}}
+{"time":"2025-08-17T13:57:46.788Z","operation":"新增故障码","description":"新增故障码: 0X165D","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":925,"code":"0X165D","subsystem":"9"}}
+{"time":"2025-08-17T13:59:29.179Z","operation":"新增故障码","description":"新增故障码: 0X3C9D","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":926,"code":"0X3C9D","subsystem":"1"}}
+{"time":"2025-08-17T14:03:16.392Z","operation":"新增故障码","description":"新增故障码: 0X2C7D","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":927,"code":"0X2C7D","subsystem":"1"}}
+{"time":"2025-08-17T14:14:36.420Z","operation":"新增故障码","description":"新增故障码: 0X100C","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":928,"code":"0X100C","subsystem":"1"}}

@@ -9,6 +9,10 @@ let faultMappings = null;
 const unitMappingsPath = path.join(__dirname, '../config/unitMappings.json');
 let unitMappings = null;
 
+// 加载前缀规则
+const prefixMappingsPath = path.join(__dirname, '../config/prefixMappings.json');
+let prefixMappings = null;
+
 function loadFaultMappings() {
   if (!faultMappings) {
     try {
@@ -46,6 +50,23 @@ function loadUnitMappings() {
     }
   }
   return unitMappings;
+}
+
+function loadPrefixMappings() {
+  if (!prefixMappings) {
+    try {
+      const content = fs.readFileSync(prefixMappingsPath, 'utf-8');
+      prefixMappings = JSON.parse(content);
+    } catch (error) {
+      // 默认配置（与先前硬编码一致）
+      prefixMappings = {
+        enabledSubsystems: ['1','3','5','8','9','A'],
+        subsystems: {},
+        default: { joinWithSpace: true }
+      };
+    }
+  }
+  return prefixMappings;
 }
 
 function toNumber(value) {
@@ -122,6 +143,80 @@ function applyFilters(rawValue, filterExpr) {
         const factor = units[mapping];
         const n = toNumber(current);
         if (!Number.isNaN(n) && Number.isFinite(factor)) current = n * factor;
+        break;
+      }
+      case 'highByte': {
+        const n = toNumber(current);
+        if (!Number.isNaN(n)) current = ((n >>> 8) & 0xFF);
+        break;
+      }
+      case 'lowByte': {
+        const n = toNumber(current);
+        if (!Number.isNaN(n)) current = (n & 0xFF);
+        break;
+      }
+      case 'hex': {
+        // 格式化为大写十六进制，可选指定位数（左侧补0）
+        const n = toNumber(current);
+        if (!Number.isNaN(n)) {
+          const width = Number(argStr);
+          let s = Math.abs(Math.trunc(n)).toString(16).toUpperCase();
+          if (Number.isFinite(width) && width > 0) s = s.padStart(width, '0');
+          current = s;
+        }
+        break;
+      }
+      case 'zpad': {
+        // 左侧补零至指定位数
+        const width = Number(argStr);
+        const s = String(current);
+        if (Number.isFinite(width) && width > 0) current = s.padStart(width, '0');
+        break;
+      }
+      case 'ascii': {
+        // 将数值或由分隔的数字序列转换为 ASCII 字符串
+        // 示例：ascii()，针对 65 -> 'A'；"65 66 67" -> 'ABC'
+        const s = String(current).trim();
+        const parts = s.split(/[,\s]+/).filter(Boolean);
+        if (parts.length > 1) {
+          let out = '';
+          for (const p of parts) {
+            const code = Number(p);
+            if (Number.isFinite(code) && code >= 0 && code <= 255) out += String.fromCharCode(code);
+          }
+          current = out;
+        } else {
+          const n = Number(s);
+          if (Number.isFinite(n)) {
+            if (n >= 0 && n <= 255) {
+              current = String.fromCharCode(n);
+            } else {
+              // 将 32 位整型拆成字节（大端）再转 ASCII，去除空字符
+              const buf = Buffer.allocUnsafe(4);
+              try {
+                buf.writeUInt32BE(Math.abs(Math.trunc(n)));
+                current = buf.toString('ascii').replace(/\u0000/g, '');
+              } catch {
+                current = s;
+              }
+            }
+          }
+        }
+        break;
+      }
+      case 'asciiHex': {
+        // 将十六进制字符串转换为 ASCII：'414243' -> 'ABC'
+        const raw = String(current).trim().replace(/^0x/i, '');
+        const hex = raw.replace(/[^0-9a-f]/gi, '');
+        if (hex.length > 0) {
+          const even = hex.length % 2 === 0 ? hex : '0' + hex;
+          let out = '';
+          for (let i = 0; i < even.length; i += 2) {
+            const byte = parseInt(even.slice(i, i + 2), 16);
+            if (Number.isFinite(byte)) out += String.fromCharCode(byte);
+          }
+          current = out;
+        }
         break;
       }
       default: {
@@ -201,6 +296,69 @@ function tryRenderRules(explanation, params, context) {
   return typeof fallback === 'string' ? fallback : null;
 }
 
+function buildPrefixFromContext(context) {
+  if (!context || !context.subsystem) return '';
+  const s = String(context.subsystem).toUpperCase();
+  let arm = context.arm ? String(context.arm).toUpperCase() : null;
+  let joint = context.joint ? String(context.joint).toUpperCase() : null;
+  // 当臂号/关节号为 '0' 时，不显示对应前缀
+  if (arm === '0') arm = null;
+  if (joint === '0') joint = null;
+
+  const cfg = loadPrefixMappings();
+  const enabled = cfg.enabledSubsystems || [];
+  if (!enabled.includes(s)) return '';
+
+  const subCfg = (cfg.subsystems && cfg.subsystems[s]) || {};
+  // 静态前缀
+  if (subCfg.staticPrefix) {
+    try {
+      // 允许使用 ${subsystem}
+      // eslint-disable-next-line no-new-func
+      const render = new Function('subsystem', `return \
+        (function(){ return \
+          \
+          ` + JSON.stringify(subCfg.staticPrefix) + `
+            .replace(/\\$\{subsystem\}/g, String(subsystem)); })();`);
+      return render(s);
+    } catch { /* ignore */ }
+    return String(subCfg.staticPrefix);
+  }
+
+  const parts = [];
+  const sep = subCfg.joinSeparator !== undefined ? String(subCfg.joinSeparator) : '';
+
+  // 额外的前缀标签，如“远程”
+  if (subCfg.prefixLabel) {
+    const labelSep = subCfg.labelJoinSeparator !== undefined ? String(subCfg.labelJoinSeparator) : '';
+    parts.push(String(subCfg.prefixLabel));
+    if (labelSep && !sep) {
+      // 若仅配置了 labelJoinSeparator 而未配置 joinSeparator，让标签与后续片段按 labelSep 连接
+      // 这里通过在后续 push 时附带分隔控制来实现，简单方案：把 label 作为单独部分，最终 join 时使用 sep；
+      // 若希望 label 与 arm/joint 之间强制贴合，可把 labelJoinSeparator 也写入 joinSeparator。
+    }
+  }
+
+  // arm 名称
+  if (arm && subCfg.armMap && subCfg.armMap[arm]) {
+    parts.push(subCfg.armMap[arm]);
+  }
+
+  // joint 名称
+  if (joint) {
+    if (subCfg.jointMap && subCfg.jointMap[joint]) {
+      parts.push(subCfg.jointMap[joint]);
+    } else if (subCfg.jointPattern) {
+      parts.push(String(subCfg.jointPattern).replace('{value}', joint));
+    }
+  }
+
+  const prefixCore = parts.join(sep);
+  if (!prefixCore) return '';
+  const joinWithSpace = cfg.default && cfg.default.joinWithSpace;
+  return joinWithSpace ? prefixCore : prefixCore; // 目前前缀内部已按 sep 连接，这里仅决定是否与正文加空格，已在下方处理
+}
+
 /**
  * 解析释义语句中的占位符
  * @param {string} explanation - 原始释义语句
@@ -225,30 +383,30 @@ function parseExplanation(explanation, param0, param1, param2, param3, context =
   // 扩展匹配：{i}, {i:d}, {i|filters}, {i:d|filters}
   // i 是参数索引（0-3），d 是转义表下标，filters 为管道表达式
   const placeholderRegex = /\{(\d+)(?::(-?\d+))?(?:\|([^}]+))?\}/g;
-  
-  let result = template;
-  let match;
 
-  while ((match = placeholderRegex.exec(template)) !== null) {
-    const fullMatch = match[0];
-    const paramIndex = parseInt(match[1]);
-    const mappingIndex = match[2] !== undefined ? parseInt(match[2]) : undefined;
-    const filters = match[3];
-
-    // 获取参数值
+  const result = template.replace(placeholderRegex, (_full, idxStr, mapIdxStr, filters) => {
+    const paramIndex = parseInt(idxStr);
+    const mappingIndex = mapIdxStr !== undefined ? parseInt(mapIdxStr) : undefined;
     const paramValue = params[paramIndex];
-    
-    let replacement = '';
 
+    let replacement = '';
     if (mappingIndex !== undefined && mappingIndex !== null && !Number.isNaN(mappingIndex)) {
       if (mappingIndex === 0) {
         replacement = paramValue !== undefined && paramValue !== null ? paramValue.toString() : '';
       } else if (mappingIndex > 0) {
         const mappingTable = mappings[mappingIndex.toString()];
         if (mappingTable && paramValue !== undefined && paramValue !== null) {
-          replacement = mappingTable[paramValue.toString()] || paramValue.toString();
+          const rawKey = String(paramValue).trim();
+          let mapped = mappingTable[rawKey];
+          if (mapped === undefined) {
+            const n = Number(rawKey);
+            if (!Number.isNaN(n)) {
+              mapped = mappingTable[String(n)];
+            }
+          }
+          replacement = mapped !== undefined ? mapped : rawKey;
         } else {
-          replacement = paramValue !== undefined && paramValue !== null ? paramValue.toString() : '';
+          replacement = paramValue !== undefined && paramValue !== null ? String(paramValue).trim() : '';
         }
       } else {
         // mappingIndex < 0: 强制跳过映射
@@ -263,10 +421,17 @@ function parseExplanation(explanation, param0, param1, param2, param3, context =
       replacement = typeof filtered === 'number' ? String(filtered) : String(filtered);
     }
 
-    // 替换占位符
-    result = result.replace(fullMatch, replacement);
-  }
+    return replacement;
+  });
 
+  // 根据需求为特定子系统增加前缀
+  const prefix = buildPrefixFromContext(context);
+  if (prefix) {
+    const cfg = loadPrefixMappings();
+    const joinWithSpace = cfg.default && cfg.default.joinWithSpace;
+    if (!result) return prefix;
+    return joinWithSpace ? `${prefix} ${result}` : `${prefix}${result}`;
+  }
   return result;
 }
 

@@ -107,7 +107,7 @@
     <el-dialog
       v-model="showAddDialog"
       :title="editingErrorCode ? '编辑故障码' : '添加故障码'"
-      width="800px"
+      width="1000px"
       :close-on-click-modal="false"
     >
       <el-form
@@ -794,12 +794,28 @@ export default {
 .error-code-form {
   max-height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 12px;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* 避免弹窗出现横向滚动条，保留右侧安全间距 */
+:deep(.el-dialog__body) {
+  overflow-x: hidden;
+}
+
+/* 确保输入控件不会超出容器宽度 */
+:deep(.error-code-form .el-input),
+:deep(.error-code-form .el-textarea__inner),
+:deep(.error-code-form .el-select),
+:deep(.error-code-form .el-radio-group) {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 /* 让提示信息列的 tooltip 在表格外也能显示，沿用批量分析样式 */

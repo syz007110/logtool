@@ -1,13 +1,268 @@
 <template>
   <div class="logs-container">
-    <!-- 上传区域 -->
+    <!-- 日志上传卡片 -->
     <el-card class="upload-card">
       <template #header>
         <div class="card-header">
           <span>日志上传</span>
         </div>
       </template>
+      <div class="upload-actions">
+        <el-button 
+          type="primary" 
+          @click="showUploadDialog = true"
+        >
+          <el-icon><UploadFilled /></el-icon>
+          上传日志
+        </el-button>
+      </div>
+    </el-card>
+    
+    <!-- 日志列表 -->
+    <el-card class="list-card">
+      <template #header>
+        <div class="card-header">
+          <span>日志列表</span>
+          <div class="header-actions">
+            <!-- 1) 批量操作组 -->
+            <div class="header-section batch-section" v-if="selectedLogs && selectedLogs.length > 0">
+              <div class="batch-actions">
+                <el-button 
+                  type="primary" 
+                  size="small" 
+                  @click="handleBatchAnalyze"
+                  :disabled="!canBatchOperate || !isSameDevice"
+                  :title="deviceCheckMessage"
+                >
+                  <el-icon><Monitor /></el-icon>
+                  批量分析 ({{ selectedLogs.length }})
+                </el-button>
+                <el-button 
+                  type="success" 
+                  size="small" 
+                  @click="handleBatchDownload"
+                  :disabled="!canBatchOperate"
+                >
+                  <el-icon><Download /></el-icon>
+                  批量下载 ({{ selectedLogs.length }})
+                </el-button>
+                <el-button 
+                  type="danger" 
+                  size="small" 
+                  @click="handleBatchDelete"
+                  :disabled="!canBatchDelete"
+                >
+                  <el-icon><Delete /></el-icon>
+                  批量删除 ({{ selectedLogs.length }})
+                </el-button>
+                <el-button 
+                  type="warning" 
+                  size="small" 
+                  @click="handleBatchReparse"
+                  :disabled="selectedLogs.length === 0 || userRole !== 1"
+                  v-if="userRole === 1"
+                >
+                  <el-icon><Refresh /></el-icon>
+                  批量重新解析 ({{ selectedLogs.length }})
+                </el-button>
+                <el-tooltip 
+                  content="普通用户只能删除自己上传的日志" 
+                  placement="top" 
+                  v-if="userRole === 3"
+                >
+                  <el-icon class="info-icon"><InfoFilled /></el-icon>
+                </el-tooltip>
+                <el-button 
+                  type="info" 
+                  size="small" 
+                  @click="clearSelection"
+                >
+                  取消选择
+                </el-button>
+              </div>
+              <div v-if="deviceCheckMessage" class="device-check-tip">
+                <el-tag type="warning" size="small">
+                  <el-icon><Warning /></el-icon>
+                  <span class="device-message">{{ deviceCheckMessage }}</span>
+                </el-tag>
+              </div>
+            </div>
+
+            <!-- 2) 仅看自己按钮 -->
+            <div class="header-section only-own-section">
+              <el-checkbox v-model="onlyOwn" @change="applyOnlyOwn" label="仅看自己" />
+            </div>
+
+            <!-- 3) 重置按钮 -->
+            <div class="header-section reset-section">
+              <el-button plain size="small" @click="resetAllFilters">重置</el-button>
+            </div>
+
+            <!-- 4) 刷新按钮 -->
+            <div class="header-section refresh-section">
+              <el-button plain size="small" @click="loadLogs">
+                <el-icon><Refresh /></el-icon>
+                刷新
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </template>
       
+      <el-table
+        :data="logs"
+        :loading="loading"
+        style="width: 100%"
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
+        <el-table-column prop="original_name" label="原始文件名" width="240">
+          <template #header>
+            <div class="col-header">
+              <span>原始文件名</span>
+              <el-popover
+                placement="bottom-start"
+                width="260"
+                v-model:visible="showNameFilterPanel"
+                popper-class="custom-filter-panel"
+              >
+                <div class="filter-panel">
+                  <div class="filter-title">时间前缀 (YYYY / YYYYMM / YYYYMMDD / YYYYMMDDHH)</div>
+                  <el-input
+                    v-model="nameTimePrefix"
+                    placeholder="例如 2025081611"
+                    clearable
+                    @keyup.enter="applyNameFilter"
+                  >
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
+                  <div class="filter-actions">
+                    <el-button size="small" type="primary" @click="applyNameFilter">搜索</el-button>
+                    <el-button size="small" @click="resetNameFilter">重置</el-button>
+                  </div>
+                </div>
+                <template #reference>
+                  <el-icon :class="['filter-trigger', { active: !!nameTimePrefix }]"><Filter /></el-icon>
+                </template>
+              </el-popover>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="device_id" label="设备编号" width="160">
+          <template #header>
+            <div class="col-header">
+              <span>设备编号</span>
+              <el-popover
+                placement="bottom-start"
+                width="260"
+                v-model:visible="showDeviceFilterPanel"
+                popper-class="custom-filter-panel"
+              >
+                <div class="filter-panel">
+                  <div class="filter-title">设备编号</div>
+                  <el-input
+                    v-model="filterDeviceId"
+                    placeholder="例如 4371-01"
+                    clearable
+                    @keyup.enter="applyDeviceFilter"
+                  >
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
+                  <div class="filter-actions">
+                    <el-button size="small" type="primary" @click="applyDeviceFilter">搜索</el-button>
+                    <el-button size="small" @click="resetDeviceFilter">重置</el-button>
+                  </div>
+                </div>
+                <template #reference>
+                  <el-icon :class="['filter-trigger', { active: !!filterDeviceId }]"><Filter /></el-icon>
+                </template>
+              </el-popover>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="uploader_id" label="用户ID" width="80" />
+        <el-table-column prop="upload_time" label="上传时间" width="150">
+          <template #default="{ row }">
+            {{ formatDate(row.upload_time) }}
+          </template>
+        </el-table-column>
+        
+        <el-table-column label="状态" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getRowStatusType(row)" size="small">
+              {{ getRowStatusText(row) }}
+            </el-tag>
+            <div v-if="!canOperate(row)" class="status-tip">
+              <el-icon><Warning /></el-icon>
+              <span>{{ isDeleting(row.id) ? '删除中，请稍候' : '处理中，请稍候' }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        
+        <el-table-column label="操作" width="300" fixed="right">
+          <template #default="{ row }">
+            <el-button 
+              size="small" 
+              type="primary"
+              @click="goToLogAnalysis(row)"
+              :disabled="!canOperate(row)"
+            >
+              分析
+            </el-button>
+            
+            <el-button 
+              size="small" 
+              type="success"
+              @click="handleDownload(row)"
+              :disabled="!canOperate(row)"
+            >
+              下载
+            </el-button>
+            
+            <el-button 
+              size="small" 
+              type="danger" 
+              @click="handleDelete(row)"
+              v-if="canDeleteLog(row)"
+              :disabled="!canOperate(row)"
+            >
+              删除
+            </el-button>
+
+            <el-button 
+              size="small" 
+              type="warning"
+              @click="handleReparse(row)"
+              v-if="canReparse"
+              :disabled="!canOperate(row) || row.parsing"
+            >
+              重新解析
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <!-- 分页 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 上传日志弹窗 -->
+    <el-dialog v-model="showUploadDialog" title="上传日志" width="700px" append-to-body>
       <!-- 总体进度条 -->
       <div v-if="uploading" class="overall-progress">
         <el-progress 
@@ -46,14 +301,13 @@
         :multiple="true"
         :limit="50"
         accept=".medbot"
-        drag
         name="file"
         :disabled="uploading"
       >
-        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-        <div class="el-upload__text">
-          将文件拖到此处，或<em>点击上传</em>
-        </div>
+        <el-button type="primary" :disabled="uploading">
+          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+          选择文件
+        </el-button>
         <template #tip>
           <div class="el-upload__tip">
             <div v-if="!uploading">
@@ -66,9 +320,9 @@
           </div>
         </template>
       </el-upload>
-      
+
       <!-- 自定义文件列表 -->
-      <div v-if="uploadFileList.length > 0" class="custom-file-list">
+      <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
         <div class="file-list-header">
           <span>已选择的文件 ({{ uploadFileList.length }})</span>
           <el-button type="text" size="small" @click="clearUpload" :disabled="uploading">
@@ -83,7 +337,7 @@
           >
             <el-icon><Document /></el-icon>
             <span class="file-name">{{ file.name || file.originalname }}</span>
-            <span class="file-size">{{ formatFileSize(file.size || file.raw?.size || 0) }}</span>
+            <span class="file-size">{{ file.sizeText }}</span>
             <el-button 
               type="text" 
               size="small" 
@@ -95,7 +349,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- 密钥输入区域 -->
       <div class="key-input-section">
         <div class="key-input-row">
@@ -150,7 +404,7 @@
           </el-tag>
         </div>
       </div>
-      
+
       <!-- 设备编号输入区域 -->
       <div class="device-input-section">
         <div class="device-input-row">
@@ -182,182 +436,22 @@
           </el-tag>
         </div>
       </div>
-      
-      <div class="upload-actions">
-        <el-button 
-          type="primary" 
-          @click="submitUpload" 
-          :loading="uploading"
-          :disabled="uploading || !decryptKey.trim() || uploadFileList.length === 0"
-        >
-          {{ uploading ? '解析中...' : '上传并解析' }}
-        </el-button>
-      </div>
-    </el-card>
-    
-    <!-- 日志列表 -->
-    <el-card class="list-card">
-      <template #header>
-        <div class="card-header">
-          <span>日志列表</span>
-          <div class="header-actions">
-            <!-- 批量操作区域 -->
-            <div v-if="selectedLogs.length > 0" class="batch-operations">
-              <!-- 批量操作按钮组 -->
-              <div class="batch-actions">
-                <el-button 
-                  type="primary" 
-                  size="small" 
-                  @click="handleBatchAnalyze"
-                  :disabled="!canBatchOperate || !isSameDevice"
-                  :title="deviceCheckMessage"
-                >
-                  <el-icon><Monitor /></el-icon>
-                  批量分析 ({{ selectedLogs.length }})
-                </el-button>
-                
-                <el-button 
-                  type="success" 
-                  size="small" 
-                  @click="handleBatchDownload"
-                  :disabled="!canBatchOperate"
-                >
-                  <el-icon><Download /></el-icon>
-                  批量下载 ({{ selectedLogs.length }})
-                </el-button>
-                
-                <el-button 
-                  type="danger" 
-                  size="small" 
-                  @click="handleBatchDelete"
-                  :disabled="!canBatchDelete"
-                >
-                  <el-icon><Delete /></el-icon>
-                  批量删除 ({{ selectedLogs.length }})
-                </el-button>
-                <el-tooltip 
-                  content="普通用户只能删除自己上传的日志" 
-                  placement="top" 
-                  v-if="userRole === 3"
-                >
-                  <el-icon class="info-icon"><InfoFilled /></el-icon>
-                </el-tooltip>
-                
-                <el-button 
-                  type="info" 
-                  size="small" 
-                  @click="clearSelection"
-                >
-                  取消选择
-                </el-button>
-              </div>
-              
-              <!-- 设备检测提示 -->
-              <div v-if="deviceCheckMessage" class="device-check-tip">
-                <el-tag type="warning" size="small">
-                  <el-icon><Warning /></el-icon>
-                  <span class="device-message">{{ deviceCheckMessage }}</span>
-                </el-tag>
-              </div>
-            </div>
-            
-            <!-- 搜索和刷新区域 -->
-            <div class="search-section">
-              <el-input
-                v-model="filterDeviceId"
-                placeholder="按设备编号筛选"
-                class="search-input"
-                clearable
-                @keyup.enter="loadLogs"
-              >
-                <template #prefix>
-                  <el-icon><Search /></el-icon>
-                </template>
-              </el-input>
-              <el-button type="primary" size="small" @click="loadLogs">
-                <el-icon><Refresh /></el-icon>
-                刷新
-              </el-button>
-            </div>
-          </div>
+
+      <template #footer>
+        <div class="upload-actions">
+          <el-button @click="showUploadDialog = false" :disabled="uploading">取消</el-button>
+          <el-button 
+            type="primary" 
+            @click="submitUpload" 
+            :loading="uploading"
+            :disabled="uploading || !decryptKey.trim() || uploadFileList.length === 0"
+          >
+            {{ uploading ? '解析中...' : '上传并解析' }}
+          </el-button>
         </div>
       </template>
-      
-      <el-table
-        :data="logs"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="original_name" label="原始文件名" width="200" />
-        <el-table-column prop="device_id" label="设备编号" width="120" />
-        <el-table-column prop="uploader_id" label="用户ID" width="80" />
-        <el-table-column prop="upload_time" label="上传时间" width="150">
-          <template #default="{ row }">
-            {{ formatDate(row.upload_time) }}
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="状态" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-            <div v-if="!canOperate(row)" class="status-tip">
-              <el-icon><Warning /></el-icon>
-              <span>处理中，请稍候</span>
-            </div>
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="操作" width="240" fixed="right">
-          <template #default="{ row }">
-            <el-button 
-              size="small" 
-              type="primary"
-              @click="goToLogAnalysis(row)"
-              :disabled="!canOperate(row)"
-            >
-              分析
-            </el-button>
-            
-            <el-button 
-              size="small" 
-              type="success"
-              @click="handleDownload(row)"
-              :disabled="!canOperate(row)"
-            >
-              下载
-            </el-button>
-            
-            <el-button 
-              size="small" 
-              type="danger" 
-              @click="handleDelete(row)"
-              v-if="canDeleteLog(row)"
-              :disabled="!canOperate(row)"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          :current-page="currentPage"
-          :page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-card>
+    </el-dialog>
+
 
     <!-- 日志分析弹窗 -->
     <el-dialog v-model="showEntriesDialog" title="日志分析" width="900px">
@@ -383,7 +477,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled } from '@element-plus/icons-vue'
+import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
 
 export default {
   name: 'Logs',
@@ -394,11 +488,44 @@ export default {
     // 响应式数据
     const loading = ref(false)
     const uploading = ref(false)
+    const showUploadDialog = ref(false)
     const overallProgress = ref(0) // 总体进度
     const uploadRef = ref(null)
     const keyUploadRef = ref(null)
     const currentPage = ref(1)
     const pageSize = ref(20)
+    const showNameFilterPanel = ref(false)
+    const showDeviceFilterPanel = ref(false)
+    const nameTimePrefix = ref('')
+    const onlyOwn = ref(false)
+    const dateShortcuts = ref([
+      {
+        text: '本年',
+        value: () => {
+          const start = new Date(new Date().getFullYear(), 0, 1, 0, 0, 0)
+          const end = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59)
+          return [start, end]
+        }
+      },
+      {
+        text: '本月',
+        value: () => {
+          const now = new Date()
+          const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+          const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+          return [start, end]
+        }
+      },
+      {
+        text: '今天',
+        value: () => {
+          const now = new Date()
+          const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+          const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          return [start, end]
+        }
+      }
+    ])
     const decryptKey = ref('') // 密钥输入
     const keyFileName = ref('') // 密钥文件名
     const deviceId = ref('') // 设备编号
@@ -413,7 +540,7 @@ export default {
 
     
     // 计算属性
-    const logs = computed(() => store.getters['logs/logsList'])
+    const logs = computed(() => Array.isArray(store.getters['logs/logsList']) ? store.getters['logs/logsList'] : [])
     const total = computed(() => store.getters['logs/totalCount'])
     const uploadUrl = computed(() => '/api/logs/upload')
     const uploadHeaders = computed(() => ({
@@ -470,10 +597,12 @@ export default {
     const loadLogs = async () => {
       try {
         loading.value = true
+        const timeParams = buildTimeParams()
         await store.dispatch('logs/fetchLogs', {
           page: currentPage.value,
           limit: pageSize.value,
-          device_id: filterDeviceId.value || undefined
+          device_id: filterDeviceId.value || undefined,
+          ...timeParams
         })
       } catch (error) {
         ElMessage.error('加载日志失败')
@@ -494,6 +623,48 @@ export default {
       currentPage.value = page
       loadLogs()
     }
+
+    const buildTimeParams = () => {
+      const tp = (nameTimePrefix.value || '').trim()
+      if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
+        return { time_prefix: tp, only_own: onlyOwn.value || undefined }
+      }
+      return { only_own: onlyOwn.value || undefined }
+    }
+
+    const applyNameFilter = () => {
+      currentPage.value = 1
+      showNameFilterPanel.value = false
+      loadLogs()
+    }
+    const resetNameFilter = () => {
+      nameTimePrefix.value = ''
+      applyNameFilter()
+    }
+
+    const applyDeviceFilter = () => {
+      currentPage.value = 1
+      showDeviceFilterPanel.value = false
+      loadLogs()
+    }
+    const resetDeviceFilter = () => {
+      filterDeviceId.value = ''
+      applyDeviceFilter()
+    }
+
+    const applyOnlyOwn = () => {
+      currentPage.value = 1
+      loadLogs()
+    }
+
+    const resetAllFilters = () => {
+      nameTimePrefix.value = ''
+      filterDeviceId.value = ''
+      onlyOwn.value = false
+      currentPage.value = 1
+      loadLogs()
+    }
+
     
     const submitUpload = () => {
       if (!decryptKey.value.trim()) {
@@ -550,6 +721,10 @@ export default {
       }
       
       uploadRef.value.submit()
+      // 点击上传并解析后立即关闭弹窗
+      showUploadDialog.value = false
+      // 刷新一次日志列表，展示最新的“上传中/处理中”状态
+      loadLogs()
     }
     
     const beforeUpload = (file) => {
@@ -596,19 +771,20 @@ export default {
     const onKeyFileChange = (file) => {
       const reader = new FileReader()
       reader.onload = (e) => {
-        const content = e.target.result.trim()
-        
-        // 验证文件内容是否为MAC地址格式
-        const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
-        if (!macRegex.test(content)) {
-          ElMessage.error('密钥文件内容格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
-          return
-        }
-        
-        decryptKey.value = content
-        keyFileName.value = file.name
-        keyError.value = '' // 清除错误提示
-        ElMessage.success('密钥文件读取成功')
+        // 在空闲时验证，避免主线程长时间占用
+        scheduleUpdate(() => {
+          const content = (e.target.result || '').trim()
+          // 验证文件内容是否为MAC地址格式
+          const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+          if (!macRegex.test(content)) {
+            ElMessage.error('密钥文件内容格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
+            return
+          }
+          decryptKey.value = content
+          keyFileName.value = file.name
+          keyError.value = '' // 清除错误提示
+          ElMessage.success('密钥文件读取成功')
+        })
       }
       reader.readAsText(file.raw)
     }
@@ -668,13 +844,13 @@ export default {
       
       
       // 更新手动跟踪的文件列表
-      uploadFileList.value = fileList
+      updateUploadFileList(fileList)
       
       // 检查是否所有文件都上传完成
-      if (fileList.length === 0) {
+      const allUploaded = fileList.length > 0 && fileList.every(f => f.status === 'success')
+      if (allUploaded) {
         // 所有文件上传完成，开始解密和解析阶段
         uploading.value = true
-        ElMessage.success('文件上传完成，正在解密和解析中...')
         
         // 模拟解密和解析进度（占总进度的70%）
         let decryptProgress = 30 // 从30%开始（上传已完成）
@@ -720,7 +896,8 @@ export default {
               // 显示具体的文件名
               const uploadedFiles = uploadFileList.value.map(f => f.name || f.originalname).join(', ')
               ElMessage.success(`${uploadedFiles} 上传成功，解析完成`)
-              // 清空表单
+              // 关闭弹窗并清空表单
+              showUploadDialog.value = false
               clearUpload()
             } else {
               // 如果后端解析还未完成，继续等待
@@ -738,8 +915,6 @@ export default {
         setTimeout(() => {
           // 解密阶段开始
         }, 500)
-      } else {
-        ElMessage.success(`文件 ${file.name} 上传成功，正在处理中...`)
       }
     }
     
@@ -752,16 +927,32 @@ export default {
     }
     
     const onFileChange = (file, fileList) => {
-      uploadFileList.value = fileList
+      updateUploadFileList(fileList)
     }
     
     const onFileRemove = (file, fileList) => {
-      uploadFileList.value = fileList
+      updateUploadFileList(fileList)
     }
 
     // 删除单个文件
     const removeFile = (index) => {
       uploadFileList.value.splice(index, 1)
+    }
+
+    // 空闲时批量更新文件列表并预计算显示字段，减少同步阻塞
+    const scheduleUpdate = (fn) => {
+      const idle = window.requestIdleCallback || ((cb) => setTimeout(() => cb({ timeRemaining: () => 0 }), 1))
+      idle(() => fn())
+    }
+    const updateUploadFileList = (rawList) => {
+      const normalized = (rawList || []).map(f => {
+        const size = f.size || f.raw?.size || 0
+        const sizeText = formatFileSize(size)
+        return { ...f, sizeText }
+      })
+      scheduleUpdate(() => {
+        uploadFileList.value = normalized
+      })
     }
     
     const handleParse = async (row) => {
@@ -772,6 +963,27 @@ export default {
         loadLogs()
       } catch (error) {
         ElMessage.error('解析失败')
+      } finally {
+        row.parsing = false
+      }
+    }
+
+    const canReparse = computed(() => store.getters['auth/hasPermission']?.('log:reparse'))
+
+    const handleReparse = async (row) => {
+      try {
+        if (!canReparse.value) {
+          ElMessage.error('仅管理员可重新解析')
+          return
+        }
+        row.parsing = true
+        row.status = 'parsing'
+        await store.dispatch('logs/reparseLog', row.id)
+        ElMessage.success('重新解析完成')
+        await loadLogs()
+      } catch (error) {
+        const msg = error.response?.data?.message || error.message || '重新解析失败'
+        ElMessage.error(msg)
       } finally {
         row.parsing = false
       }
@@ -796,6 +1008,11 @@ export default {
       }
     }
     
+    // 跟踪删除中ID集合
+    const deletingIds = ref(new Set())
+
+    const isDeleting = (id) => deletingIds.value.has(id)
+
     const handleDelete = async (row) => {
       try {
         await ElMessageBox.confirm('确定要删除这个日志文件吗？', '提示', {
@@ -803,14 +1020,17 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         })
-        
+        deletingIds.value.add(row.id)
+        await nextTick()
         await store.dispatch('logs/deleteLog', row.id)
         ElMessage.success('删除成功')
-        loadLogs()
+        await loadLogs()
       } catch (error) {
         if (error !== 'cancel') {
           ElMessage.error('删除失败')
         }
+      } finally {
+        deletingIds.value.delete(row.id)
       }
     }
 
@@ -834,26 +1054,28 @@ export default {
       return new Date(dateString).toLocaleString('zh-CN')
     }
     
-    const getStatusType = (status) => {
-      const typeMap = {
+    // 行状态：根据需求映射显示文字
+    const getRowStatusType = (row) => {
+      if (deletingIds.value.has(row.id)) return 'warning'
+      const map = {
         uploading: 'warning',
         decrypting: 'warning',
         parsing: 'warning',
         parsed: 'success',
         failed: 'danger'
       }
-      return typeMap[status] || 'info'
+      return map[row.status] || 'info'
     }
-    
-    const getStatusText = (status) => {
-      const textMap = {
-        uploading: '上传中',
-        decrypting: '解密中',
+    const getRowStatusText = (row) => {
+      if (deletingIds.value.has(row.id)) return '删除中'
+      const map = {
+        uploading: '日志上传中',
+        decrypting: '日志解密中',
         parsing: '解析中',
         parsed: '完成',
         failed: '解析失败'
       }
-      return textMap[status] || status
+      return map[row.status] || (row.status || '-')
     }
     
         // 批量操作相关方法
@@ -985,6 +1207,37 @@ export default {
         }
       }
     }
+
+    // 批量重新解析（仅管理员）
+    const handleBatchReparse = async () => {
+      try {
+        if (!canReparse.value) {
+          ElMessage.error('仅管理员可批量重新解析')
+          return
+        }
+        if (!selectedLogs.value.length) {
+          ElMessage.warning('请先选择要重新解析的日志')
+          return
+        }
+        await ElMessageBox.confirm(
+          `确定对选中的 ${selectedLogs.value.length} 个日志重新解析释义吗？`,
+          '批量重新解析确认',
+          { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+        )
+        const ids = selectedLogs.value.map(l => l.id)
+        // 乐观更新状态
+        selectedLogs.value.forEach(l => { l.status = 'parsing' })
+        const resp = await store.dispatch('logs/batchReparseLogs', ids)
+        const { success = 0, fail = 0 } = resp.data || {}
+        ElMessage.success(`批量重新解析完成：成功 ${success}，失败 ${fail}`)
+        await loadLogs()
+      } catch (error) {
+        if (error !== 'cancel') {
+          const msg = error.response?.data?.message || error.message || '批量重新解析失败'
+          ElMessage.error(msg)
+        }
+      }
+    }
     
 
     
@@ -1074,6 +1327,7 @@ export default {
     return {
       loading,
       uploading,
+      showUploadDialog,
       overallProgress,
       progressFormat,
       uploadRef,
@@ -1086,6 +1340,7 @@ export default {
       loadLogs,
       handleSizeChange,
       handleCurrentChange,
+      dateShortcuts,
       beforeUpload,
       submitUpload,
       clearUpload,
@@ -1098,11 +1353,15 @@ export default {
       handleParse,
       handleDownload,
       handleDelete,
+      handleReparse,
+      canReparse,
       formatFileSize,
       formatDate,
-      getStatusType,
-      getStatusText,
+      getRowStatusType,
+      getRowStatusText,
       goToLogAnalysis,
+      isDeleting,
+      userRole,
       decryptKey,
       keyUploadRef,
       keyFileName,
@@ -1130,7 +1389,19 @@ export default {
       clearSelection,
       handleBatchAnalyze,
       handleBatchDownload,
-      handleBatchDelete
+      handleBatchDelete,
+      handleBatchReparse,
+      // 列筛选
+      showNameFilterPanel,
+      showDeviceFilterPanel,
+      nameTimePrefix,
+      onlyOwn,
+      applyNameFilter,
+      resetNameFilter,
+      applyDeviceFilter,
+      resetDeviceFilter,
+      applyOnlyOwn,
+      resetAllFilters
     }
   }
 }
@@ -1154,9 +1425,40 @@ export default {
 .header-actions {
   display: flex;
   align-items: flex-start;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 12px;
   min-width: 0;
+}
+
+.header-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-section {
+  flex: 1 1 auto;
+  min-width: 240px;
+}
+
+.only-own-section,
+.reset-section,
+.refresh-section {
+  flex: 0 0 auto;
+}
+
+/* 统一按钮样式与对齐 */
+.only-own-section .el-button,
+.reset-section .el-button,
+.refresh-section .el-button {
+  height: 28px;
+  line-height: 26px;
+  padding: 0 12px;
+}
+
+.only-own-section .el-checkbox {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
 }
 
 .upload-actions {

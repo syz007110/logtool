@@ -51,6 +51,15 @@ const actions = {
     }
   },
 
+  async reparseLog({ commit }, logId) {
+    try {
+      const response = await api.logs.reparse(logId)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
   async downloadLog({ commit }, logId) {
     try {
       const response = await api.logs.download(logId)
@@ -81,6 +90,15 @@ const actions = {
   async batchDownloadLogs({ commit }, logIds) {
     try {
       const response = await api.logs.batchDownload(logIds)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async batchReparseLogs({ commit }, logIds) {
+    try {
+      const response = await api.logs.batchReparse(logIds)
       return response
     } catch (error) {
       throw error

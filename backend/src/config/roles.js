@@ -30,6 +30,7 @@ const ROLES = {
       'log:read_all', // 查看所有用户的日志
       'log:read_own', // 查看自己的日志
       'log:parse',
+      'log:reparse',
       'log:download',
       'log:delete',
       

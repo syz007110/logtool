@@ -5,21 +5,6 @@ echo LogTool 前端启动脚本
 echo ========================================
 echo.
 
-echo 检查 Node.js 环境...
-node --version >nul 2>&1
-if errorlevel 1 (
-    echo 错误: 未找到 Node.js，请先安装 Node.js
-    pause
-    exit /b 1
-)
-
-echo 检查 npm 环境...
-npm --version >nul 2>&1
-if errorlevel 1 (
-    echo 错误: 未找到 npm，请先安装 npm
-    pause
-    exit /b 1
-)
 
 echo 进入前端目录...
 cd frontend

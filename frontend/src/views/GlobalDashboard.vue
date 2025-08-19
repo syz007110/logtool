@@ -7,7 +7,7 @@
           <a-card class="stat-card">
             <a-statistic
               title="故障码总数"
-              :value="stats.logsCount"
+              :value="stats.errorCodesCount"
               :loading="loading"
               value-style="{ color: '#1890ff' }"
             >

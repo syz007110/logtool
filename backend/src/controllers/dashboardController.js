@@ -1,6 +1,7 @@
 const LogEntry = require('../models/log_entry');
 const Log = require('../models/log');
 const User = require('../models/user');
+const ErrorCode = require('../models/error_code');
 
 // 获取全局统计数据
 const getDashboardStats = async (req, res) => {
@@ -14,12 +15,16 @@ const getDashboardStats = async (req, res) => {
     // 获取用户数量（users表）
     const usersCount = await User.count();
     
+    // 获取故障码总数（error_codes表）
+    const errorCodesCount = await ErrorCode.count();
+    
     res.json({
       success: true,
       data: {
         logEntriesCount,
         logsCount,
-        usersCount
+        usersCount,
+        errorCodesCount
       }
     });
   } catch (error) {

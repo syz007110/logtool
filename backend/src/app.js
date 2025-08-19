@@ -23,6 +23,7 @@ const devicesRouter = require('./routes/devices');
 const motionDataRouter = require('./routes/motionData');
 const feedbackRouter = require('./routes/feedback');
 const dashboardRouter = require('./routes/dashboard');
+const explanationsRouter = require('./routes/explanations');
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/operation-logs', operationLogsRouter);
 app.use('/api/surgery-statistics', surgeryStatisticsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/explanations', explanationsRouter);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
