@@ -7,7 +7,7 @@
           <a-card class="stat-card">
             <a-statistic
               title="故障码总数"
-              :value="stats.errorCodesCount"
+              :value="displayStats.errorCodesCount"
               :loading="loading"
               value-style="{ color: '#1890ff' }"
             >
@@ -22,7 +22,7 @@
           <a-card class="stat-card">
             <a-statistic
               title="日志总数"
-              :value="stats.logEntriesCount"
+              :value="displayStats.logEntriesCount"
               :loading="loading"
               value-style="{ color: '#3f8600' }"
             >
@@ -38,7 +38,7 @@
           <a-card class="stat-card">
             <a-statistic
               title="用户数量"
-              :value="stats.usersCount"
+              :value="displayStats.usersCount"
               :loading="loading"
               value-style="{ color: '#722ed1' }"
             >
@@ -64,7 +64,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
 import { BugOutlined, DatabaseOutlined, TeamOutlined ,FileTextOutlined ,OrderedListOutlined} from '@ant-design/icons-vue'
 import api from '../api'
 
@@ -85,6 +85,47 @@ export default {
       usersCount: 0
     })
 
+    // 展示用的动态数值，带增长动画
+    const displayStats = reactive({
+      errorCodesCount: 0,
+      logEntriesCount: 0,
+      usersCount: 0
+    })
+
+    // 记录每个属性的动画帧，便于更新时取消旧动画
+    const animationFrameIds = new Map()
+
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
+
+    const animatePropertyTo = (propKey, toValue, duration = 1200) => {
+      // 取消之前的动画
+      const prevId = animationFrameIds.get(propKey)
+      if (prevId) {
+        cancelAnimationFrame(prevId)
+      }
+
+      const fromValue = Number(displayStats[propKey] || 0)
+      const targetValue = Math.max(0, Number(toValue || 0))
+      if (fromValue === targetValue) return
+
+      const startTime = performance.now()
+
+      const step = (now) => {
+        const elapsed = now - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const eased = easeOutCubic(progress)
+        const current = Math.round(fromValue + (targetValue - fromValue) * eased)
+        displayStats[propKey] = current
+        if (progress < 1) {
+          const id = requestAnimationFrame(step)
+          animationFrameIds.set(propKey, id)
+        }
+      }
+
+      const id = requestAnimationFrame(step)
+      animationFrameIds.set(propKey, id)
+    }
+
     const loadStats = async () => {
       try {
         loading.value = true
@@ -99,6 +140,23 @@ export default {
       }
     }
 
+    // 当统计数据发生变化时，触发动画到目标值
+    watch(stats, (newStats) => {
+      if (!newStats) return
+      const keys = ['errorCodesCount', 'logEntriesCount', 'usersCount']
+      keys.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(newStats, key)) {
+          animatePropertyTo(key, newStats[key])
+        }
+      })
+    })
+
+    onBeforeUnmount(() => {
+      // 清理动画帧
+      animationFrameIds.forEach((id) => cancelAnimationFrame(id))
+      animationFrameIds.clear()
+    })
+
     onMounted(() => {
       loadStats()
     })
@@ -106,6 +164,7 @@ export default {
     return {
       loading,
       stats,
+      displayStats,
       loadStats
     }
   }

@@ -1152,16 +1152,17 @@ export default {
 }
 
 .export-language-checkboxes {
-  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
 }
-.export-language-checkboxes :deep(.el-checkbox-group) {
+.export-language-checkboxes .el-checkbox-group {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--lang-col-width, 10px), var(--lang-col-width, 140px)));
+  grid-template-columns: repeat(3, var(--lang-col-width));
   justify-content: start;
   column-gap: 12px;
   row-gap: 6px;
 }
-.export-language-checkboxes :deep(.el-checkbox) {
+.export-language-checkboxes .el-checkbox {
   width: var(--lang-col-width, 140px);
   margin-right: 0;
   padding-right: 12px;
