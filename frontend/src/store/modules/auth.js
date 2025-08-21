@@ -66,9 +66,21 @@ const actions = {
   }
 }
 
+// 规范化角色名，兼容中英文与ID
+function normalizeRoleName(roleName, roleId) {
+  if (roleId === 1) return 'admin'
+  if (roleId === 2) return 'expert'
+  if (roleId === 3) return 'user'
+  const name = (roleName || '').toString().trim().toLowerCase()
+  if (name === 'admin' || name === '管理员') return 'admin'
+  if (name === 'expert' || name === '专家' || name === '工程师') return 'expert'
+  if (name === 'user' || name === '普通用户' || name === '用户' || name === '成员') return 'user'
+  return roleName || null
+}
+
 const getters = {
   isAuthenticated: state => !!state.token,
-  userRole: state => state.user ? state.user.role : null,
+  userRole: state => state.user ? normalizeRoleName(state.user.role, state.user.role_id) : null,
   currentUser: state => state.user,
   currentLanguage: state => state.language,
   hasPermission: (state) => (permission) => {
@@ -78,12 +90,13 @@ const getters = {
       }
       
       // 管理员拥有所有权限
-      if (state.user.role === 'admin' || state.user.role === '管理员') {
+      const normalized = normalizeRoleName(state.user.role, state.user.role_id)
+      if (normalized === 'admin') {
         return true;
       }
       
       // 检查用户角色权限 - 支持单个角色字符串或角色数组
-      const userRole = state.user.role;
+      const userRole = normalized;
       const userRoles = state.user.roles ? (Array.isArray(state.user.roles) ? state.user.roles : [state.user.roles]) : [];
       
       // 简化的权限检查逻辑 - 根据角色判断
@@ -100,7 +113,7 @@ const getters = {
       
       // 然后检查角色数组
       for (const role of userRoles) {
-        const roleName = role.name || role;
+        const roleName = normalizeRoleName(role.name || role, role.id || role.role_id);
         if (rolePermissions[roleName] && rolePermissions[roleName].includes(permission)) {
           return true;
         }
