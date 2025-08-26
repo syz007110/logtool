@@ -1,874 +1,102 @@
 const LogEntry = require('../models/log_entry');
 const Log = require('../models/log');
-const faultMappings = require('../config/FaultMappings.json');
+const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op } = require('sequelize');
 
-// 器械类型映射
-const INSTRUMENT_TYPES = faultMappings['3'];
-const STATE_MACHINE_STATES = faultMappings['1'];
+// 任务队列管理
+const analysisTasks = new Map();
+let taskCounter = 0;
 
-// 安全解析 JSON 的辅助函数
-function safeJsonParse(value) {
-  if (!value) return null;
-  if (typeof value === 'object' && value !== null) return value;
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value);
-    } catch (error) {
-      return { rawData: value };
+// 获取当前活跃的分析任务数量
+const getActiveAnalysisCount = async () => {
+  let activeCount = 0;
+  for (const [taskId, task] of analysisTasks) {
+    if (task.status === 'processing') {
+      activeCount++;
     }
   }
-  return value;
-}
+  return activeCount;
+};
 
-// 获取器械类型名称
-function getInstrumentTypeName(typeCode) {
-  return INSTRUMENT_TYPES[typeCode] || '未知器械';
-}
+// 创建分析任务
+const createAnalysisTask = (logIds, userId) => {
+  const taskId = ++taskCounter;
+  const task = {
+    id: taskId,
+    logIds: logIds,
+    userId: userId,
+    status: 'pending',
+    progress: 0,
+    result: null,
+    error: null,
+    createdAt: new Date(),
+    startedAt: null,
+    completedAt: null
+  };
+  
+  analysisTasks.set(taskId, task);
+  return taskId;
+};
 
-// 获取状态机状态名称
-function getStateMachineStateName(stateCode) {
-  return STATE_MACHINE_STATES[stateCode] || '未知状态';
-}
-
-// 计算与时间线一致的起止时间（最早-最晚事件）
-function computeTimelineRangeForSurgery(surgery, globalLastLogTime) {
-  if (!surgery) return { start: null, end: null };
-
-  // 起点：连台优先使用上一台结束时间；否则使用开机时间与手术开始时间中的最早者
-  let start = null;
-  if (surgery.is_consecutive_surgery && surgery.previous_surgery_end_time) {
-    start = new Date(surgery.previous_surgery_end_time);
-  } else {
-    const startCandidates = [];
-    if (Array.isArray(surgery.power_on_times)) {
-      surgery.power_on_times.forEach(t => t && startCandidates.push(new Date(t).getTime()));
-    } else if (surgery.power_on_time) {
-      startCandidates.push(new Date(surgery.power_on_time).getTime());
-    }
-    if (surgery.surgery_start_time) startCandidates.push(new Date(surgery.surgery_start_time).getTime());
-    if (startCandidates.length > 0) {
-      start = new Date(Math.min(...startCandidates));
-    }
-  }
-
-  // 终点：在关机、手术结束、最后日志中取最晚者
-  const endCandidates = [];
-  if (Array.isArray(surgery.shutdown_times)) {
-    surgery.shutdown_times.forEach(t => t && endCandidates.push(new Date(t).getTime()));
-  } else if (surgery.power_off_time) {
-    endCandidates.push(new Date(surgery.power_off_time).getTime());
-  }
-  if (surgery.surgery_end_time) endCandidates.push(new Date(surgery.surgery_end_time).getTime());
-  if (surgery.last_log_time) endCandidates.push(new Date(surgery.last_log_time).getTime());
-  if (globalLastLogTime) endCandidates.push(new Date(globalLastLogTime).getTime());
-
-  const end = endCandidates.length > 0 ? new Date(Math.max(...endCandidates)) : null;
-
-  return { start, end };
-}
-
-// 查找指定时间之前的最近UDI码
-function findNearestUDI(udiHistory, targetTime) {
-  if (!udiHistory || udiHistory.length === 0) return '未知';
-  
-  const targetTimestamp = new Date(targetTime).getTime();
-  
-  // 从最新的记录开始向前查找
-  for (let i = udiHistory.length - 1; i >= 0; i--) {
-    const recordTime = new Date(udiHistory[i].timestamp).getTime();
-    if (recordTime <= targetTimestamp) {
-      return udiHistory[i].udi;
-    }
-  }
-  
-  return '未知';
-}
-
-// 生成故障唯一标识
-function generateAlarmKey(errCode, timestamp) {
-  return `${errCode}_${timestamp.getTime()}`;
-}
-
-// 从故障标识中提取故障码
-function extractErrCodeFromKey(alarmKey) {
-  return alarmKey.split('_')[0];
-}
-
-// 更新工具臂上最近的"待更新"器械记录
-function updatePendingInstrumentUDI(currentSurgery, armIndex, udi) {
-  if (!currentSurgery) return;
-  
-  const armUsageKey = `arm${armIndex + 1}_usage`;
-  const currentUsage = currentSurgery[armUsageKey] || [];
-  
-  // 查找该工具臂上最近的"待更新"记录
-  // 优先查找未完成的记录（endTime为null），如果没有则查找最近的已完成记录
-  let foundActive = false;
-  
-  // 先查找未完成的记录
-  for (let i = currentUsage.length - 1; i >= 0; i--) {
-    if (currentUsage[i].udi === '待更新' && currentUsage[i].endTime === null && currentUsage[i].armIndex === armIndex) {
-      currentUsage[i].udi = udi;
-      console.log(`更新工具臂${armIndex + 1}活跃器械 ${currentUsage[i].instrumentName} 的UDI码: ${udi}`);
-      foundActive = true;
-      break;
-    }
-  }
-}
-
-// 分析手术数据的主要函数
-function analyzeSurgeries(logEntries) {
-  console.log(`开始分析 ${logEntries.length} 个日志条目`)
-  
-  // 检查数据来源
-  const logSources = new Set(logEntries.map(entry => entry.log_name || 'unknown'));
-  console.log('日志来源:', Array.from(logSources));
-  
-  // 检查时间范围（避免使用 ... 展开导致的大数组栈溢出）
-  let minTs = Infinity;
-  let maxTs = -Infinity;
-  for (const entry of logEntries) {
-    const t = new Date(entry.timestamp).getTime();
-    if (!Number.isNaN(t)) {
-      if (t < minTs) minTs = t;
-      if (t > maxTs) maxTs = t;
-    }
-  }
-  const minTime = minTs === Infinity ? null : new Date(minTs);
-  const maxTime = maxTs === -Infinity ? null : new Date(maxTs);
-  console.log('数据时间范围:', {
-    start: minTime.toISOString(),
-    end: maxTime.toISOString(),
-    duration: Math.floor((maxTime - minTime) / 1000 / 60) + '分钟',
-    isCrossDay: minTime.getDate() !== maxTime.getDate() || 
-                minTime.getMonth() !== maxTime.getMonth() || 
-                minTime.getFullYear() !== maxTime.getFullYear()
-  });
-  
-  // 确保日志条目按时间戳排序
-  // 排序（使用非原地的浅拷贝，避免意外副作用）
-  const sortedLogEntries = [...logEntries].sort((a, b) => {
-    const timeA = new Date(a.timestamp).getTime();
-    const timeB = new Date(b.timestamp).getTime();
-    return timeA - timeB;
-  });
-  
-  console.log('日志条目已按时间戳排序，时间范围:', {
-    start: sortedLogEntries[0].timestamp,
-    end: sortedLogEntries[sortedLogEntries.length - 1].timestamp,
-    count: sortedLogEntries.length
-  });
-  
-  const surgeries = [];
-  let currentSurgery = null;
-  let surgeryCount = 0;
-  let surgeryStarted = false; // 标记手术是否已经开始
-  
-  let isPowerOn = false;
-        
-  let errFlag = false;
-  let errRecover = false;
-  let Trecover = null;
-  
-  const armStates = [-1, -1, -1, -1]; // 4个工具臂的器械状态
-  const armInsts = [0, 0, 0, 0]; // 4个工具臂的器械类型
-  const armUDIs = ['', '', '', '']; // 4个工具臂的UDI码
-  const armUDIHistory = [[], [], [], []]; // 每个工具臂的UDI码历史记录
-  
-  const stateMachineChanges = [];
-  let currentState = 0; // 当前状态机状态
-  const alarmRecords = new Set();
-  const alarmDetails = [];
-  
-  // 故障记录：记录未恢复的故障（允许相同故障码在不同时间出现）
-  const activeAlarms = new Map(); // 记录未恢复的故障，key为故障码，value为最新的故障信息
-  
-  const footPedalStats = { energy: 0, clutch: 0, camera: 0 };
-  const handClutchStats = { arm1: 0, arm2: 0, arm3: 0, arm4: 0 };
-  
-  // 记录所有开机和关机事件，用于后续计算
-  const powerEvents = [];
-  
-  // 记录所有开机和关机时间，用于手术创建时设置开机时间
-  let PowerOnTimes = [];
-  let ShutDownTimes = [];
-  
-
-
-  // 使用排序后的日志条目进行分析
-  for (let i = 0; i < sortedLogEntries.length; i++) {
-    const entry = sortedLogEntries[i];
-    const errCode = entry.error_code;
-    // 取错误码的后4位进行匹配
-    const errCodeSuffix = errCode ? errCode.slice(-4) : '';
+// 更新任务状态
+const updateTaskStatus = (taskId, status, progress = null, result = null, error = null) => {
+  const task = analysisTasks.get(taskId);
+  if (task) {
+    task.status = status;
+    if (progress !== null) task.progress = progress;
+    if (result !== null) task.result = result;
+    if (error !== null) task.error = error;
     
-    const p1 = parseInt(entry.param1) || 0;
-    const p2 = parseInt(entry.param2) || 0;
-    const p3 = parseInt(entry.param3) || 0;
-    const p4 = parseInt(entry.param4) || 0;
-   
-    // 安全报警检查（仅A/B类故障计入未处理，等待故障恢复后改为已处理）
-    if (errCodeSuffix && /[AB]$/i.test(errCodeSuffix)) {
-      //故障手术
-      errFlag = true;
-      // 记录新的故障（允许相同故障码在不同时间出现）
-      const alarmInfo = {
-        time: entry.timestamp,
-        type: errCodeSuffix.endsWith('A') ? '错误' : errCodeSuffix.endsWith('B') ? '警告' : '信息',
-        code: errCode,
-        message: entry.explanation || `故障码: ${errCode}`,
-        status: '未处理',
-        isActive: true  // 激活状态
-      };
-      
-      // 生成唯一的故障标识（故障码+时间戳）
-      const alarmKey = generateAlarmKey(errCode, entry.timestamp);
-      
-      // 将故障信息添加到活跃故障记录（以故障码+时间戳为key）
-      activeAlarms.set(alarmKey, alarmInfo);
-      
-      // 添加到报警详情列表
-      alarmDetails.push(alarmInfo);
-           
-      if (currentSurgery) {
-        currentSurgery.has_error = true;
-      }
-      
-      console.log(`检测到故障: ${errCode}, 类型: ${alarmInfo.type}, 时间: ${entry.timestamp}, 唯一标识: ${alarmKey}`);
-      console.log(`当前活跃故障数量: ${activeAlarms.size}`);
+    if (status === 'processing' && !task.startedAt) {
+      task.startedAt = new Date();
+    } else if (status === 'completed' || status === 'failed') {
+      task.completedAt = new Date();
     }
-    
-    // 开机事件处理 - 支持两种开机条件
-    // 情况1：errCode后四位为"A01E"
-    // 情况2：errcode是否为570e 且 p1=0 且 p2≠0
-    if (((errCodeSuffix === 'A01E') || (errCodeSuffix === '570e' && p1 === 0 && p2 !== 0)) && (isPowerOn === false)){
-      console.log(`检测到开机事件: 时间=${entry.timestamp}`);
-      //开机标志位
-      errFlag = false;
-      isPowerOn = true;
-      // 获取最后一个关机时间
-      const lastPowerOff = powerEvents.filter(e => e.type === 'power_off').pop();
-      let shouldClearSurgery = false;
-      //检查距离上次关机超过30分钟
-      if (lastPowerOff && currentSurgery) {
-        const timeDiff = Math.floor((new Date(entry.timestamp) - new Date(lastPowerOff.timestamp)) / 1000 / 60);
-        shouldClearSurgery = timeDiff >= 30;
-        console.log(`距离上次关机${timeDiff}分钟，${shouldClearSurgery ? '清空当前手术，准备新手术' : '保持当前手术'}`);
-      }
-      
-      // 如果需要清空当前手术，重置所有状态
-      if (shouldClearSurgery) {
-        currentSurgery = null;
-        console.log(`清空当前手术的所有状态`);
-        // 保留全局开机时间数组用于后续分析，但不再复制给新手术
-        PowerOnTimes.push(entry.timestamp);
-               
-        surgeryStarted = false;
-        errFlag = false;
-        armStates.fill(-1);
-        armInsts.fill(-1);
-        armUDIs.fill('');
-        armUDIHistory.forEach(history => history.length = 0);
-        stateMachineChanges.length = 0;
-        currentState = -1;
-        alarmDetails.length = 0;
-        alarmRecords.clear();
-        activeAlarms.clear();
-      } else {
-        // 重启需要记录开机时间
-        PowerOnTimes.push(entry.timestamp);
-        // 如果有当前手术，将开机时间记录到手术中
-        if (currentSurgery) {
-          if (!currentSurgery.power_on_times) {
-            currentSurgery.power_on_times = [];
-          }
-          currentSurgery.power_on_times.push(entry.timestamp);
-          console.log(`为手术 ${currentSurgery.surgery_id} 记录开机时间: ${entry.timestamp}, 当前开机时间数量: ${currentSurgery.power_on_times.length}`);
-        }
-      }
-
-      // 记录开机事件
-      powerEvents.push({
-        type: 'power_on',
-        timestamp: entry.timestamp,
-        surgery_id: currentSurgery ? currentSurgery.surgery_id : null,
-        isRestart: !shouldClearSurgery // 如果不是清空手术，则认为是重启
-      });
-
-      shouldClearSurgery = false;
-      // 开机时不创建新手术，只记录开机时间
-      // 新手术的创建将在手术开始时进行
-      console.log(`开机事件记录: ${entry.timestamp}, 当前手术: ${currentSurgery ? currentSurgery.surgery_id : '无'}`);
-    }
-    // 关机事件处理 - 支持两种关机条件
-    // 情况1：errCode后四位为 'A02E'
-    // 情况2：检查 errcode=310e 且 p2=31，且在后续30s内没有出现 errcode=310e 且 p1=31 且 p2!=31
-    {
-      let isShutdownEvent = false;
-      if (errCodeSuffix === 'A02E') {
-        isShutdownEvent = true;
-      } else if (errCodeSuffix === '310e' && p2 === 31) {
-        const endTempleMs = new Date(entry.timestamp).getTime();
-        let canceledByFollowup = false;
-        // 向后查找30秒内的日志是否出现取消关机的事件
-        for (let j = i + 1; j < sortedLogEntries.length; j++) {
-          const nextEntry = sortedLogEntries[j];
-          const nextTimeMs = new Date(nextEntry.timestamp).getTime();
-          if (nextTimeMs - endTempleMs > 30 * 1000) break;
-          const nextSuffix = nextEntry.error_code ? nextEntry.error_code.slice(-4) : '';
-          const nextP1 = parseInt(nextEntry.param1) || 0;
-          const nextP2 = parseInt(nextEntry.param2) || 0;
-          if (nextSuffix === '310e' && nextP1 === 31 && nextP2 !== 31) {
-            canceledByFollowup = true;
-            console.log(`检测到疑似关机(310e p2=31)后的取消事件(30s内): 时间=${nextEntry.timestamp}`);
-            break;
-          }
-        }
-        if (!canceledByFollowup) {
-          isShutdownEvent = true;
-        } else {
-          // 明确记录未判定为关机
-          console.log(`310e p2=31 未判定为关机(30s内出现310e p1=31且p2!=31): 起始时间=${entry.timestamp}`);
-        }
-      }
-
-      if (isShutdownEvent) {
-        console.log(`检测到关机事件: 时间=${entry.timestamp}`);
-        isPowerOn = false;
-        errFlag = false;
-        // 记录关机事件
-        powerEvents.push({
-          type: 'power_off',
-          timestamp: entry.timestamp,
-          surgery_id: currentSurgery ? currentSurgery.surgery_id : null
-        });
-        // 记录关机时间，无论是否有手术对象
-        ShutDownTimes.push(entry.timestamp); // 记录所有关机时间
-        // 更新手术信息
-        if (currentSurgery) {
-          // 初始化关机时间数组
-          if (!currentSurgery.shutdown_times) {
-            currentSurgery.shutdown_times = [];
-          }
-          // 初始化开机时间数组（防止未定义错误）
-          if (!currentSurgery.power_on_times) {
-            currentSurgery.power_on_times = [];
-          }
-          // 添加当前关机时间到手术的关机时间列表
-          currentSurgery.shutdown_times.push(entry.timestamp);
-          // 清空手术开机和关机时间（若手术尚未开始）
-          if (surgeryStarted === false) {
-            PowerOnTimes = [];
-            ShutDownTimes = [];
-          }
-          console.log(`为手术 ${currentSurgery.surgery_id} 记录关机时间: ${entry.timestamp}, 当前关机时间数量: ${currentSurgery.shutdown_times.length}, 当前开机时间数量: ${currentSurgery.power_on_times.length}`);
-        }
-      }
-    }
-
-         // 状态机事件处理
-     if (errCodeSuffix === '310e') {
-
-       const newState = p2;
-       // 更新当前状态机状态
-       currentState = newState;
-       
-       stateMachineChanges.push({
-         time: entry.timestamp,
-         state: newState,
-         stateName: getStateMachineStateName(newState.toString())
-       });
-      
-      
-      // 故障恢复判断
-      if (p1 === 0 && p2 === 1 && errFlag) {
-        errFlag = false;
-        errRecover = true;
-
-        console.log('故障已恢复，更新当前活跃故障记录状态');
-        
-        // 处理故障恢复：仅将最近一次触发的激活报警标记为"已处理"
-        let processedCount = 0;
-
-        // 从报警详情列表末尾向前查找最近一个处于激活状态的报警
-        for (let i = alarmDetails.length - 1; i >= 0; i--) {
-          const detail = alarmDetails[i];
-          if (detail && detail.isActive === true) {
-            // 更新详情项
-            detail.isActive = false;
-            detail.status = '已处理';
-            detail.recoveryTime = entry.timestamp;
-
-            // 同步更新到活跃故障记录并移除该条
-            try {
-              const alarmKey = generateAlarmKey(detail.code, new Date(detail.time));
-              const active = activeAlarms.get(alarmKey);
-              if (active) {
-                active.isActive = false;
-                active.status = '已处理';
-                active.recoveryTime = entry.timestamp;
-                activeAlarms.delete(alarmKey);
-              }
-            } catch (e) {
-              console.warn('根据报警详情生成键失败，已跳过活跃故障同步:', e);
-            }
-
-            processedCount = 1;
-            console.log(`故障恢复: ${detail.code}, 仅将最近一次触发的报警标记为"已处理"`);
-            break;
-          }
-        }
-
-        if (processedCount === 0) {
-          console.log('未找到处于激活状态的报警用于恢复处理');
-        }
-
-        console.log(`已处理 ${processedCount} 个激活状态的故障`);
-        console.log(`剩余活跃故障数量: ${activeAlarms.size}`);
-      }
-    }
-    
-    // 器械状态更新
-     if (errCodeSuffix === '500e') {
-       const armIndex = p1 - 1;
-       if (armIndex >= 0 && armIndex < 4) {
-         armStates[armIndex] = p3; // 更新工具臂的器械状态
-       }
-    }
-    
-    // 器械类型变化记录
-     if (errCodeSuffix === '501e') {
-       const armIndex = p1;
-       if (armIndex >= 0 && armIndex < 4) {
-         console.log(`更新器械类型: 臂${armIndex + 1}, 器械类型=${p3}, 时间=${entry.timestamp}`);
-         armInsts[armIndex] = p3; // 更新工具臂的器械类型
-         
-         // 修改逻辑：只要系统开机就记录器械使用时间，不依赖于手术对象的存在
-         if (isPowerOn) {
-           // 连台手术场景：上一台已结束但下一台尚未正式开始。如果发生器械安装事件，归属到下一台的临时对象。
-           if (!currentSurgery || (currentSurgery && currentSurgery.surgery_end_time)) {
-             const prevEnd = currentSurgery ? currentSurgery.surgery_end_time : null;
-             if (!currentSurgery) {
-               console.log(`系统开机但未开始手术，创建临时手术对象记录器械使用时间`);
-             } else {
-               console.log(`上一台手术(${currentSurgery.surgery_id})已结束，创建新的临时手术对象记录连台间隙的器械安装事件`);
-             }
-             surgeryCount++;
-             currentSurgery = {
-               id: surgeryCount,
-               surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
-               log_id: entry.log_id,
-               // 连台：使用上一台手术的结束时间作为新时间轴起点；否则使用全局开机时间
-               power_on_times: prevEnd ? [prevEnd] : [...PowerOnTimes],
-               shutdown_times: [...ShutDownTimes],
-               arm1_usage: [],
-               arm2_usage: [],
-               arm3_usage: [],
-               arm4_usage: [],
-               arm1_total_activation: { startTime: null, endTime: null },
-               arm2_total_activation: { startTime: null, endTime: null },
-               arm3_total_activation: { startTime: null, endTime: null },
-               arm4_total_activation: { startTime: null, endTime: null },
-               is_pre_surgery: true, // 手术开始前的临时容器
-               is_consecutive_surgery: !!prevEnd,
-               previous_surgery_end_time: prevEnd
-             };
-             console.log(`创建临时手术对象: ${currentSurgery.surgery_id} 用于记录手术前/连台间隙器械使用时间`);
-           }
-           
-           const armUsageKey = `arm${armIndex + 1}_usage`;
-           const armActivationKey = `arm${armIndex + 1}_total_activation`;
-           const currentUsage = currentSurgery[armUsageKey] || [];
-           
-           if (p3 > 0) {
-             // 器械插上 - 记录开始时间
-             // 由于UDI码通常在器械插上后记录，先使用"待更新"标记
-             console.log(`工具臂${armIndex + 1}插上器械: ${getInstrumentTypeName(p3.toString())}, 时间: ${entry.timestamp}`);
-             currentUsage.push({
-               instrumentType: p3,
-               instrumentName: getInstrumentTypeName(p3.toString()),
-               udi: '待更新',  // 初始标记为待更新
-               startTime: entry.timestamp,  // 器械使用时间从实际插上时间开始
-               endTime: null,  // 拔下时间待定
-               duration: 0,    // 使用时长待计算
-               armIndex: armIndex,  // 记录工具臂索引
-               is_pre_surgery: !surgeryStarted // 标记是否为手术前安装的器械（仅用于分类，不影响使用时间计算）
-             });
-             
-             // 更新工具臂总激活时间
-             if (currentSurgery && currentSurgery[armActivationKey] && currentSurgery[armActivationKey].startTime === null) {
-               currentSurgery[armActivationKey].startTime = entry.timestamp;
-             }
-           } else {
-  
-             // 器械拔下 - 找到最近的未完成记录并设置结束时间
-             if (currentUsage.length > 0) {
-               const lastUsage = currentUsage[currentUsage.length - 1];
-               if (lastUsage && lastUsage.endTime === null) {
-                 lastUsage.endTime = entry.timestamp;
-                 lastUsage.duration = Math.floor((new Date(lastUsage.endTime) - new Date(lastUsage.startTime)) / 1000 / 60); // 分钟
-                 console.log(`工具臂${armIndex + 1}拔下器械: ${lastUsage.instrumentName}, UDI: ${lastUsage.udi}, 使用时长: ${lastUsage.duration}分钟`);
-                 
-                 // 更新工具臂总激活时间
-                 if (currentSurgery && currentSurgery[armActivationKey]) {
-                   currentSurgery[armActivationKey].endTime = entry.timestamp;
-                 }
-               }
-             }
-           }
-           
-           if (currentSurgery) {
-             currentSurgery[armUsageKey] = currentUsage;
-           }
-         }
-       }
-     }
-     
-     // 手术开始判断
-     if (currentState === 20 && surgeryStarted === false) {  
-      // 手术开始时，检查是否已有手术前的手术对象，通常不会这样
-      if (!currentSurgery) {
-        //手术是否开始标志位
-        surgeryStarted = true;
-        surgeryCount++;
-        currentSurgery = {
-          id: surgeryCount,
-          surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
-          log_id: entry.log_id,
-          power_on_times: [...PowerOnTimes], // 复制全局开机时间
-          shutdown_times: [...ShutDownTimes], // 复制全局关机时间
-          arm1_usage: [],
-          arm2_usage: [],
-          arm3_usage: [],
-          arm4_usage: [],
-          arm1_total_activation: { startTime: null, endTime: null },
-          arm2_total_activation: { startTime: null, endTime: null },
-          arm3_total_activation: { startTime: null, endTime: null },
-          arm4_total_activation: { startTime: null, endTime: null },
-          alarm_details: [],
-          state_machine_changes: [],
-          foot_pedal_stats: {},
-          hand_clutch_stats: {},
-          error_recovery_time: 0,
-          is_pre_surgery: false,
-          surgery_start_time: entry.timestamp,
-          surgery_end_time: null,
-          total_duration: 0,
-          alarm_count: 0,
-          alarm_details: [],
-          state_machine_changes: [],
-        };
-        // 重置所有状态
-        errFlag = false;
-        armStates.fill(-1);
-        armInsts.fill(-1);
-        armUDIs.fill('');
-        armUDIHistory.forEach(history => history.length = 0);
-        stateMachineChanges.length = 0;
-        currentState = -1;
-        alarmDetails.length = 0;
-        alarmRecords.clear();
-        activeAlarms.clear();
-        console.log(`手术开始时创建新手术对象: ${currentSurgery.surgery_id}, 包含开机时间: ${currentSurgery.power_on_times.length} 个`, currentSurgery.power_on_times);
-      } else if (currentSurgery.is_pre_surgery) {
-         //手术是否开始标志位
-         surgeryStarted = true;
-        // 如果已有手术前的手术对象，将其转换为正式手术对象,通常情况，安装了器械还没开始手术
-        // 更新全局时间数据到手术对象
-        currentSurgery.power_on_times = [...PowerOnTimes];
-        currentSurgery.shutdown_times = [...ShutDownTimes];
-        console.log(`将手术前的手术对象 ${currentSurgery.surgery_id} 转换为正式手术对象,当前开机时间数量: ${currentSurgery.power_on_times.length}, 关机时间数量: ${currentSurgery.shutdown_times.length}`);
-        currentSurgery.is_pre_surgery = false;
-        // 设置手术开始时间
-        currentSurgery.surgery_start_time = entry.timestamp;
-        console.log(`手术开始时间: ${currentSurgery.surgery_start_time}`);
-      }else if(currentSurgery.is_pre_surgery === false){
-        // 如果已有手术对象，且不是手术前的手术对象，重启
-        if(surgeryStarted){
-          currentSurgery.is_pre_surgery = false;
-        }// 连台
-        else{
-          // 连台手术：记录上一台手术结束时间
-          let previousSurgeryEndTime = null;
-          if (currentSurgery && currentSurgery.surgery_end_time) {
-            previousSurgeryEndTime = currentSurgery.surgery_end_time;
-            console.log(`连台手术：记录上一台手术 ${currentSurgery.surgery_id} 结束时间: ${previousSurgeryEndTime}`);        
-          }
-          
-          currentSurgery = null;
-          //手术是否开始标志位 
-          surgeryCount++;
-          surgeryStarted = true;
-          currentSurgery = {
-            id: surgeryCount,
-            surgery_id: `Surgery-${surgeryCount.toString().padStart(2, '0')}`,
-            log_id: entry.log_id,
-            power_on_times: previousSurgeryEndTime ? [previousSurgeryEndTime] : [...PowerOnTimes], // 连台手术：用上一台手术结束时间替换开机时间
-            shutdown_times: [...ShutDownTimes], // 复制全局关机时间
-            arm1_usage: [],
-            arm2_usage: [],
-            arm3_usage: [],
-            arm4_usage: [],
-            arm1_total_activation: { startTime: null, endTime: null },
-            arm2_total_activation: { startTime: null, endTime: null },
-            arm3_total_activation: { startTime: null, endTime: null },
-            arm4_total_activation: { startTime: null, endTime: null },
-            alarm_details: [],
-            state_machine_changes: [],
-            foot_pedal_stats: {},
-            hand_clutch_stats: {},
-            error_recovery_time: 0,
-            is_pre_surgery: false,
-            surgery_start_time: entry.timestamp,
-            surgery_end_time: null,
-            total_duration: 0,
-            alarm_count: alarmDetails.length,
-            alarm_details: [...alarmDetails],
-            state_machine_changes: [],
-            is_consecutive_surgery: previousSurgeryEndTime !== null, // 标记是否为连台手术
-            previous_surgery_end_time: previousSurgeryEndTime // 记录上一台手术结束时间
-          }     
-          if (previousSurgeryEndTime) {
-            console.log(`连台手术，手术开始时间: ${currentSurgery.surgery_start_time}，开机时间已替换为上一台手术结束时间: ${previousSurgeryEndTime}`);
-          } else {
-            console.log(`连台手术，手术开始时间: ${currentSurgery.surgery_start_time}`);
-          }
-        }
-      }          
-    } 
-     
-     // 手术结束判断：检查是否满足结束条件（500e错误码特定条件）
-     if (errCodeSuffix === '500e' && p2 !== 0 && p3 === 0) {
-
-       // 检查所有器械状态=0或-1 且当前 state 在特定值范围内（10、12、13 或 30）
-       const allarmStateZero = armStates.every(armStates => armStates === 0 || armStates === -1);
-       const hasValidEndState = currentState === 10 || currentState === 12 || currentState === 13;
-
-       if (allarmStateZero && hasValidEndState) {
-         console.log(`满足手术结束条件: 器械状态=${armStates}, 当前状态=${currentState}(${getStateMachineStateName(currentState.toString())}), 时间=${entry.timestamp}`);
-         if (currentSurgery) {
-           currentSurgery.surgery_end_time = entry.timestamp;
-           
-           // 计算手术总时长
-           currentSurgery.total_duration = Math.floor(
-             (new Date(currentSurgery.surgery_end_time) - new Date(currentSurgery.surgery_start_time)) / 1000 / 60
-           );
-           
-           // 设置手术的最终数据
-           currentSurgery.alarm_count = alarmDetails.length;
-           currentSurgery.alarm_details = [...alarmDetails]; // 复制数组
-           
-           // 状态机变化：使用与时间线一致的时间范围（最早-最晚事件）
-           const { start: tlStart, end: tlEnd } = computeTimelineRangeForSurgery(currentSurgery, sortedLogEntries[sortedLogEntries.length - 1]?.timestamp);
-           const tlStartMs = tlStart ? tlStart.getTime() : null;
-           const tlEndMs = tlEnd ? tlEnd.getTime() : null;
-           const filteredChanges = stateMachineChanges.filter(change => {
-             const changeTime = new Date(change.time).getTime();
-             // 连台：如果有上一台结束时间，严格从上一台结束时间开始；否则用计算的起点
-             const startBoundary = tlStartMs;
-             return (startBoundary === null || changeTime >= startBoundary) && (tlEndMs === null || changeTime <= tlEndMs);
-           });
-           currentSurgery.state_machine_changes = [...filteredChanges];
-           console.log(`手术 ${currentSurgery.surgery_id} 状态机变化(时间线范围): ${filteredChanges.length} 个`);
-          
-
-             
-          // 设置最后一条日志时间，用于时间轴计算
-          currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
-          
-          console.log(`手术 ${currentSurgery.surgery_id} 正常完成，关机时间: ${currentSurgery.shutdown_times.length} 个，开机时间: ${currentSurgery.power_on_times.length} 个`);
-           
-           // 将完成的手术添加到手术列表中（如果还没有添加过）
-           const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
-           if (!isAlreadyAdded) {
-             surgeries.push(currentSurgery);
-             console.log(`完成手术: ${currentSurgery.surgery_id}, 时长: ${currentSurgery.total_duration} 分钟`);
-           } else {
-             console.log(`手术 ${currentSurgery.surgery_id} 已经存在于手术列表中，跳过添加`);
-           }
-         }
-         
-         // 手术结束时不清空当前手术对象，保持数据用于后续可能的关机事件
-         if (currentSurgery) {
-           console.log(`手术结束，保持当前手术对象 ${currentSurgery.surgery_id} 用于后续关机事件`);
-         } else {
-           console.log('手术结束，当前无手术对象，保持为空以等待后续关机事件');
-         }
-         
-         // 重置手术开始标志，但不清空手术对象
-         surgeryStarted = false;
-       }
-     }
-    
-         // UDI码记录
-     if (errCodeSuffix === '510e') {
-       const armIndex = errCode.charAt(1)-3;
-       if (armIndex >= 0 && armIndex < 4) {
-          // 处理 p1：取高 8 位转为 ASCII，若是 'F' 或 'D'，则用它拼接低 8 位（十六进制大写）；否则用原始 p1（十六进制大写，不做拆分）
-          const highByte = (p1 >> 8) & 0xFF;
-          const lowByte = p1 & 0xFF;
-          const highChar = String.fromCharCode(highByte);
-          let formattedP1;
-          let udi;
-          if (highChar === 'F' || highChar === 'D') {
-            // 拼接 highChar + 低 8 位（以两位十六进制，不足补 0）
-            const lowHex = lowByte.toString(16).toUpperCase().padStart(2, '0');
-            formattedP1 = `${highChar}${lowHex}`;
-            // p2：分别取高 8 位和低 8 位，转换为大写十六进制，拼接
-            const p2HighHex = ((p2 >> 8) & 0xFF).toString(16).toUpperCase().padStart(2, '0');
-            const p2LowHex  = (p2 & 0xFF).toString(16).toUpperCase().padStart(2, '0');
-            const formattedP2 = `${p2HighHex}${p2LowHex}`;
-            // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
-            udi = `${formattedP1}${formattedP2}${p3}${p4}`;
-          } else {
-              // 原样输出 p1 的十进制表示
-              formattedP1 = String(p1);
-              // p2 补零为 3 位
-              const p2Padded = String(p2).padStart(3, '0');
-              if ((armInsts[armIndex] === 9) || (armInsts[armIndex] === 10) || (armInsts[armIndex] === 11))
-              {
-                // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
-                udi = `ECO${p3}${String.fromCharCode(p4)}-${formattedP1}${p2Padded}`;
-              }else if(armInsts[armIndex] === 17){
-                const p3Padded = String(p3).padStart(3, '0');
-                const p4Padded = String(p4).padStart(3, '0');
-                // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
-                udi = `F${formattedP1}${p2}${p3Padded}${p4Padded}`;
-              }
-              else{
-                // 修正 UDI 码生成逻辑：用处理后的 p1，加上 p2, p3, p4 （p4 作为 ASCII 字符）
-                udi = `IN${p3}${String.fromCharCode(p4)}-${formattedP1}${p2Padded}`;
-              }
-          }
-
-          // 更新当前UDI码并保存到历史记录
-          armUDIs[armIndex] = udi; // 更新工具臂的UDI码
-          armUDIHistory[armIndex].push({
-            udi: udi,
-            timestamp: entry.timestamp
-          });
-          
-          // 更新该工具臂上最近的"待更新"器械记录
-          updatePendingInstrumentUDI(currentSurgery, armIndex, udi);
-          
-          console.log(`记录工具臂${armIndex + 1}的UDI码: ${udi}, 时间: ${entry.timestamp}`);
-        }
-     }
-
-     // 处理无使用次数事件：errCodeSuffix = '2c2d'
-     // 依据需求：armIndex = errCode.charAt(1) - 3
-     if (errCodeSuffix === '2c2d') {
-       const armIndex = errCode.charAt(1) - 3;
-       if (armIndex >= 0 && armIndex < 4) {
-         console.log(`检测到2c2d（无使用次数）: 臂${armIndex + 1}, 时间=${entry.timestamp}，清除该臂的器械类型并回退最近一次使用记录`);
-         // 重置该工具臂的器械类型为0（无器械）
-         armInsts[armIndex] = 0;
-         // 删除对应臂 currentUsage 上一个添加的事件
-         if (currentSurgery) {
-           const armUsageKey = `arm${armIndex + 1}_usage`;
-           const currentUsage = currentSurgery[armUsageKey] || [];
-           if (currentUsage.length > 0) {
-             const removed = currentUsage.pop();
-             console.log(`移除工具臂${armIndex + 1}最近一次使用记录:`, {
-               instrumentName: removed.instrumentName,
-               startTime: removed.startTime,
-               endTime: removed.endTime,
-               udi: removed.udi
-             });
-             currentSurgery[armUsageKey] = currentUsage;
-           } else {
-             console.log(`工具臂${armIndex + 1}无可回退的使用记录`);
-           }
-         }
-       }
-     }
-   }
-   
-  // 处理未完成的手术：如果没有手术结束时间，使用最后一条日志时间作为手术结束时间，并计算总时长
-  if (currentSurgery && !currentSurgery.surgery_end_time) {
-    const lastLogTime = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
-    currentSurgery.surgery_end_time = lastLogTime;
-    currentSurgery.last_log_time = lastLogTime;
-    if (currentSurgery.surgery_start_time) {
-      currentSurgery.total_duration = Math.floor(
-        (new Date(currentSurgery.surgery_end_time) - new Date(currentSurgery.surgery_start_time)) / 1000 / 60
-      );
-    }
-    console.log(`手术 ${currentSurgery.surgery_id}，手术结束时间(暂用最后日志时间): ${currentSurgery.surgery_end_time}`);
-  } else if (currentSurgery) {
-    // 记录最后日志时间，便于前端时间轴兜底
-    currentSurgery.last_log_time = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
-    console.log(`手术 ${currentSurgery.surgery_id}，手术未结束标记: ${currentSurgery.surgery_end_time}`);
   }
+};
 
-  // 若当前无手术对象，则跳过后续汇总与入列逻辑
-  if (currentSurgery) {
-    // 将完成的手术添加到手术列表中（如果还没有添加过）
-    const isAlreadyAdded = surgeries.some(surgery => surgery.surgery_id === currentSurgery.surgery_id);
-    if (!isAlreadyAdded) {
-      surgeries.push(currentSurgery);
-      console.log(`完成手术: ${currentSurgery.surgery_id}, 时长: ${currentSurgery.total_duration} 分钟`);
-    } else {
-      console.log(`手术 ${currentSurgery.surgery_id} 已经存在于手术列表中，跳过添加`);
-    }
-
-    currentSurgery.alarm_count = alarmDetails.length;
-    currentSurgery.alarm_details = alarmDetails;
-    console.log(`手术 ${currentSurgery.surgery_id} 异常完成，故障统计:`, {
-      alarm_count: currentSurgery.alarm_count,
-      alarm_details_length: alarmDetails.length,
-      alarm_details: alarmDetails.map(d => ({ code: d.code, status: d.status }))
+// 清理已完成的任务（保留最近100个）
+const cleanupCompletedTasks = () => {
+  const completedTasks = Array.from(analysisTasks.entries())
+    .filter(([id, task]) => task.status === 'completed' || task.status === 'failed')
+    .sort((a, b) => b[1].completedAt - a[1].completedAt);
+  
+  // 保留最近100个已完成的任务
+  if (completedTasks.length > 100) {
+    const toDelete = completedTasks.slice(100);
+    toDelete.forEach(([taskId]) => {
+      analysisTasks.delete(taskId);
     });
-
-    // 状态机变化：使用与时间线一致的时间范围（最早-最晚事件）
-    const { start: tlStart2, end: tlEnd2 } = computeTimelineRangeForSurgery(currentSurgery, sortedLogEntries[sortedLogEntries.length - 1]?.timestamp);
-    const tlStartMs2 = tlStart2 ? tlStart2.getTime() : null;
-    const tlEndMs2 = tlEnd2 ? tlEnd2.getTime() : null;
-    const surgeryStateChanges = stateMachineChanges.filter(change => {
-      const changeTime = new Date(change.time).getTime();
-      // 连台：如果有上一台结束时间，严格从上一台结束时间开始；否则用计算的起点
-      const startBoundary2 = tlStartMs2;
-      return (startBoundary2 === null || changeTime >= startBoundary2) && (tlEndMs2 === null || changeTime <= tlEndMs2);
-    });
-    currentSurgery.state_machine_changes = surgeryStateChanges;
-    console.log(`手术 ${currentSurgery.surgery_id} 状态机变化(时间线范围): ${surgeryStateChanges.length} 个`);
-    currentSurgery.foot_pedal_stats = footPedalStats;
-    currentSurgery.hand_clutch_stats = handClutchStats;
-  } else {
-    console.log('当前无手术对象，无需汇总与入列处理');
   }
-     
-   // 兜底处理：为未闭合的器械使用段补充 endTime，使前端可见
-   const globalLastLogTime = sortedLogEntries[sortedLogEntries.length - 1]?.timestamp;
-   surgeries.forEach((surgery, surgeryIndex) => {
-     const fallbackEnd = surgery.surgery_end_time || surgery.last_log_time || globalLastLogTime;
-     ['arm1_usage','arm2_usage','arm3_usage','arm4_usage'].forEach(key => {
-       const usages = surgery[key] || [];
-       usages.forEach(u => {
-         if (u && u.startTime && !u.endTime && fallbackEnd) {
-           const startMs = new Date(u.startTime).getTime();
-           const endMs = new Date(fallbackEnd).getTime();
-           const adjustedEndMs = Math.max(startMs + 1000, endMs); // 至少1秒
-           u.endTime = new Date(adjustedEndMs).toISOString();
-           const durationSeconds = Math.max(1, Math.floor((adjustedEndMs - startMs) / 1000));
-           u.duration_seconds = durationSeconds;
-           u.duration = Math.floor(durationSeconds / 60);
-         }
-       });
-       surgery[key] = usages;
-     });
-     console.log(`手术 ${surgery.surgery_id}: 开机时间数量=${surgery.power_on_times ? surgery.power_on_times.length : 0}, 关机时间数量=${surgery.shutdown_times ? surgery.shutdown_times.length : 0}`);
-   });
-   
-   console.log(`分析完成，共发现 ${surgeries.length} 场手术`)
-   return surgeries;
- }
+};
+
+/**
+ * 分析手术数据的主要函数
+ * @param {Array} logEntries - 日志条目数组
+ * @param {Object} options - 分析选项
+ * @returns {Array} 手术数据数组
+ */
+function analyzeSurgeries(logEntries, options = {}) {
+  const analyzer = new SurgeryAnalyzer();
+  const surgeries = analyzer.analyze(logEntries);
+  
+  // 如果需要PostgreSQL结构化数据
+  if (options.includePostgreSQLStructure) {
+    surgeries.forEach(surgery => {
+      surgery.postgresql_structure = analyzer.toPostgreSQLStructure(surgery);
+    });
+  }
+  
+  // 保存到全局变量，供导出功能使用
+  global.currentSurgeries = surgeries;
+  
+  return surgeries;
+}
 
 // 获取指定日志的手术统计数据（实时分析）
 const getAllSurgeryStatistics = async (req, res) => {
   try {
-    const { logIds } = req.query;
+    const { logIds, includePostgreSQLStructure } = req.query;
     
     let logs;
     if (logIds) {
@@ -876,13 +104,13 @@ const getAllSurgeryStatistics = async (req, res) => {
       const logIdArray = logIds.split(',').map(id => parseInt(id.trim()));
       logs = await Log.findAll({
         where: { id: { [Op.in]: logIdArray } },
-        order: [['upload_time', 'DESC']]
+        order: [['original_name', 'DESC']]
       });
       console.log(`分析指定的 ${logs.length} 个日志文件`);
     } else {
       // 如果没有指定，分析所有日志
       logs = await Log.findAll({
-        order: [['upload_time', 'DESC']]
+        order: [['original_name', 'DESC']]
       });
       console.log(`分析所有 ${logs.length} 个日志文件`);
     }
@@ -901,38 +129,9 @@ const getAllSurgeryStatistics = async (req, res) => {
       console.log(`日志 ${log.filename} 包含 ${logEntries.length} 个条目`)
       
       if (logEntries.length > 0) {
-        // 显示前几个日志条目的信息
-        console.log('前5个日志条目:', logEntries.slice(0, 5).map(entry => ({
-          error_code: entry.error_code,
-          param1: entry.param1,
-          param2: entry.param2,
-          param3: entry.param3,
-          timestamp: entry.timestamp
-        })))
-        
-        // 查找关键错误码（后4位）
-        const keyErrorCodes = ['570e', '571e', '310e', '500e', '501e', '510e', '600e', '610e'];
-        const foundErrorCodes = new Set();
-        logEntries.forEach(entry => {
-          const errCodeSuffix = entry.error_code ? entry.error_code.slice(-4) : '';
-          if (keyErrorCodes.includes(errCodeSuffix)) {
-            foundErrorCodes.add(entry.error_code);
-          }
+        const surgeries = analyzeSurgeries(logEntries, { 
+          includePostgreSQLStructure: includePostgreSQLStructure === 'true' 
         });
-        console.log('找到的关键错误码:', Array.from(foundErrorCodes));
-        
-        // 显示所有310e状态机事件
-        const stateMachineEvents = logEntries.filter(entry => {
-          const errCodeSuffix = entry.error_code ? entry.error_code.slice(-4) : '';
-          return errCodeSuffix === '310e';
-        });
-        console.log(`找到 ${stateMachineEvents.length} 个状态机事件(310e):`, stateMachineEvents.slice(0, 10).map(entry => ({
-          param1: entry.param1,
-          param2: entry.param2,
-          timestamp: entry.timestamp
-        })));
-        
-        const surgeries = analyzeSurgeries(logEntries);
         console.log(`从日志 ${log.filename} 分析出 ${surgeries.length} 场手术`)
         
         // 为每个手术分配唯一ID
@@ -958,10 +157,10 @@ const getAllSurgeryStatistics = async (req, res) => {
   }
 };
 
-// 新增：使用前端传递的已排序日志条目进行分析
+// 使用前端传递的已排序日志条目进行分析
 const analyzeSortedLogEntries = async (req, res) => {
   try {
-    const { logEntries } = req.body;
+    const { logEntries, includePostgreSQLStructure } = req.body;
     
     if (!logEntries || !Array.isArray(logEntries) || logEntries.length === 0) {
       return res.status(400).json({
@@ -985,50 +184,10 @@ const analyzeSortedLogEntries = async (req, res) => {
       });
     }
 
-    // 确保日志条目按时间戳排序
-    const sortedLogEntries = logEntries.sort((a, b) => 
-      new Date(a.timestamp) - new Date(b.timestamp)
-    );
-
-    console.log('日志条目已按时间戳排序，时间范围:', {
-      start: sortedLogEntries[0].timestamp,
-      end: sortedLogEntries[sortedLogEntries.length - 1].timestamp,
-      count: sortedLogEntries.length
+    // 使用新的分析器进行分析
+    const surgeries = analyzeSurgeries(logEntries, { 
+      includePostgreSQLStructure: includePostgreSQLStructure === true 
     });
-
-    // 显示前几个日志条目的信息
-    console.log('前5个日志条目:', sortedLogEntries.slice(0, 5).map(entry => ({
-      error_code: entry.error_code,
-      param1: entry.param1,
-      param2: entry.param2,
-      param3: entry.param3,
-      timestamp: entry.timestamp
-    })));
-    
-    // 查找关键错误码（后4位）
-    const keyErrorCodes = ['570e', '571e', '310e', '500e', '501e', '510e', '600e', '610e'];
-    const foundErrorCodes = new Set();
-    sortedLogEntries.forEach(entry => {
-      const errCodeSuffix = entry.error_code ? entry.error_code.slice(-4) : '';
-      if (keyErrorCodes.includes(errCodeSuffix)) {
-        foundErrorCodes.add(entry.error_code);
-      }
-    });
-    console.log('找到的关键错误码:', Array.from(foundErrorCodes));
-    
-    // 显示所有310e状态机事件
-    const stateMachineEvents = sortedLogEntries.filter(entry => {
-      const errCodeSuffix = entry.error_code ? entry.error_code.slice(-4) : '';
-      return errCodeSuffix === '310e';
-    });
-    console.log(`找到 ${stateMachineEvents.length} 个状态机事件(310e):`, stateMachineEvents.slice(0, 10).map(entry => ({
-      param1: entry.param1,
-      param2: entry.param2,
-      timestamp: entry.timestamp
-    })));
-
-    // 使用已排序的日志条目进行分析
-    const surgeries = analyzeSurgeries(sortedLogEntries);
     console.log(`从已排序日志条目分析出 ${surgeries.length} 场手术`);
 
     // 为每个手术分配唯一ID
@@ -1074,10 +233,10 @@ const exportSurgeryReport = async (req, res) => {
   }
 };
 
-// 新增：通过日志ID列表直接分析手术数据
+// 通过日志ID列表直接分析手术数据
 const analyzeByLogIds = async (req, res) => {
   try {
-    const { logIds } = req.body;
+    const { logIds, includePostgreSQLStructure } = req.body;
     
     if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
       return res.status(400).json({
@@ -1088,11 +247,56 @@ const analyzeByLogIds = async (req, res) => {
 
     console.log(`开始通过日志ID列表分析手术数据，共 ${logIds.length} 个日志文件`);
     
+    // 检查并发限制
+    const activeAnalysisCount = await getActiveAnalysisCount();
+    const maxConcurrentAnalysis = 3; // 最大并发分析数
+    
+    if (activeAnalysisCount >= maxConcurrentAnalysis) {
+      return res.status(429).json({
+        success: false,
+        message: `当前系统繁忙，已有 ${activeAnalysisCount} 个分析任务在进行中，请稍后再试`
+      });
+    }
+    
+    // 创建异步任务
+    const taskId = createAnalysisTask(logIds, req.user.id);
+    
+    // 立即返回任务ID
+    res.json({
+      success: true,
+      taskId: taskId,
+      message: '分析任务已创建，请稍后查询结果'
+    });
+    
+    // 异步执行分析任务
+    processAnalysisTask(taskId, logIds, includePostgreSQLStructure);
+    
+  } catch (error) {
+    console.error('创建分析任务失败:', error);
+    res.status(500).json({ 
+      success: false,
+      message: '创建分析任务失败', 
+      error: error.message 
+    });
+  }
+};
+
+// 异步处理分析任务
+const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = false) => {
+  try {
+    // 更新任务状态为处理中
+    updateTaskStatus(taskId, 'processing', 0);
+    
     // 获取所有日志的条目数据
     const allLogEntries = [];
+    let processedLogs = 0;
     
     for (const logId of logIds) {
       try {
+        // 更新进度
+        const progress = Math.round((processedLogs / logIds.length) * 80); // 80%用于数据获取
+        updateTaskStatus(taskId, 'processing', progress);
+        
         // 获取单个日志的所有条目
         const logEntries = await LogEntry.findAll({
           where: { log_id: logId },
@@ -1110,37 +314,31 @@ const analyzeByLogIds = async (req, res) => {
         }));
         
         allLogEntries.push(...entriesWithLogName);
+        processedLogs++;
         
         console.log(`日志 ${logName} (ID: ${logId}) 包含 ${logEntries.length} 条记录`);
         
       } catch (error) {
         console.error(`获取日志ID ${logId} 的条目失败:`, error);
+        processedLogs++;
         // 继续处理其他日志，不中断整个分析过程
       }
     }
     
     if (allLogEntries.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: '未找到任何日志条目数据'
-      });
+      updateTaskStatus(taskId, 'failed', 100, null, '未找到任何日志条目数据');
+      return;
     }
     
     console.log(`总共获取到 ${allLogEntries.length} 条日志条目`);
     
-    // 按时间戳排序所有条目
-    const sortedLogEntries = allLogEntries.sort((a, b) => 
-      new Date(a.timestamp) - new Date(b.timestamp)
-    );
+    // 更新进度到90%
+    updateTaskStatus(taskId, 'processing', 90);
     
-    console.log('日志条目已按时间戳排序，时间范围:', {
-      start: sortedLogEntries[0].timestamp,
-      end: sortedLogEntries[sortedLogEntries.length - 1].timestamp,
-      count: sortedLogEntries.length
+    // 使用新的分析器进行分析
+    const surgeries = analyzeSurgeries(allLogEntries, { 
+      includePostgreSQLStructure: includePostgreSQLStructure === true 
     });
-    
-    // 使用已排序的日志条目进行分析
-    const surgeries = analyzeSurgeries(sortedLogEntries);
     console.log(`从日志ID列表分析出 ${surgeries.length} 场手术`);
     
     // 为每个手术分配唯一ID
@@ -1149,20 +347,250 @@ const analyzeByLogIds = async (req, res) => {
       surgery.log_filename = `批量日志分析 (${logIds.length}个文件)`;
     });
     
+    // 更新任务为完成状态
+    updateTaskStatus(taskId, 'completed', 100, surgeries);
+    
+    // 清理已完成的任务
+    cleanupCompletedTasks();
+    
     console.log('分析完成，手术数据:', surgeries);
+    
+  } catch (error) {
+    console.error('处理分析任务失败:', error);
+    updateTaskStatus(taskId, 'failed', 100, null, error.message);
+  }
+};
+
+// 查询分析任务状态
+const getAnalysisTaskStatus = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const task = analysisTasks.get(parseInt(taskId));
+    
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: '任务不存在'
+      });
+    }
+    
+    // 检查权限：只能查看自己的任务
+    if (task.userId !== req.user.id && req.user.role_id !== 1) { // 管理员可以查看所有任务
+      return res.status(403).json({
+        success: false,
+        message: '无权查看此任务'
+      });
+    }
+    
     res.json({
       success: true,
-      data: surgeries,
-      message: `成功分析出 ${surgeries.length} 场手术数据（来自 ${logIds.length} 个日志文件，共 ${sortedLogEntries.length} 条记录）`
+      data: {
+        id: task.id,
+        status: task.status,
+        progress: task.progress,
+        result: task.result,
+        error: task.error,
+        createdAt: task.createdAt,
+        startedAt: task.startedAt,
+        completedAt: task.completedAt,
+        logIds: task.logIds
+      }
     });
     
   } catch (error) {
-    console.error('通过日志ID列表分析手术数据失败:', error);
+    console.error('查询任务状态失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '查询任务状态失败',
+      error: error.message
+    });
+  }
+};
+
+// 获取用户的任务列表
+const getUserAnalysisTasks = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const isAdmin = req.user.role_id === 1;
+    
+    const userTasks = Array.from(analysisTasks.values())
+      .filter(task => isAdmin || task.userId === userId)
+      .map(task => ({
+        id: task.id,
+        status: task.status,
+        progress: task.progress,
+        createdAt: task.createdAt,
+        startedAt: task.startedAt,
+        completedAt: task.completedAt,
+        logIds: task.logIds
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+    
+    res.json({
+      success: true,
+      data: userTasks
+    });
+    
+  } catch (error) {
+    console.error('获取任务列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取任务列表失败',
+      error: error.message
+    });
+  }
+};
+
+// 导出PostgreSQL结构化数据
+const exportPostgreSQLData = async (req, res) => {
+  try {
+    const { logIds } = req.query;
+    
+    let logs;
+    if (logIds) {
+      const logIdArray = logIds.split(',').map(id => parseInt(id.trim()));
+      logs = await Log.findAll({
+        where: { id: { [Op.in]: logIdArray } },
+        order: [['original_name', 'DESC']]
+      });
+    } else {
+      logs = await Log.findAll({
+        order: [['original_name', 'DESC']]
+      });
+    }
+
+    const allSurgeries = [];
+    let surgeryIdCounter = 1;
+
+    for (const log of logs) {
+      const logEntries = await LogEntry.findAll({
+        where: { log_id: log.id },
+        order: [['timestamp', 'ASC']]
+      });
+
+      if (logEntries.length > 0) {
+        const surgeries = analyzeSurgeries(logEntries, { includePostgreSQLStructure: true });
+        
+        surgeries.forEach(surgery => {
+          surgery.id = surgeryIdCounter++;
+          surgery.log_filename = log.filename;
+        });
+        
+        allSurgeries.push(...surgeries);
+      }
+    }
+
+    // 转换为PostgreSQL插入语句
+    const postgresqlData = allSurgeries.map(surgery => ({
+      surgery_id: surgery.surgery_id,
+      device_ids: [surgery.log_id], // 可以根据需要调整
+      start_time: surgery.surgery_start_time,
+      end_time: surgery.surgery_end_time,
+      is_remote: surgery.is_remote_surgery || false,
+      structured_data: surgery.postgresql_structure,
+      last_analyzed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
+
+    res.json({
+      success: true,
+      data: postgresqlData,
+      message: `成功生成 ${postgresqlData.length} 条PostgreSQL结构化数据`
+    });
+
+  } catch (error) {
+    console.error('导出PostgreSQL数据失败:', error);
+    res.status(500).json({ message: '导出PostgreSQL数据失败', error: error.message });
+  }
+};
+
+// 查询PostgreSQL中的手术数据
+const getPostgreSQLSurgeries = async (req, res) => {
+  try {
+    const Surgery = require('../models/surgery');
+    const { limit = 100, offset = 0 } = req.query;
+    
+    const surgeries = await Surgery.findAll({
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['created_at', 'DESC']]
+    });
+    
+    const total = await Surgery.count();
+    
+    res.json({
+      success: true,
+      data: surgeries,
+      total,
+      message: `成功查询到 ${surgeries.length} 条手术数据`
+    });
+    
+  } catch (error) {
+    console.error('查询PostgreSQL手术数据失败:', error);
     res.status(500).json({ 
       success: false,
-      message: '通过日志ID列表分析手术数据失败', 
+      message: '查询PostgreSQL手术数据失败', 
       error: error.message 
     });
+  }
+};
+
+// 导出单个手术的结构化数据
+const exportSingleSurgeryData = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 获取当前分析的手术数据
+    const surgery = global.currentSurgeries?.find(s => s.id.toString() === id);
+    
+    if (!surgery) {
+      return res.status(404).json({
+        success: false,
+        message: '未找到指定的手术数据'
+      });
+    }
+
+    // 转换为PostgreSQL结构化数据
+    const Surgery = require('../models/surgery');
+    const postgresqlData = {
+      surgery_id: surgery.surgery_id,
+      device_ids: [surgery.log_id],
+      start_time: surgery.surgery_start_time,
+      end_time: surgery.surgery_end_time,
+      is_remote: surgery.is_remote_surgery || false,
+      structured_data: surgery.postgresql_structure || null,
+      last_analyzed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // 尝试存储到PostgreSQL数据库
+    try {
+      const savedSurgery = await Surgery.create(postgresqlData);
+      console.log('手术数据已存储到PostgreSQL:', savedSurgery.surgery_id);
+      
+      res.json({
+        success: true,
+        data: {
+          ...postgresqlData,
+          postgresql_id: savedSurgery.id
+        },
+        message: '手术结构化数据已成功导出并存储到PostgreSQL数据库'
+      });
+    } catch (dbError) {
+      console.warn('PostgreSQL存储失败，仅返回数据:', dbError.message);
+      
+      res.json({
+        success: true,
+        data: postgresqlData,
+        message: '手术结构化数据导出成功（PostgreSQL存储失败）'
+      });
+    }
+
+  } catch (error) {
+    console.error('导出单个手术数据失败:', error);
+    res.status(500).json({ message: '导出单个手术数据失败', error: error.message });
   }
 };
 
@@ -1171,5 +599,10 @@ module.exports = {
   analyzeSortedLogEntries,
   analyzeByLogIds,
   exportSurgeryReport,
-  analyzeSurgeries
+  analyzeSurgeries,
+  getAnalysisTaskStatus,
+  getUserAnalysisTasks,
+  exportPostgreSQLData,
+  exportSingleSurgeryData,
+  getPostgreSQLSurgeries
 };

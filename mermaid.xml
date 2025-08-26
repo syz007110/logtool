@@ -1,0 +1,197 @@
+graph TD 
+Start(开始) --> Init[初始化全局变量]
+    Init --> Reset[清空各统计列表]
+    Reset --> Loop[读取每一个日志]
+    
+    Loop --> CheckType{日志类型判断}
+    
+    %% 主要分支
+    CheckType --> |开机事件| PowerOn[标记开机]
+    CheckType --> |关机事件| PowerOff[处理关机逻辑]
+    CheckType --> |故障事件| Error[处理故障逻辑]
+    CheckType --> |状态机事件| State310[处理状态机事件]
+    CheckType --> |手术结束事件| State500[处理手术结束]
+    CheckType --> |器械相关事件| State600[处理器械事件]
+    CheckType --> |UDI码事件| State510[处理UDI码]
+    CheckType --> |网络事件| Network[处理网络事件]
+    
+    %% 子流程调用
+    PowerOn --> SubPowerOn
+    PowerOff --> SubPowerOff
+    Error --> SubError
+    State310 --> Sub310
+    State500 --> Sub500
+    State600 --> Sub600
+    State510 --> Sub510
+    Network --> SubNetwork
+
+%% 子流程图：开机事件处理
+subgraph SubPowerOn[开机处理]
+    direction TB
+    s1{case1:errcode=570e and p1=0 and p2≠0? or case2:errcode=A01e?} --> |是|s2
+    s2{开机标志位isPowerOn=false?} --> |是|s3
+    s3[标记开机事件]
+    s3 --> s4{距离上次关机>30分钟?}
+    s4 --> |是|s5[清空当前手术，准备新手术]
+    s4 --> |否|s6[保持当前手术，记录重启]
+    s5 --> s7[重置所有状态变量]
+    s6 --> s8[记录开机时间到当前手术]
+    s7 --> s9[记录开机事件]
+    s8 --> s9
+    s9 --> s10[设置开机标志位isPowerOn=true]
+end
+
+%% 子流程图：关机事件处理
+subgraph SubPowerOff[关机处理]
+    direction TB
+    p1{errcode=A02e?} --> |是|p2
+    p1 --> |否|p1a{errcode=310e and p2=31?}
+    p1a --> |是|p1b{30秒内无310e p1=31且p2≠31?}
+    p1b --> |是|p2
+    p2[标记关机事件]
+    p2 --> p3[设置开机标志位isPowerOn=false]
+    p3 --> p4[记录关机事件和时间]
+    p4 --> p5{当前手术已有结束时间?}
+    p5 --> |是|p6[完成手术，添加到手术列表]
+    p5 --> |否|p7{手术已开始?}
+    p7 --> |是|p8[保持手术对象，等待后续事件]
+    p7 --> |否|p9[丢弃手术对象，不算作手术]
+    p6 --> p10[清空所有状态]
+    p8 --> p11[记录关机时间到手术]
+    p9 --> p10
+end
+
+%% 子流程图：故障事件处理
+subgraph SubError[故障处理]
+    direction TB
+    e1{errcode最后一位是a或b?} --> |是|e2[标记故障事件]
+    e2 --> e3{该故障码已存在未处理故障?}
+    e3 --> |否|e4[记录新故障到活跃故障列表]
+    e3 --> |是|e5[更新故障信息]
+    e4 --> e6[添加到故障详情列表]
+    e5 --> e7[更新故障时间戳]
+    e6 --> e8[标记当前手术为故障手术]
+    e7 --> e8
+    e8 --> e9[设置故障标志位errFlag=true]
+end
+
+%% 子流程图：状态机事件处理
+subgraph Sub310[状态310e处理]
+    direction TB
+    st1{errcode=310e} --> st2[更新当前状态机状态]
+    st2 --> st3[记录状态机变化]
+    st3 --> st4{当前状态=20?}
+    st4 --> |是|st5{手术尚未开始?}
+    st5 --> |是|st6[标记手术开始]
+    st6 --> st7{已有手术前对象?}
+    st7 --> |是|st8[转换为正式手术对象]
+    st7 --> |否|st9[创建新手术对象]
+    st8 --> st10[设置手术开始时间]
+    st9 --> st10
+
+    st4 --> |否|st12{故障恢复条件?p2=0 and p1=1 and errFlag = true}
+    st12 --> |是|st13[标记故障恢复]
+    st13 --> st14[将所有活跃故障标记为已处理]
+    st14 --> st15[清空活跃故障列表]
+    st15 --> st16[设置故障恢复标志位errRecover=true]
+end
+
+%% 子流程图：手术结束处理
+subgraph Sub500[手术结束处理]
+    direction TB
+    sc1{errcode=500e and p2≠0 and p3=0?} --> |是|sc2
+    sc2{所有器械状态=0或-1?} --> |是|sc3
+    sc3{当前状态=10/12/13?} --> |是|sc4[标记手术结束]
+    sc4 --> sc5[设置手术结束时间]
+    sc5 --> sc6[计算手术总时长]
+    sc6 --> sc7[设置手术最终数据]
+    sc7 --> sc8[处理网络统计数据]
+    sc8 --> sc9[过滤状态机变化]
+    sc9 --> sc10[将手术添加到手术列表]
+    sc10 --> sc11[重置手术开始标志位]
+    sc11 --> sc12[保持手术对象用于后续关机事件]
+end
+
+%% 子流程图：器械事件处理
+subgraph Sub600[器械事件处理]
+    direction TB
+    ic1{errcode=501e?} --> |是|ic2[更新器械类型]
+    ic2 --> ic3{系统已开机?}
+    ic3 --> |是|ic4{当前无手术对象?}
+    ic4 --> |是|ic5[创建临时手术对象]
+    ic4 --> |否|ic6{当前手术已结束?}
+    ic6 --> |是|ic7[创建连台手术对象]
+    ic5 --> ic8[记录器械使用开始]
+    ic6 --> |否|ic8
+    ic7 --> ic8
+    ic8 --> ic9{器械类型>0?}
+    ic9 --> |是|ic10[记录器械插上事件]
+    ic9 --> |否|ic11[记录器械拔下事件]
+    ic10 --> ic12[设置开始时间和UDI待更新]
+    ic11 --> ic13[设置结束时间和计算使用时长]
+    
+    ic14{errcode=2c2d?} --> |是|ic15[清除器械类型]
+    ic15 --> ic16[回退最近一次使用记录]
+end
+
+%% 子流程图：UDI码处理
+subgraph Sub510[UDI码处理]
+    direction TB
+    u1{errcode=510e?} --> |是|u2[计算工具臂索引]
+    u2 --> u3[处理p1参数]
+    u3 --> u4{highChar是F或D?}
+    u4 --> |是|u5[拼接highChar+低8位十六进制]
+    u4 --> |否|u6[使用p1十进制字符串]
+    u5 --> u7[处理p2参数]
+    u6 --> u7
+    u7 --> u8{器械类型判断}
+    u8 --> |9/10/11|u9[生成ECO格式UDI]
+    u8 --> |17|u10[生成F格式UDI]
+    u8 --> |其他|u11[生成IN格式UDI]
+    u9 --> u12[更新UDI码到工具臂]
+    u10 --> u12
+    u11 --> u12
+    u12 --> u13[保存到UDI历史记录]
+    u13 --> u14[更新待更新器械的UDI码]
+end
+
+%% 子流程图：网络事件处理
+subgraph SubNetwork[网络事件处理]
+    direction TB
+    n1{errcode=416d?} --> |是|n2[标记为远程手术]
+    n2 --> n3[设置is_remote_surgery=true]
+    n1 --> |否|n4{errcode=405E?}
+    n4 --> |是|n5[记录网络延时数据]
+    n5 --> n6[保存延时值和时间戳]
+    n6 --> n7[关联到当前手术]
+end
+
+%% 主流程继续
+SubPowerOn --> Loop
+SubPowerOff --> Loop
+SubError --> Loop
+Sub310 --> Loop
+Sub500 --> Loop
+Sub600 --> Loop
+Sub510 --> Loop
+SubNetwork --> Loop
+
+Loop --> CheckEnd{是否还有日志?}
+CheckEnd --> |是|Loop
+CheckEnd --> |否|FinalProcess[最终处理]
+
+%% 最终处理流程
+subgraph FinalProcess[最终处理]
+    direction TB
+    fp1{当前有未完成手术?} --> |是|fp2[使用最后日志时间作为结束时间]
+    fp2 --> fp3[计算手术总时长]
+    fp3 --> fp4[处理网络统计数据]
+    fp4 --> fp5[过滤状态机变化]
+    fp5 --> fp6[为未闭合器械补充结束时间]
+    fp1 --> |否|fp7[跳过最终处理]
+    fp6 --> fp8[添加到手术列表]
+    fp7 --> fp9[返回手术分析结果]
+    fp8 --> fp9
+end
+
+FinalProcess --> End(结束)

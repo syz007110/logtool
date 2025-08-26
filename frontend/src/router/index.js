@@ -19,13 +19,7 @@ const routes = [
     meta: { requiresAuth: false }
   },
 
-  // 将旧的单日志分析路由重定向到批量分析（兼容单个ID）
-  {
-    path: '/analysis/:id',
-    name: 'Analysis',
-    redirect: (to) => ({ path: `/batch-analysis/${to.params.id}` }),
-    meta: { requiresAuth: true, noSidebar: true }
-  },
+  // 批量分析路由（支持单个或多个日志ID）
   {
     path: '/batch-analysis/:logIds',
     name: 'BatchAnalysisStandalone',
@@ -68,7 +62,8 @@ const routes = [
       {
         path: 'log-detail/:id',
         name: 'LogDetail',
-        component: () => import('../views/LogDetail.vue')
+        redirect: (to) => ({ path: `/batch-analysis/${to.params.id}` }),
+        meta: { requiresPermission: 'surgery:analyze' }
       },
       {
         path: 'log-analysis/:id',

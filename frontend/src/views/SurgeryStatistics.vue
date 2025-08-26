@@ -70,9 +70,9 @@
           >
             <!-- 导出按钮 -->
             <div class="export-section">
-              <el-button type="primary" @click="exportReport(surgery.id)">
+              <el-button type="primary" @click="exportSurgeryData(surgery.id)">
                 <el-icon><Download /></el-icon>
-                导出手术报告 PDF
+                导出手术数据（手术结构化数据）
               </el-button>
             </div>
             
@@ -93,6 +93,16 @@
                         style="cursor: pointer;"
                       >
                         查看手术故障
+                      </el-tag>
+                      <el-tag 
+                        v-if="surgery.is_remote_surgery" 
+                        type="info" 
+                        size="small"
+                        class="network-tag"
+                        @click="scrollToNetworkCard(surgery.id)"
+                        style="cursor: pointer; margin-left: 8px;"
+                      >
+                        查看网络延时
                       </el-tag>
                     </div>
                   </div>
@@ -323,6 +333,34 @@
               
               <div class="alarm-summary">
                 <el-tag type="danger">报警总数: {{ surgery.alarm_count || 0 }}</el-tag>
+                <el-tag type="info" style="margin-left: 8px;">未处理: {{ getDeduplicatedAlarmStats(surgery).activeCount }}</el-tag>
+                <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+                  <span>说明：相同故障码在解除恢复前只统计一次</span>
+                </div>
+              </div>
+            </el-card>
+            
+            <!-- 网络延时统计 -->
+            <el-card v-if="surgery.is_remote_surgery" class="network-card">
+              <template #header>
+                <span>网络延时统计</span>
+              </template>
+              
+              <div v-if="surgery.network_stats" class="network-stats">
+                <div class="network-summary">
+                  <el-tag type="info">数据点: {{ surgery.network_stats.count }}</el-tag>
+                  <el-tag type="success" style="margin-left: 8px;">平均延时: {{ surgery.network_stats.avg }}ms</el-tag>
+                  <el-tag type="warning" style="margin-left: 8px;">范围: {{ surgery.network_stats.min }}-{{ surgery.network_stats.max }}ms</el-tag>
+                </div>
+                
+                <!-- 网络延时曲线图 -->
+                <div class="network-chart-container">
+                  <div :id="`networkChart_${surgery.id}`" style="width: 100%; height: 300px"></div>
+                </div>
+              </div>
+              
+              <div v-else class="network-no-data">
+                <el-empty description="暂无网络延时数据" :image-size="60" />
               </div>
             </el-card>
           </el-tab-pane>
@@ -352,7 +390,8 @@ import {
   PowerOff,
   Lightning,
   Globe,
-  Loading
+  Loading,
+  InfoFilled
 } from '@element-plus/icons-vue'
 import { debounce, safeNextTick } from '@/utils/resizeObserverFix'
 import * as echarts from 'echarts'
@@ -427,7 +466,8 @@ export default {
         1: 5,   // 1位置（与0距离增大）
         2: 10,  // 2位置
         10: 20, // 10位置
-        13: 30, // 13位置（与10距离增大）
+        12: 25, // 12位置（与10距离增大）
+        13: 30, // 13位置（与12距离增大）
         14: 35, // 14位置（与13距离增大）
         20: 45, // 20位置（与14距离增大）
         21: 50, // 21位置（与20距离增大）
@@ -438,8 +478,8 @@ export default {
     
     // 固定显示指定的刻度值
     const getFixedTicks = () => {
-      // 显示的刻度值：0, 1, 2, 10, 13, 14, 20, 21, 30, 31
-      return [0, 1, 2, 10, 13, 14, 20, 21, 30, 31]
+      // 显示的刻度值：0, 1, 2, 10, 12, 13, 14, 20, 21, 30, 31
+      return [0, 1, 2, 10, 12, 13, 14, 20, 21, 30, 31]
     }
 
     
@@ -447,7 +487,14 @@ export default {
 
     // 计算属性 - 获取日志条目数据
     const logEntries = computed(() => {
-      // 优先从sessionStorage获取手术分析专用数据
+      // 优先从URL参数获取日志ID
+      const logIdsParam = route.query.logIds
+      if (logIdsParam) {
+        // 如果有URL参数，直接返回空数组，让后端处理
+        return []
+      }
+      
+      // 如果没有URL参数，尝试从sessionStorage获取数据（兼容旧版本）
       try {
         const surgeryData = sessionStorage.getItem('surgeryAnalysisData')
         if (surgeryData) {
@@ -486,51 +533,6 @@ export default {
         sessionStorage.removeItem('surgeryAnalysisData')
       }
       
-      // 如果没有手术分析数据，尝试获取批量分析的日志条目数据
-      try {
-        const batchEntries = sessionStorage.getItem('batchLogEntries')
-        if (batchEntries) {
-          const entries = JSON.parse(batchEntries)
-          if (entries && entries.length > 0) {
-            // 检查是否是压缩格式的数据
-            const isCompressed = sessionStorage.getItem('batchLogEntriesCompressed') === 'true'
-            
-            if (isCompressed) {
-              // 解压缩数据
-              const decompressedEntries = entries.map(entry => ({
-                timestamp: entry.t,
-                error_code: entry.e,
-                param1: entry.p1,
-                param2: entry.p2,
-                param3: entry.p3,
-                param4: entry.p4,
-                explanation: entry.exp,
-                log_name: entry.ln
-              }))
-              
-              return decompressedEntries
-            } else {
-              return entries
-            }
-          }
-        }
-      } catch (error) {
-        console.error('解析批量分析数据失败:', error)
-      }
-      
-      // 如果没有批量分析数据，尝试获取单个日志数据
-      try {
-        const singleEntries = sessionStorage.getItem('logEntries')
-        if (singleEntries) {
-          const entries = JSON.parse(singleEntries)
-          if (entries && entries.length > 0) {
-            return entries
-          }
-        }
-      } catch (error) {
-        console.error('解析单个日志数据失败:', error)
-      }
-      
       return []
     })
     
@@ -549,10 +551,14 @@ export default {
         // 设置分析状态
         analyzing.value = true
         
-        // 直接调用后端API进行分析，不需要前端加载所有数据
+        // 调用后端API创建分析任务
         const response = await api.surgeryStatistics.analyzeByLogIds(logIds)
         
-        if (response.data.success) {
+        if (response.data.success && response.data.taskId) {
+          // 异步任务已创建，开始轮询结果
+          await pollTaskResult(response.data.taskId)
+        } else if (response.data.success && response.data.data) {
+          // 直接返回结果（兼容旧版本）
           surgeries.value = response.data.data || []
           
           if (surgeries.value.length > 0) {
@@ -561,7 +567,6 @@ export default {
               armDetailsVisible[surgery.id] = false
               showAllAlarms[surgery.id] = false
             })
-
           }
           
           ElMessage.success(response.data.message || `成功分析出 ${surgeries.value.length} 场手术`)
@@ -574,6 +579,59 @@ export default {
       } finally {
         analyzing.value = false
       }
+    }
+    
+    // 轮询任务结果
+    const pollTaskResult = async (taskId) => {
+      const maxAttempts = 60 // 最多轮询60次（5分钟）
+      let attempts = 0
+      
+      const poll = async () => {
+        try {
+          const response = await api.surgeryStatistics.getAnalysisTaskStatus(taskId)
+          
+          if (response.data.success) {
+            const task = response.data.data
+            
+            if (task.status === 'completed') {
+              // 任务完成，显示结果
+              surgeries.value = task.result || []
+              
+              if (surgeries.value.length > 0) {
+                activeTab.value = surgeries.value[0].id.toString()
+                surgeries.value.forEach(surgery => {
+                  armDetailsVisible[surgery.id] = false
+                  showAllAlarms[surgery.id] = false
+                })
+              }
+              
+              ElMessage.success(`成功分析出 ${surgeries.value.length} 场手术`)
+              return
+            } else if (task.status === 'failed') {
+              // 任务失败
+              ElMessage.error(task.error || '分析任务失败')
+              return
+            } else if (task.status === 'processing') {
+              // 任务进行中，继续轮询
+              attempts++
+              if (attempts < maxAttempts) {
+                // 使用Promise包装setTimeout
+                await new Promise(resolve => setTimeout(resolve, 5000))
+                await poll()
+              } else {
+                ElMessage.error('分析任务超时，请稍后查看结果')
+              }
+            }
+          } else {
+            ElMessage.error('查询任务状态失败')
+          }
+        } catch (error) {
+          ElMessage.error('查询任务状态失败: ' + error.message)
+        }
+      }
+      
+      // 开始轮询
+      await poll()
     }
     
     // 获取时间范围
@@ -655,13 +713,19 @@ export default {
       }
     }
 
-    // 导出报告
-    const exportReport = async (surgeryId) => {
+    // 导出手术数据（结构化数据）
+    const exportSurgeryData = async (surgeryId) => {
       try {
-        const response = await api.surgeryStatistics.exportReport(surgeryId)
-        ElMessage.success('报告导出功能开发中')
+        const response = await api.surgeryStatistics.exportSingleSurgeryData(surgeryId)
+        if (response.data.success) {
+          ElMessage.success('手术结构化数据导出成功')
+          // 可以在这里添加下载功能
+          console.log('导出的结构化数据:', response.data.data)
+        } else {
+          ElMessage.error(response.data.message || '导出失败')
+        }
       } catch (error) {
-        ElMessage.error('导出报告失败')
+        ElMessage.error('导出手术数据失败: ' + (error.response?.data?.message || error.message))
       }
     }
 
@@ -703,6 +767,36 @@ export default {
         }
       })
     }
+
+    // 滚动到网络延时统计卡片
+    const scrollToNetworkCard = (surgeryId) => {
+      // 确保当前手术标签页是激活的
+      if (activeTab.value !== surgeryId.toString()) {
+        activeTab.value = surgeryId.toString()
+      }
+      
+      // 等待DOM更新后滚动到网络卡片
+      nextTick(() => {
+        const networkCard = document.querySelector(`[data-surgery-id="${surgeryId}"] .network-card`)
+        if (networkCard) {
+          networkCard.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          })
+          
+          // 添加高亮效果
+          networkCard.style.boxShadow = '0 0 0 2px #409EFF, 0 4px 12px rgba(64, 158, 255, 0.3)'
+          networkCard.style.transition = 'box-shadow 0.3s ease'
+          
+          // 3秒后移除高亮效果
+          setTimeout(() => {
+            networkCard.style.boxShadow = ''
+          }, 3000)
+        }
+      })
+    }
+
+
 
     // 获取工具臂使用情况
     const getArmUsages = (surgery) => {
@@ -811,6 +905,26 @@ export default {
       return details
     }
 
+    // 获取去重后的故障统计信息
+    const getDeduplicatedAlarmStats = (surgery) => {
+      const details = getAlarmDetails(surgery)
+      if (!details || details.length === 0) {
+        return { uniqueCount: 0, totalCount: 0, activeCount: 0 }
+      }
+      
+      // 统计唯一故障码数量
+      const uniqueCodes = new Set(details.map(d => d.code))
+      const uniqueCount = uniqueCodes.size
+      
+      // 统计总故障数量
+      const totalCount = details.length
+      
+      // 统计未处理的故障数量
+      const activeCount = details.filter(d => d.status === '未处理' && d.isActive === true).length
+      
+      return { uniqueCount, totalCount, activeCount }
+    }
+
     // 格式化时间（24小时制）
     const formatTime = (time) => {
       if (!time) return '-'
@@ -877,7 +991,7 @@ export default {
       return { start, end }
     }
 
-    // 获取“手术时间线”事件范围：起点为第一个事件时间，终点为最后一个事件时间
+    // 获取"手术时间线"事件范围：起点为第一个事件时间，终点为最后一个事件时间
     const getEventTimelineRange = (surgery) => {
       try {
         const events = getSortedTimelineEvents(surgery)
@@ -1066,7 +1180,7 @@ export default {
       let totalWidth = 0
       const segments = []
       
-      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件）
+      // 使用"手术时间线"事件范围（第一个事件 ~ 最后一个事件）
       const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) return { left: '0%', width: '0%' }
       
@@ -1107,7 +1221,7 @@ export default {
       // 计算所有合并后时间段的样式
       const segments = []
       
-      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件）
+      // 使用"手术时间线"事件范围（第一个事件 ~ 最后一个事件）
       const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) return []
       
@@ -1133,7 +1247,7 @@ export default {
         return { left: '0%', width: '0%' }
       }
       
-      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件）
+      // 使用"手术时间线"事件范围（第一个事件 ~ 最后一个事件）
       const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) {
         return { left: '0%', width: '0%' }
@@ -1171,7 +1285,7 @@ export default {
         return { left: '0%', width: '0%' }
       }
       
-      // 使用“手术时间线”事件范围（第一个事件 ~ 最后一个事件），确保与时间线完全对齐
+      // 使用"手术时间线"事件范围（第一个事件 ~ 最后一个事件），确保与时间线完全对齐
       const timelineRange = getEventTimelineRange(surgery)
       if (!timelineRange.start || !timelineRange.end) {
         return { left: '0%', width: '0%' }
@@ -1306,14 +1420,18 @@ export default {
       powerOnTimes.forEach((time, index) => {
         // 检查是否为连台手术，如果是则显示"上一场手术结束时间"
         let label = '开机'
-        if (surgery.is_consecutive_surgery && index === 0) {
+        let displayTime = time
+        
+        if (surgery.is_consecutive_surgery && index === 0 && surgery.previous_surgery_end_time) {
+          // 连台手术：使用上一场手术结束时间而不是开机时间
           label = '上一场手术结束时间'
+          displayTime = surgery.previous_surgery_end_time
         } else if (powerOnTimes.length > 1) {
           label = `开机 ${index + 1}`
         }
         
         events.push({
-          time: new Date(time),
+          time: new Date(displayTime),
           type: 'powerOn',
           label: label,
           color: 'green',
@@ -1943,6 +2061,123 @@ export default {
         "31": "关机（S31）"
       }
       return stateMap[state] || `状态${state}`
+    }
+
+    // 网络图表相关功能
+    const networkCharts = new Map() // 为每个手术存储网络图表实例
+
+    // 更新网络延时图表
+    const updateNetworkChart = (surgery) => {
+      if (!surgery || !surgery.is_remote_surgery || !surgery.network_stats) return
+      
+      const container = document.getElementById(`networkChart_${surgery.id}`)
+      if (!container) {
+        setTimeout(() => updateNetworkChart(surgery), 50)
+        return
+      }
+
+      // 清理旧实例
+      const existing = networkCharts.get(surgery.id)
+      if (existing) {
+        try { existing.dispose && existing.dispose() } catch (_) {}
+        networkCharts.delete(surgery.id)
+      }
+
+      const chart = echarts.init(container)
+      networkCharts.set(surgery.id, chart)
+
+      // 获取手术开始和结束时间
+      const surgeryStartTime = new Date(surgery.surgery_start_time).getTime()
+      const surgeryEndTime = new Date(surgery.surgery_end_time).getTime()
+
+      // 准备数据 - 只包含手术时间段内的数据
+      const data = surgery.network_stats.data
+        .filter(item => {
+          const timestamp = new Date(item.timestamp).getTime()
+          return timestamp >= surgeryStartTime && timestamp <= surgeryEndTime
+        })
+        .map(item => [
+          new Date(item.timestamp).getTime(),
+          item.latency
+        ])
+
+      // 按时间排序
+      data.sort((a, b) => a[0] - b[0])
+
+      chart.setOption({
+        grid: { left: 60, right: 20, top: 70, bottom: 80, containLabel: true },
+        toolbox: {
+          right: 10,
+          top: 10,
+          feature: {
+            dataZoom: { yAxisIndex: 'none' },
+            restore: {},
+            saveAsImage: {}
+          }
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'line' },
+          formatter: (params) => {
+            if (!params || !params[0]) return ''
+            const p = params[0]
+            const time = new Date(p.value[0])
+            const latency = p.value[1]
+            return `${time.toLocaleString('zh-CN')}<br/>网络延时: ${latency}ms`
+          }
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            xAxisIndex: 0,
+            filterMode: 'none',
+            zoomOnMouseWheel: true,
+            moveOnMouseWheel: true,
+            moveOnMouseMove: true
+          },
+          {
+            type: 'slider',
+            xAxisIndex: 0,
+            filterMode: 'none',
+            height: 40,
+            bottom: 20,
+            showDataShadow: true,
+            brushSelect: true
+          }
+        ],
+        xAxis: {
+          type: 'time',
+          min: surgeryStartTime,
+          max: surgeryEndTime,
+          axisLabel: { 
+            formatter: (value) => new Date(value).toLocaleTimeString('zh-CN', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            }) 
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: '延时 (ms)',
+          axisLabel: { formatter: '{value}ms' },
+          scale: true
+        },
+        series: [{
+          type: 'line',
+          name: '网络延时',
+          showSymbol: false,
+          lineStyle: { width: 2, color: '#409EFF' },
+          itemStyle: { color: '#409EFF' },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(64,158,255,0.25)' },
+              { offset: 1, color: 'rgba(64,158,255,0.05)' }
+            ])
+          },
+          data: data
+        }]
+      })
     }
 
     // 图表滚动功能已移除，现在只使用滚动条控制
@@ -2615,6 +2850,11 @@ export default {
                 updateStateMachineChart(currentSurgery)
               }, 100)
             }
+            
+            // 更新网络延时图表
+            if (currentSurgery.is_remote_surgery && currentSurgery.network_stats) {
+              updateNetworkChart(currentSurgery)
+            }
           })
         }
       }
@@ -2653,6 +2893,11 @@ export default {
                 updateStateMachineChart(currentSurgery)
               }, 100)
             }
+            
+            // 更新网络延时图表
+            if (currentSurgery.is_remote_surgery && currentSurgery.network_stats) {
+              updateNetworkChart(currentSurgery)
+            }
           })
         }
       }
@@ -2660,64 +2905,22 @@ export default {
 
     // 生命周期
     onMounted(async () => {
-      
-      try {
-        // 检查URL参数中是否有批量日志ID需要分析
-        const logIdsParam = route.query.logIds
-        if (logIdsParam) {
-          try {
-            const logIds = logIdsParam.split(',').map(id => parseInt(id))
-            if (logIds && logIds.length > 0) {
-              // 自动分析批量日志数据
-              await loadBatchLogEntriesByIds()
-              return // 如果进行了批量分析，就不需要继续检查其他数据
-            }
-          } catch (error) {
-            console.error('解析URL参数中的日志ID失败:', error)
-          }
-        }
-        
-        // 直接检查sessionStorage中的数据
-        let batchData = null
-        let singleData = null
-        
-        try {
-          const batchEntries = sessionStorage.getItem('batchLogEntries')
-          if (batchEntries) {
-            batchData = JSON.parse(batchEntries)
-          }
-        } catch (error) {
-          // 静默处理错误
-        }
-        
-        try {
-          const singleEntries = sessionStorage.getItem('logEntries')
-          if (singleEntries) {
-            singleData = JSON.parse(singleEntries)
-          }
-        } catch (error) {
-          // 静默处理错误
-        }
-        
-        // 检查computed属性
-        
-        // 检查是否需要自动分析
-        const autoAnalyze = sessionStorage.getItem('autoAnalyze')
-        const autoAnalyzeLogId = sessionStorage.getItem('autoAnalyzeLogId')
-        if (autoAnalyze === 'true' && autoAnalyzeLogId) {
-          sessionStorage.removeItem('autoAnalyze') // 清除标志
-          sessionStorage.removeItem('autoAnalyzeLogId') // 清除日志ID
-          // 延迟一下确保页面完全加载
-          setTimeout(() => {
-            // 使用日志ID进行分析，而不是传递大量日志条目数据
-            loadBatchLogEntriesByIds()
-          }, 1000)
-        }
-      } catch (error) {
-        console.error('页面初始化错误:', error)
+      // 优先处理URL参数中的日志ID
+      const logIdsParam = route.query.logIds
+      if (logIdsParam) {
+        await loadBatchLogEntriesByIds()
+        return
       }
       
-
+      // 如果没有URL参数，检查是否有sessionStorage数据
+      if (logEntries.value.length > 0) {
+        // 检查是否有自动分析标志
+        const autoAnalyze = sessionStorage.getItem('autoAnalyze')
+        if (autoAnalyze === 'true') {
+          sessionStorage.removeItem('autoAnalyze')
+          await analyzeLogs()
+        }
+      }
     })
 
           return {
@@ -2728,10 +2931,11 @@ export default {
         analyzing,
         logEntriesCount,
         analyzeLogs,
-        exportReport,
+        exportSurgeryData,
         toggleArmDetails,
         toggleAlarms,
         scrollToAlarmCard,
+        scrollToNetworkCard,
         getArmUsages,
         getInstrumentRows,
         getArmTotalTime,
@@ -2742,6 +2946,7 @@ export default {
         getEnergyTime,
         getAlarmTypeTag,
         getAlarmDetails,
+        getDeduplicatedAlarmStats,
         formatTime,
         formatSurgeryTime,
         formatTimeShort,
@@ -2751,6 +2956,7 @@ export default {
         getAnalysisButtonText,
         getTimeRange,
         loadBatchLogEntriesByIds,
+        pollTaskResult,
         getPowerOnTime,
         getPowerOffTime,
         getAllPowerOnTimes,
@@ -2774,6 +2980,9 @@ export default {
         updateStateMachineChart,
         getStateMachineChartData,
         getStateMachineChartOptions,
+
+        // 网络图表相关方法
+        updateNetworkChart,
 
                  // 滚动条相关方法
          getScrollbarThumbStyle,
@@ -4083,6 +4292,47 @@ export default {
   transform: scale(1.02);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   z-index: 10;
+}
+
+/* 网络延时统计卡片样式 */
+.network-card {
+  margin-top: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.network-summary {
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.network-chart-container {
+  width: 100%;
+  height: 300px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.network-no-data {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #909399;
+}
+
+/* 网络标签样式 */
+.network-tag {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.network-tag:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
 }
 
 

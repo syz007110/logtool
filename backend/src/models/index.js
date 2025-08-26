@@ -18,6 +18,13 @@ const sequelize = new Sequelize(
       charset: 'utf8mb4',
       supportBigNumbers: true,
       bigNumberStrings: true
+    },
+    // 添加连接池配置
+    pool: {
+      max: 20,           // 最大连接数
+      min: 5,            // 最小连接数
+      acquire: 60000,    // 获取连接超时时间（毫秒）
+      idle: 10000        // 连接空闲时间（毫秒）
     }
   }
 );

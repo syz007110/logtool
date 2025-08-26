@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { sequelize } = require('./models');
 const { defineAssociations } = require('./models/associations');
+const { postgresqlSequelize, testConnection: testPostgreSQLConnection } = require('./config/postgresql');
 const authRouter = require('./routes/auth');
 const errorCodesRouter = require('./routes/errorCodes');
 const i18nErrorCodesRouter = require('./routes/i18nErrorCodes');
@@ -24,6 +25,14 @@ const motionDataRouter = require('./routes/motionData');
 const feedbackRouter = require('./routes/feedback');
 const dashboardRouter = require('./routes/dashboard');
 const explanationsRouter = require('./routes/explanations');
+
+// 初始化队列系统
+try {
+  require('./workers/queueProcessor');
+  console.log('✅ 队列处理器初始化完成');
+} catch (error) {
+  console.warn('⚠️ 队列处理器初始化失败:', error.message);
+}
 
 const app = express();
 
@@ -68,7 +77,22 @@ const PORT = process.env.PORT || 3000;
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log('数据库连接成功');
+    console.log('MySQL数据库连接成功');
+    
+    // 测试PostgreSQL连接并同步数据库表
+    try {
+      await testPostgreSQLConnection();
+      console.log('PostgreSQL数据库连接成功');
+      
+      // 同步数据库表结构
+      const { syncDatabase } = require('./config/postgresql');
+      await syncDatabase(false); // 不强制重建表
+      console.log('PostgreSQL数据库表同步完成');
+    } catch (postgresError) {
+      console.warn('PostgreSQL数据库连接失败:', postgresError.message);
+      console.warn('⚠️ 手术分析功能仍可正常工作，但PostgreSQL数据存储功能将不可用');
+      console.warn('💡 如需使用PostgreSQL功能，请配置正确的数据库连接信息');
+    }
     
     // 定义模型关联
     defineAssociations();
@@ -77,6 +101,6 @@ const PORT = process.env.PORT || 3000;
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('数据库连接失败:', error);
+    console.error('MySQL数据库连接失败:', error);
   }
 })(); 

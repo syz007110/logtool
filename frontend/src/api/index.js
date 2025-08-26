@@ -70,6 +70,9 @@ const errorCodes = {
   create: (data) => api.post('/error-codes', data),
   update: (id, data) => api.put(`/error-codes/${id}`, data),
   delete: (id) => api.delete(`/error-codes/${id}`),
+  getByCodeAndSubsystem: (code, subsystem) => api.get('/error-codes/by-code', { 
+    params: { code, subsystem } 
+  }),
   exportXML: (language = 'zh') => api.get('/error-codes/export/xml', { 
     params: { language }, 
     responseType: 'blob' 
@@ -145,7 +148,12 @@ const surgeryStatistics = {
   analyze: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
   analyzeByLogIds: (logIds) => api.post('/surgery-statistics/analyze-by-log-ids', { logIds }),
-  exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' })
+  getAnalysisTaskStatus: (taskId) => api.get(`/surgery-statistics/task/${taskId}`),
+  getUserAnalysisTasks: () => api.get('/surgery-statistics/tasks'),
+  exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
+  exportPostgreSQLData: (params) => api.get('/surgery-statistics/export/postgresql', { params }),
+  exportSingleSurgeryData: (id) => api.get(`/surgery-statistics/${id}/export-data`),
+  getPostgreSQLSurgeries: (params) => api.get('/surgery-statistics/postgresql', { params })
 }
 
 const devices = {

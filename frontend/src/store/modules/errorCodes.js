@@ -56,6 +56,26 @@ const actions = {
     }
   },
   
+  async updateErrorCodeByCode({ dispatch }, { code, subsystem, data }) {
+    try {
+      // 先根据故障码和子系统查找故障码
+      const findResponse = await api.errorCodes.getByCodeAndSubsystem(code, subsystem)
+      if (findResponse.data && findResponse.data.errorCode) {
+        // 如果找到了，则更新
+        const response = await api.errorCodes.update(findResponse.data.errorCode.id, data)
+        await dispatch('fetchErrorCodes')
+        return response
+      } else {
+        // 如果没找到，则创建新的
+        const response = await api.errorCodes.create(data)
+        await dispatch('fetchErrorCodes')
+        return response
+      }
+    } catch (error) {
+      throw error
+    }
+  },
+  
   async deleteErrorCode({ dispatch }, id) {
     try {
       const response = await api.errorCodes.delete(id)

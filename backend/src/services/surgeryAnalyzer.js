@@ -1,0 +1,898 @@
+const faultMappings = require('../config/FaultMappings.json');
+
+// 器械类型映射
+const INSTRUMENT_TYPES = faultMappings['3'];
+const STATE_MACHINE_STATES = faultMappings['1'];
+
+/**
+ * 手术分析器类
+ * 负责将日志条目分析为结构化的手术数据
+ */
+class SurgeryAnalyzer {
+  constructor() {
+    this.reset();
+  }
+
+  /**
+   * 重置分析器状态
+   */
+  reset() {
+    // 手术相关状态
+    this.surgeries = [];
+    this.currentSurgery = null;
+    this.surgeryCount = 0;
+    this.surgeryStarted = false;
+    
+    // 系统状态
+    this.isPowerOn = false;
+    this.currentState = 0;
+    
+    // 故障相关状态
+    this.errFlag = false;
+    this.errRecover = false;
+    this.activeAlarms = new Map(); // 活跃故障记录
+    this.alarmDetails = [];
+    
+    // 器械状态
+    this.armStates = [-1, -1, -1, -1]; // 4个工具臂的器械状态
+    this.armInsts = [0, 0, 0, 0]; // 4个工具臂的器械类型
+    this.armUDIs = ['', '', '', '']; // 4个工具臂的UDI码
+    this.armUDIHistory = [[], [], [], []]; // 每个工具臂的UDI码历史记录
+    
+    // 事件记录
+    this.powerEvents = [];
+    this.stateMachineChanges = [];
+    this.networkLatencyData = [];
+    
+    // 时间记录
+    this.powerOnTimes = [];
+    this.shutdownTimes = [];
+    this.previousSurgeryEndTime = null;
+    
+    // 网络状态
+    this.isRemoteSurgery = false;
+    
+    // 统计信息
+    this.footPedalStats = { energy: 0, clutch: 0, camera: 0 };
+    this.handClutchStats = { arm1: 0, arm2: 0, arm3: 0, arm4: 0 };
+  }
+
+  /**
+   * 分析日志条目
+   * @param {Array} logEntries - 日志条目数组
+   * @returns {Array} 手术数据数组
+   */
+  analyze(logEntries) {
+    console.log(`开始分析 ${logEntries.length} 个日志条目`);
+    
+    // 确保日志条目按时间戳排序
+    const sortedLogEntries = [...logEntries].sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeA - timeB;
+    });
+
+    // 遍历每个日志条目
+    for (let i = 0; i < sortedLogEntries.length; i++) {
+      const entry = sortedLogEntries[i];
+      this.processLogEntry(entry, i, sortedLogEntries);
+    }
+
+    // 最终处理
+    this.finalizeAnalysis(sortedLogEntries);
+    
+    console.log(`分析完成，共发现 ${this.surgeries.length} 场手术`);
+    return this.surgeries;
+  }
+
+  /**
+   * 处理单个日志条目
+   * @param {Object} entry - 日志条目
+   * @param {number} index - 条目索引
+   * @param {Array} allEntries - 所有日志条目
+   */
+  processLogEntry(entry, index, allEntries) {
+    const errCode = entry.error_code;
+    const errCodeSuffix = errCode ? errCode.slice(-4) : '';
+    const p1 = parseInt(entry.param1) || 0;
+    const p2 = parseInt(entry.param2) || 0;
+    const p3 = parseInt(entry.param3) || 0;
+    const p4 = parseInt(entry.param4) || 0;
+
+    // 处理网络事件
+    this.processNetworkEvents(errCodeSuffix, p1, p3, entry);
+    
+    // 处理故障事件
+    this.processFaultEvents(errCodeSuffix, errCode, entry);
+    
+    // 处理开机事件
+    this.processPowerOnEvents(errCodeSuffix, p1, p2, entry);
+    
+    // 处理关机事件
+    this.processPowerOffEvents(errCodeSuffix, p1, p2, entry, index, allEntries);
+    
+    // 处理状态机事件
+    this.processStateMachineEvents(errCodeSuffix, p1, p2, entry);
+    
+    // 处理器械状态更新
+    this.processInstrumentStateEvents(errCodeSuffix, p1, p3, entry);
+    
+    // 处理器械类型变化
+    this.processInstrumentTypeEvents(errCodeSuffix, p1, p3, entry);
+    
+    // 处理手术开始
+    this.processSurgeryStartEvents(entry);
+    
+    // 处理手术结束
+    this.processSurgeryEndEvents(errCodeSuffix, p2, p3, entry);
+    
+    // 处理UDI码
+    this.processUDIEvents(errCodeSuffix, errCode, p1, p2, p3, p4, entry);
+    
+    // 处理无使用次数事件
+    this.processNoUsageEvents(errCodeSuffix, errCode, entry);
+  }
+
+  /**
+   * 处理网络事件
+   */
+  processNetworkEvents(errCodeSuffix, p1, p3, entry) {
+    // 检查是否为远程手术
+    if (errCodeSuffix === '416d') {
+      this.isRemoteSurgery = true;
+      if (this.currentSurgery) {
+        this.currentSurgery.is_remote_surgery = true;
+      }
+    }
+    
+    // 检查网络延时数据
+    if (errCodeSuffix === '405E') {
+      const latency = p3;
+      if (latency > 0) {
+        this.networkLatencyData.push({
+          timestamp: entry.timestamp,
+          latency: latency,
+          surgery_id: this.currentSurgery ? this.currentSurgery.surgery_id : null
+        });
+      }
+    }
+  }
+
+  /**
+   * 处理故障事件
+   */
+  processFaultEvents(errCodeSuffix, errCode, entry) {
+    if (errCodeSuffix && /[AB]$/i.test(errCodeSuffix)) {
+      this.errFlag = true;
+      
+      const existingAlarm = this.activeAlarms.get(errCode);
+      
+      if (!existingAlarm) {
+        const alarmInfo = {
+          time: entry.timestamp,
+          type: errCodeSuffix.endsWith('A') ? '错误' : errCodeSuffix.endsWith('B') ? '警告' : '信息',
+          code: errCode,
+          message: entry.explanation || `故障码: ${errCode}`,
+          status: '未处理',
+          isActive: true
+        };
+        
+        this.activeAlarms.set(errCode, alarmInfo);
+        this.alarmDetails.push(alarmInfo);
+      } else {
+        existingAlarm.time = entry.timestamp;
+        existingAlarm.message = entry.explanation || `故障码: ${errCode}`;
+        existingAlarm.isActive = true;
+      }
+      
+      if (this.currentSurgery) {
+        this.currentSurgery.has_error = true;
+      }
+    }
+  }
+
+  /**
+   * 处理开机事件
+   */
+  processPowerOnEvents(errCodeSuffix, p1, p2, entry) {
+    const isPowerOnEvent = (errCodeSuffix === 'A01E') || 
+                          (errCodeSuffix === '570e' && p1 === 0 && p2 !== 0);
+    
+    if (isPowerOnEvent && !this.isPowerOn) {
+      console.log(`检测到开机事件: 时间=${entry.timestamp}`);
+      
+      this.errFlag = false;
+      this.isPowerOn = true;
+      
+      // 检查是否需要清空当前手术
+      const lastPowerOff = this.powerEvents.filter(e => e.type === 'power_off').pop();
+      let shouldClearSurgery = false;
+      
+      if (lastPowerOff && this.currentSurgery) {
+        const timeDiff = Math.floor((new Date(entry.timestamp) - new Date(lastPowerOff.timestamp)) / 1000 / 60);
+        shouldClearSurgery = timeDiff >= 30;
+      }
+      
+      if (shouldClearSurgery) {
+        this.finalizeCurrentSurgery(entry.timestamp);
+        this.resetSurgeryState();
+      } else {
+        this.powerOnTimes.push(entry.timestamp);
+        if (this.currentSurgery) {
+          if (!this.currentSurgery.power_on_times) {
+            this.currentSurgery.power_on_times = [];
+          }
+          this.currentSurgery.power_on_times.push(entry.timestamp);
+        }
+      }
+
+      this.powerEvents.push({
+        type: 'power_on',
+        timestamp: entry.timestamp,
+        surgery_id: this.currentSurgery ? this.currentSurgery.surgery_id : null,
+        isRestart: !shouldClearSurgery
+      });
+    }
+  }
+
+  /**
+   * 处理关机事件
+   */
+  processPowerOffEvents(errCodeSuffix, p1, p2, entry, index, allEntries) {
+    let isShutdownEvent = false;
+    
+    if (errCodeSuffix === 'A02e') {
+      isShutdownEvent = true;
+    } else if (errCodeSuffix === '310e' && p2 === 31) {
+      const endTimeMs = new Date(entry.timestamp).getTime();
+      let canceledByFollowup = false;
+      
+      // 向后查找30秒内的日志是否出现取消关机的事件
+      for (let j = index + 1; j < allEntries.length; j++) {
+        const nextEntry = allEntries[j];
+        const nextTimeMs = new Date(nextEntry.timestamp).getTime();
+        if (nextTimeMs - endTimeMs > 30 * 1000) break;
+        
+        const nextSuffix = nextEntry.error_code ? nextEntry.error_code.slice(-4) : '';
+        const nextP1 = parseInt(nextEntry.param1) || 0;
+        const nextP2 = parseInt(nextEntry.param2) || 0;
+        
+        if (nextSuffix === '310e' && nextP1 === 31 && nextP2 !== 31) {
+          canceledByFollowup = true;
+          break;
+        }
+      }
+      
+      if (!canceledByFollowup) {
+        isShutdownEvent = true;
+      }
+    }
+
+    if (isShutdownEvent) {
+      console.log(`检测到关机事件: 时间=${entry.timestamp}`);
+      this.isPowerOn = false;
+      this.errFlag = false;
+      
+      this.powerEvents.push({
+        type: 'power_off',
+        timestamp: entry.timestamp,
+        surgery_id: this.currentSurgery ? this.currentSurgery.surgery_id : null
+      });
+      
+      this.shutdownTimes.push(entry.timestamp);
+      
+      if (this.currentSurgery) {
+        if (!this.currentSurgery.shutdown_times) {
+          this.currentSurgery.shutdown_times = [];
+        }
+        this.currentSurgery.shutdown_times.push(entry.timestamp);
+        
+        if (this.currentSurgery.surgery_end_time) {
+          this.finalizeCurrentSurgery(entry.timestamp);
+          this.resetSurgeryState();
+        } else if (!this.surgeryStarted) {
+          this.resetSurgeryState();
+        }
+      }
+    }
+  }
+
+  /**
+   * 处理状态机事件
+   */
+  processStateMachineEvents(errCodeSuffix, p1, p2, entry) {
+    if (errCodeSuffix === '310e') {
+      const newState = p2;
+      this.currentState = newState;
+      
+      this.stateMachineChanges.push({
+        time: entry.timestamp,
+        state: newState,
+        stateName: this.getStateMachineStateName(newState.toString())
+      });
+      
+      // 故障恢复判断
+      if (p1 === 0 && p2 === 1 && this.errFlag) {
+        this.errFlag = false;
+        this.errRecover = true;
+        
+        // 将所有激活状态的报警标记为"已处理"
+        for (const [errCode, alarm] of this.activeAlarms.entries()) {
+          if (alarm && alarm.isActive === true) {
+            alarm.isActive = false;
+            alarm.status = '已处理';
+            alarm.recoveryTime = entry.timestamp;
+            
+            // 同步更新报警详情列表
+            for (let i = 0; i < this.alarmDetails.length; i++) {
+              const detail = this.alarmDetails[i];
+              if (detail && detail.code === errCode && detail.isActive === true) {
+                detail.isActive = false;
+                detail.status = '已处理';
+                detail.recoveryTime = entry.timestamp;
+                break;
+              }
+            }
+          }
+        }
+        
+        this.activeAlarms.clear();
+      }
+    }
+  }
+
+  /**
+   * 处理器械状态更新
+   */
+  processInstrumentStateEvents(errCodeSuffix, p1, p3, entry) {
+    if (errCodeSuffix === '500e') {
+      const armIndex = p1 - 1;
+      if (armIndex >= 0 && armIndex < 4) {
+        this.armStates[armIndex] = p3;
+      }
+    }
+  }
+
+  /**
+   * 处理器械类型变化
+   */
+  processInstrumentTypeEvents(errCodeSuffix, p1, p3, entry) {
+    if (errCodeSuffix === '501e') {
+      const armIndex = p1;
+      if (armIndex >= 0 && armIndex < 4) {
+        this.armInsts[armIndex] = p3;
+        
+        if (this.isPowerOn) {
+          this.ensureSurgeryObject(entry);
+          this.recordInstrumentUsage(armIndex, p3, entry);
+        }
+      }
+    }
+  }
+
+  /**
+   * 处理手术开始事件
+   */
+  processSurgeryStartEvents(entry) {
+    if (this.currentState === 20 && !this.surgeryStarted) {
+      this.surgeryStarted = true;
+      
+      if (!this.currentSurgery) {
+        this.createNewSurgery(entry);
+      } else if (this.currentSurgery.is_pre_surgery) {
+        this.convertToFormalSurgery(entry);
+      } else {
+        this.handleConsecutiveSurgery(entry);
+      }
+    }
+  }
+
+  /**
+   * 处理手术结束事件
+   */
+  processSurgeryEndEvents(errCodeSuffix, p2, p3, entry) {
+    if (errCodeSuffix === '500e' && p2 !== 0 && p3 === 0) {
+      const allArmStateZero = this.armStates.every(state => state === 0 || state === -1);
+      const hasValidEndState = this.currentState === 10 || this.currentState === 12 || this.currentState === 13;
+
+      if (allArmStateZero && hasValidEndState) {
+        console.log(`满足手术结束条件: 器械状态=${this.armStates}, 当前状态=${this.currentState}, 时间=${entry.timestamp}`);
+        
+        if (this.currentSurgery) {
+          this.currentSurgery.surgery_end_time = entry.timestamp;
+          this.previousSurgeryEndTime = this.currentSurgery.surgery_end_time;
+          
+          this.currentSurgery.total_duration = Math.floor(
+            (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
+          );
+          
+          this.finalizeSurgeryData();
+          this.addSurgeryToList();
+        }
+        
+        this.surgeryStarted = false;
+      }
+    }
+  }
+
+  /**
+   * 处理UDI码事件
+   */
+  processUDIEvents(errCodeSuffix, errCode, p1, p2, p3, p4, entry) {
+    if (errCodeSuffix === '510e') {
+      const armIndex = errCode.charAt(1) - 3;
+      if (armIndex >= 0 && armIndex < 4) {
+        const udi = this.generateUDI(p1, p2, p3, p4, armIndex);
+        
+        this.armUDIs[armIndex] = udi;
+        this.armUDIHistory[armIndex].push({
+          udi: udi,
+          timestamp: entry.timestamp
+        });
+        
+        this.updatePendingInstrumentUDI(armIndex, udi);
+      }
+    }
+  }
+
+  /**
+   * 处理无使用次数事件
+   */
+  processNoUsageEvents(errCodeSuffix, errCode, entry) {
+    if (errCodeSuffix === '2c2d') {
+      const armIndex = errCode.charAt(1) - 3;
+      if (armIndex >= 0 && armIndex < 4) {
+        this.armInsts[armIndex] = 0;
+        
+        if (this.currentSurgery) {
+          const armUsageKey = `arm${armIndex + 1}_usage`;
+          const currentUsage = this.currentSurgery[armUsageKey] || [];
+          if (currentUsage.length > 0) {
+            currentUsage.pop();
+            this.currentSurgery[armUsageKey] = currentUsage;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 确保手术对象存在
+   */
+  ensureSurgeryObject(entry) {
+    if (!this.currentSurgery || (this.currentSurgery && this.currentSurgery.surgery_end_time)) {
+      const prevEnd = this.currentSurgery ? this.currentSurgery.surgery_end_time : null;
+      
+      this.surgeryCount++;
+      this.currentSurgery = {
+        id: this.surgeryCount,
+        surgery_id: `Surgery-${this.surgeryCount.toString().padStart(2, '0')}`,
+        log_id: entry.log_id,
+        power_on_times: prevEnd ? [prevEnd] : [...this.powerOnTimes],
+        shutdown_times: [...this.shutdownTimes],
+        arm1_usage: [],
+        arm2_usage: [],
+        arm3_usage: [],
+        arm4_usage: [],
+        arm1_total_activation: { startTime: null, endTime: null },
+        arm2_total_activation: { startTime: null, endTime: null },
+        arm3_total_activation: { startTime: null, endTime: null },
+        arm4_total_activation: { startTime: null, endTime: null },
+        is_pre_surgery: true,
+        is_consecutive_surgery: !!prevEnd,
+        previous_surgery_end_time: prevEnd,
+        is_remote_surgery: this.isRemoteSurgery,
+        network_latency_data: []
+      };
+    }
+  }
+
+  /**
+   * 记录器械使用
+   */
+  recordInstrumentUsage(armIndex, instrumentType, entry) {
+    const armUsageKey = `arm${armIndex + 1}_usage`;
+    const armActivationKey = `arm${armIndex + 1}_total_activation`;
+    const currentUsage = this.currentSurgery[armUsageKey] || [];
+    
+    if (instrumentType > 0) {
+      // 器械插上
+      currentUsage.push({
+        instrumentType: instrumentType,
+        instrumentName: this.getInstrumentTypeName(instrumentType.toString()),
+        udi: '待更新',
+        startTime: entry.timestamp,
+        endTime: null,
+        duration: 0,
+        armIndex: armIndex,
+        is_pre_surgery: !this.surgeryStarted
+      });
+      
+      if (this.currentSurgery[armActivationKey] && this.currentSurgery[armActivationKey].startTime === null) {
+        this.currentSurgery[armActivationKey].startTime = entry.timestamp;
+      }
+    } else {
+      // 器械拔下
+      if (currentUsage.length > 0) {
+        const lastUsage = currentUsage[currentUsage.length - 1];
+        if (lastUsage && lastUsage.endTime === null) {
+          lastUsage.endTime = entry.timestamp;
+          lastUsage.duration = Math.floor((new Date(lastUsage.endTime) - new Date(lastUsage.startTime)) / 1000 / 60);
+          
+          if (this.currentSurgery[armActivationKey]) {
+            this.currentSurgery[armActivationKey].endTime = entry.timestamp;
+          }
+        }
+      }
+    }
+    
+    this.currentSurgery[armUsageKey] = currentUsage;
+  }
+
+  /**
+   * 创建新手术
+   */
+  createNewSurgery(entry) {
+    this.surgeryCount++;
+    this.currentSurgery = {
+      id: this.surgeryCount,
+      surgery_id: `Surgery-${this.surgeryCount.toString().padStart(2, '0')}`,
+      log_id: entry.log_id,
+      power_on_times: [...this.powerOnTimes],
+      shutdown_times: [...this.shutdownTimes],
+      arm1_usage: [],
+      arm2_usage: [],
+      arm3_usage: [],
+      arm4_usage: [],
+      arm1_total_activation: { startTime: null, endTime: null },
+      arm2_total_activation: { startTime: null, endTime: null },
+      arm3_total_activation: { startTime: null, endTime: null },
+      arm4_total_activation: { startTime: null, endTime: null },
+      alarm_details: [],
+      state_machine_changes: [],
+      foot_pedal_stats: {},
+      hand_clutch_stats: {},
+      error_recovery_time: 0,
+      is_pre_surgery: false,
+      surgery_start_time: entry.timestamp,
+      surgery_end_time: null,
+      total_duration: 0,
+      alarm_count: 0,
+      is_remote_surgery: this.isRemoteSurgery,
+      network_latency_data: []
+    };
+    
+    this.resetSurgeryState();
+  }
+
+  /**
+   * 转换为正式手术
+   */
+  convertToFormalSurgery(entry) {
+    if (this.currentSurgery.is_consecutive_surgery && this.currentSurgery.previous_surgery_end_time) {
+      this.currentSurgery.power_on_times = [this.currentSurgery.previous_surgery_end_time];
+      this.currentSurgery.shutdown_times = [];
+    } else {
+      this.currentSurgery.power_on_times = [...this.powerOnTimes];
+      this.currentSurgery.shutdown_times = [...this.shutdownTimes];
+    }
+    
+    this.currentSurgery.is_pre_surgery = false;
+    this.currentSurgery.surgery_start_time = entry.timestamp;
+    
+    this.resetFaultState();
+  }
+
+  /**
+   * 处理连台手术
+   */
+  handleConsecutiveSurgery(entry) {
+    if (this.currentSurgery && this.currentSurgery.surgery_end_time) {
+      this.previousSurgeryEndTime = this.currentSurgery.surgery_end_time;
+    }
+
+    this.currentSurgery = null;
+    this.surgeryCount++;
+    this.surgeryStarted = true;
+    
+    this.resetFaultState();
+    
+    this.currentSurgery = {
+      id: this.surgeryCount,
+      surgery_id: `Surgery-${this.surgeryCount.toString().padStart(2, '0')}`,
+      log_id: entry.log_id,
+      power_on_times: this.previousSurgeryEndTime ? [this.previousSurgeryEndTime] : [...this.powerOnTimes],
+      shutdown_times: this.previousSurgeryEndTime ? [] : [...this.shutdownTimes],
+      arm1_usage: [],
+      arm2_usage: [],
+      arm3_usage: [],
+      arm4_usage: [],
+      arm1_total_activation: { startTime: null, endTime: null },
+      arm2_total_activation: { startTime: null, endTime: null },
+      arm3_total_activation: { startTime: null, endTime: null },
+      arm4_total_activation: { startTime: null, endTime: null },
+      alarm_details: [],
+      state_machine_changes: [],
+      foot_pedal_stats: {},
+      hand_clutch_stats: {},
+      error_recovery_time: 0,
+      is_pre_surgery: false,
+      surgery_start_time: entry.timestamp,
+      surgery_end_time: null,
+      total_duration: 0,
+      alarm_count: 0,
+      is_consecutive_surgery: this.previousSurgeryEndTime !== null,
+      previous_surgery_end_time: this.previousSurgeryEndTime,
+      is_remote_surgery: this.isRemoteSurgery,
+      network_latency_data: []
+    };
+  }
+
+  /**
+   * 生成UDI码
+   */
+  generateUDI(p1, p2, p3, p4, armIndex) {
+    const highByte = (p1 >> 8) & 0xFF;
+    const lowByte = p1 & 0xFF;
+    const highChar = String.fromCharCode(highByte);
+    let formattedP1;
+    let udi;
+    
+    if (highChar === 'F' || highChar === 'D') {
+      const lowHex = lowByte.toString(16).toUpperCase().padStart(2, '0');
+      formattedP1 = `${highChar}${lowHex}`;
+      const p2HighHex = ((p2 >> 8) & 0xFF).toString(16).toUpperCase().padStart(2, '0');
+      const p2LowHex = (p2 & 0xFF).toString(16).toUpperCase().padStart(2, '0');
+      const formattedP2 = `${p2HighHex}${p2LowHex}`;
+      udi = `${formattedP1}${formattedP2}${p3}${p4}`;
+    } else {
+      formattedP1 = String(p1);
+      const p2Padded = String(p2).padStart(3, '0');
+      
+      if ([9, 10, 11].includes(this.armInsts[armIndex])) {
+        udi = `ECO${p3}${String.fromCharCode(p4)}-${formattedP1}${p2Padded}`;
+      } else if (this.armInsts[armIndex] === 17) {
+        const p3Padded = String(p3).padStart(3, '0');
+        const p4Padded = String(p4).padStart(3, '0');
+        udi = `F${formattedP1}${p2}${p3Padded}${p4Padded}`;
+      } else {
+        udi = `IN${p3}${String.fromCharCode(p4)}-${formattedP1}${p2Padded}`;
+      }
+    }
+    
+    return udi;
+  }
+
+  /**
+   * 更新待更新器械的UDI码
+   */
+  updatePendingInstrumentUDI(armIndex, udi) {
+    if (!this.currentSurgery) return;
+    
+    const armUsageKey = `arm${armIndex + 1}_usage`;
+    const currentUsage = this.currentSurgery[armUsageKey] || [];
+    
+    for (let i = currentUsage.length - 1; i >= 0; i--) {
+      if (currentUsage[i].udi === '待更新' && currentUsage[i].endTime === null && currentUsage[i].armIndex === armIndex) {
+        currentUsage[i].udi = udi;
+        break;
+      }
+    }
+  }
+
+  /**
+   * 完成手术数据
+   */
+  finalizeSurgeryData() {
+    this.currentSurgery.alarm_count = this.alarmDetails.length;
+    this.currentSurgery.alarm_details = [...this.alarmDetails];
+    
+    if (this.isRemoteSurgery) {
+      this.currentSurgery.is_remote_surgery = true;
+    }
+    
+    // 处理网络统计数据
+    const surgeryNetworkData = this.networkLatencyData.filter(data => 
+      data.surgery_id === this.currentSurgery.surgery_id || !data.surgery_id
+    );
+    this.currentSurgery.network_latency_data = surgeryNetworkData;
+    
+    if (surgeryNetworkData.length > 0) {
+      const latencies = surgeryNetworkData.map(data => data.latency);
+      this.currentSurgery.network_stats = {
+        count: surgeryNetworkData.length,
+        min: Math.min(...latencies),
+        max: Math.max(...latencies),
+        avg: Math.round(latencies.reduce((sum, val) => sum + val, 0) / latencies.length),
+        data: surgeryNetworkData
+      };
+    } else {
+      this.currentSurgery.network_stats = null;
+    }
+    
+    // 处理状态机变化
+    const filteredChanges = this.stateMachineChanges.filter(change => {
+      const changeTime = new Date(change.time).getTime();
+      const startTime = this.currentSurgery.surgery_start_time ? new Date(this.currentSurgery.surgery_start_time).getTime() : null;
+      const endTime = this.currentSurgery.surgery_end_time ? new Date(this.currentSurgery.surgery_end_time).getTime() : null;
+      
+      return (startTime === null || changeTime >= startTime) && (endTime === null || changeTime <= endTime);
+    });
+    this.currentSurgery.state_machine_changes = [...filteredChanges];
+  }
+
+  /**
+   * 添加手术到列表
+   */
+  addSurgeryToList() {
+    const isAlreadyAdded = this.surgeries.some(surgery => surgery.surgery_id === this.currentSurgery.surgery_id);
+    if (!isAlreadyAdded) {
+      this.surgeries.push(this.currentSurgery);
+    }
+  }
+
+  /**
+   * 完成当前手术
+   */
+  finalizeCurrentSurgery(endTime) {
+    if (this.currentSurgery && this.currentSurgery.surgery_start_time && !this.currentSurgery.surgery_end_time) {
+      this.currentSurgery.surgery_end_time = endTime;
+      this.currentSurgery.total_duration = Math.floor(
+        (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
+      );
+      
+      this.finalizeSurgeryData();
+      this.addSurgeryToList();
+    }
+  }
+
+  /**
+   * 重置手术状态
+   */
+  resetSurgeryState() {
+    this.surgeryStarted = false;
+    this.errFlag = false;
+    this.armStates.fill(-1);
+    this.armInsts.fill(-1);
+    this.armUDIs.fill('');
+    this.armUDIHistory.forEach(history => history.length = 0);
+    this.stateMachineChanges.length = 0;
+    this.currentState = -1;
+    this.alarmDetails.length = 0;
+    this.activeAlarms.clear();
+  }
+
+  /**
+   * 重置故障状态
+   */
+  resetFaultState() {
+    this.errFlag = false;
+    this.alarmDetails.length = 0;
+    this.activeAlarms.clear();
+  }
+
+  /**
+   * 最终处理
+   */
+  finalizeAnalysis(sortedLogEntries) {
+    // 处理未完成的手术
+    if (this.currentSurgery && !this.currentSurgery.surgery_end_time) {
+      const lastLogTime = sortedLogEntries[sortedLogEntries.length - 1].timestamp;
+      this.finalizeCurrentSurgery(lastLogTime);
+    }
+
+    // 只有真正的手术才添加到列表
+    if (this.currentSurgery && !this.currentSurgery.is_pre_surgery) {
+      this.addSurgeryToList();
+    }
+
+    // 兜底处理：为未闭合的器械使用段补充结束时间
+    const globalLastLogTime = sortedLogEntries[sortedLogEntries.length - 1]?.timestamp;
+    this.surgeries.forEach(surgery => {
+      const fallbackEnd = surgery.surgery_end_time || surgery.last_log_time || globalLastLogTime;
+      ['arm1_usage', 'arm2_usage', 'arm3_usage', 'arm4_usage'].forEach(key => {
+        const usages = surgery[key] || [];
+        usages.forEach(u => {
+          if (u && u.startTime && !u.endTime && fallbackEnd) {
+            const startMs = new Date(u.startTime).getTime();
+            const endMs = new Date(fallbackEnd).getTime();
+            const adjustedEndMs = Math.max(startMs + 1000, endMs);
+            u.endTime = new Date(adjustedEndMs).toISOString();
+            const durationSeconds = Math.max(1, Math.floor((adjustedEndMs - startMs) / 1000));
+            u.duration_seconds = durationSeconds;
+            u.duration = Math.floor(durationSeconds / 60);
+          }
+        });
+        surgery[key] = usages;
+      });
+    });
+  }
+
+  /**
+   * 获取器械类型名称
+   */
+  getInstrumentTypeName(typeCode) {
+    return INSTRUMENT_TYPES[typeCode] || '未知器械';
+  }
+
+  /**
+   * 获取状态机状态名称
+   */
+  getStateMachineStateName(stateCode) {
+    return STATE_MACHINE_STATES[stateCode] || '未知状态';
+  }
+
+  /**
+   * 转换为PostgreSQL结构化数据
+   * @param {Object} surgery - 手术数据
+   * @returns {Object} PostgreSQL结构化数据
+   */
+  toPostgreSQLStructure(surgery) {
+    // 构建power_cycles
+    const powerCycles = [];
+    if (surgery.power_on_times && surgery.shutdown_times) {
+      const onTimes = surgery.power_on_times;
+      const offTimes = surgery.shutdown_times;
+      
+      for (let i = 0; i < Math.max(onTimes.length, offTimes.length); i++) {
+        powerCycles.push({
+          on_time: onTimes[i] ? new Date(onTimes[i]).toISOString() : null,
+          off_time: offTimes[i] ? new Date(offTimes[i]).toISOString() : null
+        });
+      }
+    }
+
+    // 构建arms数据
+    const arms = [];
+    for (let i = 1; i <= 4; i++) {
+      const armUsage = surgery[`arm${i}_usage`] || [];
+      const instrumentUsage = armUsage.map(usage => ({
+        tool_type: usage.instrumentName,
+        udi: usage.udi,
+        start_time: usage.startTime,
+        end_time: usage.endTime,
+        energy_activation: [] // 可以后续扩展
+      }));
+
+      arms.push({
+        arm_id: i,
+        instrument_usage: instrumentUsage
+      });
+    }
+
+    // 构建surgery_stats
+    const surgeryStats = {
+      has_fault: surgery.has_error || false,
+      success: !surgery.has_error,
+      is_remote: surgery.is_remote_surgery || false,
+      network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => d.latency) : [],
+      faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
+        timestamp: fault.time,
+        error_code: fault.code,
+        param1: "",
+        param2: "",
+        param3: "",
+        param4: "",
+        explanation: fault.message,
+        log_id: surgery.log_id
+      })) : [],
+      state_machine: surgery.state_machine_changes ? surgery.state_machine_changes.map(change => ({
+        time: change.time,
+        state: change.stateName
+      })) : [],
+      arm_switch_count: 0, // 可以后续计算
+      left_hand_clutch: surgery.hand_clutch_stats?.arm1 || 0,
+      right_hand_clutch: surgery.hand_clutch_stats?.arm2 || 0,
+      foot_clutch: surgery.foot_pedal_stats?.clutch || 0,
+      endoscope_pedal: surgery.foot_pedal_stats?.camera || 0
+    };
+
+    return {
+      power_cycles: powerCycles,
+      arms: arms,
+      surgery_stats: surgeryStats
+    };
+  }
+}
+
+module.exports = SurgeryAnalyzer;

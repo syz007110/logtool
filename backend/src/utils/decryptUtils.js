@@ -1,6 +1,9 @@
 const fs = require('fs');
 
 const dayjs = require('dayjs');
+
+// 默认密钥常量
+const DEFAULT_KEY = '00-01-05-6E-F0-22';
 /**
  * 解析日期和时间字符串
  * @param {string} dateTimeStr - 格式为 'DT#YYYY-MM-DD-HH:MM:SS' 的日期时间字符串
@@ -157,6 +160,68 @@ function getUserInfoAndOpInfo(errCodeDec, p1, p2, p3, p4) {
 }
 
 /**
+ * 检测是否为开机事件
+ * @param {string} errorCode - 解密后的错误码
+ * @param {number} p1 - 参数1
+ * @param {number} p2 - 参数2
+ * @returns {boolean} 是否为开机事件
+ */
+function isPowerOnEvent(errorCode, p1, p2) {
+  if (!errorCode) return false;
+  
+  const errorCodeSuffix = errorCode.slice(-4);
+  
+  // 情况1：错误码后四位为"A01E"
+  if (errorCodeSuffix === 'A01E') {
+    return true;
+  }
+  
+  // 情况2：错误码为"570e"且参数1=0且参数2≠0
+  if (errorCodeSuffix === '570e' && p1 === 0 && p2 !== 0) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * 检测是否为关机事件
+ * @param {string} errorCode - 解密后的错误码
+ * @param {number} p1 - 参数1
+ * @param {number} p2 - 参数2
+ * @returns {boolean} 是否为关机事件
+ */
+function isPowerOffEvent(errorCode, p1, p2) {
+  if (!errorCode) return false;
+  
+  const errorCodeSuffix = errorCode.slice(-4);
+  
+  // 情况1：错误码后四位为"A02E"
+  if (errorCodeSuffix === 'A02E') {
+    return true;
+  }
+  
+  // 情况2：错误码为"310e"且参数2=31
+  if (errorCodeSuffix === '310e' && p2 === 31) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * 检测参数值是否大于10000
+ * @param {number} p1 - 参数1
+ * @param {number} p2 - 参数2
+ * @param {number} p3 - 参数3
+ * @param {number} p4 - 参数4
+ * @returns {boolean} 是否有参数值大于10000
+ */
+function hasLargeParameterValue(p1, p2, p3, p4) {
+  return Math.abs(p1) > 1800000 || Math.abs(p2) > 1800000 || Math.abs(p3) > 1800000 || Math.abs(p4) > 1800000;
+}
+
+/**
  * 解析单行日志
  * @param {string} line - 日志行内容
  * @param {string} key - 解密密钥
@@ -235,12 +300,91 @@ function decryptLogContent(content, key) {
   
   const entries = [];
   let errorCount = 0;
+  let currentKey = key; // 当前使用的密钥
+  let useDefaultKey = false; // 是否使用默认密钥
+  let powerOnWithLargeParams = false; // 是否检测到参数值大于10000的开机事件
+  let isFirstLogEntry = true; // 标记是否为第一条日志
+  
+  // 每个新的日志文件都从原始密钥开始，重置所有状态
+  console.log(`新日志文件开始，使用原始密钥: ${key}`);
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
     try {
-      const entry = translatePerLine(line, key);
+      // 先尝试使用当前密钥解密
+      let entry;
+      try {
+        entry = translatePerLine(line, currentKey);
+      } catch (error) {
+        // 如果解密失败，尝试使用默认密钥
+        if (!useDefaultKey) {
+          console.log(`使用原始密钥解密失败，尝试使用默认密钥: ${DEFAULT_KEY}`);
+          entry = translatePerLine(line, DEFAULT_KEY);
+          currentKey = DEFAULT_KEY;
+          useDefaultKey = true;
+        } else {
+          throw error;
+        }
+      }
+      
+      // 检查是否为开机或关机事件
+      const p1 = parseInt(entry.param1) || 0;
+      const p2 = parseInt(entry.param2) || 0;
+      const p3 = parseInt(entry.param3) || 0;
+      const p4 = parseInt(entry.param4) || 0;
+      
+      // 检查新日志文件第一条日志的参数值
+      if (isFirstLogEntry) {
+        console.log(`检查新日志文件第一条日志参数值: p1=${p1}, p2=${p2}, p3=${p3}, p4=${p4}`);
+        if (hasLargeParameterValue(p1, p2, p3, p4)) {
+          console.log(`新日志文件第一条日志参数值大于10000，切换到默认密钥`);
+          useDefaultKey = true;
+          currentKey = DEFAULT_KEY;
+          
+          // 使用默认密钥重新解密当前行
+          entry = translatePerLine(line, DEFAULT_KEY);
+        }
+        isFirstLogEntry = false;
+      }
+      
+      if (isPowerOnEvent(entry.error_code, p1, p2)) {
+        console.log(`检测到开机事件: ${entry.error_code}, 时间: ${entry.timestamp}`);
+        
+        // 检查参数值是否大于10000
+        if (hasLargeParameterValue(p1, p2, p3, p4)) {
+          console.log(`开机事件参数值大于100000，标记为需要默认密钥`);
+          powerOnWithLargeParams = true;
+          useDefaultKey = true;
+          currentKey = DEFAULT_KEY;
+          
+          // 使用默认密钥重新解密当前行
+          entry = translatePerLine(line, DEFAULT_KEY);
+        } else {
+          // 参数值正常，恢复使用原始密钥
+          console.log(`开机事件参数值正常，恢复使用原始密钥: ${key}`);
+          powerOnWithLargeParams = false;
+          currentKey = key;
+          useDefaultKey = false;
+          
+          // 使用原始密钥重新解密当前行
+          entry = translatePerLine(line, key);
+        }
+      } else if (isPowerOffEvent(entry.error_code, p1, p2)) {
+        console.log(`检测到关机事件: ${entry.error_code}, 时间: ${entry.timestamp}`);
+        
+        // 关机事件时恢复使用原始密钥
+        if (powerOnWithLargeParams) {
+          console.log(`关机事件，恢复使用原始密钥: ${key}`);
+          powerOnWithLargeParams = false;
+          currentKey = key;
+          useDefaultKey = false;
+          
+          // 使用原始密钥重新解密当前行
+          entry = translatePerLine(line, key);
+        }
+      }
+      
       entries.push(entry);
     } catch (error) {
       errorCount++;
@@ -250,6 +394,12 @@ function decryptLogContent(content, key) {
   }
   
   console.log(`解析完成，成功: ${entries.length} 行，失败: ${errorCount} 行`);
+  if (powerOnWithLargeParams) {
+    console.log(`注意：检测到参数值大于10000的开机事件，但未检测到对应的关机事件，日志可能不完整`);
+  }
+  if (useDefaultKey) {
+    console.log(`注意：新日志文件使用了默认密钥进行解密`);
+  }
   
   if (entries.length === 0 && lines.length > 0) {
     throw new Error(`所有 ${lines.length} 行日志解析都失败了`);
@@ -265,5 +415,9 @@ module.exports = {
   decryptPara,
   getUserInfoAndOpInfo,
   translatePerLine,
-  decryptLogContent
+  decryptLogContent,
+  isPowerOnEvent,
+  isPowerOffEvent,
+  hasLargeParameterValue,
+  DEFAULT_KEY
 }; 

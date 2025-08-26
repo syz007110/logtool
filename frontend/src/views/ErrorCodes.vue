@@ -21,7 +21,7 @@
         <el-button 
           v-if="canCreate"
           type="primary" 
-          @click="showAddDialog = true"
+          @click="handleAdd"
         >
           <el-icon><Plus /></el-icon>
           添加故障码
@@ -106,7 +106,7 @@
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="showAddDialog"
-      :title="editingErrorCode ? '编辑故障码' : '添加故障码'"
+      :title="getDialogTitle()"
       width="1000px"
       :close-on-click-modal="false"
     >
@@ -120,7 +120,7 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="子系统" prop="subsystem">
-              <el-select v-model="errorCodeForm.subsystem" placeholder="请选择子系统">
+              <el-select v-model="errorCodeForm.subsystem" placeholder="请选择子系统" @change="handleSubsystemChange">
                 <el-option label="01：运动控制软件" value="1" />
                 <el-option label="02：人机交互软件" value="2" />
                 <el-option label="03：医生控制台软件" value="3" />
@@ -141,6 +141,20 @@
                 placeholder="格式：0X010A" 
                 @input="handleCodeChange"
               />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 同步选项 -->
+        <el-row v-if="showSyncOption">
+          <el-col :span="24">
+            <el-form-item label="同步选项">
+              <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">
+                同步到远程端 ({{ getRemoteSubsystemLabel() }})
+              </el-checkbox>
+              <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">
+                同步到本地端 ({{ getLocalSubsystemLabel() }})
+              </el-checkbox>
             </el-form-item>
           </el-col>
         </el-row>
@@ -298,7 +312,7 @@
         <span class="dialog-footer">
           <el-button @click="showAddDialog = false">取消</el-button>
           <el-button type="primary" @click="handleSave" :loading="saving">
-            {{ editingErrorCode ? '更新' : '创建' }}
+            {{ getSaveButtonText() }}
           </el-button>
         </span>
       </template>
@@ -387,6 +401,10 @@ export default {
     const currentPage = ref(1)
     const pageSize = ref(10)
     const errorCodeFormRef = ref(null)
+    
+    // 同步相关变量
+    const syncToRemote = ref(false)
+    const syncToLocal = ref(false)
     
          const errorCodeForm = reactive({
        subsystem: '',
@@ -584,6 +602,24 @@ export default {
     const canUpdate = computed(() => store.getters['auth/userRole'] === 'admin' || store.getters['auth/userRole'] === 'expert')
     const canDelete = computed(() => store.getters['auth/userRole'] === 'admin' || store.getters['auth/userRole'] === 'expert')
     
+    // 同步相关计算属性
+    const showSyncOption = computed(() => {
+      const subsystem = errorCodeForm.subsystem
+      return subsystem === '1' || subsystem === '8' || 
+             subsystem === '3' || subsystem === '9' || 
+             subsystem === '5' || subsystem === 'A'
+    })
+    
+    const isLocalSubsystem = computed(() => {
+      const subsystem = errorCodeForm.subsystem
+      return subsystem === '1' || subsystem === '3' || subsystem === '5'
+    })
+    
+    const isRemoteSubsystem = computed(() => {
+      const subsystem = errorCodeForm.subsystem
+      return subsystem === '8' || subsystem === '9' || subsystem === 'A'
+    })
+    
     
     
     // 方法
@@ -632,6 +668,9 @@ export default {
          }
        })
        editingErrorCode.value = null
+       // 重置同步选项
+       syncToRemote.value = false
+       syncToLocal.value = false
        if (errorCodeFormRef.value) {
          errorCodeFormRef.value.clearValidate()
        }
@@ -649,6 +688,9 @@ export default {
           errorCodeForm[key] = row[key]
         }
       })
+      // 重置同步选项
+      syncToRemote.value = false
+      syncToLocal.value = false
       showAddDialog.value = true
     }
     
@@ -674,21 +716,142 @@ export default {
       }
     }
     
+    // 获取弹窗标题
+    const getDialogTitle = () => {
+      if (!editingErrorCode.value) {
+        // 添加模式
+        if (isLocalSubsystem.value) {
+          return '创建本地故障码'
+        } else if (isRemoteSubsystem.value) {
+          return '创建远程故障码'
+        } else {
+          return '添加故障码'
+        }
+      } else {
+        // 编辑模式
+        if (isLocalSubsystem.value) {
+          return '更新本地故障码'
+        } else if (isRemoteSubsystem.value) {
+          return '更新远程故障码'
+        } else {
+          return '编辑故障码'
+        }
+      }
+    }
+    
+    // 获取远程子系统标签
+    const getRemoteSubsystemLabel = () => {
+      const subsystemMap = {
+        '1': '08：远程运动控制软件',
+        '3': '09：远程医生控制台软件',
+        '5': '0A：远程驱动器软件'
+      }
+      return subsystemMap[errorCodeForm.subsystem] || ''
+    }
+    
+    // 获取本地子系统标签
+    const getLocalSubsystemLabel = () => {
+      const subsystemMap = {
+        '8': '01：运动控制软件',
+        '9': '03：医生控制台软件',
+        'A': '05：驱动器软件'
+      }
+      return subsystemMap[errorCodeForm.subsystem] || ''
+    }
+    
+    // 获取保存按钮文本
+    const getSaveButtonText = () => {
+      return editingErrorCode.value ? '更新' : '创建'
+    }
+    
+    // 处理子系统变化
+    const handleSubsystemChange = () => {
+      // 重置同步选项
+      syncToRemote.value = false
+      syncToLocal.value = false
+    }
+    
+    // 获取对应的子系统值
+    const getCorrespondingSubsystem = (currentSubsystem) => {
+      const subsystemMap = {
+        '1': '8', // 本地运动控制 -> 远程运动控制
+        '8': '1', // 远程运动控制 -> 本地运动控制
+        '3': '9', // 本地医生控制台 -> 远程医生控制台
+        '9': '3', // 远程医生控制台 -> 本地医生控制台
+        '5': 'A', // 本地驱动器 -> 远程驱动器
+        'A': '5'  // 远程驱动器 -> 本地驱动器
+      }
+      return subsystemMap[currentSubsystem]
+    }
+    
     const handleSave = async () => {
       try {
         await errorCodeFormRef.value.validate()
         saving.value = true
         
+        const savePromises = []
+        
+        // 主故障码保存
         if (editingErrorCode.value) {
-          await store.dispatch('errorCodes/updateErrorCode', {
-            id: editingErrorCode.value.id,
-            data: errorCodeForm
-          })
-          ElMessage.success('更新成功')
+          savePromises.push(
+            store.dispatch('errorCodes/updateErrorCode', {
+              id: editingErrorCode.value.id,
+              data: errorCodeForm
+            })
+          )
         } else {
-          await store.dispatch('errorCodes/createErrorCode', errorCodeForm)
-          ElMessage.success('创建成功')
+          savePromises.push(
+            store.dispatch('errorCodes/createErrorCode', errorCodeForm)
+          )
         }
+        
+        // 同步保存
+        if (syncToRemote.value && isLocalSubsystem.value) {
+          const remoteSubsystem = getCorrespondingSubsystem(errorCodeForm.subsystem)
+          const remoteData = { ...errorCodeForm, subsystem: remoteSubsystem }
+          
+          if (editingErrorCode.value) {
+            // 编辑模式：查找并更新对应的远程故障码
+            savePromises.push(
+              store.dispatch('errorCodes/updateErrorCodeByCode', {
+                code: errorCodeForm.code,
+                subsystem: remoteSubsystem,
+                data: remoteData
+              })
+            )
+          } else {
+            // 添加模式：创建远程故障码
+            savePromises.push(
+              store.dispatch('errorCodes/createErrorCode', remoteData)
+            )
+          }
+        }
+        
+        if (syncToLocal.value && isRemoteSubsystem.value) {
+          const localSubsystem = getCorrespondingSubsystem(errorCodeForm.subsystem)
+          const localData = { ...errorCodeForm, subsystem: localSubsystem }
+          
+          if (editingErrorCode.value) {
+            // 编辑模式：查找并更新对应的本地故障码
+            savePromises.push(
+              store.dispatch('errorCodes/updateErrorCodeByCode', {
+                code: errorCodeForm.code,
+                subsystem: localSubsystem,
+                data: localData
+              })
+            )
+          } else {
+            // 添加模式：创建本地故障码
+            savePromises.push(
+              store.dispatch('errorCodes/createErrorCode', localData)
+            )
+          }
+        }
+        
+        await Promise.all(savePromises)
+        
+        const action = editingErrorCode.value ? '更新' : '创建'
+        ElMessage.success(`${action}成功`)
         
         showAddDialog.value = false
         resetForm()
@@ -750,6 +913,12 @@ export default {
        canCreate,
        canUpdate,
        canDelete,
+       // 同步相关变量
+       syncToRemote,
+       syncToLocal,
+       showSyncOption,
+       isLocalSubsystem,
+       isRemoteSubsystem,
        handleSearch,
        handleSizeChange,
        handleCurrentChange,
@@ -758,7 +927,13 @@ export default {
        handleDelete,
        handleSave,
        handleCodeChange,
-       getSolutionDisplay
+       getSolutionDisplay,
+       // 同步相关方法
+       getDialogTitle,
+       getRemoteSubsystemLabel,
+       getLocalSubsystemLabel,
+       handleSubsystemChange,
+       getSaveButtonText
      }
   }
 }

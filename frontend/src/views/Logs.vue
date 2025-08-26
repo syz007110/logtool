@@ -32,7 +32,7 @@
                   size="small" 
                   @click="handleBatchAnalyze"
                   :disabled="!canBatchOperate || !isSameDevice"
-                  :title="deviceCheckMessage"
+                  :title="incompleteLogsMessage || deviceCheckMessage"
                 >
                   <el-icon><Monitor /></el-icon>
                   批量分析 ({{ selectedLogs.length }})
@@ -42,6 +42,7 @@
                   size="small" 
                   @click="handleBatchDownload"
                   :disabled="!canBatchOperate"
+                  :title="incompleteLogsMessage"
                 >
                   <el-icon><Download /></el-icon>
                   批量下载 ({{ selectedLogs.length }})
@@ -51,6 +52,7 @@
                   size="small" 
                   @click="handleBatchDelete"
                   :disabled="!canBatchDelete"
+                  :title="incompleteLogsMessage"
                 >
                   <el-icon><Delete /></el-icon>
                   批量删除 ({{ selectedLogs.length }})
@@ -59,7 +61,8 @@
                   type="warning" 
                   size="small" 
                   @click="handleBatchReparse"
-                  :disabled="selectedLogs.length === 0 || userRole !== 1"
+                  :disabled="selectedLogs.length === 0 || userRole !== 1 || !canBatchOperate"
+                  :title="incompleteLogsMessage"
                   v-if="userRole === 1"
                 >
                   <el-icon><Refresh /></el-icon>
@@ -79,12 +82,6 @@
                 >
                   取消选择
                 </el-button>
-              </div>
-              <div v-if="deviceCheckMessage" class="device-check-tip">
-                <el-tag type="warning" size="small">
-                  <el-icon><Warning /></el-icon>
-                  <span class="device-message">{{ deviceCheckMessage }}</span>
-                </el-tag>
               </div>
             </div>
 
@@ -197,10 +194,6 @@
             <el-tag :type="getRowStatusType(row)" size="small">
               {{ getRowStatusText(row) }}
             </el-tag>
-            <div v-if="!canOperate(row)" class="status-tip">
-              <el-icon><Warning /></el-icon>
-              <span>{{ isDeleting(row.id) ? '删除中，请稍候' : '处理中，请稍候' }}</span>
-            </div>
           </template>
         </el-table-column>
         
@@ -263,27 +256,6 @@
 
     <!-- 上传日志弹窗 -->
     <el-dialog v-model="showUploadDialog" title="上传日志" width="700px" append-to-body>
-      <!-- 总体进度条 -->
-      <div v-if="uploading" class="overall-progress">
-        <el-progress 
-          :percentage="overallProgress" 
-          :status="overallProgress >= 100 ? 'success' : ''"
-          :stroke-width="12"
-          :show-text="true"
-          :format="progressFormat"
-        />
-        <div class="progress-stages">
-          <span class="stage" :class="{ active: overallProgress >= 0, completed: overallProgress >= 30 }">
-            文件上传
-          </span>
-          <span class="stage" :class="{ active: overallProgress >= 30, completed: overallProgress >= 60 }">
-            解密处理
-          </span>
-          <span class="stage" :class="{ active: overallProgress >= 60, completed: overallProgress >= 100 }">
-            解析完成
-          </span>
-        </div>
-      </div>
 
       <el-upload
         ref="uploadRef"
@@ -490,6 +462,7 @@ export default {
     const uploading = ref(false)
     const showUploadDialog = ref(false)
     const overallProgress = ref(0) // 总体进度
+    const processingStatus = ref('') // 处理状态
     const uploadRef = ref(null)
     const keyUploadRef = ref(null)
     const currentPage = ref(1)
@@ -555,7 +528,9 @@ export default {
     
     // 批量操作相关计算属性
     const canBatchOperate = computed(() => {
-      return selectedLogs.value.length > 0 && selectedLogs.value.every(log => canOperate(log))
+      return selectedLogs.value.length > 0 && 
+             selectedLogs.value.every(log => canOperate(log)) &&
+             selectedLogs.value.every(log => log.status === 'parsed')
     })
     
     // 检查选中的日志是否属于同一设备
@@ -575,8 +550,25 @@ export default {
       return ''
     })
     
+    // 检查是否有未完成的日志
+    const hasIncompleteLogs = computed(() => {
+      return selectedLogs.value.some(log => log.status !== 'parsed')
+    })
+    
+    // 获取未完成日志提示信息
+    const incompleteLogsMessage = computed(() => {
+      if (selectedLogs.value.length === 0) return ''
+      if (hasIncompleteLogs.value) {
+        const incompleteCount = selectedLogs.value.filter(log => log.status !== 'parsed').length
+        return `选中的日志中有 ${incompleteCount} 个未完成解析，请等待解析完成后再操作`
+      }
+      return ''
+    })
+    
     const canBatchDelete = computed(() => {
-      return selectedLogs.value.length > 0 && selectedLogs.value.every(log => canDeleteLog(log))
+      return selectedLogs.value.length > 0 && 
+             selectedLogs.value.every(log => canDeleteLog(log)) &&
+             selectedLogs.value.every(log => log.status === 'parsed')
     })
     
     // 检查是否可以删除日志
@@ -840,8 +832,7 @@ export default {
     }
 
     const onUploadSuccess = (response, file, fileList) => {
-      // 上传成功，开始解密和解析阶段
-      
+      console.log('上传成功:', response)
       
       // 更新手动跟踪的文件列表
       updateUploadFileList(fileList)
@@ -851,71 +842,100 @@ export default {
       if (allUploaded) {
         // 所有文件上传完成，开始解密和解析阶段
         uploading.value = true
+        overallProgress.value = 30 // 上传完成，进度到30%
+        processingStatus.value = '文件已上传，等待处理...'
         
-        // 模拟解密和解析进度（占总进度的70%）
-        let decryptProgress = 30 // 从30%开始（上传已完成）
-        let parseProgress = 0
-        
-        // 解密阶段（30% -> 60%）
-        const decryptInterval = setInterval(() => {
-          if (decryptProgress < 60) {
-            decryptProgress += 2
-            overallProgress.value = decryptProgress
+        // 开始状态监控
+        startStatusMonitoring()
+      }
+    }
     
-          } else {
-            clearInterval(decryptInterval)
-            // 开始解析阶段
-            startParsePhase()
-          }
-        }, 100)
-        
-        // 解析阶段（60% -> 100%）
-        const startParsePhase = () => {
-          const parseInterval = setInterval(() => {
-            if (parseProgress < 40) {
-              parseProgress += 1
-              overallProgress.value = 60 + parseProgress
+    // 状态监控函数
+    const startStatusMonitoring = () => {
+      let checkCount = 0
+      const maxChecks = 30 // 最多检查30次（60秒）
       
-            } else {
-              clearInterval(parseInterval)
-              // 解析完成
-              finishProcessing()
+      const checkStatus = async () => {
+        try {
+          await loadLogs()
+          checkCount++
+          
+          // 检查是否有新上传的日志
+          const newLogs = logs.value.filter(log => 
+            log.status === 'uploading' || 
+            log.status === 'decrypting' || 
+            log.status === 'parsing'
+          )
+          
+          if (newLogs.length > 0) {
+            // 根据状态更新进度和显示
+            const uploadingCount = newLogs.filter(log => log.status === 'uploading').length
+            const decryptingCount = newLogs.filter(log => log.status === 'decrypting').length
+            const parsingCount = newLogs.filter(log => log.status === 'parsing').length
+            
+            if (uploadingCount > 0) {
+              overallProgress.value = 30
+              processingStatus.value = '文件上传中...'
+            } else if (decryptingCount > 0) {
+              overallProgress.value = 45
+              processingStatus.value = '解密中...'
+            } else if (parsingCount > 0) {
+              overallProgress.value = 75
+              processingStatus.value = '解析中...'
             }
-          }, 200)
-        }
-        
-        // 完成处理
-        const finishProcessing = async () => {
-          try {
-            await loadLogs()
-            // 检查是否所有日志都已解析完成
+            
+            // 继续监控
+            if (checkCount < maxChecks) {
+              setTimeout(checkStatus, 2000)
+            } else {
+              // 超时处理
+              uploading.value = false
+              overallProgress.value = 0
+              processingStatus.value = ''
+              ElMessage.warning('处理超时，请刷新页面查看最新状态')
+              clearUpload()
+            }
+          } else {
+            // 所有日志都处理完成
             const allParsed = logs.value.every(log => log.status === 'parsed')
+            const hasFailed = logs.value.some(log => log.status === 'failed')
+            
             if (allParsed) {
               overallProgress.value = 100
               uploading.value = false
-              // 显示具体的文件名
-              const uploadedFiles = uploadFileList.value.map(f => f.name || f.originalname).join(', ')
-              ElMessage.success(`${uploadedFiles} 上传成功，解析完成`)
-              // 关闭弹窗并清空表单
+              processingStatus.value = ''
               showUploadDialog.value = false
               clearUpload()
+            } else if (hasFailed) {
+              uploading.value = false
+              overallProgress.value = 0
+              processingStatus.value = ''
+              ElMessage.error('部分日志解析失败，请检查日志详情')
+              clearUpload()
             } else {
-              // 如果后端解析还未完成，继续等待
-              setTimeout(finishProcessing, 1000)
+              // 继续监控
+              if (checkCount < maxChecks) {
+                setTimeout(checkStatus, 2000)
+              } else {
+                uploading.value = false
+                overallProgress.value = 0
+                processingStatus.value = ''
+                ElMessage.warning('处理超时，请刷新页面查看最新状态')
+                clearUpload()
+              }
             }
-          } catch (error) {
-            uploading.value = false
-            overallProgress.value = 0
-            ElMessage.error('检查解析状态失败')
-            clearUpload()
           }
+        } catch (error) {
+          uploading.value = false
+          overallProgress.value = 0
+          processingStatus.value = ''
+          ElMessage.error('检查状态失败')
+          clearUpload()
         }
-        
-        // 开始解密阶段
-        setTimeout(() => {
-          // 解密阶段开始
-        }, 500)
       }
+      
+      // 开始检查
+      setTimeout(checkStatus, 1000)
     }
     
     const onUploadError = (error) => {
@@ -1036,8 +1056,8 @@ export default {
 
     // 跳转到日志分析页面
     const goToLogAnalysis = (row) => {
-      // 在新页面中打开日志分析
-      const routeData = router.resolve(`/analysis/${row.id}`)
+      // 在新页面中打开日志分析，使用batch-analysis路由
+      const routeData = router.resolve(`/batch-analysis/${row.id}`)
       window.open(routeData.href, '_blank')
     }
     
@@ -1070,13 +1090,17 @@ export default {
       if (deletingIds.value.has(row.id)) return '删除中'
       const map = {
         uploading: '日志上传中',
-        decrypting: '日志解密中',
+        decrypting: '解密中',
         parsing: '解析中',
         parsed: '完成',
         failed: '解析失败'
       }
       return map[row.status] || (row.status || '-')
     }
+    
+
+    
+
     
         // 批量操作相关方法
     const handleSelectionChange = (selection) => {
@@ -1133,6 +1157,12 @@ export default {
     // 批量删除
     const handleBatchDelete = async () => {
       try {
+        // 检查是否有未完成的日志
+        if (hasIncompleteLogs.value) {
+          ElMessage.warning('请等待所有选中的日志解析完成后再进行删除操作')
+          return
+        }
+        
         await ElMessageBox.confirm(
           `确定要删除选中的 ${selectedLogs.value.length} 个日志文件吗？此操作不可恢复！`, 
           '批量删除确认', 
@@ -1143,8 +1173,6 @@ export default {
           }
         )
         
-        ElMessage.info('开始批量删除...')
-        
         // 保存选中的日志数据，避免在验证过程中被清空
         const selectedLogsData = [...selectedLogs.value]
         const logIds = selectedLogsData.map(log => parseInt(log.id)).filter(id => !isNaN(id))
@@ -1154,31 +1182,24 @@ export default {
           return
         }
         
-
+        // 将选中的日志ID添加到删除中状态
+        logIds.forEach(id => deletingIds.value.add(id))
+        await nextTick()
         
         // 执行批量删除
-        let response;
         try {
-          response = await store.dispatch('logs/batchDeleteLogs', logIds)
+          await store.dispatch('logs/batchDeleteLogs', logIds)
+          // 清除删除中状态，因为任务已加入队列
+          logIds.forEach(id => deletingIds.value.delete(id))
+          loadLogs() // 重新加载日志列表
+          clearSelection() // 清空选择
         } catch (apiError) {
           console.error('批量删除失败:', apiError)
           const errorMessage = apiError.response?.data?.message || apiError.message || '批量删除失败'
           ElMessage.error(errorMessage)
-          return
+          // 删除失败时，清除删除中状态
+          logIds.forEach(id => deletingIds.value.delete(id))
         }
-        
-        // 检查响应中的失败信息
-        if (response.data.failCount > 0) {
-          ElMessage.warning(`批量删除完成，成功 ${response.data.successCount} 个，失败 ${response.data.failCount} 个`)
-          if (response.data.failedLogs && response.data.failedLogs.length > 0) {
-            console.error('删除失败的日志:', response.data.failedLogs)
-          }
-        } else {
-          ElMessage.success(response.data.message)
-        }
-        
-        loadLogs() // 重新加载日志列表
-        clearSelection() // 清空选择
       } catch (error) {
         if (error !== 'cancel') {
           console.error('批量删除错误:', error)
@@ -1219,6 +1240,11 @@ export default {
           ElMessage.warning('请先选择要重新解析的日志')
           return
         }
+        // 检查是否有未完成的日志
+        if (hasIncompleteLogs.value) {
+          ElMessage.warning('请等待所有选中的日志解析完成后再进行重新解析操作')
+          return
+        }
         await ElMessageBox.confirm(
           `确定对选中的 ${selectedLogs.value.length} 个日志重新解析释义吗？`,
           '批量重新解析确认',
@@ -1227,9 +1253,7 @@ export default {
         const ids = selectedLogs.value.map(l => l.id)
         // 乐观更新状态
         selectedLogs.value.forEach(l => { l.status = 'parsing' })
-        const resp = await store.dispatch('logs/batchReparseLogs', ids)
-        const { success = 0, fail = 0 } = resp.data || {}
-        ElMessage.success(`批量重新解析完成：成功 ${success}，失败 ${fail}`)
+        await store.dispatch('logs/batchReparseLogs', ids)
         await loadLogs()
       } catch (error) {
         if (error !== 'cancel') {
@@ -1329,6 +1353,7 @@ export default {
       uploading,
       showUploadDialog,
       overallProgress,
+      processingStatus,
       progressFormat,
       uploadRef,
       currentPage,
@@ -1401,7 +1426,8 @@ export default {
       applyDeviceFilter,
       resetDeviceFilter,
       applyOnlyOwn,
-      resetAllFilters
+      resetAllFilters,
+      startStatusMonitoring
     }
   }
 }
@@ -1570,6 +1596,17 @@ export default {
   font-weight: 500;
 }
 
+.processing-status {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.processing-status .el-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .custom-file-list {
   margin-top: 15px;
   border: 1px solid #e4e7ed;
@@ -1644,6 +1681,18 @@ export default {
   font-size: 12px;
 }
 
+.status-progress {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.status-progress .el-progress {
+  width: 60px;
+}
+
 /* 批量操作样式 */
 .batch-operations {
   display: flex;
@@ -1678,25 +1727,7 @@ export default {
   min-width: 0;
 }
 
-.device-check-tip {
-  margin-left: 0;
-}
 
-.device-check-tip .el-tag {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  font-size: 12px;
-  max-width: 300px;
-  white-space: normal;
-  word-wrap: break-word;
-  line-height: 1.4;
-}
-
-.device-message {
-  white-space: normal;
-  word-wrap: break-word;
-}
 
 .info-icon {
   color: #909399;

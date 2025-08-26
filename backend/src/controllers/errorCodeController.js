@@ -769,11 +769,35 @@ const exportMultiLanguageXML = async (req, res) => {
   }
 };
 
+// 根据故障码和子系统查找故障码
+const getErrorCodeByCodeAndSubsystem = async (req, res) => {
+  try {
+    const { code, subsystem } = req.query;
+    
+    if (!code || !subsystem) {
+      return res.status(400).json({ message: '故障码和子系统参数都是必需的' });
+    }
+    
+    const errorCode = await ErrorCode.findOne({
+      where: { code, subsystem }
+    });
+    
+    if (!errorCode) {
+      return res.json({ errorCode: null });
+    }
+    
+    res.json({ errorCode });
+  } catch (err) {
+    res.status(500).json({ message: '查询失败', error: err.message });
+  }
+};
+
 module.exports = {
   createErrorCode,
   getErrorCodes,
   updateErrorCode,
   deleteErrorCode,
   exportErrorCodesToXML,
-  exportMultiLanguageXML
+  exportMultiLanguageXML,
+  getErrorCodeByCodeAndSubsystem
 }; 

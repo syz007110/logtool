@@ -285,7 +285,6 @@ export default {
         History: 'history.title',
         Users: 'users.title',
         Roles: 'roles.title',
-        LogDetail: 'logDetail.title',
         BatchAnalysis: 'batchAnalysis.title',
         GlobalDashboard: '全局看板'
       }

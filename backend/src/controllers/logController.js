@@ -7,6 +7,7 @@ const Device = require('../models/device');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
+const { logProcessingQueue } = require('../config/queue');
 // 已移除 HanLP 相关调用
 const SequelizeLib = require('sequelize');
 const Op = SequelizeLib.Op;
@@ -95,7 +96,7 @@ const getLogs = async (req, res) => {
       where,
       offset: (page - 1) * limit,
       limit,
-      order: [['upload_time', 'DESC']]
+      order: [['original_name', 'DESC']]
     });
     res.json({ logs, total });
   } catch (err) {
@@ -192,125 +193,27 @@ const uploadLog = async (req, res) => {
           console.warn('设备信息同步失败（忽略，不影响日志处理）:', e.message);
         }
 
-        // 读取文件内容
-        const content = fs.readFileSync(file.path, 'utf-8');
-        console.log(`文件内容长度: ${content.length} 字符`);
-        console.log(`文件前100个字符: ${content.substring(0, 100)}`);
+        // 将文件处理任务添加到队列
+        console.log(`将文件 ${file.originalname} 添加到处理队列`);
         
-        // 更新状态为解密中
-        await log.update({ status: 'decrypting' });
-        
-        // 解密日志内容
-        console.log(`开始解密文件，使用密钥: ${decryptKey}`);
-        const decryptedEntries = decryptLogContent(content, decryptKey);
-        console.log(`解密完成，得到 ${decryptedEntries.length} 个日志条目`);
-        
-        if (decryptedEntries.length === 0) {
-          // 如果解密失败，更新状态为失败
-          await log.update({ status: 'failed' });
-          throw new Error('解密后没有获得任何有效的日志条目');
-        }
-        
-        // 转换为数据库格式并存储，同时查询正确的释义和解析占位符
-        const entries = [];
-        for (const entry of decryptedEntries) {
-          // 根据需求，通过解密后的故障码首位+('0X'+故障码后4位)去匹配error_codes表
-          const errorCodeStr = entry.error_code;
-          let subsystem = '';
-          let code = '';
-          
-          if (errorCodeStr && errorCodeStr.length >= 5) {
-            subsystem = errorCodeStr.charAt(0); // 首位
-            code = '0X' + errorCodeStr.slice(-4); // '0X' + 后4位
+        const job = await logProcessingQueue.add('process-log', {
+          filePath: file.path,
+          originalName: file.originalname,
+          decryptKey: decryptKey,
+          deviceId: deviceId || null,
+          uploaderId: req.user ? req.user.id : null,
+          logId: log.id
+        }, {
+          priority: 1, // 高优先级
+          delay: 0, // 立即处理
+          attempts: 3, // 重试3次
+          backoff: {
+            type: 'exponential',
+            delay: 2000
           }
-          
-          // 查询error_codes表获取正确的释义
-          let explanation = entry.explanation; // 默认使用原始释义
-          if (subsystem && code) {
-            try {
-              const errorCodeRecord = await ErrorCode.findOne({
-                where: { subsystem, code }
-              });
-              if (errorCodeRecord && errorCodeRecord.explanation) {
-                explanation = errorCodeRecord.explanation;
-              }
-            } catch (error) {
-              console.error(`查询错误码释义失败: ${subsystem}${code}`, error.message);
-            }
-          }
-          
-          // 立即解析释义中的占位符，提高效率
-          const parsedExplanation = parseExplanation(
-            explanation,
-            entry.param1, // 参数0
-            entry.param2, // 参数1
-            entry.param3, // 参数2
-            entry.param4, // 参数3
-            {
-              error_code: entry.error_code,
-              subsystem,
-              arm: errorCodeStr?.charAt(1) || null,
-              joint: errorCodeStr?.charAt(2) || null
-            }
-          );
-          
-          entries.push({
-            log_id: log.id,
-            timestamp: entry.timestamp,
-            error_code: entry.error_code,
-            param1: entry.param1,
-            param2: entry.param2,
-            param3: entry.param3,
-            param4: entry.param4,
-            explanation: parsedExplanation
-          });
-        }
+        });
         
-        console.log('释义查询和解析完成，示例:', entries[0]?.explanation);
-        console.log(`准备插入 ${entries.length} 个日志条目到数据库`);
-        
-        // 更新状态为解析中
-        await log.update({ status: 'parsing' });
-        
-        // 覆盖式写入：清空旧的明细再写入新的
-        await LogEntry.destroy({ where: { log_id: log.id } });
-        if (entries.length > 0) {
-          await LogEntry.bulkCreate(entries);
-          console.log('数据库插入完成');
-        }
-        
-        // 根据需求，解密后的文件应该保存到服务器磁盘
-        // 创建设备编号文件夹（如果设备编号存在）
-        let deviceFolder = UPLOAD_DIR;
-        if (deviceId) {
-          deviceFolder = path.join(UPLOAD_DIR, deviceId);
-          if (!fs.existsSync(deviceFolder)) {
-            fs.mkdirSync(deviceFolder, { recursive: true });
-          }
-        }
-        
-        // 生成解密后的文件名（与上传文件保持一致，.medbot -> .txt）
-        const decryptedFileName = file.originalname.replace('.medbot', '.txt');
-        const decryptedFilePath = path.join(deviceFolder, decryptedFileName);
-        
-        // 生成解密后的文件内容，使用解析后的释义
-        const decryptedContent = entries.map(entry => {
-          const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
-          return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
-        }).join('\n');
-        
-        // 保存解密后的文件
-        fs.writeFileSync(decryptedFilePath, decryptedContent, 'utf-8');
-        
-        // 更新日志记录中的解密文件路径和状态
-        log.decrypted_path = decryptedFilePath;
-        log.status = 'parsed'; // 标记为解析完成
-        log.parse_time = new Date(); // 设置解析时间
-        await log.save();
-        
-        // 删除原始文件，不存储
-        fs.unlinkSync(file.path);
-        console.log(`文件 ${file.originalname} 处理完成`);
+        console.log(`文件 ${file.originalname} 已添加到队列，任务ID: ${job.id}`);
         
         uploadedLogs.push(log);
       } catch (error) {
@@ -335,8 +238,9 @@ const uploadLog = async (req, res) => {
     }
     
     res.json({ 
-      message: `成功上传并解析 ${uploadedLogs.length} 个文件`, 
-      logs: uploadedLogs 
+      message: `成功上传 ${uploadedLogs.length} 个文件，已加入处理队列`, 
+      logs: uploadedLogs,
+      queued: true
     });
   } catch (err) {
     res.status(500).json({ message: '上传失败', error: err.message });
@@ -443,6 +347,27 @@ const parseLog = async (req, res) => {
   } catch (err) {
     console.error('解析日志失败:', err);
     res.status(500).json({ message: '解析失败', error: err.message });
+  }
+};
+
+// 获取队列状态
+const getQueueStatus = async (req, res) => {
+  try {
+    const waiting = await logProcessingQueue.getWaiting();
+    const active = await logProcessingQueue.getActive();
+    const completed = await logProcessingQueue.getCompleted();
+    const failed = await logProcessingQueue.getFailed();
+    
+    res.json({
+      waiting: waiting.length,
+      active: active.length,
+      completed: completed.length,
+      failed: failed.length,
+      total: waiting.length + active.length + completed.length + failed.length
+    });
+  } catch (error) {
+    console.error('获取队列状态失败:', error);
+    res.status(500).json({ message: '获取队列状态失败', error: error.message });
   }
 };
 
@@ -1233,99 +1158,30 @@ const batchReparseLogs = async (req, res) => {
     }
     // 权限由路由中间件控制，这里不再重复校验角色
 
-    const results = [];
-    let success = 0;
-    let fail = 0;
-    for (const id of logIds) {
-      try {
-        // 复用单个的逻辑：直接调用内部函数不走 HTTP 层
-        req.params.id = id;
-        const fakeRes = {
-          status: (code) => ({ json: (obj) => ({ code, obj }) }),
-          json: (obj) => obj
-        };
-        // 手动执行核心逻辑（抽取为辅助函数可更优，这里直接调用以减少重构风险）
-        // 为避免改路由参数副作用，这里临时调用一个轻量实现
-        const log = await Log.findByPk(id);
-        if (!log) {
-          results.push({ id, status: 'not_found' });
-          fail++;
-          continue;
-        }
-        // 标记解析中
-        try { log.status = 'parsing'; await log.save(); } catch (_) {}
-        const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
-        if (!entries || entries.length === 0) {
-          results.push({ id, status: 'no_entries' });
-          fail++;
-          continue;
-        }
-        const pairKey = (s, c) => `${s}::${c}`;
-        const requiredPairs = new Map();
-        for (const e of entries) {
-          const ec = e.error_code || '';
-          if (ec.length >= 5) {
-            requiredPairs.set(pairKey(ec.charAt(0), '0X' + ec.slice(-4)), null);
-          }
-        }
-        const explanationsMap = new Map();
-        for (const k of requiredPairs.keys()) {
-          const [s, c] = k.split('::');
-          const rec = await ErrorCode.findOne({ where: { subsystem: s, code: c } });
-          if (rec?.explanation) explanationsMap.set(k, rec.explanation);
-        }
-        let updatedCount = 0;
-        for (const e of entries) {
-          const ec = e.error_code || '';
-          if (ec.length >= 5) {
-            const s = ec.charAt(0);
-            const c = '0X' + ec.slice(-4);
-            const tpl = explanationsMap.get(pairKey(s, c)) || e.explanation || '';
-            const parsed = parseExplanation(tpl, e.param1, e.param2, e.param3, e.param4, {
-              error_code: e.error_code,
-              subsystem: s,
-              arm: ec?.charAt(1) || null,
-              joint: ec?.charAt(2) || null
-            });
-            if (parsed !== e.explanation) {
-              await LogEntry.update({ explanation: parsed }, { where: { id: e.id } });
-              e.explanation = parsed;
-              updatedCount += 1;
-            }
-          }
-        }
-        const decryptedLines = entries.map(r => {
-          const localTs = dayjs(r.timestamp).format('YYYY-MM-DD HH:mm:ss');
-          return `${localTs} ${r.error_code} ${r.param1} ${r.param2} ${r.param3} ${r.param4} ${r.explanation || ''}`;
-        }).join('\n');
-        let outPath = log.decrypted_path;
-        if (!outPath) {
-          let deviceFolder = UPLOAD_DIR;
-          if (log.device_id) {
-            deviceFolder = path.join(UPLOAD_DIR, log.device_id);
-            if (!fs.existsSync(deviceFolder)) fs.mkdirSync(deviceFolder, { recursive: true });
-          }
-          const decryptedFileName = (log.original_name || `log_${log.id}.medbot`).replace('.medbot', '.txt');
-          outPath = path.join(deviceFolder, decryptedFileName);
-          log.decrypted_path = outPath;
-        }
-        try { fs.writeFileSync(outPath, decryptedLines, 'utf-8'); } catch (_) {}
-        log.status = 'parsed';
-        log.parse_time = new Date();
-        await log.save();
-        results.push({ id, status: 'ok', updated: updatedCount, total: entries.length });
-        success++;
-      } catch (e) {
-        try {
-          const log = await Log.findByPk(id);
-          if (log) { log.status = 'failed'; await log.save(); }
-        } catch (_) {}
-        results.push({ id, status: 'error', error: e.message });
-        fail++;
+    // 将批量重新解析任务添加到队列
+    console.log(`将批量重新解析任务添加到队列，日志数量: ${logIds.length}`);
+    
+    const job = await logProcessingQueue.add('batch-reparse', {
+      logIds,
+      userId: req.user ? req.user.id : null
+    }, {
+      priority: 2, // 中等优先级
+      delay: 0, // 立即处理
+      attempts: 3, // 重试3次
+      backoff: {
+        type: 'exponential',
+        delay: 2000
       }
-    }
-
-    return res.json({ message: '批量重新解析完成', success, fail, results });
+    });
+    
+    console.log(`批量重新解析任务已添加到队列，任务ID: ${job.id}`);
+    
+    res.json({ 
+      message: `批量重新解析任务已加入队列，任务ID: ${job.id}`, 
+      jobId: job.id,
+      queued: true,
+      logCount: logIds.length
+    });
   } catch (err) {
     console.error('批量重新解析失败:', err);
     return res.status(500).json({ message: '批量重新解析失败', error: err.message });
@@ -1381,7 +1237,7 @@ const autoFillDeviceId = async (req, res) => {
     // 2) 在logs表中查找使用过该密钥的设备编号
     const log = await Log.findOne({
       where: { key_id: key },
-      order: [['upload_time', 'DESC']], // 获取最新的记录
+      order: [['original_name', 'DESC']], // 获取最新的记录
       attributes: ['device_id']
     });
     
@@ -1415,7 +1271,7 @@ const autoFillKey = async (req, res) => {
     // 2) 在logs表中查找该设备编号使用过的密钥
     const log = await Log.findOne({
       where: { device_id: device_id },
-      order: [['upload_time', 'DESC']], // 获取最新的记录
+      order: [['original_name', 'DESC']], // 获取最新的记录
       attributes: ['key_id']
     });
     
@@ -1443,114 +1299,85 @@ const validateDeviceId = (deviceId) => {
   return deviceIdRegex.test(deviceId);
 };
 
-// 批量删除日志
-const batchDeleteLogs = async (req, res) => {
-  try {
-    const { logIds } = req.body;
-    
-
-    
-    if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
-      return res.status(400).json({ message: '请提供要删除的日志ID列表' });
-    }
-    
-    const userRole = req.user.role_id;
-    const userId = req.user.id;
-    
-    // 确保logIds是数字类型
-    const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
-    
-    if (numericLogIds.length === 0) {
-      return res.status(400).json({ message: '提供的日志ID格式不正确' });
-    }
-    
-    // 测试数据库查询
-    console.log('测试数据库查询...');
-    const testLog = await Log.findByPk(numericLogIds[0]);
-    console.log('测试查询结果:', testLog ? `找到日志 ${testLog.id}: ${testLog.original_name}` : '未找到日志');
-    
-    // 获取所有要删除的日志 - 使用与单个删除相同的方式
-    const logs = [];
-    for (const id of numericLogIds) {
-      const log = await Log.findByPk(id);
-      if (log) {
-        logs.push(log);
-      }
-    }
-    
-    if (logs.length === 0) {
-      return res.status(404).json({ 
-        message: '未找到要删除的日志',
-        requestedIds: numericLogIds,
-        foundCount: logs.length
-      });
-    }
-    
-    console.log(`找到 ${logs.length} 个日志，用户角色: ${userRole}, 用户ID: ${userId}`);
-    
-    // 权限检查：普通用户只能删除自己的日志
-    if (userRole === 3) {
-      const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
-      if (unauthorizedLogs.length > 0) {
-        return res.status(403).json({ 
-          message: '权限不足，只能删除自己上传的日志',
-          unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
-        });
-      }
-    }
-    
-    let successCount = 0;
-    let failCount = 0;
-    const failedLogs = [];
-    
-    // 使用事务来确保数据一致性
-    const { sequelize } = require('../models/index');
-    
-    for (const log of logs) {
-      const transaction = await sequelize.transaction();
-      
+    // 批量删除日志
+    const batchDeleteLogs = async (req, res) => {
       try {
-        // 删除解密文件（如果存在）
-        if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
-          fs.unlinkSync(log.decrypted_path);
+        const { logIds } = req.body;
+        
+        if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+          return res.status(400).json({ message: '请提供要删除的日志ID列表' });
         }
         
-        // 删除相关的日志明细
-        await LogEntry.destroy({ 
-          where: { log_id: log.id },
-          transaction 
+        const userRole = req.user.role_id;
+        const userId = req.user.id;
+        
+        // 确保logIds是数字类型
+        const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+        
+        if (numericLogIds.length === 0) {
+          return res.status(400).json({ message: '提供的日志ID格式不正确' });
+        }
+        
+        // 获取所有要删除的日志进行权限检查
+        const logs = [];
+        for (const id of numericLogIds) {
+          const log = await Log.findByPk(id);
+          if (log) {
+            logs.push(log);
+          }
+        }
+        
+        if (logs.length === 0) {
+          return res.status(404).json({ 
+            message: '未找到要删除的日志',
+            requestedIds: numericLogIds,
+            foundCount: logs.length
+          });
+        }
+        
+        // 权限检查：普通用户只能删除自己的日志
+        if (userRole === 3) {
+          const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
+          if (unauthorizedLogs.length > 0) {
+            return res.status(403).json({ 
+              message: '权限不足，只能删除自己上传的日志',
+              unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
+            });
+          }
+        }
+        
+        // 将批量删除任务添加到队列
+        console.log(`将批量删除任务添加到队列，日志数量: ${numericLogIds.length}`);
+        
+        const job = await logProcessingQueue.add('batch-delete', {
+          logIds: numericLogIds,
+          userId: req.user ? req.user.id : null
+        }, {
+          priority: 3, // 低优先级
+          delay: 0, // 立即处理
+          attempts: 3, // 重试3次
+          backoff: {
+            type: 'exponential',
+            delay: 2000
+          }
         });
         
-        // 删除日志记录
-        await log.destroy({ transaction });
+        console.log(`批量删除任务已添加到队列，任务ID: ${job.id}`);
         
-        // 提交事务
-        await transaction.commit();
-        
-        successCount++;
-      } catch (error) {
-        // 回滚事务
-        await transaction.rollback();
-        
-        failCount++;
-        failedLogs.push({ id: log.id, original_name: log.original_name, error: error.message });
+        res.json({ 
+          message: `批量删除任务已加入队列，任务ID: ${job.id}`, 
+          jobId: job.id,
+          queued: true,
+          logCount: numericLogIds.length
+        });
+      } catch (err) {
+        console.error('批量删除失败:', err);
+        res.status(500).json({ 
+          message: '批量删除失败', 
+          error: err.message
+        });
       }
-    }
-    
-    res.json({ 
-      message: `批量删除完成，成功 ${successCount} 个，失败 ${failCount} 个`,
-      successCount,
-      failCount,
-      failedLogs
-    });
-  } catch (err) {
-    console.error('批量删除失败:', err);
-    res.status(500).json({ 
-      message: '批量删除失败', 
-      error: err.message
-    });
-  }
-};
+    };
 
 // 批量下载日志
 const batchDownloadLogs = async (req, res) => {
@@ -1976,5 +1803,5 @@ module.exports = {
   analyzeSurgeryData,
   getSearchTemplates,
   importSearchTemplates,
-  
+  getQueueStatus
 }; 

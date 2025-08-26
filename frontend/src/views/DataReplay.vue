@@ -24,7 +24,7 @@
     </el-card>
 
     <!-- 图表区域 -->
-    <div class="charts-section" v-if="fileId">
+    <div class="charts-section" v-if="fileId && false">
       <div class="charts-row">
         <!-- 左手关节位置图表 -->
         <div class="chart-card left-chart">
@@ -51,21 +51,48 @@
     </div>
 
     <!-- 3D机械臂视图 -->
-    <div class="three-section" v-if="fileId">
+    <div class="three-section">
       <div class="chart-card three-chart">
         <div class="chart-header">
-          <h3>机械臂3D视图</h3>
+          <h3>数据诊断 - 机械臂三维模型</h3>
           <div class="three-controls">
+            <el-button size="small" @click="switchArmModel" :type="currentArmModel === 'test' ? 'success' : 'primary'" icon="Switch">
+              {{ currentArmModel === 'test' ? '切换到MDH模型' : '切换到测试模型' }}
+            </el-button>
             <el-button size="small" @click="resetThreeView" icon="Refresh">重置视角</el-button>
             <el-button size="small" @click="toggleThreeRotation" :type="threeRotationEnabled ? 'primary' : ''" icon="VideoPlay">
               {{ threeRotationEnabled ? '停止旋转' : '开始旋转' }}
             </el-button>
           </div>
         </div>
+        
+        <!-- 功能说明 -->
+        <div class="model-info">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <div class="info-card" :class="{ active: currentArmModel === 'mdh' }">
+                <h4>MDH模型 - 左主控制臂</h4>
+                <p>基于MDH模型的7自由度机械臂</p>
+                <p>参数: L1=0.166, L2=0.3, L3=0.35, L4=0.145</p>
+                <p>支持鼠标拖拽旋转和滚轮缩放查看</p>
+              </div>
+            </el-col>
+            <el-col :span="12">
+              <div class="info-card" :class="{ active: currentArmModel === 'test' }">
+                <h4>测试模型 - 仿真机械臂</h4>
+                <p>基于threetest.js的简化机械臂模型</p>
+                <p>包含底座、连杆和关节的测试结构</p>
+                <p>用于验证3D渲染和交互功能</p>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+        
         <div ref="threeContainer" class="three-container">
           <div class="three-placeholder" v-if="!threeInitialized">
             <p>3D机械臂渲染区域</p>
-            <p>待Three.js数据输入</p>
+            <p>当前显示: {{ currentArmModel === 'mdh' ? 'MDH模型' : '测试模型' }}</p>
+            <p>支持鼠标拖拽旋转和滚轮缩放</p>
           </div>
         </div>
       </div>
@@ -153,6 +180,8 @@ export default {
     let threeInitialized = ref(false)
     let threeRotationEnabled = ref(false)
     let threeRotationId = null
+    let currentArmModel = ref('mdh') // 'mdh' 或 'test'
+    let currentArmGroup = null // 当前显示的机械臂组
 
     // 播放控制
     const isPlaying = ref(false)
@@ -485,46 +514,361 @@ export default {
       rightChartInstance.setOption(option)
     }
 
+    // MDH参数定义（左手主控制臂）
+    const MDH_PARAMS = {
+      pi: 3.1415926535897932384626,
+      L1: 0.166,
+      L2: 0.3,
+      L3: 0.35,
+      L4: 0.145,
+      // MDH矩阵 [a, alpha, d, theta]
+      dh: [
+        [0, 0, -0.166, 0],
+        [0, -Math.PI / 2, 0, Math.PI / 2],
+        [0.3, 0, 0, -Math.PI / 2],
+        [0.35, Math.PI / 2, 0.145, 0],
+        [0, -Math.PI / 2, 0, 0],
+        [0, Math.PI / 2, 0, Math.PI / 2],
+        [0, Math.PI / 2, 0, Math.PI]
+      ]
+    }
+
+    // 创建机械臂关节
+    const createJoint = (radius = 0.05, height = 0.1, color = 0x666666) => {
+      const geometry = new THREE.CylinderGeometry(radius, radius, height, 8)
+      const material = new THREE.MeshPhongMaterial({ color })
+      const joint = new THREE.Mesh(geometry, material)
+      joint.rotation.z = Math.PI / 2 // 使圆柱体沿X轴方向
+      return joint
+    }
+
+    // 创建机械臂连杆
+    const createLink = (length, radius = 0.02, color = 0x444444) => {
+      const geometry = new THREE.CylinderGeometry(radius, radius, length, 8)
+      const material = new THREE.MeshPhongMaterial({ color })
+      const link = new THREE.Mesh(geometry, material)
+      link.rotation.z = Math.PI / 2 // 使圆柱体沿X轴方向
+      return link
+    }
+
+    // 计算MDH变换矩阵
+    const calculateMDHMatrix = (a, alpha, d, theta) => {
+      const matrix = new THREE.Matrix4()
+      
+      // 计算旋转和平移
+      const cosTheta = Math.cos(theta)
+      const sinTheta = Math.sin(theta)
+      const cosAlpha = Math.cos(alpha)
+      const sinAlpha = Math.sin(alpha)
+      
+      matrix.set(
+        cosTheta, -sinTheta * cosAlpha, sinTheta * sinAlpha, a * cosTheta,
+        sinTheta, cosTheta * cosAlpha, -cosTheta * sinAlpha, a * sinTheta,
+        0, sinAlpha, cosAlpha, d,
+        0, 0, 0, 1
+      )
+      
+      return matrix
+    }
+
+    // 创建文本标签
+    const createTextLabel = (text, position, color = 0x000000) => {
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
+      canvas.width = 256
+      canvas.height = 64
+      
+      // 设置背景
+      context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      
+      // 设置边框
+      context.strokeStyle = 'rgba(0, 0, 0, 0.5)'
+      context.lineWidth = 3
+      context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4)
+      
+      // 设置文字
+      context.fillStyle = `rgb(${color >> 16}, ${(color >> 8) & 255}, ${color & 255})`
+      context.font = 'bold 20px Arial'
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.fillText(text, canvas.width / 2, canvas.height / 2)
+      
+      // 创建纹理和材质
+      const texture = new THREE.CanvasTexture(canvas)
+      const material = new THREE.SpriteMaterial({ 
+        map: texture,
+        transparent: true,
+        opacity: 0.9
+      })
+      const sprite = new THREE.Sprite(material)
+      
+      // 设置位置和大小
+      sprite.position.copy(position)
+      sprite.scale.set(0.4, 0.1, 1)
+      
+      return sprite
+    }
+
+    // 创建左手主控制臂
+    const createLeftMasterArm = () => {
+      const armGroup = new THREE.Group()
+      armGroup.name = 'leftMasterArm'
+      
+      // 创建7个关节
+      const joints = []
+      const links = []
+      
+      for (let i = 0; i < 7; i++) {
+        const joint = createJoint(0.05, 0.1, 0x666666)
+        joint.name = `leftJoint${i + 1}`
+        joints.push(joint)
+        
+        if (i < 6) { // 6个连杆
+          const linkLength = MDH_PARAMS.dh[i][0] // a参数作为连杆长度
+          const link = createLink(linkLength, 0.02, 0x444444)
+          link.name = `leftLink${i + 1}`
+          links.push(link)
+        }
+      }
+      
+      // 设置初始位置和变换
+      let currentMatrix = new THREE.Matrix4()
+      
+      for (let i = 0; i < 7; i++) {
+        const [a, alpha, d, theta] = MDH_PARAMS.dh[i]
+        const dhMatrix = calculateMDHMatrix(a, alpha, d, theta)
+        
+        // 应用MDH变换
+        currentMatrix.multiply(dhMatrix)
+        
+        // 设置关节位置
+        const joint = joints[i]
+        joint.position.setFromMatrixPosition(currentMatrix)
+        joint.setRotationFromMatrix(currentMatrix)
+        armGroup.add(joint)
+        
+        // 设置连杆位置（如果有）
+        if (i < 6) {
+          const link = links[i]
+          const linkLength = MDH_PARAMS.dh[i][0] // a参数作为连杆长度
+          // 连杆位置在关节之间
+          const linkMatrix = currentMatrix.clone()
+          linkMatrix.multiply(calculateMDHMatrix(linkLength / 2, 0, 0, 0))
+          link.position.setFromMatrixPosition(linkMatrix)
+          link.setRotationFromMatrix(linkMatrix)
+          armGroup.add(link)
+        }
+      }
+      
+      return armGroup
+    }
+
+    // 创建测试机械臂模型（基于threetest.js）
+    const createTestArmModel = () => {
+      const armGroup = new THREE.Group()
+      armGroup.name = 'testArmModel'
+      
+      // 底座
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(1, 1, 0.5, 32),
+        new THREE.MeshStandardMaterial({ color: 0x555555 })
+      )
+      base.position.y = 0.25
+      armGroup.add(base)
+      
+      // 第一段连杆
+      const link1 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2, 0.2, 3),
+        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+      )
+      link1.position.y = 1.5 // 调整中心位置
+      base.add(link1)
+      
+      // 第一个关节
+      const joint1 = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0x0000ff })
+      )
+      joint1.position.y = 1.5
+      link1.add(joint1)
+      
+      // 第二段连杆
+      const link2 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 2),
+        new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+      )
+      link2.position.y = 1 // 相对于 joint1
+      joint1.add(link2)
+      
+      // 第二个关节
+      const joint2 = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0xff00ff })
+      )
+      joint2.position.y = 1
+      link2.add(joint2)
+      
+      // 第三段连杆
+      const link3 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.1, 1.5),
+        new THREE.MeshStandardMaterial({ color: 0xffff00 })
+      )
+      link3.position.y = 0.75
+      joint2.add(link3)
+      
+      // 添加标签
+      const baseLabel = createTextLabel('底座', new THREE.Vector3(0, 0.5, 1.2), 0x555555)
+      armGroup.add(baseLabel)
+      
+      const link1Label = createTextLabel('连杆1', new THREE.Vector3(0, 2, 0.3), 0xff0000)
+      armGroup.add(link1Label)
+      
+      const joint1Label = createTextLabel('关节1', new THREE.Vector3(0, 1.5, 0.3), 0x0000ff)
+      armGroup.add(joint1Label)
+      
+      const link2Label = createTextLabel('连杆2', new THREE.Vector3(0, 2.5, 0.3), 0x00ff00)
+      armGroup.add(link2Label)
+      
+      return armGroup
+    }
+
+
+
     // 初始化Three.js场景
     const initThreeScene = () => {
-      if (!threeContainer.value) return
+      if (!threeContainer.value) {
+        console.warn('3D容器不存在')
+        return
+      }
+      
+      try {
       
       // 创建场景
       threeScene = new THREE.Scene()
-      threeScene.background = new THREE.Color(0xf0f0f0)
+      threeScene.background = new THREE.Color(0xf5f5f5)
       
       // 创建相机
       threeCamera = new THREE.PerspectiveCamera(
-        75,
+        60,
         threeContainer.value.clientWidth / threeContainer.value.clientHeight,
         0.1,
         1000
       )
-      threeCamera.position.set(0, 0, 5)
+      threeCamera.position.set(2, 2, 2)
+      threeCamera.lookAt(0, 0, 0)
       
       // 创建渲染器
       threeRenderer = new THREE.WebGLRenderer({ antialias: true })
       threeRenderer.setSize(threeContainer.value.clientWidth, threeContainer.value.clientHeight)
+      threeRenderer.shadowMap.enabled = true
+      threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap
       
       // 清空容器并添加渲染器
       threeContainer.value.innerHTML = ''
       threeContainer.value.appendChild(threeRenderer.domElement)
       
       // 添加光源
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.6)
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.4)
       threeScene.add(ambientLight)
       
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-      directionalLight.position.set(10, 10, 5)
+      directionalLight.position.set(5, 5, 5)
+      directionalLight.castShadow = true
+      directionalLight.shadow.mapSize.width = 2048
+      directionalLight.shadow.mapSize.height = 2048
       threeScene.add(directionalLight)
       
       // 添加坐标轴辅助
-      const axesHelper = new THREE.AxesHelper(2)
+      const axesHelper = new THREE.AxesHelper(1)
       threeScene.add(axesHelper)
+      
+      // 创建初始机械臂模型
+      currentArmGroup = createLeftMasterArm()
+      currentArmGroup.position.x = 0 // 居中显示
+      threeScene.add(currentArmGroup)
+      
+      // 添加左主控制臂标签
+      const leftArmLabel = createTextLabel('左主控制臂', new THREE.Vector3(0, 0.6, 0), 0x0066cc)
+      leftArmLabel.userData.isArmLabel = true
+      threeScene.add(leftArmLabel)
+      
+      // 添加地面网格
+      const gridHelper = new THREE.GridHelper(4, 20, 0xcccccc, 0xcccccc)
+      gridHelper.position.y = -0.5
+      threeScene.add(gridHelper)
       
       // 渲染场景
       threeRenderer.render(threeScene, threeCamera)
       threeInitialized.value = true
+      
+      // 添加鼠标控制
+      addMouseControls()
+    } catch (error) {
+      console.error('初始化3D场景失败:', error)
+      ElMessage.error('3D场景初始化失败，请检查浏览器WebGL支持')
+    }
+    }
+
+    // 添加鼠标控制
+    const addMouseControls = () => {
+      let isMouseDown = false
+      let mouseX = 0
+      let mouseY = 0
+      
+      const onMouseDown = (event) => {
+        isMouseDown = true
+        mouseX = event.clientX
+        mouseY = event.clientY
+      }
+      
+      const onMouseMove = (event) => {
+        if (!isMouseDown) return
+        
+        const deltaX = event.clientX - mouseX
+        const deltaY = event.clientY - mouseY
+        
+        // 旋转相机
+        const spherical = new THREE.Spherical()
+        spherical.setFromVector3(threeCamera.position)
+        spherical.theta -= deltaX * 0.01
+        spherical.phi += deltaY * 0.01
+        spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi))
+        
+        threeCamera.position.setFromSpherical(spherical)
+        threeCamera.lookAt(0, 0, 0)
+        threeRenderer.render(threeScene, threeCamera)
+        
+        mouseX = event.clientX
+        mouseY = event.clientY
+      }
+      
+      const onMouseUp = () => {
+        isMouseDown = false
+      }
+      
+      const onWheel = (event) => {
+        const zoomSpeed = 0.1
+        const direction = event.deltaY > 0 ? 1 : -1
+        const distance = threeCamera.position.distanceTo(new THREE.Vector3(0, 0, 0))
+        const newDistance = Math.max(0.5, Math.min(10, distance + direction * zoomSpeed))
+        
+        threeCamera.position.normalize().multiplyScalar(newDistance)
+        threeRenderer.render(threeScene, threeCamera)
+      }
+      
+      threeContainer.value.addEventListener('mousedown', onMouseDown)
+      threeContainer.value.addEventListener('mousemove', onMouseMove)
+      threeContainer.value.addEventListener('mouseup', onMouseUp)
+      threeContainer.value.addEventListener('wheel', onWheel)
+      
+      // 保存事件监听器引用以便清理
+      threeContainer.value._mouseListeners = {
+        onMouseDown,
+        onMouseMove,
+        onMouseUp,
+        onWheel
+      }
     }
 
     // 更新图表数据
@@ -609,10 +953,51 @@ export default {
     // 重置3D视角
     const resetThreeView = () => {
       if (threeCamera) {
-        threeCamera.position.set(0, 0, 5)
+        threeCamera.position.set(2, 2, 2)
         threeCamera.lookAt(0, 0, 0)
         threeRenderer.render(threeScene, threeCamera)
       }
+    }
+
+    // 切换机械臂模型
+    const switchArmModel = () => {
+      if (!threeScene || !currentArmGroup) return
+      
+      // 移除当前模型和标签
+      threeScene.remove(currentArmGroup)
+      
+      // 清理旧的标签
+      const oldLabels = threeScene.children.filter(child => 
+        child.type === 'Sprite' && 
+        (child.userData.isArmLabel || child.material?.map?.image?.src?.includes('左主控制臂') || child.material?.map?.image?.src?.includes('测试机械臂'))
+      )
+      oldLabels.forEach(label => threeScene.remove(label))
+      
+      // 切换模型类型
+      if (currentArmModel.value === 'mdh') {
+        currentArmModel.value = 'test'
+        currentArmGroup = createTestArmModel()
+        currentArmGroup.position.x = 0
+        threeScene.add(currentArmGroup)
+        
+        // 更新标签
+        const testArmLabel = createTextLabel('测试机械臂', new THREE.Vector3(0, 0.6, 0), 0x0066cc)
+        testArmLabel.userData.isArmLabel = true
+        threeScene.add(testArmLabel)
+      } else {
+        currentArmModel.value = 'mdh'
+        currentArmGroup = createLeftMasterArm()
+        currentArmGroup.position.x = 0
+        threeScene.add(currentArmGroup)
+        
+        // 更新标签
+        const leftArmLabel = createTextLabel('左主控制臂', new THREE.Vector3(0, 0.6, 0), 0x0066cc)
+        leftArmLabel.userData.isArmLabel = true
+        threeScene.add(leftArmLabel)
+      }
+      
+      // 重新渲染
+      threeRenderer.render(threeScene, threeCamera)
     }
 
     // 切换3D旋转
@@ -681,7 +1066,6 @@ export default {
           console.log('文件ID变化，初始化图表')
           initLeftHandChart()
           initRightHandChart()
-          initThreeScene()
         })
       }
     })
@@ -784,6 +1168,11 @@ export default {
     onMounted(async () => {
       await fetchConfig()
       
+      // 初始化3D场景
+      nextTick(() => {
+        initThreeScene()
+      })
+      
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
     })
@@ -805,6 +1194,14 @@ export default {
         threeRenderer = null
       }
       if (threeContainer.value) {
+        // 清理鼠标事件监听器
+        if (threeContainer.value._mouseListeners) {
+          const { onMouseDown, onMouseMove, onMouseUp, onWheel } = threeContainer.value._mouseListeners
+          threeContainer.value.removeEventListener('mousedown', onMouseDown)
+          threeContainer.value.removeEventListener('mousemove', onMouseMove)
+          threeContainer.value.removeEventListener('mouseup', onMouseUp)
+          threeContainer.value.removeEventListener('wheel', onWheel)
+        }
         threeContainer.value.innerHTML = ''
       }
       
@@ -823,9 +1220,9 @@ export default {
     return {
       fileId, fileName, fileSize, totalEntries, currentPage, pageSize, rows, columnsToShow,
       leftHandChart, rightHandChart, threeContainer, threeInitialized, threeRotationEnabled,
-      isPlaying, currentFrame, playbackSpeed,
+      currentArmModel, isPlaying, currentFrame, playbackSpeed,
       handleUploadRequest, fetchPreview, downloadCsv, prettySize,
-      resetZoom, resetThreeView, toggleThreeRotation,
+      resetZoom, resetThreeView, toggleThreeRotation, switchArmModel,
       playData, pauseData, stopData, seekToFrame
     }
   }
@@ -840,6 +1237,8 @@ export default {
   padding: 16px;
   min-height: 100vh;
 }
+
+
 
 .control-panel {
   background: white;
@@ -928,23 +1327,67 @@ export default {
 
 .three-container {
   flex: 1;
-  min-height: 400px;
+  min-height: 600px;
   position: relative;
-  background: #f0f0f0;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 2px solid #e1e8ed;
 }
 
 .three-placeholder {
   text-align: center;
   color: #666;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .three-placeholder p {
-  margin: 4px 0;
+  margin: 8px 0;
   font-size: 14px;
+  font-weight: 500;
+}
+
+.model-info {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.info-card {
+  text-align: center;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.info-card.active {
+  border-color: #409eff;
+  background: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.info-card h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.info-card p {
+  margin: 4px 0;
+  color: #6c757d;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .playback-controls {
@@ -1004,7 +1447,11 @@ export default {
   }
   
   .three-container {
-    min-height: 300px;
+    min-height: 400px;
+  }
+  
+  .model-info .el-col {
+    margin-bottom: 12px;
   }
 }
 
@@ -1021,6 +1468,24 @@ export default {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+  
+
+  
+  .model-info {
+    padding: 12px;
+  }
+  
+  .info-card {
+    padding: 8px;
+  }
+  
+  .info-card h4 {
+    font-size: 13px;
+  }
+  
+  .info-card p {
+    font-size: 11px;
   }
 }
 </style>

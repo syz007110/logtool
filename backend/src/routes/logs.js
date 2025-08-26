@@ -19,7 +19,8 @@ const {
   importSearchTemplates,
   exportBatchLogEntriesCSV,
   reparseLog,
-  batchReparseLogs
+  batchReparseLogs,
+  getQueueStatus
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -36,6 +37,9 @@ const upload = multer({ storage });
 
 // 日志列表 - 根据用户角色决定查看权限
 router.get('/', auth, checkLogPermission('read_all'), getLogs);
+
+// 获取队列状态
+router.get('/queue/status', auth, checkPermission('log:read_own'), getQueueStatus);
 
 // 自动填充API - 必须放在带参数的路由之前
 router.get('/auto-fill/device-id', auth, checkPermission('log:read_own'), autoFillDeviceId);
