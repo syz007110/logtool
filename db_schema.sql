@@ -217,6 +217,16 @@ CREATE TABLE surgeries (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+--用于记录手术统计版本信息
+CREATE TABLE surgery_versions (
+    id SERIAL PRIMARY KEY,
+    surgery_id INT REFERENCES surgeries(id) ON DELETE CASCADE,
+    structured_data JSONB,
+    source_logs INT[],           -- 分析使用的日志文件ID集合
+    created_by VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 --字段存 JSONB，包含手术的详细结构化信息
 --JSONB 结构模板
 {

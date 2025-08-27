@@ -200,18 +200,104 @@ async function processLogFile(job) {
     };
 
   } catch (error) {
-    console.error(`处理文件 ${originalName} 失败:`, error);
-    console.error('错误堆栈:', error.stack);
+    // 详细的错误信息输出
+    console.error('='.repeat(80));
+    console.error(`❌ 日志文件处理失败: ${originalName}`);
+    console.error(`📁 文件路径: ${filePath}`);
+    console.error(`🔑 使用密钥: ${decryptKey}`);
+    console.error(`📱 设备编号: ${deviceId || '未指定'}`);
+    console.error(`👤 上传用户ID: ${uploaderId || '未知'}`);
+    console.error(`🆔 日志记录ID: ${logId}`);
+    console.error(`⏰ 失败时间: ${new Date().toISOString()}`);
+    console.error(`❌ 错误类型: ${error.constructor.name}`);
+    console.error(`💬 错误消息: ${error.message}`);
+    
+    // 根据错误类型提供具体的失败原因分析
+    if (error.message.includes('日志行格式不正确')) {
+      console.error(`🔍 失败原因: 文件格式错误 - 日志行字段数量不足`);
+      console.error(`💡 建议: 检查文件是否为正确的日志格式，每行应包含至少6个字段`);
+    } else if (error.message.includes('参数不是有效的十六进制格式')) {
+      console.error(`🔍 失败原因: 参数格式错误 - 参数不是有效的十六进制`);
+      console.error(`💡 建议: 检查日志文件是否损坏或格式不正确`);
+    } else if (error.message.includes('密钥长度不足')) {
+      console.error(`🔍 失败原因: 密钥格式错误 - 密钥长度不足`);
+      console.error(`💡 建议: 密钥应为MAC地址格式，如: 00-01-05-77-6a-09`);
+    } else if (error.message.includes('所有') && error.message.includes('行日志解析都失败了')) {
+      console.error(`🔍 失败原因: 解密失败 - 所有日志行都无法解密`);
+      console.error(`💡 建议: 检查密钥是否正确，或文件是否使用了不同的加密方式`);
+    } else if (error.message.includes('ENOENT')) {
+      console.error(`🔍 失败原因: 文件系统错误 - 文件不存在或无法访问`);
+      console.error(`💡 建议: 检查文件权限和磁盘空间`);
+    } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+      console.error(`🔍 失败原因: 数据库连接错误 - 无法连接到数据库`);
+      console.error(`💡 建议: 检查数据库服务状态和网络连接`);
+    } else if (error.message.includes('ER_ACCESS_DENIED_ERROR')) {
+      console.error(`🔍 失败原因: 数据库权限错误 - 用户权限不足`);
+      console.error(`💡 建议: 检查数据库用户权限配置`);
+    } else if (error.message.includes('ER_NO_SUCH_TABLE')) {
+      console.error(`🔍 失败原因: 数据库表不存在 - 缺少必要的数据库表`);
+      console.error(`💡 建议: 运行数据库迁移脚本创建表结构`);
+    } else {
+      console.error(`🔍 失败原因: 未知错误`);
+      console.error(`💡 建议: 查看错误堆栈获取更多信息`);
+    }
+    
+    // 输出错误堆栈
+    console.error(`📚 错误堆栈:`);
+    console.error(error.stack);
+    
+    // 输出文件基本信息（如果文件存在）
+    try {
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        console.error(`📊 文件信息:`);
+        console.error(`   - 文件大小: ${stats.size} 字节`);
+        console.error(`   - 创建时间: ${stats.birthtime}`);
+        console.error(`   - 修改时间: ${stats.mtime}`);
+        
+        // 尝试读取文件前几行进行分析
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const lines = content.split(/\r?\n/).filter(line => line.trim());
+          console.error(`📄 文件内容分析:`);
+          console.error(`   - 总行数: ${lines.length}`);
+          if (lines.length > 0) {
+            console.error(`   - 第一行: ${lines[0].substring(0, 100)}${lines[0].length > 100 ? '...' : ''}`);
+            if (lines.length > 1) {
+              console.error(`   - 第二行: ${lines[1].substring(0, 100)}${lines[1].length > 100 ? '...' : ''}`);
+            }
+          }
+        } catch (readError) {
+          console.error(`   - 无法读取文件内容: ${readError.message}`);
+        }
+      } else {
+        console.error(`📊 文件信息: 文件不存在`);
+      }
+    } catch (statsError) {
+      console.error(`📊 文件信息: 无法获取文件状态 - ${statsError.message}`);
+    }
+    
+    console.error('='.repeat(80));
     
     // 更新日志状态为失败
-    await Log.update(
-      { status: 'failed' },
-      { where: { id: logId } }
-    );
+    try {
+      await Log.update(
+        { status: 'failed' },
+        { where: { id: logId } }
+      );
+      console.error(`✅ 已更新日志状态为 'failed'`);
+    } catch (updateError) {
+      console.error(`❌ 更新日志状态失败: ${updateError.message}`);
+    }
     
     // 删除临时文件
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.error(`✅ 已删除临时文件: ${filePath}`);
+      }
+    } catch (deleteError) {
+      console.error(`❌ 删除临时文件失败: ${deleteError.message}`);
     }
     
     throw error;

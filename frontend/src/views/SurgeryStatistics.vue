@@ -4,7 +4,7 @@
     <div class="action-bar">
       <div class="title-section">
         <h2 class="page-title">手术统计</h2>
-        <p class="page-subtitle">查看和分析各场手术的详细统计数据</p>
+        <p class="page-subtitle">查看各场手术的详细统计数据</p>
       </div>
     </div>
     
@@ -13,12 +13,12 @@
       <el-card class="empty-card">
         <div class="empty-content">
           <el-icon class="empty-icon"><Calendar /></el-icon>
-          <h3>手术数据分析</h3>
+          <h3>手术数据统计</h3>
           <p v-if="logEntriesCount > 0">
-            检测到 {{ logEntriesCount }} 条日志条目数据，点击按钮开始分析
+                          检测到 {{ logEntriesCount }} 条日志数据，点击按钮开始统计
           </p>
           <p v-else>
-            暂无日志条目数据，请先在批量分析或日志分析页面加载日志数据
+                          暂无日志数据，请先在批量查看或日志查看页面加载日志数据
           </p>
           
           <el-button 
@@ -39,8 +39,8 @@
       <el-card class="empty-card">
         <div class="empty-content">
           <el-icon class="empty-icon"><Loading /></el-icon>
-          <h3>正在分析手术数据...</h3>
-          <p>请稍候，系统正在处理日志条目数据</p>
+          <h3>正在统计手术数据...</h3>
+          <p>请稍候，系统正在处理日志数据</p>
         </div>
       </el-card>
     </div>
@@ -569,9 +569,9 @@ export default {
             })
           }
           
-          ElMessage.success(response.data.message || `成功分析出 ${surgeries.value.length} 场手术`)
+          ElMessage.success(response.data.message || `成功统计出 ${surgeries.value.length} 场手术`)
         } else {
-          ElMessage.error(response.data.message || '分析失败')
+          ElMessage.error(response.data.message || '统计失败')
         }
         
       } catch (error) {
@@ -650,13 +650,13 @@ export default {
       if (logEntriesCount.value === 0) {
         return '请先加载日志条目数据'
       }
-      return `分析日志条目 (${logEntriesCount.value})`
+              return `统计日志条目 (${logEntriesCount.value})`
     }
 
-    // 分析日志数据
+          // 统计日志数据
     const analyzeLogs = async () => {
       if (logEntries.value.length === 0) {
-        ElMessage.warning('暂无日志条目数据，请先在批量分析或日志分析页面加载日志数据')
+        ElMessage.warning('暂无日志数据，请先在批量查看或日志查看页面加载日志数据')
         return
       }
       
@@ -670,7 +670,7 @@ export default {
         let analysisData = logEntries.value
         
         if (dataSize > maxSize) {
-          ElMessage.warning(`数据量较大(${(dataSize / 1024 / 1024).toFixed(1)}MB)，将进行数据采样以提高分析速度`)
+          ElMessage.warning(`数据量较大(${(dataSize / 1024 / 1024).toFixed(1)}MB)，将进行数据采样以提高统计速度`)
           
           // 数据采样：保留关键数据点
           const sampleSize = Math.floor(maxSize / (dataSize / logEntries.value.length))
@@ -702,12 +702,12 @@ export default {
             })
           }
           
-          ElMessage.success(`手术数据分析完成，共发现 ${surgeries.value.length} 场手术`)
+          ElMessage.success(`手术数据统计完成，共发现 ${surgeries.value.length} 场手术`)
         } else {
-          ElMessage.error(response.data.message || '分析失败')
+          ElMessage.error(response.data.message || '统计失败')
         }
       } catch (error) {
-        ElMessage.error('分析日志数据失败: ' + (error.response?.data?.message || error.message))
+        ElMessage.error('统计日志数据失败: ' + (error.response?.data?.message || error.message))
       } finally {
         analyzing.value = false
       }

@@ -5,7 +5,7 @@
       <el-card class="analysis-card">
       <div class="card-header" :style="{ borderBottom: 'none' }">
         <div class="header-left">
-          <span class="title">批量日志分析</span>
+          <span class="title">批量日志查看</span>
           <el-tag v-if="batchCount > 0 && selectedLogsCount > 0" type="info" size="small">
               设备编号：{{ selectedLogs[0]?.device_id || '未知' }}
             </el-tag>
@@ -40,7 +40,7 @@
             style="margin-left: 10px;"
           >
             <el-icon><DataAnalysis /></el-icon>
-            手术分析
+            手术统计
           </el-button>
         </div>
       </div>

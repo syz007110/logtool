@@ -281,7 +281,8 @@ function translatePerLine(line, key) {
     
     return result;
   } catch (error) {
-    console.error(`解析行失败: ${line}`, error.message);
+    // 性能优化：减少详细日志输出，只保留核心错误信息
+    // 详细分析将在批量错误报告中提供
     throw error;
   }
 }
@@ -298,6 +299,10 @@ function decryptLogContent(content, key) {
   const lines = content.split(/\r?\n/).filter(line => line.trim());
   console.log(`过滤后有效行数: ${lines.length}`);
   
+  // 性能优化：大文件处理
+  const isLargeFile = lines.length > 10000;
+  const progressInterval = isLargeFile ? Math.floor(lines.length / 20) : 1000; // 大文件每5%输出一次进度
+  
   const entries = [];
   let errorCount = 0;
   let currentKey = key; // 当前使用的密钥
@@ -305,11 +310,24 @@ function decryptLogContent(content, key) {
   let powerOnWithLargeParams = false; // 是否检测到参数值大于10000的开机事件
   let isFirstLogEntry = true; // 标记是否为第一条日志
   
+  // 性能优化：批量错误收集，减少日志输出频率
+  const errorBatch = [];
+  const maxErrorBatchSize = isLargeFile ? 50 : 10; // 大文件批量输出错误
+  
   // 每个新的日志文件都从原始密钥开始，重置所有状态
   console.log(`新日志文件开始，使用原始密钥: ${key}`);
+  if (isLargeFile) {
+    console.log(`📊 检测到大文件 (${lines.length} 行)，启用性能优化模式`);
+  }
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    
+    // 性能优化：进度输出
+    if (isLargeFile && (i + 1) % progressInterval === 0) {
+      const progress = Math.round(((i + 1) / lines.length) * 100);
+      console.log(`📈 解析进度: ${progress}% (${i + 1}/${lines.length})`);
+    }
     
     try {
       // 先尝试使用当前密钥解密
@@ -334,41 +352,51 @@ function decryptLogContent(content, key) {
       const p3 = parseInt(entry.param3) || 0;
       const p4 = parseInt(entry.param4) || 0;
       
-      // 检查新日志文件第一条日志的参数值
+      let needReDecrypt = false; // 标记是否需要重新解密
+      
+      // 平行检测：第一条日志检测和开机事件检测
+      // 1. 检查新日志文件第一条日志的参数值
       if (isFirstLogEntry) {
         console.log(`检查新日志文件第一条日志参数值: p1=${p1}, p2=${p2}, p3=${p3}, p4=${p4}`);
         if (hasLargeParameterValue(p1, p2, p3, p4)) {
-          console.log(`新日志文件第一条日志参数值大于10000，切换到默认密钥`);
+          // 第一条日志参数异常，切换到默认密钥
+          console.log(`新日志文件第一条日志参数值异常，切换到默认密钥`);
           useDefaultKey = true;
           currentKey = DEFAULT_KEY;
-          
-          // 使用默认密钥重新解密当前行
-          entry = translatePerLine(line, DEFAULT_KEY);
+          needReDecrypt = true;
         }
         isFirstLogEntry = false;
       }
       
+      // 2. 检查开机事件（与第一条日志检测平行）
       if (isPowerOnEvent(entry.error_code, p1, p2)) {
         console.log(`检测到开机事件: ${entry.error_code}, 时间: ${entry.timestamp}`);
         
-        // 检查参数值是否大于10000
+        // 重新判断参数值（独立于第一条日志检测）
         if (hasLargeParameterValue(p1, p2, p3, p4)) {
-          console.log(`开机事件参数值大于100000，标记为需要默认密钥`);
-          powerOnWithLargeParams = true;
-          useDefaultKey = true;
-          currentKey = DEFAULT_KEY;
-          
-          // 使用默认密钥重新解密当前行
-          entry = translatePerLine(line, DEFAULT_KEY);
+          // 参数异常：根据当前密钥决定切换到哪个密钥
+          if (currentKey === key) {
+            // 当前使用用户密钥，切换到默认密钥
+            console.log(`开机事件参数值异常，从用户密钥切换到默认密钥`);
+            powerOnWithLargeParams = true;
+            useDefaultKey = true;
+            currentKey = DEFAULT_KEY;
+            needReDecrypt = true;
+          } else {
+            // 当前使用默认密钥，切换到用户密钥
+            console.log(`开机事件参数值异常，从默认密钥切换到用户密钥`);
+            powerOnWithLargeParams = true;
+            useDefaultKey = false;
+            currentKey = key;
+            needReDecrypt = true;
+          }
         } else {
           // 参数值正常，恢复使用原始密钥
           console.log(`开机事件参数值正常，恢复使用原始密钥: ${key}`);
           powerOnWithLargeParams = false;
           currentKey = key;
           useDefaultKey = false;
-          
-          // 使用原始密钥重新解密当前行
-          entry = translatePerLine(line, key);
+          needReDecrypt = true;
         }
       } else if (isPowerOffEvent(entry.error_code, p1, p2)) {
         console.log(`检测到关机事件: ${entry.error_code}, 时间: ${entry.timestamp}`);
@@ -379,26 +407,101 @@ function decryptLogContent(content, key) {
           powerOnWithLargeParams = false;
           currentKey = key;
           useDefaultKey = false;
+          needReDecrypt = true;
+        }
+      }
+      
+      // 如果需要重新解密，使用当前密钥重新解密
+      if (needReDecrypt) {
+        console.log(`🔄 重新解密第 ${i + 1} 行，使用密钥: ${currentKey}`);
+        const oldP1 = p1, oldP2 = p2, oldP3 = p3, oldP4 = p4;
+        entry = translatePerLine(line, currentKey);
+        
+        // 输出重新解密后的参数值（仅在大文件时输出）
+        if (isLargeFile) {
+          const newP1 = parseInt(entry.param1) || 0;
+          const newP2 = parseInt(entry.param2) || 0;
+          const newP3 = parseInt(entry.param3) || 0;
+          const newP4 = parseInt(entry.param4) || 0;
           
-          // 使用原始密钥重新解密当前行
-          entry = translatePerLine(line, key);
+          // 检查参数值是否发生变化
+          if (newP1 !== oldP1 || newP2 !== oldP2 || newP3 !== oldP3 || newP4 !== oldP4) {
+            console.log(`✅ 重新解密后参数值变化: p1=${oldP1}→${newP1}, p2=${oldP2}→${newP2}, p3=${oldP3}→${newP3}, p4=${oldP4}→${newP4}`);
+          } else {
+            console.log(`✅ 重新解密完成，参数值无变化`);
+          }
         }
       }
       
       entries.push(entry);
     } catch (error) {
       errorCount++;
-      console.warn(`解析日志行 ${i + 1} 失败: ${line}`, error.message);
-      // 可以选择跳过错误的行或添加错误标记
+      
+      // 性能优化：批量收集错误，减少日志输出
+      const errorInfo = {
+        lineNumber: i + 1,
+        line: line.substring(0, 100) + (line.length > 100 ? '...' : ''),
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        currentKey: currentKey
+      };
+      
+      errorBatch.push(errorInfo);
+      
+      // 当错误批次达到最大大小时，批量输出
+      if (errorBatch.length >= maxErrorBatchSize) {
+        console.warn(`⚠️ 批量错误报告 (${errorBatch.length} 个错误):`);
+        errorBatch.forEach((err, idx) => {
+          console.warn(`   ${idx + 1}. 行 ${err.lineNumber}: ${err.errorMessage}`);
+        });
+        console.warn(`   --- 批量错误报告结束 ---`);
+        errorBatch.length = 0; // 清空批次
+      }
     }
   }
   
-  console.log(`解析完成，成功: ${entries.length} 行，失败: ${errorCount} 行`);
+  // 输出剩余的批量错误
+  if (errorBatch.length > 0) {
+    console.warn(`⚠️ 最终错误报告 (${errorBatch.length} 个错误):`);
+    errorBatch.forEach((err, idx) => {
+      console.warn(`   ${idx + 1}. 行 ${err.lineNumber}: ${err.errorMessage}`);
+    });
+  }
+  
+  // 性能优化：如果错误率过高，提供详细分析建议
+  const errorRate = lines.length > 0 ? (errorCount / lines.length) * 100 : 0;
+  if (errorRate > 10) { // 错误率超过10%
+    console.warn(`⚠️ 错误率较高 (${errorRate.toFixed(1)}%)，建议检查:`);
+    console.warn(`   - 密钥是否正确`);
+    console.warn(`   - 文件格式是否标准`);
+    console.warn(`   - 文件是否损坏或包含非日志内容`);
+  }
+  
+  console.log(`📊 解析完成统计:`);
+  console.log(`   ✅ 成功解析: ${entries.length} 行`);
+  console.log(`   ❌ 解析失败: ${errorCount} 行`);
+  console.log(`   📈 成功率: ${lines.length > 0 ? Math.round((entries.length / lines.length) * 100) : 0}%`);
+  console.log(`   🔑 最终使用密钥: ${currentKey}`);
+  console.log(`   🔄 是否切换密钥: ${useDefaultKey ? '是' : '否'}`);
+  
+  // 性能优化：大文件时显示处理时间估算
+  if (isLargeFile) {
+    console.log(`   ⏱️ 大文件处理完成`);
+  }
+  
   if (powerOnWithLargeParams) {
-    console.log(`注意：检测到参数值大于10000的开机事件，但未检测到对应的关机事件，日志可能不完整`);
+    console.log(`⚠️ 注意：检测到参数值大于10000的开机事件，但未检测到对应的关机事件，日志可能不完整`);
   }
   if (useDefaultKey) {
-    console.log(`注意：新日志文件使用了默认密钥进行解密`);
+    console.log(`⚠️ 注意：新日志文件使用了默认密钥进行解密`);
+  }
+  
+  // 只在错误率较高时提供建议，避免冗余信息
+  if (errorCount > 0 && errorRate > 5) {
+    console.log(`🔍 失败行数较多，建议检查:`);
+    console.log(`   - 密钥是否正确`);
+    console.log(`   - 文件格式是否标准`);
+    console.log(`   - 文件是否损坏`);
   }
   
   if (entries.length === 0 && lines.length > 0) {
@@ -406,6 +509,42 @@ function decryptLogContent(content, key) {
   }
   
   return entries;
+}
+
+/**
+ * 详细错误分析函数（用于调试）
+ * @param {string} line - 日志行内容
+ * @param {string} key - 解密密钥
+ * @param {Error} error - 错误对象
+ */
+function analyzeError(line, key, error) {
+  console.error(`🔍 详细错误分析:`);
+  console.error(`   📄 原始行: ${line}`);
+  console.error(`   🔑 使用密钥: ${key}`);
+  console.error(`   ❌ 错误类型: ${error.constructor.name}`);
+  console.error(`   💬 错误消息: ${error.message}`);
+  
+  if (error.message.includes('日志行格式不正确')) {
+    const split = line.trim().split(/\s+/);
+    console.error(`   📊 格式分析:`);
+    console.error(`      - 分割后字段数: ${split.length}`);
+    console.error(`      - 期望字段数: 至少6个`);
+    console.error(`      - 分割结果: [${split.join(', ')}]`);
+  } else if (error.message.includes('参数不是有效的十六进制格式')) {
+    const split = line.trim().split(/\s+/);
+    console.error(`   📊 参数分析:`);
+    if (split.length >= 6) {
+      console.error(`      - 参数1: ${split[2]} (${/^[0-9A-Fa-f]+$/.test(split[2]) ? '有效' : '无效'})`);
+      console.error(`      - 参数2: ${split[3]} (${/^[0-9A-Fa-f]+$/.test(split[3]) ? '有效' : '无效'})`);
+      console.error(`      - 参数3: ${split[4]} (${/^[0-9A-Fa-f]+$/.test(split[4]) ? '有效' : '无效'})`);
+      console.error(`      - 参数4: ${split[5]} (${/^[0-9A-Fa-f]+$/.test(split[5]) ? '有效' : '无效'})`);
+    }
+  } else if (error.message.includes('无法解析日期时间')) {
+    const split = line.trim().split(/\s+/);
+    console.error(`   📊 时间戳分析:`);
+    console.error(`      - 时间戳字段: ${split[0]}`);
+    console.error(`      - 期望格式: DT#YYYY-MM-DD-HH:MM:SS 或标准日期格式`);
+  }
 }
 
 module.exports = {
@@ -419,5 +558,6 @@ module.exports = {
   isPowerOnEvent,
   isPowerOffEvent,
   hasLargeParameterValue,
+  analyzeError, // 新增详细错误分析函数
   DEFAULT_KEY
 }; 

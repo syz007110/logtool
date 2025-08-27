@@ -195,7 +195,7 @@ class SurgeryAnalyzer {
    * 处理开机事件
    */
   processPowerOnEvents(errCodeSuffix, p1, p2, entry) {
-    const isPowerOnEvent = (errCodeSuffix === 'A01E') || 
+    const isPowerOnEvent = (errCodeSuffix === 'A01e') || 
                           (errCodeSuffix === '570e' && p1 === 0 && p2 !== 0);
     
     if (isPowerOnEvent && !this.isPowerOn) {

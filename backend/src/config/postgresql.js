@@ -96,9 +96,9 @@ const postgresqlSequelize = new Sequelize(
 const testConnection = async () => {
   try {
     await postgresqlSequelize.authenticate();
-    console.log('PostgreSQL数据库连接成功');
   } catch (error) {
     console.error('PostgreSQL数据库连接失败:', error);
+    throw error;
   }
 };
 
@@ -106,9 +106,9 @@ const testConnection = async () => {
 const syncDatabase = async (force = false) => {
   try {
     await postgresqlSequelize.sync({ force });
-    console.log('PostgreSQL数据库表同步完成');
   } catch (error) {
     console.error('PostgreSQL数据库表同步失败:', error);
+    throw error;
   }
 };
 

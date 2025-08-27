@@ -35,7 +35,7 @@
                   :title="incompleteLogsMessage || deviceCheckMessage"
                 >
                   <el-icon><Monitor /></el-icon>
-                  批量分析 ({{ selectedLogs.length }})
+                  批量查看 ({{ selectedLogs.length }})
                 </el-button>
                 <el-button 
                   type="success" 
@@ -205,7 +205,7 @@
               @click="goToLogAnalysis(row)"
               :disabled="!canOperate(row)"
             >
-              分析
+                              查看
             </el-button>
             
             <el-button 
@@ -287,7 +287,7 @@
             </div>
             <div v-else class="parsing-tip">
               <el-icon class="is-loading"><Refresh /></el-icon>
-              正在解析中，请勿刷新页面...
+              文件上传中，上传完成后才能进行下一次上传操作
             </div>
           </div>
         </template>
@@ -425,8 +425,8 @@
     </el-dialog>
 
 
-    <!-- 日志分析弹窗 -->
-    <el-dialog v-model="showEntriesDialog" title="日志分析" width="900px">
+    <!-- 日志查看弹窗 -->
+    <el-dialog v-model="showEntriesDialog" title="日志查看" width="900px">
       <el-table :data="logEntries" style="width: 100%">
         <el-table-column prop="timestamp" label="时间戳" width="180" />
         <el-table-column prop="error_code" label="故障码" width="100" />
@@ -530,7 +530,7 @@ export default {
     const canBatchOperate = computed(() => {
       return selectedLogs.value.length > 0 && 
              selectedLogs.value.every(log => canOperate(log)) &&
-             selectedLogs.value.every(log => log.status === 'parsed')
+             selectedLogs.value.every(log => log.status === 'parsed' || log.status === 'failed')
     })
     
     // 检查选中的日志是否属于同一设备
@@ -550,16 +550,20 @@ export default {
       return ''
     })
     
-    // 检查是否有未完成的日志
+    // 检查是否有未完成的日志（不包括失败状态的日志，因为失败状态也可以删除）
     const hasIncompleteLogs = computed(() => {
-      return selectedLogs.value.some(log => log.status !== 'parsed')
+      return selectedLogs.value.some(log => 
+        log.status !== 'parsed' && log.status !== 'failed'
+      )
     })
     
     // 获取未完成日志提示信息
     const incompleteLogsMessage = computed(() => {
       if (selectedLogs.value.length === 0) return ''
       if (hasIncompleteLogs.value) {
-        const incompleteCount = selectedLogs.value.filter(log => log.status !== 'parsed').length
+        const incompleteCount = selectedLogs.value.filter(log => 
+          log.status !== 'parsed' && log.status !== 'failed'
+        ).length
         return `选中的日志中有 ${incompleteCount} 个未完成解析，请等待解析完成后再操作`
       }
       return ''
@@ -568,7 +572,7 @@ export default {
     const canBatchDelete = computed(() => {
       return selectedLogs.value.length > 0 && 
              selectedLogs.value.every(log => canDeleteLog(log)) &&
-             selectedLogs.value.every(log => log.status === 'parsed')
+             selectedLogs.value.every(log => log.status === 'parsed' || log.status === 'failed')
     })
     
     // 检查是否可以删除日志
@@ -1054,9 +1058,9 @@ export default {
       }
     }
 
-    // 跳转到日志分析页面
+    // 跳转到日志查看页面
     const goToLogAnalysis = (row) => {
-      // 在新页面中打开日志分析，使用batch-analysis路由
+      // 在新页面中打开日志查看，使用batch-analysis路由
       const routeData = router.resolve(`/batch-analysis/${row.id}`)
       window.open(routeData.href, '_blank')
     }
@@ -1117,10 +1121,10 @@ export default {
       selectedLogs.value = []
     }
     
-    // 批量分析
+    // 批量查看
     const handleBatchAnalyze = () => {
       const logIds = selectedLogs.value.map(log => log.id).join(',')
-      // 在新页面中打开批量分析
+      // 在新页面中打开批量查看
       const routeData = router.resolve(`/batch-analysis/${logIds}`)
       window.open(routeData.href, '_blank')
     }
@@ -1280,9 +1284,9 @@ export default {
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     }
 
-    // 检查是否可以操作日志（只有完成状态才能操作）
+    // 检查是否可以操作日志（完成状态或失败状态都可以操作）
     const canOperate = (log) => {
-      return log.status === 'parsed'
+      return log.status === 'parsed' || log.status === 'failed'
     }
     
 

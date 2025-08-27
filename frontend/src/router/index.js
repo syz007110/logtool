@@ -19,7 +19,7 @@ const routes = [
     meta: { requiresAuth: false }
   },
 
-  // 批量分析路由（支持单个或多个日志ID）
+  // 批量查看路由（支持单个或多个日志ID）
   {
     path: '/batch-analysis/:logIds',
     name: 'BatchAnalysisStandalone',
