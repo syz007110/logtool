@@ -90,6 +90,36 @@ function analyzeSurgeries(logEntries, options = {}) {
   // 保存到全局变量，供导出功能使用
   global.currentSurgeries = surgeries;
   
+  // 打印准备写入surgeries表的数据
+  console.log('\n' + '='.repeat(80));
+  console.log('手术分析完成 - 准备写入surgeries表的数据:');
+  console.log('='.repeat(80));
+  
+  surgeries.forEach((surgery, index) => {
+    console.log(`\n--- 手术 ${index + 1}: ${surgery.surgery_id} ---`);
+    
+    // 构建完整的surgeries表数据
+    const surgeriesData = {
+      surgery_id: surgery.surgery_id,
+      device_ids: [surgery.log_id],
+      start_time: surgery.surgery_start_time,
+      end_time: surgery.surgery_end_time,
+      is_remote: surgery.is_remote_surgery || false,
+      structured_data: surgery.postgresql_structure || analyzer.toPostgreSQLStructure(surgery),
+      last_analyzed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('surgeries表数据:');
+    console.log(JSON.stringify(surgeriesData, null, 2));
+    
+    console.log('\n' + '-'.repeat(60));
+  });
+  
+  console.log(`\n总计: ${surgeries.length} 场手术数据准备写入`);
+  console.log('='.repeat(80) + '\n');
+  
   return surgeries;
 }
 

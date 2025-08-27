@@ -806,6 +806,46 @@ class SurgeryAnalyzer {
         surgery[key] = usages;
       });
     });
+
+    // 打印准备写入surgeries表的数据
+    this.printSurgeriesData();
+  }
+
+  /**
+   * 打印准备写入surgeries表的数据
+   */
+  printSurgeriesData() {
+    console.log('\n' + '='.repeat(80));
+    console.log('准备写入surgeries表的数据:');
+    console.log('='.repeat(80));
+    
+    this.surgeries.forEach((surgery, index) => {
+      console.log(`\n--- 手术 ${index + 1}: ${surgery.surgery_id} ---`);
+      
+      // 转换为PostgreSQL结构化数据
+      const postgresqlStructure = this.toPostgreSQLStructure(surgery);
+      
+      // 构建完整的surgeries表数据
+      const surgeriesData = {
+        surgery_id: surgery.surgery_id,
+        device_ids: [surgery.log_id],
+        start_time: surgery.surgery_start_time,
+        end_time: surgery.surgery_end_time,
+        is_remote: surgery.is_remote_surgery || false,
+        structured_data: postgresqlStructure,
+        last_analyzed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('surgeries表数据:');
+      console.log(JSON.stringify(surgeriesData, null, 2));
+      
+      console.log('\n' + '-'.repeat(60));
+    });
+    
+    console.log(`\n总计: ${this.surgeries.length} 场手术数据准备写入`);
+    console.log('='.repeat(80) + '\n');
   }
 
   /**
@@ -875,10 +915,6 @@ class SurgeryAnalyzer {
         param4: "",
         explanation: fault.message,
         log_id: surgery.log_id
-      })) : [],
-      state_machine: surgery.state_machine_changes ? surgery.state_machine_changes.map(change => ({
-        time: change.time,
-        state: change.stateName
       })) : [],
       arm_switch_count: 0, // 可以后续计算
       left_hand_clutch: surgery.hand_clutch_stats?.arm1 || 0,
