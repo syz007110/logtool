@@ -15,6 +15,7 @@
       <div class="virtual-table-spacer" :style="{ height: totalHeight + 'px' }">
         <div 
           class="virtual-table-row"
+          :class="getRowClassName(item, startIndex + index)"
           v-for="(item, index) in visibleItems" 
           :key="getItemKey(item, startIndex + index)"
           :style="{ 
@@ -67,6 +68,10 @@ export default {
     buffer: {
       type: Number,
       default: 5
+    },
+    rowClassName: {
+      type: Function,
+      default: null
     }
   },
   emits: ['scroll', 'load-more'],
@@ -117,6 +122,14 @@ export default {
         return item[props.itemKey]
       }
       return index
+    }
+    
+    // 获取行样式类名
+    const getRowClassName = (item, index) => {
+      if (props.rowClassName && typeof props.rowClassName === 'function') {
+        return props.rowClassName({ row: item, index })
+      }
+      return ''
     }
     
     // 处理滚动事件
@@ -181,6 +194,7 @@ export default {
       startIndex,
       getCellValue,
       getItemKey,
+      getRowClassName,
       handleScroll,
       scrollTo,
       scrollToTop,
@@ -237,6 +251,23 @@ export default {
 
 .virtual-table-row:nth-child(even):hover {
   background-color: #f5f7fa;
+}
+
+/* 颜色标记行样式 - 需要更高的优先级 */
+.virtual-table-row.row-marked-red {
+  background-color: rgba(255, 0, 0, 0.2) !important;
+}
+
+.virtual-table-row.row-marked-yellow {
+  background-color: rgba(255, 255, 0, 0.2) !important;
+}
+
+.virtual-table-row.row-marked-blue {
+  background-color: rgba(0, 0, 255, 0.2) !important;
+}
+
+.virtual-table-row.row-marked-green {
+  background-color: rgba(0, 255, 0, 0.2) !important;
 }
 
 .virtual-table-cell {

@@ -23,12 +23,14 @@ const postgresqlConfig = {
       timestamps: true,
       underscored: true,
       freezeTableName: true
+    },
+    dialectOptions: {
+      ssl: false
     }
   },
   test: {
     username: process.env.POSTGRES_USER || 'postgres',
-    password: process.env.POSTGRES_PASSWORD || 'password',
-    database: process.env.POSTGRES_TEST_DB || 'surgery_analytics_test',
+    password: process.env.POSTGRES_TEST_DB || 'surgery_analytics_test',
     host: process.env.POSTGRES_HOST || 'localhost',
     port: process.env.POSTGRES_PORT || 5432,
     dialect: 'postgres',
@@ -43,6 +45,9 @@ const postgresqlConfig = {
       timestamps: true,
       underscored: true,
       freezeTableName: true
+    },
+    dialectOptions: {
+      ssl: false
     }
   },
   production: {
@@ -65,10 +70,7 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
+      ssl: false
     }
   }
 };
@@ -102,10 +104,15 @@ const testConnection = async () => {
   }
 };
 
-// 同步数据库表结构
+// 同步数据库表结构 - 只同步表结构，不创建索引
 const syncDatabase = async (force = false) => {
   try {
-    await postgresqlSequelize.sync({ force });
+    // 使用 alter: false 避免自动修改表结构和创建索引
+    await postgresqlSequelize.sync({ 
+      force: false,  // 不强制重建表
+      alter: false   // 不自动修改表结构，避免创建不必要的索引
+    });
+    console.log('PostgreSQL表结构同步完成（仅同步，不创建索引）');
   } catch (error) {
     console.error('PostgreSQL数据库表同步失败:', error);
     throw error;

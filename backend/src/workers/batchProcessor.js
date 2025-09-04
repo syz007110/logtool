@@ -145,18 +145,19 @@ async function batchReparseLogs(job) {
         results.push({ id: logId, status: 'ok', updated: updatedCount, total: entries.length });
         success++;
         
-      } catch (error) {
-        console.error(`处理日志 ${logId} 失败:`, error);
-        try {
-          const log = await Log.findByPk(logId);
-          if (log) {
-            log.status = 'failed';
-            await log.save();
-          }
-        } catch (_) {}
-        results.push({ id: logId, status: 'error', error: error.message });
-        fail++;
-      }
+              } catch (error) {
+          console.error(`处理日志 ${logId} 失败:`, error);
+          try {
+            const log = await Log.findByPk(logId);
+            if (log) {
+              // 批量重新解析失败通常是解析阶段的问题
+              log.status = 'parse_failed';
+              await log.save();
+            }
+          } catch (_) {}
+          results.push({ id: logId, status: 'error', error: error.message });
+          fail++;
+        }
     }
 
     await job.progress(100);
@@ -207,20 +208,66 @@ async function batchDeleteLogs(job) {
 
         // 删除解密文件（如果存在）
         if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
-          fs.unlinkSync(log.decrypted_path);
+          try {
+            fs.unlinkSync(log.decrypted_path);
+            console.log(`已删除解密文件: ${log.decrypted_path}`);
+          } catch (fileError) {
+            console.warn(`删除解密文件失败: ${fileError.message}`);
+            // 文件删除失败不影响整体删除流程
+          }
         }
         
         // 删除相关的日志明细
-        await LogEntry.destroy({ where: { log_id: logId } });
+        try {
+          await LogEntry.destroy({ where: { log_id: logId } });
+          console.log(`已删除日志明细，日志ID: ${logId}`);
+        } catch (entryError) {
+          console.warn(`删除日志明细失败: ${entryError.message}`);
+          // 明细删除失败不影响整体删除流程
+        }
+        
+        // 保存设备ID，因为删除后log对象无法访问
+        const deviceId = log.device_id;
+        
+        // 推送删除状态变化到 WebSocket
+        try {
+          const websocketService = require('../services/websocketService');
+          websocketService.pushLogStatusChange(deviceId, logId, 'deleting', log.status);
+        } catch (wsError) {
+          console.warn('WebSocket 状态推送失败:', wsError.message);
+        }
         
         // 删除日志记录
         await log.destroy();
+        console.log(`已删除日志记录，日志ID: ${logId}`);
+        
+        // 推送删除完成状态变化到 WebSocket
+        try {
+          const websocketService = require('../services/websocketService');
+          websocketService.pushLogStatusChange(deviceId, logId, 'deleted', 'deleting');
+        } catch (wsError) {
+          console.warn('WebSocket 状态推送失败:', wsError.message);
+        }
+        
+        await job.progress(100);
         
         results.push({ id: logId, status: 'ok' });
         success++;
         
       } catch (error) {
         console.error(`删除日志 ${logId} 失败:`, error);
+        
+        // 删除失败时，将状态设置为失败
+        try {
+          await Log.update(
+            { status: 'failed' },
+            { where: { id: logId } }
+          );
+          console.log(`✅ 已更新日志 ${logId} 状态为 'failed'`);
+        } catch (updateError) {
+          console.error(`❌ 更新日志 ${logId} 状态失败: ${updateError.message}`);
+        }
+        
         results.push({ id: logId, status: 'error', error: error.message });
         fail++;
       }
@@ -241,7 +288,105 @@ async function batchDeleteLogs(job) {
   }
 }
 
+/**
+ * 处理单个删除任务
+ * @param {Object} job - Bull队列任务对象
+ */
+async function processSingleDelete(job) {
+  const { logId, userId } = job.data;
+  
+  console.log(`开始删除日志: ${logId}, 用户ID: ${userId}`);
+
+  try {
+    // 更新任务进度
+    await job.progress(10);
+    
+    // 获取日志信息
+    const log = await Log.findByPk(logId);
+    if (!log) {
+      throw new Error('日志不存在');
+    }
+    
+    // 更新任务进度
+    await job.progress(30);
+    
+    // 删除解密文件（如果存在）
+    if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
+      try {
+        fs.unlinkSync(log.decrypted_path);
+        console.log(`已删除解密文件: ${log.decrypted_path}`);
+      } catch (fileError) {
+        console.warn(`删除解密文件失败: ${fileError.message}`);
+        // 文件删除失败不影响整体删除流程
+      }
+    }
+    
+    // 更新任务进度
+    await job.progress(60);
+    
+    // 删除相关的日志明细
+    try {
+      await LogEntry.destroy({ where: { log_id: logId } });
+      console.log(`已删除日志明细，日志ID: ${logId}`);
+    } catch (entryError) {
+      console.warn(`删除日志明细失败: ${entryError.message}`);
+      // 明细删除失败不影响整体删除流程
+    }
+    
+    // 更新任务进度
+    await job.progress(90);
+    
+            // 推送删除状态变化到 WebSocket
+        try {
+          const websocketService = require('../services/websocketService');
+          websocketService.pushLogStatusChange(log.device_id, logId, 'deleting', log.status);
+        } catch (wsError) {
+          console.warn('WebSocket 状态推送失败:', wsError.message);
+        }
+        
+        // 保存设备ID，因为删除后log对象无法访问
+        const deviceId = log.device_id;
+        
+        // 删除日志记录
+        await log.destroy();
+        console.log(`已删除日志记录，日志ID: ${logId}`);
+        
+        // 推送删除完成状态变化到 WebSocket
+        try {
+          const websocketService = require('../services/websocketService');
+          websocketService.pushLogStatusChange(deviceId, logId, 'deleted', 'deleting');
+        } catch (wsError) {
+          console.warn('WebSocket 状态推送失败:', wsError.message);
+        }
+        
+        await job.progress(100);
+
+    return {
+      success: true,
+      logId: logId,
+      message: '日志删除成功'
+    };
+
+  } catch (error) {
+    console.error(`删除日志 ${logId} 失败:`, error);
+    
+    // 删除失败时，将状态设置为失败
+    try {
+      await Log.update(
+        { status: 'failed' },
+        { where: { id: logId } }
+      );
+      console.log(`✅ 已更新日志状态为 'failed'`);
+    } catch (updateError) {
+      console.error(`❌ 更新日志状态失败: ${updateError.message}`);
+    }
+    
+    throw error;
+  }
+}
+
 module.exports = {
   batchReparseLogs,
-  batchDeleteLogs
+  batchDeleteLogs,
+  processSingleDelete
 };

@@ -341,7 +341,10 @@ const decompressLogEntries = (compressedEntries) => {
       const typeMap = {
         uploaded: 'warning',
         parsed: 'success',
-        failed: 'danger'
+        failed: 'danger',
+        decrypt_failed: 'danger',
+        parse_failed: 'danger',
+        file_error: 'danger'
       }
       return typeMap[status] || 'info'
     }
@@ -350,8 +353,12 @@ const decompressLogEntries = (compressedEntries) => {
       const textMap = {
         uploaded: '已上传',
         parsed: '已解析',
-        failed: '解析失败'
+        decrypt_failed: '解密失败',
+        parse_failed: '解析失败',
+        file_error: '文件错误',
+        failed: '处理失败'
       }
+      
       return textMap[status] || '未知'
     }
 

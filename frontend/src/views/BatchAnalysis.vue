@@ -25,6 +25,15 @@
         <div class="header-right">
           <el-button 
             v-if="!loading && batchCount > 0" 
+            @click="showClipboard" 
+            type="info" 
+            size="small"
+          >
+            <el-icon><DocumentCopy /></el-icon>
+            剪贴板
+          </el-button>
+          <el-button 
+            v-if="!loading && batchCount > 0" 
             @click="exportToCSV" 
             type="success" 
             size="small"
@@ -130,20 +139,110 @@
             ref="virtualTableRef"
             :data="paginatedEntries"
             :columns="tableColumns"
-            :item-height="40"
+            :item-height="60"
             :buffer="10"
+            :row-class-name="getRowClassName"
             style="height: 60vh;"
-            class="antd-table"
             @load-more="handleLoadMore"
           >
-            <template #log_name="{ row }">
-              <ExplanationCell :text="row.log_name" />
+                          <template #color_mark="{ row }">
+                <el-popover
+                  placement="bottom-start"
+                  :width="200"
+                  trigger="click"
+                  popper-class="color-picker-popover"
+                >
+                  <template #reference>
+                    <div 
+                      class="color-indicator"
+                      :class="{ 'has-color': row.color_mark }"
+                      :style="row.color_mark ? { backgroundColor: row.color_mark } : {}"
+                    ></div>
             </template>
-            <template #timestamp="{ row }">
-              {{ formatTimestamp(row.timestamp) }}
+                  <div class="color-picker-menu">
+                    <div 
+                      v-for="color in colorOptions"
+                      :key="color.value || 'none'"
+                      class="color-option"
+                      :class="{ 
+                        active: row.color_mark === color.value,
+                        'no-color': color.value === null
+                      }"
+                      :style="color.value ? { backgroundColor: color.value } : {}"
+                      @click="selectColor(row, color.value)"
+                    >
+                      <div v-if="row.color_mark === color.value" class="checkmark">✓</div>
+                    </div>
+                  </div>
+                </el-popover>
+              </template>
+            <template #file_info="{ row }">
+              <div class="file-info-cell">
+                <div class="timestamp">{{ formatTimestamp(row.timestamp) }}</div>
+                <div class="file-name">{{ row.log_name }}</div>
+              </div>
             </template>
             <template #explanation="{ row }">
               <ExplanationCell :text="row.explanation" />
+            </template>
+            <template #parameters="{ row }">
+              <div class="parameters-cell">
+                <div class="param-content">
+                  <span v-for="(param, index) in [row.param1, row.param2, row.param3, row.param4].filter(p => p)" :key="index" class="param-item">{{ param }}</span>
+                </div>
+                <div class="param-actions">
+                  <el-button 
+                    size="small" 
+                    type="primary" 
+                    @click="handleVisualization(row)"
+                    class="visualization-btn"
+                  >
+                    可视化
+                  </el-button>
+                </div>
+              </div>
+            </template>
+            <template #remarks="{ row }">
+              <el-input 
+                v-model="row.remarks" 
+                placeholder="添加备注"
+                size="small"
+                type="textarea"
+                :rows="1"
+                resize="none"
+              />
+            </template>
+            <template #operations="{ row }">
+              <div class="operations-cell">
+                <!-- 操作标签按钮 -->
+                <el-tag 
+                  size="small" 
+                  type="success" 
+                  class="operation-tag"
+                  @click="handleContextAnalysis(row)"
+                  style="cursor: pointer;"
+                >
+                  查看上下文
+                </el-tag>
+                <el-tag 
+                  size="small" 
+                  type="warning" 
+                  class="operation-tag"
+                  @click="handleLogCapture(row)"
+                  style="cursor: pointer;"
+                >
+                  日志摘取
+                </el-tag>
+                <el-tag 
+                  size="small" 
+                  type="primary" 
+                  class="operation-tag"
+                  @click="handleRemarks(row)"
+                  style="cursor: pointer;"
+                >
+                  备注
+                </el-tag>
+              </div>
             </template>
           </VirtualTable>
           
@@ -155,32 +254,155 @@
             v-loading="loading"
             height="60vh"
             :stripe="false"
-            class="antd-table"
             table-layout="fixed"
+            :row-class-name="getRowClassName"
             @current-change="forceRelayout"
             @selection-change="forceRelayout"
             @sort-change="forceRelayout"
             @filter-change="forceRelayout"
             @expand-change="forceRelayout"
           >
-            <el-table-column prop="log_name" label="日志文件" width="150">
+            <!-- 标记颜色列 -->
+            <el-table-column prop="color_mark" align="center">
+              <template #header>
+                <div class="col-header">
+                  <span>标记</span>
+                </div>
+              </template>
               <template #default="{ row }">
-                <ExplanationCell :text="row.log_name" />
+                  <el-popover
+                    placement="bottom-start"
+                    :width="200"
+                    trigger="click"
+                    popper-class="color-picker-popover"
+                  >
+                    <template #reference>
+                      <div 
+                        class="color-indicator"
+                        :class="{ 'has-color': row.color_mark }"
+                        :style="row.color_mark ? { backgroundColor: row.color_mark } : {}"
+                      ></div>
+                    </template>
+                    <div class="color-picker-menu">
+                      <div 
+                        v-for="color in colorOptions"
+                        :key="color.value || 'none'"
+                        class="color-option"
+                        :class="{ 
+                          active: row.color_mark === color.value,
+                          'no-color': color.value === null
+                        }"
+                        :style="color.value ? { backgroundColor: color.value } : {}"
+                        @click="selectColor(row, color.value)"
+                      >
+                        <div v-if="row.color_mark === color.value" class="checkmark">✓</div>
+                      </div>
+                    </div>
+                  </el-popover>
               </template>
             </el-table-column>
-            <el-table-column prop="timestamp" label="时间戳" width="180" sortable>
+            
+            <!-- 时间戳/文件名列 -->
+            <el-table-column prop="file_info">
+              <template #header>
+                <div class="col-header">
+                  <span>时间戳 / 文件名</span>
+                </div>
+              </template>
               <template #default="{ row }">
-                {{ formatTimestamp(row.timestamp) }}
+                <div class="file-info-cell">
+                  <div class="timestamp">{{ formatTimestamp(row.timestamp) }}</div>
+                  <div class="file-name">{{ row.log_name }}</div>
+                </div>
               </template>
             </el-table-column>
-            <el-table-column prop="error_code" label="故障码" width="120" sortable />
-            <el-table-column prop="param1" label="参数1" width="100" />
-            <el-table-column prop="param2" label="参数2" width="100" />
-            <el-table-column prop="param3" label="参数3" width="100" />
-            <el-table-column prop="param4" label="参数4" width="100" />
-            <el-table-column prop="explanation" label="释义" width="400">
+            
+            <!-- 故障码列 -->
+            <el-table-column prop="error_code" sortable>
+              <template #header>
+                <div class="col-header">
+                  <span>故障码</span>
+                </div>
+              </template>
+            </el-table-column>
+            
+            <!-- 释义列 -->
+            <el-table-column prop="explanation">
+              <template #header>
+                <div class="col-header">
+                  <span>释义</span>
+                </div>
+              </template>
               <template #default="{ row }">
                 <ExplanationCell :text="row.explanation" />
+              </template>
+            </el-table-column>
+            
+            <!-- 参数列 -->
+            <el-table-column prop="parameters">
+              <template #header>
+                <div class="col-header">
+                  <span>参数1 / 参数2 / 参数3 / 参数4</span>
+                </div>
+              </template>
+              <template #default="{ row }">
+                <div class="parameters-cell">
+                  <div class="param-content">
+                    <span v-for="(param, index) in [row.param1, row.param2, row.param3, row.param4].filter(p => p)" :key="index" class="param-item">{{ param }}</span>
+                  </div>
+                  <div class="param-actions">
+                    <el-button 
+                      size="small" 
+                      type="primary" 
+                      @click="handleVisualization(row)"
+                      class="visualization-btn"
+                    >
+                      可视化
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            
+            
+            <!-- 操作列 -->
+            <el-table-column prop="operations">
+              <template #header>
+                <div class="col-header">
+                  <span>操作</span>
+                </div>
+              </template>
+              <template #default="{ row }">
+                <div class="operations-cell">
+                  <!-- 操作标签按钮 -->
+                  <el-tag 
+                    size="small" 
+                    type="success" 
+                    class="operation-tag"
+                    @click="handleContextAnalysis(row)"
+                    style="cursor: pointer;"
+                  >
+                    查看上下文
+                  </el-tag>
+                  <el-tag 
+                    size="small" 
+                    type="warning" 
+                    class="operation-tag"
+                    @click="handleLogCapture(row)"
+                    style="cursor: pointer;"
+                  >
+                    日志摘取
+                  </el-tag>
+                  <el-tag 
+                    size="small" 
+                    type="primary" 
+                    class="operation-tag"
+                    @click="handleRemarks(row)"
+                    style="cursor: pointer;"
+                  >
+                    备注
+                  </el-tag>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -198,6 +420,168 @@
             @current-change="handleCurrentChange"
           />
         </div>
+
+        <!-- 上下文分析对话框 -->
+        <el-dialog
+          v-model="contextAnalysisVisible"
+          title="上下文分析"
+          width="500px"
+          :close-on-click-modal="false"
+        >
+          <div class="context-analysis-form">
+            <div class="time-range-inputs">
+              <span>将以选中的日志条目为基点</span>
+              <div class="input-group">
+                <label>前</label>
+                <el-input-number
+                  v-model="beforeMinutes"
+                  :min="1"
+                  :max="60"
+                  controls-position="right"
+                  style="width: 80px;"
+                />
+                <span>分钟</span>
+              </div>
+              <span>，</span>
+              <div class="input-group">
+                <label>后</label>
+                <el-input-number
+                  v-model="afterMinutes"
+                  :min="1"
+                  :max="60"
+                  controls-position="right"
+                  style="width: 80px;"
+                />
+                <span>分钟</span>
+              </div>
+            </div>
+          </div>
+          
+          <template #footer>
+            <div class="dialog-footer">
+              <el-button type="primary" @click="executeContextAnalysis">确认分析</el-button>
+            </div>
+          </template>
+        </el-dialog>
+
+        <!-- 日志摘取侧边栏 -->
+        <el-drawer
+          v-model="clipboardVisible"
+          title="剪贴板"
+          direction="rtl"
+          size="300px"
+          :with-header="true"
+        >
+          <div class="clipboard-container">
+            <div class="clipboard-header">
+              <div class="clipboard-thumbnail" @click="clipboardDetailVisible = true">
+                <div class="clipboard-icon">
+                  <el-icon size="20"><DocumentCopy /></el-icon>
+                </div>
+                <div class="clipboard-text">
+                  <div class="clipboard-title">日志摘取板</div>
+                  <div class="clipboard-count">{{ clipboardEntries.length }} 条日志</div>
+                </div>
+                <el-button 
+                  v-if="clipboardEntries.length > 0"
+                  size="small" 
+                  type="danger" 
+                  circle 
+                  class="delete-btn"
+                  @click.stop="clearClipboard"
+                >
+                  <el-icon><Close /></el-icon>
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </el-drawer>
+
+        <!-- 参数选择对话框 -->
+        <el-dialog
+          v-model="parameterSelectVisible"
+          title="选择可视化参数"
+          width="400px"
+          :close-on-click-modal="false"
+        >
+          <div class="parameter-select-dialog">
+            <p>请选择要作为Y轴显示的参数：</p>
+            <el-select 
+              v-model="selectedParameter" 
+              placeholder="选择参数"
+              style="width: 100%"
+            >
+              <el-option 
+                v-for="(param, index) in availableParameters" 
+                :key="index"
+                :label="`参数${index + 1}: ${param}`"
+                :value="index + 1"
+              />
+            </el-select>
+            <div class="dialog-actions">
+              <el-button @click="parameterSelectVisible = false">取消</el-button>
+              <el-button type="primary" @click="confirmVisualization">确认</el-button>
+            </div>
+          </div>
+        </el-dialog>
+
+        <!-- 剪贴板详情弹窗 -->
+        <el-dialog
+          v-model="clipboardDetailVisible"
+          title="剪贴板详情"
+          width="60%"
+          :close-on-click-modal="false"
+        >
+          <div class="clipboard-detail">
+            <div class="clipboard-detail-header">
+              <span>共 {{ clipboardEntries.length }} 条日志</span>
+              <div class="detail-actions">
+                <el-button size="small" type="primary" @click="saveClipboardContent">
+                  保存编辑
+                </el-button>
+                <el-button size="small" type="success" @click="exportClipboardToTxt">
+                  导出TXT文件
+                </el-button>
+                <el-button size="small" type="danger" @click="clearClipboard">
+                  清空剪贴板
+                </el-button>
+              </div>
+            </div>
+            
+            <div class="clipboard-content">
+              <el-input
+                v-model="clipboardContent"
+                type="textarea"
+                :rows="5"
+                placeholder="剪贴板内容将显示在这里，支持直接编辑..."
+                class="clipboard-textarea"
+              />
+            </div>
+            
+          </div>
+        </el-dialog>
+
+        <!-- 图表详情弹窗 -->
+        <el-dialog
+          v-model="chartDetailVisible"
+          title="数据可视化图表"
+          width="80%"
+          :close-on-click-modal="false"
+        >
+          <div class="chart-detail">
+            <div class="chart-detail-header">
+              <span>{{ chartTitle }}</span>
+              <div class="chart-actions">
+                <el-button size="small" type="success" @click="exportChartAsImage">
+                  另存为图片
+                </el-button>
+              </div>
+            </div>
+            <div class="chart-container" ref="chartContainer">
+              <div id="visualizationChart" style="width: 100%; height: 400px;"></div>
+            </div>
+          </div>
+        </el-dialog>
       </div>
       </el-card>
     </div>
@@ -235,7 +619,7 @@
             <div class="section-title">常用搜索表达式</div>
             <div class="tags-ops">
               <el-button size="small" type="primary" plain @click="applySelectedTemplate" :disabled="!selectedTemplateName">应用选择表达式</el-button>
-              <span class="hint">选择表达式并应用，条件会自动填充进“添加条件”区域</span>
+              <span class="hint">选择表达式并应用，条件会自动填充进"添加条件"区域</span>
             </div>
             <div class="tags-wrap antd-tags single-select">
               <a-checkable-tag
@@ -305,7 +689,8 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponen
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Download, ArrowLeft, DataAnalysis, Warning } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 import api from '@/api'
 import VirtualTable from '@/components/VirtualTable.vue'
 
@@ -563,15 +948,45 @@ export default {
     // 是否允许滚动自动加载下一页（按需开启，默认关闭）
     const allowAutoLoad = ref(false)
     const virtualTableRef = ref(null)
+    
+    // 上下文分析相关
+    const contextAnalysisVisible = ref(false)
+    const contextAnalysisRow = ref(null)
+    const beforeMinutes = ref(5)
+    const afterMinutes = ref(5)
+
+    // 日志摘取相关
+    const clipboardVisible = ref(false)
+    const clipboardEntries = ref([])
+    const maxClipboardEntries = 50
+    const clipboardDetailVisible = ref(false)
+    const clipboardContent = ref('')
+
+    // 可视化相关
+    const parameterSelectVisible = ref(false)
+    const selectedParameter = ref(null)
+    const availableParameters = ref([])
+    const currentVisualizationRow = ref(null)
+    const chartDetailVisible = ref(false)
+    const chartTitle = ref('')
+    const chartContainer = ref(null)
+    const chartInstance = ref(null)
+    
+    // 颜色选项：红、黄、蓝、绿
+    const colorOptions = ref([
+      { value: '#ff0000', label: '红色' },
+      { value: '#ffff00', label: '黄色' },
+      { value: '#0000ff', label: '蓝色' },
+      { value: '#00ff00', label: '绿色' },
+      { value: null, label: '无' }
+    ])
     const tableColumns = ref([
-      { prop: 'log_name', label: '日志文件', width: '150px' },
-      { prop: 'timestamp', label: '时间戳', width: '180px' },
-      { prop: 'error_code', label: '故障码', width: '120px' },
-      { prop: 'param1', label: '参数1', width: '100px' },
-      { prop: 'param2', label: '参数2', width: '100px' },
-      { prop: 'param3', label: '参数3', width: '100px' },
-      { prop: 'param4', label: '参数4', width: '100px' },
-      { prop: 'explanation', label: '释义', width: '400px' }
+      { prop: 'color_mark', label: '', width: '3%' },
+      { prop: 'file_info', label: '时间戳 / 文件名', width: '15%' },
+      { prop: 'error_code', label: '故障码', width: '8%' },
+      { prop: 'explanation', label: '释义', width: '40%' },
+      { prop: 'parameters', label: '参数（1-4）', width: '15%' },
+      { prop: 'operations', label: '操作', width: '19%' }
     ])
 
     // 高级筛选弹窗与条件
@@ -625,7 +1040,7 @@ export default {
       return segments.join(' AND ')
     })
 
-    // 仅用于高级筛选弹窗内部的表达式展示，不在这里加“时间/关键字”前缀
+    // 仅用于高级筛选弹窗内部的表达式展示，不在这里加"时间/关键字"前缀
     const advancedExpression = computed(() => {
       const adv = groupToString(filtersRoot.value)
       return adv || ''
@@ -712,7 +1127,7 @@ export default {
     }
 
     // 加载批量日志条目（后端分页）
-    const loadBatchLogEntries = async (page = 1, resetData = false) => {
+    const loadBatchLogEntries = async (page = 1, resetData = false, signal = null) => {
       // 如果没有选中的日志，直接返回
       if (selectedLogs.value.length === 0) {
         return
@@ -723,17 +1138,17 @@ export default {
         
         // 重置数据或初始化
         if (resetData) {
-        batchLogEntries.value = []
+          batchLogEntries.value = []
           currentPage.value = page
         }
         
         // 构建查询参数
-          const logIds = selectedLogs.value.map(l => l.id).join(',')
-          const baseParams = {
+        const logIds = selectedLogs.value.map(l => l.id).join(',')
+        const baseParams = {
           log_ids: logIds,
           page,
           limit: pageSize.value
-          }
+        }
         
         // 添加高级筛选条件
         if (advancedMode.value && leafConditionCount.value > 0) {
@@ -744,25 +1159,27 @@ export default {
         }
         
         // 添加时间范围筛选
-          if (timeRange.value && timeRange.value.length === 2) {
-            baseParams.start_time = timeRange.value[0]
-            baseParams.end_time = timeRange.value[1]
-          }
+        if (timeRange.value && timeRange.value.length === 2) {
+          baseParams.start_time = timeRange.value[0]
+          baseParams.end_time = timeRange.value[1]
+        }
         
         // 添加关键词搜索
         if (searchKeyword.value) {
           baseParams.search = searchKeyword.value
         }
         
-        // 调用后端分页接口
-        const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams)
+        // 调用后端分页接口，支持请求取消
+        const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams, signal)
         const { entries, total, totalPages: serverTotalPages, page: serverPage, minTimestamp, maxTimestamp } = response.data
         
         // 处理返回的数据
         const idToName = new Map(selectedLogs.value.map(l => [l.id, l.original_name]))
         const processedEntries = entries.map(entry => ({
                 ...entry,
-          log_name: idToName.get(entry.log_id) || ''
+          log_name: idToName.get(entry.log_id) || '',
+          color_mark: entry.color_mark || null,
+          remarks: entry.remarks || ''
         }))
         
         // 更新数据
@@ -772,6 +1189,11 @@ export default {
           // 追加数据（用于虚拟滚动）
           batchLogEntries.value.push(...processedEntries)
         }
+        
+        // 加载保存的颜色标记
+        loadColorMarksFromStorage()
+        // 加载备注
+        loadRemarksFromStorage()
         
         // 更新分页信息
         totalCount.value = total
@@ -821,15 +1243,56 @@ export default {
       debouncedSearch()
     }
 
-    // 防抖的搜索触发（300ms）
+    // 增强的防抖机制
     let searchTimer = null
+    let searchAbortController = null
+    
     const debouncedSearch = () => {
       if (isComposing.value) return
-      if (searchTimer) clearTimeout(searchTimer)
+      
+      // 取消之前的请求
+      if (searchAbortController) {
+        searchAbortController.abort()
+      }
+      
+      // 清除之前的定时器
+      if (searchTimer) {
+        clearTimeout(searchTimer)
+      }
+      
+      // 创建新的 AbortController
+      searchAbortController = new AbortController()
+      
+      // 智能防抖：根据搜索复杂度调整延迟时间
+      const delay = calculateSearchDelay()
+      
       searchTimer = setTimeout(() => {
-        currentPage.value = 1
-        loadBatchLogEntries(1, true)
-      }, 300)
+        if (!isComposing.value) {
+          currentPage.value = 1
+          loadBatchLogEntries(1, true, searchAbortController.signal)
+        }
+      }, delay)
+    }
+    
+    // 计算搜索延迟时间
+    const calculateSearchDelay = () => {
+      let baseDelay = 300 // 基础延迟300ms
+      
+      // 根据搜索条件复杂度调整延迟
+      if (advancedMode.value && leafConditionCount.value > 0) {
+        baseDelay += leafConditionCount.value * 100 // 每个高级条件增加100ms
+      }
+      
+      if (timeRange.value && timeRange.value.length === 2) {
+        baseDelay += 200 // 时间范围筛选增加200ms
+      }
+      
+      if (searchKeyword.value && searchKeyword.value.length > 10) {
+        baseDelay += 150 // 长关键词增加150ms
+      }
+      
+      // 最大延迟不超过1秒
+      return Math.min(baseDelay, 1000)
     }
 
     // 供输入框 @input 调用
@@ -838,6 +1301,11 @@ export default {
     }
 
     const handleQuery = async () => {
+      // 取消之前的请求
+      if (searchAbortController) {
+        searchAbortController.abort()
+      }
+      
       currentPage.value = 1
       await loadBatchLogEntries(1, true)
     }
@@ -855,12 +1323,23 @@ export default {
         if (e > max) { end = max; changed = true }
         if (changed) timeRange.value = [formatTimestamp(start), formatTimestamp(end)]
       }
+      
+      // 取消之前的请求
+      if (searchAbortController) {
+        searchAbortController.abort()
+      }
+      
       currentPage.value = 1
       loadBatchLogEntries(1, true)
     }
 
     // 清除筛选
     const clearFilters = async () => {
+      // 取消之前的请求
+      if (searchAbortController) {
+        searchAbortController.abort()
+      }
+      
       searchKeyword.value = ''
       timeRange.value = null
       filtersRoot.value = { logic: 'AND', conditions: [] }
@@ -872,12 +1351,9 @@ export default {
 
     // 仅清空高级条件，不影响其他筛选（供弹窗内一键清空使用）
     const clearAllConditionsOnly = () => {
-      if (filtersRoot.value && Array.isArray(filtersRoot.value.conditions)) {
-        filtersRoot.value.conditions = []
-      } else {
-        filtersRoot.value = { logic: 'AND', conditions: [] }
-      }
-      currentPage.value = 1
+      filtersRoot.value = { logic: 'AND', conditions: [] }
+      // 清空后自动重新搜索
+      debouncedSearch()
     }
 
     // 禁用超出范围的日期
@@ -1027,7 +1503,7 @@ export default {
       try {
         const text = await file.text()
         const json = JSON.parse(text)
-        // 不保存为常用模板，仅解析并填充到“添加条件”区域
+        // 不保存为常用模板，仅解析并填充到"添加条件"区域
         let logic = 'AND'
         let conditions = []
         if (json && (Array.isArray(json.conditions) || Array.isArray(json.filters?.conditions))) {
@@ -1234,8 +1710,8 @@ export default {
           const logic = obj.logic || obj.filters?.logic || 'AND'
           const conds = Array.isArray(obj.conditions) ? obj.conditions : obj.filters?.conditions
           filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
-          // 仅填充，不立即执行；等待点击“应用”
-          ElMessage.success('表达式已填充，请点击“应用”执行搜索')
+          // 仅填充，不立即执行；等待点击"应用"
+          ElMessage.success('表达式已填充，请点击"应用"执行搜索')
           showAdvancedFilter.value = true
           await nextTick()
           if (exprPreviewRef.value && exprPreviewRef.value.scrollIntoView) {
@@ -1258,7 +1734,7 @@ export default {
           const logic = obj.logic || obj.filters?.logic || 'AND'
           const conds = Array.isArray(obj.conditions) ? obj.conditions : obj.filters?.conditions
           filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
-          ElMessage.success('表达式已填充，请点击“应用”执行搜索')
+          ElMessage.success('表达式已填充，请点击"应用"执行搜索')
           return
         }
         ElMessage.warning('未识别到可用的表达式内容')
@@ -1439,6 +1915,504 @@ export default {
       await loadBatchLogEntries(1, true)
     }
 
+    // 保存颜色标记到sessionStorage
+    const saveColorMarksToStorage = () => {
+      const colorMarks = {}
+      batchLogEntries.value.forEach(entry => {
+        if (entry.color_mark) {
+          colorMarks[entry.id] = entry.color_mark
+        }
+      })
+      sessionStorage.setItem('batchLogColorMarks', JSON.stringify(colorMarks))
+    }
+
+    // 从sessionStorage加载颜色标记
+    const loadColorMarksFromStorage = () => {
+      try {
+        const stored = sessionStorage.getItem('batchLogColorMarks')
+        if (stored) {
+          const colorMarks = JSON.parse(stored)
+          batchLogEntries.value.forEach(entry => {
+            if (colorMarks[entry.id]) {
+              entry.color_mark = colorMarks[entry.id]
+            }
+          })
+        }
+      } catch (error) {
+        console.error('加载颜色标记失败:', error)
+      }
+    }
+
+    // 处理颜色变化
+    const selectColor = (row, colorValue) => {
+      // 如果点击的是当前选中的颜色，则取消选择
+      if (row.color_mark === colorValue) {
+        row.color_mark = null
+      } else {
+        row.color_mark = colorValue
+      }
+      
+      console.log('颜色选择:', row.color_mark, row)
+      // 保存到sessionStorage
+      saveColorMarksToStorage()
+      // 强制触发响应式更新
+      nextTick(() => {
+        // 确保颜色变化能够触发行样式更新
+        console.log('行样式类名:', getRowClassName({ row }))
+      })
+      // TODO: 保存颜色标记到后端
+    }
+
+    // 根据颜色标记设置行的样式类
+    const getRowClassName = ({ row }) => {
+      if (row.color_mark) {
+        // 根据颜色值返回对应的CSS类名
+        let className = ''
+        switch (row.color_mark) {
+          case '#ff0000': className = 'row-marked-red'; break
+          case '#ffff00': className = 'row-marked-yellow'; break
+          case '#0000ff': className = 'row-marked-blue'; break
+          case '#00ff00': className = 'row-marked-green'; break
+          default: className = ''
+        }
+        console.log('行样式类名:', className, '颜色值:', row.color_mark)
+        return className
+      }
+      return ''
+    }
+
+    // 操作按钮处理方法
+
+    const handleContextAnalysis = (row) => {
+      console.log('上下文分析:', row)
+      contextAnalysisRow.value = row
+      contextAnalysisVisible.value = true
+    }
+
+    const handleLogCapture = (row) => {
+      console.log('日志摘取:', row)
+      
+      // 检查是否已达到最大数量
+      if (clipboardEntries.value.length >= maxClipboardEntries) {
+        ElMessage.warning(`日志摘取板最多只能存储 ${maxClipboardEntries} 条日志`)
+        return
+      }
+      
+      // 检查是否已存在相同的日志条目
+      const exists = clipboardEntries.value.some(entry => entry.id === row.id)
+      if (exists) {
+        ElMessage.warning('该日志条目已在摘取板中')
+        return
+      }
+      
+      // 添加到摘取板
+      clipboardEntries.value.push({
+        id: row.id,
+        timestamp: row.timestamp,
+        error_code: row.error_code,
+        explanation: row.explanation,
+        param1: row.param1,
+        param2: row.param2,
+        param3: row.param3,
+        param4: row.param4,
+        log_name: row.log_name
+      })
+      
+      // 更新剪贴板内容
+      updateClipboardContent()
+      
+      // 显示侧边栏
+      clipboardVisible.value = true
+      
+      ElMessage.success(`已添加到日志摘取板 (${clipboardEntries.value.length}/${maxClipboardEntries})`)
+    }
+
+    // 更新剪贴板内容
+    const updateClipboardContent = () => {
+      clipboardContent.value = clipboardEntries.value.map(entry => {
+        if (entry.type === 'chart') {
+          // 图表类型的数据
+          const timestamp = formatTimestamp(entry.timestamp)
+          return `[图表] ${timestamp} - ${entry.title} (参数${entry.parameter}, ${entry.dataCount}条数据)`
+        } else {
+          // 普通日志条目
+          const timestamp = formatTimestamp(entry.timestamp)
+          const params = [entry.param1, entry.param2, entry.param3, entry.param4].filter(p => p).join(' ')
+          return `${timestamp} ${entry.error_code} ${entry.explanation} ${params}`.trim()
+        }
+      }).join('\n')
+    }
+
+    // 清空剪贴板
+    const clearClipboard = () => {
+      clipboardEntries.value = []
+      clipboardContent.value = ''
+      ElMessage.success('日志摘取板已清空')
+    }
+
+
+    // 导出剪贴板内容为txt文件
+    const exportClipboardToTxt = () => {
+      if (!clipboardContent.value) {
+        ElMessage.warning('剪贴板为空，无法导出')
+        return
+      }
+      
+      const blob = new Blob([clipboardContent.value], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `日志摘取_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      ElMessage.success('日志摘取内容已导出')
+    }
+
+    // 保存剪贴板编辑内容
+    const saveClipboardContent = () => {
+      // 将编辑后的内容保存到sessionStorage
+      sessionStorage.setItem('clipboardContent', clipboardContent.value)
+      ElMessage.success('编辑内容已保存')
+    }
+
+    // 加载保存的剪贴板内容
+    const loadClipboardContent = () => {
+      try {
+        const saved = sessionStorage.getItem('clipboardContent')
+        if (saved) {
+          clipboardContent.value = saved
+        }
+      } catch (error) {
+        console.error('加载剪贴板内容失败:', error)
+      }
+    }
+
+    // 显示剪贴板
+    const showClipboard = () => {
+      clipboardVisible.value = true
+    }
+
+    // 可视化功能
+    const handleVisualization = (row) => {
+      // 获取当前行的可用参数
+      const params = [row.param1, row.param2, row.param3, row.param4].filter(p => p && p.trim())
+      
+      if (params.length === 0) {
+        ElMessage.warning('该日志条目没有可用的参数进行可视化')
+        return
+      }
+      
+      // 设置可用参数和当前行
+      availableParameters.value = params
+      currentVisualizationRow.value = row
+      selectedParameter.value = null
+      parameterSelectVisible.value = true
+    }
+
+    const confirmVisualization = () => {
+      if (!selectedParameter.value) {
+        ElMessage.warning('请选择一个参数')
+        return
+      }
+      
+      parameterSelectVisible.value = false
+      generateChart()
+    }
+
+    const generateChart = () => {
+      if (!currentVisualizationRow.value) return
+      
+      const row = currentVisualizationRow.value
+      const paramIndex = selectedParameter.value - 1
+      const paramValue = availableParameters.value[paramIndex]
+      
+      // 设置图表标题
+      chartTitle.value = `${formatTimestamp(row.timestamp)} - 参数${selectedParameter.value}可视化`
+      
+      // 显示图表详情弹窗
+      chartDetailVisible.value = true
+      
+      // 等待DOM更新后生成图表
+      nextTick(() => {
+        createChart(row, paramValue)
+      })
+    }
+
+    const createChart = (row, paramValue) => {
+      const chartElement = document.getElementById('visualizationChart')
+      if (!chartElement) return
+      
+      // 销毁之前的图表实例
+      if (chartInstance.value) {
+        chartInstance.value.dispose()
+        chartInstance.value = null
+      }
+      
+      // 获取批量日志的所有数据用于生成图表
+      const allLogs = batchLogEntries.value
+      const chartData = allLogs.map(log => {
+        const timestamp = new Date(log.timestamp).getTime()
+        let yValue = 0
+        
+        // 根据选择的参数获取Y轴值
+        switch(selectedParameter.value) {
+          case 1:
+            yValue = parseFloat(log.param1) || 0
+            break
+          case 2:
+            yValue = parseFloat(log.param2) || 0
+            break
+          case 3:
+            yValue = parseFloat(log.param3) || 0
+            break
+          case 4:
+            yValue = parseFloat(log.param4) || 0
+            break
+        }
+        
+        return [timestamp, yValue]
+      }).sort((a, b) => a[0] - b[0]) // 按时间排序
+      
+      if (chartData.length === 0) {
+        ElMessage.warning('没有可用的数据生成图表')
+        return
+      }
+      
+      // 创建ECharts实例
+      chartInstance.value = echarts.init(chartElement)
+      
+      // 准备X轴数据（时间戳）
+      const xAxisData = chartData.map(item => {
+        const date = new Date(item[0])
+        return formatTimestamp(date)
+      })
+      
+      // 准备Y轴数据（参数值）
+      const yAxisData = chartData.map(item => item[1])
+      
+      // 配置图表选项
+      const option = {
+        title: {
+          text: chartTitle.value,
+          left: 'center',
+          textStyle: {
+            fontSize: 16,
+            fontWeight: 'bold'
+          }
+        },
+        tooltip: {
+          trigger: 'axis',
+          formatter: function(params) {
+            const dataIndex = params[0].dataIndex
+            const timestamp = xAxisData[dataIndex]
+            const value = yAxisData[dataIndex]
+            return `时间: ${timestamp}<br/>参数值: ${value}`
+          }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: xAxisData,
+          axisLabel: {
+            rotate: 45,
+            fontSize: 10
+          },
+          name: '时间',
+          nameLocation: 'middle',
+          nameGap: 30
+        },
+        yAxis: {
+          type: 'value',
+          name: `参数${selectedParameter.value}值`,
+          nameLocation: 'middle',
+          nameGap: 50
+        },
+        series: [{
+          name: `参数${selectedParameter.value}`,
+          type: 'line',
+          data: yAxisData,
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 4,
+          lineStyle: {
+            color: '#409EFF',
+            width: 2
+          },
+          itemStyle: {
+            color: '#409EFF'
+          },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [{
+                offset: 0, color: 'rgba(64, 158, 255, 0.3)'
+              }, {
+                offset: 1, color: 'rgba(64, 158, 255, 0.1)'
+              }]
+            }
+          }
+        }]
+      }
+      
+      // 设置图表配置
+      chartInstance.value.setOption(option)
+      
+      // 在侧边栏显示图表缩略图
+      addChartToSidebar()
+    }
+
+    const addChartToSidebar = () => {
+      if (!chartInstance.value) return
+      
+      // 将图表添加到剪贴板
+      const chartData = {
+        id: `chart_${Date.now()}`,
+        type: 'chart',
+        title: chartTitle.value,
+        timestamp: new Date().toISOString(),
+        parameter: selectedParameter.value,
+        dataCount: batchLogEntries.value.length
+      }
+      
+      // 添加到剪贴板条目
+      clipboardEntries.value.push(chartData)
+      
+      // 更新剪贴板内容
+      updateClipboardContent()
+      
+      // 显示剪贴板
+      clipboardVisible.value = true
+      
+      ElMessage.success('图表已添加到剪贴板')
+    }
+
+    const exportChartAsImage = () => {
+      if (!chartInstance.value) {
+        ElMessage.error('图表实例未找到')
+        return
+      }
+      
+      try {
+        // 使用ECharts的getDataURL方法导出图片
+        const dataURL = chartInstance.value.getDataURL({
+          type: 'png',
+          pixelRatio: 2,
+          backgroundColor: '#fff'
+        })
+        
+        // 创建下载链接
+        const link = document.createElement('a')
+        link.download = `chart_${new Date().getTime()}.png`
+        link.href = dataURL
+        link.click()
+        
+        ElMessage.success('图表已导出为图片')
+      } catch (error) {
+        console.error('导出图表失败:', error)
+        ElMessage.error('导出图表失败')
+      }
+    }
+
+
+
+    // 备注功能
+    const handleRemarks = (row) => {
+      const remarks = prompt('请输入备注:', row.remarks || '')
+      if (remarks !== null) {
+        row.remarks = remarks
+        // 保存到sessionStorage
+        saveRemarksToStorage()
+        console.log('保存备注:', row.remarks)
+        ElMessage.success('备注已保存')
+      }
+    }
+
+    // 保存备注到sessionStorage
+    const saveRemarksToStorage = () => {
+      const remarks = {}
+      batchLogEntries.value.forEach(entry => {
+        if (entry.remarks) {
+          remarks[entry.id] = entry.remarks
+        }
+      })
+      sessionStorage.setItem('batchLogRemarks', JSON.stringify(remarks))
+    }
+
+    // 从sessionStorage加载备注
+    const loadRemarksFromStorage = () => {
+      try {
+        const stored = sessionStorage.getItem('batchLogRemarks')
+        if (stored) {
+          const remarks = JSON.parse(stored)
+          batchLogEntries.value.forEach(entry => {
+            if (remarks[entry.id]) {
+              entry.remarks = remarks[entry.id]
+            }
+          })
+        }
+      } catch (error) {
+        console.error('加载备注失败:', error)
+      }
+    }
+
+    // 执行上下文分析
+    const executeContextAnalysis = async () => {
+      if (!contextAnalysisRow.value) return
+      
+      try {
+        const baseTimestamp = new Date(contextAnalysisRow.value.timestamp)
+        const beforeTime = new Date(baseTimestamp.getTime() - beforeMinutes.value * 60 * 1000)
+        const afterTime = new Date(baseTimestamp.getTime() + afterMinutes.value * 60 * 1000)
+        
+        console.log('上下文分析参数:', {
+          baseRow: contextAnalysisRow.value,
+          beforeMinutes: beforeMinutes.value,
+          afterMinutes: afterMinutes.value,
+          timeRange: {
+            before: beforeTime.toISOString(),
+            after: afterTime.toISOString()
+          }
+        })
+        
+        // 构建时间范围筛选条件
+        const timeFilter = {
+          field: 'timestamp',
+          operator: 'between',
+          value: [formatTimestamp(beforeTime), formatTimestamp(afterTime)]
+        }
+        
+        // 清空当前筛选器并应用时间范围筛选
+        filtersRoot.value = { logic: 'AND', conditions: [timeFilter] }
+        advancedMode.value = true
+        currentPage.value = 1
+        
+        // 重新加载数据
+        await loadBatchLogEntries(1, true)
+        
+        // 关闭对话框
+        contextAnalysisVisible.value = false
+        
+        ElMessage.success(`已筛选出 ${beforeMinutes.value} 分钟前到 ${afterMinutes.value} 分钟后的日志`)
+        
+      } catch (error) {
+        console.error('上下文分析失败:', error)
+        ElMessage.error('上下文分析失败，请重试')
+      }
+    }
+
+
     const applySelectedTemplate = () => {
       if (!selectedTemplateName.value) return
       const tpl = templates.value.find(t => t.name === selectedTemplateName.value)
@@ -1478,6 +2452,17 @@ export default {
       }
       // 初始化加载数据
       await loadBatchLogEntries(1, true)
+      
+      // 加载保存的剪贴板内容
+      loadClipboardContent()
+    })
+
+    // 组件销毁时清理ECharts实例
+    onBeforeUnmount(() => {
+      if (chartInstance.value) {
+        chartInstance.value.dispose()
+        chartInstance.value = null
+      }
     })
 
     return {
@@ -1546,7 +2531,46 @@ export default {
       // expose helpers for operator dropdowns
       getOperatorOptions,
       onFieldChange,
-      onOperatorChange
+      onOperatorChange,
+      // 新增的变量和方法
+      colorOptions,
+      selectColor,
+      getRowClassName,
+      saveColorMarksToStorage,
+      loadColorMarksFromStorage,
+      handleContextAnalysis,
+      handleLogCapture,
+      handleRemarks,
+      saveRemarksToStorage,
+      loadRemarksFromStorage,
+      // 上下文分析相关
+      contextAnalysisVisible,
+      contextAnalysisRow,
+      beforeMinutes,
+      afterMinutes,
+      executeContextAnalysis,
+      // 日志摘取相关
+      clipboardVisible,
+      clipboardEntries,
+      clipboardDetailVisible,
+      clipboardContent,
+      updateClipboardContent,
+      clearClipboard,
+      exportClipboardToTxt,
+      saveClipboardContent,
+      loadClipboardContent,
+      showClipboard,
+      // 可视化相关
+      parameterSelectVisible,
+      selectedParameter,
+      availableParameters,
+      chartDetailVisible,
+      chartTitle,
+      chartContainer,
+      chartInstance,
+      handleVisualization,
+      confirmVisualization,
+      exportChartAsImage
     }
   }
 }
@@ -1797,7 +2821,7 @@ export default {
   margin: 4px 6px 0 0;
 }
 .antd-tags .tpl-tag.bordered {
-  border: 1px dashed #d9d9d9;
+  border: 4px dashed #d9d9d9;
   padding: 0 10px;
 }
 .antd-tags.single-select .tpl-tag.ant-tag-checkable-checked {
@@ -1819,7 +2843,7 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin: 0 20px 10px 20px;
+  margin: 0 10px 5px 10px;
   background-color: white;
   border-radius: 8px;
   border: 1px solid #ebeef5;
@@ -1831,53 +2855,66 @@ export default {
   padding: 0 20px 20px 20px;
 }
 
-/* Ant Design Table-like styles */
-.antd-table {
-  --antd-border: #f0f0f0;
-  --antd-header-bg: #fafafa;
-  --antd-row-hover: #f5f5f5;
-  --antd-text: #1f1f1f;
+/* 使用 Element Plus 默认表格样式 */
+
+/* 颜色标记行样式 */
+.row-marked-red {
+  background-color: rgba(255, 0, 0, 0.2) !important;
 }
 
-.antd-table .el-table__header-wrapper th,
-.antd-table .virtual-table-header .virtual-table-cell {
-  background-color: var(--antd-header-bg) !important;
-  color: var(--antd-text);
-  font-weight: 600;
-  border-bottom: 1px solid var(--antd-border) !important;
+.row-marked-yellow {
+  background-color: rgba(255, 255, 0, 0.2) !important;
 }
 
-.antd-table .el-table,
-.antd-table .el-table__body-wrapper,
-.antd-table .el-table__inner-wrapper {
-  border: 1px solid var(--antd-border);
-  border-radius: 8px;
+.row-marked-blue {
+  background-color: rgba(0, 0, 255, 0.2) !important;
 }
 
-.antd-table .el-table__row,
-.antd-table .virtual-table-row {
-  border-bottom: 1px solid var(--antd-border);
+.row-marked-green {
+  background-color: rgba(0, 255, 0, 0.2) !important;
 }
 
-.antd-table .el-table__row:hover,
-.antd-table .virtual-table-row:hover {
-  background: var(--antd-row-hover);
+/* 颜色选择器样式 */
+.color-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.antd-table .el-table__cell,
-.antd-table .virtual-table-cell {
-  padding: 12px 16px;
-  color: var(--antd-text);
+.color-radio {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  border: 2px solid #ddd !important;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.antd-table .el-table__header tr:first-child th:first-child,
-.antd-table .el-table__body tr td:first-child {
-  padding-left: 16px;
+.color-radio.active {
+  border-color: #409eff !important;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
 }
 
-.antd-table .el-table__header tr:first-child th:last-child,
-.antd-table .el-table__body tr td:last-child {
-  padding-right: 16px;
+.color-radio.active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: white;
+  border: 1px solid #409eff;
+}
+
+/* 列头样式，与 Logs.vue 保持一致 */
+.col-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 让释义列的 tooltip 在表格外也能显示 */
@@ -1921,7 +2958,7 @@ export default {
 .section-header h3 {
   margin: 0;
   color: #303133;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .loading-section {
@@ -1943,6 +2980,26 @@ export default {
   border-radius: 8px;
   border: 1px solid #ebeef5;
 }
+
+/* 时间戳/文件名单元格样式 */
+.file-info-cell {
+  padding: 4px 0;
+  line-height: 1.4;
+}
+
+.file-info-cell .timestamp {
+  font-size: 16px;
+  color:#303133;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.file-info-cell .file-name {
+  font-size: 14px;
+  color:#909399; 
+  font-weight: 400;
+  word-break: break-all;
+}
 </style>
 
 <style>
@@ -1961,4 +3018,395 @@ export default {
   display: flex;
   flex-wrap: wrap;
 }
+
+/* 新增的表格单元格样式 */
+.file-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #303133;
+  word-break: break-all;
+}
+
+.timestamp {
+  color: #909399;
+}
+
+.parameters-cell {
+  color: #606266;
+  word-break: break-all;
+  font-size: 16px;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+
+.parameters-cell .param-item {
+  margin-right: 12px;
+  display: inline-block;
+}
+
+.parameters-cell .param-item:last-child {
+  margin-right: 0;
+}
+
+.parameters-cell {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 40px;
+}
+
+.param-content {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.param-actions {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.visualization-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  height: 24px;
+}
+
+.parameter-select-dialog {
+  padding: 20px 0;
+}
+
+.parameter-select-dialog p {
+  margin-bottom: 16px;
+  color: #606266;
+}
+
+.dialog-actions {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.dialog-actions .el-button {
+  margin-left: 8px;
+}
+
+.chart-detail {
+  padding: 0;
+}
+
+.chart-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.chart-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chart-container {
+  background: #fafafa;
+  border-radius: 4px;
+  padding: 20px;
+  text-align: center;
+}
+
+.operations-cell {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+}
+
+.operations-cell .operation-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.operations-cell .operation-tag:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+/* 颜色指示器样式 - 默认小圆点 */
+.color-indicator {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  margin: 0 auto;
+  box-shadow: 0 0 0 1px white;
+}
+
+.color-indicator:hover {
+  border-color: #409eff;
+  transform: scale(1.2);
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2), 0 0 0 1px white;
+}
+
+.color-indicator.has-color {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px white;
+}
+
+/* 颜色选择器弹窗样式 */
+.color-picker-popover {
+  padding: 8px !important;
+}
+
+.color-picker-menu {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.color-option.active {
+  border-color: #409eff;
+  border-width: 3px;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.3);
+}
+
+.color-option.no-color {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+}
+
+.color-option.no-color:hover {
+  border-color: #409eff;
+  background-color: #f0f8ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.color-option.no-color.active {
+  border-color: #409eff;
+  background-color: #e6f3ff;
+  border-width: 3px;
+}
+
+.checkmark {
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  line-height: 1;
+}
+
+
+/* 上下文分析对话框样式 */
+.context-analysis-form {
+  padding: 10px 0;
+}
+
+.time-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.time-range-inputs .input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-range-inputs .input-group label {
+  font-weight: 500;
+  color: #606266;
+}
+
+/* 日志摘取侧边栏样式 */
+.clipboard-container {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.clipboard-header {
+  margin-bottom: 16px;
+}
+
+.clipboard-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+  padding: 12px;
+}
+
+.clipboard-thumbnail:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+}
+
+.clipboard-icon {
+  color: #909399;
+  margin-right: 12px;
+}
+
+.clipboard-text {
+  text-align: left;
+  flex: 1;
+}
+
+.clipboard-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 4px;
+}
+
+.clipboard-count {
+  font-size: 12px;
+  color: #909399;
+}
+
+.delete-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+}
+
+/* 日志摘取详情弹窗样式 */
+.clipboard-detail {
+  padding: 16px 0;
+}
+
+.clipboard-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.clipboard-content {
+  margin-bottom: 20px;
+}
+
+.clipboard-textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.clipboard-entries {
+  border-top: 1px solid #ebeef5;
+  padding-top: 16px;
+}
+
+.entries-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.entries-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.entry-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
+}
+
+.entry-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.entry-index {
+  font-weight: 500;
+  color: #606266;
+  min-width: 20px;
+}
+
+.entry-timestamp {
+  font-size: 12px;
+  color: #909399;
+  font-family: 'Courier New', monospace;
+}
+
+.entry-error-code {
+  font-weight: 500;
+  color: #e6a23c;
+  background-color: #fdf6ec;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+
 </style>

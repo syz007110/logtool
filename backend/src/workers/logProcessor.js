@@ -25,15 +25,26 @@ async function processLogFile(job) {
     logId 
   } = job.data;
 
-  console.log(`开始处理日志文件: ${originalName}, 任务ID: ${job.id}`);
+  // 只记录关键信息
+  console.log(`[日志处理] 开始处理: ${originalName} (ID: ${logId})`);
+  
+  // 验证文件路径
+  if (!filePath) {
+    throw new Error('文件路径为空，无法处理文件');
+  }
 
   try {
     // 更新任务进度
     await job.progress(10);
 
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`文件不存在: ${filePath}。可能原因：文件已被删除或路径错误`);
+    }
+
     // 读取文件内容
     const content = fs.readFileSync(filePath, 'utf-8');
-    console.log(`文件内容长度: ${content.length} 字符`);
+    // 移除冗余日志：console.log(`文件内容长度: ${content.length} 字符`);
     
     await job.progress(20);
 
@@ -42,11 +53,19 @@ async function processLogFile(job) {
       { status: 'decrypting' },
       { where: { id: logId } }
     );
+    
+    // 推送状态变化到 WebSocket
+    try {
+      const websocketService = require('../services/websocketService');
+      websocketService.pushLogStatusChange(deviceId, logId, 'decrypting', 'uploading');
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
 
-    // 解密日志内容
-    console.log(`开始解密文件，使用密钥: ${decryptKey}`);
+    // 解密日志内容 - 只记录关键信息
+    console.log(`[日志处理] 更换密钥，开始解密: ${originalName}`);
     const decryptedEntries = decryptLogContent(content, decryptKey);
-    console.log(`解密完成，得到 ${decryptedEntries.length} 个日志条目`);
+    console.log(`[日志处理] 解密结果: ${decryptedEntries.length} 个日志条目`);
 
     await job.progress(50);
 
@@ -59,6 +78,14 @@ async function processLogFile(job) {
       { status: 'parsing' },
       { where: { id: logId } }
     );
+    
+    // 推送状态变化到 WebSocket
+    try {
+      const websocketService = require('../services/websocketService');
+      websocketService.pushLogStatusChange(deviceId, logId, 'parsing', 'decrypting');
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
 
     // 转换为数据库格式并存储，同时查询正确的释义和解析占位符
     const entries = [];
@@ -185,10 +212,18 @@ async function processLogFile(job) {
       status: 'parsed', // 标记为解析完成
       parse_time: new Date() // 设置解析时间
     }, { where: { id: logId } });
+    
+    // 推送状态变化到 WebSocket
+    try {
+      const websocketService = require('../services/websocketService');
+      websocketService.pushLogStatusChange(deviceId, logId, 'parsed', 'parsing');
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
 
     // 删除原始文件，不存储
     fs.unlinkSync(filePath);
-    console.log(`文件 ${originalName} 处理完成`);
+    console.log(`[日志处理] 处理完成: ${originalName}`);
 
     await job.progress(100);
 
@@ -200,51 +235,37 @@ async function processLogFile(job) {
     };
 
   } catch (error) {
-    // 详细的错误信息输出
-    console.error('='.repeat(80));
-    console.error(`❌ 日志文件处理失败: ${originalName}`);
-    console.error(`📁 文件路径: ${filePath}`);
-    console.error(`🔑 使用密钥: ${decryptKey}`);
-    console.error(`📱 设备编号: ${deviceId || '未指定'}`);
-    console.error(`👤 上传用户ID: ${uploaderId || '未知'}`);
-    console.error(`🆔 日志记录ID: ${logId}`);
-    console.error(`⏰ 失败时间: ${new Date().toISOString()}`);
-    console.error(`❌ 错误类型: ${error.constructor.name}`);
-    console.error(`💬 错误消息: ${error.message}`);
+    // 简化的错误信息输出，只保留关键信息
+    console.error(`[日志处理] 处理失败: ${originalName}`);
+    console.error(`[日志处理] 错误: ${error.message}`);
     
     // 根据错误类型提供具体的失败原因分析
-    if (error.message.includes('日志行格式不正确')) {
-      console.error(`🔍 失败原因: 文件格式错误 - 日志行字段数量不足`);
-      console.error(`💡 建议: 检查文件是否为正确的日志格式，每行应包含至少6个字段`);
+    if (error.message.includes('解密失败：用户密钥和默认密钥都出现参数大于100000的情况')) {
+      console.error(`[日志处理] 失败原因: 密钥错误 - 请检查密钥是否正确`);
+    } else if (error.message.includes('日志行格式不正确')) {
+      console.error(`[日志处理] 失败原因: 文件格式错误 - 检查日志格式`);
     } else if (error.message.includes('参数不是有效的十六进制格式')) {
-      console.error(`🔍 失败原因: 参数格式错误 - 参数不是有效的十六进制`);
-      console.error(`💡 建议: 检查日志文件是否损坏或格式不正确`);
+      console.error(`[日志处理] 失败原因: 参数格式错误 - 检查文件是否损坏`);
     } else if (error.message.includes('密钥长度不足')) {
-      console.error(`🔍 失败原因: 密钥格式错误 - 密钥长度不足`);
-      console.error(`💡 建议: 密钥应为MAC地址格式，如: 00-01-05-77-6a-09`);
+      console.error(`[日志处理] 失败原因: 密钥格式错误 - 应为MAC地址格式`);
     } else if (error.message.includes('所有') && error.message.includes('行日志解析都失败了')) {
-      console.error(`🔍 失败原因: 解密失败 - 所有日志行都无法解密`);
-      console.error(`💡 建议: 检查密钥是否正确，或文件是否使用了不同的加密方式`);
-    } else if (error.message.includes('ENOENT')) {
-      console.error(`🔍 失败原因: 文件系统错误 - 文件不存在或无法访问`);
-      console.error(`💡 建议: 检查文件权限和磁盘空间`);
+      console.error(`[日志处理] 失败原因: 解密失败 - 检查密钥或加密方式`);
+    } else if (error.message.includes('ENOENT') || error.message.includes('文件不存在')) {
+      console.error(`[日志处理] 失败原因: 文件系统错误 - 检查文件权限和磁盘空间`);
     } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
-      console.error(`🔍 失败原因: 数据库连接错误 - 无法连接到数据库`);
-      console.error(`💡 建议: 检查数据库服务状态和网络连接`);
+      console.error(`[日志处理] 失败原因: 数据库连接错误 - 检查数据库服务状态`);
     } else if (error.message.includes('ER_ACCESS_DENIED_ERROR')) {
-      console.error(`🔍 失败原因: 数据库权限错误 - 用户权限不足`);
-      console.error(`💡 建议: 检查数据库用户权限配置`);
+      console.error(`[日志处理] 失败原因: 数据库权限错误 - 检查用户权限配置`);
     } else if (error.message.includes('ER_NO_SUCH_TABLE')) {
-      console.error(`🔍 失败原因: 数据库表不存在 - 缺少必要的数据库表`);
-      console.error(`💡 建议: 运行数据库迁移脚本创建表结构`);
+      console.error(`[日志处理] 失败原因: 数据库表不存在 - 运行迁移脚本创建表结构`);
     } else {
-      console.error(`🔍 失败原因: 未知错误`);
-      console.error(`💡 建议: 查看错误堆栈获取更多信息`);
+      console.error(`[日志处理] 失败原因: 未知错误`);
     }
     
-    // 输出错误堆栈
-    console.error(`📚 错误堆栈:`);
-    console.error(error.stack);
+    // 只在开发环境下输出详细错误信息
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`[日志处理] 详细错误:`, error.stack);
+    }
     
     // 输出文件基本信息（如果文件存在）
     try {
@@ -272,6 +293,18 @@ async function processLogFile(job) {
         }
       } else {
         console.error(`📊 文件信息: 文件不存在`);
+        console.error(`📁 检查目录内容:`);
+        try {
+          const dir = path.dirname(filePath);
+          if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir);
+            console.error(`   - 目录 ${dir} 中的文件: ${files.slice(0, 10).join(', ')}${files.length > 10 ? '...' : ''}`);
+          } else {
+            console.error(`   - 目录 ${dir} 不存在`);
+          }
+        } catch (dirError) {
+          console.error(`   - 无法读取目录: ${dirError.message}`);
+        }
       }
     } catch (statsError) {
       console.error(`📊 文件信息: 无法获取文件状态 - ${statsError.message}`);
@@ -279,13 +312,25 @@ async function processLogFile(job) {
     
     console.error('='.repeat(80));
     
-    // 更新日志状态为失败
+    // 根据错误类型确定具体的失败状态
+    let failureStatus = 'failed';
+    if (error.message.includes('解密失败：用户密钥和默认密钥都出现参数大于100000的情况')) {
+      failureStatus = 'decrypt_failed';
+    } else if (error.message.includes('解密后没有获得任何有效的日志条目')) {
+      failureStatus = 'decrypt_failed';
+    } else if (error.message.includes('文件不存在')) {
+      failureStatus = 'file_error';
+    } else if (error.message.includes('日志行格式不正确') || error.message.includes('参数不是有效的十六进制格式')) {
+      failureStatus = 'parse_failed';
+    }
+    
+    // 更新日志状态为具体的失败类型
     try {
       await Log.update(
-        { status: 'failed' },
+        { status: failureStatus },
         { where: { id: logId } }
       );
-      console.error(`✅ 已更新日志状态为 'failed'`);
+      console.error(`✅ 已更新日志状态为 '${failureStatus}'`);
     } catch (updateError) {
       console.error(`❌ 更新日志状态失败: ${updateError.message}`);
     }

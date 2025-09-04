@@ -36,6 +36,7 @@ class SurgeryAnalyzer {
     // 器械状态
     this.armStates = [-1, -1, -1, -1]; // 4个工具臂的器械状态
     this.armInsts = [0, 0, 0, 0]; // 4个工具臂的器械类型
+    this.armInstsHistory = []; // 器械类型历史记录
     this.armUDIs = ['', '', '', '']; // 4个工具臂的UDI码
     this.armUDIHistory = [[], [], [], []]; // 每个工具臂的UDI码历史记录
     
@@ -210,7 +211,32 @@ class SurgeryAnalyzer {
       
       if (lastPowerOff && this.currentSurgery) {
         const timeDiff = Math.floor((new Date(entry.timestamp) - new Date(lastPowerOff.timestamp)) / 1000 / 60);
-        shouldClearSurgery = timeDiff >= 30;
+        
+        // 新条件：距离上次关机>30分钟 and 状态机跳转到自检之前（310e and p2=2）之前就有器械类型了
+        if (timeDiff >= 30) {
+          // 检查状态机是否跳转到自检之前（310e and p2=2）
+          const hasSelfCheckBefore = this.stateMachineChanges.some(change => 
+            change.state === 2 && new Date(change.time) < new Date(entry.timestamp)
+          );
+          
+          // 检查状态机跳转到自检之前（310e and p2=2）之前就有器械类型了
+          const hasInstrumentBeforeSelfCheck = this.stateMachineChanges.some(change => {
+            if (change.state === 2) {
+              // 找到自检状态，检查在这个时间点之前是否有器械类型
+              const selfCheckTime = new Date(change.time);
+              return this.armInstsHistory.some(history => 
+                new Date(history.timestamp) < selfCheckTime && 
+                history.armInsts.some(instType => instType !== 0)
+              );
+            }
+            return false;
+          });
+          
+          // 检查当前有手术对象
+          const hasCurrentSurgery = !!this.currentSurgery;
+          
+          shouldClearSurgery = hasSelfCheckBefore && hasInstrumentBeforeSelfCheck && hasCurrentSurgery;
+        }
       }
       
       if (shouldClearSurgery) {
@@ -279,9 +305,9 @@ class SurgeryAnalyzer {
         surgery_id: this.currentSurgery ? this.currentSurgery.surgery_id : null
       });
       
-      this.shutdownTimes.push(entry.timestamp);
-      
+      // 只有在当前有手术时才记录关机事件
       if (this.currentSurgery) {
+        this.shutdownTimes.push(entry.timestamp);
         if (!this.currentSurgery.shutdown_times) {
           this.currentSurgery.shutdown_times = [];
         }
@@ -290,9 +316,21 @@ class SurgeryAnalyzer {
         if (this.currentSurgery.surgery_end_time) {
           this.finalizeCurrentSurgery(entry.timestamp);
           this.resetSurgeryState();
+          this.powerOnTimes = [];
+          this.shutdownTimes = [];
+          this.currentSurgery = null;
+          console.log(`满足手术结束条件，清空手术对象`);
         } else if (!this.surgeryStarted) {
           this.resetSurgeryState();
+          this.powerOnTimes = [];
+          this.shutdownTimes = [];
+          this.currentSurgery = null;
+          console.log(`满足手术结束条件，清空手术对象`);
         }
+      }else{
+        this.powerOnTimes = [];
+        this.shutdownTimes = [];
+        console.log(`无手术，清空全局时间`);
       }
     }
   }
@@ -361,6 +399,12 @@ class SurgeryAnalyzer {
       const armIndex = p1;
       if (armIndex >= 0 && armIndex < 4) {
         this.armInsts[armIndex] = p3;
+        
+        // 记录器械类型历史
+        this.armInstsHistory.push({
+          timestamp: entry.timestamp,
+          armInsts: [...this.armInsts]
+        });
         
         if (this.isPowerOn) {
           this.ensureSurgeryObject(entry);
@@ -443,6 +487,12 @@ class SurgeryAnalyzer {
       const armIndex = errCode.charAt(1) - 3;
       if (armIndex >= 0 && armIndex < 4) {
         this.armInsts[armIndex] = 0;
+        
+        // 记录器械类型历史
+        this.armInstsHistory.push({
+          timestamp: entry.timestamp,
+          armInsts: [...this.armInsts]
+        });
         
         if (this.currentSurgery) {
           const armUsageKey = `arm${armIndex + 1}_usage`;
@@ -760,6 +810,7 @@ class SurgeryAnalyzer {
     this.currentState = -1;
     this.alarmDetails.length = 0;
     this.activeAlarms.clear();
+    
   }
 
   /**
@@ -807,46 +858,10 @@ class SurgeryAnalyzer {
       });
     });
 
-    // 打印准备写入surgeries表的数据
-    this.printSurgeriesData();
+         // 前端已有PostgreSQL数据预览功能，后端不再打印
   }
 
-  /**
-   * 打印准备写入surgeries表的数据
-   */
-  printSurgeriesData() {
-    console.log('\n' + '='.repeat(80));
-    console.log('准备写入surgeries表的数据:');
-    console.log('='.repeat(80));
-    
-    this.surgeries.forEach((surgery, index) => {
-      console.log(`\n--- 手术 ${index + 1}: ${surgery.surgery_id} ---`);
-      
-      // 转换为PostgreSQL结构化数据
-      const postgresqlStructure = this.toPostgreSQLStructure(surgery);
-      
-      // 构建完整的surgeries表数据
-      const surgeriesData = {
-        surgery_id: surgery.surgery_id,
-        device_ids: [surgery.log_id],
-        start_time: surgery.surgery_start_time,
-        end_time: surgery.surgery_end_time,
-        is_remote: surgery.is_remote_surgery || false,
-        structured_data: postgresqlStructure,
-        last_analyzed_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      console.log('surgeries表数据:');
-      console.log(JSON.stringify(surgeriesData, null, 2));
-      
-      console.log('\n' + '-'.repeat(60));
-    });
-    
-    console.log(`\n总计: ${this.surgeries.length} 场手术数据准备写入`);
-    console.log('='.repeat(80) + '\n');
-  }
+  
 
   /**
    * 获取器械类型名称

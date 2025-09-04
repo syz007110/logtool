@@ -1,3 +1,11 @@
+// 防止重复初始化数据库连接
+const processKey = `db_${process.pid}`;
+if (global[processKey]) {
+  console.log(`[进程 ${process.pid}] 数据库连接已初始化，跳过重复初始化`);
+  module.exports = global[processKey];
+  return;
+}
+
 const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize(
@@ -29,4 +37,6 @@ const sequelize = new Sequelize(
   }
 );
 
+// 存储到全局变量，避免重复初始化
+global[processKey] = { sequelize, Sequelize };
 module.exports = { sequelize, Sequelize }; 

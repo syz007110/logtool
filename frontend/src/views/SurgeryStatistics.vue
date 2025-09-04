@@ -107,6 +107,52 @@
                     </div>
                   </div>
 
+                  <!-- PostgreSQL结构化数据预览 -->
+                  <div class="postgresql-preview-section">
+                    <div class="preview-header">
+                      <span class="preview-title">PostgreSQL结构化数据预览</span>
+                      <el-button 
+                        type="text" 
+                        size="small" 
+                        @click="togglePostgreSQLPreview(surgery.id)"
+                        style="padding: 0; margin-left: 8px;"
+                      >
+                        {{ postgresqlPreviewVisible[surgery.id] ? '收起' : '展开' }}
+                      </el-button>
+                    </div>
+                    
+                    <div v-if="postgresqlPreviewVisible[surgery.id]" class="preview-content">
+                      <el-input
+                        v-model="postgresqlDataText[surgery.id]"
+                        type="textarea"
+                        :rows="8"
+                        readonly
+                        placeholder="正在生成PostgreSQL结构化数据..."
+                        class="postgresql-textarea"
+                      />
+                      <div class="preview-actions">
+                        <el-button 
+                          type="primary" 
+                          size="small" 
+                          @click="copyPostgreSQLData(surgery.id)"
+                          :loading="copyingData[surgery.id]"
+                        >
+                          <el-icon><Document /></el-icon>
+                          复制数据
+                        </el-button>
+                        <el-button 
+                          type="success" 
+                          size="small" 
+                          @click="refreshPostgreSQLData(surgery.id)"
+                          :loading="refreshingData[surgery.id]"
+                        >
+                          <el-icon><Refresh /></el-icon>
+                          刷新数据
+                        </el-button>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- 按时间顺序排序的时间线（AntD Steps progressDot 风格） -->
                   <a-steps
                     direction="vertical"
@@ -387,11 +433,11 @@ import {
   ArrowLeft,
   ArrowRight,
   Calendar,
-  PowerOff,
   Lightning,
-  Globe,
   Loading,
-  InfoFilled
+  InfoFilled,
+  Document,
+  Refresh
 } from '@element-plus/icons-vue'
 import { debounce, safeNextTick } from '@/utils/resizeObserverFix'
 import * as echarts from 'echarts'
@@ -412,10 +458,10 @@ export default {
     ArrowLeft,
     ArrowRight,
     Calendar,
-    PowerOff,
     Lightning,
-    Globe,
-    Loading
+    Loading,
+    Document,
+    Refresh
   },
   setup() {
     // 不需要悬停效果：移除自定义 progressDot 渲染与状态区分
@@ -431,6 +477,12 @@ export default {
     const armDetailsVisible = reactive({})
     const showAllAlarms = reactive({})
     const analyzing = ref(false)
+    
+    // PostgreSQL数据预览相关
+    const postgresqlPreviewVisible = reactive({})
+    const postgresqlDataText = reactive({})
+    const copyingData = reactive({})
+    const refreshingData = reactive({})
     
     // 状态机图表相关
     const stateMachineCharts = new Map() // 为每个手术存储独立的图表实例
@@ -566,6 +618,9 @@ export default {
             surgeries.value.forEach(surgery => {
               armDetailsVisible[surgery.id] = false
               showAllAlarms[surgery.id] = false
+              // 初始化PostgreSQL预览状态
+              postgresqlPreviewVisible[surgery.id] = false
+              postgresqlDataText[surgery.id] = ''
             })
           }
           
@@ -602,6 +657,9 @@ export default {
                 surgeries.value.forEach(surgery => {
                   armDetailsVisible[surgery.id] = false
                   showAllAlarms[surgery.id] = false
+                  // 初始化PostgreSQL预览状态
+                  postgresqlPreviewVisible[surgery.id] = false
+                  postgresqlDataText[surgery.id] = ''
                 })
               }
               
@@ -687,7 +745,10 @@ export default {
 
         
         // 调用新的API端点，传递已排序的日志条目数据
-        const response = await api.surgeryStatistics.analyzeSortedEntries(analysisData)
+        const response = await api.surgeryStatistics.analyzeSortedEntries({
+          logEntries: analysisData,
+          includePostgreSQLStructure: true
+        })
         
         if (response.data.success) {
           surgeries.value = response.data.data || []
@@ -699,6 +760,9 @@ export default {
             surgeries.value.forEach(surgery => {
               armDetailsVisible[surgery.id] = false
               showAllAlarms[surgery.id] = false
+              // 初始化PostgreSQL预览状态
+              postgresqlPreviewVisible[surgery.id] = false
+              postgresqlDataText[surgery.id] = ''
             })
           }
           
@@ -726,6 +790,169 @@ export default {
         }
       } catch (error) {
         ElMessage.error('导出手术数据失败: ' + (error.response?.data?.message || error.message))
+      }
+    }
+
+    // 切换PostgreSQL数据预览显示
+    const togglePostgreSQLPreview = (surgeryId) => {
+      postgresqlPreviewVisible[surgeryId] = !postgresqlPreviewVisible[surgeryId]
+      
+      // 如果展开预览，则生成PostgreSQL数据
+      if (postgresqlPreviewVisible[surgeryId] && !postgresqlDataText[surgeryId]) {
+        generatePostgreSQLData(surgeryId)
+      }
+    }
+
+    // 生成PostgreSQL结构化数据
+    const generatePostgreSQLData = (surgeryId) => {
+      const surgery = surgeries.value.find(s => s.id === surgeryId)
+      if (!surgery) {
+        postgresqlDataText[surgeryId] = '未找到手术数据'
+        return
+      }
+
+      try {
+        // 获取正确的日志ID
+        let logId = surgery.log_id
+        if (!logId) {
+          // 尝试从URL参数获取日志ID
+          const logIdsParam = route.query.logIds
+          if (logIdsParam) {
+            const logIdArray = logIdsParam.split(',').map(id => parseInt(id.trim()))
+            logId = logIdArray[0] // 使用第一个日志ID
+          }
+        }
+        
+        // 构建完整的surgeries表数据
+        const surgeriesData = {
+          surgery_id: surgery.surgery_id,
+          device_ids: logId ? [logId] : [1], // 使用正确的日志ID
+          start_time: surgery.surgery_start_time,
+          end_time: surgery.surgery_end_time,
+          is_remote: surgery.is_remote_surgery || false,
+          structured_data: surgery.postgresql_structure || generateStructuredData(surgery),
+          last_analyzed_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+
+        postgresqlDataText[surgeryId] = JSON.stringify(surgeriesData, null, 2)
+      } catch (error) {
+        console.error('生成PostgreSQL数据失败:', error)
+        postgresqlDataText[surgeryId] = '生成PostgreSQL数据失败: ' + error.message
+      }
+    }
+
+    // 生成结构化数据（如果后端没有提供）
+    const generateStructuredData = (surgery) => {
+      // 构建power_cycles - 使用正确的字段名
+      const powerCycles = []
+      
+      // 使用正确的字段名：power_on_times 和 shutdown_times
+      if (surgery.power_on_times && surgery.shutdown_times) {
+        const onTimes = surgery.power_on_times
+        const offTimes = surgery.shutdown_times
+        
+        for (let i = 0; i < Math.max(onTimes.length, offTimes.length); i++) {
+          if (onTimes[i] || offTimes[i]) {
+            powerCycles.push({
+              on_time: onTimes[i] ? new Date(onTimes[i]).toISOString() : null,
+              off_time: offTimes[i] ? new Date(offTimes[i]).toISOString() : null
+            })
+          }
+        }
+      }
+      
+      // 兼容旧版本字段名
+      if (powerCycles.length === 0) {
+        for (let i = 1; i <= 4; i++) {
+          const powerOnTime = surgery[`power${i}_on_time`]
+          const powerOffTime = surgery[`power${i}_off_time`]
+          if (powerOnTime && powerOffTime) {
+            powerCycles.push({
+              on_time: new Date(powerOnTime).toISOString(),
+              off_time: new Date(powerOffTime).toISOString()
+            })
+          }
+        }
+      }
+
+      // 构建arms数据 - 使用正确的字段名
+      const arms = []
+      for (let i = 1; i <= 4; i++) {
+        const armUsage = surgery[`arm${i}_usage`] || []
+        arms.push({
+          arm_id: i,
+          instrument_usage: armUsage.map(usage => ({
+            tool_type: usage.instrumentName || usage.tool_type || '未知器械',
+            udi: usage.udi || '',
+            start_time: usage.startTime || usage.start_time,
+            end_time: usage.endTime || usage.end_time,
+            energy_activation: usage.energy_activation || []
+          }))
+        })
+      }
+
+      // 构建surgery_stats
+      const surgeryStats = {
+        has_fault: surgery.has_error || false,
+        success: !surgery.has_error,
+        is_remote: surgery.is_remote_surgery || false,
+        network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => d.latency) : [],
+        faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
+          timestamp: fault.time,
+          error_code: fault.code,
+          param1: "",
+          param2: "",
+          param3: "",
+          param4: "",
+          explanation: fault.message,
+          log_id: surgery.log_id || 1
+        })) : [],
+        arm_switch_count: 0,
+        left_hand_clutch: surgery.hand_clutch_stats?.arm1 || 0,
+        right_hand_clutch: surgery.hand_clutch_stats?.arm2 || 0,
+        foot_clutch: surgery.foot_pedal_stats?.clutch || 0,
+        endoscope_pedal: surgery.foot_pedal_stats?.camera || 0
+      }
+
+      return {
+        power_cycles: powerCycles,
+        arms: arms,
+        surgery_stats: surgeryStats
+      }
+    }
+
+    // 复制PostgreSQL数据到剪贴板
+    const copyPostgreSQLData = async (surgeryId) => {
+      copyingData[surgeryId] = true
+      try {
+        const text = postgresqlDataText[surgeryId]
+        if (text) {
+          await navigator.clipboard.writeText(text)
+          ElMessage.success('PostgreSQL数据已复制到剪贴板')
+        } else {
+          ElMessage.warning('没有可复制的数据')
+        }
+      } catch (error) {
+        console.error('复制失败:', error)
+        ElMessage.error('复制失败: ' + error.message)
+      } finally {
+        copyingData[surgeryId] = false
+      }
+    }
+
+    // 刷新PostgreSQL数据
+    const refreshPostgreSQLData = async (surgeryId) => {
+      refreshingData[surgeryId] = true
+      try {
+        generatePostgreSQLData(surgeryId)
+        ElMessage.success('PostgreSQL数据已刷新')
+      } catch (error) {
+        console.error('刷新失败:', error)
+        ElMessage.error('刷新失败: ' + error.message)
+      } finally {
+        refreshingData[surgeryId] = false
       }
     }
 
@@ -2995,7 +3222,14 @@ export default {
          getScrollbarInfo,
          checkSynchronization,
 
-
+        // PostgreSQL数据预览相关
+        postgresqlPreviewVisible,
+        postgresqlDataText,
+        copyingData,
+        refreshingData,
+        togglePostgreSQLPreview,
+        copyPostgreSQLData,
+        refreshPostgreSQLData,
 
       }
   }
@@ -4335,5 +4569,81 @@ export default {
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
 }
 
+/* PostgreSQL数据预览样式 */
+.postgresql-preview-section {
+  margin-bottom: 20px;
+  border: 1px solid #E4E7ED;
+  border-radius: 6px;
+  background-color: #FAFAFA;
+}
 
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #F5F7FA;
+  border-bottom: 1px solid #E4E7ED;
+  border-radius: 6px 6px 0 0;
+}
+
+.preview-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.preview-content {
+  padding: 16px;
+}
+
+.postgresql-textarea {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: #FFFFFF;
+  border: 1px solid #DCDFE6;
+  border-radius: 4px;
+}
+
+.postgresql-textarea :deep(.el-textarea__inner) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: #FFFFFF;
+  border: 1px solid #DCDFE6;
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.preview-actions .el-button {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.preview-actions .el-button .el-icon {
+  margin-right: 4px;
+}
+
+/* 数据预览区域的响应式设计 */
+@media (max-width: 768px) {
+  .preview-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .preview-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
 </style> 

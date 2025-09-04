@@ -6,7 +6,7 @@ import router from '../router'
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api',
-  timeout: 30000
+  timeout: 120000 // 增加到2分钟，支持大量日志文件的批量查询
 })
 
 // 请求拦截器
@@ -70,14 +70,14 @@ const errorCodes = {
   create: (data) => api.post('/error-codes', data),
   update: (id, data) => api.put(`/error-codes/${id}`, data),
   delete: (id) => api.delete(`/error-codes/${id}`),
-  getByCodeAndSubsystem: (code, subsystem) => api.get('/error-codes/by-code', { 
-    params: { code, subsystem } 
+  getByCodeAndSubsystem: (code, subsystem) => api.get('/error-codes/by-code', {
+    params: { code, subsystem }
   }),
-  exportXML: (language = 'zh') => api.get('/error-codes/export/xml', { 
-    params: { language }, 
-    responseType: 'blob' 
+  exportXML: (language = 'zh') => api.get('/error-codes/export/xml', {
+    params: { language },
+    responseType: 'blob'
   }),
-  exportMultiXML: (languages = 'zh') => api.get('/error-codes/export/multi-xml', { 
+  exportMultiXML: (languages = 'zh') => api.get('/error-codes/export/multi-xml', {
     params: { languages },
     responseType: 'json'
   })
@@ -97,6 +97,7 @@ const i18nErrorCodes = {
 
 const logs = {
   getList: (params) => api.get('/logs', { params }),
+  getByDevice: (params) => api.get('/logs/by-device', { params }),
   upload: (formData) => api.post('/logs/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
@@ -108,7 +109,10 @@ const logs = {
   batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }, { responseType: 'blob' }),
   batchReparse: (logIds) => api.post('/logs/batch/reparse', { logIds }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
-  getBatchEntries: (params) => api.get('/logs/entries/batch', { params }),
+  getBatchEntries: (params, signal = null) => api.get('/logs/entries/batch', {
+    params,
+    signal // 支持 AbortController
+  }),
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params, responseType: 'blob' }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
@@ -208,4 +212,4 @@ export default {
   feedback,
   dashboard,
   explanations
-} 
+}

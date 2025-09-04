@@ -11,6 +11,16 @@ const Device = require('./device');
 const Feedback = require('./feedback');
 const FeedbackImage = require('./feedback_image');
 
+// 防止重复定义关联 - 使用进程级别的检查
+const associationsProcessKey = `associations_${process.pid}`;
+if (global[associationsProcessKey]) {
+  console.log(`[进程 ${process.pid}] 模型关联已定义，跳过重复定义`);
+  return;
+}
+
+global[associationsProcessKey] = true;
+console.log(`[进程 ${process.pid}] 开始定义模型关联...`);
+
 // 定义模型关联关系
 function defineAssociations() {
   // User 和 Role 的多对多关联

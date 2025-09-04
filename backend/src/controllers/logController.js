@@ -8,6 +8,25 @@ const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
 const { logProcessingQueue } = require('../config/queue');
+const { cacheManager } = require('../config/cache');
+const websocketService = require('../services/websocketService');
+
+// 通用函数：推送日志状态变化到 WebSocket
+const pushLogStatusChange = (logId, oldStatus, newStatus) => {
+  try {
+    // 获取日志信息以获取设备ID
+    Log.findByPk(logId).then(log => {
+      if (log && log.device_id) {
+        websocketService.pushLogStatusChange(log.device_id, logId, newStatus, oldStatus);
+      }
+    }).catch(err => {
+      console.warn('推送状态变化失败:', err.message);
+    });
+  } catch (error) {
+    console.warn('WebSocket 推送失败:', error.message);
+  }
+};
+
 // 已移除 HanLP 相关调用
 const SequelizeLib = require('sequelize');
 const Op = SequelizeLib.Op;
@@ -92,15 +111,172 @@ const getLogs = async (req, res) => {
     // 普通用户、专家用户和管理员都可以查看所有日志
     // 删除权限在deleteLog函数中单独检查
     
+    // 第一步：查询日志
     const { count: total, rows: logs } = await Log.findAndCountAll({
       where,
       offset: (page - 1) * limit,
       limit,
       order: [['original_name', 'DESC']]
     });
-    res.json({ logs, total });
+
+    // 第二步：获取所有相关的设备ID
+    const deviceIds = [...new Set(logs.map(log => log.device_id).filter(id => id))];
+    
+    // 第三步：批量查询设备信息
+    let deviceMap = {};
+    if (deviceIds.length > 0) {
+      try {
+        const devices = await Device.findAll({
+          where: { device_id: deviceIds },
+          attributes: ['device_id', 'hospital', 'device_model']
+        });
+        
+        // 创建设备ID到设备信息的映射
+        devices.forEach(device => {
+          deviceMap[device.device_id] = device;
+        });
+      } catch (deviceError) {
+        console.warn('查询设备信息失败，将使用默认值:', deviceError.message);
+        deviceMap = {};
+      }
+    }
+
+    // 第四步：合并日志和设备信息
+    const processedLogs = logs.map(log => {
+      const logData = log.toJSON();
+      const deviceInfo = deviceMap[logData.device_id];
+      
+      return {
+        ...logData,
+        hospital_name: deviceInfo?.hospital || '未设置',
+        device_name: deviceInfo?.device_model || '未知设备'
+      };
+    });
+
+    res.json({ logs: processedLogs, total });
   } catch (err) {
+    console.error('获取日志列表失败:', err);
+    console.error('错误堆栈:', err.stack);
     res.status(500).json({ message: '获取日志失败', error: err.message });
+  }
+};
+
+// 获取按设备分组的日志列表
+const getLogsByDevice = async (req, res) => {
+  try {
+    let { page = 1, limit = 20, only_own, time_prefix, device_filter } = req.query;
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
+    
+    // 构建查询条件
+    const where = {};
+    
+    // 仅看自己：uploader_id 等于当前用户
+    const truthy = (v) => {
+      if (v === undefined || v === null) return false;
+      const s = String(v).toLowerCase();
+      return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+    };
+    if (truthy(only_own) && req.user && req.user.id) {
+      where.uploader_id = req.user.id;
+    }
+    
+    // 时间前缀筛选
+    const prefixFromParam = (p) => typeof p === 'string' ? p.trim() : (p ?? '').toString();
+    const tp = prefixFromParam(time_prefix);
+    if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
+      where.original_name = { [Op.like]: `${tp}%` };
+    }
+    
+    // 获取所有日志并按设备分组
+    const logs = await Log.findAll({
+      where,
+      order: [['upload_time', 'DESC']]
+    });
+    
+    // 获取所有相关的设备ID
+    const deviceIds = [...new Set(logs.map(log => log.device_id).filter(id => id))];
+    
+    // 批量查询设备信息
+    let deviceMap = {};
+    if (deviceIds.length > 0) {
+      try {
+        const devices = await Device.findAll({
+          where: { device_id: deviceIds },
+          attributes: ['device_id', 'hospital', 'device_model']
+        });
+        
+        // 创建设备ID到设备信息的映射
+        devices.forEach(device => {
+          deviceMap[device.device_id] = device;
+        });
+      } catch (deviceError) {
+        console.warn('查询设备信息失败，将使用默认值:', deviceError.message);
+        deviceMap = {};
+      }
+    }
+    
+    // 按设备分组并计算统计信息
+    const deviceGroups = {};
+    logs.forEach(log => {
+      const deviceId = log.device_id || '未知设备';
+      if (!deviceGroups[deviceId]) {
+        const deviceInfo = deviceMap[deviceId];
+        deviceGroups[deviceId] = {
+          device_id: deviceId,
+          hospital_name: deviceInfo?.hospital || '未设置',
+          device_name: deviceInfo?.device_model || '未知设备',
+          log_count: 0,
+          latest_update_time: null,
+          logs: []
+        };
+      }
+      
+      deviceGroups[deviceId].logs.push(log);
+      deviceGroups[deviceId].log_count++;
+      
+      // 更新最新时间
+      if (!deviceGroups[deviceId].latest_update_time || 
+          new Date(log.upload_time) > new Date(deviceGroups[deviceId].latest_update_time)) {
+        deviceGroups[deviceId].latest_update_time = log.upload_time;
+      }
+    });
+    
+    // 转换为数组并排序
+    let deviceList = Object.values(deviceGroups).sort((a, b) => 
+      new Date(b.latest_update_time) - new Date(a.latest_update_time)
+    );
+    
+    // 应用设备筛选（前端筛选）
+    if (device_filter && device_filter.trim()) {
+      const filterValue = device_filter.toLowerCase().trim();
+      deviceList = deviceList.filter(device => 
+        device.device_id.toLowerCase().includes(filterValue)
+      );
+    }
+    
+    // 计算分页信息
+    const total = deviceList.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    
+    // 分页切片
+    const paginatedDeviceList = deviceList.slice(startIndex, endIndex);
+    
+    res.json({ 
+      device_groups: paginatedDeviceList,
+      pagination: {
+        current_page: page,
+        page_size: limit,
+        total: total,
+        total_pages: totalPages,
+        has_next: page < totalPages,
+        has_prev: page > 1
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: '获取设备分组日志失败', error: err.message });
   }
 };
 
@@ -112,22 +288,39 @@ const uploadLog = async (req, res) => {
       return res.status(400).json({ message: '未上传文件' });
     }
     
-    // 从请求头获取解密密钥和设备编号
-    const decryptKey = req.headers['x-decrypt-key'];
+    // 从请求头获取设备编号
     const deviceId = req.headers['x-device-id'] || '0000-00'; // 默认设备编号
     
+    // 验证设备编号格式
+    if (deviceId !== '0000-00' && !validateDeviceId(deviceId)) {
+      return res.status(400).json({ message: '设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）' });
+    }
+    
+    // 根据设备编号自动获取解密密钥
+    let decryptKey = null;
+    if (deviceId !== '0000-00') {
+      try {
+        const device = await Device.findOne({ where: { device_id: deviceId } });
+        if (device && device.device_key) {
+          decryptKey = device.device_key;
+        }
+      } catch (error) {
+        console.warn('获取设备密钥失败:', error.message);
+      }
+    }
+    
+    // 如果无法自动获取密钥，尝试从请求头获取（向后兼容）
     if (!decryptKey) {
-      return res.status(400).json({ message: '未提供解密密钥' });
+      decryptKey = req.headers['x-decrypt-key'];
+    }
+    
+    if (!decryptKey) {
+      return res.status(400).json({ message: '未找到设备对应的解密密钥，请检查设备配置或手动提供密钥' });
     }
     
     // 验证密钥格式
     if (!validateKey(decryptKey)) {
       return res.status(400).json({ message: '密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）' });
-    }
-    
-    // 验证设备编号格式
-    if (deviceId !== '0000-00' && !validateDeviceId(deviceId)) {
-      return res.status(400).json({ message: '设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）' });
     }
     
     const uploadedLogs = [];
@@ -206,11 +399,13 @@ const uploadLog = async (req, res) => {
         }, {
           priority: 1, // 高优先级
           delay: 0, // 立即处理
-          attempts: 3, // 重试3次
+          attempts: 1, // 只重试1次，避免重复错误
           backoff: {
             type: 'exponential',
-            delay: 2000
-          }
+            delay: 1000
+          },
+          removeOnComplete: true, // 完成后移除任务
+          removeOnFail: true // 失败后移除任务
         });
         
         console.log(`文件 ${file.originalname} 已添加到队列，任务ID: ${job.id}`);
@@ -240,7 +435,8 @@ const uploadLog = async (req, res) => {
     res.json({ 
       message: `成功上传 ${uploadedLogs.length} 个文件，已加入处理队列`, 
       logs: uploadedLogs,
-      queued: true
+      queued: true,
+      device_id: deviceId // 添加设备编号，用于前端自动展开
     });
   } catch (err) {
     res.status(500).json({ message: '上传失败', error: err.message });
@@ -339,9 +535,13 @@ const parseLog = async (req, res) => {
     }
     
     // 更新日志状态
+    const oldStatus = log.status;
     log.status = 'parsed';
     log.parse_time = new Date();
     await log.save();
+    
+    // 推送状态变化到 WebSocket
+    pushLogStatusChange(log.id, oldStatus, 'parsed');
     
     res.json({ message: '解析成功', count: entries.length });
   } catch (err) {
@@ -358,16 +558,23 @@ const getQueueStatus = async (req, res) => {
     const completed = await logProcessingQueue.getCompleted();
     const failed = await logProcessingQueue.getFailed();
     
+    // 获取队列统计信息
+    const queueStats = await logProcessingQueue.getJobCounts();
+    
     res.json({
       waiting: waiting.length,
       active: active.length,
       completed: completed.length,
       failed: failed.length,
-      total: waiting.length + active.length + completed.length + failed.length
+      stats: queueStats,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('获取队列状态失败:', error);
-    res.status(500).json({ message: '获取队列状态失败', error: error.message });
+    res.status(500).json({ 
+      message: '获取队列状态失败', 
+      error: error.message 
+    });
   }
 };
 
@@ -380,10 +587,29 @@ const getLogEntries = async (req, res) => {
     const log = await Log.findByPk(id);
     if (!log) return res.status(404).json({ message: '日志不存在' });
     
-    // 权限控制：普通用户只能查看自己的日志明细，专家用户和管理员可以查看任何日志明细
-    const userRole = req.user.role_id;
-    if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
-      return res.status(403).json({ message: '权限不足，只能查看自己的日志明细' });
+    // 权限控制：普通用户只能查看自己的日志明细
+    if (req.user && req.user.role_id) {
+      const userRole = req.user.role_id;
+      if (userRole === 3) { // 普通用户
+        // 需要先获取用户自己的日志ID列表
+        const userLogs = await Log.findAll({
+          where: { uploader_id: req.user.id },
+          attributes: ['id']
+        });
+        const userLogIds = userLogs.map(log => log.id);
+        
+        if (where.log_id) {
+          // 如果已经指定了log_ids，需要取交集
+          const requestedIds = Array.isArray(where.log_id[Op.in]) 
+            ? where.log_id[Op.in] 
+            : [where.log_id[Op.in]];
+          const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
+          where.log_id = { [Op.in]: allowedIds };
+        } else {
+          where.log_id = { [Op.in]: userLogIds };
+        }
+      }
+      // 管理员用户（role_id = 1）和专家用户（role_id = 2）可以查看所有日志，无需额外限制
     }
     
     const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
@@ -394,7 +620,7 @@ const getLogEntries = async (req, res) => {
 };
 
 // 批量获取日志明细（用于分析功能）
-  const getBatchLogEntries = async (req, res) => {
+const getBatchLogEntries = async (req, res) => {
   try {
     const { 
       log_ids, 
@@ -406,8 +632,31 @@ const getLogEntries = async (req, res) => {
       limit = 100,
       filters // 高级筛选条件（JSON字符串或对象）
     } = req.query;
+    
     // 仅在首次加载或未选择时间范围时，返回建议的时间范围（min/max）
     const shouldIncludeTimeSuggestion = !start_time && !end_time;
+    
+    // 生成缓存键
+    const cacheKey = cacheManager.generateKey('batch_search', {
+      userId: req.user?.id || 'anonymous',
+      log_ids,
+      search,
+      error_code,
+      start_time,
+      end_time,
+      page,
+      limit,
+      filters: filters ? JSON.stringify(filters) : ''
+    });
+    
+    // 尝试从缓存获取结果
+    const cachedResult = await cacheManager.get(cacheKey);
+    if (cachedResult) {
+      console.log(`[缓存命中] 批量搜索: ${cacheKey}`);
+      return res.json(cachedResult);
+    }
+    
+    console.log(`[缓存未命中] 执行批量搜索: ${cacheKey}`);
     
     // 构建查询条件
     const where = {};
@@ -627,25 +876,28 @@ const getLogEntries = async (req, res) => {
     }
     
     // 权限控制：普通用户只能查看自己的日志明细
-    const userRole = req.user.role_id;
-    if (userRole === 3) { // 普通用户
-      // 需要先获取用户自己的日志ID列表
-      const userLogs = await Log.findAll({
-        where: { uploader_id: req.user.id },
-        attributes: ['id']
-      });
-      const userLogIds = userLogs.map(log => log.id);
-      
-      if (where.log_id) {
-        // 如果已经指定了log_ids，需要取交集
-        const requestedIds = Array.isArray(where.log_id[Op.in]) 
-          ? where.log_id[Op.in] 
-          : [where.log_id[Op.in]];
-        const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
-        where.log_id = { [Op.in]: allowedIds };
-      } else {
-        where.log_id = { [Op.in]: userLogIds };
+    if (req.user && req.user.role_id) {
+      const userRole = req.user.role_id;
+      if (userRole === 3) { // 普通用户
+        // 需要先获取用户自己的日志ID列表
+        const userLogs = await Log.findAll({
+          where: { uploader_id: req.user.id },
+          attributes: ['id']
+        });
+        const userLogIds = userLogs.map(log => log.id);
+        
+        if (where.log_id) {
+          // 如果已经指定了log_ids，需要取交集
+          const requestedIds = Array.isArray(where.log_id[Op.in]) 
+            ? where.log_id[Op.in] 
+            : [where.log_id[Op.in]];
+          const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
+          where.log_id = { [Op.in]: allowedIds };
+        } else {
+          where.log_id = { [Op.in]: userLogIds };
+        }
       }
+      // 管理员用户（role_id = 1）和专家用户（role_id = 2）可以查看所有日志，无需额外限制
     }
     
     // 分页参数
@@ -708,7 +960,12 @@ const getLogEntries = async (req, res) => {
       });
     } else {
       // 优化查询：使用 findAndCountAll 进行高效分页
-      const { count: total, rows: entries } = await LogEntry.findAndCountAll({
+      console.log(`[查询执行] 开始执行数据库查询，条件:`, JSON.stringify(where, null, 2));
+      console.log(`[查询优化] 使用索引优化查询，预期性能提升...`);
+      const startTime = Date.now();
+      
+      // 优化查询选项
+      const queryOptions = {
         where,
         attributes,
         offset,
@@ -719,14 +976,33 @@ const getLogEntries = async (req, res) => {
           as: 'Log',
           attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
         }],
-        // 添加查询优化选项
+        // 查询优化选项
         distinct: true,
-        subQuery: false
-      });
+        subQuery: false,
+        // 添加查询提示
+        logging: console.log
+      };
+      
+      const { count: total, rows: entries } = await LogEntry.findAndCountAll(queryOptions);
+      
+      const queryTime = Date.now() - startTime;
+      console.log(`[查询完成] 查询耗时: ${queryTime}ms, 结果数量: ${entries.length}, 总数: ${total}`);
+      
+      // 如果查询时间超过5秒，给出优化建议
+      if (queryTime > 5000) {
+        console.warn(`[性能警告] 查询耗时较长 (${queryTime}ms)，建议:`);
+        console.warn('  1. 减少日志文件数量');
+        console.warn('  2. 添加更多筛选条件');
+        console.warn('  3. 使用时间范围限制');
+        console.warn('  4. 检查数据库索引状态');
+      }
+      
       // 计算总体时间范围（基于相同 where 条件的聚合）
       let minTimestamp = null;
       let maxTimestamp = null;
       try {
+        console.log(`[时间范围计算] 开始计算时间范围...`);
+        const aggStartTime = Date.now();
         const agg = await LogEntry.findOne({
           where,
           attributes: [
@@ -734,13 +1010,18 @@ const getLogEntries = async (req, res) => {
             [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'max_ts']
           ]
         });
+        const aggTime = Date.now() - aggStartTime;
+        console.log(`[时间范围计算] 聚合查询耗时: ${aggTime}ms`);
+        
         if (agg) {
           minTimestamp = agg.get('min_ts');
           maxTimestamp = agg.get('max_ts');
         }
-      } catch (_) {}
+      } catch (error) {
+        console.warn('[时间范围计算] 聚合查询失败:', error.message);
+      }
 
-      return res.json({ 
+      const result = { 
         entries, 
         total, 
         page: pageNum, 
@@ -748,7 +1029,17 @@ const getLogEntries = async (req, res) => {
         totalPages: Math.ceil(total / limitNum),
         minTimestamp: shouldIncludeTimeSuggestion ? minTimestamp : null,
         maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
-      });
+      };
+      
+      // 缓存结果（使用较短的TTL，因为搜索数据变化较快）
+      try {
+        await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL);
+        console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`);
+      } catch (cacheError) {
+        console.warn('缓存存储失败:', cacheError.message);
+      }
+      
+      return res.json(result);
     }
   } catch (err) {
     console.error('批量获取日志明细失败:', err);
@@ -1036,8 +1327,12 @@ const reparseLog = async (req, res) => {
 
     // 标记为解析中，便于前端显示状态
     try {
+      const oldStatus = log.status;
       log.status = 'parsing';
       await log.save();
+      
+      // 推送状态变化到 WebSocket
+      pushLogStatusChange(log.id, oldStatus, 'parsing');
     } catch (_) {}
 
     // 读取现有明细
@@ -1128,25 +1423,34 @@ const reparseLog = async (req, res) => {
     }
 
     // 更新日志元数据
+    const oldStatus = log.status;
     log.status = 'parsed';
     log.parse_time = new Date();
     await log.save();
+    
+    // 推送状态变化到 WebSocket
+    pushLogStatusChange(log.id, oldStatus, 'parsed');
 
     return res.json({ message: '重新解析完成', updated: updatedCount, total: entries.length, output: log.decrypted_path });
-  } catch (err) {
-    console.error('重新解析失败:', err);
-    try {
-      const { id } = req.params || {};
-      if (id) {
-        const log = await Log.findByPk(id);
-        if (log) {
-          log.status = 'failed';
-          await log.save();
+      } catch (err) {
+      console.error('重新解析失败:', err);
+      try {
+        const { id } = req.params || {};
+        if (id) {
+          const log = await Log.findByPk(id);
+          if (log) {
+            // 重新解析失败通常是解析阶段的问题
+            const oldStatus = log.status;
+            log.status = 'parse_failed';
+            await log.save();
+            
+            // 推送状态变化到 WebSocket
+            pushLogStatusChange(log.id, oldStatus, 'parse_failed');
+          }
         }
-      }
-    } catch (_) {}
-    return res.status(500).json({ message: '重新解析失败', error: err.message });
-  }
+      } catch (_) {}
+      return res.status(500).json({ message: '重新解析失败', error: err.message });
+    }
 };
 
 // 批量重新解析（仅更新释义）并同步文件 - 仅管理员
@@ -1201,17 +1505,29 @@ const deleteLog = async (req, res) => {
       return res.status(403).json({ message: '权限不足，只能删除自己上传的日志' });
     }
     
-    // 删除解密文件（如果存在）
-    if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
-      fs.unlinkSync(log.decrypted_path);
-    }
+    // 立即更新状态为"删除中"
+    const oldStatus = log.status;
+    await log.update({ status: 'deleting' });
     
-    // 删除相关的日志明细
-    await LogEntry.destroy({ where: { log_id: id } });
+    // 推送状态变化到 WebSocket
+    pushLogStatusChange(log.id, oldStatus, 'deleting');
     
-    // 删除日志记录
-    await log.destroy();
-    res.json({ message: '删除成功' });
+    // 将删除任务加入队列
+    const job = await logProcessingQueue.add('delete-single', {
+      logId: id,
+      userId: req.user.id
+    }, {
+      priority: 1,
+      delay: 0,
+      attempts: 1
+    });
+    
+    res.json({ 
+      message: '删除任务已加入队列', 
+      queued: true,
+      jobId: job.id
+    });
+    
   } catch (err) {
     res.status(500).json({ message: '删除失败', error: err.message });
   }
@@ -1346,6 +1662,12 @@ const validateDeviceId = (deviceId) => {
           }
         }
         
+        // 立即更新所有日志状态为"删除中"
+        await Log.update(
+          { status: 'deleting' },
+          { where: { id: numericLogIds } }
+        );
+        
         // 将批量删除任务添加到队列
         console.log(`将批量删除任务添加到队列，日志数量: ${numericLogIds.length}`);
         
@@ -1353,9 +1675,9 @@ const validateDeviceId = (deviceId) => {
           logIds: numericLogIds,
           userId: req.user ? req.user.id : null
         }, {
-          priority: 3, // 低优先级
+          priority: 1, // 高优先级，与日志处理同级
           delay: 0, // 立即处理
-          attempts: 3, // 重试3次
+          attempts: 1, // 只重试1次，避免重复错误
           backoff: {
             type: 'exponential',
             delay: 2000
@@ -1785,8 +2107,93 @@ const generateToolUsage = (totalTime, armId) => {
   return tools;
 };
 
+// 分批查询执行函数
+const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIncludeTimeSuggestion) => {
+  try {
+    console.log(`[分批查询] 开始分批查询，日志ID数量: ${logIds.length}`);
+    const startTime = Date.now();
+    
+    // 分批大小：每次处理5个日志文件
+    const batchSize = 5;
+    const batches = [];
+    for (let i = 0; i < logIds.length; i += batchSize) {
+      batches.push(logIds.slice(i, i + batchSize));
+    }
+    
+    console.log(`[分批查询] 分为 ${batches.length} 批，每批 ${batchSize} 个日志文件`);
+    
+    // 并行执行分批查询
+    const batchResults = await Promise.all(batches.map(async (batchIds, batchIndex) => {
+      const batchStartTime = Date.now();
+      console.log(`[分批查询] 执行第 ${batchIndex + 1}/${batches.length} 批，日志ID: ${batchIds.join(',')}`);
+      
+      const batchWhere = { ...baseWhere, log_id: { [Op.in]: batchIds } };
+      
+      const { count: batchTotal, rows: batchEntries } = await LogEntry.findAndCountAll({
+        where: batchWhere,
+        attributes: ['id', 'log_id', 'timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation'],
+        include: [{
+          model: Log,
+          as: 'Log',
+          attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
+        }],
+        distinct: true,
+        subQuery: false
+      });
+      
+      const batchTime = Date.now() - batchStartTime;
+      console.log(`[分批查询] 第 ${batchIndex + 1} 批完成，耗时: ${batchTime}ms，结果: ${batchEntries.length} 条`);
+      
+      return {
+        entries: batchEntries,
+        total: batchTotal,
+        batchTime
+      };
+    }));
+    
+    // 合并结果
+    const allEntries = batchResults.flatMap(batch => batch.entries);
+    const totalCount = batchResults.reduce((sum, batch) => sum + batch.total, 0);
+    const totalTime = Date.now() - startTime;
+    
+    console.log(`[分批查询] 所有批次完成，总耗时: ${totalTime}ms，总结果: ${allEntries.length} 条`);
+    
+    // 分页处理
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = (page - 1) * limit;
+    const paginatedEntries = allEntries.slice(offset, offset + limit);
+    
+    const result = {
+      entries: paginatedEntries,
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit),
+      minTimestamp: shouldIncludeTimeSuggestion ? (allEntries.length > 0 ? Math.min(...allEntries.map(e => new Date(e.timestamp).getTime())) : null) : null,
+      maxTimestamp: shouldIncludeTimeSuggestion ? (allEntries.length > 0 ? Math.max(...allEntries.map(e => new Date(e.timestamp).getTime())) : null) : null,
+      batchMode: true,
+      batchCount: batches.length
+    };
+    
+    // 缓存结果
+    try {
+      await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL);
+      console.log(`[缓存存储] 分批查询结果已缓存: ${cacheKey}`);
+    } catch (cacheError) {
+      console.warn('缓存存储失败:', cacheError.message);
+    }
+    
+    return res.json(result);
+  } catch (error) {
+    console.error('[分批查询] 执行失败:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getLogs,
+  getLogsByDevice,
   uploadLog,
   parseLog,
   reparseLog,
@@ -1803,5 +2210,6 @@ module.exports = {
   analyzeSurgeryData,
   getSearchTemplates,
   importSearchTemplates,
-  getQueueStatus
+  getQueueStatus,
+  executeBatchQuery
 }; 

@@ -3,7 +3,7 @@
     <div class="login-lang-switch">
       <el-dropdown @command="changeLanguage" disabled>
         <el-button type="text" disabled>
-          <el-icon><Globe /></el-icon>
+          <el-icon><InfoFilled /></el-icon>
           中文
         </el-button>
         <template #dropdown>
@@ -73,11 +73,11 @@ import { ref, reactive, computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Globe } from '@element-plus/icons-vue'
+import { InfoFilled } from '@element-plus/icons-vue'
 
 export default {
   name: 'Login',
-  components: { Globe },
+  components: { InfoFilled },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -130,7 +130,7 @@ export default {
       currentLanguage,
       handleLogin,
       changeLanguage,
-      Globe
+      InfoFilled
     }
   }
 }

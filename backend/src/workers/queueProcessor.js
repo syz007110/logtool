@@ -1,12 +1,13 @@
 const { logProcessingQueue } = require('../config/queue');
 const { processLogFile } = require('./logProcessor');
-const { batchReparseLogs, batchDeleteLogs } = require('./batchProcessor');
+const { batchReparseLogs, batchDeleteLogs, processSingleDelete } = require('./batchProcessor');
 const Log = require('../models/log');
+const websocketService = require('../services/websocketService');
 
 // 设置并发处理数量
 const CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 3;
 
-console.log(`启动日志处理队列，并发数: ${CONCURRENCY}`);
+  console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -24,11 +25,20 @@ const checkStuckJobs = async () => {
         // 如果是日志处理任务，将状态设置为失败
         if (job.name === 'process-log' && job.data.logId) {
           try {
-            await Log.update(
-              { status: 'failed' },
-              { where: { id: job.data.logId } }
-            );
-            console.log(`已将卡住的任务 ${job.id} 对应的日志状态设置为失败`);
+            const log = await Log.findByPk(job.data.logId);
+            if (log) {
+              const oldStatus = log.status;
+              await Log.update(
+                { status: 'failed' },
+                { where: { id: job.data.logId } }
+              );
+              console.log(`已将卡住的任务 ${job.id} 对应的日志状态设置为失败`);
+              
+              // 推送状态变化到 WebSocket
+              if (log.device_id) {
+                websocketService.pushLogStatusChange(log.device_id, log.id, 'failed', oldStatus);
+              }
+            }
           } catch (error) {
             console.error(`更新卡住任务状态失败:`, error);
           }
@@ -49,14 +59,46 @@ setInterval(checkStuckJobs, 5 * 60 * 1000);
 
 // 注册队列处理器
 logProcessingQueue.process('process-log', CONCURRENCY, async (job) => {
-  console.log(`开始处理队列任务: ${job.id}`);
+      // 减少冗余日志，只在开发环境下输出
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[队列处理器] 开始处理队列任务: ${job.id}`);
+    }
   
   try {
     const result = await processLogFile(job);
-    console.log(`队列任务 ${job.id} 处理完成`);
+    // 减少冗余日志，只在开发环境下输出
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[队列处理器] 队列任务 ${job.id} 处理完成`);
+    }
     return result;
   } catch (error) {
-    console.error(`队列任务 ${job.id} 处理失败:`, error);
+    console.error(`[队列处理器] 队列任务 ${job.id} 处理失败:`, error);
+    
+    // 如果是 Redis 键丢失错误，尝试清理任务
+    if (error.message.includes('Missing key for job')) {
+      console.warn(`[队列处理器] 检测到 Redis 键丢失错误，尝试清理任务 ${job.id}`);
+      try {
+        await job.remove();
+        console.log(`[队列处理器] 已清理损坏的任务 ${job.id}`);
+      } catch (cleanupError) {
+        console.error(`[队列处理器] 清理任务 ${job.id} 失败:`, cleanupError.message);
+      }
+    }
+    
+    throw error;
+  }
+});
+
+// 注册单个删除处理器
+logProcessingQueue.process('delete-single', 1, async (job) => {
+  console.log(`开始单个删除任务: ${job.id}`);
+  
+  try {
+    const result = await processSingleDelete(job);
+    console.log(`单个删除任务 ${job.id} 完成`);
+    return result;
+  } catch (error) {
+    console.error(`单个删除任务 ${job.id} 失败:`, error);
     throw error;
   }
 });

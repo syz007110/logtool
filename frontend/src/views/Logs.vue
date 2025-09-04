@@ -1,105 +1,34 @@
 <template>
   <div class="logs-container">
-    <!-- 日志上传卡片 -->
-    <el-card class="upload-card">
-      <template #header>
-        <div class="card-header">
-          <span>日志上传</span>
-        </div>
-      </template>
-      <div class="upload-actions">
-        <el-button 
-          type="primary" 
-          @click="showUploadDialog = true"
-        >
-          <el-icon><UploadFilled /></el-icon>
-          上传日志
-        </el-button>
-      </div>
-    </el-card>
-    
-    <!-- 日志列表 -->
+    <!-- 按设备分组的日志列表 -->
     <el-card class="list-card">
       <template #header>
         <div class="card-header">
           <span>日志列表</span>
           <div class="header-actions">
-            <!-- 1) 批量操作组 -->
-            <div class="header-section batch-section" v-if="selectedLogs && selectedLogs.length > 0">
-              <div class="batch-actions">
-                <el-button 
-                  type="primary" 
-                  size="small" 
-                  @click="handleBatchAnalyze"
-                  :disabled="!canBatchOperate || !isSameDevice"
-                  :title="incompleteLogsMessage || deviceCheckMessage"
-                >
-                  <el-icon><Monitor /></el-icon>
-                  批量查看 ({{ selectedLogs.length }})
-                </el-button>
-                <el-button 
-                  type="success" 
-                  size="small" 
-                  @click="handleBatchDownload"
-                  :disabled="!canBatchOperate"
-                  :title="incompleteLogsMessage"
-                >
-                  <el-icon><Download /></el-icon>
-                  批量下载 ({{ selectedLogs.length }})
-                </el-button>
-                <el-button 
-                  type="danger" 
-                  size="small" 
-                  @click="handleBatchDelete"
-                  :disabled="!canBatchDelete"
-                  :title="incompleteLogsMessage"
-                >
-                  <el-icon><Delete /></el-icon>
-                  批量删除 ({{ selectedLogs.length }})
-                </el-button>
-                <el-button 
-                  type="warning" 
-                  size="small" 
-                  @click="handleBatchReparse"
-                  :disabled="selectedLogs.length === 0 || userRole !== 1 || !canBatchOperate"
-                  :title="incompleteLogsMessage"
-                  v-if="userRole === 1"
-                >
-                  <el-icon><Refresh /></el-icon>
-                  批量重新解析 ({{ selectedLogs.length }})
-                </el-button>
-                <el-tooltip 
-                  content="普通用户只能删除自己上传的日志" 
-                  placement="top" 
-                  v-if="userRole === 3"
-                >
-                  <el-icon class="info-icon"><InfoFilled /></el-icon>
-                </el-tooltip>
-                <el-button 
-                  type="info" 
-                  size="small" 
-                  @click="clearSelection"
-                >
-                  取消选择
-                </el-button>
-              </div>
-            </div>
-
-            <!-- 2) 仅看自己按钮 -->
-            <div class="header-section only-own-section">
-              <el-checkbox v-model="onlyOwn" @change="applyOnlyOwn" label="仅看自己" />
-            </div>
-
-            <!-- 3) 重置按钮 -->
+            <!-- 重置按钮 -->
             <div class="header-section reset-section">
-              <el-button plain size="small" @click="resetAllFilters">重置</el-button>
+              <el-button plain @click="resetAllFilters">重置</el-button>
             </div>
 
-            <!-- 4) 刷新按钮 -->
+            <!-- 刷新按钮 -->
             <div class="header-section refresh-section">
-              <el-button plain size="small" @click="loadLogs">
+              <el-button plain @click="loadDeviceGroups">
                 <el-icon><Refresh /></el-icon>
                 刷新
+              </el-button>
+            </div>
+            
+
+
+            <!-- 日志上传按钮 -->
+            <div class="header-section upload-section">
+              <el-button 
+                type="primary" 
+                @click="showNormalUpload"
+              >
+                <el-icon><UploadFilled /></el-icon>
+                日志上传
               </el-button>
             </div>
           </div>
@@ -107,62 +36,27 @@
       </template>
       
       <el-table
-        :data="logs"
+        :data="deviceGroups"
         :loading="loading"
         style="width: 100%"
         v-loading="loading"
-        @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="original_name" label="原始文件名" width="240">
-          <template #header>
-            <div class="col-header">
-              <span>原始文件名</span>
-              <el-popover
-                placement="bottom-start"
-                width="260"
-                v-model:visible="showNameFilterPanel"
-                popper-class="custom-filter-panel"
-              >
-                <div class="filter-panel">
-                  <div class="filter-title">时间前缀 (YYYY / YYYYMM / YYYYMMDD / YYYYMMDDHH)</div>
-                  <el-input
-                    v-model="nameTimePrefix"
-                    placeholder="例如 2025081611"
-                    clearable
-                    @keyup.enter="applyNameFilter"
-                  >
-                    <template #prefix>
-                      <el-icon><Search /></el-icon>
-                    </template>
-                  </el-input>
-                  <div class="filter-actions">
-                    <el-button size="small" type="primary" @click="applyNameFilter">搜索</el-button>
-                    <el-button size="small" @click="resetNameFilter">重置</el-button>
-                  </div>
-                </div>
-                <template #reference>
-                  <el-icon :class="['filter-trigger', { active: !!nameTimePrefix }]"><Filter /></el-icon>
-                </template>
-              </el-popover>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="device_id" label="设备编号" width="160">
+        <el-table-column prop="device_id" label="设备编号" width="200">
           <template #header>
             <div class="col-header">
               <span>设备编号</span>
               <el-popover
                 placement="bottom-start"
                 width="260"
-                v-model:visible="showDeviceFilterPanel"
+                :visible="showDeviceFilterPanel"
+                @update:visible="showDeviceFilterPanel = $event"
                 popper-class="custom-filter-panel"
               >
                 <div class="filter-panel">
-                  <div class="filter-title">设备编号</div>
+                  <div class="filter-title">设备编号筛选</div>
                   <el-input
-                    v-model="filterDeviceId"
-                    placeholder="例如 4371-01"
+                    v-model="deviceFilterValue"
+                    placeholder="输入设备编号进行筛选"
                     clearable
                     @keyup.enter="applyDeviceFilter"
                   >
@@ -176,13 +70,253 @@
                   </div>
                 </div>
                 <template #reference>
-                  <el-icon :class="['filter-trigger', { active: !!filterDeviceId }]"><Filter /></el-icon>
+                  <el-icon :class="['filter-trigger', { active: !!deviceFilterValue }]"><Filter /></el-icon>
+                </template>
+              </el-popover>
+            </div>
+          </template>
+          <template #default="{ row }">
+            <el-button 
+              type="text" 
+              @click="showDeviceDetail(row)"
+              style="padding: 0; font-weight: 500; color: #409eff;"
+            >
+              {{ row.device_id }}
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column prop="hospital_name" label="医院名称" width="200">
+          <template #default="{ row }">
+            {{ row.hospital_name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="log_count" label="日志数量" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag type="info" size="small">{{ row.log_count }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="latest_update_time" label="更新时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.latest_update_time) }}
+          </template>
+        </el-table-column>
+                 <el-table-column label="操作" width="300" fixed="right">
+           <template #default="{ row }">
+             <el-button 
+               size="small" 
+               type="primary"
+               @click="showDeviceDetail(row)"
+             >
+               详情
+             </el-button>
+             
+             <el-button 
+               size="small" 
+               type="success"
+               @click="uploadDataForDevice(row)"
+             >
+               数据上传
+             </el-button>
+             
+             <el-button 
+               size="small" 
+               type="info"
+               @click="viewSurgeryData(row)"
+             >
+               查看手术数据
+             </el-button>
+           </template>
+         </el-table-column>
+      </el-table>
+      
+      <!-- 设备列表分页 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="deviceTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleDeviceSizeChange"
+          @current-change="handleDeviceCurrentChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 设备详细日志列表抽屉 -->
+    <el-drawer
+      v-model="showDeviceDetailDrawer"
+      :title="` ${selectedDevice?.device_id} 详细日志`"
+      direction="rtl"
+      size="1200px"
+      :before-close="handleDrawerClose"
+    >
+      <div class="device-detail-content">
+        <!-- 设备信息头部 -->
+        <div class="device-header">
+          <div class="device-info">
+            <h3>设备编号：{{ selectedDevice?.device_id }}</h3>
+            <p>医院名称：{{ selectedDevice?.hospital_name || '暂无' }}</p>
+            <p>日志总数：{{ selectedDevice?.log_count || 0 }}</p>
+          </div>
+          <div class="device-actions">
+            <!-- WebSocket 状态 -->
+            <div class="websocket-status-section">
+              <WebSocketStatus />
+            </div>
+            
+            <el-button 
+              type="primary" 
+              @click="uploadLogForDevice(selectedDevice)"
+            >
+              <el-icon><UploadFilled /></el-icon>
+              日志上传
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 详细日志列表 -->
+        <div class="detail-logs-section">
+          <!-- WebSocket 状态提示 -->
+          <div class="websocket-status-banner" v-if="showDeviceDetailDrawer">
+            <el-alert
+              :title="websocketStatusTitle"
+              :type="websocketStatusType"
+              :description="websocketStatusDescription"
+              show-icon
+              :closable="false"
+              class="status-alert"
+            />
+          </div>
+          
+          <div class="detail-header">
+            <h4>日志列表</h4>
+            <div class="detail-actions">
+              <!-- 批量操作组 -->
+              <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
+              <div class="batch-actions">
+                <el-button 
+                  type="primary" 
+                  size="small" 
+                  @click="handleBatchAnalyze"
+                  :disabled="!canBatchView || !isSameDevice || selectedDetailLogs.length > 20"
+                  :title="getBatchViewTitle()"
+                >
+                  <el-icon><Monitor /></el-icon>
+                    批量查看 ({{ selectedDetailLogs.length }})
+                </el-button>
+                <el-button 
+                  type="success" 
+                  size="small" 
+                  @click="handleBatchDownload"
+                  :disabled="!canBatchDownload"
+                  :title="incompleteLogsMessage"
+                >
+                  <el-icon><Download /></el-icon>
+                    批量下载 ({{ selectedDetailLogs.length }})
+                </el-button>
+                <el-button 
+                  type="danger" 
+                  size="small" 
+                  @click="handleBatchDelete"
+                  :disabled="!canBatchDelete"
+                  :title="incompleteLogsMessage"
+                >
+                  <el-icon><Delete /></el-icon>
+                    批量删除 ({{ selectedDetailLogs.length }})
+                </el-button>
+                <el-button 
+                  type="warning" 
+                  size="small" 
+                  @click="handleBatchReparse"
+                    :disabled="selectedDetailLogs.length === 0 || userRole !== 1 || !canBatchReparse || selectedDetailLogs.length > 20"
+                  :title="getBatchReparseTitle()"
+                  v-if="userRole === 1"
+                >
+                  <el-icon><Refresh /></el-icon>
+                    批量重新解析 ({{ selectedDetailLogs.length }})
+                </el-button>
+                <el-tooltip 
+                  content="普通用户只能删除自己上传的日志" 
+                  placement="top" 
+                  v-if="userRole === 3"
+                >
+                  <el-icon class="info-icon"><InfoFilled /></el-icon>
+                </el-tooltip>
+                <el-button 
+                  type="info" 
+                  size="small" 
+                    @click="clearDetailSelection"
+                >
+                  取消选择
+                </el-button>
+              </div>
+            </div>
+
+              <!-- 仅看自己按钮 -->
+              <div class="only-own-section">
+                <el-checkbox v-model="detailOnlyOwn" @change="applyDetailOnlyOwn" label="仅看自己" />
+            </div>
+
+              <!-- 重置按钮 -->
+              <div class="reset-section">
+                <el-button plain size="small" @click="resetDetailFilters">重置</el-button>
+            </div>
+
+              <!-- 刷新按钮 -->
+              <div class="refresh-section">
+                <el-button plain size="small" @click="loadDetailLogs">
+                <el-icon><Refresh /></el-icon>
+                刷新
+              </el-button>
+            </div>
+          </div>
+        </div>
+      
+      <el-table
+            :data="detailLogs"
+            :loading="detailLoading"
+        style="width: 100%"
+            v-loading="detailLoading"
+            @selection-change="handleDetailSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
+            <el-table-column prop="original_name" label="日志文件名" width="240">
+          <template #header>
+            <div class="col-header">
+                  <span>日志文件名</span>
+              <el-popover
+                placement="bottom-start"
+                width="260"
+                    :visible="showDetailNameFilterPanel"
+                    @update:visible="showDetailNameFilterPanel = $event"
+                popper-class="custom-filter-panel"
+              >
+                <div class="filter-panel">
+                  <div class="filter-title">时间前缀 (YYYY / YYYYMM / YYYYMMDD / YYYYMMDDHH)</div>
+                  <el-input
+                        v-model="detailNameTimePrefix"
+                    placeholder="例如 2025081611"
+                    clearable
+                        @keyup.enter="applyDetailNameFilter"
+                  >
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
+                  <div class="filter-actions">
+                        <el-button size="small" type="primary" @click="applyDetailNameFilter">搜索</el-button>
+                        <el-button size="small" @click="resetDetailNameFilter">重置</el-button>
+                  </div>
+                </div>
+                <template #reference>
+                      <el-icon :class="['filter-trigger', { active: !!detailNameTimePrefix }]"><Filter /></el-icon>
                 </template>
               </el-popover>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="uploader_id" label="用户ID" width="80" />
+            <el-table-column prop="uploader_id" label="上传用户ID" width="120" />
         <el-table-column prop="upload_time" label="上传时间" width="150">
           <template #default="{ row }">
             {{ formatDate(row.upload_time) }}
@@ -203,16 +337,16 @@
               size="small" 
               type="primary"
               @click="goToLogAnalysis(row)"
-              :disabled="!canOperate(row)"
+              :disabled="!canView(row)"
             >
-                              查看
+              查看
             </el-button>
             
             <el-button 
               size="small" 
               type="success"
               @click="handleDownload(row)"
-              :disabled="!canOperate(row)"
+              :disabled="!canDownload(row)"
             >
               下载
             </el-button>
@@ -222,7 +356,7 @@
               type="danger" 
               @click="handleDelete(row)"
               v-if="canDeleteLog(row)"
-              :disabled="!canOperate(row)"
+              :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed')"
             >
               删除
             </el-button>
@@ -232,7 +366,7 @@
               type="warning"
               @click="handleReparse(row)"
               v-if="canReparse"
-              :disabled="!canOperate(row) || row.parsing"
+              :disabled="!canReparseLog(row) || row.parsing"
             >
               重新解析
             </el-button>
@@ -243,16 +377,18 @@
       <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
-          :current-page="currentPage"
-          :page-size="pageSize"
+              :current-page="detailCurrentPage"
+              :page-size="detailPageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="total"
+              :total="detailTotal"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
+              @size-change="handleDetailSizeChange"
+              @current-change="handleDetailCurrentChange"
         />
       </div>
-    </el-card>
+        </div>
+      </div>
+    </el-drawer>
 
     <!-- 上传日志弹窗 -->
     <el-dialog v-model="showUploadDialog" title="上传日志" width="700px" append-to-body>
@@ -416,14 +552,13 @@
             type="primary" 
             @click="submitUpload" 
             :loading="uploading"
-            :disabled="uploading || !decryptKey.trim() || uploadFileList.length === 0"
+            :disabled="uploading || !canSubmitUpload || uploadFileList.length === 0"
           >
             {{ uploading ? '解析中...' : '上传并解析' }}
           </el-button>
         </div>
       </template>
     </el-dialog>
-
 
     <!-- 日志查看弹窗 -->
     <el-dialog v-model="showEntriesDialog" title="日志查看" width="900px">
@@ -438,9 +573,6 @@
       </el-table>
     </el-dialog>
 
-
-
-
   </div>
 </template>
 
@@ -450,9 +582,14 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
+import websocketClient from '@/services/websocketClient'
+import WebSocketStatus from '@/components/WebSocketStatus.vue'
 
 export default {
   name: 'Logs',
+  components: {
+    WebSocketStatus
+  },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -470,7 +607,22 @@ export default {
     const showNameFilterPanel = ref(false)
     const showDeviceFilterPanel = ref(false)
     const nameTimePrefix = ref('')
-    const onlyOwn = ref(false)
+    const deviceFilterValue = ref('')
+    
+    // 设备分组相关数据
+    const deviceGroups = ref([])
+    const deviceTotal = ref(0)
+    const showDeviceDetailDrawer = ref(false)
+    const selectedDevice = ref(null)
+    const detailLogs = ref([])
+    const detailLoading = ref(false)
+    const detailCurrentPage = ref(1)
+    const detailPageSize = ref(20)
+    const detailTotal = ref(0)
+    const selectedDetailLogs = ref([])
+    const showDetailNameFilterPanel = ref(false)
+    const detailNameTimePrefix = ref('')
+    const detailOnlyOwn = ref(false)
     const dateShortcuts = ref([
       {
         text: '本年',
@@ -506,74 +658,152 @@ export default {
     const uploadFileList = ref([]) // 手动跟踪上传文件列表
     const keyError = ref('') // 密钥格式错误提示
     const deviceIdError = ref('') // 设备编号格式错误提示
+    const uploadDeviceId = ref('') // 上传时的设备编号
+    const isDeviceUpload = ref(false) // 标记是否为设备操作上传模式
+    const currentUploadDeviceId = ref('') // 当前上传的设备编号，用于自动展开
     
-    // 批量操作相关数据
-    const selectedLogs = ref([]) // 选中的日志
+
     
 
     
     // 计算属性
     const logs = computed(() => Array.isArray(store.getters['logs/logsList']) ? store.getters['logs/logsList'] : [])
     const total = computed(() => store.getters['logs/totalCount'])
+    
+    // WebSocket 状态相关计算属性
+    const websocketStatusTitle = computed(() => {
+      const status = websocketClient.getConnectionStatus()
+      if (status === 'connected') {
+        return '实时状态监控已启用'
+      } else if (status === 'connecting') {
+        return '正在连接实时监控...'
+      } else {
+        return '实时状态监控未连接'
+      }
+    })
+    
+    const websocketStatusType = computed(() => {
+      const status = websocketClient.getConnectionStatus()
+      if (status === 'connected') {
+        return 'success'
+      } else if (status === 'connecting') {
+        return 'warning'
+      } else {
+        return 'error'
+      }
+    })
+    
+    const websocketStatusDescription = computed(() => {
+      const status = websocketClient.getConnectionStatus()
+      if (status === 'connected') {
+        const deviceId = selectedDevice.value?.device_id
+        if (deviceId && websocketClient.getSubscribedDevices().includes(deviceId)) {
+          return `已订阅设备 ${deviceId} 的状态更新，日志状态变化时将自动刷新`
+        } else {
+          return 'WebSocket 连接正常，等待订阅设备'
+        }
+      } else if (status === 'connecting') {
+        return '正在尝试连接 WebSocket 服务器，请稍候...'
+      } else {
+        return '无法连接到 WebSocket 服务器，将无法接收实时状态更新'
+      }
+    })
     const uploadUrl = computed(() => '/api/logs/upload')
     const uploadHeaders = computed(() => ({
       Authorization: `Bearer ${store.state.auth.token}`,
       'X-Decrypt-Key': decryptKey.value, // 添加密钥到请求头
-      'X-Device-ID': deviceId.value // 添加设备编号到请求头
+      'X-Device-ID': uploadDeviceId.value || deviceId.value // 添加设备编号到请求头
     }))
     
-    // 权限相关计算属性
-    const userRole = computed(() => store.state.auth.user?.role_id)
-    const userId = computed(() => store.state.auth.user?.id)
-    
-    // 批量操作相关计算属性
-    const canBatchOperate = computed(() => {
-      return selectedLogs.value.length > 0 && 
-             selectedLogs.value.every(log => canOperate(log)) &&
-             selectedLogs.value.every(log => log.status === 'parsed' || log.status === 'failed')
+    // 判断是否可以提交上传
+    const canSubmitUpload = computed(() => {
+      // 如果是设备操作上传模式，则只需要有设备编号
+      if (isDeviceUpload.value && uploadDeviceId.value) {
+        return true
+      }
+      // 如果是普通上传模式，需要同时有密钥和设备编号
+      if (!isDeviceUpload.value) {
+        return decryptKey.value.trim() && deviceId.value.trim()
+      }
+      return false
     })
     
-    // 检查选中的日志是否属于同一设备
+    // 详细日志列表相关计算属性
+    const canBatchView = computed(() => {
+      return selectedDetailLogs.value.length > 0 && 
+             selectedDetailLogs.value.every(log => canView(log)) &&
+             selectedDetailLogs.value.every(log => log.status === 'parsed')
+    })
+    
+    const canBatchDownload = computed(() => {
+      return selectedDetailLogs.value.length > 0 && 
+             selectedDetailLogs.value.every(log => canDownload(log)) &&
+             selectedDetailLogs.value.every(log => log.status === 'parsed')
+    })
+    
+    const canBatchReparse = computed(() => {
+      return selectedDetailLogs.value.length > 0 && 
+             selectedDetailLogs.value.every(log => canReparseLog(log)) &&
+             selectedDetailLogs.value.every(log => log.status === 'parsed' || log.status === 'parse_failed')
+    })
+    
+    const canBatchDelete = computed(() => {
+      return selectedDetailLogs.value.length > 0 && 
+             selectedDetailLogs.value.every(log => canDeleteLog(log)) &&
+             selectedDetailLogs.value.every(log => 
+               log.status === 'parsed' || 
+               log.status === 'decrypt_failed' || 
+               log.status === 'parse_failed' ||
+               log.status === 'file_error' ||
+               log.status === 'failed'
+             )
+    })
+    
     const isSameDevice = computed(() => {
-      if (selectedLogs.value.length === 0) return true
-      const firstDeviceId = selectedLogs.value[0].device_id
-      return selectedLogs.value.every(log => log.device_id === firstDeviceId)
+      if (selectedDetailLogs.value.length === 0) return true
+      const firstDeviceId = selectedDetailLogs.value[0].device_id
+      return selectedDetailLogs.value.every(log => log.device_id === firstDeviceId)
     })
     
-    // 获取设备检测提示信息
     const deviceCheckMessage = computed(() => {
-      if (selectedLogs.value.length === 0) return ''
+      if (selectedDetailLogs.value.length === 0) return ''
       if (!isSameDevice.value) {
-        const deviceIds = [...new Set(selectedLogs.value.map(log => log.device_id))]
+        const deviceIds = [...new Set(selectedDetailLogs.value.map(log => log.device_id))]
         return `选中日志包含不同的设备: ${deviceIds.join(', ')}`
       }
       return ''
     })
     
-    // 检查是否有未完成的日志（不包括失败状态的日志，因为失败状态也可以删除）
     const hasIncompleteLogs = computed(() => {
-      return selectedLogs.value.some(log => 
-        log.status !== 'parsed' && log.status !== 'failed'
+      return selectedDetailLogs.value.some(log => 
+        log.status !== 'parsed' && 
+        log.status !== 'failed' && 
+        log.status !== 'decrypt_failed' && 
+        log.status !== 'parse_failed' && 
+        log.status !== 'file_error'
       )
     })
     
-    // 获取未完成日志提示信息
     const incompleteLogsMessage = computed(() => {
-      if (selectedLogs.value.length === 0) return ''
+      if (selectedDetailLogs.value.length === 0) return ''
       if (hasIncompleteLogs.value) {
-        const incompleteCount = selectedLogs.value.filter(log => 
-          log.status !== 'parsed' && log.status !== 'failed'
+        const incompleteCount = selectedDetailLogs.value.filter(log => 
+          log.status !== 'parsed' && 
+          log.status !== 'failed' && 
+          log.status !== 'decrypt_failed' && 
+          log.status !== 'parse_failed' && 
+          log.status !== 'file_error'
         ).length
         return `选中的日志中有 ${incompleteCount} 个未完成解析，请等待解析完成后再操作`
       }
       return ''
     })
     
-    const canBatchDelete = computed(() => {
-      return selectedLogs.value.length > 0 && 
-             selectedLogs.value.every(log => canDeleteLog(log)) &&
-             selectedLogs.value.every(log => log.status === 'parsed' || log.status === 'failed')
-    })
+    // 权限相关计算属性
+    const userRole = computed(() => store.state.auth.user?.role_id)
+    const userId = computed(() => store.state.auth.user?.id)
+    
+
     
     // 检查是否可以删除日志
     const canDeleteLog = (log) => {
@@ -590,6 +820,26 @@ export default {
     }
     
     // 方法
+    const loadDeviceGroups = async () => {
+      try {
+        loading.value = true
+        const timeParams = buildTimeParams()
+        const response = await store.dispatch('logs/fetchLogsByDevice', {
+          ...timeParams,
+          page: currentPage.value,
+          limit: pageSize.value,
+          device_filter: deviceFilterValue.value.trim()
+        })
+        
+        deviceGroups.value = response.data.device_groups || []
+        deviceTotal.value = response.data.pagination?.total || 0
+      } catch (error) {
+        ElMessage.error('加载设备分组失败')
+      } finally {
+        loading.value = false
+      }
+    }
+    
     const loadLogs = async () => {
       try {
         loading.value = true
@@ -605,6 +855,198 @@ export default {
       } finally {
         loading.value = false
       }
+    }
+    
+    // 设备详情相关方法
+    const showDeviceDetail = (device) => {
+      selectedDevice.value = device
+      showDeviceDetailDrawer.value = true
+      
+      // 订阅设备状态更新
+      if (device && device.device_id) {
+        console.log('准备订阅设备状态更新:', device.device_id)
+        const subscribed = websocketClient.subscribeToDevice(device.device_id)
+        if (subscribed) {
+          console.log('✅ 设备订阅成功:', device.device_id)
+        } else {
+          console.warn('⚠️ 设备订阅失败:', device.device_id)
+        }
+      }
+      
+      loadDetailLogs()
+    }
+    
+    const loadDetailLogs = async () => {
+      if (!selectedDevice.value) return
+      
+      try {
+        detailLoading.value = true
+        const timeParams = buildDetailTimeParams()
+        await store.dispatch('logs/fetchLogs', {
+          page: detailCurrentPage.value,
+          limit: detailPageSize.value,
+          device_id: selectedDevice.value.device_id,
+          ...timeParams
+        })
+        detailLogs.value = logs.value
+        detailTotal.value = total.value
+      } catch (error) {
+        ElMessage.error('加载设备详细日志失败')
+      } finally {
+        detailLoading.value = false
+      }
+    }
+    
+    const buildDetailTimeParams = () => {
+      const tp = (detailNameTimePrefix.value || '').trim()
+      if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
+        return { time_prefix: tp, only_own: detailOnlyOwn.value || undefined }
+      }
+      return { only_own: detailOnlyOwn.value || undefined }
+    }
+    
+    const handleDrawerClose = () => {
+      showDeviceDetailDrawer.value = false
+      
+      // 取消订阅设备状态更新
+      if (selectedDevice.value && selectedDevice.value.device_id) {
+        websocketClient.unsubscribeFromDevice(selectedDevice.value.device_id)
+      }
+      
+      selectedDevice.value = null
+      selectedDetailLogs.value = []
+      
+      // 清理智能状态监控
+      if (window.smartStatusMonitorCleanup) {
+        window.smartStatusMonitorCleanup()
+        window.smartStatusMonitorCleanup = null
+      }
+    }
+    
+    const uploadLogForDevice = async (device) => {
+      // 设置为设备上传模式
+      isDeviceUpload.value = true
+      uploadDeviceId.value = device.device_id
+      console.log('设置设备编号:', uploadDeviceId.value)
+      
+      // 自动填充设备编号到输入框（用于显示）
+      deviceId.value = device.device_id
+      
+      // 尝试自动获取该设备的密钥
+      try {
+        const response = await store.dispatch('logs/autoFillKey', device.device_id)
+        if (response.data.key) {
+          decryptKey.value = response.data.key
+          console.log('自动填充密钥:', decryptKey.value)
+        } else {
+          console.log('未找到设备对应的密钥，需要用户手动输入')
+        }
+      } catch (error) {
+        console.warn('自动获取设备密钥失败:', error.message)
+      }
+      
+      showUploadDialog.value = true
+    }
+    
+    // 普通上传模式（日志解析上侧的日志上传）
+    const showNormalUpload = () => {
+      // 设置为普通上传模式
+      isDeviceUpload.value = false
+      // 清空所有输入，确保是空白状态
+      uploadDeviceId.value = ''
+      deviceId.value = ''
+      decryptKey.value = ''
+      keyFileName.value = ''
+      keyError.value = ''
+      deviceIdError.value = ''
+      uploadFileList.value = []
+      
+      showUploadDialog.value = true
+    }
+    
+    const uploadDataForDevice = (device) => {
+      ElMessage.info('数据上传功能暂未实现')
+    }
+    
+    const viewSurgeryData = (device) => {
+      ElMessage.info('查看手术数据功能暂未实现')
+    }
+    
+    const toggleDeviceFocus = (device) => {
+      device.focused = !device.focused
+      ElMessage.success(device.focused ? '已关注设备' : '已取消关注')
+    }
+    
+    // 详细日志列表相关方法
+    const handleDetailSelectionChange = (selection) => {
+      // 检查选择数量限制
+      if (selection.length > 20) {
+        // 限制选择数量为20个
+        const limitedSelection = selection.slice(0, 20)
+        selectedDetailLogs.value = limitedSelection
+        
+        // 显示提示信息
+        ElMessage.warning('批量操作一次最多只能选择20个文件，已自动限制选择数量')
+        
+        // 更新表格选择状态（需要手动设置）
+        nextTick(() => {
+          // 清除所有选择
+          const table = document.querySelector('.detail-logs-section .el-table')
+          if (table) {
+            const checkboxes = table.querySelectorAll('.el-table__row .el-checkbox__input')
+            checkboxes.forEach((checkbox, index) => {
+              const row = detailLogs.value[index]
+              if (row && limitedSelection.some(selected => selected.id === row.id)) {
+                checkbox.classList.add('is-checked')
+                checkbox.setAttribute('aria-checked', 'true')
+              } else {
+                checkbox.classList.remove('is-checked')
+                checkbox.setAttribute('aria-checked', 'false')
+              }
+            })
+          }
+        })
+      } else {
+        selectedDetailLogs.value = selection
+      }
+    }
+    
+    const clearDetailSelection = () => {
+      selectedDetailLogs.value = []
+    }
+    
+    const handleDetailSizeChange = (size) => {
+      detailPageSize.value = size
+      detailCurrentPage.value = 1
+      loadDetailLogs()
+    }
+    
+    const handleDetailCurrentChange = (page) => {
+      detailCurrentPage.value = page
+      loadDetailLogs()
+    }
+    
+    const applyDetailOnlyOwn = () => {
+      detailCurrentPage.value = 1
+      loadDetailLogs()
+    }
+    
+    const resetDetailFilters = () => {
+      detailNameTimePrefix.value = ''
+      detailOnlyOwn.value = false
+      detailCurrentPage.value = 1
+      loadDetailLogs()
+    }
+    
+    const applyDetailNameFilter = () => {
+      detailCurrentPage.value = 1
+      showDetailNameFilterPanel.value = false
+      loadDetailLogs()
+    }
+    
+    const resetDetailNameFilter = () => {
+      detailNameTimePrefix.value = ''
+      applyDetailNameFilter()
     }
     
 
@@ -623,9 +1065,9 @@ export default {
     const buildTimeParams = () => {
       const tp = (nameTimePrefix.value || '').trim()
       if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
-        return { time_prefix: tp, only_own: onlyOwn.value || undefined }
+        return { time_prefix: tp }
       }
-      return { only_own: onlyOwn.value || undefined }
+      return {}
     }
 
     const applyNameFilter = () => {
@@ -641,59 +1083,36 @@ export default {
     const applyDeviceFilter = () => {
       currentPage.value = 1
       showDeviceFilterPanel.value = false
-      loadLogs()
+      loadDeviceGroups()
     }
     const resetDeviceFilter = () => {
-      filterDeviceId.value = ''
-      applyDeviceFilter()
-    }
-
-    const applyOnlyOwn = () => {
+      deviceFilterValue.value = ''
       currentPage.value = 1
-      loadLogs()
+      loadDeviceGroups()
+    }
+    
+    // 设备列表分页处理
+    const handleDeviceSizeChange = (newSize) => {
+      pageSize.value = newSize
+      currentPage.value = 1
+      loadDeviceGroups()
+    }
+    
+    const handleDeviceCurrentChange = (newPage) => {
+      currentPage.value = newPage
+      loadDeviceGroups()
     }
 
     const resetAllFilters = () => {
       nameTimePrefix.value = ''
-      filterDeviceId.value = ''
-      onlyOwn.value = false
+      deviceFilterValue.value = ''
+      showDeviceFilterPanel.value = false
       currentPage.value = 1
-      loadLogs()
+      loadDeviceGroups()
     }
 
     
     const submitUpload = () => {
-      if (!decryptKey.value.trim()) {
-        ElMessage.error('请输入解密密钥或上传密钥文件')
-        return
-      }
-      
-      // 验证密钥格式
-      const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
-      if (!macRegex.test(decryptKey.value)) {
-        ElMessage.error('密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
-        return
-      }
-      
-      // 检查设备编号是否输入
-      if (!deviceId.value.trim()) {
-        ElMessage.warning('请输入设备编号，或使用默认值0000-00')
-        return
-      }
-      
-      // 验证设备编号格式 - 允许数字+字母组合
-      if (deviceId.value && deviceId.value !== '0000-00') {
-        const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
-        if (!deviceIdRegex.test(deviceId.value)) {
-          ElMessage.error('设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）')
-          return
-        }
-      } else {
-        // 如果没有输入设备编号，弹窗提示
-        ElMessage.warning('请输入设备编号，或使用默认值0000-00')
-        return
-      }
-      
       if (!uploadRef.value) {
         ElMessage.error('上传组件未初始化')
         return
@@ -716,11 +1135,55 @@ export default {
         return
       }
       
+      // 验证输入（根据模式进行不同验证）
+      if (isDeviceUpload.value) {
+        // 设备上传模式：只需要验证设备编号存在
+        if (!uploadDeviceId.value) {
+          ElMessage.error('设备编号不能为空')
+          return
+        }
+      } else {
+        // 普通上传模式：需要验证密钥和设备编号
+      if (!decryptKey.value.trim()) {
+        ElMessage.error('请输入解密密钥或上传密钥文件')
+        return
+      }
+      
+      // 验证密钥格式
+      const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+      if (!macRegex.test(decryptKey.value)) {
+        ElMessage.error('密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
+        return
+      }
+      
+      if (!deviceId.value.trim()) {
+        ElMessage.warning('请输入设备编号，或使用默认值0000-00')
+        return
+      }
+      
+        // 验证设备编号格式
+      if (deviceId.value && deviceId.value !== '0000-00') {
+        const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
+        if (!deviceIdRegex.test(deviceId.value)) {
+          ElMessage.error('设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）')
+          return
+        }
+        }
+      }
+      
+      // 记录当前上传的设备编号（用于自动展开）
+      if (!isDeviceUpload.value) {
+        currentUploadDeviceId.value = deviceId.value
+      }
+      
       uploadRef.value.submit()
       // 点击上传并解析后立即关闭弹窗
       showUploadDialog.value = false
-      // 刷新一次日志列表，展示最新的“上传中/处理中”状态
-      loadLogs()
+      // 刷新一次设备分组列表，展示最新的"上传中/处理中"状态
+      loadDeviceGroups()
+      
+              // 启动智能状态监控（如果详细日志抽屉是打开的）
+        startMonitoringIfDrawerOpen()
     }
     
     const beforeUpload = (file) => {
@@ -733,11 +1196,6 @@ export default {
       }
       if (!isLt200M) {
         ElMessage.error('单个文件大小不能超过200MB!')
-        return false
-      }
-      
-      if (!decryptKey.value.trim()) {
-        ElMessage.error('请输入解密密钥或上传密钥文件!')
         return false
       }
       
@@ -793,11 +1251,23 @@ export default {
         keyUploadRef.value.clearFiles()
       }
       uploadFileList.value = []
-      decryptKey.value = ''
-      keyFileName.value = ''
-      deviceId.value = ''
-      keyError.value = ''
-      deviceIdError.value = ''
+      
+            // 根据模式决定是否清空输入
+      if (!isDeviceUpload.value) {
+        // 普通上传模式：清空所有输入
+        decryptKey.value = ''
+        keyFileName.value = ''
+        deviceId.value = ''
+        uploadDeviceId.value = ''
+        keyError.value = ''
+        deviceIdError.value = ''
+        currentUploadDeviceId.value = '' // 清空当前上传的设备编号
+      } else {
+        // 设备上传模式：只清空文件，保留设备信息
+        keyError.value = ''
+        deviceIdError.value = ''
+      }
+      
       // 重置上传状态和进度
       uploading.value = false
       overallProgress.value = 0
@@ -809,8 +1279,10 @@ export default {
         return `文件上传中 ${percentage}%`
       } else if (percentage < 60) {
         return `解密处理中 ${percentage}%`
-      } else if (percentage < 100) {
+      } else if (percentage < 90) {
         return `解析处理中 ${percentage}%`
+      } else if (percentage < 100) {
+        return `删除处理中 ${percentage}%`
       } else {
         return `处理完成 ${percentage}%`
       }
@@ -826,6 +1298,79 @@ export default {
     // 监听页面刷新事件
     onMounted(() => {
       window.addEventListener('beforeunload', preventRefresh)
+      
+      // 监听 WebSocket 状态变化事件
+      websocketClient.on('logStatusChange', (data) => {
+        console.log('收到日志状态变化:', data)
+        
+        // 如果状态变为 'deleted'，清除删除中状态
+        if (data.newStatus === 'deleted') {
+          deletingIds.value.delete(data.logId)
+          console.log('清除删除中状态，日志ID:', data.logId)
+        }
+        
+        // 如果当前有选中的设备且详细日志抽屉是打开的，自动刷新
+        if (selectedDevice.value && 
+            showDeviceDetailDrawer.value && 
+            selectedDevice.value.device_id === data.deviceId) {
+          
+          console.log('WebSocket 状态变化，准备自动刷新详细日志列表')
+          // 立即刷新，无需延迟
+          loadDetailLogs()
+        }
+      })
+      
+      websocketClient.on('batchStatusChange', (data) => {
+        console.log('收到批量状态变化:', data)
+        
+        // 处理批量状态变化中的删除完成状态
+        if (data.changes && Array.isArray(data.changes)) {
+          data.changes.forEach(change => {
+            if (change.newStatus === 'deleted') {
+              deletingIds.value.delete(change.logId)
+              console.log('批量状态变化：清除删除中状态，日志ID:', change.logId)
+            }
+          })
+        }
+        
+        // 如果当前有选中的设备且详细日志抽屉是打开的，自动刷新
+        if (selectedDevice.value && 
+            showDeviceDetailDrawer.value && 
+            selectedDevice.value.device_id === data.deviceId) {
+          
+          console.log('WebSocket 批量状态变化，准备自动刷新详细日志列表')
+          // 立即刷新，无需延迟
+          loadDetailLogs()
+        }
+      })
+      
+      // 添加 WebSocket 连接状态监听，用于更新状态横幅
+      const updateWebSocketStatus = () => {
+        console.log('WebSocket 连接状态变化，更新状态横幅')
+        // 强制触发计算属性重新计算
+        nextTick(() => {
+          // Vue 会自动重新计算计算属性
+        })
+      }
+      
+      // 监听连接状态变化
+      websocketClient.on('connection', updateWebSocketStatus)
+      websocketClient.on('disconnection', updateWebSocketStatus)
+      
+      // 添加状态更新定时器，确保状态横幅实时更新
+      const statusUpdateTimer = setInterval(() => {
+        // 强制触发计算属性重新计算
+        nextTick(() => {
+          // Vue 会自动重新计算计算属性
+        })
+      }, 1000) // 每秒更新一次
+      
+      // 清理定时器
+      onUnmounted(() => {
+        if (statusUpdateTimer) {
+          clearInterval(statusUpdateTimer)
+        }
+      })
     })
     
     const onUploadProgress = (event, file, fileList) => {
@@ -849,8 +1394,143 @@ export default {
         overallProgress.value = 30 // 上传完成，进度到30%
         processingStatus.value = '文件已上传，等待处理...'
         
+        // 如果是普通上传模式（非设备操作上传），自动展开对应设备的详细日志列表
+        if (!isDeviceUpload.value && currentUploadDeviceId.value && currentUploadDeviceId.value !== '0000-00') {
+          // 延迟一下，确保设备列表已更新
+          setTimeout(async () => {
+            try {
+              // 重新加载设备列表
+              await loadDeviceGroups()
+              
+              // 查找对应的设备
+              const targetDevice = deviceGroups.value.find(device => device.device_id === currentUploadDeviceId.value)
+              if (targetDevice) {
+                console.log('自动展开设备详细日志列表:', targetDevice.device_id)
+                showDeviceDetail(targetDevice)
+              }
+            } catch (error) {
+              console.warn('自动展开设备详细日志列表失败:', error)
+            }
+          }, 1000) // 延迟1秒，确保后端处理完成
+        }
+        
+        // 启动智能状态监控（如果详细日志抽屉是打开的）
+        startMonitoringIfDrawerOpen()
+        
         // 开始状态监控
         startStatusMonitoring()
+      }
+    }
+    
+    // 智能状态变化检测和更新
+    const checkAndUpdateDetailLogs = async () => {
+      if (!selectedDevice.value || !showDeviceDetailDrawer.value) return
+      
+      try {
+        // 获取当前详细日志列表的状态快照
+        const currentStatusSnapshot = detailLogs.value.map(log => ({
+          id: log.id,
+          status: log.status,
+          updated_at: log.updated_at
+        }))
+        
+        // 重新加载详细日志列表
+        await loadDetailLogs()
+        
+        // 检查是否有状态变化
+        const hasStatusChange = detailLogs.value.some((log, index) => {
+          const oldLog = currentStatusSnapshot[index]
+          return oldLog && (
+            oldLog.status !== log.status ||
+            oldLog.updated_at !== log.updated_at
+          )
+        })
+        
+        if (hasStatusChange) {
+          console.log('检测到日志状态变化，已自动刷新详细日志列表')
+        }
+        
+        return hasStatusChange
+      } catch (error) {
+        console.error('检查日志状态变化失败:', error)
+        return false
+      }
+    }
+    
+    // 智能状态监控函数
+    const startSmartStatusMonitoring = () => {
+      if (!selectedDevice.value || !showDeviceDetailDrawer.value) return
+      
+      console.log('启动智能状态监控')
+      let monitoringInterval = null
+      let lastStatusSnapshot = null
+      
+      const monitorStatus = async () => {
+        try {
+          // 获取当前状态快照
+          const currentSnapshot = detailLogs.value.map(log => ({
+            id: log.id,
+            status: log.status,
+            updated_at: log.updated_at
+          }))
+          
+          // 如果有状态快照，检查是否有变化
+          if (lastStatusSnapshot) {
+            const hasChange = currentSnapshot.some((log, index) => {
+              const oldLog = lastStatusSnapshot[index]
+              return oldLog && (
+                oldLog.status !== log.status ||
+                oldLog.updated_at !== log.updated_at
+              )
+            })
+            
+            if (hasChange) {
+              console.log('检测到状态变化，刷新详细日志列表')
+              await loadDetailLogs()
+              lastStatusSnapshot = detailLogs.value.map(log => ({
+                id: log.id,
+                status: log.status,
+                updated_at: log.updated_at
+              }))
+            }
+          } else {
+            // 第一次运行，设置初始快照
+            lastStatusSnapshot = currentSnapshot
+          }
+        } catch (error) {
+          console.error('智能状态监控出错:', error)
+        }
+      }
+      
+      // 每3秒检查一次状态变化
+      monitoringInterval = setInterval(monitorStatus, 3000)
+      
+      // 返回清理函数
+      return () => {
+        if (monitoringInterval) {
+          clearInterval(monitoringInterval)
+          monitoringInterval = null
+        }
+      }
+    }
+    
+    // 通用函数：启动智能状态监控（如果详细日志抽屉是打开的）
+    const startMonitoringIfDrawerOpen = () => {
+      if (selectedDevice.value && showDeviceDetailDrawer.value) {
+        // 清理之前的监控
+        if (window.smartStatusMonitorCleanup) {
+          window.smartStatusMonitorCleanup()
+        }
+        // 启动新的监控
+        window.smartStatusMonitorCleanup = startSmartStatusMonitoring()
+        console.log('已启动智能状态监控')
+        
+        // 订阅设备状态更新
+        if (selectedDevice.value.device_id) {
+          console.log('准备订阅设备状态更新:', selectedDevice.value.device_id)
+          const subscribed = websocketClient.subscribeToDevice(selectedDevice.value.device_id)
+          console.log('设备订阅结果:', subscribed ? '成功' : '失败')
+        }
       }
     }
     
@@ -861,14 +1541,21 @@ export default {
       
       const checkStatus = async () => {
         try {
-          await loadLogs()
+          await loadDeviceGroups()
+          
+          // 智能状态监控：只在状态真正变化时才刷新
+          if (selectedDevice.value && showDeviceDetailDrawer.value) {
+            await checkAndUpdateDetailLogs()
+          }
+          
           checkCount++
           
           // 检查是否有新上传的日志
           const newLogs = logs.value.filter(log => 
             log.status === 'uploading' || 
             log.status === 'decrypting' || 
-            log.status === 'parsing'
+            log.status === 'parsing' ||
+            log.status === 'deleting'  // 新增删除中状态监控
           )
           
           if (newLogs.length > 0) {
@@ -876,6 +1563,7 @@ export default {
             const uploadingCount = newLogs.filter(log => log.status === 'uploading').length
             const decryptingCount = newLogs.filter(log => log.status === 'decrypting').length
             const parsingCount = newLogs.filter(log => log.status === 'parsing').length
+            const deletingCount = newLogs.filter(log => log.status === 'deleting').length  // 新增
             
             if (uploadingCount > 0) {
               overallProgress.value = 30
@@ -886,6 +1574,9 @@ export default {
             } else if (parsingCount > 0) {
               overallProgress.value = 75
               processingStatus.value = '解析中...'
+            } else if (deletingCount > 0) {  // 新增
+              overallProgress.value = 90
+              processingStatus.value = '删除中...'
             }
             
             // 继续监控
@@ -902,19 +1593,42 @@ export default {
           } else {
             // 所有日志都处理完成
             const allParsed = logs.value.every(log => log.status === 'parsed')
-            const hasFailed = logs.value.some(log => log.status === 'failed')
+            const hasFailed = logs.value.some(log => 
+              log.status === 'failed' || 
+              log.status === 'decrypt_failed' || 
+              log.status === 'parse_failed' || 
+              log.status === 'file_error'
+            )
             
             if (allParsed) {
               overallProgress.value = 100
               uploading.value = false
               processingStatus.value = ''
               showUploadDialog.value = false
+              
+              // 处理完成时，如果详细日志列表是打开的，刷新一次
+              if (selectedDevice.value && showDeviceDetailDrawer.value) {
+                setTimeout(async () => {
+                  await checkAndUpdateDetailLogs()
+                  ElMessage.success('日志处理完成')
+                }, 500)
+              }
+              
               clearUpload()
             } else if (hasFailed) {
               uploading.value = false
               overallProgress.value = 0
               processingStatus.value = ''
-              ElMessage.error('部分日志解析失败，请检查日志详情')
+              
+              // 处理失败时，如果详细日志列表是打开的，刷新一次
+              if (selectedDevice.value && showDeviceDetailDrawer.value) {
+                setTimeout(async () => {
+                  await checkAndUpdateDetailLogs()
+                  ElMessage.warning('部分日志处理失败')
+                }, 500)
+              }
+              
+              ElMessage.error('部分日志处理失败，请检查日志详情')
               clearUpload()
             } else {
               // 继续监控
@@ -985,6 +1699,9 @@ export default {
         await store.dispatch('logs/parseLog', row.id)
         ElMessage.success('解析成功')
         loadLogs()
+        
+        // 启动智能状态监控，跟踪解析进度
+        startMonitoringIfDrawerOpen()
       } catch (error) {
         ElMessage.error('解析失败')
       } finally {
@@ -1005,6 +1722,9 @@ export default {
         await store.dispatch('logs/reparseLog', row.id)
         ElMessage.success('重新解析完成')
         await loadLogs()
+        
+        // 启动智能状态监控，跟踪重新解析进度
+        startMonitoringIfDrawerOpen()
       } catch (error) {
         const msg = error.response?.data?.message || error.message || '重新解析失败'
         ElMessage.error(msg)
@@ -1044,17 +1764,37 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         })
+        
+        // 将日志ID添加到删除中状态
         deletingIds.value.add(row.id)
         await nextTick()
-        await store.dispatch('logs/deleteLog', row.id)
-        ElMessage.success('删除成功')
-        await loadLogs()
+        
+        try {
+          // 调用删除API
+          await store.dispatch('logs/deleteLog', row.id)
+          
+          // 显示队列状态
+          ElMessage.success('删除任务已加入队列，正在处理中...')
+          
+          // 重新加载日志列表以显示"删除中"状态
+          await loadDetailLogs()
+          
+          // 启动智能状态监控，跟踪删除进度
+          startMonitoringIfDrawerOpen()
+          
+        } catch (apiError) {
+          console.error('删除API调用失败:', apiError)
+          const errorMessage = apiError.response?.data?.message || apiError.message || '删除失败'
+          ElMessage.error(errorMessage)
+          // API调用失败时，清除删除中状态
+          deletingIds.value.delete(row.id)
+        }
+        
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('删除失败')
+          console.error('删除确认错误:', error)
+          ElMessage.error('删除操作被取消')
         }
-      } finally {
-        deletingIds.value.delete(row.id)
       }
     }
 
@@ -1086,19 +1826,30 @@ export default {
         decrypting: 'warning',
         parsing: 'warning',
         parsed: 'success',
-        failed: 'danger'
+        failed: 'danger',
+        decrypt_failed: 'danger',
+        parse_failed: 'danger',
+        file_error: 'danger',
+        deleting: 'warning'  // 新增删除中状态
       }
       return map[row.status] || 'info'
     }
     const getRowStatusText = (row) => {
       if (deletingIds.value.has(row.id)) return '删除中'
+      
+      // 根据状态返回对应的文本
       const map = {
         uploading: '日志上传中',
         decrypting: '解密中',
         parsing: '解析中',
         parsed: '完成',
-        failed: '解析失败'
+        decrypt_failed: '解密失败',
+        parse_failed: '解析失败',
+        file_error: '文件错误',
+        failed: '处理失败',
+        deleting: '删除中'  // 新增删除中状态
       }
+      
       return map[row.status] || (row.status || '-')
     }
     
@@ -1106,24 +1857,11 @@ export default {
     
 
     
-        // 批量操作相关方法
-    const handleSelectionChange = (selection) => {
-      selectedLogs.value = selection
-      // 保存选中的日志到sessionStorage，供手术统计页面使用
-      try {
-        sessionStorage.setItem('selectedLogs', JSON.stringify(selection))
-      } catch (error) {
-        console.warn('保存选中日志到sessionStorage失败:', error)
-      }
-    }
-    
-    const clearSelection = () => {
-      selectedLogs.value = []
-    }
+
     
     // 批量查看
     const handleBatchAnalyze = () => {
-      const logIds = selectedLogs.value.map(log => log.id).join(',')
+      const logIds = selectedDetailLogs.value.map(log => log.id).join(',')
       // 在新页面中打开批量查看
       const routeData = router.resolve(`/batch-analysis/${logIds}`)
       window.open(routeData.href, '_blank')
@@ -1134,7 +1872,7 @@ export default {
       try {
         ElMessage.info('正在打包文件，请稍候...')
         
-        const logIds = selectedLogs.value.map(log => log.id)
+        const logIds = selectedDetailLogs.value.map(log => log.id)
         const response = await store.dispatch('logs/batchDownloadLogs', logIds)
         
         // 创建下载链接
@@ -1168,7 +1906,7 @@ export default {
         }
         
         await ElMessageBox.confirm(
-          `确定要删除选中的 ${selectedLogs.value.length} 个日志文件吗？此操作不可恢复！`, 
+          `确定要删除选中的 ${selectedDetailLogs.value.length} 个日志文件吗？此操作不可恢复！`, 
           '批量删除确认', 
           {
             confirmButtonText: '确定删除',
@@ -1178,7 +1916,7 @@ export default {
         )
         
         // 保存选中的日志数据，避免在验证过程中被清空
-        const selectedLogsData = [...selectedLogs.value]
+        const selectedLogsData = [...selectedDetailLogs.value]
         const logIds = selectedLogsData.map(log => parseInt(log.id)).filter(id => !isNaN(id))
         
         if (logIds.length === 0) {
@@ -1193,10 +1931,20 @@ export default {
         // 执行批量删除
         try {
           await store.dispatch('logs/batchDeleteLogs', logIds)
+          
+          // 显示队列状态
+          ElMessage.success('批量删除任务已加入队列，正在处理中...')
+          
           // 清除删除中状态，因为任务已加入队列
           logIds.forEach(id => deletingIds.value.delete(id))
-          loadLogs() // 重新加载日志列表
-          clearSelection() // 清空选择
+          
+          // 重新加载详细日志列表以显示"删除中"状态
+          await loadDetailLogs()
+          
+          // 启动智能状态监控，跟踪删除进度
+          startMonitoringIfDrawerOpen()
+          
+          clearDetailSelection() // 清空选择
         } catch (apiError) {
           console.error('批量删除失败:', apiError)
           const errorMessage = apiError.response?.data?.message || apiError.message || '批量删除失败'
@@ -1240,7 +1988,7 @@ export default {
           ElMessage.error('仅管理员可批量重新解析')
           return
         }
-        if (!selectedLogs.value.length) {
+        if (!selectedDetailLogs.value.length) {
           ElMessage.warning('请先选择要重新解析的日志')
           return
         }
@@ -1250,15 +1998,18 @@ export default {
           return
         }
         await ElMessageBox.confirm(
-          `确定对选中的 ${selectedLogs.value.length} 个日志重新解析释义吗？`,
+          `确定对选中的 ${selectedDetailLogs.value.length} 个日志重新解析释义吗？`,
           '批量重新解析确认',
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
-        const ids = selectedLogs.value.map(l => l.id)
+        const ids = selectedDetailLogs.value.map(l => l.id)
         // 乐观更新状态
-        selectedLogs.value.forEach(l => { l.status = 'parsing' })
+        selectedDetailLogs.value.forEach(l => { l.status = 'parsing' })
         await store.dispatch('logs/batchReparseLogs', ids)
-        await loadLogs()
+        await loadDetailLogs()
+        
+        // 启动智能状态监控，跟踪重新解析进度
+        startMonitoringIfDrawerOpen()
       } catch (error) {
         if (error !== 'cancel') {
           const msg = error.response?.data?.message || error.message || '批量重新解析失败'
@@ -1286,7 +2037,26 @@ export default {
 
     // 检查是否可以操作日志（完成状态或失败状态都可以操作）
     const canOperate = (log) => {
-      return log.status === 'parsed' || log.status === 'failed'
+      return log.status === 'parsed' || 
+             log.status === 'failed' || 
+             log.status === 'decrypt_failed' || 
+             log.status === 'parse_failed' || 
+             log.status === 'file_error'
+    }
+    
+    // 检查是否可以查看日志（只有完成状态的文件可以查看）
+    const canView = (log) => {
+      return log.status === 'parsed'
+    }
+    
+    // 检查是否可以下载日志（只有完成状态的文件可以下载）
+    const canDownload = (log) => {
+      return log.status === 'parsed'
+    }
+    
+    // 检查是否可以重新解析（完成状态和解析失败的文件可以重新解析）
+    const canReparseLog = (log) => {
+      return log.status === 'parsed' || log.status === 'parse_failed'
     }
     
 
@@ -1349,8 +2119,33 @@ export default {
     
     // 生命周期
     onMounted(() => {
-      loadLogs()
+      loadDeviceGroups()
     })
+    
+    // 获取批量查看按钮的提示信息
+    const getBatchViewTitle = () => {
+      if (selectedDetailLogs.value.length > 20) {
+        return '批量查看一次最多只能选择20个文件'
+      }
+      if (incompleteLogsMessage.value) {
+        return incompleteLogsMessage.value
+      }
+      if (deviceCheckMessage.value) {
+        return deviceCheckMessage.value
+      }
+      return '批量查看选中的日志文件'
+    }
+
+    // 获取批量重新解析按钮的提示信息
+    const getBatchReparseTitle = () => {
+      if (selectedDetailLogs.value.length > 20) {
+        return '批量重新解析一次最多只能选择20个文件'
+      }
+      if (incompleteLogsMessage.value) {
+        return incompleteLogsMessage.value
+      }
+      return '批量重新解析选中的日志文件'
+    }
     
     return {
       loading,
@@ -1366,6 +2161,7 @@ export default {
       total,
       uploadUrl,
       uploadHeaders,
+      canSubmitUpload,
       loadLogs,
       handleSizeChange,
       handleCurrentChange,
@@ -1397,10 +2193,15 @@ export default {
       deviceId,
       filterDeviceId,
       uploadFileList,
+      uploadDeviceId,
+      currentUploadDeviceId,
       beforeKeyUpload,
       onKeyFileChange,
       canDeleteLog,
       canOperate,
+      canView,
+      canDownload,
+      canReparseLog,
       keyError,
       deviceIdError,
       autoFillKey,
@@ -1408,14 +2209,55 @@ export default {
       autoFillDeviceId,
       validateDeviceIdFormat,
       
+      // 设备分组相关
+      deviceGroups,
+      deviceTotal,
+      showDeviceDetailDrawer,
+      selectedDevice,
+      detailLogs,
+      detailLoading,
+      detailCurrentPage,
+      detailPageSize,
+      detailTotal,
+      selectedDetailLogs,
+      showDetailNameFilterPanel,
+      detailNameTimePrefix,
+      detailOnlyOwn,
+      loadDeviceGroups,
+      handleDeviceSizeChange,
+      handleDeviceCurrentChange,
+      showDeviceDetail,
+      loadDetailLogs,
+      handleDrawerClose,
+      uploadLogForDevice,
+      showNormalUpload,
+      uploadDataForDevice,
+      viewSurgeryData,
+      toggleDeviceFocus,
+      handleDetailSelectionChange,
+      clearDetailSelection,
+      handleDetailSizeChange,
+      handleDetailCurrentChange,
+      applyDetailOnlyOwn,
+      resetDetailFilters,
+      applyDetailNameFilter,
+      resetDetailNameFilter,
+      checkAndUpdateDetailLogs,
+      startSmartStatusMonitoring,
+      startMonitoringIfDrawerOpen,
+      websocketStatusTitle,
+      websocketStatusType,
+      websocketStatusDescription,
+      
       // 批量操作相关
-      selectedLogs,
-      canBatchOperate,
+      canBatchView,
+      canBatchDownload,
+      canBatchReparse,
       canBatchDelete,
       isSameDevice,
       deviceCheckMessage,
-      handleSelectionChange,
-      clearSelection,
+      hasIncompleteLogs,
+      incompleteLogsMessage,
       handleBatchAnalyze,
       handleBatchDownload,
       handleBatchDelete,
@@ -1424,27 +2266,38 @@ export default {
       showNameFilterPanel,
       showDeviceFilterPanel,
       nameTimePrefix,
-      onlyOwn,
+      deviceFilterValue,
       applyNameFilter,
       resetNameFilter,
       applyDeviceFilter,
       resetDeviceFilter,
-      applyOnlyOwn,
       resetAllFilters,
-      startStatusMonitoring
+      startStatusMonitoring,
+      // 新增函数
+      getBatchViewTitle,
+      getBatchReparseTitle
     }
   }
 }
 </script>
 
 <style scoped>
+.websocket-status-section {
+  margin-right: 16px;
+}
+
+.websocket-status-banner {
+  margin-bottom: 16px;
+}
+
+.status-alert {
+  margin-bottom: 0;
+}
 .logs-container {
   height: 100%;
 }
 
-.upload-card {
-  margin-bottom: 20px;
-}
+
 
 .card-header {
   display: flex;
@@ -1472,17 +2325,19 @@ export default {
 
 .only-own-section,
 .reset-section,
-.refresh-section {
+.refresh-section,
+.upload-section {
   flex: 0 0 auto;
 }
 
 /* 统一按钮样式与对齐 */
 .only-own-section .el-button,
 .reset-section .el-button,
-.refresh-section .el-button {
-  height: 28px;
-  line-height: 26px;
-  padding: 0 12px;
+.refresh-section .el-button,
+.upload-section .el-button {
+  height: 32px;
+  line-height: 30px;
+  padding: 0 16px;
 }
 
 .only-own-section .el-checkbox {
@@ -1491,10 +2346,90 @@ export default {
   height: 28px;
 }
 
-.upload-actions {
-  margin-top: 20px;
+/* 列头筛选样式 */
+.col-header {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-trigger {
+  cursor: pointer;
+  color: #909399;
+  transition: color 0.3s;
+}
+
+.filter-trigger:hover {
+  color: #409eff;
+}
+
+.filter-trigger.active {
+  color: #409eff;
+}
+
+.filter-panel {
+  padding: 12px;
+}
+
+.filter-title {
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.filter-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+
+
+.key-input-section {
+  margin-top: 15px;
+}
+
+.key-input-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.key-separator {
+  color: #666;
+  font-size: 14px;
+}
+
+.key-file-info {
+  margin-top: 10px;
+}
+
+.key-error {
+  margin-top: 10px;
+}
+
+.device-input-section {
+  margin-top: 15px;
+}
+
+.device-input-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.device-error {
+  margin-top: 10px;
+}
+
+.device-info-section {
+  margin-top: 15px;
+}
+
+.device-info-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .key-input-section {
@@ -1738,6 +2673,89 @@ export default {
   margin-left: 4px;
   cursor: help;
   font-size: 14px;
+}
+
+/* 设备详情相关样式 */
+.device-detail-content {
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.device-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.device-info h3 {
+  margin: 0 0 10px 0;
+  color: #303133;
+  font-size: 18px;
+}
+
+.device-info p {
+  margin: 5px 0;
+  color: #606266;
+  font-size: 14px;
+}
+
+.device-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.detail-logs-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.detail-header h4 {
+  margin: 0;
+  color: #303133;
+  font-size: 16px;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.detail-actions .batch-section {
+  flex: 1 1 auto;
+  min-width: 240px;
+}
+
+.detail-actions .only-own-section,
+.detail-actions .reset-section,
+.detail-actions .refresh-section {
+  flex: 0 0 auto;
+}
+
+.detail-actions .batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 /* 响应式布局 */

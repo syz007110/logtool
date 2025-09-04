@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const { 
   getLogs, 
+  getLogsByDevice,
   uploadLog, 
   parseLog, 
   downloadLog, 
@@ -24,6 +25,13 @@ const {
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
+const { createRateLimitersWithFallback } = require('../config/rateLimit');
+
+// 创建速率限制器（带降级机制）
+const rateLimiters = createRateLimitersWithFallback();
+
+// 应用批量搜索速率限制（可通过环境变量禁用）
+router.get('/entries/batch', auth, checkLogPermission('read_all'), rateLimiters.batchSearch, getBatchLogEntries);
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
 const storage = multer.diskStorage({
@@ -37,6 +45,9 @@ const upload = multer({ storage });
 
 // 日志列表 - 根据用户角色决定查看权限
 router.get('/', auth, checkLogPermission('read_all'), getLogs);
+
+// 获取按设备分组的日志列表
+router.get('/by-device', auth, checkLogPermission('read_all'), getLogsByDevice);
 
 // 获取队列状态
 router.get('/queue/status', auth, checkPermission('log:read_own'), getQueueStatus);
@@ -65,9 +76,6 @@ router.get('/:id/download', auth, checkPermission('log:download'), downloadLog);
 router.delete('/:id', auth, checkLogPermission('delete'), deleteLog);
 // 获取日志明细 - 根据用户角色决定查看权限
 router.get('/:id/entries', auth, checkLogPermission('read_all'), getLogEntries);
-
-// 批量获取日志明细（用于分析功能）
-router.get('/entries/batch', auth, checkLogPermission('read_all'), getBatchLogEntries);
 
 // 批量导出日志明细 CSV（服务端流式导出）
 router.get('/entries/export', auth, checkLogPermission('read_all'), exportBatchLogEntriesCSV);

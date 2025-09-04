@@ -33,6 +33,18 @@ const actions = {
     }
   },
 
+  async fetchLogsByDevice({ commit }, params = {}) {
+    commit('SET_LOADING', true)
+    try {
+      const response = await api.logs.getByDevice(params)
+      return response
+    } catch (error) {
+      throw error
+    } finally {
+      commit('SET_LOADING', false)
+    }
+  },
+
   async uploadLog({ commit }, formData) {
     try {
       const response = await api.logs.upload(formData)

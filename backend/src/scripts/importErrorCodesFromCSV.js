@@ -5,7 +5,28 @@ const { sequelize } = require('../models');
 const ErrorCode = require('../models/error_code');
 
 async function importErrorCodesFromCSV(csvFilePath) {
-  await sequelize.sync();
+  // 移除 sequelize.sync()，因为表结构应该已经通过SQL脚本创建
+  // 直接检查数据库连接和表是否存在
+  try {
+    await sequelize.authenticate();
+    console.log('✅ 数据库连接成功，开始导入数据...');
+    
+    // 检查表是否存在
+    const tableExists = await sequelize.query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'error_codes'",
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    
+    if (tableExists[0].count === 0) {
+      throw new Error('error_codes 表不存在，请先运行 init_database.sql 创建数据库结构');
+    }
+    
+    console.log('✅ error_codes 表存在，可以开始导入数据');
+  } catch (error) {
+    console.error('❌ 数据库检查失败:', error.message);
+    throw error;
+  }
+  
   const errorCodes = [];
 
   return new Promise((resolve, reject) => {

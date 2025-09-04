@@ -210,16 +210,16 @@ function isPowerOffEvent(errorCode, p1, p2) {
 }
 
 /**
- * 检测参数值是否大于10000
+ * 检测参数值是否大于100000
  * @param {number} p1 - 参数1
  * @param {number} p2 - 参数2
  * @param {number} p3 - 参数3
  * @param {number} p4 - 参数4
- * @returns {boolean} 是否有参数值大于10000
+ * @returns {boolean} 是否有参数值大于100000
  */
 function hasLargeParameterValue(p1, p2, p3, p4) {
-  return Math.abs(p1) > 1800000 || Math.abs(p2) > 1800000 || Math.abs(p3) > 1800000 || Math.abs(p4) > 1800000;
-}
+  return Math.abs(p1) > 2000000 || Math.abs(p2) > 2000000 || Math.abs(p3) > 2000000 || Math.abs(p4) > 2000000;
+}                    
 
 /**
  * 解析单行日志
@@ -307,8 +307,10 @@ function decryptLogContent(content, key) {
   let errorCount = 0;
   let currentKey = key; // 当前使用的密钥
   let useDefaultKey = false; // 是否使用默认密钥
-  let powerOnWithLargeParams = false; // 是否检测到参数值大于10000的开机事件
+  let powerOnWithLargeParams = false; // 是否检测到参数值大于100000的开机事件
   let isFirstLogEntry = true; // 标记是否为第一条日志
+  
+  // 新增：解密失败检测（在测试阶段进行）
   
   // 性能优化：批量错误收集，减少日志输出频率
   const errorBatch = [];
@@ -318,6 +320,68 @@ function decryptLogContent(content, key) {
   console.log(`新日志文件开始，使用原始密钥: ${key}`);
   if (isLargeFile) {
     console.log(`📊 检测到大文件 (${lines.length} 行)，启用性能优化模式`);
+  }
+  
+  // 新增：先尝试解密前几行来检测密钥是否正确
+  const testLines = Math.min(10, lines.length); // 测试前10行
+  let userKeyTestFailed = false;
+  let defaultKeyTestFailed = false;
+  
+  console.log(`🔍 开始密钥有效性检测，测试前 ${testLines} 行`);
+  
+  for (let i = 0; i < testLines; i++) {
+    const line = lines[i];
+    
+    try {
+      // 尝试用户密钥
+      const userEntry = translatePerLine(line, key);
+      const userP1 = parseInt(userEntry.param1) || 0;
+      const userP2 = parseInt(userEntry.param2) || 0;
+      const userP3 = parseInt(userEntry.param3) || 0;
+      const userP4 = parseInt(userEntry.param4) || 0;
+      
+      if (hasLargeParameterValue(userP1, userP2, userP3, userP4)) {
+        userKeyTestFailed = true;
+        console.log(`用户密钥测试失败，第${i+1}行参数异常: p1=${userP1}, p2=${userP2}, p3=${userP3}, p4=${userP4}`);
+      }
+      
+      // 尝试默认密钥
+      const defaultEntry = translatePerLine(line, DEFAULT_KEY);
+      const defaultP1 = parseInt(defaultEntry.param1) || 0;
+      const defaultP2 = parseInt(defaultEntry.param2) || 0;
+      const defaultP3 = parseInt(defaultEntry.param3) || 0;
+      const defaultP4 = parseInt(defaultEntry.param4) || 0;
+      
+      if (hasLargeParameterValue(defaultP1, defaultP2, defaultP3, defaultP4)) {
+        defaultKeyTestFailed = true;
+        console.log(`默认密钥测试失败，第${i+1}行参数异常: p1=${defaultP1}, p2=${defaultP2}, p3=${defaultP3}, p4=${defaultP4}`);
+      }
+      
+    } catch (error) {
+      // 如果解密失败，记录错误但不中断测试
+      console.log(`密钥测试第${i+1}行解密失败: ${error.message}`);
+    }
+  }
+  
+  // 如果两个密钥都失败了，直接抛出解密失败错误
+  if (userKeyTestFailed && defaultKeyTestFailed) {
+    console.log(`❌ 解密失败：用户密钥和默认密钥都出现参数大于100000的情况`);
+    throw new Error('解密失败：用户密钥和默认密钥都出现参数大于100000的情况');
+  }
+  
+  // 根据测试结果选择初始密钥
+  if (userKeyTestFailed && !defaultKeyTestFailed) {
+    console.log(`用户密钥测试失败，使用默认密钥进行解密`);
+    currentKey = DEFAULT_KEY;
+    useDefaultKey = true;
+  } else if (!userKeyTestFailed && defaultKeyTestFailed) {
+    console.log(`默认密钥测试失败，使用用户密钥进行解密`);
+    currentKey = key;
+    useDefaultKey = false;
+  } else {
+    console.log(`密钥测试通过，使用用户密钥进行解密`);
+    currentKey = key;
+    useDefaultKey = false;
   }
   
   for (let i = 0; i < lines.length; i++) {
@@ -330,17 +394,33 @@ function decryptLogContent(content, key) {
     }
     
     try {
-      // 先尝试使用当前密钥解密
+      // 使用当前密钥解密
       let entry;
+      
       try {
         entry = translatePerLine(line, currentKey);
       } catch (error) {
-        // 如果解密失败，尝试使用默认密钥
-        if (!useDefaultKey) {
+        // 如果当前密钥解密失败，尝试使用另一个密钥
+        if (currentKey === key && !useDefaultKey) {
           console.log(`使用原始密钥解密失败，尝试使用默认密钥: ${DEFAULT_KEY}`);
-          entry = translatePerLine(line, DEFAULT_KEY);
-          currentKey = DEFAULT_KEY;
-          useDefaultKey = true;
+          try {
+            entry = translatePerLine(line, DEFAULT_KEY);
+            currentKey = DEFAULT_KEY;
+            useDefaultKey = true;
+          } catch (defaultError) {
+            // 两个密钥都失败了
+            throw error;
+          }
+        } else if (currentKey === DEFAULT_KEY && !useDefaultKey) {
+          console.log(`使用默认密钥解密失败，尝试使用用户密钥: ${key}`);
+          try {
+            entry = translatePerLine(line, key);
+            currentKey = key;
+            useDefaultKey = false;
+          } catch (userError) {
+            // 两个密钥都失败了
+            throw error;
+          }
         } else {
           throw error;
         }
@@ -484,13 +564,21 @@ function decryptLogContent(content, key) {
   console.log(`   🔑 最终使用密钥: ${currentKey}`);
   console.log(`   🔄 是否切换密钥: ${useDefaultKey ? '是' : '否'}`);
   
+  // 新增：解密失败检测结果
+  if (userKeyTestFailed) {
+    console.log(`   ⚠️ 用户密钥测试失败: 出现参数大于100000的情况`);
+  }
+  if (defaultKeyTestFailed) {
+    console.log(`   ⚠️ 默认密钥测试失败: 出现参数大于100000的情况`);
+  }
+  
   // 性能优化：大文件时显示处理时间估算
   if (isLargeFile) {
     console.log(`   ⏱️ 大文件处理完成`);
   }
   
   if (powerOnWithLargeParams) {
-    console.log(`⚠️ 注意：检测到参数值大于10000的开机事件，但未检测到对应的关机事件，日志可能不完整`);
+    console.log(`⚠️ 注意：检测到参数值大于100000的开机事件，但未检测到对应的关机事件，日志可能不完整`);
   }
   if (useDefaultKey) {
     console.log(`⚠️ 注意：新日志文件使用了默认密钥进行解密`);
