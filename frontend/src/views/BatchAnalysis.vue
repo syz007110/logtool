@@ -133,122 +133,8 @@
 
         <!-- 数据表格 -->
         <div v-else class="table-container">
-          <!-- 虚拟滚动表格 -->
-          <VirtualTable
-            v-if="useVirtualScroll"
-            ref="virtualTableRef"
-            :data="paginatedEntries"
-            :columns="tableColumns"
-            :item-height="60"
-            :buffer="10"
-            :row-class-name="getRowClassName"
-            style="height: 60vh;"
-            @load-more="handleLoadMore"
-          >
-                          <template #color_mark="{ row }">
-                <el-popover
-                  placement="bottom-start"
-                  :width="200"
-                  trigger="click"
-                  popper-class="color-picker-popover"
-                >
-                  <template #reference>
-                    <div 
-                      class="color-indicator"
-                      :class="{ 'has-color': row.color_mark }"
-                      :style="row.color_mark ? { backgroundColor: row.color_mark } : {}"
-                    ></div>
-            </template>
-                  <div class="color-picker-menu">
-                    <div 
-                      v-for="color in colorOptions"
-                      :key="color.value || 'none'"
-                      class="color-option"
-                      :class="{ 
-                        active: row.color_mark === color.value,
-                        'no-color': color.value === null
-                      }"
-                      :style="color.value ? { backgroundColor: color.value } : {}"
-                      @click="selectColor(row, color.value)"
-                    >
-                      <div v-if="row.color_mark === color.value" class="checkmark">✓</div>
-                    </div>
-                  </div>
-                </el-popover>
-              </template>
-            <template #file_info="{ row }">
-              <div class="file-info-cell">
-                <div class="timestamp">{{ formatTimestamp(row.timestamp) }}</div>
-                <div class="file-name">{{ row.log_name }}</div>
-              </div>
-            </template>
-            <template #explanation="{ row }">
-              <ExplanationCell :text="row.explanation" />
-            </template>
-            <template #parameters="{ row }">
-              <div class="parameters-cell">
-                <div class="param-content">
-                  <span v-for="(param, index) in [row.param1, row.param2, row.param3, row.param4].filter(p => p)" :key="index" class="param-item">{{ param }}</span>
-                </div>
-                <div class="param-actions">
-                  <el-button 
-                    size="small" 
-                    type="primary" 
-                    @click="handleVisualization(row)"
-                    class="visualization-btn"
-                  >
-                    可视化
-                  </el-button>
-                </div>
-              </div>
-            </template>
-            <template #remarks="{ row }">
-              <el-input 
-                v-model="row.remarks" 
-                placeholder="添加备注"
-                size="small"
-                type="textarea"
-                :rows="1"
-                resize="none"
-              />
-            </template>
-            <template #operations="{ row }">
-              <div class="operations-cell">
-                <!-- 操作标签按钮 -->
-                <el-tag 
-                  size="small" 
-                  type="success" 
-                  class="operation-tag"
-                  @click="handleContextAnalysis(row)"
-                  style="cursor: pointer;"
-                >
-                  查看上下文
-                </el-tag>
-                <el-tag 
-                  size="small" 
-                  type="warning" 
-                  class="operation-tag"
-                  @click="handleLogCapture(row)"
-                  style="cursor: pointer;"
-                >
-                  日志摘取
-                </el-tag>
-                <el-tag 
-                  size="small" 
-                  type="primary" 
-                  class="operation-tag"
-                  @click="handleRemarks(row)"
-                  style="cursor: pointer;"
-                >
-                  备注
-                </el-tag>
-              </div>
-            </template>
-          </VirtualTable>
-          
-          <!-- 传统表格（备用） -->
+          <!-- 数据表格 -->
           <el-table 
-            v-else
             :data="paginatedEntries" 
             style="width: 100%"
             v-loading="loading"
@@ -256,6 +142,7 @@
             :stripe="false"
             table-layout="fixed"
             :row-class-name="getRowClassName"
+            :row-style="getRowStyle"
             @current-change="forceRelayout"
             @selection-change="forceRelayout"
             @sort-change="forceRelayout"
@@ -263,13 +150,14 @@
             @expand-change="forceRelayout"
           >
             <!-- 标记颜色列 -->
-            <el-table-column prop="color_mark" align="center">
+            <el-table-column prop="color_mark" width="4%">
               <template #header>
                 <div class="col-header">
-                  <span>标记</span>
+                  <span></span>
                 </div>
               </template>
               <template #default="{ row }">
+                <div class="color-mark-cell">
                   <el-popover
                     placement="bottom-start"
                     :width="200"
@@ -299,50 +187,73 @@
                       </div>
                     </div>
                   </el-popover>
+                </div>
               </template>
             </el-table-column>
             
-            <!-- 时间戳/文件名列 -->
-            <el-table-column prop="file_info">
+            <!-- 文件名/时间戳列 -->
+            <el-table-column prop="file_info" width="20%">
               <template #header>
                 <div class="col-header">
-                  <span>时间戳 / 文件名</span>
+                  <span>时间戳（文件名）</span>
                 </div>
               </template>
               <template #default="{ row }">
+                  <el-tooltip
+                    :content="row.log_name"
+                    placement="top"
+                    effect="dark"
+                    popper-class="explanation-tooltip dark"
+                    :teleported="true"
+                    :show-after="120"
+                  >
                 <div class="file-info-cell">
                   <div class="timestamp">{{ formatTimestamp(row.timestamp) }}</div>
-                  <div class="file-name">{{ row.log_name }}</div>
                 </div>
+                  </el-tooltip>
               </template>
             </el-table-column>
             
             <!-- 故障码列 -->
-            <el-table-column prop="error_code" sortable>
+            <el-table-column prop="error_code" width="12%">
               <template #header>
                 <div class="col-header">
                   <span>故障码</span>
                 </div>
               </template>
+              <template #default="{ row }">
+                <div class="error-code-cell" @click="toggleErrorCodeStatistics(row.error_code)">
+                  {{ row.error_code }}
+                  <span 
+                    v-if="showStatisticsForErrorCode === row.error_code && getErrorCodeCountDisplay(row.error_code)" 
+                    class="error-code-badge"
+                    :title="getErrorCodeStatisticsTooltip(row.error_code)"
+                  >
+                    {{ getErrorCodeCountDisplay(row.error_code) }}
+                  </span>
+                </div>
+              </template>
             </el-table-column>
             
             <!-- 释义列 -->
-            <el-table-column prop="explanation">
+            <el-table-column prop="explanation" width="45%">
               <template #header>
                 <div class="col-header">
                   <span>释义</span>
                 </div>
               </template>
               <template #default="{ row }">
-                <ExplanationCell :text="row.explanation" />
+                <div class="explanation-cell">
+                  <ExplanationCell :text="row.explanation" />
+                </div>
               </template>
             </el-table-column>
             
             <!-- 参数列 -->
-            <el-table-column prop="parameters">
+            <el-table-column prop="parameters" width="15%">
               <template #header>
                 <div class="col-header">
-                  <span>参数1 / 参数2 / 参数3 / 参数4</span>
+                  <span>参数(1~4)</span>
                 </div>
               </template>
               <template #default="{ row }">
@@ -351,14 +262,20 @@
                     <span v-for="(param, index) in [row.param1, row.param2, row.param3, row.param4].filter(p => p)" :key="index" class="param-item">{{ param }}</span>
                   </div>
                   <div class="param-actions">
-                    <el-button 
-                      size="small" 
-                      type="primary" 
-                      @click="handleVisualization(row)"
-                      class="visualization-btn"
+                    <el-tooltip 
+                      :content="chartThumbnails.length >= 5 ? '已有5张可视化数据表' : ''"
+                      :disabled="chartThumbnails.length < 5"
+                      placement="top"
                     >
-                      可视化
-                    </el-button>
+                      <el-button 
+                        text
+                        @click="handleVisualization(row)"
+                        class="visualization-btn"
+                        :disabled="chartThumbnails.length >= 5"
+                      >
+                        <el-icon><DataAnalysis /></el-icon>
+                      </el-button>
+                    </el-tooltip>
                   </div>
                 </div>
               </template>
@@ -366,7 +283,7 @@
             
             
             <!-- 操作列 -->
-            <el-table-column prop="operations">
+            <el-table-column prop="operations" width="13%">
               <template #header>
                 <div class="col-header">
                   <span>操作</span>
@@ -374,34 +291,28 @@
               </template>
               <template #default="{ row }">
                 <div class="operations-cell">
-                  <!-- 操作标签按钮 -->
-                  <el-tag 
-                    size="small" 
-                    type="success" 
-                    class="operation-tag"
+                  <!-- 操作图标按钮 -->
+                  <el-button 
+                    text
                     @click="handleContextAnalysis(row)"
-                    style="cursor: pointer;"
+                    class="operation-btn"
                   >
-                    查看上下文
-                  </el-tag>
-                  <el-tag 
-                    size="small" 
-                    type="warning" 
-                    class="operation-tag"
+                    <el-icon><View /></el-icon>
+                  </el-button>
+                  <el-button 
+                    text
                     @click="handleLogCapture(row)"
-                    style="cursor: pointer;"
+                    class="operation-btn"
                   >
-                    日志摘取
-                  </el-tag>
-                  <el-tag 
-                    size="small" 
-                    type="primary" 
-                    class="operation-tag"
+                    <el-icon><DocumentCopy /></el-icon>
+                  </el-button>
+                  <el-button 
+                    text
                     @click="handleRemarks(row)"
-                    style="cursor: pointer;"
+                    class="operation-btn"
                   >
-                    备注
-                  </el-tag>
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
                 </div>
               </template>
             </el-table-column>
@@ -490,8 +401,35 @@
                   class="delete-btn"
                   @click.stop="clearClipboard"
                 >
-                  <el-icon><Close /></el-icon>
+                  <el-icon><Delete /></el-icon>
                 </el-button>
+              </div>
+            </div>
+            
+            <!-- 图表缩略图列表 -->
+            <div class="chart-thumbnails" v-if="chartThumbnails.length > 0">
+              <div class="thumbnails-title">可视化</div>
+              <div class="thumbnail-list">
+                <div 
+                  v-for="chart in chartThumbnails" 
+                  :key="chart.id"
+                  class="chart-thumbnail-item"
+                  @click="showChartDetail(chart)"
+                >
+                  <div class="thumbnail-chart" :id="`chart-thumb-${chart.id}`"></div>
+                  <div class="thumbnail-info">
+                    <div class="thumbnail-time">{{ formatTimestamp(chart.timestamp) }}</div>
+                  </div>
+                  <el-button 
+                    size="small" 
+                    type="danger" 
+                    circle 
+                    class="thumbnail-delete-btn"
+                    @click.stop="deleteChartThumbnail(chart.id)"
+                  >
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
@@ -510,12 +448,14 @@
               v-model="selectedParameter" 
               placeholder="选择参数"
               style="width: 100%"
+              :key="selectKey"
             >
               <el-option 
-                v-for="(param, index) in availableParameters" 
-                :key="index"
-                :label="`参数${index + 1}: ${param}`"
-                :value="index + 1"
+                v-for="idx in 4" 
+                :key="idx"
+                :label="paramNames[idx - 1]"
+                :value="idx"
+                :disabled="!isParameterAvailable(idx)"
               />
             </el-select>
             <div class="dialog-actions">
@@ -565,7 +505,7 @@
         <el-dialog
           v-model="chartDetailVisible"
           title="数据可视化图表"
-          width="80%"
+          width="56%"
           :close-on-click-modal="false"
         >
           <div class="chart-detail">
@@ -573,12 +513,17 @@
               <span>{{ chartTitle }}</span>
               <div class="chart-actions">
                 <el-button size="small" type="success" @click="exportChartAsImage">
+                  <el-icon><Download /></el-icon>
                   另存为图片
+                </el-button>
+                <el-button size="small" type="danger" @click="deleteCurrentChart">
+                  <el-icon><Delete /></el-icon>
+                  删除图表
                 </el-button>
               </div>
             </div>
             <div class="chart-container" ref="chartContainer">
-              <div id="visualizationChart" style="width: 100%; height: 400px;"></div>
+              <div id="visualizationChart" style="width: 100%; height: 450px;"></div>
             </div>
           </div>
         </el-dialog>
@@ -689,10 +634,9 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponen
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import api from '@/api'
-import VirtualTable from '@/components/VirtualTable.vue'
 
 export default {
   name: 'BatchAnalysis',
@@ -702,7 +646,6 @@ export default {
     ArrowLeft,
     DataAnalysis,
     Warning,
-    VirtualTable,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { text: { type: String, default: '' } },
@@ -753,7 +696,7 @@ export default {
           default: () => h('span', {
             ref: containerRef,
             class: 'explanation-ellipsis',
-            style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+            style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:#606266;',
             onMouseenter: handleMouseEnter
           }, props.text)
         })
@@ -943,11 +886,7 @@ export default {
     const advancedMode = ref(false)
     const useLocalAdvanced = ref(false)
     
-    // 虚拟滚动相关
-    const useVirtualScroll = ref(true)
-    // 是否允许滚动自动加载下一页（按需开启，默认关闭）
-    const allowAutoLoad = ref(false)
-    const virtualTableRef = ref(null)
+    // 已移除虚拟化表格，使用后端分页
     
     // 上下文分析相关
     const contextAnalysisVisible = ref(false)
@@ -966,27 +905,283 @@ export default {
     const parameterSelectVisible = ref(false)
     const selectedParameter = ref(null)
     const availableParameters = ref([])
+    const paramAvailability = ref([false, false, false, false])
+    const paramNames = ref(['参数1', '参数2', '参数3', '参数4'])
+    const selectKey = ref(0)
     const currentVisualizationRow = ref(null)
     const chartDetailVisible = ref(false)
     const chartTitle = ref('')
     const chartContainer = ref(null)
     const chartInstance = ref(null)
+    const chartThumbnails = ref([])
+    const currentChartData = ref(null)
+    
+    // 计数功能相关
+    const logCounts = ref({}) // 存储日志出现次数
+    const errorCodeCounts = ref({}) // 存储故障码出现次数
+    const globalErrorCodeCounts = ref({}) // 存储全局故障码统计（无筛选条件）
+    const filteredErrorCodeCounts = ref({}) // 存储筛选条件下的故障码统计
+    const statisticsCache = ref({}) // 统计缓存，避免重复请求
+    const showStatisticsForErrorCode = ref(null) // 控制显示哪个故障码的统计
+    
+    // 从后端获取全局统计信息（无筛选条件）
+    const fetchGlobalStatistics = async () => {
+      try {
+        const params = {
+          log_ids: selectedLogs.value.map(l => l.id).join(',')
+        }
+        
+        console.log('获取全局统计信息，参数:', params)
+        const response = await api.logs.getStatistics(params)
+        
+        if (response.data.success) {
+          globalErrorCodeCounts.value = response.data.errorCodeCounts || {}
+          
+          // 存储到sessionStorage
+          try {
+            sessionStorage.setItem('globalErrorCodeCounts', JSON.stringify(globalErrorCodeCounts.value))
+            sessionStorage.setItem('globalStatisticsTimestamp', Date.now().toString())
+          } catch (error) {
+            console.warn('存储全局统计信息失败:', error)
+          }
+          
+          console.log('全局统计信息获取成功:', {
+            globalErrorCodeCounts: Object.keys(globalErrorCodeCounts.value).length,
+            sample: Object.keys(globalErrorCodeCounts.value).slice(0, 3)
+          })
+        } else {
+          console.warn('全局统计API返回失败:', response.data)
+        }
+      } catch (error) {
+        console.error('获取全局统计信息失败:', error)
+        globalErrorCodeCounts.value = {}
+      }
+    }
+
+    // 从后端获取筛选条件下的统计信息
+    const fetchFilteredStatistics = async () => {
+      try {
+        // 构建查询参数，与loadBatchLogEntries完全一致
+        const logIds = selectedLogs.value.map(l => l.id).join(',')
+        const params = {
+          log_ids: logIds
+        }
+        
+        // 添加高级筛选条件（与loadBatchLogEntries保持一致）
+        if (advancedMode.value && leafConditionCount.value > 0) {
+          const filtersPayload = buildFiltersPayload()
+          if (filtersPayload) {
+            params.filters = JSON.stringify(filtersPayload)
+          }
+        }
+        
+        // 添加时间范围筛选（与loadBatchLogEntries保持一致）
+        if (timeRange.value && timeRange.value.length === 2) {
+          params.start_time = timeRange.value[0]
+          params.end_time = timeRange.value[1]
+        }
+        
+        // 添加关键词搜索（与loadBatchLogEntries保持一致）
+        if (searchKeyword.value) {
+          params.search = searchKeyword.value
+        }
+        
+        // 生成缓存键
+        const cacheKey = JSON.stringify(params)
+        
+        // 检查缓存
+        if (statisticsCache.value[cacheKey]) {
+          filteredErrorCodeCounts.value = statisticsCache.value[cacheKey]
+          return
+        }
+        
+        
+        const response = await api.logs.getStatistics(params)
+        
+        if (response.data.success) {
+          const newFilteredCounts = response.data.errorCodeCounts || {}
+          filteredErrorCodeCounts.value = newFilteredCounts
+          
+          // 更新缓存
+          statisticsCache.value[cacheKey] = newFilteredCounts
+          
+          // 存储到sessionStorage
+          try {
+            sessionStorage.setItem('filteredErrorCodeCounts', JSON.stringify(newFilteredCounts))
+            sessionStorage.setItem('filteredStatisticsTimestamp', Date.now().toString())
+            sessionStorage.setItem('statisticsCache', JSON.stringify(statisticsCache.value))
+          } catch (error) {
+            console.warn('存储筛选统计信息失败:', error)
+          }
+          
+          
+          
+        } else {
+          console.warn('筛选统计API返回失败:', response.data)
+        }
+      } catch (error) {
+        console.error('获取筛选统计信息失败:', error)
+        filteredErrorCodeCounts.value = {}
+      }
+    }
+
+    // 兼容性函数：保持原有接口
+    const fetchStatisticsFromBackend = async () => {
+      await fetchFilteredStatistics()
+      // 为了兼容性，同时更新原有的变量
+      errorCodeCounts.value = filteredErrorCodeCounts.value
+      logCounts.value = filteredErrorCodeCounts.value
+    }
+    
+    
+    
+    // 获取故障码出现次数（支持全局和筛选条件统计）
+    const getErrorCodeCount = (errorCode, useGlobal = false) => {
+      if (useGlobal) {
+        return globalErrorCodeCounts.value[errorCode] || 0
+      }
+      return filteredErrorCodeCounts.value[errorCode] || 0
+    }
+    
+
+    // 获取故障码统计显示文本
+    const getErrorCodeCountDisplay = (errorCode) => {
+      const globalCount = getErrorCodeCount(errorCode, true)
+      const filteredCount = getErrorCodeCount(errorCode, false)
+      
+      // 如果没有筛选条件，显示全局统计
+      if (!hasActiveFilters.value) {
+        return globalCount > 0 ? globalCount.toString() : ''
+      }
+      
+      // 有筛选条件时，显示筛选条件下的统计
+      return filteredCount > 0 ? filteredCount.toString() : ''
+    }
+
+    // 检查是否有活跃的筛选条件
+    const hasActiveFilters = computed(() => {
+      const hasSearch = !!searchKeyword.value
+      const hasAdvancedConditions = leafConditionCount.value > 0
+      
+      // 检查时间范围是否是用户主动设置的（而不是系统自动设置的完整范围）
+      const hasUserTimeRange = !!(timeRange.value && timeRange.value.length === 2 && 
+        timeRangeLimit.value && 
+        (timeRange.value[0] !== formatTimestamp(timeRangeLimit.value[0]) || 
+         timeRange.value[1] !== formatTimestamp(timeRangeLimit.value[1])))
+      
+      return !!(hasSearch || hasUserTimeRange || hasAdvancedConditions)
+    })
+    
+    // 从sessionStorage加载计数数据
+    const loadCountsFromStorage = () => {
+      try {
+        // 加载全局统计
+        const globalErrorCodeCountsData = sessionStorage.getItem('globalErrorCodeCounts')
+        if (globalErrorCodeCountsData) {
+          globalErrorCodeCounts.value = JSON.parse(globalErrorCodeCountsData)
+        }
+        
+        // 加载筛选统计
+        const filteredErrorCodeCountsData = sessionStorage.getItem('filteredErrorCodeCounts')
+        if (filteredErrorCodeCountsData) {
+          filteredErrorCodeCounts.value = JSON.parse(filteredErrorCodeCountsData)
+        }
+        
+        // 加载统计缓存
+        const statisticsCacheData = sessionStorage.getItem('statisticsCache')
+        if (statisticsCacheData) {
+          statisticsCache.value = JSON.parse(statisticsCacheData)
+        }
+        
+        // 兼容性：加载原有数据
+        const logCountsData = sessionStorage.getItem('logCounts')
+        if (logCountsData) {
+          logCounts.value = JSON.parse(logCountsData)
+        }
+        
+        const errorCodeCountsData = sessionStorage.getItem('errorCodeCounts')
+        if (errorCodeCountsData) {
+          errorCodeCounts.value = JSON.parse(errorCodeCountsData)
+        }
+        
+        console.log('从sessionStorage加载统计数据成功:', {
+          globalCount: Object.keys(globalErrorCodeCounts.value).length,
+          filteredCount: Object.keys(filteredErrorCodeCounts.value).length,
+          cacheCount: Object.keys(statisticsCache.value).length
+        })
+      } catch (error) {
+        console.warn('加载计数数据失败:', error)
+      }
+    }
+    
+    
+
+    // 切换故障码统计显示
+    const toggleErrorCodeStatistics = async (errorCode) => {
+      if (showStatisticsForErrorCode.value === errorCode) {
+        // 如果点击的是当前显示的故障码，则隐藏
+        showStatisticsForErrorCode.value = null
+      } else {
+        // 显示新的故障码统计
+        showStatisticsForErrorCode.value = errorCode
+        
+        // 如果有筛选条件，确保使用最新的筛选统计
+        if (hasActiveFilters.value) {
+          console.log('有筛选条件，重新获取筛选统计...')
+          await fetchFilteredStatistics()
+        }
+      }
+    }
+
+    // 显示故障码统计信息（用于消息提示）
+    const showErrorCodeStatistics = (errorCode) => {
+      const globalCount = getErrorCodeCount(errorCode, true)
+      const filteredCount = getErrorCodeCount(errorCode, false)
+      
+      let message = `故障码 ${errorCode} 统计信息：\n`
+      message += `全局出现次数：${globalCount}\n`
+      
+      if (hasActiveFilters.value) {
+        message += `筛选条件下出现次数：${filteredCount}`
+      } else {
+        message += `当前无筛选条件，显示全局统计`
+      }
+      
+      ElMessage.info({
+        message: message,
+        duration: 3000,
+        showClose: true
+      })
+    }
+
+    // 获取故障码统计提示信息
+    const getErrorCodeStatisticsTooltip = (errorCode) => {
+      const globalCount = getErrorCodeCount(errorCode, true)
+      const filteredCount = getErrorCodeCount(errorCode, false)
+      
+      if (hasActiveFilters.value) {
+        return `全局：${globalCount} 次，筛选后：${filteredCount} 次`
+      } else {
+        return `全局出现 ${globalCount} 次`
+      }
+    }
     
     // 颜色选项：红、黄、蓝、绿
     const colorOptions = ref([
-      { value: '#ff0000', label: '红色' },
-      { value: '#ffff00', label: '黄色' },
-      { value: '#0000ff', label: '蓝色' },
-      { value: '#00ff00', label: '绿色' },
+      { value: '#D7BDE2', label: '红色' },
+      { value: '#D1F2EB', label: '黄色' },
+      { value: '#FCF3CF', label: '蓝色' },
+      { value: '#d6eaf8', label: '绿色' },
       { value: null, label: '无' }
     ])
+    // 表格列配置（仅用于传统表格）
     const tableColumns = ref([
-      { prop: 'color_mark', label: '', width: '3%' },
-      { prop: 'file_info', label: '时间戳 / 文件名', width: '15%' },
-      { prop: 'error_code', label: '故障码', width: '8%' },
-      { prop: 'explanation', label: '释义', width: '40%' },
-      { prop: 'parameters', label: '参数（1-4）', width: '15%' },
-      { prop: 'operations', label: '操作', width: '19%' }
+      { prop: 'color_mark', label: '标记' },
+      { prop: 'file_info', label: '时间戳/文件名' },
+      { prop: 'error_code', label: '故障码' },
+      { prop: 'explanation', label: '释义' },
+      { prop: 'parameters', label: '参数(1~4)' },
+      { prop: 'operations', label: '操作' }
     ])
 
     // 高级筛选弹窗与条件
@@ -1173,6 +1368,25 @@ export default {
         const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams, signal)
         const { entries, total, totalPages: serverTotalPages, page: serverPage, minTimestamp, maxTimestamp } = response.data
         
+        // 在首次加载或重置数据时，获取统计信息
+        if (resetData && page === 1) {
+          // 并行获取全局统计和筛选统计
+          const statsPromises = []
+          
+          // 获取全局统计（仅在首次加载时）
+          if (Object.keys(globalErrorCodeCounts.value).length === 0) {
+            statsPromises.push(fetchGlobalStatistics())
+          }
+          
+          // 获取筛选统计
+          statsPromises.push(fetchFilteredStatistics())
+          
+          // 等待统计完成（不阻塞数据加载）
+          Promise.all(statsPromises).catch(error => {
+            console.warn('获取统计信息失败:', error)
+          })
+        }
+        
         // 处理返回的数据
         const idToName = new Map(selectedLogs.value.map(l => [l.id, l.original_name]))
         const processedEntries = entries.map(entry => ({
@@ -1231,6 +1445,10 @@ export default {
         ElMessage.error('批量分析失败: ' + (error.response?.data?.message || error.message))
       } finally {
         loading.value = false
+        // 获取统计信息（优先使用后端，失败时使用前端计算）
+        if (batchLogEntries.value.length > 0) {
+          await fetchStatisticsFromBackend()
+        }
       }
     }
 
@@ -1311,7 +1529,7 @@ export default {
     }
 
     // 时间范围变化处理
-    const handleTimeRangeChange = () => {
+    const handleTimeRangeChange = async () => {
       // 越界纠正
       if (timeRangeLimit.value && timeRange.value && timeRange.value.length === 2) {
         const [min, max] = timeRangeLimit.value
@@ -1330,7 +1548,10 @@ export default {
       }
       
       currentPage.value = 1
-      loadBatchLogEntries(1, true)
+      await loadBatchLogEntries(1, true)
+      
+      // 获取筛选统计
+      await fetchFilteredStatistics()
     }
 
     // 清除筛选
@@ -1445,6 +1666,50 @@ export default {
       const minutes = String(date.getMinutes()).padStart(2, '0')
       const seconds = String(date.getSeconds()).padStart(2, '0')
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+    }
+
+    // 智能时间戳格式化函数
+    const getSmartTimeFormatter = (data) => {
+      if (!data || data.length < 2) return formatTimestamp
+      
+      const startTime = new Date(data[0][0])
+      const endTime = new Date(data[data.length - 1][0])
+      const timeSpan = endTime.getTime() - startTime.getTime()
+      
+      // 跨度 < 1 分钟时，显示 HH:mm:ss
+      if (timeSpan < 60 * 1000) {
+        return (timestamp) => {
+          const date = new Date(timestamp)
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          const seconds = String(date.getSeconds()).padStart(2, '0')
+          return `${hours}:${minutes}:${seconds}`
+        }
+      }
+      // 跨度 > 1 天时，显示 MM-dd
+      else if (timeSpan > 24 * 60 * 60 * 1000) {
+        return (timestamp) => {
+          const date = new Date(timestamp)
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${month}-${day}`
+        }
+      }
+      // 跨度 > 1 小时时，显示 HH:mm 或 MM-dd HH:mm
+      else if (timeSpan > 60 * 60 * 1000) {
+        return (timestamp) => {
+          const date = new Date(timestamp)
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          const hours = String(date.getHours()).padStart(2, '0')
+          const minutes = String(date.getMinutes()).padStart(2, '0')
+          return `${month}-${day} ${hours}:${minutes}`
+        }
+      }
+      // 默认显示完整时间戳
+      else {
+        return formatTimestamp
+      }
     }
 
     // 格式化文件大小
@@ -1913,6 +2178,9 @@ export default {
       advancedMode.value = true
       currentPage.value = 1
       await loadBatchLogEntries(1, true)
+      
+      // 获取筛选统计
+      await fetchFilteredStatistics()
     }
 
     // 保存颜色标记到sessionStorage
@@ -1952,13 +2220,11 @@ export default {
         row.color_mark = colorValue
       }
       
-      console.log('颜色选择:', row.color_mark, row)
       // 保存到sessionStorage
       saveColorMarksToStorage()
       // 强制触发响应式更新
       nextTick(() => {
         // 确保颜色变化能够触发行样式更新
-        console.log('行样式类名:', getRowClassName({ row }))
       })
       // TODO: 保存颜色标记到后端
     }
@@ -1975,10 +2241,30 @@ export default {
           case '#00ff00': className = 'row-marked-green'; break
           default: className = ''
         }
-        console.log('行样式类名:', className, '颜色值:', row.color_mark)
+        console.log('行样式类名:', className, '颜色值:', row.color_mark, '行数据:', row)
         return className
       }
       return ''
+    }
+
+    // 根据颜色标记设置行的内联样式
+    const getRowStyle = ({ row }) => {
+      if (row.color_mark) {
+        // 将十六进制颜色转换为rgba格式
+        const hexToRgba = (hex, alpha = 0.2) => {
+          const r = parseInt(hex.slice(1, 3), 16)
+          const g = parseInt(hex.slice(3, 5), 16)
+          const b = parseInt(hex.slice(5, 7), 16)
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`
+        }
+        
+        const backgroundColor = hexToRgba(row.color_mark, 0.2)
+        console.log('行内联样式:', backgroundColor, '颜色值:', row.color_mark)
+        return {
+          backgroundColor: backgroundColor
+        }
+      }
+      return {}
     }
 
     // 操作按钮处理方法
@@ -2007,6 +2293,7 @@ export default {
       
       // 添加到摘取板
       clipboardEntries.value.push({
+        type: 'log', // 添加类型标识
         id: row.id,
         timestamp: row.timestamp,
         error_code: row.error_code,
@@ -2029,18 +2316,20 @@ export default {
 
     // 更新剪贴板内容
     const updateClipboardContent = () => {
-      clipboardContent.value = clipboardEntries.value.map(entry => {
-        if (entry.type === 'chart') {
-          // 图表类型的数据
-          const timestamp = formatTimestamp(entry.timestamp)
-          return `[图表] ${timestamp} - ${entry.title} (参数${entry.parameter}, ${entry.dataCount}条数据)`
-        } else {
-          // 普通日志条目
-          const timestamp = formatTimestamp(entry.timestamp)
-          const params = [entry.param1, entry.param2, entry.param3, entry.param4].filter(p => p).join(' ')
-          return `${timestamp} ${entry.error_code} ${entry.explanation} ${params}`.trim()
-        }
-      }).join('\n')
+      clipboardContent.value = clipboardEntries.value
+        .filter(entry => entry && entry !== null && entry !== undefined)
+        .map(entry => {
+          if (entry.type === 'chart') {
+            // 图表类型的数据
+            const timestamp = formatTimestamp(entry.timestamp)
+            return `[图表] ${timestamp} - ${entry.title} (参数${entry.parameter}, ${entry.dataCount}条数据)`
+          } else {
+            // 普通日志条目
+            const timestamp = formatTimestamp(entry.timestamp)
+            const params = [entry.param1, entry.param2, entry.param3, entry.param4].filter(p => p).join(' ')
+            return `${timestamp} ${entry.error_code} ${entry.explanation} ${params}`.trim()
+          }
+        }).join('\n')
     }
 
     // 清空剪贴板
@@ -2096,20 +2385,80 @@ export default {
     }
 
     // 可视化功能
-    const handleVisualization = (row) => {
-      // 获取当前行的可用参数
-      const params = [row.param1, row.param2, row.param3, row.param4].filter(p => p && p.trim())
+    const handleVisualization = async (row) => {
+      // 记录各参数是否可用
+      const params = [row.param1, row.param2, row.param3, row.param4]
+      paramAvailability.value = params.map(p => !!(p && String(p).trim()))
       
-      if (params.length === 0) {
+      if (!paramAvailability.value.some(v => v)) {
         ElMessage.warning('该日志条目没有可用的参数进行可视化')
         return
       }
       
-      // 设置可用参数和当前行
-      availableParameters.value = params
+      // 先尝试获取故障码参数名称
+      let fetchedParamNames = ['参数1', '参数2', '参数3', '参数4'] // 默认名称
+      
+      try {
+        // 从日志的error_code中提取故障码和子系统号
+        const fullErrorCode = row.error_code.toUpperCase()
+        let errorCodeToQuery = fullErrorCode
+        let subsystemToQuery = 1
+        
+        // 如果error_code格式是 "子系统号+6位故障码" (如 "800405E")
+        if (fullErrorCode.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0) // 第一位是子系统号
+          const faultCodePart = fullErrorCode.substring(3) // 取后4位作为故障码部分
+          errorCodeToQuery = `0X${faultCodePart}` // 添加0X前缀
+        }
+        // 如果error_code格式是 "子系统号+故障码" (如 "10X010A")
+        else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0)
+          errorCodeToQuery = fullErrorCode.substring(1)
+        }
+        // 如果error_code格式是纯故障码 (如 "0X010A")
+        else if (/^0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          errorCodeToQuery = fullErrorCode
+        }
+        
+        // 查询故障码参数名称
+        const errorCodeResponse = await api.errorCodes.getByCodeAndSubsystem(
+          errorCodeToQuery,
+          subsystemToQuery
+        )
+        
+        if (errorCodeResponse.data && errorCodeResponse.data.errorCode) {
+          const errorCodeInfo = errorCodeResponse.data.errorCode
+          // 使用故障码表中的参数名称
+          fetchedParamNames = [
+            errorCodeInfo.param1 || '参数1',
+            errorCodeInfo.param2 || '参数2', 
+            errorCodeInfo.param3 || '参数3',
+            errorCodeInfo.param4 || '参数4'
+          ]
+        }
+      } catch (error) {
+        console.warn('获取故障码参数名称失败，使用默认名称:', error)
+      }
+      
+      // 保留原始展示值用于图例命名
+      availableParameters.value = params.map(p => (p && String(p).trim()) ? String(p).trim() : '')
+      // 保存参数名称用于下拉菜单显示
+      paramNames.value = fetchedParamNames
       currentVisualizationRow.value = row
       selectedParameter.value = null
-      parameterSelectVisible.value = true
+      
+      // 强制重新渲染select组件
+      selectKey.value++
+      
+      // 使用nextTick确保响应式更新完成后再显示对话框
+      nextTick(() => {
+        parameterSelectVisible.value = true
+      })
+    }
+
+    const isParameterAvailable = (idx) => {
+      // idx 为 1-4
+      return !!paramAvailability.value[idx - 1]
     }
 
     const confirmVisualization = () => {
@@ -2122,28 +2471,97 @@ export default {
       generateChart()
     }
 
-    const generateChart = () => {
+    const generateChart = async () => {
       if (!currentVisualizationRow.value) return
       
       const row = currentVisualizationRow.value
-      const paramIndex = selectedParameter.value - 1
+      const paramIndex = selectedParameter.value - 1 // 将1,2,3,4转换为0,1,2,3
       const paramValue = availableParameters.value[paramIndex]
       
-      // 设置图表标题
-      chartTitle.value = `${formatTimestamp(row.timestamp)} - 参数${selectedParameter.value}可视化`
-      
-      // 显示图表详情弹窗
-      chartDetailVisible.value = true
-      
-      // 等待DOM更新后生成图表
-      nextTick(() => {
-        createChart(row, paramValue)
-      })
+      try {
+        // 查询故障码表中的参数信息
+        // 从日志的error_code中提取故障码和子系统号
+        const fullErrorCode = row.error_code.toUpperCase() // 确保大写
+        let errorCodeToQuery = fullErrorCode
+        let subsystemToQuery = 1 // 默认子系统号
+        
+        // 如果error_code格式是 "子系统号+6位故障码" (如 "800405E")
+        if (fullErrorCode.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0) // 第一位是子系统号
+          const faultCodePart = fullErrorCode.substring(3) // 取后4位作为故障码部分
+          errorCodeToQuery = `0X${faultCodePart}` // 添加0X前缀
+        }
+        // 如果error_code格式是 "子系统号+故障码" (如 "10X010A")
+        else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0) // 第一位是子系统号
+          errorCodeToQuery = fullErrorCode.substring(1) // 去掉第一位，得到故障码
+        }
+        // 如果error_code格式是纯故障码 (如 "0X010A")
+        else if (/^0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          errorCodeToQuery = fullErrorCode
+          // 保持默认子系统号1
+        }
+        
+        
+        // 使用提取的故障码和子系统号查询
+        const errorCodeResponse = await api.errorCodes.getByCodeAndSubsystem(
+          errorCodeToQuery,
+          subsystemToQuery
+        )
+        
+        
+        let actualParamName = `参数${selectedParameter.value}` // 默认值
+        
+        if (errorCodeResponse.data && errorCodeResponse.data.errorCode) {
+          const errorCodeInfo = errorCodeResponse.data.errorCode
+          
+          // 根据参数索引获取对应的参数名称
+          const paramFields = ['param1', 'param2', 'param3', 'param4']
+          const paramField = paramFields[paramIndex]
+          
+          if (errorCodeInfo[paramField] && errorCodeInfo[paramField].trim()) {
+            actualParamName = errorCodeInfo[paramField].trim()
+          }
+        }
+        
+        // 标题仅使用 参数x
+        chartTitle.value = `参数${selectedParameter.value}`
+        
+        // 显示图表详情弹窗
+        chartDetailVisible.value = true
+        
+        // 等待DOM更新后生成图表
+        nextTick(async () => {
+          await createChart(row, actualParamName)
+        })
+        
+      } catch (error) {
+        console.error('查询故障码参数信息失败:', error)
+        // 查询失败时仍使用 参数x 作为标题
+        chartTitle.value = `参数${selectedParameter.value}`
+        chartDetailVisible.value = true
+        nextTick(async () => {
+          await createChart(row, paramValue)
+        })
+      }
     }
 
-    const createChart = (row, paramValue) => {
+    const createChart = async (row, paramValue) => {
       const chartElement = document.getElementById('visualizationChart')
       if (!chartElement) return
+      
+      // 设置全局错误处理来捕获 ECharts 内部错误
+      const originalConsoleError = console.error
+      console.error = function(...args) {
+        const errorMessage = args.join(' ')
+        if (errorMessage.includes('dataSample') || 
+            errorMessage.includes('Cannot read properties of undefined') ||
+            errorMessage.includes('reading \'type\'')) {
+          // 静默处理ECharts内部错误
+          return
+        }
+        originalConsoleError.apply(console, args)
+      }
       
       // 销毁之前的图表实例
       if (chartInstance.value) {
@@ -2151,151 +2569,808 @@ export default {
         chartInstance.value = null
       }
       
-      // 获取批量日志的所有数据用于生成图表
-      const allLogs = batchLogEntries.value
-      const chartData = allLogs.map(log => {
-        const timestamp = new Date(log.timestamp).getTime()
-        let yValue = 0
+      try {
+        // 显示加载状态
+        ElMessage.info('正在获取图表数据...')
         
-        // 根据选择的参数获取Y轴值
-        switch(selectedParameter.value) {
-          case 1:
-            yValue = parseFloat(log.param1) || 0
-            break
-          case 2:
-            yValue = parseFloat(log.param2) || 0
-            break
-          case 3:
-            yValue = parseFloat(log.param3) || 0
-            break
-          case 4:
-            yValue = parseFloat(log.param4) || 0
-            break
+        // 构建查询参数，获取所有相关数据
+        const logIds = selectedLogs.value.map(l => l.id).join(',')
+        const baseParams = {
+          log_ids: logIds,
+          page: 1,
+          limit: 10000, // 设置一个较大的限制以获取所有数据
+          error_code: row.error_code // 只获取特定故障码的数据
         }
         
-        return [timestamp, yValue]
-      }).sort((a, b) => a[0] - b[0]) // 按时间排序
-      
-      if (chartData.length === 0) {
-        ElMessage.warning('没有可用的数据生成图表')
-        return
-      }
-      
-      // 创建ECharts实例
-      chartInstance.value = echarts.init(chartElement)
-      
-      // 准备X轴数据（时间戳）
-      const xAxisData = chartData.map(item => {
-        const date = new Date(item[0])
-        return formatTimestamp(date)
-      })
-      
-      // 准备Y轴数据（参数值）
-      const yAxisData = chartData.map(item => item[1])
-      
-      // 配置图表选项
-      const option = {
-        title: {
-          text: chartTitle.value,
-          left: 'center',
-          textStyle: {
-            fontSize: 16,
-            fontWeight: 'bold'
+        // 添加时间范围筛选（如果设置了）
+        if (timeRange.value && timeRange.value.length === 2) {
+          baseParams.start_time = timeRange.value[0]
+          baseParams.end_time = timeRange.value[1]
+        }
+        
+        // 调用API获取所有相关数据
+        const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams)
+        const allLogs = response.data.entries
+        const paramIndex = selectedParameter.value - 1
+        
+        const chartData = allLogs.map(log => {
+          const timestamp = new Date(log.timestamp).getTime()
+          let yValue = 0
+          
+          // 根据选择的参数获取Y轴值
+          switch(paramIndex) {
+            case 0:
+              yValue = parseFloat(log.param1) || 0
+              break
+            case 1:
+              yValue = parseFloat(log.param2) || 0
+              break
+            case 2:
+              yValue = parseFloat(log.param3) || 0
+              break
+            case 3:
+              yValue = parseFloat(log.param4) || 0
+              break
           }
-        },
-        tooltip: {
-          trigger: 'axis',
-          formatter: function(params) {
-            const dataIndex = params[0].dataIndex
-            const timestamp = xAxisData[dataIndex]
-            const value = yAxisData[dataIndex]
-            return `时间: ${timestamp}<br/>参数值: ${value}`
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: xAxisData,
-          axisLabel: {
-            rotate: 45,
-            fontSize: 10
+          
+          return [timestamp, yValue]
+        }).sort((a, b) => a[0] - b[0]) // 按时间排序
+        
+        if (chartData.length === 0) {
+          ElMessage.warning('没有可用的数据生成图表')
+          return
+        }
+        
+        ElMessage.success(`已获取 ${chartData.length} 条数据`)
+        
+        // 创建ECharts实例
+        chartInstance.value = echarts.init(chartElement)
+        
+        // 准备数据并验证格式
+        const data = chartData.map(item => {
+          // 确保时间戳是数字，Y值是数字
+          const timestamp = typeof item[0] === 'number' ? item[0] : new Date(item[0]).getTime()
+          const value = typeof item[1] === 'number' ? item[1] : parseFloat(item[1]) || 0
+          return [timestamp, value]
+        }).filter(item => {
+          // 过滤掉无效数据
+          return item && 
+                 Array.isArray(item) &&
+                 item.length >= 2 && 
+                 !isNaN(item[0]) && 
+                 !isNaN(item[1]) && 
+                 item[0] > 0 &&
+                 isFinite(item[0]) &&
+                 isFinite(item[1])
+        })
+        
+        // 验证数据
+        if (data.length === 0) {
+          ElMessage.warning('没有可用的数据生成图表')
+          return
+        }
+        
+        // 验证数据格式
+        const invalidData = data.filter(item => !Array.isArray(item) || item.length < 2 || typeof item[0] !== 'number' || typeof item[1] !== 'number')
+        if (invalidData.length > 0) {
+          console.warn('发现无效数据:', invalidData)
+          ElMessage.warning(`发现 ${invalidData.length} 条无效数据，已自动过滤`)
+        }
+        
+        // 确保数据完全有效
+        const validData = data.filter(item => 
+          Array.isArray(item) && 
+          item.length >= 2 && 
+          typeof item[0] === 'number' && 
+          typeof item[1] === 'number' &&
+          !isNaN(item[0]) && 
+          !isNaN(item[1]) &&
+          isFinite(item[0]) && 
+          isFinite(item[1])
+        )
+        
+        if (validData.length === 0) {
+          ElMessage.error('没有有效的数据生成图表')
+          return
+        }
+        
+        console.log('Valid data sample:', validData.slice(0, 5))
+        console.log('Data range:', {
+          timeMin: new Date(Math.min(...validData.map(d => d[0]))),
+          timeMax: new Date(Math.max(...validData.map(d => d[0]))),
+          valueMin: Math.min(...validData.map(d => d[1])),
+          valueMax: Math.max(...validData.map(d => d[1]))
+        })
+        
+        // 获取智能时间格式化函数
+        const smartTimeFormatter = getSmartTimeFormatter(data)
+        
+        // 配置图表选项 - 完全匹配 ECharts 官方时间轴面积图示例
+        const option = {
+          title: {
+            text: chartTitle.value || '数据图表',
+            left: 'center'
           },
-          name: '时间',
-          nameLocation: 'middle',
-          nameGap: 30
-        },
-        yAxis: {
-          type: 'value',
-          name: `参数${selectedParameter.value}值`,
-          nameLocation: 'middle',
-          nameGap: 50
-        },
-        series: [{
-          name: `参数${selectedParameter.value}`,
-          type: 'line',
-          data: yAxisData,
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 4,
-          lineStyle: {
-            color: '#409EFF',
-            width: 2
-          },
-          itemStyle: {
-            color: '#409EFF'
-          },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [{
-                offset: 0, color: 'rgba(64, 158, 255, 0.3)'
-              }, {
-                offset: 1, color: 'rgba(64, 158, 255, 0.1)'
-              }]
+          tooltip: {
+            trigger: 'axis',
+            position: function (pt) {
+              return [pt[0], '10%'];
             }
+          },
+          legend: {
+            data: [paramValue || '数据']
+          },
+          toolbox: {
+            feature: {
+              dataZoom: {
+                yAxisIndex: 'none'
+              },
+              restore: {},
+              saveAsImage: {}
+            }
+          },
+          xAxis: {
+            type: 'time',
+            boundaryGap: false,
+            min: Math.min(...validData.map(d => d[0])),
+            max: Math.max(...validData.map(d => d[0]))
+          },
+          yAxis: {
+            type: 'value',
+            boundaryGap: [0, '100%']
+          },
+          dataZoom: [
+            {
+              type: 'inside',
+              start: 0,
+              end: 100,
+              realtime: true,
+              throttle: 100,
+              zoomLock: false,
+              xAxisIndex: 0,
+              filterMode: 'filter',
+              preventDefaultMouseMove: true
+            },
+            {
+              type: 'slider',
+              start: 0,
+              end: 100,
+              realtime: true,
+              throttle: 100,
+              zoomLock: false,
+              showDetail: true,
+              showDataShadow: true,
+              xAxisIndex: 0,
+              bottom: 10,
+              filterMode: 'filter',
+              moveHandleSize: 8,
+              preventDefaultMouseMove: true,
+              dataBackground: {
+                lineStyle: {
+                  color: '#ddd'
+                },
+                areaStyle: {
+                  color: '#f0f0f0'
+                }
+              },
+              selectedDataBackground: {
+                lineStyle: {
+                  color: '#409EFF'
+                },
+                areaStyle: {
+                  color: '#E6F7FF'
+                }
+              }
+            }
+          ],
+          series: [
+            {
+              name: paramValue || '数据',
+              type: 'line',
+              symbol: 'none',
+              sampling: false,
+              itemStyle: {
+                color: 'rgb(255, 70, 131)'
+              },
+              areaStyle: {
+                color: {
+                  type: 'linear',
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [{
+                    offset: 0, color: 'rgb(255, 158, 68)'
+                  }, {
+                    offset: 1, color: 'rgb(255, 70, 131)'
+                  }],
+                  global: false
+                }
+              },
+              data: validData
+            }
+          ]
+        }
+        
+        // 设置全局错误处理
+        const originalError = window.onerror
+        window.onerror = function(msg, url, line, col, error) {
+          if (msg && msg.includes && msg.includes('Cannot read properties of undefined') && 
+              msg.includes('reading \'type\'')) {
+            // 静默处理ECharts内部错误
+            return true
           }
-        }]
+          if (originalError) {
+            return originalError(msg, url, line, col, error)
+          }
+          return false
+        }
+        
+        try {
+          // 安全初始化流程
+          nextTick(() => {
+            try {
+              // 确保图表实例存在且未销毁
+              if (!chartInstance.value || chartInstance.value.isDisposed()) {
+                console.error('图表实例无效')
+                return
+              }
+              
+              // 清除之前的配置
+              chartInstance.value.clear()
+              
+              // 设置新配置
+              chartInstance.value.setOption(option, true)
+              
+              // 强制刷新图表以确保 dataZoom 正常工作
+              setTimeout(() => {
+                try {
+                  if (chartInstance.value && !chartInstance.value.isDisposed()) {
+                    // 检查图表组件是否正确初始化
+                    const model = chartInstance.value.getModel()
+                    if (model && model.getComponent('series', 0)) {
+                      chartInstance.value.resize()
+                      
+                      // 强制触发 dataZoom 更新
+                      setTimeout(() => {
+                        if (chartInstance.value && !chartInstance.value.isDisposed()) {
+                          chartInstance.value.dispatchAction({
+                            type: 'dataZoom',
+                            start: 0,
+                            end: 100
+                          })
+                        }
+                      }, 50)
+                    } else {
+                      console.warn('图表组件初始化不完整')
+                    }
+                  }
+                } catch (resizeError) {
+                  console.warn('图表调整大小失败:', resizeError)
+                }
+              }, 100)
+              
+            } catch (error) {
+              console.warn('图表初始化警告:', error)
+              // 使用最简单的配置重试
+              try {
+                const simpleOption = {
+                  xAxis: { type: 'time' },
+                  yAxis: { type: 'value' },
+                  series: [{ 
+                    name: '数据',
+                    type: 'line', 
+                    data: validData,
+                    sampling: false
+                  }],
+                  animation: false
+                }
+                chartInstance.value.clear()
+                chartInstance.value.setOption(simpleOption, true)
+              } catch (simpleError) {
+                console.error('图表初始化失败:', simpleError)
+                ElMessage.error('图表初始化失败，请重试')
+              }
+            }
+          })
+          
+          // 保存当前图表数据
+          currentChartData.value = {
+            id: `chart_${Date.now()}`,
+            title: chartTitle.value,
+            timestamp: new Date().toISOString(),
+            parameter: selectedParameter.value,
+            parameterValue: paramValue,
+            data: data,
+            errorCode: row.error_code
+          }
+          
+          // 在侧边栏显示图表缩略图
+          addChartToSidebar()
+          
+        } catch (error) {
+          ElMessage.error('获取图表数据失败: ' + (error.response?.data?.message || error.message))
+          return
+        } finally {
+          // 恢复原始的 console.error
+          console.error = originalConsoleError
+          // 恢复原始的 window.onerror
+          setTimeout(() => {
+            window.onerror = originalError
+          }, 1000)
+        }
+      } catch (error) {
+        ElMessage.error('获取图表数据失败: ' + (error.response?.data?.message || error.message))
+        return
+      } finally {
+        // 恢复原始的 console.error
+        console.error = originalConsoleError
+        // 恢复原始的 window.onerror
+        setTimeout(() => {
+          window.onerror = originalError
+        }, 1000)
       }
-      
-      // 设置图表配置
-      chartInstance.value.setOption(option)
-      
-      // 在侧边栏显示图表缩略图
-      addChartToSidebar()
     }
 
     const addChartToSidebar = () => {
-      if (!chartInstance.value) return
+      if (!currentChartData.value) return
       
-      // 将图表添加到剪贴板
-      const chartData = {
-        id: `chart_${Date.now()}`,
-        type: 'chart',
-        title: chartTitle.value,
-        timestamp: new Date().toISOString(),
-        parameter: selectedParameter.value,
-        dataCount: batchLogEntries.value.length
+      // 检查是否已达到最大数量限制
+      if (chartThumbnails.value.length >= 5) {
+        ElMessage.warning('最多只能生成5张可视化图表')
+        return
       }
       
-      // 添加到剪贴板条目
-      clipboardEntries.value.push(chartData)
+      // 为图表添加序号
+      const chartNumber = chartThumbnails.value.length + 1
+      const chartWithNumber = {
+        ...currentChartData.value,
+        title: `${chartNumber}. ${currentChartData.value.title}`
+      }
       
-      // 更新剪贴板内容
-      updateClipboardContent()
+      // 将图表添加到缩略图列表
+      chartThumbnails.value.push(chartWithNumber)
       
       // 显示剪贴板
       clipboardVisible.value = true
       
+      // 使用双重nextTick确保DOM完全渲染
+      nextTick(() => {
+        nextTick(() => {
+          // 添加延迟确保DOM元素完全准备好
+          setTimeout(() => {
+            createChartThumbnail(chartWithNumber)
+          }, 100)
+        })
+      })
+      
       ElMessage.success('图表已添加到剪贴板')
+    }
+
+    const createChartThumbnail = (chartData) => {
+      try {
+        const thumbnailElement = document.getElementById(`chart-thumb-${chartData.id}`)
+        if (!thumbnailElement) {
+          console.warn(`缩略图元素未找到: chart-thumb-${chartData.id}`)
+          return
+        }
+        
+        // 检查元素是否有尺寸
+        if (thumbnailElement.offsetWidth === 0 || thumbnailElement.offsetHeight === 0) {
+          console.warn(`缩略图元素尺寸为0: ${thumbnailElement.offsetWidth}x${thumbnailElement.offsetHeight}`)
+          // 延迟重试
+          setTimeout(() => createChartThumbnail(chartData), 200)
+          return
+        }
+        
+        // 销毁已存在的实例
+        const existingInstance = echarts.getInstanceByDom(thumbnailElement)
+        if (existingInstance) {
+          existingInstance.dispose()
+        }
+        
+        const thumbnailInstance = echarts.init(thumbnailElement)
+        
+        // 创建缩略图配置 - 完全匹配 ECharts 官方时间轴面积图示例
+        const thumbnailOption = {
+          title: {
+            text: chartData.title,
+            left: 'center',
+            textStyle: {
+              fontSize: 10,
+              fontWeight: 'bold'
+            }
+          },
+          tooltip: {
+            show: false
+          },
+          xAxis: {
+            type: 'time',
+            boundaryGap: false,
+            axisLabel: {
+              show: false
+            },
+            axisLine: {
+              show: false
+            },
+            axisTick: {
+              show: false
+            }
+          },
+          yAxis: {
+            type: 'value',
+            boundaryGap: [0, '100%'],
+            axisLabel: {
+              show: false
+            },
+            axisLine: {
+              show: false
+            },
+            axisTick: {
+              show: false
+            }
+          },
+          series: [{
+            name: `${chartData.parameterValue}`,
+            type: 'line',
+            symbol: 'none',
+            sampling: false,
+            itemStyle: {
+              color: 'rgb(255, 70, 131)'
+            },
+            areaStyle: {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                  offset: 0, color: 'rgb(255, 158, 68)'
+                }, {
+                  offset: 1, color: 'rgb(255, 70, 131)'
+                }],
+                global: false
+              }
+            },
+            data: chartData.data
+          }]
+        }
+        
+        thumbnailInstance.setOption(thumbnailOption)
+        
+        // 监听窗口大小变化
+        const resizeHandler = () => {
+          if (thumbnailInstance && !thumbnailInstance.isDisposed()) {
+            thumbnailInstance.resize()
+          }
+        }
+        
+        window.addEventListener('resize', resizeHandler)
+        
+        // 存储实例引用以便后续清理
+        thumbnailElement._echartsInstance = thumbnailInstance
+        thumbnailElement._resizeHandler = resizeHandler
+        
+      } catch (error) {
+        console.error('创建缩略图失败:', error)
+      }
+    }
+
+    const showChartDetail = (chartData) => {
+      // 设置全局错误处理来捕获 ECharts 内部错误
+      const originalConsoleError = console.error
+      const originalError = window.onerror
+      
+      console.error = function(...args) {
+        const errorMessage = args.join(' ')
+        if (errorMessage.includes('dataSample') || 
+            errorMessage.includes('Cannot read properties of undefined') ||
+            errorMessage.includes('reading \'type\'')) {
+          // 静默处理ECharts内部错误
+          return
+        }
+        originalConsoleError.apply(console, args)
+      }
+      
+      window.onerror = function(msg, url, line, col, error) {
+        if (msg && msg.includes && msg.includes('Cannot read properties of undefined') && 
+            msg.includes('reading \'type\'')) {
+          // 静默处理ECharts内部错误
+          return true
+        }
+        if (originalError) {
+          return originalError(msg, url, line, col, error)
+        }
+        return false
+      }
+      
+      // 设置当前图表数据
+      currentChartData.value = chartData
+      chartTitle.value = chartData.title
+      
+      // 显示图表详情弹窗
+      chartDetailVisible.value = true
+      
+      // 等待DOM更新后重新创建图表
+      nextTick(() => {
+        if (chartInstance.value) {
+          chartInstance.value.dispose()
+          chartInstance.value = null
+        }
+        
+        const chartElement = document.getElementById('visualizationChart')
+        if (chartElement) {
+          chartInstance.value = echarts.init(chartElement)
+          
+          // 验证图表数据
+          if (!chartData.data || !Array.isArray(chartData.data) || chartData.data.length === 0) {
+            ElMessage.error('图表数据无效')
+            return
+          }
+          
+          // 验证数据格式
+          const validData = chartData.data.filter(item => 
+            Array.isArray(item) && 
+            item.length >= 2 && 
+            typeof item[0] === 'number' && 
+            typeof item[1] === 'number' &&
+            !isNaN(item[0]) && 
+            !isNaN(item[1]) &&
+            isFinite(item[0]) && 
+            isFinite(item[1])
+          )
+          
+          if (validData.length === 0) {
+            ElMessage.error('没有有效的图表数据')
+            return
+          }
+          
+          // 获取智能时间格式化函数
+          const smartTimeFormatter = getSmartTimeFormatter(validData)
+          
+          // 重新创建完整图表 - 完全匹配 ECharts 官方时间轴面积图示例
+          const option = {
+            title: {
+              text: chartData.title || '数据图表',
+              left: 'center'
+            },
+            tooltip: {
+              trigger: 'axis',
+              position: function (pt) {
+                return [pt[0], '10%'];
+              }
+            },
+            legend: {
+              data: [chartData.parameterValue || '数据']
+            },
+            toolbox: {
+              feature: {
+                dataZoom: {
+                  yAxisIndex: 'none'
+                },
+                restore: {},
+                saveAsImage: {}
+              }
+            },
+            xAxis: {
+              type: 'time',
+              boundaryGap: false,
+              min: Math.min(...validData.map(d => d[0])),
+              max: Math.max(...validData.map(d => d[0]))
+            },
+            yAxis: {
+              type: 'value',
+              boundaryGap: [0, '100%']
+            },
+            dataZoom: [
+              {
+                type: 'inside',
+                start: 0,
+                end: 100,
+                realtime: true,
+                throttle: 100,
+                zoomLock: false,
+                xAxisIndex: 0,
+                filterMode: 'filter',
+                preventDefaultMouseMove: true
+              },
+              {
+                type: 'slider',
+                start: 0,
+                end: 100,
+                realtime: true,
+                throttle: 100,
+                zoomLock: false,
+                showDetail: true,
+                showDataShadow: true,
+                xAxisIndex: 0,
+                bottom: 10,
+                filterMode: 'filter',
+                moveHandleSize: 8,
+                preventDefaultMouseMove: true,
+                dataBackground: {
+                  lineStyle: {
+                    color: '#ddd'
+                  },
+                  areaStyle: {
+                    color: '#f0f0f0'
+                  }
+                },
+                selectedDataBackground: {
+                  lineStyle: {
+                    color: '#409EFF'
+                  },
+                  areaStyle: {
+                    color: '#E6F7FF'
+                  }
+                }
+              }
+            ],
+            series: [
+              {
+                name: chartData.parameterValue || '数据',
+                type: 'line',
+                symbol: 'none',
+                sampling: false,
+                itemStyle: {
+                  color: 'rgb(255, 70, 131)'
+                },
+                areaStyle: {
+                  color: {
+                    type: 'linear',
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [{
+                      offset: 0, color: 'rgb(255, 158, 68)'
+                    }, {
+                      offset: 1, color: 'rgb(255, 70, 131)'
+                    }],
+                    global: false
+                  }
+                },
+                data: validData
+              }
+            ]
+          }
+          
+          // 设置全局错误处理
+          const originalError = window.onerror
+          window.onerror = function(msg, url, line, col, error) {
+            if (msg && msg.includes && msg.includes('Cannot read properties of undefined') && 
+                msg.includes('reading \'type\'')) {
+              // 静默处理ECharts内部错误
+              return true
+            }
+            if (originalError) {
+              return originalError(msg, url, line, col, error)
+            }
+            return false
+          }
+          
+          try {
+            // 安全初始化流程
+            nextTick(() => {
+              try {
+                // 确保图表实例存在且未销毁
+                if (!chartInstance.value || chartInstance.value.isDisposed()) {
+                  console.error('图表实例无效')
+                  return
+                }
+                
+                // 清除之前的配置
+                chartInstance.value.clear()
+                
+                // 设置新配置
+                chartInstance.value.setOption(option, true)
+                
+                // 强制刷新图表以确保 dataZoom 正常工作
+                setTimeout(() => {
+                  try {
+                    if (chartInstance.value && !chartInstance.value.isDisposed()) {
+                      // 检查图表组件是否正确初始化
+                      const model = chartInstance.value.getModel()
+                      if (model && model.getComponent('series', 0)) {
+                        chartInstance.value.resize()
+                        
+                        // 强制触发 dataZoom 更新
+                        setTimeout(() => {
+                          if (chartInstance.value && !chartInstance.value.isDisposed()) {
+                            chartInstance.value.dispatchAction({
+                              type: 'dataZoom',
+                              start: 0,
+                              end: 100
+                            })
+                          }
+                        }, 50)
+                      } else {
+                        console.warn('图表详情组件初始化不完整')
+                      }
+                    }
+                  } catch (resizeError) {
+                    console.warn('图表详情调整大小失败:', resizeError)
+                  }
+                }, 100)
+                
+              } catch (error) {
+                console.warn('图表详情初始化警告:', error)
+                // 使用最简单的配置重试
+                try {
+                  const simpleOption = {
+                    xAxis: { type: 'time' },
+                    yAxis: { type: 'value' },
+                    series: [{ 
+                      name: '数据',
+                      type: 'line', 
+                      data: validData,
+                      sampling: false
+                    }],
+                    animation: false
+                  }
+                  chartInstance.value.clear()
+                  chartInstance.value.setOption(simpleOption, true)
+                } catch (simpleError) {
+                  console.error('图表详情初始化失败:', simpleError)
+                  ElMessage.error('图表详情初始化失败，请重试')
+                }
+              }
+            })
+          } finally {
+            // 恢复原始的 window.onerror
+            setTimeout(() => {
+              window.onerror = originalError
+            }, 1000)
+          }
+        }
+      })
+      
+      // 恢复原始的 console.error 和 window.onerror
+      setTimeout(() => {
+        console.error = originalConsoleError
+        window.onerror = originalError
+      }, 2000)
+    }
+
+    const deleteChartThumbnail = (chartId) => {
+      const index = chartThumbnails.value.findIndex(chart => chart.id === chartId)
+      if (index > -1) {
+        // 清理ECharts实例
+        const thumbnailElement = document.getElementById(`chart-thumb-${chartId}`)
+        if (thumbnailElement) {
+          // 清理事件监听器
+          if (thumbnailElement._resizeHandler) {
+            window.removeEventListener('resize', thumbnailElement._resizeHandler)
+          }
+          
+          // 销毁ECharts实例
+          if (thumbnailElement._echartsInstance) {
+            thumbnailElement._echartsInstance.dispose()
+          }
+        }
+        
+        chartThumbnails.value.splice(index, 1)
+        
+        // 重新编号剩余的图表
+        chartThumbnails.value.forEach((chart, idx) => {
+          const originalTitle = chart.title.replace(/^\d+\.\s*/, '') // 移除原有序号
+          chart.title = `${idx + 1}. ${originalTitle}`
+        })
+        
+        ElMessage.success('图表已删除')
+      }
+    }
+
+    const deleteCurrentChart = () => {
+      if (currentChartData.value) {
+        deleteChartThumbnail(currentChartData.value.id)
+        chartDetailVisible.value = false
+        if (chartInstance.value) {
+          chartInstance.value.dispose()
+          chartInstance.value = null
+        }
+      }
     }
 
     const exportChartAsImage = () => {
@@ -2327,16 +3402,9 @@ export default {
 
 
 
-    // 备注功能
+    // 备注功能 - 暂未开发完成
     const handleRemarks = (row) => {
-      const remarks = prompt('请输入备注:', row.remarks || '')
-      if (remarks !== null) {
-        row.remarks = remarks
-        // 保存到sessionStorage
-        saveRemarksToStorage()
-        console.log('保存备注:', row.remarks)
-        ElMessage.success('备注已保存')
-      }
+      ElMessage.info('备注功能暂未开发完成')
     }
 
     // 保存备注到sessionStorage
@@ -2443,6 +3511,14 @@ export default {
     onMounted(async () => {
       await loadSelectedLogs()
       await loadTemplates()
+      // 加载计数数据
+      loadCountsFromStorage()
+      
+      // 如果有选中的日志，获取全局统计
+      if (selectedLogs.value.length > 0) {
+        await fetchGlobalStatistics()
+      }
+      
       // 默认选择全部时间范围（最早至最晚）
       if (timeRangeLimit.value) {
         timeRange.value = [
@@ -2463,6 +3539,19 @@ export default {
         chartInstance.value.dispose()
         chartInstance.value = null
       }
+      
+      // 清理所有缩略图实例
+      chartThumbnails.value.forEach(chart => {
+        const thumbnailElement = document.getElementById(`chart-thumb-${chart.id}`)
+        if (thumbnailElement) {
+          if (thumbnailElement._resizeHandler) {
+            window.removeEventListener('resize', thumbnailElement._resizeHandler)
+          }
+          if (thumbnailElement._echartsInstance) {
+            thumbnailElement._echartsInstance.dispose()
+          }
+        }
+      })
     })
 
     return {
@@ -2476,9 +3565,7 @@ export default {
       totalCount,
       totalPages,
       advancedMode,
-        useLocalAdvanced,
-      useVirtualScroll,
-      virtualTableRef,
+      useLocalAdvanced,
       tableColumns,
       showAdvancedFilter,
       filtersRoot,
@@ -2504,6 +3591,7 @@ export default {
       forceRelayout,
       formatTimestamp,
       formatFileSize,
+      getSmartTimeFormatter,
       showSurgeryStatistics,
       analyzeSurgeryData,
       surgeryStatisticsVisible,
@@ -2536,6 +3624,7 @@ export default {
       colorOptions,
       selectColor,
       getRowClassName,
+      getRowStyle,
       saveColorMarksToStorage,
       loadColorMarksFromStorage,
       handleContextAnalysis,
@@ -2564,13 +3653,38 @@ export default {
       parameterSelectVisible,
       selectedParameter,
       availableParameters,
+      paramNames,
+      selectKey,
+      isParameterAvailable,
       chartDetailVisible,
       chartTitle,
       chartContainer,
       chartInstance,
+      chartThumbnails,
+      currentChartData,
       handleVisualization,
       confirmVisualization,
-      exportChartAsImage
+      exportChartAsImage,
+      showChartDetail,
+      deleteChartThumbnail,
+      deleteCurrentChart,
+      // 计数功能相关
+      logCounts,
+      errorCodeCounts,
+      globalErrorCodeCounts,
+      filteredErrorCodeCounts,
+      statisticsCache,
+      getErrorCodeCount,
+      getErrorCodeCountDisplay,
+      getErrorCodeStatisticsTooltip,
+      hasActiveFilters,
+      showStatisticsForErrorCode,
+      toggleErrorCodeStatistics,
+      fetchStatisticsFromBackend,
+      fetchGlobalStatistics,
+      fetchFilteredStatistics,
+      loadCountsFromStorage,
+      showErrorCodeStatistics
     }
   }
 }
@@ -2684,8 +3798,8 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin: 0 20px 10px 20px;
-  padding: 10px 12px;
+  margin: 0 10px 5px 10px;
+  padding: 16px;
   background-color: white;
   border-radius: 8px;
   border: 1px solid #ebeef5;
@@ -2842,8 +3956,9 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   margin: 0 10px 5px 10px;
+  padding: 16px;
   background-color: white;
   border-radius: 8px;
   border: 1px solid #ebeef5;
@@ -2851,40 +3966,54 @@ export default {
 
 .table-container {
   flex: 1;
-  overflow: hidden;
-  padding: 0 20px 20px 20px;
+  overflow: visible;
+  padding: 0 0 4px 0;
+  width: 100%;
 }
 
 /* 使用 Element Plus 默认表格样式 */
 
-/* 颜色标记行样式 */
-.row-marked-red {
+/* 颜色标记行样式 - 四种颜色 */
+.el-table .el-table__row.row-marked-red,
+.el-table__body tr.row-marked-red {
   background-color: rgba(255, 0, 0, 0.2) !important;
 }
 
-.row-marked-yellow {
+.el-table .el-table__row.row-marked-red:hover {
+  background-color: rgba(255, 0, 0, 0.3) !important;
+}
+
+.el-table .el-table__row.row-marked-yellow,
+.el-table__body tr.row-marked-yellow {
   background-color: rgba(255, 255, 0, 0.2) !important;
 }
 
-.row-marked-blue {
+.el-table .el-table__row.row-marked-yellow:hover {
+  background-color: rgba(255, 255, 0, 0.3) !important;
+}
+
+.el-table .el-table__row.row-marked-blue,
+.el-table__body tr.row-marked-blue {
   background-color: rgba(0, 0, 255, 0.2) !important;
 }
 
-.row-marked-green {
+.el-table .el-table__row.row-marked-blue:hover {
+  background-color: rgba(0, 0, 255, 0.3) !important;
+}
+
+.el-table .el-table__row.row-marked-green,
+.el-table__body tr.row-marked-green {
   background-color: rgba(0, 255, 0, 0.2) !important;
 }
 
-/* 颜色选择器样式 */
-.color-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+.el-table .el-table__row.row-marked-green:hover {
+  background-color: rgba(0, 255, 0, 0.3) !important;
 }
 
+
 .color-radio {
-  width: 16px !important;
-  height: 16px !important;
+  width: 12px !important;
+  height: 12px !important;
   border-radius: 50% !important;
   border: 2px solid #ddd !important;
   position: relative;
@@ -2913,20 +4042,43 @@ export default {
 /* 列头样式，与 Logs.vue 保持一致 */
 .col-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 8px;
+  text-align: left;
+}
+
+/* 故障码列的特殊列头样式 */
+.col-header:has(.header-hint) {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.header-hint {
+  font-size: 10px;
+  color: #909399;
+  font-weight: normal;
+  font-style: italic;
 }
 
 /* 让释义列的 tooltip 在表格外也能显示 */
 .explanation-tooltip {
   max-width: 60vw;
   white-space: normal;
-  word-break: break-word;
-  z-index: 3000;
 }
+
 
 .el-popper.explanation-tooltip {
   overflow: visible;
+}
+
+.explanation-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 32px;
+  padding: 2px 0;
 }
 
 .explanation-ellipsis {
@@ -2935,6 +4087,10 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #606266 !important;
+  line-height: 1.4;
 }
 
 /* 黑色背景的暗色气泡 */
@@ -2982,24 +4138,6 @@ export default {
 }
 
 /* 时间戳/文件名单元格样式 */
-.file-info-cell {
-  padding: 4px 0;
-  line-height: 1.4;
-}
-
-.file-info-cell .timestamp {
-  font-size: 16px;
-  color:#303133;
-  font-weight: 500;
-  margin-bottom: 2px;
-}
-
-.file-info-cell .file-name {
-  font-size: 14px;
-  color:#909399; 
-  font-weight: 400;
-  word-break: break-all;
-}
 </style>
 
 <style>
@@ -3022,24 +4160,31 @@ export default {
 /* 新增的表格单元格样式 */
 .file-info-cell {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.file-name {
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  min-height: 32px;
+  font-size: 14px;
   font-weight: 500;
-  color: #303133;
-  word-break: break-all;
 }
 
 .timestamp {
-  color: #909399;
+  color: #303133;
+  font-weight: 500;
+  font-size: 14px;
+  text-align: left;
 }
 
 .parameters-cell {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 40px;
+  width: 100%;
   color: #606266;
   word-break: break-all;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.4;
   padding: 2px 0;
 }
@@ -3047,17 +4192,13 @@ export default {
 .parameters-cell .param-item {
   margin-right: 12px;
   display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
 }
 
 .parameters-cell .param-item:last-child {
   margin-right: 0;
-}
-
-.parameters-cell {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 40px;
 }
 
 .param-content {
@@ -3065,17 +4206,41 @@ export default {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  margin-right: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
 }
 
 .param-actions {
   flex-shrink: 0;
-  margin-left: 8px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .visualization-btn {
-  font-size: 12px;
-  padding: 4px 8px;
-  height: 24px;
+  font-size: 20px;
+  padding: 1px;
+  height: 28px;
+  width: 28px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 3px;
+  color: #409eff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visualization-btn:hover {
+  color: #66b1ff;
+  transform: scale(1.05);
+}
+
+.visualization-btn:disabled {
+  color: #c0c4cc;
+  background-color: transparent;
 }
 
 .parameter-select-dialog {
@@ -3123,45 +4288,167 @@ export default {
 
 .operations-cell {
   display: flex;
-  flex-direction: row;
-  gap: 4px;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   width: 100%;
   min-height: 32px;
+  padding: 1px;
+  gap: 1px;
 }
 
-.operations-cell .operation-tag {
-  font-size: 11px;
-  padding: 3px 8px;
+
+.error-code-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  min-height: 20px;
+  cursor: pointer;
+  padding: 0px 10px;
   border-radius: 4px;
   transition: all 0.2s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  font-weight: 500;
+  font-size: 14px;
+  position: relative;
+  margin: 0;
 }
 
-.operations-cell .operation-tag:hover {
-  opacity: 0.8;
+.error-code-cell:hover {
+  background-color: #f5f7fa;
+  border-color: #e4e7ed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+
+
+.error-code-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #f56c6c;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 12px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(245, 108, 108, 0.4);
+  z-index: 1000;
+  transform: scale(1);
+  transition: all 0.3s ease;
+  animation: badgeAppear 0.3s ease-out;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.error-code-badge:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(245, 108, 108, 0.6);
+}
+
+@keyframes badgeAppear {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+
+.error-code-count-popup {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #e6a23c;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.operations-cell .operation-btn {
+  font-size: 20px;
+  font-weight: 500;
+  padding: 1px;
+  height: 28px;
+  width: 28px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 查看上下文按钮 - 绿色 */
+.operations-cell .operation-btn:nth-child(2) {
+  color: #67c23a;
+}
+
+.operations-cell .operation-btn:nth-child(2):hover {
+  color: #85ce61;
   transform: scale(1.05);
+}
+
+/* 日志摘取按钮 - 橙色 */
+.operations-cell .operation-btn:nth-child(3) {
+  color: #e6a23c;
+}
+
+.operations-cell .operation-btn:nth-child(3):hover {
+  color: #ebb563;
+  transform: scale(1.05);
+}
+
+/* 备注按钮 - 灰色（禁用状态） */
+.operations-cell .operation-btn:nth-child(4) {
+  color: #c0c4cc;
+  cursor: not-allowed;
+}
+
+.operations-cell .operation-btn:nth-child(4):hover {
+  color: #c0c4cc;
+  transform: none;
 }
 
 /* 颜色指示器样式 - 默认小圆点 */
 .color-indicator {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border: 2px solid #ddd;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
   background-color: transparent;
-  margin: 0 auto;
-  box-shadow: 0 0 0 1px white;
+  box-shadow: 0 0 0 2px white;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .color-indicator:hover {
   border-color: #409eff;
-  transform: scale(1.2);
+  transform: scale(1.1);
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2), 0 0 0 1px white;
 }
 
@@ -3169,6 +4456,121 @@ export default {
   border-color: transparent;
   box-shadow: 0 0 0 1px white;
 }
+
+.color-mark-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 28px;
+  padding: 0px 0;
+}
+
+/* 标记列样式 */
+.el-table-column[prop="color_mark"] .cell {
+  padding: 0px 0px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 28px !important;
+  overflow: visible !important;
+}
+
+/* 故障码列特殊样式 - 确保统计角标完全显示 */
+.el-table-column[prop="error_code"] .cell {
+  padding: 0px 0px !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+  min-height: 28px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  margin: 0px !important;
+  border: none !important;
+}
+
+/* 确保表格行有足够的高度 */
+.el-table .el-table__row {
+  min-height: 28px !important;
+  overflow: visible !important;
+}
+
+/* 确保表格容器不会裁剪悬浮元素，但保持滚动功能 */
+.el-table {
+  overflow: visible !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  min-width: 100% !important;
+}
+
+/* 表格单元格基础样式 */
+.el-table .el-table__cell {
+  height: auto !important;
+  min-height: 20px !important;
+  max-height: none !important;
+  padding: 2px 6px !important;
+  overflow: visible !important;
+  vertical-align: middle !important;
+}
+
+/* 表格单元格内容样式 */
+.el-table--default .cell {
+  height: auto !important;
+  min-height: 20px !important;
+  max-height: none !important;
+  padding: 2px 6px !important;
+  overflow: visible !important;
+}
+
+/* 表格列分割线样式 */
+.el-table .el-table__cell {
+  border-right: 1px solid #ebeef5 !important;
+}
+
+.el-table .el-table__cell:last-child {
+  border-right: none !important;
+}
+
+/* 表头单元格样式 */
+.el-table__header .el-table__cell {
+  box-sizing: border-box !important;
+}
+
+
+/* 确保表格头部正确显示 */
+.el-table__header-wrapper {
+  width: 100% !important;
+}
+
+.el-table__header {
+  width: 100% !important;
+}
+
+/* 确保表格体正确显示 */
+.el-table__body-wrapper {
+  width: 100% !important;
+}
+
+.el-table__body {
+  width: 100% !important;
+}
+
+.el-table__body-wrapper {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+/* 强制确保故障码角标不被裁剪 */
+.el-table-column[prop="error_code"] {
+  overflow: visible !important;
+}
+
+.el-table-column[prop="error_code"] .cell > div {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+
 
 /* 颜色选择器弹窗样式 */
 .color-picker-popover {
@@ -3183,9 +4585,10 @@ export default {
   flex-wrap: wrap;
 }
 
+/* 颜色选择器选项样式 */
 .color-option {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border: 2px solid #ddd;
   border-radius: 50%;
   cursor: pointer;
@@ -3195,11 +4598,13 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  z-index: 10;
 }
 
 .color-option:hover {
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
 }
 
 .color-option.active {
@@ -3321,6 +4726,91 @@ export default {
   height: 20px;
   min-width: 20px;
   padding: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.clipboard-thumbnail:hover .delete-btn {
+  opacity: 1;
+}
+
+/* 图表缩略图样式 */
+.chart-thumbnails {
+  margin-top: 16px;
+  border-top: 1px solid #ebeef5;
+  padding-top: 16px;
+}
+
+.thumbnails-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.thumbnail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-thumbnail-item {
+  position: relative;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #fafafa;
+}
+
+.chart-thumbnail-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.thumbnail-chart {
+  width: 100%;
+  height: 80px;
+  margin-bottom: 8px;
+}
+
+.thumbnail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thumbnail-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thumbnail-time {
+  font-size: 10px;
+  color: #909399;
+}
+
+.thumbnail-delete-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.chart-thumbnail-item:hover .thumbnail-delete-btn {
+  opacity: 1;
 }
 
 /* 日志摘取详情弹窗样式 */

@@ -41,7 +41,7 @@ echo ========================================
 echo Start Backend Service (Dev Mode)
 echo ========================================
 echo.
-cd ..\backend
+cd backend
 if not exist ".env" (
     echo Error: .env file not found
     echo Please create .env file according to README.md
@@ -117,7 +117,7 @@ echo ========================================
 echo Start Frontend Service
 echo ========================================
 echo.
-cd ..\frontend
+cd frontend
 if not exist "node_modules" (
     echo Installing dependencies...
     npm install

@@ -2107,6 +2107,158 @@ const generateToolUsage = (totalTime, armId) => {
   return tools;
 };
 
+// 获取日志统计信息（用于计数功能）
+const getLogStatistics = async (req, res) => {
+  try {
+    const { 
+      log_ids, 
+      search, 
+      error_code, 
+      start_time, 
+      end_time,
+      filters 
+    } = req.query;
+    
+    // 构建查询条件（与 getBatchLogEntries 保持一致）
+    const where = {};
+    
+    // 日志ID筛选
+    if (log_ids) {
+      const ids = log_ids.split(',').map(id => parseInt(id.trim()));
+      where.log_id = { [Op.in]: ids };
+    }
+    
+    // 故障码筛选
+    if (error_code) {
+      where.error_code = { [Op.like]: `%${error_code}%` };
+    }
+    
+    // 时间范围筛选
+    if (start_time || end_time) {
+      where.timestamp = {};
+      if (start_time) {
+        where.timestamp[Op.gte] = new Date(start_time);
+      }
+      if (end_time) {
+        where.timestamp[Op.lte] = new Date(end_time);
+      }
+    }
+    
+    // 搜索功能
+    if (search) {
+      const keywordOr = {
+        [Op.or]: [
+          { explanation: { [Op.like]: `%${search}%` } },
+          { error_code: { [Op.like]: `%${search}%` } }
+        ]
+      };
+      if (where[Op.and]) {
+        where[Op.and].push(keywordOr);
+      } else {
+        const baseConds = [];
+        Object.keys(where).forEach(k => {
+          if (k !== Op.and && k !== Op.or) {
+            baseConds.push({ [k]: where[k] });
+            delete where[k];
+          }
+        });
+        where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
+      }
+    }
+
+    // 权限控制：普通用户只能查看自己的日志统计
+    if (req.user && req.user.role_id) {
+      const userRole = req.user.role_id;
+      if (userRole === 3) { // 普通用户
+        const userLogs = await Log.findAll({
+          where: { uploader_id: req.user.id },
+          attributes: ['id']
+        });
+        const userLogIds = userLogs.map(log => log.id);
+        
+        if (where.log_id) {
+          const requestedIds = Array.isArray(where.log_id[Op.in]) 
+            ? where.log_id[Op.in] 
+            : [where.log_id[Op.in]];
+          const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
+          where.log_id = { [Op.in]: allowedIds };
+        } else {
+          where.log_id = { [Op.in]: userLogIds };
+        }
+      }
+    }
+    
+    // 1. 统计故障码出现次数
+    const errorCodeStats = await LogEntry.findAll({
+      where,
+      attributes: [
+        'error_code',
+        [SequelizeLib.fn('COUNT', SequelizeLib.col('error_code')), 'count']
+      ],
+      group: ['error_code'],
+      raw: true
+    });
+    
+    // 2. 统计日志条目出现次数（按故障码分组，统计每个故障码的总出现次数）
+    const logEntryStats = await LogEntry.findAll({
+      where,
+      attributes: [
+        'error_code',
+        [SequelizeLib.fn('COUNT', SequelizeLib.col('id')), 'count']
+      ],
+      group: ['error_code'],
+      raw: true
+    });
+    
+    // 转换为前端需要的格式
+    const errorCodeCounts = {};
+    errorCodeStats.forEach(stat => {
+      errorCodeCounts[stat.error_code] = parseInt(stat.count);
+    });
+    
+    console.log('故障码统计结果:', {
+      totalErrorCodes: errorCodeStats.length,
+      errorCodeCounts: errorCodeCounts
+    });
+    
+    const logCounts = {};
+    logEntryStats.forEach(stat => {
+      // 现在按故障码统计，每个故障码对应一个总数
+      logCounts[stat.error_code] = parseInt(stat.count);
+    });
+    
+    console.log('日志条目统计结果:', {
+      totalLogEntries: logEntryStats.length,
+      sampleLogCounts: Object.keys(logCounts).slice(0, 3).reduce((obj, key) => {
+        obj[key] = logCounts[key];
+        return obj;
+      }, {}),
+      rawSampleStats: logEntryStats.slice(0, 3).map(stat => ({
+        error_code: stat.error_code,
+        count: stat.count
+      }))
+    });
+    
+    res.json({
+      success: true,
+      errorCodeCounts,
+      logCounts,
+      totalErrorCodes: errorCodeStats.length,
+      totalLogEntries: logEntryStats.length,
+      queryConditions: {
+        log_ids: log_ids ? log_ids.split(',').length : 0,
+        hasSearch: !!search,
+        hasErrorCodeFilter: !!error_code,
+        hasTimeRange: !!(start_time || end_time)
+      }
+    });
+    
+  } catch (err) {
+    console.error('获取日志统计失败:', err);
+    res.status(500).json({ message: '获取统计信息失败', error: err.message });
+  }
+};
+
 // 分批查询执行函数
 const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIncludeTimeSuggestion) => {
   try {
@@ -2201,6 +2353,7 @@ module.exports = {
   exportBatchLogEntriesCSV,
   getLogEntries,
   getBatchLogEntries,
+  getLogStatistics,
   downloadLog,
   deleteLog,
   autoFillDeviceId,
