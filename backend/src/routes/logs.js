@@ -22,7 +22,8 @@ const {
   exportBatchLogEntriesCSV,
   reparseLog,
   batchReparseLogs,
-  getQueueStatus
+  getQueueStatus,
+  getVisualizationData
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -36,6 +37,9 @@ router.get('/entries/batch', auth, checkLogPermission('read_all'), rateLimiters.
 
 // 获取日志统计信息（用于计数功能）
 router.get('/entries/statistics', auth, checkLogPermission('read_all'), getLogStatistics);
+
+// 获取可视化数据（专门用于图表生成）
+router.get('/entries/visualization', auth, checkLogPermission('read_all'), getVisualizationData);
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
 const storage = multer.diskStorage({

@@ -2166,6 +2166,104 @@ const getLogStatistics = async (req, res) => {
       }
     }
 
+    // 高级筛选（与 getBatchLogEntries / exportBatchLogEntries 保持一致）
+    try {
+      const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
+      let firstOccurrenceRequested = false; // 统计接口不使用该选项，仅为兼容
+      const buildCondition = (field, operator, value) => {
+        if (!allowedFields.has(field)) return null;
+        const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(field);
+        const buildOpValue = (sequelizeOperator, val) => {
+          if (isNumericParam) {
+            const castCol = SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)');
+            if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+              const arr = Array.isArray(val) ? val : [val];
+              const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
+              if (nums.length === 0) return null;
+              return SequelizeLib.where(castCol, sequelizeOperator, nums);
+            }
+            if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+              if (!Array.isArray(val) || val.length !== 2) return null;
+              const a = Number(val[0]); const b = Number(val[1]);
+              if (Number.isNaN(a) || Number.isNaN(b)) return null;
+              return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
+            }
+            const n = Number(val);
+            if (Number.isNaN(n)) return null;
+            return SequelizeLib.where(castCol, sequelizeOperator, n);
+          }
+          if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
+            const toDate = (d) => {
+              if (d instanceof Date) return d; if (typeof d === 'string' || typeof d === 'number') return new Date(d); return null;
+            };
+            if (sequelizeOperator === Op.between) {
+              if (!Array.isArray(val) || val.length !== 2) return null;
+              const a = toDate(val[0]); const b = toDate(val[1]);
+              if (!a || !b) return null; return { [field]: { [Op.between]: [a, b] } };
+            }
+            const d = toDate(val); if (!d) return null; return { [field]: { [sequelizeOperator]: d } };
+          }
+          if (sequelizeOperator === Op.regexp) {
+            if (typeof val !== 'string' || val.length > 200) return null; return { [field]: { [Op.regexp]: val } };
+          }
+          if (sequelizeOperator === Op.like) return { [field]: { [Op.like]: `%${val}%` } };
+          if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+            const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
+            return { [field]: { [sequelizeOperator]: arr } };
+          }
+          if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+            if (!Array.isArray(val) || val.length !== 2) return null; return { [field]: { [sequelizeOperator]: val } };
+          }
+          if (isNumericParam) {
+            const n = Number(val); if (Number.isNaN(n)) return null; return SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, n);
+          }
+          return { [field]: { [sequelizeOperator]: val } };
+        };
+        switch ((operator || '').toLowerCase()) {
+          case 'firstof': firstOccurrenceRequested = true; return null;
+          case '=': return buildOpValue(Op.eq, value);
+          case '!=':
+          case '<>': return buildOpValue(Op.ne, value);
+          case '>': return buildOpValue(Op.gt, value);
+          case '>=': return buildOpValue(Op.gte, value);
+          case '<': return buildOpValue(Op.lt, value);
+          case '<=': return buildOpValue(Op.lte, value);
+          case 'between': return buildOpValue(Op.between, value);
+          case 'notbetween': return buildOpValue(Op.notBetween, value);
+          case 'in': return buildOpValue(Op.in, value);
+          case 'notin': return buildOpValue(Op.notIn, value);
+          case 'like':
+          case 'contains': return buildOpValue(Op.like, value);
+          case 'notcontains': return { [field]: { [Op.notLike]: `%${value}%` } };
+          case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
+          case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
+          case 'regex': return buildOpValue(Op.regexp, value);
+          default: return null;
+        }
+      };
+      const normalizeFilters = (raw) => { if (!raw) return null; let parsed = raw; if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch (e) { return null; } } return parsed; };
+      const advancedFilters = normalizeFilters(filters);
+      const buildFromNode = (node) => {
+        if (!node) return null;
+        if (Array.isArray(node)) { const parts = node.map(n => buildFromNode(n)).filter(Boolean); if (parts.length === 0) return null; return { [Op.and]: parts }; }
+        if (node.field && node.operator) return buildCondition(node.field, node.operator, node.value);
+        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+          const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean); if (childConds.length === 0) return null; return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
+        }
+        return null;
+      };
+      const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
+      if (advancedWhere) {
+        if (where[Op.and]) where[Op.and].push(advancedWhere);
+        else {
+          const baseConds = []; Object.keys(where).forEach(k => { if (k !== Op.and && k !== Op.or) { baseConds.push({ [k]: where[k] }); delete where[k]; } });
+          where[Op.and] = baseConds.length > 0 ? baseConds.concat([advancedWhere]) : [advancedWhere];
+        }
+      }
+    } catch (advErr) {
+      console.warn('[统计] 解析高级筛选失败，忽略此条件:', advErr.message);
+    }
+
     // 权限控制：普通用户只能查看自己的日志统计
     if (req.user && req.user.role_id) {
       const userRole = req.user.role_id;
@@ -2343,6 +2441,321 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
   }
 };
 
+// 获取可视化数据（专门用于图表生成）
+const getVisualizationData = async (req, res) => {
+  try {
+    const { 
+      log_ids, 
+      error_code, 
+      parameter_index, // 1, 2, 3, 4
+      subsystem,
+      filters,
+      start_time,
+      end_time,
+      search
+    } = req.query;
+    
+    if (!log_ids || !error_code || !parameter_index) {
+      return res.status(400).json({ 
+        message: 'log_ids、error_code和parameter_index参数都是必需的' 
+      });
+    }
+    
+    const paramIndex = parseInt(parameter_index) - 1; // 转换为0,1,2,3
+    if (paramIndex < 0 || paramIndex > 3) {
+      return res.status(400).json({ 
+        message: 'parameter_index必须是1-4之间的数字' 
+      });
+    }
+    
+    // 解析日志ID
+    const logIds = log_ids.split(',').map(id => parseInt(id.trim()));
+    
+    // 构建查询条件
+    const where = {
+      log_id: { [Op.in]: logIds },
+      error_code: error_code
+    };
+
+    // 添加时间范围筛选
+    if (start_time && end_time) {
+      where.timestamp = {
+        [Op.gte]: new Date(start_time),
+        [Op.lte]: new Date(end_time)
+      };
+    }
+
+    // 添加搜索关键词筛选（说明/explanation 或 故障码）
+    if (search && search.trim()) {
+      where[Op.or] = [
+        { explanation: { [Op.like]: `%${search.trim()}%` } },
+        { error_code: { [Op.like]: `%${search.trim()}%` } }
+      ];
+    }
+
+    // 添加高级筛选条件
+    if (filters) {
+      try {
+        // 定义允许的字段（与 getBatchLogEntries 保持一致）
+        const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
+
+        // 字段别名映射：兼容前端可能传入的 message 字段
+        const aliasField = (f) => (f === 'message' ? 'explanation' : f);
+
+        const buildCondition = (field, operator, value) => {
+          const fieldName = aliasField(field);
+          if (!allowedFields.has(fieldName)) return null;
+
+          const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(fieldName);
+
+          const buildOpValue = (sequelizeOperator, val) => {
+            if (val === null || val === undefined || val === '') return null;
+            // 数值参数使用 CAST 保证数值比较
+            if (isNumericParam) {
+              const castCol = SequelizeLib.cast(SequelizeLib.col(fieldName), 'DECIMAL(18,6)');
+              if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+                const arr = Array.isArray(val) ? val : [val];
+                const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
+                if (nums.length === 0) return null;
+                return SequelizeLib.where(castCol, sequelizeOperator, nums);
+              }
+              if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+                if (!Array.isArray(val) || val.length !== 2) return null;
+                const a = Number(val[0]);
+                const b = Number(val[1]);
+                if (Number.isNaN(a) || Number.isNaN(b)) return null;
+                return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
+              }
+              const n = Number(val);
+              if (Number.isNaN(n)) return null;
+              return SequelizeLib.where(castCol, sequelizeOperator, n);
+            }
+            if (fieldName === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
+              const toDate = (d) => {
+                if (d instanceof Date) return d;
+                if (typeof d === 'string' || typeof d === 'number') return new Date(d);
+                return null;
+              };
+              if (sequelizeOperator === Op.between) {
+                if (!Array.isArray(val) || val.length !== 2) return null;
+                const startDate = toDate(val[0]);
+                const endDate = toDate(val[1]);
+                if (!startDate || !endDate) return null;
+                return { [fieldName]: { [Op.between]: [startDate, endDate] } };
+              } else {
+                const date = toDate(val);
+                if (!date) return null;
+                return { [fieldName]: { [sequelizeOperator]: date } };
+              }
+            }
+            if (sequelizeOperator === Op.regexp) {
+              if (typeof val !== 'string' || val.length > 200) return null;
+              return { [fieldName]: { [Op.regexp]: val } };
+            }
+            if (sequelizeOperator === Op.like) {
+              return { [fieldName]: { [Op.like]: `%${val}%` } };
+            }
+            if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
+              const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
+              return { [fieldName]: { [sequelizeOperator]: arr } };
+            }
+            if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
+              if (!Array.isArray(val) || val.length !== 2) return null;
+              return { [fieldName]: { [sequelizeOperator]: val } };
+            }
+            return { [fieldName]: { [sequelizeOperator]: val } };
+          };
+
+          switch ((operator || '').toLowerCase()) {
+            case '=': return buildOpValue(Op.eq, value);
+            case '!=':
+            case '<>': return buildOpValue(Op.ne, value);
+            case '>': return buildOpValue(Op.gt, value);
+            case '>=': return buildOpValue(Op.gte, value);
+            case '<': return buildOpValue(Op.lt, value);
+            case '<=': return buildOpValue(Op.lte, value);
+            case 'between': return buildOpValue(Op.between, value);
+            case 'notbetween': return buildOpValue(Op.notBetween, value);
+            case 'in': return buildOpValue(Op.in, value);
+            case 'notin': return buildOpValue(Op.notIn, value);
+            case 'like':
+            case 'contains': return buildOpValue(Op.like, value);
+            case 'notcontains': return { [aliasField(fieldName)]: { [Op.notLike]: `%${value}%` } };
+            case 'startswith': return { [fieldName]: { [Op.like]: `${value}%` } };
+            case 'endswith': return { [fieldName]: { [Op.like]: `%${value}` } };
+            case 'regex': return buildOpValue(Op.regexp, value);
+            default: return null;
+          }
+        };
+
+        const normalizeFilters = (raw) => {
+          if (!raw) return null;
+          let parsed = raw;
+          if (typeof raw === 'string') {
+            try {
+              parsed = JSON.parse(raw);
+            } catch (e) {
+              return null;
+            }
+          }
+          return parsed;
+        };
+
+        const advancedFilters = normalizeFilters(filters);
+
+        // 递归构建 Sequelize 条件
+        const buildFromNode = (node) => {
+          if (!node) return null;
+          if (Array.isArray(node)) {
+            const parts = node.map(n => buildFromNode(n)).filter(Boolean);
+            if (parts.length === 0) return null;
+            return { [Op.and]: parts };
+          }
+          if (node.field && node.operator) {
+            return buildCondition(node.field, node.operator, node.value);
+          }
+          if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+            const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean);
+            if (childConds.length === 0) return null;
+            return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
+          }
+          return null;
+        };
+
+        const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
+        if (advancedWhere) {
+          // 与其他顶层条件按 AND 组合
+          if (where[Op.and]) {
+            where[Op.and].push(advancedWhere);
+          } else {
+            const baseConds = [];
+            Object.keys(where).forEach(k => {
+              if (k !== Op.and && k !== Op.or) {
+                baseConds.push({ [k]: where[k] });
+                delete where[k];
+              }
+            });
+            if (baseConds.length > 0) {
+              where[Op.and] = baseConds.concat([advancedWhere]);
+            } else {
+              where[Op.and] = [advancedWhere];
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('解析高级筛选条件失败:', error.message);
+      }
+    }
+    
+    // 权限控制：普通用户只能查看自己的日志
+    if (req.user && req.user.role_id) {
+      const userRole = req.user.role_id;
+      if (userRole === 3) { // 普通用户
+        const userLogs = await Log.findAll({
+          where: { uploader_id: req.user.id },
+          attributes: ['id']
+        });
+        const userLogIds = userLogs.map(log => log.id);
+        
+        const allowedIds = logIds.filter(id => userLogIds.includes(id));
+        if (allowedIds.length === 0) {
+          return res.status(403).json({ message: '没有权限访问这些日志' });
+        }
+        where.log_id = { [Op.in]: allowedIds };
+      }
+    }
+    
+    // 查询该故障码的时间范围（首次和末次出现时间）
+    const timeRangeQuery = await LogEntry.findOne({
+      where,
+      attributes: [
+        [SequelizeLib.fn('MIN', SequelizeLib.col('timestamp')), 'startTime'],
+        [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'endTime']
+      ],
+      raw: true
+    });
+    
+    if (!timeRangeQuery || !timeRangeQuery.startTime || !timeRangeQuery.endTime) {
+      return res.status(404).json({ message: '未找到该故障码的数据' });
+    }
+    
+    // 查询该故障码的所有数据（在时间范围内）
+    const entries = await LogEntry.findAll({
+      where: {
+        ...where,
+        timestamp: {
+          [Op.gte]: timeRangeQuery.startTime,
+          [Op.lte]: timeRangeQuery.endTime
+        }
+      },
+      attributes: ['timestamp', `param${paramIndex + 1}`],
+      order: [['timestamp', 'ASC']]
+    });
+    
+    // 处理数据格式
+    const chartData = entries.map(entry => {
+      const timestamp = new Date(entry.timestamp).getTime();
+      const paramValue = parseFloat(entry[`param${paramIndex + 1}`]) || 0;
+      return [timestamp, paramValue];
+    });
+    
+    // 查询故障码参数含义
+    let paramName = `参数${paramIndex + 1}`;
+    let chartTitle = `参数${paramIndex + 1}`;
+    
+    if (subsystem) {
+      try {
+        // 从error_code中提取故障码
+        let codeToQuery = error_code;
+        if (error_code.length >= 5) {
+          codeToQuery = '0X' + error_code.slice(-4);
+        }
+        
+        const ErrorCode = require('../models/error_code');
+        const errorCodeRecord = await ErrorCode.findOne({
+          where: { 
+            code: codeToQuery, 
+            subsystem: subsystem 
+          }
+        });
+        
+        if (errorCodeRecord) {
+          const paramFields = ['param1', 'param2', 'param3', 'param4'];
+          const paramField = paramFields[paramIndex];
+          const actualParamName = errorCodeRecord[paramField];
+          
+          if (actualParamName && actualParamName.trim()) {
+            paramName = actualParamName.trim();
+            chartTitle = actualParamName.trim();
+          }
+        }
+      } catch (error) {
+        console.warn('查询故障码参数含义失败:', error.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        chartData,
+        timeRange: {
+          startTime: timeRangeQuery.startTime,
+          endTime: timeRangeQuery.endTime
+        },
+        paramName,
+        chartTitle,
+        errorCode: error_code,
+        parameterIndex: parameter_index,
+        dataCount: chartData.length
+      }
+    });
+    
+  } catch (err) {
+    console.error('获取可视化数据失败:', err);
+    res.status(500).json({ message: '获取可视化数据失败', error: err.message });
+  }
+};
+
 module.exports = {
   getLogs,
   getLogsByDevice,
@@ -2364,5 +2777,6 @@ module.exports = {
   getSearchTemplates,
   importSearchTemplates,
   getQueueStatus,
-  executeBatchQuery
+  executeBatchQuery,
+  getVisualizationData
 }; 

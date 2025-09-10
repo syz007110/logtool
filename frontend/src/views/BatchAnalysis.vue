@@ -192,7 +192,7 @@
             </el-table-column>
             
             <!-- 文件名/时间戳列 -->
-            <el-table-column prop="file_info" width="20%">
+            <el-table-column prop="file_info" width="15%">
               <template #header>
                 <div class="col-header">
                   <span>时间戳（文件名）</span>
@@ -250,7 +250,7 @@
             </el-table-column>
             
             <!-- 参数列 -->
-            <el-table-column prop="parameters" width="15%">
+            <el-table-column prop="parameters" width="20%">
               <template #header>
                 <div class="col-header">
                   <span>参数(1~4)</span>
@@ -262,20 +262,48 @@
                     <span v-for="(param, index) in [row.param1, row.param2, row.param3, row.param4].filter(p => p)" :key="index" class="param-item">{{ param }}</span>
                   </div>
                   <div class="param-actions">
-                    <el-tooltip 
-                      :content="chartThumbnails.length >= 5 ? '已有5张可视化数据表' : ''"
-                      :disabled="chartThumbnails.length < 5"
-                      placement="top"
+                    <el-popover
+                      :visible="activeParamPopoverRowId === row.id"
+                      trigger="manual"
+                      placement="bottom"
+                      width="260px"
+                      :teleported="true"
+                      popper-class="param-popover"
                     >
+                      <div class="parameter-popover">
+                        <div class="popover-title" style="margin-bottom:8px;">选择可视化参数</div>
+                        <div v-if="paramNamesLoading" class="param-loading">正在加载参数含义...</div>
+                        <el-radio-group 
+                          v-else
+                          v-model="selectedParameter"
+                          class="param-radio-group"
+                        >
+                          <el-radio
+                            v-for="idx in 4"
+                            :key="idx"
+                            :label="idx"
+                            :disabled="paramNamesLoading || !isParameterAvailable(idx)"
+                          >
+                            {{ paramNames[idx - 1] || `参数${idx}` }}
+                          </el-radio>
+                        </el-radio-group>
+                        <div class="popover-actions" style="margin-top:8px;text-align:right;">
+                          <el-button size="small" @click="activeParamPopoverRowId = null">取消</el-button>
+                          <el-button size="small" type="primary" @click="confirmVisualization">确认</el-button>
+                        </div>
+                      </div>
+                      <template #reference>
                       <el-button 
                         text
-                        @click="handleVisualization(row)"
+                        @click.stop="handleVisualization(row)"
                         class="visualization-btn"
                         :disabled="chartThumbnails.length >= 5"
+                        :title="chartThumbnails.length >= 5 ? '已有5张可视化数据表' : ''"
                       >
                         <el-icon><DataAnalysis /></el-icon>
                       </el-button>
-                    </el-tooltip>
+                      </template>
+                    </el-popover>
                   </div>
                 </div>
               </template>
@@ -375,40 +403,37 @@
           </template>
         </el-dialog>
 
-        <!-- 日志摘取侧边栏 -->
+        <!-- 右侧侧边栏（日志摘取 / 可视化） -->
         <el-drawer
           v-model="clipboardVisible"
-          title="剪贴板"
           direction="rtl"
-          size="300px"
-          :with-header="true"
+          size="340px"
+          :with-header="false"
         >
-          <div class="clipboard-container">
-            <div class="clipboard-header">
-              <div class="clipboard-thumbnail" @click="clipboardDetailVisible = true">
-                <div class="clipboard-icon">
-                  <el-icon size="20"><DocumentCopy /></el-icon>
+          <div class="sidebar-tabs">
+            <el-tabs v-model="sidebarActiveTab" stretch>
+              <el-tab-pane :label="`日志摘取 (${clipboardCount})`" name="logs">
+                <div class="logs-clipboard">
+                  <div v-if="(clipboardEntries.length>0) || clipboardContent">
+                    <div class="clipboard-thumbnail" @click="clipboardDetailVisible = true">
+                      <div class="thumb-row">
+                        <el-icon><DocumentCopy /></el-icon>
+                        <span class="thumb-label">日志摘取板</span>
+                      </div>
+                      <div class="fill-bar">
+                        <div class="fill-bar-inner" :style="{ width: fillPercent + '%' }"></div>
+                        <div class="fill-bar-text">{{ clipboardCount }}/{{ maxClipboardEntries }}</div>
+                      </div>
+                      <el-button class="delete-btn" text circle @click.stop="clearClipboard">
+                        <el-icon><Delete /></el-icon>
+                      </el-button>
+                    </div>
+                  </div>
+                  <el-empty v-else description="暂无摘取的日志" />
                 </div>
-                <div class="clipboard-text">
-                  <div class="clipboard-title">日志摘取板</div>
-                  <div class="clipboard-count">{{ clipboardEntries.length }} 条日志</div>
-                </div>
-                <el-button 
-                  v-if="clipboardEntries.length > 0"
-                  size="small" 
-                  type="danger" 
-                  circle 
-                  class="delete-btn"
-                  @click.stop="clearClipboard"
-                >
-                  <el-icon><Delete /></el-icon>
-                </el-button>
-              </div>
-            </div>
-            
-            <!-- 图表缩略图列表 -->
+              </el-tab-pane>
+              <el-tab-pane :label="`可视化 (${chartThumbnails.length})`" name="charts">
             <div class="chart-thumbnails" v-if="chartThumbnails.length > 0">
-              <div class="thumbnails-title">可视化</div>
               <div class="thumbnail-list">
                 <div 
                   v-for="chart in chartThumbnails" 
@@ -416,13 +441,14 @@
                   class="chart-thumbnail-item"
                   @click="showChartDetail(chart)"
                 >
+                  <div class="thumbnail-title">{{ chart.title }}</div>
                   <div class="thumbnail-chart" :id="`chart-thumb-${chart.id}`"></div>
                   <div class="thumbnail-info">
                     <div class="thumbnail-time">{{ formatTimestamp(chart.timestamp) }}</div>
                   </div>
                   <el-button 
                     size="small" 
-                    type="danger" 
+                    text
                     circle 
                     class="thumbnail-delete-btn"
                     @click.stop="deleteChartThumbnail(chart.id)"
@@ -432,98 +458,53 @@
                 </div>
               </div>
             </div>
+                <el-empty v-else description="暂无可视化图表" />
+              </el-tab-pane>
+            </el-tabs>
           </div>
         </el-drawer>
 
-        <!-- 参数选择对话框 -->
-        <el-dialog
-          v-model="parameterSelectVisible"
-          title="选择可视化参数"
-          width="400px"
-          :close-on-click-modal="false"
-        >
-          <div class="parameter-select-dialog">
-            <p>请选择要作为Y轴显示的参数：</p>
-            <el-select 
-              v-model="selectedParameter" 
-              placeholder="选择参数"
-              style="width: 100%"
-              :key="selectKey"
-            >
-              <el-option 
-                v-for="idx in 4" 
-                :key="idx"
-                :label="paramNames[idx - 1]"
-                :value="idx"
-                :disabled="!isParameterAvailable(idx)"
-              />
-            </el-select>
-            <div class="dialog-actions">
-              <el-button @click="parameterSelectVisible = false">取消</el-button>
-              <el-button type="primary" @click="confirmVisualization">确认</el-button>
-            </div>
+        <el-dialog v-model="clipboardDetailVisible" title="日志摘取板" width="700px">
+          <div class="clipboard-detail">
+            <el-input
+              type="textarea"
+              v-model="clipboardContent"
+              :autosize="{ minRows: 12, maxRows: 24 }"
+              class="clipboard-textarea"
+              placeholder="在这里编辑摘取的日志文本..."
+            />
           </div>
+          <template #footer>
+            <div class="dialog-footer">
+              <el-button @click="clearClipboard" :disabled="!clipboardContent">清空</el-button>
+              <el-button type="primary" @click="exportClipboardToTxt" :disabled="!clipboardContent">导出TXT</el-button>
+            </div>
+          </template>
         </el-dialog>
 
-        <!-- 剪贴板详情弹窗 -->
-        <el-dialog
-          v-model="clipboardDetailVisible"
-          title="剪贴板详情"
-          width="60%"
-          :close-on-click-modal="false"
-        >
-          <div class="clipboard-detail">
-            <div class="clipboard-detail-header">
-              <span>共 {{ clipboardEntries.length }} 条日志</span>
-              <div class="detail-actions">
-                <el-button size="small" type="primary" @click="saveClipboardContent">
-                  保存编辑
-                </el-button>
-                <el-button size="small" type="success" @click="exportClipboardToTxt">
-                  导出TXT文件
-                </el-button>
-                <el-button size="small" type="danger" @click="clearClipboard">
-                  清空剪贴板
-                </el-button>
-              </div>
-            </div>
-            
-            <div class="clipboard-content">
-              <el-input
-                v-model="clipboardContent"
-                type="textarea"
-                :rows="5"
-                placeholder="剪贴板内容将显示在这里，支持直接编辑..."
-                class="clipboard-textarea"
-              />
-            </div>
-            
-          </div>
-        </el-dialog>
+        
+
+        
 
         <!-- 图表详情弹窗 -->
         <el-dialog
           v-model="chartDetailVisible"
           title="数据可视化图表"
           width="56%"
-          :close-on-click-modal="false"
+          :close-on-click-modal="true"
+          @opened="onChartDialogOpened"
         >
           <div class="chart-detail">
-            <div class="chart-detail-header">
-              <span>{{ chartTitle }}</span>
-              <div class="chart-actions">
-                <el-button size="small" type="success" @click="exportChartAsImage">
-                  <el-icon><Download /></el-icon>
-                  另存为图片
-                </el-button>
-                <el-button size="small" type="danger" @click="deleteCurrentChart">
-                  <el-icon><Delete /></el-icon>
-                  删除图表
-                </el-button>
-              </div>
-            </div>
+            <div class="dialog-subtitle">{{ chartTitle }}</div>
             <div class="chart-container" ref="chartContainer">
-              <div id="visualizationChart" style="width: 100%; height: 450px;"></div>
+              <TimeSeriesChart
+                v-if="currentChartData && Array.isArray(currentChartData.data) && currentChartData.data.length > 0"
+                :series-data="currentChartData.data"
+                :series-name="currentChartData.parameterValue || '数据'"
+                :height="450"
+                :show-range-labels="false"
+              />
+              <div v-else style="width:100%;height:450px;display:flex;align-items:center;justify-content:center;color:#909399;">暂无数据</div>
             </div>
           </div>
         </el-dialog>
@@ -630,12 +611,13 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponent } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponent, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import api from '@/api'
 
 export default {
@@ -646,6 +628,7 @@ export default {
     ArrowLeft,
     DataAnalysis,
     Warning,
+    TimeSeriesChart,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { text: { type: String, default: '' } },
@@ -898,12 +881,25 @@ export default {
     const clipboardVisible = ref(false)
     const clipboardEntries = ref([])
     const maxClipboardEntries = 50
-    const clipboardDetailVisible = ref(false)
     const clipboardContent = ref('')
+    const clipboardDetailVisible = ref(false)
+    const sidebarActiveTab = ref('logs')
+    const clipboardCount = computed(() => {
+      if (clipboardEntries.value.length > 0) return clipboardEntries.value.length
+      if (!clipboardContent.value) return 0
+      return clipboardContent.value.split(/\r?\n/).filter(line => line.trim().length > 0).length
+    })
+    const fillPercent = computed(() => {
+      const cnt = clipboardCount.value
+      const pct = (cnt / maxClipboardEntries) * 100
+      return Math.max(0, Math.min(100, Math.round(pct)))
+    })
 
     // 可视化相关
     const parameterSelectVisible = ref(false)
+    const activeParamPopoverRowId = ref(null)
     const selectedParameter = ref(null)
+    const paramNamesLoading = ref(false)
     const availableParameters = ref([])
     const paramAvailability = ref([false, false, false, false])
     const paramNames = ref(['参数1', '参数2', '参数3', '参数4'])
@@ -922,6 +918,27 @@ export default {
     const globalErrorCodeCounts = ref({}) // 存储全局故障码统计（无筛选条件）
     const filteredErrorCodeCounts = ref({}) // 存储筛选条件下的故障码统计
     const statisticsCache = ref({}) // 统计缓存，避免重复请求
+    // 基于当前筛选条件构建统计缓存键，确保显示与当前条件一致的统计
+    const currentStatisticsKey = computed(() => {
+      const logIds = selectedLogs.value.map(l => l.id).join(',')
+      const params = { log_ids: logIds }
+      if (advancedMode.value && leafConditionCount.value > 0) {
+        const filtersPayload = buildFiltersPayload()
+        if (filtersPayload) params.filters = JSON.stringify(filtersPayload)
+      }
+      if (timeRange.value && timeRange.value.length === 2) {
+        params.start_time = timeRange.value[0]
+        params.end_time = timeRange.value[1]
+      }
+      if (searchKeyword.value) {
+        params.search = searchKeyword.value
+      }
+      try {
+        return JSON.stringify(params)
+      } catch (_) {
+        return ''
+      }
+    })
     const showStatisticsForErrorCode = ref(null) // 控制显示哪个故障码的统计
     
     // 从后端获取全局统计信息（无筛选条件）
@@ -1010,6 +1027,7 @@ export default {
             sessionStorage.setItem('filteredErrorCodeCounts', JSON.stringify(newFilteredCounts))
             sessionStorage.setItem('filteredStatisticsTimestamp', Date.now().toString())
             sessionStorage.setItem('statisticsCache', JSON.stringify(statisticsCache.value))
+            sessionStorage.setItem('currentStatisticsKey', cacheKey)
           } catch (error) {
             console.warn('存储筛选统计信息失败:', error)
           }
@@ -1040,7 +1058,12 @@ export default {
       if (useGlobal) {
         return globalErrorCodeCounts.value[errorCode] || 0
       }
-      return filteredErrorCodeCounts.value[errorCode] || 0
+      // 当存在筛选条件时，优先使用与当前条件匹配的缓存项，避免显示过期/全局统计
+      const key = currentStatisticsKey.value
+      const source = (key && statisticsCache.value[key])
+        ? statisticsCache.value[key]
+        : filteredErrorCodeCounts.value
+      return (source && source[errorCode]) ? source[errorCode] : 0
     }
     
 
@@ -1081,16 +1104,20 @@ export default {
           globalErrorCodeCounts.value = JSON.parse(globalErrorCodeCountsData)
         }
         
-        // 加载筛选统计
-        const filteredErrorCodeCountsData = sessionStorage.getItem('filteredErrorCodeCounts')
-        if (filteredErrorCodeCountsData) {
-          filteredErrorCodeCounts.value = JSON.parse(filteredErrorCodeCountsData)
-        }
-        
         // 加载统计缓存
         const statisticsCacheData = sessionStorage.getItem('statisticsCache')
         if (statisticsCacheData) {
           statisticsCache.value = JSON.parse(statisticsCacheData)
+        }
+        // 仅当缓存键与当前筛选键一致时，才回填筛选统计，避免显示错误的（例如全局）结果
+        const storedKey = sessionStorage.getItem('currentStatisticsKey')
+        if (storedKey && storedKey === currentStatisticsKey.value) {
+          const filteredErrorCodeCountsData = sessionStorage.getItem('filteredErrorCodeCounts')
+          if (filteredErrorCodeCountsData) {
+            filteredErrorCodeCounts.value = JSON.parse(filteredErrorCodeCountsData)
+          }
+        } else {
+          filteredErrorCodeCounts.value = {}
         }
         
         // 兼容性：加载原有数据
@@ -1484,10 +1511,12 @@ export default {
       // 智能防抖：根据搜索复杂度调整延迟时间
       const delay = calculateSearchDelay()
       
-      searchTimer = setTimeout(() => {
+      searchTimer = setTimeout(async () => {
         if (!isComposing.value) {
           currentPage.value = 1
-          loadBatchLogEntries(1, true, searchAbortController.signal)
+          await loadBatchLogEntries(1, true, searchAbortController.signal)
+          // 更新筛选条件下的统计信息
+          await fetchFilteredStatistics()
         }
       }, delay)
     }
@@ -1526,6 +1555,8 @@ export default {
       
       currentPage.value = 1
       await loadBatchLogEntries(1, true)
+      // 更新筛选条件下的统计信息
+      await fetchFilteredStatistics()
     }
 
     // 时间范围变化处理
@@ -1568,6 +1599,8 @@ export default {
       currentPage.value = 1
       // 立即重新加载，显示全部条目
       await loadBatchLogEntries(1, true)
+      // 清除筛选后，重新获取全局统计
+      await fetchGlobalStatistics()
     }
 
     // 仅清空高级条件，不影响其他筛选（供弹窗内一键清空使用）
@@ -2284,29 +2317,18 @@ export default {
         return
       }
       
-      // 检查是否已存在相同的日志条目
-      const exists = clipboardEntries.value.some(entry => entry.id === row.id)
-      if (exists) {
-        ElMessage.warning('该日志条目已在摘取板中')
-        return
-      }
-      
-      // 添加到摘取板
+      // 允许重复添加（不再与参数绑定）
       clipboardEntries.value.push({
-        type: 'log', // 添加类型标识
         id: row.id,
         timestamp: row.timestamp,
         error_code: row.error_code,
-        explanation: row.explanation,
-        param1: row.param1,
-        param2: row.param2,
-        param3: row.param3,
-        param4: row.param4,
-        log_name: row.log_name
+        explanation: row.explanation
       })
       
-      // 更新剪贴板内容
-      updateClipboardContent()
+      // 直接将纯文本附加到摘取板（不包含参数）
+      const timestamp = formatTimestamp(row.timestamp)
+      const line = `${timestamp} ${row.error_code} ${row.explanation}`.trim()
+      clipboardContent.value = (clipboardContent.value ? clipboardContent.value + '\n' : '') + line
       
       // 显示侧边栏
       clipboardVisible.value = true
@@ -2316,20 +2338,8 @@ export default {
 
     // 更新剪贴板内容
     const updateClipboardContent = () => {
-      clipboardContent.value = clipboardEntries.value
-        .filter(entry => entry && entry !== null && entry !== undefined)
-        .map(entry => {
-          if (entry.type === 'chart') {
-            // 图表类型的数据
-            const timestamp = formatTimestamp(entry.timestamp)
-            return `[图表] ${timestamp} - ${entry.title} (参数${entry.parameter}, ${entry.dataCount}条数据)`
-          } else {
-            // 普通日志条目
-            const timestamp = formatTimestamp(entry.timestamp)
-            const params = [entry.param1, entry.param2, entry.param3, entry.param4].filter(p => p).join(' ')
-            return `${timestamp} ${entry.error_code} ${entry.explanation} ${params}`.trim()
-          }
-        }).join('\n')
+      // 保留函数以兼容旧逻辑，但不再覆盖用户编辑内容
+      // 如需从条目重建文本，可在此处实现
     }
 
     // 清空剪贴板
@@ -2337,6 +2347,14 @@ export default {
       clipboardEntries.value = []
       clipboardContent.value = ''
       ElMessage.success('日志摘取板已清空')
+    }
+
+    const removeFromClipboard = (id) => {
+      const idx = clipboardEntries.value.findIndex(e => e.id === id)
+      if (idx > -1) {
+        clipboardEntries.value.splice(idx, 1)
+        updateClipboardContent()
+      }
     }
 
 
@@ -2362,16 +2380,20 @@ export default {
 
     // 保存剪贴板编辑内容
     const saveClipboardContent = () => {
-      // 将编辑后的内容保存到sessionStorage
+      try {
       sessionStorage.setItem('clipboardContent', clipboardContent.value)
-      ElMessage.success('编辑内容已保存')
+        ElMessage.success('已保存')
+      } catch (error) {
+        console.error('保存剪贴板内容失败:', error)
+        ElMessage.error('保存失败')
+      }
     }
 
     // 加载保存的剪贴板内容
     const loadClipboardContent = () => {
       try {
         const saved = sessionStorage.getItem('clipboardContent')
-        if (saved) {
+        if (saved !== null) {
           clipboardContent.value = saved
         }
       } catch (error) {
@@ -2386,74 +2408,74 @@ export default {
 
     // 可视化功能
     const handleVisualization = async (row) => {
-      // 记录各参数是否可用
+      // 记录各参数是否可用（同步，保证快速响应）
       const params = [row.param1, row.param2, row.param3, row.param4]
       paramAvailability.value = params.map(p => !!(p && String(p).trim()))
-      
       if (!paramAvailability.value.some(v => v)) {
         ElMessage.warning('该日志条目没有可用的参数进行可视化')
         return
       }
       
-      // 先尝试获取故障码参数名称
-      let fetchedParamNames = ['参数1', '参数2', '参数3', '参数4'] // 默认名称
-      
-      try {
-        // 从日志的error_code中提取故障码和子系统号
-        const fullErrorCode = row.error_code.toUpperCase()
-        let errorCodeToQuery = fullErrorCode
-        let subsystemToQuery = 1
-        
-        // 如果error_code格式是 "子系统号+6位故障码" (如 "800405E")
-        if (fullErrorCode.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(fullErrorCode)) {
-          subsystemToQuery = fullErrorCode.charAt(0) // 第一位是子系统号
-          const faultCodePart = fullErrorCode.substring(3) // 取后4位作为故障码部分
-          errorCodeToQuery = `0X${faultCodePart}` // 添加0X前缀
-        }
-        // 如果error_code格式是 "子系统号+故障码" (如 "10X010A")
-        else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
-          subsystemToQuery = fullErrorCode.charAt(0)
-          errorCodeToQuery = fullErrorCode.substring(1)
-        }
-        // 如果error_code格式是纯故障码 (如 "0X010A")
-        else if (/^0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
-          errorCodeToQuery = fullErrorCode
-        }
-        
-        // 查询故障码参数名称
-        const errorCodeResponse = await api.errorCodes.getByCodeAndSubsystem(
-          errorCodeToQuery,
-          subsystemToQuery
-        )
-        
-        if (errorCodeResponse.data && errorCodeResponse.data.errorCode) {
-          const errorCodeInfo = errorCodeResponse.data.errorCode
-          // 使用故障码表中的参数名称
-          fetchedParamNames = [
-            errorCodeInfo.param1 || '参数1',
-            errorCodeInfo.param2 || '参数2', 
-            errorCodeInfo.param3 || '参数3',
-            errorCodeInfo.param4 || '参数4'
-          ]
-        }
-      } catch (error) {
-        console.warn('获取故障码参数名称失败，使用默认名称:', error)
-      }
-      
-      // 保留原始展示值用于图例命名
+      // 先以默认名称和当前值即时展示
       availableParameters.value = params.map(p => (p && String(p).trim()) ? String(p).trim() : '')
-      // 保存参数名称用于下拉菜单显示
-      paramNames.value = fetchedParamNames
+      paramNames.value = ['参数1', '参数2', '参数3', '参数4']
       currentVisualizationRow.value = row
       selectedParameter.value = null
-      
-      // 强制重新渲染select组件
       selectKey.value++
-      
-      // 使用nextTick确保响应式更新完成后再显示对话框
-      nextTick(() => {
-        parameterSelectVisible.value = true
-      })
+      nextTick(() => { activeParamPopoverRowId.value = row.id })
+      // 点击外部区域关闭：注册一次性 document 点击监听
+      const closeOnOutsideClick = (e) => {
+        // 如果已经关闭，移除监听
+        if (activeParamPopoverRowId.value !== row.id) {
+          document.removeEventListener('click', closeOnOutsideClick, true)
+          return
+        }
+        // 点击在参数按钮或 Popover 内部则忽略
+        const target = e.target
+        const btn = target && target.closest && target.closest('.visualization-btn')
+        const pop = target && target.closest && target.closest('.el-popover')
+        if (btn || pop) return
+        // 关闭并移除监听
+        activeParamPopoverRowId.value = null
+        document.removeEventListener('click', closeOnOutsideClick, true)
+      }
+      // 捕获阶段监听，优先于内部处理
+      document.addEventListener('click', closeOnOutsideClick, true)
+
+      // 后台异步获取更精准的参数名称，返回后再更新；加载完成前不渲染单选项
+      paramNamesLoading.value = true
+      try {
+        const fullErrorCode = row.error_code?.toUpperCase?.() || ''
+        let errorCodeToQuery = fullErrorCode
+        let subsystemToQuery = 1
+        if (fullErrorCode.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0)
+          const faultCodePart = fullErrorCode.substring(3)
+          errorCodeToQuery = `0X${faultCodePart}`
+        } else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0)
+          errorCodeToQuery = fullErrorCode.substring(1)
+        } else if (/^0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          errorCodeToQuery = fullErrorCode
+        }
+        const resp = await api.errorCodes.getByCodeAndSubsystem(errorCodeToQuery, subsystemToQuery)
+        const info = resp?.data?.errorCode
+        if (info) {
+          paramNames.value = [
+            info.param1 || '参数1',
+            info.param2 || '参数2',
+            info.param3 || '参数3',
+            info.param4 || '参数4'
+          ]
+        }
+      } catch (e) {
+        console.warn('获取故障码参数名称失败，继续使用默认名称')
+      } finally {
+        // 仅当仍是当前行的弹出层，才结束loading
+        if (activeParamPopoverRowId.value === row.id) {
+          paramNamesLoading.value = false
+        }
+      }
     }
 
     const isParameterAvailable = (idx) => {
@@ -2467,448 +2489,66 @@ export default {
         return
       }
       
-      parameterSelectVisible.value = false
+      activeParamPopoverRowId.value = null
       generateChart()
     }
 
     const generateChart = async () => {
       if (!currentVisualizationRow.value) return
-      
       const row = currentVisualizationRow.value
-      const paramIndex = selectedParameter.value - 1 // 将1,2,3,4转换为0,1,2,3
-      const paramValue = availableParameters.value[paramIndex]
-      
-      try {
-        // 查询故障码表中的参数信息
-        // 从日志的error_code中提取故障码和子系统号
-        const fullErrorCode = row.error_code.toUpperCase() // 确保大写
-        let errorCodeToQuery = fullErrorCode
-        let subsystemToQuery = 1 // 默认子系统号
-        
-        // 如果error_code格式是 "子系统号+6位故障码" (如 "800405E")
-        if (fullErrorCode.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(fullErrorCode)) {
-          subsystemToQuery = fullErrorCode.charAt(0) // 第一位是子系统号
-          const faultCodePart = fullErrorCode.substring(3) // 取后4位作为故障码部分
-          errorCodeToQuery = `0X${faultCodePart}` // 添加0X前缀
-        }
-        // 如果error_code格式是 "子系统号+故障码" (如 "10X010A")
-        else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
-          subsystemToQuery = fullErrorCode.charAt(0) // 第一位是子系统号
-          errorCodeToQuery = fullErrorCode.substring(1) // 去掉第一位，得到故障码
-        }
-        // 如果error_code格式是纯故障码 (如 "0X010A")
-        else if (/^0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
-          errorCodeToQuery = fullErrorCode
-          // 保持默认子系统号1
-        }
-        
-        
-        // 使用提取的故障码和子系统号查询
-        const errorCodeResponse = await api.errorCodes.getByCodeAndSubsystem(
-          errorCodeToQuery,
-          subsystemToQuery
-        )
-        
-        
-        let actualParamName = `参数${selectedParameter.value}` // 默认值
-        
-        if (errorCodeResponse.data && errorCodeResponse.data.errorCode) {
-          const errorCodeInfo = errorCodeResponse.data.errorCode
-          
-          // 根据参数索引获取对应的参数名称
-          const paramFields = ['param1', 'param2', 'param3', 'param4']
-          const paramField = paramFields[paramIndex]
-          
-          if (errorCodeInfo[paramField] && errorCodeInfo[paramField].trim()) {
-            actualParamName = errorCodeInfo[paramField].trim()
-          }
-        }
-        
-        // 标题仅使用 参数x
-        chartTitle.value = `参数${selectedParameter.value}`
-        
-        // 显示图表详情弹窗
+      // 先打开弹窗，再异步获取数据供子组件渲染
         chartDetailVisible.value = true
-        
-        // 等待DOM更新后生成图表
-        nextTick(async () => {
-          await createChart(row, actualParamName)
-        })
-        
-      } catch (error) {
-        console.error('查询故障码参数信息失败:', error)
-        // 查询失败时仍使用 参数x 作为标题
-        chartTitle.value = `参数${selectedParameter.value}`
-        chartDetailVisible.value = true
-        nextTick(async () => {
-          await createChart(row, paramValue)
-        })
-      }
+        await createChart(row)
     }
 
-    const createChart = async (row, paramValue) => {
-      const chartElement = document.getElementById('visualizationChart')
-      if (!chartElement) return
-      
-      // 设置全局错误处理来捕获 ECharts 内部错误
-      const originalConsoleError = console.error
-      console.error = function(...args) {
-        const errorMessage = args.join(' ')
-        if (errorMessage.includes('dataSample') || 
-            errorMessage.includes('Cannot read properties of undefined') ||
-            errorMessage.includes('reading \'type\'')) {
-          // 静默处理ECharts内部错误
-          return
-        }
-        originalConsoleError.apply(console, args)
-      }
-      
-      // 销毁之前的图表实例
-      if (chartInstance.value) {
-        chartInstance.value.dispose()
-        chartInstance.value = null
-      }
-      
+    const createChart = async (row) => {
       try {
-        // 显示加载状态
         ElMessage.info('正在获取图表数据...')
-        
-        // 构建查询参数，获取所有相关数据
         const logIds = selectedLogs.value.map(l => l.id).join(',')
-        const baseParams = {
-          log_ids: logIds,
-          page: 1,
-          limit: 10000, // 设置一个较大的限制以获取所有数据
-          error_code: row.error_code // 只获取特定故障码的数据
+        const paramIndex = selectedParameter.value
+        const fullErrorCode = row.error_code.toUpperCase()
+        let subsystemToQuery = 1
+        if (fullErrorCode.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0)
+        } else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
+          subsystemToQuery = fullErrorCode.charAt(0)
         }
-        
-        // 添加时间范围筛选（如果设置了）
-        if (timeRange.value && timeRange.value.length === 2) {
-          baseParams.start_time = timeRange.value[0]
-          baseParams.end_time = timeRange.value[1]
-        }
-        
-        // 调用API获取所有相关数据
-        const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams)
-        const allLogs = response.data.entries
-        const paramIndex = selectedParameter.value - 1
-        
-        const chartData = allLogs.map(log => {
-          const timestamp = new Date(log.timestamp).getTime()
-          let yValue = 0
-          
-          // 根据选择的参数获取Y轴值
-          switch(paramIndex) {
-            case 0:
-              yValue = parseFloat(log.param1) || 0
-              break
-            case 1:
-              yValue = parseFloat(log.param2) || 0
-              break
-            case 2:
-              yValue = parseFloat(log.param3) || 0
-              break
-            case 3:
-              yValue = parseFloat(log.param4) || 0
-              break
+        const visualizationParams = { log_ids: logIds, error_code: row.error_code, parameter_index: paramIndex, subsystem: subsystemToQuery }
+        // 加入当前筛选条件（与列表加载保持一致）
+        if (advancedMode.value && leafConditionCount.value > 0) {
+          const filtersPayload = buildFiltersPayload()
+          if (filtersPayload) {
+            visualizationParams.filters = JSON.stringify(filtersPayload)
           }
-          
-          return [timestamp, yValue]
-        }).sort((a, b) => a[0] - b[0]) // 按时间排序
-        
-        if (chartData.length === 0) {
+        }
+        if (timeRange.value && Array.isArray(timeRange.value)) {
+          visualizationParams.start_time = timeRange.value[0]
+          visualizationParams.end_time = timeRange.value[1]
+        }
+        if (searchKeyword.value) {
+          visualizationParams.search = searchKeyword.value
+        }
+        const response = await api.logs.getVisualizationData(visualizationParams)
+        const { chartData, chartTitle: apiChartTitle, paramName } = response.data.data
+        if (!Array.isArray(chartData) || chartData.length === 0) {
           ElMessage.warning('没有可用的数据生成图表')
           return
         }
-        
-        ElMessage.success(`已获取 ${chartData.length} 条数据`)
-        
-        // 创建ECharts实例
-        chartInstance.value = echarts.init(chartElement)
-        
-        // 准备数据并验证格式
-        const data = chartData.map(item => {
-          // 确保时间戳是数字，Y值是数字
-          const timestamp = typeof item[0] === 'number' ? item[0] : new Date(item[0]).getTime()
-          const value = typeof item[1] === 'number' ? item[1] : parseFloat(item[1]) || 0
-          return [timestamp, value]
-        }).filter(item => {
-          // 过滤掉无效数据
-          return item && 
-                 Array.isArray(item) &&
-                 item.length >= 2 && 
-                 !isNaN(item[0]) && 
-                 !isNaN(item[1]) && 
-                 item[0] > 0 &&
-                 isFinite(item[0]) &&
-                 isFinite(item[1])
-        })
-        
-        // 验证数据
-        if (data.length === 0) {
-          ElMessage.warning('没有可用的数据生成图表')
-          return
-        }
-        
-        // 验证数据格式
-        const invalidData = data.filter(item => !Array.isArray(item) || item.length < 2 || typeof item[0] !== 'number' || typeof item[1] !== 'number')
-        if (invalidData.length > 0) {
-          console.warn('发现无效数据:', invalidData)
-          ElMessage.warning(`发现 ${invalidData.length} 条无效数据，已自动过滤`)
-        }
-        
-        // 确保数据完全有效
-        const validData = data.filter(item => 
-          Array.isArray(item) && 
-          item.length >= 2 && 
-          typeof item[0] === 'number' && 
-          typeof item[1] === 'number' &&
-          !isNaN(item[0]) && 
-          !isNaN(item[1]) &&
-          isFinite(item[0]) && 
-          isFinite(item[1])
-        )
-        
-        if (validData.length === 0) {
-          ElMessage.error('没有有效的数据生成图表')
-          return
-        }
-        
-        console.log('Valid data sample:', validData.slice(0, 5))
-        console.log('Data range:', {
-          timeMin: new Date(Math.min(...validData.map(d => d[0]))),
-          timeMax: new Date(Math.max(...validData.map(d => d[0]))),
-          valueMin: Math.min(...validData.map(d => d[1])),
-          valueMax: Math.max(...validData.map(d => d[1]))
-        })
-        
-        // 获取智能时间格式化函数
-        const smartTimeFormatter = getSmartTimeFormatter(data)
-        
-        // 配置图表选项 - 完全匹配 ECharts 官方时间轴面积图示例
-        const option = {
-          title: {
-            text: chartTitle.value || '数据图表',
-            left: 'center'
-          },
-          tooltip: {
-            trigger: 'axis',
-            position: function (pt) {
-              return [pt[0], '10%'];
-            }
-          },
-          legend: {
-            data: [paramValue || '数据']
-          },
-          toolbox: {
-            feature: {
-              dataZoom: {
-                yAxisIndex: 'none'
-              },
-              restore: {},
-              saveAsImage: {}
-            }
-          },
-          xAxis: {
-            type: 'time',
-            boundaryGap: false,
-            min: Math.min(...validData.map(d => d[0])),
-            max: Math.max(...validData.map(d => d[0]))
-          },
-          yAxis: {
-            type: 'value',
-            boundaryGap: [0, '100%']
-          },
-          dataZoom: [
-            {
-              type: 'inside',
-              start: 0,
-              end: 100,
-              realtime: true,
-              throttle: 100,
-              zoomLock: false,
-              xAxisIndex: 0,
-              filterMode: 'filter',
-              preventDefaultMouseMove: true
-            },
-            {
-              type: 'slider',
-              start: 0,
-              end: 100,
-              realtime: true,
-              throttle: 100,
-              zoomLock: false,
-              showDetail: true,
-              showDataShadow: true,
-              xAxisIndex: 0,
-              bottom: 10,
-              filterMode: 'filter',
-              moveHandleSize: 8,
-              preventDefaultMouseMove: true,
-              dataBackground: {
-                lineStyle: {
-                  color: '#ddd'
-                },
-                areaStyle: {
-                  color: '#f0f0f0'
-                }
-              },
-              selectedDataBackground: {
-                lineStyle: {
-                  color: '#409EFF'
-                },
-                areaStyle: {
-                  color: '#E6F7FF'
-                }
-              }
-            }
-          ],
-          series: [
-            {
-              name: paramValue || '数据',
-              type: 'line',
-              symbol: 'none',
-              sampling: false,
-              itemStyle: {
-                color: 'rgb(255, 70, 131)'
-              },
-              areaStyle: {
-                color: {
-                  type: 'linear',
-                  x: 0,
-                  y: 0,
-                  x2: 0,
-                  y2: 1,
-                  colorStops: [{
-                    offset: 0, color: 'rgb(255, 158, 68)'
-                  }, {
-                    offset: 1, color: 'rgb(255, 70, 131)'
-                  }],
-                  global: false
-                }
-              },
-              data: validData
-            }
-          ]
-        }
-        
-        // 设置全局错误处理
-        const originalError = window.onerror
-        window.onerror = function(msg, url, line, col, error) {
-          if (msg && msg.includes && msg.includes('Cannot read properties of undefined') && 
-              msg.includes('reading \'type\'')) {
-            // 静默处理ECharts内部错误
-            return true
-          }
-          if (originalError) {
-            return originalError(msg, url, line, col, error)
-          }
-          return false
-        }
-        
-        try {
-          // 安全初始化流程
-          nextTick(() => {
-            try {
-              // 确保图表实例存在且未销毁
-              if (!chartInstance.value || chartInstance.value.isDisposed()) {
-                console.error('图表实例无效')
-                return
-              }
-              
-              // 清除之前的配置
-              chartInstance.value.clear()
-              
-              // 设置新配置
-              chartInstance.value.setOption(option, true)
-              
-              // 强制刷新图表以确保 dataZoom 正常工作
-              setTimeout(() => {
-                try {
-                  if (chartInstance.value && !chartInstance.value.isDisposed()) {
-                    // 检查图表组件是否正确初始化
-                    const model = chartInstance.value.getModel()
-                    if (model && model.getComponent('series', 0)) {
-                      chartInstance.value.resize()
-                      
-                      // 强制触发 dataZoom 更新
-                      setTimeout(() => {
-                        if (chartInstance.value && !chartInstance.value.isDisposed()) {
-                          chartInstance.value.dispatchAction({
-                            type: 'dataZoom',
-                            start: 0,
-                            end: 100
-                          })
-                        }
-                      }, 50)
-                    } else {
-                      console.warn('图表组件初始化不完整')
-                    }
-                  }
-                } catch (resizeError) {
-                  console.warn('图表调整大小失败:', resizeError)
-                }
-              }, 100)
-              
-            } catch (error) {
-              console.warn('图表初始化警告:', error)
-              // 使用最简单的配置重试
-              try {
-                const simpleOption = {
-                  xAxis: { type: 'time' },
-                  yAxis: { type: 'value' },
-                  series: [{ 
-                    name: '数据',
-                    type: 'line', 
-                    data: validData,
-                    sampling: false
-                  }],
-                  animation: false
-                }
-                chartInstance.value.clear()
-                chartInstance.value.setOption(simpleOption, true)
-              } catch (simpleError) {
-                console.error('图表初始化失败:', simpleError)
-                ElMessage.error('图表初始化失败，请重试')
-              }
-            }
-          })
-          
-          // 保存当前图表数据
+        chartTitle.value = apiChartTitle
+        const validData = chartData
           currentChartData.value = {
             id: `chart_${Date.now()}`,
-            title: chartTitle.value,
+            title: apiChartTitle,
             timestamp: new Date().toISOString(),
             parameter: selectedParameter.value,
-            parameterValue: paramValue,
-            data: data,
+            parameterValue: paramName,
+            data: validData,
             errorCode: row.error_code
           }
-          
-          // 在侧边栏显示图表缩略图
           addChartToSidebar()
-          
+        ElMessage.success(`已获取 ${chartData.length} 条数据`)
         } catch (error) {
-          ElMessage.error('获取图表数据失败: ' + (error.response?.data?.message || error.message))
-          return
-        } finally {
-          // 恢复原始的 console.error
-          console.error = originalConsoleError
-          // 恢复原始的 window.onerror
-          setTimeout(() => {
-            window.onerror = originalError
-          }, 1000)
-        }
-      } catch (error) {
-        ElMessage.error('获取图表数据失败: ' + (error.response?.data?.message || error.message))
-        return
-      } finally {
-        // 恢复原始的 console.error
-        console.error = originalConsoleError
-        // 恢复原始的 window.onerror
-        setTimeout(() => {
-          window.onerror = originalError
-        }, 1000)
+        ElMessage.error('获取图表数据失败: ' + (error?.response?.data?.message || error.message))
       }
     }
 
@@ -2923,10 +2563,7 @@ export default {
       
       // 为图表添加序号
       const chartNumber = chartThumbnails.value.length + 1
-      const chartWithNumber = {
-        ...currentChartData.value,
-        title: `${chartNumber}. ${currentChartData.value.title}`
-      }
+      const chartWithNumber = { ...currentChartData.value, title: currentChartData.value.title }
       
       // 将图表添加到缩略图列表
       chartThumbnails.value.push(chartWithNumber)
@@ -2971,67 +2608,43 @@ export default {
         
         const thumbnailInstance = echarts.init(thumbnailElement)
         
-        // 创建缩略图配置 - 完全匹配 ECharts 官方时间轴面积图示例
+        // 创建缩略图配置 - 更饱满的布局
+        const minX = Math.min(...chartData.data.map(d => d[0]))
+        const maxX = Math.max(...chartData.data.map(d => d[0]))
         const thumbnailOption = {
-          title: {
-            text: chartData.title,
-            left: 'center',
-            textStyle: {
-              fontSize: 10,
-              fontWeight: 'bold'
-            }
-          },
-          tooltip: {
-            show: false
-          },
+          grid: { left: 8, right: 8, top: 8, bottom: 8, containLabel: false },
+          title: undefined,
+          tooltip: { show: false },
           xAxis: {
             type: 'time',
             boundaryGap: false,
-            axisLabel: {
-              show: false
-            },
-            axisLine: {
-              show: false
-            },
-            axisTick: {
-              show: false
-            }
+            axisLabel: { show: false },
+            axisLine: { show: false },
+            axisTick: { show: false },
+            min: minX,
+            max: maxX
           },
           yAxis: {
             type: 'value',
-            boundaryGap: [0, '100%'],
-            axisLabel: {
-              show: false
-            },
-            axisLine: {
-              show: false
-            },
-            axisTick: {
-              show: false
-            }
+            boundaryGap: [0, '5%'],
+            axisLabel: { show: false },
+            axisLine: { show: false },
+            axisTick: { show: false },
+            min: 'dataMin',
+            max: 'dataMax',
+            scale: true
           },
           series: [{
             name: `${chartData.parameterValue}`,
             type: 'line',
             symbol: 'none',
             sampling: false,
-            itemStyle: {
-              color: 'rgb(255, 70, 131)'
-            },
+            lineStyle: { width: 1.5, color: '#409EFF' },
             areaStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [{
-                  offset: 0, color: 'rgb(255, 158, 68)'
-                }, {
-                  offset: 1, color: 'rgb(255, 70, 131)'
-                }],
-                global: false
-              }
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(64,158,255,0.22)' },
+                { offset: 1, color: 'rgba(64,158,255,0.04)' }
+              ])
             },
             data: chartData.data
           }]
@@ -3092,15 +2705,20 @@ export default {
       // 显示图表详情弹窗
       chartDetailVisible.value = true
       
-      // 等待DOM更新后重新创建图表
+      // 等待对话框完全打开后再初始化图表，避免容器为 0x0
       nextTick(() => {
+        setTimeout(() => {
         if (chartInstance.value) {
           chartInstance.value.dispose()
           chartInstance.value = null
         }
-        
         const chartElement = document.getElementById('visualizationChart')
-        if (chartElement) {
+          if (!chartElement) return
+          if (chartElement.offsetWidth === 0 || chartElement.offsetHeight === 0) {
+            // 再等一帧
+            setTimeout(() => createChart(chartData), 50)
+            return
+          }
           chartInstance.value = echarts.init(chartElement)
           
           // 验证图表数据
@@ -3131,19 +2749,14 @@ export default {
           
           // 重新创建完整图表 - 完全匹配 ECharts 官方时间轴面积图示例
           const option = {
-            title: {
-              text: chartData.title || '数据图表',
-              left: 'center'
-            },
+            title: undefined,
             tooltip: {
               trigger: 'axis',
               position: function (pt) {
                 return [pt[0], '10%'];
               }
             },
-            legend: {
-              data: [chartData.parameterValue || '数据']
-            },
+            legend: undefined,
             toolbox: {
               feature: {
                 dataZoom: {
@@ -3323,7 +2936,7 @@ export default {
               window.onerror = originalError
             }, 1000)
           }
-        }
+      }, 50)
       })
       
       // 恢复原始的 console.error 和 window.onerror
@@ -3353,9 +2966,8 @@ export default {
         chartThumbnails.value.splice(index, 1)
         
         // 重新编号剩余的图表
-        chartThumbnails.value.forEach((chart, idx) => {
-          const originalTitle = chart.title.replace(/^\d+\.\s*/, '') // 移除原有序号
-          chart.title = `${idx + 1}. ${originalTitle}`
+        chartThumbnails.value.forEach((chart) => {
+          chart.title = chart.title.replace(/^\d+\.\s*/, '')
         })
         
         ElMessage.success('图表已删除')
@@ -3371,6 +2983,54 @@ export default {
           chartInstance.value = null
         }
       }
+    }
+
+    const onChartDialogOpened = () => {
+      nextTick(() => {
+        const chartElement = document.getElementById('visualizationChart')
+        if (!chartElement) return
+        if (chartElement.offsetWidth === 0 || chartElement.offsetHeight === 0) {
+          setTimeout(onChartDialogOpened, 50)
+          return
+        }
+        if (chartInstance.value) {
+          chartInstance.value.dispose()
+          chartInstance.value = null
+        }
+        chartInstance.value = echarts.init(chartElement)
+        if (currentChartData.value && Array.isArray(currentChartData.value.data)) {
+          const validData = currentChartData.value.data.filter(item => 
+            Array.isArray(item) && item.length >= 2 && typeof item[0] === 'number' && typeof item[1] === 'number'
+          )
+          if (validData.length === 0) return
+          const option = {
+            title: undefined,
+            tooltip: { trigger: 'axis', position: (pt) => [pt[0], '10%'] },
+            legend: undefined,
+            toolbox: { feature: { dataZoom: { yAxisIndex: 'none' }, restore: {}, saveAsImage: {} } },
+            xAxis: { type: 'time', boundaryGap: false, min: Math.min(...validData.map(d => d[0])), max: Math.max(...validData.map(d => d[0])) },
+            yAxis: { type: 'value', boundaryGap: [0, '100%'] },
+            dataZoom: [
+              { type: 'inside', start: 0, end: 100, realtime: true, throttle: 100, zoomLock: false, xAxisIndex: 0, filterMode: 'filter', preventDefaultMouseMove: true },
+              { type: 'slider', start: 0, end: 100, realtime: true, throttle: 100, zoomLock: false, showDetail: true, showDataShadow: true, xAxisIndex: 0, bottom: 10, filterMode: 'filter', moveHandleSize: 8, preventDefaultMouseMove: true }
+            ],
+            series: [ { name: '数据', type: 'line', symbol: 'none', sampling: false, data: validData } ]
+          }
+          chartInstance.value.setOption(option, true)
+          setTimeout(() => {
+            try {
+            if (chartInstance.value && !chartInstance.value.isDisposed()) {
+                const model2 = chartInstance.value.getModel && chartInstance.value.getModel()
+                if (model2 && model2.getComponent && model2.getComponent('dataZoom', 0)) {
+              chartInstance.value.dispatchAction({ type: 'dataZoom', start: 0, end: 100 })
+                }
+              }
+            } catch (e) {
+              console.warn('图表详情 dataZoom 动作失败:', e)
+            }
+          }, 50)
+        }
+      })
     }
 
     const exportChartAsImage = () => {
@@ -3554,6 +3214,10 @@ export default {
       })
     })
 
+    watch(clipboardContent, (val) => {
+      try { sessionStorage.setItem('clipboardContent', val || '') } catch(_){}
+    })
+
     return {
       loading,
       selectedLogs,
@@ -3641,7 +3305,6 @@ export default {
       // 日志摘取相关
       clipboardVisible,
       clipboardEntries,
-      clipboardDetailVisible,
       clipboardContent,
       updateClipboardContent,
       clearClipboard,
@@ -3649,6 +3312,10 @@ export default {
       saveClipboardContent,
       loadClipboardContent,
       showClipboard,
+      clipboardDetailVisible,
+      clipboardCount,
+      fillPercent,
+      maxClipboardEntries,
       // 可视化相关
       parameterSelectVisible,
       selectedParameter,
@@ -3656,6 +3323,12 @@ export default {
       paramNames,
       selectKey,
       isParameterAvailable,
+      // 供输入框处理中文输入法组合态
+      onCompositionStart,
+      onCompositionEnd,
+      // Popover 显隐
+      activeParamPopoverRowId,
+      paramNamesLoading,
       chartDetailVisible,
       chartTitle,
       chartContainer,
@@ -3668,6 +3341,7 @@ export default {
       showChartDetail,
       deleteChartThumbnail,
       deleteCurrentChart,
+      onChartDialogOpened,
       // 计数功能相关
       logCounts,
       errorCodeCounts,
@@ -3684,7 +3358,7 @@ export default {
       fetchGlobalStatistics,
       fetchFilteredStatistics,
       loadCountsFromStorage,
-      showErrorCodeStatistics
+      showErrorCodeStatistics,
     }
   }
 }
@@ -3935,8 +3609,10 @@ export default {
   margin: 4px 6px 0 0;
 }
 .antd-tags .tpl-tag.bordered {
-  border: 4px dashed #d9d9d9;
-  padding: 0 10px;
+  border: 1px solid #d9d9d9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: #fafafa;
 }
 .antd-tags.single-select .tpl-tag.ant-tag-checkable-checked {
   border-color: #1677ff;
@@ -3958,7 +3634,7 @@ export default {
   flex-direction: column;
   overflow: visible;
   margin: 0 10px 5px 10px;
-  padding: 16px;
+  padding: 10px;
   background-color: white;
   border-radius: 8px;
   border: 1px solid #ebeef5;
@@ -4108,7 +3784,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
-  padding: 12px 20px 0 20px;
+  padding: 5px 10px 0 20px;
 }
 
 .section-header h3 {
@@ -4138,26 +3814,6 @@ export default {
 }
 
 /* 时间戳/文件名单元格样式 */
-</style>
-
-<style>
-/* tooltip 悬浮效果（仅阴影与圆角，无缩放生长动效） */
-.selected-files-popper {
-  box-shadow: var(--el-box-shadow-light, 0 8px 24px rgba(0, 0, 0, 0.12));
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-
-.selected-files-tooltip {
-  max-width: 480px;
-  max-height: 240px;
-  overflow: auto;
-  display: flex;
-  flex-wrap: wrap;
-}
-
-/* 新增的表格单元格样式 */
 .file-info-cell {
   display: flex;
   align-items: center;
@@ -4243,6 +3899,27 @@ export default {
   background-color: transparent;
 }
 
+/* 参数选择 Popover 单列排版 */
+.parameter-popover {
+  text-align: left;
+}
+.parameter-popover .param-radio-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.parameter-popover .param-radio-group .el-radio {
+  display: block;
+  margin: 1px 0 !important;
+}
+
+/* 提升弹层内 radio 的样式优先级，避免被全局样式覆盖 */
+.param-popover .el-radio,
+.param-popover .el-radio__label,
+.param-popover .el-radio-group .el-radio {
+  margin: 1px 0 !important;
+}
+
 .parameter-select-dialog {
   padding: 20px 0;
 }
@@ -4266,12 +3943,7 @@ export default {
 }
 
 .chart-detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ebeef5;
+  display: none;
 }
 
 .chart-actions {
@@ -4280,10 +3952,18 @@ export default {
 }
 
 .chart-container {
-  background: #fafafa;
+  background: transparent;
   border-radius: 4px;
-  padding: 20px;
+  padding: 5px 5px 5px 5px;
   text-align: center;
+}
+
+.dialog-subtitle {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
 }
 
 .operations-cell {
@@ -4678,54 +4358,70 @@ export default {
 .clipboard-thumbnail {
   position: relative;
   width: 100%;
-  height: 80px;
-  border: 2px dashed #d9d9d9;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
   background-color: #fafafa;
-  padding: 12px;
+  padding: 16px 16px;
+  min-height: 120px; /* 高度增至约3倍 */
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
 }
-
 .clipboard-thumbnail:hover {
-  border-color: #409eff;
+  border-color: #409EFF;
   background-color: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
 }
 
-.clipboard-icon {
-  color: #909399;
-  margin-right: 12px;
+.clipboard-thumbnail .thumb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #606266;
 }
 
-.clipboard-text {
-  text-align: left;
-  flex: 1;
+.clipboard-thumbnail .thumb-row .el-icon {
+  font-size: 18px;
 }
 
-.clipboard-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 4px;
+.clipboard-thumbnail .thumb-label {
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.clipboard-count {
-  font-size: 12px;
-  color: #909399;
+.clipboard-thumbnail .fill-bar {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background-color: #ebeef5;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.delete-btn {
+.clipboard-thumbnail .fill-bar-inner {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 20px;
-  height: 20px;
-  min-width: 20px;
-  padding: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #a0cfff 0%, #409EFF 100%);
+}
+
+.clipboard-thumbnail .fill-bar-text {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: #303133;
+}
+
+.clipboard-thumbnail .delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -4773,7 +4469,7 @@ export default {
 
 .thumbnail-chart {
   width: 100%;
-  height: 80px;
+  height: 104px;
   margin-bottom: 8px;
 }
 
@@ -4799,14 +4495,800 @@ export default {
 
 .thumbnail-delete-btn {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: 4px;
+  right: 4px;
   width: 20px;
   height: 20px;
   min-width: 20px;
   padding: 0;
   opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  color: #909399;
+  border-color: #dcdfe6;
+  background-color: transparent;
+}
+
+.thumbnail-delete-btn:hover {
+  background-color: #2d3c60; /* Element Plus gray-100 */
+  border-color: #2d3c60;
+  color: #000000;
+}
+
+.chart-thumbnail-item:hover .thumbnail-delete-btn {
+  opacity: 1;
+}
+
+/* 日志摘取详情弹窗样式 */
+.clipboard-detail {
+  padding: 16px 0;
+}
+
+.clipboard-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.clipboard-content {
+  margin-bottom: 20px;
+}
+
+.clipboard-textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.clipboard-entries {
+  border-top: 1px solid #ebeef5;
+  padding-top: 16px;
+}
+
+.entries-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.entries-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.entry-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
+}
+
+.entry-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.entry-index {
+  font-weight: 500;
+  color: #606266;
+  min-width: 20px;
+}
+
+.entry-timestamp {
+  font-size: 12px;
+  color: #909399;
+  font-family: 'Courier New', monospace;
+}
+
+.entry-error-code {
+  font-weight: 500;
+  color: #e6a23c;
+  background-color: #fdf6ec;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+
+</style>
+
+<style>
+/* tooltip 悬浮效果（仅阴影与圆角，无缩放生长动效） */
+.selected-files-popper {
+  box-shadow: var(--el-box-shadow-light, 0 8px 24px rgba(0, 0, 0, 0.12));
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.selected-files-tooltip {
+  max-width: 480px;
+  max-height: 240px;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* 新增的表格单元格样式 */
+.file-info-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  min-height: 32px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.timestamp {
+  color: #303133;
+  font-weight: 500;
+  font-size: 14px;
+  text-align: left;
+}
+
+.parameters-cell {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 40px;
+  width: 100%;
+  color: #606266;
+  word-break: break-all;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+
+.parameters-cell .param-item {
+  margin-right: 12px;
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.parameters-cell .param-item:last-child {
+  margin-right: 0;
+}
+
+.param-content {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-right: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.param-actions {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.visualization-btn {
+  font-size: 20px;
+  padding: 1px;
+  height: 28px;
+  width: 28px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 3px;
+  color: #409eff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visualization-btn:hover {
+  color: #66b1ff;
+  transform: scale(1.05);
+}
+
+.visualization-btn:disabled {
+  color: #c0c4cc;
+  background-color: transparent;
+}
+
+/* 参数选择 Popover 单列排版 */
+.parameter-popover {
+  text-align: left;
+}
+.parameter-popover .param-radio-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.parameter-popover .param-radio-group .el-radio {
+  display: block;
+  margin: 1px 0 !important;
+}
+
+/* 提升弹层内 radio 的样式优先级，避免被全局样式覆盖 */
+.param-popover .el-radio,
+.param-popover .el-radio__label,
+.param-popover .el-radio-group .el-radio {
+  margin: 1px 0 !important;
+}
+
+.parameter-select-dialog {
+  padding: 20px 0;
+}
+
+.parameter-select-dialog p {
+  margin-bottom: 16px;
+  color: #606266;
+}
+
+.dialog-actions {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.dialog-actions .el-button {
+  margin-left: 8px;
+}
+
+.chart-detail {
+  padding: 0;
+}
+
+.chart-detail-header {
+  display: none;
+}
+
+.chart-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chart-container {
+  background: transparent;
+  border-radius: 4px;
+  padding: 10px 10px 20px 10px;
+  text-align: center;
+}
+
+.dialog-subtitle {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
+}
+
+.operations-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 32px;
+  padding: 1px;
+  gap: 1px;
+}
+
+
+.error-code-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  min-height: 20px;
+  cursor: pointer;
+  padding: 0px 10px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  font-weight: 500;
+  font-size: 14px;
+  position: relative;
+  margin: 0;
+}
+
+.error-code-cell:hover {
+  background-color: #f5f7fa;
+  border-color: #e4e7ed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+
+
+.error-code-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #f56c6c;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 12px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(245, 108, 108, 0.4);
+  z-index: 1000;
+  transform: scale(1);
+  transition: all 0.3s ease;
+  animation: badgeAppear 0.3s ease-out;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.error-code-badge:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(245, 108, 108, 0.6);
+}
+
+@keyframes badgeAppear {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+
+.error-code-count-popup {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #e6a23c;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.operations-cell .operation-btn {
+  font-size: 20px;
+  font-weight: 500;
+  padding: 1px;
+  height: 28px;
+  width: 28px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 查看上下文按钮 - 绿色 */
+.operations-cell .operation-btn:nth-child(2) {
+  color: #67c23a;
+}
+
+.operations-cell .operation-btn:nth-child(2):hover {
+  color: #85ce61;
+  transform: scale(1.05);
+}
+
+/* 日志摘取按钮 - 橙色 */
+.operations-cell .operation-btn:nth-child(3) {
+  color: #e6a23c;
+}
+
+.operations-cell .operation-btn:nth-child(3):hover {
+  color: #ebb563;
+  transform: scale(1.05);
+}
+
+/* 备注按钮 - 灰色（禁用状态） */
+.operations-cell .operation-btn:nth-child(4) {
+  color: #c0c4cc;
+  cursor: not-allowed;
+}
+
+.operations-cell .operation-btn:nth-child(4):hover {
+  color: #c0c4cc;
+  transform: none;
+}
+
+/* 颜色指示器样式 - 默认小圆点 */
+.color-indicator {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  box-shadow: 0 0 0 2px white;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.color-indicator:hover {
+  border-color: #409eff;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2), 0 0 0 1px white;
+}
+
+.color-indicator.has-color {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px white;
+}
+
+.color-mark-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 28px;
+  padding: 0px 0;
+}
+
+/* 标记列样式 */
+.el-table-column[prop="color_mark"] .cell {
+  padding: 0px 0px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 28px !important;
+  overflow: visible !important;
+}
+
+/* 故障码列特殊样式 - 确保统计角标完全显示 */
+.el-table-column[prop="error_code"] .cell {
+  padding: 0px 0px !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+  min-height: 28px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  margin: 0px !important;
+  border: none !important;
+}
+
+/* 确保表格行有足够的高度 */
+.el-table .el-table__row {
+  min-height: 28px !important;
+  overflow: visible !important;
+}
+
+/* 确保表格容器不会裁剪悬浮元素，但保持滚动功能 */
+.el-table {
+  overflow: visible !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  min-width: 100% !important;
+}
+
+/* 表格单元格基础样式 */
+.el-table .el-table__cell {
+  height: auto !important;
+  min-height: 20px !important;
+  max-height: none !important;
+  padding: 2px 6px !important;
+  overflow: visible !important;
+  vertical-align: middle !important;
+}
+
+/* 表格单元格内容样式 */
+.el-table--default .cell {
+  height: auto !important;
+  min-height: 20px !important;
+  max-height: none !important;
+  padding: 2px 6px !important;
+  overflow: visible !important;
+}
+
+/* 表格列分割线样式 */
+.el-table .el-table__cell {
+  border-right: 1px solid #ebeef5 !important;
+}
+
+.el-table .el-table__cell:last-child {
+  border-right: none !important;
+}
+
+/* 表头单元格样式 */
+.el-table__header .el-table__cell {
+  box-sizing: border-box !important;
+}
+
+
+/* 确保表格头部正确显示 */
+.el-table__header-wrapper {
+  width: 100% !important;
+}
+
+.el-table__header {
+  width: 100% !important;
+}
+
+/* 确保表格体正确显示 */
+.el-table__body-wrapper {
+  width: 100% !important;
+}
+
+.el-table__body {
+  width: 100% !important;
+}
+
+.el-table__body-wrapper {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+/* 强制确保故障码角标不被裁剪 */
+.el-table-column[prop="error_code"] {
+  overflow: visible !important;
+}
+
+.el-table-column[prop="error_code"] .cell > div {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+
+
+/* 颜色选择器弹窗样式 */
+.color-picker-popover {
+  padding: 8px !important;
+}
+
+.color-picker-menu {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* 颜色选择器选项样式 */
+.color-option {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.color-option.active {
+  border-color: #409eff;
+  border-width: 3px;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.3);
+}
+
+.color-option.no-color {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+}
+
+.color-option.no-color:hover {
+  border-color: #409eff;
+  background-color: #f0f8ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.color-option.no-color.active {
+  border-color: #409eff;
+  background-color: #e6f3ff;
+  border-width: 3px;
+}
+
+.checkmark {
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  line-height: 1;
+}
+
+
+/* 上下文分析对话框样式 */
+.context-analysis-form {
+  padding: 10px 0;
+}
+
+.time-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.time-range-inputs .input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-range-inputs .input-group label {
+  font-weight: 500;
+  color: #606266;
+}
+
+/* 日志摘取侧边栏样式 */
+.clipboard-container {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.clipboard-header {
+  margin-bottom: 16px;
+}
+
+.clipboard-thumbnail {
+  position: relative;
+  width: 100%;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  background-color: #fafafa;
+  padding: 16px 16px;
+  min-height: 180px; /* 高度增至约3倍 */
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.clipboard-thumbnail .thumb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #606266;
+}
+
+.clipboard-thumbnail .thumb-row .el-icon {
+  font-size: 18px;
+}
+
+.clipboard-thumbnail .thumb-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clipboard-thumbnail .delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+.clipboard-thumbnail:hover .delete-btn {
+  opacity: 1;
+}
+
+/* 图表缩略图样式 */
+.chart-thumbnails {
+  margin-top: 16px;
+  border-top: 1px solid #ebeef5;
+  padding-top: 16px;
+}
+
+.thumbnails-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.thumbnail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-thumbnail-item {
+  position: relative;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #fafafa;
+}
+
+.chart-thumbnail-item:hover {
+  border-color: #409eff;
+  background-color: #f0f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.thumbnail-chart {
+  width: 100%;
+  height: 104px;
+  margin-bottom: 8px;
+}
+
+.thumbnail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thumbnail-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thumbnail-time {
+  font-size: 10px;
+  color: #909399;
+}
+
+.thumbnail-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  color: #909399;
+  border-color: #dcdfe6;
+  background-color: transparent;
+}
+
+.thumbnail-delete-btn:hover {
+  background-color: #2d3c60; /* Element Plus gray-100 */
+  border-color: #2d3c60;
+  color: #000000;
 }
 
 .chart-thumbnail-item:hover .thumbnail-delete-btn {

@@ -33,7 +33,6 @@ class WebSocketClient {
     this.connectionStatus = 'connecting';
 
     try {
-      // 获取当前协议和主机
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       
       // 前端运行在 8080 端口，后端在 3000 端口
@@ -44,8 +43,15 @@ class WebSocketClient {
       } else {
         backendHost = window.location.hostname; // 网络环境，使用当前主机名
       }
-      const backendPort = process.env.VUE_APP_BACKEND_PORT || '3000';
-      const wsUrl = `${protocol}//${backendHost}:${backendPort}`;
+      // 使用 Vue-CLI 风格环境变量（webpack 构建）
+      const backendPort = process.env.VUE_APP_BACKEND_PORT || '';
+      const wsPath = process.env.VUE_APP_WS_PATH || '/ws';
+      const wsOverride = process.env.VUE_APP_WS_URL;
+      const wsUrl = wsOverride
+        ? wsOverride
+        : (backendPort
+            ? `${protocol}//${backendHost}:${backendPort}${wsPath}`
+            : `${protocol}//${window.location.host}${wsPath}`);
 
       console.log(`🔌 正在连接 WebSocket: ${wsUrl}`);
       console.log(`📍 当前页面地址: ${window.location.href}`);
@@ -53,7 +59,7 @@ class WebSocketClient {
       console.log(`🏠 前端主机: ${window.location.host}`);
       console.log(`🔌 后端地址: ${backendHost}:${backendPort}`);
       console.log(`🔍 网络环境: ${window.location.hostname === 'localhost' ? '本地开发' : '网络环境'}`);
-      console.log(`🔍 建议连接: ${window.location.hostname === 'localhost' ? 'ws://localhost:3000' : 'ws://10.129.44.141:3000'}`);
+      console.log('🔍 建议连接:', window.location.hostname === 'localhost' ? 'ws://localhost:3000' : `ws://${window.location.hostname}:3000`);
       
       this.ws = new WebSocket(wsUrl);
       
@@ -152,7 +158,7 @@ class WebSocketClient {
   // 处理日志状态变化
   handleLogStatusChange(message) {
     const { deviceId, logId, oldStatus, newStatus, timestamp } = message;
-    console.log(`🔄 日志状态变化: 设备 ${deviceId}, 日志 ${logId}, ${oldStatus} → ${newStatus}`);
+    console.log(`🔄 日志状态变化: 设备 ${deviceId}, 日志 ${logId}, ${oldStatus} → ${newStatus} @ ${timestamp}`);
     
     // 触发状态变化事件
     this.triggerEvent('logStatusChange', {
@@ -167,14 +173,8 @@ class WebSocketClient {
   // 处理批量状态变化
   handleBatchStatusChange(message) {
     const { deviceId, changes, timestamp } = message;
-    console.log(`🔄 批量状态变化: 设备 ${deviceId}, ${changes.length} 个变化`);
-    
-    // 触发批量状态变化事件
-    this.triggerEvent('batchStatusChange', {
-      deviceId,
-      changes,
-      timestamp
-    });
+    console.log(`🔄 批量状态变化: 设备 ${deviceId}, ${changes?.length || 0} 个变化 @ ${timestamp}`);
+    this.triggerEvent('batchStatusChange', { deviceId, changes: changes || [], timestamp });
   }
 
   // 处理连接关闭
@@ -182,19 +182,8 @@ class WebSocketClient {
     console.log('🔌 WebSocket 连接关闭:', event.code, event.reason);
     this.connectionStatus = 'disconnected';
     this.isConnecting = false;
-    
-    // 停止心跳
     this.stopHeartbeat();
-    
-    // 触发断开连接事件
-    this.triggerEvent('disconnection', {
-      status: 'disconnected',
-      code: event.code,
-      reason: event.reason,
-      timestamp: Date.now()
-    });
-    
-    // 如果不是正常关闭，尝试重连
+    this.triggerEvent('disconnection', { status: 'disconnected', code: event.code, reason: event.reason, timestamp: Date.now() });
     if (event.code !== 1000) {
       this.scheduleReconnect();
     }
@@ -206,7 +195,7 @@ class WebSocketClient {
     this.connectionStatus = 'disconnected';
     this.isConnecting = false;
   }
-  
+
   // 处理连接超时
   handleConnectionTimeout() {
     console.error('⏰ WebSocket 连接超时');
@@ -221,18 +210,12 @@ class WebSocketClient {
       console.warn('WebSocket 未连接，无法订阅设备');
       return false;
     }
-
     if (this.subscriptions.has(deviceId)) {
       console.log(`设备 ${deviceId} 已订阅`);
       return true;
     }
-
     try {
-      const message = {
-        type: 'subscribe_device',
-        deviceId
-      };
-      
+      const message = { type: 'subscribe_device', deviceId };
       this.ws.send(JSON.stringify(message));
       this.subscriptions.set(deviceId, true);
       console.log(`📡 订阅设备 ${deviceId} 状态更新`);
@@ -248,17 +231,11 @@ class WebSocketClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
-
     if (!this.subscriptions.has(deviceId)) {
       return true;
     }
-
     try {
-      const message = {
-        type: 'unsubscribe_device',
-        deviceId
-      };
-      
+      const message = { type: 'unsubscribe_device', deviceId };
       this.ws.send(JSON.stringify(message));
       this.subscriptions.delete(deviceId);
       console.log(`📡 取消订阅设备 ${deviceId} 状态更新`);
@@ -286,7 +263,7 @@ class WebSocketClient {
           console.error('发送心跳失败:', error);
         }
       }
-    }, 30000); // 每30秒发送一次心跳
+    }, 30000);
   }
 
   // 停止心跳
@@ -303,15 +280,10 @@ class WebSocketClient {
       console.error('WebSocket 重连次数已达上限，停止重连');
       return;
     }
-
     this.reconnectAttempts++;
     const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay);
-    
     console.log(`🔄 ${delay}ms 后尝试重连 WebSocket (第 ${this.reconnectAttempts} 次)`);
-    
-    setTimeout(() => {
-      this.connect();
-    }, delay);
+    setTimeout(() => { this.connect(); }, delay);
   }
 
   // 断开连接
@@ -375,7 +347,12 @@ class WebSocketClient {
 // 创建单例实例
 const websocketClient = new WebSocketClient();
 
-// 自动连接
-websocketClient.connect();
+// 仅在显式启用时自动连接
+const WS_AUTO_CONNECT = String(process.env.VUE_APP_WS_AUTO_CONNECT || '').toLowerCase() === 'true';
+export const connectIfEnabled = () => {
+  if (WS_AUTO_CONNECT) {
+    websocketClient.connect();
+  }
+};
 
 export default websocketClient;

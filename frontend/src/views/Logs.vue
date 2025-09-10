@@ -1297,6 +1297,8 @@ export default {
 
     // 监听页面刷新事件
     onMounted(() => {
+      // 确保 Logs 页面加载时建立 WebSocket 连接
+      try { websocketClient.connect() } catch (_) {}
       window.addEventListener('beforeunload', preventRefresh)
       
       // 监听 WebSocket 状态变化事件

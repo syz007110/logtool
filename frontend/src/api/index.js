@@ -114,6 +114,7 @@ const logs = {
     signal // 支持 AbortController
   }),
   getStatistics: (params) => api.get('/logs/entries/statistics', { params }),
+  getVisualizationData: (params) => api.get('/logs/entries/visualization', { params }),
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params, responseType: 'blob' }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
