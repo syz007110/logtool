@@ -23,132 +23,16 @@
       </div>
     </el-card>
 
-    <!-- 图表区域 -->
-    <div class="charts-section" v-if="fileId && false">
-      <div class="charts-row">
-        <!-- 左手关节位置图表 -->
-        <div class="chart-card left-chart">
-          <div class="chart-header">
-            <h3>左手关节位置</h3>
-            <div class="chart-controls">
-              <el-button size="small" @click="resetZoom('left')" icon="Refresh">重置缩放</el-button>
-            </div>
-          </div>
-          <div ref="leftHandChart" class="chart-container"></div>
-        </div>
-        
-        <!-- 右手关节位置图表 -->
-        <div class="chart-card right-chart">
-          <div class="chart-header">
-            <h3>右手关节位置</h3>
-            <div class="chart-controls">
-              <el-button size="small" @click="resetZoom('right')" icon="Refresh">重置缩放</el-button>
-            </div>
-          </div>
-          <div ref="rightHandChart" class="chart-container"></div>
-        </div>
-      </div>
-    </div>
+    
 
-    <!-- 3D机械臂视图 -->
-    <div class="three-section">
-      <div class="chart-card three-chart">
-        <div class="chart-header">
-          <h3>数据诊断 - 机械臂三维模型</h3>
-          <div class="three-controls">
-            <el-button size="small" @click="switchArmModel" :type="currentArmModel === 'test' ? 'success' : 'primary'" icon="Switch">
-              {{ currentArmModel === 'test' ? '切换到MDH模型' : '切换到测试模型' }}
-            </el-button>
-            <el-button size="small" @click="resetThreeView" icon="Refresh">重置视角</el-button>
-            <el-button size="small" @click="toggleThreeRotation" :type="threeRotationEnabled ? 'primary' : ''" icon="VideoPlay">
-              {{ threeRotationEnabled ? '停止旋转' : '开始旋转' }}
-            </el-button>
-          </div>
-        </div>
-        
-        <!-- 功能说明 -->
-        <div class="model-info">
-          <el-row :gutter="16">
-            <el-col :span="12">
-              <div class="info-card" :class="{ active: currentArmModel === 'mdh' }">
-                <h4>MDH模型 - 左主控制臂</h4>
-                <p>基于MDH模型的7自由度机械臂</p>
-                <p>参数: L1=0.166, L2=0.3, L3=0.35, L4=0.145</p>
-                <p>支持鼠标拖拽旋转和滚轮缩放查看</p>
-              </div>
-            </el-col>
-            <el-col :span="12">
-              <div class="info-card" :class="{ active: currentArmModel === 'test' }">
-                <h4>测试模型 - 仿真机械臂</h4>
-                <p>基于threetest.js的简化机械臂模型</p>
-                <p>包含底座、连杆和关节的测试结构</p>
-                <p>用于验证3D渲染和交互功能</p>
-              </div>
-            </el-col>
-          </el-row>
-        </div>
-        
-        <div ref="threeContainer" class="three-container">
-          <div class="three-placeholder" v-if="!threeInitialized">
-            <p>3D机械臂渲染区域</p>
-            <p>当前显示: {{ currentArmModel === 'mdh' ? 'MDH模型' : '测试模型' }}</p>
-            <p>支持鼠标拖拽旋转和滚轮缩放</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    
 
-    <!-- 数据播放控制 -->
-    <div class="playback-controls" v-if="fileId && totalEntries > 0">
-      <el-card class="control-panel">
-        <div class="playback-row">
-          <div class="playback-buttons">
-            <el-button @click="playData" :disabled="isPlaying" icon="VideoPlay" type="primary">
-              播放
-            </el-button>
-            <el-button @click="pauseData" :disabled="!isPlaying" icon="VideoPause">
-              暂停
-            </el-button>
-            <el-button @click="stopData" icon="VideoStop">
-              停止
-            </el-button>
-          </div>
-          
-          <div class="playback-info">
-            <span>当前帧: {{ currentFrame }}/{{ totalEntries }}</span>
-            <span>播放速度: {{ playbackSpeed }}x</span>
-          </div>
-          
-          <div class="speed-control">
-            <el-select v-model="playbackSpeed" size="small" style="width: 100px">
-              <el-option label="0.5x" :value="0.5" />
-              <el-option label="1x" :value="1" />
-              <el-option label="2x" :value="2" />
-              <el-option label="5x" :value="5" />
-              <el-option label="10x" :value="10" />
-            </el-select>
-          </div>
-        </div>
-        
-        <div class="timeline-row">
-          <el-slider
-            v-model="currentFrame"
-            :min="1"
-            :max="totalEntries"
-            :step="1"
-            show-stops
-            show-input
-            @change="seekToFrame"
-            class="timeline-slider"
-          />
-        </div>
-      </el-card>
-    </div>
+    
   </div>
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import * as THREE from 'three'

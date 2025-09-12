@@ -40,7 +40,6 @@
         <div class="empty-content">
           <el-icon class="empty-icon"><Loading /></el-icon>
           <h3>正在统计手术数据...</h3>
-          <p>请稍候，系统正在处理日志数据</p>
         </div>
       </el-card>
     </div>

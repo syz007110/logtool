@@ -463,5 +463,6 @@ module.exports = {
   parseExplanation,
   parseExplanations,
   loadFaultMappings,
-  loadUnitMappings
+  loadUnitMappings,
+  buildPrefixFromContext
 }; 

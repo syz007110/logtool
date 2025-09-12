@@ -17,6 +17,12 @@
       </div>
       
              <div class="action-section">
+        <el-button 
+          type="success" 
+          @click="openQueryDialog"
+        >
+          故障码查询
+        </el-button>
         
         <el-button 
           v-if="canCreate"
@@ -317,6 +323,55 @@
         </span>
       </template>
     </el-dialog>
+    <!-- 故障码查询弹窗 -->
+    <el-dialog
+      v-model="showQueryDialog"
+      title="故障码查询"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="queryForm" label-width="140px">
+        <el-form-item label="完整故障码">
+          <el-input 
+            v-model="queryForm.fullCode" 
+            placeholder="例如 141010A 或 0X010A（可含子系统前缀）" 
+            clearable
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="queryLoading" @click="handleQuery">查询</el-button>
+          <el-button @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-card v-if="queryResult" class="mt-2">
+        <el-descriptions :column="1" border title="结果信息">
+          <el-descriptions-item label="解释">
+            {{ buildPrefixedExplanation(queryResult, foundRecord) }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-divider />
+        <el-descriptions :column="1" border title="参数含义">
+          <el-descriptions-item label="参数1">{{ foundRecord?.param1 || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="参数2">{{ foundRecord?.param2 || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="参数3">{{ foundRecord?.param3 || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="参数4">{{ foundRecord?.param4 || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <el-divider />
+        <el-descriptions :column="1" border title="更多信息">
+          <el-descriptions-item label="详细信息">{{ foundRecord?.detail || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="检查方法">{{ foundRecord?.method || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="技术排查方案">{{ foundRecord?.tech_solution || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="故障分类">{{ foundRecord?.category || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showQueryDialog = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -396,11 +451,16 @@ export default {
     const loading = ref(false)
     const saving = ref(false)
     const showAddDialog = ref(false)
+    const showQueryDialog = ref(false)
     const editingErrorCode = ref(null)
     const searchQuery = ref('')
     const currentPage = ref(1)
     const pageSize = ref(10)
     const errorCodeFormRef = ref(null)
+    const queryLoading = ref(false)
+    const queryForm = reactive({ fullCode: '' })
+    const queryResult = ref(null)
+    const foundRecord = ref(null)
     
     // 同步相关变量
     const syncToRemote = ref(false)
@@ -680,6 +740,9 @@ export default {
       resetForm()
       showAddDialog.value = true
     }
+    const openQueryDialog = () => {
+      showQueryDialog.value = true
+    }
     
     const handleEdit = (row) => {
       editingErrorCode.value = row
@@ -737,6 +800,69 @@ export default {
           return '编辑故障码'
         }
       }
+    }
+    // 归一化故障码：支持 141010A / 1010A / 0X010A
+    const normalizeFullCode = (input) => {
+      if (!input) return ''
+      const raw = String(input).trim().toUpperCase()
+      if (raw.length >= 5) {
+        const tail4 = raw.slice(-4)
+        if (/^[0-9A-F]{3}[A-E]$/.test(tail4)) {
+          return '0X' + tail4
+        }
+      }
+      if (!raw.startsWith('0X') && /^[0-9A-F]{3}[A-E]$/.test(raw)) {
+        return '0X' + raw
+      }
+      return raw
+    }
+    const handleQuery = async () => {
+      const full = queryForm.fullCode?.trim()
+      if (!full) {
+        ElMessage.warning('请输入完整故障码')
+        return
+      }
+      queryLoading.value = true
+      queryResult.value = null
+      foundRecord.value = null
+      try {
+        const payload = { code: full }
+        const previewResp = await api.explanations.preview(payload)
+        queryResult.value = previewResp.data
+        let subsystem = queryResult.value?.subsystem || null
+        if (!subsystem && full.length >= 5) {
+          const s = full.charAt(0)
+          if (/^[1-9A]$/.test(s)) subsystem = s
+        }
+        const codeOnly = normalizeFullCode(full)
+        if (subsystem) {
+          try {
+            const recResp = await api.errorCodes.getByCodeAndSubsystem(codeOnly, subsystem)
+            foundRecord.value = recResp?.data?.errorCode || null
+          } catch (_) {
+            foundRecord.value = null
+          }
+        }
+      } catch (e) {
+        ElMessage.error(e?.response?.data?.message || '查询失败')
+      } finally {
+        queryLoading.value = false
+      }
+    }
+    const resetQuery = () => {
+      queryForm.fullCode = ''
+      queryResult.value = null
+      foundRecord.value = null
+    }
+
+    // 构造与释义相同前缀的“解释”文本：前缀 + 用户提示/操作信息
+    const buildPrefixedExplanation = (preview, record) => {
+      if (!preview) return '-'
+      const backendPrefix = preview?.prefix || ''
+      const main = [record?.user_hint, record?.operation].filter(Boolean).join(' ')
+      const text = main || '-'
+      if (backendPrefix) return `${backendPrefix} ${text}`
+      return text
     }
     
     // 获取远程子系统标签
@@ -901,11 +1027,16 @@ export default {
        loading,
        saving,
        showAddDialog,
+       showQueryDialog,
        editingErrorCode,
        searchQuery,
        currentPage,
        pageSize,
        errorCodeFormRef,
+       queryLoading,
+       queryForm,
+       queryResult,
+       foundRecord,
        errorCodeForm,
        rules,
        errorCodes,
@@ -923,11 +1054,15 @@ export default {
        handleSizeChange,
        handleCurrentChange,
        handleAdd,
+       openQueryDialog,
        handleEdit,
        handleDelete,
        handleSave,
        handleCodeChange,
        getSolutionDisplay,
+       buildPrefixedExplanation,
+       handleQuery,
+       resetQuery,
        // 同步相关方法
        getDialogTitle,
        getRemoteSubsystemLabel,

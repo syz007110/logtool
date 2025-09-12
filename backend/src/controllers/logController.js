@@ -959,35 +959,72 @@ const getBatchLogEntries = async (req, res) => {
         maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
       });
     } else {
-      // 优化查询：使用 findAndCountAll 进行高效分页
+      // 优化查询（第一步）：两段式查询，先取 ID 再取详情，避免在大结果集上进行 join/distinct/sort
       console.log(`[查询执行] 开始执行数据库查询，条件:`, JSON.stringify(where, null, 2));
-      console.log(`[查询优化] 使用索引优化查询，预期性能提升...`);
-      const startTime = Date.now();
-      
-      // 优化查询选项
-      const queryOptions = {
+      console.log(`[查询优化] 采用两段式查询（ID阶段 -> 详情阶段），降低排序/去重成本`);
+      const overallStart = Date.now();
+
+      // 统一排序，避免相同 timestamp 下顺序不稳定
+      const baseOrder = [['timestamp', 'ASC'], ['id', 'ASC']];
+
+      // 阶段一：仅查询主键 ID（命中覆盖索引时最省）
+      // MySQL: 强制使用合适的复合索引以优化 ORDER BY LIMIT 的首页
+      const detectHasLogIdFilter = (node) => {
+        if (!node || typeof node !== 'object') return false;
+        if (Object.prototype.hasOwnProperty.call(node, 'log_id')) return true;
+        for (const key of Object.keys(node)) {
+          if (detectHasLogIdFilter(node[key])) return true;
+        }
+        return false;
+      };
+      const hasLogId = detectHasLogIdFilter(where);
+      const indexHints = hasLogId
+        ? [{ type: 'FORCE', values: ['idx_log_entries_logid_ts_id'] }]
+        : [{ type: 'FORCE', values: ['idx_log_entries_ts_id'] }];
+
+      const idPhaseStart = Date.now();
+      const idRows = await LogEntry.findAll({
         where,
-        attributes,
+        attributes: ['id'],
+        order: baseOrder,
         offset,
         limit: limitNum,
-        order: [['timestamp', 'ASC']],
-        include: [{
-          model: Log,
-          as: 'Log',
-          attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
-        }],
-        // 查询优化选项
-        distinct: true,
         subQuery: false,
-        // 添加查询提示
+        // 仅 MySQL 生效：强制索引
+        indexHints,
         logging: console.log
-      };
-      
-      const { count: total, rows: entries } = await LogEntry.findAndCountAll(queryOptions);
-      
-      const queryTime = Date.now() - startTime;
+      });
+      const idPhaseTime = Date.now() - idPhaseStart;
+      const ids = idRows.map(r => r.id);
+
+      // 阶段二：按 ID 回表查询所需字段与 include
+      const detailsPhaseStart = Date.now();
+      const entries = ids.length > 0
+        ? await LogEntry.findAll({
+            where: { id: ids },
+            attributes,
+            include: [{
+              model: Log,
+              as: 'Log',
+              attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
+            }],
+            // 与阶段一保持一致的排序（稳定输出）
+            order: baseOrder,
+            subQuery: false,
+            logging: console.log
+          })
+        : [];
+      const detailsPhaseTime = Date.now() - detailsPhaseStart;
+
+      // 轻量计数：不带 include/不做 distinct 的 count
+      const countPhaseStart = Date.now();
+      const total = await LogEntry.count({ where });
+      const countPhaseTime = Date.now() - countPhaseStart;
+
+      const queryTime = Date.now() - overallStart;
       console.log(`[查询完成] 查询耗时: ${queryTime}ms, 结果数量: ${entries.length}, 总数: ${total}`);
-      
+      console.log(`[两段查询] 阶段耗时 - ID: ${idPhaseTime}ms, 详情: ${detailsPhaseTime}ms, 计数: ${countPhaseTime}ms`);
+
       // 如果查询时间超过5秒，给出优化建议
       if (queryTime > 5000) {
         console.warn(`[性能警告] 查询耗时较长 (${queryTime}ms)，建议:`);
@@ -996,7 +1033,7 @@ const getBatchLogEntries = async (req, res) => {
         console.warn('  3. 使用时间范围限制');
         console.warn('  4. 检查数据库索引状态');
       }
-      
+
       // 计算总体时间范围（基于相同 where 条件的聚合）
       let minTimestamp = null;
       let maxTimestamp = null;
@@ -1021,16 +1058,16 @@ const getBatchLogEntries = async (req, res) => {
         console.warn('[时间范围计算] 聚合查询失败:', error.message);
       }
 
-      const result = { 
-        entries, 
-        total, 
-        page: pageNum, 
+      const result = {
+        entries,
+        total,
+        page: pageNum,
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
         minTimestamp: shouldIncludeTimeSuggestion ? minTimestamp : null,
         maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
       };
-      
+
       // 缓存结果（使用较短的TTL，因为搜索数据变化较快）
       try {
         await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL);
@@ -1038,7 +1075,7 @@ const getBatchLogEntries = async (req, res) => {
       } catch (cacheError) {
         console.warn('缓存存储失败:', cacheError.message);
       }
-      
+
       return res.json(result);
     }
   } catch (err) {
@@ -1460,13 +1497,51 @@ const batchReparseLogs = async (req, res) => {
     if (!Array.isArray(logIds) || logIds.length === 0) {
       return res.status(400).json({ message: '请提供要重新解析的日志ID列表' });
     }
+    // 规范化并去重 ID
+    const normalizedIds = [...new Set(
+      logIds
+        .map(id => parseInt(id, 10))
+        .filter(id => Number.isInteger(id) && id > 0)
+    )];
+    if (normalizedIds.length === 0) {
+      return res.status(400).json({ message: '提供的日志ID格式不正确' });
+    }
+    
+    // 预先将这些日志标记为 parsing，便于前端实时反馈
+    try {
+      // 先查出旧状态与设备ID，构建批量变更列表
+      const logs = await Log.findAll({ where: { id: normalizedIds }, attributes: ['id','status','device_id'] });
+      const deviceChangesMap = new Map();
+      logs.forEach(l => {
+        if (!l.device_id) return;
+        if (!deviceChangesMap.has(l.device_id)) deviceChangesMap.set(l.device_id, []);
+        deviceChangesMap.get(l.device_id).push({ logId: l.id, oldStatus: l.status, newStatus: 'parsing' });
+      });
+
+      // 一次性更新数据库状态
+      await Log.update({ status: 'parsing' }, { where: { id: normalizedIds } });
+
+      // 先发批量事件，前端收到后就地更新；再补发单条事件，兼容旧前端
+      try {
+        for (const [deviceId, changes] of deviceChangesMap.entries()) {
+          websocketService.pushBatchStatusChange(deviceId, changes);
+          changes.forEach(c => {
+            websocketService.pushLogStatusChange(deviceId, c.logId, 'parsing', c.oldStatus);
+          });
+        }
+      } catch (wsErr) {
+        console.warn('批量预置 parsing 状态推送失败（忽略）:', wsErr.message);
+      }
+    } catch (presetErr) {
+      console.warn('批量重新解析预置 parsing 状态失败（忽略）:', presetErr.message);
+    }
     // 权限由路由中间件控制，这里不再重复校验角色
 
     // 将批量重新解析任务添加到队列
     console.log(`将批量重新解析任务添加到队列，日志数量: ${logIds.length}`);
     
     const job = await logProcessingQueue.add('batch-reparse', {
-      logIds,
+      logIds: normalizedIds,
       userId: req.user ? req.user.id : null
     }, {
       priority: 2, // 中等优先级
@@ -1484,7 +1559,7 @@ const batchReparseLogs = async (req, res) => {
       message: `批量重新解析任务已加入队列，任务ID: ${job.id}`, 
       jobId: job.id,
       queued: true,
-      logCount: logIds.length
+      logCount: normalizedIds.length
     });
   } catch (err) {
     console.error('批量重新解析失败:', err);
@@ -2314,10 +2389,7 @@ const getLogStatistics = async (req, res) => {
       errorCodeCounts[stat.error_code] = parseInt(stat.count);
     });
     
-    console.log('故障码统计结果:', {
-      totalErrorCodes: errorCodeStats.length,
-      errorCodeCounts: errorCodeCounts
-    });
+    // 取消冗余日志输出：故障码统计结果
     
     const logCounts = {};
     logEntryStats.forEach(stat => {
@@ -2325,17 +2397,7 @@ const getLogStatistics = async (req, res) => {
       logCounts[stat.error_code] = parseInt(stat.count);
     });
     
-    console.log('日志条目统计结果:', {
-      totalLogEntries: logEntryStats.length,
-      sampleLogCounts: Object.keys(logCounts).slice(0, 3).reduce((obj, key) => {
-        obj[key] = logCounts[key];
-        return obj;
-      }, {}),
-      rawSampleStats: logEntryStats.slice(0, 3).map(stat => ({
-        error_code: stat.error_code,
-        count: stat.count
-      }))
-    });
+    // 取消冗余日志输出：日志条目统计结果
     
     res.json({
       success: true,

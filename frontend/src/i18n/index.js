@@ -116,9 +116,9 @@ const messages = {
     devices: {
       title: '设备管理'
     },
-    // 数据诊断
+    // 数据解析
     dataReplay: {
-      title: '数据诊断'
+      title: '数据解析'
     },
     // 缺陷反馈
     feedback: {
@@ -315,9 +315,9 @@ const messages = {
     devices: {
       title: 'Devices'
     },
-    // Data Replay
+    // Data Parsing
     dataReplay: {
-      title: 'Data Diagnostics'
+      title: 'Data Parsing'
     },
     // Feedback
     feedback: {

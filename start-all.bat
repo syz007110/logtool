@@ -67,7 +67,7 @@ echo ========================================
 echo Start Backend Service (Cluster Mode)
 echo ========================================
 echo.
-cd ..\backend
+cd backend
 if not exist ".env" (
     echo Error: .env file not found
     echo Please create .env file according to README.md
@@ -142,7 +142,7 @@ echo Starting backend and frontend services...
 echo.
 
 echo Starting backend service...
-cd ..\backend
+cd backend
 if not exist ".env" (
     echo Error: .env file not found
     pause
@@ -152,7 +152,7 @@ if not exist "node_modules" (
     echo Installing backend dependencies...
     npm install
 )
-start "Backend Service" cmd /k "cd /d %cd% && npm start"
+start "Backend Service" cmd /k "cd /d %cd% && npm run cluster"
 
 timeout /t 5 /nobreak >nul
 

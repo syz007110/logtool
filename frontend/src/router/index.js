@@ -31,8 +31,8 @@ const routes = [
     path: '/surgery-statistics',
     name: 'SurgeryStatistics',
     component: () => import('../views/SurgeryStatistics.vue'),
-    // 查看手术统计需要读权限
-    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:read' }
+    // 管理员、专家
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:analyze' }
   },
   {
     path: '/dashboard',
@@ -114,7 +114,7 @@ const routes = [
         path: 'data-replay',
         name: 'DataReplay',
         component: () => import('../views/DataReplay.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'data_replay:read' }
       },
       {
         path: 'feedback',

@@ -1,5 +1,5 @@
 const ErrorCode = require('../models/error_code');
-const { parseExplanation } = require('../utils/explanationParser');
+const { parseExplanation, buildPrefixFromContext } = require('../utils/explanationParser');
 
 function normalizeCode(input) {
   if (!input) return '';
@@ -64,20 +64,24 @@ const previewParse = async (req, res) => {
       return res.status(400).json({ message: '该故障码未配置释义模板（explanation）' });
     }
 
+    const context = {
+      error_code: String(rawCode || ''),
+      subsystem: subsystem || null,
+      arm: parsedArm || null,
+      joint: parsedJoint || null,
+      normalized_code: code
+    };
+
     const explanation = parseExplanation(
       template,
       param1,
       param2,
       param3,
       param4,
-      {
-        error_code: String(rawCode || ''),
-        subsystem: subsystem || null,
-        arm: parsedArm || null,
-        joint: parsedJoint || null,
-        normalized_code: code
-      }
+      context
     );
+
+    const prefix = buildPrefixFromContext(context) || '';
 
     return res.json({
       code,
@@ -86,7 +90,8 @@ const previewParse = async (req, res) => {
       joint: parsedJoint || null,
       template,
       params: { param1, param2, param3, param4 },
-      explanation
+      explanation,
+      prefix
     });
   } catch (error) {
     console.error('预览释义解析失败:', error);

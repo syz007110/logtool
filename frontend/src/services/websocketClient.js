@@ -44,14 +44,13 @@ class WebSocketClient {
         backendHost = window.location.hostname; // 网络环境，使用当前主机名
       }
       // 使用 Vue-CLI 风格环境变量（webpack 构建）
-      const backendPort = process.env.VUE_APP_BACKEND_PORT || '';
-      const wsPath = process.env.VUE_APP_WS_PATH || '/ws';
+      // 默认直连后端端口 3000，路径固定为 /ws 与后端一致
+      const backendPort = process.env.VUE_APP_BACKEND_PORT || '3000';
+      const wsPath = (process.env.VUE_APP_WS_PATH ?? '/ws');
       const wsOverride = process.env.VUE_APP_WS_URL;
       const wsUrl = wsOverride
         ? wsOverride
-        : (backendPort
-            ? `${protocol}//${backendHost}:${backendPort}${wsPath}`
-            : `${protocol}//${window.location.host}${wsPath}`);
+        : `${protocol}//${backendHost}:${backendPort}${wsPath}`;
 
       console.log(`🔌 正在连接 WebSocket: ${wsUrl}`);
       console.log(`📍 当前页面地址: ${window.location.href}`);
@@ -59,7 +58,7 @@ class WebSocketClient {
       console.log(`🏠 前端主机: ${window.location.host}`);
       console.log(`🔌 后端地址: ${backendHost}:${backendPort}`);
       console.log(`🔍 网络环境: ${window.location.hostname === 'localhost' ? '本地开发' : '网络环境'}`);
-      console.log('🔍 建议连接:', window.location.hostname === 'localhost' ? 'ws://localhost:3000' : `ws://${window.location.hostname}:3000`);
+      console.log(`🔍 建议连接: ws://${backendHost}:${backendPort}`);
       
       this.ws = new WebSocket(wsUrl);
       

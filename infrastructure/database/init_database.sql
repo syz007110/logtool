@@ -185,6 +185,22 @@ CREATE TABLE IF NOT EXISTS feedback_images (
   INDEX idx_feedback_id (feedback_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- 14. 日志备注
+CREATE TABLE `log_notes` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,          -- 主键，自动递增
+  `log_entry_id` INT NOT NULL,                           -- 外键，关联日志条目的 ID
+  `user_id` INT NOT NULL,                                -- 外键，关联用户 ID
+  `content` VARCHAR(50) NOT NULL,                        -- 备注内容，限制 50 字符
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,       -- 创建时间，默认为当前时间
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,  -- 更新时间，修改时自动更新
+  `created_by` ENUM('admin', 'expert', 'user') NOT NULL, -- 创建者角色，区分权限
+  FOREIGN KEY (`log_entry_id`) REFERENCES `log_entries`(`id`) ON DELETE CASCADE,  -- 关联日志条目表
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,     -- 关联用户表
+  INDEX (`log_entry_id`),                               -- 为查询日志相关的备注添加索引
+  INDEX (`user_id`)                                    -- 为查询某用户的备注添加索引
+);
+
+
 -- 14. 手术统计相关表（MySQL兼容版本）
 -- 注意：这些表使用MySQL兼容语法，如果需要PostgreSQL特有功能，请使用PostgreSQL脚本
 
@@ -245,6 +261,13 @@ CREATE INDEX idx_log_entries_explanation ON log_entries(log_id, explanation(100)
 
 -- 覆盖索引（高性能查询）
 CREATE INDEX idx_log_entries_covering ON log_entries(log_id, timestamp, error_code, param1, param2, param3, param4, explanation(100));
+
+-- 关键复合索引：加速批量日志查询首页（按时间排序获取前N条）
+-- 典型形态：WHERE log_id IN (...) [AND timestamp BETWEEN ...] ORDER BY timestamp ASC, id ASC LIMIT N
+CREATE INDEX idx_log_entries_logid_ts_id ON log_entries(log_id, timestamp, id);
+
+-- 当未指定 log_id 过滤时，加速 ORDER BY timestamp, id LIMIT N 的首页获取
+CREATE INDEX idx_log_entries_ts_id ON log_entries(timestamp, id);
 
 -- ========================================
 -- error_codes表索引

@@ -59,7 +59,7 @@
           <span>{{ $t('devices.title') }}</span>
         </a-menu-item>
         
-        <a-menu-item v-if="isAdmin" key="/dashboard/data-replay">
+        <a-menu-item v-if="isAdminOrExpert" key="/dashboard/data-replay">
           <template #icon>
             <PlayCircleOutlined />
           </template>

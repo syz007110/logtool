@@ -10,6 +10,7 @@ const OperationLog = require('./operation_log');
 const Device = require('./device');
 const Feedback = require('./feedback');
 const FeedbackImage = require('./feedback_image');
+const LogNote = require('./log_note');
 
 // 防止重复定义关联 - 使用进程级别的检查
 const associationsProcessKey = `associations_${process.pid}`;
@@ -135,6 +136,14 @@ function defineAssociations() {
   // Feedback 与 FeedbackImage 的关联
   Feedback.hasMany(FeedbackImage, { foreignKey: 'feedback_id', as: 'images' });
   FeedbackImage.belongsTo(Feedback, { foreignKey: 'feedback_id', as: 'feedback' });
+
+  // LogEntry 与 LogNote 的关联
+  LogEntry.hasMany(LogNote, { foreignKey: 'log_entry_id', as: 'notes' });
+  LogNote.belongsTo(LogEntry, { foreignKey: 'log_entry_id', as: 'logEntry' });
+
+  // User 与 LogNote 的关联
+  User.hasMany(LogNote, { foreignKey: 'user_id', as: 'logNotes' });
+  LogNote.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
   console.log('✅ 模型关联定义完成');
 }

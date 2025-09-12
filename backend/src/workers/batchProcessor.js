@@ -24,6 +24,7 @@ async function batchReparseLogs(job) {
     let success = 0;
     let fail = 0;
 
+    const deviceChangesMap = new Map(); // deviceId -> changes array
     for (let i = 0; i < logIds.length; i++) {
       const logId = logIds[i];
       
@@ -41,8 +42,17 @@ async function batchReparseLogs(job) {
           continue;
         }
 
-        // 标记为解析中
+        // 标记为解析中并推送状态
+        const oldStatus = log.status;
         await log.update({ status: 'parsing' });
+        try {
+          const websocketService = require('../services/websocketService');
+          if (log.device_id) {
+            websocketService.pushLogStatusChange(log.device_id, log.id, 'parsing', oldStatus);
+          }
+        } catch (wsErr) {
+          console.warn('WebSocket 状态推送失败(parsing):', wsErr.message);
+        }
 
         // 读取现有明细
         const entries = await LogEntry.findAll({ 
@@ -51,6 +61,25 @@ async function batchReparseLogs(job) {
         });
         
         if (!entries || entries.length === 0) {
+          // 无明细可重新解析：从 parsing 终结为 parse_failed，并推送状态
+          try {
+            const oldStatusNE = log.status; // 可能已是 'parsing'
+            log.status = 'parse_failed';
+            await log.save();
+            try {
+              const websocketService = require('../services/websocketService');
+              if (log.device_id) {
+                websocketService.pushLogStatusChange(log.device_id, log.id, 'parse_failed', oldStatusNE);
+                // 计入批量变化
+                if (!deviceChangesMap.has(log.device_id)) deviceChangesMap.set(log.device_id, []);
+                deviceChangesMap.get(log.device_id).push({ logId: log.id, oldStatus: oldStatusNE, newStatus: 'parse_failed' });
+              }
+            } catch (wsErr) {
+              console.warn('WebSocket 状态推送失败(parse_failed: no_entries):', wsErr.message);
+            }
+          } catch (saveErr) {
+            console.warn('更新日志状态(parse_failed: no_entries)失败:', saveErr.message);
+          }
           results.push({ id: logId, status: 'no_entries' });
           fail++;
           continue;
@@ -137,10 +166,21 @@ async function batchReparseLogs(job) {
           console.error('写入解密文件失败:', fileErr);
         }
 
-        // 更新日志元数据
+        // 更新日志元数据并推送完成状态
         log.status = 'parsed';
         log.parse_time = new Date();
         await log.save();
+        try {
+          const websocketService = require('../services/websocketService');
+          if (log.device_id) {
+            websocketService.pushLogStatusChange(log.device_id, log.id, 'parsed', 'parsing');
+            // 记录到批量变化
+            if (!deviceChangesMap.has(log.device_id)) deviceChangesMap.set(log.device_id, []);
+            deviceChangesMap.get(log.device_id).push({ logId: log.id, oldStatus: 'parsing', newStatus: 'parsed' });
+          }
+        } catch (wsErr) {
+          console.warn('WebSocket 状态推送失败(parsed):', wsErr.message);
+        }
 
         results.push({ id: logId, status: 'ok', updated: updatedCount, total: entries.length });
         success++;
@@ -150,9 +190,21 @@ async function batchReparseLogs(job) {
           try {
             const log = await Log.findByPk(logId);
             if (log) {
+              const oldStatus2 = log.status;
               // 批量重新解析失败通常是解析阶段的问题
               log.status = 'parse_failed';
               await log.save();
+              try {
+                const websocketService = require('../services/websocketService');
+                if (log.device_id) {
+                  websocketService.pushLogStatusChange(log.device_id, log.id, 'parse_failed', oldStatus2);
+                  // 记录到批量变化
+                  if (!deviceChangesMap.has(log.device_id)) deviceChangesMap.set(log.device_id, []);
+                  deviceChangesMap.get(log.device_id).push({ logId: log.id, oldStatus: oldStatus2, newStatus: 'parse_failed' });
+                }
+              } catch (wsErr) {
+                console.warn('WebSocket 状态推送失败(parse_failed):', wsErr.message);
+              }
             }
           } catch (_) {}
           results.push({ id: logId, status: 'error', error: error.message });
@@ -161,6 +213,18 @@ async function batchReparseLogs(job) {
     }
 
     await job.progress(100);
+
+    // 批次完成后，按设备推送批量状态变化，便于前端一次刷新
+    try {
+      const websocketService = require('../services/websocketService');
+      for (const [deviceId, changes] of deviceChangesMap.entries()) {
+        if (deviceId) {
+          websocketService.pushBatchStatusChange(deviceId, changes || []);
+        }
+      }
+    } catch (wsErr) {
+      console.warn('批量状态变化推送失败:', wsErr.message);
+    }
 
     return {
       success: true,
@@ -188,6 +252,7 @@ async function batchDeleteLogs(job) {
     const results = [];
     let success = 0;
     let fail = 0;
+    const deviceChangesMap = new Map(); // deviceId -> changes array
 
     for (let i = 0; i < logIds.length; i++) {
       const logId = logIds[i];
@@ -245,6 +310,11 @@ async function batchDeleteLogs(job) {
         try {
           const websocketService = require('../services/websocketService');
           websocketService.pushLogStatusChange(deviceId, logId, 'deleted', 'deleting');
+          // 记录到批量变化
+          if (deviceId) {
+            if (!deviceChangesMap.has(deviceId)) deviceChangesMap.set(deviceId, []);
+            deviceChangesMap.get(deviceId).push({ logId, oldStatus: 'deleting', newStatus: 'deleted' });
+          }
         } catch (wsError) {
           console.warn('WebSocket 状态推送失败:', wsError.message);
         }
@@ -264,6 +334,23 @@ async function batchDeleteLogs(job) {
             { where: { id: logId } }
           );
           console.log(`✅ 已更新日志 ${logId} 状态为 'failed'`);
+          // 推送失败状态变化到 WebSocket，并记录批量变化
+          try {
+            const websocketService = require('../services/websocketService');
+            // 获取设备ID（失败时日志可能仍存在，若不存在则跳过推送）
+            let deviceIdOnFail = null;
+            try {
+              const lg = await Log.findByPk(logId);
+              deviceIdOnFail = lg?.device_id || null;
+            } catch (_) {}
+            if (deviceIdOnFail) {
+              websocketService.pushLogStatusChange(deviceIdOnFail, logId, 'failed', 'deleting');
+              if (!deviceChangesMap.has(deviceIdOnFail)) deviceChangesMap.set(deviceIdOnFail, []);
+              deviceChangesMap.get(deviceIdOnFail).push({ logId, oldStatus: 'deleting', newStatus: 'failed' });
+            }
+          } catch (wsErr) {
+            console.warn('WebSocket 状态推送失败(failed):', wsErr.message);
+          }
         } catch (updateError) {
           console.error(`❌ 更新日志 ${logId} 状态失败: ${updateError.message}`);
         }
@@ -274,6 +361,18 @@ async function batchDeleteLogs(job) {
     }
 
     await job.progress(100);
+
+    // 批次完成后，按设备推送批量状态变化
+    try {
+      const websocketService = require('../services/websocketService');
+      for (const [deviceId, changes] of deviceChangesMap.entries()) {
+        if (deviceId && changes.length > 0) {
+          websocketService.pushBatchStatusChange(deviceId, changes);
+        }
+      }
+    } catch (wsErr) {
+      console.warn('批量删除状态变化推送失败:', wsErr.message);
+    }
 
     return {
       success: true,

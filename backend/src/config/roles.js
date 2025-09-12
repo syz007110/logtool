@@ -100,7 +100,12 @@ const ROLES = {
       // 手术分析权限
       'surgery:analyze',
       'surgery:read',
-      'surgery:export'
+      'surgery:export',
+      
+      // 数据解析（原数据诊断）权限
+      'data_replay:upload',
+      'data_replay:read',
+      'data_replay:download'
     ]
   },
   

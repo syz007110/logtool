@@ -141,6 +141,7 @@
             height="60vh"
             :stripe="false"
             table-layout="fixed"
+            row-key="id"
             :row-class-name="getRowClassName"
             :row-style="getRowStyle"
             @current-change="forceRelayout"
@@ -161,7 +162,8 @@
                   <el-popover
                     placement="bottom-start"
                     :width="200"
-                    trigger="click"
+                    trigger="manual"
+                    :visible="activeColorPopoverRowId === row.id"
                     popper-class="color-picker-popover"
                   >
                     <template #reference>
@@ -169,9 +171,10 @@
                         class="color-indicator"
                         :class="{ 'has-color': row.color_mark }"
                         :style="row.color_mark ? { backgroundColor: row.color_mark } : {}"
+                        @click.stop="toggleColorPopover(row)"
                       ></div>
                     </template>
-                    <div class="color-picker-menu">
+                    <div v-if="activeColorPopoverRowId === row.id" class="color-picker-menu">
                       <div 
                         v-for="color in colorOptions"
                         :key="color.value || 'none'"
@@ -199,18 +202,23 @@
                 </div>
               </template>
               <template #default="{ row }">
-                  <el-tooltip
-                    :content="row.log_name"
-                    placement="top"
-                    effect="dark"
-                    popper-class="explanation-tooltip dark"
-                    :teleported="true"
-                    :show-after="120"
-                  >
-                <div class="file-info-cell">
-                  <div class="timestamp">{{ formatTimestamp(row.timestamp) }}</div>
+                <div class="file-info-cell" @mouseenter="hoveredNameRowId = row.id" @mouseleave="hoveredNameRowId = null">
+                  <template v-if="hoveredNameRowId === row.id">
+                    <el-tooltip
+                      :content="row.log_name"
+                      placement="top"
+                      effect="dark"
+                      popper-class="explanation-tooltip dark"
+                      :teleported="true"
+                      :show-after="120"
+                    >
+                      <div class="timestamp">{{ row.timestamp_text }}</div>
+                    </el-tooltip>
+                  </template>
+                  <template v-else>
+                    <div class="timestamp" :title="row.log_name">{{ row.timestamp_text }}</div>
+                  </template>
                 </div>
-                  </el-tooltip>
               </template>
             </el-table-column>
             
@@ -259,7 +267,7 @@
               <template #default="{ row }">
                 <div class="parameters-cell">
                   <div class="param-content">
-                    <span v-for="(param, index) in [row.param1, row.param2, row.param3, row.param4].filter(p => p)" :key="index" class="param-item">{{ param }}</span>
+                    <span v-for="(param, index) in row.display_params" :key="index" class="param-item">{{ param }}</span>
                   </div>
                   <div class="param-actions">
                     <el-popover
@@ -334,13 +342,72 @@
                   >
                     <el-icon><DocumentCopy /></el-icon>
                   </el-button>
+                  <el-popover
+                    placement="left-start"
+                    :width="360"
+                    trigger="manual"
+                    :visible="activeNotesPopoverRowId === row.id"
+                    popper-class="notes-popover"
+                  >
+                    <template #default>
+                      <div v-if="activeNotesPopoverRowId === row.id">
+                      <div class="notes-header">
+                        <span>备注</span>
+                        <el-button link size="small" @click="reloadNotes(row)">刷新</el-button>
+                      </div>
+                      <div class="notes-list" v-if="getNotes(row).items.length > 0">
+                        <div 
+                          class="note-item" 
+                          v-for="item in getNotes(row).items" 
+                          :key="item.id"
+                        >
+                          <div class="note-meta">
+                            <span class="note-user" :class="'role-' + (item.created_by || 'user')">{{ item.username }}（{{ roleLabel(item.created_by) }}）</span>
+                            <span class="note-time">{{ formatTime(item.created_at) }}</span>
+                            <span class="note-actions">
+                              <el-button v-if="canEditNote(item)" link type="primary" size="small" @click="startEditNote(item)">编辑</el-button>
+                              <el-button v-if="canDeleteNote(item)" link type="danger" size="small" @click="confirmDeleteNote(item)">删除</el-button>
+                            </span>
+                          </div>
+                          <div class="note-content" v-if="editingNoteId !== item.id">{{ item.content }}</div>
+                          <div class="note-edit" v-else>
+                            <el-input v-model="editingNoteContent" maxlength="50" show-word-limit type="textarea" rows="2" />
+                            <div class="note-edit-actions">
+                              <el-button size="small" @click="cancelEditNote">取消</el-button>
+                              <el-button size="small" type="primary" @click="submitEditNote(item)">保存</el-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="notes-empty" v-else>暂无备注</div>
+                      <div class="notes-pagination">
+                        <el-pagination
+                          layout="prev, pager, next"
+                          small
+                          :page-size="getNotes(row).pageSize"
+                          :total="getNotes(row).total"
+                          :current-page="getNotes(row).page"
+                          @current-change="(p)=>changeNotesPage(row,p)"
+                        />
+                      </div>
+                      <div class="notes-editor" v-if="canCreateNote">
+                        <el-input v-model="newNoteContent" placeholder="添加备注（最多50字）" maxlength="50" show-word-limit type="textarea" rows="2" />
+                        <div class="notes-editor-actions">
+                          <el-button size="small" type="primary" @click="submitNewNote(row)">提交备注</el-button>
+                        </div>
+                      </div>
+                      </div>
+                    </template>
+                    <template #reference>
                   <el-button 
                     text
-                    @click="handleRemarks(row)"
                     class="operation-btn"
+                        @click.stop="openNotes(row)"
                   >
                     <el-icon><Edit /></el-icon>
                   </el-button>
+                    </template>
+                  </el-popover>
                 </div>
               </template>
             </el-table-column>
@@ -614,7 +681,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponent, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
@@ -633,56 +700,12 @@ export default {
       name: 'ExplanationCell',
       props: { text: { type: String, default: '' } },
       setup(props) {
-        const containerRef = ref(null)
-        const needsTooltip = ref(false)
-        let resizeObserver = null
-
-        const measure = () => {
-          const el = containerRef.value
-          if (!el) return
-          // 使用 > 而非 >=，并允许 1px 阈值容错
-          needsTooltip.value = (el.scrollWidth - el.clientWidth) > 1
-        }
-
-        const handleMouseEnter = () => {
-          // 悬停时再即时测量，保证分页切换后也能正确判断
-          measure()
-        }
-
-        onMounted(async () => {
-          await nextTick()
-          measure()
-          if ('ResizeObserver' in window) {
-            resizeObserver = new ResizeObserver(() => measure())
-            if (containerRef.value) resizeObserver.observe(containerRef.value)
-          } else {
-            window.addEventListener('resize', measure)
-          }
-        })
-
-        onBeforeUnmount(() => {
-          if (resizeObserver && containerRef.value) resizeObserver.unobserve(containerRef.value)
-          if (resizeObserver) resizeObserver.disconnect()
-          resizeObserver = null
-          window.removeEventListener('resize', measure)
-        })
-
-        return () => h(resolveComponent('el-tooltip'), {
-          content: props.text,
-          placement: 'top',
-          effect: 'dark',
-          popperClass: 'explanation-tooltip dark',
-          teleported: true,
-          showAfter: 120,
-          disabled: !needsTooltip.value
-        }, {
-          default: () => h('span', {
-            ref: containerRef,
-            class: 'explanation-ellipsis',
-            style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:#606266;',
-            onMouseenter: handleMouseEnter
-          }, props.text)
-        })
+        // 简化：无需观察器，使用原生 title 提示，避免每格测量
+        return () => h('span', {
+          class: 'explanation-ellipsis',
+          title: props.text,
+          style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:#606266;'
+        }, props.text)
       }
     },
     ConditionGroup: {
@@ -860,7 +883,7 @@ export default {
     const searchKeyword = ref('')
     const timeRange = ref(null)
     const currentPage = ref(1)
-    const pageSize = ref(100)
+    const pageSize = ref(50)
     const totalCount = ref(0)
     const totalPages = ref(0)
     // 全量时间范围（来自后端聚合），用于限制时间选择器
@@ -897,6 +920,9 @@ export default {
 
     // 可视化相关
     const parameterSelectVisible = ref(false)
+    const activeColorPopoverRowId = ref(null)
+    const activeNotesPopoverRowId = ref(null)
+    const hoveredNameRowId = ref(null)
     const activeParamPopoverRowId = ref(null)
     const selectedParameter = ref(null)
     const paramNamesLoading = ref(false)
@@ -1416,12 +1442,18 @@ export default {
         
         // 处理返回的数据
         const idToName = new Map(selectedLogs.value.map(l => [l.id, l.original_name]))
-        const processedEntries = entries.map(entry => ({
-                ...entry,
-          log_name: idToName.get(entry.log_id) || '',
-          color_mark: entry.color_mark || null,
-          remarks: entry.remarks || ''
-        }))
+        const processedEntries = entries.map(entry => {
+          const tsText = formatTimestamp(entry.timestamp)
+          const displayParams = [entry.param1, entry.param2, entry.param3, entry.param4].filter(p => p)
+          return {
+            ...entry,
+            log_name: idToName.get(entry.log_id) || '',
+            color_mark: entry.color_mark || null,
+            remarks: entry.remarks || '',
+            timestamp_text: tsText,
+            display_params: displayParams
+          }
+        })
         
         // 更新数据
         if (resetData) {
@@ -1758,6 +1790,11 @@ export default {
 
     // 跳转到手术统计页面
     const showSurgeryStatistics = async () => {
+      // 需要具备手术分析权限（管理员、专家）
+      if (!store.getters['auth/hasPermission']?.('surgery:analyze')) {
+        ElMessage.warning('权限不足：需要手术分析权限')
+        return
+      }
       // 确保有已排序的日志条目数据
       if (batchLogEntries.value.length === 0) {
         ElMessage.warning('请先加载日志条目数据')
@@ -3062,9 +3099,128 @@ export default {
 
 
 
-    // 备注功能 - 暂未开发完成
-    const handleRemarks = (row) => {
-      ElMessage.info('备注功能暂未开发完成')
+    // 备注功能
+    const notesState = ref({}) // { [logEntryId]: { items, total, page, pageSize, loading } }
+    const newNoteContent = ref('')
+    const editingNoteId = ref(null)
+    const editingNoteContent = ref('')
+
+    const canCreateNote = computed(() => store.getters['auth/isAuthenticated'])
+    const roleLabel = (r) => r === 'admin' ? '管理员' : (r === 'expert' ? '专家' : '普通用户')
+    const getNotesKey = (row) => row.id
+    const getNotes = (row) => notesState.value[getNotesKey(row)] || { items: [], total: 0, page: 1, pageSize: 10, loading: false }
+
+    const openNotes = async (row) => {
+      activeNotesPopoverRowId.value = row.id
+      await reloadNotes(row)
+      const closeOnOutsideClick = (e) => {
+        if (activeNotesPopoverRowId.value !== row.id) {
+          document.removeEventListener('click', closeOnOutsideClick, true)
+          return
+        }
+        const target = e.target
+        const btn = target && target.closest && target.closest('.operation-btn')
+        const pop = target && target.closest && target.closest('.el-popover')
+        if (btn || pop) return
+        activeNotesPopoverRowId.value = null
+        document.removeEventListener('click', closeOnOutsideClick, true)
+      }
+      document.addEventListener('click', closeOnOutsideClick, true)
+    }
+    const toggleColorPopover = (row) => {
+      activeColorPopoverRowId.value = activeColorPopoverRowId.value === row.id ? null : row.id
+      const currentId = row.id
+      const closeOnOutsideClick = (e) => {
+        if (activeColorPopoverRowId.value !== currentId) {
+          document.removeEventListener('click', closeOnOutsideClick, true)
+          return
+        }
+        const target = e.target
+        const refEl = target && target.closest && target.closest('.color-indicator')
+        const pop = target && target.closest && target.closest('.el-popover')
+        if (refEl || pop) return
+        activeColorPopoverRowId.value = null
+        document.removeEventListener('click', closeOnOutsideClick, true)
+      }
+      document.addEventListener('click', closeOnOutsideClick, true)
+    }
+
+    const reloadNotes = async (row) => {
+      const key = getNotesKey(row)
+      const state = notesState.value[key] || { items: [], total: 0, page: 1, pageSize: 10, loading: false }
+      state.loading = true
+      notesState.value[key] = state
+      try {
+        const { data } = await api.notes.list(row.id, { page: state.page, pageSize: state.pageSize })
+        notesState.value[key] = { ...state, items: data.items || [], total: data.total || 0, page: data.page || 1, pageSize: data.pageSize || 10, loading: false }
+      } catch (e) {
+        state.loading = false
+      }
+    }
+
+    const changeNotesPage = async (row, page) => {
+      const key = getNotesKey(row)
+      const state = notesState.value[key] || { items: [], total: 0, page: 1, pageSize: 10, loading: false }
+      state.page = page
+      notesState.value[key] = state
+      await reloadNotes(row)
+    }
+
+    const submitNewNote = async (row) => {
+      if (!newNoteContent.value.trim()) {
+        ElMessage.warning('请输入备注内容')
+        return
+      }
+      try {
+        await api.notes.create(row.id, newNoteContent.value.trim())
+        newNoteContent.value = ''
+        await reloadNotes(row)
+      } catch (e) { /* handled by interceptor */ }
+    }
+
+    const canEditNote = (item) => {
+      const current = store.getters['auth/currentUser']
+      if (!current) return false
+      if (store.getters['auth/hasPermission']('user:update')) return true // admin
+      return item.user_id === current.id
+    }
+
+    const canDeleteNote = canEditNote
+
+    const startEditNote = (item) => {
+      editingNoteId.value = item.id
+      editingNoteContent.value = item.content
+    }
+    const cancelEditNote = () => {
+      editingNoteId.value = null
+      editingNoteContent.value = ''
+    }
+    const submitEditNote = async (item) => {
+      if (!editingNoteContent.value.trim()) {
+        ElMessage.warning('请输入备注内容')
+        return
+      }
+      try {
+        await api.notes.update(item.id, editingNoteContent.value.trim())
+        editingNoteId.value = null
+        editingNoteContent.value = ''
+        const row = { id: item.log_entry_id }
+        await reloadNotes(row)
+      } catch (e) { /* handled globally */ }
+    }
+
+    const confirmDeleteNote = (item) => {
+      ElMessageBox.confirm('确定删除这条备注吗？', '提示', { type: 'warning' })
+        .then(async () => {
+          await api.notes.remove(item.id)
+          const row = { id: item.log_entry_id }
+          await reloadNotes(row)
+        })
+        .catch(() => {})
+    }
+
+    const formatTime = (t) => {
+      try { return new Date(t).toLocaleString() } catch { return t }
     }
 
     // 保存备注到sessionStorage
@@ -3219,6 +3375,10 @@ export default {
     })
 
     return {
+      activeColorPopoverRowId,
+      activeNotesPopoverRowId,
+      hoveredNameRowId,
+      toggleColorPopover,
       loading,
       selectedLogs,
       batchLogEntries,
@@ -3293,9 +3453,24 @@ export default {
       loadColorMarksFromStorage,
       handleContextAnalysis,
       handleLogCapture,
-      handleRemarks,
-      saveRemarksToStorage,
-      loadRemarksFromStorage,
+      openNotes,
+      reloadNotes,
+      getNotes,
+      changeNotesPage,
+      submitNewNote,
+      canEditNote,
+      canDeleteNote,
+      startEditNote,
+      cancelEditNote,
+      submitEditNote,
+      confirmDeleteNote,
+      notesState,
+      newNoteContent,
+      editingNoteId,
+      editingNoteContent,
+      roleLabel,
+      formatTime,
+      canCreateNote,
       // 上下文分析相关
       contextAnalysisVisible,
       contextAnalysisRow,
@@ -4100,15 +4275,15 @@ export default {
   transform: scale(1.05);
 }
 
-/* 备注按钮 - 灰色（禁用状态） */
+/* 备注按钮 - 蓝色 */
 .operations-cell .operation-btn:nth-child(4) {
-  color: #c0c4cc;
-  cursor: not-allowed;
+  color: #409eff;
+  cursor: pointer;
 }
 
 .operations-cell .operation-btn:nth-child(4):hover {
-  color: #c0c4cc;
-  transform: none;
+  color: #66b1ff;
+  transform: scale(1.05);
 }
 
 /* 颜色指示器样式 - 默认小圆点 */
@@ -5381,4 +5556,32 @@ export default {
 }
 
 
+</style>
+
+<style>
+/* Notes popover styles */
+:deep(.notes-popover) {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.notes-list .note-item { padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+.notes-list .note-item:last-child { border-bottom: none; }
+.note-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #909399; }
+.note-user.role-admin { color: #f56c6c; }
+.note-user.role-expert { color: #409eff; }
+.note-user.role-user { color: #909399; }
+.note-time { margin-left: auto; }
+.note-actions { margin-left: 8px; }
+.note-content { margin-top: 4px; font-size: 13px; color: #606266; white-space: pre-wrap; }
+.note-edit-actions { margin-top: 6px; text-align: right; }
+.notes-pagination { margin-top: 6px; text-align: right; }
+.notes-editor { margin-top: 8px; }
+.notes-editor-actions { margin-top: 6px; text-align: right; }
 </style>

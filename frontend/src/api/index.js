@@ -123,6 +123,18 @@ const logs = {
   importSearchTemplates: (templates) => api.post('/logs/search-templates/import', { templates })
 }
 
+// Notes APIs
+const notes = {
+  list: (logEntryId, { page = 1, pageSize = 10 } = {}) =>
+    api.get(`/log-entries/${logEntryId}/notes`, { params: { page, pageSize } }),
+  create: (logEntryId, content) =>
+    api.post(`/log-entries/${logEntryId}/notes`, { content }),
+  update: (id, content) =>
+    api.put(`/notes/${id}`, { content }),
+  remove: (id) =>
+    api.delete(`/notes/${id}`)
+}
+
 const operationLogs = {
   getList: (params) => api.get('/operation-logs', { params })
 }
@@ -213,5 +225,6 @@ export default {
   motionData,
   feedback,
   dashboard,
-  explanations
+  explanations,
+  notes
 }

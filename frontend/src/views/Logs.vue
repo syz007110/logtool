@@ -111,6 +111,7 @@
              </el-button>
              
              <el-button 
+               v-if="false"
                size="small" 
                type="success"
                @click="uploadDataForDevice(row)"
@@ -119,6 +120,7 @@
              </el-button>
              
              <el-button 
+               v-if="false"
                size="small" 
                type="info"
                @click="viewSurgeryData(row)"
@@ -160,10 +162,6 @@
             <p>日志总数：{{ selectedDevice?.log_count || 0 }}</p>
           </div>
           <div class="device-actions">
-            <!-- WebSocket 状态 -->
-            <div class="websocket-status-section">
-              <WebSocketStatus />
-            </div>
             
             <el-button 
               type="primary" 
@@ -177,18 +175,6 @@
 
         <!-- 详细日志列表 -->
         <div class="detail-logs-section">
-          <!-- WebSocket 状态提示 -->
-          <div class="websocket-status-banner" v-if="showDeviceDetailDrawer">
-            <el-alert
-              :title="websocketStatusTitle"
-              :type="websocketStatusType"
-              :description="websocketStatusDescription"
-              show-icon
-              :closable="false"
-              class="status-alert"
-            />
-          </div>
-          
           <div class="detail-header">
             <h4>日志列表</h4>
             <div class="detail-actions">
@@ -279,6 +265,7 @@
         style="width: 100%"
             v-loading="detailLoading"
             @selection-change="handleDetailSelectionChange"
+            row-key="id"
       >
         <el-table-column type="selection" width="55" />
             <el-table-column prop="original_name" label="日志文件名" width="240">
@@ -577,18 +564,16 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
 import websocketClient from '@/services/websocketClient'
-import WebSocketStatus from '@/components/WebSocketStatus.vue'
 
 export default {
   name: 'Logs',
   components: {
-    WebSocketStatus
   },
   setup() {
     const store = useStore()
@@ -616,6 +601,8 @@ export default {
     const selectedDevice = ref(null)
     const detailLogs = ref([])
     const detailLoading = ref(false)
+    const lastDetailLogsLoadAt = ref(0)
+    let detailReloadTimer = null
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
     const detailTotal = ref(0)
@@ -820,9 +807,23 @@ export default {
     }
     
     // 方法
-    const loadDeviceGroups = async () => {
+    const deviceGroupsLoading = ref(false)
+    const lastDeviceGroupsLoadAt = ref(0)
+    const loadDeviceGroups = async (options = {}) => {
+      const silent = options && options.silent === true
+      const force = options && options.force === true
+      const now = Date.now()
+      if (!force && now - lastDeviceGroupsLoadAt.value < 2000) {
+        console.log('跳过设备分组加载（节流）')
+        return
+      }
+      if (!force && deviceGroupsLoading.value) {
+        console.log('跳过设备分组加载（去重）')
+        return
+      }
       try {
-        loading.value = true
+        deviceGroupsLoading.value = true
+        lastDeviceGroupsLoadAt.value = now
         const timeParams = buildTimeParams()
         const response = await store.dispatch('logs/fetchLogsByDevice', {
           ...timeParams,
@@ -834,9 +835,13 @@ export default {
         deviceGroups.value = response.data.device_groups || []
         deviceTotal.value = response.data.pagination?.total || 0
       } catch (error) {
+        if (!silent && !uploading.value) {
         ElMessage.error('加载设备分组失败')
+        } else {
+          console.warn('加载设备分组失败(已静默):', error?.message || error)
+        }
       } finally {
-        loading.value = false
+        deviceGroupsLoading.value = false
       }
     }
     
@@ -873,14 +878,35 @@ export default {
         }
       }
       
-      loadDetailLogs()
+      loadDetailLogs({ force: true })
     }
     
-    const loadDetailLogs = async () => {
+    const loadDetailLogs = async (options = {}) => {
       if (!selectedDevice.value) return
-      
+      const silent = options && options.silent === true
+      const force = options && options.force === true
+      const now = Date.now()
+      if (!force && now - lastDetailLogsLoadAt.value < 800) {
+        if (!detailReloadTimer) {
+          detailReloadTimer = setTimeout(() => {
+            detailReloadTimer = null
+            loadDetailLogs({ force: true, silent: true })
+          }, 300)
+        }
+        return
+      }
+      if (!force && detailLoading.value) {
+        if (!detailReloadTimer) {
+          detailReloadTimer = setTimeout(() => {
+            detailReloadTimer = null
+            loadDetailLogs({ force: true, silent: true })
+          }, 300)
+        }
+        return
+      }
       try {
         detailLoading.value = true
+        lastDetailLogsLoadAt.value = now
         const timeParams = buildDetailTimeParams()
         await store.dispatch('logs/fetchLogs', {
           page: detailCurrentPage.value,
@@ -891,7 +917,7 @@ export default {
         detailLogs.value = logs.value
         detailTotal.value = total.value
       } catch (error) {
-        ElMessage.error('加载设备详细日志失败')
+        if (!silent) ElMessage.error('加载设备详细日志失败')
       } finally {
         detailLoading.value = false
       }
@@ -1311,14 +1337,20 @@ export default {
           console.log('清除删除中状态，日志ID:', data.logId)
         }
         
+        // 就地更新当前列表中该条目的状态，避免等待二次拉取
+        const i = detailLogs.value.findIndex(l => Number(l.id) === Number(data.logId))
+        if (i !== -1) {
+          detailLogs.value[i] = { ...detailLogs.value[i], status: data.newStatus }
+        }
+        
         // 如果当前有选中的设备且详细日志抽屉是打开的，自动刷新
         if (selectedDevice.value && 
             showDeviceDetailDrawer.value && 
             selectedDevice.value.device_id === data.deviceId) {
           
           console.log('WebSocket 状态变化，准备自动刷新详细日志列表')
-          // 立即刷新，无需延迟
-          loadDetailLogs()
+          // 静默刷新，并通过节流避免过多请求
+          loadDetailLogs({ silent: true })
         }
       })
       
@@ -1332,6 +1364,11 @@ export default {
               deletingIds.value.delete(change.logId)
               console.log('批量状态变化：清除删除中状态，日志ID:', change.logId)
             }
+            // 就地更新状态
+            const i = detailLogs.value.findIndex(l => Number(l.id) === Number(change.logId))
+            if (i !== -1) {
+              detailLogs.value[i] = { ...detailLogs.value[i], status: change.newStatus }
+            }
           })
         }
         
@@ -1341,14 +1378,13 @@ export default {
             selectedDevice.value.device_id === data.deviceId) {
           
           console.log('WebSocket 批量状态变化，准备自动刷新详细日志列表')
-          // 立即刷新，无需延迟
-          loadDetailLogs()
+          // 静默刷新，并通过节流避免过多请求
+          loadDetailLogs({ silent: true })
         }
       })
       
       // 添加 WebSocket 连接状态监听，用于更新状态横幅
       const updateWebSocketStatus = () => {
-        console.log('WebSocket 连接状态变化，更新状态横幅')
         // 强制触发计算属性重新计算
         nextTick(() => {
           // Vue 会自动重新计算计算属性
@@ -1401,8 +1437,8 @@ export default {
           // 延迟一下，确保设备列表已更新
           setTimeout(async () => {
             try {
-              // 重新加载设备列表
-              await loadDeviceGroups()
+              // 重新加载设备列表（静默）
+              await loadDeviceGroups({ silent: true })
               
               // 查找对应的设备
               const targetDevice = deviceGroups.value.find(device => device.device_id === currentUploadDeviceId.value)
@@ -1461,59 +1497,8 @@ export default {
     
     // 智能状态监控函数
     const startSmartStatusMonitoring = () => {
-      if (!selectedDevice.value || !showDeviceDetailDrawer.value) return
-      
-      console.log('启动智能状态监控')
-      let monitoringInterval = null
-      let lastStatusSnapshot = null
-      
-      const monitorStatus = async () => {
-        try {
-          // 获取当前状态快照
-          const currentSnapshot = detailLogs.value.map(log => ({
-            id: log.id,
-            status: log.status,
-            updated_at: log.updated_at
-          }))
-          
-          // 如果有状态快照，检查是否有变化
-          if (lastStatusSnapshot) {
-            const hasChange = currentSnapshot.some((log, index) => {
-              const oldLog = lastStatusSnapshot[index]
-              return oldLog && (
-                oldLog.status !== log.status ||
-                oldLog.updated_at !== log.updated_at
-              )
-            })
-            
-            if (hasChange) {
-              console.log('检测到状态变化，刷新详细日志列表')
-              await loadDetailLogs()
-              lastStatusSnapshot = detailLogs.value.map(log => ({
-                id: log.id,
-                status: log.status,
-                updated_at: log.updated_at
-              }))
-            }
-          } else {
-            // 第一次运行，设置初始快照
-            lastStatusSnapshot = currentSnapshot
-          }
-        } catch (error) {
-          console.error('智能状态监控出错:', error)
-        }
-      }
-      
-      // 每3秒检查一次状态变化
-      monitoringInterval = setInterval(monitorStatus, 3000)
-      
-      // 返回清理函数
-      return () => {
-        if (monitoringInterval) {
-          clearInterval(monitoringInterval)
-          monitoringInterval = null
-        }
-      }
+      // 取消详细列表的轮询，完全依赖 WebSocket 事件触发刷新
+      return () => {}
     }
     
     // 通用函数：启动智能状态监控（如果详细日志抽屉是打开的）
@@ -1538,124 +1523,8 @@ export default {
     
     // 状态监控函数
     const startStatusMonitoring = () => {
-      let checkCount = 0
-      const maxChecks = 30 // 最多检查30次（60秒）
-      
-      const checkStatus = async () => {
-        try {
-          await loadDeviceGroups()
-          
-          // 智能状态监控：只在状态真正变化时才刷新
-          if (selectedDevice.value && showDeviceDetailDrawer.value) {
-            await checkAndUpdateDetailLogs()
-          }
-          
-          checkCount++
-          
-          // 检查是否有新上传的日志
-          const newLogs = logs.value.filter(log => 
-            log.status === 'uploading' || 
-            log.status === 'decrypting' || 
-            log.status === 'parsing' ||
-            log.status === 'deleting'  // 新增删除中状态监控
-          )
-          
-          if (newLogs.length > 0) {
-            // 根据状态更新进度和显示
-            const uploadingCount = newLogs.filter(log => log.status === 'uploading').length
-            const decryptingCount = newLogs.filter(log => log.status === 'decrypting').length
-            const parsingCount = newLogs.filter(log => log.status === 'parsing').length
-            const deletingCount = newLogs.filter(log => log.status === 'deleting').length  // 新增
-            
-            if (uploadingCount > 0) {
-              overallProgress.value = 30
-              processingStatus.value = '文件上传中...'
-            } else if (decryptingCount > 0) {
-              overallProgress.value = 45
-              processingStatus.value = '解密中...'
-            } else if (parsingCount > 0) {
-              overallProgress.value = 75
-              processingStatus.value = '解析中...'
-            } else if (deletingCount > 0) {  // 新增
-              overallProgress.value = 90
-              processingStatus.value = '删除中...'
-            }
-            
-            // 继续监控
-            if (checkCount < maxChecks) {
-              setTimeout(checkStatus, 2000)
-            } else {
-              // 超时处理
-              uploading.value = false
-              overallProgress.value = 0
-              processingStatus.value = ''
-              ElMessage.warning('处理超时，请刷新页面查看最新状态')
-              clearUpload()
-            }
-          } else {
-            // 所有日志都处理完成
-            const allParsed = logs.value.every(log => log.status === 'parsed')
-            const hasFailed = logs.value.some(log => 
-              log.status === 'failed' || 
-              log.status === 'decrypt_failed' || 
-              log.status === 'parse_failed' || 
-              log.status === 'file_error'
-            )
-            
-            if (allParsed) {
-              overallProgress.value = 100
-              uploading.value = false
-              processingStatus.value = ''
-              showUploadDialog.value = false
-              
-              // 处理完成时，如果详细日志列表是打开的，刷新一次
-              if (selectedDevice.value && showDeviceDetailDrawer.value) {
-                setTimeout(async () => {
-                  await checkAndUpdateDetailLogs()
-                  ElMessage.success('日志处理完成')
-                }, 500)
-              }
-              
-              clearUpload()
-            } else if (hasFailed) {
-              uploading.value = false
-              overallProgress.value = 0
-              processingStatus.value = ''
-              
-              // 处理失败时，如果详细日志列表是打开的，刷新一次
-              if (selectedDevice.value && showDeviceDetailDrawer.value) {
-                setTimeout(async () => {
-                  await checkAndUpdateDetailLogs()
-                  ElMessage.warning('部分日志处理失败')
-                }, 500)
-              }
-              
-              ElMessage.error('部分日志处理失败，请检查日志详情')
-              clearUpload()
-            } else {
-              // 继续监控
-              if (checkCount < maxChecks) {
-                setTimeout(checkStatus, 2000)
-              } else {
-                uploading.value = false
-                overallProgress.value = 0
-                processingStatus.value = ''
-                ElMessage.warning('处理超时，请刷新页面查看最新状态')
-                clearUpload()
-              }
-            }
-          }
-        } catch (error) {
-          uploading.value = false
-          overallProgress.value = 0
-          processingStatus.value = ''
-          ElMessage.error('检查状态失败')
-          clearUpload()
-        }
-      }
-      
-      // 开始检查
-      setTimeout(checkStatus, 1000)
+      // 移除轮询监控，完全依赖 WebSocket 事件更新进度和列表
+      return
     }
     
     const onUploadError = (error) => {
@@ -2005,6 +1874,11 @@ export default {
           { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
         )
         const ids = selectedDetailLogs.value.map(l => l.id)
+        // 订阅所有涉及设备，确保能收到各设备的状态更新
+        const deviceIdsToSubscribe = Array.from(new Set(selectedDetailLogs.value.map(l => l.device_id).filter(Boolean)))
+        deviceIdsToSubscribe.forEach(d => {
+          try { websocketClient.subscribeToDevice(d) } catch (_) {}
+        })
         // 乐观更新状态
         selectedDetailLogs.value.forEach(l => { l.status = 'parsing' })
         await store.dispatch('logs/batchReparseLogs', ids)

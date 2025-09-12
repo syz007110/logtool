@@ -15,7 +15,8 @@ class WebSocketService extends EventEmitter {
     console.log('🔌 正在初始化 WebSocket 服务器...');
     console.log('🔌 服务器信息:', server.address());
     
-    this.wss = new WebSocket.Server({ server });
+    // 将 WebSocket 监听固定在 /ws，避免与 HTTP 根路径 '/' 冲突
+    this.wss = new WebSocket.Server({ server, path: '/ws' });
     
     this.wss.on('connection', (ws, req) => {
       console.log('🔌 收到新的 WebSocket 连接请求');

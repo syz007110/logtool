@@ -17,44 +17,9 @@ if (cluster.isMaster) {
   // 启动主进程
   clusterManager.startMaster();
   
-  // 主进程创建独立的HTTP服务器，不加载app.js
-  const express = require('express');
-  const cors = require('cors');
-  const dotenv = require('dotenv');
-  const path = require('path');
-  
-  // 加载环境变量
-  dotenv.config({ path: path.resolve(__dirname, '.env') });
-  
-  const app = express();
-  const PORT = process.env.PORT || 3000;
-  
-  // 配置CORS
-  app.use(cors({
-    origin: [
-      'http://localhost:8080',
-      'http://127.0.0.1:8080',
-      'http://10.129.44.141:8080',
-      'http://10.129.44.141:3000'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-  }));
-  
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  
-  // 基础路由
-  app.get('/', (req, res) => {
-    res.send('logTool backend is running in cluster mode.');
-  });
-  
-  // 启动HTTP服务器
-  app.listen(PORT, () => {
-    console.log(`[主进程] 🚀 HTTP服务器启动成功，端口: ${PORT}`);
-    console.log(`[主进程] 📊 集群模式已启用，工作进程数: ${clusterManager.numWorkers}`);
-  });
+  // 主进程加载 app.js 启动完整服务（HTTP + DB + WebSocket）
+  require('./app');
+  console.log('[主进程] 已加载应用服务（HTTP/DB/WebSocket）');
   
   // 优雅关闭处理
   const gracefulShutdown = async (signal) => {
