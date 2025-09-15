@@ -117,7 +117,7 @@
             <template #icon>
               <ExperimentOutlined />
             </template>
-            <span>释义测试</span>
+            <span>测试</span>
           </a-menu-item>
         </template>
       </a-menu>

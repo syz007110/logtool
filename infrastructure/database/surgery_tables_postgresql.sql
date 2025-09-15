@@ -113,3 +113,122 @@ ORDER BY table_name, ordinal_position;
     "endoscope_pedal": 7
   }
 }
+
+{
+  "surgery_id": "4372-14-202509111318",
+  "device_ids": [
+    "4372-14"
+  ],
+  "start_time": "2025-09-11T05:18:53.000Z",
+  "end_time": "2025-09-11T06:31:15.000Z",
+  "is_remote": false,
+  "structured_data": {
+    "power_cycles": [
+      {
+        "on_time": "2025-09-11T03:35:54.000Z",
+        "off_time": null
+      }
+    ],
+    "arms": [
+      {
+        "arm_id": 1,
+        "instrument_usage": [
+          {
+            "tool_type": "双极鸭嘴电凝钳",
+            "udi": "IN8033-2503036",
+            "start_time": "2025-09-11T05:15:21.000Z",
+            "end_time": "2025-09-11T06:22:22.000Z",
+            "energy_activation": []
+          }
+        ]
+      },
+      {
+      {
+        "arm_id": 2,
+        "instrument_usage": [
+          {
+            "tool_type": "30度内窥镜",
+            "udi": "ECO8570-2504018",
+            "start_time": "2025-09-11T05:14:42.000Z",
+            "end_time": "2025-09-11T05:17:20.000Z",
+            "energy_activation": []
+          },
+           {
+            "tool_type": "30度内窥镜",
+            "udi": "ECO8570-2504018",
+            "start_time": "2025-09-11T05:17:37.000Z",
+            "end_time": "2025-09-11T05:17:53.000Z",
+            "energy_activation": []
+          },
+          {
+            "tool_type": "30度内窥镜",
+            "udi": "ECO8570-2504018",
+            "start_time": "2025-09-11T05:18:33.000Z",
+            "end_time": "2025-09-11T06:00:29.000Z",
+            "energy_activation": []
+          },
+          {
+            "tool_type": "30度内窥镜",
+            "udi": "ECO8570-2504018",
+            "start_time": "2025-09-11T06:00:49.000Z",
+            "end_time": "2025-09-11T06:22:29.000Z",
+            "energy_activation": []
+          }
+        ]
+      },
+      {
+        "arm_id": 3,
+        "instrument_usage": [
+          {
+            "tool_type": "新持针",
+            "udi": "IN8031-2411059",
+            "start_time": "2025-09-11T05:40:22.000Z",
+            "end_time": "2025-09-11T05:43:07.000Z",
+            "energy_activation": []
+          },
+          {
+            "tool_type": "弧剪",
+            "udi": "IN8035-2411067",
+            "start_time": "2025-09-11T05:43:21.000Z",
+            "end_time": "2025-09-11T06:04:53.000Z",
+            "energy_activation": []
+          },
+          {
+            "tool_type": "新持针",
+            "udi": "IN8031-2411059",
+            "start_time": "2025-09-11T06:05:03.000Z",
+            "end_time": "2025-09-11T06:22:18.000Z",
+            "energy_activation": []
+          }
+        ]
+      },
+      {
+        "arm_id": 4,
+        "instrument_usage": [
+          {
+            "tool_type": "鸭嘴抓钳",
+            "udi": "IN803A-2410027",
+            "start_time": "2025-09-11T05:16:09.000Z",
+            "end_time": "2025-09-11T06:21:17.000Z",
+            "energy_activation": []
+          }
+        ]
+      }
+    ],
+    "surgery_stats": {
+      "has_fault": false,
+      "success": true,
+      "is_remote": false,
+      "network_latency_ms": [],
+      "faults": [],
+      "arm_switch_count": 0,
+      "left_hand_clutch": 0,
+      "right_hand_clutch": 0,
+      "foot_clutch": 0,
+      "endoscope_pedal": 0
+    }
+  },
+  "last_analyzed_at": "2025-09-15T04:56:08.777Z",
+  "created_at": "2025-09-15T04:56:08.777Z",
+  "updated_at": "2025-09-15T04:56:08.777Z"
+}

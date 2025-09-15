@@ -1,7 +1,9 @@
 <template>
   <div>
-    <a-page-header title="释义测试工具" sub-title="仅管理员可用" />
-    <a-card style="margin-top: 16px">
+    <a-page-header title="测试" sub-title="仅管理员可用" />
+    <a-tabs style="margin-top: 16px">
+      <a-tab-pane key="explanation" tab="释义测试">
+        <a-card>
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :span="8">
@@ -48,7 +50,6 @@
         </a-space>
       </a-form>
     </a-card>
-
     <a-card style="margin-top: 16px" v-if="result">
       <a-descriptions bordered title="解析结果" :column="1">
         <a-descriptions-item label="子系统">{{ result.subsystem }}</a-descriptions-item>
@@ -59,14 +60,115 @@
         <a-descriptions-item label="释义">{{ result.explanation }}</a-descriptions-item>
       </a-descriptions>
     </a-card>
+      </a-tab-pane>
+
+      <a-tab-pane key="viz" tab="可视化测试">
+        <a-card title="输入手术结构化数据 (JSON)">
+          <a-textarea
+            v-model:value="vizJsonText"
+            :auto-size="{ minRows: 14 }"
+            placeholder="粘贴手术结构化数据，或点击填充示例"
+          />
+          <a-space style="margin-top: 12px">
+            <a-button type="primary" @click="handleRenderViz">生成可视化</a-button>
+            <a-button @click="fillVizExample">填充示例</a-button>
+          </a-space>
+        </a-card>
+        <a-card style="margin-top: 16px" title="可视化预览">
+          <div ref="vizChartRef" style="width: 100%; height: 340px;"></div>
+        </a-card>
+      </a-tab-pane>
+    </a-tabs>
   </div>
   
 </template>
 
 <script>
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
 import api from '../api'
 import { message } from 'ant-design-vue'
+import * as echarts from 'echarts'
+
+// 甘特图可配置样式参数（可按需调整）
+const GANTT_STYLE = {
+  // 每个臂行上下的预留留白（像素）
+  ROW_GAP_PX: 2,
+  // 条的最大厚度（像素上限）
+  BAR_MAX_PX: 40,
+  // 条厚度占可用行高（去除留白后）的比例 0~1
+  BAR_RATIO: 0.8
+}
+
+// 颜色配置：可按器械类型固定颜色，也可按臂分配基础色
+const GANTT_COLORS = {
+  // 器械类型 → 颜色（示例，按需填写）
+  TOOL_TYPE_COLORS: {
+  '无器械': '#EBBA66',       // 浅橙 - 空白状态
+  '持针钳': '#D9EB66',       // 浅黄绿
+  '电钩': '#96EB66',         // 青绿
+  '双极鸭嘴电凝钳': '#66EB77', // 深绿
+  '直剪': '#FFB366',         // 橙色
+  '单极弧剪': '#FF9966',     // 橙红
+  '双极弧形电凝钳': '#FF6666', // 红色
+  '波茨剪': '#FF6666',       // 红色（可偏深红 #CC3333）
+  '无损伤镊': '#66CCFF',     // 浅蓝
+  '-30度内窥镜': '#3399FF',   // 蓝色
+  '0度内窥镜': '#0066FF',    // 深蓝
+  '30度内窥镜': '#6699FF',   // 中蓝
+  '大持针钳': '#99CC66',     // 黄绿色
+  '鸭嘴抓钳': '#33CC99',     // 青色
+  '鼠齿抓钳': '#00CC99',   
+    // '30度内窥镜': '#73c0de',
+    // '弧剪': '#ea7e53',
+    // '新持针': '#9a60b4'
+  },
+  // 不同臂的基础颜色（作为 fallback）
+  ARM_BASE_COLORS: ['#E28A6A', '#E2C66A', '#C2E26A', '#86E26A']
+}
+
+// 将数据库中的 structured_data 结构转为图表所需的 { timeline, arms } 结构
+function normalizeSurgeryData(raw) {
+  if (!raw || typeof raw !== 'object') return { timeline: {}, arms: [] }
+
+  // 已是期望结构
+  if (raw.timeline && Array.isArray(raw.arms)) return raw
+
+  const hasStructured = !!raw.structured_data
+  const source = hasStructured ? raw.structured_data : raw
+
+  // 时间轴映射
+  const powerOn = source.power_cycles?.[0]?.on_time || raw.start_time || source.start_time
+  const powerOffCandidate = source.power_cycles?.[source.power_cycles.length - 1]?.off_time
+  const surgeryStart = raw.start_time || source.start_time
+  const surgeryEnd = raw.end_time || source.end_time
+  // 仅在存在明确 off_time 时才记录关机时间
+  const powerOff = powerOffCandidate ?? null
+  const previousSurgeryEnd = raw.previous_end_time || raw.previous_surgery_end_time ||
+    source.previous_end_time || source.prev_surgery_end_time || source.last_surgery_end_time
+
+  // 手臂与器械使用映射
+  const arms = Array.isArray(source.arms)
+    ? source.arms.map((a) => {
+        const name = a.name || `${a.arm_id ?? ''}号臂`.trim()
+        const segments = Array.isArray(a.instrument_usage)
+          ? a.instrument_usage
+              .filter(u => u && u.start_time && u.end_time)
+              .map((u) => ({
+                start: u.start_time,
+                end: u.end_time,
+                udi: u.udi,
+                tool_type: u.tool_type
+              }))
+          : []
+        return { name, segments }
+      })
+    : []
+
+  return {
+    timeline: { powerOn, surgeryStart, surgeryEnd, powerOff, previousSurgeryEnd },
+    arms
+  }
+}
 
 export default {
   name: 'ExplanationTester',
@@ -82,6 +184,9 @@ export default {
     })
     const loading = ref(false)
     const result = ref(null)
+    const vizJsonText = ref('')
+    const vizChartRef = ref(null)
+    let vizChart = null
 
     const handleParse = async () => {
       if (!form.code) {
@@ -119,7 +224,314 @@ export default {
       result.value = null
     }
 
-    return { form, loading, result, handleParse, handleReset }
+    const disposeChart = () => {
+      if (vizChart) {
+        vizChart.dispose()
+        vizChart = null
+      }
+    }
+
+    const renderViz = (data) => {
+      if (!vizChartRef.value) return
+      if (!vizChart) {
+        vizChart = echarts.init(vizChartRef.value)
+      }
+
+      const toMs = (v) => {
+        if (v === null || v === undefined || v === '') return NaN
+        if (typeof v === 'number' && Number.isFinite(v)) return v
+        const t = new Date(v).getTime()
+        return Number.isFinite(t) ? t : NaN
+      }
+      const t0 = toMs(data?.timeline?.powerOn)
+      const tPrev = toMs(data?.timeline?.previousSurgeryEnd)
+      const t1 = toMs(data?.timeline?.surgeryStart)
+      const t2 = toMs(data?.timeline?.surgeryEnd)
+      const t3 = toMs(data?.timeline?.powerOff)
+
+      const arms = Array.isArray(data?.arms) ? data.arms : []
+      const categories = arms.map(a => a.name || '未命名')
+      const seriesData = []
+      // 为不同工具臂分配基础颜色，同一臂内不同器械使用不同色调
+      const armBaseColors = GANTT_COLORS.ARM_BASE_COLORS
+      const toolColorByArm = {}
+      
+      arms.forEach((arm, idx) => {
+        const segs = Array.isArray(arm.segments) ? arm.segments : []
+        const baseColor = armBaseColors[idx % armBaseColors.length]
+        
+        segs.forEach(seg => {
+          const s = toMs(seg.start)
+          const e = toMs(seg.end)
+          if (Number.isFinite(s) && Number.isFinite(e) && e > s) {
+            const key = seg.tool_type || seg.udi || 'unknown'
+            if (!toolColorByArm[idx]) toolColorByArm[idx] = {}
+            if (!toolColorByArm[idx][key]) {
+              // 优先器械类型固定色
+              const typeColor = GANTT_COLORS.TOOL_TYPE_COLORS[seg.tool_type || '']
+              if (typeColor) {
+                toolColorByArm[idx][key] = typeColor
+              } else {
+                // 否则基于臂基础色生成色调
+                const assignedCount = Object.keys(toolColorByArm[idx]).length
+                const hueShift = assignedCount * 30
+                const saturation = Math.max(0.6, 1 - assignedCount * 0.1)
+                const lightness = Math.max(0.4, 0.8 - assignedCount * 0.1)
+                toolColorByArm[idx][key] = `hsl(${(idx * 60 + hueShift) % 360}, ${saturation * 100}%, ${lightness * 100}%)`
+              }
+            }
+            const color = toolColorByArm[idx][key]
+            seriesData.push({
+              name: seg.udi || '',
+              value: [idx, s, e, (e - s), seg.udi || '', seg.tool_type || '', seg.start, seg.end],
+              itemStyle: { color, opacity: 0.9 },
+              tool_type: seg.tool_type || ''
+            })
+          }
+        })
+      })
+
+      // 关键时间点标签（横向 x 轴顶部，非时间线）
+      const timelineEvents = []
+      if (Number.isFinite(t0)) timelineEvents.push({ time: t0, name: '开机', color: '#52c41a' })
+      if (Number.isFinite(tPrev)) timelineEvents.push({ time: tPrev, name: '上一场手术结束', color: '#8c8c8c' })
+      if (Number.isFinite(t1)) timelineEvents.push({ time: t1, name: '手术开始', color: '#1890ff' })
+      if (Number.isFinite(t2)) timelineEvents.push({ time: t2, name: '手术结束', color: '#fa8c16' })
+      if (Number.isFinite(t3)) timelineEvents.push({ time: t3, name: '关机', color: '#f5222d' })
+      timelineEvents.sort((a, b) => a.time - b.time)
+
+      // 计算统一时间范围，防止事件点堆叠与条形裁切
+      const allTimes = []
+      seriesData.forEach(d => { if (Array.isArray(d.value)) { allTimes.push(d.value[1], d.value[2]) } })
+      timelineEvents.forEach(e => { if (Number.isFinite(e.time)) allTimes.push(e.time) })
+      const minX = allTimes.length ? Math.min.apply(null, allTimes) : undefined
+      const maxX = allTimes.length ? Math.max.apply(null, allTimes) : undefined
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: (p) => {
+            if (Array.isArray(p)) p = p[0]
+            if (!p || !p.data) return ''
+            // 甘特条目：data.value 为数组
+            if (Array.isArray(p.data.value)) {
+              const v = p.data.value
+              const catIdx = v[0]
+              const s = v[1]
+              const e = v[2]
+              const udiVal = v[4]
+              const toolVal = v[5]
+              const startTime = v[6]
+              const endTime = v[7]
+              const dur = Math.round((e - s) / 1000)
+              const armName = categories[catIdx]
+              const udi = udiVal || p.data.name || ''
+              const tool = (toolVal || p.data.tool_type) ? toolVal || p.data.tool_type : ''
+              const installTime = startTime ? new Date(startTime).toLocaleString() : ''
+              const removeTime = endTime ? new Date(endTime).toLocaleString() : ''
+              return `
+                <div style="padding: 8px;">
+                  <div style="font-weight: bold; margin-bottom: 4px;">${armName}</div>
+                  <div>器械类型: ${tool}</div>
+                  <div>UDI码: ${udi}</div>
+                  <div>使用时长: ${dur}秒</div>
+                  <div>安装时刻: ${installTime}</div>
+                  <div>拔下时刻: ${removeTime}</div>
+                </div>
+              `
+            }
+            // 时间线事件：data 为事件对象 { time, name, color }
+            if (p.data && p.data.time && p.data.name) {
+              return `${p.data.name}<br/>时间: ${new Date(p.data.time).toLocaleString()}`
+            }
+            return ''
+          }
+        },
+        grid: { left: 120, right: 40, top: 100, bottom: 110 },
+        axisPointer: { link: [{ xAxisIndex: 'all' }], snap: true },
+        xAxis: {
+          type: 'time',
+          position: 'top',
+          axisLine: { show: true },
+          axisTick: { show: true },
+          axisLabel: { color: '#000', formatter: (val) => new Date(val).toLocaleTimeString() },
+          min: Number.isFinite(minX) ? minX : undefined,
+          max: Number.isFinite(maxX) ? maxX : undefined
+        },
+        yAxis: {
+          type: 'category',
+          data: categories,
+          axisLine: { show: true },
+          axisTick: { show: true },
+          axisLabel: { show: true, color: '#000' }
+        },
+        dataZoom: [
+          { type: 'slider', xAxisIndex: 0, filterMode: 'none', height: 20, bottom: 18 },
+          { type: 'inside', xAxisIndex: 0, filterMode: 'none' }
+        ],
+        series: [
+          // 手术区间背景色（手术开始~结束）
+          (Number.isFinite(t1) && Number.isFinite(t2) && t2 > t1) ? {
+            type: 'custom',
+            silent: true,
+            z: 0,
+            renderItem: (params, api) => {
+              const yTop = params.coordSys.y
+              const totalHeight = params.coordSys.height
+              const x1 = api.coord([t1, 0])[0]
+              const x2 = api.coord([t2, 0])[0]
+              const rect = echarts.graphic.clipRectByRect(
+                { x: Math.min(x1, x2), y: yTop, width: Math.abs(x2 - x1), height: totalHeight },
+                { x: params.coordSys.x, y: yTop, width: params.coordSys.width, height: totalHeight }
+              )
+              if (!rect || rect.width <= 0 || rect.height <= 0) return
+              return {
+                type: 'rect',
+                shape: rect,
+                style: { fill: '#E6E6FA' }
+              }
+            },
+            data: [0]
+          } : {},
+          // 顶部标签（仅显示标签，不画时间线）
+          {
+            type: 'custom',
+            z: 15,
+            renderItem: (params, api) => {
+              const idx = params.dataIndex
+              const event = timelineEvents[idx]
+              const x = api.coord([event.time, 0])[0]
+              // 放在图表下方（dataZoom 上方）
+              const axisBottom = params.coordSys.y + params.coordSys.height + 24
+              const label = {
+                type: 'text',
+                style: {
+                  text: event.name,
+                  x,
+                  y: axisBottom,
+                  textAlign: 'center',
+                  textVerticalAlign: 'bottom',
+                  fontSize: 12,
+                  fill: '#000'
+                }
+              }
+              return label
+            },
+            data: timelineEvents
+          },
+          {
+            type: 'custom',
+            animation: false,
+            renderItem: (params, api) => {
+              const categoryIndex = api.value(0)
+              const start = api.coord([api.value(1), categoryIndex])
+              const end = api.coord([api.value(2), categoryIndex])
+              // 使用可配置样式参数计算条厚度与行间距
+              const bandSize = api.size([0, 1])[1]
+              const usable = Math.max(1, bandSize - GANTT_STYLE.ROW_GAP_PX)
+              const barHeight = Math.min(GANTT_STYLE.BAR_MAX_PX, usable * GANTT_STYLE.BAR_RATIO)
+              const x = start[0]
+              const width = end[0] - start[0]
+              const y = start[1] - barHeight / 2
+
+              const rect = echarts.graphic.clipRectByRect(
+                { x, y, width, height: barHeight },
+                { x: params.coordSys.x, y: params.coordSys.y, width: params.coordSys.width, height: params.coordSys.height }
+              )
+              if (!rect || rect.width <= 0 || rect.height <= 0) return
+
+              // 条内文字：显示器械名称（tool_type），不显示 UDI
+              const label = String(api.value(5) || '')
+
+              return {
+                type: 'group',
+                children: [
+                  {
+                    type: 'rect',
+                    shape: rect,
+                    // 使用 data.itemStyle.color，由 api.style 读取
+                    style: api.style({ opacity: 0.9 })
+                  },
+                  {
+                    type: 'text',
+                    silent: true,
+                    style: {
+                      text: label,
+                      x: rect.x + 6,
+                      y: rect.y + rect.height / 2,
+                      fill: '#fff',
+                      textAlign: 'left',
+                      textVerticalAlign: 'middle',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      overflow: 'truncate',
+                      width: Math.max(0, rect.width - 12)
+                    }
+                  }
+                ]
+              }
+            },
+            encode: { x: [1, 2], y: 0 },
+            data: seriesData,
+            emphasis: { itemStyle: { opacity: 1 } }
+          }
+        ]
+      }
+
+      vizChart.setOption(option, true)
+      vizChart.resize()
+    }
+
+    const handleRenderViz = () => {
+      if (!vizJsonText.value) {
+        message.warning('请粘贴手术结构化数据 JSON')
+        return
+      }
+      try {
+        const raw = JSON.parse(vizJsonText.value)
+        const data = normalizeSurgeryData(raw)
+        renderViz(data)
+      } catch (e) {
+        message.error('JSON 解析失败，请检查格式')
+      }
+    }
+
+    const fillVizExample = () => {
+      const now = Date.now()
+      const example = {
+        timeline: {
+          powerOn: now,
+          surgeryStart: now + 5 * 60 * 1000,
+          surgeryEnd: now + 50 * 60 * 1000,
+          powerOff: now + 55 * 60 * 1000
+        },
+        arms: [
+          { name: '1号臂', segments: [
+            { start: now + 6 * 60 * 1000, end: now + 10 * 60 * 1000, udi: 'UDI-AAA' },
+            { start: now + 15 * 60 * 1000, end: now + 22 * 60 * 1000, udi: 'UDI-AAB' }
+          ]},
+          { name: '2号臂', segments: [
+            { start: now + 8 * 60 * 1000, end: now + 12 * 60 * 1000, udi: 'UDI-BAA' },
+            { start: now + 30 * 60 * 1000, end: now + 40 * 60 * 1000, udi: 'UDI-BAB' }
+          ]}
+        ]
+      }
+      vizJsonText.value = JSON.stringify(example, null, 2)
+    }
+
+    onMounted(() => {
+      const onResize = () => { if (vizChart) vizChart.resize() }
+      window.addEventListener('resize', onResize)
+    })
+    onBeforeUnmount(() => {
+      // 注意：匿名处理器不移除，这里主要释放图表
+      disposeChart()
+    })
+
+    return {
+      form, loading, result, handleParse, handleReset,
+      vizJsonText, vizChartRef, handleRenderViz, fillVizExample
+    }
   }
 }
 </script>
