@@ -435,30 +435,46 @@
           :close-on-click-modal="false"
         >
           <div class="context-analysis-form">
+            <div class="context-intro">将以选中的日志条目为基点</div>
             <div class="time-range-inputs">
-              <span>将以选中的日志条目为基点</span>
               <div class="input-group">
                 <label>前</label>
                 <el-input-number
                   v-model="beforeMinutes"
-                  :min="1"
+                  :min="0"
                   :max="60"
                   controls-position="right"
                   style="width: 80px;"
                 />
-                <span>分钟</span>
+                <span class="unit-label">分钟</span>
+                <el-input-number
+                  v-model="beforeSeconds"
+                  :min="0"
+                  :max="60"
+                  controls-position="right"
+                  style="width: 80px; margin-left: 4px;"
+                />
+                <span class="unit-label">秒</span>
               </div>
               <span>，</span>
               <div class="input-group">
                 <label>后</label>
                 <el-input-number
                   v-model="afterMinutes"
-                  :min="1"
+                  :min="0"
                   :max="60"
                   controls-position="right"
                   style="width: 80px;"
                 />
-                <span>分钟</span>
+                <span class="unit-label">分钟</span>
+                <el-input-number
+                  v-model="afterSeconds"
+                  :min="0"
+                  :max="60"
+                  controls-position="right"
+                  style="width: 80px; margin-left: 4px;"
+                />
+                <span class="unit-label">秒</span>
               </div>
             </div>
           </div>
@@ -899,6 +915,8 @@ export default {
     const contextAnalysisRow = ref(null)
     const beforeMinutes = ref(5)
     const afterMinutes = ref(5)
+    const beforeSeconds = ref(0)
+    const afterSeconds = ref(0)
 
     // 日志摘取相关
     const clipboardVisible = ref(false)
@@ -1657,37 +1675,34 @@ export default {
       return [timeRangeLimit.value[0], timeRangeLimit.value[1]]
     })
 
-    // 导出CSV（服务端生成 + axios 带鉴权单请求下载）
+    // 导出CSV（直接导航下载，避免大Blob占用内存）
     const exportToCSV = async () => {
       try {
-        ElMessage.info('正在导出，请稍候...')
-        const logIds = selectedLogs.value.map(l => l.id).join(',')
-        const params = {
-          log_ids: logIds
+        const token = store.state.auth?.token
+        if (!token) {
+          ElMessage.error('未登录或登录已过期')
+          return
         }
+        const logIds = selectedLogs.value.map(l => l.id).join(',')
+        const params = new URLSearchParams()
+        if (logIds) params.set('log_ids', logIds)
         if (advancedMode.value && leafConditionCount.value > 0) {
           const filtersPayload = buildFiltersPayload()
-          if (filtersPayload) params.filters = JSON.stringify(filtersPayload)
+          if (filtersPayload) params.set('filters', JSON.stringify(filtersPayload))
         }
         if (timeRange.value && timeRange.value.length === 2) {
-          params.start_time = timeRange.value[0]
-          params.end_time = timeRange.value[1]
+          params.set('start_time', timeRange.value[0])
+          params.set('end_time', timeRange.value[1])
         }
-        if (searchKeyword.value) params.search = searchKeyword.value
-
-        const resp = await api.logs.exportBatchEntries(params)
-        const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `batch_logs_analysis_${new Date().toISOString().slice(0, 10)}.csv`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        ElMessage.success('CSV导出完成')
+        if (searchKeyword.value) params.set('search', searchKeyword.value)
+        // 携带token到query，后端GET支持query token认证
+        params.set('token', token)
+        const base = '/api/logs/entries/export'
+        const url = `${base}?${params.toString()}`
+        // 新开标签下载，避免阻断当前页面
+        window.open(url, '_blank')
       } catch (error) {
-        ElMessage.error('导出CSV失败: ' + (error.response?.data?.message || error.message))
+        ElMessage.error('导出CSV失败: ' + (error?.response?.data?.message || error?.message || '未知错误'))
       }
     }
 
@@ -2367,7 +2382,8 @@ export default {
       const line = `${timestamp} ${row.error_code} ${row.explanation}`.trim()
       clipboardContent.value = (clipboardContent.value ? clipboardContent.value + '\n' : '') + line
       
-      // 显示侧边栏
+      // 切换到“日志摘取”选项卡并显示侧边栏
+      sidebarActiveTab.value = 'logs'
       clipboardVisible.value = true
       
       ElMessage.success(`已添加到日志摘取板 (${clipboardEntries.value.length}/${maxClipboardEntries})`)
@@ -2605,7 +2621,8 @@ export default {
       // 将图表添加到缩略图列表
       chartThumbnails.value.push(chartWithNumber)
       
-      // 显示剪贴板
+      // 切换到“可视化”选项卡并显示剪贴板
+      sidebarActiveTab.value = 'charts'
       clipboardVisible.value = true
       
       // 使用双重nextTick确保DOM完全渲染
@@ -3257,13 +3274,21 @@ export default {
       
       try {
         const baseTimestamp = new Date(contextAnalysisRow.value.timestamp)
-        const beforeTime = new Date(baseTimestamp.getTime() - beforeMinutes.value * 60 * 1000)
-        const afterTime = new Date(baseTimestamp.getTime() + afterMinutes.value * 60 * 1000)
+        const beforeMs = (beforeMinutes.value * 60 + beforeSeconds.value) * 1000
+        const afterMs = (afterMinutes.value * 60 + afterSeconds.value) * 1000
+        if (beforeMs === 0 && afterMs === 0) {
+          ElMessage.warning('时间范围不能为 0，请输入分钟或秒')
+          return
+        }
+        const beforeTime = new Date(baseTimestamp.getTime() - beforeMs)
+        const afterTime = new Date(baseTimestamp.getTime() + afterMs)
         
         console.log('上下文分析参数:', {
           baseRow: contextAnalysisRow.value,
           beforeMinutes: beforeMinutes.value,
+          beforeSeconds: beforeSeconds.value,
           afterMinutes: afterMinutes.value,
+          afterSeconds: afterSeconds.value,
           timeRange: {
             before: beforeTime.toISOString(),
             after: afterTime.toISOString()
@@ -3288,7 +3313,9 @@ export default {
         // 关闭对话框
         contextAnalysisVisible.value = false
         
-        ElMessage.success(`已筛选出 ${beforeMinutes.value} 分钟前到 ${afterMinutes.value} 分钟后的日志`)
+        const beforeText = `${beforeMinutes.value}分${beforeSeconds.value}秒`
+        const afterText = `${afterMinutes.value}分${afterSeconds.value}秒`
+        ElMessage.success(`已筛选出 ${beforeText}前到${afterText}后的日志`)
         
       } catch (error) {
         console.error('上下文分析失败:', error)
@@ -3476,6 +3503,8 @@ export default {
       contextAnalysisRow,
       beforeMinutes,
       afterMinutes,
+      beforeSeconds,
+      afterSeconds,
       executeContextAnalysis,
       // 日志摘取相关
       clipboardVisible,
@@ -3493,6 +3522,7 @@ export default {
       maxClipboardEntries,
       // 可视化相关
       parameterSelectVisible,
+      sidebarActiveTab,
       selectedParameter,
       availableParameters,
       paramNames,
@@ -4499,12 +4529,18 @@ export default {
   padding: 10px 0;
 }
 
+.context-intro {
+  margin-bottom: 6px;
+  text-align: left;
+  color: #606266;
+}
+
 .time-range-inputs {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
 }
 
 .time-range-inputs .input-group {
@@ -4516,6 +4552,11 @@ export default {
 .time-range-inputs .input-group label {
   font-weight: 500;
   color: #606266;
+}
+
+.time-range-inputs .unit-label {
+  white-space: nowrap;
+  display: inline-block;
 }
 
 /* 日志摘取侧边栏样式 */

@@ -41,6 +41,24 @@ CREATE TABLE IF NOT EXISTS user_roles (
   INDEX idx_assigned_by (assigned_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 4.1 权限点表
+CREATE TABLE IF NOT EXISTS permissions (
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255) NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_permissions_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4.2 角色-权限关联表
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_id INT NOT NULL,
+  permission_id INT NOT NULL,
+  PRIMARY KEY (role_id, permission_id),
+  CONSTRAINT fk_rp_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 5. 故障码表
 CREATE TABLE IF NOT EXISTS error_codes (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -288,6 +306,10 @@ UNION ALL
 SELECT 'roles' AS table_name, COUNT(*) AS count FROM roles
 UNION ALL
 SELECT 'user_roles' AS table_name, COUNT(*) AS count FROM user_roles
+UNION ALL
+SELECT 'permissions' AS table_name, COUNT(*) AS count FROM permissions
+UNION ALL
+SELECT 'role_permissions' AS table_name, COUNT(*) AS count FROM role_permissions
 UNION ALL
 SELECT 'error_codes' AS table_name, COUNT(*) AS count FROM error_codes
 UNION ALL

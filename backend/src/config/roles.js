@@ -156,56 +156,43 @@ const ROLES = {
   }
 };
 
-// 权限检查函数
+// 权限检查函数（仅用于回退）
 function hasPermission(userRoles, requiredPermission) {
   if (!userRoles || userRoles.length === 0) {
     return false;
   }
-  
-  // 检查每个角色的权限
   for (const userRole of userRoles) {
-    const role = userRole.Role || userRole; // 支持直接传入角色对象或关联查询结果
+    const role = userRole.Role || userRole;
     if (!role) continue;
-    
-    // 管理员拥有所有权限
-    if (role.id === ROLES.ADMIN.id || role.name === '管理员') {
+    const roleName = (role.name || '').toString().trim().toLowerCase();
+    if (roleName === 'admin') {
       return true;
     }
-    
-    // 检查其他角色的权限
-    const roleKey = Object.keys(ROLES).find(key => 
+    const roleKey = Object.keys(ROLES).find(key =>
       ROLES[key].id === role.id || ROLES[key].name === role.name
     );
-    
     if (roleKey && ROLES[roleKey].permissions.includes(requiredPermission)) {
       return true;
     }
   }
-  
   return false;
 }
 
-// 获取用户所有权限
 function getUserPermissions(userRoles) {
   if (!userRoles || userRoles.length === 0) {
     return [];
   }
-  
   const permissions = new Set();
-  
   for (const userRole of userRoles) {
-    const role = userRole.Role || userRole; // 支持直接传入角色对象或关联查询结果
+    const role = userRole.Role || userRole;
     if (!role) continue;
-    
-    const roleKey = Object.keys(ROLES).find(key => 
+    const roleKey = Object.keys(ROLES).find(key =>
       ROLES[key].id === role.id || ROLES[key].name === role.name
     );
-    
     if (roleKey) {
       ROLES[roleKey].permissions.forEach(permission => permissions.add(permission));
     }
   }
-  
   return Array.from(permissions);
 }
 

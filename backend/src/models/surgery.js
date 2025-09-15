@@ -18,9 +18,9 @@ const Surgery = postgresqlSequelize.define('Surgery', {
     comment: '手术唯一标识'
   },
   device_ids: {
-    type: DataTypes.ARRAY(DataTypes.INTEGER),
+    type: DataTypes.ARRAY(DataTypes.TEXT),
     allowNull: true,
-    comment: '关联的设备ID数组'
+    comment: '关联的设备编号数组（字符串）'
   },
   start_time: {
     type: DataTypes.DATE,

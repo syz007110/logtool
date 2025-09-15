@@ -11,6 +11,8 @@ const Device = require('./device');
 const Feedback = require('./feedback');
 const FeedbackImage = require('./feedback_image');
 const LogNote = require('./log_note');
+const Permission = require('./permission');
+const RolePermission = require('./role_permission');
 
 // 防止重复定义关联 - 使用进程级别的检查
 const associationsProcessKey = `associations_${process.pid}`;
@@ -71,6 +73,27 @@ function defineAssociations() {
     foreignKey: 'assigned_by',
     as: 'assignedUserRoles'
   });
+
+  // Role 与 Permission 的多对多关联
+  Role.belongsToMany(Permission, {
+    through: RolePermission,
+    foreignKey: 'role_id',
+    otherKey: 'permission_id',
+    as: 'permissions'
+  });
+
+  Permission.belongsToMany(Role, {
+    through: RolePermission,
+    foreignKey: 'permission_id',
+    otherKey: 'role_id',
+    as: 'roles'
+  });
+
+  // RolePermission 关联 Role 与 Permission
+  RolePermission.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
+  RolePermission.belongsTo(Permission, { foreignKey: 'permission_id', as: 'permission' });
+  Role.hasMany(RolePermission, { foreignKey: 'role_id', as: 'rolePermissions' });
+  Permission.hasMany(RolePermission, { foreignKey: 'permission_id', as: 'rolePermissions' });
 
   // Log 和 User 的关联
   Log.belongsTo(User, {

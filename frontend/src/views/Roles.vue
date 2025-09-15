@@ -18,24 +18,7 @@
       >
         <el-table-column prop="name" label="角色名称" width="150" />
         <el-table-column prop="description" label="角色描述" show-overflow-tooltip />
-        <el-table-column prop="permissions" label="权限" width="300">
-          <template #default="{ row }">
-            <el-tag 
-              v-for="permission in row.permissions" 
-              :key="permission"
-              size="small"
-              style="margin-right: 5px; margin-bottom: 5px;"
-            >
-              {{ permission }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        
+        <!-- 移除权限列 -->
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button 
@@ -63,7 +46,7 @@
       width="600px"
     >
       <el-form
-        ref="roleForm"
+        ref="roleFormRef"
         :model="roleForm"
         :rules="rules"
         label-width="100px"
@@ -83,39 +66,11 @@
         <el-form-item label="权限" prop="permissions">
           <el-checkbox-group v-model="roleForm.permissions">
             <el-row :gutter="20">
-              <el-col :span="12">
-                <h4>用户管理</h4>
-                <el-checkbox value="user:read">查看用户</el-checkbox>
-                <el-checkbox value="user:create">创建用户</el-checkbox>
-                <el-checkbox value="user:update">修改用户</el-checkbox>
-                <el-checkbox value="user:delete">删除用户</el-checkbox>
-                <el-checkbox value="user:role:assign">分配角色</el-checkbox>
-              </el-col>
-              <el-col :span="12">
-                <h4>角色管理</h4>
-                <el-checkbox value="role:read">查看角色</el-checkbox>
-                <el-checkbox value="role:create">创建角色</el-checkbox>
-                <el-checkbox value="role:update">修改角色</el-checkbox>
-                <el-checkbox value="role:delete">删除角色</el-checkbox>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20" style="margin-top: 20px;">
-              <el-col :span="12">
-                <h4>故障码管理</h4>
-                <el-checkbox value="error_code:read">查看故障码</el-checkbox>
-                <el-checkbox value="error_code:create">创建故障码</el-checkbox>
-                <el-checkbox value="error_code:update">修改故障码</el-checkbox>
-                <el-checkbox value="error_code:delete">删除故障码</el-checkbox>
-                <el-checkbox value="error_code:export">导出XML</el-checkbox>
-              </el-col>
-              <el-col :span="12">
-                <h4>日志管理</h4>
-                <el-checkbox value="log:upload">上传日志</el-checkbox>
-                <el-checkbox value="log:read_all">查看所有日志</el-checkbox>
-                <el-checkbox value="log:read_own">查看自己的日志</el-checkbox>
-                <el-checkbox value="log:parse">解析日志</el-checkbox>
-                <el-checkbox value="log:download">下载日志</el-checkbox>
-                <el-checkbox value="log:delete">删除日志</el-checkbox>
+              <el-col :span="12" v-for="(group, groupName) in permissionGroups" :key="groupName" style="margin-bottom: 10px;">
+                <h4>{{ groupName }}</h4>
+                <el-checkbox v-for="perm in group" :key="perm.name" :value="perm.name">
+                  {{ perm.name }}
+                </el-checkbox>
               </el-col>
             </el-row>
           </el-checkbox-group>
@@ -136,6 +91,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import api from '../api'
 
 export default {
   name: 'Roles',
@@ -147,7 +103,9 @@ export default {
     const saving = ref(false)
     const showAddDialog = ref(false)
     const editingRole = ref(null)
+    const permissions = ref([])
     
+    const roleFormRef = ref(null)
     const roleForm = reactive({
       name: '',
       description: '',
@@ -165,16 +123,35 @@ export default {
     
     // 计算属性
     const roles = computed(() => store.getters['users/rolesList'])
+
+    const permissionGroups = computed(() => {
+      const groups = {}
+      for (const p of permissions.value) {
+        const key = (p.name.includes(':') ? p.name.split(':')[0] : '其他')
+        if (!groups[key]) groups[key] = []
+        groups[key].push(p)
+      }
+      return groups
+    })
     
     // 方法
     const loadRoles = async () => {
+      loading.value = true
       try {
-        loading.value = true
         await store.dispatch('users/fetchRoles')
       } catch (error) {
         ElMessage.error('加载角色失败')
       } finally {
         loading.value = false
+      }
+    }
+
+    const loadPermissions = async () => {
+      try {
+        const res = await api.permissions.getList()
+        permissions.value = res.data.permissions || []
+      } catch (e) {
+        ElMessage.error('加载权限清单失败')
       }
     }
     
@@ -204,7 +181,6 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         })
-        
         await store.dispatch('users/deleteRole', row.id)
         ElMessage.success('删除成功')
         loadRoles()
@@ -218,7 +194,6 @@ export default {
     const handleSave = async () => {
       try {
         saving.value = true
-        
         if (editingRole.value) {
           await store.dispatch('users/updateRole', {
             id: editingRole.value.id,
@@ -229,7 +204,6 @@ export default {
           await store.dispatch('users/createRole', roleForm)
           ElMessage.success('添加成功')
         }
-        
         showAddDialog.value = false
         resetForm()
         loadRoles()
@@ -240,14 +214,9 @@ export default {
       }
     }
     
-    const formatDate = (dateString) => {
-      if (!dateString) return '-'
-      return new Date(dateString).toLocaleString('zh-CN')
-    }
-    
-    // 生命周期
     onMounted(() => {
       loadRoles()
+      loadPermissions()
     })
     
     return {
@@ -256,12 +225,14 @@ export default {
       showAddDialog,
       editingRole,
       roleForm,
+      roleFormRef,
       rules,
       roles,
+      permissions,
+      permissionGroups,
       handleEdit,
       handleDelete,
-      handleSave,
-      formatDate
+      handleSave
     }
   }
 }

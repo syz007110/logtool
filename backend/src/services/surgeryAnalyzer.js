@@ -313,6 +313,9 @@ class SurgeryAnalyzer {
         }
         this.currentSurgery.shutdown_times.push(entry.timestamp);
         
+        // 关机视为所有器械被拔下：关闭所有未闭合的器械使用段
+        this.closeAllOpenInstrumentUsages(entry.timestamp);
+        
         if (this.currentSurgery.surgery_end_time) {
           this.finalizeCurrentSurgery(entry.timestamp);
           this.resetSurgeryState();
@@ -577,6 +580,48 @@ class SurgeryAnalyzer {
     }
     
     this.currentSurgery[armUsageKey] = currentUsage;
+  }
+
+  /**
+   * 在关机等场景下，关闭所有未闭合的器械使用记录，并同步总激活结束时间
+   */
+  closeAllOpenInstrumentUsages(shutdownTimestamp) {
+    if (!this.currentSurgery) return;
+    const shutdownMs = new Date(shutdownTimestamp).getTime();
+    
+    for (let arm = 1; arm <= 4; arm++) {
+      const usageKey = `arm${arm}_usage`;
+      const activationKey = `arm${arm}_total_activation`;
+      const usages = this.currentSurgery[usageKey] || [];
+      
+      // 关闭未闭合的器械使用段
+      for (let i = usages.length - 1; i >= 0; i--) {
+        const usage = usages[i];
+        if (usage && usage.startTime && usage.endTime === null) {
+          const startMs = new Date(usage.startTime).getTime();
+          const endMs = Math.max(startMs + 1000, shutdownMs);
+          usage.endTime = new Date(endMs).toISOString();
+          const durationSeconds = Math.max(1, Math.floor((endMs - startMs) / 1000));
+          usage.duration_seconds = durationSeconds;
+          usage.duration = Math.floor(durationSeconds / 60);
+        }
+      }
+      this.currentSurgery[usageKey] = usages;
+      
+      // 同步总激活结束时间
+      const activation = this.currentSurgery[activationKey];
+      if (activation && activation.startTime && !activation.endTime) {
+        activation.endTime = shutdownTimestamp;
+      }
+    }
+    
+    // 更新内部臂状态与器械类型为拔下状态，并记录历史
+    this.armStates = this.armStates.map(() => 0);
+    this.armInsts = this.armInsts.map(() => 0);
+    this.armInstsHistory.push({
+      timestamp: shutdownTimestamp,
+      armInsts: [...this.armInsts]
+    });
   }
 
   /**
@@ -931,6 +976,10 @@ class SurgeryAnalyzer {
         explanation: fault.message,
         log_id: surgery.log_id
       })) : [],
+      state_machine: (surgery.state_machine_changes || []).map(ch => ({
+        time: ch.time,
+        state: ch.stateName || String(ch.state)
+      })),
       arm_switch_count: 0, // 可以后续计算
       left_hand_clutch: surgery.hand_clutch_stats?.arm1 || 0,
       right_hand_clutch: surgery.hand_clutch_stats?.arm2 || 0,

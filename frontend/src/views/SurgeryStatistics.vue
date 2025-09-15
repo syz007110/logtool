@@ -811,21 +811,16 @@ export default {
       }
 
       try {
-        // 获取正确的日志ID
-        let logId = surgery.log_id
-        if (!logId) {
-          // 尝试从URL参数获取日志ID
-          const logIdsParam = route.query.logIds
-          if (logIdsParam) {
-            const logIdArray = logIdsParam.split(',').map(id => parseInt(id.trim()))
-            logId = logIdArray[0] // 使用第一个日志ID
-          }
-        }
+        // 设备编号统一使用字符串：优先后端返回的 device_ids，其次预览，最后从 surgery_id 提取前缀
+        const extractedPrefix = surgery.surgery_id ? surgery.surgery_id.split('-').slice(0, -1).join('-') : undefined
+        const deviceIdStr = (Array.isArray(surgery.device_ids) && surgery.device_ids[0])
+          || (surgery.postgresql_row_preview?.device_ids?.[0])
+          || extractedPrefix
         
         // 构建完整的surgeries表数据
         const surgeriesData = {
           surgery_id: surgery.surgery_id,
-          device_ids: logId ? [logId] : [1], // 使用正确的日志ID
+          device_ids: deviceIdStr ? [String(deviceIdStr)] : [],
           start_time: surgery.surgery_start_time,
           end_time: surgery.surgery_end_time,
           is_remote: surgery.is_remote_surgery || false,

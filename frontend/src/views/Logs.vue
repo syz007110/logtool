@@ -541,7 +541,7 @@
             :loading="uploading"
             :disabled="uploading || !canSubmitUpload || uploadFileList.length === 0"
           >
-            {{ uploading ? '解析中...' : '上传并解析' }}
+            {{ uploading ? '上传中...' : '上传并解析' }}
           </el-button>
         </div>
       </template>
@@ -581,7 +581,7 @@ export default {
     
     // 响应式数据
     const loading = ref(false)
-    const uploading = ref(false)
+    const uploading = ref(false) // 仅表示“文件上传阶段”
     const showUploadDialog = ref(false)
     const overallProgress = ref(0) // 总体进度
     const processingStatus = ref('') // 处理状态
@@ -1412,6 +1412,8 @@ export default {
     })
     
     const onUploadProgress = (event, file, fileList) => {
+      // 进入文件上传阶段
+      uploading.value = true
       // 上传进度处理，显示文件上传阶段（占总进度的30%）
       const uploadProgress = Math.floor(event.percent * 0.3) // 上传占30%
       overallProgress.value = uploadProgress
@@ -1428,7 +1430,7 @@ export default {
       const allUploaded = fileList.length > 0 && fileList.every(f => f.status === 'success')
       if (allUploaded) {
         // 所有文件上传完成，开始解密和解析阶段
-        uploading.value = true
+        uploading.value = false
         overallProgress.value = 30 // 上传完成，进度到30%
         processingStatus.value = '文件已上传，等待处理...'
         
@@ -1457,6 +1459,14 @@ export default {
         
         // 开始状态监控
         startStatusMonitoring()
+
+        // 清空已选择的上传文件（不影响输入框内容）
+        try {
+          if (uploadRef.value && uploadRef.value.clearFiles) {
+            uploadRef.value.clearFiles()
+          }
+        } catch (_) {}
+        uploadFileList.value = []
       }
     }
     
@@ -1528,6 +1538,8 @@ export default {
     }
     
     const onUploadError = (error) => {
+      uploading.value = false
+      overallProgress.value = 0
       ElMessage.error('上传失败: ' + (error.message || '未知错误'))
     }
     

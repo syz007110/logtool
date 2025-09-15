@@ -8,7 +8,7 @@
 CREATE TABLE IF NOT EXISTS surgeries (
     id SERIAL PRIMARY KEY,
     surgery_id VARCHAR(50) UNIQUE NOT NULL,
-    device_ids INTEGER[],               -- 使用PostgreSQL数组类型存储设备ID
+    device_ids TEXT[],                  -- 使用TEXT数组存储设备编号（与surgery_id前缀一致）
     start_time TIMESTAMP NULL,
     end_time TIMESTAMP NULL,
     is_remote BOOLEAN DEFAULT FALSE,
@@ -51,3 +51,65 @@ FROM information_schema.columns
 WHERE table_schema = 'public' 
 AND table_name IN ('surgeries', 'surgery_versions')
 ORDER BY table_name, ordinal_position;
+
+
+{
+  "power_cycles": [
+    {"on_time": "08:55", "off_time": "09:05"},
+    {"on_time": "09:10", "off_time": "09:15"}
+  ],
+  "arms": [
+    {
+      "arm_id": 1,
+      "instrument_usage": [
+        {
+          "tool_type": "剪刀",
+          "udi": "UDI-123456",
+          "start_time": "09:00",
+          "end_time": "09:05",
+          "energy_activation": [{"start":"09:01","end":"09:02"}]
+        },
+  {
+          "tool_type": "缝合器",
+          "udi": "UDI-654321",
+          "start_time": "09:06",
+          "end_time": "09:10"
+        }
+      ]
+    },
+    {
+      "arm_id": 2,
+      "instrument_usage": [
+        {
+          "tool_type": "钳子",
+          "udi": "UDI-987654",
+          "start_time": "09:02",
+          "end_time": "09:08"
+        }
+      ]
+    },
+    {
+      "arm_id": 3,
+      "instrument_usage": []
+    },
+   {
+      "arm_id": 4,
+      "instrument_usage": []
+    }
+  ],
+  "surgery_stats": {
+    "has_fault": true,
+    "success": false,
+    "is_remote": true,
+    "network_latency_ms": [120, 80, 200],
+    "faults": [
+      {"timestamp": "09:02", "error_code": "E101","param1":"val1","param2":"val2","param3":"","param4":"","explanation":"机械臂故障","log_id":123}
+    ],
+    "state_machine": [{"time":"09:00","state":"INIT"},{"time":"09:01","state":"READY"}],
+    "arm_switch_count": 3,
+     "left_hand_clutch": 4,
+    "right_hand_clutch": 5,
+    "foot_clutch": 6,
+    "endoscope_pedal": 7
+  }
+}

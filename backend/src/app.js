@@ -41,6 +41,7 @@ const dashboardRouter = require('./routes/dashboard');
 const explanationsRouter = require('./routes/explanations');
 const queueRouter = require('./routes/queue');
 const notesRouter = require('./routes/notes');
+const permissionsRouter = require('./routes/permissions');
 const websocketService = require('./services/websocketService');
 
 // 初始化队列系统
@@ -164,6 +165,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/explanations', explanationsRouter);
 app.use('/api/queue', queueRouter);
 app.use('/api', notesRouter);
+app.use('/api/permissions', permissionsRouter);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

@@ -1,184 +1,144 @@
-const { hasPermission } = require('../config/roles');
+const { Op } = require('sequelize');
 const User = require('../models/user');
 const UserRole = require('../models/user_role');
 const Role = require('../models/role');
+const Permission = require('../models/permission');
+const RolePermission = require('../models/role_permission');
+const legacyRoles = require('../config/roles');
 
-// 权限检查中间件
+function normalizeRoleName(name) {
+  const n = (name || '').toString().trim().toLowerCase();
+  if (n === 'admin' || n === '管理员') return 'admin';
+  if (n === 'expert' || n === '专家' || n === '专家用户' || n === '工程师') return 'expert';
+  if (n === 'user' || n === '普通用户' || n === '用户' || n === '成员') return 'user';
+  return n || name;
+}
+
+async function loadUserRoles(userId) {
+  return UserRole.findAll({
+    where: { user_id: userId },
+    include: [{ model: Role, as: 'Role', attributes: ['id', 'name'] }]
+  });
+}
+
+async function userHasDbPermission(userId, requiredPermission) {
+  const userRoles = await loadUserRoles(userId);
+  if (!userRoles || userRoles.length === 0) return false;
+
+  // admin bypass
+  if (userRoles.some(ur => normalizeRoleName(ur.Role?.name) === 'admin')) return true;
+
+  const roleIds = userRoles.map(ur => ur.role_id).filter(Boolean);
+  if (roleIds.length === 0) return false;
+
+  const rp = await RolePermission.findOne({
+    where: { role_id: { [Op.in]: roleIds } },
+    include: [{ model: Permission, as: 'permission', where: { name: requiredPermission }, attributes: ['id'] }]
+  });
+  if (rp) return true;
+
+  return false;
+}
+
+// 权限检查中间件（数据库为准，找不到时回退到旧配置）
 const checkPermission = (requiredPermission) => {
   return async (req, res, next) => {
     try {
-      // 检查用户信息是否存在
-      if (!req.user) {
-        console.error('权限检查错误: req.user 不存在');
+      if (!req.user || !req.user.id) {
         return res.status(401).json({ message: '用户信息缺失，请重新登录' });
       }
-      
-      const userId = req.user.id; // 从JWT中获取用户ID
-      
-      if (!userId) {
-        console.error('权限检查错误: req.user.id 不存在', req.user);
-        return res.status(401).json({ message: '用户ID缺失，请重新登录' });
+
+      const userId = req.user.id;
+
+      // 先查数据库
+      if (await userHasDbPermission(userId, requiredPermission)) {
+        return next();
       }
-      
-      // 获取用户的角色
-      const userRoles = await UserRole.findAll({
-        where: { user_id: userId },
-        include: [{
-          model: Role,
-          as: 'Role',
-          attributes: ['id', 'name']
-        }]
-      });
-      
-      // 检查权限
-      if (hasPermission(userRoles, requiredPermission)) {
-        next();
-      } else {
-        res.status(403).json({ 
-          message: '权限不足',
-          requiredPermission,
-          userRoles: userRoles.map(ur => ur.Role ? ur.Role.name : '未知角色'),
-          debug: {
-            userId,
-            userRoleCount: userRoles.length
-          }
-        });
-      }
+
+      // 回退：旧配置（避免未初始化数据库权限时全部403）
+      try {
+        const userRoles = await loadUserRoles(userId);
+        if (legacyRoles.hasPermission(userRoles, requiredPermission)) {
+          return next();
+        }
+      } catch (_) {}
+
+      return res.status(403).json({ message: '权限不足', requiredPermission });
     } catch (error) {
       console.error('权限检查错误:', error);
-      res.status(500).json({ message: '权限检查失败', error: error.message });
+      return res.status(500).json({ message: '权限检查失败', error: error.message });
     }
   };
 };
 
-// 资源所有者检查中间件（用于检查用户是否只能操作自己的资源）
+// 资源所有者检查中间件
 const checkResourceOwnership = (resourceModel, resourceIdField = 'id') => {
   return async (req, res, next) => {
     try {
-      // 检查用户信息是否存在
       if (!req.user || !req.user.id) {
-        console.error('资源所有权检查错误: req.user 或 req.user.id 不存在');
         return res.status(401).json({ message: '用户信息缺失，请重新登录' });
       }
-      
       const userId = req.user.id;
       const resourceId = req.params[resourceIdField];
-      
-      // 查找资源
       const resource = await resourceModel.findByPk(resourceId);
-      
-      if (!resource) {
-        return res.status(404).json({ message: '资源不存在' });
-      }
-      
-      // 检查是否是资源所有者
-      if (resource.user_id === userId) {
-        next();
-      } else {
-        // 检查是否有管理员权限
-        const userRoles = await UserRole.findAll({
-          where: { user_id: userId },
-          include: [{
-            model: Role,
-            as: 'Role',
-            attributes: ['id', 'name']
-          }]
-        });
-        
-        if (hasPermission(userRoles, 'user:update')) {
-          next(); // 管理员可以操作任何资源
-        } else {
-          res.status(403).json({ message: '只能操作自己的资源' });
-        }
-      }
+      if (!resource) return res.status(404).json({ message: '资源不存在' });
+
+      if (resource.user_id === userId) return next();
+
+      const userRoles = await loadUserRoles(userId);
+      if (userRoles.some(ur => normalizeRoleName(ur.Role?.name) === 'admin')) return next();
+
+      // 允许具有用户更新权限者作为管理员处理
+      if (await userHasDbPermission(userId, 'user:update')) return next();
+
+      return res.status(403).json({ message: '只能操作自己的资源' });
     } catch (error) {
       console.error('资源所有权检查错误:', error);
-      res.status(500).json({ message: '权限检查失败' });
+      return res.status(500).json({ message: '权限检查失败' });
     }
   };
 };
 
-// 日志权限检查中间件（特殊处理，因为普通用户只能查看自己的日志）
+// 日志权限检查中间件
 const checkLogPermission = (action) => {
   return async (req, res, next) => {
     try {
-      // 检查用户信息是否存在
       if (!req.user || !req.user.id) {
-        console.error('日志权限检查错误: req.user 或 req.user.id 不存在');
         return res.status(401).json({ message: '用户信息缺失，请重新登录' });
       }
-      
       const userId = req.user.id;
-      
-      // 获取用户角色
-      const userRoles = await UserRole.findAll({
-        where: { user_id: userId },
-        include: [{
-          model: Role,
-          as: 'Role',
-          attributes: ['id', 'name']
-        }]
-      });
-      
-      // 检查是否有管理员权限（管理员拥有所有权限）
-      if (hasPermission(userRoles, 'user:update')) {
-        next();
-        return;
-      }
-      
-      // 检查是否有查看所有日志的权限（现在所有用户都可以查看所有日志）
-      if (action === 'read_all' && hasPermission(userRoles, 'log:read_all')) {
-        next();
-        return;
-      }
-      
-      // 检查是否有查看自己日志的权限
-      if (action === 'read_own' && hasPermission(userRoles, 'log:read_own')) {
-        next();
-        return;
-      }
-      
-            // 检查删除权限
+
+      const userRoles = await loadUserRoles(userId);
+      if (userRoles.some(ur => normalizeRoleName(ur.Role?.name) === 'admin')) return next();
+
+      // read_all
+      if (action === 'read_all' && await userHasDbPermission(userId, 'log:read_all')) return next();
+      if (action === 'read_own' && await userHasDbPermission(userId, 'log:read_own')) return next();
+
       if (action === 'delete') {
-        // 如果有删除任何日志的权限
-        if (hasPermission(userRoles, 'log:delete')) {
-          next();
-          return;
-        }
-        // 如果只有删除自己日志的权限，需要检查资源所有权
-        if (hasPermission(userRoles, 'log:delete_own')) {
-          // 对于批量删除操作，权限检查在控制器中进行
-          if (req.path === '/batch') {
-            next();
-            return;
-          }
-          // 对于单个删除操作，需要检查是否是自己的日志
+        if (await userHasDbPermission(userId, 'log:delete')) return next();
+        if (await userHasDbPermission(userId, 'log:delete_own')) {
+          if (req.path === '/batch') return next();
           const logId = req.params.id;
           if (logId) {
             const Log = require('../models/log');
             const log = await Log.findByPk(logId);
-            if (log && log.uploader_id === userId) {
-              next();
-              return;
-            }
+            if (log && log.uploader_id === userId) return next();
           }
         }
       }
-      
-      // 检查其他日志相关权限
-      if (hasPermission(userRoles, `log:${action}`)) {
-        next();
-        return;
-      }
-      res.status(403).json({ 
-        message: '日志操作权限不足',
-        requiredAction: action,
-        userRoles: userRoles.map(ur => ur.Role ? ur.Role.name : '未知角色')
-      });
-      
+
+      if (await userHasDbPermission(userId, `log:${action}`)) return next();
+
+      // 回退到旧配置
+      try {
+        if (legacyRoles.hasPermission(userRoles, `log:${action}`)) return next();
+      } catch (_) {}
+
+      return res.status(403).json({ message: '日志操作权限不足', requiredAction: action });
     } catch (error) {
       console.error('日志权限检查错误:', error);
-      res.status(500).json({ message: '权限检查失败' });
+      return res.status(500).json({ message: '权限检查失败' });
     }
   };
 };

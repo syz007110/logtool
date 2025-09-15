@@ -6,7 +6,12 @@ module.exports = function (req, res, next) {
   console.log('Authorization头:', req.headers['authorization']);
   console.log('JWT_SECRET存在:', !!process.env.JWT_SECRET);
   
-  const token = req.headers['authorization']?.split(' ')[1];
+  let token = req.headers['authorization']?.split(' ')[1];
+  // 允许下载等GET请求通过查询参数携带token，便于直接导航下载
+  if (!token && req.method === 'GET' && req.query && req.query.token) {
+    console.log('使用query token进行认证');
+    token = req.query.token;
+  }
   if (!token) {
     console.log('❌ Token缺失');
     return res.status(401).json({ message: '未登录或token缺失' });

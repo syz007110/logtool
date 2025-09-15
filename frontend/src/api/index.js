@@ -154,6 +154,10 @@ const roles = {
   delete: (id) => api.delete(`/roles/${id}`)
 }
 
+const permissions = {
+  getList: () => api.get('/permissions')
+}
+
 const i18n = {
   getList: (params) => api.get('/i18n', { params }),
   create: (data) => api.post('/i18n', data),
@@ -219,6 +223,7 @@ export default {
   operationLogs,
   users,
   roles,
+  permissions,
   i18n,
   surgeryStatistics,
   devices,

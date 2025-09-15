@@ -3,6 +3,59 @@ const Log = require('../models/log');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op } = require('sequelize');
 
+// 辅助：格式化时间为YYYYMMDDHHMM
+function formatTimeForId(dateStr) {
+  if (!dateStr) return '000000000000';
+  const d = new Date(dateStr);
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    d.getFullYear().toString() +
+    pad(d.getMonth() + 1) +
+    pad(d.getDate()) +
+    pad(d.getHours()) +
+    pad(d.getMinutes())
+  );
+}
+
+// 辅助：从 surgery_id 提取设备编号前缀（device_id 字符串）
+function extractDeviceIdFromSurgeryId(surgeryId) {
+  if (!surgeryId || typeof surgeryId !== 'string') return 'UNKNOWN';
+  const parts = surgeryId.split('-');
+  if (parts.length <= 1) return surgeryId;
+  return parts.slice(0, parts.length - 1).join('-');
+}
+
+// 辅助：构建surgeries表行预览
+function buildPostgresRowPreview(surgery, deviceId) {
+  return {
+    surgery_id: `${deviceId || 'UNKNOWN'}-${formatTimeForId(surgery.surgery_start_time)}`,
+    device_ids: deviceId ? [String(deviceId)] : [],
+    start_time: surgery.surgery_start_time,
+    end_time: surgery.surgery_end_time,
+    is_remote: surgery.is_remote_surgery || false,
+    structured_data: surgery.postgresql_structure || null,
+    last_analyzed_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}
+
+// 辅助：构建将要写入surgeries表的标准行
+function buildDbRowFromSurgery(surgery) {
+  const devicePrefix = extractDeviceIdFromSurgeryId(surgery.surgery_id);
+  return {
+    surgery_id: surgery.surgery_id,
+    device_ids: devicePrefix ? [devicePrefix] : [],
+    start_time: surgery.surgery_start_time,
+    end_time: surgery.surgery_end_time,
+    is_remote: surgery.is_remote_surgery || false,
+    structured_data: surgery.postgresql_structure || null,
+    last_analyzed_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}
+
 // 任务队列管理
 const analysisTasks = new Map();
 let taskCounter = 0;
@@ -130,14 +183,21 @@ const getAllSurgeryStatistics = async (req, res) => {
       
       if (logEntries.length > 0) {
         const surgeries = analyzeSurgeries(logEntries, { 
-          includePostgreSQLStructure: includePostgreSQLStructure === 'true' 
+          includePostgreSQLStructure: true 
         });
         console.log(`从日志 ${log.filename} 分析出 ${surgeries.length} 场手术`)
         
-        // 为每个手术分配唯一ID
+        // 为每个手术分配唯一ID，并生成surgery_id与预览行
         surgeries.forEach(surgery => {
           surgery.id = surgeryIdCounter++;
           surgery.log_filename = log.filename;
+          const deviceDisplayId = (log && log.device_id !== undefined && log.device_id !== null) ? String(log.device_id) : 'UNKNOWN';
+          surgery.device_id = deviceDisplayId;
+          surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
+          surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
+          if (includePostgreSQLStructure === 'true') {
+            surgery.postgresql_row_preview = buildPostgresRowPreview(surgery, deviceDisplayId);
+          }
         });
         
         allSurgeries.push(...surgeries);
@@ -145,10 +205,11 @@ const getAllSurgeryStatistics = async (req, res) => {
     }
 
     console.log(`分析完成，共发现 ${allSurgeries.length} 场手术`)
+    const dbRows = allSurgeries.map(s => buildDbRowFromSurgery(s));
     res.json({
       success: true,
-      data: allSurgeries,
-      message: `成功分析出 ${allSurgeries.length} 场手术数据`
+      data: dbRows,
+      message: `成功分析出 ${dbRows.length} 场手术数据库行`
     });
 
   } catch (error) {
@@ -160,7 +221,7 @@ const getAllSurgeryStatistics = async (req, res) => {
 // 使用前端传递的已排序日志条目进行分析
 const analyzeSortedLogEntries = async (req, res) => {
   try {
-    const { logEntries, includePostgreSQLStructure } = req.body;
+    const { logEntries } = req.body;
     
     if (!logEntries || !Array.isArray(logEntries) || logEntries.length === 0) {
       return res.status(400).json({
@@ -186,21 +247,38 @@ const analyzeSortedLogEntries = async (req, res) => {
 
     // 使用新的分析器进行分析
     const surgeries = analyzeSurgeries(logEntries, { 
-      includePostgreSQLStructure: includePostgreSQLStructure === true 
+      includePostgreSQLStructure: true 
     });
     console.log(`从已排序日志条目分析出 ${surgeries.length} 场手术`);
 
-    // 为每个手术分配唯一ID
+    // 通过log_id尝试获取device_id（如存在），生成surgery_id与预览行
+    const uniqueLogIds = Array.from(new Set((logEntries || []).map(e => e.log_id).filter(Boolean)));
+    const logMap = new Map();
+    if (uniqueLogIds.length > 0) {
+      const logs = await Log.findAll({ where: { id: { [Op.in]: uniqueLogIds } } });
+      logs.forEach(l => logMap.set(l.id, l));
+    }
+
     surgeries.forEach((surgery, index) => {
       surgery.id = index + 1;
       surgery.log_filename = '已排序日志条目';
+      const deviceDisplayId = surgery.log_id && logMap.get(surgery.log_id) && logMap.get(surgery.log_id).device_id !== undefined && logMap.get(surgery.log_id).device_id !== null
+        ? String(logMap.get(surgery.log_id).device_id)
+        : 'UNKNOWN';
+      surgery.device_id = deviceDisplayId;
+      surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
+      surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
+      if (includePostgreSQLStructure === true) {
+        surgery.postgresql_row_preview = buildPostgresRowPreview(surgery, deviceDisplayId);
+      }
     });
 
     console.log(`分析完成，共发现 ${surgeries.length} 场手术`);
+    const dbRows = surgeries.map(s => buildDbRowFromSurgery(s));
     res.json({
       success: true,
-      data: surgeries,
-      message: `成功分析出 ${surgeries.length} 场手术数据（使用已排序日志条目）`
+      data: dbRows,
+      message: `成功分析出 ${dbRows.length} 场手术数据库行（使用已排序日志条目）`
     });
 
   } catch (error) {
@@ -290,6 +368,7 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
     // 获取所有日志的条目数据
     const allLogEntries = [];
     let processedLogs = 0;
+    const logIdToDeviceId = new Map();
     
     for (const logId of logIds) {
       try {
@@ -307,6 +386,9 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
         // 为每个条目添加日志文件名信息
         const logInfo = await Log.findByPk(logId);
         const logName = logInfo ? logInfo.original_name : `日志${logId}`;
+        if (logInfo && logInfo.device_id) {
+          logIdToDeviceId.set(logId, logInfo.device_id);
+        }
         
         const entriesWithLogName = logEntries.map(entry => ({
           ...entry,
@@ -341,10 +423,16 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
     });
     console.log(`从日志ID列表分析出 ${surgeries.length} 场手术`);
     
-    // 为每个手术分配唯一ID
+    // 为每个手术分配唯一ID与surgery_id
     surgeries.forEach((surgery, index) => {
       surgery.id = index + 1;
       surgery.log_filename = `批量日志分析 (${logIds.length}个文件)`;
+      const deviceDisplayId = surgery.log_id && logIdToDeviceId.get(surgery.log_id) !== undefined && logIdToDeviceId.get(surgery.log_id) !== null
+        ? String(logIdToDeviceId.get(surgery.log_id))
+        : 'UNKNOWN';
+      surgery.device_id = deviceDisplayId;
+      surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
+      surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
     });
     
     // 更新任务为完成状态
@@ -353,7 +441,7 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
     // 清理已完成的任务
     cleanupCompletedTasks();
     
-    console.log('分析完成，手术数据:', surgeries);
+    console.log(`分析完成（任务 ${taskId}），生成 ${surgeries.length} 条数据库行`);
     
   } catch (error) {
     console.error('处理分析任务失败:', error);
@@ -474,6 +562,9 @@ const exportPostgreSQLData = async (req, res) => {
         surgeries.forEach(surgery => {
           surgery.id = surgeryIdCounter++;
           surgery.log_filename = log.filename;
+          const deviceId = log.device_id;
+          surgery.device_id = deviceId;
+          surgery.surgery_id = `${deviceId || 'UNKNOWN'}-${formatTimeForId(surgery.surgery_start_time)}`;
         });
         
         allSurgeries.push(...surgeries);
@@ -481,17 +572,7 @@ const exportPostgreSQLData = async (req, res) => {
     }
 
     // 转换为PostgreSQL插入语句
-    const postgresqlData = allSurgeries.map(surgery => ({
-      surgery_id: surgery.surgery_id,
-      device_ids: [surgery.log_id], // 可以根据需要调整
-      start_time: surgery.surgery_start_time,
-      end_time: surgery.surgery_end_time,
-      is_remote: surgery.is_remote_surgery || false,
-      structured_data: surgery.postgresql_structure,
-      last_analyzed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
+    const postgresqlData = allSurgeries.map(s => buildDbRowFromSurgery(s));
 
     res.json({
       success: true,
@@ -553,17 +634,7 @@ const exportSingleSurgeryData = async (req, res) => {
 
     // 转换为PostgreSQL结构化数据
     const Surgery = require('../models/surgery');
-    const postgresqlData = {
-      surgery_id: surgery.surgery_id,
-      device_ids: [surgery.log_id],
-      start_time: surgery.surgery_start_time,
-      end_time: surgery.surgery_end_time,
-      is_remote: surgery.is_remote_surgery || false,
-      structured_data: surgery.postgresql_structure || null,
-      last_analyzed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    const postgresqlData = buildDbRowFromSurgery(surgery);
 
     // 尝试存储到PostgreSQL数据库
     try {
