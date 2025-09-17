@@ -169,13 +169,21 @@ const surgeryStatistics = {
   getList: (params) => api.get('/surgery-statistics', { params }),
   analyze: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
-  analyzeByLogIds: (logIds) => api.post('/surgery-statistics/analyze-by-log-ids', { logIds }),
+  analyzeByLogIds: (logIds, includePostgreSQLStructure = false) => api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure }),
   getAnalysisTaskStatus: (taskId) => api.get(`/surgery-statistics/task/${taskId}`),
   getUserAnalysisTasks: () => api.get('/surgery-statistics/tasks'),
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
   exportPostgreSQLData: (params) => api.get('/surgery-statistics/export/postgresql', { params }),
-  exportSingleSurgeryData: (id) => api.get(`/surgery-statistics/${id}/export-data`),
+  exportSingleSurgeryData: (surgeryData) => api.post('/surgery-statistics/export-single', surgeryData),
   getPostgreSQLSurgeries: (params) => api.get('/surgery-statistics/postgresql', { params })
+}
+
+// Surgeries CRUD (PostgreSQL persisted)
+const surgeries = {
+  list: (params) => api.get('/surgeries', { params }),
+  get: (id) => api.get(`/surgeries/${id}`),
+  remove: (id) => api.delete(`/surgeries/${id}`),
+  getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`)
 }
 
 const devices = {
@@ -231,5 +239,6 @@ export default {
   feedback,
   dashboard,
   explanations,
-  notes
+  notes,
+  surgeries
 }

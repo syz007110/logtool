@@ -5,14 +5,19 @@
 -- 注意：请确保PostgreSQL中已创建logtool数据库
 
 -- 1. 手术统计主表
-CREATE TABLE IF NOT EXISTS surgeries (
+CREATE TABLE surgeries (
     id SERIAL PRIMARY KEY,
     surgery_id VARCHAR(50) UNIQUE NOT NULL,
-    device_ids TEXT[],                  -- 使用TEXT数组存储设备编号（与surgery_id前缀一致）
-    start_time TIMESTAMP NULL,
-    end_time TIMESTAMP NULL,
-    is_remote BOOLEAN DEFAULT FALSE,
-    structured_data JSONB,              -- 使用JSONB类型存储手术结构化数据
+    source_log_ids INT[],            -- 溯源的日志文件
+    device_ids TEXT[],               -- 设备编号
+    log_entry_start_id INT,          -- 起始日志条目
+    log_entry_end_id INT,            -- 结束日志条目
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    has_fault BOOLEAN,
+    is_remote BOOLEAN,
+    success BOOLEAN,
+    structured_data JSONB,           -- 当前有效的手术结构化数据
     last_analyzed_at TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -28,6 +33,21 @@ CREATE TABLE IF NOT EXISTS surgery_versions (
     created_at TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (surgery_id) REFERENCES surgeries(id) ON DELETE CASCADE
 );
+-- 术式记录
+CREATE TABLE procedures (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name_cn VARCHAR(100) NOT NULL,
+    name_en VARCHAR(100) NOT NULL,
+    description TEXT
+);
+
+CREATE TABLE surgery_procedures (
+    surgery_id INT REFERENCES surgeries(id) ON DELETE CASCADE,
+    procedure_id INT REFERENCES procedures(id) ON DELETE CASCADE,
+    PRIMARY KEY (surgery_id, procedure_id)
+);
+
 
 -- 3. 创建索引
 CREATE INDEX IF NOT EXISTS idx_surgeries_start_time ON surgeries(start_time);

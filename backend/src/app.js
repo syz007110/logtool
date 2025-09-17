@@ -34,6 +34,7 @@ const userRolesRouter = require('./routes/userRoles');
 const operationLogsRouter = require('./routes/operationLogs');
 const logsRouter = require('./routes/logs');
 const surgeryStatisticsRouter = require('./routes/surgeryStatistics');
+const surgeriesRouter = require('./routes/surgeries');
 const devicesRouter = require('./routes/devices');
 const motionDataRouter = require('./routes/motionData');
 const feedbackRouter = require('./routes/feedback');
@@ -146,6 +147,19 @@ app.get('/api/websocket/status', (req, res) => {
   }
 });
 
+// 服务器时区信息（不受速率限制）
+app.get('/api/timezone', (req, res) => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const now = new Date();
+    // 偏移分钟：以服务端当前时间为准
+    const offsetMinutes = -now.getTimezoneOffset();
+    res.json({ timeZone: tz, offsetMinutes });
+  } catch (error) {
+    res.json({ timeZone: process.env.TZ || 'UTC', offsetMinutes: 0 });
+  }
+});
+
 // TODO: 挂载各模块路由
 app.use('/api/users', usersRouter);
 app.use('/api/roles', rolesRouter);
@@ -161,6 +175,7 @@ app.use('/api/feedback', feedbackRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/operation-logs', operationLogsRouter);
 app.use('/api/surgery-statistics', surgeryStatisticsRouter);
+app.use('/api/surgeries', surgeriesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/explanations', explanationsRouter);
 app.use('/api/queue', queueRouter);

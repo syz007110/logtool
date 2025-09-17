@@ -802,6 +802,53 @@ export default {
       }
     }
 
+    // 本地时间格式：YYYY-MM-DD HH:mm:ss（与批量查看一致）
+    const serverOffsetMinutes = ref(null)
+    const loadServerTimezone = async () => {
+      try {
+        const resp = await fetch('/api/timezone')
+        const json = await resp.json()
+        if (typeof json.offsetMinutes === 'number') serverOffsetMinutes.value = json.offsetMinutes
+      } catch (_) {
+        serverOffsetMinutes.value = null
+      }
+    }
+
+    // UTC时间写库格式：YYYY-MM-DD HH:mm:ss（与后端保持一致）
+    const formatUtcForDatabase = (value) => {
+      if (!value) return null
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return null
+      
+      const pad = (n) => String(n).padStart(2, '0')
+      const y = d.getUTCFullYear()
+      const m = pad(d.getUTCMonth() + 1)
+      const day = pad(d.getUTCDate())
+      const h = pad(d.getUTCHours())
+      const mi = pad(d.getUTCMinutes())
+      const s = pad(d.getUTCSeconds())
+      return `${y}-${m}-${day} ${h}:${mi}:${s}`
+    }
+
+    const formatLocalTimestamp = (value) => {
+      if (!value) return null
+      const d = new Date(value)
+      if (!Number.isNaN(d.getTime()) && serverOffsetMinutes.value !== null) {
+        const localOffset = -d.getTimezoneOffset()
+        const delta = (serverOffsetMinutes.value - localOffset) * 60 * 1000
+        d.setTime(d.getTime() + delta)
+      }
+      if (Number.isNaN(d.getTime())) return null
+      const pad = (n) => String(n).padStart(2, '0')
+      const y = d.getFullYear()
+      const m = pad(d.getMonth() + 1)
+      const day = pad(d.getDate())
+      const h = pad(d.getHours())
+      const mi = pad(d.getMinutes())
+      const s = pad(d.getSeconds())
+      return `${y}-${m}-${day} ${h}:${mi}:${s}`
+    }
+
     // 生成PostgreSQL结构化数据
     const generatePostgreSQLData = (surgeryId) => {
       const surgery = surgeries.value.find(s => s.id === surgeryId)
@@ -818,16 +865,20 @@ export default {
           || extractedPrefix
         
         // 构建完整的surgeries表数据
+        const structured = surgery.postgresql_structure || generateStructuredData(surgery)
         const surgeriesData = {
           surgery_id: surgery.surgery_id,
+          source_log_ids: Array.isArray(surgery.source_log_ids) ? surgery.source_log_ids : (surgery.log_id ? [surgery.log_id] : []),
           device_ids: deviceIdStr ? [String(deviceIdStr)] : [],
-          start_time: surgery.surgery_start_time,
-          end_time: surgery.surgery_end_time,
+          log_entry_start_id: surgery.log_entry_start_id || null,
+          log_entry_end_id: surgery.log_entry_end_id || null,
+          start_time: formatUtcForDatabase(surgery.surgery_start_time),
+          end_time: formatUtcForDatabase(surgery.surgery_end_time),
+          has_fault: (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false),
           is_remote: surgery.is_remote_surgery || false,
-          structured_data: surgery.postgresql_structure || generateStructuredData(surgery),
-          last_analyzed_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          success: (structured?.surgery_stats?.success) ?? !(surgery.has_error || false),
+          structured_data: structured,
+          // 让数据库默认列负责 created_at/updated_at/last_analyzed_at
         }
 
         postgresqlDataText[surgeryId] = JSON.stringify(surgeriesData, null, 2)
@@ -850,8 +901,8 @@ export default {
         for (let i = 0; i < Math.max(onTimes.length, offTimes.length); i++) {
           if (onTimes[i] || offTimes[i]) {
             powerCycles.push({
-              on_time: onTimes[i] ? new Date(onTimes[i]).toISOString() : null,
-              off_time: offTimes[i] ? new Date(offTimes[i]).toISOString() : null
+              on_time: onTimes[i] ? formatUtcForDatabase(onTimes[i]) : null,
+              off_time: offTimes[i] ? formatUtcForDatabase(offTimes[i]) : null
             })
           }
         }
@@ -864,8 +915,8 @@ export default {
           const powerOffTime = surgery[`power${i}_off_time`]
           if (powerOnTime && powerOffTime) {
             powerCycles.push({
-              on_time: new Date(powerOnTime).toISOString(),
-              off_time: new Date(powerOffTime).toISOString()
+              on_time: formatUtcForDatabase(powerOnTime),
+              off_time: formatUtcForDatabase(powerOffTime)
             })
           }
         }
@@ -880,9 +931,11 @@ export default {
           instrument_usage: armUsage.map(usage => ({
             tool_type: usage.instrumentName || usage.tool_type || '未知器械',
             udi: usage.udi || '',
-            start_time: usage.startTime || usage.start_time,
-            end_time: usage.endTime || usage.end_time,
-            energy_activation: usage.energy_activation || []
+            start_time: formatUtcForDatabase(usage.startTime || usage.start_time),
+            end_time: formatUtcForDatabase(usage.endTime || usage.end_time),
+            energy_activation: Array.isArray(usage.energy_activation)
+              ? usage.energy_activation.map(t => (t ? formatUtcForDatabase(t) : t))
+              : []
           }))
         })
       }
@@ -894,7 +947,7 @@ export default {
         is_remote: surgery.is_remote_surgery || false,
         network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => d.latency) : [],
         faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
-          timestamp: fault.time,
+          timestamp: formatUtcForDatabase(fault.time),
           error_code: fault.code,
           param1: "",
           param2: "",

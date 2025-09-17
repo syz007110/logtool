@@ -928,18 +928,78 @@ class SurgeryAnalyzer {
    * @returns {Object} PostgreSQL结构化数据
    */
   toPostgreSQLStructure(surgery) {
-    // 构建power_cycles
+    // 构建power_cycles - 修复时间顺序问题，保留所有关机时间
     const powerCycles = [];
     if (surgery.power_on_times && surgery.shutdown_times) {
       const onTimes = surgery.power_on_times;
       const offTimes = surgery.shutdown_times;
       
-      for (let i = 0; i < Math.max(onTimes.length, offTimes.length); i++) {
-        powerCycles.push({
-          on_time: onTimes[i] ? new Date(onTimes[i]).toISOString() : null,
-          off_time: offTimes[i] ? new Date(offTimes[i]).toISOString() : null
-        });
+      // 智能配对开机和关机时间，处理时间顺序异常的情况，保留所有关机时间
+      let onIndex = 0;
+      let offIndex = 0;
+      
+      while (onIndex < onTimes.length || offIndex < offTimes.length) {
+        const onTime = onIndex < onTimes.length ? new Date(onTimes[onIndex]) : null;
+        const offTime = offIndex < offTimes.length ? new Date(offTimes[offIndex]) : null;
+        
+        // 如果当前开机时间存在，检查是否有对应的关机时间
+        if (onTime) {
+          // 查找下一个有效的关机时间（关机时间晚于开机时间）
+          let validOffTime = null;
+          let validOffIndex = offIndex;
+          
+          // 先处理所有早于当前开机时间的关机时间（设置为null开机时间）
+          while (offIndex < offTimes.length) {
+            const currentOffTime = new Date(offTimes[offIndex]);
+            if (currentOffTime < onTime) {
+              powerCycles.push({
+                on_time: null,
+                off_time: currentOffTime.toISOString()
+              });
+              offIndex++;
+            } else {
+              validOffTime = currentOffTime;
+              validOffIndex = offIndex;
+              break;
+            }
+          }
+          
+          // 为当前开机时间配对有效的关机时间
+          powerCycles.push({
+            on_time: onTime.toISOString(),
+            off_time: validOffTime ? validOffTime.toISOString() : null
+          });
+          
+          // 更新索引
+          onIndex++;
+          if (validOffTime) {
+            offIndex = validOffIndex + 1;
+          }
+        } else if (offTime) {
+          // 如果只有关机时间没有对应的开机时间，创建一个null开机时间的记录
+          powerCycles.push({
+            on_time: null,
+            off_time: offTime.toISOString()
+          });
+          offIndex++;
+        }
       }
+    } else if (surgery.power_on_times) {
+      // 如果只有开机时间没有关机时间
+      surgery.power_on_times.forEach(onTime => {
+        powerCycles.push({
+          on_time: new Date(onTime).toISOString(),
+          off_time: null
+        });
+      });
+    } else if (surgery.shutdown_times) {
+      // 如果只有关机时间没有开机时间
+      surgery.shutdown_times.forEach(offTime => {
+        powerCycles.push({
+          on_time: null,
+          off_time: new Date(offTime).toISOString()
+        });
+      });
     }
 
     // 构建arms数据

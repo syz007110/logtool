@@ -50,10 +50,11 @@ const ROLES = {
       'history:read_all', // 查看所有历史记录
       'history:export',    // 导出历史记录
       
-      // 手术分析权限
+      // 手术数据权限
       'surgery:analyze',
       'surgery:read',
       'surgery:export',
+      'surgery:delete',
       
       // 数据诊断权限
       'data_replay:upload',
@@ -97,10 +98,11 @@ const ROLES = {
       // 历史记录权限（专家可以查看自己的历史记录）
       'history:read_own',
       
-      // 手术分析权限
+      // 手术数据权限
       'surgery:analyze',
       'surgery:read',
       'surgery:export',
+      'surgery:delete',
       
       // 数据解析（原数据诊断）权限
       'data_replay:upload',
@@ -132,7 +134,7 @@ const ROLES = {
       // 历史记录权限（普通用户只能查看自己的历史记录）
       'history:read_own',
       
-      // 手术分析权限
+      // 手术数据权限
       'surgery:analyze',
       'surgery:read',
       'surgery:export'

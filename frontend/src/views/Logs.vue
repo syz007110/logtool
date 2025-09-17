@@ -120,12 +120,11 @@
              </el-button>
              
              <el-button 
-               v-if="false"
                size="small" 
                type="info"
-               @click="viewSurgeryData(row)"
+               @click="openSurgeryDrawerForDevice(row)"
              >
-               查看手术数据
+               手术数据
              </el-button>
            </template>
          </el-table-column>
@@ -377,6 +376,57 @@
       </div>
     </el-drawer>
 
+    <!-- 手术数据抽屉 -->
+    <el-drawer
+      v-model="showSurgeryDrawer"
+      title="手术数据"
+      direction="rtl"
+      size="1200px"
+    >
+      <div v-if="selectedDevice" class="device-header" style="margin-bottom:12px;">
+        <div class="device-info">
+          <h3>医院：{{ selectedDevice.hospital_name || '-' }}</h3>
+          <p>设备编号：{{ selectedDevice.device_id }}</p>
+        </div>
+      </div>
+      <el-table :data="surgeryList" :loading="surgeryLoading" style="width:100%">
+        <el-table-column prop="surgery_id" label="手术id" width="220" />
+        <el-table-column prop="structured_data.surgery_stats.procedure" label="手术术式" min-width="200">
+          <template #default="{ row }">
+            {{ row.structured_data?.surgery_stats?.procedure || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="start_time" label="手术开始时间" width="180">
+          <template #default="{ row }">{{ formatDate(row.start_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="end_time" label="手术结束时间" width="180">
+          <template #default="{ row }">{{ formatDate(row.end_time) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="260" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" @click="viewLogsBySurgery(row)">查看日志</el-button>
+            <el-button size="small" type="success" @click="visualizeSurgery(row)">可视化</el-button>
+            <el-popconfirm v-if="$store.getters['auth/hasPermission']('surgery:delete')" title="确定删除该手术记录？" @confirm="deleteSurgery(row)">
+              <template #reference>
+                <el-button size="small" type="danger">删除</el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination-wrapper">
+        <el-pagination
+          :current-page="surgeryPage"
+          :page-size="surgeryPageSize"
+          :page-sizes="[10,20,50]"
+          :total="surgeryTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="(s)=>{surgeryPageSize=s; surgeryPage=1; loadSurgeries()}"
+          @current-change="(p)=>{surgeryPage=p; loadSurgeries()}"
+        />
+      </div>
+    </el-drawer>
+
     <!-- 上传日志弹窗 -->
     <el-dialog v-model="showUploadDialog" title="上传日志" width="700px" append-to-body>
 
@@ -570,6 +620,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
 import websocketClient from '@/services/websocketClient'
+import api from '@/api'
+import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 
 export default {
   name: 'Logs',
@@ -581,7 +633,7 @@ export default {
     
     // 响应式数据
     const loading = ref(false)
-    const uploading = ref(false) // 仅表示“文件上传阶段”
+    const uploading = ref(false) // 仅表示"文件上传阶段"
     const showUploadDialog = ref(false)
     const overallProgress = ref(0) // 总体进度
     const processingStatus = ref('') // 处理状态
@@ -1001,6 +1053,80 @@ export default {
     const toggleDeviceFocus = (device) => {
       device.focused = !device.focused
       ElMessage.success(device.focused ? '已关注设备' : '已取消关注')
+    }
+
+    // 手术数据抽屉与数据
+    const showSurgeryDrawer = ref(false)
+    const surgeryLoading = ref(false)
+    const surgeryList = ref([])
+    const surgeryPage = ref(1)
+    const surgeryPageSize = ref(20)
+    const surgeryTotal = ref(0)
+
+    const openSurgeryDrawer = () => {
+      showSurgeryDrawer.value = true
+      loadSurgeries()
+    }
+
+    const openSurgeryDrawerForDevice = (device) => {
+      selectedDevice.value = device
+      showSurgeryDrawer.value = true
+      surgeryPage.value = 1
+      loadSurgeries()
+    }
+
+    const loadSurgeries = async () => {
+      try {
+        surgeryLoading.value = true
+        const params = {
+          device_id: selectedDevice.value?.device_id,
+          page: surgeryPage.value,
+          limit: surgeryPageSize.value
+        }
+        const resp = await api.surgeries.list(params)
+        surgeryList.value = resp.data?.data || []
+        surgeryTotal.value = resp.data?.total || 0
+      } catch (e) {
+        ElMessage.error('加载手术数据失败')
+      } finally {
+        surgeryLoading.value = false
+      }
+    }
+
+    const viewLogsBySurgery = async (row) => {
+      try {
+        const resp = await api.surgeries.getLogEntriesByRange(row.id)
+        const entries = resp.data?.entries || []
+        if (!entries.length) {
+          ElMessage.warning('未找到相关日志条目')
+          return
+        }
+        // 将涉及的日志ID聚合，使用批量查看页展示
+        const ids = Array.from(new Set(entries.map(e => e.log_id))).filter(Boolean)
+        if (!ids.length) {
+          ElMessage.warning('未找到相关日志文件')
+          return
+        }
+        const routeData = router.resolve(`/batch-analysis/${ids.join(',')}`)
+        window.open(routeData.href, '_blank')
+      } catch (e) {
+        ElMessage.error('获取手术相关日志失败')
+      }
+    }
+
+    const visualizeSurgery = (row) => {
+      // 使用统一的可视化函数
+      visualizeSurgeryData(row, { queryId: row.id })
+    }
+
+    const deleteSurgery = async (row) => {
+      try {
+        await api.surgeries.remove(row.id)
+        ElMessage.success('删除成功')
+        loadSurgeries()
+      } catch (e) {
+        ElMessage.error('删除失败')
+      }
     }
     
     // 详细日志列表相关方法
@@ -2163,7 +2289,20 @@ export default {
       startStatusMonitoring,
       // 新增函数
       getBatchViewTitle,
-      getBatchReparseTitle
+      getBatchReparseTitle,
+      // 手术数据
+      showSurgeryDrawer,
+      surgeryLoading,
+      surgeryList,
+      surgeryPage,
+      surgeryPageSize,
+      surgeryTotal,
+      openSurgeryDrawer,
+      loadSurgeries,
+      viewLogsBySurgery,
+      visualizeSurgery,
+      deleteSurgery,
+      openSurgeryDrawerForDevice: openSurgeryDrawerForDevice
     }
   }
 }

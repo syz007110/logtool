@@ -25,6 +25,6 @@ router.get('/:id/export', auth, checkPermission('surgery:export'), surgeryStatis
 // 导出PostgreSQL结构化数据（管理员、专家）
 router.get('/export/postgresql', auth, checkPermission('surgery:export'), surgeryStatisticsController.exportPostgreSQLData);
 router.get('/postgresql', auth, checkPermission('surgery:read'), surgeryStatisticsController.getPostgreSQLSurgeries);
-router.get('/:id/export-data', auth, checkPermission('surgery:export'), surgeryStatisticsController.exportSingleSurgeryData);
+router.post('/export-single', auth, checkPermission('surgery:export'), surgeryStatisticsController.exportSingleSurgeryData);
 
 module.exports = router; 

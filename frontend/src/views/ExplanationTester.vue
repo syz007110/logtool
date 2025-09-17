@@ -70,12 +70,17 @@
             placeholder="粘贴手术结构化数据，或点击填充示例"
           />
           <a-space style="margin-top: 12px">
-            <a-button type="primary" @click="handleRenderViz">生成可视化</a-button>
+            <a-button type="primary" @click="handleRenderViz">跳转可视化页面</a-button>
             <a-button @click="fillVizExample">填充示例</a-button>
           </a-space>
         </a-card>
-        <a-card style="margin-top: 16px" title="可视化预览">
-          <div ref="vizChartRef" style="width: 100%; height: 340px;"></div>
+        <a-card style="margin-top: 16px" title="说明">
+          <div style="color: #666; line-height: 1.6;">
+            <p>• 输入手术结构化数据JSON格式</p>
+            <p>• 点击"跳转可视化页面"将在新标签页打开手术可视化</p>
+            <p>• 点击"填充示例"可加载测试数据</p>
+            <p>• 可视化页面将显示甘特图、状态机变化、网络延时等图表</p>
+          </div>
         </a-card>
       </a-tab-pane>
     </a-tabs>
@@ -88,87 +93,8 @@ import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
 import api from '../api'
 import { message } from 'ant-design-vue'
 import * as echarts from 'echarts'
-
-// 甘特图可配置样式参数（可按需调整）
-const GANTT_STYLE = {
-  // 每个臂行上下的预留留白（像素）
-  ROW_GAP_PX: 2,
-  // 条的最大厚度（像素上限）
-  BAR_MAX_PX: 40,
-  // 条厚度占可用行高（去除留白后）的比例 0~1
-  BAR_RATIO: 0.8
-}
-
-// 颜色配置：可按器械类型固定颜色，也可按臂分配基础色
-const GANTT_COLORS = {
-  // 器械类型 → 颜色（示例，按需填写）
-  TOOL_TYPE_COLORS: {
-  '无器械': '#EBBA66',       // 浅橙 - 空白状态
-  '持针钳': '#D9EB66',       // 浅黄绿
-  '电钩': '#96EB66',         // 青绿
-  '双极鸭嘴电凝钳': '#66EB77', // 深绿
-  '直剪': '#FFB366',         // 橙色
-  '单极弧剪': '#FF9966',     // 橙红
-  '双极弧形电凝钳': '#FF6666', // 红色
-  '波茨剪': '#FF6666',       // 红色（可偏深红 #CC3333）
-  '无损伤镊': '#66CCFF',     // 浅蓝
-  '-30度内窥镜': '#3399FF',   // 蓝色
-  '0度内窥镜': '#0066FF',    // 深蓝
-  '30度内窥镜': '#6699FF',   // 中蓝
-  '大持针钳': '#99CC66',     // 黄绿色
-  '鸭嘴抓钳': '#33CC99',     // 青色
-  '鼠齿抓钳': '#00CC99',   
-    // '30度内窥镜': '#73c0de',
-    // '弧剪': '#ea7e53',
-    // '新持针': '#9a60b4'
-  },
-  // 不同臂的基础颜色（作为 fallback）
-  ARM_BASE_COLORS: ['#E28A6A', '#E2C66A', '#C2E26A', '#86E26A']
-}
-
-// 将数据库中的 structured_data 结构转为图表所需的 { timeline, arms } 结构
-function normalizeSurgeryData(raw) {
-  if (!raw || typeof raw !== 'object') return { timeline: {}, arms: [] }
-
-  // 已是期望结构
-  if (raw.timeline && Array.isArray(raw.arms)) return raw
-
-  const hasStructured = !!raw.structured_data
-  const source = hasStructured ? raw.structured_data : raw
-
-  // 时间轴映射
-  const powerOn = source.power_cycles?.[0]?.on_time || raw.start_time || source.start_time
-  const powerOffCandidate = source.power_cycles?.[source.power_cycles.length - 1]?.off_time
-  const surgeryStart = raw.start_time || source.start_time
-  const surgeryEnd = raw.end_time || source.end_time
-  // 仅在存在明确 off_time 时才记录关机时间
-  const powerOff = powerOffCandidate ?? null
-  const previousSurgeryEnd = raw.previous_end_time || raw.previous_surgery_end_time ||
-    source.previous_end_time || source.prev_surgery_end_time || source.last_surgery_end_time
-
-  // 手臂与器械使用映射
-  const arms = Array.isArray(source.arms)
-    ? source.arms.map((a) => {
-        const name = a.name || `${a.arm_id ?? ''}号臂`.trim()
-        const segments = Array.isArray(a.instrument_usage)
-          ? a.instrument_usage
-              .filter(u => u && u.start_time && u.end_time)
-              .map((u) => ({
-                start: u.start_time,
-                end: u.end_time,
-                udi: u.udi,
-                tool_type: u.tool_type
-              }))
-          : []
-        return { name, segments }
-      })
-    : []
-
-  return {
-    timeline: { powerOn, surgeryStart, surgeryEnd, powerOff, previousSurgeryEnd },
-    arms
-  }
-}
+import { GANTT_STYLE, GANTT_COLORS, normalizeSurgeryData, toMs } from '../utils/visualizationConfig'
+import { visualizeSurgery as visualizeSurgeryData } from '../utils/visualizationHelper'
 
 export default {
   name: 'ExplanationTester',
@@ -235,13 +161,6 @@ export default {
       if (!vizChartRef.value) return
       if (!vizChart) {
         vizChart = echarts.init(vizChartRef.value)
-      }
-
-      const toMs = (v) => {
-        if (v === null || v === undefined || v === '') return NaN
-        if (typeof v === 'number' && Number.isFinite(v)) return v
-        const t = new Date(v).getTime()
-        return Number.isFinite(t) ? t : NaN
       }
       const t0 = toMs(data?.timeline?.powerOn)
       const tPrev = toMs(data?.timeline?.previousSurgeryEnd)
@@ -489,8 +408,8 @@ export default {
       }
       try {
         const raw = JSON.parse(vizJsonText.value)
-        const data = normalizeSurgeryData(raw)
-        renderViz(data)
+        // 使用统一的可视化函数，跳转到可视化页面
+        visualizeSurgeryData(raw)
       } catch (e) {
         message.error('JSON 解析失败，请检查格式')
       }
@@ -499,22 +418,71 @@ export default {
     const fillVizExample = () => {
       const now = Date.now()
       const example = {
-        timeline: {
-          powerOn: now,
-          surgeryStart: now + 5 * 60 * 1000,
-          surgeryEnd: now + 50 * 60 * 1000,
-          powerOff: now + 55 * 60 * 1000
-        },
-        arms: [
-          { name: '1号臂', segments: [
-            { start: now + 6 * 60 * 1000, end: now + 10 * 60 * 1000, udi: 'UDI-AAA' },
-            { start: now + 15 * 60 * 1000, end: now + 22 * 60 * 1000, udi: 'UDI-AAB' }
-          ]},
-          { name: '2号臂', segments: [
-            { start: now + 8 * 60 * 1000, end: now + 12 * 60 * 1000, udi: 'UDI-BAA' },
-            { start: now + 30 * 60 * 1000, end: now + 40 * 60 * 1000, udi: 'UDI-BAB' }
-          ]}
-        ]
+        surgery_id: 'TEST-001',
+        start_time: new Date(now + 5 * 60 * 1000).toISOString(),
+        end_time: new Date(now + 50 * 60 * 1000).toISOString(),
+        is_remote: false,
+        structured_data: {
+          power_cycles: [
+            { on_time: new Date(now).toISOString(), off_time: new Date(now + 55 * 60 * 1000).toISOString() }
+          ],
+          arms: [
+            { 
+              name: '1号臂', 
+              arm_id: 1,
+              instrument_usage: [
+                { 
+                  start_time: new Date(now + 6 * 60 * 1000).toISOString(), 
+                  end_time: new Date(now + 10 * 60 * 1000).toISOString(), 
+                  udi: 'UDI-AAA-001', 
+                  tool_type: '持针钳' 
+                },
+                { 
+                  start_time: new Date(now + 15 * 60 * 1000).toISOString(), 
+                  end_time: new Date(now + 22 * 60 * 1000).toISOString(), 
+                  udi: 'UDI-AAB-002', 
+                  tool_type: '电钩' 
+                }
+              ]
+            },
+            { 
+              name: '2号臂', 
+              arm_id: 2,
+              instrument_usage: [
+                { 
+                  start_time: new Date(now + 8 * 60 * 1000).toISOString(), 
+                  end_time: new Date(now + 12 * 60 * 1000).toISOString(), 
+                  udi: 'UDI-BAA-003', 
+                  tool_type: '直剪' 
+                },
+                { 
+                  start_time: new Date(now + 30 * 60 * 1000).toISOString(), 
+                  end_time: new Date(now + 40 * 60 * 1000).toISOString(), 
+                  udi: 'UDI-BAB-004', 
+                  tool_type: '双极鸭嘴电凝钳' 
+                }
+              ]
+            },
+            { 
+              name: '3号臂', 
+              arm_id: 3,
+              instrument_usage: [
+                { 
+                  start_time: new Date(now + 20 * 60 * 1000).toISOString(), 
+                  end_time: new Date(now + 35 * 60 * 1000).toISOString(), 
+                  udi: 'UDI-CCC-005', 
+                  tool_type: '0度内窥镜' 
+                }
+              ]
+            }
+          ],
+          state_machine_changes: [
+            { time: new Date(now + 5 * 60 * 1000).toISOString(), stateName: '手术开始' },
+            { time: new Date(now + 25 * 60 * 1000).toISOString(), stateName: '器械切换' },
+            { time: new Date(now + 50 * 60 * 1000).toISOString(), stateName: '手术结束' }
+          ],
+          previous_end_time: new Date(now - 30 * 60 * 1000).toISOString()
+        }
       }
       vizJsonText.value = JSON.stringify(example, null, 2)
     }

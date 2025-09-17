@@ -1,4 +1,5 @@
-const { logProcessingQueue } = require('../config/queue');
+const { logProcessingQueue, surgeryAnalysisQueue } = require('../config/queue');
+const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete } = require('./batchProcessor');
 const Log = require('../models/log');
@@ -8,6 +9,8 @@ const websocketService = require('../services/websocketService');
 const CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 3;
 
   console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
+const SURGERY_CONCURRENCY = parseInt(process.env.SURGERY_QUEUE_CONCURRENCY) || 3;
+console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -131,6 +134,23 @@ logProcessingQueue.process('batch-delete', 1, async (job) => {
   }
 });
 
+// 注册手术分析处理器
+surgeryAnalysisQueue.process('analyze-surgeries', SURGERY_CONCURRENCY, async (job) => {
+  try {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[队列处理器] 手术分析任务开始: ${job.id}`);
+    }
+    const result = await processSurgeryAnalysisJob(job);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[队列处理器] 手术分析任务完成: ${job.id}`);
+    }
+    return result;
+  } catch (error) {
+    console.error(`[队列处理器] 手术分析任务 ${job.id} 失败:`, error);
+    throw error;
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('waiting', (jobId) => {
   console.log(`任务 ${jobId} 等待处理`);
@@ -154,6 +174,23 @@ logProcessingQueue.on('stalled', (jobId) => {
 
 logProcessingQueue.on('error', (error) => {
   console.error('队列错误:', error);
+});
+
+// 手术队列事件监听
+surgeryAnalysisQueue.on('waiting', (jobId) => {
+  console.log(`[手术队列] 任务 ${jobId} 等待处理`);
+});
+
+surgeryAnalysisQueue.on('active', (job) => {
+  console.log(`[手术队列] 任务 ${job.id} 开始处理`);
+});
+
+surgeryAnalysisQueue.on('completed', (job, result) => {
+  console.log(`[手术队列] 任务 ${job.id} 完成`);
+});
+
+surgeryAnalysisQueue.on('failed', (job, err) => {
+  console.error(`[手术队列] 任务 ${job.id} 失败:`, err && err.message);
 });
 
 // 优雅关闭

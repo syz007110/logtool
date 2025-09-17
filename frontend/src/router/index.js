@@ -35,6 +35,12 @@ const routes = [
     meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:analyze' }
   },
   {
+    path: '/surgery-visualization',
+    name: 'SurgeryVisualization',
+    component: () => import('../views/SurgeryVisualization.vue'),
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:read' }
+  },
+  {
     path: '/dashboard',
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },

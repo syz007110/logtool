@@ -54,6 +54,54 @@
         </div>
       </div>
 
+      <!-- 手术统计结果（列表） -->
+      <el-dialog v-model="showSurgeryStatsDialog" title="手术统计结果" width="900px" append-to-body>
+        <div v-if="surgeryStatsLoading" style="padding: 24px 0;">
+          <el-empty description="正在统计手术数据..." />
+        </div>
+        <div v-else>
+          <el-table :data="surgeryStats" style="width:100%">
+            <el-table-column prop="surgery_id" label="手术id" width="220" />
+            <el-table-column label="手术术式" min-width="200">
+              <template #default="{ row }">
+                {{ row?.postgresql_structure?.surgery_stats?.procedure || row?.surgery_stats?.procedure || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="手术开始时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.surgery_start_time || row.start_time) }}</template>
+            </el-table-column>
+            <el-table-column label="手术结束时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.surgery_end_time || row.end_time) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false">
+              <template #default="{ row }">
+                <el-button size="small" type="success" @click="visualizeSurgeryStat(row)">可视化</el-button>
+                <el-button size="small" @click="previewSurgeryData(row)">查看数据</el-button>
+                <el-button 
+                  v-if="hasExportPermission"
+                  size="small" type="primary" :loading="exportingRow[row.id]===true"
+                  @click="exportSurgeryRow(row)"
+                >导出</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <template #footer>
+          <el-button @click="showSurgeryStatsDialog=false">关闭</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 查看数据弹窗 -->
+      <el-dialog v-model="surgeryJsonDialogVisible" title="手术数据（PostgreSQL格式）" width="760px" append-to-body>
+        <div style="margin-bottom: 8px; color: #666; font-size: 12px;">
+          此数据格式为准备写入PostgreSQL数据库的格式
+        </div>
+        <el-input type="textarea" :rows="18" v-model="surgeryJsonText" readonly />
+        <template #footer>
+          <el-button @click="surgeryJsonDialogVisible=false">关闭</el-button>
+        </template>
+      </el-dialog>
+
       <!-- 搜索和筛选 -->
       <div class="search-section" :style="{ marginTop: '8px' }">
         <div class="search-grid">
@@ -702,6 +750,7 @@ import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close
 import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import api from '@/api'
+import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 
 export default {
   name: 'BatchAnalysis',
@@ -1739,6 +1788,12 @@ export default {
     const formatTimestamp = (timestamp) => {
       if (!timestamp) return '-'
       const date = new Date(timestamp)
+      if (serverOffsetMinutes.value !== null) {
+        // 以服务端时区为准：将本地时间偏移到服务端偏移
+        const localOffset = -date.getTimezoneOffset()
+        const delta = (serverOffsetMinutes.value - localOffset) * 60 * 1000
+        date.setTime(date.getTime() + delta)
+      }
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
@@ -1746,6 +1801,18 @@ export default {
       const minutes = String(date.getMinutes()).padStart(2, '0')
       const seconds = String(date.getSeconds()).padStart(2, '0')
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+    }
+
+    // 读取服务端时区偏移（分钟），统一前端显示
+    const serverOffsetMinutes = ref(null)
+    const loadServerTimezone = async () => {
+      try {
+        const resp = await fetch('/api/timezone')
+        const json = await resp.json()
+        if (typeof json.offsetMinutes === 'number') serverOffsetMinutes.value = json.offsetMinutes
+      } catch (_) {
+        serverOffsetMinutes.value = null
+      }
     }
 
     // 智能时间戳格式化函数
@@ -1816,18 +1883,42 @@ export default {
         return
       }
       
-      // 传递选中的日志ID到手术统计页面
+      try {
+        showSurgeryStatsDialog.value = true
+        surgeryStatsLoading.value = true
       const logIds = selectedLogs.value.map(log => log.id)
-      
-      // 设置自动分析标志
-      sessionStorage.setItem('autoAnalyze', 'true')
-      
-      // 在新窗口中打开手术统计页面，通过URL参数传递日志ID
-      const routeData = router.resolve({
-        path: '/surgery-statistics',
-        query: { logIds: logIds.join(',') }
-      })
-      window.open(routeData.href, '_blank')
+        const resp = await api.surgeryStatistics.analyzeByLogIds(logIds, true)
+
+        if (resp.data?.taskId) {
+          const taskId = resp.data.taskId
+          let attempts = 0
+          const maxAttempts = 30 // 最多轮询30秒
+          while (attempts < maxAttempts) {
+            try {
+              const status = await api.surgeryStatistics.getAnalysisTaskStatus(taskId)
+              const result = status.data?.data?.result
+              if (Array.isArray(result)) {
+                surgeryStats.value = result
+                break
+              }
+            } catch (_) {
+              // 忽略单次失败继续轮询
+            }
+            await new Promise(r => setTimeout(r, 1000))
+            attempts++
+          }
+          if (!Array.isArray(surgeryStats.value) || surgeryStats.value.length === 0) {
+            ElMessage.warning('未获取到手术统计结果，请稍后重试')
+          }
+        } else {
+          // 兼容旧版直接返回数据的情况
+          surgeryStats.value = resp.data?.data || []
+        }
+      } catch (e) {
+        ElMessage.error('手术统计失败')
+      } finally {
+        surgeryStatsLoading.value = false
+      }
     }
 
     // 模板相关
@@ -1836,6 +1927,51 @@ export default {
         const res = await api.logs.getSearchTemplates()
         templates.value = res.data.templates || []
       } catch {}
+    }
+
+    // 手术统计（仅列表显示）
+    const showSurgeryStatsDialog = ref(false)
+    const surgeryStatsLoading = ref(false)
+    const surgeryStats = ref([])
+    const exportingRow = ref({})
+    const surgeryJsonDialogVisible = ref(false)
+    const surgeryJsonText = ref('')
+
+    // 权限检查
+    const hasExportPermission = computed(() => store.getters['auth/hasPermission']?.('surgery:export'))
+
+    const visualizeSurgeryStat = (row) => {
+      // 使用统一的可视化函数
+      visualizeSurgeryData(row)
+    }
+
+    const previewSurgeryData = (row) => {
+      // 显示准备写入PostgreSQL的格式数据
+      // 优先使用 postgresql_row_preview，如果没有则使用当前行的数据（已经是PostgreSQL格式）
+      const data = row?.postgresql_row_preview || row
+      surgeryJsonText.value = JSON.stringify(data, null, 2)
+      surgeryJsonDialogVisible.value = true
+    }
+
+    const exportSurgeryRow = async (row) => {
+      if (!store.getters['auth/hasPermission']?.('surgery:export')) return
+      try {
+        exportingRow.value[row.id] = true
+        
+        // 直接传递完整的手术数据到后端
+        const response = await api.surgeryStatistics.exportSingleSurgeryData(row)
+        
+        if (response.data.success) {
+          ElMessage.success('手术数据已成功导出到PostgreSQL数据库')
+        } else {
+          ElMessage.warning(response.data.message || '导出完成，但可能未存储到数据库')
+        }
+      } catch (e) {
+        console.error('导出到PostgreSQL失败:', e)
+        ElMessage.error('导出到PostgreSQL数据库失败: ' + (e.response?.data?.message || e.message))
+      } finally {
+        exportingRow.value[row.id] = false
+      }
     }
 
     const applyTemplateByName = (name) => {
@@ -2101,7 +2237,7 @@ export default {
       try {
         // 使用统一的接口，一次性分析所有选中的日志
         const logIds = selectedLogs.value.map(log => log.id)
-        const response = await api.surgeryStatistics.analyzeByLogIds(logIds)
+        const response = await api.surgeryStatistics.analyzeByLogIds(logIds, true)
         
         if (response.data.success) {
           ElMessage.success(response.data.message || `成功分析出 ${response.data.data?.length || 0} 场手术`)
@@ -3444,6 +3580,16 @@ export default {
       formatFileSize,
       getSmartTimeFormatter,
       showSurgeryStatistics,
+      showSurgeryStatsDialog,
+      surgeryStatsLoading,
+      surgeryStats,
+      exportingRow,
+      surgeryJsonDialogVisible,
+      surgeryJsonText,
+      hasExportPermission,
+      visualizeSurgeryStat,
+      previewSurgeryData,
+      exportSurgeryRow,
       analyzeSurgeryData,
       surgeryStatisticsVisible,
       surgeryData,

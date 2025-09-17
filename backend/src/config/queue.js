@@ -26,6 +26,18 @@ const queueOptions = {
 // 创建队列实例
 const logProcessingQueue = new Queue('log-processing', queueOptions);
 
+// 手术分析队列（与日志处理分离，避免相互影响）
+const surgeryAnalysisQueue = new Queue('surgery-analysis', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    // 手术统计分析可能更耗时，适当放宽超时时间
+    timeout: parseInt(process.env.SURGERY_QUEUE_TIMEOUT_MS) || 600000,
+    removeOnComplete: 200,
+    removeOnFail: 100
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('error', (error) => {
   console.error('[队列] 队列错误:', error);
@@ -45,6 +57,7 @@ logProcessingQueue.on('stalled', (job) => {
 
 module.exports = {
   logProcessingQueue,
+  surgeryAnalysisQueue,
   redisConfig,
   queueOptions
 };

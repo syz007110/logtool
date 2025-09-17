@@ -17,26 +17,53 @@ const Surgery = postgresqlSequelize.define('Surgery', {
     unique: true,
     comment: '手术唯一标识'
   },
+  // 溯源的日志文件ID列表（PostgreSQL数组）
+  source_log_ids: {
+    type: DataTypes.ARRAY(DataTypes.INTEGER),
+    allowNull: true,
+    comment: '溯源的日志文件ID数组'
+  },
   device_ids: {
     type: DataTypes.ARRAY(DataTypes.TEXT),
     allowNull: true,
     comment: '关联的设备编号数组（字符串）'
   },
-  start_time: {
-    type: DataTypes.DATE,
+  // 起止日志条目ID范围（用于快速查看手术涉及的日志）
+  log_entry_start_id: {
+    type: DataTypes.INTEGER,
     allowNull: true,
-    comment: '手术开始时间'
+    comment: '起始日志条目ID'
+  },
+  log_entry_end_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '结束日志条目ID'
+  },
+  start_time: {
+    type: DataTypes.STRING(19),
+    allowNull: true,
+    comment: '手术开始时间 (YYYY-MM-DD HH:mm:ss UTC)'
   },
   end_time: {
-    type: DataTypes.DATE,
+    type: DataTypes.STRING(19),
     allowNull: true,
-    comment: '手术结束时间'
+    comment: '手术结束时间 (YYYY-MM-DD HH:mm:ss UTC)'
+  },
+  has_fault: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    comment: '是否发生故障'
   },
   is_remote: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false,
     comment: '是否为远程手术'
+  },
+  success: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    comment: '手术是否成功'
   },
   structured_data: {
     type: DataTypes.JSONB,
