@@ -43,6 +43,7 @@ const explanationsRouter = require('./routes/explanations');
 const queueRouter = require('./routes/queue');
 const notesRouter = require('./routes/notes');
 const permissionsRouter = require('./routes/permissions');
+const monitorRouter = require('./routes/monitor');
 const websocketService = require('./services/websocketService');
 
 // 初始化队列系统
@@ -181,6 +182,7 @@ app.use('/api/explanations', explanationsRouter);
 app.use('/api/queue', queueRouter);
 app.use('/api', notesRouter);
 app.use('/api/permissions', permissionsRouter);
+app.use('/api/monitor', monitorRouter);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
@@ -236,6 +238,41 @@ if (isMainProcess) {
           // 初始化 WebSocket 服务
           websocketService.initialize(server);
           console.log(`[进程 ${process.pid}] 🔌 WebSocket 服务已启动`);
+          
+          // 初始化监控服务
+          (async () => {
+            try {
+              const MonitorWorker = require('./workers/monitorWorker');
+              const { setMonitorServices } = require('./controllers/monitorController');
+              
+              // 创建监控工作进程
+              const monitorWorker = new MonitorWorker();
+              
+              // 设置日志处理队列
+              const logProcessingQueue = require('./workers/queueProcessor').logProcessingQueue;
+              if (logProcessingQueue) {
+                monitorWorker.setLogProcessingQueue(logProcessingQueue);
+              }
+              
+              // 初始化监控服务
+              await monitorWorker.initialize();
+              
+              // 设置监控服务实例到控制器
+              setMonitorServices(monitorWorker.directoryMonitor, monitorWorker.autoUploadProcessor);
+              
+              // 如果配置启用，则启动监控服务
+              const { isMonitorEnabled } = require('./config/monitorConfig');
+              if (isMonitorEnabled()) {
+                await monitorWorker.start();
+                console.log(`[进程 ${process.pid}] 📁 监控服务已启动`);
+              } else {
+                console.log(`[进程 ${process.pid}] 📁 监控服务已初始化（未启用）`);
+              }
+            } catch (monitorError) {
+              console.warn(`[进程 ${process.pid}] ⚠️ 监控服务初始化失败:`, monitorError.message);
+              console.warn('💡 监控功能将不可用，但其他功能正常工作');
+            }
+          })();
         });
       } catch (error) {
         console.error(`[进程 ${process.pid}] ❌ 服务器启动失败:`, error);

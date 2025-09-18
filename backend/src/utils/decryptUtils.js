@@ -363,10 +363,11 @@ function decryptLogContent(content, key) {
     }
   }
   
-  // 如果两个密钥都失败了，直接抛出解密失败错误
+  // 如果两个密钥都失败了，记录错误但不中断处理
   if (userKeyTestFailed && defaultKeyTestFailed) {
-    console.log(`❌ 解密失败：用户密钥和默认密钥都出现参数大于100000的情况`);
-    throw new Error('解密失败：用户密钥和默认密钥都出现参数大于100000的情况');
+    console.log(`❌ 解密失败：用户密钥和默认密钥都出现参数大于200000的情况，跳过此文件处理`);
+    // 返回空的日志条目数组，而不是抛出错误
+    return [];
   }
   
   // 根据测试结果选择初始密钥

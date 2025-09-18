@@ -69,8 +69,29 @@ async function processLogFile(job) {
 
     await job.progress(50);
 
+    // 如果解密失败（返回空数组），更新状态为解密失败并结束处理
     if (decryptedEntries.length === 0) {
-      throw new Error('解密后没有获得任何有效的日志条目');
+      console.log(`[日志处理] 解密失败，更新状态为解密失败: ${originalName}`);
+      await Log.update(
+        { status: 'decrypt_failed' },
+        { where: { id: logId } }
+      );
+      
+      // 更新WebSocket状态
+      try {
+        const websocketService = require('../services/websocketService');
+        websocketService.pushLogStatusChange(deviceId, logId, 'decrypt_failed', 'decrypting');
+      } catch (wsError) {
+        console.warn('WebSocket 状态推送失败:', wsError.message);
+      }
+      
+      // 返回失败结果，但不抛出错误
+      return {
+        success: false,
+        logId,
+        entriesCount: 0,
+        reason: '解密失败：无法解密文件内容'
+      };
     }
 
     // 更新状态为解析中
@@ -221,8 +242,16 @@ async function processLogFile(job) {
       console.warn('WebSocket 状态推送失败:', wsError.message);
     }
 
-    // 删除原始文件，不存储
-    fs.unlinkSync(filePath);
+    // 只有手动上传的文件才删除原文件，自动上传的文件保留
+    if (uploaderId !== null) {
+      // 手动上传的文件（有uploaderId），删除临时文件
+      fs.unlinkSync(filePath);
+      console.log(`[日志处理] 已删除手动上传的临时文件: ${originalName}`);
+    } else {
+      // 自动上传的文件（uploaderId为null），保留原文件
+      console.log(`[日志处理] 保留自动上传的原文件: ${originalName}`);
+    }
+    
     console.log(`[日志处理] 处理完成: ${originalName}`);
 
     await job.progress(100);
@@ -335,14 +364,18 @@ async function processLogFile(job) {
       console.error(`❌ 更新日志状态失败: ${updateError.message}`);
     }
     
-    // 删除临时文件
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.error(`✅ 已删除临时文件: ${filePath}`);
+    // 只有手动上传的文件才删除临时文件，自动上传的文件保留
+    if (uploaderId !== null) {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.error(`✅ 已删除手动上传的临时文件: ${filePath}`);
+        }
+      } catch (deleteError) {
+        console.error(`❌ 删除临时文件失败: ${deleteError.message}`);
       }
-    } catch (deleteError) {
-      console.error(`❌ 删除临时文件失败: ${deleteError.message}`);
+    } else {
+      console.log(`[日志处理] 保留自动上传的原文件（处理失败）: ${originalName}`);
     }
     
     throw error;
