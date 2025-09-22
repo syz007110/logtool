@@ -7,7 +7,7 @@ const Device = require('../models/device');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
-const { logProcessingQueue } = require('../config/queue');
+const { logProcessingQueue, realtimeProcessingQueue } = require('../config/queue');
 const { cacheManager } = require('../config/cache');
 const websocketService = require('../services/websocketService');
 
@@ -386,18 +386,19 @@ const uploadLog = async (req, res) => {
           console.warn('设备信息同步失败（忽略，不影响日志处理）:', e.message);
         }
 
-        // 将文件处理任务添加到队列
-        console.log(`将文件 ${file.originalname} 添加到处理队列`);
+        // 将文件处理任务添加到实时处理队列（用户请求）
+        console.log(`将文件 ${file.originalname} 添加到实时处理队列`);
         
-        const job = await logProcessingQueue.add('process-log', {
+        const job = await realtimeProcessingQueue.add('process-log', {
           filePath: file.path,
           originalName: file.originalname,
           decryptKey: decryptKey,
           deviceId: deviceId || null,
           uploaderId: req.user ? req.user.id : null,
-          logId: log.id
+          logId: log.id,
+          source: 'user-upload' // 标记来源为用户上传
         }, {
-          priority: 1, // 高优先级
+          priority: 10, // 高优先级，用户请求
           delay: 0, // 立即处理
           attempts: 1, // 只重试1次，避免重复错误
           backoff: {
@@ -2818,6 +2819,157 @@ const getVisualizationData = async (req, res) => {
   }
 };
 
+// 清理卡死的日志
+const cleanupStuckLogs = async (req, res) => {
+  try {
+    console.log('🔍 开始清理卡死的日志...');
+    
+    // 查找卡在解析中状态的日志
+    const stuckLogs = await Log.findAll({
+      where: {
+        status: ['parsing', 'uploading', 'queued', 'decrypting', 'deleting', 'delete_failed']
+      },
+      order: [['upload_time', 'ASC']]
+    });
+    
+    console.log(`📊 发现 ${stuckLogs.length} 个卡死的日志`);
+    
+    if (stuckLogs.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: '没有发现卡死的日志',
+        cleanedCount: 0,
+        failedCount: 0
+      });
+    }
+    
+    // 清理策略
+    const cleanupStrategy = {
+      parsing: 'parse_failed',      // 解析中 -> 解析失败
+      uploading: 'upload_failed',   // 上传中 -> 上传失败
+      queued: 'queue_failed',       // 队列中 -> 队列失败
+      decrypting: 'decrypt_failed', // 解密中 -> 解密失败
+      deleting: 'delete_failed',    // 删除中 -> 删除失败
+      delete_failed: 'failed'       // 删除失败 -> 通用失败（可删除）
+    };
+    
+    let cleanedCount = 0;
+    let failedCount = 0;
+    const cleanedLogs = [];
+    
+    for (const log of stuckLogs) {
+      try {
+        const oldStatus = log.status;
+        const newStatus = cleanupStrategy[log.status] || 'failed';
+        
+        // 更新日志状态
+        await log.update({
+          status: newStatus,
+          parse_time: new Date()
+        });
+        
+        // 如果是解析中的日志，清理相关的日志条目
+        if (oldStatus === 'parsing') {
+          try {
+            await LogEntry.destroy({ where: { log_id: log.id } });
+            console.log(`🧹 已清理日志 ${log.id} 的条目数据`);
+          } catch (entryError) {
+            console.warn(`⚠️ 清理日志 ${log.id} 条目数据失败:`, entryError.message);
+          }
+        }
+        
+        cleanedLogs.push({
+          id: log.id,
+          originalName: log.original_name,
+          deviceId: log.device_id,
+          oldStatus,
+          newStatus
+        });
+        
+        console.log(`✅ 日志 ${log.id} 状态已更新: ${oldStatus} -> ${newStatus}`);
+        cleanedCount++;
+        
+      } catch (error) {
+        console.error(`❌ 清理日志 ${log.id} 失败:`, error.message);
+        failedCount++;
+      }
+    }
+    
+    console.log(`📊 清理完成: 成功 ${cleanedCount} 个, 失败 ${failedCount} 个`);
+    
+    res.json({
+      success: true,
+      message: `清理完成: 成功 ${cleanedCount} 个, 失败 ${failedCount} 个`,
+      cleanedCount,
+      failedCount,
+      cleanedLogs
+    });
+    
+  } catch (error) {
+    console.error('❌ 清理卡死日志失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '清理卡死日志失败',
+      error: error.message
+    });
+  }
+};
+
+// 获取卡死日志统计
+const getStuckLogsStats = async (req, res) => {
+  try {
+    // 获取各状态的日志数量
+    const stats = await Log.findAll({
+      attributes: [
+        'status',
+        [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+      ],
+      group: ['status'],
+      raw: true
+    });
+    
+    // 检查卡死日志
+    const stuckLogs = await Log.findAll({
+      where: {
+        status: ['parsing', 'uploading', 'queued', 'decrypting', 'deleting', 'delete_failed']
+      },
+      attributes: ['id', 'original_name', 'device_id', 'status', 'upload_time'],
+      order: [['upload_time', 'ASC']]
+    });
+    
+    // 计算卡死时长
+    const now = Date.now();
+    const stuckLogsWithAge = stuckLogs.map(log => {
+      const age = log.upload_time ? Math.round((now - new Date(log.upload_time).getTime()) / 1000 / 60) : 0;
+      return {
+        id: log.id,
+        originalName: log.original_name,
+        deviceId: log.device_id,
+        status: log.status,
+        uploadTime: log.upload_time,
+        stuckMinutes: age
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        statusStats: stats,
+        stuckLogs: stuckLogsWithAge,
+        stuckCount: stuckLogs.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ 获取卡死日志统计失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取卡死日志统计失败',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getLogs,
   getLogsByDevice,
@@ -2840,5 +2992,7 @@ module.exports = {
   importSearchTemplates,
   getQueueStatus,
   executeBatchQuery,
-  getVisualizationData
+  getVisualizationData,
+  cleanupStuckLogs,
+  getStuckLogsStats
 }; 

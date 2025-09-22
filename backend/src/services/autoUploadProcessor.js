@@ -9,14 +9,19 @@ const Device = require('../models/device');
 const Log = require('../models/log');
 const { extractMacFromSystemInfo, findSystemInfoFile } = require('../utils/systemInfoParser');
 const { validateDeviceId, getDeviceInfo } = require('../utils/deviceIdExtractor');
-const { getConfig, getErrorHandlingConfig } = require('../config/monitorConfig');
+const { getConfig, getErrorHandlingConfig, getCompressionSupportConfig } = require('../config/monitorConfig');
+const ArchiveProcessor = require('../utils/archiveProcessor');
 
 class AutoUploadProcessor {
   constructor() {
     this.config = getConfig();
     this.errorConfig = getErrorHandlingConfig();
+    this.compressionConfig = getCompressionSupportConfig();
     this.logProcessingQueue = null;
     this.processedFiles = new Map(); // 记录处理状态
+    
+    // 初始化压缩文件处理器，传入配置
+    this.archiveProcessor = new ArchiveProcessor(this.compressionConfig);
   }
 
   /**
@@ -25,6 +30,77 @@ class AutoUploadProcessor {
    */
   setLogProcessingQueue(queue) {
     this.logProcessingQueue = queue;
+  }
+
+  /**
+   * 设置历史处理队列（自动上传专用）
+   * @param {Object} queue - Bull历史处理队列实例
+   */
+  setHistoricalProcessingQueue(queue) {
+    this.historicalProcessingQueue = queue;
+  }
+
+  /**
+   * 处理压缩文件自动上传
+   * @param {string} filePath - 压缩文件路径
+   * @returns {Promise<boolean>} - 处理是否成功
+   */
+  async processArchiveFile(filePath) {
+    try {
+      console.log(`开始处理压缩文件: ${filePath}`);
+      
+      // 检查压缩文件支持是否启用
+      if (!this.compressionConfig.enabled) {
+        console.warn(`压缩文件支持未启用，跳过: ${filePath}`);
+        return false;
+      }
+      
+      // 检查文件是否存在
+      if (!fs.existsSync(filePath)) {
+        console.warn(`压缩文件不存在: ${filePath}`);
+        return false;
+      }
+      
+      // 检查文件大小
+      const stats = fs.statSync(filePath);
+      const maxArchiveSize = this.compressionConfig.maxArchiveSize;
+      if (stats.size > maxArchiveSize) {
+        console.warn(`压缩文件过大，跳过处理: ${filePath} (${stats.size} bytes, 最大: ${maxArchiveSize} bytes)`);
+        return false;
+      }
+      
+      // 处理压缩文件
+      const result = await this.archiveProcessor.processArchive(filePath, async (medbotFilePath, deviceId) => {
+        if (deviceId && validateDeviceId(deviceId)) {
+          console.log(`使用压缩包设备编号 ${deviceId} 处理文件: ${medbotFilePath}`);
+          const success = await this.processMedbotFile(medbotFilePath, deviceId);
+          return { success: success, result: success ? '处理成功' : '处理失败' };
+        } else {
+          console.warn(`未提供有效设备编号，尝试从文件路径提取: ${medbotFilePath}`);
+          // 如果ArchiveProcessor没有提供设备编号，回退到从文件路径提取
+          const extractedDeviceId = extractDeviceIdFromPath(medbotFilePath);
+          if (extractedDeviceId && validateDeviceId(extractedDeviceId)) {
+            console.log(`从文件路径提取到设备编号: ${extractedDeviceId}`);
+            const success = await this.processMedbotFile(medbotFilePath, extractedDeviceId);
+            return { success: success, result: success ? '处理成功' : '处理失败' };
+          } else {
+            console.warn(`无法从文件路径提取有效设备编号: ${medbotFilePath}`);
+            return { success: false, reason: '无效的设备编号' };
+          }
+        }
+      });
+      
+      if (result.success) {
+        console.log(`成功处理压缩文件: ${filePath}, 处理了 ${result.processedFiles.length} 个文件`);
+        return true;
+      } else {
+        console.warn(`处理压缩文件失败: ${filePath}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`处理压缩文件失败: ${filePath}`, error);
+      return false;
+    }
   }
 
   /**
@@ -45,7 +121,19 @@ class AutoUploadProcessor {
 
       // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
-        console.warn(`文件不存在: ${filePath}`);
+        console.warn(`文件不存在，跳过处理: ${filePath}`);
+        return false;
+      }
+
+      // 双重检查：确保文件在加入队列前仍然存在
+      try {
+        const stats = fs.statSync(filePath);
+        if (!stats.isFile()) {
+          console.warn(`路径不是文件，跳过处理: ${filePath}`);
+          return false;
+        }
+      } catch (statError) {
+        console.warn(`文件状态检查失败，跳过处理: ${filePath}`, statError.message);
         return false;
       }
 
@@ -187,8 +275,10 @@ class AutoUploadProcessor {
    */
   async uploadLogFile(filePath, deviceId, decryptKey) {
     try {
-      if (!this.logProcessingQueue) {
-        throw new Error('日志处理队列未设置');
+      // 优先使用历史处理队列，如果没有设置则使用通用队列
+      const targetQueue = this.historicalProcessingQueue || this.logProcessingQueue;
+      if (!targetQueue) {
+        throw new Error('历史处理队列和通用队列都未设置');
       }
 
       // 检查是否已存在相同设备编号和文件名的日志记录
@@ -227,16 +317,17 @@ class AutoUploadProcessor {
         console.log(`创建新日志记录: ${log.id}`);
       }
 
-      // 添加到处理队列
-      const job = await this.logProcessingQueue.add('process-log', {
+      // 添加到历史处理队列（自动上传专用）
+      const job = await targetQueue.add('process-log', {
         filePath: filePath,
         originalName: path.basename(filePath),
         decryptKey: decryptKey,
         deviceId: deviceId,
         uploaderId: null, // 自动上传没有用户ID
-        logId: log.id
+        logId: log.id,
+        source: 'auto-upload' // 标记来源为自动上传
       }, {
-        priority: 1, // 高优先级
+        priority: 1, // 低优先级，历史处理
         delay: 0, // 立即处理
         attempts: this.errorConfig.maxRetries,
         backoff: {

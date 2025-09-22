@@ -342,7 +342,7 @@
               type="danger" 
               @click="handleDelete(row)"
               v-if="canDeleteLog(row)"
-              :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed')"
+              :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
             >
               删除
             </el-button>
@@ -794,7 +794,10 @@ export default {
                log.status === 'decrypt_failed' || 
                log.status === 'parse_failed' ||
                log.status === 'file_error' ||
-               log.status === 'failed'
+               log.status === 'failed' ||
+               log.status === 'queue_failed' ||
+               log.status === 'upload_failed' ||
+               log.status === 'delete_failed'
              )
     })
     
@@ -819,7 +822,10 @@ export default {
         log.status !== 'failed' && 
         log.status !== 'decrypt_failed' && 
         log.status !== 'parse_failed' && 
-        log.status !== 'file_error'
+        log.status !== 'file_error' &&
+        log.status !== 'queue_failed' &&
+        log.status !== 'upload_failed' &&
+        log.status !== 'delete_failed'
       )
     })
     
@@ -831,7 +837,10 @@ export default {
           log.status !== 'failed' && 
           log.status !== 'decrypt_failed' && 
           log.status !== 'parse_failed' && 
-          log.status !== 'file_error'
+          log.status !== 'file_error' &&
+          log.status !== 'queue_failed' &&
+          log.status !== 'upload_failed' &&
+          log.status !== 'delete_failed'
         ).length
         return `选中的日志中有 ${incompleteCount} 个未完成解析，请等待解析完成后再操作`
       }
@@ -1832,6 +1841,7 @@ export default {
       if (deletingIds.value.has(row.id)) return 'warning'
       const map = {
         uploading: 'warning',
+        queued: 'info',
         decrypting: 'warning',
         parsing: 'warning',
         parsed: 'success',
@@ -1849,6 +1859,7 @@ export default {
       // 根据状态返回对应的文本
       const map = {
         uploading: '日志上传中',
+        queued: '等待处理中',
         decrypting: '解密中',
         parsing: '解析中',
         parsed: '完成',
@@ -2055,7 +2066,10 @@ export default {
              log.status === 'failed' || 
              log.status === 'decrypt_failed' || 
              log.status === 'parse_failed' || 
-             log.status === 'file_error'
+             log.status === 'file_error' ||
+             log.status === 'queue_failed' ||
+             log.status === 'upload_failed' ||
+             log.status === 'delete_failed'
     }
     
     // 检查是否可以查看日志（只有完成状态的文件可以查看）

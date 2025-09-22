@@ -23,7 +23,9 @@ const {
   reparseLog,
   batchReparseLogs,
   getQueueStatus,
-  getVisualizationData
+  getVisualizationData,
+  cleanupStuckLogs,
+  getStuckLogsStats
 } = require('../controllers/logController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
@@ -94,6 +96,12 @@ router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), ana
 // 搜索模板
 router.get('/search-templates', auth, checkLogPermission('read_all'), getSearchTemplates);
 router.post('/search-templates/import', auth, checkLogPermission('read_all'), importSearchTemplates);
+
+// 清理卡死日志
+router.post('/cleanup-stuck', auth, checkPermission('log:admin'), cleanupStuckLogs);
+
+// 获取卡死日志统计
+router.get('/stuck-stats', auth, checkPermission('log:admin'), getStuckLogsStats);
 
 // 已移除：自然语言 -> 高级筛选表达式
 

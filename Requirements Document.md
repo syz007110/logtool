@@ -91,6 +91,89 @@ logTool 是一个集成故障码管理、日志上传与解析、账户与权限
 - 支持日志解密增加释义的功能；
 - 释义功能支持多版本匹配和单位换算功能；
 
+- 具备日志自动抓取上传功能，
+    - 通过外部可以配置指定的监控目录，需要监控该目录下是否有新增文件夹或子文件、子文件夹，若有新增则从新增的文件夹中扫描其子文件、子文件夹是否存在.medbot格式的文件；
+    - 从新文件文件名中尝试提取“设备编号”利用正则表达式（5G-XX或4XXX-XX），若该设备编号在数据库内，则抓取新增的.medbot文件上传解密，若设备编号无法在数据库内找到，则在新文件及其子级尝试提取systeminfo.txt文件来获取密钥，若无法获取密钥则不自动抓取.medbot；
+    - 针对压缩文件先进行解压，保存至零时目录中；定时清除，解密后再抓取日志文件上传解析；
+- 对于集群启动模式下，拥有两种模式：高峰模式、非高峰模式，无论哪种模式下都只有一个进程用于监控日志路径，用于获取文件中的新增文件夹或压缩包，获取新增文件后其他进程都可以参与日志上传的任务
+    - 集群中仅允许 **一个监控进程** 扫描目标路径，避免重复扫描或任务冲突。
+    - 监控进程负责：
+        1. 检测新增文件夹或压缩包；
+        2. 将任务写入队列（Redis + MySQL import_queue）；
+        3. 其他 Worker 进程从队列中获取任务并处理（解压、解密、解析、上传）。
+    - 高峰模式（08:00–22:00）
+        - 仅 **1 个进程**用于处理监控路径下的新增文件，称为 自动获取日志**进程**；
+        - 其余进程全部用于响应用户的实时任务。
+    - 非高峰模式（22:00–第二天08:00）
+        - **50% 的进程**用于处理历史日志任务；
+        - 其余进程继续用于响应用户实时任务。
+ - 模式切换
+    - 调度器在指定时间段自动切换 Worker 分配：
+    - 支持手动切换，手动切换位于系统监控页面
+    - 切换要求：
+        1. **优雅关停**：Worker 停止拉取新任务，等待当前任务完成后再退出；
+        2. **调度器等待机制**：确认在途任务数量 ≤ 阈值（如 10 个）后，再启动新 Worker；
+        3. **防止数据丢失/重复**：任务状态由队列 + 数据库唯一索引保证幂等。
+- 后台任务限流
+    - 为避免单批处理任务过大， 自动获取日志**进程** 每次仅允许获取**最多 5 个文件夹或压缩包**；
+    - 一批任务完成后再获取下一批；
+
+
+目前有四种队列  
+1. **logProcessingQueue** (通用队列)
+   - 处理：批量删除、批量重新解析、单个删除
+   - 并发数：3个进程
+   - 优先级：默认
+
+2. **realtimeProcessingQueue** (实时处理队列)
+   - 处理：用户手动上传的日志
+   - 并发数：2个进程
+   - 优先级：高 (priority: 10)
+
+3. **historicalProcessingQueue** (历史处理队列)
+   - 处理：自动上传的历史日志
+   - 并发数：1个进程
+   - 优先级：低 (priority: 1)
+
+4. **surgeryAnalysisQueue** (手术分析队列)
+   - 处理：手术数据统计分析
+   - 并发数：3个进程
+   - 优先级：默认
+   - 超时时间：10分钟 (600000ms)
+
+进程限定条件有：
+
+通用进程 非高峰模式50%的进程为通用进程，高峰模式：只预留一个通用进程 ，通用进程参与消费任何队列；
+用户进程 不参与历史处理队列，消费其他队列任务；
+主进程 负责监控日志自动上传目录与投递，保证只有唯一一个进程监控；
+
+flowchart TD
+  Start[监控目录检测到新文件] --> IsArchive{文件是压缩包？}
+  IsArchive -- 是 --> ExtractZip[解压到临时目录]
+  IsArchive -- 否 --> ToProcess[直接处理该文件]
+
+  ExtractZip --> ScanFiles[遍历临时目录中的每个文件]
+  ScanFiles --> ProcessFileLoop{是否还有未处理文件？}
+  ProcessFileLoop -- 有 --> NextFile[取下一个文件] --> ProcessFile
+  ProcessFileLoop -- 无 --> Cleanup[清理临时目录] --> Record[写 operation_logs（批次结果）] --> End[结束]
+
+  ToProcess --> ProcessFile
+
+   %% 子流程：处理单个文件
+  subgraph ProcessFile["处理单个日志文件"]
+    direction TB
+    ProcessFileStart[提取 Device ID（文件名/内容/元数据）] --> CheckDBKey{device_keys 表中有密钥？}
+    CheckDBKey -- 有 --> UseDBKey[从 DB 取出（后端解密/临时凭证）] --> Decrypt[解密日志文件] --> Upload[上传/解析并写 logs & log_entries]
+    CheckDBKey -- 无 --> TryExtractInFile{尝试从文件本身提取密钥？}
+    TryExtractInFile -- 成功 --> SaveKeyFromFile[保存密钥（加密存储）到 device_keys] --> Decrypt
+    TryExtractInFile -- 失败 --> CheckKeyDir{在检测到的新文件下的三级目录内找}
+   CheckKeyDir -- 成功 --> SaveKeyFromDir[保存密钥（加密存储）到 device_keys] --> Decrypt
+    CheckKeyDir -- 失败 --> Notify[记录日志]
+    Decrypt --> IfDecryptOk{解密是否成功?}
+    IfDecryptOk -- 是 --> Upload
+    IfDecryptOk -- 否 --> MarkDecryptFail[写 logs 状态为 decrypt_failed / 通知]
+  end
+
 ## 2.2 日志解密
 
 - 解密逻辑可参照（ `decode.py` ）；

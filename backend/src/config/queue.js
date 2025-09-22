@@ -26,6 +26,30 @@ const queueOptions = {
 // 创建队列实例
 const logProcessingQueue = new Queue('log-processing', queueOptions);
 
+// 实时处理队列（用户请求）- 高优先级
+const realtimeProcessingQueue = new Queue('realtime-processing', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 10, // 高优先级
+    timeout: parseInt(process.env.REALTIME_QUEUE_TIMEOUT_MS) || 300000, // 5分钟
+    removeOnComplete: 50,
+    removeOnFail: 25
+  }
+});
+
+// 历史处理队列（自动上传）- 低优先级
+const historicalProcessingQueue = new Queue('historical-processing', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 1, // 低优先级
+    timeout: parseInt(process.env.HISTORICAL_QUEUE_TIMEOUT_MS) || 600000, // 10分钟
+    removeOnComplete: 200,
+    removeOnFail: 100
+  }
+});
+
 // 手术分析队列（与日志处理分离，避免相互影响）
 const surgeryAnalysisQueue = new Queue('surgery-analysis', {
   ...queueOptions,
@@ -44,11 +68,51 @@ logProcessingQueue.on('error', (error) => {
 });
 
 logProcessingQueue.on('failed', (job, err) => {
-  console.error(`[队列] 任务 ${job.id} 失败:`, err.message);
+  console.error('[队列] 任务失败:', job.id, err.message);
 });
 
+// 实时处理队列事件监听
+realtimeProcessingQueue.on('error', (error) => {
+  console.error('[实时队列] 队列错误:', error);
+});
+
+realtimeProcessingQueue.on('failed', (job, err) => {
+  console.error('[实时队列] 任务失败:', job.id, err.message);
+});
+
+// 历史处理队列事件监听
+historicalProcessingQueue.on('error', (error) => {
+  console.error('[历史队列] 队列错误:', error);
+});
+
+historicalProcessingQueue.on('failed', (job, err) => {
+  console.error('[历史队列] 任务失败:', job.id, err.message);
+});
+
+// 手术分析队列事件监听
+surgeryAnalysisQueue.on('error', (error) => {
+  console.error('[手术分析队列] 队列错误:', error);
+});
+
+surgeryAnalysisQueue.on('failed', (job, err) => {
+  console.error('[手术分析队列] 任务失败:', job.id, err.message);
+});
+
+// 通用队列完成事件监听
 logProcessingQueue.on('completed', (job) => {
   console.log(`[队列] 任务 ${job.id} 完成`);
+});
+
+realtimeProcessingQueue.on('completed', (job) => {
+  console.log(`[实时队列] 任务 ${job.id} 完成`);
+});
+
+historicalProcessingQueue.on('completed', (job) => {
+  console.log(`[历史队列] 任务 ${job.id} 完成`);
+});
+
+surgeryAnalysisQueue.on('completed', (job) => {
+  console.log(`[手术分析队列] 任务 ${job.id} 完成`);
 });
 
 logProcessingQueue.on('stalled', (job) => {
@@ -57,6 +121,8 @@ logProcessingQueue.on('stalled', (job) => {
 
 module.exports = {
   logProcessingQueue,
+  realtimeProcessingQueue,
+  historicalProcessingQueue,
   surgeryAnalysisQueue,
   redisConfig,
   queueOptions

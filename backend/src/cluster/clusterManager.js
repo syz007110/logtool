@@ -1,7 +1,15 @@
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
+const path = require('path');
+const dotenv = require('dotenv');
+
+// 加载环境变量
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 const UserQueueManager = require('../workers/userQueueManager');
 const FairScheduler = require('../workers/fairScheduler');
+const IntelligentScheduler = require('./intelligentScheduler');
+const SmartWorker = require('../workers/smartWorker');
 
 class ClusterManager {
   constructor() {
@@ -14,6 +22,21 @@ class ClusterManager {
     this.autoRestartEnabled = process.env.AUTO_RESTART_ENABLED !== 'false';
     this.maxRestartAttempts = parseInt(process.env.MAX_RESTART_ATTEMPTS) || 5;
     this.restartDelay = parseInt(process.env.RESTART_DELAY) || 1000;
+    
+    // 检查是否启用智能调度
+    this.intelligentSchedulerEnabled = process.env.INTELLIGENT_SCHEDULER_ENABLED === 'true';
+    this.intelligentScheduler = null;
+    
+    // 进程分离配置
+    this.processSeparationEnabled = process.env.PROCESS_SEPARATION_ENABLED === 'true';
+    this.userRequestWorkers = parseInt(process.env.USER_REQUEST_WORKERS) || Math.ceil(numCPUs * 0.6);
+    this.logProcessingWorkers = parseInt(process.env.LOG_PROCESSING_WORKERS) || Math.ceil(numCPUs * 0.4);
+    
+    console.log(`[集群管理器] 进程分离: ${this.processSeparationEnabled ? '启用' : '禁用'}`);
+    if (this.processSeparationEnabled) {
+      console.log(`[集群管理器] 用户请求进程数: ${this.userRequestWorkers}`);
+      console.log(`[集群管理器] 日志处理进程数: ${this.logProcessingWorkers}`);
+    }
   }
 
   // 启动主进程
@@ -22,20 +45,43 @@ class ClusterManager {
       console.log(`[集群管理器] 主进程 ${process.pid} 启动`);
       console.log(`[集群管理器] CPU核心数: ${numCPUs}`);
       console.log(`[集群管理器] 创建工作进程数: ${this.numWorkers}`);
+      console.log(`[集群管理器] 智能调度: ${this.intelligentSchedulerEnabled ? '启用' : '禁用'}`);
 
       // 初始化用户队列管理器
       this.userQueueManager = new UserQueueManager();
 
-      // 创建公平调度器
-      this.scheduler = new FairScheduler(this.userQueueManager, this.numWorkers);
+      // 根据配置选择调度器
+      if (this.intelligentSchedulerEnabled) {
+        // 使用智能调度器
+        this.intelligentScheduler = new IntelligentScheduler();
+        this.scheduler = this.intelligentScheduler;
+        console.log(`[集群管理器] 使用智能调度器`);
+      } else {
+        // 使用传统公平调度器
+        this.scheduler = new FairScheduler(this.userQueueManager, this.numWorkers);
+        console.log(`[集群管理器] 使用传统公平调度器`);
+      }
 
-      // 为每个CPU核心创建工作进程
-      for (let i = 0; i < this.numWorkers; i++) {
-        await this.createWorker(i);
+      // 创建工作进程
+      if (this.processSeparationEnabled) {
+        // 创建分离的进程类型
+        await this.createSeparatedWorkers();
+      } else {
+        // 创建混合进程
+        for (let i = 0; i < this.numWorkers; i++) {
+          await this.createWorker(i, 'mixed');
+        }
       }
 
       // 启动调度器
       this.scheduler.start();
+
+      // 如果是智能调度器，注册工作进程
+      if (this.intelligentSchedulerEnabled && this.intelligentScheduler) {
+        for (const [workerId, worker] of this.workers) {
+          this.intelligentScheduler.registerWorker(workerId, worker);
+        }
+      }
 
       // 监控工作进程
       this.monitorWorkers();
@@ -54,12 +100,38 @@ class ClusterManager {
     }
   }
 
+  // 创建分离的工作进程
+  async createSeparatedWorkers() {
+    try {
+      let workerId = 0;
+      
+      // 创建用户请求处理进程
+      for (let i = 0; i < this.userRequestWorkers; i++) {
+        await this.createWorker(workerId, 'user-requests');
+        workerId++;
+      }
+      
+      // 创建日志处理进程
+      for (let i = 0; i < this.logProcessingWorkers; i++) {
+        await this.createWorker(workerId, 'log-processing');
+        workerId++;
+      }
+      
+      console.log(`[集群管理器] 创建分离进程完成 - 用户请求: ${this.userRequestWorkers}个, 日志处理: ${this.logProcessingWorkers}个`);
+      
+    } catch (error) {
+      console.error('[集群管理器] 创建分离工作进程失败:', error);
+      throw error;
+    }
+  }
+
   // 创建工作进程
-  async createWorker(workerId) {
+  async createWorker(workerId, processType = 'mixed') {
     try {
       const worker = cluster.fork({
         WORKER_ID: workerId,
-        WORKER_TYPE: 'queue_worker',
+        WORKER_TYPE: this.intelligentSchedulerEnabled ? 'smart' : 'queue_worker',
+        PROCESS_TYPE: processType,
         NODE_ENV: process.env.NODE_ENV || 'development'
       });
 
@@ -328,14 +400,24 @@ class ClusterManager {
       stats.status === 'ready' || stats.status === 'active'
     ).length;
 
-    const workerDetails = Array.from(this.workerStats.entries()).map(([id, stats]) => ({
-      id: parseInt(id),
-      pid: stats.pid,
-      status: stats.status,
-      startTime: stats.startTime,
-      restartCount: stats.restartCount,
-      lastHeartbeat: stats.lastHeartbeat
-    }));
+    const workerDetails = Array.from(this.workerStats.entries()).map(([id, stats]) => {
+      // 获取进程类型信息
+      let processType = 'mixed';
+      const worker = this.workers.get(id);
+      if (worker && worker.process && worker.process.env && worker.process.env.PROCESS_TYPE) {
+        processType = worker.process.env.PROCESS_TYPE;
+      }
+      
+      return {
+        id: parseInt(id),
+        pid: stats.pid,
+        status: stats.status,
+        processType: processType, // 添加进程类型
+        startTime: stats.startTime,
+        restartCount: stats.restartCount,
+        lastHeartbeat: stats.lastHeartbeat
+      };
+    });
 
     return {
       masterPid: process.pid,

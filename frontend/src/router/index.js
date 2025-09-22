@@ -143,6 +143,12 @@ const routes = [
         name: 'GlobalDashboard',
         component: () => import('../views/GlobalDashboard.vue')
       },
+      {
+        path: 'monitoring',
+        name: 'Monitoring',
+        component: () => import('../views/MonitoringDashboard.vue'),
+        meta: { requiresAdmin: true }
+      }
 
     ]
   }

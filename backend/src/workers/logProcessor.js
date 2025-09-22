@@ -39,7 +39,14 @@ async function processLogFile(job) {
 
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
-      throw new Error(`文件不存在: ${filePath}。可能原因：文件已被删除或路径错误`);
+      console.warn(`文件不存在，跳过处理: ${filePath}`);
+      // 更新日志状态为文件错误，但不抛出异常
+      await Log.update(
+        { status: 'file_error' },
+        { where: { id: logId } }
+      );
+      console.log(`✅ 已更新日志状态为 'file_error'，跳过处理`);
+      return; // 优雅退出，不抛出异常
     }
 
     // 读取文件内容

@@ -3,11 +3,14 @@
  * 支持多种设备编号格式，与现有系统完全一致
  */
 
-// 设备编号验证正则表达式（与现有系统完全一致）
-const DEVICE_ID_REGEX = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
+// 设备编号验证正则表达式
+// 支持两种格式：
+// 1. 5G-数字 格式（如：5G-07）
+// 2. 4xxx-xx 纯数字格式（如：4371-01），首位数字必须是4
+const DEVICE_ID_REGEX = /^(5G-\d+|4\d{3}-\d{2})$/;
 
 // 用于从字符串中提取设备编号的正则表达式（允许在字符串中匹配）
-const DEVICE_ID_EXTRACT_REGEX = /[0-9A-Za-z]+-[0-9A-Za-z]+/;
+const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-\d{2})/;
 
 /**
  * 从文件夹路径中提取设备编号
@@ -82,13 +85,12 @@ function extractDeviceIdFromFileName(fileName) {
  */
 function getSupportedDeviceIdFormats() {
   return [
-    '4371-01',    // 数字-数字
-    'ABC-12',     // 字母-数字
-    '123-XY',     // 数字-字母
-    'ABC-DEF',    // 字母-字母
-    '1234-56',    // 多位数字-数字
-    'A1-B2',      // 混合格式
-    'XYZ-999'     // 字母-多位数字
+    '5G-07',      // 5G-数字格式
+    '5G-01',      // 5G-数字格式
+    '5G-99',      // 5G-数字格式
+    '4371-01',    // 4xxx-xx格式（首位必须是4）
+    '4234-56',    // 4xxx-xx格式（首位必须是4）
+    '4999-99'     // 4xxx-xx格式（首位必须是4）
   ];
 }
 

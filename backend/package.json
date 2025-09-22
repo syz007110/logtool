@@ -5,8 +5,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "cluster": "node src/cluster.js",
-    "cluster:dev": "nodemon src/cluster.js",
+    "cluster": "node src/cluster/smartCluster.js",
+    "cluster:dev": "nodemon src/cluster/smartCluster.js",
     "init-roles": "node src/scripts/initRoles.js",
     "init-permissions": "node src/scripts/initPermissions.js",
     "clear-data": "node src/scripts/clearTestData.js",
@@ -20,6 +20,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "7zip-bin": "^5.1.1",
     "archiver": "^7.0.1",
     "async-sema": "^3.1.1",
     "bcryptjs": "^2.4.3",
@@ -35,11 +36,14 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.5",
+    "node-7z": "^3.0.0",
     "pg": "^8.16.3",
     "redis": "^4.6.10",
     "sequelize": "^6.35.0",
+    "tar": "^6.1.11",
     "ws": "^8.18.3",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "yauzl": "^2.10.0"
   },
   "devDependencies": {
     "nearley": "^2.20.1",

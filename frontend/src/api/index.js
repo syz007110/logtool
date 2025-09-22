@@ -223,6 +223,17 @@ const explanations = {
   preview: (payload) => api.post('/explanations/preview', payload)
 }
 
+// 监控API
+const monitoring = {
+  getOverview: () => api.get('/monitoring/overview'),
+  getMetricsHistory: (params) => api.get('/monitoring/metrics/history', { params }),
+  getRealtimeMetrics: () => api.get('/monitoring/metrics/realtime'),
+  getAlerts: () => api.get('/monitoring/alerts'),
+  getAlertsHistory: (params) => api.get('/monitoring/alerts/history', { params }),
+  setAlertThresholds: (thresholds) => api.post('/monitoring/alerts/thresholds', { thresholds }),
+  setClusterMode: (mode) => api.post('/monitoring/cluster/mode', { mode })
+}
+
 export default {
   auth,
   errorCodes,
@@ -240,5 +251,6 @@ export default {
   dashboard,
   explanations,
   notes,
-  surgeries
+  surgeries,
+  monitoring
 }

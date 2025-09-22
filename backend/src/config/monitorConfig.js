@@ -12,10 +12,13 @@ const defaultConfig = {
     "E:/microport/logtest"
   ],
   
-  // 设备编号验证规则（与现有系统完全一致）
+  // 设备编号验证规则
+  // 支持两种格式：
+  // 1. 5G-数字 格式（如：5G-07）
+  // 2. 4xxx-xx 纯数字格式（如：4371-01），首位数字必须是4
   deviceIdValidation: {
-    regex: /^[0-9A-Za-z]+-[0-9A-Za-z]+$/,
-    examples: ['4371-01', 'ABC-12', '123-XY', 'ABC-DEF', '1234-56', 'A1-B2', 'XYZ-999']
+    regex: /^(5G-\d+|4\d{3}-\d{2})$/,
+    examples: ['5G-07', '5G-01', '5G-99', '4371-01', '4234-56', '4999-99']
   },
   
   // SystemInfo文件配置
@@ -34,6 +37,17 @@ const defaultConfig = {
     supportedFileExtensions: ['.medbot'],
     maxFileSize: parseInt(process.env.AUTO_UPLOAD_MAX_FILE_SIZE) || (200 * 1024 * 1024), // 从环境变量读取
     batchSize: parseInt(process.env.AUTO_UPLOAD_BATCH_SIZE) || 10 // 从环境变量读取
+  },
+
+  // 压缩文件支持配置
+  compressionSupport: {
+    enabled: process.env.COMPRESSION_ENABLED === 'true' || true,
+    supportedFormats: ['.zip', '.tar.gz', '.7z', '.rar'],
+    maxArchiveSize: parseInt(process.env.COMPRESSION_MAX_ARCHIVE_SIZE) || (500 * 1024 * 1024), // 500MB
+    tempDirCleanupInterval: parseInt(process.env.COMPRESSION_TEMP_CLEANUP_INTERVAL) || (24 * 60 * 60 * 1000), // 24小时
+    maxTempDirs: parseInt(process.env.COMPRESSION_MAX_TEMP_DIRS) || 100,
+    require7zip: process.env.COMPRESSION_REQUIRE_7ZIP === 'true' || false, // 是否需要7zip支持
+    tempDirBase: process.env.COMPRESSION_TEMP_DIR_BASE || null // 自定义临时目录基础路径
   },
   
   // 监控服务配置
@@ -248,6 +262,14 @@ function getErrorHandlingConfig() {
 }
 
 /**
+ * 获取压缩文件支持配置
+ * @returns {Object} - 压缩文件支持配置
+ */
+function getCompressionSupportConfig() {
+  return { ...currentConfig.compressionSupport };
+}
+
+/**
  * 从环境变量加载配置
  */
 function loadFromEnv() {
@@ -334,9 +356,12 @@ function loadFromEnv() {
 
   if (Object.keys(config).length > 0) {
     updateConfig(config);
-    console.log('从环境变量加载监控配置');
-    console.log('- MONITOR_IGNORE_INITIAL:', process.env.MONITOR_IGNORE_INITIAL);
-    console.log('- 最终 ignoreInitial 值:', config.monitorService?.watchOptions?.ignoreInitial);
+    // 只在主进程或调试模式下打印配置信息
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG_MONITOR_CONFIG === 'true') {
+      console.log('从环境变量加载监控配置');
+      console.log('- MONITOR_IGNORE_INITIAL:', process.env.MONITOR_IGNORE_INITIAL);
+      console.log('- 最终 ignoreInitial 值:', config.monitorService?.watchOptions?.ignoreInitial);
+    }
   }
 }
 
@@ -359,5 +384,6 @@ module.exports = {
   getAutoUploadConfig,
   getMonitorServiceConfig,
   getErrorHandlingConfig,
+  getCompressionSupportConfig,
   loadFromEnv
 };

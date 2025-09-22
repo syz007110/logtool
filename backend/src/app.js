@@ -44,6 +44,8 @@ const queueRouter = require('./routes/queue');
 const notesRouter = require('./routes/notes');
 const permissionsRouter = require('./routes/permissions');
 const monitorRouter = require('./routes/monitor');
+const monitoringRouter = require('./routes/monitoring');
+const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 
 // 初始化队列系统
@@ -89,6 +91,10 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// 监控中间件
+app.use(apiMonitoring);
+app.use(systemMonitoring);
 
 // 应用通用速率限制（可通过环境变量禁用）
 app.use('/api', rateLimiters.general);
@@ -183,8 +189,10 @@ app.use('/api/queue', queueRouter);
 app.use('/api', notesRouter);
 app.use('/api/permissions', permissionsRouter);
 app.use('/api/monitor', monitorRouter);
+app.use('/api/monitoring', monitoringRouter);
 
 // 错误处理中间件
+app.use(errorMonitoring);
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Internal Server Error' });
@@ -248,10 +256,23 @@ if (isMainProcess) {
               // 创建监控工作进程
               const monitorWorker = new MonitorWorker();
               
+              // 初始化队列管理器
+              const queueManager = require('./services/queueManager');
+              await queueManager.initialize();
+              
               // 设置日志处理队列
-              const logProcessingQueue = require('./workers/queueProcessor').logProcessingQueue;
+              const logProcessingQueue = queueManager.getQueue('logProcessing');
               if (logProcessingQueue) {
                 monitorWorker.setLogProcessingQueue(logProcessingQueue);
+              }
+              
+              // 设置历史处理队列给自动上传处理器
+              const AutoUploadProcessor = require('./services/autoUploadProcessor');
+              const autoUploadProcessor = new AutoUploadProcessor();
+              const historicalProcessingQueue = queueManager.getQueue('historical');
+              if (historicalProcessingQueue) {
+                autoUploadProcessor.setHistoricalProcessingQueue(historicalProcessingQueue);
+                console.log(`[进程 ${process.pid}] 🔄 自动上传处理器已配置历史处理队列`);
               }
               
               // 初始化监控服务
@@ -267,6 +288,7 @@ if (isMainProcess) {
                 console.log(`[进程 ${process.pid}] 📁 监控服务已启动`);
               } else {
                 console.log(`[进程 ${process.pid}] 📁 监控服务已初始化（未启用）`);
+                console.log(`[进程 ${process.pid}] 📁 请检查 backend/.env: MONITOR_ENABLED、MONITOR_DIRECTORIES、MONITOR_IGNORE_INITIAL=false`);
               }
             } catch (monitorError) {
               console.warn(`[进程 ${process.pid}] ⚠️ 监控服务初始化失败:`, monitorError.message);

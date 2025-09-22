@@ -1,4 +1,9 @@
-const { logProcessingQueue, surgeryAnalysisQueue } = require('../config/queue');
+const { 
+  logProcessingQueue, 
+  realtimeProcessingQueue, 
+  historicalProcessingQueue, 
+  surgeryAnalysisQueue 
+} = require('../config/queue');
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete } = require('./batchProcessor');
@@ -7,9 +12,13 @@ const websocketService = require('../services/websocketService');
 
 // 设置并发处理数量
 const CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 3;
-
-  console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
+const REALTIME_CONCURRENCY = parseInt(process.env.REALTIME_QUEUE_CONCURRENCY) || 2; // 实时处理并发数
+const HISTORICAL_CONCURRENCY = parseInt(process.env.HISTORICAL_QUEUE_CONCURRENCY) || 1; // 历史处理并发数
 const SURGERY_CONCURRENCY = parseInt(process.env.SURGERY_QUEUE_CONCURRENCY) || 3;
+
+console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
+console.log(`[队列系统] 启动实时处理队列，并发数: ${REALTIME_CONCURRENCY}`);
+console.log(`[队列系统] 启动历史处理队列，并发数: ${HISTORICAL_CONCURRENCY}`);
 console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
@@ -60,31 +69,99 @@ const checkStuckJobs = async () => {
 // 每5分钟检查一次卡住的任务
 setInterval(checkStuckJobs, 5 * 60 * 1000);
 
-// 注册队列处理器
+// 注册通用队列处理器（向后兼容）
 logProcessingQueue.process('process-log', CONCURRENCY, async (job) => {
-      // 减少冗余日志，只在开发环境下输出
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[队列处理器] 开始处理队列任务: ${job.id}`);
-    }
-  
+  // 减少冗余日志，只在开发环境下输出
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[通用队列处理器] 开始处理队列任务: ${job.id}`);
+  }
+
   try {
     const result = await processLogFile(job);
     // 减少冗余日志，只在开发环境下输出
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[队列处理器] 队列任务 ${job.id} 处理完成`);
+      console.log(`[通用队列处理器] 队列任务 ${job.id} 处理完成`);
     }
     return result;
   } catch (error) {
-    console.error(`[队列处理器] 队列任务 ${job.id} 处理失败:`, error);
+    console.error(`[通用队列处理器] 队列任务 ${job.id} 处理失败:`, error);
+    
+    // 如果是文件不存在错误，优雅处理
+    if (error.message.includes('文件不存在')) {
+      console.warn(`[通用队列处理器] 文件不存在，任务 ${job.id} 已跳过处理`);
+      return; // 不抛出异常，优雅退出
+    }
     
     // 如果是 Redis 键丢失错误，尝试清理任务
     if (error.message.includes('Missing key for job')) {
-      console.warn(`[队列处理器] 检测到 Redis 键丢失错误，尝试清理任务 ${job.id}`);
+      console.warn(`[通用队列处理器] 检测到 Redis 键丢失错误，尝试清理任务 ${job.id}`);
       try {
         await job.remove();
-        console.log(`[队列处理器] 已清理损坏的任务 ${job.id}`);
+        console.log(`[通用队列处理器] 已清理损坏的任务 ${job.id}`);
       } catch (cleanupError) {
-        console.error(`[队列处理器] 清理任务 ${job.id} 失败:`, cleanupError.message);
+        console.error(`[通用队列处理器] 清理任务 ${job.id} 失败:`, cleanupError.message);
+      }
+    }
+    
+    throw error;
+  }
+});
+
+// 注册实时处理队列处理器（用户请求）
+realtimeProcessingQueue.process('process-log', REALTIME_CONCURRENCY, async (job) => {
+  console.log(`[实时队列处理器] 开始处理用户请求任务: ${job.id}`);
+  
+  try {
+    const result = await processLogFile(job);
+    console.log(`[实时队列处理器] 用户请求任务 ${job.id} 处理完成`);
+    return result;
+  } catch (error) {
+    console.error(`[实时队列处理器] 用户请求任务 ${job.id} 处理失败:`, error);
+    
+    // 实时处理需要更严格的错误处理
+    if (error.message.includes('文件不存在')) {
+      console.warn(`[实时队列处理器] 文件不存在，任务 ${job.id} 已跳过处理`);
+      return;
+    }
+    
+    if (error.message.includes('Missing key for job')) {
+      console.warn(`[实时队列处理器] 检测到 Redis 键丢失错误，尝试清理任务 ${job.id}`);
+      try {
+        await job.remove();
+        console.log(`[实时队列处理器] 已清理损坏的任务 ${job.id}`);
+      } catch (cleanupError) {
+        console.error(`[实时队列处理器] 清理任务 ${job.id} 失败:`, cleanupError.message);
+      }
+    }
+    
+    throw error;
+  }
+});
+
+// 注册历史处理队列处理器（自动上传）
+historicalProcessingQueue.process('process-log', HISTORICAL_CONCURRENCY, async (job) => {
+  console.log(`[历史队列处理器] 开始处理自动上传任务: ${job.id}`);
+  
+  try {
+    const result = await processLogFile(job);
+    console.log(`[历史队列处理器] 自动上传任务 ${job.id} 处理完成`);
+    return result;
+  } catch (error) {
+    console.error(`[历史队列处理器] 自动上传任务 ${job.id} 处理失败:`, error);
+    
+    // 历史处理可以更宽松的错误处理
+    if (error.message.includes('文件不存在')) {
+      console.warn(`[历史队列处理器] 文件不存在，任务 ${job.id} 已跳过处理`);
+      return;
+    }
+    
+    if (error.message.includes('Missing key for job')) {
+      console.warn(`[历史队列处理器] 检测到 Redis 键丢失错误，尝试清理任务 ${job.id}`);
+      try {
+        await job.remove();
+        console.log(`[历史队列处理器] 已清理损坏的任务 ${job.id}`);
+      } catch (cleanupError) {
+        console.error(`[历史队列处理器] 清理任务 ${job.id} 失败:`, cleanupError.message);
       }
     }
     
@@ -206,6 +283,55 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// 角色控制：提供按队列启停的方法（仅影响本进程）
+async function startRealtime() {
+  console.log('[队列控制] 启用本进程实时处理队列');
+  await realtimeProcessingQueue.resume(true);
+}
+
+async function stopRealtime() {
+  console.log('[队列控制] 暂停本进程实时处理队列');
+  await realtimeProcessingQueue.pause(true);
+}
+
+async function startHistorical() {
+  console.log('[队列控制] 启用本进程历史处理队列');
+  await historicalProcessingQueue.resume(true);
+}
+
+async function stopHistorical() {
+  console.log('[队列控制] 暂停本进程历史处理队列');
+  await historicalProcessingQueue.pause(true);
+}
+
+async function startLogProcessing() {
+  console.log('[队列控制] 启用本进程通用处理队列');
+  await logProcessingQueue.resume(true);
+}
+
+async function stopLogProcessing() {
+  console.log('[队列控制] 暂停本进程通用处理队列');
+  await logProcessingQueue.pause(true);
+}
+
+async function startSurgery() {
+  console.log('[队列控制] 启用本进程手术分析队列');
+  await surgeryAnalysisQueue.resume(true);
+}
+
+async function stopSurgery() {
+  console.log('[队列控制] 暂停本进程手术分析队列');
+  await surgeryAnalysisQueue.pause(true);
+}
+
 module.exports = {
-  logProcessingQueue
+  logProcessingQueue,
+  startRealtime,
+  stopRealtime,
+  startHistorical,
+  stopHistorical,
+  startLogProcessing,
+  stopLogProcessing,
+  startSurgery,
+  stopSurgery
 };

@@ -11,7 +11,7 @@ echo.
 echo Please select service to start:
 echo.
 echo [1] Start Backend (Dev Mode)
-echo [2] Start Backend (Cluster Mode)
+echo [2] Start Backend (Intelligent Cluster Mode)
 echo [3] Start Frontend
 echo [4] Start All Services
 echo [5] Database Management
@@ -64,7 +64,7 @@ goto menu
 :start-backend-cluster
 cls
 echo ========================================
-echo Start Backend Service (Cluster Mode)
+echo Start Backend Service (Intelligent Cluster Mode)
 echo ========================================
 echo.
 cd backend
@@ -81,6 +81,9 @@ if not exist "node_modules" (
 echo Starting backend cluster service...
 echo Backend URL: http://localhost:3000
 echo Worker processes: Auto-detect CPU cores
+echo Intelligent scheduling: Enabled
+echo Peak hours: 08:00-01:59 (1 process for history logs)
+echo Off-peak hours: 02:00-07:00 (50% processes for history logs)
 echo.
 echo Press Ctrl+C to stop server
 echo.
@@ -152,7 +155,7 @@ if not exist "node_modules" (
     echo Installing backend dependencies...
     npm install
 )
-start "Backend Service" cmd /k "cd /d %cd% && npm run cluster"
+start "Backend Service (Intelligent Cluster)" cmd /k "cd /d %cd% && npm run cluster"
 
 timeout /t 5 /nobreak >nul
 

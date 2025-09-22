@@ -1,7 +1,7 @@
-chcp 65001
 @echo off
+chcp 65001
 echo ========================================
-echo 日志工具多进程集群启动脚本
+echo 集群启动脚本
 echo ========================================
 echo.
 
@@ -39,13 +39,23 @@ set CLUSTER_ENABLED=true
 set WORKER_PROCESSES=max
 set MAX_MEMORY_RESTART=1G
 
-echo 启动多进程集群...
+REM 智能调度配置
+set INTELLIGENT_SCHEDULER_ENABLED=true
+set PEAK_HOURS_START=8
+set PEAK_HOURS_END=1
+set OFF_PEAK_HOURS_START=2
+set OFF_PEAK_HOURS_END=7
+
+echo 启动集群...
 echo 工作进程数: 自动检测CPU核心数
 echo 内存限制: 1GB
+echo 智能调度: 启用
+echo 高峰时段: 08:00-01:59 (1个进程处理历史日志)
+echo 非高峰时段: 02:00-07:00 (50%进程处理历史日志)
 echo.
 
-REM 启动集群
-node src/cluster.js
+REM 启动集群（默认智能模式）
+node src/cluster/smartCluster.js
 
 echo.
 echo 集群已停止

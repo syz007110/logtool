@@ -7,6 +7,13 @@ if (global[processKey]) {
 }
 
 const { Sequelize } = require('sequelize');
+const path = require('path');
+const dotenv = require('dotenv');
+
+// 加载环境变量
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+// 环境变量已加载
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,

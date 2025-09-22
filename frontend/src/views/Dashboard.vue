@@ -87,6 +87,14 @@
           <span>全局看板</span>
         </a-menu-item>
         
+        <!-- 系统监控页面 - 只有管理员可以访问 -->
+        <a-menu-item v-if="isAdmin" key="/dashboard/monitoring">
+          <template #icon>
+            <MonitorOutlined />
+          </template>
+          <span>系统监控</span>
+        </a-menu-item>
+        
         <!-- 只有管理员可以看到历史记录 -->
         <a-menu-item v-if="isAdmin" key="/dashboard/history">
           <template #icon>
@@ -213,7 +221,8 @@ import {
   ToolOutlined,
   BookOutlined,
   SafetyOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  MonitorOutlined
 } from '@ant-design/icons-vue'
 
 export default {
@@ -238,7 +247,8 @@ export default {
     ToolOutlined,
     BookOutlined,
     SafetyOutlined,
-    AppstoreOutlined
+    AppstoreOutlined,
+    MonitorOutlined
   },
   setup() {
     const store = useStore()

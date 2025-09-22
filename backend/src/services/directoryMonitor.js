@@ -7,30 +7,47 @@ const chokidar = require('chokidar');
 const path = require('path');
 const fs = require('fs');
 const { extractDeviceIdFromPath, validateDeviceId } = require('../utils/deviceIdExtractor');
-const { getConfig, getMonitorServiceConfig } = require('../config/monitorConfig');
+const { getConfig, getMonitorServiceConfig, getCompressionSupportConfig } = require('../config/monitorConfig');
+const ArchiveProcessor = require('../utils/archiveProcessor');
+const BatchLimiter = require('../utils/batchLimiter');
 
 class DirectoryMonitor {
   constructor() {
     this.config = getConfig();
     this.monitorConfig = getMonitorServiceConfig();
+    this.compressionConfig = getCompressionSupportConfig();
     
-    // 调试信息：检查配置是否正确加载
-    console.log('DirectoryMonitor 配置加载状态:');
-    console.log('- config.monitorService:', !!this.config.monitorService);
-    console.log('- monitorConfig:', !!this.monitorConfig);
-    console.log('- monitorConfig.watchOptions:', !!this.monitorConfig?.watchOptions);
-    console.log('- ignoreInitial:', this.monitorConfig?.watchOptions?.ignoreInitial);
-    console.log('- scanInterval:', this.config.autoUploadConfig.scanInterval);
+    // 只在调试模式下打印详细配置信息
+    if (process.env.DEBUG_MONITOR_CONFIG === 'true') {
+      console.log('DirectoryMonitor 配置加载状态:');
+      console.log('- config.monitorService:', !!this.config.monitorService);
+      console.log('- monitorConfig:', !!this.monitorConfig);
+      console.log('- monitorConfig.watchOptions:', !!this.monitorConfig?.watchOptions);
+      console.log('- ignoreInitial:', this.monitorConfig?.watchOptions?.ignoreInitial);
+      console.log('- scanInterval:', this.config.autoUploadConfig.scanInterval);
+      console.log('- compressionSupport:', !!this.compressionConfig);
+      console.log('- compressionEnabled:', this.compressionConfig?.enabled);
+    }
     
     this.watchers = new Map();
     this.isRunning = false;
     this.processedFiles = new Map(); // 记录处理状态和文件信息
     this.autoUploadProcessor = null;
+    
+    // 批处理限流器
+    this.batchLimiter = new BatchLimiter({
+      maxBatchSize: parseInt(process.env.BACKGROUND_BATCH_SIZE) || 5,
+      batchTimeout: parseInt(process.env.BACKGROUND_BATCH_TIMEOUT) || 300000,
+      checkInterval: parseInt(process.env.BACKGROUND_BATCH_CHECK_INTERVAL) || 10000
+    });
     this.isInitialScan = true; // 标记是否为初始扫描
     this.readyWatchers = new Set(); // 跟踪已就绪的监控器
     this.scanTimer = null; // 定期扫描定时器
     this.lastScanTime = new Map(); // 记录每个目录的最后扫描时间
     this.fileSignatures = new Map(); // 记录文件签名（大小+修改时间）
+    
+    // 初始化压缩文件处理器，传入配置
+    this.archiveProcessor = new ArchiveProcessor(this.compressionConfig);
   }
 
   /**
@@ -64,6 +81,9 @@ class DirectoryMonitor {
 
     // 启动定期扫描机制
     this.startPeriodicScan();
+    
+    // 启动批处理限流器的超时检查
+    this.batchLimiter.startTimeoutCheck();
 
     this.isRunning = true;
     console.log('目录监控服务已启动（定期扫描模式）');
@@ -179,11 +199,14 @@ class DirectoryMonitor {
           if (stat.isDirectory()) {
             // 递归记录子目录中的文件签名
             await this.recordExistingFileSignatures(filePath);
-          } else if (stat.isFile() && path.extname(filePath).toLowerCase() === '.medbot') {
-            // 生成文件签名但不处理文件
-            const fileSignature = `${stat.size}-${stat.mtime.getTime()}`;
-            this.fileSignatures.set(filePath, fileSignature);
-            console.log(`记录现有文件签名: ${filePath}`);
+          } else if (stat.isFile()) {
+            const ext = path.extname(filePath).toLowerCase();
+            // 记录.medbot文件和压缩文件的签名但不处理文件
+            if (ext === '.medbot' || (this.compressionConfig.enabled && this.archiveProcessor.isArchiveFile(filePath))) {
+              const fileSignature = `${stat.size}-${stat.mtime.getTime()}`;
+              this.fileSignatures.set(filePath, fileSignature);
+              console.log(`记录现有文件签名: ${filePath}`);
+            }
           }
         } catch (statError) {
           // 忽略无法访问的文件
@@ -221,27 +244,56 @@ class DirectoryMonitor {
           if (stat.isDirectory()) {
             // 递归扫描子目录
             await this.scanNewFilesOnly(filePath, currentTime);
-          } else if (stat.isFile() && path.extname(filePath).toLowerCase() === '.medbot') {
-            // 生成文件签名（大小 + 修改时间）
-            const fileSignature = `${stat.size}-${stat.mtime.getTime()}`;
-            const lastSignature = this.fileSignatures.get(filePath);
+          } else if (stat.isFile()) {
+            const ext = path.extname(filePath).toLowerCase();
             
-            // 检查文件是否发生变化
-            const isFileChanged = lastSignature !== fileSignature;
-            const isNewFile = !lastSignature; // 从未见过的文件
-            
-            if (isNewFile || isFileChanged) {
-              newFileCount++;
-              // 更新文件签名
-              this.fileSignatures.set(filePath, fileSignature);
+            // 处理.medbot文件
+            if (ext === '.medbot') {
+              // 生成文件签名（大小 + 修改时间）
+              const fileSignature = `${stat.size}-${stat.mtime.getTime()}`;
+              const lastSignature = this.fileSignatures.get(filePath);
               
-              if (isNewFile) {
-                console.log(`发现新文件: ${filePath}`);
-              } else {
-                console.log(`检测到文件变化: ${filePath} (大小: ${stat.size}, 修改时间: ${stat.mtime.toISOString()})`);
+              // 检查文件是否发生变化
+              const isFileChanged = lastSignature !== fileSignature;
+              const isNewFile = !lastSignature; // 从未见过的文件
+              
+              if (isNewFile || isFileChanged) {
+                newFileCount++;
+                // 更新文件签名
+                this.fileSignatures.set(filePath, fileSignature);
+                
+                if (isNewFile) {
+                  console.log(`发现新文件: ${filePath}`);
+                } else {
+                  console.log(`检测到文件变化: ${filePath} (大小: ${stat.size}, 修改时间: ${stat.mtime.toISOString()})`);
+                }
+                
+                await this.handleMedbotFile(filePath);
               }
+            }
+            // 处理压缩文件
+            else if (this.compressionConfig.enabled && this.archiveProcessor.isArchiveFile(filePath)) {
+              // 生成文件签名（大小 + 修改时间）
+              const fileSignature = `${stat.size}-${stat.mtime.getTime()}`;
+              const lastSignature = this.fileSignatures.get(filePath);
               
-              await this.handleMedbotFile(filePath);
+              // 检查文件是否发生变化
+              const isFileChanged = lastSignature !== fileSignature;
+              const isNewFile = !lastSignature; // 从未见过的文件
+              
+              if (isNewFile || isFileChanged) {
+                newFileCount++;
+                // 更新文件签名
+                this.fileSignatures.set(filePath, fileSignature);
+                
+                if (isNewFile) {
+                  console.log(`发现新压缩文件: ${filePath}`);
+                } else {
+                  console.log(`检测到压缩文件变化: ${filePath} (大小: ${stat.size}, 修改时间: ${stat.mtime.toISOString()})`);
+                }
+                
+                await this.handleArchiveFile(filePath);
+              }
             }
           }
         } catch (statError) {
@@ -465,15 +517,137 @@ class DirectoryMonitor {
       if (medbotFiles.length > 0) {
         console.log(`在目录 ${dirPath} 中找到 ${medbotFiles.length} 个.medbot文件`);
         
+        // 使用批处理限流器处理目录中的.medbot文件
         for (const file of medbotFiles) {
           const filePath = path.join(dirPath, file);
-          await this.processMedbotFile(filePath, deviceId);
+          await this.batchLimiter.addTask(
+            { filePath, deviceId, type: 'medbot' },
+            async (task) => this.processMedbotFileTask(task)
+          );
         }
       } else {
         console.log(`目录 ${dirPath} 中未找到.medbot文件`);
       }
     } catch (error) {
       console.error(`扫描目录失败: ${dirPath}`, error);
+    }
+  }
+  
+  /**
+   * 批处理任务：处理.medbot文件
+   * @param {Object} task - 任务对象
+   */
+  async processMedbotFileTask(task) {
+    const { filePath, deviceId } = task;
+    
+    try {
+      console.log(`🔄 批处理任务：处理.medbot文件 ${filePath}`);
+      
+      const success = await this.processMedbotFile(filePath, deviceId);
+      
+      if (success) {
+        console.log(`✅ 批处理任务完成：.medbot文件处理成功 ${filePath}`);
+      } else {
+        console.warn(`❌ 批处理任务失败：.medbot文件处理失败 ${filePath}`);
+      }
+      
+      return success;
+      
+    } catch (error) {
+      console.error(`❌ 批处理任务异常：处理.medbot文件失败 ${filePath}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 处理压缩文件
+   * @param {string} filePath - 压缩文件路径
+   */
+  async handleArchiveFile(filePath) {
+    try {
+      console.log(`开始处理压缩文件: ${filePath}`);
+      
+      // 检查文件是否正在处理中
+      if (this.processedFiles.has(filePath)) {
+        const status = this.processedFiles.get(filePath);
+        if (status.status === 'processing') {
+          console.log(`压缩文件正在处理中，跳过: ${filePath}`);
+          return;
+        }
+      }
+
+      // 检查文件大小
+      const stats = fs.statSync(filePath);
+      const maxArchiveSize = this.compressionConfig.maxArchiveSize;
+      if (stats.size > maxArchiveSize) {
+        console.warn(`压缩文件过大，跳过处理: ${filePath} (${stats.size} bytes, 最大: ${maxArchiveSize} bytes)`);
+        return;
+      }
+
+      // 标记文件为处理中
+      this.processedFiles.set(filePath, { status: 'processing', timestamp: Date.now() });
+      
+      // 使用批处理限流器处理压缩文件
+      await this.batchLimiter.addTask(
+        { filePath, type: 'archive' },
+        async (task) => this.processArchiveFileTask(task)
+      );
+    } catch (error) {
+      console.error(`处理压缩文件失败: ${filePath}`, error);
+      // 处理失败时移除标记，允许重试
+      this.processedFiles.delete(filePath);
+    }
+  }
+  
+  /**
+   * 批处理任务：处理压缩文件
+   * @param {Object} task - 任务对象
+   */
+  async processArchiveFileTask(task) {
+    const { filePath } = task;
+    
+    try {
+      console.log(`🔄 批处理任务：处理压缩文件 ${filePath}`);
+      
+      // 处理压缩文件
+      const result = await this.archiveProcessor.processArchive(filePath, async (medbotFilePath, deviceId) => {
+        if (deviceId && validateDeviceId(deviceId)) {
+          console.log(`使用压缩包设备编号 ${deviceId} 处理文件: ${medbotFilePath}`);
+          const success = await this.processMedbotFile(medbotFilePath, deviceId);
+          return { success: success, result: success ? '处理成功' : '处理失败' };
+        } else {
+          console.warn(`未提供有效设备编号，尝试从文件路径提取: ${medbotFilePath}`);
+          // 如果ArchiveProcessor没有提供设备编号，回退到从文件路径提取
+          const extractedDeviceId = extractDeviceIdFromPath(medbotFilePath);
+          if (extractedDeviceId && validateDeviceId(extractedDeviceId)) {
+            console.log(`从文件路径提取到设备编号: ${extractedDeviceId}`);
+            const success = await this.processMedbotFile(medbotFilePath, extractedDeviceId);
+            return { success: success, result: success ? '处理成功' : '处理失败' };
+          } else {
+            console.warn(`无法从文件路径提取有效设备编号: ${medbotFilePath}`);
+            return { success: false, reason: '无效的设备编号' };
+          }
+        }
+      });
+
+      if (result && result.success) {
+        console.log(`✅ 批处理任务完成：压缩文件处理成功 ${filePath}`);
+        this.processedFiles.set(filePath, { 
+          status: 'completed', 
+          timestamp: Date.now(),
+          result: result
+        });
+      } else {
+        console.warn(`❌ 批处理任务失败：压缩文件处理失败 ${filePath}`);
+        this.processedFiles.set(filePath, { status: 'failed', timestamp: Date.now() });
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error(`❌ 批处理任务异常：处理压缩文件失败 ${filePath}`, error);
+      this.processedFiles.set(filePath, { status: 'failed', timestamp: Date.now() });
+      throw error;
     }
   }
 
@@ -537,6 +711,7 @@ class DirectoryMonitor {
       isRunning: this.isRunning,
       monitoredDirectories: Array.from(this.watchers.keys()),
       processedFilesCount: this.processedFiles.size,
+      batchLimiter: this.batchLimiter.getStatus(),
       config: {
         monitorDirectories: this.config.monitorDirectories,
         autoUploadEnabled: this.config.autoUploadConfig.enabled,
