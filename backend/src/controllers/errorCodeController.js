@@ -2,6 +2,7 @@ const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
+const errorCodeCache = require('../services/errorCodeCache');
 
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
@@ -191,6 +192,14 @@ const createErrorCode = async (req, res) => {
       }
     }
     
+    // 重新加载故障码缓存
+    try {
+      await errorCodeCache.reloadCache();
+      console.log('🔄 故障码缓存已重新加载（新增故障码后）');
+    } catch (cacheError) {
+      console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码创建:', cacheError.message);
+    }
+    
     res.status(201).json({ message: '创建成功', errorCode });
   } catch (err) {
     console.error('创建故障码失败:', err);
@@ -355,6 +364,14 @@ const updateErrorCode = async (req, res) => {
       }
     }
     
+    // 重新加载故障码缓存
+    try {
+      await errorCodeCache.reloadCache();
+      console.log('🔄 故障码缓存已重新加载（更新故障码后）');
+    } catch (cacheError) {
+      console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码更新:', cacheError.message);
+    }
+    
     res.json({ message: '更新成功', errorCode });
   } catch (err) {
     console.error('更新故障码失败:', err);
@@ -405,6 +422,14 @@ const deleteErrorCode = async (req, res) => {
       } catch (logError) {
         console.warn('记录操作日志失败，但不影响故障码删除:', logError.message);
       }
+    }
+    
+    // 重新加载故障码缓存
+    try {
+      await errorCodeCache.reloadCache();
+      console.log('🔄 故障码缓存已重新加载（删除故障码后）');
+    } catch (cacheError) {
+      console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码删除:', cacheError.message);
     }
     
     res.json({ message: '删除成功' });

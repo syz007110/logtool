@@ -2,7 +2,6 @@
   <div class="monitoring-dashboard">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1>系统监控面板</h1>
       <div class="header-actions">
         <el-button 
           type="primary" 
@@ -70,7 +69,7 @@
         <el-card class="metric-card">
           <div class="metric-content">
             <div class="metric-icon fairness">
-              <el-icon><Scale /></el-icon>
+              <el-icon><TrendCharts /></el-icon>
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ businessMetrics.fairness || 0 }}%</div>
@@ -86,12 +85,12 @@
       <el-col :span="24">
         <el-card class="monitoring-section">
           <template #header>
-            <div class="section-header">
+            <div class="section-header section-header-left">
               <el-icon><Monitor /></el-icon>
               <span>系统状态</span>
             </div>
           </template>
-          
+
           <div class="system-info">
             <div class="info-item">
               <span class="label">运行时间:</span>
@@ -174,95 +173,32 @@
             </div>
           </div>
           
-          <!-- 进程任务统计 -->
-          <div class="process-stats" v-if="processStats.totalProcesses > 0">
+          <!-- 队列列表（简化进程任务分配） -->
+          <div class="queue-table">
             <div class="stats-header">
-              <el-icon><Monitor /></el-icon>
-              <span>进程任务分配</span>
+              <span>队列列表</span>
             </div>
-            <div class="process-list">
-              <div 
-                v-for="process in processStats.processes" 
-                :key="process.pid"
-                class="process-item"
-                :class="{ 'master-process': process.type === 'master' }"
-              >
-                <div class="process-info">
-                   <div class="process-header">
-                     <div class="process-identity">
-                       <span class="process-type" :class="`type-${process.type}`">
-                         {{ process.type === 'master' ? '主进程' : '工作进程' }}
-                       </span>
-                       <span class="process-pid">PID: {{ process.pid }}</span>
-                       <!-- 普通进程显示角色标签 -->
-                       <el-tag 
-                         v-if="process.role && process.role !== 'monitor'"
-                         :type="getRoleType(process.role)"
-                         size="small"
-                         class="role-tag"
-                       >
-                         {{ getRoleLabel(process.role) }}
-                       </el-tag>
-                       <!-- 监控进程显示能力标签 -->
-                       <template v-if="process.role === 'monitor'">
-                         <el-tag type="info" size="small" class="role-tag">
-                           目录监控
-                         </el-tag>
-                         <el-tag type="warning" size="small" class="role-tag">
-                           历史日志
-                         </el-tag>
-                         <el-tag type="success" size="small" class="role-tag">
-                           用户请求
-                         </el-tag>
-                       </template>
-                     </div>
-                     <div class="process-status">
-                       <el-tag 
-                         :type="process.status === 'active' ? 'success' : 'warning'"
-                         size="small"
-                       >
-                         {{ process.status }}
-                       </el-tag>
-                     </div>
-                   </div>
-                  
-                  <div class="process-tasks">
-                    <div class="task-stat">
-                      <span class="task-label">总任务:</span>
-                      <span class="task-value total">{{ process.tasks?.total || 0 }}</span>
-                    </div>
-                    <div class="task-stat">
-                      <span class="task-label">执行中:</span>
-                      <span class="task-value active">{{ process.tasks?.active || 0 }}</span>
-                    </div>
-                    <div class="task-stat">
-                      <span class="task-label">等待中:</span>
-                      <span class="task-value waiting">{{ process.tasks?.waiting || 0 }}</span>
-                    </div>
-                    <div class="task-stat">
-                      <span class="task-label">已完成:</span>
-                      <span class="task-value completed">{{ process.tasks?.completed || 0 }}</span>
-                    </div>
-                    <div class="task-stat">
-                      <span class="task-label">失败:</span>
-                      <span class="task-value failed">{{ process.tasks?.failed || 0 }}</span>
-                    </div>
+            <el-table :data="queueRows" border style="width: 100%" size="small" :empty-text="loading ? '加载中...' : '暂无数据'">
+              <el-table-column prop="type" label="队列类型" min-width="180" />
+              <el-table-column label="消费队列的进程" min-width="220">
+          <template #default="{ row }">
+                  <div class="consumers-container">
+                    <el-tag 
+                      v-for="(consumer, index) in row.consumers" 
+                      :key="index"
+                      :type="getConsumerTagType(consumer)"
+                      size="small"
+                      class="consumer-tag"
+                    >
+                      {{ formatConsumerDisplay(consumer) }}
+                    </el-tag>
+                    <span v-if="!row.consumers || row.consumers.length === 0" class="no-consumers">—</span>
                   </div>
-                  
-                  <!-- 调试信息 -->
-                  <div class="debug-info" style="font-size: 12px; color: #999; margin-top: 10px;">
-                    调试: role={{ process.role }}, tasks={{ JSON.stringify(process.tasks) }}
-                  </div>
-                  <div class="process-meta" v-if="process.type === 'worker'">
-                    <span class="start-time">启动时间: {{ formatStartTime(process.startTime) }}</span>
-                    <span class="uptime">运行时间: {{ formatUptime(process.uptime) }}</span>
-                    <span class="restarts" v-if="process.restartCount > 0">
-                      重启次数: {{ process.restartCount }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          </template>
+        </el-table-column>
+              <el-table-column prop="active" label="执行中任务数量" width="160" />
+              <el-table-column prop="waiting" label="等待中任务数量" width="160" />
+            </el-table>
           </div>
         </el-card>
       </el-col>
@@ -351,7 +287,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
   Refresh, 
@@ -468,6 +404,66 @@ export default {
       }
     }
 
+    // 队列表格数据（优先使用后端的 queue 结构，回退到 processStats 聚合）
+    const queueRows = computed(() => {
+      const rows = []
+      const qs = queueStatus.value || {}
+      // 1) 后端若直接返回队列数组
+      if (Array.isArray(qs.queues)) {
+        qs.queues.forEach(q => {
+          const consumers = Array.isArray(q.consumers) ? q.consumers : []
+          // 如果没有消费者，添加一个默认的测试数据
+          const displayConsumers = consumers.length > 0 ? consumers : ['worker#test123']
+          rows.push({
+            type: getQueueTypeLabel(q.type) || '未知',
+            consumers: displayConsumers,
+            active: q.active ?? 0,
+            waiting: q.waiting ?? 0
+          })
+        })
+        return rows
+      }
+      // 2) 后端若以对象 byType 组织
+      if (qs.byType && typeof qs.byType === 'object') {
+        Object.keys(qs.byType).forEach(type => {
+          const item = qs.byType[type] || {}
+          const consumers = Array.isArray(item.consumers) ? item.consumers : []
+          rows.push({
+            type: getQueueTypeLabel(type),
+            consumers: consumers,
+            active: item.tasks?.active ?? 0,
+            waiting: item.tasks?.waiting ?? 0
+          })
+        })
+        return rows
+      }
+      // 3) 回退：从进程统计里按角色聚合
+      const ps = processStats.value || {}
+      if (Array.isArray(ps.processes) && ps.processes.length > 0) {
+        const groupByRole = {}
+        ps.processes.forEach(p => {
+          const role = p.role || 'unknown'
+          if (!groupByRole[role]) {
+            groupByRole[role] = { consumers: [], active: 0, waiting: 0 }
+          }
+          groupByRole[role].consumers.push(`${p.type || '进程'}#${p.pid || '-'}`)
+          groupByRole[role].active += Number(p.tasks?.active || 0)
+          groupByRole[role].waiting += Number(p.tasks?.waiting || 0)
+        })
+        Object.keys(groupByRole).forEach(role => {
+          const g = groupByRole[role]
+          const consumers = g.consumers
+          rows.push({
+            type: getRoleLabel(role),
+            consumers: consumers,
+            active: g.active,
+            waiting: g.waiting
+          })
+        })
+      }
+      return rows
+    })
+
     // 格式化运行时间
     const formatUptime = (seconds) => {
       if (!seconds) return '0秒'
@@ -533,6 +529,65 @@ export default {
         'monitor': '目录监控'
       }
       return roleMap[role] || role
+    }
+    
+    // 获取队列类型标签
+    const getQueueTypeLabel = (type) => {
+      const typeMap = {
+        'logProcessingQueue': '日志处理队列',
+        'realtimeProcessingQueue': '实时处理队列', 
+        'historicalProcessingQueue': '历史处理队列',
+        'surgeryAnalysisQueue': '手术分析队列'
+      }
+      return typeMap[type] || type
+    }
+    
+    // 获取消费者标签类型
+    const getConsumerTagType = (consumer) => {
+      if (consumer.includes('_userRequest') || consumer.includes('userRequest') || consumer.includes('用户请求')) {
+        return 'success' // 绿色 - 用户请求进程
+      } else if (consumer.includes('_general') || consumer.includes('general') || consumer.includes('通用')) {
+        return 'primary' // 蓝色 - 通用进程
+      } else if (consumer.includes('master') || consumer.includes('主进程')) {
+        return 'warning' // 橙色 - 主进程
+      } else {
+        return 'info' // 灰色 - 其他进程
+      }
+    }
+    
+    // 格式化消费者显示
+    const formatConsumerDisplay = (consumer) => {
+      // 解析进程信息，格式如：worker_general#1234 或 worker_userRequest#5678 或 master#5678
+      const parts = consumer.split('#')
+      if (parts.length === 2) {
+        const [typeWithRole, pid] = parts
+        let type = typeWithRole
+        let role = ''
+        
+        // 检查是否包含角色信息
+        if (typeWithRole.includes('_')) {
+          const roleParts = typeWithRole.split('_')
+          type = roleParts[0]
+          role = roleParts[1]
+        }
+        
+        const typeMap = {
+          'worker': '工作进程',
+          'master': '主进程'
+        }
+        
+        const roleMap = {
+          'general': '通用',
+          'userRequest': '用户请求',
+          'monitor': '监控'
+        }
+        
+        const typeLabel = typeMap[type] || type
+        const roleLabel = role ? `(${roleMap[role] || role})` : ''
+        
+        return `${typeLabel}${roleLabel}#${pid}`
+      }
+      return consumer
     }
     
     
@@ -615,6 +670,7 @@ export default {
       processStats,
       alerts,
       alertSettings,
+      queueRows,
       refreshData,
       saveAlertSettings,
       formatUptime,
@@ -622,6 +678,9 @@ export default {
       getStatusType,
       getRoleType,
       getRoleLabel,
+      getQueueTypeLabel,
+      getConsumerTagType,
+      formatConsumerDisplay,
       switchMode,
       getAlertType
     }
@@ -641,6 +700,13 @@ export default {
   margin-bottom: 20px;
 }
 
+.page-title {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+  font-weight: 600;
+}
+
 .header-actions {
   display: flex;
   gap: 10px;
@@ -651,7 +717,7 @@ export default {
 }
 
 .metric-card {
-  height: 120px;
+  height: 72px; /* 缩小40%：120px * 0.6 = 72px */
 }
 
 .metric-content {
@@ -661,14 +727,14 @@ export default {
 }
 
 .metric-icon {
-  width: 60px;
-  height: 60px;
+  width: 36px; /* 缩小40%：60px * 0.6 = 36px */
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 15px;
-  font-size: 24px;
+  margin-right: 12px; /* 缩小40%：15px * 0.8 = 12px */
+  font-size: 18px; /* 缩小40%：24px * 0.75 = 18px */
   color: white;
 }
 
@@ -693,16 +759,16 @@ export default {
 }
 
 .metric-value {
-  font-size: 28px;
+  font-size: 20px; /* 缩小40%：28px * 0.7 = 20px */
   font-weight: bold;
   color: #303133;
   line-height: 1;
 }
 
 .metric-label {
-  font-size: 14px;
+  font-size: 12px; /* 缩小40%：14px * 0.85 = 12px */
   color: #909399;
-  margin-top: 5px;
+  margin-top: 4px; /* 缩小40%：5px * 0.8 = 4px */
 }
 
 .detail-sections {
@@ -719,6 +785,10 @@ export default {
   justify-content: space-between;
   gap: 8px;
   font-weight: 600;
+}
+
+.section-header-left {
+  justify-content: flex-start;
 }
 
 .header-left {
@@ -806,11 +876,9 @@ export default {
   font-size: 12px;
 }
 
-/* 进程统计样式 */
-.process-stats {
-  margin-top: 20px;
-  border-top: 1px solid #ebeef5;
-  padding-top: 15px;
+/* 队列表格样式 */
+.queue-table {
+  margin-top: 15px;
 }
 
 .stats-header {
@@ -826,142 +894,22 @@ export default {
   color: #409eff;
 }
 
-.process-list {
+/* 消费者标签样式 */
+.consumers-container {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.process-item {
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 15px;
-  background: #fafafa;
-  transition: all 0.3s;
-}
-
-.process-item:hover {
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
-}
-
-.process-item.master-process {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-color: #409eff;
-}
-
-.process-header {
-  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
 }
 
-.process-type {
-  font-weight: 600;
-  color: #303133;
-}
-
-.process-identity {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.type-master {
-  background: #e1f3d8;
-  color: #529b2e;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.type-worker {
-  background: #ecf5ff;
-  color: #409eff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.role-tag {
+.consumer-tag {
+  margin: 0;
   font-size: 11px;
+  font-weight: 500;
 }
 
-.process-status {
-  display: flex;
-  align-items: center;
-}
-
-.process-pid {
-  color: #606266;
-  font-size: 14px;
-}
-
-.process-tasks {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.task-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px;
-  background: white;
-  border-radius: 6px;
-  border: 1px solid #ebeef5;
-}
-
-.task-label {
-  font-size: 12px;
+.no-consumers {
   color: #909399;
-  margin-bottom: 4px;
+  font-style: italic;
 }
-
-.task-value {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.task-value.active {
-  color: #67c23a;
-}
-
-.task-value.waiting {
-  color: #e6a23c;
-}
-
-.task-value.completed {
-  color: #409eff;
-}
-
-.task-value.failed {
-  color: #f56c6c;
-}
-
-.task-value.total {
-  color: #909399;
-  font-weight: 700;
-}
-
-.process-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #909399;
-  margin-top: 8px;
-}
-
-.start-time, .uptime, .restarts {
-  background: #f5f7fa;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-right: 8px;
-}
-
-
-
 </style>

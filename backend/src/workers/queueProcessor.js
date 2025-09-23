@@ -6,7 +6,7 @@ const {
 } = require('../config/queue');
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { processLogFile } = require('./logProcessor');
-const { batchReparseLogs, batchDeleteLogs, processSingleDelete } = require('./batchProcessor');
+const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog } = require('./batchProcessor');
 const Log = require('../models/log');
 const websocketService = require('../services/websocketService');
 
@@ -155,6 +155,28 @@ historicalProcessingQueue.process('process-log', HISTORICAL_CONCURRENCY, async (
       return;
     }
     
+    // 优雅处理解密失败的情况
+    if (error.message.includes('所有') && error.message.includes('行日志解析都失败了')) {
+      console.warn(`[历史队列处理器] 解密失败，任务 ${job.id} 已跳过处理（可能是密钥错误或文件格式问题）`);
+      
+      // 尝试更新日志状态为解密失败
+      try {
+        const Log = require('../models/log');
+        const { logId } = job.data;
+        if (logId) {
+          await Log.update(
+            { status: 'decrypt_failed' },
+            { where: { id: logId } }
+          );
+          console.log(`[历史队列处理器] 已更新日志状态为解密失败: ${logId}`);
+        }
+      } catch (updateError) {
+        console.warn(`[历史队列处理器] 更新日志状态失败:`, updateError.message);
+      }
+      
+      return; // 优雅退出，不抛出异常
+    }
+    
     if (error.message.includes('Missing key for job')) {
       console.warn(`[历史队列处理器] 检测到 Redis 键丢失错误，尝试清理任务 ${job.id}`);
       try {
@@ -163,9 +185,12 @@ historicalProcessingQueue.process('process-log', HISTORICAL_CONCURRENCY, async (
       } catch (cleanupError) {
         console.error(`[历史队列处理器] 清理任务 ${job.id} 失败:`, cleanupError.message);
       }
+      return; // 优雅退出
     }
     
-    throw error;
+    // 其他错误也优雅处理，避免队列阻塞
+    console.warn(`[历史队列处理器] 任务 ${job.id} 处理失败，已跳过: ${error.message}`);
+    return;
   }
 });
 
@@ -193,6 +218,16 @@ logProcessingQueue.process('batch-reparse', 1, async (job) => {
     return result;
   } catch (error) {
     console.error(`批量重新解析任务 ${job.id} 失败:`, error);
+    throw error;
+  }
+});
+
+// 注册单个重新解析处理器（用于并行化批量任务）
+logProcessingQueue.process('reparse-single', CONCURRENCY, async (job) => {
+  try {
+    return await reparseSingleLog(job);
+  } catch (error) {
+    console.error(`单个重新解析任务 ${job.id} 失败:`, error);
     throw error;
   }
 });

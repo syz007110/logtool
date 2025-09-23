@@ -6,10 +6,12 @@ const ErrorCode = require('../models/error_code');
 const Device = require('../models/device');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
-const { parseExplanation, parseExplanations } = require('../utils/explanationParser');
+const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
 const { logProcessingQueue, realtimeProcessingQueue } = require('../config/queue');
 const { cacheManager } = require('../config/cache');
 const websocketService = require('../services/websocketService');
+const errorCodeCache = require('../services/errorCodeCache');
+const { batchInsertHelper } = require('../utils/batchInsertHelper');
 
 // 通用函数：推送日志状态变化到 WebSocket
 const pushLogStatusChange = (logId, oldStatus, newStatus) => {
@@ -469,11 +471,21 @@ const parseLog = async (req, res) => {
       return res.status(400).json({ message: '未找到解密密钥，请重新上传并输入密钥' });
     }
     
+    // 预加载故障码表到缓存
+    console.log('🔄 预加载故障码表...');
+    await errorCodeCache.loadAllErrorCodes();
+    console.log('✅ 故障码表预加载完成');
+    
     // 解密日志内容
     const decryptedEntries = decryptLogContent(content, key);
     
-    // 转换为数据库格式并查询正确的释义
+    // 统一：预热解析依赖
+    await ensureCacheReady();
+
+    // 转换为数据库格式并查询正确的释义（统一解析逻辑）
     const entries = [];
+    console.log(`🚀 开始处理 ${decryptedEntries.length} 个解密后的日志条目`);
+    
     for (const entry of decryptedEntries) {
       // 根据需求，通过解密后的故障码首位+('0X'+故障码后4位)去匹配error_codes表
       const errorCodeStr = entry.error_code;
@@ -484,36 +496,19 @@ const parseLog = async (req, res) => {
         subsystem = errorCodeStr.charAt(0); // 首位
         code = '0X' + errorCodeStr.slice(-4); // '0X' + 后4位
       }
-      // 查询error_codes表获取正确的释义
-      let explanation = entry.explanation; // 默认使用原始释义
-      if (subsystem && code) {
-        try {
-          const errorCodeRecord = await ErrorCode.findOne({
-            where: { subsystem, code }
-          });
-          if (errorCodeRecord && errorCodeRecord.explanation) {
-            explanation = errorCodeRecord.explanation;
-            console.log(`解析日志原始释义: ${explanation}`);
-          }
-        } catch (error) {
-          console.error(`查询错误码释义失败: ${subsystem}${code}`, error.message);
-        }
-      }
+      // 使用缓存查询error_codes表获取正确的释义
+      let explanation = entry.explanation; // 默认使用原始释义（模板选择由统一服务完成）
       
-      // 立即解析释义中的占位符，提高效率
-      const parsedExplanation = parseExplanation(
-        explanation,
-        entry.param1, // 参数0
-        entry.param2, // 参数1
-        entry.param3, // 参数2
-        entry.param4, // 参数3
-        {
-          error_code: entry.error_code,
-          subsystem,
-          arm: errorCodeStr?.charAt(1) || null,
-          joint: errorCodeStr?.charAt(2) || null
-        }
-      );
+      // 统一解析
+      const { explanation: parsedExplanation } = renderEntryExplanation({
+        error_code: entry.error_code,
+        param1: entry.param1,
+        param2: entry.param2,
+        param3: entry.param3,
+        param4: entry.param4,
+        timestamp: entry.timestamp,
+        explanation
+      });
       
       entries.push({
         log_id: log.id,
@@ -529,10 +524,13 @@ const parseLog = async (req, res) => {
     
     console.log('解析日志释义完成，示例:', entries[0]?.explanation);
     
-    // 清空旧明细并插入新明细
-    await LogEntry.destroy({ where: { log_id: log.id } });
-    if (entries.length > 0) {
-      await LogEntry.bulkCreate(entries);
+    // 使用优化的分批插入，避免锁等待超时
+    try {
+      await batchInsertHelper.batchInsertLogEntries(entries, log.id);
+      console.log('✅ 数据库插入完成');
+    } catch (insertError) {
+      console.error('❌ 数据库插入失败:', insertError.message);
+      throw new Error(`数据库插入失败: ${insertError.message}`);
     }
     
     // 更新日志状态
@@ -1361,115 +1359,12 @@ const reparseLog = async (req, res) => {
     const log = await Log.findByPk(id);
     if (!log) return res.status(404).json({ message: '日志不存在' });
 
-    // 权限由路由中间件控制，这里不再重复校验角色，避免因 JWT 未包含角色导致误判
-
-    // 标记为解析中，便于前端显示状态
-    try {
-      const oldStatus = log.status;
-      log.status = 'parsing';
-      await log.save();
-      
-      // 推送状态变化到 WebSocket
-      pushLogStatusChange(log.id, oldStatus, 'parsing');
-    } catch (_) {}
-
-    // 读取现有明细
-    const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
-    if (!entries || entries.length === 0) {
-      return res.status(404).json({ message: '该日志没有明细可重新解析' });
-    }
-
-    // 为减少数据库查询，按 (subsystem, code) 预取 ErrorCode
-    const pairKey = (s, c) => `${s}::${c}`;
-    const requiredPairs = new Map();
-    for (const e of entries) {
-      const errorCodeStr = e.error_code || '';
-      if (errorCodeStr.length >= 5) {
-        const subsystem = errorCodeStr.charAt(0);
-        const code = '0X' + errorCodeStr.slice(-4);
-        requiredPairs.set(pairKey(subsystem, code), { subsystem, code });
-      }
-    }
-
-    const pairList = Array.from(requiredPairs.values());
-    const explanationsMap = new Map();
-    if (pairList.length > 0) {
-      for (const p of pairList) {
-        try {
-          const rec = await ErrorCode.findOne({ where: { subsystem: p.subsystem, code: p.code } });
-          if (rec && rec.explanation) {
-            explanationsMap.set(pairKey(p.subsystem, p.code), rec.explanation);
-          }
-        } catch (_) {}
-      }
-    }
-
-    // 更新释义（仅 explanation 字段）
-    let updatedCount = 0;
-    for (const e of entries) {
-      const errorCodeStr = e.error_code || '';
-      let explanationTemplate = e.explanation || '';
-      if (errorCodeStr.length >= 5) {
-        const subsystem = errorCodeStr.charAt(0);
-        const code = '0X' + errorCodeStr.slice(-4);
-        const tpl = explanationsMap.get(pairKey(subsystem, code));
-        if (tpl) explanationTemplate = tpl;
-        const parsed = parseExplanation(
-          explanationTemplate,
-          e.param1,
-          e.param2,
-          e.param3,
-          e.param4,
-          {
-            error_code: e.error_code,
-            subsystem,
-            arm: errorCodeStr?.charAt(1) || null,
-            joint: errorCodeStr?.charAt(2) || null
-          }
-        );
-        if (parsed !== e.explanation) {
-          await LogEntry.update({ explanation: parsed }, { where: { id: e.id } });
-          updatedCount += 1;
-          // 同步内存值，供后续写文件
-          e.explanation = parsed;
-        }
-      }
-    }
-
-    // 生成并覆盖本地解密文件
-    const decryptedLines = entries.map(r => {
-      const localTs = dayjs(r.timestamp).format('YYYY-MM-DD HH:mm:ss');
-      return `${localTs} ${r.error_code} ${r.param1} ${r.param2} ${r.param3} ${r.param4} ${r.explanation || ''}`;
-    }).join('\n');
-
-    let outPath = log.decrypted_path;
-    try {
-      if (!outPath) {
-        // 若之前未生成过，按设备目录与原始名推导
-        let deviceFolder = UPLOAD_DIR;
-        if (log.device_id) {
-          deviceFolder = path.join(UPLOAD_DIR, log.device_id);
-          if (!fs.existsSync(deviceFolder)) fs.mkdirSync(deviceFolder, { recursive: true });
-        }
-        const decryptedFileName = (log.original_name || `log_${log.id}.medbot`).replace('.medbot', '.txt');
-        outPath = path.join(deviceFolder, decryptedFileName);
-        log.decrypted_path = outPath;
-      }
-      fs.writeFileSync(outPath, decryptedLines, 'utf-8');
-    } catch (fileErr) {
-      console.error('写入解密文件失败:', fileErr);
-    }
-
-    // 更新日志元数据
     const oldStatus = log.status;
-    log.status = 'parsed';
-    log.parse_time = new Date();
-    await log.save();
-    
-    // 推送状态变化到 WebSocket
-    pushLogStatusChange(log.id, oldStatus, 'parsed');
+    await log.update({ status: 'parsing' });
+    pushLogStatusChange(log.id, oldStatus, 'parsing');
 
-    return res.json({ message: '重新解析完成', updated: updatedCount, total: entries.length, output: log.decrypted_path });
+    const job = await logProcessingQueue.add('batch-reparse', { logIds: [log.id], userId: req.user ? req.user.id : null });
+    return res.status(202).json({ message: '已提交重新解析任务', jobId: job.id, logId: log.id });
       } catch (err) {
       console.error('重新解析失败:', err);
       try {
@@ -1538,27 +1433,26 @@ const batchReparseLogs = async (req, res) => {
     }
     // 权限由路由中间件控制，这里不再重复校验角色
 
-    // 将批量重新解析任务添加到队列
-    console.log(`将批量重新解析任务添加到队列，日志数量: ${logIds.length}`);
-    
-    const job = await logProcessingQueue.add('batch-reparse', {
-      logIds: normalizedIds,
-      userId: req.user ? req.user.id : null
-    }, {
-      priority: 2, // 中等优先级
-      delay: 0, // 立即处理
-      attempts: 3, // 重试3次
-      backoff: {
-        type: 'exponential',
-        delay: 2000
-      }
-    });
-    
-    console.log(`批量重新解析任务已添加到队列，任务ID: ${job.id}`);
+    // 策略改为按日志拆分入队，让多进程并行消费
+    console.log(`将批量重新解析任务拆分为单日志任务，日志数量: ${normalizedIds.length}`);
+    const createdJobs = [];
+    for (const id of normalizedIds) {
+      const j = await logProcessingQueue.add('reparse-single', {
+        logId: id,
+        userId: req.user ? req.user.id : null
+      }, {
+        priority: 2,
+        delay: 0,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 }
+      });
+      createdJobs.push(j.id);
+    }
+    console.log(`已创建 ${createdJobs.length} 个单日志重新解析任务: ${createdJobs.join(', ')}`);
     
     res.json({ 
-      message: `批量重新解析任务已加入队列，任务ID: ${job.id}`, 
-      jobId: job.id,
+      message: `批量重新解析任务已拆分并加入队列`, 
+      jobIds: createdJobs,
       queued: true,
       logCount: normalizedIds.length
     });

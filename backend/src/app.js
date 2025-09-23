@@ -45,8 +45,10 @@ const notesRouter = require('./routes/notes');
 const permissionsRouter = require('./routes/permissions');
 const monitorRouter = require('./routes/monitor');
 const monitoringRouter = require('./routes/monitoring');
+const cacheRouter = require('./routes/cache');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
+const cacheInitializer = require('./services/cacheInitializer');
 
 // 初始化队列系统
 try {
@@ -190,6 +192,7 @@ app.use('/api', notesRouter);
 app.use('/api/permissions', permissionsRouter);
 app.use('/api/monitor', monitorRouter);
 app.use('/api/monitoring', monitoringRouter);
+app.use('/api/cache', cacheRouter);
 
 // 错误处理中间件
 app.use(errorMonitoring);
@@ -237,6 +240,15 @@ if (isMainProcess) {
         // 定义模型关联
         defineAssociations();
         
+        // 初始化缓存
+        try {
+          await cacheInitializer.initialize();
+          console.log(`[进程 ${process.pid}] 📚 缓存初始化完成`);
+        } catch (cacheError) {
+          console.warn(`[进程 ${process.pid}] 缓存初始化失败:`, cacheError.message);
+          console.warn('⚠️ 日志解析功能仍可正常工作，但性能可能受到影响');
+        }
+        
         // 启动HTTP服务器
         const server = app.listen(PORT, () => {
           console.log(`[进程 ${process.pid}] 🚀 服务器启动成功，端口: ${PORT}`);
@@ -266,17 +278,17 @@ if (isMainProcess) {
                 monitorWorker.setLogProcessingQueue(logProcessingQueue);
               }
               
-              // 设置历史处理队列给自动上传处理器
-              const AutoUploadProcessor = require('./services/autoUploadProcessor');
-              const autoUploadProcessor = new AutoUploadProcessor();
+              // 历史处理队列（用于自动上传）
               const historicalProcessingQueue = queueManager.getQueue('historical');
-              if (historicalProcessingQueue) {
-                autoUploadProcessor.setHistoricalProcessingQueue(historicalProcessingQueue);
-                console.log(`[进程 ${process.pid}] 🔄 自动上传处理器已配置历史处理队列`);
-              }
-              
+
               // 初始化监控服务
               await monitorWorker.initialize();
+
+              // 将历史处理队列绑定到监控服务内部的自动上传处理器实例
+              if (historicalProcessingQueue && monitorWorker.autoUploadProcessor) {
+                monitorWorker.autoUploadProcessor.setHistoricalProcessingQueue(historicalProcessingQueue);
+                console.log(`[进程 ${process.pid}] 🔄 自动上传处理器已配置历史处理队列`);
+              }
               
               // 设置监控服务实例到控制器
               setMonitorServices(monitorWorker.directoryMonitor, monitorWorker.autoUploadProcessor);

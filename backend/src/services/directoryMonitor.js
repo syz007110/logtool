@@ -36,7 +36,8 @@ class DirectoryMonitor {
     
     // 批处理限流器
     this.batchLimiter = new BatchLimiter({
-      maxBatchSize: parseInt(process.env.BACKGROUND_BATCH_SIZE) || 5,
+      maxBatchSize: parseInt(process.env.BACKGROUND_BATCH_SIZE) || 1, // 默认每次只处理1个文件夹/压缩包
+      maxQueueWaitingTasks: parseInt(process.env.BACKGROUND_MAX_QUEUE_WAITING_TASKS) || 50, // 队列中最多等待50个任务（仅用队列长度限制）
       batchTimeout: parseInt(process.env.BACKGROUND_BATCH_TIMEOUT) || 300000,
       checkInterval: parseInt(process.env.BACKGROUND_BATCH_CHECK_INTERVAL) || 10000
     });
@@ -45,6 +46,8 @@ class DirectoryMonitor {
     this.scanTimer = null; // 定期扫描定时器
     this.lastScanTime = new Map(); // 记录每个目录的最后扫描时间
     this.fileSignatures = new Map(); // 记录文件签名（大小+修改时间）
+    this.roundRobinIndex = 0; // 轮询索引：每次扫描只处理一个目录
+    this.initializedDirectories = new Set(); // 已初始化（记录过初始签名或完成首次处理）的目录
     
     // 初始化压缩文件处理器，传入配置
     this.archiveProcessor = new ArchiveProcessor(this.compressionConfig);
@@ -141,36 +144,89 @@ class DirectoryMonitor {
    */
   async performPeriodicScan() {
     try {
-      const directories = this.config.monitorDirectories;
+      const directories = this.config.monitorDirectories || [];
+      if (directories.length === 0) {
+        return;
+      }
+
       const now = Date.now();
-      
-      for (const dir of directories) {
-        // 检查目录是否存在
-        if (!fs.existsSync(dir)) {
-          continue;
+
+      // 选择一个目录（轮询），确保目录存在
+      let attempts = 0;
+      let selectedDir = null;
+      while (attempts < directories.length) {
+        const idx = this.roundRobinIndex % directories.length;
+        const dir = directories[idx];
+        this.roundRobinIndex = (this.roundRobinIndex + 1) % directories.length;
+        attempts++;
+        if (fs.existsSync(dir)) {
+          selectedDir = dir;
+          break;
         }
-        
-        // 如果是初始扫描且设置了忽略初始扫描，则跳过处理但记录文件签名
-        if (this.isInitialScan) {
-          const ignoreInitial = this.monitorConfig?.watchOptions?.ignoreInitial || false;
-          if (ignoreInitial) {
-            console.log(`忽略初始扫描，跳过目录: ${dir}`);
-            // 设置初始扫描时间，但不扫描文件
-            this.lastScanTime.set(dir, now);
-            // 记录现有文件的签名，但不处理它们
-            await this.recordExistingFileSignatures(dir);
-            continue;
+      }
+
+      if (!selectedDir) {
+        return;
+      }
+
+      const ignoreInitial = this.monitorConfig?.watchOptions?.ignoreInitial || false;
+
+      // 初始扫描且忽略：只记录签名，不入队
+      if (this.isInitialScan && ignoreInitial && !this.initializedDirectories.has(selectedDir)) {
+        console.log(`忽略初始扫描，跳过目录: ${selectedDir}`);
+        this.lastScanTime.set(selectedDir, now);
+        await this.recordExistingFileSignatures(selectedDir);
+        this.initializedDirectories.add(selectedDir);
+      } else {
+        // 收集该目录的新 .medbot 文件（递归）
+        const newFiles = await this.collectNewMedbotFiles(selectedDir, now);
+
+        if (newFiles.length > 0) {
+          // 计算当前可用队列空间，避免一次性入队超过限制
+          const status = this.batchLimiter.getStatus();
+          const maxWaiting = status?.config?.maxQueueWaitingTasks ?? 50;
+          const pending = status?.pendingTasks ?? 0;
+          const availableSlots = Math.max(0, maxWaiting - pending);
+          const filesToEnqueue = newFiles.slice(0, availableSlots);
+
+          if (filesToEnqueue.length === 0) {
+            console.log(`队列已满 (${pending}/${maxWaiting})，本轮不入队，目录: ${selectedDir}`);
+          } else {
+            // 先尝试从目录提取统一设备编号
+            const dirDeviceId = extractDeviceIdFromPath(selectedDir);
+            if (dirDeviceId && validateDeviceId(dirDeviceId)) {
+              // 使用批处理限流器：按目录一次入队，受队列长度限制（默认为50）
+              await this.batchLimiter.addDirectoryFiles(
+                selectedDir,
+                filesToEnqueue,
+                async (task) => this.processMedbotFileTask(task),
+                dirDeviceId
+              );
+            } else {
+              // 无法从目录获得有效设备号：逐文件提取设备号并入队（同样受队列长度限制）
+              for (const filePath of filesToEnqueue) {
+                const fileDeviceId = extractDeviceIdFromPath(filePath);
+                if (fileDeviceId && validateDeviceId(fileDeviceId)) {
+                  await this.batchLimiter.addTask(
+                    { filePath, deviceId: fileDeviceId, type: 'medbot', directoryPath: selectedDir },
+                    async (task) => this.processMedbotFileTask(task)
+                  );
+                } else {
+                  console.warn(`无法为文件解析有效设备编号，跳过入队: ${filePath}`);
+                }
+              }
+            }
           }
         }
-        
-        // 只扫描自上次扫描以来的新文件
-        await this.scanNewFilesOnly(dir, now);
+
+        // 更新最后扫描时间，并标记该目录已初始化
+        this.lastScanTime.set(selectedDir, now);
+        this.initializedDirectories.add(selectedDir);
       }
-      
-      // 如果是初始扫描，标记为完成
-      if (this.isInitialScan) {
+
+      // 如果所有目录都已初始化，结束初始扫描阶段
+      if (this.isInitialScan && this.initializedDirectories.size >= directories.length) {
         this.isInitialScan = false;
-        const ignoreInitial = this.monitorConfig?.watchOptions?.ignoreInitial || false;
         if (ignoreInitial) {
           console.log('初始扫描已跳过（忽略现有文件）');
         } else {
@@ -216,6 +272,77 @@ class DirectoryMonitor {
     } catch (error) {
       console.error(`记录文件签名失败: ${dirPath}`, error);
     }
+  }
+
+  /**
+   * 收集目录中“新出现或已变化”的 .medbot 文件（递归）
+   * 同时更新签名，返回需要入队处理的文件列表
+   * @param {string} dirPath
+   * @param {number} currentTime
+   * @returns {Promise<string[]>}
+   */
+  async collectNewMedbotFiles(dirPath, currentTime) {
+    const collected = [];
+    try {
+      const entries = fs.readdirSync(dirPath);
+      
+      // 清理已删除文件的签名记录
+      const currentFiles = new Set();
+      
+      for (const entry of entries) {
+        const entryPath = path.join(dirPath, entry);
+        let stat;
+        try {
+          stat = fs.statSync(entryPath);
+        } catch {
+          continue;
+        }
+
+        if (stat.isDirectory()) {
+          const subCollected = await this.collectNewMedbotFiles(entryPath, currentTime);
+          if (subCollected.length > 0) {
+            collected.push(...subCollected);
+          }
+        } else if (stat.isFile()) {
+          const ext = path.extname(entryPath).toLowerCase();
+          if (ext === '.medbot') {
+            currentFiles.add(entryPath);
+            
+            // 基于修改时间的优化：如果文件修改时间早于上次扫描时间，跳过
+            const lastScanTime = this.lastScanTime.get(dirPath) || 0;
+            if (lastScanTime > 0 && stat.mtime.getTime() < lastScanTime) {
+              continue; // 跳过未修改的文件
+            }
+            
+            const fileSignature = `${stat.size}-${stat.mtime.getTime()}`;
+            const lastSignature = this.fileSignatures.get(entryPath);
+            const isFileChanged = lastSignature !== fileSignature;
+            const isNewFile = !lastSignature;
+            
+            if (isNewFile || isFileChanged) {
+              this.fileSignatures.set(entryPath, fileSignature);
+              collected.push(entryPath);
+              console.log(`发现文件变化: ${entryPath} (${isNewFile ? '新文件' : '文件已修改'}) - 修改时间: ${stat.mtime.toISOString()}`);
+            }
+          }
+        }
+      }
+      
+      // 清理已删除文件的签名记录
+      for (const [filePath, signature] of this.fileSignatures) {
+        if (filePath.startsWith(dirPath) && !currentFiles.has(filePath)) {
+          this.fileSignatures.delete(filePath);
+          console.log(`清理已删除文件的签名: ${filePath}`);
+        }
+      }
+      
+    } catch (err) {
+      console.error(`收集新文件失败: ${dirPath}`, err);
+    }
+    if (collected.length > 0) {
+      console.log(`目录 ${dirPath} 收集到 ${collected.length} 个待入队的.medbot文件`);
+    }
+    return collected;
   }
 
   /**
@@ -517,14 +644,16 @@ class DirectoryMonitor {
       if (medbotFiles.length > 0) {
         console.log(`在目录 ${dirPath} 中找到 ${medbotFiles.length} 个.medbot文件`);
         
-        // 使用批处理限流器处理目录中的.medbot文件
-        for (const file of medbotFiles) {
-          const filePath = path.join(dirPath, file);
-          await this.batchLimiter.addTask(
-            { filePath, deviceId, type: 'medbot' },
-            async (task) => this.processMedbotFileTask(task)
-          );
-        }
+        // 构建完整的文件路径列表
+        const fullFilePaths = medbotFiles.map(file => path.join(dirPath, file));
+        
+        // 使用新的批处理限流器方法，限制单次处理的文件数量
+        await this.batchLimiter.addDirectoryFiles(
+          dirPath,
+          fullFilePaths,
+          async (task) => this.processMedbotFileTask(task),
+          deviceId
+        );
       } else {
         console.log(`目录 ${dirPath} 中未找到.medbot文件`);
       }

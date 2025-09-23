@@ -115,6 +115,10 @@ CREATE TABLE IF NOT EXISTS logs (
   remark TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE logs 
+  ADD COLUMN source_type ENUM('auto','upload') DEFAULT 'auto' AFTER filepath_hash,
+  ADD COLUMN content_hash VARCHAR(64) NULL AFTER source_type;
+  
 -- 8. 日志解密后内容表
 CREATE TABLE IF NOT EXISTS log_entries (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -217,6 +221,17 @@ CREATE TABLE `log_notes` (
   INDEX (`log_entry_id`),                               -- 为查询日志相关的备注添加索引
   INDEX (`user_id`)                                    -- 为查询某用户的备注添加索引
 );
+-- 记录文件夹/压缩包的处理进度
+CREATE TABLE log_import_progress (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  folder_path VARCHAR(255) NOT NULL,
+  total_files INT,
+  processed_files INT,
+  status ENUM('pending','processing','done','failed'),
+  last_processed_file VARCHAR(255),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 
 
 -- 14. 手术统计相关表（MySQL兼容版本）

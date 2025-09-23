@@ -318,6 +318,76 @@ class MonitoringController {
         }
       }
 
+      // 根据进程角色分配队列消费者
+      const getQueueConsumers = (queueType) => {
+        const consumers = [];
+        if (queueStats.processStats && queueStats.processStats.processes) {
+          queueStats.processStats.processes.forEach(process => {
+            if (process.type === 'worker') {
+              let shouldConsume = false;
+              
+              // 根据进程角色和队列类型判断是否消费该队列
+              if (queueType === 'logProcessingQueue') {
+                // 通用进程和用户进程都可以消费日志处理队列
+                shouldConsume = process.role === 'general' || process.role === 'userRequest' || !process.role;
+              } else if (queueType === 'realtimeProcessingQueue') {
+                // 通用进程和用户进程都可以消费实时队列
+                shouldConsume = process.role === 'general' || process.role === 'userRequest' || !process.role;
+              } else if (queueType === 'historicalProcessingQueue') {
+                // 只有通用进程消费历史队列（用户进程不参与）
+                shouldConsume = process.role === 'general' || !process.role;
+              } else if (queueType === 'surgeryAnalysisQueue') {
+                // 通用进程和用户进程都可以消费手术分析队列
+                shouldConsume = process.role === 'general' || process.role === 'userRequest' || !process.role;
+              }
+              
+              if (shouldConsume) {
+                // 包含进程类型、角色和PID信息，格式：type_role#pid
+                const roleInfo = process.role ? `_${process.role}` : '';
+                consumers.push(`${process.type}${roleInfo}#${process.pid}`);
+              }
+            }
+          });
+        }
+        return consumers;
+      };
+
+      // 按队列类型分组返回数据
+      const queues = [
+        {
+          type: 'logProcessingQueue',
+          waiting: logWaiting.length,
+          active: logActive.length,
+          completed: logCompleted.length,
+          failed: logFailed.length,
+          consumers: getQueueConsumers('logProcessingQueue')
+        },
+        {
+          type: 'realtimeProcessingQueue',
+          waiting: realtimeWaiting.length,
+          active: realtimeActive.length,
+          completed: realtimeCompleted.length,
+          failed: realtimeFailed.length,
+          consumers: getQueueConsumers('realtimeProcessingQueue')
+        },
+        {
+          type: 'historicalProcessingQueue',
+          waiting: historicalWaiting.length,
+          active: historicalActive.length,
+          completed: historicalCompleted.length,
+          failed: historicalFailed.length,
+          consumers: getQueueConsumers('historicalProcessingQueue')
+        },
+        {
+          type: 'surgeryAnalysisQueue',
+          waiting: surgeryWaiting.length,
+          active: surgeryActive.length,
+          completed: surgeryCompleted.length,
+          failed: surgeryFailed.length,
+          consumers: getQueueConsumers('surgeryAnalysisQueue')
+        }
+      ];
+
       return {
         summary: {
           totalJobs: queueStats.totalJobs,
@@ -333,7 +403,8 @@ class MonitoringController {
           idle: schedulerStatus?.idleWorkers || 0
         },
         userQueues: Object.keys(queueStats.userQueues).length,
-        processStats: queueStats.processStats // 添加进程统计
+        processStats: queueStats.processStats, // 添加进程统计
+        queues: queues // 添加按队列类型分组的数据
       };
     } catch (error) {
       console.error('[监控控制器] 获取队列状态失�?', error);
@@ -368,6 +439,12 @@ class MonitoringController {
             tasks: { active: 0, waiting: 0, completed: 0, failed: 0, total: 0 }
           }]
         },
+        queues: [
+          { type: 'logProcessingQueue', waiting: 0, active: 0, completed: 0, failed: 0, consumers: ['master#' + process.pid] },
+          { type: 'realtimeProcessingQueue', waiting: 0, active: 0, completed: 0, failed: 0, consumers: [] },
+          { type: 'historicalProcessingQueue', waiting: 0, active: 0, completed: 0, failed: 0, consumers: ['master#' + process.pid] },
+          { type: 'surgeryAnalysisQueue', waiting: 0, active: 0, completed: 0, failed: 0, consumers: ['master#' + process.pid] }
+        ],
         error: error.message
       };
     }

@@ -47,6 +47,15 @@ class EnhancedClusterManager {
       // 监控工作进程
       this.monitorWorkers();
       
+      // 首次创建完成后，立即进行一次角色分配，避免在队列非空时初始切换阻塞
+      try {
+        const initialMode = this.scheduler.currentMode || this.scheduler.getCurrentTimeBasedMode();
+        await this.scheduler.reallocateWorkers(initialMode);
+        console.log(`[集群管理器] 初始角色分配完成，模式: ${initialMode}`);
+      } catch (e) {
+        console.warn('[集群管理器] 初始角色分配失败（将由定时调度修复）:', e && e.message);
+      }
+
       // 启动健康检查
       this.startHealthCheck();
       
@@ -294,7 +303,7 @@ class EnhancedClusterManager {
       console.log('='.repeat(60));
       console.log('📊 集群状态报告');
       console.log('='.repeat(60));
-      console.log(`当前模式: ${schedulerStatus.currentMode}`);
+      console.log(`当前模式: ${schedulerStatus.displayMode || schedulerStatus.currentMode || schedulerStatus.autoMode}`);
       console.log(`是否切换中: ${schedulerStatus.isTransitioning ? '是' : '否'}`);
       console.log(`工作进程数: ${workerCount}`);
       console.log(`通用进程: ${schedulerStatus.workers.general}`);

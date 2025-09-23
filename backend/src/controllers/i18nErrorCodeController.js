@@ -6,6 +6,7 @@ const { logOperation } = require('../utils/operationLogger');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
+const errorCodeCache = require('../services/errorCodeCache');
 
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
@@ -154,6 +155,14 @@ const upsertI18nErrorCode = async (req, res) => {
       }
     }
     
+    // 重新加载故障码缓存（多语言故障码增删改后）
+    try {
+      await errorCodeCache.reloadCache();
+      console.log('🔄 故障码缓存已重新加载（多语言故障码操作后）');
+    } catch (cacheError) {
+      console.warn('⚠️ 重新加载故障码缓存失败，但不影响多语言故障码操作:', cacheError.message);
+    }
+    
     res.json({ 
       message: existing ? '更新成功' : '创建成功', 
       i18nErrorCode 
@@ -200,6 +209,14 @@ const deleteI18nErrorCode = async (req, res) => {
       } catch (logError) {
         console.warn('记录操作日志失败，但不影响多语言故障码删除:', logError.message);
       }
+    }
+    
+    // 重新加载故障码缓存（删除多语言故障码后）
+    try {
+      await errorCodeCache.reloadCache();
+      console.log('🔄 故障码缓存已重新加载（删除多语言故障码后）');
+    } catch (cacheError) {
+      console.warn('⚠️ 重新加载故障码缓存失败，但不影响多语言故障码删除:', cacheError.message);
     }
     
     res.json({ message: '删除成功' });
@@ -312,6 +329,14 @@ const batchImportI18nErrorCodes = async (req, res) => {
       } catch (logError) {
         console.warn('记录操作日志失败，但不影响批量导入:', logError.message);
       }
+    }
+    
+    // 重新加载故障码缓存（多语言内容更新后）
+    try {
+      await errorCodeCache.reloadCache();
+      console.log('🔄 故障码缓存已重新加载（批量导入多语言故障码后）');
+    } catch (cacheError) {
+      console.warn('⚠️ 重新加载故障码缓存失败，但不影响批量导入:', cacheError.message);
     }
     
     res.json({
@@ -589,6 +614,14 @@ const uploadCSV = async (req, res) => {
             } catch (logError) {
               console.warn('记录操作日志失败，但不影响CSV批量导入:', logError.message);
             }
+          }
+          
+          // 重新加载故障码缓存（CSV批量导入后）
+          try {
+            await errorCodeCache.reloadCache();
+            console.log('🔄 故障码缓存已重新加载（CSV批量导入多语言故障码后）');
+          } catch (cacheError) {
+            console.warn('⚠️ 重新加载故障码缓存失败，但不影响CSV批量导入:', cacheError.message);
           }
           
           // 如果有错误，返回部分成功的结果

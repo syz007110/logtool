@@ -2,11 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
-const { parseExplanation } = require('../utils/explanationParser');
+const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
 const Log = require('../models/log');
 const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
 const Device = require('../models/device');
+const errorCodeCache = require('../services/errorCodeCache');
+const { batchInsertHelper } = require('../utils/batchInsertHelper');
+const { streamLogProcessor } = require('../utils/streamLogProcessor');
 
 // 上传目录
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
@@ -36,6 +39,11 @@ async function processLogFile(job) {
   try {
     // 更新任务进度
     await job.progress(10);
+
+    // 预加载故障码表/解析依赖
+    console.log('🔄 预加载解析依赖...');
+    await ensureCacheReady();
+    console.log('✅ 解析依赖预加载完成');
 
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
@@ -115,48 +123,41 @@ async function processLogFile(job) {
       console.warn('WebSocket 状态推送失败:', wsError.message);
     }
 
-    // 转换为数据库格式并存储，同时查询正确的释义和解析占位符
-    const entries = [];
+    // 选择处理方式：流式处理 vs 传统处理（支持 env 阈值）
+    const largeThreshold = Number.isFinite(parseInt(process.env.STREAM_LARGE_FILE_THRESHOLD, 10))
+      ? parseInt(process.env.STREAM_LARGE_FILE_THRESHOLD, 10)
+      : 20000;
+    const useStreamProcessing = process.env.USE_STREAM_PROCESSING === 'true' || 
+                               decryptedEntries.length > largeThreshold;
+
+    let entries = []; // 初始化entries变量，确保在两种模式下都可用
+
+    if (useStreamProcessing) {
+      console.log('🌊 使用流式处理模式（大文件或配置启用）');
+      
+      // 流式处理
+      const t0 = Date.now();
+      const result = await streamLogProcessor.processLogFile(filePath, decryptKey, logId);
+      console.log(`⏱️ 流式处理耗时: ${Date.now() - t0}ms`);
+      
+      if (!result.success) {
+        throw new Error(`流式处理失败: 成功 ${result.successLines} 条，失败 ${result.errorLines} 条`);
+      }
+      
+      // 使用流式处理返回的条目
+      entries = result.allProcessedEntries || [];
+      console.log(`✅ 流式处理完成，处理了 ${result.totalEntries} 条记录`);
+      
+    } else {
+      console.log('📦 使用传统批量处理模式');
+      
+      // 传统处理方式
+      const t0 = Date.now();
+      // 转换为数据库格式并存储，同时查询正确的释义和解析占位符（统一解析服务）
+      console.log(`🚀 开始处理 ${decryptedEntries.length} 个解密后的日志条目`);
+    
     for (const entry of decryptedEntries) {
-      // 根据需求，通过解密后的故障码首位+('0X'+故障码后4位)去匹配error_codes表
-      const errorCodeStr = entry.error_code;
-      let subsystem = '';
-      let code = '';
-      
-      if (errorCodeStr && errorCodeStr.length >= 5) {
-        subsystem = errorCodeStr.charAt(0); // 首位
-        code = '0X' + errorCodeStr.slice(-4); // '0X' + 后4位
-      }
-      
-      // 查询error_codes表获取正确的释义
-      let explanation = entry.explanation; // 默认使用原始释义
-      if (subsystem && code) {
-        try {
-          const errorCodeRecord = await ErrorCode.findOne({
-            where: { subsystem, code }
-          });
-          if (errorCodeRecord && errorCodeRecord.explanation) {
-            explanation = errorCodeRecord.explanation;
-          }
-        } catch (error) {
-          console.error(`查询错误码释义失败: ${subsystem}${code}`, error.message);
-        }
-      }
-      
-      // 立即解析释义中的占位符，提高效率
-      const parsedExplanation = parseExplanation(
-        explanation,
-        entry.param1, // 参数0
-        entry.param2, // 参数1
-        entry.param3, // 参数2
-        entry.param4, // 参数3
-        {
-          error_code: entry.error_code,
-          subsystem,
-          arm: errorCodeStr?.charAt(1) || null,
-          joint: errorCodeStr?.charAt(2) || null
-        }
-      );
+      const { explanation: parsedExplanation } = renderEntryExplanation(entry);
       
       entries.push({
         log_id: logId,
@@ -173,13 +174,19 @@ async function processLogFile(job) {
     await job.progress(70);
 
     console.log('释义查询和解析完成，示例:', entries[0]?.explanation);
+    if (!useStreamProcessing) {
+      console.log(`⏱️ 传统处理解析阶段耗时: ${Date.now() - t0}ms`);
+    }
     console.log(`准备插入 ${entries.length} 个日志条目到数据库`);
     
-    // 覆盖式写入：清空旧的明细再写入新的
-    await LogEntry.destroy({ where: { log_id: logId } });
-    if (entries.length > 0) {
-      await LogEntry.bulkCreate(entries);
-      console.log('数据库插入完成');
+      // 使用优化的分批插入，避免锁等待超时
+      try {
+        await batchInsertHelper.batchInsertLogEntries(entries, logId);
+        console.log('✅ 数据库插入完成');
+      } catch (insertError) {
+        console.error('❌ 数据库插入失败:', insertError.message);
+        throw new Error(`数据库插入失败: ${insertError.message}`);
+      }
     }
 
     await job.progress(85);
@@ -224,6 +231,7 @@ async function processLogFile(job) {
     const decryptedFilePath = path.join(deviceFolder, decryptedFileName);
     
     // 生成解密后的文件内容，使用解析后的释义
+    console.log('📝 生成解密文件内容...');
     const decryptedContent = entries.map(entry => {
       const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
       return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;

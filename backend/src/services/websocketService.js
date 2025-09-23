@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const { EventEmitter } = require('events');
+const redis = require('redis');
 
 class WebSocketService extends EventEmitter {
   constructor() {
@@ -8,6 +9,35 @@ class WebSocketService extends EventEmitter {
     this.clients = new Map(); // 存储连接的客户端
     this.deviceSubscriptions = new Map(); // 设备订阅关系
     this.logStatusCache = new Map(); // 日志状态缓存
+
+    // Redis Pub/Sub
+    this.pubClient = null;
+    this.subClient = null;
+    this.subscribed = false;
+    this.processId = `pid_${process.pid}`;
+  }
+
+  getRedisClientOptions() {
+    const host = process.env.REDIS_HOST || 'localhost';
+    const port = parseInt(process.env.REDIS_PORT, 10) || 6379;
+    const password = process.env.REDIS_PASSWORD || undefined;
+    const db = parseInt(process.env.REDIS_DB, 10) || 0;
+    const clientOpts = { url: `redis://${host}:${port}` };
+    if (password) clientOpts.password = password;
+    if (Number.isFinite(db)) clientOpts.database = db;
+    return clientOpts;
+  }
+
+  async ensurePublisher() {
+    try {
+      if (this.pubClient && this.pubClient.isOpen) return;
+      const clientOpts = this.getRedisClientOptions();
+      this.pubClient = redis.createClient(clientOpts);
+      this.pubClient.on('error', (e) => console.error('Redis PUB 错误:', e.message));
+      await this.pubClient.connect();
+    } catch (e) {
+      console.error('初始化 Redis 发布者失败（将本地广播降级）:', e.message);
+    }
   }
 
   // 初始化 WebSocket 服务器
@@ -30,6 +60,56 @@ class WebSocketService extends EventEmitter {
     });
 
     console.log('🔌 WebSocket 服务器已启动');
+
+    // 初始化 Redis Pub/Sub（仅在有 WebSocket 服务的进程中订阅）
+    this.initializePubSub();
+  }
+
+  // 初始化 Redis Pub/Sub
+  async initializePubSub() {
+    const clientOpts = this.getRedisClientOptions();
+
+    try {
+      // 发布客户端（主进程也需要发布能力）
+      await this.ensurePublisher();
+
+      // 订阅客户端（仅在有 wss 的进程中）
+      this.subClient = redis.createClient(clientOpts);
+      this.subClient.on('error', (e) => console.error('Redis SUB 错误:', e.message));
+      await this.subClient.connect();
+
+      // 订阅两个频道
+      const LOG_CH = 'ws:log_status_change';
+      const BATCH_CH = 'ws:batch_status_change';
+
+      await this.subClient.subscribe(LOG_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          // 忽略无效数据
+          if (!data || !data.deviceId || !data.logId) return;
+          // 使用统一广播逻辑
+          this.broadcastLogStatusChange(data);
+        } catch (e) {
+          console.error('订阅处理失败(LOG_CH):', e.message);
+        }
+      });
+
+      await this.subClient.subscribe(BATCH_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (!data || !data.deviceId || !Array.isArray(data.changes)) return;
+          this.broadcastBatchStatusChange(data);
+        } catch (e) {
+          console.error('订阅处理失败(BATCH_CH):', e.message);
+        }
+      });
+
+      this.subscribed = true;
+      console.log('🔔 WebSocket 跨进程订阅已就绪 (Redis Pub/Sub)');
+    } catch (err) {
+      console.error('初始化 Redis Pub/Sub 失败:', err.message);
+      // 降级：仍允许本进程内推送（仅当有本地订阅者时生效）
+    }
   }
 
   // 处理新连接
@@ -128,55 +208,95 @@ class WebSocketService extends EventEmitter {
     console.log(`🔌 WebSocket 连接断开: ${clientId}`);
   }
 
-  // 推送日志状态变化
-  pushLogStatusChange(deviceId, logId, newStatus, oldStatus) {
-    // 检查状态是否真的发生了变化
+  // 推送日志状态变化（发布到 Redis 频道，主进程订阅后广播）
+  async pushLogStatusChange(deviceId, logId, newStatus, oldStatus) {
+    // 状态缓存：仅用于抑制重复状态（跨进程用 Redis，仍保留本地缓存）
     const cacheKey = `${deviceId}:${logId}`;
     const cachedStatus = this.logStatusCache.get(cacheKey);
-    
     if (cachedStatus === newStatus) {
-      return; // 状态没有变化，不推送
+      return;
     }
-    
-    // 更新缓存
     this.logStatusCache.set(cacheKey, newStatus);
-    
-    // 推送给订阅该设备的客户端
+
+    const payload = JSON.stringify({
+      deviceId,
+      logId,
+      oldStatus,
+      newStatus,
+      timestamp: Date.now(),
+      source: this.processId
+    });
+
+    const channel = 'ws:log_status_change';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        // 无 Redis 时退化为本地广播（仅影响本进程）
+        this.broadcastLogStatusChange(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布日志状态变化失败:', e.message);
+      this.broadcastLogStatusChange(JSON.parse(payload));
+    }
+  }
+
+  // 推送批量状态变化（发布到 Redis 频道）
+  async pushBatchStatusChange(deviceId, changes) {
+    const payload = JSON.stringify({
+      deviceId,
+      changes,
+      timestamp: Date.now(),
+      source: this.processId
+    });
+    const channel = 'ws:batch_status_change';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        this.broadcastBatchStatusChange(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布批量状态变化失败:', e.message);
+      this.broadcastBatchStatusChange(JSON.parse(payload));
+    }
+  }
+
+  // 统一广播单条状态变化到本进程内的 WebSocket 客户端
+  broadcastLogStatusChange(data) {
+    const { deviceId, logId, oldStatus, newStatus, timestamp } = data || {};
+    if (!deviceId) return;
     const subscribers = this.deviceSubscriptions.get(deviceId);
-    if (subscribers) {
+    if (subscribers && subscribers.size > 0) {
       const message = {
         type: 'log_status_change',
         deviceId,
         logId,
         oldStatus,
         newStatus,
-        timestamp: Date.now()
+        timestamp
       };
-      
-      subscribers.forEach(clientId => {
-        this.sendToClient(clientId, message);
-      });
-      
+      subscribers.forEach(clientId => this.sendToClient(clientId, message));
       console.log(`📡 推送状态变化: 设备 ${deviceId}, 日志 ${logId}, ${oldStatus} → ${newStatus}`);
     }
   }
 
-  // 推送批量状态变化
-  pushBatchStatusChange(deviceId, changes) {
+  // 统一广播批量状态变化到本进程内的 WebSocket 客户端
+  broadcastBatchStatusChange(data) {
+    const { deviceId, changes, timestamp } = data || {};
+    if (!deviceId) return;
     const subscribers = this.deviceSubscriptions.get(deviceId);
-    if (subscribers) {
+    if (subscribers && subscribers.size > 0) {
       const message = {
         type: 'batch_status_change',
         deviceId,
         changes,
-        timestamp: Date.now()
+        timestamp
       };
-      
-      subscribers.forEach(clientId => {
-        this.sendToClient(clientId, message);
-      });
-      
-      console.log(`📡 推送批量状态变化: 设备 ${deviceId}, ${changes.length} 个变化`);
+      subscribers.forEach(clientId => this.sendToClient(clientId, message));
+      console.log(`📡 推送批量状态变化: 设备 ${deviceId}, ${changes?.length || 0} 个变化`);
     }
   }
 
