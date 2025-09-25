@@ -1244,24 +1244,24 @@ export default {
     const applyDeviceFilter = () => {
       currentPage.value = 1
       showDeviceFilterPanel.value = false
-      loadDeviceGroups()
+      loadDeviceGroups({ force: true }) // 强制加载，跳过节流
     }
     const resetDeviceFilter = () => {
       deviceFilterValue.value = ''
       currentPage.value = 1
-      loadDeviceGroups()
+      loadDeviceGroups({ force: true }) // 强制加载，跳过节流
     }
     
     // 设备列表分页处理
     const handleDeviceSizeChange = (newSize) => {
       pageSize.value = newSize
       currentPage.value = 1
-      loadDeviceGroups()
+      loadDeviceGroups({ force: true }) // 强制加载，跳过节流
     }
     
     const handleDeviceCurrentChange = (newPage) => {
       currentPage.value = newPage
-      loadDeviceGroups()
+      loadDeviceGroups({ force: true }) // 强制加载，跳过节流
     }
 
     const resetAllFilters = () => {
@@ -1269,7 +1269,7 @@ export default {
       deviceFilterValue.value = ''
       showDeviceFilterPanel.value = false
       currentPage.value = 1
-      loadDeviceGroups()
+      loadDeviceGroups({ force: true }) // 强制加载，跳过节流
     }
 
     
@@ -1456,11 +1456,14 @@ export default {
       }
     }
 
-    // 监听页面刷新事件
+    // 监听页面刷新事件和初始化
     onMounted(() => {
       // 确保 Logs 页面加载时建立 WebSocket 连接
       try { websocketClient.connect() } catch (_) {}
       window.addEventListener('beforeunload', preventRefresh)
+      
+      // 初始化加载设备分组数据
+      loadDeviceGroups()
       
       // 监听 WebSocket 状态变化事件
       websocketClient.on('logStatusChange', (data) => {
@@ -2145,10 +2148,7 @@ export default {
       }
     }
     
-    // 生命周期
-    onMounted(() => {
-      loadDeviceGroups()
-    })
+    // 注意：loadDeviceGroups() 已经在第一个 onMounted 中调用
     
     // 获取批量查看按钮的提示信息
     const getBatchViewTitle = () => {

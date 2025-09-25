@@ -198,10 +198,52 @@ class CacheManager {
     }
 
     try {
-      // Redis会自动清理过期键，这里可以添加额外的清理逻辑
+      console.log('[缓存管理器] 开始清理缓存...');
+      
+      // 清理监控数据
+      const metricsKeys = await this.client.keys('metrics:*');
+      const alertsKeys = await this.client.keys('alerts:*');
+      const cacheKeys = await this.client.keys('cache:*');
+      
+      let cleanedCount = 0;
+      
+      // 清理监控数据（超过限制数量）
+      const metricsLimit = parseInt(process.env.CACHE_METRICS_LIMIT) || 100;
+      if (metricsKeys.length > metricsLimit) {
+        const keysToDelete = metricsKeys.slice(0, metricsKeys.length - metricsLimit);
+        if (keysToDelete.length > 0) {
+          await this.client.del(keysToDelete);
+          cleanedCount += keysToDelete.length;
+          console.log(`[缓存管理器] 清理了 ${keysToDelete.length} 个监控数据`);
+        }
+      }
+      
+      // 清理告警数据（超过限制数量）
+      const alertsLimit = parseInt(process.env.CACHE_ALERTS_LIMIT) || 50;
+      if (alertsKeys.length > alertsLimit) {
+        const keysToDelete = alertsKeys.slice(0, alertsKeys.length - alertsLimit);
+        if (keysToDelete.length > 0) {
+          await this.client.del(keysToDelete);
+          cleanedCount += keysToDelete.length;
+          console.log(`[缓存管理器] 清理了 ${keysToDelete.length} 个告警数据`);
+        }
+      }
+      
+      // 清理搜索缓存（超过限制数量）
+      const searchLimit = parseInt(process.env.CACHE_SEARCH_LIMIT) || 200;
+      if (cacheKeys.length > searchLimit) {
+        const keysToDelete = cacheKeys.slice(0, cacheKeys.length - searchLimit);
+        if (keysToDelete.length > 0) {
+          await this.client.del(keysToDelete);
+          cleanedCount += keysToDelete.length;
+          console.log(`[缓存管理器] 清理了 ${keysToDelete.length} 个搜索缓存`);
+        }
+      }
+      
+      console.log(`[缓存管理器] 清理完成，共清理了 ${cleanedCount} 个键`);
       return true;
     } catch (error) {
-      console.error('清理缓存失败:', error);
+      console.error('[缓存管理器] 清理缓存失败:', error);
       return false;
     }
   }
@@ -209,6 +251,21 @@ class CacheManager {
 
 // 创建全局缓存实例
 const cacheManager = new CacheManager();
+
+// 启动定期清理任务
+if (process.env.AUTO_CACHE_CLEANUP === 'true') {
+  const cleanupInterval = parseInt(process.env.CACHE_CLEANUP_INTERVAL) || 300000; // 默认5分钟
+  
+  setInterval(async () => {
+    try {
+      await cacheManager.cleanup();
+    } catch (error) {
+      console.error('[缓存管理器] 定期清理失败:', error);
+    }
+  }, cleanupInterval);
+  
+  console.log(`[缓存管理器] 定期清理已启动，间隔: ${cleanupInterval}ms`);
+}
 
 module.exports = {
   CacheManager,

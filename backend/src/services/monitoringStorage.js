@@ -179,26 +179,53 @@ class MonitoringStorage {
     }
 
     try {
+      console.log('[监控存储] 开始清理过期数据...');
+      
       const cutoff = new Date(Date.now() - (this.storageConfig.retentionDays * 24 * 60 * 60 * 1000));
       const patterns = ['metrics:*', 'alerts:*'];
+      let totalCleaned = 0;
       
       for (const pattern of patterns) {
         const keys = await cacheManager.client.keys(pattern);
         const expiredKeys = [];
         
-        for (const key of keys) {
-          const data = await cacheManager.get(key);
-          if (data && new Date(data.timestamp) < cutoff) {
-            expiredKeys.push(key);
+        // 如果键数量超过限制，直接清理最旧的
+        const limit = pattern === 'metrics:*' ? 
+          parseInt(process.env.CACHE_METRICS_LIMIT) || 100 :
+          parseInt(process.env.CACHE_ALERTS_LIMIT) || 50;
+          
+        if (keys.length > limit) {
+          // 按时间戳排序，删除最旧的
+          const sortedKeys = keys.sort();
+          const keysToDelete = sortedKeys.slice(0, keys.length - limit);
+          if (keysToDelete.length > 0) {
+            await cacheManager.client.del(keysToDelete);
+            totalCleaned += keysToDelete.length;
+            console.log(`[监控存储] 清理了 ${keysToDelete.length} 个${pattern}数据（超过限制）`);
           }
-        }
-        
-        if (expiredKeys.length > 0) {
-          await cacheManager.client.del(expiredKeys);
-          console.log(`[监控存储] 清理了 ${expiredKeys.length} 个过期数据`);
+        } else {
+          // 按时间戳清理过期数据
+          for (const key of keys) {
+            try {
+              const data = await cacheManager.get(key);
+              if (data && data.timestamp && new Date(data.timestamp) < cutoff) {
+                expiredKeys.push(key);
+              }
+            } catch (error) {
+              // 如果获取数据失败，也标记为过期
+              expiredKeys.push(key);
+            }
+          }
+          
+          if (expiredKeys.length > 0) {
+            await cacheManager.client.del(expiredKeys);
+            totalCleaned += expiredKeys.length;
+            console.log(`[监控存储] 清理了 ${expiredKeys.length} 个过期${pattern}数据`);
+          }
         }
       }
 
+      console.log(`[监控存储] 清理完成，共清理了 ${totalCleaned} 个键`);
       return true;
     } catch (error) {
       console.error('[监控存储] 清理过期数据失败:', error);
@@ -215,6 +242,23 @@ class MonitoringStorage {
         await this.flushAll();
       }
     }, this.storageConfig.flushInterval);
+  }
+
+  /**
+   * 启动定期清理
+   */
+  startPeriodicCleanup() {
+    const cleanupInterval = parseInt(process.env.CACHE_CLEANUP_INTERVAL) || 300000; // 默认5分钟
+    
+    setInterval(async () => {
+      try {
+        await this.cleanupExpiredData();
+      } catch (error) {
+        console.error('[监控存储] 定期清理失败:', error);
+      }
+    }, cleanupInterval);
+    
+    console.log(`[监控存储] 定期清理已启动，间隔: ${cleanupInterval}ms`);
   }
 
   /**
@@ -355,10 +399,10 @@ class MonitoringStorage {
 // 创建全局实例
 const monitoringStorage = new MonitoringStorage();
 
-// 定期清理过期数据
-setInterval(async () => {
-  await monitoringStorage.cleanupExpiredData();
-}, 24 * 60 * 60 * 1000); // 每天清理一次
+// 启动定期清理任务
+if (process.env.AUTO_CACHE_CLEANUP === 'true') {
+  monitoringStorage.startPeriodicCleanup();
+}
 
 module.exports = {
   MonitoringStorage,

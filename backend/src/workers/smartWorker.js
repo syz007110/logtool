@@ -4,16 +4,12 @@
  */
 
 const { logProcessingQueue } = require('../config/queue');
-const DirectoryMonitor = require('../services/directoryMonitor');
-const AutoUploadProcessor = require('../services/autoUploadProcessor');
 
 class SmartWorker {
   constructor(workerId) {
     this.workerId = workerId;
     this.role = null;
     this.isMonitorEnabled = false;
-    this.directoryMonitor = null;
-    this.autoUploadProcessor = null;
     this.isInitialized = false;
     this.heartbeatInterval = null;
     
@@ -284,77 +280,19 @@ class SmartWorker {
     }
   }
   
-  /**
-   * 初始化监控服务
-   */
-  async initializeMonitorServices() {
-    try {
-      console.log(`🔧 工作进程 ${this.workerId} 初始化监控服务...`);
-      
-      // 创建自动上传处理器
-      this.autoUploadProcessor = new AutoUploadProcessor();
-      
-      // 设置日志处理队列
-      if (logProcessingQueue) {
-        this.autoUploadProcessor.setLogProcessingQueue(logProcessingQueue);
-      }
-      
-      // 创建目录监控服务
-      this.directoryMonitor = new DirectoryMonitor();
-      this.directoryMonitor.setAutoUploadProcessor(this.autoUploadProcessor);
-      
-      console.log(`✅ 工作进程 ${this.workerId} 监控服务初始化完成`);
-      
-    } catch (error) {
-      console.error(`❌ 工作进程 ${this.workerId} 初始化监控服务失败:`, error);
-      throw error;
-    }
-  }
   
   /**
    * 启动监控服务
    */
   async startMonitorServices() {
-    try {
-      // 如果监控服务未初始化，先初始化
-      if (!this.directoryMonitor || !this.autoUploadProcessor) {
-        console.log(`🔧 工作进程 ${this.workerId} 初始化监控服务...`);
-        await this.initializeMonitorServices();
-      }
-      
-      console.log(`🚀 工作进程 ${this.workerId} 启动监控服务...`);
-      
-      // 启动目录监控
-      await this.directoryMonitor.start();
-      
-      console.log(`✅ 工作进程 ${this.workerId} 监控服务已启动`);
-      
-    } catch (error) {
-      console.error(`❌ 工作进程 ${this.workerId} 启动监控服务失败:`, error);
-      throw error;
-    }
+    console.log(`📁 工作进程 ${this.workerId} 监控服务已禁用（使用客户端脚本方案）`);
   }
   
   /**
    * 停止监控服务
    */
   async stopMonitorServices() {
-    try {
-      if (this.directoryMonitor) {
-        console.log(`🛑 工作进程 ${this.workerId} 停止监控服务...`);
-        await this.directoryMonitor.stop();
-        this.directoryMonitor = null;
-      }
-      
-      if (this.autoUploadProcessor) {
-        this.autoUploadProcessor = null;
-      }
-      
-      console.log(`✅ 工作进程 ${this.workerId} 监控服务已停止`);
-      
-    } catch (error) {
-      console.error(`❌ 工作进程 ${this.workerId} 停止监控服务失败:`, error);
-    }
+    console.log(`📁 工作进程 ${this.workerId} 监控服务已禁用（使用客户端脚本方案）`);
   }
   
   /**
@@ -404,9 +342,8 @@ class SmartWorker {
       isMonitorEnabled: this.isMonitorEnabled,
       isInitialized: this.isInitialized,
       monitor: {
-        enabled: this.isMonitorEnabled,
-        directoryMonitor: !!this.directoryMonitor,
-        autoUploadProcessor: !!this.autoUploadProcessor
+        enabled: false,
+        message: '监控服务已禁用（使用客户端脚本方案）'
       }
     };
   }

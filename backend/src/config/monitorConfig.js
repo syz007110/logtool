@@ -31,7 +31,7 @@ const defaultConfig = {
   
   // 自动上传配置
   autoUploadConfig: {
-    enabled: process.env.AUTO_UPLOAD_ENABLED === 'true' || true,
+    enabled: process.env.AUTO_UPLOAD_ENABLED === 'true',
     scanInterval: parseInt(process.env.AUTO_UPLOAD_SCAN_INTERVAL) || 5000, // 从环境变量读取
     maxRetryAttempts: parseInt(process.env.AUTO_UPLOAD_MAX_RETRY) || 3,
     supportedFileExtensions: ['.medbot'],
@@ -41,7 +41,7 @@ const defaultConfig = {
 
   // 压缩文件支持配置
   compressionSupport: {
-    enabled: process.env.COMPRESSION_ENABLED === 'true' || true,
+    enabled: process.env.COMPRESSION_ENABLED === 'true' ,
     supportedFormats: ['.zip', '.tar.gz', '.7z', '.rar'],
     maxArchiveSize: parseInt(process.env.COMPRESSION_MAX_ARCHIVE_SIZE) || (500 * 1024 * 1024), // 500MB
     tempDirCleanupInterval: parseInt(process.env.COMPRESSION_TEMP_CLEANUP_INTERVAL) || (24 * 60 * 60 * 1000), // 24小时
@@ -52,7 +52,7 @@ const defaultConfig = {
   
   // 监控服务配置
   monitorService: {
-    enabled: process.env.MONITOR_ENABLED === 'true' || false, // 从环境变量读取
+    enabled: process.env.MONITOR_ENABLED === 'true' , // 从环境变量读取
     watchOptions: {
       ignored: /(^|[\/\\])\../, // 忽略隐藏文件
       persistent: true,

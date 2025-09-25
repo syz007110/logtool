@@ -43,7 +43,6 @@ const explanationsRouter = require('./routes/explanations');
 const queueRouter = require('./routes/queue');
 const notesRouter = require('./routes/notes');
 const permissionsRouter = require('./routes/permissions');
-const monitorRouter = require('./routes/monitor');
 const monitoringRouter = require('./routes/monitoring');
 const cacheRouter = require('./routes/cache');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
@@ -190,7 +189,6 @@ app.use('/api/explanations', explanationsRouter);
 app.use('/api/queue', queueRouter);
 app.use('/api', notesRouter);
 app.use('/api/permissions', permissionsRouter);
-app.use('/api/monitor', monitorRouter);
 app.use('/api/monitoring', monitoringRouter);
 app.use('/api/cache', cacheRouter);
 
@@ -259,52 +257,14 @@ if (isMainProcess) {
           websocketService.initialize(server);
           console.log(`[进程 ${process.pid}] 🔌 WebSocket 服务已启动`);
           
-          // 初始化监控服务
+          // 初始化队列管理器
           (async () => {
             try {
-              const MonitorWorker = require('./workers/monitorWorker');
-              const { setMonitorServices } = require('./controllers/monitorController');
-              
-              // 创建监控工作进程
-              const monitorWorker = new MonitorWorker();
-              
-              // 初始化队列管理器
               const queueManager = require('./services/queueManager');
               await queueManager.initialize();
-              
-              // 设置日志处理队列
-              const logProcessingQueue = queueManager.getQueue('logProcessing');
-              if (logProcessingQueue) {
-                monitorWorker.setLogProcessingQueue(logProcessingQueue);
-              }
-              
-              // 历史处理队列（用于自动上传）
-              const historicalProcessingQueue = queueManager.getQueue('historical');
-
-              // 初始化监控服务
-              await monitorWorker.initialize();
-
-              // 将历史处理队列绑定到监控服务内部的自动上传处理器实例
-              if (historicalProcessingQueue && monitorWorker.autoUploadProcessor) {
-                monitorWorker.autoUploadProcessor.setHistoricalProcessingQueue(historicalProcessingQueue);
-                console.log(`[进程 ${process.pid}] 🔄 自动上传处理器已配置历史处理队列`);
-              }
-              
-              // 设置监控服务实例到控制器
-              setMonitorServices(monitorWorker.directoryMonitor, monitorWorker.autoUploadProcessor);
-              
-              // 如果配置启用，则启动监控服务
-              const { isMonitorEnabled } = require('./config/monitorConfig');
-              if (isMonitorEnabled()) {
-                await monitorWorker.start();
-                console.log(`[进程 ${process.pid}] 📁 监控服务已启动`);
-              } else {
-                console.log(`[进程 ${process.pid}] 📁 监控服务已初始化（未启用）`);
-                console.log(`[进程 ${process.pid}] 📁 请检查 backend/.env: MONITOR_ENABLED、MONITOR_DIRECTORIES、MONITOR_IGNORE_INITIAL=false`);
-              }
-            } catch (monitorError) {
-              console.warn(`[进程 ${process.pid}] ⚠️ 监控服务初始化失败:`, monitorError.message);
-              console.warn('💡 监控功能将不可用，但其他功能正常工作');
+              console.log(`[进程 ${process.pid}] 🔄 队列管理器已初始化`);
+            } catch (queueError) {
+              console.warn(`[进程 ${process.pid}] ⚠️ 队列管理器初始化失败:`, queueError.message);
             }
           })();
         });
