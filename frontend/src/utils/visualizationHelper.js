@@ -37,6 +37,7 @@ export function visualizeSurgery (surgeryData, options = {}) {
         start_time: surgeryData.start_time !== undefined ? surgeryData.start_time : surgeryData.structured_data.start_time,
         end_time: surgeryData.end_time !== undefined ? surgeryData.end_time : surgeryData.structured_data.end_time,
         is_remote: surgeryData.is_remote !== undefined ? surgeryData.is_remote : surgeryData.structured_data.is_remote,
+        has_fault: surgeryData.has_fault !== undefined ? surgeryData.has_fault : surgeryData.structured_data.has_fault,
         device_ids: surgeryData.device_ids !== undefined ? surgeryData.device_ids : surgeryData.structured_data.device_ids,
         source_log_ids: surgeryData.source_log_ids !== undefined ? surgeryData.source_log_ids : surgeryData.structured_data.source_log_ids
       }
@@ -50,6 +51,7 @@ export function visualizeSurgery (surgeryData, options = {}) {
         start_time: preview.start_time !== undefined ? preview.start_time : preview.structured_data?.start_time,
         end_time: preview.end_time !== undefined ? preview.end_time : preview.structured_data?.end_time,
         is_remote: preview.is_remote !== undefined ? preview.is_remote : preview.structured_data?.is_remote,
+        has_fault: preview.has_fault !== undefined ? preview.has_fault : preview.structured_data?.has_fault,
         device_ids: preview.device_ids !== undefined ? preview.device_ids : preview.structured_data?.device_ids,
         source_log_ids: preview.source_log_ids !== undefined ? preview.source_log_ids : preview.structured_data?.source_log_ids
       }
@@ -127,6 +129,7 @@ export function extractVisualizationData (surgeryData) {
       start_time: surgeryData.start_time !== undefined ? surgeryData.start_time : surgeryData.structured_data.start_time,
       end_time: surgeryData.end_time !== undefined ? surgeryData.end_time : surgeryData.structured_data.end_time,
       is_remote: surgeryData.is_remote !== undefined ? surgeryData.is_remote : surgeryData.structured_data.is_remote,
+      has_fault: surgeryData.has_fault !== undefined ? surgeryData.has_fault : surgeryData.structured_data.has_fault,
       device_ids: surgeryData.device_ids !== undefined ? surgeryData.device_ids : surgeryData.structured_data.device_ids,
       source_log_ids: surgeryData.source_log_ids !== undefined ? surgeryData.source_log_ids : surgeryData.structured_data.source_log_ids
     }
@@ -142,6 +145,7 @@ export function extractVisualizationData (surgeryData) {
       start_time: preview.start_time !== undefined ? preview.start_time : preview.structured_data?.start_time,
       end_time: preview.end_time !== undefined ? preview.end_time : preview.structured_data?.end_time,
       is_remote: preview.is_remote !== undefined ? preview.is_remote : preview.structured_data?.is_remote,
+      has_fault: preview.has_fault !== undefined ? preview.has_fault : preview.structured_data?.has_fault,
       device_ids: preview.device_ids !== undefined ? preview.device_ids : preview.structured_data?.device_ids,
       source_log_ids: preview.source_log_ids !== undefined ? preview.source_log_ids : preview.structured_data?.source_log_ids
     }

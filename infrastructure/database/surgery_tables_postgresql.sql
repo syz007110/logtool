@@ -118,10 +118,12 @@ ORDER BY table_name, ordinal_position;
     }
   ],
   "surgery_stats": {
-    "has_fault": true,
     "success": false,
-    "is_remote": true,
-    "network_latency_ms": [120, 80, 200],
+    "network_latency_ms": [
+      {"time": "2025-09-11 05:20:00", "latency": 120},
+      {"time": "2025-09-11 05:21:00", "latency": 80},
+      {"time": "2025-09-11 05:22:00", "latency": 200}
+    ],
     "faults": [
       {"timestamp": "09:02", "error_code": "E101","param1":"val1","param2":"val2","param3":"","param4":"","explanation":"机械臂故障","log_id":123}
     ],

@@ -82,13 +82,20 @@ CREATE TABLE IF NOT EXISTS error_codes (
   for_expert BOOLEAN DEFAULT FALSE,
   for_novice BOOLEAN DEFAULT FALSE,
   related_log BOOLEAN DEFAULT FALSE,
-  stop_report TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  stop_report TEXT,
   level VARCHAR(50),
   tech_solution TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   explanation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   category VARCHAR(100),
   UNIQUE KEY unique_subsystem_code (subsystem, code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE error_code_log_levels (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  error_code_id INT NOT NULL,
+  log_analysis_level VARCHAR(50) NOT NULL,
+  FOREIGN KEY (error_code_id) REFERENCES error_codes(id)
+);
 
 -- 6. 多语言配置表
 CREATE TABLE IF NOT EXISTS i18n_texts (

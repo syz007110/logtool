@@ -107,7 +107,7 @@ class SurgeryAnalyzer {
     this.processFaultEvents(errCodeSuffix, errCode, entry);
     
     // 处理开机事件
-    this.processPowerOnEvents(errCodeSuffix, p1, p2, entry);
+    this.processPowerOnEvents(errCodeSuffix, p1, p2, entry, index, allEntries);
     
     // 处理关机事件
     this.processPowerOffEvents(errCodeSuffix, p1, p2, entry, index, allEntries);
@@ -147,7 +147,7 @@ class SurgeryAnalyzer {
     }
     
     // 检查网络延时数据
-    if (errCodeSuffix === '405E') {
+    if (errCodeSuffix === '405e') {
       const latency = p3;
       if (latency > 0) {
         this.networkLatencyData.push({
@@ -195,7 +195,7 @@ class SurgeryAnalyzer {
   /**
    * 处理开机事件
    */
-  processPowerOnEvents(errCodeSuffix, p1, p2, entry) {
+  processPowerOnEvents(errCodeSuffix, p1, p2, entry, index, allEntries) {
     const isPowerOnEvent = (errCodeSuffix === 'A01e') || 
                           (errCodeSuffix === '570e' && p1 === 0 && p2 !== 0);
     
@@ -204,7 +204,63 @@ class SurgeryAnalyzer {
       
       this.errFlag = false;
       this.isPowerOn = true;
+    } else if (isPowerOnEvent && this.isPowerOn) {
+      // 检测到开机事件但isPowerOn=true，说明之前有异常关机
+      console.log(`检测到异常关机后重启: 时间=${entry.timestamp}, 当前状态=${this.currentState}, 器械状态=${this.armStates}`);
       
+      // 记录异常关机信息
+      const lastPowerOff = this.powerEvents.filter(e => e.type === 'power_off').pop();
+      if (lastPowerOff) {
+        const timeSinceLastShutdown = Math.floor((new Date(entry.timestamp) - new Date(lastPowerOff.timestamp)) / 1000 / 60);
+        console.log(`距离上次正常关机: ${timeSinceLastShutdown}分钟`);
+      } else {
+        console.log(`未找到上次正常关机记录`);
+      }
+      
+      // 检查是否有未完成的手术
+      if (this.currentSurgery && !this.currentSurgery.surgery_end_time) {
+        // 判断上一场手术是否已经算完成
+        // 检查本次开机事件前一条日志与开机事件的时间戳是否大于30分钟
+        const timeSinceLastLog = this.getTimeSinceLastLogEntry(entry, index, allEntries);
+        if (timeSinceLastLog > 30) {
+          console.log(`上一场手术已在前一条日志时结束: ID=${this.currentSurgery.surgery_id}, 距离前一条日志${timeSinceLastLog}分钟`);
+          // 标记手术为已完成
+          this.currentSurgery.surgery_end_time = this.getLastLogEntryTime(index, allEntries);
+          this.currentSurgery.total_duration = Math.floor(
+            (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
+          );
+          this.finalizeSurgeryData();
+          this.addSurgeryToList();
+          
+          // 清空手术对象，和处理关机事件一样
+          this.finalizeCurrentSurgery(entry.timestamp);
+          this.resetSurgeryState();
+          this.powerOnTimes = [];
+          this.shutdownTimes = [];
+          this.currentSurgery = null;
+          console.log(`异常关机后清空手术对象`);
+        } else {
+          console.log(`异常关机时存在未完成手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${this.currentSurgery.surgery_start_time}, 距离前一条日志${timeSinceLastLog}分钟`);
+        }
+      }
+      
+      // 检查器械状态
+      const activeArms = this.armStates.filter(state => state !== 0 && state !== -1).length;
+      if (activeArms > 0) {
+        console.log(`异常关机时活跃器械臂数量: ${activeArms}, 器械状态=${this.armStates}`);
+      }
+      
+      // 检查故障状态
+      if (this.errFlag) {
+        console.log(`异常关机时存在未恢复故障: errFlag=${this.errFlag}`);
+      }
+      
+      // 重置状态，准备重新开始
+      this.errFlag = false;
+      this.isPowerOn = true;
+    }
+    
+    if (isPowerOnEvent) {
       // 检查是否需要清空当前手术
       const lastPowerOff = this.powerEvents.filter(e => e.type === 'power_off').pop();
       let shouldClearSurgery = false;
@@ -423,6 +479,8 @@ class SurgeryAnalyzer {
   processSurgeryStartEvents(entry) {
     if (this.currentState === 20 && !this.surgeryStarted) {
       this.surgeryStarted = true;
+      
+      console.log(`检测到手术开始: 状态=${this.currentState}, 时间=${entry.timestamp}`);
       
       if (!this.currentSurgery) {
         this.createNewSurgery(entry);
@@ -657,6 +715,7 @@ class SurgeryAnalyzer {
       network_latency_data: []
     };
     
+    console.log(`创建新手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${entry.timestamp}`);
     this.resetSurgeryState();
   }
 
@@ -675,6 +734,7 @@ class SurgeryAnalyzer {
     this.currentSurgery.is_pre_surgery = false;
     this.currentSurgery.surgery_start_time = entry.timestamp;
     
+    console.log(`转换为正式手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${entry.timestamp}`);
     this.resetFaultState();
   }
 
@@ -721,6 +781,8 @@ class SurgeryAnalyzer {
       is_remote_surgery: this.isRemoteSurgery,
       network_latency_data: []
     };
+    
+    console.log(`处理连台手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${entry.timestamp}, 前一台手术结束时间=${this.previousSurgeryEndTime}`);
   }
 
   /**
@@ -1022,10 +1084,11 @@ class SurgeryAnalyzer {
 
     // 构建surgery_stats
     const surgeryStats = {
-      has_fault: surgery.has_error || false,
       success: !surgery.has_error,
-      is_remote: surgery.is_remote_surgery || false,
-      network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => d.latency) : [],
+      network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => ({
+        time: d.timestamp,
+        latency: d.latency
+      })) : [],
       faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
         timestamp: fault.time,
         error_code: fault.code,
@@ -1052,6 +1115,42 @@ class SurgeryAnalyzer {
       arms: arms,
       surgery_stats: surgeryStats
     };
+  }
+
+  /**
+   * 获取距离前一条日志的时间（分钟）
+   * @param {Object} currentEntry - 当前日志条目
+   * @param {number} currentIndex - 当前日志条目的索引
+   * @param {Array} allEntries - 所有日志条目
+   * @returns {number} 距离前一条日志的时间（分钟）
+   */
+  getTimeSinceLastLogEntry(currentEntry, currentIndex, allEntries) {
+    if (currentIndex > 0 && allEntries && allEntries.length > 0) {
+      const previousEntry = allEntries[currentIndex - 1];
+      if (previousEntry && previousEntry.timestamp) {
+        const currentTime = new Date(currentEntry.timestamp).getTime();
+        const previousTime = new Date(previousEntry.timestamp).getTime();
+        return Math.floor((currentTime - previousTime) / 1000 / 60);
+      }
+    }
+    return 0; // 如果没有前一条日志，返回0
+  }
+
+  /**
+   * 获取前一条日志条目的时间
+   * @param {number} currentIndex - 当前日志条目的索引
+   * @param {Array} allEntries - 所有日志条目
+   * @returns {string} 前一条日志条目的时间戳
+   */
+  getLastLogEntryTime(currentIndex, allEntries) {
+    if (currentIndex > 0 && allEntries && allEntries.length > 0) {
+      const previousEntry = allEntries[currentIndex - 1];
+      if (previousEntry && previousEntry.timestamp) {
+        return previousEntry.timestamp;
+      }
+    }
+    // 如果没有前一条日志，使用当前时间作为fallback
+    return new Date().toISOString();
   }
 }
 

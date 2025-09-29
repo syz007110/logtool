@@ -420,6 +420,7 @@ import { ref, reactive, onMounted, nextTick, computed, watch, h, resolveComponen
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { formatTime, formatTimeShort, formatSurgeryTime, loadServerTimezone } from '../utils/timeFormatter'
 import { 
   DataAnalysis, 
   Download, 
@@ -942,10 +943,11 @@ export default {
 
       // 构建surgery_stats
       const surgeryStats = {
-        has_fault: surgery.has_error || false,
         success: !surgery.has_error,
-        is_remote: surgery.is_remote_surgery || false,
-        network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => d.latency) : [],
+        network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => ({
+          time: formatUtcForDatabase(d.timestamp),
+          latency: d.latency
+        })) : [],
         faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
           timestamp: formatUtcForDatabase(fault.time),
           error_code: fault.code,
@@ -1199,37 +1201,6 @@ export default {
       return { uniqueCount, totalCount, activeCount }
     }
 
-    // 格式化时间（24小时制）
-    const formatTime = (time) => {
-      if (!time) return '-'
-      const date = new Date(time)
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      const seconds = String(date.getSeconds()).padStart(2, '0')
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-    }
-
-    // 格式化手术时间范围
-    const formatSurgeryTime = (surgery) => {
-      if (!surgery.surgery_start_time || !surgery.surgery_end_time) {
-        return '手术时间未确定'
-      }
-      const start = new Date(surgery.surgery_start_time).toLocaleString()
-      const end = new Date(surgery.surgery_end_time).toLocaleString()
-      return `${start} ~ ${end}`
-    }
-
-    // 格式化短时间（24小时制）
-    const formatTimeShort = (time) => {
-      if (!time) return '-'
-      const date = new Date(time)
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      return `${hours}:${minutes}`
-    }
 
     // 获取统一的时间轴范围（重新设计：严格使用手术开始到手术结束时间）
     const getTimelineRange = (surgery) => {
@@ -2133,9 +2104,9 @@ export default {
                                    startTime.getFullYear() !== endTime.getFullYear()
                   
                   if (isCrossDay) {
-                    return time.toLocaleDateString('zh-CN') + ' ' + time.toLocaleTimeString('zh-CN')
+                    return formatTime(time)
                   } else {
-                    return time.toLocaleTimeString('zh-CN')
+                    return formatTimeShort(time)
                   }
                 }
                 return context[0].label
@@ -2171,10 +2142,9 @@ export default {
                                     startTime.getFullYear() !== endTime.getFullYear()
                    
                    if (isCrossDay) {
-                     return time.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' + 
-                            time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                     return formatTime(time)
                    } else {
-                     return time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                     return formatTimeShort(time)
                    }
                  }
                  return value
@@ -2257,7 +2227,7 @@ export default {
             const yMapped = p.value[1]
             const originalState = p.value[2] ?? reverseMap[yMapped] ?? yMapped
             const stateName = getStateMachineStateName(String(originalState))
-            return `${t.toLocaleString('zh-CN')}<br/>状态: ${originalState}（${stateName}）`
+            return `${formatTime(t)}<br/>状态: ${originalState}（${stateName}）`
           }
         },
         dataZoom: [
@@ -2287,7 +2257,7 @@ export default {
           type: 'time',
           min: data.xMin,
           max: data.xMax,
-          axisLabel: { formatter: (value) => new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
+          axisLabel: { formatter: (value) => formatTime(value) }
         },
         yAxis: {
           type: 'value',
@@ -2397,7 +2367,7 @@ export default {
             const p = params[0]
             const time = new Date(p.value[0])
             const latency = p.value[1]
-            return `${time.toLocaleString('zh-CN')}<br/>网络延时: ${latency}ms`
+            return `${formatTime(time)}<br/>网络延时: ${latency}ms`
           }
         },
         dataZoom: [
@@ -2424,11 +2394,7 @@ export default {
           min: surgeryStartTime,
           max: surgeryEndTime,
           axisLabel: { 
-            formatter: (value) => new Date(value).toLocaleTimeString('zh-CN', { 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              second: '2-digit' 
-            }) 
+            formatter: (value) => formatTime(value)
           }
         },
         yAxis: {
@@ -3062,14 +3028,8 @@ export default {
           }
         }
         
-        const startTimeStr = finalViewStartTime.toLocaleTimeString('zh-CN', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
-        const endTimeStr = finalViewEndTime.toLocaleTimeString('zh-CN', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
+        const startTimeStr = formatTimeShort(finalViewStartTime)
+        const endTimeStr = formatTimeShort(finalViewEndTime)
         
         const durationMinutes = (finalViewEndTime.getTime() - finalViewStartTime.getTime()) / (1000 * 60)
         
@@ -3080,14 +3040,8 @@ export default {
       const actualStartTime = new Date(chartData.startTime)
       const actualEndTime = new Date(chartData.endTime)
       
-      const startTimeStr = actualStartTime.toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
-      const endTimeStr = actualEndTime.toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
+      const startTimeStr = formatTimeShort(actualStartTime)
+      const endTimeStr = formatTimeShort(actualEndTime)
       
       // 计算实际的时间范围（分钟）
       const actualDurationMinutes = (actualEndTime.getTime() - actualStartTime.getTime()) / (1000 * 60)
@@ -3179,6 +3133,9 @@ export default {
 
     // 生命周期
     onMounted(async () => {
+      // 加载服务器时区信息
+      await loadServerTimezone()
+      
       // 优先处理URL参数中的日志ID
       const logIdsParam = route.query.logIds
       if (logIdsParam) {

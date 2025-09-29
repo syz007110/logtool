@@ -68,10 +68,10 @@
               </template>
             </el-table-column>
             <el-table-column label="手术开始时间" width="180">
-              <template #default="{ row }">{{ formatTime(row.surgery_start_time || row.start_time) }}</template>
+              <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_start_time || row.start_time) }}</template>
             </el-table-column>
             <el-table-column label="手术结束时间" width="180">
-              <template #default="{ row }">{{ formatTime(row.surgery_end_time || row.end_time) }}</template>
+              <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_end_time || row.end_time) }}</template>
             </el-table-column>
             <el-table-column label="操作" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false">
               <template #default="{ row }">
@@ -411,7 +411,7 @@
                         >
                           <div class="note-meta">
                             <span class="note-user" :class="'role-' + (item.created_by || 'user')">{{ item.username }}（{{ roleLabel(item.created_by) }}）</span>
-                            <span class="note-time">{{ formatTime(item.created_at) }}</span>
+                            <span class="note-time">{{ formatTimeForDisplay(item.created_at) }}</span>
                             <span class="note-actions">
                               <el-button v-if="canEditNote(item)" link type="primary" size="small" @click="startEditNote(item)">编辑</el-button>
                               <el-button v-if="canDeleteNote(item)" link type="danger" size="small" @click="confirmDeleteNote(item)">删除</el-button>
@@ -751,6 +751,7 @@ import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
+import { formatTime, formatTimeShort, loadServerTimezone } from '../utils/timeFormatter'
 
 export default {
   name: 'BatchAnalysis',
@@ -3372,8 +3373,8 @@ export default {
         .catch(() => {})
     }
 
-    const formatTime = (t) => {
-      try { return new Date(t).toLocaleString() } catch { return t }
+    const formatTimeForDisplay = (t) => {
+      try { return formatTime(t) } catch { return t }
     }
 
     // 保存备注到sessionStorage
@@ -3488,6 +3489,9 @@ export default {
     }
 
     onMounted(async () => {
+      // 加载服务器时区信息
+      await loadServerTimezone()
+      
       await loadSelectedLogs()
       await loadTemplates()
       // 加载计数数据
@@ -3642,7 +3646,7 @@ export default {
       editingNoteId,
       editingNoteContent,
       roleLabel,
-      formatTime,
+      formatTimeForDisplay,
       canCreateNote,
       // 上下文分析相关
       contextAnalysisVisible,

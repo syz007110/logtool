@@ -35,14 +35,26 @@ export const GANTT_COLORS = {
   ARM_BASE_COLORS: ['#E28A6A', '#E2C66A', '#C2E26A', '#86E26A']
 }
 
-// 将数据库中的 structured_data 结构转为图表所需的 { timeline, arms } 结构
+// 最小化数据转换：保留原始结构，只添加必要的计算字段
 export function normalizeSurgeryData(raw) {
-  if (!raw || typeof raw !== 'object') return { timeline: {}, arms: [], state_machine: [], is_remote: false, surgery_id: null, start_time: null, end_time: null, network_latency_data: [] }
+  if (!raw || typeof raw !== 'object') {
+    return { 
+      timeline: {}, 
+      arms: [], 
+      state_machine: [], 
+      is_remote: false, 
+      surgery_id: null, 
+      start_time: null, 
+      end_time: null, 
+      network_latency_data: [],
+      structured_data: null
+    }
+  }
 
-  // 已是期望结构
+  // 如果已经是期望结构，直接返回（保留所有原始字段）
   if (raw.timeline && Array.isArray(raw.arms)) {
     return {
-      ...raw,
+      ...raw,  // 保留所有原始字段
       is_remote: !!raw.is_remote,
       surgery_id: raw.surgery_id || null,
       start_time: raw.start_time || null,
@@ -51,20 +63,20 @@ export function normalizeSurgeryData(raw) {
     }
   }
 
+  // 最小化转换：保留所有原始数据，只添加必要的计算字段
   const hasStructured = !!raw.structured_data
   const source = hasStructured ? raw.structured_data : raw
 
-  // 时间轴映射
+  // 只计算时间轴映射（这是可视化必需的）
   const powerOn = source.power_cycles?.[0]?.on_time || raw.start_time || source.start_time
   const powerOffCandidate = source.power_cycles?.[source.power_cycles?.length - 1]?.off_time
   const surgeryStart = raw.start_time || source.start_time
   const surgeryEnd = raw.end_time || source.end_time
-  // 仅在存在明确 off_time 时才记录关机时间
   const powerOff = powerOffCandidate ?? null
   const previousSurgeryEnd = raw.previous_end_time || raw.previous_surgery_end_time ||
     source.previous_end_time || source.prev_surgery_end_time || source.last_surgery_end_time
 
-  // 手臂与器械使用映射
+  // 只计算arms数据（这是可视化必需的）
   const arms = Array.isArray(source.arms)
     ? source.arms.map((a, idx) => {
         const name = a.name || `${a.arm_id ?? idx + 1}号臂`.trim()
@@ -87,15 +99,18 @@ export function normalizeSurgeryData(raw) {
     : Array.isArray(source.state_machine) ? source.state_machine : []
   const networkLatency = Array.isArray(source.network_latency_data) ? source.network_latency_data : []
 
+  // 返回：保留所有原始数据 + 添加必要的计算字段
   return {
+    ...raw,  // 保留所有原始字段
     timeline: { powerOn, surgeryStart, surgeryEnd, powerOff, previousSurgeryEnd },
     arms,
     state_machine: stateMachine,
+    network_latency_data: networkLatency,
+    // 确保关键字段存在
     is_remote: !!(raw.is_remote || source.is_remote_surgery || raw.is_remote_surgery),
     surgery_id: raw.surgery_id || source.surgery_id || null,
     start_time: raw.start_time || source.start_time || null,
-    end_time: raw.end_time || source.end_time || null,
-    network_latency_data: networkLatency
+    end_time: raw.end_time || source.end_time || null
   }
 }
 
