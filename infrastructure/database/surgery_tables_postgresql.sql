@@ -12,15 +12,15 @@ CREATE TABLE surgeries (
     device_ids TEXT[],               -- 设备编号
     log_entry_start_id INT,          -- 起始日志条目
     log_entry_end_id INT,            -- 结束日志条目
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
+    start_time TIMESTAMPTZ,
+    end_time TIMESTAMPTZ,
     has_fault BOOLEAN,
     is_remote BOOLEAN,
     success BOOLEAN,
     structured_data JSONB,           -- 当前有效的手术结构化数据
-    last_analyzed_at TIMESTAMP DEFAULT NOW(),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    last_analyzed_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 2. 手术版本记录表
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS surgery_versions (
     structured_data JSONB,
     source_logs INTEGER[],              -- 使用PostgreSQL数组类型存储日志文件ID
     created_by VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     FOREIGN KEY (surgery_id) REFERENCES surgeries(id) ON DELETE CASCADE
 );
 -- 术式记录

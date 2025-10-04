@@ -219,28 +219,40 @@ class SurgeryAnalyzer {
       
       // 检查是否有未完成的手术
       if (this.currentSurgery && !this.currentSurgery.surgery_end_time) {
-        // 判断上一场手术是否已经算完成
-        // 检查本次开机事件前一条日志与开机事件的时间戳是否大于30分钟
-        const timeSinceLastLog = this.getTimeSinceLastLogEntry(entry, index, allEntries);
-        if (timeSinceLastLog > 30) {
-          console.log(`上一场手术已在前一条日志时结束: ID=${this.currentSurgery.surgery_id}, 距离前一条日志${timeSinceLastLog}分钟`);
-          // 标记手术为已完成
-          this.currentSurgery.surgery_end_time = this.getLastLogEntryTime(index, allEntries);
-          this.currentSurgery.total_duration = Math.floor(
-            (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
-          );
+        // 判断是否为异常关机：检查前1分钟以上且前30分钟以内是否存在日志
+        const isAbnormalShutdown = this.detectAbnormalShutdown(entry, index, allEntries);
+        
+        if (isAbnormalShutdown) {
+          console.log(`检测到异常关机，清空当前手术数据: ID=${this.currentSurgery.surgery_id}, 开始时间=${this.currentSurgery.surgery_start_time}`);
+          
+          // 异常关机：寻找上一场手术的最后一条日志作为手术结束时间
+          const lastLogOfPreviousSurgery = this.findLastLogOfPreviousSurgery(entry, index, allEntries);
+          if (lastLogOfPreviousSurgery) {
+            this.currentSurgery.surgery_end_time = lastLogOfPreviousSurgery.timestamp;
+            this.currentSurgery.total_duration = Math.floor(
+              (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
+            );
+            this.currentSurgery.is_abnormal_shutdown = true; // 标记为异常关机
+            console.log(`上一场手术结束时间设置为最后一条日志: ${lastLogOfPreviousSurgery.timestamp}`);
+          } else {
+            // 如果找不到最后一条日志，使用开机事件时间
+            this.currentSurgery.surgery_end_time = entry.timestamp;
+            console.log(`未找到上一场手术的最后日志，使用开机事件时间: ${entry.timestamp}`);
+          }
+          
+          // 完成手术数据并添加到列表
           this.finalizeSurgeryData();
           this.addSurgeryToList();
           
-          // 清空手术对象，和处理关机事件一样
-          this.finalizeCurrentSurgery(entry.timestamp);
+          // 清空当前手术数据，本次开机作为新手术
           this.resetSurgeryState();
           this.powerOnTimes = [];
           this.shutdownTimes = [];
           this.currentSurgery = null;
           console.log(`异常关机后清空手术对象`);
         } else {
-          console.log(`异常关机时存在未完成手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${this.currentSurgery.surgery_start_time}, 距离前一条日志${timeSinceLastLog}分钟`);
+          console.log(`检测到正常重启，继续统计当前手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${this.currentSurgery.surgery_start_time}`);
+          // 正常重启：继续统计，不清空手术数据
         }
       }
       
@@ -608,9 +620,12 @@ class SurgeryAnalyzer {
     
     if (instrumentType > 0) {
       // 器械插上
+      const instrumentName = this.getInstrumentTypeName(instrumentType.toString());
+      console.log(`🔧 器械插上: 工具臂${armIndex + 1} - ${instrumentName} (类型: ${instrumentType}), 时间: ${entry.timestamp}`);
+      
       currentUsage.push({
         instrumentType: instrumentType,
-        instrumentName: this.getInstrumentTypeName(instrumentType.toString()),
+        instrumentName: instrumentName,
         udi: '待更新',
         startTime: entry.timestamp,
         endTime: null,
@@ -627,8 +642,12 @@ class SurgeryAnalyzer {
       if (currentUsage.length > 0) {
         const lastUsage = currentUsage[currentUsage.length - 1];
         if (lastUsage && lastUsage.endTime === null) {
+          const instrumentName = lastUsage.instrumentName || '未知器械';
+          const duration = Math.floor((new Date(entry.timestamp) - new Date(lastUsage.startTime)) / 1000 / 60);
+          console.log(`🔧 器械拔下: 工具臂${armIndex + 1} - ${instrumentName}, 使用时长: ${duration}分钟, 时间: ${entry.timestamp}`);
+          
           lastUsage.endTime = entry.timestamp;
-          lastUsage.duration = Math.floor((new Date(lastUsage.endTime) - new Date(lastUsage.startTime)) / 1000 / 60);
+          lastUsage.duration = duration;
           
           if (this.currentSurgery[armActivationKey]) {
             this.currentSurgery[armActivationKey].endTime = entry.timestamp;
@@ -838,6 +857,41 @@ class SurgeryAnalyzer {
   }
 
   /**
+   * 计算手术的实际时间范围（从最早事件到最晚事件）
+   * @returns {Object} 包含 earliestTime 和 latestTime 的对象
+   */
+  calculateSurgeryTimeRange() {
+    const times = [];
+    
+    // 收集所有相关时间
+    if (this.currentSurgery.surgery_start_time) {
+      times.push(new Date(this.currentSurgery.surgery_start_time).getTime());
+    }
+    if (this.currentSurgery.surgery_end_time) {
+      times.push(new Date(this.currentSurgery.surgery_end_time).getTime());
+    }
+    if (this.currentSurgery.power_on_times) {
+      this.currentSurgery.power_on_times.forEach(time => {
+        times.push(new Date(time).getTime());
+      });
+    }
+    if (this.currentSurgery.shutdown_times) {
+      this.currentSurgery.shutdown_times.forEach(time => {
+        times.push(new Date(time).getTime());
+      });
+    }
+    
+    if (times.length === 0) {
+      return { earliestTime: null, latestTime: null };
+    }
+    
+    return {
+      earliestTime: Math.min(...times),
+      latestTime: Math.max(...times)
+    };
+  }
+
+  /**
    * 完成手术数据
    */
   finalizeSurgeryData() {
@@ -848,10 +902,15 @@ class SurgeryAnalyzer {
       this.currentSurgery.is_remote_surgery = true;
     }
     
-    // 处理网络统计数据
-    const surgeryNetworkData = this.networkLatencyData.filter(data => 
-      data.surgery_id === this.currentSurgery.surgery_id || !data.surgery_id
-    );
+    // 计算手术的实际时间范围
+    const timeRange = this.calculateSurgeryTimeRange();
+    
+    // 处理网络统计数据 - 只包含本场手术时间范围内的数据
+    const surgeryNetworkData = this.networkLatencyData.filter(data => {
+      const dataTime = new Date(data.timestamp).getTime();
+      return (timeRange.earliestTime === null || dataTime >= timeRange.earliestTime) && 
+             (timeRange.latestTime === null || dataTime <= timeRange.latestTime);
+    });
     this.currentSurgery.network_latency_data = surgeryNetworkData;
     
     if (surgeryNetworkData.length > 0) {
@@ -867,13 +926,11 @@ class SurgeryAnalyzer {
       this.currentSurgery.network_stats = null;
     }
     
-    // 处理状态机变化
+    // 处理状态机变化 - 只包含本场手术时间范围内的数据
     const filteredChanges = this.stateMachineChanges.filter(change => {
       const changeTime = new Date(change.time).getTime();
-      const startTime = this.currentSurgery.surgery_start_time ? new Date(this.currentSurgery.surgery_start_time).getTime() : null;
-      const endTime = this.currentSurgery.surgery_end_time ? new Date(this.currentSurgery.surgery_end_time).getTime() : null;
-      
-      return (startTime === null || changeTime >= startTime) && (endTime === null || changeTime <= endTime);
+      return (timeRange.earliestTime === null || changeTime >= timeRange.earliestTime) && 
+             (timeRange.latestTime === null || changeTime <= timeRange.latestTime);
     });
     this.currentSurgery.state_machine_changes = [...filteredChanges];
   }
@@ -1115,6 +1172,91 @@ class SurgeryAnalyzer {
       arms: arms,
       surgery_stats: surgeryStats
     };
+  }
+
+  /**
+   * 检测是否为异常关机
+   * 逻辑：检查开机事件前1分钟以上且前30分钟以内是否存在日志
+   * @param {Object} powerOnEntry - 开机事件日志条目
+   * @param {number} powerOnIndex - 开机事件索引
+   * @param {Array} allEntries - 所有日志条目
+   * @returns {boolean} true表示异常关机，false表示正常重启
+   */
+  detectAbnormalShutdown(powerOnEntry, powerOnIndex, allEntries) {
+    const powerOnTime = new Date(powerOnEntry.timestamp).getTime();
+    const oneMinuteAgo = powerOnTime - 1 * 60 * 1000; // 1分钟前
+    const thirtyMinutesAgo = powerOnTime - 30 * 60 * 1000; // 30分钟前
+    
+    // 向前查找日志，检查1分钟以上且30分钟以内是否有日志
+    for (let i = powerOnIndex - 1; i >= 0; i--) {
+      const entry = allEntries[i];
+      if (!entry || !entry.timestamp) continue;
+      
+      const entryTime = new Date(entry.timestamp).getTime();
+      
+      // 如果日志时间在1分钟以内，属于本次开机，继续查找
+      if (entryTime >= oneMinuteAgo) {
+        continue;
+      }
+      
+      // 如果日志时间在30分钟以外，停止查找
+      if (entryTime < thirtyMinutesAgo) {
+        break;
+      }
+      
+      // 如果日志时间在1分钟以上且30分钟以内，说明有日志记录，为正常重启
+      console.log(`找到1-30分钟内的日志: 时间=${entry.timestamp}, 距离开机=${Math.floor((powerOnTime - entryTime) / 1000 / 60)}分钟`);
+      return false; // 正常重启
+    }
+    
+    // 如果1-30分钟内没有找到任何日志，说明是异常关机
+    console.log(`1-30分钟内无日志记录，判定为异常关机`);
+    return true; // 异常关机
+  }
+
+  /**
+   * 查找上一场手术的最后一条日志（异常关机发生的时间）
+   * 在异常关机情况下，基于30分钟边界继续向前查找，找到的第一个日志就是异常关机发生的时间
+   * @param {Object} powerOnEntry - 开机事件日志条目
+   * @param {number} powerOnIndex - 开机事件索引
+   * @param {Array} allEntries - 所有日志条目
+   * @returns {Object|null} 异常关机发生时的最后一条日志，如果没找到则返回null
+   */
+  findLastLogOfPreviousSurgery(powerOnEntry, powerOnIndex, allEntries) {
+    const powerOnTime = new Date(powerOnEntry.timestamp).getTime();
+    const oneMinuteAgo = powerOnTime - 1 * 60 * 1000; // 1分钟前
+    const thirtyMinutesAgo = powerOnTime - 30 * 60 * 1000; // 30分钟前
+    
+    console.log(`开始查找异常关机发生时间，开机时间: ${powerOnEntry.timestamp}`);
+    console.log(`查找范围: 30分钟前(${new Date(thirtyMinutesAgo).toISOString()}) 到 1分钟前(${new Date(oneMinuteAgo).toISOString()})`);
+    
+    // 改进逻辑：基于异常关机检测结果，向前查找30分钟边界外的第一个日志
+    for (let i = powerOnIndex - 1; i >= 0; i--) {
+      const entry = allEntries[i];
+      if (!entry || !entry.timestamp) continue;
+      
+      const entryTime = new Date(entry.timestamp).getTime();
+      
+      // 跳过1分钟内的日志（属于本次开机）
+      if (entryTime >= oneMinuteAgo) {
+        continue;
+      }
+      
+      // 跳过1-30分钟窗口内的日志（异常关机检测已经确认这里没有日志）
+      if (entryTime >= thirtyMinutesAgo) {
+        continue;
+      }
+      
+      // 找到30分钟边界外的第一个日志，这就是异常关机发生的时间
+      const minutesFromPowerOn = Math.floor((powerOnTime - entryTime) / 1000 / 60);
+      console.log(`找到异常关机发生时间: ${entry.timestamp}, 距离开机=${minutesFromPowerOn}分钟`);
+      console.log(`此时间将作为上一场手术的结束时间`);
+      return entry;
+    }
+    
+    // 如果30分钟外也没找到日志，返回null，调用方会使用开机事件时间作为fallback
+    console.log(`30分钟外未找到任何日志，将使用开机事件时间作为手术结束时间`);
+    return null;
   }
 
   /**

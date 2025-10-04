@@ -1,19 +1,13 @@
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 
-// 格式化为UTC时间 YYYY-MM-DD HH:mm:ss（用于写库，统一为UTC）
+// 格式化为UTC时间（用于写库，统一为UTC）
 function formatUtcDateTime(dateLike) {
   if (!dateLike) return null;
   const d = new Date(dateLike);
   if (Number.isNaN(d.getTime())) return null;
-  const pad = (n) => String(n).padStart(2, '0');
-  return (
-    d.getUTCFullYear() + '-' +
-    pad(d.getUTCMonth() + 1) + '-' +
-    pad(d.getUTCDate()) + ' ' +
-    pad(d.getUTCHours()) + ':' +
-    pad(d.getUTCMinutes()) + ':' +
-    pad(d.getUTCSeconds())
-  );
+  
+  // 直接返回Date对象，让Sequelize处理UTC转换
+  return d;
 }
 
 // 递归规范化 structured_data 内所有时间戳为UTC格式 YYYY-MM-DD HH:mm:ss

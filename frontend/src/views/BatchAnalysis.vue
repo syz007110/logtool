@@ -738,6 +738,17 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 手术数据比对对话框 -->
+    <SurgeryDataCompare
+      v-model="showCompareDialog"
+      :surgery-id="compareData.surgeryId"
+      :existing-data="compareData.existingData"
+      :new-data="compareData.newData"
+      :differences="compareData.differences"
+      :surgery-data="compareData.surgeryData"
+      @confirmed="showCompareDialog = false"
+    />
   </div>
 </template>
 
@@ -749,6 +760,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
+import SurgeryDataCompare from '@/components/SurgeryDataCompare.vue'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { formatTime, formatTimeShort, loadServerTimezone } from '../utils/timeFormatter'
@@ -762,6 +774,7 @@ export default {
     DataAnalysis,
     Warning,
     TimeSeriesChart,
+    SurgeryDataCompare,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { text: { type: String, default: '' } },
@@ -1937,6 +1950,8 @@ export default {
     const exportingRow = ref({})
     const surgeryJsonDialogVisible = ref(false)
     const surgeryJsonText = ref('')
+    const showCompareDialog = ref(false)
+    const compareData = ref({})
 
     // 权限检查
     const hasExportPermission = computed(() => store.getters['auth/hasPermission']?.('surgery:export'))
@@ -1964,6 +1979,16 @@ export default {
         
         if (response.data.success) {
           ElMessage.success('手术数据已成功导出到PostgreSQL数据库')
+        } else if (response.data.needsConfirmation) {
+          // 需要用户确认覆盖
+          showCompareDialog.value = true
+          compareData.value = {
+            surgeryId: response.data.surgery_id,
+            existingData: response.data.existingData,
+            newData: response.data.newData,
+            differences: response.data.differences,
+            surgeryData: row
+          }
         } else {
           ElMessage.warning(response.data.message || '导出完成，但可能未存储到数据库')
         }
@@ -3373,8 +3398,8 @@ export default {
         .catch(() => {})
     }
 
-    const formatTimeForDisplay = (t) => {
-      try { return formatTime(t) } catch { return t }
+    const formatTimeForDisplay = (t, isUtcTime = true) => {
+      try { return formatTime(t, true, isUtcTime) } catch { return t }
     }
 
     // 保存备注到sessionStorage
@@ -3714,6 +3739,9 @@ export default {
       fetchFilteredStatistics,
       loadCountsFromStorage,
       showErrorCodeStatistics,
+      // 数据比对相关
+      showCompareDialog,
+      compareData,
     }
   }
 }

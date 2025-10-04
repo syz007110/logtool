@@ -25,8 +25,10 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: false
-    }
+      ssl: false,
+      timezone: 'UTC'  // 统一使用UTC时区
+    },
+    timezone: 'UTC'  // Sequelize时区设置
   },
   test: {
     username: process.env.POSTGRES_USER || 'postgres',
@@ -47,8 +49,10 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: false
-    }
+      ssl: false,
+      timezone: 'UTC'  // 统一使用UTC时区
+    },
+    timezone: 'UTC'  // Sequelize时区设置
   },
   production: {
     username: process.env.POSTGRES_USER,
@@ -70,8 +74,10 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: false
-    }
+      ssl: false,
+      timezone: 'UTC'  // 统一使用UTC时区
+    },
+    timezone: 'UTC'  // Sequelize时区设置
   }
 };
 

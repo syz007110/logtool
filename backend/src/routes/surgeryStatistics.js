@@ -27,4 +27,7 @@ router.get('/export/postgresql', auth, checkPermission('surgery:export'), surger
 router.get('/postgresql', auth, checkPermission('surgery:read'), surgeryStatisticsController.getPostgreSQLSurgeries);
 router.post('/export-single', auth, checkPermission('surgery:export'), surgeryStatisticsController.exportSingleSurgeryData);
 
+// 确认覆盖手术数据（管理员、专家）
+router.post('/confirm-override', auth, checkPermission('surgery:export'), surgeryStatisticsController.confirmOverrideSurgeryData);
+
 module.exports = router; 

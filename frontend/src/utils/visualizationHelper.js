@@ -1,9 +1,10 @@
 // 统一的手术数据可视化辅助函数
 import router from '../router'
+import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from './surgeryDataAdapter'
 
 /**
  * 统一的手术数据可视化函数
- * 按照日志解析页面中手术数据列表的可视化功能实现
+ * 使用数据适配器统一处理不同来源的手术数据
  *
  * @param {Object} surgeryData - 手术数据对象
  * @param {Object} options - 可选参数
@@ -20,51 +21,30 @@ export function visualizeSurgery (surgeryData, options = {}) {
     }
 
     // 添加调试信息
-    console.log('visualizeSurgery received data:', surgeryData)
-    console.log('Has structured_data:', !!surgeryData.structured_data)
-    console.log('Has postgresql_row_preview:', !!surgeryData.postgresql_row_preview)
+    console.log('🔧 开始处理手术数据可视化:', surgeryData)
+    const dataSourceType = getDataSourceType(surgeryData)
+    console.log('📊 数据来源类型:', dataSourceType)
 
-    // 准备要存储的数据
-    let dataToStore = surgeryData
-
-    // 如果是PostgreSQL格式的数据，需要保留基本信息并合并structured_data
-    if (surgeryData.structured_data) {
-      // 保留外层的基本信息，并将structured_data合并进去
-      dataToStore = {
-        ...surgeryData.structured_data,
-        // 保留关键的基本信息（优先使用外层值，即使为false也要保留）
-        surgery_id: surgeryData.surgery_id !== undefined ? surgeryData.surgery_id : surgeryData.structured_data.surgery_id,
-        start_time: surgeryData.start_time !== undefined ? surgeryData.start_time : surgeryData.structured_data.start_time,
-        end_time: surgeryData.end_time !== undefined ? surgeryData.end_time : surgeryData.structured_data.end_time,
-        is_remote: surgeryData.is_remote !== undefined ? surgeryData.is_remote : surgeryData.structured_data.is_remote,
-        has_fault: surgeryData.has_fault !== undefined ? surgeryData.has_fault : surgeryData.structured_data.has_fault,
-        device_ids: surgeryData.device_ids !== undefined ? surgeryData.device_ids : surgeryData.structured_data.device_ids,
-        source_log_ids: surgeryData.source_log_ids !== undefined ? surgeryData.source_log_ids : surgeryData.structured_data.source_log_ids
-      }
-    } else if (surgeryData.postgresql_row_preview?.structured_data) {
-      // 如果有postgresql_row_preview，保留基本信息并合并structured_data
-      const preview = surgeryData.postgresql_row_preview
-      dataToStore = {
-        ...preview.structured_data,
-        // 保留关键的基本信息（优先使用外层值，即使为false也要保留）
-        surgery_id: preview.surgery_id !== undefined ? preview.surgery_id : preview.structured_data?.surgery_id,
-        start_time: preview.start_time !== undefined ? preview.start_time : preview.structured_data?.start_time,
-        end_time: preview.end_time !== undefined ? preview.end_time : preview.structured_data?.end_time,
-        is_remote: preview.is_remote !== undefined ? preview.is_remote : preview.structured_data?.is_remote,
-        has_fault: preview.has_fault !== undefined ? preview.has_fault : preview.structured_data?.has_fault,
-        device_ids: preview.device_ids !== undefined ? preview.device_ids : preview.structured_data?.device_ids,
-        source_log_ids: preview.source_log_ids !== undefined ? preview.source_log_ids : preview.structured_data?.source_log_ids
-      }
+    // 使用数据适配器统一处理数据
+    const adaptedData = adaptSurgeryData(surgeryData)
+    
+    if (!adaptedData) {
+      throw new Error('数据适配失败，无法识别的数据格式')
     }
 
-    // 添加调试信息
-    console.log('Final data to store:', dataToStore)
-    console.log('Final surgery_id:', dataToStore.surgery_id)
-    console.log('Final start_time:', dataToStore.start_time)
-    console.log('Final end_time:', dataToStore.end_time)
+    // 验证适配后的数据
+    if (!validateAdaptedData(adaptedData)) {
+      throw new Error('数据验证失败，缺少必要字段')
+    }
+
+    // 添加数据来源信息
+    adaptedData._dataSource = dataSourceType
+    adaptedData._originalData = surgeryData
+
+    console.log('✅ 数据适配成功:', adaptedData)
 
     // 将数据存储到sessionStorage
-    sessionStorage.setItem('surgeryVizData', JSON.stringify(dataToStore))
+    sessionStorage.setItem('surgeryVizData', JSON.stringify(adaptedData))
 
     // 构建路由参数
     const routeOptions = { path: '/surgery-visualization' }
@@ -82,7 +62,7 @@ export function visualizeSurgery (surgeryData, options = {}) {
       router.push(routeOptions)
     }
   } catch (error) {
-    console.error('可视化手术数据失败:', error)
+    console.error('❌ 可视化手术数据失败:', error)
     // 这里可以添加用户友好的错误提示
     if (window.ElMessage) {
       window.ElMessage.error('可视化手术数据失败: ' + error.message)

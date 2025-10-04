@@ -5,7 +5,7 @@
     <el-card class="title-card">
           <div class="surgery-info">
         <span class="surgery-id">{{ meta.surgery_id || '-' }}</span>
-        <el-tag v-if="meta.is_remote" color="green" size="small" class="surgery-tag">远程手术</el-tag>
+        <el-tag v-if="meta.is_remote" color="green" size="small" class="surgery-tag remote-tag">远程手术</el-tag>
         <el-tag v-if="meta.is_fault" color="red" size="small" class="surgery-tag fault-tag">故障手术</el-tag>
           </div>
     </el-card>
@@ -19,10 +19,10 @@
           <span class="zoom-level">{{ Math.round(zoomLevel * 100) }}%</span>
         </div>
       </div>
-      <div 
-        class="timeline-container"
-        @wheel="handleWheel"
-      >
+        <div 
+          class="timeline-container"
+          @wheel.prevent="handleWheel"
+        >
         <!-- 表格头部 -->
         <div class="timeline-header">
           <div class="arm-column">活动名称</div>
@@ -55,13 +55,14 @@
               :width="getSegmentWidth(segment)"
               :height="getSegmentHeight()"
                 :fill="getArmColor(arm.arm_id)"
-                :stroke="getArmColor(arm.arm_id)"
-              stroke-width="1"
+                :stroke="getStrokeColor(arm.arm_id)"
+              stroke-width="2"
               rx="3"
               ry="3"
               class="instrument-segment-svg"
               @click="handleSegmentClick(segment, $event)"
               @mouseenter="handleSegmentHover(segment, $event)"
+              @mousemove="handleMouseMove($event)"
               @mouseleave="handleSegmentLeave(segment, $event)"
             />
               <!-- 器械类型文本 -->
@@ -74,6 +75,7 @@
                 :fill="getTextColor(arm.arm_id)"
                 @click="handleSegmentClick(segment, $event)"
                 @mouseenter="handleSegmentHover(segment, $event)"
+                @mousemove="handleMouseMove($event)"
                 @mouseleave="handleSegmentLeave(segment, $event)"
               >
                 {{ getInstrumentDisplayName(segment) }}
@@ -82,21 +84,6 @@
           </g>
           
         </svg>
-
-        <!-- 自定义Tooltip -->
-        <div 
-          v-if="hoveredSegment"
-          class="custom-tooltip"
-          :style="getTooltipStyle()"
-        >
-          <div class="tooltip-title">{{ getSegmentTooltipTitle(hoveredSegment) }}</div>
-          <div class="tooltip-content">
-            <div>UDI码: {{ hoveredSegment.udi || '无UDI' }}</div>
-            <div>使用时长: {{ getSegmentDuration(hoveredSegment) }}分钟</div>
-            <div>安装时刻: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
-            <div>拔下时刻: {{ formatSegmentTime(hoveredSegment.remove_time || hoveredSegment.end_time) }}</div>
-          </div>
-        </div>
         
         <!-- 表格主体 -->
         <div class="timeline-body">
@@ -124,10 +111,13 @@
                   <div 
                     v-for="(event, eventIndex) in getEventsInHour(index)"
                     :key="`${event.type}-${eventIndex}`"
-                  class="timeline-event"
+                    class="timeline-event"
                     :class="getEventClass(event.type)"
-                    :title="getEventTooltip(event)"
+                    :style="getSingleEventStyle(event, index)"
                     :data-merged="event.isMerged"
+                    @mouseenter="handleEventHover(event, $event)"
+                    @mousemove="handleMouseMove($event)"
+                    @mouseleave="handleEventLeave"
                   >
                     <!-- 事件符号 -->
                     <div class="event-symbol" :class="getSymbolClass(event.symbol)">
@@ -145,25 +135,42 @@
       </div>
     </el-card>
 
-    <!-- 图表分析卡片 -->
-    <el-card class="charts-card" v-if="showCharts">
-      <div class="section-header">
-        手术分析图表
-      </div>
-      <div class="charts-container">
-        <!-- 左图：手术状态机变化 -->
-        <div class="chart-item">
-          <div class="chart-title">手术状态机变化</div>
-          <div ref="stateMachineChart" class="chart"></div>
+    <!-- 图表区域：手术状态机变化和网络延迟情况 -->
+    <div class="charts-row" v-if="showCharts && (hasStateMachineData || hasNetworkLatencyData)">
+      <!-- 手术状态机变化卡片 -->
+      <el-card class="state-machine-card" v-if="hasStateMachineData">
+        <div class="section-header">
+          手术状态机变化
         </div>
-        
-        <!-- 右图：网络延迟情况 -->
-        <div class="chart-item" v-if="meta.is_remote">
-          <div class="chart-title">网络延迟情况</div>
-          <div ref="networkLatencyChart" class="chart"></div>
+        <div class="chart-container">
+          <TimeSeriesChart
+            :series-data="stateMachineChartData"
+            :series-name="'状态机'"
+            :height="300"
+            :width="600"
+            :y-axis-format="'integer'"
+            :show-range-labels="true"
+          />
         </div>
-      </div>
-    </el-card>
+      </el-card>
+
+      <!-- 网络延迟情况卡片 -->
+      <el-card class="network-latency-card" v-if="meta.is_remote && hasNetworkLatencyData">
+        <div class="section-header">
+          网络延迟情况
+        </div>
+        <div class="chart-container">
+          <TimeSeriesChart
+            :series-data="networkLatencyChartData"
+            :series-name="'网络延迟(ms)'"
+            :height="300"
+            :width="600"
+            :y-axis-format="'decimal'"
+            :show-range-labels="true"
+          />
+        </div>
+      </el-card>
+    </div>
 
     <!-- 安全报警记录卡片 -->
     <el-card class="faults-card" v-if="showCharts && meta.is_fault && faultRecords.length > 0">
@@ -222,6 +229,41 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 全局Tooltip，放在页面根级别避免被容器裁剪 -->
+    <div 
+      v-if="hoveredSegment"
+      class="custom-tooltip"
+      :style="getTooltipStyle()"
+    >
+      <div class="tooltip-title">{{ getSegmentTooltipTitle(hoveredSegment) }}</div>
+      <div class="tooltip-content">
+        <div>UDI码: {{ hoveredSegment.udi || '无UDI' }}</div>
+        <div>使用时长: {{ getSegmentDuration(hoveredSegment) }}分钟</div>
+        <div>安装时刻: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
+        <div>拔下时刻: {{ formatSegmentTime(hoveredSegment.remove_time || hoveredSegment.end_time) }}</div>
+      </div>
+    </div>
+    
+    <!-- 手术事件Tooltip，与器械一致样式 -->
+    <div 
+      v-if="hoveredEvent" 
+      class="custom-tooltip" 
+      :style="getTooltipStyle()"
+    >
+      <div class="tooltip-title">{{ hoveredEvent.isMerged ? `合并事件 (${hoveredEvent.allEvents.length}个)` : hoveredEvent.name }}</div>
+      <div class="tooltip-content">
+        <div v-if="hoveredEvent.isMerged && hoveredEvent.allEvents">
+          <div v-for="event in hoveredEvent.allEvents" :key="event.time" class="event-item">
+            <div class="event-name">{{ event.name }}</div>
+            <div class="event-time">{{ formatEventTime(event) }}</div>
+          </div>
+        </div>
+        <div v-else>
+          <div>时间: {{ formatEventTime(hoveredEvent) }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -231,10 +273,13 @@ import { useRoute } from 'vue-router'
 import api from '../api'
 import { normalizeSurgeryData as normalize } from '../utils/visualizationConfig'
 import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
-import * as echarts from 'echarts'
+import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 
 export default {
   name: 'SurgeryVisualization',
+  components: {
+    TimeSeriesChart
+  },
   setup() {
     // 移除不需要的图表引用
 
@@ -262,6 +307,7 @@ export default {
     
     // 当前悬停的器械段
     const hoveredSegment = ref(null)
+    const hoveredEvent = ref(null)
     const tooltipPosition = ref({ x: 0, y: 0 })
     
     // 缩放控制
@@ -271,10 +317,10 @@ export default {
     
     // 图表相关
     const showCharts = ref(false)
-    const stateMachineChart = ref(null)
-    const networkLatencyChart = ref(null)
-    const stateMachineChartInstance = ref(null)
-    const networkLatencyChartInstance = ref(null)
+    const hasStateMachineData = ref(false)
+    const hasNetworkLatencyData = ref(false)
+    const stateMachineChartData = ref([])
+    const networkLatencyChartData = ref([])
     
     // 故障记录相关
     const faultRecords = ref([])
@@ -546,7 +592,7 @@ export default {
     const getSegmentY = (arm, segment) => {
       // 计算臂的行索引
       const armIndex = armsData.value.findIndex(a => a.arm_id === arm.arm_id)
-      const rowHeight = 80 // 每行高度
+      const rowHeight = 60 // 每行高度（从80调整为60）
       const headerHeight = 50 // 表头高度
       
       return headerHeight + (armIndex * rowHeight) + (rowHeight - 32) / 2 // 垂直居中
@@ -568,7 +614,7 @@ export default {
       
       // 对于极短的器械使用时间（小于1分钟），设置最小可见宽度
       if (durationMinutes < 1) {
-        return Math.max(3, 10) // 最小宽度
+        return Math.max(1, 2) // 最小宽度
       }
       
       // 基于时间跨度计算宽度
@@ -646,30 +692,38 @@ export default {
     
     // 获取器械段的高度
     const getSegmentHeight = () => {
-      return 32 // 固定高度
+      return 25// 固定高度
     }
     
     
     // 处理器械段点击
     const handleSegmentClick = (segment, event) => {
       event.stopPropagation()
-      console.log('器械段点击:', segment)
       // TODO: 显示抽屉
     }
     
     // 处理器械段悬停
     const handleSegmentHover = (segment, event) => {
       hoveredSegment.value = segment
-      tooltipPosition.value = {
-        x: event.clientX + 10,
-        y: event.clientY - 10
-      }
+      tooltipPosition.value = { x: event.clientX + 5, y: event.clientY - 5 }
     }
     
     // 处理器械段离开
     const handleSegmentLeave = (segment, event) => {
       hoveredSegment.value = null
     }
+
+    // 统一的鼠标移动处理，确保tooltip跟随鼠标
+    const handleMouseMove = (event) => {
+      tooltipPosition.value = { x: event.clientX + 5, y: event.clientY - 5 }
+    }
+
+    // 事件悬停进入/离开
+    const handleEventHover = (eventObj, event) => {
+      hoveredEvent.value = eventObj
+      tooltipPosition.value = { x: event.clientX + 5, y: event.clientY - 5 }
+    }
+    const handleEventLeave = () => { hoveredEvent.value = null }
     
     // 获取tooltip样式
     const getTooltipStyle = () => {
@@ -677,8 +731,22 @@ export default {
         position: 'fixed',
         left: `${tooltipPosition.value.x}px`,
         top: `${tooltipPosition.value.y}px`,
-        zIndex: 1000
+        zIndex: 9999
       }
+    }
+    // 事件时间与星期格式化（与器械tooltip一致）
+    const formatEventTime = (ev) => {
+      const localTime = getLocalTime(ev?.time)
+      if (!localTime) return '未知'
+      return localTime.toLocaleString('zh-CN', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      })
+    }
+    const getEventWeekday = (ev) => {
+      const localTime = getLocalTime(ev?.time)
+      if (!localTime) return ''
+      return localTime.toLocaleDateString('zh-CN', { weekday: 'long' })
     }
     
     // 获取器械段tooltip标题
@@ -713,7 +781,6 @@ export default {
     // 处理覆盖层点击
     const handleOverlayClick = (event) => {
       // 如果点击的是空白区域，可以执行其他操作
-      console.log('覆盖层点击')
     }
     
     // 检查某个小时是否有时间线事件
@@ -774,22 +841,134 @@ export default {
         return eventHour === actualHour
       })
       
-      // 如果事件数量超过3个，合并显示
-      if (events.length > 3) {
-        const firstEvent = events[0]
-        return [{
-          ...firstEvent,
-          name: `${firstEvent.name}+${events.length - 1}`,
-          isMerged: true,
-          allEvents: events
-        }]
+      if (events.length === 0) return []
+      
+      // 按时间排序
+      events.sort((a, b) => {
+        const timeA = getLocalTime(a.time)?.getTime() || 0
+        const timeB = getLocalTime(b.time)?.getTime() || 0
+        return timeA - timeB
+      })
+      
+      // 基于视觉重合检测合并事件（响应缩放变化）
+      return mergeEventsByVisualOverlap(events, hour)
+    }
+    
+    // 基于视觉重合检测合并事件
+    const mergeEventsByVisualOverlap = (events, hourIndex) => {
+      if (events.length <= 1) return events
+      
+      // 获取当前容器宽度（考虑缩放）
+      const armColumnWidth = 120
+      const baseContainerWidth = window.innerWidth - armColumnWidth
+      const scaledContainerWidth = baseContainerWidth * zoomLevel.value
+      
+      // 计算每个事件的视觉位置
+      const eventPositions = events.map(event => {
+        const eventTime = getLocalTime(event.time)
+        if (!eventTime) return { event, left: 50, right: 50 }
+        
+        const eventMinute = eventTime.getMinutes()
+        const positionInHour = (eventMinute / 60) * 100
+        const leftPosition = Math.max(0, Math.min(100, positionInHour))
+        
+        // 估算标签宽度（基于显示名称长度）
+        const displayName = event.isMerged ? `+${event.allEvents.length}` : event.name
+        const baseWidth = Math.max(40, displayName.length * 8 + 16) // 每个字符约8px + 边距
+        const scaledWidth = baseWidth * zoomLevel.value
+        
+        // 计算在缩放后容器中的位置
+        const left = leftPosition
+        const right = leftPosition + (scaledWidth / scaledContainerWidth * 100)
+        
+        return { event, left, right, displayName }
+      })
+      
+      // 检测重合并合并（30px间距检测）
+      const mergedGroups = []
+      let currentGroup = [eventPositions[0]]
+      
+      for (let i = 1; i < eventPositions.length; i++) {
+        const current = eventPositions[i]
+        const lastInGroup = currentGroup[currentGroup.length - 1]
+        
+        // 计算时间差（分钟）
+        const currentTime = getLocalTime(current.event.time)
+        const lastTime = getLocalTime(lastInGroup.event.time)
+        const timeDiffMinutes = (currentTime.getTime() - lastTime.getTime()) / (1000 * 60)
+        
+        // 将时间差转换为像素间距
+        const totalHours = getTotalHours()
+        const hourCellWidth = scaledContainerWidth / totalHours
+        const minuteWidth = hourCellWidth / 60 // 每分钟的像素宽度
+        const pixelSpacing = timeDiffMinutes * minuteWidth
+        
+        // 打印调试信息
+        console.log(`🔍 事件间距检测:`, {
+          event1: lastInGroup.event.name,
+          event2: current.event.name,
+          timeDiffMinutes: timeDiffMinutes.toFixed(2) + '分钟',
+          pixelSpacing: pixelSpacing.toFixed(2) + 'px',
+          zoomLevel: zoomLevel.value.toFixed(2),
+          scaledContainerWidth: scaledContainerWidth.toFixed(2) + 'px',
+          hourCellWidth: hourCellWidth.toFixed(2) + 'px',
+          minuteWidth: minuteWidth.toFixed(2) + 'px/分钟',
+          shouldMerge: pixelSpacing < 30 ? '是' : '否'
+        })
+        
+        // 如果间距小于30px，则合并
+        if (pixelSpacing < 20) {
+          currentGroup.push(current)
+        } else {
+          // 不重合，处理当前组并开始新组
+          mergedGroups.push(processEventGroup(currentGroup))
+          currentGroup = [current]
+        }
       }
       
-      return events
+      // 处理最后一组
+      if (currentGroup.length > 0) {
+        mergedGroups.push(processEventGroup(currentGroup))
+      }
+      
+      const result = mergedGroups.flat()
+      
+      // 打印最终合并结果
+      console.log(`📊 事件合并结果 (缩放级别: ${zoomLevel.value.toFixed(2)}):`, {
+        originalEvents: events.length,
+        finalEvents: result.length,
+        mergedEvents: result.filter(e => e.isMerged).length,
+        mergedDetails: result.filter(e => e.isMerged).map(e => ({
+          name: e.name,
+          count: e.allEvents.length,
+          events: e.allEvents.map(ev => ev.name)
+        }))
+      })
+      
+      return result
+    }
+    
+    // 处理事件组，决定是否合并显示
+    const processEventGroup = (eventGroup) => {
+      if (eventGroup.length === 1) {
+        return [eventGroup[0].event]
+      }
+      
+      // 多个事件重合，合并显示为"+X"格式
+      const firstEvent = eventGroup[0].event
+      return [{
+        ...firstEvent,
+        name: `+${eventGroup.length}`,
+        isMerged: true,
+        allEvents: eventGroup.map(item => item.event)
+      }]
     }
     
     // 获取事件工具提示
     const getEventTooltip = (event) => {
+      // 调试：确保事件对象存在
+      if (!event) return '事件数据不存在'
+      
       if (event.isMerged && event.allEvents) {
         // 合并事件的工具提示
         const eventDetails = event.allEvents.map(e => {
@@ -797,20 +976,23 @@ export default {
           if (!localTime) return e.name
           
           const timeStr = localTime.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit'
           })
           
-          return `${e.name} (${timeStr})`
-        }).join('\n')
+          return `${e.name}\n时间: ${timeStr}`
+        }).join('\n\n')
         
-        return `合并事件 (${event.allEvents.length}个):\n${eventDetails}`
+        return `合并事件 (${event.allEvents.length}个):\n\n${eventDetails}`
       }
       
       // 单个事件的工具提示
       const localTime = getLocalTime(event.time)
-      if (!localTime) return event.name
+      if (!localTime) return `${event.name}\n时间: 解析失败`
       
       const timeStr = localTime.toLocaleString('zh-CN', {
         year: 'numeric',
@@ -821,7 +1003,9 @@ export default {
         second: '2-digit'
       })
       
-      return `${event.name}\n时间: ${timeStr}`
+      const weekDay = localTime.toLocaleDateString('zh-CN', { weekday: 'long' })
+      
+      return `${event.name}\n时间: ${timeStr}\n星期: ${weekDay}`
     }
     
     // 获取符号样式类
@@ -829,27 +1013,33 @@ export default {
       return symbol === 'circle' ? 'symbol-circle' : 'symbol-square'
     }
     
-    // 获取事件样式（精确定位，考虑时区）
+    // 获取事件容器样式（为整个小时容器设置基础样式）
     const getEventStyle = (hour) => {
+      return {
+        position: 'relative',
+        height: '100%',
+        width: '100%'
+      }
+    }
+    
+    // 获取单个事件的样式（精确定位，考虑时区）
+    const getSingleEventStyle = (event, hourIndex) => {
       const startHour = getTableStartHour()
-      const actualHour = startHour + hour
-      const events = timelineEvents.value.filter(event => {
-        const eventHour = getHourFromTime(event.time)
-        return eventHour === actualHour
-      })
+      const actualHour = startHour + hourIndex
+      const eventHour = getHourFromTime(event.time)
       
-      if (events.length === 0) return {}
+      if (eventHour !== actualHour) {
+        return { display: 'none' }
+      }
       
-      const event = events[0]
       const eventTime = getLocalTime(event.time)
-      const baseTime = getLocalTime(timelineBaseTime.value)
       
-      if (!eventTime || !baseTime) {
+      if (!eventTime) {
         return { left: '50%', transform: 'translate(-50%, -50%)' }
       }
       
       // 直接使用事件时间的小时和分钟计算位置
-      const eventHour = eventTime.getHours()
+      const eventHourTime = eventTime.getHours()
       const eventMinute = eventTime.getMinutes()
       
       // 计算在小时内的位置百分比
@@ -858,8 +1048,11 @@ export default {
       
       
       return {
+        position: 'absolute',
         left: `${leftPosition}%`,
-        transform: 'translate(-50%, -50%)'
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 10
       }
     }
     
@@ -920,9 +1113,9 @@ export default {
     // 获取工具臂颜色
     const getArmColor = (armId) => {
       switch (armId) {
-        case 1: return '#1E90FF'  // 1号臂 - 蓝色
-        case 2: return '#66CD00'  // 2号臂 - 绿色
-        case 3: return '#FFD700'  // 3号臂 - 金色
+        case 1: return '#2752F1E5'  // 1号臂 - 蓝色
+        case 2: return '#30B33B'  // 2号臂 - 绿色
+        case 3: return '#FEBB0F99'  // 3号臂 - 金色
         case 4: return '#FF6347'  // 4号臂 - 橙红色
         default: return '#722ed1' // 默认颜色
       }
@@ -936,6 +1129,17 @@ export default {
         case 3: return '#000000'  // 3号臂 - 黑色文字（金色背景）
         case 4: return '#FFFFFF'  // 4号臂 - 白色文字
         default: return '#FFFFFF' // 默认白色
+      }
+    }
+    
+    // 获取线框颜色（比背景色更深的颜色）
+    const getStrokeColor = (armId) => {
+      switch (armId) {
+        case 1: return '#0000001A'  // 1号臂 - 深蓝色线框
+        case 2: return '#0000001A'  // 2号臂 - 深绿色线框
+        case 3: return '#0000001A'  // 3号臂 - 深金色线框
+        case 4: return '#0000001A'  // 4号臂 - 深橙红色线框
+        default: return '#4A148C' // 默认深紫色线框
       }
     }
     
@@ -1166,7 +1370,9 @@ export default {
       
       // 检查是否有图表数据
       const surgeryStatsForCharts = data.surgery_stats || {}
-      showCharts.value = !!(surgeryStatsForCharts.state_machine || (surgeryStatsForCharts.network_latency && meta.is_remote))
+      hasStateMachineData.value = !!(surgeryStatsForCharts.state_machine)
+      hasNetworkLatencyData.value = !!(surgeryStatsForCharts.network_latency_ms && meta.is_remote)
+      showCharts.value = hasStateMachineData.value || hasNetworkLatencyData.value
       
       // 初始化图表
       if (showCharts.value) {
@@ -1185,10 +1391,12 @@ export default {
         
         const data = JSON.parse(text)
         
-        console.log('获取到的手术数据:', data)
+        console.log('🔧 获取到的手术数据:', data)
+        
+        // 数据已经通过适配器处理，直接使用
         renderAll(data)
       } catch (error) {
-        console.error('❌ 解析SessionStorage数据失败:', error)
+        // 解析失败，静默处理
       }
     }
 
@@ -1199,360 +1407,70 @@ export default {
         const resp = await api.surgeries.get(surgeryIdInput.value)
         const item = resp.data?.data || resp.data
         
-        console.log('获取到的手术数据:', item)
-        console.log('has_fault字段:', item.has_fault, '类型:', typeof item.has_fault)
-        console.log('is_remote字段:', item.is_remote, '类型:', typeof item.is_remote)
-        console.log('所有字段列表:', Object.keys(item))
-        renderAll(item)
+        console.log('🔧 获取到的手术数据:', item)
+        
+        // 数据库数据也需要通过适配器处理
+        const { adaptSurgeryData, validateAdaptedData } = await import('../utils/surgeryDataAdapter')
+        const adaptedData = adaptSurgeryData(item)
+        
+        if (!adaptedData || !validateAdaptedData(adaptedData)) {
+          throw new Error('数据适配或验证失败')
+        }
+        
+        adaptedData._dataSource = 'database_record'
+        adaptedData._originalData = item
+        
+        renderAll(adaptedData)
       } catch (e) {
-        console.error('❌ API获取手术数据失败:', e)
+        // API获取失败，静默处理
       } finally {
         loading.value = false
       }
     }
 
     const handleResize = () => {
-      // 处理图表大小调整
-      if (stateMachineChartInstance.value) {
-        stateMachineChartInstance.value.resize()
-      }
-      if (networkLatencyChartInstance.value) {
-        networkLatencyChartInstance.value.resize()
-      }
+      // 图表大小调整现在由TimeSeriesChart组件内部处理
     }
     
     // 初始化图表
     const initCharts = (data) => {
       const surgeryStats = data.surgery_stats || {}
       
-      // 初始化状态机图表
-      if (surgeryStats.state_machine && stateMachineChart.value) {
-        initStateMachineChart(surgeryStats.state_machine)
+      // 处理状态机数据
+      if (surgeryStats.state_machine && Array.isArray(surgeryStats.state_machine)) {
+        stateMachineChartData.value = processStateMachineData(surgeryStats.state_machine)
       }
       
-      // 初始化网络延迟图表（仅远程手术）
-      if (surgeryStats.network_latency_ms && meta.is_remote && networkLatencyChart.value) {
-        initNetworkLatencyChart(surgeryStats.network_latency_ms)
+      // 处理网络延迟数据（仅远程手术）
+      if (surgeryStats.network_latency_ms && Array.isArray(surgeryStats.network_latency_ms) && meta.is_remote) {
+        networkLatencyChartData.value = processNetworkLatencyData(surgeryStats.network_latency_ms)
       }
       
       // 处理故障数据
       if (surgeryStats.faults && Array.isArray(surgeryStats.faults)) {
         faultRecords.value = processFaultData(surgeryStats.faults)
-        console.log(`📊 处理故障数据: ${faultRecords.value.length} 个故障记录`)
       }
     }
     
-    // 初始化状态机图表
-    const initStateMachineChart = (stateMachineData) => {
-      if (!stateMachineChart.value) return
-      
-      try {
-        stateMachineChartInstance.value = echarts.init(stateMachineChart.value)
-      } catch (error) {
-        console.error('❌ 状态机图表初始化失败:', error)
-        return
-      }
-      
-      // 处理状态机数据
-      const chartData = processStateMachineData(stateMachineData)
-      
-      const option = {
-        title: {
-          text: '手术状态机变化',
-          left: 'center',
-          textStyle: {
-            fontSize: 14
-          }
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'cross',
-            label: {
-              backgroundColor: '#6a7985'
-            }
-          },
-          formatter: function(params) {
-            const data = params[0]
-            const time = new Date(data.axisValue).toLocaleString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            })
-            return `时间: ${time}<br/>状态值: ${data.value}`
-          }
-        },
-        legend: {
-          data: ['状态机'],
-          top: 30
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          top: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'time',
-          boundaryGap: false,
-          axisLine: {
-            lineStyle: {
-              color: '#999'
-            }
-          },
-          axisLabel: {
-            formatter: function(value) {
-              return new Date(value).toLocaleString('zh-CN', {
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            }
-          }
-        },
-        yAxis: {
-          type: 'value',
-          axisLine: {
-            lineStyle: {
-              color: '#999'
-            }
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#eee'
-            }
-          }
-        },
-        series: [{
-          name: '状态机',
-          type: 'line',
-          data: chartData,
-          smooth: true,
-          showSymbol: false,
-          lineStyle: {
-            color: '#5470c6',
-            width: 2
-          },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [{
-                offset: 0, color: 'rgba(84, 112, 198, 0.3)'
-              }, {
-                offset: 1, color: 'rgba(84, 112, 198, 0.1)'
-              }]
-            }
-          },
-          emphasis: {
-            focus: 'series'
-          }
-        }],
-        dataZoom: [{
-          type: 'inside',
-          xAxisIndex: 0,
-          start: 0,
-          end: 100
-        }, {
-          type: 'slider',
-          xAxisIndex: 0,
-          start: 0,
-          end: 100,
-          height: 30,
-          bottom: 10,
-          handleIcon: 'path://M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
-          handleSize: '80%',
-          showDetail: false
-        }]
-      }
-      
-      try {
-        stateMachineChartInstance.value.setOption(option)
-      } catch (error) {
-        console.error('❌ 状态机图表配置失败:', error)
-      }
-    }
     
-    // 初始化网络延迟图表
-    const initNetworkLatencyChart = (latencyData) => {
-      if (!networkLatencyChart.value) return
-      
-      try {
-        networkLatencyChartInstance.value = echarts.init(networkLatencyChart.value)
-      } catch (error) {
-        console.error('❌ 网络延迟图表初始化失败:', error)
-        return
-      }
-      
-      // 处理网络延迟数据
-      const chartData = processNetworkLatencyData(latencyData)
-      
-      const option = {
-        title: {
-          text: '网络延迟情况',
-          left: 'center',
-          textStyle: {
-            fontSize: 14
-          }
-        },
-        tooltip: {
-          trigger: 'axis',
-          formatter: function(params) {
-            const data = params[0]
-            const latency = data.value
-            const status = latency > 1000 ? '异常' : '正常'
-            const statusColor = latency > 1000 ? '#ff4d4f' : '#52c41a'
-            return `<div style="color: ${statusColor}">
-              <strong>时间:</strong> ${data.axisValue}<br/>
-              <strong>延迟:</strong> ${latency}ms<br/>
-              <strong>状态:</strong> ${status}
-            </div>`
-          }
-        },
-        xAxis: {
-          type: 'time',
-          boundaryGap: false,
-          name: '时间',
-          nameLocation: 'middle',
-          nameGap: 30,
-          axisLabel: {
-            formatter: function(value) {
-              return new Date(value).toLocaleTimeString()
-            }
-          }
-        },
-        yAxis: {
-          type: 'value',
-          name: '延迟(ms)',
-          nameLocation: 'middle',
-          nameGap: 50,
-          axisLabel: {
-            formatter: '{value}ms'
-          }
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            start: 0,
-            end: 100,
-            realtime: true,
-            throttle: 100,
-            zoomLock: false,
-            xAxisIndex: 0,
-            filterMode: 'filter'
-          },
-          {
-            type: 'slider',
-            start: 0,
-            end: 100,
-            realtime: true,
-            throttle: 100,
-            zoomLock: false,
-            showDetail: true,
-            showDataShadow: true,
-            xAxisIndex: 0,
-            bottom: 10,
-            filterMode: 'filter',
-            moveHandleSize: 8
-          }
-        ],
-        series: [{
-          name: '网络延迟',
-          type: 'line',
-          data: chartData,
-          smooth: true,
-          symbol: 'none',
-          sampling: 'lttb',
-          lineStyle: {
-            color: '#409EFF',
-            width: 2
-          },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [{
-                offset: 0, color: 'rgba(64, 158, 255, 0.3)'
-              }, {
-                offset: 1, color: 'rgba(64, 158, 255, 0.05)'
-              }]
-            }
-          },
-          markLine: {
-            data: [{
-              yAxis: 1000,
-              lineStyle: {
-                color: '#ff4d4f',
-                type: 'dashed',
-                width: 2
-              },
-              label: {
-                formatter: '异常阈值 (1000ms)',
-                position: 'end',
-                color: '#ff4d4f'
-              }
-            }]
-          },
-          markPoint: {
-            data: chartData.filter(item => item[1] > 1000).map(item => ({
-              coord: item,
-              itemStyle: {
-                color: '#ff4d4f'
-              },
-              label: {
-                formatter: '异常',
-                color: '#fff',
-                fontSize: 10
-              }
-            }))
-          }
-        }],
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          top: '15%',
-          containLabel: true
-        }
-      }
-      
-      try {
-        networkLatencyChartInstance.value.setOption(option)
-      } catch (error) {
-        console.error('❌ 网络延迟图表配置失败:', error)
-      }
-    }
     
     // 处理状态机数据
     const processStateMachineData = (stateMachineData) => {
       if (!Array.isArray(stateMachineData)) {
-        console.warn('⚠️ 状态机数据不是数组:', stateMachineData)
         return []
       }
       
       try {
         const processedData = stateMachineData.map(item => {
-          // 处理UTC时间转换
+          // 处理UTC时间转换 - 使用与手术时间线相同的时区转换逻辑
           const timeValue = item.time || item.timestamp
           if (!timeValue) {
-            console.warn('⚠️ 状态机数据缺少时间字段:', item)
             return [Date.now(), 0]
           }
           
-          const utcTime = new Date(timeValue)
-          if (isNaN(utcTime.getTime())) {
-            console.warn('⚠️ 状态机数据时间格式无效:', timeValue)
+          // 使用 getLocalTime 函数进行时区转换
+          const localTime = getLocalTime(timeValue)
+          if (!localTime) {
             return [Date.now(), 0]
           }
           
@@ -1560,12 +1478,11 @@ export default {
           const stateValue = item.state || ''
           const stateNumber = extractStateNumber(stateValue)
           
-          return [utcTime.getTime(), stateNumber]
+          return [localTime.getTime(), stateNumber]
         })
         
         return processedData
       } catch (error) {
-        console.error('❌ 状态机数据处理失败:', error)
         return []
       }
     }
@@ -1592,31 +1509,28 @@ export default {
     // 处理网络延迟数据
     const processNetworkLatencyData = (latencyData) => {
       if (!Array.isArray(latencyData)) {
-        console.warn('⚠️ 网络延迟数据不是数组:', latencyData)
         return []
       }
       
       try {
         return latencyData.map(item => {
-          // 支持新的数据格式：{time: "2025-09-11 05:20:00", latency: 120}
+          // 处理UTC时间转换 - 使用与手术时间线相同的时区转换逻辑
           const timeValue = item.time || item.timestamp
           if (!timeValue) {
-            console.warn('⚠️ 网络延迟数据缺少时间字段:', item)
             return [Date.now(), 0]
           }
           
-          const utcTime = new Date(timeValue)
-          if (isNaN(utcTime.getTime())) {
-            console.warn('⚠️ 网络延迟数据时间格式无效:', timeValue)
+          // 使用 getLocalTime 函数进行时区转换
+          const localTime = getLocalTime(timeValue)
+          if (!localTime) {
             return [Date.now(), 0]
           }
           
           // 使用新的latency字段
           const latencyValue = item.latency || item.value || 0
-          return [utcTime.getTime(), latencyValue]
+          return [localTime.getTime(), latencyValue]
         })
       } catch (error) {
-        console.error('❌ 网络延迟数据处理失败:', error)
         return []
       }
     }
@@ -1624,7 +1538,6 @@ export default {
     // 处理故障数据
     const processFaultData = (faultsData) => {
       if (!Array.isArray(faultsData)) {
-        console.warn('⚠️ 故障数据不是数组:', faultsData)
         return []
       }
       
@@ -1652,7 +1565,6 @@ export default {
           new Date(a.timestamp) - new Date(b.timestamp)
         )
       } catch (error) {
-        console.error('❌ 故障数据处理失败:', error)
         return []
       }
     }
@@ -1701,24 +1613,63 @@ export default {
     
     // 处理鼠标滚轮缩放
     const handleWheel = (event) => {
-      event.preventDefault()
+      // 检查是否在时间线容器内
+      const container = event.currentTarget
+      if (!container || !container.classList.contains('timeline-container')) {
+        return
+      }
       
+      // 阻止默认滚动行为，但只在必要时
+      if (event.cancelable !== false) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      
+      const armColumnWidth = 120
+      const rect = container.getBoundingClientRect()
+      const mouseXInContainer = event.clientX - rect.left
+      // 鼠标在时间区域内的相对位置（去除左侧活动名称列）
+      const mouseXInTime = Math.max(0, mouseXInContainer - armColumnWidth)
+      const viewportTimeWidth = Math.max(1, container.clientWidth - armColumnWidth)
+      
+      // 基础内容宽度（未缩放的时间区域宽度）
+      const baseWidth = viewportTimeWidth
+      const oldContentWidth = baseWidth * zoomLevel.value
+      
+      // 计算鼠标锚点在内容中的比例位置（0~1）
+      const anchorRatio = (container.scrollLeft + mouseXInTime) / Math.max(1, oldContentWidth)
+      
+      // 计算新的缩放级别
       const delta = event.deltaY
       const zoomFactor = delta > 0 ? 0.9 : 1.1 // 向下滚动缩小，向上滚动放大
+      const newZoom = Math.max(minZoom, Math.min(maxZoom, zoomLevel.value * zoomFactor))
       
-      const newZoom = zoomLevel.value * zoomFactor
-      zoomLevel.value = Math.max(minZoom, Math.min(maxZoom, newZoom))
+      if (newZoom === zoomLevel.value) {
+        return
+      }
       
-      // 强制更新SVG内容，避免滞后
+      zoomLevel.value = newZoom
+      const newContentWidth = baseWidth * newZoom
+      
+      // 期望保持鼠标所在的时间点不动，计算新的scrollLeft
+      let newScrollLeft = anchorRatio * newContentWidth - mouseXInTime
+      const maxScrollLeft = Math.max(0, newContentWidth - viewportTimeWidth)
+      newScrollLeft = Math.max(0, Math.min(maxScrollLeft, newScrollLeft))
+      
+      // 在下一帧应用滚动与强制刷新
       nextTick(() => {
-        // 触发响应式更新
+        container.scrollLeft = newScrollLeft
+        
+        // 强制更新SVG内容，避免滞后
         const svg = document.querySelector('.timeline-overlay')
         if (svg) {
-          // 强制重新计算SVG内容
           svg.style.display = 'none'
           svg.offsetHeight // 触发重排
           svg.style.display = ''
         }
+        
+        // 强制重新计算事件合并状态
+        timelineEvents.value = [...timelineEvents.value]
       })
     }
     
@@ -1793,9 +1744,9 @@ export default {
       if (surgeryData) {
         try {
           const parsed = JSON.parse(surgeryData)
-          console.log('获取到的手术数据:', parsed)
+          console.log('🔧 获取到的手术数据:', parsed)
         } catch (e) {
-          console.error('❌ 解析surgeryVizData失败:', e)
+          // 解析失败，静默处理
         }
       }
     }
@@ -1830,16 +1781,7 @@ export default {
 
     onBeforeUnmount(() => {
       window.removeEventListener('resize', handleResize)
-      
-      // 销毁图表实例
-      if (stateMachineChartInstance.value) {
-        stateMachineChartInstance.value.dispose()
-        stateMachineChartInstance.value = null
-      }
-      if (networkLatencyChartInstance.value) {
-        networkLatencyChartInstance.value.dispose()
-        networkLatencyChartInstance.value = null
-      }
+      // 图表实例现在由TimeSeriesChart组件内部管理
     })
 
     // 使用统一的时间格式化函数
@@ -1900,6 +1842,7 @@ export default {
       armsData, 
       timelineEvents,
       hoveredSegment,
+      hoveredEvent,
       hasInstrumentInHour,
       getSegmentsInHour,
       getSegmentStyle,
@@ -1909,6 +1852,7 @@ export default {
       getEventClass,
       getEventType,
       getEventStyle,
+      getSingleEventStyle,
       getEventsInHour,
       getEventTooltip,
       getSymbolClass,
@@ -1935,21 +1879,30 @@ export default {
       handleSegmentClick,
       handleSegmentHover,
       handleSegmentLeave,
+      handleMouseMove,
+      handleEventHover,
+      handleEventLeave,
       handleOverlayClick,
       getTooltipStyle,
       getSegmentTooltipTitle,
+      formatEventTime,
+      getEventWeekday,
+      processEventGroup,
       getSegmentDuration,
       formatSegmentTime,
       getArmColor,
       getTextColor,
+      getStrokeColor,
       shouldShowInstrumentText,
       getSegmentTextX,
       getSegmentTextY,
       getInstrumentDisplayName,
       // 图表相关
       showCharts,
-      stateMachineChart,
-      networkLatencyChart,
+      hasStateMachineData,
+      hasNetworkLatencyData,
+      stateMachineChartData,
+      networkLatencyChartData,
       // 故障记录相关
       faultRecords,
       formatFaultTime,
@@ -2038,6 +1991,38 @@ export default {
   color: white !important;
 }
 
+/* 远程手术标签样式 */
+.surgery-tag[color="green"] {
+  background-color: #bfbfbf !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* 更具体的选择器来覆盖Element Plus默认样式 */
+.title-card .surgery-tag[color="green"] {
+  background-color: #bfbfbf !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* 使用类名选择器 */
+.surgery-tag.remote-tag {
+  background-color: #bfbfbf !important;
+  color: white !important;
+  border: none !important;
+}
+
+/* 强制覆盖Element Plus的默认样式 */
+.title-card .el-tag.remote-tag {
+  background-color: #bfbfbf !important;
+  color: white !important;
+  border: none !important;
+}
+
+.title-card .el-tag.remote-tag .el-tag__content {
+  color: white !important;
+}
+
 /* 手术概况卡片样式 */
 .overview-card {
   margin-bottom: 0;
@@ -2118,6 +2103,10 @@ export default {
   justify-content: center;
   font-size: 14px;
   color: #262626;
+  position: sticky; /* 冻结活动名称列 */
+  left: 0;
+  z-index: 30;
+  box-shadow: 1px 0 0 0 #d9d9d9; /* 分隔线阴影，保证缩放时可见 */
 }
 
 .time-columns {
@@ -2151,7 +2140,7 @@ export default {
 .timeline-row {
   display: flex;
   border-bottom: 1px solid #f0f0f0;
-  min-height: 80px;
+  min-height: 60px;
   transition: background-color 0.2s ease;
 }
 
@@ -2175,11 +2164,15 @@ export default {
   font-weight: 500;
   font-size: 14px;
   color: #262626;
+  position: sticky; /* 冻结活动名称列 */
+  left: 0;
+  z-index: 28;
+  box-shadow: 1px 0 0 0 #f0f0f0; /* 分隔线阴影，保证缩放时可见 */
 }
 
 .time-cells {
   position: relative;
-  min-height: 80px;
+  min-height: 60px;
   background: #fff;
   display: flex;
   /* 移除 flex: 1，使用固定宽度 */
@@ -2202,16 +2195,13 @@ export default {
   background-color: #f5f5f5;
 }
 
-.time-grid.has-instrument {
-  background-color: #f0f9ff;
-}
 
 /* 时间线事件容器 */
 .timeline-event-container {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 10;
+  z-index: 25;  /* 提高z-index，确保在SVG覆盖层之上 */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2225,21 +2215,35 @@ export default {
   align-items: center;
   gap: 4px;
   position: relative;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.timeline-event:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* 事件符号容器 */
 .event-symbol {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.event-symbol:hover {
+  transform: scale(1.2);
 }
 
 /* 圆形符号（手术相关事件） */
 .circle-shape {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border: 2px solid #ff4d4f;
   border-radius: 50%;
   background: transparent;
@@ -2247,8 +2251,8 @@ export default {
 
 /* 方形符号（开机/关机事件） */
 .square-shape {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border: 2px solid #1890ff;
   background: transparent;
   border-radius: 2px;
@@ -2259,21 +2263,20 @@ export default {
   font-size: 10px;
   font-weight: 500;
   color: #333;
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;  /* 改为透明背景 */
   padding: 2px 6px;
   border-radius: 4px;
   white-space: nowrap;
   text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: none;  /* 去掉边框 */
 }
 
 /* 合并事件标签样式 */
 .timeline-event[data-merged="true"] .event-label {
-  background: rgba(255, 193, 7, 0.9);
+  background: transparent;  /* 改为透明背景 */
   color: #856404;
   font-weight: 600;
-  border: 1px solid #ffc107;
+  border: none;  /* 去掉边框 */
 }
 
 /* 事件类型样式 */
@@ -2376,7 +2379,7 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: auto;
+  pointer-events: none;  /* 默认不响应事件，让事件穿透到下层 */
   z-index: 20;
 }
 
@@ -2385,16 +2388,28 @@ export default {
   cursor: pointer;
   transition: all 0.3s ease;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
+  stroke-dasharray: none;
+  pointer-events: auto;  /* 确保器械段可以响应事件 */
 }
 
 .instrument-segment-svg:hover {
   filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+  stroke-width: 3;
+  stroke-dasharray: 5,5;
+  animation: dash 1s linear infinite;
+}
+
+/* 线框动画效果 */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -10;
+  }
 }
 
 /* 器械文本样式 */
 .instrument-text {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: normal;
   pointer-events: none;
   user-select: none;
   text-shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -2414,6 +2429,8 @@ export default {
   pointer-events: none;
   max-width: 300px;
   white-space: nowrap;
+  position: fixed;
+  z-index: 9999;
 }
 
 .tooltip-title {
@@ -2434,39 +2451,57 @@ export default {
   margin-bottom: 0;
 }
 
-/* 图表卡片样式 */
-.charts-card {
-  margin-top: 16px;
+/* 合并事件样式 */
+.event-item {
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.charts-container {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+.event-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
-.chart-item {
-  flex: 1;
-  min-width: 400px;
-  min-height: 300px;
-}
-
-/* 状态机图表占左半边 */
-.chart-item:first-child {
-  flex: 0 0 calc(50% - 8px);
-}
-
-/* 网络延迟图表占右半边 */
-.chart-item:last-child {
-  flex: 0 0 calc(50% - 8px);
-}
-
-.chart-title {
-  font-size: 14px;
+.event-name {
   font-weight: 600;
   color: #333;
-  margin-bottom: 12px;
-  text-align: center;
+  margin-bottom: 2px;
+}
+
+.event-time {
+  font-size: 11px;
+  color: #666;
+  font-family: 'Courier New', monospace;
+}
+
+/* 图表行容器样式 */
+.charts-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 0;
+}
+
+/* 手术状态机变化卡片样式 */
+.state-machine-card {
+  flex: 0 0 50%; /* 固定占用50%宽度，不伸缩 */
+  min-width: 0;
+}
+
+/* 网络延迟情况卡片样式 */
+.network-latency-card {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 图表容器样式 */
+.chart-container {
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
 }
 
 .chart {
@@ -2542,11 +2577,12 @@ export default {
 
 /* 响应式布局 */
 @media (max-width: 1200px) {
-  .charts-container {
+  .charts-row {
     flex-direction: column;
   }
   
-  .chart-item {
+  .state-machine-card,
+  .network-latency-card {
     min-width: 100%;
   }
   

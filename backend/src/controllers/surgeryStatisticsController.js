@@ -3,23 +3,54 @@ const Log = require('../models/log');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op } = require('sequelize');
 
-// 格式化为UTC时间 YYYY-MM-DD HH:mm:ss（用于写库，统一为UTC）
+// 格式化为UTC时间（用于写库，统一为UTC）
 function formatUtcDateTime(dateLike) {
   if (!dateLike) return null;
-  const d = new Date(dateLike);
-  if (Number.isNaN(d.getTime())) return null;
-  const pad = (n) => String(n).padStart(2, '0');
-  return (
-    d.getUTCFullYear() + '-' +
-    pad(d.getUTCMonth() + 1) + '-' +
-    pad(d.getUTCDate()) + ' ' +
-    pad(d.getUTCHours()) + ':' +
-    pad(d.getUTCMinutes()) + ':' +
-    pad(d.getUTCSeconds())
-  );
+  try {
+    if (typeof dateLike === 'string') {
+      const s = dateLike.trim();
+      // 数据库常见格式：YYYY-MM-DD HH:mm:ss -> 严格按UTC解析
+      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
+        return new Date(s.replace(' ', 'T') + 'Z');
+      }
+      // 已是ISO UTC格式
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(s)) {
+        return new Date(s);
+      }
+    }
+    const d = new Date(dateLike);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch (_) {
+    return null;
+  }
 }
 
-// 递归规范化 structured_data 内所有时间戳为UTC格式 YYYY-MM-DD HH:mm:ss
+// 格式化时间为UTC格式（用于API返回，保持UTC时间格式）
+function formatTimeForDisplay(dateLike) {
+  if (!dateLike) return null;
+  
+  let d;
+  if (dateLike instanceof Date) {
+    d = dateLike;
+  } else if (typeof dateLike === 'string') {
+    // 如果是UTC格式字符串，需要正确处理
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateLike)) {
+      // 数据库中的UTC格式，添加Z标识符
+      d = new Date(dateLike.replace(' ', 'T') + 'Z');
+    } else {
+      d = new Date(dateLike);
+    }
+  } else {
+    d = new Date(dateLike);
+  }
+  
+  if (Number.isNaN(d.getTime())) return null;
+  
+  // 直接返回UTC时间的ISO字符串格式，让前端处理时区转换
+  return d.toISOString();
+}
+
+// 递归规范化 structured_data 内所有时间戳为Date对象
 function normalizeStructuredDataTimestamps(node) {
   if (node == null) return node;
   if (Array.isArray(node)) {
@@ -48,7 +79,13 @@ function normalizeStructuredDataTimestamps(node) {
 // 辅助：格式化时间为YYYYMMDDHHMM
 function formatTimeForId(dateStr) {
   if (!dateStr) return '000000000000';
-  const d = new Date(dateStr);
+  // 确保使用UTC解析生成稳定ID
+  let d;
+  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+    d = new Date(dateStr.replace(' ', 'T') + 'Z');
+  } else {
+    d = new Date(dateStr);
+  }
   const pad = (n) => String(n).padStart(2, '0');
   return (
     d.getFullYear().toString() +
@@ -911,9 +948,331 @@ const getPostgreSQLSurgeries = async (req, res) => {
   }
 };
 
+// 标准化时间格式，统一转换为UTC时间格式进行比较（忽略毫秒）
+function normalizeTimeForComparison(timeStr) {
+  if (!timeStr) return null;
+  
+  try {
+    let date;
+    
+    // 处理不同的时间格式
+    if (typeof timeStr === 'string') {
+      // 如果是数据库UTC格式 YYYY-MM-DD HH:mm:ss，转换为ISO格式
+      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
+        // 数据库中的UTC格式，添加Z标识符
+        date = new Date(timeStr.replace(' ', 'T') + 'Z');
+      }
+      // 如果是ISO格式 YYYY-MM-DDTHH:mm:ss.fffZ，直接解析
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(timeStr)) {
+        date = new Date(timeStr);
+      } else {
+        // 其他格式直接解析
+        date = new Date(timeStr);
+      }
+    } else {
+      date = new Date(timeStr);
+    }
+    
+    if (isNaN(date.getTime())) return timeStr;
+    
+    // 统一转换为UTC时间格式进行比较，忽略毫秒
+    const pad = (n) => String(n).padStart(2, '0');
+    return (
+      date.getUTCFullYear() + '-' +
+      pad(date.getUTCMonth() + 1) + '-' +
+      pad(date.getUTCDate()) + ' ' +
+      pad(date.getUTCHours()) + ':' +
+      pad(date.getUTCMinutes()) + ':' +
+      pad(date.getUTCSeconds())
+    );
+  } catch (error) {
+    console.warn('时间标准化失败:', timeStr, error);
+    return timeStr;
+  }
+}
+
+// 比较两个时间值是否相同（忽略毫秒差异）
+function compareTimeValues(time1, time2) {
+  if (!time1 && !time2) return true;
+  if (!time1 || !time2) return false;
+  
+  const normalized1 = normalizeTimeForComparison(time1);
+  const normalized2 = normalizeTimeForComparison(time2);
+  
+  return normalized1 === normalized2;
+}
+
+// 递归比较对象，对时间字段进行特殊处理
+function deepCompareWithTimeNormalization(obj1, obj2, path = '') {
+  if (obj1 === obj2) return true;
+  if (obj1 == null || obj2 == null) return false;
+  if (typeof obj1 !== typeof obj2) return false;
+  
+  if (Array.isArray(obj1) && Array.isArray(obj2)) {
+    if (obj1.length !== obj2.length) return false;
+    for (let i = 0; i < obj1.length; i++) {
+      if (!deepCompareWithTimeNormalization(obj1[i], obj2[i], `${path}[${i}]`)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  if (typeof obj1 === 'object') {
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+    
+    if (keys1.length !== keys2.length) return false;
+    
+    for (const key of keys1) {
+      if (!keys2.includes(key)) return false;
+      
+      const currentPath = path ? `${path}.${key}` : key;
+      const val1 = obj1[key];
+      const val2 = obj2[key];
+      
+      // 检查是否为时间字段
+      if (key.toLowerCase().includes('time') || key.toLowerCase().includes('timestamp')) {
+        if (!compareTimeValues(val1, val2)) {
+          return false;
+        }
+      } else {
+        if (!deepCompareWithTimeNormalization(val1, val2, currentPath)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  
+  // 基本类型直接比较
+  return obj1 === obj2;
+}
+
+// 比对两个手术数据的差异
+function compareSurgeryData(newData, existingData) {
+  const differences = [];
+  
+  // 比对基础字段
+  const basicFields = [
+    'start_time', 'end_time', 'has_fault', 'is_remote', 'success',
+    'source_log_ids', 'device_ids', 'log_entry_start_id', 'log_entry_end_id'
+  ];
+  
+  basicFields.forEach(field => {
+    const newValue = newData[field];
+    const existingValue = existingData[field];
+    
+    let isDifferent = false;
+    
+    // 对时间字段进行特殊处理
+    if (field === 'start_time' || field === 'end_time') {
+      const normalizedNew = normalizeTimeForComparison(newValue);
+      const normalizedExisting = normalizeTimeForComparison(existingValue);
+      
+      // 添加调试日志
+      if (field === 'start_time') {
+        console.log(`🔧 时间比对 - ${field}:`);
+        console.log(`  新数据原始值: ${newValue}`);
+        console.log(`  新数据标准化后: ${normalizedNew}`);
+        console.log(`  数据库原始值: ${existingValue}`);
+        console.log(`  数据库标准化后: ${normalizedExisting}`);
+        console.log(`  是否不同: ${normalizedNew !== normalizedExisting}`);
+      }
+      
+      isDifferent = normalizedNew !== normalizedExisting;
+    } else {
+      // 其他字段使用原有的JSON比较方式
+      isDifferent = JSON.stringify(newValue) !== JSON.stringify(existingValue);
+    }
+    
+    if (isDifferent) {
+      differences.push({
+        field: field,
+        fieldName: getFieldDisplayName(field),
+        oldValue: existingValue,
+        newValue: newValue,
+        type: 'basic'
+      });
+    }
+  });
+  
+  // 比对结构化数据
+  if (newData.structured_data || existingData.structured_data) {
+    const structuredDiff = compareStructuredData(
+      newData.structured_data, 
+      existingData.structured_data
+    );
+    differences.push(...structuredDiff);
+  }
+  
+  return differences;
+}
+
+// 比对结构化数据的差异
+function compareStructuredData(newStructured, existingStructured) {
+  const differences = [];
+  
+  if (!newStructured && !existingStructured) return differences;
+  if (!newStructured || !existingStructured) {
+    differences.push({
+      field: 'structured_data',
+      fieldName: '手术详细数据',
+      oldValue: existingStructured,
+      newValue: newStructured,
+      type: 'structured'
+    });
+    return differences;
+  }
+  
+  // 使用新的深度比较函数进行整体比较
+  if (!deepCompareWithTimeNormalization(newStructured, existingStructured)) {
+    differences.push({
+      field: 'structured_data',
+      fieldName: '手术详细数据',
+      oldValue: existingStructured,
+      newValue: newStructured,
+      type: 'structured'
+    });
+  }
+  
+  return differences;
+}
+
+// 比对器械使用数据
+function compareArmsData(newArms, existingArms) {
+  const differences = [];
+  
+  if (!newArms && !existingArms) return differences;
+  if (!newArms || !existingArms) {
+    differences.push({
+      field: 'arms',
+      fieldName: '器械使用数据',
+      oldValue: existingArms,
+      newValue: newArms,
+      type: 'arms'
+    });
+    return differences;
+  }
+  
+  // 比对每个器械臂
+  for (let i = 0; i < Math.max(newArms.length, existingArms.length); i++) {
+    const newArm = newArms[i];
+    const existingArm = existingArms[i];
+    const armId = i + 1;
+    
+    if (!newArm || !existingArm) {
+      differences.push({
+        field: `arm${armId}`,
+        fieldName: `器械臂${armId}`,
+        oldValue: existingArm,
+        newValue: newArm,
+        type: 'arm'
+      });
+      continue;
+    }
+    
+    // 比对器械使用记录数量
+    const newUsageCount = newArm.instrument_usage?.length || 0;
+    const existingUsageCount = existingArm.instrument_usage?.length || 0;
+    
+    if (newUsageCount !== existingUsageCount) {
+      differences.push({
+        field: `arm${armId}_usage_count`,
+        fieldName: `器械臂${armId}使用次数`,
+        oldValue: existingUsageCount,
+        newValue: newUsageCount,
+        type: 'usage_count'
+      });
+    }
+  }
+  
+  return differences;
+}
+
+// 比对手术统计数据
+function compareSurgeryStats(newStats, existingStats) {
+  const differences = [];
+  
+  if (!newStats && !existingStats) return differences;
+  if (!newStats || !existingStats) {
+    differences.push({
+      field: 'surgery_stats',
+      fieldName: '手术统计数据',
+      oldValue: existingStats,
+      newValue: newStats,
+      type: 'stats'
+    });
+    return differences;
+  }
+  
+  // 比对故障数据
+  const statsFields = ['success', 'left_hand_clutch', 'right_hand_clutch', 'foot_clutch', 'endoscope_pedal'];
+  statsFields.forEach(field => {
+    const newValue = newStats[field];
+    const existingValue = existingStats[field];
+    
+    if (newValue !== existingValue) {
+      differences.push({
+        field: `stats_${field}`,
+        fieldName: getStatsFieldDisplayName(field),
+        oldValue: existingValue,
+        newValue: newValue,
+        type: 'stats_field'
+      });
+    }
+  });
+  
+  // 比对故障列表
+  const newFaultCount = newStats.faults?.length || 0;
+  const existingFaultCount = existingStats.faults?.length || 0;
+  
+  if (newFaultCount !== existingFaultCount) {
+    differences.push({
+      field: 'fault_count',
+      fieldName: '故障数量',
+      oldValue: existingFaultCount,
+      newValue: newFaultCount,
+      type: 'fault_count'
+    });
+  }
+  
+  return differences;
+}
+
+// 获取字段显示名称
+function getFieldDisplayName(field) {
+  const fieldNames = {
+    'start_time': '开始时间',
+    'end_time': '结束时间',
+    'has_fault': '是否有故障',
+    'is_remote': '是否远程手术',
+    'success': '手术是否成功',
+    'source_log_ids': '来源日志ID',
+    'device_ids': '设备ID',
+    'log_entry_start_id': '起始日志条目ID',
+    'log_entry_end_id': '结束日志条目ID'
+  };
+  return fieldNames[field] || field;
+}
+
+// 获取统计字段显示名称
+function getStatsFieldDisplayName(field) {
+  const fieldNames = {
+    'success': '手术成功',
+    'left_hand_clutch': '左手离合次数',
+    'right_hand_clutch': '右手离合次数',
+    'foot_clutch': '脚踏离合次数',
+    'endoscope_pedal': '内窥镜脚踏次数'
+  };
+  return fieldNames[field] || field;
+}
+
 // 导出单个手术的结构化数据
 const exportSingleSurgeryData = async (req, res) => {
   try {
+    console.log(`🔧 收到导出手术数据请求: ${req.body?.surgery_id || 'unknown'}`);
+    
     // 直接使用前端传递的完整手术数据
     const surgeryData = req.body;
     
@@ -928,32 +1287,171 @@ const exportSingleSurgeryData = async (req, res) => {
     const Surgery = require('../models/surgery');
     const postgresqlData = buildDbRowFromSurgery(surgeryData);
 
-    // 尝试存储到PostgreSQL数据库
-    try {
-      const savedSurgery = await Surgery.create(postgresqlData);
-      console.log('手术数据已存储到PostgreSQL:', savedSurgery.surgery_id);
+    // 检查是否已存在相同ID的手术数据
+    const existingSurgery = await Surgery.findOne({
+      where: { surgery_id: postgresqlData.surgery_id }
+    });
+
+    if (existingSurgery) {
+      // 存在相同ID，返回比对结果供用户确认
+      console.log(`🔧 找到已存在的手术数据: ${postgresqlData.surgery_id}`);
+      console.log(`🔧 数据库原始数据 start_time: ${existingSurgery.start_time} (类型: ${typeof existingSurgery.start_time})`);
+      
+      // 比对时使用原始UTC数据（plain 对象），确保准确性
+      const existingPlain = existingSurgery.get ? existingSurgery.get({ plain: true }) : existingSurgery;
+      console.log(`🔧 Plain对象 start_time: ${existingPlain.start_time} (类型: ${typeof existingPlain.start_time})`);
+      
+      const differences = compareSurgeryData(postgresqlData, existingPlain);
+      
+      // 显示时转换为本地时间格式，提高可读性
+      const convertTimeFields = (data) => {
+        if (!data) return data;
+        const converted = { ...data };
+        if (converted.start_time) {
+          console.log(`🔧 后端转换时间 - 输入: ${converted.start_time} (类型: ${typeof converted.start_time})`);
+          converted.start_time = formatTimeForDisplay(converted.start_time);
+          console.log(`🔧 后端转换时间 - 输出: ${converted.start_time}`);
+        }
+        if (converted.end_time) {
+          converted.end_time = formatTimeForDisplay(converted.end_time);
+        }
+        return converted;
+      };
       
       res.json({
-        success: true,
-        data: {
-          ...postgresqlData,
-          postgresql_id: savedSurgery.id
-        },
-        message: '手术结构化数据已成功导出并存储到PostgreSQL数据库'
+        success: false,
+        needsConfirmation: true,
+        surgery_id: postgresqlData.surgery_id,
+        existingData: convertTimeFields(existingPlain),
+        newData: convertTimeFields(postgresqlData),
+        differences: differences,
+        message: `数据库中已存在手术ID为 ${postgresqlData.surgery_id} 的手术数据，检测到 ${differences.length} 处差异`
       });
-    } catch (dbError) {
-      console.warn('PostgreSQL存储失败，仅返回数据:', dbError.message);
-      
-      res.json({
-        success: true,
-        data: postgresqlData,
-        message: '手术结构化数据导出成功（PostgreSQL存储失败）'
-      });
+    } else {
+      // 不存在相同ID，直接创建
+      try {
+        const savedSurgery = await Surgery.create(postgresqlData);
+        console.log('手术数据已存储到PostgreSQL:', savedSurgery.surgery_id);
+        
+        // 转换时间字段为本地时间格式
+        const convertTimeFields = (data) => {
+          if (!data) return data;
+          const converted = { ...data };
+          if (converted.start_time) {
+            converted.start_time = formatTimeForDisplay(converted.start_time);
+          }
+          if (converted.end_time) {
+            converted.end_time = formatTimeForDisplay(converted.end_time);
+          }
+          return converted;
+        };
+        
+        res.json({
+          success: true,
+          data: {
+            ...convertTimeFields(postgresqlData),
+            postgresql_id: savedSurgery.id
+          },
+          message: '手术结构化数据已成功导出并存储到PostgreSQL数据库'
+        });
+      } catch (dbError) {
+        console.warn('PostgreSQL存储失败，仅返回数据:', dbError.message);
+        
+        // 转换时间字段为本地时间格式
+        const convertTimeFields = (data) => {
+          if (!data) return data;
+          const converted = { ...data };
+          if (converted.start_time) {
+            converted.start_time = formatTimeForDisplay(converted.start_time);
+          }
+          if (converted.end_time) {
+            converted.end_time = formatTimeForDisplay(converted.end_time);
+          }
+          return converted;
+        };
+        
+        res.json({
+          success: true,
+          data: convertTimeFields(postgresqlData),
+          message: '手术结构化数据导出成功（PostgreSQL存储失败）'
+        });
+      }
     }
 
   } catch (error) {
     console.error('导出单个手术数据失败:', error);
     res.status(500).json({ message: '导出单个手术数据失败', error: error.message });
+  }
+};
+
+// 确认覆盖手术数据
+const confirmOverrideSurgeryData = async (req, res) => {
+  try {
+    const { surgeryData, confirmOverride } = req.body;
+    
+    if (!surgeryData) {
+      return res.status(400).json({
+        success: false,
+        message: '未提供手术数据'
+      });
+    }
+    
+    if (!confirmOverride) {
+      return res.status(400).json({
+        success: false,
+        message: '需要用户确认覆盖操作'
+      });
+    }
+
+    // 转换为PostgreSQL结构化数据
+    const Surgery = require('../models/surgery');
+    const postgresqlData = buildDbRowFromSurgery(surgeryData);
+
+    // 更新现有数据
+    const existingSurgery = await Surgery.findOne({
+      where: { surgery_id: postgresqlData.surgery_id }
+    });
+
+    if (!existingSurgery) {
+      return res.status(404).json({
+        success: false,
+        message: '未找到要覆盖的手术数据'
+      });
+    }
+
+    // 执行覆盖操作
+    const updatedSurgery = await existingSurgery.update(postgresqlData);
+    console.log('手术数据已覆盖:', updatedSurgery.surgery_id);
+    
+    // 转换时间字段为本地时间格式
+    const convertTimeFields = (data) => {
+      if (!data) return data;
+      const converted = { ...data };
+      if (converted.start_time) {
+        converted.start_time = formatTimeForDisplay(converted.start_time);
+      }
+      if (converted.end_time) {
+        converted.end_time = formatTimeForDisplay(converted.end_time);
+      }
+      return converted;
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        ...convertTimeFields(postgresqlData),
+        postgresql_id: updatedSurgery.id
+      },
+      message: '手术数据已成功覆盖到PostgreSQL数据库'
+    });
+
+  } catch (error) {
+    console.error('覆盖手术数据失败:', error);
+    res.status(500).json({ 
+      success: false,
+      message: '覆盖手术数据失败', 
+      error: error.message 
+    });
   }
 };
 
@@ -967,5 +1465,6 @@ module.exports = {
   getUserAnalysisTasks,
   exportPostgreSQLData,
   exportSingleSurgeryData,
+  confirmOverrideSurgeryData,
   getPostgreSQLSurgeries
 };

@@ -175,6 +175,7 @@ const surgeryStatistics = {
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
   exportPostgreSQLData: (params) => api.get('/surgery-statistics/export/postgresql', { params }),
   exportSingleSurgeryData: (surgeryData) => api.post('/surgery-statistics/export-single', surgeryData),
+  confirmOverrideSurgeryData: (surgeryData, confirmOverride = true) => api.post('/surgery-statistics/confirm-override', { surgeryData, confirmOverride }),
   getPostgreSQLSurgeries: (params) => api.get('/surgery-statistics/postgresql', { params })
 }
 
