@@ -8,6 +8,7 @@ const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
 const { logProcessingQueue, realtimeProcessingQueue } = require('../config/queue');
+const queueManager = require('../services/queueManager');
 const { cacheManager } = require('../config/cache');
 const websocketService = require('../services/websocketService');
 const errorCodeCache = require('../services/errorCodeCache');
@@ -289,9 +290,42 @@ const uploadLog = async (req, res) => {
     if (!files || files.length === 0) {
       return res.status(400).json({ message: '未上传文件' });
     }
+
+    // 总大小限制：200MB（与文档约定一致）
+    const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    const MAX_TOTAL = 200 * 1024 * 1024; // 200MB
+    if (totalBytes > MAX_TOTAL) {
+      // 清理已写入的临时文件
+      try {
+        for (const f of files) {
+          if (f && f.path && fs.existsSync(f.path)) {
+            fs.unlinkSync(f.path);
+          }
+        }
+      } catch (cleanupErr) {
+        console.warn('清理超限上传的临时文件失败:', cleanupErr.message);
+      }
+      return res.status(413).json({ message: '上传总大小超过限制（≤200MB）' });
+    }
+
+    // 路由来源：默认用户上传；自动上传走历史队列
+    const sourceHeader = (req.get('x-upload-source') || 'user-upload').toLowerCase();
+    const source = sourceHeader === 'auto-upload' ? 'auto-upload' : 'user-upload';
+    const clientId = req.get('x-client-id') || null;
     
     // 从请求头获取设备编号
     const deviceId = req.headers['x-device-id'] || '0000-00'; // 默认设备编号
+    
+    // 打印监控目标路径相关信息
+    console.log('=== 日志上传监控信息 ===');
+    console.log('上传来源:', source);
+    console.log('客户端ID:', clientId);
+    console.log('设备编号:', deviceId);
+    console.log('上传文件数量:', files.length);
+    console.log('文件列表:');
+    files.forEach((file, index) => {
+      console.log(`  ${index + 1}. ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    });
     
     // 验证设备编号格式
     if (deviceId !== '0000-00' && !validateDeviceId(deviceId)) {
@@ -302,13 +336,19 @@ const uploadLog = async (req, res) => {
     let decryptKey = null;
     if (deviceId !== '0000-00') {
       try {
+        console.log(`正在查找设备 ${deviceId} 的解密密钥...`);
         const device = await Device.findOne({ where: { device_id: deviceId } });
         if (device && device.device_key) {
           decryptKey = device.device_key;
+          console.log(`✅ 找到设备 ${deviceId} 的解密密钥: ${decryptKey.substring(0, 8)}...`);
+        } else {
+          console.log(`❌ 未找到设备 ${deviceId} 的解密密钥`);
         }
       } catch (error) {
         console.warn('获取设备密钥失败:', error.message);
       }
+    } else {
+      console.log('使用默认设备编号，跳过密钥查找');
     }
     
     // 如果无法自动获取密钥，尝试从请求头获取（向后兼容）
@@ -330,7 +370,10 @@ const uploadLog = async (req, res) => {
     for (const file of files) {
       let log;
       try {
-        console.log(`开始处理文件: ${file.originalname}, 大小: ${file.size} bytes`);
+        console.log(`\n--- 处理文件: ${file.originalname} ---`);
+        console.log(`文件大小: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`设备编号: ${deviceId}`);
+        console.log(`解密密钥: ${decryptKey ? decryptKey.substring(0, 8) + '...' : '未提供'}`);
         
         // 如果已存在相同 device_id + original_name 的日志，则覆盖原数据而不是新增
         log = await Log.findOne({
@@ -388,30 +431,36 @@ const uploadLog = async (req, res) => {
           console.warn('设备信息同步失败（忽略，不影响日志处理）:', e.message);
         }
 
-        // 将文件处理任务添加到实时处理队列（用户请求）
-        console.log(`将文件 ${file.originalname} 添加到实时处理队列`);
-        
-        const job = await realtimeProcessingQueue.add('process-log', {
+        // 根据来源选择队列（user-upload -> realtime，auto-upload -> historical）
+        const queue = queueManager.getQueueBySource(source);
+        const priority = source === 'auto-upload' ? 1 : 10;
+
+        console.log(`📤 将文件 ${file.originalname} 添加到${source === 'auto-upload' ? '历史' : '实时'}处理队列`);
+        console.log(`队列优先级: ${priority}`);
+        console.log(`客户端ID: ${clientId || '未提供'}`);
+
+        const job = await queue.add('process-log', {
           filePath: file.path,
           originalName: file.originalname,
           decryptKey: decryptKey,
           deviceId: deviceId || null,
           uploaderId: req.user ? req.user.id : null,
           logId: log.id,
-          source: 'user-upload' // 标记来源为用户上传
+          source,
+          clientId
         }, {
-          priority: 10, // 高优先级，用户请求
-          delay: 0, // 立即处理
-          attempts: 1, // 只重试1次，避免重复错误
+          priority,
+          delay: 0,
+          attempts: 1,
           backoff: {
             type: 'exponential',
             delay: 1000
           },
-          removeOnComplete: true, // 完成后移除任务
-          removeOnFail: true // 失败后移除任务
+          removeOnComplete: true,
+          removeOnFail: true
         });
         
-        console.log(`文件 ${file.originalname} 已添加到队列，任务ID: ${job.id}`);
+        console.log(`✅ 文件 ${file.originalname} 已添加到队列，任务ID: ${job.id}`);
         
         uploadedLogs.push(log);
       } catch (error) {
@@ -434,6 +483,14 @@ const uploadLog = async (req, res) => {
         throw new Error(`文件 ${file.originalname} 解密失败: ${error.message}`);
       }
     }
+    
+    console.log('\n=== 上传完成总结 ===');
+    console.log(`✅ 成功上传 ${uploadedLogs.length} 个文件`);
+    console.log(`📊 设备编号: ${deviceId}`);
+    console.log(`🔑 解密密钥: ${decryptKey ? '已提供' : '未提供'}`);
+    console.log(`📤 上传来源: ${source}`);
+    console.log(`🆔 客户端ID: ${clientId || '未提供'}`);
+    console.log('========================\n');
     
     res.json({ 
       message: `成功上传 ${uploadedLogs.length} 个文件，已加入处理队列`, 

@@ -520,115 +520,119 @@ flowchart TD
 
 # **1. 功能目标**
 
-- 运行在 Windows。
-- 监控指定目录（用户手动添加目录）。
-- 发现新日志文件夹/压缩包或发现文件夹中子文件夹内有新增文件 → 上传到后端接口。
-- 支持从文件夹或压缩包中提取设备名称和密钥文件systemInfo
+- 运行在 Windows，可快速适配部署于ubantu或linux。
+- 监控指定目录（用户可手动添加目录，不超过10个）。
+- 监控形式
+    - 监控目录下出现新文件夹文件/压缩包
+    - 现有文件夹的时间更新
+- 支持从文件夹或压缩包的名称中提取设备名称，
+- 支持从文件夹或压缩包及其子文件中提取密钥文件systemInfo.txt
 - 支持断点续传、失败重试。
 - 前端 Vue 界面，提供配置和状态展示。
 - 托盘常驻，提供提示/控制。
 
 # **2. 模块划分**
 
-**A.**
-
 **配置管理模块**
 
 - 用户可在 UI 界面配置：
     - 目标监控路径（多个目录可选限制最多10个）
-    - 递归深度默认为4
-    - 文件类型过滤（日志文件是.medbot, 密钥systeminfo.txt
-    - 上传接口地址（后端 API URL）
-    - 设备编号提取规则（正则 / 文件名模式）
+    - 递归深度默认为4，不能大于5
+    - 文件类型过滤（日志文件是.medbot, 密钥systeminfo.txt）若出现提取到设备编号未提取到密钥的情况，通过后端接口查询存储在device是否有该设备编号
 - 配置保存方式：config.json 本地存储，启动时加载。
-
-**B.**
 
 **目录监听模块**
 
 - 监听逻辑参照 监听流程图
+flowchart TD
+    %% 系统启动与初始化
+    Start[系统启动] --> Init[初始化监控服务]
+    Init --> Watch[监听目标的变化目]
+    %% 目录中通常为以设备编号新建的文件夹，
+    %%例子：A-4371
+		%%     |——4371-xx
+		%%     |——荆州市第一人民医院+4371-04+20240407.zip(7z)/
+		%%     |——荆州市第一人民医院+4371-04+20240320
+		
+    %% 监听/扫描触发
+    Watch --> NewFolder{发现新增文件夹或压缩包?}
+		Watch --> FolderModified{文件夹或压缩包文件时间修改}
+		
+    %% 扫描任务
+    NewFolder -- 否 --> Skip[忽略，继续等待]
+    NewFolder -- 是 -->  CheckDev{能否提取设备编号?}
+		FolderModified -- 是 -->  CheckDev{能否提取设备编号?}
+    %% 提取设备编号
+    CheckDev -- 否 --> StopScan[忽略该子目录/文件]
+    CheckDev -- 是 --> HaveKey
+    GetKey[尝试获取 systemInfo.txt文件中的密钥]
+
+    %% 日志文件处理
+    GetKey --> FindLogs[尝试获取日志]
+    FindLogs --> ImportLog[加入本地日志上传任务表]
+    ImportLog--> FindNextDepthLogs[继续扫描下一层级]
+		FindNextDepthLogs --> CheckDepth{是否满足递归深度}
+		CheckDepth -- 是 --> FinishScan{结束递归}
+		CheckDepth -- 否 --> NextDepth{下一层级}
+		NextDepth --> HaveKey{是否已经有密钥} 
+		HaveKey -- 否 --> GetKey
+		HaveKey -- 是 --> FindLogs
+		FinishScan --> NextFolder
+
 
 **上传任务队列模块**
 
-- 本地使用 队列机制 控制并发（比如一次只上传 3 个任务）。
-- 每个任务包含：
-
-{
-
-"device_id": "DEV123",
-
-"file_path": "C:\\logs\\DEV123\\log1.medbot",
-
-"status": "pending|uploading|success|failed",
-
-"retry_count": 0
-
-}
-
-**上传任务队列模块**
-
-- 本地使用 队列机制 控制并发（比如一次只上传 3 个任务）。
-- 每个任务包含：
-
-{
-
-"device_id": "DEV123",
-
-"file_path": "C:\\logs\\DEV123\\log1.medbot",
-
-"status": "pending|uploading|success|failed",
-
-"retry_count": 0
-
-}
-
-- 上传方式：axios.post('/api/uploadLog', FormData)
+- 本地使用upload_tasks来维护上传文件上传状态，数据库存储方式：better-sqlite
+    - upload_tasks（任务表）
+        - 上传流程：pending → uploading → success 或 failed
+        - 失败重试策略由 retry_count 控制
+        - 唯一性通过  file_hash 保证
+        - 可以每次程序启动时用恢复任务
+        
+        ```sql
+        UPDATE upload_tasks SET status='pending' WHERE status='uploading';
+        ```
+```sql
+    CREATE TABLE IF NOT EXISTS upload_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,        -- 主键
+      device_id TEXT NOT NULL,                     -- 设备编号（从文件夹/文件名中提取）
+      file_path TEXT NOT NULL UNIQUE,              -- 文件的完整路径（唯一）
+      file_hash TEXT,                              -- 文件内容hash（用于去重校验）
+      status TEXT CHECK( status IN ('pending','uploading','success','failed') )
+             DEFAULT 'pending',                    -- 上传状态
+      retry_count INTEGER DEFAULT 0,               -- 上传失败重试次数
+      last_error TEXT,                             -- 最近一次错误信息
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 任务创建时间
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    ```
+- 控制并发（一次只上传 3 个文件，并发数2）。
+- 上传使用后端logtool的日志上传接口
 - 失败时：指数退避重试（1min → 5min → 30min）。
 - 上传成功 → 本地状态标记 success（写 sqlite/lowdb）。
+- 数据表用于保存上传状态（防止程序重启丢失任务）：
 
-**D.**
-
-**本地存储模块**
-
-- 用于保存上传状态（防止程序重启丢失任务）：
-    - 数据库存储方式：
-        - 轻量方案：lowdb (基于 JSON 文件)
-        - 稍重方案：sqlite
-- 表结构示例：
-    - upload_tasks（任务表）
-    - config（配置表）
-
-**E.**
 
 **UI 界面模块（Vue + Electron 渲染进程）**
 
 - 功能页面：
-    - 监控目录管理（添加/删除路径）
-    - 任务列表（显示当前任务状态、成功/失败次数）
-    - 配置页（后端 API 地址、过滤规则）
-    - 系统状态（队列长度、上传速率）
-    - 与logtool的连接状态（已连接？未连接）
+    - 状态显示部分：
+        1.任务列表显示（显示当前任务状态、成功/失败次数）
+        2.与logtool的连接状态（已连接？未连接）
+    - 配置部分
+        1.监控目录管理（添加/删除路径、运行日志保存路径）、
+        2.递归深度默认为4，不能大于5
+        3.文件类型过滤（日志文件是.medbot, 密钥systeminfo.txt）    
+    - 操作部分：启动或暂停日志自动上传功能开关
 - 托盘菜单：
     - 显示上传状态（绿色正常、红色失败）
     - 一键暂停/恢复上传
     - 打开配置界面
 
-**F.**
-
 **系统提示模块**
 
 - 事件通知：
-    - 上传成功/失败 → 桌面通知（可选）
-    - 新任务加入队列 → 托盘图标闪烁
+    - 上传成功/失败 → 桌面消息通知
+    - 新任务加入队列 →桌面消息通知
 - 日志记录：
     - 本地写 client.log，保存运行日志，方便排查。
-
-**G.**
-
-**安全性**
-
-- 与后端 API 通讯：
-    - HTTPS + JWT/Token 鉴权
-- 上传数据：
-    - 日志文件走 multipart/form-data
-    - 携带 device_id、客户端 client_id（唯一标识客户端机器）

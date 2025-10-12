@@ -1,0 +1,23 @@
+{
+  "apiBaseUrl": "http://localhost:3000/api",
+  "clientId": "a1f30dc6-a8b3-4357-88d3-db855a810fd4",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MDI1ODA0OCwiZXhwIjoxNzYwMzAxMjQ4fQ.nNciHFpkMgmphv2NKmGAWFpMha8e8jt-H145uXVg0G8",
+  "tokenExpiresAt": "2025-10-12T20:34:08.000Z",
+  "username": "admin",
+  "password": "admin123",
+  "autoLogin": true,
+  "concurrency": 3,
+  "watchPaths": [
+    "D:\\microport\\任务\\！！临时任务\\log分析\\test\\4371",
+    "D:\\microport\\任务\\！！临时任务\\log分析\\test\\4336"
+  ],
+  "recurseDepth": 4,
+  "includeExtensions": [
+    ".medbot"
+  ],
+  "keyFileName": "SystemInfo.txt",
+  "scanOnly": false,
+  "logsDir": "D:\\MyLogMonitor",
+  "ignoreInitial": true,
+  "periodicRescanInterval": 1
+}

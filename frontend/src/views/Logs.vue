@@ -303,7 +303,7 @@
           </template>
         </el-table-column>
             <el-table-column prop="uploader_id" label="上传用户ID" width="120" />
-        <el-table-column prop="upload_time" label="上传时间" width="150">
+        <el-table-column prop="upload_time" label="上传时间" width="160">
           <template #default="{ row }">
             {{ formatDate(row.upload_time) }}
           </template>

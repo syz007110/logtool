@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log Monitor Client</title>
+    <style>
+      body { font-family: -apple-system,Segoe UI,Roboto,Helvetica,Arial; margin: 0; padding: 0; }
+      .row { margin-bottom: 12px; }
+      input, button, select { padding: 6px 8px; }
+      label { display: inline-block; width: 160px; }
+      .ok { color: #0a7a0a; }
+      .err { color: #b00020; }
+      .muted { color: #666; }
+      ul { padding-left: 18px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+      th { background-color: #f0f0f0; font-weight: 600; }
+      tr:nth-child(even) { background-color: #f9f9f9; }
+      .toolbar { margin-bottom: 16px; padding: 12px; background: #f5f5f5; display: flex; gap: 12px; align-items: center; }
+      .toolbar button { background: #007bff; color: white; border: none; cursor: pointer; border-radius: 3px; padding: 8px 16px; }
+      .toolbar button:hover { background: #0056b3; }
+      .toolbar .sync-btn { background: #28a745; }
+      .toolbar .sync-btn.paused { background: #6c757d; }
+      .config-panel { display: none; padding: 16px; border: 1px solid #ccc; border-radius: 4px; margin: 0 12px 16px; background: #fafafa; }
+      .config-panel.show { display: block; }
+      .status-badge { padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+      .status-pending { background: #ffc107; color: #000; }
+      .status-uploading { background: #17a2b8; color: #fff; }
+      .status-success { background: #28a745; color: #fff; }
+      .status-failed { background: #dc3545; color: #fff; }
+      .main-content { padding: 12px; }
+    </style>
+  </head>
+  <body>
+    <h2>Log Monitor Client - Phase 2</h2>
+    <div id="app"></div>
+    <script src="./main.js"></script>
+  </body>
+  </html>
+
+
