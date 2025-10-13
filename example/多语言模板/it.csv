@@ -1,0 +1,922 @@
+subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,it,Faglia di hardware,Faglia diregolazione ergonomico,Fare clic su REMOVA per ripristinare
+9,0X010A,it,Faglia di hardware,Faglia diregolazione ergonomico,Fare clic su REMOVA per ripristinare
+1,0X010A,it,Faglia di hardware,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+1,0X490E,it,,,
+8,0X010A,it,Faglia di hardware,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+9,0X010D,it,Faglia diregolazione ergonomico,Faglia diregolazione ergonomico,
+3,0X010D,it,Faglia diregolazione ergonomico,Faglia diregolazione ergonomico,
+1,0X010D,it,Superare il limite di deviazione di movimento,Superare il limite di deviazione di movimento,Si prega di contattare il servizio clienti
+8,0X010D,it,Superare il limite di deviazione di movimento,Superare il limite di deviazione di movimento,Si prega di contattare il servizio clienti
+1,0X020A,it,Movimento anormaleanormale,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+8,0X020A,it,Movimento anormaleanormale,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+1,0X020C,it,Movimento inaspettato,Superare il limite di deviazione di movimento,Ignorabile
+8,0X020C,it,Movimento inaspettato,Superare il limite di deviazione di movimento,Ignorabile
+1,0X020D,it,Superare il limite di deviazione di movimento,Superare il limite di deviazione di movimento,Attenzione
+8,0X020D,it,Superare il limite di deviazione di movimento,Superare il limite di deviazione di movimento,Attenzione
+1,0X022A,it,Funzionamento anormale,Moto inatteso del braccio schiavo,Fare clic su REMOVA per ripristinare
+8,0X022A,it,Funzionamento anormale,Moto inatteso del braccio schiavo,Fare clic su REMOVA per ripristinare
+3,0X022C,it,Movimento inaspettato,Movimento inaspettato durante la regolazione ergonomica,Ignorabile
+9,0X022C,it,Movimento inaspettato,Movimento inaspettato durante la regolazione ergonomica,Ignorabile
+1,0X022C,it,Movimento inaspettato,Movimento inaspettato del braccio principale,Ignorabile
+8,0X022C,it,Movimento inaspettato,Movimento inaspettato del braccio principale,Ignorabile
+9,0X022D,it,Movimento inaspettato durante la regolazione ergonomica,Movimento inaspettato durante la regolazione ergonomica,
+3,0X022D,it,Movimento inaspettato durante la regolazione ergonomica,Movimento inaspettato durante la regolazione ergonomica,
+1,0X030A,it,Faglia di hardware,Superare il limite di posizione,Fare clic su REMOVA per ripristinare
+8,0X030A,it,Faglia di hardware,Superare il limite di posizione,Fare clic su REMOVA per ripristinare
+1,0X030B,it,Faglia di hardware,Superare il limite di posizione,Fare clic su REMOVA per ripristinare
+8,0X030B,it,Faglia di hardware,Superare il limite di posizione,Fare clic su REMOVA per ripristinare
+3,0X030C,it,Superare il limite di posizione ergonomica,Superare il limite di posizione ergonomica,
+9,0X030C,it,Superare il limite di posizione ergonomica,Superare il limite di posizione ergonomica,
+3,0X030D,it,Superare il limite di posizione ergonomica,Superare il limite di posizione ergonomica,
+9,0X030D,it,Superare il limite di posizione ergonomica,Superare il limite di posizione ergonomica,
+1,0X030D,it,Superare il limite di posizione,Superare il limite di posizione,Spostare indietro
+8,0X030D,it,Superare il limite di posizione,Superare il limite di posizione,Spostare indietro
+1,0X031A,it,Movimento anormaleanormale,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+8,0X031A,it,Movimento anormaleanormale,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+1,0X031B,it,Movimento anormaleanormale,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+8,0X031B,it,Movimento anormaleanormale,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+1,0X040B,it,Funzionamento troppo rapido,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+8,0X040B,it,Funzionamento troppo rapido,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+1,0X050B,it,Funzionamento troppo rapido,Oltre il limite di velocit¨¤,Fare clic su REMOVA per ripristinare
+8,0X050B,it,Funzionamento troppo rapido,Oltre il limite di velocit¨¤,Fare clic su REMOVA per ripristinare
+3,0X050D,it,Movimento anormaleanormale,Movimento anormaleanormale,
+9,0X050D,it,Movimento anormaleanormale,Movimento anormaleanormale,
+1,0X051B,it,Funzionamento troppo rapido,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+8,0X051B,it,Funzionamento troppo rapido,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+1,0X060B,it,Faglia di hardware,Superare il limite di posizione,Fare clic su REMOVA per ripristinare
+8,0X060B,it,Faglia di hardware,Superare il limite di posizione,Fare clic su REMOVA per ripristinare
+1,0X061A,it,Funzionamento anormale,Movimento inaspettato,Fare clic su REMOVA per ripristinare
+8,0X061A,it,Funzionamento anormale,Movimento inaspettato,Fare clic su REMOVA per ripristinare
+1,0X062A,it,Movimento anormaleanormale,Superare il limite di velocit¨¤,Fare clic su REMOVA per ripristinare
+8,0X062A,it,Movimento anormaleanormale,Superare il limite di velocit¨¤,Fare clic su REMOVA per ripristinare
+1,0X063A,it,Movimento anormaleanormale,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+8,0X063A,it,Movimento anormaleanormale,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+1,0X064A,it,Movimento anormaleanormale,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+8,0X064A,it,Movimento anormaleanormale,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+1,0X065A,it,Movimento anormaleanormale,Funzionamento anormale,Fare clic su REMOVA per ripristinare
+8,0X065A,it,Movimento anormaleanormale,Funzionamento anormale,Fare clic su REMOVA per ripristinare
+1,0X066A,it,Movimento anormaleanormale,Funzionamento anormale,Fare clic su REMOVA per ripristinare
+8,0X066A,it,Movimento anormaleanormale,Funzionamento anormale,Fare clic su REMOVA per ripristinare
+1,0X067A,it,Test automatico fallito,Test automatico fallito,Fare clic su REMOVA per ripristinare
+8,0X067A,it,Test automatico fallito,Test automatico fallito,Fare clic su REMOVA per ripristinare
+1,0X068A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+8,0X068A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+1,0X068B,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+1,0X335E,it,,,
+8,0X335E,it,,,
+8,0X068B,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+1,0X069D,it,,,Si prega di contattare il servizio clienti
+8,0X069D,it,,,Si prega di contattare il servizio clienti
+1,0X070D,it,,,Si prega di contattare il servizio clienti
+8,0X070D,it,,,Si prega di contattare il servizio clienti
+1,0X071D,it,,,Si prega di contattare il servizio clienti
+8,0X071D,it,,,Si prega di contattare il servizio clienti
+1,0X080B,it,Braccio sta bloccato,Braccio sta bloccato,Fare clic su REMOVA per ripristinare
+8,0X080B,it,Braccio sta bloccato,Braccio sta bloccato,Fare clic su REMOVA per ripristinare
+1,0X080C,it,Braccio sta bloccato,Braccio sta bloccato,
+1,0X337E,it,,,
+8,0X337E,it,,,
+8,0X080C,it,Braccio sta bloccato,Braccio sta bloccato,
+3,0X080D,it,Superare il limite di coppia,Superare il limite di coppia,
+9,0X080D,it,Superare il limite di coppia,Superare il limite di coppia,
+1,0X08AD,it,Disabilitazione braccio fallito,Disabilitazione braccio fallito,Si prega di riprovare
+1,0X08BD,it,Attivazione braccio fallito,Attivazione braccio fallito,Si prega di riprovare
+1,0X08CD,it,Abilitazione braccio,Abilitazione braccio,
+1,0X08DD,it,Attivazione braccio fallito,Attivazione braccio fallito,
+1,0X08ED,it,Braccio sta disabilitato,Braccio sta disabilitato,
+3,0X090D,it,Regolazione ergonomica automatica fallito,Regolazione ergonomica automatica fallito,Si prega di regolare manualmente
+9,0X090D,it,Regolazione ergonomica automatica fallito,Regolazione ergonomica automatica fallito,Si prega di regolare manualmente
+1,0X090D,it,,,Si prega di contattare il servizio clienti
+8,0X090D,it,,,Si prega di contattare il servizio clienti
+1,0X092D,it,Faglia di del braccio impostato,Faglia di del braccio impostato,Si prega di contattare il servizio clienti
+8,0X092D,it,Faglia di del braccio impostato,Faglia di del braccio impostato,Si prega di contattare il servizio clienti
+3,0X100A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+9,0X100A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+1,0X100A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+8,0X100A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+3,0X100B,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+9,0X100B,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+3,0X100D,it,Faglia di rete,Faglia di rete,
+9,0X100D,it,Faglia di rete,Faglia di rete,
+1,0X101A,it,,,Riavviare il sistema
+8,0X101A,it,,,Riavviare il sistema
+1,0X102A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+8,0X102A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+1,0X110A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+3,0X110A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+8,0X110A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+9,0X110A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+3,0X110D,it,Faglia di hardware,Faglia di hardware,
+9,0X110D,it,Faglia di hardware,Faglia di hardware,
+1,0X114A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+8,0X114A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+1,0X114C,it,Faglia di hardware,Faglia di hardware,
+8,0X114C,it,Faglia di hardware,Faglia di hardware,
+1,0X120C,it,Faglia della batteria,Faglia della batteria,Verificare lo stato UPS
+8,0X120C,it,Faglia della batteria,Faglia della batteria,Verificare lo stato UPS
+3,0X120D,it,La console del chirurgo deve essere riparata,La console del chirurgo deve essere riparata,Si prega di contattare il servizio clienti
+9,0X120D,it,La console del chirurgo deve essere riparata,La console del chirurgo deve essere riparata,Si prega di contattare il servizio clienti
+1,0X121D,it,Interruttore di arresto di emergenza attivato,Interruttore di arresto di emergenza attivato,
+8,0X121D,it,Interruttore di arresto di emergenza attivato,Interruttore di arresto di emergenza attivato,
+1,0X124D,it,In attesa che il carrello del paziente si riprenda,In attesa che il carrello del paziente si riprenda,
+1,0X125D,it,Faglia di alimentazione del carrello paziente,Faglia di alimentazione del carrello paziente,
+1,0X131C,it,Spazio su disco insufficiente,Spazio su disco insufficiente,
+8,0X131C,it,Spazio su disco insufficiente,Spazio su disco insufficiente,
+1,0X132D,it,Faglia di carrello paziente,Faglia di carrello paziente,Si prega di contattare il servizio clienti
+8,0X132D,it,Faglia di carrello paziente,Faglia di carrello paziente,Si prega di contattare il servizio clienti
+1,0X133D,it,,,Avviare il carrello dei pazienti
+8,0X133D,it,,,Avviare il carrello dei pazienti
+1,0X140D,it,Faglia della batteria,Faglia della batteria,Si prega di contattare il servizio clienti
+8,0X140D,it,Faglia della batteria,Faglia della batteria,Si prega di contattare il servizio clienti
+1,0X141D,it,Faglia della batteria,Faglia della batteria,Si prega di contattare il servizio clienti
+8,0X141D,it,Faglia della batteria,Faglia della batteria,Si prega di contattare il servizio clienti
+1,0X142D,it,La batteria deve essere sostituita,La batteria deve essere sostituita,Si prega di contattare il servizio clienti
+8,0X142D,it,La batteria deve essere sostituita,La batteria deve essere sostituita,Si prega di contattare il servizio clienti
+9,0X160D,it,Raggiungere il limite superiore della posizione,Raggiungere il limite superiore della posizione,Attenzione
+3,0X160D,it,Raggiungere il limite superiore della posizione,Raggiungere il limite superiore della posizione,Attenzione
+9,0X161D,it,Raggiungere il limite inferiore della posizione,Raggiungere il limite inferiore della posizione,Attenzione
+3,0X161D,it,Raggiungere il limite inferiore della posizione,Raggiungere il limite inferiore della posizione,Attenzione
+3,0X162D,it,Il braccio principale raggiunge il limite di posizione,Il braccio principale raggiunge il limite di posizione,Sollevare il visualizzatore 3D
+9,0X162D,it,Il braccio principale raggiunge il limite di posizione,Il braccio principale raggiunge il limite di posizione,Sollevare il visualizzatore 3D
+3,0X163D,it,3D visualizzatore raggiunge il limite di altezza,3D visualizzatore raggiunge il limite di altezza,Abbassare il braccio principale
+9,0X163D,it,3D visualizzatore raggiunge il limite di altezza,3D visualizzatore raggiunge il limite di altezza,Abbassare il braccio principale
+1,0X2A1A,it,Faglia di alimentazione,Faglia di alimentazione,Fare clic su REMOVA per ripristinare
+8,0X2A1A,it,Faglia di alimentazione,Faglia di alimentazione,Fare clic su REMOVA per ripristinare
+1,0X2A2A,it,Faglia di alimentazione,Faglia di alimentazione,Fare clic su REMOVA per ripristinare
+8,0X2A2A,it,Faglia di alimentazione,Faglia di alimentazione,Fare clic su REMOVA per ripristinare
+1,0X2B1D,it,Faglia di pedale,Faglia di pedale,
+8,0X2B1D,it,Faglia di pedale,Faglia di pedale,
+1,0X2B2D,it,Faglia di pedale,Faglia di pedale,
+8,0X2B2D,it,Faglia di pedale,Faglia di pedale,
+1,0X2B3D,it,Impossibile passare al braccio senza strumento,Impossibile passare al braccio senza strumento,
+8,0X2B3D,it,Impossibile passare al braccio senza strumento,Impossibile passare al braccio senza strumento,
+1,0X2B4D,it,Lo strumento ¨¨ smontato,Lo strumento ¨¨ smontato,
+8,0X2B4D,it,Lo strumento ¨¨ smontato,Lo strumento ¨¨ smontato,
+1,0X2B5D,it,La posa del braccio principale non corrisponde al braccio schiavo,La posa del braccio principale non corrisponde al braccio schiavo,Si prega di rilassarsi tenere il controllo della mano per continuare
+8,0X2B5D,it,La posa del braccio principale non corrisponde al braccio schiavo,La posa del braccio principale non corrisponde al braccio schiavo,Si prega di rilassarsi tenere il controllo della mano per continuare
+1,0X2B6D,it,,,Solo lo strumento energetico pu¨° essere attivato
+8,0X2B6D,it,,,Solo lo strumento energetico pu¨° essere attivato
+1,0X2B7D,it,,,Per favore si prega di abbassare il bracciolo o sollevare il braccio master prima di auto - test
+4,0X150B,it,Faglia di hardware,Oltre il limite superiore della posizione,Fare clic su REMOVA per ripristinare
+4,0X151B,it,Faglia di hardware,Oltre il limite inferiore della posizione,Fare clic su REMOVA per ripristinare
+4,0X080B,it,Movimento del carrello chirurgico ostruito,Movimento del carrello chirurgico ostruito,Fare clic su REMOVA per ripristinare
+8,0X2B7D,it,,,Per favore si prega di abbassare il bracciolo o sollevare il braccio master prima di auto - test
+1,0X2B8D,it,,,Per favore smontare lo strumento e l'adattatore prima di eseguire il test automatico
+8,0X2B8D,it,,,Per favore smontare lo strumento e l'adattatore prima di eseguire il test automatico
+1,0X2B9D,it,Lo strumento sinistra raggiunge il limite della posizione,Lo strumento sinistra raggiunge il limite della posizione,Attenzione
+8,0X2B9D,it,Lo strumento sinistra raggiunge il limite della posizione,Lo strumento sinistra raggiunge il limite della posizione,Attenzione
+1,0X2BAD,it,Lo strumento destra raggiunge il limite della posizione,Lo strumento destra raggiunge il limite della posizione,Attenzione
+8,0X2BAD,it,Lo strumento destra raggiunge il limite della posizione,Lo strumento destra raggiunge il limite della posizione,Attenzione
+1,0X2BBD,it,Lo strumento sinistra raggiunge il limite di rotazione,Lo strumento sinistra raggiunge il limite di rotazione,Attenzione
+8,0X2BBD,it,Lo strumento sinistra raggiunge il limite di rotazione,Lo strumento sinistra raggiunge il limite di rotazione,Attenzione
+4,0X040B,it,Oltre il limite di velocit¨¤,Oltre il limite di velocit¨¤,Fare clic su REMOVA per ripristinare
+8,0X2BCD,it,Lo strumento destra raggiunge il limite di rotazione,Lo strumento destra raggiunge il limite di rotazione,Attenzione
+1,0X2BCD,it,Lo strumento destra raggiunge il limite di rotazione,Lo strumento destra raggiunge il limite di rotazione,Attenzione
+1,0X2BED,it,Lo strumento ¨¨ troppo alto,Lo strumento ¨¨ troppo alto,Per favore regolare l'altezza verso il basso
+8,0X2BED,it,Lo strumento ¨¨ troppo alto,Lo strumento ¨¨ troppo alto,Per favore regolare l'altezza verso il basso
+1,0X2BFD,it,L'adattatore dello strumento fallitomontato,L'adattatore dello strumento fallitomontato,
+8,0X2BFD,it,L'adattatore dello strumento fallitomontato,L'adattatore dello strumento fallitomontato,
+1,0X2C0D,it,Lo strumento fallitomontato,Lo strumento fallitomontato,
+8,0X2C0D,it,Lo strumento fallitomontato,Lo strumento fallitomontato,
+1,0X2C1D,it,Fallito montare l'endoscopio,Fallito montare l'endoscopio,
+8,0X2C1D,it,Fallito montare l'endoscopio,Fallito montare l'endoscopio,
+1,0X2C2D,it,Superare il limite di utilizzo dello strumento,Superare il limite di utilizzo dello strumento,Per favore sostituisci
+8,0X2C2D,it,Superare il limite di utilizzo dello strumento,Superare il limite di utilizzo dello strumento,Per favore sostituisci
+1,0X2C3D,it,,,Per favore clic su AVVIO nel carrello del paziente
+8,0X2C3D,it,,,Per favore clic su AVVIO nel carrello del paziente
+1,0X2C4D,it,L'adattatore per endoscopio pu¨° essere utilizzato meno di 5 volte,L'adattatore per endoscopio pu¨° essere utilizzato meno di 5 volte,
+8,0X2C4D,it,L'adattatore per endoscopio pu¨° essere utilizzato meno di 5 volte,L'adattatore per endoscopio pu¨° essere utilizzato meno di 5 volte,
+1,0X2C5D,it,L'uso dell'adattatore per endoscopio deve essere esaurito, per favore sostituiscilo,L'uso dell'adattatore per endoscopio deve essere esaurito, per favore sostituiscilo,
+8,0X2C5D,it,L'uso dell'adattatore per endoscopio deve essere esaurito, per favore sostituiscilo,L'uso dell'adattatore per endoscopio deve essere esaurito, per favore sostituiscilo,
+1,0X2C6D,it,L'endoscopio ¨¨ montato su un braccio non autorizzato,L'endoscopio ¨¨ montato su un braccio non autorizzato,
+8,0X2C6D,it,L'endoscopio ¨¨ montato su un braccio non autorizzato,L'endoscopio ¨¨ montato su un braccio non autorizzato,
+1,0X2C8D,it,¨¨ supportato un solo coltello a ultrasuoni,¨¨ supportato un solo coltello a ultrasuoni,
+8,0X2C8D,it,¨¨ supportato un solo coltello a ultrasuoni,¨¨ supportato un solo coltello a ultrasuoni,
+1,0X2C9D,it,Lo strumento a sinistra raggiunge il limite di profondit¨¤,Lo strumento a sinistra raggiunge il limite di profondit¨¤,Attenzione
+8,0X2C9D,it,Lo strumento a sinistra raggiunge il limite di profondit¨¤,Lo strumento a sinistra raggiunge il limite di profondit¨¤,Attenzione
+1,0X2CAD,it,Lo strumento destra raggiunge il limite di profondit¨¤,Lo strumento destra raggiunge il limite di profondit¨¤,Attenzione
+8,0X2CAD,it,Lo strumento destra raggiunge il limite di profondit¨¤,Lo strumento destra raggiunge il limite di profondit¨¤,Attenzione
+1,0X2CBD,it,Lo strumento sinistra raggiunge il limite della posa,Lo strumento sinistra raggiunge il limite della posa,Attenzione
+8,0X2CBD,it,Lo strumento sinistra raggiunge il limite della posa,Lo strumento sinistra raggiunge il limite della posa,Attenzione
+1,0X2CCD,it,Lo strumento destra raggiunge il limite della posa,Lo strumento destra raggiunge il limite della posa,Attenzione
+8,0X2CCD,it,Lo strumento destra raggiunge il limite della posa,Lo strumento destra raggiunge il limite della posa,Attenzione
+1,0X2CDD,it,,,Per favore passo sul pedale corretto
+8,0X2CDD,it,,,Per favore passo sul pedale corretto
+1,0X2CED,it,Il segnale del pedale non ¨¨ attivato,Il segnale del pedale non ¨¨ attivato,Per favore regolare l'angolo del piede
+8,0X2CED,it,Il segnale del pedale non ¨¨ attivato,Il segnale del pedale non ¨¨ attivato,Per favore regolare l'angolo del piede
+1,0X2CFD,it,¨¨ supportato un unico strumento monopolio,¨¨ supportato un unico strumento monopolio,
+8,0X2CFD,it,¨¨ supportato un unico strumento monopolio,¨¨ supportato un unico strumento monopolio,
+1,0X2D0D,it,Solo uno strumento bipolare ¨¨ supportato,Solo uno strumento bipolare ¨¨ supportato,
+8,0X2D0D,it,Solo uno strumento bipolare ¨¨ supportato,Solo uno strumento bipolare ¨¨ supportato,
+1,0X2D1D,it,,,Per favore rilasciare il pulsante di regolazione
+8,0X2D1D,it,,,Per favore rilasciare il pulsante di regolazione
+1,0X2D2D,it,,,Per favore rilasciare il pulsante di regolazione della spalla
+8,0X2D2D,it,,,Per favore rilasciare il pulsante di regolazione della spalla
+1,0X2D3D,it,,,Per favore corrisponda impugnature al controllo ruotando il impugnature
+8,0X2D3D,it,,,Per favore corrisponda impugnature al controllo ruotando il impugnature
+1,0X2D4D,it,Deviazione eccessiva della rotazione,Deviazione eccessiva della rotazione,Per favore corrisponda impugnature sul controllo da spremitura
+8,0X2D4D,it,Deviazione eccessiva della rotazione,Deviazione eccessiva della rotazione,Per favore corrisponda impugnature sul controllo da spremitura
+8,0X2D5D,it,Coltello a ultrasuoni attivato troppo a lungo,Coltello a ultrasuoni attivato troppo a lungo,Per favore rilasciare il pedale
+1,0X2D5D,it,Coltello a ultrasuoni attivato troppo a lungo,Coltello a ultrasuoni attivato troppo a lungo,Per favore rilasciare il pedale
+1,0X2D6D,it,Non ruotare il giunto di rotazione durante l'attivazione del coltello a ultrasuoni,Non ruotare il giunto di rotazione durante l'attivazione del coltello a ultrasuoni,
+8,0X2D6D,it,Non ruotare il giunto di rotazione durante l'attivazione del coltello a ultrasuoni,Non ruotare il giunto di rotazione durante l'attivazione del coltello a ultrasuoni,
+1,0X2D7D,it,,,Per favore uscita dalla modalit¨¤ memoria altezza strumento
+8,0X2D7D,it,,,Per favore uscita dalla modalit¨¤ memoria altezza strumento
+1,0X2D8D,it,,,Per favore accedi
+8,0X2D8D,it,,,Per favore accedi
+1,0X2D9D,it,L'endoscopio raggiunge il limite della posizione,L'endoscopio raggiunge il limite della posizione,Attenzione
+8,0X2D9D,it,L'endoscopio raggiunge il limite della posizione,L'endoscopio raggiunge il limite della posizione,Attenzione
+1,0X2DAD,it,,,Per favore ingrandisci
+8,0X2DAD,it,,,Per favore ingrandisci
+1,0X2DBD,it,,,Per favore rimpicciolisci
+8,0X2DBD,it,,,Per favore rimpicciolisci
+1,0X2DCD,it,,,Per favore ruotare l'endoscopio in senso orario
+8,0X2DCD,it,,,Per favore ruotare l'endoscopio in senso orario
+1,0X2DDD,it,,,Per favore l'endoscopio in senso antiorario
+8,0X2DDD,it,,,Per favore l'endoscopio in senso antiorario
+1,0X2DED,it,,,Per favore regolare l'endoscopio verso il basso
+8,0X2DED,it,,,Per favore regolare l'endoscopio verso il basso
+1,0X2DFD,it,Braccio master inferiore o sollevare il 3D visualizzatore prima di auto - test,Braccio master inferiore o sollevare il 3D visualizzatore prima di auto - test,
+8,0X2DFD,it,Braccio master inferiore o sollevare il 3D visualizzatore prima di auto - test,Braccio master inferiore o sollevare il 3D visualizzatore prima di auto - test,
+1,0X2E0D,it,,,Per favore controllare il pedale dell'interruttore del braccio
+8,0X2E0D,it,,,Per favore controllare il pedale dell'interruttore del braccio
+1,0X2E1D,it,,,Per favore controllare il pedale della frizione
+8,0X2E1D,it,,,Per favore controllare il pedale della frizione
+1,0X2E2D,it,,,Per favore controllare il pedale dell'endoscopio
+8,0X2E2D,it,,,Per favore controllare il pedale dell'endoscopio
+1,0X2E3D,it,,,Controllare il pedale di taglio sinistra
+8,0X2E3D,it,,,Controllare il pedale di taglio sinistra
+1,0X2E4D,it,,,Controllare il pedale sinistra del coag
+8,0X2E4D,it,,,Controllare il pedale sinistra del coag
+1,0X2E5D,it,,,Controllare il pedale di taglio destra
+8,0X2E5D,it,,,Controllare il pedale di taglio destra
+1,0X2E6D,it,,,Controllare il pedale destra del coag
+8,0X2E6D,it,,,Controllare il pedale destra del coag
+4,0X090B,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+1,0X2E7D,it,,,Controllare il pulsante di regolazione del braccio slave
+8,0X2E7D,it,,,Controllare il pulsante di regolazione del braccio slave
+1,0X2EAD,it,,,Controllare il sensore head - in
+8,0X2EAD,it,,,Controllare il sensore head - in
+1,0X2EBD,it,,,Controllare il sensore del piede sinistra
+8,0X2EBD,it,,,Controllare il sensore del piede sinistra
+1,0X2ECD,it,,,Controllare il sensore del piede destra
+8,0X2ECD,it,,,Controllare il sensore del piede destra
+1,0X2EDD,it,,,Si prega di completare la regolazione prima di auto - test
+8,0X2EDD,it,,,Si prega di completare la regolazione prima di auto - test
+1,0X2EFD,it,Controllare il segnale della frizione,Controllare il segnale della frizione,
+8,0X2EFD,it,Controllare il segnale della frizione,Controllare il segnale della frizione,
+1,0X2F0D,it,Batteria scarica,Batteria scarica,Si prega di contattare il servizio clienti
+8,0X2F0D,it,Batteria scarica,Batteria scarica,Si prega di contattare il servizio clienti
+1,0X2F1D,it,Batteria scarica,Batteria scarica,Si prega di contattare il servizio clienti
+8,0X2F1D,it,Batteria scarica,Batteria scarica,Si prega di contattare il servizio clienti
+8,0X2F2D,it,Superare il limite di utilizzo del trocar,Superare il limite di utilizzo del trocar,Per favore sostituiscilo
+1,0X2F2D,it,Superare il limite di utilizzo del trocar,Superare il limite di utilizzo del trocar,Per favore sostituiscilo
+1,0X2F3D,it,Non montare lo stesso tipo di energia strumento,Non montare lo stesso tipo di energia strumento,
+8,0X2F3D,it,Non montare lo stesso tipo di energia strumento,Non montare lo stesso tipo di energia strumento,
+1,0X2F4D,it,Braccio slave 1 incapace di produrre energia quando bipolare multipla montato,Braccio slave 1 incapace di produrre energia quando bipolare multipla montato,
+8,0X2F4D,it,Braccio slave 1 incapace di produrre energia quando bipolare multipla montato,Braccio slave 1 incapace di produrre energia quando bipolare multipla montato,
+1,0X2F5D,it,Braccio slave 4 incapace di produrre energia quando bipolare multipla montato,Braccio slave 4 incapace di produrre energia quando bipolare multipla montato,
+8,0X2F5D,it,Braccio slave 4 incapace di produrre energia quando bipolare multipla montato,Braccio slave 4 incapace di produrre energia quando bipolare multipla montato,
+1,0X2F6D,it,La frizione viene attivata per pi¨´ di 1 minuto,La frizione viene attivata per pi¨´ di 1 minuto,
+8,0X2F6D,it,La frizione viene attivata per pi¨´ di 1 minuto,La frizione viene attivata per pi¨´ di 1 minuto,
+1,0X2F9D,it,Connessione endoscopica anormale,Connessione endoscopica anormale,Per favore reinserire l'endoscopio
+8,0X2F9D,it,Connessione endoscopica anormale,Connessione endoscopica anormale,Per favore reinserire l'endoscopio
+1,0X2FAD,it,Rimontare l'adattatore dello strumento,Rimontare l'adattatore dello strumento,
+1,0X2FBD,it,Attivazione dell'energia,Attivazione dell'energia,
+1,0X2FFD,it,Lo strumento fallitomontato,Lo strumento fallitomontato,Per favore rimontarlo
+8,0X338D,it,Nel processo di regolazione ergonomica,Nel processo di regolazione ergonomica,Per favore non muovere il braccio maestro
+1,0X338D,it,Nel processo di regolazione ergonomica,Nel processo di regolazione ergonomica,Per favore non muovere il braccio maestro
+8,0X339D,it,Nel processo di regolazione ergonomica,Nel processo di regolazione ergonomica,Per favore non muovere il braccio maestro
+1,0X339D,it,Nel processo di regolazione ergonomica,Nel processo di regolazione ergonomica,Per favore non muovere il braccio maestro
+8,0X33AD,it,Nel processo di regolazione ergonomica,Nel processo di regolazione ergonomica,Per favore non muovere il braccio maestro
+1,0X33AD,it,Nel processo di regolazione ergonomica,Nel processo di regolazione ergonomica,Per favore non muovere il braccio maestro
+1,0X33BD,it,Regolazione ergonomica negata,Regolazione ergonomica negata,
+8,0X33BD,it,Regolazione ergonomica negata,Regolazione ergonomica negata,
+4,0X010A,it,Faglia di hardware,Superare il limite di deviazione di movimento,Fare clic su REMOVA per ripristinare
+1,0X33CD,it,,,Per favore inserire la testa nel visore 3D
+8,0X33CD,it,,,Per favore inserire la testa nel visore 3D
+1,0X33DD,it,,,Per favore torna alla pagina principale
+8,0X33DD,it,,,Per favore torna alla pagina principale
+1,0X33ED,it,Faglia di comunicazione del controller dell'endoscopio,Faglia di comunicazione del controller dell'endoscopio,
+1,0X33FD,it,Connessione trocar fallito,Connessione trocar fallito,
+1,0X340D,it,Trocar non ¨¨ installato,Trocar non ¨¨ installato,
+1,0X341D,it,,,Per favore di rilasciare il pedale di energia
+8,0X341D,it,,,Per favore di rilasciare il pedale di energia
+1,0X342D,it,Si prega di contattare il servizio clienti,Si prega di contattare il servizio clienti,
+1,0X343D,it,Si prega di contattare il servizio clienti,Si prega di contattare il servizio clienti,
+1,0X350D,it,Regolazione automatica braccio slave,Regolazione automatica braccio slave,Per favore tenere le mani sui braccioli
+1,0X400B,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,Fare clic su REMOVA per ripristinare
+4,0X135D,it,Faglia di rilasciato base,Faglia di rilasciato base,
+4,0X134D,it,Faglia di blocco base,Faglia di blocco base,
+4,0X136D,it,Pressione anormale dell'olio di supporto,Pressione anormale dell'olio di supporto,
+8,0X400B,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,Fare clic su REMOVA per ripristinare
+8,0X400D,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,
+1,0X400D,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,
+8,0X401D,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,Non ¨¨ consentito l'intervento chirurgico
+8,0X402D,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,Il funzionamento sconsigliata
+8,0X403D,it,Qualit¨¤ di rete media,Qualit¨¤ di rete media,Per favore agisca lentamente con cautela
+8,0X404D,it,Qualit¨¤ media della rete,Qualit¨¤ media della rete,Per favore operare lentamente
+8,0X410D,it,Faglia terminale locale,Faglia terminale locale,
+1,0X410D,it,Faglia terminale locale,Faglia terminale locale,
+8,0X411D,it,Disconnessione terminale locale,Disconnessione terminale locale,
+1,0X411D,it,Disconnessione terminale locale,Disconnessione terminale locale,
+8,0X412D,it,Commutazione del controllo al terminale locale,Commutazione del controllo al terminale locale,
+1,0X412D,it,Commutazione del controllo al terminale locale,Commutazione del controllo al terminale locale,
+8,0X413D,it,Controllo del passaggio al terminale remoto,Controllo del passaggio al terminale remoto,
+1,0X413D,it,Controllo del passaggio al terminale remoto,Controllo del passaggio al terminale remoto,
+8,0X414D,it,Controllare le impostazioni di rete,Controllare le impostazioni di rete,
+8,0X415D,it,Controllare il codice di verifica,Controllare il codice di verifica,
+1,0X416D,it,La rete ¨¨ connessa,La rete ¨¨ connessa,
+8,0X416D,it,La rete ¨¨ connessa,La rete ¨¨ connessa,
+1,0X417D,it,La rete ¨¨ disconnessa,La rete ¨¨ disconnessa,
+8,0X417D,it,La rete ¨¨ disconnessa,La rete ¨¨ disconnessa,
+8,0X420D,it,Prendere il comando prima dello spegnimento,Prendere il comando prima dello spegnimento,
+1,0X420D,it,Prendere il comando prima dello spegnimento,Prendere il comando prima dello spegnimento,
+8,0X450B,it,Faglia di workstation di comunicazione,Il software dell'agente ¨¨ anormale,Fare clic su REMOVA per ripristinare
+1,0X450B,it,Faglia di workstation di comunicazione,Il software dell'agente ¨¨ anormale,Fare clic su REMOVA per ripristinare
+1,0X451D,it,La comunicazione della postazione di comunicazione remota ¨¨ anormale,La comunicazione della postazione di comunicazione remota ¨¨ anormale,
+8,0X451D,it,La comunicazione della postazione di comunicazione remota ¨¨ anormale,La comunicazione della postazione di comunicazione remota ¨¨ anormale,
+1,0X452B,it,Faglia di workstation di comunicazione,Faglia di TSA locale,Fare clic su REMOVA per ripristinare
+8,0X452B,it,Faglia di workstation di comunicazione,Faglia di TSA locale,Fare clic su REMOVA per ripristinare
+1,0X453B,it,Faglia di workstation di comunicazione,Faglia di codec video,Fare clic su REMOVA per ripristinare
+8,0X453B,it,Faglia di workstation di comunicazione,Faglia di codec video,Fare clic su REMOVA per ripristinare
+1,0X454D,it,La versione del software TSA ¨¨ incompatibili,La versione del software TSA ¨¨ incompatibili,
+8,0X454D,it,La versione del software TSA ¨¨ incompatibili,La versione del software TSA ¨¨ incompatibili,
+1,0X455A,it,Eccezione dati,Eccezione dati,Fare clic su REMOVA per ripristinare
+8,0X500D,it,Dati di controllo falsi,Dati di controllo falsi,
+1,0X533D,it,Comunicazione anormale,Comunicazione anormale,
+8,0X533D,it,Comunicazione anormale,Comunicazione anormale,
+8,0X606D,it,Il braccio principale fallito riposto,Il braccio principale fallito riposto,
+1,0X606D,it,Il braccio principale fallito riposto,Il braccio principale fallito riposto,
+1,0X607D,it,Spiegamento fallito,Spiegamento fallito,
+1,0X608D,it,Stow fallito,Stow fallito,
+5,0X610A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+A,0X610A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+5,0X622B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X622B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X623B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X623B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X626B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X626B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+1,0X626D,it,Faglia motore,Faglia motore,Si prega di contattare il servizio clienti
+8,0X626D,it,Faglia motore,Faglia motore,
+5,0X627B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X627B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X640B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X640B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X641B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X641B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X642B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X642B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X643B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X643B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X651B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X651B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X652B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X652B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X653B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X653B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X660B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X660B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X662B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X662B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X663B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X663B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+8,0X090E,it,,,
+8,0X665A,it,Eccezione dati,Eccezione dati,Fare clic su REMOVA per ripristinare
+5,0X665B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X665B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X666B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X666B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X66AB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X66AB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X66CB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X66CB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X680B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X680B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X682B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X682B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X683B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X683B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X685B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X685B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X686B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X686B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X68AB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X68AB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X68CB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X68CB,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6A0B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6A0B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6A4B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6A4B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6A5B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6A5B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6A6B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6A6B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6A7B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6A7B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6B0B,it,Faglia motore,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+A,0X6B0B,it,Faglia motore,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+5,0X6B1B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+A,0X6B1B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+5,0X6B2B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+A,0X6B2B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+5,0X6B4B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+A,0X6B4B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+5,0X6B5B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+A,0X6B5B,it,Dati di controllo falsi,Dati di controllo falsi,Fare clic su REMOVA per ripristinare
+5,0X6C0B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C0B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C1B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C1B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C2B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C2B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C3B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+4,0X030A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+4,0X100A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+4,0X110A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+A,0X6C3B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C4B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C4B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C5B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C5B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C6B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C6B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C7B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C7B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C8B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C8B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6C9B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6C9B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6D0B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6D0B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6D1B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6D1B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6D2B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6D2B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6D3B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6D3B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6D4B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6D4B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6D5B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+A,0X6D5B,it,Faglia motore,Faglia motore,Fare clic su REMOVA per ripristinare
+5,0X6D6A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6D6A,it,Faglia di hardware,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6D7B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6D7B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6D7D,it,Sottotensione del circuito stampato,Sottotensione del circuito stampato,
+5,0X6D8B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+A,0X6D8B,it,Faglia motore,Faglia di hardware,Fare clic su REMOVA per ripristinare
+5,0X6D9B,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+A,0X6D9B,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+5,0X6DAB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+A,0X6DAB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+5,0X6DCB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+A,0X6DCB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+5,0X6DDB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+A,0X6DDB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+5,0X6DEB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+A,0X6DEB,it,Faglia motore,Faglia del conducente,Fare clic su REMOVA per ripristinare
+8,0X555E,it,,,
+8,0X556E,it,,,
+8,0X557E,it,,,
+8,0X558E,it,,,
+1,0X70BD,it,Esecuzione della lettura delle informazioni scaduta,Esecuzione della lettura delle informazioni scaduta,
+8,0X70BD,it,Esecuzione della lettura delle informazioni scaduta,Esecuzione della lettura delle informazioni scaduta,
+1,0X70CD,it,La CPU ¨¨ sovraccarica,La CPU ¨¨ sovraccarica,
+8,0X70CD,it,La CPU ¨¨ sovraccarica,La CPU ¨¨ sovraccarica,
+1,0X70DD,it,Segnale pedale disconnesso,Segnale pedale disconnesso,
+5,0X801D,it,Faglia del conducente,Faglia del conducente,
+A,0X801D,it,Faglia del conducente,Faglia del conducente,
+5,0X802D,it,Faglia del conducente,Faglia del conducente,
+A,0X802D,it,Faglia del conducente,Faglia del conducente,
+5,0X803D,it,Faglia del conducente,Faglia del conducente,
+A,0X803D,it,Faglia del conducente,Faglia del conducente,
+5,0X804D,it,Faglia del conducente,Faglia del conducente,
+A,0X804D,it,Faglia del conducente,Faglia del conducente,
+6,0XB01B,it,Immagini anormale,Acquisizione di immagini anomale,Fare clic su REMOVA per ripristinare
+6,0XB02B,it,Connessione endoscopica anormale,Connessione endoscopica anormale,Per favore reinserire l'endoscopio
+6,0XB03B,it,Endoscopio disconnesso,Endoscopio disconnesso,Fare clic su REMOVA per ripristinare
+6,0XB03D,it,Endoscopio disconnesso,Endoscopio disconnesso,
+6,0XB04B,it,Immagini anormale,Immagini non continua,Fare clic su REMOVA per ripristinare
+6,0XB05D,it,,,Per favore riavviare il controller dell'endoscopio
+6,0XB06D,it,,,Per favore riavviare il controller dell'endoscopio
+6,0XB07A,it,Faglia di rete,Faglia di rete,Fare clic su REMOVA per ripristinare
+6,0XB50C,it,Anomalia della connessione del disco flash USB,Anomalia della connessione del disco flash USB,
+6,0XB50D,it,Anomalia della connessione del disco flash USB,Anomalia della connessione del disco flash USB,
+6,0XB51C,it,Spazio su disco del controller endoscopio insufficiente,Spazio su disco del controller endoscopio insufficiente,Si prega di contattare il servizio clienti
+6,0XB51D,it,Spazio su disco del controller endoscopio insufficiente,Spazio su disco del controller endoscopio insufficiente,Si prega di contattare il servizio clienti
+6,0XB52C,it,La CPU del controller dell'endoscopio ¨¨ sovraccarica,La CPU del controller dell'endoscopio ¨¨ sovraccarica,
+6,0XB52D,it,La CPU del controller dell'endoscopio ¨¨ sovraccarica,La CPU del controller dell'endoscopio ¨¨ sovraccarica,
+6,0XB53C,it,Spazio su disco flash USB insufficiente,Spazio su disco flash USB insufficiente,Per favore sostituiscilo
+6,0XB53D,it,Spazio su disco flash USB insufficiente,Spazio su disco flash USB insufficiente,Per favore sostituiscilo
+6,0XBA0D,it,Immagini out - sync,Immagini out - sync,Per favore reinserire l'endoscopio
+6,0XBA1A,it,,,Per favore riavviare il controller dell'endoscopio
+6,0XBA2A,it,Scarso effetto di visualizzazione effetto 3D,Scarso effetto di visualizzazione effetto 3D,Per favore riavviare il controller dell'endoscopio
+6,0XBA3D,it,,,Per favore riavviare il controller dell'endoscopio
+6,0XBA5C,it,Avvio del desktop Aero fallito,Avvio del desktop Aero fallito,
+6,0XBA5D,it,Avvio del desktop Aero fallito,Avvio del desktop Aero fallito,
+6,0XBA6C,it,Disco flash USB non autorizzato,Disco flash USB non autorizzato,Per favore utilizzalo dopo l'autenticazione
+6,0XBA6D,it,Disco flash USB non autorizzato,Disco flash USB non autorizzato,Per favore utilizzalo dopo l'autenticazione
+6,0XBA7D,it,Connessione della piattaforma energetica fallito,Connessione della piattaforma energetica fallito,Si prega di contattare il servizio clienti
+6,0XBA8D,it,Identificazione del tipo di endoscopio fallito,Identificazione del tipo di endoscopio fallito,Per favore sostituire l'endoscopio
+1,0X310E,it,,,
+1,0X500E,it,,,
+1,0X501E,it,,,
+1,0X502E,it,,,
+1,0X503E,it,,,
+1,0X504E,it,,,
+1,0X505E,it,,,
+1,0X506E,it,,,
+1,0X507E,it,,,
+1,0X508E,it,,,
+1,0X509E,it,,,
+1,0X50AE,it,,,
+1,0X50BE,it,,,
+1,0X50CE,it,,,
+1,0X50DE,it,,,
+1,0X50EE,it,,,
+1,0X510E,it,,,
+1,0X511E,it,,,
+1,0X550E,it,,,
+1,0X551E,it,,,
+1,0X552E,it,,,
+1,0X553E,it,,,
+1,0X554E,it,,,
+1,0X555E,it,,,
+1,0X556E,it,,,
+1,0X557E,it,,,
+1,0X558E,it,,,
+1,0X570E,it,,,
+1,0X571E,it,,,
+1,0X572E,it,,,
+1,0X700E,it,,,
+1,0X701E,it,,,
+1,0X702E,it,,,
+1,0X703E,it,,,
+1,0X704E,it,,,
+1,0X705E,it,,,
+1,0X706E,it,,,
+1,0X707E,it,,,
+1,0X708E,it,,,
+1,0X709E,it,,,
+1,0X70AE,it,,,
+1,0X70CE,it,,,
+1,0X710E,it,,,
+1,0X405E,it,,,
+8,0X405E,it,,,
+1,0X66BD,it,,Si prega di contattare il servizio clienti,
+1,0X143D,it,Batteria esaurita,Batteria esaurita,
+8,0X143D,it,Batteria esaurita,Batteria esaurita,
+1,0X144D,it,Batteria scarica,Batteria scarica,
+8,0X144D,it,Batteria scarica,Batteria scarica,
+6,0XBA9D,it,I parametri dell'endoscopio vengono configurati,I parametri dell'endoscopio vengono configurati,
+1,0X2BDD,it,Lo strumento destro e sinistro raggiunge il limite di rotazione,Lo strumento destro e sinistro raggiunge il limite di rotazione,
+1,0X666D,it,La versione del software ¨¨ incoerente,La versione del software ¨¨ incoerente,
+8,0X666D,it,La versione del software ¨¨ incoerente,La versione del software ¨¨ incoerente,
+8,0X614D,it,Passare al sistema remoto,Passare al sistema remoto,
+1,0X624D,it,Passare al sistema locale,Passare al sistema locale,
+1,0X404A,it,Disconnettersi dal carrello del paziente,Disconnettersi dal carrello del paziente,
+1,0X021D,it,Lo strumento ¨¨ bloccato,Lo strumento ¨¨ bloccato,
+1,0X022E,it,,,
+1,0X030E,it,,,
+1,0X050E,it,,,
+1,0X040E,it,,,
+1,0X090E,it,,,
+1,0X010E,it,,,
+1,0X020E,it,,,
+1,0X559E,it,,,
+1,0X55AE,it,,,
+1,0X55BE,it,,,
+1,0X092E,it,,,
+1,0X344D,it,,,Per favore verificare l'adattatore
+1,0X345D,it,,,Per favore controllare lo strumento e reinstallare l'adattatore
+1,0X360D,it,Togliere lo strumento,Togliere lo strumento,
+1,0X361D,it,Togliere l'adattatore,Togliere l'adattatore,
+1,0X362D,it,Installare la scheda di rete,Installare la scheda di rete,
+1,0X128D,it,Il master torna a zero fallisce,Il master torna a zero fallisce,
+1,0X127D,it,,,Per favore corrisponda impugnature sul controllo da spremitura
+8,0X127D,it,,,Per favore corrisponda impugnature sul controllo da spremitura
+6,0X129D,it,Fallito invertire,Fallito invertire,Per favore controllare lo stato della connessione
+1,0X130D,it,,,Per favore reinserire l'endoscopio
+6,0X144C,it,Fallito invertire,Fallito invertire,Per favore reimpostazione
+1,0X145D,it,Il carrello del paziente non pu¨° essere regolato nello stato corrente.,Il carrello del paziente non pu¨° essere regolato nello stato corrente.,
+1,0X146D,it,Operare sul carrello del paziente,Operare sul carrello del paziente,
+1,0X520E,it,,,
+1,0X533E,it,,,
+3,0X300E,it,,,
+3,0X301E,it,,,
+9,0X300E,it,,,
+9,0X301E,it,,,
+3,0X302E,it,,,
+3,0X303E,it,,,
+3,0X304E,it,,,
+3,0X305E,it,,,
+3,0X306E,it,,,
+3,0X307E,it,,,
+3,0X308E,it,,,
+3,0X309E,it,,,
+9,0X302E,it,,,
+9,0X303E,it,,,
+9,0X304E,it,,,
+9,0X305E,it,,,
+9,0X306E,it,,,
+9,0X307E,it,,,
+9,0X308E,it,,,
+9,0X309E,it,,,
+1,0X57DE,it,,,
+1,0X57AE,it,,,
+1,0X57BE,it,,,
+8,0X57DE,it,,,
+8,0X57AE,it,,,
+8,0X57BE,it,,,
+1,0X579E,it,,,
+1,0X57CE,it,,,
+1,0X514E,it,,,
+1,0X515E,it,,,
+1,0X516E,it,,,
+1,0X517E,it,,,
+1,0X518E,it,,,
+1,0X519E,it,,,
+1,0X521E,it,,,
+1,0X522E,it,,,
+1,0X523E,it,,,
+1,0X524E,it,,,
+1,0X525E,it,,,
+1,0X526E,it,,,
+1,0X527E,it,,,
+1,0X528E,it,,,
+1,0X529E,it,,,
+1,0X52AE,it,,,
+1,0X52BE,it,,,
+1,0X52CE,it,,,
+1,0X52DE,it,,,
+1,0X52EE,it,,,
+1,0X52FE,it,,,
+1,0X530E,it,,,
+1,0X531E,it,,,
+1,0X532E,it,,,
+1,0X57EE,it,,,
+1,0X534E,it,,,
+1,0X535E,it,,,
+1,0X536E,it,,,
+1,0X537E,it,,,
+1,0X538E,it,,,
+1,0X539E,it,,,
+1,0X53AE,it,,,
+1,0X53BE,it,,,
+1,0X53CE,it,,,
+1,0X53DE,it,,,
+1,0X53EE,it,,,
+1,0X53FE,it,,,
+1,0X540E,it,,,
+1,0X541E,it,,,
+1,0X542E,it,,,
+1,0X543E,it,,,
+1,0X544E,it,,,
+1,0X545E,it,,,
+1,0X546E,it,,,
+1,0X547E,it,,,
+1,0X548E,it,,,
+1,0X549E,it,,,
+1,0X54AE,it,,,
+1,0X54BE,it,,,
+1,0X54CE,it,,,
+1,0X54DE,it,,,
+1,0X54EE,it,,,
+1,0X54FE,it,,,
+1,0X560E,it,,,
+1,0X561E,it,,,
+1,0X562E,it,,,
+1,0X563E,it,,,
+1,0X564E,it,,,
+1,0X565E,it,,,
+1,0X567E,it,,,
+1,0X568E,it,,,
+1,0X569E,it,,,
+1,0X56AE,it,,,
+1,0X56CE,it,,,
+1,0X56DE,it,,,
+1,0X56EE,it,,,
+1,0X56FE,it,,,
+1,0X573E,it,,,
+1,0X574E,it,,,
+1,0X575E,it,,,
+1,0X576E,it,,,
+1,0X577E,it,,,
+1,0X578E,it,,,
+8,0X579E,it,,,
+8,0X57CE,it,,,
+8,0X514E,it,,,
+8,0X515E,it,,,
+8,0X516E,it,,,
+8,0X517E,it,,,
+8,0X518E,it,,,
+8,0X519E,it,,,
+8,0X521E,it,,,
+8,0X522E,it,,,
+8,0X523E,it,,,
+8,0X524E,it,,,
+8,0X525E,it,,,
+8,0X526E,it,,,
+8,0X527E,it,,,
+8,0X528E,it,,,
+8,0X529E,it,,,
+8,0X52AE,it,,,
+8,0X52BE,it,,,
+8,0X52CE,it,,,
+8,0X52DE,it,,,
+8,0X52EE,it,,,
+8,0X52FE,it,,,
+8,0X530E,it,,,
+8,0X531E,it,,,
+8,0X532E,it,,,
+8,0X57EE,it,,,
+8,0X534E,it,,,
+8,0X535E,it,,,
+8,0X536E,it,,,
+8,0X537E,it,,,
+8,0X538E,it,,,
+8,0X539E,it,,,
+8,0X53AE,it,,,
+8,0X53BE,it,,,
+8,0X53CE,it,,,
+8,0X53DE,it,,,
+8,0X53EE,it,,,
+8,0X53FE,it,,,
+8,0X540E,it,,,
+8,0X541E,it,,,
+8,0X542E,it,,,
+8,0X543E,it,,,
+8,0X544E,it,,,
+8,0X545E,it,,,
+8,0X546E,it,,,
+8,0X547E,it,,,
+8,0X548E,it,,,
+8,0X549E,it,,,
+8,0X54AE,it,,,
+8,0X54BE,it,,,
+8,0X54CE,it,,,
+8,0X54DE,it,,,
+8,0X54EE,it,,,
+8,0X54FE,it,,,
+8,0X560E,it,,,
+8,0X561E,it,,,
+8,0X562E,it,,,
+8,0X563E,it,,,
+8,0X564E,it,,,
+8,0X565E,it,,,
+8,0X567E,it,,,
+8,0X568E,it,,,
+8,0X569E,it,,,
+8,0X56AE,it,,,
+8,0X56CE,it,,,
+8,0X56DE,it,,,
+8,0X56EE,it,,,
+8,0X56FE,it,,,
+8,0X573E,it,,,
+8,0X574E,it,,,
+8,0X575E,it,,,
+8,0X576E,it,,,
+8,0X577E,it,,,
+8,0X578E,it,,,
+1,0X580C,it,Impossibile calcolare la durata dello strumento,Impossibile calcolare la durata dello strumento,
+1,0X580E,it,,,
+1,0X512E,it,,,
+1,0X513E,it,,,
+1,0X590E,it,,,
+1,0X591E,it,,,
+1,0X594E,it,,,
+1,0X040D,it,Superare il limite di deviazione di movimento,Superare il limite di deviazione di movimento,Attenzione
+8,0X040D,it,Superare il limite di deviazione di movimento,Superare il limite di deviazione di movimento,Attenzione
+1,0X665A,it,Eccezione dati,Eccezione dati,Fare clic su REMOVA per ripristinare
+8,0X455A,it,Eccezione dati,Eccezione dati,Fare clic su REMOVA per ripristinare
+8,0X70CE,it,,,
+1,0X581E,it,,,
+8,0X2BDD,it,Lo strumento destro e sinistro raggiunge il limite di rotazione,Lo strumento destro e sinistro raggiunge il limite di rotazione,
+6,0XB07D,it,Rete non connessa,Rete non connessa,Per favore controllare il cavo di comunicazione
+1,0x580D,it,Attendere la fine del test automatico,Attendere la fine del test automatico,
+1,0x581D,it,Prima la regolazione dell'uscita,Prima la regolazione dell'uscita,
+1,0x582D,it,Uscita dallo stato chirurgico confermato per primo,Uscita dallo stato chirurgico confermato per primo,
+1,0x583D,it,Uscita comando frizione prima,Uscita comando frizione prima,
+1,0x584D,it,Uscita prima dal controllo principale - slave,Uscita prima dal controllo principale - slave,
+1,0x585D,it,Uscita prima dal controllo dell'endoscopio,Uscita prima dal controllo dell'endoscopio,
+6,0XB54D,it,Porta seriale anormale,Porta seriale anormale,Si prega di contattare il servizio clienti
+6,0XB55D,it,Fallito impostare il parametro Immagini,Fallito impostare il parametro Immagini,Si prega di riprovare
+6,0XB56D,it,Lo strumento ¨¨ troppo lontano dal centro del campo visivo,Lo strumento ¨¨ troppo lontano dal centro del campo visivo,
+1,0x586D,it,Regolare la distanza tra il braccio {0} e il braccio {1},Regolare la distanza tra il braccio {0} e il braccio {1},
+1,0x55CE,it,,,
+6,0XB57D,it,Fallito configurare il parametro Immagini,Fallito configurare il parametro Immagini,Si prega di contattare il servizio clienti
+6,0XB58A,it,Avvio anormale del controller dell'endoscopio,Avvio anormale del controller dell'endoscopio,Per favore riavviare il controller dell'endoscopio
+6,0XB59A,it,Fallito configurare l'interfaccia del controller endoscopio,Fallito configurare l'interfaccia del controller endoscopio,Per favore riavviare il controller dell'endoscopio
+1,0X456A,it,Eccezione dati,Fallito trasferire i parametri,Per favore controllare
+8,0X456A,it,Eccezione dati,Fallito trasferire i parametri,Per favore controllare
+1,0X457A,it,Eccezione dati,Fallito verificare i parametri,Per favore ricollegare
+8,0X457A,it,Eccezione dati,Fallito verificare i parametri,Per favore ricollegare
+1,0X458E,it,,,
+1,0X459E,it,,,
+1,0X131D,it,Fallito riavviare,Fallito riavviare,
+8,0X131D,it,Fallito riavviare,Fallito riavviare,
+1,0X453D,it,FPS ¨¨ basso,FPS ¨¨ basso,Per favore operare lentamente
+8,0X453D,it,FPS ¨¨ basso,FPS ¨¨ basso,Per favore operare lentamente
+1,0X587D,it,Il Master si sta riattivando,Il Master si sta riattivando,
+1,0X88BE,it,,,
+8,0X587D,it,Il Master si sta riattivando,Il Master si sta riattivando,
+8,0X88BE,it,,,
+1,0X103A,it,Faglia di rete,Connessione del cavo di rete del paziente fallito,Si prega di controllare e fare clic su RIMUOVI per ripristinare
+1,0X104A,it,Faglia di rete,Collegamento cavo di emergenza fallito,Si prega di controllare e fare clic su RIMUOVI per ripristinare
+1,0X105A,it,Faglia di hardware,Certificato di autorizzazione invalidato,Riavviare il sistema
+8,0X105A,it,Faglia di hardware,Certificato di autorizzazione invalidato,Riavviare il sistema
+1,0X588D,it,Dispositivo audio della console del chirurgo non connesso,Dispositivo audio della console del chirurgo non connesso,Si prega di contattare il servizio clienti
+1,0X589D,it,Dispositivo audio controller endoscopio non collegato,Dispositivo audio controller endoscopio non collegato,Si prega di contattare il servizio clienti
+1,0X591D,it,Eccezione servizio audio,Eccezione servizio audio,Si prega di contattare il servizio clienti
+1,0X592D,it,Il servizio di controllo dell'interfaccia della console del chirurgo ¨¨ anormale,Il servizio di controllo dell'interfaccia della console del chirurgo ¨¨ anormale,Si prega di contattare il servizio clienti
+1,0X593D,it,Strumento troppo alto, per favore regolare verso il basso,Strumento troppo alto, per favore regolare verso il basso,
+1,0X594D,it,Interferenza tra sinistra e destra,Interferenza tra sinistra e destra,Per favore regolare
+1,0X88DE,it,,,
+8,0X594D,it,Interferenza tra sinistra e destra,Interferenza tra sinistra e destra,Per favore regolare
+1,0X072A,it,Funzionamento troppo rapido,Spremere troppo,Si prega di controllare e fare clic su RIMUOVI per ripristinare
+1,0X072D,it,Spremere troppo,Spremere troppo,
+1,0X073A,it,Faglia di hardware,Anomalia della sala,Si prega di controllare e fare clic su RIMUOVI per ripristinare
+8,0X072A,it,Funzionamento troppo rapido,Spremere troppo,Si prega di controllare e fare clic su RIMUOVI per ripristinare
+8,0X072D,it,Spremere troppo,Spremere troppo,
+8,0X073A,it,Faglia di hardware,Anomalia della sala,Si prega di controllare e fare clic su RIMUOVI per ripristinare
+1,0X595D,it,Il dispositivo audio della console del chirurgo ¨¨ anormale,Il dispositivo audio della console del chirurgo ¨¨ anormale,Si prega di contattare il servizio clienti
+1,0X596D,it,Dispositivo audio controller endoscopio ¨¨ anormale,Dispositivo audio controller endoscopio ¨¨ anormale,Si prega di contattare il servizio clienti
+1,0X460D,it,Il funzionamento non ¨¨ consentito durante l'interruttore di comando,Il funzionamento non ¨¨ consentito durante l'interruttore di comando,
+8,0X460D,it,Il funzionamento non ¨¨ consentito durante l'interruttore di comando,Il funzionamento non ¨¨ consentito durante l'interruttore di comando,
+6,0XB60D,it,Collegamento anomalo della trave guida,Collegamento anomalo della trave guida,Si prega di verificare la connessione
+6,0XB61D,it,Collegamento anomalo della linea di controllo della sorgente di luce fredda,Collegamento anomalo della linea di controllo della sorgente di luce fredda,Si prega di verificare la connessione
+1,0X597E,it,Cambiamenti nel segnale dell'attrezzatura per l'allenamento,Cambiamenti nel segnale dell'attrezzatura per l'allenamento,
+6,0XB62D,it,La temperatura della sorgente di luce fredda ¨¨ troppo alta,La temperatura della sorgente di luce fredda ¨¨ troppo alta,
+6,0XB63D,it,La durata della lampadina con sorgente di luce fredda si sta avvicinando alla sua durata utile,La durata della lampadina con sorgente di luce fredda si sta avvicinando alla sua durata utile,
+6,0XB64D,it,La lampadina della sorgente di luce fredda ha raggiunto il termine della sua durata utile,La lampadina della sorgente di luce fredda ha raggiunto il termine della sua durata utile,
+1,0X122D,it,L'interruttore di arresto di emergenza del carrello chirurgico ¨¨ attivato,L'interruttore di arresto di emergenza del carrello chirurgico ¨¨ attivato,
+8,0X122D,it,L'interruttore di arresto di emergenza del carrello chirurgico ¨¨ attivato,L'interruttore di arresto di emergenza del carrello chirurgico ¨¨ attivato,
+1,0X588E,it,Registro del tipo di intervento chirurgico,Registro del tipo di intervento chirurgico,
+1,0X597D,it,Dispositivo audio chirurgico non collegato,Dispositivo audio chirurgico non collegato,Si prega di contattare il servizio clienti
+1,0X598D,it,Apparecchiatura audio anomala all'estremit¨¤ chirurgica,Apparecchiatura audio anomala all'estremit¨¤ chirurgica,Si prega di contattare il servizio clienti
+1,0X353D,it,Scollegare il cavo dal carrello chirurgico in modalit¨¤ simulatore,Scollegare il cavo dal carrello chirurgico in modalit¨¤ simulatore,
+1,0X352C,it,Comunicazione del simulatore interrotta,Comunicazione del simulatore interrotta,Verificare se il cavo di rete ¨¨ collegato correttamente
+1,0X023D,it,Il braccio ¨¨ bloccato,Il braccio ¨¨ bloccato,
+1,0X599D,it,Si prega di controllare il numero di serie del braccio,Si prega di controllare il numero di serie del braccio,
+1,0X129D,it,Si prega di premere nuovamente il pedale dell'endoscopio,Si prega di premere nuovamente il pedale dell'endoscopio,
+1,0X602E,it,,,
+1,0X602D,it,,,Per favore torna alla pagina principale
+1,0X603E,it,,,
+8,0X08AD,it,Disabilitazione braccio fallito,Disabilitazione braccio fallito,Si prega di riprovare
+8,0X08BD,it,Attivazione braccio fallito,Attivazione braccio fallito,Si prega di riprovare
+8,0X08CD,it,Abilitazione braccio,Abilitazione braccio,
+8,0X08DD,it,Attivazione braccio fallito,Attivazione braccio fallito,
+8,0X08ED,it,Braccio sta disabilitato,Braccio sta disabilitato,
+1,0X461D,it,Braccio dell'endoscopio bloccato,Braccio dell'endoscopio bloccato,
+6,0XB88D,it,L'immagine nell'immagine a schermo intero 3D non ¨¨ collegata correttamente alla sorgente di ingresso,L'immagine nell'immagine a schermo intero 3D non ¨¨ collegata correttamente alla sorgente di ingresso,
+1,0X462D,it,Si prega di disattivare la modalit¨¤ di sensibilit¨¤ alla fluorescenza prima dell'uso,Si prega di disattivare la modalit¨¤ di sensibilit¨¤ alla fluorescenza prima dell'uso,
+1,0X424D,it,Local take,Local take,
+1,0X425D,it,Local give,Local give,
+1,0X426D,it,Local take all,Local take all,
+8,0X424D,it,Remote take,Remote take,
+8,0X425D,it,Remote give,Remote give,
+8,0X426D,it,Remote take all,Remote take all,
+6,0XB65D,it,Sorgente di ingresso HDMI 1 non connessa,Sorgente di ingresso HDMI 1 non connessa,
+6,0XB66D,it,Sorgente di ingresso HDMI 2 non connessa,Sorgente di ingresso HDMI 2 non connessa,
+6,0XB67D,it,Sorgente di ingresso SDI 1 non connessa,Sorgente di ingresso SDI 1 non connessa,
+6,0XB68D,it,Sorgente di ingresso SDI 2 non connessa,Sorgente di ingresso SDI 2 non connessa,
+1,0X2EED,it,,,Si prega di non premere i pedali su entrambe le estremit¨¤ contemporaneamente
+8,0X2EED,it,,,Si prega di non premere i pedali su entrambe le estremit¨¤ contemporaneamente
+1,0X2FCD,it,Nessun braccio da cambiare,Nessun braccio da cambiare,
+8,0X2FCD,it,Nessun braccio da cambiare,Nessun braccio da cambiare,
+4,0X143D,it,Batteria esaurita,Batteria esaurita,
+4,0X144D,it,Batteria scarica,Batteria scarica,
+1,0X193D,it,Scollegamento, pulizia e ispezione dei cavi del dispositivo di chiusura della parete del grande vaso,Scollegamento, pulizia e ispezione dei cavi del dispositivo di chiusura della parete del grande vaso,Si prega di ispezionare i collegamenti.
+1,0X192D,it,Controllare se c'¨¨ un malfunzionamento nel driver del dispositivo di chiusura del grande vaso,Controllare se c'¨¨ un malfunzionamento nel driver del dispositivo di chiusura del grande vaso,Si prega di ispezionare i collegamenti.
+1,0X138D,it,La prenotazione della spillatrice ¨¨ stata utilizzata, sostituiscila,La prenotazione della spillatrice ¨¨ stata utilizzata, sostituiscila,Cambia prenotazione
+1,0X137D,it,La spillatrice ¨¨ stata restituita e completata. Aggiorna la prenotazione,La spillatrice ¨¨ stata restituita e completata. Aggiorna la prenotazione,Cambia prenotazione
+1,0X430D,it,La frequenza del frame dello schermo non ¨¨ adatta all'intervento,La frequenza del frame dello schermo non ¨¨ adatta all'intervento,
+1,0X429B,it,Cambio anomalo della fonte dati,Cambio anomalo della fonte dati,si prega di controllare le impostazioni di rete
+8,0X429B,it,Cambio anomalo della fonte dati,Cambio anomalo della fonte dati,si prega di controllare le impostazioni di rete
+1,0X611D,it,Trocar montage geslaagd,Trocar montage geslaagd,
+1,0X33FE,it,Modifiche allo stato di Tocar,Modifiche allo stato di Tocar,
+1,0XA01E,it,Registro di avvio,Registro di avvio,
+1,0XA02E,it,Registro di arresto,Registro di arresto,
+8,0XA01E,it,Registro di avvio,Registro di avvio,
+8,0XA02E,it,Registro di arresto,Registro di arresto,
+1,0X612D,it,,,Si prega di rimuovere lo strumento
+1,0X427D,it,Local give all,Local give all,
+8,0X427D,it,Remote give all,Remote give all,
+1,0X401D,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,Non ¨¨ consentito l'intervento chirurgico
+1,0X402D,it,Scarsa qualit¨¤ della rete,Scarsa qualit¨¤ della rete,Il funzionamento sconsigliata
+1,0X403D,it,Qualit¨¤ di rete media,Qualit¨¤ di rete media,Per favore agisca lentamente con cautela
+1,0X404D,it,Qualit¨¤ media della rete,Qualit¨¤ media della rete,Per favore operare lentamente
+1,0X463D,it,Endoscopio in movimento,Endoscopio in movimento,attendere prego
+8,0X463D,it,Endoscopio in movimento,Endoscopio in movimento,attendere prego
+1,0X464D,it,Collisione braccio strumento,Collisione braccio strumento,Attenzione
+1,0X623D,it,Modalit¨¤ normale,Modalit¨¤ normale,
+1,0X627D,it,Modalit¨¤ fluorescenza,Modalit¨¤ fluorescenza,
+1,0X629D,it,Fusione immagine,Fusione immagine,
+3,0X164D,it,Protezione del collegamento,Protezione del collegamento,Si prega di alzare il master
+3,0X165D,it,Protezione del collegamento,Protezione del collegamento,Si prega di abbassare l'altezza del monitor
+9,0X164D,it,Protezione del collegamento,Protezione del collegamento,Si prega di alzare il master
+9,0X165D,it,Protezione del collegamento,Protezione del collegamento,Si prega di abbassare l'altezza del monitor

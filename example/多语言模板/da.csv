@@ -1,0 +1,926 @@
+subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,da,Hardwarefejl,Fejl ved ergonomisk justering,Klik på FJERN for at gendanne
+9,0X010A,da,Hardwarefejl,Fejl ved ergonomisk justering,Klik på FJERN for at gendanne
+1,0X010A,da,Hardwarefejl,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+1,0X490E,da,,,
+8,0X010A,da,Hardwarefejl,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+9,0X010D,da,Fejl ved ergonomisk justering,Fejl ved ergonomisk justering,
+3,0X010D,da,Fejl ved ergonomisk justering,Fejl ved ergonomisk justering,
+1,0X010D,da,Overskrider grænsen for bevægelsesafvigelse,Overskrider grænsen for bevægelsesafvigelse,Kontakt venligst kundeservice
+8,0X010D,da,Overskrider grænsen for bevægelsesafvigelse,Overskrider grænsen for bevægelsesafvigelse,Kontakt venligst kundeservice
+1,0X020A,da,Unormal bevægelse,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+8,0X020A,da,Unormal bevægelse,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+1,0X020C,da,Uventet bevægelse,Overskrider grænsen for bevægelsesafvigelse,Ignorerbar
+8,0X020C,da,Uventet bevægelse,Overskrider grænsen for bevægelsesafvigelse,Ignorerbar
+1,0X020D,da,Overskrider grænsen for bevægelsesafvigelse,Overskrider grænsen for bevægelsesafvigelse,Opmærksomhed
+8,0X020D,da,Overskrider grænsen for bevægelsesafvigelse,Overskrider grænsen for bevægelsesafvigelse,Opmærksomhed
+1,0X022A,da,Unormal drift,Uventet bevægelse af slavearm,Klik på FJERN for at gendanne
+8,0X022A,da,Unormal drift,Uventet bevægelse af slavearm,Klik på FJERN for at gendanne
+3,0X022C,da,Uventet bevægelse,Uventet bevægelse under ergonomisk justering,Ignorerbar
+9,0X022C,da,Uventet bevægelse,Uventet bevægelse under ergonomisk justering,Ignorerbar
+1,0X022C,da,Uventet bevægelse,Uventet bevægelse af masterarm,Ignorerbar
+8,0X022C,da,Uventet bevægelse,Uventet bevægelse af masterarm,Ignorerbar
+9,0X022D,da,Uventet bevægelse under ergonomisk justering,Uventet bevægelse under ergonomisk justering,
+3,0X022D,da,Uventet bevægelse under ergonomisk justering,Uventet bevægelse under ergonomisk justering,
+1,0X030A,da,Hardwarefejl,Overskrider positionsgrænsen,Klik på FJERN for at gendanne
+8,0X030A,da,Hardwarefejl,Overskrider positionsgrænsen,Klik på FJERN for at gendanne
+1,0X030B,da,Hardwarefejl,Overskrider positionsgrænsen,Klik på FJERN for at gendanne
+8,0X030B,da,Hardwarefejl,Overskrider positionsgrænsen,Klik på FJERN for at gendanne
+3,0X030C,da,Overskrider den ergonomiske positionsgrænse,Overskrider den ergonomiske positionsgrænse,
+9,0X030C,da,Overskrider den ergonomiske positionsgrænse,Overskrider den ergonomiske positionsgrænse,
+3,0X030D,da,Overskrider den ergonomiske positionsgrænse,Overskrider den ergonomiske positionsgrænse,
+9,0X030D,da,Overskrider den ergonomiske positionsgrænse,Overskrider den ergonomiske positionsgrænse,
+1,0X030D,da,Overskrider positionsgrænsen,Overskrider positionsgrænsen,Flyt venligst tilbage
+8,0X030D,da,Overskrider positionsgrænsen,Overskrider positionsgrænsen,Flyt venligst tilbage
+1,0X031A,da,Unormal bevægelse,Falske styredata,Klik på FJERN for at gendanne
+8,0X031A,da,Unormal bevægelse,Falske styredata,Klik på FJERN for at gendanne
+1,0X031B,da,Unormal bevægelse,Falske styredata,Klik på FJERN for at gendanne
+8,0X031B,da,Unormal bevægelse,Falske styredata,Klik på FJERN for at gendanne
+1,0X040B,da,For hurtig betjening,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+8,0X040B,da,For hurtig betjening,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+1,0X050B,da,For hurtig betjening,Over hastighedsgrænsen,Klik på FJERN for at gendanne
+8,0X050B,da,For hurtig betjening,Over hastighedsgrænsen,Klik på FJERN for at gendanne
+3,0X050D,da,Unormal bevægelse,Unormal bevægelse,
+9,0X050D,da,Unormal bevægelse,Unormal bevægelse,
+1,0X051B,da,For hurtig betjening,Falske styredata,Klik på FJERN for at gendanne
+8,0X051B,da,For hurtig betjening,Falske styredata,Klik på FJERN for at gendanne
+1,0X060B,da,Hardwarefejl,Overskrider positionsgrænsen,Klik på FJERN for at gendanne
+8,0X060B,da,Hardwarefejl,Overskrider positionsgrænsen,Klik på FJERN for at gendanne
+1,0X061A,da,Unormal drift,Uventet bevægelse,Klik på FJERN for at gendanne
+8,0X061A,da,Unormal drift,Uventet bevægelse,Klik på FJERN for at gendanne
+1,0X062A,da,Unormal bevægelse,Overskrider hastighedsgrænsen,Klik på FJERN for at gendanne
+8,0X062A,da,Unormal bevægelse,Overskrider hastighedsgrænsen,Klik på FJERN for at gendanne
+1,0X063A,da,Unormal bevægelse,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+8,0X063A,da,Unormal bevægelse,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+1,0X064A,da,Unormal bevægelse,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+8,0X064A,da,Unormal bevægelse,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+1,0X065A,da,Unormal bevægelse,Unormal drift,Klik på FJERN for at gendanne
+8,0X065A,da,Unormal bevægelse,Unormal drift,Klik på FJERN for at gendanne
+1,0X066A,da,Unormal bevægelse,Unormal drift,Klik på FJERN for at gendanne
+8,0X066A,da,Unormal bevægelse,Unormal drift,Klik på FJERN for at gendanne
+1,0X067A,da,Selvtest mislykkedes,Selvtest mislykkedes,Klik på FJERN for at gendanne
+8,0X067A,da,Selvtest mislykkedes,Selvtest mislykkedes,Klik på FJERN for at gendanne
+1,0X068A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+8,0X068A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+1,0X068B,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+1,0X335E,da,,,
+8,0X335E,da,,,
+8,0X068B,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+1,0X069D,da,,,Kontakt venligst kundeservice
+8,0X069D,da,,,Kontakt venligst kundeservice
+1,0X070D,da,,,Kontakt venligst kundeservice
+8,0X070D,da,,,Kontakt venligst kundeservice
+1,0X071D,da,,,Kontakt venligst kundeservice
+8,0X071D,da,,,Kontakt venligst kundeservice
+1,0X080B,da,Armen er blokeret,Armen er blokeret,Klik på FJERN for at gendanne
+8,0X080B,da,Armen er blokeret,Armen er blokeret,Klik på FJERN for at gendanne
+1,0X080C,da,Armen er blokeret,Armen er blokeret,
+1,0X337E,da,,,
+8,0X337E,da,,,
+8,0X080C,da,Armen er blokeret,Armen er blokeret,
+3,0X080D,da,Overskrider momentgrænsen,Overskrider momentgrænsen,
+9,0X080D,da,Overskrider momentgrænsen,Overskrider momentgrænsen,
+1,0X08AD,da,Deaktivering af arm mislykkedes,Deaktivering af arm mislykkedes,Prøv venligst igen
+1,0X08BD,da,Aktivering af arm mislykkedes,Aktivering af arm mislykkedes,Prøv venligst igen
+1,0X08CD,da,Armen aktiveres,Armen aktiveres,
+1,0X08DD,da,Aktivering af arm mislykkedes,Aktivering af arm mislykkedes,
+1,0X08ED,da,Armen er deaktiveret,Armen er deaktiveret,
+3,0X090D,da,Automatisk ergonomisk justering mislykkedes,Automatisk ergonomisk justering mislykkedes,Juster venligst manuelt
+9,0X090D,da,Automatisk ergonomisk justering mislykkedes,Automatisk ergonomisk justering mislykkedes,Juster venligst manuelt
+1,0X090D,da,,,Kontakt venligst kundeservice
+8,0X090D,da,,,Kontakt venligst kundeservice
+1,0X092D,da,Indstil armfejl,Indstil armfejl,Kontakt venligst kundeservice
+8,0X092D,da,Indstil armfejl,Indstil armfejl,Kontakt venligst kundeservice
+3,0X100A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+9,0X100A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+1,0X100A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+8,0X100A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+3,0X100B,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+9,0X100B,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+3,0X100D,da,Netværksfejl,Netværksfejl,
+9,0X100D,da,Netværksfejl,Netværksfejl,
+1,0X101A,da,,,Genstart venligst systemet
+8,0X101A,da,,,Genstart venligst systemet
+1,0X102A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+8,0X102A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+1,0X110A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+3,0X110A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+8,0X110A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+9,0X110A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+3,0X110D,da,Hardwarefejl,Hardwarefejl,
+9,0X110D,da,Hardwarefejl,Hardwarefejl,
+1,0X114A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+8,0X114A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+1,0X114C,da,Hardwarefejl,Hardwarefejl,
+8,0X114C,da,Hardwarefejl,Hardwarefejl,
+1,0X120C,da,Batterifejl,Batterifejl,Kontroller venligst UPS-status
+8,0X120C,da,Batterifejl,Batterifejl,Kontroller venligst UPS-status
+3,0X120D,da,Kirurgkonsollen skal repareres,Kirurgkonsollen skal repareres,Kontakt venligst kundeservice
+9,0X120D,da,Kirurgkonsollen skal repareres,Kirurgkonsollen skal repareres,Kontakt venligst kundeservice
+1,0X121D,da,Nødstopkontakt er udløst,Nødstopkontakt er udløst,
+8,0X121D,da,Nødstopkontakt er udløst,Nødstopkontakt er udløst,
+1,0X124D,da,Venter på, at patientvognen genoprettes,Venter på, at patientvognen genoprettes,
+1,0X125D,da,Strømsvigt på patientvogn,Strømsvigt på patientvogn,
+1,0X131C,da,Utilstrækkelig diskplads,Utilstrækkelig diskplads,
+8,0X131C,da,Utilstrækkelig diskplads,Utilstrækkelig diskplads,
+1,0X132D,da,Fejl på patientvogn,Fejl på patientvogn,Kontakt venligst kundeservice
+8,0X132D,da,Fejl på patientvogn,Fejl på patientvogn,Kontakt venligst kundeservice
+1,0X133D,da,,,Start venligst patientvognen
+8,0X133D,da,,,Start venligst patientvognen
+1,0X140D,da,Batterifejl,Batterifejl,Kontakt venligst kundeservice
+8,0X140D,da,Batterifejl,Batterifejl,Kontakt venligst kundeservice
+1,0X141D,da,Batterifejl,Batterifejl,Kontakt venligst kundeservice
+8,0X141D,da,Batterifejl,Batterifejl,Kontakt venligst kundeservice
+1,0X142D,da,Batteri skal udskiftes,Batteri skal udskiftes,Kontakt venligst kundeservice
+8,0X142D,da,Batteri skal udskiftes,Batteri skal udskiftes,Kontakt venligst kundeservice
+9,0X160D,da,Når den øvre positionsgrænse,Når den øvre positionsgrænse,Opmærksomhed
+3,0X160D,da,Når den øvre positionsgrænse,Når den øvre positionsgrænse,Opmærksomhed
+9,0X161D,da,Når den nedre positionsgrænse,Når den nedre positionsgrænse,Opmærksomhed
+3,0X161D,da,Når den nedre positionsgrænse,Når den nedre positionsgrænse,Opmærksomhed
+3,0X162D,da,Masterarm når positionsgrænsen,Masterarm når positionsgrænsen,Hæv venligst 3D-vieweren
+9,0X162D,da,Masterarm når positionsgrænsen,Masterarm når positionsgrænsen,Hæv venligst 3D-vieweren
+3,0X163D,da,3D-Viewer når højdergrænsen,3D-Viewer når højdergrænsen,Sænk venligst masterarmen
+9,0X163D,da,3D-Viewer når højdergrænsen,3D-Viewer når højdergrænsen,Sænk venligst masterarmen
+1,0X2A1A,da,Strømfejl,Strømfejl,Klik på FJERN for at gendanne
+8,0X2A1A,da,Strømfejl,Strømfejl,Klik på FJERN for at gendanne
+1,0X2A2A,da,Strømfejl,Strømfejl,Klik på FJERN for at gendanne
+8,0X2A2A,da,Strømfejl,Strømfejl,Klik på FJERN for at gendanne
+1,0X2B1D,da,Pedalfejl,Pedalfejl,
+8,0X2B1D,da,Pedalfejl,Pedalfejl,
+1,0X2B2D,da,Pedalfejl,Pedalfejl,
+8,0X2B2D,da,Pedalfejl,Pedalfejl,
+1,0X2B3D,da,Kan ikke skifte til arm uden instrument,Kan ikke skifte til arm uden instrument,
+8,0X2B3D,da,Kan ikke skifte til arm uden instrument,Kan ikke skifte til arm uden instrument,
+1,0X2B4D,da,Instrumentet er afmonteret,Instrumentet er afmonteret,
+8,0X2B4D,da,Instrumentet er afmonteret,Instrumentet er afmonteret,
+1,0X2B5D,da,Masterarmens position stemmer ikke overens med slavearmen,Masterarmens position stemmer ikke overens med slavearmen,Slap venligst af med håndkontrollen for at fortsætte
+8,0X2B5D,da,Masterarmens position stemmer ikke overens med slavearmen,Masterarmens position stemmer ikke overens med slavearmen,Slap venligst af med håndkontrollen for at fortsætte
+1,0X2B6D,da,,,Kun energiinstrument kan aktiveres
+8,0X2B6D,da,,,Kun energiinstrument kan aktiveres
+1,0X2B7D,da,,,Sænk venligst armlænet eller hæv masterarmen før selvtest
+4,0X150B,da,Hardwarefejl,Over den øvre positionsgrænse,Klik på FJERN for at gendanne
+4,0X151B,da,Hardwarefejl,Over den nedre positionsgrænse,Klik på FJERN for at gendanne
+4,0X080B,da,Kirurgisk vogns bevægelse er obstrueret,Kirurgisk vogns bevægelse er obstrueret,Klik på FJERN for at gendanne
+8,0X2B7D,da,,,Sænk venligst armlænet eller hæv masterarmen før selvtest
+1,0X2B8D,da,,,Fjern venligst instrument og adapter før selvtest
+8,0X2B8D,da,,,Fjern venligst instrument og adapter før selvtest
+1,0X2B9D,da,Venstre instrument når positionsgrænsen,Venstre instrument når positionsgrænsen,Opmærksomhed
+8,0X2B9D,da,Venstre instrument når positionsgrænsen,Venstre instrument når positionsgrænsen,Opmærksomhed
+1,0X2BAD,da,Højre instrument når positionsgrænsen,Højre instrument når positionsgrænsen,Opmærksomhed
+8,0X2BAD,da,Højre instrument når positionsgrænsen,Højre instrument når positionsgrænsen,Opmærksomhed
+1,0X2BBD,da,Venstre instrument når rotationsgrænsen,Venstre instrument når rotationsgrænsen,Opmærksomhed
+8,0X2BBD,da,Venstre instrument når rotationsgrænsen,Venstre instrument når rotationsgrænsen,Opmærksomhed
+4,0X040B,da,Over hastighedsgrænsen,Over hastighedsgrænsen,Klik på FJERN for at gendanne
+8,0X2BCD,da,Højre instrument når rotationsgrænsen,Højre instrument når rotationsgrænsen,Opmærksomhed
+1,0X2BCD,da,Højre instrument når rotationsgrænsen,Højre instrument når rotationsgrænsen,Opmærksomhed
+1,0X2BED,da,Instrumentet er for højt,Instrumentet er for højt,Juster venligst højden nedad
+8,0X2BED,da,Instrumentet er for højt,Instrumentet er for højt,Juster venligst højden nedad
+1,0X2BFD,da,Instrumentadapter mislykkedes med at blive monteres,Instrumentadapter mislykkedes med at blive monteres,
+8,0X2BFD,da,Instrumentadapter mislykkedes med at blive monteres,Instrumentadapter mislykkedes med at blive monteres,
+1,0X2C0D,da,Instrumentet mislykkedes med at blive monteres,Instrumentet mislykkedes med at blive monteres,
+8,0X2C0D,da,Instrumentet mislykkedes med at blive monteres,Instrumentet mislykkedes med at blive monteres,
+1,0X2C1D,da,Endoskopet mislykkedes med at blive monteres,Endoskopet mislykkedes med at blive monteres,
+8,0X2C1D,da,Endoskopet mislykkedes med at blive monteres,Endoskopet mislykkedes med at blive monteres,
+1,0X2C2D,da,Overskrider instrumentets brugsgrænse,Overskrider instrumentets brugsgrænse,Udskift venligst
+8,0X2C2D,da,Overskrider instrumentets brugsgrænse,Overskrider instrumentets brugsgrænse,Udskift venligst
+1,0X2C3D,da,,,Klik venligst på START på patientvognen
+8,0X2C3D,da,,,Klik venligst på START på patientvognen
+1,0X2C4D,da,Endoskopadapteren kan bruges mindre end 5 gange,Endoskopadapteren kan bruges mindre end 5 gange,
+8,0X2C4D,da,Endoskopadapteren kan bruges mindre end 5 gange,Endoskopadapteren kan bruges mindre end 5 gange,
+1,0X2C5D,da,Endoskopadapterens brug er opbrugt, venligst udskift den,Endoskopadapterens brug er opbrugt, venligst udskift den,
+8,0X2C5D,da,Endoskopadapterens brug er opbrugt, venligst udskift den,Endoskopadapterens brug er opbrugt, venligst udskift den,
+1,0X2C6D,da,Endoskopet er monteret på en ikke-tilladt arm,Endoskopet er monteret på en ikke-tilladt arm,
+8,0X2C6D,da,Endoskopet er monteret på en ikke-tilladt arm,Endoskopet er monteret på en ikke-tilladt arm,
+1,0X2C8D,da,Kun én ultrasonisk kniv understøttes,Kun én ultrasonisk kniv understøttes,
+8,0X2C8D,da,Kun én ultrasonisk kniv understøttes,Kun én ultrasonisk kniv understøttes,
+1,0X2C9D,da,Venstre instrument når dybdegrænsen,Venstre instrument når dybdegrænsen,Opmærksomhed
+8,0X2C9D,da,Venstre instrument når dybdegrænsen,Venstre instrument når dybdegrænsen,Opmærksomhed
+1,0X2CAD,da,Højre instrument når dybdegrænsen,Højre instrument når dybdegrænsen,Opmærksomhed
+8,0X2CAD,da,Højre instrument når dybdegrænsen,Højre instrument når dybdegrænsen,Opmærksomhed
+1,0X2CBD,da,Venstre instrument når positionsgrænsen,Venstre instrument når positionsgrænsen,Opmærksomhed
+8,0X2CBD,da,Venstre instrument når positionsgrænsen,Venstre instrument når positionsgrænsen,Opmærksomhed
+1,0X2CCD,da,Højre instrument når positionsgrænsen,Højre instrument når positionsgrænsen,Opmærksomhed
+8,0X2CCD,da,Højre instrument når positionsgrænsen,Højre instrument når positionsgrænsen,Opmærksomhed
+1,0X2CDD,da,,,Træd venligst på den korrekte pedal
+8,0X2CDD,da,,,Træd venligst på den korrekte pedal
+1,0X2CED,da,Pedalsignal er ikke aktiveret,Pedalsignal er ikke aktiveret,Juster venligst fodvinklen
+8,0X2CED,da,Pedalsignal er ikke aktiveret,Pedalsignal er ikke aktiveret,Juster venligst fodvinklen
+1,0X2CFD,da,Kun ét monopolar instrument understøttes,Kun ét monopolar instrument understøttes,
+8,0X2CFD,da,Kun ét monopolar instrument understøttes,Kun ét monopolar instrument understøttes,
+1,0X2D0D,da,Kun ét bipolart instrument understøttes,Kun ét bipolart instrument understøttes,
+8,0X2D0D,da,Kun ét bipolart instrument understøttes,Kun ét bipolart instrument understøttes,
+1,0X2D1D,da,,,Slip venligst justeringsknappen
+8,0X2D1D,da,,,Slip venligst justeringsknappen
+1,0X2D2D,da,,,Slip venligst skulderjusteringsknappen
+8,0X2D2D,da,,,Slip venligst skulderjusteringsknappen
+1,0X2D3D,da,,,Match venligst grebene på kontrol ved at dreje grebet
+8,0X2D3D,da,,,Match venligst grebene på kontrol ved at dreje grebet
+1,0X2D4D,da,Overdreven rotationsafvigelse,Overdreven rotationsafvigelse,Match venligst grebene på kontrol ved at klemme
+8,0X2D4D,da,Overdreven rotationsafvigelse,Overdreven rotationsafvigelse,Match venligst grebene på kontrol ved at klemme
+8,0X2D5D,da,Ultralydskniven er aktiveret for længe,Ultralydskniven er aktiveret for længe,Slip venligst pedalen
+1,0X2D5D,da,Ultralydskniven er aktiveret for længe,Ultralydskniven er aktiveret for længe,Slip venligst pedalen
+1,0X2D6D,da,Roter ikke rotationsleddet, mens ultralydskniven er aktiveret,Roter ikke rotationsleddet, mens ultralydskniven er aktiveret,
+8,0X2D6D,da,Roter ikke rotationsleddet, mens ultralydskniven er aktiveret,Roter ikke rotationsleddet, mens ultralydskniven er aktiveret,
+1,0X2D7D,da,,,Afslut venligst instrumenthøjde-hukommelsestilstand
+8,0X2D7D,da,,,Afslut venligst instrumenthøjde-hukommelsestilstand
+1,0X2D8D,da,,,Log venligst ind
+8,0X2D8D,da,,,Log venligst ind
+1,0X2D9D,da,Endoskopet når positionsgrænsen,Endoskopet når positionsgrænsen,Opmærksomhed
+8,0X2D9D,da,Endoskopet når positionsgrænsen,Endoskopet når positionsgrænsen,Opmærksomhed
+1,0X2DAD,da,,,Zoom venligst ind
+8,0X2DAD,da,,,Zoom venligst ind
+1,0X2DBD,da,,,Zoom venligst ud
+8,0X2DBD,da,,,Zoom venligst ud
+1,0X2DCD,da,,,Drej venligst endoskopet med uret
+8,0X2DCD,da,,,Drej venligst endoskopet med uret
+1,0X2DDD,da,,,Drej venligst endoskopet mod uret
+8,0X2DDD,da,,,Drej venligst endoskopet mod uret
+1,0X2DED,da,,,Juster venligst endoskopet nedad
+8,0X2DED,da,,,Juster venligst endoskopet nedad
+1,0X2DFD,da,Sænk masterarmen eller hæv 3D-vieweren før selvtest,Sænk masterarmen eller hæv 3D-vieweren før selvtest,
+8,0X2DFD,da,Sænk masterarmen eller hæv 3D-vieweren før selvtest,Sænk masterarmen eller hæv 3D-vieweren før selvtest,
+1,0X2E0D,da,,,Kontroller venligst armskiftpedalen
+8,0X2E0D,da,,,Kontroller venligst armskiftpedalen
+1,0X2E1D,da,,,Kontroller venligst koblingspedalen
+8,0X2E1D,da,,,Kontroller venligst koblingspedalen
+1,0X2E2D,da,,,Kontroller venligst endoskoppedalen
+8,0X2E2D,da,,,Kontroller venligst endoskoppedalen
+1,0X2E3D,da,,,Kontroller venligst venstre skærepedal
+8,0X2E3D,da,,,Kontroller venligst venstre skærepedal
+1,0X2E4D,da,,,Kontroller venligst venstre koagulationspedal
+8,0X2E4D,da,,,Kontroller venligst venstre koagulationspedal
+1,0X2E5D,da,,,Kontroller venligst højre skærepedal
+8,0X2E5D,da,,,Kontroller venligst højre skærepedal
+1,0X2E6D,da,,,Kontroller venligst højre koagulationspedal
+8,0X2E6D,da,,,Kontroller venligst højre koagulationspedal
+4,0X090B,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+1,0X2E7D,da,,,Kontroller venligst slavearmens justeringsknap
+8,0X2E7D,da,,,Kontroller venligst slavearmens justeringsknap
+1,0X2EAD,da,,,Kontroller venligst hovedsensoren
+8,0X2EAD,da,,,Kontroller venligst hovedsensoren
+1,0X2EBD,da,,,Kontroller venligst venstre fodsensor
+8,0X2EBD,da,,,Kontroller venligst venstre fodsensor
+1,0X2ECD,da,,,Kontroller venligst højre fodsensor
+8,0X2ECD,da,,,Kontroller venligst højre fodsensor
+1,0X2EDD,da,,,Afslut venligst justeringen før selvtest
+8,0X2EDD,da,,,Afslut venligst justeringen før selvtest
+1,0X2EFD,da,Kontroller venligst koblingssignalet,Kontroller venligst koblingssignalet,
+8,0X2EFD,da,Kontroller venligst koblingssignalet,Kontroller venligst koblingssignalet,
+1,0X2F0D,da,Lavt batteri,Lavt batteri,Kontakt venligst kundeservice
+8,0X2F0D,da,Lavt batteri,Lavt batteri,Kontakt venligst kundeservice
+1,0X2F1D,da,Lavt batteri,Lavt batteri,Kontakt venligst kundeservice
+8,0X2F1D,da,Lavt batteri,Lavt batteri,Kontakt venligst kundeservice
+8,0X2F2D,da,Overskrider brugen af trokar,Overskrider brugen af trokar,Udskift venligst
+1,0X2F2D,da,Overskrider brugen af trokar,Overskrider brugen af trokar,Udskift venligst
+1,0X2F3D,da,Monter ikke samme type energi-instrumenter,Monter ikke samme type energi-instrumenter,
+8,0X2F3D,da,Monter ikke samme type energi-instrumenter,Monter ikke samme type energi-instrumenter,
+1,0X2F4D,da,Slavearm 1 kan ikke afgive energi, når flere bipolare er monteret,Slavearm 1 kan ikke afgive energi, når flere bipolare er monteret,
+8,0X2F4D,da,Slavearm 1 kan ikke afgive energi, når flere bipolare er monteret,Slavearm 1 kan ikke afgive energi, når flere bipolare er monteret,
+1,0X2F5D,da,Slavearm 4 kan ikke afgive energi, når flere bipolare er monteret,Slavearm 4 kan ikke afgive energi, når flere bipolare er monteret,
+8,0X2F5D,da,Slavearm 4 kan ikke afgive energi, når flere bipolare er monteret,Slavearm 4 kan ikke afgive energi, når flere bipolare er monteret,
+1,0X2F6D,da,Kobling er udløst i mere end 1 minut,Kobling er udløst i mere end 1 minut,
+8,0X2F6D,da,Kobling er udløst i mere end 1 minut,Kobling er udløst i mere end 1 minut,
+1,0X2F9D,da,Endoskopforbindelse er unormal,Endoskopforbindelse er unormal,Genindsæt venligst endoskopet
+8,0X2F9D,da,Endoskopforbindelse er unormal,Endoskopforbindelse er unormal,Genindsæt venligst endoskopet
+1,0X2FAD,da,Monter venligst instrumentadapteren igen,Monter venligst instrumentadapteren igen,
+1,0X2FBD,da,Energi aktiveres,Energi aktiveres,
+1,0X2FFD,da,Instrumentet mislykkedes med at blive monteres,Instrumentet mislykkedes med at blive monteres,Monter det venligst igen
+8,0X338D,da,Under ergonomisk justeringsproces,Under ergonomisk justeringsproces,Bevæg venligst ikke masterarmen
+1,0X338D,da,Under ergonomisk justeringsproces,Under ergonomisk justeringsproces,Bevæg venligst ikke masterarmen
+8,0X339D,da,Under ergonomisk justeringsproces,Under ergonomisk justeringsproces,Bevæg venligst ikke masterarmen
+1,0X339D,da,Under ergonomisk justeringsproces,Under ergonomisk justeringsproces,Bevæg venligst ikke masterarmen
+8,0X33AD,da,Under ergonomisk justeringsproces,Under ergonomisk justeringsproces,Bevæg venligst ikke masterarmen
+1,0X33AD,da,Under ergonomisk justeringsproces,Under ergonomisk justeringsproces,Bevæg venligst ikke masterarmen
+1,0X33BD,da,Ergonomisk justering nægtet,Ergonomisk justering nægtet,
+8,0X33BD,da,Ergonomisk justering nægtet,Ergonomisk justering nægtet,
+4,0X010A,da,Hardwarefejl,Overskrider grænsen for bevægelsesafvigelse,Klik på FJERN for at gendanne
+1,0X33CD,da,,,Sæt venligst hovedet ind i 3D-vieweren
+8,0X33CD,da,,,Sæt venligst hovedet ind i 3D-vieweren
+1,0X33DD,da,,,Vend venligst tilbage til hovedsiden
+8,0X33DD,da,,,Vend venligst tilbage til hovedsiden
+1,0X33ED,da,Endoskopcontroller kommunikationsfejl,Endoskopcontroller kommunikationsfejl,
+1,0X33FD,da,Trokarforbindelse mislykkedes,Trokarforbindelse mislykkedes,
+1,0X340D,da,Trokar er ikke installeret,Trokar er ikke installeret,
+1,0X341D,da,,,Slip venligst energipedalen
+8,0X341D,da,,,Slip venligst energipedalen
+1,0X342D,da,Kontakt venligst kundeservice,Kontakt venligst kundeservice,
+1,0X343D,da,Kontakt venligst kundeservice,Kontakt venligst kundeservice,
+1,0X350D,da,Slavearm autojusterer,Slavearm autojusterer,Hold venligst hænderne på armlænene
+1,0X400B,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,Klik på FJERN for at gendanne
+4,0X135D,da,Frigørelse af base mislykkedes,Frigørelse af base mislykkedes,
+4,0X134D,da,Låsning af base mislykkedes,Låsning af base mislykkedes,
+4,0X136D,da,Unormalt støtteolietryk,Unormalt støtteolietryk,
+8,0X400B,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,Klik på FJERN for at gendanne
+8,0X400D,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,
+1,0X400D,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,
+8,0X401D,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,Ingen operation tilladt
+8,0X402D,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,Operation ikke anbefalet
+8,0X403D,da,Middel netværkskvalitet,Middel netværkskvalitet,Betjen venligst langsomt med forsigtighed
+8,0X404D,da,Gennemsnitlig netværkskvalitet,Gennemsnitlig netværkskvalitet,Betjen venligst langsomt
+8,0X410D,da,Lokal terminalfejl,Lokal terminalfejl,
+1,0X410D,da,Lokal terminalfejl,Lokal terminalfejl,
+8,0X411D,da,Lokal terminal logget ud,Lokal terminal logget ud,
+1,0X411D,da,Lokal terminal logget ud,Lokal terminal logget ud,
+8,0X412D,da,Skift kontrol til lokal terminal,Skift kontrol til lokal terminal,
+1,0X412D,da,Skift kontrol til lokal terminal,Skift kontrol til lokal terminal,
+8,0X413D,da,Skift kontrol til fjernterminal,Skift kontrol til fjernterminal,
+1,0X413D,da,Skift kontrol til fjernterminal,Skift kontrol til fjernterminal,
+8,0X414D,da,Kontroller venligst netværksindstillingerne,Kontroller venligst netværksindstillingerne,
+8,0X415D,da,Kontroller venligst verifikationskoden,Kontroller venligst verifikationskoden,
+1,0X416D,da,Netværket er forbundet,Netværket er forbundet,
+8,0X416D,da,Netværket er forbundet,Netværket er forbundet,
+1,0X417D,da,Netværket er afbrudt,Netværket er afbrudt,
+8,0X417D,da,Netværket er afbrudt,Netværket er afbrudt,
+8,0X420D,da,Tag venligst over før nedlukning,Tag venligst over før nedlukning,
+1,0X420D,da,Tag venligst over før nedlukning,Tag venligst over før nedlukning,
+8,0X450B,da,Kommunikationsarbejdsstationsfejl,Agentsoftware er unormalt,Klik på FJERN for at gendanne
+1,0X450B,da,Kommunikationsarbejdsstationsfejl,Agentsoftware er unormalt,Klik på FJERN for at gendanne
+1,0X451D,da,Kommunikation fra fjernkommunikationsarbejdsstationen er unormal,Kommunikation fra fjernkommunikationsarbejdsstationen er unormal,
+8,0X451D,da,Kommunikation fra fjernkommunikationsarbejdsstationen er unormal,Kommunikation fra fjernkommunikationsarbejdsstationen er unormal,
+1,0X452B,da,Kommunikationsarbejdsstationsfejl,Lokal TSA-fejl,Klik på FJERN for at gendanne
+8,0X452B,da,Kommunikationsarbejdsstationsfejl,Lokal TSA-fejl,Klik på FJERN for at gendanne
+1,0X453B,da,Kommunikationsarbejdsstationsfejl,Video-codec-fejl,Klik på FJERN for at gendanne
+8,0X453B,da,Kommunikationsarbejdsstationsfejl,Video-codec-fejl,Klik på FJERN for at gendanne
+1,0X454D,da,TSA-softwareversionen er inkompatibel,TSA-softwareversionen er inkompatibel,
+8,0X454D,da,TSA-softwareversionen er inkompatibel,TSA-softwareversionen er inkompatibel,
+1,0X455A,da,Dataundtagelse,Dataundtagelse,Klik på FJERN for at gendanne
+8,0X500D,da,Falske styredata,Falske styredata,
+1,0X533D,da,Unormal kommunikation,Unormal kommunikation,
+8,0X533D,da,Unormal kommunikation,Unormal kommunikation,
+8,0X606D,da,Masterarm kunne ikke gemmes,Masterarm kunne ikke gemmes,
+1,0X606D,da,Masterarm kunne ikke gemmes,Masterarm kunne ikke gemmes,
+1,0X607D,da,Udfoldning mislykkedes,Udfoldning mislykkedes,
+1,0X608D,da,Opbevaring mislykkedes,Opbevaring mislykkedes,
+5,0X610A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+A,0X610A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+5,0X622B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X622B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X623B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X623B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X626B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X626B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+1,0X626D,da,Motorfejl,Motorfejl,Kontakt venligst kundeservice
+8,0X626D,da,Motorfejl,Motorfejl,
+5,0X627B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X627B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X640B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X640B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X641B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X641B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X642B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X642B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X643B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X643B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X651B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X651B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X652B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X652B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X653B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X653B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X660B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X660B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X662B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X662B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X663B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X663B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+8,0X090E,da,,,
+8,0X665A,da,Dataundtagelse,Dataundtagelse,Klik på FJERN for at gendanne
+5,0X665B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X665B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X666B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X666B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X66AB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X66AB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X66CB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X66CB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X680B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X680B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X682B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X682B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X683B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X683B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X685B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X685B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X686B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X686B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X68AB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X68AB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X68CB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X68CB,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6A0B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6A0B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6A4B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6A4B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6A5B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6A5B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6A6B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6A6B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6A7B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6A7B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6B0B,da,Motorfejl,Falske styredata,Klik på FJERN for at gendanne
+A,0X6B0B,da,Motorfejl,Falske styredata,Klik på FJERN for at gendanne
+5,0X6B1B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+A,0X6B1B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+5,0X6B2B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+A,0X6B2B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+5,0X6B4B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+A,0X6B4B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+5,0X6B5B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+A,0X6B5B,da,Falske styredata,Falske styredata,Klik på FJERN for at gendanne
+5,0X6C0B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C0B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C1B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C1B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C2B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C2B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C3B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+4,0X030A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+4,0X100A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+4,0X110A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+A,0X6C3B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C4B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C4B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C5B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C5B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C6B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C6B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C7B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C7B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C8B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C8B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6C9B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6C9B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6D0B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6D0B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6D1B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6D1B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6D2B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6D2B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6D3B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6D3B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6D4B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6D4B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6D5B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+A,0X6D5B,da,Motorfejl,Motorfejl,Klik på FJERN for at gendanne
+5,0X6D6A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6D6A,da,Hardwarefejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6D7B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6D7B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6D7D,da,Underspænding på kredsløbspladen,Underspænding på kredsløbspladen,
+5,0X6D8B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+A,0X6D8B,da,Motorfejl,Hardwarefejl,Klik på FJERN for at gendanne
+5,0X6D9B,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+A,0X6D9B,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+5,0X6DAB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+A,0X6DAB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+5,0X6DCB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+A,0X6DCB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+5,0X6DDB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+A,0X6DDB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+5,0X6DEB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+A,0X6DEB,da,Motorfejl,Motorstyringsfejl,Klik på FJERN for at gendanne
+8,0X555E,da,,,
+8,0X556E,da,,,
+8,0X557E,da,,,
+8,0X558E,da,,,
+1,0X70BD,da,Tidsbegrænsning for læsning af køreinformation,Tidsbegrænsning for læsning af køreinformation,
+8,0X70BD,da,Tidsbegrænsning for læsning af køreinformation,Tidsbegrænsning for læsning af køreinformation,
+1,0X70CD,da,CPU er overbelastet,CPU er overbelastet,
+8,0X70CD,da,CPU er overbelastet,CPU er overbelastet,
+1,0X70DD,da,Pedalsignal afbrudt,Pedalsignal afbrudt,
+5,0X801D,da,Motorstyringsfejl,Motorstyringsfejl,
+A,0X801D,da,Motorstyringsfejl,Motorstyringsfejl,
+5,0X802D,da,Motorstyringsfejl,Motorstyringsfejl,
+A,0X802D,da,Motorstyringsfejl,Motorstyringsfejl,
+5,0X803D,da,Motorstyringsfejl,Motorstyringsfejl,
+A,0X803D,da,Motorstyringsfejl,Motorstyringsfejl,
+5,0X804D,da,Motorstyringsfejl,Motorstyringsfejl,
+A,0X804D,da,Motorstyringsfejl,Motorstyringsfejl,
+6,0XB01B,da,Unormalt billede,Unormal billedindhentning,Klik på FJERN for at gendanne
+6,0XB02B,da,Endoskopforbindelse er unormal,Endoskopforbindelse er unormal,Genindsæt venligst endoskopet
+6,0XB03B,da,Endoskop afbrudt,Endoskop afbrudt,Klik på FJERN for at gendanne
+6,0XB03D,da,Endoskop afbrudt,Endoskop afbrudt,
+6,0XB04B,da,Unormalt billede,Usammenhængende billede,Klik på FJERN for at gendanne
+6,0XB05D,da,,,Genstart venligst endoskopcontrolleren
+6,0XB06D,da,,,Genstart venligst endoskopcontrolleren
+6,0XB07A,da,Netværksfejl,Netværksfejl,Klik på FJERN for at gendanne
+6,0XB50C,da,Unormal USB-flashdiskforbindelse,Unormal USB-flashdiskforbindelse,
+6,0XB50D,da,Unormal USB-flashdiskforbindelse,Unormal USB-flashdiskforbindelse,
+6,0XB51C,da,Utilstrækkelig diskplads på endoskopcontroller,Utilstrækkelig diskplads på endoskopcontroller,Kontakt venligst kundeservice
+6,0XB51D,da,Utilstrækkelig diskplads på endoskopcontroller,Utilstrækkelig diskplads på endoskopcontroller,Kontakt venligst kundeservice
+6,0XB52C,da,Endoskopcontrollerens CPU er overbelastet,Endoskopcontrollerens CPU er overbelastet,
+6,0XB52D,da,Endoskopcontrollerens CPU er overbelastet,Endoskopcontrollerens CPU er overbelastet,
+6,0XB53C,da,Utilstrækkelig plads på USB-flashdisken,Utilstrækkelig plads på USB-flashdisken,Udskift venligst
+6,0XB53D,da,Utilstrækkelig plads på USB-flashdisken,Utilstrækkelig plads på USB-flashdisken,Udskift venligst
+6,0XBA0D,da,Udsynkroniseret billede,Udsynkroniseret billede,Genindsæt venligst endoskopet
+6,0XBA1A,da,,,Genstart venligst endoskopcontrolleren
+6,0XBA2A,da,Dårlig 3D-effektvisning,Dårlig 3D-effektvisning,Genstart venligst endoskopcontrolleren
+6,0XBA3D,da,,,Genstart venligst endoskopcontrolleren
+6,0XBA5C,da,Aero-skrivebord mislykkedes starte,Aero-skrivebord mislykkedes starte,
+6,0XBA5D,da,Aero-skrivebord mislykkedes starte,Aero-skrivebord mislykkedes starte,
+6,0XBA6C,da,USB-flashdisk uautoriseret,USB-flashdisk uautoriseret,Brug venligst efter godkendelse
+6,0XBA6D,da,USB-flashdisk uautoriseret,USB-flashdisk uautoriseret,Brug venligst efter godkendelse
+6,0XBA7D,da,Energi-platformsforbindelse mislykkedes,Energi-platformsforbindelse mislykkedes,Kontakt venligst kundeservice
+6,0XBA8D,da,Identifikation af endoskoptype mislykkedes,Identifikation af endoskoptype mislykkedes,Udskift venligst endoskopet
+1,0X310E,da,,,
+1,0X500E,da,,,
+1,0X501E,da,,,
+1,0X502E,da,,,
+1,0X503E,da,,,
+1,0X504E,da,,,
+1,0X505E,da,,,
+1,0X506E,da,,,
+1,0X507E,da,,,
+1,0X508E,da,,,
+1,0X509E,da,,,
+1,0X50AE,da,,,
+1,0X50BE,da,,,
+1,0X50CE,da,,,
+1,0X50DE,da,,,
+1,0X50EE,da,,,
+1,0X510E,da,,,
+1,0X511E,da,,,
+1,0X550E,da,,,
+1,0X551E,da,,,
+1,0X552E,da,,,
+1,0X553E,da,,,
+1,0X554E,da,,,
+1,0X555E,da,,,
+1,0X556E,da,,,
+1,0X557E,da,,,
+1,0X558E,da,,,
+1,0X570E,da,,,
+1,0X571E,da,,,
+1,0X572E,da,,,
+1,0X700E,da,,,
+1,0X701E,da,,,
+1,0X702E,da,,,
+1,0X703E,da,,,
+1,0X704E,da,,,
+1,0X705E,da,,,
+1,0X706E,da,,,
+1,0X707E,da,,,
+1,0X708E,da,,,
+1,0X709E,da,,,
+1,0X70AE,da,,,
+1,0X70CE,da,,,
+1,0X710E,da,,,
+1,0X405E,da,,,
+8,0X405E,da,,,
+1,0X66BD,da,,Kontakt venligst kundeservice,
+1,0X143D,da,Udtømt batteri,Udtømt batteri,
+8,0X143D,da,Udtømt batteri,Udtømt batteri,
+1,0X144D,da,Lavt batteri,Lavt batteri,
+8,0X144D,da,Lavt batteri,Lavt batteri,
+6,0XBA9D,da,Endoskopparametre konfigureres,Endoskopparametre konfigureres,
+1,0X2BDD,da,Højre og venstre instrument når rotationsgrænsen,Højre og venstre instrument når rotationsgrænsen,
+1,0X666D,da,Softwareversionen er inkonsistent,Softwareversionen er inkonsistent,
+8,0X666D,da,Softwareversionen er inkonsistent,Softwareversionen er inkonsistent,
+8,0X614D,da,Skift til fjernsystemet,Skift til fjernsystemet,
+1,0X624D,da,Skift til det lokale system,Skift til det lokale system,
+1,0X404A,da,Afbrudt fra patientvognen,Afbrudt fra patientvognen,
+1,0X021D,da,Instrumentet er blokeret,Instrumentet er blokeret,
+1,0X022E,da,,,
+1,0X030E,da,,,
+1,0X050E,da,,,
+1,0X040E,da,,,
+1,0X090E,da,,,
+1,0X010E,da,,,
+1,0X020E,da,,,
+1,0X559E,da,,,
+1,0X55AE,da,,,
+1,0X55BE,da,,,
+1,0X092E,da,,,
+1,0X344D,da,,,Kontroller venligst adapteren
+1,0X345D,da,,,Kontroller venligst instrumentet, og geninstaller adapteren
+1,0X360D,da,Fjern venligst instrumentet,Fjern venligst instrumentet,
+1,0X361D,da,Fjern venligst adapteren,Fjern venligst adapteren,
+1,0X362D,da,Installer venligst adapteren,Installer venligst adapteren,
+1,0X128D,da,Master tilbage til nulstilling mislykkedes,Master tilbage til nulstilling mislykkedes,
+1,0X127D,da,,,Match venligst grebene på kontrol ved at klemme
+8,0X127D,da,,,Match venligst grebene på kontrol ved at klemme
+6,0X129D,da,Omgørelse mislykkedes,Omgørelse mislykkedes,Kontroller venligst forbindelsesstatus
+1,0X130D,da,,,Genindsæt venligst endoskopet
+6,0X144C,da,Omgørelse mislykkedes,Omgørelse mislykkedes,Nulstil venligst
+1,0X145D,da,Patientvognen kan ikke justeres i den nuværende status,Patientvognen kan ikke justeres i den nuværende status,
+1,0X146D,da,Betjen venligst patientvognen,Betjen venligst patientvognen,
+1,0X520E,da,,,
+1,0X533E,da,,,
+3,0X300E,da,,,
+3,0X301E,da,,,
+9,0X300E,da,,,
+9,0X301E,da,,,
+3,0X302E,da,,,
+3,0X303E,da,,,
+3,0X304E,da,,,
+3,0X305E,da,,,
+3,0X306E,da,,,
+3,0X307E,da,,,
+3,0X308E,da,,,
+3,0X309E,da,,,
+9,0X302E,da,,,
+9,0X303E,da,,,
+9,0X304E,da,,,
+9,0X305E,da,,,
+9,0X306E,da,,,
+9,0X307E,da,,,
+9,0X308E,da,,,
+9,0X309E,da,,,
+1,0X57DE,da,,,
+1,0X57AE,da,,,
+1,0X57BE,da,,,
+8,0X57DE,da,,,
+8,0X57AE,da,,,
+8,0X57BE,da,,,
+1,0X579E,da,,,
+1,0X57CE,da,,,
+1,0X514E,da,,,
+1,0X515E,da,,,
+1,0X516E,da,,,
+1,0X517E,da,,,
+1,0X518E,da,,,
+1,0X519E,da,,,
+1,0X521E,da,,,
+1,0X522E,da,,,
+1,0X523E,da,,,
+1,0X524E,da,,,
+1,0X525E,da,,,
+1,0X526E,da,,,
+1,0X527E,da,,,
+1,0X528E,da,,,
+1,0X529E,da,,,
+1,0X52AE,da,,,
+1,0X52BE,da,,,
+1,0X52CE,da,,,
+1,0X52DE,da,,,
+1,0X52EE,da,,,
+1,0X52FE,da,,,
+1,0X530E,da,,,
+1,0X531E,da,,,
+1,0X532E,da,,,
+1,0X57EE,da,,,
+1,0X534E,da,,,
+1,0X535E,da,,,
+1,0X536E,da,,,
+1,0X537E,da,,,
+1,0X538E,da,,,
+1,0X539E,da,,,
+1,0X53AE,da,,,
+1,0X53BE,da,,,
+1,0X53CE,da,,,
+1,0X53DE,da,,,
+1,0X53EE,da,,,
+1,0X53FE,da,,,
+1,0X540E,da,,,
+1,0X541E,da,,,
+1,0X542E,da,,,
+1,0X543E,da,,,
+1,0X544E,da,,,
+1,0X545E,da,,,
+1,0X546E,da,,,
+1,0X547E,da,,,
+1,0X548E,da,,,
+1,0X549E,da,,,
+1,0X54AE,da,,,
+1,0X54BE,da,,,
+1,0X54CE,da,,,
+1,0X54DE,da,,,
+1,0X54EE,da,,,
+1,0X54FE,da,,,
+1,0X560E,da,,,
+1,0X561E,da,,,
+1,0X562E,da,,,
+1,0X563E,da,,,
+1,0X564E,da,,,
+1,0X565E,da,,,
+1,0X567E,da,,,
+1,0X568E,da,,,
+1,0X569E,da,,,
+1,0X56AE,da,,,
+1,0X56CE,da,,,
+1,0X56DE,da,,,
+1,0X56EE,da,,,
+1,0X56FE,da,,,
+1,0X573E,da,,,
+1,0X574E,da,,,
+1,0X575E,da,,,
+1,0X576E,da,,,
+1,0X577E,da,,,
+1,0X578E,da,,,
+8,0X579E,da,,,
+8,0X57CE,da,,,
+8,0X514E,da,,,
+8,0X515E,da,,,
+8,0X516E,da,,,
+8,0X517E,da,,,
+8,0X518E,da,,,
+8,0X519E,da,,,
+8,0X521E,da,,,
+8,0X522E,da,,,
+8,0X523E,da,,,
+8,0X524E,da,,,
+8,0X525E,da,,,
+8,0X526E,da,,,
+8,0X527E,da,,,
+8,0X528E,da,,,
+8,0X529E,da,,,
+8,0X52AE,da,,,
+8,0X52BE,da,,,
+8,0X52CE,da,,,
+8,0X52DE,da,,,
+8,0X52EE,da,,,
+8,0X52FE,da,,,
+8,0X530E,da,,,
+8,0X531E,da,,,
+8,0X532E,da,,,
+8,0X57EE,da,,,
+8,0X534E,da,,,
+8,0X535E,da,,,
+8,0X536E,da,,,
+8,0X537E,da,,,
+8,0X538E,da,,,
+8,0X539E,da,,,
+8,0X53AE,da,,,
+8,0X53BE,da,,,
+8,0X53CE,da,,,
+8,0X53DE,da,,,
+8,0X53EE,da,,,
+8,0X53FE,da,,,
+8,0X540E,da,,,
+8,0X541E,da,,,
+8,0X542E,da,,,
+8,0X543E,da,,,
+8,0X544E,da,,,
+8,0X545E,da,,,
+8,0X546E,da,,,
+8,0X547E,da,,,
+8,0X548E,da,,,
+8,0X549E,da,,,
+8,0X54AE,da,,,
+8,0X54BE,da,,,
+8,0X54CE,da,,,
+8,0X54DE,da,,,
+8,0X54EE,da,,,
+8,0X54FE,da,,,
+8,0X560E,da,,,
+8,0X561E,da,,,
+8,0X562E,da,,,
+8,0X563E,da,,,
+8,0X564E,da,,,
+8,0X565E,da,,,
+8,0X567E,da,,,
+8,0X568E,da,,,
+8,0X569E,da,,,
+8,0X56AE,da,,,
+8,0X56CE,da,,,
+8,0X56DE,da,,,
+8,0X56EE,da,,,
+8,0X56FE,da,,,
+8,0X573E,da,,,
+8,0X574E,da,,,
+8,0X575E,da,,,
+8,0X576E,da,,,
+8,0X577E,da,,,
+8,0X578E,da,,,
+1,0X580C,da,Kunne ikke beregne instrumentets levetid,Kunne ikke beregne instrumentets levetid,
+1,0X580E,da,,,
+1,0X512E,da,,,
+1,0X513E,da,,,
+1,0X590E,da,,,
+1,0X591E,da,,,
+1,0X594E,da,,,
+1,0X040D,da,Overskrider grænsen for bevægelsesafvigelse,Overskrider grænsen for bevægelsesafvigelse,Opmærksomhed
+8,0X040D,da,Overskrider grænsen for bevægelsesafvigelse,Overskrider grænsen for bevægelsesafvigelse,Opmærksomhed
+1,0X665A,da,Dataundtagelse,Dataundtagelse,Klik på FJERN for at gendanne
+8,0X455A,da,Dataundtagelse,Dataundtagelse,Klik på FJERN for at gendanne
+8,0X70CE,da,,,
+1,0X581E,da,,,
+8,0X2BDD,da,Højre og venstre instrument når rotationsgrænsen,Højre og venstre instrument når rotationsgrænsen,
+6,0XB07D,da,Netværket er ikke forbundet,Netværket er ikke forbundet,Kontroller venligst kommunikationskablet
+1,0x580D,da,Vent på, at selvtesten afsluttes,Vent på, at selvtesten afsluttes,
+1,0x581D,da,Afslut først justeringen,Afslut først justeringen,
+1,0x582D,da,Afslut først den kirurgiske bekræftelsestilstand,Afslut først den kirurgiske bekræftelsestilstand,
+1,0x583D,da,Afslut først koblingskontrol,Afslut først koblingskontrol,
+1,0x584D,da,Afslut først master-slave kontrol,Afslut først master-slave kontrol,
+1,0x585D,da,Afslut først endoskopkontrol,Afslut først endoskopkontrol,
+6,0XB54D,da,Unormal seriel port,Unormal seriel port,Kontakt venligst kundeservice
+6,0XB55D,da,Indstilling af billedparameter mislykkedes,Indstilling af billedparameter mislykkedes,Prøv venligst igen
+6,0XB56D,da,Instrumentet er for langt fra midten af synsfeltet,Instrumentet er for langt fra midten af synsfeltet,
+1,0x586D,da,Juster venligst afstanden mellem arm {0} og arm {1},Juster venligst afstanden mellem arm {0} og arm {1},
+1,0x55CE,da,,,
+6,0XB57D,da,Konfiguration af billedparameter mislykkedes,Konfiguration af billedparameter mislykkedes,Kontakt venligst kundeservice
+6,0XB58A,da,Unormal opstart af endoskopcontroller,Unormal opstart af endoskopcontroller,Genstart venligst endoskopcontrolleren
+6,0XB59A,da,Mislykkedes med at konfigurere endoskopcontrollerens interface,Mislykkedes med at konfigurere endoskopcontrollerens interface,Genstart venligst endoskopcontrolleren
+1,0X456A,da,Dataundtagelse,Overføre af parametre mislykkedes,Kontroller venligst
+8,0X456A,da,Dataundtagelse,Overføre af parametre mislykkedes,Kontroller venligst
+1,0X457A,da,Dataundtagelse,Verificere af parametre mislykkedes,Opret venligst forbindelse igen
+8,0X457A,da,Dataundtagelse,Verificere af parametre mislykkedes,Opret venligst forbindelse igen
+1,0X458E,da,,,
+1,0X459E,da,,,
+1,0X131D,da,Genstart mislykkedes,Genstart mislykkedes,
+8,0X131D,da,Genstart mislykkedes,Genstart mislykkedes,
+1,0X453D,da,FPS er lav,FPS er lav,Betjen venligst langsomt
+8,0X453D,da,FPS er lav,FPS er lav,Betjen venligst langsomt
+1,0X587D,da,Masteren nulstiller,Masteren nulstiller,
+1,0X88BE,da,,,
+8,0X587D,da,Masteren nulstiller,Masteren nulstiller,
+8,0X88BE,da,,,
+1,0X103A,da,Netværksfejl,Forbindelse af patientens netværkskabel mislykkedes,Tjek venligst og klik på FJERN for at gendanne
+1,0X104A,da,Netværksfejl,Forbindelse af nødnetværkskabel mislykkedes,Tjek venligst og klik på FJERN for at gendanne
+1,0X105A,da,Hardwarefejl,Autorisationscertifikat ugyldiggjort,Genstart venligst systemet
+8,0X105A,da,Hardwarefejl,Autorisationscertifikat ugyldiggjort,Genstart venligst systemet
+1,0X588D,da,Kirurgkonsollens lydenhed er ikke forbundet,Kirurgkonsollens lydenhed er ikke forbundet,Kontakt venligst kundeservice
+1,0X589D,da,Endoskopcontrollerens lydenhed er ikke forbundet,Endoskopcontrollerens lydenhed er ikke forbundet,Kontakt venligst kundeservice
+1,0X591D,da,Lydtjeneste undtagelse,Lydtjeneste undtagelse,Kontakt venligst kundeservice
+1,0X592D,da,Kirurgkonsollens grænsefladekontroltjeneste er unormal,Kirurgkonsollens grænsefladekontroltjeneste er unormal,Kontakt venligst kundeservice
+1,0X593D,da,Instrumentet er for højt, juster venligst nedad,Instrumentet er for højt, juster venligst nedad,
+1,0X594D,da,Interferens mellem venstre og højre,Interferens mellem venstre og højre,Juster venligst
+1,0X88DE,da,,,
+8,0X594D,da,Interferens mellem venstre og højre,Interferens mellem venstre og højre,Juster venligst
+1,0X072A,da,For hurtig betjening,Klem for meget,Tjek venligst og klik på FJERN for at gendanne
+1,0X072D,da,Klem for meget,Klem for meget,
+1,0X073A,da,Hardwarefejl,Hall-anomali,Tjek venligst og klik på FJERN for at gendanne
+8,0X072A,da,For hurtig betjening,Klem for meget,Tjek venligst og klik på FJERN for at gendanne
+8,0X072D,da,Klem for meget,Klem for meget,
+8,0X073A,da,Hardwarefejl,Hall-anomali,Tjek venligst og klik på FJERN for at gendanne
+1,0X595D,da,Kirurgkonsollens lydenhed er unormal,Kirurgkonsollens lydenhed er unormal,Kontakt venligst kundeservice
+1,0X596D,da,Endoskopcontrollerens lydenhed er unormal,Endoskopcontrollerens lydenhed er unormal,Kontakt venligst kundeservice
+1,0X460D,da,Betjening er ikke tilladt under skift af kontrol,Betjening er ikke tilladt under skift af kontrol,
+8,0X460D,da,Betjening er ikke tilladt under skift af kontrol,Betjening er ikke tilladt under skift af kontrol,
+6,0XB60D,da,Optical beam connection abnormal,Unormal tilslutning af styrebjælke,Kontroller venligst forbindelsen
+6,0XB61D,da,Unormal tilslutning af kold lyskildekontrolledning,Unormal tilslutning af kold lyskildekontrolledning,Kontroller venligst forbindelsen
+1,0X597E,da,Træningsudstyr signalerer ændringer,Træningsudstyr signalerer ændringer,
+6,0XB62D,da,Kold lyskildetemperatur er for høj,Kold lyskildetemperatur er for høj,
+6,0XB63D,da,Levetiden for den kolde lyskildepære nærmer sig sin levetid,Levetiden for den kolde lyskildepære nærmer sig sin levetid,
+6,0XB64D,da,Den kolde lyskildepære har nået slutningen af sin levetid,Den kolde lyskildepære har nået slutningen af sin levetid,
+1,0X122D,da,Nødstopkontakten på operationsvognen udløses,Nødstopkontakten på operationsvognen udløses,
+8,0X122D,da,Nødstopkontakten på operationsvognen udløses,Nødstopkontakten på operationsvognen udløses,
+1,0X588E,da,Optegnelse af operationstype,Optegnelse af operationstype,
+1,0X597D,da,Kirurgisk lydenhed er ikke tilsluttet,Kirurgisk lydenhed er ikke tilsluttet,Kontakt venligst kundeservice
+1,0X598D,da,Unormalt lydudstyr i den kirurgiske ende,Unormalt lydudstyr i den kirurgiske ende,Kontakt venligst kundeservice
+1,0X353D,da,Tag venligst kablet ud af kirurgisk trolley i simulatortilstand,Tag venligst kablet ud af kirurgisk trolley i simulatortilstand,
+1,0X352C,da,Simulatorkommunikation afbrudt,Simulatorkommunikation afbrudt,Kontroller venligst, om netværkskablet er tilsluttet korrekt
+1,0X023D,da,Armen er blokeret,Armen er blokeret,
+1,0X599D,da,Kontroller armens serienummer,Kontroller armens serienummer,
+1,0X129D,da,Træd venligst endoskoppedalen igen,Træd venligst endoskoppedalen igen,
+1,0X602E,da,,,
+1,0X602D,da,,,Vend venligst tilbage til hovedsiden
+1,0X603E,da,,,
+8,0X08AD,da,Deaktivering af arm mislykkedes,Deaktivering af arm mislykkedes,Prøv venligst igen
+8,0X08BD,da,Aktivering af arm mislykkedes,Aktivering af arm mislykkedes,Prøv venligst igen
+8,0X08CD,da,Armen aktiveres,Armen aktiveres,
+8,0X08DD,da,Aktivering af arm mislykkedes,Aktivering af arm mislykkedes,
+8,0X08ED,da,Armen er deaktiveret,Armen er deaktiveret,
+1,0X461D,da,Endoskoparm låst,Endoskoparm låst,
+6,0XB88D,da,3D fuld skærm billede-i-billede er ikke korrekt forbundet til inputkilden,3D fuld skærm billede-i-billede er ikke korrekt forbundet til inputkilden,
+1,0X462D,da,Sluk venligst fluorescensfølsomhedstilstanden, før du betjener,Sluk venligst fluorescensfølsomhedstilstanden, før du betjener,
+1,0X424D,da,Local take,Local take,
+1,0X425D,da,Local give,Local give,
+1,0X426D,da,Local take all,Local take all,
+8,0X424D,da,Remote take,Remote take,
+8,0X425D,da,Remote give,Remote give,
+8,0X426D,da,Remote take all,Remote take all,
+6,0XB65D,da,Indgangskilde HDMI 1 ikke tilsluttet,Indgangskilde HDMI 1 ikke tilsluttet,
+6,0XB66D,da,Indgangskilde HDMI 2 ikke tilsluttet,Indgangskilde HDMI 2 ikke tilsluttet,
+6,0XB67D,da,Indgangskilde SDI 1 ikke tilsluttet,Indgangskilde SDI 1 ikke tilsluttet,
+6,0XB68D,da,Indgangskilde SDI 2 ikke tilsluttet,Indgangskilde SDI 2 ikke tilsluttet,
+1,0X2EED,da,,,Træd ikke på pedalerne i begge ender på samme tid
+8,0X2EED,da,,,Træd ikke på pedalerne i begge ender på samme tid
+1,0X2FCD,da,Ingen arm til at skifte,Ingen arm til at skifte,
+8,0X2FCD,da,Ingen arm til at skifte,Ingen arm til at skifte,
+4,0X143D,da,Udtømt batteri,Udtømt batteri,
+4,0X144D,da,Lavt batteri,Lavt batteri,
+1,0X193D,da,Large vessel wall closure device disconnection, cleaning and inspection of cables,Large vessel wall closure device disconnection, cleaning and inspection of cables,Please inspect the connections.
+1,0X192D,da,Please check if there is a malfunction in the driver of the large vessel closure device,Please check if there is a malfunction in the driver of the large vessel closure device,Please inspect the connections.
+1,0X138D,da,Hæftemaskinebookingen er brugt, udskift den venligst,Hæftemaskinebookingen er brugt, udskift den venligst,Skift booking
+1,0X137D,da,Hæftemaskinen er returneret og færdiggjort. Opdater venligst reservationen,Hæftemaskinen er returneret og færdiggjort. Opdater venligst reservationen,Skift booking
+1,0X430D,da,Skærmens billedhastighed er uegnet til operation,Skærmens billedhastighed er uegnet til operation,
+1,0X429B,da,Unormal datakildeændring,Unormal datakildeændring,Tjek netværksindstillingerne
+8,0X429B,da,Unormal datakildeændring,Unormal datakildeændring,Tjek netværksindstillingerne
+1,0X611D,da,Trokar montering lykkedes,Trokar montering lykkedes,
+1,0X33FE,da,Tocar-status ændres,Tocar-status ændres,
+1,0XA01E,da,Opstartslog,Opstartslog,
+1,0XA02E,da,Nedlukningslog,Nedlukningslog,
+8,0XA01E,da,Opstartslog,Opstartslog,
+8,0XA02E,da,Nedlukningslog,Nedlukningslog,
+1,0X612D,da,,,Fjern venligst instrumentet
+1,0X427D,da,Local give all,Local give all,
+8,0X427D,da,Remote give all,Remote give all,
+1,0X401D,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,Ingen operation tilladt
+1,0X402D,da,Dårlig netværkskvalitet,Dårlig netværkskvalitet,Operation ikke anbefalet
+1,0X403D,da,Middel netværkskvalitet,Middel netværkskvalitet,Betjen venligst langsomt med forsigtighed
+1,0X404D,da,Gennemsnitlig netværkskvalitet,Gennemsnitlig netværkskvalitet,Betjen venligst langsomt
+1,0X463D,da,Endoskop i bevægelse,Endoskop i bevægelse,Vent venligst
+8,0X463D,da,Endoskop i bevægelse,Endoskop i bevægelse,Vent venligst
+1,0X464D,da,Instrumentarm kollision,Instrumentarm kollision,Opmærksomhed
+1,0X623D,da,Normal tilstand,Normal tilstand,
+1,0X627D,da,Fluorescens tilstand,Fluorescens tilstand,
+1,0X629D,da,Billedfusion,Billedfusion,
+3,0X164D,da,Beskyttelse af forbindelse,Beskyttelse af forbindelse,Juster venligst masteren opad
+3,0X165D,da,Beskyttelse af forbindelse,Beskyttelse af forbindelse,Juster venligst monitors højde nedad
+9,0X164D,da,Beskyttelse af forbindelse,Beskyttelse af forbindelse,Juster venligst masteren opad
+9,0X165D,da,Beskyttelse af forbindelse,Beskyttelse af forbindelse,Juster venligst monitors højde nedad
+,,,,,
+,,,,,
+,,,,,
+,,,,,

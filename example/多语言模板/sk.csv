@@ -1,0 +1,922 @@
+﻿subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,sk,Chyba hardvéru,Chyba ergonomického nastavenia,Kliknutím na ODSTRÁNIŤ obnovíte
+9,0X010A,sk,Chyba hardvéru,Chyba ergonomického nastavenia,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X010A,sk,Chyba hardvéru,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X490E,sk,,,
+8,0X010A,sk,Chyba hardvéru,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+9,0X010D,sk,Chyba ergonomického nastavenia,Chyba ergonomického nastavenia,
+3,0X010D,sk,Chyba ergonomického nastavenia,Chyba ergonomického nastavenia,
+1,0X010D,sk,Prekročenie limitu odchýlky pohybu,Prekročenie limitu odchýlky pohybu,Kontaktujte zákaznícky servis
+8,0X010D,sk,Prekročenie limitu odchýlky pohybu,Prekročenie limitu odchýlky pohybu,Kontaktujte zákaznícky servis
+1,0X020A,sk,Abnormálny pohyb,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X020A,sk,Abnormálny pohyb,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X020C,sk,Neočakávaný pohyb,Prekročenie limitu odchýlky pohybu,Ignorovateľné
+8,0X020C,sk,Neočakávaný pohyb,Prekročenie limitu odchýlky pohybu,Ignorovateľné
+1,0X020D,sk,Prekročenie limitu odchýlky pohybu,Prekročenie limitu odchýlky pohybu,pozornosť
+8,0X020D,sk,Prekročenie limitu odchýlky pohybu,Prekročenie limitu odchýlky pohybu,pozornosť
+1,0X022A,sk,Abnormálna prevádzka,Neočakávaný pohyb podriadeného ramena,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X022A,sk,Abnormálna prevádzka,Neočakávaný pohyb podriadeného ramena,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X022C,sk,Neočakávaný pohyb,Neočakávaný pohyb pri ergonomickom nastavení,Ignorovateľné
+9,0X022C,sk,Neočakávaný pohyb,Neočakávaný pohyb pri ergonomickom nastavení,Ignorovateľné
+1,0X022C,sk,Neočakávaný pohyb,Neočakávaný pohyb hlavného ramena,Ignorovateľné
+8,0X022C,sk,Neočakávaný pohyb,Neočakávaný pohyb hlavného ramena,Ignorovateľné
+9,0X022D,sk,Neočakávaný pohyb pri ergonomickom nastavení,Neočakávaný pohyb pri ergonomickom nastavení,
+3,0X022D,sk,Neočakávaný pohyb pri ergonomickom nastavení,Neočakávaný pohyb pri ergonomickom nastavení,
+1,0X030A,sk,Chyba hardvéru,Prekročte limit polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X030A,sk,Chyba hardvéru,Prekročte limit polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X030B,sk,Chyba hardvéru,Prekročte limit polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X030B,sk,Chyba hardvéru,Prekročte limit polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X030C,sk,Prekročenie ergonomického limitu polohy,Prekročenie ergonomického limitu polohy,
+9,0X030C,sk,Prekročenie ergonomického limitu polohy,Prekročenie ergonomického limitu polohy,
+3,0X030D,sk,Prekročenie ergonomického limitu polohy,Prekročenie ergonomického limitu polohy,
+9,0X030D,sk,Prekročenie ergonomického limitu polohy,Prekročenie ergonomického limitu polohy,
+1,0X030D,sk,Prekročte limit polohy,Prekročte limit polohy,Prosím, presuňte sa späť
+8,0X030D,sk,Prekročte limit polohy,Prekročte limit polohy,Prosím, presuňte sa späť
+1,0X031A,sk,Abnormálny pohyb,Falošné kontrolné údaje,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X031A,sk,Abnormálny pohyb,Falošné kontrolné údaje,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X031B,sk,Abnormálny pohyb,Falošné kontrolné údaje,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X031B,sk,Abnormálny pohyb,Falošné kontrolné údaje,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X040B,sk,Príliš rýchla prevádzka,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X040B,sk,Príliš rýchla prevádzka,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X050B,sk,Príliš rýchla prevádzka,Prekročenie rýchlostného limitu,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X050B,sk,Príliš rýchla prevádzka,Prekročenie rýchlostného limitu,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X050D,sk,Abnormálny pohyb,Abnormálny pohyb,
+9,0X050D,sk,Abnormálny pohyb,Abnormálny pohyb,
+1,0X051B,sk,Príliš rýchla prevádzka,Falošné kontrolné údaje,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X051B,sk,Príliš rýchla prevádzka,Falošné kontrolné údaje,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X060B,sk,Chyba hardvéru,Prekročte limit polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X060B,sk,Chyba hardvéru,Prekročte limit polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X061A,sk,Abnormálna prevádzka,Neočakávaný pohyb,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X061A,sk,Abnormálna prevádzka,Neočakávaný pohyb,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X062A,sk,Abnormálny pohyb,Prekročte povolenú rýchlosť,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X062A,sk,Abnormálny pohyb,Prekročte povolenú rýchlosť,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X063A,sk,Abnormálny pohyb,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X063A,sk,Abnormálny pohyb,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X064A,sk,Abnormálny pohyb,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X064A,sk,Abnormálny pohyb,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X065A,sk,Abnormálny pohyb,Abnormal operation,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X065A,sk,Abnormálny pohyb,Abnormal operation,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X066A,sk,Abnormálny pohyb,Abnormal operation,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X066A,sk,Abnormálny pohyb,Abnormal operation,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X067A,sk,Autotest zlyhal,Autotest zlyhal,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X067A,sk,Autotest zlyhal,Autotest zlyhal,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X068A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X068A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X068B,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X335E,sk,,,
+8,0X335E,sk,,,
+8,0X068B,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X069D,sk,,,Kontaktujte zákaznícky servis
+8,0X069D,sk,,,Kontaktujte zákaznícky servis
+1,0X070D,sk,,,Kontaktujte zákaznícky servis
+8,0X070D,sk,,,Kontaktujte zákaznícky servis
+1,0X071D,sk,,,Kontaktujte zákaznícky servis
+8,0X071D,sk,,,Kontaktujte zákaznícky servis
+1,0X080B,sk,Rameno je zablokované,Rameno je zablokované,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X080B,sk,Rameno je zablokované,Rameno je zablokované,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X080C,sk,Rameno je zablokované,Rameno je zablokované,
+1,0X337E,sk,,,
+8,0X337E,sk,,,
+8,0X080C,sk,Rameno je zablokované,Rameno je zablokované,
+3,0X080D,sk,Prekročiť limit krútiaceho momentu,Prekročiť limit krútiaceho momentu,
+9,0X080D,sk,Prekročiť limit krútiaceho momentu,Prekročiť limit krútiaceho momentu,
+1,0X08AD,sk,Zakázanie ramena zlyhalo,Zakázanie ramena zlyhalo,Skúste to znova
+1,0X08BD,sk,Aktivácia aktivácie zlyhala,Aktivácia aktivácie zlyhala,Skúste to znova
+1,0X08CD,sk,Aktivácia ramena,Aktivácia ramena,
+1,0X08DD,sk,Aktivácia aktivácie zlyhala,Aktivácia aktivácie zlyhala,
+1,0X08ED,sk,Rameno je deaktivované,Rameno je deaktivované,
+3,0X090D,sk,Automatické ergonomické nastavenie zlyhalo,Automatické ergonomické nastavenie zlyhalo,Upravte manuálne
+9,0X090D,sk,Automatické ergonomické nastavenie zlyhalo,Automatické ergonomické nastavenie zlyhalo,Upravte manuálne
+1,0X090D,sk,,,Kontaktujte zákaznícky servis
+8,0X090D,sk,,,Kontaktujte zákaznícky servis
+1,0X092D,sk,Porucha nastavenia ramena,Porucha nastavenia ramena,Kontaktujte zákaznícky servis
+8,0X092D,sk,Porucha nastavenia ramena,Porucha nastavenia ramena,Kontaktujte zákaznícky servis
+3,0X100A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+9,0X100A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X100A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X100A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X100B,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+9,0X100B,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X100D,sk,Porucha siete,Porucha siete,
+9,0X100D,sk,Porucha siete,Porucha siete,
+1,0X101A,sk,,,Reštartujte systém
+8,0X101A,sk,,,Reštartujte systém
+1,0X102A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X102A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X110A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X110A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X110A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+9,0X110A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+3,0X110D,sk,Chyba hardvéru,Chyba hardvéru,
+9,0X110D,sk,Chyba hardvéru,Chyba hardvéru,
+1,0X114A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X114A,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X114C,sk,Chyba hardvéru,Chyba hardvéru,
+8,0X114C,sk,Chyba hardvéru,Chyba hardvéru,
+1,0X120C,sk,Porucha batérie,Porucha batérie,Skontrolujte stav UPS
+8,0X120C,sk,Porucha batérie,Porucha batérie,Skontrolujte stav UPS
+3,0X120D,sk,Konzolu chirurga je potrebné opraviť,Konzolu chirurga je potrebné opraviť,Kontaktujte zákaznícky servis
+9,0X120D,sk,Konzolu chirurga je potrebné opraviť,Konzolu chirurga je potrebné opraviť,Kontaktujte zákaznícky servis
+1,0X121D,sk,Spustí sa núdzový vypínač,Spustí sa núdzový vypínač,
+8,0X121D,sk,Spustí sa núdzový vypínač,Spustí sa núdzový vypínač,
+1,0X124D,sk,Čakanie na zotavenie vozíka s pacientom,Čakanie na zotavenie vozíka s pacientom,
+1,0X125D,sk,Výpadok napájania vozíka pacienta,Výpadok napájania vozíka pacienta,
+1,0X131C,sk,Nedostatok miesta na disku,Nedostatok miesta na disku,
+8,0X131C,sk,Nedostatok miesta na disku,Nedostatok miesta na disku,
+1,0X132D,sk,Zlyhanie vozíka pacienta,Zlyhanie vozíka pacienta,Kontaktujte zákaznícky servis
+8,0X132D,sk,Zlyhanie vozíka pacienta,Zlyhanie vozíka pacienta,Kontaktujte zákaznícky servis
+1,0X133D,sk,,,Spustite košík pre pacientov
+8,0X133D,sk,,,Spustite košík pre pacientov
+1,0X140D,sk,Porucha batérie,Porucha batérie,Kontaktujte zákaznícky servis
+8,0X140D,sk,Porucha batérie,Porucha batérie,Kontaktujte zákaznícky servis
+1,0X141D,sk,Porucha batérie,Porucha batérie,Kontaktujte zákaznícky servis
+8,0X141D,sk,Porucha batérie,Porucha batérie,Kontaktujte zákaznícky servis
+1,0X142D,sk,Batériu je potrebné vymeniť,Batériu je potrebné vymeniť,Kontaktujte zákaznícky servis
+8,0X142D,sk,Batériu je potrebné vymeniť,Batériu je potrebné vymeniť,Kontaktujte zákaznícky servis
+9,0X160D,sk,Dosiahnite hornú hranicu polohy,Dosiahnite hornú hranicu polohy,pozornosť
+3,0X160D,sk,Dosiahnite hornú hranicu polohy,Dosiahnite hornú hranicu polohy,pozornosť
+9,0X161D,sk,Dosiahnite dolnú hranicu polohy,Dosiahnite dolnú hranicu polohy,pozornosť
+3,0X161D,sk,Dosiahnite dolnú hranicu polohy,Dosiahnite dolnú hranicu polohy,pozornosť
+3,0X162D,sk,Hlavné rameno dosiahne hranicu polohy,Hlavné rameno dosiahne hranicu polohy,Zvýšte 3D prehliadač
+9,0X162D,sk,Hlavné rameno dosiahne hranicu polohy,Hlavné rameno dosiahne hranicu polohy,Zvýšte 3D prehliadač
+3,0X163D,sk,3D-Viewer dosahuje výškový limit,3D-Viewer dosahuje výškový limit,Prosím, spustite hlavnú ruku
+9,0X163D,sk,3D-Viewer dosahuje výškový limit,3D-Viewer dosahuje výškový limit,Prosím, spustite hlavnú ruku
+1,0X2A1A,sk,Porucha napájania,Porucha napájania,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X2A1A,sk,Porucha napájania,Porucha napájania,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X2A2A,sk,Porucha napájania,Porucha napájania,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X2A2A,sk,Porucha napájania,Porucha napájania,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X2B1D,sk,Zlyhanie pedálu,Zlyhanie pedálu,
+8,0X2B1D,sk,Zlyhanie pedálu,Zlyhanie pedálu,
+1,0X2B2D,sk,Zlyhanie pedálu,Zlyhanie pedálu,
+8,0X2B2D,sk,Porucha energetického pedálu,Zlyhanie pedálu,
+1,0X2B3D,sk,Nedá sa prepnúť na rameno bez nástroja,Nedá sa prepnúť na rameno bez nástroja,
+8,0X2B3D,sk,Nedá sa prepnúť na rameno bez nástroja,Nedá sa prepnúť na rameno bez nástroja,
+1,0X2B4D,sk,Prístroj je demontovaný,Prístroj je demontovaný,
+8,0X2B4D,sk,Prístroj je demontovaný,Prístroj je demontovaný,
+1,0X2B5D,sk,Póza hlavného ramena sa nezhoduje s podriadeným ramenom,Póza hlavného ramena sa nezhoduje s podriadeným ramenom,Ak chcete pokračovať, uvoľnite sa, podržte ručný ovládač
+8,0X2B5D,sk,Póza hlavného ramena sa nezhoduje s podriadeným ramenom,Póza hlavného ramena sa nezhoduje s podriadeným ramenom,Ak chcete pokračovať, uvoľnite sa, podržte ručný ovládač
+1,0X2B6D,sk,,,Aktivovať je možné iba energetický prístroj
+8,0X2B6D,sk,,,Aktivovať je možné iba energetický prístroj
+1,0X2B7D,sk,,,Pred samotestovaním sklopte lakťovú opierku alebo zdvihnite hlavnú ruku
+4,0X150B,sk,,Nad hornou hranicou polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+4,0X151B,sk,,Nad dolnou hranicou polohy,Kliknutím na ODSTRÁNIŤ obnovíte
+4,0X080B,sk,Pohyb chirurgického vozíka je zablokovaný,Pohyb chirurgického vozíka je zablokovaný,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X2B7D,sk,,,Pred samotestovaním sklopte lakťovú opierku alebo zdvihnite hlavnú ruku
+1,0X2B8D,sk,,,Pred samotestovaním demontujte prístroj a adaptér
+8,0X2B8D,sk,,,Pred samotestovaním demontujte prístroj a adaptér
+1,0X2B9D,sk,Ľavý nástroj dosiahne hranicu polohy,Ľavý nástroj dosiahne hranicu polohy,pozornosť
+8,0X2B9D,sk,Ľavý nástroj dosiahne hranicu polohy,Ľavý nástroj dosiahne hranicu polohy,pozornosť
+1,0X2BAD,sk,Pravý nástroj dosiahne hranicu polohy,Pravý nástroj dosiahne hranicu polohy,pozornosť
+8,0X2BAD,sk,Pravý nástroj dosiahne hranicu polohy,Pravý nástroj dosiahne hranicu polohy,pozornosť
+1,0X2BBD,sk,Ľavý prístroj dosiahne hranicu otáčania,Ľavý prístroj dosiahne hranicu otáčania,pozornosť
+8,0X2BBD,sk,Ľavý prístroj dosiahne hranicu otáčania,Ľavý prístroj dosiahne hranicu otáčania,pozornosť
+4,0X040B,sk,Prekročenie rýchlostného limitu,Prekročenie rýchlostného limitu,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X2BCD,sk,Pravý prístroj dosiahne hranicu rotácie,Pravý prístroj dosiahne hranicu rotácie,pozornosť
+1,0X2BCD,sk,Pravý prístroj dosiahne hranicu rotácie,Pravý prístroj dosiahne hranicu rotácie,pozornosť
+1,0X2BED,sk,Prístroj je príliš vysoký,Prístroj je príliš vysoký,Nastavte výšku smerom nadol
+8,0X2BED,sk,Prístroj je príliš vysoký,Prístroj je príliš vysoký,Nastavte výšku smerom nadol
+1,0X2BFD,sk,Adaptér prístroja sa nepodarilo namontovať,Adaptér prístroja sa nepodarilo namontovať,
+8,0X2BFD,sk,Adaptér prístroja sa nepodarilo namontovať,Adaptér prístroja sa nepodarilo namontovať,
+1,0X2C0D,sk,Prístroj sa nepodarilo namontovať,Prístroj sa nepodarilo namontovať,
+8,0X2C0D,sk,Prístroj sa nepodarilo namontovať,Prístroj sa nepodarilo namontovať,
+1,0X2C1D,sk,Endoskop sa nepodarilo namontovať,Endoskop sa nepodarilo namontovať,
+8,0X2C1D,sk,Endoskop sa nepodarilo namontovať,Endoskop sa nepodarilo namontovať,
+1,0X2C2D,sk,Prekročte limit použitia prístroja,Prekročte limit použitia prístroja,Vymeňte prosím
+8,0X2C2D,sk,Prekročte limit použitia prístroja,Prekročte limit použitia prístroja,Vymeňte prosím
+1,0X2C3D,sk,,,Kliknite na ŠTART v košíku pacienta
+8,0X2C3D,sk,,,Kliknite na ŠTART v košíku pacienta
+1,0X2C4D,sk,Endoskopický adaptér je možné použiť menej ako 5-krát,Endoskopický adaptér je možné použiť menej ako 5-krát,
+8,0X2C4D,sk,Endoskopický adaptér je možné použiť menej ako 5-krát,Endoskopický adaptér je možné použiť menej ako 5-krát,
+1,0X2C5D,sk,Použitie adaptéra endoskopu bude vyčerpané, vymeňte ho,Použitie adaptéra endoskopu bude vyčerpané, vymeňte ho,
+8,0X2C5D,sk,Použitie adaptéra endoskopu bude vyčerpané, vymeňte ho,Použitie adaptéra endoskopu bude vyčerpané, vymeňte ho,
+1,0X2C6D,sk,Endoskop je namontovaný na nepovolenom ramene,Endoskop je namontovaný na nepovolenom ramene,
+8,0X2C6D,sk,Endoskop je namontovaný na nepovolenom ramene,Endoskop je namontovaný na nepovolenom ramene,
+1,0X2C8D,sk,Podporovaný je iba jeden ultrazvukový nôž,Podporovaný je iba jeden ultrazvukový nôž,
+8,0X2C8D,sk,Podporovaný je iba jeden ultrazvukový nôž,Podporovaný je iba jeden ultrazvukový nôž,
+1,0X2C9D,sk,Ľavý nástroj dosiahne hranicu hĺbky,Ľavý nástroj dosiahne hranicu hĺbky,pozornosť
+8,0X2C9D,sk,Ľavý nástroj dosiahne hranicu hĺbky,Ľavý nástroj dosiahne hranicu hĺbky,pozornosť
+1,0X2CAD,sk,Pravý nástroj dosiahne hranicu hĺbky,Pravý nástroj dosiahne hranicu hĺbky,pozornosť
+8,0X2CAD,sk,Pravý nástroj dosiahne hranicu hĺbky,Pravý nástroj dosiahne hranicu hĺbky,pozornosť
+1,0X2CBD,sk,Ľavý nástroj dosiahne hranicu pózy,Ľavý nástroj dosiahne hranicu pózy,pozornosť
+8,0X2CBD,sk,Ľavý nástroj dosiahne hranicu pózy,Ľavý nástroj dosiahne hranicu pózy,pozornosť
+1,0X2CCD,sk,Pravý nástroj dosiahne hranicu pózy,Pravý nástroj dosiahne hranicu pózy,pozornosť
+8,0X2CCD,sk,Pravý nástroj dosiahne hranicu pózy,Pravý nástroj dosiahne hranicu pózy,pozornosť
+1,0X2CDD,sk,,,Šliapnite na správny pedál
+8,0X2CDD,sk,,,Šliapnite na správny pedál
+1,0X2CED,sk,Signál pedálu nie je aktivovaný,Signál pedálu nie je aktivovaný,Upravte uhol chodidla
+8,0X2CED,sk,Signál pedálu nie je aktivovaný,Signál pedálu nie je aktivovaný,Upravte uhol chodidla
+1,0X2CFD,sk,Podporovaný je len jeden monopolárny nástroj,Podporovaný je len jeden monopolárny nástroj,
+8,0X2CFD,sk,Podporovaný je len jeden monopolárny nástroj,Podporovaný je len jeden monopolárny nástroj,
+1,0X2D0D,sk,Podporovaný je iba jeden bipolárny prístroj,Podporovaný je iba jeden bipolárny prístroj,
+8,0X2D0D,sk,Podporovaný je iba jeden bipolárny prístroj,Podporovaný je iba jeden bipolárny prístroj,
+1,0X2D1D,sk,,,Uvoľnite nastavovacie tlačidlo
+8,0X2D1D,sk,,,Uvoľnite nastavovacie tlačidlo
+1,0X2D2D,sk,,,Uvoľnite tlačidlo nastavenia ramena
+8,0X2D2D,sk,,,Uvoľnite tlačidlo nastavenia ramena
+1,0X2D3D,sk,,,Zlaďte rukoväte na ovládaní otáčaním rukoväte
+8,0X2D3D,sk,,,Zlaďte rukoväte na ovládaní otáčaním rukoväte
+1,0X2D4D,sk,Nadmerná odchýlka rotácie,Nadmerná odchýlka rotácie,Stlačte rukoväte ovládania stlačením
+8,0X2D4D,sk,Nadmerná odchýlka rotácie,Nadmerná odchýlka rotácie,Stlačte rukoväte ovládania stlačením
+8,0X2D5D,sk,Ultrazvukový nôž je aktivovaný príliš dlho,Ultrazvukový nôž je aktivovaný príliš dlho,Uvoľnite pedál
+1,0X2D5D,sk,Ultrazvukový nôž je aktivovaný príliš dlho,Ultrazvukový nôž je aktivovaný príliš dlho,Uvoľnite pedál
+1,0X2D6D,sk,Neotáčajte rotačným kĺbom počas aktivácie ultrazvukového noža,Neotáčajte rotačným kĺbom počas aktivácie ultrazvukového noža,
+8,0X2D6D,sk,Neotáčajte rotačným kĺbom počas aktivácie ultrazvukového noža,Neotáčajte rotačným kĺbom počas aktivácie ultrazvukového noža,
+1,0X2D7D,sk,,,Ukončite režim pamäte výšky prístroja
+8,0X2D7D,sk,,,Ukončite režim pamäte výšky prístroja
+1,0X2D8D,sk,,,Prihláste sa prosím
+8,0X2D8D,sk,,,Prihláste sa prosím
+1,0X2D9D,sk,Endoskop dosiahne hranicu polohy,Endoskop dosiahne hranicu polohy,pozornosť
+8,0X2D9D,sk,Endoskop dosiahne hranicu polohy,Endoskop dosiahne hranicu polohy,pozornosť
+1,0X2DAD,sk,,,Prosím, priblížte
+8,0X2DAD,sk,,,Prosím, priblížte
+1,0X2DBD,sk,,,Prosím, oddialte
+8,0X2DBD,sk,,,Prosím, oddialte
+1,0X2DCD,sk,,,Otáčajte endoskopom v smere hodinových ručičiek
+8,0X2DCD,sk,,,Otáčajte endoskopom v smere hodinových ručičiek
+1,0X2DDD,sk,,,Otočte endoskop proti smeru hodinových ručičiek
+8,0X2DDD,sk,,,Otočte endoskop proti smeru hodinových ručičiek
+1,0X2DED,sk,,,Nastavte endoskop smerom nadol
+8,0X2DED,sk,,,Nastavte endoskop smerom nadol
+1,0X2DFD,sk,Pred samotestovaním sklopte hlavné rameno alebo zdvihnite 3D prehliadač,Pred samotestovaním sklopte hlavné rameno alebo zdvihnite 3D prehliadač,
+8,0X2DFD,sk,Pred samotestovaním sklopte hlavné rameno alebo zdvihnite 3D prehliadač,Pred samotestovaním sklopte hlavné rameno alebo zdvihnite 3D prehliadač,
+1,0X2E0D,sk,,,Skontrolujte pedál spínača ramena
+8,0X2E0D,sk,,,Skontrolujte pedál spínača ramena
+1,0X2E1D,sk,,,Skontrolujte spojkový pedál
+8,0X2E1D,sk,,,Skontrolujte spojkový pedál
+1,0X2E2D,sk,,,Skontrolujte pedál endoskopu
+8,0X2E2D,sk,,,Skontrolujte pedál endoskopu
+1,0X2E3D,sk,,,Skontrolujte ľavý pedál
+8,0X2E3D,sk,,,Skontrolujte ľavý pedál
+1,0X2E4D,sk,,,Skontrolujte ľavý koakové pedál
+8,0X2E4D,sk,,,Skontrolujte ľavý koakové pedál
+1,0X2E5D,sk,,,Skontrolujte pravý rezný pedál
+8,0X2E5D,sk,,,Skontrolujte pravý rezný pedál
+1,0X2E6D,sk,,,Skontrolujte pravý koagový pedál
+8,0X2E6D,sk,,,Skontrolujte pravý koagový pedál
+4,0X090B,sk,Chyba hardvéru,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X2E7D,sk,,,Skontrolujte tlačidlo nastavenia pomocného ramena
+8,0X2E7D,sk,,,Skontrolujte tlačidlo nastavenia pomocného ramena
+1,0X2EAD,sk,,,Skontrolujte snímač hlavy
+8,0X2EAD,sk,,,Skontrolujte snímač hlavy
+1,0X2EBD,sk,,,Skontrolujte snímač ľavej nohy
+8,0X2EBD,sk,,,Skontrolujte snímač ľavej nohy
+1,0X2ECD,sk,,,Skontrolujte snímač pravej nohy
+8,0X2ECD,sk,,,Skontrolujte snímač pravej nohy
+1,0X2EDD,sk,,,Pred samotestovaním dokončite nastavenie
+8,0X2EDD,sk,,,Pred samotestovaním dokončite nastavenie
+1,0X2EFD,sk,Skontrolujte signál spojky,Skontrolujte signál spojky,
+8,0X2EFD,sk,Skontrolujte signál spojky,Skontrolujte signál spojky,
+1,0X2F0D,sk,Slabá batéria,Slabá batéria,Kontaktujte zákaznícky servis
+8,0X2F0D,sk,Slabá batéria,Slabá batéria,Kontaktujte zákaznícky servis
+1,0X2F1D,sk,Slabá batéria,Slabá batéria,Kontaktujte zákaznícky servis
+8,0X2F1D,sk,Slabá batéria,Slabá batéria,Kontaktujte zákaznícky servis
+8,0X2F2D,sk,Prekročte limit použitia trokaru,Prekročte limit použitia trokaru,Prosím, vymeňte ho
+1,0X2F2D,sk,Prekročte limit použitia trokaru,Prekročte limit použitia trokaru,Prosím, vymeňte ho
+1,0X2F3D,sk,Nemontujte energetické nástroje rovnakého typu,Nemontujte energetické nástroje rovnakého typu,
+8,0X2F3D,sk,Nemontujte energetické nástroje rovnakého typu,Nemontujte energetické nástroje rovnakého typu,
+1,0X2F4D,sk,Podriadené rameno 1 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,Podriadené rameno 1 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,
+8,0X2F4D,sk,Podriadené rameno 1 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,Podriadené rameno 1 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,
+1,0X2F5D,sk,Podriadené rameno 4 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,Podriadené rameno 4 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,
+8,0X2F5D,sk,Podriadené rameno 4 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,Podriadené rameno 4 nie je schopné vydávať energiu, keď je namontované viacnásobne bipolárne,
+1,0X2F6D,sk,Spojka sa spustí na viac ako 1 minútu,Spojka sa spustí na viac ako 1 minútu,
+8,0X2F6D,sk,Spojka sa spustí na viac ako 1 minútu,Spojka sa spustí na viac ako 1 minútu,
+1,0X2F9D,sk,Abnormálne pripojenie endoskopu,Abnormálne pripojenie endoskopu,Znova vložte endoskop
+8,0X2F9D,sk,Abnormálne pripojenie endoskopu,Abnormálne pripojenie endoskopu,Znova vložte endoskop
+1,0X2FAD,sk,Znova namontujte adaptér prístroja,Znova namontujte adaptér prístroja,
+1,0X2FBD,sk,Aktivácia energie,Aktivácia energie,
+1,0X2FFD,sk,Prístroj sa nepodarilo namontovať,Prístroj sa nepodarilo namontovať,Prosím, znovu ho namontujte
+8,0X338D,sk,V procese ergonomického nastavenia,V procese ergonomického nastavenia,Prosím, nehýbte hlavným ramenom
+1,0X338D,sk,V procese ergonomického nastavenia,V procese ergonomického nastavenia,Prosím, nehýbte hlavným ramenom
+8,0X339D,sk,V procese ergonomického nastavenia,V procese ergonomického nastavenia,Prosím, nehýbte hlavným ramenom
+1,0X339D,sk,V procese ergonomického nastavenia,V procese ergonomického nastavenia,Prosím, nehýbte hlavným ramenom
+8,0X33AD,sk,V procese ergonomického nastavenia,V procese ergonomického nastavenia,Prosím, nehýbte hlavným ramenom
+1,0X33AD,sk,V procese ergonomického nastavenia,V procese ergonomického nastavenia,Prosím, nehýbte hlavným ramenom
+1,0X33BD,sk,Ergonomické nastavenie odmietnuté,Ergonomické nastavenie odmietnuté,
+8,0X33BD,sk,Ergonomické nastavenie odmietnuté,Ergonomické nastavenie odmietnuté,
+4,0X010A,sk,Odchýlka pohybu,Prekročenie limitu odchýlky pohybu,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X33CD,sk,,,Prosím, vložte hlavu do 3D prehliadača
+8,0X33CD,sk,,,Prosím, vložte hlavu do 3D prehliadača
+1,0X33DD,sk,,,Prosím, vráťte sa na hlavnú stránku
+8,0X33DD,sk,,,Prosím, vráťte sa na hlavnú stránku
+1,0X33ED,sk,Porucha komunikácie ovládača endoskopu,Porucha komunikácie ovládača endoskopu,
+1,0X33FD,sk,Spojenie Trocar zlyhalo,Spojenie Trocar zlyhalo,
+1,0X340D,sk,Trocar nie je nainštalovaný,Trocar nie je nainštalovaný,
+1,0X341D,sk,,,Prosím, uvoľnite energetický pedál
+8,0X341D,sk,,,Prosím, uvoľnite energetický pedál
+1,0X342D,sk,Kontaktujte zákaznícky servis,Kontaktujte zákaznícky servis,
+1,0X343D,sk,Kontaktujte zákaznícky servis,Kontaktujte zákaznícky servis,
+1,0X350D,sk,Automatické nastavenie podriadeného ramena,Automatické nastavenie podriadeného ramena,Majte ruky na lakťových opierkach
+1,0X400B,sk,Nízka kvalita siete,Nízka kvalita siete,Kliknutím na ODSTRÁNIŤ obnovíte
+4,0X135D,sk,Zlyhanie vydania základne,Zlyhanie vydania základne,
+4,0X134D,sk,Zlyhanie uzamknutia základne,Zlyhanie uzamknutia základne,
+4,0X136D,sk,Abnormálny podporný tlak oleja,Abnormálny podporný tlak oleja,
+8,0X400B,sk,Nízka kvalita siete,Nízka kvalita siete,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X400D,sk,Slabá kvalita komunikácie,Nízka kvalita siete,
+1,0X400D,sk,Slabá kvalita komunikácie,Nízka kvalita siete,
+8,0X401D,sk,Prepnite ovládanie na diaľkový terminál,Nízka kvalita siete,Nie je povolený žiadny chirurgický zákrok
+8,0X402D,sk,Pred vypnutím prevezmite ovládanie,Nízka kvalita siete,Prevádzka sa neodporúča
+8,0X403D,sk,Stredná kvalita siete,Stredná kvalita siete,Pracujte pomaly a opatrne
+8,0X404D,sk,Priemerná kvalita siete,Priemerná kvalita siete,Pracujte pomaly
+8,0X410D,sk,Porucha miestneho terminálu,Porucha miestneho terminálu,
+1,0X410D,sk,Porucha miestneho terminálu,Porucha miestneho terminálu,
+8,0X411D,sk,Miestny terminál Odhlásenie,Miestny terminál Odhlásenie,
+1,0X411D,sk,Miestny terminál Odhlásenie,Miestny terminál Odhlásenie,
+8,0X412D,sk,Prepnite ovládanie na lokálny terminál,Prepnite ovládanie na lokálny terminál,
+1,0X412D,sk,Prepnite ovládanie na lokálny terminál,Prepnite ovládanie na lokálny terminál,
+8,0X413D,sk,Prepnite ovládanie na vzdialený terminál,Prepnite ovládanie na vzdialený terminál,
+1,0X413D,sk,Prepnite ovládanie na diaľkový terminál,Prepnite ovládanie na vzdialený terminál,
+8,0X414D,sk,Pred vypnutím prevezmite ovládanie,Skontrolujte nastavenia siete,
+8,0X415D,sk,Skontrolujte overovací kód,Skontrolujte overovací kód,
+1,0X416D,sk,Sieť je pripojená,Sieť je pripojená,
+8,0X416D,sk,Sieť je pripojená,Sieť je pripojená,
+1,0X417D,sk,Sieť je odpojená,Sieť je odpojená,
+8,0X417D,sk,Sieť je odpojená,Sieť je odpojená,
+8,0X420D,sk,Pred vypnutím prevezmite kontrolu,Pred vypnutím prevezmite kontrolu,
+1,0X420D,sk,Pred vypnutím prevezmite ovládanie,Pred vypnutím prevezmite kontrolu,
+8,0X450B,sk,Chyba komunikačnej pracovnej stanice,Softvér agenta je abnormálny,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X450B,sk,Chyba komunikačnej pracovnej stanice,Softvér agenta je abnormálny,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X451D,sk,Komunikácia vzdialenej komunikačnej pracovnej stanice je abnormálna,Komunikácia vzdialenej komunikačnej pracovnej stanice je abnormálna,
+8,0X451D,sk,Komunikácia vzdialenej komunikačnej pracovnej stanice je abnormálna,Komunikácia vzdialenej komunikačnej pracovnej stanice je abnormálna,
+1,0X452B,sk,Chyba komunikačnej pracovnej stanice,Lokálna porucha TSA,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X452B,sk,Chyba komunikačnej pracovnej stanice,Lokálna porucha TSA,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X453B,sk,Chyba komunikačnej pracovnej stanice,Chyba video kodeku,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X453B,sk,Chyba komunikačnej pracovnej stanice,Chyba video kodeku,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X454D,sk,Verzia softvéru TSA je nekompatibilná,Verzia softvéru TSA je nekompatibilná,
+8,0X454D,sk,Verzia softvéru TSA je nekompatibilná,Verzia softvéru TSA je nekompatibilná,
+1,0X455A,sk,Výnimka z údajov,Výnimka z údajov,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X500D,sk,Údaje o falošných kontrolách,Údaje o falošných kontrolách,
+1,0X533D,sk,Abnormálna komunikácia,Abnormálna komunikácia,
+8,0X533D,sk,Abnormálna komunikácia,Abnormálna komunikácia,
+8,0X606D,sk,Hlavná ruka sa nepodarilo uložiť,Hlavná ruka sa nepodarilo uložiť,
+1,0X606D,sk,Hlavná ruka sa nepodarilo uložiť,Hlavné rameno sa nepodarilo uložiť,
+1,0X607D,sk,Stow zlyhal,Stow zlyhal,
+1,0X608D,sk,Porucha motora,Porucha motora,
+5,0X610A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X610A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X622B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X622B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X623B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X623B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X626B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X626B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+1,0X626D,sk,Porucha motora,Porucha motora,Kontaktujte zákaznícky servis
+8,0X626D,sk,Porucha motora,Porucha motora,
+5,0X627B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X627B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X640B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X640B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X641B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X641B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X642B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X642B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X643B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X643B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X651B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X651B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X652B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X652B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X653B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X653B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X660B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X660B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X662B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X662B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X663B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X663B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X090E,sk,Porucha motora,,
+8,0X665A,sk,Výnimka z údajov,Výnimka z údajov,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X665B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X665B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X666B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X666B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X66AB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X66AB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X66CB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X66CB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X680B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X680B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X682B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X682B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X683B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X683B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X685B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X685B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X686B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X686B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X68AB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X68AB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X68CB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X68CB,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6A0B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6A0B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6A4B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6A4B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6A5B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6A5B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6A6B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6A6B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6A7B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6A7B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6B0B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6B0B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6B1B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6B1B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6B2B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6B2B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6B4B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6B4B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6B5B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6B5B,sk,Porucha motora,Údaje o falošných kontrolách,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C0B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C0B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C1B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C1B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C2B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C2B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C3B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+4,0X030A,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+4,0X100A,sk,Porucha motora,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+4,0X110A,sk,Porucha motora,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C3B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C4B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C4B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C5B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C5B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C6B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C6B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C7B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C7B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C8B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C8B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6C9B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6C9B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D0B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D0B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D1B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D1B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D2B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D2B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D3B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D3B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D4B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D4B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D5B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D5B,sk,Porucha motora,Porucha motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D6A,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D6A,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D7B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D7B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D7D,sk,Porucha motora,Porucha motora,
+5,0X6D8B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D8B,sk,Porucha motora,Chyba hardvéru,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6D9B,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6D9B,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6DAB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6DAB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6DCB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6DCB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6DDB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6DDB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+5,0X6DEB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+A,0X6DEB,sk,Porucha motora,Porucha ovládača motora,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X555E,sk,,,
+8,0X556E,sk,,,
+8,0X557E,sk,,,
+8,0X558E,sk,,,
+1,0X70BD,sk,Časový limit čítania informácií o behu vypršal,Časový limit čítania informácií o behu vypršal,
+8,0X70BD,sk,Časový limit čítania informácií o behu vypršal,Časový limit čítania informácií o behu vypršal,
+1,0X70CD,sk,CPU je preťažený,CPU je preťažený,
+8,0X70CD,sk,CPU je preťažený,CPU je preťažený,
+1,0X70DD,sk,Signál pedálu je odpojený,Signál pedálu je odpojený,
+5,0X801D,sk,Porucha ovládača motora,Porucha ovládača motora,
+A,0X801D,sk,Porucha ovládača motora,Porucha ovládača motora,
+5,0X802D,sk,Porucha ovládača motora,Porucha ovládača motora,
+A,0X802D,sk,Porucha ovládača motora,Porucha ovládača motora,
+5,0X803D,sk,Porucha ovládača motora,Porucha ovládača motora,
+A,0X803D,sk,Porucha ovládača motora,Porucha ovládača motora,
+5,0X804D,sk,Porucha ovládača motora,Porucha ovládača motora,
+A,0X804D,sk,Porucha ovládača motora,Porucha ovládača motora,
+6,0XB01B,sk,Abnormálny obraz,Abnormálne snímanie obrazu,Kliknutím na ODSTRÁNIŤ obnovíte
+6,0XB02B,sk,Abnormálne pripojenie endoskopu,Abnormálne pripojenie endoskopu,Opätovne vložte endoskop
+6,0XB03B,sk,Endoskop odpojený,Endoskop odpojený,Kliknutím na ODSTRÁNIŤ obnovíte
+6,0XB03D,sk,Endoskop odpojený,Endoskop odpojený,
+6,0XB04B,sk,Abnormálny obraz,Nesúvislý obraz,Kliknutím na ODSTRÁNIŤ obnovíte
+6,0XB05D,sk,,,Reštartujte ovládač endoskopu
+6,0XB06D,sk,,,Reštartujte ovládač endoskopu
+6,0XB07A,sk,Porucha siete,Porucha siete,Kliknutím na ODSTRÁNIŤ obnovíte
+6,0XB50C,sk,Abnormalita pripojenia USB flash disku,Abnormalita pripojenia USB flash disku,
+6,0XB50D,sk,Abnormalita pripojenia USB flash disku,Abnormalita pripojenia USB flash disku,
+6,0XB51C,sk,Nedostatok miesta na disku ovládača endoskopu,Nedostatok miesta na disku ovládača endoskopu,Kontaktujte zákaznícky servis
+6,0XB51D,sk,Nedostatok miesta na disku ovládača endoskopu,Nedostatok miesta na disku ovládača endoskopu,Kontaktujte zákaznícky servis
+6,0XB52C,sk,CPU ovládača endoskopu je preťažený,CPU ovládača endoskopu je preťažený,
+6,0XB52D,sk,CPU ovládača endoskopu je preťažený,CPU ovládača endoskopu je preťažený,
+6,0XB53C,sk,Nedostatok miesta na USB flash disku,Nedostatok miesta na USB flash disku,Prosím, vymeňte ho
+6,0XB53D,sk,Nedostatok miesta na USB flash disku,Nedostatok miesta na USB flash disku,Prosím, vymeňte ho
+6,0XBA0D,sk,Nesynchronizovaný obrázok,Nesynchronizovaný obrázok,Opätovne vložte endoskop
+6,0XBA1A,sk,,,Reštartujte ovládač endoskopu
+6,0XBA2A,sk,Slabý efekt zobrazenia 3D efektu,Slabý efekt zobrazenia 3D efektu,Reštartujte ovládač endoskopu
+6,0XBA3D,sk,,,Reštartujte ovládač endoskopu
+6,0XBA5C,sk,Spustenie počítača Aero zlyhalo,Spustenie počítača Aero zlyhalo,
+6,0XBA5D,sk,Spustenie počítača Aero zlyhalo,Spustenie počítača Aero zlyhalo,
+6,0XBA6C,sk,USB flash disk neoprávnený,USB flash disk neoprávnený,Použite ho po overení
+6,0XBA6D,sk,USB flash disk neoprávnený,USB flash disk neoprávnený,Použite ho po overení
+6,0XBA7D,sk,Pripojenie energetickej platformy zlyhalo,Pripojenie energetickej platformy zlyhalo,Kontaktujte zákaznícky servis
+6,0XBA8D,sk,Identifikácia typu endoskopu zlyhala,Identifikácia typu endoskopu zlyhala,Vymeňte endoskop
+1,0X310E,sk,,,
+1,0X500E,sk,,,
+1,0X501E,sk,,,
+1,0X502E,sk,,,
+1,0X503E,sk,,,
+1,0X504E,sk,,,
+1,0X505E,sk,,,
+1,0X506E,sk,,,
+1,0X507E,sk,,,
+1,0X508E,sk,,,
+1,0X509E,sk,,,
+1,0X50AE,sk,,,
+1,0X50BE,sk,,,
+1,0X50CE,sk,,,
+1,0X50DE,sk,,,
+1,0X50EE,sk,,,
+1,0X510E,sk,,,
+1,0X511E,sk,,,
+1,0X550E,sk,,,
+1,0X551E,sk,,,
+1,0X552E,sk,,,
+1,0X553E,sk,,,
+1,0X554E,sk,,,
+1,0X555E,sk,,,
+1,0X556E,sk,,,
+1,0X557E,sk,,,
+1,0X558E,sk,,,
+1,0X570E,sk,,,
+1,0X571E,sk,,,
+1,0X572E,sk,,,
+1,0X700E,sk,,,
+1,0X701E,sk,,,
+1,0X702E,sk,,,
+1,0X703E,sk,,,
+1,0X704E,sk,,,
+1,0X705E,sk,,,
+1,0X706E,sk,,,
+1,0X707E,sk,,,
+1,0X708E,sk,,,
+1,0X709E,sk,,,
+1,0X70AE,sk,,,
+1,0X70CE,sk,,,
+1,0X710E,sk,,,
+1,0X405E,sk,,,
+8,0X405E,sk,,,
+1,0X66BD,sk,,Kontaktujte zákaznícky servis,
+1,0X143D,sk,Vybitá batéria,Vybitá batéria,
+8,0X143D,sk,Vybitá batéria,Vybitá batéria,
+1,0X144D,sk,Slabá batéria,Slabá batéria,
+8,0X144D,sk,Slabá batéria,Slabá batéria,
+6,0XBA9D,sk,Konfigurujú sa parametre endoskopu,Konfigurujú sa parametre endoskopu,
+1,0X2BDD,sk,Pravý a ľavý nástroj dosiahne hranicu rotácie,Pravý a ľavý nástroj dosiahne hranicu rotácie,
+1,0X666D,sk,Verzia softvéru je nekonzistentná,Verzia softvéru je nekonzistentná,
+8,0X666D,sk,Verzia softvéru je nekonzistentná,Verzia softvéru je nekonzistentná,
+8,0X614D,sk,Prepnite na diaľkový systém,Prepnite na diaľkový systém,
+1,0X624D,sk,Prepnite na lokálny systém,Prepnite na lokálny systém,
+1,0X404A,sk,Odpojte od vozíka pacienta,Odpojte od vozíka pacienta,
+1,0X021D,sk,Prístroj je zablokovaný,Prístroj je zablokovaný,
+1,0X022E,sk,,,
+1,0X030E,sk,,,
+1,0X050E,sk,,,
+1,0X040E,sk,,,
+1,0X090E,sk,,,
+1,0X010E,sk,,,
+1,0X020E,sk,,,
+1,0X559E,sk,,,
+1,0X55AE,sk,,,
+1,0X55BE,sk,,,
+1,0X092E,sk,,,
+1,0X344D,sk,,,Skontrolujte adaptér
+1,0X345D,sk,,,Skontrolujte prístroj a znova nainštalujte adaptér
+1,0X360D,sk,Prosím, zložte prístroj,Prosím, zložte prístroj,
+1,0X361D,sk,Zložte adaptér,Zložte adaptér,
+1,0X362D,sk,Nainštalujte adaptér,Nainštalujte adaptér,
+1,0X128D,sk,Zvládnite späť na nulové zlyhanie,Zvládnite späť na nulové zlyhanie,
+1,0X127D,sk,,,Stlačte rukoväte ovládania stlačením
+8,0X127D,sk,,,Stlačte rukoväte ovládania stlačením
+6,0X129D,sk,Nepodarilo sa obrátiť,Nepodarilo sa obrátiť,Skontrolujte stav pripojenia
+1,0X130D,sk,,,Znova vložte endoskop
+6,0X144C,sk,Nepodarilo sa obrátiť,Nepodarilo sa obrátiť,Prosím resetovať
+1,0X145D,sk,Vozík pacienta nie je možné nastaviť v aktuálnom stave.,Vozík pacienta nie je možné nastaviť v aktuálnom stave.,
+1,0X146D,sk,Obsluhujte vozík pacienta,Obsluhujte vozík pacienta,
+1,0X520E,sk,,,
+1,0X533E,sk,,,
+3,0X300E,sk,,,
+3,0X301E,sk,,,
+9,0X300E,sk,,,
+9,0X301E,sk,,,
+3,0X302E,sk,,,
+3,0X303E,sk,,,
+3,0X304E,sk,,,
+3,0X305E,sk,,,
+3,0X306E,sk,,,
+3,0X307E,sk,,,
+3,0X308E,sk,,,
+3,0X309E,sk,,,
+9,0X302E,sk,,,
+9,0X303E,sk,,,
+9,0X304E,sk,,,
+9,0X305E,sk,,,
+9,0X306E,sk,,,
+9,0X307E,sk,,,
+9,0X308E,sk,,,
+9,0X309E,sk,,,
+1,0X57DE,sk,,,
+1,0X57AE,sk,,,
+1,0X57BE,sk,,,
+8,0X57DE,sk,,,
+8,0X57AE,sk,,,
+8,0X57BE,sk,,,
+1,0X579E,sk,,,
+1,0X57CE,sk,,,
+1,0X514E,sk,,,
+1,0X515E,sk,,,
+1,0X516E,sk,,,
+1,0X517E,sk,,,
+1,0X518E,sk,,,
+1,0X519E,sk,,,
+1,0X521E,sk,,,
+1,0X522E,sk,,,
+1,0X523E,sk,,,
+1,0X524E,sk,,,
+1,0X525E,sk,,,
+1,0X526E,sk,,,
+1,0X527E,sk,,,
+1,0X528E,sk,,,
+1,0X529E,sk,,,
+1,0X52AE,sk,,,
+1,0X52BE,sk,,,
+1,0X52CE,sk,,,
+1,0X52DE,sk,,,
+1,0X52EE,sk,,,
+1,0X52FE,sk,,,
+1,0X530E,sk,,,
+1,0X531E,sk,,,
+1,0X532E,sk,,,
+1,0X57EE,sk,,,
+1,0X534E,sk,,,
+1,0X535E,sk,,,
+1,0X536E,sk,,,
+1,0X537E,sk,,,
+1,0X538E,sk,,,
+1,0X539E,sk,,,
+1,0X53AE,sk,,,
+1,0X53BE,sk,,,
+1,0X53CE,sk,,,
+1,0X53DE,sk,,,
+1,0X53EE,sk,,,
+1,0X53FE,sk,,,
+1,0X540E,sk,,,
+1,0X541E,sk,,,
+1,0X542E,sk,,,
+1,0X543E,sk,,,
+1,0X544E,sk,,,
+1,0X545E,sk,,,
+1,0X546E,sk,,,
+1,0X547E,sk,,,
+1,0X548E,sk,,,
+1,0X549E,sk,,,
+1,0X54AE,sk,,,
+1,0X54BE,sk,,,
+1,0X54CE,sk,,,
+1,0X54DE,sk,,,
+1,0X54EE,sk,,,
+1,0X54FE,sk,,,
+1,0X560E,sk,,,
+1,0X561E,sk,,,
+1,0X562E,sk,,,
+1,0X563E,sk,,,
+1,0X564E,sk,,,
+1,0X565E,sk,,,
+1,0X567E,sk,,,
+1,0X568E,sk,,,
+1,0X569E,sk,,,
+1,0X56AE,sk,,,
+1,0X56CE,sk,,,
+1,0X56DE,sk,,,
+1,0X56EE,sk,,,
+1,0X56FE,sk,,,
+1,0X573E,sk,,,
+1,0X574E,sk,,,
+1,0X575E,sk,,,
+1,0X576E,sk,,,
+1,0X577E,sk,,,
+1,0X578E,sk,,,
+8,0X579E,sk,,,
+8,0X57CE,sk,,,
+8,0X514E,sk,,,
+8,0X515E,sk,,,
+8,0X516E,sk,,,
+8,0X517E,sk,,,
+8,0X518E,sk,,,
+8,0X519E,sk,,,
+8,0X521E,sk,,,
+8,0X522E,sk,,,
+8,0X523E,sk,,,
+8,0X524E,sk,,,
+8,0X525E,sk,,,
+8,0X526E,sk,,,
+8,0X527E,sk,,,
+8,0X528E,sk,,,
+8,0X529E,sk,,,
+8,0X52AE,sk,,,
+8,0X52BE,sk,,,
+8,0X52CE,sk,,,
+8,0X52DE,sk,,,
+8,0X52EE,sk,,,
+8,0X52FE,sk,,,
+8,0X530E,sk,,,
+8,0X531E,sk,,,
+8,0X532E,sk,,,
+8,0X57EE,sk,,,
+8,0X534E,sk,,,
+8,0X535E,sk,,,
+8,0X536E,sk,,,
+8,0X537E,sk,,,
+8,0X538E,sk,,,
+8,0X539E,sk,,,
+8,0X53AE,sk,,,
+8,0X53BE,sk,,,
+8,0X53CE,sk,,,
+8,0X53DE,sk,,,
+8,0X53EE,sk,,,
+8,0X53FE,sk,,,
+8,0X540E,sk,,,
+8,0X541E,sk,,,
+8,0X542E,sk,,,
+8,0X543E,sk,,,
+8,0X544E,sk,,,
+8,0X545E,sk,,,
+8,0X546E,sk,,,
+8,0X547E,sk,,,
+8,0X548E,sk,,,
+8,0X549E,sk,,,
+8,0X54AE,sk,,,
+8,0X54BE,sk,,,
+8,0X54CE,sk,,,
+8,0X54DE,sk,,,
+8,0X54EE,sk,,,
+8,0X54FE,sk,,,
+8,0X560E,sk,,,
+8,0X561E,sk,,,
+8,0X562E,sk,,,
+8,0X563E,sk,,,
+8,0X564E,sk,,,
+8,0X565E,sk,,,
+8,0X567E,sk,,,
+8,0X568E,sk,,,
+8,0X569E,sk,,,
+8,0X56AE,sk,,,
+8,0X56CE,sk,,,
+8,0X56DE,sk,,,
+8,0X56EE,sk,,,
+8,0X56FE,sk,,,
+8,0X573E,sk,,,
+8,0X574E,sk,,,
+8,0X575E,sk,,,
+8,0X576E,sk,,,
+8,0X577E,sk,,,
+8,0X578E,sk,,,
+1,0X580C,sk,Nepodarilo sa vypočítať životnosť prístroja,Nepodarilo sa vypočítať životnosť prístroja,
+1,0X580E,sk,,,
+1,0X512E,sk,,,
+1,0X513E,sk,,,
+1,0X590E,sk,,,
+1,0X591E,sk,,,
+1,0X594E,sk,,,
+1,0X040D,sk,Prekročenie limitu odchýlky pohybu,Prekročenie limitu odchýlky pohybu,pozornosť
+8,0X040D,sk,Prekročenie limitu odchýlky pohybu,Prekročenie limitu odchýlky pohybu,pozornosť
+1,0X665A,sk,Výnimka z údajov,Výnimka z údajov,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X455A,sk,Výnimka z údajov,Výnimka z údajov,Kliknutím na ODSTRÁNIŤ obnovíte
+8,0X70CE,sk,,,
+1,0X581E,sk,,,
+8,0X2BDD,sk,Pravý a ľavý nástroj dosiahne hranicu rotácie,Pravý a ľavý nástroj dosiahne hranicu rotácie,
+6,0XB07D,sk,Sieť sa nepripojí,Sieť sa nepripojí,Skontrolujte komunikačný kábel
+1,0x580D,sk,Počkajte na ukončenie autotestu,Počkajte na ukončenie autotestu,
+1,0x581D,sk,Nastavenie ukončenia ako prvé,Nastavenie ukončenia ako prvé,
+1,0x582D,sk,Najprv ukončite chirurgicky potvrdený stav,Najprv ukončite chirurgicky potvrdený stav,
+1,0x583D,sk,Najskôr ukončite ovládanie spojky,Najskôr ukončite ovládanie spojky,
+1,0x584D,sk,Najprv ukončite ovládanie master-slave,Najprv ukončite ovládanie master-slave,
+1,0x585D,sk,Najprv ukončite kontrolu endoskopu,Najprv ukončite kontrolu endoskopu,
+6,0XB54D,sk,Abnormálny sériový port,Abnormálny sériový port,Kontaktujte zákaznícky servis
+6,0XB55D,sk,Nepodarilo sa nastaviť parameter obrázka,Nepodarilo sa nastaviť parameter obrázka,Skúste to znova
+6,0XB56D,sk,Prístroj je príliš ďaleko od stredu zorného poľa,Prístroj je príliš ďaleko od stredu zorného poľa,
+1,0x586D,sk,Upravte vzdialenosť medzi {0} ramena a {1} ramena,Upravte vzdialenosť medzi {0} ramena a {1} ramena,
+1,0x55CE,sk,,,
+6,0XB57D,sk,Nepodarilo sa nakonfigurovať parameter obrázka,Nepodarilo sa nakonfigurovať parameter obrázka,Kontaktujte zákaznícky servis
+6,0XB58A,sk,Abnormálne spustenie ovládača endoskopu,Abnormálne spustenie ovládača endoskopu,Reštartujte ovládač endoskopu
+6,0XB59A,sk,Nepodarilo sa nakonfigurovať rozhranie ovládača endoskopu,Nepodarilo sa nakonfigurovať rozhranie ovládača endoskopu,Reštartujte ovládač endoskopu
+1,0X456A,sk,Výnimka z údajov,Nepodarilo sa overiť parametre,Skontrolujte prosím
+8,0X456A,sk,Výnimka z údajov,Nepodarilo sa overiť parametre,Skontrolujte prosím
+1,0X457A,sk,Výnimka z údajov,Nepodarilo sa overiť parametre,Znova sa pripojte
+8,0X457A,sk,Výnimka z údajov,Nepodarilo sa overiť parametre,Znova sa pripojte
+1,0X458E,sk,,,
+1,0X459E,sk,,,
+1,0X131D,sk,Nepodarilo sa reštartovať,Nepodarilo sa reštartovať,
+8,0X131D,sk,Nepodarilo sa reštartovať,Nepodarilo sa reštartovať,
+1,0X453D,sk,FPS je nízka,FPS je nízka,Pracujte pomaly
+8,0X453D,sk,FPS je nízka,FPS je nízka,Pracujte pomaly
+1,0X587D,sk,Master sa resetuje,Master sa resetuje,
+1,0X88BE,sk,,,
+8,0X587D,sk,Master sa resetuje,Master sa resetuje,
+8,0X88BE,sk,,,
+1,0X103A,sk,Porucha siete,Zlyhalo pripojenie sieťového kábla pacienta,Skontrolujte a kliknutím na ODSTRÁNIŤ obnovte
+1,0X104A,sk,Porucha siete,Núdzové káblové pripojenie zlyhalo,Skontrolujte a kliknutím na ODSTRÁNIŤ obnovte
+1,0X105A,sk,Chyba hardvéru,Osvedčenie o autorizácii je neplatné,Reštartujte systém
+8,0X105A,sk,Chyba hardvéru,Osvedčenie o autorizácii je neplatné,Reštartujte systém
+1,0X588D,sk,Zvukové zariadenie konzoly chirurga sa nepripojí,Zvukové zariadenie konzoly chirurga sa nepripojí,Kontaktujte zákaznícky servis
+1,0X589D,sk,Zvukové zariadenie ovládača endoskopu sa nepripojí,Zvukové zariadenie ovládača endoskopu sa nepripojí,Kontaktujte zákaznícky servis
+1,0X591D,sk,Výnimka zvukovej služby,Výnimka zvukovej služby,Kontaktujte zákaznícky servis
+1,0X592D,sk,Služba ovládania rozhrania konzoly chirurga je abnormálna,Služba ovládania rozhrania konzoly chirurga je abnormálna,Kontaktujte zákaznícky servis
+1,0X593D,sk,Prístroj je príliš vysoký, nastavte ho smerom nadol,Prístroj je príliš vysoký, nastavte ho smerom nadol,
+1,0X594D,sk,Rušenie medzi ľavou a pravou stranou,Rušenie medzi ľavou a pravou stranou,Upravte prosím
+1,0X88DE,sk,,,
+8,0X594D,sk,Rušenie medzi ľavou a pravou stranou,Rušenie medzi ľavou a pravou stranou,Upravte prosím
+1,0X072A,sk,Príliš rýchla prevádzka,príliš veľa stlačiť,Skontrolujte a kliknutím na ODSTRÁNIŤ obnovte
+1,0X072D,sk,príliš veľa stlačiť,príliš veľa stlačiť,
+1,0X073A,sk,Chyba hardvéru,Hallova anomália,Skontrolujte a kliknutím na ODSTRÁNIŤ obnovte
+8,0X072A,sk,Príliš rýchla prevádzka,príliš veľa stlačiť,Skontrolujte a kliknutím na ODSTRÁNIŤ obnovte
+8,0X072D,sk,príliš veľa stlačiť,príliš veľa stlačiť,
+8,0X073A,sk,Chyba hardvéru,Hallova anomália,Skontrolujte a kliknutím na ODSTRÁNIŤ obnovte
+1,0X595D,sk,Zvukové zariadenie konzoly chirurga je abnormálne,Zvukové zariadenie konzoly chirurga je abnormálne,Kontaktujte zákaznícky servis
+1,0X596D,sk,Zvukové zariadenie ovládača endoskopu je abnormálne,Zvukové zariadenie ovládača endoskopu je abnormálne,Kontaktujte zákaznícky servis
+1,0X460D,sk,Prevádzka nie je povolená počas ovládacieho spínača,Prevádzka nie je povolená počas ovládacieho spínača,
+8,0X460D,sk,Prevádzka nie je povolená počas ovládacieho spínača,Prevádzka nie je povolená počas ovládacieho spínača,
+6,0XB60D,sk,Abnormálne pripojenie optického lúča,Abnormálne pripojenie optického lúča,Skontrolujte pripojenia.
+6,0XB61D,sk,Abnormálne riadiace vedenie zdroja studeného svetla,Abnormálne riadiace vedenie zdroja studeného svetla,Skontrolujte pripojenia.
+1,0X597E,sk,,,
+6,0XB62D,sk,Teplota zdroja studeného svetla je príliš vysoká,Teplota zdroja studeného svetla je príliš vysoká,
+6,0XB63D,sk,Životnosť studenej žiarovky sa blíži životnosti,Životnosť studenej žiarovky sa blíži životnosti,
+6,0XB64D,sk,Životnosť studenej žiarovky sa blíži životnosti,Životnosť studenej žiarovky sa blíži životnosti,
+1,0X122D,sk,Vozík pacienta Spustí sa núdzový vypínač,Vozík pacienta Spustí sa núdzový vypínač,
+8,0X122D,sk,Vozík pacienta Spustí sa núdzový vypínač,Vozík pacienta Spustí sa núdzový vypínač,
+1,0X588E,sk,,,
+1,0X597D,sk,Zvukové zariadenie vozíka pacienta nie je pripojené,Zvukové zariadenie vozíka pacienta nie je pripojené,Kontaktujte zákaznícky servis
+1,0X598D,sk,Zvukové zariadenie pacientskeho vozíka je abnormálne,Zvukové zariadenie pacientskeho vozíka je abnormálne,Kontaktujte zákaznícky servis
+1,0X353D,sk,Odpojte káble pomocou Vozík pacienta v simulačnom režime,Odpojte káble pomocou Vozík pacienta v simulačnom režime,
+1,0X352C,sk,Odpojenie komunikácie simulátora,Odpojenie komunikácie simulátora,Skontrolujte, či je pripojený sieťový kábel
+1,0X023D,sk,Rameno je zablokované,Rameno je zablokované,
+1,0X599D,sk,Skontrolujte sériové číslo ramena,Skontrolujte sériové číslo ramena,
+1,0X129D,sk,Prosím, krok Endoskop opäť pedál,Prosím, krok Endoskop opäť pedál,
+1,0X602E,sk,,,
+1,0X602D,sk,,,Prosím, vráťte sa na hlavnú stránku
+1,0X603E,sk,,,
+8,0X08AD,sk,Zakázanie ramena zlyhalo,Zakázanie ramena zlyhalo,Skúste to znova
+8,0X08BD,sk,Aktivácia aktivácie zlyhala,Aktivácia aktivácie zlyhala,Skúste to znova
+8,0X08CD,sk,Aktivácia ramena,Aktivácia ramena,
+8,0X08DD,sk,Aktivácia aktivácie zlyhala,Aktivácia aktivácie zlyhala,
+8,0X08ED,sk,Rameno je deaktivované,Rameno je deaktivované,
+1,0X461D,sk,Rameno endoskopu zablokované,Rameno endoskopu zablokované,
+6,0XB88D,sk,3D celoobrazovkový obraz v obraze nie je správne pripojený k vstupnému zdroju,3D celoobrazovkový obraz v obraze nie je správne pripojený k vstupnému zdroju,
+1,0X462D,sk,Pred prevádzkou vypnite režim citlivý na fluorescenciu,Pred prevádzkou vypnite režim citlivý na fluorescenciu,
+1,0X424D,sk,Lokálny záber,Lokálny záber,
+1,0X425D,sk,Lokálny prenos,Lokálny prenos,
+1,0X426D,sk,Lokálny záber všetkým,Lokálny záber všetkým,
+8,0X424D,sk,Vzdialený záber,Vzdialený záber,
+8,0X425D,sk,Vzdialený záber,Vzdialený záber,
+8,0X426D,sk,Vzdialený záber všetkým,Vzdialený záber všetkým,
+6,0XB65D,sk,Vstupný zdroj HDMI 1 nie je pripojený,Vstupný zdroj HDMI 1 nie je pripojený,
+6,0XB66D,sk,Vstupný zdroj HDMI 2 nie je pripojený,Vstupný zdroj HDMI 2 nie je pripojený,
+6,0XB67D,sk,Vstupný zdroj SDI 1 nie je pripojený,Vstupný zdroj SDI 1 nie je pripojený,
+6,0XB68D,sk,Vstupný zdroj SDI 2 nie je pripojený,Vstupný zdroj SDI 2 nie je pripojený,
+1,0X2EED,sk,,,Please do not step on the pedals at both ends at the same time
+8,0X2EED,sk,,,Please do not step on the pedals at both ends at the same time
+1,0X2FCD,sk,Žiadne rameno na prepínanie,Žiadne rameno na prepínanie,
+8,0X2FCD,sk,Žiadne rameno na prepínanie,Žiadne rameno na prepínanie,
+4,0X143D,sk,Vybitá batéria,Vybitá batéria,
+4,0X144D,sk,Slabá batéria,Slabá batéria,
+1,0X193D,sk,Odpojenie zariadenia na uzatváranie steny veľkej cievy, čistenie a kontrola káblov,Odpojenie zariadenia na uzatváranie steny veľkej cievy, čistenie a kontrola káblov,Skontrolujte pripojenia.
+1,0X192D,sk,Skontrolujte, či nie je porucha v ovládači zariadenia na uzatváranie steny veľkej cievy,Skontrolujte, či nie je porucha v ovládači zariadenia na uzatváranie steny veľkej cievy,Skontrolujte pripojenia.
+1,0X138D,sk,Rezervácia zošívačky bola použitá, vymeňte ju.,Rezervácia zošívačky bola použitá, vymeňte ju.,Zmeniť rezerváciu
+1,0X137D,sk,Zošívačka bola vrátená a dokončená. Aktualizujte rezerváciu.,Zošívačka bola vrátená a dokončená. Aktualizujte rezerváciu.,Zmeniť rezerváciu
+1,0X430D,sk,Frekvencia snímok obrazovky nie je vhodná na operáciu,Frekvencia snímok obrazovky nie je vhodná na operáciu,
+1,0X429B,sk,Abnormálna zmena zdroja údajov,Abnormálna zmena zdroja údajov,skontrolujte nastavenia siete
+8,0X429B,sk,Abnormálna zmena zdroja údajov,Abnormálna zmena zdroja údajov,skontrolujte nastavenia siete
+1,0X611D,sk,Montáž trokaru bola úspešná,Montáž trokaru bola úspešná,
+1,0X33FE,sk,Zmeny stavu Tocar,Zmeny stavu Tocar,
+1,0XA01E,sk,Záznam v denníku spustenia,Záznam v denníku spustenia,
+1,0XA02E,sk,Záznam v denníku vypnutia,Záznam v denníku vypnutia,
+8,0XA01E,sk,Záznam v denníku spustenia,Záznam v denníku spustenia,
+8,0XA02E,sk,Záznam v denníku vypnutia,Záznam v denníku vypnutia,
+1,0X612D,sk,,,Odstráňte prosím nástroj
+1,0X427D,sk,Lokálny záber všetkým,Lokálny záber všetkým,
+8,0X427D,sk,Vzdialený záber všetkým,Vzdialený záber všetkým,
+1,0X401D,sk,Nízka kvalita siete,Nízka kvalita siete,Nie je povolený žiadny chirurgický zákrok
+1,0X402D,sk,Nízka kvalita siete,Nízka kvalita siete,Prevádzka sa neodporúča
+1,0X403D,sk,Stredná kvalita siete,Stredná kvalita siete,Pracujte pomaly a opatrne
+1,0X404D,sk,Priemerná kvalita siete,Priemerná kvalita siete,Pracujte pomaly
+1,0X463D,sk,Endoskop v pohybe,Endoskop v pohybe,Please wait
+8,0X463D,sk,Endoskop v pohybe,Endoskop v pohybe,Please wait
+1,0X464D,sk,Kolízia nástrojového ramena,Kolízia nástrojového ramena,pozornosť
+1,0X623D,sk,Normálny režim,Normálny režim,
+1,0X627D,sk,Režim fluorescencie,Režim fluorescencie,
+1,0X629D,sk,Fúzia obrazu,Fúzia obrazu,
+3,0X164D,sk,Ochrana prepojenia,Ochrana prepojenia,Prosím, upravte mastera smerom nahor
+3,0X165D,sk,Ochrana prepojenia,Ochrana prepojenia,Prosím, upravte výšku monitora smerom nadol
+9,0X164D,sk,Ochrana prepojenia,Ochrana prepojenia,Prosím, upravte mastera smerom nahor
+9,0X165D,sk,Ochrana prepojenia,Ochrana prepojenia,Prosím, upravte výšku monitora smerom nadol

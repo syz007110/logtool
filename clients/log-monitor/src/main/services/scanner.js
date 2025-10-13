@@ -119,6 +119,17 @@ class ScannerService {
     return null;
   }
 
+  // 严格日志文件名校验：YYYYMMDDhh_log.medbot（10位数字开头，无额外段）
+  isValidLogFileName(fileName) {
+    if (!fileName || typeof fileName !== 'string') return false;
+    const lower = fileName.toLowerCase();
+    if (!lower.endsWith('_log.medbot')) return false;
+    // 提取前缀：去掉 _log.medbot 后缀
+    const prefix = fileName.slice(0, fileName.length - '_log.medbot'.length);
+    // 必须恰好10位数字（YYYYMMDDhh）
+    return /^\d{10}$/.test(prefix);
+  }
+
   async scanDirectory(rootDir, depthLimit = 4, currentKey = null, keyFileName = 'SystemInfo.txt', unitDeviceId = '', ctx = {}) {
     console.log(`🔍 开始扫描目录: ${rootDir}`);
     console.log(`📁 递归深度限制: ${depthLimit}`);
@@ -178,6 +189,11 @@ class ScannerService {
           } else {
             const lower = ent.name.toLowerCase();
             if (lower.endsWith('.medbot')) {
+              // 严格校验日志文件名格式
+              if (!this.isValidLogFileName(ent.name)) {
+                console.log(`⚠️ 文件名不符合日志格式（需 YYYYMMDDhh_log.medbot），跳过: ${ent.name}`);
+                continue;
+              }
               const fileDevice = unitDeviceId || deviceIdAtDir;
               const logger = this.options.log || (() => {});
               console.log(`📄 发现日志文件: ${ent.name}`);

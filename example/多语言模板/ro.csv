@@ -1,0 +1,922 @@
+﻿subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,ro,Defecțiune hardware,Defect de reglare ergonomică,Faceți clic pe ELIMINARE pentru a restaura
+9,0X010A,ro,Defecțiune hardware,Defect de reglare ergonomică,Faceți clic pe ELIMINARE pentru a restaura
+1,0X010A,ro,Defecțiune hardware,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+1,0X490E,ro,,,
+8,0X010A,ro,Defecțiune hardware,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+9,0X010D,ro,Defect de reglare ergonomică,Defect de reglare ergonomică,
+3,0X010D,ro,Defect de reglare ergonomică,Defect de reglare ergonomică,
+1,0X010D,ro,Depășiți limita de abatere a mișcării,Depășiți limita de abatere a mișcării,Vă rugăm să contactați serviciul clienți
+8,0X010D,ro,Depășiți limita de abatere a mișcării,Depășiți limita de abatere a mișcării,Vă rugăm să contactați serviciul clienți
+1,0X020A,ro,Mișcare anormală,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+8,0X020A,ro,Mișcare anormală,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+1,0X020C,ro,Mișcare neașteptată,Depășiți limita de abatere a mișcării,Ignorabil
+8,0X020C,ro,Mișcare neașteptată,Depășiți limita de abatere a mișcării,Ignorabil
+1,0X020D,ro,Depășiți limita de abatere a mișcării,Depășiți limita de abatere a mișcării,atenție
+8,0X020D,ro,Depășiți limita de abatere a mișcării,Depășiți limita de abatere a mișcării,atenție
+1,0X022A,ro,Funcționare anormală,Mișcarea neașteptată a brațului sclavului,Faceți clic pe ELIMINARE pentru a restaura
+8,0X022A,ro,Funcționare anormală,Mișcarea neașteptată a brațului sclavului,Faceți clic pe ELIMINARE pentru a restaura
+3,0X022C,ro,Mișcare neașteptată,Mișcare neașteptată în timpul reglarii ergonomice,Ignorabil
+9,0X022C,ro,Mișcare neașteptată,Mișcare neașteptată în timpul reglarii ergonomice,Ignorabil
+1,0X022C,ro,Mișcare neașteptată,mișcarea neașteptată a brațului principal,Ignorabil
+8,0X022C,ro,Mișcare neașteptată,mișcarea neașteptată a brațului principal,Ignorabil
+9,0X022D,ro,Mișcare neașteptată în timpul reglarii ergonomice,Mișcare neașteptată în timpul reglarii ergonomice,
+3,0X022D,ro,Mișcare neașteptată în timpul reglarii ergonomice,Mișcare neașteptată în timpul reglarii ergonomice,
+1,0X030A,ro,Defecțiune hardware,Depășirea limitei de poziție,Faceți clic pe ELIMINARE pentru a restaura
+8,0X030A,ro,Defecțiune hardware,Depășirea limitei de poziție,Faceți clic pe ELIMINARE pentru a restaura
+1,0X030B,ro,Defecțiune hardware,Depășirea limitei de poziție,Faceți clic pe ELIMINARE pentru a restaura
+8,0X030B,ro,Defecțiune hardware,Depășirea limitei de poziție,Faceți clic pe ELIMINARE pentru a restaura
+3,0X030C,ro,Depășiți limita de poziție ergonomică,Depășiți limita de poziție ergonomică,
+9,0X030C,ro,Depășiți limita de poziție ergonomică,Depășiți limita de poziție ergonomică,
+3,0X030D,ro,Depășiți limita de poziție ergonomică,Depășiți limita de poziție ergonomică,
+9,0X030D,ro,Depășiți limita de poziție ergonomică,Depășiți limita de poziție ergonomică,
+1,0X030D,ro,Depășirea limitei de poziție,Depășirea limitei de poziție,Vă rugăm să vă mutați înapoi
+8,0X030D,ro,Depășirea limitei de poziție,Depășirea limitei de poziție,Vă rugăm să vă mutați înapoi
+1,0X031A,ro,Mișcare anormală,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+8,0X031A,ro,Mișcare anormală,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+1,0X031B,ro,Mișcare anormală,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+8,0X031B,ro,Mișcare anormală,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+1,0X040B,ro,Funcționare prea rapidă,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+8,0X040B,ro,Funcționare prea rapidă,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+1,0X050B,ro,Funcționare prea rapidă,Depășirea limitei de viteză,Faceți clic pe ELIMINARE pentru a restaura
+8,0X050B,ro,Funcționare prea rapidă,Depășirea limitei de viteză,Faceți clic pe ELIMINARE pentru a restaura
+3,0X050D,ro,Mișcare anormală,Mișcare anormală,
+9,0X050D,ro,Mișcare anormală,Mișcare anormală,
+1,0X051B,ro,Funcționare prea rapidă,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+8,0X051B,ro,Funcționare prea rapidă,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+1,0X060B,ro,Defecțiune hardware,Depășirea limitei de poziție,Faceți clic pe ELIMINARE pentru a restaura
+8,0X060B,ro,Defecțiune hardware,Depășirea limitei de poziție,Faceți clic pe ELIMINARE pentru a restaura
+1,0X061A,ro,Funcționare anormală,Mișcare neașteptată,Faceți clic pe ELIMINARE pentru a restaura
+8,0X061A,ro,Funcționare anormală,Mișcare neașteptată,Faceți clic pe ELIMINARE pentru a restaura
+1,0X062A,ro,Mișcare anormală,Depășiți limita de viteză,Faceți clic pe ELIMINARE pentru a restaura
+8,0X062A,ro,Mișcare anormală,Depășiți limita de viteză,Faceți clic pe ELIMINARE pentru a restaura
+1,0X063A,ro,Mișcare anormală,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+8,0X063A,ro,Mișcare anormală,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+1,0X064A,ro,Mișcare anormală,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+8,0X064A,ro,Mișcare anormală,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+1,0X065A,ro,Mișcare anormală,Funcționare anormală,Faceți clic pe ELIMINARE pentru a restaura
+8,0X065A,ro,Mișcare anormală,Funcționare anormală,Faceți clic pe ELIMINARE pentru a restaura
+1,0X066A,ro,Mișcare anormală,Funcționare anormală,Faceți clic pe ELIMINARE pentru a restaura
+8,0X066A,ro,Mișcare anormală,Funcționare anormală,Faceți clic pe ELIMINARE pentru a restaura
+1,0X067A,ro,Autotestul a eșuat,Autotestul a eșuat,Faceți clic pe ELIMINARE pentru a restaura
+8,0X067A,ro,Autotestul a eșuat,Autotestul a eșuat,Faceți clic pe ELIMINARE pentru a restaura
+1,0X068A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+8,0X068A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+1,0X068B,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+1,0X335E,ro,,,
+8,0X335E,ro,,,
+8,0X068B,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+1,0X069D,ro,,,Vă rugăm să contactați serviciul clienți
+8,0X069D,ro,,,Vă rugăm să contactați serviciul clienți
+1,0X070D,ro,,,Vă rugăm să contactați serviciul clienți
+8,0X070D,ro,,,Vă rugăm să contactați serviciul clienți
+1,0X071D,ro,,,Vă rugăm să contactați serviciul clienți
+8,0X071D,ro,,,Vă rugăm să contactați serviciul clienți
+1,0X080B,ro,Brațul este blocat,Brațul este blocat,Faceți clic pe ELIMINARE pentru a restaura
+8,0X080B,ro,Brațul este blocat,Brațul este blocat,Faceți clic pe ELIMINARE pentru a restaura
+1,0X080C,ro,Brațul este blocat,Brațul este blocat,
+1,0X337E,ro,,,
+8,0X337E,ro,,,
+8,0X080C,ro,Brațul este blocat,Brațul este blocat,
+3,0X080D,ro,Depășiți limita de cuplu,Depășiți limita de cuplu,
+9,0X080D,ro,Depășiți limita de cuplu,Depășiți limita de cuplu,
+1,0X08AD,ro,Dezactivarea brațului a eșuat,Dezactivarea brațului a eșuat,Vă rugăm să încercați din nou
+1,0X08BD,ro,Activarea brațului a eșuat,Activarea brațului a eșuat,Vă rugăm să încercați din nou
+1,0X08CD,ro,Activarea brațului,Activarea brațului,
+1,0X08DD,ro,Activarea brațului a eșuat,Activarea brațului a eșuat,
+1,0X08ED,ro,Brațul este dezactivat,Brațul este dezactivat,
+3,0X090D,ro,Reglarea ergonomică automată a eșuat,Reglarea ergonomică automată a eșuat,Vă rugăm să reglați manual
+9,0X090D,ro,Reglarea ergonomică automată a eșuat,Reglarea ergonomică automată a eșuat,Vă rugăm să reglați manual
+1,0X090D,ro,,,Vă rugăm să contactați serviciul clienți
+8,0X090D,ro,,,Vă rugăm să contactați serviciul clienți
+1,0X092D,ro,Setați eroarea brațului,Setați eroarea brațului,Vă rugăm să contactați serviciul clienți
+8,0X092D,ro,Setați eroarea brațului,Setați eroarea brațului,Vă rugăm să contactați serviciul clienți
+3,0X100A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+9,0X100A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+1,0X100A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+8,0X100A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+3,0X100B,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+9,0X100B,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+3,0X100D,ro,Eroare de rețea,Eroare de rețea,
+9,0X100D,ro,Eroare de rețea,Eroare de rețea,
+1,0X101A,ro,,,Vă rugăm să reporniți sistemul
+8,0X101A,ro,,,Vă rugăm să reporniți sistemul
+1,0X102A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+8,0X102A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+1,0X110A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+3,0X110A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+8,0X110A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+9,0X110A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+3,0X110D,ro,Defecțiune hardware,Defecțiune hardware,
+9,0X110D,ro,Defecțiune hardware,Defecțiune hardware,
+1,0X114A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+8,0X114A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+1,0X114C,ro,Defecțiune hardware,Defecțiune hardware,
+8,0X114C,ro,Defecțiune hardware,Defecțiune hardware,
+1,0X120C,ro,Defecțiune baterie,Defecțiune baterie,Vă rugăm să verificați starea UPS
+8,0X120C,ro,Defecțiune baterie,Defecțiune baterie,Vă rugăm să verificați starea UPS
+3,0X120D,ro,Consola chirurgului trebuie reparată,Consola chirurgului trebuie reparată,Vă rugăm să contactați serviciul clienți
+9,0X120D,ro,Consola chirurgului trebuie reparată,Consola chirurgului trebuie reparată,Vă rugăm să contactați serviciul clienți
+1,0X121D,ro,Comutatorul de oprire de urgență este declanșat,Comutatorul de oprire de urgență este declanșat,
+8,0X121D,ro,Comutatorul de oprire de urgență este declanșat,Comutatorul de oprire de urgență este declanșat,
+1,0X124D,ro,Așteptarea recuperării căruciorului pacientului,Așteptarea recuperării căruciorului pacientului,
+1,0X125D,ro,Pană de curent a căruciorului pacientului,Pană de curent a căruciorului pacientului,
+1,0X131C,ro,Spațiu insuficient pe disc,Spațiu insuficient pe disc,
+8,0X131C,ro,Spațiu insuficient pe disc,Spațiu insuficient pe disc,
+1,0X132D,ro,Eșecul căruciorului pacientului,Eșecul căruciorului pacientului,Vă rugăm să contactați serviciul clienți
+8,0X132D,ro,Eșecul căruciorului pacientului,Eșecul căruciorului pacientului,Vă rugăm să contactați serviciul clienți
+1,0X133D,ro,,,Vă rugăm să porniți coșul pacientului
+8,0X133D,ro,,,Vă rugăm să porniți coșul pacientului
+1,0X140D,ro,Defecțiune baterie,Defecțiune baterie,Vă rugăm să contactați serviciul clienți
+8,0X140D,ro,Defecțiune baterie,Defecțiune baterie,Vă rugăm să contactați serviciul clienți
+1,0X141D,ro,Defecțiune baterie,Defecțiune baterie,Vă rugăm să contactați serviciul clienți
+8,0X141D,ro,Defecțiune baterie,Defecțiune baterie,Vă rugăm să contactați serviciul clienți
+1,0X142D,ro,Bateria trebuie înlocuită,Bateria trebuie înlocuită,Vă rugăm să contactați serviciul clienți
+8,0X142D,ro,Bateria trebuie înlocuită,Bateria trebuie înlocuită,Vă rugăm să contactați serviciul clienți
+9,0X160D,ro,Atinge limita superioară a poziției,Atinge limita superioară a poziției,atenție
+3,0X160D,ro,Atinge limita superioară a poziției,Atinge limita superioară a poziției,atenție
+9,0X161D,ro,Atinge limita inferioară a poziției,Atinge limita inferioară a poziției,atenție
+3,0X161D,ro,Atinge limita inferioară a poziției,Atinge limita inferioară a poziției,atenție
+3,0X162D,ro,Brațul principal atinge limita de poziție,Brațul principal atinge limita de poziție,Vă rugăm să ridicați vizualizatorul 3D
+9,0X162D,ro,Brațul principal atinge limita de poziție,Brațul principal atinge limita de poziție,Vă rugăm să ridicați vizualizatorul 3D
+3,0X163D,ro,3D-Viewer atinge limita de înălțime,3D-Viewer atinge limita de înălțime,Vă rugăm să coborâți brațul principal
+9,0X163D,ro,3D-Viewer atinge limita de înălțime,3D-Viewer atinge limita de înălțime,Vă rugăm să coborâți brațul principal
+1,0X2A1A,ro,Defect de alimentare,Defect de alimentare,Faceți clic pe ELIMINARE pentru a restaura
+8,0X2A1A,ro,Defect de alimentare,Defect de alimentare,Faceți clic pe ELIMINARE pentru a restaura
+1,0X2A2A,ro,Defect de alimentare,Defect de alimentare,Faceți clic pe ELIMINARE pentru a restaura
+8,0X2A2A,ro,Defect de alimentare,Defect de alimentare,Faceți clic pe ELIMINARE pentru a restaura
+1,0X2B1D,ro,Eșecul pedalei,Eșecul pedalei,
+8,0X2B1D,ro,Eșecul pedalei,Eșecul pedalei,
+1,0X2B2D,ro,Eșecul pedalei,Eșecul pedalei,
+8,0X2B2D,ro,Eșecul pedalei,Eșecul pedalei,
+1,0X2B3D,ro,Nu se poate trece la braț fără instrument,Nu se poate trece la braț fără instrument,
+8,0X2B3D,ro,Nu se poate trece la braț fără instrument,Nu se poate trece la braț fără instrument,
+1,0X2B4D,ro,Instrumentul este demontat,Instrumentul este demontat,
+8,0X2B4D,ro,Instrumentul este demontat,Instrumentul este demontat,
+1,0X2B5D,ro,Poziția brațului principal nu se potrivește cu brațul sclav,Poziția brațului principal nu se potrivește cu brațul sclav,Vă rugăm să relaxați, țineți comanda manuală pentru a continua
+8,0X2B5D,ro,Poziția brațului principal nu se potrivește cu brațul sclav,Poziția brațului principal nu se potrivește cu brațul sclav,Vă rugăm să relaxați, țineți comanda manuală pentru a continua
+1,0X2B6D,ro,,,Numai instrumentul energetic poate fi activat
+8,0X2B6D,ro,,,Numai instrumentul energetic poate fi activat
+1,0X2B7D,ro,,,Vă rugăm să coborâți cotiera sau să ridicați brațul principal înainte de autotestare
+4,0X150B,ro,Defecțiune hardware,Peste limita superioară a poziției,Faceți clic pe ELIMINARE pentru a restaura
+4,0X151B,ro,Defecțiune hardware,Peste limita inferioară a poziției,Faceți clic pe ELIMINARE pentru a restaura
+4,0X080B,ro,Mișcarea căruciorului chirurgical obstrucționată,Mișcarea căruciorului chirurgical obstrucționată,Faceți clic pe ELIMINARE pentru a restaura
+8,0X2B7D,ro,,,Vă rugăm să coborâți cotiera sau să ridicați brațul principal înainte de autotestare
+1,0X2B8D,ro,,,Vă rugăm să demontați instrumentul și adaptorul înainte de autotestare
+8,0X2B8D,ro,,,Vă rugăm să demontați instrumentul și adaptorul înainte de autotestare
+1,0X2B9D,ro,Instrumentul din stânga atinge limita poziției,Instrumentul din stânga atinge limita poziției,atenție
+8,0X2B9D,ro,Instrumentul din stânga atinge limita poziției,Instrumentul din stânga atinge limita poziției,atenție
+1,0X2BAD,ro,Instrumentul drept atinge limita poziției,Instrumentul drept atinge limita poziției,atenție
+8,0X2BAD,ro,Instrumentul drept atinge limita poziției,Instrumentul drept atinge limita poziției,atenție
+1,0X2BBD,ro,Instrumentul din stânga atinge limita de rotație,Instrumentul din stânga atinge limita de rotație,atenție
+8,0X2BBD,ro,Instrumentul din stânga atinge limita de rotație,Instrumentul din stânga atinge limita de rotație,atenție
+4,0X040B,ro,Depășirea limitei de viteză,Depășirea limitei de viteză,Faceți clic pe ELIMINARE pentru a restaura
+8,0X2BCD,ro,Instrumentul drept atinge limita de rotație,Instrumentul drept atinge limita de rotație,atenție
+1,0X2BCD,ro,Instrumentul drept atinge limita de rotație,Instrumentul drept atinge limita de rotație,atenție
+1,0X2BED,ro,Instrumentul este prea înalt,Instrumentul este prea înalt,Vă rugăm să reglați înălțimea în jos
+8,0X2BED,ro,Instrumentul este prea înalt,Instrumentul este prea înalt,Vă rugăm să reglați înălțimea în jos
+1,0X2BFD,ro,Adaptorul de instrument nu a reușit să fie montat,Adaptorul de instrument nu a reușit să fie montat,
+8,0X2BFD,ro,Adaptorul de instrument nu a reușit să fie montat,Adaptorul de instrument nu a reușit să fie montat,
+1,0X2C0D,ro,Instrumentul nu a reușit să fie montat,Instrumentul nu a reușit să fie montat,
+8,0X2C0D,ro,Instrumentul nu a reușit să fie montat,Instrumentul nu a reușit să fie montat,
+1,0X2C1D,ro,Endoscopul nu a reușit să fie montat,Endoscopul nu a reușit să fie montat,
+8,0X2C1D,ro,Endoscopul nu a reușit să fie montat,Endoscopul nu a reușit să fie montat,
+1,0X2C2D,ro,Depășiți limita de utilizare a instrumentului,Depășiți limita de utilizare a instrumentului,Vă rugăm să înlocuiți
+8,0X2C2D,ro,Depășiți limita de utilizare a instrumentului,Depășiți limita de utilizare a instrumentului,Vă rugăm să înlocuiți
+1,0X2C3D,ro,,,Vă rugăm să faceți clic pe START în coșul pacientului
+8,0X2C3D,ro,,,Vă rugăm să faceți clic pe START în coșul pacientului
+1,0X2C4D,ro,Adaptorul endoscopului poate fi utilizat de mai puțin de 5 ori,Adaptorul endoscopului poate fi utilizat de mai puțin de 5 ori,
+8,0X2C4D,ro,Adaptorul endoscopului poate fi utilizat de mai puțin de 5 ori,Adaptorul endoscopului poate fi utilizat de mai puțin de 5 ori,
+1,0X2C5D,ro,Utilizarea adaptorului endoscopului va fi epuizată, vă rugăm să îl înlocuiți,Utilizarea adaptorului endoscopului va fi epuizată, vă rugăm să îl înlocuiți,
+8,0X2C5D,ro,Utilizarea adaptorului endoscopului va fi epuizată, vă rugăm să îl înlocuiți,Utilizarea adaptorului endoscopului va fi epuizată, vă rugăm să îl înlocuiți,
+1,0X2C6D,ro,Endoscopul este montat pe brațul nepermis,Endoscopul este montat pe brațul nepermis,
+8,0X2C6D,ro,Endoscopul este montat pe brațul nepermis,Endoscopul este montat pe brațul nepermis,
+1,0X2C8D,ro,Este acceptat doar un singur cuțit cu ultrasunete,Este acceptat doar un singur cuțit cu ultrasunete,
+8,0X2C8D,ro,Este acceptat doar un singur cuțit cu ultrasunete,Este acceptat doar un singur cuțit cu ultrasunete,
+1,0X2C9D,ro,Instrumentul din stânga atinge limita de adâncime,Instrumentul din stânga atinge limita de adâncime,atenție
+8,0X2C9D,ro,Instrumentul din stânga atinge limita de adâncime,Instrumentul din stânga atinge limita de adâncime,atenție
+1,0X2CAD,ro,Instrumentul drept atinge limita de adâncime,Instrumentul drept atinge limita de adâncime,atenție
+8,0X2CAD,ro,Instrumentul drept atinge limita de adâncime,Instrumentul drept atinge limita de adâncime,atenție
+1,0X2CBD,ro,Instrumentul din stânga atinge limita poziției,Instrumentul din stânga atinge limita poziției,atenție
+8,0X2CBD,ro,Instrumentul din stânga atinge limita poziției,Instrumentul din stânga atinge limita poziției,atenție
+1,0X2CCD,ro,Instrumentul drept atinge limita poziției,Instrumentul drept atinge limita poziției,atenție
+8,0X2CCD,ro,Instrumentul drept atinge limita poziției,Instrumentul drept atinge limita poziției,atenție
+1,0X2CDD,ro,,,Vă rugăm să călcați pe pedala corectă
+8,0X2CDD,ro,,,Vă rugăm să călcați pe pedala corectă
+1,0X2CED,ro,Semnalul pedalei nu este activat,Semnalul pedalei nu este activat,Vă rugăm să reglați unghiul piciorului
+8,0X2CED,ro,Semnalul pedalei nu este activat,Semnalul pedalei nu este activat,Vă rugăm să reglați unghiul piciorului
+1,0X2CFD,ro,Este acceptat doar un singur instrument monopolar,Este acceptat doar un singur instrument monopolar,
+8,0X2CFD,ro,Este acceptat doar un singur instrument monopolar,Este acceptat doar un singur instrument monopolar,
+1,0X2D0D,ro,Este acceptat doar un singur instrument bipolar,Este acceptat doar un singur instrument bipolar,
+8,0X2D0D,ro,Este acceptat doar un singur instrument bipolar,Este acceptat doar un singur instrument bipolar,
+1,0X2D1D,ro,,,Vă rugăm să eliberați butonul de reglare
+8,0X2D1D,ro,,,Vă rugăm să eliberați butonul de reglare
+1,0X2D2D,ro,,,Vă rugăm să eliberați butonul de reglare a umărului
+8,0X2D2D,ro,,,Vă rugăm să eliberați butonul de reglare a umărului
+1,0X2D3D,ro,,,Vă rugăm să potriviți mânerele la comandă prin rotirea mânerului
+8,0X2D3D,ro,,,Vă rugăm să potriviți mânerele la comandă prin rotirea mânerului
+1,0X2D4D,ro,Abatere excesivă de rotație,Abatere excesivă de rotație,Vă rugăm să potriviți mânerele pe control prin strângere
+8,0X2D4D,ro,Abatere excesivă de rotație,Abatere excesivă de rotație,Vă rugăm să potriviți mânerele pe control prin strângere
+8,0X2D5D,ro,Cuțitul cu ultrasunete este activat prea mult timp,Cuțitul cu ultrasunete este activat prea mult timp,Vă rugăm să eliberați pedala
+1,0X2D5D,ro,Cuțitul cu ultrasunete este activat prea mult timp,Cuțitul cu ultrasunete este activat prea mult timp,Vă rugăm să eliberați pedala
+1,0X2D6D,ro,Nu rotiți articulația de rotație în timpul activării cuțitului cu ultrasunete,Nu rotiți articulația de rotație în timpul activării cuțitului cu ultrasunete,
+8,0X2D6D,ro,Nu rotiți articulația de rotație în timpul activării cuțitului cu ultrasunete,Nu rotiți articulația de rotație în timpul activării cuțitului cu ultrasunete,
+1,0X2D7D,ro,,,Vă rugăm să ieșiți din modul de memorie a înălțimii instrumentului
+8,0X2D7D,ro,,,Vă rugăm să ieșiți din modul de memorie a înălțimii instrumentului
+1,0X2D8D,ro,,,Vă rugăm să vă autentificați
+8,0X2D8D,ro,,,Vă rugăm să vă autentificați
+1,0X2D9D,ro,Endoscopul atinge limita poziției,Endoscopul atinge limita poziției,atenție
+8,0X2D9D,ro,Endoscopul atinge limita poziției,Endoscopul atinge limita poziției,atenție
+1,0X2DAD,ro,,,Vă rugăm să măriți
+8,0X2DAD,ro,,,Vă rugăm să măriți
+1,0X2DBD,ro,,,Vă rugăm să micșorați
+8,0X2DBD,ro,,,Vă rugăm să micșorați
+1,0X2DCD,ro,,,Vă rugăm să rotiți endoscopul în sensul acelor de ceasornic
+8,0X2DCD,ro,,,Vă rugăm să rotiți endoscopul în sensul acelor de ceasornic
+1,0X2DDD,ro,,,Vă rugăm să rotiți endoscopul în sens invers acelor de ceasornic
+8,0X2DDD,ro,,,Vă rugăm să rotiți endoscopul în sens invers acelor de ceasornic
+1,0X2DED,ro,,,Vă rugăm să reglați endoscopul în jos
+8,0X2DED,ro,,,Vă rugăm să reglați endoscopul în jos
+1,0X2DFD,ro,Coborâți brațul principal sau ridicați vizualizatorul 3D înainte de autotestare,Coborâți brațul principal sau ridicați vizualizatorul 3D înainte de autotestare,
+8,0X2DFD,ro,Coborâți brațul principal sau ridicați vizualizatorul 3D înainte de autotestare,Coborâți brațul principal sau ridicați vizualizatorul 3D înainte de autotestare,
+1,0X2E0D,ro,,,Vă rugăm să verificați pedala de comutare a brațului
+8,0X2E0D,ro,,,Vă rugăm să verificați pedala de comutare a brațului
+1,0X2E1D,ro,,,Vă rugăm să verificați pedala de ambreiaj
+8,0X2E1D,ro,,,Vă rugăm să verificați pedala de ambreiaj
+1,0X2E2D,ro,,,Vă rugăm să verificați pedala endoscopului
+8,0X2E2D,ro,,,Vă rugăm să verificați pedala endoscopului
+1,0X2E3D,ro,,,Verificați pedala de tăiere din stânga
+8,0X2E3D,ro,,,Verificați pedala de tăiere din stânga
+1,0X2E4D,ro,,,Verificați pedala de coag stânga
+8,0X2E4D,ro,,,Verificați pedala de coag stânga
+1,0X2E5D,ro,,,Verificați pedala de tăiere din dreapta
+8,0X2E5D,ro,,,Verificați pedala de tăiere din dreapta
+1,0X2E6D,ro,,,Verificați pedala de coag dreaptă
+8,0X2E6D,ro,,,Verificați pedala de coag dreaptă
+4,0X090B,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+1,0X2E7D,ro,,,Verificați butonul de reglare a brațului slave
+8,0X2E7D,ro,,,Verificați butonul de reglare a brațului slave
+1,0X2EAD,ro,,,Vă rugăm să verificați senzorul de intrare
+8,0X2EAD,ro,,,Vă rugăm să verificați senzorul de intrare
+1,0X2EBD,ro,,,Verificați senzorul piciorului stâng
+8,0X2EBD,ro,,,Verificați senzorul piciorului stâng
+1,0X2ECD,ro,,,Verificați senzorul piciorului drept
+8,0X2ECD,ro,,,Verificați senzorul piciorului drept
+1,0X2EDD,ro,,,Vă rugăm să finalizați reglarea înainte de autotestare
+8,0X2EDD,ro,,,Vă rugăm să finalizați reglarea înainte de autotestare
+1,0X2EFD,ro,Vă rugăm să verificați semnalul ambreiajului,Vă rugăm să verificați semnalul ambreiajului,
+8,0X2EFD,ro,Vă rugăm să verificați semnalul ambreiajului,Vă rugăm să verificați semnalul ambreiajului,
+1,0X2F0D,ro,Baterie descărcată,Baterie descărcată,Vă rugăm să contactați serviciul clienți
+8,0X2F0D,ro,Baterie descărcată,Baterie descărcată,Vă rugăm să contactați serviciul clienți
+1,0X2F1D,ro,Baterie descărcată,Baterie descărcată,Vă rugăm să contactați serviciul clienți
+8,0X2F1D,ro,Baterie descărcată,Baterie descărcată,Vă rugăm să contactați serviciul clienți
+8,0X2F2D,ro,Depășiți limita de utilizare a trocarului,Depășiți limita de utilizare a trocarului,Vă rugăm să-l înlocuiți
+1,0X2F2D,ro,Depășiți limita de utilizare a trocarului,Depășiți limita de utilizare a trocarului,Vă rugăm să-l înlocuiți
+1,0X2F3D,ro,Nu montați instrumente de energie de același tip,Nu montați instrumente de energie de același tip,
+8,0X2F3D,ro,Nu montați instrumente de energie de același tip,Nu montați instrumente de energie de același tip,
+1,0X2F4D,ro,Brațul slave 1 nu poate emite energie atunci când este montat bipolar,Brațul slave 1 nu poate emite energie atunci când este montat bipolar,
+8,0X2F4D,ro,Brațul slave 1 nu poate emite energie atunci când este montat bipolar,Brațul slave 1 nu poate emite energie atunci când este montat bipolar,
+1,0X2F5D,ro,Brațul slave 4 nu poate emite energie atunci când este montat bipolar,Brațul slave 4 nu poate emite energie atunci când este montat bipolar,
+8,0X2F5D,ro,Brațul slave 4 nu poate emite energie atunci când este montat bipolar,Brațul slave 4 nu poate emite energie atunci când este montat bipolar,
+1,0X2F6D,ro,Ambreiajul este declanșat mai mult de 1 minut,Ambreiajul este declanșat mai mult de 1 minut,
+8,0X2F6D,ro,Ambreiajul este declanșat mai mult de 1 minut,Ambreiajul este declanșat mai mult de 1 minut,
+1,0X2F9D,ro,Conexiunea endoscopului este anormală,Conexiunea endoscopului este anormală,Vă rugăm să reintroduceți endoscopul
+8,0X2F9D,ro,Conexiunea endoscopului este anormală,Conexiunea endoscopului este anormală,Vă rugăm să reintroduceți endoscopul
+1,0X2FAD,ro,Vă rugăm să remontați adaptorul de instrument,Vă rugăm să remontați adaptorul de instrument,
+1,0X2FBD,ro,Activarea energiei,Activarea energiei,
+1,0X2FFD,ro,Instrumentul nu a reușit să fie montat,Instrumentul nu a reușit să fie montat,Vă rugăm să-l montați din nou
+8,0X338D,ro,În procesul de reglare ergonomică,În procesul de reglare ergonomică,Vă rugăm să nu mișcați brațul principal
+1,0X338D,ro,În procesul de reglare ergonomică,În procesul de reglare ergonomică,Vă rugăm să nu mișcați brațul principal
+8,0X339D,ro,În procesul de reglare ergonomică,În procesul de reglare ergonomică,Vă rugăm să nu mișcați brațul principal
+1,0X339D,ro,În procesul de reglare ergonomică,În procesul de reglare ergonomică,Vă rugăm să nu mișcați brațul principal
+8,0X33AD,ro,În procesul de reglare ergonomică,În procesul de reglare ergonomică,Vă rugăm să nu mișcați brațul principal
+1,0X33AD,ro,În procesul de reglare ergonomică,În procesul de reglare ergonomică,Vă rugăm să nu mișcați brațul principal
+1,0X33BD,ro,Reglare ergonomică refuzată,Reglare ergonomică refuzată,
+8,0X33BD,ro,Reglare ergonomică refuzată,Reglare ergonomică refuzată,
+4,0X010A,ro,Defecțiune hardware,Depășiți limita de abatere a mișcării,Faceți clic pe ELIMINARE pentru a restaura
+1,0X33CD,ro,,,Vă rugăm să puneți capul în vizualizatorul 3D
+8,0X33CD,ro,,,Vă rugăm să puneți capul în vizualizatorul 3D
+1,0X33DD,ro,,,Vă rugăm să reveniți la pagina principală
+8,0X33DD,ro,,,Vă rugăm să reveniți la pagina principală
+1,0X33ED,ro,Eroare de comunicare a controlerului endoscopului,Eroare de comunicare a controlerului endoscopului,
+1,0X33FD,ro,Conexiunea trocarului a eșuat,Conexiunea trocarului a eșuat,
+1,0X340D,ro,Trocarul nu este instalat,Trocarul nu este instalat,
+1,0X341D,ro,,,Vă rugăm să eliberați pedala de energie
+8,0X341D,ro,,,Vă rugăm să eliberați pedala de energie
+1,0X342D,ro,Vă rugăm să contactați serviciul clienți,Vă rugăm să contactați serviciul clienți,
+1,0X343D,ro,Vă rugăm să contactați serviciul clienți,Vă rugăm să contactați serviciul clienți,
+1,0X350D,ro,Reglarea automată a brațului slave,Reglarea automată a brațului slave,Vă rugăm să țineți mâinile pe cotiere
+1,0X400B,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,Faceți clic pe ELIMINARE pentru a restaura
+4,0X135D,ro,Eșecul eliberării bazei,Eșecul eliberării bazei,
+4,0X134D,ro,Eșecul bazei blocate,Eșecul bazei blocate,
+4,0X136D,ro,Presiune anormală a uleiului de suport,Presiune anormală a uleiului de suport,
+8,0X400B,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,Faceți clic pe ELIMINARE pentru a restaura
+8,0X400D,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,
+1,0X400D,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,
+8,0X401D,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,Nu este permisă nicio intervenție chirurgicală
+8,0X402D,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,Funcționare nerecomandată
+8,0X403D,ro,Calitate medie a rețelei,Calitate medie a rețelei,Vă rugăm să operați încet cu precauție
+8,0X404D,ro,Calitatea medie a rețelei,Calitatea medie a rețelei,Vă rugăm să operați încet
+8,0X410D,ro,Eroare terminală locală,Eroare terminală locală,
+1,0X410D,ro,Eroare terminală locală,Eroare terminală locală,
+8,0X411D,ro,Terminal local Deconectare,Terminal local Deconectare,
+1,0X411D,ro,Terminal local Deconectare,Terminal local Deconectare,
+8,0X412D,ro,Comutați controlul la terminalul local,Comutați controlul la terminalul local,
+1,0X412D,ro,Comutați controlul la terminalul local,Comutați controlul la terminalul local,
+8,0X413D,ro,Comutați controlul la terminalul de la distanță,Comutați controlul la terminalul de la distanță,
+1,0X413D,ro,Comutați controlul la terminalul de la distanță,Comutați controlul la terminalul de la distanță,
+8,0X414D,ro,Vă rugăm să verificați setările de rețea,Vă rugăm să verificați setările de rețea,
+8,0X415D,ro,Vă rugăm să verificați codul de verificare,Vă rugăm să verificați codul de verificare,
+1,0X416D,ro,Rețeaua este conectată,Rețeaua este conectată,
+8,0X416D,ro,Rețeaua este conectată,Rețeaua este conectată,
+1,0X417D,ro,Rețeaua este deconectată,Rețeaua este deconectată,
+8,0X417D,ro,Rețeaua este deconectată,Rețeaua este deconectată,
+8,0X420D,ro,Vă rugăm să preluați înainte de închidere,Vă rugăm să preluați înainte de închidere,
+1,0X420D,ro,Vă rugăm să preluați înainte de închidere,Vă rugăm să preluați înainte de închidere,
+8,0X450B,ro,Eroare stație de lucru de comunicare,Software-ul agentului este anormal,Faceți clic pe ELIMINARE pentru a restaura
+1,0X450B,ro,Eroare stație de lucru de comunicare,Software-ul agentului este anormal,Faceți clic pe ELIMINARE pentru a restaura
+1,0X451D,ro,Comunicarea stației de lucru de comunicare la distanță este anormală,Comunicarea stației de lucru de comunicare la distanță este anormală,
+8,0X451D,ro,Comunicarea stației de lucru de comunicare la distanță este anormală,Comunicarea stației de lucru de comunicare la distanță este anormală,
+1,0X452B,ro,Eroare stație de lucru de comunicare,Defecțiune locală TSA,Faceți clic pe ELIMINARE pentru a restaura
+8,0X452B,ro,Eroare stație de lucru de comunicare,Defecțiune locală TSA,Faceți clic pe ELIMINARE pentru a restaura
+1,0X453B,ro,Eroare stație de lucru de comunicare,Eroare codec video,Faceți clic pe ELIMINARE pentru a restaura
+8,0X453B,ro,Eroare stație de lucru de comunicare,Eroare codec video,Faceți clic pe ELIMINARE pentru a restaura
+1,0X454D,ro,Versiunea software-ului TSA este incompatibilă,Versiunea software-ului TSA este incompatibilă,
+8,0X454D,ro,Versiunea software-ului TSA este incompatibilă,Versiunea software-ului TSA este incompatibilă,
+1,0X455A,ro,Excepție de date,Excepție de date,Faceți clic pe ELIMINARE pentru a restaura
+8,0X500D,ro,Date de control false,Date de control false,
+1,0X533D,ro,Comunicare anormală,Comunicare anormală,
+8,0X533D,ro,Comunicare anormală,Comunicare anormală,
+8,0X606D,ro,Brațul principal nu poate fi depozitat,Brațul principal nu poate fi depozitat,
+1,0X606D,ro,Brațul principal nu poate fi depozitat,Brațul principal nu poate fi depozitat,
+1,0X607D,ro,Implementare eșuată,Implementare eșuată,
+1,0X608D,ro,Stow a eșuat,Stow a eșuat,
+5,0X610A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+A,0X610A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+5,0X622B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X622B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X623B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X623B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X626B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X626B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+1,0X626D,ro,Defecțiune motor,Defecțiune motor,Vă rugăm să contactați serviciul clienți
+8,0X626D,ro,Defecțiune motor,Defecțiune motor,
+5,0X627B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X627B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X640B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X640B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X641B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X641B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X642B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X642B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X643B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X643B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X651B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X651B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X652B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X652B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X653B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X653B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X660B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X660B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X662B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X662B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X663B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X663B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+8,0X090E,ro,,,
+8,0X665A,ro,Excepție de date,Excepție de date,Faceți clic pe ELIMINARE pentru a restaura
+5,0X665B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X665B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X666B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X666B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X66AB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X66AB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X66CB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X66CB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X680B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X680B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X682B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X682B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X683B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X683B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X685B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X685B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X686B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X686B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X68AB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X68AB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X68CB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X68CB,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6A0B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6A0B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6A4B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6A4B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6A5B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6A5B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6A6B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6A6B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6A7B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6A7B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6B0B,ro,Defecțiune motor,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6B0B,ro,Defecțiune motor,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6B1B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6B1B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6B2B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6B2B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6B4B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6B4B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6B5B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6B5B,ro,Date de control false,Date de control false,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C0B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C0B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C1B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C1B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C2B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C2B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C3B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+4,0X030A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+4,0X100A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+4,0X110A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C3B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C4B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C4B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C5B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C5B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C6B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C6B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C7B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C7B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C8B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C8B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6C9B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6C9B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D0B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D0B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D1B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D1B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D2B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D2B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D3B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D3B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D4B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D4B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D5B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D5B,ro,Defecțiune motor,Defecțiune motor,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D6A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D6A,ro,Defecțiune hardware,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D7B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D7B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D7D,ro,Defecțiune motor,Defecțiune motor,
+5,0X6D8B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D8B,ro,Defecțiune motor,Defecțiune hardware,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6D9B,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6D9B,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6DAB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6DAB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6DCB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6DCB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6DDB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6DDB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+5,0X6DEB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+A,0X6DEB,ro,Defecțiune motor,Defecțiunea driverului motorului,Faceți clic pe ELIMINARE pentru a restaura
+8,0X555E,ro,,,
+8,0X556E,ro,,,
+8,0X557E,ro,,,
+8,0X558E,ro,,,
+1,0X70BD,ro,Citirea informațiilor de rulare a expirat,Citirea informațiilor de rulare a expirat,
+8,0X70BD,ro,Citirea informațiilor de rulare a expirat,Citirea informațiilor de rulare a expirat,
+1,0X70CD,ro,CPU este supraîncărcat,CPU este supraîncărcat,
+8,0X70CD,ro,CPU este supraîncărcat,CPU este supraîncărcat,
+1,0X70DD,ro,Semnal pedală deconectat,Semnal pedală deconectat,
+5,0X801D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+A,0X801D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+5,0X802D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+A,0X802D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+5,0X803D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+A,0X803D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+5,0X804D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+A,0X804D,ro,Defecțiunea driverului motorului,Defecțiunea driverului motorului,
+6,0XB01B,ro,Imagine anormală,Achiziție anormală de imagini,Faceți clic pe ELIMINARE pentru a restaura
+6,0XB02B,ro,Conexiunea endoscopului este anormală,Conexiunea endoscopului este anormală,Vă rugăm să înlocuiți endoscopul
+6,0XB03B,ro,Endoscopul deconectat,Endoscopul deconectat,Faceți clic pe ELIMINARE pentru a restaura
+6,0XB03D,ro,Endoscopul deconectat,Endoscopul deconectat,
+6,0XB04B,ro,Imagine anormală,Imagine necontinuă,Faceți clic pe ELIMINARE pentru a restaura
+6,0XB05D,ro,,,Vă rugăm să reporniți controlerul endoscopului
+6,0XB06D,ro,,,Vă rugăm să reporniți controlerul endoscopului
+6,0XB07A,ro,Eroare de rețea,Eroare de rețea,Faceți clic pe ELIMINARE pentru a restaura
+6,0XB50C,ro,Anomalie de conectare a discului flash USB,Anomalie de conectare a discului flash USB,
+6,0XB50D,ro,Anomalie de conectare a discului flash USB,Anomalie de conectare a discului flash USB,
+6,0XB51C,ro,Spațiu insuficient pe disc pentru controlerul endoscopului,Spațiu insuficient pe disc pentru controlerul endoscopului,Vă rugăm să contactați serviciul clienți
+6,0XB51D,ro,Spațiu insuficient pe disc pentru controlerul endoscopului,Spațiu insuficient pe disc pentru controlerul endoscopului,Vă rugăm să contactați serviciul clienți
+6,0XB52C,ro,CPU controlerului endoscopului este supraîncărcat,CPU controlerului endoscopului este supraîncărcat,
+6,0XB52D,ro,CPU controlerului endoscopului este supraîncărcat,CPU controlerului endoscopului este supraîncărcat,
+6,0XB53C,ro,Spațiu flash USB insuficient,Spațiu flash USB insuficient,Vă rugăm să-l înlocuiți
+6,0XB53D,ro,Spațiu flash USB insuficient,Spațiu flash USB insuficient,Vă rugăm să-l înlocuiți
+6,0XBA0D,ro,Imagine Out-Sync,Imagine Out-Sync,Vă rugăm să înlocuiți endoscopul
+6,0XBA1A,ro,,,Vă rugăm să reporniți controlerul endoscopului
+6,0XBA2A,ro,Efect slab de afișare a efectului 3D,Efect slab de afișare a efectului 3D,Vă rugăm să reporniți controlerul endoscopului
+6,0XBA3D,ro,,,Vă rugăm să reporniți controlerul endoscopului
+6,0XBA5C,ro,Desktopul Aero a început să eșueze,Desktopul Aero a început să eșueze,
+6,0XBA5D,ro,Desktopul Aero a început să eșueze,Desktopul Aero a început să eșueze,
+6,0XBA6C,ro,Disc flash USB neautorizat,Disc flash USB neautorizat,Vă rugăm să-l utilizați după autentificare
+6,0XBA6D,ro,Disc flash USB neautorizat,Disc flash USB neautorizat,Vă rugăm să-l utilizați după autentificare
+6,0XBA7D,ro,Conexiunea platformei energetice a eșuat,Conexiunea platformei energetice a eșuat,Vă rugăm să contactați serviciul clienți
+6,0XBA8D,ro,Identificarea tipului de endoscop a eșuat,Identificarea tipului de endoscop a eșuat,Vă rugăm să înlocuiți endoscopul
+1,0X310E,ro,,,
+1,0X500E,ro,,,
+1,0X501E,ro,,,
+1,0X502E,ro,,,
+1,0X503E,ro,,,
+1,0X504E,ro,,,
+1,0X505E,ro,,,
+1,0X506E,ro,,,
+1,0X507E,ro,,,
+1,0X508E,ro,,,
+1,0X509E,ro,,,
+1,0X50AE,ro,,,
+1,0X50BE,ro,,,
+1,0X50CE,ro,,,
+1,0X50DE,ro,,,
+1,0X50EE,ro,,,
+1,0X510E,ro,,,
+1,0X511E,ro,,,
+1,0X550E,ro,,,
+1,0X551E,ro,,,
+1,0X552E,ro,,,
+1,0X553E,ro,,,
+1,0X554E,ro,,,
+1,0X555E,ro,,,
+1,0X556E,ro,,,
+1,0X557E,ro,,,
+1,0X558E,ro,,,
+1,0X570E,ro,,,
+1,0X571E,ro,,,
+1,0X572E,ro,,,
+1,0X700E,ro,,,
+1,0X701E,ro,,,
+1,0X702E,ro,,,
+1,0X703E,ro,,,
+1,0X704E,ro,,,
+1,0X705E,ro,,,
+1,0X706E,ro,,,
+1,0X707E,ro,,,
+1,0X708E,ro,,,
+1,0X709E,ro,,,
+1,0X70AE,ro,,,
+1,0X70CE,ro,,,
+1,0X710E,ro,,,
+1,0X405E,ro,,,
+8,0X405E,ro,,,
+1,0X66BD,ro,,Vă rugăm să contactați serviciul clienți,
+1,0X143D,ro,Baterie epuizată,Baterie epuizată,
+8,0X143D,ro,Baterie epuizată,Baterie epuizată,
+1,0X144D,ro,Baterie descărcată,Baterie descărcată,
+8,0X144D,ro,Baterie descărcată,Baterie descărcată,
+6,0XBA9D,ro,Parametrii endoscopului sunt configurați,Parametrii endoscopului sunt configurați,
+1,0X2BDD,ro,Instrumentul din dreapta și din stânga atinge limita de rotație,Instrumentul din dreapta și din stânga atinge limita de rotație,
+1,0X666D,ro,Versiunea software-ului este inconsecventă,Versiunea software-ului este inconsecventă,
+8,0X666D,ro,Versiunea software-ului este inconsecventă,Versiunea software-ului este inconsecventă,
+8,0X614D,ro,Comutați la sistemul de la distanță,Comutați la sistemul de la distanță,
+1,0X624D,ro,Comutați la sistemul local,Comutați la sistemul local,
+1,0X404A,ro,Deconectați-vă de căruciorul pacientului,Deconectați-vă de căruciorul pacientului,
+1,0X021D,ro,Instrumentul este blocat,Instrumentul este blocat,
+1,0X022E,ro,,,
+1,0X030E,ro,,,
+1,0X050E,ro,,,
+1,0X040E,ro,,,
+1,0X090E,ro,,,
+1,0X010E,ro,,,
+1,0X020E,ro,,,
+1,0X559E,ro,,,
+1,0X55AE,ro,,,
+1,0X55BE,ro,,,
+1,0X092E,ro,,,
+1,0X344D,ro,,,Vă rugăm să verificați adaptorul
+1,0X345D,ro,,,Vă rugăm să verificați instrumentul și să reinstalați adaptorul
+1,0X360D,ro,Vă rugăm să scoateți instrumentul,Vă rugăm să scoateți instrumentul,
+1,0X361D,ro,Vă rugăm să scoateți adaptorul,Vă rugăm să scoateți adaptorul,
+1,0X362D,ro,Vă rugăm să instalați adaptorul,Vă rugăm să instalați adaptorul,
+1,0X128D,ro,Master înapoi la zero eșec,Master înapoi la zero eșec,
+1,0X127D,ro,,,Vă rugăm să potriviți mânerele pe control prin strângere
+8,0X127D,ro,,,Vă rugăm să potriviți mânerele pe control prin strângere
+6,0X129D,ro,Nu a reușit să inverseze,Nu a reușit să inverseze,Vă rugăm să verificați starea conexiunii
+1,0X130D,ro,,,Vă rugăm să reintroduceți endoscopul
+6,0X144C,ro,Nu a reușit să inverseze,Nu a reușit să inverseze,Vă rugăm să resetați
+1,0X145D,ro,Căruciorul pacientului nu poate fi ajustat în starea curentă.,Căruciorul pacientului nu poate fi ajustat în starea curentă.,
+1,0X146D,ro,Vă rugăm să operați pe căruciorul pacientului,Vă rugăm să operați pe căruciorul pacientului,
+1,0X520E,ro,,,
+1,0X533E,ro,,,
+3,0X300E,ro,,,
+3,0X301E,ro,,,
+9,0X300E,ro,,,
+9,0X301E,ro,,,
+3,0X302E,ro,,,
+3,0X303E,ro,,,
+3,0X304E,ro,,,
+3,0X305E,ro,,,
+3,0X306E,ro,,,
+3,0X307E,ro,,,
+3,0X308E,ro,,,
+3,0X309E,ro,,,
+9,0X302E,ro,,,
+9,0X303E,ro,,,
+9,0X304E,ro,,,
+9,0X305E,ro,,,
+9,0X306E,ro,,,
+9,0X307E,ro,,,
+9,0X308E,ro,,,
+9,0X309E,ro,,,
+1,0X57DE,ro,,,
+1,0X57AE,ro,,,
+1,0X57BE,ro,,,
+8,0X57DE,ro,,,
+8,0X57AE,ro,,,
+8,0X57BE,ro,,,
+1,0X579E,ro,,,
+1,0X57CE,ro,,,
+1,0X514E,ro,,,
+1,0X515E,ro,,,
+1,0X516E,ro,,,
+1,0X517E,ro,,,
+1,0X518E,ro,,,
+1,0X519E,ro,,,
+1,0X521E,ro,,,
+1,0X522E,ro,,,
+1,0X523E,ro,,,
+1,0X524E,ro,,,
+1,0X525E,ro,,,
+1,0X526E,ro,,,
+1,0X527E,ro,,,
+1,0X528E,ro,,,
+1,0X529E,ro,,,
+1,0X52AE,ro,,,
+1,0X52BE,ro,,,
+1,0X52CE,ro,,,
+1,0X52DE,ro,,,
+1,0X52EE,ro,,,
+1,0X52FE,ro,,,
+1,0X530E,ro,,,
+1,0X531E,ro,,,
+1,0X532E,ro,,,
+1,0X57EE,ro,,,
+1,0X534E,ro,,,
+1,0X535E,ro,,,
+1,0X536E,ro,,,
+1,0X537E,ro,,,
+1,0X538E,ro,,,
+1,0X539E,ro,,,
+1,0X53AE,ro,,,
+1,0X53BE,ro,,,
+1,0X53CE,ro,,,
+1,0X53DE,ro,,,
+1,0X53EE,ro,,,
+1,0X53FE,ro,,,
+1,0X540E,ro,,,
+1,0X541E,ro,,,
+1,0X542E,ro,,,
+1,0X543E,ro,,,
+1,0X544E,ro,,,
+1,0X545E,ro,,,
+1,0X546E,ro,,,
+1,0X547E,ro,,,
+1,0X548E,ro,,,
+1,0X549E,ro,,,
+1,0X54AE,ro,,,
+1,0X54BE,ro,,,
+1,0X54CE,ro,,,
+1,0X54DE,ro,,,
+1,0X54EE,ro,,,
+1,0X54FE,ro,,,
+1,0X560E,ro,,,
+1,0X561E,ro,,,
+1,0X562E,ro,,,
+1,0X563E,ro,,,
+1,0X564E,ro,,,
+1,0X565E,ro,,,
+1,0X567E,ro,,,
+1,0X568E,ro,,,
+1,0X569E,ro,,,
+1,0X56AE,ro,,,
+1,0X56CE,ro,,,
+1,0X56DE,ro,,,
+1,0X56EE,ro,,,
+1,0X56FE,ro,,,
+1,0X573E,ro,,,
+1,0X574E,ro,,,
+1,0X575E,ro,,,
+1,0X576E,ro,,,
+1,0X577E,ro,,,
+1,0X578E,ro,,,
+8,0X579E,ro,,,
+8,0X57CE,ro,,,
+8,0X514E,ro,,,
+8,0X515E,ro,,,
+8,0X516E,ro,,,
+8,0X517E,ro,,,
+8,0X518E,ro,,,
+8,0X519E,ro,,,
+8,0X521E,ro,,,
+8,0X522E,ro,,,
+8,0X523E,ro,,,
+8,0X524E,ro,,,
+8,0X525E,ro,,,
+8,0X526E,ro,,,
+8,0X527E,ro,,,
+8,0X528E,ro,,,
+8,0X529E,ro,,,
+8,0X52AE,ro,,,
+8,0X52BE,ro,,,
+8,0X52CE,ro,,,
+8,0X52DE,ro,,,
+8,0X52EE,ro,,,
+8,0X52FE,ro,,,
+8,0X530E,ro,,,
+8,0X531E,ro,,,
+8,0X532E,ro,,,
+8,0X57EE,ro,,,
+8,0X534E,ro,,,
+8,0X535E,ro,,,
+8,0X536E,ro,,,
+8,0X537E,ro,,,
+8,0X538E,ro,,,
+8,0X539E,ro,,,
+8,0X53AE,ro,,,
+8,0X53BE,ro,,,
+8,0X53CE,ro,,,
+8,0X53DE,ro,,,
+8,0X53EE,ro,,,
+8,0X53FE,ro,,,
+8,0X540E,ro,,,
+8,0X541E,ro,,,
+8,0X542E,ro,,,
+8,0X543E,ro,,,
+8,0X544E,ro,,,
+8,0X545E,ro,,,
+8,0X546E,ro,,,
+8,0X547E,ro,,,
+8,0X548E,ro,,,
+8,0X549E,ro,,,
+8,0X54AE,ro,,,
+8,0X54BE,ro,,,
+8,0X54CE,ro,,,
+8,0X54DE,ro,,,
+8,0X54EE,ro,,,
+8,0X54FE,ro,,,
+8,0X560E,ro,,,
+8,0X561E,ro,,,
+8,0X562E,ro,,,
+8,0X563E,ro,,,
+8,0X564E,ro,,,
+8,0X565E,ro,,,
+8,0X567E,ro,,,
+8,0X568E,ro,,,
+8,0X569E,ro,,,
+8,0X56AE,ro,,,
+8,0X56CE,ro,,,
+8,0X56DE,ro,,,
+8,0X56EE,ro,,,
+8,0X56FE,ro,,,
+8,0X573E,ro,,,
+8,0X574E,ro,,,
+8,0X575E,ro,,,
+8,0X576E,ro,,,
+8,0X577E,ro,,,
+8,0X578E,ro,,,
+1,0X580C,ro,Nu se calculează durata de viață a instrumentului,Nu se calculează durata de viață a instrumentului,
+1,0X580E,ro,,,
+1,0X512E,ro,,,
+1,0X513E,ro,,,
+1,0X590E,ro,,,
+1,0X591E,ro,,,
+1,0X594E,ro,,,
+1,0X040D,ro,Depășiți limita de abatere a mișcării,Depășiți limita de abatere a mișcării,atenție
+8,0X040D,ro,Depășiți limita de abatere a mișcării,Depășiți limita de abatere a mișcării,atenție
+1,0X665A,ro,Excepție de date,Excepție de date,Faceți clic pe ELIMINARE pentru a restaura
+8,0X455A,ro,Excepție de date,Excepție de date,Faceți clic pe ELIMINARE pentru a restaura
+8,0X70CE,ro,,,
+1,0X581E,ro,,,
+8,0X2BDD,ro,Instrumentul din dreapta și din stânga atinge limita de rotație,Instrumentul din dreapta și din stânga atinge limita de rotație,
+6,0XB07D,ro,Rețeaua nu se conectează,Rețeaua nu se conectează,Vă rugăm să verificați cablul de comunicare
+1,0x580D,ro,Așteptați ca autotestul să se încheie,Așteptați ca autotestul să se încheie,
+1,0x581D,ro,Reglarea de ieșire mai întâi,Reglarea de ieșire mai întâi,
+1,0x582D,ro,Ieșiți mai întâi din starea confirmată chirurgicală,Ieșiți mai întâi din starea confirmată chirurgicală,
+1,0x583D,ro,Ieșiți mai întâi din controlul ambreiajului,Ieșiți mai întâi din controlul ambreiajului,
+1,0x584D,ro,Ieșiți mai întâi din controlul master-slave,Ieșiți mai întâi din controlul master-slave,
+1,0x585D,ro,Ieșiți mai întâi din controlul endoscopului,Ieșiți mai întâi din controlul endoscopului,
+6,0XB54D,ro,Port serial anormal,Port serial anormal,Vă rugăm să contactați serviciul clienți
+6,0XB55D,ro,Nu s-a putut seta parametrul imaginii,Nu s-a putut seta parametrul imaginii,Vă rugăm să încercați din nou
+6,0XB56D,ro,Instrumentul este prea departe de centrul câmpului vizual,Instrumentul este prea departe de centrul câmpului vizual,
+1,0x586D,ro,Vă rugăm să reglați distanța dintre {0} braț și {1} brațului,Vă rugăm să reglați distanța dintre {0} braț și {1} brațului,
+1,0x55CE,ro,,,
+6,0XB57D,ro,Nu s-a reușit configurarea parametrului de imagine,Nu s-a reușit configurarea parametrului de imagine,Vă rugăm să contactați serviciul clienți
+6,0XB58A,ro,Pornirea anormală a controlerului endoscopului,Pornirea anormală a controlerului endoscopului,Vă rugăm să reporniți controlerul endoscopului
+6,0XB59A,ro,Nu s-a reușit configurarea interfeței controlerului endoscopului,Nu s-a reușit configurarea interfeței controlerului endoscopului,Vă rugăm să reporniți controlerul endoscopului
+1,0X456A,ro,Excepție de date,Transferul parametrilor nu a reușit,Vă rugăm să verificați
+8,0X456A,ro,Excepție de date,Transferul parametrilor nu a reușit,Vă rugăm să verificați
+1,0X457A,ro,Excepție de date,Nu s-a reușit verificarea parametrilor,Vă rugăm să vă reconectați
+8,0X457A,ro,Excepție de date,Nu s-a reușit verificarea parametrilor,Vă rugăm să vă reconectați
+1,0X458E,ro,,,
+1,0X459E,ro,,,
+1,0X131D,ro,Repornirea nu a reușit,Repornirea nu a reușit,
+8,0X131D,ro,Repornirea nu a reușit,Repornirea nu a reușit,
+1,0X453D,ro,FPS este scăzut,FPS este scăzut,Vă rugăm să operați încet
+8,0X453D,ro,FPS este scăzut,FPS este scăzut,Vă rugăm să operați încet
+1,0X587D,ro,Maestrul se resetează,Maestrul se resetează,
+1,0X88BE,ro,,,
+8,0X587D,ro,Maestrul se resetează,Maestrul se resetează,
+8,0X88BE,ro,,,
+1,0X103A,ro,Eroare de rețea,Conexiunea cablului de rețea a pacientului a eșuat,Vă rugăm să verificați și să faceți clic pe ELIMINARE pentru a restaura
+1,0X104A,ro,Eroare de rețea,Conexiunea cablului de urgență a eșuat,Vă rugăm să verificați și să faceți clic pe ELIMINARE pentru a restaura
+1,0X105A,ro,Defecțiune hardware,Certificat de autorizare invalidat,Vă rugăm să reporniți sistemul
+8,0X105A,ro,Defecțiune hardware,Certificat de autorizare invalidat,Vă rugăm să reporniți sistemul
+1,0X588D,ro,Dispozitivul audio al consolei chirurgului nu se conectează,Dispozitivul audio al consolei chirurgului nu se conectează,Vă rugăm să contactați serviciul clienți
+1,0X589D,ro,Dispozitivul audio al controlerului endoscopului nu se conectează,Dispozitivul audio al controlerului endoscopului nu se conectează,Vă rugăm să contactați serviciul clienți
+1,0X591D,ro,Excepție de serviciu audio,Excepție de serviciu audio,Vă rugăm să contactați serviciul clienți
+1,0X592D,ro,Serviciul de control al interfeței consolei chirurgului este anormal,Serviciul de control al interfeței consolei chirurgului este anormal,Vă rugăm să contactați serviciul clienți
+1,0X593D,ro,Instrument prea înalt, vă rugăm să reglați în jos,Instrument prea înalt, vă rugăm să reglați în jos,
+1,0X594D,ro,Interferența dintre stânga și dreapta,Interferența dintre stânga și dreapta,Vă rugăm să ajustați
+1,0X88DE,ro,,,
+8,0X594D,ro,Interferența dintre stânga și dreapta,Interferența dintre stânga și dreapta,Vă rugăm să ajustați
+1,0X072A,ro,Funcționare prea rapidă,strângeți prea mult,Vă rugăm să verificați și să faceți clic pe ELIMINARE pentru a restaura
+1,0X072D,ro,strângeți prea mult,strângeți prea mult,
+1,0X073A,ro,Defecțiune hardware,Anomalia Hall,Vă rugăm să verificați și să faceți clic pe ELIMINARE pentru a restaura
+8,0X072A,ro,Funcționare prea rapidă,strângeți prea mult,Vă rugăm să verificați și să faceți clic pe ELIMINARE pentru a restaura
+8,0X072D,ro,strângeți prea mult,strângeți prea mult,
+8,0X073A,ro,Defecțiune hardware,Anomalia Hall,Vă rugăm să verificați și să faceți clic pe ELIMINARE pentru a restaura
+1,0X595D,ro,Dispozitivul audio al consolei chirurgului este anormal,Dispozitivul audio al consolei chirurgului este anormal,Vă rugăm să contactați serviciul clienți
+1,0X596D,ro,Dispozitivul audio al controlerului endoscopului este anormal,Dispozitivul audio al controlerului endoscopului este anormal,Vă rugăm să contactați serviciul clienți
+1,0X460D,ro,Funcționarea nu este permisă în timpul comutatorului de control,Funcționarea nu este permisă în timpul comutatorului de control,
+8,0X460D,ro,Funcționarea nu este permisă în timpul comutatorului de control,Funcționarea nu este permisă în timpul comutatorului de control,
+6,0XB60D,ro,Conexiune anormală a fasciculului optic,Conexiune anormală a fasciculului optic,Vă rugăm să inspectați conexiunile.
+6,0XB61D,ro,Linia de control a sursei de lumină rece anormală,Linia de control a sursei de lumină rece anormală,Vă rugăm să inspectați conexiunile.
+1,0X597E,ro,,,
+6,0XB62D,ro,Temperatura sursei de lumină rece este prea ridicată,Temperatura sursei de lumină rece este prea ridicată,
+6,0XB63D,ro,Durata de viață a becului rece este apropiată de durata de viață,Durata de viață a becului rece este apropiată de durata de viață,
+6,0XB64D,ro,Durata de viață a becului rece este apropiată de durata de viață,Durata de viață a becului rece este apropiată de durata de viață,
+1,0X122D,ro,Comutatorul de oprire de urgență este declanșat,Comutatorul de oprire de urgență este declanșat,
+8,0X122D,ro,Comutatorul de oprire de urgență este declanșat,Comutatorul de oprire de urgență este declanșat,
+1,0X588E,ro,,,
+1,0X597D,ro,Dispozitivul audio al căruciorului pacientului nu este conectat,Dispozitivul audio al căruciorului pacientului nu este conectat,Vă rugăm să contactați serviciul clienți
+1,0X598D,ro,Dispozitivul audio al căruciorului pacientului este anormal,Dispozitivul audio al căruciorului pacientului este anormal,Vă rugăm să contactați serviciul clienți
+1,0X353D,ro,Deconectați cablurile cu cărucior pacient în modul de simulare,Deconectați cablurile cu cărucior pacient în modul de simulare,
+1,0X352C,ro,Deconectare comunicare simulator,Deconectare comunicare simulator,Verificați dacă cablul de rețea este conectat
+1,0X023D,ro,Brațul este blocat,Brațul este blocat,
+1,0X599D,ro,Vă rugăm să verificați numărul de serie al brațului,Vă rugăm să verificați numărul de serie al brațului,
+1,0X129D,ro,Vă rugăm să pășiți endoscop pedalați din nou,Vă rugăm să pășiți endoscop pedalați din nou,
+1,0X602E,ro,,,
+1,0X602D,ro,,,Vă rugăm să reveniți la pagina principală
+1,0X603E,ro,,,
+8,0X08AD,ro,Dezactivarea brațului a eșuat,Dezactivarea brațului a eșuat,Vă rugăm să încercați din nou
+8,0X08BD,ro,Activarea brațului a eșuat,Activarea brațului a eșuat,Vă rugăm să încercați din nou
+8,0X08CD,ro,Activarea brațului,Activarea brațului,
+8,0X08DD,ro,Activarea brațului a eșuat,Activarea brațului a eșuat,
+8,0X08ED,ro,Brațul este dezactivat,Brațul este dezactivat,
+1,0X461D,ro,Brațul endoscopului este blocat,Brațul endoscopului este blocat,
+6,0XB88D,ro,Modul Imagine-în-Picture 3D pe ecran complet nu este conectat corect la sursa de intrare,Modul Imagine-în-Picture 3D pe ecran complet nu este conectat corect la sursa de intrare,
+1,0X462D,ro,Vă rugăm să dezactivați modul sensibil la fluorescență înainte de operare,Vă rugăm să dezactivați modul sensibil la fluorescență înainte de operare,
+1,0X424D,ro,Preluare locală,Preluare locală,
+1,0X425D,ro,Preluare locală,Preluare locală,
+1,0X426D,ro,Preluare locală completă,Preluare locală completă,
+8,0X424D,ro,Preluare de la distanță,Preluare de la distanță,
+8,0X425D,ro,Acordare de la distanță,Acordare de la distanță,
+8,0X426D,ro,Preluare completă de la distanță,Preluare completă de la distanță,
+6,0XB65D,ro,Sursă de intrare HDMI 1 neconectată,Sursă de intrare HDMI 1 neconectată,
+6,0XB66D,ro,Sursă de intrare HDMI 2 neconectată,Sursă de intrare HDMI 2 neconectată,
+6,0XB67D,ro,Sursă de intrare SDI 1 neconectată,Sursă de intrare SDI 1 neconectată,
+6,0XB68D,ro,Sursă de intrare SDI 2 neconectată,Sursă de intrare SDI 2 neconectată,
+1,0X2EED,ro,,,Vă rugăm să nu călcați pedalele la ambele capete în același timp
+8,0X2EED,ro,,,Vă rugăm să nu călcați pedalele la ambele capete în același timp
+1,0X2FCD,ro,Niciun braț de comutat,Niciun braț de comutat,
+8,0X2FCD,ro,Niciun braț de comutat,Niciun braț de comutat,
+4,0X143D,ro,Baterie descărcată,Baterie descărcată,
+4,0X144D,ro,Baterie descărcată,Baterie descărcată,
+1,0X193D,ro,Deconectare dispozitiv de închidere a peretelui vasului mare, curățare și inspecție cabluri,Deconectare dispozitiv de închidere a peretelui vasului mare, curățare și inspecție cabluri,Vă rugăm să verificați conexiunile.
+1,0X192D,ro,Vă rugăm să verificați dacă există o defecțiune la driverul dispozitivului de închidere a vasului mare,Vă rugăm să verificați dacă există o defecțiune la driverul dispozitivului de închidere a vasului mare,Vă rugăm să verificați conexiunile.
+1,0X138D,ro,Rezervarea capsatorului a fost utilizată, vă rugăm să o înlocuiți,Rezervarea capsatorului a fost utilizată, vă rugăm să o înlocuiți,Schimbați rezervarea
+1,0X137D,ro,Capsatorul a fost returnat și completat. Vă rugăm să actualizați rezervarea,Capsatorul a fost returnat și completat. Vă rugăm să actualizați rezervarea,Schimbați rezervarea
+1,0X430D,ro,Rata cadrelor pe ecran este nepotrivită pentru operație,Rata cadrelor pe ecran este nepotrivită pentru operație,
+1,0X429B,ro,Schimbare anormală a sursei de date,Schimbare anormală a sursei de date,vă rugăm să verificați setările de rețea
+8,0X429B,ro,Schimbare anormală a sursei de date,Schimbare anormală a sursei de date,vă rugăm să verificați setările de rețea
+1,0X611D,ro,Montarea trocarului reușită,Montarea trocarului reușită,
+1,0X33FE,ro,Starea Tocar s-a modificat,Starea Tocar s-a modificat,
+1,0XA01E,ro,Înregistrare jurnal pornire,Înregistrare jurnal pornire,
+1,0XA02E,ro,Înregistrare jurnal oprire,Înregistrare jurnal oprire,
+8,0XA01E,ro,Înregistrare jurnal pornire,Înregistrare jurnal pornire,
+8,0XA02E,ro,Înregistrare jurnal oprire,Înregistrare jurnal oprire,
+1,0X612D,ro,,,Vă rugăm să îndepărtați instrumentul
+1,0X427D,ro,Preluare locală completă,Preluare locală completă,
+8,0X427D,ro,Acordare completă de la distanță,Acordare completă de la distanță,
+1,0X401D,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,Nu este permisă nicio intervenție chirurgicală
+1,0X402D,ro,Calitate slabă a rețelei,Calitate slabă a rețelei,Funcționare nerecomandată
+1,0X403D,ro,Calitate medie a rețelei,Calitate medie a rețelei,Vă rugăm să operați încet cu precauție
+1,0X404D,ro,Calitatea medie a rețelei,Calitatea medie a rețelei,Vă rugăm să operați încet
+1,0X463D,ro,Endoscop în mișcare,Endoscop în mișcare,Va rugam asteptati
+8,0X463D,ro,Endoscop în mișcare,Endoscop în mișcare,Va rugam asteptati
+1,0X464D,ro,Coliziune braț instrument,Coliziune braț instrument,atenție
+1,0X623D,ro,Mod normal,Mod normal,
+1,0X627D,ro,Mod fluorescență,Mod fluorescență,
+1,0X629D,ro,Fuziune imagine,Fuziune imagine,
+3,0X164D,ro,Protecție a legăturilor,Protecție a legăturilor,Vă rugăm să ridicați masterul
+3,0X165D,ro,Protecție a legăturilor,Protecție a legăturilor,Vă rugăm să reglați în jos înălțimea monitorului
+9,0X164D,ro,Protecție a legăturilor,Protecție a legăturilor,Vă rugăm să ridicați masterul
+9,0X165D,ro,Protecție a legăturilor,Protecție a legăturilor,Vă rugăm să reglați în jos înălțimea monitorului

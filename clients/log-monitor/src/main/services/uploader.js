@@ -17,7 +17,21 @@ class UploaderService {
   setConcurrency(n) { this.concurrency = Math.max(0, n | 0); }
 
   enqueue(task) { // { device_id, file_path, decrypt_key, file_hash?, upload_path?, created_at?, updated_at? }
-    // 简单去重（按文件绝对路径 + mtime）
+    // 内容级去重（优先按文件hash，防止同一内容在不同路径/压缩包重复上传）
+    try {
+      if (task.file_hash) {
+        const existsInQueue = this.queue.find(t => t && t.file_hash === task.file_hash && (t.status === 'pending' || t.status === 'uploading' || t.status === 'success'));
+        if (existsInQueue) return;
+        try {
+          const { loadTasks } = require('./storage');
+          const persisted = loadTasks(this.opts.appDataDir || (()=>'')) || [];
+          const existsPersisted = persisted.find(t => t && t.file_hash === task.file_hash && (t.status === 'pending' || t.status === 'uploading' || t.status === 'success'));
+          if (existsPersisted) return;
+        } catch {}
+      }
+    } catch {}
+
+    // 路径级去重（按文件绝对路径 + mtime）
     const stat = fs.existsSync(task.file_path) ? fs.statSync(task.file_path) : null;
     const signature = stat ? `${task.file_path}|${stat.mtimeMs}` : task.file_path;
     if (this.queue.find(t => t.signature === signature)) return;

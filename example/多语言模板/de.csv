@@ -1,0 +1,922 @@
+subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,de,HW-Fehler,Erg. Einstellfehler,Auf REMOVE klicken, um wiederherzustellen
+9,0X010A,de,HW-Fehler,Erg. Einstellfehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X010A,de,HW-Fehler,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+1,0X490E,de,,,
+8,0X010A,de,HW-Fehler,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+9,0X010D,de,Erg. Einstellfehler,Erg. Einstellfehler,
+3,0X010D,de,Erg. Einstellfehler,Erg. Einstellfehler,
+1,0X010D,de,Bewegungsabweichungsgr. überschreiten,Bewegungsabweichungsgr. überschreiten,Kundenservice kontaktieren
+8,0X010D,de,Bewegungsabweichungsgr. überschreiten,Bewegungsabweichungsgr. überschreiten,Kundenservice kontaktieren
+1,0X020A,de,Anomale Bewegung,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+8,0X020A,de,Anomale Bewegung,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+1,0X020C,de,Ungew. Bewegung,Bewegungsabweichungsgr. überschreiten,Ignorierbar
+8,0X020C,de,Ungew. Bewegung,Bewegungsabweichungsgr. überschreiten,Ignorierbar
+1,0X020D,de,Bewegungsabweichungsgr. überschreiten,Bewegungsabweichungsgr. überschreiten,Achtung
+8,0X020D,de,Bewegungsabweichungsgr. überschreiten,Bewegungsabweichungsgr. überschreiten,Achtung
+1,0X022A,de,Abn. Betrieb,Unerwar. Bewegung des Slave-Arms,Auf REMOVE klicken, um wiederherzustellen
+8,0X022A,de,Abn. Betrieb,Unerwar. Bewegung des Slave-Arms,Auf REMOVE klicken, um wiederherzustellen
+3,0X022C,de,Ungew. Bewegung,Ungew. Bewegung bei Erg.-Einstellung,Ignorierbar
+9,0X022C,de,Ungew. Bewegung,Ungew. Bewegung bei Erg.-Einstellung,Ignorierbar
+1,0X022C,de,Ungew. Bewegung,Unerwar. Bewegung des Hauptarms,Ignorierbar
+8,0X022C,de,Ungew. Bewegung,Unerwar. Bewegung des Hauptarms,Ignorierbar
+9,0X022D,de,Ungew. Bewegung bei Erg.-Einstellung,Ungew. Bewegung bei Erg.-Einstellung,
+3,0X022D,de,Ungew. Bewegung bei Erg.-Einstellung,Ungew. Bewegung bei Erg.-Einstellung,
+1,0X030A,de,HW-Fehler,Überschreitung der Positionsgrenze,Auf REMOVE klicken, um wiederherzustellen
+8,0X030A,de,HW-Fehler,Überschreitung der Positionsgrenze,Auf REMOVE klicken, um wiederherzustellen
+1,0X030B,de,HW-Fehler,Überschreitung der Positionsgrenze,Auf REMOVE klicken, um wiederherzustellen
+8,0X030B,de,HW-Fehler,Überschreitung der Positionsgrenze,Auf REMOVE klicken, um wiederherzustellen
+3,0X030C,de,Überschreitung der Erg.-Pos.-Grenze,Überschreitung der Erg.-Pos.-Grenze,
+9,0X030C,de,Überschreitung der Erg.-Pos.-Grenze,Überschreitung der Erg.-Pos.-Grenze,
+3,0X030D,de,Überschreitung der Erg.-Pos.-Grenze,Überschreitung der Erg.-Pos.-Grenze,
+9,0X030D,de,Überschreitung der Erg.-Pos.-Grenze,Überschreitung der Erg.-Pos.-Grenze,
+1,0X030D,de,Überschreitung der Positionsgrenze,Überschreitung der Positionsgrenze,Zurück bewegen
+8,0X030D,de,Überschreitung der Positionsgrenze,Überschreitung der Positionsgrenze,Zurück bewegen
+1,0X031A,de,Anomale Bewegung,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+8,0X031A,de,Anomale Bewegung,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+1,0X031B,de,Anomale Bewegung,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+8,0X031B,de,Anomale Bewegung,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+1,0X040B,de,Zu schneller Betrieb,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+8,0X040B,de,Zu schneller Betrieb,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+1,0X050B,de,Zu schneller Betrieb,Geschwindigkeitsbegrenzung-Überschr.,Auf REMOVE klicken, um wiederherzustellen
+8,0X050B,de,Zu schneller Betrieb,Geschwindigkeitsbegrenzung-Überschr.,Auf REMOVE klicken, um wiederherzustellen
+3,0X050D,de,Anomale Bewegung,Geschwindigkeitsbegrenzung-Überschr.,
+9,0X050D,de,Anomale Bewegung,Geschwindigkeitsbegrenzung-Überschr.,
+1,0X051B,de,Zu schneller Betrieb,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+8,0X051B,de,Zu schneller Betrieb,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+1,0X060B,de,HW-Fehler,Überschreitung der Positionsgrenze,Auf REMOVE klicken, um wiederherzustellen
+8,0X060B,de,HW-Fehler,Überschreitung der Positionsgrenze,Auf REMOVE klicken, um wiederherzustellen
+1,0X061A,de,Abn. Betrieb,Unerwar. Bewegung des Slave-Arms,Auf REMOVE klicken, um wiederherzustellen
+8,0X061A,de,Abn. Betrieb,Unerwar. Bewegung des Slave-Arms,Auf REMOVE klicken, um wiederherzustellen
+1,0X062A,de,Anomale Bewegung,Geschwindigkeitsbegrenzung-Überschr.,Auf REMOVE klicken, um wiederherzustellen
+8,0X062A,de,Anomale Bewegung,Geschwindigkeitsbegrenzung-Überschr.,Auf REMOVE klicken, um wiederherzustellen
+1,0X063A,de,Anomale Bewegung,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+8,0X063A,de,Anomale Bewegung,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+1,0X064A,de,Anomale Bewegung,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+8,0X064A,de,Anomale Bewegung,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+1,0X065A,de,Anomale Bewegung,Abn. Betrieb,Auf REMOVE klicken, um wiederherzustellen
+8,0X065A,de,Anomale Bewegung,Abn. Betrieb,Auf REMOVE klicken, um wiederherzustellen
+1,0X066A,de,Anomale Bewegung,Abn. Betrieb,Auf REMOVE klicken, um wiederherzustellen
+8,0X066A,de,Anomale Bewegung,Abn. Betrieb,Auf REMOVE klicken, um wiederherzustellen
+1,0X067A,de,Selbsttest fehlg.,Selbsttest fehlg.,Auf REMOVE klicken, um wiederherzustellen
+8,0X067A,de,Selbsttest fehlg.,Selbsttest fehlg.,Auf REMOVE klicken, um wiederherzustellen
+1,0X068A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X068A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X068B,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X335E,de,,,
+8,0X335E,de,,,
+8,0X068B,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X069D,de,,,Kundenservice kontaktieren
+8,0X069D,de,,,Kundenservice kontaktieren
+1,0X070D,de,,,Kundenservice kontaktieren
+8,0X070D,de,,,Kundenservice kontaktieren
+1,0X071D,de,,,Kundenservice kontaktieren
+8,0X071D,de,,,Kundenservice kontaktieren
+1,0X080B,de,Arm gesperrt,Arm gesperrt,Auf REMOVE klicken, um wiederherzustellen
+8,0X080B,de,Arm gesperrt,Arm gesperrt,Auf REMOVE klicken, um wiederherzustellen
+1,0X080C,de,Arm gesperrt,Arm gesperrt,
+1,0X337E,de,,,
+8,0X337E,de,,,
+8,0X080C,de,Arm gesperrt,Arm gesperrt,
+3,0X080D,de,Überschreitung Drehmomentgr.,Überschreitung Drehmomentgr.,
+9,0X080D,de,Überschreitung Drehmomentgr.,Überschreitung Drehmomentgr.,
+1,0X08AD,de,Deaktiv. Arm fehlg.,Deaktiv. Arm fehlg.,Erneut versuchen
+1,0X08BD,de,Armakt. fehlgeschl.,Armakt. fehlgeschl.,Erneut versuchen
+1,0X08CD,de,Arm wird akt.,Arm wird akt.,
+1,0X08DD,de,Armakt. fehlgeschl.,Armakt. fehlgeschl.,
+1,0X08ED,de,Arm deakt.,Arm deakt.,
+3,0X090D,de,Auto. Erg.-Einst. fehlg.,Auto. Erg.-Einst. fehlg.,Manuell einstellen
+9,0X090D,de,Auto. Erg.-Einst. fehlg.,Auto. Erg.-Einst. fehlg.,Manuell einstellen
+1,0X090D,de,,,Kundenservice kontaktieren
+8,0X090D,de,,,Kundenservice kontaktieren
+1,0X092D,de,Arm-Einstellfehler,Arm-Einstellfehler,Kundenservice kontaktieren
+8,0X092D,de,Arm-Einstellfehler,Arm-Einstellfehler,Kundenservice kontaktieren
+3,0X100A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+9,0X100A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X100A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X100A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+3,0X100B,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+9,0X100B,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+3,0X100D,de,Netzfehler,Netzfehler,
+9,0X100D,de,Netzfehler,Netzfehler,
+1,0X101A,de,,,System neu starten
+8,0X101A,de,,,System neu starten
+1,0X102A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X102A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X110A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+3,0X110A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X110A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+9,0X110A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+3,0X110D,de,HW-Fehler,HW-Fehler,
+9,0X110D,de,HW-Fehler,HW-Fehler,
+1,0X114A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X114A,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X114C,de,HW-Fehler,HW-Fehler,
+8,0X114C,de,HW-Fehler,HW-Fehler,
+1,0X120C,de,Akkufehler,Akkufehler,USV-Status überprüfen
+8,0X120C,de,Akkufehler,Akkufehler,USV-Status überprüfen
+3,0X120D,de,Chirurgenkonsole reparieren,Chirurgenkonsole reparieren,Kundenservice kontaktieren
+9,0X120D,de,Chirurgenkonsole reparieren,Chirurgenkonsole reparieren,Kundenservice kontaktieren
+1,0X121D,de,Not-Halt ausgelöst,Not-Halt ausgelöst,
+8,0X121D,de,Not-Halt ausgelöst,Not-Halt ausgelöst,
+1,0X124D,de,Warten auf Pat. Wagen-Wiederherst.,Warten auf Pat. Wagen-Wiederherst.,
+1,0X125D,de,Stromausfall Pat.-Wagen,Stromausfall Pat.-Wagen,
+1,0X131C,de,Zu wenig Speicher,Zu wenig Speicher,
+8,0X131C,de,Zu wenig Speicher,Zu wenig Speicher,
+1,0X132D,de,Pat.-Wagenfehler,Pat.-Wagenfehler,Kundenservice kontaktieren
+8,0X132D,de,Pat.-Wagenfehler,Pat.-Wagenfehler,Kundenservice kontaktieren
+1,0X133D,de,,,Pat. Wagen starten
+8,0X133D,de,,,Pat. Wagen starten
+1,0X140D,de,Akkufehler,Akkufehler,Kundenservice kontaktieren
+8,0X140D,de,Akkufehler,Akkufehler,Kundenservice kontaktieren
+1,0X141D,de,Akkufehler,Akkufehler,Kundenservice kontaktieren
+8,0X141D,de,Akkufehler,Akkufehler,Kundenservice kontaktieren
+1,0X142D,de,Akku ersetzen,Akku ersetzen,Kundenservice kontaktieren
+8,0X142D,de,Akku ersetzen,Akku ersetzen,Kundenservice kontaktieren
+9,0X160D,de,Obere Pos.-Gr. erreicht,Obere Pos.-Gr. erreicht,Achtung
+3,0X160D,de,Obere Pos.-Gr. erreicht,Obere Pos.-Gr. erreicht,Achtung
+9,0X161D,de,Untere Pos.-Gr. erreicht,Untere Pos.-Gr. erreicht,Achtung
+3,0X161D,de,Untere Pos.-Gr. erreicht,Untere Pos.-Gr. erreicht,Achtung
+3,0X162D,de,Masterarm Pos.-Gr. erreicht,Masterarm Pos.-Gr. erreicht,3D-Viewer erhöhen
+9,0X162D,de,Masterarm Pos.-Gr. erreicht,Masterarm Pos.-Gr. erreicht,3D-Viewer erhöhen
+3,0X163D,de,3D-Viewer Höhengr. erreicht,3D-Viewer Höhengr. erreicht,Hauptarm senken
+9,0X163D,de,3D-Viewer Höhengr. erreicht,3D-Viewer Höhengr. erreicht,Hauptarm senken
+1,0X2A1A,de,Stromausf.,Stromausf.,Auf REMOVE klicken, um wiederherzustellen
+8,0X2A1A,de,Stromausf.,Stromausf.,Auf REMOVE klicken, um wiederherzustellen
+1,0X2A2A,de,Stromausf.,Stromausf.,Auf REMOVE klicken, um wiederherzustellen
+8,0X2A2A,de,Stromausf.,Stromausf.,Auf REMOVE klicken, um wiederherzustellen
+1,0X2B1D,de,Pedalvers.,Pedalvers.,
+8,0X2B1D,de,Pedalvers.,Pedalvers.,
+1,0X2B2D,de,Pedalvers.,Pedalvers.,
+8,0X2B2D,de,Ausfall des Energiepedals,Pedalvers.,
+1,0X2B3D,de,Kein Armwechsel ohne Gerät,Kein Armwechsel ohne Gerät,
+8,0X2B3D,de,Kein Armwechsel ohne Gerät,Kein Armwechsel ohne Gerät,
+1,0X2B4D,de,Gerät demontiert,Gerät demontiert,
+8,0X2B4D,de,Gerät demontiert,Gerät demontiert,
+1,0X2B5D,de,Master-Slave Pos. stimmt nicht,Master-Slave Pos. stimmt nicht,Handsteuerung lockern, um fortzufahren
+8,0X2B5D,de,Master-Slave Pos. stimmt nicht,Master-Slave Pos. stimmt nicht,Handsteuerung lockern, um fortzufahren
+1,0X2B6D,de,,,Nur Energiegerät aktivierbar
+8,0X2B6D,de,,,Nur Energiegerät aktivierbar
+1,0X2B7D,de,,,Armlehne senken oder Masterarm vor Selbsttest heben
+4,0X150B,de,Über Pos.-Obergr.,Über Pos.-Obergr.,Auf REMOVE klicken, um wiederherzustellen
+4,0X151B,de,Über Pos.-Untergr.,Über Pos.-Untergr.,Auf REMOVE klicken, um wiederherzustellen
+4,0X080B,de,Chir. Trolley behindert,Chir. Trolley behindert,Auf REMOVE klicken, um wiederherzustellen
+8,0X2B7D,de,,,Armlehne senken oder Masterarm vor Selbsttest heben
+1,0X2B8D,de,,,Vor Selbsttest Gerät u. Adapter abmontieren
+8,0X2B8D,de,,,Vor Selbsttest Gerät u. Adapter abmontieren
+1,0X2B9D,de,Linke Gerät Pos.-Gr. erreicht,Linke Gerät Pos.-Gr. erreicht,Achtung
+8,0X2B9D,de,Linke Gerät Pos.-Gr. erreicht,Linke Gerät Pos.-Gr. erreicht,Achtung
+1,0X2BAD,de,Rechte Gerät Pos.-Gr. erreicht,Rechte Gerät Pos.-Gr. erreicht,Achtung
+8,0X2BAD,de,Rechte Gerät Pos.-Gr. erreicht,Rechte Gerät Pos.-Gr. erreicht,Achtung
+1,0X2BBD,de,Linke Gerät Rot.-Gr. erreicht,Linke Gerät Rot.-Gr. erreicht,Achtung
+8,0X2BBD,de,Linke Gerät Rot.-Gr. erreicht,Linke Gerät Rot.-Gr. erreicht,Achtung
+4,0X040B,de,Über Tempolimit,Über Tempolimit,Auf REMOVE klicken, um wiederherzustellen
+8,0X2BCD,de,Rechte Gerät Rot.-Gr. erreicht,Rechte Gerät Rot.-Gr. erreicht,Achtung
+1,0X2BCD,de,Rechte Gerät Rot.-Gr. erreicht,Rechte Gerät Rot.-Gr. erreicht,Achtung
+1,0X2BED,de,Gerät zu hoch,Gerät zu hoch,Höhe nach unten anpassen
+8,0X2BED,de,Gerät zu hoch,Gerät zu hoch,Höhe nach unten anpassen
+1,0X2BFD,de,Geräteadapter-Installation fehlgeschl.,Geräteadapter-Installation fehlgeschl.,
+8,0X2BFD,de,Geräteadapter-Installation fehlgeschl.,Geräteadapter-Installation fehlgeschl.,
+1,0X2C0D,de,Geräte-Installation fehlgeschl.,Geräte-Installation fehlgeschl.,
+8,0X2C0D,de,Geräte-Installation fehlgeschl.,Geräte-Installation fehlgeschl.,
+1,0X2C1D,de,Endoskop-Installation fehlgeschl.,Endoskop-Installation fehlgeschl.,
+8,0X2C1D,de,Endoskop-Installation fehlgeschl.,Endoskop-Installation fehlgeschl.,
+1,0X2C2D,de,Nutzungsgrenze überschritten,Nutzungsgrenze überschritten,Ersetzen
+8,0X2C2D,de,Nutzungsgrenze überschritten,Nutzungsgrenze überschritten,Ersetzen
+1,0X2C3D,de,,,START auf dem Pat. Wagen anklicken
+8,0X2C3D,de,,,START auf dem Pat. Wagen anklicken
+1,0X2C4D,de,Endoskop-Adapter < 5x nutzbar,Endoskop-Adapter < 5x nutzbar,
+8,0X2C4D,de,Endoskop-Adapter < 5x nutzbar,Endoskop-Adapter < 5x nutzbar,
+1,0X2C5D,de,Endoskop-Adapter verbraucht, bitte ersetzen,Endoskop-Adapter verbraucht, bitte ersetzen,
+8,0X2C5D,de,Endoskop-Adapter verbraucht, bitte ersetzen,Endoskop-Adapter verbraucht, bitte ersetzen,
+1,0X2C6D,de,Endoskop auf nicht-zugel. Arm montiert,Endoskop auf nicht-zugel. Arm montiert,
+8,0X2C6D,de,Endoskop auf nicht-zugel. Arm montiert,Endoskop auf nicht-zugel. Arm montiert,
+1,0X2C8D,de,1 Ultraschallmesser unterstützt,1 Ultraschallmesser unterstützt,
+8,0X2C8D,de,1 Ultraschallmesser unterstützt,1 Ultraschallmesser unterstützt,
+1,0X2C9D,de,Linkes Gerät Tiefengrenze,Linkes Gerät Tiefengrenze,Achtung
+8,0X2C9D,de,Linkes Gerät Tiefengrenze,Linkes Gerät Tiefengrenze,Achtung
+1,0X2CAD,de,Rechte Gerät Tiefengrenze,Rechte Gerät Tiefengrenze,Achtung
+8,0X2CAD,de,Rechte Gerät Tiefengrenze,Rechte Gerät Tiefengrenze,Achtung
+1,0X2CBD,de,Linkes Gerät Pos.-Grenze,Linkes Gerät Pos.-Grenze,Achtung
+8,0X2CBD,de,Linkes Gerät Pos.-Grenze,Linkes Gerät Pos.-Grenze,Achtung
+1,0X2CCD,de,Rechte Gerät Pos.-Grenze,Rechte Gerät Pos.-Grenze,Achtung
+8,0X2CCD,de,Rechte Gerät Pos.-Grenze,Rechte Gerät Pos.-Grenze,Achtung
+1,0X2CDD,de,,,Auf das richtige Pedal treten
+8,0X2CDD,de,,,Auf das richtige Pedal treten
+1,0X2CED,de,Pedalsignal inaktiv,Pedalsignal inaktiv,Fußwinkel anpassen
+8,0X2CED,de,Pedalsignal inaktiv,Pedalsignal inaktiv,Fußwinkel anpassen
+1,0X2CFD,de,1 monopolares Gerät unterstützt,1 monopolares Gerät unterstützt,
+8,0X2CFD,de,1 monopolares Gerät unterstützt,1 monopolares Gerät unterstützt,
+1,0X2D0D,de,1 bipolares Gerät unterstützt,1 bipolares Gerät unterstützt,
+8,0X2D0D,de,1 bipolares Gerät unterstützt,1 bipolares Gerät unterstützt,
+1,0X2D1D,de,,,Einstellungstaste lösen
+8,0X2D1D,de,,,Einstellungstaste lösen
+1,0X2D2D,de,,,Schulterverstellung-Taste lösen
+8,0X2D2D,de,,,Schulterverstellung-Taste lösen
+1,0X2D3D,de,,,Griffe durch Drehen an Steuerung anpassen
+8,0X2D3D,de,,,Griffe durch Drehen an Steuerung anpassen
+1,0X2D4D,de,Übermäßige Rotationsabweich.,Übermäßige Rotationsabweich.,Griffe durch Zusammenpressen an Steuerung anpassen
+8,0X2D4D,de,Übermäßige Rotationsabweich.,Übermäßige Rotationsabweich.,Griffe durch Zusammenpressen an Steuerung anpassen
+8,0X2D5D,de,Ultraschallmesser zu lange aktiv,Ultraschallmesser zu lange aktiv,Pedal lösen
+1,0X2D5D,de,Ultraschallmesser zu lange aktiv,Ultraschallmesser zu lange aktiv,Pedal lösen
+1,0X2D6D,de,Rotationsgelenk nicht drehen beim Aktivieren,Rotationsgelenk nicht drehen beim Aktivieren,
+8,0X2D6D,de,Rotationsgelenk nicht drehen beim Aktivieren,Rotationsgelenk nicht drehen beim Aktivieren,
+1,0X2D7D,de,,,Speichermodus der Gerätehöhe verlassen
+8,0X2D7D,de,,,Speichermodus der Gerätehöhe verlassen
+1,0X2D8D,de,,,Anmelden
+8,0X2D8D,de,,,Anmelden
+1,0X2D9D,de,Endoskop erreicht Positionsgrenze,Endoskop erreicht Positionsgrenze,Achtung
+8,0X2D9D,de,Endoskop erreicht Positionsgrenze,Endoskop erreicht Positionsgrenze,Achtung
+1,0X2DAD,de,,,Vergrößern
+8,0X2DAD,de,,,Vergrößern
+1,0X2DBD,de,,,Verkleinern
+8,0X2DBD,de,,,Verkleinern
+1,0X2DCD,de,,,Endoskop im Uhrzeigersinn drehen
+8,0X2DCD,de,,,Endoskop im Uhrzeigersinn drehen
+1,0X2DDD,de,,,Endoskop gegen Uhrzeigersinn drehen
+8,0X2DDD,de,,,Endoskop gegen Uhrzeigersinn drehen
+1,0X2DED,de,,,Endoskop nach unten anpassen
+8,0X2DED,de,,,Endoskop nach unten anpassen
+1,0X2DFD,de,Master-Arm absenken oder vor Selbsttest erhöhen,Master-Arm absenken oder vor Selbsttest erhöhen,
+8,0X2DFD,de,Master-Arm absenken oder vor Selbsttest erhöhen,Master-Arm absenken oder vor Selbsttest erhöhen,
+1,0X2E0D,de,,,Arm-Schalter-Fußpedal überprüfen
+8,0X2E0D,de,,,Arm-Schalter-Fußpedal überprüfen
+1,0X2E1D,de,,,Kupplungspedal überprüfen
+8,0X2E1D,de,,,Kupplungspedal überprüfen
+1,0X2E2D,de,,,Endoskop-Pedal überprüfen
+8,0X2E2D,de,,,Endoskop-Pedal überprüfen
+1,0X2E3D,de,,,Linke Schneidepedal überprüfen
+8,0X2E3D,de,,,Linke Schneidepedal überprüfen
+1,0X2E4D,de,,,Linke Coag-Pedal überprüfen
+8,0X2E4D,de,,,Linke Coag-Pedal überprüfen
+1,0X2E5D,de,,,Rechte Schnittpedal überprüfen
+8,0X2E5D,de,,,Rechte Schnittpedal überprüfen
+1,0X2E6D,de,,,Rechte Coag-Pedal überprüfen
+8,0X2E6D,de,,,Rechte Coag-Pedal überprüfen
+4,0X090B,de,HW-Fehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X2E7D,de,,,Slave-Arm Einstell.-Taste überprüfen
+8,0X2E7D,de,,,Slave-Arm Einstell.-Taste überprüfen
+1,0X2EAD,de,,,Kopf-in-Sensor überprüfen
+8,0X2EAD,de,,,Kopf-in-Sensor überprüfen
+1,0X2EBD,de,,,Linken Fußsensor überprüfen
+8,0X2EBD,de,,,Linken Fußsensor überprüfen
+1,0X2ECD,de,,,Rechten Fußsensor überprüfen
+8,0X2ECD,de,,,Rechten Fußsensor überprüfen
+1,0X2EDD,de,,,Einst. vor dem Selbsttest beenden
+8,0X2EDD,de,,,Einst. vor dem Selbsttest beenden
+1,0X2EFD,de,Kupplungssignal überprüfen,Kupplungssignal überprüfen,
+8,0X2EFD,de,Kupplungssignal überprüfen,Kupplungssignal überprüfen,
+1,0X2F0D,de,Niedriger Akku,Niedriger Akku,Kundenservice kontaktieren
+8,0X2F0D,de,Niedriger Akku,Niedriger Akku,Kundenservice kontaktieren
+1,0X2F1D,de,Niedriger Akku,Niedriger Akku,Kundenservice kontaktieren
+8,0X2F1D,de,Niedriger Akku,Niedriger Akku,Kundenservice kontaktieren
+8,0X2F2D,de,Nutzungsgrenze des Trokars überschritten,Nutzungsgrenze des Trokars überschritten,Bitte ersetzen
+1,0X2F2D,de,Nutzungsgrenze des Trokars überschritten,Nutzungsgrenze des Trokars überschritten,Bitte ersetzen
+1,0X2F3D,de,Keine gleichartigen Energiegeräte montieren,Keine gleichartigen Energiegeräte montieren,
+8,0X2F3D,de,Keine gleichartigen Energiegeräte montieren,Keine gleichartigen Energiegeräte montieren,
+1,0X2F4D,de,Slave Arm 1 keine Energie bei mehreren Bipolaren,Slave Arm 1 keine Energie bei mehreren Bipolaren,
+8,0X2F4D,de,Slave Arm 1 keine Energie bei mehreren Bipolaren,Slave Arm 1 keine Energie bei mehreren Bipolaren,
+1,0X2F5D,de,Slave Arm 4 keine Energie bei mehreren Bipolaren,Slave Arm 4 keine Energie bei mehreren Bipolaren,
+8,0X2F5D,de,Slave Arm 4 keine Energie bei mehreren Bipolaren,Slave Arm 4 keine Energie bei mehreren Bipolaren,
+1,0X2F6D,de,Kupplung > 1 Min ausgelöst,Kupplung > 1 Min ausgelöst,
+8,0X2F6D,de,Kupplung > 1 Min ausgelöst,Kupplung > 1 Min ausgelöst,
+1,0X2F9D,de,Endoskopverbindung anormal,Endoskopverbindung anormal,Endoskop erneut einsetzen
+8,0X2F9D,de,Endoskopverbindung anormal,Endoskopverbindung anormal,Endoskop erneut einsetzen
+1,0X2FAD,de,Geräteadapter erneut installieren,Geräteadapter erneut installieren,
+1,0X2FBD,de,Energie aktiv,Energie aktiv,
+1,0X2FFD,de,Geräte-Installation fehlgeschl.,Geräte-Installation fehlgeschl.,Erneut montieren
+8,0X338D,de,Im ergonomischen Einstellverfahren,Im ergonomischen Einstellverfahren,Hauptarm nicht bewegen
+1,0X338D,de,Im ergonomischen Einstellverfahren,Im ergonomischen Einstellverfahren,Hauptarm nicht bewegen
+8,0X339D,de,Im ergonomischen Einstellverfahren,Im ergonomischen Einstellverfahren,Hauptarm nicht bewegen
+1,0X339D,de,Im ergonomischen Einstellverfahren,Im ergonomischen Einstellverfahren,Hauptarm nicht bewegen
+8,0X33AD,de,Im ergonomischen Einstellverfahren,Im ergonomischen Einstellverfahren,Hauptarm nicht bewegen
+1,0X33AD,de,Im ergonomischen Einstellverfahren,Im ergonomischen Einstellverfahren,Hauptarm nicht bewegen
+1,0X33BD,de,Ergonomische Einstellung verweigert,Ergonomische Einstellung verweigert,
+8,0X33BD,de,Ergonomische Einstellung verweigert,Ergonomische Einstellung verweigert,
+4,0X010A,de,HW-Fehler,Bewegungsabweichungsgr. überschreiten,Auf REMOVE klicken, um wiederherzustellen
+1,0X33CD,de,,,Kopf in den 3D-Viewer legen
+8,0X33CD,de,,,Kopf in den 3D-Viewer legen
+1,0X33DD,de,,,Zur Startseite zurück gehen
+8,0X33DD,de,,,Zur Startseite zurück gehen
+1,0X33ED,de,Endoskop-Steuerung-Kommunikationsfehler,Endoskop-Steuerung-Kommunikationsfehler,
+1,0X33FD,de,Trokar-Verbindung fehlgeschl.,Trokar-Verbindung fehlgeschl.,
+1,0X340D,de,Trokar nicht installiert,Trokar nicht installiert,
+1,0X341D,de,,,Energie-Pedal lösen
+8,0X341D,de,,,Energie-Pedal lösen
+1,0X342D,de,Kundenservice kontaktieren,Kundenservice kontaktieren,
+1,0X343D,de,Kundenservice kontaktieren,Kundenservice kontaktieren,
+1,0X350D,de,Slave Arm automatisch angepasst,Slave Arm automatisch angepasst,Hände auf den Armlehnenhalten
+1,0X400B,de,Schlechte Netzqualität,Schlechte Netzqualität,Auf REMOVE klicken, um wiederherzustellen
+4,0X135D,de,Basis-Freigabe fehlgeschl.,Basis-Freigabe fehlgeschl.,
+4,0X134D,de,Basissperrung fehlgeschl.,Basissperrung fehlgeschl.,
+4,0X136D,de,Abn. Halteöldruck,Abn. Halteöldruck,
+8,0X400B,de,Schlechte Netzqualität,Schlechte Netzqualität,Auf REMOVE klicken, um wiederherzustellen
+8,0X400D,de,Schlechte Kommunikationsqualität,Schlechte Netzqualität,
+1,0X400D,de,Schlechte Kommunikationsqualität,Schlechte Netzqualität,
+8,0X401D,de,Steuerung auf Remote-Terminal umschalten,Schlechte Netzqualität,Keine OP erlaubt
+8,0X402D,de,Bitte übernehmen Sie vor dem Herunterfahren die Steuerung,Schlechte Netzqualität,Betrieb nicht empfohlen
+8,0X403D,de,Mittlere Netzqualität,Mittlere Netzqualität,Langsam und vorsichtig operieren
+8,0X404D,de,Durchschn. Netzqualität,Durchschn. Netzqualität,Langsam operieren
+8,0X410D,de,Lok. Terminalfehler,Lok. Terminalfehler,
+1,0X410D,de,Lok. Terminalfehler,Lok. Terminalfehler,
+8,0X411D,de,Abmeldung vom lok. Terminal,Abmeldung vom lok. Terminal,
+1,0X411D,de,Abmeldung vom lok. Terminal,Abmeldung vom lok. Terminal,
+8,0X412D,de,Steuerung auf lok. Terminal umschalten,Steuerung auf lok. Terminal umschalten,
+1,0X412D,de,Steuerung auf lok. Terminal umschalten,Steuerung auf lok. Terminal umschalten,
+8,0X413D,de,Steuerung auf Rem.-Terminal umschalten,Steuerung auf Rem.-Terminal umschalten,
+1,0X413D,de,Steuerung auf Remote-Terminal umschalten,Steuerung auf Rem.-Terminal umschalten,
+8,0X414D,de,Netzwerkeinstellungen überprüfen,Netzwerkeinstellungen überprüfen,
+8,0X415D,de,Prüfcode überprüfen,Prüfcode überprüfen,
+1,0X416D,de,Netzwerk verbunden,Netzwerk verbunden,
+8,0X416D,de,Netzwerk verbunden,Netzwerk verbunden,
+1,0X417D,de,Netzwerk getrennnt,Netzwerk getrennnt,
+8,0X417D,de,Netzwerk getrennnt,Netzwerk getrennnt,
+8,0X420D,de,Vor Herunterfahren übernehmen,Vor Herunterfahren übernehmen,
+1,0X420D,de,Bitte übernehmen Sie vor dem Herunterfahren die Steuerung,Vor Herunterfahren übernehmen,
+8,0X450B,de,Workstation-Kommunikationsfehler,Agent-Software abnormal,Auf REMOVE klicken, um wiederherzustellen
+1,0X450B,de,Workstation-Kommunikationsfehler,Agent-Software abnormal,Auf REMOVE klicken, um wiederherzustellen
+1,0X451D,de,Remote-Kommunikations-Workstation Komm. anormal,Remote-Kommunikations-Workstation Komm. anormal,
+8,0X451D,de,Remote-Kommunikations-Workstation Komm. anormal,Remote-Kommunikations-Workstation Komm. anormal,
+1,0X452B,de,Workstation-Kommunikationsfehler,Lokaler TSA-Fehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X452B,de,Workstation-Kommunikationsfehler,Lokaler TSA-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X453B,de,Workstation-Kommunikationsfehler,Videocodec-Fehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X453B,de,Workstation-Kommunikationsfehler,Videocodec-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X454D,de,TSA Softwareversion inkompatibel,TSA Softwareversion inkompatibel,
+8,0X454D,de,TSA Softwareversion inkompatibel,TSA Softwareversion inkompatibel,
+1,0X455A,de,Datenausnahme,Datenausnahme,Auf REMOVE klicken, um wiederherzustellen
+8,0X500D,de,Falsche Kontrolldaten,Falsche Kontrolldaten,
+1,0X533D,de,Abn. Kommunikation,Abn. Kommunikation,
+8,0X533D,de,Abn. Kommunikation,Abn. Kommunikation,
+8,0X606D,de,Master Arm Verstauen fehlgeschl.,Master Arm Verstauen fehlgeschl.,
+1,0X606D,de,Master Arm Verstauen fehlgeschl.,Master Arm Verstauen fehlgeschl.,
+1,0X607D,de,Einsatz erfolglos,Einsatz erfolglos,
+1,0X608D,de,Verstauen erfolglos,Verstauen erfolglos,
+5,0X610A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X610A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X622B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X622B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X623B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X623B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X626B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X626B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+1,0X626D,de,Motorfehler,HW-Fehler,Kundenservice kontaktieren
+8,0X626D,de,Motorfehler,HW-Fehler,
+5,0X627B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X627B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X640B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X640B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X641B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X641B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X642B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X642B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X643B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X643B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X651B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X651B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X652B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X652B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X653B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X653B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X660B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X660B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X662B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X662B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X663B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X663B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+8,0X090E,de,Motorfehler,,
+8,0X665A,de,Datenausnahme,Datenausnahme,Auf REMOVE klicken, um wiederherzustellen
+5,0X665B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X665B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X666B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X666B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X66AB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X66AB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X66CB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X66CB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X680B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X680B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X682B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X682B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X683B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X683B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X685B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X685B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X686B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X686B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X68AB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X68AB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X68CB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X68CB,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6A0B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6A0B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6A4B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6A4B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6A5B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6A5B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6A6B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6A6B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6A7B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6A7B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6B0B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+A,0X6B0B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+5,0X6B1B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+A,0X6B1B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+5,0X6B2B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+A,0X6B2B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+5,0X6B4B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+A,0X6B4B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+5,0X6B5B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+A,0X6B5B,de,Motorfehler,Falsche Kontrolldaten,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C0B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C0B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C1B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C1B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C2B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C2B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C3B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+4,0X030A,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+4,0X100A,de,Motorfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+4,0X110A,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C3B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C4B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C4B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C5B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C5B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C6B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C6B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C7B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C7B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C8B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C8B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6C9B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6C9B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D0B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D0B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D1B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D1B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D2B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D2B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D3B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D3B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D4B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D4B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D5B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D5B,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D6A,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D6A,de,Motorfehler,Motorfehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D7B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D7B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D7D,de,Motorfehler,Motorfehler,
+5,0X6D8B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D8B,de,Motorfehler,HW-Fehler,Auf REMOVE klicken, um wiederherzustellen
+5,0X6D9B,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+A,0X6D9B,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+5,0X6DAB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+A,0X6DAB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+5,0X6DCB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+A,0X6DCB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+5,0X6DDB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+A,0X6DDB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+5,0X6DEB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+A,0X6DEB,de,Motorfehler,Motortreiber-Ausfall,Auf REMOVE klicken, um wiederherzustellen
+8,0X555E,de,,,
+8,0X556E,de,,,
+8,0X557E,de,,,
+8,0X558E,de,,,
+1,0X70BD,de,Betriebsdaten-Lesezeit überschr.,Betriebsdaten-Lesezeit überschr.,
+8,0X70BD,de,Betriebsdaten-Lesezeit überschr.,Betriebsdaten-Lesezeit überschr.,
+1,0X70CD,de,CPU überlastet,CPU überlastet,
+8,0X70CD,de,CPU überlastet,CPU überlastet,
+1,0X70DD,de,Pedalsignal getrennt,Pedalsignal getrennt,
+5,0X801D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+A,0X801D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+5,0X802D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+A,0X802D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+5,0X803D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+A,0X803D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+5,0X804D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+A,0X804D,de,Motortreiber-Ausfall,Motortreiber-Ausfall,
+6,0XB01B,de,Abn. Bild,Abn. Bildaufnahme,Auf REMOVE klicken, um wiederherzustellen
+6,0XB02B,de,Endoskopverbindung anormal,Endoskopverbindung anormal,Endoskop erneut einsetzen
+6,0XB03B,de,Endoskop getrennt,Endoskop getrennt,Auf REMOVE klicken, um wiederherzustellen
+6,0XB03D,de,Endoskop getrennt,Endoskop getrennt,
+6,0XB04B,de,Abn. Bild,Ununterbrochenes Bild,Auf REMOVE klicken, um wiederherzustellen
+6,0XB05D,de,,,Endoskop-Controller neu starten
+6,0XB06D,de,,,Endoskop-Controller neu starten
+6,0XB07A,de,Netzfehler,Netzfehler,Auf REMOVE klicken, um wiederherzustellen
+6,0XB50C,de,USB-Flash-Disk Verbindungsfehler,USB-Flash-Disk Verbindungsfehler,
+6,0XB50D,de,USB-Flash-Disk Verbindungsfehler,USB-Flash-Disk Verbindungsfehler,
+6,0XB51C,de,Unzureich. Speicherplatz Endoskop-Controller,Unzureich. Speicherplatz Endoskop-Controller,Kundenservice kontaktieren
+6,0XB51D,de,Unzureich. Speicherplatz Endoskop-Controller,Unzureich. Speicherplatz Endoskop-Controller,Kundenservice kontaktieren
+6,0XB52C,de,Endoskop-Controller-CPU überlastet,Endoskop-Controller-CPU überlastet,
+6,0XB52D,de,Endoskop-Controller-CPU überlastet,Endoskop-Controller-CPU überlastet,
+6,0XB53C,de,Unzureich. USB-Flash-Speicherplatz,Unzureich. USB-Flash-Speicherplatz,Bitte ersetzen
+6,0XB53D,de,Unzureich. USB-Flash-Speicherplatz,Unzureich. USB-Flash-Speicherplatz,Bitte ersetzen
+6,0XBA0D,de,Nicht-synchronisiertes Bild,Nicht-synchronisiertes Bild,Endoskop erneut einsetzen
+6,0XBA1A,de,,,Endoskop-Controller neu starten
+6,0XBA2A,de,Schlechter 3D-Effekt-Anzeigeeffekt,Schlechter 3D-Effekt-Anzeigeeffekt,Endoskop-Controller neu starten
+6,0XBA3D,de,,,Endoskop-Controller neu starten
+6,0XBA5C,de,Aero Desktop-Start fehlgeschl.,Aero Desktop-Start fehlgeschl.,
+6,0XBA5D,de,Aero Desktop-Start fehlgeschl.,Aero Desktop-Start fehlgeschl.,
+6,0XBA6C,de,USB-Flash-Disk nicht autorisiert,USB-Flash-Disk nicht autorisiert,Nach Authentifizierung erneut verwenden
+6,0XBA6D,de,USB-Flash-Disk nicht autorisiert,USB-Flash-Disk nicht autorisiert,Nach Authentifizierung erneut verwenden
+6,0XBA7D,de,Energieplattformanschluss fehlgeschl.,Energieplattformanschluss fehlgeschl.,Kundenservice kontaktieren
+6,0XBA8D,de,Endoskop-Typenidentifizierung fehlgeschl.,Endoskop-Typenidentifizierung fehlgeschl.,Endoskop ersetzen
+1,0X310E,de,,,
+1,0X500E,de,,,
+1,0X501E,de,,,
+1,0X502E,de,,,
+1,0X503E,de,,,
+1,0X504E,de,,,
+1,0X505E,de,,,
+1,0X506E,de,,,
+1,0X507E,de,,,
+1,0X508E,de,,,
+1,0X509E,de,,,
+1,0X50AE,de,,,
+1,0X50BE,de,,,
+1,0X50CE,de,,,
+1,0X50DE,de,,,
+1,0X50EE,de,,,
+1,0X510E,de,,,
+1,0X511E,de,,,
+1,0X550E,de,,,
+1,0X551E,de,,,
+1,0X552E,de,,,
+1,0X553E,de,,,
+1,0X554E,de,,,
+1,0X555E,de,,,
+1,0X556E,de,,,
+1,0X557E,de,,,
+1,0X558E,de,,,
+1,0X570E,de,,,
+1,0X571E,de,,,
+1,0X572E,de,,,
+1,0X700E,de,,,
+1,0X701E,de,,,
+1,0X702E,de,,,
+1,0X703E,de,,,
+1,0X704E,de,,,
+1,0X705E,de,,,
+1,0X706E,de,,,
+1,0X707E,de,,,
+1,0X708E,de,,,
+1,0X709E,de,,,
+1,0X70AE,de,,,
+1,0X70CE,de,,,
+1,0X710E,de,,,
+1,0X405E,de,,,
+8,0X405E,de,,,
+1,0X66BD,de,,Kundenservice kontaktieren,
+1,0X143D,de,Akku leer,Akku leer,
+8,0X143D,de,Akku leer,Akku leer,
+1,0X144D,de,Schwache Batterie,Low Battery ,
+8,0X144D,de,Schwache Batterie,Low Battery ,
+6,0XBA9D,de,Endoskop-Parameter konfiguriert,Endoskop-Parameter konfiguriert,
+1,0X2BDD,de,Rechtes und linkes Ger. Rotationsgrenze erreicht ,Rechtes und linkes Ger. Rotationsgrenze erreicht ,
+1,0X666D,de,Software-Version nicht konsistent,Software-Version nicht konsistent,
+8,0X666D,de,Software-Version nicht konsistent,Software-Version nicht konsistent,
+8,0X614D,de,Zum Rem.-System wechseln,Zum Rem.-System wechseln,
+1,0X624D,de,Zum lok. System wechseln,Zum lok. System wechseln,
+1,0X404A,de,Pat. Wagen trennen,Pat. Wagen trennen,
+1,0X021D,de,Gerät blockiert,Gerät blockiert,
+1,0X022E,de,,,
+1,0X030E,de,,,
+1,0X050E,de,,,
+1,0X040E,de,,,
+1,0X090E,de,,,
+1,0X010E,de,,,
+1,0X020E,de,,,
+1,0X559E,de,,,
+1,0X55AE,de,,,
+1,0X55BE,de,,,
+1,0X092E,de,,,
+1,0X344D,de,,,Adapter überprüfen
+1,0X345D,de,,,Gerät überprüfen und Adapter neu installieren
+1,0X360D,de,Gerät entfernen,Gerät entfernen,
+1,0X361D,de,Adapter entfernen,Adapter entfernen,
+1,0X362D,de,Adapter installieren,Adapter installieren,
+1,0X128D,de,Zurücks. des Masters auf Null fehlgeschl.,Zurücks. des Masters auf Null fehlgeschl.,
+1,0X127D,de,,,Griffe durch Zusammenpressen an Steuerung anpassen
+8,0X127D,de,,,Griffe durch Zusammenpressen an Steuerung anpassen
+6,0X129D,de,Rückgängig machen fehlgeschl.,Rückgängig machen fehlgeschl.,Verbindungsstatus überprüfen
+1,0X130D,de,,,Endoskop erneut einsetzen
+6,0X144C,de,Rückgängig machen fehlgeschl.,Rückgängig machen fehlgeschl.,Zurücksetzen
+1,0X145D,de,Pat. Wagen-Einstellung fehlgeschl.,Pat. Wagen-Einstellung fehlgeschl.,
+1,0X146D,de,Auf Pat. Wagen operieren,Auf Pat. Wagen operieren,
+1,0X520E,de,,,
+1,0X533E,de,,,
+3,0X300E,de,,,
+3,0X301E,de,,,
+9,0X300E,de,,,
+9,0X301E,de,,,
+3,0X302E,de,,,
+3,0X303E,de,,,
+3,0X304E,de,,,
+3,0X305E,de,,,
+3,0X306E,de,,,
+3,0X307E,de,,,
+3,0X308E,de,,,
+3,0X309E,de,,,
+9,0X302E,de,,,
+9,0X303E,de,,,
+9,0X304E,de,,,
+9,0X305E,de,,,
+9,0X306E,de,,,
+9,0X307E,de,,,
+9,0X308E,de,,,
+9,0X309E,de,,,
+1,0X57DE,de,,,
+1,0X57AE,de,,,
+1,0X57BE,de,,,
+8,0X57DE,de,,,
+8,0X57AE,de,,,
+8,0X57BE,de,,,
+1,0X579E,de,,,
+1,0X57CE,de,,,
+1,0X514E,de,,,
+1,0X515E,de,,,
+1,0X516E,de,,,
+1,0X517E,de,,,
+1,0X518E,de,,,
+1,0X519E,de,,,
+1,0X521E,de,,,
+1,0X522E,de,,,
+1,0X523E,de,,,
+1,0X524E,de,,,
+1,0X525E,de,,,
+1,0X526E,de,,,
+1,0X527E,de,,,
+1,0X528E,de,,,
+1,0X529E,de,,,
+1,0X52AE,de,,,
+1,0X52BE,de,,,
+1,0X52CE,de,,,
+1,0X52DE,de,,,
+1,0X52EE,de,,,
+1,0X52FE,de,,,
+1,0X530E,de,,,
+1,0X531E,de,,,
+1,0X532E,de,,,
+1,0X57EE,de,,,
+1,0X534E,de,,,
+1,0X535E,de,,,
+1,0X536E,de,,,
+1,0X537E,de,,,
+1,0X538E,de,,,
+1,0X539E,de,,,
+1,0X53AE,de,,,
+1,0X53BE,de,,,
+1,0X53CE,de,,,
+1,0X53DE,de,,,
+1,0X53EE,de,,,
+1,0X53FE,de,,,
+1,0X540E,de,,,
+1,0X541E,de,,,
+1,0X542E,de,,,
+1,0X543E,de,,,
+1,0X544E,de,,,
+1,0X545E,de,,,
+1,0X546E,de,,,
+1,0X547E,de,,,
+1,0X548E,de,,,
+1,0X549E,de,,,
+1,0X54AE,de,,,
+1,0X54BE,de,,,
+1,0X54CE,de,,,
+1,0X54DE,de,,,
+1,0X54EE,de,,,
+1,0X54FE,de,,,
+1,0X560E,de,,,
+1,0X561E,de,,,
+1,0X562E,de,,,
+1,0X563E,de,,,
+1,0X564E,de,,,
+1,0X565E,de,,,
+1,0X567E,de,,,
+1,0X568E,de,,,
+1,0X569E,de,,,
+1,0X56AE,de,,,
+1,0X56CE,de,,,
+1,0X56DE,de,,,
+1,0X56EE,de,,,
+1,0X56FE,de,,,
+1,0X573E,de,,,
+1,0X574E,de,,,
+1,0X575E,de,,,
+1,0X576E,de,,,
+1,0X577E,de,,,
+1,0X578E,de,,,
+8,0X579E,de,,,
+8,0X57CE,de,,,
+8,0X514E,de,,,
+8,0X515E,de,,,
+8,0X516E,de,,,
+8,0X517E,de,,,
+8,0X518E,de,,,
+8,0X519E,de,,,
+8,0X521E,de,,,
+8,0X522E,de,,,
+8,0X523E,de,,,
+8,0X524E,de,,,
+8,0X525E,de,,,
+8,0X526E,de,,,
+8,0X527E,de,,,
+8,0X528E,de,,,
+8,0X529E,de,,,
+8,0X52AE,de,,,
+8,0X52BE,de,,,
+8,0X52CE,de,,,
+8,0X52DE,de,,,
+8,0X52EE,de,,,
+8,0X52FE,de,,,
+8,0X530E,de,,,
+8,0X531E,de,,,
+8,0X532E,de,,,
+8,0X57EE,de,,,
+8,0X534E,de,,,
+8,0X535E,de,,,
+8,0X536E,de,,,
+8,0X537E,de,,,
+8,0X538E,de,,,
+8,0X539E,de,,,
+8,0X53AE,de,,,
+8,0X53BE,de,,,
+8,0X53CE,de,,,
+8,0X53DE,de,,,
+8,0X53EE,de,,,
+8,0X53FE,de,,,
+8,0X540E,de,,,
+8,0X541E,de,,,
+8,0X542E,de,,,
+8,0X543E,de,,,
+8,0X544E,de,,,
+8,0X545E,de,,,
+8,0X546E,de,,,
+8,0X547E,de,,,
+8,0X548E,de,,,
+8,0X549E,de,,,
+8,0X54AE,de,,,
+8,0X54BE,de,,,
+8,0X54CE,de,,,
+8,0X54DE,de,,,
+8,0X54EE,de,,,
+8,0X54FE,de,,,
+8,0X560E,de,,,
+8,0X561E,de,,,
+8,0X562E,de,,,
+8,0X563E,de,,,
+8,0X564E,de,,,
+8,0X565E,de,,,
+8,0X567E,de,,,
+8,0X568E,de,,,
+8,0X569E,de,,,
+8,0X56AE,de,,,
+8,0X56CE,de,,,
+8,0X56DE,de,,,
+8,0X56EE,de,,,
+8,0X56FE,de,,,
+8,0X573E,de,,,
+8,0X574E,de,,,
+8,0X575E,de,,,
+8,0X576E,de,,,
+8,0X577E,de,,,
+8,0X578E,de,,,
+1,0X580C,de,Berechnung Geräte-Lebenszyklus fehlgeschl.,Berechnung Geräte-Lebenszyklus fehlgeschl.,
+1,0X580E,de,,,
+1,0X512E,de,,,
+1,0X513E,de,,,
+1,0X590E,de,,,
+1,0X591E,de,,,
+1,0X594E,de,,,
+1,0X040D,de,Bewegungsabweichungsgr. überschreiten,Bewegungsabweichungsgr. überschreiten,Achtung
+8,0X040D,de,Bewegungsabweichungsgr. überschreiten,Bewegungsabweichungsgr. überschreiten,Achtung
+1,0X665A,de,Datenausnahme,Datenausnahme,Auf REMOVE klicken, um wiederherzustellen
+8,0X455A,de,Datenausnahme,Datenausnahme,Auf REMOVE klicken, um wiederherzustellen
+8,0X70CE,de,,,
+1,0X581E,de,,,
+8,0X2BDD,de,Rechtes und linkes Ger. Rotationsgrenze erreicht ,Rechtes und linkes Ger. Rotationsgrenze erreicht ,
+6,0XB07D,de,Netzwerk nicht verbinden,Netzwerk nicht verbinden,Kommunikationskabel überprüfen
+1,0x580D,de,Warten, bis derSelbsttest beendet,Warten, bis derSelbsttest beendet,
+1,0x581D,de,Anpassung zuerst beenden,Anpassung zuerst beenden,
+1,0x582D,de,Chirurg. Bestätigungszustand zuerst beenden,Chirurg. Bestätigungszustand zuerst beenden,
+1,0x583D,de,Kupplungssteuerung zuerst beenden,Kupplungssteuerung zuerst beenden,
+1,0x584D,de,Master-Slave-Steuerung zuerst beenden,Master-Slave-Steuerung zuerst beenden,
+1,0x585D,de,Endoskopsteuerung zuerst beenden,Endoskopsteuerung zuerst beenden,
+6,0XB54D,de,Abn. Ser. Schnittstelle ,Abn. Ser. Schnittstelle ,Kundenservice kontaktieren
+6,0XB55D,de,Fehler bei Bildparameter-Einstellung,Fehler bei Bildparameter-Einstellung,Erneut versuchen
+6,0XB56D,de,Gerät zu weit vom Blickfeld-Zentrum entfernt,Gerät zu weit vom Blickfeld-Zentrum entfernt,
+1,0x586D,de,Abstand zwischen Arm {0} und Arm {1} anpassen,Abstand zwischen Arm {0} und Arm {1} anpassen,
+1,0x55CE,de,,,
+6,0XB57D,de,Bildparameter-Konfig. fehlgeschl.,Bildparameter-Konfig. fehlgeschl.,Kundenservice kontaktieren
+6,0XB58A,de,Endoskop-Controller Hochfahren anormal,Endoskop-Controller Hochfahren anormal,Endoskop-Controller neu starten
+6,0XB59A,de,Die Konfig. der Endoskop-Steuerungs-Schnittstelle ist fehlgeschl.,Die Konfig. der Endoskop-Steuerungs-Schnittstelle ist fehlgeschl.,Endoskop-Controller neu starten
+1,0X456A,de,Datenausnahme,Parameter-Übertragung fehlgeschl.,Überprüfen
+8,0X456A,de,Datenausnahme,Parameter-Übertragung fehlgeschl.,Überprüfen
+1,0X457A,de,Datenausnahme,Parameter-Überprüfung fehlgeschl.,Erneut verbinden
+8,0X457A,de,Datenausnahme,Parameter-Überprüfung fehlgeschl.,Erneut verbinden
+1,0X458E,de,,,
+1,0X459E,de,,,
+1,0X131D,de,Neustart fehlgeschl.,Neustart fehlgeschl.,
+8,0X131D,de,Neustart fehlgeschl.,Neustart fehlgeschl.,
+1,0X453D,de,FPS ist niedrig,FPS ist niedrig,Langsam operieren
+8,0X453D,de,FPS ist niedrig,FPS ist niedrig,Langsam operieren
+1,0X587D,de,Der Master setzt zurück,Der Master setzt zurück,
+1,0X88BE,de,,,
+8,0X587D,de,Der Master setzt zurück,Der Master setzt zurück,
+8,0X88BE,de,,,
+1,0X103A,de,Netzfehler,Pat.-Netzwerkkabelverbindung fehlgeschl.,Bitte anpassen
+1,0X104A,de,Netzfehler,Notkabelanschluss fehlgeschl.,Bitte anpassen
+1,0X105A,de,HW-Fehler,Autorisierungsbescheinigung storniert,System neu starten
+8,0X105A,de,HW-Fehler,Autorisierungsbescheinigung storniert,System neu starten
+1,0X588D,de,Audiogerät der Chirurgenkonsole nicht angeschl.,Audiogerät der Chirurgenkonsole nicht angeschl.,Kundenservice kontaktieren
+1,0X589D,de,Audiogerät des Endoskopsteuergeräts nicht angeschl.,Audiogerät des Endoskopsteuergeräts nicht angeschl.,Kundenservice kontaktieren
+1,0X591D,de,Audiodienst-Ausnahme,Audiodienst-Ausnahme,Kundenservice kontaktieren
+1,0X592D,de,Steuerungsdienst der Chirurgenkonsole abnormal,Steuerungsdienst der Chirurgenkonsole abnormal,Kundenservice kontaktieren
+1,0X593D,de,Gerät zu hoch, nach unten anpassen,Gerät zu hoch, nach unten anpassen,
+1,0X594D,de,Interferenz zw. links und rechts,Interferenz zw. links und rechts,Anpassen
+1,0X88DE,de,,,
+8,0X594D,de,Interferenz zw. links und rechts,Interferenz zw. links und rechts,Anpassen
+1,0X072A,de,Zu schneller Betrieb,Zu viel drücken,Bitte anpassen
+1,0X072D,de,Zu viel drücken,Zu viel drücken,
+1,0X073A,de,HW-Fehler,Hallenanomalie,Bitte anpassen
+8,0X072A,de,Zu schneller Betrieb,Zu viel drücken,Bitte anpassen
+8,0X072D,de,Zu viel drücken,Zu viel drücken,
+8,0X073A,de,HW-Fehler,Hallenanomalie,Bitte anpassen
+1,0X595D,de,Audiogerät der Chirurgenkonsole abn.,Audiogerät der Chirurgenkonsole abn.,Kundenservice kontaktieren
+1,0X596D,de,Audiogerät des Endoskopsteuergeräts abn.,Audiogerät des Endoskopsteuergeräts abn.,Kundenservice kontaktieren
+1,0X460D,de,OP während Steuerumschaltung nicht erlaubt,OP während Steuerumschaltung nicht erlaubt,
+8,0X460D,de,OP während Steuerumschaltung nicht erlaubt,OP während Steuerumschaltung nicht erlaubt,
+6,0XB60D,de,Optischer Strahlanschluss fehlerhaft,Optischer Strahlanschluss fehlerhaft,Bitte überprüfen Sie die Anschlüsse.
+6,0XB61D,de,Steuerleitung der Kaltlichtquelle fehlerhaft,Steuerleitung der Kaltlichtquelle fehlerhaft,Bitte überprüfen Sie die Anschlüsse.
+1,0X597E,de,,,
+6,0XB62D,de,Die Temperatur der Kaltlichtquelle ist zu hoch,Die Temperatur der Kaltlichtquelle ist zu hoch,
+6,0XB63D,de,Die Lebensdauer der Kaltlichtlampe nähert sich dem Ende der Lebensdauer,Die Lebensdauer der Kaltlichtlampe nähert sich dem Ende der Lebensdauer,
+6,0XB64D,de,Die Lebensdauer der Kaltlichtlampe nähert sich dem Ende der Lebensdauer,Die Lebensdauer der Kaltlichtlampe nähert sich dem Ende der Lebensdauer,
+1,0X122D,de,Not-Aus-Schalter des Patientenwagens ist ausgelöst,Not-Aus-Schalter des Patientenwagens ist ausgelöst,
+8,0X122D,de,Not-Aus-Schalter des Patientenwagens ist ausgelöst,Not-Aus-Schalter des Patientenwagens ist ausgelöst,
+1,0X588E,de,,,
+1,0X597D,de,Audiogerät des Patientenwagens nicht angeschlossen,Audiogerät des Patientenwagens nicht angeschlossen,Kundenservice kontaktieren
+1,0X598D,de,Audiogerät des Patientenwagens fehlerhaft,Audiogerät des Patientenwagens fehlerhaft,Kundenservice kontaktieren
+1,0X353D,de,Kabel vom Patientenwagen im Simulationsmodus trennen,Kabel vom Patientenwagen im Simulationsmodus trennen,
+1,0X352C,de,Kommunikation zum Simulator unterbrochen,Kommunikation zum Simulator unterbrochen,Überprüfen Sie, ob das Netzwerkkabel angeschlossen ist.
+1,0X023D,de,Arm gesperrt,Arm gesperrt,
+1,0X599D,de,Bitte Seriennummer des Arms prüfen,Bitte Seriennummer des Arms prüfen,
+1,0X129D,de,Bitte Endoskoppedal erneut betätigen,Bitte Endoskoppedal erneut betätigen,
+1,0X602E,de,,,
+1,0X602D,de,,,Zur Startseite zurück gehen
+1,0X603E,de,,,
+8,0X08AD,de,Deaktiv. Arm fehlg.,Deaktiv. Arm fehlg.,Erneut versuchen
+8,0X08BD,de,Armakt. fehlgeschl.,Armakt. fehlgeschl.,Erneut versuchen
+8,0X08CD,de,Arm wird akt.,Arm wird akt.,
+8,0X08DD,de,Armakt. fehlgeschl.,Armakt. fehlgeschl.,
+8,0X08ED,de,Arm deakt.,Arm deakt.,
+1,0X461D,de,Endoscope arm locked,Endoscope arm locked,
+6,0XB88D,de,3D Full Screen Picture-in-Picture is not connected to the input source correctly,3D Full Screen Picture-in-Picture is not connected to the input source correctly,
+1,0X462D,de,Please turn off the fluorescence sensitive mode before operating,Please turn off the fluorescence sensitive mode before operating,
+1,0X424D,de,Local take,Local take,
+1,0X425D,de,Local give,Local give,
+1,0X426D,de,Local take all,Local take all,
+8,0X424D,de,Remote take,Remote take,
+8,0X425D,de,Remote give,Remote give,
+8,0X426D,de,Remote take all,Remote take all,
+6,0XB65D,de,Input source HDMI 1 not connected,Input source HDMI 1 not connected,
+6,0XB66D,de,Input source HDMI 2 not connected,Input source HDMI 2 not connected,
+6,0XB67D,de,Input source SDI 1 not connected,Input source SDI 1 not connected,
+6,0XB68D,de,Input source SDI 2 not connected,Input source SDI 2 not connected,
+1,0X2EED,de,,,Please do not step on the pedals at both ends at the same time
+8,0X2EED,de,,,Please do not step on the pedals at both ends at the same time
+1,0X2FCD,de,No arm to switch,No arm to switch,
+8,0X2FCD,de,No arm to switch,No arm to switch,
+4,0X143D,de,Akku leer,Akku leer,
+4,0X144D,de,Schwache Batterie,Niedriger Akku,
+1,0X193D,de,Die Bildfrequenz des Bildschirms ist für die Operation ungeeignet.,Large vessel wall closure device disconnection, cleaning and inspection of cables,Bitte überprüfen Sie die Anschlüsse.
+1,0X192D,de,Anormaler Datenquellenwechsel,Please check if there is a malfunction in the driver of the large vessel closure device,Bitte überprüfen Sie die Anschlüsse.
+1,0X138D,de,Anormaler Datenquellenwechsel,The stapler booking has been used, please replace it,Change booking
+1,0X137D,de,Tocar-Montage erfolgreich,The stapler has been returned and completed. Please update the booking,Change booking
+1,0X430D,de,Die Bildfrequenz des Bildschirms ist für Operationen ungeeignet,Die Bildfrequenz des Bildschirms ist für Operationen ungeeignet,
+1,0X429B,de,Abnormale Datenquellenänderung,Abnormale Datenquellenänderung,bitte Netzwerkeinstellungen überprüfen
+8,0X429B,de,Abnormale Datenquellenänderung,Abnormale Datenquellenänderung,bitte Netzwerkeinstellungen überprüfen
+1,0X611D,de,Trokar erfolgreich montiert,Trokar erfolgreich montiert,
+1,0X33FE,de,,,
+1,0XA01E,de,,,
+1,0XA02E,de,,,
+8,0XA01E,de,,,
+8,0XA02E,de,,,
+1,0X612D,de,,,Bitte entfernen Sie das Instrument
+1,0X427D,de,Local give all,Local give all,
+8,0X427D,de,Remote give all,Remote give all,
+1,0X401D,de,Schlechte Netzqualität,Schlechte Netzqualität,Keine OP erlaubt
+1,0X402D,de,Schlechte Netzqualität,Schlechte Netzqualität,Betrieb nicht empfohlen
+1,0X403D,de,Mittlere Netzqualität,Mittlere Netzqualität,Langsam und vorsichtig operieren
+1,0X404D,de,Durchschn. Netzqualität,Durchschn. Netzqualität,Langsam operieren
+1,0X463D,de,Endoskop in Bewegung,Endoskop in Bewegung,Please wait
+8,0X463D,de,Endoskop in Bewegung,Endoskop in Bewegung,Please wait
+1,0X464D,de,Instrumentenarm-Kollision,Instrumentenarm-Kollision,Achtung
+1,0X623D,de,Normalmodus,Normalmodus,
+1,0X627D,de,Fluoreszenzmodus,Fluoreszenzmodus,
+1,0X629D,de,Bildfusion,Bildfusion,
+3,0X164D,de,Gestängeschutz,Gestängeschutz,Bitte den Master nach oben anpassen
+3,0X165D,de,Gestängeschutz,Gestängeschutz,Bitte passen Sie die Monitorhöhe nach unten an
+9,0X164D,de,Gestängeschutz,Gestängeschutz,Bitte den Master nach oben anpassen
+9,0X165D,de,Gestängeschutz,Gestängeschutz,Bitte passen Sie die Monitorhöhe nach unten an

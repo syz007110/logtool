@@ -1,0 +1,922 @@
+subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,fr,Défaut matériel,Défaut d'ajustement ergonomique,Cliquer sur REMOVE pour restaurer
+9,0X010A,fr,Défaut matériel,Défaut d'ajustement ergonomique,Cliquer sur REMOVE pour restaurer
+1,0X010A,fr,Défaut matériel,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+1,0X490E,fr,,,
+8,0X010A,fr,Défaut matériel,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+9,0X010D,fr,Défaut d'ajustement ergonomique,Défaut d'ajustement ergonomique,
+3,0X010D,fr,Défaut d'ajustement ergonomique,Défaut d'ajustement ergonomique,
+1,0X010D,fr,Dépasser la limite d'écart de mouvement,Dépasser la limite d'écart de mouvement,Veuillez contacter le service à la clientèle
+8,0X010D,fr,Dépasser la limite d'écart de mouvement,Dépasser la limite d'écart de mouvement,Veuillez contacter le service à la clientèle
+1,0X020A,fr,Mouvement anormal,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+8,0X020A,fr,Mouvement anormal,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+1,0X020C,fr,Mouvement inattendu,Dépasser la limite d'écart de mouvement,Ignorable
+8,0X020C,fr,Mouvement inattendu,Dépasser la limite d'écart de mouvement,Ignorable
+1,0X020D,fr,Dépasser la limite d'écart de mouvement,Dépasser la limite d'écart de mouvement,Attention
+8,0X020D,fr,Dépasser la limite d'écart de mouvement,Dépasser la limite d'écart de mouvement,Attention
+1,0X022A,fr,Fonctionnement anormal,Mouvement inattendu du bras d'esclave,Cliquer sur REMOVE pour restaurer
+8,0X022A,fr,Fonctionnement anormal,Mouvement inattendu du bras d'esclave,Cliquer sur REMOVE pour restaurer
+3,0X022C,fr,Mouvement inattendu,Mouvement inattendu lors de l'ajustement ergonomique,Ignorable
+9,0X022C,fr,Mouvement inattendu,Mouvement inattendu lors de l'ajustement ergonomique,Ignorable
+1,0X022C,fr,Mouvement inattendu,Mouvement inattendu du bras maître,Ignorable
+8,0X022C,fr,Mouvement inattendu,Mouvement inattendu du bras maître,Ignorable
+9,0X022D,fr,Mouvement inattendu lors de l'ajustement ergonomique,Mouvement inattendu lors de l'ajustement ergonomique,
+3,0X022D,fr,Mouvement inattendu lors de l'ajustement ergonomique,Mouvement inattendu lors de l'ajustement ergonomique,
+1,0X030A,fr,Défaut matériel,Dépasser la limite de position,Cliquer sur REMOVE pour restaurer
+8,0X030A,fr,Défaut matériel,Dépasser la limite de position,Cliquer sur REMOVE pour restaurer
+1,0X030B,fr,Défaut matériel,Dépasser la limite de position,Cliquer sur REMOVE pour restaurer
+8,0X030B,fr,Défaut matériel,Dépasser la limite de position,Cliquer sur REMOVE pour restaurer
+3,0X030C,fr,Dépasser la limite de la position ergonomique,Dépasser la limite de la position ergonomique,
+9,0X030C,fr,Dépasser la limite de la position ergonomique,Dépasser la limite de la position ergonomique,
+3,0X030D,fr,Dépasser la limite de la position ergonomique,Dépasser la limite de la position ergonomique,
+9,0X030D,fr,Dépasser la limite de la position ergonomique,Dépasser la limite de la position ergonomique,
+1,0X030D,fr,Dépasser la limite de position,Dépasser la limite de position,Veuillez reculer
+8,0X030D,fr,Dépasser la limite de position,Dépasser la limite de position,Veuillez reculer
+1,0X031A,fr,Mouvement anormal,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+8,0X031A,fr,Mouvement anormal,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+1,0X031B,fr,Mouvement anormal,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+8,0X031B,fr,Mouvement anormal,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+1,0X040B,fr,Une opération trop rapide,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+8,0X040B,fr,Une opération trop rapide,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+1,0X050B,fr,Une opération trop rapide,Sur la limite de vitesse,Cliquer sur REMOVE pour restaurer
+8,0X050B,fr,Une opération trop rapide,Sur la limite de vitesse,Cliquer sur REMOVE pour restaurer
+3,0X050D,fr,Mouvement anormal,Mouvement anormal,
+9,0X050D,fr,Mouvement anormal,Mouvement anormal,
+1,0X051B,fr,Une opération trop rapide,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+8,0X051B,fr,Une opération trop rapide,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+1,0X060B,fr,Défaut matériel,Dépasser la limite de position,Cliquer sur REMOVE pour restaurer
+8,0X060B,fr,Défaut matériel,Dépasser la limite de position,Cliquer sur REMOVE pour restaurer
+1,0X061A,fr,Fonctionnement anormal,Mouvement inattendu,Cliquer sur REMOVE pour restaurer
+8,0X061A,fr,Fonctionnement anormal,Mouvement inattendu,Cliquer sur REMOVE pour restaurer
+1,0X062A,fr,Mouvement anormal,Dépasser la limite de vitesse,Cliquer sur REMOVE pour restaurer
+8,0X062A,fr,Mouvement anormal,Dépasser la limite de vitesse,Cliquer sur REMOVE pour restaurer
+1,0X063A,fr,Mouvement anormal,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+8,0X063A,fr,Mouvement anormal,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+1,0X064A,fr,Mouvement anormal,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+8,0X064A,fr,Mouvement anormal,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+1,0X065A,fr,Mouvement anormal,Fonctionnement anormal,Cliquer sur REMOVE pour restaurer
+8,0X065A,fr,Mouvement anormal,Fonctionnement anormal,Cliquer sur REMOVE pour restaurer
+1,0X066A,fr,Mouvement anormal,Fonctionnement anormal,Cliquer sur REMOVE pour restaurer
+8,0X066A,fr,Mouvement anormal,Fonctionnement anormal,Cliquer sur REMOVE pour restaurer
+1,0X067A,fr,Échec de l'auto-test,Échec de l'auto-test,Cliquer sur REMOVE pour restaurer
+8,0X067A,fr,Échec de l'auto-test,Échec de l'auto-test,Cliquer sur REMOVE pour restaurer
+1,0X068A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+8,0X068A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+1,0X068B,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+1,0X335E,fr,,,
+8,0X335E,fr,,,
+8,0X068B,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+1,0X069D,fr,,,Veuillez contacter le service à la clientèle
+8,0X069D,fr,,,Veuillez contacter le service à la clientèle
+1,0X070D,fr,,,Veuillez contacter le service à la clientèle
+8,0X070D,fr,,,Veuillez contacter le service à la clientèle
+1,0X071D,fr,,,Veuillez contacter le service à la clientèle
+8,0X071D,fr,,,Veuillez contacter le service à la clientèle
+1,0X080B,fr,Bras bloqué,Bras bloqué,Cliquer sur REMOVE pour restaurer
+8,0X080B,fr,Bras bloqué,Bras bloqué,Cliquer sur REMOVE pour restaurer
+1,0X080C,fr,Bras bloqué,Bras bloqué,
+1,0X337E,fr,,,
+8,0X337E,fr,,,
+8,0X080C,fr,Bras bloqué,Bras bloqué,
+3,0X080D,fr,Dépassement de la limite de couple,Dépassement de la limite de couple,
+9,0X080D,fr,Dépassement de la limite de couple,Dépassement de la limite de couple,
+1,0X08AD,fr,Échec de la désactivation du bras,Échec de la désactivation du bras,Veuillez réessayer
+1,0X08BD,fr,Échec d'activation du bras,Échec d'activation du bras,Veuillez réessayer
+1,0X08CD,fr,Activation du bras,Activation du bras,
+1,0X08DD,fr,Échec d'activation du bras,Échec d'activation du bras,
+1,0X08ED,fr,Bras handicapé,Bras handicapé,
+3,0X090D,fr,Echec de l'ajustement ergonomique automatique,Echec de l'ajustement ergonomique automatique,Veuillez ajuster manuellement
+9,0X090D,fr,Echec de l'ajustement ergonomique automatique,Echec de l'ajustement ergonomique automatique,Veuillez ajuster manuellement
+1,0X090D,fr,,,Veuillez contacter le service à la clientèle
+8,0X090D,fr,,,Veuillez contacter le service à la clientèle
+1,0X092D,fr,Défaut du bras de réglage,Défaut du bras de réglage,Veuillez contacter le service à la clientèle
+8,0X092D,fr,Défaut du bras de réglage,Défaut du bras de réglage,Veuillez contacter le service à la clientèle
+3,0X100A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+9,0X100A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+1,0X100A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+8,0X100A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+3,0X100B,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+9,0X100B,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+3,0X100D,fr,Défaut de réseau,Défaut de réseau,
+9,0X100D,fr,Défaut de réseau,Défaut de réseau,
+1,0X101A,fr,,,Veuillez redémarrer le système
+8,0X101A,fr,,,Veuillez redémarrer le système
+1,0X102A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+8,0X102A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+1,0X110A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+3,0X110A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+8,0X110A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+9,0X110A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+3,0X110D,fr,Défaut matériel,Défaut matériel,
+9,0X110D,fr,Défaut matériel,Défaut matériel,
+1,0X114A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+8,0X114A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+1,0X114C,fr,Défaut matériel,Défaut matériel,
+8,0X114C,fr,Défaut matériel,Défaut matériel,
+1,0X120C,fr,Défaut de batterie,Défaut de batterie,Veuillez vérifier l'état de l'UPS
+8,0X120C,fr,Défaut de batterie,Défaut de batterie,Veuillez vérifier l'état de l'UPS
+3,0X120D,fr,La console du chirurgien doit être réparée,La console du chirurgien doit être réparée,Veuillez contacter le service à la clientèle
+9,0X120D,fr,La console du chirurgien doit être réparée,La console du chirurgien doit être réparée,Veuillez contacter le service à la clientèle
+1,0X121D,fr,L'interrupteur d'arrêt d'urgence est activé,L'interrupteur d'arrêt d'urgence est activé,
+8,0X121D,fr,L'interrupteur d'arrêt d'urgence est activé,L'interrupteur d'arrêt d'urgence est activé,
+1,0X124D,fr,Attendre que le chariot patient se rétablisse,Attendre que le chariot patient se rétablisse,
+1,0X125D,fr,Défaillance de puissance du chariot patient,Défaillance de puissance du chariot patient,
+1,0X131C,fr,Espace disque insuffisant,Espace disque insuffisant,
+8,0X131C,fr,Espace disque insuffisant,Espace disque insuffisant,
+1,0X132D,fr,Défaillance du chariot patient,Défaillance du chariot patient,Veuillez contacter le service à la clientèle
+8,0X132D,fr,Défaillance du chariot patient,Défaillance du chariot patient,Veuillez contacter le service à la clientèle
+1,0X133D,fr,,,Veuillez commencer le chariot patient
+8,0X133D,fr,,,Veuillez commencer le chariot patient
+1,0X140D,fr,Défaut de batterie,Défaut de batterie,Veuillez contacter le service à la clientèle
+8,0X140D,fr,Défaut de batterie,Défaut de batterie,Veuillez contacter le service à la clientèle
+1,0X141D,fr,Défaut de batterie,Défaut de batterie,Veuillez contacter le service à la clientèle
+8,0X141D,fr,Défaut de batterie,Défaut de batterie,Veuillez contacter le service à la clientèle
+1,0X142D,fr,La batterie doit être remplacée,La batterie doit être remplacée,Veuillez contacter le service à la clientèle
+8,0X142D,fr,La batterie doit être remplacée,La batterie doit être remplacée,Veuillez contacter le service à la clientèle
+9,0X160D,fr,Atteindre la limite supérieure de la position,Atteindre la limite supérieure de la position,Attention
+3,0X160D,fr,Atteindre la limite supérieure de la position,Atteindre la limite supérieure de la position,Attention
+9,0X161D,fr,Atteindre la limite de position inférieure,Atteindre la limite de position inférieure,Attention
+3,0X161D,fr,Atteindre la limite de position inférieure,Atteindre la limite de position inférieure,Attention
+3,0X162D,fr,Le bras principal atteint la limite de position,Le bras principal atteint la limite de position,Veuillez augmenter le visionneur 3D
+9,0X162D,fr,Le bras principal atteint la limite de position,Le bras principal atteint la limite de position,Veuillez augmenter le visionneur 3D
+3,0X163D,fr,3D-Viewer atteint la limite de hauteur,3D-Viewer atteint la limite de hauteur,Veuillez relâcher lebras de maître inférieur
+9,0X163D,fr,3D-Viewer atteint la limite de hauteur,3D-Viewer atteint la limite de hauteur,Veuillez relâcher lebras de maître inférieur
+1,0X2A1A,fr,Défaut de courant,Défaut de courant,Cliquer sur REMOVE pour restaurer
+8,0X2A1A,fr,Défaut de courant,Défaut de courant,Cliquer sur REMOVE pour restaurer
+1,0X2A2A,fr,Défaut de courant,Défaut de courant,Cliquer sur REMOVE pour restaurer
+8,0X2A2A,fr,Défaut de courant,Défaut de courant,Cliquer sur REMOVE pour restaurer
+1,0X2B1D,fr,Défaillance de la pédale,Défaillance de la pédale,
+8,0X2B1D,fr,Défaillance de la pédale,Défaillance de la pédale,
+1,0X2B2D,fr,Défaillance de la pédale,Défaillance de la pédale,
+8,0X2B2D,fr,Défaillance de la pédale,Défaillance de la pédale,
+1,0X2B3D,fr,Ne peut passer au bras sans instrument,Ne peut passer au bras sans instrument,
+8,0X2B3D,fr,Ne peut passer au bras sans instrument,Ne peut passer au bras sans instrument,
+1,0X2B4D,fr,L'instrument est démonté,L'instrument est démonté,
+8,0X2B4D,fr,L'instrument est démonté,L'instrument est démonté,
+1,0X2B5D,fr,Le bras maître pose ne correspond pas au bras de l'esclave,Le bras maître pose ne correspond pas au bras de l'esclave,Veuillez vous détendre sur le contrôle de la main pour continuer
+8,0X2B5D,fr,Le bras maître pose ne correspond pas au bras de l'esclave,Le bras maître pose ne correspond pas au bras de l'esclave,Veuillez vous détendre sur le contrôle de la main pour continuer
+1,0X2B6D,fr,,,Seul l'instrument d'énergie peut être activé
+8,0X2B6D,fr,,,Seul l'instrument d'énergie peut être activé
+1,0X2B7D,fr,,,Veuillez abaisser les accoudoirs ou soulever le bras principal avant l'auto-analyse.
+4,0X150B,fr,Défaut matériel,Au-dessus de la limite supérieure,Cliquer sur REMOVE pour restaurer
+4,0X151B,fr,Défaut matériel,Au-dessus de la limite inférieure,Cliquer sur REMOVE pour restaurer
+4,0X080B,fr,Mouvement du chariot chirurgical entravé,Mouvement du chariot chirurgical entravé,Cliquer sur REMOVE pour restaurer
+8,0X2B7D,fr,,,Veuillez abaisser les accoudoirs ou soulever le bras principal avant l'auto-analyse.
+1,0X2B8D,fr,,,Veuillez démonter l'instrument et l'adaptateur avant l'auto-test.
+8,0X2B8D,fr,,,Veuillez démonter l'instrument et l'adaptateur avant l'auto-test.
+1,0X2B9D,fr,L'instrument gauche atteint la limite de la position,L'instrument gauche atteint la limite de la position,Attention
+8,0X2B9D,fr,L'instrument gauche atteint la limite de la position,L'instrument gauche atteint la limite de la position,Attention
+1,0X2BAD,fr,L'instrument droit atteint la limite de la position,L'instrument droit atteint la limite de la position,Attention
+8,0X2BAD,fr,L'instrument droit atteint la limite de la position,L'instrument droit atteint la limite de la position,Attention
+1,0X2BBD,fr,L'instrument gauche atteint la limite de rotation,L'instrument gauche atteint la limite de rotation,Attention
+8,0X2BBD,fr,L'instrument gauche atteint la limite de rotation,L'instrument gauche atteint la limite de rotation,Attention
+4,0X040B,fr,Sur la limite de vitesse,Sur la limite de vitesse,Cliquer sur REMOVE pour restaurer
+8,0X2BCD,fr,L'instrument droit atteint la limite de rotation,L'instrument droit atteint la limite de rotation,Attention
+1,0X2BCD,fr,L'instrument droit atteint la limite de rotation,L'instrument droit atteint la limite de rotation,Attention
+1,0X2BED,fr,Instrument trop haut,Instrument trop haut,Veuillez ajuster la hauteur vers le bas
+8,0X2BED,fr,Instrument trop haut,Instrument trop haut,Veuillez ajuster la hauteur vers le bas
+1,0X2BFD,fr,Adaptateur d'instrument non monté,Adaptateur d'instrument non monté,
+8,0X2BFD,fr,Adaptateur d'instrument non monté,Adaptateur d'instrument non monté,
+1,0X2C0D,fr,Instrument non monté,Instrument non monté,
+8,0X2C0D,fr,Instrument non monté,Instrument non monté,
+1,0X2C1D,fr,Endoscope non monté,Endoscope non monté,
+8,0X2C1D,fr,Endoscope non monté,Endoscope non monté,
+1,0X2C2D,fr,Dépasser la limite d'utilisation de l'instrument,Dépasser la limite d'utilisation de l'instrument,Veuillez remplacer
+8,0X2C2D,fr,Dépasser la limite d'utilisation de l'instrument,Dépasser la limite d'utilisation de l'instrument,Veuillez remplacer
+1,0X2C3D,fr,,,Veuillez cliquer START sur le chariot patient
+8,0X2C3D,fr,,,Veuillez cliquer START sur le chariot patient
+1,0X2C4D,fr,L'adaptateur d'endoscope peut être utilisé moins de 5 fois,L'adaptateur d'endoscope peut être utilisé moins de 5 fois,
+8,0X2C4D,fr,L'adaptateur d'endoscope peut être utilisé moins de 5 fois,L'adaptateur d'endoscope peut être utilisé moins de 5 fois,
+1,0X2C5D,fr,L'usage de l'adaptateur d'endoscope sera épuisée. Veuillez le remplacer,L'usage de l'adaptateur d'endoscope sera épuisée. Veuillez le remplacer,
+8,0X2C5D,fr,L'usage de l'adaptateur d'endoscope sera épuisée. Veuillez le remplacer,L'usage de l'adaptateur d'endoscope sera épuisée. Veuillez le remplacer,
+1,0X2C6D,fr,L'endoscope est monté sur un bras non autorisé,L'endoscope est monté sur un bras non autorisé,
+8,0X2C6D,fr,L'endoscope est monté sur un bras non autorisé,L'endoscope est monté sur un bras non autorisé,
+1,0X2C8D,fr,Un simple couteau à ultrasons est supporté,Un simple couteau à ultrasons est supporté,
+8,0X2C8D,fr,Un simple couteau à ultrasons est supporté,Un simple couteau à ultrasons est supporté,
+1,0X2C9D,fr,L'instrument gauche atteint la limite de profondeur,L'instrument gauche atteint la limite de profondeur,Attention
+8,0X2C9D,fr,L'instrument gauche atteint la limite de profondeur,L'instrument gauche atteint la limite de profondeur,Attention
+1,0X2CAD,fr,L'instrument droit atteint la limite de profondeur,L'instrument droit atteint la limite de profondeur,Attention
+8,0X2CAD,fr,L'instrument droit atteint la limite de profondeur,L'instrument droit atteint la limite de profondeur,Attention
+1,0X2CBD,fr,L'instrument gauche atteint la limite de pose,L'instrument gauche atteint la limite de pose,Attention
+8,0X2CBD,fr,L'instrument gauche atteint la limite de pose,L'instrument gauche atteint la limite de pose,Attention
+1,0X2CCD,fr,L'instrument droit atteint la limite de pose,L'instrument droit atteint la limite de pose,Attention
+8,0X2CCD,fr,L'instrument droit atteint la limite de pose,L'instrument droit atteint la limite de pose,Attention
+1,0X2CDD,fr,,,Veuillez faire un pas sur la pédale correcte
+8,0X2CDD,fr,,,Veuillez faire un pas sur la pédale correcte
+1,0X2CED,fr,Le signal de pédale n'est pas activé,Le signal de pédale n'est pas activé,Veuillez ajuster l'angle du pied
+8,0X2CED,fr,Le signal de pédale n'est pas activé,Le signal de pédale n'est pas activé,Veuillez ajuster l'angle du pied
+1,0X2CFD,fr,Un instrument monopolaire unique est soutenu,Un instrument monopolaire unique est soutenu,
+8,0X2CFD,fr,Un instrument monopolaire unique est soutenu,Un instrument monopolaire unique est soutenu,
+1,0X2D0D,fr,Un instrument bipolaire unique est supporté,Un instrument bipolaire unique est supporté,
+8,0X2D0D,fr,Un instrument bipolaire unique est supporté,Un instrument bipolaire unique est supporté,
+1,0X2D1D,fr,,,Veuillez cliquer sur le bouton de réglage de la décharge
+8,0X2D1D,fr,,,Veuillez cliquer sur le bouton de réglage de la décharge
+1,0X2D2D,fr,,,Veuillez relâcher le bouton de réglage de l'épaule
+8,0X2D2D,fr,,,Veuillez relâcher le bouton de réglage de l'épaule
+1,0X2D3D,fr,,,Veuillez assortir les prises sur le contrôle en tournant la prise
+8,0X2D3D,fr,,,Veuillez assortir les prises sur le contrôle en tournant la prise
+1,0X2D4D,fr,Écart de rotation excessif,Écart de rotation excessif,Prise de correspondance sur le contrôle en serrant
+8,0X2D4D,fr,Écart de rotation excessif,Écart de rotation excessif,Prise de correspondance sur le contrôle en serrant
+8,0X2D5D,fr,Le couteau à ultrasons est activé pendant trop longtemps,Le couteau à ultrasons est activé pendant trop longtemps,Veuillez relâcher la pédale
+1,0X2D5D,fr,Le couteau à ultrasons est activé pendant trop longtemps,Le couteau à ultrasons est activé pendant trop longtemps,Veuillez relâcher la pédale
+1,0X2D6D,fr,Ne pas tourner l'articulation pendant l'activation du couteau à ultrasons,Ne pas tourner l'articulation pendant l'activation du couteau à ultrasons,
+8,0X2D6D,fr,Ne pas tourner l'articulation pendant l'activation du couteau à ultrasons,Ne pas tourner l'articulation pendant l'activation du couteau à ultrasons,
+1,0X2D7D,fr,,,Veuillez quitter le mode mémoire de la hauteur de l'instrument
+8,0X2D7D,fr,,,Veuillez quitter le mode mémoire de la hauteur de l'instrument
+1,0X2D8D,fr,,,Veuillez vous connecter
+8,0X2D8D,fr,,,Veuillez vous connecter
+1,0X2D9D,fr,L'endoscope atteint la limite de la position,L'endoscope atteint la limite de la position,Attention
+8,0X2D9D,fr,L'endoscope atteint la limite de la position,L'endoscope atteint la limite de la position,Attention
+1,0X2DAD,fr,,,Veuillez zoomer
+8,0X2DAD,fr,,,Veuillez zoomer
+1,0X2DBD,fr,,,Veuillez dézoomer
+8,0X2DBD,fr,,,Veuillez dézoomer
+1,0X2DCD,fr,,,Veuillez faire pivoter l'endoscope dans le sens de l'aiguillage
+8,0X2DCD,fr,,,Veuillez faire pivoter l'endoscope dans le sens de l'aiguillage
+1,0X2DDD,fr,,,Veuillez faire pivoter l'endoscope par rapport aux aiguilles d'une montre
+8,0X2DDD,fr,,,Veuillez faire pivoter l'endoscope par rapport aux aiguilles d'une montre
+1,0X2DED,fr,,,Veuillez ajuster l'endoscope vers le bas
+8,0X2DED,fr,,,Veuillez ajuster l'endoscope vers le bas
+1,0X2DFD,fr,Abaisser le bras principal ou lever le visionneur 3D avant l'auto-test,Abaisser le bras principal ou lever le visionneur 3D avant l'auto-test,
+8,0X2DFD,fr,Abaisser le bras principal ou lever le visionneur 3D avant l'auto-test,Abaisser le bras principal ou lever le visionneur 3D avant l'auto-test,
+1,0X2E0D,fr,,,Veuillez vérifier la pédale d'interrupteur du bras
+8,0X2E0D,fr,,,Veuillez vérifier la pédale d'interrupteur du bras
+1,0X2E1D,fr,,,Veuillez vérifier la pédale d'embrayage
+8,0X2E1D,fr,,,Veuillez vérifier la pédale d'embrayage
+1,0X2E2D,fr,,,Veuillez vérifier la pédale de l'endoscope
+8,0X2E2D,fr,,,Veuillez vérifier la pédale de l'endoscope
+1,0X2E3D,fr,,,Vérifier la pédale gauche coupée
+8,0X2E3D,fr,,,Vérifier la pédale gauche coupée
+1,0X2E4D,fr,,,Vérifier la pédale de coag gauche
+8,0X2E4D,fr,,,Vérifier la pédale de coag gauche
+1,0X2E5D,fr,,,Vérifier la pédale droite coupée
+8,0X2E5D,fr,,,Vérifier la pédale droite coupée
+1,0X2E6D,fr,,,Vérifier la pédale coag droite
+8,0X2E6D,fr,,,Vérifier la pédale coag droite
+4,0X090B,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+1,0X2E7D,fr,,,Vérifier le bouton de réglage du bras d'esclave
+8,0X2E7D,fr,,,Vérifier le bouton de réglage du bras d'esclave
+1,0X2EAD,fr,,,Veuillez vérifier le capteur de tête
+8,0X2EAD,fr,,,Veuillez vérifier le capteur de tête
+1,0X2EBD,fr,,,Vérifier le capteur de pied gauche
+8,0X2EBD,fr,,,Vérifier le capteur de pied gauche
+1,0X2ECD,fr,,,Vérifier le capteur du pied droit
+8,0X2ECD,fr,,,Vérifier le capteur du pied droit
+1,0X2EDD,fr,,,Veuillez finir le réglage avant d'effectuer un auto-test
+8,0X2EDD,fr,,,Veuillez finir le réglage avant d'effectuer un auto-test
+1,0X2EFD,fr,Veuillez vérifier le signal d'embrayage,Veuillez vérifier le signal d'embrayage,
+8,0X2EFD,fr,Veuillez vérifier le signal d'embrayage,Veuillez vérifier le signal d'embrayage,
+1,0X2F0D,fr,Batterie faible,Batterie faible,Veuillez contacter le service à la clientèle
+8,0X2F0D,fr,Batterie faible,Batterie faible,Veuillez contacter le service à la clientèle
+1,0X2F1D,fr,Batterie faible,Batterie faible,Veuillez contacter le service à la clientèle
+8,0X2F1D,fr,Batterie faible,Batterie faible,Veuillez contacter le service à la clientèle
+8,0X2F2D,fr,Dépasser la limite d'utilisation du trocar,Dépasser la limite d'utilisation du trocar,Veuillez le remplacer
+1,0X2F2D,fr,Dépasser la limite d'utilisation du trocar,Dépasser la limite d'utilisation du trocar,Veuillez le remplacer
+1,0X2F3D,fr,Ne pas monter les mêmes systèmes d'énergie de type,Ne pas monter les mêmes systèmes d'énergie de type,
+8,0X2F3D,fr,Ne pas monter les mêmes systèmes d'énergie de type,Ne pas monter les mêmes systèmes d'énergie de type,
+1,0X2F4D,fr,Le bras d'esclave 1 ne produit pas d'énergie avec plusieurs bipolaires,Le bras d'esclave 1 ne produit pas d'énergie avec plusieurs bipolaires,
+8,0X2F4D,fr,Le bras d'esclave 1 ne produit pas d'énergie avec plusieurs bipolaires,Le bras d'esclave 1 ne produit pas d'énergie avec plusieurs bipolaires,
+1,0X2F5D,fr,Le bras d'esclave 4 ne produit pas d'énergie avec plusieurs bipolaires,Le bras d'esclave 4 ne produit pas d'énergie avec plusieurs bipolaires,
+8,0X2F5D,fr,Le bras d'esclave 4 ne produit pas d'énergie avec plusieurs bipolaires,Le bras d'esclave 4 ne produit pas d'énergie avec plusieurs bipolaires,
+1,0X2F6D,fr,L'embrayage est déclenché pendant plus d'une minute,L'embrayage est déclenché pendant plus d'une minute,
+8,0X2F6D,fr,L'embrayage est déclenché pendant plus d'une minute,L'embrayage est déclenché pendant plus d'une minute,
+1,0X2F9D,fr,Raccordement anormal à l'endoscope,Raccordement anormal à l'endoscope,Veuillez réaffirmer l'endoscope
+8,0X2F9D,fr,Raccordement anormal à l'endoscope,Raccordement anormal à l'endoscope,Veuillez réaffirmer l'endoscope
+1,0X2FAD,fr,Veuillez remettre l'adaptateur de l'instrument,Veuillez remettre l'adaptateur de l'instrument,
+1,0X2FBD,fr,Écart de mouvement,Écart de mouvement,
+1,0X2FFD,fr,Instrument non monté,Instrument non monté,Veuillez le remonter
+8,0X338D,fr,Dans le processus d'ajustement ergonomique,Dans le processus d'ajustement ergonomique,Veuillez ne pas déplacer le bras maître
+1,0X338D,fr,Dans le processus d'ajustement ergonomique,Dans le processus d'ajustement ergonomique,Veuillez ne pas déplacer le bras maître
+8,0X339D,fr,Dans le processus d'ajustement ergonomique,Dans le processus d'ajustement ergonomique,Veuillez ne pas déplacer le bras maître
+1,0X339D,fr,Dans le processus d'ajustement ergonomique,Dans le processus d'ajustement ergonomique,Veuillez ne pas déplacer le bras maître
+8,0X33AD,fr,Dans le processus d'ajustement ergonomique,Dans le processus d'ajustement ergonomique,Veuillez ne pas déplacer le bras maître
+1,0X33AD,fr,Dans le processus d'ajustement ergonomique,Dans le processus d'ajustement ergonomique,Veuillez ne pas déplacer le bras maître
+1,0X33BD,fr,Ajustement ergonomique nié,Ajustement ergonomique nié,
+8,0X33BD,fr,Ajustement ergonomique nié,Ajustement ergonomique nié,
+4,0X010A,fr,Défaut matériel,Dépasser la limite d'écart de mouvement,Cliquer sur REMOVE pour restaurer
+1,0X33CD,fr,,,Veuillez mettre la tête dans le visionneur 3D
+8,0X33CD,fr,,,Veuillez mettre la tête dans le visionneur 3D
+1,0X33DD,fr,,,Veuillez retourner à la page principale
+8,0X33DD,fr,,,Veuillez retourner à la page principale
+1,0X33ED,fr,Défaut de communication du contrôleur de l'endoscope,Défaut de communication du contrôleur de l'endoscope,
+1,0X33FD,fr,Échec de connexion du trocart,Échec de connexion du trocart,
+1,0X340D,fr,Trocar n'est pas installé,Trocar n'est pas installé,
+1,0X341D,fr,,,Veuillez relâcher la pédale d'énergie
+8,0X341D,fr,,,Veuillez relâcher la pédale d'énergie
+1,0X342D,fr,Veuillez contacter le service à la clientèle,Veuillez contacter le service à la clientèle,
+1,0X343D,fr,Veuillez contacter le service à la clientèle,Veuillez contacter le service à la clientèle,
+1,0X350D,fr,Ajustement automatique du bras d'esclave,Ajustement automatique du bras d'esclave,Veuillez garder vos mains sur les accoudoirs
+1,0X400B,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,Cliquer sur REMOVE pour restaurer
+4,0X135D,fr,Échec de libération de la base,Échec de libération de la base,
+4,0X134D,fr,Échec verrouillé de la base,Échec verrouillé de la base,
+4,0X136D,fr,Pression d'huile de soutènement anormale,Pression d'huile de soutènement anormale,
+8,0X400B,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,Cliquer sur REMOVE pour restaurer
+8,0X400D,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,
+1,0X400D,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,
+8,0X401D,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,Aucune intervention chirurgicale autorisée
+8,0X402D,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,Opération non recommandée
+8,0X403D,fr,Qualité moyenne du réseau,Qualité moyenne du réseau,Veuillez activer lentement et avec prudence
+8,0X404D,fr,Qualité moyenne du réseau,Qualité moyenne du réseau,Veuillez activer lentement
+8,0X410D,fr,Défaut du terminal local,Défaut du terminal local,
+1,0X410D,fr,Défaut du terminal local,Défaut du terminal local,
+8,0X411D,fr,Terminal local Log out,Terminal local Log out,
+1,0X411D,fr,Terminal local Log out,Terminal local Log out,
+8,0X412D,fr,Commande de commutation vers le terminal local,Commande de commutation vers le terminal local,
+1,0X412D,fr,Commande de commutation vers le terminal local,Commande de commutation vers le terminal local,
+8,0X413D,fr,Commande de commutation vers le terminal éloigné,Commande de commutation vers le terminal éloigné,
+1,0X413D,fr,Commande de commutation vers le terminal éloigné,Commande de commutation vers le terminal éloigné,
+8,0X414D,fr,Veuillez vérifier les paramètres du réseau,Veuillez vérifier les paramètres du réseau,
+8,0X415D,fr,Veuillez vérifier le code de vérification,Veuillez vérifier le code de vérification,
+1,0X416D,fr,Réseau connecté,Réseau connecté,
+8,0X416D,fr,Réseau connecté,Réseau connecté,
+1,0X417D,fr,Le réseau est débranché,Le réseau est débranché,
+8,0X417D,fr,Le réseau est débranché,Le réseau est débranché,
+8,0X420D,fr,Veuillez prendre le relais avant l'arrêt,Veuillez prendre le relais avant l'arrêt,
+1,0X420D,fr,Veuillez prendre le relais avant l'arrêt,Veuillez prendre le relais avant l'arrêt,
+8,0X450B,fr,Erreur de poste de travail de communication,Le logiciel d'agent est anormal,Cliquer sur REMOVE pour restaurer
+1,0X450B,fr,Erreur de poste de travail de communication,Le logiciel d'agent est anormal,Cliquer sur REMOVE pour restaurer
+1,0X451D,fr,La communication du poste de travail à distance est anormale,La communication du poste de travail à distance est anormale,
+8,0X451D,fr,La communication du poste de travail à distance est anormale,La communication du poste de travail à distance est anormale,
+1,0X452B,fr,Erreur de poste de travail de communication,Défaut de TSA locale,Cliquer sur REMOVE pour restaurer
+8,0X452B,fr,Erreur de poste de travail de communication,Défaut de TSA locale,Cliquer sur REMOVE pour restaurer
+1,0X453B,fr,Erreur de poste de travail de communication,Défaut de codec vidéo,Cliquer sur REMOVE pour restaurer
+8,0X453B,fr,Erreur de poste de travail de communication,Défaut de codec vidéo,Cliquer sur REMOVE pour restaurer
+1,0X454D,fr,La version du logiciel TSA est incompatible,La version du logiciel TSA est incompatible,
+8,0X454D,fr,La version du logiciel TSA est incompatible,La version du logiciel TSA est incompatible,
+1,0X455A,fr,Exception concernant les données,Exception concernant les données,Cliquer sur REMOVE pour restaurer
+8,0X500D,fr,Données de contrôle erronées,Données de contrôle erronées,
+1,0X533D,fr,Communication anormale,Communication anormale,
+8,0X533D,fr,Communication anormale,Communication anormale,
+8,0X606D,fr,Le bras maître n'est pas rangé,Le bras maître n'est pas rangé,
+1,0X606D,fr,Le bras maître n'est pas rangé,Le bras maître n'est pas rangé,
+1,0X607D,fr,Échec du déploiement,Échec du déploiement,
+1,0X608D,fr,Échec de l'arrimage,Échec de l'arrimage,
+5,0X610A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+A,0X610A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+5,0X622B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X622B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X623B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X623B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X626B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X626B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+1,0X626D,fr,Défaut de moteur,Défaut de moteur,Veuillez contacter le service à la clientèle
+8,0X626D,fr,Défaut de moteur,Défaut de moteur,
+5,0X627B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X627B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X640B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X640B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X641B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X641B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X642B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X642B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X643B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X643B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X651B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X651B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X652B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X652B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X653B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X653B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X660B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X660B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X662B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X662B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X663B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X663B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+8,0X090E,fr,,,
+8,0X665A,fr,Exception concernant les données,Exception concernant les données,Cliquer sur REMOVE pour restaurer
+5,0X665B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X665B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X666B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X666B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X66AB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X66AB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X66CB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X66CB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X680B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X680B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X682B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X682B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X683B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X683B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X685B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X685B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X686B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X686B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X68AB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X68AB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X68CB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X68CB,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6A0B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6A0B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6A4B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6A4B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6A5B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6A5B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6A6B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6A6B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6A7B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6A7B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6B0B,fr,Défaut de moteur,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+A,0X6B0B,fr,Défaut de moteur,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+5,0X6B1B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+A,0X6B1B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+5,0X6B2B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+A,0X6B2B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+5,0X6B4B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+A,0X6B4B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+5,0X6B5B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+A,0X6B5B,fr,Données de contrôle erronées,Données de contrôle erronées,Cliquer sur REMOVE pour restaurer
+5,0X6C0B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C0B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C1B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C1B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C2B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C2B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C3B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+4,0X030A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+4,0X100A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+4,0X110A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+A,0X6C3B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C4B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C4B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C5B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C5B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C6B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C6B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C7B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C7B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C8B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C8B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6C9B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6C9B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6D0B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6D0B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6D1B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6D1B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6D2B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6D2B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6D3B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6D3B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6D4B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6D4B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6D5B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6D5B,fr,Défaut de moteur,Défaut de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6D6A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6D6A,fr,Défaut matériel,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6D7B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6D7B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6D7D,fr,Carte de circuit sous tension,Carte de circuit sous tension,
+5,0X6D8B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+A,0X6D8B,fr,Défaut de moteur,Défaut matériel,Cliquer sur REMOVE pour restaurer
+5,0X6D9B,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6D9B,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6DAB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6DAB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6DCB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6DCB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6DDB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6DDB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+5,0X6DEB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+A,0X6DEB,fr,Défaut de moteur,Défaillance du conducteur de moteur,Cliquer sur REMOVE pour restaurer
+8,0X555E,fr,,,
+8,0X556E,fr,,,
+8,0X557E,fr,,,
+8,0X558E,fr,,,
+1,0X70BD,fr,Lecture de l'information en exécution chronométrée,Lecture de l'information en exécution chronométrée,
+8,0X70BD,fr,Lecture de l'information en exécution chronométrée,Lecture de l'information en exécution chronométrée,
+1,0X70CD,fr,Le CPU est surchargé,Le CPU est surchargé,
+8,0X70CD,fr,Le CPU est surchargé,Le CPU est surchargé,
+1,0X70DD,fr,Signal de pédale débranché,Signal de pédale débranché,
+5,0X801D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+A,0X801D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+5,0X802D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+A,0X802D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+5,0X803D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+A,0X803D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+5,0X804D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+A,0X804D,fr,Défaillance du conducteur de moteur,Défaillance du conducteur de moteur,
+6,0XB01B,fr,Image anormale,Acquisition d'images anormales,Cliquer sur REMOVE pour restaurer
+6,0XB02B,fr,Raccordement anormal à l'endoscope,Raccordement anormal à l'endoscope,Veuillez réaffirmer l'endoscope
+6,0XB03B,fr,Endoscope déconnecté,Endoscope déconnecté,Cliquer sur REMOVE pour restaurer
+6,0XB03D,fr,Endoscope déconnecté,Endoscope déconnecté,
+6,0XB04B,fr,Image anormale,Image non continue,Cliquer sur REMOVE pour restaurer
+6,0XB05D,fr,,,Veuillez redémarrer le contrôleur de l'endoscope
+6,0XB06D,fr,,,Veuillez redémarrer le contrôleur de l'endoscope
+6,0XB07A,fr,Défaut de réseau,Défaut de réseau,Cliquer sur REMOVE pour restaurer
+6,0XB50C,fr,Anomalie de la connexion au disque flash USB,Anomalie de la connexion au disque flash USB,
+6,0XB50D,fr,Anomalie de la connexion au disque flash USB,Anomalie de la connexion au disque flash USB,
+6,0XB51C,fr,Espace disque du contrôleur de l'endoscope insuffisant,Espace disque du contrôleur de l'endoscope insuffisant,Veuillez contacter le service à la clientèle
+6,0XB51D,fr,Espace disque du contrôleur de l'endoscope insuffisant,Espace disque du contrôleur de l'endoscope insuffisant,Veuillez contacter le service à la clientèle
+6,0XB52C,fr,Le contrôleur de l'endoscope CPU est surchargé,Le contrôleur de l'endoscope CPU est surchargé,
+6,0XB52D,fr,Le contrôleur de l'endoscope CPU est surchargé,Le contrôleur de l'endoscope CPU est surchargé,
+6,0XB53C,fr,Espace disque flash USB insuffisant,Espace disque flash USB insuffisant,Veuillez le remplacer
+6,0XB53D,fr,Espace disque flash USB insuffisant,Espace disque flash USB insuffisant,Veuillez le remplacer
+6,0XBA0D,fr,Image hors syntaxe,Image hors syntaxe,Veuillez réaffirmer l'endoscope
+6,0XBA1A,fr,,,Veuillez redémarrer le contrôleur de l'endoscope
+6,0XBA2A,fr,Effet médiocre de l'affichage 3D,Effet médiocre de l'affichage 3D,Veuillez redémarrer le contrôleur de l'endoscope
+6,0XBA3D,fr,,,Veuillez redémarrer le contrôleur de l'endoscope
+6,0XBA5C,fr,Le bureau d'Aero a commencé à échouer,Le bureau d'Aero a commencé à échouer,
+6,0XBA5D,fr,Le bureau d'Aero a commencé à échouer,Le bureau d'Aero a commencé à échouer,
+6,0XBA6C,fr,Disque flash USB non autorisé,Disque flash USB non autorisé,Veuillez l'utiliser après l'authentification
+6,0XBA6D,fr,Disque flash USB non autorisé,Disque flash USB non autorisé,Veuillez l'utiliser après l'authentification
+6,0XBA7D,fr,La connexion à la plate-forme énergétique a échoué,La connexion à la plate-forme énergétique a échoué,Veuillez contacter le service à la clientèle
+6,0XBA8D,fr,Identification du type d'endoscope échouée,Identification du type d'endoscope échouée,Veuillez remplacer l'endoscope
+1,0X310E,fr,,,
+1,0X500E,fr,,,
+1,0X501E,fr,,,
+1,0X502E,fr,,,
+1,0X503E,fr,,,
+1,0X504E,fr,,,
+1,0X505E,fr,,,
+1,0X506E,fr,,,
+1,0X507E,fr,,,
+1,0X508E,fr,,,
+1,0X509E,fr,,,
+1,0X50AE,fr,,,
+1,0X50BE,fr,,,
+1,0X50CE,fr,,,
+1,0X50DE,fr,,,
+1,0X50EE,fr,,,
+1,0X510E,fr,,,
+1,0X511E,fr,,,
+1,0X550E,fr,,,
+1,0X551E,fr,,,
+1,0X552E,fr,,,
+1,0X553E,fr,,,
+1,0X554E,fr,,,
+1,0X555E,fr,,,
+1,0X556E,fr,,,
+1,0X557E,fr,,,
+1,0X558E,fr,,,
+1,0X570E,fr,,,
+1,0X571E,fr,,,
+1,0X572E,fr,,,
+1,0X700E,fr,,,
+1,0X701E,fr,,,
+1,0X702E,fr,,,
+1,0X703E,fr,,,
+1,0X704E,fr,,,
+1,0X705E,fr,,,
+1,0X706E,fr,,,
+1,0X707E,fr,,,
+1,0X708E,fr,,,
+1,0X709E,fr,,,
+1,0X70AE,fr,,,
+1,0X70CE,fr,,,
+1,0X710E,fr,,,
+1,0X405E,fr,,,
+8,0X405E,fr,,,
+1,0X66BD,fr,,Veuillez contacter le service à la clientèle,
+1,0X143D,fr,Batterie épuisée,Batterie épuisée,
+8,0X143D,fr,Batterie épuisée,Batterie épuisée,
+1,0X144D,fr,Batterie faible,Batterie faible,
+8,0X144D,fr,Batterie faible,Batterie faible,
+6,0XBA9D,fr,Les paramètres de l'endoscope sont en cours de configuration,Les paramètres de l'endoscope sont en cours de configuration,
+1,0X2BDD,fr,L'instrument droit et l'instrument gauche atteignent la limite de rotation,L'instrument droit et l'instrument gauche atteignent la limite de rotation,
+1,0X666D,fr,La version logicielle est incohérente,La version logicielle est incohérente,
+8,0X666D,fr,La version logicielle est incohérente,La version logicielle est incohérente,
+8,0X614D,fr,Commutation vers le système à distance,Commutation vers le système à distance,
+1,0X624D,fr,Passer au système local,Passer au système local,
+1,0X404A,fr,Déconnexion avec le chariot patient,Déconnexion avec le chariot patient,
+1,0X021D,fr,L'instrument est bloqué,L'instrument est bloqué,
+1,0X022E,fr,,,
+1,0X030E,fr,,,
+1,0X050E,fr,,,
+1,0X040E,fr,,,
+1,0X090E,fr,,,
+1,0X010E,fr,,,
+1,0X020E,fr,,,
+1,0X559E,fr,,,
+1,0X55AE,fr,,,
+1,0X55BE,fr,,,
+1,0X092E,fr,,,
+1,0X344D,fr,,,Veuillez vérifier l'adaptateur
+1,0X345D,fr,,,Veuillez vérifier l'instrument en question et réinstaller l'adaptateur
+1,0X360D,fr,Veuillez retirer l'instrument,Veuillez retirer l'instrument,
+1,0X361D,fr,Veuillez retirer l'adaptateur,Veuillez retirer l'adaptateur,
+1,0X362D,fr,Veuillez  installer l'adaptateur,Veuillez  installer l'adaptateur,
+1,0X128D,fr,Retour maître à zéro échec,Retour maître à zéro échec,
+1,0X127D,fr,,,Prise de correspondance sur le contrôle en serrant
+8,0X127D,fr,,,Prise de correspondance sur le contrôle en serrant
+6,0X129D,fr,Défaut d'inversion,Défaut d'inversion,Veuillez vérifier l'état de la connexion
+1,0X130D,fr,,,Veuillez réaffirmer l'endoscope
+6,0X144C,fr,Défaut d'inversion,Défaut d'inversion,Veuillez réinitialiser
+1,0X145D,fr,Le chariot patient ne peut pas être ajusté dans l'état actuel.,Le chariot patient ne peut pas être ajusté dans l'état actuel.,
+1,0X146D,fr,Veuillez activer sur le chariot patient,Veuillez activer sur le chariot patient,
+1,0X520E,fr,,,
+1,0X533E,fr,,,
+3,0X300E,fr,,,
+3,0X301E,fr,,,
+9,0X300E,fr,,,
+9,0X301E,fr,,,
+3,0X302E,fr,,,
+3,0X303E,fr,,,
+3,0X304E,fr,,,
+3,0X305E,fr,,,
+3,0X306E,fr,,,
+3,0X307E,fr,,,
+3,0X308E,fr,,,
+3,0X309E,fr,,,
+9,0X302E,fr,,,
+9,0X303E,fr,,,
+9,0X304E,fr,,,
+9,0X305E,fr,,,
+9,0X306E,fr,,,
+9,0X307E,fr,,,
+9,0X308E,fr,,,
+9,0X309E,fr,,,
+1,0X57DE,fr,,,
+1,0X57AE,fr,,,
+1,0X57BE,fr,,,
+8,0X57DE,fr,,,
+8,0X57AE,fr,,,
+8,0X57BE,fr,,,
+1,0X579E,fr,,,
+1,0X57CE,fr,,,
+1,0X514E,fr,,,
+1,0X515E,fr,,,
+1,0X516E,fr,,,
+1,0X517E,fr,,,
+1,0X518E,fr,,,
+1,0X519E,fr,,,
+1,0X521E,fr,,,
+1,0X522E,fr,,,
+1,0X523E,fr,,,
+1,0X524E,fr,,,
+1,0X525E,fr,,,
+1,0X526E,fr,,,
+1,0X527E,fr,,,
+1,0X528E,fr,,,
+1,0X529E,fr,,,
+1,0X52AE,fr,,,
+1,0X52BE,fr,,,
+1,0X52CE,fr,,,
+1,0X52DE,fr,,,
+1,0X52EE,fr,,,
+1,0X52FE,fr,,,
+1,0X530E,fr,,,
+1,0X531E,fr,,,
+1,0X532E,fr,,,
+1,0X57EE,fr,,,
+1,0X534E,fr,,,
+1,0X535E,fr,,,
+1,0X536E,fr,,,
+1,0X537E,fr,,,
+1,0X538E,fr,,,
+1,0X539E,fr,,,
+1,0X53AE,fr,,,
+1,0X53BE,fr,,,
+1,0X53CE,fr,,,
+1,0X53DE,fr,,,
+1,0X53EE,fr,,,
+1,0X53FE,fr,,,
+1,0X540E,fr,,,
+1,0X541E,fr,,,
+1,0X542E,fr,,,
+1,0X543E,fr,,,
+1,0X544E,fr,,,
+1,0X545E,fr,,,
+1,0X546E,fr,,,
+1,0X547E,fr,,,
+1,0X548E,fr,,,
+1,0X549E,fr,,,
+1,0X54AE,fr,,,
+1,0X54BE,fr,,,
+1,0X54CE,fr,,,
+1,0X54DE,fr,,,
+1,0X54EE,fr,,,
+1,0X54FE,fr,,,
+1,0X560E,fr,,,
+1,0X561E,fr,,,
+1,0X562E,fr,,,
+1,0X563E,fr,,,
+1,0X564E,fr,,,
+1,0X565E,fr,,,
+1,0X567E,fr,,,
+1,0X568E,fr,,,
+1,0X569E,fr,,,
+1,0X56AE,fr,,,
+1,0X56CE,fr,,,
+1,0X56DE,fr,,,
+1,0X56EE,fr,,,
+1,0X56FE,fr,,,
+1,0X573E,fr,,,
+1,0X574E,fr,,,
+1,0X575E,fr,,,
+1,0X576E,fr,,,
+1,0X577E,fr,,,
+1,0X578E,fr,,,
+8,0X579E,fr,,,
+8,0X57CE,fr,,,
+8,0X514E,fr,,,
+8,0X515E,fr,,,
+8,0X516E,fr,,,
+8,0X517E,fr,,,
+8,0X518E,fr,,,
+8,0X519E,fr,,,
+8,0X521E,fr,,,
+8,0X522E,fr,,,
+8,0X523E,fr,,,
+8,0X524E,fr,,,
+8,0X525E,fr,,,
+8,0X526E,fr,,,
+8,0X527E,fr,,,
+8,0X528E,fr,,,
+8,0X529E,fr,,,
+8,0X52AE,fr,,,
+8,0X52BE,fr,,,
+8,0X52CE,fr,,,
+8,0X52DE,fr,,,
+8,0X52EE,fr,,,
+8,0X52FE,fr,,,
+8,0X530E,fr,,,
+8,0X531E,fr,,,
+8,0X532E,fr,,,
+8,0X57EE,fr,,,
+8,0X534E,fr,,,
+8,0X535E,fr,,,
+8,0X536E,fr,,,
+8,0X537E,fr,,,
+8,0X538E,fr,,,
+8,0X539E,fr,,,
+8,0X53AE,fr,,,
+8,0X53BE,fr,,,
+8,0X53CE,fr,,,
+8,0X53DE,fr,,,
+8,0X53EE,fr,,,
+8,0X53FE,fr,,,
+8,0X540E,fr,,,
+8,0X541E,fr,,,
+8,0X542E,fr,,,
+8,0X543E,fr,,,
+8,0X544E,fr,,,
+8,0X545E,fr,,,
+8,0X546E,fr,,,
+8,0X547E,fr,,,
+8,0X548E,fr,,,
+8,0X549E,fr,,,
+8,0X54AE,fr,,,
+8,0X54BE,fr,,,
+8,0X54CE,fr,,,
+8,0X54DE,fr,,,
+8,0X54EE,fr,,,
+8,0X54FE,fr,,,
+8,0X560E,fr,,,
+8,0X561E,fr,,,
+8,0X562E,fr,,,
+8,0X563E,fr,,,
+8,0X564E,fr,,,
+8,0X565E,fr,,,
+8,0X567E,fr,,,
+8,0X568E,fr,,,
+8,0X569E,fr,,,
+8,0X56AE,fr,,,
+8,0X56CE,fr,,,
+8,0X56DE,fr,,,
+8,0X56EE,fr,,,
+8,0X56FE,fr,,,
+8,0X573E,fr,,,
+8,0X574E,fr,,,
+8,0X575E,fr,,,
+8,0X576E,fr,,,
+8,0X577E,fr,,,
+8,0X578E,fr,,,
+1,0X580C,fr,Ne pas calculer la durée de vie de l'instrument,Ne pas calculer la durée de vie de l'instrument,
+1,0X580E,fr,,,
+1,0X512E,fr,,,
+1,0X513E,fr,,,
+1,0X590E,fr,,,
+1,0X591E,fr,,,
+1,0X594E,fr,,,
+1,0X040D,fr,Dépasser la limite d'écart de mouvement,Dépasser la limite d'écart de mouvement,Attention
+8,0X040D,fr,Dépasser la limite d'écart de mouvement,Dépasser la limite d'écart de mouvement,Attention
+1,0X665A,fr,Exception concernant les données,Exception concernant les données,Cliquer sur REMOVE pour restaurer
+8,0X455A,fr,Exception concernant les données,Exception concernant les données,Cliquer sur REMOVE pour restaurer
+8,0X70CE,fr,,,
+1,0X581E,fr,,,
+8,0X2BDD,fr,L'instrument droit et l'instrument gauche atteignent la limite de rotation,L'instrument droit et l'instrument gauche atteignent la limite de rotation,
+6,0XB07D,fr,Réseau non connecté,Réseau non connecté,Veuillez vérifier le câble de communication
+1,0x580D,fr,Attendre la fin de l'auto-test,Attendre la fin de l'auto-test,
+1,0x581D,fr,Réglage de sortie d'abord,Réglage de sortie d'abord,
+1,0x582D,fr,Intervention chirurgicale de sortie confirmée état premier,Intervention chirurgicale de sortie confirmée état premier,
+1,0x583D,fr,Commande d'embrayage de sortie d'abord,Commande d'embrayage de sortie d'abord,
+1,0x584D,fr,Contrôle maître-esclave de sortie d'abord,Contrôle maître-esclave de sortie d'abord,
+1,0x585D,fr,Contrôle de l'endoscope de sortie d'abord,Contrôle de l'endoscope de sortie d'abord,
+6,0XB54D,fr,Port série anormal,Port série anormal,Veuillez contacter le service à la clientèle
+6,0XB55D,fr,Défaut de paramétrer l'image,Défaut de paramétrer l'image,Veuillez réessayer
+6,0XB56D,fr,L'instrument est trop loin du centre du champ de vue,L'instrument est trop loin du centre du champ de vue,
+1,0x586D,fr,Veuillez ajuster la distance entre bras {0} et bras {1},Veuillez ajuster la distance entre bras {0} et bras {1},
+1,0x55CE,fr,,,
+6,0XB57D,fr,Impossible de configurer le paramètre d'image,Impossible de configurer le paramètre d'image,Veuillez contacter le service à la clientèle
+6,0XB58A,fr,Contrôleur de démarrage de l'endoscope anormal,Contrôleur de démarrage de l'endoscope anormal,Veuillez redémarrer le contrôleur de l'endoscope
+6,0XB59A,fr,Impossible de configurer l'interface du contrôleur de l'endoscope,Impossible de configurer l'interface du contrôleur de l'endoscope,Veuillez redémarrer le contrôleur de l'endoscope
+1,0X456A,fr,Exception concernant les données,Défaut de transfert des paramètres,Veuillez vérifier
+8,0X456A,fr,Exception concernant les données,Défaut de transfert des paramètres,Veuillez vérifier
+1,0X457A,fr,Exception concernant les données,Échec de la vérification des paramètres,Veuillez vous reconnecter
+8,0X457A,fr,Exception concernant les données,Échec de la vérification des paramètres,Veuillez vous reconnecter
+1,0X458E,fr,,,
+1,0X459E,fr,,,
+1,0X131D,fr,Échec à redémarrer,Échec à redémarrer,
+8,0X131D,fr,Échec à redémarrer,Échec à redémarrer,
+1,0X453D,fr,La FPS est faible,La FPS est faible,Veuillez activer lentement
+8,0X453D,fr,La FPS est faible,La FPS est faible,Veuillez activer lentement
+1,0X587D,fr,Le Maître se réinstalle,Le Maître se réinstalle,
+1,0X88BE,fr,,,
+8,0X587D,fr,Le Maître se réinstalle,Le Maître se réinstalle,
+8,0X88BE,fr,,,
+1,0X103A,fr,Défaut de réseau,Rupture de la connexion au câble du réseau de patients,Veuillez vérifier et cliquer sur "Rejeter" pour restaurer
+1,0X104A,fr,Défaut de réseau,Défaillance de la connexion au câble d'urgence,Veuillez vérifier et cliquer sur "Rejeter" pour restaurer
+1,0X105A,fr,Défaut matériel,Certificat d'autorisation invalidé,Veuillez redémarrer le système
+8,0X105A,fr,Défaut matériel,Certificat d'autorisation invalidé,Veuillez redémarrer le système
+1,0X588D,fr,Le dispositif audio de la console du chirurgien ne se connecte pas,Le dispositif audio de la console du chirurgien ne se connecte pas,Veuillez contacter le service à la clientèle
+1,0X589D,fr,Le dispositif audio du contrôleur de l'endoscope ne se connecte pas,Le dispositif audio du contrôleur de l'endoscope ne se connecte pas,Veuillez contacter le service à la clientèle
+1,0X591D,fr,Exception relative au service audio,Exception relative au service audio,Veuillez contacter le service à la clientèle
+1,0X592D,fr,Le contrôle de l'interface de la console est anormal,Le contrôle de l'interface de la console est anormal,Veuillez contacter le service à la clientèle
+1,0X593D,fr,Instrument trop haut, veuillez ajuster vers le bas,Instrument trop haut, veuillez ajuster vers le bas,
+1,0X594D,fr,Interférence entre la gauche et la droite,Interférence entre la gauche et la droite,Veuillez ajuster
+1,0X88DE,fr,,,
+8,0X594D,fr,Interférence entre la gauche et la droite,Interférence entre la gauche et la droite,Veuillez ajuster
+1,0X072A,fr,Une opération trop rapide,trop presser,Veuillez vérifier et cliquer sur "Rejeter" pour restaurer
+1,0X072D,fr,trop presser,trop presser,
+1,0X073A,fr,Défaut matériel,Anomalie de Hall,Veuillez vérifier et cliquer sur "Rejeter" pour restaurer
+8,0X072A,fr,Une opération trop rapide,trop presser,Veuillez vérifier et cliquer sur "Rejeter" pour restaurer
+8,0X072D,fr,trop presser,trop presser,
+8,0X073A,fr,Défaut matériel,Anomalie de Hall,Veuillez vérifier et cliquer sur "Rejeter" pour restaurer
+1,0X595D,fr,Le dispositif audio de la console de chirurgien est anormal,Le dispositif audio de la console de chirurgien est anormal,Veuillez contacter le service à la clientèle
+1,0X596D,fr,Le dispositif audio du contrôleur de l'endoscope est anormal,Le dispositif audio du contrôleur de l'endoscope est anormal,Veuillez contacter le service à la clientèle
+1,0X460D,fr,L'opération n'est pas permise pendant le commutateur de commande,L'opération n'est pas permise pendant le commutateur de commande,
+8,0X460D,fr,L'opération n'est pas permise pendant le commutateur de commande,L'opération n'est pas permise pendant le commutateur de commande,
+6,0XB60D,fr,Connexion anormale du faisceau de guidage,Connexion anormale du faisceau de guidage,Veuillez vérifier la connexion
+6,0XB61D,fr,Connexion anormale de la ligne de commande de la source de lumière froide,Connexion anormale de la ligne de commande de la source de lumière froide,Veuillez vérifier la connexion
+1,0X597E,fr,,,
+6,0XB62D,fr,La température de la source de lumière froide est trop élevée,La température de la source de lumière froide est trop élevée,
+6,0XB63D,fr,La durée de vie de l'ampoule à source de lumière froide approche de sa durée de vie,La durée de vie de l'ampoule à source de lumière froide approche de sa durée de vie,
+6,0XB64D,fr,L'ampoule de la source de lumière froide a atteint la fin de sa durée de vie,L'ampoule de la source de lumière froide a atteint la fin de sa durée de vie,
+1,0X122D,fr,L'interrupteur d'arrêt d'urgence du chariot chirurgical est déclenché,L'interrupteur d'arrêt d'urgence du chariot chirurgical est déclenché,
+8,0X122D,fr,L'interrupteur d'arrêt d'urgence du chariot chirurgical est déclenché,L'interrupteur d'arrêt d'urgence du chariot chirurgical est déclenché,
+1,0X588E,fr,,,
+1,0X597D,fr,Appareil audio chirurgical non connecté,Appareil audio chirurgical non connecté,Veuillez contacter le service à la clientèle
+1,0X598D,fr,Équipement audio anormal du côté chirurgical,Équipement audio anormal du côté chirurgical,Veuillez contacter le service à la clientèle
+1,0X353D,fr,Veuillez débrancher le câble du chariot chirurgical en mode simulateur,Veuillez débrancher le câble du chariot chirurgical en mode simulateur,
+1,0X352C,fr,Communication du simulateur interrompue,Communication du simulateur interrompue,Veuillez vérifier si le câble réseau est correctement connecté
+1,0X023D,fr,Bras bloqué,Bras bloqué,
+1,0X599D,fr,Veuillez confirmer le numéro de série du bras robot,Veuillez confirmer le numéro de série du bras robot,
+1,0X129D,fr,Veuillez appuyer à nouveau sur la pédale de l'endoscope,Veuillez appuyer à nouveau sur la pédale de l'endoscope,
+1,0X602E,fr,,,
+1,0X602D,fr,,,Veuillez retourner à la page principale
+1,0X603E,fr,,,
+8,0X08AD,fr,Échec de la désactivation du bras,Échec de la désactivation du bras,Veuillez réessayer
+8,0X08BD,fr,Échec d'activation du bras,Échec d'activation du bras,Veuillez réessayer
+8,0X08CD,fr,Activation du bras,Activation du bras,
+8,0X08DD,fr,Échec d'activation du bras,Échec d'activation du bras,
+8,0X08ED,fr,Bras handicapé,Bras handicapé,
+1,0X461D,fr,Bras d'endoscope verrouillé,Bras d'endoscope verrouillé,
+6,0XB88D,fr,L’image dans l’image 3D plein écran n’est pas correctement connectée à la source d’entrée,L’image dans l’image 3D plein écran n’est pas correctement connectée à la source d’entrée,
+1,0X462D,fr,Veuillez désactiver le mode de sensibilité à la fluorescence avant d'utiliser,Veuillez désactiver le mode de sensibilité à la fluorescence avant d'utiliser,
+1,0X424D,fr,Local take,Local take,
+1,0X425D,fr,Local give,Local give,
+1,0X426D,fr,Local take all,Local take all,
+8,0X424D,fr,Remote take,Remote take,
+8,0X425D,fr,Remote give,Remote give,
+8,0X426D,fr,Remote take all,Remote take all,
+6,0XB65D,fr,Source d'entrée HDMI 1 non connectée,Source d'entrée HDMI 1 non connectée,
+6,0XB66D,fr,Source d'entrée HDMI 2 non connectée,Source d'entrée HDMI 2 non connectée,
+6,0XB67D,fr,Source d'entrée SDI 1 non connectée,Source d'entrée SDI 1 non connectée,
+6,0XB68D,fr,Source d'entrée SDI 2 non connectée,Source d'entrée SDI 2 non connectée,
+1,0X2EED,fr,,,Veuillez ne pas appuyer sur les pédales aux deux extrémités en même temps
+8,0X2EED,fr,,,Veuillez ne pas appuyer sur les pédales aux deux extrémités en même temps
+1,0X2FCD,fr,Pas de bras pour changer,Pas de bras pour changer,
+8,0X2FCD,fr,Pas de bras pour changer,Pas de bras pour changer,
+4,0X143D,fr,Batterie épuisée,Batterie épuisée,
+4,0X144D,fr,Batterie faible,Batterie faible,
+1,0X193D,fr,Déconnexion, nettoyage et inspection des câbles du dispositif de fermeture des parois des grands récipients,Déconnexion, nettoyage et inspection des câbles du dispositif de fermeture des parois des grands récipients,Veuillez inspecter les connexions.
+1,0X192D,fr,Vérifiez s'il y a un dysfonctionnement du système d'entraînement du dispositif de fermeture des parois des grands récipients.,Vérifiez s'il y a un dysfonctionnement du système d'entraînement du dispositif de fermeture des parois des grands récipients.,Veuillez inspecter les connexions.
+1,0X138D,fr,La réservation de l'agrafeuse a été utilisée, veuillez la remplacer.,La réservation de l'agrafeuse a été utilisée, veuillez la remplacer.,Modifier la réservation
+1,0X137D,fr,L'agrafeuse a été retournée et complétée. Veuillez mettre à jour la réservation.,L'agrafeuse a été retournée et complétée. Veuillez mettre à jour la réservation.,Modifier la réservation
+1,0X430D,fr,La fréquence d’images de l’écran est inadaptée à la chirurgie,La fréquence d’images de l’écran est inadaptée à la chirurgie,
+1,0X429B,fr,ChangementAnormalSourceDonnées,ChangementAnormalSourceDonnées,veuillez vérifier les paramètres réseau
+8,0X429B,fr,ChangementAnormalSourceDonnées,ChangementAnormalSourceDonnées,veuillez vérifier les paramètres réseau
+1,0X611D,fr,MontageTrocartRéussi,MontageTrocartRéussi,
+1,0X33FE,fr,Changements d'état du Tocar,Changements d'état du Tocar,
+1,0XA01E,fr,Enregistrement du journal de démarrage,Enregistrement du journal de démarrage,
+1,0XA02E,fr,Enregistrement du journal d'arrêt,Enregistrement du journal d'arrêt,
+8,0XA01E,fr,Enregistrement du journal de démarrage,Enregistrement du journal de démarrage,
+8,0XA02E,fr,Enregistrement du journal d'arrêt,Enregistrement du journal d'arrêt,
+1,0X612D,fr,,,Veuillez retirer l’instrument
+1,0X427D,fr,Local give all,Local give all,
+8,0X427D,fr,Remote give all,Remote give all,
+1,0X401D,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,Aucune intervention chirurgicale autorisée
+1,0X402D,fr,Mauvaise qualité du réseau,Mauvaise qualité du réseau,Opération non recommandée
+1,0X403D,fr,Qualité moyenne du réseau,Qualité moyenne du réseau,Veuillez activer lentement et avec prudence
+1,0X404D,fr,Qualité moyenne du réseau,Qualité moyenne du réseau,Veuillez activer lentement
+1,0X463D,fr,EndoscopeEnMouvement,EndoscopeEnMouvement,S'il vous plaît, attendez
+8,0X463D,fr,EndoscopeEnMouvement,EndoscopeEnMouvement,S'il vous plaît, attendez
+1,0X464D,fr,CollisionBrasInstrument,CollisionBrasInstrument,Attention
+1,0X623D,fr,ModeNormal,ModeNormal,
+1,0X627D,fr,ModeFluorescence,ModeFluorescence,
+1,0X629D,fr,FusionD’Images,FusionD’Images,
+3,0X164D,fr,Protection de liaison,Protection de liaison,Veuillez ajuster le maître vers le haut
+3,0X165D,fr,Protection de liaison,Protection de liaison,Veuillez abaisser la hauteur du moniteur
+9,0X164D,fr,Protection de liaison,Protection de liaison,Veuillez ajuster le maître vers le haut
+9,0X165D,fr,Protection de liaison,Protection de liaison,Veuillez abaisser la hauteur du moniteur

@@ -1,0 +1,923 @@
+﻿subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,pt,Falha de hardware,Falha de ajuste ergonômico,Clique em REMOVER para restaurar
+9,0X010A,pt,Falha de hardware,Falha de ajuste ergonômico,Clique em REMOVER para restaurar
+1,0X010A,pt,Falha de hardware,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+1,0X490E,pt,,,
+8,0X010A,pt,Falha de hardware,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+9,0X010D,pt,Falha de ajuste ergonômico,Falha de ajuste ergonômico,
+3,0X010D,pt,Falha de ajuste ergonômico,Falha de ajuste ergonômico,
+1,0X010D,pt,Exceder o limite de desvio de movimento,Exceder o limite de desvio de movimento,Entre em contato com o atendimento ao cliente
+8,0X010D,pt,Exceder o limite de desvio de movimento,Exceder o limite de desvio de movimento,Entre em contato com o atendimento ao cliente
+1,0X020A,pt,Movimentos anormais,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+8,0X020A,pt,Movimentos anormais,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+1,0X020C,pt,Movimento inesperado,Exceder o limite de desvio de movimento,Ignorante
+8,0X020C,pt,Movimento inesperado,Exceder o limite de desvio de movimento,Ignorante
+1,0X020D,pt,Exceder o limite de desvio de movimento,Exceder o limite de desvio de movimento,atenção
+8,0X020D,pt,Exceder o limite de desvio de movimento,Exceder o limite de desvio de movimento,atenção
+1,0X022A,pt,Operação anormal,Movimento inesperado do braço escravo,Clique em REMOVER para restaurar
+8,0X022A,pt,Operação anormal,Movimento inesperado do braço escravo,Clique em REMOVER para restaurar
+3,0X022C,pt,Movimento inesperado,Movimento inesperado durante o ajuste ergonómico,Ignorante
+9,0X022C,pt,Movimento inesperado,Movimento inesperado durante o ajuste ergonómico,Ignorante
+1,0X022C,pt,Movimento inesperado,movimento inesperado do braço mestre,Ignorante
+8,0X022C,pt,Movimento inesperado,movimento inesperado do braço mestre,Ignorante
+9,0X022D,pt,Movimento inesperado durante o ajuste ergonómico,Movimento inesperado durante o ajuste ergonómico,
+3,0X022D,pt,Movimento inesperado durante o ajuste ergonómico,Movimento inesperado durante o ajuste ergonómico,
+1,0X030A,pt,Falha de hardware,Exceder o limite de posição,Clique em REMOVER para restaurar
+8,0X030A,pt,Falha de hardware,Exceder o limite de posição,Clique em REMOVER para restaurar
+1,0X030B,pt,Falha de hardware,Exceder o limite de posição,Clique em REMOVER para restaurar
+8,0X030B,pt,Falha de hardware,Exceder o limite de posição,Clique em REMOVER para restaurar
+3,0X030C,pt,Exceder o limite de posição ergonómico,Exceder o limite de posição ergonómico,
+9,0X030C,pt,Exceder o limite de posição ergonómico,Exceder o limite de posição ergonómico,
+3,0X030D,pt,Exceder o limite de posição ergonómico,Exceder o limite de posição ergonómico,
+9,0X030D,pt,Exceder o limite de posição ergonómico,Exceder o limite de posição ergonómico,
+1,0X030D,pt,Exceder o limite de posição,Exceder o limite de posição,Por favor, volte atrás
+8,0X030D,pt,Exceder o limite de posição,Exceder o limite de posição,Por favor, volte atrás
+1,0X031A,pt,Movimentos anormais,Dados de controlo falsos,Clique em REMOVER para restaurar
+8,0X031A,pt,Movimentos anormais,Dados de controlo falsos,Clique em REMOVER para restaurar
+1,0X031B,pt,Movimentos anormais,Dados de controlo falsos,Clique em REMOVER para restaurar
+8,0X031B,pt,Movimentos anormais,Dados de controlo falsos,Clique em REMOVER para restaurar
+1,0X040B,pt,Operação muito rápida,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+8,0X040B,pt,Operação muito rápida,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+1,0X050B,pt,Operação muito rápida,Exceder o limite de velocidade,Clique em REMOVER para restaurar
+8,0X050B,pt,Operação muito rápida,Exceder o limite de velocidade,Clique em REMOVER para restaurar
+3,0X050D,pt,Movimentos anormais,Exceder o limite de velocidade,
+9,0X050D,pt,Movimentos anormais,Exceder o limite de velocidade,
+1,0X051B,pt,Operação muito rápida,Dados de controlo falsos,Clique em REMOVER para restaurar
+8,0X051B,pt,Operação muito rápida,Dados de controlo falsos,Clique em REMOVER para restaurar
+1,0X060B,pt,Falha de hardware,Exceder o limite de posição,Clique em REMOVER para restaurar
+8,0X060B,pt,Falha de hardware,Exceder o limite de posição,Clique em REMOVER para restaurar
+1,0X061A,pt,Operação anormal,Movimento inesperado do braço escravo,Clique em REMOVER para restaurar
+8,0X061A,pt,Operação anormal,Movimento inesperado do braço escravo,Clique em REMOVER para restaurar
+1,0X062A,pt,Movimentos anormais,Exceder o limite de velocidade,Clique em REMOVER para restaurar
+8,0X062A,pt,Movimentos anormais,Exceder o limite de velocidade,Clique em REMOVER para restaurar
+1,0X063A,pt,Movimentos anormais,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+8,0X063A,pt,Movimentos anormais,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+1,0X064A,pt,Movimentos anormais,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+8,0X064A,pt,Movimentos anormais,Exceder o limite de desvio de movimento,Clique em REMOVER para restaurar
+1,0X065A,pt,Movimentos anormais,Operação anormal,Clique em REMOVER para restaurar
+8,0X065A,pt,Movimentos anormais,Operação anormal,Clique em REMOVER para restaurar
+1,0X066A,pt,Movimentos anormais,Operação anormal,Clique em REMOVER para restaurar
+8,0X066A,pt,Movimentos anormais,Operação anormal,Clique em REMOVER para restaurar
+1,0X067A,pt,Falha no autoteste,Falha no autoteste,Clique em REMOVER para restaurar
+8,0X067A,pt,Falha no autoteste,Falha no autoteste,Clique em REMOVER para restaurar
+1,0X068A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+8,0X068A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+1,0X068B,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+1,0X335E,pt,,,
+8,0X335E,pt,,,
+8,0X068B,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+1,0X069D,pt,,,Entre em contato com o atendimento ao cliente
+8,0X069D,pt,,,Entre em contato com o atendimento ao cliente
+1,0X070D,pt,,,Entre em contato com o atendimento ao cliente
+8,0X070D,pt,,,Entre em contato com o atendimento ao cliente
+1,0X071D,pt,,,Entre em contato com o atendimento ao cliente
+8,0X071D,pt,,,Entre em contato com o atendimento ao cliente
+1,0X080B,pt,O braço está bloqueado,O braço está bloqueado,Clique em REMOVER para restaurar
+8,0X080B,pt,O braço está bloqueado,O braço está bloqueado,Clique em REMOVER para restaurar
+1,0X080C,pt,O braço está bloqueado,O braço está bloqueado,
+1,0X337E,pt,,,
+8,0X337E,pt,,,
+8,0X080C,pt,O braço está bloqueado,O braço está bloqueado,
+3,0X080D,pt,Exceder o limite de binário,Exceder o limite de binário,
+9,0X080D,pt,Exceder o limite de binário,Exceder o limite de binário,
+1,0X08AD,pt,Falha ao desativar o braço,Falha ao desativar o braço,Por favor, tente novamente
+1,0X08BD,pt,Falha na ativação do braço,Falha na ativação do braço,Por favor, tente novamente
+1,0X08CD,pt,Ativação do braço,Ativação do braço,
+1,0X08DD,pt,Falha na ativação do braço,Falha na ativação do braço,
+1,0X08ED,pt,O braço está desativado,O braço está desativado,
+3,0X090D,pt,Falha no ajuste ergonômico automático,Falha no ajuste ergonômico automático,Por favor, ajuste manualmente
+9,0X090D,pt,Falha no ajuste ergonômico automático,Falha no ajuste ergonômico automático,Por favor, ajuste manualmente
+1,0X090D,pt,,,Entre em contato com o atendimento ao cliente
+8,0X090D,pt,,,Entre em contato com o atendimento ao cliente
+1,0X092D,pt,Definir falha de braço,Definir falha de braço,Entre em contato com o atendimento ao cliente
+8,0X092D,pt,Definir falha de braço,Definir falha de braço,Entre em contato com o atendimento ao cliente
+3,0X100A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+9,0X100A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+1,0X100A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+8,0X100A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+3,0X100B,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+9,0X100B,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+3,0X100D,pt,Falha de rede,Falha de rede,
+9,0X100D,pt,Falha de rede,Falha de rede,
+1,0X101A,pt,,,Por favor, reinicie o sistema
+8,0X101A,pt,,,Por favor, reinicie o sistema
+1,0X102A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+8,0X102A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+1,0X110A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+3,0X110A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+8,0X110A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+9,0X110A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+3,0X110D,pt,Falha de hardware,Falha de hardware,
+9,0X110D,pt,Falha de hardware,Falha de hardware,
+1,0X114A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+8,0X114A,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+1,0X114C,pt,Falha de hardware,Falha de hardware,
+8,0X114C,pt,Falha de hardware,Falha de hardware,
+1,0X120C,pt,Falha da bateria,Falha da bateria,Verifique o estado da UPS
+8,0X120C,pt,Falha da bateria,Falha da bateria,Verifique o estado da UPS
+3,0X120D,pt,O console do cirurgião precisa ser reparado,O console do cirurgião precisa ser reparado,Entre em contato com o atendimento ao cliente
+9,0X120D,pt,O console do cirurgião precisa ser reparado,O console do cirurgião precisa ser reparado,Entre em contato com o atendimento ao cliente
+1,0X121D,pt,O interruptor de paragem de emergência é acionado,O interruptor de paragem de emergência é acionado,
+8,0X121D,pt,O interruptor de paragem de emergência é acionado,O interruptor de paragem de emergência é acionado,
+1,0X124D,pt,Esperar que o carrinho do doente recupere,Esperar que o carrinho do doente recupere,
+1,0X125D,pt,Falha de alimentação do carrinho de transporte de doentes,Falha de alimentação do carrinho de transporte de doentes,
+1,0X131C,pt,Espaço em disco insuficiente,Espaço em disco insuficiente,
+8,0X131C,pt,Espaço em disco insuficiente,Espaço em disco insuficiente,
+1,0X132D,pt,Falha do carrinho do doente,Falha do carrinho do doente,Entre em contato com o atendimento ao cliente
+8,0X132D,pt,Falha do carrinho do doente,Falha do carrinho do doente,Entre em contato com o atendimento ao cliente
+1,0X133D,pt,,,Por favor, inicie o carrinho do paciente
+8,0X133D,pt,,,Por favor, inicie o carrinho do paciente
+1,0X140D,pt,Falha da bateria,Falha da bateria,Entre em contato com o atendimento ao cliente
+8,0X140D,pt,Falha da bateria,Falha da bateria,Entre em contato com o atendimento ao cliente
+1,0X141D,pt,Falha da bateria,Falha da bateria,Entre em contato com o atendimento ao cliente
+8,0X141D,pt,Falha da bateria,Falha da bateria,Entre em contato com o atendimento ao cliente
+1,0X142D,pt,A bateria precisa ser substituída,A bateria precisa ser substituída,Entre em contato com o atendimento ao cliente
+8,0X142D,pt,A bateria precisa ser substituída,A bateria precisa ser substituída,Entre em contato com o atendimento ao cliente
+9,0X160D,pt,Atingir o limite superior da posição,Atingir o limite superior da posição,atenção
+3,0X160D,pt,Atingir o limite superior da posição,Atingir o limite superior da posição,atenção
+9,0X161D,pt,Atingir o limite inferior da posição,Atingir o limite inferior da posição,atenção
+3,0X161D,pt,Atingir o limite inferior da posição,Atingir o limite inferior da posição,atenção
+3,0X162D,pt,O braço principal atinge o limite de posição,O braço principal atinge o limite de posição,Por favor, aumente o visualizador 3D
+9,0X162D,pt,O braço principal atinge o limite de posição,O braço principal atinge o limite de posição,Por favor, aumente o visualizador 3D
+3,0X163D,pt,3D-Viewer atinge o limite de altura,3D-Viewer atinge o limite de altura,Por favor, abaixe o braço mestre
+9,0X163D,pt,3D-Viewer atinge o limite de altura,3D-Viewer atinge o limite de altura,Por favor, abaixe o braço mestre
+1,0X2A1A,pt,Falha de energia,Falha de energia,Clique em REMOVER para restaurar
+8,0X2A1A,pt,Falha de energia,Falha de energia,Clique em REMOVER para restaurar
+1,0X2A2A,pt,Falha de energia,Falha de energia,Clique em REMOVER para restaurar
+8,0X2A2A,pt,Falha de energia,Falha de energia,Clique em REMOVER para restaurar
+1,0X2B1D,pt,Falha do pedal,Falha do pedal,
+8,0X2B1D,pt,Falha do pedal,Falha do pedal,
+1,0X2B2D,pt,Falha do pedal,Falha do pedal,
+8,0X2B2D,pt,falha do pedal de alimentação,Falha do pedal,
+1,0X2B3D,pt,Não é possível mudar para o braço sem instrumento,Não é possível mudar para o braço sem instrumento,
+8,0X2B3D,pt,Não é possível mudar para o braço sem instrumento,Não é possível mudar para o braço sem instrumento,
+1,0X2B4D,pt,O instrumento está desmontado,O instrumento está desmontado,
+8,0X2B4D,pt,O instrumento está desmontado,O instrumento está desmontado,
+1,0X2B5D,pt,A pose do braço mestre não corresponde ao braço escravo,A pose do braço mestre não corresponde ao braço escravo,Por favor, relaxe, segure no controle de mão para continuar
+8,0X2B5D,pt,A pose do braço mestre não corresponde ao braço escravo,A pose do braço mestre não corresponde ao braço escravo,Por favor, relaxe, segure no controle de mão para continuar
+1,0X2B6D,pt,,,Apenas o instrumento energético pode ser ativado
+8,0X2B6D,pt,,,Apenas o instrumento energético pode ser ativado
+1,0X2B7D,pt,,,Por favor, abaixe o apoio de braço ou levante o braço principal antes do autoteste
+4,0X150B,pt,Acima do limite superior da posição,Acima do limite superior da posição,Clique em REMOVER para restaurar
+4,0X151B,pt,Acima do limite inferior da posição,Acima do limite inferior da posição,Clique em REMOVER para restaurar
+4,0X080B,pt,Movimento do carrinho cirúrgico obstruído,Movimento do carrinho cirúrgico obstruído,Clique em REMOVER para restaurar
+8,0X2B7D,pt,,,Por favor, abaixe o apoio de braço ou levante o braço principal antes do autoteste
+1,0X2B8D,pt,,,Por favor, desmonte o instrumento e o adaptador antes do autoteste
+8,0X2B8D,pt,,,Por favor, desmonte o instrumento e o adaptador antes do autoteste
+1,0X2B9D,pt,O instrumento esquerdo atinge o limite de posição,O instrumento esquerdo atinge o limite de posição,atenção
+8,0X2B9D,pt,O instrumento esquerdo atinge o limite de posição,O instrumento esquerdo atinge o limite de posição,atenção
+1,0X2BAD,pt,O instrumento certo atinge o limite de posição,O instrumento certo atinge o limite de posição,atenção
+8,0X2BAD,pt,O instrumento certo atinge o limite de posição,O instrumento certo atinge o limite de posição,atenção
+1,0X2BBD,pt,O instrumento esquerdo atinge o limite de rotação,O instrumento esquerdo atinge o limite de rotação,atenção
+8,0X2BBD,pt,O instrumento esquerdo atinge o limite de rotação,O instrumento esquerdo atinge o limite de rotação,atenção
+4,0X040B,pt,Acima do limite de velocidade,Acima do limite de velocidade,Clique em REMOVER para restaurar
+8,0X2BCD,pt,O instrumento certo atinge o limite de rotação,O instrumento certo atinge o limite de rotação,atenção
+1,0X2BCD,pt,O instrumento certo atinge o limite de rotação,O instrumento certo atinge o limite de rotação,atenção
+1,0X2BED,pt,O instrumento é demasiado elevado,O instrumento é demasiado elevado,Por favor, ajuste a altura para baixo
+8,0X2BED,pt,O instrumento é demasiado elevado,O instrumento é demasiado elevado,Por favor, ajuste a altura para baixo
+1,0X2BFD,pt,Falha na montagem do adaptador de instrumento,Falha na montagem do adaptador de instrumento,
+8,0X2BFD,pt,Falha na montagem do adaptador de instrumento,Falha na montagem do adaptador de instrumento,
+1,0X2C0D,pt,Falha na montagem do instrumento,Falha na montagem do instrumento,
+8,0X2C0D,pt,Falha na montagem do instrumento,Falha na montagem do instrumento,
+1,0X2C1D,pt,Falha na montagem do endoscópio,Falha na montagem do endoscópio,
+8,0X2C1D,pt,Falha na montagem do endoscópio,Falha na montagem do endoscópio,
+1,0X2C2D,pt,Exceder o limite de utilização do instrumento,Exceder o limite de utilização do instrumento,por favor substitua
+8,0X2C2D,pt,Exceder o limite de utilização do instrumento,Exceder o limite de utilização do instrumento,por favor substitua
+1,0X2C3D,pt,,,Por favor, clique em INICIAR no carrinho do paciente
+8,0X2C3D,pt,,,Por favor, clique em INICIAR no carrinho do paciente
+1,0X2C4D,pt,O adaptador endoscópio pode ser usado menos de 5 vezes,O adaptador endoscópio pode ser usado menos de 5 vezes,
+8,0X2C4D,pt,O adaptador endoscópio pode ser usado menos de 5 vezes,O adaptador endoscópio pode ser usado menos de 5 vezes,
+1,0X2C5D,pt,O uso do adaptador endoscópio será esgotado, por favor, substitua-o,O uso do adaptador endoscópio será esgotado, por favor, substitua-o,
+8,0X2C5D,pt,O uso do adaptador endoscópio será esgotado, por favor, substitua-o,O uso do adaptador endoscópio será esgotado, por favor, substitua-o,
+1,0X2C6D,pt,O endoscópio é montado no braço não permitido,O endoscópio é montado no braço não permitido,
+8,0X2C6D,pt,O endoscópio é montado no braço não permitido,O endoscópio é montado no braço não permitido,
+1,0X2C8D,pt,Apenas uma única faca ultra-sônica é suportada,Apenas uma única faca ultra-sônica é suportada,
+8,0X2C8D,pt,Apenas uma única faca ultra-sônica é suportada,Apenas uma única faca ultra-sônica é suportada,
+1,0X2C9D,pt,O instrumento esquerdo atinge o limite de profundidade,O instrumento esquerdo atinge o limite de profundidade,atenção
+8,0X2C9D,pt,O instrumento esquerdo atinge o limite de profundidade,O instrumento esquerdo atinge o limite de profundidade,atenção
+1,0X2CAD,pt,O instrumento certo atinge o limite de profundidade,O instrumento certo atinge o limite de profundidade,atenção
+8,0X2CAD,pt,O instrumento certo atinge o limite de profundidade,O instrumento certo atinge o limite de profundidade,atenção
+1,0X2CBD,pt,O instrumento esquerdo atinge o limite da pose,O instrumento esquerdo atinge o limite da pose,atenção
+8,0X2CBD,pt,O instrumento esquerdo atinge o limite da pose,O instrumento esquerdo atinge o limite da pose,atenção
+1,0X2CCD,pt,Instrumento certo atinge o limite da pose,Instrumento certo atinge o limite da pose,atenção
+8,0X2CCD,pt,Instrumento certo atinge o limite da pose,Instrumento certo atinge o limite da pose,atenção
+1,0X2CDD,pt,,,Por favor, pise no pedal correto
+8,0X2CDD,pt,,,Por favor, pise no pedal correto
+1,0X2CED,pt,O sinal do pedal não está ativado,O sinal do pedal não está ativado,Por favor, ajuste o ângulo do pé
+8,0X2CED,pt,O sinal do pedal não está ativado,O sinal do pedal não está ativado,Por favor, ajuste o ângulo do pé
+1,0X2CFD,pt,Apenas um único instrumento monopolar é suportado,Apenas um único instrumento monopolar é suportado,
+8,0X2CFD,pt,Apenas um único instrumento monopolar é suportado,Apenas um único instrumento monopolar é suportado,
+1,0X2D0D,pt,Apenas um único instrumento bipolar é suportado,Apenas um único instrumento bipolar é suportado,
+8,0X2D0D,pt,Apenas um único instrumento bipolar é suportado,Apenas um único instrumento bipolar é suportado,
+1,0X2D1D,pt,,,Por favor, libere o botão de ajuste
+8,0X2D1D,pt,,,Por favor, libere o botão de ajuste
+1,0X2D2D,pt,,,Por favor, solte o botão de ajuste do ombro
+8,0X2D2D,pt,,,Por favor, solte o botão de ajuste do ombro
+1,0X2D3D,pt,,,Por favor, combine as pegas no controle girando a pega
+8,0X2D3D,pt,,,Por favor, combine as pegas no controle girando a pega
+1,0X2D4D,pt,Desvio de rotação excessivo,Desvio de rotação excessivo,Por favor, combine as pegas no controle apertando
+8,0X2D4D,pt,Desvio de rotação excessivo,Desvio de rotação excessivo,Por favor, combine as pegas no controle apertando
+8,0X2D5D,pt,Faca ultra-sônica é ativada por muito tempo,Faca ultra-sônica é ativada por muito tempo,Por favor, solte o pedal
+1,0X2D5D,pt,Faca ultra-sônica é ativada por muito tempo,Faca ultra-sônica é ativada por muito tempo,Por favor, solte o pedal
+1,0X2D6D,pt,Não gire a junta de rotação durante a ativação da faca ultra-sônica,Não gire a junta de rotação durante a ativação da faca ultra-sônica,
+8,0X2D6D,pt,Não gire a junta de rotação durante a ativação da faca ultra-sônica,Não gire a junta de rotação durante a ativação da faca ultra-sônica,
+1,0X2D7D,pt,,,Saia do modo de memória de altura do instrumento
+8,0X2D7D,pt,,,Saia do modo de memória de altura do instrumento
+1,0X2D8D,pt,,,Por favor faça login
+8,0X2D8D,pt,,,Por favor faça login
+1,0X2D9D,pt,Endoscópio atinge limite de posição,Endoscópio atinge limite de posição,atenção
+8,0X2D9D,pt,Endoscópio atinge limite de posição,Endoscópio atinge limite de posição,atenção
+1,0X2DAD,pt,,,Por favor, aumente o zoom
+8,0X2DAD,pt,,,Por favor, aumente o zoom
+1,0X2DBD,pt,,,Por favor, reduza o zoom
+8,0X2DBD,pt,,,Por favor, reduza o zoom
+1,0X2DCD,pt,,,Rode o endoscópio no sentido dos ponteiros do relógio
+8,0X2DCD,pt,,,Rode o endoscópio no sentido dos ponteiros do relógio
+1,0X2DDD,pt,,,Por favor, gire o endoscópio no sentido anti-horário
+8,0X2DDD,pt,,,Por favor, gire o endoscópio no sentido anti-horário
+1,0X2DED,pt,,,Por favor, ajuste o endoscópio para baixo
+8,0X2DED,pt,,,Por favor, ajuste o endoscópio para baixo
+1,0X2DFD,pt,Abaixe o braço mestre ou levante o visualizador 3D antes do autoteste,Abaixe o braço mestre ou levante o visualizador 3D antes do autoteste,
+8,0X2DFD,pt,Abaixe o braço mestre ou levante o visualizador 3D antes do autoteste,Abaixe o braço mestre ou levante o visualizador 3D antes do autoteste,
+1,0X2E0D,pt,,,Por favor, verifique o pedal do interruptor de braço
+8,0X2E0D,pt,,,Por favor, verifique o pedal do interruptor de braço
+1,0X2E1D,pt,,,Por favor, verifique o pedal da embreagem
+8,0X2E1D,pt,,,Por favor, verifique o pedal da embreagem
+1,0X2E2D,pt,,,Por favor, verifique o pedal do endoscópio
+8,0X2E2D,pt,,,Por favor, verifique o pedal do endoscópio
+1,0X2E3D,pt,,,Verifique o pedal cortado à esquerda
+8,0X2E3D,pt,,,Verifique o pedal cortado à esquerda
+1,0X2E4D,pt,,,Verifique o pedal do coag esquerdo
+8,0X2E4D,pt,,,Verifique o pedal do coag esquerdo
+1,0X2E5D,pt,,,Verifique o pedal cortado à direita
+8,0X2E5D,pt,,,Verifique o pedal cortado à direita
+1,0X2E6D,pt,,,Verifique o pedal coag direito
+8,0X2E6D,pt,,,Verifique o pedal coag direito
+4,0X090B,pt,Falha de hardware,Falha de hardware,Clique em REMOVER para restaurar
+1,0X2E7D,pt,,,Verifique o botão de ajuste do braço escravo
+8,0X2E7D,pt,,,Verifique o botão de ajuste do braço escravo
+1,0X2EAD,pt,,,Por favor, verifique o sensor de cabeça
+8,0X2EAD,pt,,,Por favor, verifique o sensor de cabeça
+1,0X2EBD,pt,,,Verifique o sensor do pé esquerdo
+8,0X2EBD,pt,,,Verifique o sensor do pé esquerdo
+1,0X2ECD,pt,,,Verifique o sensor do pé direito
+8,0X2ECD,pt,,,Verifique o sensor do pé direito
+1,0X2EDD,pt,,,Por favor, termine o ajuste antes do autoteste
+8,0X2EDD,pt,,,Por favor, termine o ajuste antes do autoteste
+1,0X2EFD,pt,Verifique o sinal da embraiagem,Verifique o sinal da embraiagem,
+8,0X2EFD,pt,Verifique o sinal da embraiagem,Verifique o sinal da embraiagem,
+1,0X2F0D,pt,Bateria fraca,Bateria fraca,Entre em contato com o atendimento ao cliente
+8,0X2F0D,pt,Bateria fraca,Bateria fraca,Entre em contato com o atendimento ao cliente
+1,0X2F1D,pt,Bateria fraca,Bateria fraca,Entre em contato com o atendimento ao cliente
+8,0X2F1D,pt,Bateria fraca,Bateria fraca,Entre em contato com o atendimento ao cliente
+8,0X2F2D,pt,Exceder o limite de uso de trocar,Exceder o limite de uso de trocar,Por favor, substitua-o
+1,0X2F2D,pt,Exceder o limite de uso de trocar,Exceder o limite de uso de trocar,Por favor, substitua-o
+1,0X2F3D,pt,Não monte o mesmo tipo de instrumentos de energia,Não monte o mesmo tipo de instrumentos de energia,
+8,0X2F3D,pt,Não monte o mesmo tipo de instrumentos de energia,Não monte o mesmo tipo de instrumentos de energia,
+1,0X2F4D,pt,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,
+8,0X2F4D,pt,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,
+1,0X2F5D,pt,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,
+8,0X2F5D,pt,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,Braço escravo 1 incapaz de produzir energia quando múltiplos bipolares montados,
+1,0X2F6D,pt,A embraiagem é acionada durante mais de 1 minuto,A embraiagem é acionada durante mais de 1 minuto,
+8,0X2F6D,pt,A embraiagem é acionada durante mais de 1 minuto,A embraiagem é acionada durante mais de 1 minuto,
+1,0X2F9D,pt,Conexão do endoscópio anormal,Conexão do endoscópio anormal,Por favor, reinsira o endoscópio
+8,0X2F9D,pt,Conexão do endoscópio anormal,Conexão do endoscópio anormal,Por favor, reinsira o endoscópio
+1,0X2FAD,pt,Por favor, remonte o adaptador de instrument,Por favor, remonte o adaptador de instrument,
+1,0X2FBD,pt,Ativação de energia,Ativação de energia,
+1,0X2FFD,pt,Falha na montagem do instrumento,Falha na montagem do instrumento,Por favor, remonte-o
+8,0X338D,pt,Em processo de ajuste ergonómico,Em processo de ajuste ergonómico,Por favor, não mova o braço mestre
+1,0X338D,pt,Em processo de ajuste ergonómico,Em processo de ajuste ergonómico,Por favor, não mova o braço mestre
+8,0X339D,pt,Em processo de ajuste ergonómico,Em processo de ajuste ergonómico,Por favor, não mova o braço mestre
+1,0X339D,pt,Em processo de ajuste ergonómico,Em processo de ajuste ergonómico,Por favor, não mova o braço mestre
+8,0X33AD,pt,Em processo de ajuste ergonómico,Em processo de ajuste ergonómico,Por favor, não mova o braço mestre
+1,0X33AD,pt,Em processo de ajuste ergonómico,Em processo de ajuste ergonómico,Por favor, não mova o braço mestre
+1,0X33BD,pt,Ajuste ergonômico negado,Ajuste ergonômico negado,
+8,0X33BD,pt,Ajuste ergonômico negado,Ajuste ergonômico negado,
+4,0X010A,pt,Motion deviation,Motion deviation,Clique em REMOVER para restaurar
+1,0X33CD,pt,,,Por favor, coloque a cabeça no visualizador 3D
+8,0X33CD,pt,,,Por favor, coloque a cabeça no visualizador 3D
+1,0X33DD,pt,,,Por favor, volte à página principal
+8,0X33DD,pt,,,Por favor, volte à página principal
+1,0X33ED,pt,Falha de comunicação do controlador do endoscópio,Falha de comunicação do controlador do endoscópio,
+1,0X33FD,pt,Falha na conexão do trocar,Falha na conexão do trocar,
+1,0X340D,pt,O Trocar não está instalado,O Trocar não está instalado,
+1,0X341D,pt,,,Por favor, solte o pedal de energia
+8,0X341D,pt,,,Por favor, solte o pedal de energia
+1,0X342D,pt,Entre em contato com o atendimento ao cliente,Entre em contato com o atendimento ao cliente,
+1,0X343D,pt,Entre em contato com o atendimento ao cliente,Entre em contato com o atendimento ao cliente,
+1,0X350D,pt,Ajuste automático do braço escravo,Ajuste automático do braço escravo,Por favor, mantenha as mãos nos apoios de braços
+1,0X400B,pt,Má qualidade da rede,Má qualidade da rede,Clique em REMOVER para restaurar
+4,0X135D,pt,Base liberada falha,Base liberada falha,
+4,0X134D,pt,Falha no bloqueio da base,Falha no bloqueio da base,
+4,0X136D,pt,Pressão anormal do óleo de suporte,Pressão anormal do óleo de suporte,
+8,0X400B,pt,Má qualidade da rede,Má qualidade da rede,Clique em REMOVER para restaurar
+8,0X400D,pt,má qualidade de comunicação,má qualidade de comunicação,
+1,0X400D,pt,má qualidade de comunicação,má qualidade de comunicação,
+8,0X401D,pt,Má qualidade da rede,Má qualidade da rede,Nenhuma cirurgia permitida
+8,0X402D,pt,Má qualidade da rede,Má qualidade da rede,Operação não recomendada
+8,0X403D,pt,Qualidade média da rede,Qualidade média da rede,Por favor, opere devagar com precaução
+8,0X404D,pt,Falha do terminal local,Falha do terminal local,Por favor, opere devagar
+8,0X410D,pt,Terminal local Terminar sessão,Terminal local Terminar sessão,
+1,0X410D,pt,Terminal local Terminar sessão,Terminal local Terminar sessão,
+8,0X411D,pt,Pressão anormal do óleo de suporte,Pressão anormal do óleo de suporte,
+1,0X411D,pt,Pressão anormal do óleo de suporte,Pressão anormal do óleo de suporte,
+8,0X412D,pt,Mudar o controlo para o terminal local,Mudar o controlo para o terminal local,
+1,0X412D,pt,Mudar o controlo para o terminal local,Mudar o controlo para o terminal local,
+8,0X413D,pt,Mudar o controlo para o terminal remoto,Mudar o controlo para o terminal remoto,
+1,0X413D,pt,mudar o controlo para o terminal do modelo RO,mudar o controlo para o terminal do modelo RO,
+8,0X414D,pt,Verifique as configurações de rede,Verifique as configurações de rede,
+8,0X415D,pt,Por favor, verifique o código de verificação,Por favor, verifique o código de verificação,
+1,0X416D,pt,A rede está conectada,A rede está conectada,
+8,0X416D,pt,A rede está conectada,A rede está conectada,
+1,0X417D,pt,A rede está desconectada,A rede está desconectada,
+8,0X417D,pt,A rede está desconectada,A rede está desconectada,
+8,0X420D,pt,Por favor, assuma o controle antes do desligamento,Por favor, assuma o controle antes do desligamento,
+1,0X420D,pt,por favor assuma o controlo antes de desligar,por favor assuma o controlo antes de desligar,
+8,0X450B,pt,Erro na estação de trabalho de comunicação,O software do agente é anormal,Clique em REMOVER para restaurar
+1,0X450B,pt,Erro na estação de trabalho de comunicação,O software do agente é anormal,Clique em REMOVER para restaurar
+1,0X451D,pt,A comunicação da estação de trabalho de comunicação remota é anormal,A comunicação da estação de trabalho de comunicação remota é anormal,
+8,0X451D,pt,A comunicação da estação de trabalho de comunicação remota é anormal,A comunicação da estação de trabalho de comunicação remota é anormal,
+1,0X452B,pt,Erro na estação de trabalho de comunicação,Falha TSA local,Clique em REMOVER para restaurar
+8,0X452B,pt,Erro na estação de trabalho de comunicação,Falha TSA local,Clique em REMOVER para restaurar
+1,0X453B,pt,Erro na estação de trabalho de comunicação,Falha de codec de vídeo,Clique em REMOVER para restaurar
+8,0X453B,pt,Erro na estação de trabalho de comunicação,Falha de codec de vídeo,Clique em REMOVER para restaurar
+1,0X454D,pt,A versão do software TSA é incompatível,A versão do software TSA é incompatível,
+8,0X454D,pt,A versão do software TSA é incompatível,A versão do software TSA é incompatível,
+1,0X455A,pt,Exceção de dados,Exceção de dados,Clique em REMOVER para restaurar
+8,0X500D,pt,Dados de controlo falsos,Dados de controlo falsos,
+1,0X533D,pt,Comunicação anormal,Comunicação anormal,
+8,0X533D,pt,Comunicação anormal,Comunicação anormal,
+8,0X606D,pt,O braço principal não está arrumado,O braço principal não está arrumado,
+1,0X606D,pt,O braço principal não está arrumado,O braço principal não está arrumado,
+1,0X607D,pt,A implantação falhou,A implantação falhou,
+1,0X608D,pt,Stow falhou,Stow falhou,
+5,0X610A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+A,0X610A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+5,0X622B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X622B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X623B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X623B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X626B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X626B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+1,0X626D,pt,Falha do motor,Falha de hardware,Entre em contato com o atendimento ao cliente
+8,0X626D,pt,Falha do motor,Falha de hardware,
+5,0X627B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X627B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X640B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X640B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X641B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X641B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X642B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X642B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X643B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X643B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X651B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X651B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X652B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X652B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X653B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X653B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X660B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X660B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X662B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X662B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X663B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X663B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+8,0X090E,pt,Falha do motor,,
+8,0X665A,pt,Exceção de dados,Exceção de dados,Clique em REMOVER para restaurar
+5,0X665B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X665B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X666B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X666B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X66AB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X66AB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X66CB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X66CB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X680B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X680B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X682B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X682B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X683B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X683B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X685B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X685B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X686B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X686B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X68AB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X68AB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X68CB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X68CB,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6A0B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6A0B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6A4B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6A4B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6A5B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6A5B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6A6B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6A6B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6A7B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6A7B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6B0B,pt,Falha do motor,Dados de controlo falsos,Clique em REMOVER para restaurar
+A,0X6B0B,pt,Falha do motor,Dados de controlo falsos,Clique em REMOVER para restaurar
+5,0X6B1B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6B1B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6B2B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6B2B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6B4B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6B4B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6B5B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6B5B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C0B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C0B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C1B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C1B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C2B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C2B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C3B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+4,0X030A,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+4,0X100A,pt,Falha do motor,Falha de rede,Clique em REMOVER para restaurar
+4,0X110A,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C3B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C4B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C4B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C5B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C5B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C6B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C6B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C7B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C7B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C8B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C8B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6C9B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6C9B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D0B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6D0B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D1B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6D1B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D2B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6D2B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D3B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6D3B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D4B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6D4B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6D5B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+A,0X6D5B,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D6A,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6D6A,pt,Falha do motor,Falha do motor,Clique em REMOVER para restaurar
+5,0X6D7B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6D7B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6D7D,pt,Falha do motor,Falha do motor,
+5,0X6D8B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+A,0X6D8B,pt,Falha do motor,Falha de hardware,Clique em REMOVER para restaurar
+5,0X6D9B,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+A,0X6D9B,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+5,0X6DAB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+A,0X6DAB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+5,0X6DCB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+A,0X6DCB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+5,0X6DDB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+A,0X6DDB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+5,0X6DEB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+A,0X6DEB,pt,Falha do motor,Falha do condutor do motor,Clique em REMOVER para restaurar
+8,0X555E,pt,,,
+8,0X556E,pt,,,
+8,0X557E,pt,,,
+8,0X558E,pt,,,
+1,0X70BD,pt,A leitura de informações em execução atingiu o tempo limite,A leitura de informações em execução atingiu o tempo limite,
+8,0X70BD,pt,A leitura de informações em execução atingiu o tempo limite,A leitura de informações em execução atingiu o tempo limite,
+1,0X70CD,pt,A CPU está sobrecarregada,A CPU está sobrecarregada,
+8,0X70CD,pt,A CPU está sobrecarregada,A CPU está sobrecarregada,
+1,0X70DD,pt,Sinal do pedal desligado,Sinal do pedal desligado,
+5,0X801D,pt,Falha do condutor do motor,Falha do condutor do motor,
+A,0X801D,pt,Falha do condutor do motor,Falha do condutor do motor,
+5,0X802D,pt,Falha do condutor do motor,Falha do condutor do motor,
+A,0X802D,pt,Falha do condutor do motor,Falha do condutor do motor,
+5,0X803D,pt,Falha do condutor do motor,Falha do condutor do motor,
+A,0X803D,pt,Falha do condutor do motor,Falha do condutor do motor,
+5,0X804D,pt,Falha do condutor do motor,Falha do condutor do motor,
+A,0X804D,pt,Falha do condutor do motor,Falha do condutor do motor,
+6,0XB01B,pt,Imagem anormal,Aquisição anormal de imagens,Clique em REMOVER para restaurar
+6,0XB02B,pt,Conexão do endoscópio anormal,Conexão do endoscópio anormal,Por favor, reinsira o endoscópio
+6,0XB03B,pt,Endoscópio desconectado,Endoscópio desconectado,Clique em REMOVER para restaurar
+6,0XB03D,pt,Endoscópio desconectado,Endoscópio desconectado,
+6,0XB04B,pt,Imagem anormal,Imagem não contínua,Clique em REMOVER para restaurar
+6,0XB05D,pt,,,Reinicie o controlador do endoscópio
+6,0XB06D,pt,,,Reinicie o controlador do endoscópio
+6,0XB07A,pt,Falha de rede,Falha de rede,Clique em REMOVER para restaurar
+6,0XB50C,pt,Anormalidade na conexão de disco flash USB,Anormalidade na conexão de disco flash USB,
+6,0XB50D,pt,Anormalidade na conexão de disco flash USB,Anormalidade na conexão de disco flash USB,
+6,0XB51C,pt,Espaço insuficiente em disco do controlador de endoscópio,Espaço insuficiente em disco do controlador de endoscópio,Entre em contato com o atendimento ao cliente
+6,0XB51D,pt,Espaço insuficiente em disco do controlador de endoscópio,Espaço insuficiente em disco do controlador de endoscópio,Entre em contato com o atendimento ao cliente
+6,0XB52C,pt,A CPU do controlador de endoscópio está sobrecarregada,A CPU do controlador de endoscópio está sobrecarregada,
+6,0XB52D,pt,A CPU do controlador de endoscópio está sobrecarregada,A CPU do controlador de endoscópio está sobrecarregada,
+6,0XB53C,pt,Espaço em disco flash USB insuficiente,Espaço em disco flash USB insuficiente,Por favor, substitua-o
+6,0XB53D,pt,Espaço em disco flash USB insuficiente,Espaço em disco flash USB insuficiente,Por favor, substitua-o
+6,0XBA0D,pt,Imagem Out-Sync,Imagem Out-Sync,Por favor, reinsira o endoscópio
+6,0XBA1A,pt,,,Reinicie o controlador do endoscópio
+6,0XBA2A,pt,Efeito de exibição de efeito 3D fraco,Efeito de exibição de efeito 3D fraco,Reinicie o controlador do endoscópio
+6,0XBA3D,pt,,,Reinicie o controlador do endoscópio
+6,0XBA5C,pt,Falha ao iniciar o desktop Aero,Falha ao iniciar o desktop Aero,
+6,0XBA5D,pt,Falha ao iniciar o desktop Aero,Falha ao iniciar o desktop Aero,
+6,0XBA6C,pt,Disco flash USB não autorizado,Disco flash USB não autorizado,Por favor, use-o após a autenticação
+6,0XBA6D,pt,Disco flash USB não autorizado,Disco flash USB não autorizado,Por favor, use-o após a autenticação
+6,0XBA7D,pt,Falha na conexão da plataforma de energia,Falha na conexão da plataforma de energia,Entre em contato com o atendimento ao cliente
+6,0XBA8D,pt,Falha na identificação do tipo de endoscópio,Falha na identificação do tipo de endoscópio,Por favor, substitua o endoscópio
+1,0X310E,pt,,,
+1,0X500E,pt,,,
+1,0X501E,pt,,,
+1,0X502E,pt,,,
+1,0X503E,pt,,,
+1,0X504E,pt,,,
+1,0X505E,pt,,,
+1,0X506E,pt,,,
+1,0X507E,pt,,,
+1,0X508E,pt,,,
+1,0X509E,pt,,,
+1,0X50AE,pt,,,
+1,0X50BE,pt,,,
+1,0X50CE,pt,,,
+1,0X50DE,pt,,,
+1,0X50EE,pt,,,
+1,0X510E,pt,,,
+1,0X511E,pt,,,
+1,0X550E,pt,,,
+1,0X551E,pt,,,
+1,0X552E,pt,,,
+1,0X553E,pt,,,
+1,0X554E,pt,,,
+1,0X555E,pt,,,
+1,0X556E,pt,,,
+1,0X557E,pt,,,
+1,0X558E,pt,,,
+1,0X570E,pt,,,
+1,0X571E,pt,,,
+1,0X572E,pt,,,
+1,0X700E,pt,,,
+1,0X701E,pt,,,
+1,0X702E,pt,,,
+1,0X703E,pt,,,
+1,0X704E,pt,,,
+1,0X705E,pt,,,
+1,0X706E,pt,,,
+1,0X707E,pt,,,
+1,0X708E,pt,,,
+1,0X709E,pt,,,
+1,0X70AE,pt,,,
+1,0X70CE,pt,,,
+1,0X710E,pt,,,
+1,0X405E,pt,,,
+8,0X405E,pt,,,
+1,0X66BD,pt,,Entre em contato com o atendimento ao cliente,
+1,0X143D,pt,Bateria esgotada,Bateria esgotada,
+8,0X143D,pt,Bateria esgotada,Bateria esgotada,
+1,0X144D,pt,bateria fraca,bateria fraca,
+8,0X144D,pt,bateria fraca,bateria fraca,
+6,0XBA9D,pt,Os parâmetros do endoscópio estão sendo configurados,Os parâmetros do endoscópio estão sendo configurados,
+1,0X2BDD,pt,Instrumento direito e esquerdo atinge o limite de rotação,Instrumento direito e esquerdo atinge o limite de rotação,
+1,0X666D,pt,A versão do software é inconsistente,A versão do software é inconsistente,
+8,0X666D,pt,A versão do software é inconsistente,A versão do software é inconsistente,
+8,0X614D,pt,Mudar para o sistema remoto,Mudar para o sistema remoto,
+1,0X624D,pt,Mudar para o sistema local,Mudar para o sistema local,
+1,0X404A,pt,Desconecte-se com o carrinho do paciente,Desconecte-se com o carrinho do paciente,
+1,0X021D,pt,O instrumento está bloqueado,O instrumento está bloqueado,
+1,0X022E,pt,,,
+1,0X030E,pt,,,
+1,0X050E,pt,,,
+1,0X040E,pt,,,
+1,0X090E,pt,,,
+1,0X010E,pt,,,
+1,0X020E,pt,,,
+1,0X559E,pt,,,
+1,0X55AE,pt,,,
+1,0X55BE,pt,,,
+1,0X092E,pt,,,
+1,0X344D,pt,,,Por favor, verifique o adaptador
+1,0X345D,pt,,,Verifique o instrumento e reinstale o adaptador
+1,0X360D,pt,Por favor, tire o instrumento,Por favor, tire o instrumento,
+1,0X361D,pt,Por favor, retire o adaptador,Por favor, retire o adaptador,
+1,0X362D,pt,Instale o adaptador,Instale o adaptador,
+1,0X128D,pt,Falha mestre de volta a zero,Falha mestre de volta a zero,
+1,0X127D,pt,,,Por favor, combine as pegas no controle apertando
+8,0X127D,pt,,,Por favor, combine as pegas no controle apertando
+6,0X129D,pt,Falha ao reverter,Falha ao reverter,Verifique o estado da ligação
+1,0X130D,pt,,,Por favor, reinsira o endoscópio
+6,0X144C,pt,Falha ao reverter,Falha ao reverter,Por favor, redefina
+1,0X145D,pt,O carrinho do doente não pode ser ajustado no estado atual.,O carrinho do doente não pode ser ajustado no estado atual.,
+1,0X146D,pt,Por favor, opere no carrinho do paciente,Por favor, opere no carrinho do paciente,
+1,0X520E,pt,,,
+1,0X533E,pt,,,
+3,0X300E,pt,,,
+3,0X301E,pt,,,
+9,0X300E,pt,,,
+9,0X301E,pt,,,
+3,0X302E,pt,,,
+3,0X303E,pt,,,
+3,0X304E,pt,,,
+3,0X305E,pt,,,
+3,0X306E,pt,,,
+3,0X307E,pt,,,
+3,0X308E,pt,,,
+3,0X309E,pt,,,
+9,0X302E,pt,,,
+9,0X303E,pt,,,
+9,0X304E,pt,,,
+9,0X305E,pt,,,
+9,0X306E,pt,,,
+9,0X307E,pt,,,
+9,0X308E,pt,,,
+9,0X309E,pt,,,
+1,0X57DE,pt,,,
+1,0X57AE,pt,,,
+1,0X57BE,pt,,,
+8,0X57DE,pt,,,
+8,0X57AE,pt,,,
+8,0X57BE,pt,,,
+1,0X579E,pt,,,
+1,0X57CE,pt,,,
+1,0X514E,pt,,,
+1,0X515E,pt,,,
+1,0X516E,pt,,,
+1,0X517E,pt,,,
+1,0X518E,pt,,,
+1,0X519E,pt,,,
+1,0X521E,pt,,,
+1,0X522E,pt,,,
+1,0X523E,pt,,,
+1,0X524E,pt,,,
+1,0X525E,pt,,,
+1,0X526E,pt,,,
+1,0X527E,pt,,,
+1,0X528E,pt,,,
+1,0X529E,pt,,,
+1,0X52AE,pt,,,
+1,0X52BE,pt,,,
+1,0X52CE,pt,,,
+1,0X52DE,pt,,,
+1,0X52EE,pt,,,
+1,0X52FE,pt,,,
+1,0X530E,pt,,,
+1,0X531E,pt,,,
+1,0X532E,pt,,,
+1,0X57EE,pt,,,
+1,0X534E,pt,,,
+1,0X535E,pt,,,
+1,0X536E,pt,,,
+1,0X537E,pt,,,
+1,0X538E,pt,,,
+1,0X539E,pt,,,
+1,0X53AE,pt,,,
+1,0X53BE,pt,,,
+1,0X53CE,pt,,,
+1,0X53DE,pt,,,
+1,0X53EE,pt,,,
+1,0X53FE,pt,,,
+1,0X540E,pt,,,
+1,0X541E,pt,,,
+1,0X542E,pt,,,
+1,0X543E,pt,,,
+1,0X544E,pt,,,
+1,0X545E,pt,,,
+1,0X546E,pt,,,
+1,0X547E,pt,,,
+1,0X548E,pt,,,
+1,0X549E,pt,,,
+1,0X54AE,pt,,,
+1,0X54BE,pt,,,
+1,0X54CE,pt,,,
+1,0X54DE,pt,,,
+1,0X54EE,pt,,,
+1,0X54FE,pt,,,
+1,0X560E,pt,,,
+1,0X561E,pt,,,
+1,0X562E,pt,,,
+1,0X563E,pt,,,
+1,0X564E,pt,,,
+1,0X565E,pt,,,
+1,0X567E,pt,,,
+1,0X568E,pt,,,
+1,0X569E,pt,,,
+1,0X56AE,pt,,,
+1,0X56CE,pt,,,
+1,0X56DE,pt,,,
+1,0X56EE,pt,,,
+1,0X56FE,pt,,,
+1,0X573E,pt,,,
+1,0X574E,pt,,,
+1,0X575E,pt,,,
+1,0X576E,pt,,,
+1,0X577E,pt,,,
+1,0X578E,pt,,,
+8,0X579E,pt,,,
+8,0X57CE,pt,,,
+8,0X514E,pt,,,
+8,0X515E,pt,,,
+8,0X516E,pt,,,
+8,0X517E,pt,,,
+8,0X518E,pt,,,
+8,0X519E,pt,,,
+8,0X521E,pt,,,
+8,0X522E,pt,,,
+8,0X523E,pt,,,
+8,0X524E,pt,,,
+8,0X525E,pt,,,
+8,0X526E,pt,,,
+8,0X527E,pt,,,
+8,0X528E,pt,,,
+8,0X529E,pt,,,
+8,0X52AE,pt,,,
+8,0X52BE,pt,,,
+8,0X52CE,pt,,,
+8,0X52DE,pt,,,
+8,0X52EE,pt,,,
+8,0X52FE,pt,,,
+8,0X530E,pt,,,
+8,0X531E,pt,,,
+8,0X532E,pt,,,
+8,0X57EE,pt,,,
+8,0X534E,pt,,,
+8,0X535E,pt,,,
+8,0X536E,pt,,,
+8,0X537E,pt,,,
+8,0X538E,pt,,,
+8,0X539E,pt,,,
+8,0X53AE,pt,,,
+8,0X53BE,pt,,,
+8,0X53CE,pt,,,
+8,0X53DE,pt,,,
+8,0X53EE,pt,,,
+8,0X53FE,pt,,,
+8,0X540E,pt,,,
+8,0X541E,pt,,,
+8,0X542E,pt,,,
+8,0X543E,pt,,,
+8,0X544E,pt,,,
+8,0X545E,pt,,,
+8,0X546E,pt,,,
+8,0X547E,pt,,,
+8,0X548E,pt,,,
+8,0X549E,pt,,,
+8,0X54AE,pt,,,
+8,0X54BE,pt,,,
+8,0X54CE,pt,,,
+8,0X54DE,pt,,,
+8,0X54EE,pt,,,
+8,0X54FE,pt,,,
+8,0X560E,pt,,,
+8,0X561E,pt,,,
+8,0X562E,pt,,,
+8,0X563E,pt,,,
+8,0X564E,pt,,,
+8,0X565E,pt,,,
+8,0X567E,pt,,,
+8,0X568E,pt,,,
+8,0X569E,pt,,,
+8,0X56AE,pt,,,
+8,0X56CE,pt,,,
+8,0X56DE,pt,,,
+8,0X56EE,pt,,,
+8,0X56FE,pt,,,
+8,0X573E,pt,,,
+8,0X574E,pt,,,
+8,0X575E,pt,,,
+8,0X576E,pt,,,
+8,0X577E,pt,,,
+8,0X578E,pt,,,
+1,0X580C,pt,Falha ao calcular a vida útil do instrumento,Falha ao calcular a vida útil do instrumento,
+1,0X580E,pt,,,
+1,0X512E,pt,,,
+1,0X513E,pt,,,
+1,0X590E,pt,,,
+1,0X591E,pt,,,
+1,0X594E,pt,,,
+1,0X040D,pt,Exceder o limite de desvio de movimento,Exceder o limite de desvio de movimento,atenção
+8,0X040D,pt,Exceder o limite de desvio de movimento,Exceder o limite de desvio de movimento,atenção
+1,0X665A,pt,Exceção de dados,Exceção de dados,Clique em REMOVER para restaurar
+8,0X455A,pt,Exceção de dados,Exceção de dados,Clique em REMOVER para restaurar
+8,0X70CE,pt,,,
+1,0X581E,pt,,,
+8,0X2BDD,pt,Instrumento direito e esquerdo atinge o limite de rotação,Instrumento direito e esquerdo atinge o limite de rotação,
+6,0XB07D,pt,Rede não conectada,Rede não conectada,Por favor, verifique o cabo de comunicação
+1,0x580D,pt,Aguarde o autoteste terminar,Aguarde o autoteste terminar,
+1,0x581D,pt,Ajuste de saída primeiro,Ajuste de saída primeiro,
+1,0x582D,pt,Sair do estado cirúrgico confirmado primeiro,Sair do estado cirúrgico confirmado primeiro,
+1,0x583D,pt,Saia primeiro do controlo da embraiagem,Saia primeiro do controlo da embraiagem,
+1,0x584D,pt,Saia primeiro do controle mestre-escravo,Saia primeiro do controle mestre-escravo,
+1,0x585D,pt,Saia primeiro do controlo do endoscópio,Saia primeiro do controlo do endoscópio,
+6,0XB54D,pt,Porta série anormal,Porta série anormal,Entre em contato com o atendimento ao cliente
+6,0XB55D,pt,Falha ao definir o parâmetro de imagem,Falha ao definir o parâmetro de imagem,Por favor, tente novamente
+6,0XB56D,pt,O instrumento está muito longe do centro do campo de visão,O instrumento está muito longe do centro do campo de visão,
+1,0x586D,pt,Por favor, ajuste a distância entre a {0} do braço e a {1} do braço,Por favor, ajuste a distância entre a {0} do braço e a {1} do braço,
+1,0x55CE,pt,,,
+6,0XB57D,pt,Falha ao configurar o parâmetro image,Falha ao configurar o parâmetro image,Entre em contato com o atendimento ao cliente
+6,0XB58A,pt,Arranque anormal do controlador do endoscópio,Arranque anormal do controlador do endoscópio,Reinicie o host da imagem
+6,0XB59A,pt,Falha ao configurar a interface do controlador de endoscópio,Falha ao configurar a interface do controlador de endoscópio,Reinicie o host da imagem
+1,0X456A,pt,Exceção de dados,Falha ao transferir parâmetros,Por favor, verifique
+8,0X456A,pt,Exceção de dados,Falha ao transferir parâmetros,Por favor, verifique
+1,0X457A,pt,Exceção de dados,Falha ao verificar parâmetros,Por favor, reconecte-se
+8,0X457A,pt,Exceção de dados,Falha ao verificar parâmetros,Por favor, reconecte-se
+1,0X458E,pt,,,
+1,0X459E,pt,,,
+1,0X131D,pt,Falha ao reiniciar,Falha ao reiniciar,
+8,0X131D,pt,Falha ao reiniciar,Falha ao reiniciar,
+1,0X453D,pt,FPS é baixo,FPS é baixo,Por favor, opere devagar
+8,0X453D,pt,FPS é baixo,FPS é baixo,Por favor, opere devagar
+1,0X587D,pt,O Mestre está redefinindo,O Mestre está redefinindo,
+1,0X88BE,pt,,,
+8,0X587D,pt,O Mestre está redefinindo,O Mestre está redefinindo,
+8,0X88BE,pt,,,
+1,0X103A,pt,Falha de rede,Falha na conexão do cabo de rede do paciente,Por favor, verifique e clique em REMOVER para restaurar
+1,0X104A,pt,Falha de rede,Falha na conexão do cabo de emergência,Por favor, verifique e clique em REMOVER para restaurar
+1,0X105A,pt,Falha de hardware,Certificado de autorização invalidado,Por favor, reinicie o sistema
+8,0X105A,pt,Falha de hardware,Certificado de autorização invalidado,Por favor, reinicie o sistema
+1,0X588D,pt,O dispositivo de áudio do console do cirurgião não se conecta,O dispositivo de áudio do console do cirurgião não se conecta,Entre em contato com o atendimento ao cliente
+1,0X589D,pt,O dispositivo de áudio do controlador de endoscópio não se conecta,O dispositivo de áudio do controlador de endoscópio não se conecta,Entre em contato com o atendimento ao cliente
+1,0X591D,pt,Exceção do serviço de áudio,Exceção do serviço de áudio,Entre em contato com o atendimento ao cliente
+1,0X592D,pt,O serviço de controle da interface do console do cirurgião é anormal,O serviço de controle da interface do console do cirurgião é anormal,Entre em contato com o atendimento ao cliente
+1,0X593D,pt,Instrumento muito alto, por favor ajuste para baixo,Instrumento muito alto, por favor ajuste para baixo,
+1,0X594D,pt,Interferência entre a esquerda e a direita,Interferência entre a esquerda e a direita,Por favor, ajuste
+1,0X88DE,pt,,,
+8,0X594D,pt,Interferência entre a esquerda e a direita,Interferência entre a esquerda e a direita,Por favor, ajuste
+1,0X072A,pt,Operação muito rápida,apertar demais,Por favor, verifique e clique em REMOVER para restaurar
+1,0X072D,pt,apertar demais,apertar demais,
+1,0X073A,pt,Falha de hardware,Anomalia do salão,Por favor, verifique e clique em REMOVER para restaurar
+8,0X072A,pt,Operação muito rápida,apertar demais,Por favor, verifique e clique em REMOVER para restaurar
+8,0X072D,pt,apertar demais,apertar demais,
+8,0X073A,pt,Falha de hardware,Anomalia do salão,Por favor, verifique e clique em REMOVER para restaurar
+1,0X595D,pt,O dispositivo de áudio do console do cirurgião é anormal,O dispositivo de áudio do console do cirurgião é anormal,Entre em contato com o atendimento ao cliente
+1,0X596D,pt,O dispositivo de áudio do controlador de endoscópio é anormal,O dispositivo de áudio do controlador de endoscópio é anormal,Entre em contato com o atendimento ao cliente
+1,0X460D,pt,A operação não é permitida durante o interruptor de controle,A operação não é permitida durante o interruptor de controle,
+8,0X460D,pt,A operação não é permitida durante o interruptor de controle,A operação não é permitida durante o interruptor de controle,
+6,0XB60D,pt,Conexão de feixe ótico anormal,Conexão de feixe ótico anormal,Por favor, inspecione as conexões.
+6,0XB61D,pt,Linha de controle de fonte de luz fria anormal,Linha de controle de fonte de luz fria anormal,Por favor, inspecione as conexões.
+1,0X597E,pt,,,
+6,0XB62D,pt,A temperatura da fonte de luz fria é muito alta,A temperatura da fonte de luz fria é muito alta,
+6,0XB63D,pt,A vida útil da lâmpada fria está próxima da vida útil,A vida útil da lâmpada fria está próxima da vida útil,
+6,0XB64D,pt,A vida útil da lâmpada fria está próxima da vida útil,A vida útil da lâmpada fria está próxima da vida útil,
+1,0X122D,pt,O dispositivo de áudio do carrinho do paciente não se conecta,O dispositivo de áudio do carrinho do paciente não se conecta,
+8,0X122D,pt,O dispositivo de áudio do carrinho do paciente não se conecta,O dispositivo de áudio do carrinho do paciente não se conecta,
+1,0X588E,pt,,,
+1,0X597D,pt,O dispositivo de áudio do carrinho do paciente não se conecta,O dispositivo de áudio do carrinho do paciente não se conecta,Entre em contato com o atendimento ao cliente
+1,0X598D,pt,O dispositivo de áudio do carrinho do paciente é anormal,O dispositivo de áudio do carrinho do paciente é anormal,Entre em contato com o atendimento ao cliente
+1,0X353D,pt,Desconecte os cabos com carrinho do paciente no modo de simulação,Desconecte os cabos com carrinho do paciente no modo de simulação,
+1,0X352C,pt,Desconexão de comunicação do simulador,Desconexão de comunicação do simulador,Verifique se o cabo de rede está conectado
+1,0X023D,pt,O braço está bloqueado,O braço está bloqueado,
+1,0X599D,pt,Verifique o número de série do braço,Verifique o número de série do braço,
+1,0X129D,pt,Por favor, passo endoscópio pedal novamente,Por favor, passo endoscópio pedal novamente,
+1,0X602E,pt,,,
+1,0X602D,pt,,,Por favor, volte à página principal
+1,0X603E,pt,,,
+8,0X08AD,pt,Falha ao desativar o braço,Falha ao desativar o braço,Por favor, tente novamente
+8,0X08BD,pt,Falha na ativação do braço,Falha na ativação do braço,Por favor, tente novamente
+8,0X08CD,pt,Ativação do braço,Ativação do braço,
+8,0X08DD,pt,Falha na ativação do braço,Falha na ativação do braço,
+8,0X08ED,pt,O braço está desativado,O braço está desativado,
+1,0X461D,pt,Braço do endoscópio bloqueado,Braço do endoscópio bloqueado,
+6,0XB88D,pt,A imagem em imagem 3D em ecrã inteiro não está corretamente ligada ao TOT e à fonte de entrada,A imagem em imagem 3D em ecrã inteiro não está corretamente ligada ao TOT e à fonte de entrada,
+1,0X462D,pt,desligue o modo sensível à fluorescência antes de operar,desligue o modo sensível à fluorescência antes de operar,
+1,0X424D,pt,tomada local,tomada local,
+1,0X425D,pt,doação local,doação local,
+1,0X426D,pt,os locais levam tudo,os locais levam tudo,
+8,0X424D,pt,tomada remota,tomada remota,
+8,0X425D,pt,dar remoto,dar remoto,
+8,0X426D,pt,comando remoto leva tudo,comando remoto leva tudo,
+6,0XB65D,pt,Fonte de entrada HDMI 1 não ligada,Fonte de entrada HDMI 1 não ligada,
+6,0XB66D,pt,Fonte de entrada HDMI 2 não ligada,Fonte de entrada HDMI 2 não ligada,
+6,0XB67D,pt,Fonte de entrada SDI 1 não ligada,Fonte de entrada SDI 1 não ligada,
+6,0XB68D,pt,Fonte de entrada SDI 2 não ligada,Fonte de entrada SDI 2 não ligada,
+1,0X2EED,pt,,,Por favor, não pise os pedais nas duas extremidades ao mesmo tempo
+8,0X2EED,pt,,,Por favor, não pise os pedais nas duas extremidades ao mesmo tempo
+1,0X2FCD,pt,Sem braço para trocar,Sem braço para trocar,
+8,0X2FCD,pt,Sem braço para trocar,Sem braço para trocar,
+4,0X143D,pt,Bateria esgotada,Bateria esgotada,
+4,0X144D,pt,bateria fraca,bateria fraca,
+1,0X193D,pt,Desconexão, limpeza e inspeção de cabos de dispositivos de fecho de paredes de vasos de grandes dimensões,Desconexão, limpeza e inspeção de cabos de dispositivos de fecho de paredes de vasos de grandes dimensões,Please inspect the connections.
+1,0X192D,pt,Verifique se existe algum defeito no driver do dispositivo de fecho de embarcações de grande porte,Verifique se existe algum defeito no driver do dispositivo de fecho de embarcações de grande porte,Please inspect the connections.
+1,0X138D,pt,A reserva do agrafador foi utilizada, substitua-a,A reserva do agrafador foi utilizada, substitua-a,Alterar reserva
+1,0X137D,pt,O agrafador foi devolvido e concluído. Por favor atualize a reserva,O agrafador foi devolvido e concluído. Por favor atualize a reserva,Alterar reserva
+1,0X430D,pt,A taxa de quadros da tela é inadequada para cirurgia,A taxa de quadros da tela é inadequada para cirurgia,
+1,0X429B,pt,Alteração anormal da fonte de dados,Alteração anormal da fonte de dados,verifique as configurações de rede
+8,0X429B,pt,Alteração anormal da fonte de dados,Alteração anormal da fonte de dados,verifique as configurações de rede
+1,0X611D,pt,Montagem do trocar concluída com sucesso,Montagem do trocar concluída com sucesso,
+1,0X33FE,pt,Alterações no status do Tocar,Alterações no status do Tocar,
+1,0XA01E,pt,Registo de registo de inicialização,Registo de registo de inicialização,
+1,0XA02E,pt,Registo de log de desligamento,Registo de log de desligamento,
+8,0XA01E,pt,Registo de registo de inicialização,Registo de registo de inicialização,
+8,0XA02E,pt,Registo de log de desligamento,Registo de log de desligamento,
+1,0X612D,pt,,,Por favor, remova o instrumento
+1,0X427D,pt,local dá tudo,local dá tudo,
+8,0X427D,pt,remoto dar tudo,remoto dar tudo,
+1,0X401D,pt,Má qualidade da rede,Má qualidade da rede,Nenhuma cirurgia permitida
+1,0X402D,pt,Má qualidade da rede,Má qualidade da rede,Operação não recomendada
+1,0X403D,pt,Qualidade média da rede,Qualidade média da rede,Por favor, opere devagar com precaução
+1,0X404D,pt,Falha do terminal local,Falha do terminal local,Por favor, opere devagar
+1,0X463D,pt,Endoscópio em movimento,Endoscópio em movimento,Por favor, aguarde
+8,0X463D,pt,Endoscópio em movimento,Endoscópio em movimento,Por favor, aguarde
+1,0X464D,pt,Colisão do braço do instrumento,Colisão do braço do instrumento,atenção
+1,0X623D,pt,Modo normal,Modo normal,
+1,0X627D,pt,Modo fluorescência,Modo fluorescência,
+1,0X629D,pt,Fusão de imagem,Fusão de imagem,
+3,0X164D,pt,Proteção de ligação,Proteção de ligação,Por favor, ajuste o mestre para cima
+3,0X165D,pt,Proteção de ligação,Proteção de ligação,Por favor, ajuste a altura do monitor para baixo
+9,0X164D,pt,Proteção de ligação,Proteção de ligação,Por favor, ajuste o mestre para cima
+9,0X165D,pt,Proteção de ligação,Proteção de ligação,Por favor, ajuste a altura do monitor para baixo
+,,,,,

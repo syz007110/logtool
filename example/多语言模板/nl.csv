@@ -1,0 +1,922 @@
+subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,nl,Hardwarefout,Ergonomische aanpassingsfout,Klik op VERWIJDEREN om te herstellen
+9,0X010A,nl,Hardwarefout,Ergonomische aanpassingsfout,Klik op VERWIJDEREN om te herstellen
+1,0X010A,nl,Hardwarefout,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X490E,nl,,,
+8,0X010A,nl,Hardwarefout,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+9,0X010D,nl,Ergonomische aanpassingsfout,Ergonomische aanpassingsfout,
+3,0X010D,nl,Ergonomische aanpassingsfout,Ergonomische aanpassingsfout,
+1,0X010D,nl,Bewegingafwijking overschreden,Bewegingafwijking overschreden,Contacteer klantenservice
+8,0X010D,nl,Bewegingafwijking overschreden,Bewegingafwijking overschreden,Contacteer klantenservice
+1,0X020A,nl,Abnormale beweging,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X020A,nl,Abnormale beweging,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X020C,nl,Onverwachte beweging,Bewegingafwijking overschreden,Genegeerd
+8,0X020C,nl,Onverwachte beweging,Bewegingafwijking overschreden,Genegeerd
+1,0X020D,nl,Bewegingafwijking overschreden,Bewegingafwijking overschreden,Opgelet
+8,0X020D,nl,Bewegingafwijking overschreden,Bewegingafwijking overschreden,Opgelet
+1,0X022A,nl,Abnormale werking,Onverwachte beweging van slaaf arm,Klik op VERWIJDEREN om te herstellen
+8,0X022A,nl,Abnormale werking,Onverwachte beweging van slaaf arm,Klik op VERWIJDEREN om te herstellen
+3,0X022C,nl,Onverwachte beweging,Onverwachte beweging bij ergonomische aanpassing,Genegeerd
+9,0X022C,nl,Onverwachte beweging,Onverwachte beweging bij ergonomische aanpassing,Genegeerd
+1,0X022C,nl,Onverwachte beweging,Onverwachte beweging van hoofd arm,Genegeerd
+8,0X022C,nl,Onverwachte beweging,Onverwachte beweging van hoofd arm,Genegeerd
+9,0X022D,nl,Onverwachte beweging bij ergonomische aanpassing,Onverwachte beweging bij ergonomische aanpassing,
+3,0X022D,nl,Onverwachte beweging bij ergonomische aanpassing,Onverwachte beweging bij ergonomische aanpassing,
+1,0X030A,nl,Hardwarefout,Positiegrens overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X030A,nl,Hardwarefout,Positiegrens overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X030B,nl,Hardwarefout,Positiegrens overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X030B,nl,Hardwarefout,Positiegrens overschreden,Klik op VERWIJDEREN om te herstellen
+3,0X030C,nl,Ergonomische positiegrens overschreden,Ergonomische positiegrens overschreden,
+9,0X030C,nl,Ergonomische positiegrens overschreden,Ergonomische positiegrens overschreden,
+3,0X030D,nl,Ergonomische positiegrens overschreden,Ergonomische positiegrens overschreden,
+9,0X030D,nl,Ergonomische positiegrens overschreden,Ergonomische positiegrens overschreden,
+1,0X030D,nl,Positiegrens overschreden,Positiegrens overschreden,Ga terug
+8,0X030D,nl,Positiegrens overschreden,Positiegrens overschreden,Ga terug
+1,0X031A,nl,Abnormale beweging,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+8,0X031A,nl,Abnormale beweging,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+1,0X031B,nl,Abnormale beweging,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+8,0X031B,nl,Abnormale beweging,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+1,0X040B,nl,Te snelle bediening,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X040B,nl,Te snelle bediening,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X050B,nl,Te snelle bediening,Over de snelheid grens,Klik op VERWIJDEREN om te herstellen
+8,0X050B,nl,Te snelle bediening,Over de snelheid grens,Klik op VERWIJDEREN om te herstellen
+3,0X050D,nl,Abnormale beweging,Abnormale beweging,
+9,0X050D,nl,Abnormale beweging,Abnormale beweging,
+1,0X051B,nl,Te snelle bediening,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+8,0X051B,nl,Te snelle bediening,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+1,0X060B,nl,Hardwarefout,Positiegrens overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X060B,nl,Hardwarefout,Positiegrens overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X061A,nl,Abnormale werking,Onverwachte beweging,Klik op VERWIJDEREN om te herstellen
+8,0X061A,nl,Abnormale werking,Onverwachte beweging,Klik op VERWIJDEREN om te herstellen
+1,0X062A,nl,Abnormale beweging,Overschrijd de maximumsnelheid,Klik op VERWIJDEREN om te herstellen
+8,0X062A,nl,Abnormale beweging,Overschrijd de maximumsnelheid,Klik op VERWIJDEREN om te herstellen
+1,0X063A,nl,Abnormale beweging,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X063A,nl,Abnormale beweging,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X064A,nl,Abnormale beweging,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+8,0X064A,nl,Abnormale beweging,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X065A,nl,Abnormale beweging,Abnormale werking,Klik op VERWIJDEREN om te herstellen
+8,0X065A,nl,Abnormale beweging,Abnormale werking,Klik op VERWIJDEREN om te herstellen
+1,0X066A,nl,Abnormale beweging,Abnormale werking,Klik op VERWIJDEREN om te herstellen
+8,0X066A,nl,Abnormale beweging,Abnormale werking,Klik op VERWIJDEREN om te herstellen
+1,0X067A,nl,Zelftest mislukt,Zelftest mislukt,Klik op VERWIJDEREN om te herstellen
+8,0X067A,nl,Zelftest mislukt,Zelftest mislukt,Klik op VERWIJDEREN om te herstellen
+1,0X068A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+8,0X068A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+1,0X068B,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+1,0X335E,nl,,,
+8,0X335E,nl,,,
+8,0X068B,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+1,0X069D,nl,,,Contacteer klantenservice
+8,0X069D,nl,,,Contacteer klantenservice
+1,0X070D,nl,,,Contacteer klantenservice
+8,0X070D,nl,,,Contacteer klantenservice
+1,0X071D,nl,,,Contacteer klantenservice
+8,0X071D,nl,,,Contacteer klantenservice
+1,0X080B,nl,Arm geblokkeerd,Arm geblokkeerd,Klik op VERWIJDEREN om te herstellen
+8,0X080B,nl,Arm geblokkeerd,Arm geblokkeerd,Klik op VERWIJDEREN om te herstellen
+1,0X080C,nl,Arm geblokkeerd,Arm geblokkeerd,
+1,0X337E,nl,,,
+8,0X337E,nl,,,
+8,0X080C,nl,Arm geblokkeerd,Arm geblokkeerd,
+3,0X080D,nl,Overschrijd koppel grens,Overschrijd koppel grens,
+9,0X080D,nl,Overschrijd koppel grens,Overschrijd koppel grens,
+1,0X08AD,nl,Arm uitschakelen mislukt,Arm uitschakelen mislukt,Probeer opnieuw
+1,0X08BD,nl,Arm inschakelen mislukt,Arm inschakelen mislukt,Probeer opnieuw
+1,0X08CD,nl,Arm inschakelen,Arm inschakelen,
+1,0X08DD,nl,Arm inschakelen mislukt,Arm inschakelen mislukt,
+1,0X08ED,nl,Arm uitgeschakeld,Arm uitgeschakeld,
+3,0X090D,nl,Autom. ergonomische aanpassing mislukt,Autom. ergonomische aanpassing mislukt,Handmatig aanpassen
+9,0X090D,nl,Autom. ergonomische aanpassing mislukt,Autom. ergonomische aanpassing mislukt,Handmatig aanpassen
+1,0X090D,nl,,,Contacteer klantenservice
+8,0X090D,nl,,,Contacteer klantenservice
+1,0X092D,nl,Armfout instellen,Armfout instellen,Contacteer klantenservice
+8,0X092D,nl,Armfout instellen,Armfout instellen,Contacteer klantenservice
+3,0X100A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+9,0X100A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+1,0X100A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+8,0X100A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+3,0X100B,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+9,0X100B,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+3,0X100D,nl,Netwerkfout,Netwerkfout,
+9,0X100D,nl,Netwerkfout,Netwerkfout,
+1,0X101A,nl,,,Herstart systeem
+8,0X101A,nl,,,Herstart systeem
+1,0X102A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+8,0X102A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+1,0X110A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+3,0X110A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+8,0X110A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+9,0X110A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+3,0X110D,nl,Hardwarefout,Hardwarefout,
+9,0X110D,nl,Hardwarefout,Hardwarefout,
+1,0X114A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+8,0X114A,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+1,0X114C,nl,Hardwarefout,Hardwarefout,
+8,0X114C,nl,Hardwarefout,Hardwarefout,
+1,0X120C,nl,Batterijfout,Batterijfout,Controleer UPS-status
+8,0X120C,nl,Batterijfout,Batterijfout,Controleer UPS-status
+3,0X120D,nl,Chirurgconsole repareren,Chirurgconsole repareren,Contacteer klantenservice
+9,0X120D,nl,Chirurgconsole repareren,Chirurgconsole repareren,Contacteer klantenservice
+1,0X121D,nl,Noodsituatieschakelaar geactiveerd,Noodsituatieschakelaar geactiveerd,
+8,0X121D,nl,Noodsituatieschakelaar geactiveerd,Noodsituatieschakelaar geactiveerd,
+1,0X124D,nl,Wachten op herstel pati?ntkar,Wachten op herstel pati?ntkar,
+1,0X125D,nl,Stroomuitval pati?ntkar,Stroomuitval pati?ntkar,
+1,0X131C,nl,Onvoldoende schijfruimte,Onvoldoende schijfruimte,
+8,0X131C,nl,Onvoldoende schijfruimte,Onvoldoende schijfruimte,
+1,0X132D,nl,Pati?ntkar mislukt,Pati?ntkar mislukt,Contacteer klantenservice
+8,0X132D,nl,Pati?ntkar mislukt,Pati?ntkar mislukt,Contacteer klantenservice
+1,0X133D,nl,,,Start pati?ntkar
+8,0X133D,nl,,,Start pati?ntkar
+1,0X140D,nl,Batterijfout,Batterijfout,Contacteer klantenservice
+8,0X140D,nl,Batterijfout,Batterijfout,Contacteer klantenservice
+1,0X141D,nl,Batterijfout,Batterijfout,Contacteer klantenservice
+8,0X141D,nl,Batterijfout,Batterijfout,Contacteer klantenservice
+1,0X142D,nl,Vervang batterij,Vervang batterij,Contacteer klantenservice
+8,0X142D,nl,Vervang batterij,Vervang batterij,Contacteer klantenservice
+9,0X160D,nl,Bovenste positiegrens bereikt,Bovenste positiegrens bereikt,Opgelet
+3,0X160D,nl,Bovenste positiegrens bereikt,Bovenste positiegrens bereikt,Opgelet
+9,0X161D,nl,Onderste positiegrens bereikt,Onderste positiegrens bereikt,Opgelet
+3,0X161D,nl,Onderste positiegrens bereikt,Onderste positiegrens bereikt,Opgelet
+3,0X162D,nl,Masterarm positiegrens bereikt,Masterarm positiegrens bereikt,Verhoog 3D-viewer
+9,0X162D,nl,Masterarm positiegrens bereikt,Masterarm positiegrens bereikt,Verhoog 3D-viewer
+3,0X163D,nl,3D-viewer hoogtegrens bereikt,3D-viewer hoogtegrens bereikt,Onderarm
+9,0X163D,nl,3D-viewer hoogtegrens bereikt,3D-viewer hoogtegrens bereikt,Onderarm
+1,0X2A1A,nl,Machtfout,Machtfout,Klik op VERWIJDEREN om te herstellen
+8,0X2A1A,nl,Machtfout,Machtfout,Klik op VERWIJDEREN om te herstellen
+1,0X2A2A,nl,Machtfout,Machtfout,Klik op VERWIJDEREN om te herstellen
+8,0X2A2A,nl,Machtfout,Machtfout,Klik op VERWIJDEREN om te herstellen
+1,0X2B1D,nl,Pedaalstoring,Pedaalstoring,
+8,0X2B1D,nl,Pedaalstoring,Pedaalstoring,
+1,0X2B2D,nl,Pedaalstoring,Pedaalstoring,
+8,0X2B2D,nl,Energiepedaal mislukt,Pedaalstoring,
+1,0X2B3D,nl,Kan niet schakelen zonder instrument,Kan niet schakelen zonder instrument,
+8,0X2B3D,nl,Kan niet schakelen zonder instrument,Kan niet schakelen zonder instrument,
+1,0X2B4D,nl,Instrument gedemonteerd,Instrument gedemonteerd,
+8,0X2B4D,nl,Instrument gedemonteerd,Instrument gedemonteerd,
+1,0X2B5D,nl,Master/slave arm positie komt niet overeen,Master/slave arm positie komt niet overeen,Ontspan handbediening om verder te gaan
+8,0X2B5D,nl,Master/slave arm positie komt niet overeen,Master/slave arm positie komt niet overeen,Ontspan handbediening om verder te gaan
+1,0X2B6D,nl,,,Alleen energie-instrument kan worden geactiveerd
+8,0X2B6D,nl,,,Alleen energie-instrument kan worden geactiveerd
+1,0X2B7D,nl,,,Verlaag armsteun/hoofdarm vóór zelftest
+4,0X150B,nl,Boven positiegrens,Boven positiegrens,Klik op VERWIJDEREN om te herstellen
+4,0X151B,nl,Onder positiegrens,Onder positiegrens,Klik op VERWIJDEREN om te herstellen
+4,0X080B,nl,Chirurgische trolley belemmerd,Chirurgische trolley belemmerd,Klik op VERWIJDEREN om te herstellen
+8,0X2B7D,nl,,,Verlaag armsteun/hoofdarm vóór zelftest
+1,0X2B8D,nl,,,Demonteer instrument/adapter vóór zelftest
+8,0X2B8D,nl,,,Demonteer instrument/adapter vóór zelftest
+1,0X2B9D,nl,Links instrument positiegrens bereikt,Links instrument positiegrens bereikt,Opgelet
+8,0X2B9D,nl,Links instrument positiegrens bereikt,Links instrument positiegrens bereikt,Opgelet
+1,0X2BAD,nl,Rechts instrument positiegrens bereikt,Rechts instrument positiegrens bereikt,Opgelet
+8,0X2BAD,nl,Rechts instrument positiegrens bereikt,Rechts instrument positiegrens bereikt,Opgelet
+1,0X2BBD,nl,Links instrument rotatiegrens bereikt,Links instrument rotatiegrens bereikt,Opgelet
+8,0X2BBD,nl,Links instrument rotatiegrens bereikt,Links instrument rotatiegrens bereikt,Opgelet
+4,0X040B,nl,Over de snelheid grens,Over de snelheid grens,Klik op VERWIJDEREN om te herstellen
+8,0X2BCD,nl,Rechts instrument rotatiegrens bereikt,Rechts instrument rotatiegrens bereikt,Opgelet
+1,0X2BCD,nl,Rechts instrument rotatiegrens bereikt,Rechts instrument rotatiegrens bereikt,Opgelet
+1,0X2BED,nl,Instrument te hoog,Instrument te hoog,Pas hoogte omlaag aan
+8,0X2BED,nl,Instrument te hoog,Instrument te hoog,Pas hoogte omlaag aan
+1,0X2BFD,nl,Instrumentadapter niet monteerbaar,Instrumentadapter niet monteerbaar,
+8,0X2BFD,nl,Instrumentadapter niet monteerbaar,Instrumentadapter niet monteerbaar,
+1,0X2C0D,nl,Instrument niet monteerbaar,Instrument niet monteerbaar,
+8,0X2C0D,nl,Instrument niet monteerbaar,Instrument niet monteerbaar,
+1,0X2C1D,nl,Endoscoop niet monteerbaar,Endoscoop niet monteerbaar,
+8,0X2C1D,nl,Endoscoop niet monteerbaar,Endoscoop niet monteerbaar,
+1,0X2C2D,nl,Overschrijd de gebruik grens van instrument,Overschrijd de gebruik grens van instrument,Vervangen
+8,0X2C2D,nl,Overschrijd de gebruik grens van instrument,Overschrijd de gebruik grens van instrument,Vervangen
+1,0X2C3D,nl,,,Klik START op pati?ntkar
+8,0X2C3D,nl,,,Klik START op pati?ntkar
+1,0X2C4D,nl,Endoscoopadapter < 5x bruikbaar,Endoscoopadapter < 5x bruikbaar,
+8,0X2C4D,nl,Endoscoopadapter < 5x bruikbaar,Endoscoopadapter < 5x bruikbaar,
+1,0X2C5D,nl,"Endoscoopadapter opgebruikt, vervang","Endoscoopadapter opgebruikt, vervang",
+8,0X2C5D,nl,"Endoscoopadapter opgebruikt, vervang","Endoscoopadapter opgebruikt, vervang",
+1,0X2C6D,nl,Endoscoop op niet-toegestane arm,Endoscoop op niet-toegestane arm,
+8,0X2C6D,nl,Endoscoop op niet-toegestane arm,Endoscoop op niet-toegestane arm,
+1,0X2C8D,nl,Alleen ultrasoon mes ondersteund,Alleen ultrasoon mes ondersteund,
+8,0X2C8D,nl,Alleen ultrasoon mes ondersteund,Alleen ultrasoon mes ondersteund,
+1,0X2C9D,nl,Links instrument dieptegrens bereikt,Links instrument dieptegrens bereikt,Opgelet
+8,0X2C9D,nl,Links instrument dieptegrens bereikt,Links instrument dieptegrens bereikt,Opgelet
+1,0X2CAD,nl,Rechts instrument dieptegrens bereikt,Rechts instrument dieptegrens bereikt,Opgelet
+8,0X2CAD,nl,Rechts instrument dieptegrens bereikt,Rechts instrument dieptegrens bereikt,Opgelet
+1,0X2CBD,nl,Links instrument posegrens bereikt,Links instrument posegrens bereikt,Opgelet
+8,0X2CBD,nl,Links instrument posegrens bereikt,Links instrument posegrens bereikt,Opgelet
+1,0X2CCD,nl,Rechts instrument posegrens bereikt,Rechts instrument posegrens bereikt,Opgelet
+8,0X2CCD,nl,Rechts instrument posegrens bereikt,Rechts instrument posegrens bereikt,Opgelet
+1,0X2CDD,nl,,,Stap op juiste pedaal
+8,0X2CDD,nl,,,Stap op juiste pedaal
+1,0X2CED,nl,Pedaalsignaal niet geactiveerd,Pedaalsignaal niet geactiveerd,Pas voethoek aan
+8,0X2CED,nl,Pedaalsignaal niet geactiveerd,Pedaalsignaal niet geactiveerd,Pas voethoek aan
+1,0X2CFD,nl,Slechts één monopolair instrument ondersteund,Slechts één monopolair instrument ondersteund,
+8,0X2CFD,nl,Slechts één monopolair instrument ondersteund,Slechts één monopolair instrument ondersteund,
+1,0X2D0D,nl,Slechts één bipolair instrument ondersteund,Slechts één bipolair instrument ondersteund,
+8,0X2D0D,nl,Slechts één bipolair instrument ondersteund,Slechts één bipolair instrument ondersteund,
+1,0X2D1D,nl,,,Laat instelknop los
+8,0X2D1D,nl,,,Laat instelknop los
+1,0X2D2D,nl,,,Laat schouderverstelknop los
+8,0X2D2D,nl,,,Laat schouderverstelknop los
+1,0X2D3D,nl,,,Koppel grepen door rotatie
+8,0X2D3D,nl,,,Koppel grepen door rotatie
+1,0X2D4D,nl,Overmatige rotatieafwijking,Overmatige rotatieafwijking,Koppel grepen door knijpen
+8,0X2D4D,nl,Overmatige rotatieafwijking,Overmatige rotatieafwijking,Koppel grepen door knijpen
+8,0X2D5D,nl,Ultrasoon mes te lang geactiveerd,Ultrasoon mes te lang geactiveerd,Laat pedaal los
+1,0X2D5D,nl,Ultrasoon mes te lang geactiveerd,Ultrasoon mes te lang geactiveerd,Laat pedaal los
+1,0X2D6D,nl,Niet draaien tijdens ultrasoon mes activatie,Niet draaien tijdens ultrasoon mes activatie,
+8,0X2D6D,nl,Niet draaien tijdens ultrasoon mes activatie,Niet draaien tijdens ultrasoon mes activatie,
+1,0X2D7D,nl,,,Verlaat geheugenmodus hoogte instrument
+8,0X2D7D,nl,,,Verlaat geheugenmodus hoogte instrument
+1,0X2D8D,nl,,,Inloggen
+8,0X2D8D,nl,,,Inloggen
+1,0X2D9D,nl,Endoscoop bereikt positiegrens,Endoscoop bereikt positiegrens,Opgelet
+8,0X2D9D,nl,Endoscoop bereikt positiegrens,Endoscoop bereikt positiegrens,Opgelet
+1,0X2DAD,nl,,,Inzoomen
+8,0X2DAD,nl,,,Inzoomen
+1,0X2DBD,nl,,,Uitzoomen
+8,0X2DBD,nl,,,Uitzoomen
+1,0X2DCD,nl,,,Draai endoscoop met klok mee
+8,0X2DCD,nl,,,Draai endoscoop met klok mee
+1,0X2DDD,nl,,,Draai endoscoop tegen de klok in
+8,0X2DDD,nl,,,Draai endoscoop tegen de klok in
+1,0X2DED,nl,,,Verlaag endoscoop
+8,0X2DED,nl,,,Verlaag endoscoop
+1,0X2DFD,nl,Onderarm/verhoog 3D-viewer vóór zelftest,Onderarm/verhoog 3D-viewer vóór zelftest,
+8,0X2DFD,nl,Onderarm/verhoog 3D-viewer vóór zelftest,Onderarm/verhoog 3D-viewer vóór zelftest,
+1,0X2E0D,nl,,,Controleer armschakelaar pedaal
+8,0X2E0D,nl,,,Controleer armschakelaar pedaal
+1,0X2E1D,nl,,,Controleer koppelpedaal
+8,0X2E1D,nl,,,Controleer koppelpedaal
+1,0X2E2D,nl,,,Controleer endoscooppedaal
+8,0X2E2D,nl,,,Controleer endoscooppedaal
+1,0X2E3D,nl,,,Controleer links snijpedaal
+8,0X2E3D,nl,,,Controleer links snijpedaal
+1,0X2E4D,nl,,,Controleer links coag pedaal
+8,0X2E4D,nl,,,Controleer links coag pedaal
+1,0X2E5D,nl,,,Controleer rechts snijpedaal
+8,0X2E5D,nl,,,Controleer rechts snijpedaal
+1,0X2E6D,nl,,,Controleer rechts coag pedaal
+8,0X2E6D,nl,,,Controleer rechts coag pedaal
+4,0X090B,nl,Hardwarefout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+1,0X2E7D,nl,,,Controleer slavenarm knop
+8,0X2E7D,nl,,,Controleer slavenarm knop
+1,0X2EAD,nl,,,Controleer head-in sensor
+8,0X2EAD,nl,,,Controleer head-in sensor
+1,0X2EBD,nl,,,Controleer linkervoet sensor
+8,0X2EBD,nl,,,Controleer linkervoet sensor
+1,0X2ECD,nl,,,Controleer rechter voet sensor
+8,0X2ECD,nl,,,Controleer rechter voet sensor
+1,0X2EDD,nl,,,Voltooi aanpassing vóór zelftest
+8,0X2EDD,nl,,,Voltooi aanpassing vóór zelftest
+1,0X2EFD,nl,Controleer koppelsignaal,Controleer koppelsignaal,
+8,0X2EFD,nl,Controleer koppelsignaal,Controleer koppelsignaal,
+1,0X2F0D,nl,Lage batterij,Lage batterij,Contacteer klantenservice
+8,0X2F0D,nl,Lage batterij,Lage batterij,Contacteer klantenservice
+1,0X2F1D,nl,Lage batterij,Lage batterij,Contacteer klantenservice
+8,0X2F1D,nl,Lage batterij,Lage batterij,Contacteer klantenservice
+8,0X2F2D,nl,Overschrijd de gebruik grens van trocar,Overschrijd de gebruik grens van trocar,Vervangen
+1,0X2F2D,nl,Overschrijd de gebruik grens van trocar,Overschrijd de gebruik grens van trocar,Vervangen
+1,0X2F3D,nl,Monteer niet hetzelfde type energie-insruments,Monteer niet hetzelfde type energie-insruments,
+8,0X2F3D,nl,Monteer niet hetzelfde type energie-insruments,Monteer niet hetzelfde type energie-insruments,
+1,0X2F4D,nl,Slaafarm 1 kan geen energie leveren bij meerdere bipolaire,Slaafarm 1 kan geen energie leveren bij meerdere bipolaire,
+8,0X2F4D,nl,Slaafarm 1 kan geen energie leveren bij meerdere bipolaire,Slaafarm 1 kan geen energie leveren bij meerdere bipolaire,
+1,0X2F5D,nl,Slaafarm 4 kan geen energie leveren bij meerdere bipolaire,Slaafarm 4 kan geen energie leveren bij meerdere bipolaire,
+8,0X2F5D,nl,Slaafarm 4 kan geen energie leveren bij meerdere bipolaire,Slaafarm 4 kan geen energie leveren bij meerdere bipolaire,
+1,0X2F6D,nl,Koppeling geactiveerd >1 min,Koppeling geactiveerd >1 min,
+8,0X2F6D,nl,Koppeling geactiveerd >1 min,Koppeling geactiveerd >1 min,
+1,0X2F9D,nl,Abnormale endoscoopverbinding,Abnormale endoscoopverbinding,Herplaats endoscoop
+8,0X2F9D,nl,Abnormale endoscoopverbinding,Abnormale endoscoopverbinding,Herplaats endoscoop
+1,0X2FAD,nl,Bevestig instrumentadapter,Bevestig instrumentadapter,
+1,0X2FBD,nl,Energie activering,Energie activering,
+1,0X2FFD,nl,Instrument niet monteerbaar,Instrument niet monteerbaar,Bevestig
+8,0X338D,nl,Ergonomische aanpassing bezig,Ergonomische aanpassing bezig,Beweeg hoofdarm niet
+1,0X338D,nl,Ergonomische aanpassing bezig,Ergonomische aanpassing bezig,Beweeg hoofdarm niet
+8,0X339D,nl,Ergonomische aanpassing bezig,Ergonomische aanpassing bezig,Beweeg hoofdarm niet
+1,0X339D,nl,Ergonomische aanpassing bezig,Ergonomische aanpassing bezig,Beweeg hoofdarm niet
+8,0X33AD,nl,Ergonomische aanpassing bezig,Ergonomische aanpassing bezig,Beweeg hoofdarm niet
+1,0X33AD,nl,Ergonomische aanpassing bezig,Ergonomische aanpassing bezig,Beweeg hoofdarm niet
+1,0X33BD,nl,Ergonomische aanpassing geweigerd,Ergonomische aanpassing geweigerd,
+8,0X33BD,nl,Ergonomische aanpassing geweigerd,Ergonomische aanpassing geweigerd,
+4,0X010A,nl,Bewegingsafwijking,Bewegingafwijking overschreden,Klik op VERWIJDEREN om te herstellen
+1,0X33CD,nl,,,Zet hoofd in 3D-viewer
+8,0X33CD,nl,,,Zet hoofd in 3D-viewer
+1,0X33DD,nl,,,Terug naar hoofdpagina
+8,0X33DD,nl,,,Terug naar hoofdpagina
+1,0X33ED,nl,Endoscoop communicatie fout,Endoscoop communicatie fout,
+1,0X33FD,nl,Trocar-verbinding mislukt,Trocar-verbinding mislukt,
+1,0X340D,nl,Trocar niet ge?nstalleerd,Trocar niet ge?nstalleerd,
+1,0X341D,nl,,,Laat energiepedaal los
+8,0X341D,nl,,,Laat energiepedaal los
+1,0X342D,nl,Contacteer klantenservice,Contacteer klantenservice,
+1,0X343D,nl,Contacteer klantenservice,Contacteer klantenservice,
+1,0X350D,nl,Slaafarm auto-aanpassing,Slaafarm auto-aanpassing,Houd handen op armleuningen
+1,0X400B,nl,Slecht netwerkkwaliteit,Slecht netwerkkwaliteit,Klik op VERWIJDEREN om te herstellen
+4,0X135D,nl,Basis vrijgave mislukt,Basis vrijgave mislukt,
+4,0X134D,nl,Basis vergrendeling mislukt,Basis vergrendeling mislukt,
+4,0X136D,nl,Abnormale steunoliedruk,Abnormale steunoliedruk,
+8,0X400B,nl,Slecht netwerkkwaliteit,Slecht netwerkkwaliteit,Klik op VERWIJDEREN om te herstellen
+8,0X400D,nl,Slechte communicatiekwaliteit,Slecht netwerkkwaliteit,
+1,0X400D,nl,Slechte communicatiekwaliteit,Slecht netwerkkwaliteit,
+8,0X401D,nl,Slecht netwerkkwaliteit,Slecht netwerkkwaliteit,Geen operatie toegestaan
+8,0X402D,nl,Slecht netwerkkwaliteit,Slecht netwerkkwaliteit,Bewerking niet aanbevolen
+8,0X403D,nl,Gemiddelde netwerkkwaliteit,Gemiddelde netwerkkwaliteit,Werk langzaam en voorzichtig
+8,0X404D,nl,Gemiddelde netwerkkwaliteit,Gemiddelde netwerkkwaliteit,Werk langzaam
+8,0X410D,nl,Lokale terminal fout,Lokale terminal fout,
+1,0X410D,nl,Lokale terminal fout,Lokale terminal fout,
+8,0X411D,nl,Afmelden lokale terminal,Afmelden lokale terminal,
+1,0X411D,nl,Afmelden lokale terminal,Afmelden lokale terminal,
+8,0X412D,nl,Schakel controle naar lokale terminal,Schakel controle naar lokale terminal,
+1,0X412D,nl,Schakel controle naar lokale terminal,Schakel controle naar lokale terminal,
+8,0X413D,nl,Schakel controle naar externe terminal,Schakel controle naar externe terminal,
+1,0X413D,nl,Schakel controle naar remote terminal,Schakel controle naar externe terminal,
+8,0X414D,nl,Controleer netwerkinstellingen,Controleer netwerkinstellingen,
+8,0X415D,nl,Controleer verificatiecode,Controleer verificatiecode,
+1,0X416D,nl,Netwerk verbonden,Netwerk verbonden,
+8,0X416D,nl,Netwerk verbonden,Netwerk verbonden,
+1,0X417D,nl,Netwerk losgekoppeld,Netwerk losgekoppeld,
+8,0X417D,nl,Netwerk losgekoppeld,Netwerk losgekoppeld,
+8,0X420D,nl,Neem over vóór uitschakeling,Neem over vóór uitschakeling,
+1,0X420D,nl,Controleer vóór sluiting,Neem over vóór uitschakeling,
+8,0X450B,nl,workstationWerkstation communicatie fout,De agent software is abnormaal,Klik op VERWIJDEREN om te herstellen
+1,0X450B,nl,workstationWerkstation communicatie fout,De agent software is abnormaal,Klik op VERWIJDEREN om te herstellen
+1,0X451D,nl,Verre werkstation communicatie abnormaal,Verre werkstation communicatie abnormaal,
+8,0X451D,nl,Verre werkstation communicatie abnormaal,Verre werkstation communicatie abnormaal,
+1,0X452B,nl,workstationWerkstation communicatie fout,Lokale TSA-fout,Klik op VERWIJDEREN om te herstellen
+8,0X452B,nl,workstationWerkstation communicatie fout,Lokale TSA-fout,Klik op VERWIJDEREN om te herstellen
+1,0X453B,nl,workstationWerkstation communicatie fout,Video codec fout,Klik op VERWIJDEREN om te herstellen
+8,0X453B,nl,workstationWerkstation communicatie fout,Video codec fout,Klik op VERWIJDEREN om te herstellen
+1,0X454D,nl,Incompatibele TSA-softwareversie,Incompatibele TSA-softwareversie,
+8,0X454D,nl,Incompatibele TSA-softwareversie,Incompatibele TSA-softwareversie,
+1,0X455A,nl,Gegevensuitzondering,Gegevensuitzondering,Klik op VERWIJDEREN om te herstellen
+8,0X500D,nl,Valse controlegegevens,Valse controlegegevens,
+1,0X533D,nl,Abnormale communicatie,Abnormale communicatie,
+8,0X533D,nl,Abnormale communicatie,Abnormale communicatie,
+8,0X606D,nl,Masterarm niet opbergbaar,Masterarm niet opbergbaar,
+1,0X606D,nl,Masterarm niet opbergbaar,Masterarm niet opbergbaar,
+1,0X607D,nl,Steriel implementeren,Steriel implementeren,
+1,0X608D,nl,Steriel opbergen,Steriel opbergen,
+5,0X610A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+A,0X610A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+5,0X622B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X622B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X623B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X623B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X626B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X626B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+1,0X626D,nl,Motorfout,Motorfout,Contacteer klantenservice
+8,0X626D,nl,Motorfout,Motorfout,
+5,0X627B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X627B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X640B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X640B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X641B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X641B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X642B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X642B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X643B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X643B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X651B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X651B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X652B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X652B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X653B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X653B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X660B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X660B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X662B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X662B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X663B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X663B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+8,0X090E,nl,Motorfout,,
+8,0X665A,nl,Gegevensuitzondering,Gegevensuitzondering,Klik op VERWIJDEREN om te herstellen
+5,0X665B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X665B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X666B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X666B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X66AB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X66AB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X66CB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X66CB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X680B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X680B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X682B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X682B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X683B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X683B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X685B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X685B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X686B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X686B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X68AB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X68AB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X68CB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X68CB,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6A0B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6A0B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6A4B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6A4B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6A5B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6A5B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6A6B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6A6B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6A7B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6A7B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6B0B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+A,0X6B0B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+5,0X6B1B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+A,0X6B1B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+5,0X6B2B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+A,0X6B2B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+5,0X6B4B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+A,0X6B4B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+5,0X6B5B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+A,0X6B5B,nl,Motorfout,Valse controlegegevens,Klik op VERWIJDEREN om te herstellen
+5,0X6C0B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C0B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C1B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C1B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C2B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C2B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C3B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+4,0X030A,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+4,0X100A,nl,Motorfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+4,0X110A,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C3B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C4B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C4B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C5B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C5B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C6B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C6B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C7B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C7B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C8B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C8B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6C9B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6C9B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D0B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6D0B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D1B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6D1B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D2B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6D2B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D3B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6D3B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D4B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6D4B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6D5B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+A,0X6D5B,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D6A,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6D6A,nl,Motorfout,Motorfout,Klik op VERWIJDEREN om te herstellen
+5,0X6D7B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6D7B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6D7D,nl,Motorfout,Motorfout,
+5,0X6D8B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+A,0X6D8B,nl,Motorfout,Hardwarefout,Klik op VERWIJDEREN om te herstellen
+5,0X6D9B,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+A,0X6D9B,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+5,0X6DAB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+A,0X6DAB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+5,0X6DCB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+A,0X6DCB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+5,0X6DDB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+A,0X6DDB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+5,0X6DEB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+A,0X6DEB,nl,Motorfout,Motorstoring,Klik op VERWIJDEREN om te herstellen
+8,0X555E,nl,,,
+8,0X556E,nl,,,
+8,0X557E,nl,,,
+8,0X558E,nl,,,
+1,0X70BD,nl,Tijdslimiet voor informatielezen,Tijdslimiet voor informatielezen,
+8,0X70BD,nl,Tijdslimiet voor informatielezen,Tijdslimiet voor informatielezen,
+1,0X70CD,nl,CPU overbelast,CPU overbelast,
+8,0X70CD,nl,CPU overbelast,CPU overbelast,
+1,0X70DD,nl,Pedaalsignaal verbroken,Pedaalsignaal verbroken,
+5,0X801D,nl,Motorstoring,Motorstoring,
+A,0X801D,nl,Motorstoring,Motorstoring,
+5,0X802D,nl,Motorstoring,Motorstoring,
+A,0X802D,nl,Motorstoring,Motorstoring,
+5,0X803D,nl,Motorstoring,Motorstoring,
+A,0X803D,nl,Motorstoring,Motorstoring,
+5,0X804D,nl,Motorstoring,Motorstoring,
+A,0X804D,nl,Motorstoring,Motorstoring,
+6,0XB01B,nl,Abnormaal beeld,Abnormale beeld verwerving,Klik op VERWIJDEREN om te herstellen
+6,0XB02B,nl,Abnormale endoscoopverbinding,Abnormale endoscoopverbinding,Herplaats endoscoop
+6,0XB03B,nl,Endoscoop verbroken,Endoscoop verbroken,Klik op VERWIJDEREN om te herstellen
+6,0XB03D,nl,Endoscoop verbroken,Endoscoop verbroken,
+6,0XB04B,nl,Abnormaal beeld,Ononderbroken Beeld,Klik op VERWIJDEREN om te herstellen
+6,0XB05D,nl,,,Herstart endoscoop controller
+6,0XB06D,nl,,,Herstart endoscoop controller
+6,0XB07A,nl,Netwerkfout,Netwerkfout,Klik op VERWIJDEREN om te herstellen
+6,0XB50C,nl,Afwijking van de USB-flashdisk-verbinding,Afwijking van de USB-flashdisk-verbinding,
+6,0XB50D,nl,Afwijking van de USB-flashdisk-verbinding,Afwijking van de USB-flashdisk-verbinding,
+6,0XB51C,nl,Onvoldoende endoscoop controller schijfruimte,Onvoldoende endoscoop controller schijfruimte,Contacteer klantenservice
+6,0XB51D,nl,Onvoldoende endoscoop controller schijfruimte,Onvoldoende endoscoop controller schijfruimte,Contacteer klantenservice
+6,0XB52C,nl,Endoscoop controller CPU is overbelast,Endoscoop controller CPU is overbelast,
+6,0XB52D,nl,Endoscoop controller CPU is overbelast,Endoscoop controller CPU is overbelast,
+6,0XB53C,nl,Onvoldoende USB-flash schijfruimte,Onvoldoende USB-flash schijfruimte,Vervangen
+6,0XB53D,nl,Onvoldoende USB-flash schijfruimte,Onvoldoende USB-flash schijfruimte,Vervangen
+6,0XBA0D,nl,Uit-sync afbeelding,Uit-sync afbeelding,Herplaats endoscoop
+6,0XBA1A,nl,,,Herstart endoscoop controller
+6,0XBA2A,nl,Slecht 3D-effect weergaveeffect,Slecht 3D-effect weergaveeffect,Herstart endoscoop controller
+6,0XBA3D,nl,,,Herstart endoscoop controller
+6,0XBA5C,nl,Aero-bureaublad gestart is mislukt,Aero-bureaublad gestart is mislukt,
+6,0XBA5D,nl,Aero-bureaublad gestart is mislukt,Aero-bureaublad gestart is mislukt,
+6,0XBA6C,nl,USB-flashdisk ongeautoriseerd,USB-flashdisk ongeautoriseerd,Gebruik na authenticatie
+6,0XBA6D,nl,USB-flashdisk ongeautoriseerd,USB-flashdisk ongeautoriseerd,Gebruik na authenticatie
+6,0XBA7D,nl,Verbinding energieplatform mislukt,Verbinding energieplatform mislukt,Contacteer klantenservice
+6,0XBA8D,nl,Identificatie van het endoscooptype is mislukt,Identificatie van het endoscooptype is mislukt,Vervang endoscoop
+1,0X310E,nl,,,
+1,0X500E,nl,,,
+1,0X501E,nl,,,
+1,0X502E,nl,,,
+1,0X503E,nl,,,
+1,0X504E,nl,,,
+1,0X505E,nl,,,
+1,0X506E,nl,,,
+1,0X507E,nl,,,
+1,0X508E,nl,,,
+1,0X509E,nl,,,
+1,0X50AE,nl,,,
+1,0X50BE,nl,,,
+1,0X50CE,nl,,,
+1,0X50DE,nl,,,
+1,0X50EE,nl,,,
+1,0X510E,nl,,,
+1,0X511E,nl,,,
+1,0X550E,nl,,,
+1,0X551E,nl,,,
+1,0X552E,nl,,,
+1,0X553E,nl,,,
+1,0X554E,nl,,,
+1,0X555E,nl,,,
+1,0X556E,nl,,,
+1,0X557E,nl,,,
+1,0X558E,nl,,,
+1,0X570E,nl,,,
+1,0X571E,nl,,,
+1,0X572E,nl,,,
+1,0X700E,nl,,,
+1,0X701E,nl,,,
+1,0X702E,nl,,,
+1,0X703E,nl,,,
+1,0X704E,nl,,,
+1,0X705E,nl,,,
+1,0X706E,nl,,,
+1,0X707E,nl,,,
+1,0X708E,nl,,,
+1,0X709E,nl,,,
+1,0X70AE,nl,,,
+1,0X70CE,nl,,,
+1,0X710E,nl,,,
+1,0X405E,nl,,,
+8,0X405E,nl,,,
+1,0X66BD,nl,,Contacteer klantenservice,
+1,0X143D,nl,Uitgeputte batterij,Uitgeputte batterij,
+8,0X143D,nl,Uitgeputte batterij,Uitgeputte batterij,
+1,0X144D,nl,Lage batterij,Lage batterij,
+8,0X144D,nl,Lage batterij,Lage batterij,
+6,0XBA9D,nl,Endoscoopparameters worden geconfigureerd,Endoscoopparameters worden geconfigureerd,
+1,0X2BDD,nl,Rechts en linker instrument bereikt de rotatie grens,Rechts en linker instrument bereikt de rotatie grens,
+1,0X666D,nl,De softwareversie is inconsistent,De softwareversie is inconsistent,
+8,0X666D,nl,De softwareversie is inconsistent,De softwareversie is inconsistent,
+8,0X614D,nl,Overschakelen naar het remote systeem,Overschakelen naar het remote systeem,
+1,0X624D,nl,Overschakelen naar het lokale systeem,Overschakelen naar het lokale systeem,
+1,0X404A,nl,Loskoppelen met pati?ntwagen,Loskoppelen met pati?ntwagen,
+1,0X021D,nl,Instrument is geblokkeerd,Instrument is geblokkeerd,
+1,0X022E,nl,,,
+1,0X030E,nl,,,
+1,0X050E,nl,,,
+1,0X040E,nl,,,
+1,0X090E,nl,,,
+1,0X010E,nl,,,
+1,0X020E,nl,,,
+1,0X559E,nl,,,
+1,0X55AE,nl,,,
+1,0X55BE,nl,,,
+1,0X092E,nl,,,
+1,0X344D,nl,,,Controleer adapter
+1,0X345D,nl,,,"Controleer instrument, installeer adapter opnieuw"
+1,0X360D,nl,Neem het instrument af,Neem het instrument af,
+1,0X361D,nl,Neem de adapter af,Neem de adapter af,
+1,0X362D,nl,Installeer de adapter,Installeer de adapter,
+1,0X128D,nl,Master terug naar nul mislukken,Master terug naar nul mislukken,
+1,0X127D,nl,,,Koppel grepen door knijpen
+8,0X127D,nl,,,Koppel grepen door knijpen
+6,0X129D,nl,Omkeren mislukt,Omkeren mislukt,Controleer verbindingsstatus
+1,0X130D,nl,,,Herplaats endoscoop
+6,0X144C,nl,Omkeren mislukt,Omkeren mislukt,Reset
+1,0X145D,nl,De pati?ntwagen kan niet worden aangepast in de huidige status.,De pati?ntwagen kan niet worden aangepast in de huidige status.,
+1,0X146D,nl,Bedien pati?ntkar,Bedien pati?ntkar,
+1,0X520E,nl,,,
+1,0X533E,nl,,,
+3,0X300E,nl,,,
+3,0X301E,nl,,,
+9,0X300E,nl,,,
+9,0X301E,nl,,,
+3,0X302E,nl,,,
+3,0X303E,nl,,,
+3,0X304E,nl,,,
+3,0X305E,nl,,,
+3,0X306E,nl,,,
+3,0X307E,nl,,,
+3,0X308E,nl,,,
+3,0X309E,nl,,,
+9,0X302E,nl,,,
+9,0X303E,nl,,,
+9,0X304E,nl,,,
+9,0X305E,nl,,,
+9,0X306E,nl,,,
+9,0X307E,nl,,,
+9,0X308E,nl,,,
+9,0X309E,nl,,,
+1,0X57DE,nl,,,
+1,0X57AE,nl,,,
+1,0X57BE,nl,,,
+8,0X57DE,nl,,,
+8,0X57AE,nl,,,
+8,0X57BE,nl,,,
+1,0X579E,nl,,,
+1,0X57CE,nl,,,
+1,0X514E,nl,,,
+1,0X515E,nl,,,
+1,0X516E,nl,,,
+1,0X517E,nl,,,
+1,0X518E,nl,,,
+1,0X519E,nl,,,
+1,0X521E,nl,,,
+1,0X522E,nl,,,
+1,0X523E,nl,,,
+1,0X524E,nl,,,
+1,0X525E,nl,,,
+1,0X526E,nl,,,
+1,0X527E,nl,,,
+1,0X528E,nl,,,
+1,0X529E,nl,,,
+1,0X52AE,nl,,,
+1,0X52BE,nl,,,
+1,0X52CE,nl,,,
+1,0X52DE,nl,,,
+1,0X52EE,nl,,,
+1,0X52FE,nl,,,
+1,0X530E,nl,,,
+1,0X531E,nl,,,
+1,0X532E,nl,,,
+1,0X57EE,nl,,,
+1,0X534E,nl,,,
+1,0X535E,nl,,,
+1,0X536E,nl,,,
+1,0X537E,nl,,,
+1,0X538E,nl,,,
+1,0X539E,nl,,,
+1,0X53AE,nl,,,
+1,0X53BE,nl,,,
+1,0X53CE,nl,,,
+1,0X53DE,nl,,,
+1,0X53EE,nl,,,
+1,0X53FE,nl,,,
+1,0X540E,nl,,,
+1,0X541E,nl,,,
+1,0X542E,nl,,,
+1,0X543E,nl,,,
+1,0X544E,nl,,,
+1,0X545E,nl,,,
+1,0X546E,nl,,,
+1,0X547E,nl,,,
+1,0X548E,nl,,,
+1,0X549E,nl,,,
+1,0X54AE,nl,,,
+1,0X54BE,nl,,,
+1,0X54CE,nl,,,
+1,0X54DE,nl,,,
+1,0X54EE,nl,,,
+1,0X54FE,nl,,,
+1,0X560E,nl,,,
+1,0X561E,nl,,,
+1,0X562E,nl,,,
+1,0X563E,nl,,,
+1,0X564E,nl,,,
+1,0X565E,nl,,,
+1,0X567E,nl,,,
+1,0X568E,nl,,,
+1,0X569E,nl,,,
+1,0X56AE,nl,,,
+1,0X56CE,nl,,,
+1,0X56DE,nl,,,
+1,0X56EE,nl,,,
+1,0X56FE,nl,,,
+1,0X573E,nl,,,
+1,0X574E,nl,,,
+1,0X575E,nl,,,
+1,0X576E,nl,,,
+1,0X577E,nl,,,
+1,0X578E,nl,,,
+8,0X579E,nl,,,
+8,0X57CE,nl,,,
+8,0X514E,nl,,,
+8,0X515E,nl,,,
+8,0X516E,nl,,,
+8,0X517E,nl,,,
+8,0X518E,nl,,,
+8,0X519E,nl,,,
+8,0X521E,nl,,,
+8,0X522E,nl,,,
+8,0X523E,nl,,,
+8,0X524E,nl,,,
+8,0X525E,nl,,,
+8,0X526E,nl,,,
+8,0X527E,nl,,,
+8,0X528E,nl,,,
+8,0X529E,nl,,,
+8,0X52AE,nl,,,
+8,0X52BE,nl,,,
+8,0X52CE,nl,,,
+8,0X52DE,nl,,,
+8,0X52EE,nl,,,
+8,0X52FE,nl,,,
+8,0X530E,nl,,,
+8,0X531E,nl,,,
+8,0X532E,nl,,,
+8,0X57EE,nl,,,
+8,0X534E,nl,,,
+8,0X535E,nl,,,
+8,0X536E,nl,,,
+8,0X537E,nl,,,
+8,0X538E,nl,,,
+8,0X539E,nl,,,
+8,0X53AE,nl,,,
+8,0X53BE,nl,,,
+8,0X53CE,nl,,,
+8,0X53DE,nl,,,
+8,0X53EE,nl,,,
+8,0X53FE,nl,,,
+8,0X540E,nl,,,
+8,0X541E,nl,,,
+8,0X542E,nl,,,
+8,0X543E,nl,,,
+8,0X544E,nl,,,
+8,0X545E,nl,,,
+8,0X546E,nl,,,
+8,0X547E,nl,,,
+8,0X548E,nl,,,
+8,0X549E,nl,,,
+8,0X54AE,nl,,,
+8,0X54BE,nl,,,
+8,0X54CE,nl,,,
+8,0X54DE,nl,,,
+8,0X54EE,nl,,,
+8,0X54FE,nl,,,
+8,0X560E,nl,,,
+8,0X561E,nl,,,
+8,0X562E,nl,,,
+8,0X563E,nl,,,
+8,0X564E,nl,,,
+8,0X565E,nl,,,
+8,0X567E,nl,,,
+8,0X568E,nl,,,
+8,0X569E,nl,,,
+8,0X56AE,nl,,,
+8,0X56CE,nl,,,
+8,0X56DE,nl,,,
+8,0X56EE,nl,,,
+8,0X56FE,nl,,,
+8,0X573E,nl,,,
+8,0X574E,nl,,,
+8,0X575E,nl,,,
+8,0X576E,nl,,,
+8,0X577E,nl,,,
+8,0X578E,nl,,,
+1,0X580C,nl,Niet in staat om de levensduur van het instrument te berekenen,Niet in staat om de levensduur van het instrument te berekenen,
+1,0X580E,nl,,,
+1,0X512E,nl,,,
+1,0X513E,nl,,,
+1,0X590E,nl,,,
+1,0X591E,nl,,,
+1,0X594E,nl,,,
+1,0X040D,nl,Bewegingafwijking overschreden,Bewegingafwijking overschreden,Opgelet
+8,0X040D,nl,Bewegingafwijking overschreden,Bewegingafwijking overschreden,Opgelet
+1,0X665A,nl,Gegevensuitzondering,Gegevensuitzondering,Klik op VERWIJDEREN om te herstellen
+8,0X455A,nl,Gegevensuitzondering,Gegevensuitzondering,Klik op VERWIJDEREN om te herstellen
+8,0X70CE,nl,,,
+1,0X581E,nl,,,
+8,0X2BDD,nl,Rechts en linker instrument bereikt de rotatie grens,Rechts en linker instrument bereikt de rotatie grens,
+6,0XB07D,nl,Netwerk niet verbonden,Netwerk niet verbonden,Controleer communicatiekabel
+1,0x580D,nl,Wacht tot de zelftest eindigt,Wacht tot de zelftest eindigt,
+1,0x581D,nl,Afstelling eerst,Afstelling eerst,
+1,0x582D,nl,Uitgang chirurgische bevestigde staat eerst,Uitgang chirurgische bevestigde staat eerst,
+1,0x583D,nl,Uitgang koppeling controle eerst,Uitgang koppeling controle eerst,
+1,0x584D,nl,Exit master-slave controle eerst,Exit master-slave controle eerst,
+1,0x585D,nl,Endoscoop controle eerst verlaten,Endoscoop controle eerst verlaten,
+6,0XB54D,nl,Seri?le poort abnormaal,Seri?le poort abnormaal,Contacteer klantenservice
+6,0XB55D,nl,Instellen van de afbeelding parameter is mislukt,Instellen van de afbeelding parameter is mislukt,Probeer opnieuw
+6,0XB56D,nl,Het instrument is te ver van het centrum van het gezichtsveld,Het instrument is te ver van het centrum van het gezichtsveld,
+1,0x586D,nl,Pas afstand aan tussen arm {0} en arm {1},Pas afstand aan tussen arm {0} en arm {1},
+1,0x55CE,nl,,,
+6,0XB57D,nl,Kon afbeelding parameter niet configureren,Kon afbeelding parameter niet configureren,Contacteer klantenservice
+6,0XB58A,nl,Endoscoop controller opstarten abnormaal,Endoscoop controller opstarten abnormaal,Herstart endoscoop controller
+6,0XB59A,nl,Configureren van endoscoop-controller-interface mislukt,Configureren van endoscoop-controller-interface mislukt,Herstart endoscoop controller
+1,0X456A,nl,Gegevensuitzondering,Kon parameters niet overbrengen,Controleer
+8,0X456A,nl,Gegevensuitzondering,Kon parameters niet overbrengen,Controleer
+1,0X457A,nl,Gegevensuitzondering,Kon parameters niet verifi?ren,Verbind opnieuw
+8,0X457A,nl,Gegevensuitzondering,Kon parameters niet verifi?ren,Verbind opnieuw
+1,0X458E,nl,,,
+1,0X459E,nl,,,
+1,0X131D,nl,Herstart mislukt,Herstart mislukt,
+8,0X131D,nl,Herstart mislukt,Herstart mislukt,
+1,0X453D,nl,FPS is laag,FPS is laag,Werk langzaam
+8,0X453D,nl,FPS is laag,FPS is laag,Werk langzaam
+1,0X587D,nl,Master reset bezig,Master reset bezig,
+1,0X88BE,nl,,,
+8,0X587D,nl,Master reset bezig,Master reset bezig,
+8,0X88BE,nl,,,
+1,0X103A,nl,Netwerkfout,Pati?nt netwerkkabelverbinding mislukt,Controleer en klik op VERWIJDEREN om te herstellen
+1,0X104A,nl,Netwerkfout,Noodkabelverbinding mislukt,Controleer en klik op VERWIJDEREN om te herstellen
+1,0X105A,nl,Hardwarefout,Ongeldig vergunning certificaat,Herstart systeem
+8,0X105A,nl,Hardwarefout,Ongeldig vergunning certificaat,Herstart systeem
+1,0X588D,nl,Console audio-apparaat niet aangesloten,Console audio-apparaat niet aangesloten,Contacteer klantenservice
+1,0X589D,nl,Endoscoop controller audio-apparaat niet aansluiten,Endoscoop controller audio-apparaat niet aansluiten,Contacteer klantenservice
+1,0X591D,nl,Audio service uitzondering,Audio service uitzondering,Contacteer klantenservice
+1,0X592D,nl,Console interface controle abnormaal,Console interface controle abnormaal,Contacteer klantenservice
+1,0X593D,nl,"Instrument te hoog, pas omlaag aan","Instrument te hoog, pas omlaag aan",
+1,0X594D,nl,Interferentie links/rechts,Interferentie links/rechts,Pas aan
+1,0X88DE,nl,,,
+8,0X594D,nl,Interferentie links/rechts,Interferentie links/rechts,Pas aan
+1,0X072A,nl,Te snelle bediening,Te hard knijpen,Controleer en klik op VERWIJDEREN om te herstellen
+1,0X072D,nl,Te hard knijpen,Te hard knijpen,
+1,0X073A,nl,Hardwarefout,Hal anomalie,Controleer en klik op VERWIJDEREN om te herstellen
+8,0X072A,nl,Te snelle bediening,Te hard knijpen,Controleer en klik op VERWIJDEREN om te herstellen
+8,0X072D,nl,Te hard knijpen,Te hard knijpen,
+8,0X073A,nl,Hardwarefout,Hal anomalie,Controleer en klik op VERWIJDEREN om te herstellen
+1,0X595D,nl,Console audio-apparaat abnormaal,Console audio-apparaat abnormaal,Contacteer klantenservice
+1,0X596D,nl,Endoscoop audio-apparaat abnormaal,Endoscoop audio-apparaat abnormaal,Contacteer klantenservice
+1,0X460D,nl,Operatie niet toegestaan tijdens schakeling,Operatie niet toegestaan tijdens schakeling,
+8,0X460D,nl,Operatie niet toegestaan tijdens schakeling,Operatie niet toegestaan tijdens schakeling,
+6,0XB60D,nl,Abnormale optische straalverbinding,Abnormale optische straalverbinding,Controleer de verbinding
+6,0XB61D,nl,Abnormale koude lichtbron-regellijn,Abnormale koude lichtbron-regellijn,Controleer de verbinding
+1,0X597E,nl,,,
+6,0XB62D,nl,De temperatuur van de koude lichtbron is te hoog,De temperatuur van de koude lichtbron is te hoog,
+6,0XB63D,nl,De levensduur van de koude gloeilamp ligt dicht bij de servicelevensduur,De levensduur van de koude gloeilamp ligt dicht bij de servicelevensduur,
+6,0XB64D,nl,De levensduur van de koude gloeilamp ligt dicht bij de servicelevensduur,De levensduur van de koude gloeilamp ligt dicht bij de servicelevensduur,
+1,0X122D,nl,Pati?ntenwagen Noodstopschakelaar is geactiveerd,Pati?ntenwagen Noodstopschakelaar is geactiveerd,
+8,0X122D,nl,Pati?ntenwagen Noodstopschakelaar is geactiveerd,Pati?ntenwagen Noodstopschakelaar is geactiveerd,
+1,0X588E,nl,,,
+1,0X597D,nl,Audioapparaat voor pati?ntenwagen maakt geen verbinding,Audioapparaat voor pati?ntenwagen maakt geen verbinding,Contacteer klantenservice
+1,0X598D,nl,Pati?ntenwagen audioapparaat is abnormaal,Pati?ntenwagen audioapparaat is abnormaal,Contacteer klantenservice
+1,0X353D,nl,Koppel de kabels los met de pati?ntenwagen in de simulatiemodus,Koppel de kabels los met de pati?ntenwagen in de simulatiemodus,
+1,0X352C,nl,Simulatorcommunicatie verbroken,Simulatorcommunicatie verbroken,Controleer of de netwerkkabel goed is aangesloten
+1,0X023D,nl,Arm geblokkeerd,Arm geblokkeerd,
+1,0X599D,nl,Controleer het serienummer van de arm,Controleer het serienummer van de arm,
+1,0X129D,nl,Trap het endoscooppedaal nogmaals in,Trap het endoscooppedaal nogmaals in,
+1,0X602E,nl,,,
+1,0X602D,nl,,,Terug naar hoofdpagina
+1,0X603E,nl,,,
+8,0X08AD,nl,Arm uitschakelen mislukt,Arm uitschakelen mislukt,Probeer opnieuw
+8,0X08BD,nl,Arm inschakelen mislukt,Arm inschakelen mislukt,Probeer opnieuw
+8,0X08CD,nl,Arm inschakelen,Arm inschakelen,
+8,0X08DD,nl,Arm inschakelen mislukt,Arm inschakelen mislukt,
+8,0X08ED,nl,Arm uitgeschakeld,Arm uitgeschakeld,
+1,0X461D,nl,Endoscooparm vergrendeld,Endoscooparm vergrendeld,
+6,0XB88D,nl,3D beeld-in-beeld op volledig scherm is niet correct aangesloten op de ingangsbron,3D beeld-in-beeld op volledig scherm is niet correct aangesloten op de ingangsbron,
+1,0X462D,nl,Schakel de fluorescentiegevoeligheidsmodus uit voordat u gaat werken,Schakel de fluorescentiegevoeligheidsmodus uit voordat u gaat werken,
+1,0X424D,nl,Local take,Local take,
+1,0X425D,nl,Local give,Local give,
+1,0X426D,nl,Local take all,Local take all,
+8,0X424D,nl,Remote take,Remote take,
+8,0X425D,nl,Remote give,Remote give,
+8,0X426D,nl,Remote take all,Remote take all,
+6,0XB65D,nl,Invoerbron HDMI 1 niet aangesloten,Invoerbron HDMI 1 niet aangesloten,
+6,0XB66D,nl,Invoerbron HDMI 2 niet aangesloten,Invoerbron HDMI 2 niet aangesloten,
+6,0XB67D,nl,Invoerbron SDI 1 niet aangesloten,Invoerbron SDI 1 niet aangesloten,
+6,0XB68D,nl,Invoerbron SDI 2 niet aangesloten,Invoerbron SDI 2 niet aangesloten,
+1,0X2EED,nl,,,Trap niet aan beide kanten tegelijk op de pedalen
+8,0X2EED,nl,,,Trap niet aan beide kanten tegelijk op de pedalen
+1,0X2FCD,nl,Geen arm om te wisselen,Geen arm om te wisselen,
+8,0X2FCD,nl,Geen arm om te wisselen,Geen arm om te wisselen,
+4,0X143D,nl,Uitgeputte batterij,Uitgeputte batterij,
+4,0X144D,nl,Lage batterij,Lage batterij,
+1,0X193D,nl,"Grote vaatwandafsluitingsapparaat loskoppelen, reinigen en inspectie van kabels","Grote vaatwandafsluitingsapparaat loskoppelen, reinigen en inspectie van kabels",Please inspect the connections.
+1,0X192D,nl,Controleer of er een storing is in de driver van het grote vaatwandafsluitingsapparaat,Controleer of er een storing is in de driver van het grote vaatwandafsluitingsapparaat,Please inspect the connections.
+1,0X138D,nl,"De nietmachineboeking is gebruikt, vervang deze alstublieft","De nietmachineboeking is gebruikt, vervang deze alstublieft",Wijzig boeking
+1,0X137D,nl,De nietmachine is teruggestuurd en voltooid. Werk de boeking alstublieft bij,De nietmachine is teruggestuurd en voltooid. Werk de boeking alstublieft bij,Wijzig boeking
+1,0X430D,nl,De beeldfrequentie van het scherm is ongeschikt voor chirurgie,De beeldfrequentie van het scherm is ongeschikt voor chirurgie,
+1,0X429B,nl,Abnormale gegevensbronwijziging,Abnormale gegevensbronwijziging,controleer a.u.b. de netwerkinstellingen
+8,0X429B,nl,Abnormale gegevensbronwijziging,Abnormale gegevensbronwijziging,controleer a.u.b. de netwerkinstellingen
+1,0X611D,nl,Trocar montage geslaagd,Trocar montage geslaagd,
+1,0X33FE,nl,Tocar-statuswijzigingen,Tocar-statuswijzigingen,
+1,0XA01E,nl,Opstartlogboek,Opstartlogboek,
+1,0XA02E,nl,Afsluitlogboek,Afsluitlogboek,
+8,0XA01E,nl,Opstartlogboek,Opstartlogboek,
+8,0XA02E,nl,Afsluitlogboek,Afsluitlogboek,
+1,0X612D,nl,,,Verwijder a.u.b. het instrument
+1,0X427D,nl,Local give all,Local give all,
+8,0X427D,nl,Remote give all,Remote give all,
+1,0X401D,nl,Slecht netwerkkwaliteit,Slecht netwerkkwaliteit,Geen operatie toegestaan
+1,0X402D,nl,Slecht netwerkkwaliteit,Slecht netwerkkwaliteit,Bewerking niet aanbevolen
+1,0X403D,nl,Gemiddelde netwerkkwaliteit,Gemiddelde netwerkkwaliteit,Werk langzaam en voorzichtig
+1,0X404D,nl,Gemiddelde netwerkkwaliteit,Gemiddelde netwerkkwaliteit,Werk langzaam
+1,0X463D,nl,Endoscoop in beweging,Endoscoop in beweging,Even geduld aub
+8,0X463D,nl,Endoscoop in beweging,Endoscoop in beweging,Even geduld aub
+1,0X464D,nl,Botsing van instrumentarm,Botsing van instrumentarm,Opgelet
+1,0X623D,nl,Normale modus,Normale modus,
+1,0X627D,nl,Fluorescentie modus,Fluorescentie modus,
+1,0X629D,nl,Beeldfusie,Beeldfusie,
+3,0X164D,nl,Verbindingsbeveiliging,Verbindingsbeveiliging,Gelieve de master omhoog aan te passen
+3,0X165D,nl,Verbindingsbeveiliging,Verbindingsbeveiliging,Gelieve de hoogte van de monitor naar beneden aan te passen
+9,0X164D,nl,Verbindingsbeveiliging,Verbindingsbeveiliging,Gelieve de master omhoog aan te passen
+9,0X165D,nl,Verbindingsbeveiliging,Verbindingsbeveiliging,Gelieve de hoogte van de monitor naar beneden aan te passen

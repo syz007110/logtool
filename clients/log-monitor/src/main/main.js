@@ -13,11 +13,26 @@ let uploader = null;
 let tray = null;
 let paused = false;
 let scanner = null;
+// Track unit scan sessions for per-device completion notifications
+const unitSessions = new Map(); // sessionId -> { deviceId, startedAt }
+
+function notifyDesktop(title, body) {
+  try {
+    const { Notification } = require('electron');
+    if (Notification && Notification.isSupported()) {
+      new Notification({ title, body }).show();
+    }
+  } catch {}
+}
 
 function createWindow() {
+  // 设置窗口图标
+  const logoPath = path.join(__dirname, '../assets/logo.ico');
+  
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    icon: logoPath,  // 使用 logo.ico 作为窗口图标
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
@@ -54,6 +69,12 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   console.log('App ready, starting initialization...');
+  
+  // 设置 Windows 通知的应用名称
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('日志监控客户端');
+  }
+  
   await ensureConfig();
   console.log('Config ensured');
   const cfg = await getConfig();
@@ -74,6 +95,35 @@ app.whenReady().then(async () => {
     }
   };
   uploader = new UploaderService({ getConfig, log: writeLog, ensureAuth, appDataDir: getAppDataDir });
+  // Forward uploader status to renderer, and check unit completion per device
+  try {
+    uploader.onStatus((snapshot) => {
+      try { if (mainWindow && mainWindow.webContents) mainWindow.webContents.send('uploader:status', snapshot); } catch {}
+      // Check each active session if its device's tasks (created at/after session start) are all successful
+      try {
+        for (const [sessionId, sess] of unitSessions.entries()) {
+          const deviceId = sess.deviceId || '';
+          const startedAt = sess.startedAt || 0;
+          const tasksForDevice = snapshot.filter(t => (t.device_id || '') === deviceId);
+          const tasksOfSession = tasksForDevice.filter(t => {
+            const tCreated = t.created_at ? new Date(t.created_at).getTime() : 0;
+            return tCreated >= startedAt;
+          });
+          if (tasksOfSession.length === 0) {
+            // No tasks were generated for this session; skip notification and clear session
+            unitSessions.delete(sessionId);
+            continue;
+          }
+          const allSuccess = tasksOfSession.every(t => t.status === 'success');
+          const anyPendingOrUploading = tasksOfSession.some(t => t.status === 'pending' || t.status === 'uploading');
+          if (allSuccess && !anyPendingOrUploading) {
+            notifyDesktop('上传完成', `“${deviceId || '未知设备'}”日志文件上传完成`);
+            unitSessions.delete(sessionId);
+          }
+        }
+      } catch {}
+    });
+  } catch {}
   // 简单的 JWT 过期解析
   function parseJwtExp(token) {
     try {
@@ -190,6 +240,12 @@ app.whenReady().then(async () => {
     if (now - last < 30000) return;
     debounced.set(key, now);
     scanQueue.push({ path: normalized });
+    // Desktop notify on new/changed unit discovery
+    try {
+      const m = deviceIdRegex.exec(normalized) || [];
+      const dev = m[0] || '';
+      notifyDesktop('监测到日志变更', `监测到“${dev || '未知设备'}”日志文件新增/变更`);
+    } catch {}
     processScanQueue();
   }
 
@@ -204,6 +260,14 @@ app.whenReady().then(async () => {
         if (isScanning || scanning.has(key)) continue; // 正在扫描，跳过本轮
         scanning.add(key);
         isScanning = true;
+        // Start unit session for completion tracking (per device)
+        try {
+          const m = deviceIdRegex.exec(task.path) || [];
+          const dev = m[0] || '';
+          const startedAt = Date.now();
+          const sessionId = `${dev}|${task.path}|${startedAt}`;
+          unitSessions.set(sessionId, { deviceId: dev, startedAt });
+        } catch {}
         console.log(`🔄 触发扫描: ${task.path}`);
         try {
           await scanner.scanUnit(task.path, cfg.recurseDepth || 4, cfg.keyFileName || 'SystemInfo.txt');
@@ -419,6 +483,15 @@ app.whenReady().then(async () => {
     ]);
     tray.setContextMenu(buildMenu());
     tray.setToolTip('Running');
+    
+    // 双击托盘图标显示窗口
+    tray.on('double-click', () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    
     writeLog('tray created');
     console.log('Tray created successfully');
   } catch (e) {

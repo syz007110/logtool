@@ -21,59 +21,125 @@
 
   function view() {
     const { cfg, loading, saving, health } = state;
-    if (loading) return h('<div>Loading...</div>');
+    if (loading) return h('<div class="loading">加载中...</div>');
+    
     const successCount = state.uploader.status.filter(s => s.status === 'success').length;
     const failedCount = state.uploader.status.filter(s => s.status === 'failed').length;
+    const totalCount = state.uploader.status.length;
     const recent50 = state.uploader.status.slice().reverse().slice(0, 50);
+    
+    // Update header status
+    const headerStatus = document.getElementById('header-status');
+    if (headerStatus) {
+      headerStatus.innerHTML = `
+        <span class="status-dot ${health.status === 'ok' ? 'connected' : 'disconnected'}"></span>
+        <span>${health.status === 'ok' ? '已连接' : '未连接'}</span>
+      `;
+    }
+    
     h(`
+      <div class="container">
+        <!-- Toolbar -->
       <div class="toolbar">
-        <button id="toggle-config">配置</button>
-        <button id="toggle-sync" class="sync-btn ${state.paused ? 'paused' : ''}">${state.paused ? '启动同步' : '暂停同步'}</button>
-        <span style="margin-left:auto">连接状态: <span class="${health.status === 'ok' ? 'ok' : 'err'}">${health.status === 'ok' ? '已连接' : '未连接'}</span></span>
+          <button id="toggle-sync" class="btn ${state.paused ? 'btn-warning' : 'btn-success'}">
+            ${state.paused ? '启动同步' : '暂停同步'}
+          </button>
       </div>
 
-      <div class="config-panel ${state.showConfig ? 'show' : ''}">
+        <!-- Configuration Panel -->
+        <div class="panel">
+          <div class="panel-heading" id="config-toggle">
+            <span class="panel-chevron ${state.showConfig ? 'open' : ''}">▶</span>
         <h3>配置</h3>
-        <div class="row"><label>监控目录管理（≤10）</label>
-          <button id="add-watch">添加目录</button>
+            <span class="panel-state idle">设置</span>
+          </div>
+          <div class="panel-body ${state.showConfig ? 'show' : ''}">
+            <div class="alert alert-info">
+              <strong>提示：</strong> 其他高级配置项（如递归深度、文件过滤类型、密钥文件名、用户名密码等）请通过编辑 <strong>config.json</strong> 文件进行设置
         </div>
-        <div class="row">
-          <ul id="watch-list">
-            ${state.watch.paths.map((p, i) => `<li>${p} <button data-rm="${i}">删除</button></li>`).join('')}
+            
+            <div class="info-row">
+              <div class="info-label">监控路径 (${state.watch.paths.length}/10)</div>
+              <div class="info-value">
+                ${state.watch.paths.length > 0 ? `
+                  <ul class="path-list">
+                    ${state.watch.paths.map((p, i) => `
+                      <li class="path-item">
+                        <span class="path-text">${p}</span>
+                        <button class="btn btn-danger btn-sm path-remove" data-rm="${i}">删除</button>
+                      </li>
+                    `).join('')}
           </ul>
+                ` : '<div class="empty-state">暂无监控目录</div>'}
+                <button id="add-watch" class="btn btn-default" ${state.watch.paths.length >= 10 ? 'disabled' : ''}>
+                  添加目录
+                </button>
         </div>
-        <div class="row"><label>递归深度（≤5）</label>
-          <input id="watch-depth" type="number" min="1" max="5" value="${state.watch.depth}" />
         </div>
-        <div class="row"><label>文件过滤类型</label>
-          <input id="watch-exts" value="${state.watch.exts}" />
-        </div>
-        <div class="row"><label>密钥文件名</label>
-          <input id="key-file" value="${state.watch.keyFileName || 'systemInfo.txt'}" />
-        </div>
-        <div class="row"><label>运行日志保存路径</label>
-          <input id="logsDir" value="${state.watch.logsDir || ''}" style="width:360px" />
-          <button id="browse-logsdir" style="margin-left:8px">浏览</button>
-        </div>
-        <div class="row"><label>启动扫描模式</label>
+
+            <div class="info-row">
+              <div class="info-label">启动扫描模式</div>
+              <div class="info-value">
           <select id="ignore-initial">
-            <option value="true" ${cfg.ignoreInitial === true ? 'selected' : ''}>仅监控新增/变更</option>
-            <option value="false" ${cfg.ignoreInitial === false ? 'selected' : ''}>纳入现有内容（启动时扫描现有）</option>
+                  <option value="true" ${cfg.ignoreInitial === true ? 'selected' : ''}>仅监控新增/变更文件</option>
+                  <option value="false" ${cfg.ignoreInitial === false ? 'selected' : ''}>启动时扫描现有文件</option>
           </select>
         </div>
-        <div class="row"><label>用户名</label>
-          <input id="username" value="${cfg.username || ''}" />
+            </div>
+
+            <div class="info-row">
+              <div class="info-label">日志存储路径</div>
+              <div class="info-value">
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="text" id="logsdir-display" value="${state.watch.logsDir || '未设置'}" readonly style="flex:1">
+                  <button id="browse-logsdir" class="btn btn-default">浏览</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:15px;text-align:right">
+              <button id="save" class="btn btn-primary" ${saving ? 'disabled' : ''}>
+                ${saving ? '保存中...' : '保存配置'}
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="row"><label>密码</label>
-          <input id="password" type="password" value="${cfg.password || ''}" />
+
+        <!-- Statistics Panel -->
+        <div class="panel">
+          <div class="panel-heading" id="stats-toggle">
+            <span class="panel-chevron open">▶</span>
+            <h3>上传统计</h3>
+            <span class="panel-state ${state.paused ? 'paused' : 'active'}">
+              ${state.paused ? '已暂停' : '运行中'}
+            </span>
+          </div>
+          <div class="panel-body show">
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-label">总任务数</div>
+                <div class="stat-value">${totalCount}</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">成功上传</div>
+                <div class="stat-value success">${successCount}</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">上传失败</div>
+                <div class="stat-value danger">${failedCount}</div>
         </div>
-        <div class="row">
-          <button id="save">保存配置</button>
+        </div>
         </div>
       </div>
 
-      <div class="main-content">
-        <h3>任务列表（成功 ${successCount}，失败 ${failedCount}，最近50条）</h3>
+        <!-- Tasks Panel -->
+        <div class="panel">
+          <div class="panel-heading" id="tasks-toggle">
+            <span class="panel-chevron open">▶</span>
+            <h3>最近任务</h3>
+            <span class="panel-state idle">最近50条</span>
+          </div>
+          <div class="panel-body show">
         <table>
           <thead>
             <tr>
@@ -88,13 +154,18 @@
               <tr>
                 <td>${s.device_id || '-'}</td>
                 <td title="${s.file_path}">${s.file_path}</td>
-                <td><span class="status-badge status-${s.status}">${s.status}</span> ${s.retry_count ? `(重试 ${s.retry_count})` : ''}</td>
+                    <td>
+                      <span class="badge badge-${s.status}">${s.status}</span>
+                      ${s.retry_count ? `<span style="color:#999;font-size:11px;margin-left:4px">(重试 ${s.retry_count})</span>` : ''}
+                    </td>
                 <td>${formatTime(s.created_at)}</td>
               </tr>
             `).join('')}
-            ${recent50.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:#999">暂无任务</td></tr>' : ''}
+                ${recent50.length === 0 ? '<tr><td colspan="4" class="empty-state">暂无任务记录</td></tr>' : ''}
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
     `);
   }
@@ -103,28 +174,66 @@
     const $ = (id) => document.getElementById(id);
     const { cfg } = state;
     
-    const toggleCfg = $('toggle-config');
-    if (toggleCfg) toggleCfg.onclick = () => { state.showConfig = !state.showConfig; render(); };
+    // Panel toggle handlers (Syncthing style)
+    const configToggle = $('config-toggle');
+    if (configToggle) {
+      configToggle.onclick = () => { 
+        state.showConfig = !state.showConfig; 
+        render(); 
+      };
+    }
+    
+    const statsToggle = $('stats-toggle');
+    if (statsToggle) {
+      statsToggle.onclick = function() {
+        const body = this.nextElementSibling;
+        const chevron = this.querySelector('.panel-chevron');
+        if (body) {
+          body.classList.toggle('show');
+          chevron.classList.toggle('open');
+        }
+      };
+    }
+    
+    const tasksToggle = $('tasks-toggle');
+    if (tasksToggle) {
+      tasksToggle.onclick = function() {
+        const body = this.nextElementSibling;
+        const chevron = this.querySelector('.panel-chevron');
+        if (body) {
+          body.classList.toggle('show');
+          chevron.classList.toggle('open');
+        }
+      };
+    }
 
     const saveBtn = $('save');
     if (saveBtn) saveBtn.onclick = async () => {
       state.saving = true; 
-      const depth = parseInt(($('watch-depth').value || '4'), 10);
-      const extsRaw = $('watch-exts').value || '.medbot';
-      const keyFile = $('key-file').value || 'systemInfo.txt';
-      const logsDir = $('logsDir').value || '';
-      const username = $('username').value || '';
-      const password = $('password').value || '';
+      render();
       const ignoreInitialRaw = $('ignore-initial') ? $('ignore-initial').value : 'true';
       const ignoreInitial = ignoreInitialRaw === 'true';
       const paths = state.watch.paths.slice(0, 10);
-      const exts = extsRaw.split(';').map(s => s.trim()).filter(Boolean);
-      const updated = { ...cfg, watchPaths: paths, recurseDepth: depth, includeExtensions: exts, keyFileName: keyFile, logsDir, username, password, scanOnly: false, ignoreInitial };
+      const logsDir = state.watch.logsDir || '';
+      
+      // 保持其他配置项不变，只更新UI中的三个配置项
+      const updated = { 
+        ...cfg, 
+        watchPaths: paths,
+        ignoreInitial,
+        logsDir
+      };
+      
       await window.logMonitor.saveConfig(updated);
       state.cfg = updated; 
-      state.watch.paths = paths; state.watch.depth = depth; state.watch.exts = extsRaw; state.watch.keyFileName = keyFile; state.watch.logsDir = logsDir;
-      // 应用到 watcher
+      state.watch.paths = paths;
+      state.watch.logsDir = logsDir;
+      
+      // 应用到 watcher（使用配置中的现有值）
+      const depth = cfg.recurseDepth || 4;
+      const exts = cfg.includeExtensions || ['.medbot'];
       window.logMonitor.updateWatch({ paths, depth, exts });
+      
       state.saving = false; 
       render();
     };
@@ -144,24 +253,24 @@
       } catch {}
     };
 
-    const list = document.getElementById('watch-list');
-    if (list) list.onclick = (e) => {
-      const tgt = e.target;
-      if (tgt && tgt.getAttribute && tgt.hasAttribute('data-rm')) {
-        const idx = parseInt(tgt.getAttribute('data-rm'), 10);
+    const removeButtons = document.querySelectorAll('[data-rm]');
+    removeButtons.forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = parseInt(e.target.getAttribute('data-rm'), 10);
         if (!Number.isNaN(idx)) {
           state.watch.paths.splice(idx, 1);
           render();
-        }
       }
     };
+    });
 
     const browseLogs = $('browse-logsdir');
     if (browseLogs) browseLogs.onclick = async () => {
       try {
         const result = await window.logMonitor.showOpenDialog({ properties: ['openDirectory'] });
         if (result && result.length > 0) {
-          $('logsDir').value = result[0];
+          state.watch.logsDir = result[0];
+          render();
         }
       } catch {}
     };

@@ -1,0 +1,922 @@
+subsystem,code,lang,short_message,user_hint,operation
+3,0X010A,en,Hardware fault,Ergonomic adjustment fault,Click REMOVE to restore
+9,0X010A,en,Hardware fault,Ergonomic adjustment fault,Click REMOVE to restore
+1,0X010A,en,Hardware fault,Exceed the motion deviation limit,Click REMOVE to restore
+1,0X490E,en,Take/Live key command logging,Take/Live key command logging,
+8,0X010A,en,Hardware fault,Exceed the motion deviation limit,Click REMOVE to restore
+9,0X010D,en,Ergonomic adjustment fault,Ergonomic adjustment fault,
+3,0X010D,en,Ergonomic adjustment fault,Ergonomic adjustment fault,
+1,0X010D,en,Exceed the motion deviation limit,Exceed the motion deviation limit,Please contact customer service
+8,0X010D,en,Exceed the motion deviation limit,Exceed the motion deviation limit,Please contact customer service
+1,0X020A,en,Abnormal movement,Exceed the motion deviation limit,Click REMOVE to restore
+8,0X020A,en,Abnormal movement,Exceed the motion deviation limit,Click REMOVE to restore
+1,0X020C,en,Unexpected motion,Exceed the motion deviation limit,Ignorable
+8,0X020C,en,Unexpected motion,Exceed the motion deviation limit,Ignorable
+1,0X020D,en,Exceed the motion deviation limit,Exceed the motion deviation limit,attention
+8,0X020D,en,Exceed the motion deviation limit,Exceed the motion deviation limit,attention
+1,0X022A,en,Abnormal operation,Unexpected motion of slave arm ,Click REMOVE to restore
+8,0X022A,en,Abnormal operation,Unexpected motion of slave arm ,Click REMOVE to restore
+3,0X022C,en,Unexpected motion,Unexpected motion during ergonomic adjustment,Ignorable
+9,0X022C,en,Unexpected motion,Unexpected motion during ergonomic adjustment,Ignorable
+1,0X022C,en,Unexpected motion,unexpected motion of master arm,Ignorable
+8,0X022C,en,Unexpected motion,unexpected motion of master arm,Ignorable
+9,0X022D,en,Unexpected motion during ergonomic adjustment,Unexpected motion during ergonomic adjustment,
+3,0X022D,en,Unexpected motion during ergonomic adjustment,Unexpected motion during ergonomic adjustment,
+1,0X030A,en,Hardware fault,Exceed the position limit,Click REMOVE to restore
+8,0X030A,en,Hardware fault,Exceed the position limit,Click REMOVE to restore
+1,0X030B,en,Hardware fault,Exceed the position limit,Click REMOVE to restore
+8,0X030B,en,Hardware fault,Exceed the position limit,Click REMOVE to restore
+3,0X030C,en,Exceed ergonomic position limit,Exceed ergonomic position limit,
+9,0X030C,en,Exceed ergonomic position limit,Exceed ergonomic position limit,
+3,0X030D,en,Exceed ergonomic position limit,Exceed ergonomic position limit,
+9,0X030D,en,Exceed ergonomic position limit,Exceed ergonomic position limit,
+1,0X030D,en,Exceed the position limit,Exceed the position limit,Please move back
+8,0X030D,en,Exceed the position limit,Exceed the position limit,Please move back
+1,0X031A,en,Abnormal movement,False control data,Click REMOVE to restore
+8,0X031A,en,Abnormal movement,False control data,Click REMOVE to restore
+1,0X031B,en,Abnormal movement,False control data,Click REMOVE to restore
+8,0X031B,en,Abnormal movement,False control data,Click REMOVE to restore
+1,0X040B,en,Too fast operation,Exceed the motion deviation limit,Click REMOVE to restore
+8,0X040B,en,Too fast operation,Exceed the motion deviation limit,Click REMOVE to restore
+1,0X050B,en,Too fast operation,Exceed the speed limit,Click REMOVE to restore
+8,0X050B,en,Too fast operation,Exceed the speed limit,Click REMOVE to restore
+3,0X050D,en,Abnormal movement,Exceed the speed limit,
+9,0X050D,en,Abnormal movement,Exceed the speed limit,
+1,0X051B,en,Too fast operation,False control data,Click REMOVE to restore
+8,0X051B,en,Too fast operation,False control data,Click REMOVE to restore
+1,0X060B,en,Hardware fault,Exceed the position limit,Click REMOVE to restore
+8,0X060B,en,Hardware fault,Exceed the position limit,Click REMOVE to restore
+1,0X061A,en,Abnormal operation,Unexpected motion of slave arm ,Click REMOVE to restore
+8,0X061A,en,Abnormal operation,Unexpected motion of slave arm ,Click REMOVE to restore
+1,0X062A,en,Abnormal movement,Exceed the speed limit,Click REMOVE to restore
+8,0X062A,en,Abnormal movement,Exceed the speed limit,Click REMOVE to restore
+1,0X063A,en,Abnormal movement,Exceed the motion deviation limit,Click REMOVE to restore
+8,0X063A,en,Abnormal movement,Exceed the motion deviation limit,Click REMOVE to restore
+1,0X064A,en,Abnormal movement,Exceed the motion deviation limit,Click REMOVE to restore
+8,0X064A,en,Abnormal movement,Exceed the motion deviation limit,Click REMOVE to restore
+1,0X065A,en,Abnormal movement,Abnormal operation,Click REMOVE to restore
+8,0X065A,en,Abnormal movement,Abnormal operation,Click REMOVE to restore
+1,0X066A,en,Abnormal movement,Abnormal operation,Click REMOVE to restore
+8,0X066A,en,Abnormal movement,Abnormal operation,Click REMOVE to restore
+1,0X067A,en,Self-test failed,Self-test failed,Click REMOVE to restore
+8,0X067A,en,Self-test failed,Self-test failed,Click REMOVE to restore
+1,0X068A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+8,0X068A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+1,0X068B,en,Hardware fault,Hardware fault,Click REMOVE to restore
+1,0X335E,en,Power supply control switch triggered,Power supply control switch triggered,
+8,0X335E,en,Power supply control switch triggered,Power supply control switch triggered,
+8,0X068B,en,Hardware fault,Hardware fault,Click REMOVE to restore
+1,0X069D,en,,,Please contact customer service
+8,0X069D,en,,,Please contact customer service
+1,0X070D,en,,,Please contact customer service
+8,0X070D,en,,,Please contact customer service
+1,0X071D,en,,,Please contact customer service
+8,0X071D,en,,,Please contact customer service
+1,0X080B,en,Arm is blocked,Arm is blocked,Click REMOVE to restore
+8,0X080B,en,Arm is blocked,Arm is blocked,Click REMOVE to restore
+1,0X080C,en,Arm is blocked,Arm is blocked,
+1,0X337E,en,Expected position of instrument arm,Expected position of instrument arm,
+8,0X337E,en,Expected position of instrument arm,Expected position of instrument arm,
+8,0X080C,en,Arm is blocked,Arm is blocked,
+3,0X080D,en,Exceed torque limit,Exceed torque limit,
+9,0X080D,en,Exceed torque limit,Exceed torque limit,
+1,0X08AD,en,Arm disable failed,Arm disable failed,Please retry
+1,0X08BD,en,Arm enable failed,Arm enable failed,Please retry
+1,0X08CD,en,Arm enabling,Arm enabling,
+1,0X08DD,en,Arm enable failed,Arm enable failed,
+1,0X08ED,en,Arm is disabled,Arm is disabled,
+3,0X090D,en,Automatic ergonomic adjustment failed,Automatic ergonomic adjustment failed,Please manually adjust
+9,0X090D,en,Automatic ergonomic adjustment failed,Automatic ergonomic adjustment failed,Please manually adjust
+1,0X090D,en,,,Please contact customer service
+8,0X090D,en,,,Please contact customer service
+1,0X092D,en,Set arm fault,Set arm fault,Please contact customer service
+8,0X092D,en,Set arm fault,Set arm fault,Please contact customer service
+3,0X100A,en,Network fault,Network fault,Click REMOVE to restore
+9,0X100A,en,Network fault,Network fault,Click REMOVE to restore
+1,0X100A,en,Network fault,Network fault,Click REMOVE to restore
+8,0X100A,en,Network fault,Network fault,Click REMOVE to restore
+3,0X100B,en,Network fault,Network fault,Click REMOVE to restore
+9,0X100B,en,Network fault,Network fault,Click REMOVE to restore
+3,0X100D,en,Network fault,Network fault,
+9,0X100D,en,Network fault,Network fault,
+1,0X101A,en,,,Please restart system
+8,0X101A,en,,,Please restart system
+1,0X102A,en,Network fault,Network fault,Click REMOVE to restore
+8,0X102A,en,Network fault,Network fault,Click REMOVE to restore
+1,0X110A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+3,0X110A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+8,0X110A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+9,0X110A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+3,0X110D,en,Hardware fault,Hardware fault,
+9,0X110D,en,Hardware fault,Hardware fault,
+1,0X114A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+8,0X114A,en,Hardware fault,Hardware fault,Click REMOVE to restore
+1,0X114C,en,Hardware fault,Hardware fault,
+8,0X114C,en,Hardware fault,Hardware fault,
+1,0X120C,en,Battery fault,Battery fault,Please check UPS status
+8,0X120C,en,Battery fault,Battery fault,Please check UPS status
+3,0X120D,en,Surgeon console needs to be repaired,Surgeon console needs to be repaired,Please contact customer service
+9,0X120D,en,Surgeon console needs to be repaired,Surgeon console needs to be repaired,Please contact customer service
+1,0X121D,en,Emergency stop switch is triggered ,Emergency stop switch is triggered ,
+8,0X121D,en,Emergency stop switch is triggered ,Emergency stop switch is triggered ,
+1,0X124D,en,Waiting for the patient cart to recover,Waiting for the patient cart to recover,
+1,0X125D,en,Patient cart power failure,Patient cart power failure,
+1,0X131C,en,Insufficient disk space,Insufficient disk space,
+8,0X131C,en,Insufficient disk space,Insufficient disk space,
+1,0X132D,en,Patient cart failure,Patient cart failure,Please contact customer service
+8,0X132D,en,Patient cart failure,Patient cart failure,Please contact customer service
+1,0X133D,en,,,Please start patient cart
+8,0X133D,en,,,Please start patient cart
+1,0X140D,en,Battery fault,Battery fault,Please contact customer service
+8,0X140D,en,Battery fault,Battery fault,Please contact customer service
+1,0X141D,en,Battery fault,Battery fault,Please contact customer service
+8,0X141D,en,Battery fault,Battery fault,Please contact customer service
+1,0X142D,en,Battery needs to be replaced,Battery needs to be replaced,Please contact customer service
+8,0X142D,en,Battery needs to be replaced,Battery needs to be replaced,Please contact customer service
+9,0X160D,en,Reach the upper position limit,Reach the upper position limit,attention
+3,0X160D,en,Reach the upper position limit,Reach the upper position limit,attention
+9,0X161D,en,Reach the lower position limit,Reach the lower position limit,attention
+3,0X161D,en,Reach the lower position limit,Reach the lower position limit,attention
+3,0X162D,en,Master arm reaches the position limit,Master arm reaches the position limit,Please raise the 3D-viewer
+9,0X162D,en,Master arm reaches the position limit,Master arm reaches the position limit,Please raise the 3D-viewer
+3,0X163D,en,3D-Viewer reaches the height limit,3D-Viewer reaches the height limit,Please lower master arm
+9,0X163D,en,3D-Viewer reaches the height limit,3D-Viewer reaches the height limit,Please lower master arm
+1,0X2A1A,en,Power fault,Power fault,Click REMOVE to restore
+8,0X2A1A,en,Power fault,Power fault,Click REMOVE to restore
+1,0X2A2A,en,Power fault,Power fault,Click REMOVE to restore
+8,0X2A2A,en,Power fault,Power fault,Click REMOVE to restore
+1,0X2B1D,en,Pedal failure ,Pedal failure ,
+8,0X2B1D,en,Pedal failure ,Pedal failure ,
+1,0X2B2D,en,Cannot install 3 energy instrument at the same time,Cannot install 3 energy instrument at the same time,
+8,0X2B2D,en,Cannot install 3 energy instrument at the same time,Cannot install 3 energy instrument at the same time,
+1,0X2B3D,en,Cannot switch to the arm with no instrument,Cannot switch to the arm with no instrument,
+8,0X2B3D,en,Cannot switch to the arm with no instrument,Cannot switch to the arm with no instrument,
+1,0X2B4D,en,Instrument is dismounted,Instrument is dismounted,
+8,0X2B4D,en,Instrument is dismounted,Instrument is dismounted,
+1,0X2B5D,en,The master arm pose does not match the slave arm ,The master arm pose does not match the slave arm ,Please relax hold on the hand control to continue
+8,0X2B5D,en,The master arm pose does not match the slave arm ,The master arm pose does not match the slave arm ,Please relax hold on the hand control to continue
+1,0X2B6D,en,,,Only energy instrument can be activated
+8,0X2B6D,en,,,Only energy instrument can be activated
+1,0X2B7D,en,,,Please lower armrest or raise master arm before self-testing
+4,0X150B,en,Over the position upper limit,Over the position upper limit,Click REMOVE to restore
+4,0X151B,en,Over the position lower limit,Over the position lower limit,Click REMOVE to restore
+4,0X080B,en,Surgical trolley motion obstructed,Surgical trolley motion obstructed,Click REMOVE to restore
+8,0X2B7D,en,,,Please lower armrest or raise master arm before self-testing
+1,0X2B8D,en,,,Please dismount instrument and adapter before self-testing
+8,0X2B8D,en,,,Please dismount instrument and adapter before self-testing
+1,0X2B9D,en,Left instrument reaches the position boundary,Left instrument reaches the position boundary,attention
+8,0X2B9D,en,Left instrument reaches the position boundary,Left instrument reaches the position boundary,attention
+1,0X2BAD,en,Right instrument reaches the position boundary,Right instrument reaches the position boundary,attention
+8,0X2BAD,en,Right instrument reaches the position boundary,Right instrument reaches the position boundary,attention
+1,0X2BBD,en,Left instrument reaches the rotation boundary,Left instrument reaches the rotation boundary,attention
+8,0X2BBD,en,Left instrument reaches the rotation boundary,Left instrument reaches the rotation boundary,attention
+4,0X040B,en,Over the speed limit,Over the speed limit,Click REMOVE to restore
+8,0X2BCD,en,Right instrument reaches the rotation boundary,Right instrument reaches the rotation boundary,attention
+1,0X2BCD,en,Right instrument reaches the rotation boundary,Right instrument reaches the rotation boundary,attention
+1,0X2BED,en,The instrument is too high,The instrument is too high,Please adjust the height downwards
+8,0X2BED,en,The instrument is too high,The instrument is too high,Please adjust the height downwards
+1,0X2BFD,en,Instrument adapter is failed to be mounted,Instrument adapter is failed to be mounted,
+8,0X2BFD,en,Instrument adapter is failed to be mounted,Instrument adapter is failed to be mounted,
+1,0X2C0D,en,Instrument is failed to be mounted,Instrument is failed to be mounted,
+8,0X2C0D,en,Instrument is failed to be mounted,Instrument is failed to be mounted,
+1,0X2C1D,en,Endoscope is failed to be mounted,Endoscope is failed to be mounted,
+8,0X2C1D,en,Endoscope is failed to be mounted,Endoscope is failed to be mounted,
+1,0X2C2D,en,Exceed the usage limit of instrument,Exceed the usage limit of instrument,please replace
+8,0X2C2D,en,Exceed the usage limit of instrument,Exceed the usage limit of instrument,please replace
+1,0X2C3D,en,,,Please click START on the patient cart
+8,0X2C3D,en,,,Please click START on the patient cart
+1,0X2C4D,en,The endoscope adapter can be used less than 5 times,The endoscope adapter can be used less than 5 times,
+8,0X2C4D,en,The endoscope adapter can be used less than 5 times,The endoscope adapter can be used less than 5 times,
+1,0X2C5D,en,The endoscope adapter usage wil be exhausted£¬ please replace it,The endoscope adapter usage wil be exhausted£¬ please replace it,
+8,0X2C5D,en,The endoscope adapter usage wil be exhausted£¬ please replace it,The endoscope adapter usage wil be exhausted£¬ please replace it,
+1,0X2C6D,en,Endoscope is mounted on not-allowed arm ,Endoscope is mounted on not-allowed arm ,
+8,0X2C6D,en,Endoscope is mounted on not-allowed arm ,Endoscope is mounted on not-allowed arm ,
+1,0X2C8D,en,Just single ultrasonic knife is supported,Just single ultrasonic knife is supported,
+8,0X2C8D,en,Just single ultrasonic knife is supported,Just single ultrasonic knife is supported,
+1,0X2C9D,en,Left instrument reaches the depth boundary,Left instrument reaches the depth boundary,attention
+8,0X2C9D,en,Left instrument reaches the depth boundary,Left instrument reaches the depth boundary,attention
+1,0X2CAD,en,Right instrument reaches the depth boundary,Right instrument reaches the depth boundary,attention
+8,0X2CAD,en,Right instrument reaches the depth boundary,Right instrument reaches the depth boundary,attention
+1,0X2CBD,en,Left instrument reaches the pose boundary,Left instrument reaches the pose boundary,attention
+8,0X2CBD,en,Left instrument reaches the pose boundary,Left instrument reaches the pose boundary,attention
+1,0X2CCD,en,Right instrument reaches the pose boundary,Right instrument reaches the pose boundary,attention
+8,0X2CCD,en,Right instrument reaches the pose boundary,Right instrument reaches the pose boundary,attention
+1,0X2CDD,en,,,Please step on correct pedal
+8,0X2CDD,en,,,Please step on correct pedal
+1,0X2CED,en,Pedal signal is not activated,Pedal signal is not activated,Please adjust foot angle 
+8,0X2CED,en,Pedal signal is not activated,Pedal signal is not activated,Please adjust foot angle 
+1,0X2CFD,en,Just single monopolar instrument is supported,Just single monopolar instrument is supported,
+8,0X2CFD,en,Just single monopolar instrument is supported,Just single monopolar instrument is supported,
+1,0X2D0D,en,Just single bipolar instrument is supported,Just single bipolar instrument is supported,
+8,0X2D0D,en,Just single bipolar instrument is supported,Just single bipolar instrument is supported,
+1,0X2D1D,en,,,Please release adjustment button
+8,0X2D1D,en,,,Please release adjustment button
+1,0X2D2D,en,,,Please release shoulder adjustment button
+8,0X2D2D,en,,,Please release shoulder adjustment button
+1,0X2D3D,en,,,Please match grips on control by rotating the grip
+8,0X2D3D,en,,,Please match grips on control by rotating the grip
+1,0X2D4D,en,Excessive rotation deviation,Excessive rotation deviation,Plese match grips on control by squeezing
+8,0X2D4D,en,Excessive rotation deviation,Excessive rotation deviation,Plese match grips on control by squeezing
+8,0X2D5D,en,Ultrasonic knife is activated for too long,Ultrasonic knife is activated for too long,Please release pedal
+1,0X2D5D,en,Ultrasonic knife is activated for too long,Ultrasonic knife is activated for too long,Please release pedal
+1,0X2D6D,en,Do not rotate the rotation joint during ultrasonic knife is activated,Do not rotate the rotation joint during ultrasonic knife is activated,
+8,0X2D6D,en,Do not rotate the rotation joint during ultrasonic knife is activated,Do not rotate the rotation joint during ultrasonic knife is activated,
+1,0X2D7D,en,,,Please exit the instrument height memory mode
+8,0X2D7D,en,,,Please exit the instrument height memory mode
+1,0X2D8D,en,,,Please login
+8,0X2D8D,en,,,Please login
+1,0X2D9D,en,Endoscope reaches position boundary,Endoscope reaches position boundary,attention
+8,0X2D9D,en,Endoscope reaches position boundary,Endoscope reaches position boundary,attention
+1,0X2DAD,en,,,Please zoom in
+8,0X2DAD,en,,,Please zoom in
+1,0X2DBD,en,,,Please zoom out
+8,0X2DBD,en,,,Please zoom out
+1,0X2DCD,en,,,Please rotate endoscope clockwise
+8,0X2DCD,en,,,Please rotate endoscope clockwise
+1,0X2DDD,en,,,Please rotate endoscope counterclockwise
+8,0X2DDD,en,,,Please rotate endoscope counterclockwise
+1,0X2DED,en,,,Please adjust endoscope downward 
+8,0X2DED,en,,,Please adjust endoscope downward 
+1,0X2DFD,en,Lower master arm or raise 3D-viewer before self-testing,Lower master arm or raise 3D-viewer before self-testing,
+8,0X2DFD,en,Lower master arm or raise 3D-viewer before self-testing,Lower master arm or raise 3D-viewer before self-testing,
+1,0X2E0D,en,,,Please check arm switch pedal
+8,0X2E0D,en,,,Please check arm switch pedal
+1,0X2E1D,en,,,Please check clutch pedal
+8,0X2E1D,en,,,Please check clutch pedal
+1,0X2E2D,en,,,Please check endoscope pedal
+8,0X2E2D,en,,,Please check endoscope pedal
+1,0X2E3D,en,,,Check left cut pedal
+8,0X2E3D,en,,,Check left cut pedal
+1,0X2E4D,en,,,Check left coag pedal
+8,0X2E4D,en,,,Check left coag pedal
+1,0X2E5D,en,,,Check right cut pedal
+8,0X2E5D,en,,,Check right cut pedal
+1,0X2E6D,en,,,Check right coag pedal
+8,0X2E6D,en,,,Check right coag pedal
+4,0X090B,en,Hardware Fault,Hardware Fault,Click REMOVE to restore
+1,0X2E7D,en,,,Check slave arm adjustment button
+8,0X2E7D,en,,,Check slave arm adjustment button
+1,0X2EAD,en,,,Please check head-in sensor
+8,0X2EAD,en,,,Please check head-in sensor
+1,0X2EBD,en,,,Check left foot sensor
+8,0X2EBD,en,,,Check left foot sensor
+1,0X2ECD,en,,,Check right foot sensor
+8,0X2ECD,en,,,Check right foot sensor
+1,0X2EDD,en,,,Please finish the adjustment before self-testing
+8,0X2EDD,en,,,Please finish the adjustment before self-testing
+1,0X2EFD,en,Please check the clutch signal,Please check the clutch signal,
+8,0X2EFD,en,Please check the clutch signal,Please check the clutch signal,
+1,0X2F0D,en,Low Battery ,Low Battery ,Please contact customer service
+8,0X2F0D,en,Low Battery ,Low Battery ,Please contact customer service
+1,0X2F1D,en,Low Battery ,Low Battery ,Please contact customer service
+8,0X2F1D,en,Low Battery ,Low Battery ,Please contact customer service
+8,0X2F2D,en,Exceed the usage limit of trocar ,Exceed the usage limit of trocar ,Please replace it
+1,0X2F2D,en,Exceed the usage limit of trocar ,Exceed the usage limit of trocar ,Please replace it
+1,0X2F3D,en,Don't mount the same type energy insruments,Don't mount the same type energy insruments,
+8,0X2F3D,en,Don't mount the same type energy insruments,Don't mount the same type energy insruments,
+1,0X2F4D,en,Slave arm 1 unable to output energy when Multiple bipolar mounted,Slave arm 1 unable to output energy when Multiple bipolar mounted,
+8,0X2F4D,en,Slave arm 1 unable to output energy when Multiple bipolar mounted,Slave arm 1 unable to output energy when Multiple bipolar mounted,
+1,0X2F5D,en,Slave arm 4 unable to output energy when Multiple bipolar mounted,Slave arm 4 unable to output energy when Multiple bipolar mounted,
+8,0X2F5D,en,Slave arm 4 unable to output energy when Multiple bipolar mounted,Slave arm 4 unable to output energy when Multiple bipolar mounted,
+1,0X2F6D,en,Clutch is triggered for more than 1 minute,Clutch is triggered for more than 1 minute,
+8,0X2F6D,en,Clutch is triggered for more than 1 minute,Clutch is triggered for more than 1 minute,
+1,0X2F9D,en,Endoscope connection abnormal,Endoscope connection abnormal,Please reinsert the endoscope
+8,0X2F9D,en,Endoscope connection abnormal,Endoscope connection abnormal,Please reinsert the endoscope
+1,0X2FAD,en,Please remount the instrument adapter,Please remount the instrument adapter,
+1,0X2FBD,en,Energy activing,Energy activing,
+1,0X2FFD,en,Instrument is failed to be mounted,Instrument is failed to be mounted,Please remount it
+8,0X338D,en,In ergonomic adjustment process,In ergonomic adjustment process,Please don't move the master arm
+1,0X338D,en,In ergonomic adjustment process,In ergonomic adjustment process,Please don't move the master arm
+8,0X339D,en,In ergonomic adjustment process,In ergonomic adjustment process,Please don't move the master arm
+1,0X339D,en,In ergonomic adjustment process,In ergonomic adjustment process,Please don't move the master arm
+8,0X33AD,en,In ergonomic adjustment process,In ergonomic adjustment process,Please don't move the master arm
+1,0X33AD,en,In ergonomic adjustment process,In ergonomic adjustment process,Please don't move the master arm
+1,0X33BD,en,Ergonomic adjustment denied,Ergonomic adjustment denied,
+8,0X33BD,en,Ergonomic adjustment denied,Ergonomic adjustment denied,
+4,0X010A,en,Hardware fault,Motion deviation,Click REMOVE to restore
+1,0X33CD,en,,,Please put head in the 3D viewer
+8,0X33CD,en,,,Please put head in the 3D viewer
+1,0X33DD,en,,,Please back to the main page
+8,0X33DD,en,,,Please back to the main page
+1,0X33ED,en,Endoscope controller communication fault,Endoscope controller communication fault,
+1,0X33FD,en,Trocar connection failed,Trocar connection failed,
+1,0X340D,en,Trocar is not installed,Trocar is not installed,
+1,0X341D,en,,,Please release the energy pedal
+8,0X341D,en,,,Please release the energy pedal
+1,0X342D,en,Please contact customer service,Please contact customer service,
+1,0X343D,en,Please contact customer service,Please contact customer service,
+1,0X350D,en,Slave arm auto adjusting,Slave arm auto adjusting,Please keep your hands on the armrests
+1,0X400B,en,Poor network quality,Poor network quality,Click REMOVE to restore
+4,0X135D,en,Base released fail,Base released fail,
+4,0X134D,en,Base locked fail,Base locked fail,
+4,0X136D,en,Abnormal support oil pressure,Abnormal support oil pressure,
+8,0X400B,en,Poor network quality,Poor network quality,Click REMOVE to restore
+8,0X400D,en,Poor communication quality,Poor communication quality,
+1,0X400D,en,Poor communication quality,Poor communication quality,
+8,0X401D,en,Poor network quality,Poor network quality,No surgery allowed
+8,0X402D,en,Poor network quality,Poor network quality,Operation not recommended
+8,0X403D,en,Medium network quality,Medium network quality,Please operate slowly with caution
+8,0X404D,en,Average network quality,Average network quality,Please operate slowly
+8,0X410D,en,Local terminal fault,Local terminal fault,
+1,0X410D,en,Local terminal fault,Local terminal fault,
+8,0X411D,en,Local terminal Log out,Local terminal Log out,
+1,0X411D,en,Local terminal Log out,Local terminal Log out,
+8,0X412D,en,Switch control to local terminal,Switch control to local terminal,
+1,0X412D,en,Switch control to local terminal,Switch control to local terminal,
+8,0X413D,en,Switch control to remote terminal,Switch control to remote terminal,
+1,0X413D,en,Switch control to Romote terminal,Switch control to Romote terminal,
+8,0X414D,en,Please check network settings,Please check network settings,
+8,0X415D,en,Please check the verification code,Please check the verification code,
+1,0X416D,en,Network is connected,Network is connected,
+8,0X416D,en,Network is connected,Network is connected,
+1,0X417D,en,The network is disconnected,The network is disconnected,
+8,0X417D,en,The network is disconnected,The network is disconnected,
+8,0X420D,en,Please take over before shutdown,Please take over before shutdown,
+1,0X420D,en,Please take the control  before shutdown,Please take the control  before shutdown,
+8,0X450B,en,Communication workstation error,The agent software is abnormal,Click REMOVE to restore
+1,0X450B,en,Communication workstation error,The agent software is abnormal,Click REMOVE to restore
+1,0X451D,en,The communication of the remote communication workstation is abnormal,The communication of the remote communication workstation is abnormal,
+8,0X451D,en,The communication of the remote communication workstation is abnormal,The communication of the remote communication workstation is abnormal,
+1,0X452B,en,Communication workstation error,Local TSA fault,Click REMOVE to restore
+8,0X452B,en,Communication workstation error,Local TSA fault,Click REMOVE to restore
+1,0X453B,en,Communication workstation error,Video codec fault,Click REMOVE to restore
+8,0X453B,en,Communication workstation error,Video codec fault,Click REMOVE to restore
+1,0X454D,en,The TSA software version is incompatible,The TSA software version is incompatible,
+8,0X454D,en,The TSA software version is incompatible,The TSA software version is incompatible,
+1,0X455A,en,Data exception,Data exception,Click REMOVE to restore
+8,0X500D,en,False control data,False control data,
+1,0X533D,en,Abnormal communication,Abnormal communication,
+8,0X533D,en,Abnormal communication,Abnormal communication,
+8,0X606D,en,Master arm is failed to be stowed,Master arm is failed to be stowed,
+1,0X606D,en,Master arm is failed to be stowed,Master arm is failed to be stowed,
+1,0X607D,en,Deploy failed,Deploy failed,
+1,0X608D,en,Stow failed,Stow failed,
+5,0X610A,en,Network fault,Network fault,Click REMOVE to restore
+A,0X610A,en,Network fault,Network fault,Click REMOVE to restore
+5,0X622B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X622B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X623B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X623B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X626B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X626B,en,Motor fault,Hardware fault,Click REMOVE to restore
+1,0X626D,en,Motor fault,Hardware fault,Please contact customer service
+8,0X626D,en,Motor fault,Hardware fault,
+5,0X627B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X627B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X640B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X640B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X641B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X641B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X642B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X642B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X643B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X643B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X651B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X651B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X652B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X652B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X653B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X653B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X660B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X660B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X662B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X662B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X663B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X663B,en,Motor fault,Motor fault,Click REMOVE to restore
+8,0X090E,en,Motor fault,,
+8,0X665A,en,Data exception,Data exception,Click REMOVE to restore
+5,0X665B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X665B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X666B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X666B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X66AB,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X66AB,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X66CB,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X66CB,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X680B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X680B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X682B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X682B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X683B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X683B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X685B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X685B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X686B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X686B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X68AB,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X68AB,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X68CB,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X68CB,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6A0B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6A0B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6A4B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6A4B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6A5B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6A5B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6A6B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6A6B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6A7B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6A7B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6B0B,en,Motor fault,False control data,Click REMOVE to restore
+A,0X6B0B,en,Motor fault,False control data,Click REMOVE to restore
+5,0X6B1B,en,Motor fault,False Software Command,Click REMOVE to restore
+A,0X6B1B,en,Motor fault,False Software Command,Click REMOVE to restore
+5,0X6B2B,en,Motor fault,False Software Command,Click REMOVE to restore
+A,0X6B2B,en,Motor fault,False Software Command,Click REMOVE to restore
+5,0X6B4B,en,Motor fault,False Software Command,Click REMOVE to restore
+A,0X6B4B,en,Motor fault,False Software Command,Click REMOVE to restore
+5,0X6B5B,en,Motor fault,False Software Command,Click REMOVE to restore
+A,0X6B5B,en,Motor fault,False Software Command,Click REMOVE to restore
+5,0X6C0B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C0B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C1B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C1B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C2B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C2B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C3B,en,Motor fault,Motor fault,Click REMOVE to restore
+4,0X030A,en,Motor fault,Motor fault,Click REMOVE to restore
+4,0X100A,en,Motor fault,Network fault,Click REMOVE to restore
+4,0X110A,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C3B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C4B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C4B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C5B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C5B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C6B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C6B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C7B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C7B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C8B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C8B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6C9B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6C9B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D0B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6D0B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D1B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6D1B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D2B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6D2B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D3B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6D3B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D4B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6D4B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6D5B,en,Motor fault,Motor fault,Click REMOVE to restore
+A,0X6D5B,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D6A,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6D6A,en,Motor fault,Motor fault,Click REMOVE to restore
+5,0X6D7B,en,Motor fault,Hardware Fault,Click REMOVE to restore
+A,0X6D7B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6D7D,en,Motor fault,Motor fault,
+5,0X6D8B,en,Motor fault,Hardware fault,Click REMOVE to restore
+A,0X6D8B,en,Motor fault,Hardware fault,Click REMOVE to restore
+5,0X6D9B,en,Motor fault,Motor driver failure,Click REMOVE to restore
+A,0X6D9B,en,Motor fault,Motor driver failure,Click REMOVE to restore
+5,0X6DAB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+A,0X6DAB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+5,0X6DCB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+A,0X6DCB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+5,0X6DDB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+A,0X6DDB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+5,0X6DEB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+A,0X6DEB,en,Motor fault,Motor driver failure,Click REMOVE to restore
+8,0X555E,en,,,
+8,0X556E,en,,,
+8,0X557E,en,,,
+8,0X558E,en,,,
+1,0X70BD,en,Running information reading timed out,Running information reading timed out,
+8,0X70BD,en,Running information reading timed out,Running information reading timed out,
+1,0X70CD,en,CPU is overloaded,CPU is overloaded,
+8,0X70CD,en,CPU is overloaded,CPU is overloaded,
+1,0X70DD,en,Pedal signal disconnected,Pedal signal disconnected,
+5,0X801D,en,Motor driver failure,Motor driver failure,
+A,0X801D,en,Motor driver failure,Motor driver failure,
+5,0X802D,en,Motor driver failure,Motor driver failure,
+A,0X802D,en,Motor driver failure,Motor driver failure,
+5,0X803D,en,Motor driver failure,Motor driver failure,
+A,0X803D,en,Motor driver failure,Motor driver failure,
+5,0X804D,en,Motor driver failure,Motor driver failure,
+A,0X804D,en,Motor driver failure,Motor driver failure,
+6,0XB01B,en,Abnormal image,Abnormal image acquisition,Click REMOVE to restore
+6,0XB02B,en,Endoscope connection abnormal,Endoscope connection abnormal,Please reinsert the endoscope
+6,0XB03B,en,Endoscope disconnected,Endoscope disconnected,Click REMOVE to restore
+6,0XB03D,en,Endoscope disconnected,Endoscope disconnected,
+6,0XB04B,en,Abnormal image,Uncontinuous Image,Click REMOVE to restore
+6,0XB05D,en,,,Please restart endoscope controller 
+6,0XB06D,en,,,Please restart endoscope controller 
+6,0XB07A,en,Network fault,Network fault,Click REMOVE to restore
+6,0XB50C,en,USB flash disk connection abnormality,USB flash disk connection abnormality,
+6,0XB50D,en,USB flash disk connection abnormality,USB flash disk connection abnormality,
+6,0XB51C,en,Insufficient endoscope controller disk space,Insufficient endoscope controller disk space,Please contact customer service
+6,0XB51D,en,Insufficient endoscope controller disk space,Insufficient endoscope controller disk space,Please contact customer service
+6,0XB52C,en,Endoscope controller CPU is overloaded,Endoscope controller CPU is overloaded,
+6,0XB52D,en,Endoscope controller CPU is overloaded,Endoscope controller CPU is overloaded,
+6,0XB53C,en,Insufficient USB flash disk space,Insufficient USB flash disk space,Please replace it
+6,0XB53D,en,Insufficient USB flash disk space,Insufficient USB flash disk space,Please replace it
+6,0XBA0D,en,Out-Sync Image,Out-Sync Image,Please reinsert the endoscope
+6,0XBA1A,en,,,Please restart endoscope controller 
+6,0XBA2A,en,Poor 3D effect display effect,Poor 3D effect display effect,Please restart endoscope controller 
+6,0XBA3D,en,,,Please restart endoscope controller 
+6,0XBA5C,en,Aero desktop started failed,Aero desktop started failed,
+6,0XBA5D,en,Aero desktop started failed,Aero desktop started failed,
+6,0XBA6C,en,USB flash disk unauthorized,USB flash disk unauthorized,Please use it after authentication
+6,0XBA6D,en,USB flash disk unauthorized,USB flash disk unauthorized,Please use it after authentication
+6,0XBA7D,en,Energy platform connection failed,Energy platform connection failed,Please contact customer service
+6,0XBA8D,en,Endoscope type identification failed,Endoscope type identification failed,Please replace the endoscope
+1,0X310E,en,,,
+1,0X500E,en,,,
+1,0X501E,en,,,
+1,0X502E,en,,,
+1,0X503E,en,,,
+1,0X504E,en,,,
+1,0X505E,en,,,
+1,0X506E,en,,,
+1,0X507E,en,,,
+1,0X508E,en,,,
+1,0X509E,en,,,
+1,0X50AE,en,,,
+1,0X50BE,en,,,
+1,0X50CE,en,,,
+1,0X50DE,en,,,
+1,0X50EE,en,,,
+1,0X510E,en,,,
+1,0X511E,en,,,
+1,0X550E,en,,,
+1,0X551E,en,,,
+1,0X552E,en,,,
+1,0X553E,en,,,
+1,0X554E,en,,,
+1,0X555E,en,,,
+1,0X556E,en,,,
+1,0X557E,en,,,
+1,0X558E,en,,,
+1,0X570E,en,,,
+1,0X571E,en,,,
+1,0X572E,en,,,
+1,0X700E,en,,,
+1,0X701E,en,,,
+1,0X702E,en,,,
+1,0X703E,en,,,
+1,0X704E,en,,,
+1,0X705E,en,,,
+1,0X706E,en,,,
+1,0X707E,en,,,
+1,0X708E,en,,,
+1,0X709E,en,,,
+1,0X70AE,en,,,
+1,0X70CE,en,,,
+1,0X710E,en,,,
+1,0X405E,en,,,
+8,0X405E,en,,,
+1,0X66BD,en,,Please contact customer service,
+1,0X143D,en,Exhausted battery,Exhausted battery,
+8,0X143D,en,Exhausted battery,Exhausted battery,
+1,0X144D,en,Low battery,Low battery,
+8,0X144D,en,Low battery,Low battery,
+6,0XBA9D,en,Endoscope parameters are being configured,Endoscope parameters are being configured,
+1,0X2BDD,en,Right and left instrument reaches the rotation boundary,Right and left instrument reaches the rotation boundary,
+1,0X666D,en,The software version is inconsistent,The software version is inconsistent,
+8,0X666D,en,The software version is inconsistent,The software version is inconsistent,
+8,0X614D,en,Switch to the remote system,Switch to the remote system,
+1,0X624D,en,Switch to the local system,Switch to the local system,
+1,0X404A,en,Disconnect with patient cart,Disconnect with patient cart,
+1,0X021D,en,Instrument is blocked,Instrument is blocked,
+1,0X022E,en,,,
+1,0X030E,en,,,
+1,0X050E,en,,,
+1,0X040E,en,,,
+1,0X090E,en,,,
+1,0X010E,en,,,
+1,0X020E,en,,,
+1,0X559E,en,,,
+1,0X55AE,en,,,
+1,0X55BE,en,,,
+1,0X092E,en,,,
+1,0X344D,en,,,Please check adapter
+1,0X345D,en,,,Please check instrument£¬ and reinstall adapter
+1,0X360D,en,Please take off the instrument,Please take off the instrument,
+1,0X361D,en,Please take off the adapter,Please take off the adapter,
+1,0X362D,en,Please install the adapter,Please install the adapter,
+1,0X128D,en,Master back to zero fail,Master back to zero fail,
+1,0X127D,en,,,Plese match grips on control by squeezing
+8,0X127D,en,,,Plese match grips on control by squeezing
+6,0X129D,en,Failed to reverse,Failed to reverse,Please check the connection status
+1,0X130D,en,,,Please reinsert the endoscope
+6,0X144C,en,Failed to reverse,Failed to reverse,Please reset
+1,0X145D,en,The patient cart cannot be adjusted in the current status.,The patient cart cannot be adjusted in the current status.,
+1,0X146D,en,Please operate on the patient cart,Please operate on the patient cart,
+1,0X520E,en,,,
+1,0X533E,en,,,
+3,0X300E,en,,,
+3,0X301E,en,,,
+9,0X300E,en,,,
+9,0X301E,en,,,
+3,0X302E,en,,,
+3,0X303E,en,,,
+3,0X304E,en,,,
+3,0X305E,en,,,
+3,0X306E,en,,,
+3,0X307E,en,,,
+3,0X308E,en,,,
+3,0X309E,en,,,
+9,0X302E,en,,,
+9,0X303E,en,,,
+9,0X304E,en,,,
+9,0X305E,en,,,
+9,0X306E,en,,,
+9,0X307E,en,,,
+9,0X308E,en,,,
+9,0X309E,en,,,
+1,0X57DE,en,,,
+1,0X57AE,en,,,
+1,0X57BE,en,,,
+8,0X57DE,en,,,
+8,0X57AE,en,,,
+8,0X57BE,en,,,
+1,0X579E,en,,,
+1,0X57CE,en,,,
+1,0X514E,en,,,
+1,0X515E,en,,,
+1,0X516E,en,,,
+1,0X517E,en,,,
+1,0X518E,en,,,
+1,0X519E,en,,,
+1,0X521E,en,,,
+1,0X522E,en,,,
+1,0X523E,en,,,
+1,0X524E,en,,,
+1,0X525E,en,,,
+1,0X526E,en,,,
+1,0X527E,en,,,
+1,0X528E,en,,,
+1,0X529E,en,,,
+1,0X52AE,en,,,
+1,0X52BE,en,,,
+1,0X52CE,en,,,
+1,0X52DE,en,,,
+1,0X52EE,en,,,
+1,0X52FE,en,,,
+1,0X530E,en,,,
+1,0X531E,en,,,
+1,0X532E,en,,,
+1,0X57EE,en,,,
+1,0X534E,en,,,
+1,0X535E,en,,,
+1,0X536E,en,,,
+1,0X537E,en,,,
+1,0X538E,en,,,
+1,0X539E,en,,,
+1,0X53AE,en,,,
+1,0X53BE,en,,,
+1,0X53CE,en,,,
+1,0X53DE,en,,,
+1,0X53EE,en,,,
+1,0X53FE,en,,,
+1,0X540E,en,,,
+1,0X541E,en,,,
+1,0X542E,en,,,
+1,0X543E,en,,,
+1,0X544E,en,,,
+1,0X545E,en,,,
+1,0X546E,en,,,
+1,0X547E,en,,,
+1,0X548E,en,,,
+1,0X549E,en,,,
+1,0X54AE,en,,,
+1,0X54BE,en,,,
+1,0X54CE,en,,,
+1,0X54DE,en,,,
+1,0X54EE,en,,,
+1,0X54FE,en,,,
+1,0X560E,en,,,
+1,0X561E,en,,,
+1,0X562E,en,,,
+1,0X563E,en,,,
+1,0X564E,en,,,
+1,0X565E,en,,,
+1,0X567E,en,,,
+1,0X568E,en,,,
+1,0X569E,en,,,
+1,0X56AE,en,,,
+1,0X56CE,en,,,
+1,0X56DE,en,,,
+1,0X56EE,en,,,
+1,0X56FE,en,,,
+1,0X573E,en,,,
+1,0X574E,en,,,
+1,0X575E,en,,,
+1,0X576E,en,,,
+1,0X577E,en,,,
+1,0X578E,en,,,
+8,0X579E,en,,,
+8,0X57CE,en,,,
+8,0X514E,en,,,
+8,0X515E,en,,,
+8,0X516E,en,,,
+8,0X517E,en,,,
+8,0X518E,en,,,
+8,0X519E,en,,,
+8,0X521E,en,,,
+8,0X522E,en,,,
+8,0X523E,en,,,
+8,0X524E,en,,,
+8,0X525E,en,,,
+8,0X526E,en,,,
+8,0X527E,en,,,
+8,0X528E,en,,,
+8,0X529E,en,,,
+8,0X52AE,en,,,
+8,0X52BE,en,,,
+8,0X52CE,en,,,
+8,0X52DE,en,,,
+8,0X52EE,en,,,
+8,0X52FE,en,,,
+8,0X530E,en,,,
+8,0X531E,en,,,
+8,0X532E,en,,,
+8,0X57EE,en,,,
+8,0X534E,en,,,
+8,0X535E,en,,,
+8,0X536E,en,,,
+8,0X537E,en,,,
+8,0X538E,en,,,
+8,0X539E,en,,,
+8,0X53AE,en,,,
+8,0X53BE,en,,,
+8,0X53CE,en,,,
+8,0X53DE,en,,,
+8,0X53EE,en,,,
+8,0X53FE,en,,,
+8,0X540E,en,,,
+8,0X541E,en,,,
+8,0X542E,en,,,
+8,0X543E,en,,,
+8,0X544E,en,,,
+8,0X545E,en,,,
+8,0X546E,en,,,
+8,0X547E,en,,,
+8,0X548E,en,,,
+8,0X549E,en,,,
+8,0X54AE,en,,,
+8,0X54BE,en,,,
+8,0X54CE,en,,,
+8,0X54DE,en,,,
+8,0X54EE,en,,,
+8,0X54FE,en,,,
+8,0X560E,en,,,
+8,0X561E,en,,,
+8,0X562E,en,,,
+8,0X563E,en,,,
+8,0X564E,en,,,
+8,0X565E,en,,,
+8,0X567E,en,,,
+8,0X568E,en,,,
+8,0X569E,en,,,
+8,0X56AE,en,,,
+8,0X56CE,en,,,
+8,0X56DE,en,,,
+8,0X56EE,en,,,
+8,0X56FE,en,,,
+8,0X573E,en,,,
+8,0X574E,en,,,
+8,0X575E,en,,,
+8,0X576E,en,,,
+8,0X577E,en,,,
+8,0X578E,en,,,
+1,0X580C,en,Fail to Calculate Instrument Life,Fail to Calculate Instrument Life,
+1,0X580E,en,,,
+1,0X512E,en,,,
+1,0X513E,en,,,
+1,0X590E,en,,,
+1,0X591E,en,,,
+1,0X594E,en,,,
+1,0X040D,en,Exceed the motion deviation limit,Exceed the motion deviation limit,attention
+8,0X040D,en,Exceed the motion deviation limit,Exceed the motion deviation limit,attention
+1,0X665A,en,Data exception,Data exception,Click REMOVE to restore
+8,0X455A,en,Data exception,Data exception,Click REMOVE to restore
+8,0X70CE,en,,,
+1,0X581E,en,,,
+8,0X2BDD,en,Right and left instrument reaches the rotation boundary,Right and left instrument reaches the rotation boundary,
+6,0XB07D,en,Network not connect,Network not connect,Please check communication cable
+1,0x580D,en,Wait for the self-test to end,Wait for the self-test to end,
+1,0x581D,en,Exit adjustment first,Exit adjustment first,
+1,0x582D,en,Exit surgical confirmed state first,Exit surgical confirmed state first,
+1,0x583D,en,Exit clutch control first,Exit clutch control first,
+1,0x584D,en,Exit master-slave control first,Exit master-slave control first,
+1,0x585D,en,Exit endoscope control first,Exit endoscope control first,
+6,0XB54D,en,Serial port abnormal,Serial port abnormal,Please contact customer service
+6,0XB55D,en,Failed to set image parameter ,Failed to set image parameter ,Please retry
+6,0XB56D,en,The instrument is too far from the center of the field of view,The instrument is too far from the center of the field of view,
+1,0x586D,en,Please adjust the distance between arm {0} and arm {1},Please adjust the distance between arm {0} and arm {1},
+1,0x55CE,en,,,
+6,0XB57D,en,Failed to configure image parameter,Failed to configure image parameter,Please contact customer service
+6,0XB58A,en,Endoscope controller startup abnormal,Endoscope controller startup abnormal,Please restart endoscope controller
+6,0XB59A,en,Failed to configure endoscope controller interface,Failed to configure endoscope controller interface,Please restart endoscope controller
+1,0X456A,en,Data exception,Failed to transfer parameters,Please check
+8,0X456A,en,Data exception,Failed to transfer parameters,Please check
+1,0X457A,en,Data exception,Failed to verify parameters,Please reconnect
+8,0X457A,en,Data exception,Failed to verify parameters,Please reconnect
+1,0X458E,en,start/stop  transferring parameters,start/stop  transferring parameters,
+1,0X459E,en,Succeed to  transferring parameters,Succeed to  transferring parameters,
+1,0X131D,en,Failed to restart,Failed to quick restart,
+8,0X131D,en,Failed to restart,Failed to quick restart,
+1,0X453D,en,FPS is low,FPS is low,Please be careful
+8,0X453D,en,FPS is low,FPS is low,Please be careful
+1,0X587D,en,The Master is resetting,The Master is resetting,
+1,0X88BE,en,,,
+8,0X587D,en,The Master is resetting,The Master is resetting,
+8,0X88BE,en,,,
+1,0X103A,en,Network fault,Patient network cable connection failed,Please check and click REMOVE to restore
+1,0X104A,en,Network fault,Emergency cable connection failed,Please check and click REMOVE to restore
+1,0X105A,en,Hardware Fault,Certificate of authorization invalidated,Please restart system
+8,0X105A,en,Hardware Fault,Certificate of authorization invalidated,Please restart system
+1,0X588D,en,Surgeon console audio device not connect,Surgeon console audio device not connect,Please contact customer service
+1,0X589D,en,Endoscope controller audio device not connect,Endoscope controller audio device not connect,Please contact customer service
+1,0X591D,en,Audio service exception,Audio service exception,Please contact customer service
+1,0X592D,en,Surgeon console interface control service is abnormal,Surgeon console interface control service is abnormal,Please contact customer service
+1,0X593D,en,"Instrument too high, please adjust downwards","Instrument too high, please adjust downwards",
+1,0X594D,en,Interference between the left and the right,Interference between the left and the right,Please adjust
+1,0X88DE,en,/,,
+8,0X594D,en,Interference between the left and the right,Interference between the left and the right,Please adjust
+1,0X072A,en,Too fast operation,squeeze too much,Please check and click REMOVE to restore
+1,0X072D,en,squeeze too much,squeeze too much,
+1,0X073A,en,Hardware fault,Hall anomaly,Please check and click REMOVE to restore
+8,0X072A,en,Too fast operation,squeeze too much,Please check and click REMOVE to restore
+8,0X072D,en,squeeze too much,squeeze too much,
+8,0X073A,en,Hardware fault,Hall anomaly,Please check and click REMOVE to restore
+1,0X595D,en,Surgeon console audio device is abnormal,Surgeon console audio device is abnormal,Please contact customer service
+1,0X596D,en,Endoscope controller audio device is abnormal,Endoscope controller audio device is abnormal,Please contact customer service
+1,0X460D,en,Operation is not allowed during control switch,Operation is not allowed during control switch,
+8,0X460D,en,Operation is not allowed during control switch,Operation is not allowed during control switch,
+6,0XB60D,en,Optical beam connection abnormal,Optical beam connection abnormal,Please inspect the connections.
+6,0XB61D,en,Cold light source control line abnormal,Cold light source control line abnormal,Please inspect the connections.
+1,0X597E,en,,,
+6,0XB62D,en,The temperature of the cold light source is too high,The temperature of the cold light source is too high,
+6,0XB63D,en,The Cold light bulb life is close to the service life,The Cold light bulb life is close to the service life,
+6,0XB64D,en,The Cold light bulb life is close to the service life,The Cold light bulb life is close to the service life,
+1,0X122D,en,Paitent cart Emergency stop switch is triggered ,Paitent cart Emergency stop switch is triggered ,
+8,0X122D,en,Paitent cart Emergency stop switch is triggered ,Paitent cart Emergency stop switch is triggered ,
+1,0X588E,en,,,
+1,0X597D,en,Patient cart audio device not connect,Patient cart audio device not connect,Please contact customer service
+1,0X598D,en,Patient cart audio device is abnormal,Patient cart audio device is abnormal,Please contact customer service
+1,0X353D,en,Disconnect the cables with  Patient cart in simulation mode,Disconnect the cables with  Patient cart in simulation mode,
+1,0X352C,en,Simulator communication disconnect,Simulator communication is disconnected,Check the network cable is connected
+1,0X023D,en,Arm is blocked,Arm is blocked,
+1,0X599D,en,Please check arm serial number,Please check arm serial number,
+1,0X129D,en,Please step  endoscope  pedal again,Please step  endoscope  pedal again,
+1,0X602E,en,,,
+1,0X602D,en,,,Please back to the main page
+1,0X603E,en,,,
+8,0X08AD,en,Arm disable failed,Arm disable failed,Please retry
+8,0X08BD,en,Arm enable failed,Arm enable failed,Please retry
+8,0X08CD,en,Arm enabling,Arm enabling,
+8,0X08DD,en,Arm enable failed,Arm enable failed,
+8,0X08ED,en,Arm is disabled,Arm is disabled,
+1,0X461D,en,Endoscope arm locked,Endoscope arm locked,
+6,0XB88D,en,3D Full Screen Picture-in-Picture is not connected to the input source correctly,3D Full Screen Picture-in-Picture is not connected to the input source correctly,
+1,0X462D,en,Please turn off the fluorescence sensitive mode before operating,Please turn off the fluorescence sensitive mode before operating,
+1,0X424D,en,Local take,Local take,
+1,0X425D,en,Local give,Local give,
+1,0X426D,en,Local take all,Local take all,
+8,0X424D,en,Remote take,Remote take,
+8,0X425D,en,Remote give,Remote give,
+8,0X426D,en,Remote take all,Remote take all,
+6,0XB65D,en,Input source HDMI 1 not connected,Input source HDMI 1 not connected,
+6,0XB66D,en,Input source HDMI 2 not connected,Input source HDMI 2 not connected,
+6,0XB67D,en,Input source SDI 1 not connected,Input source SDI 1 not connected,
+6,0XB68D,en,Input source SDI 2 not connected,Input source SDI 2 not connected,
+1,0X2EED,en,,,Please do not step on the pedals at both ends at the same time
+8,0X2EED,en,,,Please do not step on the pedals at both ends at the same time
+1,0X2FCD,en,No arm to switch,No arm to switch,
+8,0X2FCD,en,No arm to switch,No arm to switch,
+4,0X143D,en,Exhausted battery,Exhausted battery,
+4,0X144D,en,Low battery,Low battery,
+1,0X193D,en,"Large vessel wall closure device disconnection, cleaning and inspection of cables","Large vessel wall closure device disconnection, cleaning and inspection of cables",Please inspect the connections.
+1,0X192D,en,Please check if there is a malfunction in the driver of the large vessel closure device,Please check if there is a malfunction in the driver of the large vessel closure device,Please inspect the connections.
+1,0X138D,en,"The stapler booking has been used, please replace it","The stapler booking has been used, please replace it",Change booking
+1,0X137D,en,The stapler has been returned and completed. Please update the booking,The stapler has been returned and completed. Please update the booking,Change booking
+1,0X430D,en,The screen frame rate is unsuitable for surgery,The screen frame rate is unsuitable for surgery,
+1,0X429B,en,Abnormal data source change,Abnormal data source change,please check network settings
+8,0X429B,en,Abnormal data source change,Abnormal data source change,please check network settings
+1,0X611D,en,Tocar mount successful,Tocar mount successful,
+1,0X33FE,en,Tocar status changes ,Tocar status changes ,
+1,0XA01E,en,Startup log record,Startup log record,
+1,0XA02E,en,Shutdown log record,Shutdown log record,
+8,0XA01E,en,Startup log record,Startup log record,
+8,0XA02E,en,Shutdown log record,Shutdown log record,
+1,0X612D,en,,,Please remove the Instrument
+1,0X427D,en,Local give all,Local give all,
+8,0X427D,en,Remote give all,Remote give all,
+1,0X401D,en,Poor network quality,Poor network quality,No surgery allowed
+1,0X402D,en,Poor network quality,Poor network quality,Operation not recommended
+1,0X403D,en,Medium network quality,Medium network quality,Please operate slowly with caution
+1,0X404D,en,Average network quality,Average network quality,Please operate slowly
+1,0X463D,en,Endoscope in motion,Endoscope in motion,Please wait
+8,0X463D,en,Endoscope in motion,Endoscope in motion,Please wait
+1,0X464D,en,Instrument arm collision,Instrument arm collision,attention
+1,0X623D,en,Normal mode,Normal mode,
+1,0X627D,en,Fluorescence mode,Fluorescence mode,
+1,0X629D,en,Image fusion,Image fusion,
+3,0X164D,en,Linkage protection,Linkage protection,Please adjust the Master upwards
+3,0X165D,en,Linkage protection,Linkage protection,Please adjust the monitor height downwards
+9,0X164D,en,Linkage protection,Linkage protection,Please adjust the Master upwards
+9,0X165D,en,Linkage protection,Linkage protection,Please adjust the monitor height downwards
