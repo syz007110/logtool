@@ -69,6 +69,19 @@ const messages = {
       exportXML: '导出XML',
       searchPlaceholder: '搜索故障码...'
     },
+    // 日志分析等级管理
+    analysisCategories: {
+      title: '日志分析等级管理',
+      categoryKey: '分类标识',
+      nameZh: '中文名称',
+      nameEn: '英文名称',
+      sortOrder: '排序顺序',
+      isActive: '是否启用',
+      addCategory: '添加分析等级',
+      editCategory: '编辑分析等级',
+      deleteCategory: '删除分析等级',
+      deleteConfirm: '确定要删除这个分析等级吗？'
+    },
     // 多语言管理
     i18nErrorCodes: {
       title: '多语言管理',
@@ -267,6 +280,19 @@ const messages = {
       deleteErrorCode: 'Delete Error Code',
       exportXML: 'Export XML',
       searchPlaceholder: 'Search error codes...'
+    },
+    // Analysis Categories
+    analysisCategories: {
+      title: 'Analysis Categories Management',
+      categoryKey: 'Category Key',
+      nameZh: 'Chinese Name',
+      nameEn: 'English Name',
+      sortOrder: 'Sort Order',
+      isActive: 'Active',
+      addCategory: 'Add Category',
+      editCategory: 'Edit Category',
+      deleteCategory: 'Delete Category',
+      deleteConfirm: 'Are you sure to delete this analysis category?'
     },
     // I18n management
     i18nErrorCodes: {

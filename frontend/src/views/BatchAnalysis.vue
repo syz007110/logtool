@@ -62,11 +62,12 @@
         <div v-else>
           <el-table :data="surgeryStats" style="width:100%">
             <el-table-column prop="surgery_id" label="手术id" width="220" />
-            <el-table-column label="手术术式" min-width="200">
+            <!-- 手术术式列已隐藏 -->
+            <!-- <el-table-column label="手术术式" min-width="200">
               <template #default="{ row }">
                 {{ row?.postgresql_structure?.surgery_stats?.procedure || row?.surgery_stats?.procedure || '-' }}
               </template>
-            </el-table-column>
+            </el-table-column> -->
             <el-table-column label="手术开始时间" width="180">
               <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_start_time || row.start_time) }}</template>
             </el-table-column>
@@ -105,7 +106,48 @@
       <!-- 搜索和筛选 -->
       <div class="search-section" :style="{ marginTop: '8px' }">
         <div class="search-grid">
-          <!-- 1/4 时间搜索框 -->
+          <!-- 1/5 分析等级（预置维度，独立于高级搜索） -->
+          <div class="grid-item">
+            <div class="item-title">分析等级</div>
+            <el-popover placement="bottom-start" trigger="click" width="460" popper-class="analysis-level-popover">
+              <template #reference>
+                <el-button size="small" plain style="width: 100%;">
+                  <span>{{ analysisLevelLabel }}</span>
+                </el-button>
+              </template>
+              <div class="analysis-level-content">
+                <div class="preset-buttons">
+                  <el-button 
+                    size="small" 
+                    :type="isPresetActive('ALL') ? 'primary' : ''"
+                    @click="applyPreset('ALL')"
+                  >全量日志</el-button>
+                  <el-button 
+                    size="small" 
+                    :type="isPresetActive('FINE') ? 'primary' : ''"
+                    @click="applyPreset('FINE')"
+                  >精细日志</el-button>
+                  <el-button 
+                    size="small" 
+                    :type="isPresetActive('KEY') ? 'primary' : ''"
+                    @click="applyPreset('KEY')"
+                  >关键日志</el-button>
+                </div>
+                <el-divider style="margin: 12px 0;" />
+                <div class="category-checkboxes">
+                  <el-checkbox-group v-model="selectedAnalysisCategoryIds" @change="onAnalysisCategoriesChange">
+                    <el-checkbox 
+                      v-for="c in analysisCategories" 
+                      :key="c.id" 
+                      :label="c.id"
+                    >{{ c.name_zh }}</el-checkbox>
+                  </el-checkbox-group>
+                </div>
+              </div>
+            </el-popover>
+          </div>
+
+          <!-- 2/5 时间搜索框 -->
           <div class="grid-item">
             <div class="item-title">时间范围</div>
             <el-date-picker
@@ -124,7 +166,7 @@
             />
           </div>
           
-          <!-- 2/4 简单搜索框 -->
+          <!-- 3/5 简单搜索框 -->
           <div class="grid-item">
             <div class="item-title">关键字</div>
             <el-input
@@ -143,7 +185,7 @@
             </el-input>
           </div>
 
-          <!-- 3/4 高级搜索入口 -->
+          <!-- 4/5 高级搜索入口 -->
           <div class="grid-item">
             <div class="item-title">高级搜索</div>
             <div class="advanced-actions">
@@ -154,17 +196,23 @@
             </div>
           </div>
 
-          <!-- 4/4 清除搜索 -->
+          <!-- 5/5 清除搜索 -->
           <div class="grid-item">
             <div class="item-title">清除搜索</div>
             <el-button size="small" @click="clearFilters">清除所有条件</el-button>
           </div>
         </div>
 
-        <!-- 搜索表达式展示 -->
-        <div class="search-expression" v-if="searchExpression">
+        <!-- 搜索表达式展示（分析等级独立显示） -->
+        <div class="filter-summary" v-if="analysisLevelLabel !== '分析等级: 未选择' || searchExpression">
+          <div class="filter-item" v-if="analysisLevelLabel !== '分析等级: 未选择'">
+            <span class="label">分析等级：</span>
+            <el-tag size="small" type="info">{{ analysisLevelLabel }}</el-tag>
+          </div>
+          <div class="filter-item" v-if="searchExpression">
           <span class="label">搜索表达式：</span>
           <span class="expr">{{ searchExpression }}</span>
+          </div>
         </div>
       </div>
 
@@ -208,10 +256,11 @@
               <template #default="{ row }">
                 <div class="color-mark-cell">
                   <el-popover
+                    v-if="activeColorPopoverRowId === row.id"
                     placement="bottom-start"
                     :width="200"
                     trigger="manual"
-                    :visible="activeColorPopoverRowId === row.id"
+                    :visible="true"
                     popper-class="color-picker-popover"
                   >
                     <template #reference>
@@ -222,7 +271,7 @@
                         @click.stop="toggleColorPopover(row)"
                       ></div>
                     </template>
-                    <div v-if="activeColorPopoverRowId === row.id" class="color-picker-menu">
+                    <div class="color-picker-menu">
                       <div 
                         v-for="color in colorOptions"
                         :key="color.value || 'none'"
@@ -238,6 +287,13 @@
                       </div>
                     </div>
                   </el-popover>
+                  <div 
+                    v-else
+                    class="color-indicator"
+                    :class="{ 'has-color': row.color_mark }"
+                    :style="row.color_mark ? { backgroundColor: row.color_mark } : {}"
+                    @click.stop="toggleColorPopover(row)"
+                  ></div>
                 </div>
               </template>
             </el-table-column>
@@ -250,22 +306,8 @@
                 </div>
               </template>
               <template #default="{ row }">
-                <div class="file-info-cell" @mouseenter="hoveredNameRowId = row.id" @mouseleave="hoveredNameRowId = null">
-                  <template v-if="hoveredNameRowId === row.id">
-                    <el-tooltip
-                      :content="row.log_name"
-                      placement="top"
-                      effect="dark"
-                      popper-class="explanation-tooltip dark"
-                      :teleported="true"
-                      :show-after="120"
-                    >
-                      <div class="timestamp">{{ row.timestamp_text }}</div>
-                    </el-tooltip>
-                  </template>
-                  <template v-else>
+                <div class="file-info-cell">
                     <div class="timestamp" :title="row.log_name">{{ row.timestamp_text }}</div>
-                  </template>
                 </div>
               </template>
             </el-table-column>
@@ -319,7 +361,8 @@
                   </div>
                   <div class="param-actions">
                     <el-popover
-                      :visible="activeParamPopoverRowId === row.id"
+                      v-if="activeParamPopoverRowId === row.id"
+                      :visible="true"
                       trigger="manual"
                       placement="bottom"
                       width="260px"
@@ -360,6 +403,16 @@
                       </el-button>
                       </template>
                     </el-popover>
+                    <el-button 
+                      v-else
+                      text
+                      @click.stop="handleVisualization(row)"
+                      class="visualization-btn"
+                      :disabled="chartThumbnails.length >= 5"
+                      :title="chartThumbnails.length >= 5 ? '已有5张可视化数据表' : ''"
+                    >
+                      <el-icon><DataAnalysis /></el-icon>
+                    </el-button>
                   </div>
                 </div>
               </template>
@@ -1022,6 +1075,56 @@ export default {
     // 计数功能相关
     const logCounts = ref({}) // 存储日志出现次数
     const errorCodeCounts = ref({}) // 存储故障码出现次数
+    // 分析等级（预置维度）
+    const analysisCategories = ref([])
+    const analysisPresets = ref({ ALL: [], FINE: [], KEY: [] })
+    const selectedAnalysisCategoryIds = ref([])
+    const sameSet = (a, b) => {
+      if (!Array.isArray(a) || !Array.isArray(b)) return false
+      if (a.length !== b.length) return false
+      const sa = new Set(a)
+      for (const x of b) if (!sa.has(x)) return false
+      return true
+    }
+    const analysisLevelLabel = computed(() => {
+      const ids = selectedAnalysisCategoryIds.value
+      if (!ids || ids.length === 0) return '分析等级: 未选择'
+      const allEq = sameSet(ids, analysisPresets.value.ALL)
+      const fineEq = sameSet(ids, analysisPresets.value.FINE)
+      const keyEq = sameSet(ids, analysisPresets.value.KEY)
+      if (allEq) return '全量日志'
+      if (fineEq) return '精细日志'
+      if (keyEq) return '关键日志'
+      return '自定义'
+    })
+
+    const loadAnalysisPresets = async () => {
+      const [cats, presets] = await Promise.all([
+        api.analysisCategories.getList({ is_active: true }),
+        api.analysisCategories.getPresets()
+      ])
+      analysisCategories.value = cats.data.categories || []
+      analysisPresets.value = (presets.data.presets) || { ALL: [], FINE: [], KEY: [] }
+      const roleId = store.state.auth?.user?.role_id
+      if (roleId === 1) selectedAnalysisCategoryIds.value = [...analysisPresets.value.ALL]
+      else if (roleId === 2) selectedAnalysisCategoryIds.value = [...analysisPresets.value.FINE]
+      else selectedAnalysisCategoryIds.value = [...analysisPresets.value.KEY]
+    }
+
+    const isPresetActive = (key) => {
+      if (!analysisPresets.value[key]) return false
+      return sameSet(selectedAnalysisCategoryIds.value, analysisPresets.value[key])
+    }
+
+    const applyPreset = (key) => {
+      if (!analysisPresets.value[key]) return
+      selectedAnalysisCategoryIds.value = [...analysisPresets.value[key]]
+      onAnalysisCategoriesChange()
+    }
+
+    const onAnalysisCategoriesChange = () => {
+      loadBatchLogEntries(1, true)
+    }
     const globalErrorCodeCounts = ref({}) // 存储全局故障码统计（无筛选条件）
     const filteredErrorCodeCounts = ref({}) // 存储筛选条件下的故障码统计
     const statisticsCache = ref({}) // 统计缓存，避免重复请求
@@ -1499,6 +1602,9 @@ export default {
         }
         
         // 调用后端分页接口，支持请求取消
+        if (selectedAnalysisCategoryIds.value?.length) {
+          baseParams.analysis_category_ids = selectedAnalysisCategoryIds.value.join(',')
+        }
         const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams, signal)
         const { entries, total, totalPages: serverTotalPages, page: serverPage, minTimestamp, maxTimestamp } = response.data
         
@@ -1980,14 +2086,22 @@ export default {
         if (response.data.success) {
           ElMessage.success('手术数据已成功导出到PostgreSQL数据库')
         } else if (response.data.needsConfirmation) {
-          // 需要用户确认覆盖
-          showCompareDialog.value = true
-          compareData.value = {
-            surgeryId: response.data.surgery_id,
-            existingData: response.data.existingData,
-            newData: response.data.newData,
-            differences: response.data.differences,
-            surgeryData: row
+          // 检查是否有差异
+          const hasDifferences = response.data.differences && response.data.differences.length > 0
+          
+          if (!hasDifferences) {
+            // 没有差异，只显示提示信息
+            ElMessage.info(`已存在手术ID为 ${response.data.surgery_id} 的手术数据`)
+          } else {
+            // 有差异，需要用户确认覆盖
+            showCompareDialog.value = true
+            compareData.value = {
+              surgeryId: response.data.surgery_id,
+              existingData: response.data.existingData,
+              newData: response.data.newData,
+              differences: response.data.differences,
+              surgeryData: row
+            }
           }
         } else {
           ElMessage.warning(response.data.message || '导出完成，但可能未存储到数据库')
@@ -3514,31 +3628,49 @@ export default {
     }
 
     onMounted(async () => {
-      // 加载服务器时区信息
-      await loadServerTimezone()
+      // 首屏显示加载状态，避免先显示 no data
+      loading.value = true
       
-      await loadSelectedLogs()
-      await loadTemplates()
-      // 加载计数数据
-      loadCountsFromStorage()
-      
-      // 如果有选中的日志，获取全局统计
-      if (selectedLogs.value.length > 0) {
-        await fetchGlobalStatistics()
-      }
-      
-      // 默认选择全部时间范围（最早至最晚）
-      if (timeRangeLimit.value) {
-        timeRange.value = [
-          formatTimestamp(timeRangeLimit.value[0]),
-          formatTimestamp(timeRangeLimit.value[1])
+      try {
+        // 并行加载不依赖数据的初始化
+        const initPromises = [
+          loadServerTimezone(),
+          loadAnalysisPresets(),
+          loadTemplates()
         ]
+        
+        // 等待所有初始化完成
+        await Promise.all(initPromises)
+        
+        // 加载选中的日志
+        await loadSelectedLogs()
+        
+        // 加载计数数据
+        loadCountsFromStorage()
+        
+        // 如果有选中的日志，获取全局统计
+        if (selectedLogs.value.length > 0) {
+          await fetchGlobalStatistics()
+        }
+        
+        // 默认选择全部时间范围（最早至最晚）
+        if (timeRangeLimit.value) {
+          timeRange.value = [
+            formatTimestamp(timeRangeLimit.value[0]),
+            formatTimestamp(timeRangeLimit.value[1])
+          ]
+        }
+        
+        // 初始化加载数据（loadBatchLogEntries 内部会控制 loading 状态）
+        await loadBatchLogEntries(1, true)
+        
+        // 加载保存的剪贴板内容
+        loadClipboardContent()
+      } catch (error) {
+        console.error('初始化失败:', error)
+        ElMessage.error('页面初始化失败，请刷新重试')
+        loading.value = false
       }
-      // 初始化加载数据
-      await loadBatchLogEntries(1, true)
-      
-      // 加载保存的剪贴板内容
-      loadClipboardContent()
     })
 
     // 组件销毁时清理ECharts实例
@@ -3594,6 +3726,14 @@ export default {
       selectedLogsCount,
       filteredCount,
       leafConditionCount,
+      // 分析等级相关
+      analysisCategories,
+      analysisPresets,
+      selectedAnalysisCategoryIds,
+      analysisLevelLabel,
+      isPresetActive,
+      applyPreset,
+      onAnalysisCategoriesChange,
       loadSelectedLogs,
       loadBatchLogEntries,
       handleSearch,
@@ -3864,7 +4004,7 @@ export default {
 
 .search-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -3901,6 +4041,61 @@ export default {
 .advanced-summary {
   font-size: 12px;
   color: #606266;
+}
+
+/* 分析等级 Popover 样式 */
+.analysis-level-content {
+  padding: 8px;
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.category-checkboxes .el-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.category-checkboxes .el-checkbox {
+  margin: 0 !important;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.category-checkboxes .el-checkbox:hover {
+  background-color: #f5f7fa;
+}
+
+/* 筛选条件摘要样式（分析等级独立显示） */
+.filter-summary {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-item {
+  font-size: 12px;
+  color: #606266;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border: 1px dashed #e4e7ed;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-item .label {
+  font-weight: 500;
+  color: #303133;
 }
 
 .search-expression {

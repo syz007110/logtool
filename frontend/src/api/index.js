@@ -158,6 +158,14 @@ const permissions = {
   getList: () => api.get('/permissions')
 }
 
+const analysisCategories = {
+  getList: (params) => api.get('/analysis-categories', { params }),
+  create: (data) => api.post('/analysis-categories', data),
+  update: (id, data) => api.put(`/analysis-categories/${id}`, data),
+  delete: (id) => api.delete(`/analysis-categories/${id}`),
+  getPresets: () => api.get('/analysis-categories/presets')
+}
+
 const i18n = {
   getList: (params) => api.get('/i18n', { params }),
   create: (data) => api.post('/i18n', data),
@@ -244,6 +252,7 @@ export default {
   users,
   roles,
   permissions,
+  analysisCategories,
   i18n,
   surgeryStatistics,
   devices,

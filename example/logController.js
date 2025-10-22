@@ -3,8 +3,6 @@ const path = require('path');
 const Log = require('../models/log');
 const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
-const AnalysisCategory = require('../models/analysis_category');
-const { sequelize } = require('../models');
 const Device = require('../models/device');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
@@ -35,186 +33,6 @@ const pushLogStatusChange = (logId, oldStatus, newStatus) => {
 // 已移除 HanLP 相关调用
 const SequelizeLib = require('sequelize');
 const Op = SequelizeLib.Op;
-
-// FULLTEXT(explanation) 索引检测与缓存（5分钟）
-let ftExplanationCache = { has: null, at: 0 };
-async function hasExplanationFulltextIndex() {
-  const now = Date.now();
-  if (ftExplanationCache.has !== null && (now - ftExplanationCache.at) < 5 * 60 * 1000) {
-    return ftExplanationCache.has;
-  }
-  try {
-    const dbName = process.env.DB_NAME;
-    const [rows] = await sequelize.query(
-      `SELECT 1 AS ok
-       FROM information_schema.STATISTICS
-       WHERE TABLE_SCHEMA = :db
-         AND TABLE_NAME = 'log_entries'
-         AND INDEX_TYPE = 'FULLTEXT'
-         AND COLUMN_NAME = 'explanation'
-       LIMIT 1`,
-      { replacements: { db: dbName } }
-    );
-    ftExplanationCache = { has: Array.isArray(rows) && rows.length > 0, at: now };
-  } catch (e) {
-    // 查询失败时保守回退为无全文索引
-    ftExplanationCache = { has: false, at: now };
-  }
-  return ftExplanationCache.has;
-}
-
-// 分类允许码缓存（5分钟）：key = sorted category ids
-const allowCodesCache = { data: new Map(), ttlMs: 5 * 60 * 1000 };
-async function getAllowCodesForCategories(categoryIds) {
-  const key = 'cat:' + [...categoryIds].sort((a,b)=>a-b).join(',');
-  const now = Date.now();
-  const cached = allowCodesCache.data.get(key);
-  if (cached && (now - cached.at) < allowCodesCache.ttlMs) return cached.value;
-  // 优先读取预计算映射表；若无数据再回退到实时 JOIN
-  let rows = await sequelize.query(
-    `SELECT subsystem_char, code4
-     FROM code_category_map
-     WHERE analysis_category_id IN (:ids)`,
-    { replacements: { ids: categoryIds }, type: SequelizeLib.QueryTypes.SELECT }
-  );
-  if (!Array.isArray(rows) || rows.length === 0) {
-    rows = await sequelize.query(
-      `SELECT LEFT(ec.subsystem,1) AS subsystem_char,
-              CONCAT('0X', UPPER(RIGHT(ec.code,4))) AS code4
-       FROM error_codes ec
-       INNER JOIN error_code_analysis_categories ecac ON ec.id = ecac.error_code_id
-       WHERE ecac.analysis_category_id IN (:ids)`,
-      { replacements: { ids: categoryIds }, type: SequelizeLib.QueryTypes.SELECT }
-    );
-  }
-  // 分组：subsystem_char -> [code4]
-  const group = new Map();
-  for (const r of rows) {
-    const s = r.subsystem_char;
-    const c = r.code4;
-    if (!s || !c) continue;
-    if (!group.has(s)) group.set(s, new Set());
-    group.get(s).add(c);
-  }
-  const value = Array.from(group.entries()).map(([s, set]) => ({ subsystem_char: s, codes: Array.from(set) }));
-  allowCodesCache.data.set(key, { value, at: now });
-  return value;
-}
-
-/**
- * 构建分析分类过滤的 JOIN 子句（优化版）
- * 使用 JOIN 替代复杂 OR 条件，性能提升 10-20 倍
- * @param {Array<number>} categoryIds - 分析分类ID列表
- * @returns {Object} JOIN 信息 { useJoin, joinClause, fromClause }
- */
-async function buildCategoryFilterJoin(categoryIds) {
-  if (!categoryIds || categoryIds.length === 0) {
-    return { useJoin: false, joinClause: '', fromClause: 'log_entries' };
-  }
-
-  // 检查 code_category_map 表中是否有数据
-  const [countResult] = await sequelize.query(
-    `SELECT COUNT(*) as cnt FROM code_category_map WHERE analysis_category_id IN (:ids)`,
-    { replacements: { ids: categoryIds }, type: SequelizeLib.QueryTypes.SELECT }
-  );
-  
-  const hasPrecomputedData = countResult && countResult.cnt > 0;
-  
-  if (hasPrecomputedData) {
-    // ✅ 优先使用预计算表（最快）
-    console.log('[分类过滤] 使用预计算表 code_category_map，分类数:', categoryIds.length);
-    return {
-      useJoin: true,
-      joinTable: 'code_category_map',
-      joinClause: `
-        INNER JOIN code_category_map ccm 
-          ON log_entries.subsystem_char = ccm.subsystem_char 
-          AND log_entries.code4 = ccm.code4
-          AND ccm.analysis_category_id IN (${categoryIds.map(id => sequelize.escape(id)).join(',')})
-      `,
-      fromClause: 'log_entries'
-    };
-  } else {
-    // ✅ 回退：实时 JOIN error_codes 表
-    console.log('[分类过滤] 回退到实时 JOIN error_codes，分类数:', categoryIds.length);
-    return {
-      useJoin: true,
-      joinTable: 'error_codes',
-      joinClause: `
-        INNER JOIN error_codes ec 
-          ON log_entries.subsystem_char = LEFT(ec.subsystem, 1)
-          AND log_entries.code4 = CONCAT('0X', UPPER(RIGHT(ec.code, 4)))
-        INNER JOIN error_code_analysis_categories ecac 
-          ON ec.id = ecac.error_code_id
-          AND ecac.analysis_category_id IN (${categoryIds.map(id => sequelize.escape(id)).join(',')})
-      `,
-      fromClause: 'log_entries'
-    };
-  }
-}
-
-/**
- * 构建原生 SQL WHERE 子句（从 Sequelize where 对象）
- * @param {Object} where - Sequelize where 对象
- * @returns {Array<string>} WHERE 条件数组
- */
-function buildWhereConditions(where) {
-  const conditions = [];
-  
-  // 处理 log_id
-  if (where.log_id) {
-    if (where.log_id[Op.in]) {
-      const ids = Array.isArray(where.log_id[Op.in]) ? where.log_id[Op.in] : [where.log_id[Op.in]];
-      conditions.push(`log_entries.log_id IN (${ids.join(',')})`);
-    } else {
-      conditions.push(`log_entries.log_id = ${sequelize.escape(where.log_id)}`);
-    }
-  }
-  
-  // 处理 timestamp
-  if (where.timestamp) {
-    if (where.timestamp[Op.gte]) {
-      conditions.push(`log_entries.timestamp >= ${sequelize.escape(where.timestamp[Op.gte])}`);
-    }
-    if (where.timestamp[Op.lte]) {
-      conditions.push(`log_entries.timestamp <= ${sequelize.escape(where.timestamp[Op.lte])}`);
-    }
-    if (where.timestamp[Op.between]) {
-      const [start, end] = where.timestamp[Op.between];
-      conditions.push(`log_entries.timestamp BETWEEN ${sequelize.escape(start)} AND ${sequelize.escape(end)}`);
-    }
-  }
-  
-  // 处理 error_code
-  if (where.error_code) {
-    if (where.error_code[Op.like]) {
-      conditions.push(`log_entries.error_code LIKE ${sequelize.escape(where.error_code[Op.like])}`);
-    } else {
-      conditions.push(`log_entries.error_code = ${sequelize.escape(where.error_code)}`);
-    }
-  }
-  
-  // 处理 code4（如果是十六进制搜索）
-  if (where.code4) {
-    conditions.push(`log_entries.code4 = ${sequelize.escape(where.code4)}`);
-  }
-  
-  // ✅ 修复：递归处理 Op.and 数组，提取嵌套的条件
-  if (where[Op.and] && Array.isArray(where[Op.and])) {
-    where[Op.and].forEach(subCondition => {
-      if (subCondition && typeof subCondition === 'object') {
-        // 递归提取子条件（但跳过Op.or，因为关键字搜索会在后面单独处理）
-        if (!subCondition[Op.or]) {
-          const subConditions = buildWhereConditions(subCondition);
-          conditions.push(...subConditions);
-        }
-      }
-    });
-  }
-  
-  return conditions;
-}
-
 const os = require('os');
 const templatesPath = path.join(__dirname, '../config/searchTemplates.json');
 // 已移除 NLP 自然语言解析
@@ -868,8 +686,7 @@ const getBatchLogEntries = async (req, res) => {
       end_time, 
       page = 1, 
       limit = 100,
-      filters, // 高级筛选条件（JSON字符串或对象）
-      analysis_category_ids // 预置维度：分析分类ID数组（逗号分隔或数组）
+      filters // 高级筛选条件（JSON字符串或对象）
     } = req.query;
     
     // 仅在首次加载或未选择时间范围时，返回建议的时间范围（min/max）
@@ -885,7 +702,6 @@ const getBatchLogEntries = async (req, res) => {
       end_time,
       page,
       limit,
-      analysis_category_ids,  // ✅ 添加分析等级参数到缓存键
       filters: filters ? JSON.stringify(filters) : ''
     });
     
@@ -923,69 +739,26 @@ const getBatchLogEntries = async (req, res) => {
       }
     }
     
-    // 简单搜索优化：
-    // 1) 若关键词为 4-6位十六进制（如 571e），优先按规范码等值过滤：code4 = '0X571E'（避免 explanation LIKE 全表扫描）
-    // 2) 否则：error_code LIKE；explanation 仅在无 FULLTEXT 时回退为 LIKE，与 error_code 组成 OR
-    let simpleSearchActive = false;
-    if (search && String(search).trim().length > 0) {
-      simpleSearchActive = true;
-      const raw = String(search).trim();
-      const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
-      if (hexMatch) {
-        const normalized = '0X' + raw.slice(-4).toUpperCase();
-        // 等值过滤（可命中规范化组合索引）
-        where.code4 = normalized;
-      } else {
-        const s = raw;
-        const ecLike = { error_code: { [Op.like]: `%${s}%` } };
-        const conds = [ecLike];
-        try {
-          const ftOk = await hasExplanationFulltextIndex();
-          if (ftOk) {
-            const ftExpr = `MATCH (explanation) AGAINST (${sequelize.escape('+' + s.replace(/\s+/g, ' +'))} IN BOOLEAN MODE)`;
-            conds.unshift(SequelizeLib.literal(ftExpr));
-          } else {
-            // 回退：与 error_code LIKE 组成 OR，但依赖时间窗/日志ID限制来收敛扫描
-            conds.unshift({ explanation: { [Op.like]: `%${s}%` } });
-          }
-        } catch (_) {
-          conds.unshift({ explanation: { [Op.like]: `%${s}%` } });
-        }
-        const keywordOr = { [Op.or]: conds };
+    // 搜索功能：在 explanation 与 error_code 中模糊匹配（OR）
+    if (search) {
+      const keywordOr = {
+        [Op.or]: [
+          { explanation: { [Op.like]: `%${search}%` } },
+          { error_code: { [Op.like]: `%${search}%` } }
+        ]
+      };
       if (where[Op.and]) {
         where[Op.and].push(keywordOr);
       } else {
+        // 将已有的顶层键合并进 AND，避免覆盖已有条件
         const baseConds = [];
-          Object.keys(where).forEach(k => { if (k !== Op.and && k !== Op.or) { baseConds.push({ [k]: where[k] }); delete where[k]; } });
+        Object.keys(where).forEach(k => {
+          if (k !== Op.and && k !== Op.or) {
+            baseConds.push({ [k]: where[k] });
+            delete where[k];
+          }
+        });
         where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
-        }
-      }
-    }
-
-    // 分析分类过滤（预置维度，不进入高级搜索表达式）
-    // 不再使用 EXISTS，统一后续用“允许码集合 IN (subsystem_char, code4)”路径
-    let analysisFilterActive = false;
-    if (analysis_category_ids) {
-      const ids = Array.isArray(analysis_category_ids)
-        ? analysis_category_ids.map(v => parseInt(String(v))).filter(n => Number.isInteger(n))
-        : String(analysis_category_ids)
-            .split(',')
-            .map(s => parseInt(s.trim()))
-            .filter(n => Number.isInteger(n));
-
-      if (ids.length > 0) {
-        if (!getBatchLogEntries._catCache) getBatchLogEntries._catCache = { count: null, at: 0 };
-        const now = Date.now();
-        const needRefresh = !getBatchLogEntries._catCache.count || (now - getBatchLogEntries._catCache.at > 5 * 60 * 1000);
-        if (needRefresh) {
-          const activeCount = await AnalysisCategory.count({ where: { is_active: true } });
-          getBatchLogEntries._catCache = { count: activeCount, at: now };
-        }
-        const allCount = getBatchLogEntries._catCache.count || 0;
-        if (ids.length < allCount) {
-          analysisFilterActive = true;
-          // 不在这里追加任何 SQL 片段，统一在查询阶段下推为 IN 子句
-        }
       }
     }
 
@@ -1116,23 +889,6 @@ const getBatchLogEntries = async (req, res) => {
 
     const advancedFilters = normalizeFilters(filters);
 
-    // 判断高级筛选中是否包含昂贵条件（explanation 文本匹配、正则、参数数值比较等）
-    const isExpensiveNode = (node) => {
-      if (!node) return false;
-      if (Array.isArray(node)) return node.some(isExpensiveNode);
-      if (node.field && node.operator) {
-        const f = String(node.field).toLowerCase();
-        const op = String(node.operator).toLowerCase();
-        if (f === 'explanation') return ['like','contains','notcontains','regex','startswith','endswith'].includes(op);
-        if (['param1','param2','param3','param4'].includes(f)) return true; // 数值比较统一认为昂贵
-        return false;
-      }
-      if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-        return node.conditions.some(isExpensiveNode);
-      }
-      return false;
-    };
-
     // 递归构建 Sequelize 条件，完整支持嵌套(AND/OR)
     const buildFromNode = (node) => {
       if (!node) return null;
@@ -1154,13 +910,12 @@ const getBatchLogEntries = async (req, res) => {
     };
 
     const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
-    const expensiveAdvanced = advancedFilters ? isExpensiveNode(advancedFilters) : false;
-    let postFilterAdvanced = null;
-    if (advancedWhere && !expensiveAdvanced) {
-      // 与其他顶层条件（时间/搜索/日志ID）按 AND 组合（可下推到数据库）
+    if (advancedWhere) {
+      // 与其他顶层条件（时间/搜索/日志ID）按 AND 组合
       if (where[Op.and]) {
         where[Op.and].push(advancedWhere);
       } else {
+        // 如果 where 已有键值（如 log_id、timestamp、explanation），需要与 advancedWhere 合并为 AND
         const baseConds = [];
         Object.keys(where).forEach(k => {
           if (k !== Op.and && k !== Op.or) {
@@ -1168,11 +923,12 @@ const getBatchLogEntries = async (req, res) => {
             delete where[k];
           }
         });
-        where[Op.and] = baseConds.length > 0 ? baseConds.concat([advancedWhere]) : [advancedWhere];
+        if (baseConds.length > 0) {
+          where[Op.and] = baseConds.concat([advancedWhere]);
+        } else {
+          where[Op.and] = [advancedWhere];
         }
-    } else if (advancedFilters && expensiveAdvanced) {
-      // 昂贵条件在应用层过滤
-      postFilterAdvanced = advancedFilters;
+      }
     }
     
     // 权限控制：普通用户只能查看自己的日志明细
@@ -1198,49 +954,6 @@ const getBatchLogEntries = async (req, res) => {
         }
       }
       // 管理员用户（role_id = 1）和专家用户（role_id = 2）可以查看所有日志，无需额外限制
-    }
-    
-    // 若未传时间范围且有日志ID，尝试基于文件名推导时间窗口（YYYYMMDDhh_log.medbot）
-    // 注意：文件名时间为本地时间(UTC+8)，数据库存储为UTC时间，需要转换
-    let derivedMinTs = null;
-    let derivedMaxTs = null;
-    if (shouldIncludeTimeSuggestion && log_ids && !where.timestamp) {
-      try {
-        const idList = log_ids.split(',').map(id => parseInt(id.trim())).filter(n => Number.isInteger(n));
-        if (idList.length > 0) {
-          const [rows] = await sequelize.query(
-            `SELECT 
-               MIN(STR_TO_DATE(SUBSTRING(original_name,1,10), '%Y%m%d%H')) AS min_h,
-               MAX(STR_TO_DATE(SUBSTRING(original_name,1,10), '%Y%m%d%H')) AS max_h
-             FROM logs 
-             WHERE id IN (:ids) AND original_name REGEXP '^[0-9]{10}'`,
-            { replacements: { ids: idList } }
-          );
-          if (rows && rows.length > 0) {
-            const r = rows[0];
-            if (r.min_h) {
-              // 文件名时间为本地时间(UTC+8)，需要转为UTC时间查询
-              // 单个日志查看时前后各扩1小时，批量查看时紧贴文件名小时
-              const localMinDate = new Date(r.min_h);
-              localMinDate.setHours(localMinDate.getHours() - (idList.length === 1 ? 1 : 0));
-              // 转为UTC时间：减8小时
-              derivedMinTs = new Date(localMinDate.getTime() - 8 * 60 * 60 * 1000);
-            }
-            if (r.max_h) {
-              const localMaxDate = new Date(r.max_h);
-              localMaxDate.setHours(localMaxDate.getHours() + (idList.length === 1 ? 2 : 1));
-              // 转为UTC时间：减8小时
-              derivedMaxTs = new Date(localMaxDate.getTime() - 8 * 60 * 60 * 1000);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('[时间范围推导] 基于日志文件名推导失败:', e.message);
-      }
-      if (derivedMinTs && derivedMaxTs) {
-        console.log(`[时间范围推导] 本地时间窗口转为UTC: ${derivedMinTs.toISOString()} ~ ${derivedMaxTs.toISOString()}`);
-        where.timestamp = { [Op.gte]: derivedMinTs, [Op.lte]: derivedMaxTs };
-      }
     }
     
     // 分页参数
@@ -1302,359 +1015,124 @@ const getBatchLogEntries = async (req, res) => {
         maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
       });
     } else {
-      // 优化查询：并行化 ID/COUNT/MINMAX
+      // 优化查询（第一步）：两段式查询，先取 ID 再取详情，避免在大结果集上进行 join/distinct/sort
       console.log(`[查询执行] 开始执行数据库查询，条件:`, JSON.stringify(where, null, 2));
-      console.log(`[查询优化] 两段式查询 + 并行计数/聚合`);
+      console.log(`[查询优化] 采用两段式查询（ID阶段 -> 详情阶段），降低排序/去重成本`);
       const overallStart = Date.now();
 
+      // 统一排序，避免相同 timestamp 下顺序不稳定
       const baseOrder = [['timestamp', 'ASC'], ['id', 'ASC']];
-      
-      // 修复：更可靠的 log_id 检测（支持数组递归）
+
+      // 阶段一：仅查询主键 ID（命中覆盖索引时最省）
+      // MySQL: 强制使用合适的复合索引以优化 ORDER BY LIMIT 的首页
       const detectHasLogIdFilter = (node) => {
-        if (!node) return false;
-        if (typeof node !== 'object') return false;
-        
-        // 检查数组
-        if (Array.isArray(node)) {
-          return node.some(item => detectHasLogIdFilter(item));
-        }
-        
-        // 检查顶层是否有 log_id
+        if (!node || typeof node !== 'object') return false;
         if (Object.prototype.hasOwnProperty.call(node, 'log_id')) return true;
-        
-        // 递归检查所有属性
         for (const key of Object.keys(node)) {
           if (detectHasLogIdFilter(node[key])) return true;
         }
-        
         return false;
       };
-      
-      // 双重保险：优先使用查询参数判断，回退到对象检测
-      const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
-      const hasLogId = hasLogIdParam || detectHasLogIdFilter(where);
-      
-      if (hasLogIdParam && !detectHasLogIdFilter(where)) {
-        console.warn('[索引选择] 参数有 log_ids 但 where 对象检测失败，已自动修正');
-      }
-      
-      const hasAdvancedFilters = !!(advancedFilters && Object.keys(advancedFilters).length > 0);
-      
-      // 始终为 ID 阶段强制时间排序索引，确保按时间顺序早停
-      const idIndexHints = hasLogId
+      const hasLogId = detectHasLogIdFilter(where);
+      const indexHints = hasLogId
         ? [{ type: 'FORCE', values: ['idx_log_entries_logid_ts_id'] }]
         : [{ type: 'FORCE', values: ['idx_log_entries_ts_id'] }];
-      
-      // 调试日志：显示索引选择
-      console.log(`[索引选择] hasLogIdParam=${hasLogIdParam}, hasLogId=${hasLogId}, 使用索引: ${hasLogId ? 'idx_log_entries_logid_ts_id' : 'idx_log_entries_ts_id'}`);
-      // COUNT/聚合在启用分类过滤且走 JOIN 路径时使用规范化组合索引，其余交由优化器或沿用时间索引
-      const countAggIndexHints = analysisFilterActive
-        ? (hasLogId
-            ? [{ type: 'FORCE', values: ['idx_log_entries_logid_ts_norm'] }]
-            : [{ type: 'FORCE', values: ['idx_log_entries_ts_norm'] }]
-          )
-        : idIndexHints;
 
-      let idPhaseTime = 0, detailsPhaseTime = 0, countPhaseTime = 0, aggPhaseTime = 0;
-      let ids = [];
-      let minTimestamp = null; let maxTimestamp = null; let total = 0;
-
-      if (analysisFilterActive && !hasAdvancedFilters) {
-        // ✅ 优化：使用 JOIN 替代复杂 OR 条件（性能提升 10-20 倍）
-        const catIds = Array.isArray(analysis_category_ids)
-          ? analysis_category_ids.map(v => parseInt(String(v))).filter(Number.isInteger)
-          : String(analysis_category_ids).split(',').map(s => parseInt(s.trim())).filter(Number.isInteger);
-
-        console.log(`[分类过滤优化] 启用 JOIN 方式，分类ID: ${catIds.join(',')}`);
-        
-        // 获取 JOIN 配置
-        const joinInfo = await buildCategoryFilterJoin(catIds);
-        
-        // ✅ 构建基础WHERE条件（log_id + timestamp + error_code）
-        const baseConditions = buildWhereConditions(where);
-        
-        // ⚠️ 关键字搜索条件单独处理（避免重复添加）
-        let searchCondition = null;
-        if (search && String(search).trim().length > 0) {
-          const raw = String(search).trim();
-          const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
-          if (!hexMatch) {
-            // ✅ 优化：使用全文索引加速关键词搜索
-            try {
-              const ftOk = await hasExplanationFulltextIndex();
-              if (ftOk) {
-                // 使用全文索引（BOOLEAN模式支持中文ngram分词）
-                const keyword = raw.replace(/\s+/g, ' +');
-                searchCondition = `(MATCH(log_entries.explanation) AGAINST(${sequelize.escape('+' + keyword)} IN BOOLEAN MODE) OR log_entries.error_code LIKE ${sequelize.escape('%' + raw + '%')})`;
-                console.log(`[全文索引] 使用FULLTEXT索引搜索关键字: ${raw}`);
-              } else {
-                // 回退到LIKE（如果全文索引不存在）
-                searchCondition = `(log_entries.explanation LIKE ${sequelize.escape('%' + raw + '%')} OR log_entries.error_code LIKE ${sequelize.escape('%' + raw + '%')})`;
-                console.warn(`[性能警告] 全文索引不存在，使用LIKE查询可能较慢`);
-              }
-            } catch (ftError) {
-              // 检测失败时回退到LIKE
-              searchCondition = `(log_entries.explanation LIKE ${sequelize.escape('%' + raw + '%')} OR log_entries.error_code LIKE ${sequelize.escape('%' + raw + '%')})`;
-              console.warn(`[全文索引检测失败] 回退到LIKE查询:`, ftError.message);
-            }
-          }
-        }
-        
-        // ✅ 优化WHERE顺序：log_id/timestamp在前（利用索引），关键字搜索在后
-        const allConditions = [...baseConditions];
-        if (searchCondition) {
-          allConditions.push(searchCondition);
-        }
-        
-        const whereClause = allConditions.length > 0 ? `WHERE ${allConditions.join(' AND ')}` : '';
-        
-        console.log(`[WHERE条件] log_id/timestamp: ${baseConditions.length}, 关键字: ${searchCondition ? 1 : 0}`);
-        
-        // 阶段一：使用原生 SQL 查询 ID（带 JOIN 或 EXISTS）
       const idPhaseStart = Date.now();
-        
-        // 优化策略：使用 EXISTS 子查询代替 JOIN，避免笛卡尔积，并添加索引提示
-        const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
-        const forceIndex = hasLogIdParam ? 'FORCE INDEX (idx_log_entries_logid_ts_id)' : 'FORCE INDEX (idx_log_entries_ts_id)';
-        
-        let idQuery;
-        if (joinInfo.useJoin) {
-          // 使用 EXISTS 子查询代替 INNER JOIN，性能更好
-          const categoryIdList = analysis_category_ids.split(',').map(id => sequelize.escape(id)).join(',');
-          idQuery = `
-          SELECT log_entries.id, log_entries.timestamp
-          FROM log_entries ${forceIndex}
-          ${whereClause}
-            AND EXISTS (
-              SELECT 1 FROM code_category_map ccm
-              WHERE ccm.subsystem_char = log_entries.subsystem_char
-                AND ccm.code4 = log_entries.code4
-                AND ccm.analysis_category_id IN (${categoryIdList})
-            )
-          ORDER BY log_entries.timestamp ASC, log_entries.id ASC
-          LIMIT ${limitNum} OFFSET ${offset}
-        `;
-        } else {
-          // 无分类过滤，直接查询
-          idQuery = `
-          SELECT log_entries.id, log_entries.timestamp
-          FROM log_entries ${forceIndex}
-          ${whereClause}
-          ORDER BY log_entries.timestamp ASC, log_entries.id ASC
-          LIMIT ${limitNum} OFFSET ${offset}
-        `;
-        }
-        
-        console.log(`[SQL] ID查询 (使用${joinInfo.useJoin ? 'EXISTS子查询' : '直接查询'}):\n${idQuery}`);
-        const idRows = await sequelize.query(idQuery, { 
-          type: SequelizeLib.QueryTypes.SELECT,
-          logging: console.log 
-        });
-        idPhaseTime = Date.now() - idPhaseStart;
-        ids = idRows.map(r => r.id);
+      const idRows = await LogEntry.findAll({
+        where,
+        attributes: ['id'],
+        order: baseOrder,
+        offset,
+        limit: limitNum,
+        subQuery: false,
+        // 仅 MySQL 生效：强制索引
+        indexHints,
+        logging: console.log
+      });
+      const idPhaseTime = Date.now() - idPhaseStart;
+      const ids = idRows.map(r => r.id);
 
-        console.log(`[阶段一] ID查询完成: ${idPhaseTime}ms, 获取 ${ids.length} 条ID`);
-
-        // 阶段二：根据 ID 查询详情（使用 ORM）
+      // 阶段二：按 ID 回表查询所需字段与 include
       const detailsPhaseStart = Date.now();
       const entries = ids.length > 0
-          ? await LogEntry.findAll({ 
-              where: { id: ids }, 
-              attributes, 
-              include: [{ model: Log, as: 'Log', attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time'] }], 
-              order: baseOrder, 
-              subQuery: false, 
-              logging: console.log 
-            })
-          : [];
-        detailsPhaseTime = Date.now() - detailsPhaseStart;
+        ? await LogEntry.findAll({
+            where: { id: ids },
+            attributes,
+            include: [{
+              model: Log,
+              as: 'Log',
+              attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time']
+            }],
+            // 与阶段一保持一致的排序（稳定输出）
+            order: baseOrder,
+            subQuery: false,
+            logging: console.log
+          })
+        : [];
+      const detailsPhaseTime = Date.now() - detailsPhaseStart;
 
-        console.log(`[阶段二] 详情查询完成: ${detailsPhaseTime}ms, 获取 ${entries.length} 条记录`);
-
-        // 并行执行 COUNT 与时间范围聚合（使用原生 SQL）
+      // 轻量计数：不带 include/不做 distinct 的 count
       const countPhaseStart = Date.now();
-        
-        // 优化：使用 EXISTS 子查询代替 JOIN，并添加索引提示
-        let countQuery, aggQuery;
-        
-        if (joinInfo.useJoin) {
-          const categoryIdList = analysis_category_ids.split(',').map(id => sequelize.escape(id)).join(',');
-          countQuery = `
-          SELECT COUNT(*) as cnt
-          FROM log_entries ${forceIndex}
-          ${whereClause}
-            AND EXISTS (
-              SELECT 1 FROM code_category_map ccm
-              WHERE ccm.subsystem_char = log_entries.subsystem_char
-                AND ccm.code4 = log_entries.code4
-                AND ccm.analysis_category_id IN (${categoryIdList})
-            )
-        `;
-          
-          aggQuery = (shouldIncludeTimeSuggestion && !(derivedMinTs && derivedMaxTs)) ? `
-          SELECT 
-            MIN(log_entries.timestamp) as min_ts,
-            MAX(log_entries.timestamp) as max_ts
-          FROM log_entries ${forceIndex}
-          ${whereClause}
-            AND EXISTS (
-              SELECT 1 FROM code_category_map ccm
-              WHERE ccm.subsystem_char = log_entries.subsystem_char
-                AND ccm.code4 = log_entries.code4
-                AND ccm.analysis_category_id IN (${categoryIdList})
-            )
-        ` : null;
-        } else {
-          countQuery = `
-          SELECT COUNT(*) as cnt
-          FROM log_entries ${forceIndex}
-          ${whereClause}
-        `;
-          
-          aggQuery = (shouldIncludeTimeSuggestion && !(derivedMinTs && derivedMaxTs)) ? `
-          SELECT 
-            MIN(log_entries.timestamp) as min_ts,
-            MAX(log_entries.timestamp) as max_ts
-          FROM log_entries ${forceIndex}
-          ${whereClause}
-        ` : null;
-        }
-        
-        const [countRows, aggRows] = await Promise.all([
-          sequelize.query(countQuery, { type: SequelizeLib.QueryTypes.SELECT, logging: console.log }),
-          aggQuery 
-            ? sequelize.query(aggQuery, { type: SequelizeLib.QueryTypes.SELECT, logging: console.log })
-            : Promise.resolve([{ min_ts: derivedMinTs || null, max_ts: derivedMaxTs || null }])
-        ]);
-        countPhaseTime = Date.now() - countPhaseStart;
-
-        total = (Array.isArray(countRows) && countRows[0] && countRows[0].cnt !== undefined) ? Number(countRows[0].cnt) : 0;
-        if (Array.isArray(aggRows) && aggRows[0]) { 
-          minTimestamp = aggRows[0].min_ts || null; 
-          maxTimestamp = aggRows[0].max_ts || null; 
-        }
-        
-        console.log(`[阶段三] 计数/聚合完成: ${countPhaseTime}ms, 总数: ${total}`);
+      const total = await LogEntry.count({ where });
+      const countPhaseTime = Date.now() - countPhaseStart;
 
       const queryTime = Date.now() - overallStart;
-        console.log(`[查询完成] 总耗时: ${queryTime}ms, 结果数量: ${entries.length}, 总数: ${total}`);
-        console.log(`[性能分析] ID: ${idPhaseTime}ms (${(idPhaseTime/queryTime*100).toFixed(1)}%), 详情: ${detailsPhaseTime}ms (${(detailsPhaseTime/queryTime*100).toFixed(1)}%), 计数: ${countPhaseTime}ms (${(countPhaseTime/queryTime*100).toFixed(1)}%)`);
+      console.log(`[查询完成] 查询耗时: ${queryTime}ms, 结果数量: ${entries.length}, 总数: ${total}`);
+      console.log(`[两段查询] 阶段耗时 - ID: ${idPhaseTime}ms, 详情: ${detailsPhaseTime}ms, 计数: ${countPhaseTime}ms`);
 
-        if (queryTime > 3000) {
-          console.warn(`[性能警告] 查询耗时 ${queryTime}ms，建议优化筛选条件`);
-        } else if (queryTime < 1000) {
-          console.log(`[性能优秀] 查询耗时 ${queryTime}ms ✅`);
-        }
-
-        const result = { 
-          entries, 
-          total, 
-          page: pageNum, 
-          limit: limitNum, 
-          totalPages: Math.ceil(total / limitNum), 
-          minTimestamp: shouldIncludeTimeSuggestion ? (minTimestamp || derivedMinTs || null) : null, 
-          maxTimestamp: shouldIncludeTimeSuggestion ? (maxTimestamp || derivedMaxTs || null) : null,
-          _performance: {
-            optimized: true,
-            method: 'JOIN',
-            joinTable: joinInfo.joinTable,
-            totalTime: queryTime,
-            idPhase: idPhaseTime,
-            detailsPhase: detailsPhaseTime,
-            countPhase: countPhaseTime
-          }
-        };
-
-        try { 
-          await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL); 
-          console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`); 
-        } catch (cacheError) { 
-          console.warn('缓存存储失败:', cacheError.message); 
-        }
-        
-        return res.json(result);
-      } else {
-        // 原有路径（无分类过滤或包含高级筛选）
-        const idPhaseStart = Date.now();
-        const idPhasePromise = LogEntry.findAll({ where, attributes: ['id'], order: baseOrder, offset, limit: limitNum, subQuery: false, indexHints: idIndexHints, logging: console.log });
-
-        const countPhaseStart = Date.now();
-        const countPhasePromise = LogEntry.findAll({ where, attributes: [[SequelizeLib.fn('COUNT', SequelizeLib.col('id')), 'cnt']], raw: true, indexHints: countAggIndexHints, logging: console.log });
-
-        let aggPhaseStart = null;
-        const aggPhasePromise = (shouldIncludeTimeSuggestion && !(derivedMinTs && derivedMaxTs))
-          ? (aggPhaseStart = Date.now(), LogEntry.findAll({ where, attributes: [[SequelizeLib.fn('MIN', SequelizeLib.col('timestamp')), 'min_ts'], [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'max_ts']], raw: true, indexHints: countAggIndexHints }))
-          : Promise.resolve([{ min_ts: derivedMinTs || null, max_ts: derivedMaxTs || null }]);
-
-        const idRows = await idPhasePromise;
-        idPhaseTime = Date.now() - idPhaseStart;
-        ids = idRows.map(r => r.id);
-
-        const detailsPhaseStart = Date.now();
-        let entries = ids.length > 0
-          ? await LogEntry.findAll({ where: { id: ids }, attributes, include: [{ model: Log, as: 'Log', attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time'] }], order: baseOrder, subQuery: false, logging: console.log })
-          : [];
-        // 应用层后过滤（昂贵高级筛选）
-        if (postFilterAdvanced && entries.length > 0) {
-          const evalExpr = (node, row) => {
-            if (!node) return true;
-            if (Array.isArray(node)) return node.every(n => evalExpr(n, row));
-            if (node.field && node.operator) {
-              const f = String(node.field);
-              const v = node.value;
-              const op = String(node.operator).toLowerCase();
-              const get = (k) => row[k];
-              switch (op) {
-                case 'like':
-                case 'contains': return (get(f) ?? '').toString().includes(String(v));
-                case 'notcontains': return !(get(f) ?? '').toString().includes(String(v));
-                case 'regex': try { return new RegExp(String(v)).test((get(f) ?? '').toString()); } catch(_) { return false; }
-                case '=': return (get(f) ?? '') == v;
-                case '!=':
-                case '<>': return (get(f) ?? '') != v;
-                case '>': return Number(get(f)) > Number(v);
-                case '>=': return Number(get(f)) >= Number(v);
-                case '<': return Number(get(f)) < Number(v);
-                case '<=': return Number(get(f)) <= Number(v);
-                case 'between': return Array.isArray(v) && v.length===2 && Number(get(f)) >= Number(v[0]) && Number(get(f)) <= Number(v[1]);
-                default: return true;
-              }
-            }
-            if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-              const res = node.conditions.map(c => evalExpr(c, row));
-              return node.logic === 'AND' ? res.every(Boolean) : res.some(Boolean);
-            }
-            return true;
-          };
-          entries = entries.filter(e => evalExpr(postFilterAdvanced, e));
-        }
-        detailsPhaseTime = Date.now() - detailsPhaseStart;
-
-        const [countRows, aggRows] = await Promise.all([countPhasePromise, aggPhasePromise]);
-        countPhaseTime = Date.now() - countPhaseStart;
-        aggPhaseTime = aggPhaseStart ? (Date.now() - aggPhaseStart) : 0;
-
-        total = (Array.isArray(countRows) && countRows[0] && countRows[0].cnt !== undefined) ? Number(countRows[0].cnt) : 0;
-        if (Array.isArray(aggRows) && aggRows[0]) { minTimestamp = aggRows[0].min_ts || null; maxTimestamp = aggRows[0].max_ts || null; }
-
-        const queryTime = Date.now() - overallStart;
-        console.log(`[查询完成] 查询耗时: ${queryTime}ms, 结果数量: ${entries.length}, 总数: ${total}`);
-        console.log(`[两段查询] 阶段耗时 - ID: ${idPhaseTime}ms, 详情: ${detailsPhaseTime}ms, 计数: ${countPhaseTime}ms`);
-        if (shouldIncludeTimeSuggestion) { console.log(`[时间范围计算] 聚合查询耗时: ${aggPhaseTime}ms`); }
-
-        if (queryTime > 5000) {
-          console.warn(`[性能警告] 查询耗时较长 (${queryTime}ms)，建议:`);
-          console.warn('  1. 减少日志文件数量');
-          console.warn('  2. 添加更多筛选条件');
-          console.warn('  3. 使用时间范围限制');
-          console.warn('  4. 检查数据库索引状态');
-        }
-
-        const result = { entries, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum), minTimestamp: shouldIncludeTimeSuggestion ? (minTimestamp || derivedMinTs || null) : null, maxTimestamp: shouldIncludeTimeSuggestion ? (maxTimestamp || derivedMaxTs || null) : null };
-
-        try { await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL); console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`); } catch (cacheError) { console.warn('缓存存储失败:', cacheError.message); }
-      return res.json(result);
+      // 如果查询时间超过5秒，给出优化建议
+      if (queryTime > 5000) {
+        console.warn(`[性能警告] 查询耗时较长 (${queryTime}ms)，建议:`);
+        console.warn('  1. 减少日志文件数量');
+        console.warn('  2. 添加更多筛选条件');
+        console.warn('  3. 使用时间范围限制');
+        console.warn('  4. 检查数据库索引状态');
       }
+
+      // 计算总体时间范围（基于相同 where 条件的聚合）
+      let minTimestamp = null;
+      let maxTimestamp = null;
+      try {
+        console.log(`[时间范围计算] 开始计算时间范围...`);
+        const aggStartTime = Date.now();
+        const agg = await LogEntry.findOne({
+          where,
+          attributes: [
+            [SequelizeLib.fn('MIN', SequelizeLib.col('timestamp')), 'min_ts'],
+            [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'max_ts']
+          ]
+        });
+        const aggTime = Date.now() - aggStartTime;
+        console.log(`[时间范围计算] 聚合查询耗时: ${aggTime}ms`);
+        
+        if (agg) {
+          minTimestamp = agg.get('min_ts');
+          maxTimestamp = agg.get('max_ts');
+        }
+      } catch (error) {
+        console.warn('[时间范围计算] 聚合查询失败:', error.message);
+      }
+
+      const result = {
+        entries,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        minTimestamp: shouldIncludeTimeSuggestion ? minTimestamp : null,
+        maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
+      };
+
+      // 缓存结果（使用较短的TTL，因为搜索数据变化较快）
+      try {
+        await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL);
+        console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`);
+      } catch (cacheError) {
+        console.warn('缓存存储失败:', cacheError.message);
+      }
+
+      return res.json(result);
     }
   } catch (err) {
     console.error('批量获取日志明细失败:', err);
@@ -2835,14 +2313,6 @@ const getLogStatistics = async (req, res) => {
       }
     }
     
-    // 索引选择优化（与 getBatchLogEntries 一致）
-    const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
-    const indexHints = hasLogIdParam
-      ? [{ type: 'USE', values: ['idx_log_entries_logid_ts_id'] }]
-      : [{ type: 'USE', values: ['idx_log_entries_ts_id'] }];
-    
-    console.log(`[统计查询] 使用索引: ${hasLogIdParam ? 'idx_log_entries_logid_ts_id' : 'idx_log_entries_ts_id'}`);
-    
     // 1. 统计故障码出现次数
     const errorCodeStats = await LogEntry.findAll({
       where,
@@ -2851,8 +2321,7 @@ const getLogStatistics = async (req, res) => {
         [SequelizeLib.fn('COUNT', SequelizeLib.col('error_code')), 'count']
       ],
       group: ['error_code'],
-      raw: true,
-      indexHints  // ✅ 添加索引提示
+      raw: true
     });
     
     // 2. 统计日志条目出现次数（按故障码分组，统计每个故障码的总出现次数）
@@ -2863,8 +2332,7 @@ const getLogStatistics = async (req, res) => {
         [SequelizeLib.fn('COUNT', SequelizeLib.col('id')), 'count']
       ],
       group: ['error_code'],
-      raw: true,
-      indexHints  // ✅ 添加索引提示
+      raw: true
     });
     
     // 转换为前端需要的格式
@@ -3211,14 +2679,6 @@ const getVisualizationData = async (req, res) => {
       }
     }
     
-    // 索引选择优化（与 getBatchLogEntries 一致）
-    const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
-    const indexHints = hasLogIdParam
-      ? [{ type: 'USE', values: ['idx_log_entries_logid_ts_id'] }]
-      : [{ type: 'USE', values: ['idx_log_entries_ts_id'] }];
-    
-    console.log(`[可视化查询] 使用索引: ${hasLogIdParam ? 'idx_log_entries_logid_ts_id' : 'idx_log_entries_ts_id'}`);
-    
     // 查询该故障码的时间范围（首次和末次出现时间）
     const timeRangeQuery = await LogEntry.findOne({
       where,
@@ -3226,8 +2686,7 @@ const getVisualizationData = async (req, res) => {
         [SequelizeLib.fn('MIN', SequelizeLib.col('timestamp')), 'startTime'],
         [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'endTime']
       ],
-      raw: true,
-      indexHints  // ✅ 添加索引提示
+      raw: true
     });
     
     if (!timeRangeQuery || !timeRangeQuery.startTime || !timeRangeQuery.endTime) {
@@ -3244,8 +2703,7 @@ const getVisualizationData = async (req, res) => {
         }
       },
       attributes: ['timestamp', `param${paramIndex + 1}`],
-      order: [['timestamp', 'ASC']],
-      indexHints  // ✅ 添加索引提示
+      order: [['timestamp', 'ASC']]
     });
     
     // 处理数据格式

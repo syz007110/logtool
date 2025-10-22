@@ -60,18 +60,17 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. 故障码表
+-- 注意：英文内容（short_message/user_hint/operation）已迁移至 i18n_error_codes 表
+-- 主表仅保留中文字段作为默认语言
 CREATE TABLE IF NOT EXISTS error_codes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   subsystem VARCHAR(100),
   code VARCHAR(50) NOT NULL,
   is_axis_error BOOLEAN DEFAULT FALSE,
   is_arm_error BOOLEAN DEFAULT FALSE,
-  short_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  short_message_en TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  user_hint TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  user_hint_en TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  operation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  operation_en TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  short_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '精简提示信息（中文/默认）',
+  user_hint TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '用户提示信息（中文/默认）',
+  operation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '操作信息（中文/默认）',
   detail TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   method TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   param1 VARCHAR(100),
@@ -90,12 +89,44 @@ CREATE TABLE IF NOT EXISTS error_codes (
   UNIQUE KEY unique_subsystem_code (subsystem, code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE error_code_log_levels (
+-- 5.1 日志分析分类字典表
+CREATE TABLE IF NOT EXISTS analysis_categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  error_code_id INT NOT NULL,
-  log_analysis_level VARCHAR(50) NOT NULL,
-  FOREIGN KEY (error_code_id) REFERENCES error_codes(id)
-);
+  category_key VARCHAR(100) NOT NULL UNIQUE COMMENT '分类唯一标识，如 Devices, IO_Signals 等',
+  name_zh VARCHAR(100) NOT NULL COMMENT '中文名称',
+  name_en VARCHAR(100) NOT NULL COMMENT '英文名称',
+  sort_order INT DEFAULT 0 COMMENT '排序顺序',
+  is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_category_key (category_key),
+  INDEX idx_sort_order (sort_order),
+  INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日志分析分类字典表';
+
+-- 5.2 故障码-分析分类关联表（多对多）
+CREATE TABLE IF NOT EXISTS error_code_analysis_categories (
+  error_code_id INT NOT NULL COMMENT '故障码ID',
+  analysis_category_id INT NOT NULL COMMENT '分析分类ID',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (error_code_id, analysis_category_id),
+  FOREIGN KEY (error_code_id) REFERENCES error_codes(id) ON DELETE CASCADE,
+  FOREIGN KEY (analysis_category_id) REFERENCES analysis_categories(id) ON DELETE CASCADE,
+  INDEX idx_error_code (error_code_id),
+  INDEX idx_category (analysis_category_id),
+  -- 新增复合索引：按分类查找对应故障码以加速 EXISTS 过滤
+  INDEX idx_ecac_cat_code (analysis_category_id, error_code_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='故障码与分析分类的多对多关联表';
+
+-- 5.3 故障码-分类 预计算映射表（查询加速用）
+CREATE TABLE IF NOT EXISTS code_category_map (
+  subsystem_char CHAR(1) NOT NULL,
+  code4          CHAR(6) NOT NULL,  -- 形如 0X571E
+  analysis_category_id INT NOT NULL,
+  PRIMARY KEY (subsystem_char, code4, analysis_category_id),
+  INDEX idx_ccm_code (subsystem_char, code4),
+  INDEX idx_ccm_cat  (analysis_category_id, subsystem_char, code4)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='预计算：规范码到分析分类的映射（查询加速）';
 
 -- 6. 多语言配置表
 CREATE TABLE IF NOT EXISTS i18n_texts (
@@ -228,46 +259,10 @@ CREATE TABLE `log_notes` (
   INDEX (`log_entry_id`),                               -- 为查询日志相关的备注添加索引
   INDEX (`user_id`)                                    -- 为查询某用户的备注添加索引
 );
--- 记录文件夹/压缩包的处理进度
-CREATE TABLE log_import_progress (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  folder_path VARCHAR(255) NOT NULL,
-  total_files INT,
-  processed_files INT,
-  status ENUM('pending','processing','done','failed'),
-  last_processed_file VARCHAR(255),
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-
-
--- 14. 手术统计相关表（MySQL兼容版本）
--- 注意：这些表使用MySQL兼容语法，如果需要PostgreSQL特有功能，请使用PostgreSQL脚本
-
--- MySQL版本的手术统计表
-CREATE TABLE IF NOT EXISTS surgeries (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    surgery_id VARCHAR(50) UNIQUE NOT NULL,
-    device_ids TEXT,                    -- 使用TEXT存储设备ID，用逗号分隔
-    start_time TIMESTAMP NULL,
-    end_time TIMESTAMP NULL,
-    is_remote BOOLEAN DEFAULT FALSE,
-    structured_data JSON,               -- 使用MySQL的JSON类型
-    last_analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 手术版本记录表
-CREATE TABLE IF NOT EXISTS surgery_versions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    surgery_id INT NOT NULL,
-    structured_data JSON,
-    source_logs TEXT,                   -- 使用TEXT存储日志文件ID，用逗号分隔
-    created_by VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (surgery_id) REFERENCES surgeries(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- 14. 手术统计相关表
+-- 注意：手术统计功能使用 PostgreSQL 数据库
+-- 相关表定义请参考：infrastructure/database/surgery_tables_postgresql.sql
+-- 此处不创建 MySQL 版本的 surgeries 和 surgery_versions 表
 
 -- 15. 创建所有必要的索引
 -- 包含基础索引和性能优化索引
@@ -309,6 +304,13 @@ CREATE INDEX idx_log_entries_logid_ts_id ON log_entries(log_id, timestamp, id);
 -- 当未指定 log_id 过滤时，加速 ORDER BY timestamp, id LIMIT N 的首页获取
 CREATE INDEX idx_log_entries_ts_id ON log_entries(timestamp, id);
 
+-- 文本搜索优化：对 explanation 建立全文索引（支持中文分词）
+FULLTEXT INDEX ftx_log_entries_explanation (explanation) WITH PARSER ngram;
+
+-- 当存在“分析分类”过滤时，配合规范化列进行高效扫描/计数
+CREATE INDEX idx_log_entries_logid_ts_norm ON log_entries(log_id, timestamp, subsystem_char, code4);
+CREATE INDEX idx_log_entries_ts_norm ON log_entries(timestamp, subsystem_char, code4, id);
+
 -- ========================================
 -- error_codes表索引
 -- ========================================
@@ -335,13 +337,17 @@ SELECT 'role_permissions' AS table_name, COUNT(*) AS count FROM role_permissions
 UNION ALL
 SELECT 'error_codes' AS table_name, COUNT(*) AS count FROM error_codes
 UNION ALL
+SELECT 'analysis_categories' AS table_name, COUNT(*) AS count FROM analysis_categories
+UNION ALL
 SELECT 'logs' AS table_name, COUNT(*) AS count FROM logs
+UNION ALL
+SELECT 'log_entries' AS table_name, COUNT(*) AS count FROM log_entries
 UNION ALL
 SELECT 'i18n_texts' AS table_name, COUNT(*) AS count FROM i18n_texts
 UNION ALL
-SELECT 'devices' AS table_name, COUNT(*) AS count FROM devices
-UNION ALL
-SELECT 'surgeries' AS table_name, COUNT(*) AS count FROM surgeries;
+SELECT 'devices' AS table_name, COUNT(*) AS count FROM devices;
+
+-- 注意：surgeries 和 surgery_versions 表在 PostgreSQL 数据库中，不在此MySQL库
 
 -- 17. 验证字符集设置
 SELECT 

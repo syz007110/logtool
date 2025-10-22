@@ -120,9 +120,29 @@
                     @mouseleave="handleEventLeave"
                   >
                     <!-- 事件符号 -->
-                    <div class="event-symbol" :class="getSymbolClass(event.symbol)">
-                      <div v-if="event.symbol === 'circle'" class="circle-shape"></div>
-                      <div v-else class="square-shape"></div>
+                    <div class="event-symbol" :class="getSymbolClass(event.symbol, event.isMerged, event.allEvents)">
+                      <!-- 合并事件：根据包含的事件类型显示组合符号 -->
+                      <div v-if="event.isMerged && event.allEvents" class="merged-symbols">
+                        <!-- 纯电源事件：显示两个重叠的正方形 -->
+                        <template v-if="hasPowerEvents(event.allEvents) && !hasSurgeryEvents(event.allEvents)">
+                          <div class="square-shape" style="position: absolute; top: 0; left: 0; z-index: 1; transform: translate(-2px, 0);"></div>
+                          <div class="square-shape" style="position: absolute; top: 0; left: 0; z-index: 2; transform: translate(2px, 0);"></div>
+                        </template>
+                        <!-- 混合事件：显示一个正方形和一个圆形 -->
+                        <template v-else-if="hasPowerEvents(event.allEvents) && hasSurgeryEvents(event.allEvents)">
+                          <div class="square-shape" style="position: absolute; top: 0; left: 0; z-index: 1; transform: translate(-2px, 0);"></div>
+                          <div class="circle-shape" style="position: absolute; top: 0; left: 0; z-index: 2; transform: translate(2px, 0);"></div>
+                        </template>
+                        <!-- 纯手术事件：显示圆形 -->
+                        <template v-else-if="hasSurgeryEvents(event.allEvents)">
+                          <div class="circle-shape"></div>
+                        </template>
+                      </div>
+                      <!-- 单个事件：根据事件类型显示对应符号 -->
+                      <div v-else>
+                        <div v-if="event.symbol === 'circle'" class="circle-shape"></div>
+                        <div v-else class="square-shape"></div>
+                      </div>
                     </div>
                     <!-- 事件名称标签 -->
                     <div class="event-label">{{ event.name }}</div>
@@ -135,8 +155,8 @@
       </div>
     </el-card>
 
-    <!-- 图表区域：手术状态机变化和网络延迟情况 -->
-    <div class="charts-row" v-if="showCharts && (hasStateMachineData || hasNetworkLatencyData)">
+    <!-- 图表区域：手术状态机变化、网络延迟情况和操作数据汇总 -->
+    <div class="charts-row" v-if="showCharts && (hasStateMachineData || hasNetworkLatencyData || hasOperationData)">
       <!-- 手术状态机变化卡片 -->
       <el-card class="state-machine-card" v-if="hasStateMachineData">
         <div class="section-header">
@@ -154,20 +174,43 @@
         </div>
       </el-card>
 
-      <!-- 网络延迟情况卡片 -->
-      <el-card class="network-latency-card" v-if="meta.is_remote && hasNetworkLatencyData">
+      <!-- 远程手术：网络延迟情况和操作数据汇总切换 -->
+      <div v-if="meta.is_remote" class="remote-surgery-section">
+        <el-card class="remote-surgery-card">
+          <div class="section-header">
+            <span>{{ remoteDataView === 'network' ? '网络延迟情况' : '操作数据汇总' }}</span>
+            <el-radio-group v-model="remoteDataView" size="small" class="view-switcher">
+              <el-radio-button label="network" :disabled="!hasNetworkLatencyData">网络延迟情况</el-radio-button>
+              <el-radio-button label="operations" :disabled="!hasOperationData">操作数据汇总</el-radio-button>
+            </el-radio-group>
+          </div>
+          
+          <!-- 网络延迟情况 -->
+          <div v-if="remoteDataView === 'network' && hasNetworkLatencyData" class="chart-container">
+            <TimeSeriesChart
+              :series-data="networkLatencyChartData"
+              :series-name="'网络延迟(ms)'"
+              :height="300"
+              :width="600"
+              :y-axis-format="'decimal'"
+              :show-range-labels="true"
+            />
+          </div>
+          
+          <!-- 操作数据汇总表 -->
+          <div v-if="remoteDataView === 'operations'" class="operations-summary">
+            <OperationSummaryTable :operation-data="operationSummaryData" />
+          </div>
+        </el-card>
+      </div>
+
+      <!-- 非远程手术：操作数据汇总表 -->
+      <el-card v-if="!meta.is_remote && hasOperationData" class="operations-card">
         <div class="section-header">
-          网络延迟情况
+          操作数据汇总
         </div>
-        <div class="chart-container">
-          <TimeSeriesChart
-            :series-data="networkLatencyChartData"
-            :series-name="'网络延迟(ms)'"
-            :height="300"
-            :width="600"
-            :y-axis-format="'decimal'"
-            :show-range-labels="true"
-          />
+        <div class="operations-summary">
+          <OperationSummaryTable :operation-data="operationSummaryData" />
         </div>
       </el-card>
     </div>
@@ -274,11 +317,13 @@ import api from '../api'
 import { normalizeSurgeryData as normalize } from '../utils/visualizationConfig'
 import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
+import OperationSummaryTable from '../components/OperationSummaryTable.vue'
 
 export default {
   name: 'SurgeryVisualization',
   components: {
-    TimeSeriesChart
+    TimeSeriesChart,
+    OperationSummaryTable
   },
   setup() {
     // 移除不需要的图表引用
@@ -319,8 +364,13 @@ export default {
     const showCharts = ref(false)
     const hasStateMachineData = ref(false)
     const hasNetworkLatencyData = ref(false)
+    const hasOperationData = ref(false)
     const stateMachineChartData = ref([])
     const networkLatencyChartData = ref([])
+    const operationSummaryData = ref({})
+    
+    // 远程手术数据视图切换
+    const remoteDataView = ref('network')
     
     // 故障记录相关
     const faultRecords = ref([])
@@ -592,7 +642,7 @@ export default {
     const getSegmentY = (arm, segment) => {
       // 计算臂的行索引
       const armIndex = armsData.value.findIndex(a => a.arm_id === arm.arm_id)
-      const rowHeight = 60 // 每行高度（从80调整为60）
+      const rowHeight = 50 // 每行高度
       const headerHeight = 50 // 表头高度
       
       return headerHeight + (armIndex * rowHeight) + (rowHeight - 32) / 2 // 垂直居中
@@ -1008,8 +1058,34 @@ export default {
       return `${event.name}\n时间: ${timeStr}\n星期: ${weekDay}`
     }
     
+    // 检查事件列表中是否包含电源事件
+    const hasPowerEvents = (events) => {
+      return events.some(event => event.type === 'power_on' || event.type === 'power_off')
+    }
+    
+    // 检查事件列表中是否包含手术事件
+    const hasSurgeryEvents = (events) => {
+      return events.some(event => event.type === 'surgery_start' || event.type === 'surgery_end')
+    }
+    
+    
     // 获取符号样式类
-    const getSymbolClass = (symbol) => {
+    const getSymbolClass = (symbol, isMerged, allEvents) => {
+      if (isMerged && allEvents) {
+        // 合并事件：根据包含的事件类型决定样式
+        const hasPower = hasPowerEvents(allEvents)
+        const hasSurgery = hasSurgeryEvents(allEvents)
+        
+        if (hasPower && hasSurgery) {
+          return 'symbol-merged-mixed' // 混合类型
+        } else if (hasPower) {
+          return 'symbol-merged-power' // 纯电源类型
+        } else if (hasSurgery) {
+          return 'symbol-merged-surgery' // 纯手术类型
+        }
+      }
+      
+      // 单个事件
       return symbol === 'circle' ? 'symbol-circle' : 'symbol-square'
     }
     
@@ -1079,11 +1155,16 @@ export default {
       return localTime.getHours()
     }
     
-    // 从时间字符串获取分钟数（本地时间，支持跨天）
+    // 从时间字符串获取分钟数（本地时间，支持跨天，精确到秒）
     const getMinutesFromTime = (timeStr) => {
       if (!timeStr) return 0
       const localTime = getLocalTime(timeStr)
       if (!localTime) return 0
+      
+      // 计算精确到秒的分钟数（分钟 + 秒/60）
+      const minutes = localTime.getMinutes()
+      const seconds = localTime.getSeconds()
+      const preciseMinutes = minutes + (seconds / 60)
       
       // 检查是否跨天
       if (timelineBaseTime.value) {
@@ -1094,12 +1175,12 @@ export default {
           
           // 如果日期不同，需要调整分钟数
           if (currentDate > baseDate) {
-            return localTime.getMinutes() + (24 * 60) // 跨天时+24小时=1440分钟
+            return preciseMinutes + (24 * 60) // 跨天时+24小时=1440分钟
           }
         }
       }
       
-      return localTime.getMinutes()
+      return preciseMinutes
     }
     
     // 计算持续时间（分钟）
@@ -1372,7 +1453,26 @@ export default {
       const surgeryStatsForCharts = data.surgery_stats || {}
       hasStateMachineData.value = !!(surgeryStatsForCharts.state_machine)
       hasNetworkLatencyData.value = !!(surgeryStatsForCharts.network_latency_ms && meta.is_remote)
-      showCharts.value = hasStateMachineData.value || hasNetworkLatencyData.value
+      
+      // 检查是否有操作数据
+      hasOperationData.value = !!(surgeryStatsForCharts.endoscope_pedal || 
+                                 surgeryStatsForCharts.foot_clutch || 
+                                 surgeryStatsForCharts.left_hand_clutch || 
+                                 surgeryStatsForCharts.right_hand_clutch || 
+                                 surgeryStatsForCharts.arm_switch_count)
+      
+      // 设置操作数据
+      if (hasOperationData.value) {
+        operationSummaryData.value = {
+          endoscope_pedal: surgeryStatsForCharts.endoscope_pedal || 0,
+          foot_clutch: surgeryStatsForCharts.foot_clutch || 0,
+          left_hand_clutch: surgeryStatsForCharts.left_hand_clutch || 0,
+          right_hand_clutch: surgeryStatsForCharts.right_hand_clutch || 0,
+          arm_switch_count: surgeryStatsForCharts.arm_switch_count || 0
+        }
+      }
+      
+      showCharts.value = hasStateMachineData.value || hasNetworkLatencyData.value || hasOperationData.value
       
       // 初始化图表
       if (showCharts.value) {
@@ -1856,6 +1956,8 @@ export default {
       getEventsInHour,
       getEventTooltip,
       getSymbolClass,
+      hasPowerEvents,
+      hasSurgeryEvents,
       getTimeColumnText,
       getTotalHours,
       getTableStartHour,
@@ -1901,8 +2003,11 @@ export default {
       showCharts,
       hasStateMachineData,
       hasNetworkLatencyData,
+      hasOperationData,
       stateMachineChartData,
       networkLatencyChartData,
+      operationSummaryData,
+      remoteDataView,
       // 故障记录相关
       faultRecords,
       formatFaultTime,
@@ -2140,7 +2245,7 @@ export default {
 .timeline-row {
   display: flex;
   border-bottom: 1px solid #f0f0f0;
-  min-height: 60px;
+  min-height: 50px;
   transition: background-color 0.2s ease;
 }
 
@@ -2172,7 +2277,7 @@ export default {
 
 .time-cells {
   position: relative;
-  min-height: 60px;
+  min-height: 50px;
   background: #fff;
   display: flex;
   /* 移除 flex: 1，使用固定宽度 */
@@ -2246,7 +2351,8 @@ export default {
   height: 12px;
   border: 2px solid #ff4d4f;
   border-radius: 50%;
-  background: transparent;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
 }
 
 /* 方形符号（开机/关机事件） */
@@ -2254,8 +2360,106 @@ export default {
   width: 12px;
   height: 12px;
   border: 2px solid #1890ff;
-  background: transparent;
+  background: #ffffff;
   border-radius: 2px;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* 合并符号容器 */
+.merged-symbols {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 合并符号中的方形（电源事件） */
+.merged-symbols .square-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1890ff;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* 合并符号中的圆形（手术事件） */
+.merged-symbols .circle-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ff4d4f;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* 混合类型合并符号：重叠显示 */
+.symbol-merged-mixed .merged-symbols {
+  position: relative;
+}
+
+.symbol-merged-mixed .merged-symbols .square-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1890ff;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #ffffff;
+  z-index: 1;
+  transform: translate(-2px, 0); /* 被覆盖的往x轴负方向偏移 */
+}
+
+.symbol-merged-mixed .merged-symbols .circle-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ff4d4f;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
+  z-index: 2;
+  transform: translate(2px, 0); /* 覆盖的往x轴正方向偏移 */
+}
+
+/* 纯电源类型合并符号：两个线框正方形在X方向有小偏差 */
+.symbol-merged-power .merged-symbols {
+  position: relative;
+}
+
+.symbol-merged-power .merged-symbols .square-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1890ff;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #ffffff;
+  z-index: 1;
+}
+
+.symbol-merged-power .merged-symbols .square-shape:last-child {
+  transform: translate(3px, 0); /* X方向偏移3px */
+  z-index: 2;
+}
+
+/* 纯手术类型合并符号 */
+.symbol-merged-surgery .merged-symbols .circle-shape {
+  border-color: #ff4d4f;
 }
 
 /* 事件标签 */
@@ -2387,23 +2591,16 @@ export default {
 .instrument-segment-svg {
   cursor: pointer;
   transition: all 0.3s ease;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
   stroke-dasharray: none;
   pointer-events: auto;  /* 确保器械段可以响应事件 */
+  opacity: 0.9;
 }
 
 .instrument-segment-svg:hover {
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+  opacity: 1;
+  filter: brightness(0.75) saturate(1.2);
   stroke-width: 3;
-  stroke-dasharray: 5,5;
-  animation: dash 1s linear infinite;
-}
-
-/* 线框动画效果 */
-@keyframes dash {
-  to {
-    stroke-dashoffset: -10;
-  }
+  transform: translateY(-1px);
 }
 
 /* 器械文本样式 */
@@ -2491,6 +2688,33 @@ export default {
 
 /* 网络延迟情况卡片样式 */
 .network-latency-card {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 远程手术数据卡片样式 */
+.remote-surgery-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.remote-surgery-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.view-switcher {
+  margin-left: auto;
+}
+
+.operations-summary {
+  padding: 16px 0;
+  min-height: 300px; /* 与图表卡片高度保持一致 */
+  display: flex;
+  align-items: center;
+}
+
+.operations-card {
   flex: 1;
   min-width: 0;
 }

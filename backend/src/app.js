@@ -45,6 +45,7 @@ const notesRouter = require('./routes/notes');
 const permissionsRouter = require('./routes/permissions');
 const monitoringRouter = require('./routes/monitoring');
 const cacheRouter = require('./routes/cache');
+const analysisCategoriesRouter = require('./routes/analysisCategories');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
@@ -191,6 +192,7 @@ app.use('/api', notesRouter);
 app.use('/api/permissions', permissionsRouter);
 app.use('/api/monitoring', monitoringRouter);
 app.use('/api/cache', cacheRouter);
+app.use('/api/analysis-categories', analysisCategoriesRouter);
 
 // 错误处理中间件
 app.use(errorMonitoring);

@@ -61,6 +61,12 @@ const routes = [
         component: () => import('../views/I18nErrorCodes.vue')
       },
       {
+        path: 'analysis-categories',
+        name: 'AnalysisCategories',
+        component: () => import('../views/AnalysisCategories.vue'),
+        meta: { requiresAdmin: true }
+      },
+      {
         path: 'logs',
         name: 'Logs',
         component: () => import('../views/Logs.vue')

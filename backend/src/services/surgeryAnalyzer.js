@@ -4,6 +4,9 @@ const faultMappings = require('../config/FaultMappings.json');
 const INSTRUMENT_TYPES = faultMappings['3'];
 const STATE_MACHINE_STATES = faultMappings['1'];
 
+// 内窥镜类型集合（这些类型之间的转换不算更换器械，只是图像识别更新类型）
+const ENDOSCOPE_TYPES = new Set([9, 10, 11, 23, 24]);
+
 /**
  * 手术分析器类
  * 负责将日志条目分析为结构化的手术数据
@@ -56,6 +59,35 @@ class SurgeryAnalyzer {
     // 统计信息
     this.footPedalStats = { energy: 0, clutch: 0, camera: 0 };
     this.handClutchStats = { arm1: 0, arm2: 0, arm3: 0, arm4: 0 };
+    
+    // 脚踏和离合触发状态追踪
+    this.endoscopePedalState = 0;      // 内窥镜脚踏状态（705E的p1）
+    this.endoscopePedalState526 = 0;   // 内窥镜脚踏状态（526E的p1）
+    this.armSwitchPedalState = 0;      // 臂切换脚踏状态（704E的p1）
+    this.armSwitchPedalState527 = 0;   // 臂切换脚踏状态（527E的p1）
+    this.footClutchState = 0;          // 脚离合状态（706E的p1）
+    this.footClutchState525 = 0;       // 脚离合状态（525E的p1）
+    this.leftHandClutchState = 0;      // 左手离合状态（70AE且p3=1的p1）
+    this.rightHandClutchState = 0;     // 右手离合状态（70AE且p3=2的p1）
+    
+    // 脚踏和离合触发次数统计
+    this.endoscopePedalCount = 0;      // 内窥镜脚踏触发次数
+    this.armSwitchCount = 0;           // 臂切换脚踏触发次数
+    this.footClutchCount = 0;          // 脚离合触发次数
+    this.leftHandClutchCount = 0;      // 左手离合触发次数
+    this.rightHandClutchCount = 0;     // 右手离合触发次数
+
+    // 脚离合按下时间追踪（706E/525E）
+    this.footClutchLastPress706 = null;
+    this.footClutchLastPress525 = null;
+    
+    // 内窥镜脚踏按下时间追踪（705E/526E）
+    this.endoscopePedalLastPress705 = null;
+    this.endoscopePedalLastPress526 = null;
+    
+    // 臂切换脚踏按下时间追踪（704E/527E）
+    this.armSwitchLastPress704 = null;
+    this.armSwitchLastPress527 = null;
   }
 
   /**
@@ -132,6 +164,9 @@ class SurgeryAnalyzer {
     
     // 处理无使用次数事件
     this.processNoUsageEvents(errCodeSuffix, errCode, entry);
+    
+    // 处理脚踏和离合触发事件
+    this.processPedalAndClutchEvents(errCodeSuffix, p1, p3, entry);
   }
 
   /**
@@ -392,6 +427,7 @@ class SurgeryAnalyzer {
           this.currentSurgery = null;
           console.log(`满足手术结束条件，清空手术对象`);
         } else if (!this.surgeryStarted) {
+          console.log(`关机时清空未开始的准备手术对象: ID=${this.currentSurgery.surgery_id}, is_pre_surgery=${this.currentSurgery.is_pre_surgery}, surgeryStarted=${this.surgeryStarted}`);
           this.resetSurgeryState();
           this.powerOnTimes = [];
           this.shutdownTimes = [];
@@ -455,7 +491,7 @@ class SurgeryAnalyzer {
    */
   processInstrumentStateEvents(errCodeSuffix, p1, p3, entry) {
     if (errCodeSuffix === '500e') {
-      const armIndex = p1 - 1;
+      const armIndex = p1 ;
       if (armIndex >= 0 && armIndex < 4) {
         this.armStates[armIndex] = p3;
       }
@@ -512,19 +548,28 @@ class SurgeryAnalyzer {
       const allArmStateZero = this.armStates.every(state => state === 0 || state === -1);
       const hasValidEndState = this.currentState === 10 || this.currentState === 12 || this.currentState === 13;
 
-      if (allArmStateZero && hasValidEndState) {
+      // 只有在手术已经开始的情况下才判断结束条件
+      if (allArmStateZero && hasValidEndState && this.surgeryStarted) {
         console.log(`满足手术结束条件: 器械状态=${this.armStates}, 当前状态=${this.currentState}, 时间=${entry.timestamp}`);
         
         if (this.currentSurgery) {
-          this.currentSurgery.surgery_end_time = entry.timestamp;
-          this.previousSurgeryEndTime = this.currentSurgery.surgery_end_time;
-          
-          this.currentSurgery.total_duration = Math.floor(
-            (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
-          );
-          
-          this.finalizeSurgeryData();
-          this.addSurgeryToList();
+          // 只有正式手术才添加到列表
+          if (this.currentSurgery.surgery_start_time && !this.currentSurgery.is_pre_surgery) {
+            this.currentSurgery.surgery_end_time = entry.timestamp;
+            this.previousSurgeryEndTime = this.currentSurgery.surgery_end_time;
+            
+            this.currentSurgery.total_duration = Math.floor(
+              (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
+            );
+            
+            this.finalizeSurgeryData();
+            this.addSurgeryToList();
+            console.log(`手术结束并添加到列表: ID=${this.currentSurgery.surgery_id}`);
+          } else {
+            console.log(`满足结束条件但跳过准备手术对象: ID=${this.currentSurgery.surgery_id}, is_pre_surgery=${this.currentSurgery.is_pre_surgery}, has_start_time=${!!this.currentSurgery.surgery_start_time}`);
+            // 只标记surgery_end_time，不添加到列表
+            this.currentSurgery.surgery_end_time = entry.timestamp;
+          }
         }
         
         this.surgeryStarted = false;
@@ -580,6 +625,127 @@ class SurgeryAnalyzer {
   }
 
   /**
+   * 处理脚踏和离合触发事件
+   */
+  processPedalAndClutchEvents(errCodeSuffix, p1, p3, entry) {
+    // 内窥镜脚踏触发（705E） - 按下释放识别并记录事件
+    if (errCodeSuffix === '705e') {
+      if (this.endoscopePedalState === 0 && p1 === 1) {
+        this.endoscopePedalState = 1;
+        this.endoscopePedalLastPress705 = entry.timestamp;
+      } else if (this.endoscopePedalState === 1 && p1 === 0) {
+        this.endoscopePedalState = 0;
+        // 只在手术正式开始后才记录事件
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.endoscope_pedal_events.push({ code: '705e', time: entry.timestamp });
+        }
+      }
+    }
+
+    // 内窥镜脚踏触发（526E） - 按下释放识别并记录事件
+    if (errCodeSuffix === '526e') {
+      if (this.endoscopePedalState526 === 0 && p1 === 1) {
+        this.endoscopePedalState526 = 1;
+        this.endoscopePedalLastPress526 = entry.timestamp;
+      } else if (this.endoscopePedalState526 === 1 && p1 === 0) {
+        this.endoscopePedalState526 = 0;
+        // 只在手术正式开始后才记录事件
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.endoscope_pedal_events.push({ code: '526e', time: entry.timestamp });
+        }
+      }
+    }
+    
+    // 臂切换脚踏触发（704E） - 按下释放识别并记录事件
+    if (errCodeSuffix === '704e') {
+      if (this.armSwitchPedalState === 0 && p1 === 1) {
+        this.armSwitchPedalState = 1;
+        this.armSwitchLastPress704 = entry.timestamp;
+      } else if (this.armSwitchPedalState === 1 && p1 === 0) {
+        this.armSwitchPedalState = 0;
+        // 只在手术正式开始后才记录事件
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.arm_switch_events.push({ code: '704e', time: entry.timestamp });
+        }
+      }
+    }
+
+    // 臂切换脚踏触发（527E） - 按下释放识别并记录事件
+    if (errCodeSuffix === '527e') {
+      if (this.armSwitchPedalState527 === 0 && p1 === 1) {
+        this.armSwitchPedalState527 = 1;
+        this.armSwitchLastPress527 = entry.timestamp;
+      } else if (this.armSwitchPedalState527 === 1 && p1 === 0) {
+        this.armSwitchPedalState527 = 0;
+        // 只在手术正式开始后才记录事件
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.arm_switch_events.push({ code: '527e', time: entry.timestamp });
+        }
+      }
+    }
+    
+    // 脚离合触发（706E） - 按下释放识别并记录事件
+    if (errCodeSuffix === '706e') {
+      if (this.footClutchState === 0 && p1 === 1) {
+        this.footClutchState = 1;
+        this.footClutchLastPress706 = entry.timestamp;
+      } else if (this.footClutchState === 1 && p1 === 0) {
+        this.footClutchState = 0;
+        // 只在手术正式开始后才记录事件
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.foot_clutch_events.push({ code: '706e', time: entry.timestamp });
+        }
+      }
+    }
+
+    // 脚离合触发（525E） - 按下释放识别并记录事件
+    if (errCodeSuffix === '525e') {
+      if (this.footClutchState525 === 0 && p1 === 1) {
+        this.footClutchState525 = 1;
+        this.footClutchLastPress525 = entry.timestamp;
+      } else if (this.footClutchState525 === 1 && p1 === 0) {
+        this.footClutchState525 = 0;
+        // 只在手术正式开始后才记录事件
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.foot_clutch_events.push({ code: '525e', time: entry.timestamp });
+        }
+      }
+    }
+    
+    // 左手离合触发（70AE且p3=1）
+    if (errCodeSuffix === '70ae' && p3 === 1) {
+      if (this.leftHandClutchState === 0 && p1 === 1) {
+        // 从0变为1，进入按下状态
+        this.leftHandClutchState = 1;
+      } else if (this.leftHandClutchState === 1 && p1 === 0) {
+        // 从1变为0，完成一次触发
+        this.leftHandClutchState = 0;
+        this.leftHandClutchCount++;
+        // 只在手术正式开始后才统计到手术对象
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.left_hand_clutch_count = (this.currentSurgery.left_hand_clutch_count || 0) + 1;
+        }
+      }
+    }
+    
+    // 右手离合触发（70AE且p3=2）
+    if (errCodeSuffix === '70ae' && p3 === 2) {
+      if (this.rightHandClutchState === 0 && p1 === 1) {
+        // 从0变为1，进入按下状态
+        this.rightHandClutchState = 1;
+      } else if (this.rightHandClutchState === 1 && p1 === 0) {
+        // 从1变为0，完成一次触发
+        this.rightHandClutchState = 0;
+        this.rightHandClutchCount++;
+        // 只在手术正式开始后才统计到手术对象
+        if (this.currentSurgery && this.surgeryStarted) {
+          this.currentSurgery.right_hand_clutch_count = (this.currentSurgery.right_hand_clutch_count || 0) + 1;
+        }
+      }
+    }
+  }
+
+  /**
    * 确保手术对象存在
    */
   ensureSurgeryObject(entry) {
@@ -605,8 +771,19 @@ class SurgeryAnalyzer {
         is_consecutive_surgery: !!prevEnd,
         previous_surgery_end_time: prevEnd,
         is_remote_surgery: this.isRemoteSurgery,
-        network_latency_data: []
+        network_latency_data: [],
+        // 脚踏和离合触发次数统计
+        endoscope_pedal_count: 0,
+        arm_switch_count: 0,
+        foot_clutch_count: 0,
+        left_hand_clutch_count: 0,
+        right_hand_clutch_count: 0,
+        foot_clutch_events: [],
+        endoscope_pedal_events: [],
+        arm_switch_events: []
       };
+      
+      console.log(`创建准备手术对象: ID=${this.currentSurgery.surgery_id}, 时间=${entry.timestamp}, 前一台结束时间=${prevEnd || '无'}`);
     }
   }
 
@@ -619,23 +796,39 @@ class SurgeryAnalyzer {
     const currentUsage = this.currentSurgery[armUsageKey] || [];
     
     if (instrumentType > 0) {
-      // 器械插上
       const instrumentName = this.getInstrumentTypeName(instrumentType.toString());
-      console.log(`🔧 器械插上: 工具臂${armIndex + 1} - ${instrumentName} (类型: ${instrumentType}), 时间: ${entry.timestamp}`);
       
-      currentUsage.push({
-        instrumentType: instrumentType,
-        instrumentName: instrumentName,
-        udi: '待更新',
-        startTime: entry.timestamp,
-        endTime: null,
-        duration: 0,
-        armIndex: armIndex,
-        is_pre_surgery: !this.surgeryStarted
-      });
+      // 检查是否存在未结束的使用记录
+      const lastUsage = currentUsage.length > 0 ? currentUsage[currentUsage.length - 1] : null;
+      const hasActiveUsage = lastUsage && lastUsage.endTime === null;
       
-      if (this.currentSurgery[armActivationKey] && this.currentSurgery[armActivationKey].startTime === null) {
-        this.currentSurgery[armActivationKey].startTime = entry.timestamp;
+      // 检查是否是内窥镜类型之间的转换（图像主机获取更新，非更换器械）
+      if (hasActiveUsage && 
+          ENDOSCOPE_TYPES.has(lastUsage.instrumentType) && 
+          ENDOSCOPE_TYPES.has(instrumentType)) {
+        // 内窥镜类型更新：只更新类型和名称，不创建新记录，UDI和时间保持不变
+        console.log(`📷 器械类型更新（图像识别）: 工具臂${armIndex + 1} - ${lastUsage.instrumentName}(${lastUsage.instrumentType}) → ${instrumentName}(${instrumentType}), 时间: ${entry.timestamp}`);
+        lastUsage.instrumentType = instrumentType;
+        lastUsage.instrumentName = instrumentName;
+        // UDI保持不变，startTime保持不变
+      } else {
+        // 正常器械插上：创建新记录
+        console.log(`🔧 器械插上: 工具臂${armIndex + 1} - ${instrumentName} (类型: ${instrumentType}), 时间: ${entry.timestamp}`);
+        
+        currentUsage.push({
+          instrumentType: instrumentType,
+          instrumentName: instrumentName,
+          udi: '待更新',
+          startTime: entry.timestamp,
+          endTime: null,
+          duration: 0,
+          armIndex: armIndex,
+          is_pre_surgery: !this.surgeryStarted
+        });
+        
+        if (this.currentSurgery[armActivationKey] && this.currentSurgery[armActivationKey].startTime === null) {
+          this.currentSurgery[armActivationKey].startTime = entry.timestamp;
+        }
       }
     } else {
       // 器械拔下
@@ -731,7 +924,16 @@ class SurgeryAnalyzer {
       total_duration: 0,
       alarm_count: 0,
       is_remote_surgery: this.isRemoteSurgery,
-      network_latency_data: []
+      network_latency_data: [],
+      // 脚踏和离合触发次数统计
+      endoscope_pedal_count: 0,
+      arm_switch_count: 0,
+      foot_clutch_count: 0,
+      left_hand_clutch_count: 0,
+      right_hand_clutch_count: 0,
+      foot_clutch_events: [],
+      endoscope_pedal_events: [],
+      arm_switch_events: []
     };
     
     console.log(`创建新手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${entry.timestamp}`);
@@ -798,7 +1000,16 @@ class SurgeryAnalyzer {
       is_consecutive_surgery: this.previousSurgeryEndTime !== null,
       previous_surgery_end_time: this.previousSurgeryEndTime,
       is_remote_surgery: this.isRemoteSurgery,
-      network_latency_data: []
+      network_latency_data: [],
+      // 脚踏和离合触发次数统计
+      endoscope_pedal_count: 0,
+      arm_switch_count: 0,
+      foot_clutch_count: 0,
+      left_hand_clutch_count: 0,
+      right_hand_clutch_count: 0,
+      foot_clutch_events: [],
+      endoscope_pedal_events: [],
+      arm_switch_events: []
     };
     
     console.log(`处理连台手术: ID=${this.currentSurgery.surgery_id}, 开始时间=${entry.timestamp}, 前一台手术结束时间=${this.previousSurgeryEndTime}`);
@@ -933,6 +1144,69 @@ class SurgeryAnalyzer {
              (timeRange.latestTime === null || changeTime <= timeRange.latestTime);
     });
     this.currentSurgery.state_machine_changes = [...filteredChanges];
+
+    // 计算脚离合次数（简化规则：525E若与上一个已计数事件间隔<2s则不计数；706E总是计数）
+    if (this.currentSurgery.foot_clutch_events && this.currentSurgery.foot_clutch_events.length > 0) {
+      const events = this.currentSurgery.foot_clutch_events
+        .map(e => ({ code: e.code, ts: new Date(e.time).getTime() }))
+        .sort((a, b) => a.ts - b.ts);
+
+      let count = 0;
+      let lastCountedTs = -Infinity;
+
+      for (let i = 0; i < events.length; i++) {
+        const e = events[i];
+        if (e.code === '525e' && e.ts - lastCountedTs < 2000) {
+          continue; // 525E在2秒内不计数
+        }
+        count++;
+        lastCountedTs = e.ts;
+      }
+
+      this.currentSurgery.foot_clutch_count = count;
+    }
+
+    // 计算内窥镜脚踏次数（简化规则：526E若与上一个已计数事件间隔<2s则不计数；705E总是计数）
+    if (this.currentSurgery.endoscope_pedal_events && this.currentSurgery.endoscope_pedal_events.length > 0) {
+      const events = this.currentSurgery.endoscope_pedal_events
+        .map(e => ({ code: e.code, ts: new Date(e.time).getTime() }))
+        .sort((a, b) => a.ts - b.ts);
+
+      let count = 0;
+      let lastCountedTs = -Infinity;
+
+      for (let i = 0; i < events.length; i++) {
+        const e = events[i];
+        if (e.code === '526e' && e.ts - lastCountedTs < 2000) {
+          continue; // 526E在2秒内不计数
+        }
+        count++;
+        lastCountedTs = e.ts;
+      }
+
+      this.currentSurgery.endoscope_pedal_count = count;
+    }
+
+    // 计算臂切换脚踏次数（简化规则：527E若与上一个已计数事件间隔<2s则不计数；704E总是计数）
+    if (this.currentSurgery.arm_switch_events && this.currentSurgery.arm_switch_events.length > 0) {
+      const events = this.currentSurgery.arm_switch_events
+        .map(e => ({ code: e.code, ts: new Date(e.time).getTime() }))
+        .sort((a, b) => a.ts - b.ts);
+
+      let count = 0;
+      let lastCountedTs = -Infinity;
+
+      for (let i = 0; i < events.length; i++) {
+        const e = events[i];
+        if (e.code === '527e' && e.ts - lastCountedTs < 2000) {
+          continue; // 527E在2秒内不计数
+        }
+        count++;
+        lastCountedTs = e.ts;
+      }
+
+      this.currentSurgery.arm_switch_count = count;
+    }
   }
 
   /**
@@ -975,6 +1249,34 @@ class SurgeryAnalyzer {
     this.alarmDetails.length = 0;
     this.activeAlarms.clear();
     
+    // 重置脚踏和离合触发状态
+    this.endoscopePedalState = 0;
+    this.endoscopePedalState526 = 0;
+    this.armSwitchPedalState = 0;
+    this.armSwitchPedalState527 = 0;
+    this.footClutchState = 0;
+    this.footClutchState525 = 0;
+    this.leftHandClutchState = 0;
+    this.rightHandClutchState = 0;
+    
+    // 重置脚踏和离合触发次数
+    this.endoscopePedalCount = 0;
+    this.armSwitchCount = 0;
+    this.footClutchCount = 0;
+    this.leftHandClutchCount = 0;
+    this.rightHandClutchCount = 0;
+
+    // 重置脚离合按下时间追踪
+    this.footClutchLastPress706 = null;
+    this.footClutchLastPress525 = null;
+    
+    // 重置内窥镜脚踏按下时间追踪
+    this.endoscopePedalLastPress705 = null;
+    this.endoscopePedalLastPress526 = null;
+    
+    // 重置臂切换脚踏按下时间追踪
+    this.armSwitchLastPress704 = null;
+    this.armSwitchLastPress527 = null;
   }
 
   /**
@@ -1149,6 +1451,8 @@ class SurgeryAnalyzer {
       faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
         timestamp: fault.time,
         error_code: fault.code,
+        status: fault.status || '未处理',
+        recovery_time: fault.recoveryTime || null,
         param1: "",
         param2: "",
         param3: "",
@@ -1160,11 +1464,11 @@ class SurgeryAnalyzer {
         time: ch.time,
         state: ch.stateName || String(ch.state)
       })),
-      arm_switch_count: 0, // 可以后续计算
-      left_hand_clutch: surgery.hand_clutch_stats?.arm1 || 0,
-      right_hand_clutch: surgery.hand_clutch_stats?.arm2 || 0,
-      foot_clutch: surgery.foot_pedal_stats?.clutch || 0,
-      endoscope_pedal: surgery.foot_pedal_stats?.camera || 0
+      arm_switch_count: surgery.arm_switch_count || 0,           // 臂切换脚踏触发次数
+      left_hand_clutch: surgery.left_hand_clutch_count || 0,    // 左手离合触发次数
+      right_hand_clutch: surgery.right_hand_clutch_count || 0,  // 右手离合触发次数
+      foot_clutch: surgery.foot_clutch_count || 0,              // 脚离合触发次数
+      endoscope_pedal: surgery.endoscope_pedal_count || 0       // 内窥镜脚踏触发次数
     };
 
     return {

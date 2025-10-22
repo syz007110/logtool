@@ -165,56 +165,58 @@
           </el-col>
         </el-row>
 
+        <el-form-item label="选项设置">
+          <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
+            <el-checkbox label="is_axis_error">是否轴错误</el-checkbox>
+            <span class="checkbox-divider"></span>
+            <el-checkbox label="is_arm_error">是否臂错误</el-checkbox>
+            <span class="checkbox-divider"></span>
+            <el-checkbox label="for_expert">专家模式</el-checkbox>
+            <span class="checkbox-divider"></span>
+            <el-checkbox label="for_novice">初学者模式</el-checkbox>
+            <span class="checkbox-divider"></span>
+            <el-checkbox label="related_log">相关日志</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="是否轴错误" prop="is_axis_error">
-              <el-radio-group v-model="errorCodeForm.is_axis_error">
-                <el-radio :label="true">TRUE</el-radio>
-                <el-radio :label="false">FALSE</el-radio>
-              </el-radio-group>
+        <el-form-item label="精简提示信息(中文)" prop="short_message">
+          <el-input v-model="errorCodeForm.short_message" type="textarea" :rows="2" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="是否臂错误" prop="is_arm_error">
-              <el-radio-group v-model="errorCodeForm.is_arm_error">
-                <el-radio :label="true">TRUE</el-radio>
-                <el-radio :label="false">FALSE</el-radio>
-              </el-radio-group>
+        <el-form-item label="精简提示信息(英文)" prop="short_message_en">
+          <el-input v-model="errorCodeForm.short_message_en" type="textarea" :rows="2" />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item label="精简提示信息(中文)" prop="short_message">
-          <el-input v-model="errorCodeForm.short_message" type="textarea" :rows="2" />
-        </el-form-item>
-
-        <el-form-item label="精简提示信息(英文)" prop="short_message_en">
-          <el-input v-model="errorCodeForm.short_message_en" type="textarea" :rows="2" />
-        </el-form-item>
-
+        <el-row :gutter="20">
+          <el-col :span="12">
         <el-form-item label="给用户的提示信息(中文)" prop="user_hint">
           <el-input v-model="errorCodeForm.user_hint" type="textarea" :rows="2" />
         </el-form-item>
-
+          </el-col>
+          <el-col :span="12">
         <el-form-item label="给用户的提示信息(英文)" prop="user_hint_en">
           <el-input v-model="errorCodeForm.user_hint_en" type="textarea" :rows="2" />
         </el-form-item>
+          </el-col>
+        </el-row>
 
+        <el-row :gutter="20">
+          <el-col :span="12">
         <el-form-item label="操作信息(中文)" prop="operation">
           <el-input v-model="errorCodeForm.operation" type="textarea" :rows="2" />
         </el-form-item>
-
+          </el-col>
+          <el-col :span="12">
         <el-form-item label="操作信息(英文)" prop="operation_en">
           <el-input v-model="errorCodeForm.operation_en" type="textarea" :rows="2" />
         </el-form-item>
-
-        <el-form-item label="详细信息" prop="detail">
-          <el-input v-model="errorCodeForm.detail" type="textarea" :rows="3" />
-        </el-form-item>
-
-        <el-form-item label="检测方法" prop="method">
-          <el-input v-model="errorCodeForm.method" type="textarea" :rows="3" />
-        </el-form-item>
+          </el-col>
+        </el-row>
 
         <el-row :gutter="20">
           <el-col :span="12">
@@ -263,6 +265,27 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="日志分析分类" prop="analysisCategories">
+              <el-select 
+                v-model="errorCodeForm.analysisCategories" 
+                multiple 
+                collapse-tags
+                collapse-tags-tooltip
+                :max-collapse-tags="3"
+                popper-class="analysis-categories-tooltip"
+                placeholder="请选择日志分析分类（可多选）"
+                style="width: 100%"
+              >
+                <el-option 
+                  v-for="cat in analysisCategories" 
+                  :key="cat.id" 
+                  :label="cat.name_zh" 
+                  :value="cat.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="处理措施" prop="solution">
               <el-input 
                 :value="getSolutionDisplay(errorCodeForm.solution)" 
@@ -271,46 +294,22 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="技术排查方案" prop="tech_solution">
-              <el-input v-model="errorCodeForm.tech_solution" type="textarea" :rows="2" />
-            </el-form-item>
-          </el-col>
         </el-row>
+
+        <el-form-item label="详细信息" prop="detail">
+          <el-input v-model="errorCodeForm.detail" type="textarea" :rows="3" />
+        </el-form-item>
+
+        <el-form-item label="检测方法" prop="method">
+          <el-input v-model="errorCodeForm.method" type="textarea" :rows="3" />
+            </el-form-item>
+
+        <el-form-item label="技术排查方案" prop="tech_solution">
+          <el-input v-model="errorCodeForm.tech_solution" type="textarea" :rows="3" />
+            </el-form-item>
 
         <el-form-item label="解释" prop="explanation">
           <el-input v-model="errorCodeForm.explanation" type="textarea" :rows="3" />
-        </el-form-item>
-
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-form-item label="专家模式" prop="for_expert">
-              <el-radio-group v-model="errorCodeForm.for_expert">
-                <el-radio :label="true">TRUE</el-radio>
-                <el-radio :label="false">FALSE</el-radio>
-              </el-radio-group>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="初学者模式" prop="for_novice">
-              <el-radio-group v-model="errorCodeForm.for_novice">
-                <el-radio :label="true">TRUE</el-radio>
-                <el-radio :label="false">FALSE</el-radio>
-              </el-radio-group>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="相关日志" prop="related_log">
-              <el-radio-group v-model="errorCodeForm.related_log">
-                <el-radio :label="true">TRUE</el-radio>
-                <el-radio :label="false">FALSE</el-radio>
-              </el-radio-group>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item label="停止上报方法" prop="stop_report">
-          <el-input v-model="errorCodeForm.stop_report" />
         </el-form-item>
       </el-form>
 
@@ -461,6 +460,8 @@ export default {
     const queryForm = reactive({ fullCode: '' })
     const queryResult = ref(null)
     const foundRecord = ref(null)
+    const analysisCategories = ref([])
+    const booleanOptions = ref([])
     
     // 同步相关变量
     const syncToRemote = ref(false)
@@ -491,7 +492,8 @@ export default {
        level: '',
        tech_solution: '',
        explanation: '',
-       category: ''
+      category: '',
+      analysisCategories: []
      })
     
     // 动态验证规则
@@ -682,6 +684,57 @@ export default {
     
     
     
+    // 加载分析分类
+    const loadAnalysisCategories = async () => {
+      try {
+        const response = await api.analysisCategories.getList({
+          is_active: true
+        })
+        if (response.data.success) {
+          analysisCategories.value = response.data.categories || []
+          // 设置默认的"未分类"选项
+          setDefaultNullCategory()
+        }
+      } catch (error) {
+        console.error('加载分析分类失败:', error)
+        ElMessage.error('加载分析分类失败')
+      }
+    }
+    
+    // 设置默认的"未分类"选项
+    const setDefaultNullCategory = () => {
+      // 查找"未分类"（Null）分类
+      const nullCategory = analysisCategories.value.find(cat => 
+        cat.category_key === 'Null' || cat.name_zh === '未分类'
+      )
+      
+      // 如果找到且当前表单的分析分类为空，则设置为默认值
+      if (nullCategory && (!errorCodeForm.analysisCategories || errorCodeForm.analysisCategories.length === 0)) {
+        errorCodeForm.analysisCategories = [nullCategory.id]
+      }
+    }
+    
+    // 处理布尔选项变化
+    const handleBooleanOptionsChange = (values) => {
+      // 根据checkbox的选中状态更新表单值
+      errorCodeForm.is_axis_error = values.includes('is_axis_error')
+      errorCodeForm.is_arm_error = values.includes('is_arm_error')
+      errorCodeForm.for_expert = values.includes('for_expert')
+      errorCodeForm.for_novice = values.includes('for_novice')
+      errorCodeForm.related_log = values.includes('related_log')
+    }
+    
+    // 从表单值初始化布尔选项
+    const initBooleanOptions = () => {
+      const options = []
+      if (errorCodeForm.is_axis_error) options.push('is_axis_error')
+      if (errorCodeForm.is_arm_error) options.push('is_arm_error')
+      if (errorCodeForm.for_expert) options.push('for_expert')
+      if (errorCodeForm.for_novice) options.push('for_novice')
+      if (errorCodeForm.related_log) options.push('related_log')
+      booleanOptions.value = options
+    }
+    
     // 方法
     const loadErrorCodes = async () => {
       try {
@@ -723,6 +776,8 @@ export default {
            } else {
              errorCodeForm[key] = false
            }
+        } else if (key === 'analysisCategories') {
+          errorCodeForm[key] = []
          } else {
            errorCodeForm[key] = ''
          }
@@ -738,6 +793,8 @@ export default {
     
     const handleAdd = () => {
       resetForm()
+      initBooleanOptions()
+      setDefaultNullCategory()
       showAddDialog.value = true
     }
     const openQueryDialog = () => {
@@ -746,14 +803,32 @@ export default {
     
     const handleEdit = (row) => {
       editingErrorCode.value = row
+      
+      // 从 i18nContents 中提取英文内容
+      const enContent = row.i18nContents?.find(i18n => i18n.lang === 'en')
+      
       Object.keys(errorCodeForm).forEach(key => {
-        if (row[key] !== undefined) {
+        if (key === 'analysisCategories') {
+          // 从关联的分析分类中提取 ID 数组
+          errorCodeForm[key] = row.analysisCategories?.map(cat => cat.id) || []
+        } else if (key === 'short_message_en') {
+          // 从 i18n 表提取英文精简提示
+          errorCodeForm[key] = enContent?.short_message || ''
+        } else if (key === 'user_hint_en') {
+          // 从 i18n 表提取英文用户提示
+          errorCodeForm[key] = enContent?.user_hint || ''
+        } else if (key === 'operation_en') {
+          // 从 i18n 表提取英文操作信息
+          errorCodeForm[key] = enContent?.operation || ''
+        } else if (row[key] !== undefined) {
           errorCodeForm[key] = row[key]
         }
       })
       // 重置同步选项
       syncToRemote.value = false
       syncToLocal.value = false
+      // 初始化布尔选项
+      initBooleanOptions()
       showAddDialog.value = true
     }
     
@@ -1021,6 +1096,7 @@ export default {
     // 生命周期
     onMounted(() => {
       loadErrorCodes()
+      loadAnalysisCategories()
     })
     
     return {
@@ -1044,6 +1120,8 @@ export default {
        canCreate,
        canUpdate,
        canDelete,
+       analysisCategories,
+       booleanOptions,
        // 同步相关变量
        syncToRemote,
        syncToLocal,
@@ -1063,6 +1141,7 @@ export default {
        buildPrefixedExplanation,
        handleQuery,
        resetQuery,
+       handleBooleanOptionsChange,
        // 同步相关方法
        getDialogTitle,
        getRemoteSubsystemLabel,
@@ -1102,7 +1181,7 @@ export default {
 }
 
 .error-code-form {
-  max-height: 600px;
+  max-height: 70vh;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 12px;
@@ -1149,5 +1228,51 @@ export default {
   background: rgba(0,0,0,0.85);
   color: #fff;
   border: none;
+}
+
+/* 布尔选项的checkbox样式 */
+.boolean-options-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+:deep(.boolean-options-group .el-checkbox) {
+  margin-right: 0;
+}
+
+/* checkbox之间的分割线 */
+.checkbox-divider {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background-color: #dcdfe6;
+  margin: 0 16px;
+  vertical-align: middle;
+}
+
+/* 日志分析分类tooltip多行显示 */
+.analysis-categories-tooltip {
+  max-width: 500px !important;
+}
+
+.analysis-categories-tooltip .el-select__tags-text {
+  display: inline-block;
+  max-width: none !important;
+}
+
+.analysis-categories-tooltip .el-tooltip__popper {
+  max-width: 500px !important;
+}
+</style>
+
+<style>
+/* 全局样式：分析分类tooltip */
+.analysis-categories-tooltip.el-popper {
+  max-width: 500px !important;
+}
+
+.analysis-categories-tooltip .el-tag {
+  margin: 2px 4px !important;
 }
 </style>

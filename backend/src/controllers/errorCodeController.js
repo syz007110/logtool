@@ -1,5 +1,8 @@
 const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
+const AnalysisCategory = require('../models/analysis_category');
+const ErrorCodeAnalysisCategory = require('../models/error_code_analysis_category');
+const { sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
@@ -54,6 +57,55 @@ const analyzeErrorCode = (code) => {
   return { level, solution };
 };
 
+// 过滤主表不再使用的英文字段，防止写入 *_en 到 error_codes
+const stripEnglishFields = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  const {
+    short_message_en, // eslint-disable-line no-unused-vars
+    user_hint_en,     // eslint-disable-line no-unused-vars
+    operation_en,     // eslint-disable-line no-unused-vars
+    ...rest
+  } = data;
+  return rest;
+};
+
+// 规范化辅助：与 log_entries(subsystem_char, code4) 对齐
+const normalizeSubsystemChar = (s) => (s ? String(s).trim().charAt(0) : null);
+const normalizeCode4 = (code) => {
+  if (!code) return null;
+  const raw = String(code).trim();
+  const tail4 = raw.slice(-4).toUpperCase();
+  return `0X${tail4}`;
+};
+
+// 局部维护 code_category_map：删除旧映射，插入新映射
+async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
+  try {
+    const ec = await ErrorCode.findByPk(errorCodeId, { attributes: ['subsystem', 'code'] });
+    if (!ec) return;
+    const subsystemChar = normalizeSubsystemChar(ec.subsystem);
+    const code4 = normalizeCode4(ec.code);
+    if (!subsystemChar || !code4) return;
+
+    await sequelize.query(
+      'DELETE FROM code_category_map WHERE subsystem_char = :s AND code4 = :c',
+      { replacements: { s: subsystemChar, c: code4 } }
+    );
+
+    if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+      const values = categoryIds
+        .filter((id) => Number.isInteger(Number(id)))
+        .map((id) => `(${sequelize.escape(subsystemChar)}, ${sequelize.escape(code4)}, ${Number(id)})`);
+      if (values.length > 0) {
+        const sql = `INSERT INTO code_category_map (subsystem_char, code4, analysis_category_id) VALUES ${values.join(',')}`;
+        await sequelize.query(sql);
+      }
+    }
+  } catch (e) {
+    console.warn('[code_category_map] upsert failed:', e.message);
+  }
+}
+
 // 输入验证函数
 const validateErrorCodeData = (data) => {
   const errors = [];
@@ -70,16 +122,7 @@ const validateErrorCodeData = (data) => {
     }
   });
   
-  // 英文字段验证：short_message_en和operation_en不都为空，user_hint_en和operation_en不都为空
-  if ((!data.short_message_en || data.short_message_en.trim() === '') && 
-      (!data.operation_en || data.operation_en.trim() === '')) {
-    errors.push('英文精简提示信息和英文操作信息不能都为空');
-  }
-  
-  if ((!data.user_hint_en || data.user_hint_en.trim() === '') && 
-      (!data.operation_en || data.operation_en.trim() === '')) {
-    errors.push('英文用户提示信息和英文操作信息不能都为空');
-  }
+  // 英文字段验证（可选）：不再强制依赖主表英文字段，英文内容通过 i18n 表提交即可
   
   // 中文字段验证：short_message和operation不都为空，user_hint和operation不都为空
   if ((!data.short_message || data.short_message.trim() === '') && 
@@ -115,9 +158,15 @@ const validateErrorCodeData = (data) => {
 const createErrorCode = async (req, res) => {
   try {
     const data = req.body;
+    const englishForI18n = {
+      short_message_en: data.short_message_en || '',
+      user_hint_en: data.user_hint_en || '',
+      operation_en: data.operation_en || ''
+    };
+    const mainData = stripEnglishFields(data);
     
     // 输入验证
-    const validationErrors = validateErrorCodeData(data);
+    const validationErrors = validateErrorCodeData(mainData);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
         message: '输入验证失败', 
@@ -128,8 +177,8 @@ const createErrorCode = async (req, res) => {
     // 检查子系统+故障码组合是否唯一
     const duplicateCheck = await ErrorCode.findOne({ 
       where: { 
-        subsystem: data.subsystem, 
-        code: data.code 
+        subsystem: mainData.subsystem, 
+        code: mainData.code 
       } 
     });
     if (duplicateCheck) {
@@ -137,15 +186,15 @@ const createErrorCode = async (req, res) => {
     }
     
     // 根据故障码自动判断故障等级和处理措施
-    const { level, solution } = analyzeErrorCode(data.code);
+    const { level, solution } = analyzeErrorCode(mainData.code);
     
     // 创建故障码数据，自动设置等级和处理措施，专家模式和初学者模式默认为True
     const errorCodeData = {
-      ...data,
+      ...mainData,
       level,
       solution,
-      for_expert: data.for_expert !== undefined ? data.for_expert : true,
-      for_novice: data.for_novice !== undefined ? data.for_novice : true
+      for_expert: mainData.for_expert !== undefined ? mainData.for_expert : true,
+      for_novice: mainData.for_novice !== undefined ? mainData.for_novice : true
     };
     
     const errorCode = await ErrorCode.create(errorCodeData);
@@ -156,21 +205,36 @@ const createErrorCode = async (req, res) => {
       await I18nErrorCode.create({
         error_code_id: errorCode.id,
         lang: 'zh',
-        short_message: data.short_message || '',
-        user_hint: data.user_hint || '',
-        operation: data.operation || ''
+        short_message: mainData.short_message || '',
+        user_hint: mainData.user_hint || '',
+        operation: mainData.operation || ''
       });
       
       // 创建英文多语言记录
       await I18nErrorCode.create({
         error_code_id: errorCode.id,
         lang: 'en',
-        short_message: data.short_message_en || '',
-        user_hint: data.user_hint_en || '',
-        operation: data.operation_en || ''
+        short_message: englishForI18n.short_message_en,
+        user_hint: englishForI18n.user_hint_en,
+        operation: englishForI18n.operation_en
       });
     } catch (i18nError) {
       console.warn('创建多语言记录失败，但不影响故障码创建:', i18nError.message);
+    }
+    
+    // 保存分析分类关联
+    if (data.analysisCategories && Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
+      try {
+        const categoryAssociations = data.analysisCategories.map(categoryId => ({
+          error_code_id: errorCode.id,
+          analysis_category_id: categoryId
+        }));
+        await ErrorCodeAnalysisCategory.bulkCreate(categoryAssociations);
+        // 同步 code_category_map
+        await upsertCodeCategoryMapForErrorCode(errorCode.id, data.analysisCategories);
+      } catch (categoryError) {
+        console.warn('创建分析分类关联失败，但不影响故障码创建:', categoryError.message);
+      }
     }
     
     // 记录操作日志（如果失败不影响主要操作）
@@ -222,16 +286,30 @@ const getErrorCodes = async (req, res) => {
     if (keyword) {
       where[Op.or] = [
         { short_message: { [Op.like]: `%${keyword}%` } },
-        { short_message_en: { [Op.like]: `%${keyword}%` } },
         { user_hint: { [Op.like]: `%${keyword}%` } },
-        { user_hint_en: { [Op.like]: `%${keyword}%` } },
+        { operation: { [Op.like]: `%${keyword}%` } },
         { code: { [Op.like]: `%${keyword}%` } }
       ];
     }
     const { count: total, rows: errorCodes } = await ErrorCode.findAndCountAll({
       where,
       offset: (page - 1) * limit,
-      limit
+      limit,
+      distinct: true,  // ✅ 修复：使用 distinct 避免多对多关联导致的重复计数
+      include: [
+        {
+          model: AnalysisCategory,
+          as: 'analysisCategories',
+          through: { attributes: [] }, // 不返回关联表的字段
+          attributes: ['id', 'category_key', 'name_zh', 'name_en']
+        },
+        {
+          model: I18nErrorCode,
+          as: 'i18nContents',
+          required: false,
+          attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation']
+        }
+      ]
     });
     res.json({ errorCodes, total });
   } catch (err) {
@@ -244,6 +322,12 @@ const updateErrorCode = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
+    const englishForI18n = {
+      short_message_en: data.short_message_en || '',
+      user_hint_en: data.user_hint_en || '',
+      operation_en: data.operation_en || ''
+    };
+    const mainData = stripEnglishFields(data);
     
     // 查找故障码
     const errorCode = await ErrorCode.findByPk(id);
@@ -252,7 +336,7 @@ const updateErrorCode = async (req, res) => {
     }
     
     // 输入验证
-    const validationErrors = validateErrorCodeData(data);
+    const validationErrors = validateErrorCodeData(mainData);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
         message: '输入验证失败', 
@@ -261,12 +345,12 @@ const updateErrorCode = async (req, res) => {
     }
     
     // 检查子系统+故障码组合唯一性（排除当前记录）
-    if ((data.subsystem && data.subsystem !== errorCode.subsystem) || 
-        (data.code && data.code !== errorCode.code)) {
+    if ((mainData.subsystem && mainData.subsystem !== errorCode.subsystem) || 
+        (mainData.code && mainData.code !== errorCode.code)) {
       const duplicateCheck = await ErrorCode.findOne({ 
         where: { 
-          subsystem: data.subsystem || errorCode.subsystem, 
-          code: data.code || errorCode.code,
+          subsystem: mainData.subsystem || errorCode.subsystem, 
+          code: mainData.code || errorCode.code,
           id: { [Op.ne]: id }
         } 
       });
@@ -283,9 +367,9 @@ const updateErrorCode = async (req, res) => {
     };
     
     // 如果故障码发生变化，重新计算等级和处理措施
-    let updateData = { ...data };
-    if (data.code && data.code !== errorCode.code) {
-      const { level, solution } = analyzeErrorCode(data.code);
+    let updateData = { ...mainData };
+    if (mainData.code && mainData.code !== errorCode.code) {
+      const { level, solution } = analyzeErrorCode(mainData.code);
       updateData.level = level;
       updateData.solution = solution;
     }
@@ -301,18 +385,18 @@ const updateErrorCode = async (req, res) => {
       
       if (chineseRecord) {
         await chineseRecord.update({
-          short_message: data.short_message || '',
-          user_hint: data.user_hint || '',
-          operation: data.operation || ''
+          short_message: mainData.short_message || '',
+          user_hint: mainData.user_hint || '',
+          operation: mainData.operation || ''
         });
       } else {
         // 如果中文记录不存在，创建新的
         await I18nErrorCode.create({
           error_code_id: errorCode.id,
           lang: 'zh',
-          short_message: data.short_message || '',
-          user_hint: data.user_hint || '',
-          operation: data.operation || ''
+          short_message: mainData.short_message || '',
+          user_hint: mainData.user_hint || '',
+          operation: mainData.operation || ''
         });
       }
       
@@ -323,22 +407,45 @@ const updateErrorCode = async (req, res) => {
       
       if (englishRecord) {
         await englishRecord.update({
-          short_message: data.short_message_en || '',
-          user_hint: data.user_hint_en || '',
-          operation: data.operation_en || ''
+          short_message: englishForI18n.short_message_en,
+          user_hint: englishForI18n.user_hint_en,
+          operation: englishForI18n.operation_en
         });
       } else {
         // 如果英文记录不存在，创建新的
         await I18nErrorCode.create({
           error_code_id: errorCode.id,
           lang: 'en',
-          short_message: data.short_message_en || '',
-          user_hint: data.user_hint_en || '',
-          operation: data.operation_en || ''
+          short_message: englishForI18n.short_message_en,
+          user_hint: englishForI18n.user_hint_en,
+          operation: englishForI18n.operation_en
         });
       }
     } catch (i18nError) {
       console.warn('更新多语言记录失败，但不影响故障码更新:', i18nError.message);
+    }
+    
+    // 更新分析分类关联
+    if (data.analysisCategories !== undefined) {
+      try {
+        // 先删除所有现有关联
+        await ErrorCodeAnalysisCategory.destroy({
+          where: { error_code_id: errorCode.id }
+        });
+        
+        // 如果有新的分类，创建新关联
+        if (Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
+          const categoryAssociations = data.analysisCategories.map(categoryId => ({
+            error_code_id: errorCode.id,
+            analysis_category_id: categoryId
+          }));
+          await ErrorCodeAnalysisCategory.bulkCreate(categoryAssociations);
+        }
+        // 同步 code_category_map（无分类则清空映射）
+        await upsertCodeCategoryMapForErrorCode(errorCode.id, Array.isArray(data.analysisCategories) ? data.analysisCategories : []);
+      } catch (categoryError) {
+        console.warn('更新分析分类关联失败，但不影响故障码更新:', categoryError.message);
+      }
     }
     
     // 记录操作日志（如果失败不影响主要操作）
@@ -402,6 +509,21 @@ const deleteErrorCode = async (req, res) => {
       });
     } catch (i18nError) {
       console.warn('删除多语言记录失败，但不影响故障码删除:', i18nError.message);
+    }
+    
+    // 同步删除 code_category_map 映射（删除故障码前）
+    try {
+      const subsystemChar = normalizeSubsystemChar(errorCode.subsystem);
+      const code4 = normalizeCode4(errorCode.code);
+      if (subsystemChar && code4) {
+        await sequelize.query(
+          'DELETE FROM code_category_map WHERE subsystem_char = :s AND code4 = :c',
+          { replacements: { s: subsystemChar, c: code4 } }
+        );
+        console.log(`🧹 已清理 code_category_map 中的映射: ${subsystemChar}/${code4}`);
+      }
+    } catch (mapError) {
+      console.warn('清理 code_category_map 映射失败，但不影响故障码删除:', mapError.message);
     }
     
     await errorCode.destroy();
@@ -542,13 +664,10 @@ const exportErrorCodesToXML = async (req, res) => {
         xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
         xmlContent += `\t\t\t\t<description>${escapeXml(errorCode.detail || '')}</description>\n`;
         
-        // 优先使用多语言内容，如果没有则使用原字段
-        const shortMessage = i18nContent ? i18nContent.short_message : 
-          (targetLang === 'en' ? errorCode.short_message_en : errorCode.short_message);
-        const userHint = i18nContent ? i18nContent.user_hint : 
-          (targetLang === 'en' ? errorCode.user_hint_en : errorCode.user_hint);
-        const operation = i18nContent ? i18nContent.operation : 
-          (targetLang === 'en' ? errorCode.operation_en : errorCode.operation);
+        // 优先使用 i18n 内容；若无，则回退主表中文
+        const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
+        const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
+        const operation = i18nContent ? i18nContent.operation : errorCode.operation;
         
         xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
         xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;
@@ -732,13 +851,10 @@ const exportMultiLanguageXML = async (req, res) => {
           xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
           xmlContent += `\t\t\t\t<description>${escapeXml(errorCode.detail || '')}</description>\n`;
           
-          // 优先使用多语言内容，如果没有则使用原字段
-          const shortMessage = i18nContent ? i18nContent.short_message : 
-            (targetLang === 'en' ? errorCode.short_message_en : errorCode.short_message);
-          const userHint = i18nContent ? i18nContent.user_hint : 
-            (targetLang === 'en' ? errorCode.user_hint_en : errorCode.user_hint);
-          const operation = i18nContent ? i18nContent.operation : 
-            (targetLang === 'en' ? errorCode.operation_en : errorCode.operation);
+          // 优先使用 i18n 内容；若无，则回退主表中文
+          const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
+          const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
+          const operation = i18nContent ? i18nContent.operation : errorCode.operation;
           
           xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
           xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;

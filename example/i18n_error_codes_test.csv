@@ -1,5 +1,0 @@
-subsystem,code,lang,short_message,user_hint,operation
-1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态
-1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status
-1,0X010B,zh,通信连接异常,请检查网络连接和通信设置,检查网络连接并重新建立通信
-1,0X010B,en,Communication connection error,Please check network connection and communication settings,Check network connection and re-establish communication 

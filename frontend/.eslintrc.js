@@ -17,7 +17,8 @@ module.exports = {
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'vue/multi-word-component-names': 'off',
     'vue/no-unused-components': 'warn',
-    'vue/no-unused-vars': 'warn'
+    'vue/no-unused-vars': 'warn',
+    'vue/no-v-model-argument': 'off'
   },
   globals: {
     defineProps: 'readonly',

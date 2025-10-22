@@ -34,7 +34,7 @@ class ErrorCodeCache {
       const startTime = Date.now();
       
       const errorCodes = await ErrorCode.findAll({
-        attributes: ['id', 'subsystem', 'code', 'explanation', 'short_message', 'short_message_en']
+        attributes: ['id', 'subsystem', 'code', 'explanation', 'short_message']
       });
 
       console.log(`📊 加载了 ${errorCodes.length} 个故障码记录`);
@@ -48,8 +48,7 @@ class ErrorCodeCache {
           subsystem: code.subsystem,
           code: code.code,
           explanation: code.explanation,
-          short_message: code.short_message,
-          short_message_en: code.short_message_en
+          short_message: code.short_message
         });
       });
 

@@ -1,18 +1,21 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('./index');
 
+// 注意：英文内容（short_message/user_hint/operation）已迁移至 i18n_error_codes 表
+// 主表仅保留中文字段作为默认语言
 const ErrorCode = sequelize.define('error_codes', {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
   subsystem: { type: DataTypes.STRING(100) },
   code: { type: DataTypes.STRING(50), allowNull: false, unique: true },
   is_axis_error: { type: DataTypes.BOOLEAN, defaultValue: false },
   is_arm_error: { type: DataTypes.BOOLEAN, defaultValue: false },
-  short_message: { type: DataTypes.TEXT },
-  short_message_en: { type: DataTypes.TEXT },
-  user_hint: { type: DataTypes.TEXT },
-  user_hint_en: { type: DataTypes.TEXT },
-  operation: { type: DataTypes.TEXT },
-  operation_en: { type: DataTypes.TEXT },
+  short_message: { type: DataTypes.TEXT, comment: '精简提示信息（中文/默认）' },
+  user_hint: { type: DataTypes.TEXT, comment: '用户提示信息（中文/默认）' },
+  operation: { type: DataTypes.TEXT, comment: '操作信息（中文/默认）' },
+  // 已废弃字段（已删除）：
+  // short_message_en - 迁移至 i18n_error_codes(lang='en')
+  // user_hint_en - 迁移至 i18n_error_codes(lang='en')
+  // operation_en - 迁移至 i18n_error_codes(lang='en')
   detail: { type: DataTypes.TEXT },
   method: { type: DataTypes.TEXT },
   param1: { type: DataTypes.STRING(100) },

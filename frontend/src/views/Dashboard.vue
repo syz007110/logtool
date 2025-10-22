@@ -12,10 +12,10 @@
       <!-- Logo区域 -->
       <div class="logo">
         <template v-if="!collapsed">
-          <h2>LogTool</h2>
+          <img src="/Icons/logo-text.svg" alt="LogTool" class="logo-text" />
         </template>
         <template v-else>
-          <div class="logo-icon">LT</div>
+          <img src="/Icons/logo.svg" alt="LogTool" class="logo-icon-svg" />
         </template>
       </div>
       
@@ -28,106 +28,86 @@
         class="dashboard-menu"
         @click="handleMenuClick"
       >
-        <!-- 主要功能模块 -->
-        <a-menu-item key="/dashboard/error-codes">
-          <template #icon>
-            <div class="custom-icon">
-              <img src="/Icons/book-shelf-line.svg" alt="Error Codes" />
-            </div>
-          </template>
-          <span>{{ $t('nav.errorCodes') }}</span>
-        </a-menu-item>
-        
-        <a-menu-item key="/dashboard/i18n-error-codes">
-          <template #icon>
-            <TranslationOutlined />
-          </template>
-          <span>{{ $t('i18nErrorCodes.title') }}</span>
-        </a-menu-item>
-        
-        <a-menu-item key="/dashboard/logs">
+        <!-- 数据管理 -->
+        <a-sub-menu key="data-management">
           <template #icon>
             <DatabaseOutlined />
           </template>
-          <span>{{ $t('nav.logs') }}</span>
-        </a-menu-item>
-
-        <a-menu-item v-if="isAdminOrExpert" key="/dashboard/devices">
-          <template #icon>
-            <ToolOutlined />
-          </template>
-          <span>{{ $t('devices.title') }}</span>
-        </a-menu-item>
+          <template #title>数据管理</template>
+          <a-menu-item key="/dashboard/error-codes">
+            <span>故障码管理</span>
+          </a-menu-item>
+          <a-menu-item key="/dashboard/i18n-error-codes">
+            <span>多语言管理</span>
+          </a-menu-item>
+          <a-menu-item key="/dashboard/analysis-categories">
+            <span>日志分析等级管理</span>
+          </a-menu-item>
+        </a-sub-menu>
         
-        <a-menu-item v-if="isAdminOrExpert" key="/dashboard/data-replay">
+        <!-- 日志与手术分析 -->
+        <a-sub-menu key="log-analysis">
           <template #icon>
-            <PlayCircleOutlined />
+            <FileTextOutlined />
           </template>
-          <span>{{ $t('dataReplay.title') }}</span>
-        </a-menu-item>
+          <template #title>日志与手术分析</template>
+          <a-menu-item key="/dashboard/logs">
+            <span>日志解析</span>
+          </a-menu-item>
+          <a-menu-item v-if="isAdminOrExpert" key="/dashboard/data-replay">
+            <span>数据解析</span>
+          </a-menu-item>
+          <a-menu-item key="/dashboard/surgery-analysis" disabled>
+            <span>手术分析（暂无内容）</span>
+          </a-menu-item>
+        </a-sub-menu>
         
+        <!-- 缺陷反馈 -->
         <a-menu-item key="/dashboard/feedback">
           <template #icon>
             <BugOutlined />
           </template>
-          <span>{{ $t('feedback.title') }}</span>
+          <span>缺陷反馈</span>
         </a-menu-item>
         
+        <!-- 账户信息 -->
         <a-menu-item key="/dashboard/account">
           <template #icon>
             <UserOutlined />
           </template>
-          <span>{{ $t('account.title') }}</span>
+          <span>账户信息</span>
         </a-menu-item>
         
-        <a-menu-item key="/dashboard/global-dashboard">
+        <!-- 系统管理 -->
+        <a-sub-menu v-if="isAdmin" key="system-management">
           <template #icon>
-            <AppstoreOutlined />
+            <SettingOutlined />
           </template>
-          <span>全局看板</span>
-        </a-menu-item>
-        
-        <!-- 系统监控页面 - 只有管理员可以访问 -->
-        <a-menu-item v-if="isAdmin" key="/dashboard/monitoring">
-          <template #icon>
-            <MonitorOutlined />
-          </template>
-          <span>系统监控</span>
-        </a-menu-item>
-        
-        <!-- 只有管理员可以看到历史记录 -->
-        <a-menu-item v-if="isAdmin" key="/dashboard/history">
-          <template #icon>
-            <BookOutlined />
-          </template>
-          <span>{{ $t('nav.history') }}</span>
-        </a-menu-item>
-        
-        <!-- 管理员菜单 -->
-        <template v-if="isAdmin">
-          <a-divider v-if="!collapsed" class="menu-divider" />
-          
+          <template #title>系统管理</template>
           <a-menu-item key="/dashboard/users">
-            <template #icon>
-              <TeamOutlined />
-            </template>
-            <span>{{ $t('users.title') }}</span>
+            <span>用户管理</span>
           </a-menu-item>
-          
           <a-menu-item key="/dashboard/roles">
-            <template #icon>
-              <SafetyOutlined />
-            </template>
-            <span>{{ $t('roles.title') }}</span>
+            <span>角色管理</span>
           </a-menu-item>
-
-          <a-menu-item key="/dashboard/explanation-tester">
-            <template #icon>
-              <ExperimentOutlined />
-            </template>
-            <span>测试</span>
+          <a-menu-item key="/dashboard/devices">
+            <span>设备管理</span>
           </a-menu-item>
-        </template>
+          <a-menu-item key="/dashboard/history">
+            <span>历史记录</span>
+          </a-menu-item>
+          <a-menu-item key="/dashboard/monitoring">
+            <span>系统监控</span>
+          </a-menu-item>
+        </a-sub-menu>
+        
+        <!-- 测试 -->
+        <a-menu-item v-if="isAdmin" key="/dashboard/explanation-tester">
+          <template #icon>
+            <ExperimentOutlined />
+          </template>
+          <span>测试</span>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
     
@@ -260,11 +240,27 @@ export default {
     
     // 菜单选中状态
     const selectedKeys = ref([route.path])
-    const openKeys = ref([])
     
-    // 监听路由变化，更新选中菜单
+    // 根据当前路径确定应该展开的子菜单
+    const getOpenKeysFromPath = (path) => {
+      if (path.includes('/error-codes') || path.includes('/i18n-error-codes') || path.includes('/analysis-categories')) {
+        return ['data-management']
+      }
+      if (path.includes('/logs') || path.includes('/data-replay')) {
+        return ['log-analysis']
+      }
+      if (path.includes('/users') || path.includes('/roles') || path.includes('/devices') || path.includes('/history') || path.includes('/monitoring')) {
+        return ['system-management']
+      }
+      return []
+    }
+    
+    const openKeys = ref(getOpenKeysFromPath(route.path))
+    
+    // 监听路由变化，更新选中菜单和展开的子菜单
     watch(() => route.path, (newPath) => {
       selectedKeys.value = [newPath]
+      openKeys.value = getOpenKeysFromPath(newPath)
     }, { immediate: true })
     
     const toggleCollapsed = () => {
@@ -287,6 +283,7 @@ export default {
       const nameMap = {
         ErrorCodes: 'errorCodes.title',
         I18nErrorCodes: 'i18nErrorCodes.title',
+        AnalysisCategories: 'analysisCategories.title',
         Logs: 'logs.title',
         Devices: 'devices.title',
         Feedback: 'feedback.title',
@@ -296,7 +293,8 @@ export default {
         Users: 'users.title',
         Roles: 'roles.title',
         BatchAnalysis: 'batchAnalysis.title',
-        GlobalDashboard: '全局看板'
+        GlobalDashboard: '全局看板',
+        Monitoring: '系统监控'
       }
       return nameMap[route.name] || 'nav.dashboard'
     })
@@ -369,26 +367,19 @@ export default {
   font-size: 18px;
   font-weight: bold;
   border-bottom: 1px solid #002140;
+  padding: 0 16px;
 }
 
-.logo h2 {
-  margin: 0;
-  color: white;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.logo-icon {
-  width: 32px;
+.logo-text {
   height: 32px;
-  background: #1890ff;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: bold;
-  color: white;
+  width: auto;
+  filter: brightness(0) invert(1);
+}
+
+.logo-icon-svg {
+  width: 40px;
+  height: 40px;
+  filter: brightness(0) invert(1);
 }
 
 .dashboard-menu {

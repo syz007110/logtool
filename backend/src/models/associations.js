@@ -13,6 +13,8 @@ const FeedbackImage = require('./feedback_image');
 const LogNote = require('./log_note');
 const Permission = require('./permission');
 const RolePermission = require('./role_permission');
+const AnalysisCategory = require('./analysis_category');
+const ErrorCodeAnalysisCategory = require('./error_code_analysis_category');
 
 // 防止重复定义关联 - 使用进程级别的检查
 const associationsProcessKey = `associations_${process.pid}`;
@@ -167,6 +169,21 @@ function defineAssociations() {
   // User 与 LogNote 的关联
   User.hasMany(LogNote, { foreignKey: 'user_id', as: 'logNotes' });
   LogNote.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+  // ErrorCode 与 AnalysisCategory 的多对多关联
+  ErrorCode.belongsToMany(AnalysisCategory, {
+    through: ErrorCodeAnalysisCategory,
+    foreignKey: 'error_code_id',
+    otherKey: 'analysis_category_id',
+    as: 'analysisCategories'
+  });
+
+  AnalysisCategory.belongsToMany(ErrorCode, {
+    through: ErrorCodeAnalysisCategory,
+    foreignKey: 'analysis_category_id',
+    otherKey: 'error_code_id',
+    as: 'errorCodes'
+  });
 
   console.log('✅ 模型关联定义完成');
 }

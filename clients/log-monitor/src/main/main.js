@@ -475,7 +475,22 @@ app.whenReady().then(async () => {
     }
     tray = new Tray(icon);
     const buildMenu = () => Menu.buildFromTemplate([
-      { label: paused ? 'Resume Upload' : 'Pause Upload', click: () => { paused = !paused; if (uploader) uploader.setConcurrency(paused ? 0 : (cfg.concurrency || 3)); tray.setToolTip(paused ? 'Paused' : 'Running'); } },
+      { label: paused ? 'Resume Upload' : 'Pause Upload', click: async () => { 
+        paused = !paused; 
+        if (uploader) uploader.setConcurrency(paused ? 0 : (cfg.concurrency || 3)); 
+        // 同时控制 watcher
+        if (paused) {
+          if (watcher) watcher.stop();
+        } else {
+          if (watcher) {
+            const cfg = await getConfig();
+            const startPaths = cfg.watchPaths || [];
+            const ignoreInitial = !!cfg.ignoreInitial;
+            watcher.start(startPaths, cfg.includeExtensions || ['.medbot'], cfg.recurseDepth || 4, { ignoreInitial });
+          }
+        }
+        tray.setToolTip(paused ? 'Paused' : 'Running'); 
+      } },
       { label: 'Open Logs Directory', click: () => { const dir = getAppDataDir(); shell.openPath(dir); } },
       { label: 'Show Window', click: () => { if (mainWindow) mainWindow.show(); } },
       { type: 'separator' },
@@ -523,6 +538,23 @@ ipcMain.on('watch:update', async (_evt, { paths, depth, exts }) => {
 });
 ipcMain.on('uploader:setConcurrency', async (_evt, n) => {
   if (uploader) uploader.setConcurrency(n);
+  // 真正的暂停/恢复：同时控制 watcher
+  if (n === 0) {
+    // 暂停：停止监控
+    if (watcher) {
+      console.log('暂停监控器');
+      watcher.stop();
+    }
+  } else {
+    // 恢复：重启监控
+    if (watcher) {
+      console.log('恢复监控器');
+      const cfg = await getConfig();
+      const startPaths = cfg.watchPaths || [];
+      const ignoreInitial = !!cfg.ignoreInitial;
+      watcher.start(startPaths, cfg.includeExtensions || ['.medbot'], cfg.recurseDepth || 4, { ignoreInitial });
+    }
+  }
 });
 
 
