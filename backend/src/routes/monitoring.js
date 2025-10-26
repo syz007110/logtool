@@ -14,28 +14,28 @@ const { checkPermission } = require('../middlewares/permission');
  * @desc 获取系统概览监控数据
  * @access Private (需要认证)
  */
-router.get('/overview', auth, checkPermission('read_all'), (req, res) => monitoringController.getSystemOverview(req, res));
+router.get('/overview', auth, checkPermission('dashboard:read'), (req, res) => monitoringController.getSystemOverview(req, res));
 
 /**
  * @route GET /api/monitoring/metrics/history
  * @desc 获取历史指标数据
  * @access Private (需要认证)
  */
-router.get('/metrics/history', auth, checkPermission('read_all'), (req, res) => monitoringController.getMetricsHistory(req, res));
+router.get('/metrics/history', auth, checkPermission('dashboard:read'), (req, res) => monitoringController.getMetricsHistory(req, res));
 
 /**
  * @route GET /api/monitoring/metrics/realtime
  * @desc 获取实时指标数据
  * @access Private (需要认证)
  */
-router.get('/metrics/realtime', auth, checkPermission('read_all'), (req, res) => monitoringController.getRealtimeMetrics(req, res));
+router.get('/metrics/realtime', auth, checkPermission('dashboard:read'), (req, res) => monitoringController.getRealtimeMetrics(req, res));
 
 /**
  * @route GET /api/monitoring/alerts
  * @desc 获取当前告警
  * @access Private (需要认证)
  */
-router.get('/alerts', auth, checkPermission('read_all'), (req, res) => monitoringController.checkAlerts(req, res));
+router.get('/alerts', auth, checkPermission('dashboard:read'), (req, res) => monitoringController.checkAlerts(req, res));
 
 /**
  * @route POST /api/monitoring/alerts/thresholds

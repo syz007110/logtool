@@ -1,17 +1,24 @@
 const Role = require('../models/role');
 const Permission = require('../models/permission');
 const RolePermission = require('../models/role_permission');
+const UserRole = require('../models/user_role');
+const User = require('../models/user');
+const { Op } = require('sequelize');
 
 // 查询角色列表（包含权限）
 const getRoles = async (req, res) => {
   try {
     const roles = await Role.findAll({
-      include: [{ model: Permission, as: 'permissions', attributes: ['name'] }]
+      include: [
+        { model: Permission, as: 'permissions', attributes: ['name'] },
+        { model: User, as: 'users', attributes: ['id'], through: { attributes: [] } }
+      ]
     });
     const data = roles.map(r => ({
       id: r.id,
       name: r.name,
       description: r.description,
+      userCount: Array.isArray(r.users) ? r.users.length : 0,
       permissions: (r.permissions || []).map(p => p.name)
     }));
     res.json({ roles: data });
@@ -20,7 +27,7 @@ const getRoles = async (req, res) => {
   }
 };
 
-// 新建角色（可附带权限）
+  // 新建角色（可附带权限）
 const createRole = async (req, res) => {
   const t = await Role.sequelize.transaction();
   try {
@@ -33,16 +40,27 @@ const createRole = async (req, res) => {
     const role = await Role.create({ name, description }, { transaction: t });
 
     if (Array.isArray(permissions) && permissions.length > 0) {
-      const perms = await Permission.findAll({ where: { name: { [Permission.sequelize.Op.in]: permissions } } });
-      const permIds = perms.map(p => p.id);
-      if (permIds.length > 0) {
-        const rows = permIds.map(pid => ({ role_id: role.id, permission_id: pid }));
+      const normalized = permissions.map(p => String(p).trim());
+      const perms = await Permission.findAll({ where: { name: { [Op.in]: normalized } } });
+      if (perms.length !== normalized.length) {
+        const found = new Set(perms.map(p => p.name));
+        const missing = normalized.filter(n => !found.has(n));
+        await t.rollback();
+        return res.status(400).json({ message: '存在未知权限', missing });
+      }
+      const rows = perms.map(p => ({ role_id: role.id, permission_id: p.id }));
+      if (rows.length > 0) {
         await RolePermission.bulkCreate(rows, { transaction: t, ignoreDuplicates: true });
       }
     }
 
     await t.commit();
-    res.status(201).json({ message: '创建成功', role: { id: role.id, name: role.name, description: role.description, permissions: permissions || [] } });
+    // 读取最新权限返回
+    const savedPerms = await Permission.findAll({
+      include: [{ model: Role, as: 'roles', where: { id: role.id }, attributes: [] }],
+      attributes: ['name']
+    });
+    res.status(201).json({ message: '创建成功', role: { id: role.id, name: role.name, description: role.description, permissions: savedPerms.map(p => p.name) } });
   } catch (err) {
     await t.rollback();
     res.status(500).json({ message: '创建失败', error: err.message });
@@ -58,12 +76,31 @@ const updateRole = async (req, res) => {
     const role = await Role.findByPk(id);
     if (!role) return res.status(404).json({ message: '未找到角色' });
 
+    // 管理员角色保护：禁止修改管理员角色名称与权限
+    const normalize = (s) => (s || '').toString().trim().toLowerCase();
+    const isAdminRole = normalize(role.name) === 'admin' || role.name === '管理员';
+    if (isAdminRole) {
+      if (name && normalize(name) !== 'admin' && name !== '管理员') {
+        return res.status(400).json({ message: '管理员角色名称不可修改' });
+      }
+      if (Array.isArray(permissions)) {
+        return res.status(400).json({ message: '管理员角色权限不可修改' });
+      }
+    }
+
     await role.update({ name, description }, { transaction: t });
 
     if (Array.isArray(permissions)) {
       await RolePermission.destroy({ where: { role_id: role.id }, transaction: t });
       if (permissions.length > 0) {
-        const perms = await Permission.findAll({ where: { name: { [Permission.sequelize.Op.in]: permissions } } });
+        const normalized = permissions.map(p => String(p).trim());
+        const perms = await Permission.findAll({ where: { name: { [Op.in]: normalized } } });
+        if (perms.length !== normalized.length) {
+          const found = new Set(perms.map(p => p.name));
+          const missing = normalized.filter(n => !found.has(n));
+          await t.rollback();
+          return res.status(400).json({ message: '存在未知权限', missing });
+        }
         const rows = perms.map(p => ({ role_id: role.id, permission_id: p.id }));
         if (rows.length > 0) {
           await RolePermission.bulkCreate(rows, { transaction: t });
@@ -72,7 +109,12 @@ const updateRole = async (req, res) => {
     }
 
     await t.commit();
-    res.json({ message: '更新成功', role: { id: role.id, name: role.name, description: role.description, permissions: permissions || undefined } });
+    // 读取最新权限返回
+    const savedPerms = await Permission.findAll({
+      include: [{ model: Role, as: 'roles', where: { id: role.id }, attributes: [] }],
+      attributes: ['name']
+    });
+    res.json({ message: '更新成功', role: { id: role.id, name: role.name, description: role.description, permissions: savedPerms.map(p => p.name) } });
   } catch (err) {
     await t.rollback();
     res.status(500).json({ message: '更新失败', error: err.message });
@@ -86,6 +128,18 @@ const deleteRole = async (req, res) => {
     const { id } = req.params;
     const role = await Role.findByPk(id);
     if (!role) return res.status(404).json({ message: '未找到角色' });
+
+    // 保护内置角色：admin / expert / user 不允许删除
+    const name = String(role.name || '').toLowerCase();
+    if (name === 'admin' || name === 'expert' || name === 'user') {
+      return res.status(400).json({ message: '内置角色不允许删除' });
+    }
+
+    // 被用户引用保护：若仍有用户分配该角色则禁止删除
+    const assignedCount = await UserRole.count({ where: { role_id: role.id, is_active: true } });
+    if (assignedCount > 0) {
+      return res.status(400).json({ message: `该角色已分配给 ${assignedCount} 个用户，不能删除` });
+    }
 
     await RolePermission.destroy({ where: { role_id: role.id }, transaction: t });
     await role.destroy({ transaction: t });

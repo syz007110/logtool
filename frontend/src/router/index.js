@@ -24,15 +24,15 @@ const routes = [
     path: '/batch-analysis/:logIds',
     name: 'BatchAnalysisStandalone',
     component: () => import('../views/BatchAnalysis.vue'),
-    // 允许拥有手术分析权限的用户访问（管理员、专家、普通用户）
-    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:analyze' }
+    // 日志查看/批量查看：允许拥有日志读取权限的用户访问
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'log:read_all' }
   },
   {
     path: '/surgery-statistics',
     name: 'SurgeryStatistics',
     component: () => import('../views/SurgeryStatistics.vue'),
-    // 管理员、专家
-    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:analyze' }
+    // 管理员、专家（统一使用 surgery:read）
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'surgery:read' }
   },
   {
     path: '/surgery-visualization',
@@ -64,7 +64,7 @@ const routes = [
         path: 'analysis-categories',
         name: 'AnalysisCategories',
         component: () => import('../views/AnalysisCategories.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'loglevel:manage' }
       },
       {
         path: 'logs',
@@ -75,7 +75,7 @@ const routes = [
         path: 'log-detail/:id',
         name: 'LogDetail',
         redirect: (to) => ({ path: `/batch-analysis/${to.params.id}` }),
-        meta: { requiresPermission: 'surgery:analyze' }
+        meta: { requiresPermission: 'log:read_all' }
       },
       {
         path: 'log-analysis/:id',
@@ -86,7 +86,7 @@ const routes = [
         path: 'batch-analysis/:logIds',
         name: 'BatchAnalysis',
         component: () => import('../views/BatchAnalysis.vue'),
-        meta: { requiresPermission: 'surgery:analyze' }
+        meta: { requiresPermission: 'log:read_all' }
       },
       {
         path: 'account',
@@ -97,36 +97,37 @@ const routes = [
         path: 'history',
         name: 'History',
         component: () => import('../views/History.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: ['history:read_all', 'history:read_own'] }
       },
       {
         path: 'users',
         name: 'Users',
         component: () => import('../views/Users.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'user:read' }
       },
       {
         path: 'roles',
         name: 'Roles',
         component: () => import('../views/Roles.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'role:read' }
       },
       {
         path: 'explanation-tester',
         name: 'ExplanationTester',
         component: () => import('../views/ExplanationTester.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'test:explain' }
       },
       {
         path: 'devices',
         name: 'Devices',
-        component: () => import('../views/Devices.vue')
+        component: () => import('../views/Devices.vue'),
+        meta: { requiresPermission: 'device:read' }
       },
       {
         path: 'data-replay',
         name: 'DataReplay',
         component: () => import('../views/DataReplay.vue'),
-        meta: { requiresPermission: 'data_replay:read' }
+        meta: { requiresPermission: 'data_replay:manage' }
       },
       {
         path: 'feedback',
@@ -153,7 +154,7 @@ const routes = [
         path: 'monitoring',
         name: 'Monitoring',
         component: () => import('../views/MonitoringDashboard.vue'),
-        meta: { requiresAdmin: true }
+        meta: { requiresPermission: 'system:monitor' }
       }
 
     ]

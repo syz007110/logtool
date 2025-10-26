@@ -62,7 +62,8 @@ api.interceptors.response.use(
 // API模块
 const auth = {
   login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData)
+  register: (userData) => api.post('/auth/register', userData),
+  me: () => api.get('/auth/me')
 }
 
 const errorCodes = {
@@ -80,6 +81,10 @@ const errorCodes = {
   exportMultiXML: (languages = 'zh') => api.get('/error-codes/export/multi-xml', {
     params: { languages },
     responseType: 'json'
+  }),
+  exportCSV: (languages = '', format = 'csv') => api.get('/error-codes/export/csv', {
+    params: { languages, format },
+    responseType: 'blob'
   })
 }
 

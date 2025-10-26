@@ -59,6 +59,132 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ========================================
+-- 4.3 初始化内置角色与权限（一步到位使用新权限名）
+-- ========================================
+
+-- 4.3.1 预置角色（若不存在则创建）
+INSERT INTO roles (name, description)
+SELECT * FROM (
+  SELECT 'admin' AS name, '拥有所有权限，可以管理用户和角色' AS description
+) AS tmp
+WHERE NOT EXISTS (SELECT 1 FROM roles r WHERE LOWER(r.name) = 'admin');
+
+INSERT INTO roles (name, description)
+SELECT * FROM (
+  SELECT 'expert' AS name, '专家用户：可管理故障码、查看所有日志、数据解析、手术统计等' AS description
+) AS tmp
+WHERE NOT EXISTS (SELECT 1 FROM roles r WHERE LOWER(r.name) = 'expert');
+
+INSERT INTO roles (name, description)
+SELECT * FROM (
+  SELECT 'user' AS name, '普通用户：可查看故障码、上传日志、仅操作自身数据等' AS description
+) AS tmp
+WHERE NOT EXISTS (SELECT 1 FROM roles r WHERE LOWER(r.name) = 'user');
+
+-- 4.3.2 同步新权限清单（幂等）
+INSERT INTO permissions (name, description) VALUES
+  -- 用户与角色
+  ('user:read','用户查看'),
+  ('user:create','用户创建'),
+  ('user:update','用户修改'),
+  ('user:delete','用户删除'),
+  ('user:role:assign','用户权限修改'),
+
+  ('role:create','角色创建'),
+  ('role:read','角色查看'),
+  ('role:update','角色修改'),
+  ('role:delete','角色删除'),
+
+  -- 故障码
+  ('error_code:read','故障码查看'),
+  ('error_code:create','故障码新增'),
+  ('error_code:update','故障码修改'),
+  ('error_code:delete','故障码删除'),
+  ('error_code:export','故障码导出'),
+
+  -- 日志（新语义）
+  ('log:upload','日志上传与解析'),
+  ('log:read_all','查看全部日志'),
+  ('log:download','日志下载'),
+  ('log:delete','日志删除(全部)'),
+  ('log:delete_own','日志删除(自己)'),
+  ('log:reparse','日志重新解析(管理员)'),
+
+  -- 多语言
+  ('i18n:read','多语言查看'),
+  ('i18n:create','多语言新增'),
+  ('i18n:update','多语言修改'),
+  ('i18n:delete','多语言删除'),
+
+  -- 数据解析（新语义）
+  ('data_replay:manage','数据解析管理(上传/读取/下载)'),
+
+  -- 手术数据（新语义）
+  ('surgery:read','手术数据查看/统计/可视化'),
+  ('surgery:export','手术数据导出'),
+  ('surgery:delete','手术数据删除'),
+
+  -- 历史记录
+  ('history:read_own','历史记录(自己)'),
+  ('history:read_all','历史记录(全部)'),
+  ('history:export','历史记录导出'),
+
+  -- 设备
+  ('device:read','设备查看'),
+  ('device:create','设备创建'),
+  ('device:update','设备修改'),
+  ('device:delete','设备删除'),
+
+  -- 看板
+  ('dashboard:read','全局看板查看'),
+
+  -- 测试
+  ('test:explain','测试(释义测试)'),
+
+  -- 系统监控
+  ('system:monitor','系统监控'),
+
+  -- 日志分析等级
+  ('loglevel:manage','日志分析等级管理')
+ON DUPLICATE KEY UPDATE description = VALUES(description);
+
+-- 管理员：授予全部权限
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT @ADMIN_ID, p.id FROM permissions p WHERE @ADMIN_ID IS NOT NULL;
+
+-- 专家：按需求
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT @EXPERT_ID, p.id FROM permissions p
+WHERE @EXPERT_ID IS NOT NULL AND p.name IN (
+  'error_code:read','error_code:create','error_code:update','error_code:delete','error_code:export',
+  'log:upload','log:read_all','log:download','log:delete_own',
+  'i18n:read','i18n:create','i18n:update','i18n:delete',
+  'device:read','device:create','device:update','device:delete',
+  'data_replay:manage',
+  'surgery:read','surgery:export',
+  'dashboard:read',
+  'history:read_own',
+  'system:monitor',
+  'loglevel:manage',
+  'test:explain'
+);
+
+-- 普通用户：按需求
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT @USER_ID, p.id FROM permissions p
+WHERE @USER_ID IS NOT NULL AND p.name IN (
+  'error_code:read','error_code:export',
+  'log:upload','log:download','log:delete_own',
+  'i18n:read',
+  'data_replay:manage',
+  'surgery:read','surgery:export',
+  'dashboard:read',
+  'history:read_own',
+  'system:monitor',
+  'loglevel:manage'
+);
+
 -- 5. 故障码表
 -- 注意：英文内容（short_message/user_hint/operation）已迁移至 i18n_error_codes 表
 -- 主表仅保留中文字段作为默认语言

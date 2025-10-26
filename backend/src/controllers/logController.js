@@ -256,8 +256,8 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const getLogs = async (req, res) => {
   try {
     let { page = 1, limit = 20, device_id } = req.query;
-    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀）
-    const { only_own, year, month, day, hour, time_prefix } = req.query;
+    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）
+    const { only_own, year, month, day, hour, time_prefix, time_range_start, time_range_end } = req.query;
     page = parseInt(page, 10);
     limit = parseInt(limit, 10);
     
@@ -275,20 +275,33 @@ const getLogs = async (req, res) => {
     if (truthy(only_own) && req.user && req.user.id) {
       where.uploader_id = req.user.id;
     }
-    // 时间前缀筛选：original_name 以 YYYY[MM][DD][HH] 开头
-    // 优先使用直接传入的 time_prefix，其次使用 year/month/day/hour 组合
+    // 时间筛选：
+    // 1) 区间：将 original_name 的前10位(YYYYMMDDHH)与 [time_range_start, time_range_end] 做区间筛选
+    // 2) 前缀：original_name 以 YYYY[MM][DD][HH] 开头（time_prefix 或 year/month/day/hour 组合）
     const prefixFromParam = (p) => typeof p === 'string' ? p.trim() : (p ?? '').toString();
-    const tp = prefixFromParam(time_prefix);
-    if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
-      where.original_name = { [Op.like]: `${tp}%` };
-    } else if (year) {
-      const y = String(year).padStart(4, '0');
-      const m = month ? String(month).padStart(2, '0') : '';
-      const d = day ? String(day).padStart(2, '0') : '';
-      const h = hour ? String(hour).padStart(2, '0') : '';
-      const prefix = `${y}${m}${d}${h}`;
-      if (prefix && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(prefix)) {
-        where.original_name = { [Op.like]: `${prefix}%` };
+    const rangeStart = prefixFromParam(time_range_start);
+    const rangeEnd = prefixFromParam(time_range_end);
+    if (rangeStart && rangeEnd && /^[0-9]{10}$/.test(rangeStart) && /^[0-9]{10}$/.test(rangeEnd)) {
+      // 使用 LEFT(original_name, 10) BETWEEN start AND end
+      where[SequelizeLib.Op.and] = (where[SequelizeLib.Op.and] || []).concat([
+        SequelizeLib.where(
+          SequelizeLib.fn('LEFT', SequelizeLib.col('original_name'), 10),
+          { [Op.between]: [rangeStart, rangeEnd] }
+        )
+      ]);
+    } else {
+      const tp = prefixFromParam(time_prefix);
+      if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
+        where.original_name = { [Op.like]: `${tp}%` };
+      } else if (year) {
+        const y = String(year).padStart(4, '0');
+        const m = month ? String(month).padStart(2, '0') : '';
+        const d = day ? String(day).padStart(2, '0') : '';
+        const h = hour ? String(hour).padStart(2, '0') : '';
+        const prefix = `${y}${m}${d}${h}`;
+        if (prefix && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(prefix)) {
+          where.original_name = { [Op.like]: `${prefix}%` };
+        }
       }
     }
     

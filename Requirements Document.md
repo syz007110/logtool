@@ -459,31 +459,54 @@ flowchart TD
 - 可访问用户管理界面：
 - 查看所有用户信息、搜索、重置密码、修改角色，可新增、删除用户账户；
 
-### 3.3 权限角色定义
 
-| 权限 | 管理员 | 专家用户 | 普通用户 |
-| --- | --- | --- | --- |
-| 用户管理 | ✅ | ❌ | ❌ |
-| 故障码增删改 | ✅ | ✅ | ❌ |
-| 日志上传/解析 | ✅ | ✅ | ✅ |
-| 日志查看 | ✅ | ✅ | ✅ |
-| 日志删除 | ✅ | ❌ | ❌ |
-| 日志删除（自己） | ✅ | ✅ | ✅ |
-| 故障码多语言查看 | ✅ | ✅ | ✅ |
-| 故障码多语言管理 | ✅ | ✅ | ❌ |
-| 数据解析 | ✅ | ✅ | ❌ |
-| 手术分析 | ✅ | ✅ | ❌ |
-| 故障码查询功能 | ✅ | ✅ | ✅ |
-| 全局看板 | ✅ | ✅ | ✅ |
-| 释义测试 | ✅ | ❌ | ❌ |
-| 角色管理 | ✅ | ❌ | ❌ |
-| 历史记录 | ✅ | ❌ | ❌ |
-| 设备管理 | ✅ | ❌ | ❌ |
-| 缺陷反馈 | ✅ | ✅ | ❌ |
-| 查看手术数据 | ✅ | ✅ | ✅ |
-| 删除手术数据 | ✅ | ❌ | ❌ |
-| 手术数据可视化 | ✅ | ✅ | ✅ |
-| 导出手术数据 | ✅ | ❌ | ❌ |
+### 角色管理
+
+### 角色管理
+
+- 角色管理页面支持角色的增删改查
+- 默认的普通用户、专家用户、管理员角色不能删除，若有用户被分配了某角色该角色不能被删除；
+- 管理员默认拥有所有功能的权限，管理员不能修改自己的权限；
+- 支持角色权限的修改，前端使用树形控件；
+- 角色权限控制两个方面:后端强校验；前端再做“可见性/可用性”控制以优化体验。两者都要，且以后端为准。
+- 现有功能权限
+| 权限定义 | 前端组合开关 | 中文 | 管理员 | 专家用户 | 普通用户 |
+| --- | --- | --- | --- | --- | --- |
+| user:read      | user:manage | 用户管理 | ✅ | ❌ | ❌ |
+| user:create | user:manage | 用户创建 | ✅ | ❌ | ❌ |
+| user:update   | user:manage | 用户修改 | ✅ | ❌ | ❌ |
+| user:delete | user:manage | 用户删除 | ✅ | ❌ | ❌ |
+| user:role:assign | user:manage | 用户权限修改 | ✅ | ❌ | ❌ |
+| role:create  | role:manage | 角色创建 | ✅ | ❌ | ❌ |
+|  role:read    | role:manage | 角色查看 | ✅ | ❌ | ❌ |
+| role:update     | role:manage | 角色修改 | ✅ | ❌ | ❌ |
+|  role:delete | role:manage | 角色删除 | ✅ | ❌ | ❌ |
+| error_code:update  | error_code:manage | 故障码修改 | ✅ | ✅ | ❌ |
+| error_code:delete  | error_code:manage | 故障码删除 | ✅ | ✅ | ❌ |
+|  error_code:create | error_code:manage | 故障码新增 | ✅ | ✅ | ❌ |
+| error_code:read | error_code:read | 故障码查看 | ✅ | ✅ | ✅ |
+| error_code:export | error_code:export | 故障码导出 | ✅ | ✅ | ✅ |
+| log:upload | log:upload | 日志上传/解析 | ✅ | ✅ | ✅ |
+| log:read_all| log:read_all | 日志查看、批量查看 | ✅ | ❌ | ❌ |
+| log:delete  | log:delete  | 日志删除 | ✅ | ❌ | ❌ |
+| log:delete_own | log:delete_own | 日志删除（自己） | ✅ | ✅ | ✅ |
+| log:download  | log:download  | 日志下载 | ✅ | ✅ | ✅ |
+| i18n:read  | i18n:read  | 故障码多语言查看 | ✅ | ✅ | ✅ |
+| i18n:create  | i18n:manage | 故障码多语言新增 | ✅ | ✅ | ❌ |
+|  i18n:update | i18n:manage | 故障码多语言修改 | ✅ | ✅ | ❌ |
+|  i18n:delete | i18n:manage | 故障码多语言修改 | ✅ | ✅ | ❌ |
+| data_replay:manage| data_replay:manage | 数据解析 | ✅ | ✅ | ❌
+| surgery:read | surgery:read | 手术数据统计、手术数据可视化、查看手术数据 | ✅ | ✅ | ✅ |
+| surgery:delete | surgery:delete | 删除手术数据 | ✅ | ❌ | ❌ |
+| surgery:export | surgery:export | 导出手术数据 | ✅ | ✅ | ✅ |
+| dashboard:read | dashboard:read | 全局看板 | ✅ | ✅ | ✅ |
+| test | test | 测试(释义测试) | ✅ | ❌ | ❌ |
+| history:read | history:read | 历史记录 | ✅ | ❌ | ❌ |
+| device:read | device:read| 设备查看| ✅| ✅| ❌
+| device:create 、device:update  、device:delete| 	device:manage| 设备管理| ✅| ❌| ❌| 
+| feebback | feebback | 缺陷反馈 | ✅ | ✅ | ✅ |
+| test:explain| test:explain| 测试(释义测试)| ✅| ❌| ❌
+| system:monitor| system:monitor| 系统监控| ✅| ❌| ❌
 
 ### 5. 系统操作日志记录
 

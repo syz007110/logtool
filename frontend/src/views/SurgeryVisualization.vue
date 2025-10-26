@@ -21,7 +21,14 @@
       </div>
         <div 
           class="timeline-container"
+          :class="{ 'dragging': isDragging }"
+          :data-zoom-level="zoomLevel"
           @wheel.prevent="handleWheel"
+          @mousedown="handleDragStart"
+          @mousemove="handleDragMove"
+          @mouseup="handleDragEnd"
+          @mouseleave="handleMouseLeave"
+          @mouseenter="handleMouseEnter"
         >
         <!-- 表格头部 -->
         <div class="timeline-header">
@@ -170,6 +177,8 @@
             :width="600"
             :y-axis-format="'integer'"
             :show-range-labels="true"
+            :outer-padding="12"
+            :grid-padding="{ left: 20, right: 20, top: 30,  containLabel: true }"
           />
         </div>
       </el-card>
@@ -177,30 +186,34 @@
       <!-- 远程手术：网络延迟情况和操作数据汇总切换 -->
       <div v-if="meta.is_remote" class="remote-surgery-section">
         <el-card class="remote-surgery-card">
-          <div class="section-header">
-            <span>{{ remoteDataView === 'network' ? '网络延迟情况' : '操作数据汇总' }}</span>
-            <el-radio-group v-model="remoteDataView" size="small" class="view-switcher">
-              <el-radio-button label="network" :disabled="!hasNetworkLatencyData">网络延迟情况</el-radio-button>
-              <el-radio-button label="operations" :disabled="!hasOperationData">操作数据汇总</el-radio-button>
-            </el-radio-group>
-          </div>
-          
-          <!-- 网络延迟情况 -->
-          <div v-if="remoteDataView === 'network' && hasNetworkLatencyData" class="chart-container">
-            <TimeSeriesChart
-              :series-data="networkLatencyChartData"
-              :series-name="'网络延迟(ms)'"
-              :height="300"
-              :width="600"
-              :y-axis-format="'decimal'"
-              :show-range-labels="true"
-            />
-          </div>
-          
-          <!-- 操作数据汇总表 -->
-          <div v-if="remoteDataView === 'operations'" class="operations-summary">
-            <OperationSummaryTable :operation-data="operationSummaryData" />
-          </div>
+          <a-tabs :activeKey="remoteDataView" @change="(key) => remoteDataView = key" class="remote-data-tabs">
+            <a-tab-pane key="network" :disabled="!hasNetworkLatencyData">
+              <template #tab>
+                <span class="tab-title">网络延迟情况</span>
+              </template>
+              <div v-if="hasNetworkLatencyData" class="chart-container">
+                <TimeSeriesChart
+                  :series-data="networkLatencyChartData"
+                  :series-name="'网络延迟(ms)'"
+                  :height="300"
+                  :width="600"
+                  :y-axis-format="'decimal'"
+                  :show-range-labels="true"
+                  :outer-padding="12"
+                  :grid-padding="{ left: 20, right: 20, top: 30,  containLabel: true }"
+                />
+              </div>
+            </a-tab-pane>
+            
+            <a-tab-pane key="operations" :disabled="!hasOperationData">
+              <template #tab>
+                <span class="tab-title">操作数据汇总</span>
+              </template>
+              <div class="operations-summary">
+                <OperationSummaryTable :operation-data="operationSummaryData" />
+              </div>
+            </a-tab-pane>
+          </a-tabs>
         </el-card>
       </div>
 
@@ -318,12 +331,15 @@ import { normalizeSurgeryData as normalize } from '../utils/visualizationConfig'
 import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 import OperationSummaryTable from '../components/OperationSummaryTable.vue'
+import { Tabs, TabPane } from 'ant-design-vue'
 
 export default {
   name: 'SurgeryVisualization',
   components: {
     TimeSeriesChart,
-    OperationSummaryTable
+    OperationSummaryTable,
+    Tabs,
+    TabPane
   },
   setup() {
     // 移除不需要的图表引用
@@ -359,6 +375,14 @@ export default {
     const zoomLevel = ref(1) // 缩放级别，1为正常大小（撑满容器）
     const minZoom = 1 // 最小缩放（默认视图，撑满容器）
     const maxZoom = 5 // 最大缩放
+    
+    // 拖拽控制
+    const isDragging = ref(false)
+    const dragStartX = ref(0)
+    const dragStartScrollLeft = ref(0)
+    const dragVelocity = ref(0)
+    const lastDragTime = ref(0)
+    const inertiaAnimationId = ref(null)
     
     // 图表相关
     const showCharts = ref(false)
@@ -1719,6 +1743,11 @@ export default {
         return
       }
       
+      // 如果正在拖拽，不处理滚轮事件
+      if (isDragging.value) {
+        return
+      }
+      
       // 阻止默认滚动行为，但只在必要时
       if (event.cancelable !== false) {
         event.preventDefault()
@@ -1778,6 +1807,129 @@ export default {
       zoomLevel.value = 1
     }
     
+    // 拖拽开始
+    const handleDragStart = (event) => {
+      // 只在缩放状态下启用拖拽
+      if (zoomLevel.value <= 1) return
+      
+      // 检查是否点击在可拖拽区域（避免与器械段点击冲突）
+      if (event.target.closest('.instrument-segment-svg') || 
+          event.target.closest('.timeline-event') ||
+          event.target.closest('.arm-column') ||
+          event.target.closest('.arm-cell')) {
+        return
+      }
+      
+      // 停止之前的惯性滚动
+      stopInertiaScroll()
+      
+      // 阻止默认行为
+      event.preventDefault()
+      
+      isDragging.value = true
+      dragStartX.value = event.clientX
+      dragStartScrollLeft.value = event.currentTarget.scrollLeft
+      dragVelocity.value = 0
+      lastDragTime.value = Date.now()
+      
+      // 添加拖拽样式
+      event.currentTarget.style.cursor = 'grabbing'
+      event.currentTarget.style.userSelect = 'none'
+    }
+    
+    // 拖拽进行中
+    const handleDragMove = (event) => {
+      if (!isDragging.value) return
+      
+      event.preventDefault()
+      
+      const container = event.currentTarget
+      const deltaX = event.clientX - dragStartX.value
+      const newScrollLeft = dragStartScrollLeft.value - deltaX
+      
+      // 计算拖拽速度（用于惯性滚动）
+      const currentTime = Date.now()
+      const timeDelta = currentTime - lastDragTime.value
+      if (timeDelta > 0) {
+        dragVelocity.value = deltaX / timeDelta
+        lastDragTime.value = currentTime
+      }
+      
+      // 应用滚动
+      container.scrollLeft = Math.max(0, newScrollLeft)
+    }
+    
+    // 拖拽结束
+    const handleDragEnd = (event) => {
+      if (!isDragging.value) return
+      
+      isDragging.value = false
+      
+      // 恢复样式
+      event.currentTarget.style.cursor = 'grab'
+      event.currentTarget.style.userSelect = ''
+      
+      // 惯性滚动 - 优化参数，提供更精确的控制
+      if (Math.abs(dragVelocity.value) > 8.0) {  // 大幅提高触发阈值
+        applyInertiaScroll(event.currentTarget, dragVelocity.value * 0.3)  // 大幅减少惯性强度
+      }
+    }
+    
+    // 惯性滚动
+    const applyInertiaScroll = (container, velocity) => {
+      // 取消之前的惯性动画
+      if (inertiaAnimationId.value) {
+        cancelAnimationFrame(inertiaAnimationId.value)
+      }
+      
+      const friction = 0.75  // 更强的摩擦力，更快停止
+      const minVelocity = 0.5  // 更高的停止阈值
+      const maxVelocity = 8  // 更严格的速度限制
+      
+      // 限制速度范围
+      velocity = Math.max(-maxVelocity, Math.min(maxVelocity, velocity))
+      
+      const animate = () => {
+        if (Math.abs(velocity) < minVelocity) {
+          inertiaAnimationId.value = null
+          return
+        }
+        
+        container.scrollLeft -= velocity
+        velocity *= friction
+        
+        inertiaAnimationId.value = requestAnimationFrame(animate)
+      }
+      
+      inertiaAnimationId.value = requestAnimationFrame(animate)
+    }
+    
+    // 停止惯性滚动
+    const stopInertiaScroll = () => {
+      if (inertiaAnimationId.value) {
+        cancelAnimationFrame(inertiaAnimationId.value)
+        inertiaAnimationId.value = null
+      }
+    }
+    
+    // 鼠标进入容器
+    const handleMouseEnter = (event) => {
+      if (zoomLevel.value > 1) {
+        event.currentTarget.style.cursor = 'grab'
+      }
+    }
+    
+    // 鼠标离开容器
+    const handleMouseLeave = (event) => {
+      // 如果正在拖拽，结束拖拽
+      if (isDragging.value) {
+        handleDragEnd(event)
+      }
+      
+      // 恢复默认光标
+      event.currentTarget.style.cursor = 'default'
+    }
+    
     // 获取时间列容器样式
     const getTimeColumnsStyle = () => {
       if (zoomLevel.value === 1) {
@@ -1791,17 +1943,10 @@ export default {
       }
     }
     
-    // 获取时间单元格容器样式
+    // 获取时间单元格容器样式 - 与头部保持一致
     const getTimeCellsStyle = () => {
-      if (zoomLevel.value === 1) {
-        // 默认视图：撑满容器宽度
-        return { flex: 1 }
-      } else {
-        // 缩放视图：基于默认视图的实际宽度进行缩放
-        const baseWidth = 100 - (120 / window.innerWidth * 100)
-        const scaledWidth = baseWidth * zoomLevel.value
-        return { width: `${scaledWidth}%` }
-      }
+      // 直接使用与头部相同的样式，确保完全一致
+      return getTimeColumnsStyle()
     }
     
     // 获取时间列样式
@@ -1965,6 +2110,13 @@ export default {
       zoomLevel,
       handleWheel,
       resetZoom,
+      handleDragStart,
+      handleDragMove,
+      handleDragEnd,
+      handleMouseEnter,
+      handleMouseLeave,
+      stopInertiaScroll,
+      isDragging,
       getTimeColumnsStyle,
       getTimeCellsStyle,
       getTimeColumnStyle,
@@ -2138,7 +2290,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   font-weight: 600; 
-  margin-bottom: 16px; 
+  margin-bottom: 28px; 
   font-size: 16px;
   color: #333;
 }
@@ -2187,6 +2339,28 @@ export default {
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   position: relative; /* 为SVG覆盖层提供定位基准 */
+  /* 确保缩放时位置稳定 */
+  display: flex;
+  flex-direction: column;
+  /* 拖拽相关样式 */
+  cursor: default;
+  user-select: none;
+  transition: cursor 0.2s ease;
+}
+
+/* 拖拽状态样式 */
+.timeline-container.dragging {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* 缩放状态下的拖拽样式 */
+.timeline-container[data-zoom-level]:not([data-zoom-level="1"]) {
+  cursor: grab;
+}
+
+.timeline-container[data-zoom-level]:not([data-zoom-level="1"]):hover {
+  cursor: grab;
 }
 
 .timeline-header {
@@ -2194,6 +2368,8 @@ export default {
   background: #fafafa;
   border-bottom: 2px solid #d9d9d9;
   min-width: max-content; /* 确保容器宽度不小于内容宽度 */
+  /* 确保与body部分宽度一致 */
+  flex-shrink: 0;
 }
 
 .arm-column {
@@ -2240,6 +2416,9 @@ export default {
 .timeline-body {
   display: flex;
   flex-direction: column;
+  /* 确保与header部分宽度一致 */
+  flex-shrink: 0;
+  min-width: max-content; /* 确保容器宽度不小于内容宽度 */
 }
 
 .timeline-row {
@@ -2678,12 +2857,64 @@ export default {
   display: flex;
   gap: 16px;
   margin-top: 0;
+  overflow: visible; /* 允许内容溢出，避免裁剪tooltip */
+  position: relative; /* 为tooltip提供定位基准 */
+}
+
+/* 远程手术数据tab样式 */
+.remote-data-tabs {
+  margin-top: 0;
+}
+
+.remote-data-tabs .ant-tabs-nav {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.remote-data-tabs .ant-tabs-nav::before {
+  border-bottom: none;
+}
+
+.remote-data-tabs .ant-tabs-content-holder {
+  padding: 0;
+  margin-top: -1px; /* 微调内容区域位置 */
+}
+
+.remote-data-tabs .ant-tabs-tab {
+  font-weight: 600;
+  font-size: 16px;
+  color: #303133;
+  margin: 0 16px 0 0;
+  padding: 0;
+  height: auto;
+}
+
+.remote-data-tabs .ant-tabs-tab-btn {
+  display: inline-block;
+  line-height: 16px;
+  padding: 0;
+}
+
+.remote-data-tabs .ant-tabs-tab-active .tab-title {
+  color: #1890ff;
+}
+
+.remote-data-tabs .ant-tabs-tab-disabled .tab-title {
+  color: #bfbfbf;
+}
+
+.tab-title {
+  font-weight: 600;
+  font-size: 16px;
 }
 
 /* 手术状态机变化卡片样式 */
 .state-machine-card {
   flex: 0 0 50%; /* 固定占用50%宽度，不伸缩 */
   min-width: 0;
+  overflow: visible; /* 允许内容溢出，避免裁剪tooltip */
+  position: relative; /* 为tooltip提供定位基准 */
+  --el-card-padding: 20px 20px 20px 20px; /* 上边距10px，其他边距保持 */
 }
 
 /* 网络延迟情况卡片样式 */
@@ -2696,6 +2927,9 @@ export default {
 .remote-surgery-card {
   flex: 1;
   min-width: 0;
+  overflow: visible; /* 允许内容溢出，避免裁剪tooltip */
+  position: relative; /* 为tooltip提供定位基准 */
+  --el-card-padding: 0px 20px 20px 20px; /* 上边距为0，其他边距保持 */
 }
 
 .remote-surgery-section {
@@ -2710,8 +2944,10 @@ export default {
 .operations-summary {
   padding: 16px 0;
   min-height: 300px; /* 与图表卡片高度保持一致 */
+  height: 300px; /* 固定高度，确保一致性 */
   display: flex;
   align-items: center;
+  justify-content: center; /* 水平居中 */
 }
 
 .operations-card {
@@ -2726,6 +2962,9 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: 300px;
+  height: 300px; /* 固定高度，确保一致性 */
+  overflow: visible; /* 允许内容溢出，避免裁剪 */
+  position: relative; /* 为tooltip提供定位基准 */
 }
 
 .chart {

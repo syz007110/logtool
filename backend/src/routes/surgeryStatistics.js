@@ -8,10 +8,10 @@ const { checkPermission } = require('../middlewares/permission');
 router.get('/', auth, checkPermission('surgery:read'), surgeryStatisticsController.getAllSurgeryStatistics);
 
 // 分析已排序的日志条目（管理员、专家）
-router.post('/analyze-sorted-entries', auth, checkPermission('surgery:analyze'), surgeryStatisticsController.analyzeSortedLogEntries);
+router.post('/analyze-sorted-entries', auth, checkPermission('surgery:read'), surgeryStatisticsController.analyzeSortedLogEntries);
 
 // 通过日志ID列表分析手术数据（管理员、专家）
-router.post('/analyze-by-log-ids', auth, checkPermission('surgery:analyze'), surgeryStatisticsController.analyzeByLogIds);
+router.post('/analyze-by-log-ids', auth, checkPermission('surgery:read'), surgeryStatisticsController.analyzeByLogIds);
 
 // 查询分析任务状态（管理员、专家）
 router.get('/task/:taskId', auth, checkPermission('surgery:read'), surgeryStatisticsController.getAnalysisTaskStatus);

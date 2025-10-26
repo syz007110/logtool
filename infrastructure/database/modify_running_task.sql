@@ -68,3 +68,5 @@ CREATE INDEX idx_le_norm ON log_entries(subsystem_char, code4);
 
 -- 显示步骤2完成时间
 SELECT NOW() as step2_completed, '索引创建完成' as status;
+
+

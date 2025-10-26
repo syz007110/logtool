@@ -54,9 +54,9 @@ const messages = {
       logout: '退出登录',
       profile: '个人信息'
     },
-    // 故障码管理
+    // 故障码
     errorCodes: {
-      title: '故障码管理',
+      title: '故障码',
       code: '故障码',
       name: '名称',
       description: '描述',
@@ -69,9 +69,9 @@ const messages = {
       exportXML: '导出XML',
       searchPlaceholder: '搜索故障码...'
     },
-    // 日志分析等级管理
+    // 日志分析等级
     analysisCategories: {
-      title: '日志分析等级管理',
+      title: '日志分析等级',
       categoryKey: '分类标识',
       nameZh: '中文名称',
       nameEn: '英文名称',
@@ -82,9 +82,9 @@ const messages = {
       deleteCategory: '删除分析等级',
       deleteConfirm: '确定要删除这个分析等级吗？'
     },
-    // 多语言管理
+    // 多语言
     i18nErrorCodes: {
-      title: '多语言管理',
+      title: '多语言',
       addContent: '添加多语言内容',
       batchImport: '批量导入',
       exportXML: '导出XML',
@@ -147,7 +147,7 @@ const messages = {
     },
     // 日志管理
     logs: {
-      title: '日志解析',
+      title: '日志管理',
       upload: '上传日志',
       parse: '解析日志',
       download: '下载日志',
@@ -266,9 +266,9 @@ const messages = {
       logout: 'Logout',
       profile: 'Profile'
     },
-    // Error codes management
+    // Error codes
     errorCodes: {
-      title: 'Error Code Management',
+      title: 'Error Codes',
       code: 'Error Code',
       name: 'Name',
       description: 'Description',
@@ -283,7 +283,7 @@ const messages = {
     },
     // Analysis Categories
     analysisCategories: {
-      title: 'Analysis Categories Management',
+      title: 'Analysis Categories',
       categoryKey: 'Category Key',
       nameZh: 'Chinese Name',
       nameEn: 'English Name',
@@ -294,9 +294,9 @@ const messages = {
       deleteCategory: 'Delete Category',
       deleteConfirm: 'Are you sure to delete this analysis category?'
     },
-    // I18n management
+    // I18n
     i18nErrorCodes: {
-      title: 'I18n Management',
+      title: 'I18n',
       addContent: 'Add I18n Content',
       batchImport: 'Batch Import',
       exportXML: 'Export XML',
@@ -359,7 +359,7 @@ const messages = {
     },
     // Log management
     logs: {
-      title: 'Log Analysis',
+      title: 'Log Management',
       upload: 'Upload Log',
       parse: 'Parse Log',
       download: 'Download Log',

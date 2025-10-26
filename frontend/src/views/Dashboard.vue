@@ -28,39 +28,47 @@
         class="dashboard-menu"
         @click="handleMenuClick"
       >
-        <!-- 数据管理 -->
+        <!-- 故障码管理 -->
         <a-sub-menu key="data-management">
           <template #icon>
             <DatabaseOutlined />
           </template>
-          <template #title>数据管理</template>
+          <template #title>故障码管理</template>
           <a-menu-item key="/dashboard/error-codes">
-            <span>故障码管理</span>
+            <span>故障码</span>
           </a-menu-item>
           <a-menu-item key="/dashboard/i18n-error-codes">
-            <span>多语言管理</span>
+            <span>多语言</span>
           </a-menu-item>
           <a-menu-item key="/dashboard/analysis-categories">
-            <span>日志分析等级管理</span>
+            <span>日志分析等级</span>
           </a-menu-item>
         </a-sub-menu>
         
-        <!-- 日志与手术分析 -->
+        <!-- 日志与手术数据 -->
         <a-sub-menu key="log-analysis">
           <template #icon>
             <FileTextOutlined />
           </template>
-          <template #title>日志与手术分析</template>
+          <template #title>日志与手术数据</template>
           <a-menu-item key="/dashboard/logs">
-            <span>日志解析</span>
+            <span>日志管理</span>
           </a-menu-item>
-          <a-menu-item v-if="isAdminOrExpert" key="/dashboard/data-replay">
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('data_replay:manage')" key="/dashboard/data-replay">
             <span>数据解析</span>
           </a-menu-item>
           <a-menu-item key="/dashboard/surgery-analysis" disabled>
-            <span>手术分析（暂无内容）</span>
+            <span>手术数据管理（暂无内容）</span>
           </a-menu-item>
         </a-sub-menu>
+        
+        <!-- 全局看板 -->
+        <a-menu-item key="/dashboard/global-dashboard">
+          <template #icon>
+            <AppstoreOutlined />
+          </template>
+          <span>全局看板</span>
+        </a-menu-item>
         
         <!-- 缺陷反馈 -->
         <a-menu-item key="/dashboard/feedback">
@@ -79,30 +87,30 @@
         </a-menu-item>
         
         <!-- 系统管理 -->
-        <a-sub-menu v-if="isAdmin" key="system-management">
+        <a-sub-menu v-if="$store.getters['auth/hasPermission']('user:read') || $store.getters['auth/hasPermission']('role:read') || $store.getters['auth/hasPermission']('device:read') || $store.getters['auth/hasPermission']('history:read_all')" key="system-management">
           <template #icon>
             <SettingOutlined />
           </template>
           <template #title>系统管理</template>
-          <a-menu-item key="/dashboard/users">
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('user:read')" key="/dashboard/users">
             <span>用户管理</span>
           </a-menu-item>
-          <a-menu-item key="/dashboard/roles">
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('role:read')" key="/dashboard/roles">
             <span>角色管理</span>
           </a-menu-item>
-          <a-menu-item key="/dashboard/devices">
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('device:read')" key="/dashboard/devices">
             <span>设备管理</span>
           </a-menu-item>
-          <a-menu-item key="/dashboard/history">
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('history:read_all') || $store.getters['auth/hasPermission']('history:read_own')" key="/dashboard/history">
             <span>历史记录</span>
           </a-menu-item>
-          <a-menu-item key="/dashboard/monitoring">
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('system:monitor')" key="/dashboard/monitoring">
             <span>系统监控</span>
           </a-menu-item>
         </a-sub-menu>
         
         <!-- 测试 -->
-        <a-menu-item v-if="isAdmin" key="/dashboard/explanation-tester">
+        <a-menu-item v-if="$store.getters['auth/hasPermission']('test:explain')" key="/dashboard/explanation-tester">
           <template #icon>
             <ExperimentOutlined />
           </template>
@@ -273,11 +281,6 @@ export default {
     }
     
     const currentUser = computed(() => store.getters['auth/currentUser'])
-    const isAdmin = computed(() => store.getters['auth/userRole'] === 'admin')
-    const isAdminOrExpert = computed(() => {
-      const role = store.getters['auth/userRole']
-      return role === 'admin' || role === 'expert'
-    })
     
     const getPageTitleKey = computed(() => {
       const nameMap = {
@@ -338,8 +341,6 @@ export default {
       toggleCollapsed,
       handleMenuClick,
       currentUser,
-      isAdmin,
-      isAdminOrExpert,
       getPageTitleKey,
       handleUserCommand,
       handleLanguageChange

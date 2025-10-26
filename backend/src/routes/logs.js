@@ -60,11 +60,11 @@ router.get('/', auth, checkLogPermission('read_all'), getLogs);
 router.get('/by-device', auth, checkLogPermission('read_all'), getLogsByDevice);
 
 // 获取队列状态
-router.get('/queue/status', auth, checkPermission('log:read_own'), getQueueStatus);
+router.get('/queue/status', auth, getQueueStatus);
 
 // 自动填充API - 必须放在带参数的路由之前
-router.get('/auto-fill/device-id', auth, checkPermission('log:read_own'), autoFillDeviceId);
-router.get('/auto-fill/key', auth, checkPermission('log:read_own'), autoFillKey);
+router.get('/auto-fill/device-id', auth, autoFillDeviceId);
+router.get('/auto-fill/key', auth, autoFillKey);
 
 // 上传日志 - 所有用户都可以上传
 router.post('/upload', auth, checkPermission('log:upload'), upload.array('file', 50), uploadLog); // 最多50个文件
@@ -79,7 +79,7 @@ router.post('/batch/download', auth, checkLogPermission('download'), batchDownlo
 router.post('/batch/reparse', auth, checkPermission('log:reparse'), batchReparseLogs);
 
 // 带参数的路由 - 必须放在具体路径之后
-router.post('/:id/parse', auth, checkPermission('log:parse'), parseLog);
+router.post('/:id/parse', auth, checkPermission('log:upload'), parseLog);
 // 单个重新解析（仅管理员）
 router.post('/:id/reparse', auth, checkPermission('log:reparse'), reparseLog);
 router.get('/:id/download', auth, checkPermission('log:download'), downloadLog);
@@ -97,11 +97,11 @@ router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), ana
 router.get('/search-templates', auth, checkLogPermission('read_all'), getSearchTemplates);
 router.post('/search-templates/import', auth, checkLogPermission('read_all'), importSearchTemplates);
 
-// 清理卡死日志
-router.post('/cleanup-stuck', auth, checkPermission('log:admin'), cleanupStuckLogs);
-
-// 获取卡死日志统计
-router.get('/stuck-stats', auth, checkPermission('log:admin'), getStuckLogsStats);
+// 内部维护接口（默认关闭，仅当显式启用时才开放）。不依赖权限系统，避免暴露多余权限键。
+if (process.env.ENABLE_LOG_MAINTENANCE === 'true') {
+  router.post('/cleanup-stuck', auth, cleanupStuckLogs);
+  router.get('/stuck-stats', auth, getStuckLogsStats);
+}
 
 // 已移除：自然语言 -> 高级筛选表达式
 

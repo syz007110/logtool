@@ -28,17 +28,17 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Config endpoints - admin only
-router.get('/config', auth, checkPermission('data_replay:read'), getMotionFormat);
-router.get('/dh-model', auth, checkPermission('data_replay:read'), getDhModelConfig);
+router.get('/config', auth, checkPermission('data_replay:manage'), getMotionFormat);
+router.get('/dh-model', auth, checkPermission('data_replay:manage'), getDhModelConfig);
 
 // Upload binary - admin only
-router.post('/upload', auth, checkPermission('data_replay:upload'), upload.single('file'), uploadBinary);
+router.post('/upload', auth, checkPermission('data_replay:manage'), upload.single('file'), uploadBinary);
 
 // Preview parsed data - admin only
-router.get('/:id/preview', auth, checkPermission('data_replay:read'), previewParsedData);
+router.get('/:id/preview', auth, checkPermission('data_replay:manage'), previewParsedData);
 
 // Download CSV - admin only
-router.get('/:id/download-csv', auth, checkPermission('data_replay:download'), downloadCsv);
+router.get('/:id/download-csv', auth, checkPermission('data_replay:manage'), downloadCsv);
 
 module.exports = router;
 

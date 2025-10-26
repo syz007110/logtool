@@ -22,7 +22,7 @@
 
 
             <!-- 日志上传按钮 -->
-            <div class="header-section upload-section">
+            <div class="header-section upload-section" v-if="$store.getters['auth/hasPermission']('log:upload')">
               <el-button 
                 type="primary" 
                 @click="showNormalUpload"
@@ -160,15 +160,56 @@
             <p>医院名称：{{ selectedDevice?.hospital_name || '暂无' }}</p>
             <p>日志总数：{{ selectedDevice?.log_count || 0 }}</p>
           </div>
-          <div class="device-actions">
+          <div class="header-controls">
+            <!-- 第一列：日志上传按钮 -->
+            <div class="device-actions">
+              <el-button 
+                type="primary" 
+                @click="uploadLogForDevice(selectedDevice)"
+              >
+                <el-icon><UploadFilled /></el-icon>
+                日志上传
+              </el-button>
+            </div>
             
-            <el-button 
-              type="primary" 
-              @click="uploadLogForDevice(selectedDevice)"
-            >
-              <el-icon><UploadFilled /></el-icon>
-              日志上传
-            </el-button>
+            <!-- 第二列：筛选控件 -->
+            <div class="filter-controls">
+              <!-- 仅看自己按钮 -->
+              <div class="only-own-section">
+                <el-checkbox v-model="detailOnlyOwn" @change="applyDetailOnlyOwn" label="仅看自己" />
+              </div>
+              
+              <!-- 时间范围筛选 -->
+              <div class="time-range-section">
+                <el-date-picker
+                  v-model="detailTimeRange"
+                  type="datetimerange"
+                  range-separator="至"
+                  start-placeholder="开始时间"
+                  end-placeholder="结束时间"
+                  format="YYYY-MM-DD HH"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  :unlink-panels="true"
+                  :editable="false"
+                  :clearable="true"
+                  style="width: 380px;"
+                  @change="onDetailTimeChange"
+                />
+              </div>
+              
+              <!-- 重置按钮 -->
+              <div class="reset-section">
+                <el-button plain size="small" @click="resetDetailFilters">重置</el-button>
+              </div>
+
+              <!-- 刷新按钮 -->
+              <div class="refresh-section">
+                <el-button plain size="small" @click="loadDetailLogs">
+                  <el-icon><Refresh /></el-icon>
+                  刷新
+                </el-button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -214,17 +255,17 @@
                   type="warning" 
                   size="small" 
                   @click="handleBatchReparse"
-                    :disabled="selectedDetailLogs.length === 0 || userRole !== 1 || !canBatchReparse || selectedDetailLogs.length > 20"
+                  :disabled="selectedDetailLogs.length === 0 || !$store.getters['auth/hasPermission']('log:reparse') || !canBatchReparse || selectedDetailLogs.length > 20"
                   :title="getBatchReparseTitle()"
-                  v-if="userRole === 1"
+                  v-if="$store.getters['auth/hasPermission']('log:reparse')"
                 >
                   <el-icon><Refresh /></el-icon>
                     批量重新解析 ({{ selectedDetailLogs.length }})
                 </el-button>
                 <el-tooltip 
-                  content="普通用户只能删除自己上传的日志" 
+                  content="无删除所有权限时，仅能删除自己上传的日志" 
                   placement="top" 
-                  v-if="userRole === 3"
+                  v-if="!$store.getters['auth/hasPermission']('log:delete') && $store.getters['auth/hasPermission']('log:delete_own')"
                 >
                   <el-icon class="info-icon"><InfoFilled /></el-icon>
                 </el-tooltip>
@@ -236,24 +277,6 @@
                   取消选择
                 </el-button>
               </div>
-            </div>
-
-              <!-- 仅看自己按钮 -->
-              <div class="only-own-section">
-                <el-checkbox v-model="detailOnlyOwn" @change="applyDetailOnlyOwn" label="仅看自己" />
-            </div>
-
-              <!-- 重置按钮 -->
-              <div class="reset-section">
-                <el-button plain size="small" @click="resetDetailFilters">重置</el-button>
-            </div>
-
-              <!-- 刷新按钮 -->
-              <div class="refresh-section">
-                <el-button plain size="small" @click="loadDetailLogs">
-                <el-icon><Refresh /></el-icon>
-                刷新
-              </el-button>
             </div>
           </div>
         </div>
@@ -383,7 +406,7 @@
       direction="rtl"
       size="1200px"
     >
-      <div v-if="selectedDevice" class="device-header" style="margin-bottom:12px;">
+      <div v-if="selectedDevice" class="device-header" style="margin-bottom:8px;">
         <div class="device-info">
           <h3>医院：{{ selectedDevice.hospital_name || '-' }}</h3>
           <p>设备编号：{{ selectedDevice.device_id }}</p>
@@ -654,6 +677,7 @@ export default {
     const detailLogs = ref([])
     const detailLoading = ref(false)
     const lastDetailLogsLoadAt = ref(0)
+    const detailTimeRange = ref([]) // [moment, moment]
     let detailReloadTimer = null
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
@@ -662,6 +686,8 @@ export default {
     const showDetailNameFilterPanel = ref(false)
     const detailNameTimePrefix = ref('')
     const detailOnlyOwn = ref(false)
+    const showEntriesDialog = ref(false)
+    const logEntries = ref([])
     const dateShortcuts = ref([
       {
         text: '本年',
@@ -850,18 +876,16 @@ export default {
     // 权限相关计算属性
     const userRole = computed(() => store.state.auth.user?.role_id)
     const userId = computed(() => store.state.auth.user?.id)
+    const hasPermission = (p) => store.getters['auth/hasPermission']?.(p)
     
 
     
     // 检查是否可以删除日志
     const canDeleteLog = (log) => {
-      
-      // 管理员可以删除任何日志
-      if (userRole.value === 1) return true
-      // 专家可以删除任何日志
-      if (userRole.value === 2) return true
-      // 普通用户只能删除自己上传的日志
-      if (userRole.value === 3) {
+      // 具有全删权限
+      if (hasPermission('log:delete')) return true
+      // 具有删自己权限
+      if (hasPermission('log:delete_own')) {
         return log.uploader_id === userId.value
       }
       return false
@@ -986,10 +1010,40 @@ export default {
     
     const buildDetailTimeParams = () => {
       const tp = (detailNameTimePrefix.value || '').trim()
+      const params = { only_own: detailOnlyOwn.value || undefined }
       if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
-        return { time_prefix: tp, only_own: detailOnlyOwn.value || undefined }
+        params.time_prefix = tp
       }
-      return { only_own: detailOnlyOwn.value || undefined }
+      if (Array.isArray(detailTimeRange.value) && detailTimeRange.value.length === 2) {
+        const [start, end] = detailTimeRange.value
+        // Element Plus DatePicker 返回字符串，需要转换为 YYYYMMDDHH 格式
+        const toPrefix = (d) => {
+          if (!d) return ''
+          const dt = new Date(d)
+          const y = dt.getFullYear()
+          const m = String(dt.getMonth() + 1).padStart(2, '0')
+          const day = String(dt.getDate()).padStart(2, '0')
+          const h = String(dt.getHours()).padStart(2, '0')
+          return `${y}${m}${day}${h}`
+        }
+        const p1 = toPrefix(start)
+        const p2 = toPrefix(end)
+        if (p1 && p2) {
+          params.time_range_start = p1
+          params.time_range_end = p2
+        }
+      }
+      return params
+    }
+
+    const onDetailTimeChange = (vals) => {
+      // Element Plus DatePicker 返回的是字符串数组或 null
+      detailTimeRange.value = Array.isArray(vals) ? vals : []
+      // 自动应用筛选
+      if (Array.isArray(vals) && vals.length === 2) {
+        detailCurrentPage.value = 1
+        loadDetailLogs()
+      }
     }
     
     const handleDrawerClose = () => {
@@ -1195,6 +1249,7 @@ export default {
     const resetDetailFilters = () => {
       detailNameTimePrefix.value = ''
       detailOnlyOwn.value = false
+      detailTimeRange.value = [] // 清除时间筛选器
       detailCurrentPage.value = 1
       loadDetailLogs()
     }
@@ -2077,11 +2132,19 @@ export default {
     
     // 检查是否可以查看日志（只有完成状态的文件可以查看）
     const canView = (log) => {
-      return log.status === 'parsed'
+      // 需要具备 read_all 或 read_own（且本人上传）
+      if (store.getters['auth/hasPermission']?.('log:read_all')) {
+        return log.status === 'parsed'
+      }
+      if (store.getters['auth/hasPermission']?.('log:read_all')) {
+        return log.status === 'parsed' && log.uploader_id === (store.state.auth.user?.id)
+      }
+      return false
     }
     
     // 检查是否可以下载日志（只有完成状态的文件可以下载）
     const canDownload = (log) => {
+      if (!store.getters['auth/hasPermission']?.('log:download')) return false
       return log.status === 'parsed'
     }
     
@@ -2251,6 +2314,9 @@ export default {
       showDetailNameFilterPanel,
       detailNameTimePrefix,
       detailOnlyOwn,
+      detailTimeRange,
+      showEntriesDialog,
+      logEntries,
       loadDeviceGroups,
       handleDeviceSizeChange,
       handleDeviceCurrentChange,
@@ -2270,6 +2336,7 @@ export default {
       resetDetailFilters,
       applyDetailNameFilter,
       resetDetailNameFilter,
+      onDetailTimeChange,
       checkAndUpdateDetailLogs,
       startSmartStatusMonitoring,
       startMonitoringIfDrawerOpen,
@@ -2718,7 +2785,7 @@ export default {
 
 /* 设备详情相关样式 */
 .device-detail-content {
-  padding: 20px;
+  padding: 12px 10px 10px 10px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -2728,9 +2795,13 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e4e7ed;
+}
+
+.device-info {
+  flex: 1;
 }
 
 .device-info h3 {
@@ -2743,6 +2814,27 @@ export default {
   margin: 5px 0;
   color: #606266;
   font-size: 14px;
+}
+
+.header-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.only-own-section,
+.time-range-section,
+.reset-section,
+.refresh-section {
+  display: flex;
+  align-items: center;
 }
 
 .device-actions {
@@ -2758,9 +2850,9 @@ export default {
 
 .detail-header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 15px;
+  margin-bottom: 5px;
+  gap: 50px;
 }
 
 .detail-header h4 {

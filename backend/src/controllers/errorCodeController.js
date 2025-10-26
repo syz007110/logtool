@@ -910,6 +910,200 @@ const exportMultiLanguageXML = async (req, res) => {
   }
 };
 
+// CSV导出功能（包含主表全部字段，可选包含多语言字段）
+const exportErrorCodesToCSV = async (req, res) => {
+  try {
+    const { languages = '', format = 'csv' } = req.query;
+    const langList = languages
+      ? String(languages)
+          .split(',')
+          .map((l) => l.trim())
+          .filter(Boolean)
+      : [];
+
+    // 支持的语言列表（与系统一致）
+    const supportedLangs = new Set(['zh', 'en', 'fr', 'de', 'es', 'it', 'pt', 'nl', 'sk', 'ro', 'da']);
+    const targetLangs = langList.filter((l) => supportedLangs.has(l));
+
+    // 读取所有故障码以及所有多语言内容（用于拼装）
+    const errorCodes = await ErrorCode.findAll({
+      include: [
+        {
+          model: I18nErrorCode,
+          as: 'i18nContents',
+          required: false,
+          attributes: ['lang', 'short_message', 'user_hint', 'operation']
+        },
+        {
+          model: AnalysisCategory,
+          as: 'analysisCategories',
+          through: { attributes: [] },
+          attributes: ['id', 'category_key', 'name_zh', 'name_en']
+        }
+      ],
+      order: [['subsystem', 'ASC'], ['code', 'ASC']]
+    });
+
+    if (!errorCodes || errorCodes.length === 0) {
+      return res.status(404).json({ message: '没有找到故障码数据' });
+    }
+
+    // 根据格式选择分隔符和转义函数
+    const isTsv = format === 'tsv';
+    const separator = isTsv ? '\t' : ',';
+    
+    // 根据格式选择字段
+    const baseFields = isTsv ? [
+      'id',
+      'subsystem',
+      'code',
+      'is_axis_error',
+      'is_arm_error',
+      'short_message',
+      'user_hint',
+      'operation',
+      'detail',
+      'method',
+      'param1',
+      'param2',
+      'param3',
+      'param4',
+      'solution',
+      'for_expert',
+      'for_novice',
+      'related_log',
+      'stop_report',
+      'level',
+      'tech_solution',
+      'explanation',
+      'category'
+    ] : [
+      'id',
+      'subsystem',
+      'code',
+      'is_axis_error',
+      'is_arm_error',
+      'short_message',
+      'user_hint',
+      'operation',
+      'detail',
+      'method',
+      'param1',
+      'param2',
+      'param3',
+      'param4',
+      'solution',
+      'for_expert',
+      'for_novice',
+      'related_log',
+      'stop_report',
+      'level',
+      'category'
+    ];
+
+    // 多语言扩展字段
+    const i18nFieldsPerLang = (lang) => [
+      `short_message_${lang}`,
+      `user_hint_${lang}`,
+      `operation_${lang}`
+    ];
+
+    const header = [...baseFields];
+    targetLangs.forEach((lang) => header.push(...i18nFieldsPerLang(lang)));
+
+    // CSV/TSV 转义 - 处理包含特殊字符的内容
+    const escapeValue = (value) => {
+      if (value === null || value === undefined) return '""';
+      let s = String(value)
+        .replace(/"/g, '""')  // 双引号转义
+        .replace(/\n/g, ' ')  // 换行符替换为空格
+        .replace(/\r/g, ' '); // 回车符替换为空格
+      
+      // TSV格式：制表符替换为空格
+      if (isTsv) {
+        s = s.replace(/\t/g, ' ');
+      }
+      
+      return `"${s}"`;
+    };
+
+    // 生成行
+    const lines = [];
+    // 表头
+    lines.push(header.map(escapeValue).join(separator));
+
+    for (const ec of errorCodes) {
+      const row = [];
+      const ecPlain = ec.toJSON();
+
+      // 分析分类（导出为逗号分隔的名称，中文优先）
+      const categoryNames = Array.isArray(ecPlain.analysisCategories)
+        ? ecPlain.analysisCategories.map((c) => c.name_zh || c.name_en || c.category_key).join('|')
+        : '';
+
+      // 填充基础字段
+      for (const field of baseFields) {
+        if (field === 'category' && categoryNames) {
+          row.push(escapeValue(categoryNames));
+          continue;
+        }
+        
+        // subsystem字段保持原样，不做任何处理
+        if (field === 'subsystem') {
+          row.push(escapeValue(ecPlain[field]));
+          continue;
+        }
+        
+        row.push(escapeValue(ecPlain[field]));
+      }
+
+      // 建立语言 -> 内容 映射
+      const langMap = new Map();
+      if (Array.isArray(ecPlain.i18nContents)) {
+        for (const c of ecPlain.i18nContents) {
+          langMap.set(c.lang, c);
+        }
+      }
+
+      // 按需填充多语言扩展字段
+      for (const lang of targetLangs) {
+        const content = langMap.get(lang) || {};
+        row.push(escapeValue(content.short_message || ''));
+        row.push(escapeValue(content.user_hint || ''));
+        row.push(escapeValue(content.operation || ''));
+      }
+
+      lines.push(row.join(separator));
+    }
+
+    // 记录操作日志
+    if (req.user) {
+      try {
+        await logOperation({
+          user_id: req.user.id,
+          username: req.user.username,
+          operation: 'CSV导出',
+          description: `导出故障码CSV文件 (多语言: ${targetLangs.join(',') || '无'})`,
+          details: { languages: targetLangs, exportCount: errorCodes.length }
+        });
+      } catch {}
+    }
+
+    // 输出 CSV/TSV（带 BOM 以兼容 Excel）
+    const bom = '\uFEFF';
+    const content = bom + lines.join('\r\n');
+    const extension = isTsv ? 'tsv' : 'csv';
+    const mimeType = isTsv ? 'text/tab-separated-values' : 'text/csv';
+    const filename = `error_codes_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${extension}`;
+    res.setHeader('Content-Type', `${mimeType}; charset=utf-8`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(content);
+  } catch (err) {
+    console.error('CSV导出失败:', err);
+    return res.status(500).json({ message: 'CSV导出失败', error: err.message });
+  }
+};
+
 // 根据故障码和子系统查找故障码
 const getErrorCodeByCodeAndSubsystem = async (req, res) => {
   try {
@@ -940,5 +1134,6 @@ module.exports = {
   deleteErrorCode,
   exportErrorCodesToXML,
   exportMultiLanguageXML,
-  getErrorCodeByCodeAndSubsystem
+  getErrorCodeByCodeAndSubsystem,
+  exportErrorCodesToCSV
 }; 

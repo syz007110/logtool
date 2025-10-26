@@ -5,8 +5,8 @@
       <div class="search-section">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索故障码..."
-          style="width: 300px"
+          placeholder="搜索关键字..."
+          style="width: 150px"
           clearable
           @input="handleSearch"
         >
@@ -14,9 +14,32 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
+        
+        <el-select
+          v-model="selectedSubsystem"
+          placeholder="选择子系统"
+          style="width: 150px; margin-left: 10px"
+          clearable
+          @change="handleSubsystemFilter"
+        >
+          <el-option
+            v-for="subsystem in subsystemOptions"
+            :key="subsystem.value"
+            :label="subsystem.label"
+            :value="subsystem.value"
+          />
+        </el-select>
       </div>
       
-             <div class="action-section">
+      <div class="action-section">
+        <el-button 
+          v-if="$store.getters['auth/hasPermission']('error_code:export')"
+          :loading="exportLoading"
+          @click="openExportDialog"
+        >
+          导出CSV
+        </el-button>
+
         <el-button 
           type="success" 
           @click="openQueryDialog"
@@ -72,7 +95,6 @@
             <ExplanationCell :text="String(row.param4 ?? '')" :always="true" />
           </template>
         </el-table-column>
-        <el-table-column prop="category" label="分类" width="100" />
         <el-table-column label="操作" width="180" v-if="canUpdate || canDelete">
           <template #default="{ row }">
             <el-button
@@ -109,6 +131,47 @@
       </div>
     </el-card>
     
+    <!-- 导出CSV 弹窗 -->
+    <el-dialog
+      v-model="showExportDialog"
+      title="导出故障码CSV"
+      width="680px"
+      :close-on-click-modal="false"
+    >
+      <el-form label-width="140px">
+        <el-form-item label="导出格式">
+          <el-radio-group v-model="exportFormat">
+            <el-radio label="csv">CSV格式（逗号分隔）</el-radio>
+            <el-radio label="tsv">TSV格式（制表符分隔）</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="多语言列（可选）">
+          <el-select
+            v-model="selectedExportLangs"
+            multiple
+            collapse-tags
+            :max-collapse-tags="4"
+            placeholder="请选择需要包含的语言"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="opt in languageOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showExportDialog = false">取消</el-button>
+          <el-button type="primary" :loading="exportLoading" @click="handleExportCSV">导出</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="showAddDialog"
@@ -448,11 +511,14 @@ export default {
     
     // 响应式数据
     const loading = ref(false)
+    const exportLoading = ref(false)
+    const showExportDialog = ref(false)
     const saving = ref(false)
     const showAddDialog = ref(false)
     const showQueryDialog = ref(false)
     const editingErrorCode = ref(null)
     const searchQuery = ref('')
+    const selectedSubsystem = ref('')
     const currentPage = ref(1)
     const pageSize = ref(10)
     const errorCodeFormRef = ref(null)
@@ -462,6 +528,34 @@ export default {
     const foundRecord = ref(null)
     const analysisCategories = ref([])
     const booleanOptions = ref([])
+    const selectedExportLangs = ref([])
+    const exportFormat = ref('csv')
+    const languageOptions = [
+      { label: '中文 (zh)', value: 'zh' },
+      { label: '英语 (en)', value: 'en' },
+      { label: '法语 (fr)', value: 'fr' },
+      { label: '德语 (de)', value: 'de' },
+      { label: '西班牙语 (es)', value: 'es' },
+      { label: '意大利语 (it)', value: 'it' },
+      { label: '葡萄牙语 (pt)', value: 'pt' },
+      { label: '荷兰语 (nl)', value: 'nl' },
+      { label: '斯洛伐克语 (sk)', value: 'sk' },
+      { label: '罗马尼亚语 (ro)', value: 'ro' },
+      { label: '丹麦语 (da)', value: 'da' }
+    ]
+    
+    const subsystemOptions = [
+      { label: '01-运动控制软件', value: '1' },
+      { label: '02-人机交互软件', value: '2' },
+      { label: '03-医生控制台软件', value: '3' },
+      { label: '04-手术台车软件', value: '4' },
+      { label: '05-驱动器软件', value: '5' },
+      { label: '06-图像软件', value: '6' },
+      { label: '07-工具工厂软件', value: '7' },
+      { label: '08-远程运动控制软件', value: '8' },
+      { label: '09-远程医生控制台软件', value: '9' },
+      { label: '0A-远程驱动器软件', value: 'A' }
+    ]
     
     // 同步相关变量
     const syncToRemote = ref(false)
@@ -660,9 +754,9 @@ export default {
     // 计算属性
     const errorCodes = computed(() => store.getters['errorCodes/errorCodesList'])
     const total = computed(() => store.getters['errorCodes/totalCount'])
-    const canCreate = computed(() => store.getters['auth/userRole'] === 'admin' || store.getters['auth/userRole'] === 'expert')
-    const canUpdate = computed(() => store.getters['auth/userRole'] === 'admin' || store.getters['auth/userRole'] === 'expert')
-    const canDelete = computed(() => store.getters['auth/userRole'] === 'admin' || store.getters['auth/userRole'] === 'expert')
+    const canCreate = computed(() => store.getters['auth/hasPermission']('error_code:create'))
+    const canUpdate = computed(() => store.getters['auth/hasPermission']('error_code:update'))
+    const canDelete = computed(() => store.getters['auth/hasPermission']('error_code:delete'))
     
     // 同步相关计算属性
     const showSyncOption = computed(() => {
@@ -742,7 +836,8 @@ export default {
         await store.dispatch('errorCodes/fetchErrorCodes', {
           page: currentPage.value,
           limit: pageSize.value,
-          keyword: searchQuery.value
+          keyword: searchQuery.value,
+          subsystem: selectedSubsystem.value
         })
       } catch (error) {
         ElMessage.error('加载故障码失败')
@@ -756,6 +851,11 @@ export default {
       loadErrorCodes()
     }
     
+    const handleSubsystemFilter = () => {
+      currentPage.value = 1
+      loadErrorCodes()
+    }
+    
     const handleSizeChange = (size) => {
       pageSize.value = size
       currentPage.value = 1
@@ -765,6 +865,43 @@ export default {
     const handleCurrentChange = (page) => {
       currentPage.value = page
       loadErrorCodes()
+    }
+
+    const parseFilename = (contentDisposition) => {
+      try {
+        if (!contentDisposition) return ''
+        const match = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/)
+        const raw = decodeURIComponent(match?.[1] || match?.[2] || '')
+        return raw || ''
+      } catch { return '' }
+    }
+
+    const openExportDialog = () => {
+      showExportDialog.value = true
+    }
+
+    const handleExportCSV = async () => {
+      try {
+        exportLoading.value = true
+        const languages = selectedExportLangs.value.join(',')
+        const resp = await api.errorCodes.exportCSV(languages, exportFormat.value)
+        const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8;' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const serverName = parseFilename(resp.headers?.['content-disposition'])
+        a.download = serverName || 'error_codes.csv'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+        ElMessage.success('CSV导出已开始下载')
+        showExportDialog.value = false
+      } catch (e) {
+        ElMessage.error(e?.response?.data?.message || '导出失败')
+      } finally {
+        exportLoading.value = false
+      }
     }
     
          const resetForm = () => {
@@ -1106,6 +1243,8 @@ export default {
        showQueryDialog,
        editingErrorCode,
        searchQuery,
+       selectedSubsystem,
+       subsystemOptions,
        currentPage,
        pageSize,
        errorCodeFormRef,
@@ -1122,6 +1261,13 @@ export default {
        canDelete,
        analysisCategories,
        booleanOptions,
+      exportLoading,
+      showExportDialog,
+      selectedExportLangs,
+      exportFormat,
+      languageOptions,
+      openExportDialog,
+      handleExportCSV,
        // 同步相关变量
        syncToRemote,
        syncToLocal,
@@ -1129,6 +1275,7 @@ export default {
        isLocalSubsystem,
        isRemoteSubsystem,
        handleSearch,
+       handleSubsystemFilter,
        handleSizeChange,
        handleCurrentChange,
        handleAdd,

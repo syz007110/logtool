@@ -17,7 +17,7 @@
       </div>
       
       <div class="action-section">
-        <el-button type="primary" @click="showAddDialog = true">
+        <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('user:create')">
           <el-icon><Plus /></el-icon>
           添加用户
         </el-button>
@@ -47,12 +47,13 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="注册时间" width="150" />
-        <el-table-column label="操作" fixed="right" width="260">
+        <el-table-column label="操作" fixed="right" width="320">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button @click="handleEdit(row)">编辑</el-button>
-              <el-button @click="openResetPassword(row)">重置密码</el-button>
-              <el-button @click="handleDelete(row)" type="danger">删除</el-button>
+              <el-button @click="handleEdit(row)" v-if="$store.getters['auth/hasPermission']('user:update')">编辑</el-button>
+              <el-button @click="openResetPassword(row)" v-if="$store.getters['auth/hasPermission']('user:update')">重置密码</el-button>
+              <el-button @click="handleDelete(row)" type="danger" v-if="$store.getters['auth/hasPermission']('user:delete')">删除</el-button>
+              <el-button @click="handleAssignRole(row)" v-if="$store.getters['auth/hasPermission']('user:role:assign')">分配角色</el-button>
             </div>
           </template>
         </el-table-column>
@@ -415,11 +416,7 @@ export default {
     }
     
     // 生命周期
-          onMounted(() => {
-        if (userRole.value !== 'admin') {
-        router.replace('/dashboard/account')
-        return
-      }
+    onMounted(() => {
       loadUsers()
       loadRoles()
     })

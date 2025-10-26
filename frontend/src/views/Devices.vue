@@ -5,7 +5,7 @@
         <el-input v-model="search" placeholder="搜索设备（编号/型号/密钥/医院）..." style="width: 300px" clearable @keyup.enter="loadDevices" />
         <el-button @click="loadDevices">查询</el-button>
       </div>
-      <div class="action-section" v-if="canEdit">
+      <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:create')">
         <el-button type="primary" @click="openEdit()">新增设备</el-button>
       </div>
     </div>
@@ -16,10 +16,10 @@
         <el-table-column prop="device_model" label="设备型号" width="160" />
         <el-table-column prop="device_key" label="设备密钥(MAC)" width="200" />
         <el-table-column prop="hospital" label="所属医院" />
-        <el-table-column label="操作" width="200" v-if="canEdit">
+        <el-table-column label="操作" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
           <template #default="{ row }">
-            <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="onDelete(row)">删除</el-button>
+            <el-button size="small" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">编辑</el-button>
+            <el-button size="small" type="danger" @click="onDelete(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -72,8 +72,7 @@ export default {
   setup() {
     const store = useStore()
     const canEdit = computed(() => {
-      const role = store.getters['auth/userRole']
-      return role === 'admin' || role === 'expert'
+      return store.getters['auth/hasPermission']('device:update')
     })
 
     const loading = ref(false)

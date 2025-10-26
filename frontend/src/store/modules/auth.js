@@ -15,6 +15,11 @@ const mutations = {
       localStorage.removeItem('token')
     }
   },
+  SET_PERMISSIONS (state, permissions) {
+    if (!state.user) return
+    state.user = { ...state.user, permissions: Array.isArray(permissions) ? permissions : [] }
+    localStorage.setItem('user', JSON.stringify(state.user))
+  },
   SET_USER (state, user) {
     state.user = user
     if (user) {
@@ -34,6 +39,16 @@ const actions = {
     try {
       const response = await api.auth.login(credentials)
       commit('SET_TOKEN', response.data.token)
+      commit('SET_USER', response.data.user)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async refreshMe ({ commit }) {
+    try {
+      const response = await api.auth.me()
       commit('SET_USER', response.data.user)
       return response
     } catch (error) {
@@ -90,25 +105,9 @@ const getters = {
       const normalized = normalizeRoleName(state.user.role, state.user.role_id)
       if (normalized === 'admin') return true
       
-      // 检查用户角色权限 - 支持单个角色字符串或角色数组
-      const userRole = normalized;
-      const userRoles = state.user.roles ? (Array.isArray(state.user.roles) ? state.user.roles : [state.user.roles]) : []
-      
-      // 简化的权限检查逻辑 - 根据角色判断
-      const rolePermissions = {
-        admin: ['error_code:create', 'error_code:read', 'error_code:update', 'error_code:delete', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:reparse', 'log:download', 'log:delete', 'i18n:create', 'i18n:read', 'i18n:update', 'i18n:delete', 'user:create', 'user:read', 'user:update', 'user:delete', 'user:role:assign', 'role:create', 'role:read', 'role:update', 'role:delete', 'history:read_all', 'history:export', 'surgery:analyze', 'surgery:read', 'surgery:export', 'surgery:delete', 'data_replay:upload', 'data_replay:read', 'data_replay:download'],
-        expert: ['error_code:create', 'error_code:read', 'error_code:update', 'error_code:delete', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete_own', 'i18n:create', 'i18n:read', 'i18n:update', 'i18n:delete', 'history:read_own', 'surgery:analyze', 'surgery:read', 'surgery:export', 'surgery:delete', 'data_replay:upload', 'data_replay:read', 'data_replay:download'],
-        user: ['error_code:read', 'error_code:export', 'log:upload', 'log:read_all', 'log:read_own', 'log:parse', 'log:download', 'log:delete_own', 'i18n:read', 'history:read_own', 'surgery:analyze', 'surgery:read', 'surgery:export']
-      }
-      
-      // 首先检查单个角色
-      if (userRole && rolePermissions[userRole] && rolePermissions[userRole].includes(permission)) return true
-      
-      // 然后检查角色数组
-      for (const role of userRoles) {
-        const roleName = normalizeRoleName(role.name || role, role.id || role.role_id)
-        if (rolePermissions[roleName] && rolePermissions[roleName].includes(permission)) return true
-      }
+      // 优先使用服务端返回的权限列表
+      const perms = Array.isArray(state.user.permissions) ? state.user.permissions : []
+      if (perms.includes(permission)) return true
       
       return false
     } catch (error) {

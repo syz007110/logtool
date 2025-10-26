@@ -1993,7 +1993,7 @@ export default {
     // 跳转到手术统计页面
     const showSurgeryStatistics = async () => {
       // 需要具备手术分析权限（管理员、专家）
-      if (!store.getters['auth/hasPermission']?.('surgery:analyze')) {
+      if (!store.getters['auth/hasPermission']?.('surgery:read')) {
         ElMessage.warning('权限不足：需要手术分析权限')
         return
       }

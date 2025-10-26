@@ -47,6 +47,42 @@ const actions = {
     }
   },
 
+  // 角色管理：创建角色（含权限）
+  async createRole({ dispatch }, roleData) {
+    try {
+      const response = await api.roles.create(roleData)
+      // 创建成功后刷新角色列表
+      await dispatch('fetchRoles')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  // 角色管理：更新角色（含权限）
+  async updateRole({ dispatch }, { id, data }) {
+    try {
+      const response = await api.roles.update(id, data)
+      // 更新成功后刷新角色列表
+      await dispatch('fetchRoles')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
+  // 角色管理：删除角色
+  async deleteRole({ dispatch }, id) {
+    try {
+      const response = await api.roles.delete(id)
+      // 删除成功后刷新角色列表
+      await dispatch('fetchRoles')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+
   async createUser({ commit }, userData) {
     try {
       const response = await api.users.create(userData)

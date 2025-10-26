@@ -9,7 +9,8 @@ const {
   deleteErrorCode,
   exportErrorCodesToXML,
   exportMultiLanguageXML,
-  getErrorCodeByCodeAndSubsystem
+  getErrorCodeByCodeAndSubsystem,
+  exportErrorCodesToCSV
 } = require('../controllers/errorCodeController');
 
 // 查询（支持简单/高级搜索）- 需要 error_code:read 权限
@@ -20,6 +21,8 @@ router.get('/by-code', auth, getErrorCodeByCodeAndSubsystem);
 router.get('/export/xml', auth, checkPermission('error_code:read'), exportErrorCodesToXML);
 // 多语言XML导出 - 需要 error_code:read 权限
 router.get('/export/multi-xml', auth, checkPermission('error_code:read'), exportMultiLanguageXML);
+// CSV导出 - 需要 error_code:read 权限
+router.get('/export/csv', auth, checkPermission('error_code:read'), exportErrorCodesToCSV);
 // 新增 - 需要 error_code:create 权限
 router.post('/', auth, checkPermission('error_code:create'), createErrorCode);
 // 更新 - 需要 error_code:update 权限

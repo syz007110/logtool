@@ -17,7 +17,7 @@
       </div>
       
       <div class="action-section">
-        <el-button type="primary" @click="showAddDialog">
+        <el-button type="primary" @click="showAddDialog" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
           <el-icon><Plus /></el-icon>
           添加分析等级
         </el-button>
@@ -44,7 +44,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="180">
+        <el-table-column label="操作" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button @click="handleEdit(row)">编辑</el-button>

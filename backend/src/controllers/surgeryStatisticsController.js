@@ -2,6 +2,7 @@ const LogEntry = require('../models/log_entry');
 const Log = require('../models/log');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op } = require('sequelize');
+const { userHasDbPermission } = require('../middlewares/permission');
 
 // 格式化为UTC时间（用于写库，统一为UTC）
 function formatUtcDateTime(dateLike) {
@@ -830,10 +831,10 @@ const getAnalysisTaskStatus = async (req, res) => {
 const getUserAnalysisTasks = async (req, res) => {
   try {
     const userId = req.user.id;
-    const isAdmin = req.user.role_id === 1;
+    const hasSurgeryReadPermission = await userHasDbPermission(userId, 'surgery:read');
     
     const userTasks = Array.from(analysisTasks.values())
-      .filter(task => isAdmin || task.userId === userId)
+      .filter(task => hasSurgeryReadPermission || task.userId === userId)
       .map(task => ({
         id: task.id,
         status: task.status,

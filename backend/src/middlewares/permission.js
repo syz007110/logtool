@@ -31,9 +31,20 @@ async function userHasDbPermission(userId, requiredPermission) {
   const roleIds = userRoles.map(ur => ur.role_id).filter(Boolean);
   if (roleIds.length === 0) return false;
 
+  // 统一替换：细粒度权限被新权限完全替代
+  const replaceMap = new Map([
+    ['log:parse', 'log:upload'],
+    ['log:read_own', 'log:read_all'],
+    ['data_replay:upload', 'data_replay:manage'],
+    ['data_replay:read', 'data_replay:manage'],
+    ['data_replay:download', 'data_replay:manage'],
+    ['surgery:analyze', 'surgery:read']
+  ]);
+  const candidates = Array.from(new Set([requiredPermission, replaceMap.get(requiredPermission)].filter(Boolean)));
+
   const rp = await RolePermission.findOne({
     where: { role_id: { [Op.in]: roleIds } },
-    include: [{ model: Permission, as: 'permission', where: { name: requiredPermission }, attributes: ['id'] }]
+    include: [{ model: Permission, as: 'permission', where: { name: { [Op.in]: candidates } }, attributes: ['id'] }]
   });
   if (rp) return true;
 
@@ -146,5 +157,6 @@ const checkLogPermission = (action) => {
 module.exports = {
   checkPermission,
   checkResourceOwnership,
-  checkLogPermission
+  checkLogPermission,
+  userHasDbPermission
 }; 

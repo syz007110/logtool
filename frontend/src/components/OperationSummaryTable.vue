@@ -1,7 +1,7 @@
 <template>
   <div class="operation-summary-table">
     <el-table :data="tableData" stripe class="summary-table">
-      <el-table-column prop="operation" label="操作类型" align="center">
+      <el-table-column prop="operation" label="操作类型" align="left">
         <template #default="{ row }">
           <div class="operation-cell">
             <span class="operation-name">{{ row.operation }}</span>
@@ -9,7 +9,7 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="count" label="次数" width="200" align="center">
+      <el-table-column prop="count" label="次数" width="200" align="right">
         <template #default="{ row }">
           <span class="count-value">{{ row.count }}</span>
         </template>
@@ -71,7 +71,7 @@ export default {
 .operation-cell {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* 左对齐 */
 }
 
 .operation-name {
@@ -83,6 +83,9 @@ export default {
   font-size: 16px;
   font-weight: 600;
   color: #2c3e50;
+  text-align: right; /* 右对齐 */
+  display: block;
+  width: 100%;
 }
 
 /* 响应式设计 */
