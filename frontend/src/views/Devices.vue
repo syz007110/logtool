@@ -2,24 +2,24 @@
   <div class="devices-container">
     <div class="action-bar">
       <div class="search-section">
-        <el-input v-model="search" placeholder="搜索设备（编号/型号/密钥/医院）..." style="width: 300px" clearable @keyup.enter="loadDevices" />
-        <el-button @click="loadDevices">查询</el-button>
+        <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @keyup.enter="loadDevices" />
+        <el-button @click="loadDevices">{{ $t('common.search') }}</el-button>
       </div>
       <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:create')">
-        <el-button type="primary" @click="openEdit()">新增设备</el-button>
+        <el-button type="primary" @click="openEdit()">{{ $t('devices.addDevice') }}</el-button>
       </div>
     </div>
 
     <el-card class="list-card">
       <el-table :data="devices" :loading="loading" style="width: 100%">
-        <el-table-column prop="device_id" label="设备编号" width="160" />
-        <el-table-column prop="device_model" label="设备型号" width="160" />
-        <el-table-column prop="device_key" label="设备密钥(MAC)" width="200" />
-        <el-table-column prop="hospital" label="所属医院" />
-        <el-table-column label="操作" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
+        <el-table-column prop="device_id" :label="$t('devices.deviceId')" width="160" />
+        <el-table-column prop="device_model" :label="$t('devices.deviceModel')" width="160" />
+        <el-table-column prop="device_key" :label="$t('devices.deviceKey')" width="200" />
+        <el-table-column prop="hospital" :label="$t('devices.hospital')" />
+        <el-table-column :label="$t('common.operation')" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
           <template #default="{ row }">
-            <el-button size="small" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">编辑</el-button>
-            <el-button size="small" type="danger" @click="onDelete(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">删除</el-button>
+            <el-button size="small" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('common.edit') }}</el-button>
+            <el-button size="small" type="danger" @click="onDelete(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">{{ $t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -37,24 +37,24 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="showEdit" :title="editing ? '编辑设备' : '新增设备'" width="520px">
+    <el-dialog v-model="showEdit" :title="editing ? $t('devices.editDevice') : $t('devices.addDevice')" width="520px">
       <el-form :model="form" label-width="110px" :rules="rules" ref="formRef">
-        <el-form-item label="设备编号" prop="device_id">
-          <el-input v-model="form.device_id" :disabled="!!editing" placeholder="如 4371-01 / ABC-12" />
+        <el-form-item :label="$t('devices.deviceId')" prop="device_id">
+          <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
         </el-form-item>
-        <el-form-item label="设备型号" prop="device_model">
+        <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
           <el-input v-model="form.device_model" />
         </el-form-item>
-        <el-form-item label="设备密钥(MAC)" prop="device_key">
+        <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
           <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
         </el-form-item>
-        <el-form-item label="所属医院" prop="hospital">
+        <el-form-item :label="$t('devices.hospital')" prop="hospital">
           <el-input v-model="form.hospital" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEdit=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="save">保存</el-button>
+        <el-button @click="showEdit=false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

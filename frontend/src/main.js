@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
-import i18n from './i18n'
+import i18n, { loadLocaleMessages, getCurrentLocale } from './i18n'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import Antd from 'ant-design-vue'
@@ -11,7 +11,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
 import { initResizeObserverFix } from './utils/resizeObserverFix'
 
-// 创建应用实例
+// 预加载当前语言后再挂载
 const app = createApp(App)
 
 // 初始化 ResizeObserver 错误处理
@@ -54,5 +54,9 @@ app.use(Antd)
 
 
 
-// 挂载应用
-app.mount('#app') 
+// 确保当前语言包加载完成后再挂载
+loadLocaleMessages(getCurrentLocale()).then(() => {
+  app.mount('#app')
+}).catch(() => {
+  app.mount('#app')
+})

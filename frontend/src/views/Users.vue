@@ -5,7 +5,7 @@
       <div class="search-section">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索用户..."
+          :placeholder="$t('users.searchPlaceholder')"
           style="width: 300px"
           clearable
           @input="handleSearch"
@@ -19,7 +19,7 @@
       <div class="action-section">
         <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('user:create')">
           <el-icon><Plus /></el-icon>
-          添加用户
+          {{ $t('users.addUser') }}
         </el-button>
       </div>
     </div>
@@ -32,28 +32,28 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="username" label="用户名" width="120" />
-        <el-table-column prop="email" label="邮箱" width="180" />
-        <el-table-column prop="role" label="账户类型" width="100">
+        <el-table-column prop="username" :label="$t('users.username')" width="120" />
+        <el-table-column prop="email" :label="$t('users.email')" width="180" />
+        <el-table-column prop="role" :label="$t('users.role')" width="100">
           <template #default="{ row }">
             <el-tag>{{ getRoleText(row.role) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_active" label="是否启用" width="90">
+        <el-table-column prop="is_active" :label="$t('users.status')" width="90">
           <template #default="{ row }">
             <el-tag :type="row.is_active ? 'success' : 'danger'">
-              {{ row.is_active ? '激活' : '禁用' }}
+              {{ row.is_active ? $t('users.statusActive') : $t('users.statusInactive') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="注册时间" width="150" />
-        <el-table-column label="操作" fixed="right" width="320">
+        <el-table-column prop="created_at" :label="$t('users.createTime')" width="150" />
+        <el-table-column :label="$t('common.operation')" fixed="right" width="320">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button @click="handleEdit(row)" v-if="$store.getters['auth/hasPermission']('user:update')">编辑</el-button>
-              <el-button @click="openResetPassword(row)" v-if="$store.getters['auth/hasPermission']('user:update')">重置密码</el-button>
-              <el-button @click="handleDelete(row)" type="danger" v-if="$store.getters['auth/hasPermission']('user:delete')">删除</el-button>
-              <el-button @click="handleAssignRole(row)" v-if="$store.getters['auth/hasPermission']('user:role:assign')">分配角色</el-button>
+              <el-button @click="handleEdit(row)" v-if="$store.getters['auth/hasPermission']('user:update')">{{ $t('common.edit') }}</el-button>
+              <el-button @click="openResetPassword(row)" v-if="$store.getters['auth/hasPermission']('user:update')">{{ $t('users.resetPassword') }}</el-button>
+              <el-button @click="handleDelete(row)" type="danger" v-if="$store.getters['auth/hasPermission']('user:delete')">{{ $t('common.delete') }}</el-button>
+              <el-button @click="handleAssignRole(row)" v-if="$store.getters['auth/hasPermission']('user:role:assign')">{{ $t('users.assignRole') }}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -76,7 +76,7 @@
     <!-- 添加/编辑用户对话框 -->
     <el-dialog
       v-model="showAddDialog"
-      :title="editingUser ? '编辑用户' : '添加用户'"
+      :title="editingUser ? $t('users.editUser') : $t('users.addUser')"
       width="500px"
     >
       <el-form
@@ -85,39 +85,39 @@
         :rules="rules"
         label-width="100px"
       >
-        <el-form-item label="用户名" prop="username">
+        <el-form-item :label="$t('users.username')" prop="username">
           <el-input v-model="userForm.username" :disabled="!!editingUser" />
         </el-form-item>
         
-        <el-form-item label="邮箱" prop="email">
+        <el-form-item :label="$t('users.email')" prop="email">
           <el-input v-model="userForm.email" />
         </el-form-item>
-        <el-form-item label="账户类型" prop="role">
-          <el-select v-model="userForm.role" placeholder="请选择账户类型" v-if="roles.length">
+        <el-form-item :label="$t('users.role')" prop="role">
+          <el-select v-model="userForm.role" :placeholder="$t('users.selectRole')" v-if="roles.length">
             <el-option v-for="role in roles" :key="role.id" :label="getRoleText(role.name)" :value="role.name" />
           </el-select>
         </el-form-item>
         
-        <el-form-item v-if="!editingUser" label="密码" prop="password">
+        <el-form-item v-if="!editingUser" :label="$t('users.password')" prop="password">
           <el-input v-model="userForm.password" type="password" show-password />
         </el-form-item>
         
-        <el-form-item v-if="editingUser" label="新密码" prop="password">
-          <el-input v-model="userForm.password" type="password" show-password placeholder="如需修改请输入新密码" />
+        <el-form-item v-if="editingUser" :label="$t('users.newPassword')" prop="password">
+          <el-input v-model="userForm.password" type="password" show-password :placeholder="$t('users.newPasswordPlaceholder')" />
         </el-form-item>
         
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="userForm.status" placeholder="选择状态">
-            <el-option label="激活" value="active" />
-            <el-option label="禁用" value="inactive" />
+        <el-form-item :label="$t('users.status')" prop="status">
+          <el-select v-model="userForm.status" :placeholder="$t('users.selectStatus')">
+            <el-option :label="$t('users.statusActive')" value="active" />
+            <el-option :label="$t('users.statusInactive')" value="inactive" />
           </el-select>
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="showAddDialog = false">取消</el-button>
+        <el-button @click="showAddDialog = false">{{ $t('common.cancel') }}</el-button>
         <el-button type="primary" @click="handleSave" :loading="saving">
-          保存
+          {{ $t('common.save') }}
         </el-button>
       </template>
     </el-dialog>
@@ -125,16 +125,16 @@
     <!-- 分配角色对话框 -->
     <el-dialog
       v-model="showRoleDialog"
-      title="分配角色"
+      :title="$t('users.assignRole')"
       width="400px"
     >
       <el-form label-width="100px">
-        <el-form-item label="用户">
+        <el-form-item :label="$t('users.username')">
           <span>{{ selectedUser?.username }}</span>
         </el-form-item>
         
-        <el-form-item label="角色">
-          <el-select v-model="selectedRole" placeholder="选择角色">
+        <el-form-item :label="$t('users.role')">
+          <el-select v-model="selectedRole" :placeholder="$t('users.selectRole')">
             <el-option
               v-for="role in roles"
               :key="role.id"
@@ -146,54 +146,54 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showRoleDialog = false">取消</el-button>
+        <el-button @click="showRoleDialog = false">{{ $t('common.cancel') }}</el-button>
         <el-button type="primary" @click="handleSaveRole" :loading="savingRole">
-          保存
+          {{ $t('common.save') }}
         </el-button>
       </template>
     </el-dialog>
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="showEditDialog" title="编辑用户" width="400px">
+    <el-dialog v-model="showEditDialog" :title="$t('users.editUser')" width="400px">
       <el-form :model="editForm" label-width="100px">
-        <el-form-item label="邮箱">
+        <el-form-item :label="$t('users.email')">
           <el-input v-model="editForm.email" />
         </el-form-item>
-        <el-form-item label="账户类型">
+        <el-form-item :label="$t('users.role')">
           <el-select v-model="editForm.role">
             <el-option v-for="role in roles" :key="role.id" :label="getRoleText(role.name)" :value="role.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="是否启用">
-          <el-switch v-model="editForm.is_active" active-text="激活" inactive-text="禁用" />
+        <el-form-item :label="$t('users.status')">
+          <el-switch v-model="editForm.is_active" :active-text="$t('users.statusActive')" :inactive-text="$t('users.statusInactive')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveEdit">保存</el-button>
+        <el-button @click="showEditDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSaveEdit">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 重置密码弹窗 -->
     <el-dialog
       v-model="showResetPasswordDialog"
-      title="重置密码"
+      :title="$t('users.resetPasswordTitle')"
       width="400px"
     >
       <el-form :model="resetPasswordForm" :rules="resetPasswordRules" ref="resetPasswordFormRef" label-width="100px">
-        <el-form-item label="原密码" prop="oldPassword">
+        <el-form-item :label="$t('users.oldPassword')" prop="oldPassword">
           <el-input v-model="resetPasswordForm.oldPassword" type="password" show-password />
         </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
+        <el-form-item :label="$t('users.newPassword')" prop="newPassword">
           <el-input v-model="resetPasswordForm.newPassword" type="password" show-password />
         </el-form-item>
-        <el-form-item label="确认新密码" prop="confirmPassword">
+        <el-form-item :label="$t('users.confirmNewPassword')" prop="confirmPassword">
           <el-input v-model="resetPasswordForm.confirmPassword" type="password" show-password />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showResetPasswordDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleResetPassword" :loading="resettingPassword">确定</el-button>
+        <el-button @click="showResetPasswordDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleResetPassword" :loading="resettingPassword">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>

@@ -6,24 +6,24 @@
         <el-card class="profile-card">
           <template #header>
             <div class="card-header">
-              <span>个人信息</span>
+              <span>{{ $t('account.profile') }}</span>
             </div>
           </template>
           <el-form ref="profileForm" :model="profileData" :rules="profileRules" label-width="100px">
-            <el-form-item label="用户名">
+            <el-form-item :label="$t('users.username')">
               <el-input v-model="profileData.username" disabled />
             </el-form-item>
-            <el-form-item label="邮箱" prop="email">
+            <el-form-item :label="$t('users.email')" prop="email">
               <el-input v-model="profileData.email" />
             </el-form-item>
-            <el-form-item label="角色">
+            <el-form-item :label="$t('users.role')">
               <el-tag>{{ getRoleText(profileData.role) }}</el-tag>
             </el-form-item>
-            <el-form-item label="注册时间">
+            <el-form-item :label="$t('users.createTime')">
               <span>{{ formatDate(profileData.created_at) }}</span>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleUpdateProfile" :loading="updatingProfile">保存</el-button>
+              <el-button type="primary" @click="handleUpdateProfile" :loading="updatingProfile">{{ $t('common.save') }}</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -33,21 +33,21 @@
         <el-card class="password-card">
           <template #header>
             <div class="card-header">
-              <span>修改密码</span>
+              <span>{{ $t('account.changePassword') }}</span>
             </div>
           </template>
           <el-form ref="passwordForm" :model="passwordData" :rules="passwordRules" label-width="100px">
-            <el-form-item label="原密码" prop="oldPassword">
+            <el-form-item :label="$t('account.oldPassword')" prop="oldPassword">
               <el-input v-model="passwordData.oldPassword" type="password" show-password />
             </el-form-item>
-            <el-form-item label="新密码" prop="newPassword">
+            <el-form-item :label="$t('account.newPassword')" prop="newPassword">
               <el-input v-model="passwordData.newPassword" type="password" show-password />
             </el-form-item>
-            <el-form-item label="确认密码" prop="confirmPassword">
+            <el-form-item :label="$t('account.confirmPassword')" prop="confirmPassword">
               <el-input v-model="passwordData.confirmPassword" type="password" show-password />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleChangePassword" :loading="changingPassword">修改密码</el-button>
+              <el-button type="primary" @click="handleChangePassword" :loading="changingPassword">{{ $t('account.changePassword') }}</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -60,11 +60,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Account',
   setup() {
     const store = useStore()
+    const { t } = useI18n()
     
     // 响应式数据
     const updatingProfile = ref(false)
@@ -88,14 +90,14 @@ export default {
     // 表单验证规则
     const profileRules = {
       email: [
-        { required: true, message: '请输入邮箱', trigger: 'blur' },
-        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+        { required: true, message: t('account.rules.emailRequired'), trigger: 'blur' },
+        { type: 'email', message: t('account.rules.emailFormat'), trigger: 'blur' }
       ]
     }
     
     const validateConfirmPassword = (rule, value, callback) => {
       if (value !== passwordData.newPassword) {
-        callback(new Error('两次输入的密码不一致'))
+        callback(new Error(t('account.passwordMismatch')))
       } else {
         callback()
       }
@@ -103,14 +105,14 @@ export default {
     
     const passwordRules = {
       oldPassword: [
-        { required: true, message: '请输入原密码', trigger: 'blur' }
+        { required: true, message: t('account.rules.oldPasswordRequired'), trigger: 'blur' }
       ],
       newPassword: [
-        { required: true, message: '请输入新密码', trigger: 'blur' },
-        { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' }
+        { required: true, message: t('account.rules.newPasswordRequired'), trigger: 'blur' },
+        { min: 6, message: t('account.rules.newPasswordMin'), trigger: 'blur' }
       ],
       confirmPassword: [
-        { required: true, message: '请确认密码', trigger: 'blur' },
+        { required: true, message: t('account.rules.confirmPasswordRequired'), trigger: 'blur' },
         { validator: validateConfirmPassword, trigger: 'blur' }
       ]
     }
@@ -139,9 +141,9 @@ export default {
           id: store.getters['auth/currentUser'].id,
           data: { email: profileData.email }
         })
-        ElMessage.success('更新成功')
+        ElMessage.success(t('account.updateSuccess'))
       } catch (error) {
-        ElMessage.error('更新失败')
+        ElMessage.error(t('account.updateFailed'))
       } finally {
         updatingProfile.value = false
       }
@@ -152,18 +154,18 @@ export default {
         await passwordForm.value.validate()
         changingPassword.value = true
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-          ElMessage.error('两次输入的新密码不一致')
+          ElMessage.error(t('account.passwordMismatch'))
           return
         }
         await store.dispatch('users/updateUser', {
           id: store.getters['auth/currentUser'].id,
           data: { password: passwordData.newPassword }
         })
-        ElMessage.success('密码修改成功')
+        ElMessage.success(t('account.changePasswordSuccess'))
         Object.assign(passwordData, { oldPassword: '', newPassword: '', confirmPassword: '' })
         passwordForm.value.resetFields()
       } catch (error) {
-        ElMessage.error('密码修改失败')
+        ElMessage.error(t('account.changePasswordFailed'))
       } finally {
         changingPassword.value = false
       }

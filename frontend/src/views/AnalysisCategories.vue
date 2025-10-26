@@ -33,22 +33,22 @@
         v-loading="loading"
       >
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="category_key" label="分类标识" width="200" />
-        <el-table-column prop="name_zh" label="中文名称" width="150" />
-        <el-table-column prop="name_en" label="英文名称" width="200" />
-        <el-table-column prop="sort_order" label="排序顺序" width="100" />
-        <el-table-column prop="is_active" label="状态" width="100">
+        <el-table-column prop="category_key" :label="$t('analysisCategories.categoryKey')" width="200" />
+        <el-table-column prop="name_zh" :label="$t('analysisCategories.nameZh')" width="150" />
+        <el-table-column prop="name_en" :label="$t('analysisCategories.nameEn')" width="200" />
+        <el-table-column prop="sort_order" :label="$t('analysisCategories.sortOrder')" width="100" />
+        <el-table-column prop="is_active" :label="$t('analysisCategories.isActive')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.is_active ? 'success' : 'danger'">
               {{ row.is_active ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
+        <el-table-column :label="$t('common.operation')" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button @click="handleEdit(row)">编辑</el-button>
-              <el-button @click="handleDelete(row)" type="danger">删除</el-button>
+              <el-button @click="handleEdit(row)">{{$t('common.edit')}}</el-button>
+              <el-button @click="handleDelete(row)" type="danger">{{$t('common.delete')}}</el-button>
             </div>
           </template>
         </el-table-column>

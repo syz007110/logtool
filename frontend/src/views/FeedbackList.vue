@@ -1,14 +1,14 @@
 <template>
   <div class="card">
     <div class="toolbar">
-      <el-select v-model="status" placeholder="全部状态" clearable style="width: 180px" @change="fetchData(1)">
-        <el-option label="全部" :value="''" />
-        <el-option label="待处理" value="open" />
-        <el-option label="已解决" value="resolved" />
+      <el-select v-model="status" :placeholder="$t('feedback.allStatus')" clearable style="width: 180px" @change="fetchData(1)">
+        <el-option :label="$t('feedback.all')" :value="''" />
+        <el-option :label="$t('feedback.statusOpen')" value="open" />
+        <el-option :label="$t('feedback.statusResolved')" value="resolved" />
       </el-select>
     </div>
     <el-table :data="items" style="width: 100%" :fit="false">
-      <el-table-column prop="title" label="问题标题" min-width="450">
+      <el-table-column prop="title" :label="$t('feedback.issueTitle')" min-width="450">
         <template #default="{ row }">
           <el-tooltip 
             :content="row.title" 
@@ -22,24 +22,24 @@
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="状态标签" width="120">
+      <el-table-column :label="$t('feedback.statusLabel')" width="120">
         <template #default="{ row }">
           <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="提交时间" width="180">
+      <el-table-column prop="created_at" :label="$t('feedback.submitTime')" width="180">
         <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="查看详情" width="120">
+      <el-table-column :label="$t('feedback.viewDetail')" width="120">
         <template #default="{ row }">
-          <el-button link type="primary" @click="viewDetail(row.id)">查看详情</el-button>
+          <el-button link type="primary" @click="viewDetail(row.id)">{{ $t('feedback.viewDetail') }}</el-button>
         </template>
       </el-table-column>
-      <el-table-column label="状态修改" width="160">
+      <el-table-column :label="$t('feedback.statusChange')" width="160">
         <template #default="{ row }">
           <el-select :model-value="row.status" size="small" style="width: 120px" @change="val => changeStatus(row.id, val)">
-            <el-option label="待处理" value="open" />
-            <el-option label="已解决" value="resolved" />
+            <el-option :label="$t('feedback.statusOpen')" value="open" />
+            <el-option :label="$t('feedback.statusResolved')" value="resolved" />
           </el-select>
         </template>
       </el-table-column>
@@ -62,11 +62,13 @@
 import api from '../api'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'FeedbackList',
   emits: ['view'],
   setup(_, { emit }) {
+    const { t: $t } = useI18n()
     const items = ref([])
     const total = ref(0)
     const page = ref(1)
@@ -82,7 +84,7 @@ export default {
       } catch (e) {}
     }
 
-    const statusText = (s) => ({ open: '待处理', in_progress: '处理中', resolved: '已解决' }[s] || s)
+    const statusText = (s) => ({ open: $t('feedback.statusOpen'), in_progress: $t('feedback.statusInProgress'), resolved: $t('feedback.statusResolved') }[s] || s)
     const statusType = (s) => ({ open: 'danger', in_progress: 'warning', resolved: 'success' }[s] || 'info')
     const formatTime = (t) => new Date(t).toLocaleString()
 
@@ -93,7 +95,7 @@ export default {
     const changeStatus = async (id, s) => {
       try {
         await api.feedback.updateStatus(id, s)
-        ElMessage.success('状态已更新')
+        ElMessage.success($t('feedback.statusUpdated'))
         fetchData()
       } catch (e) {}
     }

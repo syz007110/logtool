@@ -4,7 +4,7 @@
       <h3>{{ detail.title }}</h3>
       <el-tag :type="statusType(detail.status)">{{ statusText(detail.status) }}</el-tag>
     </div>
-    <div class="meta">提交时间：{{ formatTime(detail.created_at) }}</div>
+    <div class="meta">{{ $t('feedback.submitTime') }}：{{ formatTime(detail.created_at) }}</div>
     <div class="desc" v-text="detail.description"></div>
     <div class="images" v-if="detail.images && detail.images.length">
       <el-image v-for="img in detail.images" :key="img.id" :src="toAbs(img.url)" :preview-src-list="detail.images.map(i=>toAbs(i.url))" />
@@ -15,17 +15,19 @@
 <script>
 import api from '../api'
 import { ref, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'FeedbackDetail',
   props: { id: { type: Number, required: true } },
   setup(props) {
+    const { t: $t } = useI18n()
     const detail = ref(null)
     const fetchDetail = async () => {
       const { data } = await api.feedback.getDetail(props.id)
       detail.value = data
     }
-    const statusText = (s) => ({ open: '待处理', in_progress: '处理中', resolved: '已解决' }[s] || s)
+    const statusText = (s) => ({ open: $t('feedback.statusOpen'), in_progress: $t('feedback.statusInProgress'), resolved: $t('feedback.statusResolved') }[s] || s)
     const statusType = (s) => ({ open: 'danger', in_progress: 'warning', resolved: 'success' }[s] || 'info')
     const formatTime = (t) => new Date(t).toLocaleString()
     const toAbs = (u) => {

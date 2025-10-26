@@ -2,7 +2,8 @@
   <a-layout class="dashboard-layout">
     <!-- 侧边栏 -->
     <a-layout-sider
-      v-model:collapsed="collapsed"
+      :collapsed="collapsed"
+      @update:collapsed="onSiderCollapsedChange"
       :trigger="null"
       collapsible
       class="dashboard-sider"
@@ -21,8 +22,10 @@
       
       <!-- 菜单 -->
       <a-menu
-        v-model:selectedKeys="selectedKeys"
-        v-model:openKeys="openKeys"
+        :selectedKeys="selectedKeys"
+        @update:selectedKeys="onSelectedKeys"
+        :openKeys="openKeys"
+        @update:openKeys="onOpenKeys"
         mode="inline"
         theme="dark"
         class="dashboard-menu"
@@ -33,15 +36,15 @@
           <template #icon>
             <DatabaseOutlined />
           </template>
-          <template #title>故障码管理</template>
+          <template #title>{{ $t('nav.dataManagement') }}</template>
           <a-menu-item key="/dashboard/error-codes">
-            <span>故障码</span>
+            <span>{{ $t('errorCodes.title') }}</span>
           </a-menu-item>
           <a-menu-item key="/dashboard/i18n-error-codes">
-            <span>多语言</span>
+            <span>{{ $t('i18nErrorCodes.title') }}</span>
           </a-menu-item>
           <a-menu-item key="/dashboard/analysis-categories">
-            <span>日志分析等级</span>
+            <span>{{ $t('analysisCategories.title') }}</span>
           </a-menu-item>
         </a-sub-menu>
         
@@ -50,15 +53,15 @@
           <template #icon>
             <FileTextOutlined />
           </template>
-          <template #title>日志与手术数据</template>
+          <template #title>{{ $t('nav.logAndSurgery') }}</template>
           <a-menu-item key="/dashboard/logs">
-            <span>日志管理</span>
+            <span>{{ $t('logs.title') }}</span>
           </a-menu-item>
           <a-menu-item v-if="$store.getters['auth/hasPermission']('data_replay:manage')" key="/dashboard/data-replay">
-            <span>数据解析</span>
+            <span>{{ $t('dataReplay.title') }}</span>
           </a-menu-item>
           <a-menu-item key="/dashboard/surgery-analysis" disabled>
-            <span>手术数据管理（暂无内容）</span>
+            <span>{{ $t('surgeryData.placeholder') }}</span>
           </a-menu-item>
         </a-sub-menu>
         
@@ -67,7 +70,7 @@
           <template #icon>
             <AppstoreOutlined />
           </template>
-          <span>全局看板</span>
+          <span>{{ $t('globalDashboard.title') }}</span>
         </a-menu-item>
         
         <!-- 缺陷反馈 -->
@@ -75,7 +78,7 @@
           <template #icon>
             <BugOutlined />
           </template>
-          <span>缺陷反馈</span>
+          <span>{{ $t('feedback.title') }}</span>
         </a-menu-item>
         
         <!-- 账户信息 -->
@@ -83,7 +86,7 @@
           <template #icon>
             <UserOutlined />
           </template>
-          <span>账户信息</span>
+          <span>{{ $t('account.title') }}</span>
         </a-menu-item>
         
         <!-- 系统管理 -->
@@ -91,21 +94,21 @@
           <template #icon>
             <SettingOutlined />
           </template>
-          <template #title>系统管理</template>
+          <template #title>{{ $t('nav.systemManagement') }}</template>
           <a-menu-item v-if="$store.getters['auth/hasPermission']('user:read')" key="/dashboard/users">
-            <span>用户管理</span>
+            <span>{{ $t('users.title') }}</span>
           </a-menu-item>
           <a-menu-item v-if="$store.getters['auth/hasPermission']('role:read')" key="/dashboard/roles">
-            <span>角色管理</span>
+            <span>{{ $t('roles.title') }}</span>
           </a-menu-item>
           <a-menu-item v-if="$store.getters['auth/hasPermission']('device:read')" key="/dashboard/devices">
-            <span>设备管理</span>
+            <span>{{ $t('devices.title') }}</span>
           </a-menu-item>
           <a-menu-item v-if="$store.getters['auth/hasPermission']('history:read_all') || $store.getters['auth/hasPermission']('history:read_own')" key="/dashboard/history">
-            <span>历史记录</span>
+            <span>{{ $t('history.title') }}</span>
           </a-menu-item>
           <a-menu-item v-if="$store.getters['auth/hasPermission']('system:monitor')" key="/dashboard/monitoring">
-            <span>系统监控</span>
+            <span>{{ $t('monitoring.title') }}</span>
           </a-menu-item>
         </a-sub-menu>
         
@@ -114,7 +117,7 @@
           <template #icon>
             <ExperimentOutlined />
           </template>
-          <span>测试</span>
+          <span>{{ $t('nav.test') }}</span>
         </a-menu-item>
       </a-menu>
     </a-layout-sider>
@@ -139,17 +142,17 @@
         
         <div class="header-right">
           <!-- 语言切换 -->
-          <a-dropdown :disabled="true">
-            <a-button type="text" disabled>
+          <a-dropdown>
+            <a-button type="text">
               <template #icon>
                 <GlobalOutlined />
               </template>
-              中文
+              {{ currentLocaleLabel }}
             </a-button>
             <template #overlay>
               <a-menu @click="handleLanguageChange">
                 <a-menu-item key="zh-CN">中文</a-menu-item>
-                <a-menu-item key="en-US" disabled>English (暂不可用)</a-menu-item>
+                <a-menu-item key="en-US">English</a-menu-item>
               </a-menu>
             </template>
           </a-dropdown>
@@ -186,6 +189,7 @@
 
 <script>
 import { computed, ref, watch } from 'vue'
+import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { Modal } from 'ant-design-vue'
@@ -242,6 +246,8 @@ export default {
     const store = useStore()
     const router = useRouter()
     const route = useRoute()
+    // i18n helpers
+    const { getCurrentLocale, loadLocaleMessages } = require('../i18n')
     
     // 侧边栏折叠状态
     const collapsed = ref(localStorage.getItem('sidebarCollapsed') === '1')
@@ -275,9 +281,22 @@ export default {
       collapsed.value = !collapsed.value
       localStorage.setItem('sidebarCollapsed', collapsed.value ? '1' : '0')
     }
+
+    const onSiderCollapsedChange = (val) => {
+      collapsed.value = !!val
+      localStorage.setItem('sidebarCollapsed', collapsed.value ? '1' : '0')
+    }
     
     const handleMenuClick = ({ key }) => {
       router.push(key)
+    }
+
+    const onSelectedKeys = (keys) => {
+      selectedKeys.value = Array.isArray(keys) ? keys : [keys]
+    }
+
+    const onOpenKeys = (keys) => {
+      openKeys.value = Array.isArray(keys) ? keys : []
     }
     
     const currentUser = computed(() => store.getters['auth/currentUser'])
@@ -296,8 +315,8 @@ export default {
         Users: 'users.title',
         Roles: 'roles.title',
         BatchAnalysis: 'batchAnalysis.title',
-        GlobalDashboard: '全局看板',
-        Monitoring: '系统监控'
+        GlobalDashboard: 'globalDashboard.title',
+        Monitoring: 'monitoring.title'
       }
       return nameMap[route.name] || 'nav.dashboard'
     })
@@ -325,13 +344,13 @@ export default {
       }
     }
     
-    const handleLanguageChange = ({ key }) => {
-      console.log('语言切换:', key)
-      // 暂时只支持中文
-      if (key === 'zh-CN') {
-        store.dispatch('auth/setLanguage', key)
-        window.location.reload()
-      }
+    const currentLocaleLabel = computed(() => {
+      const cur = getCurrentLocale?.() || 'zh-CN'
+      return cur === 'en-US' ? 'English' : '中文'
+    })
+
+    const handleLanguageChange = async ({ key }) => {
+      await loadLocaleMessages?.(key)
     }
     
     return {
@@ -340,10 +359,14 @@ export default {
       openKeys,
       toggleCollapsed,
       handleMenuClick,
+      onSelectedKeys,
+      onOpenKeys,
       currentUser,
       getPageTitleKey,
       handleUserCommand,
-      handleLanguageChange
+      handleLanguageChange,
+      currentLocaleLabel,
+      onSiderCollapsedChange
     }
   }
 }

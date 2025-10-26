@@ -3,8 +3,8 @@
     <!-- 页面标题和操作栏 -->
     <div class="action-bar">
       <div class="title-section">
-        <h2 class="page-title">手术统计</h2>
-        <p class="page-subtitle">查看各场手术的详细统计数据</p>
+        <h2 class="page-title">{{ $t('surgeryStatistics.title') }}</h2>
+        <p class="page-subtitle">{{ $t('surgeryStatistics.subtitle') }}</p>
       </div>
     </div>
     
@@ -13,12 +13,12 @@
       <el-card class="empty-card">
         <div class="empty-content">
           <el-icon class="empty-icon"><Calendar /></el-icon>
-          <h3>手术数据统计</h3>
+          <h3>{{ $t('surgeryStatistics.dataStatsTitle') }}</h3>
           <p v-if="logEntriesCount > 0">
-                          检测到 {{ logEntriesCount }} 条日志数据，点击按钮开始统计
+                          {{ $t('surgeryStatistics.detectLogs', { count: logEntriesCount }) }}
           </p>
           <p v-else>
-                          暂无日志数据，请先在批量查看或日志查看页面加载日志数据
+                          {{ $t('surgeryStatistics.noLogsHint') }}
           </p>
           
           <el-button 
@@ -39,7 +39,7 @@
       <el-card class="empty-card">
         <div class="empty-content">
           <el-icon class="empty-icon"><Loading /></el-icon>
-          <h3>正在统计手术数据...</h3>
+          <h3>{{ $t('surgeryStatistics.analyzingTitle') }}</h3>
         </div>
       </el-card>
     </div>
@@ -71,7 +71,7 @@
             <div class="export-section">
               <el-button type="primary" @click="exportSurgeryData(surgery.id)">
                 <el-icon><Download /></el-icon>
-                导出手术数据（手术结构化数据）
+                {{ $t('surgeryStatistics.exportStructuredData') }}
               </el-button>
             </div>
             
@@ -81,7 +81,7 @@
               <div class="timeline-section">
                 <el-card class="info-card">
                   <div class="info-header">
-                    <div class="time">手术时间线</div>
+                    <div class="time">{{ $t('surgeryStatistics.surgeryTimeline') }}</div>
                     <div class="badges">
                       <el-tag 
                         v-if="surgery.alarm_count > 0" 
@@ -91,7 +91,7 @@
                         @click="scrollToAlarmCard(surgery.id)"
                         style="cursor: pointer;"
                       >
-                        查看手术故障
+                        {{ $t('surgeryStatistics.viewSurgeryFaults') }}
                       </el-tag>
                       <el-tag 
                         v-if="surgery.is_remote_surgery" 
@@ -101,7 +101,7 @@
                         @click="scrollToNetworkCard(surgery.id)"
                         style="cursor: pointer; margin-left: 8px;"
                       >
-                        查看网络延时
+                        {{ $t('surgeryStatistics.viewNetworkLatency') }}
                       </el-tag>
                     </div>
                   </div>
@@ -109,14 +109,14 @@
                   <!-- PostgreSQL结构化数据预览 -->
                   <div class="postgresql-preview-section">
                     <div class="preview-header">
-                      <span class="preview-title">PostgreSQL结构化数据预览</span>
+                      <span class="preview-title">{{ $t('surgeryStatistics.postgresPreviewTitle') }}</span>
                       <el-button 
                         type="text" 
                         size="small" 
                         @click="togglePostgreSQLPreview(surgery.id)"
                         style="padding: 0; margin-left: 8px;"
                       >
-                        {{ postgresqlPreviewVisible[surgery.id] ? '收起' : '展开' }}
+                        {{ postgresqlPreviewVisible[surgery.id] ? $t('common.collapse') : $t('common.expand') }}
                       </el-button>
                     </div>
                     
@@ -126,7 +126,7 @@
                         type="textarea"
                         :rows="8"
                         readonly
-                        placeholder="正在生成PostgreSQL结构化数据..."
+                        :placeholder="$t('surgeryStatistics.generatingPostgres')"
                         class="postgresql-textarea"
                       />
                       <div class="preview-actions">
@@ -137,7 +137,7 @@
                           :loading="copyingData[surgery.id]"
                         >
                           <el-icon><Document /></el-icon>
-                          复制数据
+                          {{ $t('common.copy') }}
                         </el-button>
                         <el-button 
                           type="success" 
@@ -146,7 +146,7 @@
                           :loading="refreshingData[surgery.id]"
                         >
                           <el-icon><Refresh /></el-icon>
-                          刷新数据
+                          {{ $t('surgeryStatistics.refreshData') }}
                         </el-button>
                       </div>
                     </div>
@@ -173,7 +173,7 @@
               <div class="state-chart-section">
                 <el-card class="state-chart-card">
                   <div class="chart-header">
-                    <div class="chart-title">手术状态机变化图</div>
+                    <div class="chart-title">{{ $t('surgeryStatistics.stateMachineTitle') }}</div>
                   </div>
                   
                   <!-- 状态机曲线图容器（ECharts） -->
@@ -190,8 +190,8 @@
             <el-card class="arm-usage-card">
               <template #header>
                 <div class="card-header">
-                  <span>手术统计</span>
-                  <el-tag type="info">总手术时长: {{ surgery.total_duration }} 分钟</el-tag>
+                  <span>{{ $t('surgeryStatistics.statsTitle') }}</span>
+                  <el-tag type="info">{{ $t('surgeryStatistics.totalDuration') }}: {{ surgery.total_duration }} {{ $t('common.minutes') }}</el-tag>
                 </div>
               </template>
 
@@ -200,13 +200,13 @@
                 <!-- 手术时长进度条 -->
                 <div class="surgery-progress-container">
                   <div class="surgery-duration-info">
-                    <span class="duration-text">手术时长：{{ surgery.total_duration }} 分钟</span>
-                    <span class="time-range">手术时间：{{ formatTime(surgery.surgery_start_time) }} - {{ formatTime(surgery.surgery_end_time) }}</span>
+                    <span class="duration-text">{{ $t('surgeryStatistics.durationLabel') }}：{{ surgery.total_duration }} {{ $t('common.minutes') }}</span>
+                    <span class="time-range">{{ $t('surgeryStatistics.timeRangeLabel') }}：{{ formatTime(surgery.surgery_start_time) }} - {{ formatTime(surgery.surgery_end_time) }}</span>
                   </div>
                   <div class="surgery-timeline-wrapper">
                     <div class="surgery-label">
                       <div class="surgery-color"></div>
-                      <span class="surgery-name">手术时间段</span>
+                      <span class="surgery-name">{{ $t('surgeryStatistics.surgeryPeriod') }}</span>
                     </div>
                     <div class="surgery-timeline-container">
                       <div class="surgery-timeline-bar">
@@ -214,7 +214,7 @@
                           class="surgery-timeline-segment"
                           :style="getSurgeryTimelineStyle(surgery)"
                         >
-                          <span class="surgery-segment-text">手术时间段</span>
+                          <span class="surgery-segment-text">{{ $t('surgeryStatistics.surgeryPeriod') }}</span>
                         </div>
                       </div>
                     </div>
@@ -241,7 +241,7 @@
                           @click="toggleArmDetails(surgery.id, index)"
                         >
                           <el-icon><ArrowDown /></el-icon>
-                          详情
+                          {{ $t('common.details') }}
                         </el-button>
                       </div>
                     </div>
@@ -249,7 +249,7 @@
                     <div class="arm-timeline-container">
                       <div class="arm-label">
                         <div class="arm-color" :class="`arm-${index + 1}`"></div>
-                        <span class="arm-name">工具臂 {{ index + 1 }}</span>
+                        <span class="arm-name">{{ $t('surgeryStatistics.arm') }} {{ index + 1 }}</span>
                       </div>
                       <div class="arm-timeline-bar">
                         <div 
@@ -286,7 +286,7 @@
                                 {{ groupedUsage.instrumentName }}
                               </div>
                               <div class="usage-group-udi">UDI: {{ udiCode }}</div>
-                              <div class="usage-group-duration">总使用时长: {{ getGroupedUsageDuration(groupedUsage) }}</div>
+                              <div class="usage-group-duration">{{ $t('surgeryStatistics.groupedUsageDuration') }}: {{ getGroupedUsageDuration(groupedUsage) }}</div>
                             </div>
                           </div>
                           <div class="arm-timeline-container">
@@ -299,7 +299,7 @@
                                 :style="getUsageTimelineStyle(usage, surgery)"
                               >
                                 <el-tooltip 
-                                  :content="`器械：${usage.instrumentName}\n时间：${formatTime(usage.startTime)} - ${formatTime(usage.endTime)}\n时长：${Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)}分钟`"
+                                  :content="`${$t('surgeryStatistics.instrument')}: ${usage.instrumentName}\n${$t('surgeryStatistics.time')}: ${formatTime(usage.startTime)} - ${formatTime(usage.endTime)}\n${$t('surgeryStatistics.duration')}: ${Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)} ${$t('common.minutes')}`"
                                   placement="top"
                                   :show-arrow="true"
                                   :popper-class="'usage-time-tooltip'"
@@ -314,7 +314,7 @@
                         </div>
                         <div class="energy-time">
                           <el-icon class="energy-icon"><Lightning /></el-icon>
-                          器械总使用时间: {{ getEnergyTime(armUsage) }}
+                          {{ $t('surgeryStatistics.totalInstrumentUsage') }}: {{ getEnergyTime(armUsage) }}
                         </div>
                       </div>
                     </el-collapse-transition>
@@ -325,11 +325,11 @@
               <!-- 手术器械（位于手术统计卡片内，工具臂激活时间下方） -->
               <div class="instruments-inside">
                 <div class="card-header" style="margin-top: 12px; margin-bottom: 8px;">
-                  <span>手术器械</span>
+                  <span>{{ $t('surgeryStatistics.instrumentsTitle') }}</span>
                 </div>
                 <el-table :data="getInstrumentRows(surgery)" size="small" style="width: 100%">
-                  <el-table-column prop="instrumentName" label="器械名称" min-width="180" />
-                  <el-table-column prop="udi" label="UDI码" min-width="220" />
+                  <el-table-column prop="instrumentName" :label="$t('surgeryStatistics.instrumentName')" min-width="180" />
+                  <el-table-column prop="udi" :label="$t('surgeryStatistics.udi')" min-width="220" />
                 </el-table>
               </div>
             </el-card>
@@ -337,22 +337,22 @@
             <!-- 安全报警信息 -->
             <el-card class="alarm-card">
               <template #header>
-                <span>安全报警记录</span>
+                <span>{{ $t('surgeryStatistics.alertsTitle') }}</span>
               </template>
               
               <el-table :data="getAlarmDetails(surgery).slice(0, showAllAlarms[surgery.id] ? undefined : 5)" style="width: 100%">
-                <el-table-column prop="time" label="时间" width="180">
+                <el-table-column prop="time" :label="$t('history.time')" width="180">
                   <template #default="{ row }">
                     {{ formatTime(row.time) }}
                   </template>
                 </el-table-column>
-                <el-table-column prop="code" label="故障码" width="120">
+                <el-table-column prop="code" :label="$t('errorCodes.code')" width="120">
                   <template #default="{ row }">
-                    {{ row.code || row.error_code || '无' }}
+                    {{ row.code || row.error_code || $t('common.noData') }}
                   </template>
                 </el-table-column>
-                <el-table-column prop="message" label="报警信息" />
-                <el-table-column prop="status" label="处理状态" width="120">
+                <el-table-column prop="message" :label="$t('surgeryStatistics.alertMessage')" />
+                <el-table-column prop="status" :label="$t('surgeryStatistics.statusLabel')" width="120">
                   <template #default="{ row }">
                     <el-tag :type="row.status === '已恢复' ? 'success' : row.status === '未处理' ? 'danger' : 'warning'">
                       {{ row.status }}
@@ -372,15 +372,15 @@
                     <ArrowDown v-if="!showAllAlarms[surgery.id]" />
                     <ArrowUp v-else />
                   </el-icon>
-                  {{ showAllAlarms[surgery.id] ? '收起' : `展开更多 (${getAlarmDetails(surgery).length - 5}条)` }}
+                  {{ showAllAlarms[surgery.id] ? $t('common.collapse') : $t('surgeryStatistics.expandMore', { count: getAlarmDetails(surgery).length - 5 }) }}
                 </el-button>
               </div>
               
               <div class="alarm-summary">
-                <el-tag type="danger">报警总数: {{ surgery.alarm_count || 0 }}</el-tag>
-                <el-tag type="info" style="margin-left: 8px;">未处理: {{ getDeduplicatedAlarmStats(surgery).activeCount }}</el-tag>
+                <el-tag type="danger">{{ $t('surgeryStatistics.alarmTotal') }}: {{ surgery.alarm_count || 0 }}</el-tag>
+                <el-tag type="info" style="margin-left: 8px;">{{ $t('surgeryStatistics.unhandled') }}: {{ getDeduplicatedAlarmStats(surgery).activeCount }}</el-tag>
                 <div style="margin-top: 8px; font-size: 12px; color: #909399;">
-                  <span>说明：相同故障码在解除恢复前只统计一次</span>
+                  <span>{{ $t('surgeryStatistics.noteDedup') }}</span>
                 </div>
               </div>
             </el-card>
@@ -388,14 +388,14 @@
             <!-- 网络延时统计 -->
             <el-card v-if="surgery.is_remote_surgery" class="network-card">
               <template #header>
-                <span>网络延时统计</span>
+                <span>{{ $t('surgeryStatistics.networkLatencyTitle') }}</span>
               </template>
               
               <div v-if="surgery.network_stats" class="network-stats">
                 <div class="network-summary">
-                  <el-tag type="info">数据点: {{ surgery.network_stats.count }}</el-tag>
-                  <el-tag type="success" style="margin-left: 8px;">平均延时: {{ surgery.network_stats.avg }}ms</el-tag>
-                  <el-tag type="warning" style="margin-left: 8px;">范围: {{ surgery.network_stats.min }}-{{ surgery.network_stats.max }}ms</el-tag>
+                  <el-tag type="info">{{ $t('surgeryStatistics.dataPoints') }}: {{ surgery.network_stats.count }}</el-tag>
+                  <el-tag type="success" style="margin-left: 8px;">{{ $t('surgeryStatistics.avgLatency') }}: {{ surgery.network_stats.avg }}ms</el-tag>
+                  <el-tag type="warning" style="margin-left: 8px;">{{ $t('surgeryStatistics.range') }}: {{ surgery.network_stats.min }}-{{ surgery.network_stats.max }}ms</el-tag>
                 </div>
                 
                 <!-- 网络延时曲线图 -->
@@ -405,7 +405,7 @@
               </div>
               
               <div v-else class="network-no-data">
-                <el-empty description="暂无网络延时数据" :image-size="60" />
+                <el-empty :description="$t('surgeryStatistics.noNetworkLatencyData')" :image-size="60" />
               </div>
             </el-card>
           </el-tab-pane>

@@ -1,8 +1,21 @@
 <template>
   <div class="register-container">
+    <div class="register-lang-switch">
+      <el-dropdown @command="changeLanguage">
+        <el-button type="text">
+          {{ currentLocaleLabel }}
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+            <el-dropdown-item command="en-US">English</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+    </div>
     <div class="register-box">
       <div class="register-header">
-        <h1>用户注册</h1>
+        <h1>{{ $t('register.title') }}</h1>
       </div>
       
       <el-form 
@@ -14,7 +27,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="formData.username"
-            placeholder="用户名"
+            :placeholder="$t('register.username')"
             prefix-icon="User"
             size="large"
           />
@@ -23,7 +36,7 @@
         <el-form-item prop="email">
           <el-input
             v-model="formData.email"
-            placeholder="邮箱"
+            :placeholder="$t('register.email')"
             prefix-icon="Message"
             size="large"
           />
@@ -33,7 +46,7 @@
           <el-input
             v-model="formData.password"
             type="password"
-            placeholder="密码"
+            :placeholder="$t('register.password')"
             prefix-icon="Lock"
             size="large"
             show-password
@@ -44,7 +57,7 @@
           <el-input
             v-model="formData.confirmPassword"
             type="password"
-            placeholder="确认密码"
+            :placeholder="$t('register.confirmPassword')"
             prefix-icon="Lock"
             size="large"
             show-password
@@ -59,14 +72,14 @@
             :loading="loading"
             @click="handleRegister"
           >
-            注册
+            {{ $t('register.register') }}
           </el-button>
         </el-form-item>
       </el-form>
       
       <div class="register-footer">
         <router-link to="/login" class="back-to-login">
-          返回登录
+          {{ $t('register.backToLogin') }}
         </router-link>
       </div>
     </div>
@@ -74,10 +87,11 @@
 </template>
 
 <script>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 
 export default {
   name: 'Register',
@@ -94,6 +108,7 @@ export default {
     })
     
     const loading = ref(false)
+    const currentLocaleLabel = computed(() => (getCurrentLocale() === 'en-US' ? 'English' : '中文'))
     
     const validateConfirmPassword = (rule, value, callback) => {
       if (value !== formData.password) {
@@ -137,13 +152,18 @@ export default {
         loading.value = false
       }
     }
+    const changeLanguage = async (language) => {
+      await loadLocaleMessages(language)
+    }
     
     return {
       registerForm,
       formData,
       loading,
       rules,
-      handleRegister
+      handleRegister,
+      changeLanguage,
+      currentLocaleLabel
     }
   }
 }

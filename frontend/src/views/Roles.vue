@@ -4,7 +4,7 @@
     <div class="action-bar">
       <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('role:create')">
         <el-icon><Plus /></el-icon>
-        添加角色
+        {{ $t('roles.addRole') }}
       </el-button>
     </div>
     
@@ -16,18 +16,18 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="name" label="角色名称" width="150" />
-        <el-table-column prop="userCount" label="关联用户数" width="120" />
-        <el-table-column prop="description" label="角色描述" show-overflow-tooltip />
+        <el-table-column prop="name" :label="$t('roles.name')" width="150" />
+        <el-table-column prop="userCount" :label="$t('roles.userCount')" width="120" />
+        <el-table-column prop="description" :label="$t('roles.description')" show-overflow-tooltip />
         <!-- 移除权限列 -->
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="180" fixed="right">
           <template #default="{ row }">
             <el-button 
               size="small" 
               @click="handleEdit(row)"
               v-if="$store.getters['auth/hasPermission']('role:update')"
             >
-              编辑
+              {{ $t('common.edit') }}
             </el-button>
             <template v-if="$store.getters['auth/hasPermission']('role:delete')">
               <el-tooltip
@@ -41,7 +41,7 @@
                     type="danger" 
                     :disabled="true"
                   >
-                    删除
+                    {{ $t('common.delete') }}
                   </el-button>
                 </span>
               </el-tooltip>
@@ -51,7 +51,7 @@
                 type="danger" 
                 @click="handleDelete(row)"
               >
-                删除
+                {{ $t('common.delete') }}
               </el-button>
             </template>
           </template>

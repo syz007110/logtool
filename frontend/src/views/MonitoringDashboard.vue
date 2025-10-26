@@ -9,14 +9,14 @@
           @click="refreshData"
           :loading="loading"
         >
-          刷新数据
+          {{ $t('monitoring.refresh') }}
         </el-button>
         <el-button 
           type="success" 
           :icon="Setting" 
           @click="showSettings = true"
         >
-          告警设置
+          {{ $t('monitoring.alertSettings') }}
         </el-button>
       </div>
     </div>
@@ -31,7 +31,7 @@
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ systemMetrics.memory?.usage || 0 }}%</div>
-              <div class="metric-label">内存使用率</div>
+              <div class="metric-label">{{ $t('monitoring.memoryUsage') }}</div>
             </div>
           </div>
         </el-card>
@@ -45,7 +45,7 @@
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ businessMetrics.tasks?.waiting || 0 }}</div>
-              <div class="metric-label">队列等待任务</div>
+              <div class="metric-label">{{ $t('monitoring.queueWaiting') }}</div>
             </div>
           </div>
         </el-card>
@@ -59,7 +59,7 @@
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ businessMetrics.users?.active || 0 }}</div>
-              <div class="metric-label">活跃用户</div>
+              <div class="metric-label">{{ $t('monitoring.activeUsers') }}</div>
             </div>
           </div>
         </el-card>
@@ -73,7 +73,7 @@
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ businessMetrics.fairness || 0 }}%</div>
-              <div class="metric-label">用户公平性</div>
+              <div class="metric-label">{{ $t('monitoring.fairness') }}</div>
             </div>
           </div>
         </el-card>
@@ -87,27 +87,27 @@
           <template #header>
             <div class="section-header section-header-left">
               <el-icon><Monitor /></el-icon>
-              <span>系统状态</span>
+              <span>{{ $t('monitoring.systemStatus') }}</span>
             </div>
           </template>
 
           <div class="system-info">
             <div class="info-item">
-              <span class="label">运行时间:</span>
+              <span class="label">{{ $t('monitoring.uptime') }}:</span>
               <span class="value">{{ formatUptime(systemMetrics.uptime) }}</span>
             </div>
             <div class="info-item">
-              <span class="label">内存使用:</span>
+              <span class="label">{{ $t('monitoring.memoryUsed') }}:</span>
               <span class="value">{{ systemMetrics.memory?.used || 0 }}MB / {{ systemMetrics.memory?.total || 0 }}MB</span>
             </div>
             <div class="info-item">
-              <span class="label">缓存状态:</span>
+              <span class="label">{{ $t('monitoring.cacheStatus') }}:</span>
               <span class="value" :class="{ 'status-connected': applicationMetrics.cache?.connected, 'status-disconnected': !applicationMetrics.cache?.connected }">
-                {{ applicationMetrics.cache?.connected ? '已连接' : '未连接' }}
+                {{ applicationMetrics.cache?.connected ? $t('monitoring.connected') : $t('monitoring.disconnected') }}
               </span>
             </div>
             <div class="info-item">
-              <span class="label">缓存键数:</span>
+              <span class="label">{{ $t('monitoring.cacheKeys') }}:</span>
               <span class="value">{{ applicationMetrics.cache?.keys || 0 }}</span>
             </div>
           </div>
@@ -123,7 +123,7 @@
             <div class="section-header">
               <div class="header-left">
                 <el-icon><List /></el-icon>
-                <span>队列状态</span>
+                <span>{{ $t('monitoring.queueStatus') }}</span>
               </div>
                <div class="header-right" v-if="clusterStatus.enabled">
                  <el-button-group>
@@ -134,7 +134,7 @@
                      size="small"
                    >
                      <el-icon><TrendCharts /></el-icon>
-                     高峰模式
+                     {{ $t('monitoring.peakMode') }}
                    </el-button>
                    <el-button 
                      :type="currentMode === 'offPeak' ? 'primary' : 'default'"
@@ -143,7 +143,7 @@
                      size="small"
                    >
                      <el-icon><Moon /></el-icon>
-                     非高峰模式
+                     {{ $t('monitoring.offPeakMode') }}
                    </el-button>
                  </el-button-group>
                </div>
@@ -152,23 +152,23 @@
           
           <div class="queue-info">
             <div class="info-item">
-              <span class="label">总任务数:</span>
+              <span class="label">{{ $t('monitoring.tasksTotal') }}:</span>
               <span class="value">{{ businessMetrics.tasks?.total || 0 }}</span>
             </div>
             <div class="info-item">
-              <span class="label">等待中:</span>
+              <span class="label">{{ $t('monitoring.tasksWaiting') }}:</span>
               <span class="value">{{ businessMetrics.tasks?.waiting || 0 }}</span>
             </div>
             <div class="info-item">
-              <span class="label">处理中:</span>
+              <span class="label">{{ $t('monitoring.tasksProcessing') }}:</span>
               <span class="value">{{ businessMetrics.tasks?.processing || 0 }}</span>
             </div>
             <div class="info-item">
-              <span class="label">已完成:</span>
+              <span class="label">{{ $t('monitoring.tasksCompleted') }}:</span>
               <span class="value">{{ businessMetrics.tasks?.completed || 0 }}</span>
             </div>
             <div class="info-item">
-              <span class="label">失败:</span>
+              <span class="label">{{ $t('monitoring.tasksFailed') }}:</span>
               <span class="value">{{ businessMetrics.tasks?.failed || 0 }}</span>
             </div>
           </div>
@@ -176,11 +176,11 @@
           <!-- 队列列表（简化进程任务分配） -->
           <div class="queue-table">
             <div class="stats-header">
-              <span>队列列表</span>
+              <span>{{ $t('monitoring.queueList') }}</span>
             </div>
-            <el-table :data="queueRows" border style="width: 100%" size="small" :empty-text="loading ? '加载中...' : '暂无数据'">
-              <el-table-column prop="type" label="队列类型" min-width="180" />
-              <el-table-column label="消费队列的进程" min-width="220">
+            <el-table :data="queueRows" border style="width: 100%" size="small" :empty-text="loading ? $t('common.loading') : $t('common.noData')">
+              <el-table-column prop="type" :label="$t('monitoring.queueType')" min-width="180" />
+              <el-table-column :label="$t('monitoring.queueConsumers')" min-width="220">
           <template #default="{ row }">
                   <div class="consumers-container">
                     <el-tag 
@@ -196,8 +196,8 @@
                   </div>
           </template>
         </el-table-column>
-              <el-table-column prop="active" label="执行中任务数量" width="160" />
-              <el-table-column prop="waiting" label="等待中任务数量" width="160" />
+              <el-table-column prop="active" :label="$t('monitoring.activeTasks')" width="160" />
+              <el-table-column prop="waiting" :label="$t('monitoring.waitingTasks')" width="160" />
             </el-table>
           </div>
         </el-card>
@@ -212,7 +212,7 @@
           <template #header>
             <div class="section-header">
               <el-icon><Warning /></el-icon>
-              <span>系统告警</span>
+              <span>{{ $t('monitoring.systemAlerts') }}</span>
             </div>
           </template>
           
@@ -231,11 +231,11 @@
     <!-- 告警设置对话框 -->
     <el-dialog
       v-model="showSettings"
-      title="告警设置"
+      :title="$t('monitoring.alertSettings')"
       width="600px"
     >
       <el-form :model="alertSettings" label-width="150px">
-        <el-form-item label="内存使用率阈值">
+        <el-form-item :label="$t('monitoring.memoryUsageThreshold')">
           <el-input-number
             v-model="alertSettings.memoryUsage"
             :min="0"
@@ -246,17 +246,17 @@
           <span class="unit">%</span>
         </el-form-item>
         
-        <el-form-item label="队列长度阈值">
+        <el-form-item :label="$t('monitoring.queueLengthThreshold')">
           <el-input-number
             v-model="alertSettings.queueLength"
             :min="0"
             :step="10"
             controls-position="right"
           />
-          <span class="unit">个任务</span>
+          <span class="unit">{{ $t('monitoring.tasksUnit') }}</span>
         </el-form-item>
         
-        <el-form-item label="错误率阈值">
+        <el-form-item :label="$t('monitoring.errorRateThreshold')">
           <el-input-number
             v-model="alertSettings.errorRate"
             :min="0"
@@ -267,20 +267,20 @@
           <span class="unit">%</span>
         </el-form-item>
         
-        <el-form-item label="响应时间阈值">
+        <el-form-item :label="$t('monitoring.responseTimeThreshold')">
           <el-input-number
             v-model="alertSettings.responseTime"
             :min="0"
             :step="100"
             controls-position="right"
           />
-          <span class="unit">毫秒</span>
+          <span class="unit">{{ $t('monitoring.ms') }}</span>
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="showSettings = false">取消</el-button>
-        <el-button type="primary" @click="saveAlertSettings">保存</el-button>
+        <el-button @click="showSettings = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveAlertSettings">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

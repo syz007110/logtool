@@ -1,15 +1,15 @@
 <template>
   <div class="login-container">
     <div class="login-lang-switch">
-      <el-dropdown @command="changeLanguage" disabled>
-        <el-button type="text" disabled>
+      <el-dropdown @command="changeLanguage">
+        <el-button type="text">
           <el-icon><InfoFilled /></el-icon>
-          中文
+          {{ currentLocaleLabel }}
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
-            <el-dropdown-item command="en-US" disabled>English (暂不可用)</el-dropdown-item>
+            <el-dropdown-item command="en-US">English</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -73,6 +73,7 @@ import { ref, reactive, computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { InfoFilled } from '@element-plus/icons-vue'
 
 export default {
@@ -91,6 +92,7 @@ export default {
     const loading = ref(false)
     
     const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
+    const currentLocaleLabel = computed(() => (getCurrentLocale() === 'en-US' ? 'English' : '中文'))
     
     const rules = {
       username: [
@@ -117,9 +119,8 @@ export default {
       }
     }
     
-    const changeLanguage = (language) => {
-      store.dispatch('auth/setLanguage', language)
-      window.location.reload()
+    const changeLanguage = async (language) => {
+      await loadLocaleMessages(language)
     }
     
     return {
@@ -128,6 +129,7 @@ export default {
       loading,
       rules,
       currentLanguage,
+      currentLocaleLabel,
       handleLogin,
       changeLanguage,
       InfoFilled

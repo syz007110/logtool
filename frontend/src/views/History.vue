@@ -93,11 +93,13 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import api from '../api'
 
 export default {
   name: 'History',
   setup() {
+    const { t } = useI18n()
     // 响应式数据
     const loading = ref(false)
     const currentPage = ref(1)
@@ -120,8 +122,8 @@ export default {
         historyList.value = response.data.logs || []
         total.value = response.data.total || 0
       } catch (error) {
-        console.error('加载历史记录失败:', error)
-        ElMessage.error('加载历史记录失败')
+        console.error('Load history failed:', error)
+        ElMessage.error(t('history.loadFailed'))
       } finally {
         loading.value = false
       }

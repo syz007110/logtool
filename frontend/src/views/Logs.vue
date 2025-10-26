@@ -4,18 +4,18 @@
     <el-card class="list-card">
       <template #header>
         <div class="card-header">
-          <span>日志列表</span>
+          <span>{{ $t('logs.title') }}</span>
           <div class="header-actions">
             <!-- 重置按钮 -->
             <div class="header-section reset-section">
-              <el-button plain @click="resetAllFilters">重置</el-button>
+              <el-button plain @click="resetAllFilters">{{ $t('common.reset') }}</el-button>
             </div>
 
             <!-- 刷新按钮 -->
             <div class="header-section refresh-section">
               <el-button plain @click="loadDeviceGroups">
                 <el-icon><Refresh /></el-icon>
-                刷新
+                {{ $t('common.refresh') }}
               </el-button>
             </div>
             
@@ -28,7 +28,7 @@
                 @click="showNormalUpload"
               >
                 <el-icon><UploadFilled /></el-icon>
-                日志上传
+                {{ $t('logs.upload') }}
               </el-button>
             </div>
           </div>
@@ -41,10 +41,10 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="device_id" label="设备编号" width="200">
+        <el-table-column prop="device_id" :label="$t('logs.deviceId')" width="200">
           <template #header>
             <div class="col-header">
-              <span>设备编号</span>
+              <span>{{ $t('logs.deviceId') }}</span>
               <el-popover
                 placement="bottom-start"
                 width="260"
@@ -53,10 +53,10 @@
                 popper-class="custom-filter-panel"
               >
                 <div class="filter-panel">
-                  <div class="filter-title">设备编号筛选</div>
+                  <div class="filter-title">{{ $t('logs.deviceIdFilter') }}</div>
                   <el-input
                     v-model="deviceFilterValue"
-                    placeholder="输入设备编号进行筛选"
+                    :placeholder="$t('logs.deviceIdFilterPlaceholder')"
                     clearable
                     @keyup.enter="applyDeviceFilter"
                   >
@@ -65,8 +65,8 @@
                     </template>
                   </el-input>
                   <div class="filter-actions">
-                    <el-button size="small" type="primary" @click="applyDeviceFilter">搜索</el-button>
-                    <el-button size="small" @click="resetDeviceFilter">重置</el-button>
+                    <el-button size="small" type="primary" @click="applyDeviceFilter">{{ $t('common.search') }}</el-button>
+                    <el-button size="small" @click="resetDeviceFilter">{{ $t('common.reset') }}</el-button>
                   </div>
                 </div>
                 <template #reference>
@@ -85,29 +85,29 @@
             </el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="hospital_name" label="医院名称" width="200">
+        <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" width="200">
           <template #default="{ row }">
             {{ row.hospital_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="log_count" label="日志数量" width="120" align="center">
+        <el-table-column prop="log_count" :label="$t('logs.logCount')" width="120" align="center">
           <template #default="{ row }">
             <el-tag type="info" size="small">{{ row.log_count }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="latest_update_time" label="更新时间" width="180">
+        <el-table-column prop="latest_update_time" :label="$t('logs.updateTime')" width="180">
           <template #default="{ row }">
             {{ formatDate(row.latest_update_time) }}
           </template>
         </el-table-column>
-                 <el-table-column label="操作" width="300" fixed="right">
+                 <el-table-column :label="$t('common.operation')" width="300" fixed="right">
            <template #default="{ row }">
              <el-button 
                size="small" 
                type="primary"
                @click="showDeviceDetail(row)"
              >
-               详情
+               {{ $t('logs.detail') }}
              </el-button>
              
              <el-button 
@@ -116,7 +116,7 @@
                type="success"
                @click="uploadDataForDevice(row)"
              >
-               数据上传
+               {{ $t('logs.uploadData') }}
              </el-button>
              
              <el-button 
@@ -124,7 +124,7 @@
                type="info"
                @click="openSurgeryDrawerForDevice(row)"
              >
-               手术数据
+               {{ $t('logs.surgeryData') }}
              </el-button>
            </template>
          </el-table-column>
@@ -147,7 +147,7 @@
     <!-- 设备详细日志列表抽屉 -->
     <el-drawer
       v-model="showDeviceDetailDrawer"
-      :title="` ${selectedDevice?.device_id} 详细日志`"
+      :title="`${selectedDevice?.device_id} ${$t('logs.detailLogs')}`"
       direction="rtl"
       size="1200px"
       :before-close="handleDrawerClose"
@@ -156,9 +156,9 @@
         <!-- 设备信息头部 -->
         <div class="device-header">
           <div class="device-info">
-            <h3>设备编号：{{ selectedDevice?.device_id }}</h3>
-            <p>医院名称：{{ selectedDevice?.hospital_name || '暂无' }}</p>
-            <p>日志总数：{{ selectedDevice?.log_count || 0 }}</p>
+            <h3>{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</h3>
+            <p>{{ $t('logs.hospitalName') }}：{{ selectedDevice?.hospital_name || '-' }}</p>
+            <p>{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}</p>
           </div>
           <div class="header-controls">
             <!-- 第一列：日志上传按钮 -->
@@ -168,7 +168,7 @@
                 @click="uploadLogForDevice(selectedDevice)"
               >
                 <el-icon><UploadFilled /></el-icon>
-                日志上传
+                {{ $t('logs.upload') }}
               </el-button>
             </div>
             
@@ -176,7 +176,7 @@
             <div class="filter-controls">
               <!-- 仅看自己按钮 -->
               <div class="only-own-section">
-                <el-checkbox v-model="detailOnlyOwn" @change="applyDetailOnlyOwn" label="仅看自己" />
+                <el-checkbox v-model="detailOnlyOwn" @change="applyDetailOnlyOwn" :label="$t('logs.onlyOwn')" />
               </div>
               
               <!-- 时间范围筛选 -->
@@ -184,9 +184,9 @@
                 <el-date-picker
                   v-model="detailTimeRange"
                   type="datetimerange"
-                  range-separator="至"
-                  start-placeholder="开始时间"
-                  end-placeholder="结束时间"
+                  :range-separator="$t('logs.to')"
+                  :start-placeholder="$t('logs.startTime')"
+                  :end-placeholder="$t('logs.endTime')"
                   format="YYYY-MM-DD HH"
                   value-format="YYYY-MM-DD HH:mm:ss"
                   :unlink-panels="true"
@@ -199,14 +199,14 @@
               
               <!-- 重置按钮 -->
               <div class="reset-section">
-                <el-button plain size="small" @click="resetDetailFilters">重置</el-button>
+                <el-button plain size="small" @click="resetDetailFilters">{{ $t('common.reset') }}</el-button>
               </div>
 
               <!-- 刷新按钮 -->
               <div class="refresh-section">
                 <el-button plain size="small" @click="loadDetailLogs">
                   <el-icon><Refresh /></el-icon>
-                  刷新
+                  {{ $t('common.refresh') }}
                 </el-button>
               </div>
             </div>
@@ -216,7 +216,7 @@
         <!-- 详细日志列表 -->
         <div class="detail-logs-section">
           <div class="detail-header">
-            <h4>日志列表</h4>
+            <h4>{{ $t('logs.title') }}</h4>
             <div class="detail-actions">
               <!-- 批量操作组 -->
               <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
@@ -229,7 +229,7 @@
                   :title="getBatchViewTitle()"
                 >
                   <el-icon><Monitor /></el-icon>
-                    批量查看 ({{ selectedDetailLogs.length }})
+                    {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
                 </el-button>
                 <el-button 
                   type="success" 
@@ -239,7 +239,7 @@
                   :title="incompleteLogsMessage"
                 >
                   <el-icon><Download /></el-icon>
-                    批量下载 ({{ selectedDetailLogs.length }})
+                    {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
                 </el-button>
                 <el-button 
                   type="danger" 
@@ -249,7 +249,7 @@
                   :title="incompleteLogsMessage"
                 >
                   <el-icon><Delete /></el-icon>
-                    批量删除 ({{ selectedDetailLogs.length }})
+                    {{ $t('logs.batchDelete') }} ({{ selectedDetailLogs.length }})
                 </el-button>
                 <el-button 
                   type="warning" 
@@ -260,7 +260,7 @@
                   v-if="$store.getters['auth/hasPermission']('log:reparse')"
                 >
                   <el-icon><Refresh /></el-icon>
-                    批量重新解析 ({{ selectedDetailLogs.length }})
+                    {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
                 </el-button>
                 <el-tooltip 
                   content="无删除所有权限时，仅能删除自己上传的日志" 
@@ -274,7 +274,7 @@
                   size="small" 
                     @click="clearDetailSelection"
                 >
-                  取消选择
+                  {{ $t('logs.clearSelection') }}
                 </el-button>
               </div>
             </div>
@@ -290,10 +290,10 @@
             row-key="id"
       >
         <el-table-column type="selection" width="55" />
-            <el-table-column prop="original_name" label="日志文件名" width="240">
+            <el-table-column prop="original_name" :label="$t('logs.logFilename')" width="240">
           <template #header>
             <div class="col-header">
-                  <span>日志文件名</span>
+                  <span>{{ $t('logs.logFilename') }}</span>
               <el-popover
                 placement="bottom-start"
                 width="260"
@@ -302,10 +302,10 @@
                 popper-class="custom-filter-panel"
               >
                 <div class="filter-panel">
-                  <div class="filter-title">时间前缀 (YYYY / YYYYMM / YYYYMMDD / YYYYMMDDHH)</div>
+                  <div class="filter-title">{{ $t('logs.timePrefix') }}</div>
                   <el-input
                         v-model="detailNameTimePrefix"
-                    placeholder="例如 2025081611"
+                    :placeholder="$t('logs.timePrefixPlaceholder')"
                     clearable
                         @keyup.enter="applyDetailNameFilter"
                   >
@@ -314,8 +314,8 @@
                     </template>
                   </el-input>
                   <div class="filter-actions">
-                        <el-button size="small" type="primary" @click="applyDetailNameFilter">搜索</el-button>
-                        <el-button size="small" @click="resetDetailNameFilter">重置</el-button>
+                        <el-button size="small" type="primary" @click="applyDetailNameFilter">{{ $t('common.search') }}</el-button>
+                        <el-button size="small" @click="resetDetailNameFilter">{{ $t('common.reset') }}</el-button>
                   </div>
                 </div>
                 <template #reference>
@@ -325,14 +325,14 @@
             </div>
           </template>
         </el-table-column>
-            <el-table-column prop="uploader_id" label="上传用户ID" width="120" />
-        <el-table-column prop="upload_time" label="上传时间" width="160">
+            <el-table-column prop="uploader_id" :label="$t('logs.uploaderId')" width="120" />
+        <el-table-column prop="upload_time" :label="$t('logs.uploadTime')" width="160">
           <template #default="{ row }">
             {{ formatDate(row.upload_time) }}
           </template>
         </el-table-column>
         
-        <el-table-column label="状态" width="120" align="center">
+        <el-table-column :label="$t('logs.status')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="getRowStatusType(row)" size="small">
               {{ getRowStatusText(row) }}
@@ -340,7 +340,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="300" fixed="right">
           <template #default="{ row }">
             <el-button 
               size="small" 
@@ -348,7 +348,7 @@
               @click="goToLogAnalysis(row)"
               :disabled="!canView(row)"
             >
-              查看
+              {{ $t('logs.view') }}
             </el-button>
             
             <el-button 
@@ -357,7 +357,7 @@
               @click="handleDownload(row)"
               :disabled="!canDownload(row)"
             >
-              下载
+              {{ $t('logs.download') }}
             </el-button>
             
             <el-button 
@@ -367,7 +367,7 @@
               v-if="canDeleteLog(row)"
               :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
             >
-              删除
+              {{ $t('common.delete') }}
             </el-button>
 
             <el-button 
@@ -377,7 +377,7 @@
               v-if="canReparse"
               :disabled="!canReparseLog(row) || row.parsing"
             >
-              重新解析
+              {{ $t('logs.reparse') }}
             </el-button>
           </template>
         </el-table-column>
@@ -474,16 +474,16 @@
       >
         <el-button type="primary" :disabled="uploading">
           <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-          选择文件
+          {{ $t('logs.chooseFiles') }}
         </el-button>
         <template #tip>
           <div class="el-upload__tip">
             <div v-if="!uploading">
-              支持上传 .medbot 文件，最多50个文件，总大小不超过200MB，上传后将自动解密并解析
+              {{ $t('logs.uploadTip') }}
             </div>
             <div v-else class="parsing-tip">
               <el-icon class="is-loading"><Refresh /></el-icon>
-              文件上传中，上传完成后才能进行下一次上传操作
+              {{ $t('logs.uploadingTip') }}
             </div>
           </div>
         </template>
@@ -492,9 +492,9 @@
       <!-- 自定义文件列表 -->
       <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
         <div class="file-list-header">
-          <span>已选择的文件 ({{ uploadFileList.length }})</span>
-          <el-button type="text" size="small" @click="clearUpload" :disabled="uploading">
-            清空
+          <span>{{ $t('logs.selectedFiles') }} ({{ uploadFileList.length }})</span>
+            <el-button type="text" size="small" @click="clearUpload" :disabled="uploading">
+            {{ $t('logs.clear') }}
           </el-button>
         </div>
         <div class="file-items">
@@ -523,7 +523,7 @@
         <div class="key-input-row">
           <el-input
             v-model="decryptKey"
-            placeholder="请输入解密密钥（MAC地址格式，如：00-01-05-77-6a-09）"
+            :placeholder="$t('logs.decryptKeyPlaceholder')"
             style="width: 300px;"
             clearable
             @blur="validateKeyFormat"
@@ -539,10 +539,10 @@
             @click="autoFillDeviceId"
             :disabled="!decryptKey.trim()"
           >
-            自动填充设备编号
+            {{ $t('logs.autoFillDeviceId') }}
           </el-button>
           
-          <span class="key-separator">或</span>
+          <span class="key-separator">{{ $t('logs.or') }}</span>
           
           <el-upload
             ref="keyUploadRef"
@@ -554,7 +554,7 @@
           >
             <el-button type="primary" plain>
               <el-icon><Upload /></el-icon>
-              上传密钥文件
+              {{ $t('logs.uploadKeyFile') }}
             </el-button>
           </el-upload>
         </div>
@@ -607,29 +607,29 @@
 
       <template #footer>
         <div class="upload-actions">
-          <el-button @click="showUploadDialog = false" :disabled="uploading">取消</el-button>
+          <el-button @click="showUploadDialog = false" :disabled="uploading">{{ $t('common.cancel') }}</el-button>
           <el-button 
             type="primary" 
             @click="submitUpload" 
             :loading="uploading"
             :disabled="uploading || !canSubmitUpload || uploadFileList.length === 0"
           >
-            {{ uploading ? '上传中...' : '上传并解析' }}
+            {{ uploading ? $t('logs.uploading') : $t('logs.uploadAndParse') }}
           </el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 日志查看弹窗 -->
-    <el-dialog v-model="showEntriesDialog" title="日志查看" width="900px">
+    <el-dialog v-model="showEntriesDialog" :title="$t('logs.viewLogs')" width="900px">
       <el-table :data="logEntries" style="width: 100%">
-        <el-table-column prop="timestamp" label="时间戳" width="180" />
-        <el-table-column prop="error_code" label="故障码" width="100" />
-        <el-table-column prop="param1" label="参数1" width="100" />
-        <el-table-column prop="param2" label="参数2" width="100" />
-        <el-table-column prop="param3" label="参数3" width="100" />
-        <el-table-column prop="param4" label="参数4" width="100" />
-        <el-table-column prop="explanation" label="日志解释" />
+        <el-table-column prop="timestamp" :label="$t('logs.timestamp')" width="180" />
+        <el-table-column prop="error_code" :label="$t('errorCodes.code')" width="100" />
+        <el-table-column prop="param1" label="Param1" width="100" />
+        <el-table-column prop="param2" label="Param2" width="100" />
+        <el-table-column prop="param3" label="Param3" width="100" />
+        <el-table-column prop="param4" label="Param4" width="100" />
+        <el-table-column prop="explanation" :label="$t('logs.explanation')" />
       </el-table>
     </el-dialog>
 

@@ -1,28 +1,28 @@
 <template>
   <div class="card">
-    <div class="card-title">缺陷提交</div>
+    <div class="card-title">{{ $t('feedback.submitTitle') }}</div>
     <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-      <el-form-item label="标题" prop="title">
+      <el-form-item :label="$t('feedback.title')" prop="title">
         <el-input
           v-model="form.title"
           type="text"
-          placeholder="请填写问题标题（100字以内）"
+          :placeholder="$t('feedback.titlePlaceholder')"
           maxlength="100"
           show-word-limit
         />
       </el-form-item>
-      <el-form-item label="描述" prop="description">
+      <el-form-item :label="$t('feedback.description')" prop="description">
         <el-input
           v-model="form.description"
           type="textarea"
           :rows="5"
-          placeholder="请描述遇到的问题（500字以内）"
+          :placeholder="$t('feedback.descriptionPlaceholder')"
           maxlength="500"
           show-word-limit
           @input="onDescInput"
         />
       </el-form-item>
-      <el-form-item label="图片" prop="images">
+      <el-form-item :label="$t('feedback.images')" prop="images">
         <div class="uploader">
           <el-upload
             :class="['upload', { 'no-trigger': fileList.length >= 3 }]"
@@ -39,22 +39,22 @@
           >
             <el-icon v-if="fileList.length < 3"><Plus /></el-icon>
           </el-upload>
-          <div class="tips">支持 JPG/PNG/WebP，单张≤2MB，最多3张</div>
+          <div class="tips">{{ $t('feedback.uploadTips') }}</div>
         </div>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" :loading="submitting" @click="submit">提交</el-button>
+        <el-button type="primary" :loading="submitting" @click="submit">{{ $t('common.save') }}</el-button>
       </el-form-item>
     </el-form>
   </div>
   <div class="card" style="margin-top: 24px;">
-    <div class="card-title">反馈列表</div>
+    <div class="card-title">{{ $t('feedback.listTitle') }}</div>
     <FeedbackList @view="openDetail" />
   </div>
   <el-dialog v-model="dialogImageVisible">
-    <img :src="dialogImageUrl" alt="预览" style="width: 100%" />
+    <img :src="dialogImageUrl" :alt="$t('feedback.preview')" style="width: 100%" />
   </el-dialog>
-  <el-dialog v-model="detailDialogVisible" title="反馈详情" width="60%">
+  <el-dialog v-model="detailDialogVisible" :title="$t('feedback.detailTitle')" width="60%">
     <FeedbackDetail v-if="selectedId" :id="selectedId" />
   </el-dialog>
  </template>
@@ -64,6 +64,7 @@ import api from '../api'
 import { Plus } from '@element-plus/icons-vue'
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import FeedbackList from './FeedbackList.vue'
 import FeedbackDetail from './FeedbackDetail.vue'
 
@@ -71,15 +72,16 @@ export default {
   name: 'Feedback',
   components: { Plus, FeedbackList, FeedbackDetail },
   setup() {
+    const { t } = useI18n()
     const form = reactive({ title: '', description: '' })
     const rules = {
       title: [
-        { required: true, message: '请填写标题', trigger: 'blur' },
-        { min: 1, max: 100, message: '标题需在100字以内', trigger: 'change' }
+        { required: true, message: t('feedback.rules.titleRequired'), trigger: 'blur' },
+        { min: 1, max: 100, message: t('feedback.rules.titleLen'), trigger: 'change' }
       ],
       description: [
-        { required: true, message: '请填写描述', trigger: 'blur' },
-        { min: 1, max: 500, message: '描述需在500字以内', trigger: 'change' }
+        { required: true, message: t('feedback.rules.descRequired'), trigger: 'blur' },
+        { min: 1, max: 500, message: t('feedback.rules.descLen'), trigger: 'change' }
       ]
     }
     const formRef = ref(null)
@@ -97,12 +99,12 @@ export default {
     const beforeUpload = (file) => {
       const okType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
       if (!okType) {
-        ElMessage.error('仅支持 JPG/PNG/WebP 图片')
+        ElMessage.error(t('feedback.onlyImagesTip'))
         return false
       }
       const okSize = file.size <= 2 * 1024 * 1024
       if (!okSize) {
-        ElMessage.error('图片大小不能超过 2MB')
+        ElMessage.error(t('feedback.imageTooLarge'))
         return false
       }
       return true
@@ -118,7 +120,7 @@ export default {
 
     const noop = () => {}
 
-    const onExceed = () => ElMessage.error('最多上传3张图片')
+    const onExceed = () => ElMessage.error(t('feedback.max3Images'))
 
     const submit = async () => {
       if (submitting.value) return
@@ -130,7 +132,7 @@ export default {
       submitting.value = true
       try {
         await api.feedback.create(fd)
-        ElMessage.success('提交成功，感谢反馈！')
+        ElMessage.success(t('feedback.submitSuccess'))
         form.title = ''
         form.description = ''
         fileList.value = []

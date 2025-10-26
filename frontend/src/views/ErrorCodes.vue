@@ -5,7 +5,7 @@
       <div class="search-section">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索关键字..."
+          :placeholder="$t('errorCodes.searchPlaceholder')"
           style="width: 150px"
           clearable
           @input="handleSearch"
@@ -17,7 +17,7 @@
         
         <el-select
           v-model="selectedSubsystem"
-          placeholder="选择子系统"
+          :placeholder="$t('errorCodes.selectSubsystem')"
           style="width: 150px; margin-left: 10px"
           clearable
           @change="handleSubsystemFilter"
@@ -37,14 +37,14 @@
           :loading="exportLoading"
           @click="openExportDialog"
         >
-          导出CSV
+          {{ $t('errorCodes.exportCSV') }}
         </el-button>
 
         <el-button 
           type="success" 
           @click="openQueryDialog"
         >
-          故障码查询
+          {{ $t('errorCodes.queryCode') }}
         </el-button>
         
         <el-button 
@@ -68,34 +68,34 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="subsystem" label="子系统" width="80" />
-        <el-table-column prop="code" label="故障码" width="120" />
-        <el-table-column label="提示信息" min-width="140">
+        <el-table-column prop="subsystem" :label="$t('errorCodes.subsystem')" width="80" />
+        <el-table-column prop="code" :label="$t('errorCodes.code')" width="120" />
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="140">
           <template #default="{ row }">
             <ExplanationCell :text="[row.user_hint, row.operation].filter(Boolean).join(', ')" />
           </template>
         </el-table-column>
-        <el-table-column prop="param1" label="参数1" min-width="100">
+        <el-table-column prop="param1" :label="'Param1'" min-width="100">
           <template #default="{ row }">
             <ExplanationCell :text="String(row.param1 ?? '')" :always="true" />
           </template>
         </el-table-column>
-        <el-table-column prop="param2" label="参数2" min-width="100">
+        <el-table-column prop="param2" :label="'Param2'" min-width="100">
           <template #default="{ row }">
             <ExplanationCell :text="String(row.param2 ?? '')" :always="true" />
           </template>
         </el-table-column>
-        <el-table-column prop="param3" label="参数3" min-width="100">
+        <el-table-column prop="param3" :label="'Param3'" min-width="100">
           <template #default="{ row }">
             <ExplanationCell :text="String(row.param3 ?? '')" :always="true" />
           </template>
         </el-table-column>
-        <el-table-column prop="param4" label="参数4" min-width="100">
+        <el-table-column prop="param4" :label="'Param4'" min-width="100">
           <template #default="{ row }">
             <ExplanationCell :text="String(row.param4 ?? '')" :always="true" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('common.operation')" width="180" v-if="canUpdate || canDelete">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -103,7 +103,7 @@
               @click="handleEdit(row)"
               v-if="canUpdate"
             >
-              编辑
+              {{ $t('common.edit') }}
             </el-button>
             <el-button
               type="danger"
@@ -111,7 +111,7 @@
               @click="handleDelete(row)"
               v-if="canDelete"
             >
-              删除
+              {{ $t('common.delete') }}
             </el-button>
           </template>
         </el-table-column>
@@ -134,24 +134,24 @@
     <!-- 导出CSV 弹窗 -->
     <el-dialog
       v-model="showExportDialog"
-      title="导出故障码CSV"
+      :title="$t('errorCodes.exportCSVDialogTitle')"
       width="680px"
       :close-on-click-modal="false"
     >
       <el-form label-width="140px">
-        <el-form-item label="导出格式">
+        <el-form-item :label="$t('errorCodes.exportFormat')">
           <el-radio-group v-model="exportFormat">
-            <el-radio label="csv">CSV格式（逗号分隔）</el-radio>
-            <el-radio label="tsv">TSV格式（制表符分隔）</el-radio>
+            <el-radio label="csv">{{ $t('errorCodes.csvFormat') }}</el-radio>
+            <el-radio label="tsv">{{ $t('errorCodes.tsvFormat') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="多语言列（可选）">
+        <el-form-item :label="$t('errorCodes.multilangColumnsOptional')">
           <el-select
             v-model="selectedExportLangs"
             multiple
             collapse-tags
             :max-collapse-tags="4"
-            placeholder="请选择需要包含的语言"
+            :placeholder="$t('errorCodes.selectLanguages')"
             style="width: 100%"
           >
             <el-option
@@ -166,8 +166,8 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showExportDialog = false">取消</el-button>
-          <el-button type="primary" :loading="exportLoading" @click="handleExportCSV">导出</el-button>
+          <el-button @click="showExportDialog = false">{{ $t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="exportLoading" @click="handleExportCSV">{{ $t('common.export') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -388,21 +388,21 @@
     <!-- 故障码查询弹窗 -->
     <el-dialog
       v-model="showQueryDialog"
-      title="故障码查询"
+      :title="$t('errorCodes.queryCode')"
       width="600px"
       :close-on-click-modal="false"
     >
       <el-form :model="queryForm" label-width="140px">
-        <el-form-item label="完整故障码">
+        <el-form-item :label="$t('errorCodes.fullCode')">
           <el-input 
             v-model="queryForm.fullCode" 
-            placeholder="例如 141010A 或 0X010A（可含子系统前缀）" 
+            :placeholder="$t('errorCodes.fullCodePlaceholder')" 
             clearable
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="queryLoading" @click="handleQuery">查询</el-button>
-          <el-button @click="resetQuery">重置</el-button>
+          <el-button type="primary" :loading="queryLoading" @click="handleQuery">{{ $t('common.search') }}</el-button>
+          <el-button @click="resetQuery">{{ $t('common.reset') }}</el-button>
         </el-form-item>
       </el-form>
 
@@ -430,7 +430,7 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showQueryDialog = false">关闭</el-button>
+          <el-button @click="showQueryDialog = false">{{ $t('common.cancel') }}</el-button>
         </span>
       </template>
     </el-dialog>
