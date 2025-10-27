@@ -1,0 +1,45 @@
+{
+  "common": {
+    "created": "Created successfully",
+    "updated": "Updated successfully",
+    "deleted": "Deleted successfully",
+    "notFound": "Resource not found",
+    "operationFailed": "Operation failed",
+    "deleteFailed": "Delete failed",
+    "validationFailed": "Validation failed"
+  },
+  "errorCode": {
+    "duplicate": "Error code already exists under this subsystem",
+    "noData": "No error code data found"
+  },
+  "device": {
+    "listFailed": "Failed to get device list",
+    "requiredId": "Device ID is required",
+    "invalidIdFormat": "Invalid device ID format (e.g. 4371-01, ABC-12)",
+    "invalidKeyFormat": "Invalid device key format (MAC address expected)",
+    "idExists": "Device ID already exists",
+    "createFailed": "Failed to create device",
+    "updateFailed": "Failed to update device",
+    "deleteFailed": "Failed to delete device",
+    "notFound": "Device not found",
+    "provideKey": "Please provide key"
+  },
+  "user": {
+    "requiredUsernamePassword": "Username and password are required",
+    "usernameExists": "Username already exists",
+    "oldPasswordRequired": "Please enter old password",
+    "oldPasswordIncorrect": "Old password is incorrect"
+  },
+  "auth": {
+    "invalidCredentials": "Invalid username or password",
+    "loginSuccess": "Login successful",
+    "unauthenticated": "Not authenticated"
+  },
+  "log": {
+    "notSet": "Not set",
+    "unknownDevice": "Unknown device",
+    "listFailed": "Failed to get logs"
+  }
+}
+
+

@@ -5,18 +5,18 @@
     <el-card class="title-card">
           <div class="surgery-info">
         <span class="surgery-id">{{ meta.surgery_id || '-' }}</span>
-        <el-tag v-if="meta.is_remote" color="green" size="small" class="surgery-tag remote-tag">远程手术</el-tag>
-        <el-tag v-if="meta.is_fault" color="red" size="small" class="surgery-tag fault-tag">故障手术</el-tag>
+        <el-tag v-if="meta.is_remote" color="green" size="small" class="surgery-tag remote-tag">{{$t('surgeryVisualization.remoteSurgery')}}</el-tag>
+        <el-tag v-if="meta.is_fault" color="red" size="small" class="surgery-tag fault-tag">{{$t('surgeryVisualization.faultSurgery')}}</el-tag>
           </div>
     </el-card>
 
     <!-- 手术概况卡片 -->
     <el-card class="overview-card">
       <div class="section-header">
-        手术概况
-        <div class="zoom-controls">
-          <button @click="resetZoom" class="zoom-reset-btn">重置缩放</button>
-          <span class="zoom-level">{{ Math.round(zoomLevel * 100) }}%</span>
+        {{$t('surgeryVisualization.overview')}}
+        <div class="zoom-controls min-w-0">
+          <button @click="resetZoom" class="zoom-reset-btn compact-btn">{{$t('surgeryVisualization.resetZoom')}}</button>
+          <span class="zoom-level one-line-ellipsis" :title="Math.round(zoomLevel * 100) + '%'">{{ Math.round(zoomLevel * 100) }}%</span>
         </div>
       </div>
         <div 
@@ -32,15 +32,15 @@
         >
         <!-- 表格头部 -->
         <div class="timeline-header">
-          <div class="arm-column">活动名称</div>
-          <div class="time-columns" :style="getTimeColumnsStyle()">
+          <div class="arm-column"><span class="one-line-ellipsis" :title="$t('surgeryVisualization.activity')">{{$t('surgeryVisualization.activity')}}</span></div>
+            <div class="time-columns" :style="getTimeColumnsStyle()">
             <div 
               v-for="(_, index) in Array(getTotalHours()).fill(0)" 
               :key="index" 
               class="time-column"
               :style="getTimeColumnStyle()"
             >
-              {{ getTimeColumnText(index) }}
+              <span class="one-line-ellipsis" :title="getTimeColumnText(index)">{{ getTimeColumnText(index) }}</span>
             </div>
           </div>
         </div>
@@ -99,7 +99,7 @@
             :key="arm.arm_id" 
             class="timeline-row"
           >
-            <div class="arm-cell">{{ arm.name }}</div>
+            <div class="arm-cell"><span class="one-line-ellipsis" :title="arm.name">{{ arm.name }}</span></div>
             <div class="time-cells" :style="getTimeCellsStyle()">
               <div 
                 v-for="(_, index) in Array(getTotalHours()).fill(0)" 
@@ -167,12 +167,12 @@
       <!-- 手术状态机变化卡片 -->
       <el-card class="state-machine-card" v-if="hasStateMachineData">
         <div class="section-header">
-          手术状态机变化
+          {{$t('surgeryVisualization.stateMachineChanges')}}
         </div>
         <div class="chart-container">
           <TimeSeriesChart
             :series-data="stateMachineChartData"
-            :series-name="'状态机'"
+            :series-name="$t('surgeryVisualization.stateMachine')"
             :height="300"
             :width="600"
             :y-axis-format="'integer'"
@@ -189,12 +189,12 @@
           <a-tabs :activeKey="remoteDataView" @change="(key) => remoteDataView = key" class="remote-data-tabs">
             <a-tab-pane key="network" :disabled="!hasNetworkLatencyData">
               <template #tab>
-                <span class="tab-title">网络延迟情况</span>
+                <span class="tab-title">{{$t('surgeryVisualization.networkLatency')}}</span>
               </template>
               <div v-if="hasNetworkLatencyData" class="chart-container">
                 <TimeSeriesChart
                   :series-data="networkLatencyChartData"
-                  :series-name="'网络延迟(ms)'"
+                  :series-name="$t('surgeryVisualization.networkLatencyMs')"
                   :height="300"
                   :width="600"
                   :y-axis-format="'decimal'"
@@ -207,7 +207,7 @@
             
             <a-tab-pane key="operations" :disabled="!hasOperationData">
               <template #tab>
-                <span class="tab-title">操作数据汇总</span>
+                <span class="tab-title">{{$t('surgeryVisualization.operationSummary')}}</span>
               </template>
               <div class="operations-summary">
                 <OperationSummaryTable :operation-data="operationSummaryData" />
@@ -220,7 +220,7 @@
       <!-- 非远程手术：操作数据汇总表 -->
       <el-card v-if="!meta.is_remote && hasOperationData" class="operations-card">
         <div class="section-header">
-          操作数据汇总
+          {{$t('surgeryVisualization.operationSummary')}}
         </div>
         <div class="operations-summary">
           <OperationSummaryTable :operation-data="operationSummaryData" />
@@ -231,7 +231,7 @@
     <!-- 安全报警记录卡片 -->
     <el-card class="faults-card" v-if="showCharts && meta.is_fault && faultRecords.length > 0">
       <div class="section-header">
-        安全报警记录
+        {{$t('surgeryVisualization.safetyAlerts')}}
       </div>
       <div class="faults-container">
         <el-table 
@@ -242,13 +242,13 @@
           :max-height="400"
           class="faults-table"
         >
-          <el-table-column prop="timestamp" label="故障发生时间" width="180" align="center">
+          <el-table-column prop="timestamp" :label="$t('surgeryVisualization.faultTime')" width="180" align="center">
             <template #default="{ row }">
               <span class="fault-time">{{ formatFaultTime(row.timestamp) }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="error_code" label="故障码" width="120" align="center">
+          <el-table-column prop="error_code" :label="$t('surgeryVisualization.faultCode')" width="120" align="center">
             <template #default="{ row }">
               <el-tag :type="getFaultType(row.error_code)" size="small">
                 {{ row.error_code }}
@@ -256,16 +256,16 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="explanation" label="故障释义" min-width="200">
+          <el-table-column prop="explanation" :label="$t('surgeryVisualization.faultExplanation')" min-width="200">
             <template #default="{ row }">
-              <span class="fault-explanation">{{ row.explanation || '无详细说明' }}</span>
+              <span class="fault-explanation">{{ row.explanation || $t('surgeryVisualization.noExplanation') }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="status" label="状态" width="100" align="center">
+          <el-table-column prop="status" :label="$t('surgeryVisualization.status')" width="100" align="center">
             <template #default="{ row }">
               <el-tag 
-                :type="row.status === '已处理' ? 'success' : 'danger'" 
+                :type="row.status === $t('surgeryVisualization.statusProcessed') ? 'success' : 'danger'" 
                 size="small"
                 effect="dark"
               >
@@ -277,7 +277,7 @@
         
         <div class="faults-summary" v-if="faultRecords.length > 0">
           <el-alert
-            :title="`共发现 ${faultRecords.length} 个故障，其中 ${getProcessedCount()} 个已处理，${getUnprocessedCount()} 个未处理`"
+            :title="$t('surgeryVisualization.faultsSummary', { total: faultRecords.length, processed: getProcessedCount(), unprocessed: getUnprocessedCount() })"
             type="info"
             :closable="false"
             show-icon
@@ -294,10 +294,10 @@
     >
       <div class="tooltip-title">{{ getSegmentTooltipTitle(hoveredSegment) }}</div>
       <div class="tooltip-content">
-        <div>UDI码: {{ hoveredSegment.udi || '无UDI' }}</div>
-        <div>使用时长: {{ getSegmentDuration(hoveredSegment) }}分钟</div>
-        <div>安装时刻: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
-        <div>拔下时刻: {{ formatSegmentTime(hoveredSegment.remove_time || hoveredSegment.end_time) }}</div>
+        <div>{{$t('surgeryVisualization.tooltipUdi')}}: {{ hoveredSegment.udi || $t('surgeryVisualization.tooltipNoUdi') }}</div>
+        <div>{{$t('surgeryVisualization.tooltipDuration')}}: {{ getSegmentDuration(hoveredSegment) }}{{$t('common.minutes')}}</div>
+        <div>{{$t('surgeryVisualization.tooltipInstall')}}: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
+        <div>{{$t('surgeryVisualization.tooltipRemove')}}: {{ formatSegmentTime(hoveredSegment.remove_time || hoveredSegment.end_time) }}</div>
       </div>
     </div>
     
@@ -307,7 +307,7 @@
       class="custom-tooltip" 
       :style="getTooltipStyle()"
     >
-      <div class="tooltip-title">{{ hoveredEvent.isMerged ? `合并事件 (${hoveredEvent.allEvents.length}个)` : hoveredEvent.name }}</div>
+      <div class="tooltip-title">{{ hoveredEvent.isMerged ? `${$t('surgeryVisualization.mergedEvents')} (${hoveredEvent.allEvents.length})` : hoveredEvent.name }}</div>
       <div class="tooltip-content">
         <div v-if="hoveredEvent.isMerged && hoveredEvent.allEvents">
           <div v-for="event in hoveredEvent.allEvents" :key="event.time" class="event-item">
@@ -316,7 +316,7 @@
           </div>
         </div>
         <div v-else>
-          <div>时间: {{ formatEventTime(hoveredEvent) }}</div>
+          <div>{{$t('surgeryVisualization.time')}}: {{ formatEventTime(hoveredEvent) }}</div>
         </div>
       </div>
     </div>
@@ -332,6 +332,7 @@ import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 import OperationSummaryTable from '../components/OperationSummaryTable.vue'
 import { Tabs, TabPane } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'SurgeryVisualization',
@@ -345,6 +346,7 @@ export default {
     // 移除不需要的图表引用
 
     const loading = ref(false)
+    const { t, locale } = useI18n()
     const surgeryIdInput = ref('')
     const route = useRoute()
 
@@ -353,11 +355,11 @@ export default {
     const showAllAlerts = ref(false)
     const currentData = ref(null)
     const armsData = ref([
-      { name: '手术时间线', arm_id: 0, segments: [] },
-      { name: '1号臂', arm_id: 1, segments: [] },
-      { name: '2号臂', arm_id: 2, segments: [] },
-      { name: '3号臂', arm_id: 3, segments: [] },
-      { name: '4号臂', arm_id: 4, segments: [] }
+      { name: t('surgeryVisualization.armTimeline'), arm_id: 0, segments: [] },
+      { name: t('surgeryVisualization.armN', { n: 1 }), arm_id: 1, segments: [] },
+      { name: t('surgeryVisualization.armN', { n: 2 }), arm_id: 2, segments: [] },
+      { name: t('surgeryVisualization.armN', { n: 3 }), arm_id: 3, segments: [] },
+      { name: t('surgeryVisualization.armN', { n: 4 }), arm_id: 4, segments: [] }
     ])
     
     // 时间线事件数据
@@ -547,18 +549,18 @@ export default {
     const getSegmentTooltip = (segment) => {
       const duration = calculateDuration(segment.start || segment.install_time || segment.start_time, 
                                        segment.end || segment.remove_time || segment.end_time)
-      const toolType = segment.tool_type || segment.instrument_type || '未知器械'
-      const udi = segment.udi || '无UDI'
+      const toolType = segment.tool_type || segment.instrument_type || t('surgeryVisualization.unknownInstrument')
+      const udi = segment.udi || t('surgeryVisualization.tooltipNoUdi')
       
       // 转换UTC时间为本地时间显示
       const installTime = segment.install_time || segment.start_time
       const removeTime = segment.remove_time || segment.end_time
       
       const formatTime = (timeStr) => {
-        if (!timeStr) return '未知'
+        if (!timeStr) return t('surgeryVisualization.unknown')
         const localTime = getLocalTime(timeStr)
-        if (!localTime) return '未知'
-        return localTime.toLocaleString('zh-CN', {
+        if (!localTime) return t('surgeryVisualization.unknown')
+        return localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
@@ -568,7 +570,7 @@ export default {
         })
       }
       
-      return `${toolType}\n\nUDI码: ${udi}\n使用时长: ${duration}分钟\n安装时刻: ${formatTime(installTime)}\n拔下时刻: ${formatTime(removeTime)}`
+      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('common.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatTime(removeTime)}`
     }
     
     // ========== SVG覆盖层相关函数 ==========
@@ -811,8 +813,8 @@ export default {
     // 事件时间与星期格式化（与器械tooltip一致）
     const formatEventTime = (ev) => {
       const localTime = getLocalTime(ev?.time)
-      if (!localTime) return '未知'
-      return localTime.toLocaleString('zh-CN', {
+      if (!localTime) return t('surgeryVisualization.unknown')
+      return localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       })
@@ -820,12 +822,12 @@ export default {
     const getEventWeekday = (ev) => {
       const localTime = getLocalTime(ev?.time)
       if (!localTime) return ''
-      return localTime.toLocaleDateString('zh-CN', { weekday: 'long' })
+      return localTime.toLocaleDateString(locale?.value || document?.documentElement?.lang || 'zh-CN', { weekday: 'long' })
     }
     
     // 获取器械段tooltip标题
     const getSegmentTooltipTitle = (segment) => {
-      return segment.tool_type || segment.instrument_type || '未知器械'
+      return segment.tool_type || segment.instrument_type || t('surgeryVisualization.unknownInstrument')
     }
     
     // 获取器械段使用时长
@@ -838,10 +840,10 @@ export default {
     
     // 格式化器械段时间
     const formatSegmentTime = (timeStr) => {
-      if (!timeStr) return '未知'
+      if (!timeStr) return t('surgeryVisualization.unknown')
       const localTime = getLocalTime(timeStr)
-      if (!localTime) return '未知'
-      return localTime.toLocaleString('zh-CN', {
+      if (!localTime) return t('surgeryVisualization.unknown')
+      return localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -1041,7 +1043,7 @@ export default {
     // 获取事件工具提示
     const getEventTooltip = (event) => {
       // 调试：确保事件对象存在
-      if (!event) return '事件数据不存在'
+      if (!event) return t('common.error')
       
       if (event.isMerged && event.allEvents) {
         // 合并事件的工具提示
@@ -1049,7 +1051,7 @@ export default {
           const localTime = getLocalTime(e.time)
           if (!localTime) return e.name
           
-          const timeStr = localTime.toLocaleString('zh-CN', {
+          const timeStr = localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -1058,17 +1060,17 @@ export default {
             second: '2-digit'
           })
           
-          return `${e.name}\n时间: ${timeStr}`
+          return `${e.name}\n${t('surgeryVisualization.time')}: ${timeStr}`
         }).join('\n\n')
         
-        return `合并事件 (${event.allEvents.length}个):\n\n${eventDetails}`
+        return `${t('surgeryVisualization.mergedEvents')} (${event.allEvents.length}):\n\n${eventDetails}`
       }
       
       // 单个事件的工具提示
       const localTime = getLocalTime(event.time)
-      if (!localTime) return `${event.name}\n时间: 解析失败`
+      if (!localTime) return `${event.name}\n${t('surgeryVisualization.time')}: ${t('common.error')}`
       
-      const timeStr = localTime.toLocaleString('zh-CN', {
+      const timeStr = localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -1077,9 +1079,9 @@ export default {
         second: '2-digit'
       })
       
-      const weekDay = localTime.toLocaleDateString('zh-CN', { weekday: 'long' })
+      const weekDay = localTime.toLocaleDateString(locale?.value || document?.documentElement?.lang || 'zh-CN', { weekday: 'long' })
       
-      return `${event.name}\n时间: ${timeStr}\n星期: ${weekDay}`
+      return `${event.name}\n${t('surgeryVisualization.time')}: ${timeStr}\n${t('surgeryVisualization.weekday')}: ${weekDay}`
     }
     
     // 检查事件列表中是否包含电源事件
@@ -1272,7 +1274,7 @@ export default {
     // 获取器械显示名称
     const getInstrumentDisplayName = (segment) => {
       const toolType = segment.tool_type || segment.instrument_type || ''
-      if (!toolType) return '未知器械'
+      if (!toolType) return t('surgeryVisualization.unknownInstrument')
       
       // 显示完整的器械名称，不进行简写
       return toolType
@@ -1358,7 +1360,7 @@ export default {
       // 处理arms数据，确保每个arm有正确的segments
       const processedArms = arms.map((arm, index) => {
         const armId = arm.arm_id || (index + 1)
-        const armName = arm.name || `${armId}号臂`
+        const armName = arm.name || t('surgeryVisualization.armN', { n: armId })
         const segments = Array.isArray(arm.instrument_usage) ? arm.instrument_usage : []
         
         
@@ -1377,7 +1379,7 @@ export default {
           allArms.push(existingArm)
       } else {
           allArms.push({
-            name: `${i}号臂`,
+            name: t('surgeryVisualization.armN', { n: i }),
             arm_id: i,
             segments: []
           })
@@ -1386,7 +1388,7 @@ export default {
       
       // 更新armsData，手术时间线在最前面
       armsData.value = [
-        { name: '手术时间线', arm_id: 0, segments: [] },
+        { name: t('surgeryVisualization.armTimeline'), arm_id: 0, segments: [] },
         ...allArms
       ]
       
@@ -1401,7 +1403,7 @@ export default {
         if (cycle.on_time) {
           events.push({ 
             time: cycle.on_time, 
-            name: `开机${index + 1}`, 
+            name: t('surgeryVisualization.powerOn', { index: index + 1 }), 
             type: 'power_on', 
             symbol: 'square' 
           })
@@ -1409,7 +1411,7 @@ export default {
         if (cycle.off_time) {
           events.push({ 
             time: cycle.off_time, 
-            name: `关机${index + 1}`, 
+            name: t('surgeryVisualization.powerOff', { index: index + 1 }), 
             type: 'power_off', 
             symbol: 'square' 
           })
@@ -1439,13 +1441,13 @@ export default {
       
       // 添加其他重要事件
       if (previousSurgeryEnd) {
-        events.push({ time: previousSurgeryEnd, name: '上一台手术结束', type: 'previous_end', symbol: 'circle' })
+        events.push({ time: previousSurgeryEnd, name: t('surgeryVisualization.previousSurgeryEnd'), type: 'previous_end', symbol: 'circle' })
       }
       if (surgeryStart) {
-        events.push({ time: surgeryStart, name: '手术开始', type: 'surgery_start', symbol: 'circle' })
+        events.push({ time: surgeryStart, name: t('surgeryVisualization.surgeryStart'), type: 'surgery_start', symbol: 'circle' })
       }
       if (surgeryEnd) {
-        events.push({ time: surgeryEnd, name: '手术结束', type: 'surgery_end', symbol: 'circle' })
+        events.push({ time: surgeryEnd, name: t('surgeryVisualization.surgeryEnd'), type: 'surgery_end', symbol: 'circle' })
       }
       
       timelineEvents.value = events
@@ -1678,8 +1680,8 @@ export default {
             faultMap.set(errorCode, {
               timestamp: fault.timestamp,
               error_code: fault.error_code,
-              explanation: fault.explanation || '无详细说明',
-              status: fault.status || '未处理'
+              explanation: fault.explanation || t('surgeryVisualization.noExplanation'),
+              status: fault.status || t('surgeryVisualization.statusUnprocessed')
             })
           }
         })
@@ -1695,10 +1697,10 @@ export default {
     
     // 格式化故障时间
     const formatFaultTime = (timestamp) => {
-      if (!timestamp) return '未知时间'
+      if (!timestamp) return t('surgeryVisualization.unknownTime')
       try {
         const date = new Date(timestamp)
-        return date.toLocaleString('zh-CN', {
+        return date.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
@@ -1727,12 +1729,12 @@ export default {
     
     // 获取已处理故障数量
     const getProcessedCount = () => {
-      return faultRecords.value.filter(fault => fault.status === '已处理').length
+      return faultRecords.value.filter(fault => fault.status === t('surgeryVisualization.statusProcessed')).length
     }
     
     // 获取未处理故障数量
     const getUnprocessedCount = () => {
-      return faultRecords.value.filter(fault => fault.status === '未处理').length
+      return faultRecords.value.filter(fault => fault.status === t('surgeryVisualization.statusUnprocessed')).length
     }
     
     // 处理鼠标滚轮缩放

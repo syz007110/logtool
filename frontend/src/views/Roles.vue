@@ -62,7 +62,7 @@
     <!-- 添加/编辑角色对话框 -->
     <el-dialog
       v-model="showAddDialog"
-      :title="editingRole ? '编辑角色' : '添加角色'"
+      :title="editingRole ? $t('roles.editRole') : $t('roles.addRole')"
       width="600px"
     >
       <el-form
@@ -71,11 +71,11 @@
         :rules="rules"
         label-width="100px"
       >
-        <el-form-item label="角色名称" prop="name">
+        <el-form-item :label="$t('roles.name')" prop="name">
           <el-input v-model="roleForm.name" />
         </el-form-item>
         
-        <el-form-item label="角色描述" prop="description">
+        <el-form-item :label="$t('roles.description')" prop="description">
           <el-input
             v-model="roleForm.description"
             type="textarea"
@@ -83,7 +83,7 @@
           />
         </el-form-item>
         
-        <el-form-item label="权限" prop="permissions">
+        <el-form-item :label="$t('roles.permissions')" prop="permissions">
           <div class="permission-tree-container">
             <el-tree
               ref="permTreeRef"
@@ -106,16 +106,16 @@
             </el-tree>
             <div v-if="isAdminRole" class="admin-permission-notice">
               <el-icon><InfoFilled /></el-icon>
-              <span>管理员角色拥有所有权限，无法修改</span>
+              <span>{{ $t('roles.adminNotice') }}</span>
             </div>
           </div>
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="showAddDialog = false">取消</el-button>
+        <el-button @click="showAddDialog = false">{{ $t('common.cancel') }}</el-button>
         <el-button type="primary" @click="handleSave" :loading="saving">
-          保存
+          {{ $t('common.save') }}
         </el-button>
       </template>
     </el-dialog>
@@ -128,6 +128,7 @@ import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
 import api from '../api'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Roles',
@@ -136,6 +137,7 @@ export default {
   },
   setup() {
     const store = useStore()
+    const { t } = useI18n()
     
     // 响应式数据
     const loading = ref(false)
@@ -154,10 +156,10 @@ export default {
     
     const rules = {
       name: [
-        { required: true, message: '请输入角色名称', trigger: 'blur' }
+        { required: true, message: t('roles.rules.nameRequired'), trigger: 'blur' }
       ],
       description: [
-        { required: true, message: '请输入角色描述', trigger: 'blur' }
+        { required: true, message: t('roles.rules.descriptionRequired'), trigger: 'blur' }
       ]
     }
     
@@ -189,26 +191,26 @@ export default {
 
       // 权限分组映射
       const groupMapping = {
-        'user': '用户管理',
-        'role': '角色管理', 
-        'error_code': '故障码管理',
-        'log': '日志管理',
-        'i18n': '多语言管理',
-        'device': '设备管理',
-        'history': '历史记录',
-        'surgery': '手术数据',
-        'data_replay': '数据回放',
-        'dashboard': '系统看板',
-        'test': '测试',
-        'system': '系统监控',
-        'loglevel': '日志分析等级'
+        'user': t('roles.permissionGroups.user'),
+        'role': t('roles.permissionGroups.role'), 
+        'error_code': t('roles.permissionGroups.error_code'),
+        'log': t('roles.permissionGroups.log'),
+        'i18n': t('roles.permissionGroups.i18n'),
+        'device': t('roles.permissionGroups.device'),
+        'history': t('roles.permissionGroups.history'),
+        'surgery': t('roles.permissionGroups.surgery'),
+        'data_replay': t('roles.permissionGroups.data_replay'),
+        'dashboard': t('roles.permissionGroups.dashboard'),
+        'test': t('roles.permissionGroups.test'),
+        'system': t('roles.permissionGroups.system'),
+        'loglevel': t('roles.permissionGroups.loglevel')
       }
 
       // 按权限前缀分组
       const groupedPermissions = {}
       permissions.value.forEach(permission => {
         const prefix = permission.name.split(':')[0]
-        const groupName = groupMapping[prefix] || '其他权限'
+        const groupName = groupMapping[prefix] || t('roles.permissionGroups.other')
         
         if (!groupedPermissions[groupName]) {
           groupedPermissions[groupName] = {
@@ -248,7 +250,7 @@ export default {
       try {
         await store.dispatch('users/fetchRoles')
       } catch (error) {
-        ElMessage.error('加载角色失败')
+        ElMessage.error(t('roles.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -261,7 +263,7 @@ export default {
         console.log('Loaded permissions:', permissions.value)
       } catch (e) {
         console.error('Failed to load permissions:', e)
-        ElMessage.error('加载权限清单失败')
+        ElMessage.error(t('roles.loadPermsFailed'))
       }
     }
     
@@ -308,17 +310,17 @@ export default {
     
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm('确定要删除这个角色吗？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
+        await ElMessageBox.confirm($t('roles.deleteConfirmText'), $t('roles.deleteConfirmTitle'), {
+          confirmButtonText: $t('common.confirm'),
+          cancelButtonText: $t('common.cancel'),
           type: 'warning'
         })
         await store.dispatch('users/deleteRole', row.id)
-        ElMessage.success('删除成功')
+        ElMessage.success(t('roles.deleteSuccess'))
         loadRoles()
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('删除失败')
+          ElMessage.error(t('roles.deleteFailed'))
         }
       }
     }
@@ -334,16 +336,16 @@ export default {
             id: editingRole.value.id,
             data: roleForm
           })
-          ElMessage.success('更新成功')
+          ElMessage.success(t('roles.updateSuccess'))
         } else {
           await store.dispatch('users/createRole', roleForm)
-          ElMessage.success('添加成功')
+          ElMessage.success(t('roles.createSuccess'))
         }
         showAddDialog.value = false
         resetForm()
         loadRoles()
       } catch (error) {
-        ElMessage.error('保存失败')
+        ElMessage.error(t('roles.saveFailed'))
       } finally {
         saving.value = false
       }
@@ -361,9 +363,9 @@ export default {
     }
 
     const deleteDisabledReason = (row) => {
-      if (isDefaultRole(row)) return '系统内置角色不可删除'
-      if (row.userCount && row.userCount > 0) return `有 ${row.userCount} 个用户正在使用，无法删除`
-      return '不可删除'
+      if (isDefaultRole(row)) return t('roles.deleteDisabled.builtInRole')
+      if (row.userCount && row.userCount > 0) return t('roles.deleteDisabled.inUse', { count: row.userCount })
+      return t('roles.deleteDisabled.cannotDelete')
     }
 
     const handlePermissionCheck = (data, checkedInfo) => {

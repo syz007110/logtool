@@ -8,7 +8,7 @@
           :status="loadingProgress >= 100 ? 'success' : ''"
           :stroke-width="8"
         />
-        <p class="loading-text">正在加载日志内容... {{ loadingProgress }}%</p>
+        <p class="loading-text">{{ $t('common.loading') }} {{ loadingProgress }}%</p>
       </div>
     </el-card>
 
@@ -17,13 +17,13 @@
         <div class="card-header">
           <div class="header-left">
             <el-button @click="goBack" icon="ArrowLeft" size="small">
-              返回
+              {{ $t('common.back') || 'Back' }}
             </el-button>
-            <span class="title">日志详情</span>
+            <span class="title">{{ $t('logDetail.title') }}</span>
           </div>
           <div class="header-right">
             <el-tag :type="getStatusType(logInfo.status)" size="small">
-              {{ getStatusText(logInfo.status) }}
+              <span class="one-line-ellipsis" :title="getStatusText(logInfo.status)" style="display:inline-block; max-width:100%">{{ getStatusText(logInfo.status) }}</span>
             </el-tag>
           </div>
         </div>
@@ -32,23 +32,29 @@
       <!-- 日志基本信息 -->
       <div class="log-info">
         <el-descriptions :column="3" border>
-          <el-descriptions-item label="文件名">{{ logInfo.original_name }}</el-descriptions-item>
-          <el-descriptions-item label="设备编号">{{ logInfo.device_id }}</el-descriptions-item>
-          <el-descriptions-item label="文件大小">{{ formatFileSize(logInfo.size) }}</el-descriptions-item>
-          <el-descriptions-item label="上传时间">{{ formatDate(logInfo.upload_time) }}</el-descriptions-item>
-          <el-descriptions-item label="解析时间">{{ formatDate(logInfo.parse_time) }}</el-descriptions-item>
-          <el-descriptions-item label="上传用户ID">{{ logInfo.uploader_id }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.filename') || 'Filename'">
+            <span class="one-line-ellipsis" :title="logInfo.original_name" style="display:inline-block; max-width:100%">{{ logInfo.original_name }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.deviceId')">
+            <span class="one-line-ellipsis" :title="logInfo.device_id" style="display:inline-block; max-width:100%">{{ logInfo.device_id }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.size') || 'Size'">{{ formatFileSize(logInfo.size) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.uploadTime')">{{ formatDate(logInfo.upload_time) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.parseTime')">{{ formatDate(logInfo.parse_time) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.uploaderId')">
+            <span class="one-line-ellipsis" :title="String(logInfo.uploader_id)" style="display:inline-block; max-width:100%">{{ logInfo.uploader_id }}</span>
+          </el-descriptions-item>
         </el-descriptions>
       </div>
 
       <!-- 日志条目表格 -->
       <div class="entries-section">
         <div class="section-header">
-          <h3>日志条目 ({{ logEntries.length }})</h3>
+          <h3 class="min-w-0 one-line-ellipsis" :title="$t('logs.detailLogs') + ' (' + logEntries.length + ')'">{{ $t('logs.detailLogs') }} ({{ logEntries.length }})</h3>
           <div class="header-actions">
             <el-input
               v-model="searchKeyword"
-              placeholder="搜索释义内容或故障码"
+              :placeholder="$t('logs.search') + ' / ' + $t('errorCodes.code')"
               style="width: 300px; margin-right: 10px;"
               clearable
               @input="filterEntries"
@@ -59,11 +65,11 @@
             </el-input>
             <el-button @click="exportToCSV" type="success" size="small">
               <el-icon><Download /></el-icon>
-              导出CSV
+              {{ $t('errorCodes.exportCSV') }}
             </el-button>
             <el-button @click="goToSurgeryAnalysis" type="primary" size="small" style="margin-left: 10px;">
               <el-icon><DataAnalysis /></el-icon>
-              手术统计
+              {{ $t('surgeryStatistics.title') }}
             </el-button>
           </div>
         </div>
@@ -75,17 +81,17 @@
           height="600"
           stripe
         >
-          <el-table-column prop="timestamp" label="时间戳" width="180" sortable>
+          <el-table-column prop="timestamp" :label="$t('logs.timestamp')" width="180" sortable>
             <template #default="{ row }">
               {{ formatTimestamp(row.timestamp) }}
             </template>
           </el-table-column>
-          <el-table-column prop="error_code" label="故障码" width="120" sortable />
-          <el-table-column prop="param1" label="参数1" width="100" />
-          <el-table-column prop="param2" label="参数2" width="100" />
-          <el-table-column prop="param3" label="参数3" width="100" />
-          <el-table-column prop="param4" label="参数4" width="100" />
-          <el-table-column prop="explanation" label="释义" min-width="300" show-overflow-tooltip />
+          <el-table-column prop="error_code" :label="$t('errorCodes.code')" width="100" sortable />
+          <el-table-column prop="param1" label="Param1" width="90" />
+          <el-table-column prop="param2" label="Param2" width="90" />
+          <el-table-column prop="param3" label="Param3" width="90" />
+          <el-table-column prop="param4" label="Param4" width="90" />
+          <el-table-column prop="explanation" :label="$t('logs.explanation')" min-width="250" show-overflow-tooltip />
         </el-table>
 
         <!-- 分页 -->

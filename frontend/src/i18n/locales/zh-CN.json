@@ -21,14 +21,28 @@
     "warning": "警告",
     "info": "提示",
     "refresh": "刷新",
-    "operation": "操作"
+    "operation": "操作",
+    "resourceNotFound": "请求的资源不存在",
+    "serverError": "服务器内部错误",
+    "requestFailed": "请求失败",
+    "networkError": "网络连接失败"
   },
   "login": {
     "title": "故障码管理工具",
     "username": "用户名",
     "password": "密码",
     "login": "登录",
+    "validation": {
+      "usernameRequired": "请输入用户名",
+      "passwordRequired": "请输入密码"
+    },
+    "loginSuccess": "登录成功",
     "register": "注册"
+  },
+  "auth": {
+    "invalidCredentials": "用户名或密码错误",
+    "tokenExpired": "登录已过期，请重新登录",
+    "insufficientPermissions": "权限不足"
   },
   "register": {
     "title": "用户注册",
@@ -38,8 +52,18 @@
     "confirmPassword": "确认密码",
     "register": "注册",
     "backToLogin": "返回登录",
-    "registerSuccess": "注册成功",
-    "registerFailed": "注册失败"
+    "registerSuccess": "注册成功，请登录",
+    "registerFailed": "注册失败",
+    "validation": {
+      "usernameRequired": "请输入用户名",
+      "usernameLength": "用户名长度在 3 到 20 个字符",
+      "emailRequired": "请输入邮箱",
+      "emailFormat": "请输入正确的邮箱格式",
+      "passwordRequired": "请输入密码",
+      "passwordMinLength": "密码长度不能少于 6 个字符",
+      "confirmPasswordRequired": "请确认密码",
+      "passwordMismatch": "两次输入的密码不一致"
+    }
   },
   "nav": {
     "dashboard": "首页",
@@ -69,7 +93,7 @@
     "deleteErrorCode": "删除故障码",
     "exportXML": "导出XML",
     "searchPlaceholder": "搜索故障码...",
-    "exportCSV": "导出CSV",
+    "exportCSV": "导出",
     "queryCode": "故障码查询",
     "exportCSVDialogTitle": "导出故障码CSV",
     "exportFormat": "导出格式",
@@ -78,7 +102,141 @@
     "multilangColumnsOptional": "多语言列（可选）",
     "selectLanguages": "请选择需要包含的语言",
     "fullCode": "完整故障码",
-    "fullCodePlaceholder": "例如 141010A 或 0X010A（可含子系统前缀）"
+    "fullCodePlaceholder": "例如 141010A 或 0X010A（可含子系统前缀）",
+    "formLabels": {
+      "subsystem": "子系统",
+      "code": "故障码",
+      "codePlaceholder": "格式：0X010A",
+      "syncOption": "同步选项",
+      "syncToRemote": "同步到远程端",
+      "syncToLocal": "同步到本地端",
+      "optionSettings": "选项设置",
+      "shortMessageZh": "精简提示信息(中文)",
+      "shortMessageEn": "精简提示信息(英文)",
+      "userHintZh": "给用户的提示信息(中文)",
+      "userHintEn": "给用户的提示信息(英文)",
+      "operationZh": "操作信息(中文)",
+      "operationEn": "操作信息(英文)",
+      "param1": "参数1",
+      "param2": "参数2",
+      "param3": "参数3",
+      "param4": "参数4",
+      "category": "故障分类",
+      "level": "故障等级",
+      "levelPlaceholder": "根据故障码自动判断",
+      "analysisCategories": "日志分析分类",
+      "analysisCategoriesPlaceholder": "请选择日志分析分类（可多选）",
+      "solution": "处理措施",
+      "solutionPlaceholder": "根据故障码自动判断",
+      "detail": "详细信息",
+      "method": "检测方法",
+      "techSolution": "技术排查方案",
+      "explanation": "解释"
+    },
+    "subsystemOptions": {
+      "1": "01：运动控制软件",
+      "2": "02：人机交互软件",
+      "3": "03：医生控制台软件",
+      "4": "04：手术台车软件",
+      "5": "05：驱动器软件",
+      "6": "06：图像软件",
+      "7": "07：工具工厂软件",
+      "8": "08：远程运动控制软件",
+      "9": "09：远程医生控制台软件",
+      "A": "0A：远程驱动器软件"
+    },
+    "remoteSubsystemLabels": {
+      "1": "08：远程运动控制软件",
+      "3": "09：远程医生控制台软件",
+      "5": "0A：远程驱动器软件"
+    },
+    "localSubsystemLabels": {
+      "8": "01：运动控制软件",
+      "9": "03：医生控制台软件",
+      "A": "05：驱动器软件"
+    },
+    "checkboxLabels": {
+      "isAxisError": "是否轴错误",
+      "isArmError": "是否臂错误",
+      "forExpert": "专家模式",
+      "forNovice": "初学者模式",
+      "relatedLog": "相关日志"
+    },
+    "categoryOptions": {
+      "software": "软件",
+      "hardware": "硬件",
+      "logRecord": "日志记录",
+      "operationTip": "操作提示",
+      "safetyProtection": "安全保护"
+    },
+    "dialogTitles": {
+      "createLocal": "创建本地故障码",
+      "createRemote": "创建远程故障码",
+      "createGeneral": "添加故障码",
+      "updateLocal": "更新本地故障码",
+      "updateRemote": "更新远程故障码",
+      "updateGeneral": "编辑故障码"
+    },
+    "buttonTexts": {
+      "create": "创建",
+      "update": "更新",
+      "cancel": "取消"
+    },
+    "validation": {
+      "subsystemRequired": "请选择子系统",
+      "codeRequired": "请输入故障码",
+      "codeFormat": "故障码格式不正确，必须以0X开头+16进制的故障码（最后一位表示等级分类）",
+      "detailRequired": "请输入详细信息",
+      "methodRequired": "请输入检测方法",
+      "param1Required": "请输入参数1",
+      "param2Required": "请输入参数2",
+      "param3Required": "请输入参数3",
+      "param4Required": "请输入参数4",
+      "categoryRequired": "请选择故障分类",
+      "shortMessageCannotBothEmpty": "精简提示信息和操作信息不能都为空",
+      "userHintCannotBothEmpty": "用户提示信息和操作信息不能都为空",
+      "atLeastTwoRequired": "精简提示信息、用户提示信息和操作信息至少需要填写两项",
+      "shortMessageEnCannotBothEmpty": "英文精简提示信息和英文操作信息不能都为空",
+      "userHintEnCannotBothEmpty": "英文用户提示信息和英文操作信息不能都为空",
+      "atLeastTwoEnRequired": "英文精简提示信息、英文用户提示信息和英文操作信息至少需要填写两项"
+    },
+    "solutionTypes": {
+      "recoverable": "可恢复故障",
+      "unrecoverable": "不可恢复故障",
+      "ignorable": "可忽略故障",
+      "tips": "提示信息",
+      "log": "日志记录"
+    },
+    "levelTypes": {
+      "high": "高级",
+      "medium": "中级",
+      "low": "低级",
+      "none": "无"
+    },
+    "message": {
+      "deleteConfirmTitle": "删除确认",
+      "deleteConfirm": "确定要删除故障码 \"{code}\" 吗？",
+      "deleteSuccess": "删除成功",
+      "deleteFailed": "删除失败",
+      "createSuccess": "创建成功",
+      "updateSuccess": "更新成功",
+      "saveFailed": "保存失败",
+      "loadFailed": "加载故障码失败",
+      "queryWarning": "请输入完整故障码",
+      "queryFailed": "查询失败",
+      "exportSuccess": "CSV导出已开始下载",
+      "exportFailed": "导出失败"
+    },
+    "queryResult": {
+      "resultInfo": "结果信息",
+      "explanation": "解释",
+      "paramMeanings": "参数含义",
+      "moreInfo": "更多信息",
+      "detail": "详细信息",
+      "method": "检查方法",
+      "techSolution": "技术排查方案",
+      "category": "故障分类"
+    }
   },
   "analysisCategories": {
     "title": "日志分析等级",
@@ -135,7 +293,11 @@
     "exportFailed": "导出失败"
   },
   "globalDashboard": {
-    "title": "全局看板"
+    "title": "全局看板",
+    "errorCodesCount": "故障码总数",
+    "logEntriesCount": "日志总数",
+    "usersCount": "用户数量",
+    "systemOverview": "系统概览"
   },
   "monitoring": {
     "title": "系统监控",
@@ -262,6 +424,7 @@
     "batchDelete": "批量删除",
     "batchReparse": "批量重新解析",
     "clearSelection": "取消选择",
+    "deleteOwnOnlyTip": "无删除所有权限时，仅能删除自己上传的日志",
     "logFilename": "日志文件名",
     "timePrefix": "时间前缀 (YYYY / YYYYMM / YYYYMMDD / YYYYMMDDHH)",
     "timePrefixPlaceholder": "例如 2025081611",
@@ -279,11 +442,24 @@
     "autoFillDeviceId": "自动填充设备编号",
     "or": "或",
     "uploadKeyFile": "上传密钥文件",
+    "autoFillKey": "自动填充密钥",
     "uploading": "上传中...",
     "uploadAndParse": "上传并解析",
     "viewLogs": "日志查看",
     "timestamp": "时间戳",
-    "explanation": "日志解释"
+    "explanation": "日志解释",
+    "statusText": {
+      "uploading": "日志上传中",
+      "queued": "等待处理中",
+      "decrypting": "解密中",
+      "parsing": "解析中",
+      "parsed": "完成",
+      "failed": "处理失败",
+      "decrypt_failed": "解密失败",
+      "parse_failed": "解析失败",
+      "file_error": "文件错误",
+      "deleting": "删除中"
+    }
   },
   "account": {
     "title": "账户信息",
@@ -355,7 +531,42 @@
     "userCount": "关联用户数",
     "addRole": "添加角色",
     "editRole": "编辑角色",
-    "deleteRole": "删除角色"
+    "deleteRole": "删除角色",
+    "rules": {
+      "nameRequired": "请输入角色名称",
+      "descriptionRequired": "请输入角色描述"
+    },
+    "adminNotice": "管理员角色拥有所有权限，无法修改",
+    "loadFailed": "加载角色失败",
+    "loadPermsFailed": "加载权限清单失败",
+    "deleteConfirmTitle": "提示",
+    "deleteConfirmText": "确定要删除这个角色吗？",
+    "updateSuccess": "更新成功",
+    "createSuccess": "添加成功",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "saveFailed": "保存失败",
+    "deleteDisabled": {
+      "builtInRole": "系统内置角色不可删除",
+      "inUse": "有 {count} 个用户正在使用，无法删除",
+      "cannotDelete": "不可删除"
+    },
+    "permissionGroups": {
+      "user": "用户管理",
+      "role": "角色管理",
+      "error_code": "故障码管理",
+      "log": "日志管理",
+      "i18n": "多语言管理",
+      "device": "设备管理",
+      "history": "历史记录",
+      "surgery": "手术数据",
+      "data_replay": "数据回放",
+      "dashboard": "系统看板",
+      "test": "测试",
+      "system": "系统监控",
+      "loglevel": "日志分析等级",
+      "other": "其他权限"
+    }
   },
   "surgeryStatistics": {
     "title": "手术统计",
@@ -398,6 +609,45 @@
     "avgLatency": "平均延时",
     "range": "范围",
     "noNetworkLatencyData": "暂无网络延时数据"
+  },
+  "surgeryVisualization": {
+    "remoteSurgery": "远程手术",
+    "faultSurgery": "故障手术",
+    "overview": "手术概况",
+    "resetZoom": "重置缩放",
+    "activity": "活动名称",
+    "stateMachineChanges": "手术状态机变化",
+    "stateMachine": "状态机",
+    "networkLatency": "网络延迟情况",
+    "networkLatencyMs": "网络延迟(ms)",
+    "operationSummary": "操作数据汇总",
+    "safetyAlerts": "安全报警记录",
+    "faultTime": "故障发生时间",
+    "faultCode": "故障码",
+    "faultExplanation": "故障释义",
+    "noExplanation": "无详细说明",
+    "status": "状态",
+    "statusProcessed": "已处理",
+    "statusUnprocessed": "未处理",
+    "faultsSummary": "共发现 {total} 个故障，其中 {processed} 个已处理，{unprocessed} 个未处理",
+    "tooltipUdi": "UDI码",
+    "tooltipNoUdi": "无UDI",
+    "tooltipDuration": "使用时长",
+    "tooltipInstall": "安装时刻",
+    "tooltipRemove": "拔下时刻",
+    "unknown": "未知",
+    "unknownInstrument": "未知器械",
+    "unknownTime": "未知时间",
+    "mergedEvents": "合并事件",
+    "time": "时间",
+    "weekday": "星期",
+    "armTimeline": "手术时间线",
+    "armN": "{n}号臂",
+    "powerOn": "开机{index}",
+    "powerOff": "关机{index}",
+    "previousSurgeryEnd": "上一台手术结束",
+    "surgeryStart": "手术开始",
+    "surgeryEnd": "手术结束"
   }
 }
 

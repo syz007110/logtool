@@ -4,6 +4,7 @@ const RolePermission = require('../models/role_permission');
 const UserRole = require('../models/user_role');
 const User = require('../models/user');
 const { Op } = require('sequelize');
+const { logOperation } = require('../utils/operationLogger');
 
 // 查询角色列表（包含权限）
 const getRoles = async (req, res) => {
@@ -60,6 +61,19 @@ const createRole = async (req, res) => {
       include: [{ model: Role, as: 'roles', where: { id: role.id }, attributes: [] }],
       attributes: ['name']
     });
+    // 操作日志
+    try {
+      await logOperation({
+        operation: '新增角色',
+        description: `新增角色: ${role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { role_id: role.id, permissions: savedPerms.map(p => p.name) }
+      });
+    } catch (_) {}
+
     res.status(201).json({ message: '创建成功', role: { id: role.id, name: role.name, description: role.description, permissions: savedPerms.map(p => p.name) } });
   } catch (err) {
     await t.rollback();
@@ -114,6 +128,19 @@ const updateRole = async (req, res) => {
       include: [{ model: Role, as: 'roles', where: { id: role.id }, attributes: [] }],
       attributes: ['name']
     });
+    // 操作日志
+    try {
+      await logOperation({
+        operation: '修改角色',
+        description: `修改角色: ${role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { role_id: role.id, permissions: savedPerms.map(p => p.name) }
+      });
+    } catch (_) {}
+
     res.json({ message: '更新成功', role: { id: role.id, name: role.name, description: role.description, permissions: savedPerms.map(p => p.name) } });
   } catch (err) {
     await t.rollback();
@@ -145,6 +172,20 @@ const deleteRole = async (req, res) => {
     await role.destroy({ transaction: t });
 
     await t.commit();
+
+    // 操作日志
+    try {
+      await logOperation({
+        operation: '删除角色',
+        description: `删除角色: ${role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { role_id: role.id, role_name: role.name }
+      });
+    } catch (_) {}
+
     res.json({ message: '删除成功' });
   } catch (err) {
     await t.rollback();

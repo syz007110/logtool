@@ -76,18 +76,21 @@
             </div>
           </template>
           <template #default="{ row }">
-            <el-button 
-              type="text" 
-              @click="showDeviceDetail(row)"
-              style="padding: 0; font-weight: 500; color: #409eff;"
-            >
-              {{ row.device_id }}
-            </el-button>
+            <div class="min-w-0">
+              <el-button 
+                type="text" 
+                @click="showDeviceDetail(row)"
+                style="padding: 0; font-weight: 500; color: #409eff; max-width: 100%;"
+                :title="row.device_id"
+              >
+                <span class="one-line-ellipsis" style="display:inline-block; max-width:100%;">{{ row.device_id }}</span>
+              </el-button>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" width="200">
+        <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" min-width="200">
           <template #default="{ row }">
-            {{ row.hospital_name || '-' }}
+            <span class="one-line-ellipsis" :title="row.hospital_name || '-'" style="display:inline-block; max-width:100%">{{ row.hospital_name || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="log_count" :label="$t('logs.logCount')" width="120" align="center">
@@ -156,8 +159,8 @@
         <!-- 设备信息头部 -->
         <div class="device-header">
           <div class="device-info">
-            <h3>{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</h3>
-            <p>{{ $t('logs.hospitalName') }}：{{ selectedDevice?.hospital_name || '-' }}</p>
+            <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
+            <p class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.hospital_name || '-'">{{ $t('logs.hospitalName') }}：{{ selectedDevice?.hospital_name || '-' }}</span></p>
             <p>{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}</p>
           </div>
           <div class="header-controls">
@@ -215,8 +218,8 @@
 
         <!-- 详细日志列表 -->
         <div class="detail-logs-section">
-          <div class="detail-header">
-            <h4>{{ $t('logs.title') }}</h4>
+            <div class="detail-header">
+            <h4 class="min-w-0 one-line-ellipsis" :title="$t('logs.title')">{{ $t('logs.title') }}</h4>
             <div class="detail-actions">
               <!-- 批量操作组 -->
               <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
@@ -263,7 +266,7 @@
                     {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
                 </el-button>
                 <el-tooltip 
-                  content="无删除所有权限时，仅能删除自己上传的日志" 
+                  :content="$t('logs.deleteOwnOnlyTip')" 
                   placement="top" 
                   v-if="!$store.getters['auth/hasPermission']('log:delete') && $store.getters['auth/hasPermission']('log:delete_own')"
                 >
@@ -340,7 +343,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column :label="$t('common.operation')" width="300" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="400" fixed="right">
           <template #default="{ row }">
             <el-button 
               size="small" 
@@ -578,7 +581,7 @@
         <div class="device-input-row">
           <el-input
             v-model="deviceId"
-            placeholder="设备编号（格式：数字或字母组合，例：4371-01、ABC-12，默认为0000-00）"
+            :placeholder="$t('logs.deviceId') + '（' + $t('logs.deviceIdPlaceholder') + '）'"
             style="width: 300px;"
             clearable
             @blur="validateDeviceIdFormat"
@@ -594,7 +597,7 @@
             @click="autoFillKey"
             :disabled="!deviceId.trim()"
           >
-            自动填充密钥
+            {{ $t('logs.autoFillKey') }}
           </el-button>
         </div>
         
@@ -645,6 +648,7 @@ import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, 
 import websocketClient from '@/services/websocketClient'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Logs',
@@ -653,6 +657,7 @@ export default {
   setup() {
     const store = useStore()
     const router = useRouter()
+    const { t } = useI18n()
     
     // 响应式数据
     const loading = ref(false)
@@ -1912,20 +1917,20 @@ export default {
       return map[row.status] || 'info'
     }
     const getRowStatusText = (row) => {
-      if (deletingIds.value.has(row.id)) return '删除中'
+      if (deletingIds.value.has(row.id)) return t('logs.statusText.deleting')
       
       // 根据状态返回对应的文本
       const map = {
-        uploading: '日志上传中',
-        queued: '等待处理中',
-        decrypting: '解密中',
-        parsing: '解析中',
-        parsed: '完成',
-        decrypt_failed: '解密失败',
-        parse_failed: '解析失败',
-        file_error: '文件错误',
-        failed: '处理失败',
-        deleting: '删除中'  // 新增删除中状态
+        uploading: t('logs.statusText.uploading'),
+        queued: t('logs.statusText.queued'),
+        decrypting: t('logs.statusText.decrypting'),
+        parsing: t('logs.statusText.parsing'),
+        parsed: t('logs.statusText.parsed'),
+        decrypt_failed: t('logs.statusText.decrypt_failed'),
+        parse_failed: t('logs.statusText.parse_failed'),
+        file_error: t('logs.statusText.file_error'),
+        failed: t('logs.statusText.failed'),
+        deleting: t('logs.statusText.deleting')
       }
       
       return map[row.status] || (row.status || '-')

@@ -2,6 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import store from '../store'
 import router from '../router'
+import i18nInstance from '../i18n'
 
 // 创建axios实例
 const api = axios.create({
@@ -16,6 +17,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // 添加 Accept-Language 头，让后端知道前端需要的语言
+    const currentLang = i18nInstance.global.locale.value || 'zh-CN'
+    const langHeader = currentLang.startsWith('en') ? 'en' : 'zh'
+    config.headers['Accept-Language'] = langHeader
     return config
   },
   error => Promise.reject(error)
@@ -32,28 +37,28 @@ api.interceptors.response.use(
           // 检查是否是登录接口的错误，如果是则显示具体的错误信息
           if (error.config.url && error.config.url.includes('/auth/login')) {
             // 登录接口的错误，显示后端返回的具体错误信息
-            ElMessage.error(data.message || '用户名或密码错误')
+            ElMessage.error(data.message || i18nInstance.global.t('auth.invalidCredentials'))
           } else {
             // 其他接口的401错误，说明token过期
-            ElMessage.error('登录已过期，请重新登录')
+            ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
             store.dispatch('auth/logout')
             router.push('/login')
           }
           break
         case 403:
-          ElMessage.error('权限不足')
+          ElMessage.error(i18nInstance.global.t('auth.insufficientPermissions'))
           break
         case 404:
-          ElMessage.error(data?.message || '请求的资源不存在')
+          ElMessage.error(data?.message || i18nInstance.global.t('common.resourceNotFound'))
           break
         case 500:
-          ElMessage.error('服务器内部错误')
+          ElMessage.error(i18nInstance.global.t('common.serverError'))
           break
         default:
-          ElMessage.error(data.message || '请求失败')
+          ElMessage.error(data.message || i18nInstance.global.t('common.requestFailed'))
       }
     } else {
-      ElMessage.error('网络连接失败')
+      ElMessage.error(i18nInstance.global.t('common.networkError'))
     }
     return Promise.reject(error)
   }

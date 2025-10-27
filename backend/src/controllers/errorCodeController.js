@@ -169,7 +169,7 @@ const createErrorCode = async (req, res) => {
     const validationErrors = validateErrorCodeData(mainData);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
-        message: '输入验证失败', 
+        message: req.t('common.validationFailed'), 
         errors: validationErrors 
       });
     }
@@ -182,7 +182,7 @@ const createErrorCode = async (req, res) => {
       } 
     });
     if (duplicateCheck) {
-      return res.status(409).json({ message: '该子系统下的故障码已存在' });
+      return res.status(409).json({ message: req.t('errorCode.duplicate') });
     }
     
     // 根据故障码自动判断故障等级和处理措施
@@ -264,10 +264,10 @@ const createErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码创建:', cacheError.message);
     }
     
-    res.status(201).json({ message: '创建成功', errorCode });
+    res.status(201).json({ message: req.t('common.created'), errorCode });
   } catch (err) {
     console.error('创建故障码失败:', err);
-    res.status(500).json({ message: '创建失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -332,14 +332,14 @@ const updateErrorCode = async (req, res) => {
     // 查找故障码
     const errorCode = await ErrorCode.findByPk(id);
     if (!errorCode) {
-      return res.status(404).json({ message: '未找到故障码' });
+      return res.status(404).json({ message: req.t('common.notFound') });
     }
     
     // 输入验证
     const validationErrors = validateErrorCodeData(mainData);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
-        message: '输入验证失败', 
+        message: req.t('common.validationFailed'), 
         errors: validationErrors 
       });
     }
@@ -355,7 +355,7 @@ const updateErrorCode = async (req, res) => {
         } 
       });
       if (duplicateCheck) {
-        return res.status(409).json({ message: '该子系统下的故障码已存在' });
+        return res.status(409).json({ message: req.t('errorCode.duplicate') });
       }
     }
     
@@ -479,10 +479,10 @@ const updateErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码更新:', cacheError.message);
     }
     
-    res.json({ message: '更新成功', errorCode });
+    res.json({ message: req.t('common.updated'), errorCode });
   } catch (err) {
     console.error('更新故障码失败:', err);
-    res.status(500).json({ message: '更新失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -492,7 +492,7 @@ const deleteErrorCode = async (req, res) => {
     const { id } = req.params;
     const errorCode = await ErrorCode.findByPk(id);
     if (!errorCode) {
-      return res.status(404).json({ message: '未找到故障码' });
+      return res.status(404).json({ message: req.t('common.notFound') });
     }
     
     // 保存删除的数据用于日志记录
@@ -554,10 +554,10 @@ const deleteErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码删除:', cacheError.message);
     }
     
-    res.json({ message: '删除成功' });
+    res.json({ message: req.t('common.deleted') });
   } catch (err) {
     console.error('删除故障码失败:', err);
-    res.status(500).json({ message: '删除失败', error: err.message });
+    res.status(500).json({ message: req.t('common.deleteFailed'), error: err.message });
   }
 };
 
@@ -595,7 +595,7 @@ const exportErrorCodesToXML = async (req, res) => {
     });
     
     if (errorCodes.length === 0) {
-      return res.status(404).json({ message: '没有找到故障码数据' });
+      return res.status(404).json({ message: req.t('errorCode.noData') });
     }
     
     // 生成XML内容
@@ -1123,7 +1123,7 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
     
     res.json({ errorCode });
   } catch (err) {
-    res.status(500).json({ message: '查询失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 

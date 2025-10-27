@@ -37,7 +37,7 @@ const getUsers = async (req, res) => {
     }));
     res.json({ users: result, total: result.length });
   } catch (err) {
-    res.status(500).json({ message: '查询失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -45,9 +45,9 @@ const getUsers = async (req, res) => {
 const createUser = async (req, res) => {
   try {
     const { username, password, email, roles = [] } = req.body;
-    if (!username || !password) return res.status(400).json({ message: '用户名和密码不能为空' });
+    if (!username || !password) return res.status(400).json({ message: req.t('user.requiredUsernamePassword') });
     const exist = await User.findOne({ where: { username } });
-    if (exist) return res.status(409).json({ message: '用户名已存在' });
+    if (exist) return res.status(409).json({ message: req.t('user.usernameExists') });
     const password_hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, password_hash, email });
     // 分配角色
@@ -68,9 +68,9 @@ const createUser = async (req, res) => {
     } catch (logErr) {
       console.error('操作日志记录失败:', logErr);
     }
-    res.status(201).json({ message: '创建成功', user: { id: user.id, username: user.username, email: user.email } });
+    res.status(201).json({ message: req.t('common.created'), user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
-    res.status(500).json({ message: '创建失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -80,16 +80,16 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const { email, is_active, roles, password, oldPassword } = req.body;
     const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: '未找到用户' });
+    if (!user) return res.status(404).json({ message: req.t('common.notFound') });
     await user.update({ email, is_active });
     // 密码修改逻辑
     if (password) {
       if (!oldPassword) {
-        return res.status(400).json({ message: '请输入原密码' });
+        return res.status(400).json({ message: req.t('user.oldPasswordRequired') });
       }
       const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
       if (!isMatch) {
-        return res.status(400).json({ message: '原密码不正确' });
+        return res.status(400).json({ message: req.t('user.oldPasswordIncorrect') });
       }
       const password_hash = await bcrypt.hash(password, 10);
       await user.update({ password_hash });
@@ -114,9 +114,9 @@ const updateUser = async (req, res) => {
     } catch (logErr) {
       console.error('操作日志记录失败:', logErr);
     }
-    res.json({ message: '更新成功' });
+    res.json({ message: req.t('common.updated') });
   } catch (err) {
-    res.status(500).json({ message: '更新失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -125,7 +125,7 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: '未找到用户' });
+    if (!user) return res.status(404).json({ message: req.t('common.notFound') });
     await user.destroy();
     // 记录操作日志
     try {
@@ -141,9 +141,9 @@ const deleteUser = async (req, res) => {
     } catch (logErr) {
       console.error('操作日志记录失败:', logErr);
     }
-    res.json({ message: '删除成功' });
+    res.json({ message: req.t('common.deleted') });
   } catch (err) {
-    res.status(500).json({ message: '删除失败', error: err.message });
+    res.status(500).json({ message: req.t('common.deleteFailed'), error: err.message });
   }
 };
 
@@ -154,7 +154,7 @@ const getUserRoles = async (req, res) => {
     const roles = await UserRole.findAll({ where: { user_id: id } });
     res.json({ roles });
   } catch (err) {
-    res.status(500).json({ message: '查询失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 

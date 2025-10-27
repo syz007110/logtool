@@ -25,7 +25,7 @@ const listDevices = async (req, res) => {
     });
     res.json({ devices, total });
   } catch (e) {
-    res.status(500).json({ message: '获取设备列表失败', error: e.message });
+    res.status(500).json({ message: req.t('device.listFailed'), error: e.message });
   }
 };
 
@@ -33,18 +33,18 @@ const listDevices = async (req, res) => {
 const createDevice = async (req, res) => {
   try {
     const { device_id, device_model, device_key, hospital } = req.body;
-    if (!device_id) return res.status(400).json({ message: '设备编号必填' });
+    if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
     // 简单格式校验：与日志相同规则
     const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
     if (!deviceIdRegex.test(device_id)) {
-      return res.status(400).json({ message: '设备编号格式不正确（如 4371-01、ABC-12）' });
+      return res.status(400).json({ message: req.t('device.invalidIdFormat') });
     }
     const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
     if (device_key && !macRegex.test(device_key)) {
-      return res.status(400).json({ message: '设备密钥格式不正确，应为MAC地址格式' });
+      return res.status(400).json({ message: req.t('device.invalidKeyFormat') });
     }
     const existed = await Device.findOne({ where: { device_id } });
-    if (existed) return res.status(409).json({ message: '设备编号已存在' });
+    if (existed) return res.status(409).json({ message: req.t('device.idExists') });
     const record = await Device.create({ device_id, device_model, device_key, hospital, created_at: new Date(), updated_at: new Date() });
 
     // 操作日志
@@ -62,9 +62,9 @@ const createDevice = async (req, res) => {
       console.warn('记录操作日志失败（创建设备）:', logErr.message);
     }
 
-    res.json({ device: record });
+    res.json({ device: record, message: req.t('common.created') });
   } catch (e) {
-    res.status(500).json({ message: '创建设备失败', error: e.message });
+    res.status(500).json({ message: req.t('device.createFailed'), error: e.message });
   }
 };
 
@@ -74,18 +74,18 @@ const updateDevice = async (req, res) => {
     const { id } = req.params;
     const { device_id, device_model, device_key, hospital } = req.body;
     const device = await Device.findByPk(id);
-    if (!device) return res.status(404).json({ message: '设备不存在' });
+    if (!device) return res.status(404).json({ message: req.t('device.notFound') });
     if (device_id && device_id !== device.device_id) {
       const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
       if (!deviceIdRegex.test(device_id)) {
-        return res.status(400).json({ message: '设备编号格式不正确（如 4371-01、ABC-12）' });
+        return res.status(400).json({ message: req.t('device.invalidIdFormat') });
       }
       const existed = await Device.findOne({ where: { device_id } });
-      if (existed) return res.status(409).json({ message: '设备编号已存在' });
+      if (existed) return res.status(409).json({ message: req.t('device.idExists') });
     }
     const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
     if (device_key && !macRegex.test(device_key)) {
-      return res.status(400).json({ message: '设备密钥格式不正确，应为MAC地址格式' });
+      return res.status(400).json({ message: req.t('device.invalidKeyFormat') });
     }
     device.device_id = device_id ?? device.device_id;
     device.device_model = device_model ?? device.device_model;
@@ -109,9 +109,9 @@ const updateDevice = async (req, res) => {
       console.warn('记录操作日志失败（更新设备）:', logErr.message);
     }
 
-    res.json({ device });
+    res.json({ device, message: req.t('common.updated') });
   } catch (e) {
-    res.status(500).json({ message: '更新设备失败', error: e.message });
+    res.status(500).json({ message: req.t('device.updateFailed'), error: e.message });
   }
 };
 
@@ -120,7 +120,7 @@ const deleteDevice = async (req, res) => {
   try {
     const { id } = req.params;
     const device = await Device.findByPk(id);
-    if (!device) return res.status(404).json({ message: '设备不存在' });
+    if (!device) return res.status(404).json({ message: req.t('device.notFound') });
     // 若日志存在引用该 device_id，仍允许删除，但不级联更改日志，保持历史一致。
     await device.destroy();
 
@@ -139,9 +139,9 @@ const deleteDevice = async (req, res) => {
       console.warn('记录操作日志失败（删除设备）:', logErr.message);
     }
 
-    res.json({ success: true });
+    res.json({ success: true, message: req.t('common.deleted') });
   } catch (e) {
-    res.status(500).json({ message: '删除设备失败', error: e.message });
+    res.status(500).json({ message: req.t('device.deleteFailed'), error: e.message });
   }
 };
 
@@ -149,22 +149,22 @@ const deleteDevice = async (req, res) => {
 const findByKey = async (req, res) => {
   try {
     const { key } = req.query;
-    if (!key) return res.status(400).json({ message: '请提供密钥' });
+    if (!key) return res.status(400).json({ message: req.t('device.provideKey') });
     const device = await Device.findOne({ where: { device_key: key } });
     res.json({ device_id: device ? device.device_id : null });
   } catch (e) {
-    res.status(500).json({ message: '查询失败', error: e.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: e.message });
   }
 };
 
 const findKeyByDeviceId = async (req, res) => {
   try {
     const { device_id } = req.query;
-    if (!device_id) return res.status(400).json({ message: '请提供设备编号' });
+    if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
     const device = await Device.findOne({ where: { device_id } });
     res.json({ key: device ? device.device_key : null });
   } catch (e) {
-    res.status(500).json({ message: '查询失败', error: e.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: e.message });
   }
 };
 

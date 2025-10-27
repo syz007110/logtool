@@ -2184,12 +2184,8 @@ export default {
       }
       
       if (op === 'in' || op === 'notin') {
-        const arr = Array.isArray(value) ? value : [value]
-        const trimmed = arr.map(s => s.toString().trim()).filter(s => s !== '')
-        if (isNumeric) {
-          return trimmed.map(v => Number(v)).filter(v => !Number.isNaN(v))
-        }
-        return trimmed
+        // 不支持：过滤掉
+        return null
       }
       
       if (isNumeric) {
@@ -2242,19 +2238,13 @@ export default {
       }
 
       if (op === 'in' || op === 'notin') {
-        const arr = Array.isArray(value) ? value : String(value ?? '').split(',').map(v => v.trim()).filter(Boolean)
-        if (isNumeric) {
-          const set = new Set(arr.map(toNumber).filter(v => v !== null))
-          const n = toNumber(raw)
-          const ok = n !== null && set.has(n)
-          return op === 'in' ? ok : !ok
-        }
-        const set = new Set(arr.map(v => v.toString()))
-        const ok = set.has(String(raw))
-        return op === 'in' ? ok : !ok
+        // 不支持：直接判false
+        return false
       }
 
       if (op === 'regex') {
+        // 限制：仅 error_code 可用；explanation 不允许 regex
+        if (field === 'explanation') return false
         try {
           const re = new RegExp(String(value))
           return re.test(String(raw))
@@ -2262,16 +2252,13 @@ export default {
       }
 
       if (op === 'contains' || op === 'like') {
+        // 仅 explanation 允许 contains，其它字段退化为 false
+        if (field !== 'explanation') return false
         return String(raw).toLowerCase().includes(String(value ?? '').toLowerCase())
       }
-      if (op === 'notcontains') {
-        return !String(raw).toLowerCase().includes(String(value ?? '').toLowerCase())
-      }
-      if (op === 'startswith') {
-        return String(raw).startsWith(String(value ?? ''))
-      }
-      if (op === 'endswith') {
-        return String(raw).endsWith(String(value ?? ''))
+      if (op === 'notcontains' || op === 'startswith' || op === 'endswith') {
+        // 前端禁用；兜底返回 false
+        return false
       }
 
       if (isNumeric) {
@@ -2445,10 +2432,7 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' },
-        { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' },
-        { label: '不包含', value: 'notcontains' }
+        { label: 'Between', value: 'between' }
       ],
       param2: [
         { label: '=', value: '=' },
@@ -2457,10 +2441,7 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' },
-        { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' },
-        { label: '不包含', value: 'notcontains' }
+        { label: 'Between', value: 'between' }
       ],
       param3: [
         { label: '=', value: '=' },
@@ -2469,10 +2450,7 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' },
-        { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' },
-        { label: '不包含', value: 'notcontains' }
+        { label: 'Between', value: 'between' }
       ],
       param4: [
         { label: '=', value: '=' },
@@ -2481,17 +2459,10 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' },
-        { label: 'In', value: 'in' },
-        { label: '包含(Like)', value: 'contains' },
-        { label: '不包含', value: 'notcontains' }
+        { label: 'Between', value: 'between' }
       ],
       explanation: [
-        { label: '包含(Like)', value: 'contains' },
-        { label: '不包含', value: 'notcontains' },
-        { label: '正则', value: 'regex' },
-        { label: '前缀', value: 'startsWith' },
-        { label: '后缀', value: 'endsWith' }
+        { label: '包含(Like)', value: 'contains' }
       ]
     }
 
@@ -2658,7 +2629,7 @@ export default {
       const line = `${timestamp} ${row.error_code} ${row.explanation}`.trim()
       clipboardContent.value = (clipboardContent.value ? clipboardContent.value + '\n' : '') + line
       
-      // 切换到“日志摘取”选项卡并显示侧边栏
+      // 切换到"日志摘取"选项卡并显示侧边栏
       sidebarActiveTab.value = 'logs'
       clipboardVisible.value = true
       
@@ -2897,7 +2868,7 @@ export default {
       // 将图表添加到缩略图列表
       chartThumbnails.value.push(chartWithNumber)
       
-      // 切换到“可视化”选项卡并显示剪贴板
+      // 切换到"可视化"选项卡并显示剪贴板
       sidebarActiveTab.value = 'charts'
       clipboardVisible.value = true
       

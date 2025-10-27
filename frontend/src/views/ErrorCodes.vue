@@ -6,7 +6,7 @@
         <el-input
           v-model="searchQuery"
           :placeholder="$t('errorCodes.searchPlaceholder')"
-          style="width: 150px"
+          style="width: 180px"
           clearable
           @input="handleSearch"
         >
@@ -18,7 +18,7 @@
         <el-select
           v-model="selectedSubsystem"
           :placeholder="$t('errorCodes.selectSubsystem')"
-          style="width: 150px; margin-left: 10px"
+          style="width: 180px; margin-left: 10px"
           clearable
           @change="handleSubsystemFilter"
         >
@@ -53,7 +53,7 @@
           @click="handleAdd"
         >
           <el-icon><Plus /></el-icon>
-          添加故障码
+          {{ $t('errorCodes.addErrorCode') }}
         </el-button>
         
 
@@ -68,34 +68,36 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="subsystem" :label="$t('errorCodes.subsystem')" width="80" />
-        <el-table-column prop="code" :label="$t('errorCodes.code')" width="120" />
-        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="140">
+        <el-table-column prop="subsystem" :label="$t('errorCodes.subsystem')" width="100" />
+        <el-table-column prop="code" :label="$t('errorCodes.code')" width="100" />
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
           <template #default="{ row }">
-            <ExplanationCell :text="[row.user_hint, row.operation].filter(Boolean).join(', ')" />
+            <div class="min-w-0">
+              <ExplanationCell :text="[row.user_hint, row.operation].filter(Boolean).join(', ')" />
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="param1" :label="'Param1'" min-width="100">
+        <el-table-column prop="param1" :label="'Param1'" width="100">
           <template #default="{ row }">
-            <ExplanationCell :text="String(row.param1 ?? '')" :always="true" />
+            <span class="one-line-ellipsis" :title="String(row.param1 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param1 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param2" :label="'Param2'" min-width="100">
+        <el-table-column prop="param2" :label="'Param2'" width="100">
           <template #default="{ row }">
-            <ExplanationCell :text="String(row.param2 ?? '')" :always="true" />
+            <span class="one-line-ellipsis" :title="String(row.param2 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param2 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param3" :label="'Param3'" min-width="100">
+        <el-table-column prop="param3" :label="'Param3'" width="100">
           <template #default="{ row }">
-            <ExplanationCell :text="String(row.param3 ?? '')" :always="true" />
+            <span class="one-line-ellipsis" :title="String(row.param3 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param3 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param4" :label="'Param4'" min-width="100">
+        <el-table-column prop="param4" :label="'Param4'" width="100">
           <template #default="{ row }">
-            <ExplanationCell :text="String(row.param4 ?? '')" :always="true" />
+            <span class="one-line-ellipsis" :title="String(row.param4 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param4 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" width="180" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('common.operation')" width="160" v-if="canUpdate || canDelete">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -188,26 +190,17 @@
       >
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="子系统" prop="subsystem">
-              <el-select v-model="errorCodeForm.subsystem" placeholder="请选择子系统" @change="handleSubsystemChange">
-                <el-option label="01：运动控制软件" value="1" />
-                <el-option label="02：人机交互软件" value="2" />
-                <el-option label="03：医生控制台软件" value="3" />
-                <el-option label="04：手术台车软件" value="4" />
-                <el-option label="05：驱动器软件" value="5" />
-                <el-option label="06：图像软件" value="6" />
-                <el-option label="07：工具工厂软件" value="7" />
-                <el-option label="08：远程运动控制软件" value="8" />
-                <el-option label="09：远程医生控制台软件" value="9" />
-                <el-option label="0A：远程驱动器软件" value="A" />
+            <el-form-item :label="$t('errorCodes.formLabels.subsystem')" prop="subsystem">
+              <el-select v-model="errorCodeForm.subsystem" :placeholder="$t('errorCodes.selectSubsystem')" @change="handleSubsystemChange">
+                <el-option v-for="option in subsystemOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="故障码" prop="code">
+            <el-form-item :label="$t('errorCodes.formLabels.code')" prop="code">
               <el-input 
                 v-model="errorCodeForm.code" 
-                placeholder="格式：0X010A" 
+                :placeholder="$t('errorCodes.formLabels.codePlaceholder')" 
                 @input="handleCodeChange"
               />
             </el-form-item>
@@ -217,39 +210,39 @@
         <!-- 同步选项 -->
         <el-row v-if="showSyncOption">
           <el-col :span="24">
-            <el-form-item label="同步选项">
+            <el-form-item :label="$t('errorCodes.formLabels.syncOption')">
               <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">
-                同步到远程端 ({{ getRemoteSubsystemLabel() }})
+                {{ $t('errorCodes.formLabels.syncToRemote') }} ({{ getRemoteSubsystemLabel() }})
               </el-checkbox>
               <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">
-                同步到本地端 ({{ getLocalSubsystemLabel() }})
+                {{ $t('errorCodes.formLabels.syncToLocal') }} ({{ getLocalSubsystemLabel() }})
               </el-checkbox>
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item label="选项设置">
+        <el-form-item :label="$t('errorCodes.formLabels.optionSettings')">
           <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
-            <el-checkbox label="is_axis_error">是否轴错误</el-checkbox>
+            <el-checkbox label="is_axis_error">{{ $t('errorCodes.checkboxLabels.isAxisError') }}</el-checkbox>
             <span class="checkbox-divider"></span>
-            <el-checkbox label="is_arm_error">是否臂错误</el-checkbox>
+            <el-checkbox label="is_arm_error">{{ $t('errorCodes.checkboxLabels.isArmError') }}</el-checkbox>
             <span class="checkbox-divider"></span>
-            <el-checkbox label="for_expert">专家模式</el-checkbox>
+            <el-checkbox label="for_expert">{{ $t('errorCodes.checkboxLabels.forExpert') }}</el-checkbox>
             <span class="checkbox-divider"></span>
-            <el-checkbox label="for_novice">初学者模式</el-checkbox>
+            <el-checkbox label="for_novice">{{ $t('errorCodes.checkboxLabels.forNovice') }}</el-checkbox>
             <span class="checkbox-divider"></span>
-            <el-checkbox label="related_log">相关日志</el-checkbox>
+            <el-checkbox label="related_log">{{ $t('errorCodes.checkboxLabels.relatedLog') }}</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
 
         <el-row :gutter="20">
           <el-col :span="12">
-        <el-form-item label="精简提示信息(中文)" prop="short_message">
+        <el-form-item :label="$t('errorCodes.formLabels.shortMessageZh')" prop="short_message">
           <el-input v-model="errorCodeForm.short_message" type="textarea" :rows="2" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-        <el-form-item label="精简提示信息(英文)" prop="short_message_en">
+        <el-form-item :label="$t('errorCodes.formLabels.shortMessageEn')" prop="short_message_en">
           <el-input v-model="errorCodeForm.short_message_en" type="textarea" :rows="2" />
             </el-form-item>
           </el-col>
@@ -257,12 +250,12 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-        <el-form-item label="给用户的提示信息(中文)" prop="user_hint">
+        <el-form-item :label="$t('errorCodes.formLabels.userHintZh')" prop="user_hint">
           <el-input v-model="errorCodeForm.user_hint" type="textarea" :rows="2" />
         </el-form-item>
           </el-col>
           <el-col :span="12">
-        <el-form-item label="给用户的提示信息(英文)" prop="user_hint_en">
+        <el-form-item :label="$t('errorCodes.formLabels.userHintEn')" prop="user_hint_en">
           <el-input v-model="errorCodeForm.user_hint_en" type="textarea" :rows="2" />
         </el-form-item>
           </el-col>
@@ -270,12 +263,12 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-        <el-form-item label="操作信息(中文)" prop="operation">
+        <el-form-item :label="$t('errorCodes.formLabels.operationZh')" prop="operation">
           <el-input v-model="errorCodeForm.operation" type="textarea" :rows="2" />
         </el-form-item>
           </el-col>
           <el-col :span="12">
-        <el-form-item label="操作信息(英文)" prop="operation_en">
+        <el-form-item :label="$t('errorCodes.formLabels.operationEn')" prop="operation_en">
           <el-input v-model="errorCodeForm.operation_en" type="textarea" :rows="2" />
         </el-form-item>
           </el-col>
@@ -283,12 +276,12 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="参数1" prop="param1">
+            <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
               <el-input v-model="errorCodeForm.param1" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="参数2" prop="param2">
+            <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
               <el-input v-model="errorCodeForm.param2" />
             </el-form-item>
           </el-col>
@@ -296,12 +289,12 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="参数3" prop="param3">
+            <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
               <el-input v-model="errorCodeForm.param3" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="参数4" prop="param4">
+            <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
               <el-input v-model="errorCodeForm.param4" />
             </el-form-item>
           </el-col>
@@ -309,26 +302,26 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="故障分类" prop="category">
-              <el-select v-model="errorCodeForm.category" placeholder="请选择分类">
-                <el-option label="软件" value="软件" />
-                <el-option label="硬件" value="硬件" />
-                <el-option label="日志记录" value="日志记录" />
-                <el-option label="操作提示" value="操作提示" />
-                <el-option label="安全保护" value="安全保护" />
+            <el-form-item :label="$t('errorCodes.formLabels.category')" prop="category">
+              <el-select v-model="errorCodeForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')">
+                <el-option :label="$t('errorCodes.categoryOptions.software')" value="软件" />
+                <el-option :label="$t('errorCodes.categoryOptions.hardware')" value="硬件" />
+                <el-option :label="$t('errorCodes.categoryOptions.logRecord')" value="日志记录" />
+                <el-option :label="$t('errorCodes.categoryOptions.operationTip')" value="操作提示" />
+                <el-option :label="$t('errorCodes.categoryOptions.safetyProtection')" value="安全保护" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="故障等级" prop="level">
-              <el-input v-model="errorCodeForm.level" readonly placeholder="根据故障码自动判断" />
+            <el-form-item :label="$t('errorCodes.formLabels.level')" prop="level">
+              <el-input v-model="errorCodeForm.level" readonly :placeholder="$t('errorCodes.formLabels.levelPlaceholder')" />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="日志分析分类" prop="analysisCategories">
+            <el-form-item :label="$t('errorCodes.formLabels.analysisCategories')" prop="analysisCategories">
               <el-select 
                 v-model="errorCodeForm.analysisCategories" 
                 multiple 
@@ -336,7 +329,7 @@
                 collapse-tags-tooltip
                 :max-collapse-tags="3"
                 popper-class="analysis-categories-tooltip"
-                placeholder="请选择日志分析分类（可多选）"
+                :placeholder="$t('errorCodes.formLabels.analysisCategoriesPlaceholder')"
                 style="width: 100%"
               >
                 <el-option 
@@ -349,36 +342,36 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="处理措施" prop="solution">
+            <el-form-item :label="$t('errorCodes.formLabels.solution')" prop="solution">
               <el-input 
                 :value="getSolutionDisplay(errorCodeForm.solution)" 
                 readonly 
-                placeholder="根据故障码自动判断" 
+                :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" 
               />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item label="详细信息" prop="detail">
+        <el-form-item :label="$t('errorCodes.formLabels.detail')" prop="detail">
           <el-input v-model="errorCodeForm.detail" type="textarea" :rows="3" />
         </el-form-item>
 
-        <el-form-item label="检测方法" prop="method">
+        <el-form-item :label="$t('errorCodes.formLabels.method')" prop="method">
           <el-input v-model="errorCodeForm.method" type="textarea" :rows="3" />
             </el-form-item>
 
-        <el-form-item label="技术排查方案" prop="tech_solution">
+        <el-form-item :label="$t('errorCodes.formLabels.techSolution')" prop="tech_solution">
           <el-input v-model="errorCodeForm.tech_solution" type="textarea" :rows="3" />
             </el-form-item>
 
-        <el-form-item label="解释" prop="explanation">
+        <el-form-item :label="$t('errorCodes.formLabels.explanation')" prop="explanation">
           <el-input v-model="errorCodeForm.explanation" type="textarea" :rows="3" />
         </el-form-item>
       </el-form>
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showAddDialog = false">取消</el-button>
+          <el-button @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</el-button>
           <el-button type="primary" @click="handleSave" :loading="saving">
             {{ getSaveButtonText() }}
           </el-button>
@@ -407,24 +400,24 @@
       </el-form>
 
       <el-card v-if="queryResult" class="mt-2">
-        <el-descriptions :column="1" border title="结果信息">
-          <el-descriptions-item label="解释">
+        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.resultInfo')">
+          <el-descriptions-item :label="$t('errorCodes.queryResult.explanation')">
             {{ buildPrefixedExplanation(queryResult, foundRecord) }}
           </el-descriptions-item>
         </el-descriptions>
         <el-divider />
-        <el-descriptions :column="1" border title="参数含义">
-          <el-descriptions-item label="参数1">{{ foundRecord?.param1 || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="参数2">{{ foundRecord?.param2 || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="参数3">{{ foundRecord?.param3 || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="参数4">{{ foundRecord?.param4 || '-' }}</el-descriptions-item>
+        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.paramMeanings')">
+          <el-descriptions-item :label="$t('errorCodes.formLabels.param1')">{{ foundRecord?.param1 || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.formLabels.param2')">{{ foundRecord?.param2 || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.formLabels.param3')">{{ foundRecord?.param3 || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.formLabels.param4')">{{ foundRecord?.param4 || '-' }}</el-descriptions-item>
         </el-descriptions>
         <el-divider />
-        <el-descriptions :column="1" border title="更多信息">
-          <el-descriptions-item label="详细信息">{{ foundRecord?.detail || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="检查方法">{{ foundRecord?.method || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="技术排查方案">{{ foundRecord?.tech_solution || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="故障分类">{{ foundRecord?.category || '-' }}</el-descriptions-item>
+        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.moreInfo')">
+          <el-descriptions-item :label="$t('errorCodes.queryResult.detail')">{{ foundRecord?.detail || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.queryResult.method')">{{ foundRecord?.method || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.queryResult.techSolution')">{{ foundRecord?.tech_solution || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.queryResult.category')">{{ foundRecord?.category || '-' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 
@@ -442,6 +435,7 @@ import { ref, reactive, computed, onMounted, watch, onBeforeUnmount, h, resolveC
 import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import api from '../api'
 
 export default {
@@ -508,6 +502,7 @@ export default {
   },
   setup() {
     const store = useStore()
+    const { t } = useI18n()
     
     // 响应式数据
     const loading = ref(false)
@@ -544,18 +539,18 @@ export default {
       { label: '丹麦语 (da)', value: 'da' }
     ]
     
-    const subsystemOptions = [
-      { label: '01-运动控制软件', value: '1' },
-      { label: '02-人机交互软件', value: '2' },
-      { label: '03-医生控制台软件', value: '3' },
-      { label: '04-手术台车软件', value: '4' },
-      { label: '05-驱动器软件', value: '5' },
-      { label: '06-图像软件', value: '6' },
-      { label: '07-工具工厂软件', value: '7' },
-      { label: '08-远程运动控制软件', value: '8' },
-      { label: '09-远程医生控制台软件', value: '9' },
-      { label: '0A-远程驱动器软件', value: 'A' }
-    ]
+    const subsystemOptions = computed(() => [
+      { label: t('errorCodes.subsystemOptions.1'), value: '1' },
+      { label: t('errorCodes.subsystemOptions.2'), value: '2' },
+      { label: t('errorCodes.subsystemOptions.3'), value: '3' },
+      { label: t('errorCodes.subsystemOptions.4'), value: '4' },
+      { label: t('errorCodes.subsystemOptions.5'), value: '5' },
+      { label: t('errorCodes.subsystemOptions.6'), value: '6' },
+      { label: t('errorCodes.subsystemOptions.7'), value: '7' },
+      { label: t('errorCodes.subsystemOptions.8'), value: '8' },
+      { label: t('errorCodes.subsystemOptions.9'), value: '9' },
+      { label: t('errorCodes.subsystemOptions.A'), value: 'A' }
+    ])
     
     // 同步相关变量
     const syncToRemote = ref(false)
@@ -594,32 +589,32 @@ export default {
     const rules = computed(() => {
       const baseRules = {
         subsystem: [
-          { required: true, message: '请选择子系统', trigger: 'change' }
+          { required: true, message: t('errorCodes.validation.subsystemRequired'), trigger: 'change' }
         ],
         code: [
-          { required: true, message: '请输入故障码', trigger: 'blur' },
-          { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: '故障码格式不正确，必须以0X开头+16进制的故障码（最后一位表示等级分类）', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.codeRequired'), trigger: 'blur' },
+          { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: t('errorCodes.validation.codeFormat'), trigger: 'blur' }
         ],
         detail: [
-          { required: true, message: '请输入详细信息', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.detailRequired'), trigger: 'blur' }
         ],
         method: [
-          { required: true, message: '请输入检测方法', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.methodRequired'), trigger: 'blur' }
         ],
         param1: [
-          { required: true, message: '请输入参数1', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.param1Required'), trigger: 'blur' }
         ],
         param2: [
-          { required: true, message: '请输入参数2', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.param2Required'), trigger: 'blur' }
         ],
         param3: [
-          { required: true, message: '请输入参数3', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.param3Required'), trigger: 'blur' }
         ],
         param4: [
-          { required: true, message: '请输入参数4', trigger: 'blur' }
+          { required: true, message: t('errorCodes.validation.param4Required'), trigger: 'blur' }
         ],
         category: [
-          { required: true, message: '请选择故障分类', trigger: 'change' }
+          { required: true, message: t('errorCodes.validation.categoryRequired'), trigger: 'change' }
         ]
       };
 
@@ -629,7 +624,7 @@ export default {
       baseRules.short_message = [
         { 
           required: !hasOperation, 
-          message: '精简提示信息和操作信息不能都为空', 
+          message: t('errorCodes.validation.shortMessageCannotBothEmpty'), 
           trigger: 'blur' 
         }
       ];
@@ -637,7 +632,7 @@ export default {
       baseRules.user_hint = [
         { 
           required: !hasOperation, 
-          message: '用户提示信息和操作信息不能都为空', 
+          message: t('errorCodes.validation.userHintCannotBothEmpty'), 
           trigger: 'blur' 
         }
       ];
@@ -646,7 +641,7 @@ export default {
         { 
           required: !(errorCodeForm.short_message && errorCodeForm.short_message.trim() !== '') && 
                     !(errorCodeForm.user_hint && errorCodeForm.user_hint.trim() !== ''), 
-          message: '精简提示信息、用户提示信息和操作信息至少需要填写两项', 
+          message: t('errorCodes.validation.atLeastTwoRequired'), 
           trigger: 'blur' 
         }
       ];
@@ -657,7 +652,7 @@ export default {
       baseRules.short_message_en = [
         { 
           required: !hasOperationEn, 
-          message: '英文精简提示信息和英文操作信息不能都为空', 
+          message: t('errorCodes.validation.shortMessageEnCannotBothEmpty'), 
           trigger: 'blur' 
         }
       ];
@@ -665,7 +660,7 @@ export default {
       baseRules.user_hint_en = [
         { 
           required: !hasOperationEn, 
-          message: '英文用户提示信息和英文操作信息不能都为空', 
+          message: t('errorCodes.validation.userHintEnCannotBothEmpty'), 
           trigger: 'blur' 
         }
       ];
@@ -674,7 +669,7 @@ export default {
         { 
           required: !(errorCodeForm.short_message_en && errorCodeForm.short_message_en.trim() !== '') && 
                     !(errorCodeForm.user_hint_en && errorCodeForm.user_hint_en.trim() !== ''), 
-          message: '英文精简提示信息、英文用户提示信息和英文操作信息至少需要填写两项', 
+          message: t('errorCodes.validation.atLeastTwoEnRequired'), 
           trigger: 'blur' 
         }
       ];
@@ -684,28 +679,28 @@ export default {
     
     // 根据故障码自动判断故障等级和处理措施
     const analyzeErrorCode = (code) => {
-      if (!code) return { level: '无', solution: 'tips' };
+      if (!code) return { level: t('errorCodes.levelTypes.none'), solution: 'tips' };
       
       // 解析故障码：0X + 3位16进制数字 + A/B/C/D/E
       const match = code.match(/^0X([0-9A-F]{3})([ABCDE])$/);
-      if (!match) return { level: '无', solution: 'tips' };
+      if (!match) return { level: t('errorCodes.levelTypes.none'), solution: 'tips' };
       
       const [, hexPart, severity] = match;
       
       // 根据故障码末尾字母判断等级
-      let level = '无';
+      let levelKey = 'none';
       switch (severity) {
         case 'A': // A类故障：高级
-          level = '高级';
+          levelKey = 'high';
           break;
         case 'B': // B类故障：中级
-          level = '中级';
+          levelKey = 'medium';
           break;
         case 'C': // C类故障：低级
-          level = '低级';
+          levelKey = 'low';
           break;
         default: // D、E类故障：无
-          level = '无';
+          levelKey = 'none';
           break;
       }
       
@@ -729,7 +724,7 @@ export default {
           break;
       }
       
-      return { level, solution };
+      return { level: t(`errorCodes.levelTypes.${levelKey}`), solution };
     };
     
     // 故障码输入时自动计算等级和处理措施
@@ -742,11 +737,11 @@ export default {
     // 获取处理措施的中文显示
     const getSolutionDisplay = (solution) => {
       const solutionMap = {
-        'recoverable': '可恢复故障',
-        'unrecoverable': '不可恢复故障',
-        'ignorable': '可忽略故障',
-        'tips': '提示信息',
-        'log': '日志记录'
+        'recoverable': t('errorCodes.solutionTypes.recoverable'),
+        'unrecoverable': t('errorCodes.solutionTypes.unrecoverable'),
+        'ignorable': t('errorCodes.solutionTypes.ignorable'),
+        'tips': t('errorCodes.solutionTypes.tips'),
+        'log': t('errorCodes.solutionTypes.log')
       };
       return solutionMap[solution] || solution;
     };
@@ -840,7 +835,7 @@ export default {
           subsystem: selectedSubsystem.value
         })
       } catch (error) {
-        ElMessage.error('加载故障码失败')
+        ElMessage.error(t('errorCodes.message.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -895,10 +890,10 @@ export default {
         a.click()
         a.remove()
         window.URL.revokeObjectURL(url)
-        ElMessage.success('CSV导出已开始下载')
+        ElMessage.success(t('errorCodes.message.exportSuccess'))
         showExportDialog.value = false
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || '导出失败')
+        ElMessage.error(e?.response?.data?.message || t('errorCodes.message.exportFailed'))
       } finally {
         exportLoading.value = false
       }
@@ -972,21 +967,21 @@ export default {
     const handleDelete = async (row) => {
       try {
         await ElMessageBox.confirm(
-          `确定要删除故障码 "${row.code}" 吗？`,
-          '删除确认',
+          t('errorCodes.message.deleteConfirm', { code: row.code }),
+          t('errorCodes.message.deleteConfirmTitle'),
           {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
+            confirmButtonText: t('common.confirm'),
+            cancelButtonText: t('common.cancel'),
             type: 'warning',
           }
         )
         
         await store.dispatch('errorCodes/deleteErrorCode', row.id)
-        ElMessage.success('删除成功')
+        ElMessage.success(t('errorCodes.message.deleteSuccess'))
         loadErrorCodes()
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('删除失败')
+          ElMessage.error(t('errorCodes.message.deleteFailed'))
         }
       }
     }
@@ -996,20 +991,20 @@ export default {
       if (!editingErrorCode.value) {
         // 添加模式
         if (isLocalSubsystem.value) {
-          return '创建本地故障码'
+          return t('errorCodes.dialogTitles.createLocal')
         } else if (isRemoteSubsystem.value) {
-          return '创建远程故障码'
+          return t('errorCodes.dialogTitles.createRemote')
         } else {
-          return '添加故障码'
+          return t('errorCodes.dialogTitles.createGeneral')
         }
       } else {
         // 编辑模式
         if (isLocalSubsystem.value) {
-          return '更新本地故障码'
+          return t('errorCodes.dialogTitles.updateLocal')
         } else if (isRemoteSubsystem.value) {
-          return '更新远程故障码'
+          return t('errorCodes.dialogTitles.updateRemote')
         } else {
-          return '编辑故障码'
+          return t('errorCodes.dialogTitles.updateGeneral')
         }
       }
     }
@@ -1031,7 +1026,7 @@ export default {
     const handleQuery = async () => {
       const full = queryForm.fullCode?.trim()
       if (!full) {
-        ElMessage.warning('请输入完整故障码')
+        ElMessage.warning(t('errorCodes.message.queryWarning'))
         return
       }
       queryLoading.value = true
@@ -1056,7 +1051,7 @@ export default {
           }
         }
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || '查询失败')
+        ElMessage.error(e?.response?.data?.message || t('errorCodes.message.queryFailed'))
       } finally {
         queryLoading.value = false
       }
@@ -1079,27 +1074,17 @@ export default {
     
     // 获取远程子系统标签
     const getRemoteSubsystemLabel = () => {
-      const subsystemMap = {
-        '1': '08：远程运动控制软件',
-        '3': '09：远程医生控制台软件',
-        '5': '0A：远程驱动器软件'
-      }
-      return subsystemMap[errorCodeForm.subsystem] || ''
+      return t(`errorCodes.remoteSubsystemLabels.${errorCodeForm.subsystem}`) || ''
     }
     
     // 获取本地子系统标签
     const getLocalSubsystemLabel = () => {
-      const subsystemMap = {
-        '8': '01：运动控制软件',
-        '9': '03：医生控制台软件',
-        'A': '05：驱动器软件'
-      }
-      return subsystemMap[errorCodeForm.subsystem] || ''
+      return t(`errorCodes.localSubsystemLabels.${errorCodeForm.subsystem}`) || ''
     }
     
     // 获取保存按钮文本
     const getSaveButtonText = () => {
-      return editingErrorCode.value ? '更新' : '创建'
+      return editingErrorCode.value ? t('errorCodes.buttonTexts.update') : t('errorCodes.buttonTexts.create')
     }
     
     // 处理子系统变化
@@ -1188,8 +1173,8 @@ export default {
         
         await Promise.all(savePromises)
         
-        const action = editingErrorCode.value ? '更新' : '创建'
-        ElMessage.success(`${action}成功`)
+        const action = editingErrorCode.value ? t('errorCodes.message.updateSuccess') : t('errorCodes.message.createSuccess')
+        ElMessage.success(action)
         
         showAddDialog.value = false
         resetForm()
@@ -1198,7 +1183,7 @@ export default {
         if (error.response && error.response.data && error.response.data.errors) {
           ElMessage.error(error.response.data.errors.join(', '))
         } else {
-          ElMessage.error('保存失败')
+          ElMessage.error(t('errorCodes.message.saveFailed'))
         }
       } finally {
         saving.value = false

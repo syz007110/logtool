@@ -1,15 +1,16 @@
 {
   "apiBaseUrl": "http://localhost:3000/api",
   "clientId": "a1f30dc6-a8b3-4357-88d3-db855a810fd4",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MTE1MjI4OSwiZXhwIjoxNzYxMTk1NDg5fQ.zGUhMAT_Y0DB0btQidmrHPFpDqyTPS__fYqzlkIQ2lU",
-  "tokenExpiresAt": "2025-10-23T04:58:09.000Z",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MTU0MzI1MiwiZXhwIjoxNzYxNTg2NDUyfQ.3D7kyejN5c07MtOSs58Fag-A7Ff82vGw3T8eOKirNcI",
+  "tokenExpiresAt": "2025-10-27T17:34:12.000Z",
   "username": "admin",
   "password": "admin123",
   "autoLogin": true,
   "concurrency": 3,
   "watchPaths": [
     "D:\\microport\\任务\\000-log分析\\auto_upload\\4371",
-    "D:\\microport\\任务\\000-log分析\\auto_upload\\4336"
+    "D:\\microport\\任务\\000-log分析\\auto_upload\\4336",
+    "D:\\microport\\任务\\000-log分析\\auto_upload\\4358"
   ],
   "recurseDepth": 4,
   "includeExtensions": [

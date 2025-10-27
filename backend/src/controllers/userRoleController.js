@@ -2,6 +2,7 @@ const UserRole = require('../models/user_role');
 const User = require('../models/user');
 const Role = require('../models/role');
 const { checkPermission } = require('../middlewares/permission');
+const { logOperation } = require('../utils/operationLogger');
 
 // 为用户分配角色
 const assignRole = async (req, res) => {
@@ -43,7 +44,17 @@ const assignRole = async (req, res) => {
     });
 
     // 记录操作日志
-    console.log(`[角色分配] 用户 ${req.user.username} (ID: ${req.user.id}) 为用户 ${user.username} (ID: ${user_id}) 分配角色 ${role.name} (ID: ${role_id})`);
+    try {
+      await logOperation({
+        operation: '分配角色',
+        description: `为用户 ${user.username} 分配角色: ${role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { target_user_id: user_id, role_id, role_name: role.name, expires_at, notes }
+      });
+    } catch (_) {}
 
     res.status(201).json({
       message: '角色分配成功',
@@ -88,7 +99,17 @@ const removeRole = async (req, res) => {
     await userRole.destroy();
     
     // 记录操作日志
-    console.log(`[角色移除] 用户 ${req.user.username} (ID: ${req.user.id}) 移除用户 ${userRole.User.username} (ID: ${user_id}) 的角色 ${userRole.Role.name} (ID: ${role_id})`);
+    try {
+      await logOperation({
+        operation: '移除角色',
+        description: `移除用户 ${userRole.User.username} 的角色: ${userRole.Role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { target_user_id: Number(user_id), role_id: Number(role_id) }
+      });
+    } catch (_) {}
     
     res.json({ message: '角色移除成功' });
 
@@ -214,8 +235,17 @@ const updateUserRole = async (req, res) => {
     });
 
     // 记录操作日志
-    console.log(`[角色更新] 用户 ${req.user.username} (ID: ${req.user.id}) 更新用户 ${userRole.User.username} (ID: ${user_id}) 的角色 ${userRole.Role.name} (ID: ${role_id})`);
-    console.log(`  变更: ${JSON.stringify({ old: oldData, new: { expires_at, is_active, notes } })}`);
+    try {
+      await logOperation({
+        operation: '更新用户角色',
+        description: `更新用户 ${userRole.User.username} 的角色: ${userRole.Role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { target_user_id: Number(user_id), role_id: Number(role_id), old: oldData, new: { expires_at, is_active, notes } }
+      });
+    } catch (_) {}
 
     res.json({ message: '角色信息更新成功' });
 
@@ -274,8 +304,7 @@ const batchAssignRoles = async (req, res) => {
           notes
         });
 
-        // 记录操作日志
-        console.log(`[批量角色分配] 用户 ${req.user.username} (ID: ${req.user.id}) 为用户 ${user.username} (ID: ${user_id}) 分配角色 ${role.name} (ID: ${role_id})`);
+        // 单条分配成功，累计结果（批量日志在末尾记录汇总）
 
         results.push({
           user_id,
@@ -288,6 +317,19 @@ const batchAssignRoles = async (req, res) => {
         errors.push({ user_id, error: error.message });
       }
     }
+
+    // 批量分配汇总日志
+    try {
+      await logOperation({
+        operation: '批量分配角色',
+        description: `批量为 ${results.length} 个用户分配角色: ${role.name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { role_id, successCount: results.length, errorCount: errors.length, errors: errors.slice(0, 10) }
+      });
+    } catch (_) {}
 
     res.json({
       message: '批量分配完成',

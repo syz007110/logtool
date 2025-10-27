@@ -1,19 +1,20 @@
 <template>
   <div class="register-container">
-    <div class="register-lang-switch">
-      <el-dropdown @command="changeLanguage">
-        <el-button type="text">
-          {{ currentLocaleLabel }}
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
-            <el-dropdown-item command="en-US">English</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
     <div class="register-box">
+      <div class="register-lang-switch">
+        <el-dropdown @command="changeLanguage">
+          <el-button type="text">
+            <el-icon><InfoFilled /></el-icon>
+            {{ currentLocaleLabel }}
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+              <el-dropdown-item command="en-US">English</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
       <div class="register-header">
         <h1>{{ $t('register.title') }}</h1>
       </div>
@@ -92,12 +93,16 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
+import { InfoFilled } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Register',
+  components: { InfoFilled },
   setup() {
     const store = useStore()
     const router = useRouter()
+    const { t } = useI18n()
     const registerForm = ref(null)
     
     const formData = reactive({
@@ -112,30 +117,30 @@ export default {
     
     const validateConfirmPassword = (rule, value, callback) => {
       if (value !== formData.password) {
-        callback(new Error('两次输入的密码不一致'))
+        callback(new Error(t('register.validation.passwordMismatch')))
       } else {
         callback()
       }
     }
     
-    const rules = {
+    const rules = computed(() => ({
       username: [
-        { required: true, message: '请输入用户名', trigger: 'blur' },
-        { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+        { required: true, message: t('register.validation.usernameRequired'), trigger: 'blur' },
+        { min: 3, max: 20, message: t('register.validation.usernameLength'), trigger: 'blur' }
       ],
       email: [
-        { required: true, message: '请输入邮箱', trigger: 'blur' },
-        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+        { required: true, message: t('register.validation.emailRequired'), trigger: 'blur' },
+        { type: 'email', message: t('register.validation.emailFormat'), trigger: 'blur' }
       ],
       password: [
-        { required: true, message: '请输入密码', trigger: 'blur' },
-        { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' }
+        { required: true, message: t('register.validation.passwordRequired'), trigger: 'blur' },
+        { min: 6, message: t('register.validation.passwordMinLength'), trigger: 'blur' }
       ],
       confirmPassword: [
-        { required: true, message: '请确认密码', trigger: 'blur' },
+        { required: true, message: t('register.validation.confirmPasswordRequired'), trigger: 'blur' },
         { validator: validateConfirmPassword, trigger: 'blur' }
       ]
-    }
+    }))
     
     const handleRegister = async () => {
       try {
@@ -144,10 +149,10 @@ export default {
         
         const { confirmPassword, ...registerData } = formData
         await store.dispatch('auth/register', registerData)
-        ElMessage.success('注册成功，请登录')
+        ElMessage.success(t('register.registerSuccess'))
         router.push('/login')
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || '注册失败')
+        ElMessage.error(error.response?.data?.message || t('register.registerFailed'))
       } finally {
         loading.value = false
       }
@@ -163,7 +168,8 @@ export default {
       rules,
       handleRegister,
       changeLanguage,
-      currentLocaleLabel
+      currentLocaleLabel,
+      InfoFilled
     }
   }
 }
@@ -185,6 +191,25 @@ export default {
   padding: 40px;
   width: 400px;
   max-width: 90vw;
+  position: relative;
+}
+
+.register-lang-switch {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+}
+
+.register-lang-switch .el-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
 }
 
 .register-header {

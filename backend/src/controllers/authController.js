@@ -10,11 +10,11 @@ const register = async (req, res) => {
   try {
     const { username, password, email, roles } = req.body;
     if (!username || !password) {
-      return res.status(400).json({ message: '用户名和密码不能为空' });
+      return res.status(400).json({ message: req.t('user.requiredUsernamePassword') });
     }
     const exist = await User.findOne({ where: { username } });
     if (exist) {
-      return res.status(409).json({ message: '用户名已存在' });
+      return res.status(409).json({ message: req.t('user.usernameExists') });
     }
     const password_hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, password_hash, email });
@@ -39,9 +39,9 @@ const register = async (req, res) => {
       });
     }
     
-    res.status(201).json({ message: '注册成功', user: { id: user.id, username: user.username, email: user.email } });
+    res.status(201).json({ message: req.t('common.created'), user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
-    res.status(500).json({ message: '注册失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -68,33 +68,33 @@ const login = async (req, res) => {
     const { username, password } = req.body;
     const user = await User.findOne({ where: { username } });
     if (!user) {
-      return res.status(401).json({ message: '用户名或密码错误' });
+      return res.status(401).json({ message: req.t('auth.invalidCredentials') });
     }
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ message: '用户名或密码错误' });
+      return res.status(401).json({ message: req.t('auth.invalidCredentials') });
     }
     // 查询用户角色与权限
     const { roleName, roleId } = await getUserPrimaryRole(user.id);
     const permissions = await getUserPermissions(user.id);
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '12h' });
-    res.json({ message: '登录成功', token, user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions } });
+    res.json({ message: req.t('auth.loginSuccess') || 'OK', token, user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions } });
   } catch (err) {
-    res.status(500).json({ message: '登录失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
 const me = async (req, res) => {
   try {
     const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: '未登录' });
+    if (!userId) return res.status(401).json({ message: req.t('auth.unauthenticated') });
     const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ message: '用户不存在' });
+    if (!user) return res.status(404).json({ message: req.t('common.notFound') });
     const { roleName, roleId } = await getUserPrimaryRole(userId);
     const permissions = await getUserPermissions(userId);
     res.json({ user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions } });
   } catch (err) {
-    res.status(500).json({ message: '获取用户信息失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 

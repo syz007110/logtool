@@ -1,20 +1,20 @@
 <template>
   <div class="login-container">
-    <div class="login-lang-switch">
-      <el-dropdown @command="changeLanguage">
-        <el-button type="text">
-          <el-icon><InfoFilled /></el-icon>
-          {{ currentLocaleLabel }}
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
-            <el-dropdown-item command="en-US">English</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
     <div class="login-box">
+      <div class="login-lang-switch">
+        <el-dropdown @command="changeLanguage">
+          <el-button type="text">
+            <el-icon><InfoFilled /></el-icon>
+            {{ currentLocaleLabel }}
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+              <el-dropdown-item command="en-US">English</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
       <div class="login-header">
         <h1>{{ $t('login.title') }}</h1>
       </div>
@@ -75,6 +75,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { InfoFilled } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Login',
@@ -82,6 +83,7 @@ export default {
   setup() {
     const store = useStore()
     const router = useRouter()
+    const { t } = useI18n()
     const loginForm = ref(null)
     
     const formData = reactive({
@@ -94,14 +96,14 @@ export default {
     const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
     const currentLocaleLabel = computed(() => (getCurrentLocale() === 'en-US' ? 'English' : '中文'))
     
-    const rules = {
+    const rules = computed(() => ({
       username: [
-        { required: true, message: '请输入用户名', trigger: 'blur' }
+        { required: true, message: t('login.validation.usernameRequired'), trigger: 'blur' }
       ],
       password: [
-        { required: true, message: '请输入密码', trigger: 'blur' }
+        { required: true, message: t('login.validation.passwordRequired'), trigger: 'blur' }
       ]
-    }
+    }))
     
     const handleLogin = async () => {
       try {
@@ -109,7 +111,7 @@ export default {
         loading.value = true
         
         await store.dispatch('auth/login', formData)
-        ElMessage.success('登录成功')
+        ElMessage.success(t('login.loginSuccess'))
         router.push('/dashboard')
       } catch (error) {
         // 不在这里显示错误信息，因为响应拦截器已经处理了
@@ -145,23 +147,6 @@ export default {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  position: relative;
-}
-.login-lang-switch {
-  position: absolute;
-  top: 30px;
-  right: 40px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-}
-.login-lang-switch .el-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  line-height: 32px;
-  padding: 0 12px;
 }
 
 .login-box {
@@ -171,6 +156,25 @@ export default {
   padding: 40px;
   width: 400px;
   max-width: 90vw;
+  position: relative;
+}
+
+.login-lang-switch {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+}
+
+.login-lang-switch .el-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
 }
 
 .login-header {

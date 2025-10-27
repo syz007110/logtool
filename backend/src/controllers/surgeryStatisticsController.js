@@ -906,6 +906,20 @@ const exportPostgreSQLData = async (req, res) => {
     // 转换为PostgreSQL插入语句
     const postgresqlData = allSurgeries.map(s => buildDbRowFromSurgery(s));
 
+    // 操作日志
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '手术数据导出数据库',
+        description: `导出 ${postgresqlData.length} 条手术结构化数据`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { count: postgresqlData.length, logIds: (logs || []).map(l => l.id) }
+      });
+    } catch (_) {}
+
     res.json({
       success: true,
       data: postgresqlData,
@@ -1347,6 +1361,20 @@ const exportSingleSurgeryData = async (req, res) => {
           return converted;
         };
         
+        // 操作日志
+        try {
+          const { logOperation } = require('../utils/operationLogger');
+          await logOperation({
+            operation: '手术数据导出数据库',
+            description: `导出单个手术数据: ${savedSurgery.surgery_id}`,
+            user_id: req.user?.id,
+            username: req.user?.username,
+            ip: req.ip,
+            user_agent: req.headers['user-agent'],
+            details: { surgery_id: savedSurgery.surgery_id, postgresql_id: savedSurgery.id }
+          });
+        } catch (_) {}
+
         res.json({
           success: true,
           data: {

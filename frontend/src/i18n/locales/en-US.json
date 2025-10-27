@@ -21,14 +21,28 @@
     "warning": "Warning",
     "info": "Info",
     "refresh": "Refresh",
-    "operation": "Operation"
+    "operation": "Operation",
+    "resourceNotFound": "Resource not found",
+    "serverError": "Internal server error",
+    "requestFailed": "Request failed",
+    "networkError": "Network connection failed"
   },
   "login": {
-    "title": "LogTool Error Code Management System",
+    "title": "LogTool System",
     "username": "Username",
     "password": "Password",
     "login": "Login",
+    "validation": {
+      "usernameRequired": "Please enter username",
+      "passwordRequired": "Please enter password"
+    },
+    "loginSuccess": "Login successful",
     "register": "Register"
+  },
+  "auth": {
+    "invalidCredentials": "Invalid username or password",
+    "tokenExpired": "Login expired, please login again",
+    "insufficientPermissions": "Insufficient permissions"
   },
   "register": {
     "title": "User Registration",
@@ -38,8 +52,18 @@
     "confirmPassword": "Confirm Password",
     "register": "Register",
     "backToLogin": "Back to Login",
-    "registerSuccess": "Registration successful",
-    "registerFailed": "Registration failed"
+    "registerSuccess": "Registration successful, please login",
+    "registerFailed": "Registration failed",
+    "validation": {
+      "usernameRequired": "Please enter username",
+      "usernameLength": "Username must be between 3 and 20 characters",
+      "emailRequired": "Please enter email",
+      "emailFormat": "Please enter a valid email format",
+      "passwordRequired": "Please enter password",
+      "passwordMinLength": "Password must be at least 6 characters",
+      "confirmPasswordRequired": "Please confirm password",
+      "passwordMismatch": "Passwords do not match"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -57,7 +81,7 @@
   "errorCodes": {
     "title": "Error Codes",
     "code": "Error Code",
-    "selectSubsystem": "Please select subsystem",
+    "selectSubsystem": "Select subsystem",
     "subsystem": "Subsystem",
     "name": "Name",
     "description": "Description",
@@ -69,16 +93,150 @@
     "deleteErrorCode": "Delete Error Code",
     "exportXML": "Export XML",
     "searchPlaceholder": "Search error codes...",
-    "exportCSV": "Export CSV",
+    "exportCSV": "Export",
     "queryCode": "Error Code Query",
     "exportCSVDialogTitle": "Export Error Codes CSV",
     "exportFormat": "Export Format",
     "csvFormat": "CSV (comma separated)",
     "tsvFormat": "TSV (tab separated)",
-    "multilangColumnsOptional": "Multi-language Columns (optional)",
+    "multilangColumnsOptional": "Multi-language",
     "selectLanguages": "Select languages to include",
     "fullCode": "Full Error Code",
-    "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include subsystem prefix)"
+    "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include subsystem prefix)",
+    "formLabels": {
+      "subsystem": "Subsystem",
+      "code": "Error Code",
+      "codePlaceholder": "Format: 0X010A",
+      "syncOption": "Sync Option",
+      "syncToRemote": "Sync to Remote",
+      "syncToLocal": "Sync to Local",
+      "optionSettings": "Option Settings",
+      "shortMessageZh": "Short Message (Chinese)",
+      "shortMessageEn": "Short Message (English)",
+      "userHintZh": "User Hint (Chinese)",
+      "userHintEn": "User Hint (English)",
+      "operationZh": "Operation (Chinese)",
+      "operationEn": "Operation (English)",
+      "param1": "Parameter 1",
+      "param2": "Parameter 2",
+      "param3": "Parameter 3",
+      "param4": "Parameter 4",
+      "category": "Category",
+      "level": "Level",
+      "levelPlaceholder": "Auto-determined by error code",
+      "analysisCategories": "Analysis Categories",
+      "analysisCategoriesPlaceholder": "Please select analysis categories (multiple)",
+      "solution": "Solution",
+      "solutionPlaceholder": "Auto-determined by error code",
+      "detail": "Detail",
+      "method": "Method",
+      "techSolution": "Technical Solution",
+      "explanation": "Explanation"
+    },
+    "subsystemOptions": {
+      "1": "01: Motion Control Software",
+      "2": "02: HMI Software",
+      "3": "03: Console Software",
+      "4": "04: Operating Table Software",
+      "5": "05: Drive Software",
+      "6": "06: Image Software",
+      "7": "07: Tool Factory Software",
+      "8": "08: Remote Motion Control Software",
+      "9": "09: Remote Console Software",
+      "A": "0A: Remote Drive Software"
+    },
+    "remoteSubsystemLabels": {
+      "1": "08: Remote Motion Control Software",
+      "3": "09: Remote Console Software",
+      "5": "0A: Remote Drive Software"
+    },
+    "localSubsystemLabels": {
+      "8": "01: Motion Control Software",
+      "9": "03: Console Software",
+      "A": "05: Drive Software"
+    },
+    "checkboxLabels": {
+      "isAxisError": "Axis Error",
+      "isArmError": "Arm Error",
+      "forExpert": "Expert Mode",
+      "forNovice": "Novice Mode",
+      "relatedLog": "Related Log"
+    },
+    "categoryOptions": {
+      "software": "Software",
+      "hardware": "Hardware",
+      "logRecord": "Log Record",
+      "operationTip": "Operation Tip",
+      "safetyProtection": "Safety Protection"
+    },
+    "dialogTitles": {
+      "createLocal": "Create Local Error Code",
+      "createRemote": "Create Remote Error Code",
+      "createGeneral": "Add Error Code",
+      "updateLocal": "Update Local Error Code",
+      "updateRemote": "Update Remote Error Code",
+      "updateGeneral": "Edit Error Code"
+    },
+    "buttonTexts": {
+      "create": "Create",
+      "update": "Update",
+      "cancel": "Cancel"
+    },
+    "validation": {
+      "subsystemRequired": "Please select subsystem",
+      "codeRequired": "Please enter error code",
+      "codeFormat": "Invalid error code format, must start with 0X + 3 hex digits + A/B/C/D/E",
+      "detailRequired": "Please enter detail",
+      "methodRequired": "Please enter method",
+      "param1Required": "Please enter parameter 1",
+      "param2Required": "Please enter parameter 2",
+      "param3Required": "Please enter parameter 3",
+      "param4Required": "Please enter parameter 4",
+      "categoryRequired": "Please select category",
+      "shortMessageCannotBothEmpty": "Short message and operation cannot both be empty",
+      "userHintCannotBothEmpty": "User hint and operation cannot both be empty",
+      "atLeastTwoRequired": "At least two of short message, user hint, and operation must be filled",
+      "shortMessageEnCannotBothEmpty": "English short message and operation cannot both be empty",
+      "userHintEnCannotBothEmpty": "English user hint and operation cannot both be empty",
+      "atLeastTwoEnRequired": "At least two of English short message, user hint, and operation must be filled"
+    },
+    "solutionTypes": {
+      "recoverable": "Recoverable Error",
+      "unrecoverable": "Unrecoverable Error",
+      "ignorable": "Ignorable Error",
+      "tips": "Tips",
+      "log": "Log Record"
+    },
+    "levelTypes": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "none": "None"
+    },
+    "message": {
+      "deleteConfirmTitle": "Confirm Delete",
+      "deleteConfirm": "Are you sure to delete error code \"{code}\"?",
+      "deleteSuccess": "Delete successful",
+      "deleteFailed": "Delete failed",
+      "createSuccess": "Create successful",
+      "updateSuccess": "Update successful",
+      "saveFailed": "Save failed",
+      "loadFailed": "Failed to load error codes",
+      "queryWarning": "Please enter full error code",
+      "queryFailed": "Query failed",
+      "exportSuccess": "CSV export started",
+      "exportFailed": "Export failed"
+    },
+    "queryResult": {
+      "resultInfo": "Result Information",
+      "explanation": "Explanation",
+      "paramMeanings": "Parameter Meanings",
+      "moreInfo": "More Information",
+      "detail": "Detail",
+      "method": "Check Method",
+      "techSolution": "Technical Solution",
+      "category": "Category"
+    }
   },
   "analysisCategories": {
     "title": "Analysis Categories",
@@ -135,7 +293,11 @@
     "exportFailed": "Export failed"
   },
   "globalDashboard": {
-    "title": "Global Dashboard"
+    "title": "Global Dashboard",
+    "errorCodesCount": "Total Error Codes",
+    "logEntriesCount": "Total Log Entries",
+    "usersCount": "Users",
+    "systemOverview": "System Overview"
   },
   "monitoring": {
     "title": "System Monitoring",
@@ -262,6 +424,7 @@
     "batchDelete": "Batch Delete",
     "batchReparse": "Batch Reparse",
     "clearSelection": "Clear Selection",
+    "deleteOwnOnlyTip": "Without full delete permission, you can only delete logs uploaded by yourself",
     "logFilename": "Log Filename",
     "timePrefix": "Time Prefix (YYYY / YYYYMM / YYYYMMDD / YYYYMMDDHH)",
     "timePrefixPlaceholder": "e.g. 2025081611",
@@ -279,11 +442,24 @@
     "autoFillDeviceId": "Auto-fill Device ID",
     "or": "or",
     "uploadKeyFile": "Upload Key File",
+    "autoFillKey": "Auto-fill Key",
     "uploading": "Uploading...",
     "uploadAndParse": "Upload and Parse",
     "viewLogs": "View Logs",
     "timestamp": "Timestamp",
-    "explanation": "Explanation"
+    "explanation": "Explanation",
+    "statusText": {
+      "uploading": "Uploading",
+      "queued": "Queued",
+      "decrypting": "Decrypting",
+      "parsing": "Parsing",
+      "parsed": "Completed",
+      "failed": "Failed",
+      "decrypt_failed": "Decrypt Failed",
+      "parse_failed": "Parse Failed",
+      "file_error": "File Error",
+      "deleting": "Deleting"
+    }
   },
   "account": {
     "title": "Account Information",
@@ -355,7 +531,42 @@
     "userCount": "Users",
     "addRole": "Add Role",
     "editRole": "Edit Role",
-    "deleteRole": "Delete Role"
+    "deleteRole": "Delete Role",
+    "rules": {
+      "nameRequired": "Please enter role name",
+      "descriptionRequired": "Please enter role description"
+    },
+    "adminNotice": "Admin role has all permissions and cannot be modified",
+    "loadFailed": "Failed to load roles",
+    "loadPermsFailed": "Failed to load permissions",
+    "deleteConfirmTitle": "Confirm",
+    "deleteConfirmText": "Are you sure you want to delete this role?",
+    "updateSuccess": "Updated successfully",
+    "createSuccess": "Added successfully",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailed": "Delete failed",
+    "saveFailed": "Save failed",
+    "deleteDisabled": {
+      "builtInRole": "Built-in role cannot be deleted",
+      "inUse": "{count} user(s) are using this role, cannot delete",
+      "cannotDelete": "Cannot delete"
+    },
+    "permissionGroups": {
+      "user": "User Management",
+      "role": "Role Management",
+      "error_code": "Error Code Management",
+      "log": "Log Management",
+      "i18n": "Localization Management",
+      "device": "Device Management",
+      "history": "History",
+      "surgery": "Surgery Data",
+      "data_replay": "Data Replay",
+      "dashboard": "Dashboard",
+      "test": "Test",
+      "system": "System Monitoring",
+      "loglevel": "Analysis Levels",
+      "other": "Other Permissions"
+    }
   },
   "surgeryStatistics": {
     "title": "Surgery Statistics",
@@ -398,6 +609,45 @@
     "avgLatency": "Average Latency",
     "range": "Range",
     "noNetworkLatencyData": "No network latency data"
+  },
+  "surgeryVisualization": {
+    "remoteSurgery": "Remote Surgery",
+    "faultSurgery": "Faulty Surgery",
+    "overview": "Overview",
+    "resetZoom": "Reset Zoom",
+    "activity": "Activity",
+    "stateMachineChanges": "State Machine Changes",
+    "stateMachine": "State Machine",
+    "networkLatency": "Network Latency",
+    "networkLatencyMs": "Network Latency (ms)",
+    "operationSummary": "Operation Summary",
+    "safetyAlerts": "Safety Alerts",
+    "faultTime": "Fault Time",
+    "faultCode": "Error Code",
+    "faultExplanation": "Explanation",
+    "noExplanation": "No details",
+    "status": "Status",
+    "statusProcessed": "Processed",
+    "statusUnprocessed": "Unprocessed",
+    "faultsSummary": "Found {total} faults: {processed} processed, {unprocessed} unprocessed",
+    "tooltipUdi": "UDI",
+    "tooltipNoUdi": "No UDI",
+    "tooltipDuration": "Duration",
+    "tooltipInstall": "Installed At",
+    "tooltipRemove": "Removed At",
+    "unknown": "Unknown",
+    "unknownInstrument": "Unknown Instrument",
+    "unknownTime": "Unknown Time",
+    "mergedEvents": "Merged Events",
+    "time": "Time",
+    "weekday": "Weekday",
+    "armTimeline": "Surgery Timeline",
+    "armN": "Arm {n}",
+    "powerOn": "Power On {index}",
+    "powerOff": "Power Off {index}",
+    "previousSurgeryEnd": "Previous Surgery End",
+    "surgeryStart": "Surgery Start",
+    "surgeryEnd": "Surgery End"
   }
 }
 

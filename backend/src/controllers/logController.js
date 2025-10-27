@@ -346,8 +346,8 @@ const getLogs = async (req, res) => {
       
       return {
         ...logData,
-        hospital_name: deviceInfo?.hospital || '未设置',
-        device_name: deviceInfo?.device_model || '未知设备'
+        hospital_name: deviceInfo?.hospital || req.t('log.notSet'),
+        device_name: deviceInfo?.device_model || req.t('log.unknownDevice')
       };
     });
 
@@ -355,7 +355,7 @@ const getLogs = async (req, res) => {
   } catch (err) {
     console.error('获取日志列表失败:', err);
     console.error('错误堆栈:', err.stack);
-    res.status(500).json({ message: '获取日志失败', error: err.message });
+    res.status(500).json({ message: req.t('log.listFailed'), error: err.message });
   }
 };
 
@@ -687,6 +687,25 @@ const uploadLog = async (req, res) => {
     console.log(`🆔 客户端ID: ${clientId || '未提供'}`);
     console.log('========================\n');
     
+    // 操作日志
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '日志上传',
+        description: `上传 ${uploadedLogs.length} 个日志文件`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: {
+          count: uploadedLogs.length,
+          source,
+          device_id: deviceId,
+          filenames: uploadedLogs.map(l => l.original_name)
+        }
+      });
+    } catch (_) {}
+
     res.json({ 
       message: `成功上传 ${uploadedLogs.length} 个文件，已加入处理队列`, 
       logs: uploadedLogs,
@@ -794,6 +813,20 @@ const parseLog = async (req, res) => {
     // 推送状态变化到 WebSocket
     pushLogStatusChange(log.id, oldStatus, 'parsed');
     
+    // 操作日志
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '日志解析',
+        description: `解析日志: ${log.original_name}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { log_id: log.id, entries: entries.length, device_id: log.device_id }
+      });
+    } catch (_) {}
+
     res.json({ message: '解析成功', count: entries.length });
   } catch (err) {
     console.error('解析日志失败:', err);
@@ -976,7 +1009,7 @@ const getBatchLogEntries = async (req, res) => {
     }
 
     // 分析分类过滤（预置维度，不进入高级搜索表达式）
-    // 不再使用 EXISTS，统一后续用“允许码集合 IN (subsystem_char, code4)”路径
+    // 不再使用 EXISTS，统一后续用"允许码集合 IN (subsystem_char, code4)"路径
     let analysisFilterActive = false;
     if (analysis_category_ids) {
       const ids = Array.isArray(analysis_category_ids)
@@ -1021,7 +1054,7 @@ const getBatchLogEntries = async (req, res) => {
             const arr = Array.isArray(val) ? val : [val];
             const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
             if (nums.length === 0) return null;
-            return SequelizeLib.where(castCol, sequelizeOperator, nums);
+            return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
           }
           // BETWEEN/NOT BETWEEN 需要两个数值
           if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
@@ -1104,16 +1137,15 @@ const getBatchLogEntries = async (req, res) => {
         case '<': return buildOpValue(Op.lt, value);
         case '<=': return buildOpValue(Op.lte, value);
         case 'between': return buildOpValue(Op.between, value);
-        case 'notbetween': return buildOpValue(Op.notBetween, value);
-        case 'in': return buildOpValue(Op.in, value);
-        case 'notin': return buildOpValue(Op.notIn, value);
-        case 'like':
-        case 'contains': return buildOpValue(Op.like, value);
-        case 'notcontains': return { [field]: { [Op.notLike]: `%${value}%` } };
-        case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
-        case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
-        case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
-        case 'regex': return buildOpValue(Op.regexp, value);
+        case 'notbetween': return isNumericParam ? null : buildOpValue(Op.notBetween, value);
+        case 'in': return isNumericParam ? null : buildOpValue(Op.in, value);
+        case 'notin': return isNumericParam ? null : buildOpValue(Op.notIn, value);
+        case 'like': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.like, value);
+        case 'contains': return field === 'explanation' ? buildOpValue(Op.like, value) : (isNumericParam ? null : buildOpValue(Op.like, value));
+        case 'notcontains': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.notLike]: `%${value}%` } };
+        case 'startswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `${value}%` } };
+        case 'endswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `%${value}` } };
+        case 'regex': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.regexp, value);
         default: return null;
       }
     };
@@ -1136,8 +1168,10 @@ const getBatchLogEntries = async (req, res) => {
       if (node.field && node.operator) {
         const f = String(node.field).toLowerCase();
         const op = String(node.operator).toLowerCase();
-        if (f === 'explanation') return ['like','contains','notcontains','regex','startswith','endswith'].includes(op);
-        if (['param1','param2','param3','param4'].includes(f)) return true; // 数值比较统一认为昂贵
+        // explanation 仅保留 contains，且下推到数据库；其他解释类操作不允许
+        if (f === 'explanation') return op !== 'contains';
+        // 参数字段仅在正则时视为昂贵，其余操作下推到数据库
+        if (['param1','param2','param3','param4'].includes(f)) return op === 'regex';
         return false;
       }
       if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
@@ -1734,7 +1768,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
             const arr = Array.isArray(val) ? val : [val];
             const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
             if (nums.length === 0) return null;
-            return SequelizeLib.where(castCol, sequelizeOperator, nums);
+            return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
           }
           if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
             if (!Array.isArray(val) || val.length !== 2) return null;
@@ -1783,15 +1817,15 @@ const exportBatchLogEntriesCSV = async (req, res) => {
         case '<': return buildOpValue(Op.lt, value);
         case '<=': return buildOpValue(Op.lte, value);
         case 'between': return buildOpValue(Op.between, value);
-        case 'notbetween': return buildOpValue(Op.notBetween, value);
-        case 'in': return buildOpValue(Op.in, value);
-        case 'notin': return buildOpValue(Op.notIn, value);
-        case 'like':
-        case 'contains': return buildOpValue(Op.like, value);
-        case 'notcontains': return { [field]: { [Op.notLike]: `%${value}%` } };
-        case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
-        case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
-        case 'regex': return buildOpValue(Op.regexp, value);
+        case 'notbetween': return isNumericParam ? null : buildOpValue(Op.notBetween, value);
+        case 'in': return isNumericParam ? null : buildOpValue(Op.in, value);
+        case 'notin': return isNumericParam ? null : buildOpValue(Op.notIn, value);
+        case 'like': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.like, value);
+        case 'contains': return field === 'explanation' ? buildOpValue(Op.like, value) : (isNumericParam ? null : buildOpValue(Op.like, value));
+        case 'notcontains': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.notLike]: `%${value}%` } };
+        case 'startswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `${value}%` } };
+        case 'endswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `%${value}` } };
+        case 'regex': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.regexp, value);
         default: return null;
       }
     };
@@ -2742,7 +2776,7 @@ const getLogStatistics = async (req, res) => {
               const arr = Array.isArray(val) ? val : [val];
               const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
               if (nums.length === 0) return null;
-              return SequelizeLib.where(castCol, sequelizeOperator, nums);
+              return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
             }
             if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
               if (!Array.isArray(val) || val.length !== 2) return null;
@@ -2791,15 +2825,15 @@ const getLogStatistics = async (req, res) => {
           case '<': return buildOpValue(Op.lt, value);
           case '<=': return buildOpValue(Op.lte, value);
           case 'between': return buildOpValue(Op.between, value);
-          case 'notbetween': return buildOpValue(Op.notBetween, value);
-          case 'in': return buildOpValue(Op.in, value);
-          case 'notin': return buildOpValue(Op.notIn, value);
-          case 'like':
-          case 'contains': return buildOpValue(Op.like, value);
-          case 'notcontains': return { [field]: { [Op.notLike]: `%${value}%` } };
-          case 'startswith': return { [field]: { [Op.like]: `${value}%` } };
-          case 'endswith': return { [field]: { [Op.like]: `%${value}` } };
-          case 'regex': return buildOpValue(Op.regexp, value);
+          case 'notbetween': return isNumericParam ? null : buildOpValue(Op.notBetween, value);
+          case 'in': return isNumericParam ? null : buildOpValue(Op.in, value);
+          case 'notin': return isNumericParam ? null : buildOpValue(Op.notIn, value);
+          case 'like': return field === 'explanation' ? null : buildOpValue(Op.like, value);
+          case 'contains': return field === 'explanation' ? buildOpValue(Op.like, value) : buildOpValue(Op.like, value);
+          case 'notcontains': return field === 'explanation' ? null : { [field]: { [Op.notLike]: `%${value}%` } };
+          case 'startswith': return field === 'explanation' ? null : { [field]: { [Op.like]: `${value}%` } };
+          case 'endswith': return field === 'explanation' ? null : { [field]: { [Op.like]: `%${value}` } };
+          case 'regex': return isNumericParam || field === 'explanation' ? null : buildOpValue(Op.regexp, value);
           default: return null;
         }
       };
@@ -3076,7 +3110,7 @@ const getVisualizationData = async (req, res) => {
                 const arr = Array.isArray(val) ? val : [val];
                 const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
                 if (nums.length === 0) return null;
-                return SequelizeLib.where(castCol, sequelizeOperator, nums);
+                return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
               }
               if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
                 if (!Array.isArray(val) || val.length !== 2) return null;

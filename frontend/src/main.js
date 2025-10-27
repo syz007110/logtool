@@ -9,6 +9,7 @@ import Antd from 'ant-design-vue'
 import 'ant-design-vue/dist/reset.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
+import './assets/styles/i18n-utilities.css'
 import { initResizeObserverFix } from './utils/resizeObserverFix'
 
 // 预加载当前语言后再挂载
@@ -53,6 +54,23 @@ app.use(ElementPlus, {
 app.use(Antd)
 
 
+
+// 在挂载前设置 <html lang> 并监听语言变化
+const setHtmlLang = (loc) => {
+  try {
+    const lang = String(loc || 'zh').split('-')[0]
+    document.documentElement.setAttribute('lang', lang)
+  } catch (_) {}
+}
+
+setHtmlLang(getCurrentLocale())
+
+// 监听语言变化（vue-i18n v9）
+try {
+  const stop = app.config.globalProperties?.$i18n
+    ? app.config.globalProperties.$watch?.(() => app.config.globalProperties.$i18n.locale, (loc) => setHtmlLang(loc))
+    : null
+} catch (_) {}
 
 // 确保当前语言包加载完成后再挂载
 loadLocaleMessages(getCurrentLocale()).then(() => {

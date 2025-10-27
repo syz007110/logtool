@@ -50,6 +50,20 @@ exports.deleteSurgery = async (req, res) => {
     const item = await Surgery.findByPk(id);
     if (!item) return res.status(404).json({ success: false, message: '未找到手术数据' });
     await item.destroy();
+    // 操作日志
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '删除手术数据',
+        description: `删除手术: ${item.surgery_id || id}`,
+        user_id: req.user?.id,
+        username: req.user?.username,
+        ip: req.ip,
+        user_agent: req.headers['user-agent'],
+        details: { id, surgery_id: item.surgery_id || null }
+      });
+    } catch (_) {}
+
     res.json({ success: true, message: '删除成功' });
   } catch (error) {
     console.error('deleteSurgery error:', error);

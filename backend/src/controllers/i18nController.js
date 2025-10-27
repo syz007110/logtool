@@ -6,9 +6,9 @@ const upsertI18nText = async (req, res) => {
     const { key_name, lang, text } = req.body;
     if (!key_name || !lang) return res.status(400).json({ message: 'key_name和lang不能为空' });
     const [i18n, created] = await I18nText.upsert({ key_name, lang, text });
-    res.json({ message: created ? '创建成功' : '更新成功', i18n });
+    res.json({ message: req.t(created ? 'common.created' : 'common.updated'), i18n });
   } catch (err) {
-    res.status(500).json({ message: '操作失败', error: err.message });
+    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
   }
 };
 
@@ -31,11 +31,11 @@ const deleteI18nText = async (req, res) => {
   try {
     const { id } = req.params;
     const i18n = await I18nText.findByPk(id);
-    if (!i18n) return res.status(404).json({ message: '未找到多语言文本' });
+    if (!i18n) return res.status(404).json({ message: req.t('common.notFound') });
     await i18n.destroy();
-    res.json({ message: '删除成功' });
+    res.json({ message: req.t('common.deleted') });
   } catch (err) {
-    res.status(500).json({ message: '删除失败', error: err.message });
+    res.status(500).json({ message: req.t('common.deleteFailed'), error: err.message });
   }
 };
 

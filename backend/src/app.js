@@ -14,6 +14,9 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const i18next = require('i18next');
+const i18nextMiddleware = require('i18next-http-middleware');
+const Backend = require('i18next-fs-backend');
 
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -71,6 +74,23 @@ try {
   console.warn('⚠️ 缓存系统初始化失败:', error.message);
 }
 
+// 初始化 i18next（文件后端 + HTTP 中间件）
+i18next
+  .use(Backend)
+  .use(i18nextMiddleware.LanguageDetector)
+  .init({
+    fallbackLng: 'zh',
+    preload: ['zh', 'en'],
+    backend: {
+      loadPath: path.resolve(__dirname, './locales/{{lng}}/translation.json')
+    },
+    detection: {
+      order: ['header'],
+      lookupHeader: 'accept-language'
+    },
+    interpolation: { escapeValue: false }
+  });
+
 const app = express();
 
 // 配置代理信任（解决X-Forwarded-For头部问题）
@@ -93,6 +113,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// 语言中间件（在路由前）
+app.use(i18nextMiddleware.handle(i18next));
 
 // 监控中间件
 app.use(apiMonitoring);

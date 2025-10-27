@@ -1,12 +1,12 @@
 <template>
   <div class="global-dashboard">
-    <a-card title="全局看板" :bordered="false">
+    <a-card :title="$t('globalDashboard.title')" :bordered="false">
       <a-row :gutter="24">
 
         <a-col :span="8">
           <a-card class="stat-card">
             <a-statistic
-              title="故障码总数"
+              :title="$t('globalDashboard.errorCodesCount')"
               :value="displayStats.errorCodesCount"
               :loading="loading"
               value-style="{ color: '#1890ff' }"
@@ -21,7 +21,7 @@
         <a-col :span="8">
           <a-card class="stat-card">
             <a-statistic
-              title="日志总数"
+              :title="$t('globalDashboard.logEntriesCount')"
               :value="displayStats.logEntriesCount"
               :loading="loading"
               value-style="{ color: '#3f8600' }"
@@ -37,7 +37,7 @@
         <a-col :span="8">
           <a-card class="stat-card">
             <a-statistic
-              title="用户数量"
+              :title="$t('globalDashboard.usersCount')"
               :value="displayStats.usersCount"
               :loading="loading"
               value-style="{ color: '#722ed1' }"
@@ -54,8 +54,8 @@
       
       <a-row>
         <a-col :span="24">
-          <a-card title="系统概览" size="small">
-            <p></p>
+          <a-card :title="$t('globalDashboard.systemOverview')" size="small">
+            <p class="min-w-0 one-line-ellipsis" :title="$t('globalDashboard.systemOverview')"></p>
           </a-card>
         </a-col>
       </a-row>
