@@ -32,31 +32,36 @@
       </div>
       
       <div class="action-section">
-        <el-button 
-          v-if="$store.getters['auth/hasPermission']('error_code:export')"
-          :loading="exportLoading"
-          @click="openExportDialog"
-        >
-          {{ $t('errorCodes.exportCSV') }}
-        </el-button>
-
-        <el-button 
-          type="success" 
+        <button 
+          class="btn-primary"
           @click="openQueryDialog"
+          aria-label="$t('errorCodes.queryCode')"
         >
+          <i class="fas fa-search"></i>
           {{ $t('errorCodes.queryCode') }}
-        </el-button>
+        </button>
         
-        <el-button 
+        <button 
           v-if="canCreate"
-          type="primary" 
+          class="btn-secondary"
           @click="handleAdd"
+          aria-label="$t('errorCodes.addErrorCode')"
         >
-          <el-icon><Plus /></el-icon>
+          <i class="fas fa-plus"></i>
           {{ $t('errorCodes.addErrorCode') }}
-        </el-button>
-        
+        </button>
 
+        <button
+          v-if="$store.getters['auth/hasPermission']('error_code:export')"
+          class="btn-secondary"
+          :class="{ 'btn-loading': exportLoading }"
+          :disabled="exportLoading"
+          @click="openExportDialog"
+          aria-label="$t('errorCodes.exportCSV')"
+        >
+          <i class="fas fa-file-export"></i>
+          {{ $t('errorCodes.exportCSV') }}
+        </button>
       </div>
     </div>
     
@@ -70,51 +75,57 @@
       >
         <el-table-column prop="subsystem" :label="$t('errorCodes.subsystem')" width="100" />
         <el-table-column prop="code" :label="$t('errorCodes.code')" width="100" />
-        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="180">
           <template #default="{ row }">
             <div class="min-w-0">
               <ExplanationCell :text="[row.user_hint, row.operation].filter(Boolean).join(', ')" />
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="param1" :label="'Param1'" width="100">
+        <el-table-column prop="param1" :label="$t('errorCodes.formLabels.param1')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis" :title="String(row.param1 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param1 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param2" :label="'Param2'" width="100">
+        <el-table-column prop="param2" :label="$t('errorCodes.formLabels.param2')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis" :title="String(row.param2 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param2 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param3" :label="'Param3'" width="100">
+        <el-table-column prop="param3" :label="$t('errorCodes.formLabels.param3')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis" :title="String(row.param3 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param3 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param4" :label="'Param4'" width="100">
+        <el-table-column prop="param4" :label="$t('errorCodes.formLabels.param4')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis" :title="String(row.param4 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param4 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" width="160" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('common.operation')" width="220" v-if="canUpdate || canDelete">
           <template #default="{ row }">
-            <el-button
-              type="primary"
-              size="small"
-              @click="handleEdit(row)"
-              v-if="canUpdate"
-            >
-              {{ $t('common.edit') }}
-            </el-button>
-            <el-button
-              type="danger"
-              size="small"
-              @click="handleDelete(row)"
-              v-if="canDelete"
-            >
-              {{ $t('common.delete') }}
-            </el-button>
+            <div class="btn-group">
+              <button
+                class="btn-text"
+                @click="handleEdit(row)"
+                v-if="canUpdate"
+                :aria-label="$t('common.edit')"
+                :title="$t('common.edit')"
+              >
+                <i class="fas fa-edit"></i>
+                {{ $t('common.edit') }}
+              </button>
+              <button
+                class="btn-text-danger"
+                @click="handleDelete(row)"
+                v-if="canDelete"
+                :aria-label="$t('common.delete')"
+                :title="$t('common.delete')"
+              >
+                <i class="fas fa-trash"></i>
+                {{ $t('common.delete') }}
+              </button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -168,8 +179,8 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showExportDialog = false">{{ $t('common.cancel') }}</el-button>
-          <el-button type="primary" :loading="exportLoading" @click="handleExportCSV">{{ $t('common.export') }}</el-button>
+          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('common.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': exportLoading }" :disabled="exportLoading" @click="handleExportCSV">{{ $t('common.export') }}</button>
         </span>
       </template>
     </el-dialog>
@@ -304,11 +315,11 @@
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.category')" prop="category">
               <el-select v-model="errorCodeForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')">
-                <el-option :label="$t('errorCodes.categoryOptions.software')" value="软件" />
-                <el-option :label="$t('errorCodes.categoryOptions.hardware')" value="硬件" />
-                <el-option :label="$t('errorCodes.categoryOptions.logRecord')" value="日志记录" />
-                <el-option :label="$t('errorCodes.categoryOptions.operationTip')" value="操作提示" />
-                <el-option :label="$t('errorCodes.categoryOptions.safetyProtection')" value="安全保护" />
+                <el-option :label="$t('errorCodes.categoryOptions.software')" value="software" />
+                <el-option :label="$t('errorCodes.categoryOptions.hardware')" value="hardware" />
+                <el-option :label="$t('errorCodes.categoryOptions.logRecord')" value="logRecord" />
+                <el-option :label="$t('errorCodes.categoryOptions.operationTip')" value="operationTip" />
+                <el-option :label="$t('errorCodes.categoryOptions.safetyProtection')" value="safetyProtection" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -371,10 +382,10 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</el-button>
-          <el-button type="primary" @click="handleSave" :loading="saving">
+          <button class="btn-secondary" @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="handleSave">
             {{ getSaveButtonText() }}
-          </el-button>
+          </button>
         </span>
       </template>
     </el-dialog>
@@ -394,8 +405,10 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="queryLoading" @click="handleQuery">{{ $t('common.search') }}</el-button>
-          <el-button @click="resetQuery">{{ $t('common.reset') }}</el-button>
+          <div class="query-buttons">
+            <button type="button" class="btn-primary" :class="{ 'btn-loading': queryLoading }" :disabled="queryLoading" @click="handleQuery">{{ $t('common.search') }}</button>
+            <button type="button" class="btn-secondary" @click="resetQuery">{{ $t('common.reset') }}</button>
+          </div>
         </el-form-item>
       </el-form>
 
@@ -423,7 +436,7 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showQueryDialog = false">{{ $t('common.cancel') }}</el-button>
+          <button class="btn-secondary" @click="showQueryDialog = false">{{ $t('common.cancel') }}</button>
         </span>
       </template>
     </el-dialog>
@@ -526,30 +539,30 @@ export default {
     const selectedExportLangs = ref([])
     const exportFormat = ref('csv')
     const languageOptions = [
-      { label: '中文 (zh)', value: 'zh' },
-      { label: '英语 (en)', value: 'en' },
-      { label: '法语 (fr)', value: 'fr' },
-      { label: '德语 (de)', value: 'de' },
-      { label: '西班牙语 (es)', value: 'es' },
-      { label: '意大利语 (it)', value: 'it' },
-      { label: '葡萄牙语 (pt)', value: 'pt' },
-      { label: '荷兰语 (nl)', value: 'nl' },
-      { label: '斯洛伐克语 (sk)', value: 'sk' },
-      { label: '罗马尼亚语 (ro)', value: 'ro' },
-      { label: '丹麦语 (da)', value: 'da' }
+      { label: t('shared.languageOptions.zh'), value: 'zh' },
+      { label: t('shared.languageOptions.en'), value: 'en' },
+      { label: t('shared.languageOptions.fr'), value: 'fr' },
+      { label: t('shared.languageOptions.de'), value: 'de' },
+      { label: t('shared.languageOptions.es'), value: 'es' },
+      { label: t('shared.languageOptions.it'), value: 'it' },
+      { label: t('shared.languageOptions.pt'), value: 'pt' },
+      { label: t('shared.languageOptions.nl'), value: 'nl' },
+      { label: t('shared.languageOptions.sk'), value: 'sk' },
+      { label: t('shared.languageOptions.ro'), value: 'ro' },
+      { label: t('shared.languageOptions.da'), value: 'da' }
     ]
     
     const subsystemOptions = computed(() => [
-      { label: t('errorCodes.subsystemOptions.1'), value: '1' },
-      { label: t('errorCodes.subsystemOptions.2'), value: '2' },
-      { label: t('errorCodes.subsystemOptions.3'), value: '3' },
-      { label: t('errorCodes.subsystemOptions.4'), value: '4' },
-      { label: t('errorCodes.subsystemOptions.5'), value: '5' },
-      { label: t('errorCodes.subsystemOptions.6'), value: '6' },
-      { label: t('errorCodes.subsystemOptions.7'), value: '7' },
-      { label: t('errorCodes.subsystemOptions.8'), value: '8' },
-      { label: t('errorCodes.subsystemOptions.9'), value: '9' },
-      { label: t('errorCodes.subsystemOptions.A'), value: 'A' }
+      { label: t('shared.subsystemOptions.1'), value: '1' },
+      { label: t('shared.subsystemOptions.2'), value: '2' },
+      { label: t('shared.subsystemOptions.3'), value: '3' },
+      { label: t('shared.subsystemOptions.4'), value: '4' },
+      { label: t('shared.subsystemOptions.5'), value: '5' },
+      { label: t('shared.subsystemOptions.6'), value: '6' },
+      { label: t('shared.subsystemOptions.7'), value: '7' },
+      { label: t('shared.subsystemOptions.8'), value: '8' },
+      { label: t('shared.subsystemOptions.9'), value: '9' },
+      { label: t('shared.subsystemOptions.A'), value: 'A' }
     ])
     
     // 同步相关变量
@@ -785,8 +798,8 @@ export default {
           setDefaultNullCategory()
         }
       } catch (error) {
-        console.error('加载分析分类失败:', error)
-        ElMessage.error('加载分析分类失败')
+        console.error('Failed to load analysis categories:', error)
+        ElMessage.error(t('errorCodes.message.loadAnalysisCategoriesFailed'))
       }
     }
     
@@ -794,7 +807,7 @@ export default {
     const setDefaultNullCategory = () => {
       // 查找"未分类"（Null）分类
       const nullCategory = analysisCategories.value.find(cat => 
-        cat.category_key === 'Null' || cat.name_zh === '未分类'
+        cat.category_key === 'Null' || cat.name_zh === t('errorCodes.defaultCategoryName')
       )
       
       // 如果找到且当前表单的分析分类为空，则设置为默认值
@@ -973,6 +986,8 @@ export default {
             confirmButtonText: t('common.confirm'),
             cancelButtonText: t('common.cancel'),
             type: 'warning',
+            confirmButtonClass: 'btn-primary-danger',
+            cancelButtonClass: 'btn-secondary'
           }
         )
         
@@ -1051,7 +1066,10 @@ export default {
           }
         }
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || t('errorCodes.message.queryFailed'))
+        // 404错误已经在API拦截器中处理，这里只处理其他错误
+        if (e?.response?.status !== 404) {
+          ElMessage.error(e?.response?.data?.message || t('errorCodes.message.queryFailed'))
+        }
       } finally {
         queryLoading.value = false
       }
@@ -1287,7 +1305,7 @@ export default {
 
 <style scoped>
 .error-codes-container {
-  padding: 20px;
+  padding: 5px;
 }
 
 .action-bar {
@@ -1323,6 +1341,11 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.query-buttons {
+  display: flex;
+  gap: 12px;
 }
 
 /* 避免弹窗出现横向滚动条，保留右侧安全间距 */

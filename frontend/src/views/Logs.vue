@@ -8,28 +8,28 @@
           <div class="header-actions">
             <!-- 重置按钮 -->
             <div class="header-section reset-section">
-              <el-button plain @click="resetAllFilters">{{ $t('common.reset') }}</el-button>
+              <button class="btn-tertiary btn-sm" @click="resetAllFilters">
+                <i class="fas fa-undo"></i>
+                {{ $t('common.reset') }}
+              </button>
             </div>
 
             <!-- 刷新按钮 -->
             <div class="header-section refresh-section">
-              <el-button plain @click="loadDeviceGroups">
-                <el-icon><Refresh /></el-icon>
+              <button class="btn-ghost btn-sm" @click="loadDeviceGroups">
+                <i class="fas fa-sync-alt"></i>
                 {{ $t('common.refresh') }}
-              </el-button>
+              </button>
             </div>
             
 
 
             <!-- 日志上传按钮 -->
             <div class="header-section upload-section" v-if="$store.getters['auth/hasPermission']('log:upload')">
-              <el-button 
-                type="primary" 
-                @click="showNormalUpload"
-              >
-                <el-icon><UploadFilled /></el-icon>
+              <button class="btn-primary btn-sm" @click="showNormalUpload">
+                <i class="fas fa-upload"></i>
                 {{ $t('logs.upload') }}
-              </el-button>
+              </button>
             </div>
           </div>
         </div>
@@ -105,30 +105,29 @@
         </el-table-column>
                  <el-table-column :label="$t('common.operation')" width="300" fixed="right">
            <template #default="{ row }">
-             <el-button 
-               size="small" 
-               type="primary"
-               @click="showDeviceDetail(row)"
-             >
+             <div class="btn-group">
+               <button class="btn-primary btn-sm" @click="showDeviceDetail(row)">
+                 <i class="fas fa-list"></i>
                {{ $t('logs.detail') }}
-             </el-button>
+               </button>
              
-             <el-button 
+               <button 
                v-if="false"
-               size="small" 
-               type="success"
+                 class="btn-tertiary btn-sm"
                @click="uploadDataForDevice(row)"
              >
+                 <i class="fas fa-upload"></i>
                {{ $t('logs.uploadData') }}
-             </el-button>
+               </button>
              
-             <el-button 
-               size="small" 
-               type="info"
+               <button 
+                 class="btn-secondary btn-sm"
                @click="openSurgeryDrawerForDevice(row)"
              >
+                 <i class="fas fa-chart-line"></i>
                {{ $t('logs.surgeryData') }}
-             </el-button>
+               </button>
+             </div>
            </template>
          </el-table-column>
       </el-table>
@@ -166,13 +165,10 @@
           <div class="header-controls">
             <!-- 第一列：日志上传按钮 -->
             <div class="device-actions">
-              <el-button 
-                type="primary" 
-                @click="uploadLogForDevice(selectedDevice)"
-              >
-                <el-icon><UploadFilled /></el-icon>
+              <button class="btn-primary btn-sm" @click="uploadLogForDevice(selectedDevice)">
+                <i class="fas fa-upload"></i>
                 {{ $t('logs.upload') }}
-              </el-button>
+              </button>
             </div>
             
             <!-- 第二列：筛选控件 -->
@@ -202,15 +198,18 @@
               
               <!-- 重置按钮 -->
               <div class="reset-section">
-                <el-button plain size="small" @click="resetDetailFilters">{{ $t('common.reset') }}</el-button>
+                <button class="btn-tertiary btn-sm" @click="resetDetailFilters">
+                  <i class="fas fa-undo"></i>
+                  {{ $t('common.reset') }}
+                </button>
               </div>
 
               <!-- 刷新按钮 -->
               <div class="refresh-section">
-                <el-button plain size="small" @click="loadDetailLogs">
-                  <el-icon><Refresh /></el-icon>
+                <button class="btn-ghost btn-sm" @click="loadDetailLogs">
+                  <i class="fas fa-sync-alt"></i>
                   {{ $t('common.refresh') }}
-                </el-button>
+                </button>
               </div>
             </div>
           </div>
@@ -224,47 +223,43 @@
               <!-- 批量操作组 -->
               <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
               <div class="batch-actions">
-                <el-button 
-                  type="primary" 
-                  size="small" 
+                <button 
+                  class="btn-primary btn-sm" 
                   @click="handleBatchAnalyze"
                   :disabled="!canBatchView || !isSameDevice || selectedDetailLogs.length > 20"
                   :title="getBatchViewTitle()"
                 >
-                  <el-icon><Monitor /></el-icon>
+                  <i class="fas fa-eye"></i>
                     {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-button 
-                  type="success" 
-                  size="small" 
+                </button>
+                <button 
+                  class="btn-tertiary btn-sm" 
                   @click="handleBatchDownload"
                   :disabled="!canBatchDownload"
                   :title="incompleteLogsMessage"
                 >
-                  <el-icon><Download /></el-icon>
+                  <i class="fas fa-download"></i>
                     {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-button 
-                  type="danger" 
-                  size="small" 
+                </button>
+                <button 
+                  class="btn-danger btn-sm" 
                   @click="handleBatchDelete"
                   :disabled="!canBatchDelete"
                   :title="incompleteLogsMessage"
                 >
-                  <el-icon><Delete /></el-icon>
+                  <i class="fas fa-trash"></i>
                     {{ $t('logs.batchDelete') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-button 
-                  type="warning" 
-                  size="small" 
+                </button>
+                <button 
+                  class="btn-secondary btn-sm" 
                   @click="handleBatchReparse"
                   :disabled="selectedDetailLogs.length === 0 || !$store.getters['auth/hasPermission']('log:reparse') || !canBatchReparse || selectedDetailLogs.length > 20"
                   :title="getBatchReparseTitle()"
                   v-if="$store.getters['auth/hasPermission']('log:reparse')"
                 >
-                  <el-icon><Refresh /></el-icon>
+                  <i class="fas fa-sync-alt"></i>
                     {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
-                </el-button>
+                </button>
                 <el-tooltip 
                   :content="$t('logs.deleteOwnOnlyTip')" 
                   placement="top" 
@@ -272,13 +267,13 @@
                 >
                   <el-icon class="info-icon"><InfoFilled /></el-icon>
                 </el-tooltip>
-                <el-button 
-                  type="info" 
-                  size="small" 
+                <button 
+                  class="btn-secondary btn-sm" 
                     @click="clearDetailSelection"
                 >
+                  <i class="fas fa-times"></i>
                   {{ $t('logs.clearSelection') }}
-                </el-button>
+                </button>
               </div>
             </div>
           </div>
@@ -345,43 +340,45 @@
         
         <el-table-column :label="$t('common.operation')" width="400" fixed="right">
           <template #default="{ row }">
-            <el-button 
-              size="small" 
-              type="primary"
+            <div class="btn-group">
+              <button 
+                class="btn-primary btn-sm"
               @click="goToLogAnalysis(row)"
               :disabled="!canView(row)"
             >
+                <i class="fas fa-eye"></i>
               {{ $t('logs.view') }}
-            </el-button>
+              </button>
             
-            <el-button 
-              size="small" 
-              type="success"
+              <button 
+                class="btn-tertiary btn-sm"
               @click="handleDownload(row)"
               :disabled="!canDownload(row)"
             >
+                <i class="fas fa-download"></i>
               {{ $t('logs.download') }}
-            </el-button>
+              </button>
             
-            <el-button 
-              size="small" 
-              type="danger" 
+              <button 
+                class="btn-danger btn-sm"
               @click="handleDelete(row)"
               v-if="canDeleteLog(row)"
               :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
             >
+                <i class="fas fa-trash"></i>
               {{ $t('common.delete') }}
-            </el-button>
+              </button>
 
-            <el-button 
-              size="small" 
-              type="warning"
+              <button 
+                class="btn-secondary btn-sm"
               @click="handleReparse(row)"
               v-if="canReparse"
               :disabled="!canReparseLog(row) || row.parsing"
             >
+                <i class="fas fa-sync-alt"></i>
               {{ $t('logs.reparse') }}
-            </el-button>
+              </button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -475,10 +472,10 @@
         name="file"
         :disabled="uploading"
       >
-        <el-button type="primary" :disabled="uploading">
-          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <button class="btn-primary" :disabled="uploading">
+          <i class="fas fa-upload"></i>
           {{ $t('logs.chooseFiles') }}
-        </el-button>
+        </button>
         <template #tip>
           <div class="el-upload__tip">
             <div v-if="!uploading">
@@ -496,9 +493,10 @@
       <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
         <div class="file-list-header">
           <span>{{ $t('logs.selectedFiles') }} ({{ uploadFileList.length }})</span>
-            <el-button type="text" size="small" @click="clearUpload" :disabled="uploading">
+            <button class="btn-tertiary btn-sm" @click="clearUpload" :disabled="uploading">
+              <i class="fas fa-times"></i>
             {{ $t('logs.clear') }}
-          </el-button>
+            </button>
         </div>
         <div class="file-items">
           <div 
@@ -509,14 +507,13 @@
             <el-icon><Document /></el-icon>
             <span class="file-name">{{ file.name || file.originalname }}</span>
             <span class="file-size">{{ file.sizeText }}</span>
-            <el-button 
-              type="text" 
-              size="small" 
+            <button 
+              class="btn-danger btn-sm btn-icon"
               @click="removeFile(index)"
               :disabled="uploading"
             >
-              <el-icon><Delete /></el-icon>
-            </el-button>
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -536,14 +533,14 @@
             </template>
           </el-input>
           
-          <el-button 
-            type="primary" 
-            plain 
+          <button 
+            class="btn-secondary btn-sm" 
             @click="autoFillDeviceId"
             :disabled="!decryptKey.trim()"
           >
+            <i class="fas fa-magic"></i>
             {{ $t('logs.autoFillDeviceId') }}
-          </el-button>
+          </button>
           
           <span class="key-separator">{{ $t('logs.or') }}</span>
           
@@ -555,10 +552,10 @@
             :before-upload="beforeKeyUpload"
             :on-change="onKeyFileChange"
           >
-            <el-button type="primary" plain>
-              <el-icon><Upload /></el-icon>
+            <button class="btn-secondary btn-sm">
+              <i class="fas fa-upload"></i>
               {{ $t('logs.uploadKeyFile') }}
-            </el-button>
+            </button>
           </el-upload>
         </div>
         
@@ -591,14 +588,14 @@
             </template>
           </el-input>
           
-          <el-button 
-            type="primary" 
-            plain 
+          <button 
+            class="btn-secondary btn-sm" 
             @click="autoFillKey"
             :disabled="!deviceId.trim()"
           >
+            <i class="fas fa-magic"></i>
             {{ $t('logs.autoFillKey') }}
-          </el-button>
+          </button>
         </div>
         
         <div v-if="deviceIdError" class="device-error">
@@ -610,15 +607,19 @@
 
       <template #footer>
         <div class="upload-actions">
-          <el-button @click="showUploadDialog = false" :disabled="uploading">{{ $t('common.cancel') }}</el-button>
-          <el-button 
-            type="primary" 
+          <button class="btn-tertiary" @click="showUploadDialog = false" :disabled="uploading">
+            <i class="fas fa-times"></i>
+            {{ $t('common.cancel') }}
+          </button>
+          <button 
+            class="btn-primary" 
             @click="submitUpload" 
-            :loading="uploading"
+            :class="{ 'btn-loading': uploading }"
             :disabled="uploading || !canSubmitUpload || uploadFileList.length === 0"
           >
+            <i class="fas fa-upload" v-if="!uploading"></i>
             {{ uploading ? $t('logs.uploading') : $t('logs.uploadAndParse') }}
-          </el-button>
+          </button>
         </div>
       </template>
     </el-dialog>
@@ -644,7 +645,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Monitor, Refresh, Upload, Key, Document, UploadFilled, Delete, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
+import { Search, Monitor, Key, Document, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
 import websocketClient from '@/services/websocketClient'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
@@ -2444,13 +2445,36 @@ export default {
 }
 
 /* 统一按钮样式与对齐 */
-.only-own-section .el-button,
-.reset-section .el-button,
-.refresh-section .el-button,
-.upload-section .el-button {
+.only-own-section .btn-primary,
+.only-own-section .btn-secondary,
+.only-own-section .btn-tertiary,
+.only-own-section .btn-ghost,
+.only-own-section .btn-danger,
+.only-own-section .btn-success,
+.only-own-section .btn-text,
+.reset-section .btn-primary,
+.reset-section .btn-secondary,
+.reset-section .btn-tertiary,
+.reset-section .btn-ghost,
+.reset-section .btn-danger,
+.reset-section .btn-success,
+.reset-section .btn-text,
+.refresh-section .btn-primary,
+.refresh-section .btn-secondary,
+.refresh-section .btn-tertiary,
+.refresh-section .btn-ghost,
+.refresh-section .btn-danger,
+.refresh-section .btn-success,
+.refresh-section .btn-text,
+.upload-section .btn-primary,
+.upload-section .btn-secondary,
+.upload-section .btn-tertiary,
+.upload-section .btn-ghost,
+.upload-section .btn-danger,
+.upload-section .btn-success,
+.upload-section .btn-text {
   height: 32px;
   line-height: 30px;
-  padding: 0 16px;
 }
 
 .only-own-section .el-checkbox {
@@ -2494,6 +2518,18 @@ export default {
   margin-top: 12px;
   display: flex;
   gap: 8px;
+}
+
+.filter-actions .btn-primary,
+.filter-actions .btn-secondary,
+.filter-actions .btn-tertiary,
+.filter-actions .btn-ghost,
+.filter-actions .btn-danger,
+.filter-actions .btn-success,
+.filter-actions .btn-text {
+  font-size: 12px;
+  padding: 4px 8px;
+  min-height: 24px;
 }
 
 
@@ -2779,6 +2815,18 @@ export default {
   min-width: 0;
 }
 
+.batch-actions .btn-primary,
+.batch-actions .btn-secondary,
+.batch-actions .btn-tertiary,
+.batch-actions .btn-ghost,
+.batch-actions .btn-danger,
+.batch-actions .btn-success,
+.batch-actions .btn-text {
+  font-size: 12px;
+  padding: 6px 10px;
+  min-height: 28px;
+}
+
 
 
 .info-icon {
@@ -2896,6 +2944,13 @@ export default {
   min-width: 0;
 }
 
+.batch-actions .btn-primary,
+.batch-actions .btn-secondary {
+  font-size: 12px;
+  padding: 6px 10px;
+  min-height: 28px;
+}
+
 /* 响应式布局 */
 @media (max-width: 1024px) {
   .header-actions {
@@ -2906,9 +2961,15 @@ export default {
     gap: 8px;
   }
   
-  .batch-actions .el-button {
-    font-size: 12px;
-    padding: 6px 10px;
+  .batch-actions .btn-primary,
+  .batch-actions .btn-secondary,
+  .batch-actions .btn-tertiary,
+  .batch-actions .btn-ghost,
+  .batch-actions .btn-danger,
+  .batch-actions .btn-success,
+  .batch-actions .btn-text {
+    font-size: 11px;
+    padding: 5px 8px;
   }
 }
 
@@ -2933,7 +2994,13 @@ export default {
     justify-content: flex-start;
   }
   
-  .batch-actions .el-button {
+  .batch-actions .btn-primary,
+  .batch-actions .btn-secondary,
+  .batch-actions .btn-tertiary,
+  .batch-actions .btn-ghost,
+  .batch-actions .btn-danger,
+  .batch-actions .btn-success,
+  .batch-actions .btn-text {
     flex: 1;
     min-width: 120px;
   }
@@ -2945,7 +3012,13 @@ export default {
     gap: 8px;
   }
   
-  .batch-actions .el-button {
+  .batch-actions .btn-primary,
+  .batch-actions .btn-secondary,
+  .batch-actions .btn-tertiary,
+  .batch-actions .btn-ghost,
+  .batch-actions .btn-danger,
+  .batch-actions .btn-success,
+  .batch-actions .btn-text {
     width: 100%;
   }
   

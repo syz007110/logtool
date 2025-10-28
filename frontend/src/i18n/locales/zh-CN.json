@@ -27,6 +27,46 @@
     "requestFailed": "请求失败",
     "networkError": "网络连接失败"
   },
+  "shared": {
+    "languageNames": {
+      "zh": "中文",
+      "en": "英语",
+      "fr": "法语",
+      "de": "德语",
+      "es": "西班牙语",
+      "it": "意大利语",
+      "pt": "葡萄牙语",
+      "nl": "荷兰语",
+      "sk": "斯洛伐克语",
+      "ro": "罗马尼亚语",
+      "da": "丹麦语"
+    },
+    "languageOptions": {
+      "zh": "中文 (zh)",
+      "en": "英语 (en)",
+      "fr": "法语 (fr)",
+      "de": "德语 (de)",
+      "es": "西班牙语 (es)",
+      "it": "意大利语 (it)",
+      "pt": "葡萄牙语 (pt)",
+      "nl": "荷兰语 (nl)",
+      "sk": "斯洛伐克语 (sk)",
+      "ro": "罗马尼亚语 (ro)",
+      "da": "丹麦语 (da)"
+    },
+    "subsystemOptions": {
+      "1": "01：运动控制软件",
+      "2": "02：人机交互软件",
+      "3": "03：医生控制台软件",
+      "4": "04：手术台车软件",
+      "5": "05：驱动器软件",
+      "6": "06：图像软件",
+      "7": "07：工具工厂软件",
+      "8": "08：远程运动控制软件",
+      "9": "09：远程医生控制台软件",
+      "A": "0A：远程驱动器软件"
+    }
+  },
   "login": {
     "title": "故障码管理工具",
     "username": "用户名",
@@ -133,18 +173,6 @@
       "techSolution": "技术排查方案",
       "explanation": "解释"
     },
-    "subsystemOptions": {
-      "1": "01：运动控制软件",
-      "2": "02：人机交互软件",
-      "3": "03：医生控制台软件",
-      "4": "04：手术台车软件",
-      "5": "05：驱动器软件",
-      "6": "06：图像软件",
-      "7": "07：工具工厂软件",
-      "8": "08：远程运动控制软件",
-      "9": "09：远程医生控制台软件",
-      "A": "0A：远程驱动器软件"
-    },
     "remoteSubsystemLabels": {
       "1": "08：远程运动控制软件",
       "3": "09：远程医生控制台软件",
@@ -225,7 +253,8 @@
       "queryWarning": "请输入完整故障码",
       "queryFailed": "查询失败",
       "exportSuccess": "CSV导出已开始下载",
-      "exportFailed": "导出失败"
+      "exportFailed": "导出失败",
+      "loadAnalysisCategoriesFailed": "加载分析分类失败"
     },
     "queryResult": {
       "resultInfo": "结果信息",
@@ -236,7 +265,8 @@
       "method": "检查方法",
       "techSolution": "技术排查方案",
       "category": "故障分类"
-    }
+    },
+    "defaultCategoryName": "未分类"
   },
   "analysisCategories": {
     "title": "日志分析等级",
@@ -290,7 +320,58 @@
     "selectAtLeastOne": "请至少选择一种语言",
     "exportSuccess": "导出成功",
     "multiLanguageExportSuccess": "多语言导出成功",
-    "exportFailed": "导出失败"
+    "exportFailed": "导出失败",
+    "formPlaceholders": {
+      "errorCodeFormat": "格式：0X010A",
+      "shortMessageInput": "输入精简提示信息",
+      "userHintInput": "输入用户提示信息",
+      "operationInput": "输入操作信息",
+      "csvDataInput": "请输入CSV格式的数据，第一行为标题行（可选），从第二行开始为数据行"
+    },
+    "validation": {
+      "subsystemRequired": "请选择子系统",
+      "errorCodeRequired": "请输入故障码",
+      "errorCodeFormat": "故障码格式不正确，应为0X加3位16进制数字加A、B、C、D、E中的一个字母",
+      "languageRequired": "请选择语言",
+      "shortMessageRequired": "精简提示信息和操作信息不能都为空",
+      "userHintRequired": "用户提示信息和操作信息不能都为空",
+      "operationRequired": "精简提示信息、用户提示信息和操作信息至少需要填写两项"
+    },
+    "import": {
+      "csvTab": "CSV导入",
+      "manualTab": "手动输入",
+      "formatDescription": "CSV文件格式说明：",
+      "formatColumns": "CSV文件应包含以下列（第一行为标题行）：",
+      "formatColumnsList": "subsystem,code,lang,short_message,user_hint,operation",
+      "formatExample": "示例内容：",
+      "supportedLanguages": "支持的语言代码：",
+      "supportedLanguagesList": "zh(中文), en(英语), fr(法语), de(德语), es(西班牙语), it(意大利语), pt(葡萄牙语), nl(荷兰语), sk(斯洛伐克语), ro(罗马尼亚语), da(丹麦语)",
+      "validationRules": "⚠️ 数据验证规则：",
+      "rule1": "每行数据必须包含6个字段",
+      "rule2": "必须满足以下条件之一：",
+      "rule2a": "1) user_hint 和 operation 至少一个不为空",
+      "rule2b": "2) short_message 和 operation 至少一个不为空",
+      "rule3": "故障码必须先在故障码管理中创建",
+      "manualFormatDescription": "CSV格式说明：",
+      "manualFormatExample": "每行数据格式：子系统号,故障码,语言代码,精简提示,用户提示,操作信息",
+      "manualFormatSample": "示例：",
+      "uploadTip": "只能上传csv文件，且不超过10MB",
+      "selectCsvFile": "请选择CSV文件",
+      "enterCsvData": "请输入CSV数据",
+      "noValidData": "没有有效的CSV数据",
+      "validationFailed": "数据验证失败：",
+      "importPartialSuccess": "导入部分成功：成功 {successCount} 条，失败 {errorCount} 条。请检查失败的数据。",
+      "importFailed": "导入失败：{errorCount} 条数据有错误。请检查数据格式。",
+      "errorDetails": "错误详情：{errorMessages}",
+      "importSuccess": "导入成功：共导入 {successCount} 条数据",
+      "rowValidationError": "第{row}行：需要满足以下条件之一：1) user_hint和operation至少一个不为空，或2) short_message和operation至少一个不为空",
+      "rowFormatError": "第{row}行：数据格式不正确，需要6个字段"
+    },
+    "messages": {
+      "loadFailed": "加载失败",
+      "exportDataEmpty": "导出数据为空",
+      "componentLoadFailed": "组件加载失败"
+    }
   },
   "globalDashboard": {
     "title": "全局看板",
@@ -358,7 +439,7 @@
     "listTitle": "反馈列表",
     "titlePlaceholder": "请填写问题标题（100字以内）",
     "descriptionPlaceholder": "请描述遇到的问题（500字以内）",
-    "title": "标题",
+    "fieldTitle": "标题",
     "description": "描述",
     "images": "图片",
     "uploadTips": "支持 JPG/PNG/WebP，单张≤2MB，最多3张",
@@ -430,7 +511,7 @@
     "timePrefixPlaceholder": "例如 2025081611",
     "uploaderId": "上传用户ID",
     "view": "查看",
-    "download": "下载",
+    "downloadAction": "下载",
     "reparse": "重新解析",
     "uploadLog": "上传日志",
     "chooseFiles": "选择文件",

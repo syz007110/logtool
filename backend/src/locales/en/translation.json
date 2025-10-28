@@ -8,9 +8,37 @@
     "deleteFailed": "Delete failed",
     "validationFailed": "Validation failed"
   },
+  "shared": {
+    "languageNames": {
+      "zh": "Chinese",
+      "en": "English",
+      "fr": "French",
+      "de": "German",
+      "es": "Spanish",
+      "it": "Italian",
+      "pt": "Portuguese",
+      "nl": "Dutch",
+      "sk": "Slovak",
+      "ro": "Romanian",
+      "da": "Danish"
+    },
+    "subsystemOptions": {
+      "1": "01: Motion Control Software",
+      "2": "02: Human-Machine Interface Software",
+      "3": "03: Doctor Console Software",
+      "4": "04: Surgical Cart Software",
+      "5": "05: Driver Software",
+      "6": "06: Image Software",
+      "7": "07: Tool Factory Software",
+      "8": "08: Remote Motion Control Software",
+      "9": "09: Remote Doctor Console Software",
+      "A": "0A: Remote Driver Software"
+    }
+  },
   "errorCode": {
     "duplicate": "Error code already exists under this subsystem",
-    "noData": "No error code data found"
+    "noData": "No error code data found",
+    "notFound": "Error code not found"
   },
   "device": {
     "listFailed": "Failed to get device list",
@@ -39,6 +67,49 @@
     "notSet": "Not set",
     "unknownDevice": "Unknown device",
     "listFailed": "Failed to get logs"
+  },
+  "i18nErrorCode": {
+    "queryFailed": "Query failed",
+    "languageRequired": "Language code is required",
+    "shortMessageOperationRequired": "Short message and operation information cannot both be empty",
+    "userHintOperationRequired": "User hint and operation information cannot both be empty",
+    "errorCodeNotFound": "Error code not found",
+    "errorCodeNotFoundWithCode": "Error code not found: {{subsystem}}-{{code}}",
+    "errorCodeIdOrCodeRequired": "Must provide error code ID or subsystem and code combination",
+    "updateSuccess": "Updated successfully",
+    "createSuccess": "Created successfully",
+    "operationFailed": "Operation failed",
+    "contentNotFound": "I18n content not found",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailed": "Delete failed",
+    "batchImport": {
+      "dataFormatError": "Data format error or empty",
+      "subsystemCodeLangRequired": "Subsystem, code and language code are required fields",
+      "shortMessageOperationRequired": "Short message and operation information cannot both be empty",
+      "userHintOperationRequired": "User hint and operation information cannot both be empty",
+      "errorCodeNotFound": "Error code not found: {{subsystem}}-{{code}}",
+      "batchImportComplete": "Batch import completed, {{successCount}} successful, {{errorCount}} failed",
+      "batchImportFailed": "Batch import failed"
+    },
+    "csvImport": {
+      "uploadCsvFile": "Please upload CSV file",
+      "invalidHeaders": "Row {{lineNumber}} headers incorrect, expected: {{expectedHeaders}}, actual: {{actualHeaders}}",
+      "missingRequiredFields": "Row {{lineNumber}} missing required fields: {{missingFields}}",
+      "contentValidationFailed": "Row {{lineNumber}} content validation failed: must satisfy one of the following conditions: 1) short_message and user_hint at least one is not empty, or 2) short_message and operation at least one is not empty",
+      "fileEmptyOrFormatError": "CSV file is empty or format error",
+      "errorCodeNotFound": "Error code not found: {{subsystem}}-{{code}}, please add this error code in error code management first",
+      "partialSuccess": "CSV batch import partially successful, {{successCount}} successful, {{errorCount}} failed",
+      "success": "CSV batch import successful, {{successCount}} records imported",
+      "failed": "CSV batch import failed",
+      "readFailed": "CSV file read failed, please check file format and encoding",
+      "uploadProcessFailed": "CSV upload processing failed"
+    },
+    "languages": {
+      "getFailed": "Failed to get language list"
+    },
+    "subsystems": {
+      "getFailed": "Failed to get subsystem list"
+    }
   }
 }
 

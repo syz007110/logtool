@@ -10,6 +10,7 @@ import 'ant-design-vue/dist/reset.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
 import './assets/styles/i18n-utilities.css'
+import './assets/styles/design-tokens.css'
 import { initResizeObserverFix } from './utils/resizeObserverFix'
 
 // 预加载当前语言后再挂载

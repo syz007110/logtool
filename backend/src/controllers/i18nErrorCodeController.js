@@ -60,7 +60,7 @@ const getI18nErrorCodes = async (req, res) => {
     });
   } catch (err) {
     console.error('查询多语言故障码失败:', err);
-    res.status(500).json({ message: '查询失败', error: err.message });
+    res.status(500).json({ message: req.t('i18nErrorCode.queryFailed'), error: err.message });
   }
 };
 
@@ -71,18 +71,18 @@ const upsertI18nErrorCode = async (req, res) => {
     
     // 验证必填字段
     if (!lang) {
-      return res.status(400).json({ message: '语言代码是必填字段' });
+      return res.status(400).json({ message: req.t('i18nErrorCode.languageRequired') });
     }
     
     // 验证字段组合：short_message和operation不都为空，user_hint和operation不都为空
     if ((!short_message || short_message.trim() === '') && 
         (!operation || operation.trim() === '')) {
-      return res.status(400).json({ message: '精简提示信息和操作信息不能都为空' });
+      return res.status(400).json({ message: req.t('i18nErrorCode.shortMessageOperationRequired') });
     }
     
     if ((!user_hint || user_hint.trim() === '') && 
         (!operation || operation.trim() === '')) {
-      return res.status(400).json({ message: '用户提示信息和操作信息不能都为空' });
+      return res.status(400).json({ message: req.t('i18nErrorCode.userHintOperationRequired') });
     }
     
     let errorCode;
@@ -92,7 +92,7 @@ const upsertI18nErrorCode = async (req, res) => {
     if (error_code_id) {
       errorCode = await ErrorCode.findByPk(error_code_id);
       if (!errorCode) {
-        return res.status(404).json({ message: '故障码不存在' });
+        return res.status(404).json({ message: req.t('i18nErrorCode.errorCodeNotFound') });
       }
       error_code_id_to_use = error_code_id;
     } 
@@ -102,13 +102,13 @@ const upsertI18nErrorCode = async (req, res) => {
         where: { subsystem, code }
       });
       if (!errorCode) {
-        return res.status(404).json({ message: `故障码不存在: ${subsystem}-${code}` });
+        return res.status(404).json({ message: req.t('i18nErrorCode.errorCodeNotFoundWithCode', { subsystem, code }) });
       }
       error_code_id_to_use = errorCode.id;
     } 
     // 如果都没有提供，返回错误
     else {
-      return res.status(400).json({ message: '必须提供故障码ID或子系统号和故障码组合' });
+      return res.status(400).json({ message: req.t('i18nErrorCode.errorCodeIdOrCodeRequired') });
     }
     
     // 查找是否已存在该语言的内容
@@ -164,12 +164,12 @@ const upsertI18nErrorCode = async (req, res) => {
     }
     
     res.json({ 
-      message: existing ? '更新成功' : '创建成功', 
+      message: existing ? req.t('i18nErrorCode.updateSuccess') : req.t('i18nErrorCode.createSuccess'), 
       i18nErrorCode 
     });
   } catch (err) {
     console.error('操作多语言故障码失败:', err);
-    res.status(500).json({ message: '操作失败', error: err.message });
+    res.status(500).json({ message: req.t('i18nErrorCode.operationFailed'), error: err.message });
   }
 };
 
@@ -187,7 +187,7 @@ const deleteI18nErrorCode = async (req, res) => {
     });
     
     if (!i18nErrorCode) {
-      return res.status(404).json({ message: '多语言内容不存在' });
+      return res.status(404).json({ message: req.t('i18nErrorCode.contentNotFound') });
     }
     
     await i18nErrorCode.destroy();
@@ -219,10 +219,10 @@ const deleteI18nErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响多语言故障码删除:', cacheError.message);
     }
     
-    res.json({ message: '删除成功' });
+    res.json({ message: req.t('i18nErrorCode.deleteSuccess') });
   } catch (err) {
     console.error('删除多语言故障码失败:', err);
-    res.status(500).json({ message: '删除失败', error: err.message });
+    res.status(500).json({ message: req.t('i18nErrorCode.deleteFailed'), error: err.message });
   }
 };
 
@@ -355,17 +355,17 @@ const getSupportedLanguages = async (req, res) => {
   try {
     // 预定义的语言列表 - 只支持指定的10种语言
     const predefinedLanguages = [
-      { value: 'zh', label: '中文（简体）' },
-      { value: 'en', label: '英语' },
-      { value: 'fr', label: '法语' },
-      { value: 'de', label: '德语' },
-      { value: 'es', label: '西班牙语' },
-      { value: 'it', label: '意大利语' },
-      { value: 'pt', label: '葡萄牙语' },
-      { value: 'nl', label: '荷兰语' },
-      { value: 'sk', label: '斯洛伐克语' },
-      { value: 'ro', label: '罗马尼亚语' },
-      { value: 'da', label: '丹麦语' }
+      { value: 'zh', label: req.t('shared.languageNames.zh') },
+      { value: 'en', label: req.t('shared.languageNames.en') },
+      { value: 'fr', label: req.t('shared.languageNames.fr') },
+      { value: 'de', label: req.t('shared.languageNames.de') },
+      { value: 'es', label: req.t('shared.languageNames.es') },
+      { value: 'it', label: req.t('shared.languageNames.it') },
+      { value: 'pt', label: req.t('shared.languageNames.pt') },
+      { value: 'nl', label: req.t('shared.languageNames.nl') },
+      { value: 'sk', label: req.t('shared.languageNames.sk') },
+      { value: 'ro', label: req.t('shared.languageNames.ro') },
+      { value: 'da', label: req.t('shared.languageNames.da') }
     ];
     
     // 获取数据库中已有的语言代码
@@ -389,7 +389,7 @@ const getSupportedLanguages = async (req, res) => {
     res.json({ languages: allLanguages });
   } catch (err) {
     console.error('获取支持语言列表失败:', err);
-    res.status(500).json({ message: '获取语言列表失败', error: err.message });
+    res.status(500).json({ message: req.t('i18nErrorCode.languages.getFailed'), error: err.message });
   }
 };
 
@@ -398,16 +398,16 @@ const getSubsystems = async (req, res) => {
   try {
     // 预定义的子系统列表
     const predefinedSubsystems = [
-      { value: '1', label: '01：运动控制软件' },
-      { value: '2', label: '02：人机交互软件' },
-      { value: '3', label: '03：医生控制台软件' },
-      { value: '4', label: '04：手术台车软件' },
-      { value: '5', label: '05：驱动器软件' },
-      { value: '6', label: '06：图像软件' },
-      { value: '7', label: '07：工具工厂软件' },
-      { value: '8', label: '08：远程运动控制软件' },
-      { value: '9', label: '09：远程医生控制台软件' },
-      { value: 'A', label: '0A：远程驱动器软件' }
+      { value: '1', label: req.t('shared.subsystemOptions.1') },
+      { value: '2', label: req.t('shared.subsystemOptions.2') },
+      { value: '3', label: req.t('shared.subsystemOptions.3') },
+      { value: '4', label: req.t('shared.subsystemOptions.4') },
+      { value: '5', label: req.t('shared.subsystemOptions.5') },
+      { value: '6', label: req.t('shared.subsystemOptions.6') },
+      { value: '7', label: req.t('shared.subsystemOptions.7') },
+      { value: '8', label: req.t('shared.subsystemOptions.8') },
+      { value: '9', label: req.t('shared.subsystemOptions.9') },
+      { value: 'A', label: req.t('shared.subsystemOptions.A') }
     ];
     
     // 获取数据库中已有的子系统号
@@ -432,7 +432,7 @@ const getSubsystems = async (req, res) => {
     res.json({ subsystems: allSubsystems });
   } catch (err) {
     console.error('获取子系统号列表失败:', err);
-    res.status(500).json({ message: '获取子系统号列表失败', error: err.message });
+    res.status(500).json({ message: req.t('i18nErrorCode.subsystems.getFailed'), error: err.message });
   }
 };
 

@@ -16,9 +16,10 @@
       <template #header>
         <div class="card-header">
           <div class="header-left">
-            <el-button @click="goBack" icon="ArrowLeft" size="small">
+            <button class="btn-secondary btn-sm" @click="goBack">
+              <i class="fas fa-arrow-left"></i>
               {{ $t('common.back') || 'Back' }}
-            </el-button>
+            </button>
             <span class="title">{{ $t('logDetail.title') }}</span>
           </div>
           <div class="header-right">
@@ -63,14 +64,16 @@
                 <el-icon><Search /></el-icon>
               </template>
             </el-input>
-            <el-button @click="exportToCSV" type="success" size="small">
-              <el-icon><Download /></el-icon>
-              {{ $t('errorCodes.exportCSV') }}
-            </el-button>
-            <el-button @click="goToSurgeryAnalysis" type="primary" size="small" style="margin-left: 10px;">
-              <el-icon><DataAnalysis /></el-icon>
-              {{ $t('surgeryStatistics.title') }}
-            </el-button>
+            <div class="btn-group">
+              <button class="btn-secondary btn-sm" @click="exportToCSV">
+                <i class="fas fa-download"></i>
+                {{ $t('errorCodes.exportCSV') }}
+              </button>
+              <button class="btn-primary btn-sm" @click="goToSurgeryAnalysis">
+                <i class="fas fa-chart-line"></i>
+                {{ $t('surgeryStatistics.title') }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -116,15 +119,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Download, ArrowLeft, DataAnalysis } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 
 export default {
   name: 'LogDetail',
   components: {
-    Search,
-    Download,
-    ArrowLeft,
-    DataAnalysis
+    Search
   },
   setup() {
     const store = useStore()
@@ -472,6 +472,11 @@ const decompressLogEntries = (compressedEntries) => {
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.header-actions .btn-group {
+  margin-left: 0;
 }
 
 .pagination-wrapper {

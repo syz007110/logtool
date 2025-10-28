@@ -58,7 +58,7 @@ const previewParse = async (req, res) => {
 
     const template = (payloadTemplate && String(payloadTemplate)) || (record?.explanation || '');
     if (!record && !payloadTemplate) {
-      return res.status(404).json({ message: '未找到该故障码' });
+      return res.status(404).json({ message: req.t('errorCode.notFound') });
     }
     if (!template) {
       return res.status(400).json({ message: '该故障码未配置释义模板（explanation）' });

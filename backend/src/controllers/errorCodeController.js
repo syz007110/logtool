@@ -106,6 +106,18 @@ async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
   }
 }
 
+// 将英文分类键值转换为中文标准键值
+const convertCategoryToChinese = (category) => {
+  const categoryMap = {
+    'software': '软件',
+    'hardware': '硬件', 
+    'logRecord': '日志记录',
+    'operationTip': '操作提示',
+    'safetyProtection': '安全保护'
+  };
+  return categoryMap[category] || category;
+};
+
 // 输入验证函数
 const validateErrorCodeData = (data) => {
   const errors = [];
@@ -145,9 +157,10 @@ const validateErrorCodeData = (data) => {
     errors.push('故障码格式不正确，应为0X加3位16进制数字加A、B、C、D、E中的一个字母');
   }
   
-  // 分类验证
-  const validCategories = ['软件', '硬件', '日志记录', '操作提示', '安全保护'];
-  if (data.category && !validCategories.includes(data.category)) {
+  // 分类验证 - 支持英文键值和中文值
+  const validCategories = ['software', 'hardware', 'logRecord', 'operationTip', 'safetyProtection'];
+  const validCategoriesChinese = ['软件', '硬件', '日志记录', '操作提示', '安全保护'];
+  if (data.category && !validCategories.includes(data.category) && !validCategoriesChinese.includes(data.category)) {
     errors.push('故障分类必须是：软件、硬件、日志记录、操作提示、安全保护 中的一个');
   }
   
@@ -164,6 +177,11 @@ const createErrorCode = async (req, res) => {
       operation_en: data.operation_en || ''
     };
     const mainData = stripEnglishFields(data);
+    
+    // 转换分类为中文值
+    if (mainData.category) {
+      mainData.category = convertCategoryToChinese(mainData.category);
+    }
     
     // 输入验证
     const validationErrors = validateErrorCodeData(mainData);
@@ -328,6 +346,11 @@ const updateErrorCode = async (req, res) => {
       operation_en: data.operation_en || ''
     };
     const mainData = stripEnglishFields(data);
+    
+    // 转换分类为中文值
+    if (mainData.category) {
+      mainData.category = convertCategoryToChinese(mainData.category);
+    }
     
     // 查找故障码
     const errorCode = await ErrorCode.findByPk(id);

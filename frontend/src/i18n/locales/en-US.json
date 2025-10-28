@@ -27,6 +27,46 @@
     "requestFailed": "Request failed",
     "networkError": "Network connection failed"
   },
+  "shared": {
+    "languageNames": {
+      "zh": "Chinese",
+      "en": "English",
+      "fr": "French",
+      "de": "German",
+      "es": "Spanish",
+      "it": "Italian",
+      "pt": "Portuguese",
+      "nl": "Dutch",
+      "sk": "Slovak",
+      "ro": "Romanian",
+      "da": "Danish"
+    },
+    "languageOptions": {
+      "zh": "Chinese (zh)",
+      "en": "English (en)",
+      "fr": "French (fr)",
+      "de": "German (de)",
+      "es": "Spanish (es)",
+      "it": "Italian (it)",
+      "pt": "Portuguese (pt)",
+      "nl": "Dutch (nl)",
+      "sk": "Slovak (sk)",
+      "ro": "Romanian (ro)",
+      "da": "Danish (da)"
+    },
+    "subsystemOptions": {
+      "1": "01: Motion Control Software",
+      "2": "02: Human-Machine Interface Software",
+      "3": "03: Doctor Console Software",
+      "4": "04: Surgical Cart Software",
+      "5": "05: Driver Software",
+      "6": "06: Image Software",
+      "7": "07: Tool Factory Software",
+      "8": "08: Remote Motion Control Software",
+      "9": "09: Remote Doctor Console Software",
+      "A": "0A: Remote Driver Software"
+    }
+  },
   "login": {
     "title": "LogTool System",
     "username": "Username",
@@ -81,8 +121,8 @@
   "errorCodes": {
     "title": "Error Codes",
     "code": "Error Code",
-    "selectSubsystem": "Select subsystem",
-    "subsystem": "Subsystem",
+    "selectSubsystem": "Select system ID",
+    "subsystem": "System ID",
     "name": "Name",
     "description": "Description",
     "solution": "Solution",
@@ -100,11 +140,11 @@
     "csvFormat": "CSV (comma separated)",
     "tsvFormat": "TSV (tab separated)",
     "multilangColumnsOptional": "Multi-language",
-    "selectLanguages": "Select languages to include",
+    "selectLanguages": "Select languages",
     "fullCode": "Full Error Code",
-    "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include subsystem prefix)",
+      "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include system ID prefix)",
     "formLabels": {
-      "subsystem": "Subsystem",
+      "subsystem": "System ID",
       "code": "Error Code",
       "codePlaceholder": "Format: 0X010A",
       "syncOption": "Sync Option",
@@ -132,18 +172,6 @@
       "method": "Method",
       "techSolution": "Technical Solution",
       "explanation": "Explanation"
-    },
-    "subsystemOptions": {
-      "1": "01: Motion Control Software",
-      "2": "02: HMI Software",
-      "3": "03: Console Software",
-      "4": "04: Operating Table Software",
-      "5": "05: Drive Software",
-      "6": "06: Image Software",
-      "7": "07: Tool Factory Software",
-      "8": "08: Remote Motion Control Software",
-      "9": "09: Remote Console Software",
-      "A": "0A: Remote Drive Software"
     },
     "remoteSubsystemLabels": {
       "1": "08: Remote Motion Control Software",
@@ -183,7 +211,7 @@
       "cancel": "Cancel"
     },
     "validation": {
-      "subsystemRequired": "Please select subsystem",
+      "subsystemRequired": "Please select system ID",
       "codeRequired": "Please enter error code",
       "codeFormat": "Invalid error code format, must start with 0X + 3 hex digits + A/B/C/D/E",
       "detailRequired": "Please enter detail",
@@ -225,7 +253,8 @@
       "queryWarning": "Please enter full error code",
       "queryFailed": "Query failed",
       "exportSuccess": "CSV export started",
-      "exportFailed": "Export failed"
+      "exportFailed": "Export failed",
+      "loadAnalysisCategoriesFailed": "Failed to load analysis categories"
     },
     "queryResult": {
       "resultInfo": "Result Information",
@@ -236,7 +265,8 @@
       "method": "Check Method",
       "techSolution": "Technical Solution",
       "category": "Category"
-    }
+    },
+    "defaultCategoryName": "Uncategorized"
   },
   "analysisCategories": {
     "title": "Analysis Categories",
@@ -255,8 +285,8 @@
     "addContent": "Add I18n Content",
     "batchImport": "Batch Import",
     "exportXML": "Export XML",
-    "subsystem": "Subsystem",
-    "selectSubsystem": "Please select subsystem",
+    "subsystem": "System ID",
+    "selectSubsystem": "Please select system ID",
     "errorCode": "Error Code",
     "inputErrorCode": "Input error code",
     "language": "Language",
@@ -269,7 +299,7 @@
     "delete": "Delete",
     "search": "Search",
     "reset": "Reset",
-    "subsystemNumber": "Subsystem",
+    "subsystemNumber": "System ID",
     "addDialogTitle": "Add I18n Content",
     "editDialogTitle": "Edit I18n Content",
     "batchImportTitle": "Batch Import I18n Content",
@@ -290,10 +320,60 @@
     "selectAtLeastOne": "Please select at least one language",
     "exportSuccess": "Export successful",
     "multiLanguageExportSuccess": "Multi-language export successful",
-    "exportFailed": "Export failed"
+    "exportFailed": "Export failed",
+    "formPlaceholders": {
+      "errorCodeFormat": "Format: 0X010A",
+      "shortMessageInput": "Enter short message",
+      "userHintInput": "Enter user hint",
+      "operationInput": "Enter operation information",
+      "csvDataInput": "Please enter CSV format data, first row is header (optional), data rows start from second row"
+    },
+    "validation": {
+      "subsystemRequired": "Please select system ID",
+      "errorCodeRequired": "Please enter error code",
+      "errorCodeFormat": "Error code format is incorrect, should be 0X followed by 3 hexadecimal digits and one letter A, B, C, D, or E",
+      "languageRequired": "Please select language",
+      "shortMessageRequired": "Short message and operation information cannot both be empty",
+      "userHintRequired": "User hint and operation information cannot both be empty",
+      "operationRequired": "At least two of short message, user hint, and operation information must be filled"
+    },
+    "import": {
+      "csvTab": "CSV Import",
+      "manualTab": "Manual Input",
+      "formatDescription": "CSV File Format Description:",
+      "formatColumns": "CSV file should contain the following columns (first row is header):",
+      "formatColumnsList": "subsystem,code,lang,short_message,user_hint,operation",
+      "formatExample": "Example content:",
+      "supportedLanguages": "Supported language codes:",
+      "supportedLanguagesList": "zh(Chinese), en(English), fr(French), de(German), es(Spanish), it(Italian), pt(Portuguese), nl(Dutch), sk(Slovak), ro(Romanian), da(Danish)",
+      "validationRules": "⚠️ Data validation rules:",
+      "rule1": "Each row must contain 6 fields",
+      "rule2": "Must satisfy one of the following conditions:",
+      "rule2a": "1) user_hint and operation at least one is not empty",
+      "rule2b": "2) short_message and operation at least one is not empty",
+      "rule3": "Error code must be created in error code management first",
+      "manualFormatDescription": "CSV format description:",
+      "manualFormatExample": "Each row format: system_id,error_code,language_code,short_message,user_hint,operation",
+      "manualFormatSample": "Example:",
+      "uploadTip": "Only CSV files are allowed, maximum 10MB",
+      "selectCsvFile": "Please select CSV file",
+      "enterCsvData": "Please enter CSV data",
+      "noValidData": "No valid CSV data",
+      "validationFailed": "Data validation failed:",
+      "importPartialSuccess": "Partial import success: {successCount} successful, {errorCount} failed. Please check failed data.",
+      "importFailed": "Import failed: {errorCount} data rows have errors. Please check data format.",
+      "errorDetails": "Error details: {errorMessages}",
+      "importSuccess": "Import successful: {successCount} data rows imported",
+      "rowValidationError": "Row {row}: Must satisfy one of the following conditions: 1) user_hint and operation at least one is not empty, or 2) short_message and operation at least one is not empty",
+      "rowFormatError": "Row {row}: Data format is incorrect, 6 fields required"
+    },
+    "messages": {
+      "loadFailed": "Load failed",
+      "exportDataEmpty": "Export data is empty",
+      "componentLoadFailed": "Component load failed"
+    }
   },
   "globalDashboard": {
-    "title": "Global Dashboard",
     "errorCodesCount": "Total Error Codes",
     "logEntriesCount": "Total Log Entries",
     "usersCount": "Users",
@@ -358,7 +438,7 @@
     "listTitle": "Feedback List",
     "titlePlaceholder": "Enter issue title (within 100 chars)",
     "descriptionPlaceholder": "Describe the issue (within 500 chars)",
-    "title": "Title",
+    "fieldTitle": "Title",
     "description": "Description",
     "images": "Images",
     "uploadTips": "JPG/PNG/WebP supported, ≤2MB each, up to 3",
@@ -430,7 +510,7 @@
     "timePrefixPlaceholder": "e.g. 2025081611",
     "uploaderId": "Uploader ID",
     "view": "View",
-    "download": "Download",
+    "downloadAction": "Download",
     "reparse": "Reparse",
     "uploadLog": "Upload Logs",
     "chooseFiles": "Choose Files",

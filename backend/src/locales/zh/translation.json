@@ -8,9 +8,37 @@
     "deleteFailed": "删除失败",
     "validationFailed": "输入验证失败"
   },
+  "shared": {
+    "languageNames": {
+      "zh": "中文",
+      "en": "英语",
+      "fr": "法语",
+      "de": "德语",
+      "es": "西班牙语",
+      "it": "意大利语",
+      "pt": "葡萄牙语",
+      "nl": "荷兰语",
+      "sk": "斯洛伐克语",
+      "ro": "罗马尼亚语",
+      "da": "丹麦语"
+    },
+    "subsystemOptions": {
+      "1": "01：运动控制软件",
+      "2": "02：人机交互软件",
+      "3": "03：医生控制台软件",
+      "4": "04：手术台车软件",
+      "5": "05：驱动器软件",
+      "6": "06：图像软件",
+      "7": "07：工具工厂软件",
+      "8": "08：远程运动控制软件",
+      "9": "09：远程医生控制台软件",
+      "A": "0A：远程驱动器软件"
+    }
+  },
   "errorCode": {
     "duplicate": "该子系统下的故障码已存在",
-    "noData": "没有找到故障码数据"
+    "noData": "没有找到故障码数据",
+    "notFound": "未找到该故障码"
   },
   "device": {
     "listFailed": "获取设备列表失败",
@@ -39,6 +67,49 @@
     "notSet": "未设置",
     "unknownDevice": "未知设备",
     "listFailed": "获取日志失败"
+  },
+  "i18nErrorCode": {
+    "queryFailed": "查询失败",
+    "languageRequired": "语言代码是必填字段",
+    "shortMessageOperationRequired": "精简提示信息和操作信息不能都为空",
+    "userHintOperationRequired": "用户提示信息和操作信息不能都为空",
+    "errorCodeNotFound": "故障码不存在",
+    "errorCodeNotFoundWithCode": "故障码不存在: {{subsystem}}-{{code}}",
+    "errorCodeIdOrCodeRequired": "必须提供故障码ID或子系统号和故障码组合",
+    "updateSuccess": "更新成功",
+    "createSuccess": "创建成功",
+    "operationFailed": "操作失败",
+    "contentNotFound": "多语言内容不存在",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "batchImport": {
+      "dataFormatError": "数据格式错误或为空",
+      "subsystemCodeLangRequired": "子系统号、故障码和语言代码是必填字段",
+      "shortMessageOperationRequired": "精简提示信息和操作信息不能都为空",
+      "userHintOperationRequired": "用户提示信息和操作信息不能都为空",
+      "errorCodeNotFound": "故障码不存在: {{subsystem}}-{{code}}",
+      "batchImportComplete": "批量导入完成，成功 {{successCount}} 条，失败 {{errorCount}} 条",
+      "batchImportFailed": "批量导入失败"
+    },
+    "csvImport": {
+      "uploadCsvFile": "请上传CSV文件",
+      "invalidHeaders": "第{{lineNumber}}行列名不正确，期望: {{expectedHeaders}}，实际: {{actualHeaders}}",
+      "missingRequiredFields": "第{{lineNumber}}行缺少必填字段: {{missingFields}}",
+      "contentValidationFailed": "第{{lineNumber}}行内容验证失败：需要满足以下条件之一：1) short_message和user_hint至少一个不为空，或2) short_message和operation至少一个不为空",
+      "fileEmptyOrFormatError": "CSV文件为空或格式错误",
+      "errorCodeNotFound": "故障码不存在: {{subsystem}}-{{code}}，请先在故障码管理中添加此故障码",
+      "partialSuccess": "CSV批量导入部分成功，成功 {{successCount}} 条，失败 {{errorCount}} 条",
+      "success": "CSV批量导入成功，共导入 {{successCount}} 条记录",
+      "failed": "CSV批量导入失败",
+      "readFailed": "CSV文件读取失败，请检查文件格式和编码",
+      "uploadProcessFailed": "CSV上传处理失败"
+    },
+    "languages": {
+      "getFailed": "获取语言列表失败"
+    },
+    "subsystems": {
+      "getFailed": "获取子系统号列表失败"
+    }
   }
 }
 

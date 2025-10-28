@@ -1,31 +1,27 @@
 <template>
   <div class="i18n-error-codes-container" v-if="isClient">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('i18nErrorCodes.title') }}</span>
-          <div class="header-actions">
-            <el-button type="primary" @click="handleAdd" v-if="canCreate">
-              <el-icon><Plus /></el-icon>
-              {{ $t('i18nErrorCodes.addContent') }}
-            </el-button>
-            <el-button type="success" @click="handleBatchImport" v-if="canCreate">
-              <el-icon><Upload /></el-icon>
-              {{ $t('i18nErrorCodes.batchImport') }}
-            </el-button>
-            <el-button type="warning" @click="handleExport" v-if="canExport">
-              <el-icon><Download /></el-icon>
-              {{ $t('i18nErrorCodes.exportXML') }}
-            </el-button>
-          </div>
-        </div>
+    <!-- 搜索和操作栏 -->
+    <div class="action-bar">
+      <div class="search-section">
+        <el-input
+          v-model="searchForm.code"
+          :placeholder="$t('i18nErrorCodes.inputErrorCode')"
+          style="width: 160px"
+          clearable
+          @input="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
       </template>
-
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <el-form :inline="true" :model="searchForm">
-          <el-form-item :label="$t('i18nErrorCodes.subsystem')" prop="subsystem">
-              <el-select v-model="searchForm.subsystem" :placeholder="$t('i18nErrorCodes.selectSubsystem')" clearable style="width: 200px;">
+        </el-input>
+        
+        <el-select
+          v-model="searchForm.subsystem"
+          :placeholder="$t('i18nErrorCodes.selectSubsystem')"
+          style="width: 220px; margin-left: 10px"
+          clearable
+          @change="handleSubsystemFilter"
+        >
                 <el-option 
                   v-for="option in subsystemOptions" 
                   :key="option.value" 
@@ -33,18 +29,14 @@
                   :value="option.value" 
                 />
               </el-select>
-          </el-form-item>
-          <el-form-item :label="$t('i18nErrorCodes.errorCode')">
-            <el-input 
-              v-model="searchForm.code" 
-              :placeholder="$t('i18nErrorCodes.inputErrorCode')" 
+        
+        <el-select
+          v-model="searchForm.lang"
+          :placeholder="$t('i18nErrorCodes.selectLanguage')"
+          style="width: 150px; margin-left: 10px"
               clearable 
-              @input="handleSearchInput"
-              @keyup.enter="handleSearch"
-            />
-          </el-form-item>
-          <el-form-item :label="$t('i18nErrorCodes.language')">
-            <el-select v-model="searchForm.lang" :placeholder="$t('i18nErrorCodes.selectLanguage')" clearable style="width: 180px;">
+          @change="handleLanguageFilter"
+        >
               <el-option :label="$t('i18nErrorCodes.all')" value="" />
               <el-option 
                 v-for="lang in languageOptions" 
@@ -53,22 +45,50 @@
                 :value="lang.value" 
               />
             </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleSearch">{{ $t('i18nErrorCodes.search') }}</el-button>
-            <el-button @click="resetSearch">{{ $t('i18nErrorCodes.reset') }}</el-button>
-          </el-form-item>
-        </el-form>
+      </div>
+      
+      <div class="action-section">
+        <button 
+          class="btn-primary"
+          @click="handleAdd"
+          v-if="canCreate"
+          aria-label="$t('i18nErrorCodes.addContent')"
+        >
+          <i class="fas fa-plus"></i>
+          {{ $t('i18nErrorCodes.addContent') }}
+        </button>
+        
+        <button 
+          class="btn-secondary"
+          @click="handleBatchImport"
+          v-if="canCreate"
+          aria-label="$t('i18nErrorCodes.batchImport')"
+        >
+          <i class="fas fa-upload"></i>
+          {{ $t('i18nErrorCodes.batchImport') }}
+        </button>
+
+        <button
+          class="btn-secondary"
+          @click="handleExport"
+          v-if="canExport"
+          aria-label="$t('i18nErrorCodes.exportXML')"
+        >
+          <i class="fas fa-download"></i>
+          {{ $t('i18nErrorCodes.exportXML') }}
+        </button>
+      </div>
       </div>
 
       <!-- 多语言内容列表 -->
-      <el-table :data="i18nErrorCodes" :loading="loading" style="width: 100%">
+    <el-card class="list-card">
+      <el-table :data="i18nErrorCodes" :loading="loading" style="width: 100%" v-loading="loading">
         <el-table-column :label="$t('i18nErrorCodes.subsystemNumber')" width="90">
           <template #default="{ row }">
             {{ (row && row.errorCode && row.errorCode.subsystem) ? row.errorCode.subsystem : 'N/A' }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('i18nErrorCodes.errorCode')" width="90">
+        <el-table-column :label="$t('i18nErrorCodes.errorCode')" width="100">
           <template #default="{ row }">
             {{ (row && row.errorCode && row.errorCode.code) ? row.errorCode.code : 'N/A' }}
           </template>
@@ -83,7 +103,7 @@
             <ExplanationCell :text="row.short_message || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="220">
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
           <template #default="{ row }">
             <ExplanationCell :text="row.user_hint || 'N/A'" />
           </template>
@@ -93,14 +113,30 @@
             <ExplanationCell :text="row.operation || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" width="150" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('common.operation')" width="220" v-if="canUpdate || canDelete">
           <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleEdit(row)" v-if="canUpdate">
-              {{ $t('i18nErrorCodes.edit') }}
-            </el-button>
-            <el-button type="danger" size="small" @click="handleDelete(row)" v-if="canDelete">
-              {{ $t('i18nErrorCodes.delete') }}
-            </el-button>
+            <div class="btn-group">
+              <button
+                class="btn-text"
+                @click="handleEdit(row)"
+                v-if="canUpdate"
+                :aria-label="$t('common.edit')"
+                :title="$t('common.edit')"
+              >
+                <i class="fas fa-edit"></i>
+                {{ $t('common.edit') }}
+              </button>
+              <button
+                class="btn-text-danger"
+                @click="handleDelete(row)"
+                v-if="canDelete"
+                :aria-label="$t('common.delete')"
+                :title="$t('common.delete')"
+              >
+                <i class="fas fa-trash"></i>
+                {{ $t('common.delete') }}
+              </button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -146,7 +182,7 @@
         <el-form-item :label="$t('i18nErrorCodes.errorCode')" prop="code">
           <el-input
             v-model="form.code"
-            placeholder="格式：0X010A"
+            :placeholder="$t('i18nErrorCodes.formPlaceholders.errorCodeFormat')"
             style="width: 100%"
           />
         </el-form-item>
@@ -165,7 +201,7 @@
             v-model="form.short_message"
             type="textarea"
             :rows="2"
-            placeholder="输入精简提示信息"
+            :placeholder="$t('i18nErrorCodes.formPlaceholders.shortMessageInput')"
           />
         </el-form-item>
         <el-form-item :label="$t('i18nErrorCodes.userHint')" prop="user_hint">
@@ -173,7 +209,7 @@
             v-model="form.user_hint"
             type="textarea"
             :rows="2"
-            placeholder="输入用户提示信息"
+            :placeholder="$t('i18nErrorCodes.formPlaceholders.userHintInput')"
           />
         </el-form-item>
         <el-form-item :label="$t('i18nErrorCodes.operation')" prop="operation">
@@ -181,13 +217,15 @@
             v-model="form.operation"
             type="textarea"
             :rows="2"
-            placeholder="输入操作信息"
+            :placeholder="$t('i18nErrorCodes.formPlaceholders.operationInput')"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleSave" :loading="saving">{{ $t('common.save') }}</el-button>
+        <span class="dialog-footer">
+          <button class="btn-secondary" @click="showDialog = false">{{ $t('common.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="handleSave">{{ $t('common.save') }}</button>
+        </span>
       </template>
     </el-dialog>
 
@@ -201,22 +239,22 @@
       @close="clearImportForm"
     >
       <el-tabs v-model="importForm.activeTab">
-        <el-tab-pane label="CSV导入" name="csv">
+        <el-tab-pane :label="$t('i18nErrorCodes.import.csvTab')" name="csv">
           <div class="csv-format-tip">
-            <p><strong>CSV文件格式说明：</strong></p>
-            <p>CSV文件应包含以下列（第一行为标题行）：</p>
-            <p><strong>subsystem,code,lang,short_message,user_hint,operation</strong></p>
-            <p><strong>示例内容：</strong></p>
+            <p><strong>{{ $t('i18nErrorCodes.import.formatDescription') }}</strong></p>
+            <p>{{ $t('i18nErrorCodes.import.formatColumns') }}</p>
+            <p><strong>{{ $t('i18nErrorCodes.import.formatColumnsList') }}</strong></p>
+            <p><strong>{{ $t('i18nErrorCodes.import.formatExample') }}</strong></p>
             <pre>subsystem,code,lang,short_message,user_hint,operation
 1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态
 1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status</pre>
-            <p><strong>支持的语言代码：</strong>zh(中文), en(英语), fr(法语), de(德语), es(西班牙语), it(意大利语), pt(葡萄牙语), nl(荷兰语), sk(斯洛伐克语), ro(罗马尼亚语), da(丹麦语)</p>
-            <p><strong>⚠️ 数据验证规则：</strong></p>
-            <p>• 每行数据必须包含6个字段</p>
-            <p>• 必须满足以下条件之一：</p>
-            <p style="margin-left: 20px;">1) user_hint 和 operation 至少一个不为空</p>
-            <p style="margin-left: 20px;">2) short_message 和 operation 至少一个不为空</p>
-            <p>• 故障码必须先在故障码管理中创建</p>
+            <p><strong>{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</strong></p>
+            <p><strong>{{ $t('i18nErrorCodes.import.validationRules') }}</strong></p>
+            <p>• {{ $t('i18nErrorCodes.import.rule1') }}</p>
+            <p>• {{ $t('i18nErrorCodes.import.rule2') }}</p>
+            <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2a') }}</p>
+            <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2b') }}</p>
+            <p>• {{ $t('i18nErrorCodes.import.rule3') }}</p>
           </div>
           <el-upload
             ref="uploadRef"
@@ -227,42 +265,44 @@
             accept=".csv"
             multiple
           >
-            <el-button type="primary">{{ $t('i18nErrorCodes.selectFile') }}</el-button>
+            <button class="btn-primary">{{ $t('i18nErrorCodes.selectFile') }}</button>
             <template #tip>
               <div class="el-upload__tip">
-                只能上传csv文件，且不超过10MB
+                {{ $t('i18nErrorCodes.import.uploadTip') }}
               </div>
             </template>
           </el-upload>
         </el-tab-pane>
-        <el-tab-pane label="手动输入" name="manual">
+        <el-tab-pane :label="$t('i18nErrorCodes.import.manualTab')" name="manual">
           <el-form :model="importForm" label-width="120px">
               <div class="csv-format-tip">
-                <p><strong>CSV格式说明：</strong></p>
-                <p>每行数据格式：子系统号,故障码,语言代码,精简提示,用户提示,操作信息</p>
-                <p><strong>示例：</strong></p>
+                <p><strong>{{ $t('i18nErrorCodes.import.manualFormatDescription') }}</strong></p>
+                <p>{{ $t('i18nErrorCodes.import.manualFormatExample') }}</p>
+                <p><strong>{{ $t('i18nErrorCodes.import.manualFormatSample') }}</strong></p>
                 <pre>1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态
 1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status</pre>
-                <p><strong>支持的语言代码：</strong>zh(中文), en(英语), fr(法语), de(德语), es(西班牙语), it(意大利语), pt(葡萄牙语), nl(荷兰语), sk(斯洛伐克语), ro(罗马尼亚语), da(丹麦语)</p>
-                <p><strong>⚠️ 数据验证规则：</strong></p>
-                <p>• 每行数据必须包含6个字段</p>
-                <p>• 必须满足以下条件之一：</p>
-                <p style="margin-left: 20px;">1) user_hint 和 user_hoperationint 至少一个不为空</p>
-                <p style="margin-left: 20px;">2) short_message 和 operation 至少一个不为空</p>
-                <p>• 故障码必须先在故障码管理中创建</p>
+                <p><strong>{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</strong></p>
+                <p><strong>{{ $t('i18nErrorCodes.import.validationRules') }}</strong></p>
+                <p>• {{ $t('i18nErrorCodes.import.rule1') }}</p>
+                <p>• {{ $t('i18nErrorCodes.import.rule2') }}</p>
+                <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2a') }}</p>
+                <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2b') }}</p>
+                <p>• {{ $t('i18nErrorCodes.import.rule3') }}</p>
               </div>
               <el-input
                 v-model="importForm.data"
                 type="textarea"
                 :rows="10"
-                placeholder="请输入CSV格式的数据，第一行为标题行（可选），从第二行开始为数据行"
+                :placeholder="$t('i18nErrorCodes.formPlaceholders.csvDataInput')"
               />
           </el-form>
         </el-tab-pane>
       </el-tabs>
       <template #footer>
-        <el-button @click="() => { showImportDialog = false; clearImportForm(); }">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleImport" :loading="importing">{{ $t('i18nErrorCodes.uploadImport') }}</el-button>
+        <span class="dialog-footer">
+          <button class="btn-secondary" @click="() => { showImportDialog = false; clearImportForm(); }">{{ $t('common.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': importing }" :disabled="importing" @click="handleImport">{{ $t('i18nErrorCodes.uploadImport') }}</button>
+        </span>
       </template>
     </el-dialog>
 
@@ -290,8 +330,10 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showExportDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleExportConfirm" :loading="exporting">{{ $t('common.export') }}</el-button>
+        <span class="dialog-footer">
+          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('common.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': exporting }" :disabled="exporting" @click="handleExportConfirm">{{ $t('common.export') }}</button>
+        </span>
       </template>
     </el-dialog>
   </div>
@@ -303,7 +345,7 @@
 <script>
 import { ref, reactive, onMounted, computed, watch, onBeforeUnmount, h, resolveComponent } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Upload, Download, Search } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
@@ -312,6 +354,7 @@ import JSZip from 'jszip'
 export default {
   name: 'I18nErrorCodes',
   components: {
+    Search,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { 
@@ -426,12 +469,12 @@ export default {
     // 动态验证规则
     const rules = computed(() => {
       const baseRules = {
-        subsystem: [{ required: true, message: '请选择子系统', trigger: 'change' }],
+        subsystem: [{ required: true, message: t('i18nErrorCodes.validation.subsystemRequired'), trigger: 'change' }],
         code: [
-          { required: true, message: '请输入故障码', trigger: 'blur' },
-          { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: '故障码格式不正确，应为0X加3位16进制数字加A、B、C、D、E中的一个字母', trigger: 'blur' }
+          { required: true, message: t('i18nErrorCodes.validation.errorCodeRequired'), trigger: 'blur' },
+          { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: t('i18nErrorCodes.validation.errorCodeFormat'), trigger: 'blur' }
         ],
-        lang: [{ required: true, message: '请选择语言', trigger: 'change' }]
+        lang: [{ required: true, message: t('i18nErrorCodes.validation.languageRequired'), trigger: 'change' }]
       };
 
       // 动态验证字段：short_message和operation不都为空，user_hint和operation不都为空
@@ -440,7 +483,7 @@ export default {
       baseRules.short_message = [
         { 
           required: !hasOperation, 
-          message: '精简提示信息和操作信息不能都为空', 
+          message: t('i18nErrorCodes.validation.shortMessageRequired'), 
           trigger: 'blur' 
         }
       ];
@@ -448,7 +491,7 @@ export default {
       baseRules.user_hint = [
         { 
           required: !hasOperation, 
-          message: '用户提示信息和操作信息不能都为空', 
+          message: t('i18nErrorCodes.validation.userHintRequired'), 
           trigger: 'blur' 
         }
       ];
@@ -457,7 +500,7 @@ export default {
         { 
           required: !(form.short_message && form.short_message.trim() !== '') && 
                     !(form.user_hint && form.user_hint.trim() !== ''), 
-          message: '精简提示信息、用户提示信息和操作信息至少需要填写两项', 
+          message: t('i18nErrorCodes.validation.operationRequired'), 
           trigger: 'blur' 
         }
       ];
@@ -520,16 +563,16 @@ export default {
         console.error('Load subsystems error:', error)
         // 如果API调用失败，使用默认的子系统选项
         subsystemOptions.value = [
-          { value: '1', label: '01：运动控制软件' },
-          { value: '2', label: '02：人机交互软件' },
-          { value: '3', label: '03：医生控制台软件' },
-          { value: '4', label: '04：手术台车软件' },
-          { value: '5', label: '05：驱动器软件' },
-          { value: '6', label: '06：图像软件' },
-          { value: '7', label: '07：工具工厂软件' },
-          { value: '8', label: '08：远程运动控制软件' },
-          { value: '9', label: '09：远程医生控制台软件' },
-          { value: 'A', label: '0A：远程驱动器软件' }
+          { value: '1', label: t('shared.subsystemOptions.1') },
+          { value: '2', label: t('shared.subsystemOptions.2') },
+          { value: '3', label: t('shared.subsystemOptions.3') },
+          { value: '4', label: t('shared.subsystemOptions.4') },
+          { value: '5', label: t('shared.subsystemOptions.5') },
+          { value: '6', label: t('shared.subsystemOptions.6') },
+          { value: '7', label: t('shared.subsystemOptions.7') },
+          { value: '8', label: t('shared.subsystemOptions.8') },
+          { value: '9', label: t('shared.subsystemOptions.9') },
+          { value: 'A', label: t('shared.subsystemOptions.A') }
         ]
       }
     }
@@ -543,17 +586,17 @@ export default {
         console.error('Load languages error:', error)
         // 如果API调用失败，使用默认的语言选项
         languageOptions.value = [
-          { value: 'zh', label: '中文' },
-          { value: 'en', label: '英语' },
-          { value: 'fr', label: '法语' },
-          { value: 'de', label: '德语' },
-          { value: 'es', label: '西班牙语' },
-          { value: 'it', label: '意大利语' },
-          { value: 'pt', label: '葡萄牙语' },
-          { value: 'nl', label: '荷兰语' },
-          { value: 'sk', label: '斯洛伐克语' },
-          { value: 'ro', label: '罗马尼亚语' },
-          { value: 'da', label: '丹麦语' }
+          { value: 'zh', label: t('shared.languageNames.zh') },
+          { value: 'en', label: t('shared.languageNames.en') },
+          { value: 'fr', label: t('shared.languageNames.fr') },
+          { value: 'de', label: t('shared.languageNames.de') },
+          { value: 'es', label: t('shared.languageNames.es') },
+          { value: 'it', label: t('shared.languageNames.it') },
+          { value: 'pt', label: t('shared.languageNames.pt') },
+          { value: 'nl', label: t('shared.languageNames.nl') },
+          { value: 'sk', label: t('shared.languageNames.sk') },
+          { value: 'ro', label: t('shared.languageNames.ro') },
+          { value: 'da', label: t('shared.languageNames.da') }
         ]
       }
     }
@@ -569,17 +612,17 @@ export default {
         console.error('Load export languages error:', error)
         // 如果API调用失败，使用默认的导出语言选项
         exportLanguageOptions.value = [
-          { value: 'zh', label: '中文' },
-          { value: 'en', label: '英语' },
-          { value: 'fr', label: '法语' },
-          { value: 'de', label: '德语' },
-          { value: 'es', label: '西班牙语' },
-          { value: 'it', label: '意大利语' },
-          { value: 'pt', label: '葡萄牙语' },
-          { value: 'nl', label: '荷兰语' },
-          { value: 'sk', label: '斯洛伐克语' },
-          { value: 'ro', label: '罗马尼亚语' },
-          { value: 'da', label: '丹麦语' }
+          { value: 'zh', label: t('shared.languageNames.zh') },
+          { value: 'en', label: t('shared.languageNames.en') },
+          { value: 'fr', label: t('shared.languageNames.fr') },
+          { value: 'de', label: t('shared.languageNames.de') },
+          { value: 'es', label: t('shared.languageNames.es') },
+          { value: 'it', label: t('shared.languageNames.it') },
+          { value: 'pt', label: t('shared.languageNames.pt') },
+          { value: 'nl', label: t('shared.languageNames.nl') },
+          { value: 'sk', label: t('shared.languageNames.sk') },
+          { value: 'ro', label: t('shared.languageNames.ro') },
+          { value: 'da', label: t('shared.languageNames.da') }
         ]
         exportLangColWidth.value = calcLangColumnWidth(exportLanguageOptions.value)
       }
@@ -610,7 +653,7 @@ export default {
         total.value = response.data?.total || 0
       } catch (error) {
         console.error('Load i18n error codes error:', error)
-        ElMessage.error('加载失败')
+        ElMessage.error(t('i18nErrorCodes.messages.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -622,18 +665,14 @@ export default {
       loadI18nErrorCodes()
     }
 
-    // 搜索输入
-    const handleSearchInput = () => {
-      // 可以在这里添加防抖逻辑
+    // 子系统筛选
+    const handleSubsystemFilter = () => {
+      currentPage.value = 1
+      loadI18nErrorCodes()
     }
 
-    // 重置搜索
-    const resetSearch = () => {
-      Object.assign(searchForm, {
-        subsystem: '',
-        code: '',
-        lang: ''
-      })
+    // 语言筛选
+    const handleLanguageFilter = () => {
       currentPage.value = 1
       loadI18nErrorCodes()
     }
@@ -774,7 +813,7 @@ export default {
         
         if (importForm.activeTab === 'csv') {
           if (importForm.csvFiles.length === 0) {
-            ElMessage.error('请选择CSV文件')
+            ElMessage.error(t('i18nErrorCodes.import.selectCsvFile'))
             return
           }
 
@@ -791,19 +830,19 @@ export default {
             const successCount = response.data.results ? response.data.results.length : 0
             
             if (successCount > 0) {
-              ElMessage.warning(`导入部分成功：成功 ${successCount} 条，失败 ${errorCount} 条。请检查失败的数据。`)
+              ElMessage.warning(t('i18nErrorCodes.import.importPartialSuccess', { successCount, errorCount }))
               // 部分成功时也清空表单
               clearImportForm()
               showImportDialog.value = false
               loadI18nErrorCodes()
             } else {
-              ElMessage.error(`导入失败：${errorCount} 条数据有错误。请检查数据格式。`)
+              ElMessage.error(t('i18nErrorCodes.import.importFailed', { errorCount }))
             }
             
             // 显示前几个错误信息
             const errorMessages = response.data.errors.slice(0, 3).map(err => err.error || err.message).join('; ')
             if (errorMessages) {
-              ElMessage.error(`错误详情：${errorMessages}`)
+              ElMessage.error(t('i18nErrorCodes.import.errorDetails', { errorMessages }))
             }
             
             return
@@ -811,14 +850,14 @@ export default {
           
           // 完全成功的情况
           const successCount = response.data && response.data.results ? response.data.results.length : 0
-          ElMessage.success(`导入成功：共导入 ${successCount} 条数据`)
+          ElMessage.success(t('i18nErrorCodes.import.importSuccess', { successCount }))
           clearImportForm()
           showImportDialog.value = false
           loadI18nErrorCodes()
           
         } else {
           if (!importForm.data.trim()) {
-            ElMessage.error('请输入CSV数据')
+            ElMessage.error(t('i18nErrorCodes.import.enterCsvData'))
             return
           }
 
@@ -851,24 +890,24 @@ export default {
                 const condition2 = hasShortMessage || hasOperation
                 
                 if (!condition1 && !condition2) {
-                  validationErrors.push(`第${i + 1}行：需要满足以下条件之一：1) user_hint和operation至少一个不为空，或2) short_message和operation至少一个不为空`)
+                  validationErrors.push(t('i18nErrorCodes.import.rowValidationError', { row: i + 1 }))
                 }
                 
                 data.push(item)
               } else {
-                validationErrors.push(`第${i + 1}行：数据格式不正确，需要6个字段`)
+                validationErrors.push(t('i18nErrorCodes.import.rowFormatError', { row: i + 1 }))
               }
             }
           }
 
           if (data.length === 0) {
-            ElMessage.error('没有有效的CSV数据')
+            ElMessage.error(t('i18nErrorCodes.import.noValidData'))
             return
           }
           
           // 如果有验证错误，显示错误信息
           if (validationErrors.length > 0) {
-            ElMessage.error(`数据验证失败：\n${validationErrors.slice(0, 3).join('\n')}${validationErrors.length > 3 ? '\n...' : ''}`)
+            ElMessage.error(t('i18nErrorCodes.import.validationFailed') + '\n' + validationErrors.slice(0, 3).join('\n') + (validationErrors.length > 3 ? '\n...' : ''))
             return
           }
 
@@ -880,19 +919,19 @@ export default {
             const successCount = response.data.results ? response.data.results.length : 0
             
             if (successCount > 0) {
-              ElMessage.warning(`导入部分成功：成功 ${successCount} 条，失败 ${errorCount} 条。请检查失败的数据。`)
+              ElMessage.warning(t('i18nErrorCodes.import.importPartialSuccess', { successCount, errorCount }))
               // 部分成功时也清空表单
               clearImportForm()
               showImportDialog.value = false
               loadI18nErrorCodes()
             } else {
-              ElMessage.error(`导入失败：${errorCount} 条数据有错误。请检查数据格式。`)
+              ElMessage.error(t('i18nErrorCodes.import.importFailed', { errorCount }))
             }
             
             // 显示前几个错误信息
             const errorMessages = response.data.errors.slice(0, 3).map(err => err.error || err.message).join('; ')
             if (errorMessages) {
-              ElMessage.error(`错误详情：${errorMessages}`)
+              ElMessage.error(t('i18nErrorCodes.import.errorDetails', { errorMessages }))
             }
             
             return
@@ -900,7 +939,7 @@ export default {
           
           // 完全成功的情况
           const successCount = response.data && response.data.results ? response.data.results.length : 0
-          ElMessage.success(`导入成功：共导入 ${successCount} 条数据`)
+          ElMessage.success(t('i18nErrorCodes.import.importSuccess', { successCount }))
           clearImportForm()
           showImportDialog.value = false
           loadI18nErrorCodes()
@@ -938,7 +977,7 @@ export default {
         
         // 检查响应数据
         if (!response.data || !response.data.xmlResults) {
-          ElMessage.error('导出数据为空')
+          ElMessage.error(t('i18nErrorCodes.messages.exportDataEmpty'))
           return
         }
         
@@ -975,20 +1014,7 @@ export default {
 
     // 语言显示名称
     const getLangDisplayName = (lang) => {
-      const langMap = {
-        zh: '中文',
-        en: '英语',
-        fr: '法语',
-        de: '德语',
-        es: '西班牙语',
-        it: '意大利语',
-        pt: '葡萄牙语',
-        nl: '荷兰语',
-        sk: '斯洛伐克语',
-        ro: '罗马尼亚语',
-        da: '丹麦语'
-      }
-      return langMap[lang] || lang
+      return t(`shared.languageNames.${lang}`) || lang
     }
 
      // 导出文件名称后缀
@@ -1060,7 +1086,7 @@ export default {
         loadI18nErrorCodes()
       } catch (error) {
         console.error('Component mount error:', error)
-        ElMessage.error('组件加载失败')
+        ElMessage.error(t('i18nErrorCodes.messages.componentLoadFailed'))
       }
     })
 
@@ -1094,8 +1120,8 @@ export default {
       canDelete,
       canExport,
       handleSearch,
-      handleSearchInput,
-      resetSearch,
+      handleSubsystemFilter,
+      handleLanguageFilter,
       handleSizeChange,
       handleCurrentChange,
       handleAdd,
@@ -1120,7 +1146,28 @@ export default {
 
 <style scoped>
 .i18n-error-codes-container {
-  padding: 20px;
+  padding: 5px;
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-section {
+  display: flex;
+  align-items: center;
+}
+
+.action-section {
+  display: flex;
+  gap: 10px;
+}
+
+.list-card {
+  border-radius: 8px;
 }
 
 .loading-container {
@@ -1130,19 +1177,15 @@ export default {
   height: 200px;
 }
 
-.card-header {
+.dialog-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
-  display: flex;
+  justify-content: flex-end;
   gap: 10px;
 }
 
-.search-bar {
-  margin-bottom: 20px;
+.btn-group {
+  display: flex;
+  gap: 8px;
 }
 
 .pagination-wrapper {
