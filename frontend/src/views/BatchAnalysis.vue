@@ -5,9 +5,9 @@
       <el-card class="analysis-card">
       <div class="card-header" :style="{ borderBottom: 'none' }">
         <div class="header-left">
-          <span class="title">批量日志查看</span>
+          <span class="title">{{ $t('batchAnalysis.title') }}</span>
           <el-tag v-if="batchCount > 0 && selectedLogsCount > 0" type="info" size="small">
-              设备编号：{{ selectedLogs[0]?.device_id || '未知' }}
+              {{ $t('batchAnalysis.deviceId') }}：{{ selectedLogs[0]?.device_id || $t('shared.unknown') }}
             </el-tag>
           <el-tooltip placement="bottom" effect="light" transition="el-fade-in-linear" popper-class="selected-files-popper" :disabled="selectedLogsCount === 0">
             <template #content>
@@ -18,88 +18,84 @@
               </div>
             </template>       
             <el-tag type="info" size="small">
-              已选择 {{ selectedLogsCount }} 个日志文件
+              {{ $t('batchAnalysis.selectedFiles', { count: selectedLogsCount }) }}
             </el-tag>
           </el-tooltip>
         </div>
         <div class="header-right">
           <el-button 
             v-if="!loading && batchCount > 0" 
-            @click="showClipboard" 
-            type="info" 
-            size="small"
+            @click="exportToCSV" 
+            class="btn-primary btn-sm"
           >
-            <el-icon><DocumentCopy /></el-icon>
-            剪贴板
+            <el-icon><Download /></el-icon>
+            {{ $t('batchAnalysis.exportCSV') }}
           </el-button>
           <el-button 
             v-if="!loading && batchCount > 0" 
-            @click="exportToCSV" 
-            type="success" 
-            size="small"
+            @click="showClipboard" 
+            class="btn-secondary btn-sm"
           >
-            <el-icon><Download /></el-icon>
-            导出CSV
+            <el-icon><DocumentCopy /></el-icon>
+            {{ $t('batchAnalysis.clipboard') }}
           </el-button>
           <el-button 
             v-if="!loading && selectedLogsCount > 0 && batchCount > 0" 
             @click="showSurgeryStatistics" 
-            type="primary" 
-            size="small" 
-            style="margin-left: 10px;"
+            class="btn-secondary btn-sm"
           >
             <el-icon><DataAnalysis /></el-icon>
-            手术统计
+            {{ $t('batchAnalysis.surgeryStatistics') }}
           </el-button>
         </div>
       </div>
 
       <!-- 手术统计结果（列表） -->
-      <el-dialog v-model="showSurgeryStatsDialog" title="手术统计结果" width="900px" append-to-body>
+      <el-dialog v-model="showSurgeryStatsDialog" :title="$t('batchAnalysis.surgeryStatistics')" width="900px" append-to-body>
         <div v-if="surgeryStatsLoading" style="padding: 24px 0;">
-          <el-empty description="正在统计手术数据..." />
+          <el-empty :description="$t('batchAnalysis.analyzing')" />
         </div>
         <div v-else>
           <el-table :data="surgeryStats" style="width:100%">
-            <el-table-column prop="surgery_id" label="手术id" width="220" />
+            <el-table-column prop="surgery_id" :label="$t('logs.surgeryId')" width="220" />
             <!-- 手术术式列已隐藏 -->
             <!-- <el-table-column label="手术术式" min-width="200">
               <template #default="{ row }">
                 {{ row?.postgresql_structure?.surgery_stats?.procedure || row?.surgery_stats?.procedure || '-' }}
               </template>
             </el-table-column> -->
-            <el-table-column label="手术开始时间" width="180">
+            <el-table-column :label="$t('logs.surgeryStartTime')" width="180">
               <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_start_time || row.start_time) }}</template>
             </el-table-column>
-            <el-table-column label="手术结束时间" width="180">
+            <el-table-column :label="$t('logs.surgeryEndTime')" width="180">
               <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_end_time || row.end_time) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false">
+            <el-table-column :label="$t('shared.operation')" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false">
               <template #default="{ row }">
-                <el-button size="small" type="success" @click="visualizeSurgeryStat(row)">可视化</el-button>
-                <el-button size="small" @click="previewSurgeryData(row)">查看数据</el-button>
+                <el-button class="btn-text btn-sm" @click="visualizeSurgeryStat(row)">{{ $t('batchAnalysis.visualize') }}</el-button>
+                <el-button class="btn-text btn-sm" @click="previewSurgeryData(row)">{{ $t('batchAnalysis.viewData') }}</el-button>
                 <el-button 
                   v-if="hasExportPermission"
-                  size="small" type="primary" :loading="exportingRow[row.id]===true"
+                  class="btn-text btn-sm" :loading="exportingRow[row.id]===true"
                   @click="exportSurgeryRow(row)"
-                >导出</el-button>
+                >{{ $t('batchAnalysis.export') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </div>
         <template #footer>
-          <el-button @click="showSurgeryStatsDialog=false">关闭</el-button>
+          <el-button class="btn-secondary" @click="showSurgeryStatsDialog=false">{{ $t('batchAnalysis.close') }}</el-button>
         </template>
       </el-dialog>
 
       <!-- 查看数据弹窗 -->
-      <el-dialog v-model="surgeryJsonDialogVisible" title="手术数据（PostgreSQL格式）" width="760px" append-to-body>
+      <el-dialog v-model="surgeryJsonDialogVisible" :title="$t('batchAnalysis.surgeryDataPostgresFormat')" width="760px" append-to-body>
         <div style="margin-bottom: 8px; color: #666; font-size: 12px;">
-          此数据格式为准备写入PostgreSQL数据库的格式
+          {{ $t('batchAnalysis.postgresFormatDescription') }}
         </div>
         <el-input type="textarea" :rows="18" v-model="surgeryJsonText" readonly />
         <template #footer>
-          <el-button @click="surgeryJsonDialogVisible=false">关闭</el-button>
+          <el-button @click="surgeryJsonDialogVisible=false">{{ $t('batchAnalysis.close') }}</el-button>
         </template>
       </el-dialog>
 
@@ -108,10 +104,10 @@
         <div class="search-grid">
           <!-- 1/5 分析等级（预置维度，独立于高级搜索） -->
           <div class="grid-item">
-            <div class="item-title">分析等级</div>
+            <div class="item-title">{{ $t('batchAnalysis.analysisLevel') }}</div>
             <el-popover placement="bottom-start" trigger="click" width="460" popper-class="analysis-level-popover">
               <template #reference>
-                <el-button size="small" plain style="width: 100%;">
+                <el-button size="small" class="btn-primary btn-sm" style="width: 100%;">
                   <span>{{ analysisLevelLabel }}</span>
                 </el-button>
               </template>
@@ -119,19 +115,19 @@
                 <div class="preset-buttons">
                   <el-button 
                     size="small" 
-                    :type="isPresetActive('ALL') ? 'primary' : ''"
+                    :class="isPresetActive('ALL') ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
                     @click="applyPreset('ALL')"
-                  >全量日志</el-button>
+                  >{{ $t('batchAnalysis.fullLogs') }}</el-button>
                   <el-button 
                     size="small" 
-                    :type="isPresetActive('FINE') ? 'primary' : ''"
+                    :class="isPresetActive('FINE') ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
                     @click="applyPreset('FINE')"
-                  >精细日志</el-button>
+                  >{{ $t('batchAnalysis.detailedLogs') }}</el-button>
                   <el-button 
                     size="small" 
-                    :type="isPresetActive('KEY') ? 'primary' : ''"
+                    :class="isPresetActive('KEY') ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
                     @click="applyPreset('KEY')"
-                  >关键日志</el-button>
+                  >{{ $t('batchAnalysis.keyLogs') }}</el-button>
                 </div>
                 <el-divider style="margin: 12px 0;" />
                 <div class="category-checkboxes">
@@ -140,7 +136,7 @@
                       v-for="c in analysisCategories" 
                       :key="c.id" 
                       :label="c.id"
-                    >{{ c.name_zh }}</el-checkbox>
+                    >{{ getCategoryDisplayName(c) }}</el-checkbox>
                   </el-checkbox-group>
                 </div>
               </div>
@@ -149,13 +145,13 @@
 
           <!-- 2/5 时间搜索框 -->
           <div class="grid-item">
-            <div class="item-title">时间范围</div>
+            <div class="item-title">{{ $t('batchAnalysis.timeRange') }}</div>
             <el-date-picker
               v-model="timeRange"
               type="datetimerange"
-              range-separator="至"
-              start-placeholder="开始时间"
-              end-placeholder="结束时间"
+              :range-separator="$t('logs.to')"
+              :start-placeholder="$t('logs.startTime')"
+              :end-placeholder="$t('logs.endTime')"
               format="YYYY-MM-DD HH:mm:ss"
               value-format="YYYY-MM-DD HH:mm:ss"
               class="time-range"
@@ -168,10 +164,10 @@
           
           <!-- 3/5 简单搜索框 -->
           <div class="grid-item">
-            <div class="item-title">关键字</div>
+            <div class="item-title">{{ $t('batchAnalysis.keyword') }}</div>
             <el-input
               v-model="searchKeyword"
-              placeholder="搜索释义内容或故障码"
+              :placeholder="$t('batchAnalysis.searchPlaceholder')"
               class="search-input"
               clearable
               @input="handleSearch"
@@ -187,30 +183,30 @@
 
           <!-- 4/5 高级搜索入口 -->
           <div class="grid-item">
-            <div class="item-title">高级搜索</div>
+            <div class="item-title">{{ $t('batchAnalysis.advancedFilter') }}</div>
             <div class="advanced-actions">
-              <el-button size="small" type="primary" plain @click="showAdvancedFilter = true">打开高级筛选</el-button>
+              <el-button size="small" class="btn-primary btn-sm" plain @click="showAdvancedFilter = true">{{ $t('batchAnalysis.advancedFilter') }}</el-button>
               <div class="advanced-summary" v-if="leafConditionCount > 0">
-                已添加 {{ leafConditionCount }} 个条件（逻辑：{{ filtersRoot.logic }}）
+                {{ $t('batchAnalysis.conditionsAdded', { count: leafConditionCount, logic: filtersRoot.logic }) }}
               </div>
             </div>
           </div>
 
           <!-- 5/5 清除搜索 -->
           <div class="grid-item">
-            <div class="item-title">清除搜索</div>
-            <el-button size="small" @click="clearFilters">清除所有条件</el-button>
+            <div class="item-title">{{ $t('batchAnalysis.clearSearch') }}</div>
+            <el-button size="small" @click="clearFilters">{{ $t('batchAnalysis.clearAllConditions') }}</el-button>
           </div>
         </div>
 
         <!-- 搜索表达式展示（分析等级独立显示） -->
-        <div class="filter-summary" v-if="analysisLevelLabel !== '分析等级: 未选择' || searchExpression">
-          <div class="filter-item" v-if="analysisLevelLabel !== '分析等级: 未选择'">
-            <span class="label">分析等级：</span>
+        <div class="filter-summary" v-if="analysisLevelLabel !== $t('batchAnalysis.analysisLevelNotSelected') || searchExpression">
+          <div class="filter-item" v-if="analysisLevelLabel !== $t('batchAnalysis.analysisLevelNotSelected')">
+            <span class="label">{{ $t('batchAnalysis.analysisLevel') }}：</span>
             <el-tag size="small" type="info">{{ analysisLevelLabel }}</el-tag>
           </div>
           <div class="filter-item" v-if="searchExpression">
-          <span class="label">搜索表达式：</span>
+          <span class="label">{{ $t('batchAnalysis.searchExpression') }}：</span>
           <span class="expr">{{ searchExpression }}</span>
           </div>
         </div>
@@ -219,12 +215,12 @@
       <!-- 日志条目表格 -->
       <div class="entries-section">
         <div class="section-header">
-          <h3>日志条目 ({{ filteredCount }})</h3>
+          <h3>{{ $t('batchAnalysis.logEntries') }} ({{ filteredCount }})</h3>
         </div>
 
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-section">
-          <el-empty description="正在加载日志数据..." />
+          <el-empty :description="$t('batchAnalysis.loadingLogData')" />
         </div>
 
         <!-- 数据表格 -->
@@ -302,7 +298,7 @@
             <el-table-column prop="file_info" width="15%">
               <template #header>
                 <div class="col-header">
-                  <span>时间戳（文件名）</span>
+                  <span>{{ $t('batchAnalysis.timestampWithFilename') }}</span>
                 </div>
               </template>
               <template #default="{ row }">
@@ -316,7 +312,7 @@
             <el-table-column prop="error_code" width="12%">
               <template #header>
                 <div class="col-header">
-                  <span>故障码</span>
+                  <span>{{ $t('batchAnalysis.errorCode') }}</span>
                 </div>
               </template>
               <template #default="{ row }">
@@ -337,7 +333,7 @@
             <el-table-column prop="explanation" width="45%">
               <template #header>
                 <div class="col-header">
-                  <span>释义</span>
+                  <span>{{ $t('batchAnalysis.explanation') }}</span>
                 </div>
               </template>
               <template #default="{ row }">
@@ -351,7 +347,7 @@
             <el-table-column prop="parameters" width="20%">
               <template #header>
                 <div class="col-header">
-                  <span>参数(1~4)</span>
+                  <span>{{ $t('batchAnalysis.parameters') }}</span>
                 </div>
               </template>
               <template #default="{ row }">
@@ -370,8 +366,8 @@
                       popper-class="param-popover"
                     >
                       <div class="parameter-popover">
-                        <div class="popover-title" style="margin-bottom:8px;">选择可视化参数</div>
-                        <div v-if="paramNamesLoading" class="param-loading">正在加载参数含义...</div>
+                        <div class="popover-title" style="margin-bottom:8px;">{{ $t('batchAnalysis.selectVisualizationParam') }}</div>
+                        <div v-if="paramNamesLoading" class="param-loading">{{ $t('batchAnalysis.loadingParamMeanings') }}</div>
                         <el-radio-group 
                           v-else
                           v-model="selectedParameter"
@@ -383,12 +379,12 @@
                             :label="idx"
                             :disabled="paramNamesLoading || !isParameterAvailable(idx)"
                           >
-                            {{ paramNames[idx - 1] || `参数${idx}` }}
+                            {{ paramNames[idx - 1] || $t('batchAnalysis.parameterDefault', { index: idx }) }}
                           </el-radio>
                         </el-radio-group>
                         <div class="popover-actions" style="margin-top:8px;text-align:right;">
-                          <el-button size="small" @click="activeParamPopoverRowId = null">取消</el-button>
-                          <el-button size="small" type="primary" @click="confirmVisualization">确认</el-button>
+                          <el-button size="small" class="btn-secondary btn-sm" @click="activeParamPopoverRowId = null">{{ $t('shared.cancel') }}</el-button>
+                          <el-button size="small" class="btn-primary btn-sm" @click="confirmVisualization">{{ $t('shared.confirm') }}</el-button>
                         </div>
                       </div>
                       <template #reference>
@@ -397,7 +393,7 @@
                         @click.stop="handleVisualization(row)"
                         class="visualization-btn"
                         :disabled="chartThumbnails.length >= 5"
-                        :title="chartThumbnails.length >= 5 ? '已有5张可视化数据表' : ''"
+                        :title="chartThumbnails.length >= 5 ? $t('batchAnalysis.visualizationMaxChartsTooltip') : ''"
                       >
                         <el-icon><DataAnalysis /></el-icon>
                       </el-button>
@@ -423,7 +419,7 @@
             <el-table-column prop="operations" width="13%">
               <template #header>
                 <div class="col-header">
-                  <span>操作</span>
+                  <span>{{ $t('batchAnalysis.operations') }}</span>
                 </div>
               </template>
               <template #default="{ row }">
@@ -453,8 +449,8 @@
                     <template #default>
                       <div v-if="activeNotesPopoverRowId === row.id">
                       <div class="notes-header">
-                        <span>备注</span>
-                        <el-button link size="small" @click="reloadNotes(row)">刷新</el-button>
+                        <span>{{ $t('batchAnalysis.notes') }}</span>
+                        <el-button link size="small" @click="reloadNotes(row)">{{ $t('shared.refresh') }}</el-button>
                       </div>
                       <div class="notes-list" v-if="getNotes(row).items.length > 0">
                         <div 
@@ -466,21 +462,21 @@
                             <span class="note-user" :class="'role-' + (item.created_by || 'user')">{{ item.username }}（{{ roleLabel(item.created_by) }}）</span>
                             <span class="note-time">{{ formatTimeForDisplay(item.created_at) }}</span>
                             <span class="note-actions">
-                              <el-button v-if="canEditNote(item)" link type="primary" size="small" @click="startEditNote(item)">编辑</el-button>
-                              <el-button v-if="canDeleteNote(item)" link type="danger" size="small" @click="confirmDeleteNote(item)">删除</el-button>
+                              <el-button v-if="canEditNote(item)" link class="btn-text btn-sm" @click="startEditNote(item)">{{ $t('shared.edit') }}</el-button>
+                              <el-button v-if="canDeleteNote(item)" link class="btn-text-danger btn-sm" @click="confirmDeleteNote(item)">{{ $t('shared.delete') }}</el-button>
                             </span>
                           </div>
                           <div class="note-content" v-if="editingNoteId !== item.id">{{ item.content }}</div>
                           <div class="note-edit" v-else>
                             <el-input v-model="editingNoteContent" maxlength="50" show-word-limit type="textarea" rows="2" />
                             <div class="note-edit-actions">
-                              <el-button size="small" @click="cancelEditNote">取消</el-button>
-                              <el-button size="small" type="primary" @click="submitEditNote(item)">保存</el-button>
+                              <el-button size="small" class="btn-secondary btn-sm" @click="cancelEditNote">{{ $t('shared.cancel') }}</el-button>
+                              <el-button size="small" class="btn-primary btn-sm" @click="submitEditNote(item)">{{ $t('shared.save') }}</el-button>
                             </div>
                           </div>
                         </div>
                       </div>
-                      <div class="notes-empty" v-else>暂无备注</div>
+                      <div class="notes-empty" v-else>{{ $t('batchAnalysis.noNotes') }}</div>
                       <div class="notes-pagination">
                         <el-pagination
                           layout="prev, pager, next"
@@ -492,9 +488,9 @@
                         />
                       </div>
                       <div class="notes-editor" v-if="canCreateNote">
-                        <el-input v-model="newNoteContent" placeholder="添加备注（最多50字）" maxlength="50" show-word-limit type="textarea" rows="2" />
+                        <el-input v-model="newNoteContent" :placeholder="$t('batchAnalysis.addNotePlaceholder')" maxlength="50" show-word-limit type="textarea" rows="2" />
                         <div class="notes-editor-actions">
-                          <el-button size="small" type="primary" @click="submitNewNote(row)">提交备注</el-button>
+                          <el-button size="small" class="btn-primary btn-sm" @click="submitNewNote(row)">{{ $t('shared.submit') }}</el-button>
                         </div>
                       </div>
                       </div>
@@ -531,15 +527,15 @@
         <!-- 上下文分析对话框 -->
         <el-dialog
           v-model="contextAnalysisVisible"
-          title="上下文分析"
-          width="500px"
+          :title="$t('batchAnalysis.contextAnalysisTitle')"
+          width="800px"
           :close-on-click-modal="false"
         >
           <div class="context-analysis-form">
-            <div class="context-intro">将以选中的日志条目为基点</div>
-            <div class="time-range-inputs">
+            <div class="context-intro">{{ $t('batchAnalysis.contextAnalysisIntro') }}</div>
+            <div class="time-range-inputs" style="display:flex; align-items:center; justify-content:center; gap: 8px;">
               <div class="input-group">
-                <label>前</label>
+                <label>{{ $t('batchAnalysis.contextAnalysisBefore') }}</label>
                 <el-input-number
                   v-model="beforeMinutes"
                   :min="0"
@@ -547,7 +543,7 @@
                   controls-position="right"
                   style="width: 80px;"
                 />
-                <span class="unit-label">分钟</span>
+                <span class="unit-label">{{ $t('batchAnalysis.contextAnalysisMinutes') }}</span>
                 <el-input-number
                   v-model="beforeSeconds"
                   :min="0"
@@ -555,11 +551,11 @@
                   controls-position="right"
                   style="width: 80px; margin-left: 4px;"
                 />
-                <span class="unit-label">秒</span>
+                <span class="unit-label">{{ $t('batchAnalysis.contextAnalysisSeconds') }}</span>
               </div>
               <span>，</span>
               <div class="input-group">
-                <label>后</label>
+                <label>{{ $t('batchAnalysis.contextAnalysisAfter') }}</label>
                 <el-input-number
                   v-model="afterMinutes"
                   :min="0"
@@ -567,7 +563,7 @@
                   controls-position="right"
                   style="width: 80px;"
                 />
-                <span class="unit-label">分钟</span>
+                <span class="unit-label">{{ $t('batchAnalysis.contextAnalysisMinutes') }}</span>
                 <el-input-number
                   v-model="afterSeconds"
                   :min="0"
@@ -575,14 +571,14 @@
                   controls-position="right"
                   style="width: 80px; margin-left: 4px;"
                 />
-                <span class="unit-label">秒</span>
+                <span class="unit-label">{{ $t('batchAnalysis.contextAnalysisSeconds') }}</span>
               </div>
             </div>
           </div>
           
           <template #footer>
             <div class="dialog-footer">
-              <el-button type="primary" @click="executeContextAnalysis">确认分析</el-button>
+              <el-button class="btn-primary" @click="executeContextAnalysis">{{ $t('shared.confirm') }}</el-button>
             </div>
           </template>
         </el-dialog>
@@ -596,13 +592,13 @@
         >
           <div class="sidebar-tabs">
             <el-tabs v-model="sidebarActiveTab" stretch>
-              <el-tab-pane :label="`日志摘取 (${clipboardCount})`" name="logs">
+              <el-tab-pane :label="`${$t('batchAnalysis.logExtraction')} (${clipboardCount})`" name="logs">
                 <div class="logs-clipboard">
                   <div v-if="(clipboardEntries.length>0) || clipboardContent">
                     <div class="clipboard-thumbnail" @click="clipboardDetailVisible = true">
                       <div class="thumb-row">
                         <el-icon><DocumentCopy /></el-icon>
-                        <span class="thumb-label">日志摘取板</span>
+                        <span class="thumb-label">{{ $t('batchAnalysis.logClipboard') }}</span>
                       </div>
                       <div class="fill-bar">
                         <div class="fill-bar-inner" :style="{ width: fillPercent + '%' }"></div>
@@ -613,10 +609,10 @@
                       </el-button>
                     </div>
                   </div>
-                  <el-empty v-else description="暂无摘取的日志" />
+                  <el-empty v-else :description="$t('batchAnalysis.noClipboardLogs')" />
                 </div>
               </el-tab-pane>
-              <el-tab-pane :label="`可视化 (${chartThumbnails.length})`" name="charts">
+              <el-tab-pane :label="`${$t('batchAnalysis.visualization')} (${chartThumbnails.length})`" name="charts">
             <div class="chart-thumbnails" v-if="chartThumbnails.length > 0">
               <div class="thumbnail-list">
                 <div 
@@ -642,26 +638,26 @@
                 </div>
               </div>
             </div>
-                <el-empty v-else description="暂无可视化图表" />
+                <el-empty v-else :description="$t('shared.noData')" />
               </el-tab-pane>
             </el-tabs>
           </div>
         </el-drawer>
 
-        <el-dialog v-model="clipboardDetailVisible" title="日志摘取板" width="700px">
+        <el-dialog v-model="clipboardDetailVisible" :title="$t('batchAnalysis.logClipboard')" width="700px">
           <div class="clipboard-detail">
             <el-input
               type="textarea"
               v-model="clipboardContent"
               :autosize="{ minRows: 12, maxRows: 24 }"
               class="clipboard-textarea"
-              placeholder="在这里编辑摘取的日志文本..."
+              :placeholder="$t('batchAnalysis.editClipboardPlaceholder')"
             />
           </div>
           <template #footer>
             <div class="dialog-footer">
-              <el-button @click="clearClipboard" :disabled="!clipboardContent">清空</el-button>
-              <el-button type="primary" @click="exportClipboardToTxt" :disabled="!clipboardContent">导出TXT</el-button>
+              <el-button class="btn-secondary" @click="clearClipboard" :disabled="!clipboardContent">{{ $t('shared.clear') }}</el-button>
+              <el-button class="btn-primary" @click="exportClipboardToTxt" :disabled="!clipboardContent">{{ $t('shared.export') }}TXT</el-button>
             </div>
           </template>
         </el-dialog>
@@ -673,7 +669,7 @@
         <!-- 图表详情弹窗 -->
         <el-dialog
           v-model="chartDetailVisible"
-          title="数据可视化图表"
+          :title="$t('batchAnalysis.visualizationChartTitle')"
           width="56%"
           :close-on-click-modal="true"
           @opened="onChartDialogOpened"
@@ -684,11 +680,11 @@
               <TimeSeriesChart
                 v-if="currentChartData && Array.isArray(currentChartData.data) && currentChartData.data.length > 0"
                 :series-data="currentChartData.data"
-                :series-name="currentChartData.parameterValue || '数据'"
+                :series-name="currentChartData.parameterValue || $t('batchAnalysis.visualizationDataDefault')"
                 :height="450"
                 :show-range-labels="false"
               />
-              <div v-else style="width:100%;height:450px;display:flex;align-items:center;justify-content:center;color:#909399;">暂无数据</div>
+              <div v-else style="width:100%;height:450px;display:flex;align-items:center;justify-content:center;color:#909399;">{{ $t('batchAnalysis.visualizationNoDataText') }}</div>
             </div>
           </div>
         </el-dialog>
@@ -697,18 +693,18 @@
     </div>
 
     <!-- 高级筛选弹窗 -->
-    <el-dialog v-model="showAdvancedFilter" title="高级筛选" width="880px">
+    <el-dialog v-model="showAdvancedFilter" :title="$t('batchAnalysis.advancedFilter')" width="880px">
       <div class="advanced-filter">
         <!-- 1. 条件组（支持嵌套） -->
         <div class="section">
           <div class="section-title-row">
-            <div class="section-title">1. 条件组（支持嵌套）</div>
+            <div class="section-title">{{ $t('batchAnalysis.conditionGroupWithNesting') }}</div>
             <div class="ops-right">
               <el-switch
                 v-model="useLocalAdvanced"
                 size="small"
-                active-text="本地"
-                inactive-text="服务端"
+                :active-text="$t('batchAnalysis.local')"
+                :inactive-text="$t('batchAnalysis.server')"
                 inline-prompt
               />
               <el-button 
@@ -717,19 +713,19 @@
                 text 
                 @click="clearAllConditionsOnly" 
                 :disabled="!filtersRoot.conditions || filtersRoot.conditions.length === 0"
-              >清空所有条件</el-button>
+              >{{ $t('batchAnalysis.clearAllConditions') }}</el-button>
             </div>
           </div>
           <div class="expr-preview" v-if="advancedExpression" ref="exprPreviewRef">
-            <span class="label">表达式预览：</span>
+            <span class="label">{{ $t('batchAnalysis.expressionPreview') }}：</span>
             <span class="expr">{{ advancedExpression }}</span>
           </div>
           <!-- 常用搜索表达式（内嵌于条件组下，位于表达式预览下侧） -->
           <div class="common-templates" v-if="templates && templates.length">
-            <div class="section-title">常用搜索表达式</div>
+            <div class="section-title">{{ $t('batchAnalysis.commonSearchExpressions') }}</div>
             <div class="tags-ops">
-              <el-button size="small" type="primary" plain @click="applySelectedTemplate" :disabled="!selectedTemplateName">应用选择表达式</el-button>
-              <span class="hint">选择表达式并应用，条件会自动填充进"添加条件"区域</span>
+              <el-button size="small" class="btn-primary btn-sm" plain @click="applySelectedTemplate" :disabled="!selectedTemplateName">{{ $t('batchAnalysis.apply') }}</el-button>
+              <span class="hint">{{ $t('batchAnalysis.templateHint') }}</span>
             </div>
             <div class="tags-wrap antd-tags single-select">
               <a-checkable-tag
@@ -745,14 +741,14 @@
           </div>
           <div class="group-root">
             <div class="group-header">
-              <span>根组逻辑：</span>
-              <el-radio-group v-model="filtersRoot.logic">
+              <span>{{ $t('batchAnalysis.rootGroupLogic') }}：</span>
+              <el-radio-group v-model="filtersRoot.logic" style="margin-left: 8px;">
             <el-radio-button label="AND">AND</el-radio-button>
             <el-radio-button label="OR">OR</el-radio-button>
           </el-radio-group>
-              <div class="group-actions">
-                <el-button size="small" type="primary" @click="addConditionToGroup(filtersRoot)">添加条件</el-button>
-                <el-button size="small" @click="addGroupToGroup(filtersRoot)">添加子组</el-button>
+              <div class="group-actions" style="margin-left: 24px;">
+                <el-button size="small" class="btn-primary btn-sm" @click="addConditionToGroup(filtersRoot)" style="margin-right: 12px;">{{ $t('batchAnalysis.addCondition') }}</el-button>
+                <el-button size="small" class="btn-secondary btn-sm" @click="addGroupToGroup(filtersRoot)">{{ $t('batchAnalysis.addGroup') }}</el-button>
         </div>
             </div>
             <ConditionGroup
@@ -770,14 +766,14 @@
 
         <!-- 2. 导入表达式 -->
         <div class="section">
-          <div class="section-title">2. 导入表达式</div>
+          <div class="section-title">{{ $t('batchAnalysis.importExpression') }}</div>
         <div class="import-row">
           <el-upload 
             :show-file-list="false" 
             accept="application/json"
             :before-upload="beforeImportTemplates"
           >
-              <el-button size="small">从文件导入(JSON)</el-button>
+              <el-button size="small">{{ $t('batchAnalysis.importTemplates') }}</el-button>
           </el-upload>
         </div>
         </div>
@@ -786,8 +782,8 @@
       </div>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showAdvancedFilter = false">取消</el-button>
-          <el-button type="primary" @click="applyAdvancedFilters">应用</el-button>
+          <el-button class="btn-secondary" @click="showAdvancedFilter = false">{{ $t('shared.cancel') }}</el-button>
+          <el-button class="btn-primary" @click="applyAdvancedFilters">{{ $t('batchAnalysis.apply') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -817,6 +813,7 @@ import SurgeryDataCompare from '@/components/SurgeryDataCompare.vue'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { formatTime, formatTimeShort, loadServerTimezone } from '../utils/timeFormatter'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'BatchAnalysis',
@@ -853,6 +850,7 @@ export default {
         isRoot: { type: Boolean, default: false }
       },
       setup(props) {
+        const { t } = useI18n()
         const ElSelect = resolveComponent('el-select')
         const ElOption = resolveComponent('el-option')
         const ElInput = resolveComponent('el-input')
@@ -866,7 +864,7 @@ export default {
             h(ElSelect, {
               modelValue: node.field,
               style: 'width: 140px;',
-              placeholder: '字段',
+              placeholder: t('batchAnalysis.field'),
               'onUpdate:modelValue': (v) => { 
                 // 确保node是一个对象，而不是原始类型
                 if (typeof node === 'object' && node !== null) {
@@ -880,19 +878,19 @@ export default {
               }
             }, {
               default: () => [
-                h(ElOption, { label: '时间戳', value: 'timestamp' }),
-                h(ElOption, { label: '故障码', value: 'error_code' }),
-                h(ElOption, { label: '参数1', value: 'param1' }),
-                h(ElOption, { label: '参数2', value: 'param2' }),
-                h(ElOption, { label: '参数3', value: 'param3' }),
-                h(ElOption, { label: '参数4', value: 'param4' }),
-                h(ElOption, { label: '释义', value: 'explanation' })
+                h(ElOption, { label: t('batchAnalysis.timestamp'), value: 'timestamp' }),
+                h(ElOption, { label: t('batchAnalysis.errorCode'), value: 'error_code' }),
+                h(ElOption, { label: t('batchAnalysis.param1'), value: 'param1' }),
+                h(ElOption, { label: t('batchAnalysis.param2'), value: 'param2' }),
+                h(ElOption, { label: t('batchAnalysis.param3'), value: 'param3' }),
+                h(ElOption, { label: t('batchAnalysis.param4'), value: 'param4' }),
+                h(ElOption, { label: t('batchAnalysis.explanation'), value: 'explanation' })
               ]
             }),
             h(ElSelect, {
               modelValue: node.operator,
               style: 'width: 150px; margin-left: 8px;',
-              placeholder: '操作符',
+              placeholder: t('batchAnalysis.operator'),
               'onUpdate:modelValue': (v) => { 
                 // 确保node是一个对象，而不是原始类型
                 if (typeof node === 'object' && node !== null) {
@@ -932,7 +930,7 @@ export default {
                 ]
               : h(ElInput, {
                   modelValue: Array.isArray(node.value) ? node.value.join(',') : (node.value ?? ''),
-                  placeholder: '值',
+                  placeholder: t('batchAnalysis.value'),
                   style: 'width: 300px; margin-left:8px;',
                   'onUpdate:modelValue': (v) => { 
                     // 确保node.value是一个对象，而不是原始类型
@@ -944,7 +942,7 @@ export default {
                     }
                   }
                 }),
-            h(ElButton, { type: 'danger', text: true, style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => '删除' })
+            h(ElButton, { type: 'danger', text: true, style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => t('shared.delete') })
           ])
         }
 
@@ -958,7 +956,7 @@ export default {
               }
               return h('div', { class: 'group-box', key: idx, style: `margin-left: ${(depth + 1) * 12}px;` }, [
                 h('div', { class: 'group-header nested' }, [
-                  h('span', null, '组逻辑：'),
+                  h('span', null, t('batchAnalysis.groupLogic') + '：'),
                   h(ElRadioGroup, {
                     modelValue: node.logic || 'AND',
                     'onUpdate:modelValue': (v) => { 
@@ -977,9 +975,9 @@ export default {
                     ]
                   }),
                   h('div', { class: 'group-actions' }, [
-                    h(ElButton, { size: 'small', type: 'primary', onClick: () => props.addConditionToGroup(node) }, { default: () => '添加条件' }),
-                    h(ElButton, { size: 'small', onClick: () => props.addGroupToGroup(node) }, { default: () => '添加子组' }),
-                    h(ElButton, { size: 'small', type: 'danger', text: true, onClick: () => props.removeNodeAt(group, idx) }, { default: () => '删除组' })
+                    h(ElButton, { size: 'small', type: 'primary', onClick: () => props.addConditionToGroup(node) }, { default: () => t('batchAnalysis.addCondition') }),
+                    h(ElButton, { size: 'small', onClick: () => props.addGroupToGroup(node) }, { default: () => t('batchAnalysis.addGroup') }),
+                    h(ElButton, { size: 'small', type: 'danger', text: true, onClick: () => props.removeNodeAt(group, idx) }, { default: () => t('batchAnalysis.deleteGroup') })
                   ])
                 ]),
                 h(Self, {
@@ -994,8 +992,8 @@ export default {
               ])
             }),
             h('div', { class: 'group-actions' }, [
-              h(ElButton, { size: 'small', type: 'primary', onClick: () => props.addConditionToGroup(group) }, { default: () => '添加条件' }),
-              h(ElButton, { size: 'small', onClick: () => props.addGroupToGroup(group) }, { default: () => '添加子组' })
+              h(ElButton, { size: 'small', type: 'primary', onClick: () => props.addConditionToGroup(group) }, { default: () => t('batchAnalysis.addCondition') }),
+              h(ElButton, { size: 'small', onClick: () => props.addGroupToGroup(group) }, { default: () => t('batchAnalysis.addGroup') })
             ])
           ])
         }
@@ -1008,6 +1006,7 @@ export default {
     const store = useStore()
     const route = useRoute()
     const router = useRouter()
+    const { t } = useI18n()
     
     const loading = ref(false)
     const selectedLogs = ref([])
@@ -1079,6 +1078,16 @@ export default {
     const analysisCategories = ref([])
     const analysisPresets = ref({ ALL: [], FINE: [], KEY: [] })
     const selectedAnalysisCategoryIds = ref([])
+    
+    // 计算当前语言
+    const currentLocale = computed(() => locale.value || 'zh-CN')
+    
+    // 根据当前语言获取分析分类的显示名称
+    const getCategoryDisplayName = (cat) => {
+      if (!cat) return ''
+      return currentLocale.value === 'zh-CN' ? (cat.name_zh || cat.name_en) : (cat.name_en || cat.name_zh)
+    }
+    
     const sameSet = (a, b) => {
       if (!Array.isArray(a) || !Array.isArray(b)) return false
       if (a.length !== b.length) return false
@@ -1088,27 +1097,33 @@ export default {
     }
     const analysisLevelLabel = computed(() => {
       const ids = selectedAnalysisCategoryIds.value
-      if (!ids || ids.length === 0) return '分析等级: 未选择'
+      if (!ids || ids.length === 0) return t('batchAnalysis.analysisLevelNotSelected')
       const allEq = sameSet(ids, analysisPresets.value.ALL)
       const fineEq = sameSet(ids, analysisPresets.value.FINE)
       const keyEq = sameSet(ids, analysisPresets.value.KEY)
-      if (allEq) return '全量日志'
-      if (fineEq) return '精细日志'
-      if (keyEq) return '关键日志'
-      return '自定义'
+      if (allEq) return t('batchAnalysis.fullLogs')
+      if (fineEq) return t('batchAnalysis.detailedLogs')
+      if (keyEq) return t('batchAnalysis.keyLogs')
+      return t('batchAnalysis.custom')
     })
 
     const loadAnalysisPresets = async () => {
-      const [cats, presets] = await Promise.all([
+      const [cats, presetsRes] = await Promise.all([
         api.analysisCategories.getList({ is_active: true }),
         api.analysisCategories.getPresets()
       ])
       analysisCategories.value = cats.data.categories || []
-      analysisPresets.value = (presets.data.presets) || { ALL: [], FINE: [], KEY: [] }
-      const roleId = store.state.auth?.user?.role_id
-      if (roleId === 1) selectedAnalysisCategoryIds.value = [...analysisPresets.value.ALL]
-      else if (roleId === 2) selectedAnalysisCategoryIds.value = [...analysisPresets.value.FINE]
-      else selectedAnalysisCategoryIds.value = [...analysisPresets.value.KEY]
+      const presets = (presetsRes.data?.presets) || { ALL: [], FINE: [], KEY: [] }
+      analysisPresets.value = presets
+      // 根据后端提供的 rolePreset 进行默认选择
+      const rolePresetMap = presetsRes.data?.rolePreset || {}
+      const roleId = String(store.state.auth?.user?.role_id || '')
+      const presetKey = rolePresetMap[roleId] || rolePresetMap.default || 'KEY'
+      if (presets[presetKey]) {
+        selectedAnalysisCategoryIds.value = [...presets[presetKey]]
+      } else {
+        selectedAnalysisCategoryIds.value = [...(presets.KEY || [])]
+      }
     }
 
     const isPresetActive = (key) => {
@@ -1461,15 +1476,14 @@ export default {
       const segments = []
       if (timeRange.value && timeRange.value.length === 2) {
         const [start, end] = timeRange.value
-        segments.push(`时间: ${formatTimestamp(start)} ~ ${formatTimestamp(end)}`)
+        segments.push(`${t('batchAnalysis.searchExpressionTime')}: ${formatTimestamp(start)} ~ ${formatTimestamp(end)}`)
       }
       if (searchKeyword.value) {
-        segments.push(`关键字(全部): ${searchKeyword.value}`)
+        segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${searchKeyword.value}`)
       }
       const adv = groupToString(filtersRoot.value)
       if (adv) segments.push(`${adv}`)
-      // 用 AND 串联，直观体现与关系
-      return segments.join(' AND ')
+      return segments.join(t('batchAnalysis.searchExpressionAnd'))
     })
 
     // 仅用于高级筛选弹窗内部的表达式展示，不在这里加"时间/关键字"前缀
@@ -1994,12 +2008,12 @@ export default {
     const showSurgeryStatistics = async () => {
       // 需要具备手术分析权限（管理员、专家）
       if (!store.getters['auth/hasPermission']?.('surgery:read')) {
-        ElMessage.warning('权限不足：需要手术分析权限')
+        ElMessage.warning(t('batchAnalysis.insufficientPermissions'))
         return
       }
       // 确保有已排序的日志条目数据
       if (batchLogEntries.value.length === 0) {
-        ElMessage.warning('请先加载日志条目数据')
+        ElMessage.warning(t('batchAnalysis.loadLogEntriesFirst'))
         return
       }
       
@@ -2063,8 +2077,9 @@ export default {
     const hasExportPermission = computed(() => store.getters['auth/hasPermission']?.('surgery:export'))
 
     const visualizeSurgeryStat = (row) => {
-      // 使用统一的可视化函数
-      visualizeSurgeryData(row)
+      // 优先使用准备写入数据库的结构（与手术数据页一致）
+      const data = row?.postgresql_row_preview || row
+      visualizeSurgeryData(data)
     }
 
     const previewSurgeryData = (row) => {
@@ -2406,7 +2421,7 @@ export default {
     }
 
     // 不同字段对应的可选操作符
-    const operatorOptionsByField = {
+    const operatorOptionsByField = computed(() => ({
       timestamp: [
         { label: '=', value: '=' },
         { label: '!=', value: '!=' },
@@ -2414,16 +2429,16 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' }
+        { label: t('batchAnalysis.between'), value: 'between' }
       ],
       error_code: [
         { label: '=', value: '=' },
         { label: '!=', value: '!=' },
-        { label: '包含(Like)', value: 'contains' },
-        { label: '不包含', value: 'notcontains' },
-        { label: '正则', value: 'regex' },
-        { label: '前缀', value: 'startsWith' },
-        { label: '后缀', value: 'endsWith' }
+        { label: t('batchAnalysis.contains'), value: 'contains' },
+        { label: t('batchAnalysis.notContains'), value: 'notcontains' },
+        { label: t('batchAnalysis.regex'), value: 'regex' },
+        { label: t('batchAnalysis.startsWith'), value: 'startsWith' },
+        { label: t('batchAnalysis.endsWith'), value: 'endsWith' }
       ],
       param1: [
         { label: '=', value: '=' },
@@ -2432,7 +2447,7 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' }
+        { label: t('batchAnalysis.between'), value: 'between' }
       ],
       param2: [
         { label: '=', value: '=' },
@@ -2441,7 +2456,7 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' }
+        { label: t('batchAnalysis.between'), value: 'between' }
       ],
       param3: [
         { label: '=', value: '=' },
@@ -2450,7 +2465,7 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' }
+        { label: t('batchAnalysis.between'), value: 'between' }
       ],
       param4: [
         { label: '=', value: '=' },
@@ -2459,12 +2474,12 @@ export default {
         { label: '>=', value: '>=' },
         { label: '<', value: '<' },
         { label: '<=', value: '<=' },
-        { label: 'Between', value: 'between' }
+        { label: t('batchAnalysis.between'), value: 'between' }
       ],
       explanation: [
-        { label: '包含(Like)', value: 'contains' }
+        { label: t('batchAnalysis.contains'), value: 'contains' }
       ]
-    }
+    }))
 
     const defaultOperatorOptions = [
       { label: '=', value: '=' },
@@ -2473,7 +2488,7 @@ export default {
 
     const getOperatorOptions = (field) => {
       if (!field) return defaultOperatorOptions
-      return operatorOptionsByField[field] || defaultOperatorOptions
+      return operatorOptionsByField.value[field] || defaultOperatorOptions
     }
 
     const onFieldChange = (cond) => {
@@ -2612,7 +2627,7 @@ export default {
       
       // 检查是否已达到最大数量
       if (clipboardEntries.value.length >= maxClipboardEntries) {
-        ElMessage.warning(`日志摘取板最多只能存储 ${maxClipboardEntries} 条日志`)
+        ElMessage.warning(t('batchAnalysis.clipboardMaxEntries', { max: maxClipboardEntries }))
         return
       }
       
@@ -2633,7 +2648,7 @@ export default {
       sidebarActiveTab.value = 'logs'
       clipboardVisible.value = true
       
-      ElMessage.success(`已添加到日志摘取板 (${clipboardEntries.value.length}/${maxClipboardEntries})`)
+      ElMessage.success(t('batchAnalysis.clipboardAdded', { current: clipboardEntries.value.length, max: maxClipboardEntries }))
     }
 
     // 更新剪贴板内容
@@ -2646,7 +2661,7 @@ export default {
     const clearClipboard = () => {
       clipboardEntries.value = []
       clipboardContent.value = ''
-      ElMessage.success('日志摘取板已清空')
+      ElMessage.success(t('batchAnalysis.clipboardCleared'))
     }
 
     const removeFromClipboard = (id) => {
@@ -2661,7 +2676,7 @@ export default {
     // 导出剪贴板内容为txt文件
     const exportClipboardToTxt = () => {
       if (!clipboardContent.value) {
-        ElMessage.warning('剪贴板为空，无法导出')
+        ElMessage.warning(t('batchAnalysis.clipboardEmpty'))
         return
       }
       
@@ -2669,23 +2684,23 @@ export default {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `日志摘取_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
+      a.download = `${t('batchAnalysis.clipboardExportFileName')}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       
-      ElMessage.success('日志摘取内容已导出')
+      ElMessage.success(t('batchAnalysis.clipboardExported'))
     }
 
     // 保存剪贴板编辑内容
     const saveClipboardContent = () => {
       try {
       sessionStorage.setItem('clipboardContent', clipboardContent.value)
-        ElMessage.success('已保存')
+        ElMessage.success(t('batchAnalysis.clipboardSaved'))
       } catch (error) {
         console.error('保存剪贴板内容失败:', error)
-        ElMessage.error('保存失败')
+        ElMessage.error(t('batchAnalysis.clipboardSaveFailed'))
       }
     }
 
@@ -2712,13 +2727,13 @@ export default {
       const params = [row.param1, row.param2, row.param3, row.param4]
       paramAvailability.value = params.map(p => !!(p && String(p).trim()))
       if (!paramAvailability.value.some(v => v)) {
-        ElMessage.warning('该日志条目没有可用的参数进行可视化')
+        ElMessage.warning(t('batchAnalysis.noAvailableParams'))
         return
       }
       
       // 先以默认名称和当前值即时展示
       availableParameters.value = params.map(p => (p && String(p).trim()) ? String(p).trim() : '')
-      paramNames.value = ['参数1', '参数2', '参数3', '参数4']
+      paramNames.value = [t('batchAnalysis.param1'), t('batchAnalysis.param2'), t('batchAnalysis.param3'), t('batchAnalysis.param4')]
       currentVisualizationRow.value = row
       selectedParameter.value = null
       selectKey.value++
@@ -2785,7 +2800,7 @@ export default {
 
     const confirmVisualization = () => {
       if (!selectedParameter.value) {
-        ElMessage.warning('请选择一个参数')
+        ElMessage.warning(t('batchAnalysis.visualizationSelectParameter'))
         return
       }
       
@@ -2803,7 +2818,7 @@ export default {
 
     const createChart = async (row) => {
       try {
-        ElMessage.info('正在获取图表数据...')
+        ElMessage.info(t('batchAnalysis.visualizationLoading'))
         const logIds = selectedLogs.value.map(l => l.id).join(',')
         const paramIndex = selectedParameter.value
         const fullErrorCode = row.error_code.toUpperCase()
@@ -2831,7 +2846,7 @@ export default {
         const response = await api.logs.getVisualizationData(visualizationParams)
         const { chartData, chartTitle: apiChartTitle, paramName } = response.data.data
         if (!Array.isArray(chartData) || chartData.length === 0) {
-          ElMessage.warning('没有可用的数据生成图表')
+          ElMessage.warning(t('batchAnalysis.visualizationNoData'))
           return
         }
         chartTitle.value = apiChartTitle
@@ -2846,9 +2861,9 @@ export default {
             errorCode: row.error_code
           }
           addChartToSidebar()
-        ElMessage.success(`已获取 ${chartData.length} 条数据`)
+        ElMessage.success(t('batchAnalysis.visualizationDataRetrieved', { count: chartData.length }))
         } catch (error) {
-        ElMessage.error('获取图表数据失败: ' + (error?.response?.data?.message || error.message))
+        ElMessage.error(t('batchAnalysis.visualizationDataFailed', { message: error?.response?.data?.message || error.message }))
       }
     }
 
@@ -2857,7 +2872,7 @@ export default {
       
       // 检查是否已达到最大数量限制
       if (chartThumbnails.value.length >= 5) {
-        ElMessage.warning('最多只能生成5张可视化图表')
+        ElMessage.warning(t('batchAnalysis.visualizationMaxCharts'))
         return
       }
       
@@ -2882,7 +2897,7 @@ export default {
         })
       })
       
-      ElMessage.success('图表已添加到剪贴板')
+      ElMessage.success(t('batchAnalysis.visualizationChartAdded'))
     }
 
     const createChartThumbnail = (chartData) => {
@@ -3271,7 +3286,7 @@ export default {
           chart.title = chart.title.replace(/^\d+\.\s*/, '')
         })
         
-        ElMessage.success('图表已删除')
+        ElMessage.success(t('batchAnalysis.chartDeleted'))
       }
     }
 
@@ -3474,7 +3489,7 @@ export default {
     }
 
     const confirmDeleteNote = (item) => {
-      ElMessageBox.confirm('确定删除这条备注吗？', '提示', { type: 'warning' })
+      ElMessageBox.confirm(t('batchAnalysis.confirmDeleteNote'), t('shared.info'), { type: 'warning' })
         .then(async () => {
           await api.notes.remove(item.id)
           const row = { id: item.log_entry_id }
@@ -3639,7 +3654,7 @@ export default {
         loadClipboardContent()
       } catch (error) {
         console.error('初始化失败:', error)
-        ElMessage.error('页面初始化失败，请刷新重试')
+        ElMessage.error(t('batchAnalysis.initializationFailed'))
         loading.value = false
       }
     })
@@ -3705,6 +3720,7 @@ export default {
       isPresetActive,
       applyPreset,
       onAnalysisCategoriesChange,
+      getCategoryDisplayName,
       loadSelectedLogs,
       loadBatchLogEntries,
       handleSearch,

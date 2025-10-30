@@ -5,7 +5,7 @@
       <div class="search-section">
         <el-input
           v-model="searchQuery"
-          placeholder="搜索分析等级..."
+          :placeholder="$t('analysisCategories.searchPlaceholder')"
           style="width: 300px"
           clearable
           @input="handleSearch"
@@ -17,9 +17,9 @@
       </div>
       
       <div class="action-section">
-        <el-button type="primary" @click="showAddDialog" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
+        <el-button class="btn-primary" @click="showAddDialog" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
           <el-icon><Plus /></el-icon>
-          添加分析等级
+          {{ $t('analysisCategories.addCategory') }}
         </el-button>
       </div>
     </div>
@@ -34,21 +34,21 @@
       >
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="category_key" :label="$t('analysisCategories.categoryKey')" width="200" />
-        <el-table-column prop="name_zh" :label="$t('analysisCategories.nameZh')" width="150" />
-        <el-table-column prop="name_en" :label="$t('analysisCategories.nameEn')" width="200" />
+        <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('analysisCategories.name')" width="200" />
+        <el-table-column v-if="isEnUS" prop="name_en" :label="$t('analysisCategories.name')" width="200" />
         <el-table-column prop="sort_order" :label="$t('analysisCategories.sortOrder')" width="100" />
         <el-table-column prop="is_active" :label="$t('analysisCategories.isActive')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.is_active ? 'success' : 'danger'">
-              {{ row.is_active ? '启用' : '禁用' }}
+              {{ row.is_active ? $t('analysisCategories.statusActive') : $t('analysisCategories.statusInactive') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
+        <el-table-column :label="$t('shared.operation')" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button @click="handleEdit(row)">{{$t('common.edit')}}</el-button>
-              <el-button @click="handleDelete(row)" type="danger">{{$t('common.delete')}}</el-button>
+              <el-button @click="handleEdit(row)" class="btn-text btn-sm">{{$t('shared.edit')}}</el-button>
+              <el-button @click="handleDelete(row)" class="btn-text-danger btn-sm">{{$t('shared.delete')}}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -58,7 +58,7 @@
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑分析等级' : '添加分析等级'"
+      :title="isEdit ? $t('analysisCategories.editCategory') : $t('analysisCategories.addCategory')"
       width="600px"
     >
       <el-form
@@ -67,29 +67,29 @@
         :rules="formRules"
         label-width="120px"
       >
-        <el-form-item label="分类标识" prop="category_key">
+        <el-form-item :label="$t('analysisCategories.categoryKeyLabel')" prop="category_key">
           <el-input
             v-model="formData.category_key"
-            placeholder="请输入分类标识，如 Instrument"
+            :placeholder="$t('analysisCategories.categoryKeyPlaceholder')"
             :disabled="isEdit"
           />
         </el-form-item>
         
-        <el-form-item label="中文名称" prop="name_zh">
+        <el-form-item :label="$t('analysisCategories.nameZhLabel')" prop="name_zh">
           <el-input
             v-model="formData.name_zh"
-            placeholder="请输入中文名称"
+            :placeholder="$t('analysisCategories.nameZhPlaceholder')"
           />
         </el-form-item>
         
-        <el-form-item label="英文名称" prop="name_en">
+        <el-form-item :label="$t('analysisCategories.nameEnLabel')" prop="name_en">
           <el-input
             v-model="formData.name_en"
-            placeholder="请输入英文名称"
+            :placeholder="$t('analysisCategories.nameEnPlaceholder')"
           />
         </el-form-item>
         
-        <el-form-item label="排序顺序" prop="sort_order">
+        <el-form-item :label="$t('analysisCategories.sortOrderLabel')" prop="sort_order">
           <el-input-number
             v-model="formData.sort_order"
             :min="0"
@@ -98,15 +98,15 @@
           />
         </el-form-item>
         
-        <el-form-item label="是否启用" prop="is_active">
+        <el-form-item :label="$t('analysisCategories.isActiveLabel')" prop="is_active">
           <el-switch v-model="formData.is_active" />
         </el-form-item>
       </el-form>
       
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="handleCancel">取消</el-button>
-          <el-button type="primary" @click="handleSubmit">确定</el-button>
+          <el-button class="btn-secondary" @click="handleCancel">{{ $t('shared.cancel') }}</el-button>
+          <el-button class="btn-primary" @click="handleSubmit">{{ $t('shared.confirm') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -117,6 +117,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import api from '../api'
 
 export default {
@@ -126,12 +127,18 @@ export default {
     Plus
   },
   setup() {
+    const { t, locale } = useI18n()
     const loading = ref(false)
     const categories = ref([])
     const searchQuery = ref('')
     const dialogVisible = ref(false)
     const isEdit = ref(false)
     const formRef = ref(null)
+    
+    // 计算当前语言
+    const currentLocale = computed(() => locale.value || 'zh-CN')
+    const isZhCN = computed(() => currentLocale.value === 'zh-CN')
+    const isEnUS = computed(() => currentLocale.value === 'en-US')
     
     const formData = reactive({
       id: null,
@@ -144,17 +151,17 @@ export default {
     
     const formRules = {
       category_key: [
-        { required: true, message: '请输入分类标识', trigger: 'blur' },
-        { pattern: /^[A-Za-z_]+$/, message: '分类标识只能包含字母和下划线', trigger: 'blur' }
+        { required: true, message: t('analysisCategories.validation.categoryKeyRequired'), trigger: 'blur' },
+        { pattern: /^[A-Za-z_]+$/, message: t('analysisCategories.validation.categoryKeyPattern'), trigger: 'blur' }
       ],
       name_zh: [
-        { required: true, message: '请输入中文名称', trigger: 'blur' }
+        { required: true, message: t('analysisCategories.validation.nameZhRequired'), trigger: 'blur' }
       ],
       name_en: [
-        { required: true, message: '请输入英文名称', trigger: 'blur' }
+        { required: true, message: t('analysisCategories.validation.nameEnRequired'), trigger: 'blur' }
       ],
       sort_order: [
-        { required: true, message: '请输入排序顺序', trigger: 'blur' }
+        { required: true, message: t('analysisCategories.validation.sortOrderRequired'), trigger: 'blur' }
       ]
     }
     
@@ -186,7 +193,7 @@ export default {
         }
       } catch (error) {
         console.error('获取分析等级列表失败:', error)
-        ElMessage.error('获取分析等级列表失败')
+        ElMessage.error(t('analysisCategories.fetchFailed'))
       } finally {
         loading.value = false
       }
@@ -216,23 +223,25 @@ export default {
     // 删除
     const handleDelete = async (record) => {
       try {
-        await ElMessageBox.confirm('确定要删除这个分析等级吗？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
+        await ElMessageBox.confirm(t('analysisCategories.deleteConfirm'), t('shared.warning'), {
+          confirmButtonText: t('shared.confirm'),
+          cancelButtonText: t('shared.cancel'),
+          type: 'warning',
+          confirmButtonClass: 'btn-primary-danger',
+          cancelButtonClass: 'btn-secondary'
         })
         
         const response = await api.analysisCategories.delete(record.id)
         if (response.data.success) {
-          ElMessage.success('删除成功')
+          ElMessage.success(t('shared.messages.deleteSuccess'))
           fetchCategories()
         } else {
-          ElMessage.error(response.data.message || '删除失败')
+          ElMessage.error(response.data.message || t('shared.messages.deleteFailed'))
         }
       } catch (error) {
         if (error !== 'cancel') {
           console.error('删除失败:', error)
-          ElMessage.error('删除失败')
+          ElMessage.error(t('shared.messages.deleteFailed'))
         }
       }
     }
@@ -258,11 +267,11 @@ export default {
         }
         
         if (response.data.success) {
-          ElMessage.success(isEdit.value ? '更新成功' : '添加成功')
+          ElMessage.success(isEdit.value ? t('shared.messages.updateSuccess') : t('shared.messages.addSuccess'))
           dialogVisible.value = false
           fetchCategories()
         } else {
-          ElMessage.error(response.data.message || (isEdit.value ? '更新失败' : '添加失败'))
+          ElMessage.error(response.data.message || (isEdit.value ? t('analysisCategories.editFailed') : t('analysisCategories.addFailed')))
         }
       } catch (error) {
         if (error?.message === 'Validation failed') {
@@ -270,7 +279,7 @@ export default {
           return
         }
         console.error('提交失败:', error)
-        ElMessage.error('提交失败')
+        ElMessage.error(t('analysisCategories.submitFailed'))
       }
     }
     
@@ -299,6 +308,10 @@ export default {
     })
     
     return {
+      t,
+      locale: currentLocale,
+      isZhCN,
+      isEnUS,
       loading,
       categories,
       searchQuery,

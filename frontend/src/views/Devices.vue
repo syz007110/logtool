@@ -3,10 +3,10 @@
     <div class="action-bar">
       <div class="search-section">
         <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @keyup.enter="loadDevices" />
-        <el-button @click="loadDevices">{{ $t('common.search') }}</el-button>
+        <el-button @click="loadDevices">{{ $t('shared.search') }}</el-button>
       </div>
       <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:create')">
-        <el-button type="primary" @click="openEdit()">{{ $t('devices.addDevice') }}</el-button>
+        <el-button class="btn-primary" @click="openEdit()">{{ $t('devices.addDevice') }}</el-button>
       </div>
     </div>
 
@@ -16,10 +16,10 @@
         <el-table-column prop="device_model" :label="$t('devices.deviceModel')" width="160" />
         <el-table-column prop="device_key" :label="$t('devices.deviceKey')" width="200" />
         <el-table-column prop="hospital" :label="$t('devices.hospital')" />
-        <el-table-column :label="$t('common.operation')" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
+        <el-table-column :label="$t('shared.operation')" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
           <template #default="{ row }">
-            <el-button size="small" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('common.edit') }}</el-button>
-            <el-button size="small" type="danger" @click="onDelete(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">{{ $t('common.delete') }}</el-button>
+            <el-button size="small" class="btn-text btn-sm" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('shared.edit') }}</el-button>
+            <el-button size="small" class="btn-text-danger btn-sm" @click="onDelete(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">{{ $t('shared.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -53,8 +53,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEdit=false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="save">{{ $t('common.save') }}</el-button>
+        <el-button class="btn-secondary" @click="showEdit=false">{{ $t('shared.cancel') }}</el-button>
+        <el-button class="btn-primary" :loading="saving" @click="save">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

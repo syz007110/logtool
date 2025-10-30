@@ -10,15 +10,15 @@
             :show-file-list="false"
             accept=".bin"
           >
-            <el-button type="primary" icon="Upload">上传二进制文件(.bin)</el-button>
+            <el-button type="primary" icon="Upload">{{ $t('dataReplay.uploadBinaryFile') }}</el-button>
           </el-upload>
-          <el-button :disabled="!fileId" @click="downloadCsv" plain icon="Download">下载CSV</el-button>
+          <el-button :disabled="!fileId" @click="downloadCsv" plain icon="Download">{{ $t('dataReplay.downloadCSV') }}</el-button>
         </div>
         
         <div class="file-info" v-if="fileName">
-          <span class="info-item">文件: {{ fileName }}</span>
-          <span class="info-item">大小: {{ prettySize(fileSize) }}</span>
-          <span class="info-item">总条数: {{ totalEntries }}</span>
+          <span class="info-item">{{ $t('dataReplay.fileLabel') }}: {{ fileName }}</span>
+          <span class="info-item">{{ $t('dataReplay.sizeLabel') }}: {{ prettySize(fileSize) }}</span>
+          <span class="info-item">{{ $t('dataReplay.totalEntriesLabel') }}: {{ totalEntries }}</span>
         </div>
       </div>
     </el-card>
@@ -34,6 +34,7 @@
 <script>
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import * as THREE from 'three'
 import api from '../api'
@@ -41,6 +42,7 @@ import api from '../api'
 export default {
   name: 'DataReplay',
   setup() {
+    const { t } = useI18n()
     const fileId = ref('')
     const fileName = ref('')
     const fileSize = ref(0)
@@ -690,7 +692,7 @@ export default {
       addMouseControls()
     } catch (error) {
       console.error('初始化3D场景失败:', error)
-      ElMessage.error('3D场景初始化失败，请检查浏览器WebGL支持')
+      ElMessage.error(t('dataReplay.threeSceneInitFailed'))
     }
     }
 
@@ -1001,7 +1003,7 @@ export default {
         await fetchPreview(1)
         if (onSuccess) onSuccess(data)
       } catch (err) {
-        ElMessage.error('上传失败')
+        ElMessage.error(t('dataReplay.uploadFailed'))
         if (onError) onError(err)
       }
     }
@@ -1045,7 +1047,7 @@ export default {
         a.click()
         URL.revokeObjectURL(url)
       } catch (e) {
-        ElMessage.error('下载失败')
+        ElMessage.error(t('dataReplay.downloadFailed'))
       }
     }
 

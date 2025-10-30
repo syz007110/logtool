@@ -1,0 +1,34 @@
+{
+  "rolePreset": {
+    "1": "ALL",
+    "2": "FINE",
+    "3": "KEY",
+    "default": "KEY"
+  },
+  "presets": {
+    "ALL": {
+      "excludeKeys": []
+    },
+    "FINE": {
+      "excludeKeys": [
+        "CPU"
+      ]
+    },
+    "KEY": {
+      "excludeKeys": [
+        "Tips",
+        "Null",
+        "Maintenance_Information",
+        "Account_Management",
+        "Instrument",
+        "Safety_Checks",
+        "Communication_Errors",
+        "Hardware",
+        "Power_Supply",
+        "Network",
+        "Ethercat",
+        "Boundary"
+      ]
+    }
+  }
+}

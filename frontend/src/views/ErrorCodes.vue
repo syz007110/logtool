@@ -75,7 +75,7 @@
       >
         <el-table-column prop="subsystem" :label="$t('errorCodes.subsystem')" width="100" />
         <el-table-column prop="code" :label="$t('errorCodes.code')" width="100" />
-        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="180">
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
           <template #default="{ row }">
             <div class="min-w-0">
               <ExplanationCell :text="[row.user_hint, row.operation].filter(Boolean).join(', ')" />
@@ -102,28 +102,26 @@
             <span class="one-line-ellipsis" :title="String(row.param4 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param4 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" width="220" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('shared.operation')" width="220" align="center" v-if="canUpdate || canDelete">
           <template #default="{ row }">
-            <div class="btn-group">
+            <div class="btn-group" style="justify-content: center;">
               <button
                 class="btn-text"
                 @click="handleEdit(row)"
                 v-if="canUpdate"
-                :aria-label="$t('common.edit')"
-                :title="$t('common.edit')"
+                :aria-label="$t('shared.edit')"
+                :title="$t('shared.edit')"
               >
-                <i class="fas fa-edit"></i>
-                {{ $t('common.edit') }}
+                {{ $t('shared.edit') }}
               </button>
               <button
                 class="btn-text-danger"
                 @click="handleDelete(row)"
                 v-if="canDelete"
-                :aria-label="$t('common.delete')"
-                :title="$t('common.delete')"
+                :aria-label="$t('shared.delete')"
+                :title="$t('shared.delete')"
               >
-                <i class="fas fa-trash"></i>
-                {{ $t('common.delete') }}
+                {{ $t('shared.delete') }}
               </button>
             </div>
           </template>
@@ -179,8 +177,8 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('common.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': exportLoading }" :disabled="exportLoading" @click="handleExportCSV">{{ $t('common.export') }}</button>
+          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('shared.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': exportLoading }" :disabled="exportLoading" @click="handleExportCSV">{{ $t('shared.export') }}</button>
         </span>
       </template>
     </el-dialog>
@@ -344,9 +342,9 @@
                 style="width: 100%"
               >
                 <el-option 
-                  v-for="cat in analysisCategories" 
+                  v-for="cat in analysisCategoryOptions" 
                   :key="cat.id" 
-                  :label="cat.name_zh" 
+                  :label="cat.displayName" 
                   :value="cat.id"
                 />
               </el-select>
@@ -406,27 +404,27 @@
         </el-form-item>
         <el-form-item>
           <div class="query-buttons">
-            <button type="button" class="btn-primary" :class="{ 'btn-loading': queryLoading }" :disabled="queryLoading" @click="handleQuery">{{ $t('common.search') }}</button>
-            <button type="button" class="btn-secondary" @click="resetQuery">{{ $t('common.reset') }}</button>
+            <button type="button" class="btn-primary" :class="{ 'btn-loading': queryLoading }" :disabled="queryLoading" @click="handleQuery">{{ $t('shared.search') }}</button>
+            <button type="button" class="btn-secondary" @click="resetQuery">{{ $t('shared.reset') }}</button>
           </div>
         </el-form-item>
       </el-form>
 
       <el-card v-if="queryResult" class="mt-2">
-        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.resultInfo')">
+        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.resultInfo')" label-width="140px">
           <el-descriptions-item :label="$t('errorCodes.queryResult.explanation')">
             {{ buildPrefixedExplanation(queryResult, foundRecord) }}
           </el-descriptions-item>
         </el-descriptions>
         <el-divider />
-        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.paramMeanings')">
+        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.paramMeanings')" label-width="140px">
           <el-descriptions-item :label="$t('errorCodes.formLabels.param1')">{{ foundRecord?.param1 || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.formLabels.param2')">{{ foundRecord?.param2 || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.formLabels.param3')">{{ foundRecord?.param3 || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.formLabels.param4')">{{ foundRecord?.param4 || '-' }}</el-descriptions-item>
         </el-descriptions>
         <el-divider />
-        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.moreInfo')">
+        <el-descriptions :column="1" border :title="$t('errorCodes.queryResult.moreInfo')" label-width="140px">
           <el-descriptions-item :label="$t('errorCodes.queryResult.detail')">{{ foundRecord?.detail || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.queryResult.method')">{{ foundRecord?.method || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.queryResult.techSolution')">{{ foundRecord?.tech_solution || '-' }}</el-descriptions-item>
@@ -436,7 +434,7 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showQueryDialog = false">{{ $t('common.cancel') }}</button>
+          <button class="btn-secondary" @click="showQueryDialog = false">{{ $t('shared.cancel') }}</button>
         </span>
       </template>
     </el-dialog>
@@ -515,7 +513,7 @@ export default {
   },
   setup() {
     const store = useStore()
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     
     // 响应式数据
     const loading = ref(false)
@@ -538,6 +536,23 @@ export default {
     const booleanOptions = ref([])
     const selectedExportLangs = ref([])
     const exportFormat = ref('csv')
+    
+    // 计算当前语言
+    const currentLocale = computed(() => locale.value || 'zh-CN')
+    
+    // 根据当前语言获取分析分类的显示名称
+    const getCategoryDisplayName = (cat) => {
+      if (!cat) return ''
+      return currentLocale.value === 'zh-CN' ? (cat.name_zh || cat.name_en) : (cat.name_en || cat.name_zh)
+    }
+    
+    // 计算属性：生成带有多语言名称的分析分类选项
+    const analysisCategoryOptions = computed(() => {
+      return analysisCategories.value.map(cat => ({
+        ...cat,
+        displayName: getCategoryDisplayName(cat)
+      }))
+    })
     const languageOptions = [
       { label: t('shared.languageOptions.zh'), value: 'zh' },
       { label: t('shared.languageOptions.en'), value: 'en' },
@@ -981,10 +996,10 @@ export default {
       try {
         await ElMessageBox.confirm(
           t('errorCodes.message.deleteConfirm', { code: row.code }),
-          t('errorCodes.message.deleteConfirmTitle'),
+          t('shared.messages.deleteConfirmTitle'),
           {
-            confirmButtonText: t('common.confirm'),
-            cancelButtonText: t('common.cancel'),
+            confirmButtonText: t('shared.confirm'),
+            cancelButtonText: t('shared.cancel'),
             type: 'warning',
             confirmButtonClass: 'btn-primary-danger',
             cancelButtonClass: 'btn-secondary'
@@ -992,11 +1007,11 @@ export default {
         )
         
         await store.dispatch('errorCodes/deleteErrorCode', row.id)
-        ElMessage.success(t('errorCodes.message.deleteSuccess'))
+        ElMessage.success(t('shared.messages.deleteSuccess'))
         loadErrorCodes()
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error(t('errorCodes.message.deleteFailed'))
+          ElMessage.error(t('shared.messages.deleteFailed'))
         }
       }
     }
@@ -1263,6 +1278,7 @@ export default {
        canUpdate,
        canDelete,
        analysisCategories,
+       analysisCategoryOptions,
        booleanOptions,
       exportLoading,
       showExportDialog,
@@ -1289,6 +1305,7 @@ export default {
        handleCodeChange,
        getSolutionDisplay,
        buildPrefixedExplanation,
+       getCategoryDisplayName,
        handleQuery,
        resetQuery,
        handleBooleanOptionsChange,

@@ -69,7 +69,7 @@
           >
             <!-- 导出按钮 -->
             <div class="export-section">
-              <el-button type="primary" @click="exportSurgeryData(surgery.id)">
+              <el-button class="btn-primary" @click="exportSurgeryData(surgery.id)">
                 <el-icon><Download /></el-icon>
                 {{ $t('surgeryStatistics.exportStructuredData') }}
               </el-button>
@@ -116,7 +116,7 @@
                         @click="togglePostgreSQLPreview(surgery.id)"
                         style="padding: 0; margin-left: 8px;"
                       >
-                        {{ postgresqlPreviewVisible[surgery.id] ? $t('common.collapse') : $t('common.expand') }}
+                        {{ postgresqlPreviewVisible[surgery.id] ? $t('shared.collapse') : $t('shared.expand') }}
                       </el-button>
                     </div>
                     
@@ -137,7 +137,7 @@
                           :loading="copyingData[surgery.id]"
                         >
                           <el-icon><Document /></el-icon>
-                          {{ $t('common.copy') }}
+                          {{ $t('shared.copy') }}
                         </el-button>
                         <el-button 
                           type="success" 
@@ -191,7 +191,7 @@
               <template #header>
                 <div class="card-header">
                   <span>{{ $t('surgeryStatistics.statsTitle') }}</span>
-                  <el-tag type="info">{{ $t('surgeryStatistics.totalDuration') }}: {{ surgery.total_duration }} {{ $t('common.minutes') }}</el-tag>
+                  <el-tag type="info">{{ $t('surgeryStatistics.totalDuration') }}: {{ surgery.total_duration }} {{ $t('shared.minutes') }}</el-tag>
                 </div>
               </template>
 
@@ -200,7 +200,7 @@
                 <!-- 手术时长进度条 -->
                 <div class="surgery-progress-container">
                   <div class="surgery-duration-info">
-                    <span class="duration-text">{{ $t('surgeryStatistics.durationLabel') }}：{{ surgery.total_duration }} {{ $t('common.minutes') }}</span>
+                    <span class="duration-text">{{ $t('surgeryStatistics.durationLabel') }}：{{ surgery.total_duration }} {{ $t('shared.minutes') }}</span>
                     <span class="time-range">{{ $t('surgeryStatistics.timeRangeLabel') }}：{{ formatTime(surgery.surgery_start_time) }} - {{ formatTime(surgery.surgery_end_time) }}</span>
                   </div>
                   <div class="surgery-timeline-wrapper">
@@ -241,7 +241,7 @@
                           @click="toggleArmDetails(surgery.id, index)"
                         >
                           <el-icon><ArrowDown /></el-icon>
-                          {{ $t('common.details') }}
+                          {{ $t('shared.details') }}
                         </el-button>
                       </div>
                     </div>
@@ -299,7 +299,7 @@
                                 :style="getUsageTimelineStyle(usage, surgery)"
                               >
                                 <el-tooltip 
-                                  :content="`${$t('surgeryStatistics.instrument')}: ${usage.instrumentName}\n${$t('surgeryStatistics.time')}: ${formatTime(usage.startTime)} - ${formatTime(usage.endTime)}\n${$t('surgeryStatistics.duration')}: ${Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)} ${$t('common.minutes')}`"
+                                  :content="`${$t('surgeryStatistics.instrument')}: ${usage.instrumentName}\n${$t('surgeryStatistics.time')}: ${formatTime(usage.startTime)} - ${formatTime(usage.endTime)}\n${$t('surgeryStatistics.duration')}: ${Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)} ${$t('shared.minutes')}`"
                                   placement="top"
                                   :show-arrow="true"
                                   :popper-class="'usage-time-tooltip'"
@@ -348,7 +348,7 @@
                 </el-table-column>
                 <el-table-column prop="code" :label="$t('errorCodes.code')" width="120">
                   <template #default="{ row }">
-                    {{ row.code || row.error_code || $t('common.noData') }}
+                    {{ row.code || row.error_code || $t('shared.noData') }}
                   </template>
                 </el-table-column>
                 <el-table-column prop="message" :label="$t('surgeryStatistics.alertMessage')" />
@@ -372,7 +372,7 @@
                     <ArrowDown v-if="!showAllAlarms[surgery.id]" />
                     <ArrowUp v-else />
                   </el-icon>
-                  {{ showAllAlarms[surgery.id] ? $t('common.collapse') : $t('surgeryStatistics.expandMore', { count: getAlarmDetails(surgery).length - 5 }) }}
+                  {{ showAllAlarms[surgery.id] ? $t('shared.collapse') : $t('surgeryStatistics.expandMore', { count: getAlarmDetails(surgery).length - 5 }) }}
                 </el-button>
               </div>
               

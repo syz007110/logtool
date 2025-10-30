@@ -156,6 +156,14 @@ const routes = [
         component: () => import('../views/MonitoringDashboard.vue'),
         meta: { requiresPermission: 'system:monitor' }
       }
+      ,
+      {
+        path: 'surgeries',
+        name: 'Surgeries',
+        component: () => import('../views/Surgeries.vue'),
+        // 允许拥有全部或仅本人可读权限的用户访问
+        meta: { requiresPermission: ['surgery:read', 'surgery:read_own'] }
+      }
 
     ]
   }

@@ -2,6 +2,7 @@ const { Op, Sequelize } = require('sequelize');
 const Surgery = require('../models/surgery');
 const LogEntry = require('../models/log_entry');
 const Log = require('../models/log');
+const Device = require('../models/device');
 
 // 列表：支持 device_id 模糊筛选与分页
 exports.listSurgeries = async (req, res) => {
@@ -23,6 +24,28 @@ exports.listSurgeries = async (req, res) => {
       limit: limitNum,
       offset
     });
+
+    // 附带医院名称（仅基于 surgery.device_ids 与设备表关联，不额外要求设备权限）
+    try {
+      // 收集所有出现的设备编号
+      const allDeviceIds = Array.from(new Set((rows || []).flatMap(r => Array.isArray(r.device_ids) ? r.device_ids : []).filter(Boolean)));
+      let deviceIdToHospital = new Map();
+      if (allDeviceIds.length > 0) {
+        const devices = await Device.findAll({ where: { device_id: { [Op.in]: allDeviceIds } }, attributes: ['device_id', 'hospital'] });
+        deviceIdToHospital = new Map(devices.map(d => [d.device_id, d.hospital || null]));
+      }
+
+      // 为每条手术记录附加 hospital_names（数组）与 hospital_name（首个非空）
+      rows.forEach(r => {
+        const ids = Array.isArray(r.device_ids) ? r.device_ids : [];
+        const hospitals = ids.map(id => deviceIdToHospital.get(id) || null).filter(h => h);
+        // 注意：直接修改实例不会丢失字段；返回时序列化为JSON
+        r.setDataValue('hospital_names', hospitals);
+        r.setDataValue('hospital_name', hospitals.length > 0 ? hospitals[0] : null);
+      });
+    } catch (e) {
+      // 附加失败不影响主体数据
+    }
 
     res.json({ success: true, data: rows, total: count, page: pageNum, limit: limitNum });
   } catch (error) {

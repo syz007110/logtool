@@ -60,8 +60,8 @@
           <a-menu-item v-if="$store.getters['auth/hasPermission']('data_replay:manage')" key="/dashboard/data-replay">
             <span>{{ $t('dataReplay.title') }}</span>
           </a-menu-item>
-          <a-menu-item key="/dashboard/surgery-analysis" disabled>
-            <span>{{ $t('surgeryData.placeholder') }}</span>
+          <a-menu-item v-if="$store.getters['auth/hasPermission']('surgery:read') || $store.getters['auth/hasPermission']('surgery:read_own')" key="/dashboard/surgeries">
+            <span>{{ $t('logs.surgeryData') }}</span>
           </a-menu-item>
         </a-sub-menu>
         
@@ -137,7 +137,7 @@
               <MenuFoldOutlined v-else />
             </template>
           </a-button>
-          <h3 class="page-title">{{ $t(getPageTitleKey) }}</h3>
+          <h3 class="page-title">{{ pageTitle }}</h3>
         </div>
         
         <div class="header-right">
@@ -190,6 +190,7 @@
 <script>
 import { computed, ref, watch } from 'vue'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
+import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { Modal } from 'ant-design-vue'
@@ -246,6 +247,7 @@ export default {
     const store = useStore()
     const router = useRouter()
     const route = useRoute()
+    const { t } = useI18n()
     // i18n helpers
     const { getCurrentLocale, loadLocaleMessages } = require('../i18n')
     
@@ -260,7 +262,7 @@ export default {
       if (path.includes('/error-codes') || path.includes('/i18n-error-codes') || path.includes('/analysis-categories')) {
         return ['data-management']
       }
-      if (path.includes('/logs') || path.includes('/data-replay')) {
+      if (path.includes('/logs') || path.includes('/data-replay') || path.includes('/surgeries')) {
         return ['log-analysis']
       }
       if (path.includes('/users') || path.includes('/roles') || path.includes('/devices') || path.includes('/history') || path.includes('/monitoring')) {
@@ -310,6 +312,7 @@ export default {
         Devices: 'devices.title',
         Feedback: 'feedback.title',
         DataReplay: 'dataReplay.title',
+        Surgeries: 'logs.surgeryData',
         Account: 'account.title',
         History: 'history.title',
         Users: 'users.title',
@@ -321,15 +324,19 @@ export default {
       return nameMap[route.name] || 'nav.dashboard'
     })
     
+    const pageTitle = computed(() => {
+      return t(getPageTitleKey.value)
+    })
+    
     const handleUserCommand = async ({ key }) => {
       console.log('用户菜单点击:', key) // 添加调试信息
       if (key === 'logout') {
         try {
           await Modal.confirm({
-            title: '提示',
-            content: '确定要退出登录吗？',
-            okText: '确定',
-            cancelText: '取消',
+            title: t('shared.info'),
+            content: t('shared.messages.confirmLogout'),
+            okText: t('shared.confirm'),
+            cancelText: t('shared.cancel'),
             onOk: () => {
               store.dispatch('auth/logout')
               router.push('/login')
@@ -363,6 +370,7 @@ export default {
       onOpenKeys,
       currentUser,
       getPageTitleKey,
+      pageTitle,
       handleUserCommand,
       handleLanguageChange,
       currentLocaleLabel,

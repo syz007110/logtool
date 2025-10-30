@@ -1,8 +1,8 @@
 {
   "apiBaseUrl": "http://localhost:3000/api",
   "clientId": "a1f30dc6-a8b3-4357-88d3-db855a810fd4",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MTU0MzI1MiwiZXhwIjoxNzYxNTg2NDUyfQ.3D7kyejN5c07MtOSs58Fag-A7Ff82vGw3T8eOKirNcI",
-  "tokenExpiresAt": "2025-10-27T17:34:12.000Z",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MTgwMjE2OSwiZXhwIjoxNzYxODQ1MzY5fQ.i5QIalphaWMCa3aiSR3X_Jo7WKhqf7FjIoK7fz9ZI2U",
+  "tokenExpiresAt": "2025-10-30T17:29:29.000Z",
   "username": "admin",
   "password": "admin123",
   "autoLogin": true,

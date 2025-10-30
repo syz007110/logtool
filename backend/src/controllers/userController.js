@@ -37,7 +37,7 @@ const getUsers = async (req, res) => {
     }));
     res.json({ users: result, total: result.length });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 
@@ -57,8 +57,8 @@ const createUser = async (req, res) => {
     // 记录操作日志
     try {
       await logOperation({
-        operation: '添加用户',
-        description: `添加用户: ${username}`,
+        operation: req.t('user.operations.create'),
+        description: req.t('user.operations.createDescription', { username }),
         user_id: req.user?.id,
         username: req.user?.username,
         ip: req.ip,
@@ -66,11 +66,11 @@ const createUser = async (req, res) => {
         details: { username, email, roles }
       });
     } catch (logErr) {
-      console.error('操作日志记录失败:', logErr);
+      console.error(req.t('user.operations.logFailed'), logErr);
     }
-    res.status(201).json({ message: req.t('common.created'), user: { id: user.id, username: user.username, email: user.email } });
+    res.status(201).json({ message: req.t('shared.created'), user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 
@@ -80,7 +80,7 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const { email, is_active, roles, password, oldPassword } = req.body;
     const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: req.t('common.notFound') });
+    if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
     await user.update({ email, is_active });
     // 密码修改逻辑
     if (password) {
@@ -103,8 +103,8 @@ const updateUser = async (req, res) => {
     // 记录操作日志
     try {
       await logOperation({
-        operation: '修改用户',
-        description: `修改用户: ${user.username}`,
+        operation: req.t('user.operations.update'),
+        description: req.t('user.operations.updateDescription', { username: user.username }),
         user_id: req.user?.id,
         username: req.user?.username,
         ip: req.ip,
@@ -112,11 +112,11 @@ const updateUser = async (req, res) => {
         details: { id, email, is_active, roles }
       });
     } catch (logErr) {
-      console.error('操作日志记录失败:', logErr);
+      console.error(req.t('user.operations.logFailed'), logErr);
     }
-    res.json({ message: req.t('common.updated') });
+    res.json({ message: req.t('shared.updated') });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 
@@ -125,13 +125,13 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: req.t('common.notFound') });
+    if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
     await user.destroy();
     // 记录操作日志
     try {
       await logOperation({
-        operation: '删除用户',
-        description: `删除用户: ${user.username}`,
+        operation: req.t('user.operations.delete'),
+        description: req.t('user.operations.deleteDescription', { username: user.username }),
         user_id: req.user?.id,
         username: req.user?.username,
         ip: req.ip,
@@ -139,11 +139,11 @@ const deleteUser = async (req, res) => {
         details: { id, username: user.username }
       });
     } catch (logErr) {
-      console.error('操作日志记录失败:', logErr);
+      console.error(req.t('user.operations.logFailed'), logErr);
     }
-    res.json({ message: req.t('common.deleted') });
+    res.json({ message: req.t('shared.deleted') });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.deleteFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.deleteFailed'), error: err.message });
   }
 };
 
@@ -154,7 +154,7 @@ const getUserRoles = async (req, res) => {
     const roles = await UserRole.findAll({ where: { user_id: id } });
     res.json({ roles });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 

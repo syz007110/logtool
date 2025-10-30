@@ -2,7 +2,7 @@
   <div class="roles-container">
     <!-- 操作栏 -->
     <div class="action-bar">
-      <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('role:create')">
+      <el-button class="btn-primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('role:create')">
         <el-icon><Plus /></el-icon>
         {{ $t('roles.addRole') }}
       </el-button>
@@ -20,14 +20,15 @@
         <el-table-column prop="userCount" :label="$t('roles.userCount')" width="120" />
         <el-table-column prop="description" :label="$t('roles.description')" show-overflow-tooltip />
         <!-- 移除权限列 -->
-        <el-table-column :label="$t('common.operation')" width="180" fixed="right">
+        <el-table-column :label="$t('shared.operation')" width="180" fixed="right">
           <template #default="{ row }">
             <el-button 
               size="small" 
+              class="btn-text btn-sm"
               @click="handleEdit(row)"
               v-if="$store.getters['auth/hasPermission']('role:update')"
             >
-              {{ $t('common.edit') }}
+              {{ $t('shared.edit') }}
             </el-button>
             <template v-if="$store.getters['auth/hasPermission']('role:delete')">
               <el-tooltip
@@ -38,20 +39,20 @@
                 <span>
                   <el-button 
                     size="small" 
-                    type="danger" 
+                    class="btn-text-danger btn-sm"
                     :disabled="true"
                   >
-                    {{ $t('common.delete') }}
+                    {{ $t('shared.delete') }}
                   </el-button>
                 </span>
               </el-tooltip>
               <el-button 
                 v-else
                 size="small" 
-                type="danger" 
+                class="btn-text-danger btn-sm"
                 @click="handleDelete(row)"
               >
-                {{ $t('common.delete') }}
+                {{ $t('shared.delete') }}
               </el-button>
             </template>
           </template>
@@ -113,9 +114,9 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showAddDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleSave" :loading="saving">
-          {{ $t('common.save') }}
+        <el-button class="btn-secondary" @click="showAddDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button class="btn-primary" @click="handleSave" :loading="saving">
+          {{ $t('shared.save') }}
         </el-button>
       </template>
     </el-dialog>
@@ -310,17 +311,19 @@ export default {
     
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm($t('roles.deleteConfirmText'), $t('roles.deleteConfirmTitle'), {
-          confirmButtonText: $t('common.confirm'),
-          cancelButtonText: $t('common.cancel'),
+        await ElMessageBox.confirm(t('roles.deleteConfirmText'), t('roles.deleteConfirmTitle'), {
+          confirmButtonText: t('shared.confirm'),
+          cancelButtonText: t('shared.cancel'),
           type: 'warning'
         })
         await store.dispatch('users/deleteRole', row.id)
-        ElMessage.success(t('roles.deleteSuccess'))
+        ElMessage.success(t('shared.messages.deleteSuccess'))
         loadRoles()
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error(t('roles.deleteFailed'))
+          const errorMessage = error?.response?.data?.message || error?.message || t('shared.messages.deleteFailed')
+          ElMessage.error(errorMessage)
+          console.error('删除角色失败:', error)
         }
       }
     }
@@ -336,16 +339,16 @@ export default {
             id: editingRole.value.id,
             data: roleForm
           })
-          ElMessage.success(t('roles.updateSuccess'))
+          ElMessage.success(t('shared.messages.updateSuccess'))
         } else {
           await store.dispatch('users/createRole', roleForm)
-          ElMessage.success(t('roles.createSuccess'))
+          ElMessage.success(t('shared.messages.createSuccess'))
         }
         showAddDialog.value = false
         resetForm()
         loadRoles()
       } catch (error) {
-        ElMessage.error(t('roles.saveFailed'))
+        ElMessage.error(t('shared.messages.saveFailed'))
       } finally {
         saving.value = false
       }

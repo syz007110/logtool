@@ -3,7 +3,7 @@
     <el-card class="analysis-card">
         <div class="card-header">
           <div class="header-left">
-            <span class="title">日志分析</span>
+            <span class="title">{{ $t('analysis.title') }}</span>
             <el-tag v-if="logInfo.original_name" type="info" size="small">
               {{ logInfo.original_name }}
             </el-tag>
@@ -12,21 +12,19 @@
             <el-button 
               v-if="!loading && logEntries.length > 0" 
               @click="exportToCSV" 
-              type="success" 
-              size="small"
+              class="btn-success btn-sm"
             >
               <el-icon><Download /></el-icon>
-              导出CSV
+              {{ $t('analysis.exportCSV') }}
             </el-button>
             <el-button 
               v-if="!loading && logEntries.length > 0" 
               @click="showSurgeryStatistics" 
-              type="primary" 
-              size="small" 
+              class="btn-primary btn-sm"
               style="margin-left: 10px;"
             >
               <el-icon><DataAnalysis /></el-icon>
-              手术分析
+              {{ $t('analysis.surgeryAnalysis') }}
             </el-button>
           </div>
         </div>
@@ -34,22 +32,22 @@
       <!-- 日志基本信息 -->
       <div class="log-info" v-if="logInfo.id">
         <el-descriptions :column="4" border size="small">
-          <el-descriptions-item label="文件名" :label-style="{ width: '100px' }" :content-style="{ width: '100px' }">
+          <el-descriptions-item :label="$t('analysis.filename')" :label-style="{ width: '100px' }" :content-style="{ width: '100px' }">
             <el-tag v-if="logInfo.original_name" size="small">
             {{ logInfo.original_name }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="设备编号">
+          <el-descriptions-item :label="$t('analysis.deviceId')">
             <el-tag v-if="logInfo.device_id" size="small">
               {{ logInfo.device_id }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="文件大小">
+          <el-descriptions-item :label="$t('analysis.fileSize')">
             <el-tag v-if="logInfo.size" size="small">
               {{ formatFileSize(logInfo.size) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="上传用户ID">
+          <el-descriptions-item :label="$t('analysis.uploaderId')">
             <el-tag v-if="logInfo.uploader_id" size="small">
               {{ logInfo.uploader_id }}
             </el-tag>
@@ -91,32 +89,31 @@
         <el-button 
           v-if="timeRangeLimit" 
           @click="setFullTimeRange" 
-          type="primary" 
-          size="small"
+          class="btn-primary btn-sm"
           style="margin-left: 10px;"
         >
-          选择全部时间
+          {{ $t('shared.selectAll') }}
         </el-button>
         
-        <el-button @click="clearFilters" type="info" size="small">
-          清除筛选
+        <el-button @click="clearFilters" class="btn-secondary btn-sm">
+          {{ $t('analysis.clearFilters') }}
         </el-button>
       </div>
 
       <!-- 日志条目表格 -->
       <div class="entries-section">
         <div class="section-header">
-          <h3>日志条目 ({{ filteredEntries.length }})</h3>
+          <h3>{{ $t('analysis.logEntries') }} ({{ filteredEntries.length }})</h3>
         </div>
 
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-section">
-          <el-empty description="正在加载日志数据..." />
+          <el-empty :description="$t('analysis.loading')" />
         </div>
 
         <!-- 错误状态 -->
         <div v-else-if="logEntries.length === 0" class="error-section">
-          <el-empty description="未找到日志条目" />
+          <el-empty :description="$t('analysis.noData')" />
         </div>
 
         <!-- 数据表格 -->
@@ -128,17 +125,17 @@
             height="calc(100vh - 350px)"
             stripe
           >
-            <el-table-column prop="timestamp" label="时间戳" width="180" sortable>
+            <el-table-column prop="timestamp" :label="$t('analysis.timestamp')" width="180" sortable>
               <template #default="{ row }">
                 {{ formatTimestamp(row.timestamp) }}
               </template>
             </el-table-column>
-            <el-table-column prop="error_code" label="故障码" width="120" sortable />
-            <el-table-column prop="param1" label="参数1" width="100" />
-            <el-table-column prop="param2" label="参数2" width="100" />
-            <el-table-column prop="param3" label="参数3" width="100" />
-            <el-table-column prop="param4" label="参数4" width="100" />
-            <el-table-column prop="explanation" label="释义" min-width="300" show-overflow-tooltip />
+            <el-table-column prop="error_code" :label="$t('analysis.errorCode')" width="120" sortable />
+            <el-table-column prop="param1" :label="$t('analysis.param1')" width="100" />
+            <el-table-column prop="param2" :label="$t('analysis.param2')" width="100" />
+            <el-table-column prop="param3" :label="$t('analysis.param3')" width="100" />
+            <el-table-column prop="param4" :label="$t('analysis.param4')" width="100" />
+            <el-table-column prop="explanation" :label="$t('analysis.explanation')" min-width="300" show-overflow-tooltip />
           </el-table>
         </div>
 
@@ -173,8 +170,8 @@
               <el-icon><DataAnalysis /></el-icon>
               <h3>分析当前日志的手术数据</h3>
               <p>将对当前日志文件进行手术统计分析</p>
-              <el-button type="primary" @click="analyzeSurgeryData" :loading="analyzing">
-                开始分析
+              <el-button class="btn-primary" @click="analyzeSurgeryData" :loading="analyzing">
+                {{ $t('analysis.analyzeSurgeryData') }}
               </el-button>
             </div>
           </el-card>
@@ -189,11 +186,11 @@
               sub-title="已成功分析出手术数据，详细统计信息请查看手术统计页面"
             >
               <template #extra>
-                <el-button type="primary" @click="showSurgeryStatistics">
-                  查看详细统计
+                <el-button class="btn-primary" @click="showSurgeryStatistics">
+                  {{ $t('analysis.surgeryStatistics') }}
                 </el-button>
-                <el-button @click="surgeryStatisticsVisible = false">
-                  关闭
+                <el-button class="btn-secondary" @click="surgeryStatisticsVisible = false">
+                  {{ $t('analysis.close') }}
                 </el-button>
               </template>
             </el-result>
@@ -214,6 +211,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Download, ArrowLeft, DataAnalysis } from '@element-plus/icons-vue'
 import api from '@/api'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Analysis',
@@ -227,6 +225,7 @@ export default {
     const store = useStore()
     const route = useRoute()
     const router = useRouter()
+    const { t } = useI18n()
     
     const logId = route.params.id
     const loading = ref(false)

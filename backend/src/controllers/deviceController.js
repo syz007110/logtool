@@ -62,7 +62,7 @@ const createDevice = async (req, res) => {
       console.warn('记录操作日志失败（创建设备）:', logErr.message);
     }
 
-    res.json({ device: record, message: req.t('common.created') });
+    res.json({ device: record, message: req.t('shared.created') });
   } catch (e) {
     res.status(500).json({ message: req.t('device.createFailed'), error: e.message });
   }
@@ -109,7 +109,7 @@ const updateDevice = async (req, res) => {
       console.warn('记录操作日志失败（更新设备）:', logErr.message);
     }
 
-    res.json({ device, message: req.t('common.updated') });
+    res.json({ device, message: req.t('shared.updated') });
   } catch (e) {
     res.status(500).json({ message: req.t('device.updateFailed'), error: e.message });
   }
@@ -139,7 +139,7 @@ const deleteDevice = async (req, res) => {
       console.warn('记录操作日志失败（删除设备）:', logErr.message);
     }
 
-    res.json({ success: true, message: req.t('common.deleted') });
+    res.json({ success: true, message: req.t('shared.deleted') });
   } catch (e) {
     res.status(500).json({ message: req.t('device.deleteFailed'), error: e.message });
   }
@@ -153,7 +153,7 @@ const findByKey = async (req, res) => {
     const device = await Device.findOne({ where: { device_key: key } });
     res.json({ device_id: device ? device.device_id : null });
   } catch (e) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: e.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: e.message });
   }
 };
 
@@ -164,7 +164,7 @@ const findKeyByDeviceId = async (req, res) => {
     const device = await Device.findOne({ where: { device_id } });
     res.json({ key: device ? device.device_key : null });
   } catch (e) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: e.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: e.message });
   }
 };
 

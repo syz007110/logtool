@@ -4,7 +4,7 @@
     <div class="page-header">
       <div class="header-actions">
         <el-button 
-          type="primary" 
+          class="btn-primary" 
           :icon="Refresh" 
           @click="refreshData"
           :loading="loading"
@@ -12,7 +12,7 @@
           {{ $t('monitoring.refresh') }}
         </el-button>
         <el-button 
-          type="success" 
+          class="btn-success" 
           :icon="Setting" 
           @click="showSettings = true"
         >
@@ -178,7 +178,7 @@
             <div class="stats-header">
               <span>{{ $t('monitoring.queueList') }}</span>
             </div>
-            <el-table :data="queueRows" border style="width: 100%" size="small" :empty-text="loading ? $t('common.loading') : $t('common.noData')">
+            <el-table :data="queueRows" border style="width: 100%" size="small" :empty-text="loading ? $t('shared.loading') : $t('shared.noData')">
               <el-table-column prop="type" :label="$t('monitoring.queueType')" min-width="180" />
               <el-table-column :label="$t('monitoring.queueConsumers')" min-width="220">
           <template #default="{ row }">
@@ -279,8 +279,8 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showSettings = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="saveAlertSettings">{{ $t('common.save') }}</el-button>
+        <el-button class="btn-secondary" @click="showSettings = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button class="btn-primary" @click="saveAlertSettings">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

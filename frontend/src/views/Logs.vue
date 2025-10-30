@@ -6,29 +6,27 @@
         <div class="card-header">
           <span>{{ $t('logs.title') }}</span>
           <div class="header-actions">
-            <!-- 重置按钮 -->
-            <div class="header-section reset-section">
-              <button class="btn-tertiary btn-sm" @click="resetAllFilters">
-                <i class="fas fa-undo"></i>
-                {{ $t('common.reset') }}
-              </button>
-            </div>
-
-            <!-- 刷新按钮 -->
-            <div class="header-section refresh-section">
-              <button class="btn-ghost btn-sm" @click="loadDeviceGroups">
-                <i class="fas fa-sync-alt"></i>
-                {{ $t('common.refresh') }}
-              </button>
-            </div>
-            
-
-
-            <!-- 日志上传按钮 -->
+            <!-- 日志上传按钮 - 主要按钮 -->
             <div class="header-section upload-section" v-if="$store.getters['auth/hasPermission']('log:upload')">
               <button class="btn-primary btn-sm" @click="showNormalUpload">
                 <i class="fas fa-upload"></i>
                 {{ $t('logs.upload') }}
+              </button>
+            </div>
+
+            <!-- 重置按钮 - 次要按钮 -->
+            <div class="header-section reset-section">
+              <button class="btn-secondary btn-sm" @click="resetAllFilters">
+                <i class="fas fa-undo"></i>
+                {{ $t('shared.reset') }}
+              </button>
+            </div>
+
+            <!-- 刷新按钮 - 次要按钮 -->
+            <div class="header-section refresh-section">
+              <button class="btn-secondary btn-sm" @click="loadDeviceGroups">
+                <i class="fas fa-sync-alt"></i>
+                {{ $t('shared.refresh') }}
               </button>
             </div>
           </div>
@@ -65,8 +63,8 @@
                     </template>
                   </el-input>
                   <div class="filter-actions">
-                    <el-button size="small" type="primary" @click="applyDeviceFilter">{{ $t('common.search') }}</el-button>
-                    <el-button size="small" @click="resetDeviceFilter">{{ $t('common.reset') }}</el-button>
+                    <el-button size="small" class="btn-primary btn-sm" @click="applyDeviceFilter">{{ $t('shared.search') }}</el-button>
+                    <el-button size="small" class="btn-secondary btn-sm" @click="resetDeviceFilter">{{ $t('shared.reset') }}</el-button>
                   </div>
                 </div>
                 <template #reference>
@@ -103,29 +101,21 @@
             {{ formatDate(row.latest_update_time) }}
           </template>
         </el-table-column>
-                 <el-table-column :label="$t('common.operation')" width="300" fixed="right">
+                 <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="center">
            <template #default="{ row }">
              <div class="btn-group">
-               <button class="btn-primary btn-sm" @click="showDeviceDetail(row)">
+               <button class="btn-text btn-sm" @click="showDeviceDetail(row)">
                  <i class="fas fa-list"></i>
                {{ $t('logs.detail') }}
                </button>
              
                <button 
                v-if="false"
-                 class="btn-tertiary btn-sm"
+                 class="btn-text btn-sm"
                @click="uploadDataForDevice(row)"
              >
                  <i class="fas fa-upload"></i>
                {{ $t('logs.uploadData') }}
-               </button>
-             
-               <button 
-                 class="btn-secondary btn-sm"
-               @click="openSurgeryDrawerForDevice(row)"
-             >
-                 <i class="fas fa-chart-line"></i>
-               {{ $t('logs.surgeryData') }}
                </button>
              </div>
            </template>
@@ -196,19 +186,19 @@
                 />
               </div>
               
-              <!-- 重置按钮 -->
+              <!-- 重置按钮 - 次要按钮 -->
               <div class="reset-section">
-                <button class="btn-tertiary btn-sm" @click="resetDetailFilters">
+                <button class="btn-secondary btn-sm" @click="resetDetailFilters">
                   <i class="fas fa-undo"></i>
-                  {{ $t('common.reset') }}
+                  {{ $t('shared.reset') }}
                 </button>
               </div>
 
-              <!-- 刷新按钮 -->
+              <!-- 刷新按钮 - 次要按钮 -->
               <div class="refresh-section">
-                <button class="btn-ghost btn-sm" @click="loadDetailLogs">
+                <button class="btn-secondary btn-sm" @click="loadDetailLogs">
                   <i class="fas fa-sync-alt"></i>
-                  {{ $t('common.refresh') }}
+                  {{ $t('shared.refresh') }}
                 </button>
               </div>
             </div>
@@ -233,7 +223,7 @@
                     {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
                 </button>
                 <button 
-                  class="btn-tertiary btn-sm" 
+                  class="btn-secondary btn-sm" 
                   @click="handleBatchDownload"
                   :disabled="!canBatchDownload"
                   :title="incompleteLogsMessage"
@@ -242,7 +232,7 @@
                     {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
                 </button>
                 <button 
-                  class="btn-danger btn-sm" 
+                  class="btn-secondary btn-sm" 
                   @click="handleBatchDelete"
                   :disabled="!canBatchDelete"
                   :title="incompleteLogsMessage"
@@ -312,8 +302,8 @@
                     </template>
                   </el-input>
                   <div class="filter-actions">
-                        <el-button size="small" type="primary" @click="applyDetailNameFilter">{{ $t('common.search') }}</el-button>
-                        <el-button size="small" @click="resetDetailNameFilter">{{ $t('common.reset') }}</el-button>
+                        <el-button size="small" class="btn-primary btn-sm" @click="applyDetailNameFilter">{{ $t('shared.search') }}</el-button>
+                        <el-button size="small" class="btn-secondary btn-sm" @click="resetDetailNameFilter">{{ $t('shared.reset') }}</el-button>
                   </div>
                 </div>
                 <template #reference>
@@ -323,14 +313,14 @@
             </div>
           </template>
         </el-table-column>
-            <el-table-column prop="uploader_id" :label="$t('logs.uploaderId')" width="120" />
-        <el-table-column prop="upload_time" :label="$t('logs.uploadTime')" width="160">
+            <el-table-column prop="uploader_id" :label="$t('logs.uploaderId')" width="150" />
+        <el-table-column prop="upload_time" :label="$t('logs.uploadTime')" width="260">
           <template #default="{ row }">
             {{ formatDate(row.upload_time) }}
           </template>
         </el-table-column>
         
-        <el-table-column :label="$t('logs.status')" width="120" align="center">
+        <el-table-column :label="$t('logs.status')" width="160" align="center">
           <template #default="{ row }">
             <el-tag :type="getRowStatusType(row)" size="small">
               {{ getRowStatusText(row) }}
@@ -338,46 +328,50 @@
           </template>
         </el-table-column>
         
-        <el-table-column :label="$t('common.operation')" width="400" fixed="right">
+        <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <div class="btn-group">
               <button 
-                class="btn-primary btn-sm"
-              @click="goToLogAnalysis(row)"
-              :disabled="!canView(row)"
-            >
-                <i class="fas fa-eye"></i>
-              {{ $t('logs.view') }}
+                class="btn-text btn-sm"
+                @click="goToLogAnalysis(row)"
+                :disabled="!canView(row)"
+              >
+                {{ $t('logs.view') }}
               </button>
             
-              <button 
-                class="btn-tertiary btn-sm"
-              @click="handleDownload(row)"
-              :disabled="!canDownload(row)"
-            >
-                <i class="fas fa-download"></i>
-              {{ $t('logs.download') }}
-              </button>
-            
-              <button 
-                class="btn-danger btn-sm"
-              @click="handleDelete(row)"
-              v-if="canDeleteLog(row)"
-              :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
-            >
-                <i class="fas fa-trash"></i>
-              {{ $t('common.delete') }}
-              </button>
-
-              <button 
-                class="btn-secondary btn-sm"
-              @click="handleReparse(row)"
-              v-if="canReparse"
-              :disabled="!canReparseLog(row) || row.parsing"
-            >
-                <i class="fas fa-sync-alt"></i>
-              {{ $t('logs.reparse') }}
-              </button>
+              <el-dropdown 
+                trigger="click" 
+                placement="bottom-end"
+                @command="handleMoreAction"
+              >
+                <button class="btn-text btn-sm">
+                  <i class="fas fa-ellipsis-h"></i>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item 
+                      :command="{ action: 'download', row }"
+                      :disabled="!canDownload(row)"
+                    >
+                      {{ $t('logs.download') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item 
+                      :command="{ action: 'delete', row }"
+                      v-if="canDeleteLog(row)"
+                      :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
+                    >
+                      {{ $t('shared.delete') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item 
+                      :command="{ action: 'reparse', row }"
+                      v-if="canReparse"
+                      :disabled="!canReparseLog(row) || row.parsing"
+                    >
+                      {{ $t('logs.reparse') }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -408,30 +402,30 @@
     >
       <div v-if="selectedDevice" class="device-header" style="margin-bottom:8px;">
         <div class="device-info">
-          <h3>医院：{{ selectedDevice.hospital_name || '-' }}</h3>
-          <p>设备编号：{{ selectedDevice.device_id }}</p>
+          <h3>{{ $t('logs.hospital') }}：{{ selectedDevice.hospital_name || '-' }}</h3>
+          <p>{{ $t('logs.deviceId') }}：{{ selectedDevice.device_id }}</p>
         </div>
       </div>
       <el-table :data="surgeryList" :loading="surgeryLoading" style="width:100%">
-        <el-table-column prop="surgery_id" label="手术id" width="220" />
-        <el-table-column prop="structured_data.surgery_stats.procedure" label="手术术式" min-width="200">
+        <el-table-column prop="surgery_id" :label="$t('logs.surgeryId')" width="220" />
+        <el-table-column prop="structured_data.surgery_stats.procedure" :label="$t('logs.surgeryProcedure')" min-width="200">
           <template #default="{ row }">
             {{ row.structured_data?.surgery_stats?.procedure || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="start_time" label="手术开始时间" width="180">
+        <el-table-column prop="start_time" :label="$t('logs.surgeryStartTime')" width="180">
           <template #default="{ row }">{{ formatDate(row.start_time) }}</template>
         </el-table-column>
-        <el-table-column prop="end_time" label="手术结束时间" width="180">
+        <el-table-column prop="end_time" :label="$t('logs.surgeryEndTime')" width="180">
           <template #default="{ row }">{{ formatDate(row.end_time) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column :label="$t('shared.operation')" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="viewLogsBySurgery(row)">查看日志</el-button>
-            <el-button size="small" type="success" @click="visualizeSurgery(row)">可视化</el-button>
-            <el-popconfirm v-if="$store.getters['auth/hasPermission']('surgery:delete')" title="确定删除该手术记录？" @confirm="deleteSurgery(row)">
+            <el-button size="small" class="btn-primary btn-sm" @click="viewLogsBySurgery(row)">{{ $t('logs.viewLogs') }}</el-button>
+            <el-button size="small" class="btn-success btn-sm" @click="visualizeSurgery(row)">{{ $t('logs.visualize') }}</el-button>
+            <el-popconfirm v-if="$store.getters['auth/hasPermission']('surgery:delete')" :title="$t('logs.messages.confirmDeleteSurgery')" @confirm="deleteSurgery(row)">
               <template #reference>
-                <el-button size="small" type="danger">删除</el-button>
+                <el-button size="small" class="btn-text-danger btn-sm">{{ $t('shared.delete') }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -451,7 +445,7 @@
     </el-drawer>
 
     <!-- 上传日志弹窗 -->
-    <el-dialog v-model="showUploadDialog" title="上传日志" width="700px" append-to-body>
+    <el-dialog v-model="showUploadDialog" :title="$t('logs.uploadDialog.title')" width="700px" append-to-body>
 
       <el-upload
         ref="uploadRef"
@@ -493,7 +487,7 @@
       <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
         <div class="file-list-header">
           <span>{{ $t('logs.selectedFiles') }} ({{ uploadFileList.length }})</span>
-            <button class="btn-tertiary btn-sm" @click="clearUpload" :disabled="uploading">
+            <button class="btn-secondary btn-sm" @click="clearUpload" :disabled="uploading">
               <i class="fas fa-times"></i>
             {{ $t('logs.clear') }}
             </button>
@@ -508,9 +502,11 @@
             <span class="file-name">{{ file.name || file.originalname }}</span>
             <span class="file-size">{{ file.sizeText }}</span>
             <button 
-              class="btn-danger btn-sm btn-icon"
+              class="btn-text-danger btn-sm btn-icon"
               @click="removeFile(index)"
               :disabled="uploading"
+              :aria-label="$t('logs.removeFile')"
+              :title="$t('logs.removeFile')"
             >
               <i class="fas fa-trash"></i>
             </button>
@@ -607,9 +603,9 @@
 
       <template #footer>
         <div class="upload-actions">
-          <button class="btn-tertiary" @click="showUploadDialog = false" :disabled="uploading">
+          <button class="btn-secondary" @click="showUploadDialog = false" :disabled="uploading">
             <i class="fas fa-times"></i>
-            {{ $t('common.cancel') }}
+            {{ $t('shared.cancel') }}
           </button>
           <button 
             class="btn-primary" 
@@ -696,7 +692,7 @@ export default {
     const logEntries = ref([])
     const dateShortcuts = ref([
       {
-        text: '本年',
+        text: t('logs.timeRange.thisYear'),
         value: () => {
           const start = new Date(new Date().getFullYear(), 0, 1, 0, 0, 0)
           const end = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59)
@@ -704,7 +700,7 @@ export default {
         }
       },
       {
-        text: '本月',
+        text: t('logs.timeRange.thisMonth'),
         value: () => {
           const now = new Date()
           const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
@@ -713,7 +709,7 @@ export default {
         }
       },
       {
-        text: '今天',
+        text: t('logs.timeRange.today'),
         value: () => {
           const now = new Date()
           const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
@@ -745,11 +741,11 @@ export default {
     const websocketStatusTitle = computed(() => {
       const status = websocketClient.getConnectionStatus()
       if (status === 'connected') {
-        return '实时状态监控已启用'
+        return t('logs.websocket.enabled')
       } else if (status === 'connecting') {
-        return '正在连接实时监控...'
+        return t('logs.websocket.connecting')
       } else {
-        return '实时状态监控未连接'
+        return t('logs.websocket.disconnected')
       }
     })
     
@@ -769,14 +765,14 @@ export default {
       if (status === 'connected') {
         const deviceId = selectedDevice.value?.device_id
         if (deviceId && websocketClient.getSubscribedDevices().includes(deviceId)) {
-          return `已订阅设备 ${deviceId} 的状态更新，日志状态变化时将自动刷新`
+          return `${t('logs.deviceSubscription.success')} ${deviceId}，${t('logs.websocket.connected')}`
         } else {
-          return 'WebSocket 连接正常，等待订阅设备'
+          return t('logs.websocket.connected')
         }
       } else if (status === 'connecting') {
-        return '正在尝试连接 WebSocket 服务器，请稍候...'
+        return t('logs.websocket.connectingServer')
       } else {
-        return '无法连接到 WebSocket 服务器，将无法接收实时状态更新'
+        return t('logs.websocket.connectionFailed')
       }
     })
     const uploadUrl = computed(() => '/api/logs/upload')
@@ -874,7 +870,7 @@ export default {
           log.status !== 'upload_failed' &&
           log.status !== 'delete_failed'
         ).length
-        return `选中的日志中有 ${incompleteCount} 个未完成解析，请等待解析完成后再操作`
+        return t('logs.messages.incompleteParsingWarning', { count: incompleteCount })
       }
       return ''
     })
@@ -927,7 +923,7 @@ export default {
         deviceTotal.value = response.data.pagination?.total || 0
       } catch (error) {
         if (!silent && !uploading.value) {
-        ElMessage.error('加载设备分组失败')
+        ElMessage.error(t('logs.errors.loadDeviceGroupsFailed'))
         } else {
           console.warn('加载设备分组失败(已静默):', error?.message || error)
         }
@@ -947,7 +943,7 @@ export default {
           ...timeParams
         })
       } catch (error) {
-        ElMessage.error('加载日志失败')
+        ElMessage.error(t('logs.errors.loadLogsFailed'))
       } finally {
         loading.value = false
       }
@@ -1008,7 +1004,7 @@ export default {
         detailLogs.value = logs.value
         detailTotal.value = total.value
       } catch (error) {
-        if (!silent) ElMessage.error('加载设备详细日志失败')
+        if (!silent) ElMessage.error(t('logs.errors.loadDeviceDetailLogsFailed'))
       } finally {
         detailLoading.value = false
       }
@@ -1156,7 +1152,7 @@ export default {
         surgeryList.value = resp.data?.data || []
         surgeryTotal.value = resp.data?.total || 0
       } catch (e) {
-        ElMessage.error('加载手术数据失败')
+        ElMessage.error(t('logs.messages.loadSurgeryDataFailed'))
       } finally {
         surgeryLoading.value = false
       }
@@ -1179,7 +1175,7 @@ export default {
         const routeData = router.resolve(`/batch-analysis/${ids.join(',')}`)
         window.open(routeData.href, '_blank')
       } catch (e) {
-        ElMessage.error('获取手术相关日志失败')
+        ElMessage.error(t('logs.messages.getSurgeryLogsFailed'))
       }
     }
 
@@ -1191,10 +1187,10 @@ export default {
     const deleteSurgery = async (row) => {
       try {
         await api.surgeries.remove(row.id)
-        ElMessage.success('删除成功')
+        ElMessage.success(t('shared.messages.deleteSuccess'))
         loadSurgeries()
       } catch (e) {
-        ElMessage.error('删除失败')
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
     
@@ -1207,7 +1203,7 @@ export default {
         selectedDetailLogs.value = limitedSelection
         
         // 显示提示信息
-        ElMessage.warning('批量操作一次最多只能选择20个文件，已自动限制选择数量')
+        ElMessage.warning(t('logs.messages.batchOperationLimit'))
         
         // 更新表格选择状态（需要手动设置）
         nextTick(() => {
@@ -1361,25 +1357,25 @@ export default {
       if (isDeviceUpload.value) {
         // 设备上传模式：只需要验证设备编号存在
         if (!uploadDeviceId.value) {
-          ElMessage.error('设备编号不能为空')
+          ElMessage.error(t('logs.messages.deviceIdRequired'))
           return
         }
       } else {
         // 普通上传模式：需要验证密钥和设备编号
       if (!decryptKey.value.trim()) {
-        ElMessage.error('请输入解密密钥或上传密钥文件')
+        ElMessage.error(t('logs.messages.needDecryptKeyOrFile'))
         return
       }
       
       // 验证密钥格式
       const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
       if (!macRegex.test(decryptKey.value)) {
-        ElMessage.error('密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
+        ElMessage.error(t('logs.messages.invalidKeyFormat'))
         return
       }
       
       if (!deviceId.value.trim()) {
-        ElMessage.warning('请输入设备编号，或使用默认值0000-00')
+        ElMessage.warning(t('logs.messages.enterDeviceIdOrUseDefault'))
         return
       }
       
@@ -1387,7 +1383,7 @@ export default {
       if (deviceId.value && deviceId.value !== '0000-00') {
         const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
         if (!deviceIdRegex.test(deviceId.value)) {
-          ElMessage.error('设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）')
+          ElMessage.error(t('logs.messages.invalidDeviceIdFormat'))
           return
         }
         }
@@ -1453,7 +1449,7 @@ export default {
           // 验证文件内容是否为MAC地址格式
           const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
           if (!macRegex.test(content)) {
-            ElMessage.error('密钥文件内容格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）')
+            ElMessage.error(t('logs.messages.invalidKeyFileFormat'))
             return
           }
           decryptKey.value = content
@@ -1504,7 +1500,7 @@ export default {
       } else if (percentage < 90) {
         return `解析处理中 ${percentage}%`
       } else if (percentage < 100) {
-        return `删除处理中 ${percentage}%`
+        return t('logs.messages.deletingProgress', { percentage })
       } else {
         return `处理完成 ${percentage}%`
       }
@@ -1513,7 +1509,7 @@ export default {
     // 防止页面刷新导致解析中断
     const preventRefresh = () => {
       if (uploading.value) {
-        return '解析正在进行中，刷新页面可能导致解析失败。确定要离开吗？'
+        return t('logs.messages.parsingInProgress')
       }
     }
 
@@ -1841,11 +1837,17 @@ export default {
 
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm('确定要删除这个日志文件吗？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        })
+        await ElMessageBox.confirm(
+          t('logs.messages.confirmDeleteSingle'),
+          t('shared.messages.deleteConfirmTitle'),
+          {
+            confirmButtonText: t('shared.confirm'),
+            cancelButtonText: t('shared.cancel'),
+            type: 'warning',
+            confirmButtonClass: 'btn-primary-danger',
+            cancelButtonClass: 'btn-secondary'
+          }
+        )
         
         // 将日志ID添加到删除中状态
         deletingIds.value.add(row.id)
@@ -1866,7 +1868,7 @@ export default {
           
         } catch (apiError) {
           console.error('删除API调用失败:', apiError)
-          const errorMessage = apiError.response?.data?.message || apiError.message || '删除失败'
+          const errorMessage = apiError.response?.data?.message || apiError.message || $t('shared.messages.deleteFailed')
           ElMessage.error(errorMessage)
           // API调用失败时，清除删除中状态
           deletingIds.value.delete(row.id)
@@ -1875,7 +1877,7 @@ export default {
       } catch (error) {
         if (error !== 'cancel') {
           console.error('删除确认错误:', error)
-          ElMessage.error('删除操作被取消')
+          ElMessage.error(t('logs.messages.deleteOperationCancelled'))
         }
       }
     }
@@ -1985,17 +1987,19 @@ export default {
       try {
         // 检查是否有未完成的日志
         if (hasIncompleteLogs.value) {
-          ElMessage.warning('请等待所有选中的日志解析完成后再进行删除操作')
+          ElMessage.warning(t('logs.messages.waitForParsingComplete'))
           return
         }
         
         await ElMessageBox.confirm(
-          `确定要删除选中的 ${selectedDetailLogs.value.length} 个日志文件吗？此操作不可恢复！`, 
-          '批量删除确认', 
+          t('logs.messages.confirmBatchDelete', { count: selectedDetailLogs.value.length }), 
+          t('logs.messages.batchDeleteConfirm'), 
           {
-            confirmButtonText: '确定删除',
-            cancelButtonText: '取消',
-            type: 'warning'
+            confirmButtonText: t('shared.confirm'),
+            cancelButtonText: t('shared.cancel'),
+            type: 'warning',
+            confirmButtonClass: 'btn-primary-danger',
+            cancelButtonClass: 'btn-secondary'
           }
         )
         
@@ -2031,7 +2035,7 @@ export default {
           clearDetailSelection() // 清空选择
         } catch (apiError) {
           console.error('批量删除失败:', apiError)
-          const errorMessage = apiError.response?.data?.message || apiError.message || '批量删除失败'
+          const errorMessage = apiError.response?.data?.message || apiError.message || $t('logs.messages.batchDeleteFailed')
           ElMessage.error(errorMessage)
           // 删除失败时，清除删除中状态
           logIds.forEach(id => deletingIds.value.delete(id))
@@ -2053,7 +2057,7 @@ export default {
             }
           })
           
-          let errorMessage = '批量删除失败'
+          let errorMessage = $t('logs.messages.batchDeleteFailed')
           if (error.response?.data?.message) {
             errorMessage = error.response.data.message
           } else if (error.message) {
@@ -2169,13 +2173,13 @@ export default {
         const response = await store.dispatch('logs/autoFillKey', deviceId.value)
         if (response.data.key) {
           decryptKey.value = response.data.key
-          ElMessage.success('已自动填充密钥')
+          ElMessage.success(t('logs.messages.keyAutoFilled'))
         } else {
-          ElMessage.warning('未找到该设备编号对应的密钥')
+          ElMessage.warning(t('logs.messages.deviceKeyNotFound'))
         }
       } catch (error) {
         console.error('自动填充密钥错误:', error)
-        const errorMessage = error.response?.data?.message || error.message || '自动填充密钥失败'
+        const errorMessage = error.response?.data?.message || error.message || t('logs.messages.keyAutoFillFailed')
         ElMessage.error(errorMessage)
       }
     }
@@ -2184,7 +2188,7 @@ export default {
     const validateKeyFormat = () => {
       const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
       if (decryptKey.value && !macRegex.test(decryptKey.value)) {
-        keyError.value = '请输入有效的MAC地址格式密钥 (如: 00-01-05-77-6a-09)'
+        keyError.value = t('logs.messages.invalidKeyFormat')
       } else {
         keyError.value = ''
       }
@@ -2196,13 +2200,13 @@ export default {
         const response = await store.dispatch('logs/autoFillDeviceId', decryptKey.value)
         if (response.data.device_id) {
           deviceId.value = response.data.device_id
-          ElMessage.success('已自动填充设备编号')
+          ElMessage.success(t('logs.messages.deviceIdAutoFilled'))
         } else {
-          ElMessage.warning('未找到该密钥对应的设备编号')
+          ElMessage.warning(t('logs.messages.keyDeviceNotFound'))
         }
       } catch (error) {
         console.error('自动填充设备编号错误:', error)
-        const errorMessage = error.response?.data?.message || error.message || '自动填充设备编号失败'
+        const errorMessage = error.response?.data?.message || error.message || t('logs.messages.deviceIdAutoFillFailed')
         ElMessage.error(errorMessage)
       }
     }
@@ -2211,7 +2215,7 @@ export default {
     const validateDeviceIdFormat = () => {
       const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
       if (deviceId.value && !deviceIdRegex.test(deviceId.value)) {
-        deviceIdError.value = '请输入有效的设备编号格式 (如: 4371-01、ABC-12、123-XY)'
+        deviceIdError.value = t('logs.messages.invalidDeviceIdFormat')
       } else {
         deviceIdError.value = ''
       }
@@ -2242,6 +2246,24 @@ export default {
         return incompleteLogsMessage.value
       }
       return '批量重新解析选中的日志文件'
+    }
+    
+    // 处理更多操作下拉菜单
+    const handleMoreAction = (command) => {
+      const { action, row } = command
+      switch (action) {
+        case 'download':
+          handleDownload(row)
+          break
+        case 'delete':
+          handleDelete(row)
+          break
+        case 'reparse':
+          handleReparse(row)
+          break
+        default:
+          console.warn('Unknown action:', action)
+      }
     }
     
     return {
@@ -2377,6 +2399,7 @@ export default {
       // 新增函数
       getBatchViewTitle,
       getBatchReparseTitle,
+      handleMoreAction,
       // 手术数据
       showSurgeryDrawer,
       surgeryLoading,
@@ -2930,6 +2953,14 @@ export default {
 .detail-actions .reset-section,
 .detail-actions .refresh-section {
   flex: 0 0 auto;
+}
+
+/* Upload Dialog Actions - 上传弹窗按钮样式 */
+.upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 16px 0;
 }
 
 .detail-actions .batch-actions {

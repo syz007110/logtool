@@ -242,7 +242,7 @@
           :max-height="400"
           class="faults-table"
         >
-          <el-table-column prop="timestamp" :label="$t('surgeryVisualization.faultTime')" width="180" align="center">
+          <el-table-column prop="timestamp" :label="$t('surgeryVisualization.faultTime')" width="220" align="center">
             <template #default="{ row }">
               <span class="fault-time">{{ formatFaultTime(row.timestamp) }}</span>
             </template>
@@ -262,10 +262,10 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="status" :label="$t('surgeryVisualization.status')" width="100" align="center">
+          <el-table-column prop="status" :label="$t('surgeryVisualization.status')" width="120" align="center">
             <template #default="{ row }">
               <el-tag 
-                :type="row.status === $t('surgeryVisualization.statusProcessed') ? 'success' : 'danger'" 
+                :type="row.status_key === 'processed' ? 'success' : 'danger'" 
                 size="small"
                 effect="dark"
               >
@@ -295,7 +295,7 @@
       <div class="tooltip-title">{{ getSegmentTooltipTitle(hoveredSegment) }}</div>
       <div class="tooltip-content">
         <div>{{$t('surgeryVisualization.tooltipUdi')}}: {{ hoveredSegment.udi || $t('surgeryVisualization.tooltipNoUdi') }}</div>
-        <div>{{$t('surgeryVisualization.tooltipDuration')}}: {{ getSegmentDuration(hoveredSegment) }}{{$t('common.minutes')}}</div>
+        <div>{{$t('surgeryVisualization.tooltipDuration')}}: {{ getSegmentDuration(hoveredSegment) }}{{$t('shared.minutes')}}</div>
         <div>{{$t('surgeryVisualization.tooltipInstall')}}: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
         <div>{{$t('surgeryVisualization.tooltipRemove')}}: {{ formatSegmentTime(hoveredSegment.remove_time || hoveredSegment.end_time) }}</div>
       </div>
@@ -570,7 +570,7 @@ export default {
         })
       }
       
-      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('common.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatTime(removeTime)}`
+      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('shared.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatTime(removeTime)}`
     }
     
     // ========== SVG覆盖层相关函数 ==========
@@ -1043,7 +1043,7 @@ export default {
     // 获取事件工具提示
     const getEventTooltip = (event) => {
       // 调试：确保事件对象存在
-      if (!event) return t('common.error')
+      if (!event) return t('shared.error')
       
       if (event.isMerged && event.allEvents) {
         // 合并事件的工具提示
@@ -1068,7 +1068,7 @@ export default {
       
       // 单个事件的工具提示
       const localTime = getLocalTime(event.time)
-      if (!localTime) return `${event.name}\n${t('surgeryVisualization.time')}: ${t('common.error')}`
+      if (!localTime) return `${event.name}\n${t('surgeryVisualization.time')}: ${t('shared.error')}`
       
       const timeStr = localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
         year: 'numeric',
@@ -1675,13 +1675,26 @@ export default {
           const errorCode = fault.error_code
           if (!errorCode) return
           
+          // 规范化处理状态为布尔/键值
+          const isProcessed = (() => {
+            if (fault.status === true) return true
+            if (fault.resolved === true || fault.is_resolved === true) return true
+            if (typeof fault.status === 'string') {
+              const s = fault.status.toLowerCase()
+              return s === 'processed' || s === 'resolved' || s === '已处理'
+            }
+            return false
+          })()
+          const statusText = isProcessed ? t('surgeryVisualization.statusProcessed') : t('surgeryVisualization.statusUnprocessed')
+
           // 如果故障码已存在，保留最新的记录
           if (!faultMap.has(errorCode) || new Date(fault.timestamp) > new Date(faultMap.get(errorCode).timestamp)) {
             faultMap.set(errorCode, {
               timestamp: fault.timestamp,
               error_code: fault.error_code,
               explanation: fault.explanation || t('surgeryVisualization.noExplanation'),
-              status: fault.status || t('surgeryVisualization.statusUnprocessed')
+              status: statusText,
+              status_key: isProcessed ? 'processed' : 'unprocessed'
             })
           }
         })
@@ -1729,12 +1742,12 @@ export default {
     
     // 获取已处理故障数量
     const getProcessedCount = () => {
-      return faultRecords.value.filter(fault => fault.status === t('surgeryVisualization.statusProcessed')).length
+      return faultRecords.value.filter(fault => fault.status_key === 'processed').length
     }
     
     // 获取未处理故障数量
     const getUnprocessedCount = () => {
-      return faultRecords.value.filter(fault => fault.status === t('surgeryVisualization.statusUnprocessed')).length
+      return faultRecords.value.filter(fault => fault.status_key !== 'processed').length
     }
     
     // 处理鼠标滚轮缩放

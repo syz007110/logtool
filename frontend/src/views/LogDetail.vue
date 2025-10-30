@@ -8,7 +8,7 @@
           :status="loadingProgress >= 100 ? 'success' : ''"
           :stroke-width="8"
         />
-        <p class="loading-text">{{ $t('common.loading') }} {{ loadingProgress }}%</p>
+        <p class="loading-text">{{ $t('shared.loading') }} {{ loadingProgress }}%</p>
       </div>
     </el-card>
 
@@ -18,7 +18,7 @@
           <div class="header-left">
             <button class="btn-secondary btn-sm" @click="goBack">
               <i class="fas fa-arrow-left"></i>
-              {{ $t('common.back') || 'Back' }}
+              {{ $t('shared.back') || 'Back' }}
             </button>
             <span class="title">{{ $t('logDetail.title') }}</span>
           </div>
@@ -120,6 +120,7 @@ import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'LogDetail',
@@ -130,6 +131,7 @@ export default {
     const store = useStore()
     const route = useRoute()
     const router = useRouter()
+    const { t } = useI18n()
     
     const logId = route.params.id
     const loading = ref(false)
@@ -167,11 +169,11 @@ export default {
         if (log) {
           logInfo.value = log
         } else {
-          ElMessage.error('日志不存在')
+          ElMessage.error(t('logs.messages.logNotFound'))
           goBack()
         }
       } catch (error) {
-        ElMessage.error('加载日志信息失败')
+        ElMessage.error(t('logs.messages.loadLogInfoFailed'))
       } finally {
         loading.value = false
       }
@@ -204,7 +206,7 @@ export default {
         }, 500)
         
       } catch (error) {
-        ElMessage.error('加载日志条目失败')
+        ElMessage.error(t('logs.messages.loadLogEntriesFailed'))
         loading.value = false
         loadingProgress.value = 0
       }
@@ -217,7 +219,15 @@ export default {
 
     // 导出CSV
     const exportToCSV = () => {
-      const headers = ['时间戳', '故障码', '参数1', '参数2', '参数3', '参数4', '释义']
+      const headers = [
+        t('logs.csvHeaders.timestamp'),
+        t('logs.csvHeaders.errorCode'),
+        t('logs.csvHeaders.param1'),
+        t('logs.csvHeaders.param2'),
+        t('logs.csvHeaders.param3'),
+        t('logs.csvHeaders.param4'),
+        t('logs.csvHeaders.explanation')
+      ]
       const csvContent = [
         headers.join(','),
         ...filteredEntries.value.map(entry => [
@@ -238,7 +248,7 @@ export default {
       link.click()
       URL.revokeObjectURL(link.href)
       
-      ElMessage.success('CSV文件导出成功')
+      ElMessage.success(t('logs.messages.csvExportSuccess'))
     }
 
     // 分页处理
@@ -357,15 +367,15 @@ const decompressLogEntries = (compressedEntries) => {
 
     const getStatusText = (status) => {
       const textMap = {
-        uploaded: '已上传',
-        parsed: '已解析',
-        decrypt_failed: '解密失败',
-        parse_failed: '解析失败',
-        file_error: '文件错误',
-        failed: '处理失败'
+        uploaded: t('logs.statusText.uploading'),
+        parsed: t('logs.statusText.parsed'),
+        decrypt_failed: t('logs.statusText.decrypt_failed'),
+        parse_failed: t('logs.statusText.parse_failed'),
+        file_error: t('logs.statusText.file_error'),
+        failed: t('logs.statusText.failed')
       }
       
-      return textMap[status] || '未知'
+      return textMap[status] || t('logs.messages.unknown')
     }
 
     onMounted(() => {

@@ -39,9 +39,9 @@ const register = async (req, res) => {
       });
     }
     
-    res.status(201).json({ message: req.t('common.created'), user: { id: user.id, username: user.username, email: user.email } });
+    res.status(201).json({ message: req.t('shared.created'), user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 
@@ -80,7 +80,7 @@ const login = async (req, res) => {
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '12h' });
     res.json({ message: req.t('auth.loginSuccess') || 'OK', token, user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions } });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 
@@ -89,12 +89,12 @@ const me = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: req.t('auth.unauthenticated') });
     const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ message: req.t('common.notFound') });
+    if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
     const { roleName, roleId } = await getUserPrimaryRole(userId);
     const permissions = await getUserPermissions(userId);
     res.json({ user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions } });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 

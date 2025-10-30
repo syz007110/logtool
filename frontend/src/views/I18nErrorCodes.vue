@@ -103,38 +103,36 @@
             <ExplanationCell :text="row.short_message || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
+        <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="240">
           <template #default="{ row }">
             <ExplanationCell :text="row.user_hint || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('i18nErrorCodes.operation')" min-width="200">
+        <el-table-column :label="$t('i18nErrorCodes.operation')" min-width="160" align="left">
           <template #default="{ row }">
-            <ExplanationCell :text="row.operation || 'N/A'" />
+              <ExplanationCell :text="row.operation || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('common.operation')" width="220" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('shared.operation')" width="180" align="center" v-if="canUpdate || canDelete">
           <template #default="{ row }">
-            <div class="btn-group">
+            <div class="btn-group" style="justify-content: center;">
               <button
                 class="btn-text"
                 @click="handleEdit(row)"
                 v-if="canUpdate"
-                :aria-label="$t('common.edit')"
-                :title="$t('common.edit')"
+                :aria-label="$t('shared.edit')"
+                :title="$t('shared.edit')"
               >
-                <i class="fas fa-edit"></i>
-                {{ $t('common.edit') }}
+                {{ $t('shared.edit') }}
               </button>
               <button
                 class="btn-text-danger"
                 @click="handleDelete(row)"
                 v-if="canDelete"
-                :aria-label="$t('common.delete')"
-                :title="$t('common.delete')"
+                :aria-label="$t('shared.delete')"
+                :title="$t('shared.delete')"
               >
-                <i class="fas fa-trash"></i>
-                {{ $t('common.delete') }}
+                {{ $t('shared.delete') }}
               </button>
             </div>
           </template>
@@ -223,8 +221,8 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showDialog = false">{{ $t('common.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="handleSave">{{ $t('common.save') }}</button>
+          <button class="btn-secondary" @click="showDialog = false">{{ $t('shared.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="handleSave">{{ $t('shared.save') }}</button>
         </span>
       </template>
     </el-dialog>
@@ -300,7 +298,7 @@
       </el-tabs>
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="() => { showImportDialog = false; clearImportForm(); }">{{ $t('common.cancel') }}</button>
+          <button class="btn-secondary" @click="() => { showImportDialog = false; clearImportForm(); }">{{ $t('shared.cancel') }}</button>
           <button class="btn-primary" :class="{ 'btn-loading': importing }" :disabled="importing" @click="handleImport">{{ $t('i18nErrorCodes.uploadImport') }}</button>
         </span>
       </template>
@@ -331,8 +329,8 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('common.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': exporting }" :disabled="exporting" @click="handleExportConfirm">{{ $t('common.export') }}</button>
+          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('shared.cancel') }}</button>
+          <button class="btn-primary" :class="{ 'btn-loading': exporting }" :disabled="exporting" @click="handleExportConfirm">{{ $t('shared.export') }}</button>
         </span>
       </template>
     </el-dialog>
@@ -734,12 +732,12 @@ export default {
         }
         
         await api.i18nErrorCodes.upsert(data)
-        ElMessage.success(editingItem.value ? t('i18nErrorCodes.saveSuccess') : t('i18nErrorCodes.saveSuccess'))
+        ElMessage.success(t('shared.messages.saveSuccess'))
         showDialog.value = false
         loadI18nErrorCodes()
       } catch (error) {
         console.error('Save error:', error)
-        ElMessage.error(editingItem.value ? t('i18nErrorCodes.saveFailed') : t('i18nErrorCodes.saveFailed'))
+        ElMessage.error(t('shared.messages.saveFailed'))
       } finally {
         saving.value = false
       }
@@ -750,21 +748,23 @@ export default {
       try {
         await ElMessageBox.confirm(
           t('i18nErrorCodes.deleteConfirmText'),
-          t('i18nErrorCodes.confirmDelete'),
+          t('shared.messages.confirmDelete'),
           {
-            confirmButtonText: t('common.confirm'),
-            cancelButtonText: t('common.cancel'),
-          type: 'warning'
+            confirmButtonText: t('shared.confirm'),
+            cancelButtonText: t('shared.cancel'),
+            type: 'warning',
+            confirmButtonClass: 'btn-primary-danger',
+            cancelButtonClass: 'btn-secondary'
           }
         )
         
         await api.i18nErrorCodes.delete(row.id)
-        ElMessage.success(t('i18nErrorCodes.deleteSuccess'))
+        ElMessage.success(t('shared.messages.deleteSuccess'))
         loadI18nErrorCodes()
       } catch (error) {
         if (error !== 'cancel') {
           console.error('Delete error:', error)
-          ElMessage.error(t('i18nErrorCodes.deleteFailed'))
+          ElMessage.error(t('shared.messages.deleteFailed'))
         }
       }
     }
@@ -949,7 +949,7 @@ export default {
         if (error.response && error.response.data && error.response.data.message) {
           ElMessage.error(`导入失败：${error.response.data.message}`)
         } else {
-          ElMessage.error(t('i18nErrorCodes.importFailed'))
+          ElMessage.error(t('shared.messages.importFailed'))
         }
       } finally {
         importing.value = false
@@ -1006,7 +1006,7 @@ export default {
         showExportDialog.value = false
       } catch (error) {
         console.error('Export error:', error)
-        ElMessage.error(t('i18nErrorCodes.exportFailed'))
+        ElMessage.error(t('shared.messages.exportFailed'))
       } finally {
         exporting.value = false
       }

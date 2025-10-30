@@ -23,7 +23,7 @@
               <span>{{ formatDate(profileData.created_at) }}</span>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleUpdateProfile" :loading="updatingProfile">{{ $t('common.save') }}</el-button>
+              <el-button type="primary" @click="handleUpdateProfile" :loading="updatingProfile">{{ $t('shared.save') }}</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -36,15 +36,15 @@
               <span>{{ $t('account.changePassword') }}</span>
             </div>
           </template>
-          <el-form ref="passwordForm" :model="passwordData" :rules="passwordRules" label-width="100px">
+          <el-form ref="passwordForm" :model="passwordData" :rules="passwordRules" label-width="140px">
             <el-form-item :label="$t('account.oldPassword')" prop="oldPassword">
-              <el-input v-model="passwordData.oldPassword" type="password" show-password />
+              <el-input v-model="passwordData.oldPassword" type="password" show-password style="max-width: 250px" />
             </el-form-item>
             <el-form-item :label="$t('account.newPassword')" prop="newPassword">
-              <el-input v-model="passwordData.newPassword" type="password" show-password />
+              <el-input v-model="passwordData.newPassword" type="password" show-password style="max-width: 250px" />
             </el-form-item>
             <el-form-item :label="$t('account.confirmPassword')" prop="confirmPassword">
-              <el-input v-model="passwordData.confirmPassword" type="password" show-password />
+              <el-input v-model="passwordData.confirmPassword" type="password" show-password style="max-width: 250px" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleChangePassword" :loading="changingPassword">{{ $t('account.changePassword') }}</el-button>
@@ -66,7 +66,7 @@ export default {
   name: 'Account',
   setup() {
     const store = useStore()
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     
     // 响应式数据
     const updatingProfile = ref(false)
@@ -181,17 +181,18 @@ export default {
     }
     
     const getRoleText = (role) => {
-      const textMap = {
-        admin: '管理员',
-        expert: '专家用户',
-        user: '普通用户'
+      const roleMap = {
+        admin: t('users.roleAdmin'),
+        expert: t('users.roleExpert'),
+        user: t('users.roleUser')
       }
-      return textMap[role] || role
+      return roleMap[role] || role
     }
     
     const formatDate = (dateString) => {
       if (!dateString) return '-'
-      return new Date(dateString).toLocaleString('zh-CN')
+      const localeStr = locale.value === 'en-US' ? 'en-US' : 'zh-CN'
+      return new Date(dateString).toLocaleString(localeStr)
     }
     
     // 生命周期

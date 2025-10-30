@@ -229,7 +229,7 @@ const getSearchTemplates = async (req, res) => {
     const data = JSON.parse(raw || '[]');
     return res.json({ templates: data });
   } catch (e) {
-    return res.status(500).json({ message: '读取搜索模板失败', error: e.message });
+    return res.status(500).json({ message: req.t('log.searchTemplates.readFailed'), error: e.message });
   }
 };
 
@@ -238,12 +238,12 @@ const importSearchTemplates = async (req, res) => {
   try {
     const { templates } = req.body;
     if (!Array.isArray(templates)) {
-      return res.status(400).json({ message: '无效的模板格式，应为数组' });
+      return res.status(400).json({ message: req.t('log.searchTemplates.invalidFormat') });
     }
     fs.writeFileSync(templatesPath, JSON.stringify(templates, null, 2), 'utf-8');
     return res.json({ success: true });
   } catch (e) {
-    return res.status(500).json({ message: '导入搜索模板失败', error: e.message });
+    return res.status(500).json({ message: req.t('log.searchTemplates.importFailed'), error: e.message });
   }
 };
 
@@ -474,7 +474,7 @@ const getLogsByDevice = async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ message: '获取设备分组日志失败', error: err.message });
+    res.status(500).json({ message: req.t('log.deviceGroups.getFailed'), error: err.message });
   }
 };
 
@@ -483,7 +483,7 @@ const uploadLog = async (req, res) => {
   try {
     const files = req.files; // 支持多文件
     if (!files || files.length === 0) {
-      return res.status(400).json({ message: '未上传文件' });
+      return res.status(400).json({ message: req.t('log.upload.noFile') });
     }
 
     // 总大小限制：200MB（与文档约定一致）
@@ -500,7 +500,7 @@ const uploadLog = async (req, res) => {
       } catch (cleanupErr) {
         console.warn('清理超限上传的临时文件失败:', cleanupErr.message);
       }
-      return res.status(413).json({ message: '上传总大小超过限制（≤200MB）' });
+      return res.status(413).json({ message: req.t('log.upload.sizeExceeded') });
     }
 
     // 路由来源：默认用户上传；自动上传走历史队列
@@ -524,7 +524,7 @@ const uploadLog = async (req, res) => {
     
     // 验证设备编号格式
     if (deviceId !== '0000-00' && !validateDeviceId(deviceId)) {
-      return res.status(400).json({ message: '设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）' });
+      return res.status(400).json({ message: req.t('log.upload.invalidDeviceIdFormat') });
     }
     
     // 根据设备编号自动获取解密密钥
@@ -552,12 +552,12 @@ const uploadLog = async (req, res) => {
     }
     
     if (!decryptKey) {
-      return res.status(400).json({ message: '未找到设备对应的解密密钥，请检查设备配置或手动提供密钥' });
+      return res.status(400).json({ message: req.t('log.upload.keyNotFound') });
     }
     
     // 验证密钥格式
     if (!validateKey(decryptKey)) {
-      return res.status(400).json({ message: '密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）' });
+      return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
     }
     
     const uploadedLogs = [];
@@ -707,13 +707,13 @@ const uploadLog = async (req, res) => {
     } catch (_) {}
 
     res.json({ 
-      message: `成功上传 ${uploadedLogs.length} 个文件，已加入处理队列`, 
+      message: req.t('log.upload.success', { count: uploadedLogs.length }), 
       logs: uploadedLogs,
       queued: true,
       device_id: deviceId // 添加设备编号，用于前端自动展开
     });
   } catch (err) {
-    res.status(500).json({ message: '上传失败', error: err.message });
+    res.status(500).json({ message: req.t('log.upload.failed'), error: err.message });
   }
 };
 
@@ -722,16 +722,16 @@ const parseLog = async (req, res) => {
   try {
     const { id } = req.params;
     const log = await Log.findByPk(id);
-    if (!log) return res.status(404).json({ message: '日志不存在' });
+    if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
     
     // 权限控制：普通用户只能解析自己的日志，专家用户和管理员可以解析任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
-      return res.status(403).json({ message: '权限不足，只能解析自己的日志' });
+      return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
     
     const filePath = path.join(UPLOAD_DIR, log.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ message: '文件不存在' });
+    if (!fs.existsSync(filePath)) return res.status(404).json({ message: req.t('log.parse.fileNotFound') });
     
     // 读取文件内容
     const content = fs.readFileSync(filePath, 'utf-8');
@@ -739,7 +739,7 @@ const parseLog = async (req, res) => {
     // 使用数据库中保存的密钥进行解密
     const key = log.key_id;
     if (!key) {
-      return res.status(400).json({ message: '未找到解密密钥，请重新上传并输入密钥' });
+      return res.status(400).json({ message: req.t('log.parse.keyNotFound') });
     }
     
     // 预加载故障码表到缓存
@@ -827,10 +827,10 @@ const parseLog = async (req, res) => {
       });
     } catch (_) {}
 
-    res.json({ message: '解析成功', count: entries.length });
+    res.json({ message: req.t('log.parse.success'), count: entries.length });
   } catch (err) {
     console.error('解析日志失败:', err);
-    res.status(500).json({ message: '解析失败', error: err.message });
+    res.status(500).json({ message: req.t('log.parse.failed'), error: err.message });
   }
 };
 
@@ -856,7 +856,7 @@ const getQueueStatus = async (req, res) => {
   } catch (error) {
     console.error('获取队列状态失败:', error);
     res.status(500).json({ 
-      message: '获取队列状态失败', 
+      message: req.t('log.queue.statusFailed'), 
       error: error.message 
     });
   }
@@ -869,7 +869,7 @@ const getLogEntries = async (req, res) => {
     
     // 先检查日志是否存在并验证权限
     const log = await Log.findByPk(id);
-    if (!log) return res.status(404).json({ message: '日志不存在' });
+    if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
     
     // 权限控制：普通用户只能查看自己的日志明细
     if (req.user && req.user.role_id) {
@@ -899,7 +899,7 @@ const getLogEntries = async (req, res) => {
     const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
     res.json({ entries });
   } catch (err) {
-    res.status(500).json({ message: '获取日志明细失败', error: err.message });
+    res.status(500).json({ message: req.t('log.listFailed'), error: err.message });
   }
 };
 
@@ -1705,7 +1705,7 @@ const getBatchLogEntries = async (req, res) => {
     }
   } catch (err) {
     console.error('批量获取日志明细失败:', err);
-    res.status(500).json({ message: '获取日志明细失败', error: err.message });
+    res.status(500).json({ message: req.t('log.listFailed'), error: err.message });
   }
 };
 
@@ -1921,7 +1921,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
     return res.end();
   } catch (err) {
     console.error('导出日志明细CSV失败:', err);
-    return res.status(500).json({ message: '导出CSV失败', error: err.message });
+    return res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
   }
 };
 
@@ -1930,12 +1930,12 @@ const downloadLog = async (req, res) => {
   try {
     const { id } = req.params;
     const log = await Log.findByPk(id);
-    if (!log) return res.status(404).json({ message: '日志不存在' });
+    if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
     
     // 权限控制：普通用户只能下载自己的日志，专家用户和管理员可以下载任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
-      return res.status(403).json({ message: '权限不足，只能下载自己的日志' });
+      return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
     
     // 优先从保存的解密文件中读取
@@ -1958,7 +1958,7 @@ const downloadLog = async (req, res) => {
     });
     
     if (entries.length === 0) {
-      return res.status(404).json({ message: '日志明细不存在' });
+      return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
     
     // 生成解密后的文件内容
@@ -1974,7 +1974,7 @@ const downloadLog = async (req, res) => {
     // 发送文件内容
     res.send(fileContent);
   } catch (err) {
-    res.status(500).json({ message: '下载失败', error: err.message });
+    res.status(500).json({ message: req.t('log.download.failed'), error: err.message });
   }
 };
 
@@ -1983,14 +1983,14 @@ const reparseLog = async (req, res) => {
   try {
     const { id } = req.params;
     const log = await Log.findByPk(id);
-    if (!log) return res.status(404).json({ message: '日志不存在' });
+    if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
 
     const oldStatus = log.status;
     await log.update({ status: 'parsing' });
     pushLogStatusChange(log.id, oldStatus, 'parsing');
 
     const job = await logProcessingQueue.add('batch-reparse', { logIds: [log.id], userId: req.user ? req.user.id : null });
-    return res.status(202).json({ message: '已提交重新解析任务', jobId: job.id, logId: log.id });
+    return res.status(202).json({ message: req.t('log.batchReparse.success'), jobId: job.id, logId: log.id });
       } catch (err) {
       console.error('重新解析失败:', err);
       try {
@@ -2008,7 +2008,7 @@ const reparseLog = async (req, res) => {
           }
         }
       } catch (_) {}
-      return res.status(500).json({ message: '重新解析失败', error: err.message });
+      return res.status(500).json({ message: req.t('log.batchReparse.failed'), error: err.message });
     }
 };
 
@@ -2017,7 +2017,7 @@ const batchReparseLogs = async (req, res) => {
   try {
     const { logIds } = req.body || {};
     if (!Array.isArray(logIds) || logIds.length === 0) {
-      return res.status(400).json({ message: '请提供要重新解析的日志ID列表' });
+      return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
     // 规范化并去重 ID
     const normalizedIds = [...new Set(
@@ -2026,7 +2026,7 @@ const batchReparseLogs = async (req, res) => {
         .filter(id => Number.isInteger(id) && id > 0)
     )];
     if (normalizedIds.length === 0) {
-      return res.status(400).json({ message: '提供的日志ID格式不正确' });
+      return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
     
     // 预先将这些日志标记为 parsing，便于前端实时反馈
@@ -2077,14 +2077,14 @@ const batchReparseLogs = async (req, res) => {
     console.log(`已创建 ${createdJobs.length} 个单日志重新解析任务: ${createdJobs.join(', ')}`);
     
     res.json({ 
-      message: `批量重新解析任务已拆分并加入队列`, 
+      message: req.t('log.batchReparse.success'), 
       jobIds: createdJobs,
       queued: true,
       logCount: normalizedIds.length
     });
   } catch (err) {
     console.error('批量重新解析失败:', err);
-    return res.status(500).json({ message: '批量重新解析失败', error: err.message });
+    return res.status(500).json({ message: req.t('log.batchReparse.failed'), error: err.message });
   }
 };
 
@@ -2093,12 +2093,12 @@ const deleteLog = async (req, res) => {
   try {
     const { id } = req.params;
     const log = await Log.findByPk(id);
-    if (!log) return res.status(404).json({ message: '日志不存在' });
+    if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
     
     // 权限控制：普通用户只能删除自己的日志，专家用户和管理员可以删除任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
-      return res.status(403).json({ message: '权限不足，只能删除自己上传的日志' });
+      return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
     
     // 立即更新状态为"删除中"
@@ -2119,13 +2119,13 @@ const deleteLog = async (req, res) => {
     });
     
     res.json({ 
-      message: '删除任务已加入队列', 
+      message: req.t('log.delete.success'), 
       queued: true,
       jobId: job.id
     });
     
   } catch (err) {
-    res.status(500).json({ message: '删除失败', error: err.message });
+    res.status(500).json({ message: req.t('log.delete.failed'), error: err.message });
   }
 };
 
@@ -2135,7 +2135,7 @@ const autoFillDeviceId = async (req, res) => {
     const { key } = req.query;
     
     if (!key) {
-      return res.status(400).json({ message: '请提供密钥' });
+      return res.status(400).json({ message: req.t('device.provideKey') });
     }
     
     // 1) 设备表
@@ -2159,7 +2159,7 @@ const autoFillDeviceId = async (req, res) => {
       res.json({ device_id: null });
     }
   } catch (err) {
-    res.status(500).json({ message: '自动填充失败', error: err.message });
+    res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
   }
 };
 
@@ -2169,7 +2169,7 @@ const autoFillKey = async (req, res) => {
     const { device_id } = req.query;
     
     if (!device_id) {
-      return res.status(400).json({ message: '请提供设备编号' });
+      return res.status(400).json({ message: req.t('device.requiredId') });
     }
     
     // 1) 设备表
@@ -2193,7 +2193,7 @@ const autoFillKey = async (req, res) => {
       res.json({ key: null });
     }
   } catch (err) {
-    res.status(500).json({ message: '自动填充失败', error: err.message });
+    res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
   }
 };
 
@@ -2217,7 +2217,7 @@ const validateDeviceId = (deviceId) => {
         const { logIds } = req.body;
         
         if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
-          return res.status(400).json({ message: '请提供要删除的日志ID列表' });
+          return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
         }
         
         const userRole = req.user.role_id;
@@ -2227,7 +2227,7 @@ const validateDeviceId = (deviceId) => {
         const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
         
         if (numericLogIds.length === 0) {
-          return res.status(400).json({ message: '提供的日志ID格式不正确' });
+          return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
         }
         
         // 获取所有要删除的日志进行权限检查
@@ -2241,7 +2241,7 @@ const validateDeviceId = (deviceId) => {
         
         if (logs.length === 0) {
           return res.status(404).json({ 
-            message: '未找到要删除的日志',
+            message: req.t('log.parse.notFound'),
             requestedIds: numericLogIds,
             foundCount: logs.length
           });
@@ -2252,7 +2252,7 @@ const validateDeviceId = (deviceId) => {
           const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
           if (unauthorizedLogs.length > 0) {
             return res.status(403).json({ 
-              message: '权限不足，只能删除自己上传的日志',
+              message: req.t('log.parse.permissionDenied'),
               unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
             });
           }
@@ -2283,7 +2283,7 @@ const validateDeviceId = (deviceId) => {
         console.log(`批量删除任务已添加到队列，任务ID: ${job.id}`);
         
         res.json({ 
-          message: `批量删除任务已加入队列，任务ID: ${job.id}`, 
+          message: req.t('log.delete.success'), 
           jobId: job.id,
           queued: true,
           logCount: numericLogIds.length
@@ -2291,7 +2291,7 @@ const validateDeviceId = (deviceId) => {
       } catch (err) {
         console.error('批量删除失败:', err);
         res.status(500).json({ 
-          message: '批量删除失败', 
+          message: req.t('log.delete.failed'), 
           error: err.message
         });
       }
@@ -2303,7 +2303,7 @@ const batchDownloadLogs = async (req, res) => {
     const { logIds } = req.body;
     
     if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
-      return res.status(400).json({ message: '请提供要下载的日志ID列表' });
+      return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
     
     const userRole = req.user.role_id;
@@ -2313,7 +2313,7 @@ const batchDownloadLogs = async (req, res) => {
     const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
     
     if (numericLogIds.length === 0) {
-      return res.status(400).json({ message: '提供的日志ID格式不正确' });
+      return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
     
     // 获取所有要下载的日志
@@ -2327,7 +2327,7 @@ const batchDownloadLogs = async (req, res) => {
     
     if (logs.length === 0) {
       return res.status(404).json({ 
-        message: '未找到要下载的日志',
+        message: req.t('log.parse.notFound'),
         requestedIds: numericLogIds,
         foundCount: logs.length
       });
@@ -2338,7 +2338,7 @@ const batchDownloadLogs = async (req, res) => {
       const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
       if (unauthorizedLogs.length > 0) {
         return res.status(403).json({ 
-          message: '权限不足，只能下载自己上传的日志',
+          message: req.t('log.parse.permissionDenied'),
           unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
         });
       }
@@ -2348,7 +2348,7 @@ const batchDownloadLogs = async (req, res) => {
     const unparsedLogs = logs.filter(log => log.status !== 'parsed');
     if (unparsedLogs.length > 0) {
       return res.status(400).json({ 
-        message: '部分日志尚未解析完成，无法下载',
+        message: req.t('log.parse.failed'),
         unparsedLogs: unparsedLogs.map(log => ({ id: log.id, original_name: log.original_name, status: log.status }))
       });
     }
@@ -2450,7 +2450,7 @@ const batchDownloadLogs = async (req, res) => {
   } catch (err) {
     console.error('批量下载失败:', err);
     res.status(500).json({ 
-      message: '批量下载失败', 
+      message: req.t('log.download.failed'), 
       error: err.message
     });
   }
@@ -2464,7 +2464,7 @@ const analyzeSurgeryData = async (req, res) => {
     // 获取日志信息
     const log = await Log.findByPk(logId);
     if (!log) {
-      return res.status(404).json({ message: '日志不存在' });
+      return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
     
     // 获取日志条目
@@ -2475,7 +2475,7 @@ const analyzeSurgeryData = async (req, res) => {
     });
     
     if (entries.length === 0) {
-      return res.status(404).json({ message: '日志条目不存在' });
+      return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
     
     // 为每个条目添加日志文件名信息
@@ -2497,11 +2497,11 @@ const analyzeSurgeryData = async (req, res) => {
     res.json({
       success: true,
       data: surgeries,
-      message: `成功分析出 ${surgeries.length} 场手术数据`
+      message: req.t('log.analysis.success', { count: surgeries.length })
     });
   } catch (err) {
     console.error('手术统计分析失败:', err);
-    res.status(500).json({ message: '手术统计分析失败', error: err.message });
+    res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
   }
 };
 
@@ -2946,7 +2946,7 @@ const getLogStatistics = async (req, res) => {
     
   } catch (err) {
     console.error('获取日志统计失败:', err);
-    res.status(500).json({ message: '获取统计信息失败', error: err.message });
+    res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
   }
 };
 
@@ -3050,14 +3050,14 @@ const getVisualizationData = async (req, res) => {
     
     if (!log_ids || !error_code || !parameter_index) {
       return res.status(400).json({ 
-        message: 'log_ids、error_code和parameter_index参数都是必需的' 
+        message: req.t('log.analysis.failed') 
       });
     }
     
     const paramIndex = parseInt(parameter_index) - 1; // 转换为0,1,2,3
     if (paramIndex < 0 || paramIndex > 3) {
       return res.status(400).json({ 
-        message: 'parameter_index必须是1-4之间的数字' 
+        message: req.t('log.analysis.failed') 
       });
     }
     
@@ -3252,7 +3252,7 @@ const getVisualizationData = async (req, res) => {
         
         const allowedIds = logIds.filter(id => userLogIds.includes(id));
         if (allowedIds.length === 0) {
-          return res.status(403).json({ message: '没有权限访问这些日志' });
+          return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
         }
         where.log_id = { [Op.in]: allowedIds };
       }
@@ -3278,7 +3278,7 @@ const getVisualizationData = async (req, res) => {
     });
     
     if (!timeRangeQuery || !timeRangeQuery.startTime || !timeRangeQuery.endTime) {
-      return res.status(404).json({ message: '未找到该故障码的数据' });
+      return res.status(404).json({ message: req.t('log.visualization.noDataFound') });
     }
     
     // 查询该故障码的所有数据（在时间范围内）
@@ -3355,7 +3355,7 @@ const getVisualizationData = async (req, res) => {
     
   } catch (err) {
     console.error('获取可视化数据失败:', err);
-    res.status(500).json({ message: '获取可视化数据失败', error: err.message });
+    res.status(500).json({ message: req.t('log.visualization.getDataFailed'), error: err.message });
   }
 };
 
@@ -3377,7 +3377,7 @@ const cleanupStuckLogs = async (req, res) => {
     if (stuckLogs.length === 0) {
       return res.json({ 
         success: true, 
-        message: '没有发现卡死的日志',
+        message: req.t('log.cleanup.noStuckLogs'),
         cleanedCount: 0,
         failedCount: 0
       });
@@ -3439,7 +3439,7 @@ const cleanupStuckLogs = async (req, res) => {
     
     res.json({
       success: true,
-      message: `清理完成: 成功 ${cleanedCount} 个, 失败 ${failedCount} 个`,
+      message: req.t('log.cleanup.cleanupComplete', { cleanedCount, failedCount }),
       cleanedCount,
       failedCount,
       cleanedLogs
@@ -3449,7 +3449,7 @@ const cleanupStuckLogs = async (req, res) => {
     console.error('❌ 清理卡死日志失败:', error);
     res.status(500).json({
       success: false,
-      message: '清理卡死日志失败',
+      message: req.t('log.cleanup.cleanupFailed'),
       error: error.message
     });
   }
@@ -3504,7 +3504,7 @@ const getStuckLogsStats = async (req, res) => {
     console.error('❌ 获取卡死日志统计失败:', error);
     res.status(500).json({
       success: false,
-      message: '获取卡死日志统计失败',
+      message: req.t('log.cleanup.getStatsFailed'),
       error: error.message
     });
   }

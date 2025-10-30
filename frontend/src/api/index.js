@@ -49,16 +49,16 @@ api.interceptors.response.use(
           ElMessage.error(i18nInstance.global.t('auth.insufficientPermissions'))
           break
         case 404:
-          ElMessage.error(data?.message || i18nInstance.global.t('common.resourceNotFound'))
+          ElMessage.error(data?.message || i18nInstance.global.t('shared.resourceNotFound'))
           break
         case 500:
-          ElMessage.error(i18nInstance.global.t('common.serverError'))
+          ElMessage.error(i18nInstance.global.t('shared.serverError'))
           break
         default:
-          ElMessage.error(data.message || i18nInstance.global.t('common.requestFailed'))
+          ElMessage.error(data.message || i18nInstance.global.t('shared.requestFailed'))
       }
     } else {
-      ElMessage.error(i18nInstance.global.t('common.networkError'))
+      ElMessage.error(i18nInstance.global.t('shared.networkError'))
     }
     return Promise.reject(error)
   }
@@ -154,7 +154,7 @@ const users = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
-  assignRole: (userId, roleId) => api.post(`/users/${userId}/roles`, { roleId })
+  assignRole: (userId, roleId) => api.post('/user-roles/assign', { user_id: userId, role_id: roleId })
 }
 
 const roles = {

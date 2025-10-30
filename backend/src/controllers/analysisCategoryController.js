@@ -1,5 +1,7 @@
 const AnalysisCategory = require('../models/analysis_category');
 const { Op } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
 
 // 获取所有分析分类
 const getAnalysisCategories = async (req, res) => {
@@ -179,24 +181,49 @@ module.exports = {
         order: [['sort_order', 'ASC'], ['id', 'ASC']]
       });
 
-      const allIds = categories.map(c => c.id);
+      // 从配置文件读取预设定义
+      const configPath = path.join(__dirname, '..', 'config', 'analysisPresets.json');
+      let rolePreset = { '1': 'ALL', '2': 'FINE', '3': 'KEY', default: 'KEY' };
+      let presetsConfig = {
+        ALL: { excludeKeys: [] },
+        FINE: { excludeKeys: ['Tips', 'Null', 'Maintenance_Information', 'Account_Management'] },
+        KEY: { excludeKeys: ['Tips', 'Null', 'Maintenance_Information', 'Account_Management', 'Instrument', 'Safety_Checks', 'Communication_Errors', 'Hardware', 'Power_Supply', 'Network', 'Ethercat', 'Boundary'] }
+      };
 
-      // 定义关键/精细集合的 category_key 名单（可按需调整）
-      const KEY_KEYS = new Set([
-        'Safety_Checks',
-        'Communication_Errors',
-        'Hardware',
-        'Power_Supply',
-        'Network',
-        'Ethercat',
-        'Boundary'
-      ]);
+      try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(raw);
+        if (cfg && typeof cfg === 'object') {
+          if (cfg.rolePreset && typeof cfg.rolePreset === 'object') {
+            rolePreset = { ...rolePreset, ...cfg.rolePreset };
+          }
+          if (cfg.presets && typeof cfg.presets === 'object') {
+            // 合并预设配置，保留默认值
+            presetsConfig = {
+              ALL: { ...presetsConfig.ALL, ...(cfg.presets.ALL || {}) },
+              FINE: { ...presetsConfig.FINE, ...(cfg.presets.FINE || {}) },
+              KEY: { ...presetsConfig.KEY, ...(cfg.presets.KEY || {}) }
+            };
+          }
+        }
+      } catch (e) {
+        // 读取失败采用默认配置
+        console.warn('[analysisPresets] Using default presets due to read/parse error:', e.message);
+      }
 
-      // 精细：排除提示/未分类/部分信息类
-      const EXCLUDE_FINE = new Set(['Tips', 'Null', 'Maintenance_Information', 'Account_Management']);
-
-      const keyIds = categories.filter(c => KEY_KEYS.has(c.category_key)).map(c => c.id);
-      const fineIds = categories.filter(c => !EXCLUDE_FINE.has(c.category_key)).map(c => c.id);
+      // 根据配置计算各等级的分类ID
+      // 统一使用 excludeKeys 语义：排除指定分类，保留其余分类
+      const allExcludeKeys = presetsConfig.ALL?.excludeKeys || [];
+      const fineExcludeKeys = presetsConfig.FINE?.excludeKeys || [];
+      const keyExcludeKeys = presetsConfig.KEY?.excludeKeys || [];
+      
+      const ALL_EXCLUDE = new Set(allExcludeKeys);
+      const FINE_EXCLUDE = new Set(fineExcludeKeys);
+      const KEY_EXCLUDE = new Set(keyExcludeKeys);
+      
+      const allIds = categories.filter(c => !ALL_EXCLUDE.has(c.category_key)).map(c => c.id);
+      const fineIds = categories.filter(c => !FINE_EXCLUDE.has(c.category_key)).map(c => c.id);
+      const keyIds = categories.filter(c => !KEY_EXCLUDE.has(c.category_key)).map(c => c.id);
 
       return res.json({
         success: true,
@@ -204,7 +231,8 @@ module.exports = {
           ALL: allIds,
           FINE: fineIds,
           KEY: keyIds
-        }
+        },
+        rolePreset
       });
     } catch (err) {
       console.error('获取分析分类预设失败:', err);

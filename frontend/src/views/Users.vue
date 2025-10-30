@@ -17,7 +17,7 @@
       </div>
       
       <div class="action-section">
-        <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('user:create')">
+        <el-button class="btn-primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('user:create')">
           <el-icon><Plus /></el-icon>
           {{ $t('users.addUser') }}
         </el-button>
@@ -33,7 +33,7 @@
         v-loading="loading"
       >
         <el-table-column prop="username" :label="$t('users.username')" width="120" />
-        <el-table-column prop="email" :label="$t('users.email')" width="180" />
+        <el-table-column prop="email" :label="$t('users.email')" width="220" />
         <el-table-column prop="role" :label="$t('users.role')" width="100">
           <template #default="{ row }">
             <el-tag>{{ getRoleText(row.role) }}</el-tag>
@@ -46,14 +46,39 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" :label="$t('users.createTime')" width="150" />
-        <el-table-column :label="$t('common.operation')" fixed="right" width="320">
+        <el-table-column prop="created_at" :label="$t('users.createTime')" width="200" />
+        <el-table-column :label="$t('shared.operation')" fixed="right" width="160">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button @click="handleEdit(row)" v-if="$store.getters['auth/hasPermission']('user:update')">{{ $t('common.edit') }}</el-button>
-              <el-button @click="openResetPassword(row)" v-if="$store.getters['auth/hasPermission']('user:update')">{{ $t('users.resetPassword') }}</el-button>
-              <el-button @click="handleDelete(row)" type="danger" v-if="$store.getters['auth/hasPermission']('user:delete')">{{ $t('common.delete') }}</el-button>
-              <el-button @click="handleAssignRole(row)" v-if="$store.getters['auth/hasPermission']('user:role:assign')">{{ $t('users.assignRole') }}</el-button>
+              <el-button @click="handleEdit(row)" class="btn-text btn-sm" v-if="$store.getters['auth/hasPermission']('user:update')">{{ $t('shared.edit') }}</el-button>
+              
+              <el-dropdown 
+                trigger="click" 
+                placement="bottom-end"
+                @command="handleMoreAction"
+              >
+                <el-button class="btn-text btn-sm">
+                  <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item 
+                      :command="{ action: 'resetPassword', row }"
+                      v-if="$store.getters['auth/hasPermission']('user:update')"
+                    >
+                      {{ $t('users.resetPassword') }}
+                    </el-dropdown-item>
+                    
+                    <el-dropdown-item 
+                      :command="{ action: 'delete', row }"
+                      v-if="$store.getters['auth/hasPermission']('user:delete')"
+                      divided
+                    >
+                      <span style="color: var(--el-color-danger)">{{ $t('shared.delete') }}</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -83,7 +108,7 @@
         ref="userFormRef"
         :model="userForm"
         :rules="rules"
-        label-width="100px"
+        label-width="130px"
       >
         <el-form-item :label="$t('users.username')" prop="username">
           <el-input v-model="userForm.username" :disabled="!!editingUser" />
@@ -99,11 +124,11 @@
         </el-form-item>
         
         <el-form-item v-if="!editingUser" :label="$t('users.password')" prop="password">
-          <el-input v-model="userForm.password" type="password" show-password />
+          <el-input v-model="userForm.password" type="password" show-password style="max-width: 100%" />
         </el-form-item>
         
         <el-form-item v-if="editingUser" :label="$t('users.newPassword')" prop="password">
-          <el-input v-model="userForm.password" type="password" show-password :placeholder="$t('users.newPasswordPlaceholder')" />
+          <el-input v-model="userForm.password" type="password" show-password :placeholder="$t('users.newPasswordPlaceholder')" style="max-width: 100%" />
         </el-form-item>
         
         <el-form-item :label="$t('users.status')" prop="status">
@@ -115,43 +140,14 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showAddDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleSave" :loading="saving">
-          {{ $t('common.save') }}
+        <el-button class="btn-secondary" @click="showAddDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button class="btn-primary" @click="handleSave" :loading="saving">
+          {{ $t('shared.save') }}
         </el-button>
       </template>
     </el-dialog>
     
-    <!-- 分配角色对话框 -->
-    <el-dialog
-      v-model="showRoleDialog"
-      :title="$t('users.assignRole')"
-      width="400px"
-    >
-      <el-form label-width="100px">
-        <el-form-item :label="$t('users.username')">
-          <span>{{ selectedUser?.username }}</span>
-        </el-form-item>
-        
-        <el-form-item :label="$t('users.role')">
-          <el-select v-model="selectedRole" :placeholder="$t('users.selectRole')">
-            <el-option
-              v-for="role in roles"
-              :key="role.id"
-              :label="getRoleText(role.name)"
-              :value="role.id"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
-        <el-button @click="showRoleDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleSaveRole" :loading="savingRole">
-          {{ $t('common.save') }}
-        </el-button>
-      </template>
-    </el-dialog>
+    
 
     <!-- 编辑弹窗 -->
     <el-dialog v-model="showEditDialog" :title="$t('users.editUser')" width="400px">
@@ -169,8 +165,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleSaveEdit">{{ $t('common.save') }}</el-button>
+        <el-button class="btn-secondary" @click="showEditDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button class="btn-primary" @click="handleSaveEdit">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -180,20 +176,20 @@
       :title="$t('users.resetPasswordTitle')"
       width="400px"
     >
-      <el-form :model="resetPasswordForm" :rules="resetPasswordRules" ref="resetPasswordFormRef" label-width="100px">
+      <el-form :model="resetPasswordForm" :rules="resetPasswordRules" ref="resetPasswordFormRef" label-width="130px">
         <el-form-item :label="$t('users.oldPassword')" prop="oldPassword">
-          <el-input v-model="resetPasswordForm.oldPassword" type="password" show-password />
+          <el-input v-model="resetPasswordForm.oldPassword" type="password" show-password style="max-width: 100%" />
         </el-form-item>
         <el-form-item :label="$t('users.newPassword')" prop="newPassword">
-          <el-input v-model="resetPasswordForm.newPassword" type="password" show-password />
+          <el-input v-model="resetPasswordForm.newPassword" type="password" show-password style="max-width: 100%" />
         </el-form-item>
         <el-form-item :label="$t('users.confirmNewPassword')" prop="confirmPassword">
-          <el-input v-model="resetPasswordForm.confirmPassword" type="password" show-password />
+          <el-input v-model="resetPasswordForm.confirmPassword" type="password" show-password style="max-width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showResetPasswordDialog = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="handleResetPassword" :loading="resettingPassword">{{ $t('common.confirm') }}</el-button>
+        <el-button class="btn-secondary" @click="showResetPasswordDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button class="btn-primary" @click="handleResetPassword" :loading="resettingPassword">{{ $t('shared.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -204,25 +200,26 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { MoreFilled } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'Users',
   setup() {
     const store = useStore()
     const router = useRouter()
+    const { t, locale } = useI18n()
     
     // 响应式数据
     const loading = ref(false)
     const saving = ref(false)
-    const savingRole = ref(false)
+    
     const showAddDialog = ref(false)
-    const showRoleDialog = ref(false)
     const editingUser = ref(null)
-    const selectedUser = ref(null)
     const searchQuery = ref('')
     const currentPage = ref(1)
     const pageSize = ref(20)
-    const selectedRole = ref('')
+    
     const showEditDialog = ref(false)
     let editUserId = null
 
@@ -235,25 +232,25 @@ export default {
     })
     const userForm = ref(getDefaultUserForm())
     
-    const rules = {
+    const rules = computed(() => ({
       username: [
-        { required: true, message: '请输入用户名', trigger: 'blur' },
-        { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+        { required: true, message: t('users.validation.usernameRequired'), trigger: 'blur' },
+        { min: 3, max: 20, message: t('users.validation.usernameLength'), trigger: 'blur' }
       ],
       email: [
-        { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+        { type: 'email', message: t('users.validation.emailFormat'), trigger: 'blur' }
       ],
       password: [
-        { required: true, message: '请输入密码', trigger: 'blur' },
-        { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' }
+        { required: true, message: t('users.validation.passwordRequired'), trigger: 'blur' },
+        { min: 6, message: t('users.validation.passwordMinLength'), trigger: 'blur' }
       ],
       status: [
-        { required: true, message: '请选择状态', trigger: 'change' }
+        { required: true, message: t('users.validation.statusRequired'), trigger: 'change' }
       ],
       role: [
-        { required: true, message: '请选择账户类型', trigger: 'change' }
+        { required: true, message: t('users.validation.roleRequired'), trigger: 'change' }
       ]
-    }
+    }))
     
     // 计算属性
     const users = computed(() => store.getters['users/usersList'])
@@ -271,7 +268,7 @@ export default {
           search: searchQuery.value
         })
       } catch (error) {
-        ElMessage.error('加载用户失败')
+        ElMessage.error(t('users.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -283,7 +280,7 @@ export default {
         // 直接赋值，避免反复计算
         roles.value = store.getters['users/rolesList']
       } catch (error) {
-        ElMessage.error('加载角色失败')
+        ElMessage.error(t('users.loadRolesFailed'))
       }
     }
     
@@ -320,18 +317,18 @@ export default {
     
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm('确定要删除这个用户吗？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
+        await ElMessageBox.confirm(t('users.deleteConfirm'), t('shared.info'), {
+          confirmButtonText: t('shared.confirm'),
+          cancelButtonText: t('shared.cancel'),
           type: 'warning'
         })
         
         await store.dispatch('users/deleteUser', row.id)
-        ElMessage.success('删除成功')
+        ElMessage.success(t('shared.messages.deleteSuccess'))
         loadUsers()
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('删除失败')
+          ElMessage.error(t('shared.messages.deleteFailed'))
         }
       }
     }
@@ -357,40 +354,22 @@ export default {
             id: editingUser.value.id,
             data
           })
-          ElMessage.success('更新成功')
+          ElMessage.success(t('shared.messages.updateSuccess'))
         } else {
           await store.dispatch('users/createUser', data)
-          ElMessage.success('添加成功')
+          ElMessage.success(t('shared.messages.createSuccess'))
         }
         showAddDialog.value = false
         resetForm()
         loadUsers()
       } catch (error) {
-        ElMessage.error('保存失败')
+        ElMessage.error(t('shared.messages.saveFailed'))
       } finally {
         saving.value = false
       }
     }
     
-    const handleAssignRole = (row) => {
-      selectedUser.value = row
-      selectedRole.value = row.roleId || ''
-      showRoleDialog.value = true
-    }
     
-    const handleSaveRole = async () => {
-      try {
-        savingRole.value = true
-        await store.dispatch('users/assignUserRole', selectedUser.value.id, selectedRole.value)
-        ElMessage.success('角色分配成功')
-        showRoleDialog.value = false
-        loadUsers()
-      } catch (error) {
-        ElMessage.error('角色分配失败')
-      } finally {
-        savingRole.value = false
-      }
-    }
     
     const getRoleType = (role) => {
       const typeMap = {
@@ -402,17 +381,18 @@ export default {
     }
     
     const getRoleText = (role) => {
-      const textMap = {
-        admin: '管理员',
-        expert: '专家用户',
-        user: '普通用户'
+      const roleMap = {
+        admin: t('users.roleAdmin'),
+        expert: t('users.roleExpert'),
+        user: t('users.roleUser')
       }
-      return textMap[role] || role
+      return roleMap[role] || role
     }
     
     const formatDate = (dateString) => {
       if (!dateString) return '-'
-      return new Date(dateString).toLocaleString('zh-CN')
+      const localeStr = locale.value === 'en' ? 'en-US' : 'zh-CN'
+      return new Date(dateString).toLocaleString(localeStr)
     }
     
     // 生命周期
@@ -429,25 +409,25 @@ export default {
     let resetUserId = null
 
     // 校验规则
-    const resetPasswordRules = {
+    const resetPasswordRules = computed(() => ({
       oldPassword: [
-        { required: true, message: '请输入原密码', trigger: 'blur' }
+        { required: true, message: t('users.validation.oldPasswordRequired'), trigger: 'blur' }
       ],
       newPassword: [
-        { required: true, message: '请输入新密码', trigger: 'blur' },
-        { min: 6, message: '密码长度不能少于 6 个字符', trigger: 'blur' }
+        { required: true, message: t('users.validation.newPasswordRequired'), trigger: 'blur' },
+        { min: 6, message: t('users.validation.passwordMinLength'), trigger: 'blur' }
       ],
       confirmPassword: [
-        { required: true, message: '请确认新密码', trigger: 'blur' },
+        { required: true, message: t('users.validation.confirmPasswordRequired'), trigger: 'blur' },
         { validator: (rule, value, callback) => {
             if (value !== resetPasswordForm.newPassword) {
-              callback(new Error('两次输入的新密码不一致'))
+              callback(new Error(t('users.validation.passwordMismatch')))
             } else {
               callback()
             }
           }, trigger: 'blur' }
       ]
-    }
+    }))
 
     // 打开重置密码弹窗
     const openResetPassword = (row) => {
@@ -470,28 +450,40 @@ export default {
             password: resetPasswordForm.newPassword
           }
         })
-        ElMessage.success('密码重置成功')
+        ElMessage.success(t('users.resetPasswordSuccess'))
         showResetPasswordDialog.value = false
         loadUsers()
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || '密码重置失败')
+        ElMessage.error(error.response?.data?.message || t('users.resetPasswordFailed'))
       } finally {
         resettingPassword.value = false
+      }
+    }
+    
+    // 处理更多操作下拉菜单
+    const handleMoreAction = (command) => {
+      const { action, row } = command
+      switch (action) {
+        case 'resetPassword':
+          openResetPassword(row)
+          break
+        
+        case 'delete':
+          handleDelete(row)
+          break
+        default:
+          console.warn('Unknown action:', action)
       }
     }
     
     return {
       loading,
       saving,
-      savingRole,
       showAddDialog,
-      showRoleDialog,
       editingUser,
-      selectedUser,
       searchQuery,
       currentPage,
       pageSize,
-      selectedRole,
       userForm,
       rules,
       users,
@@ -503,8 +495,6 @@ export default {
       handleEdit,
       handleDelete,
       handleSave,
-      handleAssignRole,
-      handleSaveRole,
       getRoleType,
       getRoleText,
       formatDate,
@@ -515,7 +505,8 @@ export default {
       resetPasswordFormRef,
       resetPasswordRules,
       openResetPassword,
-      handleResetPassword
+      handleResetPassword,
+      handleMoreAction
     }
   }
 }
@@ -555,6 +546,7 @@ export default {
 .action-buttons {
   display: flex;
   justify-content: flex-start;
+  align-items: center;
   gap: 8px;
 }
 </style> 

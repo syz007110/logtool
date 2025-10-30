@@ -162,8 +162,8 @@ const deleteRole = async (req, res) => {
       return res.status(400).json({ message: '内置角色不允许删除' });
     }
 
-    // 被用户引用保护：若仍有用户分配该角色则禁止删除
-    const assignedCount = await UserRole.count({ where: { role_id: role.id, is_active: true } });
+    // 被用户引用保护：若仍有用户分配该角色则禁止删除（检查所有分配关系，不管 is_active 状态）
+    const assignedCount = await UserRole.count({ where: { role_id: role.id } });
     if (assignedCount > 0) {
       return res.status(400).json({ message: `该角色已分配给 ${assignedCount} 个用户，不能删除` });
     }

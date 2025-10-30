@@ -43,7 +43,7 @@
         </div>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" :loading="submitting" @click="submit">{{ $t('common.save') }}</el-button>
+        <el-button class="btn-primary" :loading="submitting" @click="submit">{{ $t('shared.save') }}</el-button>
       </el-form-item>
     </el-form>
   </div>

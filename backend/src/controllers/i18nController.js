@@ -6,9 +6,9 @@ const upsertI18nText = async (req, res) => {
     const { key_name, lang, text } = req.body;
     if (!key_name || !lang) return res.status(400).json({ message: 'key_name和lang不能为空' });
     const [i18n, created] = await I18nText.upsert({ key_name, lang, text });
-    res.json({ message: req.t(created ? 'common.created' : 'common.updated'), i18n });
+    res.json({ message: req.t(created ? 'shared.messages.createSuccess' : 'shared.messages.updateSuccess'), i18n });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.operationFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
 
@@ -31,11 +31,11 @@ const deleteI18nText = async (req, res) => {
   try {
     const { id } = req.params;
     const i18n = await I18nText.findByPk(id);
-    if (!i18n) return res.status(404).json({ message: req.t('common.notFound') });
+    if (!i18n) return res.status(404).json({ message: req.t('shared.notFound') });
     await i18n.destroy();
-    res.json({ message: req.t('common.deleted') });
+    res.json({ message: req.t('shared.deleted') });
   } catch (err) {
-    res.status(500).json({ message: req.t('common.deleteFailed'), error: err.message });
+    res.status(500).json({ message: req.t('shared.deleteFailed'), error: err.message });
   }
 };
 

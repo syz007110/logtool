@@ -4,9 +4,9 @@
       <template #header>
         <div class="card-header">
           <span>{{ $t('history.title') }}</span>
-          <el-button type="primary" size="small" @click="loadHistory">
+          <el-button class="btn-primary btn-sm" @click="loadHistory">
             <el-icon><Refresh /></el-icon>
-            {{ $t('common.refresh') }}
+            {{ $t('shared.refresh') }}
           </el-button>
         </div>
       </template>
@@ -37,7 +37,7 @@
           <template #default="{ row }">
             <el-button 
               size="small" 
-              type="primary"
+              class="btn-text btn-sm"
               @click="showDetails(row)"
             >
               {{ $t('history.view') }}
