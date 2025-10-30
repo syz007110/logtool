@@ -5,6 +5,7 @@ const { WatcherService } = require('./services/watcher');
 const { getKeyAndDeviceForFile } = require('./services/keyExtractor');
 const { ScannerService } = require('./services/scanner');
 const { UploaderService } = require('./services/uploader');
+const { TempCleanerService } = require('./services/cleaner');
 const { loadTasks, saveTasks } = require('./services/storage');
 
 let mainWindow = null;
@@ -13,6 +14,7 @@ let uploader = null;
 let tray = null;
 let paused = false;
 let scanner = null;
+let cleaner = null;
 // Track unit scan sessions for per-device completion notifications
 const unitSessions = new Map(); // sessionId -> { deviceId, startedAt }
 
@@ -193,6 +195,20 @@ app.whenReady().then(async () => {
   // 初始化目录监听与扫描器（按流程图：目录/压缩包为单元）
   watcher = new WatcherService({});
   scanner = new ScannerService({ uploader, getConfig, appDataDir: getAppDataDir, log: writeLog });
+  // 初始化临时文件清理服务
+  cleaner = new TempCleanerService({ 
+    getConfig, 
+    appDataDir: getAppDataDir, 
+    log: writeLog,
+    getUploader: () => uploader 
+  });
+  (async () => {
+    try {
+      await cleaner.start();
+    } catch (e) {
+      writeLog(`Failed to start cleaner: ${e.message}`);
+    }
+  })();
   // 冷启动：抑制 .medbot add 事件，待初次目录发现完成后再开启
   watcher.setSuppressMedbotAdd(true);
   const debounced = new Map();
@@ -522,8 +538,26 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// 应用退出时停止清理服务
+app.on('before-quit', function () {
+  if (cleaner) {
+    cleaner.stop();
+  }
+});
+
 ipcMain.handle('config:get', async () => getConfig());
-ipcMain.handle('config:save', async (_evt, updated) => saveConfig(updated));
+ipcMain.handle('config:save', async (_evt, updated) => {
+  const saved = await saveConfig(updated);
+  // 如果清理间隔改变了，重启清理服务
+  if (cleaner) {
+    try {
+      await cleaner.restart();
+    } catch (e) {
+      console.error('Failed to restart cleaner:', e);
+    }
+  }
+  return saved;
+});
 ipcMain.handle('app:dataDir', async () => getAppDataDir());
 ipcMain.handle('dialog:open', async (_evt, options) => {
   const { dialog } = require('electron');

@@ -235,7 +235,7 @@
       </div>
       <div class="faults-container">
         <el-table 
-          :data="faultRecords" 
+          :data="visibleFaultRows" 
           stripe 
           border 
           size="small"
@@ -274,6 +274,11 @@
             </template>
           </el-table-column>
         </el-table>
+        <div v-if="faultRecords.length > 5" style="text-align:center;margin:12px 0;">
+          <el-button class="btn-secondary btn-sm" @click="showAllFaults = !showAllFaults">
+            {{ showAllFaults ? $t('shared.collapse') : $t('shared.expand') }}
+          </el-button>
+        </div>
         
         <div class="faults-summary" v-if="faultRecords.length > 0">
           <el-alert
@@ -1749,6 +1754,10 @@ export default {
     const getUnprocessedCount = () => {
       return faultRecords.value.filter(fault => fault.status_key !== 'processed').length
     }
+
+    // 故障表手动折叠/展开（默认最多显示5条）
+    const showAllFaults = ref(false)
+    const visibleFaultRows = computed(() => showAllFaults.value ? faultRecords.value : faultRecords.value.slice(0, 5))
     
     // 处理鼠标滚轮缩放
     const handleWheel = (event) => {
@@ -2098,6 +2107,9 @@ export default {
       exportStructured, 
       visibleAlertRows, 
       showAllAlerts, 
+      // 故障表折叠/展开
+      showAllFaults,
+      visibleFaultRows,
       timelineDisplay, 
       armsData, 
       timelineEvents,

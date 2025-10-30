@@ -1031,6 +1031,20 @@
     "surgeryStart": "Surgery Start",
     "surgeryEnd": "Surgery End"
   }
+  ,
+  "mobile": {
+    "tabs": {
+      "error": "Errors",
+      "logs": "Logs",
+      "surgeries": "Surgeries",
+      "profile": "Me"
+    },
+    "titles": {
+      "errorQuery": "Error Code Query",
+      "logs": "Log Management",
+      "surgeries": "Surgery Data"
+    }
+  }
 }
 
 

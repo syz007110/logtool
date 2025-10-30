@@ -1019,6 +1019,20 @@
     "surgeryStart": "手术开始",
     "surgeryEnd": "手术结束"
   }
+  ,
+  "mobile": {
+    "tabs": {
+      "error": "故障码",
+      "logs": "日志",
+      "surgeries": "手术",
+      "profile": "我的"
+    },
+    "titles": {
+      "errorQuery": "故障码查询",
+      "logs": "日志管理",
+      "surgeries": "手术数据"
+    }
+  }
 }
 
 

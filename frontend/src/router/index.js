@@ -18,6 +18,13 @@ const routes = [
     component: () => import('../views/Register.vue'),
     meta: { requiresAuth: false }
   },
+  // 移动端登录
+  {
+    path: '/m/login',
+    name: 'MLogin',
+    component: () => import('../views/Login.vue'),
+    meta: { requiresAuth: false, noSidebar: true, isMobile: true }
+  },
 
   // 批量查看路由（支持单个或多个日志ID）
   {
@@ -165,6 +172,22 @@ const routes = [
         meta: { requiresPermission: ['surgery:read', 'surgery:read_own'] }
       }
 
+    ]
+  }
+  ,
+  // 移动端主路由
+  {
+    path: '/m',
+    component: () => import('../mobile/MobileLayout.vue'),
+    meta: { requiresAuth: true, noSidebar: true, isMobile: true },
+    children: [
+      { path: '', redirect: '/m/error' },
+      { path: 'error', name: 'MError', component: () => import('../mobile/views/ErrorQuery.vue') },
+      { path: 'logs', name: 'MLogs', component: () => import('../mobile/views/LogDevices.vue') },
+      { path: 'logs/:deviceId', name: 'MDeviceLogs', component: () => import('../mobile/views/DeviceLogs.vue') },
+      { path: 'surgeries', name: 'MSurgeries', component: () => import('../mobile/views/SurgeriesDevices.vue') },
+      { path: 'surgeries/:deviceId', name: 'MDeviceSurgeries', component: () => import('../mobile/views/DeviceSurgeries.vue') },
+      { path: 'profile', name: 'MProfile', component: () => import('../mobile/views/Profile.vue') }
     ]
   }
 ]

@@ -20,5 +20,6 @@
   "scanOnly": false,
   "logsDir": "D:\\MyLogMonitor",
   "ignoreInitial": true,
-  "periodicRescanInterval": 1
+  "periodicRescanInterval": 1,
+  "tempCleanupInterval": 180
 }

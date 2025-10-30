@@ -71,7 +71,8 @@ async function ensureConfig() {
     tokenExpiresAt: null,
     successRetentionDays: 7,
     ignoreInitial: true, // true=仅监控新增/变更(忽略现有)，false=纳入现有(启动扫描现有)
-    periodicRescanInterval: 5 // 周期补扫间隔（分钟），0=禁用补扫
+    periodicRescanInterval: 5, // 周期补扫间隔（分钟），0=禁用补扫
+    tempCleanupInterval: 60 // 临时文件清理间隔（分钟），默认60分钟
   };
   fs.writeFileSync(cfgPath, JSON.stringify(initial, null, 2), 'utf-8');
 }
@@ -130,6 +131,10 @@ async function saveConfig(updated) {
     }
     // 强制关闭仅扫描（按需求）
     toSave.scanOnly = false;
+
+    // 清理间隔：默认60分钟，限制在 1-1440 分钟之间（1分钟到24小时）
+    const cleanupNum = Number.isFinite(+toSave.tempCleanupInterval) ? (+toSave.tempCleanupInterval | 0) : 60;
+    toSave.tempCleanupInterval = Math.max(1, Math.min(1440, cleanupNum));
   } catch {}
   console.log('Saving config to:', cfgPath);
   console.log('Config content:', JSON.stringify(toSave, null, 2));
