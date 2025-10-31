@@ -2,8 +2,7 @@
   <div class="devices-container">
     <div class="action-bar">
       <div class="search-section">
-        <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @keyup.enter="loadDevices" />
-        <el-button @click="loadDevices">{{ $t('shared.search') }}</el-button>
+        <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @input="handleSearch" />
       </div>
       <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:create')">
         <el-button class="btn-primary" @click="openEdit()">{{ $t('devices.addDevice') }}</el-button>
@@ -82,6 +81,7 @@ export default {
     const page = ref(1)
     const limit = ref(20)
     const search = ref('')
+    let searchTimer = null
 
     const showEdit = ref(false)
     const editing = ref(null)
@@ -109,6 +109,16 @@ export default {
       } finally {
         loading.value = false
       }
+    }
+
+    const handleSearch = () => {
+      if (searchTimer) {
+        clearTimeout(searchTimer)
+      }
+      searchTimer = setTimeout(() => {
+        page.value = 1
+        loadDevices()
+      }, 300)
     }
 
     const openEdit = (row) => {
@@ -155,7 +165,7 @@ export default {
 
     onMounted(loadDevices)
 
-    return { devices, total, page, limit, search, loading, saving, showEdit, editing, form, rules, formRef, canEdit, loadDevices, openEdit, save, onDelete }
+    return { devices, total, page, limit, search, loading, saving, showEdit, editing, form, rules, formRef, canEdit, loadDevices, openEdit, save, onDelete, handleSearch }
   }
 }
 </script>

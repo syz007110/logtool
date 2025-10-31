@@ -402,6 +402,21 @@
             clearable
           />
         </el-form-item>
+        <el-form-item v-if="needSubsystemSelect" :label="$t('errorCodes.subsystem')">
+          <el-select
+            v-model="queryForm.subsystem"
+            :placeholder="$t('errorCodes.selectSubsystem')"
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="opt in subsystemOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <div class="query-buttons">
             <button type="button" class="btn-primary" :class="{ 'btn-loading': queryLoading }" :disabled="queryLoading" @click="handleQuery">{{ $t('shared.search') }}</button>
@@ -529,7 +544,15 @@ export default {
     const pageSize = ref(10)
     const errorCodeFormRef = ref(null)
     const queryLoading = ref(false)
-    const queryForm = reactive({ fullCode: '' })
+    const queryForm = reactive({ fullCode: '', subsystem: '' })
+    // 是否需要显示子系统下拉：短码（010A/0X010A）一律显示
+    const needSubsystemSelect = computed(() => {
+      const full = (queryForm.fullCode || '').trim().toUpperCase()
+      if (!full) return false
+      const isShortCode = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(full)
+      return isShortCode
+    })
+
     const queryResult = ref(null)
     const foundRecord = ref(null)
     const analysisCategories = ref([])
@@ -1059,19 +1082,49 @@ export default {
         ElMessage.warning(t('errorCodes.message.queryWarning'))
         return
       }
+      const upper = full.toUpperCase()
+      const startsWithSubsystem = /^[1-9A]/.test(upper)
+      const isFull = /^[1-9A][0-9A-F]{5}[A-E]$/.test(upper)
+      const isShort = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(upper)
+      // 短码优先：用户可能已通过下拉选择了子系统，不应触发长度校验
+      if (isShort) {
+        const shortSubsystem = (queryForm.subsystem || '').toUpperCase()
+        if (!shortSubsystem) {
+          ElMessage.info(t('errorCodes.selectSubsystem'))
+          return
+        }
+        // 后续查询逻辑在下面统一执行
+      } else {
+        // 先判断“像完整码但长度不对”的情况，例如 12010A（少一位）
+        if (startsWithSubsystem && !isFull) {
+          ElMessage.warning(t('errorCodes.validation.lengthNotEnough'))
+          return
+        }
+        // 既不是完整码，也不是故障类型短码
+        if (!isFull) {
+          ElMessage.warning(t('errorCodes.validation.codeFormat'))
+          return
+        }
+      }
       queryLoading.value = true
       queryResult.value = null
       foundRecord.value = null
       try {
-        const payload = { code: full }
+        const payload = { code: upper }
         const previewResp = await api.explanations.preview(payload)
         queryResult.value = previewResp.data
-        let subsystem = queryResult.value?.subsystem || null
-        if (!subsystem && full.length >= 5) {
-          const s = full.charAt(0)
+        let subsystem = queryForm.subsystem || queryResult.value?.subsystem || null
+        if (!subsystem && isFull) {
+          const s = upper.charAt(0)
           if (/^[1-9A]$/.test(s)) subsystem = s
         }
-        const codeOnly = normalizeFullCode(full)
+        // 若输入的是短码（010A/0X010A）必须有下拉选择的子系统
+        if (isShort && !subsystem) {
+          ElMessage.info(t('errorCodes.selectSubsystem'))
+          queryLoading.value = false
+          return
+        }
+        const codeOnly = normalizeFullCode(upper)
         if (subsystem) {
           try {
             const recResp = await api.errorCodes.getByCodeAndSubsystem(codeOnly, subsystem)
@@ -1091,6 +1144,7 @@ export default {
     }
     const resetQuery = () => {
       queryForm.fullCode = ''
+      queryForm.subsystem = ''
       queryResult.value = null
       foundRecord.value = null
     }
@@ -1270,6 +1324,7 @@ export default {
        queryForm,
        queryResult,
        foundRecord,
+      needSubsystemSelect,
        errorCodeForm,
        rules,
        errorCodes,

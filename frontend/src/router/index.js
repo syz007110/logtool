@@ -202,9 +202,10 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = store.getters['auth/isAuthenticated']
   const userRole = store.getters['auth/userRole']
   const hasPermission = store.getters['auth/hasPermission']
+  const isMobileRoute = to.path.startsWith('/m')
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login')
+    next(isMobileRoute ? '/m/login' : '/login')
   } else if (to.meta.requiresAdmin && userRole !== 'admin') {
     next('/dashboard')
   } else if (to.meta.requiresPermission) {
@@ -217,9 +218,8 @@ router.beforeEach((to, from, next) => {
     } else {
       next()
     }
-  } else if (to.path === '/login' && isAuthenticated && from.path !== '/login') {
-    // 仅在不是后退到login时才跳转，避免破坏历史
-    next('/dashboard')
+  } else if ((to.path === '/login' || to.path === '/m/login') && isAuthenticated && from.path !== to.path) {
+    next(isMobileRoute ? '/m' : '/dashboard')
   } else {
     next()
   }

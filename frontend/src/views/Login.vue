@@ -112,7 +112,8 @@ export default {
         
         await store.dispatch('auth/login', formData)
         ElMessage.success(t('login.loginSuccess'))
-        router.push('/dashboard')
+        const isMobileContext = window.location.pathname.startsWith('/m')
+        router.push(isMobileContext ? '/m' : '/dashboard')
       } catch (error) {
         // 不在这里显示错误信息，因为响应拦截器已经处理了
         console.error('登录失败:', error)
