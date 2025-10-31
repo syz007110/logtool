@@ -140,51 +140,9 @@ sudo npm install -g pm2
 
 ### 1. 创建 MySQL 数据库
 
-```bash
-# 登录 MySQL
-mysql -u root -p
-
-# 创建数据库
-CREATE DATABASE IF NOT EXISTS logtool CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-# 创建用户并授权 (可选，建议使用专用用户)
-CREATE USER 'logtool'@'localhost' IDENTIFIED BY 'your_secure_password';
-GRANT ALL PRIVILEGES ON logtool.* TO 'logtool'@'localhost';
-FLUSH PRIVILEGES;
-
-# 退出
-EXIT;
-```
-
 ### 2. 导入数据库结构
 
-```bash
-# 进入项目目录
-cd /path/to/logtool
-
-# 导入数据库初始化脚本
-mysql -u root -p logtool < infrastructure/database/init_database.sql
-```
-
 ### 3. 创建 PostgreSQL 数据库 (可选)
-
-```bash
-# 切换到 postgres 用户
-sudo -u postgres psql
-
-# 创建数据库和用户
-CREATE DATABASE logtool;
-CREATE USER logtool WITH ENCRYPTED PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE logtool TO logtool;
-
-# 退出
-\q
-
-# 导入手术统计表结构
-sudo -u postgres psql -d logtool -f infrastructure/database/surgery_tables_postgresql.sql
-```
-
----
 
 ## 项目配置
 
@@ -307,11 +265,29 @@ npm run build
 # 构建完成后，dist 目录包含所有静态文件
 ```
 
-### 2. 配置前端 API 地址
+### 2. 前端路由说明
 
-如果需要修改 API 地址，检查 `frontend/src/api/` 目录下的配置文件。
+**移动端和桌面端已自动区分：**
+- **桌面端路由**：`/` 开头的所有路由（如 `/dashboard`, `/login` 等）
+- **移动端路由**：`/m` 开头的所有路由（如 `/m/login`, `/m/error` 等）
+- **自动识别**：前端会根据路由路径自动加载对应的移动端或桌面端组件
+- **无需额外配置**：Nginx 只需配置基本的路由支持，Vue Router 会自动处理移动端和桌面端切换
 
-### 3. 部署前端静态文件
+**移动端路由列表：**
+- `/m/login` - 移动端登录
+- `/m` - 移动端主页（重定向到 `/m/error`）
+- `/m/error` - 故障码查询
+- `/m/logs` - 日志设备列表
+- `/m/logs/:deviceId` - 设备日志详情
+- `/m/surgeries` - 手术设备列表
+- `/m/surgeries/:deviceId` - 设备手术数据
+- `/m/profile` - 个人资料
+
+### 3. 配置前端 API 地址（可选）
+
+如果需要修改 API 地址，检查 `frontend/src/api/` 目录下的配置文件。默认情况下，API 地址会从 `/api` 路径自动代理到后端服务。
+
+### 4. 部署前端静态文件
 
 #### 方式1: 使用 Nginx 直接服务静态文件（推荐）
 
@@ -479,27 +455,73 @@ pm2 describe logtool-backend
 sudo nano /etc/nginx/sites-available/logtool
 ```
 
-**Nginx 配置示例:**
+**重要说明：**
+- **有域名**：将 `server_name` 改为你的域名（如：`example.com`）
+- **只有 IP**：将 `server_name` 改为你的服务器 IP（如：`192.168.1.100`）
+- **接受所有访问**：使用 `server_name _;`（不推荐生产环境，但可以用于测试）
+
+**Nginx 配置示例（已包含移动端自动检测）:**
 
 ```nginx
 # 前端静态文件服务
+# 说明：
+# - 有域名时：server_name example.com;
+# - 只有IP时：server_name 192.168.1.100; 或 server_name _;
+# - 移动端自动检测：Nginx 会根据 User-Agent 自动将移动设备重定向到 /m 路径
+
 server {
     listen 80;
-    server_name your-domain.com;  # 替换为你的域名或 IP
+    server_name _;  # 改为你的域名或IP，或使用 _ 接受所有访问
     
     # 前端静态文件
     root /var/www/logtool;
     index index.html;
 
-    # 前端路由支持（Vue Router）
-    location / {
-        try_files $uri $uri/ /index.html;
+    # 移动设备检测 - 定义移动设备的 User-Agent 模式
+    map $http_user_agent $is_mobile {
+        default 0;
+        ~*android|webos|iphone|ipad|ipod|blackberry|iemobile|opera\smini|mobile|palm|windows\sphone 1;
+        ~*Mobile|Mobile|MOBILE 1;
     }
 
-    # 静态资源缓存
+    # 静态资源（优先匹配）
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # API 代理
+    location /api {
+        proxy_pass http://localhost:3000;
+        # ... 其他代理配置
+    }
+
+    # 移动端路径 - 如果已经是移动端路径，正常处理
+    location ^~ /m {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 根路径 - 移动设备访问时自动重定向到 /m
+    location = / {
+        if ($is_mobile) {
+            return 301 /m;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 登录页 - 移动设备访问时重定向到移动端登录页
+    location = /login {
+        if ($is_mobile) {
+            return 301 /m/login;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 桌面端路径正常处理（通用匹配）
+    location / {
+        try_files $uri $uri/ /index.html;
     }
 
     # 后端 API 代理
@@ -834,11 +856,61 @@ chmod +x deploy.sh
 
 ---
 
+## 移动端和桌面端访问
+
+### 访问地址
+
+部署完成后，通过以下方式访问：
+
+- **桌面端**: `http://your-server-ip` 或 `http://your-domain.com`
+  - 例如：`http://192.168.1.100` 或 `http://example.com`
+  
+- **移动端**: `http://your-server-ip/m` 或 `http://your-domain.com/m`
+  - 例如：`http://192.168.1.100/m` 或 `http://example.com/m`
+
+- **后端 API**: `http://your-server-ip/api` 或 `http://your-domain.com/api`
+  - 例如：`http://192.168.1.100/api` 或 `http://example.com/api`
+
+- **健康检查**: `http://your-server-ip/api/health`
+
+### 关于域名和 IP
+
+**没有域名也可以使用反向代理：**
+- ✅ 使用 IP 地址：在 Nginx 配置中设置 `server_name 192.168.1.100;`（你的服务器IP）
+- ✅ 接受所有访问：设置 `server_name _;`（适合测试环境）
+- ✅ 域名访问：如果有域名，设置为 `server_name example.com;`
+
+**推荐配置：**
+- **内网部署**：使用内网 IP，如 `192.168.1.100`
+- **公网部署（无域名）**：使用公网 IP，如 `123.45.67.89`
+- **生产环境**：建议配置域名并使用 HTTPS
+
+### 移动端自动检测
+
+**Nginx 已配置自动检测移动设备：**
+- ✅ **自动识别**：根据 User-Agent 自动识别移动设备（Android、iOS、iPad 等）
+- ✅ **自动重定向**：移动设备访问根路径或主要页面时自动重定向到 `/m` 路径
+- ✅ **无需手动切换**：用户不需要手动输入 `/m`，系统会自动判断
+
+**工作流程：**
+1. 移动设备访问 `http://your-server-ip/` → 自动重定向到 `http://your-server-ip/m`
+2. 移动设备访问 `http://your-server-ip/login` → 自动重定向到 `http://your-server-ip/m/login`
+3. 桌面设备访问 → 正常加载桌面端界面
+4. 已访问移动端路径 `/m/*` → 不再重定向，正常处理
+
+**检测的移动设备类型：**
+- Android 手机/平板
+- iPhone/iPad/iPod
+- BlackBerry
+- Windows Phone
+- 其他移动浏览器
+
 ## 总结
 
 部署完成后，你应该能够通过以下方式访问：
 
-- **前端**: `http://your-server-ip` 或 `http://your-domain.com`
+- **前端（桌面端）**: `http://your-server-ip` 或 `http://your-domain.com`
+- **前端（移动端）**: `http://your-server-ip/m` 或 `http://your-domain.com/m`
 - **后端 API**: `http://your-server-ip/api` 或 `http://your-domain.com/api`
 - **健康检查**: `http://your-server-ip/api/health`
 
