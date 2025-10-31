@@ -265,6 +265,12 @@ class ClusterManager {
       const stats = this.workerStats.get(workerId);
       if (!stats) return;
 
+      // 忽略 PM2 内置消息（监控、性能指标等）
+      if (message.type && typeof message.type === 'string' && message.type.startsWith('axm:')) {
+        // axm:monitor, axm:action, axm:option 等都是 PM2 内置消息，无需处理
+        return;
+      }
+
       switch (message.type) {
         case 'worker_ready':
           stats.status = 'ready';
@@ -295,6 +301,7 @@ class ClusterManager {
           break;
 
         default:
+          // 只有非 PM2 内置消息才记录为未知消息
           console.log(`[集群管理器] 收到未知消息类型: ${message.type}`);
       }
 

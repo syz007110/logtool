@@ -187,6 +187,12 @@ class EnhancedClusterManager {
     try {
       const { type, data, timestamp } = message;
       
+      // 忽略 PM2 内置消息（监控、性能指标等）
+      if (type && typeof type === 'string' && type.startsWith('axm:')) {
+        // axm:monitor, axm:action, axm:option 等都是 PM2 内置消息，无需处理
+        return;
+      }
+      
       switch (type) {
         case 'worker_ready':
           console.log(`[集群管理器] 工作进程 ${worker.id} 准备就绪`);
@@ -212,6 +218,7 @@ class EnhancedClusterManager {
           break;
           
         default:
+          // 只有非 PM2 内置消息才记录为未知消息
           console.log(`[集群管理器] 工作进程 ${worker.id} 发送未知消息类型: ${type}`);
       }
       
