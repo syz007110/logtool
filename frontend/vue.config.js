@@ -19,5 +19,5 @@ module.exports = defineConfig({
     hot: false,
     liveReload: false
   },
-  publicPath: process.env.NODE_ENV === 'production' ? './' : '/'
+  publicPath: '/'
 }) 

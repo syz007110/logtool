@@ -8,12 +8,13 @@
 2. [服务器环境准备](#服务器环境准备)
 3. [数据库初始化](#数据库初始化)
 4. [项目配置](#项目配置)
-5. [前端构建和部署](#前端构建和部署)
-6. [后端部署](#后端部署)
-7. [使用进程管理器（PM2）](#使用进程管理器pm2)
-8. [Nginx 反向代理配置](#nginx-反向代理配置)
-9. [服务启动和监控](#服务启动和监控)
-10. [常见问题排查](#常见问题排查)
+5. [后端部署（使用 PM2）](#后端部署使用-pm2)
+6. [前端部署](#前端部署)
+7. [Nginx 配置（静态文件服务和反向代理）](#nginx-配置静态文件服务和反向代理)
+8. [服务启动和监控](#服务启动和监控)
+9. [常见问题排查](#常见问题排查)
+10. [部署检查清单](#部署检查清单)
+11. [移动端和桌面端访问](#移动端和桌面端访问)
 
 ---
 
@@ -252,62 +253,7 @@ npm run init-permissions
 
 ---
 
-## 前端构建和部署
-
-### 1. 构建前端生产版本
-
-```bash
-cd /path/to/logtool/frontend
-
-# 构建生产版本
-npm run build
-
-# 构建完成后，dist 目录包含所有静态文件
-```
-
-### 2. 前端路由说明
-
-**移动端和桌面端已自动区分：**
-- **桌面端路由**：`/` 开头的所有路由（如 `/dashboard`, `/login` 等）
-- **移动端路由**：`/m` 开头的所有路由（如 `/m/login`, `/m/error` 等）
-- **自动识别**：前端会根据路由路径自动加载对应的移动端或桌面端组件
-- **无需额外配置**：Nginx 只需配置基本的路由支持，Vue Router 会自动处理移动端和桌面端切换
-
-**移动端路由列表：**
-- `/m/login` - 移动端登录
-- `/m` - 移动端主页（重定向到 `/m/error`）
-- `/m/error` - 故障码查询
-- `/m/logs` - 日志设备列表
-- `/m/logs/:deviceId` - 设备日志详情
-- `/m/surgeries` - 手术设备列表
-- `/m/surgeries/:deviceId` - 设备手术数据
-- `/m/profile` - 个人资料
-
-### 3. 配置前端 API 地址（可选）
-
-如果需要修改 API 地址，检查 `frontend/src/api/` 目录下的配置文件。默认情况下，API 地址会从 `/api` 路径自动代理到后端服务。
-
-### 4. 部署前端静态文件
-
-#### 方式1: 使用 Nginx 直接服务静态文件（推荐）
-
-```bash
-# 将构建好的文件复制到 Nginx 目录
-sudo mkdir -p /var/www/logtool
-sudo cp -r /path/to/logtool/frontend/dist/* /var/www/logtool/
-
-# 设置权限
-sudo chown -R www-data:www-data /var/www/logtool
-sudo chmod -R 755 /var/www/logtool
-```
-
-#### 方式2: 使用后端服务静态文件
-
-修改后端配置，将静态文件目录指向 `frontend/dist`。
-
----
-
-## 后端部署
+## 后端部署（使用 PM2）
 
 ### 1. 创建必要的目录
 
@@ -335,20 +281,19 @@ npm start
 
 如果启动成功，应该能看到服务运行在配置的端口上。
 
----
+### 3. 配置 PM2 进程管理
 
-## 使用进程管理器（PM2）
-
-### 1. 创建 PM2 配置文件
-
-在项目根目录创建 `ecosystem.config.js`:
+在项目根目录创建 `ecosystem.config.js`（如果还没有）：
 
 ```bash
 cd /path/to/logtool
-nano ecosystem.config.js
+# 如果已有配置文件，直接使用
+# 如果没有，可以创建或使用项目根目录的 ecosystem.config.js
 ```
 
-**PM2 配置示例:**
+**PM2 配置说明:**
+
+项目根目录已提供 `ecosystem.config.js` 配置文件示例。如果使用集群模式（推荐），配置如下：
 
 ```javascript
 module.exports = {
@@ -397,9 +342,12 @@ module.exports = {
 };
 ```
 
-**注意**: 根据你的需求选择使用 `app.js` (单进程) 或 `smartCluster.js` (集群模式)。集群模式通常性能更好，但需要确保配置正确。
+**注意**: 
+- **集群模式**：使用 `smartCluster.js`，性能更好，自动管理多个工作进程（推荐生产环境）
+- **单进程模式**：使用 `app.js`，适合开发或小规模部署
+- 配置文件已在项目根目录，直接使用即可
 
-### 2. 启动应用
+### 4. 使用 PM2 启动后端服务
 
 ```bash
 cd /path/to/logtool
@@ -419,7 +367,7 @@ pm2 startup
 # 执行上一条命令输出的命令（通常是 sudo 命令）
 ```
 
-### 3. PM2 常用命令
+### 5. PM2 常用管理命令
 
 ```bash
 # 查看运行状态
@@ -447,11 +395,69 @@ pm2 describe logtool-backend
 
 ---
 
-## Nginx 反向代理配置
+## 前端部署
+
+### 1. 构建前端生产版本
+
+```bash
+cd /path/to/logtool/frontend
+
+# 安装依赖（如果还没安装）
+npm install
+
+# 构建生产版本
+npm run build
+
+# 构建完成后，dist 目录包含所有静态文件
+```
+
+### 2. 前端路由说明
+
+**移动端和桌面端已自动区分：**
+- **桌面端路由**：`/` 开头的所有路由（如 `/dashboard`, `/login` 等）
+- **移动端路由**：`/m` 开头的所有路由（如 `/m/login`, `/m/error` 等）
+- **自动识别**：前端会根据路由路径自动加载对应的移动端或桌面端组件
+- **Vue Router 自动处理**：无需额外配置，路由会自动切换
+
+**移动端路由列表：**
+- `/m/login` - 移动端登录
+- `/m` - 移动端主页（重定向到 `/m/error`）
+- `/m/error` - 故障码查询
+- `/m/logs` - 日志设备列表
+- `/m/logs/:deviceId` - 设备日志详情
+- `/m/surgeries` - 手术设备列表
+- `/m/surgeries/:deviceId` - 设备手术数据
+- `/m/profile` - 个人资料
+
+### 3. 配置前端 API 地址（可选）
+
+默认情况下，前端 API 地址配置为 `/api`，会通过 Nginx 自动代理到后端服务（`http://localhost:3000`）。
+
+如果需要修改 API 地址，检查 `frontend/src/api/index.js` 配置文件。
+
+### 4. 部署前端静态文件
+
+```bash
+# 将构建好的文件复制到 Nginx 目录
+sudo mkdir -p /var/www/logtool
+sudo cp -r /path/to/logtool/frontend/dist/* /var/www/logtool/
+
+# 设置权限
+sudo chown -R www-data:www-data /var/www/logtool
+sudo chmod -R 755 /var/www/logtool
+```
+
+---
+
+## Nginx 配置（静态文件服务和反向代理）
 
 ### 1. 创建 Nginx 配置文件
 
 ```bash
+# 复制项目提供的配置文件
+sudo cp /path/to/logtool/nginx-logtool.conf /etc/nginx/sites-available/logtool
+
+# 或直接创建
 sudo nano /etc/nginx/sites-available/logtool
 ```
 
@@ -460,7 +466,14 @@ sudo nano /etc/nginx/sites-available/logtool
 - **只有 IP**：将 `server_name` 改为你的服务器 IP（如：`192.168.1.100`）
 - **接受所有访问**：使用 `server_name _;`（不推荐生产环境，但可以用于测试）
 
-**Nginx 配置示例（已包含移动端自动检测）:**
+**Nginx 配置包含两个主要功能：**
+1. **静态文件服务**：直接返回前端构建的 HTML、JS、CSS 等文件
+2. **反向代理**：将 `/api` 请求转发到后端服务（`http://localhost:3000`）
+3. **移动端自动检测**：根据 User-Agent 自动将移动设备重定向到 `/m` 路径
+
+**Nginx 配置示例（完整配置）:**
+
+项目已提供完整的 `nginx-logtool.conf` 配置文件，主要内容如下：
 
 ```nginx
 # 前端静态文件服务
@@ -471,7 +484,7 @@ sudo nano /etc/nginx/sites-available/logtool
 
 server {
     listen 80;
-    server_name _;  # 改为你的域名或IP，或使用 _ 接受所有访问
+    server_name 42.121.15.87;  # 改为你的域名或IP，或使用 _ 接受所有访问
     
     # 前端静态文件
     root /var/www/logtool;
@@ -484,7 +497,7 @@ server {
         ~*Mobile|Mobile|MOBILE 1;
     }
 
-    # 静态资源（优先匹配）
+    # 静态资源缓存（优先匹配）
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
@@ -492,39 +505,7 @@ server {
         try_files $uri =404;
     }
 
-    # API 代理
-    location /api {
-        proxy_pass http://localhost:3000;
-        # ... 其他代理配置
-    }
-
-    # 移动端路径 - 如果已经是移动端路径，正常处理
-    location ^~ /m {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 根路径 - 移动设备访问时自动重定向到 /m
-    location = / {
-        if ($is_mobile) {
-            return 301 /m;
-        }
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 登录页 - 移动设备访问时重定向到移动端登录页
-    location = /login {
-        if ($is_mobile) {
-            return 301 /m/login;
-        }
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 桌面端路径正常处理（通用匹配）
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 后端 API 代理
+    # 后端 API 反向代理 - 将 /api 请求转发到后端
     location /api {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -534,15 +515,12 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        
-        # 超时设置
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
     }
 
-    # WebSocket 支持（如果需要）
+    # WebSocket 支持
     location /ws {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -553,10 +531,41 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # 上传文件大小限制
+    # 移动端路径处理
+    location ^~ /m {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 主要入口页面 - 移动设备自动重定向
+    location = / {
+        if ($is_mobile) {
+            return 301 /m;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    location = /login {
+        if ($is_mobile) {
+            return 301 /m/login;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 桌面端路径正常处理
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 文件上传大小限制
     client_max_body_size 500M;
 }
 ```
+
+**配置说明：**
+- **静态文件服务**：`root /var/www/logtool;` 指向前端构建文件目录
+- **反向代理**：`location /api` 将 API 请求转发到 `http://localhost:3000`
+- **移动端检测**：`map $http_user_agent $is_mobile` 自动识别移动设备
+- **路由支持**：`try_files $uri $uri/ /index.html;` 支持 Vue Router History 模式
 
 ### 2. 启用配置
 
@@ -592,25 +601,20 @@ sudo certbot renew --dry-run
 
 ### 1. 启动顺序
 
+按以下顺序启动服务：
+
 ```bash
-# 1. 启动 MySQL
+# 1. 启动基础服务（MySQL、Redis、PostgreSQL）
 sudo systemctl start mysql
-sudo systemctl status mysql
-
-# 2. 启动 Redis
 sudo systemctl start redis
-sudo systemctl status redis
+# sudo systemctl start postgresql  # 如果使用 PostgreSQL
 
-# 3. 启动 PostgreSQL (如果使用)
-sudo systemctl start postgresql
-sudo systemctl status postgresql
-
-# 4. 启动后端服务 (PM2)
+# 2. 启动后端服务（使用 PM2）
 cd /path/to/logtool
 pm2 start ecosystem.config.js
 pm2 save
 
-# 5. 启动 Nginx (如果配置了)
+# 3. 启动 Nginx（静态文件服务和反向代理）
 sudo systemctl start nginx
 sudo systemctl status nginx
 ```
@@ -748,19 +752,34 @@ sudo chmod -R 755 /path/to/logtool/backend/uploads/
 
 ## 部署检查清单
 
-- [ ] 所有必需软件已安装并运行
-- [ ] 数据库已创建并导入结构
-- [ ] 后端 `.env` 文件已配置
-- [ ] 前端已构建 (`npm run build`)
-- [ ] 后端依赖已安装 (`npm install --production`)
-- [ ] 角色和权限已初始化
-- [ ] PM2 已配置并启动应用
-- [ ] Nginx 已配置并运行
-- [ ] 防火墙规则已配置
-- [ ] SSL 证书已配置（如果使用 HTTPS）
-- [ ] 服务已设置开机自启
-- [ ] 日志文件目录权限正确
-- [ ] 测试访问前端和后端 API
+部署完成后，请确认以下各项：
+
+- [ ] **环境准备**：所有必需软件已安装并运行（Node.js、MySQL、Redis、Nginx、PM2）
+- [ ] **数据库**：数据库已创建并导入结构，角色和权限已初始化
+- [ ] **后端配置**：
+  - [ ] 后端 `.env` 文件已配置
+  - [ ] 后端依赖已安装 (`npm install --production`)
+  - [ ] 日志和上传目录已创建并有正确权限
+- [ ] **后端部署**：
+  - [ ] PM2 配置文件已创建（`ecosystem.config.js`）
+  - [ ] PM2 已启动后端应用
+  - [ ] PM2 已设置开机自启
+- [ ] **前端部署**：
+  - [ ] 前端依赖已安装
+  - [ ] 前端已构建 (`npm run build`)
+  - [ ] 前端静态文件已部署到 `/var/www/logtool`
+- [ ] **Nginx 配置**：
+  - [ ] Nginx 配置文件已创建并启用
+  - [ ] 静态文件服务和反向代理配置正确
+  - [ ] Nginx 已重载配置
+- [ ] **服务验证**：
+  - [ ] 后端 API 可访问（`curl http://localhost:3000/api/health`）
+  - [ ] 前端页面可访问
+  - [ ] 移动端自动检测正常工作
+- [ ] **其他**：
+  - [ ] 防火墙规则已配置
+  - [ ] SSL 证书已配置（如果使用 HTTPS）
+  - [ ] 所有服务已设置开机自启
 
 ---
 
