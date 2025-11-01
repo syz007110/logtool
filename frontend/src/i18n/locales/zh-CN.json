@@ -42,7 +42,8 @@
       "exportFailed": "导出失败",
       "deleteConfirmTitle": "删除确认",
       "confirmDelete": "确认删除",
-      "confirmLogout": "确定要退出登录吗？"
+      "confirmLogout": "确定要退出登录吗？",
+      "submit":"提交"
     },
     "languageNames": {
       "zh": "中文",

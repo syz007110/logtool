@@ -28,6 +28,7 @@
     "requestFailed": "Request failed",
     "networkError": "Network connection failed",
     "unknown": "Unknown",
+    "submit":"submit",
     "messages": {
       "deleteSuccess": "Deleted successfully",
       "deleteFailed": "Delete failed",

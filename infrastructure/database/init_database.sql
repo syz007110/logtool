@@ -408,20 +408,8 @@ CREATE INDEX idx_logs_device ON logs(device_id, upload_time);
 CREATE INDEX idx_logs_filename ON logs(original_name(20));
 
 -- ========================================
--- log_entries表索引
+-- log_entries表索引（已优化，删除冗余索引）
 -- ========================================
--- 基础索引
-CREATE INDEX idx_log_entries_timestamp ON log_entries(timestamp);
-CREATE INDEX idx_log_entries_error_code ON log_entries(error_code);
-
--- 性能优化索引
-CREATE INDEX idx_log_entries_log_timestamp ON log_entries(log_id, timestamp);
-CREATE INDEX idx_log_entries_log_error ON log_entries(log_id, error_code);
-CREATE INDEX idx_log_entries_params ON log_entries(log_id, param1, param2, param3, param4);
-CREATE INDEX idx_log_entries_explanation ON log_entries(log_id, explanation(100));
-
--- 覆盖索引（高性能查询）
-CREATE INDEX idx_log_entries_covering ON log_entries(log_id, timestamp, error_code, param1, param2, param3, param4, explanation(100));
 
 -- 关键复合索引：加速批量日志查询首页（按时间排序获取前N条）
 -- 典型形态：WHERE log_id IN (...) [AND timestamp BETWEEN ...] ORDER BY timestamp ASC, id ASC LIMIT N
@@ -433,15 +421,19 @@ CREATE INDEX idx_log_entries_ts_id ON log_entries(timestamp, id);
 -- 文本搜索优化：对 explanation 建立全文索引（支持中文分词）
 FULLTEXT INDEX ftx_log_entries_explanation (explanation) WITH PARSER ngram;
 
--- 当存在“分析分类”过滤时，配合规范化列进行高效扫描/计数
+-- 当存在"分析分类"过滤时，配合规范化列进行高效扫描/计数
 CREATE INDEX idx_log_entries_logid_ts_norm ON log_entries(log_id, timestamp, subsystem_char, code4);
 CREATE INDEX idx_log_entries_ts_norm ON log_entries(timestamp, subsystem_char, code4, id);
+
+-- 可选索引（根据实际使用情况决定是否保留）
+-- 如果查询经常按参数过滤，保留此索引；否则可以删除
+-- CREATE INDEX idx_log_entries_params ON log_entries(log_id, param1, param2, param3, param4);
 
 -- ========================================
 -- error_codes表索引
 -- ========================================
--- 性能优化索引
-CREATE INDEX idx_error_codes_subsystem_code ON error_codes(subsystem, code);
+-- 注意：已有 UNIQUE 索引 unique_subsystem_code(subsystem, code)，无需额外索引
+-- UNIQUE 索引本身已包含索引功能，创建额外索引是冗余的
 
 -- ========================================
 -- devices表索引
