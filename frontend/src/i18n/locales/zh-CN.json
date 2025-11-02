@@ -1036,6 +1036,21 @@
       "errorQuery": "故障码查询",
       "logs": "日志管理",
       "surgeries": "手术数据"
+    },
+    "login": {
+      "title": "手术机器人管理系统",
+      "subtitle": "移动端登录",
+      "testAccount": "测试账号",
+      "admin": "管理员: admin / admin123",
+      "user": "普通用户: user / user123",
+      "copyright": "© 2024 手术机器人管理系统"
+    },
+    "errorQuery": {
+      "recentSearches": "最近搜索",
+      "copy": "复制",
+      "copySuccess": "复制成功",
+      "copyFailed": "复制失败",
+      "searchPlaceholder": "故障码（142010A）或类型（0X010A）"
     }
   }
 }

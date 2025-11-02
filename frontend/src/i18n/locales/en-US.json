@@ -1048,6 +1048,21 @@
       "errorQuery": "Error Code Query",
       "logs": "Log Management",
       "surgeries": "Surgery Data"
+    },
+    "login": {
+      "title": "Robotic Surgery Management System",
+      "subtitle": "Mobile Login",
+      "testAccount": "Test Accounts",
+      "admin": "Admin: admin / admin123",
+      "user": "User: user / user123",
+      "copyright": "© 2024 Robotic Surgery Management System"
+    },
+    "errorQuery": {
+      "recentSearches": "Recent Searches",
+      "copy": "Copy",
+      "copySuccess": "Copied successfully",
+      "copyFailed": "Copy failed",
+      "searchPlaceholder": "Error code (142010A) or type (0X010A)"
     }
   }
 }

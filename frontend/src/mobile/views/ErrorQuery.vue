@@ -2,24 +2,35 @@
   <div class="page">
     <van-nav-bar :title="$t('mobile.titles.errorQuery')" fixed safe-area-inset-top />
     <div class="content">
-      <van-cell-group inset>
-        <van-field 
-          v-model="code" 
-          :label="$t('errorCodes.code')" 
-          :placeholder="$t('errorCodes.fullCodePlaceholder') || $t('errorCodes.searchPlaceholder')" 
-          clearable 
-          autocomplete="off"
-          autocapitalize="characters"
-          @input="handleCodeInput"
-          @keyup.enter="onSearch"
-          @clear="handleClear"
-        >
-          <template #button>
-            <van-button size="small" type="primary" :loading="loading" :disabled="!canSearch" @click="onSearch">
-              {{ $t('shared.search') }}
-            </van-button>
-          </template>
-        </van-field>
+      <!-- Search Section -->
+      <div class="search-section">
+        <div class="search-input-wrapper">
+          <van-field 
+            v-model="code" 
+            :placeholder="$t('mobile.errorQuery.searchPlaceholder')" 
+            clearable 
+            autocomplete="off"
+            autocapitalize="characters"
+            class="search-input"
+            @input="handleCodeInput"
+            @keyup.enter="onSearch"
+            @clear="handleClear"
+          >
+            <template #right-icon>
+              <van-icon name="search" class="search-icon" />
+            </template>
+          </van-field>
+          <van-button 
+            type="primary" 
+            size="small"
+            :loading="loading" 
+            :disabled="!canSearch" 
+            class="search-button"
+            @click="onSearch"
+          >
+            {{ $t('shared.search') }}
+          </van-button>
+        </div>
         <van-field 
           v-if="needSubsystemSelect" 
           v-model="subsystem" 
@@ -33,19 +44,19 @@
         <div v-if="!needSubsystemSelect && code && validationHint" class="validation-hint">
           {{ validationHint }}
         </div>
-      </van-cell-group>
+      </div>
       
-      <!-- 快捷操作 -->
-      <div v-if="recentSearches.length > 0" class="quick-actions">
-        <div class="quick-actions-title">{{ $t('mobile.errorQuery.recentSearches') || '最近搜索' }}</div>
-        <div class="quick-actions-tags">
+      <!-- Recent Searches Card -->
+      <div v-if="recentSearches.length > 0" class="recent-searches-card">
+        <div class="recent-searches-header">
+          <van-icon name="clock-o" class="clock-icon" />
+          <span class="recent-searches-title">{{ $t('mobile.errorQuery.recentSearches') }}</span>
+        </div>
+        <div class="recent-searches-tags">
           <van-tag 
             v-for="(item, idx) in recentSearches" 
             :key="idx"
-            type="primary" 
-            plain 
-            size="medium"
-            class="quick-tag"
+            class="recent-search-tag"
             @click="quickSearch(item)"
           >
             {{ item }}
@@ -491,6 +502,7 @@ export default {
 <style scoped>
 .page { padding-top: 46px; }
 .content { padding: 12px; }
+
 .error { 
   color: #ee0a24; 
   font-size: 14px; 
@@ -507,26 +519,87 @@ export default {
   margin-top: -8px;
 }
 
-.quick-actions {
-  margin-top: 12px;
-  padding: 12px;
-  background: #fff;
+/* Search Section */
+.search-section {
+  margin-bottom: 12px;
+}
+
+.search-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.search-input {
+  flex: 1;
+  background: #f3f3f5;
   border-radius: 8px;
+  overflow: hidden;
 }
 
-.quick-actions-title {
-  font-size: 13px;
-  color: #969799;
-  margin-bottom: 8px;
+.search-input :deep(.van-field__control) {
+  font-size: 14px;
 }
 
-.quick-actions-tags {
+.search-icon {
+  color: #717182;
+  font-size: 16px;
+}
+
+.search-button {
+  background: #030213;
+  border: none;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.search-button:disabled {
+  background: #e5e7eb !important;
+  color: #9ca3af !important;
+}
+
+/* Recent Searches Card */
+.recent-searches-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  padding: 13px;
+  margin-bottom: 12px;
+}
+
+.recent-searches-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 32px;
+}
+
+.clock-icon {
+  font-size: 12px;
+  color: #4a5565;
+}
+
+.recent-searches-title {
+  font-size: 12px;
+  color: #4a5565;
+  font-weight: 500;
+}
+
+.recent-searches-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.quick-tag {
+.recent-search-tag {
+  background: #eceef2;
+  color: #030213;
+  border: none;
+  border-radius: 8px;
+  padding: 3px 9.84px;
+  font-size: 12px;
   cursor: pointer;
   user-select: none;
 }

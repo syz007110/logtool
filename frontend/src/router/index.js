@@ -22,7 +22,7 @@ const routes = [
   {
     path: '/m/login',
     name: 'MLogin',
-    component: () => import('../views/Login.vue'),
+    component: () => import('../mobile/views/MobileLogin.vue'),
     meta: { requiresAuth: false, noSidebar: true, isMobile: true }
   },
 

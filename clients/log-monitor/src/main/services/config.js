@@ -31,16 +31,42 @@ function getAppDataDir() {
 }
 
 function getProgramRootDir() {
-  // Prefer client project root resolved relative to this file
-  const clientRoot = path.resolve(__dirname, '../../..'); // .../clients/log-monitor
-  if (fs.existsSync(clientRoot)) return clientRoot;
-  // Fallback to electron app path
   try {
-    if (electronApp && typeof electronApp.getAppPath === 'function') {
-      const p = electronApp.getAppPath();
-      if (p && fs.existsSync(p)) return p;
+    if (electronApp) {
+      // 判断是否为打包后的环境（包括 NSIS 安装版和便携版）
+      const isPackaged = electronApp.isPackaged;
+      
+      if (isPackaged) {
+        // 打包后（包括安装版和便携版）：使用 exe 文件所在目录
+        // - NSIS 安装版：exe 在安装目录（如 C:\Program Files\日志监控客户端\）
+        // - 便携版：exe 在解压目录（如 D:\tools\日志监控客户端-0.1.0-portable\）
+        if (typeof electronApp.getPath === 'function') {
+          const exePath = electronApp.getPath('exe');
+          if (exePath) {
+            const exeDir = path.dirname(exePath);
+            return exeDir;
+          }
+        }
+      } else {
+        // 开发环境：使用应用路径（项目根目录）
+        // app.getAppPath() 在开发环境返回项目目录，打包后返回 app.asar 路径
+        if (typeof electronApp.getAppPath === 'function') {
+          const appPath = electronApp.getAppPath();
+          if (appPath) {
+            // 检查是否是 app.asar 路径，如果是则使用其所在目录
+            if (appPath.includes('.asar')) {
+              return path.dirname(appPath);
+            }
+            // 开发环境直接返回项目目录
+            return appPath;
+          }
+        }
+      }
     }
-  } catch {}
+  } catch (e) {
+    console.warn('Failed to get program root dir:', e);
+  }
+  // 如果获取失败，回退到当前工作目录
   return process.cwd();
 }
 

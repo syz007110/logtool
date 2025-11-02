@@ -22,7 +22,7 @@ export default {
     const store = useStore()
     const onLogout = () => {
       try { store.dispatch('auth/logout') } catch (_) {}
-      window.location.href = '/login'
+      window.location.href = '/m/login'
     }
     return { onLogout }
   }

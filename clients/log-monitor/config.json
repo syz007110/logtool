@@ -1,9 +1,9 @@
 {
   "_comment": "apiBaseUrl 配置说明：\n1. 客户端在服务器本地运行：使用 http://localhost:3000/api 或 http://服务器IP/api\n2. 客户端在其他机器运行：使用 http://服务器公网IP/api 或 http://域名/api\n3. 如果有 HTTPS，使用 https://域名/api\n注意：通过 nginx 代理访问更稳定，推荐使用域名或公网IP方式",
-  "apiBaseUrl": "http://localhost:3000/api",
+  "apiBaseUrl": "http://42.121.15.87/api",
   "clientId": "a1f30dc6-a8b3-4357-88d3-db855a810fd4",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MTgwMjE2OSwiZXhwIjoxNzYxODQ1MzY5fQ.i5QIalphaWMCa3aiSR3X_Jo7WKhqf7FjIoK7fz9ZI2U",
-  "tokenExpiresAt": "2025-10-30T17:29:29.000Z",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MjEwODA2MSwiZXhwIjoxNzYyMTUxMjYxfQ.tR-3xvPtDr1MmFXHax7RtV5k-ebhkDcyo5Wh0OWA7-w",
+  "tokenExpiresAt": "2025-11-03T06:27:41.000Z",
   "username": "admin",
   "password": "admin123",
   "autoLogin": true,
