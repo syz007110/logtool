@@ -401,7 +401,7 @@
   "globalDashboard": {
     "title": "全局看板",
     "errorCodesCount": "故障码总数",
-    "logEntriesCount": "日志总数",
+    "devicesCount": "设备总数",
     "usersCount": "用户数量",
     "systemOverview": "系统概览"
   },
@@ -747,6 +747,8 @@
       "deviceIdAutoFillFailed": "自动填充设备编号失败",
       "loadSurgeryDataFailed": "加载手术数据失败",
       "getSurgeryLogsFailed": "获取手术相关日志失败",
+      "noRelatedLogEntries": "未找到相关日志条目",
+      "noRelatedLogFiles": "未找到相关日志文件",
       "batchDeleteFailed": "批量删除失败",
       "parsingInProgress": "解析正在进行中，刷新页面可能导致解析失败。确定要离开吗？",
       "incompleteParsingWarning": "选中的日志中有 {count} 个未完成解析，请等待解析完成后再操作",

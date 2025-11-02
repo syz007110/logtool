@@ -88,7 +88,7 @@
         </el-table-column>
         <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" min-width="200">
           <template #default="{ row }">
-            <span class="one-line-ellipsis" :title="row.hospital_name || '-'" style="display:inline-block; max-width:100%">{{ row.hospital_name || '-' }}</span>
+            <span v-if="row.hospital_name" class="one-line-ellipsis" :title="maskHospitalName(row.hospital_name, hasDeviceReadPermission)" style="display:inline-block; max-width:100%">{{ maskHospitalName(row.hospital_name, hasDeviceReadPermission) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="log_count" :label="$t('logs.logCount')" width="120" align="center">
@@ -149,7 +149,7 @@
         <div class="device-header">
           <div class="device-info">
             <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
-            <p class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.hospital_name || '-'">{{ $t('logs.hospitalName') }}：{{ selectedDevice?.hospital_name || '-' }}</span></p>
+            <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
             <p>{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}</p>
           </div>
           <div class="header-controls">
@@ -402,7 +402,7 @@
     >
       <div v-if="selectedDevice" class="device-header" style="margin-bottom:8px;">
         <div class="device-info">
-          <h3>{{ $t('logs.hospital') }}：{{ selectedDevice.hospital_name || '-' }}</h3>
+          <h3 v-if="selectedDevice.hospital_name">{{ $t('logs.hospital') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</h3>
           <p>{{ $t('logs.deviceId') }}：{{ selectedDevice.device_id }}</p>
         </div>
       </div>
@@ -646,6 +646,7 @@ import websocketClient from '@/services/websocketClient'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { useI18n } from 'vue-i18n'
+import { maskHospitalName } from '@/utils/maskSensitiveData'
 
 export default {
   name: 'Logs',
@@ -879,6 +880,7 @@ export default {
     const userRole = computed(() => store.state.auth.user?.role_id)
     const userId = computed(() => store.state.auth.user?.id)
     const hasPermission = (p) => store.getters['auth/hasPermission']?.(p)
+    const hasDeviceReadPermission = computed(() => store.getters['auth/hasPermission']?.('device:read'))
     
 
     
@@ -1160,16 +1162,16 @@ export default {
 
     const viewLogsBySurgery = async (row) => {
       try {
-        const resp = await api.surgeries.getLogEntriesByRange(row.id)
-        const entries = resp.data?.entries || []
-        if (!entries.length) {
-          ElMessage.warning('未找到相关日志条目')
+        // 直接从手术记录的 source_log_ids 字段获取日志ID数组
+        const sourceLogIds = Array.isArray(row.source_log_ids) ? row.source_log_ids : []
+        if (!sourceLogIds.length) {
+          ElMessage.warning(t('logs.messages.noRelatedLogFiles'))
           return
         }
-        // 将涉及的日志ID聚合，使用批量查看页展示
-        const ids = Array.from(new Set(entries.map(e => e.log_id))).filter(Boolean)
+        // 过滤掉无效值并去重
+        const ids = Array.from(new Set(sourceLogIds.filter(id => id != null && id !== undefined && id !== '')))
         if (!ids.length) {
-          ElMessage.warning('未找到相关日志文件')
+          ElMessage.warning(t('logs.messages.noRelatedLogFiles'))
           return
         }
         const routeData = router.resolve(`/batch-analysis/${ids.join(',')}`)
@@ -2412,7 +2414,10 @@ export default {
       viewLogsBySurgery,
       visualizeSurgery,
       deleteSurgery,
-      openSurgeryDrawerForDevice: openSurgeryDrawerForDevice
+      openSurgeryDrawerForDevice: openSurgeryDrawerForDevice,
+      // 医院信息脱敏
+      hasDeviceReadPermission,
+      maskHospitalName
     }
   }
 }

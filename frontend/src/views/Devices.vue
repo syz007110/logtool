@@ -14,7 +14,11 @@
         <el-table-column prop="device_id" :label="$t('devices.deviceId')" width="160" />
         <el-table-column prop="device_model" :label="$t('devices.deviceModel')" width="160" />
         <el-table-column prop="device_key" :label="$t('devices.deviceKey')" width="200" />
-        <el-table-column prop="hospital" :label="$t('devices.hospital')" />
+        <el-table-column prop="hospital" :label="$t('devices.hospital')">
+          <template #default="{ row }">
+            <span v-if="row.hospital">{{ maskHospitalName(row.hospital, hasDeviceReadPermission) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('shared.operation')" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
           <template #default="{ row }">
             <el-button size="small" class="btn-text btn-sm" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('shared.edit') }}</el-button>
@@ -65,6 +69,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
 import { useStore } from 'vuex'
+import { maskHospitalName } from '../utils/maskSensitiveData'
 
 export default {
   name: 'Devices',
@@ -72,6 +77,9 @@ export default {
     const store = useStore()
     const canEdit = computed(() => {
       return store.getters['auth/hasPermission']('device:update')
+    })
+    const hasDeviceReadPermission = computed(() => {
+      return store.getters['auth/hasPermission']('device:read')
     })
 
     const loading = ref(false)
@@ -165,7 +173,7 @@ export default {
 
     onMounted(loadDevices)
 
-    return { devices, total, page, limit, search, loading, saving, showEdit, editing, form, rules, formRef, canEdit, loadDevices, openEdit, save, onDelete, handleSearch }
+    return { devices, total, page, limit, search, loading, saving, showEdit, editing, form, rules, formRef, canEdit, hasDeviceReadPermission, maskHospitalName, loadDevices, openEdit, save, onDelete, handleSearch }
   }
 }
 </script>

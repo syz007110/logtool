@@ -21,8 +21,8 @@
         <a-col :span="8">
           <a-card class="stat-card">
             <a-statistic
-              :title="$t('globalDashboard.logEntriesCount')"
-              :value="displayStats.logEntriesCount"
+              :title="$t('globalDashboard.devicesCount')"
+              :value="displayStats.devicesCount"
               :loading="loading"
               value-style="{ color: '#3f8600' }"
             >
@@ -80,15 +80,15 @@ export default {
   setup() {
     const loading = ref(false)
     const stats = ref({
-      logEntriesCount: 0,
-      logsCount: 0,
-      usersCount: 0
+      usersCount: 0,
+      errorCodesCount: 0,
+      devicesCount: 0
     })
 
     // 展示用的动态数值，带增长动画
     const displayStats = reactive({
       errorCodesCount: 0,
-      logEntriesCount: 0,
+      devicesCount: 0,
       usersCount: 0
     })
 
@@ -143,7 +143,7 @@ export default {
     // 当统计数据发生变化时，触发动画到目标值
     watch(stats, (newStats) => {
       if (!newStats) return
-      const keys = ['errorCodesCount', 'logEntriesCount', 'usersCount']
+      const keys = ['errorCodesCount', 'devicesCount', 'usersCount']
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(newStats, key)) {
           animatePropertyTo(key, newStats[key])

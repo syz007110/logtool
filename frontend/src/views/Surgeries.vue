@@ -55,7 +55,7 @@
         </el-table-column>
         <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" min-width="200">
           <template #default="{ row }">
-            <span v-if="row.hospital_name" class="one-line-ellipsis" :title="row.hospital_name" style="display:inline-block; max-width:100%">{{ row.hospital_name }}</span>
+            <span v-if="row.hospital_name" class="one-line-ellipsis" :title="maskHospitalName(row.hospital_name, hasDeviceReadPermission)" style="display:inline-block; max-width:100%">{{ maskHospitalName(row.hospital_name, hasDeviceReadPermission) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="surgery_count" :label="$t('logs.totalSurgeries')" width="150" align="center">
@@ -102,7 +102,7 @@
         <div class="device-header">
           <div class="device-info">
             <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
-            <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice.hospital_name">{{ $t('logs.hospitalName') }}：{{ selectedDevice.hospital_name }}</span></p>
+            <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
           </div>
           <div class="header-controls">
             <div class="refresh-section">
@@ -132,6 +132,7 @@
             <el-table-column :label="$t('shared.operation')" align="center">
               <template #default="{ row }">
                 <div class="btn-group">
+                  <button class="btn-text btn-sm" @click="viewLogsBySurgery(row)">{{ $t('logs.viewLogs') }}</button>
                   <button class="btn-text btn-sm" @click="visualizeSurgery(row)">{{ $t('batchAnalysis.visualize') }}</button>
                   <button 
                     v-if="canDeleteSurgery" 
@@ -172,6 +173,7 @@ import { Search } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
+import { maskHospitalName } from '@/utils/maskSensitiveData'
 
 export default {
   name: 'Surgeries',
@@ -201,6 +203,7 @@ export default {
     const detailTotal = ref(0)
 
     const canDeleteSurgery = computed(() => store.getters['auth/hasPermission']?.('surgery:delete'))
+    const hasDeviceReadPermission = computed(() => store.getters['auth/hasPermission']?.('device:read'))
 
     // 加载设备分组
     const loadDeviceGroups = async (options = {}) => {
@@ -316,6 +319,28 @@ export default {
         ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
       } finally {
         detailLoading.value = false
+      }
+    }
+
+    // 查看手术相关日志
+    const viewLogsBySurgery = async (row) => {
+      try {
+        // 直接从手术记录的 source_log_ids 字段获取日志ID数组
+        const sourceLogIds = Array.isArray(row.source_log_ids) ? row.source_log_ids : []
+        if (!sourceLogIds.length) {
+          ElMessage.warning(t('logs.messages.noRelatedLogFiles'))
+          return
+        }
+        // 过滤掉无效值并去重
+        const ids = Array.from(new Set(sourceLogIds.filter(id => id != null && id !== undefined && id !== '')))
+        if (!ids.length) {
+          ElMessage.warning(t('logs.messages.noRelatedLogFiles'))
+          return
+        }
+        const routeData = router.resolve(`/batch-analysis/${ids.join(',')}`)
+        window.open(routeData.href, '_blank')
+      } catch (e) {
+        ElMessage.error(t('logs.messages.getSurgeryLogsFailed'))
       }
     }
 
@@ -449,10 +474,12 @@ export default {
       detailTotal,
       // 权限
       canDeleteSurgery,
+      hasDeviceReadPermission,
       // 方法
       loadDeviceGroups,
       showDeviceDetail,
       loadDetailSurgeries,
+      viewLogsBySurgery,
       visualizeSurgery,
       deleteSurgery,
       handleDrawerClose,
@@ -463,6 +490,8 @@ export default {
       handleKeywordClear,
       resetFilters,
       formatDate,
+      // 医院信息脱敏
+      maskHospitalName,
       // 图标
       Search
     }

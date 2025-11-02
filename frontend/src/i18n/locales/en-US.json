@@ -405,7 +405,7 @@
   "globalDashboard": {
     "title": "Global Dashboard",
     "errorCodesCount": "Total Error Codes",
-    "logEntriesCount": "Total Log Entries",
+    "devicesCount": "Total Devices",
     "usersCount": "Users",
     "systemOverview": "System Overview"
   },
@@ -752,6 +752,8 @@
       "deviceIdAutoFillFailed": "Failed to auto-fill device ID",
       "loadSurgeryDataFailed": "Failed to load surgery data",
       "getSurgeryLogsFailed": "Failed to get surgery related logs",
+      "noRelatedLogEntries": "No related log entries found",
+      "noRelatedLogFiles": "No related log files found",
       "batchDeleteFailed": "Batch delete failed",
       "parsingInProgress": "Parsing is in progress, refreshing the page may cause parsing to fail. Are you sure you want to leave?",
       "incompleteParsingWarning": "There are {count} logs with incomplete parsing in the selection, please wait for parsing to complete before proceeding",

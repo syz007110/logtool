@@ -1,30 +1,27 @@
-const LogEntry = require('../models/log_entry');
-const Log = require('../models/log');
 const User = require('../models/user');
 const ErrorCode = require('../models/error_code');
+const Device = require('../models/device');
 
 // 获取全局统计数据
 const getDashboardStats = async (req, res) => {
   try {
-    // 获取故障码条目数量（log_entries表）
-    const logEntriesCount = await LogEntry.count();
-    
-    // 获取日志总数量（logs表）
-    const logsCount = await Log.count();
-    
-    // 获取用户数量（users表）
-    const usersCount = await User.count();
-    
-    // 获取故障码总数（error_codes表）
-    const errorCodesCount = await ErrorCode.count();
+    // 并行执行所有 count 查询，大幅提升性能
+    const [
+      usersCount,
+      errorCodesCount,
+      devicesCount
+    ] = await Promise.all([
+      User.count(),
+      ErrorCode.count(),
+      Device.count()
+    ]);
     
     res.json({
       success: true,
       data: {
-        logEntriesCount,
-        logsCount,
         usersCount,
-        errorCodesCount
+        errorCodesCount,
+        devicesCount
       }
     });
   } catch (error) {

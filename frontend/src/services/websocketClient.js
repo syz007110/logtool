@@ -35,34 +35,51 @@ class WebSocketClient {
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       
-      // 前端运行在 8080 端口，后端在 3000 端口
-      // 智能选择后端地址：本地开发用 localhost，网络环境用实际 IP
-      let backendHost;
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        backendHost = 'localhost'; // 本地开发环境
-      } else {
-        backendHost = window.location.hostname; // 网络环境，使用当前主机名
-      }
-      // 使用 Vue-CLI 风格环境变量（webpack 构建）
-      // 默认直连后端端口 3000，路径固定为 /ws 与后端一致
-      const backendPort = process.env.VUE_APP_BACKEND_PORT || '3000';
+      // 判断是否本地开发环境
+      const isLocalDev = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1';
+      
+      // WebSocket 路径
       const wsPath = (process.env.VUE_APP_WS_PATH ?? '/ws');
+      
+      let wsUrl;
+      
+      // 优先使用环境变量配置的完整 URL（仅在本地开发环境使用，生产环境忽略）
       const wsOverride = process.env.VUE_APP_WS_URL;
-      const wsUrl = wsOverride
-        ? wsOverride
-        : `${protocol}//${backendHost}:${backendPort}${wsPath}`;
+      if (wsOverride && isLocalDev) {
+        // 仅在本地开发环境使用环境变量覆盖
+        wsUrl = wsOverride;
+        console.log(`🔌 使用环境变量配置的 WebSocket URL: ${wsUrl}`);
+      } else if (isLocalDev) {
+        // 本地开发环境：直接连接后端端口
+        const backendPort = process.env.VUE_APP_BACKEND_PORT || '3000';
+        wsUrl = `${protocol}//localhost:${backendPort}${wsPath}`;
+      } else {
+        // 生产环境：通过 Nginx 代理连接（使用当前域名和端口）
+        // 不指定端口，使用当前页面的协议和端口（HTTP 80 或 HTTPS 443）
+        const currentHost = window.location.host; // 包含端口，如 "42.121.15.87" 或 "example.com:8080"
+        wsUrl = `${protocol}//${currentHost}${wsPath}`;
+      }
 
       console.log(`🔌 正在连接 WebSocket: ${wsUrl}`);
       console.log(`📍 当前页面地址: ${window.location.href}`);
       console.log(`🌐 协议: ${protocol}`);
       console.log(`🏠 前端主机: ${window.location.host}`);
-      console.log(`🔌 后端地址: ${backendHost}:${backendPort}`);
-      console.log(`🔍 网络环境: ${window.location.hostname === 'localhost' ? '本地开发' : '网络环境'}`);
-      console.log(`🔍 建议连接: ws://${backendHost}:${backendPort}`);
+      console.log(`🔍 环境: ${isLocalDev ? '本地开发' : '生产环境'}`);
+      console.log(`🔍 连接地址: ${wsUrl}`);
       
       this.ws = new WebSocket(wsUrl);
       
       // 添加更多事件监听器用于调试
+      const connectionTimeout = setTimeout(() => {
+        console.log('⏰ WebSocket 连接超时检查，当前状态:', this.ws.readyState);
+        if (this.ws.readyState === WebSocket.CONNECTING) {
+          console.error('WebSocket 连接超时，当前状态:', this.ws.readyState);
+          this.ws.close();
+          this.handleConnectionTimeout();
+        }
+      }, 10000); // 10秒超时
+      
       this.ws.addEventListener('open', (event) => {
         console.log('🔌 WebSocket 连接事件触发: open', event);
         clearTimeout(connectionTimeout);
@@ -80,16 +97,6 @@ class WebSocketClient {
       this.ws.onmessage = this.handleMessage;
       this.ws.onclose = this.handleClose;
       this.ws.onerror = this.handleError;
-      
-      // 设置连接超时
-      const connectionTimeout = setTimeout(() => {
-        console.log('⏰ WebSocket 连接超时检查，当前状态:', this.ws.readyState);
-        if (this.ws.readyState === WebSocket.CONNECTING) {
-          console.error('WebSocket 连接超时，当前状态:', this.ws.readyState);
-          this.ws.close();
-          this.handleConnectionTimeout();
-        }
-      }, 10000); // 10秒超时
     } catch (error) {
       console.error('WebSocket 连接失败:', error);
       this.isConnecting = false;

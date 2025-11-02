@@ -346,7 +346,7 @@ const getLogs = async (req, res) => {
       
       return {
         ...logData,
-        hospital_name: deviceInfo?.hospital || req.t('log.notSet'),
+        hospital_name: deviceInfo?.hospital || null,
         device_name: deviceInfo?.device_model || req.t('log.unknownDevice')
       };
     });
@@ -422,7 +422,7 @@ const getLogsByDevice = async (req, res) => {
         const deviceInfo = deviceMap[deviceId];
         deviceGroups[deviceId] = {
           device_id: deviceId,
-          hospital_name: deviceInfo?.hospital || '未设置',
+          hospital_name: deviceInfo?.hospital || null,
           device_name: deviceInfo?.device_model || '未知设备',
           log_count: 0,
           latest_update_time: null,
