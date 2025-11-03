@@ -1,25 +1,28 @@
 <template>
   <div class="page">
-    <van-nav-bar :title="$t('mobile.titles.errorQuery')" fixed safe-area-inset-top />
+    <!-- 顶部标题栏 -->
+    <div class="header">
+      <h1 class="page-title">{{ $t('mobile.titles.errorQuery') }}</h1>
+      <van-icon name="setting-o" class="header-icon" />
+    </div>
+    
     <div class="content">
       <!-- Search Section -->
       <div class="search-section">
         <div class="search-input-wrapper">
-          <van-field 
-            v-model="code" 
-            :placeholder="$t('mobile.errorQuery.searchPlaceholder')" 
-            clearable 
-            autocomplete="off"
-            autocapitalize="characters"
-            class="search-input"
-            @input="handleCodeInput"
-            @keyup.enter="onSearch"
-            @clear="handleClear"
-          >
-            <template #right-icon>
-              <van-icon name="search" class="search-icon" />
-            </template>
-          </van-field>
+          <div class="search-box">
+            <van-icon name="search" class="search-icon-left" />
+            <input
+              v-model="code"
+              type="text"
+              class="search-input"
+              :placeholder="$t('mobile.errorQuery.searchPlaceholder')"
+              autocomplete="off"
+              @input="handleCodeInput"
+              @keyup.enter="onSearch"
+              @clear="handleClear"
+            />
+          </div>
           <van-button 
             type="primary" 
             size="small"
@@ -31,23 +34,60 @@
             {{ $t('shared.search') }}
           </van-button>
         </div>
-        <van-field 
-          v-if="needSubsystemSelect" 
-          v-model="subsystem" 
-          :label="$t('errorCodes.subsystem')" 
-          :placeholder="$t('errorCodes.selectSubsystem')" 
-          type="number"
-          clearable 
-          @input="handleSubsystemInput"
-          @clear="handleSubsystemClear"
-        />
+        <van-dropdown-menu v-if="needSubsystemSelect">
+          <van-dropdown-item 
+            v-model="subsystem" 
+            :options="subsystemOptions"
+            @change="handleSubsystemChange"
+          />
+        </van-dropdown-menu>
         <div v-if="!needSubsystemSelect && code && validationHint" class="validation-hint">
           {{ validationHint }}
         </div>
       </div>
       
+      <!-- 使用说明卡片 - 仅在没有查询结果且没有输入时显示 -->
+      <div v-if="!loading && !foundRecord && (!code || code === '')" class="info-card">
+        <div class="card-title">使用说明</div>
+        <div class="info-content">
+          <!-- 输入格式 -->
+          <div class="info-item">
+            <div class="info-header">
+              <span class="emoji">📝</span>
+              <span class="info-header-text">输入格式</span>
+            </div>
+            <div class="info-body">
+              <div class="info-text">
+                • 完整故障码：
+                <span class="code-example">142010A</span>
+              </div>
+              <div class="info-text">
+                • 故障类型：
+                <span class="code-example">0X010A</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 故障码格式 -->
+          <div class="info-item">
+            <div class="info-header">
+              <span class="emoji">✅</span>
+              <span class="info-header-text">故障码格式</span>
+            </div>
+            <div class="info-body">
+              <div class="info-text">
+                • 7位：臂号(1)+关节号(1)+子系统(2)+类型(4)
+              </div>
+              <div class="info-text">
+                • 最后一位：A / B / C / D / E
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <!-- Recent Searches Card -->
-      <div v-if="recentSearches.length > 0" class="recent-searches-card">
+      <div v-if="recentSearches.length > 0 && !loading && !foundRecord" class="recent-searches-card">
         <div class="recent-searches-header">
           <van-icon name="clock-o" class="clock-icon" />
           <span class="recent-searches-title">{{ $t('mobile.errorQuery.recentSearches') }}</span>
@@ -63,88 +103,75 @@
           </van-tag>
         </div>
       </div>
+      
       <div v-if="errorText" class="error">{{ errorText }}</div>
       <van-skeleton v-else-if="loading" title :row="3" />
       
       <!-- 查询结果 -->
       <div v-if="!loading && foundRecord" class="result-card">
-        <div class="card-header">
-          <div class="card-title">{{ resultTitle }}</div>
+        <!-- 结果头部 -->
+        <div class="result-header">
+          <div class="result-header-content">
+            <div class="result-code-label">故障码</div>
+            <div class="result-code-value">{{ code.toUpperCase() }}</div>
+          </div>
           <van-button 
-            size="mini" 
-            type="primary" 
-            plain
+            size="small" 
+            type="default" 
             class="copy-btn"
             @click="copyResult"
           >
-            {{ $t('mobile.errorQuery.copy') || '复制' }}
+            <van-icon name="copy" class="copy-icon" />
+            复制
           </van-button>
-        </div>
-        <div class="card-body">
-          <!-- 结果信息 -->
-          <div class="section">
-            <div class="section-title" @click="toggleSection('info')">
-              <span>{{ $t('errorCodes.queryResult.resultInfo') }}</span>
-              <van-icon :name="expandedSections.info ? 'arrow-up' : 'arrow-down'" class="section-toggle" />
-            </div>
-            <div v-show="expandedSections.info" class="section-content">
-              <div class="kv highlight">
-                <span class="kv-label">{{ $t('errorCodes.queryResult.explanation') }}：</span>
-                <span class="kv-value">{{ explanationText }}</span>
-              </div>
-            </div>
+                    </div>
+                    
+                    <!-- 结果主体 -->
+        <div class="result-body">
+          <!-- 结果信息（带蓝色边框高亮） -->
+          <div class="result-section highlight-section">
+            <div class="result-explanation">{{ explanationText }}</div>
           </div>
           
           <!-- 参数含义 -->
-          <div class="section">
-            <div class="section-title" @click="toggleSection('params')">
-              <span>{{ $t('errorCodes.queryResult.paramMeanings') }}</span>
-              <van-icon :name="expandedSections.params ? 'arrow-up' : 'arrow-down'" class="section-toggle" />
-            </div>
-            <div v-show="expandedSections.params" class="section-content">
-              <div v-for="(param, idx) in [1,2,3,4]" :key="idx" class="kv">
-                <span class="kv-label">{{ $t(`errorCodes.formLabels.param${param}`) }}：</span>
-                <span class="kv-value">{{ record[`param${param}`] ?? '-' }}</span>
+          <div class="result-section">
+            <div class="section-label">各参数含义：</div>
+            <div class="params-list">
+              <div v-for="(param, idx) in [1,2,3,4]" :key="idx" class="param-item">
+                <span class="param-number">{{ idx + 1 }}</span>
+                <span class="param-text">{{ record[`param${param}`] ?? '-' }}</span>
               </div>
             </div>
           </div>
           
-          <!-- 更多信息 -->
-          <div class="section">
-            <div class="section-title" @click="toggleSection('more')">
-              <span>{{ $t('errorCodes.queryResult.moreInfo') }}</span>
-              <van-icon :name="expandedSections.more ? 'arrow-up' : 'arrow-down'" class="section-toggle" />
-            </div>
-            <div v-show="expandedSections.more" class="section-content">
-              <div class="kv">
-                <span class="kv-label">{{ $t('errorCodes.queryResult.detail') }}：</span>
-                <span class="kv-value">{{ record.detail || '-' }}</span>
-              </div>
-              <div class="kv">
-                <span class="kv-label">{{ $t('errorCodes.queryResult.method') }}：</span>
-                <span class="kv-value">{{ record.method || '-' }}</span>
-              </div>
-              <div class="kv">
-                <span class="kv-label">{{ $t('errorCodes.queryResult.techSolution') }}：</span>
-                <span class="kv-value">{{ record.tech_solution || '-' }}</span>
-              </div>
-              <div class="kv">
-                <span class="kv-label">{{ $t('errorCodes.queryResult.category') }}：</span>
-                <span class="kv-value">{{ record.category || '-' }}</span>
-              </div>
-              <div class="kv">
-                <span class="kv-label">{{ $t('errorCodes.solution') }}：</span>
-                <span class="kv-value solution-badge" :class="getSolutionClass(record.solution)">
-                  {{ getSolutionDisplay(record.solution) || '-' }}
-                </span>
-              </div>
-            </div>
+          <!-- 详细信息 -->
+          <div class="result-section">
+            <div class="section-label">详细信息：</div>
+            <div class="section-text">{{ record.detail || '-' }}</div>
+          </div>
+          
+          <!-- 检查方法 -->
+          <div class="result-section">
+            <div class="section-label">检查方法：</div>
+            <div class="section-text">{{ record.method || '-' }}</div>
+          </div>
+          
+          <!-- 技术排查方案 -->
+          <div class="result-section">
+            <div class="section-label">技术排查方案：</div>
+            <div class="solution-steps">{{ record.tech_solution || '-' }}</div>
+          </div>
+          
+          <!-- 故障分类 -->
+          <div class="result-section">
+            <div class="section-label">故障分类：</div>
+            <div class="category-badge">{{ record.category || '-' }}</div>
           </div>
         </div>
       </div>
       
       <!-- 无数据 -->
-      <van-empty v-else-if="!loading && !foundRecord" :description="$t('shared.noData')" />
+      <van-empty v-else-if="!loading && !foundRecord && code" :description="$t('shared.noData')" />
     </div>
   </div>
   </template>
@@ -153,7 +180,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { showToast, showSuccessToast } from 'vant'
-import { Empty as VanEmpty, NavBar as VanNavBar, Card as VanCard, Skeleton as VanSkeleton, Field as VanField, CellGroup as VanCellGroup, Button as VanButton, Tag as VanTag, Icon as VanIcon } from 'vant'
+import { Empty as VanEmpty, NavBar as VanNavBar, Card as VanCard, Skeleton as VanSkeleton, Field as VanField, CellGroup as VanCellGroup, Button as VanButton, Tag as VanTag, Icon as VanIcon, DropdownMenu, DropdownItem } from 'vant'
 import api from '@/api'
 
 export default {
@@ -167,7 +194,9 @@ export default {
     'van-cell-group': VanCellGroup,
     'van-button': VanButton,
     'van-tag': VanTag,
-    'van-icon': VanIcon
+    'van-icon': VanIcon,
+    'van-dropdown-menu': DropdownMenu,
+    'van-dropdown-item': DropdownItem
   },
   setup() {
     const { t } = useI18n()
@@ -185,6 +214,19 @@ export default {
       more: false
     })
     
+    const subsystemOptions = computed(() => [
+      { text: t('shared.subsystemOptions.1'), value: '1' },
+      { text: t('shared.subsystemOptions.2'), value: '2' },
+      { text: t('shared.subsystemOptions.3'), value: '3' },
+      { text: t('shared.subsystemOptions.4'), value: '4' },
+      { text: t('shared.subsystemOptions.5'), value: '5' },
+      { text: t('shared.subsystemOptions.6'), value: '6' },
+      { text: t('shared.subsystemOptions.7'), value: '7' },
+      { text: t('shared.subsystemOptions.8'), value: '8' },
+      { text: t('shared.subsystemOptions.9'), value: '9' },
+      { text: t('shared.subsystemOptions.A'), value: 'A' }
+    ])
+    
     const resultTitle = computed(() => {
       const rawCode = (result.value?.code || foundRecord.value?.code || code.value || '-').toUpperCase()
       const displayCode = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(rawCode)
@@ -194,6 +236,15 @@ export default {
       const subFromInput = '' + (subsystem?.value || '')
       const displaySub = (subFromResult || subFromInput || '').toString().toUpperCase()
       return displaySub ? `${displayCode} (${displaySub})` : displayCode
+    })
+    
+    const inferredSubsystem = computed(() => {
+      if (subsystem.value) return subsystem.value.toUpperCase()
+      if (foundRecord.value?.subsystem) return foundRecord.value.subsystem.toUpperCase()
+      if (code.value && /^[1-9A]/.test(code.value)) {
+        return code.value.charAt(0).toUpperCase()
+      }
+      return ''
     })
     const record = computed(() => {
       return foundRecord.value || {}
@@ -259,12 +310,6 @@ export default {
       errorText.value = ''
     }
     
-    const handleSubsystemInput = (value) => {
-      // 只允许数字和字母A
-      subsystem.value = value.replace(/[^0-9A]/gi, '').toUpperCase()
-      errorText.value = ''
-    }
-    
     const handleClear = () => {
       code.value = ''
       errorText.value = ''
@@ -272,8 +317,7 @@ export default {
       result.value = null
     }
     
-    const handleSubsystemClear = () => {
-      subsystem.value = ''
+    const handleSubsystemChange = () => {
       errorText.value = ''
     }
     
@@ -485,23 +529,51 @@ export default {
       resultTitle, 
       record, 
       explanationText, 
+      inferredSubsystem,
       getSolutionDisplay,
       handleCodeInput,
-      handleSubsystemInput,
       handleClear,
-      handleSubsystemClear,
+      handleSubsystemChange,
       quickSearch,
       toggleSection,
       copyResult,
-      getSolutionClass
+      getSolutionClass,
+      subsystemOptions
     }
   }
 }
 </script>
 
 <style scoped>
-.page { padding-top: 46px; }
-.content { padding: 12px; }
+.page {
+  min-height: 100vh;
+  background-color: #f7f8fa;
+}
+
+.header {
+  background-color: #fff;
+  padding: 16px;
+  border-bottom: 1px solid #ebedf0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #323233;
+  margin: 0;
+}
+
+.header-icon {
+  font-size: 16px;
+  color: #969799;
+}
+
+.content {
+  padding: 12px;
+}
 
 .error { 
   color: #ee0a24; 
@@ -530,20 +602,35 @@ export default {
   align-items: flex-start;
 }
 
-.search-input {
+.search-box {
   flex: 1;
+  display: flex;
+  align-items: center;
   background: #f3f3f5;
   border-radius: 8px;
-  overflow: hidden;
+  position: relative;
 }
 
-.search-input :deep(.van-field__control) {
-  font-size: 14px;
-}
-
-.search-icon {
+.search-icon-left {
+  position: absolute;
+  right: 12px;
   color: #717182;
   font-size: 16px;
+  pointer-events: none;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: #323233;
+  padding: 8px 36px 8px 12px;
+}
+
+.search-input::placeholder {
+  color: #717182;
 }
 
 .search-button {
@@ -553,11 +640,78 @@ export default {
   padding: 0 16px;
   font-size: 14px;
   white-space: nowrap;
+  height: 36px;
 }
 
 .search-button:disabled {
   background: #e5e7eb !important;
   color: #9ca3af !important;
+}
+
+/* 使用说明卡片 */
+.info-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  padding: 13px;
+  margin-bottom: 12px;
+}
+
+.info-card .card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #323233;
+  margin-bottom: 20px;
+}
+
+.info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.emoji {
+  font-size: 16px;
+}
+
+.info-header-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #323233;
+}
+
+.info-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 24px;
+}
+
+.info-text {
+  font-size: 14px;
+  color: #646566;
+  line-height: 1.6;
+}
+
+.code-example {
+  background: #eceef2;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #030213;
+  font-weight: 500;
 }
 
 /* Recent Searches Card */
@@ -573,7 +727,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 32px;
+  margin-bottom: 12px;
 }
 
 .clock-icon {
@@ -604,115 +758,160 @@ export default {
   user-select: none;
 }
 
+/* 查询结果卡片 */
 .result-card {
   margin-top: 12px;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
   overflow: hidden;
 }
 
-.card-header {
-  padding: 16px;
-  border-bottom: 1px solid #ebedf0;
-  background: #fafafa;
+.result-header {
+  background: #ecf5ff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 12px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
-.card-title {
-  font-size: 16px;
+.result-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-code-label {
+  font-size: 12px;
+  color: #4a5565;
+  font-weight: 500;
+}
+
+.result-code-value {
+  font-size: 24px;
   font-weight: 600;
-  color: #323233;
-  flex: 1;
+  color: #155dfc;
 }
 
 .copy-btn {
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.card-body {
-  padding: 16px;
-}
-
-.section { 
-  margin-top: 16px; 
-}
-.section:first-of-type { 
-  margin-top: 0; 
-}
-
-.section-title { 
-  font-weight: 600; 
-  font-size: 15px; 
-  margin-bottom: 10px; 
-  color: #323233;
-  padding: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #ebedf0;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 4px 12px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.2s;
+  gap: 4px;
+  font-size: 12px;
+  color: #030213;
 }
 
-.section-title:active {
-  background-color: #f7f8fa;
+.copy-icon {
+  font-size: 12px;
 }
 
-.section-toggle {
-  color: #969799;
-  font-size: 16px;
+.prefix-badge {
+  background: #030213;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin: 12px;
+  display: inline-block;
 }
 
-.section-content {
+.result-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding-top: 8px;
-  animation: slideDown 0.2s ease-out;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.result-section:first-child {
+  border-top: none;
+  padding-top: 0;
 }
 
-.kv { 
-  display: flex; 
-  gap: 8px; 
-  margin: 8px 0; 
-  color: #555; 
-  align-items: flex-start; 
+.highlight-section {
+  background: #f7f8fa;
+  border-left: 3px solid #155dfc;
+  padding: 8px 12px;
+  margin: -12px;
+  margin-bottom: 0;
+}
+
+.result-explanation {
+  font-size: 14px;
+  color: #101828;
   line-height: 1.6;
 }
 
-.kv.highlight {
-  background: #f0f9ff;
-  padding: 8px;
-  border-radius: 4px;
-  margin: 12px 0;
+.section-label {
+  font-size: 12px;
+  color: #4a5565;
+  font-weight: 500;
 }
 
-.kv-label {
-  min-width: 80px;
-  font-weight: 500;
-  color: #646566;
+.section-text {
+  font-size: 12px;
+  color: #364153;
+  line-height: 1.6;
+}
+
+.params-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.param-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.param-number {
+  background: #cbd5e0;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #364153;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.kv-value { 
-  white-space: pre-wrap; 
-  word-break: break-word; 
-  flex: 1; 
-  color: #323233;
+.param-text {
+  font-size: 12px;
+  color: #364153;
+  line-height: 1.6;
+}
+
+.solution-steps {
+  font-size: 12px;
+  color: #364153;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.category-badge {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 4px 12px;
+  display: inline-block;
+  font-size: 12px;
+  color: #030213;
 }
 
 .solution-badge {
@@ -747,7 +946,14 @@ export default {
   background: #f3e5f5;
   color: #7b1fa2;
 }
+
+/* Dropdown Menu Styles */
+:deep(.van-dropdown-menu) {
+  margin-top: 8px;
+}
+
+:deep(.van-dropdown-menu__item) {
+  padding: 0 12px;
+}
 </style>
-
-
 

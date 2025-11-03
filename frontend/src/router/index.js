@@ -185,8 +185,10 @@ const routes = [
       { path: 'error', name: 'MError', component: () => import('../mobile/views/ErrorQuery.vue') },
       { path: 'logs', name: 'MLogs', component: () => import('../mobile/views/LogDevices.vue') },
       { path: 'logs/:deviceId', name: 'MDeviceLogs', component: () => import('../mobile/views/DeviceLogs.vue') },
+      { path: 'log-view/:logId', name: 'MLogView', component: () => import('../mobile/views/LogView.vue') },
       { path: 'surgeries', name: 'MSurgeries', component: () => import('../mobile/views/SurgeriesDevices.vue') },
       { path: 'surgeries/:deviceId', name: 'MDeviceSurgeries', component: () => import('../mobile/views/DeviceSurgeries.vue') },
+      { path: 'surgery-visualization/:surgeryId', name: 'MSurgeryVisualization', component: () => import('../mobile/views/SurgeryVisualization.vue') },
       { path: 'profile', name: 'MProfile', component: () => import('../mobile/views/Profile.vue') }
     ]
   }

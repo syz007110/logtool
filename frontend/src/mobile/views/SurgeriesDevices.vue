@@ -1,31 +1,80 @@
 <template>
   <div class="page">
-    <van-nav-bar :title="$t('mobile.titles.surgeries')" fixed safe-area-inset-top />
+    <!-- 顶部标题栏 -->
+    <div class="header">
+      <h1 class="page-title">{{ $t('mobile.titles.surgeries') }}</h1>
+    </div>
+    
+    <!-- 搜索框 -->
+    <div class="search-container">
+      <div class="search-box">
+        <van-icon name="search" class="search-icon" />
+        <input
+          v-model="keyword"
+          type="text"
+          class="search-input"
+          :placeholder="$t('mobile.surgeries.searchPlaceholder')"
+          @input="handleSearchInput"
+        />
+      </div>
+    </div>
+
+    <!-- 设备列表 -->
     <div class="content">
-      <van-search v-model="keyword" :placeholder="$t('logs.keywordSearchPlaceholder')" />
       <van-list :finished="finished" :loading="loading" @load="onLoad">
-        <van-cell v-for="item in items" :key="item.deviceId"
-                  is-link
-                  :title="`${item.deviceId} | ${item.hospital}`"
-                  :label="$t('logs.totalSurgeries') + ' ' + (item.count ?? 0)"
-                  :to="{ name: 'MDeviceSurgeries', params: { deviceId: item.deviceId } }"/>
+        <div class="device-list">
+          <div
+            v-for="item in items"
+            :key="item.deviceId"
+            class="device-card"
+            @click="$router.push({ name: 'MDeviceSurgeries', params: { deviceId: item.deviceId } })"
+          >
+            <div class="card-content">
+              <!-- 左侧图标 -->
+              <div class="device-icon">
+                <van-icon name="orders-o" />
+              </div>
+              
+              <!-- 中间信息 -->
+              <div class="device-info">
+                <div class="device-id">{{ item.deviceId }}</div>
+                <div class="hospital-name">{{ item.hospital }}</div>
+                <div class="surgery-badge">
+                  <span class="badge-text">{{ item.count ?? 0 }}</span>
+                  <span class="badge-label">{{ $t('mobile.surgeries.surgeriesUnit') }}</span>
+                </div>
+              </div>
+              
+              <!-- 右侧箭头 -->
+              <div class="arrow-icon">
+                <van-icon name="arrow" />
+              </div>
+            </div>
+          </div>
+        </div>
       </van-list>
+      
+      <!-- 空状态 -->
+      <van-empty
+        v-if="!loading && items.length === 0 && finished"
+        :description="$t('shared.noData')"
+        class="empty-state"
+      />
     </div>
   </div>
 </template>
 
 <script>
 import { ref } from 'vue'
-import { List as VanList, Cell as VanCell, Search as VanSearch, NavBar as VanNavBar } from 'vant'
+import { List as VanList, Empty as VanEmpty, Icon as VanIcon } from 'vant'
 import api from '@/api'
 
 export default {
   name: 'MSurgeriesDevices',
   components: {
     'van-list': VanList,
-    'van-cell': VanCell,
-    'van-search': VanSearch,
-    'van-nav-bar': VanNavBar
+    'van-empty': VanEmpty,
+    'van-icon': VanIcon
   },
   setup() {
     const keyword = ref('')
@@ -53,6 +102,7 @@ export default {
 
     const page = ref(1)
     const pageSize = 20
+    
     const onLoad = async () => {
       if (finished.value) return
       loading.value = true
@@ -74,14 +124,193 @@ export default {
         loading.value = false
       }
     }
-    return { keyword, items, loading, finished, onLoad }
+    
+    const handleSearchInput = () => {
+      // 重置状态并重新加载
+      page.value = 1
+      items.value = []
+      finished.value = false
+      onLoad()
+    }
+    
+    return { keyword, items, loading, finished, onLoad, handleSearchInput }
   }
 }
 </script>
 
 <style scoped>
-.page { padding-top: 46px; }
-.content { padding: 12px; }
+.page {
+  min-height: 100vh;
+  background-color: #f7f8fa;
+  padding-bottom: 50px;
+}
+
+.header {
+  background-color: #fff;
+  padding: 16px;
+  border-bottom: 1px solid #ebedf0;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #323233;
+  margin: 0;
+}
+
+.search-container {
+  background-color: #fff;
+  padding: 12px;
+  border-bottom: 1px solid #ebedf0;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background-color: #f7f8fa;
+  border-radius: 8px;
+  padding: 8px 12px;
+  position: relative;
+}
+
+.search-icon {
+  color: #969799;
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: #323233;
+}
+
+.search-input::placeholder {
+  color: #969799;
+}
+
+.content {
+  padding: 12px;
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.device-card {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.device-card:active {
+  background-color: #f7f8fa;
+  transform: scale(0.98);
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+}
+
+.device-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ecf5ff;
+  border-radius: 8px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.device-icon .van-icon {
+  font-size: 20px;
+  color: #1989fa;
+}
+
+.device-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-id {
+  font-size: 16px;
+  font-weight: 500;
+  color: #323233;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hospital-name {
+  font-size: 14px;
+  color: #646566;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.surgery-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: #ecf5ff;
+  border-radius: 12px;
+  padding: 2px 8px;
+  height: 22px;
+}
+
+.badge-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1989fa;
+}
+
+.badge-label {
+  font-size: 12px;
+  color: #1989fa;
+  margin-left: 2px;
+}
+
+.arrow-icon {
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.arrow-icon .van-icon {
+  font-size: 16px;
+  color: #969799;
+}
+
+.empty-state {
+  margin-top: 60px;
+}
+
+/* 加载状态优化 */
+:deep(.van-list__loading) {
+  padding: 20px 0;
+  text-align: center;
+  color: #969799;
+  font-size: 14px;
+}
+
+:deep(.van-list__finished) {
+  padding: 20px 0;
+  text-align: center;
+  color: #969799;
+  font-size: 14px;
+}
 </style>
 
 

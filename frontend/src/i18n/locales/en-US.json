@@ -1047,7 +1047,37 @@
     "titles": {
       "errorQuery": "Error Code Query",
       "logs": "Log Management",
-      "surgeries": "Surgery Data"
+      "surgeries": "Surgery Data",
+      "logDetail": "Log Detail",
+      "surgeryVisualization": "Surgery Visualization"
+    },
+    "surgeries": {
+      "searchPlaceholder": "Search device ID or hospital name",
+      "surgeriesUnit": "surgeries"
+    },
+    "deviceSurgeries": {
+      "hospitalName": "Hospital Name",
+      "surgeriesUnit": "surgeries",
+      "searchPlaceholder": "Search surgery ID or procedure",
+      "surgeryId": "Surgery ID",
+      "startTime": "Start",
+      "endTime": "End",
+      "duration": "Duration",
+      "hour": "hour",
+      "minute": "minute",
+      "normalSurgery": "Normal Surgery",
+      "viewLogs": "Logs",
+      "visualization": "Visualization",
+      "filterAll": "All Surgeries",
+      "timeAll": "All Time",
+      "timeToday": "Today",
+      "timeWeek": "Last Week",
+      "timeMonth": "Last Month",
+      "tabs": {
+        "all": "All",
+        "remote": "Remote",
+        "fault": "Fault"
+      }
     },
     "login": {
       "title": "Robotic Surgery Management System",
@@ -1063,6 +1093,69 @@
       "copySuccess": "Copied successfully",
       "copyFailed": "Copy failed",
       "searchPlaceholder": "Error code (142010A) or type (0X010A)"
+    },
+    "logs": {
+      "searchPlaceholder": "Search device ID or hospital name",
+      "logFilesUnit": "log files"
+    },
+    "deviceLogs": {
+      "hospitalName": "Hospital Name",
+      "logsUnit": "logs",
+      "searchPlaceholder": "Search log filename",
+      "statusAll": "All Status",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "statusDecryptFailed": "Decrypt Failed",
+      "statusParsing": "Parsing",
+      "statusPending": "Pending",
+      "unknownUser": "Unknown User",
+      "downloadSuccess": "Download Success",
+      "downloadFailed": "Download Failed"
+    },
+    "logView": {
+      "download": "Download",
+      "commonTags": "Common Tags",
+      "searchPlaceholder": "Search keyword or error code",
+      "logTypeAll": "All Logs",
+      "logTypeError": "Error Logs",
+      "logTypeInfo": "Info Logs",
+      "logTypeWarning": "Warning Logs",
+      "timeAll": "All Time",
+      "timeToday": "Today",
+      "timeWeek": "Last Week",
+      "timeMonth": "Last Month",
+      "displayStats": "Displaying {current} / {total} entries",
+      "logNotFound": "Log not found",
+      "loadFailed": "Load failed",
+      "logIdRequired": "Log ID is required",
+      "downloadSuccess": "Download success",
+      "downloadFailed": "Download failed"
+    },
+    "surgeryVisualization": {
+      "surgeryId": "Surgery ID",
+      "startTime": "Start",
+      "endTime": "End",
+      "hour": "hour",
+      "minute": "minute",
+      "ganttTitle": "Surgery Gantt Chart",
+      "timeline": "Surgery Timeline",
+      "incision": "Incision",
+      "operation": "Operation",
+      "suture": "Suture",
+      "keyMetrics": "Key Metrics",
+      "totalDuration": "Total Duration",
+      "armCount": "Arm Count",
+      "avgUtilization": "Average Utilization",
+      "completion": "Completion",
+      "tabGantt": "Gantt",
+      "tabAlert": "Alert",
+      "tabNetwork": "Network",
+      "tabStateMachine": "State Machine",
+      "tabInstrument": "Instrument",
+      "tabSummary": "Summary",
+      "comingSoon": "Coming Soon",
+      "loadFailed": "Load failed",
+      "surgeryIdRequired": "Surgery ID is required"
     }
   }
 }

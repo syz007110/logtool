@@ -27,6 +27,7 @@
     "requestFailed": "请求失败",
     "networkError": "网络连接失败",
     "unknown": "未知",
+    "clear": "清空",
     "messages": {
       "deleteSuccess": "删除成功",
       "deleteFailed": "删除失败",
@@ -1035,7 +1036,37 @@
     "titles": {
       "errorQuery": "故障码查询",
       "logs": "日志管理",
-      "surgeries": "手术数据"
+      "surgeries": "手术数据",
+      "logDetail": "日志详情",
+      "surgeryVisualization": "手术可视化"
+    },
+    "surgeries": {
+      "searchPlaceholder": "搜索设备编号或医院名称",
+      "surgeriesUnit": "台手术"
+    },
+    "deviceSurgeries": {
+      "hospitalName": "医院名称",
+      "surgeriesUnit": "台手术",
+      "searchPlaceholder": "搜索手术ID或术式",
+      "surgeryId": "手术ID",
+      "startTime": "开始",
+      "endTime": "结束",
+      "duration": "时长",
+      "hour": "小时",
+      "minute": "分钟",
+      "normalSurgery": "正常手术",
+      "viewLogs": "日志",
+      "visualization": "可视化",
+      "filterAll": "全部手术",
+      "timeAll": "全部时间",
+      "timeToday": "今天",
+      "timeWeek": "最近一周",
+      "timeMonth": "最近一月",
+      "tabs": {
+        "all": "全部",
+        "remote": "远程手术",
+        "fault": "故障手术"
+      }
     },
     "login": {
       "title": "手术机器人管理系统",
@@ -1051,6 +1082,69 @@
       "copySuccess": "复制成功",
       "copyFailed": "复制失败",
       "searchPlaceholder": "故障码（142010A）或类型（0X010A）"
+    },
+    "logs": {
+      "searchPlaceholder": "搜索设备编号或医院名称",
+      "logFilesUnit": "个日志文件"
+    },
+    "deviceLogs": {
+      "hospitalName": "医院名称",
+      "logsUnit": "个日志",
+      "searchPlaceholder": "搜索日志文件名",
+      "statusAll": "全部状态",
+      "statusCompleted": "完成",
+      "statusFailed": "失败",
+      "statusDecryptFailed": "解密失败",
+      "statusParsing": "解析中",
+      "statusPending": "等待中",
+      "unknownUser": "未知用户",
+      "downloadSuccess": "下载成功",
+      "downloadFailed": "下载失败"
+    },
+    "logView": {
+      "download": "下载",
+      "commonTags": "常用标签",
+      "searchPlaceholder": "搜索关键词或故障码",
+      "logTypeAll": "全部日志",
+      "logTypeError": "错误日志",
+      "logTypeInfo": "信息日志",
+      "logTypeWarning": "警告日志",
+      "timeAll": "全部时间",
+      "timeToday": "今天",
+      "timeWeek": "最近一周",
+      "timeMonth": "最近一月",
+      "displayStats": "显示 {current} / {total} 条日志",
+      "logNotFound": "日志不存在",
+      "loadFailed": "加载失败",
+      "logIdRequired": "日志ID不能为空",
+      "downloadSuccess": "下载成功",
+      "downloadFailed": "下载失败"
+    },
+    "surgeryVisualization": {
+      "surgeryId": "手术ID",
+      "startTime": "开始",
+      "endTime": "结束",
+      "hour": "小时",
+      "minute": "分钟",
+      "ganttTitle": "手术甘特图",
+      "timeline": "手术时间线",
+      "incision": "切口",
+      "operation": "操作",
+      "suture": "缝合",
+      "keyMetrics": "关键指标",
+      "totalDuration": "总时长",
+      "armCount": "工具臂数",
+      "avgUtilization": "平均利用率",
+      "completion": "完成度",
+      "tabGantt": "甘特图",
+      "tabAlert": "报警",
+      "tabNetwork": "网络",
+      "tabStateMachine": "状态机",
+      "tabInstrument": "器械",
+      "tabSummary": "汇总",
+      "comingSoon": "功能开发中",
+      "loadFailed": "加载失败",
+      "surgeryIdRequired": "手术ID不能为空"
     }
   }
 }
