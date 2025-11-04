@@ -1,50 +1,22 @@
 <template>
   <div class="page">
     <van-nav-bar 
-      :title="$t('mobile.titles.logDetail')" 
-      left-arrow 
-      @click-left="$router.back()" 
       fixed 
       safe-area-inset-top 
-    />
+      left-arrow 
+      @click-left="$router.back()"
+    >
+      <template #title>
+        <div v-if="logInfo" class="nav-bar-title">
+          <span class="nav-title-main">{{ logInfo.original_name || '-' }}</span>
+          <span class="nav-title-size">{{ formatFileSize(logInfo.size) }}</span>
+        </div>
+        <span v-else>{{ $t('mobile.titles.logDetail') }}</span>
+      </template>
+    </van-nav-bar>
     
-    <div class="content">
-      <!-- 文件信息卡片 -->
-      <div v-if="logInfo" class="file-info-card">
-        <div class="file-header">
-          <div class="file-details">
-            <div class="file-name">{{ logInfo.original_name || '-' }}</div>
-            <div class="file-meta">
-              {{ formatFileSize(logInfo.size) }} • {{ formatTime(logInfo.created_at) }}
-            </div>
-          </div>
-          <van-button 
-            size="small" 
-            type="default" 
-            icon="down"
-            class="download-btn"
-            @click="downloadLog"
-          >
-            {{ $t('mobile.logView.download') }}
-          </van-button>
-        </div>
-      </div>
-
-      <!-- 常用标签卡片 -->
-      <div class="tags-card">
-        <div class="tags-title">{{ $t('mobile.logView.commonTags') }}</div>
-        <div class="tags-list">
-          <van-tag 
-            v-for="tag in commonTags" 
-            :key="tag"
-            class="tag-item"
-            @click="applyTagFilter(tag)"
-          >
-            {{ tag }}
-          </van-tag>
-        </div>
-      </div>
-
+    <!-- 固定顶部栏 -->
+    <div class="fixed-header">
       <!-- 搜索框 -->
       <div class="search-box">
         <van-icon name="search" class="search-icon" />
@@ -60,19 +32,25 @@
       <!-- 筛选按钮 -->
       <div class="filter-buttons">
         <van-dropdown-menu>
+          <!-- 常用搜索标签下拉菜单 -->
           <van-dropdown-item 
-            v-model="logTypeFilter" 
-            :options="logTypeOptions"
-            @change="handleFilterChange"
+            v-model="selectedTag" 
+            :options="commonTagOptions"
+            :title="$t('mobile.logView.commonTags')"
+            @change="handleTagFilterChange"
           />
+          <!-- 日志分析等级筛选 -->
           <van-dropdown-item 
-            v-model="timeFilter" 
-            :options="timeOptions"
-            @change="handleFilterChange"
+            v-model="analysisLevelFilter" 
+            :options="analysisLevelOptions"
+            :title="$t('batchAnalysis.analysisLevel')"
+            @change="handleAnalysisLevelChange"
           />
         </van-dropdown-menu>
       </div>
+    </div>
 
+    <div class="content">
       <!-- 日志条目列表 -->
       <div class="entries-list">
         <div
@@ -92,7 +70,7 @@
 
       <!-- 底部统计 -->
       <div class="footer-stats">
-        {{ t('mobile.logView.displayStats', { current: filteredEntries.length, total: allEntries.length }) }}
+        {{ $t('mobile.logView.displayStats', { current: filteredEntries.length, total: allEntries.length }) }}
       </div>
 
       <!-- 空状态 -->
@@ -141,27 +119,28 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const { t } = useI18n()
+    // 参考桌面端处理方式，直接使用路由参数，保持字符串类型
     const logId = route.params?.logId || route.query?.logId || ''
     const logInfo = ref(null)
     const allEntries = ref([])
     const loading = ref(false)
     const searchKeyword = ref('')
-    const logTypeFilter = ref('all')
-    const timeFilter = ref('all')
-    const commonTags = ref(['故障码', '传感器', '机械臂', '视觉系统', '温度', '手术'])
+    const analysisLevelFilter = ref('KEY')
+    const commonTags = ref([])
+    const selectedTag = ref('')
+    const analysisCategories = ref([])
+    const selectedAnalysisCategoryIds = ref([])
+    const analysisPresets = ref({ ALL: [], FINE: [], KEY: [] })
+    
+    const commonTagOptions = computed(() => {
+      const options = [{ text: t('mobile.logView.allTags'), value: '' }]
+      return options.concat(commonTags.value.map(tag => ({ text: tag, value: tag })))
+    })
 
-    const logTypeOptions = [
-      { text: t('mobile.logView.logTypeAll'), value: 'all' },
-      { text: t('mobile.logView.logTypeError'), value: 'error' },
-      { text: t('mobile.logView.logTypeInfo'), value: 'info' },
-      { text: t('mobile.logView.logTypeWarning'), value: 'warning' }
-    ]
-
-    const timeOptions = [
-      { text: t('mobile.logView.timeAll'), value: 'all' },
-      { text: t('mobile.logView.timeToday'), value: 'today' },
-      { text: t('mobile.logView.timeWeek'), value: 'week' },
-      { text: t('mobile.logView.timeMonth'), value: 'month' }
+    const analysisLevelOptions = [
+      { text: t('batchAnalysis.fullLogs'), value: 'ALL' },
+      { text: t('batchAnalysis.detailedLogs'), value: 'FINE' },
+      { text: t('batchAnalysis.keyLogs'), value: 'KEY' }
     ]
 
     const filteredEntries = computed(() => {
@@ -179,62 +158,56 @@ export default {
         })
       }
 
-      // 日志类型筛选（这里简化处理，实际应该根据日志级别）
-      // 暂时不实现，因为后端可能没有提供日志级别信息
-
-      // 时间筛选
-      if (timeFilter.value !== 'all') {
-        const now = new Date()
-        const cutoffTime = (() => {
-          switch (timeFilter.value) {
-            case 'today':
-              return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            case 'week':
-              const weekAgo = new Date(now)
-              weekAgo.setDate(weekAgo.getDate() - 7)
-              return weekAgo
-            case 'month':
-              const monthAgo = new Date(now)
-              monthAgo.setMonth(monthAgo.getMonth() - 1)
-              return monthAgo
-            default:
-              return null
-          }
-        })()
-        if (cutoffTime) {
-          filtered = filtered.filter(entry => {
-            if (!entry.timestamp) return false
-            return new Date(entry.timestamp) >= cutoffTime
-          })
-        }
+      // 分析等级筛选（根据分析分类）
+      if (selectedAnalysisCategoryIds.value && selectedAnalysisCategoryIds.value.length > 0) {
+        // 这里需要根据分析分类筛选，但单日志查看页面可能不需要这个功能
+        // 暂时不实现，因为分析分类筛选主要用于批量分析场景
       }
 
       return filtered
     })
 
     const fetchLogInfo = async () => {
+      if (!logId) {
+        showToast(t('mobile.logView.logIdRequired'))
+        router.back()
+        return
+      }
       try {
-        const resp = await api.logs.getList({ limit: 10000 })
-        const logs = resp?.data?.logs || []
-        logInfo.value = logs.find(l => l.id == logId)
-        if (!logInfo.value) {
+        const response = await api.logs.getList({ page: 1, limit: 1000 })
+        const logs = response?.data?.logs || []
+        // 使用宽松相等比较，参考桌面端处理方式
+        const log = logs.find(l => l.id == logId)
+        if (log) {
+          logInfo.value = log
+        } else {
           showToast(t('mobile.logView.logNotFound'))
           router.back()
         }
       } catch (error) {
         console.error('Failed to fetch log info:', error)
         showToast(t('mobile.logView.loadFailed'))
+        router.back()
       }
     }
 
     const fetchLogEntries = async () => {
+      if (!logId) {
+        return
+      }
       loading.value = true
       try {
-        const resp = await api.logs.getEntries(logId)
-        // 处理不同的响应格式
-        const entries = resp?.data?.entries || resp?.entries || resp?.data || []
+        // 确保 logId 是数字类型传给 API
+        const response = await api.logs.getEntries(Number(logId) || logId)
+        // 处理不同的响应格式，参考桌面端处理方式
+        const entries = response?.data?.entries || response?.entries || response?.data || []
+        if (!Array.isArray(entries)) {
+          console.warn('Log entries response is not an array:', entries)
+          allEntries.value = []
+          return
+        }
         // 如果是压缩格式，需要解压
-        if (Array.isArray(entries) && entries.length > 0 && entries[0].e) {
+        if (entries.length > 0 && entries[0].e) {
           // 压缩格式：{ e: error_code, exp: explanation, ts: timestamp, ... }
           allEntries.value = entries.map(entry => ({
             id: entry.id || entry.ts,
@@ -248,6 +221,7 @@ export default {
             param4: entry.p4
           }))
         } else {
+          // 标准格式
           allEntries.value = entries.map(entry => ({
             id: entry.id || entry.timestamp,
             timestamp: entry.timestamp || entry.ts,
@@ -263,6 +237,7 @@ export default {
       } catch (error) {
         console.error('Failed to fetch log entries:', error)
         showToast(t('mobile.logView.loadFailed'))
+        allEntries.value = []
       } finally {
         loading.value = false
       }
@@ -296,41 +271,66 @@ export default {
       const hours = String(date.getHours()).padStart(2, '0')
       const minutes = String(date.getMinutes()).padStart(2, '0')
       const seconds = String(date.getSeconds()).padStart(2, '0')
-      const milliseconds = String(date.getMilliseconds()).padStart(3, '0')
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     }
 
     const handleSearchInput = () => {
       // 实时筛选已通过computed处理
-    }
-
-    const handleFilterChange = () => {
-      // 筛选已通过computed处理
-    }
-
-    const applyTagFilter = (tag) => {
-      searchKeyword.value = tag
-    }
-
-    const downloadLog = async () => {
-      if (!logInfo.value) return
-      try {
-        const response = await api.logs.download(logId)
-        const blob = new Blob([response.data])
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = logInfo.value.original_name || 'log.txt'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-        showToast(t('mobile.logView.downloadSuccess'))
-      } catch (error) {
-        console.error('Download failed:', error)
-        showToast(t('mobile.logView.downloadFailed'))
+      // 如果手动输入的内容与选中的标签不一致，清空标签选择
+      if (selectedTag.value && searchKeyword.value !== selectedTag.value) {
+        selectedTag.value = ''
       }
     }
+
+    const handleAnalysisLevelChange = (value) => {
+      if (analysisPresets.value[value] && Array.isArray(analysisPresets.value[value])) {
+        selectedAnalysisCategoryIds.value = [...analysisPresets.value[value]]
+      }
+    }
+
+    const loadAnalysisPresets = async () => {
+      try {
+        const [cats, presetsRes] = await Promise.all([
+          api.analysisCategories.getList({ is_active: true }),
+          api.analysisCategories.getPresets()
+        ])
+        analysisCategories.value = cats?.data?.categories || []
+        const presets = presetsRes?.data?.presets || { ALL: [], FINE: [], KEY: [] }
+        analysisPresets.value = presets
+        // 根据当前选中的分析等级设置分类ID（默认KEY）
+        const presetKey = analysisLevelFilter.value || 'KEY'
+        if (analysisPresets.value[presetKey] && Array.isArray(analysisPresets.value[presetKey])) {
+          selectedAnalysisCategoryIds.value = [...analysisPresets.value[presetKey]]
+        }
+      } catch (error) {
+        console.error('Failed to load analysis presets:', error)
+        // 如果加载失败，使用空数组
+        selectedAnalysisCategoryIds.value = []
+      }
+    }
+
+    const handleTagFilterChange = (value) => {
+      selectedTag.value = value
+      if (value) {
+        searchKeyword.value = value
+      } else {
+        searchKeyword.value = ''
+      }
+    }
+
+    const loadCommonTags = async () => {
+      try {
+        const res = await api.logs.getSearchTemplates()
+        const templates = res?.data?.templates || []
+        // 提取模板名称作为常用标签
+        commonTags.value = templates.map(tpl => tpl.name).filter(Boolean)
+      } catch (error) {
+        console.error('Failed to load common tags:', error)
+        // 如果加载失败，使用默认标签
+        commonTags.value = []
+      }
+    }
+
 
     onMounted(async () => {
       if (!logId) {
@@ -338,7 +338,7 @@ export default {
         router.back()
         return
       }
-      await Promise.all([fetchLogInfo(), fetchLogEntries()])
+      await Promise.all([fetchLogInfo(), fetchLogEntries(), loadCommonTags(), loadAnalysisPresets()])
     })
 
     return {
@@ -347,18 +347,17 @@ export default {
       filteredEntries,
       loading,
       searchKeyword,
-      logTypeFilter,
-      timeFilter,
+      analysisLevelFilter,
       commonTags,
-      logTypeOptions,
-      timeOptions,
+      selectedTag,
+      commonTagOptions,
+      analysisLevelOptions,
       formatFileSize,
       formatTime,
       formatTimestamp,
       handleSearchInput,
-      handleFilterChange,
-      applyTagFilter,
-      downloadLog
+      handleAnalysisLevelChange,
+      handleTagFilterChange
     }
   }
 }
@@ -372,46 +371,48 @@ export default {
   padding-bottom: 20px;
 }
 
-.content {
-  padding: 12px;
-}
-
-.file-info-card {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.file-header {
+.nav-bar-title {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 100px);
 }
 
-.file-details {
-  flex: 1;
-  min-width: 0;
-}
-
-.file-name {
-  font-size: 14px;
+.nav-title-main {
+  font-size: 16px;
+  font-weight: 500;
   color: #323233;
-  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
 }
 
-.file-meta {
+.nav-title-size {
   font-size: 12px;
-  color: #646566;
+  color: #969799;
+  flex-shrink: 0;
+  line-height: 1.2;
 }
 
-.download-btn {
-  flex-shrink: 0;
+.fixed-header {
+  position: fixed;
+  top: 46px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: #f7f8fa;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  max-height: calc(100vh - 46px);
+  overflow-y: auto;
+}
+
+.content {
+  padding: 12px;
+  margin-top: 120px; /* 为固定头部栏留出空间：搜索框(48) + 筛选按钮(48) + 间距(24) */
 }
 
 .tags-card {
@@ -446,7 +447,7 @@ export default {
   border-radius: 8px;
   padding: 0 12px;
   height: 36px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .search-icon {
@@ -470,7 +471,7 @@ export default {
 }
 
 .filter-buttons {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .entries-list {

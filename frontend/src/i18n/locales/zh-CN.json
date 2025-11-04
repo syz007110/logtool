@@ -231,7 +231,7 @@
     "validation": {
       "subsystemRequired": "请选择子系统",
       "codeRequired": "请输入故障码",
-      "codeFormat": "故障码格式不正确，必须以0X开头+16进制的故障码（最后一位表示等级分类）",
+      "codeFormat": "故障码格式不正确，四位由数字或字母组成的16进制的故障码",
       "lengthNotEnough": "不满足故障码长度要求",
       "detailRequired": "请输入详细信息",
       "methodRequired": "请输入检测方法",
@@ -1069,19 +1069,36 @@
       }
     },
     "login": {
-      "title": "手术机器人管理系统",
+      "title": "日志与故障管理工具",
       "subtitle": "移动端登录",
       "testAccount": "测试账号",
       "admin": "管理员: admin / admin123",
       "user": "普通用户: user / user123",
-      "copyright": "© 2024 手术机器人管理系统"
+      "copyright": "© 2025 日志与故障管理工具"
     },
     "errorQuery": {
       "recentSearches": "最近搜索",
       "copy": "复制",
       "copySuccess": "复制成功",
       "copyFailed": "复制失败",
-      "searchPlaceholder": "故障码（142010A）或类型（0X010A）"
+      "searchPlaceholder": "故障码（142010A）或类型（0X010A）",
+      "usageGuide": "使用说明",
+      "inputFormat": "输入格式",
+      "fullErrorCode": "完整故障码：",
+      "errorType": "故障类型：",
+      "errorCodeFormat": "故障码格式",
+      "formatDescription": "7位：子系统(1)+臂号(1)+关节号(1)+类型(4)",
+      "lastDigit": "最后一位：A / B / C / D / E",
+      "foundResults": "找到 {count} 个结果",
+      "selectErrorCode": "请选择要查看的故障码：",
+      "errorCodeLabel": "故障码",
+      "paramMeanings": "各参数含义：",
+      "detailInfo": "详细信息：",
+      "checkMethod": "检查方法：",
+      "techSolution": "技术排查方案：",
+      "faultCategory": "故障分类：",
+      "notFound": "未找到包含该故障类型的记录",
+      "queryFailed": "查询失败"
     },
     "logs": {
       "searchPlaceholder": "搜索设备编号或医院名称",
@@ -1104,6 +1121,7 @@
     "logView": {
       "download": "下载",
       "commonTags": "常用标签",
+      "allTags": "全部标签",
       "searchPlaceholder": "搜索关键词或故障码",
       "logTypeAll": "全部日志",
       "logTypeError": "错误日志",
@@ -1113,6 +1131,7 @@
       "timeToday": "今天",
       "timeWeek": "最近一周",
       "timeMonth": "最近一月",
+      "timeFilter": "时间筛选",
       "displayStats": "显示 {current} / {total} 条日志",
       "logNotFound": "日志不存在",
       "loadFailed": "加载失败",

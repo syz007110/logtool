@@ -13,14 +13,13 @@
           <div class="search-box">
             <van-icon name="search" class="search-icon-left" />
             <input
-              v-model="code"
+              :value="code"
               type="text"
               class="search-input"
               :placeholder="$t('mobile.errorQuery.searchPlaceholder')"
               autocomplete="off"
-              @input="handleCodeInput"
+              @input="handleCodeInput($event)"
               @keyup.enter="onSearch"
-              @clear="handleClear"
             />
           </div>
           <van-button 
@@ -48,21 +47,21 @@
       
       <!-- 使用说明卡片 - 仅在没有查询结果且没有输入时显示 -->
       <div v-if="!loading && !foundRecord && (!code || code === '')" class="info-card">
-        <div class="card-title">使用说明</div>
+        <div class="card-title">{{ $t('mobile.errorQuery.usageGuide') }}</div>
         <div class="info-content">
           <!-- 输入格式 -->
           <div class="info-item">
             <div class="info-header">
               <span class="emoji">📝</span>
-              <span class="info-header-text">输入格式</span>
+              <span class="info-header-text">{{ $t('mobile.errorQuery.inputFormat') }}</span>
             </div>
             <div class="info-body">
               <div class="info-text">
-                • 完整故障码：
+                • {{ $t('mobile.errorQuery.fullErrorCode') }}
                 <span class="code-example">142010A</span>
               </div>
               <div class="info-text">
-                • 故障类型：
+                • {{ $t('mobile.errorQuery.errorType') }}
                 <span class="code-example">0X010A</span>
               </div>
             </div>
@@ -72,14 +71,14 @@
           <div class="info-item">
             <div class="info-header">
               <span class="emoji">✅</span>
-              <span class="info-header-text">故障码格式</span>
+              <span class="info-header-text">{{ $t('mobile.errorQuery.errorCodeFormat') }}</span>
             </div>
             <div class="info-body">
               <div class="info-text">
-                • 7位：臂号(1)+关节号(1)+子系统(2)+类型(4)
+                • {{ $t('mobile.errorQuery.formatDescription') }}
               </div>
               <div class="info-text">
-                • 最后一位：A / B / C / D / E
+                • {{ $t('mobile.errorQuery.lastDigit') }}
               </div>
             </div>
           </div>
@@ -107,12 +106,34 @@
       <div v-if="errorText" class="error">{{ errorText }}</div>
       <van-skeleton v-else-if="loading" title :row="3" />
       
+      <!-- 故障类型查询结果列表 -->
+      <div v-if="!loading && typeSearchResults.length > 0 && !foundRecord" class="type-results-card">
+        <div class="type-results-header">
+          <div class="type-results-title">{{ $t('mobile.errorQuery.foundResults', { count: typeSearchResults.length }) }}</div>
+          <div class="type-results-subtitle">{{ $t('mobile.errorQuery.selectErrorCode') }}</div>
+        </div>
+        <div class="type-results-list">
+          <div 
+            v-for="(item, idx) in typeSearchResults" 
+            :key="idx"
+            class="type-result-item"
+            @click="selectTypeResult(item)"
+          >
+            <div class="type-result-code">
+              <span class="type-result-label">{{ getSubsystemLabel(item.subsystem) }}-{{ item.normalizedCode }}</span>
+            </div>
+            <div class="type-result-fullcode">{{ item.fullCode }}</div>
+            <van-icon name="arrow" class="type-result-arrow" />
+          </div>
+        </div>
+      </div>
+      
       <!-- 查询结果 -->
       <div v-if="!loading && foundRecord" class="result-card">
         <!-- 结果头部 -->
         <div class="result-header">
           <div class="result-header-content">
-            <div class="result-code-label">故障码</div>
+            <div class="result-code-label">{{ $t('mobile.errorQuery.errorCodeLabel') }}</div>
             <div class="result-code-value">{{ code.toUpperCase() }}</div>
           </div>
           <van-button 
@@ -122,20 +143,18 @@
             @click="copyResult"
           >
             <van-icon name="copy" class="copy-icon" />
-            复制
+            {{ $t('shared.copy') }}
           </van-button>
                     </div>
                     
                     <!-- 结果主体 -->
         <div class="result-body">
-          <!-- 结果信息（带蓝色边框高亮） -->
-          <div class="result-section highlight-section">
-            <div class="result-explanation">{{ explanationText }}</div>
-          </div>
+          <!-- 结果信息（直接显示释义内容） -->
+          <div class="result-explanation">{{ explanationText }}</div>
           
           <!-- 参数含义 -->
           <div class="result-section">
-            <div class="section-label">各参数含义：</div>
+            <div class="section-label">{{ $t('mobile.errorQuery.paramMeanings') }}</div>
             <div class="params-list">
               <div v-for="(param, idx) in [1,2,3,4]" :key="idx" class="param-item">
                 <span class="param-number">{{ idx + 1 }}</span>
@@ -146,38 +165,38 @@
           
           <!-- 详细信息 -->
           <div class="result-section">
-            <div class="section-label">详细信息：</div>
+            <div class="section-label">{{ $t('mobile.errorQuery.detailInfo') }}</div>
             <div class="section-text">{{ record.detail || '-' }}</div>
           </div>
           
           <!-- 检查方法 -->
           <div class="result-section">
-            <div class="section-label">检查方法：</div>
+            <div class="section-label">{{ $t('mobile.errorQuery.checkMethod') }}</div>
             <div class="section-text">{{ record.method || '-' }}</div>
           </div>
           
           <!-- 技术排查方案 -->
           <div class="result-section">
-            <div class="section-label">技术排查方案：</div>
+            <div class="section-label">{{ $t('mobile.errorQuery.techSolution') }}</div>
             <div class="solution-steps">{{ record.tech_solution || '-' }}</div>
           </div>
           
           <!-- 故障分类 -->
           <div class="result-section">
-            <div class="section-label">故障分类：</div>
+            <div class="section-label">{{ $t('mobile.errorQuery.faultCategory') }}</div>
             <div class="category-badge">{{ record.category || '-' }}</div>
           </div>
         </div>
       </div>
       
       <!-- 无数据 -->
-      <van-empty v-else-if="!loading && !foundRecord && code" :description="$t('shared.noData')" />
+      <van-empty v-else-if="!loading && !foundRecord && !typeSearchResults.length && code" :description="$t('shared.noData')" />
     </div>
   </div>
   </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { showToast, showSuccessToast } from 'vant'
 import { Empty as VanEmpty, NavBar as VanNavBar, Card as VanCard, Skeleton as VanSkeleton, Field as VanField, CellGroup as VanCellGroup, Button as VanButton, Tag as VanTag, Icon as VanIcon, DropdownMenu, DropdownItem } from 'vant'
@@ -213,6 +232,11 @@ export default {
       params: false,
       more: false
     })
+    // 故障类型查询结果列表
+    const typeSearchResults = ref([])
+    const selectedTypeResult = ref(null)
+    // 保存用户原始输入的故障类型（用于历史记录）
+    const originalUserInput = ref('')
     
     const subsystemOptions = computed(() => [
       { text: t('shared.subsystemOptions.1'), value: '1' },
@@ -250,14 +274,31 @@ export default {
       return foundRecord.value || {}
     })
     const explanationText = computed(() => {
-      const prefix = preview.value?.prefix || ''
+      // 检查当前输入是否为故障类型格式（如0X010A），如果是则不显示前缀
+      const currentCode = (code.value || '').trim().toUpperCase()
+      const isTypeFormat = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(currentCode)
+      
+      // 如果是故障类型格式，不显示前缀
+      const prefix = isTypeFormat ? '' : (preview.value?.prefix || '')
       const main = [record.value?.user_hint, record.value?.operation].filter(Boolean).join(' ')
       const text = main || record.value?.explanation || '-'
+      // 如果有前缀，添加前缀；否则直接返回文本
       return prefix ? `${prefix} ${text}` : text
     })
+    // 检测是否为故障类型格式（如010A, 0x010A, 0X010a等）
+    const isErrorTypeFormat = computed(() => {
+      const full = (code.value || '').trim().toUpperCase()
+      if (!full) return false
+      // 匹配：010A, 0x010A, 0X010A等，最后一位必须是A-E
+      const typePattern = /^(?:0X)?[0-9A-F]{3}[A-E]$/
+      return typePattern.test(full)
+    })
+    
     const needSubsystemSelect = computed(() => {
       const full = (code.value || '').trim().toUpperCase()
       if (!full) return false
+      // 如果是故障类型格式，不需要子系统选择（会显示所有结果供选择）
+      if (isErrorTypeFormat.value) return false
       const isShort = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(full)
       return isShort
     })
@@ -265,6 +306,8 @@ export default {
     const canSearch = computed(() => {
       const c = (code.value || '').trim()
       if (!c) return false
+      // 如果是故障类型格式，可以直接搜索
+      if (isErrorTypeFormat.value) return true
       if (needSubsystemSelect.value && !subsystem.value) return false
       return true
     })
@@ -272,6 +315,10 @@ export default {
     const validationHint = computed(() => {
       const c = (code.value || '').trim().toUpperCase()
       if (!c) return ''
+      // 如果是故障类型格式，显示提示
+      if (isErrorTypeFormat.value) {
+        return
+      }
       const isFull = /^[1-9A][0-9A-F]{5}[A-E]$/.test(c)
       if (isFull) return ''
       const startsWithSubsystem = /^[1-9A]/.test(c)
@@ -302,19 +349,34 @@ export default {
     }
     
     // 输入处理
-    const handleCodeInput = (value) => {
-      // 自动转换为大写
-      if (value) {
-        code.value = value.toUpperCase()
-      }
-      errorText.value = ''
+    const handleCodeInput = (event) => {
+      // 获取输入值并转换为大写
+      const inputValue = (event.target?.value || '').toUpperCase()
+      code.value = inputValue
     }
+    
+        // 监听输入变化，清除相关状态
+    watch(code, (newValue) => {
+      errorText.value = ''
+      // 清除故障类型查询结果
+      typeSearchResults.value = []
+      selectedTypeResult.value = null
+      // 清除原始输入记录
+      originalUserInput.value = ''
+      // 如果输入改变，清除已找到的记录
+      if (foundRecord.value) {                                                                             
+        foundRecord.value = null
+        result.value = null
+      }
+    })
     
     const handleClear = () => {
       code.value = ''
       errorText.value = ''
       foundRecord.value = null
       result.value = null
+      typeSearchResults.value = []
+      selectedTypeResult.value = null
     }
     
     const handleSubsystemChange = () => {
@@ -348,7 +410,7 @@ export default {
       
       try {
         await navigator.clipboard.writeText(text)
-        showSuccessToast(t('mobile.errorQuery.copySuccess') || '复制成功')
+        showSuccessToast(t('mobile.errorQuery.copySuccess'))
       } catch (e) {
         // 降级方案
         const textarea = document.createElement('textarea')
@@ -357,9 +419,9 @@ export default {
         textarea.select()
         try {
           document.execCommand('copy')
-          showSuccessToast(t('mobile.errorQuery.copySuccess') || '复制成功')
+          showSuccessToast(t('mobile.errorQuery.copySuccess'))
         } catch (_) {
-          showToast(t('mobile.errorQuery.copyFailed') || '复制失败')
+          showToast(t('mobile.errorQuery.copyFailed'))
         }
         document.body.removeChild(textarea)
       }
@@ -380,13 +442,157 @@ export default {
     onMounted(() => {
       loadRecentSearches()
     })
+    // 选择故障类型查询结果
+    const selectTypeResult = async (item) => {
+      selectedTypeResult.value = item
+      // 只显示故障类型，不拼接子系统号
+      code.value = item.normalizedCode
+      subsystem.value = item.subsystem
+      // 使用用户原始输入的故障类型作为历史记录（如 571E），而不是拼接后的格式
+      const userInputText = originalUserInput.value || item.normalizedCode
+      // 直接查询选中的结果（使用完整故障码，但不生成前缀）
+      // 传递完整故障码用于查询，但explanationText会根据code.value是否为故障类型格式决定是否显示前缀
+      await querySingleErrorCode(item.normalizedCode, item.subsystem, item.fullCode, userInputText)
+    }
+    
+        // 查询单个故障码
+    const querySingleErrorCode = async (normalizedCode, targetSubsystem, originalCode = null, userInput = null) => {
+      loading.value = true
+      errorText.value = ''
+      foundRecord.value = null
+      result.value = null
+      preview.value = null
+
+      try {
+        // 获取解释预览（需要传递完整故障码以获取前缀，包含臂号和关节号信息）
+        try { 
+          // 如果有原始故障码（完整故障码），使用原始故障码，让后端自动解析子系统、臂号、关节号
+          // 如果是故障类型（如0X010A），需要传递子系统参数   
+          const codeForPreview = originalCode || normalizedCode
+          const previewPayload = { code: codeForPreview }
+          // 只有在使用故障类型（没有原始故障码）时才传递子系统
+          if (!originalCode && targetSubsystem) {
+            previewPayload.subsystem = targetSubsystem
+          }
+          preview.value = (await api.explanations.preview(previewPayload))?.data || null                                                                        
+        } catch (_) {}
+
+        // 查询故障码记录
+        try {
+          const recResp = await api.errorCodes.getByCodeAndSubsystem(normalizedCode, targetSubsystem)                                                           
+          const fetchedRecord = recResp?.data?.errorCode || null
+          if (fetchedRecord) {
+            foundRecord.value = fetchedRecord
+            result.value = { code: normalizedCode, subsystem: targetSubsystem, errorCode: fetchedRecord }                                                       
+            // 保存搜索记录 - 使用用户原始输入内容
+            const searchKey = userInput || code.value || `${normalizedCode} (${targetSubsystem})`        
+            saveRecentSearch(searchKey)
+          } else {
+            foundRecord.value = null
+            result.value = null
+          }
+        } catch (e) {
+          if (e?.response?.status !== 404) {
+            errorText.value = e?.response?.data?.message || t('errorCodes.message.queryFailed')                                                                 
+          }
+          foundRecord.value = null
+          result.value = null
+        }
+      } catch (e) {
+        errorText.value = e?.response?.data?.message || t('mobile.errorQuery.queryFailed')
+      } finally {
+        loading.value = false
+      }
+    }
+    
     const onSearch = async () => {
       const c = (code.value || '').trim().toUpperCase()
       if (!c) { 
         errorText.value = ''; 
-        result.value = null; 
+        result.value = null
+        typeSearchResults.value = []
+        selectedTypeResult.value = null
         return 
       }
+      
+      // 归一化故障码/故障类型
+      const normalizeCode = (input) => {
+        if (!input) return ''
+        const raw = String(input).trim().toUpperCase()
+        // 如果是故障类型格式（如010A, 0x010A），统一为0X010A格式
+        if (/^(?:0X)?[0-9A-F]{3}[A-E]$/.test(raw)) {
+          if (raw.startsWith('0X')) {
+            return raw
+          }
+          return '0X' + raw
+        }
+        // 完整故障码处理
+        if (raw.length >= 5) {
+          const tail4 = raw.slice(-4)
+          if (/^[0-9A-F]{3}[A-E]$/.test(tail4)) {
+            return '0X' + tail4
+          }
+        }
+        if (!raw.startsWith('0X') && /^[0-9A-F]{3}[A-E]$/.test(raw)) {
+          return '0X' + raw
+        }
+        return raw
+      }
+      
+      // 检测是否为故障类型格式
+      const isTypeFormat = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(c)
+      
+            // 如果是故障类型格式，查询所有子系统
+      if (isTypeFormat) {
+        loading.value = true
+        errorText.value = ''
+        typeSearchResults.value = []
+        selectedTypeResult.value = null
+        foundRecord.value = null
+        result.value = null
+        preview.value = null
+        // 保存用户原始输入的故障类型
+        originalUserInput.value = c
+
+        const normalizedType = normalizeCode(c)
+        const SUBS = ['1','2','3','4','5','6','7','8','9','A']
+        
+        try {
+          // 并行查询所有子系统
+          const queries = SUBS.map(async (sub) => {
+            try {
+              const recResp = await api.errorCodes.getByCodeAndSubsystem(normalizedType, sub)
+              const fetchedRecord = recResp?.data?.errorCode || null
+              if (fetchedRecord) {
+                return {
+                  subsystem: sub,
+                  normalizedCode: normalizedType,
+                  fullCode: `${sub}${normalizedType.replace('0X', '')}`,
+                  errorCode: fetchedRecord
+                }
+              }
+              return null
+            } catch (e) {
+              // 404是正常的，忽略
+              return null
+            }
+          })
+          
+          const results = await Promise.all(queries)
+          typeSearchResults.value = results.filter(r => r !== null)
+          
+          if (typeSearchResults.value.length === 0) {
+            errorText.value = t('mobile.errorQuery.notFound')
+          }
+        } catch (e) {
+          errorText.value = e?.response?.data?.message || t('mobile.errorQuery.queryFailed')
+        } finally {
+          loading.value = false
+        }
+        return
+      }
+      
+      // 原有的查询逻辑（完整故障码或短码）
       const isFull = /^[1-9A][0-9A-F]{5}[A-E]$/.test(c)
       const isShort = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(c)
       if (isShort) {
@@ -411,13 +617,12 @@ export default {
       result.value = null
       foundRecord.value = null
       preview.value = null
+      typeSearchResults.value = []
+      selectedTypeResult.value = null
+      // 保存用户原始输入（用于普通查询的历史记录）
+      originalUserInput.value = c
       try {
-        // 获取解释预览
-        try { 
-          preview.value = (await api.explanations.preview({ code: c }))?.data || null 
-        } catch (_) {}
-        
-        // 确定子系统
+        // 确定子系统（需要在获取 preview 之前确定）
         let targetSubsystem = null
         if (isShort) {
           targetSubsystem = (subsystem.value || '').trim().toUpperCase()
@@ -444,35 +649,9 @@ export default {
         const codeOnly = normalizeFullCode(c)
         
         // 查询故障码记录（与桌面端逻辑一致）
+        // 传递完整故障码（c）用于 preview API，以便获取正确的前缀（包含臂号和关节号）
         if (targetSubsystem) {
-          try {
-            const recResp = await api.errorCodes.getByCodeAndSubsystem(codeOnly, targetSubsystem)
-            // 后端返回 { errorCode: ... }，桌面端使用 recResp?.data?.errorCode
-            const fetchedRecord = recResp?.data?.errorCode || null
-            if (fetchedRecord) {
-              foundRecord.value = fetchedRecord
-              result.value = { code: codeOnly, subsystem: targetSubsystem, errorCode: fetchedRecord }
-              // 保存搜索记录（使用实际查询的代码）
-              const searchKey = targetSubsystem ? `${codeOnly} (${targetSubsystem})` : codeOnly
-              saveRecentSearch(searchKey)
-              // 确保数据正确设置
-              if (!foundRecord.value || typeof foundRecord.value !== 'object') {
-                foundRecord.value = null
-                result.value = null
-              }
-            } else {
-              // 查询返回但没有 errorCode，可能是未找到
-              foundRecord.value = null
-              result.value = null
-            }
-          } catch (e) {
-            // 如果是404，说明没找到，这是正常的，不要显示错误
-            if (e?.response?.status !== 404) {
-              errorText.value = e?.response?.data?.message || t('errorCodes.message.queryFailed')
-            }
-            foundRecord.value = null
-            result.value = null
-          }
+          await querySingleErrorCode(codeOnly, targetSubsystem, isFull ? c : null, c)
         }
         
         // 如果还没找到，且是完整码，尝试从首字符推断子系统
@@ -480,21 +659,12 @@ export default {
           const SUBS = ['1','2','3','4','5','6','7','8','9','A']
           const inferredSub = c.charAt(0)
           if (SUBS.includes(inferredSub)) {
-            try { 
-              const r1 = await api.errorCodes.getByCodeAndSubsystem(codeOnly, inferredSub)
-              const fetchedRecord = r1?.data?.errorCode || null
-              if (fetchedRecord) {
-                foundRecord.value = fetchedRecord
-                result.value = { code: codeOnly, subsystem: inferredSub, errorCode: fetchedRecord }
-              }
-            } catch (_) {
-              // 404是正常的，忽略
-            }
+            await querySingleErrorCode(codeOnly, inferredSub, c, c)
           }
         }
         
       } catch (e) {
-        errorText.value = e?.response?.data?.message || '查询失败'
+        errorText.value = e?.response?.data?.message || t('mobile.errorQuery.queryFailed')
       } finally {
         loading.value = false
       }
@@ -513,33 +683,45 @@ export default {
       return solutionMap[solution] || solution
     }
     
-    return { 
-      code, 
-      subsystem, 
-      needSubsystemSelect, 
-      canSearch,
-      validationHint,
-      recentSearches,
-      expandedSections,
-      result, 
-      foundRecord, 
-      onSearch, 
-      errorText, 
-      loading, 
-      resultTitle, 
-      record, 
-      explanationText, 
-      inferredSubsystem,
-      getSolutionDisplay,
-      handleCodeInput,
-      handleClear,
-      handleSubsystemChange,
-      quickSearch,
-      toggleSection,
-      copyResult,
-      getSolutionClass,
-      subsystemOptions
+    // 获取子系统标签文字
+    const getSubsystemLabel = (subsystem) => {
+      if (!subsystem) return ''
+      return t(`shared.subsystemOptions.${subsystem}`) || subsystem
     }
+    
+      return {
+        code, 
+        subsystem, 
+        needSubsystemSelect,
+        isErrorTypeFormat,
+        canSearch,
+        validationHint,
+        recentSearches,
+        expandedSections,
+        result, 
+        foundRecord, 
+        onSearch, 
+        errorText, 
+        loading, 
+        resultTitle, 
+        record, 
+        explanationText, 
+        inferredSubsystem,
+        getSolutionDisplay,
+        handleCodeInput,
+        handleClear,
+        handleSubsystemChange,
+        quickSearch,
+        toggleSection,
+        copyResult,
+        getSolutionClass,
+        subsystemOptions,
+        typeSearchResults,
+        selectedTypeResult,
+        selectTypeResult,
+        getSubsystemLabel,
+        originalUserInput
+      }
   }
 }
 </script>
@@ -843,8 +1025,7 @@ export default {
 .highlight-section {
   background: #f7f8fa;
   border-left: 3px solid #155dfc;
-  padding: 8px 12px;
-  margin: -12px;
+  padding: 12px 12px;
   margin-bottom: 0;
 }
 
@@ -852,6 +1033,7 @@ export default {
   font-size: 14px;
   color: #101828;
   line-height: 1.6;
+  padding: 0;
 }
 
 .section-label {
@@ -954,6 +1136,81 @@ export default {
 
 :deep(.van-dropdown-menu__item) {
   padding: 0 12px;
+}
+
+/* 故障类型查询结果列表 */
+.type-results-card {
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.type-results-header {
+  background: #ecf5ff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 12px;
+}
+
+.type-results-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #155dfc;
+  margin-bottom: 4px;
+}
+
+.type-results-subtitle {
+  font-size: 12px;
+  color: #4a5565;
+}
+
+.type-results-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.type-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.type-result-item:last-child {
+  border-bottom: none;
+}
+
+.type-result-item:active {
+  background-color: #f7f8fa;
+}
+
+.type-result-code {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.type-result-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #323233;
+  line-height: 1.4;
+}
+
+.type-result-fullcode {
+  font-size: 12px;
+  color: #969799;
+  margin-right: 8px;
+  font-family: monospace;
+}
+
+.type-result-arrow {
+  font-size: 14px;
+  color: #c8c9cc;
 }
 </style>
 

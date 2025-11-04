@@ -1,58 +1,69 @@
 <template>
-  <div class="mobile-login-container">
-    <div class="login-content">
-      <!-- Logo and Title -->
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-lang-switch">
+        <el-dropdown @command="changeLanguage">
+          <el-button type="text">
+            <el-icon><InfoFilled /></el-icon>
+            {{ currentLocaleLabel }}
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+              <el-dropdown-item command="en-US">English</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
       <div class="login-header">
-        <div class="logo-container">
-          <div class="logo-icon">
-            <img src="/Icons/logo.svg" alt="Logo" />
-          </div>
-        </div>
-        <h1 class="title">{{ $t('mobile.login.title') }}</h1>
-        <p class="subtitle">{{ $t('mobile.login.subtitle') }}</p>
+        <h1>{{ $t('login.title') }}</h1>
       </div>
       
-      <!-- Login Form -->
-      <div class="login-form">
-        <van-cell-group inset>
-          <van-field
+      <el-form 
+        ref="loginForm" 
+        :model="formData" 
+        :rules="rules" 
+        class="login-form"
+        @submit.prevent="handleLogin"
+      >
+        <el-form-item prop="username">
+          <el-input
             v-model="formData.username"
-            :label="$t('login.username')"
-            :placeholder="$t('login.validation.usernameRequired')"
-            clearable
+            :placeholder="$t('login.username')"
+            prefix-icon="User"
+            size="large"
           />
-          <van-field
+        </el-form-item>
+        
+        <el-form-item prop="password">
+          <el-input
             v-model="formData.password"
             type="password"
-            :label="$t('login.password')"
-            :placeholder="$t('login.validation.passwordRequired')"
-            clearable
+            :placeholder="$t('login.password')"
+            prefix-icon="Lock"
+            size="large"
             show-password
           />
-        </van-cell-group>
-        <van-button
-          type="primary"
-          block
-          size="large"
-          :loading="loading"
-          :disabled="!canLogin"
-          @click="handleLogin"
-        >
-          {{ $t('login.login') }}
-        </van-button>
-      </div>
+        </el-form-item>
+        
+        <el-form-item>
+          <el-button 
+            type="primary" 
+            size="large" 
+            class="login-button"
+            :loading="loading"
+            @click="handleLogin"
+          >
+            {{ $t('login.login') }}
+          </el-button>
+        </el-form-item>
+      </el-form>
       
-      <!-- Test Accounts -->
-      <div class="test-accounts">
-        <p class="test-accounts-title">{{ $t('mobile.login.testAccount') }}</p>
-        <p class="test-account-item">{{ $t('mobile.login.admin') }}</p>
-        <p class="test-account-item">{{ $t('mobile.login.user') }}</p>
+      <div class="login-footer">
+        <router-link to="/register" class="register-link">
+          {{ $t('login.register') }}
+        </router-link>
       </div>
-    </div>
-    
-    <!-- Footer -->
-    <div class="login-footer">
-      <p>{{ $t('mobile.login.copyright') }}</p>
     </div>
   </div>
 </template>
@@ -61,21 +72,19 @@
 import { ref, reactive, computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { getCurrentLocale, loadLocaleMessages } from '../../i18n'
+import { InfoFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { showToast } from 'vant'
-import { CellGroup as VanCellGroup, Field as VanField, Button as VanButton } from 'vant'
 
 export default {
   name: 'MobileLogin',
-  components: {
-    'van-cell-group': VanCellGroup,
-    'van-field': VanField,
-    'van-button': VanButton
-  },
+  components: { InfoFilled },
   setup() {
     const store = useStore()
     const router = useRouter()
     const { t } = useI18n()
+    const loginForm = ref(null)
     
     const formData = reactive({
       username: '',
@@ -84,165 +93,149 @@ export default {
     
     const loading = ref(false)
     
-    const canLogin = computed(() => {
-      return formData.username.trim() && formData.password.trim()
-    })
+    const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
+    const currentLocaleLabel = computed(() => (getCurrentLocale() === 'en-US' ? 'English' : '中文'))
+    
+    const rules = computed(() => ({
+      username: [
+        { required: true, message: t('login.validation.usernameRequired'), trigger: 'blur' }
+      ],
+      password: [
+        { required: true, message: t('login.validation.passwordRequired'), trigger: 'blur' }
+      ]
+    }))
     
     const handleLogin = async () => {
-      if (!canLogin.value) {
-        showToast(t('login.validation.usernameRequired'))
-        return
-      }
-      
       try {
+        await loginForm.value.validate()
         loading.value = true
-        await store.dispatch('auth/login', {
-          username: formData.username,
-          password: formData.password
-        })
-        showToast(t('login.loginSuccess'))
+        
+        await store.dispatch('auth/login', formData)
+        ElMessage.success(t('login.loginSuccess'))
         router.push('/m')
       } catch (error) {
+        // 不在这里显示错误信息，因为响应拦截器已经处理了
         console.error('登录失败:', error)
       } finally {
         loading.value = false
       }
     }
     
+    const changeLanguage = async (language) => {
+      await loadLocaleMessages(language)
+    }
+    
     return {
+      loginForm,
       formData,
       loading,
-      canLogin,
-      handleLogin
+      rules,
+      currentLanguage,
+      currentLocaleLabel,
+      handleLogin,
+      changeLanguage,
+      InfoFilled
     }
   }
 }
 </script>
 
 <style scoped>
-.mobile-login-container {
+.login-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
 }
 
-.login-content {
+.login-box {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  padding: 40px;
   width: 100%;
-  max-width: 640px;
+  max-width: 400px;
+  position: relative;
+}
+
+.login-lang-switch {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+}
+
+.login-lang-switch .el-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 30px;
 }
 
-.logo-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 96px;
+.login-header h1 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 24px;
+  font-weight: 600;
 }
 
-.logo-icon {
-  width: 80px;
-  height: 80px;
-  background: #2b7fff;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.logo-icon img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
-
-.title {
-  font-size: 30px;
-  font-weight: 500;
-  color: #0f172a;
-  margin: 0 0 24px 0;
-  font-family: 'Arimo', 'Noto Sans SC', sans-serif;
-}
-
-.subtitle {
-  font-size: 16px;
-  color: #6a7282;
-  margin: 0;
-  font-family: 'Arimo', 'Noto Sans SC', sans-serif;
+.language-switch {
+  display: none;
 }
 
 .login-form {
-  margin-bottom: 28px;
-}
-
-.login-form :deep(.van-cell-group) {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.login-form :deep(.van-field) {
-  background: #f3f3f5;
-  border-radius: 8px;
   margin-bottom: 20px;
 }
 
-.login-form :deep(.van-field__control) {
-  font-size: 14px;
-}
-
-.login-form :deep(.van-button) {
-  border-radius: 8px;
-  background: #030213;
-  border: none;
-  height: 48px;
+.login-button {
+  width: 100%;
+  height: 45px;
   font-size: 16px;
-  font-weight: 500;
-}
-
-.login-form :deep(.van-button--disabled) {
-  background: #e5e7eb !important;
-  color: #9ca3af !important;
-}
-
-.test-accounts {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 32px;
-  text-align: center;
-}
-
-.test-accounts-title {
-  font-size: 14px;
-  color: #6a7282;
-  margin: 0 0 8px 0;
-  font-weight: 500;
-}
-
-.test-account-item {
-  font-size: 12px;
-  color: #99a1af;
-  margin: 4px 0;
-  line-height: 1.5;
 }
 
 .login-footer {
-  text-align: center;
-  padding-bottom: 32px;
-  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
 }
 
-.login-footer p {
-  font-size: 12px;
-  color: #99a1af;
-  margin: 0;
+.register-link,
+.forgot-link {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.register-link:hover,
+.forgot-link:hover {
+  color: #66b1ff;
+}
+
+/* 移动端响应式适配 */
+@media (max-width: 480px) {
+  .login-box {
+    padding: 30px 20px;
+  }
+  
+  .login-header h1 {
+    font-size: 20px;
+  }
+  
+  .login-lang-switch {
+    top: 15px;
+    right: 15px;
+  }
 }
 </style>
-

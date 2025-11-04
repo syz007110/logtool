@@ -30,19 +30,16 @@
             @click="$router.push({ name: 'MDeviceLogs', params: { deviceId: item.deviceId } })"
           >
             <div class="card-content">
-              <!-- 左侧图标 -->
-              <div class="device-icon">
-                <van-icon name="orders-o" />
-              </div>
-              
               <!-- 中间信息 -->
               <div class="device-info">
-                <div class="device-id">{{ item.deviceId }}</div>
-                <div class="hospital-name">{{ item.hospital }}</div>
-                <div class="log-badge">
-                  <span class="badge-text">{{ item.count ?? 0 }}</span>
-                  <span class="badge-label">{{ $t('mobile.logs.logFilesUnit') }}</span>
+                <div class="device-id-row">
+                  <div class="device-id">{{ item.deviceId }}</div>
+                  <div class="log-badge">
+                    <span class="badge-text">{{ item.count ?? 0 }}</span>
+                    <span class="badge-label">{{ $t('mobile.logs.logFilesUnit') }}</span>
+                  </div>
                 </div>
+                <div class="hospital-name">{{ item.hospital }}</div>
               </div>
               
               <!-- 右侧箭头 -->
@@ -249,24 +246,8 @@ export default {
 .card-content {
   display: flex;
   align-items: center;
-  padding: 16px;
-}
-
-.device-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ecf5ff;
-  border-radius: 8px;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-.device-icon .van-icon {
-  font-size: 20px;
-  color: #1989fa;
+  padding: 8px 16px;
+  min-height: 52px;
 }
 
 .device-info {
@@ -274,20 +255,28 @@ export default {
   min-width: 0;
 }
 
+.device-id-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
 .device-id {
   font-size: 16px;
   font-weight: 500;
   color: #323233;
-  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .hospital-name {
   font-size: 14px;
   color: #646566;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -296,21 +285,22 @@ export default {
 .log-badge {
   display: inline-flex;
   align-items: center;
-  background-color: #ecf5ff;
+  background-color: #f0f0f0;
   border-radius: 12px;
   padding: 2px 8px;
   height: 22px;
+  flex-shrink: 0;
 }
 
 .badge-text {
   font-size: 14px;
   font-weight: 500;
-  color: #1989fa;
+  color: #646566;
 }
 
 .badge-label {
   font-size: 12px;
-  color: #1989fa;
+  color: #646566;
   margin-left: 2px;
 }
 
