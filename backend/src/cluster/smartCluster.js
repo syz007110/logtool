@@ -114,7 +114,10 @@ if (cluster.isMaster) {
   dotenv.config({ path: path.resolve(__dirname, '../../.env') });
   
   // 工作进程
-  const workerId = parseInt(process.env.WORKER_ID) || 0;
+  // 优先使用父进程通过 env 传入的 WORKER_ID；
+  // 在某些运行时（如 PM2）下可能未正确传递，则回退到 cluster.worker.id（1-based），再转换为 0-based。
+  const parsedEnvWorkerId = Number.isFinite(Number(process.env.WORKER_ID)) ? Number(process.env.WORKER_ID) : undefined;
+  const workerId = parsedEnvWorkerId ?? ((cluster.worker && Number.isFinite(Number(cluster.worker.id))) ? (cluster.worker.id - 1) : 0);
   const workerType = process.env.WORKER_TYPE || 'smart';
   const processType = process.env.PROCESS_TYPE || 'mixed';
   const intelligentSchedulerEnabled = process.env.INTELLIGENT_SCHEDULER_ENABLED === 'true';
