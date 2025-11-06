@@ -140,14 +140,18 @@ export default {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  /* 使用 100% 而不是 100vh，避免超出视口 */
+  min-height: 100%;
   background-color: #f7f8fa;
-  padding-bottom: 50px;
+  /* 底部留白由 App.vue 全局样式统一设置 */
+  box-sizing: border-box;
 }
 
 .header {
   background-color: #fff;
   padding: 16px;
+  /* 为顶部添加安全区域适配，防止被前置摄像头遮挡 */
+  padding-top: max(16px, env(safe-area-inset-top) + 8px);
   border-bottom: 1px solid #ebedf0;
 }
 

@@ -142,12 +142,19 @@ export default {
 
 <style scoped>
 .login-container {
-  min-height: 100vh;
+  /* 使用 100% 而不是 100vh，避免超出视口 */
+  min-height: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  /* 顶部安全区域：防止被前置摄像头遮挡 */
+  padding-top: max(20px, env(safe-area-inset-top) + 20px);
+  /* 登录页不需要底部额外留白，避免空白区域 */
+  padding-bottom: 0 !important;
+  box-sizing: border-box;
 }
 
 .login-box {

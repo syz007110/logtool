@@ -30,8 +30,13 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-top: 46px; }
-.content { padding: 12px; }
+.page {
+  padding-top: 46px;
+  /* 底部留白由 App.vue 全局样式统一设置 */
+}
+.content {
+  padding: 12px;
+}
 </style>
 
 

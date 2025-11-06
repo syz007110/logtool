@@ -344,10 +344,12 @@ export default {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  /* 使用 100% 而不是 100vh，避免超出视口 */
+  min-height: 100%;
   background-color: #f7f8fa;
   padding-top: 46px;
-  padding-bottom: 20px;
+  /* 底部留白由 App.vue 全局样式统一设置 */
+  box-sizing: border-box;
 }
 
 .content {

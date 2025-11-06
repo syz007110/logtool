@@ -44,7 +44,7 @@
       </div>
 
       <!-- 手术列表 -->
-      <van-list :finished="finished" :loading="loading" @load="onLoad">
+      <van-list :finished="finished" :loading="loading" :offset="100" @load="onLoad">
         <div class="surgery-list">
           <div
             v-for="item in filteredRows"
@@ -404,14 +404,18 @@ export default {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  /* 使用 100% 而不是 100vh，避免超出视口 */
+  min-height: 100%;
   background-color: #f7f8fa;
   padding-top: 46px;
-  padding-bottom: 20px;
+  /* 底部留白由 App.vue 全局样式统一设置 */
+  box-sizing: border-box;
 }
 
 .content {
   padding: 12px;
+  /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
+  padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
 }
 
 .device-info-card {

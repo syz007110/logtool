@@ -1,76 +1,93 @@
 <template>
   <div class="page">
-    <van-nav-bar :title="title" left-arrow @click-left="$router.back()" fixed safe-area-inset-top />
-    
-    <div class="content">
-      <!-- 设备信息卡片 -->
-      <div v-if="deviceInfo" class="device-info-card">
-        <div class="info-row">
-          <div class="info-item">
-            <div class="info-label">{{ $t('logs.deviceId') }}</div>
-            <div class="info-value">{{ deviceId }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('mobile.deviceLogs.hospitalName') }}</div>
-            <div class="info-value">{{ deviceInfo.hospital || '-' }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('logs.logCount') }}</div>
-            <div class="info-value info-value-primary">{{ totalLogs }}</div>
+    <!-- 顶部导航栏 -->
+    <div class="mobile-header">
+      <div class="header-container">
+        <van-icon name="arrow-left" class="back-icon" @click="$router.back()" />
+        <div class="header-content">
+          <!-- 同一行：设备编号、医院名称、日志总数 -->
+          <div class="header-row">
+            <div class="header-title">{{ deviceId }}</div>
+            <div v-if="deviceInfo" class="header-hospital">
+              <span class="info-text">{{ $t('mobile.deviceLogs.hospitalName') || '医院名称' }}：{{ deviceInfo.hospital || '-' }}</span>
+            </div>
+            <div v-if="deviceInfo" class="header-logs">
+              <span class="info-text">{{ $t('logs.logCount') || '日志总数' }}：<span class="info-value-primary">{{ totalLogs }}</span></span>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- 搜索和筛选 -->
-      <div class="filter-section">
-        <div class="search-box">
-          <van-icon name="search" class="search-icon" />
+    <!-- 筛选区域（固定定位） -->
+    <div class="filter-section">
+      <!-- 时间范围选择器 -->
+      <div class="time-range-section">
+        <div class="time-range-label">
+          <van-icon name="clock-o" class="time-icon" />
+          <span>时间范围</span>
+        </div>
+        <div class="time-inputs">
           <input
-            v-model="keyword"
-            type="text"
-            class="search-input"
-            :placeholder="$t('mobile.deviceLogs.searchPlaceholder')"
-            @input="handleSearchInput"
+            v-model="startTime"
+            type="date"
+            class="time-input"
+            placeholder="开始时间"
+          />
+          <input
+            v-model="endTime"
+            type="date"
+            class="time-input"
+            placeholder="结束时间"
           />
         </div>
-        <van-dropdown-menu>
-          <van-dropdown-item 
-            v-model="statusFilter" 
-            :options="statusOptions"
-            @change="handleStatusChange"
-          />
-        </van-dropdown-menu>
       </div>
+      <!-- 状态筛选按钮 -->
+      <button class="status-filter-button" @click="showStatusDropdown = !showStatusDropdown">
+        <span>{{ getStatusFilterText() }}</span>
+        <van-icon name="arrow-down" class="dropdown-icon" />
+      </button>
+      <!-- 状态下拉菜单 -->
+      <div v-if="showStatusDropdown" class="status-dropdown">
+        <div
+          v-for="option in statusOptions"
+          :key="option.value"
+          :class="['status-option', { active: statusFilter === option.value }]"
+          @click="handleStatusSelect(option.value)"
+        >
+          {{ option.text }}
+        </div>
+      </div>
+    </div>
 
-      <!-- 日志列表 -->
-      <van-list :finished="finished" :loading="loading" @load="onLoad">
+    <!-- 日志列表内容区域 -->
+    <div class="content">
+      <van-list :finished="finished" :loading="loading" :offset="100" @load="onLoad">
         <div class="log-list">
           <div
             v-for="log in filteredLogs"
             :key="log.id"
             class="log-card"
+            @click="viewLog(log)"
           >
-            <div class="card-content" @click="viewLog(log)">
-              <van-icon name="description" class="file-icon" />
+            <div class="card-content">
+              <!-- 文件名 -->
+              <div class="file-name">{{ log.original_name || '-' }}</div>
               
-              <div class="log-info-wrapper">
-                <!-- 文件名 -->
-                <div class="file-name">{{ log.original_name || '-' }}</div>
-                
-                <!-- 上传者/时间信息 -->
-                <div class="upload-info-compact">
-                  <span class="uploader">{{ getUploaderName(log) }}</span>
-                  <span class="separator">•</span>
-                  <span class="upload-time">{{ formatTime(log.upload_time) }}</span>
+              <!-- 状态和操作 -->
+              <div class="card-footer">
+                <!-- 状态Badge -->
+                <div class="status-badge-wrapper">
+                  <div :class="['status-badge', getStatusBadgeClass(log.status)]">
+                    <van-icon :name="getStatusIcon(log.status)" class="status-icon" />
+                    <span>{{ getStatusText(log.status) }}</span>
+                  </div>
                 </div>
-              </div>
-              
-              <!-- 状态标签 -->
-              <div class="log-actions">
-                <van-tag :type="getStatusTagType(log.status)" size="small" class="status-badge">
-                  <van-icon :name="getStatusIcon(log.status)" class="status-icon" />
-                  {{ getStatusText(log.status) }}
-                </van-tag>
+                
+                <!-- 点击查看文字（仅当状态为完成时显示） -->
+                <div v-if="log.status === 'parsed' || log.status === 'completed'" class="view-text">
+                  点击查看
+                </div>
               </div>
             </div>
           </div>
@@ -88,18 +105,14 @@
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showToast } from 'vant'
 import { 
   List as VanList, 
-  NavBar as VanNavBar, 
   Empty as VanEmpty,
-  Icon as VanIcon,
-  Tag as VanTag,
-  DropdownMenu,
-  DropdownItem
+  Icon as VanIcon
 } from 'vant'
 import api from '@/api'
 
@@ -107,110 +120,268 @@ export default {
   name: 'MDeviceLogs',
   components: {
     'van-list': VanList,
-    'van-nav-bar': VanNavBar,
     'van-empty': VanEmpty,
-    'van-icon': VanIcon,
-    'van-tag': VanTag,
-    'van-dropdown-menu': DropdownMenu,
-    'van-dropdown-item': DropdownItem
+    'van-icon': VanIcon
   },
   setup() {
     const route = useRoute()
     const router = useRouter()
     const { t } = useI18n()
-    const deviceId = route.params?.deviceId || ''
-    const title = computed(() => `${deviceId}`)
+    const deviceId = computed(() => route.params?.deviceId || '')
     const logs = ref([])
     const allLogs = ref([])
     const deviceInfo = ref(null)
     const totalLogs = ref(0)
     const loading = ref(false)
     const finished = ref(false)
-    const keyword = ref('')
     const statusFilter = ref('all')
+    const startTime = ref('')
+    const endTime = ref('')
+    const showStatusDropdown = ref(false)
     const page = ref(1)
     const pageSize = 20
 
     const statusOptions = [
       { text: t('mobile.deviceLogs.statusAll'), value: 'all' },
-      { text: t('logs.statusText.parsed'), value: 'parsed' },
-      { text: t('logs.statusText.failed'), value: 'failed' },
-      { text: t('logs.statusText.decrypt_failed'), value: 'decrypt_failed' },
-      { text: t('logs.statusText.parsing'), value: 'parsing' }
+      { text: t('mobile.deviceLogs.statusCompleted'), value: 'completed' },
+      { text: t('mobile.deviceLogs.statusIncomplete'), value: 'incomplete' }
     ]
 
+    // 定义完成状态和未完成状态
+    const completedStatuses = ['parsed', 'completed']
+    const incompleteStatuses = ['uploading', 'queued', 'decrypting', 'parsing', 'failed', 'decrypt_failed', 'parse_failed', 'file_error']
+
+    // 状态筛选在前端进行（因为后端不支持状态筛选参数）
+    // 时间筛选在后端进行（使用 time_range_start 和 time_range_end）
     const filteredLogs = computed(() => {
-      let filtered = [...allLogs.value]
-
-      // 状态筛选
-      if (statusFilter.value !== 'all') {
-        filtered = filtered.filter(log => log.status === statusFilter.value)
+      // 如果状态筛选是"全部"，直接返回
+      if (statusFilter.value === 'all') {
+        return allLogs.value
       }
-
-      // 关键词筛选
-      if (keyword.value.trim()) {
-        const kw = keyword.value.toLowerCase().trim()
-        filtered = filtered.filter(log =>
-          (log.original_name || '').toLowerCase().includes(kw)
-        )
+      // 完成状态：只显示已完成的状态
+      if (statusFilter.value === 'completed') {
+        return allLogs.value.filter(log => completedStatuses.includes(log.status))
       }
-
-      return filtered
+      // 未完成状态：显示所有未完成的状态
+      if (statusFilter.value === 'incomplete') {
+        return allLogs.value.filter(log => incompleteStatuses.includes(log.status))
+      }
+      // 默认返回全部
+      return allLogs.value
     })
 
     const fetchDeviceInfo = async () => {
+      // 如果 deviceInfo 已经设置（从日志中提取），就不需要再获取
+      if (deviceInfo.value) {
+        return
+      }
+      
       try {
-        const resp = await api.logs.getByDevice({ device_id: deviceId, limit: 1 })
+        // 方法1：尝试从 getByDevice 获取（不使用 limit: 1，而是获取所有设备组）
+        const resp = await api.logs.getByDevice({ device_id: deviceId.value, limit: 10000 })
         const groups = resp?.data?.device_groups || []
-        const group = groups.find(g => g.device_id === deviceId)
+        const group = groups.find(g => g.device_id === deviceId.value)
         if (group) {
           deviceInfo.value = {
             hospital: group.hospital_name || '-'
           }
-          totalLogs.value = group.log_count || 0
+          // 如果 totalLogs 还没有设置，使用设备组的 log_count
+          if (!totalLogs.value) {
+            totalLogs.value = group.log_count || 0
+          }
+        } else {
+          // 如果没找到设备组，从日志列表中提取设备信息（fetchPage 已经执行）
+          extractDeviceInfoFromLogs()
         }
       } catch (error) {
         console.error('Failed to fetch device info:', error)
+        // 如果出错，从日志列表中提取设备信息
+        extractDeviceInfoFromLogs()
+      }
+    }
+    
+    const extractDeviceInfoFromLogs = () => {
+      if (allLogs.value.length > 0) {
+        const firstLog = allLogs.value[0]
+        deviceInfo.value = {
+          hospital: firstLog.hospital_name || '-'
+        }
+      } else {
+        deviceInfo.value = {
+          hospital: '-'
+        }
       }
     }
 
-    const fetchPage = async () => {
+    const fetchPage = async (currentPage) => {
+      if (loading.value) return
+      
       try {
-        const resp = await api.logs.getList({ 
-          page: page.value, 
-          limit: 10000, // 获取所有日志
-          device_id: deviceId 
-        })
+        loading.value = true
+        
+        // 使用传入的页码，避免在 onLoad 中提前递增导致的问题
+        const pageToFetch = currentPage !== undefined ? currentPage : page.value
+        
+        // 构建查询参数
+        const params = {
+          page: pageToFetch,
+          limit: pageSize,
+          device_id: deviceId.value
+        }
+        
+        // 添加时间范围筛选（转换为文件名前缀格式 YYYYMMDDHH）
+        if (startTime.value || endTime.value) {
+          if (startTime.value) {
+            const startDate = new Date(startTime.value)
+            const year = startDate.getFullYear()
+            const month = String(startDate.getMonth() + 1).padStart(2, '0')
+            const day = String(startDate.getDate()).padStart(2, '0')
+            const hour = String(startDate.getHours()).padStart(2, '0')
+            params.time_range_start = `${year}${month}${day}${hour}`
+          }
+          if (endTime.value) {
+            const endDate = new Date(endTime.value)
+            endDate.setHours(23, 59, 59, 999)
+            const year = endDate.getFullYear()
+            const month = String(endDate.getMonth() + 1).padStart(2, '0')
+            const day = String(endDate.getDate()).padStart(2, '0')
+            const hour = String(endDate.getHours()).padStart(2, '0')
+            params.time_range_end = `${year}${month}${day}${hour}`
+          }
+        }
+        
+        const resp = await api.logs.getList(params)
         const list = resp?.data?.logs || []
-        allLogs.value = list
-        totalLogs.value = resp?.data?.total || 0
-        finished.value = true
+        const total = resp?.data?.total || 0
+        
+        // 调试信息：记录请求参数和响应
+        console.log('fetchPage - Request params:', params)
+        console.log('fetchPage - Response:', { listLength: list.length, total, pageToFetch })
+        
+        if (pageToFetch === 1) {
+          // 第一页，替换所有数据
+          allLogs.value = list
+          totalLogs.value = total
+          
+          // 如果 deviceInfo 还没有设置，从日志中提取
+          if (!deviceInfo.value && list.length > 0) {
+            const firstLog = list[0]
+            deviceInfo.value = {
+              hospital: firstLog.hospital_name || '-'
+            }
+          }
+        } else {
+          // 后续页，追加数据（去重，避免重复数据）
+          const existingIds = new Set(allLogs.value.map(log => log.id))
+          const newLogs = list.filter(log => !existingIds.has(log.id))
+          allLogs.value = [...allLogs.value, ...newLogs]
+          console.log('Appended logs:', newLogs.length, 'Total now:', allLogs.value.length)
+        }
+        
+        // 判断是否还有更多数据
+        // 1. 如果返回的数据为空，说明没有更多数据
+        // 2. 如果返回的数据少于 pageSize，说明已经是最后一页
+        // 3. 如果已加载的数据量已经达到或超过总数
+        if (list.length === 0 || allLogs.value.length >= total) {
+          finished.value = true
+          console.log('Marked as finished - list.length:', list.length, 'allLogs.length:', allLogs.value.length, 'total:', total)
+        } else if (list.length < pageSize) {
+          // 返回的数据少于 pageSize，说明是最后一页
+          finished.value = true
+          console.log('Marked as finished - last page, list.length:', list.length, '< pageSize:', pageSize)
+        } else {
+          finished.value = false
+          console.log('More data available - allLogs.length:', allLogs.value.length, 'total:', total)
+        }
       } catch (error) {
         console.error('Failed to fetch logs:', error)
         finished.value = true
-      }
-    }
-
-    const onLoad = async () => {
-      if (finished.value) return
-      loading.value = true
-      try {
-        if (allLogs.value.length === 0) {
-          await Promise.all([fetchDeviceInfo(), fetchPage()])
-        } else {
-          finished.value = true
-        }
       } finally {
         loading.value = false
       }
     }
 
-    const handleSearchInput = () => {
-      // 实时筛选，无需额外操作
+    const onLoad = async () => {
+      console.log('onLoad called, page:', page.value, 'finished:', finished.value, 'loading:', loading.value, 'allLogs.length:', allLogs.value.length, 'totalLogs:', totalLogs.value)
+      
+      if (finished.value) {
+        console.log('onLoad skipped: already finished')
+        return
+      }
+      
+      if (loading.value) {
+        console.log('onLoad skipped: already loading')
+        return
+      }
+      
+      // 保存当前页码，避免在 fetchPage 执行过程中被修改
+      const currentPage = page.value
+      console.log('Starting to load page:', currentPage)
+      
+      // 如果是第一页，先获取设备信息
+      if (currentPage === 1) {
+        await fetchDeviceInfo()
+      }
+      
+      // 加载当前页数据（传入当前页码，避免使用可能被修改的 page.value）
+      await fetchPage(currentPage)
+      
+      // 加载完成后，如果还有更多数据，增加页码准备下次加载
+      // 注意：只有在确实还有更多数据时才增加页码
+      if (!finished.value && allLogs.value.length < totalLogs.value) {
+        page.value = currentPage + 1
+        console.log('Page incremented to:', page.value, 'Ready for next load. Current:', allLogs.value.length, 'Total:', totalLogs.value)
+      } else {
+        console.log('All data loaded, finished. Total loaded:', allLogs.value.length, 'Total:', totalLogs.value)
+      }
+    }
+    
+    // 筛选条件变化时，重置分页并重新加载
+    const resetAndReload = () => {
+      page.value = 1
+      allLogs.value = []
+      finished.value = false
+      onLoad()
     }
 
     const handleStatusChange = () => {
       // 状态筛选已通过computed处理
+    }
+
+    const handleStatusSelect = (value) => {
+      statusFilter.value = value
+      showStatusDropdown.value = false
+      // 筛选条件变化，重置并重新加载
+      resetAndReload()
+    }
+    
+    // 监听时间筛选变化
+    let timeFilterTimer = null
+    watch([startTime, endTime], () => {
+      // 清除之前的定时器
+      if (timeFilterTimer) {
+        clearTimeout(timeFilterTimer)
+      }
+      // 延迟执行，避免频繁请求
+      timeFilterTimer = setTimeout(() => {
+        resetAndReload()
+      }, 500)
+    })
+
+    const getStatusFilterText = () => {
+      const option = statusOptions.find(opt => opt.value === statusFilter.value)
+      return option ? option.text : '全部状态'
+    }
+
+    const getStatusBadgeClass = (status) => {
+      if (status === 'parsed' || status === 'completed') {
+        return 'status-badge-success'
+      } else if (status === 'failed' || status === 'decrypt_failed' || status === 'parse_failed' || status === 'file_error') {
+        return 'status-badge-error'
+      } else if (status === 'decrypting' || status === 'parsing' || status === 'uploading') {
+        return 'status-badge-processing'
+      }
+      return 'status-badge-default'
     }
 
     const formatFileSize = (bytes) => {
@@ -288,30 +459,69 @@ export default {
       router.push({ name: 'MLogView', params: { logId: log.id } })
     }
 
+    const handleClickOutside = (event) => {
+      if (showStatusDropdown.value && !event.target.closest('.filter-section')) {
+        showStatusDropdown.value = false
+      }
+    }
+
+    // 监听路由参数变化，切换设备时重置状态
+    watch(() => route.params?.deviceId, (newDeviceId, oldDeviceId) => {
+      if (newDeviceId && newDeviceId !== oldDeviceId) {
+        // 重置状态
+        page.value = 1
+        allLogs.value = []
+        deviceInfo.value = null
+        totalLogs.value = 0
+        finished.value = false
+        loading.value = false
+        statusFilter.value = 'all'
+        startTime.value = ''
+        endTime.value = ''
+        showStatusDropdown.value = false
+        // 重新加载数据
+        onLoad()
+      }
+    })
+
     onMounted(() => {
-      onLoad()
+      // 确保初始状态正确
+      page.value = 1
+      finished.value = false
+      allLogs.value = []
+      
+      // 不在这里手动调用 onLoad，让 van-list 自动触发
+      // van-list 会在组件挂载后自动调用 @load 事件
+      document.addEventListener('click', handleClickOutside)
+    })
+
+    onBeforeUnmount(() => {
+      document.removeEventListener('click', handleClickOutside)
     })
 
     return {
-      title,
+      deviceId,
       deviceInfo,
       totalLogs,
       logs,
       filteredLogs,
       loading,
       finished,
-      keyword,
       statusFilter,
       statusOptions,
+      startTime,
+      endTime,
+      showStatusDropdown,
       onLoad,
-      handleSearchInput,
       handleStatusChange,
+      handleStatusSelect,
+      getStatusFilterText,
       formatFileSize,
       formatTime,
       getUploaderName,
       getStatusText,
       getStatusIcon,
-      getStatusTagType,
+      getStatusBadgeClass,
       viewLog
     }
   }
@@ -320,92 +530,216 @@ export default {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  /* 使用 100% 而不是 100vh，避免超出视口 */
+  min-height: 100%;
   background-color: #f7f8fa;
-  padding-top: 46px;
-  padding-bottom: 20px;
+  /* 底部留白由 App.vue 全局样式统一设置 */
+  box-sizing: border-box;
 }
 
-.content {
-  padding: 12px;
-}
-
-.device-info-card {
+/* 顶部导航栏 */
+.mobile-header {
+  position: fixed;
+  /* 从 viewport 顶部开始 */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   background-color: #fff;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 12px;
-  margin-bottom: 12px;
+  border-bottom: 1.439px solid rgba(0, 0, 0, 0.1);
+  padding: 14px 6px;
+  /* 顶部安全区域：防止被前置摄像头遮挡 */
+  padding-top: max(14px, calc(env(safe-area-inset-top) + 14px));
 }
 
-.info-row {
+.header-container {
   display: flex;
-  gap: 0;
-  height: 34px;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.info-item {
+.back-icon {
+  font-size: 20px;
+  color: #323233;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.header-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 2px;
+  gap: 0;
 }
 
-.info-label {
-  font-size: 12px;
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 24px;
+  flex-wrap: wrap;
+}
+
+.header-title {
+  font-size: 14px;
+  font-weight: 400;
+  color: #101828;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.header-hospital {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
   color: #6a7282;
   line-height: 16px;
-  height: 16px;
 }
 
-.info-value {
-  font-size: 12px;
-  font-weight: normal;
-  color: #101828;
+.header-logs {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #6a7282;
   line-height: 16px;
-  height: 16px;
+}
+
+.header-row .info-text {
+  font-size: 11px;
+  color: #6a7282;
+  line-height: 16px;
+}
+
+.info-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .info-value-primary {
   color: #155dfc;
+  font-weight: 500;
 }
 
+/* 筛选区域（固定定位） */
 .filter-section {
-  margin-bottom: 8px;
+  position: fixed;
+  /* header高度：padding-top(max(14px, safe-area + 14px)) + 内容高度(24px) + padding-bottom(14px) */
+  top: calc(max(14px, calc(env(safe-area-inset-top) + 14px)) + 24px + 14px);
+  left: 0;
+  right: 0;
+  z-index: 99;
+  background-color: #f7f8fa;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.search-box {
-  position: relative;
+.content {
+  padding-left: 12px;
+  padding-right: 12px;
+  /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
+  padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
+  /* 给固定区域留出空间：header高度 + 筛选区域高度（筛选区域padding 16px + 时间选择器约86px + 状态筛选按钮32px = 约134px） */
+  padding-top: calc(max(14px, calc(env(safe-area-inset-top) + 14px)) + 24px + 14px + 134px);
+}
+
+/* 时间范围选择器 */
+.time-range-section {
+  background-color: #fff;
+  border-radius: 14px;
+  border: 1.439px solid rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  margin-bottom: 0;
+}
+
+.time-range-label {
   display: flex;
   align-items: center;
-  background-color: #f3f3f5;
-  border-radius: 8px;
-  padding: 0 12px;
-  height: 36px;
+  gap: 6px;
+  font-size: 12px;
+  color: #101828;
   margin-bottom: 8px;
 }
 
-.search-icon {
-  font-size: 16px;
-  color: #717182;
-  position: absolute;
-  right: 12px;
-  pointer-events: none;
-}
-
-.search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
+.time-icon {
   font-size: 14px;
-  color: #323233;
-  outline: none;
-  padding-right: 28px;
+  color: #6a7282;
 }
 
-.search-input::placeholder {
-  color: #717182;
+.time-inputs {
+  display: flex;
+  gap: 6px;
+}
+
+.time-input {
+  flex: 1;
+  height: 32px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #101828;
+  background-color: #fff;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: #155dfc;
+}
+
+/* 状态筛选按钮 */
+.status-filter-button {
+  width: 100%;
+  height: 32px;
+  background-color: #fff;
+  border: 1.439px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #101828;
+  cursor: pointer;
+  outline: none;
+}
+
+.dropdown-icon {
+  font-size: 14px;
+  color: #6a7282;
+}
+
+/* 状态下拉菜单 */
+.status-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 12px;
+  right: 12px;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 101;
+  overflow: hidden;
+}
+
+.status-option {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #101828;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.status-option:hover {
+  background-color: #f7f8fa;
+}
+
+.status-option.active {
+  background-color: #ecf5ff;
+  color: #155dfc;
 }
 
 .log-list {
@@ -417,14 +751,10 @@ export default {
 .log-card {
   background-color: #fff;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1.439px solid rgba(0, 0, 0, 0.1);
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
-}
-
-.log-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .log-card:active {
@@ -432,89 +762,76 @@ export default {
 }
 
 .card-content {
-  padding: 12px;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  position: relative;
-}
-
-.file-icon {
-  font-size: 16px;
-  color: #1989fa;
-  margin-top: 9px;
-  flex-shrink: 0;
-}
-
-.log-info-wrapper {
-  flex: 1;
-  min-width: 0;
+  padding: 13.43px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
 .file-name {
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 400;
   color: #101828;
+  line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 16px;
 }
 
-.upload-info-compact {
+.card-footer {
   display: flex;
   align-items: center;
-  font-size: 12px;
-  color: #6a7282;
-  line-height: 16px;
-  gap: 4px;
+  justify-content: space-between;
+  height: 22.85px;
 }
 
-.uploader {
-  /* no additional styles */
-}
-
-.separator {
-  /* no additional styles */
-}
-
-.upload-time {
-  /* no additional styles */
-}
-
-.log-actions {
-  display: flex;
-  align-items: center;
-  gap: 0;
+.status-badge-wrapper {
   flex-shrink: 0;
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  height: 22px;
+  gap: 4px;
+  height: 22.85px;
   border-radius: 8px;
-  padding: 2px 8px;
-  margin-right: 4px;
+  padding: 0 9.42px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
 }
 
 .status-icon {
   font-size: 12px;
-  margin-right: 4px;
+  width: 12px;
+  height: 12px;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 4px;
+.status-badge-success {
+  background-color: #f3f4f6;
+  color: #364153;
 }
 
-.action-btn {
-  padding: 0;
-  width: 36px;
-  height: 28px;
-  border-radius: 8px;
+.status-badge-error {
+  background-color: #f3f4f6;
+  color: #364153;
+}
+
+.status-badge-processing {
+  background-color: #f3f4f6;
+  color: #364153;
+}
+
+.status-badge-default {
+  background-color: #f3f4f6;
+  color: #364153;
+}
+
+.view-text {
+  font-size: 12px;
+  font-weight: 400;
+  color: #99a1af;
+  line-height: 16px;
 }
 
 .empty-state {
@@ -535,12 +852,4 @@ export default {
   font-size: 14px;
 }
 
-:deep(.van-dropdown-menu) {
-  background-color: #fff;
-  border-radius: 8px;
-}
-
-:deep(.van-dropdown-menu__item) {
-  padding: 0 12px;
-}
 </style>

@@ -1,27 +1,30 @@
 <template>
   <div class="page">
-    <!-- 顶部标题栏 -->
-    <div class="header">
-      <h1 class="page-title">{{ $t('mobile.titles.logs') }}</h1>
-    </div>
-    
-    <!-- 搜索框 -->
-    <div class="search-container">
-      <div class="search-box">
-        <van-icon name="search" class="search-icon" />
-        <input
-          v-model="keyword"
-          type="text"
-          class="search-input"
-          :placeholder="$t('mobile.logs.searchPlaceholder')"
-          @input="handleSearchInput"
-        />
+    <!-- 固定顶部区域（标题栏 + 搜索框） -->
+    <div class="fixed-header-section">
+      <!-- 顶部标题栏 -->
+      <div class="header">
+        <h1 class="page-title">{{ $t('mobile.titles.logs') }}</h1>
+      </div>
+      
+      <!-- 搜索框 -->
+      <div class="search-container">
+        <div class="search-box">
+          <van-icon name="search" class="search-icon" />
+          <input
+            v-model="keyword"
+            type="text"
+            class="search-input"
+            :placeholder="$t('mobile.logs.searchPlaceholder')"
+            @input="handleSearchInput"
+          />
+        </div>
       </div>
     </div>
 
     <!-- 设备列表 -->
     <div class="content">
-      <van-list :finished="finished" :loading="loading" @load="onLoad">
+      <van-list :finished="finished" :loading="loading" :offset="100" @load="onLoad">
         <div class="device-list">
           <div
             v-for="item in items"
@@ -79,72 +82,52 @@ export default {
     const items = ref([])
     const loading = ref(false)
     const finished = ref(false)
-    const allItems = ref([])
     const page = ref(1)
     const pageSize = 20
+    const total = ref(0)
 
     const fetchPage = async () => {
       try {
         const resp = await store.dispatch('logs/fetchLogsByDevice', {
           page: page.value,
-          limit: 10000, // 获取所有数据进行前端筛选
-          device_filter: undefined // 不在API层面筛选，由前端处理
+          limit: pageSize,
+          device_filter: keyword.value?.trim() || undefined
         })
         const groups = resp?.data?.device_groups || []
+        const pagination = resp?.data?.pagination || {}
+        total.value = pagination.total || total.value || 0
+
         const mapped = groups.map(g => ({
           deviceId: g.device_id,
           hospital: g.hospital_name || '-',
           count: g.log_count || 0
         }))
-        allItems.value = mapped
-        filterAndDisplayItems()
-        finished.value = true
+
+        if (page.value === 1) {
+          items.value = mapped
+        } else {
+          items.value = items.value.concat(mapped)
+        }
+
+        // 结束条件：返回数量小于页大小，或当前数量已达到总数
+        if (mapped.length < pageSize || items.value.length >= total.value) {
+          finished.value = true
+        } else {
+          finished.value = false
+        }
       } catch (error) {
         console.error('Failed to fetch logs:', error)
         finished.value = true
       }
     }
 
-    const filterAndDisplayItems = () => {
-      const kw = (keyword.value || '').toLowerCase().trim()
-      const filtered = kw
-        ? allItems.value.filter(x => 
-            x.deviceId?.toLowerCase().includes(kw) || 
-            x.hospital?.toLowerCase().includes(kw)
-          )
-        : allItems.value
-      
-      // 重置并分页显示
-      items.value = []
-      page.value = 1
-      const start = (page.value - 1) * pageSize
-      items.value = filtered.slice(start, start + pageSize)
-      finished.value = items.value.length >= filtered.length
-    }
-
     const onLoad = async () => {
-      if (finished.value) return
+      if (finished.value || loading.value) return
       loading.value = true
       try {
-        if (allItems.value.length === 0) {
-          await fetchPage()
-        } else {
-          // 继续加载更多
-          const kw = (keyword.value || '').toLowerCase().trim()
-          const filtered = kw
-            ? allItems.value.filter(x => 
-                x.deviceId?.toLowerCase().includes(kw) || 
-                x.hospital?.toLowerCase().includes(kw)
-              )
-            : allItems.value
-          const start = items.value.length
-          const next = filtered.slice(start, start + pageSize)
-          items.value.push(...next)
-          if (items.value.length >= filtered.length || next.length < pageSize) {
-            finished.value = true
-          } else {
-            page.value += 1
-          }
+        await fetchPage()
+        if (!finished.value) {
+          page.value += 1
         }
       } finally {
         loading.value = false
@@ -152,8 +135,9 @@ export default {
     }
 
     const handleSearchInput = () => {
-      // 重置状态并重新加载
+      // 重置状态并重新加载（使用后端分页）
       items.value = []
+      total.value = 0
       finished.value = false
       page.value = 1
       onLoad()
@@ -166,14 +150,28 @@ export default {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  /* 使用 100% 而不是 100vh，避免超出视口 */
+  min-height: 100%;
   background-color: #f7f8fa;
-  padding-bottom: 20px;
+  /* 底部留白由 App.vue 全局样式统一设置 */
+  box-sizing: border-box;
+}
+
+/* 固定顶部区域容器 */
+.fixed-header-section {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: #fff;
+  /* 为顶部添加安全区域适配，防止被前置摄像头遮挡 */
+  padding-top: max(16px, env(safe-area-inset-top) + 8px);
 }
 
 .header {
-  background-color: #fff;
   padding: 16px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #ebedf0;
 }
 
@@ -182,12 +180,14 @@ export default {
   font-weight: 600;
   color: #323233;
   margin: 0;
+  line-height: 24px;
+  height: 24px;
 }
 
 .search-container {
-  background-color: #fff;
   padding: 12px;
   border-bottom: 1px solid #ebedf0;
+  background-color: #fff;
 }
 
 .search-box {
@@ -222,6 +222,9 @@ export default {
 
 .content {
   padding: 12px;
+  /* 为固定的标题栏和搜索框留出空间 */
+  /* fixed-header-section 高度 = padding-top (包含安全区域) + header (56px) + search-container (60px) */
+  margin-top: calc(max(16px, env(safe-area-inset-top) + 8px) + 56px + 60px);
 }
 
 .device-list {

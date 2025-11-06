@@ -1121,6 +1121,7 @@
       "searchPlaceholder": "Search log filename",
       "statusAll": "All Status",
       "statusCompleted": "Completed",
+      "statusIncomplete": "Incomplete",
       "statusFailed": "Failed",
       "statusDecryptFailed": "Decrypt Failed",
       "statusParsing": "Parsing",

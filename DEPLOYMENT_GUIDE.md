@@ -924,6 +924,116 @@ chmod +x deploy.sh
 - Windows Phone
 - 其他移动浏览器
 
+### iOS Safari PWA 支持（添加到主屏幕）
+
+**已配置的 PWA 功能：**
+
+✅ **独立 WebView 容器**
+- 使用 `apple-mobile-web-app-capable: yes` 配置
+- 从主屏幕启动时，应用会在独立的 WebView 容器中运行，类似原生 App
+
+✅ **禁止缩放和滑动**
+- 通过 `viewport` meta 标签设置 `user-scalable=no` 和 `maximum-scale=1.0`
+- 使用 CSS `overscroll-behavior: none` 禁止页面滑出边界
+- 使用 `touch-action: manipulation` 禁止双击缩放
+
+✅ **隐藏地址栏**
+- 使用 `apple-mobile-web-app-status-bar-style` 配置状态栏
+- 在 standalone 模式下自动隐藏 Safari 地址栏和工具栏
+
+✅ **固定到桌面后使用 Logo**
+- 配置了多种尺寸的 `apple-touch-icon`
+- 支持 iPhone (120x120, 180x180) 和 iPad (152x152)
+- 添加到主屏幕时会自动使用配置的图标
+
+✅ **禁止页面滑出边界**
+- 通过 CSS `position: fixed` 和 `overscroll-behavior` 实现
+- 内容区域可以滚动，但整体页面不会滑出边界
+
+**使用方法：**
+
+1. **在 iOS Safari 中访问网站**
+   - 打开 Safari 浏览器
+   - 访问 `http://your-server-ip/m` 或移动端路径
+
+2. **添加到主屏幕**
+   - 点击底部的分享按钮（□↑图标）
+   - 选择"添加到主屏幕"
+   - 可以自定义应用名称（默认显示为 "LogTool"）
+   - 点击"添加"
+
+3. **从主屏幕启动**
+   - 在主屏幕上找到 LogTool 图标
+   - 点击图标启动应用
+   - 应用将在独立的全屏 WebView 中运行
+
+**注意事项：**
+
+- ⚠️ **图标文件准备**: 需要准备相应的图标文件（见 `frontend/public/PWA_ICONS_GUIDE.md`）
+- ⚠️ **HTTPS 要求**: 生产环境建议使用 HTTPS，某些 PWA 功能在 HTTP 下可能受限
+- ⚠️ **首次访问**: 首次从主屏幕启动可能需要加载时间，后续访问会更快
+
+**图标文件准备：**
+
+请参考 `frontend/public/PWA_ICONS_GUIDE.md` 文件，准备以下图标：
+- `apple-touch-icon.png` (180x180px)
+- `apple-touch-icon-180x180.png`
+- `apple-touch-icon-152x152.png`
+- `apple-touch-icon-120x120.png`
+- `logo-192.png` (192x192px)
+- `logo-512.png` (512x512px)
+
+所有图标文件应放置在 `frontend/public/Icons/` 目录下。
+
+### Android Chrome PWA 支持
+
+**Android 端的 PWA 体验：**
+
+✅ **独立应用窗口**
+- 从主屏幕启动时，应用在独立窗口中运行
+- 无地址栏、无浏览器工具栏
+- 全屏显示，类似原生应用
+
+✅ **自动添加到主屏幕提示**
+- Chrome 会在满足条件时自动显示"添加到主屏幕"横幅
+- 用户也可以手动从菜单添加
+- 主屏幕显示应用图标和名称
+
+✅ **禁止缩放和滑动**
+- 通过 viewport meta 标签禁止缩放
+- 通过 CSS 禁止页面滑出边界
+- 内容区域可正常滚动
+
+✅ **主题颜色**
+- 状态栏和地址栏使用配置的主题色（#155dfc）
+- 启动画面自动应用主题色
+
+✅ **应用图标**
+- 使用 manifest.json 中配置的图标
+- 支持自适应图标（maskable icons）
+
+**与 iOS 的主要差异：**
+
+| 特性 | Android Chrome | iOS Safari |
+|------|----------------|------------|
+| 添加到主屏幕 | ✅ 自动提示横幅 | ✅ 手动添加（分享菜单） |
+| 弹性滑动 | ✅ 不需要（Chrome 本身没有） | ✅ 需要 CSS 配置 |
+| 启动画面 | ✅ 自动生成（基于主题色） | ⚠️ 需要单独配置图片 |
+| HTTPS 要求 | ⚠️ 强烈建议（某些功能需要） | ✅ 支持 HTTP |
+
+**使用方法：**
+
+1. 在 Android Chrome 中访问 `http://your-server-ip/m`
+2. 等待 Chrome 显示"添加到主屏幕"提示（或手动从菜单添加）
+3. 从主屏幕启动应用，享受独立窗口体验
+
+**注意事项：**
+- ⚠️ **HTTPS 要求**: 生产环境建议使用 HTTPS，某些 PWA 功能在 HTTP 下可能受限
+- ⚠️ **安装条件**: Chrome 需要满足一定条件才会显示自动安装提示（访问次数、时间间隔等）
+- ⚠️ **图标文件**: 需要准备 `logo-192.png` 和 `logo-512.png`
+
+详细说明请参考 `frontend/public/ANDROID_PWA_GUIDE.md`。
+
 ## 总结
 
 部署完成后，你应该能够通过以下方式访问：

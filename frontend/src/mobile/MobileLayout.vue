@@ -1,7 +1,7 @@
 <template>
-  <div class="mobile-layout">
+  <div class="mobile-layout" :class="{ 'no-tabbar': hideTabbar }">
     <router-view />
-    <van-tabbar route fixed placeholder safe-area-inset-bottom>
+    <van-tabbar v-if="!hideTabbar" route fixed placeholder safe-area-inset-bottom>
       <van-tabbar-item :to="{ name: 'MError' }" icon="search">{{ $t('mobile.tabs.error') }}</van-tabbar-item>
       <van-tabbar-item :to="{ name: 'MLogs' }" icon="notes-o">{{ $t('mobile.tabs.logs') }}</van-tabbar-item>
       <van-tabbar-item :to="{ name: 'MSurgeries' }" icon="orders-o">{{ $t('mobile.tabs.surgeries') }}</van-tabbar-item>
@@ -11,6 +11,8 @@
 </template>
 
 <script>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { Tabbar as VanTabbar, TabbarItem as VanTabbarItem } from 'vant'
 import 'vant/lib/index.css'
 
@@ -19,6 +21,13 @@ export default {
   components: {
     'van-tabbar': VanTabbar,
     'van-tabbar-item': VanTabbarItem
+  },
+  setup() {
+    const route = useRoute()
+    const hideTabbar = computed(() => {
+      return route.meta?.hideTabbar === true
+    })
+    return { hideTabbar }
   }
 }
 </script>
@@ -26,6 +35,10 @@ export default {
 <style scoped>
 .mobile-layout {
   padding-bottom: 65px;
+}
+
+.mobile-layout.no-tabbar {
+  padding-bottom: 0;
 }
 
 :deep(.van-tabbar) {

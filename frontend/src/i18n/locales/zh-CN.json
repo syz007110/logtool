@@ -1110,6 +1110,7 @@
       "searchPlaceholder": "搜索日志文件名",
       "statusAll": "全部状态",
       "statusCompleted": "完成",
+      "statusIncomplete": "未完成",
       "statusFailed": "失败",
       "statusDecryptFailed": "解密失败",
       "statusParsing": "解析中",

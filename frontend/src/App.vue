@@ -113,4 +113,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
-</style> 
+
+/* 移动端页面统一底部留白设置 */
+@media (max-width: 768px) {
+  /* 所有移动端页面统一使用相同的底部留白 */
+  .page {
+    padding-bottom: max(0px, env(safe-area-inset-bottom) - 20px) !important;
+  }
+}
+</style>
+
