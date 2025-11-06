@@ -14,7 +14,7 @@
     </div>
 
     <!-- 筛选按钮组（固定定位） -->
-    <div class="filter-buttons-container">
+    <div class="filter-buttons-container" ref="filterContainerRef">
       <div class="filter-buttons">
         <button
           v-for="option in analysisLevelOptions"
@@ -45,7 +45,7 @@
       </div>
     </div>
 
-    <div class="content">
+    <div class="content" :style="{ paddingTop: contentPaddingTop }">
       <!-- 日志条目列表 -->
       <div class="entries-list">
         <div
@@ -86,32 +86,134 @@
     
     <!-- 悬浮搜索按钮 -->
     <div class="search-fab-container">
-      <van-popover
-        :show="showSearchPopover"
-        @update:show="showSearchPopover = $event"
-        theme="dark"
-        placement="top-end"
-        :actions="[
-          { text: '时间筛选', icon: 'clock-o' },
-          { text: '关键字搜索', icon: 'search' },
-          { text: '常用标签', icon: 'label-o' }
-        ]"
-        @select="(action, index) => {
-          if (index === 0) openTimeDrawer()
-          else if (index === 1) openSearchDrawer()
-          else if (index === 2) openTagDrawer()
-        }"
+      <div 
+        class="search-fab"
+        :class="{ 'has-filters': hasActiveFilters }"
+        @click="showSearchActionSheet = true"
       >
-        <template #reference>
-          <div 
-            class="search-fab"
-            :class="{ 'has-filters': hasActiveFilters }"
-          >
-            <van-icon name="search" />
-          </div>
-        </template>
-      </van-popover>
+        <van-icon name="search" />
+      </div>
     </div>
+    
+    <!-- 搜索操作菜单（底部弹出，标签页形式） -->
+    <van-popup
+      :show="showSearchActionSheet"
+      @update:show="showSearchActionSheet = $event"
+      position="bottom"
+      :style="{ height: 'auto', maxHeight: '70%' }"
+      round
+      @click-overlay="showSearchActionSheet = false"
+    >
+      <div class="search-menu-content">
+        <!-- 拖拽指示条 -->
+        <div class="search-menu-handle"></div>
+        
+        <!-- 标题区域 -->
+        <div class="search-menu-header">
+          <div class="search-menu-title">
+            <van-icon name="filter-o" class="search-menu-title-icon" />
+            <h2>日志筛选</h2>
+          </div>
+          <p class="search-menu-description">通过多种方式筛选和查找日志</p>
+        </div>
+        
+        <!-- 标签页导航 -->
+        <div class="search-menu-tabs">
+          <div class="search-tabs-container">
+            <div
+              v-for="(action, index) in searchActions"
+              :key="action.name"
+              :class="['search-tab-item', { active: selectedSearchTab === index }]"
+              @click="selectedSearchTab = index"
+            >
+              <van-icon :name="action.icon" class="search-tab-icon" />
+              <span class="search-tab-text">{{ action.name }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 标签页内容 -->
+        <div class="search-menu-body">
+          <!-- 关键字搜索 -->
+          <div v-if="selectedSearchTab === 0" class="search-tab-panel">
+            <van-field
+              v-model="tempSearchQuery"
+              placeholder="搜索关键词或故障码"
+              clearable
+              class="search-input-field"
+            />
+            <van-button type="primary" block class="search-confirm-btn" @click="handleKeywordConfirm">
+              确定
+            </van-button>
+          </div>
+          
+          <!-- 常用标签 -->
+          <div v-if="selectedSearchTab === 1" class="search-tab-panel">
+            <div class="tag-options">
+              <van-button
+                v-for="template in templates"
+                :key="template.name"
+                :type="tempTagFilter === template.name ? 'primary' : 'default'"
+                size="small"
+                class="tag-option-btn"
+                @click="handleTagSelect(template)"
+              >
+                {{ template.name }}
+              </van-button>
+              <van-button
+                v-if="templates.length === 0"
+                type="default"
+                size="small"
+                class="tag-option-btn"
+                disabled
+              >
+                暂无常用标签
+              </van-button>
+            </div>
+            <van-button type="primary" block class="search-confirm-btn" @click="handleTagConfirm">
+              确定
+            </van-button>
+          </div>
+          
+          <!-- 时间筛选 -->
+          <div v-if="selectedSearchTab === 2" class="search-tab-panel">
+            <van-cell-group>
+              <van-cell title="开始时间">
+                <template #value>
+                  <input
+                    v-model="tempStartTimeFormatted"
+                    type="datetime-local"
+                    class="time-input"
+                    @change="handleTempStartTimeChange"
+                  />
+                </template>
+              </van-cell>
+              <van-cell title="结束时间">
+                <template #value>
+                  <input
+                    v-model="tempEndTimeFormatted"
+                    type="datetime-local"
+                    class="time-input"
+                    @change="handleTempEndTimeChange"
+                  />
+                </template>
+              </van-cell>
+            </van-cell-group>
+            <van-button
+              type="default"
+              size="small"
+              class="clear-time-btn"
+              @click="clearTempTime"
+            >
+              清除时间
+            </van-button>
+            <van-button type="primary" block class="search-confirm-btn" @click="handleTimeConfirm">
+              确定
+            </van-button>
+          </div>
+        </div>
+      </div>
+    </van-popup>
     
     <!-- 关键字搜索抽屉 -->
     <van-popup
@@ -237,7 +339,7 @@
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import { useI18n } from 'vue-i18n'
@@ -246,7 +348,7 @@ import {
   Empty as VanEmpty,
   Icon as VanIcon,
   Loading as VanLoading,
-  Popover as VanPopover,
+  ActionSheet as VanActionSheet,
   Popup as VanPopup,
   Field as VanField,
   Button as VanButton,
@@ -261,7 +363,7 @@ export default {
     'van-empty': VanEmpty,
     'van-icon': VanIcon,
     'van-loading': VanLoading,
-    'van-popover': VanPopover,
+    'van-action-sheet': VanActionSheet,
     'van-popup': VanPopup,
     'van-field': VanField,
     'van-button': VanButton,
@@ -289,11 +391,31 @@ export default {
     const endTime = ref(null)
     const tagFilter = ref(null) // 改为存储选中的模板名称
     const templates = ref([]) // 从后端加载的搜索模板
-    const showSearchPopover = ref(false)
+    const logMinTimestamp = ref(null) // 日志的最小时间戳
+    const logMaxTimestamp = ref(null) // 日志的最大时间戳
+    const showSearchActionSheet = ref(false)
     const showSearchDrawer = ref(false)
     const showTimeDrawer = ref(false)
     const showTagDrawer = ref(false)
     const activeDrawer = ref(null) // 'search' | 'time' | 'tag' | null
+    const selectedSearchTab = ref(0) // 当前选中的标签页索引：0-关键字，1-标签，2-时间
+    
+    // 内容区域动态 padding-top（根据筛选按钮组高度）
+    const filterContainerRef = ref(null)
+    const contentPaddingTop = ref('120px')
+    
+    // 临时状态（用于菜单内的编辑，点击确定后才应用到实际搜索）
+    const tempSearchQuery = ref('')
+    const tempStartTime = ref(null)
+    const tempEndTime = ref(null)
+    const tempTagFilter = ref(null)
+    
+    // 搜索操作菜单选项（注意顺序：关键字、常用搜索项、时间）
+    const searchActions = [
+      { name: '关键字', icon: 'search' },
+      { name: '常用搜索项', icon: 'label-o' },
+      { name: '时间', icon: 'clock-o' }
+    ]
 
     const analysisLevelOptions = [
       { text: '全量日志', value: 'ALL' },
@@ -383,6 +505,24 @@ export default {
           console.warn('Log entries response is not an array:', entries)
           allEntries.value = []
           return
+        }
+        
+        // 保存日志的时间范围（用于时间筛选器的初始值）
+        // 仅在首次加载（没有设置时间筛选）时保存，避免后续查询覆盖
+        // 注意：使用实际日志条目的时间范围，而不是后端可能扩展后的时间范围
+        if (!startTime.value && !endTime.value) {
+          if (entries.length > 0 && !logMinTimestamp.value) {
+            // 从实际日志条目中计算时间范围，确保是真实的日志时间范围
+            const timestamps = entries
+              .map(e => e.timestamp || e.ts)
+              .filter(ts => ts)
+              .map(ts => new Date(ts).getTime())
+              .filter(ts => !isNaN(ts))
+            if (timestamps.length > 0) {
+              logMinTimestamp.value = new Date(Math.min(...timestamps))
+              logMaxTimestamp.value = new Date(Math.max(...timestamps))
+            }
+          }
         }
         
         // 处理标准格式的条目数据
@@ -478,6 +618,17 @@ export default {
       }
     }
 
+    // 更新内容区域的 padding-top
+    const updateContentPaddingTop = () => {
+      nextTick(() => {
+        if (filterContainerRef.value) {
+          const headerHeight = 52 // header 固定高度（包含安全区域）
+          const filterHeight = filterContainerRef.value.offsetHeight || 0
+          contentPaddingTop.value = `${headerHeight + filterHeight + 12}px`
+        }
+      })
+    }
+    
     onMounted(async () => {
       if (!logId) {
         showToast(t('mobile.logView.logIdRequired'))
@@ -488,23 +639,120 @@ export default {
       await Promise.all([fetchLogInfo(), loadAnalysisPresets(), loadTemplates()])
       // 分析预设加载完成后再加载日志条目
       await fetchLogEntries()
+      // 更新内容区域 padding-top
+      updateContentPaddingTop()
+      // 监听窗口大小变化
+      window.addEventListener('resize', updateContentPaddingTop)
     })
     
-    // 搜索相关方法
+    // 打开搜索菜单时，初始化临时状态
+    const initTempState = () => {
+      tempSearchQuery.value = searchQuery.value
+      // 如果用户已经设置过时间，使用用户设置的值；否则使用日志的时间范围作为初始值
+      tempStartTime.value = startTime.value || logMinTimestamp.value
+      tempEndTime.value = endTime.value || logMaxTimestamp.value
+      tempTagFilter.value = tagFilter.value
+      selectedSearchTab.value = 0 // 默认选中关键字标签页
+    }
+    
+    // 关键字确认
+    const handleKeywordConfirm = async () => {
+      searchQuery.value = tempSearchQuery.value
+      showSearchActionSheet.value = false
+      await fetchLogEntries()
+    }
+    
+    // 标签选择
+    const handleTagSelect = (template) => {
+      if (tempTagFilter.value === template.name) {
+        tempTagFilter.value = null
+      } else {
+        tempTagFilter.value = template.name
+      }
+    }
+    
+    // 标签确认
+    const handleTagConfirm = async () => {
+      tagFilter.value = tempTagFilter.value
+      showSearchActionSheet.value = false
+      await fetchLogEntries()
+    }
+    
+    // 时间确认
+    const handleTimeConfirm = async () => {
+      startTime.value = tempStartTime.value
+      endTime.value = tempEndTime.value
+      showSearchActionSheet.value = false
+      await fetchLogEntries()
+    }
+    
+    // 清除临时时间
+    const clearTempTime = () => {
+      tempStartTime.value = null
+      tempEndTime.value = null
+    }
+    
+    // 临时时间格式化（计算属性）
+    const tempStartTimeFormatted = computed({
+      get: () => {
+        if (!tempStartTime.value) return ''
+        const d = new Date(tempStartTime.value)
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const hours = String(d.getHours()).padStart(2, '0')
+        const minutes = String(d.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      },
+      set: (val) => {
+        tempStartTime.value = val ? new Date(val) : null
+      }
+    })
+    
+    const tempEndTimeFormatted = computed({
+      get: () => {
+        if (!tempEndTime.value) return ''
+        const d = new Date(tempEndTime.value)
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const hours = String(d.getHours()).padStart(2, '0')
+        const minutes = String(d.getMinutes()).padStart(2, '0')
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+      },
+      set: (val) => {
+        tempEndTime.value = val ? new Date(val) : null
+      }
+    })
+    
+    const handleTempStartTimeChange = (event) => {
+      const value = event.target.value
+      tempStartTime.value = value ? new Date(value) : null
+    }
+    
+    const handleTempEndTimeChange = (event) => {
+      const value = event.target.value
+      tempEndTime.value = value ? new Date(value) : null
+    }
+    
+    // 监听搜索菜单显示，初始化临时状态
+    watch(showSearchActionSheet, (show) => {
+      if (show) {
+        initTempState()
+      }
+    })
+    
     const openSearchDrawer = () => {
-      showSearchPopover.value = false
       activeDrawer.value = 'search'
       showSearchDrawer.value = true
     }
     
     const openTimeDrawer = () => {
-      showSearchPopover.value = false
       activeDrawer.value = 'time'
       showTimeDrawer.value = true
     }
     
     const openTagDrawer = () => {
-      showSearchPopover.value = false
       activeDrawer.value = 'tag'
       showTagDrawer.value = true
     }
@@ -565,53 +813,21 @@ export default {
       }
     }
     
-    // 应用模板（参考桌面端）
+    // 应用模板（与桌面端保持一致）
+    // 桌面端逻辑：直接将模板的 filters 赋值给 filtersRoot，通过 filters 参数传递给后端
+    // 移动端逻辑：只设置 tagFilter，模板的 filters 在 fetchLogEntries 中通过 filters 参数传递
     const applyTemplate = (template) => {
       if (!template) return
       
-      // 如果模板有筛选条件，尝试提取可用的信息
-      if (template.filters && template.filters.conditions) {
-        // 提取时间范围
-        const timeCondition = template.filters.conditions.find(
-          c => c.field === 'timestamp' && c.operator === 'between' && Array.isArray(c.value)
-        )
-        if (timeCondition && timeCondition.value.length === 2) {
-          startTime.value = new Date(timeCondition.value[0])
-          endTime.value = new Date(timeCondition.value[1])
-        }
-        
-        // 提取关键词（从 explanation 字段的 contains 条件）
-        const keywordCondition = template.filters.conditions.find(
-          c => c.field === 'explanation' && (c.operator === 'contains' || c.operator === 'like')
-        )
-        if (keywordCondition && keywordCondition.value) {
-          searchQuery.value = String(keywordCondition.value)
-        }
-        
-        // 提取故障码（从 error_code 字段的条件）
-        const errorCodeCondition = template.filters.conditions.find(
-          c => c.field === 'error_code'
-        )
-        if (errorCodeCondition) {
-          if (errorCodeCondition.operator === '=' && errorCodeCondition.value) {
-            // 如果是等于，添加到搜索关键词
-            if (searchQuery.value) {
-              searchQuery.value += ` ${errorCodeCondition.value}`
-            } else {
-              searchQuery.value = String(errorCodeCondition.value)
-            }
-          } else if (errorCodeCondition.operator === 'contains' && errorCodeCondition.value) {
-            // 如果包含，添加到搜索关键词
-            if (searchQuery.value) {
-              searchQuery.value += ` ${errorCodeCondition.value}`
-            } else {
-              searchQuery.value = String(errorCodeCondition.value)
-            }
-          }
-        }
+      // 如果点击的是已选中的标签，则取消选择
+      if (tagFilter.value === template.name) {
+        tagFilter.value = null
+        return
       }
       
-      // 标记选中的模板
+      // 只标记选中的模板，不提取任何条件
+      // 模板的筛选条件会通过 filters 参数传递给后端（在 fetchLogEntries 中处理）
+      // 与桌面端保持一致：桌面端也是直接将模板的 filters 传递给后端，不提取到简单参数中
       tagFilter.value = template.name
     }
     
@@ -635,6 +851,12 @@ export default {
         }
       }
       return segments.join('，')
+    })
+    
+    // 监听搜索表达式和分析等级标签变化，更新内容区域 padding-top
+    // 注意：必须在 searchExpression 和 analysisLevelLabel 定义之后
+    watch([searchExpression, analysisLevelLabel], () => {
+      updateContentPaddingTop()
     })
     
     // 根据故障码结尾字母返回对应的CSS类名
@@ -710,7 +932,22 @@ export default {
       startTime,
       endTime,
       tagFilter,
-      showSearchPopover,
+      showSearchActionSheet,
+      selectedSearchTab,
+      searchActions,
+      filterContainerRef,
+      contentPaddingTop,
+      tempSearchQuery,
+      tempTagFilter,
+      tempStartTimeFormatted,
+      tempEndTimeFormatted,
+      handleKeywordConfirm,
+      handleTagSelect,
+      handleTagConfirm,
+      handleTimeConfirm,
+      clearTempTime,
+      handleTempStartTimeChange,
+      handleTempEndTimeChange,
       showSearchDrawer,
       showTimeDrawer,
       showTagDrawer,
@@ -886,8 +1123,7 @@ export default {
   padding: 12px;
   /* 增加底部 padding，确保滚动能正确触发（移除底部导航栏后需要更多空间） */
   padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
-  /* 给固定区域留出空间：header高度 + 筛选按钮组高度（筛选按钮组padding 16px + 按钮高度32px + 搜索表达式区域约40px = 约88px） */
-  padding-top: calc(max(14px, calc(env(safe-area-inset-top) + 14px)) + 24px + 14px + 88px);
+  /* padding-top 通过动态计算设置，避免被固定区域遮挡 */
 }
 
 .entries-list {
@@ -1075,6 +1311,140 @@ export default {
 .time-input:focus {
   outline: none;
   border-color: #155dfc;
+}
+
+/* 搜索操作菜单样式 */
+.search-menu-content {
+  background-color: #fff;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  padding: 0;
+}
+
+.search-menu-handle {
+  width: 100px;
+  height: 8px;
+  background-color: #ececf0;
+  border-radius: 48293200px;
+  margin: 17px auto;
+}
+
+.search-menu-header {
+  padding: 16px;
+  padding-bottom: 0;
+}
+
+.search-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.search-menu-title-icon {
+  font-size: 20px;
+  color: #323233;
+}
+
+.search-menu-title h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #323233;
+  line-height: 24px;
+}
+
+.search-menu-description {
+  margin: 0;
+  font-size: 14px;
+  color: #717182;
+  line-height: 20px;
+}
+
+.search-menu-tabs {
+  padding: 0 16px;
+  margin-top: 24px;
+}
+
+.search-tabs-container {
+  background-color: #ececf0;
+  border-radius: 14px;
+  padding: 3px;
+  display: flex;
+  position: relative;
+  height: 36px;
+}
+
+.search-tab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 29px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  border: 1.439px solid transparent;
+  background-color: transparent;
+}
+
+.search-tab-item.active {
+  background-color: #fff;
+  border-color: rgba(0, 0, 0, 0);
+}
+
+.search-tab-icon {
+  font-size: 16px;
+  color: #323233;
+}
+
+.search-tab-text {
+  font-size: 12px;
+  color: #323233;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.search-menu-body {
+  padding: 24px 16px;
+  padding-bottom: 24px;
+}
+
+.search-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-input-field {
+  background-color: #f3f3f5;
+  border-radius: 8px;
+  border: 1.439px solid transparent;
+}
+
+.search-input-field :deep(.van-field__control) {
+  background-color: transparent;
+  padding: 4px 12px;
+  font-size: 14px;
+  color: #717182;
+}
+
+.search-confirm-btn {
+  height: 40px;
+  border-radius: 8px;
+  background-color: #155dfc;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.tag-option-btn {
+  margin: 4px;
+}
+
+.clear-time-btn {
+  margin-top: 12px;
 }
 
 </style>
