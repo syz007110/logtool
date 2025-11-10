@@ -5,6 +5,7 @@ const path = require('path');
 const { 
   getLogs, 
   getLogsByDevice,
+  getLogTimeFilters,
   uploadLog, 
   parseLog, 
   downloadLog, 
@@ -55,6 +56,9 @@ const upload = multer({ storage });
 
 // 日志列表 - 根据用户角色决定查看权限
 router.get('/', auth, checkLogPermission('read_all'), getLogs);
+
+// 获取时间筛选可选项
+router.get('/time-filters', auth, checkLogPermission('read_all'), getLogTimeFilters);
 
 // 获取按设备分组的日志列表
 router.get('/by-device', auth, checkLogPermission('read_all'), getLogsByDevice);

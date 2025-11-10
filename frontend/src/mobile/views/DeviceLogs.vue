@@ -1,7 +1,7 @@
 <template>
-  <div class="page">
+  <div class="page" :style="{ paddingTop: pagePaddingTop + 'px' }">
     <!-- 顶部导航栏 -->
-    <div class="mobile-header">
+    <div class="mobile-header" ref="headerRef">
       <div class="header-container">
         <van-icon name="arrow-left" class="back-icon" @click="$router.back()" />
         <div class="header-content">
@@ -20,48 +20,98 @@
     </div>
 
     <!-- 筛选区域（固定定位） -->
-    <div class="filter-section">
-      <!-- 时间范围选择器 -->
-      <div class="time-range-section">
-        <div class="time-range-label">
-          <van-icon name="clock-o" class="time-icon" />
-          <span>时间范围</span>
-        </div>
-        <div class="time-inputs">
-          <input
-            v-model="startTime"
-            type="date"
-            class="time-input"
-            placeholder="开始时间"
+    <div
+      class="filter-section"
+      ref="filtersRef"
+      :style="{ top: headerHeight + 'px' }"
+    >
+      <div class="filter-menu">
+        <van-dropdown-menu>
+          <van-dropdown-item
+            v-model="statusFilter"
+            :options="statusOptions"
+            @change="handleStatusSelect"
           />
-          <input
-            v-model="endTime"
-            type="date"
-            class="time-input"
-            placeholder="结束时间"
-          />
+          <van-dropdown-item
+            ref="timeDropdownRef"
+            :title="timeFilterTitle"
+            @open="onTimeDropdownOpen"
+          >
+            <div class="time-filter-panel">
+              <div class="time-filter-section">
+                <div class="section-title">{{ quickRangeTitle }}</div>
+                <div class="quick-options">
+                  <div
+                    v-for="option in quickRangeOptions"
+                    :key="option.value"
+                    class="quick-option"
+                    :class="{ active: selectedQuickRange === option.value }"
+                    @click="selectQuickRange(option.value)"
+                  >
+                    {{ option.text }}
         </div>
       </div>
-      <!-- 状态筛选按钮 -->
-      <button class="status-filter-button" @click="showStatusDropdown = !showStatusDropdown">
-        <span>{{ getStatusFilterText() }}</span>
-        <van-icon name="arrow-down" class="dropdown-icon" />
-      </button>
-      <!-- 状态下拉菜单 -->
-      <div v-if="showStatusDropdown" class="status-dropdown">
-        <div
-          v-for="option in statusOptions"
+              </div>
+              <div class="time-filter-section">
+                <div class="section-title">{{ customRangeTitle }}</div>
+                <div class="custom-options">
+                  <div class="custom-row">
+                    <div class="custom-label">{{ yearLabel }}</div>
+                    <div class="option-pills">
+                      <div
+                        v-for="option in yearOptions"
           :key="option.value"
-          :class="['status-option', { active: statusFilter === option.value }]"
-          @click="handleStatusSelect(option.value)"
+                        class="option-pill"
+                        :class="{ active: selectedYear === option.value }"
+                        @click="selectYear(option.value)"
         >
           {{ option.text }}
         </div>
+                    </div>
+                  </div>
+                  <div class="custom-row">
+                    <div class="custom-label">{{ monthLabel }}</div>
+                    <div class="option-pills">
+                      <div
+                        v-for="option in monthOptions"
+                        :key="option.value"
+                        class="option-pill"
+                        :class="{ active: selectedMonth === option.value }"
+                        @click="selectMonth(option.value)"
+                      >
+                        {{ option.text }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="custom-row">
+                    <div class="custom-label">{{ dayLabel }}</div>
+                    <div class="option-pills">
+                      <div
+                        v-for="option in dayOptions"
+                        :key="option.value"
+                        class="option-pill"
+                        :class="{ active: selectedDay === option.value }"
+                        @click="selectDay(option.value)"
+                      >
+                        {{ option.text }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="time-filter-actions">
+                <div class="action-pill" @click="clearTimeFilters">
+                  {{ clearText }}
+                </div>
+              </div>
+            </div>
+          </van-dropdown-item>
+        </van-dropdown-menu>
       </div>
     </div>
 
     <!-- 日志列表内容区域 -->
-    <div class="content">
+    <div class="content" :style="{ paddingTop: contentPaddingTop + 'px' }">
       <van-list :finished="finished" :loading="loading" :offset="100" @load="onLoad">
         <div class="log-list">
           <div
@@ -76,17 +126,20 @@
               
               <!-- 状态和操作 -->
               <div class="card-footer">
+                <!-- 点击查看文字（仅当状态为完成时显示） -->
+                <div
+                  v-if="log.status === 'parsed' || log.status === 'completed'"
+                  class="view-text"
+                >
+                  点击查看
+                </div>
+
                 <!-- 状态Badge -->
                 <div class="status-badge-wrapper">
                   <div :class="['status-badge', getStatusBadgeClass(log.status)]">
                     <van-icon :name="getStatusIcon(log.status)" class="status-icon" />
                     <span>{{ getStatusText(log.status) }}</span>
                   </div>
-                </div>
-                
-                <!-- 点击查看文字（仅当状态为完成时显示） -->
-                <div v-if="log.status === 'parsed' || log.status === 'completed'" class="view-text">
-                  点击查看
                 </div>
               </div>
             </div>
@@ -105,14 +158,16 @@
 </template>
 
 <script>
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showToast } from 'vant'
 import { 
   List as VanList, 
   Empty as VanEmpty,
-  Icon as VanIcon
+  Icon as VanIcon,
+  DropdownMenu,
+  DropdownItem
 } from 'vant'
 import api from '@/api'
 
@@ -121,35 +176,442 @@ export default {
   components: {
     'van-list': VanList,
     'van-empty': VanEmpty,
-    'van-icon': VanIcon
+    'van-icon': VanIcon,
+    'van-dropdown-menu': DropdownMenu,
+    'van-dropdown-item': DropdownItem
   },
   setup() {
     const route = useRoute()
     const router = useRouter()
     const { t } = useI18n()
     const deviceId = computed(() => route.params?.deviceId || '')
-    const logs = ref([])
+    const headerRef = ref(null)
+    const filtersRef = ref(null)
+    const headerHeight = ref(0)
+    const filtersHeight = ref(0)
     const allLogs = ref([])
     const deviceInfo = ref(null)
     const totalLogs = ref(0)
     const loading = ref(false)
     const finished = ref(false)
     const statusFilter = ref('all')
-    const startTime = ref('')
-    const endTime = ref('')
-    const showStatusDropdown = ref(false)
+    const selectedQuickRange = ref('all')
+    const selectedYear = ref('all')
+    const selectedMonth = ref('all')
+    const selectedDay = ref('all')
+    const timeDropdownRef = ref(null)
     const page = ref(1)
     const pageSize = 20
 
-    const statusOptions = [
+    const updateLayoutMetrics = () => {
+      if (headerRef.value) {
+        headerHeight.value = headerRef.value.getBoundingClientRect().height
+      }
+      if (filtersRef.value) {
+        filtersHeight.value = filtersRef.value.getBoundingClientRect().height
+      }
+    }
+
+    const pagePaddingTop = computed(() => headerHeight.value || 0)
+    const contentPaddingTop = computed(() => (filtersHeight.value || 0) + 12)
+
+    const translateOr = (key, fallback) => {
+      const result = t(key)
+      return result === key ? fallback : result
+    }
+
+    const statusOptions = computed(() => ([
       { text: t('mobile.deviceLogs.statusAll'), value: 'all' },
       { text: t('mobile.deviceLogs.statusCompleted'), value: 'completed' },
       { text: t('mobile.deviceLogs.statusIncomplete'), value: 'incomplete' }
-    ]
+    ]))
+
+    const quickRangeOptions = computed(() => ([
+      { text: translateOr('mobile.deviceLogs.timeAll', '全部时间'), value: 'all' },
+      { text: translateOr('mobile.deviceLogs.last1Day', '近1天'), value: '1d' },
+      { text: translateOr('mobile.deviceLogs.last7Days', '近7天'), value: '7d' },
+      { text: translateOr('mobile.deviceLogs.last30Days', '近30天'), value: '30d' }
+    ]))
+
+    const quickRangeTitle = computed(() =>
+      translateOr('mobile.deviceLogs.quickRangeTitle', '快捷选择')
+    )
+
+    const customRangeTitle = computed(() =>
+      translateOr('mobile.deviceLogs.customRangeTitle', '自定义日期')
+    )
+
+    const yearLabel = computed(() =>
+      translateOr('mobile.deviceLogs.yearLabel', '年份')
+    )
+
+    const monthLabel = computed(() =>
+      translateOr('mobile.deviceLogs.monthLabel', '月份')
+    )
+
+    const dayLabel = computed(() =>
+      translateOr('mobile.deviceLogs.dayLabel', '日期')
+    )
+
+    const clearText = computed(() =>
+      translateOr('mobile.deviceLogs.clearTimeFilter', '清除筛选')
+    )
+
+    const quickRangeMap = computed(() => {
+      const map = {}
+      quickRangeOptions.value.forEach(option => {
+        map[option.value] = option.text
+      })
+      return map
+    })
+
+    const parseLogDate = (log) => {
+      if (!log) return null
+      const nameCandidates = [
+        log.original_name,
+        log.originalName,
+        log.file_name,
+        log.fileName,
+        log.name
+      ].filter(Boolean)
+
+      for (const candidate of nameCandidates) {
+        const match = /^(\d{4})(\d{2})(\d{2})(\d{2})/.exec(candidate)
+        if (match) {
+          const [, year, month, day, hour] = match
+          const parsed = new Date(
+            Number(year),
+            Number(month) - 1,
+            Number(day),
+            Number(hour),
+            0,
+            0,
+            0
+          )
+          if (!Number.isNaN(parsed.getTime())) {
+            return parsed
+          }
+        }
+      }
+
+      const fallbackFields = [
+        log.completed_at,
+        log.completedAt,
+        log.updated_at,
+        log.updatedAt,
+        log.created_at,
+        log.createdAt,
+        log.uploaded_at,
+        log.uploadedAt
+      ]
+
+      for (const field of fallbackFields) {
+        if (!field) continue
+        const parsed = new Date(field)
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed
+        }
+      }
+
+      return null
+    }
+
+    const availableYears = computed(() => {
+      const set = new Set()
+      allLogs.value.forEach(log => {
+        const date = parseLogDate(log)
+        if (!date) return
+        set.add(date.getFullYear())
+      })
+      return Array.from(set).sort((a, b) => b - a)
+    })
+
+    const yearOptions = computed(() => {
+      const suffix = translateOr('mobile.deviceLogs.yearSuffix', '年')
+      return [
+        { text: translateOr('mobile.deviceLogs.timeAll', '全部年份'), value: 'all' },
+        ...availableYears.value.map(year => ({
+          text: `${year}${suffix}`,
+          value: String(year)
+        }))
+      ]
+    })
+
+    const availableMonths = computed(() => {
+      const set = new Set()
+      allLogs.value.forEach(log => {
+        const date = parseLogDate(log)
+        if (!date) return
+        if (selectedYear.value !== 'all' && String(date.getFullYear()) !== selectedYear.value) {
+          return
+        }
+        set.add(date.getMonth() + 1)
+      })
+      return Array.from(set).sort((a, b) => a - b)
+    })
+
+    const monthOptions = computed(() => {
+      const suffix = translateOr('mobile.deviceLogs.monthSuffix', '月')
+      return [
+        { text: translateOr('mobile.deviceLogs.monthAll', '全部月份'), value: 'all' },
+        ...availableMonths.value.map(month => ({
+          text: `${String(month).padStart(2, '0')}${suffix}`,
+          value: String(month).padStart(2, '0')
+        }))
+      ]
+    })
+
+    const availableDays = computed(() => {
+      const set = new Set()
+      if (selectedMonth.value === 'all') {
+        return []
+      }
+      allLogs.value.forEach(log => {
+        const date = parseLogDate(log)
+        if (!date) return
+        if (selectedYear.value !== 'all' && String(date.getFullYear()) !== selectedYear.value) {
+          return
+        }
+        if (selectedMonth.value !== 'all') {
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          if (month !== selectedMonth.value) {
+            return
+          }
+        }
+        set.add(date.getDate())
+      })
+      return Array.from(set).sort((a, b) => a - b)
+    })
+
+    const dayOptions = computed(() => {
+      const suffix = translateOr('mobile.deviceLogs.daySuffix', '日')
+      return [
+        { text: translateOr('mobile.deviceLogs.dayAll', '全部日期'), value: 'all' },
+        ...availableDays.value.map(day => ({
+          text: `${String(day).padStart(2, '0')}${suffix}`,
+          value: String(day).padStart(2, '0')
+        }))
+      ]
+    })
+
+    const timeFilterTitle = computed(() => {
+      if (selectedQuickRange.value !== 'custom') {
+        return quickRangeMap.value[selectedQuickRange.value] || quickRangeOptions.value[0]?.text || ''
+      }
+
+      if (selectedYear.value === 'all' && selectedMonth.value === 'all' && selectedDay.value === 'all') {
+        return quickRangeOptions.value[0]?.text || ''
+      }
+
+      const segments = []
+      if (selectedYear.value !== 'all') segments.push(selectedYear.value)
+      if (selectedMonth.value !== 'all') segments.push(selectedMonth.value)
+      if (selectedDay.value !== 'all') segments.push(selectedDay.value)
+      return segments.join('-')
+    })
+
+    const normalizeToHour = (input) => {
+      const date = new Date(input)
+      if (Number.isNaN(date.getTime())) return null
+      date.setMinutes(0, 0, 0)
+      return date
+    }
+
+    const formatDateParam = (input) => {
+      const date = normalizeToHour(input)
+      if (!date) return null
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hour = String(date.getHours()).padStart(2, '0')
+      return `${year}${month}${day}${hour}`
+    }
+
+    const getQuickRangeDates = (range) => {
+      const now = new Date()
+      const endDate = normalizeToHour(now) || now
+      const startDate = new Date(endDate)
+
+      if (range === '1d') {
+        startDate.setDate(startDate.getDate() - 1)
+      } else if (range === '7d') {
+        startDate.setDate(startDate.getDate() - 7)
+      } else if (range === '30d') {
+        startDate.setDate(startDate.getDate() - 30)
+      }
+
+      return {
+        start: normalizeToHour(startDate),
+        end: endDate
+      }
+    }
+
+    const resolveTimeRange = () => {
+      const defaultResult = { time_range_start: null, time_range_end: null }
+
+      if (
+        selectedQuickRange.value === 'all' &&
+        selectedYear.value === 'all' &&
+        selectedMonth.value === 'all' &&
+        selectedDay.value === 'all'
+      ) {
+        return defaultResult
+      }
+
+      if (selectedQuickRange.value !== 'custom' && selectedQuickRange.value !== 'all') {
+        const { start, end } = getQuickRangeDates(selectedQuickRange.value)
+        return {
+          time_range_start: formatDateParam(start),
+          time_range_end: formatDateParam(end)
+        }
+      }
+
+      if (selectedYear.value === 'all') {
+        return defaultResult
+      }
+
+      const year = Number(selectedYear.value)
+      if (Number.isNaN(year)) {
+        return defaultResult
+      }
+
+      let startDate = new Date(year, 0, 1, 0, 0, 0, 0)
+      let endDate = new Date(year, 11, 31, 23, 59, 59, 999)
+
+      if (selectedMonth.value !== 'all') {
+        const month = Number(selectedMonth.value) - 1
+        if (!Number.isNaN(month) && month >= 0 && month < 12) {
+          startDate = new Date(year, month, 1, 0, 0, 0, 0)
+          endDate = new Date(year, month + 1, 0, 23, 59, 59, 999)
+
+          if (selectedDay.value !== 'all') {
+            const day = Number(selectedDay.value)
+            if (!Number.isNaN(day)) {
+              startDate = new Date(year, month, day, 0, 0, 0, 0)
+              endDate = new Date(year, month, day, 23, 59, 59, 999)
+            }
+          }
+        }
+      } else if (selectedDay.value !== 'all') {
+        const day = Number(selectedDay.value)
+        if (!Number.isNaN(day)) {
+          startDate = new Date(year, 0, day, 0, 0, 0, 0)
+          endDate = new Date(year, 0, day, 23, 59, 59, 999)
+        }
+      }
+
+      return {
+        time_range_start: formatDateParam(startDate),
+        time_range_end: formatDateParam(endDate)
+      }
+    }
+
+    const closeTimeDropdown = () => {
+      timeDropdownRef.value?.toggle(false)
+    }
+
+    const onTimeDropdownOpen = () => {
+      // placeholder for analytics hooks
+    }
+
+    const selectQuickRange = (value) => {
+      if (value === selectedQuickRange.value) {
+        closeTimeDropdown()
+        return
+      }
+      selectedQuickRange.value = value
+      if (value !== 'custom') {
+        selectedYear.value = 'all'
+        selectedMonth.value = 'all'
+        selectedDay.value = 'all'
+      }
+      resetAndReload()
+      if (value !== 'custom') {
+        closeTimeDropdown()
+      }
+    }
+
+    const selectYear = (value) => {
+      if (selectedYear.value === value) {
+        return
+      }
+      selectedYear.value = value
+      selectedQuickRange.value = value === 'all' ? 'all' : 'custom'
+      if (value === 'all') {
+        selectedMonth.value = 'all'
+        selectedDay.value = 'all'
+      } else if (selectedMonth.value !== 'all') {
+        const months = availableMonths.value.map(month => String(month).padStart(2, '0'))
+        if (!months.includes(selectedMonth.value)) {
+          selectedMonth.value = 'all'
+          selectedDay.value = 'all'
+        }
+      }
+      resetAndReload()
+    }
+
+    const selectMonth = (value) => {
+      if (selectedMonth.value === value) {
+        return
+      }
+      selectedMonth.value = value
+      selectedQuickRange.value =
+        value === 'all' && selectedYear.value === 'all' && selectedDay.value === 'all'
+          ? 'all'
+          : 'custom'
+      if (value === 'all') {
+        selectedDay.value = 'all'
+      } else {
+        const days = availableDays.value.map(day => String(day).padStart(2, '0'))
+        if (!days.includes(selectedDay.value)) {
+          selectedDay.value = 'all'
+        }
+      }
+      resetAndReload()
+    }
+
+    const selectDay = (value) => {
+      if (selectedDay.value === value) {
+        return
+      }
+      selectedDay.value = value
+      if (
+        value === 'all' &&
+        selectedYear.value === 'all' &&
+        selectedMonth.value === 'all'
+      ) {
+        selectedQuickRange.value = 'all'
+      } else {
+        selectedQuickRange.value = 'custom'
+      }
+      resetAndReload()
+    }
+
+    const clearTimeFilters = () => {
+      selectedQuickRange.value = 'all'
+      selectedYear.value = 'all'
+      selectedMonth.value = 'all'
+      selectedDay.value = 'all'
+      resetAndReload()
+      closeTimeDropdown()
+    }
 
     // 定义完成状态和未完成状态
     const completedStatuses = ['parsed', 'completed']
-    const incompleteStatuses = ['uploading', 'queued', 'decrypting', 'parsing', 'failed', 'decrypt_failed', 'parse_failed', 'file_error']
+    const incompleteStatuses = [
+      'uploading',
+      'queued',
+      'decrypting',
+      'parsing',
+      'failed',
+      'decrypt_failed',
+      'parse_failed',
+      'file_error',
+      'processing_failed',
+      'process_failed',
+      'handle_failed',
+      'upload_failed'
+    ]
 
     // 状态筛选在前端进行（因为后端不支持状态筛选参数）
     // 时间筛选在后端进行（使用 time_range_start 和 time_range_end）
@@ -197,6 +659,8 @@ export default {
         console.error('Failed to fetch device info:', error)
         // 如果出错，从日志列表中提取设备信息
         extractDeviceInfoFromLogs()
+      } finally {
+        nextTick(updateLayoutMetrics)
       }
     }
     
@@ -230,24 +694,12 @@ export default {
         }
         
         // 添加时间范围筛选（转换为文件名前缀格式 YYYYMMDDHH）
-        if (startTime.value || endTime.value) {
-          if (startTime.value) {
-            const startDate = new Date(startTime.value)
-            const year = startDate.getFullYear()
-            const month = String(startDate.getMonth() + 1).padStart(2, '0')
-            const day = String(startDate.getDate()).padStart(2, '0')
-            const hour = String(startDate.getHours()).padStart(2, '0')
-            params.time_range_start = `${year}${month}${day}${hour}`
-          }
-          if (endTime.value) {
-            const endDate = new Date(endTime.value)
-            endDate.setHours(23, 59, 59, 999)
-            const year = endDate.getFullYear()
-            const month = String(endDate.getMonth() + 1).padStart(2, '0')
-            const day = String(endDate.getDate()).padStart(2, '0')
-            const hour = String(endDate.getHours()).padStart(2, '0')
-            params.time_range_end = `${year}${month}${day}${hour}`
-          }
+        const timeRangeParams = resolveTimeRange()
+        if (timeRangeParams.time_range_start) {
+          params.time_range_start = timeRangeParams.time_range_start
+        }
+        if (timeRangeParams.time_range_end) {
+          params.time_range_end = timeRangeParams.time_range_end
         }
         
         const resp = await api.logs.getList(params)
@@ -298,6 +750,7 @@ export default {
         finished.value = true
       } finally {
         loading.value = false
+        nextTick(updateLayoutMetrics)
       }
     }
 
@@ -344,44 +797,16 @@ export default {
       onLoad()
     }
 
-    const handleStatusChange = () => {
-      // 状态筛选已通过computed处理
-    }
-
     const handleStatusSelect = (value) => {
       statusFilter.value = value
-      showStatusDropdown.value = false
-      // 筛选条件变化，重置并重新加载
       resetAndReload()
-    }
-    
-    // 监听时间筛选变化
-    let timeFilterTimer = null
-    watch([startTime, endTime], () => {
-      // 清除之前的定时器
-      if (timeFilterTimer) {
-        clearTimeout(timeFilterTimer)
-      }
-      // 延迟执行，避免频繁请求
-      timeFilterTimer = setTimeout(() => {
-        resetAndReload()
-      }, 500)
-    })
-
-    const getStatusFilterText = () => {
-      const option = statusOptions.find(opt => opt.value === statusFilter.value)
-      return option ? option.text : '全部状态'
     }
 
     const getStatusBadgeClass = (status) => {
       if (status === 'parsed' || status === 'completed') {
         return 'status-badge-success'
-      } else if (status === 'failed' || status === 'decrypt_failed' || status === 'parse_failed' || status === 'file_error') {
-        return 'status-badge-error'
-      } else if (status === 'decrypting' || status === 'parsing' || status === 'uploading') {
-        return 'status-badge-processing'
       }
-      return 'status-badge-default'
+      return 'status-badge-error'
     }
 
     const formatFileSize = (bytes) => {
@@ -459,12 +884,6 @@ export default {
       router.push({ name: 'MLogView', params: { logId: log.id } })
     }
 
-    const handleClickOutside = (event) => {
-      if (showStatusDropdown.value && !event.target.closest('.filter-section')) {
-        showStatusDropdown.value = false
-      }
-    }
-
     // 监听路由参数变化，切换设备时重置状态
     watch(() => route.params?.deviceId, (newDeviceId, oldDeviceId) => {
       if (newDeviceId && newDeviceId !== oldDeviceId) {
@@ -476,11 +895,13 @@ export default {
         finished.value = false
         loading.value = false
         statusFilter.value = 'all'
-        startTime.value = ''
-        endTime.value = ''
-        showStatusDropdown.value = false
+        selectedQuickRange.value = 'all'
+        selectedYear.value = 'all'
+        selectedMonth.value = 'all'
+        selectedDay.value = 'all'
         // 重新加载数据
         onLoad()
+        nextTick(updateLayoutMetrics)
       }
     })
 
@@ -489,33 +910,52 @@ export default {
       page.value = 1
       finished.value = false
       allLogs.value = []
-      
-      // 不在这里手动调用 onLoad，让 van-list 自动触发
-      // van-list 会在组件挂载后自动调用 @load 事件
-      document.addEventListener('click', handleClickOutside)
+      nextTick(updateLayoutMetrics)
+      window.addEventListener('resize', updateLayoutMetrics)
     })
 
     onBeforeUnmount(() => {
-      document.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('resize', updateLayoutMetrics)
     })
 
     return {
       deviceId,
+      headerRef,
+      filtersRef,
+      headerHeight,
+      pagePaddingTop,
+      contentPaddingTop,
       deviceInfo,
       totalLogs,
-      logs,
       filteredLogs,
       loading,
       finished,
       statusFilter,
       statusOptions,
-      startTime,
-      endTime,
-      showStatusDropdown,
+      selectedQuickRange,
+      selectedYear,
+      selectedMonth,
+      selectedDay,
+      quickRangeOptions,
+      quickRangeTitle,
+      customRangeTitle,
+      yearLabel,
+      monthLabel,
+      dayLabel,
+      clearText,
+      timeFilterTitle,
+      yearOptions,
+      monthOptions,
+      dayOptions,
+      timeDropdownRef,
       onLoad,
-      handleStatusChange,
       handleStatusSelect,
-      getStatusFilterText,
+      selectQuickRange,
+      selectYear,
+      selectMonth,
+      selectDay,
+      clearTimeFilters,
+      onTimeDropdownOpen,
       formatFileSize,
       formatTime,
       getUploaderName,
@@ -540,16 +980,14 @@ export default {
 /* 顶部导航栏 */
 .mobile-header {
   position: fixed;
-  /* 从 viewport 顶部开始 */
   top: 0;
   left: 0;
   right: 0;
   z-index: 100;
   background-color: #fff;
-  border-bottom: 1.439px solid rgba(0, 0, 0, 0.1);
-  padding: 14px 6px;
-  /* 顶部安全区域：防止被前置摄像头遮挡 */
-  padding-top: max(14px, calc(env(safe-area-inset-top) + 14px));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 12px 16px;
+  padding-top: max(12px, calc(env(safe-area-inset-top) + 12px));
 }
 
 .header-container {
@@ -570,21 +1008,22 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 6px;
 }
 
 .header-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  line-height: 24px;
   flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .header-title {
-  font-size: 14px;
-  font-weight: 400;
+  font-size: 16px;
+  font-weight: 600;
   color: #101828;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -594,25 +1033,33 @@ export default {
 .header-hospital {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
   color: #6a7282;
   line-height: 16px;
 }
 
 .header-logs {
   flex-shrink: 0;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
   color: #6a7282;
   line-height: 16px;
+  margin-left: auto;
 }
 
 .header-row .info-text {
-  font-size: 11px;
+  font-size: 12px;
   color: #6a7282;
   line-height: 16px;
 }
 
 .info-text {
+  font-size: 12px;
+  color: #6a7282;
+  line-height: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -620,20 +1067,24 @@ export default {
 
 .info-value-primary {
   color: #155dfc;
-  font-weight: 500;
+  font-weight: 600;
+  margin-right: 2px;
 }
 
 /* 筛选区域（固定定位） */
 .filter-section {
   position: fixed;
-  /* header高度：padding-top(max(14px, safe-area + 14px)) + 内容高度(24px) + padding-bottom(14px) */
-  top: calc(max(14px, calc(env(safe-area-inset-top) + 14px)) + 24px + 14px);
+  top: calc(max(16px, calc(env(safe-area-inset-top) + 8px)) + 40px);
   left: 0;
   right: 0;
-  z-index: 99;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   background-color: #f7f8fa;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 12px;
+  padding-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .content {
@@ -641,105 +1092,108 @@ export default {
   padding-right: 12px;
   /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
   padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
-  /* 给固定区域留出空间：header高度 + 筛选区域高度（筛选区域padding 16px + 时间选择器约86px + 状态筛选按钮32px = 约134px） */
-  padding-top: calc(max(14px, calc(env(safe-area-inset-top) + 14px)) + 24px + 14px + 134px);
+  /* 给固定区域留出空间：header高度 + 筛选区域高度 */
+  padding-top: calc(max(16px, calc(env(safe-area-inset-top) + 8px)) + 40px + 12px + 134px);
 }
 
 /* 时间范围选择器 */
-.time-range-section {
-  background-color: #fff;
-  border-radius: 14px;
-  border: 1.439px solid rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  margin-bottom: 0;
+.filter-menu {
+  background-color: transparent;
 }
 
-.time-range-label {
+.time-filter-panel {
+  padding: 12px;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #101828;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.time-icon {
+.time-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
   font-size: 14px;
-  color: #6a7282;
+  font-weight: 500;
+  color: #323233;
 }
 
-.time-inputs {
+.quick-options {
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.time-input {
-  flex: 1;
-  height: 32px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 0 10px;
-  font-size: 12px;
-  color: #101828;
-  background-color: #fff;
+.quick-option {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background-color: #f2f3f5;
+  font-size: 13px;
+  color: #646566;
+  transition: all 0.2s ease;
 }
 
-.time-input:focus {
-  outline: none;
-  border-color: #155dfc;
+.quick-option.active {
+  background-color: #1989fa;
+  color: #fff;
 }
 
-/* 状态筛选按钮 */
-.status-filter-button {
-  width: 100%;
-  height: 32px;
-  background-color: #fff;
-  border: 1.439px solid rgba(0, 0, 0, 0.1);
-  border-radius: 14px;
-  padding: 0 10px;
+.custom-options {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.custom-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-label {
   font-size: 13px;
-  color: #101828;
-  cursor: pointer;
-  outline: none;
+  color: #646566;
 }
 
-.dropdown-icon {
-  font-size: 14px;
-  color: #6a7282;
+.option-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-/* 状态下拉菜单 */
-.status-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 12px;
-  right: 12px;
-  background-color: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 101;
-  overflow: hidden;
-}
-
-.status-option {
-  padding: 8px 10px;
+.option-pill {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background-color: #f2f3f5;
   font-size: 13px;
-  color: #101828;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  color: #646566;
+  transition: all 0.2s ease;
 }
 
-.status-option:hover {
-  background-color: #f7f8fa;
+.option-pill.active {
+  background-color: #1989fa;
+  color: #fff;
 }
 
-.status-option.active {
-  background-color: #ecf5ff;
-  color: #155dfc;
+.time-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.action-pill {
+  padding: 6px 16px;
+  border-radius: 16px;
+  background-color: #f2f3f5;
+  font-size: 13px;
+  color: #646566;
+  transition: all 0.2s ease;
+}
+
+.action-pill:hover {
+  background-color: #1989fa;
+  color: #fff;
 }
 
 .log-list {
@@ -781,12 +1235,20 @@ export default {
 .card-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: 22.85px;
+  min-height: 22.85px;
+}
+
+.view-text {
+  font-size: 12px;
+  font-weight: 400;
+  color: #99a1af;
+  line-height: 16px;
+  margin-right: auto;
 }
 
 .status-badge-wrapper {
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .status-badge {
@@ -808,30 +1270,13 @@ export default {
 }
 
 .status-badge-success {
-  background-color: #f3f4f6;
-  color: #364153;
+  background-color: #ecfdf3;
+  color: #027a48;
 }
 
 .status-badge-error {
-  background-color: #f3f4f6;
-  color: #364153;
-}
-
-.status-badge-processing {
-  background-color: #f3f4f6;
-  color: #364153;
-}
-
-.status-badge-default {
-  background-color: #f3f4f6;
-  color: #364153;
-}
-
-.view-text {
-  font-size: 12px;
-  font-weight: 400;
-  color: #99a1af;
-  line-height: 16px;
+  background-color: #fef3f2;
+  color: #b42318;
 }
 
 .empty-state {

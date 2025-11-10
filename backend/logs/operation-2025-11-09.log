@@ -1,0 +1,2 @@
+{"time":"2025-11-09T03:09:02.735Z","operation":"更新故障码","description":"更新故障码: 0X590E","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":788,"oldData":{"code":"0X590E","subsystem":"1","category":"日志记录"},"newData":{"code":"0X590E","subsystem":"1","category":"日志记录"}}}
+{"time":"2025-11-09T03:09:03.506Z","operation":"新增故障码","description":"新增故障码: 0X590E","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":996,"code":"0X590E","subsystem":"8"}}

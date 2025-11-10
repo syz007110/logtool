@@ -108,6 +108,7 @@ const i18nErrorCodes = {
 const logs = {
   getList: (params) => api.get('/logs', { params }),
   getByDevice: (params) => api.get('/logs/by-device', { params }),
+  getTimeFilters: (params) => api.get('/logs/time-filters', { params }),
   upload: (formData) => api.post('/logs/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

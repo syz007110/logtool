@@ -38,11 +38,11 @@
                 <div class="device-id-row">
                   <div class="device-id">{{ item.deviceId }}</div>
                   <div class="log-badge">
-                    <span class="badge-text">{{ item.count ?? 0 }}</span>
+                    <span class="badge-text">{{ item.logCount ?? 0 }}</span>
                     <span class="badge-label">{{ $t('mobile.logs.logFilesUnit') }}</span>
                   </div>
                 </div>
-                <div class="hospital-name">{{ item.hospital }}</div>
+                <div class="hospital-name">{{ getHospitalDisplayName(item.hospitalName) }}</div>
               </div>
               
               <!-- 右侧箭头 -->
@@ -65,9 +65,10 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { List as VanList, Empty as VanEmpty, Icon as VanIcon } from 'vant'
 import { useStore } from 'vuex'
+import { maskHospitalName } from '@/utils/maskSensitiveData'
 
 export default {
   name: 'MLogDevices',
@@ -85,6 +86,9 @@ export default {
     const page = ref(1)
     const pageSize = 20
     const total = ref(0)
+    const hasDeviceReadPermission = computed(() =>
+      store.getters['auth/hasPermission']?.('device:read')
+    )
 
     const fetchPage = async () => {
       try {
@@ -99,8 +103,8 @@ export default {
 
         const mapped = groups.map(g => ({
           deviceId: g.device_id,
-          hospital: g.hospital_name || '-',
-          count: g.log_count || 0
+          hospitalName: g.hospital_name || '',
+          logCount: g.log_count || 0
         }))
 
         if (page.value === 1) {
@@ -143,7 +147,23 @@ export default {
       onLoad()
     }
 
-    return { keyword, items, loading, finished, onLoad, handleSearchInput }
+    const getHospitalDisplayName = (hospitalName) => {
+      if (!hospitalName || hospitalName === '-' || (typeof hospitalName === 'string' && hospitalName.trim() === '')) {
+        return '-'
+      }
+      const masked = maskHospitalName(hospitalName, hasDeviceReadPermission.value)
+      return masked || '-'
+    }
+
+    return {
+      keyword,
+      items,
+      loading,
+      finished,
+      onLoad,
+      handleSearchInput,
+      getHospitalDisplayName
+    }
   }
 }
 </script>
@@ -165,28 +185,26 @@ export default {
   right: 0;
   z-index: 100;
   background-color: #fff;
-  /* 为顶部添加安全区域适配，防止被前置摄像头遮挡 */
-  padding-top: max(16px, env(safe-area-inset-top) + 8px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .header {
   padding: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebedf0;
+  padding-top: max(16px, calc(env(safe-area-inset-top) + 8px));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .page-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: #323233;
   margin: 0;
   line-height: 24px;
-  height: 24px;
 }
 
 .search-container {
-  padding: 12px;
-  border-bottom: 1px solid #ebedf0;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   background-color: #fff;
 }
 
@@ -221,10 +239,9 @@ export default {
 }
 
 .content {
-  padding: 12px;
-  /* 为固定的标题栏和搜索框留出空间 */
-  /* fixed-header-section 高度 = padding-top (包含安全区域) + header (56px) + search-container (60px) */
-  margin-top: calc(max(16px, env(safe-area-inset-top) + 8px) + 56px + 60px);
+  padding: 12px 16px;
+  /* fixed-header-section 高度 = header (含安全区域)  + search-container (60px) */
+  margin-top: calc(max(16px, calc(env(safe-area-inset-top) + 8px)) + 40px + 60px);
 }
 
 .device-list {
@@ -261,7 +278,7 @@ export default {
 .device-id-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   margin-bottom: 2px;
 }
 
@@ -293,6 +310,7 @@ export default {
   padding: 2px 8px;
   height: 22px;
   flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .badge-text {

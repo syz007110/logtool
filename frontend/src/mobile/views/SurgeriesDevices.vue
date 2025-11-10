@@ -30,19 +30,16 @@
             @click="$router.push({ name: 'MDeviceSurgeries', params: { deviceId: item.deviceId } })"
           >
             <div class="card-content">
-              <!-- 左侧图标 -->
-              <div class="device-icon">
-                <van-icon name="orders-o" />
-              </div>
-              
-              <!-- 中间信息 -->
+              <!-- 设备信息 -->
               <div class="device-info">
-                <div class="device-id">{{ item.deviceId }}</div>
-                <div class="hospital-name">{{ item.hospital }}</div>
-                <div class="surgery-badge">
-                  <span class="badge-text">{{ item.count ?? 0 }}</span>
-                  <span class="badge-label">{{ $t('mobile.surgeries.surgeriesUnit') }}</span>
+                <div class="device-id-row">
+                  <div class="device-id">{{ item.deviceId }}</div>
+                  <div class="surgery-badge">
+                    <span class="badge-text">{{ item.surgeryCount ?? 0 }}</span>
+                    <span class="badge-label">{{ $t('mobile.surgeries.surgeriesUnit') }}</span>
+                  </div>
                 </div>
+                <div class="hospital-name">{{ getHospitalDisplayName(item.hospitalName) }}</div>
               </div>
               
               <!-- 右侧箭头 -->
@@ -65,9 +62,11 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { List as VanList, Empty as VanEmpty, Icon as VanIcon } from 'vant'
+import { useStore } from 'vuex'
 import api from '@/api'
+import { maskHospitalName } from '@/utils/maskSensitiveData'
 
 export default {
   name: 'MSurgeriesDevices',
@@ -77,6 +76,7 @@ export default {
     'van-icon': VanIcon
   },
   setup() {
+    const store = useStore()
     const keyword = ref('')
     const items = ref([])
     const loading = ref(false)
@@ -84,42 +84,69 @@ export default {
     const grouped = ref([])
     const prepared = ref(false)
 
+    const hasDeviceReadPermission = computed(() =>
+      store.getters['auth/hasPermission']?.('device:read')
+    )
+
     const prepareGroups = async () => {
-      const surgeriesResp = await api.surgeries.list({ limit: 10000 })
-      const all = surgeriesResp?.data?.data || []
-      const map = new Map()
-      all.forEach(s => {
-        const deviceIds = s.device_ids || []
-        const hospital = (Array.isArray(s.hospital_names) && s.hospital_names[0]) || s.hospital_name || '-'
-        deviceIds.forEach(did => {
-          if (!map.has(did)) map.set(did, { deviceId: did, hospital, count: 0 })
-          map.get(did).count++
+      try {
+        const surgeriesResp = await api.surgeries.list({ limit: 10000 })
+        const all = surgeriesResp?.data?.data || []
+        const map = new Map()
+        all.forEach(s => {
+          const deviceIds = Array.isArray(s.device_ids) ? s.device_ids : []
+          const hospital =
+            (Array.isArray(s.hospital_names) && s.hospital_names[0]) ||
+            s.hospital_name ||
+            ''
+          deviceIds.forEach(did => {
+            if (!map.has(did)) {
+              map.set(did, { deviceId: did, hospitalName: hospital, surgeryCount: 0 })
+            }
+            map.get(did).surgeryCount += 1
+          })
         })
-      })
-      grouped.value = Array.from(map.values()).sort((a,b)=>b.count-a.count)
-      prepared.value = true
+        grouped.value = Array.from(map.values()).sort((a, b) => b.surgeryCount - a.surgeryCount)
+      } catch (error) {
+        console.error('Failed to prepare surgery device groups:', error)
+        grouped.value = []
+      } finally {
+        prepared.value = true
+      }
     }
 
     const page = ref(1)
     const pageSize = 20
     
     const onLoad = async () => {
-      if (finished.value) return
+      if (finished.value || loading.value) return
       loading.value = true
       try {
         if (!prepared.value) await prepareGroups()
         const kw = (keyword.value || '').toLowerCase().trim()
         const source = kw
-          ? grouped.value.filter(x => x.deviceId?.toLowerCase().includes(kw) || x.hospital?.toLowerCase().includes(kw))
+          ? grouped.value.filter(x => {
+              const deviceText = x.deviceId != null ? String(x.deviceId).toLowerCase() : ''
+              const hospitalText =
+                x.hospitalName != null ? String(x.hospitalName).toLowerCase() : ''
+              return deviceText.includes(kw) || hospitalText.includes(kw)
+            })
           : grouped.value
         const start = (page.value - 1) * pageSize
         const next = source.slice(start, start + pageSize)
-        items.value.push(...next)
+        if (page.value === 1) {
+          items.value = [...next]
+        } else {
+          items.value = items.value.concat(next)
+        }
         if (items.value.length >= source.length || next.length < pageSize) {
           finished.value = true
         } else {
           page.value += 1
         }
+      } catch (error) {
+        console.error('Failed to load surgeries by device:', error)
+        finished.value = true
       } finally {
         loading.value = false
       }
@@ -130,10 +157,30 @@ export default {
       page.value = 1
       items.value = []
       finished.value = false
+      // 如果此前 prepareGroups 失败，再次尝试加载
+      if (!prepared.value) {
+        prepared.value = false
+      }
       onLoad()
     }
     
-    return { keyword, items, loading, finished, onLoad, handleSearchInput }
+    const getHospitalDisplayName = (hospitalName) => {
+      if (!hospitalName || hospitalName === '-' || (typeof hospitalName === 'string' && hospitalName.trim() === '')) {
+        return '-'
+      }
+      const masked = maskHospitalName(hospitalName, hasDeviceReadPermission.value)
+      return masked || '-'
+    }
+
+    return {
+      keyword,
+      items,
+      loading,
+      finished,
+      onLoad,
+      handleSearchInput,
+      getHospitalDisplayName
+    }
   }
 }
 </script>
@@ -164,8 +211,8 @@ export default {
 
 .search-container {
   background-color: #fff;
-  padding: 12px;
-  border-bottom: 1px solid #ebedf0;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .search-box {
@@ -197,7 +244,7 @@ export default {
 }
 
 .content {
-  padding: 12px;
+  padding: 12px 16px;
 }
 
 .device-list {
@@ -222,24 +269,8 @@ export default {
 .card-content {
   display: flex;
   align-items: center;
-  padding: 16px;
-}
-
-.device-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ecf5ff;
-  border-radius: 8px;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-.device-icon .van-icon {
-  font-size: 20px;
-  color: #1989fa;
+  padding: 8px 16px;
+  min-height: 52px;
 }
 
 .device-info {
@@ -247,20 +278,28 @@ export default {
   min-width: 0;
 }
 
+.device-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
 .device-id {
   font-size: 16px;
   font-weight: 500;
   color: #323233;
-  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .hospital-name {
   font-size: 14px;
   color: #646566;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -269,21 +308,23 @@ export default {
 .surgery-badge {
   display: inline-flex;
   align-items: center;
-  background-color: #ecf5ff;
+  background-color: #f0f0f0;
   border-radius: 12px;
   padding: 2px 8px;
   height: 22px;
+  flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .badge-text {
   font-size: 14px;
   font-weight: 500;
-  color: #1989fa;
+  color: #646566;
 }
 
 .badge-label {
   font-size: 12px;
-  color: #1989fa;
+  color: #646566;
   margin-left: 2px;
 }
 

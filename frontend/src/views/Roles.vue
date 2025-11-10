@@ -170,9 +170,9 @@ export default {
     const permissionGroups = computed(() => {
       const groups = {}
       for (const p of permissions.value) {
-        const key = (p.name.includes(':') ? p.name.split(':')[0] : '其他')
-        if (!groups[key]) groups[key] = []
-        groups[key].push(p)
+        const prefix = getPermissionPrefix(p.name)
+        if (!groups[prefix]) groups[prefix] = []
+        groups[prefix].push(p)
       }
       return groups
     })
@@ -192,38 +192,39 @@ export default {
 
       // 权限分组映射
       const groupMapping = {
-        'user': t('roles.permissionGroups.user'),
-        'role': t('roles.permissionGroups.role'), 
-        'error_code': t('roles.permissionGroups.error_code'),
-        'log': t('roles.permissionGroups.log'),
-        'i18n': t('roles.permissionGroups.i18n'),
-        'device': t('roles.permissionGroups.device'),
-        'history': t('roles.permissionGroups.history'),
-        'surgery': t('roles.permissionGroups.surgery'),
-        'data_replay': t('roles.permissionGroups.data_replay'),
-        'dashboard': t('roles.permissionGroups.dashboard'),
-        'test': t('roles.permissionGroups.test'),
-        'system': t('roles.permissionGroups.system'),
-        'loglevel': t('roles.permissionGroups.loglevel')
+        user: t('roles.permissionGroups.user'),
+        role: t('roles.permissionGroups.role'),
+        error_code: t('roles.permissionGroups.error_code'),
+        log: t('roles.permissionGroups.log'),
+        i18n: t('roles.permissionGroups.i18n'),
+        device: t('roles.permissionGroups.device'),
+        history: t('roles.permissionGroups.history'),
+        surgery: t('roles.permissionGroups.surgery'),
+        data_replay: t('roles.permissionGroups.data_replay'),
+        dashboard: t('roles.permissionGroups.dashboard'),
+        test: t('roles.permissionGroups.test'),
+        system: t('roles.permissionGroups.system'),
+        loglevel: t('roles.permissionGroups.loglevel')
       }
 
       // 按权限前缀分组
       const groupedPermissions = {}
       permissions.value.forEach(permission => {
-        const prefix = permission.name.split(':')[0]
-        const groupName = groupMapping[prefix] || t('roles.permissionGroups.other')
-        
-        if (!groupedPermissions[groupName]) {
-          groupedPermissions[groupName] = {
-            key: `${prefix}_management`,
-            label: groupName,
+        const prefix = getPermissionPrefix(permission.name)
+        const groupKey = prefix || 'other'
+        const groupLabel = groupMapping[groupKey] || t('roles.permissionGroups.other')
+
+        if (!groupedPermissions[groupKey]) {
+          groupedPermissions[groupKey] = {
+            key: `${groupKey}_management`,
+            label: groupLabel,
             children: []
           }
         }
-        
-        groupedPermissions[groupName].children.push({
+
+        groupedPermissions[groupKey].children.push({
           key: permission.name,
-          label: permission.description || permission.name,
+          label: getPermissionLabel(permission, groupLabel),
           description: permission.description
         })
       })
@@ -401,6 +402,46 @@ export default {
       loadRoles()
       loadPermissions()
     })
+
+    function getPermissionPrefix (permissionName) {
+      if (!permissionName) return 'other'
+      const normalized = String(permissionName).toLowerCase()
+      const parts = normalized.split(':')
+      if (parts.length > 1 && parts[0]) {
+        return parts[0]
+      }
+      return 'other'
+    }
+
+    function getPermissionLabel (permission, groupLabel) {
+      const normalizedName = String(permission?.name || '').toLowerCase()
+      if (!normalizedName) {
+        return permission?.description || ''
+      }
+
+      const overrideKey = `roles.permissionLabels.${normalizedName.replace(/:/g, '.')}`
+      const overrideText = t(overrideKey)
+      if (overrideText && overrideText !== overrideKey) {
+        return overrideText
+      }
+
+      const segments = normalizedName.split(':')
+      const actionSegment = segments[1] || 'default'
+      const actionKey = actionSegment.replace(/[^a-z_]/g, '') || 'default'
+      const actionI18nKey = `roles.permissionActions.${actionKey}`
+      const translatedAction = t(actionI18nKey)
+      const actionLabel = translatedAction && translatedAction !== actionI18nKey
+        ? translatedAction
+        : actionSegment.toUpperCase()
+
+      const baseLabel = groupLabel || t('roles.permissionGroups.other')
+
+      if (actionLabel) {
+        return `${baseLabel} · ${actionLabel}`
+      }
+
+      return permission?.description || permission?.name || baseLabel
+    }
     
     return {
       loading,
@@ -462,9 +503,11 @@ h4 {
   border: 1px solid #d9d9d9;
   border-radius: 6px;
   padding: 8px;
-  background: #fafafa;
+  background: #fff;
   max-height: 400px;
   overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ant-design-tree {

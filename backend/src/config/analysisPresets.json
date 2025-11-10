@@ -11,22 +11,33 @@
     },
     "FINE": {
       "excludeKeys": [
-        "CPU"
+        "Self_Test",
+        "Pos_Record",
+        "Null",
+        "Maintenance_Information",
+        "Account_Management",
+        "Boundary"
       ]
     },
     "KEY": {
       "excludeKeys": [
+        "Config_Parameters",   
+        "IO_Signals",
+        "Energy",
+        "UI_Interactive_Buttons",
+        "Assist_Mode",
+        "Self_Test",
+        "Driver",
+        "Initialization",
+        "Patient_Cart",
+        "Pos_Record",
+        "Codecs",
         "Tips",
-        "Null",
         "Maintenance_Information",
         "Account_Management",
-        "Instrument",
         "Safety_Checks",
         "Communication_Errors",
         "Hardware",
-        "Power_Supply",
-        "Network",
-        "Ethercat",
         "Boundary"
       ]
     }

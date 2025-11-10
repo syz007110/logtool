@@ -275,33 +275,85 @@ const getLogs = async (req, res) => {
     if (truthy(only_own) && req.user && req.user.id) {
       where.uploader_id = req.user.id;
     }
-    // 时间筛选：
-    // 1) 区间：将 original_name 的前10位(YYYYMMDDHH)与 [time_range_start, time_range_end] 做区间筛选
-    // 2) 前缀：original_name 以 YYYY[MM][DD][HH] 开头（time_prefix 或 year/month/day/hour 组合）
-    const prefixFromParam = (p) => typeof p === 'string' ? p.trim() : (p ?? '').toString();
-    const rangeStart = prefixFromParam(time_range_start);
-    const rangeEnd = prefixFromParam(time_range_end);
-    if (rangeStart && rangeEnd && /^[0-9]{10}$/.test(rangeStart) && /^[0-9]{10}$/.test(rangeEnd)) {
-      // 使用 LEFT(original_name, 10) BETWEEN start AND end
+    // 时间筛选：基于生成列 file_time_token (YYYYMMDDhhmm)
+    const toDigits = (value) => {
+      if (value === undefined || value === null) return '';
+      const str = String(value).trim();
+      if (!/^\d+$/.test(str)) return '';
+      return str.length > 12 ? str.slice(0, 12) : str;
+    };
+
+    const parseDigitsToValue = (digits, isEnd = false) => {
+      if (!digits) return null;
+      const len = digits.length;
+      if (len < 4) return null;
+      const get = (start, end) => {
+        if (len < end) return null;
+        return Number(digits.slice(start, end));
+      };
+      const parts = {
+        year: Number(digits.slice(0, 4)),
+        month: get(4, 6),
+        day: get(6, 8),
+        hour: get(8, 10),
+        minute: get(10, 12)
+      };
+      if (Number.isNaN(parts.year)) return null;
+
+      const fill = (value, fallback) => {
+        if (value == null || Number.isNaN(value)) return fallback;
+        return value;
+      };
+
+      const month = fill(parts.month, isEnd ? 12 : 0);
+      const day = fill(parts.day, isEnd ? 31 : 0);
+      const hour = fill(parts.hour, isEnd ? 23 : 0);
+      const minute = fill(parts.minute, isEnd ? 59 : 0);
+
+      return (parts.year * 100000000) +
+        (month * 1000000) +
+        (day * 10000) +
+        (hour * 100) +
+        minute;
+    };
+
+    const timeValueExpr = SequelizeLib.literal(`
+      (COALESCE(file_year, 0) * 100000000) +
+      (COALESCE(file_month, 0) * 1000000) +
+      (COALESCE(file_day, 0) * 10000) +
+      (COALESCE(file_hour, 0) * 100) +
+      COALESCE(file_minute, 0)
+    `);
+
+    const addTokenRangeCondition = (startDigits, endDigits) => {
+      const start = toDigits(startDigits);
+      const end = toDigits(endDigits);
+      if (!start || !end || start.length < 4 || end.length < 4) return;
+      const startValue = parseDigitsToValue(start, false);
+      const endValue = parseDigitsToValue(end, true);
+      if (startValue == null || endValue == null || startValue > endValue) return;
       where[SequelizeLib.Op.and] = (where[SequelizeLib.Op.and] || []).concat([
-        SequelizeLib.where(
-          SequelizeLib.fn('LEFT', SequelizeLib.col('original_name'), 10),
-          { [Op.between]: [rangeStart, rangeEnd] }
-        )
+        SequelizeLib.where(timeValueExpr, { [Op.between]: [startValue, endValue] })
       ]);
+    };
+
+    const rangeStartRaw = toDigits(time_range_start);
+    const rangeEndRaw = toDigits(time_range_end);
+    if (rangeStartRaw && rangeEndRaw) {
+      addTokenRangeCondition(rangeStartRaw, rangeEndRaw);
     } else {
-      const tp = prefixFromParam(time_prefix);
-      if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
-        where.original_name = { [Op.like]: `${tp}%` };
-      } else if (year) {
-        const y = String(year).padStart(4, '0');
-        const m = month ? String(month).padStart(2, '0') : '';
-        const d = day ? String(day).padStart(2, '0') : '';
-        const h = hour ? String(hour).padStart(2, '0') : '';
-        const prefix = `${y}${m}${d}${h}`;
-        if (prefix && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(prefix)) {
-          where.original_name = { [Op.like]: `${prefix}%` };
-        }
+      const prefixCandidate = (() => {
+        const tp = toDigits(time_prefix);
+        if (tp) return tp;
+        if (!year) return '';
+        let digits = String(year).padStart(4, '0');
+        if (month) digits += String(month).padStart(2, '0');
+        if (day) digits += String(day).padStart(2, '0');
+        if (hour) digits += String(hour).padStart(2, '0');
+        return digits;
+      })();
+      if (prefixCandidate && prefixCandidate.length >= 4) {
+        addTokenRangeCondition(prefixCandidate, prefixCandidate);
       }
     }
     
@@ -314,7 +366,10 @@ const getLogs = async (req, res) => {
       where,
       offset: (page - 1) * limit,
       limit,
-      order: [['original_name', 'DESC']]
+      order: [
+        [timeValueExpr, 'DESC'],
+        ['id', 'DESC']
+      ]
     });
 
     // 第二步：获取所有相关的设备ID
@@ -356,6 +411,76 @@ const getLogs = async (req, res) => {
     console.error('获取日志列表失败:', err);
     console.error('错误堆栈:', err.stack);
     res.status(500).json({ message: req.t('log.listFailed'), error: err.message });
+  }
+};
+
+const getLogTimeFilters = async (req, res) => {
+  try {
+    const { device_id } = req.query;
+    if (!device_id) {
+      return res.status(400).json({ success: false, message: 'device_id is required' });
+    }
+
+    const replacements = { deviceId: device_id };
+    const query = `
+      SELECT DISTINCT
+        COALESCE(file_year, CASE WHEN original_name REGEXP '^[0-9]{10,12}_' THEN CAST(SUBSTRING(original_name, 1, 4) AS UNSIGNED) ELSE NULL END) AS year,
+        COALESCE(file_month, CASE WHEN original_name REGEXP '^[0-9]{10,12}_' THEN CAST(SUBSTRING(original_name, 5, 2) AS UNSIGNED) ELSE NULL END) AS month,
+        COALESCE(file_day, CASE WHEN original_name REGEXP '^[0-9]{10,12}_' THEN CAST(SUBSTRING(original_name, 7, 2) AS UNSIGNED) ELSE NULL END) AS day
+      FROM logs
+      WHERE device_id = :deviceId
+        AND (
+          file_year IS NOT NULL
+          OR original_name REGEXP '^[0-9]{10,12}_'
+        )
+    `;
+
+    const [rows] = await sequelize.query(query, { replacements });
+
+    const yearsSet = new Set();
+    const monthsMap = new Map();
+    const daysMap = new Map();
+
+    rows.forEach(({ year, month, day }) => {
+      if (year == null) return;
+      const yearStr = String(year).padStart(4, '0');
+      yearsSet.add(yearStr);
+
+      if (month != null) {
+        const monthStr = String(month).padStart(2, '0');
+        if (!monthsMap.has(yearStr)) monthsMap.set(yearStr, new Set());
+        monthsMap.get(yearStr).add(monthStr);
+
+        if (day != null) {
+          const dayStr = String(day).padStart(2, '0');
+          const dayKey = `${yearStr}-${monthStr}`;
+          if (!daysMap.has(dayKey)) daysMap.set(dayKey, new Set());
+          daysMap.get(dayKey).add(dayStr);
+        }
+      }
+    });
+
+    const years = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+    const monthsByYear = {};
+    monthsMap.forEach((set, year) => {
+      monthsByYear[year] = Array.from(set).sort((a, b) => a.localeCompare(b));
+    });
+    const daysByYearMonth = {};
+    daysMap.forEach((set, key) => {
+      daysByYearMonth[key] = Array.from(set).sort((a, b) => a.localeCompare(b));
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        years,
+        monthsByYear,
+        daysByYearMonth
+      }
+    });
+  } catch (error) {
+    console.error('getLogTimeFilters error:', error);
+    return res.status(500).json({ success: false, message: '获取日志时间筛选项失败', error: error.message });
   }
 };
 
@@ -3513,6 +3638,7 @@ const getStuckLogsStats = async (req, res) => {
 module.exports = {
   getLogs,
   getLogsByDevice,
+  getLogTimeFilters,
   uploadLog,
   parseLog,
   reparseLog,

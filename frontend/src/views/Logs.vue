@@ -163,29 +163,6 @@
             
             <!-- 第二列：筛选控件 -->
             <div class="filter-controls">
-              <!-- 仅看自己按钮 -->
-              <div class="only-own-section">
-                <el-checkbox v-model="detailOnlyOwn" @change="applyDetailOnlyOwn" :label="$t('logs.onlyOwn')" />
-              </div>
-              
-              <!-- 时间范围筛选 -->
-              <div class="time-range-section">
-                <el-date-picker
-                  v-model="detailTimeRange"
-                  type="datetimerange"
-                  :range-separator="$t('logs.to')"
-                  :start-placeholder="$t('logs.startTime')"
-                  :end-placeholder="$t('logs.endTime')"
-                  format="YYYY-MM-DD HH"
-                  value-format="YYYY-MM-DD HH:mm:ss"
-                  :unlink-panels="true"
-                  :editable="false"
-                  :clearable="true"
-                  style="width: 380px;"
-                  @change="onDetailTimeChange"
-                />
-              </div>
-              
               <!-- 重置按钮 - 次要按钮 -->
               <div class="reset-section">
                 <button class="btn-secondary btn-sm" @click="resetDetailFilters">
@@ -207,6 +184,63 @@
 
         <!-- 详细日志列表 -->
         <div class="detail-logs-section">
+          <div class="detail-time-filter-bar">
+            <el-radio-group
+              v-model="detailQuickRange"
+              size="small"
+              class="quick-range-group"
+              @change="handleQuickRangeChange"
+            >
+              <el-radio-button
+                v-for="option in detailQuickRangeOptions"
+                :key="option.value"
+                :label="option.value"
+              >
+                {{ option.label }}
+              </el-radio-button>
+            </el-radio-group>
+            <div class="custom-range-selects">
+              <el-select
+                v-model="detailSelectedYear"
+                size="small"
+                class="time-select"
+                @change="handleYearChange"
+              >
+                <el-option
+                  v-for="option in detailYearOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <el-select
+                v-model="detailSelectedMonth"
+                size="small"
+                class="time-select"
+                @change="handleMonthChange"
+              >
+                <el-option
+                  v-for="option in detailMonthOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <el-select
+                v-model="detailSelectedDay"
+                size="small"
+                class="time-select"
+                @change="handleDayChange"
+              >
+                <el-option
+                  v-for="option in detailDayOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </div>
+          </div>
             <div class="detail-header">
             <h4 class="min-w-0 one-line-ellipsis" :title="$t('logs.title')">{{ $t('logs.title') }}</h4>
             <div class="detail-actions">
@@ -637,7 +671,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -680,15 +714,65 @@ export default {
     const detailLogs = ref([])
     const detailLoading = ref(false)
     const lastDetailLogsLoadAt = ref(0)
-    const detailTimeRange = ref([]) // [moment, moment]
     let detailReloadTimer = null
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
+    const detailTypeFilter = ref('all')
+    const detailQuickRange = ref('all')
+    const detailSelectedYear = ref('all')
+    const detailSelectedMonth = ref('all')
+    const detailSelectedDay = ref('all')
+    const detailAvailableYears = ref([])
+    const detailAvailableMonths = ref({})
+    const detailAvailableDays = ref({})
     const detailTotal = ref(0)
+    const currentYear = new Date().getFullYear()
+
+    const parseTimestampFromFilename = (log) => {
+      const rawName = log?.original_name || log?.filename || log?.name
+      if (!rawName || typeof rawName !== 'string') return null
+      const filename = rawName.split('/').pop() || rawName
+      const match = filename.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})?/)
+      if (!match) return null
+      const [, yearStr, monthStr, dayStr, hourStr, minuteStr] = match
+      const year = Number(yearStr)
+      const month = Number(monthStr)
+      const day = Number(dayStr)
+      const hour = Number(hourStr)
+      const minute = minuteStr != null ? Number(minuteStr) : 0
+      if ([year, month, day, hour].some(num => Number.isNaN(num))) return null
+      if (minuteStr != null && Number.isNaN(minute)) return null
+      const date = new Date(Date.UTC(year, month - 1, day, hour, minute || 0, 0, 0))
+      if (Number.isNaN(date.getTime())) return null
+      return {
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        timestamp: date.getTime()
+      }
+    }
+
+    const extractLogDateParts = (log) => {
+      const filenameParts = parseTimestampFromFilename(log)
+      if (filenameParts) {
+        return filenameParts
+      }
+      const raw = log?.upload_time || log?.uploadTime || log?.created_at
+      if (!raw) return null
+      const date = new Date(raw)
+      if (Number.isNaN(date.getTime())) return null
+      return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+        timestamp: date.getTime()
+      }
+    }
     const selectedDetailLogs = ref([])
     const showDetailNameFilterPanel = ref(false)
     const detailNameTimePrefix = ref('')
-    const detailOnlyOwn = ref(false)
     const showEntriesDialog = ref(false)
     const logEntries = ref([])
     const dateShortcuts = ref([
@@ -737,6 +821,127 @@ export default {
     // 计算属性
     const logs = computed(() => Array.isArray(store.getters['logs/logsList']) ? store.getters['logs/logsList'] : [])
     const total = computed(() => store.getters['logs/totalCount'])
+
+    const detailQuickRangeOptions = computed(() => ([
+      { value: 'all', label: t('logs.surgeriesFilters.quickAll') },
+      { value: '1d', label: t('logs.surgeriesFilters.quick1d') },
+      { value: '7d', label: t('logs.surgeriesFilters.quick7d') },
+      { value: '30d', label: t('logs.surgeriesFilters.quick30d') },
+      { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') }
+    ]))
+
+    const detailYearOptions = computed(() => {
+      const suffix = t('logs.surgeriesFilters.yearSuffix') || ''
+      const yearsSource = Array.isArray(detailAvailableYears.value) ? detailAvailableYears.value : []
+      const normalizedYears = yearsSource
+        .map(year => {
+          const num = Number(year)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(4, '0')
+        })
+        .filter(Boolean)
+      const years = normalizedYears.length ? normalizedYears.sort((a, b) => Number(b) - Number(a)) : [String(currentYear)]
+      const options = [
+        { value: 'all', label: t('logs.surgeriesFilters.yearAll') },
+        ...years.map(year => ({
+          value: year,
+          label: `${year}${suffix}`
+        }))
+      ]
+      return options
+    })
+
+    const detailMonthOptions = computed(() => {
+      const suffix = t('logs.surgeriesFilters.monthSuffix') || ''
+      const monthsSet = new Set()
+      const monthsMap = detailAvailableMonths.value || {}
+
+      if (detailSelectedYear.value !== 'all') {
+        const months = monthsMap[detailSelectedYear.value] || []
+        months.forEach(month => {
+          const num = Number(month)
+          if (!Number.isNaN(num)) {
+            monthsSet.add(String(num).padStart(2, '0'))
+          }
+        })
+      } else {
+        Object.values(monthsMap).forEach(list => {
+          (list || []).forEach(month => {
+            const num = Number(month)
+            if (!Number.isNaN(num)) {
+              monthsSet.add(String(num).padStart(2, '0'))
+            }
+          })
+        })
+      }
+
+      if (!monthsSet.size) {
+        for (let m = 1; m <= 12; m += 1) {
+          monthsSet.add(String(m).padStart(2, '0'))
+        }
+      }
+
+      const sorted = Array.from(monthsSet).sort((a, b) => a.localeCompare(b))
+      return [
+        { value: 'all', label: t('logs.surgeriesFilters.monthAll') },
+        ...sorted.map(month => ({
+          value: month,
+          label: `${month}${suffix}`
+        }))
+      ]
+    })
+
+    const detailDayOptions = computed(() => {
+      const suffix = t('logs.surgeriesFilters.daySuffix') || ''
+      const daysSet = new Set()
+      const daysMap = detailAvailableDays.value || {}
+
+      if (detailSelectedYear.value !== 'all' && detailSelectedMonth.value !== 'all') {
+        const key = `${detailSelectedYear.value}-${detailSelectedMonth.value}`
+        const days = daysMap[key] || []
+        days.forEach(day => {
+          const num = Number(day)
+          if (!Number.isNaN(num)) {
+            daysSet.add(String(num).padStart(2, '0'))
+          }
+        })
+      } else if (detailSelectedYear.value !== 'all') {
+        Object.entries(daysMap).forEach(([key, list]) => {
+          if (key.startsWith(`${detailSelectedYear.value}-`)) {
+            (list || []).forEach(day => {
+              const num = Number(day)
+              if (!Number.isNaN(num)) {
+                daysSet.add(String(num).padStart(2, '0'))
+              }
+            })
+          }
+        })
+      } else {
+        Object.values(daysMap).forEach(list => {
+          (list || []).forEach(day => {
+            const num = Number(day)
+            if (!Number.isNaN(num)) {
+              daysSet.add(String(num).padStart(2, '0'))
+            }
+          })
+        })
+      }
+
+      if (!daysSet.size) {
+        for (let d = 1; d <= 31; d += 1) {
+          daysSet.add(String(d).padStart(2, '0'))
+        }
+      }
+
+      const sorted = Array.from(daysSet).sort((a, b) => a.localeCompare(b))
+      return [
+        { value: 'all', label: t('logs.surgeriesFilters.dayAll') },
+        ...sorted.map(day => ({
+          value: day,
+          label: `${day}${suffix}`
+        }))
+      ]
+    })
     
     // WebSocket 状态相关计算属性
     const websocketStatusTitle = computed(() => {
@@ -955,6 +1160,16 @@ export default {
     const showDeviceDetail = (device) => {
       selectedDevice.value = device
       showDeviceDetailDrawer.value = true
+      detailCurrentPage.value = 1
+      detailTypeFilter.value = 'all'
+      detailQuickRange.value = 'all'
+      detailSelectedYear.value = 'all'
+      detailSelectedMonth.value = 'all'
+      detailSelectedDay.value = 'all'
+      detailAvailableYears.value = []
+      detailAvailableMonths.value = {}
+      detailAvailableDays.value = {}
+      syncDetailSelections()
       
       // 订阅设备状态更新
       if (device && device.device_id) {
@@ -967,6 +1182,7 @@ export default {
         }
       }
       
+      loadDetailTimeFilters()
       loadDetailLogs({ force: true })
     }
     
@@ -997,14 +1213,14 @@ export default {
         detailLoading.value = true
         lastDetailLogsLoadAt.value = now
         const timeParams = buildDetailTimeParams()
-        await store.dispatch('logs/fetchLogs', {
+        const response = await store.dispatch('logs/fetchLogs', {
           page: detailCurrentPage.value,
           limit: detailPageSize.value,
           device_id: selectedDevice.value.device_id,
           ...timeParams
         })
-        detailLogs.value = logs.value
-        detailTotal.value = total.value
+        detailLogs.value = response?.data?.logs || logs.value || []
+        detailTotal.value = response?.data?.total ?? total.value ?? detailLogs.value.length
       } catch (error) {
         if (!silent) ElMessage.error(t('logs.errors.loadDeviceDetailLogsFailed'))
       } finally {
@@ -1012,44 +1228,195 @@ export default {
       }
     }
     
+    const syncDetailSelections = () => {
+      const monthValues = detailMonthOptions.value.map(option => option.value)
+      if (!monthValues.includes(detailSelectedMonth.value)) {
+        detailSelectedMonth.value = 'all'
+      }
+      const dayValues = detailDayOptions.value.map(option => option.value)
+      if (!dayValues.includes(detailSelectedDay.value)) {
+        detailSelectedDay.value = 'all'
+      }
+      if (
+        detailSelectedYear.value === 'all' &&
+        detailSelectedMonth.value === 'all' &&
+        detailSelectedDay.value === 'all'
+      ) {
+        detailQuickRange.value = 'all'
+      }
+    }
+
+    const loadDetailTimeFilters = async () => {
+      if (!selectedDevice.value?.device_id) return
+      try {
+        const resp = await api.logs.getTimeFilters({ device_id: selectedDevice.value.device_id })
+        const data = resp.data?.data || {}
+
+        const normalizeYear = (value) => {
+          if (value == null) return null
+          const num = Number(value)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(4, '0')
+        }
+        const normalizeMonth = (value) => {
+          if (value == null) return null
+          const num = Number(value)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(2, '0')
+        }
+        const normalizeDay = (value) => {
+          if (value == null) return null
+          const num = Number(value)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(2, '0')
+        }
+
+        const yearsArray = Array.isArray(data.years) ? data.years : []
+        const normalizedYears = yearsArray
+          .map(normalizeYear)
+          .filter(Boolean)
+        detailAvailableYears.value = Array.from(new Set(normalizedYears))
+
+        const monthsResult = {}
+        if (data.monthsByYear && typeof data.monthsByYear === 'object') {
+          Object.entries(data.monthsByYear).forEach(([year, list]) => {
+            const normalizedYear = normalizeYear(year)
+            if (!normalizedYear) return
+            const months = Array.isArray(list) ? list : []
+            const normalizedMonths = months
+              .map(normalizeMonth)
+              .filter(Boolean)
+            if (normalizedMonths.length) {
+              monthsResult[normalizedYear] = Array.from(new Set(normalizedMonths))
+            }
+          })
+        }
+        detailAvailableMonths.value = monthsResult
+
+        const daysResult = {}
+        if (data.daysByYearMonth && typeof data.daysByYearMonth === 'object') {
+          Object.entries(data.daysByYearMonth).forEach(([key, list]) => {
+            const [yearPart, monthPart] = key.split('-')
+            const normalizedYear = normalizeYear(yearPart)
+            const normalizedMonth = normalizeMonth(monthPart)
+            if (!normalizedYear || !normalizedMonth) return
+            const normalizedDays = (Array.isArray(list) ? list : [])
+              .map(normalizeDay)
+              .filter(Boolean)
+            if (normalizedDays.length) {
+              daysResult[`${normalizedYear}-${normalizedMonth}`] = Array.from(new Set(normalizedDays))
+            }
+          })
+        }
+        detailAvailableDays.value = daysResult
+
+        syncDetailSelections()
+      } catch (error) {
+        console.warn('loadDetailTimeFilters error:', error)
+        detailAvailableYears.value = []
+        detailAvailableMonths.value = {}
+        detailAvailableDays.value = {}
+      }
+    }
+
+    watch([detailAvailableYears, detailAvailableMonths, detailAvailableDays], () => {
+      syncDetailSelections()
+    })
+
+    const formatTimePrefix = (date) => {
+      if (!date) return ''
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      const h = String(date.getHours()).padStart(2, '0')
+      return `${y}${m}${d}${h}`
+    }
+
+    const computeCustomRange = () => {
+      if (
+        detailSelectedYear.value === 'all' &&
+        detailSelectedMonth.value === 'all' &&
+        detailSelectedDay.value === 'all'
+      ) {
+        return { start: null, end: null }
+      }
+
+      const year =
+        detailSelectedYear.value === 'all'
+          ? currentYear
+          : Number(detailSelectedYear.value)
+      const month =
+        detailSelectedMonth.value === 'all'
+          ? null
+          : Number(detailSelectedMonth.value)
+      const day =
+        detailSelectedDay.value === 'all'
+          ? null
+          : Number(detailSelectedDay.value)
+
+      const start = new Date(
+        year,
+        (month || 1) - 1,
+        day || 1,
+        0,
+        0,
+        0,
+        0
+      )
+      let end
+      if (day) {
+        end = new Date(year, (month || 1) - 1, day, 23, 59, 59, 999)
+      } else if (month) {
+        end = new Date(year, month, 0, 23, 59, 59, 999)
+      } else {
+        end = new Date(year, 11, 31, 23, 59, 59, 999)
+      }
+      return { start, end }
+    }
+
     const buildDetailTimeParams = () => {
       const tp = (detailNameTimePrefix.value || '').trim()
-      const params = { only_own: detailOnlyOwn.value || undefined }
+      const params = {}
       if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
         params.time_prefix = tp
       }
-      if (Array.isArray(detailTimeRange.value) && detailTimeRange.value.length === 2) {
-        const [start, end] = detailTimeRange.value
-        // Element Plus DatePicker 返回字符串，需要转换为 YYYYMMDDHH 格式
-        const toPrefix = (d) => {
-          if (!d) return ''
-          const dt = new Date(d)
-          const y = dt.getFullYear()
-          const m = String(dt.getMonth() + 1).padStart(2, '0')
-          const day = String(dt.getDate()).padStart(2, '0')
-          const h = String(dt.getHours()).padStart(2, '0')
-          return `${y}${m}${day}${h}`
-        }
-        const p1 = toPrefix(start)
-        const p2 = toPrefix(end)
-        if (p1 && p2) {
-          params.time_range_start = p1
-          params.time_range_end = p2
+
+      let startDate = null
+      let endDate = null
+      const now = new Date()
+
+      if (detailQuickRange.value === '1d') {
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        endDate = now
+      } else if (detailQuickRange.value === '7d') {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        endDate = now
+      } else if (detailQuickRange.value === '30d') {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        endDate = now
+      }
+
+      if (
+        detailQuickRange.value === 'custom' ||
+        detailSelectedYear.value !== 'all' ||
+        detailSelectedMonth.value !== 'all' ||
+        detailSelectedDay.value !== 'all'
+      ) {
+        const { start, end } = computeCustomRange()
+        if (start && end) {
+          startDate = start
+          endDate = end
         }
       }
+
+      if (startDate && endDate) {
+        params.time_range_start = formatTimePrefix(startDate)
+        params.time_range_end = formatTimePrefix(endDate)
+      }
+
       return params
     }
 
-    const onDetailTimeChange = (vals) => {
-      // Element Plus DatePicker 返回的是字符串数组或 null
-      detailTimeRange.value = Array.isArray(vals) ? vals : []
-      // 自动应用筛选
-      if (Array.isArray(vals) && vals.length === 2) {
-        detailCurrentPage.value = 1
-        loadDetailLogs()
-      }
-    }
-    
     const handleDrawerClose = () => {
       showDeviceDetailDrawer.value = false
       
@@ -1060,6 +1427,14 @@ export default {
       
       selectedDevice.value = null
       selectedDetailLogs.value = []
+      detailSelectedYear.value = 'all'
+      detailSelectedMonth.value = 'all'
+      detailSelectedDay.value = 'all'
+      detailQuickRange.value = 'all'
+      detailAvailableYears.value = []
+      detailAvailableMonths.value = {}
+      detailAvailableDays.value = {}
+      syncDetailSelections()
       
       // 清理智能状态监控
       if (window.smartStatusMonitorCleanup) {
@@ -1237,31 +1612,28 @@ export default {
     const handleDetailSizeChange = (size) => {
       detailPageSize.value = size
       detailCurrentPage.value = 1
-      loadDetailLogs()
+      loadDetailLogs({ force: true })
     }
     
     const handleDetailCurrentChange = (page) => {
       detailCurrentPage.value = page
-      loadDetailLogs()
-    }
-    
-    const applyDetailOnlyOwn = () => {
-      detailCurrentPage.value = 1
-      loadDetailLogs()
+      loadDetailLogs({ force: true })
     }
     
     const resetDetailFilters = () => {
       detailNameTimePrefix.value = ''
-      detailOnlyOwn.value = false
-      detailTimeRange.value = [] // 清除时间筛选器
+      detailQuickRange.value = 'all'
+      detailSelectedYear.value = 'all'
+      detailSelectedMonth.value = 'all'
+      detailSelectedDay.value = 'all'
       detailCurrentPage.value = 1
-      loadDetailLogs()
+      loadDetailLogs({ force: true })
     }
     
     const applyDetailNameFilter = () => {
       detailCurrentPage.value = 1
       showDetailNameFilterPanel.value = false
-      loadDetailLogs()
+      loadDetailLogs({ force: true })
     }
     
     const resetDetailNameFilter = () => {
@@ -1269,6 +1641,70 @@ export default {
       applyDetailNameFilter()
     }
     
+    const handleQuickRangeChange = (value) => {
+      detailQuickRange.value = value
+      if (value !== 'custom') {
+        detailSelectedYear.value = 'all'
+        detailSelectedMonth.value = 'all'
+        detailSelectedDay.value = 'all'
+      }
+      detailCurrentPage.value = 1
+      loadDetailLogs({ force: true })
+    }
+
+    const handleYearChange = (value) => {
+      detailSelectedYear.value = value
+      if (value === 'all') {
+        detailSelectedMonth.value = 'all'
+        detailSelectedDay.value = 'all'
+        detailQuickRange.value = 'all'
+      } else {
+        detailQuickRange.value = 'custom'
+      }
+      detailCurrentPage.value = 1
+      loadDetailLogs({ force: true })
+    }
+
+    const handleMonthChange = (value) => {
+      if (value !== 'all' && detailSelectedYear.value === 'all') {
+        detailSelectedYear.value = String(currentYear)
+      }
+      detailSelectedMonth.value = value
+      if (value === 'all') {
+        detailSelectedDay.value = 'all'
+        if (detailSelectedYear.value === 'all') {
+          detailQuickRange.value = 'all'
+        } else {
+          detailQuickRange.value = 'custom'
+        }
+      } else {
+        detailQuickRange.value = 'custom'
+      }
+      detailCurrentPage.value = 1
+      loadDetailLogs({ force: true })
+    }
+
+    const handleDayChange = (value) => {
+      if (value !== 'all') {
+        if (detailSelectedYear.value === 'all') {
+          detailSelectedYear.value = String(currentYear)
+        }
+        if (detailSelectedMonth.value === 'all') {
+          const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0')
+          detailSelectedMonth.value = currentMonth
+        }
+        detailQuickRange.value = 'custom'
+      } else if (
+        detailSelectedYear.value === 'all' &&
+        detailSelectedMonth.value === 'all'
+      ) {
+        detailQuickRange.value = 'all'
+      }
+      detailSelectedDay.value = value
+      detailCurrentPage.value = 1
+      loadDetailLogs({ force: true })
+    }
+
 
     
     const handleSizeChange = (size) => {
@@ -2343,8 +2779,14 @@ export default {
       selectedDetailLogs,
       showDetailNameFilterPanel,
       detailNameTimePrefix,
-      detailOnlyOwn,
-      detailTimeRange,
+      detailQuickRange,
+      detailSelectedYear,
+      detailSelectedMonth,
+      detailSelectedDay,
+      detailQuickRangeOptions,
+      detailYearOptions,
+      detailMonthOptions,
+      detailDayOptions,
       showEntriesDialog,
       logEntries,
       loadDeviceGroups,
@@ -2362,11 +2804,13 @@ export default {
       clearDetailSelection,
       handleDetailSizeChange,
       handleDetailCurrentChange,
-      applyDetailOnlyOwn,
       resetDetailFilters,
       applyDetailNameFilter,
       resetDetailNameFilter,
-      onDetailTimeChange,
+      handleQuickRangeChange,
+      handleYearChange,
+      handleMonthChange,
+      handleDayChange,
       checkAndUpdateDetailLogs,
       startSmartStatusMonitoring,
       startMonitoringIfDrawerOpen,
@@ -2473,13 +2917,6 @@ export default {
 }
 
 /* 统一按钮样式与对齐 */
-.only-own-section .btn-primary,
-.only-own-section .btn-secondary,
-.only-own-section .btn-tertiary,
-.only-own-section .btn-ghost,
-.only-own-section .btn-danger,
-.only-own-section .btn-success,
-.only-own-section .btn-text,
 .reset-section .btn-primary,
 .reset-section .btn-secondary,
 .reset-section .btn-tertiary,
@@ -2503,12 +2940,6 @@ export default {
 .upload-section .btn-text {
   height: 32px;
   line-height: 30px;
-}
-
-.only-own-section .el-checkbox {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
 }
 
 /* 列头筛选样式 */
@@ -2906,16 +3337,37 @@ export default {
 
 .filter-controls {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
-.only-own-section,
-.time-range-section,
 .reset-section,
 .refresh-section {
   display: flex;
   align-items: center;
+}
+
+.time-filter-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 320px;
+}
+
+.quick-range-group {
+  flex-shrink: 0;
+}
+
+.custom-range-selects {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.time-select {
+  width: 130px;
 }
 
 .device-actions {
@@ -2927,6 +3379,14 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.detail-time-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .detail-header {
@@ -2954,7 +3414,6 @@ export default {
   min-width: 240px;
 }
 
-.detail-actions .only-own-section,
 .detail-actions .reset-section,
 .detail-actions .refresh-section {
   flex: 0 0 auto;

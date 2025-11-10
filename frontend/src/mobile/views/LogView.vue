@@ -25,23 +25,16 @@
           {{ option.text }}
         </button>
       </div>
-      
-      <!-- 搜索表达式展示 -->
-      <div class="filter-summary" v-if="analysisLevelLabel !== '未选择分析等级' || searchExpression">
-        <div class="filter-item" v-if="analysisLevelLabel !== '未选择分析等级'">
-          <span class="label">分析等级：</span>
-          <span class="tag">{{ analysisLevelLabel }}</span>
-        </div>
-        <div class="filter-item" v-if="searchExpression">
-          <span class="label">搜索表达式：</span>
-          <span class="expr">{{ searchExpression }}</span>
-          <van-icon 
-            v-if="hasActiveFilters"
-            name="cross" 
-            class="clear-filter-icon" 
-            @click="clearFilters"
-          />
-        </div>
+
+      <div v-if="searchExpression" class="filter-summary">
+        <van-icon name="notes-o" class="filter-summary-icon" />
+        <span class="filter-summary-text">{{ searchExpression }}</span>
+        <van-icon
+          v-if="hasActiveFilters"
+          name="cross"
+          class="filter-summary-clear"
+          @click="clearFilters"
+        />
       </div>
     </div>
 
@@ -1062,59 +1055,45 @@ export default {
   border-color: #155dfc;
 }
 
-/* 搜索表达式展示样式（参考桌面端） */
 .filter-summary {
   margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.filter-item {
-  font-size: 11px;
-  color: #606266;
-  padding: 4px 8px;
-  background: #f9fafb;
-  border: 1px dashed #e4e7ed;
-  border-radius: 4px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
-  line-height: 1.4;
+  background-color: #f3f4f6;
+  border: 1px solid rgba(21, 93, 252, 0.15);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #364153;
 }
 
-.filter-item .label {
-  font-weight: 500;
-  color: #303133;
+.filter-summary-icon {
+  font-size: 14px;
+  color: #155dfc;
   flex-shrink: 0;
 }
 
-.filter-item .tag {
-  color: #409eff;
-  font-weight: 500;
-}
-
-.filter-item .expr {
-  color: #606266;
-  word-break: break-all;
+.filter-summary-text {
   flex: 1;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
-.clear-filter-icon {
+.filter-summary-clear {
   font-size: 14px;
   color: #969799;
   cursor: pointer;
+  padding: 4px;
   flex-shrink: 0;
-  margin-left: 6px;
-  padding: 2px;
-  transition: color 0.2s;
 }
 
-.clear-filter-icon:active {
+.filter-summary-clear:active {
   color: #323233;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
+/* 搜索表达式展示样式（参考桌面端） */
 .filter-button:active {
   opacity: 0.8;
 }

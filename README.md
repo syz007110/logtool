@@ -324,5 +324,31 @@ logtool/
         ├── surgery_tables_postgresql.sql # PostgreSQL手术统计表
         └── README.md            # 数据库脚本详细说明
 ```
-
+日志分析等级
+        "Config_Parameters",   
+        "Instrument",
+        "IO_Signals",
+        "Image",
+        "Energy",
+        "UI_Interactive_Buttons",
+        "Assist_Mode",
+        "State_Machine",
+        "Self_Test",
+        "Driver",
+        "Initialization",
+        "Patient_Cart",
+        "Pos_Record",
+        "Codecs",
+        "CPU",
+        "Tips",
+        "Null",
+        "Maintenance_Information",
+        "Account_Management",
+        "Safety_Checks",
+        "Communication_Errors",
+        "Hardware",
+        "Power_Supply",
+        "Network",
+        "Ethercat",
+        "Boundary"
 

@@ -116,13 +116,89 @@
 
         <!-- 详细手术数据列表 -->
         <div class="detail-surgeries-section">
+          <div class="detail-filters">
+            <el-tabs
+              v-model="detailTypeFilter"
+              class="detail-type-tabs"
+              @tab-change="handleTypeTabChange"
+            >
+              <el-tab-pane
+                v-for="tab in detailTypeTabs"
+                :key="tab.value"
+                :label="tab.label"
+                :name="tab.value"
+              />
+            </el-tabs>
+            <div class="time-filter-bar">
+              <div class="quick-range-group">
+                <el-radio-group
+                  v-model="detailQuickRange"
+                  size="small"
+                  @change="handleQuickRangeChange"
+                >
+                  <el-radio-button
+                    v-for="option in detailQuickRangeOptions"
+                    :key="option.value"
+                    :label="option.value"
+                  >
+                    {{ option.label }}
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+              <div class="custom-range-selects">
+                <el-select
+                  v-model="detailSelectedYear"
+                  size="small"
+                  class="time-select"
+                  @change="handleYearChange"
+                >
+                  <el-option
+                    v-for="option in detailYearOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="detailSelectedMonth"
+                  size="small"
+                  class="time-select"
+                  @change="handleMonthChange"
+                >
+                  <el-option
+                    v-for="option in detailMonthOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="detailSelectedDay"
+                  size="small"
+                  class="time-select"
+                  @change="handleDayChange"
+                >
+                  <el-option
+                    v-for="option in detailDayOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </div>
+            </div>
+          </div>
           <el-table
             :data="detailSurgeries"
             :loading="detailLoading"
             style="width: 100%"
             v-loading="detailLoading"
           >
-            <el-table-column prop="surgery_id" :label="$t('logs.surgeryId')" />
+            <el-table-column :label="$t('logs.surgeryId')">
+              <template #default="{ row }">
+                {{ row.display_surgery_id }}
+              </template>
+            </el-table-column>
             <el-table-column prop="start_time" :label="$t('logs.surgeryStartTime')">
               <template #default="{ row }">{{ formatDate(row.start_time) }}</template>
             </el-table-column>
@@ -201,6 +277,14 @@ export default {
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
     const detailTotal = ref(0)
+    const detailAvailableYears = ref([])
+    const detailAvailableMonths = ref({})
+    const detailAvailableDays = ref({})
+    const detailTypeFilter = ref('all')
+    const detailQuickRange = ref('all')
+    const detailSelectedYear = ref('all')
+    const detailSelectedMonth = ref('all')
+    const detailSelectedDay = ref('all')
 
     const canDeleteSurgery = computed(() => store.getters['auth/hasPermission']?.('surgery:delete'))
     const hasDeviceReadPermission = computed(() => store.getters['auth/hasPermission']?.('device:read'))
@@ -295,28 +379,445 @@ export default {
       }
     }
 
-    // 显示设备详情
-    const showDeviceDetail = (device) => {
-      selectedDevice.value = device
-      showDeviceDetailDrawer.value = true
+    const normalizeFlag = (value) => {
+      if (value === true || value === 'true' || value === 1 || value === '1') return true
+      if (value === false || value === 'false' || value === 0 || value === '0' || value == null) return false
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase()
+        if (normalized === 'yes') return true
+        if (normalized === 'no') return false
+      }
+      return Boolean(value)
+    }
+
+    const entryIsRemote = (entry) => {
+      if (!entry) return false
+      if ((entry.surgery_type || '').toLowerCase() === 'remote') return true
+      if (normalizeFlag(entry.is_remote) || normalizeFlag(entry.has_remote)) return true
+      return false
+    }
+
+    const entryIsFault = (entry) => {
+      if (!entry) return false
+      const type = (entry.surgery_type || '').toLowerCase()
+      if (type === 'fault') return true
+      if (normalizeFlag(entry.has_fault) || normalizeFlag(entry.is_fault)) return true
+      if (typeof entry.fault_count === 'number' && entry.fault_count > 0) return true
+      if (typeof entry.error_count === 'number' && entry.error_count > 0) return true
+      return false
+    }
+
+    const detailTypeTabs = computed(() => ([
+      { value: 'all', label: t('logs.surgeriesFilters.typeAll') },
+      { value: 'fault', label: t('logs.surgeriesFilters.typeFault') },
+      { value: 'remote', label: t('logs.surgeriesFilters.typeRemote') }
+    ]))
+
+    const detailQuickRangeOptions = computed(() => ([
+      { value: 'all', label: t('logs.surgeriesFilters.quickAll') },
+      { value: '1d', label: t('logs.surgeriesFilters.quick1d') },
+      { value: '7d', label: t('logs.surgeriesFilters.quick7d') },
+      { value: '30d', label: t('logs.surgeriesFilters.quick30d') },
+      { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') }
+    ]))
+
+    const collectAllDays = () => {
+      const map = new Map()
+      Object.entries(detailAvailableDays.value || {}).forEach(([key, arr]) => {
+        const existing = map.get(key) || new Set()
+        if (Array.isArray(arr)) {
+          arr.forEach(day => existing.add(String(day).padStart(2, '0')))
+        }
+        map.set(key, existing)
+      })
+      detailSurgeries.value.forEach(entry => {
+        if (entry._startYear != null && entry._startMonth != null && entry._startDay != null) {
+          const yearKey = String(entry._startYear)
+          const monthKey = String(entry._startMonth).padStart(2, '0')
+          const dayKey = String(entry._startDay).padStart(2, '0')
+          const mapKey = `${yearKey}-${monthKey}`
+          const existing = map.get(mapKey) || new Set()
+          existing.add(dayKey)
+          map.set(mapKey, existing)
+        }
+      })
+      return map
+    }
+
+    const detailYearOptions = computed(() => {
+      const yearsSet = new Set((detailAvailableYears.value || []).map(year => String(year)))
+      detailSurgeries.value.forEach(entry => {
+        if (entry._startYear != null) {
+          yearsSet.add(String(entry._startYear))
+        }
+      })
+      const sorted = Array.from(yearsSet)
+        .map(year => year)
+        .sort((a, b) => Number(b) - Number(a))
+      return [
+        { value: 'all', label: t('logs.surgeriesFilters.yearAll') },
+        ...sorted.map(year => ({
+          value: year,
+          label: `${year}${t('logs.surgeriesFilters.yearSuffix')}`
+        }))
+      ]
+    })
+
+    const detailMonthOptions = computed(() => {
+      if (detailSelectedYear.value === 'all') {
+        return [{ value: 'all', label: t('logs.surgeriesFilters.monthAll') }]
+      }
+      const monthsSet = new Set()
+      (detailAvailableMonths.value?.[detailSelectedYear.value] || []).forEach(month =>
+        monthsSet.add(String(month).padStart(2, '0'))
+      )
+      detailSurgeries.value.forEach(entry => {
+        if (entry._startYear != null && String(entry._startYear) === detailSelectedYear.value && entry._startMonth != null) {
+          monthsSet.add(String(entry._startMonth).padStart(2, '0'))
+        }
+      })
+      const sorted = Array.from(monthsSet).sort((a, b) => a.localeCompare(b))
+      return [
+        { value: 'all', label: t('logs.surgeriesFilters.monthAll') },
+        ...sorted.map(month => ({
+          value: month,
+          label: `${month}${t('logs.surgeriesFilters.monthSuffix')}`
+        }))
+      ]
+    })
+
+    const detailDayOptions = computed(() => {
+      if (detailSelectedYear.value === 'all' || detailSelectedMonth.value === 'all') {
+        return [{ value: 'all', label: t('logs.surgeriesFilters.dayAll') }]
+      }
+      const dayMap = collectAllDays()
+      const daysSet = new Set()
+      const key = `${detailSelectedYear.value}-${detailSelectedMonth.value}`
+      const targetDays = dayMap.get(key) || new Set()
+      targetDays.forEach(day => daysSet.add(day))
+      const sorted = Array.from(daysSet).sort((a, b) => a.localeCompare(b))
+      return [
+        { value: 'all', label: t('logs.surgeriesFilters.dayAll') },
+        ...sorted.map(day => ({
+          value: day,
+          label: `${day}${t('logs.surgeriesFilters.daySuffix')}`
+        }))
+      ]
+    })
+
+    const ensureMonthSelectionValid = () => {
+      const available = detailMonthOptions.value.map(option => option.value)
+      if (!available.includes(detailSelectedMonth.value)) {
+        detailSelectedMonth.value = 'all'
+        return true
+      }
+      return false
+    }
+
+    const ensureDaySelectionValid = () => {
+      const available = detailDayOptions.value.map(option => option.value)
+      if (!available.includes(detailSelectedDay.value)) {
+        detailSelectedDay.value = 'all'
+        return true
+      }
+      return false
+    }
+
+    const updateQuickRangeBySelections = () => {
+      const allSelected =
+        detailSelectedYear.value === 'all' &&
+        detailSelectedMonth.value === 'all' &&
+        detailSelectedDay.value === 'all'
+      detailQuickRange.value = allSelected ? 'all' : 'custom'
+    }
+
+    const handleTypeTabChange = () => {
       detailCurrentPage.value = 1
       loadDetailSurgeries()
     }
 
+    const handleQuickRangeChange = (value) => {
+      detailQuickRange.value = value
+      if (value !== 'custom') {
+        detailSelectedYear.value = 'all'
+        detailSelectedMonth.value = 'all'
+        detailSelectedDay.value = 'all'
+      }
+      detailCurrentPage.value = 1
+      loadDetailSurgeries()
+    }
+
+    const handleYearChange = (value) => {
+      detailSelectedYear.value = value
+      if (value === 'all') {
+        detailSelectedMonth.value = 'all'
+        detailSelectedDay.value = 'all'
+      } else {
+        ensureMonthSelectionValid()
+        ensureDaySelectionValid()
+      }
+      updateQuickRangeBySelections()
+      detailCurrentPage.value = 1
+      loadDetailSurgeries()
+    }
+
+    const handleMonthChange = (value) => {
+      detailSelectedMonth.value = value
+      if (value === 'all') {
+        detailSelectedDay.value = 'all'
+      } else {
+        ensureDaySelectionValid()
+      }
+      updateQuickRangeBySelections()
+      detailCurrentPage.value = 1
+      loadDetailSurgeries()
+    }
+
+    const handleDayChange = (value) => {
+      detailSelectedDay.value = value
+      updateQuickRangeBySelections()
+      detailCurrentPage.value = 1
+      loadDetailSurgeries()
+    }
+
+
+    // 显示设备详情
+    const showDeviceDetail = (device) => {
+      selectedDevice.value = device
+      showDeviceDetailDrawer.value = true
+      detailSurgeries.value = []
+      detailTotal.value = 0
+      detailCurrentPage.value = 1
+      detailTypeFilter.value = 'all'
+      detailQuickRange.value = 'all'
+      detailSelectedYear.value = 'all'
+      detailSelectedMonth.value = 'all'
+      detailSelectedDay.value = 'all'
+      detailAvailableYears.value = []
+      detailAvailableMonths.value = {}
+      detailAvailableDays.value = {}
+      loadDetailSurgeries()
+    }
+
+    const normalizeMonth = (value) => {
+      if (value == null || value === '') return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(2, '0')
+    }
+
+    const normalizeDay = (value) => {
+      if (value == null || value === '') return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(2, '0')
+    }
+
+    const updateFilterMeta = (entries, filters = {}) => {
+      const yearsSet = new Set((detailAvailableYears.value || []).map(year => String(year)))
+      const monthsMap = { ...(detailAvailableMonths.value || {}) }
+      const daysMap = { ...(detailAvailableDays.value || {}) }
+
+      const addMonth = (year, month) => {
+        if (year == null || month == null) return
+        const yearKey = String(year)
+        const monthKey = normalizeMonth(month)
+        if (!monthKey) return
+        const existing = new Set(monthsMap[yearKey] || [])
+        existing.add(monthKey)
+        monthsMap[yearKey] = Array.from(existing).sort((a, b) => a.localeCompare(b))
+      }
+
+      const addDay = (year, month, day) => {
+        if (year == null || month == null || day == null) return
+        const yearKey = String(year)
+        const monthKey = normalizeMonth(month)
+        const dayKey = normalizeDay(day)
+        if (!monthKey || !dayKey) return
+        const mapKey = `${yearKey}-${monthKey}`
+        const existing = new Set(daysMap[mapKey] || [])
+        existing.add(dayKey)
+        daysMap[mapKey] = Array.from(existing).sort((a, b) => a.localeCompare(b))
+      }
+
+      const filterYears = filters?.years
+      if (Array.isArray(filterYears)) {
+        filterYears.forEach(year => yearsSet.add(String(year)))
+      }
+
+      const filterMonths = filters?.months
+      if (filterMonths && typeof filterMonths === 'object') {
+        Object.entries(filterMonths).forEach(([yearKey, months]) => {
+          const monthArray = Array.isArray(months)
+            ? months
+            : Array.isArray(months?.values)
+              ? months.values
+              : Object.keys(months)
+          monthArray.forEach(month => addMonth(yearKey, month))
+        })
+      }
+
+      const filterDays = filters?.days
+      if (filterDays && typeof filterDays === 'object') {
+        Object.entries(filterDays).forEach(([key, value]) => {
+          if (Array.isArray(value) && key.includes('-')) {
+            const [yearPart, monthPart] = key.split('-')
+            value.forEach(day => addDay(yearPart, monthPart, day))
+          } else if (typeof value === 'object') {
+            Object.entries(value).forEach(([monthKey, days]) => {
+              const dayArray = Array.isArray(days) ? days : Object.keys(days || {})
+              dayArray.forEach(day => addDay(key, monthKey, day))
+            })
+          }
+        })
+      }
+
+      entries.forEach(entry => {
+        if (entry._startYear != null) {
+          yearsSet.add(String(entry._startYear))
+          if (entry._startMonth != null) {
+            addMonth(entry._startYear, entry._startMonth)
+            if (entry._startDay != null) {
+              addDay(entry._startYear, entry._startMonth, entry._startDay)
+            }
+          }
+        }
+      })
+
+      detailAvailableYears.value = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
+      detailAvailableMonths.value = monthsMap
+      detailAvailableDays.value = daysMap
+    }
+
+    const formatTimePrefix = (date) => {
+      if (!date) return null
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hour = String(date.getHours()).padStart(2, '0')
+      return `${year}${month}${day}${hour}`
+    }
+
+    const computeCustomRange = () => {
+      if (detailSelectedYear.value === 'all') return { start: null, end: null }
+      const year = Number(detailSelectedYear.value)
+      const month =
+        detailSelectedMonth.value !== 'all' ? Number(detailSelectedMonth.value) : null
+      const day =
+        detailSelectedDay.value !== 'all' ? Number(detailSelectedDay.value) : null
+
+      const start = new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0)
+      let end
+      if (day) {
+        end = new Date(year, (month || 1) - 1, day, 23, 59, 59, 999)
+      } else if (month) {
+        end = new Date(year, month, 0, 23, 59, 59, 999)
+      } else {
+        end = new Date(year, 11, 31, 23, 59, 59, 999)
+      }
+      return { start, end }
+    }
+
+    const buildDetailTimeParams = () => {
+      const params = {}
+      let startDate = null
+      let endDate = null
+      const now = new Date()
+
+      if (detailQuickRange.value === '1d') {
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        endDate = now
+      } else if (detailQuickRange.value === '7d') {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        endDate = now
+      } else if (detailQuickRange.value === '30d') {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        endDate = now
+      }
+
+      const hasCustomSelection =
+        detailSelectedYear.value !== 'all' ||
+        detailSelectedMonth.value !== 'all' ||
+        detailSelectedDay.value !== 'all'
+
+      if (detailQuickRange.value === 'custom' || hasCustomSelection) {
+        const { start, end } = computeCustomRange()
+        if (start && end) {
+          startDate = start
+          endDate = end
+        }
+      }
+
+      if (startDate && endDate) {
+        params.time_range_start = formatTimePrefix(startDate)
+        params.time_range_end = formatTimePrefix(endDate)
+      }
+      return params
+    }
+
     // 加载设备详细手术数据
-    const loadDetailSurgeries = async () => {
+    const loadDetailSurgeries = async (options = {}) => {
       if (!selectedDevice.value) return
       try {
         detailLoading.value = true
-        const resp = await api.surgeries.list({
+        const params = {
           device_id: selectedDevice.value.device_id,
           page: detailCurrentPage.value,
           limit: detailPageSize.value
+        }
+        if (detailTypeFilter.value !== 'all') {
+          params.type = detailTypeFilter.value
+        }
+        Object.assign(params, buildDetailTimeParams())
+
+        const resp = await api.surgeries.list(params)
+        const list = Array.isArray(resp.data?.data) ? resp.data.data : []
+        const mapped = list.map((entry, index) => {
+          const startDate = entry.start_time ? new Date(entry.start_time) : null
+          const isValidDate = startDate && !Number.isNaN(startDate.getTime())
+          const year = isValidDate ? startDate.getFullYear() : null
+          const month = isValidDate ? startDate.getMonth() + 1 : null
+          const day = isValidDate ? startDate.getDate() : null
+          const hours = isValidDate ? String(startDate.getHours()).padStart(2, '0') : '00'
+          const minutes = isValidDate ? String(startDate.getMinutes()).padStart(2, '0') : '00'
+          const formattedDate = isValidDate
+            ? `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}${hours}${minutes}`
+            : `unknown-${index}`
+          const deviceId = selectedDevice.value?.device_id || 'unknown'
+          return {
+            ...entry,
+            display_surgery_id: `${deviceId}-${formattedDate}`,
+            _startYear: year,
+            _startMonth: month,
+            _startDay: day
+          }
         })
-        detailSurgeries.value = resp.data?.data || []
-        detailTotal.value = resp.data?.total || 0
+
+        detailTotal.value = resp.data?.total ?? 0
+
+        if (!mapped.length && detailTotal.value > 0 && detailCurrentPage.value > 1) {
+          const maxPage = Math.max(1, Math.ceil(detailTotal.value / detailPageSize.value))
+          if (detailCurrentPage.value > maxPage) {
+            detailCurrentPage.value = maxPage
+            await loadDetailSurgeries({ silent: true })
+            return
+          }
+        }
+
+        detailSurgeries.value = mapped
+
+        const filtersMeta = resp.data?.filters || resp.data?.meta?.filters || {}
+        updateFilterMeta(mapped, filtersMeta)
+
+        const monthAdjusted = ensureMonthSelectionValid()
+        const dayAdjusted = ensureDaySelectionValid()
+        if (monthAdjusted || dayAdjusted) {
+          updateQuickRangeBySelections()
+        }
       } catch (e) {
-        ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
+        if (!options?.silent) {
+          ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
+        }
       } finally {
         detailLoading.value = false
       }
@@ -386,6 +887,10 @@ export default {
       showDeviceDetailDrawer.value = false
       selectedDevice.value = null
       detailSurgeries.value = []
+      detailTotal.value = 0
+      detailAvailableYears.value = []
+      detailAvailableMonths.value = {}
+      detailAvailableDays.value = {}
     }
 
     // 设备列表分页处理
@@ -472,6 +977,16 @@ export default {
       detailCurrentPage,
       detailPageSize,
       detailTotal,
+      detailTypeFilter,
+      detailTypeTabs,
+      detailQuickRange,
+      detailQuickRangeOptions,
+      detailSelectedYear,
+      detailSelectedMonth,
+      detailSelectedDay,
+      detailYearOptions,
+      detailMonthOptions,
+      detailDayOptions,
       // 权限
       canDeleteSurgery,
       hasDeviceReadPermission,
@@ -488,6 +1003,11 @@ export default {
       handleDetailSizeChange,
       handleDetailCurrentChange,
       handleKeywordClear,
+      handleTypeTabChange,
+      handleQuickRangeChange,
+      handleYearChange,
+      handleMonthChange,
+      handleDayChange,
       resetFilters,
       formatDate,
       // 医院信息脱敏
@@ -616,5 +1136,53 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.detail-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-type-tabs:deep(.el-tabs__nav-wrap) {
+  justify-content: flex-start;
+}
+
+.time-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.quick-range-group {
+  flex-shrink: 0;
+}
+
+.custom-range-selects {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.time-select {
+  width: 140px;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.header-total {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
 }
 </style>

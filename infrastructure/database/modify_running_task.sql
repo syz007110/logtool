@@ -70,3 +70,85 @@ CREATE INDEX idx_le_norm ON log_entries(subsystem_char, code4);
 SELECT NOW() as step2_completed, '索引创建完成' as status;
 
 
+-- ========================================
+-- 步骤3：为 logs 表添加基于文件名的时间生成列
+-- ========================================
+-- 预计时间：与数据量相关（建议在维护窗口执行）
+
+ALTER TABLE logs
+  ADD COLUMN file_time_token CHAR(12)
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN original_name REGEXP '^[0-9]{10,12}_'
+          AND LOCATE('_', original_name) > 0
+          THEN
+            -- 对 10 位字符串补齐到 12 位，方便后续统一处理
+            LPAD(LEFT(original_name, LOCATE('_', original_name) - 1), 12, '0')
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '从文件名提取的时间前缀(YYYYMMDDhh[mm])，不足 12 位时左侧补 0',
+  ADD COLUMN file_year SMALLINT
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN original_name REGEXP '^[0-9]{10,12}_'
+          THEN CAST(SUBSTRING(original_name, 1, 4) AS UNSIGNED)
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '文件名中的年份',
+  ADD COLUMN file_month TINYINT UNSIGNED
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN original_name REGEXP '^[0-9]{10,12}_'
+          THEN CAST(SUBSTRING(original_name, 5, 2) AS UNSIGNED)
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '文件名中的月份',
+  ADD COLUMN file_day TINYINT UNSIGNED
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN original_name REGEXP '^[0-9]{10,12}_'
+          THEN CAST(SUBSTRING(original_name, 7, 2) AS UNSIGNED)
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '文件名中的日期',
+  ADD COLUMN file_hour TINYINT UNSIGNED
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN original_name REGEXP '^[0-9]{10,12}_'
+          THEN CAST(SUBSTRING(original_name, 9, 2) AS UNSIGNED)
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '文件名中的小时',
+  ADD COLUMN file_minute TINYINT UNSIGNED
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN original_name REGEXP '^[0-9]{12}_'
+          THEN CAST(SUBSTRING(original_name, 11, 2) AS UNSIGNED)
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '文件名中的分钟(存在时)',
+  ALGORITHM=COPY,
+  LOCK=SHARED;
+
+-- 显示步骤3完成时间
+SELECT NOW() as step3_completed, 'logs 表生成列添加完成' as status;
+
+
+-- ========================================
+-- 步骤4：为新生成列创建索引
+-- ========================================
+-- 预计时间：视表大小 2-5 分钟
+
+CREATE INDEX idx_logs_file_time ON logs(file_year, file_month, file_day, file_hour, file_minute);
+CREATE INDEX idx_logs_file_token ON logs(file_time_token);
+
+-- 显示步骤4完成时间
+SELECT NOW() as step4_completed, 'logs 表索引创建完成' as status;
+
+

@@ -7,11 +7,62 @@ const Device = require('../models/device');
 // 列表：支持 device_id 模糊筛选与分页
 exports.listSurgeries = async (req, res) => {
   try {
-    const { device_id, page = 1, limit = 20 } = req.query;
+    const { device_id, page = 1, limit = 20, type, time_range_start, time_range_end } = req.query;
     const where = {};
     if (device_id) {
       // 精确匹配包含该设备编号的手术（PostgreSQL ARRAY contains）
       where.device_ids = { [Op.contains]: [String(device_id)] };
+    }
+
+    if (type === 'fault') {
+      where.has_fault = { [Op.is]: true };
+    } else if (type === 'remote') {
+      where.is_remote = true;
+    }
+
+    const parseTimePrefixToDate = (value, isEnd = false) => {
+      if (!value || typeof value !== 'string') return null;
+      const normalized = value.trim();
+      const match = normalized.match(/^(\d{4})(\d{2})(\d{2})(\d{2})?$/);
+      if (!match) return null;
+      const [, yearStr, monthStr, dayStr, hourStr] = match;
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const day = Number(dayStr);
+      if ([year, month, day].some(num => Number.isNaN(num))) return null;
+      let hour = 0;
+      let minute = 0;
+      let second = 0;
+      let millisecond = 0;
+      if (hourStr != null) {
+        hour = Number(hourStr);
+        if (Number.isNaN(hour)) hour = 0;
+      }
+      if (isEnd) {
+        if (hourStr == null) {
+          hour = 23;
+        }
+        minute = 59;
+        second = 59;
+        millisecond = 999;
+      }
+      const iso = `${yearStr}-${monthStr}-${dayStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}Z`;
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return null;
+      if (millisecond && minute === 59 && second === 59) {
+        date.setUTCMilliseconds(millisecond);
+      }
+      return date;
+    };
+
+    const startDate = parseTimePrefixToDate(time_range_start, false);
+    const endDate = parseTimePrefixToDate(time_range_end, true);
+    if (startDate && endDate) {
+      where.start_time = { [Op.between]: [startDate, endDate] };
+    } else if (startDate) {
+      where.start_time = { [Op.gte]: startDate };
+    } else if (endDate) {
+      where.start_time = { [Op.lte]: endDate };
     }
 
     const pageNum = parseInt(page) || 1;
@@ -57,8 +108,23 @@ exports.listSurgeries = async (req, res) => {
 // 获取单条
 exports.getSurgeryById = async (req, res) => {
   try {
-    const item = await Surgery.findByPk(req.params.id);
-    if (!item) return res.status(404).json({ success: false, message: '未找到手术数据' });
+    const { id: rawId } = req.params;
+    let item = null;
+
+    // 先尝试按主键（数值型）查找
+    if (rawId && /^\d+$/.test(rawId)) {
+      item = await Surgery.findByPk(Number(rawId));
+    }
+
+    // 如果主键未找到，再按 surgery_id（字符型）查找
+    if (!item && rawId) {
+      item = await Surgery.findOne({ where: { surgery_id: rawId } });
+    }
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: '未找到手术数据' });
+    }
+
     res.json({ success: true, data: item });
   } catch (error) {
     console.error('getSurgeryById error:', error);

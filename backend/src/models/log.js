@@ -13,7 +13,13 @@ const Log = sequelize.define('logs', {
   device_id: { type: DataTypes.STRING(100) },
   key_id: { type: DataTypes.STRING(100) },
   decrypted_path: { type: DataTypes.STRING(255) },
-  remark: { type: DataTypes.TEXT }
+  remark: { type: DataTypes.TEXT },
+  file_time_token: { type: DataTypes.CHAR(12) },
+  file_year: { type: DataTypes.SMALLINT },
+  file_month: { type: DataTypes.TINYINT },
+  file_day: { type: DataTypes.TINYINT },
+  file_hour: { type: DataTypes.TINYINT },
+  file_minute: { type: DataTypes.TINYINT }
 }, {
   timestamps: false
 });

@@ -386,7 +386,7 @@ export default {
 }
 
 .dashboard-sider {
-  background: #001529;
+  background: #002446;
 }
 
 .logo {
@@ -394,11 +394,11 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #002140;
+  background: #002446;
   color: white;
   font-size: 18px;
   font-weight: bold;
-  border-bottom: 1px solid #002140;
+  border-bottom: 1px solid #002446;
   padding: 0 16px;
 }
 
