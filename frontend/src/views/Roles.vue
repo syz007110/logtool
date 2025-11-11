@@ -213,7 +213,7 @@ export default {
         const prefix = getPermissionPrefix(permission.name)
         const groupKey = prefix || 'other'
         const groupLabel = groupMapping[groupKey] || t('roles.permissionGroups.other')
-
+        
         if (!groupedPermissions[groupKey]) {
           groupedPermissions[groupKey] = {
             key: `${groupKey}_management`,
@@ -221,7 +221,7 @@ export default {
             children: []
           }
         }
-
+        
         groupedPermissions[groupKey].children.push({
           key: permission.name,
           label: getPermissionLabel(permission, groupLabel),

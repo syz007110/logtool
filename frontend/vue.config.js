@@ -2,6 +2,25 @@ const { defineConfig } = require('@vue/cli-service')
 
 module.exports = defineConfig({
   transpileDependencies: true,
+  chainWebpack: (config) => {
+    config.module
+      .rule('f2-jsx')
+      .test(/\.jsx$/)
+      .use('babel-loader')
+      .loader('babel-loader')
+      .options({
+        plugins: [
+          [
+            '@babel/plugin-transform-react-jsx',
+            {
+              runtime: 'automatic',
+              importSource: '@antv/f2'
+            }
+          ]
+        ]
+      })
+      .end()
+  },
   lintOnSave: false,
   devServer: {
     port: 8080,

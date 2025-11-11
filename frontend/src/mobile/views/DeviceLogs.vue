@@ -202,6 +202,33 @@ export default {
     const timeDropdownRef = ref(null)
     const page = ref(1)
     const pageSize = 20
+    const currentYear = new Date().getFullYear()
+
+    const timeFiltersLoaded = ref(false)
+    const availableYearValues = ref([])
+    const availableMonthsByYear = ref({})
+    const availableDaysByYearMonth = ref({})
+
+    const normalizeYearValue = (value) => {
+      if (value == null) return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(4, '0')
+    }
+
+    const normalizeMonthValue = (value) => {
+      if (value == null) return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(2, '0')
+    }
+
+    const normalizeDayValue = (value) => {
+      if (value == null) return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(2, '0')
+    }
 
     const updateLayoutMetrics = () => {
       if (headerRef.value) {
@@ -317,80 +344,139 @@ export default {
     }
 
     const availableYears = computed(() => {
-      const set = new Set()
-      allLogs.value.forEach(log => {
-        const date = parseLogDate(log)
-        if (!date) return
-        set.add(date.getFullYear())
-      })
-      return Array.from(set).sort((a, b) => b - a)
+      const yearsSource = Array.isArray(availableYearValues.value) ? availableYearValues.value : []
+      const normalized = yearsSource
+        .map(normalizeYearValue)
+        .filter(Boolean)
+      const unique = Array.from(new Set(normalized))
+      return unique.sort((a, b) => Number(b) - Number(a))
     })
 
     const yearOptions = computed(() => {
       const suffix = translateOr('mobile.deviceLogs.yearSuffix', '年')
+      const years = availableYears.value.length ? availableYears.value : [String(currentYear)]
+      const uniqueYears = Array.from(new Set(years))
       return [
         { text: translateOr('mobile.deviceLogs.timeAll', '全部年份'), value: 'all' },
-        ...availableYears.value.map(year => ({
+        ...uniqueYears.map(year => ({
           text: `${year}${suffix}`,
-          value: String(year)
+          value: year
         }))
       ]
     })
 
     const availableMonths = computed(() => {
-      const set = new Set()
-      allLogs.value.forEach(log => {
-        const date = parseLogDate(log)
-        if (!date) return
-        if (selectedYear.value !== 'all' && String(date.getFullYear()) !== selectedYear.value) {
-          return
+      const monthsSet = new Set()
+      const monthsMap = availableMonthsByYear.value || {}
+
+      if (selectedYear.value !== 'all') {
+        const months = monthsMap[selectedYear.value] || []
+        months.forEach(month => {
+          const normalized = normalizeMonthValue(month)
+          if (normalized) {
+            monthsSet.add(normalized)
+          }
+        })
+      } else {
+        Object.values(monthsMap).forEach(list => {
+          (list || []).forEach(month => {
+            const normalized = normalizeMonthValue(month)
+            if (normalized) {
+              monthsSet.add(normalized)
+            }
+          })
+        })
+      }
+
+      if (!monthsSet.size) {
+        for (let m = 1; m <= 12; m += 1) {
+          monthsSet.add(String(m).padStart(2, '0'))
         }
-        set.add(date.getMonth() + 1)
-      })
-      return Array.from(set).sort((a, b) => a - b)
+      }
+
+      return Array.from(monthsSet).sort((a, b) => a.localeCompare(b))
     })
 
     const monthOptions = computed(() => {
       const suffix = translateOr('mobile.deviceLogs.monthSuffix', '月')
       return [
         { text: translateOr('mobile.deviceLogs.monthAll', '全部月份'), value: 'all' },
-        ...availableMonths.value.map(month => ({
-          text: `${String(month).padStart(2, '0')}${suffix}`,
-          value: String(month).padStart(2, '0')
-        }))
+        ...availableMonths.value.map(month => {
+          const normalized = normalizeMonthValue(month)
+          return {
+            text: `${normalized}${suffix}`,
+            value: normalized
+          }
+        })
       ]
     })
 
     const availableDays = computed(() => {
-      const set = new Set()
-      if (selectedMonth.value === 'all') {
-        return []
-      }
-      allLogs.value.forEach(log => {
-        const date = parseLogDate(log)
-        if (!date) return
-        if (selectedYear.value !== 'all' && String(date.getFullYear()) !== selectedYear.value) {
-          return
-        }
-        if (selectedMonth.value !== 'all') {
-          const month = String(date.getMonth() + 1).padStart(2, '0')
-          if (month !== selectedMonth.value) {
-            return
+      const daysSet = new Set()
+      const daysMap = availableDaysByYearMonth.value || {}
+
+      if (selectedYear.value !== 'all' && selectedMonth.value !== 'all') {
+        const key = `${selectedYear.value}-${selectedMonth.value}`
+        const days = daysMap[key] || []
+        days.forEach(day => {
+          const normalized = normalizeDayValue(day)
+          if (normalized) {
+            daysSet.add(normalized)
           }
+        })
+      } else if (selectedYear.value !== 'all') {
+        Object.entries(daysMap).forEach(([key, list]) => {
+          if (key.startsWith(`${selectedYear.value}-`)) {
+            (list || []).forEach(day => {
+              const normalized = normalizeDayValue(day)
+              if (normalized) {
+                daysSet.add(normalized)
+              }
+            })
+          }
+        })
+      } else if (selectedMonth.value !== 'all') {
+        Object.entries(daysMap).forEach(([key, list]) => {
+          if (key.endsWith(`-${selectedMonth.value}`)) {
+            (list || []).forEach(day => {
+              const normalized = normalizeDayValue(day)
+              if (normalized) {
+                daysSet.add(normalized)
+              }
+            })
+          }
+        })
+      } else {
+        Object.values(daysMap).forEach(list => {
+          (list || []).forEach(day => {
+            const normalized = normalizeDayValue(day)
+            if (normalized) {
+              daysSet.add(normalized)
+            }
+          })
+        })
+      }
+
+      if (!daysSet.size) {
+        for (let d = 1; d <= 31; d += 1) {
+          daysSet.add(String(d).padStart(2, '0'))
         }
-        set.add(date.getDate())
-      })
-      return Array.from(set).sort((a, b) => a - b)
+      }
+
+      return Array.from(daysSet).sort((a, b) => a.localeCompare(b))
     })
 
     const dayOptions = computed(() => {
       const suffix = translateOr('mobile.deviceLogs.daySuffix', '日')
       return [
         { text: translateOr('mobile.deviceLogs.dayAll', '全部日期'), value: 'all' },
-        ...availableDays.value.map(day => ({
-          text: `${String(day).padStart(2, '0')}${suffix}`,
-          value: String(day).padStart(2, '0')
-        }))
+        ...availableDays.value.map(day => {
+          const normalized = normalizeDayValue(day)
+          return {
+            text: `${normalized}${suffix}`,
+            value: normalized
+          }
+        })
       ]
     })
 
@@ -466,43 +552,188 @@ export default {
         }
       }
 
-      if (selectedYear.value === 'all') {
+      const normalizedYear = normalizeYearValue(
+        selectedYear.value === 'all' ? currentYear : selectedYear.value
+      )
+      if (!normalizedYear) {
         return defaultResult
       }
 
-      const year = Number(selectedYear.value)
+      const year = Number(normalizedYear)
       if (Number.isNaN(year)) {
         return defaultResult
       }
 
-      let startDate = new Date(year, 0, 1, 0, 0, 0, 0)
-      let endDate = new Date(year, 11, 31, 23, 59, 59, 999)
+      const monthValue = selectedMonth.value === 'all' ? null : Number(selectedMonth.value)
+      const dayValue = selectedDay.value === 'all' ? null : Number(selectedDay.value)
 
-      if (selectedMonth.value !== 'all') {
-        const month = Number(selectedMonth.value) - 1
-        if (!Number.isNaN(month) && month >= 0 && month < 12) {
-          startDate = new Date(year, month, 1, 0, 0, 0, 0)
-          endDate = new Date(year, month + 1, 0, 23, 59, 59, 999)
+      let startDate = new Date(year, (monthValue || 1) - 1, dayValue || 1, 0, 0, 0, 0)
+      let endDate
 
-          if (selectedDay.value !== 'all') {
-            const day = Number(selectedDay.value)
-            if (!Number.isNaN(day)) {
-              startDate = new Date(year, month, day, 0, 0, 0, 0)
-              endDate = new Date(year, month, day, 23, 59, 59, 999)
-            }
-          }
-        }
-      } else if (selectedDay.value !== 'all') {
-        const day = Number(selectedDay.value)
-        if (!Number.isNaN(day)) {
-          startDate = new Date(year, 0, day, 0, 0, 0, 0)
-          endDate = new Date(year, 0, day, 23, 59, 59, 999)
-        }
+      if (dayValue) {
+        endDate = new Date(year, (monthValue || 1) - 1, dayValue, 23, 59, 59, 999)
+      } else if (monthValue) {
+        endDate = new Date(year, monthValue, 0, 23, 59, 59, 999)
+      } else {
+        endDate = new Date(year, 11, 31, 23, 59, 59, 999)
       }
 
       return {
         time_range_start: formatDateParam(startDate),
         time_range_end: formatDateParam(endDate)
+      }
+    }
+
+    const syncTimeFilterSelections = () => {
+      if (selectedYear.value !== 'all') {
+        const normalizedYear = normalizeYearValue(selectedYear.value)
+        if (!normalizedYear || !availableYears.value.includes(normalizedYear)) {
+          selectedYear.value = 'all'
+          selectedMonth.value = 'all'
+          selectedDay.value = 'all'
+        } else if (normalizedYear !== selectedYear.value) {
+          selectedYear.value = normalizedYear
+        }
+      }
+
+      if (selectedMonth.value !== 'all') {
+        const monthValues = availableMonths.value
+        if (!monthValues.includes(selectedMonth.value)) {
+          selectedMonth.value = 'all'
+          selectedDay.value = 'all'
+        }
+      }
+
+      if (selectedDay.value !== 'all') {
+        const dayValues = availableDays.value
+        if (!dayValues.includes(selectedDay.value)) {
+          selectedDay.value = 'all'
+        }
+      }
+
+      if (
+        selectedQuickRange.value === 'custom' &&
+        selectedYear.value === 'all' &&
+        selectedMonth.value === 'all' &&
+        selectedDay.value === 'all'
+      ) {
+        selectedQuickRange.value = 'all'
+      }
+    }
+
+    const deriveTimeFiltersFromLogs = () => {
+      const yearSet = new Set()
+      const monthsMap = {}
+      const daysMap = {}
+
+      allLogs.value.forEach(log => {
+        const date = parseLogDate(log)
+        if (!date) return
+        const year = normalizeYearValue(date.getFullYear())
+        if (!year) return
+        yearSet.add(year)
+
+        const month = normalizeMonthValue(date.getMonth() + 1)
+        if (month) {
+          if (!monthsMap[year]) {
+            monthsMap[year] = new Set()
+          }
+          monthsMap[year].add(month)
+        }
+
+        const day = normalizeDayValue(date.getDate())
+        if (day && month) {
+          const key = `${year}-${month}`
+          if (!daysMap[key]) {
+            daysMap[key] = new Set()
+          }
+          daysMap[key].add(day)
+        }
+      })
+
+      availableYearValues.value = Array.from(yearSet)
+
+      const formattedMonths = {}
+      Object.entries(monthsMap).forEach(([year, set]) => {
+        formattedMonths[year] = Array.from(set).sort((a, b) => a.localeCompare(b))
+      })
+      availableMonthsByYear.value = formattedMonths
+
+      const formattedDays = {}
+      Object.entries(daysMap).forEach(([key, set]) => {
+        formattedDays[key] = Array.from(set).sort((a, b) => a.localeCompare(b))
+      })
+      availableDaysByYearMonth.value = formattedDays
+
+      syncTimeFilterSelections()
+    }
+
+    const loadTimeFilters = async () => {
+      if (!deviceId.value) {
+        return
+      }
+
+      try {
+        const resp = await api.logs.getTimeFilters({ device_id: deviceId.value })
+        const data = resp?.data?.data || {}
+
+        const yearsArray = Array.isArray(data.years) ? data.years : []
+        availableYearValues.value = Array.from(
+          new Set(
+            yearsArray
+              .map(normalizeYearValue)
+              .filter(Boolean)
+          )
+        )
+
+        const monthsResult = {}
+        if (data.monthsByYear && typeof data.monthsByYear === 'object') {
+          Object.entries(data.monthsByYear).forEach(([year, list]) => {
+            const normalizedYear = normalizeYearValue(year)
+            if (!normalizedYear) return
+            const months = Array.isArray(list) ? list : []
+            const uniqueMonths = Array.from(
+              new Set(
+                months
+                  .map(normalizeMonthValue)
+                  .filter(Boolean)
+              )
+            ).sort((a, b) => a.localeCompare(b))
+            if (uniqueMonths.length) {
+              monthsResult[normalizedYear] = uniqueMonths
+            }
+          })
+        }
+        availableMonthsByYear.value = monthsResult
+
+        const daysResult = {}
+        if (data.daysByYearMonth && typeof data.daysByYearMonth === 'object') {
+          Object.entries(data.daysByYearMonth).forEach(([key, list]) => {
+            const [yearPart, monthPart] = key.split('-')
+            const normalizedYear = normalizeYearValue(yearPart)
+            const normalizedMonth = normalizeMonthValue(monthPart)
+            if (!normalizedYear || !normalizedMonth) return
+            const days = Array.isArray(list) ? list : []
+            const uniqueDays = Array.from(
+              new Set(
+                days
+                  .map(normalizeDayValue)
+                  .filter(Boolean)
+              )
+            ).sort((a, b) => a.localeCompare(b))
+            if (uniqueDays.length) {
+              daysResult[`${normalizedYear}-${normalizedMonth}`] = uniqueDays
+            }
+          })
+        }
+        availableDaysByYearMonth.value = daysResult
+
+        timeFiltersLoaded.value = true
+      } catch (error) {
+        console.warn('Failed to load time filters:', error)
+        timeFiltersLoaded.value = false
+      } finally {
+        syncTimeFilterSelections()
       }
     }
 
@@ -532,16 +763,17 @@ export default {
     }
 
     const selectYear = (value) => {
-      if (selectedYear.value === value) {
+      const normalizedValue = value === 'all' ? 'all' : normalizeYearValue(value)
+      if (selectedYear.value === normalizedValue) {
         return
       }
-      selectedYear.value = value
-      selectedQuickRange.value = value === 'all' ? 'all' : 'custom'
-      if (value === 'all') {
+      selectedYear.value = normalizedValue || 'all'
+      selectedQuickRange.value = selectedYear.value === 'all' ? 'all' : 'custom'
+      if (selectedYear.value === 'all') {
         selectedMonth.value = 'all'
         selectedDay.value = 'all'
       } else if (selectedMonth.value !== 'all') {
-        const months = availableMonths.value.map(month => String(month).padStart(2, '0'))
+        const months = availableMonths.value
         if (!months.includes(selectedMonth.value)) {
           selectedMonth.value = 'all'
           selectedDay.value = 'all'
@@ -551,18 +783,19 @@ export default {
     }
 
     const selectMonth = (value) => {
-      if (selectedMonth.value === value) {
+      const normalizedValue = value === 'all' ? 'all' : normalizeMonthValue(value)
+      if (selectedMonth.value === normalizedValue) {
         return
       }
-      selectedMonth.value = value
+      selectedMonth.value = normalizedValue || 'all'
       selectedQuickRange.value =
-        value === 'all' && selectedYear.value === 'all' && selectedDay.value === 'all'
+        selectedMonth.value === 'all' && selectedYear.value === 'all' && selectedDay.value === 'all'
           ? 'all'
           : 'custom'
-      if (value === 'all') {
+      if (selectedMonth.value === 'all') {
         selectedDay.value = 'all'
       } else {
-        const days = availableDays.value.map(day => String(day).padStart(2, '0'))
+        const days = availableDays.value
         if (!days.includes(selectedDay.value)) {
           selectedDay.value = 'all'
         }
@@ -571,12 +804,13 @@ export default {
     }
 
     const selectDay = (value) => {
-      if (selectedDay.value === value) {
+      const normalizedValue = value === 'all' ? 'all' : normalizeDayValue(value)
+      if (selectedDay.value === normalizedValue) {
         return
       }
-      selectedDay.value = value
+      selectedDay.value = normalizedValue || 'all'
       if (
-        value === 'all' &&
+        selectedDay.value === 'all' &&
         selectedYear.value === 'all' &&
         selectedMonth.value === 'all'
       ) {
@@ -729,6 +963,10 @@ export default {
           allLogs.value = [...allLogs.value, ...newLogs]
           console.log('Appended logs:', newLogs.length, 'Total now:', allLogs.value.length)
         }
+
+        if (!timeFiltersLoaded.value) {
+          deriveTimeFiltersFromLogs()
+        }
         
         // 判断是否还有更多数据
         // 1. 如果返回的数据为空，说明没有更多数据
@@ -773,6 +1011,9 @@ export default {
       
       // 如果是第一页，先获取设备信息
       if (currentPage === 1) {
+        if (!timeFiltersLoaded.value) {
+          await loadTimeFilters()
+        }
         await fetchDeviceInfo()
       }
       
@@ -894,6 +1135,10 @@ export default {
         totalLogs.value = 0
         finished.value = false
         loading.value = false
+        timeFiltersLoaded.value = false
+        availableYearValues.value = []
+        availableMonthsByYear.value = {}
+        availableDaysByYearMonth.value = {}
         statusFilter.value = 'all'
         selectedQuickRange.value = 'all'
         selectedYear.value = 'all'

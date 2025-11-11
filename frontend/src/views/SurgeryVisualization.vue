@@ -1486,21 +1486,25 @@ export default {
       hasNetworkLatencyData.value = !!(surgeryStatsForCharts.network_latency_ms && meta.is_remote)
       
       // 检查是否有操作数据
-      hasOperationData.value = !!(surgeryStatsForCharts.endoscope_pedal || 
-                                 surgeryStatsForCharts.foot_clutch || 
-                                 surgeryStatsForCharts.left_hand_clutch || 
-                                 surgeryStatsForCharts.right_hand_clutch || 
-                                 surgeryStatsForCharts.arm_switch_count)
+      const operationMetricKeys = [
+        'endoscope_pedal',
+        'foot_clutch',
+        'left_hand_clutch',
+        'right_hand_clutch',
+        'arm_switch_count'
+      ]
+      const hasAnyOperationMetric = operationMetricKeys.some(key => surgeryStatsForCharts[key] !== undefined && surgeryStatsForCharts[key] !== null)
+      hasOperationData.value = hasAnyOperationMetric
       
-      // 设置操作数据
-      if (hasOperationData.value) {
-        operationSummaryData.value = {
-          endoscope_pedal: surgeryStatsForCharts.endoscope_pedal || 0,
-          foot_clutch: surgeryStatsForCharts.foot_clutch || 0,
-          left_hand_clutch: surgeryStatsForCharts.left_hand_clutch || 0,
-          right_hand_clutch: surgeryStatsForCharts.right_hand_clutch || 0,
-          arm_switch_count: surgeryStatsForCharts.arm_switch_count || 0
-        }
+      // 设置操作数据（即使值为0也视为有效）
+      if (hasAnyOperationMetric) {
+        operationSummaryData.value = operationMetricKeys.reduce((acc, key) => {
+          const val = surgeryStatsForCharts[key]
+          acc[key] = Number.isFinite(Number(val)) ? Number(val) : 0
+          return acc
+        }, {})
+      } else {
+        operationSummaryData.value = {}
       }
       
       showCharts.value = hasStateMachineData.value || hasNetworkLatencyData.value || hasOperationData.value

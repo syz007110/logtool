@@ -1373,7 +1373,7 @@ export default {
       }
       return { start, end }
     }
-
+    
     const buildDetailTimeParams = () => {
       const tp = (detailNameTimePrefix.value || '').trim()
       const params = {}
@@ -1416,7 +1416,7 @@ export default {
 
       return params
     }
-
+    
     const handleDrawerClose = () => {
       showDeviceDetailDrawer.value = false
       

@@ -52,28 +52,29 @@
         </div>
       </div>
 
-      <div v-if="activeTab === 'overview'" class="gantt-card">
-        <div class="gantt-header">
-          <div class="gantt-title">{{ $t('mobile.surgeryVisualization.ganttTitle') }}</div>
-          <div class="gantt-duration">
-            {{ totalDuration }}
-            {{ $t('mobile.surgeryVisualization.minute') }}
-          </div>
-        </div>
-
-        <div class="gantt-body">
-          <div class="timeline-head">
-            <div class="timeline-label">{{ $t('mobile.surgeryVisualization.timeline') }}</div>
-            <div class="timeline-axis">
-              <div
-                v-for="mark in timelineMarks"
-                :key="`axis-${mark}`"
-                class="timeline-axis-mark"
-              >
-                {{ mark }}
-              </div>
+      <template v-if="activeTab === 'overview'">
+        <div class="gantt-card">
+          <div class="gantt-header">
+            <div class="gantt-title">{{ $t('mobile.surgeryVisualization.ganttTitle') }}</div>
+            <div class="gantt-duration">
+              {{ totalDuration }}
+              {{ $t('mobile.surgeryVisualization.minute') }}
             </div>
           </div>
+
+          <div class="gantt-body">
+            <div class="timeline-head">
+              <div class="timeline-label">{{ $t('mobile.surgeryVisualization.timeline') }}</div>
+              <div class="timeline-axis">
+                <div
+                  v-for="mark in timelineMarks"
+                  :key="`axis-${mark}`"
+                  class="timeline-axis-mark"
+                >
+                  {{ mark }}
+                </div>
+              </div>
+            </div>
 
           <div
             class="timeline-grid"
@@ -105,36 +106,164 @@
             </div>
           </div>
 
-          <div
-            v-for="(arm, armIndex) in armsData"
-            :key="arm.arm_id || armIndex"
-            class="arm-track"
-          >
-            <div class="arm-track-label">{{ arm.name }}</div>
-            <div class="arm-track-body">
-              <div
-                v-for="(segment, segmentIndex) in arm.segments"
-                :key="`${segment.instrument_name || segment.tool_type || 'segment'}-${segmentIndex}`"
-                :class="['arm-segment', `arm-segment-${segment.colorToken}`]"
-                :style="getSegmentStyle(segment)"
-              >
-                {{ segment.instrument_name || segment.tool_type || '-' }}
+            <div
+              v-for="(arm, armIndex) in armsData"
+              :key="arm.arm_id || armIndex"
+              class="arm-track"
+            >
+              <div class="arm-track-label">{{ arm.name }}</div>
+              <div class="arm-track-body">
+                <div
+                  v-for="(segment, segmentIndex) in arm.segments"
+                  :key="`${segment.instrument_name || segment.tool_type || 'segment'}-${segmentIndex}`"
+                  :class="['arm-segment', `arm-segment-${segment.colorToken}`]"
+                  :style="getSegmentStyle(segment)"
+                >
+                  {{ segment.instrument_name || segment.tool_type || '-' }}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="legend">
-          <div
-            v-for="item in legendItems"
-            :key="item.key"
-            class="legend-item"
-          >
-            <span :class="['legend-dot', item.color]" />
-            <span class="legend-label">{{ item.label }}</span>
+          <div class="legend">
+            <div
+              v-for="item in legendItems"
+              :key="item.key"
+              class="legend-item"
+            >
+              <span :class="['legend-dot', item.color]" />
+              <span class="legend-label">{{ item.label }}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </template>
+
+      <template v-else-if="activeTab === 'alerts'">
+        <div v-if="hasAlerts" class="section-card alert-card">
+          <div class="section-header">{{ $t('mobile.surgeryVisualization.alertsTitle') }}</div>
+          <div class="table table-alerts">
+            <div class="table-row table-header">
+              <span>{{ $t('mobile.surgeryVisualization.alertTime') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.alertCode') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.alertMessage') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.alertStatus') }}</span>
+            </div>
+            <div
+              v-for="row in visibleFaultRows"
+              :key="`${row.errorCode}-${row.timestamp}`"
+              class="table-row"
+            >
+              <span class="cell time">{{ formatDisplayTime(row.timestamp) }}</span>
+              <span class="cell code">{{ row.errorCode }}</span>
+              <span class="cell message">{{ row.message }}</span>
+              <span class="cell status">
+                <span :class="['status-tag', row.statusKey === 'processed' ? 'status-processed' : 'status-unprocessed']">
+                  {{ row.statusLabel }}
+                </span>
+              </span>
+            </div>
+          </div>
+          <button
+            v-if="faultRows.length > 5"
+            type="button"
+            class="toggle-button"
+            @click="toggleFaultRows"
+          >
+            {{ showAllFaults ? $t('mobile.surgeryVisualization.collapse') : $t('mobile.surgeryVisualization.expand') }}
+          </button>
+          <div class="summary-text">
+            {{ $t('mobile.surgeryVisualization.alertSummary', { total: faultSummary.total, processed: faultSummary.processed, unprocessed: faultSummary.unprocessed }) }}
+          </div>
+        </div>
+        <div v-else class="placeholder-card">
+          <van-empty :description="$t('mobile.surgeryVisualization.noAlertData')" />
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'network'">
+        <div v-if="hasNetworkLatency" class="section-card network-card chart-card">
+          <div class="section-header">{{ $t('mobile.surgeryVisualization.networkLatencyTitle') }}</div>
+          <network-latency-chart
+            :data="networkLatencySeries"
+            :height="280"
+            time-mask="HH:mm"
+            :time-tick-count="5"
+            :value-tick-count="5"
+          />
+        </div>
+        <div v-else class="placeholder-card">
+          <van-empty :description="$t('mobile.surgeryVisualization.noNetworkData')" />
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'stateMachine'">
+        <div v-if="hasStateMachine" class="section-card state-machine-card chart-card">
+          <div class="section-header">{{ $t('mobile.surgeryVisualization.stateMachineTitle') }}</div>
+          <state-machine-chart
+            :data="stateMachineSeries"
+            :height="280"
+            time-mask="HH:mm"
+            :time-tick-count="5"
+            :value-tick-count="6"
+            :padding="[0, 0, 0, 0]"
+          />
+        </div>
+        <div v-else class="placeholder-card">
+          <van-empty :description="$t('mobile.surgeryVisualization.noStateMachineData')" />
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'instruments'">
+        <div v-if="hasInstrumentUsage" class="section-card instrument-card">
+          <div class="section-header">{{ $t('mobile.surgeryVisualization.instrumentUsageTitle') }}</div>
+          <div class="table table-instruments">
+            <div class="table-row table-header">
+              <span>{{ $t('mobile.surgeryVisualization.instrumentArm') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.instrumentType') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.instrumentUdi') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.instrumentInstall') }}</span>
+              <span>{{ $t('mobile.surgeryVisualization.instrumentRemove') }}</span>
+            </div>
+            <div
+              v-for="row in instrumentUsageRows"
+              :key="row.id"
+              class="table-row"
+            >
+              <span>{{ row.armLabel }}</span>
+              <span>{{ row.toolType }}</span>
+              <span class="one-line">{{ row.udi }}</span>
+              <span class="cell time">{{ formatDisplayTime(row.installTime) }}</span>
+              <span class="cell time">{{ formatDisplayTime(row.removeTime) }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="placeholder-card">
+          <van-empty :description="$t('mobile.surgeryVisualization.noInstrumentData')" />
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'operations'">
+        <div v-if="hasOperationSummary" class="section-card operation-card">
+          <div class="section-header">{{ $t('mobile.surgeryVisualization.operationSummary') }}</div>
+          <div class="table table-operations">
+            <div class="table-row table-header">
+              <span>{{ $t('mobile.surgeryVisualization.operationType') }}</span>
+              <span class="align-right">{{ $t('mobile.surgeryVisualization.operationCount') }}</span>
+            </div>
+            <div
+              v-for="row in operationSummaryRows"
+              :key="row.key"
+              class="table-row"
+            >
+              <span>{{ row.label }}</span>
+              <span class="align-right">{{ row.count }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="placeholder-card">
+          <van-empty :description="$t('mobile.surgeryVisualization.noOperationData')" />
+        </div>
+      </template>
 
       <div v-else class="placeholder-card">
         <van-empty :description="$t('mobile.surgeryVisualization.comingSoon')" />
@@ -156,6 +285,8 @@ import {
   Loading as VanLoading
 } from 'vant'
 import api from '@/api'
+import NetworkLatencyChart from '@/components/NetworkLatencyChart.vue'
+import StateMachineChart from '@/components/StateMachineChart.vue'
 import { normalizeSurgeryData } from '@/utils/visualizationConfig'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from '@/utils/surgeryDataAdapter'
 
@@ -166,7 +297,9 @@ export default {
   components: {
     'van-nav-bar': VanNavBar,
     'van-empty': VanEmpty,
-    'van-loading': VanLoading
+    'van-loading': VanLoading,
+    'network-latency-chart': NetworkLatencyChart,
+    'state-machine-chart': StateMachineChart
   },
   setup() {
     const route = useRoute()
@@ -223,6 +356,151 @@ export default {
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0
       return Math.max(0, Math.floor((end - start) / (1000 * 60)))
     })
+
+    const formatDisplayTime = (time) => {
+      if (!time) return '-'
+      const date = new Date(time)
+      if (Number.isNaN(date.getTime())) return '-'
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    }
+
+    const resolveFaultStatus = (fault) => {
+      let processed = false
+      if (fault?.status === true || fault?.resolved === true || fault?.is_resolved === true) {
+        processed = true
+      } else if (typeof fault?.status === 'string') {
+        const normalized = fault.status.toLowerCase()
+        processed = ['processed', 'resolved', '已处理', '已恢复'].some(keyword => normalized.includes(keyword))
+      }
+      return {
+        key: processed ? 'processed' : 'unprocessed',
+        label: processed ? t('mobile.surgeryVisualization.statusProcessed') : t('mobile.surgeryVisualization.statusUnprocessed')
+      }
+    }
+
+    const faultRows = computed(() => {
+      const faults = surgeryData.value?.surgery_stats?.faults
+      if (!Array.isArray(faults)) return []
+      return faults
+        .map(fault => {
+          const timestamp = fault.timestamp || fault.time || fault.created_at
+          const status = resolveFaultStatus(fault)
+          return {
+            timestamp,
+            errorCode: fault.error_code || fault.code || '-',
+            message: fault.explanation || fault.message || '-',
+            statusKey: status.key,
+            statusLabel: status.label
+          }
+        })
+        .filter(item => item.errorCode && item.timestamp)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    })
+
+    const showAllFaults = ref(false)
+    const visibleFaultRows = computed(() => (showAllFaults.value ? faultRows.value : faultRows.value.slice(0, 5)))
+    const hasAlerts = computed(() => faultRows.value.length > 0)
+    const faultSummary = computed(() => {
+      const total = faultRows.value.length
+      const processed = faultRows.value.filter(row => row.statusKey === 'processed').length
+      const unprocessed = total - processed
+      return { total, processed, unprocessed }
+    })
+
+    const operationSummaryRows = computed(() => {
+      const stats = surgeryData.value?.surgery_stats
+      if (!stats) return []
+      const descriptors = [
+        { key: 'endoscope_pedal', label: t('mobile.surgeryVisualization.operationEndoscopePedal') },
+        { key: 'foot_clutch', label: t('mobile.surgeryVisualization.operationFootClutch') },
+        { key: 'left_hand_clutch', label: t('mobile.surgeryVisualization.operationLeftHandClutch') },
+        { key: 'right_hand_clutch', label: t('mobile.surgeryVisualization.operationRightHandClutch') },
+        { key: 'arm_switch_count', label: t('mobile.surgeryVisualization.operationArmSwitch') }
+      ]
+      return descriptors.map(desc => ({
+        key: desc.key,
+        label: desc.label,
+        count: Number.isFinite(Number(stats[desc.key])) ? Number(stats[desc.key]) : 0
+      }))
+    })
+    const hasOperationSummary = computed(() => operationSummaryRows.value.length > 0)
+
+    const instrumentUsageRows = computed(() => {
+      const arms = surgeryData.value?.arms
+      if (!Array.isArray(arms)) return []
+      const rows = []
+      arms.forEach((arm, armIndex) => {
+        const usageList = Array.isArray(arm.instrument_usage) ? arm.instrument_usage : []
+        usageList.forEach((usage, usageIndex) => {
+          const install = usage.install_time || usage.start_time
+          const remove = usage.remove_time || usage.end_time
+          rows.push({
+            id: `${arm.arm_id || armIndex + 1}-${usageIndex}`,
+            armLabel: arm.arm_id || arm.armId || armIndex + 1,
+            toolType: usage.tool_type || usage.instrument_name || '-',
+            udi: usage.udi || usage.udi_code || '-',
+            installTime: install,
+            removeTime: remove
+          })
+        })
+      })
+      return rows
+    })
+    const hasInstrumentUsage = computed(() => instrumentUsageRows.value.length > 0)
+
+    const extractStateNumber = (value) => {
+      if (value === null || value === undefined) return 0
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      const str = String(value)
+      const bracketMatch = str.match(/\((\d+)\)/)
+      if (bracketMatch) return parseInt(bracketMatch[1], 10)
+      const numberMatch = str.match(/\d+/)
+      if (numberMatch) return parseInt(numberMatch[0], 10)
+      return 0
+    }
+
+    const stateMachineSeries = computed(() => {
+      const list = surgeryData.value?.surgery_stats?.state_machine
+      if (!Array.isArray(list)) return []
+      return list
+        .map(item => {
+          const timestamp = item.time || item.timestamp
+          const date = timestamp ? new Date(timestamp) : null
+          if (!date || Number.isNaN(date.getTime())) return null
+          return [date.getTime(), extractStateNumber(item.state)]
+        })
+        .filter(entry => Array.isArray(entry))
+        .sort((a, b) => a[0] - b[0])
+    })
+    const hasStateMachine = computed(() => stateMachineSeries.value.length > 0)
+
+    const networkLatencySeries = computed(() => {
+      const list = surgeryData.value?.surgery_stats?.network_latency_ms
+      if (!Array.isArray(list)) return []
+      return list
+        .map(item => {
+          const timestamp = item.time || item.timestamp
+          const latency = item.latency ?? item.value
+          const date = timestamp ? new Date(timestamp) : null
+          const latencyValue = Number(latency)
+          if (!date || Number.isNaN(date.getTime()) || Number.isNaN(latencyValue)) return null
+          return [date.getTime(), latencyValue]
+        })
+        .filter(entry => Array.isArray(entry))
+        .sort((a, b) => a[0] - b[0])
+    })
+    const hasNetworkLatency = computed(() => networkLatencySeries.value.length > 0)
+
+    const toggleFaultRows = () => {
+      showAllFaults.value = !showAllFaults.value
+    }
 
     const legendItems = computed(() => [
       { key: 'incision', label: t('mobile.surgeryVisualization.legendIncision'), color: 'legend-incision' },
@@ -522,6 +800,21 @@ export default {
       legendItems,
       timelineMarks,
       timelineCells,
+      faultRows,
+      visibleFaultRows,
+      hasAlerts,
+      faultSummary,
+      showAllFaults,
+      toggleFaultRows,
+      formatDisplayTime,
+      operationSummaryRows,
+      hasOperationSummary,
+      instrumentUsageRows,
+      hasInstrumentUsage,
+      stateMachineSeries,
+      hasStateMachine,
+      networkLatencySeries,
+      hasNetworkLatency,
       getSegmentStyle,
       getEventsForCell,
       getEventDotClass
@@ -899,5 +1192,171 @@ export default {
 .arm-segment-general {
   background-color: #ff6467;
 }
+
+.section-card {
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.chart-card {
+  padding: 12px 12px 16px;
+}
+
+.state-machine-card {
+  padding: 0;
+}
+
+.state-machine-card .section-header {
+  padding: 16px 20px 0;
+}
+
+.section-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #364153;
+}
+
+.table-header {
+  font-weight: 600;
+  color: #101828;
+  background-color: #f4f5f7;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.table-alerts .table-row {
+  grid-template-columns: 1.4fr 0.8fr 2.2fr 1fr;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.table-alerts .table-row:nth-child(even):not(.table-header) {
+  background: #f3f4f6;
+}
+
+.table-operations .table-row {
+  grid-template-columns: 2fr 0.8fr;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.table-operations .table-row:nth-child(even):not(.table-header) {
+  background: #f3f4f6;
+}
+
+.table-instruments .table-row {
+  grid-template-columns: 0.8fr 1.2fr 1.4fr 1.5fr 1.5fr;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.table-instruments .table-row:nth-child(even):not(.table-header) {
+  background: #f3f4f6;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.status-processed {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.status-unprocessed {
+  background: rgba(234, 88, 12, 0.16);
+  color: #c2410c;
+}
+
+.toggle-button {
+  align-self: center;
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.toggle-button:active {
+  opacity: 0.7;
+}
+
+.summary-text {
+  font-size: 12px;
+  color: #4a5565;
+  text-align: center;
+}
+
+.align-right {
+  text-align: right;
+}
+
+.table .cell.time {
+  font-size: 11px;
+  color: #6a7282;
+}
+
+.table .cell.code {
+  font-weight: 600;
+}
+
+.table .cell.message {
+  color: #364153;
+}
+
+.state-machine-card {
+  gap: 16px;
+}
+
+.chart-card :deep(.mobile-chart) {
+  width: 100%;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .table-instruments .table-row {
+    grid-template-columns: 0.7fr 1fr 1.2fr 1.4fr 1.4fr;
+    gap: 6px;
+    padding: 8px;
+  }
+  .table-alerts .table-row {
+    grid-template-columns: 1.2fr 0.8fr 1.8fr 1fr;
+    padding: 8px;
+  }
+}
+
 </style>
 

@@ -816,7 +816,7 @@ export default {
         }
       } catch (e) {
         if (!options?.silent) {
-          ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
+        ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
         }
       } finally {
         detailLoading.value = false

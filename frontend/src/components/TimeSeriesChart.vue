@@ -49,6 +49,16 @@ export default {
       gridPadding: {
         type: Object,
         default: null
+      },
+      // 是否显示底部 dataZoom 滑块
+      enableSlider: {
+        type: Boolean,
+        default: true
+      },
+      // 是否显示工具箱（保存图片、数据缩放按钮等）
+      showToolbox: {
+        type: Boolean,
+        default: true
       }
   },
   setup(props) {
@@ -112,16 +122,27 @@ export default {
       const option = {
         backgroundColor: 'transparent', // 移除整个图表背景色
         title: undefined,
-        grid: props.gridPadding || undefined,
+        grid: props.gridPadding || { left: 16, right: 16, top: 16, bottom: props.enableSlider ? 50 : 16, containLabel: true },
         tooltip: {
           trigger: 'axis',
-          position: (pt) => [pt[0], '10%'],
-          appendToBody: true, // 将tooltip添加到body，避免被容器裁剪
-          confine: false, // 不限制tooltip在容器内
-          extraCssText: 'z-index: 10000;' // 确保tooltip在最上层
+          position: (pt) => [pt[0], '8%'],
+          appendToBody: true,
+          confine: false,
+          borderWidth: 0,
+          backgroundColor: 'rgba(17, 24, 39, 0.92)',
+          textStyle: {
+            color: '#f9fafb',
+            fontSize: 11
+          },
+          axisPointer: {
+            lineStyle: {
+              color: '#6366f1',
+              width: 1
+            }
+          }
         },
         legend: undefined,
-        toolbox: {
+        toolbox: props.showToolbox ? {
           feature: {
             dataZoom: {
               yAxisIndex: 'none'
@@ -129,27 +150,37 @@ export default {
             restore: {},
             saveAsImage: {}
           }
-        },
+        } : undefined,
         xAxis: {
           type: 'time',
           boundaryGap: false,
-          backgroundColor: 'transparent', // 移除X轴背景色
-          min: Math.min(...validData.map(d => d[0])),
-          max: Math.max(...validData.map(d => d[0])),
+          axisLine: {
+            show: false
+          },
+          axisTick: {
+            show: false
+          },
           axisLabel: {
-            overflow: 'none', // 不截断标签
-            interval: 'auto', // 自动调整标签间隔
-            rotate: 0, // 不旋转标签
-            margin: 8 // 增加标签边距
-          }
+            color: '#6a7282',
+            fontSize: 11,
+            margin: 10
+          },
+          splitLine: {
+            show: false
+          },
+          min: Math.min(...validData.map(d => d[0])),
+          max: Math.max(...validData.map(d => d[0]))
         },
         yAxis: {
           type: 'value',
           boundaryGap: [0, '10%'],
-          backgroundColor: 'transparent', // 移除Y轴背景色
+          axisLine: { show: false },
+          axisTick: { show: false },
           axisLabel: {
-            width: 40, // 固定Y轴标签宽度
-            overflow: 'truncate', // 超出部分截断
+            color: '#6a7282',
+            fontSize: 11,
+            width: 40,
+            overflow: 'truncate',
             formatter: (value) => {
               if (props.yAxisFormat === 'integer') {
                 return Math.round(value).toString()
@@ -157,6 +188,12 @@ export default {
                 return value.toFixed(1)
               }
               return value.toString()
+            }
+          },
+          splitLine: {
+            show: true,
+            lineStyle: {
+              color: 'rgba(15, 23, 42, 0.08)'
             }
           }
         },
@@ -172,44 +209,57 @@ export default {
             filterMode: 'filter',
             preventDefaultMouseMove: true
           },
-          {
-            type: 'slider',
-            start: 0,
-            end: 100,
-            realtime: true,
-            throttle: 100,
-            zoomLock: false,
-            showDetail: false, // 关闭内置标签，使用自定义下方标签
-            showDataShadow: true,
-            xAxisIndex: 0,
-            bottom: 10,
-            filterMode: 'filter',
-            moveHandleSize: 8,
-            preventDefaultMouseMove: true,
-            labelFormatter: (value) => {
-              const date = new Date(value)
-              const year = date.getFullYear()
-              const month = String(date.getMonth() + 1).padStart(2, '0')
-              const day = String(date.getDate()).padStart(2, '0')
-              const hours = String(date.getHours()).padStart(2, '0')
-              const minutes = String(date.getMinutes()).padStart(2, '0')
-              const seconds = String(date.getSeconds()).padStart(2, '0')
-              
-              return `${year}-${month}-${day}\n${hours}:${minutes}:${seconds}`
+          ...(props.enableSlider ? [
+            {
+              type: 'slider',
+              start: 0,
+              end: 100,
+              realtime: true,
+              throttle: 100,
+              zoomLock: false,
+              showDetail: false,
+              showDataShadow: false,
+              handleSize: 0,
+              height: 18,
+              borderColor: 'rgba(0,0,0,0)',
+              fillerColor: 'rgba(99, 102, 241, 0.15)',
+              backgroundColor: 'rgba(148, 163, 184, 0.12)',
+              brushSelect: false,
+              xAxisIndex: 0,
+              bottom: 6,
+              filterMode: 'filter',
+              moveHandleSize: 10,
+              preventDefaultMouseMove: true,
+              labelFormatter: (value) => {
+                const date = new Date(value)
+                const year = date.getFullYear()
+                const month = String(date.getMonth() + 1).padStart(2, '0')
+                const day = String(date.getDate()).padStart(2, '0')
+                const hours = String(date.getHours()).padStart(2, '0')
+                const minutes = String(date.getMinutes()).padStart(2, '0')
+                const seconds = String(date.getSeconds()).padStart(2, '0')
+                
+                return `${year}-${month}-${day}\n${hours}:${minutes}:${seconds}`
+              }
             }
-          }
+          ] : [])
         ],
         series: [
           {
             name: props.seriesName,
             type: 'line',
             symbol: 'none',
+            smooth: true,
             sampling: false,
             data: validData,
             lineStyle: {
-              width: 1.5
+              width: 2,
+              cap: 'round',
+              join: 'round'
             },
-            areaStyle: null // 移除区域背景色
+            areaStyle: {
+              opacity: 0.12
+            }
           }
         ]
       }
