@@ -203,7 +203,8 @@ const surgeries = {
   list: (params) => api.get('/surgeries', { params }),
   get: (id) => api.get(`/surgeries/${id}`),
   remove: (id) => api.delete(`/surgeries/${id}`),
-  getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`)
+  getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`),
+  getTimeFilters: (params) => api.get('/surgeries/time-filters', { params })
 }
 
 const devices = {

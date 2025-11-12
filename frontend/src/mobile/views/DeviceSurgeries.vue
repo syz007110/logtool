@@ -193,7 +193,7 @@
 </template>
 
 <script>
-import { computed, ref, onMounted, onBeforeUnmount, onUpdated, nextTick } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, onUpdated, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { 
@@ -310,76 +310,162 @@ export default {
       return parts.join('-')
     })
 
+    const timeFiltersLoaded = ref(false)
+    const availableYearValues = ref([])
+    const availableMonthsByYear = ref({})
+    const availableDaysByYearMonth = ref({})
+    const currentYear = new Date().getFullYear()
+
+    const normalizeYearValue = (value) => {
+      if (value == null) return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(4, '0')
+    }
+
+    const normalizeMonthValue = (value) => {
+      if (value == null) return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(2, '0')
+    }
+
+    const normalizeDayValue = (value) => {
+      if (value == null) return null
+      const num = Number(value)
+      if (Number.isNaN(num)) return null
+      return String(num).padStart(2, '0')
+    }
+
     const availableYears = computed(() => {
-      const set = new Set()
-      surgeries.value.forEach(item => {
-        if (!item.start_time) return
-        const date = new Date(item.start_time)
-        if (!Number.isNaN(date.getTime())) {
-          set.add(date.getFullYear())
-        }
-      })
-      return Array.from(set).sort((a, b) => b - a)
+      const yearsSource = Array.isArray(availableYearValues.value) ? availableYearValues.value : []
+      const normalized = yearsSource
+        .map(normalizeYearValue)
+        .filter(Boolean)
+      const unique = Array.from(new Set(normalized))
+      return unique.sort((a, b) => Number(b) - Number(a))
     })
 
     const yearOptions = computed(() => {
       const suffix = translateOr('mobile.deviceSurgeries.yearSuffix', '年')
+      const years = availableYears.value.length ? availableYears.value : [String(currentYear)]
+      const uniqueYears = Array.from(new Set(years))
       return [
         { text: translateOr('mobile.deviceSurgeries.timeAll', '全部年份'), value: 'all' },
-        ...availableYears.value.map(year => ({
+        ...uniqueYears.map(year => ({
           text: `${year}${suffix}`,
-          value: String(year)
+          value: year
         }))
       ]
     })
 
     const availableMonths = computed(() => {
-      const set = new Set()
-      surgeries.value.forEach(item => {
-        if (!item.start_time) return
-        const date = new Date(item.start_time)
-        if (Number.isNaN(date.getTime())) return
-        if (selectedYear.value !== 'all' && String(date.getFullYear()) !== selectedYear.value) return
-        set.add(date.getMonth() + 1)
-      })
-      return Array.from(set).sort((a, b) => a - b)
+      const monthsSet = new Set()
+      const monthsMap = availableMonthsByYear.value || {}
+
+      if (selectedYear.value !== 'all') {
+        const months = monthsMap[selectedYear.value] || []
+        months.forEach(month => {
+          const normalized = normalizeMonthValue(month)
+          if (normalized) {
+            monthsSet.add(normalized)
+          }
+        })
+      } else {
+        // 年份为'all'时，显示所有年份的月份合集
+        Object.values(monthsMap).forEach(list => {
+          (list || []).forEach(month => {
+            const normalized = normalizeMonthValue(month)
+            if (normalized) {
+              monthsSet.add(normalized)
+            }
+          })
+        })
+      }
+
+      if (!monthsSet.size) {
+        // 如果没有数据，显示所有月份（1-12）
+        for (let m = 1; m <= 12; m += 1) {
+          monthsSet.add(String(m).padStart(2, '0'))
+        }
+      }
+
+      return Array.from(monthsSet).sort((a, b) => a.localeCompare(b))
     })
 
     const monthOptions = computed(() => {
       const suffix = translateOr('mobile.deviceSurgeries.monthSuffix', '月')
       return [
         { text: translateOr('mobile.deviceSurgeries.monthAll', '全部月份'), value: 'all' },
-        ...availableMonths.value.map(month => ({
-          text: `${String(month).padStart(2, '0')}${suffix}`,
-          value: String(month).padStart(2, '0')
-        }))
+        ...availableMonths.value.map(month => {
+          const normalized = normalizeMonthValue(month)
+          return {
+            text: `${normalized}${suffix}`,
+            value: normalized
+          }
+        })
       ]
     })
 
     const availableDays = computed(() => {
-      const set = new Set()
-      surgeries.value.forEach(item => {
-        if (!item.start_time) return
-        const date = new Date(item.start_time)
-        if (Number.isNaN(date.getTime())) return
-        if (selectedYear.value !== 'all' && String(date.getFullYear()) !== selectedYear.value) return
-        if (selectedMonth.value !== 'all') {
-          const month = String(date.getMonth() + 1).padStart(2, '0')
-          if (month !== selectedMonth.value) return
+      const daysSet = new Set()
+      const daysMap = availableDaysByYearMonth.value || {}
+
+      if (selectedYear.value !== 'all' && selectedMonth.value !== 'all') {
+        // 已选择年份和月份，显示该年月下的所有日期
+        const key = `${selectedYear.value}-${selectedMonth.value}`
+        const days = daysMap[key] || []
+        days.forEach(day => {
+          const normalized = normalizeDayValue(day)
+          if (normalized) {
+            daysSet.add(normalized)
+          }
+        })
+      } else if (selectedYear.value !== 'all') {
+        // 只选择了年份，显示该年份下所有月份的日期
+        Object.entries(daysMap).forEach(([key, list]) => {
+          if (key.startsWith(`${selectedYear.value}-`)) {
+            (list || []).forEach(day => {
+              const normalized = normalizeDayValue(day)
+              if (normalized) {
+                daysSet.add(normalized)
+              }
+            })
+          }
+        })
+      } else {
+        // 年份为'all'，显示所有日期
+        Object.values(daysMap).forEach(list => {
+          (list || []).forEach(day => {
+            const normalized = normalizeDayValue(day)
+            if (normalized) {
+              daysSet.add(normalized)
+            }
+          })
+        })
+      }
+
+      if (!daysSet.size) {
+        // 如果没有数据，显示所有日期（1-31）
+        for (let d = 1; d <= 31; d += 1) {
+          daysSet.add(String(d).padStart(2, '0'))
         }
-        set.add(date.getDate())
-      })
-      return Array.from(set).sort((a, b) => a - b)
+      }
+
+      return Array.from(daysSet).sort((a, b) => a.localeCompare(b))
     })
 
     const dayOptions = computed(() => {
       const suffix = translateOr('mobile.deviceSurgeries.daySuffix', '日')
       return [
         { text: translateOr('mobile.deviceSurgeries.dayAll', '全部日期'), value: 'all' },
-        ...availableDays.value.map(day => ({
-          text: `${String(day).padStart(2, '0')}${suffix}`,
-          value: String(day).padStart(2, '0')
-        }))
+        ...availableDays.value.map(day => {
+          const normalized = normalizeDayValue(day)
+          return {
+            text: `${normalized}${suffix}`,
+            value: normalized
+          }
+        })
       ]
     })
 
@@ -637,14 +723,124 @@ export default {
       }
     }
 
+    const syncTimeFilterSelections = () => {
+      if (selectedYear.value !== 'all') {
+        const normalizedYear = normalizeYearValue(selectedYear.value)
+        if (!normalizedYear || !availableYears.value.includes(normalizedYear)) {
+          selectedYear.value = 'all'
+          selectedMonth.value = 'all'
+          selectedDay.value = 'all'
+        } else if (normalizedYear !== selectedYear.value) {
+          selectedYear.value = normalizedYear
+        }
+      }
+
+      if (selectedMonth.value !== 'all') {
+        const monthValues = availableMonths.value
+        if (!monthValues.includes(selectedMonth.value)) {
+          selectedMonth.value = 'all'
+          selectedDay.value = 'all'
+        }
+      }
+
+      if (selectedDay.value !== 'all') {
+        const dayValues = availableDays.value
+        if (!dayValues.includes(selectedDay.value)) {
+          selectedDay.value = 'all'
+        }
+      }
+
+      if (
+        selectedQuickRange.value === 'custom' &&
+        selectedYear.value === 'all' &&
+        selectedMonth.value === 'all' &&
+        selectedDay.value === 'all'
+      ) {
+        selectedQuickRange.value = 'all'
+      }
+    }
+
+    const loadTimeFilters = async () => {
+      if (!deviceId.value) {
+        return
+      }
+
+      try {
+        const resp = await api.surgeries.getTimeFilters({ device_id: deviceId.value })
+        const data = resp?.data?.data || {}
+
+        const yearsArray = Array.isArray(data.years) ? data.years : []
+        availableYearValues.value = Array.from(
+          new Set(
+            yearsArray
+              .map(normalizeYearValue)
+              .filter(Boolean)
+          )
+        )
+
+        const monthsResult = {}
+        if (data.monthsByYear && typeof data.monthsByYear === 'object') {
+          Object.entries(data.monthsByYear).forEach(([year, list]) => {
+            const normalizedYear = normalizeYearValue(year)
+            if (!normalizedYear) return
+            const months = Array.isArray(list) ? list : []
+            const uniqueMonths = Array.from(
+              new Set(
+                months
+                  .map(normalizeMonthValue)
+                  .filter(Boolean)
+              )
+            ).sort((a, b) => a.localeCompare(b))
+            if (uniqueMonths.length) {
+              monthsResult[normalizedYear] = uniqueMonths
+            }
+          })
+        }
+        availableMonthsByYear.value = monthsResult
+
+        const daysResult = {}
+        if (data.daysByYearMonth && typeof data.daysByYearMonth === 'object') {
+          Object.entries(data.daysByYearMonth).forEach(([key, list]) => {
+            const [yearPart, monthPart] = key.split('-')
+            const normalizedYear = normalizeYearValue(yearPart)
+            const normalizedMonth = normalizeMonthValue(monthPart)
+            if (!normalizedYear || !normalizedMonth) return
+            const days = Array.isArray(list) ? list : []
+            const uniqueDays = Array.from(
+              new Set(
+                days
+                  .map(normalizeDayValue)
+                  .filter(Boolean)
+              )
+            ).sort((a, b) => a.localeCompare(b))
+            if (uniqueDays.length) {
+              daysResult[`${normalizedYear}-${normalizedMonth}`] = uniqueDays
+            }
+          })
+        }
+        availableDaysByYearMonth.value = daysResult
+
+        timeFiltersLoaded.value = true
+      } catch (error) {
+        console.warn('Failed to load time filters:', error)
+        timeFiltersLoaded.value = false
+      } finally {
+        syncTimeFilterSelections()
+      }
+    }
+
     const selectYear = (value) => {
-      selectedYear.value = value
-      selectedQuickRange.value = value === 'all' ? 'all' : 'custom'
-      if (value === 'all') {
+      const normalizedValue = value === 'all' ? 'all' : normalizeYearValue(value)
+      if (selectedYear.value === normalizedValue) {
+        return
+      }
+      selectedYear.value = normalizedValue || 'all'
+      selectedQuickRange.value = selectedYear.value === 'all' ? 'all' : 'custom'
+      if (selectedYear.value === 'all') {
         selectedMonth.value = 'all'
         selectedDay.value = 'all'
       } else if (selectedMonth.value !== 'all') {
-        const months = availableMonths.value.map(m => String(m).padStart(2, '0'))
+        const months = availableMonths.value
         if (!months.includes(selectedMonth.value)) {
           selectedMonth.value = 'all'
           selectedDay.value = 'all'
@@ -654,15 +850,19 @@ export default {
     }
 
     const selectMonth = (value) => {
-      selectedMonth.value = value
+      const normalizedValue = value === 'all' ? 'all' : normalizeMonthValue(value)
+      if (selectedMonth.value === normalizedValue) {
+        return
+      }
+      selectedMonth.value = normalizedValue || 'all'
       selectedQuickRange.value =
-        value === 'all' && selectedYear.value === 'all' && selectedDay.value === 'all'
+        selectedMonth.value === 'all' && selectedYear.value === 'all' && selectedDay.value === 'all'
           ? 'all'
           : 'custom'
-      if (value === 'all') {
+      if (selectedMonth.value === 'all') {
         selectedDay.value = 'all'
       } else {
-        const days = availableDays.value.map(d => String(d).padStart(2, '0'))
+        const days = availableDays.value
         if (!days.includes(selectedDay.value)) {
           selectedDay.value = 'all'
         }
@@ -671,8 +871,16 @@ export default {
     }
 
     const selectDay = (value) => {
-      selectedDay.value = value
-      if (value === 'all' && selectedYear.value === 'all' && selectedMonth.value === 'all') {
+      const normalizedValue = value === 'all' ? 'all' : normalizeDayValue(value)
+      if (selectedDay.value === normalizedValue) {
+        return
+      }
+      selectedDay.value = normalizedValue || 'all'
+      if (
+        selectedDay.value === 'all' &&
+        selectedYear.value === 'all' &&
+        selectedMonth.value === 'all'
+      ) {
         selectedQuickRange.value = 'all'
       } else {
         selectedQuickRange.value = 'custom'
@@ -706,10 +914,45 @@ export default {
     const contentPaddingTop = computed(() => (filtersHeight.value || 0) + 12)
 
     onMounted(async () => {
+      // 先加载时间筛选数据
+      if (!timeFiltersLoaded.value) {
+        await loadTimeFilters()
+      }
       await fetchSurgeries()
       resetAndReload()
       nextTick(updateLayoutMetrics)
       window.addEventListener('resize', updateLayoutMetrics)
+    })
+
+    // 监听路由参数变化，切换设备时重置状态
+    watch(() => route.params?.deviceId, async (newDeviceId, oldDeviceId) => {
+      if (newDeviceId && newDeviceId !== oldDeviceId) {
+        // 重置状态
+        page.value = 1
+        items.value = []
+        surgeries.value = []
+        deviceInfo.value = null
+        totalSurgeries.value = 0
+        finished.value = false
+        loading.value = false
+        prepared.value = false
+        timeFiltersLoaded.value = false
+        availableYearValues.value = []
+        availableMonthsByYear.value = {}
+        availableDaysByYearMonth.value = {}
+        surgeryTypeFilter.value = 'all'
+        selectedQuickRange.value = 'all'
+        selectedYear.value = 'all'
+        selectedMonth.value = 'all'
+        selectedDay.value = 'all'
+        keyword.value = ''
+        // 重新加载数据
+        if (!timeFiltersLoaded.value) {
+          await loadTimeFilters()
+        }
+        onLoad()
+        nextTick(updateLayoutMetrics)
+      }
     })
 
     onUpdated(() => {

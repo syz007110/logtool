@@ -7,6 +7,9 @@ const surgeriesController = require('../controllers/surgeriesController');
 // 列表：支持按设备编号筛选、分页
 router.get('/', auth, checkPermission('surgery:read'), surgeriesController.listSurgeries);
 
+// 获取时间筛选选项（年、月、日）
+router.get('/time-filters', auth, checkPermission('surgery:read'), surgeriesController.getSurgeryTimeFilters);
+
 // 获取单条
 router.get('/:id', auth, checkPermission('surgery:read'), surgeriesController.getSurgeryById);
 

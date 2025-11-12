@@ -1,12 +1,18 @@
 <template>
   <div class="state-machine-chart" ref="containerRef">
-    <canvas ref="canvasRef" class="chart-canvas" />
+    <div class="chart-wrapper" ref="chartWrapperRef">
+      <div class="y-axis-title">{{ $t('mobile.surgeryVisualization.stateMachineYAxis') }}</div>
+      <canvas ref="canvasRef" class="chart-canvas" />
+    </div>
   </div>
 </template>
 
 <script setup lang="jsx">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { jsx, Canvas, Chart, Axis, Line, Area, Point, Tooltip } from '@antv/f2'
+import { useI18n } from 'vue-i18n'
+import { jsx, Canvas, Chart, Axis, Line, Point, Tooltip } from '@antv/f2'
+
+const { t } = useI18n({ useScope: 'global' })
 
 const props = defineProps({
   data: {
@@ -56,6 +62,7 @@ const props = defineProps({
 })
 
 const containerRef = ref(null)
+const chartWrapperRef = ref(null)
 const canvasRef = ref(null)
 const canvasInstanceRef = ref(null)
 const resizeObserverRef = ref(null)
@@ -122,17 +129,24 @@ function parseToDate (input) {
 
 const ensureCanvasSize = () => {
   const canvasEl = canvasRef.value
-  const containerEl = containerRef.value
-  if (!canvasEl || !containerEl) return
+  const wrapperEl = chartWrapperRef.value
+  if (!canvasEl || !wrapperEl) return
 
-  const rawWidth = containerEl.clientWidth || window.innerWidth
+  // 获取wrapper的实际宽度
+  const wrapperWidth = wrapperEl.clientWidth || window.innerWidth
   const rawHeight = props.height
-  const width = Math.max(rawWidth - 10, 0)
+  
+  // 标题固定宽度10px + gap 2px = 12px，canvas占据剩余空间
+  const titleWidth = 10
+  const gap = 2
+  const titleSpace = titleWidth + gap
+  const width = Math.max(wrapperWidth - titleSpace, 0)
   const height = Math.max(rawHeight - 10, 0)
 
+  // 设置canvas的显示尺寸和实际像素尺寸
   canvasEl.style.width = `${width}px`
   canvasEl.style.height = `${height}px`
-  canvasEl.style.margin = '5px auto'
+  canvasEl.style.margin = '0'
   canvasEl.width = width * pixelRatio
   canvasEl.height = height * pixelRatio
   const context = canvasEl.getContext('2d')
@@ -238,12 +252,6 @@ const createCanvasProps = (context) => {
             }
           }}
         />
-        <Area
-          x={timeField}
-          y={valueField}
-          shape="smooth"
-          color={props.gradient}
-        />
         <Line
           x={timeField}
           y={valueField}
@@ -300,6 +308,9 @@ onMounted(() => {
       ensureCanvasSize()
       scheduleRender()
     })
+    if (chartWrapperRef.value) {
+      observer.observe(chartWrapperRef.value)
+    }
     if (containerRef.value) {
       observer.observe(containerRef.value)
     }
@@ -338,12 +349,40 @@ watch(
 <style scoped>
 .state-machine-chart {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.chart-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+  gap: 2px;
+  margin-left: -8px;
+}
+
+.y-axis-title {
+  flex-shrink: 0;
+  width: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .chart-canvas {
   display: block;
-  width: 100%;
-  height: 100%;
+  height: auto;
+  /* 宽度由JavaScript动态计算，不在这里设置 */
 }
 </style>
 

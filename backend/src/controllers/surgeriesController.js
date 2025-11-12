@@ -185,4 +185,111 @@ exports.getLogEntriesByRange = async (req, res) => {
   }
 };
 
+// 获取手术数据的时间筛选选项（年、月、日）
+exports.getSurgeryTimeFilters = async (req, res) => {
+  try {
+    const { device_id } = req.query;
+    if (!device_id) {
+      return res.status(400).json({ success: false, message: 'device_id is required' });
+    }
+
+    const { postgresqlSequelize } = require('../config/postgresql');
+    
+    // 使用PostgreSQL的生成列 start_year, start_month, start_day
+    // 注意：PostgreSQL中使用 $1, $2 等位置参数
+    const query = `
+      SELECT DISTINCT
+        start_year AS year,
+        start_month AS month,
+        start_day AS day
+      FROM surgeries
+      WHERE $1 = ANY(device_ids)
+        AND start_time IS NOT NULL
+        AND start_year IS NOT NULL
+      ORDER BY year DESC, month DESC, day DESC
+    `;
+
+    // PostgreSQL Sequelize的query方法
+    // 注意：PostgreSQL Sequelize的query方法总是返回 [results, metadata] 格式
+    const result = await postgresqlSequelize.query(query, {
+      bind: [device_id]
+    });
+
+    // 处理返回值：PostgreSQL Sequelize返回 [rows, metadata]
+    let rows = null;
+    if (Array.isArray(result)) {
+      if (result.length === 2) {
+        // 标准格式：[rows, metadata]
+        rows = result[0];
+      } else if (result.length > 0) {
+        // 可能是直接返回的数组
+        rows = result;
+      }
+    }
+
+    // 确保rows是数组
+    if (!Array.isArray(rows)) {
+      console.error('getSurgeryTimeFilters: unexpected result format', {
+        resultType: typeof result,
+        isArray: Array.isArray(result),
+        resultLength: Array.isArray(result) ? result.length : 'N/A',
+        result: result
+      });
+      return res.json({
+        success: true,
+        data: {
+          years: [],
+          monthsByYear: {},
+          daysByYearMonth: {}
+        }
+      });
+    }
+
+    const yearsSet = new Set();
+    const monthsMap = new Map();
+    const daysMap = new Map();
+
+    rows.forEach(({ year, month, day }) => {
+      if (year == null) return;
+      const yearStr = String(year).padStart(4, '0');
+      yearsSet.add(yearStr);
+
+      if (month != null) {
+        const monthStr = String(month).padStart(2, '0');
+        if (!monthsMap.has(yearStr)) monthsMap.set(yearStr, new Set());
+        monthsMap.get(yearStr).add(monthStr);
+
+        if (day != null) {
+          const dayStr = String(day).padStart(2, '0');
+          const dayKey = `${yearStr}-${monthStr}`;
+          if (!daysMap.has(dayKey)) daysMap.set(dayKey, new Set());
+          daysMap.get(dayKey).add(dayStr);
+        }
+      }
+    });
+
+    const years = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+    const monthsByYear = {};
+    monthsMap.forEach((set, year) => {
+      monthsByYear[year] = Array.from(set).sort((a, b) => a.localeCompare(b));
+    });
+    const daysByYearMonth = {};
+    daysMap.forEach((set, key) => {
+      daysByYearMonth[key] = Array.from(set).sort((a, b) => a.localeCompare(b));
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        years,
+        monthsByYear,
+        daysByYearMonth
+      }
+    });
+  } catch (error) {
+    console.error('getSurgeryTimeFilters error:', error);
+    return res.status(500).json({ success: false, message: '获取手术时间筛选项失败', error: error.message });
+  }
+};
+
 

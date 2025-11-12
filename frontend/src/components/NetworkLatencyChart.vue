@@ -1,6 +1,9 @@
 <template>
   <div class="network-latency-chart" ref="containerRef">
-    <canvas ref="canvasRef" class="chart-canvas" />
+    <div class="chart-wrapper" ref="chartWrapperRef">
+      <div class="y-axis-title">{{ $t('mobile.surgeryVisualization.networkLatencyYAxis') }}</div>
+      <canvas ref="canvasRef" class="chart-canvas" />
+    </div>
     <div class="legend">
       <div
         v-for="item in legendItems"
@@ -46,11 +49,11 @@ const props = defineProps({
   },
   normalThreshold: {
     type: Number,
-    default: 500
+    default: 110
   },
   warningThreshold: {
     type: Number,
-    default: 1500
+    default: 1000
   },
   lineColor: {
     type: String,
@@ -87,6 +90,7 @@ const props = defineProps({
 })
 
 const containerRef = ref(null)
+const chartWrapperRef = ref(null)
 const canvasRef = ref(null)
 const canvasInstanceRef = ref(null)
 const resizeObserverRef = ref(null)
@@ -154,7 +158,7 @@ const statusConfig = computed(() => ({
     color: props.normalColor,
     size: 8,
     shape: 'circle',
-    label: t('mobile.surgeryVisualization.networkStatusNormal'),
+    label: t('mobile.surgeryVisualization.networkStatusGood'),
     tag: ''
   },
   warning: {
@@ -174,7 +178,8 @@ const statusConfig = computed(() => ({
 }))
 
 const legendItems = computed(() => {
-  return ['normal', 'warning', 'offline'].map((status) => {
+  // 只显示良好和断网两个状态
+  return ['normal', 'offline'].map((status) => {
     const config = statusConfig.value[status]
     return {
       key: status,
@@ -226,9 +231,11 @@ const hasData = computed(() => normalizedData.value.length > 0)
 
 function classifyLatency (value) {
   if (!Number.isFinite(value)) return 'normal'
+  // 良好: <110ms, 断网: >=1000ms
   if (value < props.normalThreshold) return 'normal'
-  if (value <= props.warningThreshold) return 'warning'
-  return 'offline'
+  if (value >= props.warningThreshold) return 'offline'
+  // 介于110ms和1000ms之间的数据，归类为warning（不在legend中显示，但图表中用warning颜色显示）
+  return 'warning'
 }
 
 function parseToDate (input) {
@@ -248,17 +255,24 @@ function parseToDate (input) {
 
 const ensureCanvasSize = () => {
   const canvasEl = canvasRef.value
-  const containerEl = containerRef.value
-  if (!canvasEl || !containerEl) return
+  const wrapperEl = chartWrapperRef.value
+  if (!canvasEl || !wrapperEl) return
 
-  const rawWidth = containerEl.clientWidth || window.innerWidth
+  // 获取wrapper的实际宽度
+  const wrapperWidth = wrapperEl.clientWidth || window.innerWidth
   const rawHeight = props.height
-  const width = Math.max(rawWidth - 10, 0)
+  
+  // 标题固定宽度10px + gap 2px = 12px，canvas占据剩余空间
+  const titleWidth = 10
+  const gap = 2
+  const titleSpace = titleWidth + gap
+  const width = Math.max(wrapperWidth - titleSpace, 0)
   const height = Math.max(rawHeight - 10, 0)
 
+  // 设置canvas的显示尺寸和实际像素尺寸
   canvasEl.style.width = `${width}px`
   canvasEl.style.height = `${height}px`
-  canvasEl.style.margin = '5px auto'
+  canvasEl.style.margin = '0'
   canvasEl.width = width * pixelRatio
   canvasEl.height = height * pixelRatio
   const context = canvasEl.getContext('2d')
@@ -425,6 +439,9 @@ onMounted(() => {
       ensureCanvasSize()
       scheduleRender()
     })
+    if (chartWrapperRef.value) {
+      observer.observe(chartWrapperRef.value)
+    }
     if (containerRef.value) {
       observer.observe(containerRef.value)
     }
@@ -478,13 +495,38 @@ watch(
   width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+}
+
+.chart-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
   align-items: center;
+  position: relative;
+  gap: 2px;
+  margin-left: -8px;
+}
+
+.y-axis-title {
+  flex-shrink: 0;
+  width: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .chart-canvas {
   display: block;
-  width: 100%;
   height: auto;
+  /* 宽度由JavaScript动态计算，不在这里设置 */
 }
 
 .legend {

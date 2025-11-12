@@ -3,10 +3,6 @@
     <!-- 顶部标题栏 -->
     <div class="header">
       <h1 class="page-title">{{ $t('mobile.titles.errorQuery') }}</h1>
-      <div class="status-chip">
-        <span class="status-dot" />
-        <span class="status-text">{{ $t('mobile.errorQuery.statusOnline') }}</span>
-      </div>
     </div>
     
     <div class="content">
@@ -1195,31 +1191,6 @@ export default {
   font-weight: 600;
   color: #323233;
   margin: 0;
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #ecfdf3;
-  color: #027a48;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #12b76a;
-}
-
-.status-text {
-  display: inline-flex;
-  align-items: center;
 }
 
 .content {

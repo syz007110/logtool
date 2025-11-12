@@ -150,5 +150,77 @@ CREATE INDEX idx_logs_file_token ON logs(file_time_token);
 
 -- 显示步骤4完成时间
 SELECT NOW() as step4_completed, 'logs 表索引创建完成' as status;
+-- PostgreSQL手术表生成列脚本
+-- 用于从surgery_id字段提取年、月、日，以便进行时间筛选
+-- 注意：请确保PostgreSQL中已存在surgeries表
+-- surgery_id格式：设备编号-YYYYMMDDhhmm（例如：4371-51-202509231306）
 
+-- 1. 添加生成列：start_year (从surgery_id提取年份)
+-- 从surgery_id的最后12位数字中提取前4位作为年份
+-- 使用RIGHT和SUBSTRING函数提取，这些函数都是不可变的
+-- 注意：surgery_id格式必须是 设备编号-YYYYMMDDhhmm
+-- 使用CASE WHEN确保surgery_id长度足够，避免提取失败
+ALTER TABLE surgeries
+  ADD COLUMN IF NOT EXISTS start_year INTEGER
+    GENERATED ALWAYS AS (
+      CASE 
+        WHEN surgery_id IS NOT NULL AND LENGTH(surgery_id) >= 12 THEN
+          (SUBSTRING(RIGHT(surgery_id, 12) FROM 1 FOR 4))::INTEGER
+        ELSE NULL
+      END
+    ) STORED;
+
+-- 2. 添加生成列：start_month (从surgery_id提取月份)
+-- 从surgery_id的最后12位数字中提取第5-6位作为月份
+ALTER TABLE surgeries
+  ADD COLUMN IF NOT EXISTS start_month INTEGER
+    GENERATED ALWAYS AS (
+      CASE 
+        WHEN surgery_id IS NOT NULL AND LENGTH(surgery_id) >= 12 THEN
+          (SUBSTRING(RIGHT(surgery_id, 12) FROM 5 FOR 2))::INTEGER
+        ELSE NULL
+      END
+    ) STORED;
+
+-- 3. 添加生成列：start_day (从surgery_id提取日期)
+-- 从surgery_id的最后12位数字中提取第7-8位作为日期
+ALTER TABLE surgeries
+  ADD COLUMN IF NOT EXISTS start_day INTEGER
+    GENERATED ALWAYS AS (
+      CASE 
+        WHEN surgery_id IS NOT NULL AND LENGTH(surgery_id) >= 12 THEN
+          (SUBSTRING(RIGHT(surgery_id, 12) FROM 7 FOR 2))::INTEGER
+        ELSE NULL
+      END
+    ) STORED;
+
+-- 4. 创建索引以优化查询性能
+CREATE INDEX IF NOT EXISTS idx_surgeries_start_year ON surgeries(start_year) WHERE start_year IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_surgeries_start_year_month ON surgeries(start_year, start_month) WHERE start_year IS NOT NULL AND start_month IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_surgeries_start_year_month_day ON surgeries(start_year, start_month, start_day) WHERE start_year IS NOT NULL AND start_month IS NOT NULL AND start_day IS NOT NULL;
+
+-- 5. 显示创建结果
+SELECT 'PostgreSQL手术表生成列创建完成！' AS message;
+
+-- 6. 验证生成列
+SELECT 
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'surgeries'
+  AND column_name IN ('start_year', 'start_month', 'start_day')
+ORDER BY ordinal_position;
+
+-- 7. 测试生成列（可选）
+-- SELECT 
+--   surgery_id,
+--   start_year,
+--   start_month,
+--   start_day
+-- FROM surgeries
+-- WHERE surgery_id IS NOT NULL
+-- LIMIT 10;
 

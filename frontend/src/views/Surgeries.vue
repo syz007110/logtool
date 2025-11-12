@@ -421,38 +421,9 @@ export default {
       { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') }
     ]))
 
-    const collectAllDays = () => {
-      const map = new Map()
-      Object.entries(detailAvailableDays.value || {}).forEach(([key, arr]) => {
-        const existing = map.get(key) || new Set()
-        if (Array.isArray(arr)) {
-          arr.forEach(day => existing.add(String(day).padStart(2, '0')))
-        }
-        map.set(key, existing)
-      })
-      detailSurgeries.value.forEach(entry => {
-        if (entry._startYear != null && entry._startMonth != null && entry._startDay != null) {
-          const yearKey = String(entry._startYear)
-          const monthKey = String(entry._startMonth).padStart(2, '0')
-          const dayKey = String(entry._startDay).padStart(2, '0')
-          const mapKey = `${yearKey}-${monthKey}`
-          const existing = map.get(mapKey) || new Set()
-          existing.add(dayKey)
-          map.set(mapKey, existing)
-        }
-      })
-      return map
-    }
 
     const detailYearOptions = computed(() => {
-      const yearsSet = new Set((detailAvailableYears.value || []).map(year => String(year)))
-      detailSurgeries.value.forEach(entry => {
-        if (entry._startYear != null) {
-          yearsSet.add(String(entry._startYear))
-        }
-      })
-      const sorted = Array.from(yearsSet)
-        .map(year => year)
+      const sorted = Array.from(detailAvailableYears.value || [])
         .sort((a, b) => Number(b) - Number(a))
       return [
         { value: 'all', label: t('logs.surgeriesFilters.yearAll') },
@@ -464,64 +435,103 @@ export default {
     })
 
     const detailMonthOptions = computed(() => {
-      if (detailSelectedYear.value === 'all') {
-        return [{ value: 'all', label: t('logs.surgeriesFilters.monthAll') }]
-      }
+      const suffix = t('logs.surgeriesFilters.monthSuffix') || ''
       const monthsSet = new Set()
-      (detailAvailableMonths.value?.[detailSelectedYear.value] || []).forEach(month =>
-        monthsSet.add(String(month).padStart(2, '0'))
-      )
-      detailSurgeries.value.forEach(entry => {
-        if (entry._startYear != null && String(entry._startYear) === detailSelectedYear.value && entry._startMonth != null) {
-          monthsSet.add(String(entry._startMonth).padStart(2, '0'))
+      const monthsMap = detailAvailableMonths.value || {}
+
+      if (detailSelectedYear.value !== 'all') {
+        const months = monthsMap[detailSelectedYear.value] || []
+        months.forEach(month => {
+          const num = Number(month)
+          if (!Number.isNaN(num)) {
+            monthsSet.add(String(num).padStart(2, '0'))
+          }
+        })
+      } else {
+        // 年份为'all'时，显示所有年份的月份合集
+        Object.values(monthsMap).forEach(list => {
+          (list || []).forEach(month => {
+            const num = Number(month)
+            if (!Number.isNaN(num)) {
+              monthsSet.add(String(num).padStart(2, '0'))
+            }
+          })
+        })
+      }
+
+      if (!monthsSet.size) {
+        // 如果没有数据，显示所有月份（1-12）
+        for (let m = 1; m <= 12; m += 1) {
+          monthsSet.add(String(m).padStart(2, '0'))
         }
-      })
+      }
+
       const sorted = Array.from(monthsSet).sort((a, b) => a.localeCompare(b))
       return [
         { value: 'all', label: t('logs.surgeriesFilters.monthAll') },
         ...sorted.map(month => ({
           value: month,
-          label: `${month}${t('logs.surgeriesFilters.monthSuffix')}`
+          label: `${month}${suffix}`
         }))
       ]
     })
 
     const detailDayOptions = computed(() => {
-      if (detailSelectedYear.value === 'all' || detailSelectedMonth.value === 'all') {
-        return [{ value: 'all', label: t('logs.surgeriesFilters.dayAll') }]
-      }
-      const dayMap = collectAllDays()
+      const suffix = t('logs.surgeriesFilters.daySuffix') || ''
       const daysSet = new Set()
-      const key = `${detailSelectedYear.value}-${detailSelectedMonth.value}`
-      const targetDays = dayMap.get(key) || new Set()
-      targetDays.forEach(day => daysSet.add(day))
+      const daysMap = detailAvailableDays.value || {}
+
+      if (detailSelectedYear.value !== 'all' && detailSelectedMonth.value !== 'all') {
+        // 已选择年份和月份，显示该年月下的所有日期
+        const key = `${detailSelectedYear.value}-${detailSelectedMonth.value}`
+        const days = daysMap[key] || []
+        days.forEach(day => {
+          const num = Number(day)
+          if (!Number.isNaN(num)) {
+            daysSet.add(String(num).padStart(2, '0'))
+          }
+        })
+      } else if (detailSelectedYear.value !== 'all') {
+        // 只选择了年份，显示该年份下所有月份的日期
+        Object.entries(daysMap).forEach(([key, list]) => {
+          if (key.startsWith(`${detailSelectedYear.value}-`)) {
+            (list || []).forEach(day => {
+              const num = Number(day)
+              if (!Number.isNaN(num)) {
+                daysSet.add(String(num).padStart(2, '0'))
+              }
+            })
+          }
+        })
+      } else {
+        // 年份为'all'，显示所有日期
+        Object.values(daysMap).forEach(list => {
+          (list || []).forEach(day => {
+            const num = Number(day)
+            if (!Number.isNaN(num)) {
+              daysSet.add(String(num).padStart(2, '0'))
+            }
+          })
+        })
+      }
+
+      if (!daysSet.size) {
+        // 如果没有数据，显示所有日期（1-31）
+        for (let d = 1; d <= 31; d += 1) {
+          daysSet.add(String(d).padStart(2, '0'))
+        }
+      }
+
       const sorted = Array.from(daysSet).sort((a, b) => a.localeCompare(b))
       return [
         { value: 'all', label: t('logs.surgeriesFilters.dayAll') },
         ...sorted.map(day => ({
           value: day,
-          label: `${day}${t('logs.surgeriesFilters.daySuffix')}`
+          label: `${day}${suffix}`
         }))
       ]
     })
 
-    const ensureMonthSelectionValid = () => {
-      const available = detailMonthOptions.value.map(option => option.value)
-      if (!available.includes(detailSelectedMonth.value)) {
-        detailSelectedMonth.value = 'all'
-        return true
-      }
-      return false
-    }
-
-    const ensureDaySelectionValid = () => {
-      const available = detailDayOptions.value.map(option => option.value)
-      if (!available.includes(detailSelectedDay.value)) {
-        detailSelectedDay.value = 'all'
-        return true
-      }
-      return false
-    }
 
     const updateQuickRangeBySelections = () => {
       const allSelected =
@@ -553,8 +563,7 @@ export default {
         detailSelectedMonth.value = 'all'
         detailSelectedDay.value = 'all'
       } else {
-        ensureMonthSelectionValid()
-        ensureDaySelectionValid()
+        syncDetailSelections()
       }
       updateQuickRangeBySelections()
       detailCurrentPage.value = 1
@@ -566,7 +575,7 @@ export default {
       if (value === 'all') {
         detailSelectedDay.value = 'all'
       } else {
-        ensureDaySelectionValid()
+        syncDetailSelections()
       }
       updateQuickRangeBySelections()
       detailCurrentPage.value = 1
@@ -596,98 +605,104 @@ export default {
       detailAvailableYears.value = []
       detailAvailableMonths.value = {}
       detailAvailableDays.value = {}
+      loadDetailTimeFilters()
       loadDetailSurgeries()
     }
 
-    const normalizeMonth = (value) => {
-      if (value == null || value === '') return null
-      const num = Number(value)
-      if (Number.isNaN(num)) return null
-      return String(num).padStart(2, '0')
+    const syncDetailSelections = () => {
+      const monthValues = detailMonthOptions.value.map(option => option.value)
+      if (!monthValues.includes(detailSelectedMonth.value)) {
+        detailSelectedMonth.value = 'all'
+      }
+      const dayValues = detailDayOptions.value.map(option => option.value)
+      if (!dayValues.includes(detailSelectedDay.value)) {
+        detailSelectedDay.value = 'all'
+      }
+      if (
+        detailSelectedYear.value === 'all' &&
+        detailSelectedMonth.value === 'all' &&
+        detailSelectedDay.value === 'all'
+      ) {
+        detailQuickRange.value = 'all'
+      }
     }
 
-    const normalizeDay = (value) => {
-      if (value == null || value === '') return null
-      const num = Number(value)
-      if (Number.isNaN(num)) return null
-      return String(num).padStart(2, '0')
-    }
+    const loadDetailTimeFilters = async () => {
+      if (!selectedDevice.value?.device_id) return
+      try {
+        const resp = await api.surgeries.getTimeFilters({ device_id: selectedDevice.value.device_id })
+        const data = resp.data?.data || {}
 
-    const updateFilterMeta = (entries, filters = {}) => {
-      const yearsSet = new Set((detailAvailableYears.value || []).map(year => String(year)))
-      const monthsMap = { ...(detailAvailableMonths.value || {}) }
-      const daysMap = { ...(detailAvailableDays.value || {}) }
-
-      const addMonth = (year, month) => {
-        if (year == null || month == null) return
-        const yearKey = String(year)
-        const monthKey = normalizeMonth(month)
-        if (!monthKey) return
-        const existing = new Set(monthsMap[yearKey] || [])
-        existing.add(monthKey)
-        monthsMap[yearKey] = Array.from(existing).sort((a, b) => a.localeCompare(b))
-      }
-
-      const addDay = (year, month, day) => {
-        if (year == null || month == null || day == null) return
-        const yearKey = String(year)
-        const monthKey = normalizeMonth(month)
-        const dayKey = normalizeDay(day)
-        if (!monthKey || !dayKey) return
-        const mapKey = `${yearKey}-${monthKey}`
-        const existing = new Set(daysMap[mapKey] || [])
-        existing.add(dayKey)
-        daysMap[mapKey] = Array.from(existing).sort((a, b) => a.localeCompare(b))
-      }
-
-      const filterYears = filters?.years
-      if (Array.isArray(filterYears)) {
-        filterYears.forEach(year => yearsSet.add(String(year)))
-      }
-
-      const filterMonths = filters?.months
-      if (filterMonths && typeof filterMonths === 'object') {
-        Object.entries(filterMonths).forEach(([yearKey, months]) => {
-          const monthArray = Array.isArray(months)
-            ? months
-            : Array.isArray(months?.values)
-              ? months.values
-              : Object.keys(months)
-          monthArray.forEach(month => addMonth(yearKey, month))
-        })
-      }
-
-      const filterDays = filters?.days
-      if (filterDays && typeof filterDays === 'object') {
-        Object.entries(filterDays).forEach(([key, value]) => {
-          if (Array.isArray(value) && key.includes('-')) {
-            const [yearPart, monthPart] = key.split('-')
-            value.forEach(day => addDay(yearPart, monthPart, day))
-          } else if (typeof value === 'object') {
-            Object.entries(value).forEach(([monthKey, days]) => {
-              const dayArray = Array.isArray(days) ? days : Object.keys(days || {})
-              dayArray.forEach(day => addDay(key, monthKey, day))
-            })
-          }
-        })
-      }
-
-      entries.forEach(entry => {
-        if (entry._startYear != null) {
-          yearsSet.add(String(entry._startYear))
-          if (entry._startMonth != null) {
-            addMonth(entry._startYear, entry._startMonth)
-            if (entry._startDay != null) {
-              addDay(entry._startYear, entry._startMonth, entry._startDay)
-            }
-          }
+        const normalizeYear = (value) => {
+          if (value == null) return null
+          const num = Number(value)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(4, '0')
         }
-      })
+        const normalizeMonth = (value) => {
+          if (value == null) return null
+          const num = Number(value)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(2, '0')
+        }
+        const normalizeDay = (value) => {
+          if (value == null) return null
+          const num = Number(value)
+          if (Number.isNaN(num)) return null
+          return String(num).padStart(2, '0')
+        }
 
-      detailAvailableYears.value = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
-      detailAvailableMonths.value = monthsMap
-      detailAvailableDays.value = daysMap
+        const yearsArray = Array.isArray(data.years) ? data.years : []
+        const normalizedYears = yearsArray
+          .map(normalizeYear)
+          .filter(Boolean)
+        detailAvailableYears.value = Array.from(new Set(normalizedYears))
+
+        const monthsResult = {}
+        if (data.monthsByYear && typeof data.monthsByYear === 'object') {
+          Object.entries(data.monthsByYear).forEach(([year, list]) => {
+            const normalizedYear = normalizeYear(year)
+            if (!normalizedYear) return
+            const months = Array.isArray(list) ? list : []
+            const normalizedMonths = months
+              .map(normalizeMonth)
+              .filter(Boolean)
+            if (normalizedMonths.length) {
+              monthsResult[normalizedYear] = Array.from(new Set(normalizedMonths))
+            }
+          })
+        }
+        detailAvailableMonths.value = monthsResult
+
+        const daysResult = {}
+        if (data.daysByYearMonth && typeof data.daysByYearMonth === 'object') {
+          Object.entries(data.daysByYearMonth).forEach(([key, list]) => {
+            const [yearPart, monthPart] = key.split('-')
+            const normalizedYear = normalizeYear(yearPart)
+            const normalizedMonth = normalizeMonth(monthPart)
+            if (!normalizedYear || !normalizedMonth) return
+            const normalizedDays = (Array.isArray(list) ? list : [])
+              .map(normalizeDay)
+              .filter(Boolean)
+            if (normalizedDays.length) {
+              daysResult[`${normalizedYear}-${normalizedMonth}`] = Array.from(new Set(normalizedDays))
+            }
+          })
+        }
+        detailAvailableDays.value = daysResult
+
+        syncDetailSelections()
+      } catch (error) {
+        console.warn('loadDetailTimeFilters error:', error)
+        detailAvailableYears.value = []
+        detailAvailableMonths.value = {}
+        detailAvailableDays.value = {}
+      }
     }
+
+    watch([detailAvailableYears, detailAvailableMonths, detailAvailableDays], () => {
+      syncDetailSelections()
+    })
 
     const formatTimePrefix = (date) => {
       if (!date) return null
@@ -806,14 +821,7 @@ export default {
 
         detailSurgeries.value = mapped
 
-        const filtersMeta = resp.data?.filters || resp.data?.meta?.filters || {}
-        updateFilterMeta(mapped, filtersMeta)
-
-        const monthAdjusted = ensureMonthSelectionValid()
-        const dayAdjusted = ensureDaySelectionValid()
-        if (monthAdjusted || dayAdjusted) {
-          updateQuickRangeBySelections()
-        }
+        syncDetailSelections()
       } catch (e) {
         if (!options?.silent) {
         ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))

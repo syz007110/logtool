@@ -53,86 +53,72 @@
       </div>
 
       <template v-if="activeTab === 'overview'">
-        <div class="gantt-card">
-          <div class="gantt-header">
-            <div class="gantt-title">{{ $t('mobile.surgeryVisualization.ganttTitle') }}</div>
-            <div class="gantt-duration">
-              {{ totalDuration }}
-              {{ $t('mobile.surgeryVisualization.minute') }}
-            </div>
-          </div>
-
-          <div class="gantt-body">
-            <div class="timeline-head">
-              <div class="timeline-label">{{ $t('mobile.surgeryVisualization.timeline') }}</div>
-              <div class="timeline-axis">
-                <div
-                  v-for="mark in timelineMarks"
-                  :key="`axis-${mark}`"
-                  class="timeline-axis-mark"
-                >
-                  {{ mark }}
-                </div>
-              </div>
-            </div>
-
-          <div
-            class="timeline-grid"
-          >
-            <div class="timeline-grid-label">{{ $t('mobile.surgeryVisualization.timeline') }}</div>
-            <div
-              class="timeline-grid-body"
-              :style="{ gridTemplateColumns: `repeat(${timelineCells}, minmax(0, 1fr))` }"
-            >
-              <div
-                v-for="cellIndex in timelineCells"
-                :key="`grid-${cellIndex}`"
-                class="timeline-grid-cell"
-              >
-                <div
-                  v-if="getEventsForCell(cellIndex - 1).length"
-                  class="timeline-event-container"
-                >
+        <!-- 手术概况卡片（包含关键指标和时间线） -->
+        <div class="section-card overview-card">
+          <div class="overview-layout">
+            <!-- 左侧：关键事件时间线 -->
+            <div class="overview-left">
+              <div v-if="timelineEvents.length > 0">
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.timelineTitle') }}</div>
+                <div class="timeline-container">
                   <div
-                    v-for="event in getEventsForCell(cellIndex - 1)"
+                    v-for="(event, index) in timelineEvents"
                     :key="`${event.type}-${event.time}`"
-                    class="timeline-event"
+                    class="timeline-item"
                   >
-                    <span :class="['event-dot', getEventDotClass(event.type)]" />
-                    <span class="event-label one-line">{{ event.name }}</span>
+                    <div class="timeline-line-wrapper">
+                      <div
+                        :class="['timeline-dot', getEventDotClass(event.type)]"
+                      />
+                      <div
+                        v-if="index < timelineEvents.length - 1"
+                        class="timeline-line"
+                      />
+                    </div>
+                    <div class="timeline-content">
+                      <div class="timeline-event-name">{{ event.name }}</div>
+                      <div class="timeline-event-time">{{ formatEventTime(event.time) }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-            <div
-              v-for="(arm, armIndex) in armsData"
-              :key="arm.arm_id || armIndex"
-              class="arm-track"
-            >
-              <div class="arm-track-label">{{ arm.name }}</div>
-              <div class="arm-track-body">
-                <div
-                  v-for="(segment, segmentIndex) in arm.segments"
-                  :key="`${segment.instrument_name || segment.tool_type || 'segment'}-${segmentIndex}`"
-                  :class="['arm-segment', `arm-segment-${segment.colorToken}`]"
-                  :style="getSegmentStyle(segment)"
-                >
-                  {{ segment.instrument_name || segment.tool_type || '-' }}
+              <div v-else>
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.timelineTitle') }}</div>
+                <div class="empty-state">
+                  <van-empty :description="$t('mobile.surgeryVisualization.noTimelineData')" />
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="legend">
-            <div
-              v-for="item in legendItems"
-              :key="item.key"
-              class="legend-item"
-            >
-              <span :class="['legend-dot', item.color]" />
-              <span class="legend-label">{{ item.label }}</span>
+            <!-- 右侧：关键指标 -->
+            <div class="overview-right">
+              <div class="section-header">{{ $t('mobile.surgeryVisualization.keyMetrics') }}</div>
+              <div class="kpi-grid">
+                <div class="kpi-item kpi-item-duration">
+                  <div class="kpi-content">
+                    <div class="kpi-value">{{ formatDuration(totalDuration) }}</div>
+                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiDuration') }}</div>
+                  </div>
+                </div>
+                <div class="kpi-item kpi-item-alerts">
+                  <div class="kpi-content">
+                    <div class="kpi-value">{{ faultSummary.total }}</div>
+                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiAlerts') }}</div>
+                  </div>
+                </div>
+                <div class="kpi-item kpi-item-instruments">
+                  <div class="kpi-content">
+                    <div class="kpi-value">{{ totalInstrumentCount }}</div>
+                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiInstruments') }}</div>
+                  </div>
+                </div>
+                <div v-if="isRemoteSurgery && hasNetworkLatency" class="kpi-item kpi-item-network">
+                  <div class="kpi-content">
+                    <div class="kpi-value">{{ formatNetworkLatency(averageNetworkLatency) }}</div>
+                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiNetworkLatency') }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -141,26 +127,20 @@
       <template v-else-if="activeTab === 'alerts'">
         <div v-if="hasAlerts" class="section-card alert-card">
           <div class="section-header">{{ $t('mobile.surgeryVisualization.alertsTitle') }}</div>
-          <div class="table table-alerts">
-            <div class="table-row table-header">
-              <span>{{ $t('mobile.surgeryVisualization.alertTime') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.alertCode') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.alertMessage') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.alertStatus') }}</span>
-            </div>
+          <div class="alert-list">
             <div
               v-for="row in visibleFaultRows"
               :key="`${row.errorCode}-${row.timestamp}`"
-              class="table-row"
+              :class="['alert-card-item', row.statusKey === 'unprocessed' ? 'alert-card-unprocessed' : 'alert-card-processed']"
             >
-              <span class="cell time">{{ formatDisplayTime(row.timestamp) }}</span>
-              <span class="cell code">{{ row.errorCode }}</span>
-              <span class="cell message">{{ row.message }}</span>
-              <span class="cell status">
-                <span :class="['status-tag', row.statusKey === 'processed' ? 'status-processed' : 'status-unprocessed']">
+              <div class="alert-card-header">
+                <span class="alert-card-time">{{ formatDisplayTime(row.timestamp) }}</span>
+                <span :class="['alert-card-status', row.statusKey === 'processed' ? 'status-processed' : 'status-unprocessed']">
                   {{ row.statusLabel }}
                 </span>
-              </span>
+              </div>
+              <div class="alert-card-code">{{ row.errorCode }}</div>
+              <div class="alert-card-message">{{ row.message }}</div>
             </div>
           </div>
           <button
@@ -182,13 +162,15 @@
 
       <template v-else-if="activeTab === 'network'">
         <div v-if="hasNetworkLatency" class="section-card network-card chart-card">
-          <div class="section-header">{{ $t('mobile.surgeryVisualization.networkLatencyTitle') }}</div>
+          <div class="section-header">{{ $t('mobile.surgeryVisualization.networkLatencyChartTitle') }}</div>
           <network-latency-chart
             :data="networkLatencySeries"
             :height="280"
             time-mask="HH:mm"
             :time-tick-count="5"
             :value-tick-count="5"
+            :normal-threshold="110"
+            :warning-threshold="1000"
           />
         </div>
         <div v-else class="placeholder-card">
@@ -216,24 +198,54 @@
       <template v-else-if="activeTab === 'instruments'">
         <div v-if="hasInstrumentUsage" class="section-card instrument-card">
           <div class="section-header">{{ $t('mobile.surgeryVisualization.instrumentUsageTitle') }}</div>
-          <div class="table table-instruments">
-            <div class="table-row table-header">
-              <span>{{ $t('mobile.surgeryVisualization.instrumentArm') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.instrumentType') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.instrumentUdi') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.instrumentInstall') }}</span>
-              <span>{{ $t('mobile.surgeryVisualization.instrumentRemove') }}</span>
-            </div>
+          <div class="instrument-cards">
             <div
-              v-for="row in instrumentUsageRows"
-              :key="row.id"
-              class="table-row"
+              v-for="armGroup in instrumentUsageRows"
+              :key="armGroup.id"
+              class="instrument-card-item"
             >
-              <span>{{ row.armLabel }}</span>
-              <span>{{ row.toolType }}</span>
-              <span class="one-line">{{ row.udi }}</span>
-              <span class="cell time">{{ formatDisplayTime(row.installTime) }}</span>
-              <span class="cell time">{{ formatDisplayTime(row.removeTime) }}</span>
+              <div
+                class="instrument-card-header"
+                @click="toggleCard(armGroup.id)"
+              >
+                <div class="instrument-card-title">
+                  <span class="instrument-arm-badge">{{ armGroup.armLabel }}</span>
+                  <span class="instrument-count">{{ armGroup.instrumentTypes.join('、') }}</span>
+                </div>
+                <span :class="['instrument-expand-icon', { expanded: isCardExpanded(armGroup.id) }]">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+              <div
+                v-show="isCardExpanded(armGroup.id)"
+                class="instrument-card-body"
+              >
+                <div
+                  v-for="instrument in armGroup.instruments"
+                  :key="instrument.id"
+                  class="instrument-item"
+                >
+                  <div class="instrument-item-header">
+                    <span class="instrument-type">{{ instrument.toolType }}</span>
+                  </div>
+                  <div class="instrument-item-details">
+                    <div class="instrument-info-row">
+                      <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentUdi') }}</span>
+                      <span class="instrument-info-value">{{ instrument.udi }}</span>
+                    </div>
+                    <div class="instrument-info-row">
+                      <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentInstall') }}</span>
+                      <span class="instrument-info-value time">{{ formatDisplayTime(instrument.installTime) }}</span>
+                    </div>
+                    <div class="instrument-info-row">
+                      <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentRemove') }}</span>
+                      <span class="instrument-info-value time">{{ formatDisplayTime(instrument.removeTime) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -275,7 +287,7 @@
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showToast } from 'vant'
@@ -313,11 +325,24 @@ export default {
     const activeTab = ref('overview')
     const timelineEvents = ref([])
 
-    const primaryTabs = computed(() => ([
-      { key: 'overview', label: t('mobile.surgeryVisualization.tabOverview') },
-      { key: 'alerts', label: t('mobile.surgeryVisualization.tabAlerts') },
-      { key: 'network', label: t('mobile.surgeryVisualization.tabNetwork') }
-    ]))
+    const isRemoteSurgery = computed(() => {
+      return surgeryData.value?.is_remote === true || surgeryData.value?.isRemote === true
+    })
+
+    const primaryTabs = computed(() => {
+      const tabs = [
+        { key: 'overview', label: t('mobile.surgeryVisualization.tabOverview') }
+      ]
+      // 只在有安全报警时显示安全报警标签页
+      if (hasAlerts.value) {
+        tabs.push({ key: 'alerts', label: t('mobile.surgeryVisualization.tabAlerts') })
+      }
+      // 只在远程手术时显示网络延时标签页
+      if (isRemoteSurgery.value) {
+        tabs.push({ key: 'network', label: t('mobile.surgeryVisualization.tabNetwork') })
+      }
+      return tabs
+    })
 
     const secondaryTabs = computed(() => ([
       { key: 'stateMachine', label: t('mobile.surgeryVisualization.tabStateMachine') },
@@ -365,6 +390,17 @@ export default {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    }
+
+    const formatEventTime = (time) => {
+      if (!time) return '-'
+      const date = new Date(time)
+      if (Number.isNaN(date.getTime())) return '-'
+      return date.toLocaleTimeString('zh-CN', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
@@ -435,25 +471,52 @@ export default {
     const instrumentUsageRows = computed(() => {
       const arms = surgeryData.value?.arms
       if (!Array.isArray(arms)) return []
-      const rows = []
+      const groupedArms = []
       arms.forEach((arm, armIndex) => {
         const usageList = Array.isArray(arm.instrument_usage) ? arm.instrument_usage : []
-        usageList.forEach((usage, usageIndex) => {
+        if (usageList.length === 0) return
+        
+        const armId = arm.arm_id || arm.armId || armIndex + 1
+        const armIndexForDisplay = typeof armId === 'number' ? armId : (armIndex + 1)
+        const armLabelFormatted = t('mobile.surgeryVisualization.armFallback', { index: armIndexForDisplay })
+        
+        const instruments = usageList.map((usage, usageIndex) => {
           const install = usage.install_time || usage.start_time
           const remove = usage.remove_time || usage.end_time
-          rows.push({
-            id: `${arm.arm_id || armIndex + 1}-${usageIndex}`,
-            armLabel: arm.arm_id || arm.armId || armIndex + 1,
+          return {
+            id: `${armId}-${usageIndex}`,
             toolType: usage.tool_type || usage.instrument_name || '-',
             udi: usage.udi || usage.udi_code || '-',
             installTime: install,
             removeTime: remove
-          })
+          }
+        })
+        
+        // 获取所有器械类型（去重）
+        const instrumentTypes = [...new Set(instruments.map(inst => inst.toolType).filter(type => type && type !== '-'))]
+        
+        groupedArms.push({
+          id: `arm-${armId}`,
+          armLabel: armLabelFormatted,
+          armIndex: armIndexForDisplay,
+          instruments,
+          instrumentTypes: instrumentTypes.length > 0 ? instrumentTypes : ['-']
         })
       })
-      return rows
+      return groupedArms
     })
     const hasInstrumentUsage = computed(() => instrumentUsageRows.value.length > 0)
+    
+    // 折叠/展开状态管理
+    const expandedCards = ref(new Set())
+    const toggleCard = (cardId) => {
+      if (expandedCards.value.has(cardId)) {
+        expandedCards.value.delete(cardId)
+      } else {
+        expandedCards.value.add(cardId)
+      }
+    }
+    const isCardExpanded = (cardId) => expandedCards.value.has(cardId)
 
     const extractStateNumber = (value) => {
       if (value === null || value === undefined) return 0
@@ -497,6 +560,62 @@ export default {
         .sort((a, b) => a[0] - b[0])
     })
     const hasNetworkLatency = computed(() => networkLatencySeries.value.length > 0)
+
+    // 计算关键指标
+    const totalInstrumentCount = computed(() => {
+      if (!hasInstrumentUsage.value) return 0
+      // 收集所有器械的UDI，使用Set去重（相同UDI的器械算一把）
+      const uniqueUdis = new Set()
+      // 对于没有UDI的器械，按器械类型去重（相同类型算一把）
+      const uniqueTypesWithoutUdi = new Set()
+      instrumentUsageRows.value.forEach(arm => {
+        arm.instruments.forEach(instrument => {
+          const udi = instrument.udi
+          // 统计有效的UDI（非空且不是'-'）
+          if (udi && udi !== '-') {
+            uniqueUdis.add(udi)
+          } else {
+            // 对于没有UDI或UDI为'-'的器械，按器械类型统计
+            const toolType = instrument.toolType
+            if (toolType && toolType !== '-') {
+              uniqueTypesWithoutUdi.add(toolType)
+            }
+          }
+        })
+      })
+      // 返回唯一UDI数量 + 没有UDI但类型不同的器械数量
+      return uniqueUdis.size + uniqueTypesWithoutUdi.size
+    })
+
+    const averageNetworkLatency = computed(() => {
+      if (!hasNetworkLatency.value || networkLatencySeries.value.length === 0) return 0
+      const sum = networkLatencySeries.value.reduce((acc, point) => acc + (point[1] || 0), 0)
+      return Math.round(sum / networkLatencySeries.value.length)
+    })
+
+    const formatDuration = (minutes) => {
+      if (!minutes || minutes === 0) return `0${t('mobile.surgeryVisualization.minute')}`
+      const hours = Math.floor(minutes / 60)
+      const mins = minutes % 60
+      const hourLabel = t('mobile.surgeryVisualization.hour')
+      const minuteLabel = t('mobile.surgeryVisualization.minute')
+      if (hours > 0 && mins > 0) {
+        return `${hours}${hourLabel}${mins}${minuteLabel}`
+      } else if (hours > 0) {
+        return `${hours}${hourLabel}`
+      } else {
+        return `${mins}${minuteLabel}`
+      }
+    }
+
+    const formatNetworkLatency = (latency) => {
+      if (!latency || latency === 0) return '-'
+      if (latency < 1000) {
+        return `${latency}ms`
+      } else {
+        return `${(latency / 1000).toFixed(1)}s`
+      }
+    }
 
     const toggleFaultRows = () => {
       showAllFaults.value = !showAllFaults.value
@@ -673,12 +792,28 @@ export default {
           const normalized = normalizeSurgeryData(adapted)
           armsData.value = enhanceSegments(normalized.arms || [])
           buildTimelineEvents(adapted)
+          // 如果当前在network标签页，但手术不是远程手术，切换到overview
+          if (activeTab.value === 'network' && !(adapted.is_remote === true || adapted.isRemote === true)) {
+            activeTab.value = 'overview'
+          }
+          // 如果当前在alerts标签页，但没有安全报警，切换到overview
+          if (activeTab.value === 'alerts' && !hasAlerts.value) {
+            activeTab.value = 'overview'
+          }
           return true
         }
         surgeryData.value = raw
         const normalized = normalizeSurgeryData(raw)
         armsData.value = enhanceSegments(normalized.arms || [])
         buildTimelineEvents(raw)
+        // 如果当前在network标签页，但手术不是远程手术，切换到overview
+        if (activeTab.value === 'network' && !(raw.is_remote === true || raw.isRemote === true)) {
+          activeTab.value = 'overview'
+        }
+        // 如果当前在alerts标签页，但没有安全报警，切换到overview
+        if (activeTab.value === 'alerts' && !hasAlerts.value) {
+          activeTab.value = 'overview'
+        }
         return true
       } catch (error) {
         console.error('Failed to apply visualization data:', error)
@@ -773,6 +908,20 @@ export default {
       return 'event-dot-default'
     }
 
+    // 监听isRemoteSurgery变化，如果从远程手术变为非远程手术，且当前在network标签页，切换到overview
+    watch(isRemoteSurgery, (isRemote) => {
+      if (!isRemote && activeTab.value === 'network') {
+        activeTab.value = 'overview'
+      }
+    })
+
+    // 监听hasAlerts变化，如果没有安全报警且当前在alerts标签页，切换到overview
+    watch(hasAlerts, (hasAlertsValue) => {
+      if (!hasAlertsValue && activeTab.value === 'alerts') {
+        activeTab.value = 'overview'
+      }
+    })
+
     onMounted(async () => {
       if (!surgeryId) {
         showToast(t('mobile.surgeryVisualization.surgeryIdRequired'))
@@ -807,16 +956,22 @@ export default {
       showAllFaults,
       toggleFaultRows,
       formatDisplayTime,
+      formatEventTime,
+      formatDuration,
+      formatNetworkLatency,
       operationSummaryRows,
       hasOperationSummary,
       instrumentUsageRows,
       hasInstrumentUsage,
+      totalInstrumentCount,
+      averageNetworkLatency,
+      toggleCard,
+      isCardExpanded,
       stateMachineSeries,
       hasStateMachine,
       networkLatencySeries,
       hasNetworkLatency,
-      getSegmentStyle,
-      getEventsForCell,
+      timelineEvents,
       getEventDotClass
     }
   }
@@ -1064,6 +1219,204 @@ export default {
   background-color: #9ca3af;
 }
 
+.overview-card {
+  padding: 16px;
+}
+
+.overview-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.overview-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.overview-right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 在小屏幕上优化间距，确保两列布局在普通手机上也能良好显示 */
+@media (max-width: 640px) {
+  .overview-layout {
+    gap: 12px;
+  }
+}
+
+.overview-left .section-header,
+.overview-right .section-header {
+  margin-bottom: 12px;
+}
+
+.empty-state {
+  padding: 20px 0;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.kpi-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  min-height: 80px;
+}
+
+.kpi-item:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.kpi-item-duration {
+  background: #667eea;
+}
+
+.kpi-item-alerts {
+  background: #f5576c;
+}
+
+.kpi-item-instruments {
+  background: #4facfe;
+}
+
+.kpi-item-network {
+  background: #43e97b;
+}
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+
+.kpi-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 0;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+  padding: 12px 0;
+}
+
+.timeline-item:first-child {
+  padding-top: 0;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-line-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  position: relative;
+  padding-top: 2px;
+}
+
+.timeline-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.timeline-dot.event-dot-power {
+  background-color: #2b7fff;
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #2b7fff, 0 2px 6px rgba(43, 127, 255, 0.3);
+}
+
+.timeline-dot.event-dot-surgery {
+  background-color: #fb2c36;
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #fb2c36, 0 2px 6px rgba(251, 44, 54, 0.3);
+}
+
+.timeline-dot.event-dot-previous {
+  background-color: #7c3aed;
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #7c3aed, 0 2px 6px rgba(124, 58, 237, 0.3);
+}
+
+.timeline-dot.event-dot-default {
+  background-color: #9ca3af;
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #9ca3af, 0 2px 6px rgba(156, 163, 175, 0.3);
+}
+
+.timeline-line {
+  width: 2px;
+  flex: 1;
+  min-height: 32px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.06));
+  margin-top: 6px;
+  margin-bottom: -6px;
+  border-radius: 1px;
+}
+
+.timeline-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.timeline-event-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #101828;
+  line-height: 1.4;
+}
+
+.timeline-event-time {
+  font-size: 12px;
+  color: #6a7282;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  line-height: 1.4;
+}
+
 .event-label {
   font-size: 10px;
   color: #4a5565;
@@ -1210,11 +1563,11 @@ export default {
 }
 
 .state-machine-card {
-  padding: 0;
+  padding: 12px 12px 16px;
 }
 
 .state-machine-card .section-header {
-  padding: 16px 20px 0;
+  padding: 0 0 12px;
 }
 
 .section-header {
@@ -1246,15 +1599,76 @@ export default {
   padding: 8px 12px;
 }
 
-.table-alerts .table-row {
-  grid-template-columns: 1.4fr 0.8fr 2.2fr 1fr;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: #f9fafb;
+.alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.table-alerts .table-row:nth-child(even):not(.table-header) {
-  background: #f3f4f6;
+.alert-card-item {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.alert-card-item:active {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+.alert-card-unprocessed {
+  background: #fff5f5;
+  border-color: rgba(234, 88, 12, 0.2);
+}
+
+.alert-card-processed {
+  background: #f9fafb;
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.alert-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alert-card-time {
+  font-size: 11px;
+  color: #6a7282;
+  font-weight: 500;
+}
+
+.alert-card-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.alert-card-code {
+  font-size: 16px;
+  font-weight: 600;
+  color: #101828;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+
+.alert-card-message {
+  font-size: 13px;
+  color: #364153;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .table-operations .table-row {
@@ -1268,15 +1682,157 @@ export default {
   background: #f3f4f6;
 }
 
-.table-instruments .table-row {
-  grid-template-columns: 0.8fr 1.2fr 1.4fr 1.5fr 1.5fr;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: #f9fafb;
+.instrument-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.table-instruments .table-row:nth-child(even):not(.table-header) {
+.instrument-card-item {
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.instrument-card-item:active {
   background: #f3f4f6;
+}
+
+.instrument-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  gap: 12px;
+}
+
+.instrument-card-header:active {
+  opacity: 0.7;
+}
+
+.instrument-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.instrument-arm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 4px 10px;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.instrument-count {
+  font-size: 13px;
+  color: #364153;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.instrument-expand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #6a7282;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.instrument-expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.instrument-type {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+  line-height: 1.4;
+}
+
+.instrument-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.instrument-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.instrument-item:not(:last-child) {
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.instrument-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.instrument-item-header .instrument-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.instrument-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 4px;
+}
+
+.instrument-info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.instrument-info-label {
+  color: #6a7282;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.instrument-info-value {
+  color: #364153;
+  text-align: right;
+  word-break: break-all;
+  flex: 1;
+}
+
+.instrument-info-value.time {
+  font-size: 12px;
+  color: #6a7282;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
 }
 
 .status-tag {
@@ -1346,11 +1902,45 @@ export default {
   margin: 0;
 }
 
+/* 普通手机（375px-414px）保持两列显示，只有非常小的屏幕才上下排列 */
+@media (max-width: 360px) {
+  .overview-layout {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .overview-left,
+  .overview-right {
+    width: 100%;
+  }
+}
+
 @media (max-width: 480px) {
-  .table-instruments .table-row {
-    grid-template-columns: 0.7fr 1fr 1.2fr 1.4fr 1.4fr;
-    gap: 6px;
-    padding: 8px;
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .kpi-item {
+    padding: 14px;
+    min-height: 70px;
+  }
+  .kpi-value {
+    font-size: 22px;
+  }
+  .kpi-label {
+    font-size: 12px;
+  }
+  .instrument-card-item {
+    padding: 12px;
+  }
+  .instrument-info-label {
+    min-width: 56px;
+    font-size: 11px;
+  }
+  .instrument-info-value {
+    font-size: 12px;
+  }
+  .instrument-type {
+    font-size: 14px;
   }
   .table-alerts .table-row {
     grid-template-columns: 1.2fr 0.8fr 1.8fr 1fr;
