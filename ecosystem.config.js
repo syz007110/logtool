@@ -16,33 +16,6 @@
  */
 
 module.exports = {
-  apps: [
-    {
-      name: 'logtool-backend',
-      script: './backend/src/app.js',
-      cwd: process.cwd(),
-      instances: 1, // 如果使用集群模式，可以设置为 'max' 或具体数字
-      exec_mode: 'fork', // 单进程模式，如果使用集群模式改为 'cluster'
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3000
-      },
-      env_development: {
-        NODE_ENV: 'development',
-        PORT: 3000
-      },
-      error_file: './backend/logs/pm2-error.log',
-      out_file: './backend/logs/pm2-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
-      autorestart: true,
-      max_restarts: 10,
-      min_uptime: '10s',
-      max_memory_restart: '1G',
-      watch: false,
-      ignore_watch: ['node_modules', 'logs', 'uploads', '.git'],
-      instance_var: 'INSTANCE_ID'
-    },
     // 集群模式配置（使用智能集群）
     // 注意: PM2 只启动一个 master 进程，worker 进程由 smartCluster.js 内部通过 cluster.fork() 创建
     // 使用 pm2 monit 可以看到所有进程，或使用 ps aux | grep node 查看
