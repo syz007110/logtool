@@ -184,61 +184,76 @@
 
         <!-- 详细日志列表 -->
         <div class="detail-logs-section">
-          <div class="detail-time-filter-bar">
-            <el-radio-group
-              v-model="detailQuickRange"
-              size="small"
-              class="quick-range-group"
-              @change="handleQuickRangeChange"
+          <div class="detail-filters">
+            <el-tabs
+              v-model="detailStatusFilter"
+              class="detail-status-tabs"
+              @tab-change="handleStatusFilterChange"
             >
-              <el-radio-button
-                v-for="option in detailQuickRangeOptions"
-                :key="option.value"
-                :label="option.value"
-              >
-                {{ option.label }}
-              </el-radio-button>
-            </el-radio-group>
-            <div class="custom-range-selects">
-              <el-select
-                v-model="detailSelectedYear"
-                size="small"
-                class="time-select"
-                @change="handleYearChange"
-              >
-                <el-option
-                  v-for="option in detailYearOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              <el-select
-                v-model="detailSelectedMonth"
-                size="small"
-                class="time-select"
-                @change="handleMonthChange"
-              >
-                <el-option
-                  v-for="option in detailMonthOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              <el-select
-                v-model="detailSelectedDay"
-                size="small"
-                class="time-select"
-                @change="handleDayChange"
-              >
-                <el-option
-                  v-for="option in detailDayOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
+              <el-tab-pane
+                v-for="tab in detailStatusTabs"
+                :key="tab.value"
+                :label="tab.label"
+                :name="tab.value"
+              />
+            </el-tabs>
+            <div class="time-filter-bar">
+              <div class="quick-range-group">
+                <el-radio-group
+                  v-model="detailQuickRange"
+                  size="small"
+                  @change="handleQuickRangeChange"
+                >
+                  <el-radio-button
+                    v-for="option in detailQuickRangeOptions"
+                    :key="option.value"
+                    :label="option.value"
+                  >
+                    {{ option.label }}
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+              <div class="custom-range-selects">
+                <el-select
+                  v-model="detailSelectedYear"
+                  size="small"
+                  class="time-select"
+                  @change="handleYearChange"
+                >
+                  <el-option
+                    v-for="option in detailYearOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="detailSelectedMonth"
+                  size="small"
+                  class="time-select"
+                  @change="handleMonthChange"
+                >
+                  <el-option
+                    v-for="option in detailMonthOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="detailSelectedDay"
+                  size="small"
+                  class="time-select"
+                  @change="handleDayChange"
+                >
+                  <el-option
+                    v-for="option in detailDayOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </div>
             </div>
           </div>
             <div class="detail-header">
@@ -711,7 +726,6 @@ export default {
     const deviceTotal = ref(0)
     const showDeviceDetailDrawer = ref(false)
     const selectedDevice = ref(null)
-    const detailLogs = ref([])
     const detailLoading = ref(false)
     const lastDetailLogsLoadAt = ref(0)
     let detailReloadTimer = null
@@ -722,10 +736,10 @@ export default {
     const detailSelectedYear = ref('all')
     const detailSelectedMonth = ref('all')
     const detailSelectedDay = ref('all')
+    const detailStatusFilter = ref('all')
     const detailAvailableYears = ref([])
     const detailAvailableMonths = ref({})
     const detailAvailableDays = ref({})
-    const detailTotal = ref(0)
     const currentYear = new Date().getFullYear()
 
     const parseTimestampFromFilename = (log) => {
@@ -829,6 +843,17 @@ export default {
       { value: '30d', label: t('logs.surgeriesFilters.quick30d') },
       { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') }
     ]))
+    
+    // 状态筛选标签页
+    const detailStatusTabs = computed(() => ([
+      { value: 'all', label: t('logs.statusFilter.all') || '全部' },
+      { value: 'completed', label: t('logs.statusFilter.completed') || '完成' },
+      { value: 'incomplete', label: t('logs.statusFilter.incomplete') || '未完成' }
+    ]))
+    
+    // detailLogs 和 detailTotal 改为 ref，由后端返回
+    const detailLogs = ref([])
+    const detailTotal = ref(0)
 
     const detailYearOptions = computed(() => {
       const suffix = t('logs.surgeriesFilters.yearSuffix') || ''
@@ -1166,9 +1191,12 @@ export default {
       detailSelectedYear.value = 'all'
       detailSelectedMonth.value = 'all'
       detailSelectedDay.value = 'all'
+      detailStatusFilter.value = 'all'
       detailAvailableYears.value = []
       detailAvailableMonths.value = {}
       detailAvailableDays.value = {}
+      detailLogs.value = []
+      detailTotal.value = 0
       syncDetailSelections()
       
       // 订阅设备状态更新
@@ -1213,14 +1241,16 @@ export default {
         detailLoading.value = true
         lastDetailLogsLoadAt.value = now
         const timeParams = buildDetailTimeParams()
+        // 后端分页和筛选
         const response = await store.dispatch('logs/fetchLogs', {
           page: detailCurrentPage.value,
           limit: detailPageSize.value,
           device_id: selectedDevice.value.device_id,
+          status_filter: detailStatusFilter.value, // 传递状态筛选参数
           ...timeParams
         })
-        detailLogs.value = response?.data?.logs || logs.value || []
-        detailTotal.value = response?.data?.total ?? total.value ?? detailLogs.value.length
+        detailLogs.value = response?.data?.logs || []
+        detailTotal.value = response?.data?.total ?? 0
       } catch (error) {
         if (!silent) ElMessage.error(t('logs.errors.loadDeviceDetailLogsFailed'))
       } finally {
@@ -1431,9 +1461,12 @@ export default {
       detailSelectedMonth.value = 'all'
       detailSelectedDay.value = 'all'
       detailQuickRange.value = 'all'
+      detailStatusFilter.value = 'all'
       detailAvailableYears.value = []
       detailAvailableMonths.value = {}
       detailAvailableDays.value = {}
+      detailLogs.value = []
+      detailTotal.value = 0
       syncDetailSelections()
       
       // 清理智能状态监控
@@ -1626,8 +1659,16 @@ export default {
       detailSelectedYear.value = 'all'
       detailSelectedMonth.value = 'all'
       detailSelectedDay.value = 'all'
+      detailStatusFilter.value = 'all'
       detailCurrentPage.value = 1
       loadDetailLogs({ force: true })
+    }
+    
+    // 状态筛选处理函数（标签页切换）
+    const handleStatusFilterChange = (value) => {
+      detailStatusFilter.value = value
+      detailCurrentPage.value = 1 // 重置到第一页
+      loadDetailLogs({ force: true }) // 重新加载数据
     }
     
     const applyDetailNameFilter = () => {
@@ -2783,6 +2824,8 @@ export default {
       detailSelectedYear,
       detailSelectedMonth,
       detailSelectedDay,
+      detailStatusFilter,
+      detailStatusTabs,
       detailQuickRangeOptions,
       detailYearOptions,
       detailMonthOptions,
@@ -2811,6 +2854,7 @@ export default {
       handleYearChange,
       handleMonthChange,
       handleDayChange,
+      handleStatusFilterChange,
       checkAndUpdateDetailLogs,
       startSmartStatusMonitoring,
       startMonitoringIfDrawerOpen,
@@ -3381,12 +3425,23 @@ export default {
   flex-direction: column;
 }
 
-.detail-time-filter-bar {
+.detail-filters {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-status-tabs:deep(.el-tabs__nav-wrap) {
+  justify-content: flex-start;
+}
+
+.time-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .detail-header {

@@ -59,6 +59,21 @@ export default {
       showToolbox: {
         type: Boolean,
         default: true
+      },
+      // 线条颜色
+      lineColor: {
+        type: String,
+        default: '#6366f1'
+      },
+      // 区域填充颜色（渐变起始色）
+      areaColor: {
+        type: String,
+        default: null
+      },
+      // 区域填充结束颜色（渐变结束色）
+      areaColorEnd: {
+        type: String,
+        default: null
       }
   },
   setup(props) {
@@ -122,7 +137,7 @@ export default {
       const option = {
         backgroundColor: 'transparent', // 移除整个图表背景色
         title: undefined,
-        grid: props.gridPadding || { left: 16, right: 16, top: 16, bottom: props.enableSlider ? 50 : 16, containLabel: true },
+        grid: props.gridPadding || { left: 16, right: 16, top: 16, bottom: props.enableSlider ? 60 : 16, containLabel: true },
         tooltip: {
           trigger: 'axis',
           position: (pt) => [pt[0], '8%'],
@@ -135,6 +150,7 @@ export default {
             fontSize: 11
           },
           axisPointer: {
+            type: 'line',
             lineStyle: {
               color: '#6366f1',
               width: 1
@@ -219,17 +235,29 @@ export default {
               zoomLock: false,
               showDetail: false,
               showDataShadow: false,
-              handleSize: 0,
-              height: 18,
-              borderColor: 'rgba(0,0,0,0)',
-              fillerColor: 'rgba(99, 102, 241, 0.15)',
-              backgroundColor: 'rgba(148, 163, 184, 0.12)',
+              handleSize: 14,
+              handleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23.1h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+              handleStyle: {
+                color: 'transparent',
+                borderColor: '#409EFF',
+                borderWidth: 2
+              },
+              height: 30,
+              borderColor: 'rgba(99, 102, 241, 0.3)',
+              fillerColor: 'rgba(99, 102, 241, 0.2)',
+              backgroundColor: 'rgba(148, 163, 184, 0.15)',
               brushSelect: false,
               xAxisIndex: 0,
-              bottom: 6,
+              bottom: 8,
               filterMode: 'filter',
-              moveHandleSize: 10,
-              preventDefaultMouseMove: true,
+              moveHandleSize: 16,
+              moveHandleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23.1h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+              moveHandleStyle: {
+                color: 'transparent',
+                borderColor: '#409EFF',
+                borderWidth: 2
+              },
+              preventDefaultMouseMove: false,
               labelFormatter: (value) => {
                 const date = new Date(value)
                 const year = date.getFullYear()
@@ -252,14 +280,28 @@ export default {
             smooth: true,
             sampling: false,
             data: validData,
+            itemStyle: {
+              color: props.lineColor
+            },
             lineStyle: {
               width: 2,
               cap: 'round',
-              join: 'round'
+              join: 'round',
+              color: props.lineColor
             },
-            areaStyle: {
-              opacity: 0.12
-            }
+            areaStyle: props.areaColor || props.areaColorEnd
+              ? {
+                  opacity: 0.2,
+                  color: props.areaColorEnd
+                    ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: props.areaColor || props.lineColor },
+                        { offset: 1, color: props.areaColorEnd || props.lineColor }
+                      ])
+                    : props.areaColor || props.lineColor
+                }
+              : {
+                  opacity: 0.12
+                }
           }
         ]
       }

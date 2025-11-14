@@ -179,6 +179,9 @@
             :show-range-labels="true"
             :outer-padding="12"
             :grid-padding="{ left: 20, right: 20, top: 30,  containLabel: true }"
+            line-color="#fbbf24"
+            area-color="#fef3c7"
+            area-color-end="#fde68a"
           />
         </div>
       </el-card>

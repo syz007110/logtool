@@ -256,8 +256,8 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const getLogs = async (req, res) => {
   try {
     let { page = 1, limit = 20, device_id } = req.query;
-    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）
-    const { only_own, year, month, day, hour, time_prefix, time_range_start, time_range_end } = req.query;
+    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）+ 状态筛选
+    const { only_own, year, month, day, hour, time_prefix, time_range_start, time_range_end, status_filter } = req.query;
     page = parseInt(page, 10);
     limit = parseInt(limit, 10);
     
@@ -274,6 +274,24 @@ const getLogs = async (req, res) => {
     };
     if (truthy(only_own) && req.user && req.user.id) {
       where.uploader_id = req.user.id;
+    }
+    
+    // 状态筛选：'completed' 表示已完成（parsed, completed），'incomplete' 表示未完成（其他状态）
+    if (status_filter && status_filter !== 'all') {
+      if (status_filter === 'completed') {
+        // 已完成状态：parsed 或 completed
+        where.status = { [Op.in]: ['parsed', 'completed'] };
+      } else if (status_filter === 'incomplete') {
+        // 未完成状态：上传中，解密中，解密失败，解析失败，文件错误，处理失败等
+        where.status = { 
+          [Op.in]: [
+            'uploading', 'queued', 'decrypting', 'parsing',
+            'failed', 'decrypt_failed', 'parse_failed', 'file_error',
+            'processing_failed', 'process_failed', 'handle_failed',
+            'queue_failed', 'upload_failed', 'delete_failed'
+          ]
+        };
+      }
     }
     // 时间筛选：基于生成列 file_time_token (YYYYMMDDhhmm)
     const toDigits = (value) => {

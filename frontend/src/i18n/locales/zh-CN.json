@@ -28,6 +28,7 @@
     "networkError": "网络连接失败",
     "unknown": "未知",
     "clear": "清空",
+    "submit":"提交",
     "messages": {
       "deleteSuccess": "删除成功",
       "deleteFailed": "删除失败",
@@ -43,8 +44,7 @@
       "exportFailed": "导出失败",
       "deleteConfirmTitle": "删除确认",
       "confirmDelete": "确认删除",
-      "confirmLogout": "确定要退出登录吗？",
-      "submit":"提交"
+      "confirmLogout": "确定要退出登录吗？"
     },
     "languageNames": {
       "zh": "中文",
@@ -803,6 +803,11 @@
       "yearSuffix": "年",
       "monthSuffix": "月",
       "daySuffix": "日"
+    },
+    "statusFilter": {
+      "all": "全部",
+      "completed": "完成",
+      "incomplete": "未完成"
     },
     "errors": {
       "loadDeviceGroupsFailed": "加载设备分组失败",

@@ -16,6 +16,7 @@
  */
 
 module.exports = {
+  apps: [
     // 集群模式配置（使用智能集群）
     // 注意: PM2 只启动一个 master 进程，worker 进程由 smartCluster.js 内部通过 cluster.fork() 创建
     // 使用 pm2 monit 可以看到所有进程，或使用 ps aux | grep node 查看
@@ -25,6 +26,7 @@ module.exports = {
       cwd: process.cwd(),
       instances: 1, // PM2 层面只启动一个 master 进程，worker 进程由集群管理器创建
       exec_mode: 'fork', // 必须使用 fork 模式，因为 smartCluster.js 内部自己管理 worker
+
       env: {
         NODE_ENV: 'production',
         CLUSTER_ENABLED: 'true',

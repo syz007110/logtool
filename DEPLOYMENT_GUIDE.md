@@ -1,20 +1,31 @@
 # LogTool 服务器部署指南
 
-本文档提供 LogTool 项目在 Linux 服务器上的完整部署方案。
+本文档提供 LogTool 项目在 **Windows** 和 **Ubuntu/Linux** 服务器上的完整部署方案。
 
 ## 📋 目录
 
 1. [环境要求](#环境要求)
-2. [服务器环境准备](#服务器环境准备)
-3. [数据库初始化](#数据库初始化)
+2. [环境准备](#环境准备)
+   - [Ubuntu/Linux 环境准备](#ubuntu-linux-环境准备)
+   - [Windows 环境准备](#windows-环境准备)
+3. [数据库配置](#数据库配置)
 4. [项目配置](#项目配置)
 5. [后端部署（使用 PM2）](#后端部署使用-pm2)
+   - [Ubuntu/Linux 后端部署](#ubuntu-linux-后端部署)
+   - [Windows 后端部署](#windows-后端部署)
 6. [前端部署](#前端部署)
-7. [Nginx 配置（静态文件服务和反向代理）](#nginx-配置静态文件服务和反向代理)
+7. [Nginx 配置](#nginx-配置)
+   - [Ubuntu/Linux Nginx 配置](#ubuntu-linux-nginx-配置)
+   - [Windows Nginx 配置](#windows-nginx-配置)
 8. [服务启动和监控](#服务启动和监控)
-9. [常见问题排查](#常见问题排查)
-10. [部署检查清单](#部署检查清单)
-11. [移动端和桌面端访问](#移动端和桌面端访问)
+9. [自启动配置](#自启动配置)
+   - [Ubuntu/Linux 自启动配置](#ubuntu-linux-自启动配置)
+   - [Windows 自启动配置](#windows-自启动配置)
+10. [防火墙配置](#防火墙配置)
+11. [域名访问配置](#域名访问配置)
+12. [常见问题排查](#常见问题排查)
+13. [部署检查清单](#部署检查清单)
+14. [移动端和桌面端访问](#移动端和桌面端访问)
 
 ---
 
@@ -31,16 +42,20 @@
 
 ### 系统要求
 
-- **操作系统**: Linux (Ubuntu 20.04+, CentOS 7+, Debian 10+)
+- **操作系统**: 
+  - Ubuntu 20.04+, CentOS 7+, Debian 10+ (Linux)
+  - Windows 10/11, Windows Server 2016+ (Windows)
 - **内存**: 至少 4GB (推荐 8GB+)
 - **磁盘空间**: 至少 20GB 可用空间
 - **CPU**: 2 核以上 (推荐 4 核+)
 
 ---
 
-## 服务器环境准备
+## 环境准备
 
-### 1. 更新系统包
+### Ubuntu/Linux 环境准备
+
+#### 1. 更新系统包
 
 ```bash
 # Ubuntu/Debian
@@ -50,7 +65,7 @@ sudo apt update && sudo apt upgrade -y
 sudo yum update -y
 ```
 
-### 2. 安装 Node.js
+#### 2. 安装 Node.js
 
 ```bash
 # 方式1: 使用 NodeSource 仓库 (推荐)
@@ -68,7 +83,7 @@ node --version
 npm --version
 ```
 
-### 3. 安装 MySQL
+#### 3. 安装 MySQL
 
 ```bash
 # Ubuntu/Debian
@@ -85,7 +100,7 @@ sudo systemctl enable mysqld
 sudo mysql_secure_installation
 ```
 
-### 4. 安装 Redis
+#### 4. 安装 Redis
 
 ```bash
 # Ubuntu/Debian
@@ -102,7 +117,7 @@ sudo systemctl enable redis
 redis-cli ping
 ```
 
-### 5. 安装 PostgreSQL (可选)
+#### 5. 安装 PostgreSQL (可选)
 
 ```bash
 # Ubuntu/Debian
@@ -115,7 +130,7 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 ```
 
-### 6. 安装 Nginx
+#### 6. 安装 Nginx
 
 ```bash
 # Ubuntu/Debian
@@ -129,7 +144,7 @@ sudo systemctl start nginx
 sudo systemctl enable nginx
 ```
 
-### 7. 安装 PM2 (进程管理工具)
+#### 7. 安装 PM2 (进程管理工具)
 
 ```bash
 sudo npm install -g pm2
@@ -137,18 +152,120 @@ sudo npm install -g pm2
 
 ---
 
-## 数据库初始化
+### Windows 环境准备
+
+#### 1. 安装必需软件
+
+**Node.js**
+- 下载：https://nodejs.org/ (推荐 LTS 版本 16+)
+- 安装后验证：
+```cmd
+node --version
+npm --version
+```
+
+**MySQL**
+- 下载：https://dev.mysql.com/downloads/mysql/
+- 安装 MySQL 8.0+
+- 启动 MySQL 服务（Windows 服务）
+
+**Redis**
+- 项目已包含 Redis（`infrastructure/Redis/`）
+- 或下载：https://github.com/microsoftarchive/redis/releases
+- 启动方式：使用项目提供的 `start-redis.bat`
+
+**PostgreSQL（可选，用于手术分析）**
+- 下载：https://www.postgresql.org/download/windows/
+- 安装 PostgreSQL 12+
+
+**Nginx（Windows 版）**
+- 下载：http://nginx.org/en/download.html
+- 解压到 `C:\nginx` 或自定义路径
+
+#### 2. 检查端口占用
+
+```cmd
+# 检查常用端口
+netstat -ano | findstr :3000
+netstat -ano | findstr :80
+netstat -ano | findstr :6379
+netstat -ano | findstr :3306
+```
+
+#### 3. 安装 PM2
+
+```cmd
+npm install -g pm2
+npm install -g pm2-windows-startup
+```
+
+---
+
+## 数据库配置
 
 ### 1. 创建 MySQL 数据库
 
+**Ubuntu/Linux:**
+```bash
+mysql -u root -p
+```
+
+**Windows:**
+使用 MySQL Workbench 或命令行
+
+**SQL 命令（通用）:**
+```sql
+CREATE DATABASE IF NOT EXISTS logtool 
+CHARACTER SET utf8mb4 
+COLLATE utf8mb4_unicode_ci;
+```
+
 ### 2. 导入数据库结构
 
-### 3. 创建 PostgreSQL 数据库 (可选)
+**Ubuntu/Linux:**
+```bash
+cd /path/to/logtool/infrastructure/database
+mysql -u root -p logtool < init_database.sql
+```
+
+**Windows:**
+- **方法1：使用 MySQL Workbench**
+  1. 打开 MySQL Workbench
+  2. 连接到数据库服务器
+  3. 选择 `logtool` 数据库
+  4. 导入 `infrastructure/database/init_database.sql`
+
+- **方法2：使用命令行**
+```cmd
+cd infrastructure\database
+mysql -u root -p logtool < init_database.sql
+```
+
+### 3. 初始化角色和权限
+
+**Ubuntu/Linux:**
+```bash
+cd /path/to/logtool/backend
+npm install
+npm run init-roles
+npm run init-permissions
+```
+
+**Windows:**
+```cmd
+cd backend
+npm install
+npm run init-roles
+npm run init-permissions
+```
+
+---
 
 ## 项目配置
 
 ### 1. 克隆或确认项目代码
 
+**Ubuntu/Linux:**
 ```bash
 # 如果已通过 git 下载，确认在正确的目录
 cd /path/to/logtool
@@ -157,20 +274,61 @@ cd /path/to/logtool
 # git clone <repository-url> /path/to/logtool
 ```
 
+**Windows:**
+```cmd
+cd D:\code\Log\v0.1.1\logtool
+```
+
 ### 2. 安装项目依赖
 
+**生产环境推荐使用 `npm ci`（确保依赖版本一致）：**
+
+**Ubuntu/Linux:**
 ```bash
 # 安装后端依赖
 cd backend
-npm install --production
+npm ci
 
 # 安装前端依赖
 cd ../frontend
-npm install
+npm ci
+```
+
+**Windows:**
+```cmd
+# 后端依赖
+cd backend
+npm ci
+
+# 前端依赖
+cd ..\frontend
+npm ci
+```
+
+**说明：**
+- `npm ci` 基于 `package-lock.json` 精确安装，确保生产环境与开发环境依赖版本一致
+- 比 `npm install` 更快、更可靠
+- 如果 `package-lock.json` 与 `package.json` 不匹配会报错，避免版本不一致问题
+- **重要**：确保 `package-lock.json` 已提交到代码库
+
+**如果前端只需要构建（不需要 devDependencies）：**
+```bash
+# Ubuntu/Linux
+cd frontend
+npm ci --production
+npm run build
+```
+
+```cmd
+# Windows
+cd frontend
+npm ci --production
+npm run build
 ```
 
 ### 3. 配置后端环境变量
 
+**Ubuntu/Linux:**
 ```bash
 # 进入后端目录
 cd /path/to/logtool/backend
@@ -181,9 +339,12 @@ cp .env.example .env  # 如果有示例文件
 nano .env
 ```
 
+**Windows:**
+在 `backend` 目录创建 `.env` 文件
+
 **后端 `.env` 配置示例（生产环境）:**
 
-```bash
+```env
 # 数据库配置
 DB_HOST=localhost
 DB_PORT=3306
@@ -243,19 +404,29 @@ LOG_FILE_ENABLED=true
 LOG_FILE_PATH=./logs/
 ```
 
-### 4. 初始化角色和权限
+### 4. 构建前端
 
+**Ubuntu/Linux:**
 ```bash
-cd /path/to/logtool/backend
-npm run init-roles
-npm run init-permissions
+cd /path/to/logtool/frontend
+npm run build
 ```
+
+**Windows:**
+```cmd
+cd frontend
+npm run build
+```
+
+构建完成后，前端文件在 `frontend/dist/` 目录。
 
 ---
 
 ## 后端部署（使用 PM2）
 
-### 1. 创建必要的目录
+### Ubuntu/Linux 后端部署
+
+#### 1. 创建必要的目录
 
 ```bash
 cd /path/to/logtool/backend
@@ -270,7 +441,7 @@ mkdir -p uploads/temp
 chmod -R 755 logs uploads
 ```
 
-### 2. 测试后端启动
+#### 2. 测试后端启动
 
 ```bash
 cd /path/to/logtool/backend
@@ -281,17 +452,7 @@ npm start
 
 如果启动成功，应该能看到服务运行在配置的端口上。
 
-### 3. 配置 PM2 进程管理
-
-在项目根目录创建 `ecosystem.config.js`（如果还没有）：
-
-```bash
-cd /path/to/logtool
-# 如果已有配置文件，直接使用
-# 如果没有，可以创建或使用项目根目录的 ecosystem.config.js
-```
-
-**PM2 配置说明:**
+#### 3. 配置 PM2 进程管理
 
 项目根目录已提供 `ecosystem.config.js` 配置文件示例。如果使用集群模式（推荐），配置如下：
 
@@ -347,7 +508,7 @@ module.exports = {
 - **单进程模式**：使用 `app.js`，适合开发或小规模部署
 - 配置文件已在项目根目录，直接使用即可
 
-### 4. 使用 PM2 启动后端服务
+#### 4. 使用 PM2 启动后端服务
 
 ```bash
 cd /path/to/logtool
@@ -367,7 +528,7 @@ pm2 startup
 # 执行上一条命令输出的命令（通常是 sudo 命令）
 ```
 
-### 5. PM2 常用管理命令
+#### 5. PM2 常用管理命令
 
 ```bash
 # 查看运行状态
@@ -395,10 +556,340 @@ pm2 describe logtool-backend
 
 ---
 
+### Windows 后端部署
+
+#### 1. 配置 PM2 启动脚本
+
+项目根目录已有 `ecosystem.config.js`，Windows 上可以直接使用，但需要调整路径：
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'logtool-backend',
+      script: './backend/src/app.js',
+      cwd: process.cwd(),
+      instances: 1,
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000
+      },
+      error_file: './backend/logs/pm2-error.log',
+      out_file: './backend/logs/pm2-out.log',
+      // Windows 路径使用正斜杠或双反斜杠
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s',
+      max_memory_restart: '1G',
+      watch: false
+    }
+  ]
+};
+```
+
+#### 2. 启动服务
+
+```cmd
+# 进入项目根目录
+cd D:\code\Log\v0.1.1\logtool
+
+# 启动后端
+pm2 start ecosystem.config.js --only logtool-backend
+
+# 或启动集群模式
+pm2 start ecosystem.config.js --only logtool-cluster
+
+# 查看状态
+pm2 status
+
+# 查看日志
+pm2 logs
+
+# 保存配置
+pm2 save
+```
+
+#### 3. 配置 PM2 开机自启
+
+Windows 上配置 PM2 自启动有几种方法，推荐使用方法1。
+
+**方法1：使用 pm2-windows-startup（推荐）**
+
+**步骤：**
+
+1. **安装 pm2-windows-startup**（如果还没安装）：
+
+**⚠️ 重要：必须以管理员身份运行 PowerShell 或 CMD**
+
+```cmd
+npm install -g pm2-windows-startup
+```
+
+**如果遇到权限错误（EPERM）：**
+- 确保以管理员身份运行（右键点击 PowerShell/CMD，选择"以管理员身份运行"）
+- 或者使用 `--prefix` 安装到用户目录：
+```cmd
+npm install -g pm2-windows-startup --prefix %APPDATA%\npm
+```
+
+2. **启动应用并保存**：
+```cmd
+# 进入项目根目录
+cd D:\project\logtool
+
+# 启动应用
+pm2 start ecosystem.config.js --only logtool-cluster
+
+# 保存进程列表
+pm2 save
+```
+
+3. **配置开机自启**：
+
+**⚠️ 重要：必须以管理员身份运行**
+
+**方法A：使用 npx（推荐，最简单，无需添加到 PATH）**
+
+```cmd
+# ⚠️ 注意：在 Windows 上不要使用 pm2 startup（会报错 "Init system not found"）
+# 使用 npx 运行 pm2-windows-startup（以管理员身份运行）
+npx pm2-windows-startup install
+```
+
+**方法B：直接使用命令（如果已添加到 PATH）**
+
+```cmd
+# ⚠️ 注意：在 Windows 上不要使用 pm2 startup（会报错 "Init system not found"）
+# 直接使用 pm2-windows-startup install（以管理员身份运行）
+pm2-windows-startup install
+```
+
+**如果命令找不到 `pm2-windows-startup`：**
+- ✅ **推荐**：使用 `npx pm2-windows-startup install`（无需添加到 PATH）
+- 检查是否已安装：`npm list -g pm2-windows-startup`
+- 如果未安装，参考步骤1重新安装
+- 如果已安装但找不到，可能需要将 npm 全局路径添加到系统 PATH
+
+**重要提示**：
+- ❌ **不要使用** `pm2 startup`（这是 Linux/Ubuntu 的命令，Windows 上会报错）
+- ✅ **直接使用** `pm2-windows-startup install`（需要管理员权限）
+- ⚠️ **安装和配置都需要管理员权限**
+
+5. **验证配置**：
+```cmd
+# 查看 PM2 状态
+pm2 status
+
+# 重启电脑测试是否自动启动
+```
+
+**管理命令：**
+```cmd
+# 卸载自启动（使用 npx 或直接命令）
+npx pm2-windows-startup uninstall
+# 或
+pm2-windows-startup uninstall
+
+# 查看自启动状态（使用 npx 或直接命令）
+npx pm2-windows-startup status
+# 或
+pm2-windows-startup status
+```
+
+**方法2：使用 Windows 任务计划程序（备选方案）**
+
+如果方法1不工作，可以使用任务计划程序：
+
+**步骤：**
+
+1. 按 `Win + R`，输入 `taskschd.msc`，打开"任务计划程序"
+
+2. 创建基本任务：
+   - **名称**：PM2 LogTool 自启动
+   - **描述**：LogTool 后端服务开机自启动
+
+3. 设置触发器：
+   - 选择"当计算机启动时"
+
+4. 设置操作：
+   - 选择"启动程序"
+   - **程序或脚本**：`C:\Users\<用户名>\AppData\Roaming\npm\pm2.cmd`（或 pm2 的完整路径）
+   - **参数**：`resurrect`
+   - **起始于**：`D:\code\Log\v0.1.1\logtool`（项目根目录）
+
+5. 完成创建
+
+**或者使用命令行创建**（以管理员身份）：
+```cmd
+schtasks /create /tn "PM2 LogTool AutoStart" /tr "pm2 resurrect" /sc onstart /ru SYSTEM /rl HIGHEST /f
+```
+
+**方法3：使用 NSSM 注册为服务（最可靠）**
+
+如果需要更可靠的服务管理，可以使用 NSSM：
+
+**步骤1：创建启动脚本 `start-pm2.bat`**
+
+在项目根目录创建 `start-pm2.bat` 文件：
+
+```batch
+@echo off
+REM 设置环境变量（关键！）
+REM 方法1：使用环境变量（如果服务以用户账户运行）
+REM set HOMEPATH=%USERPROFILE%
+REM set USERPROFILE=%USERPROFILE%
+REM set PM2_HOME=%USERPROFILE%\.pm2
+
+REM 方法2：硬编码用户路径（推荐，因为服务可能以 SYSTEM 账户运行）
+REM 请根据实际用户名修改下面的路径
+set HOMEPATH=C:\Users\songyz1
+set USERPROFILE=C:\Users\songyz1
+set PM2_HOME=C:\Users\songyz1\.pm2
+
+REM 切换到项目目录
+cd /d D:\project\logtool
+REM 执行 PM2 resurrect
+D:\tool\node\node_global\pm2.cmd resurrect
+```
+
+**重要提示**：
+- 将 `C:\Users\songyz1` 替换为你的实际用户名
+- 将 `D:\project\logtool` 替换为你的实际项目路径
+- 将 `D:\tool\node\node_global\pm2.cmd` 替换为你的 PM2 实际路径
+
+**步骤2：确保 PM2 已保存进程列表**
+
+```cmd
+cd D:\project\logtool
+pm2 save
+```
+
+**步骤3：使用 NSSM 注册服务**
+
+有两种方式：
+
+**方法A：使用批处理脚本（推荐）**
+
+```cmd
+cd C:\nssm-2.24\win64
+
+# 停止并删除旧服务（如果存在）
+nssm stop PM2-LogTool
+nssm remove PM2-LogTool confirm
+
+# 安装服务（使用批处理脚本）
+nssm install PM2-LogTool "D:\project\logtool\start-pm2.bat"
+
+# 设置工作目录
+nssm set PM2-LogTool AppDirectory "D:\project\logtool"
+
+# 设置日志输出
+nssm set PM2-LogTool AppStdout "D:\project\logtool\backend\logs\pm2-service-stdout.log"
+nssm set PM2-LogTool AppStderr "D:\project\logtool\backend\logs\pm2-service-stderr.log"
+
+# 设置启动类型
+nssm set PM2-LogTool Start SERVICE_AUTO_START
+
+# 启动服务
+nssm start PM2-LogTool
+
+# 查看服务状态
+nssm status PM2-LogTool
+```
+
+**方法B：直接使用 PM2 命令（不使用批处理脚本）**
+
+```cmd
+cd C:\nssm-2.24\win64
+
+# 停止并删除旧服务（如果存在）
+nssm stop PM2-LogTool
+nssm remove PM2-LogTool confirm
+
+# 安装服务（直接使用 PM2 命令）
+nssm install PM2-LogTool "D:\tool\node\node_global\pm2.cmd"
+
+# 设置启动参数
+nssm set PM2-LogTool AppParameters "resurrect"
+
+# 设置工作目录
+nssm set PM2-LogTool AppDirectory "D:\project\logtool"
+
+# 重要：设置环境变量（解决 HOMEPATH 问题）
+# PM2 需要 HOMEPATH 和 PM2_HOME 环境变量来找到 .pm2 目录
+# 注意：NSSM 设置多个环境变量需要多次调用，或使用 GUI 编辑器
+
+# 方法1：使用命令行（需要多次调用）
+nssm set PM2-LogTool AppEnvironmentExtra "HOMEPATH=C:\Users\songyz1"
+nssm set PM2-LogTool AppEnvironmentExtra "USERPROFILE=C:\Users\songyz1"
+nssm set PM2-LogTool AppEnvironmentExtra "PM2_HOME=C:\Users\songyz1\.pm2"
+
+# 方法2：使用 GUI 编辑器设置环境变量（推荐，更直观）
+# nssm edit PM2-LogTool
+# 在 GUI 中：
+# 1. 点击 "Environment" 标签
+# 2. 添加：HOMEPATH=C:\Users\songyz1
+# 3. 添加：USERPROFILE=C:\Users\songyz1
+# 4. 添加：PM2_HOME=C:\Users\songyz1\.pm2
+# 5. 点击 "Set" 保存
+
+# 设置日志输出
+nssm set PM2-LogTool AppStdout "D:\project\logtool\backend\logs\pm2-service-stdout.log"
+nssm set PM2-LogTool AppStderr "D:\project\logtool\backend\logs\pm2-service-stderr.log"
+
+# 设置启动类型
+nssm set PM2-LogTool Start SERVICE_AUTO_START
+
+# 启动服务
+nssm start PM2-LogTool
+
+# 查看服务状态
+nssm status PM2-LogTool
+```
+
+**注意**：
+- 方法A（批处理脚本）更简单可靠，推荐使用
+- 方法B（直接命令）需要手动设置环境变量，如果环境变量设置不正确，PM2 可能找不到 dump 文件
+- 如果使用方法B，确保将 `C:\Users\songyz1` 替换为你的实际用户名
+
+**步骤4：验证服务**
+
+```cmd
+# 查看日志
+type D:\project\logtool\backend\logs\pm2-service-stderr.log
+type D:\project\logtool\backend\logs\pm2-service-stdout.log
+
+# 检查 PM2 进程
+pm2 list
+```
+
+**常见问题**：
+
+1. **错误：`[PM2][ERROR] No processes saved; DUMP file doesn't exist`**
+   - 原因：PM2 找不到 dump 文件，通常是因为 `PM2_HOME` 环境变量未设置
+   - 解决：确保 `start-pm2.bat` 中设置了 `PM2_HOME` 环境变量，指向正确的用户目录
+
+2. **错误：`[PM2][Initialization] Defaulting to /etc/.pm2`**
+   - 原因：服务以 SYSTEM 账户运行，找不到用户目录
+   - 解决：在批处理脚本中硬编码用户路径（如 `C:\Users\songyz1`）
+
+3. **服务状态为 `SERVICE_PAUSED`**
+   - 查看错误日志：`type D:\project\logtool\backend\logs\pm2-service-stderr.log`
+   - 检查环境变量是否正确设置
+   - 尝试手动运行批处理脚本：`D:\project\logtool\start-pm2.bat`
+
+**推荐使用方法3（NSSM）**，最可靠且易于管理。
+
+---
+
 ## 前端部署
 
 ### 1. 构建前端生产版本
 
+**Ubuntu/Linux:**
 ```bash
 cd /path/to/logtool/frontend
 
@@ -409,6 +900,12 @@ npm install
 npm run build
 
 # 构建完成后，dist 目录包含所有静态文件
+```
+
+**Windows:**
+```cmd
+cd frontend
+npm run build
 ```
 
 ### 2. 前端路由说明
@@ -437,6 +934,7 @@ npm run build
 
 ### 4. 部署前端静态文件
 
+**Ubuntu/Linux:**
 ```bash
 # 将构建好的文件复制到 Nginx 目录
 sudo mkdir -p /var/www/logtool
@@ -447,11 +945,22 @@ sudo chown -R www-data:www-data /var/www/logtool
 sudo chmod -R 755 /var/www/logtool
 ```
 
+**Windows:**
+```cmd
+# 创建目录
+mkdir C:\www\logtool
+
+# 复制前端构建文件
+xcopy /E /I frontend\dist\* C:\www\logtool\
+```
+
 ---
 
-## Nginx 配置（静态文件服务和反向代理）
+## Nginx 配置
 
-### 1. 创建 Nginx 配置文件
+### Ubuntu/Linux Nginx 配置
+
+#### 1. 创建 Nginx 配置文件
 
 ```bash
 # 复制项目提供的配置文件
@@ -567,7 +1076,7 @@ server {
 - **移动端检测**：`map $http_user_agent $is_mobile` 自动识别移动设备
 - **路由支持**：`try_files $uri $uri/ /index.html;` 支持 Vue Router History 模式
 
-### 2. 启用配置
+#### 2. 启用配置
 
 ```bash
 # 创建软链接
@@ -580,7 +1089,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 3. SSL/HTTPS 配置（可选但推荐）
+#### 3. SSL/HTTPS 配置（可选但推荐）
 
 使用 Let's Encrypt 免费 SSL 证书:
 
@@ -597,9 +1106,159 @@ sudo certbot renew --dry-run
 
 ---
 
+### Windows Nginx 配置
+
+#### 1. 修改 Nginx 配置文件
+
+编辑 `nginx.conf`（或 Nginx 安装目录的 `conf/nginx.conf`）：
+
+**重要修改点：**
+- 将 Linux 路径改为 Windows 路径
+- 修改 `server_name` 为你的 IP 或域名
+- 修改 `root` 路径为前端构建文件目录
+
+```nginx
+# Windows 路径示例
+server {
+    listen 80;
+    # 局域网访问：使用内网 IP 或域名
+    # 外网访问：使用公网 IP 或域名，或使用 _ 接受所有访问
+    server_name 192.168.1.100;  # 改为你的内网 IP
+    # 或 server_name _;  # 接受所有访问（测试用）
+    
+    # Windows 路径（使用正斜杠或双反斜杠）
+    root C:/www/logtool;  # 或 C:\\www\\logtool
+    index index.html;
+    
+    # 日志配置（Windows 路径）
+    access_log C:/nginx/logs/logtool-access.log;
+    error_log C:/nginx/logs/logtool-error.log;
+    
+    # 移动设备检测 - 定义移动设备的 User-Agent 模式
+    map $http_user_agent $is_mobile {
+        default 0;
+        ~*android|webos|iphone|ipad|ipod|blackberry|iemobile|opera\smini|mobile|palm|windows\sphone 1;
+        ~*Mobile|Mobile|MOBILE 1;
+    }
+
+    # 静态资源缓存（优先匹配）
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # 后端 API 反向代理 - 将 /api 请求转发到后端
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # WebSocket 支持
+    location /ws {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # 移动端路径处理
+    location ^~ /m {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 主要入口页面 - 移动设备自动重定向
+    location = / {
+        if ($is_mobile) {
+            return 301 /m;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    location = /login {
+        if ($is_mobile) {
+            return 301 /m/login;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 桌面端路径正常处理
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 文件上传大小限制
+    client_max_body_size 500M;
+}
+```
+
+#### 2. 创建前端文件目录
+
+```cmd
+# 创建目录
+mkdir C:\www\logtool
+
+# 复制前端构建文件
+xcopy /E /I frontend\dist\* C:\www\logtool\
+```
+
+#### 3. 测试 Nginx 配置
+
+```cmd
+cd C:\nginx
+nginx.exe -t
+```
+
+#### 4. 启动 Nginx
+
+```cmd
+# 启动
+nginx.exe
+
+# 停止
+nginx.exe -s stop
+
+# 重载配置
+nginx.exe -s reload
+```
+
+**注意**：`nginx.exe` 是手动启动方式，不会自动启动。如需开机自启，请参考"自启动配置"章节。
+
+#### 5. 将 Nginx 注册为 Windows 服务（推荐）
+
+使用 NSSM（Non-Sucking Service Manager）：
+
+1. 下载 NSSM：https://nssm.cc/download
+2. 解压到 `C:\nssm`
+3. 注册服务：
+
+```cmd
+cd C:\nssm\win64
+nssm install Nginx "C:\nginx\nginx.exe"
+nssm set Nginx AppDirectory "C:\nginx"
+nssm start Nginx
+```
+
+---
+
 ## 服务启动和监控
 
-### 1. 启动顺序
+### Ubuntu/Linux 服务启动
+
+#### 1. 启动顺序
 
 按以下顺序启动服务：
 
@@ -619,7 +1278,7 @@ sudo systemctl start nginx
 sudo systemctl status nginx
 ```
 
-### 2. 验证服务
+#### 2. 验证服务
 
 ```bash
 # 检查后端 API
@@ -641,7 +1300,7 @@ pm2 status
 pm2 logs --lines 50
 ```
 
-### 3. 设置开机自启
+#### 3. 设置开机自启
 
 ```bash
 # MySQL, Redis, PostgreSQL, Nginx 已通过 systemctl enable 设置
@@ -654,9 +1313,427 @@ pm2 save
 
 ---
 
+### Windows 服务启动
+
+#### 1. 启动顺序
+
+按以下顺序启动服务：
+
+```cmd
+# 1. 启动基础服务（MySQL、Redis）
+# MySQL 通常已作为 Windows 服务运行
+# Redis 需要手动启动或配置为服务
+
+# 2. 启动后端服务（使用 PM2）
+cd D:\code\Log\v0.1.1\logtool
+pm2 start ecosystem.config.js --only logtool-cluster
+pm2 save
+
+# 3. 启动 Nginx（静态文件服务和反向代理）
+cd C:\nginx
+nginx.exe
+```
+
+#### 2. 验证服务
+
+```cmd
+# 检查后端 API（使用 PowerShell）
+Invoke-WebRequest -Uri http://localhost:3000/api/health -UseBasicParsing
+
+# 检查前端（使用 PowerShell）
+Invoke-WebRequest -Uri http://localhost:80 -UseBasicParsing
+
+# 检查 Redis
+cd D:\code\Log\v0.1.1\logtool\infrastructure\Redis
+redis-cli ping
+
+# 检查 PM2
+pm2 status
+pm2 logs --lines 50
+```
+
+#### 3. 快速启动脚本
+
+创建 `start-production.bat`：
+
+```batch
+@echo off
+chcp 65001
+title LogTool Production Startup
+
+echo ========================================
+echo    LogTool Production Startup
+echo ========================================
+echo.
+
+echo [1/4] Starting Redis...
+cd /d "%~dp0infrastructure\Redis"
+start "Redis" redis-server.exe redis.conf
+timeout /t 2 /nobreak >nul
+
+echo [2/4] Starting Backend with PM2...
+cd /d "%~dp0"
+pm2 start ecosystem.config.js --only logtool-cluster
+timeout /t 3 /nobreak >nul
+
+echo [3/4] Starting Nginx...
+cd /d "C:\nginx"
+nginx.exe
+timeout /t 2 /nobreak >nul
+
+echo [4/4] Checking services...
+echo.
+echo Redis Status:
+redis-cli ping
+echo.
+echo PM2 Status:
+pm2 status
+echo.
+echo Nginx Status:
+tasklist | findstr nginx.exe
+echo.
+echo ========================================
+echo    All services started!
+echo ========================================
+echo.
+echo Access URLs:
+echo   - Frontend: http://your-ip-or-domain
+echo   - Backend API: http://your-ip-or-domain/api
+echo.
+pause
+```
+
+---
+
+## 自启动配置
+
+### Ubuntu/Linux 自启动配置
+
+#### 1. Redis 自启动
+
+```bash
+# 启动并设置开机自启
+sudo systemctl start redis
+sudo systemctl enable redis
+```
+
+#### 2. 后端服务自启动
+
+使用 PM2：
+
+```bash
+pm2 startup
+# 执行输出的命令
+pm2 save
+```
+
+#### 3. Nginx 自启动
+
+```bash
+sudo systemctl enable nginx
+```
+
+---
+
+### Windows 自启动配置
+
+#### 1. Redis 自启动
+
+**方法1：使用 NSSM 注册为服务（推荐）**
+
+NSSM (Non-Sucking Service Manager) 是最简单可靠的方式。
+
+**步骤：**
+
+1. **下载 NSSM**：
+   - 下载地址：https://nssm.cc/download
+   - 解压到 `C:\nssm`（或任意目录）
+
+2. **注册 Redis 服务**（以管理员身份运行 CMD）：
+
+```cmd
+# 进入 NSSM 目录（根据你的实际路径调整）
+cd C:\nssm\win64
+
+# 安装 Redis 服务（替换为你的实际路径）
+nssm install Redis "D:\code\Log\v0.1.1\logtool\infrastructure\Redis\redis-server.exe"
+
+# 设置工作目录（重要：必须先设置工作目录）
+nssm set Redis AppDirectory "D:\code\Log\v0.1.1\logtool\infrastructure\Redis"
+
+# 设置启动参数（使用相对路径，只写文件名）
+# 注意：必须使用相对路径，因为 AppDirectory 已经设置了工作目录
+nssm set Redis AppParameters "redis.conf"
+
+# 设置服务描述
+nssm set Redis Description "LogTool Redis Server"
+
+# 设置启动类型为自动
+nssm set Redis Start SERVICE_AUTO_START
+
+# 启动服务
+nssm start Redis
+```
+
+**管理服务：**
+
+```cmd
+# 启动服务
+nssm start Redis
+
+# 停止服务
+nssm stop Redis
+
+# 重启服务
+nssm restart Redis
+
+# 查看服务状态
+nssm status Redis
+
+# 删除服务（卸载）
+nssm remove Redis confirm
+```
+
+**方法2：使用 Windows 任务计划程序**
+
+适合不想安装额外工具的情况。
+
+**步骤：**
+
+1. 按 `Win + R`，输入 `taskschd.msc`，打开"任务计划程序"
+2. 点击右侧"创建基本任务"
+3. 填写任务信息：
+   - **名称**：Redis 自启动
+   - **描述**：LogTool Redis 服务开机自启动
+4. 设置触发器：
+   - 选择"当计算机启动时"
+5. 设置操作：
+   - 选择"启动程序"
+   - **程序或脚本**：`D:\code\Log\v0.1.1\logtool\infrastructure\Redis\redis-server.exe`
+   - **参数**：`redis.conf`（使用相对路径，因为"起始于"已设置工作目录）
+   - **起始于**：`D:\code\Log\v0.1.1\logtool\infrastructure\Redis`（工作目录）
+6. 完成创建
+
+**方法3：使用 sc.exe 创建服务（如果 Redis 提供 RedisService.exe）**
+
+如果 Redis 目录中有 `RedisService.exe`，可以使用 Windows 内置的 `sc.exe`：
+
+```cmd
+# 以管理员身份运行
+sc.exe create Redis binpath="D:\code\Log\v0.1.1\logtool\infrastructure\Redis\RedisService.exe" start= auto
+
+# 启动服务
+net start Redis
+
+# 停止服务
+net stop Redis
+
+# 删除服务
+sc.exe delete Redis
+```
+
+**注意**：此方法需要 `RedisService.exe`，如果只有 `redis-server.exe`，请使用方法1或方法2。
+
+**验证 Redis 自启动：**
+
+```cmd
+# 方法1：检查服务状态（NSSM 或 sc.exe）
+sc query Redis
+
+# 方法2：检查进程
+tasklist | findstr redis-server.exe
+
+# 方法3：测试连接
+cd D:\code\Log\v0.1.1\logtool\infrastructure\Redis
+redis-cli ping
+# 应该返回: PONG
+```
+
+#### 2. 后端服务自启动
+
+参考"Windows 后端部署"章节中的"配置 PM2 开机自启"部分。
+
+#### 3. Nginx 自启动
+
+使用 NSSM 注册为服务（见"Windows Nginx 配置"章节）。
+
+---
+
+## 防火墙配置
+
+### Ubuntu/Linux 防火墙配置
+
+#### 1. 使用 UFW（Ubuntu 默认防火墙）
+
+```bash
+# 开放 HTTP 端口
+sudo ufw allow 80/tcp
+
+# 开放后端 API 端口（如果直接访问）
+sudo ufw allow 3000/tcp
+
+# 开放 Redis 端口（如果需要外部访问）
+sudo ufw allow 6379/tcp
+
+# 启用防火墙
+sudo ufw enable
+
+# 查看防火墙状态
+sudo ufw status
+```
+
+#### 2. 使用 firewalld（CentOS/RHEL）
+
+```bash
+# 开放 HTTP 端口
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-port=3000/tcp
+sudo firewall-cmd --reload
+```
+
+---
+
+### Windows 防火墙配置
+
+#### 1. 开放端口（Windows 防火墙）
+
+**方法1：使用图形界面**
+1. 打开"Windows Defender 防火墙"
+2. 点击"高级设置"
+3. 选择"入站规则" → "新建规则"
+4. 选择"端口" → "TCP"
+5. 输入端口：`80`, `3000`, `6379`（根据需要）
+6. 允许连接
+7. 应用到所有配置文件
+8. 命名规则（如：LogTool HTTP）
+
+**方法2：使用命令行（管理员权限）**
+
+```cmd
+# 开放 HTTP 端口
+netsh advfirewall firewall add rule name="LogTool HTTP" dir=in action=allow protocol=TCP localport=80
+
+# 开放后端 API 端口（如果直接访问）
+netsh advfirewall firewall add rule name="LogTool API" dir=in action=allow protocol=TCP localport=3000
+
+# 开放 Redis 端口（如果需要外部访问）
+netsh advfirewall firewall add rule name="Redis" dir=in action=allow protocol=TCP localport=6379
+```
+
+#### 2. 检查防火墙规则
+
+```cmd
+netsh advfirewall firewall show rule name="LogTool HTTP"
+```
+
+---
+
+## 域名访问配置
+
+### 方案一：局域网内使用域名（推荐）
+
+#### 1. 固定服务器 IP
+
+在路由器中设置 DHCP 保留，将服务器 MAC 地址绑定到固定 IP（如 `192.168.1.100`）。
+
+#### 2. 配置 hosts 文件（每台访问的电脑）
+
+**Windows:**
+编辑 `C:\Windows\System32\drivers\etc\hosts`（需要管理员权限）：
+```
+192.168.1.100 logtool.local
+192.168.1.100 www.logtool.local
+```
+刷新 DNS 缓存：
+```cmd
+ipconfig /flushdns
+```
+
+**Ubuntu/Linux:**
+编辑 `/etc/hosts`（需要 sudo 权限）：
+```
+192.168.1.100 logtool.local
+192.168.1.100 www.logtool.local
+```
+
+#### 3. 修改 Nginx 配置
+
+```nginx
+server {
+    listen 80;
+    server_name logtool.local www.logtool.local;
+    # 或同时支持 IP 访问
+    # server_name logtool.local www.logtool.local 192.168.1.100;
+    
+    root /var/www/logtool;  # Ubuntu/Linux
+    # root C:/www/logtool;  # Windows
+    
+    # ... 其他配置
+}
+```
+
+#### 4. 访问测试
+
+浏览器访问：`http://logtool.local`
+
+### 方案二：自建内网 DNS 服务器
+
+如果需要多台电脑访问，可以搭建内网 DNS：
+
+1. **使用 dnsmasq（WSL 或 Docker）**
+2. **使用 Windows DNS Server**（需要 Windows Server）
+3. **使用路由器 DNS 功能**（如果路由器支持）
+
+### 方案三：外网访问
+
+#### 1. 使用内网穿透（推荐，最简单）
+
+**使用 ngrok：**
+```bash
+# Ubuntu/Linux
+# 下载 ngrok: https://ngrok.com/download
+ngrok config add-authtoken YOUR_TOKEN
+ngrok http 80
+```
+
+```cmd
+# Windows
+# 下载 ngrok: https://ngrok.com/download
+ngrok config add-authtoken YOUR_TOKEN
+ngrok http 80
+```
+
+**使用 frp：**
+需要一台有公网 IP 的服务器作为中转。
+
+#### 2. 使用端口映射（需要公网 IP）
+
+1. 在路由器配置端口转发：
+   - 外部端口：80
+   - 内部 IP：你的电脑内网 IP
+   - 内部端口：80
+
+2. 配置动态域名（DDNS）：
+   - 使用花生壳、No-IP 等服务
+   - 在路由器或电脑上配置 DDNS 客户端
+
+3. 修改 Nginx 配置：
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;  # 你的域名
+    # 或 server_name _;  # 接受所有访问
+    # ... 其他配置
+}
+```
+
+---
+
 ## 常见问题排查
 
-### 1. 后端服务无法启动
+### Ubuntu/Linux 常见问题
+
+#### 1. 后端服务无法启动
 
 ```bash
 # 查看详细错误日志
@@ -675,7 +1752,7 @@ cat .env
 mysql -u logtool -p -e "USE logtool; SHOW TABLES;"
 ```
 
-### 2. 数据库连接失败
+#### 2. 数据库连接失败
 
 ```bash
 # 检查 MySQL 服务状态
@@ -693,7 +1770,7 @@ sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
 # 确认 bind-address = 127.0.0.1 或 0.0.0.0
 ```
 
-### 3. Redis 连接失败
+#### 3. Redis 连接失败
 
 ```bash
 # 检查 Redis 服务
@@ -705,7 +1782,7 @@ sudo nano /etc/redis/redis.conf
 # 确认 bind 和 requirepass 设置
 ```
 
-### 4. 前端无法访问后端 API
+#### 4. 前端无法访问后端 API
 
 ```bash
 # 检查 Nginx 配置
@@ -720,7 +1797,7 @@ curl http://localhost:3000/api/health
 # 查看 backend/src/app.js 中的 CORS 设置
 ```
 
-### 5. PM2 进程频繁重启
+#### 5. PM2 进程频繁重启
 
 ```bash
 # 查看错误日志
@@ -736,7 +1813,7 @@ pm2 describe logtool-backend
 # 编辑 ecosystem.config.js 中的 max_memory_restart
 ```
 
-### 6. 文件上传失败
+#### 6. 文件上传失败
 
 ```bash
 # 检查上传目录权限
@@ -750,6 +1827,178 @@ sudo chmod -R 755 /path/to/logtool/backend/uploads/
 
 ---
 
+### Windows 常见问题
+
+#### 1. 端口被占用
+
+```cmd
+# 查看端口占用
+netstat -ano | findstr :80
+netstat -ano | findstr :3000
+
+# 结束进程（替换 PID）
+taskkill /PID <PID> /F
+```
+
+#### 2. Nginx 无法启动
+
+- 检查配置文件语法：`nginx.exe -t`
+- 检查端口是否被占用
+- 检查路径是否正确（Windows 路径格式）
+- 查看错误日志：`C:\nginx\logs\error.log`
+
+#### 3. 后端无法连接数据库
+
+- 检查 MySQL 服务是否启动
+- 检查 `.env` 配置是否正确
+- 检查防火墙是否阻止连接
+- 测试连接：`mysql -u root -p -h localhost`
+
+#### 4. Redis 连接失败
+
+- 检查 Redis 是否启动：`redis-cli ping`
+- 检查端口是否正确
+- 检查防火墙设置
+
+#### 5. 前端页面空白或 404
+
+- 检查 Nginx `root` 路径是否正确
+- 检查前端文件是否已构建并复制到正确位置
+- 检查 Nginx 配置中的 `try_files` 设置
+
+#### 6. PM2 进程无法启动
+
+- 检查 Node.js 版本：`node --version`（需要 16+）
+- 检查依赖是否安装：`cd backend && npm install`
+- 查看 PM2 日志：`pm2 logs`
+
+#### 6.1. PM2 startup 报错 "Init system not found"
+
+**错误信息：**
+```
+[PM2][ERROR] Init system not found
+Error: Init system not found
+```
+
+**原因：**
+- `pm2 startup` 是 Linux/Ubuntu 的命令，在 Windows 上不支持
+- Windows 需要使用 `pm2-windows-startup` 包
+
+**解决方法：**
+
+1. **安装 pm2-windows-startup**（如果还没安装）：
+
+**⚠️ 必须以管理员身份运行 PowerShell 或 CMD**
+
+```cmd
+# 以管理员身份打开 PowerShell 或 CMD，然后执行：
+npm install -g pm2-windows-startup
+```
+
+**如果遇到权限错误（EPERM）：**
+- 确保以管理员身份运行（右键点击 PowerShell/CMD，选择"以管理员身份运行"）
+- 或者使用 `--prefix` 安装到用户目录：
+```cmd
+npm install -g pm2-windows-startup --prefix %APPDATA%\npm
+```
+
+2. **配置开机自启**（不要使用 `pm2 startup`）：
+
+**方法A：使用 npx（推荐，最简单）**
+
+```cmd
+# 以管理员身份运行，使用 npx 无需添加到 PATH
+npx pm2-windows-startup install
+```
+
+**方法B：直接使用命令（如果已添加到 PATH）**
+
+```cmd
+# 以管理员身份运行
+pm2-windows-startup install
+```
+
+3. **验证安装**：
+```cmd
+# 使用 npx
+npx pm2-windows-startup status
+
+# 或直接使用（如果已添加到 PATH）
+pm2-windows-startup status
+```
+
+**注意：**
+- ❌ **不要使用** `pm2 startup`（这是 Linux 命令）
+- ✅ **使用** `pm2-windows-startup install`（Windows 专用）
+- ⚠️ **安装和配置都需要管理员权限**
+
+#### 6.2. pm2-windows-startup 命令找不到
+
+**错误信息：**
+```
+'pm2-windows-startup' 不是内部或外部命令，也不是可运行的程序或批处理文件。
+```
+
+**原因：**
+- `pm2-windows-startup` 未安装
+- npm 全局路径未添加到系统 PATH
+
+**解决方法：**
+
+**✅ 最简单的方法：使用 npx（推荐）**
+
+无需添加到 PATH，直接使用：
+```cmd
+# 以管理员身份运行
+npx pm2-windows-startup install
+```
+
+**其他方法：**
+
+1. **检查是否已安装**：
+```cmd
+npm list -g pm2-windows-startup
+```
+
+2. **如果未安装，以管理员身份安装**：
+```cmd
+# 以管理员身份打开 PowerShell 或 CMD
+npm install -g pm2-windows-startup
+```
+
+3. **如果已安装但找不到，检查 npm 全局路径**：
+```cmd
+npm config get prefix
+```
+
+4. **将 npm 全局路径添加到系统 PATH**：
+   - 打开"系统属性" → "高级" → "环境变量"
+   - 在"系统变量"中找到 `Path`，点击"编辑"
+   - 添加 npm 全局路径（例如：`C:\Program Files\nodejs\node_global`）
+   - 或者添加用户 npm 路径（例如：`%APPDATA%\npm`）
+   - 重启命令行窗口
+
+5. **或者使用完整路径**：
+```cmd
+# 找到 pm2-windows-startup.cmd 的完整路径，例如：
+"C:\Program Files\nodejs\node_global\pm2-windows-startup.cmd" install
+```
+
+#### 7. 局域网无法访问
+
+- 检查 Windows 防火墙规则
+- 检查 Nginx `server_name` 配置
+- 检查路由器端口转发（如果从外网访问）
+- 使用 `ipconfig` 查看本机 IP 地址
+
+#### 8. 域名无法解析
+
+- 检查 hosts 文件是否正确配置
+- 刷新 DNS 缓存：`ipconfig /flushdns`
+- 检查 Nginx `server_name` 是否匹配域名
+
+---
+
 ## 部署检查清单
 
 部署完成后，请确认以下各项：
@@ -758,7 +2007,7 @@ sudo chmod -R 755 /path/to/logtool/backend/uploads/
 - [ ] **数据库**：数据库已创建并导入结构，角色和权限已初始化
 - [ ] **后端配置**：
   - [ ] 后端 `.env` 文件已配置
-  - [ ] 后端依赖已安装 (`npm install --production`)
+  - [ ] 后端依赖已安装 (`npm ci`)
   - [ ] 日志和上传目录已创建并有正确权限
 - [ ] **后端部署**：
   - [ ] PM2 配置文件已创建（`ecosystem.config.js`）
@@ -767,111 +2016,19 @@ sudo chmod -R 755 /path/to/logtool/backend/uploads/
 - [ ] **前端部署**：
   - [ ] 前端依赖已安装
   - [ ] 前端已构建 (`npm run build`)
-  - [ ] 前端静态文件已部署到 `/var/www/logtool`
+  - [ ] 前端静态文件已部署到正确位置（`/var/www/logtool` 或 `C:\www\logtool`）
 - [ ] **Nginx 配置**：
   - [ ] Nginx 配置文件已创建并启用
   - [ ] 静态文件服务和反向代理配置正确
   - [ ] Nginx 已重载配置
 - [ ] **服务验证**：
-  - [ ] 后端 API 可访问（`curl http://localhost:3000/api/health`）
+  - [ ] 后端 API 可访问（`curl http://localhost:3000/api/health` 或 `Invoke-WebRequest`）
   - [ ] 前端页面可访问
   - [ ] 移动端自动检测正常工作
 - [ ] **其他**：
   - [ ] 防火墙规则已配置
   - [ ] SSL 证书已配置（如果使用 HTTPS）
   - [ ] 所有服务已设置开机自启
-
----
-
-## 备份和维护
-
-### 1. 数据库备份
-
-```bash
-# MySQL 备份
-mysqldump -u logtool -p logtool > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# PostgreSQL 备份 (如果使用)
-pg_dump -U logtool logtool > backup_postgres_$(date +%Y%m%d_%H%M%S).sql
-
-# 自动化备份脚本 (添加到 crontab)
-# 0 2 * * * /path/to/backup_script.sh
-```
-
-### 2. 日志轮转
-
-```bash
-# 配置 logrotate
-sudo nano /etc/logrotate.d/logtool
-
-# 内容示例:
-/path/to/logtool/backend/logs/*.log {
-    daily
-    rotate 7
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 0644 $USER $USER
-}
-```
-
-### 3. 监控和告警
-
-考虑使用以下工具：
-- **PM2 Plus**: PM2 的监控服务
-- **Prometheus + Grafana**: 系统监控
-- **Sentry**: 错误追踪
-- **Uptime Kuma**: 服务可用性监控
-
----
-
-## 快速部署脚本示例
-
-可以创建一个自动化部署脚本 `deploy.sh`:
-
-```bash
-#!/bin/bash
-set -e
-
-echo "开始部署 LogTool..."
-
-# 1. 更新代码
-git pull origin main
-
-# 2. 安装后端依赖
-cd backend
-npm install --production
-
-# 3. 初始化数据库（如果需要）
-# mysql -u root -p logtool < ../infrastructure/database/init_database.sql
-
-# 4. 初始化角色（如果需要）
-# npm run init-roles
-
-# 5. 构建前端
-cd ../frontend
-npm install
-npm run build
-
-# 6. 复制前端文件
-sudo cp -r dist/* /var/www/logtool/
-
-# 7. 重启后端
-cd ..
-pm2 restart ecosystem.config.js
-
-# 8. 重载 Nginx
-sudo systemctl reload nginx
-
-echo "部署完成！"
-```
-
-使用:
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
 
 ---
 
@@ -1034,6 +2191,8 @@ chmod +x deploy.sh
 
 详细说明请参考 `frontend/public/ANDROID_PWA_GUIDE.md`。
 
+---
+
 ## 总结
 
 部署完成后，你应该能够通过以下方式访问：
@@ -1043,9 +2202,23 @@ chmod +x deploy.sh
 - **后端 API**: `http://your-server-ip/api` 或 `http://your-domain.com/api`
 - **健康检查**: `http://your-server-ip/api/health`
 
+### Windows 部署要点：
+
+1. **路径格式**：所有配置文件中的路径改为 Windows 格式
+2. **服务管理**：使用 PM2 管理 Node.js 进程，使用 NSSM 管理其他服务
+3. **防火墙**：确保开放必要端口
+4. **域名访问**：局域网内使用 hosts 文件，外网使用内网穿透或端口映射
+5. **自启动**：配置 Windows 服务或任务计划程序
+
+### Ubuntu/Linux 部署要点：
+
+1. **服务管理**：使用 systemd 管理系统服务，使用 PM2 管理 Node.js 进程
+2. **权限管理**：注意文件和目录权限设置
+3. **防火墙**：使用 UFW 或 firewalld 配置防火墙规则
+4. **SSL/HTTPS**：推荐使用 Let's Encrypt 配置 HTTPS
+
 如有问题，请参考本文档的"常见问题排查"部分，或查看相应的日志文件。
 
 ---
 
 **祝部署顺利！** 🚀
-

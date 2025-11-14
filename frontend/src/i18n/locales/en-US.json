@@ -810,6 +810,11 @@
       "monthSuffix": "",
       "daySuffix": ""
     },
+    "statusFilter": {
+      "all": "All",
+      "completed": "Completed",
+      "incomplete": "Incomplete"
+    },
     "errors": {
       "loadDeviceGroupsFailed": "Failed to load device groups",
       "loadLogsFailed": "Failed to load logs",
