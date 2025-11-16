@@ -154,9 +154,61 @@ const checkLogPermission = (action) => {
   };
 };
 
+// 用户信息更新权限检查中间件
+// 允许用户修改自己的信息（密码、邮箱），修改其他用户信息或敏感字段需要 user:update 权限
+const checkUserUpdatePermission = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: '用户信息缺失，请重新登录' });
+    }
+
+    const userId = req.user.id;
+    const targetUserId = parseInt(req.params.id);
+    const { email, password, oldPassword, is_active, roles } = req.body;
+
+    // 如果修改的是自己的信息
+    if (userId === targetUserId) {
+      // 只允许修改邮箱和密码
+      const allowedFields = ['email', 'password', 'oldPassword'];
+      const requestFields = Object.keys(req.body);
+      const hasRestrictedFields = requestFields.some(field => !allowedFields.includes(field));
+      
+      // 如果尝试修改角色或状态等敏感字段，需要 user:update 权限
+      if (hasRestrictedFields && (is_active !== undefined || roles !== undefined)) {
+        if (await userHasDbPermission(userId, 'user:update')) {
+          return next();
+        }
+        return res.status(403).json({ message: '修改角色或状态需要管理员权限' });
+      }
+      
+      // 允许修改自己的邮箱和密码
+      return next();
+    }
+
+    // 修改其他用户信息，需要 user:update 权限
+    if (await userHasDbPermission(userId, 'user:update')) {
+      return next();
+    }
+
+    // 回退到旧配置
+    try {
+      const userRoles = await loadUserRoles(userId);
+      if (legacyRoles.hasPermission(userRoles, 'user:update')) {
+        return next();
+      }
+    } catch (_) {}
+
+    return res.status(403).json({ message: '权限不足', requiredPermission: 'user:update' });
+  } catch (error) {
+    console.error('用户更新权限检查错误:', error);
+    return res.status(500).json({ message: '权限检查失败', error: error.message });
+  }
+};
+
 module.exports = {
   checkPermission,
   checkResourceOwnership,
   checkLogPermission,
+  checkUserUpdatePermission,
   userHasDbPermission
 }; 

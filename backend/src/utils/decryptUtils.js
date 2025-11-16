@@ -1,6 +1,8 @@
 const fs = require('fs');
 
 const dayjs = require('dayjs');
+const customParseFormat = require('dayjs/plugin/customParseFormat');
+dayjs.extend(customParseFormat);
 
 // 默认密钥常量
 const DEFAULT_KEY = '00-01-05-6E-F0-22';
@@ -12,23 +14,45 @@ const DEFAULT_KEY = '00-01-05-6E-F0-22';
 function parseDateTime(dateTimeStr) {
   
   try {
+    const raw = String(dateTimeStr || '').trim();
+    
     // 检查是否以 'DT#' 开头
-    if (!dateTimeStr.startsWith('DT#')) {
+    if (!raw.startsWith('DT#')) {
       // 尝试直接解析
-      const dt = new Date(dateTimeStr);
+      // 先尝试严格格式
+      const d1 = dayjs(raw, 'YYYY-MM-DD HH:mm:ss', true);
+      if (d1.isValid()) return d1.toDate();
+      
+      // 尝试 ISO 友好格式（将最后一个 '-' 改为空格或 'T'）
+      const alt = raw.replace(/-(\d{2}:\d{2}:\d{2})$/, ' $1');
+      const d2 = dayjs(alt, 'YYYY-MM-DD HH:mm:ss', true);
+      if (d2.isValid()) return d2.toDate();
+      
+      // 最后回退到原生 Date
+      const dt = new Date(raw);
       if (isNaN(dt.getTime())) {
-        throw new Error(`无法解析日期时间: ${dateTimeStr}`);
+        throw new Error(`无法解析日期时间: ${raw}`);
       }
       return dt;
     }
     
     // 去除前缀 'DT#'
-    const dateStr = dateTimeStr.substring(3);
+    const dateStr = raw.substring(3).trim();
     
+    // 将最后一个 "-"（时间分隔）替换为空格，得到 YYYY-MM-DD HH:mm:ss
     const formattedInput = dateStr.replace(/-(\d{2}:\d{2}:\d{2})$/, ' $1');
 
-    // 使用dayjs解析并返回Date对象
-    const dt = dayjs(formattedInput).toDate();
+    // 显式使用格式解析（严格模式）
+    let d = dayjs(formattedInput, 'YYYY-MM-DD HH:mm:ss', true);
+    
+    // 失败则尝试使用 'T' 分隔
+    if (!d.isValid()) {
+      const isoLike = dateStr.replace(/-(\d{2}:\d{2}:\d{2})$/, 'T$1');
+      const dIso = dayjs(isoLike, 'YYYY-MM-DDTHH:mm:ss', true);
+      if (dIso.isValid()) d = dIso;
+    }
+    
+    const dt = d.toDate();
     
     // 验证解析结果
     if (isNaN(dt.getTime())) {

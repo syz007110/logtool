@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsPromises = fs.promises;
 const path = require('path');
 const AdmZip = require('adm-zip');
 const iconv = require('iconv-lite');
@@ -59,19 +60,20 @@ class ScannerService {
     return '';
   }
 
-  parseKeyInDir(dir, keyFileName = 'SystemInfo.txt') {
+  async parseKeyInDir(dir, keyFileName = 'SystemInfo.txt') {
     try {
       const file = path.join(dir, keyFileName);
       const logger = this.options.log || (() => {});
       console.log(`🔍 查找密钥文件: ${file}`);
-      if (fs.existsSync(file)) {
+      try {
+        await fsPromises.access(file);
         console.log(`✅ 找到密钥文件: ${file}`);
         // 多编码尝试
         const encodings = ['utf8','gbk','gb2312','latin1'];
         let content = null;
         for (const enc of encodings) {
           try {
-            const buf = fs.readFileSync(file);
+            const buf = await fsPromises.readFile(file);
             content = iconv.decode(buf, enc);
             if (content && /[\s\S]+/.test(content)) break;
           } catch {}
@@ -83,7 +85,7 @@ class ScannerService {
         } else {
           console.log(`❌ 密钥文件中未找到有效MAC地址`);
         }
-      } else {
+      } catch {
         console.log(`❌ 密钥文件不存在: ${file}`);
       }
     } catch (e) {
@@ -93,28 +95,39 @@ class ScannerService {
     return null;
   }
 
-  // 在单元内查找密钥（深度优先，找到第一个就返回）
-  findUnitKey(rootDir, keyFileName, depthLimit) {
+  // 在单元内查找密钥（深度优先，找到第一个就返回）- 异步版本
+  async findUnitKey(rootDir, keyFileName, depthLimit) {
     const stack = [{ dir: rootDir, depth: 0 }];
+    const BATCH_SIZE = 10; // 每处理10个目录后让出CPU
+    let processed = 0;
+    
     while (stack.length) {
       const node = stack.pop();
       const { dir, depth } = node;
       
       if (depth > depthLimit) continue;
       
-      const key = this.parseKeyInDir(dir, keyFileName);
+      const key = await this.parseKeyInDir(dir, keyFileName);
       if (key) {
         return key; // 找到第一个密钥就返回
       }
       
       try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const entries = await fsPromises.readdir(dir, { withFileTypes: true });
         for (const ent of entries) {
           if (ent.isDirectory()) {
             stack.push({ dir: path.join(dir, ent.name), depth: depth + 1 });
           }
         }
       } catch {}
+      
+      processed++;
+      
+      // 让出CPU时间，避免阻塞
+      if (processed >= BATCH_SIZE && stack.length > 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        processed = 0;
+      }
     }
     return null;
   }
@@ -140,7 +153,7 @@ class ScannerService {
     let unitKey = currentKey;
     if (!unitKey) {
       console.log(`🔍 单元级密钥查找开始...`);
-      unitKey = this.findUnitKey(rootDir, keyFileName, depthLimit);
+      unitKey = await this.findUnitKey(rootDir, keyFileName, depthLimit);
       if (unitKey) {
         console.log(`🔑 单元密钥已确定: ${unitKey}`);
       } else {
@@ -169,9 +182,15 @@ class ScannerService {
       console.log(`🔑 使用传入的单元密钥: ${unitKey}`);
     }
     
+    // 异步扫描目录：使用队列和批处理，避免阻塞
     const stack = [{ dir: rootDir, depth: 0 }];
     const seenNames = new Set(); // 单元内同名合并（original_name）
     const uploader = this.options.uploader;
+    const BATCH_SIZE = 50; // 每处理50个文件/目录后让出CPU
+    
+    let fileProcessed = 0;
+    let dirProcessed = 0;
+    
     while (stack.length) {
       const node = stack.pop();
       const { dir, depth } = node;
@@ -179,13 +198,16 @@ class ScannerService {
       
       console.log(`📂 扫描目录: ${dir} (深度: ${depth})`);
       try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+        
+        // 处理目录
         for (const ent of entries) {
           const full = path.join(dir, ent.name);
           if (ent.isDirectory()) {
             if (depth < depthLimit) {
               stack.push({ dir: full, depth: depth + 1 });
             }
+            dirProcessed++;
           } else {
             const lower = ent.name.toLowerCase();
             if (lower.endsWith('.medbot')) {
@@ -222,13 +244,30 @@ class ScannerService {
                     persistPath = `${ctx.archiveBase}!/${rel}`;
                   }
                 } catch {}
+                
                 // 内容哈希去重（跨路径/跨重启）
+                // 延迟计算哈希，先加入队列，避免阻塞
                 let fileHash = null;
-                try { fileHash = computeFileHash(full); } catch {}
+                try {
+                  // 先检查文件是否存在
+                  await fsPromises.access(full);
+                  // 异步计算哈希（使用 setImmediate 让出CPU）
+                  fileHash = await new Promise((resolve) => {
+                    setImmediate(() => {
+                      try {
+                        resolve(computeFileHash(full));
+                      } catch {
+                        resolve(null);
+                      }
+                    });
+                  });
+                } catch {}
+                
                 if (fileHash && hasSuccessByHash(this.options.appDataDir || (()=>''), fileHash)) {
                   console.log(`✅ 已上传过相同内容（hash），跳过: ${originalName}`);
                   continue;
                 }
+                
                 const cfg = await this.options.getConfig();
                 if (!cfg.scanOnly) {
                   console.log(`📤 准备上传文件: ${ent.name}`);
@@ -239,10 +278,27 @@ class ScannerService {
               } else {
                 console.log(`⚠️ 缺少设备编号或密钥，跳过: ${ent.name}`);
               }
+              
+              fileProcessed++;
+              
+              // 每处理一定数量的文件后让出CPU
+              if (fileProcessed >= BATCH_SIZE) {
+                await new Promise(resolve => setImmediate(resolve));
+                fileProcessed = 0;
+              }
             }
           }
         }
-      } catch {}
+      } catch (err) {
+        // 忽略权限错误等
+        console.log(`⚠️ 扫描目录失败: ${dir}, ${err.message}`);
+      }
+      
+      // 每处理一定数量的目录后也让出CPU
+      if (dirProcessed >= BATCH_SIZE) {
+        await new Promise(resolve => setImmediate(resolve));
+        dirProcessed = 0;
+      }
     }
   }
 

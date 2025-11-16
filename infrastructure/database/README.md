@@ -34,6 +34,19 @@
 - **特点**: 包含PostgreSQL特有的数据类型和索引
 - **使用场景**: 当只需要创建手术统计表时使用
 
+### 4. `add_device_keys_table.sql` - 多密钥管理迁移脚本
+- **用途**: 添加 `device_keys` 表，支持同一设备拥有多个密钥（按时间范围）
+- **特点**: 
+  - 创建 `device_keys` 表结构
+  - 自动迁移现有 `devices.device_key` 数据到新表
+  - 支持时间范围查询和优先级选择
+- **使用场景**: 
+  - 升级现有系统以支持多密钥管理
+  - 设备更换硬件后需要切换密钥的场景
+- **注意事项**: 
+  - 执行前请务必备份数据库
+  - 迁移后保留 `devices.device_key` 字段（向后兼容）
+
 ## 使用建议
 
 ### 首次部署
@@ -59,6 +72,18 @@ node src/scripts/showIndexInfo.js
 ### 备份数据库
 ```bash
 mysqldump -u root -p logtool > backup_$(date +%Y%m%d_%H%M%S).sql
+```
+
+### 多密钥管理迁移（新增功能）
+```bash
+# 1. 备份数据库（重要！）
+mysqldump -u root -p logtool > backup_before_device_keys_$(date +%Y%m%d_%H%M%S).sql
+
+# 2. 执行迁移脚本
+mysql -u root -p logtool < infrastructure/database/add_device_keys_table.sql
+
+# 3. 验证迁移结果
+mysql -u root -p logtool -e "SELECT COUNT(*) AS total_keys FROM device_keys;"
 ```
 
 ## 数据库特性
@@ -111,7 +136,7 @@ mysqldump -u root -p logtool > backup_$(date +%Y%m%d_%H%M%S).sql
 1. **用户管理**: users, roles, user_roles
 2. **故障码管理**: error_codes, i18n_error_codes
 3. **日志管理**: logs, log_entries, operation_logs
-4. **设备管理**: devices
+4. **设备管理**: devices, device_keys（多密钥管理）
 5. **反馈系统**: feedbacks, feedback_images
 6. **手术统计**: surgeries, surgery_versions
 7. **多语言支持**: i18n_texts

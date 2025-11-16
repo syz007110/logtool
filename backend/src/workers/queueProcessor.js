@@ -188,6 +188,34 @@ historicalProcessingQueue.process('process-log', HISTORICAL_CONCURRENCY, async (
       return; // 优雅退出
     }
     
+    // 处理磁盘空间不足错误
+    if (error.message.includes('No space left on device') || 
+        error.message.includes('OS errno 28') ||
+        (error.original && error.original.message && error.original.message.includes('No space left on device'))) {
+      console.error(`❌ [历史队列处理器] 磁盘空间不足，任务 ${job.id} 无法处理`);
+      console.error(`   请清理系统临时目录和磁盘空间后重试`);
+      console.error(`   临时目录: ${process.env.TMP || process.env.TEMP || 'C:\\Windows\\Temp'}`);
+      
+      // 尝试更新日志状态为处理失败
+      try {
+        const Log = require('../models/log');
+        const { logId } = job.data;
+        if (logId) {
+          await Log.update(
+            { status: 'processing_failed' },
+            { where: { id: logId } }
+          );
+          console.log(`[历史队列处理器] 已更新日志状态为处理失败: ${logId}`);
+        }
+      } catch (updateError) {
+        console.warn(`[历史队列处理器] 更新日志状态失败:`, updateError.message);
+      }
+      
+      // 延迟重试，等待磁盘空间释放
+      // 注意：这里不立即重试，避免频繁失败
+      return; // 优雅退出，任务会在队列中等待重试
+    }
+    
     // 其他错误也优雅处理，避免队列阻塞
     console.warn(`[历史队列处理器] 任务 ${job.id} 处理失败，已跳过: ${error.message}`);
     return;

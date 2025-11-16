@@ -191,9 +191,10 @@ async function processLogFile(job) {
 
     await job.progress(85);
 
-    // 同步设备信息到设备表（若存在）
+    // 解密成功后，同步设备信息到设备表（若存在）
+    // 注意：只有在解密成功后才保存密钥，避免错误密钥污染设备表
     try {
-      if (deviceId && deviceId !== '0000-00') {
+      if (deviceId && deviceId !== '0000-00' && decryptKey) {
         const [device, created] = await Device.findOrCreate({
           where: { device_id: deviceId },
           defaults: {
@@ -205,11 +206,17 @@ async function processLogFile(job) {
         });
         
         if (!created) {
-          // 更新现有设备信息
+          // 更新现有设备信息：如果设备没有密钥，或者当前密钥与设备密钥不同，则更新
+          // 这样可以更新到正确的密钥，但不会覆盖已有的正确密钥
+          if (!device.device_key || device.device_key !== decryptKey) {
           await device.update({
             device_key: decryptKey,
             updated_at: new Date()
           });
+            console.log(`✅ 已更新设备 ${deviceId} 的密钥（解密验证成功）`);
+          }
+        } else {
+          console.log(`✅ 已创建设备 ${deviceId} 并保存密钥（解密验证成功）`);
         }
       }
     } catch (e) {

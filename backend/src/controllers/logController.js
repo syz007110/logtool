@@ -8,6 +8,8 @@ const { sequelize } = require('../models');
 const Device = require('../models/device');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
+const { getKeyForDeviceAndDate } = require('../services/deviceKeyService');
+const { extractTimeFromFileName } = require('../utils/logTimeExtractor');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
 const { logProcessingQueue, realtimeProcessingQueue } = require('../config/queue');
 const queueManager = require('../services/queueManager');
@@ -670,17 +672,35 @@ const uploadLog = async (req, res) => {
       return res.status(400).json({ message: req.t('log.upload.invalidDeviceIdFormat') });
     }
     
-    // 根据设备编号自动获取解密密钥
+    const uploadedLogs = [];
+    
+    for (const file of files) {
+      // 根据设备编号和日志时间自动获取解密密钥
     let decryptKey = null;
+      
     if (deviceId !== '0000-00') {
       try {
-        console.log(`正在查找设备 ${deviceId} 的解密密钥...`);
+          // 从文件名提取日志时间
+          const logDate = extractTimeFromFileName(file.originalname);
+          
+          if (logDate) {
+            console.log(`从文件名提取到日志时间: ${logDate.toISOString().split('T')[0]}`);
+            // 使用多密钥管理服务获取密钥
+            decryptKey = await getKeyForDeviceAndDate(deviceId, logDate);
+          } else {
+            console.log(`无法从文件名提取时间，使用当前日期查找密钥`);
+            // 如果无法提取时间，使用当前日期
+            decryptKey = await getKeyForDeviceAndDate(deviceId, new Date());
+          }
+          
+          // 如果多密钥管理未找到，回退到 devices.device_key（向后兼容）
+          if (!decryptKey) {
+            console.log(`多密钥管理未找到密钥，尝试使用设备默认密钥...`);
         const device = await Device.findOne({ where: { device_id: deviceId } });
         if (device && device.device_key) {
           decryptKey = device.device_key;
-          console.log(`✅ 找到设备 ${deviceId} 的解密密钥: ${decryptKey.substring(0, 8)}...`);
-        } else {
-          console.log(`❌ 未找到设备 ${deviceId} 的解密密钥`);
+              console.log(`✅ 使用设备 ${deviceId} 的默认密钥: ${decryptKey.substring(0, 8)}...`);
+            }
         }
       } catch (error) {
         console.warn('获取设备密钥失败:', error.message);
@@ -702,10 +722,6 @@ const uploadLog = async (req, res) => {
     if (!validateKey(decryptKey)) {
       return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
     }
-    
-    const uploadedLogs = [];
-    
-    for (const file of files) {
       let log;
       try {
         console.log(`\n--- 处理文件: ${file.originalname} ---`);
@@ -746,28 +762,9 @@ const uploadLog = async (req, res) => {
           });
         }
         
-        // 同步设备信息到设备表（若存在）
-        try {
-          if (deviceId && deviceId !== '0000-00') {
-            const [device, created] = await Device.findOrCreate({
-              where: { device_id: deviceId },
-              defaults: {
-                device_model: null,
-                device_key: decryptKey,
-                hospital: null,
-                created_at: new Date(),
-                updated_at: new Date()
-              }
-            });
-            if (!created && decryptKey && !device.device_key) {
-              device.device_key = decryptKey;
-              device.updated_at = new Date();
-              await device.save();
-            }
-          }
-        } catch (e) {
-          console.warn('设备信息同步失败（忽略，不影响日志处理）:', e.message);
-        }
+        // 注意：密钥不再在上传时立即保存到设备表
+        // 改为在解密成功后再保存，避免错误密钥污染设备表
+        // logs表的key_id仍然保存，用于记录使用的密钥
 
         // 根据来源选择队列（user-upload -> realtime，auto-upload -> historical）
         const queue = queueManager.getQueueBySource(source);
@@ -825,7 +822,7 @@ const uploadLog = async (req, res) => {
     console.log('\n=== 上传完成总结 ===');
     console.log(`✅ 成功上传 ${uploadedLogs.length} 个文件`);
     console.log(`📊 设备编号: ${deviceId}`);
-    console.log(`🔑 解密密钥: ${decryptKey ? '已提供' : '未提供'}`);
+    console.log(`🔑 解密密钥: 已为每个文件自动获取密钥`);
     console.log(`📤 上传来源: ${source}`);
     console.log(`🆔 客户端ID: ${clientId || '未提供'}`);
     console.log('========================\n');

@@ -281,18 +281,24 @@ class IntelligentScheduler extends EventEmitter {
     console.log(`📊 进程分配: 监控(主进程)=1, 通用进程=${generalWorkers}, 用户请求=${userRequestWorkers}`);
     
     // 重新分配进程角色
+    // 注意：先分配通用进程，再分配用户进程，确保通用进程数量正确
     let monitorCount = 0;
     let generalCount = 0;
     let userRequestCount = 0;
     
     for (const [workerId, worker] of this.workers) {
-      if (userRequestCount < userRequestWorkers) {
-        // 分配为用户请求处理进程
+      if (generalCount < generalWorkers) {
+        // 先分配通用进程（参与所有队列，包括历史处理队列）
+        await this.assignWorkerRole(workerId, 'general');
+        generalCount++;
+      } else if (userRequestCount < userRequestWorkers) {
+        // 再分配为用户请求处理进程（不参与历史处理队列）
         await this.assignWorkerRole(workerId, 'userRequest');
         userRequestCount++;
       } else {
-        // 其余设为通用进程
+        // 如果还有剩余进程，默认作为通用进程
         await this.assignWorkerRole(workerId, 'general');
+        generalCount++;
       }
     }
     

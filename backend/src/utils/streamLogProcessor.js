@@ -47,7 +47,22 @@ class StreamLogProcessor {
 
       // 先清空旧的日志条目
       console.log('🗑️ 清空旧的日志条目...');
-      await LogEntry.destroy({ where: { log_id: logId }, force: true });
+      try {
+        await LogEntry.destroy({ where: { log_id: logId }, force: true });
+      } catch (destroyError) {
+        // 检查是否是磁盘空间不足错误
+        if (destroyError.message && (
+          destroyError.message.includes('No space left on device') ||
+          destroyError.message.includes('OS errno 28') ||
+          (destroyError.original && destroyError.original.message && destroyError.original.message.includes('No space left on device'))
+        )) {
+          console.error(`❌ 磁盘空间不足，无法清空旧日志条目 (log_id: ${logId})`);
+          console.error(`   请清理系统临时目录和磁盘空间`);
+          throw new Error(`磁盘空间不足，无法处理日志文件。请清理磁盘空间后重试。`);
+        }
+        // 其他错误继续抛出
+        throw destroyError;
+      }
 
       // 统计总行数（用于进度显示）
       totalLines = await this.countLines(filePath);

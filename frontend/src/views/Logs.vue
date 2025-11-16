@@ -199,60 +199,60 @@
             </el-tabs>
             <div class="time-filter-bar">
               <div class="quick-range-group">
-                <el-radio-group
-                  v-model="detailQuickRange"
-                  size="small"
-                  @change="handleQuickRangeChange"
-                >
-                  <el-radio-button
-                    v-for="option in detailQuickRangeOptions"
-                    :key="option.value"
-                    :label="option.value"
-                  >
-                    {{ option.label }}
-                  </el-radio-button>
-                </el-radio-group>
+            <el-radio-group
+              v-model="detailQuickRange"
+              size="small"
+              @change="handleQuickRangeChange"
+            >
+              <el-radio-button
+                v-for="option in detailQuickRangeOptions"
+                :key="option.value"
+                :label="option.value"
+              >
+                {{ option.label }}
+              </el-radio-button>
+            </el-radio-group>
               </div>
-              <div class="custom-range-selects">
-                <el-select
-                  v-model="detailSelectedYear"
-                  size="small"
-                  class="time-select"
-                  @change="handleYearChange"
-                >
-                  <el-option
-                    v-for="option in detailYearOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <el-select
-                  v-model="detailSelectedMonth"
-                  size="small"
-                  class="time-select"
-                  @change="handleMonthChange"
-                >
-                  <el-option
-                    v-for="option in detailMonthOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <el-select
-                  v-model="detailSelectedDay"
-                  size="small"
-                  class="time-select"
-                  @change="handleDayChange"
-                >
-                  <el-option
-                    v-for="option in detailDayOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
+            <div class="custom-range-selects">
+              <el-select
+                v-model="detailSelectedYear"
+                size="small"
+                class="time-select"
+                @change="handleYearChange"
+              >
+                <el-option
+                  v-for="option in detailYearOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <el-select
+                v-model="detailSelectedMonth"
+                size="small"
+                class="time-select"
+                @change="handleMonthChange"
+              >
+                <el-option
+                  v-for="option in detailMonthOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <el-select
+                v-model="detailSelectedDay"
+                size="small"
+                class="time-select"
+                @change="handleDayChange"
+              >
+                <el-option
+                  v-for="option in detailDayOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
               </div>
             </div>
           </div>

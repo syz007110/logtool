@@ -81,7 +81,33 @@ const updateUser = async (req, res) => {
     const { email, is_active, roles, password, oldPassword } = req.body;
     const user = await User.findByPk(id);
     if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
-    await user.update({ email, is_active });
+    
+    const isUpdatingSelf = req.user.id === parseInt(id);
+    const updateData = {};
+    
+    // 邮箱修改：所有用户都可以修改自己的邮箱
+    if (email !== undefined) {
+      updateData.email = email;
+    }
+    
+    // 状态和角色修改：只有管理员可以修改（权限已在中间件中检查）
+    if (!isUpdatingSelf || (is_active !== undefined || roles !== undefined)) {
+      if (is_active !== undefined) {
+        updateData.is_active = is_active;
+      }
+      if (Array.isArray(roles)) {
+        await UserRole.destroy({ where: { user_id: id } });
+        for (const roleId of roles) {
+          await UserRole.create({ user_id: id, role_id: roleId });
+        }
+      }
+    }
+    
+    // 更新基本信息（邮箱、状态）
+    if (Object.keys(updateData).length > 0) {
+      await user.update(updateData);
+    }
+    
     // 密码修改逻辑
     if (password) {
       if (!oldPassword) {
@@ -93,12 +119,6 @@ const updateUser = async (req, res) => {
       }
       const password_hash = await bcrypt.hash(password, 10);
       await user.update({ password_hash });
-    }
-    if (Array.isArray(roles)) {
-      await UserRole.destroy({ where: { user_id: id } });
-      for (const roleId of roles) {
-        await UserRole.create({ user_id: id, role_id: roleId });
-      }
     }
     // 记录操作日志
     try {

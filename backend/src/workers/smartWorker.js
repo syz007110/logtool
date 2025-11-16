@@ -201,6 +201,15 @@ class SmartWorker {
         console.log(`🛑 工作进程 ${this.workerId} 停止用户请求处理服务...`);
         // 停止用户请求处理相关服务
         await this.queueController.stopRealtime();
+        await this.queueController.stopLogProcessing();
+        await this.queueController.stopSurgery();
+      } else if (this.role === 'general' || this.role == null) {
+        console.log(`🛑 工作进程 ${this.workerId} 停止通用进程服务...`);
+        // 停止所有队列消费
+        await this.queueController.stopRealtime();
+        await this.queueController.stopHistorical();
+        await this.queueController.stopLogProcessing();
+        await this.queueController.stopSurgery();
       }
       
     } catch (error) {
@@ -241,8 +250,16 @@ class SmartWorker {
         await this.queueController.stopHistorical();
         await this.queueController.startLogProcessing();
         await this.queueController.startSurgery();
+      } else if (this.role === 'general' || this.role == null) {
+        // 通用进程：参与所有队列任务（包括历史处理队列）
+        console.log(`🚀 工作进程 ${this.workerId} 启动通用进程服务（参与所有队列）...`);
+        await this.queueController.startRealtime();
+        await this.queueController.startHistorical();
+        await this.queueController.startLogProcessing();
+        await this.queueController.startSurgery();
       } else {
-        // 通用进程（role==null）：参与所有队列任务
+        // 未知角色，默认作为通用进程处理
+        console.log(`⚠️ 工作进程 ${this.workerId} 未知角色 ${this.role}，默认作为通用进程处理...`);
         await this.queueController.startRealtime();
         await this.queueController.startHistorical();
         await this.queueController.startLogProcessing();

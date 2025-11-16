@@ -1,17 +1,15 @@
 {
   "_comment": "apiBaseUrl 配置说明：\n1. 客户端在服务器本地运行：使用 http://localhost:3000/api 或 http://服务器IP/api\n2. 客户端在其他机器运行：使用 http://服务器公网IP/api 或 http://域名/api\n3. 如果有 HTTPS，使用 https://域名/api\n注意：通过 nginx 代理访问更稳定，推荐使用域名或公网IP方式",
-  "apiBaseUrl": "http://42.121.15.87/api",
+  "apiBaseUrl": "http://localhost:3000/api",
   "clientId": "a1f30dc6-a8b3-4357-88d3-db855a810fd4",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MjEwODA2MSwiZXhwIjoxNzYyMTUxMjYxfQ.tR-3xvPtDr1MmFXHax7RtV5k-ebhkDcyo5Wh0OWA7-w",
-  "tokenExpiresAt": "2025-11-03T06:27:41.000Z",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImlhdCI6MTc2MzI1MzMyNCwiZXhwIjoxNzYzMjk2NTI0fQ.xvu10GS01_28S7YmcjWnK7V_y5eXnCVlcMs3Fr86IGc",
+  "tokenExpiresAt": "2025-11-16T12:35:24.000Z",
   "username": "admin",
   "password": "admin123",
   "autoLogin": true,
   "concurrency": 3,
   "watchPaths": [
-    "D:\\microport\\任务\\000-log分析\\auto_upload\\4371",
-    "D:\\microport\\任务\\000-log分析\\auto_upload\\4336",
-    "D:\\microport\\任务\\000-log分析\\auto_upload\\4358"
+    "D:\\microport\\任务\\000-log分析\\4371-20-安哥拉"
   ],
   "recurseDepth": 4,
   "includeExtensions": [
@@ -20,7 +18,7 @@
   "keyFileName": "SystemInfo.txt",
   "scanOnly": false,
   "logsDir": "D:\\MyLogMonitor",
-  "ignoreInitial": true,
+  "ignoreInitial": false,
   "periodicRescanInterval": 1,
-  "tempCleanupInterval": 180
+  "tempCleanupInterval": 30
 }

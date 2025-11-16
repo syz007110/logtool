@@ -213,7 +213,12 @@ const devices = {
   update: (id, data) => api.put(`/devices/${id}`, data),
   delete: (id) => api.delete(`/devices/${id}`),
   autoFillDeviceId: (key) => api.get('/devices/auto-fill/device-id', { params: { key } }),
-  autoFillKey: (deviceId) => api.get('/devices/auto-fill/key', { params: { device_id: deviceId } })
+  autoFillKey: (deviceId) => api.get('/devices/auto-fill/key', { params: { device_id: deviceId } }),
+  // 密钥管理
+  getKeys: (deviceId) => api.get(`/devices/${deviceId}/keys`),
+  createKey: (deviceId, data) => api.post(`/devices/${deviceId}/keys`, data),
+  updateKey: (keyId, data) => api.put(`/devices/keys/${keyId}`, data),
+  deleteKey: (keyId) => api.delete(`/devices/keys/${keyId}`)
 }
 
 // Motion data APIs

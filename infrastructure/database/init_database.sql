@@ -342,6 +342,27 @@ CREATE TABLE IF NOT EXISTS devices (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 11.1 设备密钥表（支持多密钥按时间范围）
+CREATE TABLE IF NOT EXISTS device_keys (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  device_id VARCHAR(100) NOT NULL COMMENT '设备编号',
+  key_value VARCHAR(100) NOT NULL COMMENT '密钥值（MAC地址）',
+  valid_from_date DATE NOT NULL COMMENT '密钥生效起始日期（包含）',
+  valid_to_date DATE NULL COMMENT '密钥生效结束日期（不包含，NULL表示永久有效）',
+  is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认密钥（向后兼容）',
+  priority INT DEFAULT 0 COMMENT '优先级（数字越大优先级越高，用于时间重叠时选择）',
+  description VARCHAR(255) COMMENT '密钥描述（如：更换硬件前/后）',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  created_by INT COMMENT '创建者ID（可选，不强制外键约束）',
+  INDEX idx_device_date (device_id, valid_from_date, valid_to_date),
+  INDEX idx_device_id (device_id),
+  INDEX idx_valid_from_date (valid_from_date),
+  INDEX idx_valid_to_date (valid_to_date),
+  INDEX idx_is_default (is_default),
+  INDEX idx_priority (priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='设备密钥表（支持多密钥按时间范围）';
+
 -- 12. 缺陷反馈主表
 CREATE TABLE IF NOT EXISTS feedbacks (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -441,6 +462,11 @@ CREATE INDEX idx_log_entries_ts_norm ON log_entries(timestamp, subsystem_char, c
 -- 基础索引
 CREATE INDEX idx_devices_device_key ON devices(device_key);
 
+-- ========================================
+-- device_keys表索引
+-- ========================================
+-- 索引已在表定义中创建，此处无需重复创建
+
 -- 16. 显示创建结果
 SELECT '数据库初始化完成！' AS message;
 SELECT 'users' AS table_name, COUNT(*) AS count FROM users
@@ -463,7 +489,9 @@ SELECT 'log_entries' AS table_name, COUNT(*) AS count FROM log_entries
 UNION ALL
 SELECT 'i18n_texts' AS table_name, COUNT(*) AS count FROM i18n_texts
 UNION ALL
-SELECT 'devices' AS table_name, COUNT(*) AS count FROM devices;
+SELECT 'devices' AS table_name, COUNT(*) AS count FROM devices
+UNION ALL
+SELECT 'device_keys' AS table_name, COUNT(*) AS count FROM device_keys;
 
 -- 注意：surgeries 和 surgery_versions 表在 PostgreSQL 数据库中，不在此MySQL库
 

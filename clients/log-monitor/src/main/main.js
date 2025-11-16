@@ -6,13 +6,13 @@ const { getKeyAndDeviceForFile } = require('./services/keyExtractor');
 const { ScannerService } = require('./services/scanner');
 const { UploaderService } = require('./services/uploader');
 const { TempCleanerService } = require('./services/cleaner');
-const { loadTasks, saveTasks } = require('./services/storage');
+const { loadTasks, saveTasks, getTaskStats, clearTaskStats, computeTaskStatsFromDb } = require('./services/storage');
 
 let mainWindow = null;
 let watcher = null;
 let uploader = null;
 let tray = null;
-let paused = false;
+let paused = true;
 let scanner = null;
 let cleaner = null;
 // Track unit scan sessions for per-device completion notifications
@@ -169,7 +169,8 @@ app.whenReady().then(async () => {
   // 启动时尝试确保 token 可用
   await ensureAuth(false);
 
-  uploader.setConcurrency(cfg.concurrency || 3);
+  const initialConcurrency = paused ? 0 : (cfg.concurrency || 3);
+  uploader.setConcurrency(initialConcurrency);
   uploader.onStatus((snapshot) => {
     if (mainWindow && mainWindow.webContents) {
       mainWindow.webContents.send('uploader:status', snapshot);
@@ -190,6 +191,11 @@ app.whenReady().then(async () => {
       const pendingOrFailed = tasks.filter(t => t && t.status !== 'success');
       uploader.restore(pendingOrFailed);
     }
+    // 每次启动时清空持久化统计，从0开始重新计数
+    try {
+      clearTaskStats(getAppDataDir);
+      writeLog('已清空任务统计，本次会话将从0开始计数');
+    } catch {}
   } catch {}
 
   // 初始化目录监听与扫描器（按流程图：目录/压缩包为单元）
@@ -211,6 +217,7 @@ app.whenReady().then(async () => {
   })();
   // 冷启动：抑制 .medbot add 事件，待初次目录发现完成后再开启
   watcher.setSuppressMedbotAdd(true);
+  let pendingInitialScan = false;
   const debounced = new Map();
   const scanning = new Set(); // 正在扫描的路径
   let isScanning = false; // 全局扫描状态
@@ -256,21 +263,25 @@ app.whenReady().then(async () => {
     if (now - last < 30000) return;
     debounced.set(key, now);
     scanQueue.push({ path: normalized });
-    // Desktop notify on new/changed unit discovery
-    try {
-      const m = deviceIdRegex.exec(normalized) || [];
-      const dev = m[0] || '';
-      notifyDesktop('监测到日志变更', `监测到“${dev || '未知设备'}”日志文件新增/变更`);
-    } catch {}
+    // Desktop notify on new/changed unit discovery（仅在未暂停时发送通知）
+    if (!paused) {
+      try {
+        const m = deviceIdRegex.exec(normalized) || [];
+        const dev = m[0] || '';
+        notifyDesktop('监测到日志变更', `监测到"${dev || '未知设备'}"日志文件新增/变更`);
+      } catch {}
+    }
     processScanQueue();
   }
 
   async function processScanQueue() {
+    if (paused) return;
     if (isProcessingQueue) return;
     if (scanQueue.length === 0) return;
     isProcessingQueue = true;
     try {
       while (scanQueue.length > 0) {
+        if (paused) break;
         const task = scanQueue.shift();
         const key = task.path.toLowerCase();
         if (isScanning || scanning.has(key)) continue; // 正在扫描，跳过本轮
@@ -306,39 +317,84 @@ app.whenReady().then(async () => {
   };
   const startPaths = cfg.watchPaths || [];
   const ignoreInitial = !!cfg.ignoreInitial; // true=仅监控新增/变更，false=纳入现有内容
-  watcher.start(startPaths, cfg.includeExtensions || ['.medbot'], cfg.recurseDepth || 4, { ignoreInitial });
-  writeLog(`watcher started: ${startPaths.join('; ') || '(no paths)'}`);
+  const recurseDepth = cfg.recurseDepth || 4;
+
+  const startWatcher = () => {
+    watcher.start(startPaths, cfg.includeExtensions || ['.medbot'], recurseDepth, { ignoreInitial });
+    writeLog(`watcher started: ${startPaths.join('; ') || '(no paths)'}`);
+  };
+
+  if (!paused) {
+    startWatcher();
+  } else {
+    writeLog('Watcher initialized in paused state. Waiting for user to start synchronization.');
+  }
   
-  // 若需要纳入现有内容（ignoreInitial=false），则冷启动手动发现一次
-  if (!ignoreInitial && startPaths.length > 0) {
-    writeLog('Starting manual discovery of existing units (include existing)...');
-    setTimeout(() => {
-      const fs = require('fs');
-      const p = require('path');
-      const maxDepth = Math.max(1, Math.min(4, cfg.recurseDepth || 4));
-      function discoverUnits(root, depth) {
-        try {
-          if (depth > maxDepth) return;
-          const entries = fs.readdirSync(root, { withFileTypes: true });
-          for (const ent of entries) {
-            const full = p.join(root, ent.name);
-            if (ent.isDirectory()) {
-              if (deviceIdRegex.test(ent.name)) {
-                enqueueUnitPath(full);
+  const runInitialScan = ({ paths = startPaths, ignore = ignoreInitial, depth = recurseDepth } = {}) => {
+    if (!ignore && paths.length > 0) {
+      writeLog('Starting manual discovery of existing units (include existing)...');
+      setTimeout(async () => {
+        const fs = require('fs');
+        const fsPromises = fs.promises;
+        const p = require('path');
+        const maxDepth = Math.max(1, Math.min(4, depth));
+        const BATCH_SIZE = 20; // 每处理20个目录后让出CPU
+        
+        async function discoverUnits(root, depth) {
+          try {
+            if (depth > maxDepth) return;
+            
+            const entries = await fsPromises.readdir(root, { withFileTypes: true });
+            let processed = 0;
+            
+            for (const ent of entries) {
+              const full = p.join(root, ent.name);
+              if (ent.isDirectory()) {
+                if (deviceIdRegex.test(ent.name)) {
+                  enqueueUnitPath(full);
+                } else {
+                  await discoverUnits(full, depth + 1);
+                }
               } else {
-                discoverUnits(full, depth + 1);
+                const lower = ent.name.toLowerCase();
+                if ((lower.endsWith('.zip') || lower.endsWith('.7z')) && deviceIdRegex.test(ent.name)) {
+                  enqueueUnitPath(full);
+                }
               }
-            } else {
-              const lower = ent.name.toLowerCase();
-              if ((lower.endsWith('.zip') || lower.endsWith('.7z')) && deviceIdRegex.test(ent.name)) {
-                enqueueUnitPath(full);
+              
+              processed++;
+              if (processed >= BATCH_SIZE) {
+                await new Promise(resolve => setImmediate(resolve));
+                processed = 0;
               }
             }
+          } catch (err) {
+            console.log(`⚠️ 发现目录失败: ${root}, ${err.message}`);
           }
-        } catch {}
-      }
-      for (const root of startPaths) discoverUnits(root, 0);
-    }, 500);
+        }
+        
+        for (const root of paths) {
+          discoverUnits(root, 0).catch(err => {
+            console.error(`启动扫描目录失败: ${root}`, err);
+          });
+        }
+        try { watcher.setSuppressMedbotAdd(false); } catch {}
+      }, 500);
+    } else {
+      setTimeout(() => {
+        try { watcher.setSuppressMedbotAdd(false); } catch {}
+      }, 1000);
+    }
+  };
+
+  if (!paused) {
+    runInitialScan();
+  } else if (!ignoreInitial && startPaths.length > 0) {
+    pendingInitialScan = true;
+  } else {
+    setTimeout(() => {
+      try { watcher.setSuppressMedbotAdd(false); } catch {}
+    }, 1000);
   }
 
   // 周期补扫（每5分钟）：根据单元目录/压缩包 mtime 判断是否补扫
@@ -392,6 +448,7 @@ app.whenReady().then(async () => {
   const rescanInterval = (cfg.periodicRescanInterval || 5) * 60 * 1000;
   if (rescanInterval > 0) {
     setInterval(() => {
+      if (paused) return;
       try {
         for (const root of startPaths) {
           const units = discoverUnitsFor(root, Math.max(1, Math.min(4, cfg.recurseDepth || 4)));
@@ -429,10 +486,11 @@ app.whenReady().then(async () => {
     }, rescanInterval);
   }
 
-  // 手动触发初始扫描现有文件：仅当 ignoreInitial=false 时执行
-  if (!ignoreInitial && startPaths.length > 0) {
+  // 手动触发初始扫描现有文件：仅当 ignoreInitial=false 且未暂停时执行
+  if (!paused && !ignoreInitial && startPaths.length > 0) {
     writeLog('Starting initial scan of existing files...');
     setTimeout(() => {
+      if (paused) return; // 再次检查暂停状态
       const fs = require('fs');
       const p = require('path');
       const maxDepth = Math.max(1, Math.min(4, cfg.recurseDepth || 4));
@@ -494,15 +552,19 @@ app.whenReady().then(async () => {
       { label: paused ? 'Resume Upload' : 'Pause Upload', click: async () => { 
         paused = !paused; 
         if (uploader) uploader.setConcurrency(paused ? 0 : (cfg.concurrency || 3)); 
-        // 同时控制 watcher
         if (paused) {
           if (watcher) watcher.stop();
         } else {
           if (watcher) {
-            const cfg = await getConfig();
-            const startPaths = cfg.watchPaths || [];
-            const ignoreInitial = !!cfg.ignoreInitial;
-            watcher.start(startPaths, cfg.includeExtensions || ['.medbot'], cfg.recurseDepth || 4, { ignoreInitial });
+            const latestCfg = await getConfig();
+            const startPaths = latestCfg.watchPaths || [];
+            const ignoreInitial = !!latestCfg.ignoreInitial;
+            watcher.start(startPaths, latestCfg.includeExtensions || ['.medbot'], latestCfg.recurseDepth || 4, { ignoreInitial });
+            if (pendingInitialScan && !ignoreInitial && startPaths.length > 0) {
+              pendingInitialScan = false;
+              runInitialScan({ paths: startPaths, ignore: ignoreInitial, depth: latestCfg.recurseDepth || 4 });
+            }
+            processScanQueue();
           }
         }
         tray.setToolTip(paused ? 'Paused' : 'Running'); 
@@ -513,7 +575,7 @@ app.whenReady().then(async () => {
       { label: 'Quit', click: () => app.quit() }
     ]);
     tray.setContextMenu(buildMenu());
-    tray.setToolTip('Running');
+    tray.setToolTip(paused ? 'Paused' : 'Running');
     
     // 双击托盘图标显示窗口
     tray.on('double-click', () => {
@@ -559,6 +621,7 @@ ipcMain.handle('config:save', async (_evt, updated) => {
   return saved;
 });
 ipcMain.handle('app:dataDir', async () => getAppDataDir());
+ipcMain.handle('taskStats:get', async () => getTaskStats(getAppDataDir));
 ipcMain.handle('dialog:open', async (_evt, options) => {
   const { dialog } = require('electron');
   const result = await dialog.showOpenDialog(mainWindow, options);
@@ -572,22 +635,28 @@ ipcMain.on('watch:update', async (_evt, { paths, depth, exts }) => {
 });
 ipcMain.on('uploader:setConcurrency', async (_evt, n) => {
   if (uploader) uploader.setConcurrency(n);
-  // 真正的暂停/恢复：同时控制 watcher
-  if (n === 0) {
-    // 暂停：停止监控
+  paused = n === 0;
+  if (paused) {
     if (watcher) {
       console.log('暂停监控器');
       watcher.stop();
     }
   } else {
-    // 恢复：重启监控
     if (watcher) {
       console.log('恢复监控器');
-      const cfg = await getConfig();
-      const startPaths = cfg.watchPaths || [];
-      const ignoreInitial = !!cfg.ignoreInitial;
-      watcher.start(startPaths, cfg.includeExtensions || ['.medbot'], cfg.recurseDepth || 4, { ignoreInitial });
+      const latestCfg = await getConfig();
+      const startPaths = latestCfg.watchPaths || [];
+      const ignoreInitial = !!latestCfg.ignoreInitial;
+      watcher.start(startPaths, latestCfg.includeExtensions || ['.medbot'], latestCfg.recurseDepth || 4, { ignoreInitial });
+      if (pendingInitialScan && !ignoreInitial && startPaths.length > 0) {
+        pendingInitialScan = false;
+        runInitialScan({ paths: startPaths, ignore: ignoreInitial, depth: latestCfg.recurseDepth || 4 });
+      }
+      processScanQueue();
     }
+  }
+  if (tray) {
+    tray.setToolTip(paused ? 'Paused' : 'Running');
   }
 });
 

@@ -8,6 +8,7 @@ const LogEntry = require('./log_entry');
 const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
 const Device = require('./device');
+const DeviceKey = require('./deviceKey');
 const Feedback = require('./feedback');
 const FeedbackImage = require('./feedback_image');
 const LogNote = require('./log_note');
@@ -127,6 +128,18 @@ function defineAssociations() {
     as: 'logs'
   });
   Log.belongsTo(Device, {
+    targetKey: 'device_id',
+    foreignKey: 'device_id',
+    as: 'Device'
+  });
+
+  // Device 与 DeviceKey 的一对多关联
+  Device.hasMany(DeviceKey, {
+    sourceKey: 'device_id',
+    foreignKey: 'device_id',
+    as: 'keys'
+  });
+  DeviceKey.belongsTo(Device, {
     targetKey: 'device_id',
     foreignKey: 'device_id',
     as: 'Device'

@@ -159,13 +159,16 @@ export default {
         }
         await store.dispatch('users/updateUser', {
           id: store.getters['auth/currentUser'].id,
-          data: { password: passwordData.newPassword }
+          data: { 
+            password: passwordData.newPassword,
+            oldPassword: passwordData.oldPassword
+          }
         })
         ElMessage.success(t('account.changePasswordSuccess'))
         Object.assign(passwordData, { oldPassword: '', newPassword: '', confirmPassword: '' })
         passwordForm.value.resetFields()
       } catch (error) {
-        ElMessage.error(t('account.changePasswordFailed'))
+        ElMessage.error(error.response?.data?.message || t('account.changePasswordFailed'))
       } finally {
         changingPassword.value = false
       }

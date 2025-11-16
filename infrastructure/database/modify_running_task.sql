@@ -224,3 +224,36 @@ ORDER BY ordinal_position;
 -- WHERE surgery_id IS NOT NULL
 -- LIMIT 10;
 
+-- ========================================
+-- 8. 多密钥管理数据迁移：将现有 devices.device_key 迁移到 device_keys 表
+-- ========================================
+-- 为每个已有密钥的设备创建一条默认密钥记录
+-- 注意：此迁移脚本可以安全地多次执行（使用 NOT EXISTS 避免重复迁移）
+
+INSERT INTO device_keys (device_id, key_value, valid_from_date, valid_to_date, is_default, priority, description, created_at, updated_at)
+SELECT 
+  device_id,
+  device_key,
+  '1970-01-01' AS valid_from_date,  -- 从最早日期开始生效
+  NULL AS valid_to_date,              -- 永久有效
+  TRUE AS is_default,                 -- 标记为默认密钥
+  0 AS priority,                      -- 默认优先级
+  '从devices表迁移的默认密钥' AS description,
+  created_at,
+  updated_at
+FROM devices
+WHERE device_key IS NOT NULL 
+  AND device_key != ''
+  AND NOT EXISTS (
+    -- 避免重复迁移
+    SELECT 1 FROM device_keys dk 
+    WHERE dk.device_id = devices.device_id 
+      AND dk.key_value = devices.device_key
+  );
+
+-- 显示迁移统计
+SELECT 
+  'device_keys迁移统计' AS info,
+  (SELECT COUNT(*) FROM devices WHERE device_key IS NOT NULL AND device_key != '') AS devices_with_key,
+  (SELECT COUNT(*) FROM device_keys) AS migrated_keys;
+

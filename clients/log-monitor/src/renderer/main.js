@@ -7,11 +7,52 @@
     health: { status: '', message: '', checking: false },
     watch: { paths: [], depth: 4, exts: '.medbot', keyFileName: 'systemInfo.txt', logsDir: '' },
     uploader: { status: [] },
-    paused: false,
-    showConfig: false
+    taskStats: { total: 0, success: 0, failed: 0 }, // 持久化统计
+    paused: true,
+    showConfig: false,
+    _idlePrev: false,
+    _statsRefreshCounter: 0
   };
 
   function h(html) { el.innerHTML = html; bind(); }
+
+  // 节流渲染：限制渲染频率，避免卡顿
+  // 使用 requestAnimationFrame 将渲染调度到浏览器下一个重绘周期
+  let renderTimer = null;
+  let lastRenderTime = 0;
+  const MIN_RENDER_INTERVAL = 100; // 最小渲染间隔100ms（约10fps，足够流畅且不卡顿）
+  
+  function render() { 
+    const now = Date.now();
+    const timeSinceLastRender = now - lastRenderTime;
+    
+    // 如果距离上次渲染时间足够短，且已有定时器，则跳过
+    if (renderTimer && timeSinceLastRender < MIN_RENDER_INTERVAL) {
+      return;
+    }
+    
+    // 取消之前的定时器（如果有）
+    if (renderTimer) {
+      cancelAnimationFrame(renderTimer);
+    }
+    
+    // 使用 requestAnimationFrame 在下一个浏览器重绘周期渲染
+    renderTimer = requestAnimationFrame(() => {
+      view();
+      lastRenderTime = Date.now();
+      renderTimer = null;
+    });
+  }
+
+  // 强制立即渲染（用于用户交互等需要即时反馈的场景）
+  function renderImmediate() {
+    if (renderTimer) {
+      cancelAnimationFrame(renderTimer);
+      renderTimer = null;
+    }
+    view();
+    lastRenderTime = Date.now();
+  }
 
   function formatTime(ts) {
     if (!ts) return '-';
@@ -19,14 +60,35 @@
     return d.toLocaleString('zh-CN', { hour12: false });
   }
 
+  // 前端限制内存占用：只保留最近1000条任务用于统计
+  function limitMemoryTasks(tasks) {
+    const MAX_TASKS_IN_MEMORY = 1000;
+    if (tasks.length <= MAX_TASKS_IN_MEMORY) return tasks;
+    
+    // 保留最新的任务，删除最旧的
+    return tasks
+      .slice() // 复制数组避免修改原数组
+      .sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA; // 降序，最新的在前
+      })
+      .slice(0, MAX_TASKS_IN_MEMORY);
+  }
+
   function view() {
     const { cfg, loading, saving, health } = state;
     if (loading) return h('<div class="loading">加载中...</div>');
     
-    const successCount = state.uploader.status.filter(s => s.status === 'success').length;
-    const failedCount = state.uploader.status.filter(s => s.status === 'failed').length;
-    const totalCount = state.uploader.status.length;
-    const recent50 = state.uploader.status.slice().reverse().slice(0, 50);
+    // 使用持久化统计（不会被清空）
+    const totalCount = state.taskStats.total || 0;
+    const successCount = state.taskStats.success || 0;
+    const failedCount = state.taskStats.failed || 0;
+    
+    // 限制内存占用（只保留最近1000条用于显示任务列表）
+    const limitedStatus = limitMemoryTasks(state.uploader.status);
+    // 只显示最近50条任务
+    const recent50 = limitedStatus.slice().reverse().slice(0, 50);
     
     // Update header status
     const headerStatus = document.getElementById('header-status');
@@ -179,7 +241,7 @@
     if (configToggle) {
       configToggle.onclick = () => { 
         state.showConfig = !state.showConfig; 
-        render(); 
+        renderImmediate(); 
       };
     }
     
@@ -210,7 +272,7 @@
     const saveBtn = $('save');
     if (saveBtn) saveBtn.onclick = async () => {
       state.saving = true; 
-      render();
+      renderImmediate();
       const ignoreInitialRaw = $('ignore-initial') ? $('ignore-initial').value : 'true';
       const ignoreInitial = ignoreInitialRaw === 'true';
       const paths = state.watch.paths.slice(0, 10);
@@ -235,7 +297,7 @@
       window.logMonitor.updateWatch({ paths, depth, exts });
       
       state.saving = false; 
-      render();
+      renderImmediate();
     };
 
     const addBtn = $('add-watch');
@@ -247,7 +309,7 @@
           const p = result[0];
           if (!state.watch.paths.includes(p)) {
             state.watch.paths.push(p);
-            render();
+            renderImmediate();
           }
         }
       } catch {}
@@ -259,9 +321,9 @@
         const idx = parseInt(e.target.getAttribute('data-rm'), 10);
         if (!Number.isNaN(idx)) {
           state.watch.paths.splice(idx, 1);
-          render();
-      }
-    };
+          renderImmediate();
+        }
+      };
     });
 
     const browseLogs = $('browse-logsdir');
@@ -270,7 +332,7 @@
         const result = await window.logMonitor.showOpenDialog({ properties: ['openDirectory'] });
         if (result && result.length > 0) {
           state.watch.logsDir = result[0];
-          render();
+          renderImmediate();
         }
       } catch {}
     };
@@ -296,18 +358,59 @@
 
   async function init() {
     const cfg = await window.logMonitor.getConfig();
-    state.cfg = cfg; state.watch.depth = cfg.recurseDepth || 4; state.watch.paths = cfg.watchPaths || []; state.watch.exts = (cfg.includeExtensions || ['.medbot']).join(';'); state.watch.keyFileName = cfg.keyFileName || 'systemInfo.txt'; state.watch.logsDir = cfg.logsDir || ''; render();
-    state.loading = false; render();
+    state.cfg = cfg; state.watch.depth = cfg.recurseDepth || 4; state.watch.paths = cfg.watchPaths || []; state.watch.exts = (cfg.includeExtensions || ['.medbot']).join(';'); state.watch.keyFileName = cfg.keyFileName || 'systemInfo.txt'; state.watch.logsDir = cfg.logsDir || ''; renderImmediate();
+    
+    // 加载持久化统计
+    try {
+      const stats = await window.logMonitor.getTaskStats();
+      state.taskStats = stats || { total: 0, success: 0, failed: 0 };
+    } catch {
+      state.taskStats = { total: 0, success: 0, failed: 0 };
+    }
+    
+    state.loading = false; renderImmediate();
+    // 使用节流渲染：状态更新频繁时不会卡顿
     window.logMonitor.onUploaderStatus((snap) => {
-      state.uploader.status = snap;
-      render();
+      // 限制内存占用：只保留最近1000条任务
+      state.uploader.status = limitMemoryTasks(snap || []);
+      // 定期刷新持久化统计（每10次更新刷新一次，避免频繁读取）
+      state._statsRefreshCounter++;
+      if (state._statsRefreshCounter >= 10) {
+        state._statsRefreshCounter = 0;
+        window.logMonitor.getTaskStats()
+          .then(stats => {
+            if (stats) {
+              state.taskStats = stats;
+              renderImmediate(); // 统计更新需要立即渲染
+            }
+          })
+          .catch(() => {});
+      }
+      // 队列空闲检测：当没有 pending/uploading 时，立即对齐一次统计，避免最后一批不再触发刷新
+      try {
+        const statuses = Array.isArray(state.uploader.status) ? state.uploader.status : [];
+        const hasActive = statuses.some(s => s && (s.status === 'pending' || s.status === 'uploading'));
+        const idleNow = !hasActive;
+        if (idleNow && !state._idlePrev) {
+          // 刚刚从非空闲切到空闲 → 立即刷新统计
+          window.logMonitor.getTaskStats()
+            .then(stats => {
+              if (stats) {
+                state.taskStats = stats;
+                renderImmediate();
+              }
+            })
+            .catch(() => {});
+        }
+        state._idlePrev = idleNow;
+      } catch {}
+      render(); // 使用节流渲染，不是立即渲染
     });
     // 初次与周期性健康检查
     healthHandler();
     setInterval(() => { healthHandler(); }, 10000);
   }
 
-  function render() { view(); }
   init();
   
   // Additional handlers
@@ -317,7 +420,7 @@
     const next = isPaused ? n : 0;
     state.paused = !isPaused;
     window.logMonitor.setConcurrency(next);
-    render();
+    renderImmediate(); // 用户交互需要即时反馈
   }
   
   // attach after first render
