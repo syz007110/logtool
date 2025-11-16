@@ -114,7 +114,7 @@
                   </template>
                 </template>
               </el-table-column>
-              <el-table-column prop="priority" label="优先级" width="80">
+              <el-table-column prop="priority" label="优先级" width="120">
                 <template #default="{ row }">
                   <el-input-number
                     v-if="row.editing"

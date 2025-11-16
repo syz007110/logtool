@@ -45,7 +45,7 @@ class StreamLogProcessor {
       await ensureCacheReady();
       console.log('✅ 解析依赖已预加载');
 
-      // 先清空旧的日志条目
+      // 先清空旧的日志条目（按 log_id 一次性删除）
       console.log('🗑️ 清空旧的日志条目...');
       try {
         await LogEntry.destroy({ where: { log_id: logId }, force: true });

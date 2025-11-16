@@ -6,7 +6,8 @@ const { sequelize } = require('../models');
  */
 class BatchInsertHelper {
   constructor(options = {}) {
-    this.batchSize = options.batchSize || 1000; // 每批插入数量
+    // 每批插入数量（默认较小，避免单批事务过大）
+    this.batchSize = options.batchSize || 300;
     this.maxRetries = options.maxRetries || 3; // 最大重试次数
     this.retryDelay = options.retryDelay || 1000; // 重试延迟（毫秒）
     this.lockTimeout = options.lockTimeout || 60000; // 锁等待超时（毫秒）
@@ -215,9 +216,10 @@ class BatchInsertHelper {
   }
 }
 
-// 创建默认实例
+// 创建默认实例（允许通过环境变量调整批大小）
+const envInsertBatchSize = parseInt(process.env.STREAM_INSERT_BATCH_SIZE, 10);
 const batchInsertHelper = new BatchInsertHelper({
-  batchSize: 1000, // 每批1000条
+  batchSize: Number.isFinite(envInsertBatchSize) ? envInsertBatchSize : 300,
   maxRetries: 3,   // 最多重试3次
   retryDelay: 1000 // 重试延迟1秒
 });

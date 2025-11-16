@@ -162,6 +162,46 @@
       </div>
     </el-card>
 
+    <!-- 右侧抽屉：器械使用情况列表 -->
+    <el-drawer
+      v-model="drawerVisible"
+      :title="drawerTitle"
+      direction="rtl"
+      :size="1000"
+      destroy-on-close
+    >
+      <div class="drawer-table-wrapper">
+        <el-table
+          :data="drawerInstruments"
+          stripe
+          border
+          size="small"
+        >
+        <el-table-column prop="arm_id" label="安装的臂号" width="100" align="center" />
+          <el-table-column prop="instrument_type" label="器械类型" width="180" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span :title="row.tool_type || row.instrument_type || '-'">{{ row.tool_type || row.instrument_type || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="udi" label="器械UDI" width="220" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span :title="row.udi || '-'" style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="start_time" label="器械安装时间" width="220" align="center">
+            <template #default="{ row }">
+              <span :title="row.start_time || '-'">{{ formatSegmentTime(row.start_time) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="end_time" label="器械拔下时间" width="220" align="center">
+            <template #default="{ row }">
+              <span :title="row.end_time || '-'">{{ formatSegmentTime(row.end_time) }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-drawer>
+
     <!-- 图表区域：手术状态机变化、网络延迟情况和操作数据汇总 -->
     <div class="charts-row" v-if="showCharts && (hasStateMachineData || hasNetworkLatencyData || hasOperationData)">
       <!-- 手术状态机变化卡片 -->
@@ -783,7 +823,36 @@ export default {
     // 处理器械段点击
     const handleSegmentClick = (segment, event) => {
       event.stopPropagation()
-      // TODO: 显示抽屉
+      // 打开抽屉并显示对应臂的器械使用列表
+      try {
+        const armId = Number(segment.arm_id) || inferArmIdFromSegment(segment)
+        selectedArmId.value = armId
+        drawerVisible.value = true
+        // 预计算抽屉数据
+        computeDrawerInstruments()
+      } catch (_) {
+        drawerVisible.value = true
+      }
+    }
+    
+    // 推断segment所属的臂ID（如果数据中未直接携带）
+    const inferArmIdFromSegment = (seg) => {
+      for (const arm of armsData.value) {
+        if (arm.arm_id === 0) continue
+        if (Array.isArray(arm.segments) && arm.segments.includes(seg)) {
+          return arm.arm_id
+        }
+      }
+      // 回退：尝试在armsData中查找具有相同标识的段
+      for (const arm of armsData.value) {
+        if (arm.arm_id === 0) continue
+        const found = (arm.segments || []).some(s => 
+          (s.udi && s.udi === seg.udi) &&
+          (s.start_time === seg.start_time || s.start === seg.start || s.install_time === seg.install_time)
+        )
+        if (found) return arm.arm_id
+      }
+      return seg.arm_id || 0
     }
     
     // 处理器械段悬停
@@ -2032,6 +2101,7 @@ export default {
       await loadServerTimezone()
       
       window.addEventListener('resize', handleResize)
+      // 自适应尺寸已移除，固定抽屉宽度
       
       // 调试SessionStorage - 移除重复调用
       // debugSessionStorage()
@@ -2103,6 +2173,45 @@ export default {
         a.click()
         URL.revokeObjectURL(url)
       } catch (_) {}
+    }
+
+    // 抽屉相关状态与数据
+    const drawerVisible = ref(false)
+    const selectedArmId = ref(0)
+    const drawerInstruments = ref([])
+    const drawerTitle = computed(() => {
+      if (!selectedArmId.value) return '器械使用情况'
+      return `器械使用情况 - 工具臂 ${selectedArmId.value}`
+    })
+    
+    // 计算并填充抽屉内的器械列表
+    const computeDrawerInstruments = () => {
+      const targetArmId = selectedArmId.value
+      if (!targetArmId) {
+        drawerInstruments.value = []
+        return
+      }
+      // 优先从当前渲染数据获取
+      const arm = (armsData.value || []).find(a => a.arm_id === targetArmId)
+      let segments = Array.isArray(arm?.segments) ? arm.segments : []
+      
+      // 作为回退，从原始structured_data中取
+      if ((!segments || segments.length === 0) && currentData.value && Array.isArray(currentData.value.arms)) {
+        const rawArm = currentData.value.arms.find(a => Number(a.arm_id) === Number(targetArmId))
+        segments = Array.isArray(rawArm?.instrument_usage) ? rawArm.instrument_usage : []
+      }
+      
+      const normalized = (segments || []).map(s => ({
+        ...s,
+        arm_id: targetArmId
+      }))
+      // 按安装时间排序
+      normalized.sort((a, b) => {
+        const ta = toMs(a.start_time)
+        const tb = toMs(b.start_time)
+        return ta - tb
+      })
+      drawerInstruments.value = normalized
     }
 
     return { 
@@ -2194,6 +2303,11 @@ export default {
       networkLatencyChartData,
       operationSummaryData,
       remoteDataView,
+      // 抽屉相关
+      drawerVisible,
+      drawerTitle,
+      drawerInstruments,
+      selectedArmId,
       // 故障记录相关
       faultRecords,
       formatFaultTime,
@@ -2987,6 +3101,12 @@ export default {
 .operations-card {
   flex: 1;
   min-width: 0;
+}
+
+/* 抽屉内表格滚动容器，确保纵向/横向都能滚动 */
+.drawer-table-wrapper {
+  max-height: calc(100vh - 140px);
+  overflow: auto;
 }
 
 /* 图表容器样式 */
