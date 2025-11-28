@@ -1,4 +1,13 @@
-const LogEntry = require('../models/log_entry');
+// const LogEntry = require('../models/log_entry');
+// [MIGRATION] LogEntry migrated to ClickHouse. Mocking Sequelize model to prevent crash.
+const LogEntry = {
+  findAll: async () => { console.warn('[MIGRATION] LogEntry.findAll called but table migrated to ClickHouse'); return []; },
+  findOne: async () => { console.warn('[MIGRATION] LogEntry.findOne called but table migrated to ClickHouse'); return null; },
+  findAndCountAll: async () => { console.warn('[MIGRATION] LogEntry.findAndCountAll called'); return { count: 0, rows: [] }; },
+  count: async () => { return 0; },
+  destroy: async () => { return 0; },
+  bulkCreate: async () => { return []; }
+};
 const Log = require('../models/log');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op } = require('sequelize');

@@ -148,8 +148,18 @@ SELECT NOW() as step3_completed, 'logs 表生成列添加完成' as status;
 CREATE INDEX idx_logs_file_time ON logs(file_year, file_month, file_day, file_hour, file_minute);
 CREATE INDEX idx_logs_file_token ON logs(file_time_token);
 
+
+
 -- 显示步骤4完成时间
 SELECT NOW() as step4_completed, 'logs 表索引创建完成' as status;
+-- 在 MySQL 中执行
+ALTER TABLE logs 
+  ADD COLUMN version INT UNSIGNED DEFAULT 1 NOT NULL COMMENT '当前日志版本号',
+  ADD COLUMN latest_upload_time DATETIME DEFAULT NULL COMMENT '最近一次上传时间';
+
+-- 注意：迁移完成后，原 MySQL log_entries 表可归档或删除
+-- 但 log_notes 表需要先修改结构以适配新关联方式
+
 -- PostgreSQL手术表生成列脚本
 -- 用于从surgery_id字段提取年、月、日，以便进行时间筛选
 -- 注意：请确保PostgreSQL中已存在surgeries表

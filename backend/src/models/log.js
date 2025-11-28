@@ -19,7 +19,8 @@ const Log = sequelize.define('logs', {
   file_month: { type: DataTypes.TINYINT },
   file_day: { type: DataTypes.TINYINT },
   file_hour: { type: DataTypes.TINYINT },
-  file_minute: { type: DataTypes.TINYINT }
+  file_minute: { type: DataTypes.TINYINT },
+  version: { type: DataTypes.INTEGER, defaultValue: 1, allowNull: false, comment: '日志版本号' }
 }, {
   timestamps: false
 });

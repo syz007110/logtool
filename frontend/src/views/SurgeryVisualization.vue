@@ -180,7 +180,7 @@
         <el-table-column prop="arm_id" label="安装的臂号" width="100" align="center" />
           <el-table-column prop="instrument_type" label="器械类型" width="180" show-overflow-tooltip>
             <template #default="{ row }">
-              <span :title="row.tool_type || row.instrument_type || '-'">{{ row.tool_type || row.instrument_type || '-' }}</span>
+              <span :title="formatInstrumentType(row)">{{ formatInstrumentType(row) }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="udi" label="器械UDI" width="220" show-overflow-tooltip>
@@ -376,6 +376,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'v
 import { useRoute } from 'vue-router'
 import api from '../api'
 import { normalizeSurgeryData as normalize } from '../utils/visualizationConfig'
+import { resolveInstrumentTypeLabel } from '../utils/analysisMappings'
 import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 import OperationSummaryTable from '../components/OperationSummaryTable.vue'
@@ -397,7 +398,31 @@ export default {
     const { t, locale } = useI18n()
     const surgeryIdInput = ref('')
     const route = useRoute()
-
+    
+    const getInstrumentLabel = (value) => {
+      const label = resolveInstrumentTypeLabel(value)
+      if (label) return label
+      if (value === null || value === undefined || value === '') return ''
+      return typeof value === 'string' ? value : String(value)
+    }
+    
+    const formatInstrumentType = (row) => {
+      if (!row) return '-'
+      const rawValue = row.tool_type ?? row.instrument_type ?? row.instrumentName ?? row.instrument_name ?? row.toolType
+      const label = getInstrumentLabel(rawValue)
+      return label || row.tool_type || row.instrument_type || '-'
+    }
+    
+    const getSegmentInstrumentLabel = (segment) => {
+      if (!segment) return t('surgeryVisualization.unknownInstrument')
+      if (segment._instrumentLabel) return segment._instrumentLabel
+      const rawValue = segment.tool_type ?? segment.instrument_type ?? segment.toolType ?? segment.instrumentName
+      const label = getInstrumentLabel(rawValue) || segment.instrument_name || segment.tool_name
+      const resolved = label || t('surgeryVisualization.unknownInstrument')
+      segment._instrumentLabel = resolved
+      return resolved
+    }
+    
     const meta = reactive({ surgery_id: null, start_time: null, end_time: null, is_remote: false, is_fault: false })
     const alertRows = ref([])
     const showAllAlerts = ref(false)
@@ -585,10 +610,11 @@ export default {
       const right = Math.max(0, (hourEnd - segmentEnd) / 60 * 100)
       
       
+      const displayToolType = getSegmentInstrumentLabel(segment)
       return {
         left: `${left}%`,
         right: `${right}%`,
-        backgroundColor: getInstrumentColor(segment.tool_type || segment.instrument_type || ''),
+        backgroundColor: getInstrumentColor(displayToolType),
         zIndex: 10 // 确保器械使用区块在时间线事件之上
       }
     }
@@ -597,7 +623,7 @@ export default {
     const getSegmentTooltip = (segment) => {
       const duration = calculateDuration(segment.start || segment.install_time || segment.start_time, 
                                        segment.end || segment.remove_time || segment.end_time)
-      const toolType = segment.tool_type || segment.instrument_type || t('surgeryVisualization.unknownInstrument')
+      const toolType = getSegmentInstrumentLabel(segment)
       const udi = segment.udi || t('surgeryVisualization.tooltipNoUdi')
       
       // 转换UTC时间为本地时间显示
@@ -1350,7 +1376,7 @@ export default {
     
     // 获取器械显示名称
     const getInstrumentDisplayName = (segment) => {
-      const toolType = segment.tool_type || segment.instrument_type || ''
+      const toolType = getSegmentInstrumentLabel(segment)
       if (!toolType) return t('surgeryVisualization.unknownInstrument')
       
       // 显示完整的器械名称，不进行简写
@@ -1359,13 +1385,14 @@ export default {
     
     // 获取器械颜色（保留原函数，用于其他用途）
     const getInstrumentColor = (toolType) => {
-      if (!toolType) return '#722ed1'
-      if (toolType.includes('刀具') || toolType.includes('剪刀')) return '#ff4d4f'
-      if (toolType.includes('摄像头') || toolType.includes('内窥镜')) return '#1890ff'
-      if (toolType.includes('镊子') || toolType.includes('钳子')) return '#52c41a'
-      if (toolType.includes('缝合器')) return '#fa8c16'
-      if (toolType.includes('持针')) return '#13c2c2'
-      if (toolType.includes('抓钳')) return '#eb2f96'
+      const label = getInstrumentLabel(toolType)
+      if (!label) return '#722ed1'
+      if (label.includes('刀') || label.includes('剪')) return '#ff4d4f'
+      if (label.includes('摄像头') || label.includes('内窥镜') || label.includes('镜')) return '#1890ff'
+      if (label.includes('镊') || label.includes('钳')) return '#52c41a'
+      if (label.includes('缝合器')) return '#fa8c16'
+      if (label.includes('持针')) return '#13c2c2'
+      if (label.includes('抓钳')) return '#eb2f96'
       return '#722ed1'
     }
     
@@ -1670,7 +1697,7 @@ export default {
       try {
         const processedData = stateMachineData.map(item => {
           // 处理UTC时间转换 - 使用与手术时间线相同的时区转换逻辑
-          const timeValue = item.time || item.timestamp
+          const timeValue = item.time ?? item.timestamp
           if (!timeValue) {
             return [Date.now(), 0]
           }
@@ -1682,7 +1709,7 @@ export default {
           }
           
           // 提取状态值（括号内的数字部分）
-          const stateValue = item.state || ''
+          const stateValue = item.state_value ?? item.state ?? item.value ?? item.stateCode ?? ''
           const stateNumber = extractStateNumber(stateValue)
           
           return [localTime.getTime(), stateNumber]
@@ -1695,17 +1722,19 @@ export default {
     }
     
     // 提取状态值中的数字部分
-    const extractStateNumber = (stateString) => {
-      if (!stateString) return 0
+    const extractStateNumber = (stateValue) => {
+      if (stateValue === null || stateValue === undefined || stateValue === '') return 0
+      if (typeof stateValue === 'number' && Number.isFinite(stateValue)) return stateValue
+      const str = String(stateValue)
       
       // 匹配括号内的数字，如 "状态1(5)" -> 5
-      const match = stateString.match(/\((\d+)\)/)
+      const match = str.match(/\((\d+)\)/)
       if (match) {
         return parseInt(match[1], 10)
       }
       
       // 如果没有括号，尝试提取纯数字
-      const numberMatch = stateString.match(/\d+/)
+      const numberMatch = str.match(/\d+/)
       if (numberMatch) {
         return parseInt(numberMatch[0], 10)
       }
@@ -1749,12 +1778,10 @@ export default {
       }
       
       try {
-        // 对故障码进行去重处理（基于故障码）
-        const faultMap = new Map()
-        
-        faultsData.forEach(fault => {
+        // 显示所有故障记录，不去重（因为同一个错误码恢复后再次出现应该显示为不同的故障）
+        return faultsData.map(fault => {
           const errorCode = fault.error_code
-          if (!errorCode) return
+          if (!errorCode) return null
           
           // 规范化处理状态为布尔/键值
           const isProcessed = (() => {
@@ -1768,20 +1795,15 @@ export default {
           })()
           const statusText = isProcessed ? t('surgeryVisualization.statusProcessed') : t('surgeryVisualization.statusUnprocessed')
 
-          // 如果故障码已存在，保留最新的记录
-          if (!faultMap.has(errorCode) || new Date(fault.timestamp) > new Date(faultMap.get(errorCode).timestamp)) {
-            faultMap.set(errorCode, {
-              timestamp: fault.timestamp,
-              error_code: fault.error_code,
-              explanation: fault.explanation || t('surgeryVisualization.noExplanation'),
-              status: statusText,
-              status_key: isProcessed ? 'processed' : 'unprocessed'
-            })
+          return {
+            timestamp: fault.timestamp,
+            error_code: fault.error_code,
+            explanation: fault.explanation || t('surgeryVisualization.noExplanation'),
+            status: statusText,
+            status_key: isProcessed ? 'processed' : 'unprocessed',
+            recovery_time: fault.recovery_time || null
           }
-        })
-        
-        // 转换为数组并按时间排序
-        return Array.from(faultMap.values()).sort((a, b) => 
+        }).filter(fault => fault !== null).sort((a, b) => 
           new Date(a.timestamp) - new Date(b.timestamp)
         )
       } catch (error) {
@@ -2246,6 +2268,7 @@ export default {
       getSymbolClass,
       hasPowerEvents,
       hasSurgeryEvents,
+      formatInstrumentType,
       getTimeColumnText,
       getTotalHours,
       getTableStartHour,

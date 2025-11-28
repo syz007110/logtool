@@ -203,23 +203,27 @@ class SurgeryAnalyzer {
       
       const existingAlarm = this.activeAlarms.get(errCode);
       
-      if (!existingAlarm) {
-        const alarmInfo = {
-          time: entry.timestamp,
-          type: errCodeSuffix.endsWith('A') ? '错误' : errCodeSuffix.endsWith('B') ? '警告' : '信息',
-          code: errCode,
-          message: entry.explanation || `故障码: ${errCode}`,
-          status: '未处理',
-          isActive: true
-        };
-        
-        this.activeAlarms.set(errCode, alarmInfo);
-        this.alarmDetails.push(alarmInfo);
-      } else {
-        existingAlarm.time = entry.timestamp;
-        existingAlarm.message = entry.explanation || `故障码: ${errCode}`;
-        existingAlarm.isActive = true;
+      // 如果已存在且处于活跃状态（未恢复），不新增也不更新时间
+      if (existingAlarm && existingAlarm.isActive === true) {
+        // 什么都不做，保持原有记录不变
+        return;
       }
+      
+      // 如果不存在或已恢复（isActive=false），创建新的报警记录
+      const alarmType = errCodeSuffix.endsWith('A') ? '错误' : errCodeSuffix.endsWith('B') ? '警告' : '信息';
+      const alarmInfo = {
+        time: entry.timestamp,
+        type: alarmType,
+        code: errCode,
+        message: entry.explanation || `故障码: ${errCode}`,
+        status: '未处理',
+        isActive: true
+      };
+      
+      this.activeAlarms.set(errCode, alarmInfo);
+      this.alarmDetails.push(alarmInfo);
+      
+      console.log(`🚨 新增故障报警: 类型=${alarmType}, 错误码=${errCode}, 时间=${entry.timestamp}, 说明=${alarmInfo.message}`);
       
       if (this.currentSurgery) {
         this.currentSurgery.has_error = true;
@@ -260,24 +264,32 @@ class SurgeryAnalyzer {
         if (isAbnormalShutdown) {
           console.log(`检测到异常关机，清空当前手术数据: ID=${this.currentSurgery.surgery_id}, 开始时间=${this.currentSurgery.surgery_start_time}`);
           
-          // 异常关机：寻找上一场手术的最后一条日志作为手术结束时间
-          const lastLogOfPreviousSurgery = this.findLastLogOfPreviousSurgery(entry, index, allEntries);
-          if (lastLogOfPreviousSurgery) {
-            this.currentSurgery.surgery_end_time = lastLogOfPreviousSurgery.timestamp;
-            this.currentSurgery.total_duration = Math.floor(
-              (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
-            );
-            this.currentSurgery.is_abnormal_shutdown = true; // 标记为异常关机
-            console.log(`上一场手术结束时间设置为最后一条日志: ${lastLogOfPreviousSurgery.timestamp}`);
+          // 只有正式手术（有开始时间且不是准备手术）才需要处理异常关机
+          if (this.currentSurgery.surgery_start_time && !this.currentSurgery.is_pre_surgery) {
+            // 异常关机：寻找上一场手术的最后一条日志作为手术结束时间
+            const lastLogOfPreviousSurgery = this.findLastLogOfPreviousSurgery(entry, index, allEntries);
+            if (lastLogOfPreviousSurgery) {
+              this.currentSurgery.surgery_end_time = lastLogOfPreviousSurgery.timestamp;
+              this.currentSurgery.total_duration = Math.floor(
+                (new Date(this.currentSurgery.surgery_end_time) - new Date(this.currentSurgery.surgery_start_time)) / 1000 / 60
+              );
+              this.currentSurgery.is_abnormal_shutdown = true; // 标记为异常关机
+              console.log(`上一场手术结束时间设置为最后一条日志: ${lastLogOfPreviousSurgery.timestamp}`);
+            } else {
+              // 如果找不到最后一条日志，使用开机事件时间
+              this.currentSurgery.surgery_end_time = entry.timestamp;
+              console.log(`未找到上一场手术的最后日志，使用开机事件时间: ${entry.timestamp}`);
+            }
+            
+            // 完成手术数据并添加到列表
+            this.finalizeSurgeryData();
+            this.addSurgeryToList();
+            console.log(`异常关机：手术结束并添加到列表: ID=${this.currentSurgery.surgery_id}`);
           } else {
-            // 如果找不到最后一条日志，使用开机事件时间
+            console.log(`异常关机：跳过准备手术对象: ID=${this.currentSurgery.surgery_id}, is_pre_surgery=${this.currentSurgery.is_pre_surgery}, has_start_time=${!!this.currentSurgery.surgery_start_time}`);
+            // 准备手术对象：只标记结束时间，不添加到列表
             this.currentSurgery.surgery_end_time = entry.timestamp;
-            console.log(`未找到上一场手术的最后日志，使用开机事件时间: ${entry.timestamp}`);
           }
-          
-          // 完成手术数据并添加到列表
-          this.finalizeSurgeryData();
-          this.addSurgeryToList();
           
           // 清空当前手术数据，本次开机作为新手术
           this.resetSurgeryState();
@@ -400,7 +412,7 @@ class SurgeryAnalyzer {
     if (isShutdownEvent) {
       console.log(`检测到关机事件: 时间=${entry.timestamp}`);
       this.isPowerOn = false;
-      this.errFlag = false;
+      // errFlag 不复位，保持故障状态
       
       this.powerEvents.push({
         type: 'power_off',
@@ -456,10 +468,13 @@ class SurgeryAnalyzer {
         stateName: this.getStateMachineStateName(newState.toString())
       });
       
-      // 故障恢复判断
+      // 故障恢复判断（errFlag === true）：标记为已处理并清空activeAlarms
       if (p1 === 0 && p2 === 1 && this.errFlag) {
         this.errFlag = false;
         this.errRecover = true;
+        
+        // 收集所有需要恢复的故障
+        const recoveredFaults = [];
         
         // 将所有激活状态的报警标记为"已处理"
         for (const [errCode, alarm] of this.activeAlarms.entries()) {
@@ -478,10 +493,30 @@ class SurgeryAnalyzer {
                 break;
               }
             }
+            
+            recoveredFaults.push({
+              code: errCode,
+              type: alarm.type,
+              startTime: alarm.time,
+              recoveryTime: entry.timestamp
+            });
           }
         }
         
+        if (recoveredFaults.length > 0) {
+          console.log(`✅ 故障恢复: 时间=${entry.timestamp}, 恢复故障数量=${recoveredFaults.length}`);
+          recoveredFaults.forEach(fault => {
+            console.log(`   - 错误码=${fault.code}, 类型=${fault.type}, 发生时间=${fault.startTime}, 恢复时间=${fault.recoveryTime}`);
+          });
+        }
+        
         this.activeAlarms.clear();
+      } else if (p1 === 0 && p2 === 1 && !this.errFlag) {
+        // 状态机跳转到使能状态但errFlag为false：只清空activeAlarms，不标记故障为已处理
+        if (this.activeAlarms.size > 0) {
+          console.log(`🔄 清空活跃故障Map（状态机使能但无故障标志）: 时间=${entry.timestamp}, 清空故障数量=${this.activeAlarms.size}`);
+          this.activeAlarms.clear();
+        }
       }
     }
   }
@@ -818,7 +853,7 @@ class SurgeryAnalyzer {
         currentUsage.push({
           instrumentType: instrumentType,
           instrumentName: instrumentName,
-          udi: '待更新',
+          udi: null,
           startTime: entry.timestamp,
           endTime: null,
           duration: 0,
@@ -1060,7 +1095,7 @@ class SurgeryAnalyzer {
     const currentUsage = this.currentSurgery[armUsageKey] || [];
     
     for (let i = currentUsage.length - 1; i >= 0; i--) {
-      if (currentUsage[i].udi === '待更新' && currentUsage[i].endTime === null && currentUsage[i].armIndex === armIndex) {
+      if (currentUsage[i].udi === null && currentUsage[i].endTime === null && currentUsage[i].armIndex === armIndex) {
         currentUsage[i].udi = udi;
         break;
       }
@@ -1428,7 +1463,7 @@ class SurgeryAnalyzer {
     for (let i = 1; i <= 4; i++) {
       const armUsage = surgery[`arm${i}_usage`] || [];
       const instrumentUsage = armUsage.map(usage => ({
-        tool_type: usage.instrumentName,
+        tool_type: usage.instrumentType, // 使用原始数据（数字类型），不解析为名称
         udi: usage.udi,
         start_time: usage.startTime,
         end_time: usage.endTime,
@@ -1443,7 +1478,7 @@ class SurgeryAnalyzer {
 
     // 构建surgery_stats
     const surgeryStats = {
-      success: !surgery.has_error,
+      // success字段已移除，因为元数据中已经有了
       network_latency_ms: surgery.network_stats ? surgery.network_stats.data.map(d => ({
         time: d.timestamp,
         latency: d.latency
@@ -1451,18 +1486,17 @@ class SurgeryAnalyzer {
       faults: surgery.alarm_details ? surgery.alarm_details.map(fault => ({
         timestamp: fault.time,
         error_code: fault.code,
-        status: fault.status || '未处理',
+        status: fault.status === '已处理',
         recovery_time: fault.recoveryTime || null,
         param1: "",
         param2: "",
         param3: "",
         param4: "",
-        explanation: fault.message,
         log_id: surgery.log_id
       })) : [],
       state_machine: (surgery.state_machine_changes || []).map(ch => ({
         time: ch.time,
-        state: ch.stateName || String(ch.state)
+        state: ch.state // 使用原始数据（数字类型），不解析为名称
       })),
       arm_switch_count: surgery.arm_switch_count || 0,           // 臂切换脚踏触发次数
       left_hand_clutch: surgery.left_hand_clutch_count || 0,    // 左手离合触发次数

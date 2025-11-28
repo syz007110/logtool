@@ -1,10 +1,10 @@
 const fs = require('fs');
 const readline = require('readline');
-const { decryptLogContent, translatePerLine } = require('./decryptUtils');
+const dayjs = require('dayjs');
+const { translatePerLine } = require('./decryptUtils');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
-const LogEntry = require('../models/log_entry');
 const errorCodeCache = require('../services/errorCodeCache');
-const { batchInsertHelper } = require('./batchInsertHelper');
+const { getClickHouseClient } = require('../config/clickhouse');
 
 /**
  * 流式日志处理器
@@ -12,10 +12,7 @@ const { batchInsertHelper } = require('./batchInsertHelper');
  */
 class StreamLogProcessor {
   constructor(options = {}) {
-    this.batchSize = options.batchSize || 500; // 每批处理行数
-    this.insertBatchSize = options.insertBatchSize || 200; // 每批插入数量
-    this.maxRetries = options.maxRetries || 3;
-    this.retryDelay = options.retryDelay || 1000;
+    this.batchSize = options.batchSize || 1000; // ClickHouse 建议更大的批次
     this.progressCallback = options.progressCallback || (() => {});
     this.errorCallback = options.errorCallback || (() => {});
   }
@@ -25,11 +22,12 @@ class StreamLogProcessor {
    * @param {string} filePath - 日志文件路径
    * @param {string} key - 解密密钥
    * @param {number} logId - 日志ID
+   * @param {number} version - 日志版本号
    * @param {Object} options - 处理选项
    * @returns {Promise<Object>} 处理结果
    */
-  async processLogFile(filePath, key, logId, options = {}) {
-    console.log(`🚀 开始流式处理日志文件: ${filePath}`);
+  async processLogFile(filePath, key, logId, version, options = {}) {
+    console.log(`🚀 开始流式处理日志文件: ${filePath} (Version: ${version})`);
     const startTime = Date.now();
     
     let totalLines = 0;
@@ -45,25 +43,8 @@ class StreamLogProcessor {
       await ensureCacheReady();
       console.log('✅ 解析依赖已预加载');
 
-      // 先清空旧的日志条目（按 log_id 一次性删除）
-      console.log('🗑️ 清空旧的日志条目...');
-      try {
-        await LogEntry.destroy({ where: { log_id: logId }, force: true });
-      } catch (destroyError) {
-        // 检查是否是磁盘空间不足错误
-        if (destroyError.message && (
-          destroyError.message.includes('No space left on device') ||
-          destroyError.message.includes('OS errno 28') ||
-          (destroyError.original && destroyError.original.message && destroyError.original.message.includes('No space left on device'))
-        )) {
-          console.error(`❌ 磁盘空间不足，无法清空旧日志条目 (log_id: ${logId})`);
-          console.error(`   请清理系统临时目录和磁盘空间`);
-          throw new Error(`磁盘空间不足，无法处理日志文件。请清理磁盘空间后重试。`);
-        }
-        // 其他错误继续抛出
-        throw destroyError;
-      }
-
+      // ClickHouse 不需要清空旧条目，通过 Version 区分
+      
       // 统计总行数（用于进度显示）
       totalLines = await this.countLines(filePath);
       console.log(`📊 文件总行数: ${totalLines}`);
@@ -83,7 +64,7 @@ class StreamLogProcessor {
         
         try {
           // 解析单行日志
-          const entry = await this.processLogLine(line, key, logId);
+          const entry = await this.processLogLine(line, key, logId, version, processedLines);
           if (entry) {
             currentBatch.push(entry);
             allProcessedEntries.push(entry); // 保存到总列表中
@@ -97,22 +78,19 @@ class StreamLogProcessor {
 
         // 达到批次大小时，批量插入数据库
         if (currentBatch.length >= this.batchSize) {
-          await this.flushBatch(currentBatch, logId);
+          await this.flushBatch(currentBatch);
           totalEntries.push(...currentBatch);
           currentBatch = [];
           
           // 更新进度
           const progress = Math.round((processedLines / totalLines) * 100);
           this.progressCallback(progress, processedLines, totalLines);
-          
-          // 批次间短暂延迟，减少锁竞争
-          await this.delay(50);
         }
       }
 
       // 处理剩余的批次
       if (currentBatch.length > 0) {
-        await this.flushBatch(currentBatch, logId);
+        await this.flushBatch(currentBatch);
         totalEntries.push(...currentBatch);
       }
 
@@ -136,7 +114,6 @@ class StreamLogProcessor {
       console.log(`   ❌ 处理失败: ${result.errorLines}`);
       console.log(`   📝 插入条目: ${result.totalEntries}`);
       console.log(`   ⏱️ 总耗时: ${result.duration}ms`);
-      console.log(`   📈 处理速度: ${Math.round(result.processedLines / (result.duration / 1000))} 行/秒`);
 
       return result;
 
@@ -154,9 +131,11 @@ class StreamLogProcessor {
    * @param {string} line - 日志行
    * @param {string} key - 解密密钥
    * @param {number} logId - 日志ID
+   * @param {number} version - 日志版本
+   * @param {number} rowIndex - 行号
    * @returns {Promise<Object|null>} 处理后的日志条目
    */
-  async processLogLine(line, key, logId) {
+  async processLogLine(line, key, logId, version, rowIndex) {
     try {
       // 解析单行日志
       const entry = translatePerLine(line, key);
@@ -167,10 +146,18 @@ class StreamLogProcessor {
       let code = '';
       
       if (errorCodeStr && errorCodeStr.length >= 5) {
-        subsystem = errorCodeStr.charAt(0);
-        code = '0X' + errorCodeStr.slice(-4);
+        subsystem = errorCodeStr.charAt(0).toUpperCase(); // 统一转换为大写，确保与查询时匹配
+        // 仅当首字符是 1-9, A-F 时才认为是有效子系统，这里简化处理
+        if (!/^[1-9A-F]$/.test(subsystem)) {
+           subsystem = '';
+        }
+        code = '0X' + errorCodeStr.slice(-4).toUpperCase(); // 统一转换为大写，确保与查询时匹配
       }
       
+      // 重新计算 subsystem_char 和 code4 (Node.js 端计算)
+      const subsystemChar = subsystem || '';
+      const code4 = code || '';
+
       let explanation = entry.explanation;
       if (subsystem && code) {
         const errorCodeRecord = errorCodeCache.findErrorCode(subsystem, code);
@@ -183,13 +170,17 @@ class StreamLogProcessor {
       
       return {
         log_id: logId,
-        timestamp: entry.timestamp,
-        error_code: entry.error_code,
-        param1: entry.param1,
-        param2: entry.param2,
-        param3: entry.param3,
-        param4: entry.param4,
-        explanation: parsedExplanation
+        timestamp: dayjs(entry.timestamp).isValid() ? dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss') : dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        error_code: entry.error_code || '',
+        param1: entry.param1 || '',
+        param2: entry.param2 || '',
+        param3: entry.param3 || '',
+        param4: entry.param4 || '',
+        explanation: parsedExplanation || '',
+        subsystem_char: subsystemChar,
+        code4: code4,
+        version: version,
+        row_index: rowIndex
       };
       
     } catch (error) {
@@ -199,29 +190,23 @@ class StreamLogProcessor {
   }
 
   /**
-   * 刷新批次到数据库
+   * 刷新批次到数据库 (ClickHouse)
    * @param {Array} batch - 批次数据
-   * @param {number} logId - 日志ID
    */
-  async flushBatch(batch, logId) {
+  async flushBatch(batch) {
     if (batch.length === 0) return;
     
     try {
-      // 使用优化的批量插入
-      await batchInsertHelper.batchInsert(
-        LogEntry, 
-        batch, 
-        {
-          validate: false,
-          ignoreDuplicates: true,
-          individualHooks: false
-        }
-      );
+      await getClickHouseClient().insert({
+        table: 'log_entries',
+        values: batch,
+        format: 'JSONEachRow'
+      });
       
-      console.log(`✅ 批次插入成功: ${batch.length} 条记录`);
+      // console.log(`✅ 批次插入 ClickHouse 成功: ${batch.length} 条记录`);
       
     } catch (error) {
-      console.error(`❌ 批次插入失败: ${error.message}`);
+      console.error(`❌ 批次插入 ClickHouse 失败: ${error.message}`);
       throw error;
     }
   }
@@ -245,22 +230,12 @@ class StreamLogProcessor {
       rl.on('error', reject);
     });
   }
-
-  /**
-   * 延迟函数
-   * @param {number} ms - 延迟毫秒数
-   */
-  delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }
 
-// 创建默认实例（读取环境变量）
+// 创建默认实例
 const streamBatchSize = parseInt(process.env.STREAM_BATCH_SIZE, 10);
-const streamInsertBatchSize = parseInt(process.env.STREAM_INSERT_BATCH_SIZE, 10);
 const streamLogProcessor = new StreamLogProcessor({
-  batchSize: Number.isFinite(streamBatchSize) ? streamBatchSize : 500,
-  insertBatchSize: Number.isFinite(streamInsertBatchSize) ? streamInsertBatchSize : 200
+  batchSize: Number.isFinite(streamBatchSize) ? streamBatchSize : 10000 // ClickHouse 批量大一点更好
 });
 
 module.exports = {

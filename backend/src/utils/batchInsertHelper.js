@@ -165,7 +165,10 @@ class BatchInsertHelper {
     const startTime = Date.now();
     
     try {
-      const LogEntry = require('../models/log_entry');
+      // const LogEntry = require('../models/log_entry');
+      // [MIGRATION] LogEntry migrated to ClickHouse.
+      console.warn('[MIGRATION] batchInsertLogEntries called but LogEntry model is removed.');
+      return [];
       
       if (entries.length === 0) {
         console.log('📝 没有新数据需要处理');

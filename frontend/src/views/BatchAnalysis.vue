@@ -65,10 +65,10 @@
               </template>
             </el-table-column> -->
             <el-table-column :label="$t('logs.surgeryStartTime')" width="180">
-              <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_start_time || row.start_time) }}</template>
+              <template #default="{ row }">{{ formatTimestamp(row.surgery_start_time || row.start_time) }}</template>
             </el-table-column>
             <el-table-column :label="$t('logs.surgeryEndTime')" width="180">
-              <template #default="{ row }">{{ formatTimeForDisplay(row.surgery_end_time || row.end_time) }}</template>
+              <template #default="{ row }">{{ formatTimestamp(row.surgery_end_time || row.end_time) }}</template>
             </el-table-column>
             <el-table-column :label="$t('shared.operation')" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false">
               <template #default="{ row }">
@@ -415,8 +415,8 @@
             </el-table-column>
             
             
-            <!-- 操作列 -->
-            <el-table-column prop="operations" width="13%">
+            <!-- 操作列（备注功能已移除，仅保留上下文分析与日志摘取） -->
+            <el-table-column prop="operations" width="10%">
               <template #header>
                 <div class="col-header">
                   <span>{{ $t('batchAnalysis.operations') }}</span>
@@ -439,72 +439,6 @@
                   >
                     <el-icon><DocumentCopy /></el-icon>
                   </el-button>
-                  <el-popover
-                    placement="left-start"
-                    :width="360"
-                    trigger="manual"
-                    :visible="activeNotesPopoverRowId === row.id"
-                    popper-class="notes-popover"
-                  >
-                    <template #default>
-                      <div v-if="activeNotesPopoverRowId === row.id">
-                      <div class="notes-header">
-                        <span>{{ $t('batchAnalysis.notes') }}</span>
-                        <el-button link size="small" @click="reloadNotes(row)">{{ $t('shared.refresh') }}</el-button>
-                      </div>
-                      <div class="notes-list" v-if="getNotes(row).items.length > 0">
-                        <div 
-                          class="note-item" 
-                          v-for="item in getNotes(row).items" 
-                          :key="item.id"
-                        >
-                          <div class="note-meta">
-                            <span class="note-user" :class="'role-' + (item.created_by || 'user')">{{ item.username }}（{{ roleLabel(item.created_by) }}）</span>
-                            <span class="note-time">{{ formatTimeForDisplay(item.created_at) }}</span>
-                            <span class="note-actions">
-                              <el-button v-if="canEditNote(item)" link class="btn-text btn-sm" @click="startEditNote(item)">{{ $t('shared.edit') }}</el-button>
-                              <el-button v-if="canDeleteNote(item)" link class="btn-text-danger btn-sm" @click="confirmDeleteNote(item)">{{ $t('shared.delete') }}</el-button>
-                            </span>
-                          </div>
-                          <div class="note-content" v-if="editingNoteId !== item.id">{{ item.content }}</div>
-                          <div class="note-edit" v-else>
-                            <el-input v-model="editingNoteContent" maxlength="50" show-word-limit type="textarea" rows="2" />
-                            <div class="note-edit-actions">
-                              <el-button size="small" class="btn-secondary btn-sm" @click="cancelEditNote">{{ $t('shared.cancel') }}</el-button>
-                              <el-button size="small" class="btn-primary btn-sm" @click="submitEditNote(item)">{{ $t('shared.save') }}</el-button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="notes-empty" v-else>{{ $t('batchAnalysis.noNotes') }}</div>
-                      <div class="notes-pagination">
-                        <el-pagination
-                          layout="prev, pager, next"
-                          small
-                          :page-size="getNotes(row).pageSize"
-                          :total="getNotes(row).total"
-                          :current-page="getNotes(row).page"
-                          @current-change="(p)=>changeNotesPage(row,p)"
-                        />
-                      </div>
-                      <div class="notes-editor" v-if="canCreateNote">
-                        <el-input v-model="newNoteContent" :placeholder="$t('batchAnalysis.addNotePlaceholder')" maxlength="50" show-word-limit type="textarea" rows="2" />
-                        <div class="notes-editor-actions">
-                          <el-button size="small" class="btn-primary btn-sm" @click="submitNewNote(row)">{{ $t('shared.submit') }}</el-button>
-                        </div>
-                      </div>
-                      </div>
-                    </template>
-                    <template #reference>
-                  <el-button 
-                    text
-                    class="operation-btn"
-                        @click.stop="openNotes(row)"
-                  >
-                    <el-icon><Edit /></el-icon>
-                  </el-button>
-                    </template>
-                  </el-popover>
                 </div>
               </template>
             </el-table-column>
@@ -1006,7 +940,7 @@ export default {
     const store = useStore()
     const route = useRoute()
     const router = useRouter()
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     
     const loading = ref(false)
     const selectedLogs = ref([])
@@ -1563,12 +1497,26 @@ export default {
       if (ids.length === 0) return
 
       try {
-        // 从API获取所有日志信息
-        const response = await store.dispatch('logs/fetchLogs', { page: 1, limit: 1000 })
-        const allLogs = response.data.logs
-        selectedLogs.value = allLogs.filter(log => ids.includes(log.id))
+        // 直接通过 log_ids 参数查询指定的日志，避免 1000 条限制问题
+        // 此时已经知道要查询的日志ID（来自路由参数），直接查询这些日志
+        const response = await store.dispatch('logs/fetchLogs', { 
+          log_ids: ids.join(','),
+          page: 1,
+          limit: ids.length // 设置为 ID 数量，确保返回所有匹配的日志
+        })
+        // 后端已经通过 WHERE id IN (...) 过滤，直接使用返回的结果
+        selectedLogs.value = response.data.logs || []
+        
+        // 如果查询结果数量与期望不一致，给出警告（可能某些日志不存在或已被删除）
+        if (selectedLogs.value.length !== ids.length) {
+          const foundIds = selectedLogs.value.map(log => log.id)
+          const missingIds = ids.filter(id => !foundIds.includes(id))
+          console.warn(`[loadSelectedLogs] 期望找到 ${ids.length} 个日志，实际找到 ${selectedLogs.value.length} 个。缺失的ID:`, missingIds)
+        }
       } catch (error) {
+        console.error('获取日志信息失败:', error)
         ElMessage.error('获取日志信息失败')
+        selectedLogs.value = []
       }
     }
 
@@ -1646,8 +1594,11 @@ export default {
         const processedEntries = entries.map(entry => {
           const tsText = formatTimestamp(entry.timestamp)
           const displayParams = [entry.param1, entry.param2, entry.param3, entry.param4].filter(p => p)
+          // 为前端交互生成稳定且唯一的行ID（跨多日志、多版本）
+          const syntheticId = `${entry.log_id || 'log'}-${entry.version || 1}-${entry.row_index ?? 0}`
           return {
             ...entry,
+            id: syntheticId,
             log_name: idToName.get(entry.log_id) || '',
             color_mark: entry.color_mark || null,
             remarks: entry.remarks || '',
@@ -3378,34 +3329,7 @@ export default {
 
 
 
-    // 备注功能
-    const notesState = ref({}) // { [logEntryId]: { items, total, page, pageSize, loading } }
-    const newNoteContent = ref('')
-    const editingNoteId = ref(null)
-    const editingNoteContent = ref('')
-
-    const canCreateNote = computed(() => store.getters['auth/isAuthenticated'])
-    const roleLabel = (r) => r === 'admin' ? '管理员' : (r === 'expert' ? '专家' : '普通用户')
-    const getNotesKey = (row) => row.id
-    const getNotes = (row) => notesState.value[getNotesKey(row)] || { items: [], total: 0, page: 1, pageSize: 10, loading: false }
-
-    const openNotes = async (row) => {
-      activeNotesPopoverRowId.value = row.id
-      await reloadNotes(row)
-      const closeOnOutsideClick = (e) => {
-        if (activeNotesPopoverRowId.value !== row.id) {
-          document.removeEventListener('click', closeOnOutsideClick, true)
-          return
-        }
-        const target = e.target
-        const btn = target && target.closest && target.closest('.operation-btn')
-        const pop = target && target.closest && target.closest('.el-popover')
-        if (btn || pop) return
-        activeNotesPopoverRowId.value = null
-        document.removeEventListener('click', closeOnOutsideClick, true)
-      }
-      document.addEventListener('click', closeOnOutsideClick, true)
-    }
+    // 备注功能已下线：保留占位注释以便后续需要时恢复
     const toggleColorPopover = (row) => {
       activeColorPopoverRowId.value = activeColorPopoverRowId.value === row.id ? null : row.id
       const currentId = row.id
@@ -3424,83 +3348,7 @@ export default {
       document.addEventListener('click', closeOnOutsideClick, true)
     }
 
-    const reloadNotes = async (row) => {
-      const key = getNotesKey(row)
-      const state = notesState.value[key] || { items: [], total: 0, page: 1, pageSize: 10, loading: false }
-      state.loading = true
-      notesState.value[key] = state
-      try {
-        const { data } = await api.notes.list(row.id, { page: state.page, pageSize: state.pageSize })
-        notesState.value[key] = { ...state, items: data.items || [], total: data.total || 0, page: data.page || 1, pageSize: data.pageSize || 10, loading: false }
-      } catch (e) {
-        state.loading = false
-      }
-    }
-
-    const changeNotesPage = async (row, page) => {
-      const key = getNotesKey(row)
-      const state = notesState.value[key] || { items: [], total: 0, page: 1, pageSize: 10, loading: false }
-      state.page = page
-      notesState.value[key] = state
-      await reloadNotes(row)
-    }
-
-    const submitNewNote = async (row) => {
-      if (!newNoteContent.value.trim()) {
-        ElMessage.warning('请输入备注内容')
-        return
-      }
-      try {
-        await api.notes.create(row.id, newNoteContent.value.trim())
-        newNoteContent.value = ''
-        await reloadNotes(row)
-      } catch (e) { /* handled by interceptor */ }
-    }
-
-    const canEditNote = (item) => {
-      const current = store.getters['auth/currentUser']
-      if (!current) return false
-      if (store.getters['auth/hasPermission']('user:update')) return true // admin
-      return item.user_id === current.id
-    }
-
-    const canDeleteNote = canEditNote
-
-    const startEditNote = (item) => {
-      editingNoteId.value = item.id
-      editingNoteContent.value = item.content
-    }
-    const cancelEditNote = () => {
-      editingNoteId.value = null
-      editingNoteContent.value = ''
-    }
-    const submitEditNote = async (item) => {
-      if (!editingNoteContent.value.trim()) {
-        ElMessage.warning('请输入备注内容')
-        return
-      }
-      try {
-        await api.notes.update(item.id, editingNoteContent.value.trim())
-        editingNoteId.value = null
-        editingNoteContent.value = ''
-        const row = { id: item.log_entry_id }
-        await reloadNotes(row)
-      } catch (e) { /* handled globally */ }
-    }
-
-    const confirmDeleteNote = (item) => {
-      ElMessageBox.confirm(t('batchAnalysis.confirmDeleteNote'), t('shared.info'), { type: 'warning' })
-        .then(async () => {
-          await api.notes.remove(item.id)
-          const row = { id: item.log_entry_id }
-          await reloadNotes(row)
-        })
-        .catch(() => {})
-    }
-
-    const formatTimeForDisplay = (t, isUtcTime = true) => {
-      try { return formatTime(t, true, isUtcTime) } catch { return t }
-    }
+    // 提示：formatTimeForDisplay 在备注功能中使用，已不再对外暴露
 
     // 保存备注到sessionStorage
     const saveRemarksToStorage = () => {
@@ -3782,24 +3630,6 @@ export default {
       loadColorMarksFromStorage,
       handleContextAnalysis,
       handleLogCapture,
-      openNotes,
-      reloadNotes,
-      getNotes,
-      changeNotesPage,
-      submitNewNote,
-      canEditNote,
-      canDeleteNote,
-      startEditNote,
-      cancelEditNote,
-      submitEditNote,
-      confirmDeleteNote,
-      notesState,
-      newNoteContent,
-      editingNoteId,
-      editingNoteContent,
-      roleLabel,
-      formatTimeForDisplay,
-      canCreateNote,
       // 上下文分析相关
       contextAnalysisVisible,
       contextAnalysisRow,

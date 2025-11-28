@@ -13,7 +13,7 @@ const {
   batchDeleteLogs,
   batchDownloadLogs,
   getLogEntries,
-  getBatchLogEntries,
+  getBatchLogEntriesClickhouse,
   getLogStatistics,
   autoFillDeviceId,
   autoFillKey,
@@ -36,7 +36,7 @@ const { createRateLimitersWithFallback } = require('../config/rateLimit');
 const rateLimiters = createRateLimitersWithFallback();
 
 // 应用批量搜索速率限制（可通过环境变量禁用）
-router.get('/entries/batch', auth, checkLogPermission('read_all'), rateLimiters.batchSearch, getBatchLogEntries);
+router.get('/entries/batch', auth, checkLogPermission('read_all'), rateLimiters.batchSearch, getBatchLogEntriesClickhouse);
 
 // 获取日志统计信息（用于计数功能）
 router.get('/entries/statistics', auth, checkLogPermission('read_all'), getLogStatistics);

@@ -1,8 +1,8 @@
-const LogEntry = require('../models/log_entry');
 const Log = require('../models/log');
 const { Op } = require('sequelize');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { buildPostgresRowPreview } = require('../utils/surgeryTransform');
+const { getClickHouseClient } = require('../config/clickhouse');
 
 // 与控制器保持一致：格式化时间为YYYYMMDDHHMM
 function formatTimeForId(dateStr) {
@@ -78,26 +78,59 @@ async function processSurgeryAnalysisJob(job) {
     throw new Error('logIds不能为空');
   }
 
-  // 获取所有日志条目（与控制器逻辑一致）
+  // 获取所有日志条目（改为从 ClickHouse 读取最新版本的 log_entries）
   const allLogEntries = [];
   let processedLogs = 0;
   const logIdToDeviceId = new Map();
+  const client = getClickHouseClient();
+
+  // 预先拉取所有相关日志的元数据（包括 version），避免循环中重复查询
+  const uniqueLogIds = Array.from(new Set(logIds.map(id => Number(id)).filter(n => Number.isFinite(n))));
+  const logsMeta = await Log.findAll({
+    where: { id: { [Op.in]: uniqueLogIds } }
+  });
+  const logMetaMap = new Map(logsMeta.map(l => [l.id, l]));
 
   for (const logId of logIds) {
     try {
       const progress = Math.round((processedLogs / logIds.length) * 80);
       await job.progress(progress);
 
-      const logEntries = await LogEntry.findAll({
-        where: { log_id: logId },
-        order: [['timestamp', 'ASC']],
-        raw: true
+      const numericLogId = Number(logId);
+      const logInfo = logMetaMap.get(numericLogId);
+
+      if (!logInfo) {
+        processedLogs++;
+        continue;
+      }
+
+      const currentVersion = logInfo.version || 1;
+
+      const result = await client.query({
+        query: `
+          SELECT *
+          FROM log_entries
+          WHERE log_id = {log_id: UInt32} AND version = {version: UInt32}
+          ORDER BY row_index ASC
+        `,
+        query_params: {
+          log_id: numericLogId,
+          version: currentVersion
+        },
+        format: 'JSONEachRow'
       });
 
-      const logInfo = await Log.findByPk(logId);
+      const clickhouseEntries = await result.json();
+
+      // 为兼容手术分析逻辑，使用 row_index 作为日志条目 ID
+      const logEntries = (clickhouseEntries || []).map(entry => ({
+        ...entry,
+        id: entry.row_index
+      }));
+
       const logName = logInfo ? logInfo.original_name : `日志${logId}`;
       if (logInfo && logInfo.device_id) {
-        logIdToDeviceId.set(logId, logInfo.device_id);
+        logIdToDeviceId.set(numericLogId, logInfo.device_id);
       }
 
       const entriesWithLogName = logEntries.map(entry => ({

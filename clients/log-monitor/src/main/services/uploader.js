@@ -180,9 +180,9 @@ class UploaderService {
       // 增量统计：仅首次成功计数；如之前失败过则做一次失败->成功的迁移
       try {
         const items = tasks.map(t => ({ file_path: t.file_path || t.upload_path, file_hash: t.file_hash || null }));
-        const { successDelta, failedDelta } = applyStatusTransitionsAndGetDeltas(this.opts.appDataDir || (()=>''), items, 'success');
-        if (successDelta || failedDelta) {
-          updateTaskStats(this.opts.appDataDir || (()=>''), { total: 0, success: successDelta, failed: failedDelta }, true);
+        const { totalDelta, successDelta, failedDelta } = applyStatusTransitionsAndGetDeltas(this.opts.appDataDir || (()=>''), items, 'success');
+        if (totalDelta || successDelta || failedDelta) {
+          updateTaskStats(this.opts.appDataDir || (()=>''), { total: totalDelta, success: successDelta, failed: failedDelta }, true);
         }
       } catch {}
 
@@ -213,9 +213,9 @@ class UploaderService {
       // 增量统计：仅首次失败计数（重试不重复计数）
       try {
         const items = tasks.map(t => ({ file_path: t.file_path || t.upload_path, file_hash: t.file_hash || null }));
-        const { successDelta, failedDelta } = applyStatusTransitionsAndGetDeltas(this.opts.appDataDir || (()=>''), items, 'failed');
-        if (successDelta || failedDelta) {
-          updateTaskStats(this.opts.appDataDir || (()=>''), { total: 0, success: successDelta, failed: failedDelta }, true);
+        const { totalDelta, successDelta, failedDelta } = applyStatusTransitionsAndGetDeltas(this.opts.appDataDir || (()=>''), items, 'failed');
+        if (totalDelta || successDelta || failedDelta) {
+          updateTaskStats(this.opts.appDataDir || (()=>''), { total: totalDelta, success: successDelta, failed: failedDelta }, true);
         }
       } catch {}
 

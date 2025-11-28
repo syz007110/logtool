@@ -9,7 +9,7 @@
   "autoLogin": true,
   "concurrency": 3,
   "watchPaths": [
-    "D:\\microport\\任务\\000-log分析\\4371-09-格鲁吉亚MMT医院"
+    "D:\\microport\\任务\\000-log分析"
   ],
   "recurseDepth": 4,
   "includeExtensions": [

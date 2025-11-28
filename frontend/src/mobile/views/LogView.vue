@@ -428,10 +428,14 @@ export default {
         return
       }
       try {
-        const response = await api.logs.getList({ page: 1, limit: 1000 })
+        // 直接通过 log_ids 参数查询指定的日志，避免 1000 条限制问题
+        const response = await api.logs.getList({ 
+          log_ids: String(logId),
+          page: 1,
+          limit: 1
+        })
         const logs = response?.data?.logs || []
-        // 使用宽松相等比较，参考桌面端处理方式
-        const log = logs.find(l => l.id == logId)
+        const log = logs.length > 0 ? logs[0] : null
         if (log) {
           logInfo.value = log
         } else {

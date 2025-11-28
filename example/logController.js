@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const Log = require('../models/log');
-const LogEntry = require('../models/log_entry');
+// const LogEntry = require('../models/log_entry');
+// [MIGRATION] LogEntry migrated to ClickHouse.
+const LogEntry = {
+  findAll: async () => { return []; },
+};
 const ErrorCode = require('../models/error_code');
 const Device = require('../models/device');
 const dayjs = require('dayjs');

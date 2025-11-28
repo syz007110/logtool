@@ -283,7 +283,8 @@ ALTER TABLE logs
   ADD COLUMN source_type ENUM('auto','upload') DEFAULT 'auto' AFTER filepath_hash,
   ADD COLUMN content_hash VARCHAR(64) NULL AFTER source_type;
   
--- 8. 日志解密后内容表
+-- 8. 日志解密后内容表，移植前mysql
+
 CREATE TABLE IF NOT EXISTS log_entries (
   id INT AUTO_INCREMENT PRIMARY KEY,
   log_id INT NOT NULL,
@@ -294,6 +295,19 @@ CREATE TABLE IF NOT EXISTS log_entries (
   param3 VARCHAR(100),
   param4 VARCHAR(100),
   explanation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  subsystem_char CHAR(1)
+    GENERATED ALWAYS AS (
+      CASE
+        WHEN (LEFT(error_code,1) IN ('1','2','3','4','5','6','7','8','9','A')) THEN LEFT(error_code,1)
+        ELSE NULL
+      END
+    ) STORED
+    COMMENT '故障码首字符(子系统)，用于快速联表到error_codes',
+  code4 CHAR(6)
+    GENERATED ALWAYS AS (
+      CONCAT('0X', UPPER(RIGHT(error_code,4)))
+    ) STORED
+    COMMENT '规范化故障码(0X+4位)，用于快速联表到error_codes',
   FOREIGN KEY (log_id) REFERENCES logs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -443,6 +457,7 @@ CREATE INDEX idx_log_entries_ts_id ON log_entries(timestamp, id);
 FULLTEXT INDEX ftx_log_entries_explanation (explanation) WITH PARSER ngram;
 
 -- 当存在"分析分类"过滤时，配合规范化列进行高效扫描/计数
+CREATE INDEX idx_le_norm ON log_entries(subsystem_char, code4);
 CREATE INDEX idx_log_entries_logid_ts_norm ON log_entries(log_id, timestamp, subsystem_char, code4);
 CREATE INDEX idx_log_entries_ts_norm ON log_entries(timestamp, subsystem_char, code4, id);
 

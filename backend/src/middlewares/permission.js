@@ -114,13 +114,26 @@ const checkResourceOwnership = (resourceModel, resourceIdField = 'id') => {
 const checkLogPermission = (action) => {
   return async (req, res, next) => {
     try {
+      // 添加调试日志
+      if (req.path && req.path.includes('/entries')) {
+        console.log(`[checkLogPermission] 检查日志权限: path=${req.path}, action=${action}, user_id=${req.user?.id || 'null'}`);
+      }
+      
       if (!req.user || !req.user.id) {
+        if (req.path && req.path.includes('/entries')) {
+          console.log(`[checkLogPermission] 权限检查失败: 用户信息缺失`);
+        }
         return res.status(401).json({ message: '用户信息缺失，请重新登录' });
       }
       const userId = req.user.id;
 
       const userRoles = await loadUserRoles(userId);
-      if (userRoles.some(ur => normalizeRoleName(ur.Role?.name) === 'admin')) return next();
+      if (userRoles.some(ur => normalizeRoleName(ur.Role?.name) === 'admin')) {
+        if (req.path && req.path.includes('/entries')) {
+          console.log(`[checkLogPermission] 权限检查通过: 管理员用户`);
+        }
+        return next();
+      }
 
       // read_all
       if (action === 'read_all' && await userHasDbPermission(userId, 'log:read_all')) return next();

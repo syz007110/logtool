@@ -4,12 +4,12 @@ const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
 const Log = require('../models/log');
-const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
 const Device = require('../models/device');
 const errorCodeCache = require('../services/errorCodeCache');
-const { batchInsertHelper } = require('../utils/batchInsertHelper');
 const { streamLogProcessor } = require('../utils/streamLogProcessor');
+const { getClickHouseClient } = require('../config/clickhouse');
+const { evictOldVersionsFromClickHouse } = require('./batchProcessor');
 
 // 上传目录
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
@@ -40,6 +40,11 @@ async function processLogFile(job) {
     // 更新任务进度
     await job.progress(10);
 
+    // 获取当前日志版本（由上传阶段负责自增）
+    const currentLog = await Log.findByPk(logId);
+    const currentVersion = currentLog ? (currentLog.version || 1) : 1;
+    console.log(`[日志处理] 当前日志版本: ${currentVersion}`);
+
     // 预加载故障码表/解析依赖
     console.log('🔄 预加载解析依赖...');
     await ensureCacheReady();
@@ -59,7 +64,6 @@ async function processLogFile(job) {
 
     // 读取文件内容
     const content = fs.readFileSync(filePath, 'utf-8');
-    // 移除冗余日志：console.log(`文件内容长度: ${content.length} 字符`);
     
     await job.progress(20);
 
@@ -126,7 +130,7 @@ async function processLogFile(job) {
     // 选择处理方式：流式处理 vs 传统处理（支持 env 阈值）
     const largeThreshold = Number.isFinite(parseInt(process.env.STREAM_LARGE_FILE_THRESHOLD, 10))
       ? parseInt(process.env.STREAM_LARGE_FILE_THRESHOLD, 10)
-      : 20000;
+      : 50000; // 提高阈值，因为 ClickHouse 批量写入性能很好
     const useStreamProcessing = process.env.USE_STREAM_PROCESSING === 'true' || 
                                decryptedEntries.length > largeThreshold;
 
@@ -137,7 +141,7 @@ async function processLogFile(job) {
       
       // 流式处理
       const t0 = Date.now();
-      const result = await streamLogProcessor.processLogFile(filePath, decryptKey, logId);
+      const result = await streamLogProcessor.processLogFile(filePath, decryptKey, logId, currentVersion);
       console.log(`⏱️ 流式处理耗时: ${Date.now() - t0}ms`);
       
       if (!result.success) {
@@ -149,42 +153,68 @@ async function processLogFile(job) {
       console.log(`✅ 流式处理完成，处理了 ${result.totalEntries} 条记录`);
       
     } else {
-      console.log('📦 使用传统批量处理模式');
+      console.log('📦 使用传统批量处理模式 (ClickHouse)');
       
-      // 传统处理方式
       const t0 = Date.now();
-      // 转换为数据库格式并存储，同时查询正确的释义和解析占位符（统一解析服务）
       console.log(`🚀 开始处理 ${decryptedEntries.length} 个解密后的日志条目`);
     
-    for (const entry of decryptedEntries) {
-      const { explanation: parsedExplanation } = renderEntryExplanation(entry);
-      
-      entries.push({
-        log_id: logId,
-        timestamp: entry.timestamp,
-        error_code: entry.error_code,
-        param1: entry.param1,
-        param2: entry.param2,
-        param3: entry.param3,
-        param4: entry.param4,
-        explanation: parsedExplanation
-      });
-    }
+      const chEntries = [];
+      let rowIndex = 1;
 
-    await job.progress(70);
+      for (const entry of decryptedEntries) {
+        const { explanation: parsedExplanation } = renderEntryExplanation(entry);
+        
+        // 计算 subsystem_char 和 code4（统一转换为大写，确保与查询时匹配）
+        const errorCodeStr = entry.error_code || '';
+        let subsystem = '';
+        let code = '';
+        
+        if (errorCodeStr && errorCodeStr.length >= 5) {
+          subsystem = errorCodeStr.charAt(0).toUpperCase(); // 统一转换为大写
+           if (!/^[1-9A-F]$/.test(subsystem)) {
+               subsystem = '';
+           }
+          code = '0X' + errorCodeStr.slice(-4).toUpperCase(); // 统一转换为大写
+        }
 
-    console.log('释义查询和解析完成，示例:', entries[0]?.explanation);
-    if (!useStreamProcessing) {
+        chEntries.push({
+          log_id: logId,
+          timestamp: dayjs(entry.timestamp).isValid() ? dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss') : dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          error_code: errorCodeStr,
+          param1: entry.param1 || '',
+          param2: entry.param2 || '',
+          param3: entry.param3 || '',
+          param4: entry.param4 || '',
+          explanation: parsedExplanation || '',
+          subsystem_char: subsystem || '',
+          code4: code || '',
+          version: currentVersion,
+          row_index: rowIndex++
+        });
+      }
+
+      entries = chEntries; // 用于后续文件生成
+
+      await job.progress(70);
+
+      console.log('释义查询和解析完成，示例:', entries[0]?.explanation);
       console.log(`⏱️ 传统处理解析阶段耗时: ${Date.now() - t0}ms`);
-    }
-    console.log(`准备插入 ${entries.length} 个日志条目到数据库`);
+      console.log(`准备插入 ${entries.length} 个日志条目到 ClickHouse`);
     
-      // 使用优化的分批插入，避免锁等待超时
       try {
-        await batchInsertHelper.batchInsertLogEntries(entries, logId);
-        console.log('✅ 数据库插入完成');
+        const batchSize = 20000;
+        for (let i = 0; i < entries.length; i += batchSize) {
+             const batch = entries.slice(i, i + batchSize);
+             await getClickHouseClient().insert({
+                 table: 'log_entries',
+                 values: batch,
+                 format: 'JSONEachRow'
+             });
+             console.log(`✅ ClickHouse 批次插入完成: ${i + batch.length}/${entries.length}`);
+        }
+        console.log('✅ 所有数据插入 ClickHouse 完成');
       } catch (insertError) {
-        console.error('❌ 数据库插入失败:', insertError.message);
+        console.error('❌ ClickHouse 插入失败:', insertError.message);
         throw new Error(`数据库插入失败: ${insertError.message}`);
       }
     }
@@ -240,7 +270,7 @@ async function processLogFile(job) {
     // 生成解密后的文件内容，使用解析后的释义
     console.log('📝 生成解密文件内容...');
     const decryptedContent = entries.map(entry => {
-      const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
+      const localTs = entry.timestamp; // 已经是格式化好的字符串
       return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
     }).join('\n');
     
@@ -249,12 +279,21 @@ async function processLogFile(job) {
 
     await job.progress(95);
 
-    // 更新日志记录中的解密文件路径和状态
+    // 更新日志记录中的解密文件路径和状态（version 已在上传阶段更新）
     await Log.update({
       decrypted_path: decryptedFilePath,
       status: 'parsed', // 标记为解析完成
       parse_time: new Date() // 设置解析时间
     }, { where: { id: logId } });
+
+    // 版本淘汰：重复上传场景下，清理 ClickHouse 中该日志的旧版本，仅保留最近 N 个版本
+    try {
+      await evictOldVersionsFromClickHouse(logId, currentVersion, 2);
+    } catch (e) {
+      console.warn(
+        `[版本淘汰] 处理上传日志时清理旧版本失败: log_id=${logId}, version=${currentVersion}, 错误=${e.message}`
+      );
+    }
     
     // 推送状态变化到 WebSocket
     try {
@@ -291,18 +330,26 @@ async function processLogFile(job) {
     console.error(`[日志处理] 错误: ${error.message}`);
     
     // 根据错误类型提供具体的失败原因分析
+    let failureStatus = 'failed';
+    
     if (error.message.includes('解密失败：用户密钥和默认密钥都出现参数大于100000的情况')) {
       console.error(`[日志处理] 失败原因: 密钥错误 - 请检查密钥是否正确`);
+      failureStatus = 'decrypt_failed';
     } else if (error.message.includes('日志行格式不正确')) {
       console.error(`[日志处理] 失败原因: 文件格式错误 - 检查日志格式`);
+      failureStatus = 'parse_failed';
     } else if (error.message.includes('参数不是有效的十六进制格式')) {
       console.error(`[日志处理] 失败原因: 参数格式错误 - 检查文件是否损坏`);
+      failureStatus = 'parse_failed';
     } else if (error.message.includes('密钥长度不足')) {
       console.error(`[日志处理] 失败原因: 密钥格式错误 - 应为MAC地址格式`);
+      failureStatus = 'decrypt_failed';
     } else if (error.message.includes('所有') && error.message.includes('行日志解析都失败了')) {
       console.error(`[日志处理] 失败原因: 解密失败 - 检查密钥或加密方式`);
+      failureStatus = 'decrypt_failed';
     } else if (error.message.includes('ENOENT') || error.message.includes('文件不存在')) {
       console.error(`[日志处理] 失败原因: 文件系统错误 - 检查文件权限和磁盘空间`);
+      failureStatus = 'file_error';
     } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
       console.error(`[日志处理] 失败原因: 数据库连接错误 - 检查数据库服务状态`);
     } else if (error.message.includes('ER_ACCESS_DENIED_ERROR')) {
@@ -316,63 +363,6 @@ async function processLogFile(job) {
     // 只在开发环境下输出详细错误信息
     if (process.env.NODE_ENV === 'development') {
       console.error(`[日志处理] 详细错误:`, error.stack);
-    }
-    
-    // 输出文件基本信息（如果文件存在）
-    try {
-      if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        console.error(`📊 文件信息:`);
-        console.error(`   - 文件大小: ${stats.size} 字节`);
-        console.error(`   - 创建时间: ${stats.birthtime}`);
-        console.error(`   - 修改时间: ${stats.mtime}`);
-        
-        // 尝试读取文件前几行进行分析
-        try {
-          const content = fs.readFileSync(filePath, 'utf-8');
-          const lines = content.split(/\r?\n/).filter(line => line.trim());
-          console.error(`📄 文件内容分析:`);
-          console.error(`   - 总行数: ${lines.length}`);
-          if (lines.length > 0) {
-            console.error(`   - 第一行: ${lines[0].substring(0, 100)}${lines[0].length > 100 ? '...' : ''}`);
-            if (lines.length > 1) {
-              console.error(`   - 第二行: ${lines[1].substring(0, 100)}${lines[1].length > 100 ? '...' : ''}`);
-            }
-          }
-        } catch (readError) {
-          console.error(`   - 无法读取文件内容: ${readError.message}`);
-        }
-      } else {
-        console.error(`📊 文件信息: 文件不存在`);
-        console.error(`📁 检查目录内容:`);
-        try {
-          const dir = path.dirname(filePath);
-          if (fs.existsSync(dir)) {
-            const files = fs.readdirSync(dir);
-            console.error(`   - 目录 ${dir} 中的文件: ${files.slice(0, 10).join(', ')}${files.length > 10 ? '...' : ''}`);
-          } else {
-            console.error(`   - 目录 ${dir} 不存在`);
-          }
-        } catch (dirError) {
-          console.error(`   - 无法读取目录: ${dirError.message}`);
-        }
-      }
-    } catch (statsError) {
-      console.error(`📊 文件信息: 无法获取文件状态 - ${statsError.message}`);
-    }
-    
-    console.error('='.repeat(80));
-    
-    // 根据错误类型确定具体的失败状态
-    let failureStatus = 'failed';
-    if (error.message.includes('解密失败：用户密钥和默认密钥都出现参数大于100000的情况')) {
-      failureStatus = 'decrypt_failed';
-    } else if (error.message.includes('解密后没有获得任何有效的日志条目')) {
-      failureStatus = 'decrypt_failed';
-    } else if (error.message.includes('文件不存在')) {
-      failureStatus = 'file_error';
-    } else if (error.message.includes('日志行格式不正确') || error.message.includes('参数不是有效的十六进制格式')) {
-      failureStatus = 'parse_failed';
     }
     
     // 更新日志状态为具体的失败类型

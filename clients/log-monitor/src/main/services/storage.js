@@ -231,14 +231,15 @@ function computeTaskStatsFromDb(getAppDataDir) {
 
 module.exports = { loadTasks, saveTasks, computeFileHash, hasSuccessByHash, getTaskStats, updateTaskStats, clearTaskStats, computeTaskStatsFromDb };
 
-// 根据文件路径集合执行状态迁移，并返回应增量到 stats 的 { successDelta, failedDelta }
+// 根据文件路径集合执行状态迁移，并返回应增量到 stats 的 { totalDelta, successDelta, failedDelta }
 function applyStatusTransitionsAndGetDeltas(getAppDataDir, items, newStatus) {
   const keyItems = (Array.isArray(items) ? items : []).map(it => ({
     file_path: it && it.file_path ? String(it.file_path) : null,
     file_hash: it && it.file_hash ? String(it.file_hash) : null
   })).filter(it => it.file_path);
-  if (keyItems.length === 0) return { successDelta: 0, failedDelta: 0 };
+  if (keyItems.length === 0) return { totalDelta: 0, successDelta: 0, failedDelta: 0 };
   const db = openDb(getAppDataDir);
+  let totalDelta = 0;
   let successDelta = 0;
   let failedDelta = 0;
   if (db) {
@@ -255,6 +256,7 @@ function applyStatusTransitionsAndGetDeltas(getAppDataDir, items, newStatus) {
           if (!prev) {
             // first time we see this file in DB
             upsert.run(it.file_path, it.file_hash || null, newStatus);
+            totalDelta += 1; // 新任务，total 增加
             if (newStatus === 'success') successDelta += 1;
             else if (newStatus === 'failed') failedDelta += 1;
           } else if (prev === newStatus) {
@@ -291,6 +293,7 @@ function applyStatusTransitionsAndGetDeltas(getAppDataDir, items, newStatus) {
         const prev = t ? t.status : null;
         if (!t) {
           tasks.push({ device_id: '', file_path: it.file_path, file_hash: it.file_hash || null, status: newStatus, retry_count: 0, last_error: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+          totalDelta += 1; // 新任务，total 增加
           if (newStatus === 'success') successDelta += 1;
           else if (newStatus === 'failed') failedDelta += 1;
         } else if (prev === newStatus) {
@@ -310,7 +313,7 @@ function applyStatusTransitionsAndGetDeltas(getAppDataDir, items, newStatus) {
       fs.writeFileSync(p, JSON.stringify(tasks, null, 2), 'utf-8');
     } catch (_) {}
   }
-  return { successDelta, failedDelta };
+  return { totalDelta, successDelta, failedDelta };
 }
 
 module.exports.applyStatusTransitionsAndGetDeltas = applyStatusTransitionsAndGetDeltas;

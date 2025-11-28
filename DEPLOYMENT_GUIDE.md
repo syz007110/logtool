@@ -259,6 +259,532 @@ npm run init-roles
 npm run init-permissions
 ```
 
+### 4. ClickHouse（日志明细存储，可选）
+
+> 如果你启用了“日志条目迁移到 ClickHouse”的方案，需要在云服务器上安装并配置 ClickHouse，用于存储 `log_entries` 表的数据。
+
+#### 4.1 在 Ubuntu 云服务器上安装 ClickHouse（curl 方式）
+
+在 **Ubuntu 云服务器**上执行（建议以 `root` 或带 sudo 权限的用户）：
+
+```bash
+# 使用官方脚本安装通用二进制
+curl https://clickhouse.com/ | sh
+
+# 使用已安装的 clickhouse 二进制完成服务器安装（非常关键）
+sudo clickhouse install
+```
+
+安装过程会：
+- 创建 `clickhouse` 用户和组
+- 创建配置目录 `/etc/clickhouse-server/`
+- 生成基础配置文件 `config.xml`、`users.xml`
+- 询问是否允许网络访问（推荐选择 `y`，会在 `/etc/clickhouse-server/config.d/listen.xml` 中写入 `0.0.0.0`）
+
+#### 4.2 注册 systemd 启动服务（推荐，支持自启动）
+
+`clickhouse install` 在部分环境仅安装二进制和配置，不一定自动创建 `systemd` 服务。为了方便管理和开机自启，建议手动创建：
+
+```bash
+# 确认 clickhouse-server 路径（通常是 /usr/bin/clickhouse-server）
+which clickhouse-server
+```
+
+创建服务文件（如果路径不同，请替换 `ExecStart` 中的路径）：
+
+```bash
+sudo tee /etc/systemd/system/clickhouse-server.service > /dev/null <<'EOF'
+[Unit]
+Description=ClickHouse Server (standalone)
+After=network.target
+
+[Service]
+Type=simple
+User=clickhouse
+Group=clickhouse
+ExecStart=/usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=262144
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+然后启用并启动服务：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable clickhouse-server
+sudo systemctl start clickhouse-server
+
+sudo systemctl status clickhouse-server   # 看到 active (running) 即表示启动成功
+```
+
+> 说明：也可以使用 `sudo clickhouse start` / `sudo clickhouse restart` 来管理进程，但使用 `systemd` 更方便统一管理和自启动。
+
+#### 4.3 配置 ClickHouse 监听地址（允许远程连接）
+
+**重要**：如果后端应用和 ClickHouse 不在同一台服务器，或者需要通过公网访问，需要配置 ClickHouse 监听所有 IP 地址。
+
+##### 检查当前配置
+
+```bash
+# 检查监听配置
+cat /etc/clickhouse-server/config.d/listen.xml 2>/dev/null || echo "配置文件不存在"
+
+# 或者检查主配置文件
+sudo grep -A 2 "listen_host" /etc/clickhouse-server/config.xml
+```
+
+##### 如果配置不存在或不是 0.0.0.0，需要修改
+
+**方法 1：使用安装时创建的配置文件（推荐）**
+
+如果安装时选择了 `y`（允许网络访问），配置应该在 `/etc/clickhouse-server/config.d/listen.xml`：
+
+```bash
+# 检查文件是否存在
+ls -la /etc/clickhouse-server/config.d/listen.xml
+
+# 查看内容（应该包含 <listen_host>0.0.0.0</listen_host>）
+cat /etc/clickhouse-server/config.d/listen.xml
+```
+
+**方法 2：手动创建或修改配置**
+
+如果配置文件不存在或内容不正确，手动创建：
+
+```bash
+# 创建配置目录（如果不存在）
+sudo mkdir -p /etc/clickhouse-server/config.d
+
+# 创建监听配置文件
+sudo tee /etc/clickhouse-server/config.d/listen.xml > /dev/null <<'EOF'
+<yandex>
+    <listen_host>0.0.0.0</listen_host>
+</yandex>
+EOF
+
+# 设置权限
+sudo chown clickhouse:clickhouse /etc/clickhouse-server/config.d/listen.xml
+```
+
+**方法 3：修改主配置文件（如果方法 2 不生效）**
+
+```bash
+# 编辑主配置文件
+sudo nano /etc/clickhouse-server/config.xml
+
+# 找到 <yandex> 标签，在其中添加或修改：
+# <listen_host>0.0.0.0</listen_host>
+```
+
+##### 重启服务使配置生效
+
+```bash
+# 重启 ClickHouse 服务
+sudo systemctl restart clickhouse-server
+
+# 检查服务状态
+sudo systemctl status clickhouse-server
+
+# 验证监听地址
+sudo netstat -tlnp | grep -E "8123|9000"
+# 应该看到类似：0.0.0.0:8123 和 0.0.0.0:9000
+```
+
+##### 验证远程连接
+
+从后端服务器（或本地）测试连接：
+
+```bash
+# 测试 HTTP 接口（8123 端口）
+curl 'http://your-clickhouse-server-ip:8123/?query=SELECT%20version()'
+
+# 测试 Native 协议（9000 端口）
+clickhouse-client --host=your-clickhouse-server-ip --port=9000 --query "SELECT version()"
+```
+
+**安全提示**：
+- 生产环境建议在云服务商安全组中限制访问来源（只允许后端服务器 IP）
+- 在 `users.xml` 中配置强密码
+- 考虑使用内网 IP 而不是公网 IP（如果后端和 ClickHouse 在同一 VPC）
+
+#### 4.3.1 ClickHouse 配置文件结构说明
+
+ClickHouse 使用模块化配置，支持将配置分散到多个文件中，便于管理和维护。
+
+##### 配置文件目录结构
+
+```
+/etc/clickhouse-server/
+├── config.xml          # 主配置文件（服务器配置）
+├── users.xml           # 主用户配置文件
+├── config.d/           # 配置片段目录（会被自动包含）
+│   └── listen.xml      # 监听配置（可选，单独文件）
+└── users.d/            # 用户配置片段目录（会被自动包含）
+    └── default-password.xml  # 用户密码配置（可选，单独文件）
+```
+
+##### Listen 配置（监听地址）
+
+**方式 1：单独文件（推荐，便于管理）**
+
+```bash
+# 文件位置：/etc/clickhouse-server/config.d/listen.xml
+<yandex>
+    <listen_host>0.0.0.0</listen_host>
+    <ipv6>false</ipv6>
+</yandex>
+```
+
+ClickHouse 会自动扫描 `config.d/` 目录并包含所有 `.xml` 文件，无需在主配置文件中显式引用。
+
+**方式 2：直接在主配置文件中**
+
+```xml
+<!-- 文件位置：/etc/clickhouse-server/config.xml -->
+<yandex>
+    <listen_host>0.0.0.0</listen_host>
+    <ipv6>false</ipv6>
+    <!-- 其他配置 -->
+</yandex>
+```
+
+##### 用户密码配置
+
+**方式 1：单独文件（推荐，便于管理）**
+
+```bash
+# 文件位置：/etc/clickhouse-server/users.d/default-password.xml
+<yandex>
+    <users>
+        <default>
+            <password>your_password</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+    </users>
+</yandex>
+```
+
+ClickHouse 会自动扫描 `users.d/` 目录并合并到主用户配置。
+
+**方式 2：直接在主用户配置文件中**
+
+```xml
+<!-- 文件位置：/etc/clickhouse-server/users.xml -->
+<yandex>
+    <users>
+        <default>
+            <password>your_password</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+    </users>
+    <!-- 其他用户配置 -->
+</yandex>
+```
+
+##### 配置文件的加载顺序和合并规则
+
+ClickHouse 按以下顺序加载配置：
+
+1. **主配置文件**：`config.xml` 和 `users.xml`
+2. **自动包含**：`config.d/*.xml` 和 `users.d/*.xml`
+3. **合并规则**：
+   - 同名配置项会覆盖（后面的覆盖前面的）
+   - 不同配置项会合并
+   - `users.d/` 中的用户配置会合并到主用户配置
+
+##### 推荐配置方式
+
+**推荐使用单独文件方式**，因为：
+
+- ✅ **模块化**：便于管理和维护
+- ✅ **安全性**：不修改主配置文件，升级时更安全
+- ✅ **易于备份**：可以单独备份和恢复配置片段
+- ✅ **符合最佳实践**：符合 ClickHouse 官方推荐
+
+**实际配置示例：**
+
+```bash
+# 监听配置（单独文件）
+/etc/clickhouse-server/config.d/listen.xml
+<yandex>
+    <listen_host>0.0.0.0</listen_host>
+    <ipv6>false</ipv6>
+</yandex>
+
+# 用户密码配置（单独文件）
+/etc/clickhouse-server/users.d/default-password.xml
+<yandex>
+    <users>
+        <default>
+            <password>940927syz</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+        </default>
+    </users>
+</yandex>
+```
+
+##### 验证配置文件
+
+```bash
+# 查看所有配置文件
+ls -la /etc/clickhouse-server/config.d/
+ls -la /etc/clickhouse-server/users.d/
+
+# 查看监听配置
+cat /etc/clickhouse-server/config.d/listen.xml
+
+# 查看用户密码配置
+cat /etc/clickhouse-server/users.d/default-password.xml
+
+# 验证 XML 格式
+sudo apt install libxml2-utils -y
+xmllint --noout /etc/clickhouse-server/config.d/listen.xml
+xmllint --noout /etc/clickhouse-server/users.d/default-password.xml
+```
+
+#### 4.4 创建 ClickHouse 数据库和表
+
+连接 ClickHouse（如果安装时没有设置密码，可以直接回车）：
+
+```bash
+clickhouse-client      # 或 clickhouse-client --password
+```
+
+在 `clickhouse-client` 中执行：
+
+```sql
+CREATE DATABASE IF NOT EXISTS logtool;
+USE logtool;
+```
+
+然后在服务器上执行项目自带的初始化脚本（推荐）：
+
+```bash
+cd /path/to/logtool/infrastructure/database
+clickhouse-client --query="CREATE DATABASE IF NOT EXISTS logtool"
+clickhouse-client --database=logtool < init_clickhouse.sql
+```
+
+执行完成后，可以在 `clickhouse-client` 中验证：
+
+```sql
+USE logtool;
+SHOW TABLES;
+DESCRIBE TABLE log_entries;
+```
+
+#### 4.5 ClickHouse 连接测试（从服务器和后端）
+
+**服务器本机测试：**
+
+```bash
+# 基本连通性
+clickhouse-client --query "SELECT version()"
+
+# 查询刚才创建的表
+clickhouse-client --database=logtool --query "SELECT count() FROM log_entries"
+```
+
+**后端代码层测试（Node.js）：**
+
+后端已提供 `backend/src/config/clickhouse.js`，包含 `testConnection` 方法。你可以在服务器上执行：
+
+```bash
+cd /path/to/logtool/backend
+node -e "require('./src/config/clickhouse').testConnection().then(()=>process.exit(0)).catch(()=>process.exit(1))"
+```
+
+如果输出 `✅ ClickHouse连接成功`，说明后端与 ClickHouse 通信正常。
+
+#### 4.6 数据迁移（MySQL log_entries → ClickHouse）
+
+> **重要**：如果您的项目中已有历史日志数据在 MySQL 的 `log_entries` 表中，需要将数据迁移到 ClickHouse 才能正常查看和使用。
+
+**迁移脚本位置：**
+
+```
+backend/src/scripts/migrateLogEntriesToClickHouse.js
+```
+
+**迁移前的准备：**
+
+1. ✅ **确认 ClickHouse 已安装并运行**
+2. ✅ **确认 ClickHouse 数据库和表已创建**（参考 4.4 章节）
+3. ✅ **确认 MySQL 和 ClickHouse 连接配置正确**（检查 `backend/.env` 文件）
+
+**基本用法：**
+
+**Ubuntu/Linux:**
+
+```bash
+# 进入项目根目录
+cd /path/to/logtool
+
+# 从头开始迁移（默认批次大小 20000）
+node backend/src/scripts/migrateLogEntriesToClickHouse.js
+
+# 查看帮助信息
+node backend/src/scripts/migrateLogEntriesToClickHouse.js --help
+```
+
+**Windows:**
+
+```cmd
+# 进入项目根目录
+cd D:\code\Log\v0.1.1\logtool
+
+# 从头开始迁移
+node backend/src/scripts/migrateLogEntriesToClickHouse.js
+
+# 查看帮助信息
+node backend/src/scripts/migrateLogEntriesToClickHouse.js --help
+```
+
+**命令行参数说明：**
+
+| 参数 | 说明 | 默认值 | 示例 |
+|------|------|--------|------|
+| `--batch-size=N` | 每批处理的条数 | 20000 | `--batch-size=50000` |
+| `--start-id=N` | 起始 ID，用于断点续传 | 0 | `--start-id=99532487` |
+| `--help` / `-h` | 显示帮助信息 | - | `--help` |
+
+**断点续传（重要）：**
+
+如果迁移过程中因网络、服务器重启等原因中断，可以使用 `--start-id` 参数从上次中断的位置继续迁移：
+
+```bash
+# 示例：从 ID 99532487 继续迁移
+# （使用最后日志中显示的 "当前ID" 值）
+node backend/src/scripts/migrateLogEntriesToClickHouse.js --start-id=99532487
+```
+
+**如何找到断点 ID：**
+
+脚本运行时会实时打印进度信息，格式如下：
+```
+✅ 已迁移: 300000 / 23932965 (1.25%) - 当前ID: 99532487 - 速度: 52632条/秒
+```
+
+如果迁移中断，使用最后显示的 `当前ID` 值作为 `--start-id` 参数。
+
+**调整批次大小（性能优化）：**
+
+如果需要更快的迁移速度（会占用更多内存）：
+
+```bash
+# 使用更大的批次（50000条/批）
+node backend/src/scripts/migrateLogEntriesToClickHouse.js --batch-size=50000
+
+# 组合使用：从指定ID开始，使用自定义批次大小
+node backend/src/scripts/migrateLogEntriesToClickHouse.js --start-id=99532487 --batch-size=50000
+```
+
+**后台运行（推荐用于大量数据）：**
+
+**Ubuntu/Linux（使用 screen 或 nohup）：**
+
+```bash
+# 方式1：使用 screen（推荐，可随时查看进度）
+screen -S migrate
+node backend/src/scripts/migrateLogEntriesToClickHouse.js
+# 按 Ctrl+A 然后按 D 脱离会话
+# 重新连接: screen -r migrate
+
+# 方式2：使用 nohup（输出到文件）
+nohup node backend/src/scripts/migrateLogEntriesToClickHouse.js > migrate.log 2>&1 &
+tail -f migrate.log  # 查看实时进度
+```
+
+**Windows（使用 PowerShell 后台任务）：**
+
+```powershell
+# 在 PowerShell 中运行（后台运行，输出保存到文件）
+Start-Process node -ArgumentList "backend/src/scripts/migrateLogEntriesToClickHouse.js" -NoNewWindow -RedirectStandardOutput migrate.log -RedirectStandardError migrate_error.log
+
+# 查看实时进度
+Get-Content migrate.log -Wait -Tail 50
+```
+
+**迁移进度说明：**
+
+脚本运行时会显示以下信息：
+- **已迁移数量** / **总数量**：例如 `300000 / 23932965`
+- **完成百分比**：例如 `(1.25%)`
+- **当前处理的 ID**：用于断点续传
+- **迁移速度**：例如 `52632条/秒`
+
+**预估时间：**
+
+- **总数据量**：取决于您的 `log_entries` 表记录数（脚本会自动统计）
+- **迁移速度**：约 40,000 ~ 60,000 条/秒（取决于服务器性能和网络）
+- **预计耗时**：约 `总数据量 / 50000` 秒
+
+**示例计算：**
+- 如果有 2400 万条数据：`24000000 / 50000 = 480` 秒 ≈ **8 分钟**
+
+**迁移完成后的验证：**
+
+迁移完成后，可以验证数据是否正确：
+
+```bash
+# 1. 检查 MySQL 数据总数
+mysql -u root -p logtool -e "SELECT COUNT(*) as total FROM log_entries;"
+
+# 2. 检查 ClickHouse 数据总数
+clickhouse-client --database=logtool --query "SELECT count() FROM log_entries"
+
+# 3. 对比数量应该一致（或接近，如果有新数据写入）
+```
+
+**常见问题：**
+
+1. **错误：`Unknown column 'created_at' in 'field list'`**
+   - 说明：MySQL 表中没有 `created_at` 字段（正常，脚本已处理）
+   - 解决：无需处理，脚本会自动使用 `timestamp` 作为 `created_at`
+
+2. **迁移速度很慢**
+   - 检查网络连接（如果 ClickHouse 在远程服务器）
+   - 适当增加批次大小：`--batch-size=50000`
+   - 检查服务器 CPU 和内存使用情况
+
+3. **迁移中断后如何继续**
+   - 查看最后日志中的 `当前ID`
+   - 使用 `--start-id=最后ID` 参数继续迁移
+
+4. **迁移过程中有新数据写入**
+   - 新数据会直接写入 ClickHouse（不再写 MySQL）
+   - 迁移脚本只会迁移 MySQL 中已有的历史数据
+   - 可以在迁移完成后再次运行验证（使用 `--start-id` 从最新位置开始）
+
+**迁移完成后的后续步骤：**
+
+迁移完成后，系统将完全切换到 ClickHouse：
+- ✅ 新上传的日志会直接写入 ClickHouse
+- ✅ 查询日志详情会从 ClickHouse 读取
+- ✅ MySQL 的 `log_entries` 表可以保留作为备份（建议保留一段时间）
+
+**注意事项：**
+
+- ⚠️ **备份数据**：迁移前建议备份 MySQL 数据（虽然迁移不会删除 MySQL 数据）
+- ⚠️ **磁盘空间**：确保 ClickHouse 服务器有足够的磁盘空间
+- ⚠️ **迁移期间**：迁移过程中可以正常使用系统，新数据会写入 ClickHouse
+- ⚠️ **验证数据**：迁移完成后建议抽样验证数据一致性
+
 ---
 
 ## 项目配置
@@ -358,6 +884,13 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_DB=0
+
+# ClickHouse 配置（日志明细存储，使用 @clickhouse/client 通过 HTTP 连接）
+# 对应 backend/src/config/clickhouse.js
+CLICKHOUSE_HOST=http://your-clickhouse-server-ip:8123
+CLICKHOUSE_DB=logtool
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=your_clickhouse_password
 
 # PostgreSQL配置 (可选)
 POSTGRES_USER=logtool

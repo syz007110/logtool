@@ -301,6 +301,7 @@ import NetworkLatencyChart from '@/components/NetworkLatencyChart.vue'
 import StateMachineChart from '@/components/StateMachineChart.vue'
 import { normalizeSurgeryData } from '@/utils/visualizationConfig'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from '@/utils/surgeryDataAdapter'
+import { resolveInstrumentTypeLabel } from '@/utils/analysisMappings'
 
 const SEGMENT_COLOR_ORDER = ['incision', 'test', 'scope', 'general']
 
@@ -317,6 +318,13 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const { t } = useI18n()
+    
+    const getInstrumentLabel = (value) => {
+      const label = resolveInstrumentTypeLabel(value)
+      if (label) return label
+      if (value === null || value === undefined || value === '') return '-'
+      return typeof value === 'string' ? value : String(value)
+    }
 
     const surgeryId = route.params?.surgeryId || route.query?.surgeryId || ''
     const surgeryData = ref(null)
@@ -483,9 +491,10 @@ export default {
         const instruments = usageList.map((usage, usageIndex) => {
           const install = usage.install_time || usage.start_time
           const remove = usage.remove_time || usage.end_time
+          const toolType = getInstrumentLabel(usage.tool_type ?? usage.instrument_type ?? usage.instrument_name)
           return {
             id: `${armId}-${usageIndex}`,
-            toolType: usage.tool_type || usage.instrument_name || '-',
+            toolType: toolType || '-',
             udi: usage.udi || usage.udi_code || '-',
             installTime: install,
             removeTime: remove

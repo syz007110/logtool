@@ -14,6 +14,25 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // 环境变量已加载
+// 区分主进程（API/读为主）与工作进程（队列/写为主）的连接池配置
+const isClusterMode = process.env.WORKER_ID !== undefined;
+const isMainProcess = !isClusterMode || process.env.WORKER_ID === '0';
+
+const parseIntOr = (val, fallback) => {
+  const n = parseInt(val, 10);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const poolMax = isMainProcess
+  ? parseIntOr(process.env.READER_DB_POOL_MAX, 20)
+  : parseIntOr(process.env.WRITER_DB_POOL_MAX, 5);
+
+const poolMin = isMainProcess
+  ? parseIntOr(process.env.READER_DB_POOL_MIN, 2)
+  : parseIntOr(process.env.WRITER_DB_POOL_MIN, 0);
+
+const poolAcquire = parseIntOr(process.env.DB_POOL_ACQUIRE_MS, 60000);
+const poolIdle = parseIntOr(process.env.DB_POOL_IDLE_MS, 10000);
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -34,12 +53,12 @@ const sequelize = new Sequelize(
       supportBigNumbers: true,
       bigNumberStrings: true
     },
-    // 添加连接池配置
+    // 连接池配置：主进程偏读、工作进程偏写（同一物理库，不同池配额）
     pool: {
-      max: 20,           // 最大连接数
-      min: 5,            // 最小连接数
-      acquire: 60000,    // 获取连接超时时间（毫秒）
-      idle: 10000        // 连接空闲时间（毫秒）
+      max: poolMax,
+      min: poolMin,
+      acquire: poolAcquire, // 获取连接超时时间（毫秒）
+      idle: poolIdle        // 连接空闲时间（毫秒）
     }
   }
 );

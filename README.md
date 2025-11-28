@@ -61,7 +61,7 @@ redis-server.exe redis.conf
 - MySQL 8.0+
 - Redis 6.0+
 - PostgreSQL 12+ (可选，用于手术分析)
-
+- ClickHouse client version 25.12.1.82 (official build).
 ### 数据库初始化（首次使用必读）
 
 **重要**: 首次使用项目前，必须先初始化数据库！
@@ -352,3 +352,12 @@ logtool/
         "Ethercat",
         "Boundary"
 
+查看当前占用/活动连接：
+当前已连接数：
+    SHOW STATUS LIKE 'Threads_connected';
+正在执行的活跃连接：
+    SHOW STATUS LIKE 'Threads_running';
+详细连接列表（可见阻塞/等待）：
+    SHOW PROCESSLIST;    -- 或    SELECT * FROM information_schema.PROCESSLIST;
+修改上限位置：
+配置文件 my.cnf/my.ini 中设置 max_connections = 200（示例），重启 MySQL 生效。

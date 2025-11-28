@@ -288,8 +288,14 @@ export default {
     // 加载日志信息
     const loadLogInfo = async () => {
       try {
-        const response = await store.dispatch('logs/fetchLogs', { page: 1, limit: 1000 })
-        const log = response.data.logs.find(l => l.id == logId)
+        // 直接通过 log_ids 参数查询指定的日志，避免 1000 条限制问题
+        const response = await store.dispatch('logs/fetchLogs', { 
+          log_ids: String(logId),
+          page: 1,
+          limit: 1
+        })
+        const logs = response.data.logs || []
+        const log = logs.length > 0 ? logs[0] : null
         if (log) {
           logInfo.value = log
         } else {

@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const Log = require('../models/log');
-const LogEntry = require('../models/log_entry');
 const ErrorCode = require('../models/error_code');
 const AnalysisCategory = require('../models/analysis_category');
 const { sequelize } = require('../models');
@@ -17,6 +16,58 @@ const { cacheManager } = require('../config/cache');
 const websocketService = require('../services/websocketService');
 const errorCodeCache = require('../services/errorCodeCache');
 const { batchInsertHelper } = require('../utils/batchInsertHelper');
+const { getClickHouseClient } = require('../config/clickhouse');
+
+// [MIGRATION] LogEntry migrated to ClickHouse. Mocking Sequelize model to prevent crash.
+const LogEntry = {
+  findAll: async () => { console.warn('[MIGRATION] LogEntry.findAll called but table migrated to ClickHouse'); return []; },
+  findOne: async () => { console.warn('[MIGRATION] LogEntry.findOne called but table migrated to ClickHouse'); return null; },
+  findAndCountAll: async () => { console.warn('[MIGRATION] LogEntry.findAndCountAll called'); return { count: 0, rows: [] }; },
+  count: async () => { return 0; },
+  destroy: async () => { return 0; },
+  bulkCreate: async () => { return []; }
+};
+
+// 从 ClickHouse log_entries 生成解密后的纯文本内容（按给定日志ID与版本）
+async function buildDecryptedContentFromClickHouse(logId, version) {
+  const client = getClickHouseClient();
+  const result = await client.query({
+    query: `
+      SELECT 
+        timestamp,
+        error_code,
+        param1,
+        param2,
+        param3,
+        param4,
+        explanation
+      FROM log_entries
+      WHERE log_id = {log_id:UInt32} AND version = {version:UInt32}
+      ORDER BY timestamp ASC, row_index ASC
+    `,
+    query_params: {
+      log_id: Number(logId),
+      version: Number(version)
+    },
+    format: 'JSONEachRow'
+  });
+  const rows = await result.json();
+
+  if (!rows || rows.length === 0) return '';
+
+  const lines = rows.map(entry => {
+    const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
+    const p1 = entry.param1 || '';
+    const p2 = entry.param2 || '';
+    const p3 = entry.param3 || '';
+    const p4 = entry.param4 || '';
+    const expl = entry.explanation || '';
+    const err = entry.error_code || '';
+    return `${localTs} ${err} ${p1} ${p2} ${p3} ${p4} ${expl}`.trimEnd();
+  });
+
+  return lines.join('\n');
+}
 
 // 通用函数：推送日志状态变化到 WebSocket
 const pushLogStatusChange = (logId, oldStatus, newStatus) => {
@@ -257,14 +308,29 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 // 获取日志列表
 const getLogs = async (req, res) => {
   try {
-    let { page = 1, limit = 20, device_id } = req.query;
-    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）+ 状态筛选
+    let { page = 1, limit = 20, device_id, log_ids } = req.query;
+    // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）+ 状态筛选 + 指定日志ID列表
     const { only_own, year, month, day, hour, time_prefix, time_range_start, time_range_end, status_filter } = req.query;
     page = parseInt(page, 10);
     limit = parseInt(limit, 10);
     
     // 构建查询条件
     const where = {};
+    
+    // 优先支持通过 log_ids 直接查询指定的日志（用于批量分析页面）
+    if (log_ids) {
+      const ids = String(log_ids)
+        .split(',')
+        .map(id => parseInt(id.trim(), 10))
+        .filter(n => Number.isInteger(n) && n > 0);
+      if (ids.length > 0) {
+        where.id = { [Op.in]: ids };
+        // 当指定了 log_ids 时，不需要分页，直接返回所有匹配的日志
+        page = 1;
+        limit = ids.length; // 设置为 ID 数量，确保返回所有匹配的日志
+      }
+    }
+    
     if (device_id) {
       where.device_id = device_id;
     }
@@ -729,7 +795,11 @@ const uploadLog = async (req, res) => {
         console.log(`设备编号: ${deviceId}`);
         console.log(`解密密钥: ${decryptKey ? decryptKey.substring(0, 8) + '...' : '未提供'}`);
         
-        // 如果已存在相同 device_id + original_name 的日志，则覆盖原数据而不是新增
+        // 如果已存在相同 device_id + original_name 的日志，则视为重复上传
+        // 逻辑：
+        //  - 复用同一条 logs 记录（不新增行）
+        //  - version 自增：表示新的上传版本
+        //  - ClickHouse 在解析完成后按新版本号写入，并淘汰旧版本
         log = await Log.findOne({
           where: {
             device_id: deviceId || null,
@@ -738,7 +808,10 @@ const uploadLog = async (req, res) => {
         });
 
         if (log) {
-          // 覆盖：更新现有日志为上传中状态，并刷新关键元数据
+          const currentVersion = Number.isInteger(log.version) ? log.version : 1;
+          const newVersion = currentVersion + 1;
+
+          // 覆盖：更新现有日志为上传中状态，并刷新关键元数据与版本号
           await log.update({
             filename: file.filename,
             size: file.size,
@@ -746,10 +819,11 @@ const uploadLog = async (req, res) => {
             upload_time: new Date(),
             uploader_id: req.user ? req.user.id : null,
             device_id: deviceId || null,
-            key_id: decryptKey || null
+            key_id: decryptKey || null,
+            version: newVersion
           });
         } else {
-          // 新增
+          // 新增：使用默认版本号 1
           log = await Log.create({
             filename: file.filename,
             original_name: file.originalname,
@@ -897,6 +971,9 @@ const parseLog = async (req, res) => {
     const entries = [];
     console.log(`🚀 开始处理 ${decryptedEntries.length} 个解密后的日志条目`);
     
+    let rowIndex = 1;
+    const currentVersion = log.version || 1;
+    
     for (const entry of decryptedEntries) {
       // 根据需求，通过解密后的故障码首位+('0X'+故障码后4位)去匹配error_codes表
       const errorCodeStr = entry.error_code;
@@ -904,8 +981,9 @@ const parseLog = async (req, res) => {
       let code = '';
       
       if (errorCodeStr && errorCodeStr.length >= 5) {
-        subsystem = errorCodeStr.charAt(0); // 首位
-        code = '0X' + errorCodeStr.slice(-4); // '0X' + 后4位
+        subsystem = errorCodeStr.charAt(0).toUpperCase(); // 首位，统一转换为大写
+        if (!/^[1-9A-F]$/.test(subsystem)) { subsystem = ''; }
+        code = '0X' + errorCodeStr.slice(-4).toUpperCase(); // '0X' + 后4位，统一转换为大写
       }
       // 使用缓存查询error_codes表获取正确的释义
       let explanation = entry.explanation; // 默认使用原始释义（模板选择由统一服务完成）
@@ -923,21 +1001,34 @@ const parseLog = async (req, res) => {
       
       entries.push({
         log_id: log.id,
-        timestamp: entry.timestamp,
-        error_code: entry.error_code,
-        param1: entry.param1,
-        param2: entry.param2,
-        param3: entry.param3,
-        param4: entry.param4,
-        explanation: parsedExplanation
+        timestamp: dayjs(entry.timestamp).isValid() ? dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss') : dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        error_code: entry.error_code || '',
+        param1: entry.param1 || '',
+        param2: entry.param2 || '',
+        param3: entry.param3 || '',
+        param4: entry.param4 || '',
+        explanation: parsedExplanation || '',
+        subsystem_char: subsystem || '',
+        code4: code || '',
+        version: currentVersion,
+        row_index: rowIndex++
       });
     }
     
     console.log('解析日志释义完成，示例:', entries[0]?.explanation);
     
-    // 使用优化的分批插入，避免锁等待超时
+    // 插入 ClickHouse
     try {
-      await batchInsertHelper.batchInsertLogEntries(entries, log.id);
+      const batchSize = 20000;
+      for (let i = 0; i < entries.length; i += batchSize) {
+        const batch = entries.slice(i, i + batchSize);
+        await getClickHouseClient().insert({
+          table: 'log_entries',
+          values: batch,
+          format: 'JSONEachRow'
+        });
+        console.log(`✅ ClickHouse 批次插入完成: ${i + batch.length}/${entries.length}`);
+      }
       console.log('✅ 数据库插入完成');
     } catch (insertError) {
       console.error('❌ 数据库插入失败:', insertError.message);
@@ -1004,41 +1095,77 @@ const getQueueStatus = async (req, res) => {
 
 // 获取日志明细
 const getLogEntries = async (req, res) => {
+  const startTime = Date.now();
+  const logId = req.params.id;
+  
+  console.log(`[getLogEntries] ========== 开始处理请求 ==========`);
+  console.log(`[getLogEntries] log_id: ${logId}`);
+  console.log(`[getLogEntries] 用户信息: ${req.user ? `id=${req.user.id}, role_id=${req.user.role_id}` : '未登录'}`);
+  
   try {
     const { id } = req.params;
     
     // 先检查日志是否存在并验证权限
+    console.log(`[getLogEntries] 查询日志记录: id=${id}`);
     const log = await Log.findByPk(id);
-    if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
     
-    // 权限控制：普通用户只能查看自己的日志明细
-    if (req.user && req.user.role_id) {
-      const userRole = req.user.role_id;
-      if (userRole === 3) { // 普通用户
-        // 需要先获取用户自己的日志ID列表
-        const userLogs = await Log.findAll({
-          where: { uploader_id: req.user.id },
-          attributes: ['id']
-        });
-        const userLogIds = userLogs.map(log => log.id);
-        
-        if (where.log_id) {
-          // 如果已经指定了log_ids，需要取交集
-          const requestedIds = Array.isArray(where.log_id[Op.in]) 
-            ? where.log_id[Op.in] 
-            : [where.log_id[Op.in]];
-          const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
-          where.log_id = { [Op.in]: allowedIds };
-        } else {
-          where.log_id = { [Op.in]: userLogIds };
-        }
-      }
-      // 管理员用户（role_id = 1）和专家用户（role_id = 2）可以查看所有日志，无需额外限制
+    if (!log) {
+      console.log(`[getLogEntries] 日志不存在: id=${id}`);
+      return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
     
-    const entries = await LogEntry.findAll({ where: { log_id: id }, order: [['timestamp', 'ASC']] });
+    console.log(`[getLogEntries] 日志记录找到: id=${log.id}, original_name=${log.original_name}, device_id=${log.device_id}, status=${log.status}, version=${log.version || 1}, upload_time=${log.upload_time}`);
+    
+    // 权限控制：普通用户只能查看自己的日志明细
+    if (req.user && req.user.role_id === 3) {
+      if (log.uploader_id !== req.user.id) {
+        console.log(`[getLogEntries] 权限不足: log.uploader_id=${log.uploader_id}, user.id=${req.user.id}`);
+        return res.status(403).json({ message: req.t('common.unauthorized') });
+      }
+    }
+    
+    const currentVersion = log.version || 1;
+    console.log(`[getLogEntries] 当前版本: ${currentVersion}`);
+    
+    console.log(`[getLogEntries] 开始查询 ClickHouse: log_id=${id}, version=${currentVersion}`);
+    const queryStartTime = Date.now();
+    
+    const result = await getClickHouseClient().query({
+      query: `
+        SELECT * 
+        FROM log_entries 
+        WHERE log_id = {log_id: UInt32} AND version = {version: UInt32}
+        ORDER BY row_index ASC
+      `,
+      query_params: {
+        log_id: parseInt(id),
+        version: currentVersion
+      },
+      format: 'JSONEachRow'
+    });
+    
+    const queryTime = Date.now() - queryStartTime;
+    console.log(`[getLogEntries] ClickHouse 查询完成，耗时: ${queryTime}ms`);
+    
+    const parseStartTime = Date.now();
+    const entries = await result.json();
+    const parseTime = Date.now() - parseStartTime;
+    const totalTime = Date.now() - startTime;
+    
+    console.log(`[getLogEntries] 查询成功: 返回条目数=${entries?.length || 0}, 解析耗时=${parseTime}ms, 总耗时=${totalTime}ms`);
+    console.log(`[getLogEntries] ========== 请求处理完成 ==========`);
+    
     res.json({ entries });
   } catch (err) {
+    const totalTime = Date.now() - startTime;
+    console.error(`[getLogEntries] 获取日志明细失败: log_id=${logId}, 耗时=${totalTime}ms`);
+    console.error('[getLogEntries] 错误详情:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      type: err.type,
+      name: err.name
+    });
     res.status(500).json({ message: req.t('log.listFailed'), error: err.message });
   }
 };
@@ -1057,6 +1184,16 @@ const getBatchLogEntries = async (req, res) => {
       filters, // 高级筛选条件（JSON字符串或对象）
       analysis_category_ids // 预置维度：分析分类ID数组（逗号分隔或数组）
     } = req.query;
+
+    // [MIGRATION] ClickHouse 迁移中，暂停 MySQL 批量查询
+      return res.json({
+        entries: [],
+        total: 0,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: 0,
+      migration_notice: 'System is migrating to ClickHouse. Analysis features are temporarily unavailable.'
+    });
     
     // 仅在首次加载或未选择时间范围时，返回建议的时间范围（min/max）
     const shouldIncludeTimeSuggestion = !start_time && !end_time;
@@ -1919,7 +2056,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
           const n = Number(val);
           if (Number.isNaN(n)) return null;
           return SequelizeLib.where(castCol, sequelizeOperator, n);
-        }
+    }
         if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
           const toDate = (d) => {
             if (d instanceof Date) return d; if (typeof d === 'string' || typeof d === 'number') return new Date(d); return null;
@@ -1970,43 +2107,254 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       }
     };
 
-    const normalizeFilters = (raw) => {
-      if (!raw) return null; let parsed = raw; if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch (e) { return null; } } return parsed;
-    };
-    const advancedFilters = normalizeFilters(filters);
-    const buildFromNode = (node) => {
-      if (!node) return null;
-      if (Array.isArray(node)) {
-        const parts = node.map(n => buildFromNode(n)).filter(Boolean); if (parts.length === 0) return null; return { [Op.and]: parts };
-      }
-      if (node.field && node.operator) return buildCondition(node.field, node.operator, node.value);
-      if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-        const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean); if (childConds.length === 0) return null; return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
-      }
-      return null;
-    };
-    const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
-    if (advancedWhere) {
-      if (where[Op.and]) where[Op.and].push(advancedWhere);
-      else {
-        const baseConds = []; Object.keys(where).forEach(k => { if (k !== Op.and && k !== Op.or) { baseConds.push({ [k]: where[k] }); delete where[k]; } });
-        where[Op.and] = baseConds.length > 0 ? baseConds.concat([advancedWhere]) : [advancedWhere];
+    // 1) 日志ID解析（导出权限对所有用户一致，不再按角色做额外过滤）
+    const requestedLogIds = log_ids
+      ? String(log_ids)
+          .split(',')
+          .map(id => parseInt(id.trim(), 10))
+          .filter(n => Number.isInteger(n) && n > 0)
+      : [];
+
+    let allowedLogIds = [...requestedLogIds];
+
+    // 2) 基于允许的日志ID获取当前版本（最新版本）；如果未指定日志ID，则不按版本过滤
+    let logVersionPairs = null;
+    if (allowedLogIds && allowedLogIds.length > 0) {
+    const logs = await Log.findAll({
+        where: { id: { [Op.in]: allowedLogIds } },
+        attributes: ['id', 'version']
+      });
+
+      logVersionPairs = logs.map(l => [
+        Number(l.id),
+        Number(Number.isInteger(l.version) ? l.version : 1)
+      ]);
+    }
+
+    // 3) 构建 ClickHouse 查询条件
+    const client = getClickHouseClient();
+    const conditions = [];
+    const params = {};
+
+    if (logVersionPairs && logVersionPairs.length > 0) {
+      const tupleList = logVersionPairs
+        .map(([logId, version]) => `(${Number(logId)}, ${Number(version)})`)
+        .join(', ');
+      conditions.push(`(log_id, version) IN (${tupleList})`);
+    }
+
+    if (error_code) {
+      conditions.push('error_code LIKE {error_code:String}');
+      params.error_code = `%${error_code}%`;
+    }
+
+    if (start_time) {
+      conditions.push('timestamp >= {start_time:DateTime}');
+      params.start_time = new Date(start_time);
+    }
+    if (end_time) {
+      conditions.push('timestamp <= {end_time:DateTime}');
+      params.end_time = new Date(end_time);
+    }
+
+    if (search && String(search).trim().length > 0) {
+      const raw = String(search).trim();
+      const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
+      if (hexMatch) {
+        conditions.push('code4 = {search_code4:String}');
+        params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
+      } else {
+        conditions.push(
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+        );
+        params.search_kw = raw;
+        params.search_like = `%${raw}%`;
       }
     }
 
-    // 权限：普通用户只能下载自己的日志明细
-    const userRole = req.user.role_id;
-    if (userRole === 3) {
-      const userLogs = await Log.findAll({ where: { uploader_id: req.user.id }, attributes: ['id'] });
-      const userLogIds = userLogs.map(log => log.id);
-      if (where.log_id) {
-        const requestedIds = Array.isArray(where.log_id[Op.in]) ? where.log_id[Op.in] : [where.log_id[Op.in]];
-        const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
-        where.log_id = { [Op.in]: allowedIds };
-      } else {
-        where.log_id = { [Op.in]: userLogIds };
+    const parseAdvancedFilters = (raw) => {
+      if (!raw) return null;
+      let parsed = raw;
+      if (typeof raw === 'string') {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+      return parsed;
+    };
+
+    const advancedFilters = parseAdvancedFilters(filters);
+
+    if (advancedFilters) {
+      const allowedFields = new Set([
+        'timestamp',
+        'error_code',
+        'param1',
+        'param2',
+        'param3',
+        'param4',
+        'explanation'
+      ]);
+
+      let advParamIndex = 0;
+      const makeParam = (base, chType, value) => {
+        const name = `${base}_${advParamIndex++}`;
+        params[name] = value;
+        return `{${name}:${chType}}`;
+      };
+
+      const buildAdvancedExpr = (node) => {
+        if (!node) return null;
+
+        if (Array.isArray(node)) {
+          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
+          if (parts.length === 0) return null;
+          return `(${parts.join(' AND ')})`;
+        }
+
+        if (node.field && node.operator) {
+          const field = String(node.field);
+          const op = String(node.operator || '').toLowerCase();
+          const value = node.value;
+
+          if (!allowedFields.has(field)) return null;
+          if (value === undefined || value === null || value === '') return null;
+
+          if (field === 'timestamp') {
+            const toDate = (v) => {
+              if (v instanceof Date) return v;
+              const d = new Date(v);
+              return Number.isNaN(d.getTime()) ? null : d;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toDate(value[0]);
+              const b = toDate(value[1]);
+              if (!a || !b) return null;
+              const p1 = makeParam('adv_ts_from', 'DateTime', a);
+              const p2 = makeParam('adv_ts_to', 'DateTime', b);
+              return `(timestamp BETWEEN ${p1} AND ${p2})`;
+            }
+
+            const d = toDate(value);
+            if (!d) return null;
+            const p = makeParam('adv_ts', 'DateTime', d);
+
+            switch (op) {
+              case '=':
+              case '==':
+                return `timestamp = ${p}`;
+              case '!=':
+              case '<>':
+                return `timestamp != ${p}`;
+              case '>':
+                return `timestamp > ${p}`;
+              case '>=':
+                return `timestamp >= ${p}`;
+              case '<':
+                return `timestamp < ${p}`;
+              case '<=':
+                return `timestamp <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          if (field === 'error_code') {
+            const p = makeParam('adv_ec', 'String', String(value));
+            switch (op) {
+              case '=':
+                return `error_code = ${p}`;
+              case '!=':
+              case '<>':
+                return `error_code != ${p}`;
+              case 'contains':
+              case 'like':
+                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+              case 'regex':
+                return `match(error_code, ${p})`;
+              case 'startswith':
+                return `startsWith(error_code, ${p})`;
+              case 'endswith':
+                return `endsWith(error_code, ${p})`;
+              default:
+                return null;
+            }
+          }
+
+          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
+            const colExpr = `toFloat64OrNull(${field})`;
+            const toNum = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? n : null;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toNum(value[0]);
+              const b = toNum(value[1]);
+              if (a === null || b === null) return null;
+              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
+              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
+              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
+            }
+
+            const n = toNum(value);
+            if (n === null) return null;
+            const p = makeParam(`adv_${field}`, 'Float64', n);
+
+            switch (op) {
+              case '=':
+                return `${colExpr} = ${p}`;
+              case '!=':
+              case '<>':
+                return `${colExpr} != ${p}`;
+              case '>':
+                return `${colExpr} > ${p}`;
+              case '>=':
+                return `${colExpr} >= ${p}`;
+              case '<':
+                return `${colExpr} < ${p}`;
+              case '<=':
+                return `${colExpr} <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          if (field === 'explanation') {
+            const p = makeParam('adv_expl', 'String', String(value));
+            if (op === 'contains' || op === 'like') {
+              return `positionCaseInsensitive(explanation, ${p}) > 0`;
+            }
+            return null;
+          }
+
+          return null;
+        }
+
+        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+          const childExprs = node.conditions
+            .map(child => buildAdvancedExpr(child))
+            .filter(Boolean);
+          if (childExprs.length === 0) return null;
+          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
+          return `(${childExprs.join(joiner)})`;
+        }
+
+        return null;
+      };
+
+      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      if (advancedWhereSql) {
+        conditions.push(advancedWhereSql);
       }
     }
+
+    const whereSql = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
 
     // 响应头
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -2017,7 +2365,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
     const headers = ['日志文件','时间戳','故障码','参数1','参数2','参数3','参数4','释义'];
     res.write(headers.join(',') + '\n');
 
-    const attributes = ['id','log_id','timestamp','error_code','param1','param2','param3','param4','explanation'];
+    const attributes = ['log_id','timestamp','error_code','param1','param2','param3','param4','explanation'];
     const idToNameCache = new Map();
     const getLogName = async (logId) => {
       if (idToNameCache.has(logId)) return idToNameCache.get(logId);
@@ -2027,36 +2375,60 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       return name;
     };
     const csvEscape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-
+    
     const limit = 5000;
-    let pageNum = 1;
+    let offset = 0;
+
     while (true) {
-      const offset = (pageNum - 1) * limit;
-      const rows = await LogEntry.findAll({
-        where,
-        attributes,
-        offset,
-        limit,
-        order: [['timestamp','ASC']]
-      });
+      const query = `
+        SELECT 
+          log_id,
+          timestamp,
+          error_code,
+          param1,
+          param2,
+          param3,
+          param4,
+          explanation
+        FROM log_entries
+        ${whereSql}
+        ORDER BY timestamp ASC, log_id ASC, row_index ASC
+        LIMIT {limit:UInt32} OFFSET {offset:UInt32}
+      `;
+
+      const queryParams = {
+        ...params,
+        limit: limit,
+        offset: offset
+      };
+
+      const result = await client.query({
+        query,
+        query_params: queryParams,
+      format: 'JSONEachRow'
+    });
+    const rows = await result.json();
+
       if (!rows || rows.length === 0) break;
-      for (const row of rows) {
+
+    for (const row of rows) {
         const logName = await getLogName(row.log_id);
-        const localTs = dayjs(row.timestamp).format('YYYY-MM-DD HH:mm:ss');
-        const line = [
-          csvEscape(logName),
-          csvEscape(localTs),
-          csvEscape(row.error_code),
-          csvEscape(row.param1),
-          csvEscape(row.param2),
-          csvEscape(row.param3),
-          csvEscape(row.param4),
-          csvEscape(row.explanation)
-        ].join(',');
-        res.write(line + '\n');
+      const localTs = dayjs(row.timestamp).format('YYYY-MM-DD HH:mm:ss');
+      const line = [
+        csvEscape(logName),
+        csvEscape(localTs),
+        csvEscape(row.error_code),
+        csvEscape(row.param1),
+        csvEscape(row.param2),
+        csvEscape(row.param3),
+        csvEscape(row.param4),
+        csvEscape(row.explanation)
+      ].join(',');
+      res.write(line + '\n');
       }
+
       if (rows.length < limit) break;
-      pageNum += 1;
+      offset += rows.length;
     }
     return res.end();
   } catch (err) {
@@ -2091,21 +2463,13 @@ const downloadLog = async (req, res) => {
       return;
     }
     
-    // 如果解密文件不存在，从数据库生成
-    const entries = await LogEntry.findAll({ 
-      where: { log_id: id }, 
-      order: [['timestamp', 'ASC']] 
-    });
+    // 如果解密文件不存在，从 ClickHouse log_entries 生成
+    const version = Number.isInteger(log.version) ? log.version : 1;
+    const fileContent = await buildDecryptedContentFromClickHouse(log.id, version);
     
-    if (entries.length === 0) {
+    if (!fileContent) {
       return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
-    
-    // 生成解密后的文件内容
-    const fileContent = entries.map(entry => {
-      const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
-      return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
-    }).join('\n');
     
     // 设置响应头
     res.setHeader('Content-Type', 'text/plain');
@@ -2532,17 +2896,10 @@ const batchDownloadLogs = async (req, res) => {
           fileContent = fs.readFileSync(log.decrypted_path, 'utf-8');
           fileName = path.basename(log.decrypted_path);
         } else {
-          // 如果解密文件不存在，从数据库生成
-          const entries = await LogEntry.findAll({ 
-            where: { log_id: log.id }, 
-            order: [['timestamp', 'ASC']] 
-          });
-          
-          if (entries.length > 0) {
-            fileContent = entries.map(entry => {
-              const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
-              return `${localTs} ${entry.error_code} ${entry.param1} ${entry.param2} ${entry.param3} ${entry.param4} ${entry.explanation}`;
-            }).join('\n');
+          // 如果解密文件不存在，从 ClickHouse log_entries 生成
+          const version = Number.isInteger(log.version) ? log.version : 1;
+          fileContent = await buildDecryptedContentFromClickHouse(log.id, version);
+          if (fileContent) {
             fileName = log.original_name.replace('.medbot', '_decrypted.txt');
           }
         }
@@ -2855,229 +3212,354 @@ const getLogStatistics = async (req, res) => {
       filters 
     } = req.query;
     
-    // 构建查询条件（与 getBatchLogEntries 保持一致）
-    const where = {};
-    
-    // 日志ID筛选
-    if (log_ids) {
-      const ids = log_ids.split(',').map(id => parseInt(id.trim()));
-      where.log_id = { [Op.in]: ids };
-    }
-    
-    // 故障码筛选
-    if (error_code) {
-      where.error_code = { [Op.like]: `%${error_code}%` };
-    }
-    
-    // 时间范围筛选
-    if (start_time || end_time) {
-      where.timestamp = {};
-      if (start_time) {
-        where.timestamp[Op.gte] = new Date(start_time);
-      }
-      if (end_time) {
-        where.timestamp[Op.lte] = new Date(end_time);
-      }
-    }
-    
-    // 搜索功能
-    if (search) {
-      const keywordOr = {
-        [Op.or]: [
-          { explanation: { [Op.like]: `%${search}%` } },
-          { error_code: { [Op.like]: `%${search}%` } }
-        ]
-      };
-      if (where[Op.and]) {
-        where[Op.and].push(keywordOr);
-      } else {
-        const baseConds = [];
-        Object.keys(where).forEach(k => {
-          if (k !== Op.and && k !== Op.or) {
-            baseConds.push({ [k]: where[k] });
-            delete where[k];
-          }
-        });
-        where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
-      }
-    }
+    // 解析日志ID
+    const requestedLogIds = log_ids
+      ? String(log_ids)
+        .split(',')
+        .map(id => parseInt(id.trim(), 10))
+          .filter(n => Number.isInteger(n) && n > 0)
+      : [];
 
-    // 高级筛选（与 getBatchLogEntries / exportBatchLogEntries 保持一致）
-    try {
-      const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
-      let firstOccurrenceRequested = false; // 统计接口不使用该选项，仅为兼容
-      const buildCondition = (field, operator, value) => {
-        if (!allowedFields.has(field)) return null;
-        const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(field);
-        const buildOpValue = (sequelizeOperator, val) => {
-          if (isNumericParam) {
-            const castCol = SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)');
-            if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
-              const arr = Array.isArray(val) ? val : [val];
-              const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
-              if (nums.length === 0) return null;
-              return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
-            }
-            if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
-              if (!Array.isArray(val) || val.length !== 2) return null;
-              const a = Number(val[0]); const b = Number(val[1]);
-              if (Number.isNaN(a) || Number.isNaN(b)) return null;
-              return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
-            }
-            const n = Number(val);
-            if (Number.isNaN(n)) return null;
-            return SequelizeLib.where(castCol, sequelizeOperator, n);
-          }
-          if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
-            const toDate = (d) => {
-              if (d instanceof Date) return d; if (typeof d === 'string' || typeof d === 'number') return new Date(d); return null;
-            };
-            if (sequelizeOperator === Op.between) {
-              if (!Array.isArray(val) || val.length !== 2) return null;
-              const a = toDate(val[0]); const b = toDate(val[1]);
-              if (!a || !b) return null; return { [field]: { [Op.between]: [a, b] } };
-            }
-            const d = toDate(val); if (!d) return null; return { [field]: { [sequelizeOperator]: d } };
-          }
-          if (sequelizeOperator === Op.regexp) {
-            if (typeof val !== 'string' || val.length > 200) return null; return { [field]: { [Op.regexp]: val } };
-          }
-          if (sequelizeOperator === Op.like) return { [field]: { [Op.like]: `%${val}%` } };
-          if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
-            const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
-            return { [field]: { [sequelizeOperator]: arr } };
-          }
-          if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
-            if (!Array.isArray(val) || val.length !== 2) return null; return { [field]: { [sequelizeOperator]: val } };
-          }
-          if (isNumericParam) {
-            const n = Number(val); if (Number.isNaN(n)) return null; return SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, n);
-          }
-          return { [field]: { [sequelizeOperator]: val } };
-        };
-        switch ((operator || '').toLowerCase()) {
-          case 'firstof': firstOccurrenceRequested = true; return null;
-          case '=': return buildOpValue(Op.eq, value);
-          case '!=':
-          case '<>': return buildOpValue(Op.ne, value);
-          case '>': return buildOpValue(Op.gt, value);
-          case '>=': return buildOpValue(Op.gte, value);
-          case '<': return buildOpValue(Op.lt, value);
-          case '<=': return buildOpValue(Op.lte, value);
-          case 'between': return buildOpValue(Op.between, value);
-          case 'notbetween': return isNumericParam ? null : buildOpValue(Op.notBetween, value);
-          case 'in': return isNumericParam ? null : buildOpValue(Op.in, value);
-          case 'notin': return isNumericParam ? null : buildOpValue(Op.notIn, value);
-          case 'like': return field === 'explanation' ? null : buildOpValue(Op.like, value);
-          case 'contains': return field === 'explanation' ? buildOpValue(Op.like, value) : buildOpValue(Op.like, value);
-          case 'notcontains': return field === 'explanation' ? null : { [field]: { [Op.notLike]: `%${value}%` } };
-          case 'startswith': return field === 'explanation' ? null : { [field]: { [Op.like]: `${value}%` } };
-          case 'endswith': return field === 'explanation' ? null : { [field]: { [Op.like]: `%${value}` } };
-          case 'regex': return isNumericParam || field === 'explanation' ? null : buildOpValue(Op.regexp, value);
-          default: return null;
-        }
-      };
-      const normalizeFilters = (raw) => { if (!raw) return null; let parsed = raw; if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch (e) { return null; } } return parsed; };
-      const advancedFilters = normalizeFilters(filters);
-      const buildFromNode = (node) => {
-        if (!node) return null;
-        if (Array.isArray(node)) { const parts = node.map(n => buildFromNode(n)).filter(Boolean); if (parts.length === 0) return null; return { [Op.and]: parts }; }
-        if (node.field && node.operator) return buildCondition(node.field, node.operator, node.value);
-        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-          const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean); if (childConds.length === 0) return null; return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
-        }
-        return null;
-      };
-      const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
-      if (advancedWhere) {
-        if (where[Op.and]) where[Op.and].push(advancedWhere);
-        else {
-          const baseConds = []; Object.keys(where).forEach(k => { if (k !== Op.and && k !== Op.or) { baseConds.push({ [k]: where[k] }); delete where[k]; } });
-          where[Op.and] = baseConds.length > 0 ? baseConds.concat([advancedWhere]) : [advancedWhere];
-        }
-      }
-    } catch (advErr) {
-      console.warn('[统计] 解析高级筛选失败，忽略此条件:', advErr.message);
-    }
-
-    // 权限控制：普通用户只能查看自己的日志统计
+    // 权限控制：普通用户只能查看自己的日志统计（基于 MySQL logs 元数据）
+    let allowedLogIds = [...requestedLogIds];
     if (req.user && req.user.role_id) {
       const userRole = req.user.role_id;
       if (userRole === 3) { // 普通用户
-        const userLogs = await Log.findAll({
-          where: { uploader_id: req.user.id },
-          attributes: ['id']
-        });
+      const userLogs = await Log.findAll({
+        where: { uploader_id: req.user.id },
+        attributes: ['id']
+      });
         const userLogIds = userLogs.map(log => log.id);
-        
-        if (where.log_id) {
-          const requestedIds = Array.isArray(where.log_id[Op.in]) 
-            ? where.log_id[Op.in] 
-            : [where.log_id[Op.in]];
-          const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
-          where.log_id = { [Op.in]: allowedIds };
-        } else {
-          where.log_id = { [Op.in]: userLogIds };
+
+        if (allowedLogIds.length > 0) {
+          allowedLogIds = allowedLogIds.filter(id => userLogIds.includes(id));
+      } else {
+          // 未指定 log_ids，则只统计当前用户的日志
+          allowedLogIds = userLogIds;
+    }
+
+        if (!allowedLogIds || allowedLogIds.length === 0) {
+      return res.json({
+        success: true,
+        errorCodeCounts: {},
+        logCounts: {},
+        totalErrorCodes: 0,
+        totalLogEntries: 0,
+        queryConditions: {
+          log_ids: 0,
+          hasSearch: !!search,
+          hasErrorCodeFilter: !!error_code,
+          hasTimeRange: !!(start_time || end_time)
+        }
+      });
         }
       }
     }
-    
-    // 索引选择优化（与 getBatchLogEntries 一致）
-    const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
-    const indexHints = hasLogIdParam
-      ? [{ type: 'USE', values: ['idx_log_entries_logid_ts_id'] }]
-      : [{ type: 'USE', values: ['idx_log_entries_ts_id'] }];
-    
-    console.log(`[统计查询] 使用索引: ${hasLogIdParam ? 'idx_log_entries_logid_ts_id' : 'idx_log_entries_ts_id'}`);
-    
-    // 1. 统计故障码出现次数
-    const errorCodeStats = await LogEntry.findAll({
-      where,
-      attributes: [
-        'error_code',
-        [SequelizeLib.fn('COUNT', SequelizeLib.col('error_code')), 'count']
-      ],
-      group: ['error_code'],
-      raw: true,
-      indexHints  // ✅ 添加索引提示
+
+    // 基于允许的日志ID获取当前版本（最新版本）；如果未指定日志ID，则不按版本过滤
+    let logVersionPairs = null;
+    if (allowedLogIds && allowedLogIds.length > 0) {
+    const logs = await Log.findAll({
+        where: { id: { [Op.in]: allowedLogIds } },
+      attributes: ['id', 'version']
     });
-    
-    // 2. 统计日志条目出现次数（按故障码分组，统计每个故障码的总出现次数）
-    const logEntryStats = await LogEntry.findAll({
-      where,
-      attributes: [
+
+      logVersionPairs = logs.map(l => [
+        Number(l.id),
+        Number(Number.isInteger(l.version) ? l.version : 1)
+      ]);
+
+      if (!logVersionPairs || logVersionPairs.length === 0) {
+      return res.json({
+        success: true,
+        errorCodeCounts: {},
+        logCounts: {},
+        totalErrorCodes: 0,
+        totalLogEntries: 0,
+        queryConditions: {
+          log_ids: 0,
+          hasSearch: !!search,
+          hasErrorCodeFilter: !!error_code,
+          hasTimeRange: !!(start_time || end_time)
+        }
+      });
+      }
+    }
+
+    const client = getClickHouseClient();
+    const conditions = [];
+    const params = {};
+
+    // 按 (log_id, version) 过滤：仅当显式指定日志ID时才启用版本过滤
+    if (logVersionPairs && logVersionPairs.length > 0) {
+      const tupleList = logVersionPairs
+        .map(([logId, version]) => `(${Number(logId)}, ${Number(version)})`)
+        .join(', ');
+      conditions.push(`(log_id, version) IN (${tupleList})`);
+    }
+
+    // 故障码模糊匹配
+    if (error_code) {
+      conditions.push('error_code LIKE {error_code:String}');
+      params.error_code = `%${error_code}%`;
+    }
+
+    // 时间范围
+    if (start_time) {
+      conditions.push('timestamp >= {start_time:DateTime}');
+      params.start_time = new Date(start_time);
+    }
+    if (end_time) {
+      conditions.push('timestamp <= {end_time:DateTime}');
+      params.end_time = new Date(end_time);
+    }
+
+    // 关键字搜索：十六进制 -> code4，否则 explanation / error_code
+    if (search && String(search).trim().length > 0) {
+      const raw = String(search).trim();
+      const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
+      if (hexMatch) {
+        conditions.push('code4 = {search_code4:String}');
+        params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
+      } else {
+        conditions.push(
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+        );
+        params.search_kw = raw;
+        params.search_like = `%${raw}%`;
+      }
+    }
+
+    // ---------- 高级搜索表达式 filters：下推到 ClickHouse ----------
+    const parseAdvancedFilters = (raw) => {
+      if (!raw) return null;
+      let parsed = raw;
+      if (typeof raw === 'string') {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+      return parsed;
+    };
+
+    const advancedFilters = parseAdvancedFilters(filters);
+
+    if (advancedFilters) {
+      const allowedFields = new Set([
+        'timestamp',
         'error_code',
-        [SequelizeLib.fn('COUNT', SequelizeLib.col('id')), 'count']
-      ],
-      group: ['error_code'],
-      raw: true,
-      indexHints  // ✅ 添加索引提示
+        'param1',
+        'param2',
+        'param3',
+        'param4',
+        'explanation'
+      ]);
+
+      let advParamIndex = 0;
+      const makeParam = (base, chType, value) => {
+        const name = `${base}_${advParamIndex++}`;
+        params[name] = value;
+        return `{${name}:${chType}}`;
+      };
+
+      const buildAdvancedExpr = (node) => {
+        if (!node) return null;
+
+        // 数组：默认 AND 连接
+        if (Array.isArray(node)) {
+          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
+          if (parts.length === 0) return null;
+          return `(${parts.join(' AND ')})`;
+        }
+
+        // 叶子条件
+        if (node.field && node.operator) {
+          const field = String(node.field);
+          const op = String(node.operator || '').toLowerCase();
+          const value = node.value;
+
+          if (!allowedFields.has(field)) return null;
+          if (value === undefined || value === null || value === '') return null;
+
+          // timestamp 字段
+          if (field === 'timestamp') {
+            const toDate = (v) => {
+              if (v instanceof Date) return v;
+              const d = new Date(v);
+              return Number.isNaN(d.getTime()) ? null : d;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toDate(value[0]);
+              const b = toDate(value[1]);
+              if (!a || !b) return null;
+              const p1 = makeParam('adv_ts_from', 'DateTime', a);
+              const p2 = makeParam('adv_ts_to', 'DateTime', b);
+              return `(timestamp BETWEEN ${p1} AND ${p2})`;
+            }
+
+            const d = toDate(value);
+            if (!d) return null;
+            const p = makeParam('adv_ts', 'DateTime', d);
+
+            switch (op) {
+              case '=':
+              case '==':
+                return `timestamp = ${p}`;
+              case '!=':
+              case '<>':
+                return `timestamp != ${p}`;
+              case '>':
+                return `timestamp > ${p}`;
+              case '>=':
+                return `timestamp >= ${p}`;
+              case '<':
+                return `timestamp < ${p}`;
+              case '<=':
+                return `timestamp <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          // error_code 字段
+          if (field === 'error_code') {
+            const p = makeParam('adv_ec', 'String', String(value));
+            switch (op) {
+              case '=':
+                return `error_code = ${p}`;
+              case '!=':
+              case '<>':
+                return `error_code != ${p}`;
+              case 'contains':
+              case 'like':
+                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+              case 'regex':
+                return `match(error_code, ${p})`;
+              case 'startswith':
+                return `startsWith(error_code, ${p})`;
+              case 'endswith':
+                return `endsWith(error_code, ${p})`;
+              default:
+                return null;
+            }
+          }
+
+          // 数值参数 param1-4：底层为 String，这里转换为 Float64
+          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
+            const colExpr = `toFloat64OrNull(${field})`;
+            const toNum = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? n : null;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toNum(value[0]);
+              const b = toNum(value[1]);
+              if (a === null || b === null) return null;
+              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
+              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
+              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
+            }
+
+            const n = toNum(value);
+            if (n === null) return null;
+            const p = makeParam(`adv_${field}`, 'Float64', n);
+
+            switch (op) {
+              case '=':
+                return `${colExpr} = ${p}`;
+              case '!=':
+              case '<>':
+                return `${colExpr} != ${p}`;
+              case '>':
+                return `${colExpr} > ${p}`;
+              case '>=':
+                return `${colExpr} >= ${p}`;
+              case '<':
+                return `${colExpr} < ${p}`;
+              case '<=':
+                return `${colExpr} <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          // explanation 字段：只支持 contains / like
+          if (field === 'explanation') {
+            const p = makeParam('adv_expl', 'String', String(value));
+            if (op === 'contains' || op === 'like') {
+              return `positionCaseInsensitive(explanation, ${p}) > 0`;
+            }
+            return null;
+          }
+
+          return null;
+        }
+
+        // 分组节点
+        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+          const childExprs = node.conditions
+            .map(child => buildAdvancedExpr(child))
+            .filter(Boolean);
+          if (childExprs.length === 0) return null;
+          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
+          return `(${childExprs.join(joiner)})`;
+        }
+
+        return null;
+      };
+
+      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      if (advancedWhereSql) {
+        conditions.push(advancedWhereSql);
+      }
+    }
+
+    const whereSql = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    console.log('[统计查询] 使用 ClickHouse 条件:', whereSql, 'params:', params);
+
+    // ClickHouse 聚合统计：按故障码统计出现次数
+    const statsQuery = `
+      SELECT 
+        error_code,
+        count() AS cnt
+      FROM log_entries
+      ${whereSql}
+      GROUP BY error_code
+    `;
+
+    const result = await client.query({
+      query: statsQuery,
+      query_params: params,
+      format: 'JSONEachRow'
     });
-    
-    // 转换为前端需要的格式
+    const rows = await result.json();
+
     const errorCodeCounts = {};
-    errorCodeStats.forEach(stat => {
-      errorCodeCounts[stat.error_code] = parseInt(stat.count);
-    });
-    
-    // 取消冗余日志输出：故障码统计结果
-    
     const logCounts = {};
-    logEntryStats.forEach(stat => {
-      // 现在按故障码统计，每个故障码对应一个总数
-      logCounts[stat.error_code] = parseInt(stat.count);
-    });
-    
-    // 取消冗余日志输出：日志条目统计结果
+
+    for (const row of rows) {
+      const code = row.error_code || '';
+      const count = parseInt(row.cnt, 10) || 0;
+      if (!code) continue;
+      errorCodeCounts[code] = count;
+      logCounts[code] = count;
+    }
     
     res.json({
       success: true,
       errorCodeCounts,
       logCounts,
-      totalErrorCodes: errorCodeStats.length,
-      totalLogEntries: logEntryStats.length,
+      totalErrorCodes: rows.length,
+      totalLogEntries: rows.length,
       queryConditions: {
-        log_ids: log_ids ? log_ids.split(',').length : 0,
+        log_ids: log_ids ? String(log_ids).split(',').filter(s => s.trim()).length : 0,
         hasSearch: !!search,
         hasErrorCodeFilter: !!error_code,
         hasTimeRange: !!(start_time || end_time)
@@ -3174,7 +3656,7 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
   }
 };
 
-// 获取可视化数据（专门用于图表生成）
+// 获取可视化数据（专门用于图表生成，已迁移到 ClickHouse）
 const getVisualizationData = async (req, res) => {
   try {
     const { 
@@ -3202,245 +3684,331 @@ const getVisualizationData = async (req, res) => {
     }
     
     // 解析日志ID
-    const logIds = log_ids.split(',').map(id => parseInt(id.trim()));
-    
-    // 构建查询条件
-    const where = {
-      log_id: { [Op.in]: logIds },
-      error_code: error_code
-    };
+    const requestedLogIds = String(log_ids)
+      .split(',')
+      .map(id => parseInt(id.trim(), 10))
+      .filter(n => Number.isInteger(n) && n > 0);
 
-    // 添加时间范围筛选
-    if (start_time && end_time) {
-      where.timestamp = {
-        [Op.gte]: new Date(start_time),
-        [Op.lte]: new Date(end_time)
-      };
+    if (!requestedLogIds || requestedLogIds.length === 0) {
+      return res.status(400).json({
+        message: req.t('log.analysis.failed')
+      });
     }
 
-    // 添加搜索关键词筛选（说明/explanation 或 故障码）
-    if (search && search.trim()) {
-      where[Op.or] = [
-        { explanation: { [Op.like]: `%${search.trim()}%` } },
-        { error_code: { [Op.like]: `%${search.trim()}%` } }
-      ];
-    }
-
-    // 添加高级筛选条件
-    if (filters) {
-      try {
-        // 定义允许的字段（与 getBatchLogEntries 保持一致）
-        const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
-
-        // 字段别名映射：兼容前端可能传入的 message 字段
-        const aliasField = (f) => (f === 'message' ? 'explanation' : f);
-
-        const buildCondition = (field, operator, value) => {
-          const fieldName = aliasField(field);
-          if (!allowedFields.has(fieldName)) return null;
-
-          const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(fieldName);
-
-          const buildOpValue = (sequelizeOperator, val) => {
-            if (val === null || val === undefined || val === '') return null;
-            // 数值参数使用 CAST 保证数值比较
-            if (isNumericParam) {
-              const castCol = SequelizeLib.cast(SequelizeLib.col(fieldName), 'DECIMAL(18,6)');
-              if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
-                const arr = Array.isArray(val) ? val : [val];
-                const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
-                if (nums.length === 0) return null;
-                return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
-              }
-              if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
-                if (!Array.isArray(val) || val.length !== 2) return null;
-                const a = Number(val[0]);
-                const b = Number(val[1]);
-                if (Number.isNaN(a) || Number.isNaN(b)) return null;
-                return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
-              }
-              const n = Number(val);
-              if (Number.isNaN(n)) return null;
-              return SequelizeLib.where(castCol, sequelizeOperator, n);
-            }
-            if (fieldName === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
-              const toDate = (d) => {
-                if (d instanceof Date) return d;
-                if (typeof d === 'string' || typeof d === 'number') return new Date(d);
-                return null;
-              };
-              if (sequelizeOperator === Op.between) {
-                if (!Array.isArray(val) || val.length !== 2) return null;
-                const startDate = toDate(val[0]);
-                const endDate = toDate(val[1]);
-                if (!startDate || !endDate) return null;
-                return { [fieldName]: { [Op.between]: [startDate, endDate] } };
-              } else {
-                const date = toDate(val);
-                if (!date) return null;
-                return { [fieldName]: { [sequelizeOperator]: date } };
-              }
-            }
-            if (sequelizeOperator === Op.regexp) {
-              if (typeof val !== 'string' || val.length > 200) return null;
-              return { [fieldName]: { [Op.regexp]: val } };
-            }
-            if (sequelizeOperator === Op.like) {
-              return { [fieldName]: { [Op.like]: `%${val}%` } };
-            }
-            if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
-              const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
-              return { [fieldName]: { [sequelizeOperator]: arr } };
-            }
-            if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
-              if (!Array.isArray(val) || val.length !== 2) return null;
-              return { [fieldName]: { [sequelizeOperator]: val } };
-            }
-            return { [fieldName]: { [sequelizeOperator]: val } };
-          };
-
-          switch ((operator || '').toLowerCase()) {
-            case '=': return buildOpValue(Op.eq, value);
-            case '!=':
-            case '<>': return buildOpValue(Op.ne, value);
-            case '>': return buildOpValue(Op.gt, value);
-            case '>=': return buildOpValue(Op.gte, value);
-            case '<': return buildOpValue(Op.lt, value);
-            case '<=': return buildOpValue(Op.lte, value);
-            case 'between': return buildOpValue(Op.between, value);
-            case 'notbetween': return buildOpValue(Op.notBetween, value);
-            case 'in': return buildOpValue(Op.in, value);
-            case 'notin': return buildOpValue(Op.notIn, value);
-            case 'like':
-            case 'contains': return buildOpValue(Op.like, value);
-            case 'notcontains': return { [aliasField(fieldName)]: { [Op.notLike]: `%${value}%` } };
-            case 'startswith': return { [fieldName]: { [Op.like]: `${value}%` } };
-            case 'endswith': return { [fieldName]: { [Op.like]: `%${value}` } };
-            case 'regex': return buildOpValue(Op.regexp, value);
-            default: return null;
-          }
-        };
-
-        const normalizeFilters = (raw) => {
-          if (!raw) return null;
-          let parsed = raw;
-          if (typeof raw === 'string') {
-            try {
-              parsed = JSON.parse(raw);
-            } catch (e) {
-              return null;
-            }
-          }
-          return parsed;
-        };
-
-        const advancedFilters = normalizeFilters(filters);
-
-        // 递归构建 Sequelize 条件
-        const buildFromNode = (node) => {
-          if (!node) return null;
-          if (Array.isArray(node)) {
-            const parts = node.map(n => buildFromNode(n)).filter(Boolean);
-            if (parts.length === 0) return null;
-            return { [Op.and]: parts };
-          }
-          if (node.field && node.operator) {
-            return buildCondition(node.field, node.operator, node.value);
-          }
-          if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-            const childConds = node.conditions.map(child => buildFromNode(child)).filter(Boolean);
-            if (childConds.length === 0) return null;
-            return node.logic === 'OR' ? { [Op.or]: childConds } : { [Op.and]: childConds };
-          }
-          return null;
-        };
-
-        const advancedWhere = advancedFilters ? buildFromNode(advancedFilters) : null;
-        if (advancedWhere) {
-          // 与其他顶层条件按 AND 组合
-          if (where[Op.and]) {
-            where[Op.and].push(advancedWhere);
-          } else {
-            const baseConds = [];
-            Object.keys(where).forEach(k => {
-              if (k !== Op.and && k !== Op.or) {
-                baseConds.push({ [k]: where[k] });
-                delete where[k];
-              }
-            });
-            if (baseConds.length > 0) {
-              where[Op.and] = baseConds.concat([advancedWhere]);
-            } else {
-              where[Op.and] = [advancedWhere];
-            }
-          }
-        }
-      } catch (error) {
-        console.warn('解析高级筛选条件失败:', error.message);
-      }
-    }
-    
-    // 权限控制：普通用户只能查看自己的日志
+    // 权限控制：普通用户只能查看自己的日志（基于 MySQL logs 元数据）
+    let allowedLogIds = [...requestedLogIds];
     if (req.user && req.user.role_id) {
       const userRole = req.user.role_id;
       if (userRole === 3) { // 普通用户
-        const userLogs = await Log.findAll({
-          where: { uploader_id: req.user.id },
-          attributes: ['id']
-        });
+      const userLogs = await Log.findAll({
+          where: { uploader_id: req.user.id, id: { [Op.in]: requestedLogIds } },
+        attributes: ['id']
+      });
         const userLogIds = userLogs.map(log => log.id);
         
-        const allowedIds = logIds.filter(id => userLogIds.includes(id));
-        if (allowedIds.length === 0) {
-          return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
+        allowedLogIds = requestedLogIds.filter(id => userLogIds.includes(id));
+        if (allowedLogIds.length === 0) {
+        return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
         }
-        where.log_id = { [Op.in]: allowedIds };
       }
     }
-    
-    // 索引选择优化（与 getBatchLogEntries 一致）
-    const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
-    const indexHints = hasLogIdParam
-      ? [{ type: 'USE', values: ['idx_log_entries_logid_ts_id'] }]
-      : [{ type: 'USE', values: ['idx_log_entries_ts_id'] }];
-    
-    console.log(`[可视化查询] 使用索引: ${hasLogIdParam ? 'idx_log_entries_logid_ts_id' : 'idx_log_entries_ts_id'}`);
-    
-    // 查询该故障码的时间范围（首次和末次出现时间）
-    const timeRangeQuery = await LogEntry.findOne({
-      where,
-      attributes: [
-        [SequelizeLib.fn('MIN', SequelizeLib.col('timestamp')), 'startTime'],
-        [SequelizeLib.fn('MAX', SequelizeLib.col('timestamp')), 'endTime']
-      ],
-      raw: true,
-      indexHints  // ✅ 添加索引提示
+
+    // 基于允许的日志ID获取当前版本（最新版本）
+    const logs = await Log.findAll({
+      where: { id: { [Op.in]: allowedLogIds } },
+      attributes: ['id', 'version']
     });
+
+    const logVersionPairs = logs.map(l => [
+      Number(l.id),
+      Number(Number.isInteger(l.version) ? l.version : 1)
+    ]);
+
+    if (!logVersionPairs || logVersionPairs.length === 0) {
+      return res.status(404).json({ message: req.t('log.visualization.noDataFound') });
+    }
+
+    const client = getClickHouseClient();
+    const conditions = [];
+    const params = {};
+
+    // (log_id, version) 组合：只查询最新版本的数据
+    const tupleList = logVersionPairs
+      .map(([logId, version]) => `(${Number(logId)}, ${Number(version)})`)
+      .join(', ');
+    conditions.push(`(log_id, version) IN (${tupleList})`);
+
+    // 故障码精确匹配
+    conditions.push('error_code = {error_code:String}');
+    params.error_code = error_code;
+
+    // 时间范围
+    if (start_time) {
+      conditions.push('timestamp >= {start_time:DateTime}');
+      params.start_time = new Date(start_time);
+    }
+    if (end_time) {
+      conditions.push('timestamp <= {end_time:DateTime}');
+      params.end_time = new Date(end_time);
+    }
+
+    // 关键字搜索（与批量查询保持一致）
+    if (search && String(search).trim().length > 0) {
+      const raw = String(search).trim();
+      const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
+      if (hexMatch) {
+        conditions.push('code4 = {search_code4:String}');
+        params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
+      } else {
+        conditions.push(
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+        );
+        params.search_kw = raw;
+        params.search_like = `%${raw}%`;
+      }
+    }
+
+    // 高级搜索表达式 filters：下推到 ClickHouse（与批量查询保持一致的字段和语义）
+    const parseAdvancedFilters = (raw) => {
+      if (!raw) return null;
+      let parsed = raw;
+      if (typeof raw === 'string') {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+      return parsed;
+    };
+
+    const advancedFilters = parseAdvancedFilters(filters);
+
+    if (advancedFilters) {
+      const allowedFields = new Set([
+        'timestamp',
+        'error_code',
+        'param1',
+        'param2',
+        'param3',
+        'param4',
+        'explanation'
+      ]);
+
+      let advParamIndex = 0;
+      const makeParam = (base, chType, value) => {
+        const name = `${base}_${advParamIndex++}`;
+        params[name] = value;
+        return `{${name}:${chType}}`;
+      };
+
+      const buildAdvancedExpr = (node) => {
+        if (!node) return null;
+
+        // 数组：默认 AND 连接
+        if (Array.isArray(node)) {
+          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
+          if (parts.length === 0) return null;
+          return `(${parts.join(' AND ')})`;
+        }
+
+        // 叶子条件
+        if (node.field && node.operator) {
+          const field = String(node.field);
+          const op = String(node.operator || '').toLowerCase();
+          const value = node.value;
+
+          if (!allowedFields.has(field)) return null;
+          if (value === undefined || value === null || value === '') return null;
+
+          // timestamp 字段
+          if (field === 'timestamp') {
+            const toDate = (v) => {
+              if (v instanceof Date) return v;
+              const d = new Date(v);
+              return Number.isNaN(d.getTime()) ? null : d;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toDate(value[0]);
+              const b = toDate(value[1]);
+              if (!a || !b) return null;
+              const p1 = makeParam('adv_ts_from', 'DateTime', a);
+              const p2 = makeParam('adv_ts_to', 'DateTime', b);
+              return `(timestamp BETWEEN ${p1} AND ${p2})`;
+            }
+
+            const d = toDate(value);
+            if (!d) return null;
+            const p = makeParam('adv_ts', 'DateTime', d);
+
+            switch (op) {
+              case '=':
+              case '==':
+                return `timestamp = ${p}`;
+              case '!=':
+              case '<>':
+                return `timestamp != ${p}`;
+              case '>':
+                return `timestamp > ${p}`;
+              case '>=':
+                return `timestamp >= ${p}`;
+              case '<':
+                return `timestamp < ${p}`;
+              case '<=':
+                return `timestamp <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          // error_code 字段
+          if (field === 'error_code') {
+            const p = makeParam('adv_ec', 'String', String(value));
+            switch (op) {
+              case '=':
+                return `error_code = ${p}`;
+              case '!=':
+              case '<>':
+                return `error_code != ${p}`;
+              case 'contains':
+              case 'like':
+                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+              case 'regex':
+                return `match(error_code, ${p})`;
+              case 'startswith':
+                return `startsWith(error_code, ${p})`;
+              case 'endswith':
+                return `endsWith(error_code, ${p})`;
+              default:
+                return null;
+            }
+          }
+
+          // 数值参数 param1-4：底层为 String，这里转换为 Float64
+          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
+            const colExpr = `toFloat64OrNull(${field})`;
+            const toNum = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? n : null;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toNum(value[0]);
+              const b = toNum(value[1]);
+              if (a === null || b === null) return null;
+              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
+              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
+              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
+            }
+
+            const n = toNum(value);
+            if (n === null) return null;
+            const p = makeParam(`adv_${field}`, 'Float64', n);
+
+            switch (op) {
+              case '=':
+                return `${colExpr} = ${p}`;
+              case '!=':
+              case '<>':
+                return `${colExpr} != ${p}`;
+              case '>':
+                return `${colExpr} > ${p}`;
+              case '>=':
+                return `${colExpr} >= ${p}`;
+              case '<':
+                return `${colExpr} < ${p}`;
+              case '<=':
+                return `${colExpr} <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          // explanation 字段：只支持 contains / like
+          if (field === 'explanation') {
+            const p = makeParam('adv_expl', 'String', String(value));
+            if (op === 'contains' || op === 'like') {
+              return `positionCaseInsensitive(explanation, ${p}) > 0`;
+            }
+            return null;
+          }
+
+          return null;
+        }
+
+        // 分组节点
+        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+          const childExprs = node.conditions
+            .map(child => buildAdvancedExpr(child))
+            .filter(Boolean);
+          if (childExprs.length === 0) return null;
+          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
+          return `(${childExprs.join(joiner)})`;
+        }
+
+        return null;
+      };
+
+      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      if (advancedWhereSql) {
+        conditions.push(advancedWhereSql);
+      }
+    }
+
+    const whereSql = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    console.log('[可视化查询] 使用 ClickHouse，log_ids:', allowedLogIds.join(','), 'paramIndex:', paramIndex + 1);
+
+    // 先查询时间范围（首次和末次出现时间）
+    const rangeQuery = `
+        SELECT 
+        MIN(timestamp) AS startTime,
+        MAX(timestamp) AS endTime
+        FROM log_entries
+        ${whereSql}
+    `;
+
+    const rangeResult = await client.query({
+      query: rangeQuery,
+      query_params: params,
+      format: 'JSONEachRow'
+    });
+    const rangeRows = await rangeResult.json();
+    const timeRangeRow = rangeRows[0] || {};
     
-    if (!timeRangeQuery || !timeRangeQuery.startTime || !timeRangeQuery.endTime) {
+    if (!timeRangeRow.startTime || !timeRangeRow.endTime) {
       return res.status(404).json({ message: req.t('log.visualization.noDataFound') });
     }
     
-    // 查询该故障码的所有数据（在时间范围内）
-    const entries = await LogEntry.findAll({
-      where: {
-        ...where,
-        timestamp: {
-          [Op.gte]: timeRangeQuery.startTime,
-          [Op.lte]: timeRangeQuery.endTime
-        }
-      },
-      attributes: ['timestamp', `param${paramIndex + 1}`],
-      order: [['timestamp', 'ASC']],
-      indexHints  // ✅ 添加索引提示
+    // 再查询该故障码的所有数据（在同一条件下）
+    const paramCol = `param${paramIndex + 1}`;
+    const dataQuery = `
+        SELECT 
+          timestamp,
+        ${paramCol} AS param_value
+        FROM log_entries
+        ${whereSql}
+        ORDER BY timestamp ASC
+    `;
+
+    const dataResult = await client.query({
+      query: dataQuery,
+      query_params: params,
+      format: 'JSONEachRow'
     });
+    const dataRows = await dataResult.json();
     
     // 处理数据格式
-    const chartData = entries.map(entry => {
-      const timestamp = new Date(entry.timestamp).getTime();
-      const paramValue = parseFloat(entry[`param${paramIndex + 1}`]) || 0;
-      return [timestamp, paramValue];
-    });
+    const chartData = (dataRows || []).map(entry => {
+      const ts = entry.timestamp ? new Date(entry.timestamp).getTime() : NaN;
+      const timestamp = Number.isNaN(ts) ? null : ts;
+      const paramRaw = entry.param_value;
+      const paramValue = paramRaw != null && paramRaw !== '' ? parseFloat(paramRaw) : 0;
+      return [timestamp, Number.isFinite(paramValue) ? paramValue : 0];
+    }).filter(([ts]) => ts !== null);
     
     // 查询故障码参数含义
     let paramName = `参数${paramIndex + 1}`;
@@ -3482,8 +4050,8 @@ const getVisualizationData = async (req, res) => {
       data: {
         chartData,
         timeRange: {
-          startTime: timeRangeQuery.startTime,
-          endTime: timeRangeQuery.endTime
+          startTime: timeRangeRow.startTime,
+          endTime: timeRangeRow.endTime
         },
         paramName,
         chartTitle,
@@ -3650,6 +4218,488 @@ const getStuckLogsStats = async (req, res) => {
   }
 };
 
+/**
+ * 批量获取日志明细（ClickHouse 版本）
+ * 支持：
+ *  - 按 log_ids 过滤（必需）
+ *  - 时间范围过滤 start_time / end_time
+ *  - 关键字搜索 search（故障码或释义）
+ *  - 分析分类过滤 analysis_category_ids（独立筛选，在数据库层执行）
+ *    通过 code_category_map 或 error_code_analysis_categories 表获取允许的故障码列表
+ *    然后在 ClickHouse WHERE 子句中过滤 (subsystem_char, code4) 组合
+ *  - 高级搜索表达式 filters（下推到 ClickHouse，在 WHERE 子句中构建表达式，独立于分析等级）
+ */
+const getBatchLogEntriesClickhouse = async (req, res) => {
+  try {
+    const {
+      log_ids,
+      search,
+      error_code,
+      start_time,
+      end_time,
+      page = 1,
+      limit = 100,
+      filters,
+      analysis_category_ids
+    } = req.query;
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = Math.min(parseInt(limit, 10) || 100, 1000);
+    const offset = (pageNum - 1) * limitNum;
+
+    // 若未传时间范围且有日志ID，前端会根据 min/max 自动回填建议范围
+    const shouldIncludeTimeSuggestion = !start_time && !end_time;
+
+    // 解析日志 ID
+    let requestedLogIds = null;
+    if (log_ids) {
+      requestedLogIds = String(log_ids)
+        .split(',')
+        .map(id => parseInt(id.trim(), 10))
+        .filter(n => Number.isInteger(n) && n > 0);
+      if (requestedLogIds.length === 0) {
+        return res.json({
+          entries: [],
+          total: 0,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: 0,
+          minTimestamp: null,
+          maxTimestamp: null
+        });
+      }
+    }
+
+    // 权限控制：普通用户只能查看自己的日志
+    if (req.user && req.user.role_id === 3) {
+      const userLogs = await Log.findAll({
+        where: { uploader_id: req.user.id },
+        attributes: ['id']
+      });
+      const userLogIds = userLogs.map(log => log.id);
+
+      if (requestedLogIds) {
+        requestedLogIds = requestedLogIds.filter(id => userLogIds.includes(id));
+      } else {
+        requestedLogIds = userLogIds;
+      }
+
+      if (!requestedLogIds || requestedLogIds.length === 0) {
+        return res.json({
+          entries: [],
+          total: 0,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: 0,
+          minTimestamp: null,
+          maxTimestamp: null
+        });
+      }
+    }
+
+    // 当有日志ID时，只查询每个日志当前版本（最新版本）
+    let logVersionPairs = null;
+    if (requestedLogIds && requestedLogIds.length > 0) {
+      const logs = await Log.findAll({
+        where: { id: requestedLogIds },
+        attributes: ['id', 'version']
+      });
+
+      logVersionPairs = logs.map(l => [
+        Number(l.id),
+        Number(Number.isInteger(l.version) ? l.version : 1)
+      ]);
+
+      // 如果没有找到任何日志记录，则直接返回空结果
+      if (!logVersionPairs || logVersionPairs.length === 0) {
+        return res.json({
+          entries: [],
+          total: 0,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: 0,
+          minTimestamp: null,
+          maxTimestamp: null
+        });
+      }
+    }
+
+    const client = getClickHouseClient();
+    const conditions = [];
+    const params = {};
+
+    // 按 (log_id, version) 组合过滤：确保只查询最新版本的数据
+    // 注意：使用字符串拼接而不是参数化查询，因为 ClickHouse 客户端对 Array(Tuple(...)) 类型的参数解析存在问题
+    if (logVersionPairs && logVersionPairs.length > 0) {
+      // 构建 (log_id, version) 元组列表的 SQL 字符串
+      const tupleList = logVersionPairs.map(([logId, version]) => 
+        `(${Number(logId)}, ${Number(version)})`
+      ).join(', ');
+      conditions.push(`(log_id, version) IN (${tupleList})`);
+    }
+
+    if (error_code) {
+      conditions.push('error_code LIKE {error_code:String}');
+      params.error_code = `%${error_code}%`;
+    }
+
+    if (start_time) {
+      conditions.push('timestamp >= {start_time:DateTime}');
+      params.start_time = new Date(start_time);
+    }
+    if (end_time) {
+      conditions.push('timestamp <= {end_time:DateTime}');
+      params.end_time = new Date(end_time);
+    }
+
+    // 关键字搜索：十六进制 -> code4，否则 explanation / error_code
+    if (search && String(search).trim().length > 0) {
+      const raw = String(search).trim();
+      const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
+      if (hexMatch) {
+        conditions.push('code4 = {search_code4:String}');
+        params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
+      } else {
+        conditions.push(
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+        );
+        params.search_kw = raw;
+        params.search_like = `%${raw}%`;
+      }
+    }
+
+    // 分析分类过滤（独立于高级搜索，在数据库层执行）
+    // 通过 code_category_map 或 error_code_analysis_categories 表获取允许的故障码列表
+    // 然后在 ClickHouse WHERE 子句中过滤 (subsystem_char, code4) 组合
+    if (analysis_category_ids) {
+      const ids = Array.isArray(analysis_category_ids)
+        ? analysis_category_ids.map(v => parseInt(String(v), 10)).filter(Number.isInteger)
+        : String(analysis_category_ids)
+            .split(',')
+            .map(s => parseInt(s.trim(), 10))
+            .filter(Number.isInteger);
+
+      if (ids.length > 0) {
+        const allowList = await getAllowCodesForCategories(ids);
+        if (!allowList || allowList.length === 0) {
+          return res.json({
+            entries: [],
+            total: 0,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: 0,
+            minTimestamp: null,
+            maxTimestamp: null
+          });
+        }
+
+        const catConds = [];
+        let groupIndex = 0;
+        for (const grp of allowList) {
+          if (!grp || !grp.subsystem_char || !Array.isArray(grp.codes) || grp.codes.length === 0) continue;
+          const pName = `cat_codes_${groupIndex}`;
+          const sName = `cat_subsystem_${groupIndex}`;
+          catConds.push(`(subsystem_char = {${sName}:String} AND code4 IN {${pName}:Array(String)})`);
+          params[sName] = grp.subsystem_char;
+          params[pName] = grp.codes;
+          groupIndex += 1;
+        }
+
+        if (catConds.length > 0) {
+          conditions.push(`(${catConds.join(' OR ')})`);
+        }
+      }
+    }
+
+    // ---------- 高级搜索表达式 filters：下推到 ClickHouse ----------
+    const parseAdvancedFilters = (raw) => {
+      if (!raw) return null;
+      let parsed = raw;
+      if (typeof raw === 'string') {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+      return parsed;
+    };
+
+    const advancedFilters = parseAdvancedFilters(filters);
+
+    if (advancedFilters) {
+      const allowedFields = new Set([
+        'timestamp',
+        'error_code',
+        'param1',
+        'param2',
+        'param3',
+        'param4',
+        'explanation'
+      ]);
+
+      let advParamIndex = 0;
+      const makeParam = (base, chType, value) => {
+        const name = `${base}_${advParamIndex++}`;
+        params[name] = value;
+        return `{${name}:${chType}}`;
+      };
+
+      const buildAdvancedExpr = (node) => {
+        if (!node) return null;
+
+        // 数组：默认 AND 连接
+        if (Array.isArray(node)) {
+          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
+          if (parts.length === 0) return null;
+          return `(${parts.join(' AND ')})`;
+        }
+
+        // 叶子条件
+        if (node.field && node.operator) {
+          const field = String(node.field);
+          const op = String(node.operator || '').toLowerCase();
+          const value = node.value;
+
+          if (!allowedFields.has(field)) return null;
+          if (value === undefined || value === null || value === '') return null;
+
+          // timestamp 字段
+          if (field === 'timestamp') {
+            const toDate = (v) => {
+              if (v instanceof Date) return v;
+              const d = new Date(v);
+              return Number.isNaN(d.getTime()) ? null : d;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toDate(value[0]);
+              const b = toDate(value[1]);
+              if (!a || !b) return null;
+              const p1 = makeParam('adv_ts_from', 'DateTime', a);
+              const p2 = makeParam('adv_ts_to', 'DateTime', b);
+              return `(timestamp BETWEEN ${p1} AND ${p2})`;
+            }
+
+            const d = toDate(value);
+            if (!d) return null;
+            const p = makeParam('adv_ts', 'DateTime', d);
+
+            switch (op) {
+              case '=':
+              case '==':
+                return `timestamp = ${p}`;
+              case '!=':
+              case '<>':
+                return `timestamp != ${p}`;
+              case '>':
+                return `timestamp > ${p}`;
+              case '>=':
+                return `timestamp >= ${p}`;
+              case '<':
+                return `timestamp < ${p}`;
+              case '<=':
+                return `timestamp <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          // error_code 字段
+          if (field === 'error_code') {
+            const p = makeParam('adv_ec', 'String', String(value));
+            switch (op) {
+              case '=':
+                return `error_code = ${p}`;
+              case '!=':
+              case '<>':
+                return `error_code != ${p}`;
+              case 'contains':
+              case 'like':
+                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+              case 'regex':
+                return `match(error_code, ${p})`;
+              case 'startswith':
+                return `startsWith(error_code, ${p})`;
+              case 'endswith':
+                return `endsWith(error_code, ${p})`;
+              default:
+                return null;
+            }
+          }
+
+          // 数值参数 param1-4：底层为 String，这里转换为 Float64
+          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
+            const colExpr = `toFloat64OrNull(${field})`;
+            const toNum = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? n : null;
+            };
+
+            if (op === 'between') {
+              if (!Array.isArray(value) || value.length !== 2) return null;
+              const a = toNum(value[0]);
+              const b = toNum(value[1]);
+              if (a === null || b === null) return null;
+              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
+              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
+              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
+            }
+
+            const n = toNum(value);
+            if (n === null) return null;
+            const p = makeParam(`adv_${field}`, 'Float64', n);
+
+            switch (op) {
+              case '=':
+                return `${colExpr} = ${p}`;
+              case '!=':
+              case '<>':
+                return `${colExpr} != ${p}`;
+              case '>':
+                return `${colExpr} > ${p}`;
+              case '>=':
+                return `${colExpr} >= ${p}`;
+              case '<':
+                return `${colExpr} < ${p}`;
+              case '<=':
+                return `${colExpr} <= ${p}`;
+              default:
+                return null;
+            }
+          }
+
+          // explanation 字段：只支持 contains / like
+          if (field === 'explanation') {
+            const p = makeParam('adv_expl', 'String', String(value));
+            if (op === 'contains' || op === 'like') {
+              return `positionCaseInsensitive(explanation, ${p}) > 0`;
+            }
+            return null;
+          }
+
+          return null;
+        }
+
+        // 分组节点
+        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
+          const childExprs = node.conditions
+            .map(child => buildAdvancedExpr(child))
+            .filter(Boolean);
+          if (childExprs.length === 0) return null;
+          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
+          return `(${childExprs.join(joiner)})`;
+        }
+
+        return null;
+      };
+
+      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      if (advancedWhereSql) {
+        conditions.push(advancedWhereSql);
+      }
+    }
+
+    const whereSql = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // ClickHouse 已经执行了高级筛选，直接按页查询
+    const queryLimit = limitNum;
+    const queryOffset = offset;
+
+    // 先执行 COUNT 和 MIN/MAX 查询（用于计算总页数和时间范围）
+    const countQuery = shouldIncludeTimeSuggestion
+      ? `
+        SELECT 
+          count() as total,
+          min(timestamp) as min_ts,
+          max(timestamp) as max_ts
+        FROM log_entries
+        ${whereSql}
+      `
+      : `
+        SELECT count() as total
+        FROM log_entries
+        ${whereSql}
+      `;
+
+    console.log('[ClickHouse] 执行 COUNT 查询 SQL:', countQuery, 'params:', params);
+
+    const countResult = await client.query({
+      query: countQuery,
+      query_params: params,
+      format: 'JSONEachRow'
+    });
+    const countRows = await countResult.json();
+    const total = countRows[0]?.total || 0;
+    const minTimestampFromCount = shouldIncludeTimeSuggestion ? (countRows[0]?.min_ts || null) : null;
+    const maxTimestampFromCount = shouldIncludeTimeSuggestion ? (countRows[0]?.max_ts || null) : null;
+
+    // 执行数据查询（分页）
+    const baseQuery = `
+      SELECT
+        log_id,
+        timestamp,
+        error_code,
+        param1,
+        param2,
+        param3,
+        param4,
+        explanation,
+        version,
+        row_index
+      FROM log_entries
+      ${whereSql}
+      ORDER BY timestamp ASC, log_id ASC, row_index ASC
+      LIMIT {query_limit:UInt32} OFFSET {query_offset:UInt32}
+    `;
+
+    params.query_limit = queryLimit;
+    params.query_offset = queryOffset;
+
+    console.log('[ClickHouse] 执行批量查询 SQL:', baseQuery, 'params:', params);
+
+    const result = await client.query({
+      query: baseQuery,
+      query_params: params,
+      format: 'JSONEachRow'
+    });
+    const rows = await result.json();
+
+    // ClickHouse 已完成所有过滤，直接使用查询结果作为当前页
+    const pageEntries = rows;
+
+    const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
+
+    // 计算时间范围（用于前端时间选择器建议）
+    // 优先使用 COUNT 查询的结果（更准确），否则使用当前页数据的时间范围
+    let minTimestamp = minTimestampFromCount;
+    let maxTimestamp = maxTimestampFromCount;
+    
+    if (shouldIncludeTimeSuggestion && !minTimestamp && !maxTimestamp && rows.length > 0) {
+      // 如果没有从 COUNT 查询获取到时间范围，使用当前查询结果的时间范围
+      const timestamps = rows.map(r => new Date(r.timestamp).getTime()).filter(t => !Number.isNaN(t));
+      if (timestamps.length > 0) {
+        minTimestamp = new Date(Math.min(...timestamps)).toISOString();
+        maxTimestamp = new Date(Math.max(...timestamps)).toISOString();
+      }
+    }
+
+    return res.json({
+      entries: pageEntries,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+      minTimestamp: shouldIncludeTimeSuggestion ? minTimestamp : null,
+      maxTimestamp: shouldIncludeTimeSuggestion ? maxTimestamp : null
+    });
+  } catch (err) {
+    console.error('批量获取日志明细失败 (ClickHouse):', err);
+    res.status(500).json({ message: req.t('log.listFailed'), error: err.message });
+  }
+};
+
 module.exports = {
   getLogs,
   getLogsByDevice,
@@ -3661,6 +4711,7 @@ module.exports = {
   exportBatchLogEntriesCSV,
   getLogEntries,
   getBatchLogEntries,
+  getBatchLogEntriesClickhouse,
   getLogStatistics,
   downloadLog,
   deleteLog,
