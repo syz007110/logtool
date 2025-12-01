@@ -250,6 +250,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
+import { formatTime, loadServerTimezone } from '@/utils/timeFormatter'
 
 export default {
   name: 'Surgeries',
@@ -952,14 +953,13 @@ export default {
       loadDeviceGroups({ force: true })
     }
 
-    // 日期格式化
+    // 日期格式化（使用统一的时间格式化函数，按原始时间显示，无时区转换）
     const formatDate = (dateString) => {
-      if (!dateString) return '-'
-      const dateLocale = locale.value === 'zh-CN' ? 'zh-CN' : 'en-US'
-      return new Date(dateString).toLocaleString(dateLocale)
+      return formatTime(dateString, false, false) // useServerTimezone=false, isUtcTime=false（原始时间）
     }
 
     onMounted(() => {
+      loadServerTimezone()
       loadDeviceGroups()
     })
 

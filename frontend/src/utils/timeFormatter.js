@@ -121,13 +121,13 @@ export const formatTimeShort = (timestamp, useServerTimezone = true, isUtcTime =
  * @param {boolean} useServerTimezone - 是否使用服务器时区转换，默认为true
  * @returns {string} 格式化后的时间范围字符串
  */
-export const formatSurgeryTime = (surgery, useServerTimezone = true) => {
+export const formatSurgeryTime = (surgery, useServerTimezone = false) => {
   if (!surgery.surgery_start_time || !surgery.surgery_end_time) {
     return '手术时间未确定'
   }
 
-  const start = formatTime(surgery.surgery_start_time, useServerTimezone, true) // 数据库时间默认为UTC
-  const end = formatTime(surgery.surgery_end_time, useServerTimezone, true) // 数据库时间默认为UTC
+  const start = formatTime(surgery.surgery_start_time, useServerTimezone, false) // 原始时间，无时区
+  const end = formatTime(surgery.surgery_end_time, useServerTimezone, false) // 原始时间，无时区
 
   return `${start} ~ ${end}`
 }

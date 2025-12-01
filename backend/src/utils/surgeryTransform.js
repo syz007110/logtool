@@ -1,16 +1,41 @@
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 
-// 格式化为UTC时间（用于写库，统一为UTC）
+// 格式化为本地原始时间字符串（YYYY-MM-DD HH:mm:ss），用于顶层 start_time/end_time 预览
 function formatUtcDateTime(dateLike) {
-  if (!dateLike) return null;
-  const d = new Date(dateLike);
-  if (Number.isNaN(d.getTime())) return null;
-  
-  // 直接返回Date对象，让Sequelize处理UTC转换
-  return d;
+  return formatLocalTimeString(dateLike);
 }
 
-// 递归规范化 structured_data 内所有时间戳为UTC格式 YYYY-MM-DD HH:mm:ss
+// 将时间值规范为本地时间字符串 YYYY-MM-DD HH:mm:ss（用于 structured_data 内部）
+function formatLocalTimeString(dateLike) {
+  if (!dateLike) return null;
+
+  let d;
+  if (dateLike instanceof Date) {
+    d = dateLike;
+  } else if (typeof dateLike === 'string') {
+    const s = dateLike.trim();
+    // 已经是期望格式，直接返回
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
+      return s;
+    }
+    d = new Date(s);
+  } else {
+    d = new Date(dateLike);
+  }
+
+  if (Number.isNaN(d.getTime())) return null;
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hour = pad(d.getHours());
+  const minute = pad(d.getMinutes());
+  const second = pad(d.getSeconds());
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+}
+
+// 递归规范化 structured_data 内所有时间戳为本地时间字符串 YYYY-MM-DD HH:mm:ss
 function normalizeStructuredDataTimestamps(node) {
   if (node == null) return node;
   if (Array.isArray(node)) {
@@ -24,7 +49,7 @@ function normalizeStructuredDataTimestamps(node) {
       const isTimeKey = lowerKey.endsWith('time') || lowerKey.endsWith('timestamp') ||
         lowerKey === 'start_time' || lowerKey === 'end_time' || lowerKey === 'on_time' || lowerKey === 'off_time';
       if (isTimeKey && (typeof value === 'string' || typeof value === 'number' || value instanceof Date)) {
-        const formatted = formatUtcDateTime(value);
+        const formatted = formatLocalTimeString(value);
         out[key] = formatted !== null ? formatted : value;
       } else {
         out[key] = normalizeStructuredDataTimestamps(value);

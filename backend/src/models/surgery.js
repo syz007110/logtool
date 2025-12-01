@@ -42,12 +42,12 @@ const Surgery = postgresqlSequelize.define('Surgery', {
   start_time: {
     type: DataTypes.DATE,
     allowNull: true,
-    comment: '手术开始时间 (UTC)'
+    comment: '手术开始时间（原始时间，无时区）'
   },
   end_time: {
     type: DataTypes.DATE,
     allowNull: true,
-    comment: '手术结束时间 (UTC)'
+    comment: '手术结束时间（原始时间，无时区）'
   },
   has_fault: {
     type: DataTypes.BOOLEAN,

@@ -105,10 +105,36 @@
                 v-for="(_, index) in Array(getTotalHours()).fill(0)" 
                 :key="index" 
                 class="time-grid"
-                :class="{ 'has-instrument': hasInstrumentInHour(arm, index) }"
+                :class="{ 
+                  'has-instrument': hasInstrumentInHour(arm, index)
+                }"
                 :style="getTimeGridStyle()"
               >
-                <!-- 时间线事件标记 -->
+                <!-- state: 30 时间段背景（精确到秒） -->
+                <template v-if="arm.arm_id === 0">
+                  <div
+                    v-for="(period, periodIndex) in getState30PeriodsInHour(index)"
+                    :key="`period-${periodIndex}`"
+                    class="state-30-period-background"
+                    :style="getState30PeriodStyle(period, index)"
+                  ></div>
+                </template>
+                
+                <!-- 竖线事件（错误状态）独立渲染，不影响其他事件 -->
+                <template v-if="arm.arm_id === 0">
+                  <div 
+                    v-for="(event, eventIndex) in getEventsInHour(index).filter(e => e.symbol === 'line')"
+                    :key="`line-${eventIndex}`"
+                    class="timeline-error-line"
+                    :class="{ 'highlighted': isFaultHighlighted(event) }"
+                    :style="getSingleEventStyle(event, index)"
+                    @mouseenter="handleEventHover(event, $event)"
+                    @mousemove="handleMouseMove($event)"
+                    @mouseleave="handleEventLeave"
+                  ></div>
+                </template>
+                
+                <!-- 时间线事件标记（非竖线事件） -->
                 <div 
                   v-if="arm.arm_id === 0 && hasEventInHour(index)"
                   class="timeline-event-container"
@@ -116,12 +142,13 @@
                 >
                   <!-- 事件符号和标签 -->
                   <div 
-                    v-for="(event, eventIndex) in getEventsInHour(index)"
+                    v-for="(event, eventIndex) in getEventsInHour(index).filter(e => e.symbol !== 'line')"
                     :key="`${event.type}-${eventIndex}`"
                     class="timeline-event"
                     :class="getEventClass(event.type)"
                     :style="getSingleEventStyle(event, index)"
                     :data-merged="event.isMerged"
+                    @click="handleTimelineEventClick(event, $event)"
                     @mouseenter="handleEventHover(event, $event)"
                     @mousemove="handleMouseMove($event)"
                     @mouseleave="handleEventLeave"
@@ -147,7 +174,9 @@
                       </div>
                       <!-- 单个事件：根据事件类型显示对应符号 -->
                       <div v-else>
+                        <!-- 圆形符号（手术相关事件） -->
                         <div v-if="event.symbol === 'circle'" class="circle-shape"></div>
+                        <!-- 方形符号（电源相关事件） -->
                         <div v-else class="square-shape"></div>
                       </div>
                     </div>
@@ -161,6 +190,37 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 右侧抽屉：手术事件序列列表 -->
+    <el-drawer
+      v-model="eventSequenceDrawerVisible"
+      :title="eventSequenceDrawerTitle"
+      direction="rtl"
+      :size="600"
+      destroy-on-close
+    >
+      <div class="event-sequence-wrapper">
+        <el-table
+          :data="eventSequenceList"
+          stripe
+          border
+          size="small"
+          :default-sort="{ prop: 'sequence', order: 'ascending' }"
+        >
+          <el-table-column prop="sequence" label="序号" width="80" align="center" sortable />
+          <el-table-column prop="event_name" label="事件名称" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span :title="row.event_name">{{ row.event_name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="event_time" label="事件时间" width="220" align="center">
+            <template #default="{ row }">
+              <span :title="row.event_time || '-'">{{ row.event_time || '-' }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-drawer>
 
     <!-- 右侧抽屉：器械使用情况列表 -->
     <el-drawer
@@ -218,10 +278,20 @@
             :y-axis-format="'integer'"
             :show-range-labels="true"
             :outer-padding="12"
-            :grid-padding="{ left: 20, right: 20, top: 30,  containLabel: true }"
+            :grid-padding="{ left: 20, right: 20, top: 30, bottom: 30, containLabel: true }"
+            chart-type="line"
+            :smooth="false"
+            step="start"
             line-color="#fbbf24"
             area-color="#fef3c7"
             area-color-end="#fde68a"
+            :slider-style="{
+              handleColor: '#fbbf24',
+              borderColor: 'rgba(251, 191, 36, 0.3)',
+              fillerColor: 'rgba(251, 191, 36, 0.2)',
+              backgroundColor: 'rgba(254, 243, 199, 0.15)',
+              height: 15
+            }"
           />
         </div>
       </el-card>
@@ -234,17 +304,53 @@
               <template #tab>
                 <span class="tab-title">{{$t('surgeryVisualization.networkLatency')}}</span>
               </template>
-              <div v-if="hasNetworkLatencyData" class="chart-container">
-                <TimeSeriesChart
-                  :series-data="networkLatencyChartData"
-                  :series-name="$t('surgeryVisualization.networkLatencyMs')"
-                  :height="300"
-                  :width="600"
-                  :y-axis-format="'decimal'"
-                  :show-range-labels="true"
-                  :outer-padding="12"
-                  :grid-padding="{ left: 20, right: 20, top: 30,  containLabel: true }"
-                />
+              <div v-if="hasNetworkLatencyData" class="network-latency-wrapper">
+                <div class="chart-container">
+                  <TimeSeriesChart
+                    :series-data="networkLatencyChartData"
+                    :series-name="$t('surgeryVisualization.networkLatencyMs')"
+                    :height="300"
+                    :width="600"
+                    :y-axis-format="'decimal'"
+                    :show-range-labels="true"
+                    :outer-padding="12"
+                    :grid-padding="{ left: 20, right: 20, top: 30, bottom: 30, containLabel: true }"
+                    :smooth="false"
+                    :slider-style="{
+                      handleColor: '#409EFF',
+                      borderColor: 'rgba(99, 102, 241, 0.3)',
+                      fillerColor: 'rgba(99, 102, 241, 0.2)',
+                      backgroundColor: 'rgba(148, 163, 184, 0.15)',
+                      height: 15
+                    }"
+                    @rangeChange="handleNetworkLatencyRangeChange"
+                  />
+                </div>
+                <!-- 网络延迟统计信息 -->
+                <div class="network-latency-stats">
+                  <div class="stats-row">
+                    <div class="stat-item">
+                      <span class="stat-label">RTT平均延时:</span>
+                      <span class="stat-value">{{ networkLatencyStats.avgLatency }} ms</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">RTT最大延时:</span>
+                      <span class="stat-value">{{ networkLatencyStats.maxLatency }} ms</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">RTT最小延时:</span>
+                      <span class="stat-value">{{ networkLatencyStats.minLatency }} ms</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">断网次数:</span>
+                      <span class="stat-value">{{ networkLatencyStats.disconnectionCount }}</span>
+                    </div>
+                  </div>
+                  <div class="stats-time-range" v-if="networkLatencyStats.startTime && networkLatencyStats.endTime">
+                    <span class="time-label">统计时间范围:</span>
+                    <span class="time-value">{{ formatStatsTime(networkLatencyStats.startTime) }} - {{ formatStatsTime(networkLatencyStats.endTime) }}</span>
+                  </div>
+                </div>
               </div>
             </a-tab-pane>
             
@@ -284,6 +390,8 @@
           size="small"
           :max-height="400"
           class="faults-table"
+          @row-click="handleFaultRowClick"
+          highlight-current-row
         >
           <el-table-column prop="timestamp" :label="$t('surgeryVisualization.faultTime')" width="220" align="center">
             <template #default="{ row }">
@@ -468,11 +576,28 @@ export default {
     const networkLatencyChartData = ref([])
     const operationSummaryData = ref({})
     
+    // 网络延迟原始数据（用于统计）
+    const rawNetworkLatencyData = ref([])
+    
+    // 网络延迟统计信息
+    const networkLatencyStats = ref({
+      avgLatency: 0,
+      maxLatency: 0,
+      minLatency: 0,
+      disconnectionCount: 0,
+      startTime: null,
+      endTime: null
+    })
+    
     // 远程手术数据视图切换
     const remoteDataView = ref('network')
     
     // 故障记录相关
     const faultRecords = ref([])
+    const highlightedFaultTimestamp = ref(null) // 当前高亮的故障时间戳
+    
+    // state: 30 时间段（用于背景色高亮）
+    const state30Periods = ref([]) // 格式: [{ start: timestamp, end: timestamp }]
     
     // 计算需要显示的小时数（基于所有事件的实际小时数范围）
     const getTotalHours = () => {
@@ -626,7 +751,7 @@ export default {
       const toolType = getSegmentInstrumentLabel(segment)
       const udi = segment.udi || t('surgeryVisualization.tooltipNoUdi')
       
-      // 转换UTC时间为本地时间显示
+      // 使用原始时间显示
       const installTime = segment.install_time || segment.start_time
       const removeTime = segment.remove_time || segment.end_time
       
@@ -904,6 +1029,180 @@ export default {
     }
     const handleEventLeave = () => { hoveredEvent.value = null }
     
+    // 处理时间线事件点击
+    const handleTimelineEventClick = (eventObj, event) => {
+      event.stopPropagation()
+      // 收集并排序所有事件
+      computeEventSequence()
+      // 打开左侧抽屉
+      eventSequenceDrawerVisible.value = true
+    }
+    
+    // 计算事件序列（按照用户要求的顺序）
+    const computeEventSequence = () => {
+      const events = []
+      
+      // 1. 收集所有时间线事件（开机、关机、手术开始、手术结束、安全报警）
+      timelineEvents.value.forEach(event => {
+        if (event.symbol === 'line') return // 跳过竖线事件，后面单独处理
+        const eventTime = getLocalTime(event.time)
+        if (!eventTime) return
+        
+        // 对于安全报警事件，拼接报警码
+        let eventName = event.name
+        if (event.type === 'state_error' && event.details && event.details.error_code) {
+          eventName = `安全报警 - ${event.details.error_code}`
+        }
+        
+        events.push({
+          type: event.type,
+          name: eventName,
+          time: event.time,
+          timestamp: eventTime.getTime(),
+          category: getEventCategory(event.type),
+          error_code: event.details?.error_code
+        })
+      })
+      
+      // 2. 收集所有器械安装和拔下事件
+      armsData.value.forEach(arm => {
+        if (arm.arm_id === 0) return // 跳过手术时间线
+        
+        const segments = Array.isArray(arm.segments) ? arm.segments : []
+        segments.forEach(segment => {
+          // 器械安装事件
+          if (segment.start_time || segment.install_time || segment.start) {
+            const installTime = segment.start_time || segment.install_time || segment.start
+            const eventTime = getLocalTime(installTime)
+            if (eventTime) {
+              // 获取器械类型显示名称
+              const instrumentLabel = getSegmentInstrumentLabel(segment)
+              const eventName = instrumentLabel && instrumentLabel !== t('surgeryVisualization.unknownInstrument')
+                ? `${arm.arm_id}号臂器械安装-${instrumentLabel}`
+                : `${arm.arm_id}号臂器械安装`
+              
+              events.push({
+                type: 'instrument_install',
+                name: eventName,
+                time: installTime,
+                timestamp: eventTime.getTime(),
+                category: 'instrument_install',
+                arm_id: arm.arm_id,
+                instrument_type: segment.instrument_type,
+                udi: segment.udi
+              })
+            }
+          }
+          
+          // 器械拔下事件
+          if (segment.end_time || segment.remove_time || segment.end) {
+            const removeTime = segment.end_time || segment.remove_time || segment.end
+            const eventTime = getLocalTime(removeTime)
+            if (eventTime) {
+              // 获取器械类型显示名称
+              const instrumentLabel = getSegmentInstrumentLabel(segment)
+              const eventName = instrumentLabel && instrumentLabel !== t('surgeryVisualization.unknownInstrument')
+                ? `${arm.arm_id}号臂器械拔下-${instrumentLabel}`
+                : `${arm.arm_id}号臂器械拔下`
+              
+              events.push({
+                type: 'instrument_remove',
+                name: eventName,
+                time: removeTime,
+                timestamp: eventTime.getTime(),
+                category: 'instrument_remove',
+                arm_id: arm.arm_id,
+                instrument_type: segment.instrument_type,
+                udi: segment.udi
+              })
+            }
+          }
+        })
+      })
+      
+      // 3. 收集所有报警事件（从faults字段）
+      if (faultRecords.value && faultRecords.value.length > 0) {
+        faultRecords.value.forEach(fault => {
+          if (!fault.timestamp || !fault.error_code) return
+          
+          const eventTime = getLocalTime(fault.timestamp)
+          if (!eventTime) return
+          
+          events.push({
+            type: 'fault',
+            name: `安全报警 - ${fault.error_code}`,
+            time: fault.timestamp,
+            timestamp: eventTime.getTime(),
+            category: 'fault',
+            error_code: fault.error_code
+          })
+        })
+      }
+      
+      // 4. 按时间排序
+      events.sort((a, b) => a.timestamp - b.timestamp)
+      
+      // 5. 按照用户要求的顺序重新排序
+      const sortedEvents = sortEventsBySequence(events)
+      
+      // 6. 转换为显示格式
+      eventSequenceList.value = sortedEvents.map((event, index) => ({
+        sequence: index + 1,
+        event_name: event.name,
+        event_time: formatEventTime(event),
+        event_type: event.type,
+        arm_id: event.arm_id,
+        instrument_type: event.instrument_type,
+        udi: event.udi
+      }))
+    }
+    
+    // 获取事件类别
+    const getEventCategory = (eventType) => {
+      if (eventType === 'power_on') return 'power_on'
+      if (eventType === 'power_off') return 'power_off'
+      if (eventType === 'surgery_start') return 'surgery_start'
+      if (eventType === 'surgery_end') return 'surgery_end'
+      if (eventType === 'state_error') return 'state_error'
+      if (eventType === 'fault') return 'fault'
+      if (eventType === 'previous_end') return 'previous_end'
+      return 'other'
+    }
+    
+    // 按照用户要求的顺序排序事件
+    // 顺序：开机-x号臂器械安装-x号臂器械拔下-手术开始-（关机）-（开机）-x号臂器械安装-x号臂器械拔下-安全报警-手术结束-关机
+    // 实际上按照时间顺序即可，但需要确保相同时间的事件按特定顺序排列
+    const sortEventsBySequence = (events) => {
+      // 按时间排序，相同时间的事件按以下优先级排序：
+      // 1. 开机
+      // 2. 器械安装（按臂号排序）
+      // 3. 器械拔下（按臂号排序）
+      // 4. 手术开始
+      // 5. 关机
+      // 6. 安全报警
+      // 7. 手术结束
+      return events.sort((a, b) => {
+        // 首先按时间排序
+        if (a.timestamp !== b.timestamp) {
+          return a.timestamp - b.timestamp
+        }
+        
+        // 相同时间的事件按类型优先级排序
+        const getTypePriority = (event) => {
+          if (event.category === 'power_on') return 1
+          if (event.category === 'instrument_install') return 2 + (event.arm_id || 0) * 0.01
+          if (event.category === 'instrument_remove') return 3 + (event.arm_id || 0) * 0.01
+          if (event.category === 'surgery_start') return 4
+          if (event.category === 'power_off') return 5
+          if (event.category === 'state_error' || event.category === 'fault') return 6
+          if (event.category === 'surgery_end') return 7
+          return 100
+        }
+        
+        return getTypePriority(a) - getTypePriority(b)
+      })
+    }
+    
     // 获取tooltip样式
     const getTooltipStyle = () => {
       return {
@@ -928,9 +1227,9 @@ export default {
       return localTime.toLocaleDateString(locale?.value || document?.documentElement?.lang || 'zh-CN', { weekday: 'long' })
     }
     
-    // 获取器械段tooltip标题
+    // 获取器械段tooltip标题（解析器械类型为文字）
     const getSegmentTooltipTitle = (segment) => {
-      return segment.tool_type || segment.instrument_type || t('surgeryVisualization.unknownInstrument')
+      return getSegmentInstrumentLabel(segment)
     }
     
     // 获取器械段使用时长
@@ -962,11 +1261,13 @@ export default {
       // 如果点击的是空白区域，可以执行其他操作
     }
     
-    // 检查某个小时是否有时间线事件
+    // 检查某个小时是否有时间线事件（排除竖线事件，因为竖线事件独立渲染）
     const hasEventInHour = (hour) => {
       const startHour = getTableStartHour()
       const actualHour = startHour + hour
       return timelineEvents.value.some(event => {
+        // 排除竖线事件，因为竖线事件独立渲染
+        if (event.symbol === 'line') return false
         const eventHour = getHourFromTime(event.time)
         return eventHour === actualHour
       })
@@ -993,6 +1294,7 @@ export default {
     const getEventClass = (eventType) => {
       if (eventType === 'power_on' || eventType === 'power_off') return 'timeline-event-power'
       if (eventType === 'surgery_start' || eventType === 'surgery_end' || eventType === 'previous_end') return 'timeline-event-surgery'
+      if (eventType === 'state_error') return 'timeline-event-error'
       return ''
     }
     
@@ -1037,13 +1339,23 @@ export default {
     const mergeEventsByVisualOverlap = (events, hourIndex) => {
       if (events.length <= 1) return events
       
+      // 分离竖线事件（故障事件）和其他事件
+      // 竖线事件不参与合并，也不影响其他事件的合并
+      const lineEvents = events.filter(event => event.symbol === 'line')
+      const nonLineEvents = events.filter(event => event.symbol !== 'line')
+      
+      // 如果只有竖线事件或只有1个非竖线事件，直接返回（无需合并）
+      if (nonLineEvents.length <= 1) {
+        return events
+      }
+      
       // 获取当前容器宽度（考虑缩放）
       const armColumnWidth = 120
       const baseContainerWidth = window.innerWidth - armColumnWidth
       const scaledContainerWidth = baseContainerWidth * zoomLevel.value
       
-      // 计算每个事件的视觉位置
-      const eventPositions = events.map(event => {
+      // 只对非竖线事件计算视觉位置和合并
+      const eventPositions = nonLineEvents.map(event => {
         const eventTime = getLocalTime(event.time)
         if (!eventTime) return { event, left: 50, right: 50 }
         
@@ -1112,10 +1424,23 @@ export default {
       
       const result = mergedGroups.flat()
       
+      // 将竖线事件重新添加回去（不参与合并，保持独立）
+      // 竖线事件按时间排序后添加到结果中
+      const sortedLineEvents = lineEvents.sort((a, b) => {
+        const timeA = getLocalTime(a.time)?.getTime() || 0
+        const timeB = getLocalTime(b.time)?.getTime() || 0
+        return timeA - timeB
+      })
+      
+      // 合并结果：先添加非竖线事件（已合并），再添加竖线事件（独立）
+      const finalResult = [...result, ...sortedLineEvents]
+      
       // 打印最终合并结果
       console.log(`📊 事件合并结果 (缩放级别: ${zoomLevel.value.toFixed(2)}):`, {
         originalEvents: events.length,
-        finalEvents: result.length,
+        nonLineEvents: nonLineEvents.length,
+        lineEvents: lineEvents.length,
+        finalEvents: finalResult.length,
         mergedEvents: result.filter(e => e.isMerged).length,
         mergedDetails: result.filter(e => e.isMerged).map(e => ({
           name: e.name,
@@ -1124,7 +1449,7 @@ export default {
         }))
       })
       
-      return result
+      return finalResult
     }
     
     // 处理事件组，决定是否合并显示
@@ -1215,6 +1540,7 @@ export default {
       }
       
       // 单个事件
+      if (symbol === 'line') return 'symbol-line'
       return symbol === 'circle' ? 'symbol-circle' : 'symbol-square'
     }
     
@@ -1223,7 +1549,14 @@ export default {
       return {
         position: 'relative',
         height: '100%',
-        width: '100%'
+        width: '100%',
+        top: '0',
+        left: '0',
+        transform: 'none',
+        margin: '0',
+        padding: '0',
+        display: 'block',
+        pointerEvents: 'none' // 允许点击穿透到下方的竖线
       }
     }
     
@@ -1243,14 +1576,29 @@ export default {
         return { left: '50%', transform: 'translate(-50%, -50%)' }
       }
       
-      // 直接使用事件时间的小时和分钟计算位置
+      // 使用精确到秒的分钟数计算位置（分钟 + 秒/60）
       const eventHourTime = eventTime.getHours()
       const eventMinute = eventTime.getMinutes()
+      const eventSecond = eventTime.getSeconds()
+      const preciseMinutes = eventMinute + (eventSecond / 60)
       
-      // 计算在小时内的位置百分比
-      const positionInHour = (eventMinute / 60) * 100
+      // 计算在小时内的位置百分比（精确到秒）
+      const positionInHour = (preciseMinutes / 60) * 100
       const leftPosition = Math.max(0, Math.min(100, positionInHour))
       
+      // 如果是竖线类型（错误状态），需要跨越整个行高度
+      if (event.symbol === 'line') {
+        return {
+          position: 'absolute',
+          left: `${leftPosition}%`,
+          top: '0',
+          transform: 'translateX(-50%)',
+          zIndex: 15,
+          height: '100%',
+          width: '3px',
+          pointerEvents: 'auto' // 允许鼠标事件，用于显示tooltip
+        }
+      }
       
       return {
         position: 'absolute',
@@ -1428,14 +1776,20 @@ export default {
       if (typeof v === 'number' && Number.isFinite(v)) return v
       if (typeof v === 'string') {
         let s = v.trim()
-        // 处理UTC时间格式，确保正确解析
+        // 处理原始时间格式（无时区信息），按原始时间解析
         if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
-          // 如果字符串没有时区信息，假设为UTC时间
-          if (!s.includes('Z') && !s.includes('+') && !s.includes('-', 10)) {
-            s = s.replace(' ', 'T') + 'Z' // 添加UTC标识
-          } else {
-          s = s.replace(' ', 'T')
-          }
+          // 原始时间格式：直接解析为本地时间，不添加UTC标识
+          // 提取年月日时分秒，构造Date对象
+          const [datePart, timePart] = s.split(' ')
+          const [year, month, day] = datePart.split('-').map(Number)
+          const [hour, minute, second] = timePart.split(':').map(Number)
+          const d = new Date(year, month - 1, day, hour, minute, second || 0)
+          return d.getTime()
+        }
+        // 如果是ISO格式（带Z），去掉Z按原始时间解析
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) {
+          const withoutZ = s.replace('Z', '').replace('T', ' ')
+          return toMs(withoutZ)
         }
         const tParsed = Date.parse(s)
         return Number.isFinite(tParsed) ? tParsed : NaN
@@ -1444,15 +1798,14 @@ export default {
       return Number.isFinite(t) ? t : NaN
     }
     
-    // 获取本地时间（考虑时区转换）
-    const getLocalTime = (utcTimeStr) => {
-      if (!utcTimeStr) return null
-      const utcTime = toMs(utcTimeStr)
-      if (!Number.isFinite(utcTime)) return null
+    // 获取原始时间（不进行时区转换）
+    const getLocalTime = (rawTimeStr) => {
+      if (!rawTimeStr) return null
+      const timeMs = toMs(rawTimeStr)
+      if (!Number.isFinite(timeMs)) return null
       
-      // 创建本地时间对象（自动处理时区转换）
-      const localDate = new Date(utcTime)
-      return localDate
+      // 直接使用原始时间，不进行时区转换
+      return new Date(timeMs)
     }
 
     const renderTimeline = (data) => {
@@ -1529,18 +1882,22 @@ export default {
       const surgeryEnd = data?.surgeryEnd || data?.end_time
       const previousSurgeryEnd = data?.previousSurgeryEnd || data?.timeline?.previousSurgeryEnd
       
-      // 设置时间基准：第一次开机时间往前推1小时（使用解析后的本地时间）
+      // 设置时间基准：第一次开机时间往前推1小时（使用原始时间）
       if (powerOnTime) {
         const powerOnDate = getLocalTime(powerOnTime)
         if (powerOnDate) {
           const baseTime = new Date(powerOnDate.getTime() - 60 * 60 * 1000) // 往前推1小时
-          timelineBaseTime.value = baseTime.toISOString()
+          // 使用原始时间格式字符串，不转换为UTC
+          const pad = (n) => String(n).padStart(2, '0')
+          timelineBaseTime.value = `${baseTime.getFullYear()}-${pad(baseTime.getMonth() + 1)}-${pad(baseTime.getDate())} ${pad(baseTime.getHours())}:${pad(baseTime.getMinutes())}:${pad(baseTime.getSeconds())}`
         }
       } else {
         // 如果没有开机时间，使用手术开始时间作为基准
         const fallbackTime = surgeryStart || new Date()
         const baseTime = getLocalTime(fallbackTime) || new Date(fallbackTime)
-        timelineBaseTime.value = baseTime.toISOString()
+        // 使用原始时间格式字符串，不转换为UTC
+        const pad = (n) => String(n).padStart(2, '0')
+        timelineBaseTime.value = `${baseTime.getFullYear()}-${pad(baseTime.getMonth() + 1)}-${pad(baseTime.getDate())} ${pad(baseTime.getHours())}:${pad(baseTime.getMinutes())}:${pad(baseTime.getSeconds())}`
       }
       
       // 添加其他重要事件
@@ -1553,6 +1910,65 @@ export default {
       if (surgeryEnd) {
         events.push({ time: surgeryEnd, name: t('surgeryVisualization.surgeryEnd'), type: 'surgery_end', symbol: 'circle' })
       }
+      
+      // 添加故障信息作为红色竖线标识（独立于手术事件，基于faults中的时间戳）
+      const faults = data?.surgery_stats?.faults || []
+      
+      console.log('🔍 故障数据检查:', {
+        totalFaults: faults.length,
+        faults: faults.map(f => ({
+          error_code: f.error_code,
+          timestamp: f.timestamp,
+          time: f.time, // 备用字段
+          recovery_time: f.recovery_time,
+          hasTimestamp: !!f.timestamp,
+          timestampType: typeof f.timestamp,
+          fullFault: f
+        }))
+      })
+      
+      faults.forEach((fault, index) => {
+        // 尝试从多个可能的字段获取时间戳
+        let timestamp = fault.timestamp || fault.time || null
+        
+        // 如果timestamp为空，尝试使用recovery_time（不理想，但至少能显示）
+        if (!timestamp && fault.recovery_time) {
+          timestamp = fault.recovery_time
+          console.warn(`⚠️ 故障 ${index + 1} (${fault.error_code}) 缺少timestamp，使用recovery_time:`, timestamp)
+        }
+        
+        // 检查timestamp是否有效（不能为空、null、undefined或空字符串）
+        if (timestamp && timestamp !== '' && timestamp !== null && timestamp !== undefined) {
+          // 验证timestamp格式是否可以被解析
+          const timeMs = toMs(timestamp)
+          if (Number.isFinite(timeMs)) {
+            events.push({
+              time: timestamp,
+              name: fault.error_code ? `安全报警 - ${fault.error_code}` : (t('surgeryVisualization.stateError') || '安全报警'),
+              type: 'state_error',
+              symbol: 'line', // 使用竖线标识
+              details: fault
+            })
+          } else {
+            console.warn(`⚠️ 故障 ${index + 1} (${fault.error_code}) 时间戳无法解析，跳过:`, {
+              error_code: fault.error_code,
+              timestamp: timestamp,
+              fault: fault
+            })
+          }
+        } else {
+          console.warn(`⚠️ 故障 ${index + 1} (${fault.error_code}) 缺少有效时间戳，跳过:`, {
+            error_code: fault.error_code,
+            timestamp: fault.timestamp,
+            time: fault.time,
+            recovery_time: fault.recovery_time,
+            fault: fault
+          })
+        }
+      })
+      
+      const lineEventCount = events.filter(e => e.symbol === 'line').length
+      console.log(`🔍 故障竖线统计: 总故障数=${faults.length}, 生成竖线=${lineEventCount}`)
       
       timelineEvents.value = events
       
@@ -1578,6 +1994,9 @@ export default {
       currentData.value = data
       renderTimeline(data)
       renderAlerts(data)
+      
+      // 分析 state_machine 数据，找出 state: 30 的时间段
+      analyzeState30Periods(data)
       
       // 检查是否有图表数据
       const surgeryStatsForCharts = data.surgery_stats || {}
@@ -1677,7 +2096,11 @@ export default {
       
       // 处理网络延迟数据（仅远程手术）
       if (surgeryStats.network_latency_ms && Array.isArray(surgeryStats.network_latency_ms) && meta.is_remote) {
+        // 保存原始数据用于统计
+        rawNetworkLatencyData.value = surgeryStats.network_latency_ms
         networkLatencyChartData.value = processNetworkLatencyData(surgeryStats.network_latency_ms)
+        // 初始化统计信息（使用全部数据）
+        calculateNetworkLatencyStats(null, null)
       }
       
       // 处理故障数据
@@ -1696,13 +2119,13 @@ export default {
       
       try {
         const processedData = stateMachineData.map(item => {
-          // 处理UTC时间转换 - 使用与手术时间线相同的时区转换逻辑
+          // 使用原始时间（不进行时区转换）
           const timeValue = item.time ?? item.timestamp
           if (!timeValue) {
             return [Date.now(), 0]
           }
           
-          // 使用 getLocalTime 函数进行时区转换
+          // 使用 getLocalTime 函数解析原始时间
           const localTime = getLocalTime(timeValue)
           if (!localTime) {
             return [Date.now(), 0]
@@ -1768,6 +2191,153 @@ export default {
         })
       } catch (error) {
         return []
+      }
+    }
+    
+    // 计算网络延迟统计信息
+    const calculateNetworkLatencyStats = (startMs, endMs) => {
+      if (!rawNetworkLatencyData.value || rawNetworkLatencyData.value.length === 0) {
+        networkLatencyStats.value = {
+          avgLatency: 0,
+          maxLatency: 0,
+          minLatency: 0,
+          disconnectionCount: 0,
+          startTime: null,
+          endTime: null
+        }
+        return
+      }
+      
+      try {
+        // 筛选时间范围内的数据
+        let filteredData = rawNetworkLatencyData.value.map(item => {
+          const timeValue = item.time || item.timestamp
+          if (!timeValue) return null
+          
+          const localTime = getLocalTime(timeValue)
+          if (!localTime) return null
+          
+          const timestamp = localTime.getTime()
+          const latencyValue = item.latency || item.value || 0
+          
+          return { timestamp, latency: latencyValue }
+        }).filter(item => item !== null)
+        
+        // 如果指定了时间范围，则筛选
+        if (startMs != null && endMs != null) {
+          filteredData = filteredData.filter(item => 
+            item.timestamp >= startMs && item.timestamp <= endMs
+          )
+        }
+        
+        if (filteredData.length === 0) {
+          networkLatencyStats.value = {
+            avgLatency: 0,
+            maxLatency: 0,
+            minLatency: 0,
+            disconnectionCount: 0,
+            startTime: startMs ? new Date(startMs) : null,
+            endTime: endMs ? new Date(endMs) : null
+          }
+          return
+        }
+        
+        // 筛选有效延迟数据（保留时间顺序）
+        const validData = filteredData
+          .map(item => ({
+            timestamp: item.timestamp,
+            latency: item.latency
+          }))
+          .filter(item => typeof item.latency === 'number' && !isNaN(item.latency) && isFinite(item.latency))
+          .sort((a, b) => a.timestamp - b.timestamp) // 按时间排序
+        
+        if (validData.length === 0) {
+          networkLatencyStats.value = {
+            avgLatency: 0,
+            maxLatency: 0,
+            minLatency: 0,
+            disconnectionCount: 0,
+            startTime: startMs ? new Date(startMs) : null,
+            endTime: endMs ? new Date(endMs) : null
+          }
+          return
+        }
+        
+        // 计算统计数据
+        const latencies = validData.map(item => item.latency)
+        const sum = latencies.reduce((acc, val) => acc + val, 0)
+        const avgLatency = sum / latencies.length
+        const maxLatency = Math.max(...latencies)
+        const minLatency = Math.min(...latencies)
+        
+        // 计算断网次数（RTT > 1500为断网，连续断网算一次）
+        let disconnectionCount = 0
+        let isDisconnected = false
+        for (let i = 0; i < validData.length; i++) {
+          if (validData[i].latency > 1500) {
+            if (!isDisconnected) {
+              disconnectionCount++
+              isDisconnected = true
+            }
+          } else {
+            isDisconnected = false
+          }
+        }
+        
+        // 确定时间范围
+        const actualStartTime = startMs !== null ? new Date(startMs) : (validData.length > 0 ? new Date(validData[0].timestamp) : null)
+        const actualEndTime = endMs !== null ? new Date(endMs) : (validData.length > 0 ? new Date(validData[validData.length - 1].timestamp) : null)
+        
+        networkLatencyStats.value = {
+          avgLatency: Math.round(avgLatency * 100) / 100, // 保留2位小数
+          maxLatency: Math.round(maxLatency * 100) / 100,
+          minLatency: Math.round(minLatency * 100) / 100,
+          disconnectionCount,
+          startTime: actualStartTime,
+          endTime: actualEndTime
+        }
+      } catch (error) {
+        console.error('计算网络延迟统计信息失败:', error)
+        networkLatencyStats.value = {
+          avgLatency: 0,
+          maxLatency: 0,
+          minLatency: 0,
+          disconnectionCount: 0,
+          startTime: null,
+          endTime: null
+        }
+      }
+    }
+    
+    // 处理图表时间范围变化
+    const handleNetworkLatencyRangeChange = (range) => {
+      if (!range) {
+        console.warn('handleNetworkLatencyRangeChange: range is null or undefined')
+        return
+      }
+      const startMs = range.startMs
+      const endMs = range.endMs
+      if (startMs === undefined || endMs === undefined || startMs === null || endMs === null) {
+        console.warn('handleNetworkLatencyRangeChange: invalid range', { startMs, endMs })
+        return
+      }
+      calculateNetworkLatencyStats(startMs, endMs)
+    }
+    
+    // 格式化统计时间显示
+    const formatStatsTime = (date) => {
+      if (!date) return ''
+      try {
+        const d = new Date(date)
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const hh = String(d.getHours()).padStart(2, '0')
+        const mm = String(d.getMinutes()).padStart(2, '0')
+        const ss = String(d.getSeconds()).padStart(2, '0')
+        return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
+      } catch (error) {
+        return ''
       }
     }
     
@@ -1856,6 +2426,230 @@ export default {
     // 故障表手动折叠/展开（默认最多显示5条）
     const showAllFaults = ref(false)
     const visibleFaultRows = computed(() => showAllFaults.value ? faultRecords.value : faultRecords.value.slice(0, 5))
+    
+    // 处理故障表格行点击
+    const handleFaultRowClick = (row) => {
+      if (!row || !row.timestamp) return
+      
+      // 设置高亮的故障时间戳
+      highlightedFaultTimestamp.value = row.timestamp
+      
+      // 滚动到时间线容器
+      scrollToTimeline()
+      
+      // 3秒后取消高亮
+      setTimeout(() => {
+        highlightedFaultTimestamp.value = null
+      }, 3000)
+    }
+    
+    // 判断故障事件是否被高亮
+    const isFaultHighlighted = (event) => {
+      if (!highlightedFaultTimestamp.value || !event.time) return false
+      // 比较时间戳是否匹配（允许小的误差，因为可能是不同格式的时间字符串）
+      const eventTime = getLocalTime(event.time)
+      const highlightTime = getLocalTime(highlightedFaultTimestamp.value)
+      
+      if (!eventTime || !highlightTime) {
+        // 如果无法解析，尝试字符串比较
+        return event.time === highlightedFaultTimestamp.value
+      }
+      
+      // 比较到秒级精度（允许1秒内的误差）
+      const timeDiff = Math.abs(eventTime.getTime() - highlightTime.getTime())
+      return timeDiff < 1000 // 1秒内视为同一个故障
+    }
+    
+    // 滚动到时间线容器
+    const scrollToTimeline = () => {
+      nextTick(() => {
+        const timelineContainer = document.querySelector('.timeline-container')
+        if (timelineContainer) {
+          timelineContainer.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          })
+          
+          // 添加临时高亮边框效果
+          timelineContainer.style.boxShadow = '0 0 0 2px #ff4d4f, 0 4px 12px rgba(255, 77, 79, 0.3)'
+          timelineContainer.style.transition = 'box-shadow 0.3s ease'
+          
+          // 1秒后移除边框高亮
+          setTimeout(() => {
+            timelineContainer.style.boxShadow = ''
+          }, 1000)
+        }
+      })
+    }
+    
+    // 分析 state_machine 数据，找出所有 state: 30 的时间段
+    const analyzeState30Periods = (data) => {
+      const stateMachine = data?.surgery_stats?.state_machine || []
+      if (!Array.isArray(stateMachine) || stateMachine.length === 0) {
+        state30Periods.value = []
+        return
+      }
+      
+      const periods = []
+      let currentPeriodStart = null
+      
+      // 按时间排序
+      const sortedStates = [...stateMachine].sort((a, b) => {
+        const timeA = toMs(a.time)
+        const timeB = toMs(b.time)
+        return timeA - timeB
+      })
+      
+      for (let i = 0; i < sortedStates.length; i++) {
+        const state = sortedStates[i]
+        const stateValue = Number(state.state)
+        const stateTime = state.time
+        
+        if (stateValue === 30) {
+          // 如果当前没有开启的 period，开始一个新的 period
+          if (currentPeriodStart === null) {
+            currentPeriodStart = stateTime
+          }
+        } else {
+          // 如果 state 不是 30，且之前有开启的 period，则结束该 period
+          if (currentPeriodStart !== null) {
+            periods.push({
+              start: currentPeriodStart,
+              end: stateTime
+            })
+            currentPeriodStart = null
+          }
+        }
+      }
+      
+      // 如果最后一个状态是 30，period 持续到手术结束时间（或没有结束时间则持续到最后）
+      if (currentPeriodStart !== null) {
+        const endTime = data?.end_time || sortedStates[sortedStates.length - 1]?.time || null
+        if (endTime) {
+          periods.push({
+            start: currentPeriodStart,
+            end: endTime
+          })
+        } else {
+          // 如果没有结束时间，使用最后一个状态的时间（但这种情况应该很少）
+          periods.push({
+            start: currentPeriodStart,
+            end: sortedStates[sortedStates.length - 1]?.time || currentPeriodStart
+          })
+        }
+      }
+      
+      state30Periods.value = periods
+      console.log('🔍 State 30 时间段分析:', periods)
+    }
+    
+    // 获取某个小时单元格内的所有 state: 30 时间段（精确到秒，使用与器械使用情况相同的定位方式）
+    const getState30PeriodsInHour = (hourIndex) => {
+      if (state30Periods.value.length === 0) return []
+      
+      // 获取表格起始小时
+      const tableStartHour = getTableStartHour()
+      const actualHour = tableStartHour + hourIndex
+      
+      // 找出所有与当前单元格有重叠的时间段（使用与器械使用情况相同的定位逻辑）
+      const periodsInHour = state30Periods.value
+        .map(period => {
+          // 使用与器械使用情况相同的方式获取小时和分钟
+          const startHour = getHourFromTime(period.start)
+          const endHour = getHourFromTime(period.end)
+          const startMinutes = getMinutesFromTime(period.start)
+          const endMinutes = getMinutesFromTime(period.end)
+          
+          // 检查时间段是否与当前单元格有重叠
+          // 时间段可能完全在当前单元格内，或者跨单元格
+          const periodStartHourIndex = startHour - tableStartHour
+          const periodEndHourIndex = endHour - tableStartHour
+          
+          // 时间段与当前单元格有重叠的条件：
+          // 1. 开始时间在当前单元格或之前，且结束时间在当前单元格或之后
+          // 2. 或者开始时间在当前单元格内
+          if ((periodStartHourIndex <= hourIndex && periodEndHourIndex >= hourIndex) ||
+              (periodStartHourIndex === hourIndex)) {
+            return {
+              startHour: startHour,
+              startMinutes: startMinutes,
+              endHour: endHour,
+              endMinutes: endMinutes,
+              startHourIndex: periodStartHourIndex,
+              endHourIndex: periodEndHourIndex,
+              originalPeriod: period
+            }
+          }
+          
+          return null
+        })
+        .filter(period => period !== null)
+      
+      return periodsInHour
+    }
+    
+    // 获取 state: 30 时间段在单元格内的样式（精确到秒，使用与器械使用情况相同的定位方式）
+    const getState30PeriodStyle = (period, hourIndex) => {
+      if (!period) return {}
+      
+      // 获取表格起始小时
+      const tableStartHour = getTableStartHour()
+      const actualHour = tableStartHour + hourIndex
+      
+      // 使用与器械使用情况相同的方式计算位置
+      const startHour = period.startHour
+      const endHour = period.endHour
+      
+      // 获取时间段开始和结束的 Date 对象，用于提取分钟和秒
+      const startLocalTime = getLocalTime(period.originalPeriod.start)
+      const endLocalTime = getLocalTime(period.originalPeriod.end)
+      
+      if (!startLocalTime || !endLocalTime) return {}
+      
+      // 计算时间段在当前单元格内的开始和结束位置
+      let left = 0
+      let width = 0
+      
+      if (startHour === actualHour && endHour === actualHour) {
+        // 时间段完全在当前单元格内
+        const startMinutes = startLocalTime.getMinutes() + (startLocalTime.getSeconds() / 60)
+        const endMinutes = endLocalTime.getMinutes() + (endLocalTime.getSeconds() / 60)
+        left = (startMinutes / 60) * 100
+        width = ((endMinutes - startMinutes) / 60) * 100
+      } else if (startHour === actualHour && endHour > actualHour) {
+        // 时间段从当前单元格开始，延伸到后续单元格
+        const startMinutes = startLocalTime.getMinutes() + (startLocalTime.getSeconds() / 60)
+        left = (startMinutes / 60) * 100
+        width = ((60 - startMinutes) / 60) * 100 // 延伸到单元格末尾
+      } else if (startHour < actualHour && endHour === actualHour) {
+        // 时间段从之前的单元格开始，在当前单元格结束
+        const endMinutes = endLocalTime.getMinutes() + (endLocalTime.getSeconds() / 60)
+        left = 0
+        width = (endMinutes / 60) * 100
+      } else if (startHour < actualHour && endHour > actualHour) {
+        // 时间段跨越多个单元格，当前单元格是中间部分
+        left = 0
+        width = 100 // 占满整个单元格
+      } else {
+        // 不应该到达这里，但为了安全返回空样式
+        return {}
+      }
+      
+      // 限制在单元格范围内（0-100%）
+      const actualLeft = Math.max(0, Math.min(100, left))
+      const actualWidth = Math.max(0, Math.min(100 - actualLeft, width))
+      
+      return {
+        position: 'absolute',
+        left: `${actualLeft}%`,
+        width: `${actualWidth}%`,
+        top: '0',
+        height: '100%',
+        backgroundColor: '#fff7e6',
+        zIndex: 1,
+        pointerEvents: 'none' // 不阻止鼠标事件
+      }
+    }
     
     // 处理鼠标滚轮缩放
     const handleWheel = (event) => {
@@ -2153,7 +2947,7 @@ export default {
     })
 
     // 使用统一的时间格式化函数
-    const fmtTime = (v) => formatTime(v)
+    const fmtTime = (v) => formatTime(v, false, false) // useServerTimezone=false, isUtcTime=false（原始时间）
     const timelineDisplay = reactive({ powerOn: '-', previousSurgeryEnd: '-', surgeryStart: '-', surgeryEnd: '-', powerOff: '-' })
 
     const renderAlerts = (data) => {
@@ -2204,6 +2998,13 @@ export default {
     const drawerTitle = computed(() => {
       if (!selectedArmId.value) return '器械使用情况'
       return `器械使用情况 - 工具臂 ${selectedArmId.value}`
+    })
+    
+    // 左侧抽屉：手术事件序列
+    const eventSequenceDrawerVisible = ref(false)
+    const eventSequenceList = ref([])
+    const eventSequenceDrawerTitle = computed(() => {
+      return '手术事件序列'
     })
     
     // 计算并填充抽屉内的器械列表
@@ -2326,17 +3127,29 @@ export default {
       networkLatencyChartData,
       operationSummaryData,
       remoteDataView,
+      networkLatencyStats,
+      handleNetworkLatencyRangeChange,
+      formatStatsTime,
       // 抽屉相关
       drawerVisible,
       drawerTitle,
       drawerInstruments,
       selectedArmId,
+      // 左侧抽屉：事件序列
+      eventSequenceDrawerVisible,
+      eventSequenceDrawerTitle,
+      eventSequenceList,
+      handleTimelineEventClick,
       // 故障记录相关
       faultRecords,
       formatFaultTime,
       getFaultType,
       getProcessedCount,
-      getUnprocessedCount
+      getUnprocessedCount,
+      handleFaultRowClick,
+      isFaultHighlighted,
+      getState30PeriodsInHour,
+      getState30PeriodStyle
     }
   }
 }
@@ -2650,6 +3463,22 @@ export default {
   background-color: #f5f5f5;
 }
 
+/* state: 30 时间段背景色（浅橙色） */
+/* state: 30 时间段背景（精确到秒） */
+.state-30-period-background {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background-color: #fff7e6; /* 浅橙色背景 */
+  z-index: 1;
+  pointer-events: none; /* 不阻止鼠标事件 */
+  transition: background-color 0.2s ease;
+}
+
+.time-grid:hover .state-30-period-background {
+  background-color: #ffe7ba; /* 悬停时稍深的橙色 */
+}
+
 
 /* 时间线事件容器 */
 .timeline-event-container {
@@ -2665,6 +3494,7 @@ export default {
 
 /* 单个事件样式 */
 .timeline-event {
+  pointer-events: auto; /* 恢复点击事件，确保在父容器穿透时仍可交互 */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2674,6 +3504,15 @@ export default {
   padding: 4px;
   border-radius: 4px;
   transition: background-color 0.2s ease;
+}
+
+/* 竖线事件特殊样式：不显示padding和flex布局 */
+.timeline-event-error {
+  padding: 0 !important;
+  gap: 0 !important;
+  min-width: 3px !important;
+  align-items: stretch !important;
+  display: block !important;
 }
 
 .timeline-event:hover {
@@ -2842,6 +3681,56 @@ export default {
 .timeline-event-surgery .circle-shape,
 .timeline-event-surgery .square-shape {
   border-color: #ff4d4f;
+}
+
+/* 错误状态（state: 30）红色竖线样式 - 独立渲染，不影响其他事件 */
+.timeline-error-line {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background-color: #ff4d4f;
+  /* 线形样式选项：
+     - 实线（默认）：不设置 border 或使用 border-left
+     - 虚线：border-left: 3px dashed #ff4d4f; background-color: transparent;
+     - 点线：border-left: 3px dotted #ff4d4f; background-color: transparent;
+     - 双线：border-left: 3px double #ff4d4f; background-color: transparent;
+  */
+  border-left: 2px solid #ff4d4f;
+  background-color: transparent;
+  z-index: 15;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.timeline-error-line:hover {
+  border-left-color: #ff7875;
+}
+
+/* 高亮的故障竖线样式 */
+.timeline-error-line.highlighted {
+  width: 3px;
+  border-left: 3px solid #ff4d4f;
+  background-color: transparent;
+  box-shadow: 0 0 0 1px rgba(255, 77, 79, 0.3), 
+              0 0 4px rgba(255, 77, 79, 0.4),
+              0 0 8px rgba(255, 77, 79, 0.3);
+  z-index: 20;
+  animation: fault-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes fault-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(255, 77, 79, 0.3), 
+                0 0 4px rgba(255, 77, 79, 0.4),
+                0 0 8px rgba(255, 77, 79, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 1.5px rgba(255, 77, 79, 0.4), 
+                0 0 6px rgba(255, 77, 79, 0.5),
+                0 0 12px rgba(255, 77, 79, 0.4);
+  }
 }
 
 /* 事件文本样式 */
@@ -3094,6 +3983,69 @@ export default {
   min-width: 0;
 }
 
+/* 网络延迟包装器样式 */
+.network-latency-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 网络延迟统计信息样式 */
+.network-latency-stats {
+  margin-top: 16px;
+  padding-top: 16px;
+  background-color: transparent;
+  border-top: 1px solid #dee2e6;
+  width: 100%;
+}
+
+.stats-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 12px;
+  color: #212529;
+  font-weight: 600;
+}
+
+.stats-time-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.time-label {
+  font-size: 11px;
+  color: #6c757d;
+}
+
+.time-value {
+  font-size: 11px;
+  color: #495057;
+  font-family: 'Courier New', monospace;
+}
+
 /* 远程手术数据卡片样式 */
 .remote-surgery-card {
   flex: 1;
@@ -3124,6 +4076,13 @@ export default {
 .operations-card {
   flex: 1;
   min-width: 0;
+}
+
+/* 左侧抽屉：事件序列列表 */
+.event-sequence-wrapper {
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* 抽屉内表格滚动容器，确保纵向/横向都能滚动 */
@@ -3163,6 +4122,20 @@ export default {
 
 .faults-table {
   margin-bottom: 16px;
+}
+
+/* 故障表格行可点击样式 */
+.faults-table .el-table__row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.faults-table .el-table__row:hover {
+  background-color: #f5f7fa !important;
+}
+
+.faults-table .el-table__row:active {
+  background-color: #e9ecef !important;
 }
 
 .faults-table .el-table__header {

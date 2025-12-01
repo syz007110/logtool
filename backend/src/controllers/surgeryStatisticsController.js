@@ -10,32 +10,71 @@ const LogEntry = {
 };
 const Log = require('../models/log');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const { userHasDbPermission } = require('../middlewares/permission');
 
-// 格式化为UTC时间（用于写库，统一为UTC）
-function formatUtcDateTime(dateLike) {
+// 格式化为原始时间字符串（用于显示和比对，返回纯字符串）
+function formatRawDateTime(dateLike) {
   if (!dateLike) return null;
   try {
+    let timeString = null;
+    
+    // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接使用
     if (typeof dateLike === 'string') {
       const s = dateLike.trim();
-      // 数据库常见格式：YYYY-MM-DD HH:mm:ss -> 严格按UTC解析
+      // 原始时间格式：YYYY-MM-DD HH:mm:ss（无时区信息）
       if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
-        return new Date(s.replace(' ', 'T') + 'Z');
+        timeString = s;
       }
-      // 已是ISO UTC格式
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(s)) {
-        return new Date(s);
+      // 如果是ISO格式（带Z），去掉Z并按原始时间解析
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) {
+        const withoutZ = s.replace('Z', '').replace('T', ' ');
+        // 提取年月日时分秒，按原始时间构造
+        const [datePart, timePart] = withoutZ.split(' ');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second] = timePart.split(':').map(Number);
+        const d = new Date(year, month - 1, day, hour, minute, second || 0);
+        const pad = (n) => String(n).padStart(2, '0');
+        timeString = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+      // 尝试解析为Date对象
+      else {
+        const d = new Date(dateLike);
+        if (!Number.isNaN(d.getTime())) {
+          const pad = (n) => String(n).padStart(2, '0');
+          timeString = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
       }
     }
-    const d = new Date(dateLike);
-    return Number.isNaN(d.getTime()) ? null : d;
+    // 如果是Date对象，提取年月日时分秒，按原始时间构造
+    else if (dateLike instanceof Date) {
+      const pad = (n) => String(n).padStart(2, '0');
+      timeString = `${dateLike.getFullYear()}-${pad(dateLike.getMonth() + 1)}-${pad(dateLike.getDate())} ${pad(dateLike.getHours())}:${pad(dateLike.getMinutes())}:${pad(dateLike.getSeconds())}`;
+    }
+    // 其他类型，尝试转换为Date
+    else {
+      const d = new Date(dateLike);
+      if (!Number.isNaN(d.getTime())) {
+        const pad = (n) => String(n).padStart(2, '0');
+        timeString = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+    }
+    
+    return timeString || null;
   } catch (_) {
     return null;
   }
 }
 
-// 格式化时间为UTC格式（用于API返回，保持UTC时间格式）
+// 格式化为 Sequelize.literal 对象（用于实际写入数据库，避免时区转换）
+function formatRawDateTimeForDb(dateLike) {
+  const timeString = formatRawDateTime(dateLike);
+  if (!timeString) return null;
+  // 使用 Sequelize.literal 直接插入时间字符串，避免时区转换
+  return Sequelize.literal(`'${timeString}'::timestamp`);
+}
+
+// 格式化时间为原始时间格式（用于API返回，直接返回原始时间字符串）
 function formatTimeForDisplay(dateLike) {
   if (!dateLike) return null;
   
@@ -43,10 +82,13 @@ function formatTimeForDisplay(dateLike) {
   if (dateLike instanceof Date) {
     d = dateLike;
   } else if (typeof dateLike === 'string') {
-    // 如果是UTC格式字符串，需要正确处理
+    // 如果已经是原始时间格式 YYYY-MM-DD HH:mm:ss，直接返回
     if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateLike)) {
-      // 数据库中的UTC格式，添加Z标识符
-      d = new Date(dateLike.replace(' ', 'T') + 'Z');
+      return dateLike;
+    }
+    // 如果是ISO格式，提取年月日时分秒返回原始格式
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dateLike)) {
+      d = new Date(dateLike);
     } else {
       d = new Date(dateLike);
     }
@@ -56,11 +98,18 @@ function formatTimeForDisplay(dateLike) {
   
   if (Number.isNaN(d.getTime())) return null;
   
-  // 直接返回UTC时间的ISO字符串格式，让前端处理时区转换
-  return d.toISOString();
+  // 返回原始时间格式字符串 YYYY-MM-DD HH:mm:ss（无时区信息）
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-// 递归规范化 structured_data 内所有时间戳为Date对象
+// 递归规范化 structured_data 内所有时间戳为字符串 'YYYY-MM-DD HH:mm:ss'
 function normalizeStructuredDataTimestamps(node) {
   if (node == null) return node;
   if (Array.isArray(node)) {
@@ -74,7 +123,8 @@ function normalizeStructuredDataTimestamps(node) {
       const isTimeKey = lowerKey.endsWith('time') || lowerKey.endsWith('timestamp') ||
         lowerKey === 'start_time' || lowerKey === 'end_time' || lowerKey === 'on_time' || lowerKey === 'off_time';
       if (isTimeKey && (typeof value === 'string' || typeof value === 'number' || value instanceof Date)) {
-        const formatted = formatUtcDateTime(value);
+        // 对所有时间键统一规范为字符串格式，避免出现 UTC ISO 字符串
+        const formatted = formatTimeForDisplay(value);
         out[key] = formatted !== null ? formatted : value;
       } else {
         out[key] = normalizeStructuredDataTimestamps(value);
@@ -86,16 +136,29 @@ function normalizeStructuredDataTimestamps(node) {
   return node;
 }
 
-// 辅助：格式化时间为YYYYMMDDHHMM
+// 辅助：格式化时间为YYYYMMDDHHMM（使用原始时间）
 function formatTimeForId(dateStr) {
   if (!dateStr) return '000000000000';
-  // 确保使用UTC解析生成稳定ID
+  // 使用原始时间生成稳定ID
   let d;
-  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateStr)) {
-    d = new Date(dateStr.replace(' ', 'T') + 'Z');
+  if (typeof dateStr === 'string') {
+    // 如果是原始时间格式 YYYY-MM-DD HH:mm:ss，直接提取
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+      const [datePart, timePart] = dateStr.split(' ');
+      const [year, month, day] = datePart.split('-');
+      const [hour, minute] = timePart.split(':');
+      return `${year}${month}${day}${hour}${minute}`;
+    }
+    // 如果是ISO格式，按原始时间解析（去掉Z）
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dateStr)) {
+      const isoWithoutZ = dateStr.replace('Z', '').replace('T', ' ');
+      return formatTimeForId(isoWithoutZ);
+    }
+    d = new Date(dateStr);
   } else {
     d = new Date(dateStr);
   }
+  if (Number.isNaN(d.getTime())) return '000000000000';
   const pad = (n) => String(n).padStart(2, '0');
   return (
     d.getFullYear().toString() +
@@ -135,8 +198,8 @@ function buildPostgresRowPreview(surgery, deviceId) {
     device_ids: deviceId ? [String(deviceId)] : [],
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
-    start_time: formatUtcDateTime(surgery.surgery_start_time),
-    end_time: formatUtcDateTime(surgery.surgery_end_time),
+    start_time: formatRawDateTime(surgery.surgery_start_time),
+    end_time: formatRawDateTime(surgery.surgery_end_time),
     has_fault: (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false),
     is_remote: surgery.is_remote_surgery || false,
     success: (structured?.surgery_stats?.success) ?? !(surgery.has_error || false)
@@ -185,8 +248,8 @@ function buildDbRowFromSurgery(surgery) {
     device_ids: devicePrefix ? [devicePrefix] : [],
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
-    start_time: formatUtcDateTime(surgery.surgery_start_time),
-    end_time: formatUtcDateTime(surgery.surgery_end_time),
+    start_time: formatRawDateTime(surgery.surgery_start_time),
+    end_time: formatRawDateTime(surgery.surgery_end_time),
     has_fault: hasFault,
     is_remote: surgery.is_remote_surgery || false,
     success: (structured?.surgery_stats?.success) ?? !hasFault
@@ -972,46 +1035,56 @@ const getPostgreSQLSurgeries = async (req, res) => {
   }
 };
 
-// 标准化时间格式，统一转换为UTC时间格式进行比较（忽略毫秒）
-function normalizeTimeForComparison(timeStr) {
-  if (!timeStr) return null;
+// 标准化时间格式，统一转换为原始时间格式进行比较（忽略毫秒，无时区转换）
+function normalizeTimeForComparison(timeValue) {
+  if (!timeValue) return null;
   
   try {
-    let date;
-    
-    // 处理不同的时间格式
-    if (typeof timeStr === 'string') {
-      // 如果是数据库UTC格式 YYYY-MM-DD HH:mm:ss，转换为ISO格式
-      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
-        // 数据库中的UTC格式，添加Z标识符
-        date = new Date(timeStr.replace(' ', 'T') + 'Z');
+    // 处理 Sequelize.literal 对象（从 formatRawDateTimeForDb 返回的）
+    if (timeValue && typeof timeValue === 'object' && timeValue.val) {
+      // 提取 Sequelize.literal 中的时间字符串
+      // 格式: "'2025-11-27 09:09:13'::timestamp"
+      const literalStr = String(timeValue.val);
+      const match = literalStr.match(/'([^']+)'/);
+      if (match && match[1]) {
+        return match[1]; // 返回纯时间字符串
       }
-      // 如果是ISO格式 YYYY-MM-DDTHH:mm:ss.fffZ，直接解析
-      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(timeStr)) {
-        date = new Date(timeStr);
-      } else {
-        // 其他格式直接解析
-        date = new Date(timeStr);
-      }
-    } else {
-      date = new Date(timeStr);
     }
     
-    if (isNaN(date.getTime())) return timeStr;
+    // 如果已经是原始时间格式字符串，直接返回
+    if (typeof timeValue === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
+        return timeValue;
+      }
+      // 如果是ISO格式（带Z），去掉Z并按原始时间解析
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(timeValue)) {
+        const withoutZ = timeValue.replace('Z', '').replace('T', ' ');
+        const [datePart, timePart] = withoutZ.split(' ');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second] = timePart.split(':').map(Number);
+        const d = new Date(year, month - 1, day, hour, minute, second || 0);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+    }
     
-    // 统一转换为UTC时间格式进行比较，忽略毫秒
+    // 如果是Date对象，提取原始时间
+    const date = timeValue instanceof Date ? timeValue : new Date(timeValue);
+    if (isNaN(date.getTime())) return timeValue;
+    
+    // 使用本地时间方法（不是UTC），按原始时间提取
     const pad = (n) => String(n).padStart(2, '0');
     return (
-      date.getUTCFullYear() + '-' +
-      pad(date.getUTCMonth() + 1) + '-' +
-      pad(date.getUTCDate()) + ' ' +
-      pad(date.getUTCHours()) + ':' +
-      pad(date.getUTCMinutes()) + ':' +
-      pad(date.getUTCSeconds())
+      date.getFullYear() + '-' +
+      pad(date.getMonth() + 1) + '-' +
+      pad(date.getDate()) + ' ' +
+      pad(date.getHours()) + ':' +
+      pad(date.getMinutes()) + ':' +
+      pad(date.getSeconds())
     );
   } catch (error) {
-    console.warn('时间标准化失败:', timeStr, error);
-    return timeStr;
+    console.warn('时间标准化失败:', timeValue, error);
+    return timeValue;
   }
 }
 
@@ -1111,11 +1184,30 @@ function compareSurgeryData(newData, existingData) {
     }
     
     if (isDifferent) {
+      // 对于时间字段，确保显示纯字符串（不是 Sequelize.literal 对象）
+      let displayNewValue = newValue;
+      let displayOldValue = existingValue;
+      
+      if (field === 'start_time' || field === 'end_time') {
+        // 如果是 Sequelize.literal 对象，提取时间字符串
+        if (newValue && typeof newValue === 'object' && newValue.val) {
+          const literalStr = String(newValue.val);
+          const match = literalStr.match(/'([^']+)'/);
+          if (match && match[1]) {
+            displayNewValue = match[1];
+          }
+        }
+        // 确保旧值也是纯字符串格式
+        if (existingValue) {
+          displayOldValue = formatTimeForDisplay(existingValue);
+        }
+      }
+      
       differences.push({
         field: field,
         fieldName: getFieldDisplayName(field),
-        oldValue: existingValue,
-        newValue: newValue,
+        oldValue: displayOldValue,
+        newValue: displayNewValue,
         type: 'basic'
       });
     }
@@ -1327,17 +1419,33 @@ const exportSingleSurgeryData = async (req, res) => {
       
       const differences = compareSurgeryData(postgresqlData, existingPlain);
       
-      // 显示时转换为本地时间格式，提高可读性
+      // 显示时转换为原始时间格式字符串（纯字符串，不是 Sequelize.literal 对象）
       const convertTimeFields = (data) => {
         if (!data) return data;
         const converted = { ...data };
         if (converted.start_time) {
-          console.log(`🔧 后端转换时间 - 输入: ${converted.start_time} (类型: ${typeof converted.start_time})`);
-          converted.start_time = formatTimeForDisplay(converted.start_time);
-          console.log(`🔧 后端转换时间 - 输出: ${converted.start_time}`);
+          // 如果是 Sequelize.literal 对象，提取时间字符串
+          if (converted.start_time && typeof converted.start_time === 'object' && converted.start_time.val) {
+            const literalStr = String(converted.start_time.val);
+            const match = literalStr.match(/'([^']+)'/);
+            if (match && match[1]) {
+              converted.start_time = match[1];
+            }
+          } else {
+            converted.start_time = formatTimeForDisplay(converted.start_time);
+          }
         }
         if (converted.end_time) {
-          converted.end_time = formatTimeForDisplay(converted.end_time);
+          // 如果是 Sequelize.literal 对象，提取时间字符串
+          if (converted.end_time && typeof converted.end_time === 'object' && converted.end_time.val) {
+            const literalStr = String(converted.end_time.val);
+            const match = literalStr.match(/'([^']+)'/);
+            if (match && match[1]) {
+              converted.end_time = match[1];
+            }
+          } else {
+            converted.end_time = formatTimeForDisplay(converted.end_time);
+          }
         }
         return converted;
       };
@@ -1354,7 +1462,15 @@ const exportSingleSurgeryData = async (req, res) => {
     } else {
       // 不存在相同ID，直接创建
       try {
-        const savedSurgery = await Surgery.create(postgresqlData);
+        // 在写入数据库前，将时间字段转换为 Sequelize.literal
+        const dbData = { ...postgresqlData };
+        if (dbData.start_time) {
+          dbData.start_time = formatRawDateTimeForDb(dbData.start_time);
+        }
+        if (dbData.end_time) {
+          dbData.end_time = formatRawDateTimeForDb(dbData.end_time);
+        }
+        const savedSurgery = await Surgery.create(dbData);
         console.log('手术数据已存储到PostgreSQL:', savedSurgery.surgery_id);
         
         // 转换时间字段为本地时间格式
@@ -1457,8 +1573,17 @@ const confirmOverrideSurgeryData = async (req, res) => {
       });
     }
 
+    // 在写入数据库前，将时间字段转换为 Sequelize.literal
+    const dbData = { ...postgresqlData };
+    if (dbData.start_time) {
+      dbData.start_time = formatRawDateTimeForDb(dbData.start_time);
+    }
+    if (dbData.end_time) {
+      dbData.end_time = formatRawDateTimeForDb(dbData.end_time);
+    }
+    
     // 执行覆盖操作
-    const updatedSurgery = await existingSurgery.update(postgresqlData);
+    const updatedSurgery = await existingSurgery.update(dbData);
     console.log('手术数据已覆盖:', updatedSurgery.surgery_id);
     
     // 转换时间字段为本地时间格式

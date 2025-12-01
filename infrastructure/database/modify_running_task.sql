@@ -267,3 +267,113 @@ SELECT
   (SELECT COUNT(*) FROM devices WHERE device_key IS NOT NULL AND device_key != '') AS devices_with_key,
   (SELECT COUNT(*) FROM device_keys) AS migrated_keys;
 
+
+
+-- 迁移脚本：将手术时间字段从 TIMESTAMPTZ 改为 TIMESTAMP（不带时区）
+-- 原因：日志中的时间是原始时间，没有时区概念，应该按原始时间存储和显示
+-- 
+-- 执行前请备份数据库！
+-- 
+-- 使用方式：
+--   psql -U postgres -d your_database_name -f migrate_timestamp_to_timestamp_no_tz.sql
+
+BEGIN;
+
+-- 1. 备份现有数据（可选，建议先手动备份）
+-- CREATE TABLE surgeries_backup AS SELECT * FROM surgeries;
+
+-- 2. 修改 surgeries 表的 start_time 和 end_time 字段
+-- 注意：对于现有数据，PostgreSQL会自动将TIMESTAMPTZ转换为TIMESTAMP
+-- 但为了数据准确性，我们需要先将UTC时间转换为原始时间语义
+-- 
+-- 由于之前的数据可能已经存储为UTC，我们需要在转换时考虑时区偏移
+-- 这里假设原始时间是UTC+8（中国时区），如果不同请修改
+
+-- 如果表中已有数据，先将UTC时间转换为本地时间（假设原始时间是UTC+8）
+-- 然后删除时区信息，使其成为TIMESTAMP类型
+DO $$
+DECLARE
+    row_count INTEGER;
+BEGIN
+    -- 检查是否有数据
+    SELECT COUNT(*) INTO row_count FROM surgeries WHERE start_time IS NOT NULL;
+    
+    IF row_count > 0 THEN
+        RAISE NOTICE '发现 % 条手术记录，开始转换时间字段...', row_count;
+        
+        -- 先将TIMESTAMPTZ转换为本地时间（UTC+8），然后转换为TIMESTAMP
+        -- 注意：这里假设原始数据是以UTC存储的，需要加8小时转换回原始时间
+        -- 如果数据已经是原始时间，则不需要这个转换
+        
+        -- 方案1：如果数据存储时已经是UTC，需要转换为本地时间
+        -- UPDATE surgeries 
+         SET start_time = (start_time AT TIME ZONE 'UTC' + INTERVAL '8 hours')::TIMESTAMP,
+            end_time = (end_time AT TIME ZONE 'UTC' + INTERVAL '8 hours')::TIMESTAMP
+        WHERE start_time IS NOT NULL;
+        
+        -- 方案2：如果数据就是原始时间（只是类型是TIMESTAMPTZ），直接转换类型
+        -- 使用 AT TIME ZONE 'UTC' 将TIMESTAMPTZ转换为TIMESTAMP（保留UTC时间部分）
+        -- 但实际上，如果数据本身就是原始时间，我们应该保留时间字符串不变
+        
+        -- 最佳方案：由于我们无法确定现有数据是否已经转换，建议先查看数据
+        -- 如果有数据，请先手动检查 start_time 和 end_time 的值是否正确
+        RAISE NOTICE '请先检查现有数据的时间是否正确！';
+        RAISE NOTICE '如果时间正确，可以继续执行；如果时间不正确，请先手动修复数据。';
+    ELSE
+        RAISE NOTICE '表中没有数据，可以直接修改字段类型';
+    END IF;
+END $$;
+
+-- 3. 修改字段类型（先修改为不带时区的TIMESTAMP）
+-- 使用 USING 子句确保转换正确
+ALTER TABLE surgeries 
+    ALTER COLUMN start_time TYPE TIMESTAMP USING start_time::TIMESTAMP,
+    ALTER COLUMN end_time TYPE TIMESTAMP USING end_time::TIMESTAMP;
+
+-- 4. 修改注释说明
+COMMENT ON COLUMN surgeries.start_time IS '手术开始时间（原始时间，无时区）';
+COMMENT ON COLUMN surgeries.end_time IS '手术结束时间（原始时间，无时区）';
+
+-- 5. 验证修改结果
+DO $$
+DECLARE
+    start_time_type TEXT;
+    end_time_type TEXT;
+BEGIN
+    SELECT data_type INTO start_time_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'surgeries' AND column_name = 'start_time';
+    
+    SELECT data_type INTO end_time_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'surgeries' AND column_name = 'end_time';
+    
+    IF start_time_type = 'timestamp without time zone' AND end_time_type = 'timestamp without time zone' THEN
+        RAISE NOTICE '✅ 字段类型修改成功：start_time 和 end_time 现在都是 TIMESTAMP（不带时区）';
+    ELSE
+        RAISE EXCEPTION '❌ 字段类型修改失败：start_time=%, end_time=%', start_time_type, end_time_type;
+    END IF;
+END $$;
+
+-- 6. 更新索引（TIMESTAMP类型的索引与TIMESTAMPTZ兼容，通常不需要重建）
+-- 但为了保险起见，我们检查并重建索引
+DROP INDEX IF EXISTS idx_surgeries_start_time;
+DROP INDEX IF EXISTS idx_surgeries_end_time;
+
+CREATE INDEX idx_surgeries_start_time ON surgeries(start_time);
+CREATE INDEX idx_surgeries_end_time ON surgeries(end_time);
+
+-- 索引重建完成
+
+COMMIT;
+
+-- 显示修改后的表结构
+SELECT 
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM information_schema.columns 
+WHERE table_name = 'surgeries' 
+AND column_name IN ('start_time', 'end_time')
+ORDER BY ordinal_position;

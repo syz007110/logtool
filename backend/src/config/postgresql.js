@@ -25,10 +25,10 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: false,
-      timezone: 'UTC'  // 统一使用UTC时区
-    },
-    timezone: 'UTC'  // Sequelize时区设置
+      ssl: false
+      // 不设置时区，让TIMESTAMP字段按原始时间存储和读取（无时区转换）
+    }
+    // 不设置timezone，让TIMESTAMP字段按原始时间处理（无时区转换）
   },
   test: {
     username: process.env.POSTGRES_USER || 'postgres',
@@ -49,10 +49,10 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: false,
-      timezone: 'UTC'  // 统一使用UTC时区
-    },
-    timezone: 'UTC'  // Sequelize时区设置
+      ssl: false
+      // 不设置时区，让TIMESTAMP字段按原始时间存储和读取（无时区转换）
+    }
+    // 不设置timezone，让TIMESTAMP字段按原始时间处理（无时区转换）
   },
   production: {
     username: process.env.POSTGRES_USER,
@@ -74,10 +74,10 @@ const postgresqlConfig = {
       freezeTableName: true
     },
     dialectOptions: {
-      ssl: false,
-      timezone: 'UTC'  // 统一使用UTC时区
-    },
-    timezone: 'UTC'  // Sequelize时区设置
+      ssl: false
+      // 不设置时区，让TIMESTAMP字段按原始时间存储和读取（无时区转换）
+    }
+    // 不设置timezone，让TIMESTAMP字段按原始时间处理（无时区转换）
   }
 };
 

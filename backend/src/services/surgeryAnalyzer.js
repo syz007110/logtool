@@ -905,7 +905,7 @@ class SurgeryAnalyzer {
         if (usage && usage.startTime && usage.endTime === null) {
           const startMs = new Date(usage.startTime).getTime();
           const endMs = Math.max(startMs + 1000, shutdownMs);
-          usage.endTime = new Date(endMs).toISOString();
+          usage.endTime = this.formatRawTimeString(new Date(endMs));
           const durationSeconds = Math.max(1, Math.floor((endMs - startMs) / 1000));
           usage.duration_seconds = durationSeconds;
           usage.duration = Math.floor(durationSeconds / 60);
@@ -1349,7 +1349,7 @@ class SurgeryAnalyzer {
             const startMs = new Date(u.startTime).getTime();
             const endMs = new Date(fallbackEnd).getTime();
             const adjustedEndMs = Math.max(startMs + 1000, endMs);
-            u.endTime = new Date(adjustedEndMs).toISOString();
+            u.endTime = this.formatRawTimeString(new Date(adjustedEndMs));
             const durationSeconds = Math.max(1, Math.floor((adjustedEndMs - startMs) / 1000));
             u.duration_seconds = durationSeconds;
             u.duration = Math.floor(durationSeconds / 60);
@@ -1376,6 +1376,46 @@ class SurgeryAnalyzer {
    */
   getStateMachineStateName(stateCode) {
     return STATE_MACHINE_STATES[stateCode] || '未知状态';
+  }
+
+  /**
+   * 格式化时间为原始时间格式 YYYY-MM-DD HH:mm:ss（无时区信息）
+   * @param {string|Date|number} dateLike - 时间值
+   * @returns {string|null} 格式化后的时间字符串
+   */
+  formatRawTimeString(dateLike) {
+    if (!dateLike) return null;
+    try {
+      let d;
+      if (typeof dateLike === 'string') {
+        // 如果已经是原始时间格式，直接返回
+        if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateLike)) {
+          return dateLike;
+        }
+        // 如果是ISO格式（带Z），移除Z并按原始时间解析
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dateLike)) {
+          d = new Date(dateLike);
+        } else {
+          d = new Date(dateLike);
+        }
+      } else {
+        d = new Date(dateLike);
+      }
+      
+      if (isNaN(d.getTime())) return null;
+      
+      // 格式化为 YYYY-MM-DD HH:mm:ss
+      const pad = (n) => String(n).padStart(2, '0');
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const minutes = pad(d.getMinutes());
+      const seconds = pad(d.getSeconds());
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -1410,7 +1450,7 @@ class SurgeryAnalyzer {
             if (currentOffTime < onTime) {
               powerCycles.push({
                 on_time: null,
-                off_time: currentOffTime.toISOString()
+                off_time: this.formatRawTimeString(currentOffTime)
               });
               offIndex++;
             } else {
@@ -1422,8 +1462,8 @@ class SurgeryAnalyzer {
           
           // 为当前开机时间配对有效的关机时间
           powerCycles.push({
-            on_time: onTime.toISOString(),
-            off_time: validOffTime ? validOffTime.toISOString() : null
+            on_time: this.formatRawTimeString(onTime),
+            off_time: validOffTime ? this.formatRawTimeString(validOffTime) : null
           });
           
           // 更新索引
@@ -1435,7 +1475,7 @@ class SurgeryAnalyzer {
           // 如果只有关机时间没有对应的开机时间，创建一个null开机时间的记录
           powerCycles.push({
             on_time: null,
-            off_time: offTime.toISOString()
+            off_time: this.formatRawTimeString(offTime)
           });
           offIndex++;
         }
@@ -1444,7 +1484,7 @@ class SurgeryAnalyzer {
       // 如果只有开机时间没有关机时间
       surgery.power_on_times.forEach(onTime => {
         powerCycles.push({
-          on_time: new Date(onTime).toISOString(),
+          on_time: this.formatRawTimeString(new Date(onTime)),
           off_time: null
         });
       });
@@ -1453,7 +1493,7 @@ class SurgeryAnalyzer {
       surgery.shutdown_times.forEach(offTime => {
         powerCycles.push({
           on_time: null,
-          off_time: new Date(offTime).toISOString()
+          off_time: this.formatRawTimeString(new Date(offTime))
         });
       });
     }

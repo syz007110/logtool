@@ -12,8 +12,8 @@ CREATE TABLE surgeries (
     device_ids TEXT[],               -- 设备编号
     log_entry_start_id INT,          -- 起始日志条目
     log_entry_end_id INT,            -- 结束日志条目
-    start_time TIMESTAMPTZ,
-    end_time TIMESTAMPTZ,
+    start_time TIMESTAMP,  -- 手术开始时间（原始时间，无时区概念）
+    end_time TIMESTAMP,    -- 手术结束时间（原始时间，无时区概念）
     has_fault BOOLEAN,
     is_remote BOOLEAN,
     success BOOLEAN,

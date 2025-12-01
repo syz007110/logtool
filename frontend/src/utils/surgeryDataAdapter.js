@@ -4,35 +4,47 @@
  */
 
 /**
- * 将时间格式标准化为ISO UTC格式
- * 处理数据库中的UTC时间格式转换
- * @param {string} timeStr - 时间字符串
- * @returns {string} ISO格式的UTC时间字符串
+ * 保持原始时间格式（不进行时区转换）
+ * 将所有时间统一为 YYYY-MM-DD HH:mm:ss 格式的原始时间字符串
+ * @param {string|Date} timeValue - 时间字符串或Date对象
+ * @returns {string} 原始时间格式字符串 (YYYY-MM-DD HH:mm:ss)
  */
-function normalizeTimeToISO (timeStr) {
-  if (!timeStr) return null
+function normalizeTimeToRaw (timeValue) {
+  if (!timeValue) return null
 
   try {
-    // 如果是数据库格式的UTC时间字符串 (YYYY-MM-DD HH:mm:ss)
-    if (typeof timeStr === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
-      // 添加UTC标识符
-      const utcTime = timeStr.replace(' ', 'T') + 'Z'
-      const date = new Date(utcTime)
-
-      if (isNaN(date.getTime())) {
-        console.warn('⚠️ 无效的时间格式:', timeStr)
-        return timeStr
-      }
-
-      // 返回ISO格式的UTC时间
-      return date.toISOString()
+    // 如果已经是原始时间格式字符串，直接返回
+    if (typeof timeValue === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
+      return timeValue
     }
 
-    // 如果已经是ISO格式或时间戳，直接返回
-    return timeStr
+    // 如果是ISO格式（带Z），去掉Z并按原始时间解析
+    if (typeof timeValue === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(timeValue)) {
+      const withoutZ = timeValue.replace('Z', '').replace('T', ' ')
+      // 提取年月日时分秒，按原始时间构造
+      const [datePart, timePart] = withoutZ.split(' ')
+      if (datePart && timePart) {
+        const [year, month, day] = datePart.split('-').map(Number)
+        const [hour, minute, second] = timePart.split(':').map(Number)
+        const d = new Date(year, month - 1, day, hour, minute, second || 0)
+        const pad = (n) => String(n).padStart(2, '0')
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+      }
+    }
+
+    // 如果是Date对象，提取原始时间
+    const date = timeValue instanceof Date ? timeValue : new Date(timeValue)
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ 无效的时间格式:', timeValue)
+      return timeValue
+    }
+
+    // 使用本地时间方法（不是UTC），按原始时间提取
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
   } catch (error) {
-    console.warn('⚠️ 时间转换失败:', timeStr, error)
-    return timeStr
+    console.warn('⚠️ 时间转换失败:', timeValue, error)
+    return timeValue
   }
 }
 
@@ -58,9 +70,9 @@ export function adaptSurgeryData (rawData) {
     structuredData = rawData.postgresql_row_preview.structured_data
     metadata = {
       surgery_id: rawData.surgery_id || rawData.postgresql_row_preview.surgery_id,
-      // 统一标准化为ISO UTC
-      start_time: normalizeTimeToISO(rawData.surgery_start_time || rawData.postgresql_row_preview.start_time),
-      end_time: normalizeTimeToISO(rawData.surgery_end_time || rawData.postgresql_row_preview.end_time),
+      // 统一标准化为原始时间格式（YYYY-MM-DD HH:mm:ss）
+      start_time: normalizeTimeToRaw(rawData.surgery_start_time || rawData.postgresql_row_preview.start_time),
+      end_time: normalizeTimeToRaw(rawData.surgery_end_time || rawData.postgresql_row_preview.end_time),
       is_remote: rawData.is_remote_surgery || rawData.postgresql_row_preview.is_remote,
       has_fault: rawData.has_error || rawData.postgresql_row_preview.has_fault,
       device_ids: rawData.postgresql_row_preview.device_ids || [],
@@ -71,8 +83,8 @@ export function adaptSurgeryData (rawData) {
     structuredData = rawData.structured_data
     metadata = {
       surgery_id: rawData.surgery_id,
-      start_time: normalizeTimeToISO(rawData.start_time),
-      end_time: normalizeTimeToISO(rawData.end_time),
+      start_time: normalizeTimeToRaw(rawData.start_time),
+      end_time: normalizeTimeToRaw(rawData.end_time),
       is_remote: rawData.is_remote,
       has_fault: rawData.has_fault,
       device_ids: rawData.device_ids || [],
@@ -83,8 +95,8 @@ export function adaptSurgeryData (rawData) {
     structuredData = rawData
     metadata = {
       surgery_id: rawData.surgery_id,
-      start_time: normalizeTimeToISO(rawData.start_time || rawData.surgery_start_time),
-      end_time: normalizeTimeToISO(rawData.end_time || rawData.surgery_end_time),
+      start_time: normalizeTimeToRaw(rawData.start_time || rawData.surgery_start_time),
+      end_time: normalizeTimeToRaw(rawData.end_time || rawData.surgery_end_time),
       is_remote: rawData.is_remote,
       has_fault: rawData.has_fault,
       device_ids: rawData.device_ids || [],
@@ -95,8 +107,8 @@ export function adaptSurgeryData (rawData) {
     structuredData = convertAnalysisDataToStructured(rawData)
     metadata = {
       surgery_id: rawData.surgery_id,
-      start_time: normalizeTimeToISO(rawData.surgery_start_time),
-      end_time: normalizeTimeToISO(rawData.surgery_end_time),
+      start_time: normalizeTimeToRaw(rawData.surgery_start_time),
+      end_time: normalizeTimeToRaw(rawData.surgery_end_time),
       is_remote: rawData.is_remote_surgery,
       has_fault: rawData.has_error,
       device_ids: [],
@@ -150,8 +162,8 @@ function convertAnalysisDataToStructured (analysisData) {
     const instrumentUsage = armUsage.map(usage => ({
       tool_type: usage.instrumentName || usage.tool_type || '未知器械',
       udi: usage.udi || '无UDI',
-      start_time: normalizeTimeToISO(usage.startTime || usage.start_time),
-      end_time: normalizeTimeToISO(usage.endTime || usage.end_time),
+      start_time: normalizeTimeToRaw(usage.startTime || usage.start_time),
+      end_time: normalizeTimeToRaw(usage.endTime || usage.end_time),
       energy_activation: []
     }))
 
@@ -164,7 +176,7 @@ function convertAnalysisDataToStructured (analysisData) {
   // 转换状态机数据
   if (analysisData.state_machine_changes && Array.isArray(analysisData.state_machine_changes)) {
     structured.surgery_stats.state_machine = analysisData.state_machine_changes.map(change => ({
-      time: normalizeTimeToISO(change.time),
+      time: normalizeTimeToRaw(change.time),
       state: change.stateName || String(change.state)
     }))
   }
@@ -172,7 +184,7 @@ function convertAnalysisDataToStructured (analysisData) {
   // 转换网络延迟数据
   if (analysisData.network_latency_data && Array.isArray(analysisData.network_latency_data)) {
     structured.surgery_stats.network_latency_ms = analysisData.network_latency_data.map(data => ({
-      time: normalizeTimeToISO(data.timestamp),
+      time: normalizeTimeToRaw(data.timestamp),
       latency: data.latency
     }))
   }
@@ -180,7 +192,7 @@ function convertAnalysisDataToStructured (analysisData) {
   // 转换故障数据
   if (analysisData.alarm_details && Array.isArray(analysisData.alarm_details)) {
     structured.surgery_stats.faults = analysisData.alarm_details.map(fault => ({
-      timestamp: normalizeTimeToISO(fault.time),
+      timestamp: normalizeTimeToRaw(fault.time),
       error_code: fault.code,
       param1: '',
       param2: '',
@@ -205,8 +217,8 @@ function convertAnalysisDataToStructured (analysisData) {
       const offTime = offIndex < offTimes.length ? offTimes[offIndex] : null
 
       structured.power_cycles.push({
-        on_time: normalizeTimeToISO(onTime),
-        off_time: normalizeTimeToISO(offTime)
+        on_time: normalizeTimeToRaw(onTime),
+        off_time: normalizeTimeToRaw(offTime)
       })
 
       if (onTime && offTime) {
@@ -261,8 +273,8 @@ function standardizeStructuredData (structuredData) {
       // 转换器械使用时间
       standardized.arms[i].instrument_usage = standardized.arms[i].instrument_usage.map(usage => ({
         ...usage,
-        start_time: normalizeTimeToISO(usage.start_time),
-        end_time: normalizeTimeToISO(usage.end_time)
+        start_time: normalizeTimeToRaw(usage.start_time),
+        end_time: normalizeTimeToRaw(usage.end_time)
       }))
     }
   }
@@ -271,7 +283,7 @@ function standardizeStructuredData (structuredData) {
   if (standardized.surgery_stats.state_machine) {
     standardized.surgery_stats.state_machine = standardized.surgery_stats.state_machine.map(item => ({
       ...item,
-      time: normalizeTimeToISO(item.time)
+      time: normalizeTimeToRaw(item.time)
     }))
   }
 
@@ -279,7 +291,7 @@ function standardizeStructuredData (structuredData) {
   if (standardized.surgery_stats.network_latency_ms) {
     standardized.surgery_stats.network_latency_ms = standardized.surgery_stats.network_latency_ms.map(item => ({
       ...item,
-      time: normalizeTimeToISO(item.time)
+      time: normalizeTimeToRaw(item.time)
     }))
   }
 
@@ -287,15 +299,15 @@ function standardizeStructuredData (structuredData) {
   if (standardized.surgery_stats.faults) {
     standardized.surgery_stats.faults = standardized.surgery_stats.faults.map(fault => ({
       ...fault,
-      timestamp: normalizeTimeToISO(fault.timestamp)
+      timestamp: normalizeTimeToRaw(fault.timestamp)
     }))
   }
 
   // 转换电源循环数据时间
   if (standardized.power_cycles) {
     standardized.power_cycles = standardized.power_cycles.map(cycle => ({
-      on_time: normalizeTimeToISO(cycle.on_time),
-      off_time: normalizeTimeToISO(cycle.off_time)
+      on_time: normalizeTimeToRaw(cycle.on_time),
+      off_time: normalizeTimeToRaw(cycle.off_time)
     }))
   }
 

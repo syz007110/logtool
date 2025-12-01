@@ -13,6 +13,92 @@ const LogEntry = {
 const Log = require('../models/log');
 const Device = require('../models/device');
 
+// 将Date对象转换为原始时间字符串（不进行时区转换）
+function formatRawDateTime(dateLike) {
+  if (!dateLike) return null;
+  try {
+    // 如果已经是字符串格式，直接返回
+    if (typeof dateLike === 'string') {
+      // 如果是ISO格式（带Z），去掉Z并按原始时间解析
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dateLike)) {
+        const withoutZ = dateLike.replace('Z', '').replace('T', ' ');
+        const [datePart, timePart] = withoutZ.split(' ');
+        if (datePart && timePart) {
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hour, minute, second] = timePart.split(':').map(Number);
+          const d = new Date(year, month - 1, day, hour, minute, second || 0);
+          const pad = (n) => String(n).padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+      }
+      // 如果已经是原始时间格式，直接返回
+      if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(dateLike)) {
+        return dateLike;
+      }
+    }
+    
+    // 如果是Date对象，提取原始时间
+    const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+    if (isNaN(date.getTime())) return null;
+    
+    // 使用本地时间方法（不是UTC），按原始时间提取
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  } catch (_) {
+    return null;
+  }
+}
+
+// 转换Sequelize模型实例为纯对象，并将时间字段转换为原始时间字符串
+function convertSurgeryToPlain(surgery) {
+  if (!surgery) return null;
+  
+  // 使用 get({ plain: true }) 获取纯对象
+  const plain = surgery.get ? surgery.get({ plain: true }) : surgery;
+  
+  // 转换时间字段
+  const converted = { ...plain };
+  if (converted.start_time) {
+    converted.start_time = formatRawDateTime(converted.start_time);
+  }
+  if (converted.end_time) {
+    converted.end_time = formatRawDateTime(converted.end_time);
+  }
+  
+  // 递归转换structured_data中的时间字段
+  if (converted.structured_data && typeof converted.structured_data === 'object') {
+    converted.structured_data = convertStructuredDataTimes(converted.structured_data);
+  }
+  
+  return converted;
+}
+
+// 递归转换structured_data中的所有时间字段
+function convertStructuredDataTimes(data) {
+  if (!data || typeof data !== 'object') return data;
+  
+  if (Array.isArray(data)) {
+    return data.map(item => convertStructuredDataTimes(item));
+  }
+  
+  const converted = { ...data };
+  
+  for (const [key, value] of Object.entries(converted)) {
+    const lowerKey = String(key).toLowerCase();
+    // 检查是否是时间字段
+    if (lowerKey.includes('time') || lowerKey.includes('timestamp')) {
+      if (value) {
+        converted[key] = formatRawDateTime(value);
+      }
+    } else if (value && typeof value === 'object') {
+      // 递归处理嵌套对象
+      converted[key] = convertStructuredDataTimes(value);
+    }
+  }
+  
+  return converted;
+}
+
 // 列表：支持 device_id 模糊筛选与分页
 exports.listSurgeries = async (req, res) => {
   try {
@@ -107,7 +193,10 @@ exports.listSurgeries = async (req, res) => {
       // 附加失败不影响主体数据
     }
 
-    res.json({ success: true, data: rows, total: count, page: pageNum, limit: limitNum });
+    // 转换时间字段为原始时间字符串，避免JSON序列化时的UTC转换
+    const convertedRows = rows.map(row => convertSurgeryToPlain(row));
+    
+    res.json({ success: true, data: convertedRows, total: count, page: pageNum, limit: limitNum });
   } catch (error) {
     console.error('listSurgeries error:', error);
     res.status(500).json({ success: false, message: '获取手术数据失败', error: error.message });
@@ -134,7 +223,10 @@ exports.getSurgeryById = async (req, res) => {
       return res.status(404).json({ success: false, message: '未找到手术数据' });
     }
 
-    res.json({ success: true, data: item });
+    // 转换时间字段为原始时间字符串，避免JSON序列化时的UTC转换
+    const convertedItem = convertSurgeryToPlain(item);
+    
+    res.json({ success: true, data: convertedItem });
   } catch (error) {
     console.error('getSurgeryById error:', error);
     res.status(500).json({ success: false, message: '获取手术数据失败', error: error.message });

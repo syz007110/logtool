@@ -92,7 +92,7 @@ subgraph Sub310[状态310e处理]
     st8 --> st10[设置手术开始时间]
     st9 --> st10
 
-    st4 --> |否|st12{故障恢复条件?p2=0 and p1=1 and errFlag = true}
+    st4 --> |否|st12{故障恢复条件?p1=0 and p2=1 and errFlag = true}
     st12 --> |是|st13[标记故障恢复]
     st13 --> st14[将所有活跃故障标记为已处理]
     st14 --> st15[清空活跃故障列表]

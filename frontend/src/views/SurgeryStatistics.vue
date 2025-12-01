@@ -201,7 +201,7 @@
                 <div class="surgery-progress-container">
                   <div class="surgery-duration-info">
                     <span class="duration-text">{{ $t('surgeryStatistics.durationLabel') }}：{{ surgery.total_duration }} {{ $t('shared.minutes') }}</span>
-                    <span class="time-range">{{ $t('surgeryStatistics.timeRangeLabel') }}：{{ formatTime(surgery.surgery_start_time) }} - {{ formatTime(surgery.surgery_end_time) }}</span>
+                    <span class="time-range">{{ $t('surgeryStatistics.timeRangeLabel') }}：{{ formatTime(surgery.surgery_start_time, false, false) }} - {{ formatTime(surgery.surgery_end_time, false, false) }}</span>
                   </div>
                   <div class="surgery-timeline-wrapper">
                     <div class="surgery-label">
@@ -815,19 +815,39 @@ export default {
       }
     }
 
-    // UTC时间写库格式：YYYY-MM-DD HH:mm:ss（与后端保持一致）
+    // 原始时间格式：YYYY-MM-DD HH:mm:ss（无时区转换）
     const formatUtcForDatabase = (value) => {
       if (!value) return null
+      
+      // 如果已经是原始时间格式字符串，直接返回
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(value)) {
+        return value
+      }
+      
+      // 如果是ISO格式（带Z），去掉Z按原始时间解析
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+        const withoutZ = value.replace('Z', '').replace('T', ' ')
+        // 提取年月日时分秒，按原始时间构造
+        const [datePart, timePart] = withoutZ.split(' ')
+        const [year, month, day] = datePart.split('-').map(Number)
+        const [hour, minute, second] = timePart.split(':').map(Number)
+        const d = new Date(year, month - 1, day, hour, minute, second || 0)
+        const pad = (n) => String(n).padStart(2, '0')
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+      }
+      
+      // 解析为Date对象，然后按原始时间提取
       const d = new Date(value)
       if (Number.isNaN(d.getTime())) return null
       
+      // 使用本地时间方法（不是UTC），按原始时间提取
       const pad = (n) => String(n).padStart(2, '0')
-      const y = d.getUTCFullYear()
-      const m = pad(d.getUTCMonth() + 1)
-      const day = pad(d.getUTCDate())
-      const h = pad(d.getUTCHours())
-      const mi = pad(d.getUTCMinutes())
-      const s = pad(d.getUTCSeconds())
+      const y = d.getFullYear()
+      const m = pad(d.getMonth() + 1)
+      const day = pad(d.getDate())
+      const h = pad(d.getHours())
+      const mi = pad(d.getMinutes())
+      const s = pad(d.getSeconds())
       return `${y}-${m}-${day} ${h}:${mi}:${s}`
     }
 

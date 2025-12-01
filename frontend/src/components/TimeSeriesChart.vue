@@ -14,6 +14,7 @@ import * as echarts from 'echarts'
 
 export default {
   name: 'TimeSeriesChart',
+  emits: ['rangeChange'],
   props: {
     seriesData: {
       type: Array,
@@ -74,9 +75,35 @@ export default {
       areaColorEnd: {
         type: String,
         default: null
+      },
+      // 是否平滑折线
+      smooth: {
+        type: Boolean,
+        default: true
+      },
+      // 阶梯图模式：'start' | 'middle' | 'end' | false
+      // 'start': 阶梯从数据点开始
+      // 'middle': 阶梯在数据点中间
+      // 'end': 阶梯在数据点结束
+      // false: 普通折线图
+      step: {
+        type: [String, Boolean],
+        default: false,
+        validator: (value) => value === false || value === 'start' || value === 'middle' || value === 'end'
+      },
+      // 时间拖拽轴样式配置
+      sliderStyle: {
+        type: Object,
+        default: () => ({
+          handleColor: '#409EFF',
+          borderColor: 'rgba(99, 102, 241, 0.3)',
+          fillerColor: 'rgba(99, 102, 241, 0.2)',
+          backgroundColor: 'rgba(148, 163, 184, 0.15)',
+          height: 30
+        })
       }
   },
-  setup(props) {
+  setup(props, { emit }) {
     const chartContainer = ref(null)
     let chartInstance = null
     let globalMinMs = 0
@@ -134,10 +161,20 @@ export default {
       }
 
       // 配置选项
+      // 处理 grid 配置：如果传入了 gridPadding，确保 bottom 值正确设置
+      const gridConfig = props.gridPadding 
+        ? { 
+            ...props.gridPadding, 
+            bottom: props.gridPadding.bottom !== undefined 
+              ? props.gridPadding.bottom 
+              : (props.enableSlider ? 60 : 16)
+          }
+        : { left: 16, right: 16, top: 16, bottom: props.enableSlider ? 60 : 16, containLabel: true }
+      
       const option = {
         backgroundColor: 'transparent', // 移除整个图表背景色
         title: undefined,
-        grid: props.gridPadding || { left: 16, right: 16, top: 16, bottom: props.enableSlider ? 60 : 16, containLabel: true },
+        grid: gridConfig,
         tooltip: {
           trigger: 'axis',
           position: (pt) => [pt[0], '8%'],
@@ -239,22 +276,22 @@ export default {
               handleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23.1h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
               handleStyle: {
                 color: 'transparent',
-                borderColor: '#409EFF',
+                borderColor: props.sliderStyle.handleColor || '#409EFF',
                 borderWidth: 2
               },
-              height: 30,
-              borderColor: 'rgba(99, 102, 241, 0.3)',
-              fillerColor: 'rgba(99, 102, 241, 0.2)',
-              backgroundColor: 'rgba(148, 163, 184, 0.15)',
+              height: props.sliderStyle.height || 30,
+              borderColor: props.sliderStyle.borderColor || 'rgba(99, 102, 241, 0.3)',
+              fillerColor: props.sliderStyle.fillerColor || 'rgba(99, 102, 241, 0.2)',
+              backgroundColor: props.sliderStyle.backgroundColor || 'rgba(148, 163, 184, 0.15)',
               brushSelect: false,
               xAxisIndex: 0,
-              bottom: 8,
+              bottom: 4,
               filterMode: 'filter',
               moveHandleSize: 16,
               moveHandleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23.1h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
               moveHandleStyle: {
                 color: 'transparent',
-                borderColor: '#409EFF',
+                borderColor: props.sliderStyle.handleColor || '#409EFF',
                 borderWidth: 2
               },
               preventDefaultMouseMove: false,
@@ -277,7 +314,8 @@ export default {
             name: props.seriesName,
             type: 'line',
             symbol: 'none',
-            smooth: true,
+            smooth: props.smooth,
+            step: props.step || false,
             sampling: false,
             data: validData,
             itemStyle: {
@@ -314,15 +352,179 @@ export default {
       rangeStartMs.value = globalMinMs
       rangeEndMs.value = globalMaxMs
 
-      // 同步自定义范围标签
+      // 获取当前图表的实际显示范围
+      const getCurrentDisplayRange = () => {
+        try {
+          const option = chartInstance.getOption()
+          
+          // 方法1: 从 option 中的 dataZoom 配置获取（最准确，包括工具箱按钮选择的范围）
+          if (option && option.dataZoom && Array.isArray(option.dataZoom)) {
+            // 优先查找 slider 类型的 dataZoom（拖拽轴）
+            let sliderDataZoom = null
+            let insideDataZoom = null
+            
+            for (let i = 0; i < option.dataZoom.length; i++) {
+              const dataZoom = option.dataZoom[i]
+              const xAxisIndex = dataZoom.xAxisIndex
+              // 检查是否影响第一个 x 轴
+              if (xAxisIndex === 0 || xAxisIndex === undefined || (Array.isArray(xAxisIndex) && xAxisIndex.includes(0))) {
+                if (dataZoom.type === 'slider') {
+                  sliderDataZoom = dataZoom
+                } else if (dataZoom.type === 'inside') {
+                  insideDataZoom = dataZoom
+                }
+              }
+            }
+            
+            // 优先使用 slider 的范围，如果没有则使用 inside 的范围
+            const targetDataZoom = sliderDataZoom || insideDataZoom
+            if (targetDataZoom && targetDataZoom.start != null && targetDataZoom.end != null) {
+              const start = targetDataZoom.start
+              const end = targetDataZoom.end
+              const startMs = globalMinMs + (globalMaxMs - globalMinMs) * (start / 100)
+              const endMs = globalMinMs + (globalMaxMs - globalMinMs) * (end / 100)
+              return {
+                startMs: Math.max(globalMinMs, Math.min(startMs, globalMaxMs)),
+                endMs: Math.max(globalMinMs, Math.min(endMs, globalMaxMs))
+              }
+            }
+          }
+          
+          // 方法2: 从组件模型获取（备用方法）
+          const dataZoomComponents = chartInstance.getModel().getComponent('dataZoom')
+          if (dataZoomComponents && dataZoomComponents.length > 0) {
+            let sliderDataZoom = null
+            let insideDataZoom = null
+            
+            for (let i = 0; i < dataZoomComponents.length; i++) {
+              const dataZoom = dataZoomComponents[i]
+              const xAxisIndex = dataZoom.option.xAxisIndex
+              if (xAxisIndex === 0 || xAxisIndex === undefined || (Array.isArray(xAxisIndex) && xAxisIndex.includes(0))) {
+                if (dataZoom.option.type === 'slider') {
+                  sliderDataZoom = dataZoom
+                } else if (dataZoom.option.type === 'inside') {
+                  insideDataZoom = dataZoom
+                }
+              }
+            }
+            
+            const targetDataZoom = sliderDataZoom || insideDataZoom
+            if (targetDataZoom && targetDataZoom.option.start != null && targetDataZoom.option.end != null) {
+              const start = targetDataZoom.option.start
+              const end = targetDataZoom.option.end
+              const startMs = globalMinMs + (globalMaxMs - globalMinMs) * (start / 100)
+              const endMs = globalMinMs + (globalMaxMs - globalMinMs) * (end / 100)
+              return {
+                startMs: Math.max(globalMinMs, Math.min(startMs, globalMaxMs)),
+                endMs: Math.max(globalMinMs, Math.min(endMs, globalMaxMs))
+              }
+            }
+          }
+          
+          // 方法3: 从 xAxis 的 min/max 获取（如果设置了）
+          if (option && option.xAxis && option.xAxis[0]) {
+            const xAxis = option.xAxis[0]
+            if (xAxis.min !== undefined && xAxis.max !== undefined) {
+              return {
+                startMs: Math.max(globalMinMs, Math.min(xAxis.min, globalMaxMs)),
+                endMs: Math.max(globalMinMs, Math.min(xAxis.max, globalMaxMs))
+              }
+            }
+          }
+          
+          // 默认返回全局范围
+          return {
+            startMs: globalMinMs,
+            endMs: globalMaxMs
+          }
+        } catch (error) {
+          console.error('获取图表显示范围失败:', error)
+          return {
+            startMs: globalMinMs,
+            endMs: globalMaxMs
+          }
+        }
+      }
+      
+      // 触发范围更新事件
+      const emitRangeChange = () => {
+        const range = getCurrentDisplayRange()
+        // 确保范围有效
+        if (range && range.startMs != null && range.endMs != null) {
+          rangeStartMs.value = range.startMs
+          rangeEndMs.value = range.endMs
+          emit('rangeChange', { startMs: range.startMs, endMs: range.endMs })
+        } else {
+          // 如果获取失败，使用当前保存的范围
+          emit('rangeChange', { startMs: rangeStartMs.value, endMs: rangeEndMs.value })
+        }
+      }
+      
+      // 监听 dataZoom 事件（包括拖拽轴、区域缩放和工具箱按钮）
       chartInstance.off('dataZoom')
       chartInstance.on('dataZoom', (ev) => {
-        const hasValue = Object.prototype.hasOwnProperty.call(ev, 'startValue') && Object.prototype.hasOwnProperty.call(ev, 'endValue')
-        const startMs = hasValue && ev.startValue != null ? ev.startValue : (globalMinMs + (globalMaxMs - globalMinMs) * ((ev.start ?? 0) / 100))
-        const endMs = hasValue && ev.endValue != null ? ev.endValue : (globalMinMs + (globalMaxMs - globalMinMs) * ((ev.end ?? 100) / 100))
-        rangeStartMs.value = Math.max(globalMinMs, Math.min(startMs, globalMaxMs))
-        rangeEndMs.value = Math.max(globalMinMs, Math.min(endMs, globalMaxMs))
+        // 优先从事件对象中获取范围（更准确）
+        let startMs = null
+        let endMs = null
+        
+        if (ev.startValue != null && ev.endValue != null) {
+          // 事件对象中有精确的时间值（拖拽轴通常会提供）
+          startMs = ev.startValue
+          endMs = ev.endValue
+        } else if (ev.start != null && ev.end != null) {
+          // 事件对象中有百分比值，转换为时间戳
+          startMs = globalMinMs + (globalMaxMs - globalMinMs) * (ev.start / 100)
+          endMs = globalMinMs + (globalMaxMs - globalMinMs) * (ev.end / 100)
+        }
+        
+        // 如果从事件对象中获取到了范围，直接使用
+        if (startMs != null && endMs != null) {
+          rangeStartMs.value = Math.max(globalMinMs, Math.min(startMs, globalMaxMs))
+          rangeEndMs.value = Math.max(globalMinMs, Math.min(endMs, globalMaxMs))
+          // 使用 nextTick 确保图表已经更新后再触发事件
+          nextTick(() => {
+            emit('rangeChange', { startMs: rangeStartMs.value, endMs: rangeEndMs.value })
+          })
+        } else {
+          // 如果事件对象中没有范围信息（可能是工具箱按钮选择区域）
+          // 需要延迟获取，确保图表已经更新了 dataZoom 组件的值
+          // 使用更长的延迟，确保区域缩放操作完全完成
+          setTimeout(() => {
+            nextTick(() => {
+              // 再次尝试从事件对象获取（可能延迟后有了）
+              const currentRange = getCurrentDisplayRange()
+              if (currentRange && currentRange.startMs != null && currentRange.endMs != null) {
+                rangeStartMs.value = currentRange.startMs
+                rangeEndMs.value = currentRange.endMs
+                emit('rangeChange', { startMs: currentRange.startMs, endMs: currentRange.endMs })
+              } else {
+                // 如果还是获取不到，使用 emitRangeChange
+                emitRangeChange()
+              }
+            })
+          }, 200) // 延迟200ms，确保区域缩放操作完全完成并更新到图表
+        }
       })
+      
+      // 监听 restore 事件（还原按钮）
+      chartInstance.off('restore')
+      chartInstance.on('restore', () => {
+        // 还原时重置到全局范围
+        rangeStartMs.value = globalMinMs
+        rangeEndMs.value = globalMaxMs
+        
+        // 使用 nextTick 确保图表已经还原后再触发事件
+        nextTick(() => {
+          emit('rangeChange', { startMs: rangeStartMs.value, endMs: rangeEndMs.value })
+        })
+      })
+      
+      // 注意：不再使用 mouseup 事件监听器
+      // 因为 dataZoom 事件已经能够处理所有情况（拖拽轴、区域缩放、工具箱按钮）
+      // mouseup 事件会在拖拽结束后触发，可能会覆盖 dataZoom 事件的正确范围
+      
+      // 初始化时也触发一次事件
+      emit('rangeChange', { startMs: rangeStartMs.value, endMs: rangeEndMs.value })
     }
 
     const resizeChart = () => {

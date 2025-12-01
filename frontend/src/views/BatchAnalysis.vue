@@ -1872,13 +1872,13 @@ export default {
     // 格式化时间戳
     const formatTimestamp = (timestamp) => {
       if (!timestamp) return '-'
-      const date = new Date(timestamp)
-      if (serverOffsetMinutes.value !== null) {
-        // 以服务端时区为准：将本地时间偏移到服务端偏移
-        const localOffset = -date.getTimezoneOffset()
-        const delta = (serverOffsetMinutes.value - localOffset) * 60 * 1000
-        date.setTime(date.getTime() + delta)
+      // 如果是原始时间格式字符串（YYYY-MM-DD HH:mm:ss），直接返回
+      if (typeof timestamp === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timestamp)) {
+        return timestamp
       }
+      // 否则，按原始时间解析（不做时区转换）
+      const date = new Date(timestamp)
+      if (isNaN(date.getTime())) return '-'
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
