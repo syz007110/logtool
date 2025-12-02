@@ -409,7 +409,16 @@
           
           <el-table-column prop="explanation" :label="$t('surgeryVisualization.faultExplanation')" min-width="200">
             <template #default="{ row }">
-              <span class="fault-explanation">{{ row.explanation || $t('surgeryVisualization.noExplanation') }}</span>
+              <div v-if="faultExplanationLoading.has(row.rowKey)" class="explanation-loading">
+                <el-icon class="is-loading" style="margin-right: 4px;"><Loading /></el-icon>
+                <span>{{ $t('shared.loading') }}</span>
+              </div>
+              <div v-else-if="faultExplanations.has(row.rowKey)" class="fault-explanation">
+                {{ faultExplanations.get(row.rowKey) }}
+              </div>
+              <div v-else class="fault-explanation">
+                {{ row.explanation || $t('surgeryVisualization.noExplanation') }}
+              </div>
             </template>
           </el-table-column>
           
@@ -482,6 +491,7 @@
 <script>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import { Loading } from '@element-plus/icons-vue'
 import api from '../api'
 import { normalizeSurgeryData as normalize } from '../utils/visualizationConfig'
 import { resolveInstrumentTypeLabel } from '../utils/analysisMappings'
@@ -497,7 +507,8 @@ export default {
     TimeSeriesChart,
     OperationSummaryTable,
     Tabs,
-    TabPane
+    TabPane,
+    Loading
   },
   setup() {
     // 移除不需要的图表引用
@@ -1853,9 +1864,9 @@ export default {
       
       // 处理时间线事件
       const events = []
-      const powerCycles = data?.power_cycles || []
       
-      // 处理所有开机和关机事件
+      // 1. 开机事件和关机事件：使用 power_cycles 字段内的 on_time 和 off_time
+      const powerCycles = data?.power_cycles || []
       powerCycles.forEach((cycle, index) => {
         if (cycle.on_time) {
           events.push({ 
@@ -1878,8 +1889,11 @@ export default {
       // 获取第一次开机时间（用于设置时间基准）
       const powerOnTime = powerCycles.length > 0 ? powerCycles[0]?.on_time : null
       
-      const surgeryStart = data?.surgeryStart || data?.start_time
-      const surgeryEnd = data?.surgeryEnd || data?.end_time
+      // 2. 手术开始和手术结束：使用 surgeries 表内的 start_time 和 end_time 字段
+      const surgeryStart = data?.start_time
+      const surgeryEnd = data?.end_time
+      
+      // 3. 上次手术结束时间（可选字段，用于时间线显示）
       const previousSurgeryEnd = data?.previousSurgeryEnd || data?.timeline?.previousSurgeryEnd
       
       // 设置时间基准：第一次开机时间往前推1小时（使用原始时间）
@@ -2106,6 +2120,10 @@ export default {
       // 处理故障数据
       if (surgeryStats.faults && Array.isArray(surgeryStats.faults)) {
         faultRecords.value = processFaultData(surgeryStats.faults)
+        // 自动加载故障码释义
+        nextTick(() => {
+          loadFaultExplanations()
+        })
       }
     }
     
@@ -2341,6 +2359,106 @@ export default {
       }
     }
     
+    // 从完整故障码中解析子系统和代码（参考日志上传逻辑）
+    const parseErrorCode = (errorCodeStr) => {
+      if (!errorCodeStr || typeof errorCodeStr !== 'string') {
+        return { subsystem: null, code: null }
+      }
+      
+      // 如果故障码长度至少为5位，提取首位作为子系统，后4位作为代码
+      if (errorCodeStr.length >= 5) {
+        const subsystem = errorCodeStr.charAt(0).toUpperCase()
+        // 验证子系统字符是否有效（1-9, A-F）
+        if (/^[1-9A-F]$/.test(subsystem)) {
+          const code = '0X' + errorCodeStr.slice(-4).toUpperCase()
+          return { subsystem, code }
+        }
+      }
+      
+      return { subsystem: null, code: null }
+    }
+    
+    // 故障码释义缓存
+    const faultExplanations = ref(new Map())
+    const faultExplanationLoading = ref(new Set())
+    
+    // 根据故障码获取释义（参考日志上传的解析逻辑）
+    const getFaultExplanation = async (errorCode, param1, param2, param3, param4, subsystem) => {
+      if (!errorCode || errorCode === '-') return null
+      
+      try {
+        // 如果提供了子系统，直接使用；否则从故障码中解析
+        let targetSubsystem = subsystem
+        
+        if (!targetSubsystem) {
+          const parsed = parseErrorCode(errorCode)
+          targetSubsystem = parsed.subsystem
+        }
+        
+        // 构建预览请求载荷
+        const previewPayload = {
+          code: errorCode,
+          subsystem: targetSubsystem || undefined,
+          param1: param1 || undefined,
+          param2: param2 || undefined,
+          param3: param3 || undefined,
+          param4: param4 || undefined
+        }
+        
+        // 调用释义预览接口
+        const resp = await api.explanations.preview(previewPayload)
+        const explanation = resp?.data?.explanation
+        
+        if (explanation) {
+          return explanation
+        }
+        
+        return null
+      } catch (error) {
+        console.warn(`⚠️ 获取故障码 ${errorCode} 的释义失败:`, error)
+        return null
+      }
+    }
+    
+    // 为故障行加载释义
+    const loadFaultExplanations = async () => {
+      const rows = faultRecords.value
+      
+      for (const row of rows) {
+        const rowKey = row.rowKey
+        
+        // 如果正在加载或已有释义，跳过
+        if (faultExplanationLoading.value.has(rowKey) || faultExplanations.value.has(rowKey)) {
+          continue
+        }
+        
+        // 如果已经有explanation且不是默认值，跳过
+        if (row.explanation && row.explanation !== t('surgeryVisualization.noExplanation')) {
+          continue
+        }
+        
+        faultExplanationLoading.value.add(rowKey)
+        try {
+          const explanation = await getFaultExplanation(
+            row.error_code,
+            row.param1,
+            row.param2,
+            row.param3,
+            row.param4,
+            row.subsystem
+          )
+          
+          if (explanation) {
+            faultExplanations.value.set(rowKey, explanation)
+          }
+        } catch (error) {
+          console.warn(`⚠️ 加载故障码 ${row.error_code} 释义失败:`, error)
+        } finally {
+          faultExplanationLoading.value.delete(rowKey)
+        }
+      }
+    }
+    
     // 处理故障数据
     const processFaultData = (faultsData) => {
       if (!Array.isArray(faultsData)) {
@@ -2365,13 +2483,26 @@ export default {
           })()
           const statusText = isProcessed ? t('surgeryVisualization.statusProcessed') : t('surgeryVisualization.statusUnprocessed')
 
+          // 解析故障码获取子系统信息
+          const parsed = parseErrorCode(errorCode)
+          
+          // 生成唯一标识用于存储释义
+          const rowKey = `${errorCode}_${fault.timestamp}_${parsed.subsystem || ''}`
+
           return {
             timestamp: fault.timestamp,
             error_code: fault.error_code,
             explanation: fault.explanation || t('surgeryVisualization.noExplanation'),
             status: statusText,
             status_key: isProcessed ? 'processed' : 'unprocessed',
-            recovery_time: fault.recovery_time || null
+            recovery_time: fault.recovery_time || null,
+            // 添加释义相关字段
+            rowKey,
+            subsystem: parsed.subsystem || fault.subsystem || null,
+            param1: fault.param1 || null,
+            param2: fault.param2 || null,
+            param3: fault.param3 || null,
+            param4: fault.param4 || null
           }
         }).filter(fault => fault !== null).sort((a, b) => 
           new Date(a.timestamp) - new Date(b.timestamp)
@@ -3149,7 +3280,9 @@ export default {
       handleFaultRowClick,
       isFaultHighlighted,
       getState30PeriodsInHour,
-      getState30PeriodStyle
+      getState30PeriodStyle,
+      faultExplanations,
+      faultExplanationLoading
     }
   }
 }
@@ -4158,6 +4291,15 @@ export default {
   font-size: 13px;
   line-height: 1.4;
   color: #303133;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.explanation-loading {
+  display: flex;
+  align-items: center;
+  color: #909399;
+  font-size: 12px;
 }
 
 .faults-summary {

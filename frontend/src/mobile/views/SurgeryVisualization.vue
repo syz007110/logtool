@@ -60,25 +60,14 @@
             <div class="overview-left">
               <div v-if="timelineEvents.length > 0">
                 <div class="section-header">{{ $t('mobile.surgeryVisualization.timelineTitle') }}</div>
-                <div class="timeline-container">
+                <div class="timeline-list">
                   <div
-                    v-for="(event, index) in timelineEvents"
+                    v-for="event in timelineEvents"
                     :key="`${event.type}-${event.time}`"
-                    class="timeline-item"
+                    class="timeline-list-item"
                   >
-                    <div class="timeline-line-wrapper">
-                      <div
-                        :class="['timeline-dot', getEventDotClass(event.type)]"
-                      />
-                      <div
-                        v-if="index < timelineEvents.length - 1"
-                        class="timeline-line"
-                      />
-                    </div>
-                    <div class="timeline-content">
-                      <div class="timeline-event-name">{{ event.name }}</div>
-                      <div class="timeline-event-time">{{ formatEventTime(event.time) }}</div>
-                    </div>
+                    <div class="timeline-event-name">{{ event.name }}</div>
+                    <div class="timeline-event-time">{{ formatEventTime(event.time) }}</div>
                   </div>
                 </div>
               </div>
@@ -140,7 +129,16 @@
                 </span>
               </div>
               <div class="alert-card-code">{{ row.errorCode }}</div>
-              <div class="alert-card-message">{{ row.message }}</div>
+              <div class="alert-card-message">
+                <div v-if="faultExplanationLoading.has(row.rowKey)" class="explanation-loading">
+                  <van-loading type="spinner" size="14px" vertical />
+                  <span>{{ $t('shared.loading') }}</span>
+                </div>
+                <div v-else-if="faultExplanations.has(row.rowKey)">
+                  {{ faultExplanations.get(row.rowKey) }}
+                </div>
+                <div v-else>{{ row.message }}</div>
+              </div>
             </div>
           </div>
           <button
@@ -408,11 +406,14 @@ export default {
       if (!time) return '-'
       const date = new Date(time)
       if (Number.isNaN(date.getTime())) return '-'
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
+      // 格式：2025/09/12 9:00:36
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
     }
 
     const resolveFaultStatus = (fault) => {
@@ -429,6 +430,106 @@ export default {
       }
     }
 
+    // 从完整故障码中解析子系统和代码（参考日志上传逻辑）
+    const parseErrorCode = (errorCodeStr) => {
+      if (!errorCodeStr || typeof errorCodeStr !== 'string') {
+        return { subsystem: null, code: null }
+      }
+      
+      // 如果故障码长度至少为5位，提取首位作为子系统，后4位作为代码
+      if (errorCodeStr.length >= 5) {
+        const subsystem = errorCodeStr.charAt(0).toUpperCase()
+        // 验证子系统字符是否有效（1-9, A-F）
+        if (/^[1-9A-F]$/.test(subsystem)) {
+          const code = '0X' + errorCodeStr.slice(-4).toUpperCase()
+          return { subsystem, code }
+        }
+      }
+      
+      return { subsystem: null, code: null }
+    }
+    
+    // 故障码释义缓存
+    const faultExplanations = ref(new Map())
+    const faultExplanationLoading = ref(new Set())
+    
+    // 根据故障码获取释义（参考日志上传的解析逻辑）
+    const getFaultExplanation = async (errorCode, param1, param2, param3, param4, subsystem) => {
+      if (!errorCode || errorCode === '-') return null
+      
+      try {
+        // 如果提供了子系统，直接使用；否则从故障码中解析
+        let targetSubsystem = subsystem
+        
+        if (!targetSubsystem) {
+          const parsed = parseErrorCode(errorCode)
+          targetSubsystem = parsed.subsystem
+        }
+        
+        // 构建预览请求载荷
+        const previewPayload = {
+          code: errorCode,
+          subsystem: targetSubsystem || undefined,
+          param1: param1 || undefined,
+          param2: param2 || undefined,
+          param3: param3 || undefined,
+          param4: param4 || undefined
+        }
+        
+        // 调用释义预览接口
+        const resp = await api.explanations.preview(previewPayload)
+        const explanation = resp?.data?.explanation
+        
+        if (explanation) {
+          return explanation
+        }
+        
+        return null
+      } catch (error) {
+        console.warn(`⚠️ 获取故障码 ${errorCode} 的释义失败:`, error)
+        return null
+      }
+    }
+    
+    // 为故障行加载释义
+    const loadFaultExplanations = async () => {
+      const rows = faultRows.value
+      
+      for (const row of rows) {
+        const rowKey = row.rowKey
+        
+        // 如果正在加载或已有释义，跳过
+        if (faultExplanationLoading.value.has(rowKey) || faultExplanations.value.has(rowKey)) {
+          continue
+        }
+        
+        // 如果已经有message且不是默认值，跳过
+        if (row.message && row.message !== '-' && row.message !== t('mobile.surgeryVisualization.noExplanation')) {
+          continue
+        }
+        
+        faultExplanationLoading.value.add(rowKey)
+        try {
+          const explanation = await getFaultExplanation(
+            row.errorCode,
+            row.param1,
+            row.param2,
+            row.param3,
+            row.param4,
+            row.subsystem
+          )
+          
+          if (explanation) {
+            faultExplanations.value.set(rowKey, explanation)
+          }
+        } catch (error) {
+          console.warn(`⚠️ 加载故障码 ${row.errorCode} 释义失败:`, error)
+        } finally {
+          faultExplanationLoading.value.delete(rowKey)
+        }
+      }
+    }
+
     const faultRows = computed(() => {
       const faults = surgeryData.value?.surgery_stats?.faults
       if (!Array.isArray(faults)) return []
@@ -436,17 +537,39 @@ export default {
         .map(fault => {
           const timestamp = fault.timestamp || fault.time || fault.created_at
           const status = resolveFaultStatus(fault)
+          const errorCode = fault.error_code || fault.code || '-'
+          
+          // 解析故障码获取子系统信息
+          const parsed = parseErrorCode(errorCode)
+          
+          // 生成唯一标识用于存储释义
+          const rowKey = `${errorCode}_${timestamp}_${parsed.subsystem || ''}`
+          
           return {
             timestamp,
-            errorCode: fault.error_code || fault.code || '-',
+            errorCode,
             message: fault.explanation || fault.message || '-',
             statusKey: status.key,
-            statusLabel: status.label
+            statusLabel: status.label,
+            // 添加释义相关字段
+            rowKey,
+            subsystem: parsed.subsystem || fault.subsystem || null,
+            param1: fault.param1 || null,
+            param2: fault.param2 || null,
+            param3: fault.param3 || null,
+            param4: fault.param4 || null
           }
         })
         .filter(item => item.errorCode && item.timestamp)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     })
+    
+    // 监听faultRows变化，自动加载释义
+    watch(faultRows, (newRows) => {
+      if (newRows.length > 0) {
+        loadFaultExplanations()
+      }
+    }, { immediate: true })
 
     const showAllFaults = ref(false)
     const visibleFaultRows = computed(() => (showAllFaults.value ? faultRows.value : faultRows.value.slice(0, 5)))
@@ -489,13 +612,24 @@ export default {
         const armLabelFormatted = t('mobile.surgeryVisualization.armFallback', { index: armIndexForDisplay })
         
         const instruments = usageList.map((usage, usageIndex) => {
-          const install = usage.install_time || usage.start_time
-          const remove = usage.remove_time || usage.end_time
-          const toolType = getInstrumentLabel(usage.tool_type ?? usage.instrument_type ?? usage.instrument_name)
+          // 兼容多种字段命名：install_time/start_time, remove_time/end_time
+          const install = usage.install_time || usage.start_time || usage.installTime || usage.startTime
+          const remove = usage.remove_time || usage.end_time || usage.removeTime || usage.endTime
+          // 兼容多种字段命名：tool_type/instrument_type/instrument_name（下划线）或 toolType/instrumentType/instrumentName（驼峰）
+          const toolType = getInstrumentLabel(
+            usage.tool_type ?? 
+            usage.instrument_type ?? 
+            usage.instrument_name ?? 
+            usage.toolType ?? 
+            usage.instrumentType ?? 
+            usage.instrumentName
+          )
+          // 兼容多种UDI字段命名
+          const udi = usage.udi || usage.udi_code || usage.udiCode || '-'
           return {
             id: `${armId}-${usageIndex}`,
             toolType: toolType || '-',
-            udi: usage.udi || usage.udi_code || '-',
+            udi: udi,
             installTime: install,
             removeTime: remove
           }
@@ -708,7 +842,28 @@ export default {
     const timelineCells = computed(() => Math.max(1, timelineMarks.value.length - 1))
 
     const resolveSegmentColor = (segment, armIndex) => {
-      const rawName = (segment.instrument_name || segment.tool_type || '').toLowerCase()
+      if (!segment) return SEGMENT_COLOR_ORDER[armIndex % SEGMENT_COLOR_ORDER.length]
+      
+      // 兼容多种字段命名：instrument_name/tool_type（下划线）或 instrumentName/toolType（驼峰）
+      // 确保值为字符串类型（可能是数字编码），然后再转换为小写
+      const rawValue = segment.instrument_name || 
+        segment.tool_type || 
+        segment.instrumentName || 
+        segment.toolType || 
+        null
+      
+      // 安全转换为字符串，处理 null、undefined、数字等情况
+      let rawName = ''
+      if (rawValue !== null && rawValue !== undefined) {
+        try {
+          rawName = String(rawValue).toLowerCase()
+        } catch (error) {
+          console.warn('⚠️ 转换器械名称失败:', rawValue, error)
+          rawName = ''
+        }
+      }
+      
+      // 如果已经是映射后的中文名称，直接匹配
       if (/测试|test/.test(rawName)) return 'test'
       if (/镜|scope|endoscope/.test(rawName)) return 'scope'
       if (/刀|剪|切|instrument/.test(rawName)) return 'general'
@@ -737,8 +892,9 @@ export default {
     const buildTimelineEvents = (data) => {
       const events = []
       const timelineInfo = data?.timeline || {}
+      
+      // 1. 开机事件和关机事件：使用 power_cycles 字段内的 on_time 和 off_time
       const powerCycles = Array.isArray(data?.power_cycles) ? data.power_cycles : []
-
       powerCycles.forEach((cycle, index) => {
         if (cycle.on_time) {
           events.push({
@@ -756,9 +912,12 @@ export default {
         }
       })
 
+      // 2. 手术开始和手术结束：使用 surgeries 表内的 start_time 和 end_time 字段
+      const surgeryStart = data?.start_time
+      const surgeryEnd = data?.end_time
+      
+      // 3. 上次手术结束时间（可选字段，用于时间线显示）
       const previousSurgeryEnd = timelineInfo.previousSurgeryEnd || data?.previous_surgery_end_time || data?.previous_end_time
-      const surgeryStart = timelineInfo.surgeryStart || data?.start_time
-      const surgeryEnd = timelineInfo.surgeryEnd || data?.end_time
 
       if (previousSurgeryEnd) {
         events.push({ time: previousSurgeryEnd, name: t('surgeryVisualization.previousSurgeryEnd'), type: 'previous_end' })
@@ -790,17 +949,39 @@ export default {
     }
 
     const applyVisualizationData = (raw) => {
-      if (!raw) return false
+      if (!raw) {
+        console.warn('⚠️ applyVisualizationData: raw is null/undefined')
+        return false
+      }
+      
       try {
-        const adapted = adaptSurgeryData(raw) || raw
+        // 如果传入的数据已经是适配后的，直接使用；否则再次适配
+        const adapted = raw._dataSource ? raw : (adaptSurgeryData(raw) || raw)
+        
         if (adapted && validateAdaptedData(adapted)) {
-          adapted._dataSource = getDataSourceType(raw)
-          adapted._originalData = raw
+          if (!adapted._dataSource) {
+            adapted._dataSource = getDataSourceType(raw)
+          }
+          if (!adapted._originalData) {
+            adapted._originalData = raw
+          }
+          
           sessionStorage.setItem('surgeryVizData', JSON.stringify(adapted))
           surgeryData.value = adapted
-          const normalized = normalizeSurgeryData(adapted)
-          armsData.value = enhanceSegments(normalized.arms || [])
-          buildTimelineEvents(adapted)
+          
+          try {
+            const normalized = normalizeSurgeryData(adapted)
+            armsData.value = enhanceSegments(normalized.arms || [])
+            buildTimelineEvents(adapted)
+          } catch (normalizeError) {
+            console.error('❌ 数据规范化或增强失败:', normalizeError)
+            console.error('  - Error stack:', normalizeError.stack)
+            // 即使规范化失败，也尝试设置基本数据
+            surgeryData.value = adapted
+            armsData.value = []
+            timelineEvents.value = []
+          }
+          
           // 如果当前在network标签页，但手术不是远程手术，切换到overview
           if (activeTab.value === 'network' && !(adapted.is_remote === true || adapted.isRemote === true)) {
             activeTab.value = 'overview'
@@ -811,10 +992,22 @@ export default {
           }
           return true
         }
+        
+        // 如果适配失败，尝试直接使用原始数据（降级处理）
+        console.warn('⚠️ 适配数据验证失败，尝试使用原始数据')
         surgeryData.value = raw
-        const normalized = normalizeSurgeryData(raw)
-        armsData.value = enhanceSegments(normalized.arms || [])
-        buildTimelineEvents(raw)
+        
+        try {
+          const normalized = normalizeSurgeryData(raw)
+          armsData.value = enhanceSegments(normalized.arms || [])
+          buildTimelineEvents(raw)
+        } catch (normalizeError) {
+          console.error('❌ 原始数据规范化失败:', normalizeError)
+          console.error('  - Error stack:', normalizeError.stack)
+          armsData.value = []
+          timelineEvents.value = []
+        }
+        
         // 如果当前在network标签页，但手术不是远程手术，切换到overview
         if (activeTab.value === 'network' && !(raw.is_remote === true || raw.isRemote === true)) {
           activeTab.value = 'overview'
@@ -825,8 +1018,11 @@ export default {
         }
         return true
       } catch (error) {
-        console.error('Failed to apply visualization data:', error)
+        console.error('❌ Failed to apply visualization data:', error)
+        console.error('  - Error stack:', error.stack)
+        console.error('  - Raw data:', raw)
         timelineEvents.value = []
+        armsData.value = []
         return false
       }
     }
@@ -846,23 +1042,108 @@ export default {
     const fetchSurgeryData = async () => {
       loading.value = true
       try {
+        // 优先从手术数据接口获取
         const resp = await api.surgeries.get(surgeryId)
         const raw = resp?.data?.data ?? resp?.data ?? null
-        const applied = applyVisualizationData(raw)
-
-        if (!applied || !armsData.value.length) {
-          try {
-            const vizResp = await api.surgeryStatistics.getList({ surgery_id: surgeryId, limit: 1 })
-            const stats = vizResp?.data?.data?.[0]
-            if (stats && stats.structured_data) {
-              applyVisualizationData({ ...stats, structured_data: stats.structured_data })
+        
+        console.log('🔧 移动端获取到的手术数据:', raw)
+        
+        if (raw) {
+          // 使用适配器处理数据
+          const adaptedData = adaptSurgeryData(raw)
+          
+          console.log('🔧 适配后的数据:', adaptedData)
+          console.log('🔧 数据验证结果:', validateAdaptedData(adaptedData))
+          
+          if (adaptedData && validateAdaptedData(adaptedData)) {
+            adaptedData._dataSource = getDataSourceType(raw)
+            adaptedData._originalData = raw
+            
+            // 应用适配后的数据
+            try {
+              const applied = applyVisualizationData(adaptedData)
+              
+              if (applied) {
+                // 数据加载成功，保存到sessionStorage
+                sessionStorage.setItem('surgeryVizData', JSON.stringify(adaptedData))
+                console.log('✅ 数据加载成功')
+                return
+              } else {
+                console.warn('⚠️ applyVisualizationData 返回 false')
+              }
+            } catch (error) {
+              console.error('❌ applyVisualizationData 抛出错误:', error)
+              throw error // 重新抛出以便外层捕获
             }
-          } catch (error) {
-            console.warn('Failed to fetch visualization data:', error)
+          } else {
+            console.warn('⚠️ 数据适配或验证失败')
+            console.warn('  - adaptedData:', adaptedData)
+            console.warn('  - validateAdaptedData:', adaptedData ? validateAdaptedData(adaptedData) : 'adaptedData is null/undefined')
+            console.warn('⚠️ 尝试从统计接口获取')
           }
+        } else {
+          console.warn('⚠️ api.surgeries.get 返回的数据为空')
         }
+        
+        // 如果直接获取失败或适配失败，尝试从统计接口获取
+        try {
+          const vizResp = await api.surgeryStatistics.getList({ surgery_id: surgeryId, limit: 1 })
+          const stats = vizResp?.data?.data?.[0]
+          
+          console.log('🔧 从统计接口获取的数据:', stats)
+          
+          if (stats) {
+            // 处理 postgresql_row_preview.structured_data 格式
+            if (stats.postgresql_row_preview?.structured_data) {
+              const adaptedData = adaptSurgeryData({
+                ...stats,
+                postgresql_row_preview: stats.postgresql_row_preview
+              })
+              
+              if (adaptedData && validateAdaptedData(adaptedData)) {
+                adaptedData._dataSource = getDataSourceType(stats)
+                adaptedData._originalData = stats
+                applyVisualizationData(adaptedData)
+                sessionStorage.setItem('surgeryVizData', JSON.stringify(adaptedData))
+                return
+              }
+            }
+            
+            // 处理直接包含 structured_data 的格式
+            if (stats.structured_data) {
+              const adaptedData = adaptSurgeryData({
+                ...stats,
+                structured_data: stats.structured_data
+              })
+              
+              if (adaptedData && validateAdaptedData(adaptedData)) {
+                adaptedData._dataSource = getDataSourceType(stats)
+                adaptedData._originalData = stats
+                applyVisualizationData(adaptedData)
+                sessionStorage.setItem('surgeryVizData', JSON.stringify(adaptedData))
+                return
+              }
+            }
+            
+            // 如果没有 structured_data，尝试直接适配整个 stats 对象
+            const adaptedData = adaptSurgeryData(stats)
+            if (adaptedData && validateAdaptedData(adaptedData)) {
+              adaptedData._dataSource = getDataSourceType(stats)
+              adaptedData._originalData = stats
+              applyVisualizationData(adaptedData)
+              sessionStorage.setItem('surgeryVizData', JSON.stringify(adaptedData))
+              return
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ 从统计接口获取数据失败:', error)
+        }
+        
+        // 所有尝试都失败
+        console.error('❌ 无法获取有效的手术数据')
+        showToast(t('mobile.surgeryVisualization.loadFailed'))
       } catch (error) {
-        console.error('Failed to fetch surgery data:', error)
+        console.error('❌ 获取手术数据失败:', error)
         showToast(t('mobile.surgeryVisualization.loadFailed'))
       } finally {
         loading.value = false
@@ -878,8 +1159,9 @@ export default {
         return { left: '0%', width: '100%' }
       }
 
-      const segmentStartRaw = segment.start_time || segment.start || segment.install_time
-      const segmentEndRaw = segment.end_time || segment.end || segment.remove_time || segmentStartRaw
+      // 兼容多种字段命名：start_time/install_time（下划线）或 startTime/installTime（驼峰）
+      const segmentStartRaw = segment.start_time || segment.start || segment.install_time || segment.startTime || segment.installTime
+      const segmentEndRaw = segment.end_time || segment.end || segment.remove_time || segment.endTime || segment.removeTime || segmentStartRaw
       const segmentStart = new Date(segmentStartRaw || start)
       const segmentEnd = new Date(segmentEndRaw || segmentStartRaw || end)
       const safeStart = Number.isNaN(segmentStart.getTime()) ? start.getTime() : segmentStart.getTime()
@@ -981,7 +1263,8 @@ export default {
       networkLatencySeries,
       hasNetworkLatency,
       timelineEvents,
-      getEventDotClass
+      faultExplanations,
+      faultExplanationLoading
     }
   }
 }
@@ -1325,91 +1608,23 @@ export default {
   font-weight: 500;
 }
 
-.timeline-container {
+.timeline-list {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 8px 0;
+  padding: 0;
 }
 
-.timeline-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  position: relative;
-  padding: 12px 0;
-}
-
-.timeline-item:first-child {
-  padding-top: 0;
-}
-
-.timeline-item:last-child {
-  padding-bottom: 0;
-}
-
-.timeline-line-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  width: 28px;
-  position: relative;
-  padding-top: 2px;
-}
-
-.timeline-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s ease;
-}
-
-.timeline-dot.event-dot-power {
-  background-color: #2b7fff;
-  border-color: #fff;
-  box-shadow: 0 0 0 2px #2b7fff, 0 2px 6px rgba(43, 127, 255, 0.3);
-}
-
-.timeline-dot.event-dot-surgery {
-  background-color: #fb2c36;
-  border-color: #fff;
-  box-shadow: 0 0 0 2px #fb2c36, 0 2px 6px rgba(251, 44, 54, 0.3);
-}
-
-.timeline-dot.event-dot-previous {
-  background-color: #7c3aed;
-  border-color: #fff;
-  box-shadow: 0 0 0 2px #7c3aed, 0 2px 6px rgba(124, 58, 237, 0.3);
-}
-
-.timeline-dot.event-dot-default {
-  background-color: #9ca3af;
-  border-color: #fff;
-  box-shadow: 0 0 0 2px #9ca3af, 0 2px 6px rgba(156, 163, 175, 0.3);
-}
-
-.timeline-line {
-  width: 2px;
-  flex: 1;
-  min-height: 32px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.06));
-  margin-top: 6px;
-  margin-bottom: -6px;
-  border-radius: 1px;
-}
-
-.timeline-content {
-  flex: 1;
+.timeline-list-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-top: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.timeline-list-item:last-child {
+  border-bottom: none;
 }
 
 .timeline-event-name {
@@ -1678,6 +1893,16 @@ export default {
   line-height: 1.5;
   word-break: break-word;
   white-space: normal;
+}
+
+.explanation-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: #909399;
+  font-size: 12px;
 }
 
 .table-operations .table-row {

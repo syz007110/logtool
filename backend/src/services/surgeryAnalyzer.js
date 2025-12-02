@@ -217,7 +217,12 @@ class SurgeryAnalyzer {
         code: errCode,
         message: entry.explanation || `故障码: ${errCode}`,
         status: '未处理',
-        isActive: true
+        isActive: true,
+        // 保存参数值（用于后续释义解析）
+        param1: entry.param1 || '',
+        param2: entry.param2 || '',
+        param3: entry.param3 || '',
+        param4: entry.param4 || ''
       };
       
       this.activeAlarms.set(errCode, alarmInfo);
@@ -1528,10 +1533,10 @@ class SurgeryAnalyzer {
         error_code: fault.code,
         status: fault.status === '已处理',
         recovery_time: fault.recoveryTime || null,
-        param1: "",
-        param2: "",
-        param3: "",
-        param4: "",
+        param1: fault.param1 || '',
+        param2: fault.param2 || '',
+        param3: fault.param3 || '',
+        param4: fault.param4 || '',
         log_id: surgery.log_id
       })) : [],
       state_machine: (surgery.state_machine_changes || []).map(ch => ({
