@@ -222,8 +222,8 @@ app.whenReady().then(async () => {
   const scanning = new Set(); // 正在扫描的路径
   let isScanning = false; // 全局扫描状态
 
-  // 设备编号正则，与扫描器保持一致
-  const deviceIdRegex = /\b[0-9A-Za-z]{3,5}-[0-9A-Za-z]{2}\b/;
+  // 设备编号正则，与后端逻辑保持一致：支持 5G-数字 和 4xxx-xx 两种格式
+  const deviceIdRegex = /(5G-\d+|4\d{3}-\d{2})/;
 
   // 归一化单元路径：定位到包含设备编号的目录段（或压缩包本身）
   function normalizeUnitPath(inputPath) {

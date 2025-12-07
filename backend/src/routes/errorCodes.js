@@ -12,6 +12,11 @@ const {
   getErrorCodeByCodeAndSubsystem,
   exportErrorCodesToCSV
 } = require('../controllers/errorCodeController');
+const {
+  getErrorCodeI18nByLang,
+  saveErrorCodeI18nByLang,
+  autoTranslateErrorCodeI18n
+} = require('../controllers/i18nErrorCodeController');
 
 // 查询（支持简单/高级搜索）- 需要 error_code:read 权限
 router.get('/', auth, checkPermission('error_code:read'), getErrorCodes);
@@ -29,5 +34,14 @@ router.post('/', auth, checkPermission('error_code:create'), createErrorCode);
 router.put('/:id', auth, checkPermission('error_code:update'), updateErrorCode);
 // 删除 - 需要 error_code:delete 权限
 router.delete('/:id', auth, checkPermission('error_code:delete'), deleteErrorCode);
+
+// 获取故障码的指定语言的多语言内容（技术说明字段）- 需要 error_code:read 权限
+router.get('/:id/i18n', auth, checkPermission('error_code:read'), getErrorCodeI18nByLang);
+
+// 保存故障码的指定语言的多语言内容（技术说明字段）- 需要 error_code:update 权限
+router.put('/:id/i18n', auth, checkPermission('error_code:update'), saveErrorCodeI18nByLang);
+
+// 自动翻译故障码的技术说明字段 - 需要 error_code:update 权限
+router.post('/:id/i18n/auto-translate', auth, checkPermission('error_code:update'), autoTranslateErrorCodeI18n);
 
 module.exports = router; 

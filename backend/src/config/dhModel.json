@@ -1,12 +1,12 @@
 {
   "masterArm": [
-    { "a": 0, "alpha": 1.57079632679, "d": 0.1, "thetaOffset": 0 },
-    { "a": 0.3, "alpha": 0, "d": 0, "thetaOffset": 0 },
-    { "a": 0.2, "alpha": 0, "d": 0, "thetaOffset": 0 },
-    { "a": 0.1, "alpha": 1.57079632679, "d": 0, "thetaOffset": 0 },
-    { "a": 0, "alpha": -1.57079632679, "d": 0.1, "thetaOffset": 0 },
-    { "a": 0, "alpha": 0, "d": 0.1, "thetaOffset": 0 },
-    { "a": 0, "alpha": 0, "d": 0.05, "thetaOffset": 0 }
+    { "a": 0,   "alpha": 0, "d": -0.166, "thetaOffset": 0 },
+    { "a": 0,   "alpha": -1.57079632679, "d": 0, "thetaOffset": 1.57079632679 },
+    { "a": 0.3, "alpha": 0, "d": 0, "thetaOffset": -1.57079632679 },
+    { "a": 0.35, "alpha": 1.57079632679, "d": 0.145, "thetaOffset": 0 },
+    { "a": 0,   "alpha": -1.57079632679, "d": 0, "thetaOffset": 0 },
+    { "a": 0,   "alpha": 1.57079632679, "d": 0, "thetaOffset": 1.57079632679 },
+    { "a": 0, "alpha": 1.57079632679, "d": 0, "thetaOffset": 3.1415926535 }
   ],
   "toolArm": [
     { "a": 0, "alpha": 1.57079632679, "d": 0.15, "thetaOffset": 0 },

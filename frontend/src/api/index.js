@@ -87,9 +87,24 @@ const errorCodes = {
     params: { languages },
     responseType: 'json'
   }),
-  exportCSV: (languages = '', format = 'csv') => api.get('/error-codes/export/csv', {
-    params: { languages, format },
+  // CSV 导出：后端现在使用单个 language 参数，并根据该语言替换多语言字段内容
+  exportCSV: (language = '', format = 'csv') => api.get('/error-codes/export/csv', {
+    params: { language, format },
     responseType: 'blob'
+  }),
+  // 获取故障码的指定语言的多语言内容（技术说明字段）
+  getI18nByLang: (id, lang) => api.get(`/error-codes/${id}/i18n`, {
+    params: { lang }
+  }),
+  // 保存故障码的指定语言的多语言内容（技术说明字段）
+  saveI18nByLang: (id, lang, data) => api.put(`/error-codes/${id}/i18n`, {
+    lang,
+    ...data
+  }),
+  // 自动翻译故障码的技术说明字段
+  autoTranslateI18n: (id, lang, overwrite = false) => api.post(`/error-codes/${id}/i18n/auto-translate`, {
+    lang,
+    overwrite
   })
 }
 

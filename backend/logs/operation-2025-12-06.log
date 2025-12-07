@@ -1,0 +1,3 @@
+{"time":"2025-12-06T07:16:38.630Z","operation":"自动翻译故障码技术字段","description":"自动翻译故障码 0X010A 的技术说明字段到 en","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":"1","lang":"en","errorCode":"0X010A","overwrite":false}}
+{"time":"2025-12-06T07:47:04.527Z","operation":"自动翻译故障码技术字段","description":"自动翻译故障码 0X010A 的技术说明字段到 en","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":"1","lang":"en","errorCode":"0X010A","overwrite":false}}
+{"time":"2025-12-06T07:50:05.962Z","operation":"自动翻译故障码技术字段","description":"自动翻译故障码 0X010A 的技术说明字段到 en","user_id":1,"username":"admin","status":"success","ip":"","user_agent":"","details":{"errorCodeId":"2","lang":"en","errorCode":"0X010A","overwrite":false}}

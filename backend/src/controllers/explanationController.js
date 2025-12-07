@@ -1,5 +1,47 @@
 const ErrorCode = require('../models/error_code');
 const { parseExplanation, buildPrefixFromContext } = require('../utils/explanationParser');
+const prefixKeyMap = require('../config/prefixKeyMap.json');
+
+// 将中文前缀翻译为目标语言（依据 i18n 语言）
+function translatePrefixText(prefix, t) {
+  if (!prefix) return '';
+
+  const getKey = (value) => prefixKeyMap[value] || value;
+
+  const translateKey = (key) => {
+    const translated = t(`shared.prefixLabels.${key}`);
+    if (translated && translated !== `shared.prefixLabels.${key}`) return translated;
+    return null;
+  };
+
+  const translatePart = (part) => {
+    // 数字 + 关节，例如 1关节
+    const jointMatch = String(part).match(/^(\d+)(关节)$/);
+    if (jointMatch) {
+      const num = jointMatch[1];
+      const jointTranslated = translateKey('joint') || jointMatch[2];
+      return `${num} ${jointTranslated}`.trim();
+    }
+
+    const key = getKey(part);
+    const translated = translateKey(key);
+    return translated || part; // 回退原文
+  };
+
+  // 先尝试整体翻译
+  const wholeKey = getKey(prefix);
+  const wholeTranslated = translateKey(wholeKey);
+  if (wholeTranslated) return wholeTranslated;
+
+  // 拆分：优先按空格，其次按中文+数字分词
+  const parts = String(prefix).trim().split(/\s+/);
+  const segments =
+    parts.length === 1
+      ? String(prefix).match(/[\u4e00-\u9fa5A-Za-z]+|\d+/g) || parts
+      : parts;
+
+  return segments.map(translatePart).join(' ');
+}
 
 function normalizeCode(input) {
   if (!input) return '';
@@ -81,7 +123,8 @@ const previewParse = async (req, res) => {
       context
     );
 
-    const prefix = buildPrefixFromContext(context) || '';
+    const prefixRaw = buildPrefixFromContext(context) || '';
+    const prefix = translatePrefixText(prefixRaw, req.t);
 
     return res.json({
       code,
@@ -91,7 +134,8 @@ const previewParse = async (req, res) => {
       template,
       params: { param1, param2, param3, param4 },
       explanation,
-      prefix
+      prefix,
+      prefix_raw: prefixRaw
     });
   } catch (error) {
     console.error('预览释义解析失败:', error);

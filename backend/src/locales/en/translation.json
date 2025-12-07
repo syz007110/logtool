@@ -67,6 +67,27 @@
       "8": "08: Remote Motion Control Software",
       "9": "09: Remote Doctor Console Software",
       "A": "0A: Remote Driver Software"
+    },
+    "prefixLabels": {
+      "remoteEnd": "Remote End",
+      "remote": "Remote",
+      "joint": "Joint",
+      "leftMainControlArm": "Left Main Control Arm",
+      "rightMainControlArm": "Right Main Control Arm",
+      "toolArm1": "Tool Arm 1",
+      "toolArm2": "Tool Arm 2",
+      "toolArm3": "Tool Arm 3",
+      "toolArm4": "Tool Arm 4",
+      "adjustmentArm1": "Adjustment Arm 1",
+      "adjustmentArm2": "Adjustment Arm 2",
+      "adjustmentArm3": "Adjustment Arm 3",
+      "adjustmentArm4": "Adjustment Arm 4",
+      "masterIO": "Master IO",
+      "slaveIO": "Slave IO",
+      "masterHandLiftJoint": "Master Hand Lift Joint",
+      "armrestLiftJoint": "Armrest Lift Joint",
+      "monitorLift": "Monitor Lift",
+      "monitorRotation": "Monitor Rotation"
     }
   },
   "errorCode": {

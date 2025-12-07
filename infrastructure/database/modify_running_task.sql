@@ -377,3 +377,118 @@ FROM information_schema.columns
 WHERE table_name = 'surgeries' 
 AND column_name IN ('start_time', 'end_time')
 ORDER BY ordinal_position;
+
+-- ========================================
+-- 9. 扩展 i18n_error_codes 表：添加多语言字段支持
+-- ========================================
+-- 为 i18n_error_codes 表添加新的多语言字段：
+-- detail, method, param1~4, solution, tech_solution, explanation, category
+-- 
+-- 执行前准备：
+--   1. 备份数据库（推荐）
+--   2. 确认 i18n_error_codes 表已存在
+-- 
+-- 执行方式：
+--   mysql -u username -p logtool < modify_running_task.sql
+-- 
+-- 预期时间：
+--   - ALTER TABLE: 1-3 分钟（视表大小）
+-- ========================================
+
+USE logtool;
+
+-- 设置超时参数（避免超时断开）
+SET SESSION wait_timeout = 28800;           -- 8小时
+SET SESSION interactive_timeout = 28800;    -- 8小时
+SET SESSION lock_wait_timeout = 7200;       -- 2小时
+
+-- 显示开始时间
+SELECT NOW() as start_time, '开始扩展 i18n_error_codes 表' as status;
+
+-- 检查表是否存在
+SELECT 
+    CASE 
+        WHEN COUNT(*) > 0 THEN 'i18n_error_codes 表存在，开始添加字段'
+        ELSE '错误：i18n_error_codes 表不存在，请先执行 init_database.sql'
+    END AS status
+FROM information_schema.tables 
+WHERE table_schema = 'logtool' 
+  AND table_name = 'i18n_error_codes';
+
+-- ========================================
+-- 步骤1：添加新的多语言字段（简化版本）
+-- ========================================
+-- 预计时间：1-3 分钟
+-- 使用存储过程批量处理，自动跳过已存在的字段
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS add_i18n_columns$$
+
+CREATE PROCEDURE add_i18n_columns()
+BEGIN
+    DECLARE CONTINUE HANDLER FOR 1060 BEGIN END;  -- 忽略"字段已存在"错误(1060)
+    
+    -- 批量添加所有字段（如果字段已存在会自动跳过）
+    ALTER TABLE i18n_error_codes
+      ADD COLUMN detail TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '详细信息' AFTER operation,
+      ADD COLUMN method TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '方法信息' AFTER detail,
+      ADD COLUMN param1 VARCHAR(100) COMMENT '故障日志记录的参数1' AFTER method,
+      ADD COLUMN param2 VARCHAR(100) COMMENT '故障日志记录的参数2' AFTER param1,
+      ADD COLUMN param3 VARCHAR(100) COMMENT '故障日志记录的参数3' AFTER param2,
+      ADD COLUMN param4 VARCHAR(100) COMMENT '故障日志记录的参数4' AFTER param3,
+              ADD COLUMN tech_solution TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '技术解决方案' AFTER param4,
+              ADD COLUMN explanation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '说明信息' AFTER tech_solution;
+              -- 注意：solution, level, category 字段不在 i18n_error_codes 表中
+              -- 这些字段的值是固定的枚举值，只存储在 error_codes 表中，通过前端 i18n 翻译显示
+END$$
+
+DELIMITER ;
+
+-- 执行存储过程
+CALL add_i18n_columns();
+
+-- 删除临时存储过程
+DROP PROCEDURE IF EXISTS add_i18n_columns;
+
+-- ========================================
+-- 备选方案（更简单，但需要手动处理错误）：
+-- 如果字段已存在会报错，可以安全忽略
+-- ========================================
+-- ALTER TABLE i18n_error_codes
+--   ADD COLUMN detail TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '详细信息' AFTER operation,
+--   ADD COLUMN method TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '方法信息' AFTER detail,
+--   ADD COLUMN param1 VARCHAR(100) COMMENT '故障日志记录的参数1' AFTER method,
+--   ADD COLUMN param2 VARCHAR(100) COMMENT '故障日志记录的参数2' AFTER param1,
+--   ADD COLUMN param3 VARCHAR(100) COMMENT '故障日志记录的参数3' AFTER param2,
+--   ADD COLUMN param4 VARCHAR(100) COMMENT '故障日志记录的参数4' AFTER param3,
+--   ADD COLUMN solution TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '解决方案' AFTER param4,
+--   ADD COLUMN tech_solution TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '技术解决方案' AFTER solution,
+--   ADD COLUMN explanation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '说明信息' AFTER tech_solution,
+--   ADD COLUMN category VARCHAR(100) COMMENT '分类信息' AFTER explanation;
+
+-- 显示步骤1完成时间
+SELECT NOW() as step1_completed, 'i18n_error_codes 表字段添加完成' as status;
+
+-- ========================================
+-- 步骤2：验证字段添加结果
+-- ========================================
+
+SELECT 
+    column_name,
+    data_type,
+    character_maximum_length,
+    is_nullable,
+    column_comment
+FROM information_schema.columns 
+WHERE table_schema = 'logtool' 
+  AND table_name = 'i18n_error_codes'
+          AND column_name IN ('detail', 'method', 'param1', 'param2', 'param3', 'param4', 
+                               'tech_solution', 'explanation')
+ORDER BY ordinal_position;
+
+-- 显示完成信息
+SELECT 
+    NOW() as completed_time,
+            'i18n_error_codes 表扩展完成！' as status,
+            '新增字段：detail, method, param1~4, tech_solution, explanation' as new_fields;

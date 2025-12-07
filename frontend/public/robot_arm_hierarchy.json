@@ -1,0 +1,105 @@
+{
+  "worldOrientation": [0, 0, 1.57079632679],
+  "masterArm": {
+    "root": "base",
+    "rootOrientation": [1.57079632679, 1.57079632679, 0],
+    "joints": [
+      {
+        "name": "joint1",
+        "parent": "base",
+        "dhIndex": 0
+      },
+      {
+        "name": "joint2",
+        "parent": "joint1",
+        "dhIndex": 1
+      },
+      {
+        "name": "joint3",
+        "parent": "joint2",
+        "dhIndex": 2
+      },
+      {
+        "name": "joint4",
+        "parent": "joint3",
+        "dhIndex": 3
+      },
+      {
+        "name": "joint5",
+        "parent": "joint4",
+        "dhIndex": 4
+      },
+      {
+        "name": "joint6",
+        "parent": "joint5",
+        "dhIndex": 5
+      },
+      {
+        "name": "joint7",
+        "parent": "joint6",
+        "dhIndex": 6
+      }
+    ]
+  },
+  "toolArm": {
+    "root": "base",
+    "joints": [
+      {
+        "name": "joint1",
+        "parent": "base",
+        "dhIndex": 0
+      },
+      {
+        "name": "joint2",
+        "parent": "joint1",
+        "dhIndex": 1
+      },
+      {
+        "name": "joint3",
+        "parent": "joint2",
+        "dhIndex": 2
+      },
+      {
+        "name": "joint4",
+        "parent": "joint3",
+        "dhIndex": 3
+      },
+      {
+        "name": "joint5",
+        "parent": "joint4",
+        "dhIndex": 4
+      },
+      {
+        "name": "joint6",
+        "parent": "joint5",
+        "dhIndex": 5
+      }
+    ]
+  },
+  "cameraArm": {
+    "root": "base",
+    "joints": [
+      {
+        "name": "joint1",
+        "parent": "base",
+        "dhIndex": 0
+      },
+      {
+        "name": "joint2",
+        "parent": "joint1",
+        "dhIndex": 1
+      },
+      {
+        "name": "joint3",
+        "parent": "joint2",
+        "dhIndex": 2
+      },
+      {
+        "name": "joint4",
+        "parent": "joint3",
+        "dhIndex": 3
+      }
+    ]
+  }
+}
+

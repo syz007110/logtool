@@ -7,6 +7,7 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const errorCodeCache = require('../services/errorCodeCache');
+const { translateFields } = require('../services/translationService');
 
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
@@ -660,6 +661,309 @@ const uploadCSV = async (req, res) => {
   }
 };
 
+// 获取故障码的指定语言的多语言内容（包含所有字段）
+const getErrorCodeI18nByLang = async (req, res) => {
+  try {
+    const { id } = req.params; // error_code_id
+    const { lang } = req.query;
+
+    if (!lang) {
+      return res.status(400).json({ message: 'Language parameter is required' });
+    }
+
+    const errorCode = await ErrorCode.findByPk(id);
+    if (!errorCode) {
+      return res.status(404).json({ message: 'Error code not found' });
+    }
+
+    // 查找该语言的多语言内容
+    const i18nContent = await I18nErrorCode.findOne({
+      where: {
+        error_code_id: id,
+        lang
+      }
+    });
+
+    // 返回默认语言（中文）和指定语言的内容
+    res.json({
+      errorCode: {
+        id: errorCode.id,
+        subsystem: errorCode.subsystem,
+        code: errorCode.code,
+        // 默认语言字段（只读）
+        defaultFields: {
+          detail: errorCode.detail,
+          method: errorCode.method,
+          param1: errorCode.param1,
+          param2: errorCode.param2,
+          param3: errorCode.param3,
+          param4: errorCode.param4,
+          tech_solution: errorCode.tech_solution,
+          explanation: errorCode.explanation
+          // 注意：solution, level, category 不在 i18n_error_codes 表中，只从 error_codes 表读取
+        }
+      },
+      i18nContent: i18nContent ? {
+        id: i18nContent.id,
+        lang: i18nContent.lang,
+        // UI 字段
+        short_message: i18nContent.short_message,
+        user_hint: i18nContent.user_hint,
+        operation: i18nContent.operation,
+        // 技术字段
+        detail: i18nContent.detail,
+        method: i18nContent.method,
+        param1: i18nContent.param1,
+        param2: i18nContent.param2,
+        param3: i18nContent.param3,
+        param4: i18nContent.param4,
+        tech_solution: i18nContent.tech_solution,
+        explanation: i18nContent.explanation
+        // 注意：solution, level, category 不在 i18n_error_codes 表中
+      } : null
+    });
+  } catch (err) {
+    console.error('获取故障码多语言内容失败:', err);
+    res.status(500).json({ message: 'Failed to get error code i18n content', error: err.message });
+  }
+};
+
+// 保存故障码的指定语言的多语言内容（包含UI字段和技术字段）
+const saveErrorCodeI18nByLang = async (req, res) => {
+  try {
+    const { id } = req.params; // error_code_id
+    const { lang, short_message, user_hint, operation, detail, method, param1, param2, param3, param4, tech_solution, explanation } = req.body;
+    // 注意：solution, level, category 不在 i18n_error_codes 表中，不接收这些参数
+
+    if (!lang) {
+      return res.status(400).json({ message: 'Language parameter is required' });
+    }
+
+    const errorCode = await ErrorCode.findByPk(id);
+    if (!errorCode) {
+      return res.status(404).json({ message: 'Error code not found' });
+    }
+
+    // 查找是否已存在该语言的内容
+    let i18nContent = await I18nErrorCode.findOne({
+      where: {
+        error_code_id: id,
+        lang
+      }
+    });
+
+    const updateData = {
+      // UI 字段
+      short_message: short_message || null,
+      user_hint: user_hint || null,
+      operation: operation || null,
+      // 技术字段
+      detail: detail || null,
+      method: method || null,
+      param1: param1 || null,
+      param2: param2 || null,
+      param3: param3 || null,
+      param4: param4 || null,
+      tech_solution: tech_solution || null,
+      explanation: explanation || null
+      // 注意：solution, level, category 不在 i18n_error_codes 表中，不保存这些字段
+    };
+
+    if (i18nContent) {
+      // 更新现有记录（包含UI字段和技术字段）
+      await i18nContent.update(updateData);
+    } else {
+      // 创建新记录
+      i18nContent = await I18nErrorCode.create({
+        error_code_id: id,
+        lang,
+        ...updateData
+      });
+    }
+
+    // 记录操作日志
+    if (req.user) {
+      try {
+        await logOperation({
+          user_id: req.user.id,
+          username: req.user.username,
+          operation: i18nContent ? '更新故障码多语言技术字段' : '新增故障码多语言技术字段',
+          description: `${i18nContent ? '更新' : '新增'}故障码 ${errorCode.code} 的 ${lang} 语言技术说明字段`,
+          details: {
+            errorCodeId: id,
+            lang,
+            errorCode: errorCode.code
+          }
+        });
+      } catch (logError) {
+        console.warn('记录操作日志失败:', logError.message);
+      }
+    }
+
+    // 重新加载故障码缓存
+    try {
+      await errorCodeCache.reloadCache();
+    } catch (cacheError) {
+      console.warn('重新加载故障码缓存失败:', cacheError.message);
+    }
+
+    res.json({
+      message: i18nContent ? 'Updated successfully' : 'Created successfully',
+      i18nContent
+    });
+  } catch (err) {
+    console.error('保存故障码多语言内容失败:', err);
+    res.status(500).json({ message: 'Failed to save error code i18n content', error: err.message });
+  }
+};
+
+// 自动翻译故障码的技术说明字段
+const autoTranslateErrorCodeI18n = async (req, res) => {
+  try {
+    const { id } = req.params; // error_code_id
+    const { lang, overwrite = false } = req.body; // overwrite: 是否覆盖已有内容
+
+    if (!lang) {
+      return res.status(400).json({ message: 'Language parameter is required' });
+    }
+
+    const errorCode = await ErrorCode.findByPk(id);
+    if (!errorCode) {
+      return res.status(404).json({ message: 'Error code not found' });
+    }
+
+    // 获取源语言字段（默认中文）
+    // 注意：solution, level, category 不在 i18n_error_codes 表中，不参与自动翻译
+    const sourceFields = {
+      // UI 显示字段
+      short_message: errorCode.short_message,
+      user_hint: errorCode.user_hint,
+      operation: errorCode.operation,
+      // 技术说明字段
+      detail: errorCode.detail,
+      method: errorCode.method,
+      param1: errorCode.param1,
+      param2: errorCode.param2,
+      param3: errorCode.param3,
+      param4: errorCode.param4,
+      tech_solution: errorCode.tech_solution,
+      explanation: errorCode.explanation
+    };
+
+    // 获取已存在的目标语言内容
+    const existingI18n = await I18nErrorCode.findOne({
+      where: {
+        error_code_id: id,
+        lang
+      }
+    });
+
+    const existingFields = existingI18n ? {
+      // UI 显示字段
+      short_message: existingI18n.short_message,
+      user_hint: existingI18n.user_hint,
+      operation: existingI18n.operation,
+      // 技术说明字段
+      detail: existingI18n.detail,
+      method: existingI18n.method,
+      param1: existingI18n.param1,
+      param2: existingI18n.param2,
+      param3: existingI18n.param3,
+      param4: existingI18n.param4,
+      tech_solution: existingI18n.tech_solution,
+      explanation: existingI18n.explanation
+      // 注意：solution, level, category 不在 i18n_error_codes 表中
+    } : {};
+
+    // 执行翻译（只翻译空字段，除非指定覆盖）
+    let translatedFields;
+    try {
+      translatedFields = await translateFields(
+        sourceFields,
+        lang,
+        'zh-CN',
+        {
+          onlyEmpty: !overwrite,
+          existingFields: existingFields
+        }
+      );
+    } catch (translateError) {
+      console.error('翻译服务调用失败:', translateError);
+      // 返回友好的错误信息
+      return res.status(500).json({ 
+        message: '自动翻译失败',
+        error: translateError.message || 'Translation service error'
+      });
+    }
+
+    // 检查是否有任何字段被成功翻译
+    const hasTranslatedFields = Object.values(translatedFields).some(val => val && val.trim() !== '');
+    if (!hasTranslatedFields) {
+      return res.status(500).json({ 
+        message: '自动翻译失败：没有字段被成功翻译',
+        error: 'No fields were translated'
+      });
+    }
+
+    // 保存翻译结果
+    try {
+      if (existingI18n) {
+        await existingI18n.update(translatedFields);
+      } else {
+        await I18nErrorCode.create({
+          error_code_id: id,
+          lang,
+          ...translatedFields
+        });
+      }
+    } catch (saveError) {
+      console.error('保存翻译结果失败:', saveError);
+      return res.status(500).json({ 
+        message: '自动翻译失败：保存翻译结果时出错',
+        error: saveError.message || 'Failed to save translation results'
+      });
+    }
+
+    // 记录操作日志
+    if (req.user) {
+      try {
+        await logOperation({
+          user_id: req.user.id,
+          username: req.user.username,
+          operation: '自动翻译故障码技术字段',
+          description: `自动翻译故障码 ${errorCode.code} 的技术说明字段到 ${lang}`,
+          details: {
+            errorCodeId: id,
+            lang,
+            errorCode: errorCode.code,
+            overwrite
+          }
+        });
+      } catch (logError) {
+        console.warn('记录操作日志失败:', logError.message);
+      }
+    }
+
+    // 重新加载故障码缓存
+    try {
+      await errorCodeCache.reloadCache();
+    } catch (cacheError) {
+      console.warn('重新加载故障码缓存失败:', cacheError.message);
+    }
+
+    res.json({
+      message: 'Translation completed',
+      translatedFields
+    });
+  } catch (err) {
+    console.error('自动翻译失败:', err);
+    res.status(500).json({ 
+      message: '自动翻译失败',
+      error: err.message || 'Unknown error'
+    });
+  }
+};
+
 module.exports = {
   getI18nErrorCodes,
   upsertI18nErrorCode,
@@ -667,5 +971,8 @@ module.exports = {
   batchImportI18nErrorCodes,
   getSupportedLanguages,
   getSubsystems,
-  uploadCSV
+  uploadCSV,
+  getErrorCodeI18nByLang,
+  saveErrorCodeI18nByLang,
+  autoTranslateErrorCodeI18n
 }; 

@@ -156,14 +156,12 @@
             <el-radio label="tsv">{{ $t('errorCodes.tsvFormat') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item :label="$t('errorCodes.multilangColumnsOptional')">
+        <el-form-item :label="$t('errorCodes.exportLanguage')">
           <el-select
-            v-model="selectedExportLangs"
-            multiple
-            collapse-tags
-            :max-collapse-tags="4"
-            :placeholder="$t('errorCodes.selectLanguages')"
+            v-model="selectedExportLang"
+            :placeholder="$t('errorCodes.selectLanguage')"
             style="width: 100%"
+            clearable
           >
             <el-option
               v-for="opt in languageOptions"
@@ -172,6 +170,9 @@
               :value="opt.value"
             />
           </el-select>
+          <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+            {{ $t('errorCodes.exportLanguageHint') }}
+          </div>
         </el-form-item>
       </el-form>
 
@@ -186,10 +187,43 @@
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="showAddDialog"
-      :title="getDialogTitle()"
       width="1000px"
       :close-on-click-modal="false"
     >
+      <template #title>
+        <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 14px; color: #606266;">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
+            <el-select 
+              v-model="selectedI18nLang" 
+              :placeholder="$t('errorCodes.i18nTechFields.selectLanguage')"
+              style="width: 150px;"
+              size="small"
+              @change="handleLanguageChange"
+            >
+              <el-option 
+                :label="$t('errorCodes.i18nTechFields.defaultLanguage')" 
+                value="zh-CN" 
+              />
+              <el-option
+                v-for="lang in i18nLanguageOptions"
+                :key="lang.value"
+                :label="lang.label"
+                :value="lang.value"
+              />
+            </el-select>
+            <el-button 
+              type="primary" 
+              size="small"
+              :loading="translating"
+              :disabled="!selectedI18nLang || selectedI18nLang === 'zh-CN'"
+              @click="handleAutoTranslate"
+            >
+              {{ $t('errorCodes.i18nTechFields.autoTranslate') }}
+            </el-button>
+          </div>
+        </div>
+      </template>
       <el-form
         ref="errorCodeFormRef"
         :model="errorCodeForm"
@@ -244,86 +278,54 @@
           </el-checkbox-group>
         </el-form-item>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-        <el-form-item :label="$t('errorCodes.formLabels.shortMessageZh')" prop="short_message">
-          <el-input v-model="errorCodeForm.short_message" type="textarea" :rows="2" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-        <el-form-item :label="$t('errorCodes.formLabels.shortMessageEn')" prop="short_message_en">
-          <el-input v-model="errorCodeForm.short_message_en" type="textarea" :rows="2" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-        <el-form-item :label="$t('errorCodes.formLabels.userHintZh')" prop="user_hint">
-          <el-input v-model="errorCodeForm.user_hint" type="textarea" :rows="2" />
+        <!-- UI显示字段（根据选择的语言动态显示） -->
+        <el-form-item :label="$t('errorCodes.formLabels.shortMessage')" prop="short_message">
+          <el-input 
+            v-model="currentForm.short_message" 
+            type="textarea" 
+            :rows="2"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
         </el-form-item>
-          </el-col>
-          <el-col :span="12">
-        <el-form-item :label="$t('errorCodes.formLabels.userHintEn')" prop="user_hint_en">
-          <el-input v-model="errorCodeForm.user_hint_en" type="textarea" :rows="2" />
-        </el-form-item>
-          </el-col>
-        </el-row>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-        <el-form-item :label="$t('errorCodes.formLabels.operationZh')" prop="operation">
-          <el-input v-model="errorCodeForm.operation" type="textarea" :rows="2" />
+        <el-form-item :label="$t('errorCodes.formLabels.userHint')" prop="user_hint">
+          <el-input 
+            v-model="currentForm.user_hint" 
+            type="textarea" 
+            :rows="2"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
         </el-form-item>
-          </el-col>
-          <el-col :span="12">
-        <el-form-item :label="$t('errorCodes.formLabels.operationEn')" prop="operation_en">
-          <el-input v-model="errorCodeForm.operation_en" type="textarea" :rows="2" />
+
+        <el-form-item :label="$t('errorCodes.formLabels.operation')" prop="operation">
+          <el-input 
+            v-model="currentForm.operation" 
+            type="textarea" 
+            :rows="2"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
         </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
-              <el-input v-model="errorCodeForm.param1" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
-              <el-input v-model="errorCodeForm.param2" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
-              <el-input v-model="errorCodeForm.param3" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
-              <el-input v-model="errorCodeForm.param4" />
-            </el-form-item>
-          </el-col>
-        </el-row>
 
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.category')" prop="category">
-              <el-select v-model="errorCodeForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')">
-                <el-option :label="$t('errorCodes.categoryOptions.software')" value="software" />
-                <el-option :label="$t('errorCodes.categoryOptions.hardware')" value="hardware" />
-                <el-option :label="$t('errorCodes.categoryOptions.logRecord')" value="logRecord" />
-                <el-option :label="$t('errorCodes.categoryOptions.operationTip')" value="operationTip" />
-                <el-option :label="$t('errorCodes.categoryOptions.safetyProtection')" value="safetyProtection" />
+              <el-select v-model="currentForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')">
+                <el-option 
+                  v-for="option in categoryOptions" 
+                  :key="option.value" 
+                  :label="option.label" 
+                  :value="option.value" 
+                />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.level')" prop="level">
-              <el-input v-model="errorCodeForm.level" readonly :placeholder="$t('errorCodes.formLabels.levelPlaceholder')" />
+              <el-input 
+                :value="getLevelDisplay(currentForm.level)" 
+                readonly 
+                :placeholder="$t('errorCodes.formLabels.levelPlaceholder')" 
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -353,7 +355,7 @@
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.solution')" prop="solution">
               <el-input 
-                :value="getSolutionDisplay(errorCodeForm.solution)" 
+                :value="getSolutionDisplay(currentForm.solution)" 
                 readonly 
                 :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" 
               />
@@ -361,20 +363,79 @@
           </el-col>
         </el-row>
 
+        <!-- 技术说明字段：根据选择的语言动态显示 -->
         <el-form-item :label="$t('errorCodes.formLabels.detail')" prop="detail">
-          <el-input v-model="errorCodeForm.detail" type="textarea" :rows="3" />
+          <el-input 
+            v-model="currentForm.detail" 
+            type="textarea" 
+            :rows="3"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
         </el-form-item>
 
         <el-form-item :label="$t('errorCodes.formLabels.method')" prop="method">
-          <el-input v-model="errorCodeForm.method" type="textarea" :rows="3" />
+          <el-input 
+            v-model="currentForm.method" 
+            type="textarea" 
+            :rows="3"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
+        </el-form-item>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
+              <el-input 
+                v-model="currentForm.param1"
+                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+              />
             </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
+              <el-input 
+                v-model="currentForm.param2"
+                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
+              <el-input 
+                v-model="currentForm.param3"
+                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
+              <el-input 
+                v-model="currentForm.param4"
+                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
         <el-form-item :label="$t('errorCodes.formLabels.techSolution')" prop="tech_solution">
-          <el-input v-model="errorCodeForm.tech_solution" type="textarea" :rows="3" />
-            </el-form-item>
+          <el-input 
+            v-model="currentForm.tech_solution" 
+            type="textarea" 
+            :rows="3"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
+        </el-form-item>
 
         <el-form-item :label="$t('errorCodes.formLabels.explanation')" prop="explanation">
-          <el-input v-model="errorCodeForm.explanation" type="textarea" :rows="3" />
+          <el-input 
+            v-model="currentForm.explanation" 
+            type="textarea" 
+            :rows="3"
+            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
+          />
         </el-form-item>
       </el-form>
 
@@ -443,7 +504,7 @@
           <el-descriptions-item :label="$t('errorCodes.queryResult.detail')">{{ foundRecord?.detail || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.queryResult.method')">{{ foundRecord?.method || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="$t('errorCodes.queryResult.techSolution')">{{ foundRecord?.tech_solution || '-' }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('errorCodes.queryResult.category')">{{ foundRecord?.category || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('errorCodes.queryResult.category')">{{ getCategoryDisplayText(foundRecord?.category) }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 
@@ -463,6 +524,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
+import prefixKeyMap from '../config/prefixKeyMap.json'
+import categoryKeyMap from '../config/categoryKeyMap.json'
 
 export default {
   name: 'ErrorCodes',
@@ -528,7 +591,7 @@ export default {
   },
   setup() {
     const store = useStore()
-    const { t, locale } = useI18n()
+    const { t, locale, messages } = useI18n()
     
     // 响应式数据
     const loading = ref(false)
@@ -557,8 +620,75 @@ export default {
     const foundRecord = ref(null)
     const analysisCategories = ref([])
     const booleanOptions = ref([])
-    const selectedExportLangs = ref([])
+    const selectedExportLang = ref('')
     const exportFormat = ref('csv')
+    
+    // 多语言编辑相关数据
+    const selectedI18nLang = ref('zh-CN') // 默认中文
+    const i18nForm = reactive({
+      short_message: '',
+      user_hint: '',
+      operation: '',
+      detail: '',
+      method: '',
+      param1: '',
+      param2: '',
+      param3: '',
+      param4: '',
+      tech_solution: '',
+      explanation: ''
+      // 注意：solution, level, category 不在 i18nForm 中
+      // 这些字段的值是固定的枚举值，只存储在 errorCodeForm 中，通过前端 i18n 翻译显示
+    })
+    
+    // 根据选择的语言返回对应的表单对象（使用 getter/setter 支持双向绑定）
+    const currentForm = computed({
+      get() {
+        if (selectedI18nLang.value === 'zh-CN') {
+          return errorCodeForm
+        } else {
+          // 非中文语言：返回一个代理对象，读取时从 i18nForm 获取，写入时写入 i18nForm
+          // 保留非多语言字段（如 subsystem, code 等）从 errorCodeForm 获取
+          return new Proxy(errorCodeForm, {
+            get(target, prop) {
+              // solution, level, category 始终从 errorCodeForm 获取（不在 i18n_error_codes 表中）
+              if (['solution', 'level', 'category'].includes(prop)) {
+                return target[prop]
+              }
+              // 多语言字段从 i18nForm 获取
+              if (['short_message', 'user_hint', 'operation', 'detail', 'method', 
+                   'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation'].includes(prop)) {
+                return i18nForm[prop] || ''
+              }
+              // 其他字段从 errorCodeForm 获取
+              return target[prop]
+            },
+            set(target, prop, value) {
+              // solution, level, category 始终写入 errorCodeForm（不在 i18n_error_codes 表中）
+              if (['solution', 'level', 'category'].includes(prop)) {
+                target[prop] = value
+                return true
+              }
+              // 多语言字段写入 i18nForm
+              if (['short_message', 'user_hint', 'operation', 'detail', 'method', 
+                   'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation'].includes(prop)) {
+                i18nForm[prop] = value
+                return true
+              }
+              // 其他字段写入 errorCodeForm
+              target[prop] = value
+              return true
+            }
+          })
+        }
+      },
+      set() {
+        // 计算属性通常不需要 setter，但为了完整性保留
+      }
+    })
+    const translating = ref(false)
+    const savingI18n = ref(false)
+    const i18nLanguageOptions = ref([])
     
     // 计算当前语言
     const currentLocale = computed(() => locale.value || 'zh-CN')
@@ -603,6 +733,89 @@ export default {
       { label: t('shared.subsystemOptions.A'), value: 'A' }
     ])
     
+    // 故障分类选项（根据系统语言显示翻译）
+    const categoryOptions = computed(() => [
+      { label: t('errorCodes.categoryOptions.software'), value: 'software' },
+      { label: t('errorCodes.categoryOptions.hardware'), value: 'hardware' },
+      { label: t('errorCodes.categoryOptions.logRecord'), value: 'logRecord' },
+      { label: t('errorCodes.categoryOptions.operationTip'), value: 'operationTip' },
+      { label: t('errorCodes.categoryOptions.safetyProtection'), value: 'safetyProtection' }
+    ])
+    
+    // 通用的转换函数：将数据库中的值（可能是任何语言的翻译）转换为英文键值
+    // 支持语言扩展：通过遍历所有语言的翻译来匹配，不硬编码
+    const convertValueToKey = (value, translationPath, validKeys) => {
+      if (!value) return ''
+      
+      // 如果已经是英文键值，直接返回
+      if (validKeys.includes(value)) {
+        return value
+      }
+      
+      // 遍历所有已加载的语言，查找匹配的键值
+      // messages 是响应式对象，包含所有语言的翻译
+      const allLocales = Object.keys(messages.value || {})
+      for (const localeKey of allLocales) {
+        const localeMessages = messages.value[localeKey]
+        // 支持嵌套路径，如 'errorCodes.categoryOptions' 或 'errorCodes.levelTypes'
+        const pathParts = translationPath.split('.')
+        let target = localeMessages
+        for (const part of pathParts) {
+          if (target && target[part]) {
+            target = target[part]
+          } else {
+            target = null
+            break
+          }
+        }
+        
+        if (target) {
+          // 遍历所有键值，检查翻译是否匹配
+          for (const key of validKeys) {
+            if (target[key] === value) {
+              return key
+            }
+          }
+        }
+      }
+      
+      // 如果找不到匹配，返回原值
+      return value
+    }
+    
+    // 将数据库中的分类值（可能是任何语言的翻译）转换为英文键值
+    const convertCategoryToKey = (categoryValue) => {
+      if (!categoryValue) return ''
+      // 优先使用直接映射（因为数据库必定写入中文）
+      if (categoryKeyMap[categoryValue]) {
+        return categoryKeyMap[categoryValue]
+      }
+      // 如果直接映射失败，使用通用转换函数（支持其他语言）
+      return convertValueToKey(
+        categoryValue,
+        'errorCodes.categoryOptions',
+        ['software', 'hardware', 'logRecord', 'operationTip', 'safetyProtection']
+      )
+    }
+    
+    // 将数据库中的等级值（可能是任何语言的翻译）转换为英文键值
+    const convertLevelToKey = (levelValue) => {
+      return convertValueToKey(
+        levelValue,
+        'errorCodes.levelTypes',
+        ['high', 'medium', 'low', 'none']
+      )
+    }
+    
+    // 将数据库中的处理措施值（可能是任何语言的翻译）转换为英文键值
+    const convertSolutionToKey = (solutionValue) => {
+      return convertValueToKey(
+        solutionValue,
+        'errorCodes.solutionTypes',
+        ['recoverable', 'unrecoverable', 'ignorable', 'tips', 'log']
+      )
+    }
+    
     // 同步相关变量
     const syncToRemote = ref(false)
     const syncToLocal = ref(false)
@@ -612,12 +825,9 @@ export default {
        code: '',
        is_axis_error: false,
        is_arm_error: false,
-       short_message: '',
-       short_message_en: '',
-       user_hint: '',
-       user_hint_en: '',
-       operation: '',
-       operation_en: '',
+      short_message: '',
+      user_hint: '',
+      operation: '',
        detail: '',
        method: '',
        param1: '',
@@ -697,48 +907,22 @@ export default {
         }
       ];
 
-      // 动态验证英文字段
-      const hasOperationEn = errorCodeForm.operation_en && errorCodeForm.operation_en.trim() !== '';
-      
-      baseRules.short_message_en = [
-        { 
-          required: !hasOperationEn, 
-          message: t('errorCodes.validation.shortMessageEnCannotBothEmpty'), 
-          trigger: 'blur' 
-        }
-      ];
-      
-      baseRules.user_hint_en = [
-        { 
-          required: !hasOperationEn, 
-          message: t('errorCodes.validation.userHintEnCannotBothEmpty'), 
-          trigger: 'blur' 
-        }
-      ];
-      
-      baseRules.operation_en = [
-        { 
-          required: !(errorCodeForm.short_message_en && errorCodeForm.short_message_en.trim() !== '') && 
-                    !(errorCodeForm.user_hint_en && errorCodeForm.user_hint_en.trim() !== ''), 
-          message: t('errorCodes.validation.atLeastTwoEnRequired'), 
-          trigger: 'blur' 
-        }
-      ];
 
       return baseRules;
     });
     
     // 根据故障码自动判断故障等级和处理措施
+    // 返回英文键值，存储到数据库，显示时通过 getLevelDisplay 和 getSolutionDisplay 函数翻译
     const analyzeErrorCode = (code) => {
-      if (!code) return { level: t('errorCodes.levelTypes.none'), solution: 'tips' };
+      if (!code) return { level: 'none', solution: 'tips' };
       
       // 解析故障码：0X + 3位16进制数字 + A/B/C/D/E
       const match = code.match(/^0X([0-9A-F]{3})([ABCDE])$/);
-      if (!match) return { level: t('errorCodes.levelTypes.none'), solution: 'tips' };
+      if (!match) return { level: 'none', solution: 'tips' };
       
       const [, hexPart, severity] = match;
       
-      // 根据故障码末尾字母判断等级
+      // 根据故障码末尾字母判断等级（返回英文键值）
       let levelKey = 'none';
       switch (severity) {
         case 'A': // A类故障：高级
@@ -755,7 +939,7 @@ export default {
           break;
       }
       
-      // 根据故障码末尾字母判断处理措施
+      // 根据故障码末尾字母判断处理措施（返回英文键值）
       let solution = 'tips';
       switch (severity) {
         case 'A': // A类故障：recoverable 可恢复故障
@@ -775,17 +959,19 @@ export default {
           break;
       }
       
-      return { level: t(`errorCodes.levelTypes.${levelKey}`), solution };
+      // 返回英文键值，显示时通过 getLevelDisplay 和 getSolutionDisplay 函数翻译
+      return { level: levelKey, solution };
     };
     
     // 故障码输入时自动计算等级和处理措施
     const handleCodeChange = () => {
       const { level, solution } = analyzeErrorCode(errorCodeForm.code);
+      // analyzeErrorCode 返回的是英文键值，直接存储
       errorCodeForm.level = level;
       errorCodeForm.solution = solution;
     };
     
-    // 获取处理措施的中文显示
+    // 获取处理措施的多语言显示
     const getSolutionDisplay = (solution) => {
       const solutionMap = {
         'recoverable': t('errorCodes.solutionTypes.recoverable'),
@@ -795,6 +981,17 @@ export default {
         'log': t('errorCodes.solutionTypes.log')
       };
       return solutionMap[solution] || solution;
+    };
+    
+    // 获取故障等级的多语言显示
+    const getLevelDisplay = (level) => {
+      const levelMap = {
+        'high': t('errorCodes.levelTypes.high'),
+        'medium': t('errorCodes.levelTypes.medium'),
+        'low': t('errorCodes.levelTypes.low'),
+        'none': t('errorCodes.levelTypes.none')
+      };
+      return levelMap[level] || level;
     };
     
     // 计算属性
@@ -929,8 +1126,8 @@ export default {
     const handleExportCSV = async () => {
       try {
         exportLoading.value = true
-        const languages = selectedExportLangs.value.join(',')
-        const resp = await api.errorCodes.exportCSV(languages, exportFormat.value)
+        const language = selectedExportLang.value || ''
+        const resp = await api.errorCodes.exportCSV(language, exportFormat.value)
         const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8;' })
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -974,35 +1171,59 @@ export default {
        }
      }
     
-    const handleAdd = () => {
+    const handleAdd = async () => {
       resetForm()
       initBooleanOptions()
       setDefaultNullCategory()
+      
+      // 加载多语言选项列表
+      await loadI18nLanguages()
+      
+      // 根据系统语言自动设置默认语言
+      const systemLang = locale.value || 'zh-CN'
+      if (systemLang !== 'zh' && systemLang !== 'zh-CN') {
+        // 查找匹配的语言选项
+        const matchedLang = i18nLanguageOptions.value.find(lang => 
+          lang.value === systemLang || 
+          lang.value === systemLang.split('-')[0] // 支持 'en-US' -> 'en'
+        )
+        if (matchedLang) {
+          selectedI18nLang.value = matchedLang.value
+        } else {
+          // 如果没有匹配，默认选择英文
+          selectedI18nLang.value = i18nLanguageOptions.value.find(lang => lang.value === 'en')?.value || 'zh-CN'
+        }
+      } else {
+        // 中文系统默认显示中文
+        selectedI18nLang.value = 'zh-CN'
+      }
+      
+      resetI18nForm()
       showAddDialog.value = true
     }
     const openQueryDialog = () => {
       showQueryDialog.value = true
     }
     
-    const handleEdit = (row) => {
+    const handleEdit = async (row) => {
       editingErrorCode.value = row
-      
-      // 从 i18nContents 中提取英文内容
-      const enContent = row.i18nContents?.find(i18n => i18n.lang === 'en')
       
       Object.keys(errorCodeForm).forEach(key => {
         if (key === 'analysisCategories') {
           // 从关联的分析分类中提取 ID 数组
           errorCodeForm[key] = row.analysisCategories?.map(cat => cat.id) || []
-        } else if (key === 'short_message_en') {
-          // 从 i18n 表提取英文精简提示
-          errorCodeForm[key] = enContent?.short_message || ''
-        } else if (key === 'user_hint_en') {
-          // 从 i18n 表提取英文用户提示
-          errorCodeForm[key] = enContent?.user_hint || ''
-        } else if (key === 'operation_en') {
-          // 从 i18n 表提取英文操作信息
-          errorCodeForm[key] = enContent?.operation || ''
+        } else if (key === 'category') {
+          // 将数据库中的分类值（可能是任何语言的翻译）转换为英文键值
+          // 以便正确匹配 categoryOptions（value 是英文键值）
+          errorCodeForm[key] = convertCategoryToKey(row[key])
+        } else if (key === 'level') {
+          // 将数据库中的等级值（可能是任何语言的翻译）转换为英文键值
+          // 以便 getLevelDisplay 函数能根据系统语言正确显示翻译
+          errorCodeForm[key] = convertLevelToKey(row[key])
+        } else if (key === 'solution') {
+          // 将数据库中的处理措施值（可能是任何语言的翻译）转换为英文键值
+          // 以便 getSolutionDisplay 函数能根据系统语言正确显示翻译
+          errorCodeForm[key] = convertSolutionToKey(row[key])
         } else if (row[key] !== undefined) {
           errorCodeForm[key] = row[key]
         }
@@ -1012,7 +1233,230 @@ export default {
       syncToLocal.value = false
       // 初始化布尔选项
       initBooleanOptions()
+      
+      // 加载多语言选项列表
+      await loadI18nLanguages()
+      
+      // 根据系统语言自动设置默认语言
+      const systemLang = locale.value || 'zh-CN'
+      if (systemLang !== 'zh' && systemLang !== 'zh-CN') {
+        // 查找匹配的语言选项
+        const matchedLang = i18nLanguageOptions.value.find(lang => 
+          lang.value === systemLang || 
+          lang.value === systemLang.split('-')[0] // 支持 'en-US' -> 'en'
+        )
+        if (matchedLang) {
+          selectedI18nLang.value = matchedLang.value
+          // 加载该语言的多语言内容
+          await handleLanguageChange(matchedLang.value)
+        } else {
+          // 如果没有匹配，默认选择英文
+          selectedI18nLang.value = i18nLanguageOptions.value.find(lang => lang.value === 'en')?.value || 'zh-CN'
+          if (selectedI18nLang.value !== 'zh-CN') {
+            await handleLanguageChange(selectedI18nLang.value)
+          }
+        }
+      } else {
+        // 中文系统默认显示中文
+        selectedI18nLang.value = 'zh-CN'
+      }
+      
       showAddDialog.value = true
+    }
+    
+    // 加载多语言语言选项
+    const loadI18nLanguages = async () => {
+      try {
+        const response = await api.i18nErrorCodes.getLanguages()
+        if (response.data && response.data.languages) {
+          // 过滤掉中文，只显示其他语言
+          i18nLanguageOptions.value = response.data.languages.filter(lang => lang.value !== 'zh' && lang.value !== 'zh-CN')
+        }
+      } catch (error) {
+        console.error('Failed to load i18n languages:', error)
+        // 如果加载失败，使用默认语言列表
+        i18nLanguageOptions.value = languageOptions.filter(lang => lang.value !== 'zh')
+      }
+    }
+    
+    // 获取语言标签
+    const getLanguageLabel = (langCode) => {
+      const lang = i18nLanguageOptions.value.find(l => l.value === langCode)
+      return lang ? lang.label : langCode
+    }
+    
+    // 重置多语言表单
+    const resetI18nForm = () => {
+      Object.keys(i18nForm).forEach(key => {
+        i18nForm[key] = ''
+      })
+    }
+    
+    // 语言切换处理
+    const handleLanguageChange = async (lang) => {
+      if (!lang) {
+        return
+      }
+      
+      // 如果切换到中文，直接使用 errorCodeForm，不需要加载
+      if (lang === 'zh-CN') {
+        return
+      }
+      
+      // 如果是新增模式，直接重置表单（等待用户保存故障码基本信息后再加载）
+      if (!editingErrorCode.value) {
+        resetI18nForm()
+        return
+      }
+      
+      try {
+        // 加载该语言的多语言内容（包括 UI 字段和技术字段）
+        const response = await api.errorCodes.getI18nByLang(editingErrorCode.value.id, lang)
+        if (response.data && response.data.i18nContent) {
+          const content = response.data.i18nContent
+          // UI 字段
+          i18nForm.short_message = content.short_message || ''
+          i18nForm.user_hint = content.user_hint || ''
+          i18nForm.operation = content.operation || ''
+          // 技术字段
+          i18nForm.detail = content.detail || ''
+          i18nForm.method = content.method || ''
+          i18nForm.param1 = content.param1 || ''
+          i18nForm.param2 = content.param2 || ''
+          i18nForm.param3 = content.param3 || ''
+          i18nForm.param4 = content.param4 || ''
+          i18nForm.tech_solution = content.tech_solution || ''
+          i18nForm.explanation = content.explanation || ''
+          // 注意：solution, level, category 不在 i18n_error_codes 表中，不加载
+        } else {
+          resetI18nForm()
+        }
+      } catch (error) {
+        console.error('Failed to load i18n content:', error)
+        ElMessage.error(t('errorCodes.i18nTechFields.loadFailed'))
+        resetI18nForm()
+      }
+    }
+    
+    // 自动翻译（默认只翻译空白字段，保护人工修改）
+    const handleAutoTranslate = async () => {
+      if (!selectedI18nLang.value) {
+        return
+      }
+      
+      // 新增模式下，需要有故障码ID才能翻译
+      if (!editingErrorCode.value) {
+        ElMessage.warning('请先保存故障码基本信息，再进行自动翻译')
+        return
+      }
+      
+      try {
+        translating.value = true
+        
+        // 检查是否有非空白字段（需要用户确认是否覆盖）
+        // 注意：solution, level, category 不在 i18n_error_codes 表中，不参与自动翻译检查
+        const fieldsToCheck = [
+          // UI 显示字段
+          'short_message',
+          'user_hint',
+          'operation',
+          // 技术说明字段
+          'detail',
+          'method',
+          'param1',
+          'param2',
+          'param3',
+          'param4',
+          'tech_solution',
+          'explanation'
+        ]
+        const nonEmptyFields = fieldsToCheck.filter(field => {
+          const value = i18nForm[field]
+          return value && value.trim() !== ''
+        })
+        
+        // 如果有非空白字段，询问用户是否覆盖
+        let overwrite = false
+        if (nonEmptyFields.length > 0) {
+          try {
+            await ElMessageBox.confirm(
+              t('errorCodes.i18nTechFields.overwriteConfirm'),
+              t('errorCodes.i18nTechFields.overwriteTitle'),
+              {
+                confirmButtonText: t('shared.confirm'),
+                cancelButtonText: t('shared.cancel'),
+                type: 'warning'
+              }
+            )
+            overwrite = true
+          } catch {
+            // 用户取消
+            return
+          }
+        }
+        
+        // 调用自动翻译API（后端默认只翻译空白字段，除非 overwrite=true）
+        const response = await api.errorCodes.autoTranslateI18n(
+          editingErrorCode.value.id,
+          selectedI18nLang.value,
+          overwrite
+        )
+        
+        if (response.data && response.data.translatedFields) {
+          // 只更新被翻译的字段（避免覆盖用户手动输入的内容）
+          Object.keys(response.data.translatedFields).forEach(key => {
+            if (response.data.translatedFields[key] !== undefined && response.data.translatedFields[key] !== null) {
+              // 如果 overwrite=false，只更新空白字段
+              if (!overwrite && i18nForm[key] && i18nForm[key].trim() !== '') {
+                // 跳过已有内容的字段
+                return
+              }
+              i18nForm[key] = response.data.translatedFields[key]
+            }
+          })
+          ElMessage.success(t('errorCodes.i18nTechFields.translateSuccess'))
+        } else {
+          // 如果没有返回翻译结果，显示失败提示
+          ElMessage.error(t('errorCodes.i18nTechFields.translateFailed'))
+        }
+      } catch (error) {
+        console.error('Auto translate failed:', error)
+        // 显示错误信息，优先使用后端返回的中文错误信息
+        const errorMessage = error.response?.data?.message || t('errorCodes.i18nTechFields.translateFailed')
+        ElMessage.error(errorMessage)
+      } finally {
+        translating.value = false
+      }
+    }
+    
+    // 保存多语言内容
+    const handleSaveI18n = async () => {
+      if (!selectedI18nLang.value) {
+        return
+      }
+      
+      // 新增模式下，需要有故障码ID才能保存
+      if (!editingErrorCode.value) {
+        ElMessage.warning('请先保存故障码基本信息，再保存多语言内容')
+        return
+      }
+      
+      try {
+        savingI18n.value = true
+        
+        await api.errorCodes.saveI18nByLang(
+          editingErrorCode.value.id,
+          selectedI18nLang.value,
+          i18nForm
+        )
+        
+        ElMessage.success(t('errorCodes.i18nTechFields.saveSuccess'))
+      } catch (error) {
+        console.error('Save i18n failed:', error)
+        ElMessage.error(t('errorCodes.i18nTechFields.saveFailed'))
+      } finally {
+        savingI18n.value = false
+      }
     }
     
     const handleDelete = async (row) => {
@@ -1149,14 +1593,51 @@ export default {
       foundRecord.value = null
     }
 
-    // 构造与释义相同前缀的“解释”文本：前缀 + 用户提示/操作信息
+    // 将中文前缀转换为英文键名（使用配置文件中的映射）
+    const getPrefixKey = (chinesePrefix) => {
+      return prefixKeyMap[chinesePrefix] || chinesePrefix
+    }
+    
+    // 翻译前缀文本（根据系统语言）
+    const translatePrefix = (prefix) => {
+      if (!prefix) return ''
+      // 尝试直接翻译整个前缀（先转换为英文键名）
+      const prefixKey = getPrefixKey(prefix)
+      const directTranslation = t(`shared.prefixLabels.${prefixKey}`)
+      if (directTranslation && directTranslation !== `shared.prefixLabels.${prefixKey}`) {
+        return directTranslation
+      }
+      // 如果直接翻译失败，尝试分段翻译（处理复合前缀，如 "远程端 左主控制臂"）
+      const parts = prefix.split(/\s+/)
+      const translatedParts = parts.map(part => {
+        const partKey = getPrefixKey(part)
+        const translated = t(`shared.prefixLabels.${partKey}`)
+        return (translated && translated !== `shared.prefixLabels.${partKey}`) ? translated : part
+      })
+      return translatedParts.join(' ')
+    }
+    
+    // 构造与释义相同前缀的"解释"文本：前缀 + 用户提示/操作信息
     const buildPrefixedExplanation = (preview, record) => {
       if (!preview) return '-'
       const backendPrefix = preview?.prefix || ''
       const main = [record?.user_hint, record?.operation].filter(Boolean).join(' ')
       const text = main || '-'
-      if (backendPrefix) return `${backendPrefix} ${text}`
+      if (backendPrefix) {
+        // 翻译前缀
+        const translatedPrefix = translatePrefix(backendPrefix)
+        return `${translatedPrefix} ${text}`
+      }
       return text
+    }
+    
+    // 获取分类的显示名称（根据系统语言翻译）
+    const getCategoryDisplayText = (categoryValue) => {
+      if (!categoryValue) return '-'
+      // 先将中文值转换为英文 key（因为数据库可能存储中文值）
+      const categoryKey = convertCategoryToKey(categoryValue)
+      // 使用 i18n 翻译分类选项
+      return t(`errorCodes.categoryOptions.${categoryKey}`) || categoryKey || categoryValue
     }
     
     // 获取远程子系统标签
@@ -1200,8 +1681,9 @@ export default {
         saving.value = true
         
         const savePromises = []
+        let errorCodeId = editingErrorCode.value?.id
         
-        // 主故障码保存
+        // 主故障码保存（始终保存中文内容到 error_codes 表）
         if (editingErrorCode.value) {
           savePromises.push(
             store.dispatch('errorCodes/updateErrorCode', {
@@ -1210,9 +1692,39 @@ export default {
             })
           )
         } else {
-          savePromises.push(
-            store.dispatch('errorCodes/createErrorCode', errorCodeForm)
-          )
+          const createResult = await store.dispatch('errorCodes/createErrorCode', errorCodeForm)
+          if (createResult.data && createResult.data.errorCode) {
+            errorCodeId = createResult.data.errorCode.id
+          }
+        }
+        
+        // 如果当前选择的是非中文语言，保存多语言内容到 i18n_error_codes 表
+        if (selectedI18nLang.value && selectedI18nLang.value !== 'zh-CN' && errorCodeId) {
+          try {
+            await api.errorCodes.saveI18nByLang(
+              errorCodeId,
+              selectedI18nLang.value,
+              {
+                // UI 字段
+                short_message: i18nForm.short_message,
+                user_hint: i18nForm.user_hint,
+                operation: i18nForm.operation,
+                // 技术字段
+                detail: i18nForm.detail,
+                method: i18nForm.method,
+                param1: i18nForm.param1,
+                param2: i18nForm.param2,
+                param3: i18nForm.param3,
+                param4: i18nForm.param4,
+                tech_solution: i18nForm.tech_solution,
+                explanation: i18nForm.explanation
+                // 注意：solution, level, category 不在 i18n_error_codes 表中，不保存这些字段
+              }
+            )
+          } catch (i18nError) {
+            console.error('Save i18n failed:', i18nError)
+            // 多语言保存失败不影响主表保存
+          }
         }
         
         // 同步保存
@@ -1258,7 +1770,27 @@ export default {
           }
         }
         
-        await Promise.all(savePromises)
+        if (savePromises.length > 0) {
+          await Promise.all(savePromises)
+        }
+        
+        // 如果是新增模式，保存后需要更新 editingErrorCode，以便后续编辑
+        if (!editingErrorCode.value && errorCodeId) {
+          // 重新加载故障码列表，获取完整的故障码信息
+          await loadErrorCodes()
+          const newErrorCode = errorCodes.value.find(ec => ec.id === errorCodeId)
+          if (newErrorCode) {
+            editingErrorCode.value = newErrorCode
+            // 如果已选择非中文语言，加载该语言的多语言内容
+            if (selectedI18nLang.value && selectedI18nLang.value !== 'zh-CN') {
+              await handleLanguageChange(selectedI18nLang.value)
+            }
+            const action = t('errorCodes.message.createSuccess')
+            ElMessage.success(action)
+            // 不关闭对话框，让用户可以继续编辑
+            return
+          }
+        }
         
         const action = editingErrorCode.value ? t('errorCodes.message.updateSuccess') : t('errorCodes.message.createSuccess')
         ElMessage.success(action)
@@ -1282,10 +1814,7 @@ export default {
       [
         () => errorCodeForm.short_message,
         () => errorCodeForm.user_hint,
-        () => errorCodeForm.operation,
-        () => errorCodeForm.short_message_en,
-        () => errorCodeForm.user_hint_en,
-        () => errorCodeForm.operation_en
+        () => errorCodeForm.operation
       ],
       () => {
         // 当相关字段变化时，重新验证表单
@@ -1293,10 +1822,7 @@ export default {
           errorCodeFormRef.value.clearValidate([
             'short_message',
             'user_hint', 
-            'operation',
-            'short_message_en',
-            'user_hint_en',
-            'operation_en'
+            'operation'
           ])
         }
       }
@@ -1317,6 +1843,7 @@ export default {
        searchQuery,
        selectedSubsystem,
        subsystemOptions,
+       categoryOptions,
        currentPage,
        pageSize,
        errorCodeFormRef,
@@ -1337,7 +1864,7 @@ export default {
        booleanOptions,
       exportLoading,
       showExportDialog,
-      selectedExportLangs,
+      selectedExportLang,
       exportFormat,
       languageOptions,
       openExportDialog,
@@ -1348,6 +1875,13 @@ export default {
        showSyncOption,
        isLocalSubsystem,
        isRemoteSubsystem,
+       // 多语言编辑相关变量
+       selectedI18nLang,
+       i18nForm,
+       currentForm,
+       translating,
+       savingI18n,
+       i18nLanguageOptions,
        handleSearch,
        handleSubsystemFilter,
        handleSizeChange,
@@ -1359,8 +1893,14 @@ export default {
        handleSave,
        handleCodeChange,
        getSolutionDisplay,
+       getLevelDisplay,
        buildPrefixedExplanation,
+       translatePrefix,
        getCategoryDisplayName,
+       getCategoryDisplayText,
+       convertCategoryToKey,
+       convertLevelToKey,
+       convertSolutionToKey,
        handleQuery,
        resetQuery,
        handleBooleanOptionsChange,
@@ -1369,7 +1909,12 @@ export default {
        getRemoteSubsystemLabel,
        getLocalSubsystemLabel,
        handleSubsystemChange,
-       getSaveButtonText
+       getSaveButtonText,
+       // 多语言编辑相关方法
+       handleLanguageChange,
+       handleAutoTranslate,
+       handleSaveI18n,
+       getLanguageLabel
      }
   }
 }
@@ -1378,6 +1923,20 @@ export default {
 <style scoped>
 .error-codes-container {
   padding: 5px;
+}
+
+.i18n-readonly-section {
+  background-color: #f5f7fa;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.i18n-editable-section {
+  background-color: #f0f9ff;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid #b3d8ff;
 }
 
 .action-bar {

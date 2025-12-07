@@ -23,11 +23,77 @@
       </div>
     </el-card>
 
-    
-
-    
-
-    
+    <!-- 3D可视化区域 -->
+    <div class="three-section" v-if="fileId">
+      <el-card class="three-chart">
+        <div class="chart-header">
+          <h3>右主控制臂三维模型</h3>
+          <div class="three-controls" v-if="dataLoaded">
+            <el-button size="small" @click="resetThreeView">重置视角</el-button>
+            <el-button size="small" @click="toggleThreeRotation">
+              {{ threeRotationEnabled ? '停止旋转' : '自动旋转' }}
+            </el-button>
+          </div>
+        </div>
+        <div ref="threeContainer" class="three-container">
+          <div v-if="!dataLoaded" class="three-placeholder">
+            <p>正在解析数据...</p>
+          </div>
+          <div v-else-if="!threeInitialized" class="three-placeholder">
+            <p>正在初始化3D场景...</p>
+          </div>
+        </div>
+        
+        <!-- 调试信息（临时） -->
+        <div v-if="fileId" style="padding: 10px; background: #f0f0f0; margin-top: 10px; font-size: 12px;">
+          <p>调试信息: dataLoaded={{ dataLoaded }}, totalEntries={{ totalEntries }}, rows.length={{ rows ? rows.length : 0 }}</p>
+        </div>
+        
+        <!-- 播放控制面板 -->
+        <div class="playback-controls" v-if="dataLoaded && totalEntries > 0 && rows && rows.length > 0">
+          <div class="playback-row">
+            <div class="playback-buttons">
+              <el-button 
+                :icon="isPlaying ? 'VideoPause' : 'VideoPlay'" 
+                @click="isPlaying ? pauseData() : playData()"
+                :disabled="!fileId"
+                size="small"
+              >
+                {{ isPlaying ? '暂停' : '播放' }}
+              </el-button>
+              <el-button 
+                icon="VideoStop" 
+                @click="stopData"
+                :disabled="!fileId || !isPlaying"
+                size="small"
+              >
+                停止
+              </el-button>
+            </div>
+            
+            <div class="playback-info">
+              <span>帧: {{ currentFrame }} / {{ totalEntries }}</span>
+              <el-slider
+                v-if="totalEntries > 0"
+                v-model="currentFrame"
+                :min="1"
+                :max="totalEntries"
+                :step="1"
+                @change="seekToFrame"
+                style="width: 200px; margin: 0 16px;"
+                :disabled="isPlaying"
+              />
+              <el-select v-model="playbackSpeed" size="small" style="width: 100px">
+                <el-option label="0.5x" :value="0.5" />
+                <el-option label="1x" :value="1" />
+                <el-option label="2x" :value="2" />
+                <el-option label="5x" :value="5" />
+              </el-select>
+            </div>
+          </div>
+        </div>
+      </el-card>
+    </div>
   </div>
 </template>
 
@@ -35,7 +101,6 @@
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import * as echarts from 'echarts'
 import * as THREE from 'three'
 import api from '../api'
 
@@ -51,353 +116,97 @@ export default {
     const pageSize = ref(500)
     const rows = ref([])
     const columns = ref([])
+    const dataLoaded = ref(false) // 数据是否已加载完成
 
-    // 图表引用
-    const leftHandChart = ref(null)
-    const rightHandChart = ref(null)
+    // 3D容器引用
     const threeContainer = ref(null)
-    
-    // 图表实例
-    let leftChartInstance = null
-    let rightChartInstance = null
     let threeScene = null
     let threeRenderer = null
     let threeCamera = null
     let threeInitialized = ref(false)
+    let worldGroup = null  // 世界坐标系根组
     let threeRotationEnabled = ref(false)
     let threeRotationId = null
     let currentArmModel = ref('mdh') // 'mdh' 或 'test'
     let currentArmGroup = null // 当前显示的机械臂组
+
+    // ==========================================
+    // 机械臂配置与状态
+    // ==========================================
+    
+    // 存储机械臂关节引用
+    const robotJoints = {
+      left: [],  // 虽然本次主要做右臂，但预留左臂结构
+      right: []
+    }
+
+    // 右主控制臂几何配置表 (初始为空，从外部文件加载)
+    const rightArmGeometry = ref({})
+
+    // 右主控制臂层级结构配置表 (初始为空，从外部文件加载)
+    const rightArmHierarchy = ref(null)
+    const hierarchyConfig = ref(null)  // 存储完整的层级配置文件（包含worldOrientation）
+
+    // 右主控制臂 DH 参数表 (从后端配置文件加载)
+    // 格式: { a, alpha, d, theta }
+    // a: 连杆长度, alpha: 连杆扭转角, d: 连杆偏距, theta: 关节角初始偏移
+    const rightArmDH = ref([])
+
+    // 加载几何配置
+    const loadGeometryConfig = async () => {
+      try {
+        const response = await fetch('/robot_arm_geometry.json')
+        if (response.ok) {
+          rightArmGeometry.value = await response.json()
+        } else {
+          console.warn('无法加载几何配置文件，使用默认配置')
+        }
+      } catch (error) {
+        console.error('加载几何配置文件失败:', error)
+      }
+    }
+
+    // 加载层级结构配置
+    const loadHierarchyConfig = async () => {
+      try {
+        const response = await fetch('/robot_arm_hierarchy.json')
+        if (response.ok) {
+          const hierarchyData = await response.json()
+          // 存储完整的配置文件（包含worldOrientation）
+          hierarchyConfig.value = hierarchyData
+          // 使用 masterArm 的层级结构（右主控制臂）
+          rightArmHierarchy.value = hierarchyData.masterArm || null
+        } else {
+          console.warn('无法加载层级结构配置文件，将使用默认链式结构')
+          hierarchyConfig.value = null
+          rightArmHierarchy.value = null
+        }
+      } catch (error) {
+        console.error('加载层级结构配置文件失败:', error)
+        rightArmHierarchy.value = null
+      }
+    }
 
     // 播放控制
     const isPlaying = ref(false)
     const currentFrame = ref(1)
     const playbackSpeed = ref(1)
     let playbackInterval = null
+    
+    // 确保 currentFrame 不会超出范围
+    watch([currentFrame, totalEntries], ([frame, total]) => {
+      if (total > 0 && frame > total) {
+        currentFrame.value = total
+      } else if (frame < 1) {
+        currentFrame.value = 1
+      }
+    })
 
     const prettySize = (size) => {
       if (size < 1024) return `${size} B`
       if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
       if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`
       return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`
-    }
-
-    // 初始化左手关节位置图表
-    const initLeftHandChart = () => {
-      if (!leftHandChart.value) {
-        console.warn('左手图表容器不存在')
-        return
-      }
-      
-      console.log('初始化左手图表')
-      leftChartInstance = echarts.init(leftHandChart.value)
-      const option = {
-        title: {
-          text: '左手关节位置',
-          left: 'center',
-          textStyle: {
-            fontSize: 16,
-            fontWeight: 'bold'
-          }
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'cross',
-            label: {
-              backgroundColor: '#6a7985'
-            }
-          }
-        },
-        legend: {
-          data: ['关节1', '关节2', '关节3', '关节4', '关节5', '关节6', '关节7'],
-          top: 35,
-          textStyle: {
-            fontSize: 12
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          top: '20%',
-          containLabel: true
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            start: 0,
-            end: 100
-          },
-          {
-            type: 'slider',
-            start: 0,
-            end: 100
-          }
-        ],
-        xAxis: {
-          type: 'value',
-          name: '时间 (s)',
-          nameTextStyle: {
-            color: '#666',
-            fontSize: 12
-          },
-          axisLine: {
-            lineStyle: {
-              color: '#999'
-            }
-          },
-          axisLabel: {
-            color: '#666',
-            fontSize: 11,
-            formatter: function(value) {
-              return (value / 1000).toFixed(1) + 's'
-            }
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#eee'
-            }
-          },
-          min: 'dataMin',
-          max: 'dataMax'
-        },
-        yAxis: {
-          type: 'value',
-          axisLine: {
-            lineStyle: {
-              color: '#999'
-            }
-          },
-          axisLabel: {
-            color: '#666',
-            fontSize: 11
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#eee'
-            }
-          }
-        },
-        series: [
-          { 
-            name: '关节1', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#5470c6' },
-            itemStyle: { color: '#5470c6' }
-          },
-          { 
-            name: '关节2', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#91cc75' },
-            itemStyle: { color: '#91cc75' }
-          },
-          { 
-            name: '关节3', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#fac858' },
-            itemStyle: { color: '#fac858' }
-          },
-          { 
-            name: '关节4', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#ee6666' },
-            itemStyle: { color: '#ee6666' }
-          },
-          { 
-            name: '关节5', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#73c0de' },
-            itemStyle: { color: '#73c0de' }
-          },
-          { 
-            name: '关节6', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#3ba272' },
-            itemStyle: { color: '#3ba272' }
-          },
-          { 
-            name: '关节7', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#fc8452' },
-            itemStyle: { color: '#fc8452' }
-          }
-        ]
-      }
-      leftChartInstance.setOption(option)
-    }
-
-    // 初始化右手关节位置图表
-    const initRightHandChart = () => {
-      if (!rightHandChart.value) {
-        console.warn('右手图表容器不存在')
-        return
-      }
-      
-      console.log('初始化右手图表')
-      rightChartInstance = echarts.init(rightHandChart.value)
-      const option = {
-        title: {
-          text: '右手关节位置',
-          left: 'center',
-          textStyle: {
-            fontSize: 16,
-            fontWeight: 'bold'
-          }
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'cross',
-            label: {
-              backgroundColor: '#6a7985'
-            }
-          }
-        },
-        legend: {
-          data: ['关节1', '关节2', '关节3', '关节4', '关节5', '关节6', '关节7'],
-          top: 35,
-          textStyle: {
-            fontSize: 12
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          top: '20%',
-          containLabel: true
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            start: 0,
-            end: 100
-          },
-          {
-            type: 'slider',
-            start: 0,
-            end: 100
-          }
-        ],
-        xAxis: {
-          type: 'value',
-          name: '时间 (s)',
-          nameTextStyle: {
-            color: '#666',
-            fontSize: 12
-          },
-          axisLine: {
-            lineStyle: {
-              color: '#999'
-            }
-          },
-          axisLabel: {
-            color: '#666',
-            fontSize: 11,
-            formatter: function(value) {
-              return (value / 1000).toFixed(1) + 's'
-            }
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#eee'
-            }
-          },
-          min: 'dataMin',
-          max: 'dataMax'
-        },
-        yAxis: {
-          type: 'value',
-          axisLine: {
-            lineStyle: {
-              color: '#999'
-            }
-          },
-          axisLabel: {
-            color: '#666',
-            fontSize: 11
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#eee'
-            }
-          }
-        },
-        series: [
-          { 
-            name: '关节1', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#5470c6' },
-            itemStyle: { color: '#5470c6' }
-          },
-          { 
-            name: '关节2', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#91cc75' },
-            itemStyle: { color: '#91cc75' }
-          },
-          { 
-            name: '关节3', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#fac858' },
-            itemStyle: { color: '#fac858' }
-          },
-          { 
-            name: '关节4', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#ee6666' },
-            itemStyle: { color: '#ee6666' }
-          },
-          { 
-            name: '关节5', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#73c0de' },
-            itemStyle: { color: '#73c0de' }
-          },
-          { 
-            name: '关节6', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#3ba272' },
-            itemStyle: { color: '#3ba272' }
-          },
-          { 
-            name: '关节7', 
-            type: 'line', 
-            data: [], 
-            smooth: true,
-            lineStyle: { width: 2, color: '#fc8452' },
-            itemStyle: { color: '#fc8452' }
-          }
-        ]
-      }
-      rightChartInstance.setOption(option)
     }
 
     // MDH参数定义（左手主控制臂）
@@ -438,6 +247,10 @@ export default {
     }
 
     // 计算MDH变换矩阵
+    // 参考MATLAB: T = [cos(theta), -sin(theta), 0, a;
+    //                  sin(theta)*cos(alpha), cos(theta)*cos(alpha), -sin(alpha), -d*sin(alpha);
+    //                  sin(theta)*sin(alpha), cos(theta)*sin(alpha), cos(alpha), d*cos(alpha);
+    //                  0, 0, 0, 1]
     const calculateMDHMatrix = (a, alpha, d, theta) => {
       const matrix = new THREE.Matrix4()
       
@@ -448,34 +261,233 @@ export default {
       const sinAlpha = Math.sin(alpha)
       
       matrix.set(
-        cosTheta, -sinTheta * cosAlpha, sinTheta * sinAlpha, a * cosTheta,
-        sinTheta, cosTheta * cosAlpha, -cosTheta * sinAlpha, a * sinTheta,
-        0, sinAlpha, cosAlpha, d,
+        cosTheta, -sinTheta, 0, a,
+        sinTheta * cosAlpha, cosTheta * cosAlpha, -sinAlpha, -d * sinAlpha,
+        sinTheta * sinAlpha, cosTheta * sinAlpha, cosAlpha, d * cosAlpha,
         0, 0, 0, 1
       )
       
       return matrix
     }
 
-    // 创建文本标签
+    // 通用机械臂构建函数 (模块化/嵌套结构/可配置几何体/可配置层级)
+    // @param name: 机械臂名称
+    // @param dhParams: DH参数数组
+    // @param geometryConfig: 几何体配置对象
+    // @param hierarchyConfig: 层级结构配置对象 (可选)
+    // 辅助函数：根据配置创建几何体
+    const createGeometryFromConfig = (config) => {
+      if (!config || !config.parts) return []
+      
+      const meshes = []
+      config.parts.forEach(part => {
+        let geometry, material
+        
+        // 创建几何体
+        if (part.type === 'box') {
+          geometry = new THREE.BoxGeometry(...part.args)
+        } else if (part.type === 'cylinder') {
+          geometry = new THREE.CylinderGeometry(...part.args)
+        } else if (part.type === 'sphere') {
+          geometry = new THREE.SphereGeometry(...part.args)
+        }
+        
+        if (geometry) {
+          // 创建材质
+          material = new THREE.MeshPhongMaterial({ color: part.color })
+          
+          const mesh = new THREE.Mesh(geometry, material)
+          
+          // 设置位置和旋转
+          if (part.position) mesh.position.set(...part.position)
+          if (part.rotation) mesh.rotation.set(...part.rotation)
+          
+          meshes.push(mesh)
+        }
+      })
+      
+      return meshes
+    }
+
+    const createRobotArm = (name, dhParams, geometryConfig = {}, hierarchyConfig = null) => {
+      const rootGroup = new THREE.Group()
+      rootGroup.name = name
+      
+      const joints = []
+      const jointMap = new Map() // 用于根据名称查找关节组
+      const baseName = hierarchyConfig?.root || 'base'
+      jointMap.set(baseName, rootGroup)
+
+      // 应用基座坐标系方向（如果配置了）
+      if (hierarchyConfig?.rootOrientation) {
+        const orientation = hierarchyConfig.rootOrientation
+        if (Array.isArray(orientation) && orientation.length >= 3) {
+          // 使用欧拉角设置旋转 [x, y, z] (弧度)
+          rootGroup.rotation.set(orientation[0], orientation[1], orientation[2])
+        }
+      }
+
+      // 加载基座的几何配置
+      const baseConfig = geometryConfig[baseName] || geometryConfig['base']
+      if (baseConfig && baseConfig.parts) {
+        const baseMeshes = createGeometryFromConfig(baseConfig)
+        baseMeshes.forEach(mesh => {
+          rootGroup.add(mesh)
+        })
+      }
+
+      // 如果有层级配置，按配置顺序创建关节；否则按DH参数顺序（向后兼容）
+      const jointOrder = hierarchyConfig?.joints || dhParams.map((_, idx) => ({
+        name: `joint${idx + 1}`,
+        parent: idx === 0 ? (hierarchyConfig?.root || 'base') : `joint${idx}`,
+        dhIndex: idx
+      }))
+
+      jointOrder.forEach((jointDef) => {
+        const dhIndex = jointDef.dhIndex !== undefined ? jointDef.dhIndex : parseInt(jointDef.name.replace('joint', '')) - 1
+        const param = dhParams[dhIndex]
+        
+        if (!param) {
+          console.warn(`DH参数索引 ${dhIndex} 不存在，跳过关节 ${jointDef.name}`)
+          return
+        }
+
+        // 1. 创建关节组 (坐标系容器)
+        const jointGroup = new THREE.Group()
+        jointGroup.name = `${name}_${jointDef.name}`
+        
+        // 存储参数方便后续更新
+        jointGroup.userData = {
+          dh: { ...param },
+          index: dhIndex,
+          jointName: jointDef.name
+        }
+
+        // 2. 创建可视化几何体 (基于配置)
+        const configKey = jointDef.name
+        const jointConfig = geometryConfig[configKey]
+
+        if (jointConfig && jointConfig.parts) {
+          // 如果有配置，根据配置生成几何体
+          const jointMeshes = createGeometryFromConfig(jointConfig)
+          jointMeshes.forEach(mesh => {
+            jointGroup.add(mesh)
+          })
+        } else {
+          // 如果没有配置，使用默认的球体+连杆显示 (Fallback)
+          // 2.1 关节球体
+          const jointMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.04, 32, 32),
+            new THREE.MeshPhongMaterial({ color: 0x0066cc })
+          )
+          jointGroup.add(jointMesh)
+          
+          // 2.2 X轴连杆 (参数 a)
+          if (Math.abs(param.a) > 0.001) {
+             const linkLength = Math.abs(param.a)
+             const linkGeo = new THREE.CylinderGeometry(0.02, 0.02, linkLength, 16)
+             const linkMat = new THREE.MeshPhongMaterial({ color: 0x888888 })
+             const linkMesh = new THREE.Mesh(linkGeo, linkMat)
+             linkMesh.rotation.z = -Math.PI / 2
+             linkMesh.position.x = param.a / 2
+             jointGroup.add(linkMesh)
+          }
+          
+          // 2.3 Z轴偏移 (参数 d)
+          if (Math.abs(param.d) > 0.001) {
+             const offsetLength = Math.abs(param.d)
+             const offsetGeo = new THREE.CylinderGeometry(0.025, 0.025, offsetLength, 16)
+             const offsetMat = new THREE.MeshPhongMaterial({ color: 0x666666 })
+             const offsetMesh = new THREE.Mesh(offsetGeo, offsetMat)
+             offsetMesh.rotation.x = Math.PI / 2
+             offsetMesh.position.z = param.d / 2
+             jointGroup.add(offsetMesh)
+          }
+        }
+        
+        // 坐标轴辅助 (显示关节坐标系)
+        const axis = new THREE.AxesHelper(0.15)
+        jointGroup.add(axis)
+
+        // 添加关节标签
+        const jointNumber = parseInt(jointDef.name.replace('joint', ''))
+        const jointLabel = createTextLabel(`关节${jointNumber}`, new THREE.Vector3(0, 0.15, 0), 0x0066cc)
+        jointGroup.add(jointLabel)
+
+        // 3. 建立层级关系（基于配置文件）
+        const parentName = jointDef.parent
+        const parentGroup = jointMap.get(parentName)
+        
+        if (!parentGroup) {
+          console.warn(`找不到父节点 "${parentName}"，将关节 ${jointDef.name} 添加到根节点`)
+          rootGroup.add(jointGroup)
+        } else {
+          parentGroup.add(jointGroup)
+        }
+        
+        // 将关节组添加到映射表
+        jointMap.set(jointDef.name, jointGroup)
+        
+        // 4. 设置初始位姿
+        // DH参数统一表示：关节i相对于其父坐标系（基座或前一个关节）的变换
+        // dhIndex 0: 关节1相对于基座坐标系
+        // dhIndex 1: 关节2相对于关节1
+        // ...
+        // dhIndex 6: 关节7相对于关节6
+        const matrix = calculateMDHMatrix(param.a, param.alpha, param.d, param.theta || 0)
+        const pos = new THREE.Vector3()
+        const quat = new THREE.Quaternion()
+        const scale = new THREE.Vector3()
+        matrix.decompose(pos, quat, scale)
+        
+        jointGroup.position.copy(pos)
+        jointGroup.quaternion.copy(quat)
+        
+        // 记录引用（按DH参数索引顺序）
+        joints[dhIndex] = jointGroup
+      })
+
+      // 确保joints数组连续（移除undefined）
+      const validJoints = joints.filter(j => j !== undefined)
+
+      return { root: rootGroup, joints: validJoints }
+    }
+    
+    // 更新机械臂关节角度
+    const updateArmPose = (joints, currentAngles) => {
+      if (!joints || !joints.length) return
+
+      joints.forEach((joint, i) => {
+        if (i >= currentAngles.length) return
+        
+        const angle = currentAngles[i]
+        const dh = joint.userData.dh
+        
+        // 计算新的局部变换矩阵
+        // theta = 初始偏移 + 实时角度
+        const matrix = calculateMDHMatrix(dh.a, dh.alpha, dh.d, dh.theta + angle)
+        
+        const pos = new THREE.Vector3()
+        const quat = new THREE.Quaternion()
+        const scale = new THREE.Vector3()
+        matrix.decompose(pos, quat, scale)
+        
+        joint.position.copy(pos)
+        joint.quaternion.copy(quat)
+      })
+    }
+
+    // 创建文本标签（无背景，只显示文字）
     const createTextLabel = (text, position, color = 0x000000) => {
       const canvas = document.createElement('canvas')
       const context = canvas.getContext('2d')
       canvas.width = 256
       canvas.height = 64
       
-      // 设置背景
-      context.fillStyle = 'rgba(255, 255, 255, 0.9)'
-      context.fillRect(0, 0, canvas.width, canvas.height)
-      
-      // 设置边框
-      context.strokeStyle = 'rgba(0, 0, 0, 0.5)'
-      context.lineWidth = 3
-      context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4)
-      
+      // 不设置背景和边框，只显示文字
       // 设置文字
       context.fillStyle = `rgb(${color >> 16}, ${(color >> 8) & 255}, ${color & 255})`
-      context.font = 'bold 20px Arial'
+      context.font = 'bold 24px Arial'
       context.textAlign = 'center'
       context.textBaseline = 'middle'
       context.fillText(text, canvas.width / 2, canvas.height / 2)
@@ -624,15 +636,51 @@ export default {
     // 初始化Three.js场景
     const initThreeScene = () => {
       if (!threeContainer.value) {
-        console.warn('3D容器不存在')
+        console.warn('3D容器不存在，延迟初始化')
+        // 如果容器还不存在，等待下一个tick
+        nextTick(() => {
+          if (threeContainer.value) {
+            initThreeScene()
+          }
+        })
         return
       }
       
-      try {
+      // 如果已经初始化过，先清理并重新初始化
+      if (threeInitialized.value) {
+        // 清理旧的场景
+        if (worldGroup) {
+          threeScene.remove(worldGroup)
+          worldGroup = null
+        }
+        if (threeRenderer) {
+          threeContainer.value?.removeChild(threeRenderer.domElement)
+        }
+        threeInitialized.value = false
+      }
       
+      try {
       // 创建场景
       threeScene = new THREE.Scene()
       threeScene.background = new THREE.Color(0xf5f5f5)
+      
+      // 创建世界坐标系根组（用于定义自定义世界坐标系方向）
+      worldGroup = new THREE.Group()
+      worldGroup.name = 'WorldCoordinateSystem'
+      
+      // 应用世界坐标系方向（如果配置了）
+      // worldOrientation在配置文件的根级别，不在masterArm中
+      const worldOrientation = hierarchyConfig.value?.worldOrientation || [0, 0, 0]
+      if (Array.isArray(worldOrientation) && worldOrientation.length >= 3) {
+        worldGroup.rotation.set(worldOrientation[0], worldOrientation[1], worldOrientation[2])
+        console.log('应用世界坐标系旋转:', worldOrientation, '弧度')
+        console.log('转换为角度:', worldOrientation.map(r => r * 180 / Math.PI), '度')
+      } else {
+        console.warn('worldOrientation配置无效或未找到，使用默认值 [0, 0, 0]')
+      }
+      
+      // 将世界组添加到场景
+      threeScene.add(worldGroup)
       
       // 创建相机
       threeCamera = new THREE.PerspectiveCamera(
@@ -641,7 +689,7 @@ export default {
         0.1,
         1000
       )
-      threeCamera.position.set(2, 2, 2)
+      threeCamera.position.set(4, 4, 4)
       threeCamera.lookAt(0, 0, 0)
       
       // 创建渲染器
@@ -654,7 +702,7 @@ export default {
       threeContainer.value.innerHTML = ''
       threeContainer.value.appendChild(threeRenderer.domElement)
       
-      // 添加光源
+      // 添加光源（光源不随世界坐标系旋转，直接添加到场景）
       const ambientLight = new THREE.AmbientLight(0x404040, 0.4)
       threeScene.add(ambientLight)
       
@@ -665,24 +713,81 @@ export default {
       directionalLight.shadow.mapSize.height = 2048
       threeScene.add(directionalLight)
       
-      // 添加坐标轴辅助
-      const axesHelper = new THREE.AxesHelper(1)
-      threeScene.add(axesHelper)
+      // 添加世界坐标系（Three.js默认坐标系，不受worldOrientation影响）
+      const worldAxisLength = 1.5 // 世界坐标系轴长度（稍大以便区分）
+      const worldAxesGroup = new THREE.Group()
+      worldAxesGroup.name = 'WorldCoordinateSystem'
       
-      // 创建初始机械臂模型
-      currentArmGroup = createLeftMasterArm()
-      currentArmGroup.position.x = 0 // 居中显示
-      threeScene.add(currentArmGroup)
+      const worldAxesHelper = new THREE.AxesHelper(worldAxisLength)
+      worldAxesGroup.add(worldAxesHelper)
       
-      // 添加左主控制臂标签
-      const leftArmLabel = createTextLabel('左主控制臂', new THREE.Vector3(0, 0.6, 0), 0x0066cc)
-      leftArmLabel.userData.isArmLabel = true
-      threeScene.add(leftArmLabel)
+      // 为世界坐标系添加标签
+      const worldLabelOffset = 0.25
+      const worldXLabel = createTextLabel('X_w', new THREE.Vector3(worldAxisLength + worldLabelOffset, 0, 0), 0xff0000)
+      worldAxesGroup.add(worldXLabel)
+      const worldYLabel = createTextLabel('Y_w', new THREE.Vector3(0, worldAxisLength + worldLabelOffset, 0), 0x00ff00)
+      worldAxesGroup.add(worldYLabel)
+      const worldZLabel = createTextLabel('Z_w', new THREE.Vector3(0, 0, worldAxisLength + worldLabelOffset), 0x0000ff)
+      worldAxesGroup.add(worldZLabel)
+      
+      // 世界坐标系直接添加到场景（不受worldOrientation影响）
+      threeScene.add(worldAxesGroup)
+      
+      // 添加基座坐标系（应用rootOrientation，相对于世界坐标系）
+      const baseAxisLength = 1.2 // 基座坐标系轴长度
+      const baseAxesGroup = new THREE.Group()
+      baseAxesGroup.name = 'BaseCoordinateSystem'
+
+      // 使用层级配置里的 rootOrientation 对坐标轴做同样的旋转
+      const baseOrientation = rightArmHierarchy.value?.rootOrientation || [0, 0, 0]
+      if (Array.isArray(baseOrientation) && baseOrientation.length >= 3) {
+        baseAxesGroup.rotation.set(baseOrientation[0], baseOrientation[1], baseOrientation[2])
+      }
+
+      const baseAxesHelper = new THREE.AxesHelper(baseAxisLength)
+      baseAxesGroup.add(baseAxesHelper)
+      
+      // 为基座坐标系添加标签（添加到 baseAxesGroup 中，这样也会一起旋转）
+      const baseLabelOffset = 0.2 // 标签距离轴末端的偏移
+      
+      // X轴标签（红色）
+      const baseXLabel = createTextLabel('X_b', new THREE.Vector3(baseAxisLength + baseLabelOffset, 0, 0), 0xff0000)
+      baseAxesGroup.add(baseXLabel)
+      
+      // Y轴标签（绿色）
+      const baseYLabel = createTextLabel('Y_b', new THREE.Vector3(0, baseAxisLength + baseLabelOffset, 0), 0x00ff00)
+      baseAxesGroup.add(baseYLabel)
+      
+      // Z轴标签（蓝色）
+      const baseZLabel = createTextLabel('Z_b', new THREE.Vector3(0, 0, baseAxisLength + baseLabelOffset), 0x0000ff)
+      baseAxesGroup.add(baseZLabel)
+
+      // 基座坐标系添加到世界组（会随worldOrientation旋转）
+      worldGroup.add(baseAxesGroup)
+      
+      // 创建初始机械臂模型 (使用新的构建函数创建右臂，传入 geometry 配置)
+      // 确保DH参数已加载
+      if (!rightArmDH.value || rightArmDH.value.length === 0) {
+        console.error('DH参数未加载，无法创建机械臂模型')
+        ElMessage.warning('DH参数未加载，请刷新页面重试')
+        return
+      }
+      const rightArm = createRobotArm('RightMasterArm', rightArmDH.value, rightArmGeometry.value, rightArmHierarchy.value)
+      currentArmGroup = rightArm.root
+      robotJoints.right = rightArm.joints
+      
+      currentArmGroup.position.set(0, 0, 0) // 居中显示
+      worldGroup.add(currentArmGroup)
+      
+      // 添加右主控制臂标签
+      const rightArmLabel = createTextLabel('右主控制臂', new THREE.Vector3(0, 0.8, 0), 0xff9900)
+      rightArmLabel.userData.isArmLabel = true
+      worldGroup.add(rightArmLabel)
       
       // 添加地面网格
       const gridHelper = new THREE.GridHelper(4, 20, 0xcccccc, 0xcccccc)
       gridHelper.position.y = -0.5
-      threeScene.add(gridHelper)
+      worldGroup.add(gridHelper)
       
       // 渲染场景
       threeRenderer.render(threeScene, threeCamera)
@@ -706,6 +811,9 @@ export default {
         isMouseDown = true
         mouseX = event.clientX
         mouseY = event.clientY
+        if (threeContainer.value) {
+          threeContainer.value.style.cursor = 'grabbing'
+        }
       }
       
       const onMouseMove = (event) => {
@@ -731,22 +839,39 @@ export default {
       
       const onMouseUp = () => {
         isMouseDown = false
+        if (threeContainer.value) {
+          threeContainer.value.style.cursor = 'grab'
+        }
       }
       
       const onWheel = (event) => {
-        const zoomSpeed = 0.1
-        const direction = event.deltaY > 0 ? 1 : -1
-        const distance = threeCamera.position.distanceTo(new THREE.Vector3(0, 0, 0))
-        const newDistance = Math.max(0.5, Math.min(10, distance + direction * zoomSpeed))
+        // 阻止默认滚动行为
+        event.preventDefault()
+        event.stopPropagation()
         
+        // 根据滚动方向计算缩放
+        const zoomSpeed = 0.05
+        const delta = -event.deltaY * zoomSpeed // 负号使向上滚动放大
+        
+        // 计算当前相机到原点的距离
+        const distance = threeCamera.position.distanceTo(new THREE.Vector3(0, 0, 0))
+        
+        // 计算新的距离（限制在合理范围内）
+        const minDistance = 1.0
+        const maxDistance = 20
+        const newDistance = Math.max(minDistance, Math.min(maxDistance, distance + delta))
+        
+        // 更新相机位置（保持方向不变，只改变距离）
         threeCamera.position.normalize().multiplyScalar(newDistance)
+        threeCamera.lookAt(0, 0, 0)
         threeRenderer.render(threeScene, threeCamera)
       }
       
       threeContainer.value.addEventListener('mousedown', onMouseDown)
       threeContainer.value.addEventListener('mousemove', onMouseMove)
       threeContainer.value.addEventListener('mouseup', onMouseUp)
-      threeContainer.value.addEventListener('wheel', onWheel)
+      // 使用 { passive: false } 以允许 preventDefault()
+      threeContainer.value.addEventListener('wheel', onWheel, { passive: false })
       
       // 保存事件监听器引用以便清理
       threeContainer.value._mouseListeners = {
@@ -757,84 +882,6 @@ export default {
       }
     }
 
-    // 更新图表数据
-    const updateCharts = () => {
-      if (!rows.value.length) return
-      
-      console.log('更新图表数据，数据行数:', rows.value.length)
-      console.log('第一行数据示例:', rows.value[0])
-      
-             // 计算时间数据（基于时间戳，单位100ns）
-       const timeData = []
-       const baseTimestamp = rows.value[0]?.ulint_data || 0
-       
-       for (let i = 0; i < rows.value.length; i++) {
-         const timestamp = rows.value[i]?.ulint_data || 0
-         const timeDiff = (timestamp - baseTimestamp) / 10000000 // 转换为毫秒 (100ns -> ms)
-         timeData.push(timeDiff)
-       }
-      
-      // 左手关节数据 (对应real_data_0到real_data_6)
-      const leftHandData = []
-      for (let i = 0; i < 7; i++) {
-        const jointData = rows.value.map(row => {
-          const fieldName = `real_data_${i}` // real_data_0 到 real_data_6
-          return row[fieldName] || 0
-        })
-        leftHandData.push(jointData)
-      }
-      
-      // 右手关节数据 (对应real_data_7到real_data_13)
-      const rightHandData = []
-      for (let i = 0; i < 7; i++) {
-        const jointData = rows.value.map(row => {
-          const fieldName = `real_data_${i + 7}` // real_data_7 到 real_data_13
-          return row[fieldName] || 0
-        })
-        rightHandData.push(jointData)
-      }
-      
-      console.log('时间数据:', timeData.slice(0, 10))
-      console.log('左手关节数据:', leftHandData.map((data, i) => `关节${i+1}: ${data.slice(0, 5)}...`))
-      console.log('右手关节数据:', rightHandData.map((data, i) => `关节${i+1}: ${data.slice(0, 5)}...`))
-      
-      // 更新左手图表
-      if (leftChartInstance) {
-        const leftOption = leftChartInstance.getOption()
-        leftOption.series.forEach((series, index) => {
-          // 将时间和数据组合成坐标点
-          series.data = timeData.map((time, i) => [time, leftHandData[index][i] || 0])
-        })
-        leftChartInstance.setOption(leftOption)
-      }
-      
-      // 更新右手图表
-      if (rightChartInstance) {
-        const rightOption = rightChartInstance.getOption()
-        rightOption.series.forEach((series, index) => {
-          // 将时间和数据组合成坐标点
-          series.data = timeData.map((time, i) => [time, rightHandData[index][i] || 0])
-        })
-        rightChartInstance.setOption(rightOption)
-      }
-    }
-
-    // 重置图表缩放
-    const resetZoom = (chartType) => {
-      if (chartType === 'left' && leftChartInstance) {
-        leftChartInstance.dispatchAction({
-          type: 'dataZoom',
-          start: 0,
-          end: 100
-        })
-      } else if (chartType === 'right' && rightChartInstance) {
-        rightChartInstance.dispatchAction({
-          type: 'dataZoom',
-          start: 0,
-          end: 100
-        })
-      }
-    }
 
     // 重置3D视角
     const resetThreeView = () => {
@@ -850,36 +897,53 @@ export default {
       if (!threeScene || !currentArmGroup) return
       
       // 移除当前模型和标签
-      threeScene.remove(currentArmGroup)
+      if (worldGroup && currentArmGroup) {
+        worldGroup.remove(currentArmGroup)
+      }
       
       // 清理旧的标签
-      const oldLabels = threeScene.children.filter(child => 
-        child.type === 'Sprite' && 
-        (child.userData.isArmLabel || child.material?.map?.image?.src?.includes('左主控制臂') || child.material?.map?.image?.src?.includes('测试机械臂'))
-      )
-      oldLabels.forEach(label => threeScene.remove(label))
+      if (worldGroup) {
+        const oldLabels = worldGroup.children.filter(child => 
+          child.type === 'Sprite' && 
+          (child.userData.isArmLabel || child.material?.map?.image?.src?.includes('左主控制臂') || child.material?.map?.image?.src?.includes('测试机械臂'))
+        )
+        oldLabels.forEach(label => worldGroup.remove(label))
+      }
       
       // 切换模型类型
       if (currentArmModel.value === 'mdh') {
         currentArmModel.value = 'test'
         currentArmGroup = createTestArmModel()
         currentArmGroup.position.x = 0
-        threeScene.add(currentArmGroup)
+        if (worldGroup) {
+          worldGroup.add(currentArmGroup)
+        }
         
         // 更新标签
         const testArmLabel = createTextLabel('测试机械臂', new THREE.Vector3(0, 0.6, 0), 0x0066cc)
         testArmLabel.userData.isArmLabel = true
-        threeScene.add(testArmLabel)
+        if (worldGroup) {
+          worldGroup.add(testArmLabel)
+        }
       } else {
         currentArmModel.value = 'mdh'
-        currentArmGroup = createLeftMasterArm()
-        currentArmGroup.position.x = 0
-        threeScene.add(currentArmGroup)
+        // 重新创建右臂
+        // 传入 rightArmGeometry 配置
+        const rightArm = createRobotArm('RightMasterArm', rightArmDH.value, rightArmGeometry.value, rightArmHierarchy.value)
+        currentArmGroup = rightArm.root
+        robotJoints.right = rightArm.joints
+        
+        currentArmGroup.position.set(0, 0, 0)
+        if (worldGroup) {
+          worldGroup.add(currentArmGroup)
+        }
         
         // 更新标签
-        const leftArmLabel = createTextLabel('左主控制臂', new THREE.Vector3(0, 0.6, 0), 0x0066cc)
-        leftArmLabel.userData.isArmLabel = true
-        threeScene.add(leftArmLabel)
+        const label = createTextLabel('右主控制臂', new THREE.Vector3(0, 0.8, 0), 0xff9900)
+        label.userData.isArmLabel = true
+        if (worldGroup) {
+          worldGroup.add(label)
+        }
       }
       
       // 重新渲染
@@ -891,8 +955,8 @@ export default {
       threeRotationEnabled.value = !threeRotationEnabled.value
       if (threeRotationEnabled.value) {
         const animate = () => {
-          if (threeRotationEnabled.value && threeScene) {
-            threeScene.rotation.y += 0.01
+          if (threeRotationEnabled.value && worldGroup) {
+            worldGroup.rotation.y += 0.01
             threeRenderer.render(threeScene, threeCamera)
             threeRotationId = requestAnimationFrame(animate)
           }
@@ -906,65 +970,100 @@ export default {
       }
     }
 
+    // 动画相关变量
+    let animationFrameId = null
+    let lastFrameTime = 0
+    const targetFPS = 30 // 目标帧率
+    const frameInterval = 1000 / targetFPS
+
     // 播放控制函数
     const playData = () => {
       if (isPlaying.value) return
-      isPlaying.value = true
+      if (!rows.value || rows.value.length === 0) {
+        ElMessage.warning('没有数据可播放')
+        return
+      }
       
-      playbackInterval = setInterval(() => {
-        if (currentFrame.value >= totalEntries.value) {
-          stopData()
-          return
+      isPlaying.value = true
+      lastFrameTime = performance.now()
+      
+      const animate = (currentTime) => {
+        if (!isPlaying.value) return
+        
+        const elapsed = currentTime - lastFrameTime
+        const speedMultiplier = playbackSpeed.value
+        
+        // 根据播放速度和经过的时间计算应该前进的帧数
+        if (elapsed >= frameInterval / speedMultiplier) {
+          if (currentFrame.value >= totalEntries.value) {
+            stopData()
+            return
+          }
+          
+          currentFrame.value++
+          seekToFrame(currentFrame.value)
+          lastFrameTime = currentTime
         }
-        currentFrame.value++
-        seekToFrame(currentFrame.value)
-      }, 1000 / playbackSpeed.value)
+        
+        animationFrameId = requestAnimationFrame(animate)
+      }
+      
+      animationFrameId = requestAnimationFrame(animate)
     }
 
     const pauseData = () => {
       isPlaying.value = false
-      if (playbackInterval) {
-        clearInterval(playbackInterval)
-        playbackInterval = null
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
       }
     }
 
     const stopData = () => {
       isPlaying.value = false
       currentFrame.value = 1
-      if (playbackInterval) {
-        clearInterval(playbackInterval)
-        playbackInterval = null
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
       }
       seekToFrame(1)
     }
 
     const seekToFrame = (frame) => {
       currentFrame.value = frame
-      // 这里可以更新3D视图到对应帧的数据
-      // TODO: 实现3D视图的数据更新
+      
+      // 更新3D视图到对应帧
+      if (rows.value && rows.value.length > 0) {
+        const index = Math.min(Math.max(0, frame - 1), rows.value.length - 1)
+        const row = rows.value[index]
+        
+        // 提取右臂数据 (real_data_7 到 13)
+        // 假设数据已经是弧度制。如果是角度制需要转换。通常机器人日志是弧度。
+        const rightAngles = []
+        for (let i = 0; i < 7; i++) {
+          rightAngles.push(row[`real_data_${i + 7}`] || 0)
+        }
+        
+        updateArmPose(robotJoints.right, rightAngles)
+        
+        // 渲染
+        if (threeRenderer && threeScene && threeCamera) {
+          threeRenderer.render(threeScene, threeCamera)
+        }
+      }
     }
 
-    // 监听fileId变化，初始化图表
-    watch(fileId, (newFileId) => {
-      if (newFileId) {
+    // 监听数据加载状态，初始化3D场景
+    watch([dataLoaded, fileId], ([loaded, newFileId]) => {
+      if (loaded && newFileId) {
         nextTick(() => {
-          console.log('文件ID变化，初始化图表')
-          initLeftHandChart()
-          initRightHandChart()
+          console.log('数据加载完成，初始化3D场景')
+          // 初始化3D场景（如果还没初始化）
+          if (!threeInitialized.value && threeContainer.value) {
+            initThreeScene()
+          }
         })
       }
-    })
-
-    // 监听数据变化
-    watch(rows, () => {
-      nextTick(() => {
-        try {
-          updateCharts()
-        } catch (error) {
-          console.error('更新图表失败:', error)
-        }
-      })
     })
 
     // 监听播放速度变化
@@ -975,14 +1074,20 @@ export default {
       }
     })
 
+    // 监听worldOrientation配置变化，动态更新世界坐标系旋转
+    watch(() => hierarchyConfig.value?.worldOrientation, (newOrientation) => {
+      if (worldGroup && Array.isArray(newOrientation) && newOrientation.length >= 3) {
+        worldGroup.rotation.set(newOrientation[0], newOrientation[1], newOrientation[2])
+        console.log('更新世界坐标系旋转:', newOrientation)
+        // 重新渲染场景
+        if (threeRenderer && threeScene && threeCamera) {
+          threeRenderer.render(threeScene, threeCamera)
+        }
+      }
+    }, { deep: true })
+
     // 监听窗口大小变化
     const handleResize = () => {
-      if (leftChartInstance) {
-        leftChartInstance.resize()
-      }
-      if (rightChartInstance) {
-        rightChartInstance.resize()
-      }
       if (threeRenderer && threeContainer.value) {
         threeRenderer.setSize(threeContainer.value.clientWidth, threeContainer.value.clientHeight)
         threeCamera.aspect = threeContainer.value.clientWidth / threeContainer.value.clientHeight
@@ -1029,10 +1134,33 @@ export default {
 
     const fetchPreview = async (page = currentPage.value) => {
       if (!fileId.value) return
-      const offset = (page - 1) * pageSize.value
-      const { data } = await api.motionData.preview(fileId.value, { offset, limit: pageSize.value })
-      rows.value = data.rows
-      totalEntries.value = data.totalEntries
+      dataLoaded.value = false
+      try {
+        const offset = (page - 1) * pageSize.value
+        const { data } = await api.motionData.preview(fileId.value, { offset, limit: pageSize.value })
+        rows.value = data.rows
+        totalEntries.value = data.totalEntries
+        
+        // 数据加载完成后，标记为已加载
+        dataLoaded.value = true
+        console.log('数据加载完成:', {
+          rowsCount: rows.value.length,
+          totalEntries: totalEntries.value,
+          dataLoaded: dataLoaded.value
+        })
+        
+        // 数据加载完成后，如果当前显示的是第一帧，更新模型初始姿态
+        if (rows.value.length > 0) {
+          // 默认显示第一行数据对应的姿态
+          nextTick(() => {
+            seekToFrame(currentFrame.value)
+          })
+        }
+      } catch (error) {
+        console.error('加载数据失败:', error)
+        dataLoaded.value = false
+        ElMessage.error('加载数据失败，请重试')
+      }
     }
 
     const downloadCsv = async () => {
@@ -1051,29 +1179,40 @@ export default {
       }
     }
 
+    const fetchDHModel = async () => {
+      try {
+        const { data } = await api.motionData.getDhModel()
+        // 后端返回格式: { dh: { masterArm: [...], toolArm: [...], cameraArm: [...] } }
+        if (data && data.dh && data.dh.masterArm) {
+          rightArmDH.value = data.dh.masterArm.map(param => ({
+            a: param.a,
+            alpha: param.alpha,
+            d: param.d,
+            theta: param.thetaOffset
+          }))
+          console.log('DH参数加载成功，共', rightArmDH.value.length, '个关节')
+        } else {
+          console.error('DH参数配置为空，无法初始化机械臂', data)
+          ElMessage.error('无法加载DH参数配置，请检查后端配置')
+        }
+      } catch (error) {
+        console.error('获取DH参数失败:', error)
+        ElMessage.error('加载DH参数配置失败，请检查网络连接和后端服务')
+      }
+    }
+
     onMounted(async () => {
       await fetchConfig()
+      await fetchDHModel()
+      await loadGeometryConfig()
+      await loadHierarchyConfig()
       
-      // 初始化3D场景
-      nextTick(() => {
-        initThreeScene()
-      })
-      
+      // 不在这里初始化3D场景，等待数据加载完成后再初始化
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
     })
 
     onUnmounted(() => {
-      // 清理图表实例
-      if (leftChartInstance) {
-        leftChartInstance.dispose()
-        leftChartInstance = null
-      }
-      if (rightChartInstance) {
-        rightChartInstance.dispose()
-        rightChartInstance = null
-      }
-      
       // 清理Three.js资源
       if (threeRenderer) {
         threeRenderer.dispose()
@@ -1094,9 +1233,15 @@ export default {
       // 清理播放控制
       if (playbackInterval) {
         clearInterval(playbackInterval)
+        playbackInterval = null
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
       }
       if (threeRotationId) {
         cancelAnimationFrame(threeRotationId)
+        threeRotationId = null
       }
       
       // 移除事件监听器
@@ -1105,10 +1250,10 @@ export default {
 
     return {
       fileId, fileName, fileSize, totalEntries, currentPage, pageSize, rows, columnsToShow,
-      leftHandChart, rightHandChart, threeContainer, threeInitialized, threeRotationEnabled,
+      threeContainer, threeInitialized, threeRotationEnabled, dataLoaded,
       currentArmModel, isPlaying, currentFrame, playbackSpeed,
       handleUploadRequest, fetchPreview, downloadCsv, prettySize,
-      resetZoom, resetThreeView, toggleThreeRotation, switchArmModel,
+      resetThreeView, toggleThreeRotation, switchArmModel,
       playData, pauseData, stopData, seekToFrame
     }
   }
@@ -1217,6 +1362,12 @@ export default {
   position: relative;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   border-radius: 8px;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;

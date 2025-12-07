@@ -192,17 +192,17 @@ CREATE TABLE IF NOT EXISTS error_codes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   subsystem VARCHAR(100),
   code VARCHAR(50) NOT NULL,
-  is_axis_error BOOLEAN DEFAULT FALSE,
+  is_axis_error BOOLEAN DEFAULT FALSE,--
   is_arm_error BOOLEAN DEFAULT FALSE,
   short_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '精简提示信息（中文/默认）',
   user_hint TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '用户提示信息（中文/默认）',
   operation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '操作信息（中文/默认）',
   detail TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   method TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  param1 VARCHAR(100),
-  param2 VARCHAR(100),
-  param3 VARCHAR(100),
-  param4 VARCHAR(100),
+  param1 VARCHAR(100),'故障日志记录的参数1'
+  param2 VARCHAR(100),'故障日志记录的参数2'
+  param3 VARCHAR(100),'故障日志记录的参数3'
+  param4 VARCHAR(100),'故障日志记录的参数4'
   solution TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   for_expert BOOLEAN DEFAULT FALSE,
   for_novice BOOLEAN DEFAULT FALSE,
@@ -311,6 +311,7 @@ CREATE TABLE IF NOT EXISTS log_entries (
   FOREIGN KEY (log_id) REFERENCES logs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
 -- 9. 操作日志表
 CREATE TABLE IF NOT EXISTS operation_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -330,13 +331,26 @@ CREATE TABLE IF NOT EXISTS operation_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 10. 故障码多语言表
+-- 注意：支持多语言的字段包括 short_message/user_hint/operation（已有）
+-- 以及 detail/method/param1~4/solution/tech_solution/explanation/category（新增）
+-- 主表 error_codes 保留中文字段作为默认语言，多语言表按 lang 存储各语言版本
 CREATE TABLE IF NOT EXISTS i18n_error_codes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   error_code_id INT NOT NULL,
   lang VARCHAR(10) NOT NULL,
-  short_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  user_hint TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  operation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  short_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '精简提示信息',
+  user_hint TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '用户提示信息',
+  operation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '操作信息',
+  detail TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '详细信息',
+  method TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '方法信息',
+  param1 VARCHAR(100) COMMENT '故障日志记录的参数1',
+  param2 VARCHAR(100) COMMENT '故障日志记录的参数2',
+  param3 VARCHAR(100) COMMENT '故障日志记录的参数3',
+  param4 VARCHAR(100) COMMENT '故障日志记录的参数4',
+  tech_solution TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '技术解决方案',
+  explanation TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '说明信息',
+  -- 注意：solution, level, category 字段不在 i18n_error_codes 表中
+  -- 这些字段的值是固定的枚举值，只存储在 error_codes 表中，通过前端 i18n 翻译显示
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (error_code_id) REFERENCES error_codes(id) ON DELETE CASCADE,

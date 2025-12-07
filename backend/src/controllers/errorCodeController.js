@@ -171,11 +171,8 @@ const validateErrorCodeData = (data) => {
 const createErrorCode = async (req, res) => {
   try {
     const data = req.body;
-    const englishForI18n = {
-      short_message_en: data.short_message_en || '',
-      user_hint_en: data.user_hint_en || '',
-      operation_en: data.operation_en || ''
-    };
+    // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
+    // 此处不再处理这些字段
     const mainData = stripEnglishFields(data);
     
     // 转换分类为中文值
@@ -217,28 +214,8 @@ const createErrorCode = async (req, res) => {
     
     const errorCode = await ErrorCode.create(errorCodeData);
     
-    // 同步创建多语言记录
-    try {
-      // 创建中文多语言记录
-      await I18nErrorCode.create({
-        error_code_id: errorCode.id,
-        lang: 'zh',
-        short_message: mainData.short_message || '',
-        user_hint: mainData.user_hint || '',
-        operation: mainData.operation || ''
-      });
-      
-      // 创建英文多语言记录
-      await I18nErrorCode.create({
-        error_code_id: errorCode.id,
-        lang: 'en',
-        short_message: englishForI18n.short_message_en,
-        user_hint: englishForI18n.user_hint_en,
-        operation: englishForI18n.operation_en
-      });
-    } catch (i18nError) {
-      console.warn('创建多语言记录失败，但不影响故障码创建:', i18nError.message);
-    }
+    // 注意：short_message/user_hint/operation 的多语言内容由多语言管理模块管理
+    // 此处不再自动创建多语言记录
     
     // 保存分析分类关联
     if (data.analysisCategories && Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
@@ -325,11 +302,65 @@ const getErrorCodes = async (req, res) => {
           model: I18nErrorCode,
           as: 'i18nContents',
           required: false,
-          attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation']
+          attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
         }
       ]
     });
-    res.json({ errorCodes, total });
+    
+    // 根据请求语言合并多语言内容
+    // 从 Accept-Language 头或查询参数获取语言偏好
+    const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
+    // 标准化语言代码：'en-US' -> 'en', 'zh-CN' -> 'zh', 'zh' -> 'zh'
+    const targetLang = acceptLanguage.startsWith('en') ? 'en' : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
+    
+    // 处理每个故障码，合并对应语言的多语言内容
+    const processedErrorCodes = errorCodes.map(errorCode => {
+      const errorCodeData = errorCode.toJSON();
+      
+      // 如果是中文，直接返回主表数据（不需要合并）
+      if (targetLang === 'zh' || targetLang === 'zh-CN') {
+        // 移除 i18nContents，因为不需要
+        delete errorCodeData.i18nContents;
+        return errorCodeData;
+      }
+      
+      // 查找对应语言的多语言内容
+      const i18nContent = errorCodeData.i18nContents?.find(content => {
+        // 匹配语言代码：'en' 匹配 'en', 'en-US' 等
+        const contentLang = content.lang.split('-')[0];
+        return contentLang === targetLang;
+      });
+      
+      // 如果找到对应语言的内容，合并到主记录
+      if (i18nContent) {
+        // 合并多语言字段：只要多语言记录存在该字段（即使为空字符串），就使用多语言值
+        const i18nFields = [
+          'short_message',
+          'user_hint',
+          'operation',
+          'detail',
+          'method',
+          'param1',
+          'param2',
+          'param3',
+          'param4',
+          'tech_solution',
+          'explanation',
+        ];
+        i18nFields.forEach((field) => {
+          if (Object.prototype.hasOwnProperty.call(i18nContent, field)) {
+            errorCodeData[field] = i18nContent[field] ?? '';
+          }
+        });
+      }
+      
+      // 移除 i18nContents 数组，因为已经合并到主记录
+      delete errorCodeData.i18nContents;
+      
+      return errorCodeData;
+    });
+    
+    res.json({ errorCodes: processedErrorCodes, total });
   } catch (err) {
     res.status(500).json({ message: '查询失败', error: err.message });
   }
@@ -340,11 +371,8 @@ const updateErrorCode = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
-    const englishForI18n = {
-      short_message_en: data.short_message_en || '',
-      user_hint_en: data.user_hint_en || '',
-      operation_en: data.operation_en || ''
-    };
+    // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
+    // 此处不再处理这些字段
     const mainData = stripEnglishFields(data);
     
     // 转换分类为中文值
@@ -389,64 +417,18 @@ const updateErrorCode = async (req, res) => {
       category: errorCode.category
     };
     
-    // 如果故障码发生变化，重新计算等级和处理措施
+    // 始终根据故障码重新计算等级和处理措施，确保存储的是中文枚举值
+    // 使用更新后的故障码（如果有）或当前故障码
+    const codeToAnalyze = mainData.code || errorCode.code;
+    const { level, solution } = analyzeErrorCode(codeToAnalyze);
     let updateData = { ...mainData };
-    if (mainData.code && mainData.code !== errorCode.code) {
-      const { level, solution } = analyzeErrorCode(mainData.code);
-      updateData.level = level;
-      updateData.solution = solution;
-    }
+    updateData.level = level;  // 始终使用重新计算的中文值
+    updateData.solution = solution;  // 始终使用重新计算的英文键值
     
     await errorCode.update(updateData);
     
-    // 同步更新多语言记录
-    try {
-      // 更新中文多语言记录
-      const chineseRecord = await I18nErrorCode.findOne({
-        where: { error_code_id: errorCode.id, lang: 'zh' }
-      });
-      
-      if (chineseRecord) {
-        await chineseRecord.update({
-          short_message: mainData.short_message || '',
-          user_hint: mainData.user_hint || '',
-          operation: mainData.operation || ''
-        });
-      } else {
-        // 如果中文记录不存在，创建新的
-        await I18nErrorCode.create({
-          error_code_id: errorCode.id,
-          lang: 'zh',
-          short_message: mainData.short_message || '',
-          user_hint: mainData.user_hint || '',
-          operation: mainData.operation || ''
-        });
-      }
-      
-      // 更新英文多语言记录
-      const englishRecord = await I18nErrorCode.findOne({
-        where: { error_code_id: errorCode.id, lang: 'en' }
-      });
-      
-      if (englishRecord) {
-        await englishRecord.update({
-          short_message: englishForI18n.short_message_en,
-          user_hint: englishForI18n.user_hint_en,
-          operation: englishForI18n.operation_en
-        });
-      } else {
-        // 如果英文记录不存在，创建新的
-        await I18nErrorCode.create({
-          error_code_id: errorCode.id,
-          lang: 'en',
-          short_message: englishForI18n.short_message_en,
-          user_hint: englishForI18n.user_hint_en,
-          operation: englishForI18n.operation_en
-        });
-      }
-    } catch (i18nError) {
-      console.warn('更新多语言记录失败，但不影响故障码更新:', i18nError.message);
-    }
+    // 注意：short_message/user_hint/operation 的多语言内容由多语言管理模块管理
+    // 此处不再自动创建/更新多语言记录
     
     // 更新分析分类关联
     if (data.analysisCategories !== undefined) {
@@ -936,26 +918,21 @@ const exportMultiLanguageXML = async (req, res) => {
 // CSV导出功能（包含主表全部字段，可选包含多语言字段）
 const exportErrorCodesToCSV = async (req, res) => {
   try {
-    const { languages = '', format = 'csv' } = req.query;
-    const langList = languages
-      ? String(languages)
-          .split(',')
-          .map((l) => l.trim())
-          .filter(Boolean)
-      : [];
+    const { language = '', format = 'csv' } = req.query;
+    const targetLang = String(language).trim();
 
     // 支持的语言列表（与系统一致）
     const supportedLangs = new Set(['zh', 'en', 'fr', 'de', 'es', 'it', 'pt', 'nl', 'sk', 'ro', 'da']);
-    const targetLangs = langList.filter((l) => supportedLangs.has(l));
+    const isValidLang = targetLang && supportedLangs.has(targetLang);
 
-    // 读取所有故障码以及所有多语言内容（用于拼装）
+    // 读取所有故障码以及所有多语言内容（用于替换）
     const errorCodes = await ErrorCode.findAll({
       include: [
         {
           model: I18nErrorCode,
           as: 'i18nContents',
           required: false,
-          attributes: ['lang', 'short_message', 'user_hint', 'operation']
+          attributes: ['lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
         },
         {
           model: AnalysisCategory,
@@ -1024,15 +1001,7 @@ const exportErrorCodesToCSV = async (req, res) => {
       'category'
     ];
 
-    // 多语言扩展字段
-    const i18nFieldsPerLang = (lang) => [
-      `short_message_${lang}`,
-      `user_hint_${lang}`,
-      `operation_${lang}`
-    ];
-
     const header = [...baseFields];
-    targetLangs.forEach((lang) => header.push(...i18nFieldsPerLang(lang)));
 
     // CSV/TSV 转义 - 处理包含特殊字符的内容
     const escapeValue = (value) => {
@@ -1055,6 +1024,9 @@ const exportErrorCodesToCSV = async (req, res) => {
     // 表头
     lines.push(header.map(escapeValue).join(separator));
 
+    // 多语言字段列表（这些字段如果在 i18n_error_codes 中有对应语言的内容，则替换）
+    const i18nFields = ['short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation'];
+
     for (const ec of errorCodes) {
       const row = [];
       const ecPlain = ec.toJSON();
@@ -1063,6 +1035,19 @@ const exportErrorCodesToCSV = async (req, res) => {
       const categoryNames = Array.isArray(ecPlain.analysisCategories)
         ? ecPlain.analysisCategories.map((c) => c.name_zh || c.name_en || c.category_key).join('|')
         : '';
+
+      // 如果选择了语言，查找对应语言的多语言内容
+      let i18nContent = null;
+      if (isValidLang && targetLang !== 'zh') {
+        // 查找对应语言的多语言内容
+        if (Array.isArray(ecPlain.i18nContents)) {
+          i18nContent = ecPlain.i18nContents.find(content => {
+            // 匹配语言代码：'en' 匹配 'en', 'en-US' 等
+            const contentLang = content.lang.split('-')[0];
+            return contentLang === targetLang;
+          });
+        }
+      }
 
       // 填充基础字段
       for (const field of baseFields) {
@@ -1077,23 +1062,14 @@ const exportErrorCodesToCSV = async (req, res) => {
           continue;
         }
         
-        row.push(escapeValue(ecPlain[field]));
-      }
-
-      // 建立语言 -> 内容 映射
-      const langMap = new Map();
-      if (Array.isArray(ecPlain.i18nContents)) {
-        for (const c of ecPlain.i18nContents) {
-          langMap.set(c.lang, c);
+        // 如果是多语言字段，且找到了对应语言的内容，则使用多语言内容
+        // 注意：即使多语言字段为空字符串，只要存在对应语言的多语言记录，也应该使用（可能是空字符串）
+        if (i18nFields.includes(field) && i18nContent && i18nContent.hasOwnProperty(field)) {
+          row.push(escapeValue(i18nContent[field] || ''));
+        } else {
+          // 否则使用主表的中文内容
+          row.push(escapeValue(ecPlain[field]));
         }
-      }
-
-      // 按需填充多语言扩展字段
-      for (const lang of targetLangs) {
-        const content = langMap.get(lang) || {};
-        row.push(escapeValue(content.short_message || ''));
-        row.push(escapeValue(content.user_hint || ''));
-        row.push(escapeValue(content.operation || ''));
       }
 
       lines.push(row.join(separator));
@@ -1106,8 +1082,8 @@ const exportErrorCodesToCSV = async (req, res) => {
           user_id: req.user.id,
           username: req.user.username,
           operation: 'CSV导出',
-          description: `导出故障码CSV文件 (多语言: ${targetLangs.join(',') || '无'})`,
-          details: { languages: targetLangs, exportCount: errorCodes.length }
+          description: `导出故障码CSV文件 (语言: ${targetLang || '中文/默认'})`,
+          details: { language: targetLang || 'zh', exportCount: errorCodes.length }
         });
       } catch {}
     }
@@ -1137,14 +1113,66 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
     }
     
     const errorCode = await ErrorCode.findOne({
-      where: { code, subsystem }
+      where: { code, subsystem },
+      include: [
+        {
+          model: I18nErrorCode,
+          as: 'i18nContents',
+          required: false,
+          attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
+        }
+      ]
     });
     
     if (!errorCode) {
       return res.json({ errorCode: null });
     }
     
-    res.json({ errorCode });
+    // 根据请求语言合并多语言内容
+    // 从 Accept-Language 头或查询参数获取语言偏好
+    const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
+    // 标准化语言代码：'en-US' -> 'en', 'zh-CN' -> 'zh', 'zh' -> 'zh'
+    const targetLang = acceptLanguage.startsWith('en') ? 'en' : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
+    
+    const errorCodeData = errorCode.toJSON();
+    
+    // 如果是中文，直接返回主表数据（不需要合并）
+    if (targetLang !== 'zh' && targetLang !== 'zh-CN') {
+      // 查找对应语言的多语言内容
+      const i18nContent = errorCodeData.i18nContents?.find(content => {
+        // 匹配语言代码：'en' 匹配 'en', 'en-US' 等
+        const contentLang = content.lang.split('-')[0];
+        return contentLang === targetLang;
+      });
+      
+      // 如果找到对应语言的内容，合并到主记录
+      if (i18nContent) {
+        // 合并多语言字段：只要多语言记录存在该字段（即使为空字符串），就使用多语言值
+        const i18nFields = [
+          'short_message',
+          'user_hint',
+          'operation',
+          'detail',
+          'method',
+          'param1',
+          'param2',
+          'param3',
+          'param4',
+          'tech_solution',
+          'explanation',
+        ];
+        i18nFields.forEach((field) => {
+          if (Object.prototype.hasOwnProperty.call(i18nContent, field)) {
+            errorCodeData[field] = i18nContent[field] ?? '';
+          }
+        });
+      }
+    }
+    
+    // 移除 i18nContents 数组，因为已经合并到主记录
+    delete errorCodeData.i18nContents;
+    
+    res.json({ errorCode: errorCodeData });
   } catch (err) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }

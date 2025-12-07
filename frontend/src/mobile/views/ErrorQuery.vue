@@ -215,7 +215,7 @@
           <section class="result-section-item">
             <header class="section-title">{{ $t('mobile.errorQuery.sectionTitles.category') }}</header>
             <div class="section-card category-card">
-              <span class="badge badge-outline">{{ record.category || '-' }}</span>
+              <span class="badge badge-outline">{{ getCategoryDisplayText(record.category) }}</span>
             </div>
           </section>
         </div>
@@ -237,6 +237,8 @@ import api from '@/api'
 import { fetchRecentSearches, storeRecentSearch } from '@/utils/offline/recentSearchStore'
 import { replaceErrorCodes, upsertErrorCodes, getErrorCodeLocal, searchErrorCodesLocal, getErrorCodeSyncMeta, getErrorCodeCount } from '@/utils/offline/errorCodeTableStore'
 import { derivePrefixFromRecord, derivePrefixLabel } from '@/utils/offline/prefixUtils'
+import categoryKeyMap from '@/config/categoryKeyMap.json'
+import prefixKeyMap from '@/config/prefixKeyMap.json'
 
 export default {
   name: 'MErrorQuery',
@@ -345,13 +347,38 @@ export default {
     const record = computed(() => {
       return foundRecord.value || {}
     })
+    // 将中文前缀转换为英文键名
+    const getPrefixKey = (chinesePrefix) => {
+      return prefixKeyMap[chinesePrefix] || chinesePrefix
+    }
+    
+    // 翻译前缀文本（根据系统语言）
+    const translatePrefix = (prefix) => {
+      if (!prefix) return ''
+      // 尝试直接翻译整个前缀（先转换为英文键名）
+      const prefixKey = getPrefixKey(prefix)
+      const directTranslation = t(`shared.prefixLabels.${prefixKey}`)
+      if (directTranslation && directTranslation !== `shared.prefixLabels.${prefixKey}`) {
+        return directTranslation
+      }
+      // 如果直接翻译失败，尝试分段翻译（处理复合前缀，如 "远程端 左主控制臂"）
+      const parts = prefix.split(/\s+/)
+      const translatedParts = parts.map(part => {
+        const partKey = getPrefixKey(part)
+        const translated = t(`shared.prefixLabels.${partKey}`)
+        return (translated && translated !== `shared.prefixLabels.${partKey}`) ? translated : part
+      })
+      return translatedParts.join(' ')
+    }
+    
     const explanationText = computed(() => {
       // 检查当前输入是否为故障类型格式（如0X010A），如果是则不显示前缀
       const currentCode = (code.value || '').trim().toUpperCase()
       const isTypeFormat = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(currentCode)
       
       // 如果是故障类型格式，不显示前缀
-      const prefix = isTypeFormat ? '' : (preview.value?.prefix || offlinePrefix.value || '')
+      const rawPrefix = isTypeFormat ? '' : (preview.value?.prefix || offlinePrefix.value || '')
+      const prefix = rawPrefix ? translatePrefix(rawPrefix) : ''
       const main = [record.value?.user_hint, record.value?.operation].filter(Boolean).join(' ')
       const text = main || record.value?.explanation || '-'
       // 如果有前缀，添加前缀；否则直接返回文本
@@ -1110,6 +1137,26 @@ export default {
       return solutionMap[solution] || solution
     }
     
+    // 将数据库中的分类值（可能是任何语言的翻译）转换为英文键值
+    const convertCategoryToKey = (categoryValue) => {
+      if (!categoryValue) return ''
+      // 优先使用直接映射（因为数据库必定写入中文）
+      if (categoryKeyMap[categoryValue]) {
+        return categoryKeyMap[categoryValue]
+      }
+      // 如果直接映射失败，返回原值（可能是英文 key）
+      return categoryValue
+    }
+    
+    // 获取分类的显示名称（根据系统语言翻译）
+    const getCategoryDisplayText = (categoryValue) => {
+      if (!categoryValue) return '-'
+      // 先将中文值转换为英文 key（因为数据库可能存储中文值）
+      const categoryKey = convertCategoryToKey(categoryValue)
+      // 使用 i18n 翻译分类选项
+      return t(`errorCodes.categoryOptions.${categoryKey}`) || categoryKey || categoryValue
+    }
+    
     // 获取子系统标签文字
     const getSubsystemLabel = (subsystem) => {
       if (!subsystem) return ''
@@ -1161,7 +1208,9 @@ export default {
         paramList,
         originalUserInput,
         offlineNotice,
-        offlineMessage
+        offlineMessage,
+        getCategoryDisplayText,
+        translatePrefix
       }
   }
 }

@@ -4,7 +4,39 @@ const path = require('path');
 const AdmZip = require('adm-zip');
 const iconv = require('iconv-lite');
 let _7zBin = null;
-try { _7zBin = require('7zip-bin'); } catch {}
+let _7zPath = null;
+try { 
+  _7zBin = require('7zip-bin'); 
+  // 7zip-bin 使用 path7za 属性
+  _7zPath = _7zBin.path7za || null;
+  if (_7zPath) {
+    // 检查路径是否在app.asar中，如果是，转换为app.asar.unpacked中的路径
+    if (_7zPath.includes('app.asar') && !_7zPath.includes('app.asar.unpacked')) {
+      // 将 app.asar 替换为 app.asar.unpacked
+      _7zPath = _7zPath.replace(/app\.asar[\/\\]/, 'app.asar.unpacked/');
+      console.log(`🔄 检测到asar路径，已转换为unpacked路径: ${_7zPath}`);
+    }
+    
+    // 验证文件是否存在
+    if (fs.existsSync(_7zPath)) {
+      console.log(`✅ 7zip-bin 加载成功: ${_7zPath}`);
+    } else {
+      console.warn(`⚠️ 7zip-bin 路径不存在: ${_7zPath}`);
+      // 如果转换后的路径不存在，尝试原始路径
+      const originalPath = _7zBin.path7za;
+      if (originalPath && fs.existsSync(originalPath)) {
+        _7zPath = originalPath;
+        console.log(`✅ 使用原始路径: ${_7zPath}`);
+      } else {
+        _7zPath = null;
+      }
+    }
+  } else {
+    console.warn(`⚠️ 7zip-bin 已加载但未找到 path7za 属性`);
+  }
+} catch (e) {
+  console.warn(`⚠️ 7zip-bin 加载失败: ${e.message}`);
+}
 const { computeFileHash, hasSuccessByHash } = require('./storage');
 const { getKeyAndDeviceForFile, isMacLike } = require('./keyExtractor');
 
@@ -34,27 +66,73 @@ class ScannerService {
       const lower = String(archivePath || '').toLowerCase();
       const target = path.join(this.getTempDir(), `extract_${Date.now()}_${Math.floor(Math.random()*1e6)}`);
       ensureDir(target);
+      
       if (lower.endsWith('.zip')) {
         const zip = new AdmZip(archivePath);
         zip.extractAllTo(target, true);
         return target;
       }
-      if (lower.endsWith('.7z') && _7zBin && _7zBin.path7za) {
+      
+      if (lower.endsWith('.7z')) {
+        if (!_7zPath) {
+          const logger = this.options.log || console.log;
+          logger(`❌ 7z解压失败: 7zip-bin未正确加载或找不到可执行文件`);
+          return null;
+        }
+        
+        // 再次验证7z可执行文件是否存在
+        if (!fs.existsSync(_7zPath)) {
+          const logger = this.options.log || console.log;
+          logger(`❌ 7z解压失败: 7z可执行文件不存在: ${_7zPath}`);
+          return null;
+        }
+        
         const { spawnSync } = require('child_process');
-        const res = spawnSync(_7zBin.path7za, ['x', archivePath, `-o${target}`, '-y']);
-        if (res.status === 0) return target;
-        return null;
+        const logger = this.options.log || console.log;
+        logger(`🔧 开始解压7z文件: ${archivePath}`);
+        logger(`📂 目标目录: ${target}`);
+        logger(`🔨 使用7z工具: ${_7zPath}`);
+        
+        // 确保目标目录路径使用正确的分隔符（Windows需要反斜杠）
+        // 注意：7za.exe 的 -o 参数后面不能有空格，格式为 -o路径
+        const targetDir = target.replace(/\//g, path.sep);
+        const archivePathNormalized = archivePath.replace(/\//g, path.sep);
+        
+        // 7za.exe 命令格式: 7za.exe x 源文件 -o目标目录 -y
+        // -o 参数后面直接跟路径，不能有空格
+        const res = spawnSync(_7zPath, ['x', archivePathNormalized, `-o${targetDir}`, '-y'], {
+          encoding: 'utf8',
+          timeout: 300000 // 5分钟超时
+        });
+        
+        if (res.status === 0) {
+          logger(`✅ 7z解压成功: ${archivePath} -> ${target}`);
+          return target;
+        } else {
+          const errorOutput = (res.stderr || res.stdout || '').toString();
+          logger(`❌ 7z解压失败 (退出码: ${res.status}): ${archivePath}`);
+          if (errorOutput) {
+            logger(`   错误信息: ${errorOutput.substring(0, 500)}`);
+          }
+          return null;
+        }
       }
+      
       return null;
     } catch (e) {
+      const logger = this.options.log || console.error;
+      logger(`❌ 解压异常: ${archivePath}, 错误: ${e.message}`);
       return null;
     }
   }
 
   extractDeviceIdFromPath(p) {
+    // 与后端逻辑保持一致：支持 5G-数字 和 4xxx-xx 两种格式
+    // 正则：5G-\d+ 或 4\d{3}-\d{2}
+    const deviceIdRegex = /(5G-\d+|4\d{3}-\d{2})/;
     const parts = p.split(/[/\\]/).reverse();
     for (const seg of parts) {
-      const m = seg.match(/\b[0-9A-Za-z]{3,5}-[0-9A-Za-z]{2}\b/);
+      const m = seg.match(deviceIdRegex);
       if (m) return m[0];
     }
     return '';

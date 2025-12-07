@@ -32,9 +32,12 @@ function findKeyFileUpwards(startDir, maxDepth = 4, fileName = 'systemInfo.txt')
 }
 
 function extractDeviceIdFromPath(fullPath) {
+  // 与后端逻辑保持一致：支持 5G-数字 和 4xxx-xx 两种格式
+  // 正则：5G-\d+ 或 4\d{3}-\d{2}
+  const deviceIdRegex = /(5G-\d+|4\d{3}-\d{2})/;
   const parts = fullPath.split(/[/\\]/).reverse();
   for (const seg of parts) {
-    const m = seg.match(/\b[0-9A-Za-z]{3,5}-[0-9A-Za-z]{2}\b/);
+    const m = seg.match(deviceIdRegex);
     if (m) return m[0];
   }
   return '';
