@@ -65,7 +65,16 @@ const actions = {
     }
   },
 
-
+  async dingtalkLogin ({ commit }, { authCode }) {
+    try {
+      const response = await api.auth.dingtalkLogin(authCode)
+      commit('SET_TOKEN', response.data.token)
+      commit('SET_USER', response.data.user)
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
 
   logout ({ commit }) {
     commit('SET_TOKEN', null)

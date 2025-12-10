@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   email VARCHAR(100),
+  dingtalk_unionid VARCHAR(100) UNIQUE,
+  dingtalk_userid VARCHAR(100),
+  dingtalk_mobile VARCHAR(32),
+  dingtalk_nick VARCHAR(100),
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -243,6 +247,27 @@ CREATE TABLE IF NOT EXISTS error_code_analysis_categories (
   -- 新增复合索引：按分类查找对应故障码以加速 EXISTS 过滤
   INDEX idx_ecac_cat_code (analysis_category_id, error_code_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='故障码与分析分类的多对多关联表';
+
+-- 5.4 故障码技术排查方案附件表（支持图片/文件，最多5个）
+CREATE TABLE IF NOT EXISTS tech_solution_images (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  error_code_id INT NOT NULL COMMENT '故障码ID',
+  url TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '访问地址（可直链下载/预览）',
+  storage ENUM('local','oss') DEFAULT 'local' COMMENT '存储类型',
+  filename VARCHAR(255) COMMENT '存储文件名（本地或OSS对象名）',
+  original_name VARCHAR(255) COMMENT '原始上传文件名',
+  file_type VARCHAR(50) COMMENT '文件类型：image/file 等',
+  object_key VARCHAR(512) COMMENT '存储Key（便于换域/CDN）',
+  size_bytes INT COMMENT '文件大小（字节）',
+  mime_type VARCHAR(100) COMMENT 'MIME类型',
+  width INT COMMENT '宽度（仅图片可选）',
+  height INT COMMENT '高度（仅图片可选）',
+  sort_order INT DEFAULT 0 COMMENT '排序序号',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (error_code_id) REFERENCES error_codes(id) ON DELETE CASCADE,
+  INDEX idx_error_code_id (error_code_id),
+  INDEX idx_error_code_sort (error_code_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='故障码技术排查方案附件';
 
 -- 5.3 故障码-分类 预计算映射表（查询加速用）
 CREATE TABLE IF NOT EXISTS code_category_map (

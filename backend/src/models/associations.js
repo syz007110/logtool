@@ -14,6 +14,7 @@ const Permission = require('./permission');
 const RolePermission = require('./role_permission');
 const AnalysisCategory = require('./analysis_category');
 const ErrorCodeAnalysisCategory = require('./error_code_analysis_category');
+const TechSolutionImage = require('./tech_solution_image');
 
 // 防止重复定义关联 - 使用进程级别的检查
 const associationsProcessKey = `associations_${process.pid}`;
@@ -175,6 +176,17 @@ function defineAssociations() {
     foreignKey: 'analysis_category_id',
     otherKey: 'error_code_id',
     as: 'errorCodes'
+  });
+
+  // ErrorCode 与 技术方案图片 的一对多关联
+  ErrorCode.hasMany(TechSolutionImage, {
+    foreignKey: 'error_code_id',
+    as: 'techSolutionImages',
+    onDelete: 'CASCADE'
+  });
+  TechSolutionImage.belongsTo(ErrorCode, {
+    foreignKey: 'error_code_id',
+    as: 'errorCode'
   });
 
   console.log('✅ 模型关联定义完成');

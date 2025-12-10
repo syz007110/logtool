@@ -35,6 +35,7 @@
       "createSuccess": "Created successfully",
       "addSuccess": "Added successfully",
       "updateSuccess": "Updated successfully",
+      "updated": "Updated",
       "saveSuccess": "Saved successfully",
       "saveFailed": "Save failed",
       "loadFailed": "Load failed",
@@ -111,6 +112,14 @@
     "username": "Username",
     "password": "Password",
     "login": "Login",
+    "dingtalkScan": "Login with DingTalk",
+    "tabPassword": "Password Login",
+    "tabScan": "Scan Login",
+    "scanLoading": "Loading QR code...",
+    "scanError": "Failed to load QR, please click the button below",
+    "dingtalkH5": "DingTalk H5 SSO",
+    "dingtalkConfigMissing": "DingTalk config missing (corpId/AppKey)",
+    "dingtalkNotInContainer": "Please open inside DingTalk to SSO",
     "validation": {
       "usernameRequired": "Please enter username",
       "passwordRequired": "Please enter password"
@@ -315,6 +324,11 @@
       "overwriteTitle": "Overwrite Confirmation",
       "overwriteConfirm": "Current language already has content. Overwrite with auto-translated result?",
       "saveFirstHint": "Please save error code basic info first"
+    },
+    "techSolutionDrawer": {
+      "title": "Technical Troubleshooting Plan",
+      "attachmentTitle": "Attachments",
+      "attachmentHint": "Up to 5 files. Images can be previewed; other types can be opened/downloaded."
     },
     "queryResult": {
       "resultInfo": "Result Information",

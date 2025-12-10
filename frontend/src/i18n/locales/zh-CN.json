@@ -35,6 +35,7 @@
       "createSuccess": "创建成功",
       "addSuccess": "添加成功",
       "updateSuccess": "更新成功",
+      "updated": "已更新",
       "saveSuccess": "保存成功",
       "saveFailed": "保存失败",
       "loadFailed": "加载失败",
@@ -111,6 +112,14 @@
     "username": "用户名",
     "password": "密码",
     "login": "登录",
+    "dingtalkScan": "钉钉扫码登录",
+    "tabPassword": "账号密码登录",
+    "tabScan": "扫码登录",
+    "scanLoading": "正在加载二维码...",
+    "scanError": "二维码加载失败，请点击下方按钮",
+    "dingtalkH5": "钉钉免登(H5)",
+    "dingtalkConfigMissing": "缺少钉钉配置(corpId/AppKey)",
+    "dingtalkNotInContainer": "请在钉钉内打开以免登",
     "validation": {
       "usernameRequired": "请输入用户名",
       "passwordRequired": "请输入密码"
@@ -316,6 +325,11 @@
       "overwriteTitle": "覆盖确认",
       "overwriteConfirm": "当前语言已有内容，是否覆盖为自动翻译结果？",
       "saveFirstHint": "请先保存故障码基本信息"
+    },
+    "techSolutionDrawer": {
+      "title": "技术排查方案",
+      "attachmentTitle": "附件",
+      "attachmentHint": "最多 5 个，图片可预览，其他类型可下载/打开"
     },
     "queryResult": {
       "resultInfo": "结果信息",

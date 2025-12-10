@@ -106,7 +106,7 @@
           <template #default="{ row }">
             <div class="btn-group" style="justify-content: center;">
               <button
-                class="btn-text"
+                class="btn-text btn-sm"
                 @click="handleEdit(row)"
                 v-if="canUpdate"
                 :aria-label="$t('shared.edit')"
@@ -114,15 +114,25 @@
               >
                 {{ $t('shared.edit') }}
               </button>
-              <button
-                class="btn-text-danger"
-                @click="handleDelete(row)"
-                v-if="canDelete"
-                :aria-label="$t('shared.delete')"
-                :title="$t('shared.delete')"
+              <el-dropdown
+                trigger="click"
+                placement="bottom-end"
+                @command="(command) => handleOperationCommand(row, command)"
               >
-                {{ $t('shared.delete') }}
+                <button class="btn-text btn-sm">
+                  <i class="fas fa-ellipsis-h"></i>
               </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="canUpdate" command="tech-edit">
+                      {{ $t('errorCodes.techSolutionDrawer.title') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item v-if="canDelete" command="delete">
+                      {{ $t('shared.delete') }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -514,6 +524,88 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 技术排查方案全高抽屉 -->
+    <el-drawer
+      v-model="showTechDrawer"
+      direction="rtl"
+      size="70%"
+      :destroy-on-close="true"
+      class="tech-solution-drawer"
+      :show-close="false"
+      @close="handleDrawerClose"
+    >
+      <template #title>
+        <div class="tech-drawer-header">
+          <div>
+            <div class="tech-drawer-title">{{ $t('errorCodes.techSolutionDrawer.title') }}</div>
+            <div class="tech-drawer-subtitle">
+              <span v-if="techTarget">
+                {{ techTarget.code }} / {{ techTarget.subsystem }}
+              </span>
+            </div>
+          </div>
+          <div class="tech-drawer-actions">
+            <button class="btn-secondary" @click="closeTechDrawer">{{ $t('shared.cancel') }}</button>
+            <button class="btn-primary" :class="{ 'btn-loading': techSaving }" :disabled="techSaving" @click="saveTechSolution">
+              {{ $t('shared.save') }}
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <div class="tech-drawer-body" v-loading="techDrawerLoading">
+        <el-form label-position="top" label-width="0" class="tech-form compact-form">
+          <el-form-item class="tech-input-item">
+            <el-input
+              v-model="techForm.tech_solution"
+              type="textarea"
+              :rows="6"
+              placeholder="请输入技术排查方案"
+            />
+          </el-form-item>
+          <div class="tech-section-title">
+            {{ $t('errorCodes.techSolutionDrawer.attachmentTitle') }}
+            <span class="tech-section-hint">{{ $t('errorCodes.techSolutionDrawer.attachmentHint') }}</span>
+          </div>
+          <el-form-item class="tech-upload-item">
+            <el-upload
+              class="tech-upload"
+              list-type="picture-card"
+              :file-list="techImageFileList"
+              :limit="5"
+              :auto-upload="true"
+              :on-remove="handleTechRemove"
+              :on-preview="handleTechPreview"
+              :on-exceed="handleTechExceed"
+              :http-request="handleTechUpload"
+              :before-upload="beforeTechUpload"
+            >
+              <i class="fas fa-plus"></i>
+            </el-upload>
+            <div class="tech-file-list" v-if="techOtherFileList.length">
+              <div class="tech-file-item" v-for="file in techOtherFileList" :key="file.uid" @click="handleOpenFile(file)">
+                <div class="tech-file-left">
+                  <i class="fas fa-paperclip tech-file-icon"></i>
+                  <div class="tech-file-meta">
+                    <div class="tech-file-name" :title="file.name">{{ file.name }}</div>
+                    <div class="tech-file-size">{{ formatSize(file.size_bytes) }}</div>
+                  </div>
+                </div>
+                <div class="tech-file-actions">
+                  <button type="button" class="btn-text" @click.stop="handleOpenFile(file)">下载</button>
+                  <button type="button" class="btn-text-danger" @click.stop="handleRemoveByUrl(file.url)">删除</button>
+                </div>
+              </div>
+            </div>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-drawer>
+
+    <el-dialog v-model="techPreviewVisible" width="60%" :close-on-click-modal="true">
+      <img :src="techPreviewUrl" alt="preview" style="width: 100%;" />
+    </el-dialog>
   </div>
 </template>
 
@@ -600,6 +692,16 @@ export default {
     const saving = ref(false)
     const showAddDialog = ref(false)
     const showQueryDialog = ref(false)
+    const showTechDrawer = ref(false)
+    const techDrawerLoading = ref(false)
+    const techSaving = ref(false)
+    const techTarget = ref(null)
+    const techPreviewVisible = ref(false)
+    const techPreviewUrl = ref('')
+    const techForm = reactive({
+      tech_solution: '',
+      images: []
+    })
     const editingErrorCode = ref(null)
     const searchQuery = ref('')
     const selectedSubsystem = ref('')
@@ -1019,6 +1121,34 @@ export default {
       return subsystem === '8' || subsystem === '9' || subsystem === 'A'
     })
     
+    const techImageFileList = computed(() => techForm.images
+      .filter((img) => (img.mime_type || '').startsWith('image/') || img.file_type === 'image')
+      .map((img, idx) => ({
+        name: img.original_name || img.filename || `image-${idx + 1}`,
+        url: img.url,
+        status: 'success',
+        uid: `img-${idx}-${img.url || idx}`,
+        mime_type: img.mime_type || '',
+        type: img.mime_type || 'image/*',
+        size_bytes: img.size_bytes
+      }))
+    )
+
+    const techOtherFileList = computed(() => techForm.images
+      .filter((img) => {
+        const mime = img.mime_type || ''
+        return !(mime.startsWith('image/') || img.file_type === 'image')
+      })
+      .map((img, idx) => ({
+        name: img.original_name || img.filename || `file-${idx + 1}`,
+        url: img.url,
+        status: 'success',
+        uid: `file-${idx}-${img.url || idx}`,
+        mime_type: img.mime_type || '',
+        size_bytes: img.size_bytes
+      }))
+    )
+    
     
     
     // 加载分析分类
@@ -1108,6 +1238,162 @@ export default {
     const handleCurrentChange = (page) => {
       currentPage.value = page
       loadErrorCodes()
+    }
+
+    const resetTechForm = () => {
+      techForm.tech_solution = ''
+      techForm.images = []
+      techTarget.value = null
+    }
+
+    const closeTechDrawer = () => {
+      showTechDrawer.value = false
+    }
+
+    watch(showTechDrawer, (visible) => {
+      if (!visible) {
+        cleanupTempAttachments()
+        resetTechForm()
+        techDrawerLoading.value = false
+        techSaving.value = false
+      }
+    })
+
+    const handleOperationCommand = (row, command) => {
+      if (command === 'tech-edit') {
+        openTechDrawer(row)
+      } else if (command === 'delete') {
+        handleDelete(row)
+      }
+    }
+
+    const openTechDrawer = async (row) => {
+      techTarget.value = row
+      showTechDrawer.value = true
+      techDrawerLoading.value = true
+      try {
+        const resp = await api.errorCodes.getTechSolution(row.id)
+        const data = resp.data || {}
+        techForm.tech_solution = data.tech_solution || ''
+        techForm.images = Array.isArray(data.images)
+          ? data.images.map((img, idx) => ({
+              ...img,
+              sort_order: Number.isFinite(img.sort_order) ? img.sort_order : idx
+            }))
+          : []
+      } catch (err) {
+        console.error('加载技术方案失败:', err)
+        ElMessage.error(t('shared.operationFailed'))
+      } finally {
+        techDrawerLoading.value = false
+      }
+    }
+
+    const beforeTechUpload = (file) => {
+      if (techForm.images.length >= 5) {
+        ElMessage.warning('最多上传5个附件')
+        return false
+      }
+      return true
+    }
+
+    const handleTechUpload = async (option) => {
+      try {
+        const formData = new FormData()
+        formData.append('files', option.file)
+        const resp = await api.errorCodes.uploadTechImages(formData)
+        const uploaded = resp.data?.files?.[0]
+        if (uploaded) {
+          techForm.images.push({ ...uploaded, sort_order: techForm.images.length })
+          option?.onSuccess && option.onSuccess(resp.data)
+        } else {
+          throw new Error('上传失败')
+        }
+      } catch (err) {
+        console.error('上传技术方案附件失败', err)
+        option?.onError && option.onError(err)
+        ElMessage.error(err?.response?.data?.message || t('shared.operationFailed'))
+      }
+    }
+
+    const cleanupTempAttachments = async () => {
+      const tmpUrls = techForm.images
+        .filter((img) => img.url && img.url.includes('/tmp/'))
+        .map((img) => img.url)
+      if (!tmpUrls.length) return
+      try {
+        await api.errorCodes.cleanupTempFiles(tmpUrls)
+      } catch (e) {
+        // 静默处理清理失败，避免影响关闭
+        console.warn('cleanup temp files failed', e)
+      }
+    }
+
+    const handleDrawerClose = () => {
+      cleanupTempAttachments()
+      resetTechForm()
+      techDrawerLoading.value = false
+      techSaving.value = false
+    }
+
+    const handleTechRemove = (file) => {
+      const targetUrl = file.url || file.response?.files?.[0]?.url
+      techForm.images = techForm.images.filter((img) => img.url !== targetUrl)
+    }
+
+    const handleTechPreview = (file) => {
+      const mime = file.mime_type || file.type || file.raw?.type || ''
+      if (mime.startsWith('image/')) {
+        techPreviewUrl.value = file.url
+        techPreviewVisible.value = true
+      } else if (file.url) {
+        window.open(file.url, '_blank')
+      }
+    }
+
+    const handleOpenFile = (file) => {
+      if (file?.url) {
+        window.open(file.url, '_blank')
+      }
+    }
+
+    const handleRemoveByUrl = (url) => {
+      techForm.images = techForm.images.filter((img) => img.url !== url)
+    }
+
+    const formatSize = (bytes) => {
+      if (!bytes && bytes !== 0) return ''
+      const kb = bytes / 1024
+      if (kb < 1024) return `${kb.toFixed(1)} KB`
+      const mb = kb / 1024
+      return `${mb.toFixed(1)} MB`
+    }
+
+    const handleTechExceed = () => {
+      ElMessage.warning('最多上传5个附件')
+    }
+
+    const saveTechSolution = async () => {
+      if (!techTarget.value) return
+      try {
+        techSaving.value = true
+        const payload = {
+          tech_solution: techForm.tech_solution,
+          images: techForm.images.map((img, idx) => ({
+            ...img,
+            sort_order: idx
+          }))
+        }
+        await api.errorCodes.updateTechSolution(techTarget.value.id, payload)
+        ElMessage.success(t('shared.updated'))
+        showTechDrawer.value = false
+        await loadErrorCodes()
+      } catch (err) {
+        console.error('保存技术方案失败', err)
+        ElMessage.error(err?.response?.data?.message || t('shared.operationFailed'))
+      } finally {
+        techSaving.value = false
+      }
     }
 
     const parseFilename = (contentDisposition) => {
@@ -1839,6 +2125,15 @@ export default {
        saving,
        showAddDialog,
        showQueryDialog,
+       showTechDrawer,
+       techDrawerLoading,
+       techSaving,
+       techForm,
+      techImageFileList,
+      techOtherFileList,
+       techPreviewVisible,
+       techPreviewUrl,
+       techTarget,
        editingErrorCode,
        searchQuery,
        selectedSubsystem,
@@ -1890,6 +2185,19 @@ export default {
        openQueryDialog,
        handleEdit,
        handleDelete,
+       handleOperationCommand,
+       handleTechUpload,
+       handleTechRemove,
+       handleTechPreview,
+       handleTechExceed,
+       beforeTechUpload,
+       saveTechSolution,
+      cleanupTempAttachments,
+      handleDrawerClose,
+      handleOpenFile,
+      handleRemoveByUrl,
+      formatSize,
+       closeTechDrawer,
        handleSave,
        handleCodeChange,
        getSolutionDisplay,
@@ -1953,6 +2261,151 @@ export default {
 
 .list-card {
   border-radius: 8px;
+}
+
+.tech-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tech-drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.tech-drawer-subtitle {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.tech-drawer-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.tech-drawer-body {
+  padding: 8px 5px 16px;
+}
+
+.tech-upload :deep(.el-upload--picture-card),
+.tech-upload :deep(.el-upload-list__item) {
+  width: 120px;
+  height: 120px;
+}
+
+.tech-upload :deep(.el-upload-list__item-thumbnail) {
+  object-fit: cover;
+}
+
+.tech-upload {
+  display: block;
+  width: 100%;
+}
+
+.tech-section-title {
+  font-size: 13px;
+  color: #606266;
+  margin: 4px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tech-section-hint {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 400;
+}
+
+.compact-form :deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+
+.tech-input-item :deep(.el-textarea__inner) {
+  min-height: 110px;
+}
+
+.tech-file-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  clear: both; /* 保证在图片卡片下一行开始 */
+  width: 100%;
+}
+
+.tech-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  background: #f9fafc;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.tech-file-item:hover {
+  background: #f0f2f5;
+  border-color: #dcdfe6;
+}
+
+.tech-file-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tech-file-icon {
+  font-size: 14px;
+  color: #606266;
+}
+
+.tech-file-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tech-file-name {
+  font-size: 13px;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.tech-file-size {
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+}
+
+.tech-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.tech-file-item:hover .tech-file-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tech-file-actions .btn-text {
+  padding: 0 6px;
 }
 
 .pagination-wrapper {

@@ -1,0 +1,160 @@
+body {
+    background: #f5f6fa;
+    margin: 0;
+    font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+.header-stripes {
+    width: 100vw;
+    height: 80px;
+    background: repeating-linear-gradient(135deg, #1677ff 0 40px, #e6f0fa 40px 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 32px;
+    box-shadow: 0 2px 8px rgba(22,119,255,0.08);
+}
+.header-title {
+    color: #1677ff;
+    font-size: 28px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 8px #e6f0fa;
+}
+
+/* 用户信息卡片 */
+.user-info-container {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 32px rgba(22,119,255,0.10);
+    padding: 36px 40px 28px 40px;
+    margin: 0 auto;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border: 1.5px solid #e6f0fa;
+}
+.user-info-container .button {
+    align-self: center;
+}
+.user-info-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1677ff;
+    margin-bottom: 22px;
+    letter-spacing: 1px;
+    border-left: 4px solid #1677ff;
+    padding-left: 10px;
+}
+.user-info-item {
+    font-size: 17px;
+    color: #222;
+    margin-bottom: 16px;
+    word-break: break-all;
+    display: flex;
+    align-items: center;
+}
+.user-info-label {
+    color: #1677ff;
+    font-weight: 500;
+    margin-right: 10px;
+    min-width: 80px;
+    display: inline-block;
+}
+.user-info-value {
+    color: #333;
+    background: #f5faff;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 16px;
+    border: 1px solid #e6f0fa;
+}
+
+/* 按钮样式 */
+.button {
+    background: linear-gradient(90deg, #1677ff 0%, #5ab2ff 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 24px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 18px;
+    box-shadow: 0 2px 8px rgba(22,119,255,0.10);
+    transition: background 0.2s;
+}
+.button:hover {
+    background: linear-gradient(90deg, #1466d9 0%, #3a8ee6 100%);
+}
+
+/* 扫码登录卡片 */
+.login-main-layout {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: calc(100vh - 112px);
+    margin-top: 40px;
+}
+
+.login-container {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 32px rgba(22,119,255,0.10);
+    padding: 36px 40px 28px 40px;
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1.5px solid #e6f0fa;
+}
+
+.login-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1677ff;
+    margin-bottom: 22px;
+    letter-spacing: 1px;
+    border-left: 4px solid #1677ff;
+    padding-left: 10px;
+    align-self: flex-start;
+}
+
+.self-defined-classname {
+    width: 300px;
+    height: 300px;
+    margin-bottom: 18px;
+    background: #f5faff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(22,119,255,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-tip {
+    color: #888;
+    font-size: 15px;
+    margin-top: 10px;
+    background: #e6f0fa;
+    border-radius: 6px;
+    padding: 6px 18px;
+    box-shadow: 0 1px 4px rgba(22,119,255,0.05);
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        width: 90vw;
+        padding: 24px 20px 20px 20px;
+    }
+    
+    .self-defined-classname {
+        width: 260px;
+        height: 260px;
+    }
+    
+    .header-title {
+        font-size: 22px;
+    }
+} 

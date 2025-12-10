@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - backend/.env
+    ports:
+      - "3000:3000" # 调试用；生产可移除对外暴露
+    depends_on:
+      - mysql
+      - redis
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: change_me_root
+      MYSQL_DATABASE: logtool
+      MYSQL_USER: logtool
+      MYSQL_PASSWORD: change_me_app
+    command:
+      [
+        "mysqld",
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci",
+      ]
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    ports:
+      - "3306:3306" # 调试/内网需要时开放；生产可移除
+    restart: unless-stopped
+
+  redis:
+    image: redis:6.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379" # 调试/内网需要时开放；生产可移除
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    volumes:
+      - ./data/clickhouse:/var/lib/clickhouse
+    ports:
+      - "8123:8123" # HTTP
+      - "9000:9000" # Native
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: logtool
+      POSTGRES_USER: logtool
+      POSTGRES_PASSWORD: change_me_pg
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # 调试/内网需要时开放；生产可移除
+    restart: unless-stopped

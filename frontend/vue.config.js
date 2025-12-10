@@ -28,6 +28,10 @@ module.exports = defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      '/static': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     },
     // 完全禁用错误覆盖

@@ -68,7 +68,8 @@ api.interceptors.response.use(
 const auth = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
-  me: () => api.get('/auth/me')
+  me: () => api.get('/auth/me'),
+  dingtalkLogin: (authCode) => api.post('/auth/dingtalk/login', { authCode })
 }
 
 const errorCodes = {
@@ -105,7 +106,14 @@ const errorCodes = {
   autoTranslateI18n: (id, lang, overwrite = false) => api.post(`/error-codes/${id}/i18n/auto-translate`, {
     lang,
     overwrite
-  })
+  }),
+  // 技术排查方案：获取/更新/上传图片
+  getTechSolution: (id) => api.get(`/error-codes/${id}/tech-solution`),
+  updateTechSolution: (id, data) => api.put(`/error-codes/${id}/tech-solution`, data),
+  uploadTechImages: (formData) => api.post('/error-codes/tech-solution/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  cleanupTempFiles: (urls) => api.post('/error-codes/tech-solution/cleanup-temp', { urls })
 }
 
 const i18nErrorCodes = {

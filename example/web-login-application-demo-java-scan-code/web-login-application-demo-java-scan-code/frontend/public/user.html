@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=400, initial-scale=1.0" />
+    <title>用户信息</title>
+    <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+    <div class="header-stripes">
+        <span class="header-title">钉钉用户信息</span>
+    </div>
+    <div class="user-info-container">
+        <div class="user-info-title">用户信息</div>
+        <div class="user-info-item"><span class="user-info-label">姓名</span><span class="user-info-value" id="user-nick">-</span></div>
+        <div class="user-info-item"><span class="user-info-label">手机号</span><span class="user-info-value" id="user-phone">-</span></div>
+        <div class="user-info-item"><span class="user-info-label">unionId</span><span class="user-info-value" id="user-unionid">-</span></div>
+        <div class="user-info-item"><span class="user-info-label">stateCode</span><span class="user-info-value" id="user-statecode">-</span></div>
+        <button class="button" onclick="window.location.href='/'">返回扫码页</button>
+    </div>
+    <script type="module" src="/src/user.js"></script>
+</body>
+</html> 

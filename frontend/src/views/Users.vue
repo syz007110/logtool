@@ -127,10 +127,6 @@
           <el-input v-model="userForm.password" type="password" show-password style="max-width: 100%" />
         </el-form-item>
         
-        <el-form-item v-if="editingUser" :label="$t('users.newPassword')" prop="password">
-          <el-input v-model="userForm.password" type="password" show-password :placeholder="$t('users.newPasswordPlaceholder')" style="max-width: 100%" />
-        </el-form-item>
-        
         <el-form-item :label="$t('users.status')" prop="status">
           <el-select v-model="userForm.status" :placeholder="$t('users.selectStatus')">
             <el-option :label="$t('users.statusActive')" value="active" />
@@ -240,7 +236,7 @@ export default {
       email: [
         { type: 'email', message: t('users.validation.emailFormat'), trigger: 'blur' }
       ],
-      password: [
+      password: editingUser.value ? [] : [
         { required: true, message: t('users.validation.passwordRequired'), trigger: 'blur' },
         { min: 6, message: t('users.validation.passwordMinLength'), trigger: 'blur' }
       ],

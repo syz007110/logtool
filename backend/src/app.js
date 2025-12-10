@@ -127,6 +127,8 @@ console.log('✅ 速率限制已启用');
 
 // 静态资源：反馈图片
 app.use('/static/feedback', express.static(path.resolve(__dirname, '../uploads/feedback')));
+// 静态资源：技术排查方案图片
+app.use('/static/tech-solution', express.static(path.resolve(__dirname, '../uploads/tech-solution')));
 
 // 路由占位
 app.get('/', (req, res) => {

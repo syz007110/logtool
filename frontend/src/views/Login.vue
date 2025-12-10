@@ -18,7 +18,7 @@
       <div class="login-header">
         <h1>{{ $t('login.title') }}</h1>
       </div>
-      
+
       <el-form 
         ref="loginForm" 
         :model="formData" 
@@ -46,7 +46,7 @@
           />
         </el-form-item>
         
-        <el-form-item>
+        <el-form-item class="login-actions">
           <el-button 
             type="primary" 
             size="large" 
@@ -58,7 +58,7 @@
           </el-button>
         </el-form-item>
       </el-form>
-      
+
       <div class="login-footer">
         <router-link to="/register" class="register-link">
           {{ $t('login.register') }}
@@ -69,13 +69,14 @@
 </template>
 
 <script>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import * as dd from 'dingtalk-jsapi'
 
 export default {
   name: 'Login',
@@ -92,6 +93,22 @@ export default {
     })
     
     const loading = ref(false)
+    const dingLoading = ref(false)
+    const autoLoginTried = ref(false)
+    // H5 免登所需 corpId / appKey，允许从 URL ?corpid= 透传
+    const urlParams = new URLSearchParams(window.location.search)
+    const viteEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {}
+    const dingtalkCorpId = urlParams.get('corpid') || urlParams.get('corpId') || process.env.VUE_APP_DINGTALK_CORP_ID || process.env.VITE_DINGTALK_CORP_ID || viteEnv.VITE_DINGTALK_CORP_ID || ''
+    const dingtalkAppKey = process.env.VUE_APP_DINGTALK_APP_KEY || process.env.VITE_DINGTALK_APP_KEY || viteEnv.VITE_DINGTALK_APP_KEY || ''
+    const isDingTalkUA = navigator.userAgent.toLowerCase().includes('dingtalk')
+    // 暴露调试用环境变量，方便控制台查看是否注入成功
+    if (typeof window !== 'undefined') {
+      window.__DD_DEBUG__ = {
+        appKey: dingtalkAppKey,
+        corpId: dingtalkCorpId,
+        isDingTalkUA
+      }
+    }
     
     const currentLanguage = computed(() => store.getters['auth/currentLanguage'])
     const currentLocaleLabel = computed(() => (getCurrentLocale() === 'en-US' ? 'English' : '中文'))
@@ -121,15 +138,61 @@ export default {
         loading.value = false
       }
     }
+
+    const handleDingTalkCallback = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const authCode = params.get('authCode') || params.get('code')
+      if (!authCode) return
+      try {
+        dingLoading.value = true
+        await store.dispatch('auth/dingtalkLogin', { authCode })
+        ElMessage.success(t('login.loginSuccess'))
+        router.replace('/dashboard')
+      } catch (error) {
+        console.error('DingTalk callback login failed:', error)
+      } finally {
+        dingLoading.value = false
+      }
+    }
     
     const changeLanguage = async (language) => {
       await loadLocaleMessages(language)
     }
+
+    const tryAutoDingTalkLogin = async () => {
+      if (autoLoginTried.value) return
+      autoLoginTried.value = true
+      // 仅在钉钉容器内尝试免登
+      if (!isDingTalkUA) return
+      if (!dingtalkCorpId || !dingtalkAppKey) return
+      if (!dd || !dd.runtime || !dd.runtime.permission) return
+      try {
+        const { code } = await new Promise((resolve, reject) => {
+          dd.runtime.permission.requestAuthCode({
+            corpId: dingtalkCorpId,
+            clientId: dingtalkAppKey,
+            onSuccess: res => resolve(res),
+            onFail: err => reject(err)
+          })
+        })
+        await store.dispatch('auth/dingtalkLogin', { authCode: code })
+        ElMessage.success(t('login.loginSuccess'))
+        router.replace('/dashboard')
+      } catch (error) {
+        console.error('Auto DingTalk login failed:', error)
+      }
+    }
+
+    onMounted(() => {
+      handleDingTalkCallback()
+      tryAutoDingTalkLogin()
+    })
     
     return {
       loginForm,
       formData,
       loading,
+      dingLoading,
       rules,
       currentLanguage,
       currentLocaleLabel,
@@ -199,9 +262,14 @@ export default {
 }
 
 .login-button {
-  width: 100%;
+  flex: 1;
   height: 45px;
   font-size: 16px;
+}
+
+.login-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .login-footer {
@@ -222,4 +290,5 @@ export default {
 .forgot-link:hover {
   color: #66b1ff;
 }
+
 </style> 

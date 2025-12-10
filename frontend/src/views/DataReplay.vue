@@ -23,8 +23,8 @@
       </div>
     </el-card>
 
-    <!-- 3D可视化区域 -->
-    <div class="three-section" v-if="fileId">
+    <!-- 3D可视化区域（临时隐藏三维模型） -->
+    <div class="three-section" v-if="fileId && showThreeModel">
       <el-card class="three-chart">
         <div class="chart-header">
           <h3>右主控制臂三维模型</h3>
@@ -109,6 +109,8 @@ export default {
   setup() {
     const { t } = useI18n()
     const fileId = ref('')
+    // 临时关闭三维模型显示
+    const showThreeModel = ref(false)
     const fileName = ref('')
     const fileSize = ref(0)
     const totalEntries = ref(0)
@@ -1250,6 +1252,7 @@ export default {
 
     return {
       fileId, fileName, fileSize, totalEntries, currentPage, pageSize, rows, columnsToShow,
+      showThreeModel,
       threeContainer, threeInitialized, threeRotationEnabled, dataLoaded,
       currentArmModel, isPlaying, currentFrame, playbackSpeed,
       handleUploadRequest, fetchPreview, downloadCsv, prettySize,

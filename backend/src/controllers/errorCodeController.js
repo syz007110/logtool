@@ -2,10 +2,30 @@ const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
 const AnalysisCategory = require('../models/analysis_category');
 const ErrorCodeAnalysisCategory = require('../models/error_code_analysis_category');
+const TechSolutionImage = require('../models/tech_solution_image');
 const { sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
+const fs = require('fs');
+const path = require('path');
+const {
+  STORAGE,
+  MAX_IMAGES,
+  ALLOWED_MIMES,
+  OSS_PREFIX,
+  TMP_PREFIX,
+  ensureLocalDir,
+  ensureTempDir,
+  buildLocalUrl,
+  buildTempLocalUrl,
+  getOssClient,
+  buildOssUrl,
+  buildOssObjectKey,
+  buildTempOssObjectKey,
+  TMP_DIR,
+  LOCAL_DIR
+} = require('../config/techSolutionStorage');
 
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
@@ -116,6 +136,44 @@ const convertCategoryToChinese = (category) => {
     'safetyProtection': '安全保护'
   };
   return categoryMap[category] || category;
+};
+
+const safeUnlink = (filePath) => {
+  if (!filePath) return;
+  fs.unlink(filePath, () => {});
+};
+
+const mapTechImageResponse = (img) => ({
+  id: img.id,
+  url: img.url,
+  storage: img.storage,
+  filename: img.filename,
+  original_name: img.original_name,
+  object_key: img.object_key,
+  file_type: img.file_type,
+  size_bytes: img.size_bytes,
+  mime_type: img.mime_type,
+  width: img.width,
+  height: img.height,
+  sort_order: img.sort_order ?? 0
+});
+
+const normalizeAssetPayload = (img, index) => {
+  if (!img || !img.url) return null;
+  const payload = {
+    url: String(img.url),
+    storage: img.storage === 'oss' ? 'oss' : 'local',
+    filename: img.filename || img.object_key || null,
+    original_name: img.original_name || img.filename || null,
+    object_key: img.object_key || null,
+    file_type: img.file_type || (img.mime_type && img.mime_type.startsWith('image/') ? 'image' : 'file'),
+    size_bytes: Number.isFinite(Number(img.size_bytes)) ? Number(img.size_bytes) : (Number.isFinite(Number(img.size)) ? Number(img.size) : null),
+    mime_type: img.mime_type || null,
+    width: Number.isFinite(Number(img.width)) ? Number(img.width) : null,
+    height: Number.isFinite(Number(img.height)) ? Number(img.height) : null,
+    sort_order: Number.isFinite(Number(img.sort_order)) ? Number(img.sort_order) : index
+  };
+  return payload;
 };
 
 // 输入验证函数
@@ -1178,6 +1236,283 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
   }
 };
 
+// 上传技术排查方案图片（仅图片，<=MAX_IMAGES）
+const uploadTechSolutionImages = async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (!files.length) {
+      return res.status(400).json({ message: req.t('shared.validationFailed'), error: 'NO_FILE' });
+    }
+    if (files.length > MAX_IMAGES) {
+      files.forEach((f) => safeUnlink(f.path));
+      return res.status(400).json({ message: `最多上传 ${MAX_IMAGES} 个附件` });
+    }
+
+    const uploaded = [];
+    for (const file of files) {
+      // 处理中文文件名乱码（multer 默认 latin1）
+      if (file && file.originalname) {
+        file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      }
+
+      if (ALLOWED_MIMES.length && !ALLOWED_MIMES.includes(file.mimetype)) {
+        safeUnlink(file.path);
+        return res.status(400).json({ message: '文件类型不支持', error: 'UNSUPPORTED_FILE_TYPE' });
+      }
+
+      let url = '';
+      let objectKey = '';
+      let storage = STORAGE === 'oss' ? 'oss' : 'local';
+      if (STORAGE === 'oss') {
+        try {
+          const client = getOssClient();
+          objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
+          const result = await client.put(objectKey, file.path);
+          url = buildOssUrl(objectKey, result?.url);
+          safeUnlink(file.path);
+        } catch (err) {
+          console.error('上传OSS失败:', err.message);
+          safeUnlink(file.path);
+          return res.status(500).json({ message: '上传失败，请稍后重试', error: err.message });
+        }
+      } else {
+        ensureTempDir();
+        const filename = path.basename(file.path);
+        url = buildTempLocalUrl(filename);
+        objectKey = `tmp/${filename}`;
+      }
+
+      uploaded.push({
+        url,
+        storage,
+        filename: file.filename || objectKey,
+        original_name: file.originalname,
+        object_key: objectKey,
+        file_type: file.mimetype && file.mimetype.startsWith('image/') ? 'image' : 'file',
+        size_bytes: file.size,
+        mime_type: file.mimetype
+      });
+    }
+
+    res.json({ success: true, files: uploaded });
+  } catch (err) {
+    console.error('上传技术方案图片失败:', err);
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
+  }
+};
+
+// 获取技术排查方案（文本 + 图片）
+const getTechSolutionDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const errorCode = await ErrorCode.findByPk(id, {
+      include: [
+        {
+          model: TechSolutionImage,
+          as: 'techSolutionImages',
+          separate: true,
+          order: [['sort_order', 'ASC'], ['id', 'ASC']]
+        },
+        {
+          model: I18nErrorCode,
+          as: 'i18nContents',
+          required: false,
+          attributes: ['lang', 'tech_solution']
+        }
+      ]
+    });
+    if (!errorCode) {
+      return res.status(404).json({ message: req.t('shared.notFound') });
+    }
+    const images = (errorCode.techSolutionImages || []).map(mapTechImageResponse);
+    let techSolutionText = errorCode.tech_solution || '';
+
+    // 语言优先：当 Accept-Language 不是中文时，尝试使用 i18n 版本
+    const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
+    const targetLang = acceptLanguage.startsWith('en')
+      ? 'en'
+      : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
+
+    if (targetLang && targetLang !== 'zh' && targetLang !== 'zh-CN') {
+      const i18nContent = errorCode.i18nContents?.find((item) => {
+        const contentLang = item.lang.split('-')[0];
+        return contentLang === targetLang;
+      });
+      if (i18nContent && typeof i18nContent.tech_solution === 'string') {
+        techSolutionText = i18nContent.tech_solution;
+      }
+    }
+
+    res.json({
+      tech_solution: techSolutionText,
+      images
+    });
+  } catch (err) {
+    console.error('获取技术方案失败:', err);
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
+  }
+};
+
+// 更新技术排查方案（文本 + 图片）
+const updateTechSolutionDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tech_solution = '', images = [] } = req.body || {};
+    const errorCode = await ErrorCode.findByPk(id);
+    if (!errorCode) {
+      return res.status(404).json({ message: req.t('shared.notFound') });
+    }
+    if (!Array.isArray(images)) {
+      return res.status(400).json({ message: 'images 必须为数组' });
+    }
+    if (images.length > MAX_IMAGES) {
+      return res.status(400).json({ message: `最多保存 ${MAX_IMAGES} 张图片` });
+    }
+
+    // 处理临时文件：本地从 tmp 移到正式目录；OSS 从 tmp 前缀复制到正式前缀
+    const finalizeAsset = async (asset, idx) => {
+      let result = { ...asset };
+      // 本地
+      if (result.storage === 'local') {
+        const isTemp = (result.object_key && result.object_key.startsWith('tmp/')) || (result.url && result.url.includes('/tmp/'));
+        if (isTemp) {
+          const filename = path.basename(result.object_key || result.url);
+          const src = path.resolve(TMP_DIR, filename);
+          const dest = path.resolve(LOCAL_DIR, filename);
+          try {
+            fs.renameSync(src, dest);
+            result.object_key = filename;
+            result.url = buildLocalUrl(filename);
+          } catch (e) {
+            console.warn('移动临时文件失败:', e.message);
+            throw new Error('保存附件失败（本地文件移动失败）');
+          }
+        }
+      }
+      // OSS
+      if (result.storage === 'oss' && result.object_key && result.object_key.includes('/tmp/')) {
+        const client = getOssClient();
+        const destKey = result.object_key.replace('/tmp/', '/');
+        try {
+          await client.copy(destKey, result.object_key);
+          await client.delete(result.object_key);
+          result.object_key = destKey;
+          result.url = buildOssUrl(destKey);
+        } catch (e) {
+          console.warn('OSS 复制/删除临时文件失败:', e.message);
+          throw new Error('保存附件失败（OSS 文件搬运失败）');
+        }
+      }
+      result.sort_order = Number.isFinite(result.sort_order) ? result.sort_order : idx;
+      return result;
+    };
+
+    const normalized = [];
+    const baseAssets = images
+      .map((img, idx) => normalizeAssetPayload(img, idx))
+      .filter(Boolean)
+      .slice(0, MAX_IMAGES);
+
+    for (let i = 0; i < baseAssets.length; i++) {
+      normalized.push(await finalizeAsset(baseAssets[i], i));
+    }
+
+    const assetsToSave = normalized.map((img, idx) => ({
+      ...img,
+      error_code_id: id,
+      sort_order: Number.isFinite(img.sort_order) ? img.sort_order : idx
+    }));
+
+    await sequelize.transaction(async (t) => {
+      await errorCode.update({ tech_solution: tech_solution || null }, { transaction: t });
+      await TechSolutionImage.destroy({ where: { error_code_id: id }, transaction: t });
+      if (assetsToSave.length > 0) {
+        await TechSolutionImage.bulkCreate(assetsToSave, { transaction: t });
+      }
+    });
+
+    const freshImages = await TechSolutionImage.findAll({
+      where: { error_code_id: id },
+      order: [['sort_order', 'ASC'], ['id', 'ASC']]
+    });
+
+    res.json({
+      message: req.t('shared.updated'),
+      tech_solution: tech_solution || '',
+      images: freshImages.map(mapTechImageResponse)
+    });
+  } catch (err) {
+    console.error('更新技术方案失败:', err);
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
+  }
+};
+
+// 清理临时附件（取消编辑时使用）
+const cleanupTempTechFiles = async (req, res) => {
+  try {
+    const { urls = [] } = req.body || {};
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.json({ deleted: [], skipped: [] });
+    }
+    const deleted = [];
+    const skipped = [];
+
+    for (const rawUrl of urls) {
+      if (!rawUrl || typeof rawUrl !== 'string') {
+        skipped.push(rawUrl);
+        continue;
+      }
+      // 只处理 tmp 前缀
+      const isLocalTmp = rawUrl.includes('/tech-solution/tmp/');
+      const isOssTmp = rawUrl.includes('/tech-solution/tmp/');
+      if (!isLocalTmp && !isOssTmp) {
+        skipped.push(rawUrl);
+        continue;
+      }
+
+      // 本地
+      if (STORAGE === 'local' || rawUrl.startsWith('/static/tech-solution/tmp/')) {
+        const filename = rawUrl.split('/').pop();
+        const filePath = path.resolve(TMP_DIR, filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            deleted.push(rawUrl);
+          } catch (e) {
+            console.warn('删除本地临时文件失败:', e.message);
+            skipped.push(rawUrl);
+          }
+        } else {
+          skipped.push(rawUrl);
+        }
+        continue;
+      }
+
+      // OSS
+      try {
+        const client = getOssClient();
+        // 从 URL 提取 object key：假设包含 TMP_PREFIX
+        const idx = rawUrl.indexOf(TMP_PREFIX.replace(/\/$/, '/'));
+        if (idx === -1) {
+          skipped.push(rawUrl);
+          continue;
+        }
+        const objectKey = rawUrl.slice(idx);
+        await client.delete(objectKey);
+        deleted.push(rawUrl);
+      } catch (e) {
+        console.warn('删除OSS临时文件失败:', e.message);
+        skipped.push(rawUrl);
+      }
+    }
+
+    res.json({ deleted, skipped });
+  } catch (err) {
+    console.error('清理临时附件失败:', err);
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
+  }
+};
+
 module.exports = {
   createErrorCode,
   getErrorCodes,
@@ -1186,5 +1521,9 @@ module.exports = {
   exportErrorCodesToXML,
   exportMultiLanguageXML,
   getErrorCodeByCodeAndSubsystem,
-  exportErrorCodesToCSV
+  exportErrorCodesToCSV,
+  uploadTechSolutionImages,
+  getTechSolutionDetail,
+  updateTechSolutionDetail,
+  cleanupTempTechFiles
 }; 
