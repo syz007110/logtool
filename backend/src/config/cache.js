@@ -29,7 +29,12 @@ class CacheManager {
     }
 
     try {
-      this.client = redis.createClient(this.config);
+      const url = process.env.REDIS_URL || `redis://${this.config.host}:${this.config.port}`;
+      this.client = redis.createClient({
+        url,
+        password: this.config.password || undefined,
+        database: this.config.db
+      });
       
       this.client.on('error', (err) => {
         console.error('Redis连接错误:', err);

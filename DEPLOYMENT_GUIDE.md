@@ -2852,3 +2852,9 @@ git push origin v0.1.2
 - 修复数据导出格式错误
 ```
 **祝部署顺利！** 🚀
+
+
+python - <<'PY'
+import secrets
+print(secrets.token_urlsafe(48))
+PY
