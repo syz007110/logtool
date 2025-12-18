@@ -97,6 +97,25 @@ const getOssClient = () => {
     if (securityToken) {
       ossConfig.stsToken = securityToken;
     }
+
+    // STS token 会过期：为 ali-oss 配置 refreshSTSToken，避免运行一段时间后上传/下载出现 403
+    ossConfig.refreshSTSTokenInterval = Number.parseInt(process.env.OSS_REFRESH_STS_TOKEN_INTERVAL || `${10 * 60 * 1000}`, 10); // default 10min
+    ossConfig.refreshSTSToken = async () => {
+      // @alicloud/credentials 版本差异：优先使用 getCredential()（如果存在）
+      if (typeof cred.getCredential === 'function') {
+        const c = await cred.getCredential();
+        const ak = c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId();
+        const sk = c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret();
+        const st = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
+        return { accessKeyId: ak, accessKeySecret: sk, stsToken: st };
+      }
+      // fallback：直接读取当前内存中的临时凭证
+      return {
+        accessKeyId: cred.getAccessKeyId(),
+        accessKeySecret: cred.getAccessKeySecret(),
+        stsToken: cred.getSecurityToken()
+      };
+    };
     
     console.log('[OSS] 使用ECS RAM角色认证方式');
     if (OSS_RAM_ROLE) {
@@ -113,9 +132,6 @@ const getOssClient = () => {
   } catch (error) {
     throw new Error(`Failed to initialize ECS RAM role credentials: ${error.message}. Make sure the ECS instance has a RAM role attached. For local development, use TECH_SOLUTION_STORAGE=local instead.`);
   }
-
-  ossClient = new OSS(ossConfig);
-  return ossClient;
 };
 
 const buildOssUrl = (objectKey, putResultUrl) => {

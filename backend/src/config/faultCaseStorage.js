@@ -87,6 +87,32 @@ const getOssClient = () => {
   };
   if (securityToken) ossConfig.stsToken = securityToken;
 
+  // STS token 会过期：为 ali-oss 配置 refreshSTSToken，避免运行一段时间后上传/下载出现 403
+  // 说明：@alicloud/credentials 会从 ECS 元数据服务获取并可刷新临时凭证，但我们需要把刷新能力交给 ali-oss
+  // ali-oss 会按 refreshSTSTokenInterval 触发 refreshSTSToken 来更新 accessKeyId/Secret/stsToken
+  ossConfig.refreshSTSTokenInterval = Number.parseInt(process.env.OSS_REFRESH_STS_TOKEN_INTERVAL || `${10 * 60 * 1000}`, 10); // default 10min
+  ossConfig.refreshSTSToken = async () => {
+    try {
+      // @alicloud/credentials 版本差异：优先使用 getCredential()（如果存在）
+      if (typeof cred.getCredential === 'function') {
+        const c = await cred.getCredential();
+        const ak = c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId();
+        const sk = c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret();
+        const st = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
+        return { accessKeyId: ak, accessKeySecret: sk, stsToken: st };
+      }
+      // fallback：直接读取当前内存中的临时凭证
+      return {
+        accessKeyId: cred.getAccessKeyId(),
+        accessKeySecret: cred.getAccessKeySecret(),
+        stsToken: cred.getSecurityToken()
+      };
+    } catch (e) {
+      // refresh 失败时让 ali-oss 抛错，便于定位 IMDS/RAM role 问题
+      throw e;
+    }
+  };
+
   ossClient = new OSS(ossConfig);
   return ossClient;
 };
