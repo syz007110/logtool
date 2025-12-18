@@ -61,16 +61,24 @@ const getOssClient = () => {
     throw new Error('OSS storage selected but OSS_REGION or OSS_BUCKET is missing');
   }
 
-  const credentialsConfig = {
-    type: 'ecs_ram_role',
-    roleName: OSS_RAM_ROLE || undefined,
-    disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false'
-  };
+  // 使用官方推荐的 Config 方式初始化凭证（可避免部分版本下类型不一致问题）
+  const credentialsConfig = (typeof Credential.Config === 'function')
+    ? new Credential.Config({
+      type: 'ecs_ram_role',
+      roleName: OSS_RAM_ROLE || undefined,
+      disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false'
+    })
+    : {
+      type: 'ecs_ram_role',
+      roleName: OSS_RAM_ROLE || undefined,
+      disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false'
+    };
 
   const cred = new Credential.default(credentialsConfig);
-  const accessKeyId = cred.getAccessKeyId();
-  const accessKeySecret = cred.getAccessKeySecret();
-  const securityToken = cred.getSecurityToken();
+  // ali-oss 内部会对 accessKeyId/accessKeySecret 调用 .trim()，这里强制转成字符串避免 opts.accessKeyId.trim is not a function
+  const accessKeyId = String(cred.getAccessKeyId() || '');
+  const accessKeySecret = String(cred.getAccessKeySecret() || '');
+  const securityToken = cred.getSecurityToken() ? String(cred.getSecurityToken()) : null;
 
   if (!accessKeyId || !accessKeySecret) {
     throw new Error('Failed to get credentials from ECS RAM role');
@@ -96,16 +104,17 @@ const getOssClient = () => {
       // @alicloud/credentials 版本差异：优先使用 getCredential()（如果存在）
       if (typeof cred.getCredential === 'function') {
         const c = await cred.getCredential();
-        const ak = c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId();
-        const sk = c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret();
-        const st = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
+        const ak = String(c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId() || '');
+        const sk = String(c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret() || '');
+        const stRaw = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
+        const st = stRaw ? String(stRaw) : null;
         return { accessKeyId: ak, accessKeySecret: sk, stsToken: st };
       }
       // fallback：直接读取当前内存中的临时凭证
       return {
-        accessKeyId: cred.getAccessKeyId(),
-        accessKeySecret: cred.getAccessKeySecret(),
-        stsToken: cred.getSecurityToken()
+        accessKeyId: String(cred.getAccessKeyId() || ''),
+        accessKeySecret: String(cred.getAccessKeySecret() || ''),
+        stsToken: cred.getSecurityToken() ? String(cred.getSecurityToken()) : null
       };
     } catch (e) {
       // refresh 失败时让 ali-oss 抛错，便于定位 IMDS/RAM role 问题

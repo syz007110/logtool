@@ -59,24 +59,32 @@ const getOssClient = () => {
   // eslint-disable-next-line global-require
   const Credential = require('@alicloud/credentials');
   
-  const credentialsConfig = {
-    type: 'ecs_ram_role',
-    // 如果设置了角色名称，使用指定的角色；否则自动获取
-    roleName: OSS_RAM_ROLE || undefined,
-    // 是否禁用IMDSv1（加固模式）
-    // true：强制使用加固模式（IMDSv2）
-    // false：系统将首先尝试在加固模式下获取凭据，如果失败则切换到普通模式（IMDSv1）
-    disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false' // 默认true（启用加固模式）
-  };
+  // 使用官方推荐的 Config 方式初始化凭证（可避免部分版本下类型不一致问题）
+  const credentialsConfig = (typeof Credential.Config === 'function')
+    ? new Credential.Config({
+      type: 'ecs_ram_role',
+      // 如果设置了角色名称，使用指定的角色；否则自动获取
+      roleName: OSS_RAM_ROLE || undefined,
+      // 是否禁用IMDSv1（加固模式）
+      // true：强制使用加固模式（IMDSv2）
+      // false：系统将首先尝试在加固模式下获取凭据，如果失败则切换到普通模式（IMDSv1）
+      disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false' // 默认true（启用加固模式）
+    })
+    : {
+      type: 'ecs_ram_role',
+      roleName: OSS_RAM_ROLE || undefined,
+      disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false'
+    };
 
   try {
     const cred = new Credential.default(credentialsConfig);
     
     // 获取临时凭证
     // credentials工具会自动从ECS元数据服务获取临时凭证并定期刷新
-    const accessKeyId = cred.getAccessKeyId();
-    const accessKeySecret = cred.getAccessKeySecret();
-    const securityToken = cred.getSecurityToken();
+    // ali-oss 内部会对 accessKeyId/accessKeySecret 调用 .trim()，这里强制转成字符串避免 opts.accessKeyId.trim is not a function
+    const accessKeyId = String(cred.getAccessKeyId() || '');
+    const accessKeySecret = String(cred.getAccessKeySecret() || '');
+    const securityToken = cred.getSecurityToken() ? String(cred.getSecurityToken()) : null;
     
     if (!accessKeyId || !accessKeySecret) {
       throw new Error('Failed to get credentials from ECS RAM role');
@@ -104,16 +112,17 @@ const getOssClient = () => {
       // @alicloud/credentials 版本差异：优先使用 getCredential()（如果存在）
       if (typeof cred.getCredential === 'function') {
         const c = await cred.getCredential();
-        const ak = c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId();
-        const sk = c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret();
-        const st = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
+        const ak = String(c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId() || '');
+        const sk = String(c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret() || '');
+        const stRaw = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
+        const st = stRaw ? String(stRaw) : null;
         return { accessKeyId: ak, accessKeySecret: sk, stsToken: st };
       }
       // fallback：直接读取当前内存中的临时凭证
       return {
-        accessKeyId: cred.getAccessKeyId(),
-        accessKeySecret: cred.getAccessKeySecret(),
-        stsToken: cred.getSecurityToken()
+        accessKeyId: String(cred.getAccessKeyId() || ''),
+        accessKeySecret: String(cred.getAccessKeySecret() || ''),
+        stsToken: cred.getSecurityToken() ? String(cred.getSecurityToken()) : null
       };
     };
     
