@@ -1348,7 +1348,7 @@ const uploadTechSolutionImages = async (req, res) => {
       let storage = STORAGE === 'oss' ? 'oss' : 'local';
       if (STORAGE === 'oss') {
         try {
-          const client = getOssClient();
+          const client = await getOssClient();
           objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
           const result = await client.put(objectKey, file.path);
           url = buildOssUrl(objectKey, result?.url);
@@ -1474,7 +1474,7 @@ const updateTechSolutionDetail = async (req, res) => {
       }
       // OSS
       if (result.storage === 'oss' && result.object_key && result.object_key.includes('/tmp/')) {
-        const client = getOssClient();
+        const client = await getOssClient();
         const destKey = result.object_key.replace('/tmp/', '/');
         try {
           await client.copy(destKey, result.object_key);
@@ -1573,7 +1573,7 @@ const cleanupTempTechFiles = async (req, res) => {
 
       // OSS
       try {
-        const client = getOssClient();
+        const client = await getOssClient();
         // 从 URL 提取 object key：假设包含 TMP_PREFIX
         const idx = rawUrl.indexOf(TMP_PREFIX.replace(/\/$/, '/'));
         if (idx === -1) {

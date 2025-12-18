@@ -20,6 +20,7 @@ const TMP_PREFIX = process.env.TECH_SOLUTION_TMP_PREFIX || 'tech-solution/tmp/';
 const OSS_PUBLIC_BASE = process.env.TECH_SOLUTION_OSS_BASE_URL || '';
 
 let ossClient = null;
+let ossClientPromise = null;
 
 const ensureLocalDir = () => {
   fs.mkdirSync(LOCAL_DIR, { recursive: true });
@@ -34,9 +35,10 @@ const ensureTempDir = () => {
 const buildLocalUrl = (filename) => `${LOCAL_PUBLIC_BASE}/${filename}`;
 const buildTempLocalUrl = (filename) => `${LOCAL_PUBLIC_BASE}/tmp/${filename}`;
 
-const getOssClient = () => {
+const getOssClient = async () => {
   if (STORAGE !== 'oss') return null;
   if (ossClient) return ossClient;
+  if (ossClientPromise) return ossClientPromise;
   // 按需加载，避免未配置时报错
   // eslint-disable-next-line global-require
   const OSS = require('ali-oss');
@@ -76,18 +78,29 @@ const getOssClient = () => {
       disableIMDSv1: OSS_DISABLE_IMDSV1 !== 'false'
     };
 
-  try {
-    const cred = new Credential.default(credentialsConfig);
-    
-    // 获取临时凭证
-    // credentials工具会自动从ECS元数据服务获取临时凭证并定期刷新
-    // ali-oss 内部会对 accessKeyId/accessKeySecret 调用 .trim()，这里强制转成字符串避免 opts.accessKeyId.trim is not a function
-    const accessKeyId = String(cred.getAccessKeyId() || '');
-    const accessKeySecret = String(cred.getAccessKeySecret() || '');
-    const securityToken = cred.getSecurityToken() ? String(cred.getSecurityToken()) : null;
+  ossClientPromise = (async () => {
+    const credentialClient = new Credential.default(credentialsConfig);
+
+    // 官方推荐：await getCredential() 取出临时凭证
+    if (typeof credentialClient.getCredential !== 'function') {
+      throw new Error('credentials client does not support getCredential()');
+    }
+
+    // 官方推荐：await getCredential() 获取完整的 STS Token
+    // 底层实现：Credentials工具自动获取ECS实例绑定的RAM角色，调用ECS元数据服务（Meta Data Server）换取STS Token
+    const c = await credentialClient.getCredential();
+    const accessKeyId = String(c?.accessKeyId || c?.AccessKeyId || '');
+    const accessKeySecret = String(c?.accessKeySecret || c?.AccessKeySecret || '');
+    const securityToken = c?.securityToken || c?.SecurityToken || null;
+    const stsToken = securityToken ? String(securityToken) : null;
     
     if (!accessKeyId || !accessKeySecret) {
-      throw new Error('Failed to get credentials from ECS RAM role');
+      throw new Error(`Failed to get valid credentials from ECS RAM role. accessKeyId: ${accessKeyId ? `${accessKeyId.substring(0, 8)}...` : 'empty'}, accessKeySecret: ${accessKeySecret ? '***' : 'empty'}`);
+    }
+    
+    // STS Token 是必需的（ECS RAM 角色返回的是临时凭证）
+    if (!stsToken) {
+      throw new Error('Failed to get securityToken from ECS RAM role. STS token is required for temporary credentials.');
     }
     
     // 配置OSS客户端
@@ -96,51 +109,42 @@ const getOssClient = () => {
       bucket: OSS_BUCKET,
       accessKeyId,
       accessKeySecret,
+      stsToken: stsToken, // 使用 RAM 角色时，stsToken 是必需的
       endpoint: OSS_ENDPOINT || undefined,
       internal: OSS_INTERNAL === 'true',
       secure: OSS_SECURE !== 'false'
     };
-    
-    // STS Token是必需的，用于临时凭证认证
-    if (securityToken) {
-      ossConfig.stsToken = securityToken;
-    }
 
     // STS token 会过期：为 ali-oss 配置 refreshSTSToken，避免运行一段时间后上传/下载出现 403
     ossConfig.refreshSTSTokenInterval = Number.parseInt(process.env.OSS_REFRESH_STS_TOKEN_INTERVAL || `${10 * 60 * 1000}`, 10); // default 10min
     ossConfig.refreshSTSToken = async () => {
-      // @alicloud/credentials 版本差异：优先使用 getCredential()（如果存在）
-      if (typeof cred.getCredential === 'function') {
-        const c = await cred.getCredential();
-        const ak = String(c?.accessKeyId || c?.AccessKeyId || cred.getAccessKeyId() || '');
-        const sk = String(c?.accessKeySecret || c?.AccessKeySecret || cred.getAccessKeySecret() || '');
-        const stRaw = c?.securityToken || c?.SecurityToken || cred.getSecurityToken();
-        const st = stRaw ? String(stRaw) : null;
-        return { accessKeyId: ak, accessKeySecret: sk, stsToken: st };
-      }
-      // fallback：直接读取当前内存中的临时凭证
+      const cc = await credentialClient.getCredential();
       return {
-        accessKeyId: String(cred.getAccessKeyId() || ''),
-        accessKeySecret: String(cred.getAccessKeySecret() || ''),
-        stsToken: cred.getSecurityToken() ? String(cred.getSecurityToken()) : null
+        accessKeyId: String(cc?.accessKeyId || cc?.AccessKeyId || ''),
+        accessKeySecret: String(cc?.accessKeySecret || cc?.AccessKeySecret || ''),
+        stsToken: cc?.securityToken || cc?.SecurityToken ? String(cc?.securityToken || cc?.SecurityToken) : null
       };
     };
     
-    console.log('[OSS] 使用ECS RAM角色认证方式');
+    console.log('[OSS] 使用ECS RAM角色认证方式（通过 getCredential() 获取STS Token）');
     if (OSS_RAM_ROLE) {
       console.log(`[OSS] RAM角色名称: ${OSS_RAM_ROLE}`);
     } else {
       console.log('[OSS] 自动检测ECS实例关联的RAM角色');
     }
-    if (credentialsConfig.disableIMDSv1) {
+    if (credentialsConfig.disableIMDSv1 !== false) {
       console.log('[OSS] 启用加固模式（IMDSv2）');
     }
     
     ossClient = new OSS(ossConfig);
     return ossClient;
-  } catch (error) {
-    throw new Error(`Failed to initialize ECS RAM role credentials: ${error.message}. Make sure the ECS instance has a RAM role attached. For local development, use TECH_SOLUTION_STORAGE=local instead.`);
-  }
+  })()
+    .finally(() => {
+      // 如果初始化失败，允许下次重试
+      if (!ossClient) ossClientPromise = null;
+    });
+
+  return ossClientPromise;
 };
 
 const buildOssUrl = (objectKey, putResultUrl) => {

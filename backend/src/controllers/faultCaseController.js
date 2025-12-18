@@ -162,7 +162,7 @@ async function uploadFaultCaseAttachments(req, res) {
       const storage = STORAGE === 'oss' ? 'oss' : 'local';
 
       if (STORAGE === 'oss') {
-        const client = getOssClient();
+        const client = await getOssClient();
         objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
         const result = await client.put(objectKey, file.path);
         url = buildOssUrl(objectKey, result?.url);
@@ -212,7 +212,7 @@ async function finalizeAttachment(asset) {
 
   // oss: copy tmp -> permanent
   if (result.storage === 'oss' && result.object_key && result.object_key.includes('/tmp/')) {
-    const client = getOssClient();
+    const client = await getOssClient();
     const destKey = result.object_key.replace('/tmp/', '/');
     await client.copy(destKey, result.object_key);
     await client.delete(result.object_key);
@@ -220,7 +220,7 @@ async function finalizeAttachment(asset) {
     result.url = buildOssUrl(destKey);
   } else if (result.storage === 'oss' && result.object_key && result.object_key.startsWith(TMP_PREFIX)) {
     // safety: in case TMP_PREFIX doesn't contain /tmp/ exactly
-    const client = getOssClient();
+    const client = await getOssClient();
     const destKey = buildOssObjectKey(path.basename(result.object_key));
     await client.copy(destKey, result.object_key);
     await client.delete(result.object_key);
