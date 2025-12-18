@@ -1,0 +1,226 @@
+{
+  "shared": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "reset": "Reset",
+    "export": "Export",
+    "import": "Import",
+    "loading": "Loading...",
+    "noData": "No data",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "copy": "Copy",
+    "minutes": "minutes",
+    "success": "Operation successful",
+    "error": "Operation failed",
+    "warning": "Warning",
+    "info": "Info",
+    "refresh": "Refresh",
+    "operation": "Operation",
+    "resourceNotFound": "Resource not found",
+    "serverError": "Internal server error",
+    "requestFailed": "Request failed",
+    "networkError": "Network connection failed",
+    "unknown": "Unknown",
+    "messages": {
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Delete failed",
+      "createSuccess": "Created successfully",
+      "addSuccess": "Added successfully",
+      "updateSuccess": "Updated successfully",
+      "saveSuccess": "Saved successfully",
+      "saveFailed": "Save failed",
+      "loadFailed": "Load failed",
+      "importSuccess": "Import successful",
+      "importFailed": "Import failed",
+      "exportSuccess": "Export successful",
+      "exportFailed": "Export failed",
+      "deleteConfirmTitle": "Delete Confirmation",
+      "confirmDelete": "Confirm Delete"
+    },
+    "languageNames": {
+      "zh": "Chinese",
+      "en": "English",
+      "fr": "French",
+      "de": "German",
+      "es": "Spanish",
+      "it": "Italian",
+      "pt": "Portuguese",
+      "nl": "Dutch",
+      "sk": "Slovak",
+      "ro": "Romanian",
+      "da": "Danish"
+    },
+    "subsystemOptions": {
+      "1": "01: Motion Control Software",
+      "2": "02: Human-Machine Interface Software",
+      "3": "03: Doctor Console Software",
+      "4": "04: Surgical Cart Software",
+      "5": "05: Driver Software",
+      "6": "06: Image Software",
+      "7": "07: Tool Factory Software",
+      "8": "08: Remote Motion Control Software",
+      "9": "09: Remote Doctor Console Software",
+      "A": "0A: Remote Driver Software"
+    },
+    "prefixLabels": {
+      "remoteEnd": "Remote End",
+      "remote": "Remote",
+      "joint": "Joint",
+      "leftMainControlArm": "Left Main Control Arm",
+      "rightMainControlArm": "Right Main Control Arm",
+      "toolArm1": "Tool Arm 1",
+      "toolArm2": "Tool Arm 2",
+      "toolArm3": "Tool Arm 3",
+      "toolArm4": "Tool Arm 4",
+      "adjustmentArm1": "Adjustment Arm 1",
+      "adjustmentArm2": "Adjustment Arm 2",
+      "adjustmentArm3": "Adjustment Arm 3",
+      "adjustmentArm4": "Adjustment Arm 4",
+      "masterIO": "Master IO",
+      "slaveIO": "Slave IO",
+      "masterHandLiftJoint": "Master Hand Lift Joint",
+      "armrestLiftJoint": "Armrest Lift Joint",
+      "monitorLift": "Monitor Lift",
+      "monitorRotation": "Monitor Rotation"
+    }
+  },
+  "errorCode": {
+    "duplicate": "Error code already exists under this subsystem",
+    "noData": "No error code data found",
+    "notFound": "Error code not found"
+  },
+  "device": {
+    "listFailed": "Failed to get device list",
+    "requiredId": "Device ID is required",
+    "invalidIdFormat": "Invalid device ID format (e.g. 4371-01, ABC-12)",
+    "invalidKeyFormat": "Invalid device key format (MAC address expected)",
+    "idExists": "Device ID already exists",
+    "createFailed": "Failed to create device",
+    "updateFailed": "Failed to update device",
+    "notFound": "Device not found",
+    "provideKey": "Please provide key"
+  },
+  "user": {
+    "requiredUsernamePassword": "Username and password are required",
+    "usernameExists": "Username already exists",
+    "oldPasswordRequired": "Please enter old password",
+    "oldPasswordIncorrect": "Old password is incorrect",
+    "operations": {
+      "create": "Create User",
+      "createDescription": "Create user: {{username}}",
+      "update": "Update User",
+      "updateDescription": "Update user: {{username}}",
+      "delete": "Delete User",
+      "deleteDescription": "Delete user: {{username}}",
+      "logFailed": "Failed to log operation"
+    }
+  },
+  "auth": {
+    "invalidCredentials": "Invalid username or password",
+    "loginSuccess": "Login successful",
+    "unauthenticated": "Not authenticated"
+  },
+  "log": {
+    "notSet": "Not set",
+    "unknownDevice": "Unknown device",
+    "listFailed": "Failed to get logs",
+    "searchTemplates": {
+      "readFailed": "Failed to read search templates",
+      "invalidFormat": "Invalid template format, should be array",
+      "importFailed": "Failed to import search templates"
+    },
+    "deviceGroups": {
+      "getFailed": "Failed to get device group logs"
+    },
+    "upload": {
+      "noFile": "No file uploaded",
+      "sizeExceeded": "Upload total size exceeds limit (≤200MB)",
+      "invalidDeviceIdFormat": "Invalid device ID format, should be alphanumeric combination (e.g. 4371-01, ABC-12, 123-XY)",
+      "keyNotFound": "Decrypt key not found for device, please check device configuration or provide key manually",
+      "invalidKeyFormat": "Invalid key format, should be MAC address format (e.g. 00-01-05-77-6a-09)",
+      "success": "Successfully uploaded {count} files, added to processing queue",
+      "failed": "Upload failed"
+    },
+    "parse": {
+      "notFound": "Log not found",
+      "permissionDenied": "Insufficient permissions, can only parse own logs",
+      "fileNotFound": "File not found",
+      "keyNotFound": "Decrypt key not found, please re-upload and enter key",
+      "success": "Parse successful",
+      "failed": "Parse failed"
+    },
+    "queue": {
+      "statusFailed": "Failed to get queue status"
+    },
+    "download": {
+      "notFound": "Log not found",
+      "failed": "Download failed"
+    },
+    "visualization": {
+      "noDataFound": "No data found for this error code",
+      "getDataFailed": "Failed to get visualization data"
+    },
+    "cleanup": {
+      "noStuckLogs": "No stuck logs found",
+      "cleanupComplete": "Cleanup completed: {cleanedCount} successful, {failedCount} failed",
+      "cleanupFailed": "Failed to cleanup stuck logs",
+      "getStatsFailed": "Failed to get stuck logs statistics"
+    },
+    "delete": {
+      "notFound": "Log not found"
+    },
+    "batchReparse": {
+      "notFound": "Log not found",
+      "failed": "Batch reparse failed"
+    },
+    "analysis": {
+      "notFound": "Log not found",
+      "failed": "Analysis failed"
+    }
+  },
+  "i18nErrorCode": {
+    "queryFailed": "Query failed",
+    "languageRequired": "Language code is required",
+    "shortMessageOperationRequired": "Short message and operation information cannot both be empty",
+    "userHintOperationRequired": "User hint and operation information cannot both be empty",
+    "errorCodeNotFound": "Error code not found",
+    "errorCodeNotFoundWithCode": "Error code not found: {{subsystem}}-{{code}}",
+    "errorCodeIdOrCodeRequired": "Must provide error code ID or subsystem and code combination",
+    "operationFailed": "Operation failed",
+    "contentNotFound": "I18n content not found",
+    "batchImport": {
+      "dataFormatError": "Data format error or empty",
+      "subsystemCodeLangRequired": "Subsystem, code and language code are required fields",
+      "shortMessageOperationRequired": "Short message and operation information cannot both be empty",
+      "userHintOperationRequired": "User hint and operation information cannot both be empty",
+      "errorCodeNotFound": "Error code not found: {{subsystem}}-{{code}}",
+      "batchImportComplete": "Batch import completed, {{successCount}} successful, {{errorCount}} failed"
+    },
+    "csvImport": {
+      "uploadCsvFile": "Please upload CSV file",
+      "invalidHeaders": "Row {{lineNumber}} headers incorrect, expected: {{expectedHeaders}}, actual: {{actualHeaders}}",
+      "missingRequiredFields": "Row {{lineNumber}} missing required fields: {{missingFields}}",
+      "contentValidationFailed": "Row {{lineNumber}} content validation failed: must satisfy one of the following conditions: 1) short_message and user_hint at least one is not empty, or 2) short_message and operation at least one is not empty",
+      "fileEmptyOrFormatError": "CSV file is empty or format error",
+      "errorCodeNotFound": "Error code not found: {{subsystem}}-{{code}}, please add this error code in error code management first",
+      "partialSuccess": "CSV batch import partially successful, {{successCount}} successful, {{errorCount}} failed",
+      "success": "CSV batch import successful, {{successCount}} records imported",
+      "readFailed": "CSV file read failed, please check file format and encoding",
+      "uploadProcessFailed": "CSV upload processing failed"
+    },
+    "languages": {
+      "getFailed": "Failed to get language list"
+    },
+    "subsystems": {
+      "getFailed": "Failed to get subsystem list"
+    }
+  }
+}
+
+

@@ -1,0 +1,44 @@
+{
+  "base": {
+    "parts": [
+      { "type": "box", "args": [0.1, 0.01, 0.1], "color": 8421504, "position": [0, 0.005, 0], "rotation": [0, 0, 0] }
+    ]
+  },
+  "joint1": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 8947848, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] },
+      { "type": "cylinder", "args": [0.008, 0.008, 0.166, 32], "color": 11184810, "position": [0, 0, -0.083], "rotation": [1.57079632679, 0, 0] }
+    ]
+  },
+  "joint2": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 3355443, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] },
+      { "type": "cylinder", "args": [0.008, 0.008, 0.3, 32], "color": 11184810, "position": [0, 0, -0.15], "rotation": [1.57079632679, 0, 0] }
+    ]
+  },
+  "joint3": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 15658734, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] }
+    ]
+  },
+  "joint4": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 8947848, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] }
+    ]
+  },
+  "joint5": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 13421772, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] }
+    ]
+  },
+  "joint6": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 8947848, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] }
+    ]
+  },
+  "joint7": {
+    "parts": [
+      { "type": "cylinder", "args": [0.01, 0.01, 0.01, 32], "color": 3355443, "position": [0, 0, 0], "rotation": [1.57079632679, 0, 0] }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+/* Global utilities for i18n text layout differences */
+
+/* Single-line ellipsis */
+.one-line-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Allow flex children to shrink for ellipsis */
+.min-w-0 {
+  min-width: 0;
+}
+
+/* Multi-line clamp (2 lines by default) */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Language-specific compact tweaks */
+html[lang="en"] .compact-text { font-size: 13px; letter-spacing: 0; }
+html[lang="en"] .compact-btn { padding-inline: 8px; }
+
+/* Word breaking strategies */
+.wb-keep-all { word-break: keep-all; }
+.ow-anywhere { overflow-wrap: anywhere; }
+
+

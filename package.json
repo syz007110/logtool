@@ -1,0 +1,14 @@
+{
+  "name": "logtool",
+  "version": "0.1.1",
+  "description": "LogTool - 故障码管理与日志分析系统",
+  "private": true,
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.10.0",
+    "csv-parser": "^3.2.0",
+    "echarts-gl": "^2.0.9",
+    "jsonwebtoken": "^9.0.2",
+    "xml2js": "^0.6.2"
+  }
+}

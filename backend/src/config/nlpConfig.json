@@ -1,0 +1,13 @@
+{
+  "useHanLP": true,
+  "endpoint": "http://127.0.0.1:8765",
+  "apiKey": "",
+  "timeoutMs": 1500,
+  "custom_words": [],
+  "debug": true,
+  "parserMode": "hybrid",
+  "enableHeuristics": true,
+  "backgroundSegment": false
+}
+
+

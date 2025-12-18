@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <!-- PWA & iOS Safari 配置 - 禁止缩放、禁止弹性滑动 -->
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
+    <link rel="icon" href="<%= BASE_URL %>Icons/logo.ico">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="<%= BASE_URL %>manifest.json">
+    
+    <!-- iOS Safari PWA 配置 -->
+    <!-- 应用名称 -->
+    <meta name="apple-mobile-web-app-title" content="LogTool">
+    <meta name="application-name" content="LogTool">
+    
+    <!-- 全屏模式（standalone） -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- 隐藏 Safari UI -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- 禁止电话号码识别 -->
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- 禁止自动识别邮箱 -->
+    <meta name="format-detection" content="email=no">
+    
+    <!-- iOS Safari 图标（添加到主屏幕时使用） -->
+    <link rel="apple-touch-icon" sizes="180x180" href="<%= BASE_URL %>Icons/apple-touch-icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="<%= BASE_URL %>Icons/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="<%= BASE_URL %>Icons/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" href="<%= BASE_URL %>Icons/apple-touch-icon.png">
+    
+    <!-- 启动画面图片（iOS Safari） -->
+    <link rel="apple-touch-startup-image" href="<%= BASE_URL %>Icons/apple-touch-startup-image.png">
+    
+    <!-- 主题颜色 -->
+    <meta name="theme-color" content="#155dfc">
+    <meta name="msapplication-TileColor" content="#155dfc">
+    
+    <title>LogTool - 故障码管理与日志分析系统</title>
+    
+    <!-- 禁止页面滑出边界的 CSS（主要针对移动端） -->
+    <style>
+      /* 禁止 iOS Safari 弹性滑动和页面滑出边界 - 移动端专用 */
+      @media (max-width: 768px) {
+        html, body {
+          position: fixed;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: none;
+          margin: 0;
+          padding: 0;
+        }
+        
+        /* 允许内容区域滚动，但禁止整体页面滑动 */
+        #app {
+          width: 100%;
+          height: 100%;
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+          /* 底部留白由 App.vue 统一管理，这里不设置 */
+          box-sizing: border-box;
+        }
+        
+        /* 禁止双击缩放 */
+        * {
+          touch-action: manipulation;
+        }
+      }
+      
+      /* 在 PWA standalone 模式下进一步优化 */
+      @media (display-mode: standalone) {
+        @media (max-width: 768px) {
+          /* 注意：不在 #app 上添加 padding-top，因为 fixed header 已经处理了安全区域 */
+          /* 底部留白由 App.vue 统一管理，这里不设置 */
+        }
+      }
+    </style>
+    <script>
+      // 在页面加载时立即拦截 ResizeObserver 错误
+      (function() {
+        // 保存原始的 console.error
+        const originalError = console.error;
+        
+        // 重写 console.error 来过滤 ResizeObserver 错误
+        console.error = function(...args) {
+          const message = args[0];
+          if (typeof message === 'string' && message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            return; // 静默处理
+          }
+          originalError.apply(console, args);
+        };
+        
+        // 拦截全局错误事件
+        window.addEventListener('error', function(event) {
+          if (event.message && event.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            event.preventDefault();
+            return false;
+          }
+        });
+        
+        // 拦截未处理的 Promise 错误
+        window.addEventListener('unhandledrejection', function(event) {
+          if (event.reason && event.reason.message && event.reason.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            event.preventDefault();
+            return false;
+          }
+        });
+        
+        // 覆盖 webpack-dev-server 的 handleError
+        window.handleError = function(error) {
+          if (error && error.message && error.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+            return; // 静默处理
+          }
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <strong>很抱歉，LogTool 需要启用 JavaScript 才能正常工作。</strong>
+    </noscript>
+    <div id="app"></div>
+    <!-- built files will be auto injected -->
+  </body>
+</html> 

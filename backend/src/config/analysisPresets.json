@@ -1,0 +1,45 @@
+{
+  "rolePreset": {
+    "1": "ALL",
+    "2": "FINE",
+    "3": "KEY",
+    "default": "KEY"
+  },
+  "presets": {
+    "ALL": {
+      "excludeKeys": []
+    },
+    "FINE": {
+      "excludeKeys": [
+        "Self_Test",
+        "Pos_Record",
+        "Null",
+        "Maintenance_Information",
+        "Account_Management",
+        "Boundary"
+      ]
+    },
+    "KEY": {
+      "excludeKeys": [
+        "Config_Parameters",   
+        "IO_Signals",
+        "Energy",
+        "UI_Interactive_Buttons",
+        "Assist_Mode",
+        "Self_Test",
+        "Driver",
+        "Initialization",
+        "Patient_Cart",
+        "Pos_Record",
+        "Codecs",
+        "Tips",
+        "Maintenance_Information",
+        "Account_Management",
+        "Safety_Checks",
+        "Communication_Errors",
+        "Hardware",
+        "Boundary"
+      ]
+    }
+  }
+}

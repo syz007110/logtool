@@ -1,0 +1,343 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log Monitor Client</title>
+    <style>
+      /* Syncthing-inspired design */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      
+      body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #f5f5f5;
+        color: #333;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      
+      /* Header */
+      .header {
+        background: #fff;
+        border-bottom: 1px solid #ddd;
+        padding: 12px 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .header h1 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .header-status {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .status-dot.connected { background: #5CB85C; }
+      .status-dot.disconnected { background: #D9534F; }
+      
+      /* Main Container */
+      .container {
+        max-width: 1400px;
+        margin: 20px auto;
+        padding: 0 20px;
+      }
+      
+      /* Panel System (Syncthing style) */
+      .panel {
+        background: #fff;
+        border: 1px solid #ddd;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      }
+      
+      .panel-heading {
+        background: #f9f9f9;
+        border-bottom: 1px solid #ddd;
+        padding: 12px 15px;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .panel-heading:hover {
+        background: #f0f0f0;
+      }
+      .panel-heading h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #555;
+        flex: 1;
+      }
+      .panel-state {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+      .panel-state.idle { background: #D9EDF7; color: #31708F; }
+      .panel-state.active { background: #DFF0D8; color: #3C763D; }
+      .panel-state.paused { background: #F0AD4E; color: #fff; }
+      .panel-state.error { background: #F2DEDE; color: #A94442; }
+      
+      .panel-body {
+        padding: 15px;
+        display: none;
+      }
+      .panel-body.show {
+        display: block;
+      }
+      
+      .panel-chevron {
+        transition: transform 0.2s;
+        color: #999;
+      }
+      .panel-chevron.open {
+        transform: rotate(90deg);
+      }
+      
+      /* Info rows */
+      .info-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .info-row:last-child {
+        border-bottom: none;
+      }
+      .info-label {
+        width: 180px;
+        color: #777;
+        font-size: 13px;
+      }
+      .info-value {
+        flex: 1;
+        color: #333;
+        font-size: 13px;
+      }
+      
+      /* Buttons */
+      .btn {
+        padding: 6px 12px;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #fff;
+      }
+      .btn-primary {
+        background: #337AB7;
+        color: #fff;
+        border-color: #2E6DA4;
+      }
+      .btn-primary:hover {
+        background: #286090;
+        border-color: #204D74;
+      }
+      .btn-success {
+        background: #5CB85C;
+        color: #fff;
+        border-color: #4CAE4C;
+      }
+      .btn-success:hover {
+        background: #449D44;
+        border-color: #398439;
+      }
+      .btn-danger {
+        background: #D9534F;
+        color: #fff;
+        border-color: #D43F3A;
+      }
+      .btn-danger:hover {
+        background: #C9302C;
+        border-color: #AC2925;
+      }
+      .btn-default {
+        background: #fff;
+        color: #333;
+        border-color: #CCC;
+      }
+      .btn-default:hover {
+        background: #E6E6E6;
+        border-color: #ADADAD;
+      }
+      .btn-warning {
+        background: #F0AD4E;
+        color: #fff;
+        border-color: #EEA236;
+      }
+      .btn-warning:hover {
+        background: #EC971F;
+        border-color: #D58512;
+      }
+      
+      /* Form controls */
+      select, input[type="text"] {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+      select:focus, input[type="text"]:focus {
+        outline: none;
+        border-color: #66AFE9;
+        box-shadow: 0 0 0 2px rgba(102,175,233,0.2);
+      }
+      
+      /* Path list */
+      .path-list {
+        list-style: none;
+        padding: 0;
+        margin: 10px 0;
+      }
+      .path-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 10px;
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 3px;
+        margin-bottom: 6px;
+      }
+      .path-item:hover {
+        background: #f0f0f0;
+      }
+      .path-text {
+        flex: 1;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        color: #555;
+        word-break: break-all;
+      }
+      .path-remove {
+        margin-left: 10px;
+      }
+      
+      /* Stats display (Syncthing style) */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin: 15px 0;
+      }
+      .stat-box {
+        background: #f9f9f9;
+        padding: 12px;
+        border-radius: 3px;
+        border: 1px solid #e0e0e0;
+      }
+      .stat-label {
+        font-size: 12px;
+        color: #777;
+        margin-bottom: 4px;
+      }
+      .stat-value {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+      }
+      .stat-value.success { color: #5CB85C; }
+      .stat-value.danger { color: #D9534F; }
+      
+      /* Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th, td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+        font-size: 13px;
+      }
+      th {
+        background: #f9f9f9;
+        font-weight: 600;
+        color: #555;
+      }
+      tbody tr:hover {
+        background: #f9f9f9;
+      }
+      
+      /* Status badges */
+      .badge {
+        display: inline-block;
+        padding: 3px 7px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .badge-pending { background: #F0AD4E; color: #fff; }
+      .badge-uploading { background: #5BC0DE; color: #fff; }
+      .badge-success { background: #5CB85C; color: #fff; }
+      .badge-failed { background: #D9534F; color: #fff; }
+      
+      /* Empty state */
+      .empty-state {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+        font-size: 13px;
+      }
+      
+      /* Toolbar */
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 15px;
+      }
+      
+      /* Alert box */
+      .alert {
+        padding: 12px 15px;
+        border-radius: 3px;
+        margin-bottom: 15px;
+        font-size: 13px;
+      }
+      .alert-info {
+        background: #D9EDF7;
+        border: 1px solid #BCE8F1;
+        color: #31708F;
+      }
+      
+      /* Loading */
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>
+        <span>日志监控客户端</span>
+        <span class="header-status" id="header-status"></span>
+      </h1>
+    </div>
+    <div id="app"></div>
+    <script src="./main.js"></script>
+  </body>
+  </html>
+

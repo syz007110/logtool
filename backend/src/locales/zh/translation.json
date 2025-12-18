@@ -1,0 +1,226 @@
+{
+  "shared": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "add": "添加",
+    "search": "搜索",
+    "reset": "重置",
+    "export": "导出",
+    "import": "导入",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "collapse": "收起",
+    "expand": "展开",
+    "copy": "复制",
+    "minutes": "分钟",
+    "success": "操作成功",
+    "error": "操作失败",
+    "warning": "警告",
+    "info": "提示",
+    "refresh": "刷新",
+    "operation": "操作",
+    "resourceNotFound": "请求的资源不存在",
+    "serverError": "服务器内部错误",
+    "requestFailed": "请求失败",
+    "networkError": "网络连接失败",
+    "unknown": "未知",
+    "messages": {
+      "deleteSuccess": "删除成功",
+      "deleteFailed": "删除失败",
+      "createSuccess": "创建成功",
+      "addSuccess": "添加成功",
+      "updateSuccess": "更新成功",
+      "saveSuccess": "保存成功",
+      "saveFailed": "保存失败",
+      "loadFailed": "加载失败",
+      "importSuccess": "导入成功",
+      "importFailed": "导入失败",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败",
+      "deleteConfirmTitle": "删除确认",
+      "confirmDelete": "确认删除"
+    },
+    "languageNames": {
+      "zh": "中文",
+      "en": "英语",
+      "fr": "法语",
+      "de": "德语",
+      "es": "西班牙语",
+      "it": "意大利语",
+      "pt": "葡萄牙语",
+      "nl": "荷兰语",
+      "sk": "斯洛伐克语",
+      "ro": "罗马尼亚语",
+      "da": "丹麦语"
+    },
+    "subsystemOptions": {
+      "1": "01：运动控制软件",
+      "2": "02：人机交互软件",
+      "3": "03：医生控制台软件",
+      "4": "04：手术台车软件",
+      "5": "05：驱动器软件",
+      "6": "06：图像软件",
+      "7": "07：工具工厂软件",
+      "8": "08：远程运动控制软件",
+      "9": "09：远程医生控制台软件",
+      "A": "0A：远程驱动器软件"
+    },
+    "prefixLabels": {
+      "remoteEnd": "远程端",
+      "remote": "远程",
+      "joint": "关节",
+      "leftMainControlArm": "左主控制臂",
+      "rightMainControlArm": "右主控制臂",
+      "toolArm1": "1号工具臂",
+      "toolArm2": "2号工具臂",
+      "toolArm3": "3号工具臂",
+      "toolArm4": "4号工具臂",
+      "adjustmentArm1": "1号调整臂",
+      "adjustmentArm2": "2号调整臂",
+      "adjustmentArm3": "3号调整臂",
+      "adjustmentArm4": "4号调整臂",
+      "masterIO": "主端IO",
+      "slaveIO": "从端IO",
+      "masterHandLiftJoint": "主手升降关节",
+      "armrestLiftJoint": "扶手升降关节",
+      "monitorLift": "监视器升降",
+      "monitorRotation": "监视器旋转"
+    }
+  },
+  "errorCode": {
+    "duplicate": "该子系统下的故障码已存在",
+    "noData": "没有找到故障码数据",
+    "notFound": "未找到该故障码"
+  },
+  "device": {
+    "listFailed": "获取设备列表失败",
+    "requiredId": "设备编号必填",
+    "invalidIdFormat": "设备编号格式不正确（如 4371-01、ABC-12）",
+    "invalidKeyFormat": "设备密钥格式不正确，应为MAC地址格式",
+    "idExists": "设备编号已存在",
+    "createFailed": "创建设备失败",
+    "updateFailed": "更新设备失败",
+    "notFound": "设备不存在",
+    "provideKey": "请提供密钥"
+  },
+  "user": {
+    "requiredUsernamePassword": "用户名和密码不能为空",
+    "usernameExists": "用户名已存在",
+    "oldPasswordRequired": "请输入原密码",
+    "oldPasswordIncorrect": "原密码不正确",
+    "operations": {
+      "create": "添加用户",
+      "createDescription": "添加用户: {{username}}",
+      "update": "修改用户",
+      "updateDescription": "修改用户: {{username}}",
+      "delete": "删除用户",
+      "deleteDescription": "删除用户: {{username}}",
+      "logFailed": "操作日志记录失败"
+    }
+  },
+  "auth": {
+    "invalidCredentials": "用户名或密码错误",
+    "loginSuccess": "登录成功",
+    "unauthenticated": "未登录"
+  },
+  "log": {
+    "notSet": "未设置",
+    "unknownDevice": "未知设备",
+    "listFailed": "获取日志失败",
+    "searchTemplates": {
+      "readFailed": "读取搜索模板失败",
+      "invalidFormat": "无效的模板格式，应为数组",
+      "importFailed": "导入搜索模板失败"
+    },
+    "deviceGroups": {
+      "getFailed": "获取设备分组日志失败"
+    },
+    "upload": {
+      "noFile": "未上传文件",
+      "sizeExceeded": "上传总大小超过限制（≤200MB）",
+      "invalidDeviceIdFormat": "设备编号格式不正确，应为数字或字母组合格式（如：4371-01、ABC-12、123-XY）",
+      "keyNotFound": "未找到设备对应的解密密钥，请检查设备配置或手动提供密钥",
+      "invalidKeyFormat": "密钥格式不正确，应为MAC地址格式（如：00-01-05-77-6a-09）",
+      "success": "成功上传 {count} 个文件，已加入处理队列",
+      "failed": "上传失败"
+    },
+    "parse": {
+      "notFound": "日志不存在",
+      "permissionDenied": "权限不足，只能解析自己的日志",
+      "fileNotFound": "文件不存在",
+      "keyNotFound": "未找到解密密钥，请重新上传并输入密钥",
+      "success": "解析成功",
+      "failed": "解析失败"
+    },
+    "queue": {
+      "statusFailed": "获取队列状态失败"
+    },
+    "download": {
+      "notFound": "日志不存在",
+      "failed": "下载失败"
+    },
+    "visualization": {
+      "noDataFound": "未找到该故障码的数据",
+      "getDataFailed": "获取可视化数据失败"
+    },
+    "cleanup": {
+      "noStuckLogs": "没有发现卡死的日志",
+      "cleanupComplete": "清理完成: 成功 {cleanedCount} 个, 失败 {failedCount} 个",
+      "cleanupFailed": "清理卡死日志失败",
+      "getStatsFailed": "获取卡死日志统计失败"
+    },
+    "delete": {
+      "notFound": "日志不存在"
+    },
+    "batchReparse": {
+      "notFound": "日志不存在",
+      "failed": "批量重新解析失败"
+    },
+    "analysis": {
+      "notFound": "日志不存在",
+      "failed": "分析失败"
+    }
+  },
+  "i18nErrorCode": {
+    "queryFailed": "查询失败",
+    "languageRequired": "语言代码是必填字段",
+    "shortMessageOperationRequired": "精简提示信息和操作信息不能都为空",
+    "userHintOperationRequired": "用户提示信息和操作信息不能都为空",
+    "errorCodeNotFound": "故障码不存在",
+    "errorCodeNotFoundWithCode": "故障码不存在: {{subsystem}}-{{code}}",
+    "errorCodeIdOrCodeRequired": "必须提供故障码ID或子系统号和故障码组合",
+    "operationFailed": "操作失败",
+    "contentNotFound": "多语言内容不存在",
+    "batchImport": {
+      "dataFormatError": "数据格式错误或为空",
+      "subsystemCodeLangRequired": "子系统号、故障码和语言代码是必填字段",
+      "shortMessageOperationRequired": "精简提示信息和操作信息不能都为空",
+      "userHintOperationRequired": "用户提示信息和操作信息不能都为空",
+      "errorCodeNotFound": "故障码不存在: {{subsystem}}-{{code}}",
+      "batchImportComplete": "批量导入完成，成功 {{successCount}} 条，失败 {{errorCount}} 条"
+    },
+    "csvImport": {
+      "uploadCsvFile": "请上传CSV文件",
+      "invalidHeaders": "第{{lineNumber}}行列名不正确，期望: {{expectedHeaders}}，实际: {{actualHeaders}}",
+      "missingRequiredFields": "第{{lineNumber}}行缺少必填字段: {{missingFields}}",
+      "contentValidationFailed": "第{{lineNumber}}行内容验证失败：需要满足以下条件之一：1) short_message和user_hint至少一个不为空，或2) short_message和operation至少一个不为空",
+      "fileEmptyOrFormatError": "CSV文件为空或格式错误",
+      "errorCodeNotFound": "故障码不存在: {{subsystem}}-{{code}}，请先在故障码管理中添加此故障码",
+      "partialSuccess": "CSV批量导入部分成功，成功 {{successCount}} 条，失败 {{errorCount}} 条",
+      "success": "CSV批量导入成功，共导入 {{successCount}} 条记录",
+      "readFailed": "CSV文件读取失败，请检查文件格式和编码",
+      "uploadProcessFailed": "CSV上传处理失败"
+    },
+    "languages": {
+      "getFailed": "获取语言列表失败"
+    },
+    "subsystems": {
+      "getFailed": "获取子系统号列表失败"
+    }
+  }
+}
+
+
