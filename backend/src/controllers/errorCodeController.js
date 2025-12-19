@@ -9,7 +9,7 @@ const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
 const fs = require('fs');
 const path = require('path');
-const { objectKeyFromUrl } = require('./ossController');
+const { objectKeyFromUrl } = require('../utils/oss');
 const {
   STORAGE,
   MAX_IMAGES,
@@ -28,6 +28,22 @@ const {
   TMP_DIR,
   LOCAL_DIR
 } = require('../config/techSolutionStorage');
+
+function getBearerToken(req) {
+  const raw = req?.headers?.authorization || req?.get?.('authorization') || '';
+  const parts = String(raw).split(' ');
+  if (parts.length === 2 && /^bearer$/i.test(parts[0])) return parts[1];
+  return '';
+}
+
+function withQueryToken(url, req) {
+  const token = getBearerToken(req);
+  if (!token) return url;
+  if (!url || !String(url).includes('/api/oss/')) return url;
+  if (String(url).includes('token=')) return url;
+  const sep = String(url).includes('?') ? '&' : '?';
+  return `${url}${sep}token=${encodeURIComponent(token)}`;
+}
 
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
@@ -150,14 +166,20 @@ const normalizeImageUrl = (img, req) => {
   if (!img || !img.url) return img?.url || '';
   
   const url = String(img.url);
+  const storageType = img.storage || STORAGE; // 如果没有指定，使用全局配置的存储类型
+  const USE_BACKEND_OSS_PROXY = String(process.env.TECH_SOLUTION_OSS_USE_PROXY || process.env.OSS_USE_BACKEND_PROXY || '').toLowerCase() === 'true';
+
+  // OSS + 开启后端代理：统一返回 /api/oss/...，浏览器不直连 *-internal 域名
+  if (storageType === 'oss' && USE_BACKEND_OSS_PROXY) {
+    const objectKey = String(img.object_key || objectKeyFromUrl(url) || url).replace(/^\//, '');
+    const key = encodeURIComponent(objectKey);
+    return withQueryToken(`/api/oss/tech-solution?key=${key}`, req);
+  }
   
   // 如果已经是完整的URL（http/https），直接返回
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  
-  // 先判断存储类型，再根据类型处理URL
-  const storageType = img.storage || STORAGE; // 如果没有指定，使用全局配置的存储类型
   
   // 本地存储：相对路径需要转换为绝对URL
   if (storageType === 'local') {
@@ -219,14 +241,8 @@ const normalizeImageUrl = (img, req) => {
       // 否则，可能是objectKey，需要拼接OSS_PUBLIC_BASE
       return `${OSS_PUBLIC_BASE.replace(/\/$/, '')}/${url}`;
     }
-    // 没有配置OSS_PUBLIC_BASE：统一走后端代理，避免 *-internal 或私有桶导致浏览器无法访问
-    // 兼容两种情况：
-    // 1) url 是 objectKey（tech-solution/2025/..）
-    // 2) url 是完整 OSS URL（可能是 *-internal）
-    const keyFromFullUrl = objectKeyFromUrl(url);
-    const objectKey = keyFromFullUrl || url;
-    const key = encodeURIComponent(String(objectKey || '').replace(/^\//, ''));
-    return `/api/oss/tech-solution?key=${key}`;
+    // 没有配置OSS_PUBLIC_BASE，返回原URL（可能是objectKey，需要前端处理）
+    return url;
   }
   
   // 其他情况，直接返回原URL
@@ -1358,7 +1374,7 @@ const uploadTechSolutionImages = async (req, res) => {
           const client = await getOssClient();
           objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
           const result = await client.put(objectKey, file.path);
-          url = buildOssUrl(objectKey, result?.url);
+          url = withQueryToken(buildOssUrl(objectKey, result?.url), req);
           safeUnlink(file.path);
         } catch (err) {
           console.error('上传OSS失败:', err.message);
@@ -1487,7 +1503,7 @@ const updateTechSolutionDetail = async (req, res) => {
           await client.copy(destKey, result.object_key);
           await client.delete(result.object_key);
           result.object_key = destKey;
-          result.url = buildOssUrl(destKey);
+          result.url = withQueryToken(buildOssUrl(destKey), req);
         } catch (e) {
           console.warn('OSS 复制/删除临时文件失败:', e.message);
           throw new Error('保存附件失败（OSS 文件搬运失败）');

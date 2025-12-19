@@ -13,7 +13,7 @@ const ErrorCode = require('../models/error_code');
 const UserRole = require('../models/user_role');
 const RolePermission = require('../models/role_permission');
 const Permission = require('../models/permission');
-const { objectKeyFromUrl } = require('./ossController');
+const { objectKeyFromUrl } = require('../utils/oss');
 
 const {
   STORAGE,
@@ -33,10 +33,48 @@ const {
   buildTempOssObjectKey
 } = require('../config/faultCaseStorage');
 
+const USE_BACKEND_OSS_PROXY = String(process.env.FAULT_CASE_OSS_USE_PROXY || process.env.OSS_USE_BACKEND_PROXY || '').toLowerCase() === 'true';
+
+function getBearerToken(req) {
+  const raw = req?.headers?.authorization || req?.get?.('authorization') || '';
+  const parts = String(raw).split(' ');
+  if (parts.length === 2 && /^bearer$/i.test(parts[0])) return parts[1];
+  return '';
+}
+
+function withQueryToken(url, req) {
+  const token = getBearerToken(req);
+  if (!token) return url;
+  if (!url || !String(url).includes('/api/oss/')) return url;
+  if (String(url).includes('token=')) return url;
+  const sep = String(url).includes('?') ? '&' : '?';
+  return `${url}${sep}token=${encodeURIComponent(token)}`;
+}
+
 function safeUnlink(p) {
   try {
     if (p && fs.existsSync(p)) fs.unlinkSync(p);
   } catch (_) {}
+}
+
+function normalizeFaultCaseAttachmentsForResponse(faultCaseObj, req) {
+  if (!USE_BACKEND_OSS_PROXY) return faultCaseObj;
+  if (!faultCaseObj || !Array.isArray(faultCaseObj.attachments)) return faultCaseObj;
+
+  const attachments = faultCaseObj.attachments.map((a) => {
+    if (!a) return a;
+    const storage = a.storage === 'oss' ? 'oss' : 'local';
+    if (storage !== 'oss') return a;
+
+    // Prefer object_key; fallback to parsing from url (historical internal URLs)
+    const key = String(a.object_key || objectKeyFromUrl(a.url) || '').replace(/^\//, '');
+    if (!key) return a;
+
+    // buildOssUrl will return proxy url when USE_BACKEND_OSS_PROXY is enabled
+    return { ...a, url: withQueryToken(buildOssUrl(key), req) };
+  });
+
+  return { ...faultCaseObj, attachments };
 }
 
 function normalizeLang(raw) {
@@ -123,23 +161,6 @@ async function overlayI18nIfNeeded(req, faultCaseObj) {
   };
 }
 
-function normalizeFaultCaseAttachmentsForResponse(faultCaseObj) {
-  if (!faultCaseObj || !Array.isArray(faultCaseObj.attachments)) return faultCaseObj;
-  const attachments = faultCaseObj.attachments.map((a) => {
-    if (!a) return a;
-    const storage = a.storage === 'oss' ? 'oss' : 'local';
-    if (storage !== 'oss') return a;
-
-    // Prefer object_key; fallback to parsing from url (historical internal URLs)
-    const key = a.object_key || objectKeyFromUrl(a.url) || '';
-    if (!key) return a;
-
-    // buildOssUrl returns proxy url when OSS_PUBLIC_BASE is not set
-    return { ...a, url: buildOssUrl(key) };
-  });
-  return { ...faultCaseObj, attachments };
-}
-
 async function validateRelatedErrorCodes(ids = []) {
   const uniqueIds = Array.from(new Set((ids || []).map(n => Number(n)).filter(n => Number.isFinite(n))));
   if (uniqueIds.length === 0) return [];
@@ -183,7 +204,7 @@ async function uploadFaultCaseAttachments(req, res) {
         const client = await getOssClient();
         objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
         const result = await client.put(objectKey, file.path);
-        url = buildOssUrl(objectKey, result?.url);
+        url = withQueryToken(buildOssUrl(objectKey, result?.url), req);
         safeUnlink(file.path);
       } else {
         ensureTempDir();
@@ -210,7 +231,7 @@ async function uploadFaultCaseAttachments(req, res) {
   }
 }
 
-async function finalizeAttachment(asset) {
+async function finalizeAttachment(asset, req) {
   const result = { ...asset };
 
   // local: move tmp -> permanent
@@ -235,7 +256,7 @@ async function finalizeAttachment(asset) {
     await client.copy(destKey, result.object_key);
     await client.delete(result.object_key);
     result.object_key = destKey;
-    result.url = buildOssUrl(destKey);
+    result.url = withQueryToken(buildOssUrl(destKey), req);
   } else if (result.storage === 'oss' && result.object_key && result.object_key.startsWith(TMP_PREFIX)) {
     // safety: in case TMP_PREFIX doesn't contain /tmp/ exactly
     const client = await getOssClient();
@@ -243,7 +264,7 @@ async function finalizeAttachment(asset) {
     await client.copy(destKey, result.object_key);
     await client.delete(result.object_key);
     result.object_key = destKey;
-    result.url = buildOssUrl(destKey);
+    result.url = withQueryToken(buildOssUrl(destKey), req);
   }
   return result;
 }
@@ -299,7 +320,7 @@ const createFaultCase = async (req, res) => {
     const relatedIds = await validateRelatedErrorCodes(related_error_code_ids);
     const normalizedAttachments = normalizeAttachmentsPayload(attachments);
     const finalized = [];
-    for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a));
+    for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
 
     const nowUser = updated_at_user ? new Date(updated_at_user) : null;
     const review = submit_for_review
@@ -392,7 +413,7 @@ const updateFaultCase = async (req, res) => {
     if (attachments !== undefined) {
       const normalizedAttachments = normalizeAttachmentsPayload(attachments);
       const finalized = [];
-      for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a));
+      for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
       patch.attachments = finalized;
     }
     if (updated_at_user !== undefined) patch.updated_at_user = updated_at_user ? new Date(updated_at_user) : null;
@@ -465,7 +486,7 @@ const getFaultCaseDetail = async (req, res) => {
     if (!(await canReadCase(req, faultCase))) return res.status(403).json({ message: '权限不足' });
 
     const merged = await overlayI18nIfNeeded(req, faultCase);
-    return res.json({ faultCase: normalizeFaultCaseAttachmentsForResponse(merged) });
+    return res.json({ faultCase: normalizeFaultCaseAttachmentsForResponse(merged, req) });
   } catch (err) {
     console.error('getFaultCaseDetail error:', err);
     return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
@@ -487,7 +508,7 @@ const listLatestFaultCases = async (req, res) => {
     ]);
 
     const out = [];
-    for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d)));
+    for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d), req));
     return res.json({ faultCases: out });
   } catch (err) {
     console.error('listLatestFaultCases error:', err);
@@ -554,7 +575,7 @@ const searchFaultCases = async (req, res) => {
     ]);
 
     const out = [];
-    for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d)));
+    for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d), req));
 
     return res.json({ faultCases: out });
   } catch (err) {

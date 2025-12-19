@@ -18,6 +18,7 @@ const ALLOWED_MIMES = (process.env.TECH_SOLUTION_ALLOWED_MIMES ||
 const OSS_PREFIX = process.env.TECH_SOLUTION_OSS_PREFIX || 'tech-solution/';
 const TMP_PREFIX = process.env.TECH_SOLUTION_TMP_PREFIX || 'tech-solution/tmp/';
 const OSS_PUBLIC_BASE = process.env.TECH_SOLUTION_OSS_BASE_URL || '';
+const USE_BACKEND_OSS_PROXY = String(process.env.TECH_SOLUTION_OSS_USE_PROXY || process.env.OSS_USE_BACKEND_PROXY || '').toLowerCase() === 'true';
 
 let ossClient = null;
 let ossClientPromise = null;
@@ -151,10 +152,14 @@ const buildOssUrl = (objectKey, putResultUrl) => {
   if (OSS_PUBLIC_BASE) {
     return `${OSS_PUBLIC_BASE.replace(/\/$/, '')}/${objectKey}`;
   }
-  // 没有配置公网基础URL时，不要返回 putResultUrl（可能是 *-internal 内网域名，浏览器无法访问）
-  // 统一走后端代理：浏览器 -> Nginx(/api) -> 后端 -> OSS(内网/STS)
-  const key = encodeURIComponent(String(objectKey || '').replace(/^\//, ''));
-  return `/api/oss/tech-solution?key=${key}`;
+  // 没有配置公网基础URL时，浏览器无法访问 *-internal 内网域名；
+  // 可启用后端代理：浏览器 -> Nginx(/api) -> 后端 -> OSS(内网/STS)
+  if (USE_BACKEND_OSS_PROXY) {
+    const key = encodeURIComponent(String(objectKey || '').replace(/^\//, ''));
+    return `/api/oss/tech-solution?key=${key}`;
+  }
+  if (putResultUrl) return putResultUrl;
+  return objectKey;
 };
 
 const buildOssObjectKey = (filename) => {

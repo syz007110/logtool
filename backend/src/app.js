@@ -206,6 +206,7 @@ app.use('/api/error-codes', errorCodesRouter);
 app.use('/api/i18n-error-codes', i18nErrorCodesRouter);
 app.use('/api/i18n', i18nRouter);
 app.use('/api/xml-export', xmlExportRouter);
+app.use('/api/oss', ossRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/fault-cases', faultCasesRouter);
 app.use('/api/devices', devicesRouter);
@@ -223,7 +224,6 @@ app.use('/api/permissions', permissionsRouter);
 app.use('/api/monitoring', monitoringRouter);
 app.use('/api/cache', cacheRouter);
 app.use('/api/analysis-categories', analysisCategoriesRouter);
-app.use('/api/oss', ossRouter);
 
 // 错误处理中间件
 app.use(errorMonitoring);
