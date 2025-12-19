@@ -9,6 +9,7 @@ const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
 const fs = require('fs');
 const path = require('path');
+const { objectKeyFromUrl } = require('./ossController');
 const {
   STORAGE,
   MAX_IMAGES,
@@ -218,8 +219,14 @@ const normalizeImageUrl = (img, req) => {
       // 否则，可能是objectKey，需要拼接OSS_PUBLIC_BASE
       return `${OSS_PUBLIC_BASE.replace(/\/$/, '')}/${url}`;
     }
-    // 没有配置OSS_PUBLIC_BASE，返回原URL（可能是objectKey，需要前端处理）
-    return url;
+    // 没有配置OSS_PUBLIC_BASE：统一走后端代理，避免 *-internal 或私有桶导致浏览器无法访问
+    // 兼容两种情况：
+    // 1) url 是 objectKey（tech-solution/2025/..）
+    // 2) url 是完整 OSS URL（可能是 *-internal）
+    const keyFromFullUrl = objectKeyFromUrl(url);
+    const objectKey = keyFromFullUrl || url;
+    const key = encodeURIComponent(String(objectKey || '').replace(/^\//, ''));
+    return `/api/oss/tech-solution?key=${key}`;
   }
   
   // 其他情况，直接返回原URL

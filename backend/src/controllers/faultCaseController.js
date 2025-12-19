@@ -13,6 +13,7 @@ const ErrorCode = require('../models/error_code');
 const UserRole = require('../models/user_role');
 const RolePermission = require('../models/role_permission');
 const Permission = require('../models/permission');
+const { objectKeyFromUrl } = require('./ossController');
 
 const {
   STORAGE,
@@ -120,6 +121,23 @@ async function overlayI18nIfNeeded(req, faultCaseObj) {
     experience: overlay('experience'),
     keywords: Array.isArray(i18n.keywords) && i18n.keywords.length ? i18n.keywords : faultCaseObj.keywords
   };
+}
+
+function normalizeFaultCaseAttachmentsForResponse(faultCaseObj) {
+  if (!faultCaseObj || !Array.isArray(faultCaseObj.attachments)) return faultCaseObj;
+  const attachments = faultCaseObj.attachments.map((a) => {
+    if (!a) return a;
+    const storage = a.storage === 'oss' ? 'oss' : 'local';
+    if (storage !== 'oss') return a;
+
+    // Prefer object_key; fallback to parsing from url (historical internal URLs)
+    const key = a.object_key || objectKeyFromUrl(a.url) || '';
+    if (!key) return a;
+
+    // buildOssUrl returns proxy url when OSS_PUBLIC_BASE is not set
+    return { ...a, url: buildOssUrl(key) };
+  });
+  return { ...faultCaseObj, attachments };
 }
 
 async function validateRelatedErrorCodes(ids = []) {
@@ -447,7 +465,7 @@ const getFaultCaseDetail = async (req, res) => {
     if (!(await canReadCase(req, faultCase))) return res.status(403).json({ message: '权限不足' });
 
     const merged = await overlayI18nIfNeeded(req, faultCase);
-    return res.json({ faultCase: merged });
+    return res.json({ faultCase: normalizeFaultCaseAttachmentsForResponse(merged) });
   } catch (err) {
     console.error('getFaultCaseDetail error:', err);
     return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
@@ -469,7 +487,7 @@ const listLatestFaultCases = async (req, res) => {
     ]);
 
     const out = [];
-    for (const d of docs) out.push(await overlayI18nIfNeeded(req, d));
+    for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d)));
     return res.json({ faultCases: out });
   } catch (err) {
     console.error('listLatestFaultCases error:', err);
@@ -536,7 +554,7 @@ const searchFaultCases = async (req, res) => {
     ]);
 
     const out = [];
-    for (const d of docs) out.push(await overlayI18nIfNeeded(req, d));
+    for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d)));
 
     return res.json({ faultCases: out });
   } catch (err) {

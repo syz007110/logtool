@@ -151,8 +151,10 @@ const getOssClient = async () => {
 
 const buildOssUrl = (objectKey, putResultUrl) => {
   if (OSS_PUBLIC_BASE) return `${OSS_PUBLIC_BASE.replace(/\/$/, '')}/${objectKey}`;
-  if (putResultUrl) return putResultUrl;
-  return objectKey;
+  // 没有配置公网基础URL时，不要返回 putResultUrl（可能是 *-internal 内网域名，浏览器无法访问）
+  // 统一走后端代理：浏览器 -> Nginx(/api) -> 后端 -> OSS(内网/STS)
+  const key = encodeURIComponent(String(objectKey || '').replace(/^\//, ''));
+  return `/api/oss/fault-cases?key=${key}`;
 };
 
 const buildOssObjectKey = (filename) => {
