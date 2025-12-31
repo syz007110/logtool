@@ -179,6 +179,28 @@
         "title": "标题",
         "time": "时间"
       }
+    },
+    "jira": {
+      "title": "Jira 相关主题事件",
+      "searchPlaceholder": "关键字（Jira 全文检索）",
+      "open": "打开",
+      "addToFaultCases": "添加",
+      "empty": "暂无匹配的 Jira 事项",
+      "notEnabled": "未启用",
+      "notEnabledHint": "当前未配置 Jira 集成",
+      "failed": "失败",
+      "startMonth": "开始年月",
+      "endMonth": "结束年月",
+      "filters": {
+        "selectAll": "全选"
+      },
+      "columns": {
+        "key": "关键字",
+        "module": "模块",
+        "summary": "标题",
+        "status": "状态",
+        "updated": "更新时间"
+      }
     }
   },
   "login": {
@@ -1450,6 +1472,28 @@
       "loadFailed": "加载失败",
       "surgeryIdRequired": "手术ID不能为空"
     }
+  },
+  "smartSearch": {
+    "title": "智能搜索",
+    "summary": "综合摘要",
+    "placeholder": "输入您的问题...",
+    "history": "历史对话",
+    "newConversation": "新对话",
+    "deleteConversation": "删除",
+    "emptyHistory": "暂无历史对话",
+    "classicPanel": "经典面板",
+    "maxQuestionsReached": "每个对话最多 {max} 个问题，请新建对话",
+    "maxInputChars": "每个问题最多 {max} 个字",
+    "logAnalysis": "日志分析",
+    "uploadLogs": "上传日志",
+    "send": "发送",
+    "sending": "发送中...",
+    "thinking": "正在思考...",
+    "welcomeTitle": "智能搜索助手",
+    "welcomeText": "我可以帮您查询故障码、分析日志、解答技术问题。输入您的问题开始对话，或上传日志文件进行分析。",
+    "emptyState": "开始输入您的问题，或选择日志分析并上传日志文件",
+    "expandSidebar": "展开侧边栏",
+    "collapseSidebar": "折叠侧边栏"
   }
 }
 

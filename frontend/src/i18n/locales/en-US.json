@@ -179,6 +179,28 @@
         "title": "Title",
         "time": "Time"
       }
+    },
+    "jira": {
+      "title": "Related Jira Issues",
+      "searchPlaceholder": "Keyword (Jira full-text search)",
+      "open": "Open",
+      "addToFaultCases": "Add",
+      "empty": "No matching Jira issues",
+      "notEnabled": "Disabled",
+      "notEnabledHint": "Jira integration is not configured",
+      "failed": "Failed",
+      "startMonth": "Start Month",
+      "endMonth": "End Month",
+      "filters": {
+        "selectAll": "Select all"
+      },
+      "columns": {
+        "key": "Key",
+        "module": "Module",
+        "summary": "Summary",
+        "status": "Status",
+        "updated": "Updated"
+      }
     }
   },
   "login": {
@@ -1462,6 +1484,28 @@
       "loadFailed": "Load failed",
       "surgeryIdRequired": "Surgery ID is required"
     }
+  },
+  "smartSearch": {
+    "title": "Smart Search",
+    "summary": "Summary",
+    "placeholder": "Type your question...",
+    "history": "History",
+    "newConversation": "New chat",
+    "deleteConversation": "Delete",
+    "emptyHistory": "No history",
+    "classicPanel": "Classic panel",
+    "maxQuestionsReached": "Up to {max} questions per chat. Please start a new chat.",
+    "maxInputChars": "Up to {max} characters per question",
+    "logAnalysis": "Log Analysis",
+    "uploadLogs": "Upload Logs",
+    "send": "Send",
+    "sending": "Sending...",
+    "thinking": "Thinking...",
+    "welcomeTitle": "Smart Search Assistant",
+    "welcomeText": "I can help you query error codes, analyze logs, and answer technical questions. Type your question to start a conversation, or upload log files for analysis.",
+    "emptyState": "Start typing your question, or select log analysis and upload log files",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar"
   }
 }
 

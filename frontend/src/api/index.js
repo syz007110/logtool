@@ -293,6 +293,16 @@ const faultCases = {
   markInboxRead: (ids) => api.post('/fault-cases/review/inbox/mark-read', { ids })
 }
 
+// Jira integration (proxy via backend)
+const jira = {
+  search: (params) => api.get('/jira/search', { params })
+}
+
+// Smart Search (aggregated)
+const smartSearch = {
+  search: (payload) => api.post('/smart-search/search', payload)
+}
+
 export default {
   auth,
   errorCodes,
@@ -312,5 +322,7 @@ export default {
   explanations,
   surgeries,
   monitoring,
-  faultCases
+  faultCases,
+  jira,
+  smartSearch
 }

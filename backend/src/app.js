@@ -51,6 +51,8 @@ const monitoringRouter = require('./routes/monitoring');
 const cacheRouter = require('./routes/cache');
 const analysisCategoriesRouter = require('./routes/analysisCategories');
 const ossRouter = require('./routes/oss');
+const jiraRouter = require('./routes/jira');
+const smartSearchRouter = require('./routes/smartSearch');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
@@ -224,6 +226,8 @@ app.use('/api/permissions', permissionsRouter);
 app.use('/api/monitoring', monitoringRouter);
 app.use('/api/cache', cacheRouter);
 app.use('/api/analysis-categories', analysisCategoriesRouter);
+app.use('/api/jira', jiraRouter);
+app.use('/api/smart-search', smartSearchRouter);
 
 // 错误处理中间件
 app.use(errorMonitoring);

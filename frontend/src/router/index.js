@@ -6,6 +6,13 @@ const routes = [
     path: '/',
     redirect: '/login'
   },
+  // 独立智能搜索页面（ChatGPT 风格，无侧边栏）
+  {
+    path: '/smart-search',
+    name: 'SmartSearchStandalone',
+    component: () => import('../views/SmartSearchPage.vue'),
+    meta: { requiresAuth: true, noSidebar: true }
+  },
   {
     path: '/login',
     name: 'Login',
@@ -55,7 +62,13 @@ const routes = [
       {
         path: '',
         name: 'Dashboard',
-        redirect: '/dashboard/error-codes'
+        redirect: '/dashboard/logs'
+      },
+      {
+        path: 'smart-search',
+        // 历史兼容：旧的 dashboard 内智能搜索入口，统一跳转到独立页面
+        name: 'SmartSearch',
+        redirect: '/smart-search'
       },
       {
         path: 'error-codes',
@@ -70,13 +83,15 @@ const routes = [
       {
         path: 'fault-cases',
         name: 'FaultCases',
-        component: () => import('../views/FaultCases.vue'),
+        // Phase 1: Jira is the source of truth for fault cases
+        component: () => import('../views/JiraFaultCases.vue'),
         meta: { requiresPermission: 'fault_case:read' }
       },
       {
         path: 'fault-cases/:id',
         name: 'FaultCaseDetail',
-        component: () => import('../views/FaultCaseDetail.vue'),
+        // Phase 1: no internal detail page; issues open in Jira directly
+        redirect: '/dashboard/fault-cases',
         meta: { requiresPermission: 'fault_case:read' }
       },
       {
@@ -233,7 +248,7 @@ router.beforeEach((to, from, next) => {
       next()
     }
   } else if ((to.path === '/login' || to.path === '/m/login') && isAuthenticated && from.path !== to.path) {
-    next(isMobileRoute ? '/m' : '/dashboard')
+    next(isMobileRoute ? '/m' : '/smart-search')
   } else {
     next()
   }

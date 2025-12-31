@@ -130,7 +130,7 @@ export default {
         await store.dispatch('auth/login', formData)
         ElMessage.success(t('login.loginSuccess'))
         const isMobileContext = window.location.pathname.startsWith('/m')
-        router.push(isMobileContext ? '/m' : '/dashboard')
+        router.push(isMobileContext ? '/m' : '/smart-search')
       } catch (error) {
         // 不在这里显示错误信息，因为响应拦截器已经处理了
         console.error('登录失败:', error)
@@ -147,7 +147,7 @@ export default {
         dingLoading.value = true
         await store.dispatch('auth/dingtalkLogin', { authCode })
         ElMessage.success(t('login.loginSuccess'))
-        router.replace('/dashboard')
+        router.replace('/smart-search')
       } catch (error) {
         console.error('DingTalk callback login failed:', error)
       } finally {
@@ -177,7 +177,7 @@ export default {
         })
         await store.dispatch('auth/dingtalkLogin', { authCode: code })
         ElMessage.success(t('login.loginSuccess'))
-        router.replace('/dashboard')
+        router.replace('/smart-search')
       } catch (error) {
         console.error('Auto DingTalk login failed:', error)
       }

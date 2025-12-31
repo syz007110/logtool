@@ -817,11 +817,11 @@ const saveErrorCodeI18nByLang = async (req, res) => {
   }
 };
 
-// 自动翻译故障码的技术说明字段
+// 自动翻译故障码的技术说明字段（只翻译空白字段）
 const autoTranslateErrorCodeI18n = async (req, res) => {
   try {
     const { id } = req.params; // error_code_id
-    const { lang, overwrite = false } = req.body; // overwrite: 是否覆盖已有内容
+    const { lang } = req.body; // 不再使用 overwrite 参数，始终只翻译空白字段
 
     if (!lang) {
       return res.status(400).json({ message: 'Language parameter is required' });
@@ -875,7 +875,7 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
       // 注意：solution, level, category 不在 i18n_error_codes 表中
     } : {};
 
-    // 执行翻译（只翻译空字段，除非指定覆盖）
+    // 执行翻译（只翻译空白字段，不覆盖已有内容）
     let translatedFields;
     try {
       translatedFields = await translateFields(
@@ -883,7 +883,7 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
         lang,
         'zh-CN',
         {
-          onlyEmpty: !overwrite,
+          onlyEmpty: true, // 始终只翻译空白字段
           existingFields: existingFields
         }
       );
@@ -905,16 +905,40 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
       });
     }
 
-    // 保存翻译结果
+    // 保存翻译结果（只保存翻译后的字段，保留已有内容）
     try {
       if (existingI18n) {
-        await existingI18n.update(translatedFields);
+        // 只更新空白字段，保留已有内容
+        // translateFields 在 onlyEmpty=true 时会返回已有值，所以需要比较判断哪些是真正翻译的
+        const fieldsToUpdate = {};
+        Object.keys(translatedFields).forEach(key => {
+          const translatedValue = translatedFields[key];
+          const existingValue = existingFields[key] || '';
+          // 只更新空白字段：如果原字段为空，且翻译后有值，则更新
+          if ((!existingValue || existingValue.trim() === '') && 
+              translatedValue && translatedValue.trim() !== '') {
+            fieldsToUpdate[key] = translatedValue;
+          }
+        });
+        // 如果有字段需要更新，才执行更新
+        if (Object.keys(fieldsToUpdate).length > 0) {
+          await existingI18n.update(fieldsToUpdate);
+        }
       } else {
+        // 新建时，只保存有值的字段（过滤掉空值）
+        const fieldsToCreate = {};
+        Object.keys(translatedFields).forEach(key => {
+          if (translatedFields[key] && translatedFields[key].trim() !== '') {
+            fieldsToCreate[key] = translatedFields[key];
+          }
+        });
+        if (Object.keys(fieldsToCreate).length > 0) {
         await I18nErrorCode.create({
           error_code_id: id,
           lang,
-          ...translatedFields
+            ...fieldsToCreate
         });
+        }
       }
     } catch (saveError) {
       console.error('保存翻译结果失败:', saveError);
@@ -931,12 +955,11 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
           user_id: req.user.id,
           username: req.user.username,
           operation: '自动翻译故障码技术字段',
-          description: `自动翻译故障码 ${errorCode.code} 的技术说明字段到 ${lang}`,
+          description: `自动翻译故障码 ${errorCode.code} 的技术说明字段到 ${lang}（仅翻译空白字段）`,
           details: {
             errorCodeId: id,
             lang,
-            errorCode: errorCode.code,
-            overwrite
+            errorCode: errorCode.code
           }
         });
       } catch (logError) {

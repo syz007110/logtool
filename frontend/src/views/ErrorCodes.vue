@@ -294,7 +294,6 @@
             v-model="currentForm.short_message" 
             type="textarea" 
             :rows="2"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
 
@@ -303,7 +302,6 @@
             v-model="currentForm.user_hint" 
             type="textarea" 
             :rows="2"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
 
@@ -312,7 +310,6 @@
             v-model="currentForm.operation" 
             type="textarea" 
             :rows="2"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
 
@@ -379,7 +376,6 @@
             v-model="currentForm.detail" 
             type="textarea" 
             :rows="3"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
 
@@ -388,7 +384,6 @@
             v-model="currentForm.method" 
             type="textarea" 
             :rows="3"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
 
@@ -397,7 +392,6 @@
             <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
               <el-input 
                 v-model="currentForm.param1"
-                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
               />
             </el-form-item>
           </el-col>
@@ -405,7 +399,6 @@
             <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
               <el-input 
                 v-model="currentForm.param2"
-                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
               />
             </el-form-item>
           </el-col>
@@ -416,7 +409,6 @@
             <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
               <el-input 
                 v-model="currentForm.param3"
-                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
               />
             </el-form-item>
           </el-col>
@@ -424,7 +416,6 @@
             <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
               <el-input 
                 v-model="currentForm.param4"
-                :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
               />
             </el-form-item>
           </el-col>
@@ -435,7 +426,6 @@
             v-model="currentForm.tech_solution" 
             type="textarea" 
             :rows="3"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
 
@@ -444,7 +434,6 @@
             v-model="currentForm.explanation" 
             type="textarea" 
             :rows="3"
-            :placeholder="selectedI18nLang === 'zh-CN' ? '' : $t('errorCodes.i18nTechFields.translatePlaceholder')"
           />
         </el-form-item>
       </el-form>
@@ -1764,7 +1753,7 @@ export default {
       }
     }
     
-    // 自动翻译（默认只翻译空白字段，保护人工修改）
+    // 自动翻译（只翻译空白字段，保护人工修改）
     const handleAutoTranslate = async () => {
       if (!selectedI18nLang.value) {
         return
@@ -1779,65 +1768,21 @@ export default {
       try {
         translating.value = true
         
-        // 检查是否有非空白字段（需要用户确认是否覆盖）
-        // 注意：solution, level, category 不在 i18n_error_codes 表中，不参与自动翻译检查
-        const fieldsToCheck = [
-          // UI 显示字段
-          'short_message',
-          'user_hint',
-          'operation',
-          // 技术说明字段
-          'detail',
-          'method',
-          'param1',
-          'param2',
-          'param3',
-          'param4',
-          'tech_solution',
-          'explanation'
-        ]
-        const nonEmptyFields = fieldsToCheck.filter(field => {
-          const value = i18nForm[field]
-          return value && value.trim() !== ''
-        })
-        
-        // 如果有非空白字段，询问用户是否覆盖
-        let overwrite = false
-        if (nonEmptyFields.length > 0) {
-          try {
-            await ElMessageBox.confirm(
-              t('errorCodes.i18nTechFields.overwriteConfirm'),
-              t('errorCodes.i18nTechFields.overwriteTitle'),
-              {
-                confirmButtonText: t('shared.confirm'),
-                cancelButtonText: t('shared.cancel'),
-                type: 'warning'
-              }
-            )
-            overwrite = true
-          } catch {
-            // 用户取消
-            return
-          }
-        }
-        
-        // 调用自动翻译API（后端默认只翻译空白字段，除非 overwrite=true）
+        // 调用自动翻译API（后端只翻译空白字段，不覆盖已有内容）
         const response = await api.errorCodes.autoTranslateI18n(
           editingErrorCode.value.id,
           selectedI18nLang.value,
-          overwrite
+          false // 始终只翻译空白字段，不覆盖已有内容
         )
         
         if (response.data && response.data.translatedFields) {
-          // 只更新被翻译的字段（避免覆盖用户手动输入的内容）
+          // 只更新空白字段（避免覆盖用户手动输入的内容）
           Object.keys(response.data.translatedFields).forEach(key => {
             if (response.data.translatedFields[key] !== undefined && response.data.translatedFields[key] !== null) {
-              // 如果 overwrite=false，只更新空白字段
-              if (!overwrite && i18nForm[key] && i18nForm[key].trim() !== '') {
-                // 跳过已有内容的字段
-                return
-              }
+              // 只更新空白字段，跳过已有内容的字段
+              if (!i18nForm[key] || i18nForm[key].trim() === '') {
               i18nForm[key] = response.data.translatedFields[key]
+              }
             }
           })
           ElMessage.success(t('errorCodes.i18nTechFields.translateSuccess'))

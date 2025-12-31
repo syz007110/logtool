@@ -31,6 +31,14 @@
         class="dashboard-menu"
         @click="handleMenuClick"
       >
+        <!-- 智能搜索：跳转到独立页面 -->
+        <a-menu-item key="/smart-search">
+          <template #icon>
+            <SearchOutlined />
+          </template>
+          <span>{{ $t('smartSearch.title') }}</span>
+        </a-menu-item>
+        
         <!-- 故障码管理 -->
         <a-sub-menu key="data-management">
           <template #icon>
@@ -218,7 +226,8 @@ import {
   BookOutlined,
   SafetyOutlined,
   AppstoreOutlined,
-  MonitorOutlined
+  MonitorOutlined,
+  SearchOutlined
 } from '@ant-design/icons-vue'
 
 export default {
@@ -244,7 +253,8 @@ export default {
     BookOutlined,
     SafetyOutlined,
     AppstoreOutlined,
-    MonitorOutlined
+    MonitorOutlined,
+    SearchOutlined
   },
   setup() {
     const store = useStore()

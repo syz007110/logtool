@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Binary layout constants (must match example/dataDecode.py MotionData)
-const ENTRY_SIZE_BYTES = 828; // 8 + (183*4) + 4 + 4 + 8 + 8 + (16*4)
+const ENTRY_SIZE_BYTES = 924; // 8 + (207*4) + 4 + 4 + 8 + 8 + (16*4)
 
 const UPLOAD_TEMP_DIR = path.resolve(__dirname, '../../uploads/temp');
 const CONFIG_DIR = path.resolve(__dirname, '../config');
@@ -48,14 +48,14 @@ function parseEntry(buffer, offset) {
   const ts = buffer.readBigUInt64LE(offset + 0);
   entry['ulint_data'] = ts.toString();
 
-  // 8..(8 + 183*4): real_data floats
+  // 8..(8 + 207*4): real_data floats
   let base = offset + 8;
-  for (let i = 0; i < 183; i += 1) {
+  for (let i = 0; i < 207; i += 1) {
     entry[`real_data_${i}`] = buffer.readFloatLE(base + i * 4);
   }
 
   // next: dint_data int32
-  base = offset + 8 + 183 * 4;
+  base = offset + 8 + 207 * 4;
   entry['dint_data'] = buffer.readInt32LE(base);
 
   // next: uint_data uint32

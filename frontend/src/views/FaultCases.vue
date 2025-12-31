@@ -69,6 +69,51 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Jira results -->
+      <div v-if="showJiraSection">
+        <el-divider content-position="left" style="margin: 14px 0 10px">
+          {{ $t('faultCases.jira.title') }}
+        </el-divider>
+        <div class="jira-header">
+          <el-tag v-if="jira.enabled === false" size="small" type="info">{{ $t('faultCases.jira.notEnabled') }}</el-tag>
+          <el-tag v-else-if="jira.ok === false" size="small" type="warning">{{ $t('faultCases.jira.failed') }}</el-tag>
+        </div>
+
+        <el-skeleton v-if="jira.loading" animated :rows="3" />
+
+        <el-alert
+          v-else-if="jira.ok === false && jira.message"
+          :title="jira.message"
+          type="warning"
+          show-icon
+          :closable="false"
+          style="margin: 8px 0"
+        />
+
+        <el-empty v-else-if="jira.enabled === false" :description="$t('faultCases.jira.notEnabledHint')" />
+        <el-empty v-else-if="jira.issues.length === 0" :description="$t('faultCases.jira.empty')" />
+
+        <el-table v-else :data="jira.issues" size="small" style="width: 100%">
+          <el-table-column prop="key" :label="$t('faultCases.jira.columns.key')" width="120" />
+          <el-table-column :label="$t('faultCases.jira.columns.summary')" min-width="260" show-overflow-tooltip>
+            <template #default="{ row }">
+              <a :href="row.url" target="_blank" rel="noopener noreferrer">{{ row.summary || row.key }}</a>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" :label="$t('faultCases.jira.columns.status')" width="140" show-overflow-tooltip />
+          <el-table-column :label="$t('faultCases.jira.columns.updated')" width="190">
+            <template #default="{ row }">
+              {{ formatDate(row.updated) }}
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('shared.operation')" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" @click="openJira(row)">{{ $t('faultCases.jira.open') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-card>
 
     <!-- Create / Edit dialog -->
@@ -211,6 +256,20 @@ export default {
       errorCode: ''
     })
 
+    const jira = reactive({
+      enabled: true,
+      ok: true,
+      loading: false,
+      issues: [],
+      message: ''
+    })
+
+    const showJiraSection = computed(() => {
+      const q = (query.q || '').trim()
+      // 仅在关键词查询时展示 Jira 区域（避免“最新列表”模式下占用空间）
+      return q.length > 0
+    })
+
     const canCreate = computed(() => store.getters['auth/hasPermission']?.('fault_case:create'))
     const canUpdate = computed(() => store.getters['auth/hasPermission']?.('fault_case:update'))
     const canDelete = computed(() => store.getters['auth/hasPermission']?.('fault_case:delete'))
@@ -341,36 +400,79 @@ export default {
       }
 
       loading.value = true
+      jira.loading = !!q
+      jira.issues = []
+      jira.message = ''
+      jira.ok = true
       try {
         showLatestHint.value = false
-        const resp = await api.faultCases.search({
+        const fcPromise = api.faultCases.search({
           q,
           errorCode,
           limit: 20,
           mine: query.scope === 'mine' ? 1 : undefined
         })
-        rows.value = resp.data.faultCases || []
+
+        const jiraPromise = q
+          ? api.jira.search({ q, maxResults: 10, startAt: 0 })
+          : Promise.resolve({ data: { ok: true, enabled: false, issues: [] } })
+
+        const [fcRes, jiraRes] = await Promise.allSettled([fcPromise, jiraPromise])
+
+        if (fcRes.status === 'fulfilled') {
+          rows.value = fcRes.value.data.faultCases || []
+        } else {
+          ElMessage.error(fcRes.reason?.response?.data?.message || 'Search failed')
+        }
+
+        if (jiraRes.status === 'fulfilled') {
+          const d = jiraRes.value?.data || {}
+          jira.enabled = d.enabled !== false
+          jira.ok = d.ok !== false
+          jira.issues = Array.isArray(d.issues) ? d.issues : []
+          jira.message = d.message || ''
+        } else {
+          jira.enabled = true
+          jira.ok = false
+          jira.issues = []
+          jira.message = 'Jira 搜索失败'
+        }
       } catch (e) {
         ElMessage.error(e.response?.data?.message || 'Search failed')
       } finally {
         loading.value = false
+        jira.loading = false
       }
     }
 
     const handleReset = () => {
       query.q = ''
       query.errorCode = ''
+      jira.loading = false
+      jira.issues = []
+      jira.ok = true
+      jira.message = ''
       query.scope === 'mine' ? loadMine() : loadLatest()
     }
 
     const handleScopeChange = () => {
       query.q = ''
       query.errorCode = ''
+      jira.loading = false
+      jira.issues = []
+      jira.ok = true
+      jira.message = ''
       query.scope === 'mine' ? loadMine() : loadLatest()
     }
 
     const goDetail = (row) => {
       router.push(`/dashboard/fault-cases/${row._id}`)
+    }
+
+    const openJira = (row) => {
+      const u = row?.url
+      if (!u) return
+      window.open(u, '_blank', 'noopener,noreferrer')
     }
 
     const openCreate = () => {
@@ -538,6 +640,8 @@ export default {
       rows,
       query,
       showLatestHint,
+      jira,
+      showJiraSection,
       canCreate,
       canUpdate,
       canDelete,
@@ -557,6 +661,7 @@ export default {
       handleReset,
       handleScopeChange,
       goDetail,
+      openJira,
       openCreate,
       openEdit,
       confirmDelete,
@@ -589,6 +694,12 @@ export default {
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 12px;
+}
+.jira-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 .attachment-preview {
   margin-top: 8px;
