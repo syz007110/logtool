@@ -25,35 +25,50 @@
     </div>
 
     <!-- 分析等级列表 -->
-    <el-card class="list-card">
-      <el-table
-        :data="filteredCategories"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-      >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="category_key" :label="$t('analysisCategories.categoryKey')" width="200" />
-        <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('analysisCategories.name')" width="200" />
-        <el-table-column v-if="isEnUS" prop="name_en" :label="$t('analysisCategories.name')" width="200" />
-        <el-table-column prop="sort_order" :label="$t('analysisCategories.sortOrder')" width="100" />
-        <el-table-column prop="is_active" :label="$t('analysisCategories.isActive')" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'danger'">
-              {{ row.is_active ? $t('analysisCategories.statusActive') : $t('analysisCategories.statusInactive') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('shared.operation')" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
-          <template #default="{ row }">
-            <div class="action-buttons">
-              <el-button @click="handleEdit(row)" class="btn-text btn-sm">{{$t('shared.edit')}}</el-button>
-              <el-button @click="handleDelete(row)" class="btn-text-danger btn-sm">{{$t('shared.delete')}}</el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <!-- 表格容器 - 固定表头 -->
+    <div class="table-container">
+        <el-table
+          :data="categories"
+          :loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+          v-loading="loading"
+        >
+          <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column prop="category_key" :label="$t('analysisCategories.categoryKey')" width="200" />
+          <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('analysisCategories.name')" min-width="200" />
+          <el-table-column v-if="isEnUS" prop="name_en" :label="$t('analysisCategories.name')" min-width="200" />
+          <el-table-column prop="sort_order" :label="$t('analysisCategories.sortOrder')" width="100" />
+          <el-table-column prop="is_active" :label="$t('analysisCategories.isActive')" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.is_active ? 'success' : 'danger'">
+                {{ row.is_active ? $t('analysisCategories.statusActive') : $t('analysisCategories.statusInactive') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('shared.operation')" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
+            <template #default="{ row }">
+              <div class="action-buttons">
+                <el-button @click="handleEdit(row)" class="btn-text btn-sm">{{$t('shared.edit')}}</el-button>
+                <el-button @click="handleDelete(row)" class="btn-text-danger btn-sm">{{$t('shared.delete')}}</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <!-- 分页 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
 
     <!-- 添加/编辑对话框 -->
     <el-dialog
@@ -118,6 +133,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
 
 export default {
@@ -134,6 +150,14 @@ export default {
     const dialogVisible = ref(false)
     const isEdit = ref(false)
     const formRef = ref(null)
+    const currentPage = ref(1)
+    const pageSize = ref(20)
+    const total = ref(0)
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('configSubPage')
+    })
     
     // 计算当前语言
     const currentLocale = computed(() => locale.value || 'zh-CN')
@@ -166,30 +190,37 @@ export default {
     }
     
     // 过滤后的分析等级列表
-    const filteredCategories = computed(() => {
-      if (!searchQuery.value) {
-        return categories.value
-      }
-      const query = searchQuery.value.toLowerCase()
-      return categories.value.filter(item =>
-        item.category_key.toLowerCase().includes(query) ||
-        item.name_zh.toLowerCase().includes(query) ||
-        item.name_en.toLowerCase().includes(query)
-      )
-    })
     
     // 搜索处理
     const handleSearch = () => {
-      // 搜索逻辑已在 computed 中实现
+      currentPage.value = 1
+      fetchCategories()
+    }
+
+    const handleSizeChange = (size) => {
+      pageSize.value = size
+      currentPage.value = 1
+      fetchCategories()
+    }
+
+    const handleCurrentChange = (page) => {
+      currentPage.value = page
+      fetchCategories()
     }
     
     // 获取分析等级列表
     const fetchCategories = async () => {
       loading.value = true
       try {
-        const response = await api.analysisCategories.getList()
+        const params = {
+          page: currentPage.value,
+          limit: pageSize.value,
+          search: searchQuery.value
+        }
+        const response = await api.analysisCategories.getList(params)
         if (response.data.success) {
-          categories.value = response.data.categories
+          categories.value = response.data.categories || []
+          total.value = response.data.total || 0
         }
       } catch (error) {
         console.error('获取分析等级列表失败:', error)
@@ -315,18 +346,23 @@ export default {
       loading,
       categories,
       searchQuery,
-      filteredCategories,
       dialogVisible,
       isEdit,
       formRef,
       formData,
       formRules,
+      currentPage,
+      pageSize,
+      total,
       handleSearch,
+      handleSizeChange,
+      handleCurrentChange,
       showAddDialog,
       handleEdit,
       handleDelete,
       handleSubmit,
-      handleCancel
+      handleCancel,
+      tableHeight
     }
   }
 }
@@ -335,6 +371,10 @@ export default {
 <style scoped>
 .analysis-categories-container {
   padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .action-bar {
@@ -354,8 +394,22 @@ export default {
   gap: 10px;
 }
 
-.list-card {
-  margin-bottom: 20px;
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
 }
 
 .action-buttons {
@@ -365,8 +419,12 @@ export default {
 
 .pagination-wrapper {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
 .dialog-footer {

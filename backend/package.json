@@ -9,6 +9,7 @@
     "cluster:dev": "nodemon src/cluster/smartCluster.js",
     "init-roles": "node src/scripts/initRoles.js",
     "init-permissions": "node src/scripts/initPermissions.js",
+    "init-mongo-indexes": "node src/scripts/initMongoIndexes.js",
     "clear-data": "node src/scripts/clearTestData.js",
     "reset-db": "npm run clear-data && npm run init-roles",
     "create-surgery-table": "node scripts/run_surgery_statistics_migration.js",

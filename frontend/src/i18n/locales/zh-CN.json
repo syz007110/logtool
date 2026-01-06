@@ -22,6 +22,9 @@
     "info": "提示",
     "refresh": "刷新",
     "operation": "操作",
+    "items": "条",
+    "close": "关闭",
+    "open": "打开",
     "resourceNotFound": "请求的资源不存在",
     "serverError": "服务器内部错误",
     "requestFailed": "请求失败",
@@ -110,38 +113,77 @@
   },
   "faultCases": {
     "title": "故障案例",
+    "listTitle": "已创建案例",
     "create": "新增案例",
     "edit": "编辑案例",
     "view": "查看",
     "saveDraft": "保存草稿",
-    "saveAndSubmit": "保存并提交审核",
-    "searchPlaceholder": "关键词（标题/现象/原因/步骤/经验/关键词）",
+    "publish": "发布",
+    "sourceManual": "案例数据库",
+    "sourceJira": "JIRA",
+    "filters": {
+      "label": "筛选:",
+      "sourcePlaceholder": "选择来源",
+      "modulePlaceholder": "选择模块",
+      "statusPlaceholder": "选择状态",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "results": "筛选结果"
+    },
+    "searchPlaceholder": "关键词（标题/现象/原因/解决方案/备注/关键词）",
     "errorCodePlaceholder": "故障码（code 或 ID）",
     "latestHint": "默认仅显示最新上传的 5 条已发布案例；可用关键词/故障码查询更多。",
     "scopes": {
       "latestPublished": "最新已发布",
-      "mine": "我的草稿/待审核/已驳回"
+      "mine": "我的草稿/已发布"
     },
     "statusDraft": "草稿",
     "statusPublished": "已发布",
     "upload": "上传附件",
     "uploadTip": "支持图片/PDF 等。上传后会先存为临时文件，保存时自动转为正式附件。",
+    "uploadClickText": "点击上传或拖拽文件到此处",
     "uploadExceed": "附件数量超出限制",
+    "sections": {
+      "problemDefinition": "案例定义",
+      "classification": "分类",
+      "analysisResolution": "分析与结果",
+      "attachments": "附件"
+    },
+    "jiraKeyPlaceholder": "例如：LOG-4420",
+    "titlePlaceholder": "请输入故障案例的主标题...",
+    "symptomPlaceholder": "详细描述观察到的现象...",
+    "possibleCausesPlaceholder": "是什么导致了这个问题？硬件故障？配置错误？",
+    "solutionPlaceholder": "解决此问题的分步说明...",
+    "remarkPlaceholder": "内部注释、调试步骤...",
     "keywordsPlaceholder": "用逗号或空格分隔，例如：轴故障, 编码器, 抖动",
     "relatedErrorCodesPlaceholder": "关联 MySQL 故障码 ID（逗号分隔），例如：12, 34",
+    "deviceSelectPlaceholder": "输入关键词搜索设备（device_id/医院等）",
+    "equipmentModelPlaceholder": "输入或选择设备型号",
+    "relatedErrorCodesSelectPlaceholder": "输入关键词搜索故障码（code/描述）",
+    "selectErrorCodes": "选择故障码",
+    "searchErrorCodes": "搜索故障码（故障码/摘要）",
+    "searchErrorCodesHint": "请输入关键词搜索故障码",
+    "selectedErrorCodesCount": "已选择 {count} 个故障码",
     "updatedAtUserPlaceholder": "可选：手动指定更新时间（用于展示排序）",
     "validation": {
-      "titleRequired": "标题不能为空"
+      "titleRequired": "标题不能为空",
+      "moduleRequired": "模块不能为空"
     },
     "fields": {
+      "source": "来源",
+      "jira_key": "Jira Key",
+      "module": "模块",
       "title": "标题",
       "symptom": "现象描述",
-      "possible_causes": "可能原因",
-      "troubleshooting_steps": "排查步骤（SOP）",
-      "experience": "工程师经验",
+      "possible_causes": "原因分析",
+      "solution": "解决方案",
+      "remark": "备注",
+      "troubleshooting_steps": "排查步骤（兼容旧字段）",
+      "experience": "工程师经验（兼容旧字段）",
       "attachments": "附件",
       "related_error_code_ids": "关联故障码",
       "device_id": "设备编号",
+    "equipment_model": "设备型号",
       "keywords": "关键词",
       "updated_at_user": "更新时间（手动）"
     },
@@ -162,27 +204,13 @@
       "translated": "翻译完成",
       "translateFailed": "翻译失败"
     },
-    "review": {
-      "title": "审核",
-      "approve": "通过",
-      "reject": "驳回",
-      "commentPlaceholder": "审核意见（可选）",
-      "statePending": "待审核",
-      "stateApproved": "已通过",
-      "stateRejected": "已驳回"
-    },
-    "reviewInbox": {
-      "title": "审核待办（故障案例）",
-      "view": "查看",
-      "markRead": "标为已读",
-      "columns": {
-        "title": "标题",
-        "time": "时间"
-      }
-    },
     "jira": {
       "title": "Jira 相关主题事件",
       "searchPlaceholder": "关键字（Jira 全文检索）",
+      "previewModeLabel": "JIRA案例模式",
+      "previewModeTip": "开启后点击 Jira 关键字将显示概览，不跳转（适用于未连接 VPN）",
+      "previewModeOn": "概览",
+      "previewModeOff": "跳转",
       "open": "打开",
       "addToFaultCases": "添加",
       "empty": "暂无匹配的 Jira 事项",
@@ -199,8 +227,14 @@
         "module": "模块",
         "summary": "标题",
         "status": "状态",
-        "updated": "更新时间"
-      }
+        "updated": "更新时间",
+        "project": "所属项目",
+        "resolution": "解决方案",
+        "attachments": "附件",
+        "imageAttachments": "图片附件",
+        "fileAttachments": "文件附件"
+      },
+      "openInJira": "在 JIRA 中打开"
     }
   },
   "login": {
@@ -477,6 +511,73 @@
       "nameZhRequired": "请输入中文名称",
       "nameEnRequired": "请输入英文名称",
       "sortOrderRequired": "请输入排序顺序"
+    }
+  },
+  "configManagement": {
+    "title": "配置管理",
+    "tabs": {
+      "logLevels": "日志分析等级",
+      "faultCaseStatuses": "故障案例状态",
+      "faultCaseModules": "模块"
+    },
+    "common": {
+      "name": "名称",
+      "nameZh": "中文名称",
+      "nameEn": "英文名称",
+      "description": "描述",
+      "sortOrder": "排序顺序",
+      "isActive": "是否启用",
+      "active": "启用",
+      "inactive": "禁用",
+      "mappings": "映射",
+      "mappingsTitle": "映射管理",
+      "addMapping": "新增映射",
+      "editMapping": "编辑映射",
+      "deleteMappingConfirm": "确定要删除这条映射吗？",
+      "sourceField": "映射字段",
+      "sourceValue": "映射值",
+      "sourceFieldPlaceholder": "如 jira_status / excel_status / default",
+      "sourceValuePlaceholder": "如 Done / Closed / 已解决",
+      "fetchMappingsFailed": "加载映射失败",
+      "submitFailed": "提交失败",
+      "validation": {
+        "sourceFieldRequired": "请输入映射字段",
+        "sourceValueRequired": "请输入映射值"
+      }
+    },
+    "statuses": {
+      "statusKey": "状态标识",
+      "add": "新增状态",
+      "edit": "编辑状态",
+      "deleteConfirm": "确定要删除这个状态吗？（会同时删除该状态的所有映射）",
+      "searchPlaceholder": "搜索状态...",
+      "statusKeyLabel": "状态标识",
+      "statusKeyPlaceholder": "如 resolved / unresolved / under_observation / requirement",
+      "mappingsTitle": "状态映射",
+      "fetchFailed": "获取状态列表失败",
+      "validation": {
+        "statusKeyRequired": "请输入状态标识",
+        "statusKeyPattern": "状态标识只能包含小写字母、数字和下划线",
+        "nameZhRequired": "请输入中文名称",
+        "nameEnRequired": "请输入英文名称"
+      }
+    },
+    "modules": {
+      "moduleKey": "模块标识",
+      "add": "新增模块",
+      "edit": "编辑模块",
+      "deleteConfirm": "确定要删除这个模块吗？（会同时删除该模块的所有映射）",
+      "searchPlaceholder": "搜索模块...",
+      "moduleKeyLabel": "模块标识",
+      "moduleKeyPlaceholder": "如 patient_platform / surgeon_console / vision_platform",
+      "mappingsTitle": "模块映射",
+      "fetchFailed": "获取模块列表失败",
+      "validation": {
+        "moduleKeyRequired": "请输入模块标识",
+        "moduleKeyPattern": "模块标识只能包含小写字母、数字和下划线",
+        "nameZhRequired": "请输入中文名称",
+        "nameEnRequired": "请输入英文名称"
+      }
     }
   },
   "i18nErrorCodes": {
@@ -1116,6 +1217,7 @@
       "user": "用户管理",
       "role": "角色管理",
       "error_code": "故障码管理",
+      "fault_case": "故障案例管理",
       "log": "日志管理",
       "i18n": "多语言管理",
       "device": "设备管理",
@@ -1150,12 +1252,22 @@
       "audit": "审核",
       "approve": "审批",
       "publish": "发布",
+      "review": "审核",
+      "explain": "释义",
+      "monitor": "监控",
+      "read_all": "查看全部",
+      "read_own": "查看自己",
+      "reparse": "重新解析",
+      "delete_own": "删除自己",
+      "role": "角色",
       "default": "操作"
     },
     "permissionLabels": {
       "user.reset_password": "用户管理 · 重置密码",
       "user.assign_roles": "用户管理 · 分配角色",
-      "role.assign": "角色管理 · 分配权限"
+      "user.role.assign": "用户管理 · 角色分配",
+      "role.assign": "角色管理 · 分配权限",
+      "fault_case.review": "故障案例管理 · 审核"
     }
   },
   "surgeryStatistics": {

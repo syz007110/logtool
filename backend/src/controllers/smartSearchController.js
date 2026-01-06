@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const crypto = require('crypto');
 
 const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
@@ -17,6 +18,74 @@ const DEFAULT_LIMITS = {
   errorCodes: 10,
   jira: 10
 };
+
+function makeOperationId() {
+  try {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch (_) {}
+  return `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function getClientIp(req) {
+  // Prefer proxy headers if present (nginx etc.), fallback to express ip
+  const xff = req?.headers?.['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) {
+    // "client, proxy1, proxy2"
+    return xff.split(',')[0].trim();
+  }
+  const xrip = req?.headers?.['x-real-ip'];
+  if (typeof xrip === 'string' && xrip.trim()) return xrip.trim();
+  return req?.ip || '';
+}
+
+function truncateString(s, maxLen) {
+  const str = String(s ?? '');
+  if (str.length <= maxLen) return str;
+  return `${str.slice(0, maxLen)}...<truncated:${str.length - maxLen}>`;
+}
+
+function sanitizeForLog(value, { maxString = 4000, maxArray = 50, maxDepth = 4 } = {}, depth = 0) {
+  if (depth > maxDepth) return '[MaxDepth]';
+  if (value == null) return value;
+  if (typeof value === 'string') return truncateString(value, maxString);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) {
+    const arr = value.slice(0, maxArray).map((v) => sanitizeForLog(v, { maxString, maxArray, maxDepth }, depth + 1));
+    if (value.length > maxArray) arr.push(`[TruncatedArray:${value.length - maxArray}]`);
+    return arr;
+  }
+  if (typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      // never log credentials
+      if (k.toLowerCase() === 'authorization' || k.toLowerCase() === 'cookie') continue;
+      out[k] = sanitizeForLog(v, { maxString, maxArray, maxDepth }, depth + 1);
+    }
+    return out;
+  }
+  return String(value);
+}
+
+function buildSmartSearchLogDetails({ operationId, query, limits, includeDebug, lang, llmResponseRaw }) {
+  return sanitizeForLog({
+    operationId,
+    input: { query, limits, includeDebug, lang },
+    llmRaw: {
+      response: llmResponseRaw || null
+    }
+  });
+}
+
+function fireAndForgetOperationLog(payload) {
+  Promise.resolve()
+    .then(async () => {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation(payload);
+    })
+    .catch((err) => {
+      console.warn('[smart-search] logOperation failed (ignored):', err?.message || err);
+    });
+}
 
 function parseBool(v) {
   const s = String(v ?? '').trim().toLowerCase();
@@ -413,10 +482,13 @@ function buildTemplateSummary({ keywordsUsed, errorCodes, jira }) {
 
 async function smartSearch(req, res) {
   const startedAt = Date.now();
+  const operationId = makeOperationId();
+  let queryForLog = '';
 
   try {
     const body = (req.body && typeof req.body === 'object') ? req.body : {};
     const query = String(body.query || '').trim();
+    queryForLog = query;
     if (!query) {
       return res.status(400).json({ ok: false, message: 'query 不能为空' });
     }
@@ -439,7 +511,7 @@ async function smartSearch(req, res) {
         llmAvailable: llmStatus.available,
         llmReason: llmStatus.reason
       };
-      return res.json({
+      const responsePayload = {
         ok: true,
         queryPlan: { mode: 'disabled', query },
         answerText,
@@ -450,7 +522,28 @@ async function smartSearch(req, res) {
         ],
         meta,
         ...(includeDebug ? { debug: { llmStatus } } : {})
+      };
+
+      fireAndForgetOperationLog({
+        operation: 'smart_search',
+        description: `智能搜索（不可用）: ${truncateString(query, 120)}`,
+        user_id: req.user?.id ?? null,
+        username: req.user?.username ?? '',
+        status: 'success',
+        ip: getClientIp(req),
+        user_agent: req.headers?.['user-agent'] || '',
+        details: buildSmartSearchLogDetails({
+          operationId,
+          query,
+          limits,
+          includeDebug,
+          lang: targetLang,
+          llmRequest: null,
+          llmResponseRaw: null
+        })
       });
+
+      return res.json(responsePayload);
     }
 
     const qwenCfg = getQwenConfig();
@@ -473,7 +566,7 @@ async function smartSearch(req, res) {
         llmAvailable: false,
         llmReason: e?.code || 'llm_call_failed'
       };
-      return res.json({
+      const responsePayload = {
         ok: true,
         queryPlan: { mode: 'llm_failed', query },
         answerText,
@@ -484,7 +577,27 @@ async function smartSearch(req, res) {
         ],
         meta,
         ...(includeDebug ? { debug: { llmStatus, llmError: String(e?.message || e), qwen: { model: qwenCfg.model } } } : {})
+      };
+
+      fireAndForgetOperationLog({
+        operation: 'smart_search',
+        description: `智能搜索（LLM失败）: ${truncateString(query, 120)}`,
+        user_id: req.user?.id ?? null,
+        username: req.user?.username ?? '',
+        status: 'failed',
+        ip: getClientIp(req),
+        user_agent: req.headers?.['user-agent'] || '',
+        details: buildSmartSearchLogDetails({
+          operationId,
+          query,
+          limits,
+          includeDebug,
+          lang: targetLang,
+          llmResponseRaw: null
+        })
       });
+
+      return res.json(responsePayload);
     }
 
     const plan = llm?.plan || { intent: 'other', query: { fault_codes: [], symptom: [], trigger: [], component: [], neg: [], days: 180 } };
@@ -513,7 +626,7 @@ async function smartSearch(req, res) {
         llmReason: llmStatus.reason,
         llmModel: qwenCfg.model
       };
-      return res.json({
+      const responsePayload = {
         ok: true,
         queryPlan: { mode: 'llm_query_plan', query, model: qwenCfg.model, plan },
         answerText,
@@ -532,7 +645,27 @@ async function smartSearch(req, res) {
             recognizedCodes
           }
         } : {})
+      };
+
+      fireAndForgetOperationLog({
+        operation: 'smart_search',
+        description: `智能搜索（无检索要点）: ${truncateString(query, 120)}`,
+        user_id: req.user?.id ?? null,
+        username: req.user?.username ?? '',
+        status: 'success',
+        ip: getClientIp(req),
+        user_agent: req.headers?.['user-agent'] || '',
+        details: buildSmartSearchLogDetails({
+          operationId,
+          query,
+          limits,
+          includeDebug,
+          lang: targetLang,
+          llmResponseRaw: llm?.raw || null
+        })
       });
+
+      return res.json(responsePayload);
     }
 
     const queryPlan = { mode: 'llm_query_plan', query, model: qwenCfg.model, plan };
@@ -566,7 +699,7 @@ async function smartSearch(req, res) {
         llmReason: llmStatus.reason,
         llmModel: qwenCfg.model
       };
-      return res.json({
+      const responsePayload = {
         ok: true,
         queryPlan,
         answerText,
@@ -588,7 +721,27 @@ async function smartSearch(req, res) {
             }
           }
         } : {})
+      };
+
+      fireAndForgetOperationLog({
+        operation: 'smart_search',
+        description: `智能搜索（使用方法）: ${truncateString(query, 120)}`,
+        user_id: req.user?.id ?? null,
+        username: req.user?.username ?? '',
+        status: 'success',
+        ip: getClientIp(req),
+        user_agent: req.headers?.['user-agent'] || '',
+        details: buildSmartSearchLogDetails({
+          operationId,
+          query,
+          limits,
+          includeDebug,
+          lang: targetLang,
+          llmResponseRaw: llm?.raw || null
+        })
       });
+
+      return res.json(responsePayload);
     }
 
     if (intent === 'definition') {
@@ -605,7 +758,7 @@ async function smartSearch(req, res) {
         llmReason: llmStatus.reason,
         llmModel: qwenCfg.model
       };
-      return res.json({
+      const responsePayload = {
         ok: true,
         queryPlan,
         answerText,
@@ -627,7 +780,27 @@ async function smartSearch(req, res) {
             }
           }
         } : {})
+      };
+
+      fireAndForgetOperationLog({
+        operation: 'smart_search',
+        description: `智能搜索（概念解释）: ${truncateString(query, 120)}`,
+        user_id: req.user?.id ?? null,
+        username: req.user?.username ?? '',
+        status: 'success',
+        ip: getClientIp(req),
+        user_agent: req.headers?.['user-agent'] || '',
+        details: buildSmartSearchLogDetails({
+          operationId,
+          query,
+          limits,
+          includeDebug,
+          lang: targetLang,
+          llmResponseRaw: llm?.raw || null
+        })
       });
+
+      return res.json(responsePayload);
     }
 
     // Step 3-1: Fault code retrieval
@@ -822,7 +995,9 @@ async function smartSearch(req, res) {
         intent: intent,
         symptom: q.symptom || [],
         trigger: q.trigger || [],
-        component: q.component || []
+        component: q.component || [],
+        neg: q.neg || [],
+        days: q.days || 180
       },
       missNotes: missNotes || [],
       sources: {
@@ -863,9 +1038,46 @@ async function smartSearch(req, res) {
       };
     }
 
+    fireAndForgetOperationLog({
+      operation: 'smart_search',
+      description: `智能搜索: ${truncateString(query, 120)}`,
+      user_id: req.user?.id ?? null,
+      username: req.user?.username ?? '',
+      status: 'success',
+      ip: getClientIp(req),
+      user_agent: req.headers?.['user-agent'] || '',
+      details: buildSmartSearchLogDetails({
+        operationId,
+        query,
+        limits,
+        includeDebug,
+        lang: targetLang,
+        llmResponseRaw: llm?.raw || null
+      })
+    });
+
     return res.json(out);
   } catch (err) {
     console.error('[smart-search] failed:', err);
+
+    fireAndForgetOperationLog({
+      operation: 'smart_search',
+      description: `智能搜索（异常）: ${truncateString(queryForLog || req.body?.query || '', 120)}`,
+      user_id: req.user?.id ?? null,
+      username: req.user?.username ?? '',
+      status: 'failed',
+      ip: getClientIp(req),
+      user_agent: req.headers?.['user-agent'] || '',
+      details: buildSmartSearchLogDetails({
+        operationId,
+        query: queryForLog || String(req.body?.query || '').trim(),
+        limits: req.body?.limits || null,
+        includeDebug: req.body?.debug === true || req.body?.includeDebug === true || req.query?.debug === '1',
+        lang: normalizeLang(req),
+        llmResponseRaw: null
+      })
+    });
+
     return res.status(500).json({ ok: false, message: 'smart search failed', error: err.message });
   }
 }

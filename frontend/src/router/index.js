@@ -83,21 +83,38 @@ const routes = [
       {
         path: 'fault-cases',
         name: 'FaultCases',
-        // Phase 1: Jira is the source of truth for fault cases
         component: () => import('../views/JiraFaultCases.vue'),
         meta: { requiresPermission: 'fault_case:read' }
       },
       {
+        path: 'fault-cases/new',
+        name: 'FaultCaseCreate',
+        component: () => import('../views/FaultCaseForm.vue'),
+        meta: { requiresPermission: 'fault_case:create', hideSidebar: true }
+      },
+      {
+        path: 'fault-cases/:id/edit',
+        name: 'FaultCaseEdit',
+        component: () => import('../views/FaultCaseForm.vue'),
+        meta: { requiresPermission: 'fault_case:update', hideSidebar: true }
+      },
+      {
         path: 'fault-cases/:id',
         name: 'FaultCaseDetail',
-        // Phase 1: no internal detail page; issues open in Jira directly
-        redirect: '/dashboard/fault-cases',
+        component: () => import('../views/FaultCaseDetail.vue'),
         meta: { requiresPermission: 'fault_case:read' }
       },
       {
+        path: 'config-management',
+        name: 'ConfigManagement',
+        component: () => import('../views/ConfigManagement.vue'),
+        meta: { requiresPermission: 'loglevel:manage' }
+      },
+      {
+        // 兼容旧入口：日志分析等级 -> 配置管理
         path: 'analysis-categories',
         name: 'AnalysisCategories',
-        component: () => import('../views/AnalysisCategories.vue'),
+        redirect: '/dashboard/config-management',
         meta: { requiresPermission: 'loglevel:manage' }
       },
       {
@@ -114,7 +131,7 @@ const routes = [
       {
         path: 'log-analysis/:id',
         name: 'LogAnalysis',
-        redirect: (to) => ({ path: '/surgery-statistics', query: { logIds: to.params.id }})
+        redirect: (to) => ({ path: '/surgery-statistics', query: { logIds: to.params.id } })
       },
       {
         path: 'batch-analysis/:logIds',
@@ -189,8 +206,7 @@ const routes = [
         name: 'Monitoring',
         component: () => import('../views/MonitoringDashboard.vue'),
         meta: { requiresPermission: 'system:monitor' }
-      }
-      ,
+      },
       {
         path: 'surgeries',
         name: 'Surgeries',
@@ -200,8 +216,7 @@ const routes = [
       }
 
     ]
-  }
-  ,
+  },
   // 移动端主路由
   {
     path: '/m',
@@ -254,4 +269,4 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-export default router 
+export default router

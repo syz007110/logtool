@@ -2,7 +2,7 @@ import prefixMappings from './prefixMappings.json'
 
 const TYPE_SUFFIX_PATTERN = /^[0-9A-F]{3}[A-E]$/
 
-function normalizeTypeCode(input) {
+function normalizeTypeCode (input) {
   if (!input) return ''
   const raw = String(input).trim().toUpperCase()
   if (TYPE_SUFFIX_PATTERN.test(raw)) {
@@ -17,7 +17,7 @@ function normalizeTypeCode(input) {
   return raw
 }
 
-function deriveFromFullLogCode(input) {
+function deriveFromFullLogCode (input) {
   if (!input) {
     return { subsystem: null, arm: null, joint: null, normalizedCode: '' }
   }
@@ -46,7 +46,7 @@ function deriveFromFullLogCode(input) {
   }
 }
 
-function buildPrefixCore(subsystem, arm, joint) {
+function buildPrefixCore (subsystem, arm, joint) {
   if (!subsystem) return ''
   const s = String(subsystem).toUpperCase()
   let armCode = arm ? String(arm).toUpperCase() : null
@@ -82,7 +82,7 @@ function buildPrefixCore(subsystem, arm, joint) {
   return prefix || ''
 }
 
-export function derivePrefixLabel(rawCode, subsystemOverride = null) {
+export function derivePrefixLabel (rawCode, subsystemOverride = null) {
   const base = deriveFromFullLogCode(rawCode)
   const normalized = base.normalizedCode || normalizeTypeCode(rawCode)
   const subsystem = (subsystemOverride || base.subsystem || '').toString().toUpperCase()
@@ -100,7 +100,7 @@ export function derivePrefixLabel(rawCode, subsystemOverride = null) {
   return buildPrefixCore(subsystem, arm, joint)
 }
 
-export function derivePrefixFromRecord(record, options = {}) {
+export function derivePrefixFromRecord (record, options = {}) {
   if (!record) return ''
   const { subsystem: overrideSubsystem, rawCode } = options
   const subsystem = overrideSubsystem || record.subsystem || null
@@ -120,4 +120,3 @@ export function derivePrefixFromRecord(record, options = {}) {
 }
 
 export { normalizeTypeCode }
-

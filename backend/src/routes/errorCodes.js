@@ -85,7 +85,8 @@ router.post(
   }
 );
 router.post('/tech-solution/cleanup-temp', auth, checkPermission('error_code:update'), cleanupTempTechFiles);
-router.get('/:id/tech-solution', auth, checkPermission('error_code:read'), getTechSolutionDetail);
+// 获取技术排查方案 - 所有已登录用户可用（与 /by-code 保持一致，避免依赖权限表）
+router.get('/:id/tech-solution', auth, getTechSolutionDetail);
 router.put('/:id/tech-solution', auth, checkPermission('error_code:update'), updateTechSolutionDetail);
 
 // 新增 - 需要 error_code:create 权限

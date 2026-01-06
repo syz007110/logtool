@@ -7,19 +7,19 @@ const state = {
 }
 
 const mutations = {
-  SET_ERROR_CODES(state, errorCodes) {
+  SET_ERROR_CODES (state, errorCodes) {
     state.errorCodes = errorCodes
   },
-  SET_LOADING(state, loading) {
+  SET_LOADING (state, loading) {
     state.loading = loading
   },
-  SET_TOTAL(state, total) {
+  SET_TOTAL (state, total) {
     state.total = total
   }
 }
 
 const actions = {
-  async fetchErrorCodes({ commit }, params = {}) {
+  async fetchErrorCodes ({ commit }, params = {}) {
     commit('SET_LOADING', true)
     try {
       const response = await api.errorCodes.getList(params)
@@ -33,8 +33,8 @@ const actions = {
       commit('SET_LOADING', false)
     }
   },
-  
-  async createErrorCode({ dispatch }, errorCodeData) {
+
+  async createErrorCode ({ dispatch }, errorCodeData) {
     try {
       const response = await api.errorCodes.create(errorCodeData)
       // 创建成功后重新获取列表
@@ -44,8 +44,8 @@ const actions = {
       throw error
     }
   },
-  
-  async updateErrorCode({ dispatch }, { id, data }) {
+
+  async updateErrorCode ({ dispatch }, { id, data }) {
     try {
       const response = await api.errorCodes.update(id, data)
       // 更新成功后重新获取列表
@@ -55,8 +55,8 @@ const actions = {
       throw error
     }
   },
-  
-  async updateErrorCodeByCode({ dispatch }, { code, subsystem, data }) {
+
+  async updateErrorCodeByCode ({ dispatch }, { code, subsystem, data }) {
     try {
       // 先根据故障码和子系统查找故障码
       const findResponse = await api.errorCodes.getByCodeAndSubsystem(code, subsystem)
@@ -75,8 +75,8 @@ const actions = {
       throw error
     }
   },
-  
-  async deleteErrorCode({ dispatch }, id) {
+
+  async deleteErrorCode ({ dispatch }, id) {
     try {
       const response = await api.errorCodes.delete(id)
       // 删除成功后重新获取列表
@@ -86,8 +86,8 @@ const actions = {
       throw error
     }
   },
-  
-  async exportXML(_, language = 'chinese') {
+
+  async exportXML (_, language = 'chinese') {
     try {
       const response = await api.errorCodes.exportXML(language)
       return response
@@ -109,4 +109,4 @@ export default {
   mutations,
   actions,
   getters
-} 
+}

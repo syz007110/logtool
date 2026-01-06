@@ -1,40 +1,134 @@
 <template>
   <div class="fault-cases-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('faultCases.title') }}</span>
-          <div class="header-actions">
-            <el-button @click="refresh">{{ $t('shared.refresh') }}</el-button>
-          </div>
+    <!-- 统一卡片：包含所有控件 -->
+    <el-card class="main-card">
+    <!-- Search and Actions Section -->
+    <div class="search-actions-section">
+      <!-- First Row: Keyword Search, Search/Reset Buttons, Toggle Buttons, Create Button -->
+      <div class="search-actions-row">
+        <div class="search-input-group">
+          <el-input
+            v-model="jiraQuery.q"
+            :placeholder="$t('faultCases.jira.searchPlaceholder')"
+            clearable
+            class="search-input"
+            @keyup.enter="handleJiraSearch(true)"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <button class="btn-primary search-btn" @click="handleJiraSearch(true)">
+            {{ $t('shared.search') }}
+          </button>
+          <button class="btn-secondary reset-btn" @click="resetFilters">
+            <el-icon style="margin-right: 4px;"><Refresh /></el-icon>
+            {{ $t('shared.reset') }}
+          </button>
         </div>
-      </template>
 
-      <div class="filters">
-        <el-input
-          v-model="query.q"
-          :placeholder="$t('faultCases.jira.searchPlaceholder')"
-          clearable
-          style="width: 360px"
-          @keyup.enter="handleSearch(true)"
-        />
-        <el-date-picker
-          v-model="dateRange"
-          type="monthrange"
-          :range-separator="$t('logs.to')"
-          :start-placeholder="$t('faultCases.jira.startMonth')"
-          :end-placeholder="$t('faultCases.jira.endMonth')"
-          format="YYYY-MM"
-          value-format="YYYY-MM"
-          style="width: 300px"
-          clearable
-        />
-        <el-button type="primary" @click="handleSearch(true)">{{ $t('shared.search') }}</el-button>
-        <el-button @click="reset">{{ $t('shared.reset') }}</el-button>
+        <div class="actions-group">
+          <div class="jira-preview-toggle">
+            <span class="toggle-label">{{ $t('faultCases.jira.previewModeLabel') }}</span>
+            <el-switch
+              v-model="preferJiraPreview"
+              inline-prompt
+              :active-text="$t('faultCases.jira.previewModeOn')"
+              :inactive-text="$t('faultCases.jira.previewModeOff')"
+            />
+            <el-tooltip :content="$t('faultCases.jira.previewModeTip')" placement="top">
+              <el-icon class="help-icon"><InfoFilled /></el-icon>
+            </el-tooltip>
+          </div>
+          <button 
+            v-if="canCreate"
+            class="btn-secondary create-btn"
+            @click="openCreate"
+          >
+            <el-icon><Plus /></el-icon>
+            {{ $t('faultCases.create') }}
+          </button>
+        </div>
       </div>
 
-      <el-alert
-        v-if="state.enabled === false"
+      <!-- Second Row: Filters -->
+      <div class="filters-row">
+        <div class="filters-label">
+          <el-icon><Filter /></el-icon>
+          <span>{{ $t('faultCases.filters.label') || '筛选:' }}</span>
+        </div>
+        <div class="filters-group">
+          <el-select
+            v-model="filters.source"
+            :placeholder="$t('faultCases.filters.sourcePlaceholder')"
+            clearable
+            class="filter-select"
+            @change="handleFilterChange"
+          >
+            <el-option :label="$t('faultCases.sourceJira')" value="jira" />
+            <el-option :label="$t('faultCases.sourceManual')" value="manual" />
+          </el-select>
+
+          <el-select
+            :model-value="filteredModuleValues"
+            :placeholder="$t('faultCases.filters.modulePlaceholder')"
+            multiple
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            class="filter-select"
+            @change="(val) => { filteredModuleValues = val; handleTableFilterChange(); }"
+          >
+            <el-option
+              v-for="module in availableModules"
+              :key="module"
+              :label="module"
+              :value="module"
+            />
+          </el-select>
+
+          <el-select
+            :model-value="filteredStatusValues"
+            :placeholder="$t('faultCases.filters.statusPlaceholder')"
+            multiple
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            class="filter-select"
+            @change="(val) => { filteredStatusValues = val; handleTableFilterChange(); }"
+          >
+            <el-option
+              v-for="status in availableStatuses"
+              :key="status"
+              :label="status"
+              :value="status"
+            />
+          </el-select>
+
+          <el-date-picker
+            v-model="filters.dateRange"
+            type="daterange"
+            :range-separator="$t('logs.to')"
+            :start-placeholder="$t('faultCases.filters.startDate')"
+            :end-placeholder="$t('faultCases.filters.endDate')"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            class="filter-date-picker"
+            clearable
+            @change="handleFilterChange"
+          />
+        </div>
+        <div class="filter-results">
+          <span>{{ $t('faultCases.filters.results') || '筛选结果' }}: {{ jiraPager.total || 0 }} {{ $t('shared.items') }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider between search and table -->
+    <el-divider style="margin: 20px 0;" />
+
+    <el-alert
+        v-if="jiraState.enabled === false"
         :title="$t('faultCases.jira.notEnabledHint')"
         type="info"
         show-icon
@@ -43,18 +137,46 @@
       />
 
       <el-alert
-        v-else-if="state.ok === false && state.message"
-        :title="state.message"
+        v-else-if="jiraState.ok === false && jiraState.message"
+        :title="jiraState.message"
         type="warning"
         show-icon
         :closable="false"
         style="margin: 10px 0"
       />
 
-      <el-table :data="rows" :loading="loading" style="width: 100%" @filter-change="handleFilterChange">
+      <!-- Search Status / Results Info -->
+      <div v-if="jiraQuery.q && (jiraLoading || (hasSearched && (jiraRows.length > 0 || (jiraState.ok === true && !jiraLoading && jiraPager.total === 0))))" class="search-info" style="margin: 10px 0; padding: 8px 12px; background-color: rgb(var(--bg-secondary)); border-radius: 4px;">
+        <el-text v-if="jiraLoading" type="info" size="small">
+          <el-icon class="is-loading" style="margin-right: 6px; vertical-align: middle;"><Loading /></el-icon>
+          <span>正在搜索 "{{ jiraQuery.q }}"...</span>
+        </el-text>
+        <el-text v-else-if="hasSearched && jiraRows.length > 0" type="success" size="small">
+          <el-icon style="margin-right: 6px; vertical-align: middle;"><Check /></el-icon>
+          <span>找到 <strong>{{ jiraPager.total }}</strong> 条结果，当前显示 <strong>{{ jiraRows.length }}</strong> 条</span>
+        </el-text>
+        <el-text v-else-if="hasSearched && jiraState.ok === true && !jiraLoading && jiraPager.total === 0" type="info" size="small">
+          <el-icon style="margin-right: 6px; vertical-align: middle;"><InfoFilled /></el-icon>
+          <span>未找到与 "<strong>{{ jiraQuery.q }}</strong>" 相关的故障案例</span>
+        </el-text>
+      </div>
+
+      <!-- Jira Results Table -->
+      <div class="table-container">
+      <el-table v-if="jiraLoading || jiraRows.length > 0" :data="jiraRows" :loading="jiraLoading" :height="tableHeight" style="width: 100%" @filter-change="handleTableFilterChange" v-loading="jiraLoading">
         <el-table-column :label="$t('faultCases.jira.columns.key')" width="140">
           <template #default="{ row }">
-            <a :href="row.url" target="_blank" rel="noopener noreferrer" style="color: #409EFF; text-decoration: none;">{{ row.key }}</a>
+            <el-link type="primary" :underline="false" @click.prevent="openJiraOrPreview(row)">{{ row.key }}</el-link>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('faultCases.fields.source')" width="110">
+          <template #default="{ row }">
+            <el-tag 
+              size="small" 
+              :type="row.source === 'jira' ? 'warning' : 'info'"
+            >
+              {{ row.source === 'jira' ? 'JIRA' : $t('faultCases.sourceManual') }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column
@@ -69,7 +191,7 @@
           :filtered-value="filteredModuleValues"
           filter-placement="bottom-end"
         />
-        <el-table-column :label="$t('faultCases.jira.columns.summary')" min-width="260">
+        <el-table-column :label="$t('faultCases.jira.columns.summary')" min-width="320">
           <template #default="{ row }">
             <el-tooltip
               :content="row.summary || ''"
@@ -93,100 +215,622 @@
           :filtered-value="filteredStatusValues"
           filter-placement="bottom-end"
         />
-        <el-table-column :label="$t('faultCases.jira.columns.updated')" width="190">
+        <el-table-column :label="$t('faultCases.jira.columns.updated')" width="110">
           <template #default="{ row }">
-            {{ formatDate(row.updated) }}
+            {{ formatDateOnly(row.updated) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="120" fixed="right">
+        <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="text" size="small" disabled>{{ $t('faultCases.jira.addToFaultCases') }}</el-button>
+            <div v-if="row.source === 'jira'" class="btn-group" style="justify-content: center;">
+              <button
+                class="btn-text btn-sm"
+                :disabled="!canCreate"
+                @click="addToFaultCases(row)"
+              >{{ $t('faultCases.jira.addToFaultCases') }}</button>
+            </div>
+            <div v-else class="btn-group" style="justify-content: center; gap: 8px;">
+              <button
+                v-if="canUpdate"
+                class="btn-text btn-sm"
+                @click="openEditByMixedRow(row)"
+              >{{ $t('shared.edit') }}</button>
+              <el-dropdown
+                v-if="canDelete"
+                trigger="click"
+                placement="bottom-end"
+                @command="(command) => handleOperationCommand(row, command)"
+              >
+                <button class="btn-text btn-sm">
+                  <i class="fas fa-ellipsis-h"></i>
+              </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="delete">
+                      {{ $t('shared.delete') }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+            </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pager">
+      <!-- Empty state when search completed but no results -->
+      <el-empty
+        v-if="hasSearched && jiraState.ok === true && !jiraLoading && jiraPager.total === 0"
+        :description="$t('shared.noData')"
+        :image-size="80"
+        style="margin: 40px 0;"
+      />
+
+      <div v-if="jiraRows.length > 0" class="pager">
         <el-pagination
-          v-model:current-page="pager.page"
-          v-model:page-size="pager.limit"
+          :current-page="jiraPager.page"
+          :page-size="jiraPager.limit"
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="pager.total"
-          @size-change="handleSearch(true)"
-          @current-change="handleSearch(false)"
+          :total="jiraPager.total"
+          @size-change="(val) => { jiraPager.limit = val; handleJiraSearch(true); }"
+          @current-change="(val) => { jiraPager.page = val; handleJiraSearch(false); }"
         />
       </div>
+
+    <!-- Create / Edit dialog -->
+    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? $t('faultCases.edit') : $t('faultCases.create')" width="980px">
+      <el-form ref="formRef" :model="form" label-width="140px">
+        <el-row :gutter="12">
+          <el-col :span="8">
+            <el-form-item :label="$t('faultCases.fields.source')">
+              <el-tag :type="form.source === 'jira' ? 'warning' : 'info'">
+                {{ form.source === 'jira' ? 'jira' : $t('faultCases.sourceManual') }}
+              </el-tag>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item :label="$t('faultCases.fields.jira_key')">
+              <el-input v-model="form.jira_key" :disabled="form.source !== 'jira'" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item :label="$t('faultCases.fields.module')">
+              <el-input v-model="form.module" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-form-item :label="$t('faultCases.fields.title')" required>
+          <el-input v-model="form.title" />
+        </el-form-item>
+        <el-form-item :label="$t('faultCases.fields.symptom')">
+          <el-input v-model="form.symptom" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item :label="$t('faultCases.fields.possible_causes')">
+          <el-input v-model="form.possible_causes" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item :label="$t('faultCases.fields.solution')">
+          <el-input v-model="form.solution" type="textarea" :rows="4" />
+        </el-form-item>
+        <el-form-item :label="$t('faultCases.fields.remark')">
+          <el-input v-model="form.remark" type="textarea" :rows="3" />
+        </el-form-item>
+
+        <el-form-item :label="$t('faultCases.fields.equipment_model')">
+              <el-select
+            v-model="form.equipment_model"
+            multiple
+                filterable
+                clearable
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="3"
+                style="width: 100%"
+            :placeholder="$t('faultCases.equipmentModelPlaceholder')"
+            @focus="loadEquipmentModels"
+              >
+            <el-option v-for="m in equipmentModelOptions" :key="m.value" :label="m.label" :value="m.value" />
+              </el-select>
+            </el-form-item>
+
+        <el-form-item :label="$t('faultCases.fields.keywords')">
+          <el-select
+            v-model="keywordTags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="3"
+                style="width: 100%"
+            :placeholder="$t('faultCases.keywordsPlaceholder')"
+            @keyup.enter="handleKeywordEnter"
+            @keydown.enter.prevent
+            @input="handleKeywordSelectInput"
+          >
+            <el-option
+              v-for="(keyword, index) in keywordTags"
+              :key="index"
+              :label="keyword"
+              :value="keyword"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('faultCases.fields.related_error_code_ids')">
+          <el-select
+            v-model="form.related_error_code_ids"
+            multiple
+            filterable
+            remote
+            clearable
+            :remote-method="searchErrorCodes"
+            :loading="errorCodeLoading"
+            style="width: 100%"
+            :placeholder="$t('faultCases.relatedErrorCodesSelectPlaceholder')"
+          >
+            <el-option v-for="ec in errorCodeOptions" :key="ec.value" :label="ec.label" :value="ec.value" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item :label="$t('faultCases.fields.attachments')">
+          <el-upload
+            multiple
+            :file-list="uploadFileList"
+            :http-request="handleUploadRequest"
+            :on-remove="handleUploadRemove"
+            :on-exceed="handleExceed"
+          >
+            <el-button>{{ $t('faultCases.upload') }}</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                {{ $t('faultCases.uploadTip') }}
+              </div>
+            </template>
+          </el-upload>
+          <div v-if="form.attachments.length" class="attachment-preview">
+            <div v-for="(a, idx) in form.attachments" :key="idx" class="attachment-item">
+              <a :href="a.url" target="_blank" rel="noopener noreferrer">{{ a.original_name || a.filename || a.url }}</a>
+              <span class="attachment-meta">({{ formatSize(a.size_bytes) }})</span>
+            </div>
+          </div>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <button class="btn-secondary" @click="dialog.visible = false">{{ $t('shared.cancel') }}</button>
+        <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="save()">{{ $t('faultCases.publish') }}</button>
+      </template>
+    </el-dialog>
+
+    <!-- Image preview dialog -->
+    <el-dialog v-model="imagePreview.visible" :title="imagePreview.filename || '图片预览'" width="90%" top="5vh" :close-on-click-modal="true">
+      <div v-loading="imagePreview.loading" class="image-preview-container">
+        <div v-if="imagePreview.error" class="image-error">
+          <el-icon size="48" color="#f56c6c"><Warning /></el-icon>
+          <p>图片加载失败</p>
+          <p class="error-desc">可能的原因：图片不存在、跨域限制或网络问题</p>
+        </div>
+        <img
+          v-else
+          :src="imagePreview.src"
+          class="preview-image"
+          @load="imagePreview.loading = false"
+          @error="imagePreview.error = true; imagePreview.loading = false"
+          alt="图片预览"
+        />
+      </div>
+      <template #footer>
+        <div class="image-preview-footer">
+          <el-button @click="imagePreview.visible = false">关闭</el-button>
+          <el-button type="primary" @click="downloadImage">下载图片</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Jira preview dialog (when Jira is not reachable / no VPN) -->
+    <el-dialog 
+      v-model="jiraPreview.visible" 
+      :title="''" 
+      width="820px"
+      class="jira-preview-dialog"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="jiraPreview.loading" class="jira-preview-content">
+        <!-- Header: Key / Project Name + Title -->
+        <div class="jira-preview-header">
+          <div class="jira-preview-key-project">
+            {{ jiraPreview.key || '-' }}<span v-if="jiraPreview.projectName"> / {{ jiraPreview.projectName }}</span>
+          </div>
+          <div class="jira-preview-title">{{ jiraPreview.summary || '-' }}</div>
+        </div>
+
+        <!-- Key Information Section: Two Columns -->
+        <div class="jira-key-info">
+          <div class="jira-key-info-left">
+            <div class="jira-info-item">
+              <div class="jira-info-label">STATUS</div>
+              <el-tag v-if="jiraPreview.status" type="primary" size="small" class="jira-status-tag">
+                {{ jiraPreview.status }}
+              </el-tag>
+              <span v-else class="jira-info-empty">-</span>
+            </div>
+            <div class="jira-info-item">
+              <div class="jira-info-label">COMPONENTS</div>
+              <div class="jira-components">
+                <el-tag 
+                  v-for="(comp, idx) in jiraPreview.components" 
+                  :key="idx"
+                  size="small"
+                  class="jira-component-tag"
+                >
+                  {{ comp }}
+                </el-tag>
+                <span v-if="!jiraPreview.components || jiraPreview.components.length === 0" class="jira-info-empty">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="jira-key-info-right">
+            <div class="jira-info-item">
+              <div class="jira-info-label">RESOLUTION</div>
+              <div class="jira-info-value">
+                {{ jiraPreview.resolution?.name || 'Unresolved' }}
+              </div>
+            </div>
+            <div class="jira-info-item">
+              <div class="jira-info-label">UPDATED</div>
+              <div class="jira-info-value">
+                <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                {{ formatDate(jiraPreview.updated) || '-' }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content Section: Different for Regular JIRA vs Complaint -->
+        <template v-if="isComplaintProject">
+          <!-- 客诉字段显示 -->
+          <div v-if="jiraPreview.customfield_12213" class="jira-content-section">
+            <div class="jira-content-label">DETAILED DESCRIPTION</div>
+            <div class="jira-content-box">{{ jiraPreview.customfield_12213 }}</div>
+          </div>
+          <div v-if="jiraPreview.customfield_12284" class="jira-content-section">
+            <div class="jira-content-label">PRELIMINARY INVESTIGATION</div>
+            <div class="jira-content-box">{{ jiraPreview.customfield_12284 }}</div>
+          </div>
+          <div class="jira-content-two-columns">
+            <div v-if="jiraPreview.customfield_12233" class="jira-content-section">
+              <div class="jira-content-label">CONTAINMENT MEASURES</div>
+              <div class="jira-content-box">{{ jiraPreview.customfield_12233 }}</div>
+            </div>
+            <div v-if="jiraPreview.customfield_12239" class="jira-content-section">
+              <div class="jira-content-label">LONG-TERM MEASURES</div>
+              <div class="jira-content-box">{{ jiraPreview.customfield_12239 }}</div>
+            </div>
+          </div>
+          <div v-if="!jiraPreview.customfield_12213 && !jiraPreview.customfield_12284 && !jiraPreview.customfield_12233 && !jiraPreview.customfield_12239" class="jira-content-section">
+            <div class="jira-content-label">DETAILED DESCRIPTION</div>
+            <div class="jira-content-box">{{ jiraPreview.description || jiraPreview.summary || '-' }}</div>
+          </div>
+        </template>
+        <template v-else>
+          <!-- 普通JIRA字段显示 -->
+          <div v-if="jiraPreview.description || jiraPreview.summary" class="jira-content-section">
+            <div class="jira-content-label">DESCRIPTION</div>
+            <div class="jira-content-box">{{ jiraPreview.description || jiraPreview.summary }}</div>
+          </div>
+          <div v-if="jiraPreview.customfield_10705" class="jira-content-section">
+            <div class="jira-content-label">INVESTIGATION & CAUSE ANALYSIS</div>
+            <div class="jira-content-box">{{ jiraPreview.customfield_10705 }}</div>
+          </div>
+          <div v-if="jiraPreview.customfield_10600" class="jira-content-section">
+            <div class="jira-content-label">SOLUTION DETAILS</div>
+            <div class="jira-content-box">{{ jiraPreview.customfield_10600 }}</div>
+          </div>
+        </template>
+
+        <!-- Attachments Section (if any) -->
+        <div v-if="jiraPreview.attachments && jiraPreview.attachments.length > 0" class="jira-attachments-section">
+          <!-- 图片附件：直接显示缩略图 -->
+          <div v-if="imageAttachments.length > 0" class="jira-image-attachments">
+            <div class="jira-attachment-label">{{ $t('faultCases.jira.columns.imageAttachments') }}</div>
+            <div class="jira-attachment-images">
+              <div
+                v-for="img in imageAttachments"
+                :key="img.id"
+                class="jira-image-thumbnail"
+                :title="img.filename"
+              >
+                <el-image
+                  :src="img.content"
+                  :preview-src-list="imagePreviewUrls"
+                  fit="cover"
+                  class="jira-attachment-image"
+                  :initial-index="getImageIndex(img)"
+                  :preview-teleported="true"
+                />
+                <div class="jira-image-overlay">
+                  <i class="fas fa-search-plus"></i>
+                </div>
+                <div class="jira-image-name">{{ img.filename }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 非图片附件：显示文件名和下载链接 -->
+          <div v-if="fileAttachments.length > 0" class="jira-file-attachments">
+            <div class="jira-attachment-label">{{ $t('faultCases.jira.columns.fileAttachments') }}</div>
+            <div v-for="file in fileAttachments" :key="file.id" class="jira-attachment-item">
+              <el-link type="primary" :underline="false" @click="downloadFile(file)">
+                <i class="fas fa-paperclip"></i>
+                {{ file.filename }}
+              </el-link>
+              <span class="jira-attachment-size">({{ formatFileSize(file.size) }})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="jira-dialog-footer">
+          <div class="jira-footer-right">
+            <button v-if="jiraPreview.url" class="btn-secondary" @click="openUrl(jiraPreview.url)">
+              <i class="fas fa-external-link-alt"></i>
+              {{ $t('faultCases.jira.openInJira') }}
+            </button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
     </el-card>
   </div>
 </template>
 
 <script>
-import { ref, reactive, computed, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading, Check, InfoFilled, Search, Refresh, Link, View, Plus, Filter } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { useStore } from 'vuex'
+import { useRouter, useRoute } from 'vue-router'
+import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
 
 export default {
   name: 'JiraFaultCases',
+  components: {
+    Loading,
+    Check,
+    InfoFilled,
+    Search,
+    Refresh,
+    Link,
+    View,
+    Plus,
+    Filter
+  },
   setup () {
     const { t } = useI18n()
+    const store = useStore()
+    const router = useRouter()
+    const route = useRoute()
 
     const FILTER_ALL = '__all__'
 
-    const query = reactive({ q: '' })
-    const dateRange = ref(null)
-    const loading = ref(false)
-    const rows = ref([])
-    
-    // 筛选条件（用于后端查询：空数组表示不过滤，有值表示筛选）
-    const activeFilters = reactive({
-      modules: [],
-      statuses: []
-    })
-    
-    // 标记是否已经进行过筛选操作（用于区分初始状态和"全选"状态）
-    const hasFilteredModules = ref(false)
-    const hasFilteredStatuses = ref(false)
-    
-    // UI显示用的筛选值（用于 :filtered-value 绑定）
-    // 当用户选择了"全选"时，activeFilters 为空数组，但 hasFiltered 为 true，此时显示所有选项为选中
-    const filteredModuleValues = computed(() => {
-      // 如果 activeFilters 为空数组且已经进行过筛选操作（用户选择了"全选"），返回所有选项
-      if (activeFilters.modules.length === 0 && hasFilteredModules.value && moduleFilterValues.value.length > 0) {
-        return [FILTER_ALL, ...moduleFilterValues.value]
-      }
-      // 如果有筛选条件，返回实际选中的值
-      if (activeFilters.modules.length > 0) {
-        return activeFilters.modules
-      }
-      // 初始状态（未进行筛选），返回空数组
-      return []
-    })
-    
-    const filteredStatusValues = computed(() => {
-      // 如果 activeFilters 为空数组且已经进行过筛选操作（用户选择了"全选"），返回所有选项
-      if (activeFilters.statuses.length === 0 && hasFilteredStatuses.value && statusFilterValues.value.length > 0) {
-        return [FILTER_ALL, ...statusFilterValues.value]
-      }
-      // 如果有筛选条件，返回实际选中的值
-      if (activeFilters.statuses.length > 0) {
-        return activeFilters.statuses
-      }
-      // 初始状态（未进行筛选），返回空数组
-      return []
+    // Jira search state
+    const jiraQuery = reactive({ q: '' })
+
+    // Prefer showing Jira preview instead of redirecting (useful without VPN)
+    const preferJiraPreview = ref(false)
+    try {
+      preferJiraPreview.value = window?.localStorage?.getItem('jira_preview_mode') === '1'
+    } catch (_) {}
+    watch(preferJiraPreview, (v) => {
+      try {
+        window?.localStorage?.setItem('jira_preview_mode', v ? '1' : '0')
+      } catch (_) {}
     })
 
-    const state = reactive({
+    // Filters state
+    const filters = reactive({
+      source: '',
+      dateRange: null
+    })
+    const jiraLoading = ref(false)
+    const jiraRows = ref([])
+    const hasSearched = ref(false) // 标记是否已执行过搜索
+    const jiraState = reactive({
       enabled: true,
       ok: true,
       message: ''
     })
-
-    const pager = reactive({
+    const jiraPager = reactive({
       page: 1,
       limit: 20,
       total: 0
     })
+
+    const jiraPreview = reactive({
+      visible: false,
+      loading: false,
+      key: '',
+      title: '',
+      summary: '',
+      description: '',
+      status: '',
+      updated: null,
+      url: '',
+      module: '',
+      projectName: '',
+      projectKey: '',
+      components: [],
+      attachments: [],
+      resolution: null,
+      // 普通JIRA自定义字段
+      customfield_10705: '', // 调查与原因分析
+      customfield_10600: '', // 解决方案
+      // 客诉自定义字段
+      customfield_12213: '', // 详细描述
+      customfield_12284: '', // 初步调查潜在原因
+      customfield_12233: '', // 围堵措施
+      customfield_12239: '' // 长期措施
+    })
+
+    // 图片预览弹窗
+    const imagePreview = reactive({
+      visible: false,
+      src: '',
+      filename: '',
+      loading: false,
+      error: false
+    })
+
+    // Filter state
+    const activeFilters = reactive({
+      modules: [],
+      statuses: []
+    })
+    const hasFilteredModules = ref(false)
+    const hasFilteredStatuses = ref(false)
+
+    // Permissions
+    const canCreate = computed(() => store.getters['auth/hasPermission']?.('fault_case:create'))
+    const canUpdate = computed(() => store.getters['auth/hasPermission']?.('fault_case:update'))
+    const canDelete = computed(() => store.getters['auth/hasPermission']?.('fault_case:delete'))
+
+    // Dialog state
+    const dialog = reactive({ visible: false, isEdit: false, id: null })
+    const saving = ref(false)
+    const formRef = ref(null)
+
+    // Form state
+    const form = reactive({
+      source: 'manual',
+      jira_key: '',
+      module: '',
+      title: '',
+      symptom: '',
+      possible_causes: '',
+      solution: '',
+      remark: '',
+      troubleshooting_steps: '',
+      experience: '',
+      equipment_model: [],
+      keywordsRaw: '',
+      related_error_code_ids: [],
+      attachments: [],
+      updated_at_user: null,
+      is_published: false
+    })
+
+    const uploadFileList = ref([])
+
+    // Equipment model dictionary options
+    const equipmentModelOptions = ref([])
+    const equipmentModelLoading = ref(false)
+
+    // Keywords input with tags (displayed inside input)
+    const keywordTags = ref([])
+    const errorCodeOptions = ref([])
+    const errorCodeLoading = ref(false)
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('withSearch')
+    })
+
+    const formatFileSize = (bytes) => {
+      if (!bytes || bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+    }
+
+    // 判断是否为客诉项目（根据项目名称或项目key判断）
+    const isComplaintProject = computed(() => {
+      const projectName = jiraPreview.projectName || ''
+      const projectKey = jiraPreview.projectKey || ''
+      // 如果项目名称包含"客诉"或项目key包含特定标识，则认为是客诉项目
+      // 这里可以根据实际需求调整判断逻辑
+      return projectName.includes('客诉') || projectKey.toUpperCase().includes('COMPLAINT') || projectKey.toUpperCase().includes('KS')
+    })
+
+    // 判断是否为图片
+    const isImageAttachment = (attachment) => {
+      const filename = attachment.filename || ''
+      const mimeType = attachment.mimeType || ''
+
+      // 支持的图片格式
+      const supportedImageTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+        'image/bmp', 'image/webp', 'image/svg+xml'
+      ]
+
+      // 通过 MIME 类型判断
+      const isImageByMime = supportedImageTypes.includes(mimeType.toLowerCase())
+
+      // 通过文件扩展名判断
+      const imageExtensions = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i
+      const isImageByExtension = imageExtensions.test(filename)
+
+      return isImageByMime || isImageByExtension
+    }
+
+    // 获取图片附件列表
+    const imageAttachments = computed(() => {
+      if (!jiraPreview.attachments || !Array.isArray(jiraPreview.attachments)) return []
+      return jiraPreview.attachments.filter(att => att.content && isImageAttachment(att))
+    })
+
+    // 获取非图片附件列表
+    const fileAttachments = computed(() => {
+      if (!jiraPreview.attachments || !Array.isArray(jiraPreview.attachments)) return []
+      return jiraPreview.attachments.filter(att => !isImageAttachment(att))
+    })
+
+    // 获取图片预览 URL 列表（用于 el-image 的 preview-src-list）
+    const imagePreviewUrls = computed(() => {
+      return imageAttachments.value.map(img => img.content).filter(Boolean)
+    })
+
+    // 获取图片在预览列表中的索引
+    const getImageIndex = (img) => {
+      return imageAttachments.value.findIndex(item => item.id === img.id)
+    }
+
+    // 下载文件
+    const downloadFile = (file) => {
+      if (file.content) {
+        try {
+          const link = document.createElement('a')
+          link.href = file.content
+          link.download = file.filename || 'attachment'
+          link.target = '_blank'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } catch (error) {
+          console.warn('文件下载失败:', error)
+          // 降级：直接在新标签页打开
+          window.open(file.content, '_blank')
+        }
+      } else {
+        console.warn('附件缺少 content URL:', file)
+        ElMessage.warning('附件链接无效')
+      }
+    }
+
+    const downloadImage = () => {
+      if (imagePreview.src) {
+        const link = document.createElement('a')
+        link.href = imagePreview.src
+        link.download = imagePreview.filename || 'image'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    }
 
     const formatDate = (d) => {
       if (!d) return '-'
@@ -197,10 +841,88 @@ export default {
       }
     }
 
-    // 从当前数据中提取可用的模块和状态选项（用于筛选器）
+    const formatDateOnly = (d) => {
+      if (!d) return '-'
+      try {
+        return new Date(d).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      } catch {
+        return String(d)
+      }
+    }
+
+    const formatSize = (n) => {
+      const num = Number(n)
+      if (!Number.isFinite(num) || num <= 0) return '-'
+      const units = ['B', 'KB', 'MB', 'GB']
+      let v = num
+      let i = 0
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++ }
+      return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+    }
+
+    const parseKeywords = (raw) => {
+      if (!raw) return []
+      return String(raw)
+        .split(/[,，\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    }
+
+    // Handle keyword select input - auto-sync with keywordsRaw
+    const handleKeywordSelectInput = (value) => {
+      // value is the array of selected keywords
+      if (Array.isArray(value)) {
+        keywordTags.value = value
+        updateKeywordsRaw()
+      }
+    }
+
+    // Handle Enter key in select input
+    const handleKeywordEnter = () => {
+      // Enter key is handled by el-select's allow-create
+      updateKeywordsRaw()
+    }
+
+    // Update keywordsRaw from tags
+    const updateKeywordsRaw = () => {
+      form.keywordsRaw = keywordTags.value.join(', ')
+    }
+
+    // Load keywords from keywordsRaw
+    const loadKeywordsFromRaw = () => {
+      if (form.keywordsRaw) {
+        keywordTags.value = parseKeywords(form.keywordsRaw)
+      } else {
+        keywordTags.value = []
+      }
+    }
+
+    // Available filter options
+    const availableModules = computed(() => {
+      const modules = new Set()
+      jiraRows.value.forEach((row) => {
+        const comps = Array.isArray(row?.components) ? row.components : []
+        if (comps.length > 0) {
+          comps.forEach((c) => { if (c) modules.add(String(c)) })
+        } else if (row?.module) {
+          modules.add(String(row.module))
+        }
+      })
+      return Array.from(modules).map((m) => m.trim()).filter(Boolean).sort()
+    })
+
+    const availableStatuses = computed(() => {
+      const statuses = new Set()
+      jiraRows.value.forEach((row) => {
+        if (row?.status) statuses.add(String(row.status))
+      })
+      return Array.from(statuses).map((s) => s.trim()).filter(Boolean).sort()
+    })
+
+    // Module and status filters for Jira (legacy table filters)
     const moduleFilterValues = computed(() => {
       const modules = new Set()
-      rows.value.forEach((row) => {
+      jiraRows.value.forEach((row) => {
         const comps = Array.isArray(row?.components) ? row.components : []
         if (comps.length > 0) {
           comps.forEach((c) => { if (c) modules.add(String(c)) })
@@ -222,7 +944,7 @@ export default {
 
     const statusFilterValues = computed(() => {
       const statuses = new Set()
-      rows.value.forEach((row) => {
+      jiraRows.value.forEach((row) => {
         if (row?.status) statuses.add(String(row.status))
       })
       return Array.from(statuses).map((s) => s.trim()).filter(Boolean).sort()
@@ -237,105 +959,103 @@ export default {
       ]
     })
 
-    // 空的筛选方法：禁用前端筛选，改为后端筛选
-    // 注意：这个方法总是返回 true，因为筛选由后端处理
+    const filteredModuleValues = computed(() => {
+      if (activeFilters.modules.length === 0 && hasFilteredModules.value && moduleFilterValues.value.length > 0) {
+        return [FILTER_ALL, ...moduleFilterValues.value]
+      }
+      if (activeFilters.modules.length > 0) {
+        return activeFilters.modules
+      }
+      return []
+    })
+
+    const filteredStatusValues = computed(() => {
+      if (activeFilters.statuses.length === 0 && hasFilteredStatuses.value && statusFilterValues.value.length > 0) {
+        return [FILTER_ALL, ...statusFilterValues.value]
+      }
+      if (activeFilters.statuses.length > 0) {
+        return activeFilters.statuses
+      }
+      return []
+    })
+
     const noFilter = () => true
 
-    const fetchPage = async () => {
-      const q = (query.q || '').trim()
+    // Jira search functions
+    const fetchJiraPage = async () => {
+      const q = (jiraQuery.q || '').trim()
       if (!q) {
-        rows.value = []
-        pager.total = 0
+        jiraRows.value = []
+        jiraPager.total = 0
+        hasSearched.value = false // 清空搜索关键词时，重置搜索标记
         return
       }
 
-      loading.value = true
-      state.ok = true
-      state.message = ''
+      hasSearched.value = true // 标记已执行搜索
+      jiraLoading.value = true
+      jiraState.ok = true
+      jiraState.message = ''
       try {
         const params = {
           q,
-          page: pager.page,
-          limit: pager.limit
+          page: jiraPager.page,
+          limit: jiraPager.limit
         }
-        
-        // 添加日期范围筛选（将年月转换为日期范围：月初00:00:00到月末23:59:59）
-        if (dateRange.value && Array.isArray(dateRange.value) && dateRange.value.length === 2) {
-          const [startMonth, endMonth] = dateRange.value
-          // 开始月份：YYYY-MM -> YYYY-MM-01T00:00:00.000Z
-          if (startMonth) {
-            const [year, month] = startMonth.split('-')
-            params.updatedFrom = new Date(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0).toISOString()
+
+        // Apply filters
+        if (filters.source) {
+          params.source = filters.source
+        }
+        if (filters.dateRange && Array.isArray(filters.dateRange) && filters.dateRange.length === 2) {
+          const [startDate, endDate] = filters.dateRange
+          if (startDate) {
+            params.updatedFrom = new Date(startDate + ' 00:00:00').toISOString()
           }
-          // 结束月份：YYYY-MM -> YYYY-MM-最后一天T23:59:59.999Z
-          if (endMonth) {
-            const [year, month] = endMonth.split('-')
-            // 获取该月的最后一天
-            const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate()
-            params.updatedTo = new Date(parseInt(year), parseInt(month) - 1, lastDay, 23, 59, 59, 999).toISOString()
+          if (endDate) {
+            params.updatedTo = new Date(endDate + ' 23:59:59').toISOString()
           }
         }
         
-        // 添加模块和状态筛选
-        if (activeFilters.modules && activeFilters.modules.length > 0) {
-          params.modules = activeFilters.modules
-        }
-        if (activeFilters.statuses && activeFilters.statuses.length > 0) {
-          params.statuses = activeFilters.statuses
-        }
-        
-        console.log('[JiraFaultCases] fetchPage params:', params)
-        const resp = await api.jira.search(params)
+        // Mixed list: Jira + Mongo fault cases (backend pagination + updated desc)
+        const resp = await api.jira.searchMixed(params)
         const d = resp.data || {}
-        state.enabled = d.enabled !== false
-        state.ok = d.ok !== false
-        state.message = d.message || ''
-        rows.value = Array.isArray(d.items) ? d.items : (Array.isArray(d.issues) ? d.issues : [])
-        pager.total = Number.isFinite(Number(d.total)) ? Number(d.total) : rows.value.length
-        pager.page = Number.isFinite(Number(d.page)) ? Number(d.page) : pager.page
-        pager.limit = Number.isFinite(Number(d.limit)) ? Number(d.limit) : pager.limit
+        jiraState.enabled = d.enabled !== false
+        jiraState.ok = d.ok !== false
+        jiraState.message = d.message || ''
+        jiraRows.value = Array.isArray(d.items) ? d.items : (Array.isArray(d.issues) ? d.issues : [])
+        jiraPager.total = Number.isFinite(Number(d.total)) ? Number(d.total) : jiraRows.value.length
+        jiraPager.page = Number.isFinite(Number(d.page)) ? Number(d.page) : jiraPager.page
+        jiraPager.limit = Number.isFinite(Number(d.limit)) ? Number(d.limit) : jiraPager.limit
       } catch (e) {
-        // 后端尽量返回200，但这里还是做兜底
-        state.ok = false
-        state.message = e.response?.data?.message || t('shared.requestFailed')
-        ElMessage.error(state.message)
+        jiraState.ok = false
+        jiraState.message = e.response?.data?.message || t('shared.requestFailed')
+        ElMessage.error(jiraState.message)
       } finally {
-        loading.value = false
+        jiraLoading.value = false
       }
     }
 
-    const handleSearch = async (resetPage) => {
-      if (resetPage) pager.page = 1
-      await fetchPage()
+    const handleJiraSearch = async (resetPage) => {
+      if (resetPage) jiraPager.page = 1
+      await fetchJiraPage()
     }
 
-    const handleFilterChange = async (filters) => {
-      // 仅在用户点击"确认/重置"后触发，这里把筛选条件用于后端查询（分页场景不能用前端过滤）
-      // filters: { [prop]: selectedValues[] }
-      console.log('[JiraFaultCases] filter-change event:', filters)
-      
+    const handleTableFilterChange = async (filters) => {
       if (Object.prototype.hasOwnProperty.call(filters, 'module')) {
         const selected = Array.isArray(filters.module) ? filters.module : (filters.module ? [filters.module] : [])
-        console.log('[JiraFaultCases] module filter selected:', selected)
-        // 标记已经进行过筛选操作
         hasFilteredModules.value = true
-        // 如果包含"全选"，则视为不加过滤（等价于选择全部）
         if (selected.includes(FILTER_ALL)) {
           activeFilters.modules = []
         } else {
-          // 过滤掉"全选"选项（如果有），保留实际选中的值
           activeFilters.modules = selected.filter(v => v !== FILTER_ALL)
         }
       } else {
-        // 如果没有 module 键，说明筛选被清空（用户点击了"重置"）
         activeFilters.modules = []
         hasFilteredModules.value = false
       }
       
       if (Object.prototype.hasOwnProperty.call(filters, 'status')) {
         const selected = Array.isArray(filters.status) ? filters.status : (filters.status ? [filters.status] : [])
-        console.log('[JiraFaultCases] status filter selected:', selected)
-        // 标记已经进行过筛选操作
         hasFilteredStatuses.value = true
         if (selected.includes(FILTER_ALL)) {
           activeFilters.statuses = []
@@ -347,83 +1067,652 @@ export default {
         hasFilteredStatuses.value = false
       }
       
-      console.log('[JiraFaultCases] activeFilters after update:', { modules: activeFilters.modules, statuses: activeFilters.statuses })
-      
-      // 等待 Vue 响应式系统更新 computed 属性
       await nextTick()
-      
-      // 重新搜索（会带着筛选条件调用后端）
-      await handleSearch(true)
+      await handleJiraSearch(true)
     }
 
-    const reset = async () => {
-      query.q = ''
+    const resetFilters = async () => {
+      jiraQuery.q = ''
+      filters.source = ''
+      filters.dateRange = null
+      jiraRows.value = []
+      jiraPager.page = 1
+      jiraPager.total = 0
+      hasSearched.value = false
+      jiraState.ok = true
+      jiraState.message = ''
+    }
+
+    const handleFilterChange = () => {
+      // Trigger search when filters change
+      if (jiraQuery.q.trim() || filters.source || filters.dateRange) {
+        handleJiraSearch(true)
+      }
+    }
+
+    const resetJira = async () => {
+      jiraQuery.q = ''
       dateRange.value = null
       activeFilters.modules = []
       activeFilters.statuses = []
       hasFilteredModules.value = false
       hasFilteredStatuses.value = false
-      rows.value = []
-      pager.page = 1
-      pager.total = 0
-      state.ok = true
-      state.message = ''
-      // 清除表格筛选器状态
-      // 注意：Element Plus 没有直接清除筛选器的方法，这里通过重新渲染表格来实现
+      jiraRows.value = []
+      jiraPager.page = 1
+      jiraPager.total = 0
+      hasSearched.value = false // 重置时清除搜索标记
+      jiraState.ok = true
+      jiraState.message = ''
     }
 
     const refresh = async () => {
-      await fetchPage()
+      await fetchJiraPage()
     }
+
+    // Dialog functions
+    const resetForm = () => {
+      Object.assign(form, {
+        source: 'manual',
+        jira_key: '',
+        module: '',
+        title: '',
+        symptom: '',
+        possible_causes: '',
+        solution: '',
+        remark: '',
+        troubleshooting_steps: '',
+        experience: '',
+        equipment_model: [],
+        keywordsRaw: '',
+        related_error_code_ids: [],
+        attachments: [],
+        updated_at_user: null,
+        is_published: false
+      })
+      uploadFileList.value = []
+      loadKeywordsFromRaw()
+    }
+
+    const openCreate = () => {
+      const routeData = router.resolve('/dashboard/fault-cases/new')
+      window.open(routeData.href, '_blank')
+    }
+
+    const addToFaultCases = async (row) => {
+      if (!canCreate.value) {
+        ElMessage.error(t('auth.insufficientPermissions'))
+        return
+      }
+      const key = row?.key
+      if (!key) return
+      const routeData = router.resolve({
+        path: '/dashboard/fault-cases/new',
+        query: {
+          source: 'jira',
+          jira_key: key
+        }
+      })
+      window.open(routeData.href, '_blank')
+    }
+
+    const openUrl = (url) => {
+      if (!url) return
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+
+    const openJiraOrPreview = async (row) => {
+      const source = row?.source || 'jira'
+      const key = String(row?.jira_key || row?.key || '').trim()
+      const url = row?.url || ''
+
+      // If user prefers preview mode, never redirect for Jira issues
+      if (preferJiraPreview.value && source === 'jira') {
+        // If Jira backend is not ok/enabled, prefer preview (meets "no VPN show summary" behavior)
+        if (jiraState.enabled === false || jiraState.ok === false) {
+          jiraPreview.visible = true
+          jiraPreview.loading = false
+          jiraPreview.key = key
+          jiraPreview.title = key
+          jiraPreview.summary = row?.summary || ''
+          jiraPreview.description = ''
+          jiraPreview.status = row?.status || ''
+          jiraPreview.updated = row?.updated || null
+          jiraPreview.url = url
+          jiraPreview.module = row?.module || ''
+          jiraPreview.projectName = row?.projectName || ''
+          jiraPreview.projectKey = row?.projectKey || ''
+          jiraPreview.components = row?.components || []
+          jiraPreview.attachments = row?.attachments || []
+          jiraPreview.resolution = row?.resolution || null
+          // 重置自定义字段
+          jiraPreview.customfield_10705 = ''
+          jiraPreview.customfield_10600 = ''
+          jiraPreview.customfield_12213 = ''
+          jiraPreview.customfield_12284 = ''
+          jiraPreview.customfield_12233 = ''
+          jiraPreview.customfield_12239 = ''
+          return
+        }
+
+        // Best-effort: fetch more detail, but still stay in-app
+        return previewJiraIssue(key, row)
+      }
+
+      // If Jira backend is not ok/enabled, prefer preview (meets "no VPN show summary" behavior)
+      if (jiraState.enabled === false || jiraState.ok === false) {
+        jiraPreview.visible = true
+        jiraPreview.loading = false
+        jiraPreview.key = key
+        jiraPreview.title = key
+        jiraPreview.summary = row?.summary || ''
+        jiraPreview.description = ''
+        jiraPreview.status = row?.status || ''
+        jiraPreview.updated = row?.updated || null
+        jiraPreview.url = url
+        jiraPreview.module = row?.module || ''
+        jiraPreview.projectName = row?.projectName || ''
+        jiraPreview.projectKey = row?.projectKey || ''
+        jiraPreview.components = row?.components || []
+        jiraPreview.attachments = row?.attachments || []
+        jiraPreview.resolution = row?.resolution || null
+        // 重置自定义字段
+        jiraPreview.customfield_10705 = ''
+        jiraPreview.customfield_10600 = ''
+        jiraPreview.customfield_12213 = ''
+        jiraPreview.customfield_12284 = ''
+        jiraPreview.customfield_12233 = ''
+        jiraPreview.customfield_12239 = ''
+        return
+      }
+
+      // For mongo rows without jira_key, go to local detail
+      if (source !== 'jira' && !row?.jira_key) {
+        return goDetailByMixedRow(row)
+      }
+
+      // Default: open Jira url
+      if (url) return openUrl(url)
+
+      // Fallback: if url missing, try preview from backend
+      return previewJiraIssue(key, row)
+    }
+
+    const previewJiraIssue = async (key, row) => {
+      const k = String(key || '').trim()
+      if (!k) return
+      jiraPreview.visible = true
+      jiraPreview.loading = true
+      jiraPreview.key = k
+      jiraPreview.title = k
+      jiraPreview.summary = row?.summary || ''
+      jiraPreview.description = ''
+      jiraPreview.status = row?.status || ''
+      jiraPreview.updated = row?.updated || null
+      jiraPreview.url = row?.url || ''
+      jiraPreview.module = row?.module || ''
+      jiraPreview.projectName = row?.projectName || ''
+      jiraPreview.projectKey = row?.projectKey || ''
+      jiraPreview.components = row?.components || []
+      jiraPreview.attachments = row?.attachments || []
+      jiraPreview.resolution = row?.resolution || null
+      // 重置自定义字段
+      jiraPreview.customfield_10705 = ''
+      jiraPreview.customfield_10600 = ''
+      jiraPreview.customfield_12213 = ''
+      jiraPreview.customfield_12284 = ''
+      jiraPreview.customfield_12233 = ''
+      jiraPreview.customfield_12239 = ''
+      try {
+        const resp = await api.jira.getIssue(k)
+        const issue = resp.data?.issue
+        if (issue) {
+          jiraPreview.summary = issue.summary || jiraPreview.summary
+          jiraPreview.description = issue.description || ''
+          jiraPreview.status = issue.status || jiraPreview.status
+          jiraPreview.updated = issue.updated || jiraPreview.updated
+          jiraPreview.url = issue.url || jiraPreview.url
+          jiraPreview.module = issue.module || jiraPreview.module
+          jiraPreview.projectName = issue.projectName || jiraPreview.projectName
+          jiraPreview.projectKey = issue.projectKey || jiraPreview.projectKey
+          jiraPreview.components = Array.isArray(issue.components) ? issue.components : (jiraPreview.components || [])
+          jiraPreview.attachments = issue.attachments || jiraPreview.attachments
+          jiraPreview.resolution = issue.resolution || jiraPreview.resolution
+          // 提取自定义字段
+          jiraPreview.customfield_10705 = issue.customfield_10705 || ''
+          jiraPreview.customfield_10600 = issue.customfield_10600 || ''
+          jiraPreview.customfield_12213 = issue.customfield_12213 || ''
+          jiraPreview.customfield_12284 = issue.customfield_12284 || ''
+          jiraPreview.customfield_12233 = issue.customfield_12233 || ''
+          jiraPreview.customfield_12239 = issue.customfield_12239 || ''
+        }
+      } catch (_) {
+        // keep best-effort from row
+      } finally {
+        jiraPreview.loading = false
+      }
+    }
+
+    const goDetailByMixedRow = (row) => {
+      const id = row?.fault_case_id || row?._id
+      if (!id) return
+      router.push(`/dashboard/fault-cases/${id}`)
+    }
+
+    const openEdit = async (row) => {
+      resetForm()
+      dialog.visible = true
+      dialog.isEdit = true
+      dialog.id = row._id
+      try {
+        const resp = await api.faultCases.get(row._id)
+        const fc = resp.data.faultCase
+        Object.assign(form, {
+          source: fc.source || 'manual',
+          jira_key: fc.jira_key || '',
+          module: fc.module || '',
+          title: fc.title || '',
+          symptom: fc.symptom || '',
+          possible_causes: fc.possible_causes || '',
+          solution: fc.solution || fc.troubleshooting_steps || '',
+          remark: fc.remark || fc.experience || '',
+          troubleshooting_steps: fc.troubleshooting_steps || '',
+          experience: fc.experience || '',
+          equipment_model: Array.isArray(fc.equipment_model) ? fc.equipment_model : (fc.equipment_model ? [fc.equipment_model] : []),
+          keywordsRaw: Array.isArray(fc.keywords) ? fc.keywords.join(', ') : '',
+          related_error_code_ids: Array.isArray(fc.related_error_code_ids) ? fc.related_error_code_ids : [],
+          attachments: Array.isArray(fc.attachments) ? fc.attachments : [],
+          updated_at_user: fc.updated_at_user || null,
+          is_published: fc.is_published === true
+        })
+        uploadFileList.value = (form.attachments || []).map((a, idx) => ({ name: a.original_name || a.filename || `file-${idx}`, url: a.url }))
+        loadKeywordsFromRaw()
+      } catch (e) {
+        ElMessage.error(e.response?.data?.message || 'Load failed')
+      }
+    }
+
+    const goDetail = (row) => {
+      router.push(`/dashboard/fault-cases/${row._id}`)
+    }
+
+    const openEditByMixedRow = async (row) => {
+      const id = row?.fault_case_id || row?._id
+      if (!id) return
+      const routeData = router.resolve(`/dashboard/fault-cases/${id}/edit`)
+      window.open(routeData.href, '_blank')
+    }
+
+    const handleOperationCommand = (row, command) => {
+      if (command === 'delete') {
+        const id = row?.fault_case_id || row?._id
+        if (id) {
+          confirmDelete({ _id: id })
+        }
+      }
+    }
+
+    const confirmDelete = async (row) => {
+      try {
+        await ElMessageBox.confirm(t('shared.messages.confirmDelete'), t('shared.messages.deleteConfirmTitle'), { type: 'warning' })
+        await api.faultCases.delete(row._id)
+        ElMessage.success(t('shared.messages.deleteSuccess'))
+        await handleJiraSearch(false)
+      } catch (_) {}
+    }
+
+    // Equipment model dictionary (MySQL) - Load all active models on focus
+    const loadEquipmentModels = async () => {
+      if (equipmentModelOptions.value.length > 0) return // 已加载过，不重复加载
+      equipmentModelLoading.value = true
+      try {
+        const resp = await api.deviceModels.getList({ search: '', limit: 100, includeInactive: 'false' })
+        const items = Array.isArray(resp.data.models) ? resp.data.models : []
+        equipmentModelOptions.value = items.map((m) => ({
+          label: m.device_model,
+          value: m.device_model
+        }))
+      } catch (e) {
+        equipmentModelOptions.value = []
+      } finally {
+        equipmentModelLoading.value = false
+      }
+    }
+
+    const searchErrorCodes = async (q) => {
+      errorCodeLoading.value = true
+      try {
+        const resp = await api.errorCodes.getList({ page: 1, limit: 20, keyword: q || '' })
+        const items = Array.isArray(resp.data.errorCodes) ? resp.data.errorCodes : []
+        errorCodeOptions.value = items.map((ec) => ({
+          label: `${ec.code}${ec.short_message ? ` - ${ec.short_message}` : ''}`,
+          value: ec.id
+        }))
+      } catch (e) {
+        errorCodeOptions.value = []
+      } finally {
+        errorCodeLoading.value = false
+      }
+    }
+
+    // Upload functions
+    const handleUploadRequest = async ({ file }) => {
+      try {
+        const fd = new FormData()
+        fd.append('files', file)
+        const resp = await api.faultCases.uploadAttachments(fd)
+        const uploaded = resp.data.files?.[0]
+        if (uploaded) {
+          form.attachments.push(uploaded)
+          uploadFileList.value.push({ name: uploaded.original_name || uploaded.filename || file.name, url: uploaded.url })
+        }
+      } catch (e) {
+        ElMessage.error(e.response?.data?.message || 'Upload failed')
+      }
+    }
+
+    const handleUploadRemove = (file) => {
+      const idx = (form.attachments || []).findIndex((a) => a.url === file.url || a.original_name === file.name)
+      if (idx >= 0) form.attachments.splice(idx, 1)
+    }
+
+    const handleExceed = () => {
+      ElMessage.warning(t('faultCases.uploadExceed'))
+    }
+
+    // Save function
+    const save = async () => {
+      if (!form.title || !form.title.trim()) {
+        ElMessage.warning(t('faultCases.validation.titleRequired'))
+        return
+      }
+      saving.value = true
+      try {
+        // 更新时间自动设置为当前时间
+        const now = new Date().toISOString()
+        const payload = {
+          source: form.source,
+          jira_key: form.jira_key,
+          module: form.module,
+          title: form.title,
+          symptom: form.symptom,
+          possible_causes: form.possible_causes,
+          solution: form.solution,
+          remark: form.remark,
+          troubleshooting_steps: form.troubleshooting_steps,
+          experience: form.experience,
+          equipment_model: Array.isArray(form.equipment_model) ? form.equipment_model : [],
+          keywords: parseKeywords(form.keywordsRaw),
+          related_error_code_ids: Array.isArray(form.related_error_code_ids) ? form.related_error_code_ids : [],
+          attachments: form.attachments,
+          updated_at_user: now, // 自动设置为当前时间
+          is_published: true // 只保留发布，不再保存草稿
+        }
+        if (dialog.isEdit && dialog.id) {
+          await api.faultCases.update(dialog.id, payload)
+        } else {
+          await api.faultCases.create(payload)
+        }
+        ElMessage.success(t('shared.messages.saveSuccess'))
+        dialog.visible = false
+        await handleJiraSearch(false)
+      } catch (e) {
+        ElMessage.error(e.response?.data?.message || t('shared.messages.saveFailed'))
+      } finally {
+        saving.value = false
+      }
+    }
+
+    onMounted(() => {})
 
     return {
       t,
-      query,
-      dateRange,
-      loading,
-      rows,
-      state,
-      pager,
-      activeFilters,
-      filteredModuleValues,
-      filteredStatusValues,
+      jiraQuery,
+      filters,
+      availableModules,
+      availableStatuses,
+      jiraLoading,
+      jiraRows,
+      jiraState,
+      jiraPager,
+      jiraPreview,
+      canCreate,
+      canUpdate,
+      canDelete,
+      dialog,
+      form,
+      formRef,
+      saving,
+      uploadFileList,
+      equipmentModelOptions,
+      equipmentModelLoading,
+      loadEquipmentModels,
+      errorCodeOptions,
+      errorCodeLoading,
+      searchErrorCodes,
+      formatDate,
+      formatDateOnly,
+      formatSize,
       moduleFilters,
       statusFilters,
+      filteredModuleValues,
+      filteredStatusValues,
       noFilter,
-      formatDate,
+      handleJiraSearch,
       handleFilterChange,
-      handleSearch,
-      reset,
-      refresh
+      handleTableFilterChange,
+      resetFilters,
+      resetJira,
+      refresh,
+      openCreate,
+      addToFaultCases,
+      openUrl,
+      openJiraOrPreview,
+      previewJiraIssue,
+      preferJiraPreview,
+      goDetailByMixedRow,
+      openEdit,
+      openEditByMixedRow,
+      goDetail,
+      confirmDelete,
+      handleOperationCommand,
+      handleUploadRequest,
+      handleUploadRemove,
+      handleExceed,
+      save,
+      keywordTags,
+      handleKeywordSelectInput,
+      handleKeywordEnter,
+      formatFileSize,
+      imageAttachments,
+      fileAttachments,
+      imagePreviewUrls,
+      getImageIndex,
+      downloadFile,
+      imagePreview,
+      downloadImage,
+      tableHeight,
+      isComplaintProject
     }
   }
 }
 </script>
 
 <style scoped>
-.card-header {
+.fault-cases-container {
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: var(--radius);
+  box-shadow: 0 2px 12px var(--shadow-xs);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+/* Search and Actions Section */
+.search-actions-section {
+  margin-bottom: 2px;
+}
+
+.search-actions-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 600px;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 300px;
+}
+
+.search-btn,
+.reset-btn {
+  white-space: nowrap;
+}
+
+.actions-group {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
-.header-actions {
+
+.jira-preview-toggle {
   display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 10px;
+  background: rgb(var(--bg-secondary));
 }
-.filters {
+
+.toggle-label {
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+  white-space: nowrap;
+}
+
+.help-icon {
+  color: rgb(var(--text-secondary));
+  cursor: help;
+}
+
+.create-btn {
+  white-space: nowrap;
+}
+
+/* Filters Row */
+.filters-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--border));
+}
+
+.filters-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(var(--text-secondary));
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.filters-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: 140px;
+}
+
+.filter-date-picker {
+  width: 140px;
+}
+
+.filter-results {
+  margin-left: auto;
+  color: rgb(var(--text-secondary));
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
+.inline-filter {
+  display: flex;
+  align-items: center;
+}
+
+.fault-case-filters {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin: 12px 0;
 }
 .pager {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
-
+.keywords-input-wrapper {
+  width: 100%;
+}
+.keywords-tags {
+  margin-bottom: 8px;
+  min-height: 32px;
+}
 .summary-cell {
   display: inline-block;
   width: 100%;
@@ -431,6 +1720,377 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.attachment-preview {
+  margin-top: 8px;
+}
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+.attachment-meta {
+  color: rgb(var(--text-secondary));
+  font-size: 12px;
+}
+
+/* 图片预览样式 */
+.image-preview-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  max-height: 80vh;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 12px var(--shadow-sm-1);
+}
+
+.image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgb(var(--text-error-primary));
+  text-align: center;
+}
+
+.image-error p {
+  margin: 8px 0;
+}
+
+.error-desc {
+  font-size: 14px;
+  color: rgb(var(--text-secondary));
+}
+
+.image-preview-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* JIRA 附件图片样式 */
+.jira-attachment-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.jira-image-thumbnail {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg-secondary));
+  transition: all 0.3s;
+}
+
+.jira-image-thumbnail:hover {
+  border-color: rgb(var(--sidebar-primary));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.jira-attachment-image {
+  width: 100%;
+  height: 100%;
+}
+
+.jira-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.jira-image-thumbnail:hover .jira-image-overlay {
+  opacity: 1;
+}
+
+.jira-image-overlay i {
+  color: rgb(var(--text-white));
+  font-size: 24px;
+}
+
+.jira-image-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  color: rgb(var(--text-white));
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
+/* JIRA Preview Dialog Styles */
+:deep(.jira-preview-dialog) {
+  .el-dialog__header {
+    padding: 20px 24px 0;
+    margin: 0;
+  }
+  .el-dialog__headerbtn {
+    top: 2px;
+    right: 2px;
+    color: rgb(var(--text-tertiary));
+    transition: all 0.3s;
+  }
+  .el-dialog__headerbtn:hover {
+    background-color: rgb(var(--bg-primary-hover));
+    color: rgb(var(--text-secondary));
+  }
+  .el-dialog__body {
+    padding: 0;
+  }
+  .el-dialog__footer {
+    padding: 16px 24px;
+    border-top: 1px solid rgb(var(--border-primary));
+  }
+}
+
+.jira-preview-content {
+  padding: 0 24px 24px;
+}
+
+.jira-preview-header {
+  margin-bottom: 24px;
+}
+
+.jira-preview-key-project {
+  font-size: 13px;
+  color: rgb(var(--text-tertiary));
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+
+.jira-preview-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgb(var(--text-primary));
+  line-height: 1.5;
+}
+
+.jira-key-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgb(var(--border-primary));
+}
+
+.jira-key-info-left,
+.jira-key-info-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.jira-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jira-info-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(var(--text-tertiary));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jira-info-value {
+  font-size: 14px;
+  color: rgb(var(--text-secondary));
+  display: flex;
+  align-items: center;
+}
+
+.jira-info-empty {
+  font-size: 14px;
+  color: rgb(var(--text-disabled));
+}
+
+.jira-status-tag {
+  display: inline-block;
+  width: fit-content;
+}
+
+.jira-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jira-component-tag {
+  background-color: rgb(var(--bg-secondary));
+  color: rgb(var(--text-secondary));
+  border: none;
+}
+
+.jira-content-section {
+  margin-bottom: 20px;
+}
+
+.jira-content-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(var(--text-tertiary));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.jira-content-box {
+  background-color: rgb(var(--bg-secondary));
+  border: 1px solid rgb(var(--border-primary));
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: rgb(var(--text-secondary));
+  line-height: 1.6;
+  white-space: pre-wrap;
+  min-height: 40px;
+}
+
+.jira-content-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.jira-attachments-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgb(var(--border-primary));
+}
+
+.jira-image-attachments,
+.jira-file-attachments {
+  margin-bottom: 16px;
+}
+
+.jira-attachment-label {
+  font-size: 13px;
+  color: rgb(var(--text-secondary));
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.jira-attachment-item {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jira-attachment-item i {
+  margin-right: 4px;
+}
+
+.jira-attachment-size {
+  color: rgb(var(--text-tertiary));
+  font-size: 12px;
+}
+
+.jira-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.jira-footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+.jira-footer-right i {
+  margin-right: 6px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .header-actions-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .search-section {
+    padding: 0;
+  }
+
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .search-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .search-right {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .inline-filter {
+    display: flex;
+    align-items: center;
+  }
+
+  .fault-case-filters {
+    gap: 8px;
+  }
+
+  /* 对话框响应式 */
+  :deep(.el-dialog) {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 5vh auto;
+  }
+
+  /* 表格在小屏幕上的处理 */
+  :deep(.el-table) {
+    font-size: 12px;
+  }
+
+  :deep(.el-table th),
+  :deep(.el-table td) {
+    padding: 8px 4px;
+  }
+
+  /* 按钮组在小屏幕上的处理 */
+  .btn-group {
+    gap: 4px;
+  }
+
+  .btn-group button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
 </style>
-
-

@@ -12,7 +12,7 @@ const { translateFields } = require('../services/translationService');
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
   try {
-    const { error_code_id, lang, page = 1, limit = 10, code, subsystem } = req.query;
+    const { error_code_id, lang, page = 1, limit = 20, code, subsystem } = req.query;
     const where = {};
     
     if (error_code_id) where.error_code_id = error_code_id;

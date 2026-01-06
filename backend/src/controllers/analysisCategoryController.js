@@ -3,10 +3,10 @@ const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
-// 获取所有分析分类
+// 获取所有分析分类（支持分页和搜索）
 const getAnalysisCategories = async (req, res) => {
   try {
-    const { is_active } = req.query;
+    const { is_active, page = 1, limit = 20, search } = req.query;
     const where = {};
     
     // 如果指定了 is_active 参数，则过滤
@@ -14,14 +14,32 @@ const getAnalysisCategories = async (req, res) => {
       where.is_active = is_active === 'true' || is_active === true;
     }
     
-    const categories = await AnalysisCategory.findAll({
+    // 如果指定了 search 参数，则搜索
+    if (search) {
+      where[Op.or] = [
+        { category_key: { [Op.like]: `%${search}%` } },
+        { name_zh: { [Op.like]: `%${search}%` } },
+        { name_en: { [Op.like]: `%${search}%` } }
+      ];
+    }
+    
+    // 解析分页参数
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const offset = (pageNum - 1) * limitNum;
+    
+    // 使用 findAndCountAll 获取分页数据和总数
+    const { count: total, rows: categories } = await AnalysisCategory.findAndCountAll({
       where,
-      order: [['sort_order', 'ASC'], ['id', 'ASC']]
+      order: [['sort_order', 'ASC'], ['id', 'ASC']],
+      limit: limitNum,
+      offset: offset
     });
     
     res.json({ 
       success: true,
-      categories 
+      categories,
+      total
     });
   } catch (err) {
     console.error('获取分析分类失败:', err);

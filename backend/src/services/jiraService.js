@@ -266,6 +266,34 @@ function buildQueryString(params) {
   return pairs.length ? `?${pairs.join('&')}` : '';
 }
 
+function extractTextFromAdf(node, out) {
+  const n = node && typeof node === 'object' ? node : null;
+  if (!n) return;
+  if (n.type === 'text' && typeof n.text === 'string') {
+    out.push(n.text);
+    return;
+  }
+  const content = Array.isArray(n.content) ? n.content : [];
+  for (const c of content) extractTextFromAdf(c, out);
+  if (n.type === 'paragraph') out.push('\n');
+}
+
+function normalizeJiraDescription(desc) {
+  if (desc == null) return '';
+  if (typeof desc === 'string') return desc;
+  // Jira Cloud uses Atlassian Document Format (ADF)
+  if (typeof desc === 'object' && desc.type === 'doc') {
+    const parts = [];
+    extractTextFromAdf(desc, parts);
+    return parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  try {
+    return JSON.stringify(desc);
+  } catch (_) {
+    return String(desc);
+  }
+}
+
 async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, startAt = undefined, maxResults = undefined, modules, statuses, updatedFrom, updatedTo }) {
   const cfg = getJiraConfig();
   if (!cfg.enabled) {
@@ -307,7 +335,7 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
 
   const apiPath = `/rest/api/${cfg.apiVersion}/search`;
   // Jira 6.x (API v2) is most compatible with GET /search.
-  const fields = 'summary,updated,status,project,components';
+  const fields = 'summary,updated,status,project,components,attachment,resolution';
   const qs = buildQueryString({
     jql,
     startAt: offset,
@@ -335,10 +363,34 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
         .map((c) => (c?.name != null ? String(c.name).trim() : ''))
         .filter(Boolean)
       : [];
-    // “模块”优先展示组件（components）；没有组件时回退到项目
+    // "模块"优先展示组件（components）；没有组件时回退到项目
     const module = components.length ? components.join(', ') : (projectName || projectKey || '');
+
+    // 提取附件信息
+    const attachments = Array.isArray(it?.fields?.attachment)
+      ? it.fields.attachment.map((att) => ({
+          id: att?.id || '',
+          filename: att?.filename || '',
+          content: att?.content || '',
+          mimeType: att?.mimeType || '',
+          size: att?.size || 0,
+          created: att?.created || null,
+          author: att?.author ? {
+            displayName: att?.author.displayName || '',
+            emailAddress: att?.author.emailAddress || ''
+          } : null
+        }))
+      : [];
+
+    // 提取解决方案
+    const resolution = it?.fields?.resolution ? {
+      id: it.fields.resolution.id || '',
+      name: it.fields.resolution.name || '',
+      description: it.fields.resolution.description || ''
+    } : null;
+
     const issueUrl = key ? `${cfg.baseUrl}/browse/${encodeURIComponent(key)}` : cfg.baseUrl;
-    return { key, module, components, projectKey, projectName, summary, status, updated, url: issueUrl };
+    return { key, module, components, projectKey, projectName, summary, status, updated, url: issueUrl, attachments, resolution };
   }).filter((x) => x && x.key);
 
   const total = Number.isFinite(Number(resp?.json?.total)) ? Number(resp.json.total) : out.length;
@@ -362,11 +414,119 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
   };
 }
 
+async function getIssue(issueKey, { fields = 'summary,updated,status,project,components,description,attachment,resolution,customfield_10705,customfield_10600,customfield_12213,customfield_12284,customfield_12233,customfield_12239' } = {}) {
+  const cfg = getJiraConfig();
+  if (!cfg.enabled) {
+    return { ok: true, enabled: false, issue: null };
+  }
+
+  const key = String(issueKey || '').trim();
+  if (!key) {
+    return { ok: false, enabled: true, issue: null, message: 'issue key required' };
+  }
+
+  const headers = {};
+  if (cfg.authType === 'basic') {
+    const raw = `${cfg.username}:${cfg.apiToken}`;
+    const token = Buffer.from(raw, 'utf8').toString('base64');
+    headers['Authorization'] = `Basic ${token}`;
+  } else if (cfg.authType === 'bearer') {
+    headers['Authorization'] = `Bearer ${cfg.bearerToken}`;
+  }
+
+  const apiPath = `/rest/api/${cfg.apiVersion}/issue/${encodeURIComponent(key)}`;
+  const qs = buildQueryString({ fields });
+  const resp = await doJsonRequest({
+    method: 'GET',
+    endpoint: cfg.baseUrl,
+    pathName: `${apiPath}${qs}`,
+    headers,
+    timeoutMs: cfg.timeoutMs
+  });
+
+  const it = resp?.json || null;
+  const summary = it?.fields?.summary != null ? String(it.fields.summary) : '';
+  const status = it?.fields?.status?.name != null ? String(it.fields.status.name) : '';
+  const updated = it?.fields?.updated || null;
+  const projectKey = it?.fields?.project?.key != null ? String(it.fields.project.key) : '';
+  const projectName = it?.fields?.project?.name != null ? String(it.fields.project.name) : '';
+  const components = Array.isArray(it?.fields?.components)
+    ? it.fields.components
+      .map((c) => (c?.name != null ? String(c.name).trim() : ''))
+      .filter(Boolean)
+    : [];
+  const module = components.length ? components.join(', ') : (projectName || projectKey || '');
+  const issueUrl = `${cfg.baseUrl}/browse/${encodeURIComponent(key)}`;
+  const descriptionRaw = it?.fields?.description;
+  const description = normalizeJiraDescription(descriptionRaw);
+
+  // 提取附件信息
+  const attachments = Array.isArray(it?.fields?.attachment)
+    ? it.fields.attachment.map((att) => ({
+        id: att?.id || '',
+        filename: att?.filename || '',
+        content: att?.content || '',
+        mimeType: att?.mimeType || '',
+        size: att?.size || 0,
+        created: att?.created || null,
+        author: att?.author ? {
+          displayName: att?.author.displayName || '',
+          emailAddress: att?.author.emailAddress || ''
+        } : null
+      }))
+    : [];
+
+  // 提取解决方案
+  const resolution = it?.fields?.resolution ? {
+    id: it.fields.resolution.id || '',
+    name: it.fields.resolution.name || '',
+    description: it.fields.resolution.description || ''
+  } : null;
+
+  // 提取自定义字段 - 普通JIRA
+  const customfield_10705 = it?.fields?.customfield_10705 != null ? normalizeJiraDescription(it.fields.customfield_10705) : '';
+  const customfield_10600 = it?.fields?.customfield_10600 != null ? normalizeJiraDescription(it.fields.customfield_10600) : '';
+
+  // 提取自定义字段 - 客诉
+  const customfield_12213 = it?.fields?.customfield_12213 != null ? normalizeJiraDescription(it.fields.customfield_12213) : '';
+  const customfield_12284 = it?.fields?.customfield_12284 != null ? normalizeJiraDescription(it.fields.customfield_12284) : '';
+  const customfield_12233 = it?.fields?.customfield_12233 != null ? normalizeJiraDescription(it.fields.customfield_12233) : '';
+  const customfield_12239 = it?.fields?.customfield_12239 != null ? normalizeJiraDescription(it.fields.customfield_12239) : '';
+
+  return {
+    ok: true,
+    enabled: true,
+    issue: { 
+      key, 
+      summary, 
+      status, 
+      updated, 
+      projectKey, 
+      projectName, 
+      components, 
+      module, 
+      url: issueUrl, 
+      description, 
+      attachments, 
+      resolution,
+      // 普通JIRA自定义字段
+      customfield_10705,
+      customfield_10600,
+      // 客诉自定义字段
+      customfield_12213,
+      customfield_12284,
+      customfield_12233,
+      customfield_12239
+    }
+  };
+}
+
 module.exports = {
   getJiraConfig,
   searchIssues,
   buildJql,
-  buildJqlFromQueryPlan
+  buildJqlFromQueryPlan,
+  getIssue
 };
 
 

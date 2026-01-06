@@ -84,7 +84,7 @@
     </aside>
 
     <!-- Main -->
-    <main class="ss-main">
+    <main class="ss-main" :class="{ 'ss-main-compressed': sourceDrawerVisible }">
       <div ref="messagesEl" class="ss-messages">
         <div v-if="activeMessages.length === 0" class="ss-empty">
           <div class="ss-empty-title">{{ $t('smartSearch.welcomeTitle') }}</div>
@@ -112,10 +112,13 @@
                 <!-- 1) 答案区 -->
                 <div class="ss-answer-area">
                   <!-- 识别到的查询要点 -->
-                  <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length)" class="ss-answer-section">
+                  <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length || m.payload.recognized.component?.length || m.payload.recognized.neg?.length || m.payload.recognized.intent || m.payload.recognized.days)" class="ss-answer-section">
                     <div class="ss-answer-section-title">识别到的查询要点</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-query-points">
+                        <template v-if="m.payload.recognized.intent">
+                          <div>意图：{{ getIntentLabel(m.payload.recognized.intent) }}</div>
+                        </template>
                         <template v-if="m.payload.recognized.fullCodes?.length">
                           <div>故障码：{{ m.payload.recognized.fullCodes.join(' / ') }}</div>
                         </template>
@@ -127,6 +130,15 @@
                         </template>
                         <template v-if="m.payload.recognized.trigger?.length">
                           <div>触发条件：{{ m.payload.recognized.trigger.join(' / ') }}</div>
+                        </template>
+                        <template v-if="m.payload.recognized.component?.length">
+                          <div>组件：{{ m.payload.recognized.component.join(' / ') }}</div>
+                        </template>
+                        <template v-if="m.payload.recognized.neg?.length">
+                          <div>否定项：{{ m.payload.recognized.neg.join(' / ') }}</div>
+                        </template>
+                        <template v-if="m.payload.recognized.days">
+                          <div>回溯天数：{{ m.payload.recognized.days }} 天</div>
                         </template>
                       </div>
                     </div>
@@ -293,6 +305,52 @@
                     <el-button size="small" @click="goErrorCodes">故障码搜索</el-button>
                     <el-button size="small" @click="goFaultCases">故障案例搜索</el-button>
                   </div>
+
+                  <!-- 来源标识和复制按钮 -->
+                  <div 
+                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.jira?.length || 0) + (m.payload.sources?.faultCases?.length || 0) > 0" 
+                    class="ss-sources-actions"
+                  >
+                    <div 
+                      class="ss-sources-button" 
+                      @click="openSourcesDrawer(m)"
+                    >
+                      <div class="ss-sources-button-icons">
+                        <div 
+                          v-if="(m.payload.sources?.faultCodes || []).length > 0" 
+                          class="ss-source-icon" 
+                          :style="{ zIndex: 10 }"
+                          title="故障码"
+                        >
+                          <span class="ss-source-icon-text">ErrCode</span>
+                        </div>
+                        <div 
+                          v-if="(m.payload.sources?.jira || []).length > 0" 
+                          class="ss-source-icon" 
+                          :style="{ zIndex: 9 }"
+                          title="JIRA"
+                        >
+                          <span class="ss-source-icon-text">JIRA</span>
+                        </div>
+                        <div 
+                          v-if="(m.payload.sources?.faultCases || []).length > 0" 
+                          class="ss-source-icon" 
+                          :style="{ zIndex: 8 }"
+                          title="故障案例"
+                        >
+                          <el-icon class="ss-source-icon-svg"><Files /></el-icon>
+                        </div>
+                      </div>
+                      <span class="ss-sources-button-text">来源</span>
+                    </div>
+                    <button 
+                      class="ss-copy-button" 
+                      @click.stop="copyAnswerText(m)"
+                      title="复制答案"
+                    >
+                      <el-icon><DocumentCopy /></el-icon>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- 2) 查看检索详情 -->
@@ -370,86 +428,293 @@
 
       <el-drawer
         v-model="sourceDrawerVisible"
-        :title="sourceDrawerTitle"
+        title="搜索结果"
         size="520px"
         direction="rtl"
+        :with-header="true"
+        :modal="false"
+        :append-to-body="true"
       >
-        <div v-if="sourceDrawerType === 'fault'" class="ss-drawer">
-          <div class="ss-drawer-block">
-            <div class="ss-drawer-k">故障码</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem?.subsystem ? `${sourceDrawerItem.subsystem} - ` : '' }}{{ sourceDrawerItem?.code }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.short_message" class="ss-drawer-block">
-            <div class="ss-drawer-k">摘要</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.short_message }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.explanation" class="ss-drawer-block">
-            <div class="ss-drawer-k">解释</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.explanation }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.operation" class="ss-drawer-block">
-            <div class="ss-drawer-k">操作</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.operation }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.detail" class="ss-drawer-block">
-            <div class="ss-drawer-k">详情</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.detail }}</div>
-          </div>
-
-          <div class="ss-drawer-block">
-            <div class="ss-drawer-k">技术排查方案</div>
-            <div v-if="sourceDrawerLoading" class="ss-drawer-v">加载中...</div>
-            <template v-else>
-              <div v-if="sourceDrawerTech?.tech_solution" class="ss-drawer-v ss-drawer-pre">{{ sourceDrawerTech.tech_solution }}</div>
-              <div v-else class="ss-drawer-v">-</div>
-
-              <div v-if="(sourceDrawerTech?.images || []).length" class="ss-drawer-attachments">
-                <div class="ss-drawer-k">附件</div>
-                <div class="ss-drawer-attach-list">
-                  <a
-                    v-for="img in sourceDrawerTech.images"
-                    :key="img.uid || img.url"
-                    class="ss-drawer-attach"
-                    :href="img.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {{ img.original_name || img.filename || img.url }}
-                  </a>
+        <div class="ss-sources-drawer">
+          <!-- 故障码来源 -->
+          <div v-if="sourceDrawerMessage?.payload?.sources?.faultCodes?.length" class="ss-sources-group">
+            <div class="ss-sources-group-title">故障码来源（{{ sourceDrawerMessage?.payload?.sources?.faultCodes?.length }}）</div>
+            <div class="ss-sources-list">
+              <div
+                v-for="f in sourceDrawerMessage.payload.sources.faultCodes"
+                :key="f.ref"
+                class="ss-source-item"
+              >
+                <div class="ss-source-header" @click="toggleSourceExpanded(f.ref)">
+                  <span class="ss-source-ref">[{{ f.ref }}]</span>
+                  <span class="ss-source-text">{{ f.subsystem ? `${f.subsystem} - ` : '' }}{{ f.code }}</span>
+                  <span v-if="f.short_message" class="ss-source-desc">：{{ f.short_message }}</span>
+                  <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(f.ref) }">
+                    <ArrowDown />
+                  </el-icon>
+                </div>
+                <div v-if="expandedSources.has(f.ref)" class="ss-source-expanded">
+                  <div class="ss-source-detail">
+                    <!-- 解释 -->
+                    <div v-if="f.user_hint || f.operation || f.explanation" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">解释</div>
+                      <div class="ss-source-detail-value">{{ [f.explanation, f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</div>
+                    </div>
+                    
+                    <!-- 参数含义 -->
+                    <div v-if="f.param1 || f.param2 || f.param3 || f.param4" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">参数含义</div>
+                      <div class="ss-source-detail-params">
+                        <div v-if="f.param1" class="ss-source-detail-param">
+                          <span class="ss-param-label">参数1：</span>
+                          <span class="ss-param-value">{{ f.param1 }}</span>
+                        </div>
+                        <div v-if="f.param2" class="ss-source-detail-param">
+                          <span class="ss-param-label">参数2：</span>
+                          <span class="ss-param-value">{{ f.param2 }}</span>
+                        </div>
+                        <div v-if="f.param3" class="ss-source-detail-param">
+                          <span class="ss-param-label">参数3：</span>
+                          <span class="ss-param-value">{{ f.param3 }}</span>
+                        </div>
+                        <div v-if="f.param4" class="ss-source-detail-param">
+                          <span class="ss-param-label">参数4：</span>
+                          <span class="ss-param-value">{{ f.param4 }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- 详细信息 -->
+                    <div v-if="f.detail" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">详细信息</div>
+                      <div class="ss-source-detail-value">{{ f.detail }}</div>
+                    </div>
+                    
+                    <!-- 检查方法 -->
+                    <div v-if="f.method" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">检查方法</div>
+                      <div class="ss-source-detail-value">{{ f.method }}</div>
+                    </div>
+                    
+                    <!-- 分类 -->
+                    <div v-if="f.category" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">分类</div>
+                      <div class="ss-source-detail-value">{{ f.category }}</div>
+                    </div>
+                    
+                    <!-- 技术排查方案 -->
+                    <div class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">技术排查方案</div>
+                      <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-source-detail-value ss-source-tech-text">
+                        {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
+                      </div>
+                      <div v-else-if="f.id && !faultTechSolutions.get(f.id)" class="ss-source-detail-value">
+                        <el-button
+                          size="small"
+                          text
+                          :loading="faultTechSolutions.get(f.id)?.loading"
+                          @click="loadTechSolution(f.id)"
+                        >
+                          加载技术排查方案
+                        </el-button>
+                      </div>
+                      <div v-else class="ss-source-detail-value">-</div>
+                      
+                      <!-- 附件 -->
+                      <div v-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
+                        <div class="ss-fault-attachments-title">附件：</div>
+                        <div class="ss-fault-attachments-list">
+                          <!-- 图片：可预览 -->
+                          <div
+                            v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => isImageFile(img))"
+                            :key="img.uid || img.url"
+                            class="ss-fault-attachment-image"
+                          >
+                            <el-image
+                              :src="img.url"
+                              :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
+                              fit="cover"
+                              class="ss-attachment-image"
+                              :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
+                            />
+                            <div class="ss-attachment-image-name">{{ img.original_name || img.filename || '图片' }}</div>
+                          </div>
+                          <!-- PDF/其他文件：显示文件名，可点击下载 -->
+                          <a
+                            v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
+                            :key="img.uid || img.url"
+                            class="ss-fault-attachment-file"
+                            :href="img.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            @click.stop
+                          >
+                            <span>{{ img.original_name || img.filename || '文件' }}</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </template>
+            </div>
           </div>
-        </div>
 
-        <div v-else-if="sourceDrawerType === 'jira'" class="ss-drawer">
-          <div class="ss-drawer-block">
-            <div class="ss-drawer-k">Key</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem?.key }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.summary" class="ss-drawer-block">
-            <div class="ss-drawer-k">摘要</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.summary }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.module" class="ss-drawer-block">
-            <div class="ss-drawer-k">模块</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.module }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.status" class="ss-drawer-block">
-            <div class="ss-drawer-k">状态</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.status }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.updated" class="ss-drawer-block">
-            <div class="ss-drawer-k">更新时间</div>
-            <div class="ss-drawer-v">{{ sourceDrawerItem.updated }}</div>
-          </div>
-          <div v-if="sourceDrawerItem?.url" class="ss-drawer-block">
-            <el-button size="small" type="primary" @click="() => window.open(sourceDrawerItem.url, '_blank')">
-              跳转 Jira
-            </el-button>
+          <!-- Jira 来源 -->
+          <div v-if="sourceDrawerMessage?.payload?.sources?.jira?.length" class="ss-sources-group">
+            <div class="ss-sources-group-title">Jira 来源（{{ sourceDrawerMessage?.payload?.sources?.jira?.length }}）</div>
+            <div class="ss-sources-list">
+              <div
+                v-for="j in sourceDrawerMessage.payload.sources.jira"
+                :key="j.ref"
+                class="ss-source-item"
+              >
+                <div class="ss-source-header" @click="toggleSourceExpanded(j.ref)">
+                  <span class="ss-source-ref">[{{ j.ref }}]</span>
+                  <span class="ss-source-text">{{ j.key }}</span>
+                  <span v-if="j.summary" class="ss-source-desc">：{{ j.summary }}</span>
+                  <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(j.ref) }">
+                    <ArrowDown />
+                  </el-icon>
+                </div>
+                <div v-if="expandedSources.has(j.ref)" class="ss-source-expanded">
+                  <div class="ss-source-detail">
+                    <div v-if="j.summary" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">摘要</div>
+                      <div class="ss-source-detail-value">{{ j.summary }}</div>
+                    </div>
+                    <div v-if="j.module" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">模块</div>
+                      <div class="ss-source-detail-value">{{ j.module }}</div>
+                    </div>
+                    <div v-if="j.status" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">状态</div>
+                      <div class="ss-source-detail-value">{{ j.status }}</div>
+                    </div>
+                    <div v-if="j.updated" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">更新时间</div>
+                      <div class="ss-source-detail-value">{{ j.updated }}</div>
+                    </div>
+                    <div v-if="j.url" class="ss-source-detail-actions">
+                      <button 
+                        class="btn-text btn-sm" 
+                        @click.stop="handleJiraJump(j.url)"
+                      >
+                        跳转 Jira
+                      </button>
+                    </div>
+                    <div v-else-if="j.key" class="ss-source-detail-actions">
+                      <button 
+                        class="btn-text btn-sm" 
+                        @click.stop="handleJiraJumpByKey(j.key)"
+                      >
+                        跳转 Jira
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </el-drawer>
+
+      <!-- 故障码详情弹窗 -->
+      <el-dialog
+        v-model="faultDetailDialogVisible"
+        title="故障码详情"
+        width="800px"
+        :close-on-click-modal="false"
+      >
+        <div v-if="faultDetailItem" class="ss-fault-detail-dialog">
+          <el-tabs v-model="faultDetailActiveTab">
+            <el-tab-pane label="基础信息" name="basic">
+              <div class="ss-fault-detail-dialog-content">
+                <div class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">故障码</div>
+                  <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.subsystem ? `${faultDetailItem.subsystem} - ` : '' }}{{ faultDetailItem.code }}</div>
+                </div>
+                <div v-if="faultDetailItem.short_message" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">摘要</div>
+                  <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.short_message }}</div>
+                </div>
+                <div v-if="faultDetailItem.user_hint || faultDetailItem.operation || faultDetailItem.explanation" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">解释</div>
+                  <div class="ss-fault-detail-dialog-value">{{ [faultDetailItem.explanation, faultDetailItem.user_hint, faultDetailItem.operation].filter(Boolean).join(' ') }}</div>
+                </div>
+                <div v-if="faultDetailItem.param1 || faultDetailItem.param2 || faultDetailItem.param3 || faultDetailItem.param4" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">参数含义</div>
+                  <div class="ss-fault-detail-dialog-params">
+                    <div v-if="faultDetailItem.param1" class="ss-fault-detail-dialog-param">
+                      <span class="ss-param-label">参数1：</span>
+                      <span class="ss-param-value">{{ faultDetailItem.param1 }}</span>
+                    </div>
+                    <div v-if="faultDetailItem.param2" class="ss-fault-detail-dialog-param">
+                      <span class="ss-param-label">参数2：</span>
+                      <span class="ss-param-value">{{ faultDetailItem.param2 }}</span>
+                    </div>
+                    <div v-if="faultDetailItem.param3" class="ss-fault-detail-dialog-param">
+                      <span class="ss-param-label">参数3：</span>
+                      <span class="ss-param-value">{{ faultDetailItem.param3 }}</span>
+                    </div>
+                    <div v-if="faultDetailItem.param4" class="ss-fault-detail-dialog-param">
+                      <span class="ss-param-label">参数4：</span>
+                      <span class="ss-param-value">{{ faultDetailItem.param4 }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="更多信息" name="more">
+              <div class="ss-fault-detail-dialog-content">
+                <div v-if="faultDetailItem.detail" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">详细信息</div>
+                  <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.detail }}</div>
+                </div>
+                <div v-if="faultDetailItem.method" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">检查方法</div>
+                  <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.method }}</div>
+                </div>
+                <div v-if="faultDetailItem.category" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">分类</div>
+                  <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.category }}</div>
+                </div>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="技术排查方案" name="tech" v-loading="faultDetailTechLoading">
+              <div class="ss-fault-detail-dialog-content">
+                <div v-if="faultDetailTech?.tech_solution" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">技术排查方案</div>
+                  <pre class="ss-fault-detail-dialog-tech-text">{{ faultDetailTech.tech_solution }}</pre>
+                </div>
+                <div v-else class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-value">-</div>
+                </div>
+                <div v-if="(faultDetailTech?.images || []).length > 0" class="ss-fault-detail-dialog-section">
+                  <div class="ss-fault-detail-dialog-label">附件</div>
+                  <div class="ss-fault-detail-dialog-attach-list">
+                    <a
+                      v-for="img in faultDetailTech.images"
+                      :key="img.uid || img.url"
+                      class="ss-fault-detail-dialog-attach"
+                      :href="img.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {{ img.original_name || img.filename || img.url }}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="faultDetailDialogVisible = false">关闭</el-button>
+          </span>
+        </template>
+      </el-dialog>
 
     </main>
   </div>
@@ -461,7 +726,7 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { ArrowLeft, ArrowRight, ArrowDown } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy } from '@element-plus/icons-vue'
 import api from '@/api'
 
 const MAX_CONVERSATIONS = 5
@@ -507,9 +772,16 @@ export default {
     const sourceDrawerVisible = ref(false)
     const sourceDrawerType = ref('') // 'fault' | 'jira'
     const sourceDrawerItem = ref(null)
+    const sourceDrawerMessage = ref(null) // 保存当前消息，用于显示来源列表
     const sourceDrawerLoading = ref(false)
     const sourceDrawerTech = ref(null)
     const faultTechSolutions = ref(new Map()) // Map<faultId, { tech_solution, images, loading }>
+    const expandedSources = ref(new Set()) // 展开的来源 ref 集合
+    const faultDetailDialogVisible = ref(false)
+    const faultDetailItem = ref(null)
+    const faultDetailTech = ref(null)
+    const faultDetailTechLoading = ref(false)
+    const faultDetailActiveTab = ref('basic')
 
     const sourceDrawerTitle = computed(() => {
       const it = sourceDrawerItem.value || {}
@@ -731,6 +1003,176 @@ export default {
       }
     }
 
+    const openSourcesDrawer = (message) => {
+      sourceDrawerMessage.value = message
+      sourceDrawerVisible.value = true
+      expandedSources.value.clear()
+    }
+
+    const toggleSourceExpanded = (ref) => {
+      if (expandedSources.value.has(ref)) {
+        expandedSources.value.delete(ref)
+      } else {
+        expandedSources.value.add(ref)
+      }
+    }
+
+    const handleJiraJump = (url) => {
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      } else {
+        console.warn('JIRA URL is missing')
+      }
+    }
+
+    const handleJiraJumpByKey = (key) => {
+      if (key) {
+        // 尝试从环境变量或配置中获取 JIRA base URL，如果没有则使用默认格式
+        // 这里假设 URL 格式为：https://your-jira-domain.atlassian.net/browse/KEY
+        // 或者让用户配置
+        const baseUrl = import.meta.env.VITE_JIRA_BASE_URL || ''
+        if (baseUrl) {
+          const url = `${baseUrl}/browse/${encodeURIComponent(key)}`
+          window.open(url, '_blank', 'noopener,noreferrer')
+        } else {
+          console.warn('JIRA base URL is not configured, cannot build URL from key:', key)
+        }
+      }
+    }
+
+    const copyAnswerText = async (message) => {
+      if (!message || !message.payload) return
+      
+      const parts = []
+      const payload = message.payload
+      
+      // 识别到的查询要点
+      if (payload.recognized) {
+        const rec = payload.recognized
+        const queryPoints = []
+        if (rec.intent) {
+          queryPoints.push(`意图：${getIntentLabel(rec.intent)}`)
+        }
+        if (rec.fullCodes?.length) {
+          queryPoints.push(`故障码：${rec.fullCodes.join(' / ')}`)
+        } else if (rec.typeCodes?.length) {
+          queryPoints.push(`故障类型：${rec.typeCodes.join(' / ')}`)
+        }
+        if (rec.symptom?.length) {
+          queryPoints.push(`现象：${rec.symptom.join(' / ')}`)
+        }
+        if (rec.trigger?.length) {
+          queryPoints.push(`触发条件：${rec.trigger.join(' / ')}`)
+        }
+        if (rec.component?.length) {
+          queryPoints.push(`组件：${rec.component.join(' / ')}`)
+        }
+        if (rec.neg?.length) {
+          queryPoints.push(`否定项：${rec.neg.join(' / ')}`)
+        }
+        if (rec.days) {
+          queryPoints.push(`回溯天数：${rec.days} 天`)
+        }
+        if (queryPoints.length > 0) {
+          parts.push('识别到的查询要点')
+          parts.push(queryPoints.join('\n'))
+          parts.push('')
+        }
+      }
+      
+      // 故障码解析
+      if (payload.sources?.faultCodes?.length > 0) {
+        parts.push('故障码解析')
+        payload.sources.faultCodes.forEach(f => {
+          const faultParts = []
+          faultParts.push(`${f.subsystem ? `${f.subsystem} - ` : ''}${f.code}${f.short_message ? `：${f.short_message}` : ''} [${f.ref}]`)
+          
+          if (f.user_hint || f.operation) {
+            faultParts.push(`解释：${[f.user_hint, f.operation].filter(Boolean).join(' ') || '-'}`)
+          }
+          
+          if (f.param1 || f.param2 || f.param3 || f.param4) {
+            const params = []
+            if (f.param1) params.push(`参数1：${f.param1}`)
+            if (f.param2) params.push(`参数2：${f.param2}`)
+            if (f.param3) params.push(`参数3：${f.param3}`)
+            if (f.param4) params.push(`参数4：${f.param4}`)
+            faultParts.push(`参数含义：${params.join(' ')}`)
+          }
+          
+          if (f.detail) {
+            faultParts.push(`详细信息：${f.detail}`)
+          }
+          
+          if (f.method) {
+            faultParts.push(`检查方法：${f.method}`)
+          }
+          
+          if (f.category) {
+            faultParts.push(`分类：${f.category}`)
+          }
+          
+          if (f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution) {
+            faultParts.push(`技术排查方案：${f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution}`)
+          }
+          
+          parts.push(faultParts.join('\n'))
+          parts.push('')
+        })
+      }
+      
+      // 相似历史案例
+      if (payload.sources?.jira?.length > 0) {
+        parts.push('相似历史案例（来自 Jira）')
+        payload.sources.jira.forEach(j => {
+          parts.push(`${j.key}${j.summary ? `：${j.summary}` : ''} [${j.ref}]`)
+        })
+        parts.push('')
+      }
+      
+      const text = parts.join('\n').trim()
+      
+      try {
+        await navigator.clipboard.writeText(text)
+        ElMessage.success('答案已复制到剪贴板')
+      } catch (err) {
+        // 降级方案
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        try {
+          document.execCommand('copy')
+          ElMessage.success('答案已复制到剪贴板')
+        } catch (e) {
+          ElMessage.error('复制失败，请手动复制')
+        }
+        document.body.removeChild(textarea)
+      }
+    }
+
+    const openFaultDetailDialog = async (faultItem) => {
+      faultDetailItem.value = faultItem
+      faultDetailDialogVisible.value = true
+      faultDetailTech.value = null
+      faultDetailTechLoading.value = false
+      faultDetailActiveTab.value = 'basic'
+
+      const id = faultItem?.id
+      if (!id) return
+      faultDetailTechLoading.value = true
+      try {
+        const resp = await api.errorCodes.getTechSolution(id)
+        faultDetailTech.value = resp?.data || null
+      } catch (_) {
+        faultDetailTech.value = null
+      } finally {
+        faultDetailTechLoading.value = false
+      }
+    }
+
     const startNewConversation = () => {
       activeConversationId.value = null
       draft.value = ''
@@ -794,6 +1236,18 @@ export default {
       }
     }
 
+    const getIntentLabel = (intent) => {
+      const intentLabelMap = {
+        troubleshoot: '排查/修复',
+        lookup_fault_code: '查故障码',
+        find_case: '找历史案例',
+        definition: '概念解释',
+        how_to_use: '使用方法',
+        other: '不确定'
+      }
+      return intentLabelMap[intent] || intent || '未知'
+    }
+
     const noop = () => {}
 
     const toggleSidebar = () => {
@@ -825,10 +1279,17 @@ export default {
       sourceDrawerVisible,
       sourceDrawerType,
       sourceDrawerItem,
+      sourceDrawerMessage,
       sourceDrawerLoading,
       sourceDrawerTech,
       sourceDrawerTitle,
       faultTechSolutions,
+      expandedSources,
+      faultDetailDialogVisible,
+      faultDetailItem,
+      faultDetailTech,
+      faultDetailTechLoading,
+      faultDetailActiveTab,
       loadTechSolution,
       isImageFile,
       getImagePreviewList,
@@ -836,8 +1297,17 @@ export default {
       ArrowLeft,
       ArrowRight,
       ArrowDown,
+      Warning,
+      Link,
+      Files,
       send,
       openSource,
+      openSourcesDrawer,
+      toggleSourceExpanded,
+      openFaultDetailDialog,
+      handleJiraJump,
+      handleJiraJumpByKey,
+      copyAnswerText,
       startNewConversation,
       selectConversation,
       deleteConversation,
@@ -847,6 +1317,7 @@ export default {
       formatTime,
       formatShortTime,
       formatLlmRaw,
+      getIntentLabel,
       toggleSidebar,
       toggleHistoryCollapsed,
       noop
@@ -1079,6 +1550,12 @@ export default {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: margin-right 0.3s ease;
+}
+
+/* 当抽屉打开时，压缩主区域 */
+.ss-main-compressed {
+  margin-right: 520px;
 }
 
 .ss-messages {
@@ -1170,71 +1647,365 @@ export default {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 8px;
 }
 
-.ss-sources {
-  padding: 12px;
+/* 来源标识和复制按钮容器 */
+.ss-sources-actions {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 来源标识区域 - 圆角矩形按钮，内部圆形图标重叠显示 */
+.ss-sources-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #ffffff;
-}
-
-.ss-sources-summary {
+  border-radius: 16px;
   cursor: pointer;
-  font-size: 13px;
-  color: #111827;
-  font-weight: 600;
+  transition: all 0.2s;
+  width: fit-content;
+  min-width: auto;
 }
 
-.ss-sources-body {
-  margin-top: 10px;
+.ss-sources-button:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ss-sources-button-icons {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 0;
+  position: relative;
+  height: 20px;
 }
 
-.ss-sources-title {
+.ss-source-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #ffffff;
+  border: 2px solid #f3f4f6;
+  border-radius: 10px;
+  margin-left: -10px;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.ss-source-icon:first-child {
+  margin-left: 0;
+}
+
+.ss-source-icon-svg {
   font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 6px;
+  color: #374151;
+}
+
+.ss-source-icon-text {
+  font-size: 10px;
+  color: #374151;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.ss-sources-button-text {
+  font-size: 12px;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* 复制按钮 */
+.ss-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #374151;
+}
+
+.ss-copy-button:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #1890ff;
+}
+
+.ss-copy-button .el-icon {
+  font-size: 14px;
+}
+
+/* 复制按钮 */
+.ss-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #374151;
+}
+
+.ss-copy-button:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #1890ff;
+}
+
+.ss-copy-button .el-icon {
+  font-size: 14px;
+}
+
+/* 来源抽屉 */
+.ss-sources-drawer {
+  padding: 0;
+}
+
+.ss-sources-group {
+  margin-bottom: 24px;
+}
+
+.ss-sources-group:last-child {
+  margin-bottom: 0;
+}
+
+.ss-sources-group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .ss-sources-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ss-source-item {
-  width: 100%;
-  text-align: left;
   border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  border-radius: 10px;
-  padding: 8px 10px;
-  cursor: pointer;
-  text-decoration: none;
-  color: inherit;
-  display: block;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
 }
 
-.ss-source-item:hover {
-  background: #f3f4f6;
-  text-decoration: none;
-  color: inherit;
+.ss-source-header {
+  cursor: pointer;
+  padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+  min-height: 28px;
+  line-height: 1.2;
+}
+
+.ss-source-header:hover {
+  background-color: #f9fafb;
 }
 
 .ss-source-ref {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
-  color: #111827;
-  margin-right: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .ss-source-text {
+  font-size: 12px;
+  color: #111827;
+  font-weight: 500;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.ss-source-desc {
+  font-size: 12px;
+  color: #6b7280;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.ss-source-expand-icon {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  color: #6b7280;
+}
+
+.ss-source-expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.ss-source-expanded {
+  padding: 16px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.ss-source-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ss-source-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-source-detail-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.ss-source-detail-value {
+  font-size: 13px;
+  color: #111827;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.ss-source-detail-params {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-source-detail-param {
   font-size: 13px;
   color: #111827;
 }
+
+.ss-param-label {
+  font-weight: 500;
+  color: #374151;
+  margin-right: 4px;
+}
+
+.ss-param-value {
+  color: #111827;
+}
+
+.ss-source-tech-text {
+  /* 与对话区一致：纯文本展示，不需要单独卡片背景 */
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #374151;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  border: none;
+  white-space: pre-wrap;
+}
+
+.ss-source-detail-actions {
+  margin-top: 8px;
+}
+
+/* 故障码详情弹窗 */
+.ss-fault-detail-dialog {
+  padding: 0;
+}
+
+.ss-fault-detail-dialog-content {
+  padding: 16px 0;
+}
+
+.ss-fault-detail-dialog-section {
+  margin-bottom: 20px;
+}
+
+.ss-fault-detail-dialog-section:last-child {
+  margin-bottom: 0;
+}
+
+.ss-fault-detail-dialog-label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.ss-fault-detail-dialog-value {
+  font-size: 14px;
+  color: #111827;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.ss-fault-detail-dialog-params {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-fault-detail-dialog-param {
+  font-size: 14px;
+  color: #111827;
+}
+
+.ss-fault-detail-dialog-tech-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.ss-fault-detail-dialog-attach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-fault-detail-dialog-attach {
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.ss-fault-detail-dialog-attach:hover {
+  text-decoration: underline;
+}
+
+/* 旧的来源样式已移除，使用抽屉中的新样式 */
 
 .ss-drawer {
   display: flex;
@@ -1331,6 +2102,7 @@ export default {
   border-radius: 12px;
   background: #ffffff;
   padding: 10px 12px;
+  margin-top: 8px;
 }
 
 .ss-result-debug-summary {
@@ -1535,20 +2307,25 @@ export default {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .ss-answer-area {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 20px 0;
+  padding: 20px 0 8px 0;
 }
 
 .ss-answer-section {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 8px;
+}
+
+.ss-answer-section:first-child {
+  margin-top: 0;
 }
 
 .ss-answer-section-title {
@@ -1903,6 +2680,4 @@ export default {
   white-space: nowrap;
 }
 </style>
-
-
 

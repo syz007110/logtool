@@ -13,10 +13,6 @@ const {
   getFaultCaseDetail,
   listLatestFaultCases,
   searchFaultCases,
-  submitFaultCaseReview,
-  reviewFaultCase,
-  getReviewInbox,
-  markInboxRead,
   getFaultCaseI18nByLang,
   saveFaultCaseI18nByLang,
   autoTranslateFaultCaseI18n,
@@ -77,21 +73,11 @@ router.get('/latest', auth, checkPermission('fault_case:read'), listLatestFaultC
 // Search by keyword or errorCode
 router.get('/search', auth, checkPermission('fault_case:read'), searchFaultCases);
 
-// Review inbox for reviewers
-router.get('/review/inbox', auth, checkPermission('fault_case:review'), getReviewInbox);
-router.post('/review/inbox/mark-read', auth, checkPermission('fault_case:review'), markInboxRead);
-
 // CRUD
 router.post('/', auth, checkPermission('fault_case:create'), createFaultCase);
 router.get('/:id', auth, checkPermission('fault_case:read'), getFaultCaseDetail);
 router.put('/:id', auth, checkPermission('fault_case:update'), updateFaultCase);
 router.delete('/:id', auth, checkPermission('fault_case:delete'), deleteFaultCase);
-
-// Submit review (creator)
-router.post('/:id/submit-review', auth, checkPermission('fault_case:update'), submitFaultCaseReview);
-
-// Review action (auditor)
-router.post('/:id/review', auth, checkPermission('fault_case:review'), reviewFaultCase);
 
 // i18n
 router.get('/:id/i18n', auth, checkPermission('fault_case:read'), getFaultCaseI18nByLang);

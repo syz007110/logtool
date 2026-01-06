@@ -1,88 +1,90 @@
 <template>
   <div class="i18n-error-codes-container" v-if="isClient">
-    <!-- 搜索和操作栏 -->
-    <div class="action-bar">
-      <div class="search-section">
-        <el-input
-          v-model="searchForm.code"
-          :placeholder="$t('i18nErrorCodes.inputErrorCode')"
-          style="width: 160px"
-          clearable
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-      </template>
-        </el-input>
-        
-        <el-select
-          v-model="searchForm.subsystem"
-          :placeholder="$t('i18nErrorCodes.selectSubsystem')"
-          style="width: 220px; margin-left: 10px"
-          clearable
-          @change="handleSubsystemFilter"
-        >
-                <el-option 
-                  v-for="option in subsystemOptions" 
-                  :key="option.value" 
-                  :label="option.label" 
-                  :value="option.value" 
+    <!-- 统一卡片：包含搜索栏和列表 -->
+    <el-card class="main-card">
+      <!-- 搜索和操作栏 -->
+      <div class="action-bar">
+        <div class="search-section">
+          <el-input
+            v-model="searchForm.code"
+            :placeholder="$t('i18nErrorCodes.inputErrorCode')"
+            style="width: 160px"
+            clearable
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+
+          <el-select
+            v-model="searchForm.subsystem"
+            :placeholder="$t('i18nErrorCodes.selectSubsystem')"
+            style="width: 220px; margin-left: 10px"
+            clearable
+            @change="handleSubsystemFilter"
+          >
+                  <el-option
+                    v-for="option in subsystemOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+
+          <el-select
+            v-model="searchForm.lang"
+            :placeholder="$t('i18nErrorCodes.selectLanguage')"
+            style="width: 150px; margin-left: 10px"
+                clearable
+            @change="handleLanguageFilter"
+          >
+                <el-option :label="$t('i18nErrorCodes.all')" value="" />
+                <el-option
+                  v-for="lang in languageOptions"
+                  :key="lang.value"
+                  :label="lang.label"
+                  :value="lang.value"
                 />
               </el-select>
-        
-        <el-select
-          v-model="searchForm.lang"
-          :placeholder="$t('i18nErrorCodes.selectLanguage')"
-          style="width: 150px; margin-left: 10px"
-              clearable 
-          @change="handleLanguageFilter"
-        >
-              <el-option :label="$t('i18nErrorCodes.all')" value="" />
-              <el-option 
-                v-for="lang in languageOptions" 
-                :key="lang.value" 
-                :label="lang.label" 
-                :value="lang.value" 
-              />
-            </el-select>
-      </div>
-      
-      <div class="action-section">
-        <button 
-          class="btn-primary"
-          @click="handleAdd"
-          v-if="canCreate"
-          aria-label="$t('i18nErrorCodes.addContent')"
-        >
-          <i class="fas fa-plus"></i>
-          {{ $t('i18nErrorCodes.addContent') }}
-        </button>
-        
-        <button 
-          class="btn-secondary"
-          @click="handleBatchImport"
-          v-if="canCreate"
-          aria-label="$t('i18nErrorCodes.batchImport')"
-        >
-          <i class="fas fa-upload"></i>
-          {{ $t('i18nErrorCodes.batchImport') }}
-        </button>
+        </div>
 
-        <button
-          class="btn-secondary"
-          @click="handleExport"
-          v-if="canExport"
-          aria-label="$t('i18nErrorCodes.exportXML')"
-        >
-          <i class="fas fa-download"></i>
-          {{ $t('i18nErrorCodes.exportXML') }}
-        </button>
-      </div>
+        <div class="action-section">
+          <button
+            class="btn-primary"
+            @click="handleAdd"
+            v-if="canCreate"
+            aria-label="$t('i18nErrorCodes.addContent')"
+          >
+            <i class="fas fa-plus"></i>
+            {{ $t('i18nErrorCodes.addContent') }}
+          </button>
+
+          <button
+            class="btn-secondary"
+            @click="handleBatchImport"
+            v-if="canCreate"
+            aria-label="$t('i18nErrorCodes.batchImport')"
+          >
+            <i class="fas fa-upload"></i>
+            {{ $t('i18nErrorCodes.batchImport') }}
+          </button>
+
+          <button
+            class="btn-secondary"
+            @click="handleExport"
+            v-if="canExport"
+            aria-label="$t('i18nErrorCodes.exportXML')"
+          >
+            <i class="fas fa-download"></i>
+            {{ $t('i18nErrorCodes.exportXML') }}
+          </button>
+        </div>
       </div>
 
-      <!-- 多语言内容列表 -->
-    <el-card class="list-card">
-      <el-table :data="i18nErrorCodes" :loading="loading" style="width: 100%" v-loading="loading">
+      <!-- 多语言内容列表 - 可滚动容器 -->
+      <div class="table-container">
+        <el-table :data="i18nErrorCodes" :loading="loading" :height="tableHeight" style="width: 100%" v-loading="loading">
         <el-table-column :label="$t('i18nErrorCodes.subsystemNumber')" width="90">
           <template #default="{ row }">
             {{ (row && row.errorCode && row.errorCode.subsystem) ? row.errorCode.subsystem : 'N/A' }}
@@ -113,7 +115,7 @@
               <ExplanationCell :text="row.operation || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="180" align="center" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('shared.operation')" width="180" align="center" fixed="right" v-if="canUpdate || canDelete">
           <template #default="{ row }">
             <div class="btn-group" style="justify-content: center;">
               <button
@@ -138,6 +140,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
       <!-- 分页 -->
       <div class="pagination-wrapper" v-if="total > 0">
@@ -346,6 +349,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Download, Search } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import { useI18n } from 'vue-i18n'
+import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
 import JSZip from 'jszip'
 
@@ -427,7 +431,7 @@ export default {
     const showExportDialog = ref(false)
     const editingItem = ref(null)
     const currentPage = ref(1)
-    const pageSize = ref(10)
+    const pageSize = ref(20)
     const total = ref(0)
     const i18nErrorCodes = ref([])
     const errorCodesOptions = ref([])
@@ -463,6 +467,11 @@ export default {
 
     const exportLanguageOptions = ref([])
     const exportLangColWidth = ref(140)
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
 
     // 动态验证规则
     const rules = computed(() => {
@@ -1138,7 +1147,8 @@ export default {
       getLangDisplayName,
       getLangfileName,
       getLangTagType,
-      uploadRef
+      uploadRef,
+      tableHeight
     }
   }
 }
@@ -1146,7 +1156,29 @@ export default {
 
 <style scoped>
 .i18n-error-codes-container {
-  padding: 5px;
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
 }
 
 .action-bar {
@@ -1166,8 +1198,21 @@ export default {
   gap: 10px;
 }
 
-.list-card {
-  border-radius: 8px;
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
 }
 
 .loading-container {
@@ -1191,7 +1236,11 @@ export default {
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
 .export-language-checkboxes {
@@ -1241,6 +1290,63 @@ export default {
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .i18n-error-codes-container {
+    padding: 16px;
+  }
+
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .search-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .search-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .action-section {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  /* 表格容器在小屏幕上的调整 */
+  .table-container {
+    max-height: calc(100vh - 320px); /* 小屏幕上留出更多空间 */
+  }
+
+  /* 对话框响应式 */
+  :deep(.el-dialog) {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 5vh auto;
+  }
+
+  .export-language-checkboxes {
+    grid-template-columns: 1fr !important;
+  }
+
+  .export-language-checkboxes .el-checkbox {
+    width: 100% !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
 }
 </style> 
 <style>

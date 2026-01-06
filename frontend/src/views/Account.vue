@@ -54,38 +54,6 @@
       </el-col>
     </el-row>
 
-    <!-- 审核待办（仅审核权限可见） -->
-    <el-row v-if="canReview" :gutter="20" style="margin-top: 20px">
-      <el-col :span="24">
-        <el-card>
-          <template #header>
-            <div class="card-header card-header-row">
-              <span>{{ $t('faultCases.reviewInbox.title') }}</span>
-              <el-button size="small" @click="loadInbox" :loading="inboxLoading">
-                {{ $t('shared.refresh') }}
-              </el-button>
-            </div>
-          </template>
-
-          <el-table :data="inboxItems" :loading="inboxLoading" style="width: 100%">
-            <el-table-column prop="title" :label="$t('faultCases.reviewInbox.columns.title')" min-width="220" show-overflow-tooltip />
-            <el-table-column :label="$t('faultCases.reviewInbox.columns.time')" width="180">
-              <template #default="{ row }">
-                {{ formatDate(row.createdAt) }}
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('shared.operation')" width="220" fixed="right">
-              <template #default="{ row }">
-                <el-button size="small" @click="openInboxItem(row)">{{ $t('faultCases.reviewInbox.view') }}</el-button>
-                <el-button size="small" @click="markRead(row)">{{ $t('faultCases.reviewInbox.markRead') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <el-empty v-if="!inboxLoading && inboxItems.length === 0" :description="$t('shared.noData')" />
-        </el-card>
-      </el-col>
-    </el-row>
   </div>
 </template>
 
@@ -94,14 +62,11 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
-import api from '../api'
 
 export default {
   name: 'Account',
   setup() {
     const store = useStore()
-    const router = useRouter()
     const { t, locale } = useI18n()
     
     // 响应式数据
@@ -155,10 +120,6 @@ export default {
     
     // 计算属性
     const currentUser = computed(() => store.getters.currentUser)
-    const canReview = computed(() => store.getters['auth/hasPermission']?.('fault_case:review'))
-
-    const inboxLoading = ref(false)
-    const inboxItems = ref([])
     
     // 方法
     const loadUserProfile = () => {
@@ -237,40 +198,10 @@ export default {
       const localeStr = locale.value === 'en-US' ? 'en-US' : 'zh-CN'
       return new Date(dateString).toLocaleString(localeStr)
     }
-
-    const loadInbox = async () => {
-      if (!canReview.value) return
-      inboxLoading.value = true
-      try {
-        const resp = await api.faultCases.getReviewInbox({ status: 'unread', limit: 20 })
-        inboxItems.value = resp.data.items || []
-      } catch (error) {
-        ElMessage.error(error.response?.data?.message || t('shared.messages.loadFailed'))
-      } finally {
-        inboxLoading.value = false
-      }
-    }
-
-    const markRead = async (row) => {
-      try {
-        await api.faultCases.markInboxRead([row._id])
-        inboxItems.value = inboxItems.value.filter((x) => x._id !== row._id)
-      } catch (error) {
-        ElMessage.error(error.response?.data?.message || t('shared.messages.saveFailed'))
-      }
-    }
-
-    const openInboxItem = async (row) => {
-      try {
-        await api.faultCases.markInboxRead([row._id])
-      } catch (_) {}
-      router.push(`/dashboard/fault-cases/${row.fault_case_id}`)
-    }
     
     // 生命周期
     onMounted(() => {
       loadUserProfile()
-      loadInbox()
     })
     
     return {
@@ -287,12 +218,7 @@ export default {
       getRoleType,
       getRoleText,
       formatDate,
-      canReview,
-      inboxLoading,
-      inboxItems,
-      loadInbox,
-      markRead,
-      openInboxItem
+      currentUser
     }
   }
 }

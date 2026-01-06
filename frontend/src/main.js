@@ -11,6 +11,8 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
 import './assets/styles/i18n-utilities.css'
 import './assets/styles/design-tokens.css'
+// Element Plus样式覆盖必须在Element Plus CSS之后导入
+import './assets/styles/element-plus-overrides.css'
 import { initResizeObserverFix } from './utils/resizeObserverFix'
 
 // 预加载当前语言后再挂载
@@ -53,8 +55,6 @@ app.use(ElementPlus, {
 
 // 注册 Ant Design Vue（用于 Steps 等组件）
 app.use(Antd)
-
-
 
 // 在挂载前设置 <html lang> 并监听语言变化
 const setHtmlLang = (loc) => {

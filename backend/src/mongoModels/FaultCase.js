@@ -19,14 +19,23 @@ const ReviewSchema = new mongoose.Schema({
 }, { _id: false });
 
 const FaultCaseSchema = new mongoose.Schema({
-  // Base (default zh-CN content)
+  // 基础信息字段
+  source: { type: String, enum: ['jira', 'manual'], default: 'manual' }, // 数据源：jira 或 手动输入
+  jira_key: { type: String }, // JIRA 工单关键字，仅当 source=jira 时使用
+  module: { type: String, default: '' }, // 模块/部件分类
+
+  // 内容字段
   title: { type: String, required: true }, // 主要题目
-  symptom: { type: String, default: '' }, // 描述现象
-  possible_causes: { type: String, default: '' }, // 故障原因
+  symptom: { type: String, default: '' }, // 故障现象描述
+  possible_causes: { type: String, default: '' }, // 可能故障原因
+  solution: { type: String, default: '' }, // 解决方案
+  remark: { type: String, default: '' }, // 备注：工程师经验积累
+
+  // 兼容字段（Legacy）
   troubleshooting_steps: { type: String, default: '' }, // 排查流程步骤（SOP）
   experience: { type: String, default: '' }, // 工程师经验积累
 
-  // Attachments (PDF/images etc.) - 上限10个附件
+  // 附件字段
   attachments: {
     type: [AttachmentSchema],
     default: [],
@@ -36,37 +45,43 @@ const FaultCaseSchema = new mongoose.Schema({
       },
       message: '附件数量不能超过10个'
     }
-  },
+  }, // 附件列表，最多10个
 
-  // Relations
-  related_error_code_ids: { type: [Number], default: [] }, // 关联已有 MySQL 的error_codes，支持一对多
-  device_id: { type: String, default: '' }, // 关联的devices的device_id
+  // 关联字段
+  related_error_code_ids: { type: [Number], default: [] }, // 关联的 MySQL error_codes ID
+  equipment_model: { type: [String], default: [] }, // 设备型号，支持多选
+  device_id: { type: String, default: '' }, // 设备编号（旧字段）
 
-  // Search helpers
-  keywords: { type: [String], default: [] }, // 关键词
+  // 搜索辅助字段
+  keywords: { type: [String], default: [] }, // 关键词标签
 
-  // Future
-  embedding: { type: [Number], default: undefined }, // 未来用于向量数据库（Qdrant/Milvus/PGVector）
+  // 未来扩展字段
+  embedding: { type: [Number], default: undefined }, // 向量数据
 
-  // Workflow
-  is_published: { type: Boolean, default: false }, // 草稿(false)/已发布(true)
+  // 工作流字段
+  is_published: { type: Boolean, default: false }, // 发布状态：false=草稿，true=已发布
 
-  review: { type: ReviewSchema, default: () => ({ state: 'none' }) }, // ReviewSchema
-
-  // Audit
-  created_by: { type: Number, required: true }, // 创建者用户 ID（mysql中的 user表的id）
-  updated_by: { type: Number, required: true }, // 更新者用户ID（mysql中的 user表的id）
-  updated_at_user: { type: Date, default: null } // 用户手动指定的更新时间（用于展示排序）
+  // 审计字段
+  created_by: { type: Number, required: true }, // 创建者用户 ID（MySQL users 表）
+  updated_by: { type: Number, required: true }, // 更新者用户 ID（MySQL users 表）
+  updated_at_user: { type: Date, default: null } // 用户手动指定的更新时间
 }, {
   timestamps: true, // 自动管理 createdAt / updatedAt
   collection: 'fault_cases'
 });
 
 FaultCaseSchema.index({ is_published: 1, updatedAt: -1 });
-FaultCaseSchema.index({ title: 'text', symptom: 'text', possible_causes: 'text', troubleshooting_steps: 'text', experience: 'text', keywords: 'text' });
+FaultCaseSchema.index({ title: 'text', symptom: 'text', possible_causes: 'text', solution: 'text', remark: 'text', troubleshooting_steps: 'text', experience: 'text', keywords: 'text' });
 FaultCaseSchema.index({ related_error_code_ids: 1 });
 FaultCaseSchema.index({ created_by: 1, updatedAt: -1 });
-FaultCaseSchema.index({ 'review.state': 1, updatedAt: -1 });
+FaultCaseSchema.index({ source: 1, jira_key: 1 });
+FaultCaseSchema.index(
+  { jira_key: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { jira_key: { $type: 'string' } }
+  }
+);
 
 module.exports = mongoose.models.FaultCase || mongoose.model('FaultCase', FaultCaseSchema);
 

@@ -15,6 +15,10 @@ const RolePermission = require('./role_permission');
 const AnalysisCategory = require('./analysis_category');
 const ErrorCodeAnalysisCategory = require('./error_code_analysis_category');
 const TechSolutionImage = require('./tech_solution_image');
+const FaultCaseStatus = require('./fault_case_status');
+const FaultCaseStatusMapping = require('./fault_case_status_mapping');
+const FaultCaseModule = require('./fault_case_module');
+const FaultCaseModuleMapping = require('./fault_case_module_mapping');
 
 // 防止重复定义关联 - 使用进程级别的检查
 const associationsProcessKey = `associations_${process.pid}`;
@@ -187,6 +191,28 @@ function defineAssociations() {
   TechSolutionImage.belongsTo(ErrorCode, {
     foreignKey: 'error_code_id',
     as: 'errorCode'
+  });
+
+  // 故障案例状态 与 状态映射 的一对多关联
+  FaultCaseStatus.hasMany(FaultCaseStatusMapping, {
+    foreignKey: 'status_id',
+    as: 'mappings',
+    onDelete: 'CASCADE'
+  });
+  FaultCaseStatusMapping.belongsTo(FaultCaseStatus, {
+    foreignKey: 'status_id',
+    as: 'status'
+  });
+
+  // 故障案例模块 与 模块映射 的一对多关联
+  FaultCaseModule.hasMany(FaultCaseModuleMapping, {
+    foreignKey: 'module_id',
+    as: 'mappings',
+    onDelete: 'CASCADE'
+  });
+  FaultCaseModuleMapping.belongsTo(FaultCaseModule, {
+    foreignKey: 'module_id',
+    as: 'module'
   });
 
   console.log('✅ 模型关联定义完成');

@@ -7,11 +7,8 @@ const { translateText } = require('../services/translationService');
 
 const FaultCase = require('../mongoModels/FaultCase');
 const FaultCaseI18n = require('../mongoModels/FaultCaseI18n');
-const ReviewNotification = require('../mongoModels/ReviewNotification');
 
 const ErrorCode = require('../models/error_code');
-const UserRole = require('../models/user_role');
-const RolePermission = require('../models/role_permission');
 const Permission = require('../models/permission');
 const { objectKeyFromUrl } = require('../utils/oss');
 
@@ -111,54 +108,50 @@ async function ensureMongoReady() {
   return isMongoConnected();
 }
 
-async function getReviewerUserIds() {
-  // Find users having permission 'fault_case:review' via MySQL RBAC
-  const permissionName = 'fault_case:review';
-  const perm = await Permission.findOne({ where: { name: permissionName } });
-  if (!perm) return [];
-
-  const rolePerms = await RolePermission.findAll({ where: { permission_id: perm.id } });
-  const roleIds = rolePerms.map(rp => rp.role_id).filter(Boolean);
-  if (roleIds.length === 0) return [];
-
-  const userRoles = await UserRole.findAll({ where: { role_id: roleIds, is_active: true } });
-  return Array.from(new Set(userRoles.map(ur => ur.user_id).filter(Boolean)));
-}
-
 async function canReadCase(req, faultCase) {
   if (!faultCase) return false;
   if (faultCase.is_published === true) return true; // is_published: true 表示已发布
   if (req.user && faultCase.created_by === req.user.id) return true;
-  // reviewers can read all drafts
-  if (req.user && await authz.userHasDbPermission(req.user.id, 'fault_case:review')) return true;
   return false;
 }
 
 async function canEditCase(req, faultCase) {
   if (!faultCase) return false;
   if (req.user && faultCase.created_by === req.user.id) return true;
-  if (req.user && await authz.userHasDbPermission(req.user.id, 'fault_case:review')) return true;
   return false;
+}
+
+function withLegacyFieldFallback(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  // Map old fields to new names if new ones are empty (backward compatible display)
+  const out = { ...obj };
+  if (!out.solution && out.troubleshooting_steps) out.solution = out.troubleshooting_steps;
+  if (!out.remark && out.experience) out.remark = out.experience;
+  return out;
 }
 
 async function overlayI18nIfNeeded(req, faultCaseObj) {
   const accept = req.headers['accept-language'] || req.query.lang || 'zh';
   const lang = normalizeLang(accept);
-  if (!faultCaseObj || lang === 'zh') return faultCaseObj;
+  if (!faultCaseObj || lang === 'zh') return withLegacyFieldFallback(faultCaseObj);
 
   const i18n = await FaultCaseI18n.findOne({ fault_case_id: faultCaseObj._id, lang });
-  if (!i18n) return faultCaseObj;
+  if (!i18n) return withLegacyFieldFallback(faultCaseObj);
 
   const overlay = (k) => (typeof i18n[k] === 'string' && i18n[k].trim() !== '' ? i18n[k] : faultCaseObj[k]);
-  return {
+  const merged = {
     ...faultCaseObj,
     title: overlay('title'),
     symptom: overlay('symptom'),
     possible_causes: overlay('possible_causes'),
-    troubleshooting_steps: overlay('troubleshooting_steps'),
-    experience: overlay('experience'),
+    solution: overlay('solution'),
+    remark: overlay('remark'),
+    // legacy fields not in i18n table, keep original
+    troubleshooting_steps: faultCaseObj.troubleshooting_steps,
+    experience: faultCaseObj.experience,
     keywords: Array.isArray(i18n.keywords) && i18n.keywords.length ? i18n.keywords : faultCaseObj.keywords
   };
+  return withLegacyFieldFallback(merged);
 }
 
 async function validateRelatedErrorCodes(ids = []) {
@@ -297,17 +290,24 @@ const createFaultCase = async (req, res) => {
     }
 
     const {
+      source = 'manual',
+      jira_key = '',
+      module = '',
       title,
       symptom = '',
       possible_causes = '',
+      solution = '',
+      remark = '',
+      // legacy
       troubleshooting_steps = '',
       experience = '',
+      equipment_model = '',
       device_id = '',
       keywords,
       related_error_code_ids = [],
       attachments = [],
       updated_at_user = null,
-      submit_for_review = false
+      is_published = false
     } = req.body || {};
 
     if (!title || !String(title).trim()) return res.status(400).json({ message: 'title 不能为空' });
@@ -317,48 +317,45 @@ const createFaultCase = async (req, res) => {
       return res.status(400).json({ message: '附件数量不能超过10个' });
     }
 
+    const src = source === 'jira' ? 'jira' : 'manual';
+    const jiraKey = String(jira_key || '').trim();
+    if (src === 'jira') {
+      if (!jiraKey) return res.status(400).json({ message: 'jira_key 不能为空（source=jira）' });
+      const existed = await FaultCase.findOne({ jira_key: jiraKey }).select('_id').lean();
+      if (existed?._id) {
+        return res.status(409).json({ message: `该 Jira 已添加为故障案例: ${jiraKey}`, existingId: String(existed._id) });
+      }
+    }
+
     const relatedIds = await validateRelatedErrorCodes(related_error_code_ids);
     const normalizedAttachments = normalizeAttachmentsPayload(attachments);
     const finalized = [];
     for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
 
     const nowUser = updated_at_user ? new Date(updated_at_user) : null;
-    const review = submit_for_review
-      ? { state: 'pending', submitted_at: new Date() }
-      : { state: 'none' };
 
     const faultCase = await FaultCase.create({
+      source: src,
+      ...(jiraKey ? { jira_key: jiraKey } : {}),
+      module: String(module || '').trim(),
       title: String(title).trim(),
       symptom,
       possible_causes,
-      troubleshooting_steps,
-      experience,
-      device_id,
+      solution: solution || troubleshooting_steps || '',
+      remark: remark || experience || '',
+      troubleshooting_steps: troubleshooting_steps || '',
+      experience: experience || '',
+      equipment_model: Array.isArray(equipment_model) ? equipment_model.filter(m => m && String(m).trim()).map(m => String(m).trim()) : (equipment_model ? [String(equipment_model).trim()] : []),
+      // keep legacy field only when explicitly provided (best-effort backward compatibility)
+      ...(device_id !== undefined ? { device_id: String(device_id || '').trim() } : {}),
       keywords: parseKeywords(keywords),
       related_error_code_ids: relatedIds,
       attachments: finalized,
-      is_published: false, // false 表示草稿，true 表示已发布
-      review,
+      is_published: !!is_published, // false 表示草稿，true 表示已发布
       created_by: req.user.id,
       updated_by: req.user.id,
       updated_at_user: nowUser
     });
-
-    if (submit_for_review) {
-      const reviewerIds = await getReviewerUserIds();
-      if (reviewerIds.length) {
-        await ReviewNotification.insertMany(
-          reviewerIds.map((uid) => ({
-            user_id: uid,
-            type: 'fault_case_review',
-            fault_case_id: faultCase._id,
-            title: faultCase.title,
-            status: 'unread'
-          })),
-          { ordered: false }
-        );
-      }
-    }
 
     return res.status(201).json({ message: req.t('shared.created'), faultCase });
   } catch (err) {
@@ -381,17 +378,24 @@ const updateFaultCase = async (req, res) => {
     if (!(await canEditCase(req, faultCase))) return res.status(403).json({ message: '权限不足' });
 
     const {
+      source,
+      jira_key,
+      module,
       title,
       symptom,
       possible_causes,
+      solution,
+      remark,
+      // legacy
       troubleshooting_steps,
       experience,
+      equipment_model,
       device_id,
       keywords,
       related_error_code_ids,
       attachments,
       updated_at_user = undefined,
-      submit_for_review = false
+      is_published
     } = req.body || {};
 
     if (title !== undefined && !String(title).trim()) return res.status(400).json({ message: 'title 不能为空' });
@@ -402,12 +406,24 @@ const updateFaultCase = async (req, res) => {
     }
 
     const patch = {};
+    const unset = {};
+    if (source !== undefined) patch.source = source === 'jira' ? 'jira' : 'manual';
+    if (jira_key !== undefined) {
+      const v = String(jira_key || '').trim();
+      if (!v) unset.jira_key = 1;
+      else patch.jira_key = v;
+    }
+    if (module !== undefined) patch.module = String(module || '').trim();
     if (title !== undefined) patch.title = String(title).trim();
     if (symptom !== undefined) patch.symptom = symptom || '';
     if (possible_causes !== undefined) patch.possible_causes = possible_causes || '';
+    if (solution !== undefined) patch.solution = solution || '';
+    if (remark !== undefined) patch.remark = remark || '';
     if (troubleshooting_steps !== undefined) patch.troubleshooting_steps = troubleshooting_steps || '';
     if (experience !== undefined) patch.experience = experience || '';
-    if (device_id !== undefined) patch.device_id = device_id || '';
+    if (equipment_model !== undefined) patch.equipment_model = Array.isArray(equipment_model) ? equipment_model.filter(m => m && String(m).trim()).map(m => String(m).trim()) : (equipment_model ? [String(equipment_model).trim()] : []);
+    // legacy support (not used by new UI)
+    if (device_id !== undefined) patch.device_id = String(device_id || '').trim();
     if (keywords !== undefined) patch.keywords = parseKeywords(keywords);
     if (related_error_code_ids !== undefined) patch.related_error_code_ids = await validateRelatedErrorCodes(related_error_code_ids);
     if (attachments !== undefined) {
@@ -417,31 +433,20 @@ const updateFaultCase = async (req, res) => {
       patch.attachments = finalized;
     }
     if (updated_at_user !== undefined) patch.updated_at_user = updated_at_user ? new Date(updated_at_user) : null;
+    if (is_published !== undefined) patch.is_published = !!is_published;
+
+    // validate jira source requires jira_key
+    const effectiveSource = patch.source || faultCase.source || 'manual';
+    const effectiveJiraKey = patch.jira_key !== undefined ? patch.jira_key : faultCase.jira_key;
+    if (effectiveSource === 'jira' && !effectiveJiraKey) {
+      return res.status(400).json({ message: 'source=jira 时必须提供 jira_key' });
+    }
 
     patch.updated_by = req.user.id;
-    // Any modification requires re-review for publishing
-    patch.is_published = false; // false 表示草稿，true 表示已发布
-    patch.review = submit_for_review
-      ? { state: 'pending', submitted_at: new Date(), reviewed_at: null, reviewed_by: null, comment: '' }
-      : { state: 'none', submitted_at: null, reviewed_at: null, reviewed_by: null, comment: '' };
 
-    const updated = await FaultCase.findByIdAndUpdate(id, patch, { new: true });
-
-    if (submit_for_review) {
-      const reviewerIds = await getReviewerUserIds();
-      if (reviewerIds.length) {
-        await ReviewNotification.insertMany(
-          reviewerIds.map((uid) => ({
-            user_id: uid,
-            type: 'fault_case_review',
-            fault_case_id: updated._id,
-            title: updated.title,
-            status: 'unread'
-          })),
-          { ordered: false }
-        );
-      }
-    }
+    const updateOps = { $set: patch };
+    if (Object.keys(unset).length) updateOps.$unset = unset;
+    const updated = await FaultCase.findByIdAndUpdate(id, updateOps, { new: true });
 
     return res.json({ message: req.t('shared.updated'), faultCase: updated });
   } catch (err) {
@@ -464,7 +469,6 @@ const deleteFaultCase = async (req, res) => {
 
     await FaultCase.deleteOne({ _id: id });
     await FaultCaseI18n.deleteMany({ fault_case_id: id });
-    await ReviewNotification.deleteMany({ fault_case_id: id, type: 'fault_case_review' });
 
     return res.json({ message: req.t('shared.deleted') });
   } catch (err) {
@@ -530,11 +534,10 @@ const searchFaultCases = async (req, res) => {
 
     // visibility:
     // - mine=1: only my cases (draft/pending/rejected/published)
-    // - else: published OR my drafts; reviewers see all
-    const isReviewer = req.user && await authz.userHasDbPermission(req.user.id, 'fault_case:review');
+    // - else: published OR my drafts
     if (mine) {
       filter.created_by = req.user.id;
-    } else if (!isReviewer) {
+    } else {
       filter.$or = [{ is_published: true }, { created_by: req.user.id }]; // is_published: true 表示已发布
     }
 
@@ -584,134 +587,6 @@ const searchFaultCases = async (req, res) => {
   }
 };
 
-// ----- Review workflow -----
-const submitFaultCaseReview = async (req, res) => {
-  try {
-    if (!(await ensureMongoReady())) {
-      return res.status(503).json({ message: 'MongoDB 未连接，故障案例功能不可用' });
-    }
-    const id = toObjectId(req.params.id);
-    if (!id) return res.status(400).json({ message: 'invalid id' });
-
-    const faultCase = await FaultCase.findById(id);
-    if (!faultCase) return res.status(404).json({ message: req.t('shared.notFound') });
-    if (!(await canEditCase(req, faultCase))) return res.status(403).json({ message: '权限不足' });
-
-    faultCase.is_published = false; // false 表示草稿
-    faultCase.review = { state: 'pending', submitted_at: new Date(), reviewed_at: null, reviewed_by: null, comment: '' };
-    faultCase.updated_by = req.user.id;
-    await faultCase.save();
-
-    const reviewerIds = await getReviewerUserIds();
-    if (reviewerIds.length) {
-      await ReviewNotification.insertMany(
-        reviewerIds.map((uid) => ({
-          user_id: uid,
-          type: 'fault_case_review',
-          fault_case_id: faultCase._id,
-          title: faultCase.title,
-          status: 'unread'
-        })),
-        { ordered: false }
-      );
-    }
-
-    return res.json({ message: '已提交审核', faultCase });
-  } catch (err) {
-    console.error('submitFaultCaseReview error:', err);
-    return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
-  }
-};
-
-const reviewFaultCase = async (req, res) => {
-  try {
-    if (!(await ensureMongoReady())) {
-      return res.status(503).json({ message: 'MongoDB 未连接，故障案例功能不可用' });
-    }
-    const id = toObjectId(req.params.id);
-    if (!id) return res.status(400).json({ message: 'invalid id' });
-
-    const { action, comment = '' } = req.body || {};
-    if (action !== 'approve' && action !== 'reject') {
-      return res.status(400).json({ message: 'action must be approve|reject' });
-    }
-
-    const faultCase = await FaultCase.findById(id);
-    if (!faultCase) return res.status(404).json({ message: req.t('shared.notFound') });
-
-    // 单人审核模式：一旦审核完成（approved/rejected），不允许再次审核以避免状态回跳
-    if (faultCase.review?.state === 'approved' || faultCase.review?.state === 'rejected') {
-      return res.status(400).json({ message: '该案例已审核完成，不能重复审核' });
-    }
-
-    if (action === 'approve') {
-      faultCase.is_published = true; // true 表示已发布
-      faultCase.review = { state: 'approved', submitted_at: faultCase.review?.submitted_at || null, reviewed_at: new Date(), reviewed_by: req.user.id, comment: String(comment || '') };
-    } else {
-      faultCase.is_published = false; // false 表示草稿
-      faultCase.review = { state: 'rejected', submitted_at: faultCase.review?.submitted_at || null, reviewed_at: new Date(), reviewed_by: req.user.id, comment: String(comment || '') };
-    }
-    faultCase.updated_by = req.user.id;
-    await faultCase.save();
-
-    // 单人审核模式：任一审核人处理后，所有审核人的待办都应失效
-    await ReviewNotification.updateMany(
-      { type: 'fault_case_review', fault_case_id: faultCase._id },
-      { $set: { status: 'processed' } }
-    );
-
-    return res.json({ message: '审核完成', faultCase });
-  } catch (err) {
-    console.error('reviewFaultCase error:', err);
-    return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
-  }
-};
-
-const getReviewInbox = async (req, res) => {
-  try {
-    if (!(await ensureMongoReady())) {
-      return res.status(503).json({ message: 'MongoDB 未连接，故障案例功能不可用' });
-    }
-    const limit = Math.min(Number.parseInt(req.query.limit || '20', 10) || 20, 100);
-    const status = (req.query.status || 'unread').toString(); // unread|read|processed|all
-    const filter = { user_id: req.user.id, type: 'fault_case_review' };
-    if (status !== 'all') filter.status = status;
-
-    const items = await ReviewNotification.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
-
-    return res.json({ items });
-  } catch (err) {
-    console.error('getReviewInbox error:', err);
-    return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
-  }
-};
-
-const markInboxRead = async (req, res) => {
-  try {
-    if (!(await ensureMongoReady())) {
-      return res.status(503).json({ message: 'MongoDB 未连接，故障案例功能不可用' });
-    }
-    const { ids = [] } = req.body || {};
-    const objIds = (Array.isArray(ids) ? ids : [])
-      .map(toObjectId)
-      .filter(Boolean);
-    if (!objIds.length) return res.json({ updated: 0 });
-
-    const r = await ReviewNotification.updateMany(
-      { _id: { $in: objIds }, user_id: req.user.id, type: 'fault_case_review' },
-      { $set: { status: 'read' } }
-    );
-
-    return res.json({ updated: r.modifiedCount || 0 });
-  } catch (err) {
-    console.error('markInboxRead error:', err);
-    return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
-  }
-};
-
 // ----- i18n -----
 const getFaultCaseI18nByLang = async (req, res) => {
   try {
@@ -743,7 +618,7 @@ const saveFaultCaseI18nByLang = async (req, res) => {
     if (!normLang || normLang === 'zh') return res.status(400).json({ message: 'lang required (non-zh)' });
 
     const patch = {};
-    ['title', 'symptom', 'possible_causes', 'troubleshooting_steps', 'experience'].forEach((k) => {
+    ['title', 'symptom', 'possible_causes', 'solution', 'remark'].forEach((k) => {
       if (req.body[k] !== undefined) patch[k] = req.body[k] || '';
     });
     if (req.body.keywords !== undefined) patch.keywords = parseKeywords(req.body.keywords);
@@ -779,7 +654,7 @@ const autoTranslateFaultCaseI18n = async (req, res) => {
     const existing = await FaultCaseI18n.findOne({ fault_case_id: id, lang: targetLang }).lean();
     const existingFields = existing || {};
 
-    const fields = ['title', 'symptom', 'possible_causes', 'troubleshooting_steps', 'experience'];
+    const fields = ['title', 'symptom', 'possible_causes', 'solution', 'remark'];
     const translated = {};
     let translatedCount = 0;
 
@@ -847,10 +722,6 @@ module.exports = {
   getFaultCaseDetail,
   listLatestFaultCases,
   searchFaultCases,
-  submitFaultCaseReview,
-  reviewFaultCase,
-  getReviewInbox,
-  markInboxRead,
   getFaultCaseI18nByLang,
   saveFaultCaseI18nByLang,
   autoTranslateFaultCaseI18n,

@@ -7,19 +7,19 @@ const state = {
 }
 
 const mutations = {
-  SET_LOGS(state, logs) {
+  SET_LOGS (state, logs) {
     state.logs = logs
   },
-  SET_LOADING(state, loading) {
+  SET_LOADING (state, loading) {
     state.loading = loading
   },
-  SET_TOTAL(state, total) {
+  SET_TOTAL (state, total) {
     state.total = total
   }
 }
 
 const actions = {
-  async fetchLogs({ commit }, params = {}) {
+  async fetchLogs ({ commit }, params = {}) {
     commit('SET_LOADING', true)
     try {
       const response = await api.logs.getList(params)
@@ -33,7 +33,7 @@ const actions = {
     }
   },
 
-  async fetchLogsByDevice({ commit }, params = {}) {
+  async fetchLogsByDevice ({ commit }, params = {}) {
     commit('SET_LOADING', true)
     try {
       const response = await api.logs.getByDevice(params)
@@ -45,7 +45,7 @@ const actions = {
     }
   },
 
-  async uploadLog({ commit }, formData) {
+  async uploadLog ({ commit }, formData) {
     try {
       const response = await api.logs.upload(formData)
       return response
@@ -54,7 +54,7 @@ const actions = {
     }
   },
 
-  async parseLog({ commit }, logId) {
+  async parseLog ({ commit }, logId) {
     try {
       const response = await api.logs.parse(logId)
       return response
@@ -63,7 +63,7 @@ const actions = {
     }
   },
 
-  async reparseLog({ commit }, logId) {
+  async reparseLog ({ commit }, logId) {
     try {
       const response = await api.logs.reparse(logId)
       return response
@@ -72,7 +72,7 @@ const actions = {
     }
   },
 
-  async downloadLog({ commit }, logId) {
+  async downloadLog ({ commit }, logId) {
     try {
       const response = await api.logs.download(logId)
       return response
@@ -81,7 +81,7 @@ const actions = {
     }
   },
 
-  async deleteLog({ commit }, logId) {
+  async deleteLog ({ commit }, logId) {
     try {
       const response = await api.logs.delete(logId)
       return response
@@ -90,7 +90,7 @@ const actions = {
     }
   },
 
-  async batchDeleteLogs({ commit }, logIds) {
+  async batchDeleteLogs ({ commit }, logIds) {
     try {
       const response = await api.logs.batchDelete(logIds)
       return response
@@ -99,7 +99,7 @@ const actions = {
     }
   },
 
-  async batchDownloadLogs({ commit }, logIds) {
+  async batchDownloadLogs ({ commit }, logIds) {
     try {
       const response = await api.logs.batchDownload(logIds)
       return response
@@ -108,7 +108,7 @@ const actions = {
     }
   },
 
-  async batchReparseLogs({ commit }, logIds) {
+  async batchReparseLogs ({ commit }, logIds) {
     try {
       const response = await api.logs.batchReparse(logIds)
       return response
@@ -117,7 +117,7 @@ const actions = {
     }
   },
 
-  async fetchLogEntries({ commit }, logId) {
+  async fetchLogEntries ({ commit }, logId) {
     try {
       const response = await api.logs.getEntries(logId)
       return response
@@ -126,7 +126,7 @@ const actions = {
     }
   },
 
-  async fetchBatchLogEntries({ commit }, params) {
+  async fetchBatchLogEntries ({ commit }, params) {
     try {
       const response = await api.logs.getBatchEntries(params)
       return response
@@ -135,7 +135,7 @@ const actions = {
     }
   },
 
-  async autoFillDeviceId({ commit }, key) {
+  async autoFillDeviceId ({ commit }, key) {
     try {
       const response = await api.logs.autoFillDeviceId(key)
       return response
@@ -144,7 +144,7 @@ const actions = {
     }
   },
 
-  async autoFillKey({ commit }, deviceId) {
+  async autoFillKey ({ commit }, deviceId) {
     try {
       const response = await api.logs.autoFillKey(deviceId)
       return response
@@ -153,7 +153,7 @@ const actions = {
     }
   },
 
-  async analyzeSurgery({ commit }, logId) {
+  async analyzeSurgery ({ commit }, logId) {
     try {
       const response = await api.logs.analyzeSurgery(logId)
       return response
@@ -175,4 +175,4 @@ export default {
   mutations,
   actions,
   getters
-} 
+}

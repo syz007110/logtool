@@ -1,78 +1,81 @@
 <template>
   <div class="error-codes-container">
-    <!-- 搜索和操作栏 -->
-    <div class="action-bar">
-      <div class="search-section">
-        <el-input
-          v-model="searchQuery"
-          :placeholder="$t('errorCodes.searchPlaceholder')"
-          style="width: 180px"
-          clearable
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+    <!-- 统一卡片：包含搜索栏和列表 -->
+    <el-card class="main-card">
+      <!-- 搜索和操作栏 -->
+      <div class="action-bar">
+        <div class="search-section">
+          <el-input
+            v-model="searchQuery"
+            :placeholder="$t('errorCodes.searchPlaceholder')"
+            style="width: 180px"
+            clearable
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          
+          <el-select
+            v-model="selectedSubsystem"
+            :placeholder="$t('errorCodes.selectSubsystem')"
+            style="width: 180px; margin-left: 10px"
+            clearable
+            @change="handleSubsystemFilter"
+          >
+            <el-option
+              v-for="subsystem in subsystemOptions"
+              :key="subsystem.value"
+              :label="subsystem.label"
+              :value="subsystem.value"
+            />
+          </el-select>
+        </div>
         
-        <el-select
-          v-model="selectedSubsystem"
-          :placeholder="$t('errorCodes.selectSubsystem')"
-          style="width: 180px; margin-left: 10px"
-          clearable
-          @change="handleSubsystemFilter"
-        >
-          <el-option
-            v-for="subsystem in subsystemOptions"
-            :key="subsystem.value"
-            :label="subsystem.label"
-            :value="subsystem.value"
-          />
-        </el-select>
-      </div>
-      
-      <div class="action-section">
-        <button 
-          class="btn-primary"
-          @click="openQueryDialog"
-          aria-label="$t('errorCodes.queryCode')"
-        >
-          <i class="fas fa-search"></i>
-          {{ $t('errorCodes.queryCode') }}
-        </button>
-        
-        <button 
-          v-if="canCreate"
-          class="btn-secondary"
-          @click="handleAdd"
-          aria-label="$t('errorCodes.addErrorCode')"
-        >
-          <i class="fas fa-plus"></i>
-          {{ $t('errorCodes.addErrorCode') }}
-        </button>
+        <div class="action-section">
+          <button 
+            class="btn-primary"
+            @click="openQueryDialog"
+            aria-label="$t('errorCodes.queryCode')"
+          >
+            <i class="fas fa-search"></i>
+            {{ $t('errorCodes.queryCode') }}
+          </button>
+          
+          <button 
+            v-if="canCreate"
+            class="btn-secondary"
+            @click="handleAdd"
+            aria-label="$t('errorCodes.addErrorCode')"
+          >
+            <i class="fas fa-plus"></i>
+            {{ $t('errorCodes.addErrorCode') }}
+          </button>
 
-        <button
-          v-if="$store.getters['auth/hasPermission']('error_code:export')"
-          class="btn-secondary"
-          :class="{ 'btn-loading': exportLoading }"
-          :disabled="exportLoading"
-          @click="openExportDialog"
-          aria-label="$t('errorCodes.exportCSV')"
-        >
-          <i class="fas fa-file-export"></i>
-          {{ $t('errorCodes.exportCSV') }}
-        </button>
+          <button
+            v-if="$store.getters['auth/hasPermission']('error_code:export')"
+            class="btn-secondary"
+            :class="{ 'btn-loading': exportLoading }"
+            :disabled="exportLoading"
+            @click="openExportDialog"
+            aria-label="$t('errorCodes.exportCSV')"
+          >
+            <i class="fas fa-file-export"></i>
+            {{ $t('errorCodes.exportCSV') }}
+          </button>
+        </div>
       </div>
-    </div>
-    
-    <!-- 故障码列表 -->
-    <el-card class="list-card">
-      <el-table
-        :data="errorCodes"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-      >
+
+      <!-- 故障码列表 - 可滚动容器 -->
+      <div class="table-container">
+        <el-table
+          :data="errorCodes"
+          :loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+          v-loading="loading"
+        >
         <el-table-column prop="subsystem" :label="$t('errorCodes.subsystem')" width="100" />
         <el-table-column prop="code" :label="$t('errorCodes.code')" width="100" />
         <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
@@ -102,7 +105,7 @@
             <span class="one-line-ellipsis" :title="String(row.param4 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param4 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="220" align="center" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('shared.operation')" width="220" align="center" fixed="right" v-if="canUpdate || canDelete">
           <template #default="{ row }">
             <div class="btn-group" style="justify-content: center;">
               <button
@@ -124,10 +127,18 @@
               </button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="canUpdate" command="tech-edit">
+                    <el-dropdown-item
+                      v-if="canUpdate"
+                      command="tech-edit"
+                      class="dropdown-item-normal"
+                    >
                       {{ $t('errorCodes.techSolutionDrawer.title') }}
                     </el-dropdown-item>
-                    <el-dropdown-item v-if="canDelete" command="delete">
+                    <el-dropdown-item
+                      v-if="canDelete"
+                      command="delete"
+                      class="dropdown-item-danger"
+                    >
                       {{ $t('shared.delete') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
@@ -136,8 +147,9 @@
             </div>
           </template>
         </el-table-column>
-      </el-table>
-      
+        </el-table>
+      </div>
+
       <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
@@ -180,7 +192,7 @@
               :value="opt.value"
             />
           </el-select>
-          <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+          <div style="margin-top: 8px; font-size: 12px; color: rgb(var(--text-disabled));">
             {{ $t('errorCodes.exportLanguageHint') }}
           </div>
         </el-form-item>
@@ -203,7 +215,7 @@
       <template #title>
         <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 14px; color: #606266;">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
+            <span style="font-size: 14px; color: rgb(var(--text-secondary));">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
             <el-select 
               v-model="selectedI18nLang" 
               :placeholder="$t('errorCodes.i18nTechFields.selectLanguage')"
@@ -222,15 +234,15 @@
                 :value="lang.value"
               />
             </el-select>
-            <el-button 
-              type="primary" 
-              size="small"
-              :loading="translating"
+            <button
+              class="btn-primary btn-sm"
+              :class="{ 'btn-loading': translating }"
               :disabled="!selectedI18nLang || selectedI18nLang === 'zh-CN'"
               @click="handleAutoTranslate"
             >
+              <i v-if="translating" class="fas fa-spinner fa-spin"></i>
               {{ $t('errorCodes.i18nTechFields.autoTranslate') }}
-            </el-button>
+            </button>
           </div>
         </div>
       </template>
@@ -715,6 +727,7 @@ import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
 import prefixKeyMap from '../config/prefixKeyMap.json'
 import categoryKeyMap from '../config/categoryKeyMap.json'
@@ -806,7 +819,7 @@ export default {
     const searchQuery = ref('')
     const selectedSubsystem = ref('')
     const currentPage = ref(1)
-    const pageSize = ref(10)
+    const pageSize = ref(20)
     const errorCodeFormRef = ref(null)
     const queryLoading = ref(false)
     const queryForm = reactive({ fullCode: '', subsystem: '' })
@@ -1205,6 +1218,11 @@ export default {
     const canCreate = computed(() => store.getters['auth/hasPermission']('error_code:create'))
     const canUpdate = computed(() => store.getters['auth/hasPermission']('error_code:update'))
     const canDelete = computed(() => store.getters['auth/hasPermission']('error_code:delete'))
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
     
     // 同步相关计算属性
     const showSyncOption = computed(() => {
@@ -1699,7 +1717,8 @@ export default {
       const lang = i18nLanguageOptions.value.find(l => l.value === langCode)
       return lang ? lang.label : langCode
     }
-    
+
+
     // 重置多语言表单
     const resetI18nForm = () => {
       Object.keys(i18nForm).forEach(key => {
@@ -2384,7 +2403,8 @@ export default {
        handleLanguageChange,
        handleAutoTranslate,
        handleSaveI18n,
-       getLanguageLabel
+       getLanguageLabel,
+       tableHeight
      }
   }
 }
@@ -2392,21 +2412,43 @@ export default {
 
 <style scoped>
 .error-codes-container {
-  padding: 5px;
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
 }
 
 .i18n-readonly-section {
-  background-color: #f5f7fa;
+  background-color: rgb(var(--bg-secondary));
   padding: 15px;
   border-radius: 4px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid rgb(var(--border-secondary));
 }
 
 .i18n-editable-section {
-  background-color: #f0f9ff;
+  background-color: rgb(var(--bg-info-primary));
   padding: 15px;
   border-radius: 4px;
-  border: 1px solid #b3d8ff;
+  border: 1px solid rgb(var(--border-info-primary));
 }
 
 .action-bar {
@@ -2416,13 +2458,26 @@ export default {
   margin-bottom: 20px;
 }
 
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
 .action-section {
   display: flex;
   gap: 10px;
-}
-
-.list-card {
-  border-radius: 8px;
 }
 
 .tech-drawer-header {
@@ -2435,11 +2490,11 @@ export default {
 .tech-drawer-title {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: rgb(var(--text-primary));
 }
 
 .tech-drawer-subtitle {
-  color: #909399;
+  color: rgb(var(--text-disabled));
   font-size: 12px;
   margin-top: 4px;
 }
@@ -2470,7 +2525,7 @@ export default {
 
 .tech-section-title {
   font-size: 13px;
-  color: #606266;
+  color: rgb(var(--text-secondary));
   margin: 4px 0 6px;
   display: flex;
   align-items: center;
@@ -2479,7 +2534,7 @@ export default {
 
 .tech-section-hint {
   font-size: 12px;
-  color: #909399;
+  color: rgb(var(--text-disabled));
   font-weight: 400;
 }
 
@@ -2505,16 +2560,16 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 6px 8px;
-  border: 1px solid #ebeef5;
+  border: 1px solid rgb(var(--input-border));
   border-radius: 6px;
-  background: #f9fafc;
+  background: rgb(var(--input-background));
   cursor: pointer;
   transition: background-color 0.15s, border-color 0.15s;
 }
 
 .tech-file-item:hover {
-  background: #f0f2f5;
-  border-color: #dcdfe6;
+  background: rgb(var(--bg-primary-hover));
+  border-color: rgb(var(--input-border));
 }
 
 .tech-file-left {
@@ -2526,7 +2581,7 @@ export default {
 
 .tech-file-icon {
   font-size: 14px;
-  color: #606266;
+  color: rgb(var(--text-secondary));
 }
 
 .tech-file-meta {
@@ -2539,7 +2594,7 @@ export default {
 
 .tech-file-name {
   font-size: 13px;
-  color: #303133;
+  color: rgb(var(--text-primary));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2548,7 +2603,7 @@ export default {
 
 .tech-file-size {
   font-size: 12px;
-  color: #909399;
+  color: rgb(var(--text-disabled));
   white-space: nowrap;
 }
 
@@ -2573,7 +2628,11 @@ export default {
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
 .error-code-form {
@@ -2627,7 +2686,7 @@ export default {
 }
 .explanation-tooltip.dark {
   background: rgba(0,0,0,0.85);
-  color: #fff;
+  color: rgb(var(--text-white));
   border: none;
 }
 
@@ -2647,7 +2706,7 @@ export default {
   display: inline-block;
   width: 1px;
   height: 16px;
-  background-color: #dcdfe6;
+  background-color: rgb(var(--input-border));
   margin: 0 16px;
   vertical-align: middle;
 }
@@ -2691,12 +2750,12 @@ export default {
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid #ebeef5;
+  border: 1px solid rgb(var(--input-border));
   transition: border-color 0.2s;
 }
 
 .query-image-thumbnail:hover {
-  border-color: #409eff;
+  border-color: rgb(var(--primary));
 }
 
 .query-image-thumbnail img {
@@ -2722,7 +2781,7 @@ export default {
 }
 
 .query-image-thumbnail .image-overlay i {
-  color: white;
+  color: rgb(var(--text-white));
   font-size: 20px;
 }
 
@@ -2742,12 +2801,12 @@ export default {
 }
 
 .query-file-item:hover {
-  background-color: #f5f7fa;
+  background-color: rgb(var(--bg-secondary));
 }
 
 .query-file-icon {
   font-size: 14px;
-  color: #606266;
+  color: rgb(var(--text-secondary));
   flex-shrink: 0;
 }
 
@@ -2762,7 +2821,7 @@ export default {
 
 .query-file-name {
   font-size: 13px;
-  color: #303133;
+  color: rgb(var(--text-primary));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2771,7 +2830,7 @@ export default {
 
 .query-file-size {
   font-size: 12px;
-  color: #909399;
+  color: rgb(var(--text-disabled));
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -2816,13 +2875,13 @@ export default {
 .basic-info-label {
   font-size: 13px;
   font-weight: 600;
-  color: #606266;
+  color: rgb(var(--text-secondary));
   margin-bottom: 8px;
 }
 
 .basic-info-value {
   font-size: 14px;
-  color: #303133;
+  color: rgb(var(--text-primary));
   line-height: 1.6;
   word-wrap: break-word;
 }
@@ -2835,17 +2894,17 @@ export default {
 
 .basic-info-param-item {
   font-size: 14px;
-  color: #303133;
+  color: rgb(var(--text-primary));
   line-height: 1.6;
 }
 
 .basic-info-param-item .param-label {
-  color: #606266;
+  color: rgb(var(--text-secondary));
   font-weight: 500;
 }
 
 .basic-info-param-item .param-value {
-  color: #303133;
+  color: rgb(var(--text-primary));
 }
 
 .basic-info-attachments {
@@ -2865,10 +2924,36 @@ export default {
   font-family: inherit;
   font-size: 14px;
   line-height: 1.6;
-  color: #303133;
+  color: rgb(var(--text-primary));
   white-space: pre-wrap;
   word-wrap: break-word;
   background: transparent;
   border: none;
+}
+
+/* 下拉菜单项悬浮效果 - 推荐的CSS解决方案 */
+
+/* 方法1: 使用全局样式覆盖 (推荐) */
+:global(.el-dropdown-menu .el-dropdown-menu__item.dropdown-item-normal:hover) {
+  background-color: var(--dropdown-item-normal-hover-bg) !important;
+  color: var(--dropdown-item-normal-hover-color) !important;
+  transition: all 0.2s ease !important;
+}
+
+:global(.el-dropdown-menu .el-dropdown-menu__item.dropdown-item-danger:hover) {
+  background-color: var(--dropdown-item-danger-hover-bg) !important;
+  color: var(--dropdown-item-danger-hover-color) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 方法2: 备用方案 - 使用深度选择器和更高优先级 */
+:deep(.el-dropdown-menu .dropdown-item-normal:hover) {
+  background-color: var(--dropdown-item-normal-hover-bg) !important;
+  color: var(--dropdown-item-normal-hover-color) !important;
+}
+
+:deep(.el-dropdown-menu .dropdown-item-danger:hover) {
+  background-color: var(--dropdown-item-danger-hover-bg) !important;
+  color: var(--dropdown-item-danger-hover-color) !important;
 }
 </style>

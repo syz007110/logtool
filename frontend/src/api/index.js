@@ -188,6 +188,30 @@ const analysisCategories = {
   getPresets: () => api.get('/analysis-categories/presets')
 }
 
+// Fault case status dictionary (MySQL)
+const faultCaseStatuses = {
+  getList: (params) => api.get('/fault-case-statuses', { params }),
+  create: (data) => api.post('/fault-case-statuses', data),
+  update: (id, data) => api.put(`/fault-case-statuses/${id}`, data),
+  delete: (id) => api.delete(`/fault-case-statuses/${id}`),
+  getMappings: (statusId) => api.get(`/fault-case-statuses/${statusId}/mappings`),
+  createMapping: (statusId, data) => api.post(`/fault-case-statuses/${statusId}/mappings`, data),
+  updateMapping: (mappingId, data) => api.put(`/fault-case-statuses/mappings/${mappingId}`, data),
+  deleteMapping: (mappingId) => api.delete(`/fault-case-statuses/mappings/${mappingId}`)
+}
+
+// Fault case module dictionary (MySQL)
+const faultCaseModules = {
+  getList: (params) => api.get('/fault-case-modules', { params }),
+  create: (data) => api.post('/fault-case-modules', data),
+  update: (id, data) => api.put(`/fault-case-modules/${id}`, data),
+  delete: (id) => api.delete(`/fault-case-modules/${id}`),
+  getMappings: (moduleId) => api.get(`/fault-case-modules/${moduleId}/mappings`),
+  createMapping: (moduleId, data) => api.post(`/fault-case-modules/${moduleId}/mappings`, data),
+  updateMapping: (mappingId, data) => api.put(`/fault-case-modules/mappings/${mappingId}`, data),
+  deleteMapping: (mappingId) => api.delete(`/fault-case-modules/mappings/${mappingId}`)
+}
+
 const i18n = {
   getList: (params) => api.get('/i18n', { params }),
   create: (data) => api.post('/i18n', data),
@@ -230,6 +254,14 @@ const devices = {
   createKey: (deviceId, data) => api.post(`/devices/${deviceId}/keys`, data),
   updateKey: (keyId, data) => api.put(`/devices/keys/${keyId}`, data),
   deleteKey: (keyId) => api.delete(`/devices/keys/${keyId}`)
+}
+
+// Device model dictionary (MySQL)
+const deviceModels = {
+  getList: (params) => api.get('/device-models', { params }),
+  create: (data) => api.post('/device-models', data),
+  update: (id, data) => api.put(`/device-models/${id}`, data),
+  delete: (id) => api.delete(`/device-models/${id}`)
 }
 
 // Motion data APIs
@@ -279,23 +311,20 @@ const faultCases = {
   create: (data) => api.post('/fault-cases', data),
   update: (id, data) => api.put(`/fault-cases/${id}`, data),
   delete: (id) => api.delete(`/fault-cases/${id}`),
-  submitReview: (id) => api.post(`/fault-cases/${id}/submit-review`),
-  review: (id, action, comment = '') => api.post(`/fault-cases/${id}/review`, { action, comment }),
   uploadAttachments: (formData) => api.post('/fault-cases/attachments/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   // i18n
   getI18nByLang: (id, lang) => api.get(`/fault-cases/${id}/i18n`, { params: { lang } }),
   saveI18nByLang: (id, lang, data) => api.put(`/fault-cases/${id}/i18n`, { lang, ...data }),
-  autoTranslateI18n: (id, lang, overwrite = false) => api.post(`/fault-cases/${id}/i18n/auto-translate`, { lang, overwrite }),
-  // review inbox
-  getReviewInbox: (params) => api.get('/fault-cases/review/inbox', { params }),
-  markInboxRead: (ids) => api.post('/fault-cases/review/inbox/mark-read', { ids })
+  autoTranslateI18n: (id, lang, overwrite = false) => api.post(`/fault-cases/${id}/i18n/auto-translate`, { lang, overwrite })
 }
 
 // Jira integration (proxy via backend)
 const jira = {
-  search: (params) => api.get('/jira/search', { params })
+  search: (params) => api.get('/jira/search', { params }),
+  searchMixed: (params) => api.get('/jira/search-mixed', { params }),
+  getIssue: (key) => api.get(`/jira/issue/${encodeURIComponent(String(key || '').trim())}`)
 }
 
 // Smart Search (aggregated)
@@ -313,9 +342,12 @@ export default {
   roles,
   permissions,
   analysisCategories,
+  faultCaseStatuses,
+  faultCaseModules,
   i18n,
   surgeryStatistics,
   devices,
+  deviceModels,
   motionData,
   feedback,
   dashboard,

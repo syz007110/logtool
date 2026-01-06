@@ -7,8 +7,10 @@ const FaultCaseI18nSchema = new mongoose.Schema({
   title: { type: String, default: '' },
   symptom: { type: String, default: '' },
   possible_causes: { type: String, default: '' },
-  troubleshooting_steps: { type: String, default: '' },
-  experience: { type: String, default: '' },
+  solution: { type: String, default: '' },
+  remark: { type: String, default: '' },
+
+  // Search helpers
   keywords: { type: [String], default: [] }
 }, {
   timestamps: true,

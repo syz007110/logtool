@@ -11,7 +11,7 @@ const RESIZE_OBSERVER_ERROR_PATTERNS = [
 // 检查是否是 ResizeObserver 错误
 const isResizeObserverError = (error) => {
   if (!error) return false
-  
+
   const message = typeof error === 'string' ? error : error.message || ''
   return RESIZE_OBSERVER_ERROR_PATTERNS.some(pattern => message.includes(pattern))
 }
@@ -22,7 +22,7 @@ export const suppressResizeObserverErrors = () => {
   const originalError = console.error
   const originalWarn = console.warn
   const originalLog = console.log
-  
+
   // 重写 console.error
   console.error = (...args) => {
     if (args.some(arg => isResizeObserverError(arg))) {
@@ -30,7 +30,7 @@ export const suppressResizeObserverErrors = () => {
     }
     originalError.apply(console, args)
   }
-  
+
   // 重写 console.warn
   console.warn = (...args) => {
     if (args.some(arg => isResizeObserverError(arg))) {
@@ -38,7 +38,7 @@ export const suppressResizeObserverErrors = () => {
     }
     originalWarn.apply(console, args)
   }
-  
+
   // 重写 console.log
   console.log = (...args) => {
     if (args.some(arg => isResizeObserverError(arg))) {
@@ -46,7 +46,7 @@ export const suppressResizeObserverErrors = () => {
     }
     originalLog.apply(console, args)
   }
-  
+
   // 处理全局错误事件
   const handleGlobalError = (event) => {
     if (isResizeObserverError(event.error) || isResizeObserverError(event.message)) {
@@ -54,7 +54,7 @@ export const suppressResizeObserverErrors = () => {
       return false
     }
   }
-  
+
   // 处理未捕获的 Promise 错误
   const handleUnhandledRejection = (event) => {
     if (isResizeObserverError(event.reason)) {
@@ -62,11 +62,11 @@ export const suppressResizeObserverErrors = () => {
       return false
     }
   }
-  
+
   // 添加事件监听器
   window.addEventListener('error', handleGlobalError)
   window.addEventListener('unhandledrejection', handleUnhandledRejection)
-  
+
   // 处理 webpack-dev-server 的错误
   if (process.env.NODE_ENV === 'development') {
     // 覆盖 webpack-dev-server 的错误处理
@@ -79,7 +79,7 @@ export const suppressResizeObserverErrors = () => {
         return originalHandleError(error)
       }
     }
-    
+
     // 尝试禁用 webpack-dev-server 的错误显示
     if (window.__webpack_dev_server_client__) {
       const client = window.__webpack_dev_server_client__
@@ -96,7 +96,7 @@ export const suppressResizeObserverErrors = () => {
       }
     }
   }
-  
+
   // 返回清理函数
   return () => {
     console.error = originalError
@@ -112,7 +112,7 @@ export const createSafeResizeObserver = (callback) => {
   if (!window.ResizeObserver) {
     return null
   }
-  
+
   return new window.ResizeObserver((entries, observer) => {
     try {
       callback(entries, observer)
@@ -130,7 +130,7 @@ export const createSafeResizeObserver = (callback) => {
 // 防抖函数
 export const debounce = (func, wait) => {
   let timeout
-  return function executedFunction(...args) {
+  return function executedFunction (...args) {
     const later = () => {
       clearTimeout(timeout)
       func(...args)
@@ -143,7 +143,7 @@ export const debounce = (func, wait) => {
 // 节流函数
 export const throttle = (func, limit) => {
   let inThrottle
-  return function executedFunction(...args) {
+  return function executedFunction (...args) {
     if (!inThrottle) {
       func.apply(this, args)
       inThrottle = true
@@ -170,10 +170,10 @@ export const safeNextTick = (callback) => {
 export const initResizeObserverFix = () => {
   // 立即应用错误抑制
   const cleanup = suppressResizeObserverErrors()
-  
+
   // 在页面卸载时清理
   window.addEventListener('beforeunload', cleanup)
-  
+
   return cleanup
 }
 

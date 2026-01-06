@@ -27,7 +27,7 @@ export function visualizeSurgery (surgeryData, options = {}) {
 
     // 使用数据适配器统一处理数据
     const adaptedData = adaptSurgeryData(surgeryData)
-    
+
     if (!adaptedData) {
       throw new Error('数据适配失败，无法识别的数据格式')
     }

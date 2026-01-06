@@ -1,6 +1,6 @@
 // IndexedDB工具类，用于处理大数据存储
 class IndexedDBManager {
-  constructor() {
+  constructor () {
     this.dbName = 'LogToolDB'
     this.dbVersion = 1
     this.storeName = 'logEntries'
@@ -8,7 +8,7 @@ class IndexedDBManager {
   }
 
   // 初始化数据库
-  async initDB() {
+  async initDB () {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion)
 
@@ -25,7 +25,7 @@ class IndexedDBManager {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result
-        
+
         // 创建对象存储
         if (!db.objectStoreNames.contains(this.storeName)) {
           const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true })
@@ -38,7 +38,7 @@ class IndexedDBManager {
   }
 
   // 存储日志条目数据
-  async storeLogEntries(data, logId = null) {
+  async storeLogEntries (data, logId = null) {
     if (!this.db) {
       await this.initDB()
     }
@@ -49,11 +49,11 @@ class IndexedDBManager {
 
       // 生成唯一ID
       const dataId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
+
       const logData = {
         id: dataId,
-        logId: logId,
-        data: data,
+        logId,
+        data,
         timestamp: new Date().toISOString(),
         count: data.length
       }
@@ -73,7 +73,7 @@ class IndexedDBManager {
   }
 
   // 获取日志条目数据
-  async getLogEntries(dataId) {
+  async getLogEntries (dataId) {
     if (!this.db) {
       await this.initDB()
     }
@@ -101,7 +101,7 @@ class IndexedDBManager {
   }
 
   // 删除数据
-  async deleteLogEntries(dataId) {
+  async deleteLogEntries (dataId) {
     if (!this.db) {
       await this.initDB()
     }
@@ -124,7 +124,7 @@ class IndexedDBManager {
   }
 
   // 清理旧数据
-  async cleanupOldData(maxAge = 24 * 60 * 60 * 1000) { // 默认24小时
+  async cleanupOldData (maxAge = 24 * 60 * 60 * 1000) { // 默认24小时
     if (!this.db) {
       await this.initDB()
     }
@@ -162,4 +162,4 @@ class IndexedDBManager {
 // 创建单例实例
 const indexedDBManager = new IndexedDBManager()
 
-export default indexedDBManager 
+export default indexedDBManager

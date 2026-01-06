@@ -434,7 +434,7 @@ const createErrorCode = async (req, res) => {
 const getErrorCodes = async (req, res) => {
   try {
     const { code, subsystem, level, category, keyword } = req.query;
-    let { page = 1, limit = 10 } = req.query;
+    let { page = 1, limit = 20 } = req.query;
     page = parseInt(page, 10);
     limit = parseInt(limit, 10);
     const where = {};

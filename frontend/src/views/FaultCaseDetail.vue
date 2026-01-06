@@ -8,9 +8,6 @@
             <el-tag v-if="faultCase" :type="faultCase.is_published === true ? 'success' : 'info'">
               {{ faultCase.is_published === true ? $t('faultCases.statusPublished') : $t('faultCases.statusDraft') }}
             </el-tag>
-            <el-tag v-if="faultCase?.review?.state" :type="reviewTagType(faultCase.review.state)">
-              {{ reviewText(faultCase.review.state) }}
-            </el-tag>
           </div>
           <div class="actions">
             <el-button @click="goBack">{{ $t('shared.back') || 'Back' }}</el-button>
@@ -21,8 +18,21 @@
       </template>
 
       <el-descriptions v-if="faultCase" :column="2" border>
-        <el-descriptions-item :label="$t('faultCases.fields.device_id')">
-          {{ faultCase.device_id || '-' }}
+        <el-descriptions-item :label="$t('faultCases.fields.source')">
+          {{ faultCase.source || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('faultCases.fields.jira_key')">
+          {{ faultCase.jira_key || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('faultCases.fields.module')">
+          {{ faultCase.module || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('faultCases.fields.equipment_model')">
+          <template v-if="Array.isArray(faultCase.equipment_model) && faultCase.equipment_model.length > 0">
+            <el-tag v-for="(model, idx) in faultCase.equipment_model" :key="idx" size="small" style="margin-right: 8px;">{{ model }}</el-tag>
+          </template>
+          <span v-else-if="faultCase.equipment_model">{{ faultCase.equipment_model }}</span>
+          <span v-else>-</span>
         </el-descriptions-item>
         <el-descriptions-item :label="$t('faultCases.fields.updated_at_user')">
           {{ formatDate(faultCase.updated_at_user || faultCase.updatedAt || faultCase.createdAt) }}
@@ -52,11 +62,11 @@
       </div>
       <div class="section">
         <div class="section-title">{{ $t('faultCases.fields.troubleshooting_steps') }}</div>
-        <div class="section-body pre">{{ faultCase?.troubleshooting_steps || '-' }}</div>
+        <div class="section-body pre">{{ faultCase?.solution || faultCase?.troubleshooting_steps || '-' }}</div>
       </div>
       <div class="section">
         <div class="section-title">{{ $t('faultCases.fields.experience') }}</div>
-        <div class="section-body pre">{{ faultCase?.experience || '-' }}</div>
+        <div class="section-body pre">{{ faultCase?.remark || faultCase?.experience || '-' }}</div>
       </div>
 
       <el-divider />
@@ -80,15 +90,6 @@
         </div>
       </div>
 
-      <el-divider v-if="canReview" />
-      <div v-if="canReview" class="review-box">
-        <div class="review-title">{{ $t('faultCases.review.title') }}</div>
-        <el-input v-model="reviewComment" type="textarea" :rows="2" :placeholder="$t('faultCases.review.commentPlaceholder')" />
-        <div class="review-actions">
-          <el-button type="success" :loading="reviewing" @click="doReview('approve')">{{ $t('faultCases.review.approve') }}</el-button>
-          <el-button type="danger" :loading="reviewing" @click="doReview('reject')">{{ $t('faultCases.review.reject') }}</el-button>
-        </div>
-      </div>
     </el-card>
   </div>
 </template>
@@ -113,12 +114,8 @@ export default {
     const loading = ref(false)
     const faultCase = ref(null)
 
-    const reviewing = ref(false)
-    const reviewComment = ref('')
-
     const canUpdate = computed(() => store.getters['auth/hasPermission']?.('fault_case:update'))
     const canDelete = computed(() => store.getters['auth/hasPermission']?.('fault_case:delete'))
-    const canReview = computed(() => store.getters['auth/hasPermission']?.('fault_case:review'))
 
     const formatDate = (d) => {
       if (!d) return '-'
@@ -133,20 +130,6 @@ export default {
       let i = 0
       while (v >= 1024 && i < units.length - 1) { v /= 1024; i++ }
       return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-    }
-
-    const reviewTagType = (state) => {
-      if (state === 'pending') return 'warning'
-      if (state === 'approved') return 'success'
-      if (state === 'rejected') return 'danger'
-      return 'info'
-    }
-
-    const reviewText = (state) => {
-      if (state === 'pending') return t('faultCases.review.statePending')
-      if (state === 'approved') return t('faultCases.review.stateApproved')
-      if (state === 'rejected') return t('faultCases.review.stateRejected')
-      return state || '-'
     }
 
     const load = async () => {
@@ -166,7 +149,7 @@ export default {
     }
 
     const goEdit = () => {
-      router.push('/dashboard/fault-cases')
+      router.push(`/dashboard/fault-cases/${id.value}/edit`)
     }
 
     const handleDelete = async () => {
@@ -178,19 +161,6 @@ export default {
       } catch (_) {}
     }
 
-    const doReview = async (action) => {
-      reviewing.value = true
-      try {
-        await api.faultCases.review(id.value, action, reviewComment.value || '')
-        ElMessage.success(t('shared.success'))
-        await load()
-      } catch (e) {
-        ElMessage.error(e.response?.data?.message || t('shared.error'))
-      } finally {
-        reviewing.value = false
-      }
-    }
-
     onMounted(load)
 
     return {
@@ -198,17 +168,11 @@ export default {
       faultCase,
       canUpdate,
       canDelete,
-      canReview,
-      reviewComment,
-      reviewing,
       formatDate,
       formatSize,
-      reviewTagType,
-      reviewText,
       goBack,
       goEdit,
-      handleDelete,
-      doReview
+      handleDelete
     }
   }
 }

@@ -341,10 +341,10 @@
   --text-placeholder: var(--slate-400);
   --text-white: var(--black-white-white);
   --text-on-dark-color: var(--black-white-white);
-  --text-brand-primary: var(--blue-600);
-  --text-brand-secondary: var(--blue-400);
-  --text-brand-primary-hover: var(--blue-700);
-  --text-brand-secondary-hover: var(--blue-500);
+  --text-brand-primary: var(--purple-600);
+  --text-brand-secondary: var(--purple-400);
+  --text-brand-primary-hover: var(--purple-700);
+  --text-brand-secondary-hover: var(--purple-500);
   --text-error-primary: var(--red-600);
   --text-error-secondary: var(--red-400);
   --text-error-primary-hover: var(--red-700);
@@ -414,15 +414,15 @@
   --border-info-secondary: var(--sky-300);
 
   /* button (Component Tokens) */
-  --btn-primary-bg: var(--bg-brand-solid);
-  --btn-primary-bg-hover: var(--bg-brand-solid-hover);
+  --btn-primary-bg: #000000;
+  --btn-primary-bg-hover: #1a1a1a;
   --btn-primary-text: var(--text-white);
   --btn-primary-text-hover: var(--text-white);
-  --btn-primary-border: var(--bg-brand-solid);
-  --btn-primary-border-hover: var(--bg-brand-solid-hover);
+  --btn-primary-border: #000000;
+  --btn-primary-border-hover: #1a1a1a;
   
   --btn-secondary-bg: var(--bg-primary);
-  --btn-secondary-bg-hover: var(--bg-primary-hover);
+  --btn-secondary-bg-hover: #f5f5f5;
   --btn-secondary-text: var(--text-primary);
   --btn-secondary-text-hover: var(--text-primary-hover);
   --btn-secondary-border: var(--border-secondary);
@@ -451,7 +451,7 @@
   
   /* Text Button - 文本按钮 */
   --btn-text-bg: transparent;
-  --btn-text-bg-hover: var(--bg-primary-hover);
+  --btn-text-bg-hover: #f0f0f0;
   --btn-text-text: var(--text-brand-primary);
   --btn-text-text-hover: var(--text-brand-primary-hover);
   --btn-text-border: transparent;
@@ -473,6 +473,202 @@
   --btn-success-border: var(--bg-success-secondary);
   --btn-success-border-hover: var(--bg-success-secondary-hover);
 
+    /* =========================================
+       1. 全局基础色 (Global Foundations)
+       ========================================= */
+    /* 页面核心背景 - 纯白 */
+    --background: 255 255 255; /* #ffffff */
+    /* 页面核心文字 - 深黑蓝 (B2B 专用深色，非纯黑) */
+    --foreground: 3 2 19;      /* #030213 */
+  
+    /* 主色调 - 用于按钮、重要文字、选中态文字 */
+    --primary: 3 2 19;         /* #030213 */
+    --primary-foreground: 255 255 255;
+  
+    /* 次要信息 - 用于说明文字、非选中态 */
+    --muted: 241 245 249;      /* Slate-100 */
+    --muted-foreground: 100 116 139; /* Slate-500 */
+  
+    /* 边框颜色 */
+    --border: 226 232 240;     /* Slate-200 */
+  
+    /* =========================================
+       2. 侧边栏专用 Token (Sidebar Component)
+       ========================================= */
+    /* 侧边栏背景 - 浅灰 (对应 Tailwind bg-slate-50) */
+    --sidebar-background: 248 250 252; /* #f8fafc */
+    
+    /* 侧边栏文字 - 默认灰色 */
+    --sidebar-foreground: 100 116 139; /* Slate-500 */
+    
+    /* 侧边栏文字 - 选中/激活状态 (深色) */
+    --sidebar-primary: 3 2 19;         /* #030213 */
+    
+    /* 侧边栏菜单项 - 选中时的背景 (纯白卡片) */
+    --sidebar-accent: 255 255 255;     /* #ffffff */
+    
+    /* 侧边栏菜单项 - 悬浮时的背景 (半透明灰) */
+    --sidebar-hover: 226 232 240;      /* Slate-200 */
+  
+    /* =========================================
+       3. 交互与状态
+       ========================================= */
+    --radius: 0.5rem; /* 8px 圆角 */
+
+    /* =========================================
+       4. 下拉菜单专用 Token (Dropdown Component)
+       ========================================= */
+    /* 下拉菜单项 - 普通悬浮背景 */
+    --dropdown-item-normal-hover-bg: #f0f0f0;
+    --dropdown-item-normal-hover-color: #333333;
+
+    /* 下拉菜单项 - 危险悬浮背景 */
+    --dropdown-item-danger-hover-bg: #ffebee;
+    --dropdown-item-danger-hover-color: #d32f2f;
+
+    /* =========================================
+       5. 表单控件 (Form Controls)
+       ========================================= */
+    /* Input 输入框 */
+    --input-bg: var(--bg-primary);
+    --input-border: var(--border-primary);
+    --input-border-focus: var(--primary);
+    --input-border-hover: var(--border-secondary);
+    --input-placeholder: var(--text-placeholder);
+    --input-text: var(--text-primary);
+    --input-disabled-bg: var(--bg-disabled);
+    --input-disabled-text: var(--text-disabled);
+
+    /* Select 下拉框 */
+    --select-bg: var(--bg-primary);
+    --select-border: var(--border-primary);
+    --select-border-focus: var(--primary);
+    --select-border-hover: var(--border-secondary);
+    --select-text: var(--text-primary);
+    --select-placeholder: var(--text-placeholder);
+    --select-option-hover: var(--bg-primary-hover);
+    --select-option-selected: var(--primary);
+    --select-option-selected-text: var(--primary-foreground);
+
+    /* Radio 单选框 */
+    --radio-border: var(--border-primary);
+    --radio-border-checked: var(--primary);
+    --radio-bg-checked: var(--primary);
+    --radio-text: var(--text-primary);
+    --radio-text-disabled: var(--text-disabled);
+    --radio-border-disabled: var(--border-disabled);
+
+    /* Checkbox 多选框 */
+    --checkbox-border: var(--border-primary);
+    --checkbox-border-checked: var(--primary);
+    --checkbox-bg-checked: var(--primary);
+    --checkbox-text: var(--text-primary);
+    --checkbox-text-disabled: var(--text-disabled);
+    --checkbox-border-disabled: var(--border-disabled);
+    --checkbox-label-color: #64748b; /* slate-500 - 表单控件标签统一颜色 */
+
+    /* Radio 单选框 - 标签颜色 */
+    --radio-label-color: #64748b; /* slate-500 - 表单控件标签统一颜色 */
+
+    /* Switch 开关 */
+    --switch-bg: var(--border-primary);
+    --switch-bg-checked: var(--primary);
+    --switch-handle: var(--bg-primary);
+    --switch-handle-checked: var(--primary-foreground);
+
+    /* =========================================
+       6. 导航组件 (Navigation)
+       ========================================= */
+    /* Tabs 标签页 */
+    --tab-bg: transparent;
+    --tab-bg-hover: var(--bg-primary-hover);
+    --tab-bg-active: var(--primary);
+    --tab-text: var(--text-secondary);
+    --tab-text-hover: var(--text-primary);
+    --tab-text-active: var(--primary-foreground);
+    --tab-border: var(--border-primary);
+    --tab-border-active: var(--primary);
+
+    /* Breadcrumb 面包屑 */
+    --breadcrumb-text: var(--text-secondary);
+    --breadcrumb-text-hover: var(--text-primary);
+    --breadcrumb-text-active: var(--text-primary);
+    --breadcrumb-separator: var(--text-placeholder);
+
+    /* =========================================
+       7. 数据展示 (Data Display)
+       ========================================= */
+    /* Table 表格 */
+    --table-header-bg: var(--bg-secondary);
+    --table-header-text: var(--text-primary);
+    --table-row-hover: var(--bg-primary-hover);
+    --table-row-stripe: var(--bg-secondary);
+    --table-border: var(--border-primary);
+    --table-text: var(--text-primary);
+
+    /* Tag 标签 */
+    --tag-bg: var(--bg-secondary);
+    --tag-text: var(--text-primary);
+    --tag-border: var(--border-primary);
+
+    /* Pagination 分页 */
+    --pagination-text: var(--text-secondary);
+    --pagination-text-hover: var(--text-primary);
+    --pagination-text-active: var(--text-primary);
+    --pagination-bg: var(--bg-primary);
+    --pagination-bg-hover: var(--bg-primary-hover);
+    --pagination-bg-active: var(--primary);
+    --pagination-border: var(--border-primary);
+
+    /* =========================================
+       8. 反馈组件 (Feedback)
+       ========================================= */
+    /* Alert 警告提示 */
+    --alert-info-bg: var(--bg-info-primary);
+    --alert-info-border: var(--border-info-primary);
+    --alert-info-text: var(--text-info-primary);
+    --alert-success-bg: var(--bg-success-primary);
+    --alert-success-border: var(--border-success-primary);
+    --alert-success-text: var(--text-success-primary);
+    --alert-warning-bg: var(--bg-warning-primary);
+    --alert-warning-border: var(--border-warning-primary);
+    --alert-warning-text: var(--text-warning-primary);
+    --alert-error-bg: var(--bg-error-primary);
+    --alert-error-border: var(--border-error-primary);
+    --alert-error-text: var(--text-error-primary);
+
+    /* Modal/Dialog 弹窗 */
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+    --modal-bg: var(--bg-primary);
+    --modal-border: var(--border-primary);
+    --modal-header-bg: var(--bg-secondary);
+    --modal-title-text: var(--text-primary);
+    --modal-content-text: var(--text-primary);
+
+    /* Message 消息提示 */
+    --message-info-bg: var(--bg-info-primary);
+    --message-info-text: var(--text-info-primary);
+    --message-success-bg: var(--bg-success-primary);
+    --message-success-text: var(--text-success-primary);
+    --message-warning-bg: var(--bg-warning-primary);
+    --message-warning-text: var(--text-warning-primary);
+    --message-error-bg: var(--bg-error-primary);
+    --message-error-text: var(--text-error-primary);
+
+    /* =========================================
+       9. 其他组件 (Other Components)
+       ========================================= */
+    /* Loading 加载 */
+    --loading-color: var(--primary);
+
+    /* Tooltip 提示 */
+    --tooltip-bg: var(--slate-900);
+    --tooltip-text: var(--black-white-white);
+
+    /* Popover 弹出框 */
+    --popover-bg: var(--bg-primary);
+    --popover-border: var(--border-primary);
+    --popover-text: var(--text-primary);
 }
 
 /* Table styles removed per requirement */
@@ -494,8 +690,8 @@
 /* Primary Button - 主要按钮 */
 .btn-primary {
   color: #fff;
-  background-color: #1890ff;
-  border-color: #1890ff;
+  background-color: #000000;
+  border-color: #000000;
   height: 32px;
   padding: 4px 15px;
   border-radius: 6px;
@@ -514,14 +710,14 @@
 
 .btn-primary:hover:not(:disabled),
 .btn-primary:focus:not(:disabled) {
-  background-color: #40a9ff;
-  border-color: #40a9ff;
-  color: #fff;
+  background-color: var(--btn-primary-bg-hover);
+  border-color: var(--btn-primary-border-hover);
+  color: var(--btn-primary-text-hover);
 }
 
 .btn-primary:active:not(:disabled) {
-  background-color: #096dd9;
-  border-color: #096dd9;
+  background-color: #333333;
+  border-color: #333333;
 }
 
 .btn-primary:disabled {
@@ -600,9 +796,9 @@
 
 .btn-secondary:hover:not(:disabled),
 .btn-secondary:focus:not(:disabled) {
-  color: #40a9ff;
-  border-color: #40a9ff;
-  background-color: #fff;
+  color: var(--btn-secondary-text-hover);
+  border-color: var(--btn-secondary-border-hover);
+  background-color: var(--btn-secondary-bg-hover);
 }
 
 .btn-secondary:active:not(:disabled) {
@@ -720,7 +916,7 @@
 
 /* Text Button - 文本按钮（普通） */
 .btn-text {
-  color: #1890ff;
+  color: var(--btn-text-text);
   background-color: transparent;
   border-color: transparent;
   height: 32px;
@@ -740,13 +936,13 @@
 
 .btn-text:hover:not(:disabled),
 .btn-text:focus:not(:disabled) {
-  color: #40a9ff;
-  background-color: transparent;
-  border-color: transparent;
+  color: var(--btn-text-text-hover);
+  background-color: var(--btn-text-bg-hover);
+  border-color: var(--btn-text-border-hover);
 }
 
 .btn-text:active:not(:disabled) {
-  color: #096dd9;
+  color: var(--btn-text-text-hover);
 }
 
 .btn-text:disabled {
@@ -922,7 +1118,7 @@
 
 /* Link Button - 链接按钮 */
 .btn-link {
-  color: #1890ff;
+  color: var(--btn-text-text);
   background-color: transparent;
   border-color: transparent;
   text-decoration: none;
@@ -943,14 +1139,14 @@
 
 .btn-link:hover:not(:disabled),
 .btn-link:focus:not(:disabled) {
-  color: #40a9ff;
+  color: var(--btn-text-text-hover);
   text-decoration: underline;
   background-color: transparent;
   border-color: transparent;
 }
 
 .btn-link:active:not(:disabled) {
-  color: #096dd9;
+  color: var(--btn-text-text-hover);
 }
 
 .btn-link:disabled {
@@ -1129,4 +1325,17 @@
 
 .dropdown-open .dropdown-arrow {
   transform: rotate(180deg);
+}
+
+/* =========================================
+   10. 语义化Token扩展 (Semantic Token Extensions)
+   ========================================= */
+/* 扩展现有的通用token以支持更多语义化使用场景 */
+/* 注意：页面专用token已被移除，建议使用现有的通用token组合 */
+
+/* 暗色模式 (可选) */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  /* ...其他暗色变量 */
 }

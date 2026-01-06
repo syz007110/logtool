@@ -23,6 +23,9 @@
     "info": "Info",
     "refresh": "Refresh",
     "operation": "Operation",
+    "items": "items",
+    "close": "Close",
+    "open": "Open",
     "resourceNotFound": "Resource not found",
     "serverError": "Internal server error",
     "requestFailed": "Request failed",
@@ -110,38 +113,77 @@
   },
   "faultCases": {
     "title": "Fault Cases",
+    "listTitle": "Created Cases",
     "create": "Create",
     "edit": "Edit",
     "view": "View",
     "saveDraft": "Save Draft",
-    "saveAndSubmit": "Save & Submit Review",
-    "searchPlaceholder": "Keywords (title/symptom/causes/steps/experience/keywords)",
+    "publish": "Publish",
+    "sourceManual": "Case Database",
+    "sourceJira": "JIRA",
+    "filters": {
+      "label": "Filter:",
+      "sourcePlaceholder": "Select Source",
+      "modulePlaceholder": "Select Module",
+      "statusPlaceholder": "Select Status",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "results": "Filter Results"
+    },
+    "searchPlaceholder": "Keywords (title/symptom/causes/solution/remark/keywords)",
     "errorCodePlaceholder": "Error code (code or ID)",
     "latestHint": "By default shows the latest 5 published cases. Use keyword/error code to search more.",
     "scopes": {
       "latestPublished": "Latest (Published)",
-      "mine": "My drafts / pending / rejected"
+      "mine": "My drafts / published"
     },
     "statusDraft": "Draft",
     "statusPublished": "Published",
     "upload": "Upload attachments",
     "uploadTip": "Images/PDF etc. Uploaded files are temporary until you save the case.",
+    "uploadClickText": "Click to upload or drag file here",
     "uploadExceed": "Too many attachments",
+    "sections": {
+      "problemDefinition": "Problem Definition",
+      "classification": "Classification",
+      "analysisResolution": "Analysis & Resolution",
+      "attachments": "Attachments"
+    },
+    "jiraKeyPlaceholder": "e.g. LOG-4420",
+    "titlePlaceholder": "Enter the main title of the fault case...",
+    "symptomPlaceholder": "Detailed description of the observed phenomenon...",
+    "possibleCausesPlaceholder": "What caused this issue? Hardware failure? Config error?",
+    "solutionPlaceholder": "Step-by-step instructions to resolve the issue...",
+    "remarkPlaceholder": "Internal notes, debug steps taken...",
     "keywordsPlaceholder": "Comma or space separated, e.g. axis, encoder, jitter",
     "relatedErrorCodesPlaceholder": "Related MySQL error code IDs, e.g. 12, 34",
+    "deviceSelectPlaceholder": "Type to search devices (device_id/hospital...)",
+    "equipmentModelPlaceholder": "Type or select equipment model",
+    "relatedErrorCodesSelectPlaceholder": "Type to search error codes (code/description)",
+    "selectErrorCodes": "Select Error Codes",
+    "searchErrorCodes": "Search error codes (code/summary)",
+    "searchErrorCodesHint": "Please enter keywords to search error codes",
+    "selectedErrorCodesCount": "Selected {count} error codes",
     "updatedAtUserPlaceholder": "Optional: manually set displayed updated time",
     "validation": {
-      "titleRequired": "Title is required"
+      "titleRequired": "Title is required",
+      "moduleRequired": "Module is required"
     },
     "fields": {
+      "source": "Source",
+      "jira_key": "Jira Key",
+      "module": "Module",
       "title": "Title",
       "symptom": "Symptom",
       "possible_causes": "Possible causes",
-      "troubleshooting_steps": "Troubleshooting steps (SOP)",
-      "experience": "Engineer experience",
+      "solution": "Solution",
+      "remark": "Remark (experience)",
+      "troubleshooting_steps": "Troubleshooting (legacy)",
+      "experience": "Experience (legacy)",
       "attachments": "Attachments",
       "related_error_code_ids": "Related error codes",
       "device_id": "Device ID",
+      "equipment_model": "Equipment Model",
       "keywords": "Keywords",
       "updated_at_user": "Updated time (manual)"
     },
@@ -162,27 +204,13 @@
       "translated": "Translated",
       "translateFailed": "Translate failed"
     },
-    "review": {
-      "title": "Review",
-      "approve": "Approve",
-      "reject": "Reject",
-      "commentPlaceholder": "Comment (optional)",
-      "statePending": "Pending",
-      "stateApproved": "Approved",
-      "stateRejected": "Rejected"
-    },
-    "reviewInbox": {
-      "title": "Review Inbox (Fault Cases)",
-      "view": "View",
-      "markRead": "Mark read",
-      "columns": {
-        "title": "Title",
-        "time": "Time"
-      }
-    },
     "jira": {
       "title": "Related Jira Issues",
       "searchPlaceholder": "Keyword (Jira full-text search)",
+      "previewModeLabel": "JIRA Case Mode",
+      "previewModeTip": "When enabled, clicking a JIRA Key will show an overview dialog instead of navigating to the JIRA page, useful for viewing without VPN.",
+      "previewModeOn": "Overview",
+      "previewModeOff": "Jump",
       "open": "Open",
       "addToFaultCases": "Add",
       "empty": "No matching Jira issues",
@@ -199,8 +227,14 @@
         "module": "Module",
         "summary": "Summary",
         "status": "Status",
-        "updated": "Updated"
-      }
+        "updated": "Updated",
+        "project": "Project",
+        "resolution": "Resolution",
+        "attachments": "Attachments",
+        "imageAttachments": "Image Attachments",
+        "fileAttachments": "File Attachments"
+      },
+      "openInJira": "Open in JIRA"
     }
   },
   "login": {
@@ -476,6 +510,73 @@
       "nameZhRequired": "Please enter Chinese name",
       "nameEnRequired": "Please enter English name",
       "sortOrderRequired": "Please enter sort order"
+    }
+  },
+  "configManagement": {
+    "title": "Config Management",
+    "tabs": {
+      "logLevels": "Analysis Levels",
+      "faultCaseStatuses": "Fault Case Statuses",
+      "faultCaseModules": "Modules"
+    },
+    "common": {
+      "name": "Name",
+      "nameZh": "Chinese Name",
+      "nameEn": "English Name",
+      "description": "Description",
+      "sortOrder": "Sort Order",
+      "isActive": "Active",
+      "active": "Active",
+      "inactive": "Inactive",
+      "mappings": "Mappings",
+      "mappingsTitle": "Mappings",
+      "addMapping": "Add Mapping",
+      "editMapping": "Edit Mapping",
+      "deleteMappingConfirm": "Are you sure to delete this mapping?",
+      "sourceField": "Source Field",
+      "sourceValue": "Source Value",
+      "sourceFieldPlaceholder": "e.g. jira_status / excel_status / default",
+      "sourceValuePlaceholder": "e.g. Done / Closed / Resolved",
+      "fetchMappingsFailed": "Failed to load mappings",
+      "submitFailed": "Failed to submit",
+      "validation": {
+        "sourceFieldRequired": "Please enter source field",
+        "sourceValueRequired": "Please enter source value"
+      }
+    },
+    "statuses": {
+      "statusKey": "Status Key",
+      "add": "Add Status",
+      "edit": "Edit Status",
+      "deleteConfirm": "Are you sure to delete this status? (All mappings under it will be deleted.)",
+      "searchPlaceholder": "Search statuses...",
+      "statusKeyLabel": "Status Key",
+      "statusKeyPlaceholder": "e.g. resolved / unresolved / under_observation / requirement",
+      "mappingsTitle": "Status Mappings",
+      "fetchFailed": "Failed to fetch status list",
+      "validation": {
+        "statusKeyRequired": "Please enter status key",
+        "statusKeyPattern": "Status key can only contain lowercase letters, numbers and underscores",
+        "nameZhRequired": "Please enter Chinese name",
+        "nameEnRequired": "Please enter English name"
+      }
+    },
+    "modules": {
+      "moduleKey": "Module Key",
+      "add": "Add Module",
+      "edit": "Edit Module",
+      "deleteConfirm": "Are you sure to delete this module? (All mappings under it will be deleted.)",
+      "searchPlaceholder": "Search modules...",
+      "moduleKeyLabel": "Module Key",
+      "moduleKeyPlaceholder": "e.g. patient_platform / surgeon_console / vision_platform",
+      "mappingsTitle": "Module Mappings",
+      "fetchFailed": "Failed to fetch module list",
+      "validation": {
+        "moduleKeyRequired": "Please enter module key",
+        "moduleKeyPattern": "Module key can only contain lowercase letters, numbers and underscores",
+        "nameZhRequired": "Please enter Chinese name",
+        "nameEnRequired": "Please enter English name"
+      }
     }
   },
   "i18nErrorCodes": {
@@ -1127,6 +1228,7 @@
       "user": "User Management",
       "role": "Role Management",
       "error_code": "Error Code Management",
+      "fault_case": "Fault Case Management",
       "log": "Log Management",
       "i18n": "Localization Management",
       "device": "Device Management",
@@ -1161,7 +1263,22 @@
       "audit": "Audit",
       "approve": "Approve",
       "publish": "Publish",
+      "review": "Review",
+      "explain": "Explain",
+      "monitor": "Monitor",
+      "read_all": "Read All",
+      "read_own": "Read Own",
+      "reparse": "Reparse",
+      "delete_own": "Delete Own",
+      "role": "Role",
       "default": "Action"
+    },
+    "permissionLabels": {
+      "user.reset_password": "User Management · Reset Password",
+      "user.assign_roles": "User Management · Assign Roles",
+      "user.role.assign": "User Management · Role Assignment",
+      "role.assign": "Role Management · Assign Permissions",
+      "fault_case.review": "Fault Case Management · Review"
     }
   },
   "surgeryStatistics": {

@@ -90,7 +90,7 @@ const actions = {
 }
 
 // 规范化角色名，兼容中英文与ID
-function normalizeRoleName(roleName, roleId) {
+function normalizeRoleName (roleName, roleId) {
   if (roleId === 1) return 'admin'
   if (roleId === 2) return 'expert'
   if (roleId === 3) return 'user'
@@ -109,15 +109,15 @@ const getters = {
   hasPermission: (state) => (permission) => {
     try {
       if (!state.user) return false
-      
+
       // 管理员拥有所有权限
       const normalized = normalizeRoleName(state.user.role, state.user.role_id)
       if (normalized === 'admin') return true
-      
+
       // 优先使用服务端返回的权限列表
       const perms = Array.isArray(state.user.permissions) ? state.user.permissions : []
       if (perms.includes(permission)) return true
-      
+
       return false
     } catch (error) {
       console.error('Permission check error:', error)

@@ -13,8 +13,8 @@
 export const maskHospitalName = (hospitalName, hasPermission) => {
   // 如果医院名称为空（未设置），不需要敏感显示，返回空字符串
   // 包括：null、undefined、空字符串、'-'、'未设置'等
-  if (!hospitalName || 
-      hospitalName === '-' || 
+  if (!hospitalName ||
+      hospitalName === '-' ||
       hospitalName === '未设置' ||
       hospitalName.trim() === '' ||
       hospitalName.trim() === '未设置') {
@@ -37,4 +37,3 @@ export const maskHospitalName = (hospitalName, hasPermission) => {
   const firstTwo = trimmed.substring(0, 2)
   return firstTwo + '*'
 }
-

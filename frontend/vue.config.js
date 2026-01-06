@@ -43,4 +43,4 @@ module.exports = defineConfig({
     liveReload: false
   },
   publicPath: '/'
-}) 
+})

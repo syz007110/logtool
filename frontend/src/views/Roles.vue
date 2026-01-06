@@ -101,7 +101,6 @@
               <template #default="{ data }">
                 <div class="tree-node-content">
                   <span class="tree-node-label">{{ data.label }}</span>
-                  <span v-if="data.description" class="tree-node-description">{{ data.description }}</span>
                 </div>
               </template>
             </el-tree>
@@ -195,6 +194,7 @@ export default {
         user: t('roles.permissionGroups.user'),
         role: t('roles.permissionGroups.role'),
         error_code: t('roles.permissionGroups.error_code'),
+        fault_case: t('roles.permissionGroups.fault_case'),
         log: t('roles.permissionGroups.log'),
         i18n: t('roles.permissionGroups.i18n'),
         device: t('roles.permissionGroups.device'),
@@ -566,13 +566,6 @@ h4 {
   font-size: 14px;
   color: #262626;
   font-weight: 400;
-}
-
-.tree-node-description {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin-left: 8px;
-  flex: 1;
 }
 
 .admin-permission-notice {

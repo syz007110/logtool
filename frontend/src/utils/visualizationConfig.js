@@ -15,37 +15,37 @@ export const GANTT_STYLE = {
 export const GANTT_COLORS = {
   // 器械类型 → 颜色
   TOOL_TYPE_COLORS: {
-    '无器械': '#EBBA66',       // 浅橙 - 空白状态
-    '持针钳': '#D9EB66',       // 浅黄绿
-    '电钩': '#96EB66',         // 青绿
-    '双极鸭嘴电凝钳': '#66EB77', // 深绿
-    '直剪': '#FFB366',         // 橙色
-    '单极弧剪': '#FF9966',     // 橙红
-    '双极弧形电凝钳': '#FF6666', // 红色
-    '波茨剪': '#FF6666',       // 红色
-    '无损伤镊': '#66CCFF',     // 浅蓝
-    '-30度内窥镜': '#3399FF',   // 蓝色
-    '0度内窥镜': '#0066FF',    // 深蓝
-    '30度内窥镜': '#6699FF',   // 中蓝
-    '大持针钳': '#99CC66',     // 黄绿色
-    '鸭嘴抓钳': '#33CC99',     // 青色
-    '鼠齿抓钳': '#00CC99'      // 青色
+    无器械: '#EBBA66', // 浅橙 - 空白状态
+    持针钳: '#D9EB66', // 浅黄绿
+    电钩: '#96EB66', // 青绿
+    双极鸭嘴电凝钳: '#66EB77', // 深绿
+    直剪: '#FFB366', // 橙色
+    单极弧剪: '#FF9966', // 橙红
+    双极弧形电凝钳: '#FF6666', // 红色
+    波茨剪: '#FF6666', // 红色
+    无损伤镊: '#66CCFF', // 浅蓝
+    '-30度内窥镜': '#3399FF', // 蓝色
+    '0度内窥镜': '#0066FF', // 深蓝
+    '30度内窥镜': '#6699FF', // 中蓝
+    大持针钳: '#99CC66', // 黄绿色
+    鸭嘴抓钳: '#33CC99', // 青色
+    鼠齿抓钳: '#00CC99' // 青色
   },
   // 不同臂的基础颜色（作为 fallback）
   ARM_BASE_COLORS: ['#E28A6A', '#E2C66A', '#C2E26A', '#86E26A']
 }
 
 // 最小化数据转换：保留原始结构，只添加必要的计算字段
-export function normalizeSurgeryData(raw) {
+export function normalizeSurgeryData (raw) {
   if (!raw || typeof raw !== 'object') {
-    return { 
-      timeline: {}, 
-      arms: [], 
-      state_machine: [], 
-      is_remote: false, 
-      surgery_id: null, 
-      start_time: null, 
-      end_time: null, 
+    return {
+      timeline: {},
+      arms: [],
+      state_machine: [],
+      is_remote: false,
+      surgery_id: null,
+      start_time: null,
+      end_time: null,
       network_latency_data: [],
       structured_data: null
     }
@@ -54,7 +54,7 @@ export function normalizeSurgeryData(raw) {
   // 如果已经是期望结构，直接返回（保留所有原始字段）
   if (raw.timeline && Array.isArray(raw.arms)) {
     return {
-      ...raw,  // 保留所有原始字段
+      ...raw, // 保留所有原始字段
       is_remote: !!raw.is_remote,
       surgery_id: raw.surgery_id || null,
       start_time: raw.start_time || null,
@@ -79,19 +79,19 @@ export function normalizeSurgeryData(raw) {
   // 只计算arms数据（这是可视化必需的）
   const arms = Array.isArray(source.arms)
     ? source.arms.map((a, idx) => {
-        const name = a.name || `${a.arm_id ?? idx + 1}号臂`.trim()
-        const segments = Array.isArray(a.instrument_usage)
-          ? a.instrument_usage
-              .filter(u => u && u.start_time && u.end_time)
-              .map((u) => ({
-                start: u.start_time,
-                end: u.end_time,
-                udi: u.udi,
-                tool_type: u.tool_type
-              }))
-          : []
-        return { name, segments }
-      })
+      const name = a.name || `${a.arm_id ?? idx + 1}号臂`.trim()
+      const segments = Array.isArray(a.instrument_usage)
+        ? a.instrument_usage
+          .filter(u => u && u.start_time && u.end_time)
+          .map((u) => ({
+            start: u.start_time,
+            end: u.end_time,
+            udi: u.udi,
+            tool_type: u.tool_type
+          }))
+        : []
+      return { name, segments }
+    })
     : []
 
   const stateMachine = Array.isArray(source.state_machine_changes)
@@ -101,7 +101,7 @@ export function normalizeSurgeryData(raw) {
 
   // 返回：保留所有原始数据 + 添加必要的计算字段
   return {
-    ...raw,  // 保留所有原始字段
+    ...raw, // 保留所有原始字段
     timeline: { powerOn, surgeryStart, surgeryEnd, powerOff, previousSurgeryEnd },
     arms,
     state_machine: stateMachine,
@@ -115,7 +115,7 @@ export function normalizeSurgeryData(raw) {
 }
 
 // 时间转换工具函数
-export function toMs(v) {
+export function toMs (v) {
   if (v === null || v === undefined || v === '') return NaN
   if (typeof v === 'number' && Number.isFinite(v)) return v
   const t = new Date(v).getTime()
