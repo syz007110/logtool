@@ -1,20 +1,58 @@
 const { Op } = require('sequelize');
 const FaultCaseStatus = require('../models/fault_case_status');
 const FaultCaseStatusMapping = require('../models/fault_case_status_mapping');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 // GET /api/fault-case-statuses?is_active=true|false
 const getFaultCaseStatuses = async (req, res) => {
   try {
-    const { is_active } = req.query;
+    const { is_active, page, limit, search } = req.query;
     const where = {};
     if (is_active !== undefined) where.is_active = String(is_active).toLowerCase() === 'true';
+    
+    // 搜索条件
+    if (search) {
+      where[Op.or] = [
+        { status_key: { [Op.like]: `%${search}%` } },
+        { name_zh: { [Op.like]: `%${search}%` } },
+        { name_en: { [Op.like]: `%${search}%` } }
+      ];
+    }
 
-    const statuses = await FaultCaseStatus.findAll({
+    const queryOptions = {
       where,
-      order: [['sort_order', 'ASC'], ['id', 'ASC']]
+      order: [['sort_order', 'ASC'], ['id', 'ASC']],
+      include: [{
+        model: FaultCaseStatusMapping,
+        as: 'mappings',
+        attributes: ['id', 'source_value'],
+        required: false,
+        where: { is_active: true } // 只获取启用的映射
+      }]
+    };
+
+    // 分页支持
+    if (page && limit) {
+      const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
+      queryOptions.limit = limitNum;
+      queryOptions.offset = (pageNum - 1) * limitNum;
+    }
+
+    const { count, rows: statuses } = await FaultCaseStatus.findAndCountAll(queryOptions);
+
+    // 返回每个状态的映射值列表
+    const statusesWithMappings = statuses.map(status => {
+      const statusData = status.toJSON();
+      statusData.mapping_values = status.mappings ? status.mappings.map(m => m.source_value) : [];
+      delete statusData.mappings; // 移除mappings数组，只保留值列表
+      return statusData;
     });
 
-    return res.json({ success: true, statuses });
+    return res.json({ 
+      success: true, 
+      statuses: statusesWithMappings,
+      total: count
+    });
   } catch (err) {
     console.error('获取故障案例状态失败:', err);
     return res.status(500).json({ success: false, message: '获取故障案例状态失败', error: err.message });

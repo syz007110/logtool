@@ -1,84 +1,114 @@
 <template>
   <div class="devices-container">
-    <el-tabs v-model="mainTab" class="main-tabs">
-      <el-tab-pane label="设备列表" name="devices">
-        <div class="action-bar">
-          <div class="search-section">
-            <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @input="handleSearch" />
+    <!-- 统一卡片：包含tabs、操作栏和列表 -->
+    <el-card class="main-card">
+      <el-tabs v-model="mainTab" class="main-tabs">
+        <el-tab-pane label="设备列表" name="devices">
+          <!-- 操作栏 -->
+          <div class="action-bar">
+            <div class="search-section">
+              <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @input="handleSearch" />
+            </div>
+            <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:create')">
+              <el-button type="primary" @click="openEdit()">{{ $t('devices.addDevice') }}</el-button>
+            </div>
           </div>
-          <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:create')">
-            <el-button class="btn-primary" @click="openEdit()">{{ $t('devices.addDevice') }}</el-button>
-          </div>
-        </div>
 
-        <el-card class="list-card">
-      <el-table :data="devices" :loading="loading" style="width: 100%">
+          <!-- 设备列表 - 固定表头 -->
+          <div class="table-container">
+            <el-table :data="devices" :loading="loading" :height="tableHeight" style="width: 100%">
         <el-table-column prop="device_id" :label="$t('devices.deviceId')" width="160" />
         <el-table-column prop="device_model" :label="$t('devices.deviceModel')" width="160" />
-        <el-table-column prop="device_key" :label="$t('devices.deviceKey')" width="200" />
-        <el-table-column prop="hospital" :label="$t('devices.hospital')">
+        <el-table-column prop="device_key" :label="$t('devices.deviceKey')" min-width="200" />
+        <el-table-column prop="hospital" :label="$t('devices.hospital')" min-width="200">
           <template #default="{ row }">
             <span v-if="row.hospital">{{ maskHospitalName(row.hospital, hasDeviceReadPermission) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
+        <el-table-column :label="$t('shared.operation')" width="200" align="left" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
           <template #default="{ row }">
-            <el-button size="small" class="btn-text btn-sm" @click="openEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('shared.edit') }}</el-button>
-            <el-button size="small" class="btn-text-danger btn-sm" @click="onDelete(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">{{ $t('shared.delete') }}</el-button>
+            <div class="operation-buttons">
+              <el-button
+                text
+                size="small"
+                @click="openEdit(row)"
+                v-if="$store.getters['auth/hasPermission']('device:update')"
+                :aria-label="$t('shared.edit')"
+                :title="$t('shared.edit')"
+              >
+                {{ $t('shared.edit') }}
+              </el-button>
+              <el-button
+                text
+                size="small"
+                class="btn-danger-text"
+                @click="onDelete(row)"
+                v-if="$store.getters['auth/hasPermission']('device:delete')"
+                :aria-label="$t('shared.delete')"
+                :title="$t('shared.delete')"
+              >
+                {{ $t('shared.delete') }}
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="limit"
-          :total="total"
-          :page-sizes="[10,20,50,100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleDeviceSizeChange"
-          @current-change="handleDeviceCurrentChange"
-        />
-      </div>
-    </el-card>
-      </el-tab-pane>
-
-      <el-tab-pane label="设备型号" name="models">
-        <div class="action-bar">
-          <div class="search-section">
-            <el-input v-model="modelSearch" placeholder="搜索设备型号" style="width: 300px" clearable @input="handleModelSearch" />
           </div>
-          <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:update')">
-            <el-button class="btn-primary" @click="openModelEdit()">添加设备型号</el-button>
-          </div>
-        </div>
 
-        <el-card class="list-card">
-          <el-table :data="deviceModels" :loading="modelsLoading" style="width: 100%">
+          <!-- 分页 -->
+          <div class="pagination-wrapper">
+            <el-pagination
+              v-model:current-page="page"
+              v-model:page-size="limit"
+              :total="total"
+              :page-sizes="[10,20,50,100]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleDeviceSizeChange"
+              @current-change="handleDeviceCurrentChange"
+            />
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="设备型号" name="models">
+          <!-- 操作栏 -->
+          <div class="action-bar">
+            <div class="search-section">
+              <el-input v-model="modelSearch" placeholder="搜索设备型号" style="width: 300px" clearable @input="handleModelSearch" />
+            </div>
+            <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:update')">
+              <el-button type="primary" @click="openModelEdit()">添加设备型号</el-button>
+            </div>
+          </div>
+
+          <!-- 设备型号列表 - 固定表头 -->
+          <div class="table-container">
+            <el-table :data="deviceModels" :loading="modelsLoading" :height="tableHeight" style="width: 100%">
             <el-table-column prop="device_model" label="设备型号" min-width="200">
               <template #default="{ row }">
                 <span>{{ row.device_model }}</span>
                 <el-tag v-if="!row.is_active" type="info" size="small" style="margin-left: 8px">已停用</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="180">
+            <el-table-column prop="created_at" label="创建时间" min-width="180">
               <template #default="{ row }">
                 {{ formatDate(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180">
+            <el-table-column prop="updated_at" label="更新时间" min-width="180">
               <template #default="{ row }">
                 {{ formatDate(row.updated_at) }}
               </template>
             </el-table-column>
             <el-table-column :label="$t('shared.operation')" width="200" v-if="$store.getters['auth/hasPermission']('device:update') || $store.getters['auth/hasPermission']('device:delete')">
               <template #default="{ row }">
-                <el-button size="small" class="btn-text btn-sm" @click="openModelEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('shared.edit') }}</el-button>
-                <el-button size="small" class="btn-text-danger btn-sm" @click="onDeleteModel(row)" v-if="$store.getters['auth/hasPermission']('device:delete')">{{ $t('shared.delete') }}</el-button>
+                <el-button size="small" text @click="openModelEdit(row)" v-if="$store.getters['auth/hasPermission']('device:update')">{{ $t('shared.edit') }}</el-button>
+                <el-button size="small" text @click="onDeleteModel(row)" v-if="$store.getters['auth/hasPermission']('device:delete')" style="color: var(--el-color-danger);">{{ $t('shared.delete') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
+          </div>
 
+          <!-- 分页 -->
           <div class="pagination-wrapper">
             <el-pagination
               v-model:current-page="modelPage"
@@ -90,9 +120,9 @@
               @current-change="handleModelCurrentChange"
             />
           </div>
-        </el-card>
-      </el-tab-pane>
-    </el-tabs>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
 
     <el-dialog v-model="showEdit" :title="editing ? $t('devices.editDevice') : $t('devices.addDevice')" width="800px">
       <el-tabs v-model="activeTab" v-if="editing">
@@ -204,8 +234,8 @@
                     <el-button size="small" @click="cancelEditKey(row, $index)">取消</el-button>
                   </template>
                   <template v-else>
-                    <el-button size="small" class="btn-text btn-sm" @click="editKeyRow(row)">编辑</el-button>
-                    <el-button size="small" class="btn-text-danger btn-sm" @click="deleteKey(row)">删除</el-button>
+                    <el-button size="small" text @click="editKeyRow(row)">编辑</el-button>
+                    <el-button size="small" text @click="deleteKey(row)" style="color: var(--el-color-danger);">删除</el-button>
                   </template>
                 </template>
               </el-table-column>
@@ -237,8 +267,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="btn-secondary" @click="showEdit=false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" :loading="saving" @click="save" v-if="activeTab === 'basic' || !editing">{{ $t('shared.save') }}</el-button>
+        <el-button type="default" @click="showEdit=false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" @click="save" v-if="activeTab === 'basic' || !editing">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -253,8 +283,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="btn-secondary" @click="showModelEdit=false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" :loading="savingModel" @click="saveModel">{{ $t('shared.save') }}</el-button>
+        <el-button type="default" @click="showModelEdit=false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" :loading="savingModel" @click="saveModel">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -264,12 +294,14 @@
 
 <script>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import { Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
 import { useStore } from 'vuex'
 import { maskHospitalName } from '../utils/maskSensitiveData'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'Devices',
@@ -286,6 +318,11 @@ export default {
       return store.getters['auth/hasPermission']('device:read')
     })
 
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('configSubPage') // 使用 configSubPage 因为页面有 tabs
+    })
+
     const mainTab = ref('devices')
     const loading = ref(false)
     const saving = ref(false)
@@ -295,6 +332,10 @@ export default {
     const limit = ref(20)
     const search = ref('')
     let searchTimer = null
+    
+    // 分页节流和去重机制
+    const devicesLoading = ref(false)
+    const lastDevicesLoadAt = ref(0)
 
     // 设备型号相关
     const deviceModels = ref([])
@@ -349,15 +390,31 @@ export default {
       return errors
     }
 
-    const loadDevices = async () => {
-      loading.value = true
+    const loadDevices = async (options = {}) => {
+      const silent = options && options.silent === true
+      const force = options && options.force === true
+      const now = Date.now()
+      if (!force && now - lastDevicesLoadAt.value < 2000) {
+        return
+      }
+      if (!force && devicesLoading.value) {
+        return
+      }
       try {
+        devicesLoading.value = true
+        loading.value = true
+        lastDevicesLoadAt.value = now
         const res = await api.devices.getList({ page: page.value, limit: limit.value, search: search.value })
         devices.value = res.data.devices || []
         total.value = res.data.total || 0
-      } catch {
-        ElMessage.error('加载设备失败')
+      } catch (error) {
+        if (!silent) {
+          ElMessage.error('加载设备失败')
+        } else {
+          console.warn('加载设备失败(已静默):', error?.message || error)
+        }
       } finally {
+        devicesLoading.value = false
         loading.value = false
       }
     }
@@ -368,19 +425,19 @@ export default {
       }
       searchTimer = setTimeout(() => {
         page.value = 1
-        loadDevices()
+        loadDevices({ force: true })
       }, 300)
     }
 
     const handleDeviceSizeChange = (newSize) => {
       limit.value = newSize
       page.value = 1
-      loadDevices()
+      loadDevices({ force: true })
     }
 
     const handleDeviceCurrentChange = (newPage) => {
       page.value = newPage
-      loadDevices()
+      loadDevices({ force: true })
     }
 
     const openEdit = (row) => {
@@ -542,7 +599,7 @@ export default {
           ElMessage.success('创建成功')
         }
         showEdit.value = false
-        await loadDevices()
+        await loadDevices({ force: true })
       } catch (e) {
         ElMessage.error(e?.response?.data?.message || '保存失败')
       } finally {
@@ -550,24 +607,23 @@ export default {
       }
     }
 
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     const onDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(
-          '确定删除该设备？',
-          t('shared.messages.deleteConfirmTitle'),
-          {
-            confirmButtonText: t('shared.confirm'),
-            cancelButtonText: t('shared.cancel'),
-            type: 'warning',
-            confirmButtonClass: 'btn-primary-danger',
-            cancelButtonClass: 'btn-secondary'
-          }
-        )
+        const confirmed = await confirmDelete(row, {
+          message: '确定删除该设备？',
+          title: t('shared.messages.deleteConfirmTitle')
+        })
+
+        if (!confirmed) return
+
         await api.devices.delete(row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
-        loadDevices()
+        loadDevices({ force: true })
       } catch (e) {
-        if (e !== 'cancel') ElMessage.error(e?.response?.data?.message || t('shared.messages.deleteFailed'))
+        ElMessage.error(e?.response?.data?.message || t('shared.messages.deleteFailed'))
       }
     }
 
@@ -686,7 +742,7 @@ export default {
     })
 
     onMounted(() => {
-      loadDevices()
+      loadDevices({ force: true })
       // 如果默认Tab是设备型号，加载设备型号列表
       if (mainTab.value === 'models') {
         loadDeviceModels()
@@ -749,27 +805,107 @@ export default {
       editKeyRow,
       cancelEditKey,
       saveKeyRow,
-      deleteKey
+      deleteKey,
+      tableHeight
     }
   }
 }
 </script>
 
 <style scoped>
-.devices-container { height: 100%; }
+.devices-container {
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+.main-tabs {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-tabs :deep(.el-tab-pane) {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-.action-section { display: flex; gap: 10px; }
-.list-card { margin-bottom: 20px; }
-.pagination-wrapper { display: flex; justify-content: center; margin-top: 20px; }
+
+.search-section {
+  display: flex;
+  align-items: center;
+}
+
+.action-section {
+  display: flex;
+  gap: 10px;
+}
+
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+  width: 100%;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
+}
 
 .keys-management {
   padding: 10px 0;
@@ -785,7 +921,7 @@ export default {
 .keys-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: rgb(var(--text-primary));
 }
 
 .empty-keys {
@@ -799,19 +935,20 @@ export default {
 }
 
 code {
-  background-color: #f5f7fa;
+  background-color: rgb(var(--bg-secondary));
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-family: 'Courier New', monospace;
   font-size: 12px;
+  color: rgb(var(--text-primary));
 }
 
 .error-input {
-  border-color: #f56c6c;
+  border-color: rgb(var(--text-error-primary));
 }
 
 .error-message {
-  color: #f56c6c;
+  color: rgb(var(--text-error-primary));
   font-size: 12px;
   margin-top: 4px;
 }

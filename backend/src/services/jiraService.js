@@ -69,8 +69,45 @@ function buildJql(q, projectKeys = [], filters = {}) {
     clauses.push(`project in (${proj})`);
   }
   
-  // 组件（模块）筛选
-  if (filters.modules && Array.isArray(filters.modules) && filters.modules.length > 0) {
+  // 组件（模块）筛选 - 支持按字段分组的映射
+  if (filters.moduleMappingsByField && Object.keys(filters.moduleMappingsByField).length > 0) {
+    // 按字段分组，构建OR条件
+    const moduleClauses = [];
+    // Jira 标准字段白名单（避免使用无效字段名导致400错误）
+    // component 是 Jira 的标准字段，其他字段名需要根据实际 Jira 配置验证
+    const validJiraFields = new Set(['component', 'module', 'subsystem']);
+    
+    Object.keys(filters.moduleMappingsByField).forEach(field => {
+      const values = filters.moduleMappingsByField[field];
+      if (values && values.length > 0) {
+        const escapedValues = values.map((m) => `"${escapeJqlText(m)}"`).join(', ');
+        // 根据source_field映射到Jira字段
+        // 默认使用component字段（Jira标准字段）
+        // 如果source_field不在白名单中，使用默认的component字段以避免400错误
+        let jiraField = 'component';
+        if (field !== 'default') {
+          const normalizedField = field.toLowerCase();
+          if (validJiraFields.has(normalizedField)) {
+            jiraField = normalizedField;
+          } else {
+            // 字段名不在白名单中，记录警告并使用默认字段
+            console.warn(`[Jira] Unknown source_field "${field}", using default "component" field. Valid fields: ${Array.from(validJiraFields).join(', ')}`);
+            jiraField = 'component';
+          }
+        }
+        moduleClauses.push(`${jiraField} in (${escapedValues})`);
+      }
+    });
+    if (moduleClauses.length > 0) {
+      if (moduleClauses.length === 1) {
+        clauses.push(moduleClauses[0]);
+      } else {
+        // 多个字段使用OR连接
+        clauses.push(`(${moduleClauses.join(' OR ')})`);
+      }
+    }
+  } else if (filters.modules && Array.isArray(filters.modules) && filters.modules.length > 0) {
+    // 向后兼容：直接使用modules参数
     const modules = filters.modules.map((m) => `"${escapeJqlText(m)}"`).join(', ');
     clauses.push(`component in (${modules})`);
   }
@@ -294,7 +331,7 @@ function normalizeJiraDescription(desc) {
   }
 }
 
-async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, startAt = undefined, maxResults = undefined, modules, statuses, updatedFrom, updatedTo }) {
+async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, startAt = undefined, maxResults = undefined, modules, moduleMappingsByField, statuses, updatedFrom, updatedTo }) {
   const cfg = getJiraConfig();
   if (!cfg.enabled) {
     return { ok: true, enabled: false, issues: [], items: [], total: 0, page: 1, limit: 0, startAt: 0, maxResults: 0 };
@@ -310,8 +347,20 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
   if (statuses) filters.statuses = Array.isArray(statuses) ? statuses : [statuses];
   if (updatedFrom) filters.updatedFrom = updatedFrom;
   if (updatedTo) filters.updatedTo = updatedTo;
+  
+  // 支持模块映射（按字段分组）
+  // moduleMappingsByField 应该从调用方传入，格式: { source_field: [source_value, ...], ... }
+  if (moduleMappingsByField && typeof moduleMappingsByField === 'object' && Object.keys(moduleMappingsByField).length > 0) {
+    filters.moduleMappingsByField = moduleMappingsByField;
+  }
 
   const jql = overrideJql ? String(overrideJql) : buildJql(keyword, cfg.projectKeys, filters);
+  
+  // 调试：记录生成的 JQL（便于排查400错误）
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_JIRA === 'true') {
+    console.log('[Jira] Generated JQL:', jql);
+  }
+  
   const pageNum = Math.max(Number.parseInt(page, 10) || 1, 1);
   const pageSize = Math.min(
     Number.isFinite(Number(limit)) ? Number(limit)
@@ -363,8 +412,8 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
         .map((c) => (c?.name != null ? String(c.name).trim() : ''))
         .filter(Boolean)
       : [];
-    // "模块"优先展示组件（components）；没有组件时回退到项目
-    const module = components.length ? components.join(', ') : (projectName || projectKey || '');
+    // "模块"直接使用组件（components）；如果components为空，返回空字符串
+    const module = components.length ? components.join(', ') : '';
 
     // 提取附件信息
     const attachments = Array.isArray(it?.fields?.attachment)
@@ -455,7 +504,8 @@ async function getIssue(issueKey, { fields = 'summary,updated,status,project,com
       .map((c) => (c?.name != null ? String(c.name).trim() : ''))
       .filter(Boolean)
     : [];
-  const module = components.length ? components.join(', ') : (projectName || projectKey || '');
+  // "模块"直接使用组件（components）；如果components为空，返回空字符串
+  const module = components.length ? components.join(', ') : '';
   const issueUrl = `${cfg.baseUrl}/browse/${encodeURIComponent(key)}`;
   const descriptionRaw = it?.fields?.description;
   const description = normalizeJiraDescription(descriptionRaw);

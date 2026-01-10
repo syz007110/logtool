@@ -8,11 +8,13 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const errorCodeCache = require('../services/errorCodeCache');
 const { translateFields } = require('../services/translationService');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
   try {
-    const { error_code_id, lang, page = 1, limit = 20, code, subsystem } = req.query;
+    const { error_code_id, lang, code, subsystem } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
     
     if (error_code_id) where.error_code_id = error_code_id;
@@ -49,15 +51,15 @@ const getI18nErrorCodes = async (req, res) => {
       where,
       include: [includeCondition],
       order: [['lang', 'ASC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit,
+      offset
     });
     
     res.json({ 
       i18nErrorCodes,
       total: count,
-      page: parseInt(page),
-      limit: parseInt(limit)
+      page,
+      limit
     });
   } catch (err) {
     console.error('查询多语言故障码失败:', err);
@@ -366,7 +368,8 @@ const getSupportedLanguages = async (req, res) => {
       { value: 'nl', label: req.t('shared.languageNames.nl') },
       { value: 'sk', label: req.t('shared.languageNames.sk') },
       { value: 'ro', label: req.t('shared.languageNames.ro') },
-      { value: 'da', label: req.t('shared.languageNames.da') }
+      { value: 'da', label: req.t('shared.languageNames.da') },
+      { value: 'lv', label: req.t('shared.languageNames.lv') }
     ];
     
     // 获取数据库中已有的语言代码

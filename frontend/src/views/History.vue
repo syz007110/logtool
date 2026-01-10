@@ -1,26 +1,30 @@
 <template>
   <div class="history-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('history.title') }}</span>
-          <el-button class="btn-primary btn-sm" @click="loadHistory">
+    <!-- 统一卡片：包含操作栏和列表 -->
+    <el-card class="main-card">
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <div class="action-section">
+          <el-button type="primary" @click="loadHistory">
             <el-icon><Refresh /></el-icon>
             {{ $t('shared.refresh') }}
           </el-button>
         </div>
-      </template>
+      </div>
       
-      <el-table
-        :data="historyList"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-      >
+      <!-- 历史记录列表 - 固定表头 -->
+      <div class="table-container">
+        <el-table
+          :data="historyList"
+          :loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+          v-loading="loading"
+        >
         <el-table-column prop="operation" :label="$t('history.operation')" width="150" />
-        <el-table-column prop="description" :label="$t('history.description')" show-overflow-tooltip />
+        <el-table-column prop="description" :label="$t('history.description')" min-width="200" show-overflow-tooltip />
         <el-table-column prop="user" :label="$t('history.user')" width="120" />
-        <el-table-column prop="time" :label="$t('history.time')" width="180">
+        <el-table-column prop="time" :label="$t('history.time')" min-width="180">
           <template #default="{ row }">
             {{ formatDate(row.time) }}
           </template>
@@ -33,18 +37,23 @@
           </template>
         </el-table-column>
         
-        <el-table-column :label="$t('history.details')" width="100" fixed="right">
+        <el-table-column :label="$t('history.details')" width="100" fixed="right" align="left">
           <template #default="{ row }">
-            <el-button 
-              size="small" 
-              class="btn-text btn-sm"
-              @click="showDetails(row)"
-            >
-              {{ $t('history.view') }}
-            </el-button>
+            <div class="operation-buttons">
+              <el-button
+                text
+                size="small"
+                @click="showDetails(row)"
+                :aria-label="$t('history.view')"
+                :title="$t('history.view')"
+              >
+                {{ $t('history.view') }}
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
+      </div>
       
       <!-- 分页 -->
       <div class="pagination-wrapper">
@@ -91,13 +100,18 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'History',
+  components: {
+    Refresh
+  },
   setup() {
     const { t } = useI18n()
     // 响应式数据
@@ -109,10 +123,30 @@ export default {
     const showDetailsDialog = ref(false)
     const selectedRecord = ref(null)
     
+    // 分页节流和去重机制
+    const historyLoading = ref(false)
+    const lastHistoryLoadAt = ref(0)
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
+    
     // 方法
-    const loadHistory = async () => {
+    const loadHistory = async (options = {}) => {
+      const silent = options && options.silent === true
+      const force = options && options.force === true
+      const now = Date.now()
+      if (!force && now - lastHistoryLoadAt.value < 2000) {
+        return
+      }
+      if (!force && historyLoading.value) {
+        return
+      }
       try {
+        historyLoading.value = true
         loading.value = true
+        lastHistoryLoadAt.value = now
         
         const response = await api.operationLogs.getList({
           page: currentPage.value,
@@ -122,9 +156,14 @@ export default {
         historyList.value = response.data.logs || []
         total.value = response.data.total || 0
       } catch (error) {
-        console.error('Load history failed:', error)
-        ElMessage.error(t('history.loadFailed'))
+        if (!silent) {
+          console.error('Load history failed:', error)
+          ElMessage.error(t('history.loadFailed'))
+        } else {
+          console.warn('加载历史记录失败(已静默):', error?.message || error)
+        }
       } finally {
+        historyLoading.value = false
         loading.value = false
       }
     }
@@ -132,12 +171,12 @@ export default {
     const handleSizeChange = (size) => {
       pageSize.value = size
       currentPage.value = 1
-      loadHistory()
+      loadHistory({ force: true })
     }
     
     const handleCurrentChange = (page) => {
       currentPage.value = page
-      loadHistory()
+      loadHistory({ force: true })
     }
     
     const showDetails = (row) => {
@@ -187,7 +226,8 @@ export default {
       showDetails,
       formatDate,
       getStatusType,
-      getStatusText
+      getStatusText,
+      tableHeight
     }
   }
 }
@@ -195,19 +235,70 @@ export default {
 
 <style scoped>
 .history-container {
-  height: 100%;
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.card-header {
+.main-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+.action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+}
+
+.action-section {
+  display: flex;
+  gap: 10px;
+}
+
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+  width: 100%;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
 }
 
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
 .details-section {
@@ -216,14 +307,15 @@ export default {
 
 .details-section h4 {
   margin-bottom: 10px;
-  color: #333;
+  color: rgb(var(--text-primary));
 }
 
 .details-section pre {
-  background: #f5f5f5;
+  background: rgb(var(--bg-secondary));
   padding: 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 12px;
   overflow-x: auto;
+  color: rgb(var(--text-primary));
 }
 </style> 

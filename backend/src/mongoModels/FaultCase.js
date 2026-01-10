@@ -31,10 +31,6 @@ const FaultCaseSchema = new mongoose.Schema({
   solution: { type: String, default: '' }, // 解决方案
   remark: { type: String, default: '' }, // 备注：工程师经验积累
 
-  // 兼容字段（Legacy）
-  troubleshooting_steps: { type: String, default: '' }, // 排查流程步骤（SOP）
-  experience: { type: String, default: '' }, // 工程师经验积累
-
   // 附件字段
   attachments: {
     type: [AttachmentSchema],
@@ -50,7 +46,6 @@ const FaultCaseSchema = new mongoose.Schema({
   // 关联字段
   related_error_code_ids: { type: [Number], default: [] }, // 关联的 MySQL error_codes ID
   equipment_model: { type: [String], default: [] }, // 设备型号，支持多选
-  device_id: { type: String, default: '' }, // 设备编号（旧字段）
 
   // 搜索辅助字段
   keywords: { type: [String], default: [] }, // 关键词标签
@@ -59,19 +54,18 @@ const FaultCaseSchema = new mongoose.Schema({
   embedding: { type: [Number], default: undefined }, // 向量数据
 
   // 工作流字段
-  is_published: { type: Boolean, default: false }, // 发布状态：false=草稿，true=已发布
+  status: { type: String, default: '' }, // 工作流状态，对应 fault_case_statuses 表的 status_key
 
   // 审计字段
   created_by: { type: Number, required: true }, // 创建者用户 ID（MySQL users 表）
-  updated_by: { type: Number, required: true }, // 更新者用户 ID（MySQL users 表）
-  updated_at_user: { type: Date, default: null } // 用户手动指定的更新时间
+  updated_by: { type: Number, required: true } // 更新者用户 ID（MySQL users 表）
 }, {
   timestamps: true, // 自动管理 createdAt / updatedAt
   collection: 'fault_cases'
 });
 
-FaultCaseSchema.index({ is_published: 1, updatedAt: -1 });
-FaultCaseSchema.index({ title: 'text', symptom: 'text', possible_causes: 'text', solution: 'text', remark: 'text', troubleshooting_steps: 'text', experience: 'text', keywords: 'text' });
+FaultCaseSchema.index({ status: 1, updatedAt: -1 });
+FaultCaseSchema.index({ title: 'text', symptom: 'text', possible_causes: 'text', solution: 'text', remark: 'text', keywords: 'text' });
 FaultCaseSchema.index({ related_error_code_ids: 1 });
 FaultCaseSchema.index({ created_by: 1, updatedAt: -1 });
 FaultCaseSchema.index({ source: 1, jira_key: 1 });

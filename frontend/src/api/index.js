@@ -236,6 +236,7 @@ const surgeryStatistics = {
 // Surgeries CRUD (PostgreSQL persisted)
 const surgeries = {
   list: (params) => api.get('/surgeries', { params }),
+  getByDevice: (params) => api.get('/surgeries/by-device', { params }),
   get: (id) => api.get(`/surgeries/${id}`),
   remove: (id) => api.delete(`/surgeries/${id}`),
   getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`),

@@ -1,6 +1,7 @@
 const { getJiraConfig, searchIssues, getIssue } = require('../services/jiraService');
 const { connectMongo, isMongoConnected } = require('../config/mongodb');
 const FaultCase = require('../mongoModels/FaultCase');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 async function ensureMongoReady() {
   await connectMongo();
@@ -27,8 +28,9 @@ async function searchJiraIssues(req, res) {
   const q = (req.query.q || req.query.keyword || '').toString().trim();
 
   // Prefer page+limit (same style as logs), fallback to Jira native startAt/maxResults
-  const page = Number.parseInt(req.query.page || '1', 10) || 1;
-  const limit = Number.parseInt(req.query.limit || req.query.maxResults || '10', 10) || 10;
+  const pageParam = req.query.page || (req.query.maxResults ? undefined : '1');
+  const limitParam = req.query.limit || req.query.maxResults || '10';
+  const { page, limit } = normalizePagination(pageParam, limitParam, MAX_PAGE_SIZE.JIRA);
   const startAt = req.query.startAt !== undefined ? Number.parseInt(req.query.startAt || '0', 10) || 0 : undefined;
   const maxResults = req.query.maxResults !== undefined ? Number.parseInt(req.query.maxResults || '10', 10) || 10 : undefined;
 
@@ -126,8 +128,7 @@ async function searchJiraIssuesMixed(req, res) {
   const cfg = getJiraConfig();
   const q = (req.query.q || req.query.keyword || '').toString().trim();
 
-  const page = Math.max(Number.parseInt(req.query.page || '1', 10) || 1, 1);
-  const limit = Math.min(Math.max(Number.parseInt(req.query.limit || '20', 10) || 20, 1), 50);
+  const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.JIRA);
 
   // Two-stage aggregation strategy:
   // - MongoDB: stable internal dataset -> do precise pagination with skip/limit
@@ -137,9 +138,110 @@ async function searchJiraIssuesMixed(req, res) {
   // Filters (applied to both Jira and MongoDB)
   const source = req.query.source;
   const modules = req.query.modules ? (Array.isArray(req.query.modules) ? req.query.modules : [req.query.modules]) : undefined;
-  const statuses = req.query.statuses ? (Array.isArray(req.query.statuses) ? req.query.statuses : [req.query.statuses]) : undefined;
+  const moduleKeys = req.query.moduleKeys ? (Array.isArray(req.query.moduleKeys) ? req.query.moduleKeys : [req.query.moduleKeys]) : undefined;
+  const statusKeys = req.query.statusKeys ? (Array.isArray(req.query.statusKeys) ? req.query.statusKeys : [req.query.statusKeys]) : undefined;
   const updatedFrom = req.query.updatedFrom || req.query.updated_from;
   const updatedTo = req.query.updatedTo || req.query.updated_to;
+  
+  // 将moduleKeys转换为映射值（按source_field分组）
+  let moduleMappingsByField = {}; // { source_field: [source_value, ...], ... }
+  if (moduleKeys && moduleKeys.length > 0) {
+    try {
+      const FaultCaseModule = require('../models/fault_case_module');
+      const FaultCaseModuleMapping = require('../models/fault_case_module_mapping');
+      const { Op } = require('sequelize');
+      
+      // 先查询模块ID
+      const moduleRecords = await FaultCaseModule.findAll({
+        where: {
+          module_key: { [Op.in]: moduleKeys },
+          is_active: true
+        },
+        attributes: ['id']
+      });
+      
+      if (moduleRecords.length > 0) {
+        const moduleIds = moduleRecords.map(m => m.id);
+        
+        // 查询所有选中模块对应的映射值（包含source_field和source_value）
+        const mappings = await FaultCaseModuleMapping.findAll({
+          where: {
+            is_active: true,
+            module_id: { [Op.in]: moduleIds }
+          },
+          attributes: ['source_field', 'source_value']
+        });
+        
+        // 按source_field分组
+        mappings.forEach(m => {
+          const field = m.source_field || 'default';
+          if (!moduleMappingsByField[field]) {
+            moduleMappingsByField[field] = [];
+          }
+          if (m.source_value) {
+            moduleMappingsByField[field].push(m.source_value);
+          }
+        });
+        
+        // 去重
+        Object.keys(moduleMappingsByField).forEach(field => {
+          moduleMappingsByField[field] = [...new Set(moduleMappingsByField[field])].filter(Boolean);
+        });
+      }
+    } catch (err) {
+      console.error('转换模块映射失败:', err);
+      moduleMappingsByField = {};
+    }
+  }
+  
+  // 为了向后兼容，如果使用了旧的modules参数且没有moduleKeys，则保持原逻辑
+  // 否则，使用映射后的值
+  let finalModules = modules;
+  if (moduleKeys && moduleKeys.length > 0) {
+    // 合并所有字段的映射值（用于向后兼容，但实际查询时会按字段分组）
+    const allModuleValues = Object.values(moduleMappingsByField).flat();
+    if (allModuleValues.length > 0) {
+      finalModules = allModuleValues;
+    }
+  }
+  
+  // 将statusKeys转换为映射值
+  let statuses = undefined;
+  if (statusKeys && statusKeys.length > 0) {
+    try {
+      const FaultCaseStatus = require('../models/fault_case_status');
+      const FaultCaseStatusMapping = require('../models/fault_case_status_mapping');
+      const { Op } = require('sequelize');
+      
+      // 先查询状态ID
+      const statusRecords = await FaultCaseStatus.findAll({
+        where: {
+          status_key: { [Op.in]: statusKeys },
+          is_active: true
+        },
+        attributes: ['id']
+      });
+      
+      if (statusRecords.length > 0) {
+        const statusIds = statusRecords.map(s => s.id);
+        
+        // 查询所有选中状态对应的映射值
+        const mappings = await FaultCaseStatusMapping.findAll({
+          where: {
+            is_active: true,
+            status_id: { [Op.in]: statusIds }
+          },
+          attributes: ['source_value']
+        });
+        
+        // 提取所有映射值，去重
+        statuses = [...new Set(mappings.map(m => m.source_value))].filter(Boolean);
+      }
+    } catch (err) {
+      console.error('转换状态映射失败:', err);
+      statuses = undefined;
+    }
+  }
 
   // ---- Jira ----
   let jiraResp;
@@ -176,13 +278,31 @@ async function searchJiraIssuesMixed(req, res) {
         page: 1,
         // bounded window for Jira
         limit: JIRA_WINDOW,
-        modules,
+        modules: finalModules,
+        moduleMappingsByField: Object.keys(moduleMappingsByField).length > 0 ? moduleMappingsByField : undefined,
         statuses,
         updatedFrom,
         updatedTo
       });
     } catch (err) {
+      // 提取 Jira 返回的具体错误信息
+      let jiraErrorMsg = '';
+      if (err?.body) {
+        if (typeof err.body === 'object' && err.body.errorMessages) {
+          jiraErrorMsg = Array.isArray(err.body.errorMessages) 
+            ? err.body.errorMessages.join('; ') 
+            : String(err.body.errorMessages);
+        } else if (typeof err.body === 'object' && err.body.message) {
+          jiraErrorMsg = String(err.body.message);
+        } else if (typeof err.body === 'string') {
+          jiraErrorMsg = err.body;
+        }
+      }
+      
       console.warn('[jira] mixed search failed (jira part):', err?.status || err?.code || '', err?.message || err);
+      if (jiraErrorMsg) {
+        console.warn('[jira] Jira error message:', jiraErrorMsg);
+      }
       
       // 根据错误类型提供更明确的提示
       let message = 'Jira 搜索失败';
@@ -196,8 +316,15 @@ async function searchJiraIssuesMixed(req, res) {
         message = '无法连接到 JIRA 服务器（请检查 VPN 连接或网络配置）';
       } else if (err?.status === 401 || err?.status === 403) {
         message = 'JIRA 认证失败（请检查 API Token 或权限配置）';
+      } else if (err?.status === 400) {
+        // 400 错误通常是 JQL 语法错误或字段名无效
+        if (jiraErrorMsg) {
+          message = `JIRA 请求失败（400）: ${jiraErrorMsg}`;
+        } else {
+          message = 'JIRA 请求失败（400）: JQL 语法错误或字段名无效，请检查筛选条件';
+        }
       } else if (err?.status >= 400 && err?.status < 500) {
-        message = `JIRA 请求失败（错误代码: ${err.status}）`;
+        message = jiraErrorMsg ? `JIRA 请求失败（${err.status}）: ${jiraErrorMsg}` : `JIRA 请求失败（错误代码: ${err.status}）`;
       } else if (err?.status >= 500) {
         message = 'JIRA 服务器错误，请稍后重试';
       } else {
@@ -249,18 +376,48 @@ async function searchJiraIssuesMixed(req, res) {
       // Visibility condition
       if (mine) {
         filter.created_by = req.user.id;
-      } else {
-        filter.$or = [{ is_published: true }, { created_by: req.user.id }];
       }
+      // 否则不添加筛选条件，返回所有记录（数据库中的记录都是已发布状态）
 
       // Source filter (manual/jira)
       if (source) {
         filter.source = source;
       }
 
-      // Module filter
-      if (modules && modules.length > 0) {
-        filter.module = { $in: modules };
+      // Module filter - 支持通过映射表查询（多个字段OR条件）
+      if (moduleKeys && moduleKeys.length > 0 && Object.keys(moduleMappingsByField).length > 0) {
+        // 构建OR条件：多个字段的映射值
+        const moduleOrConditions = [];
+        Object.keys(moduleMappingsByField).forEach(field => {
+          const values = moduleMappingsByField[field];
+          if (values.length > 0) {
+            // 根据source_field映射到MongoDB字段
+            // 常见映射：'component' -> 'module', 'module' -> 'module', 'subsystem' -> 'subsystem' 等
+            const mongoField = field === 'default' ? 'module' : field;
+            moduleOrConditions.push({ [mongoField]: { $in: values } });
+          }
+        });
+        if (moduleOrConditions.length > 0) {
+          // 模块筛选条件（多个字段OR）
+          const moduleFilter = moduleOrConditions.length === 1 
+            ? moduleOrConditions[0] 
+            : { $or: moduleOrConditions };
+          
+          // 如果有可见性$or条件，需要使用$and来组合
+          if (filter.$or && Array.isArray(filter.$or)) {
+            filter.$and = [
+              { $or: filter.$or }, // 可见性条件
+              moduleFilter // 模块筛选条件
+            ];
+            delete filter.$or;
+          } else {
+            // 没有可见性$or条件，直接添加模块筛选
+            Object.assign(filter, moduleFilter);
+          }
+        }
+      } else if (finalModules && finalModules.length > 0) {
+        // 向后兼容：直接使用modules参数
+        filter.module = { $in: finalModules };
       }
 
       // Status filter - MongoDB fault cases don't have status field, skip this filter for MongoDB
@@ -284,9 +441,7 @@ async function searchJiraIssuesMixed(req, res) {
         { symptom: searchRegex },
         { possible_causes: searchRegex },
         { solution: searchRegex },
-        { remark: searchRegex },
-        { troubleshooting_steps: searchRegex },
-        { experience: searchRegex }
+        { remark: searchRegex }
       );
       if (keywords.length > 0) {
         searchConditions.push({ keywords: { $in: keywords } });
@@ -298,18 +453,32 @@ async function searchJiraIssuesMixed(req, res) {
       // Add visibility condition
       if (mine) {
         allConditions.push({ created_by: req.user.id });
-      } else {
-        allConditions.push({ $or: [{ is_published: true }, { created_by: req.user.id }] });
       }
+      // 否则不添加筛选条件，返回所有记录（数据库中的记录都是已发布状态）
 
       // Add source filter
       if (source) {
         allConditions.push({ source });
       }
 
-      // Add module filter
-      if (modules && modules.length > 0) {
-        allConditions.push({ module: { $in: modules } });
+      // Add module filter - 支持通过映射表查询（多个字段OR条件）
+      if (moduleKeys && moduleKeys.length > 0 && Object.keys(moduleMappingsByField).length > 0) {
+        // 构建OR条件：多个字段的映射值
+        const moduleOrConditions = [];
+        Object.keys(moduleMappingsByField).forEach(field => {
+          const values = moduleMappingsByField[field];
+          if (values.length > 0) {
+            // 根据source_field映射到MongoDB字段
+            const mongoField = field === 'default' ? 'module' : field;
+            moduleOrConditions.push({ [mongoField]: { $in: values } });
+          }
+        });
+        if (moduleOrConditions.length > 0) {
+          allConditions.push({ $or: moduleOrConditions });
+        }
+      } else if (finalModules && finalModules.length > 0) {
+        // 向后兼容：直接使用modules参数
+        allConditions.push({ module: { $in: finalModules } });
       }
 
       // Add date range filter
@@ -339,8 +508,7 @@ async function searchJiraIssuesMixed(req, res) {
 
       const docs = await FaultCase.aggregate([
         { $match: filter },
-        { $addFields: { effectiveUpdatedAt: { $ifNull: ['$updated_at_user', '$updatedAt'] } } },
-        { $sort: { effectiveUpdatedAt: -1, updatedAt: -1 } },
+        { $sort: { updatedAt: -1 } },
         { $skip: mongoSkip },
         { $limit: mongoLimit }
       ]);
@@ -350,7 +518,7 @@ async function searchJiraIssuesMixed(req, res) {
         const id = d?._id ? String(d._id) : '';
         const jiraKey = d?.jira_key ? String(d.jira_key).trim() : '';
         const key = jiraKey || (id ? `FC-${id.slice(-6).toUpperCase()}` : '');
-        const updated = d?.updated_at_user || d?.updatedAt || d?.createdAt || null;
+        const updated = d?.updatedAt || d?.createdAt || null;
         const url = (jiraKey && baseUrl) ? `${baseUrl.replace(/\/+$/, '')}/browse/${encodeURIComponent(jiraKey)}` : '';
         return {
           source: 'mongo',
@@ -359,7 +527,7 @@ async function searchJiraIssuesMixed(req, res) {
           fault_case_id: id,
           module: d?.module || '',
           summary: d?.title || '',
-          status: d?.is_published === true ? 'published' : 'draft',
+          status: d?.status || '',
           updated,
           url
         };

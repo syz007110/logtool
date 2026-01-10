@@ -4,11 +4,13 @@ const Log = require('../models/log');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const { getDeviceKeys, addDeviceKey, updateDeviceKey, deleteDeviceKey } = require('../services/deviceKeyService');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 // 列表
 const listDevices = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '' } = req.query;
+    const { search = '' } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
     if (search) {
       const like = { [Op.like]: `%${search}%` };
@@ -21,8 +23,8 @@ const listDevices = async (req, res) => {
     }
     const { count: total, rows: devices } = await Device.findAndCountAll({
       where,
-      offset: (parseInt(page) - 1) * parseInt(limit),
-      limit: parseInt(limit),
+      offset: (page - 1) * limit,
+      limit,
       order: [['updated_at', 'DESC']]
     });
     res.json({ devices, total });

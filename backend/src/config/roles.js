@@ -31,6 +31,7 @@ const ROLES = {
       'fault_case:update',
       'fault_case:delete',
       'fault_case:review',
+      'fault_case_config:manage',
       
       // 日志管理权限
       'log:upload',
@@ -87,6 +88,7 @@ const ROLES = {
       'fault_case:read',
       'fault_case:update',
       'fault_case:delete',
+      'fault_case_config:manage',
       
       // 日志管理权限
       'log:upload',

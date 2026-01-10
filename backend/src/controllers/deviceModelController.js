@@ -15,8 +15,8 @@ const listDeviceModels = async (req, res) => {
       where.device_model = { [Op.like]: `%${search}%` };
     }
 
-    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+    const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+    const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.DEVICE_MODEL);
     const offset = (pageNum - 1) * limitNum;
 
     const { count: total, rows } = await DeviceModelDict.findAndCountAll({

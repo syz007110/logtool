@@ -1,20 +1,58 @@
 const { Op } = require('sequelize');
 const FaultCaseModule = require('../models/fault_case_module');
 const FaultCaseModuleMapping = require('../models/fault_case_module_mapping');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 // GET /api/fault-case-modules?is_active=true|false
 const getFaultCaseModules = async (req, res) => {
   try {
-    const { is_active } = req.query;
+    const { is_active, page, limit, search } = req.query;
     const where = {};
     if (is_active !== undefined) where.is_active = String(is_active).toLowerCase() === 'true';
+    
+    // 搜索条件
+    if (search) {
+      where[Op.or] = [
+        { module_key: { [Op.like]: `%${search}%` } },
+        { name_zh: { [Op.like]: `%${search}%` } },
+        { name_en: { [Op.like]: `%${search}%` } }
+      ];
+    }
 
-    const modules = await FaultCaseModule.findAll({
+    const queryOptions = {
       where,
-      order: [['sort_order', 'ASC'], ['id', 'ASC']]
+      order: [['sort_order', 'ASC'], ['id', 'ASC']],
+      include: [{
+        model: FaultCaseModuleMapping,
+        as: 'mappings',
+        attributes: ['id', 'source_value'],
+        required: false,
+        where: { is_active: true } // 只获取启用的映射
+      }]
+    };
+
+    // 分页支持
+    if (page && limit) {
+      const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
+      queryOptions.limit = limitNum;
+      queryOptions.offset = (pageNum - 1) * limitNum;
+    }
+
+    const { count, rows: modules } = await FaultCaseModule.findAndCountAll(queryOptions);
+
+    // 返回每个模块的映射值列表
+    const modulesWithMappings = modules.map(module => {
+      const moduleData = module.toJSON();
+      moduleData.mapping_values = module.mappings ? module.mappings.map(m => m.source_value) : [];
+      delete moduleData.mappings; // 移除mappings数组，只保留值列表
+      return moduleData;
     });
 
-    return res.json({ success: true, modules });
+    return res.json({ 
+      success: true, 
+      modules: modulesWithMappings,
+      total: count
+    });
   } catch (err) {
     console.error('获取故障案例模块失败:', err);
     return res.status(500).json({ success: false, message: '获取故障案例模块失败', error: err.message });

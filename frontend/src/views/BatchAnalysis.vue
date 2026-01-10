@@ -25,24 +25,24 @@
         <div class="header-right">
           <el-button 
             v-if="!loading && batchCount > 0" 
-            @click="exportToCSV" 
-            class="btn-primary btn-sm"
+            type="primary"
+            @click="exportToCSV"
           >
             <el-icon><Download /></el-icon>
             {{ $t('batchAnalysis.exportCSV') }}
           </el-button>
           <el-button 
             v-if="!loading && batchCount > 0" 
-            @click="showClipboard" 
-            class="btn-secondary btn-sm"
+            type="default"
+            @click="showClipboard"
           >
             <el-icon><DocumentCopy /></el-icon>
             {{ $t('batchAnalysis.clipboard') }}
           </el-button>
           <el-button 
             v-if="!loading && selectedLogsCount > 0 && batchCount > 0" 
-            @click="showSurgeryStatistics" 
-            class="btn-secondary btn-sm"
+            type="default"
+            @click="showSurgeryStatistics"
           >
             <el-icon><DataAnalysis /></el-icon>
             {{ $t('batchAnalysis.surgeryStatistics') }}
@@ -70,15 +70,18 @@
             <el-table-column :label="$t('logs.surgeryEndTime')" width="180">
               <template #default="{ row }">{{ formatTimestamp(row.surgery_end_time || row.end_time) }}</template>
             </el-table-column>
-            <el-table-column :label="$t('shared.operation')" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false">
+            <el-table-column :label="$t('shared.operation')" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false" align="left">
               <template #default="{ row }">
-                <el-button class="btn-text btn-sm" @click="visualizeSurgeryStat(row)">{{ $t('batchAnalysis.visualize') }}</el-button>
-                <el-button class="btn-text btn-sm" @click="previewSurgeryData(row)">{{ $t('batchAnalysis.viewData') }}</el-button>
-                <el-button 
-                  v-if="hasExportPermission"
-                  class="btn-text btn-sm" :loading="exportingRow[row.id]===true"
-                  @click="exportSurgeryRow(row)"
-                >{{ $t('batchAnalysis.export') }}</el-button>
+                <div class="operation-buttons">
+                  <el-button text @click="visualizeSurgeryStat(row)">{{ $t('batchAnalysis.visualize') }}</el-button>
+                  <el-button text @click="previewSurgeryData(row)">{{ $t('batchAnalysis.viewData') }}</el-button>
+                  <el-button 
+                    v-if="hasExportPermission"
+                    text 
+                    :loading="exportingRow[row.id]===true"
+                    @click="exportSurgeryRow(row)"
+                  >{{ $t('batchAnalysis.export') }}</el-button>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -643,8 +646,7 @@
               />
               <el-button 
                 size="small" 
-                type="danger" 
-                text 
+                class="btn-text-danger btn-sm"
                 @click="clearAllConditionsOnly" 
                 :disabled="!filtersRoot.conditions || filtersRoot.conditions.length === 0"
               >{{ $t('batchAnalysis.clearAllConditions') }}</el-button>
@@ -681,7 +683,7 @@
             <el-radio-button label="OR">OR</el-radio-button>
           </el-radio-group>
               <div class="group-actions" style="margin-left: 24px;">
-                <el-button size="small" class="btn-primary btn-sm" @click="addConditionToGroup(filtersRoot)" style="margin-right: 12px;">{{ $t('batchAnalysis.addCondition') }}</el-button>
+                <el-button size="small" class="btn-secondary btn-sm" @click="addConditionToGroup(filtersRoot)" style="margin-right: 12px;">{{ $t('batchAnalysis.addCondition') }}</el-button>
                 <el-button size="small" class="btn-secondary btn-sm" @click="addGroupToGroup(filtersRoot)">{{ $t('batchAnalysis.addGroup') }}</el-button>
         </div>
             </div>
@@ -707,7 +709,7 @@
             accept="application/json"
             :before-upload="beforeImportTemplates"
           >
-              <el-button size="small">{{ $t('batchAnalysis.importTemplates') }}</el-button>
+              <el-button size="small" class="btn-secondary btn-sm">{{ $t('batchAnalysis.importTemplates') }}</el-button>
           </el-upload>
         </div>
         </div>
@@ -876,7 +878,7 @@ export default {
                     }
                   }
                 }),
-            h(ElButton, { type: 'danger', text: true, style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => t('shared.delete') })
+            h(ElButton, { class: 'btn-text-danger btn-sm', style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => t('shared.delete') })
           ])
         }
 
@@ -909,9 +911,9 @@ export default {
                     ]
                   }),
                   h('div', { class: 'group-actions' }, [
-                    h(ElButton, { size: 'small', type: 'primary', onClick: () => props.addConditionToGroup(node) }, { default: () => t('batchAnalysis.addCondition') }),
-                    h(ElButton, { size: 'small', onClick: () => props.addGroupToGroup(node) }, { default: () => t('batchAnalysis.addGroup') }),
-                    h(ElButton, { size: 'small', type: 'danger', text: true, onClick: () => props.removeNodeAt(group, idx) }, { default: () => t('batchAnalysis.deleteGroup') })
+                    h(ElButton, { size: 'small', class: 'btn-secondary btn-sm', onClick: () => props.addConditionToGroup(node) }, { default: () => t('batchAnalysis.addCondition') }),
+                    h(ElButton, { size: 'small', class: 'btn-secondary btn-sm', onClick: () => props.addGroupToGroup(node) }, { default: () => t('batchAnalysis.addGroup') }),
+                    h(ElButton, { size: 'small', class: 'btn-text-danger btn-sm', onClick: () => props.removeNodeAt(group, idx) }, { default: () => t('batchAnalysis.deleteGroup') })
                   ])
                 ]),
                 h(Self, {
@@ -926,8 +928,8 @@ export default {
               ])
             }),
             h('div', { class: 'group-actions' }, [
-              h(ElButton, { size: 'small', type: 'primary', onClick: () => props.addConditionToGroup(group) }, { default: () => t('batchAnalysis.addCondition') }),
-              h(ElButton, { size: 'small', onClick: () => props.addGroupToGroup(group) }, { default: () => t('batchAnalysis.addGroup') })
+              h(ElButton, { size: 'small', class: 'btn-secondary btn-sm', onClick: () => props.addConditionToGroup(group) }, { default: () => t('batchAnalysis.addCondition') }),
+              h(ElButton, { size: 'small', class: 'btn-secondary btn-sm', onClick: () => props.addGroupToGroup(group) }, { default: () => t('batchAnalysis.addGroup') })
             ])
           ])
         }
@@ -3973,6 +3975,54 @@ export default {
 }
 .advanced-filter .group-root {
   margin-top: 10px;
+}
+
+/* Radio Button 样式覆盖 - 使用设计Token */
+/* 通过 :deep() 选择器覆盖 Element Plus 内部样式 */
+/* 使用柔和的银灰色作为选中状态，更符合高级搜索的视觉风格 */
+:deep(.group-header .el-radio-group),
+:deep(.group-root .el-radio-group) {
+  --el-radio-button-checked-bg-color: var(--slate-400) !important; /* 银灰色背景 */
+  --el-radio-button-checked-border-color: var(--slate-400) !important; /* 银灰色边框 */
+  --el-radio-button-checked-text-color: var(--text-white) !important; /* 白色文字 */
+  --el-radio-button-bg-color: var(--btn-secondary-bg) !important;
+  --el-radio-button-border-color: var(--btn-secondary-border) !important;
+  --el-radio-button-text-color: var(--btn-secondary-text) !important;
+}
+
+/* 未选中状态 */
+:deep(.group-header .el-radio-button__inner),
+:deep(.group-root .el-radio-button__inner) {
+  background-color: var(--btn-secondary-bg) !important;
+  border-color: var(--btn-secondary-border) !important;
+  color: var(--btn-secondary-text) !important;
+}
+
+:deep(.group-header .el-radio-button__inner:hover),
+:deep(.group-root .el-radio-button__inner:hover) {
+  background-color: var(--btn-secondary-bg-hover) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  color: var(--btn-secondary-text-hover) !important;
+}
+
+/* 选中状态 - 使用柔和的银灰色 */
+:deep(.group-header .el-radio-button.is-active .el-radio-button__inner),
+:deep(.group-header .el-radio-button.is-active .el-radio-button__original-radio:not(:disabled) + .el-radio-button__inner),
+:deep(.group-root .el-radio-button.is-active .el-radio-button__inner),
+:deep(.group-root .el-radio-button.is-active .el-radio-button__original-radio:not(:disabled) + .el-radio-button__inner) {
+  background-color: var(--slate-400) !important; /* 银灰色 #94a3b8 */
+  border-color: var(--slate-400) !important;
+  color: var(--text-white) !important;
+  box-shadow: -1px 0 0 0 var(--slate-400) !important;
+}
+
+:deep(.group-header .el-radio-button.is-active .el-radio-button__inner:hover),
+:deep(.group-header .el-radio-button.is-active .el-radio-button__original-radio:not(:disabled) + .el-radio-button__inner:hover),
+:deep(.group-root .el-radio-button.is-active .el-radio-button__inner:hover),
+:deep(.group-root .el-radio-button.is-active .el-radio-button__original-radio:not(:disabled) + .el-radio-button__inner:hover) {
+  background-color: var(--slate-500) !important; /* 悬停时稍深一点的灰色 #64748b */
+  border-color: var(--slate-500) !important;
+  color: var(--text-white) !important;
 }
 .template-tags, .tags-wrap {
   display: flex;

@@ -4,7 +4,8 @@ const state = {
   users: [],
   roles: [],
   loading: false,
-  total: 0
+  total: 0, // 用户总数
+  rolesTotal: 0 // 角色总数
 }
 
 const mutations = {
@@ -19,6 +20,9 @@ const mutations = {
   },
   SET_TOTAL (state, total) {
     state.total = total
+  },
+  SET_ROLES_TOTAL (state, total) {
+    state.rolesTotal = total
   }
 }
 
@@ -37,13 +41,17 @@ const actions = {
     }
   },
 
-  async fetchRoles ({ commit }) {
+  async fetchRoles ({ commit }, params = {}) {
+    commit('SET_LOADING', true)
     try {
-      const response = await api.roles.getList()
+      const response = await api.roles.getList(params)
       commit('SET_ROLES', response.data.roles)
+      commit('SET_ROLES_TOTAL', response.data.total)
       return response
     } catch (error) {
       throw error
+    } finally {
+      commit('SET_LOADING', false)
     }
   },
 
@@ -51,8 +59,7 @@ const actions = {
   async createRole ({ dispatch }, roleData) {
     try {
       const response = await api.roles.create(roleData)
-      // 创建成功后刷新角色列表
-      await dispatch('fetchRoles')
+      // 创建成功后刷新角色列表（不传递参数，由前端页面控制刷新）
       return response
     } catch (error) {
       throw error
@@ -63,8 +70,7 @@ const actions = {
   async updateRole ({ dispatch }, { id, data }) {
     try {
       const response = await api.roles.update(id, data)
-      // 更新成功后刷新角色列表
-      await dispatch('fetchRoles')
+      // 更新成功后刷新角色列表（不传递参数，由前端页面控制刷新）
       return response
     } catch (error) {
       throw error
@@ -75,8 +81,7 @@ const actions = {
   async deleteRole ({ dispatch }, id) {
     try {
       const response = await api.roles.delete(id)
-      // 删除成功后刷新角色列表
-      await dispatch('fetchRoles')
+      // 删除成功后刷新角色列表（不传递参数，由前端页面控制刷新）
       return response
     } catch (error) {
       throw error
@@ -124,7 +129,8 @@ const getters = {
   usersList: state => state.users,
   rolesList: state => state.roles,
   isLoading: state => state.loading,
-  totalCount: state => state.total
+  totalCount: state => state.total, // 用户总数
+  rolesTotalCount: state => state.rolesTotal // 角色总数
 }
 
 export default {

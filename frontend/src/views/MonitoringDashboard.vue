@@ -1,25 +1,27 @@
 <template>
   <div class="monitoring-dashboard">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div class="header-actions">
-        <el-button 
-          class="btn-primary" 
-          :icon="Refresh" 
-          @click="refreshData"
-          :loading="loading"
-        >
-          {{ $t('monitoring.refresh') }}
-        </el-button>
-        <el-button 
-          class="btn-success" 
-          :icon="Setting" 
-          @click="showSettings = true"
-        >
-          {{ $t('monitoring.alertSettings') }}
-        </el-button>
+    <!-- 统一卡片：包含操作栏和内容 -->
+    <el-card class="main-card">
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <div class="action-section">
+          <el-button 
+            type="primary" 
+            :icon="Refresh" 
+            @click="refreshData"
+            :loading="loading"
+          >
+            {{ $t('monitoring.refresh') }}
+          </el-button>
+          <el-button 
+            type="success" 
+            :icon="Setting" 
+            @click="showSettings = true"
+          >
+            {{ $t('monitoring.alertSettings') }}
+          </el-button>
+        </div>
       </div>
-    </div>
 
     <!-- 系统概览卡片 -->
     <el-row :gutter="20" class="overview-cards">
@@ -85,9 +87,11 @@
       <el-col :span="24">
         <el-card class="monitoring-section">
           <template #header>
-            <div class="section-header section-header-left">
-              <el-icon><Monitor /></el-icon>
-              <span>{{ $t('monitoring.systemStatus') }}</span>
+            <div class="action-bar">
+              <div class="header-left">
+                <el-icon><Monitor /></el-icon>
+                <span>{{ $t('monitoring.systemStatus') }}</span>
+              </div>
             </div>
           </template>
 
@@ -120,7 +124,7 @@
       <el-col :span="24">
         <el-card class="monitoring-section">
           <template #header>
-            <div class="section-header">
+            <div class="action-bar">
               <div class="header-left">
                 <el-icon><List /></el-icon>
                 <span>{{ $t('monitoring.queueStatus') }}</span>
@@ -178,7 +182,13 @@
             <div class="stats-header">
               <span>{{ $t('monitoring.queueList') }}</span>
             </div>
-            <el-table :data="queueRows" border style="width: 100%" size="small" :empty-text="loading ? $t('shared.loading') : $t('shared.noData')">
+            <el-table 
+              :data="queueRows" 
+              border 
+              style="width: 100%" 
+              size="small" 
+              :empty-text="loading ? $t('shared.loading') : $t('shared.noData')"
+            >
               <el-table-column prop="type" :label="$t('monitoring.queueType')" min-width="180" />
               <el-table-column :label="$t('monitoring.queueConsumers')" min-width="220">
           <template #default="{ row }">
@@ -210,9 +220,11 @@
       <el-col :span="24">
         <el-card class="monitoring-section">
           <template #header>
-            <div class="section-header">
-              <el-icon><Warning /></el-icon>
-              <span>{{ $t('monitoring.systemAlerts') }}</span>
+            <div class="action-bar">
+              <div class="header-left">
+                <el-icon><Warning /></el-icon>
+                <span>{{ $t('monitoring.systemAlerts') }}</span>
+              </div>
             </div>
           </template>
           
@@ -233,6 +245,7 @@
       v-model="showSettings"
       :title="$t('monitoring.alertSettings')"
       width="600px"
+      class="alert-settings-dialog"
     >
       <el-form :model="alertSettings" label-width="150px">
         <el-form-item :label="$t('monitoring.memoryUsageThreshold')">
@@ -279,10 +292,11 @@
       </el-form>
       
       <template #footer>
-        <el-button class="btn-secondary" @click="showSettings = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" @click="saveAlertSettings">{{ $t('shared.save') }}</el-button>
+        <el-button type="default" @click="showSettings = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" @click="saveAlertSettings">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
+    </el-card>
   </div>
 </template>
 
@@ -304,6 +318,7 @@ import {
 import api from '@/api'
 import axios from 'axios'
 import store from '@/store'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'MonitoringDashboard',
@@ -635,6 +650,11 @@ export default {
       return levelMap[level] || 'info'
     }
     
+    // 表格高度
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
+    
     // 启动自动刷新
     const startAutoRefresh = () => {
       refreshInterval.value = setInterval(fetchMonitoringData, 30000) // 每30秒刷新
@@ -671,6 +691,7 @@ export default {
       alerts,
       alertSettings,
       queueRows,
+      tableHeight,
       refreshData,
       saveAlertSettings,
       formatUptime,
@@ -690,26 +711,54 @@ export default {
 
 <style scoped>
 .monitoring-dashboard {
-  padding: 20px;
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.page-header {
+.main-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 20px 20px 4px 20px;
+}
+
+.action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
 
-.page-title {
-  margin: 0;
-  color: #333;
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.header-actions {
+.action-section {
   display: flex;
   gap: 10px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: rgb(var(--text-primary));
+  font-size: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .overview-cards {
@@ -759,16 +808,16 @@ export default {
 }
 
 .metric-value {
-  font-size: 20px; /* 缩小40%：28px * 0.7 = 20px */
+  font-size: 20px;
   font-weight: bold;
-  color: #303133;
+  color: rgb(var(--text-primary));
   line-height: 1;
 }
 
 .metric-label {
-  font-size: 12px; /* 缩小40%：14px * 0.85 = 12px */
-  color: #909399;
-  margin-top: 4px; /* 缩小40%：5px * 0.8 = 4px */
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+  margin-top: 4px;
 }
 
 .detail-sections {
@@ -779,28 +828,6 @@ export default {
   margin-bottom: 20px;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-weight: 600;
-}
-
-.section-header-left {
-  justify-content: flex-start;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-}
 
 .system-info,
 .queue-info {
@@ -823,20 +850,20 @@ export default {
 
 .label {
   font-weight: 500;
-  color: #606266;
+  color: rgb(var(--text-secondary));
 }
 
 .value {
   font-weight: 600;
-  color: #303133;
+  color: rgb(var(--text-primary));
 }
 
 .status-connected {
-  color: #67c23a;
+  color: rgb(var(--success));
 }
 
 .status-disconnected {
-  color: #f56c6c;
+  color: rgb(var(--danger));
 }
 
 .cluster-info {
@@ -848,8 +875,8 @@ export default {
   gap: 30px;
   margin-bottom: 20px;
   padding: 15px;
-  background: #f8f9fa;
-  border-radius: 6px;
+  background: rgb(var(--background-secondary));
+  border-radius: var(--radius-md);
 }
 
 .summary-item {
@@ -872,7 +899,7 @@ export default {
 
 .unit {
   margin-left: 5px;
-  color: #909399;
+  color: rgb(var(--text-secondary));
   font-size: 12px;
 }
 
@@ -886,12 +913,12 @@ export default {
   align-items: center;
   margin-bottom: 15px;
   font-weight: 600;
-  color: #303133;
+  color: rgb(var(--text-primary));
 }
 
 .stats-header .el-icon {
   margin-right: 8px;
-  color: #409eff;
+  color: rgb(var(--primary));
 }
 
 /* 消费者标签样式 */
@@ -909,7 +936,16 @@ export default {
 }
 
 .no-consumers {
-  color: #909399;
+  color: rgb(var(--text-secondary));
   font-style: italic;
+}
+
+/* 对话框样式优化 */
+.alert-settings-dialog :deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+.alert-settings-dialog .unit {
+  color: rgb(var(--text-secondary));
 }
 </style>

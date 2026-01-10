@@ -1,81 +1,93 @@
 <template>
   <div class="global-dashboard">
-    <a-card :title="$t('globalDashboard.title')" :bordered="false">
-      <a-row :gutter="24">
-
-        <a-col :span="8">
-          <a-card class="stat-card">
-            <a-statistic
-              :title="$t('globalDashboard.errorCodesCount')"
-              :value="displayStats.errorCodesCount"
-              :loading="loading"
-              value-style="{ color: '#1890ff' }"
-            >
-              <template #prefix>
-                <OrderedListOutlined style="color: #1890ff" />
-              </template>
-            </a-statistic>
-          </a-card>
-        </a-col>
+    <el-card class="main-card">
+      <template #header>
+        <div class="card-header">
+          <span>{{ $t('globalDashboard.title') }}</span>
+        </div>
+      </template>
+      <el-row :gutter="24">
+        <el-col :span="8">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon" style="color: var(--blue-500);">
+                <el-icon :size="32"><List /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">{{ $t('globalDashboard.errorCodesCount') }}</div>
+                <div class="stat-value" style="color: var(--blue-500);">
+                  <el-skeleton v-if="loading" :rows="1" animated />
+                  <span v-else>{{ displayStats.errorCodesCount }}</span>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
         
-        <a-col :span="8">
-          <a-card class="stat-card">
-            <a-statistic
-              :title="$t('globalDashboard.devicesCount')"
-              :value="displayStats.devicesCount"
-              :loading="loading"
-              value-style="{ color: '#3f8600' }"
-            >
-              <template #prefix>
-                <FileTextOutlined style="color: #3cb371" />
-              </template>
-            </a-statistic>
-          </a-card>
-        </a-col>
-        
+        <el-col :span="8">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon" style="color: var(--green-500);">
+                <el-icon :size="32"><Document /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">{{ $t('globalDashboard.devicesCount') }}</div>
+                <div class="stat-value" style="color: var(--green-500);">
+                  <el-skeleton v-if="loading" :rows="1" animated />
+                  <span v-else>{{ displayStats.devicesCount }}</span>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
 
-        <a-col :span="8">
-          <a-card class="stat-card">
-            <a-statistic
-              :title="$t('globalDashboard.usersCount')"
-              :value="displayStats.usersCount"
-              :loading="loading"
-              value-style="{ color: '#722ed1' }"
-            >
-              <template #prefix>
-                <TeamOutlined style="color: #722ed1" />
-              </template>
-            </a-statistic>
-          </a-card>
-        </a-col>
-      </a-row>
+        <el-col :span="8">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon" style="color: var(--purple-500);">
+                <el-icon :size="32"><User /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-title">{{ $t('globalDashboard.usersCount') }}</div>
+                <div class="stat-value" style="color: var(--purple-500);">
+                  <el-skeleton v-if="loading" :rows="1" animated />
+                  <span v-else>{{ displayStats.usersCount }}</span>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
       
-      <a-divider />
+      <el-divider />
       
-      <a-row>
-        <a-col :span="24">
-          <a-card :title="$t('globalDashboard.systemOverview')" size="small">
-            <p class="min-w-0 one-line-ellipsis" :title="$t('globalDashboard.systemOverview')"></p>
-          </a-card>
-        </a-col>
-      </a-row>
-    </a-card>
+      <el-row>
+        <el-col :span="24">
+          <el-card :title="$t('globalDashboard.systemOverview')" shadow="never">
+            <template #header>
+              <div class="card-header">
+                <span>{{ $t('globalDashboard.systemOverview') }}</span>
+              </div>
+            </template>
+            <p class="system-overview-text">{{ $t('globalDashboard.systemOverview') }}</p>
+          </el-card>
+        </el-col>
+      </el-row>
+    </el-card>
   </div>
 </template>
 
 <script>
 import { ref, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
-import { BugOutlined, DatabaseOutlined, TeamOutlined ,FileTextOutlined ,OrderedListOutlined} from '@ant-design/icons-vue'
+import { List, Document, User } from '@element-plus/icons-vue'
 import api from '../api'
 
 export default {
   name: 'GlobalDashboard',
   components: {
-    BugOutlined,
-    DatabaseOutlined,
-    TeamOutlined,
-    FileTextOutlined,
-    OrderedListOutlined
+    List,
+    Document,
+    User
   },
   setup() {
     const loading = ref(false)
@@ -173,43 +185,102 @@ export default {
 
 <style scoped>
 .global-dashboard {
-  padding: 20px;
+  height: 100%;
+  background: var(--black-white-white);
+  padding: 24px;
+  overflow: auto;
+}
+
+.main-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+}
+
+.main-card :deep(.el-card__body) {
+  padding: 24px;
+}
+
+.card-header {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 16px;
 }
 
 .stat-card {
-  text-align: center;
   height: 100%;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s;
 }
 
-.stat-description {
-  margin-top: 8px;
-  color: #666;
-  font-size: 12px;
+.stat-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
 
-.ant-statistic-title {
-  font-size: 16px;
-  font-weight: 500;
+.stat-card :deep(.el-card__body) {
+  padding: 24px;
 }
 
-.ant-statistic-content {
-  font-size: 24px;
-  font-weight: bold;
+.stat-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-/* 自定义图标样式 */
-.custom-icon {
+.stat-icon {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-right: 8px;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  background: var(--gray-50);
 }
 
-.custom-icon img {
-  width: 100%;
-  height: 100%;
-  filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
+.stat-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-title {
+  font-size: 14px;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.system-overview-text {
+  color: var(--gray-600);
+  font-size: 14px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .global-dashboard {
+    padding: 16px;
+  }
+  
+  .stat-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .stat-value {
+    font-size: 24px;
+  }
 }
 </style>

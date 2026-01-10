@@ -8,6 +8,7 @@ const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
 const fs = require('fs');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const path = require('path');
 const { objectKeyFromUrl } = require('../utils/oss');
 const {
@@ -433,49 +434,96 @@ const createErrorCode = async (req, res) => {
 // 查询故障码（支持简单和高级搜索）
 const getErrorCodes = async (req, res) => {
   try {
-    const { code, subsystem, level, category, keyword } = req.query;
-    let { page = 1, limit = 20 } = req.query;
-    page = parseInt(page, 10);
-    limit = parseInt(limit, 10);
+    const { code, subsystem, level, category, keyword, q, ids } = req.query;
+    const keywordQuery = (keyword ?? q);
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
-    if (code) where.code = code;
-    if (subsystem) where.subsystem = subsystem;
-    if (level) where.level = level;
-    if (category) where.category = category;
-    if (keyword) {
-      where[Op.or] = [
-        { short_message: { [Op.like]: `%${keyword}%` } },
-        { user_hint: { [Op.like]: `%${keyword}%` } },
-        { operation: { [Op.like]: `%${keyword}%` } },
-        { code: { [Op.like]: `%${keyword}%` } }
-      ];
-    }
-    const { count: total, rows: errorCodes } = await ErrorCode.findAndCountAll({
-      where,
-      offset: (page - 1) * limit,
-      limit,
-      distinct: true,  // ✅ 修复：使用 distinct 避免多对多关联导致的重复计数
-      include: [
-        {
-          model: AnalysisCategory,
-          as: 'analysisCategories',
-          through: { attributes: [] }, // 不返回关联表的字段
-          attributes: ['id', 'category_key', 'name_zh', 'name_en']
-        },
-        {
-          model: I18nErrorCode,
-          as: 'i18nContents',
-          required: false,
-          attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
-        }
-      ]
-    });
-    
-    // 根据请求语言合并多语言内容
-    // 从 Accept-Language 头或查询参数获取语言偏好
+
+    // 从 Accept-Language 头或查询参数获取语言偏好（用于决定是否需要 JOIN i18n 表）
     const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
-    // 标准化语言代码：'en-US' -> 'en', 'zh-CN' -> 'zh', 'zh' -> 'zh'
-    const targetLang = acceptLanguage.startsWith('en') ? 'en' : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
+    const targetLang = acceptLanguage.startsWith('en')
+      ? 'en'
+      : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
+
+    // 支持 ids 批量查询：用于前端回显已选中的故障码（避免 label 显示为 ID）
+    if (ids) {
+      const idList = String(ids)
+        .split(',')
+        .map((s) => Number(String(s).trim()))
+        .filter((n) => Number.isFinite(n));
+      if (idList.length > 0) {
+        where.id = { [Op.in]: idList };
+      } else {
+        return res.json({ errorCodes: [], total: 0 });
+      }
+    } else {
+      if (code) {
+        const c = String(code).trim();
+        // 兼容 010A / 0x010A / 0X010A，避免库内格式不一致导致“精确查”查不到
+        const m = c.match(/^(0x)?([0-9a-fA-F]{4})$/i);
+        if (m) {
+          const tail = String(m[2] || '').toUpperCase();
+          where.code = { [Op.in]: [tail, `0x${tail}`, `0X${tail}`] };
+        } else {
+          where.code = c;
+        }
+      }
+      if (subsystem) where.subsystem = subsystem;
+      if (level) where.level = level;
+      if (category) where.category = category;
+      if (keywordQuery) {
+        const kw = String(keywordQuery);
+        where[Op.or] = [
+          { short_message: { [Op.like]: `%${kw}%` } },
+          { user_hint: { [Op.like]: `%${kw}%` } },
+          { operation: { [Op.like]: `%${kw}%` } },
+          { code: { [Op.like]: `%${kw}%` } }
+        ];
+      }
+    }
+
+    // 构造 include：列表页需要分类；但中文场景无需 JOIN i18n 表（可显著提速）
+    const include = [];
+    if (!ids) {
+      include.push({
+        model: AnalysisCategory,
+        as: 'analysisCategories',
+        through: { attributes: [] }, // 不返回关联表的字段
+        attributes: ['id', 'category_key', 'name_zh', 'name_en']
+      });
+    }
+    if (!ids && targetLang !== 'zh') {
+      include.push({
+        model: I18nErrorCode,
+        as: 'i18nContents',
+        required: false,
+        attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
+      });
+    }
+
+    const findOptions = {
+      where,
+      distinct: true,  // ✅ 修复：使用 distinct 避免多对多关联导致的重复计数
+      include,
+      // 固定排序，且与 (subsystem, code) 索引一致，减少 filesort
+      order: [['subsystem', 'ASC'], ['code', 'ASC']]
+    };
+
+    // ids 查询不走分页（前端只需要回显已选项）
+    let total = 0;
+    let errorCodes = [];
+    if (ids) {
+      errorCodes = await ErrorCode.findAll(findOptions);
+      total = errorCodes.length;
+    } else {
+      const result = await ErrorCode.findAndCountAll({
+        ...findOptions,
+        offset: (page - 1) * limit,
+        limit
+      });
+      total = result.count;
+      errorCodes = result.rows;
+    }
     
     // 处理每个故障码，合并对应语言的多语言内容
     const processedErrorCodes = errorCodes.map(errorCode => {

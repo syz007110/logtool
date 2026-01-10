@@ -1,9 +1,10 @@
 <template>
-  <div class="data-replay">
-    <!-- 控制面板 -->
-    <el-card class="control-panel">
-      <div class="control-row">
-        <div class="upload-section">
+  <div class="data-replay-container">
+    <!-- 统一卡片布局 -->
+    <el-card class="main-card">
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <div class="action-section">
           <el-upload
             action=""
             :http-request="handleUploadRequest"
@@ -12,7 +13,7 @@
           >
             <el-button type="primary" icon="Upload">{{ $t('dataReplay.uploadBinaryFile') }}</el-button>
           </el-upload>
-          <el-button :disabled="!fileId" @click="downloadCsv" plain icon="Download">{{ $t('dataReplay.downloadCSV') }}</el-button>
+          <el-button type="default" :disabled="!fileId" @click="downloadCsv" icon="Download">{{ $t('dataReplay.downloadCSV') }}</el-button>
         </div>
         
         <div class="file-info" v-if="fileName">
@@ -21,11 +22,9 @@
           <span class="info-item">{{ $t('dataReplay.totalEntriesLabel') }}: {{ totalEntries }}</span>
         </div>
       </div>
-    </el-card>
 
-    <!-- 3D可视化区域（临时隐藏三维模型） -->
-    <div class="three-section" v-if="fileId && showThreeModel">
-      <el-card class="three-chart">
+      <!-- 3D可视化区域（临时隐藏三维模型） -->
+      <div class="three-section" v-if="fileId && showThreeModel">
         <div class="chart-header">
           <h3>右主控制臂三维模型</h3>
           <div class="three-controls" v-if="dataLoaded">
@@ -45,7 +44,7 @@
         </div>
         
         <!-- 调试信息（临时） -->
-        <div v-if="fileId" style="padding: 10px; background: #f0f0f0; margin-top: 10px; font-size: 12px;">
+        <div v-if="fileId" class="debug-info">
           <p>调试信息: dataLoaded={{ dataLoaded }}, totalEntries={{ totalEntries }}, rows.length={{ rows ? rows.length : 0 }}</p>
         </div>
         
@@ -92,17 +91,18 @@
             </div>
           </div>
         </div>
-      </el-card>
-    </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script>
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import * as THREE from 'three'
 import api from '../api'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'DataReplay',
@@ -194,6 +194,11 @@ export default {
     const currentFrame = ref(1)
     const playbackSpeed = ref(1)
     let playbackInterval = null
+
+    // 表格高度计算（预留，用于可能的表格展示）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
     
     // 确保 currentFrame 不会超出范围
     watch([currentFrame, totalEntries], ([frame, total]) => {
@@ -1254,7 +1259,7 @@ export default {
       fileId, fileName, fileSize, totalEntries, currentPage, pageSize, rows, columnsToShow,
       showThreeModel,
       threeContainer, threeInitialized, threeRotationEnabled, dataLoaded,
-      currentArmModel, isPlaying, currentFrame, playbackSpeed,
+      currentArmModel, isPlaying, currentFrame, playbackSpeed, tableHeight,
       handleUploadRequest, fetchPreview, downloadCsv, prettySize,
       resetThreeView, toggleThreeRotation, switchArmModel,
       playData, pauseData, stopData, seekToFrame
@@ -1264,39 +1269,49 @@ export default {
 </script>
 
 <style scoped>
-.data-replay { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 16px; 
-  padding: 16px;
-  min-height: 100vh;
+.data-replay-container {
+  height: calc(100vh - 64px);
+  background: var(--black-white-white);
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-
-
-.control-panel {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.main-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.control-row {
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px;
+}
+
+.action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.upload-section {
+.action-section {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
 
 .file-info {
   display: flex;
   gap: 16px;
-  color: #666;
+  color: rgb(var(--text-secondary));
 }
 
 .info-item {
@@ -1314,9 +1329,9 @@ export default {
 }
 
 .chart-card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: rgb(var(--background));
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -1331,7 +1346,7 @@ export default {
 
 .chart-header h3 {
   margin: 0;
-  color: #333;
+  color: rgb(var(--text-primary));
   font-size: 16px;
   font-weight: 600;
 }
@@ -1341,30 +1356,33 @@ export default {
   gap: 8px;
 }
 
+.three-chart {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .chart-container {
   flex: 1;
   min-height: 300px;
 }
 
 .three-section {
-  margin-bottom: 16px;
-}
-
-.three-chart {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 16px;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .three-container {
   flex: 1;
   min-height: 600px;
   position: relative;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgb(var(--background)) 0%, rgb(var(--border)) 100%);
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: grab;
   user-select: none;
@@ -1374,16 +1392,16 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #e1e8ed;
+  border: 2px solid rgb(var(--border));
 }
 
 .three-placeholder {
   text-align: center;
-  color: #666;
+  color: rgb(var(--text-secondary));
   background: rgba(255, 255, 255, 0.8);
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
 }
 
 .three-placeholder p {
@@ -1395,37 +1413,37 @@ export default {
 .model-info {
   margin-bottom: 16px;
   padding: 16px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
+  background: rgb(var(--background));
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border));
 }
 
 .info-card {
   text-align: center;
   padding: 12px;
-  background: white;
-  border-radius: 6px;
-  border: 1px solid #dee2e6;
+  background: rgb(var(--background));
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border));
   height: 100%;
   transition: all 0.3s ease;
 }
 
 .info-card.active {
-  border-color: #409eff;
-  background: #f0f9ff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+  border-color: rgb(var(--primary));
+  background: rgb(var(--primary) / 0.1);
+  box-shadow: var(--card-shadow);
 }
 
 .info-card h4 {
   margin: 0 0 8px 0;
-  color: #495057;
+  color: rgb(var(--text-primary));
   font-size: 14px;
   font-weight: 600;
 }
 
 .info-card p {
   margin: 4px 0;
-  color: #6c757d;
+  color: rgb(var(--text-secondary));
   font-size: 12px;
   line-height: 1.4;
 }
@@ -1450,12 +1468,21 @@ export default {
 .playback-info {
   display: flex;
   gap: 16px;
-  color: #666;
+  color: rgb(var(--text-secondary));
   font-size: 14px;
 }
 
 .speed-control {
   min-width: 100px;
+}
+
+.debug-info {
+  padding: 10px;
+  background: rgb(var(--border));
+  margin-top: 10px;
+  font-size: 12px;
+  border-radius: var(--radius-md);
+  color: rgb(var(--text-secondary));
 }
 
 .timeline-row {

@@ -8,7 +8,7 @@
           <el-input
             v-model="searchQuery"
             :placeholder="$t('errorCodes.searchPlaceholder')"
-            style="width: 180px"
+            class="search-input"
             clearable
             @input="handleSearch"
           >
@@ -20,50 +20,50 @@
           <el-select
             v-model="selectedSubsystem"
             :placeholder="$t('errorCodes.selectSubsystem')"
-            style="width: 180px; margin-left: 10px"
+            class="subsystem-select"
             clearable
             @change="handleSubsystemFilter"
           >
             <el-option
-              v-for="subsystem in subsystemOptions"
-              :key="subsystem.value"
-              :label="subsystem.label"
-              :value="subsystem.value"
+              v-for="option in subsystemOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
             />
           </el-select>
         </div>
         
         <div class="action-section">
-          <button 
-            class="btn-primary"
+          <el-button 
+            type="primary"
+            :icon="Search"
             @click="openQueryDialog"
-            aria-label="$t('errorCodes.queryCode')"
+            :aria-label="$t('errorCodes.queryCode')"
           >
-            <i class="fas fa-search"></i>
             {{ $t('errorCodes.queryCode') }}
-          </button>
+          </el-button>
           
-          <button 
+          <el-button 
             v-if="canCreate"
-            class="btn-secondary"
+            type="default"
+            :icon="Plus"
             @click="handleAdd"
-            aria-label="$t('errorCodes.addErrorCode')"
+            :aria-label="$t('errorCodes.addErrorCode')"
           >
-            <i class="fas fa-plus"></i>
             {{ $t('errorCodes.addErrorCode') }}
-          </button>
+          </el-button>
 
-          <button
+          <el-button
             v-if="$store.getters['auth/hasPermission']('error_code:export')"
-            class="btn-secondary"
-            :class="{ 'btn-loading': exportLoading }"
+            type="default"
+            :icon="Download"
+            :loading="exportLoading"
             :disabled="exportLoading"
             @click="openExportDialog"
-            aria-label="$t('errorCodes.exportCSV')"
+            :aria-label="$t('errorCodes.exportCSV')"
           >
-            <i class="fas fa-file-export"></i>
             {{ $t('errorCodes.exportCSV') }}
-          </button>
+          </el-button>
         </div>
       </div>
 
@@ -87,44 +87,45 @@
         </el-table-column>
         <el-table-column prop="param1" :label="$t('errorCodes.formLabels.param1')" width="120">
           <template #default="{ row }">
-            <span class="one-line-ellipsis" :title="String(row.param1 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param1 ?? '') }}</span>
+            <span class="one-line-ellipsis param-cell" :title="String(row.param1 ?? '')">{{ String(row.param1 ?? '') }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="param2" :label="$t('errorCodes.formLabels.param2')" width="120">
           <template #default="{ row }">
-            <span class="one-line-ellipsis" :title="String(row.param2 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param2 ?? '') }}</span>
+            <span class="one-line-ellipsis param-cell" :title="String(row.param2 ?? '')">{{ String(row.param2 ?? '') }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="param3" :label="$t('errorCodes.formLabels.param3')" width="120">
           <template #default="{ row }">
-            <span class="one-line-ellipsis" :title="String(row.param3 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param3 ?? '') }}</span>
+            <span class="one-line-ellipsis param-cell" :title="String(row.param3 ?? '')">{{ String(row.param3 ?? '') }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="param4" :label="$t('errorCodes.formLabels.param4')" width="120">
           <template #default="{ row }">
-            <span class="one-line-ellipsis" :title="String(row.param4 ?? '')" style="display:inline-block; max-width:100%">{{ String(row.param4 ?? '') }}</span>
+            <span class="one-line-ellipsis param-cell" :title="String(row.param4 ?? '')">{{ String(row.param4 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="220" align="center" fixed="right" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('shared.operation')" width="180" align="left" fixed="right" v-if="canUpdate || canDelete">
           <template #default="{ row }">
-            <div class="btn-group" style="justify-content: center;">
-              <button
-                class="btn-text btn-sm"
+            <div class="operation-buttons">
+              <el-button
+                text
+                size="small"
                 @click="handleEdit(row)"
                 v-if="canUpdate"
                 :aria-label="$t('shared.edit')"
                 :title="$t('shared.edit')"
               >
                 {{ $t('shared.edit') }}
-              </button>
+              </el-button>
               <el-dropdown
                 trigger="click"
                 placement="bottom-end"
                 @command="(command) => handleOperationCommand(row, command)"
               >
-                <button class="btn-text btn-sm">
+                <el-button text size="small">
                   <i class="fas fa-ellipsis-h"></i>
-              </button>
+              </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
@@ -182,17 +183,17 @@
           <el-select
             v-model="selectedExportLang"
             :placeholder="$t('errorCodes.selectLanguage')"
-            style="width: 100%"
+            class="full-width-select"
             clearable
           >
             <el-option
-              v-for="opt in languageOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
+              v-for="option in languageOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
             />
           </el-select>
-          <div style="margin-top: 8px; font-size: 12px; color: rgb(var(--text-disabled));">
+          <div class="export-language-hint">
             {{ $t('errorCodes.exportLanguageHint') }}
           </div>
         </el-form-item>
@@ -200,8 +201,8 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('shared.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': exportLoading }" :disabled="exportLoading" @click="handleExportCSV">{{ $t('shared.export') }}</button>
+          <el-button type="default" @click="showExportDialog = false">{{ $t('shared.cancel') }}</el-button>
+          <el-button type="primary" :loading="exportLoading" :disabled="exportLoading" @click="handleExportCSV">{{ $t('shared.export') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -212,37 +213,38 @@
       width="1000px"
       :close-on-click-modal="false"
     >
-      <template #title>
-        <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 14px; color: rgb(var(--text-secondary));">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
+      <template #header>
+        <div class="dialog-header-content">
+          <div class="dialog-header-left">
+            <span class="dialog-header-label">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
             <el-select 
               v-model="selectedI18nLang" 
               :placeholder="$t('errorCodes.i18nTechFields.selectLanguage')"
-              style="width: 150px;"
+              class="language-select"
               size="small"
               @change="handleLanguageChange"
             >
-              <el-option 
-                :label="$t('errorCodes.i18nTechFields.defaultLanguage')" 
-                value="zh-CN" 
+              <el-option
+                :label="$t('errorCodes.i18nTechFields.defaultLanguage')"
+                value="zh-CN"
               />
               <el-option
-                v-for="lang in i18nLanguageOptions"
-                :key="lang.value"
-                :label="lang.label"
-                :value="lang.value"
+                v-for="option in i18nLanguageOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
               />
             </el-select>
-            <button
-              class="btn-primary btn-sm"
-              :class="{ 'btn-loading': translating }"
+            <el-button
+              type="primary"
+              size="small"
+              :loading="translating"
               :disabled="!selectedI18nLang || selectedI18nLang === 'zh-CN'"
               @click="handleAutoTranslate"
             >
               <i v-if="translating" class="fas fa-spinner fa-spin"></i>
               {{ $t('errorCodes.i18nTechFields.autoTranslate') }}
-            </button>
+            </el-button>
           </div>
         </div>
       </template>
@@ -257,7 +259,12 @@
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.subsystem')" prop="subsystem">
               <el-select v-model="errorCodeForm.subsystem" :placeholder="$t('errorCodes.selectSubsystem')" @change="handleSubsystemChange">
-                <el-option v-for="option in subsystemOptions" :key="option.value" :label="option.label" :value="option.value" />
+                <el-option
+                  v-for="option in subsystemOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -276,29 +283,36 @@
         <el-row v-if="showSyncOption">
           <el-col :span="24">
             <el-form-item :label="$t('errorCodes.formLabels.syncOption')">
-              <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">
-                {{ $t('errorCodes.formLabels.syncToRemote') }} ({{ getRemoteSubsystemLabel() }})
-              </el-checkbox>
-              <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">
-                {{ $t('errorCodes.formLabels.syncToLocal') }} ({{ getLocalSubsystemLabel() }})
-              </el-checkbox>
+              <div class="sync-options-group">
+                <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">
+                  {{ $t('errorCodes.formLabels.syncToRemote') }}
+                </el-checkbox>
+                <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">
+                  {{ $t('errorCodes.formLabels.syncToLocal') }}
+                </el-checkbox>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-form-item :label="$t('errorCodes.formLabels.optionSettings')">
-          <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
-            <el-checkbox label="is_axis_error">{{ $t('errorCodes.checkboxLabels.isAxisError') }}</el-checkbox>
-            <span class="checkbox-divider"></span>
-            <el-checkbox label="is_arm_error">{{ $t('errorCodes.checkboxLabels.isArmError') }}</el-checkbox>
-            <span class="checkbox-divider"></span>
-            <el-checkbox label="for_expert">{{ $t('errorCodes.checkboxLabels.forExpert') }}</el-checkbox>
-            <span class="checkbox-divider"></span>
-            <el-checkbox label="for_novice">{{ $t('errorCodes.checkboxLabels.forNovice') }}</el-checkbox>
-            <span class="checkbox-divider"></span>
-            <el-checkbox label="related_log">{{ $t('errorCodes.checkboxLabels.relatedLog') }}</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
+        <!-- 选项设置 -->
+        <el-row v-if="showSyncOption">
+          <el-col :span="24">
+            <el-form-item :label="$t('errorCodes.formLabels.optionSettings')">
+              <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
+                <el-checkbox label="is_axis_error">{{ $t('errorCodes.checkboxLabels.isAxisError') }}</el-checkbox>
+                <span class="checkbox-divider"></span>
+                <el-checkbox label="is_arm_error">{{ $t('errorCodes.checkboxLabels.isArmError') }}</el-checkbox>
+                <span class="checkbox-divider"></span>
+                <el-checkbox label="for_expert">{{ $t('errorCodes.checkboxLabels.forExpert') }}</el-checkbox>
+                <span class="checkbox-divider"></span>
+                <el-checkbox label="for_novice">{{ $t('errorCodes.checkboxLabels.forNovice') }}</el-checkbox>
+                <span class="checkbox-divider"></span>
+                <el-checkbox label="related_log">{{ $t('errorCodes.checkboxLabels.relatedLog') }}</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
         <!-- UI显示字段（根据选择的语言动态显示） -->
         <el-form-item :label="$t('errorCodes.formLabels.shortMessage')" prop="short_message">
@@ -329,11 +343,11 @@
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.category')" prop="category">
               <el-select v-model="currentForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')">
-                <el-option 
-                  v-for="option in categoryOptions" 
-                  :key="option.value" 
-                  :label="option.label" 
-                  :value="option.value" 
+                <el-option
+                  v-for="option in categoryOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
                 />
               </el-select>
             </el-form-item>
@@ -341,7 +355,7 @@
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.level')" prop="level">
               <el-input 
-                :value="getLevelDisplay(currentForm.level)" 
+                :model-value="getLevelDisplay(currentForm.level)" 
                 readonly 
                 :placeholder="$t('errorCodes.formLabels.levelPlaceholder')" 
               />
@@ -357,16 +371,15 @@
                 multiple 
                 collapse-tags
                 collapse-tags-tooltip
-                :max-collapse-tags="3"
                 popper-class="analysis-categories-tooltip"
                 :placeholder="$t('errorCodes.formLabels.analysisCategoriesPlaceholder')"
-                style="width: 100%"
+                class="full-width-select"
               >
-                <el-option 
-                  v-for="cat in analysisCategoryOptions" 
-                  :key="cat.id" 
-                  :label="cat.displayName" 
-                  :value="cat.id"
+                <el-option
+                  v-for="option in analysisCategoryOptions"
+                  :key="option.id"
+                  :label="option.displayName"
+                  :value="option.id"
                 />
               </el-select>
             </el-form-item>
@@ -374,7 +387,7 @@
           <el-col :span="12">
             <el-form-item :label="$t('errorCodes.formLabels.solution')" prop="solution">
               <el-input 
-                :value="getSolutionDisplay(currentForm.solution)" 
+                :model-value="getSolutionDisplay(currentForm.solution)" 
                 readonly 
                 :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" 
               />
@@ -452,10 +465,10 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="handleSave">
+          <el-button type="default" @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</el-button>
+          <el-button type="primary" :loading="saving" :disabled="saving" @click="handleSave">
             {{ getSaveButtonText() }}
-          </button>
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -479,20 +492,20 @@
             v-model="queryForm.subsystem"
             :placeholder="$t('errorCodes.selectSubsystem')"
             clearable
-            style="width: 100%"
+            class="full-width-select"
           >
             <el-option
-              v-for="opt in subsystemOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
+              v-for="option in subsystemOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
             />
           </el-select>
         </el-form-item>
         <el-form-item>
           <div class="query-buttons">
-            <button type="button" class="btn-primary" :class="{ 'btn-loading': queryLoading }" :disabled="queryLoading" @click="handleQuery">{{ $t('shared.search') }}</button>
-            <button type="button" class="btn-secondary" @click="resetQuery">{{ $t('shared.reset') }}</button>
+            <el-button type="primary" :loading="queryLoading" :disabled="queryLoading" @click="handleQuery">{{ $t('shared.search') }}</el-button>
+            <el-button type="default" @click="resetQuery">{{ $t('shared.reset') }}</el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -608,13 +621,14 @@
                         </span>
                         <span class="query-file-size">{{ formatSize(file.size_bytes) }}</span>
                       </div>
-                      <button 
-                        class="btn-text btn-sm" 
+                      <el-button 
+                        text
+                        size="small"
                         @click.stop="handleQueryFileDownload(file)"
                       >
                         <i class="fas fa-download"></i>
                         下载
-                      </button>
+                      </el-button>
                     </div>
                   </div>
                 </div>
@@ -632,7 +646,7 @@
 
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showQueryDialog = false">{{ $t('shared.cancel') }}</button>
+          <el-button type="default" @click="showQueryDialog = false">{{ $t('shared.cancel') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -643,8 +657,8 @@
       direction="rtl"
       size="70%"
       :destroy-on-close="true"
-      class="tech-solution-drawer"
-      :show-close="false"
+      custom-class="tech-solution-drawer"
+      :with-header="false"
       @close="handleDrawerClose"
     >
       <template #title>
@@ -658,10 +672,10 @@
             </div>
           </div>
           <div class="tech-drawer-actions">
-            <button class="btn-secondary" @click="closeTechDrawer">{{ $t('shared.cancel') }}</button>
-            <button class="btn-primary" :class="{ 'btn-loading': techSaving }" :disabled="techSaving" @click="saveTechSolution">
+            <el-button type="default" @click="closeTechDrawer">{{ $t('shared.cancel') }}</el-button>
+            <el-button type="primary" :loading="techSaving" :disabled="techSaving" @click="saveTechSolution">
               {{ $t('shared.save') }}
-            </button>
+            </el-button>
           </div>
         </div>
       </template>
@@ -692,6 +706,7 @@
               :on-exceed="handleTechExceed"
               :http-request="handleTechUpload"
               :before-upload="beforeTechUpload"
+              action="#"
             >
               <i class="fas fa-plus"></i>
             </el-upload>
@@ -705,8 +720,8 @@
                   </div>
                 </div>
                 <div class="tech-file-actions">
-                  <button type="button" class="btn-text" @click.stop="handleOpenFile(file)">下载</button>
-                  <button type="button" class="btn-text-danger" @click.stop="handleRemoveByUrl(file.url)">删除</button>
+                  <el-button text @click.stop="handleOpenFile(file)">下载</el-button>
+                  <el-button type="danger" plain @click.stop="handleRemoveByUrl(file.url)">删除</el-button>
                 </div>
               </div>
             </div>
@@ -716,7 +731,7 @@
     </el-drawer>
 
     <el-dialog v-model="techPreviewVisible" width="60%" :close-on-click-modal="true">
-      <img :src="techPreviewUrl" alt="preview" style="width: 100%;" />
+      <img :src="techPreviewUrl" alt="preview" class="preview-image" />
     </el-dialog>
   </div>
 </template>
@@ -724,19 +739,25 @@
 <script>
 import { ref, reactive, computed, onMounted, watch, onBeforeUnmount, h, resolveComponent } from 'vue'
 import { useStore } from 'vuex'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Search, Plus, Download } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import api from '../api'
 import prefixKeyMap from '../config/prefixKeyMap.json'
 import categoryKeyMap from '../config/categoryKeyMap.json'
+// Base 组件已移除，直接使用 Element Plus 组件
+// Shared 组件
+import { PageContainer } from '@/components/shared'
 
 export default {
   name: 'ErrorCodes',
   components: {
     Search,
     Plus,
+    Download,
+    PageContainer,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { 
@@ -787,7 +808,7 @@ export default {
           default: () => h('span', {
             ref: containerRef,
             class: 'explanation-ellipsis',
-            style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+            class: 'explanation-ellipsis',
             onMouseenter: handleMouseEnter
           }, props.text)
         })
@@ -1849,27 +1870,23 @@ export default {
       }
     }
     
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+    
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(
-          t('errorCodes.message.deleteConfirm', { code: row.code }),
-          t('shared.messages.deleteConfirmTitle'),
-          {
-            confirmButtonText: t('shared.confirm'),
-            cancelButtonText: t('shared.cancel'),
-            type: 'warning',
-            confirmButtonClass: 'btn-primary-danger',
-            cancelButtonClass: 'btn-secondary'
-          }
-        )
+        const confirmed = await confirmDelete(row, {
+          message: t('errorCodes.message.deleteConfirm', { code: row.code }),
+          title: t('shared.messages.deleteConfirmTitle')
+        })
+        
+        if (!confirmed) return
         
         await store.dispatch('errorCodes/deleteErrorCode', row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadErrorCodes()
       } catch (error) {
-        if (error !== 'cancel') {
-          ElMessage.error(t('shared.messages.deleteFailed'))
-        }
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
     
@@ -2296,6 +2313,10 @@ export default {
     })
     
     return {
+       // 图标组件
+       Search,
+       Plus,
+       Download,
        loading,
        saving,
        showAddDialog,
@@ -2413,7 +2434,7 @@ export default {
 <style scoped>
 .error-codes-container {
   height: calc(100vh - 64px);
-  background: rgb(var(--background));
+  background: var(--black-white-white); /* 使用基础颜色值 */
   padding: 24px;
   overflow: hidden;
   display: flex;
@@ -2421,8 +2442,8 @@ export default {
 }
 
 .main-card {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -2438,17 +2459,17 @@ export default {
 }
 
 .i18n-readonly-section {
-  background-color: rgb(var(--bg-secondary));
+  background-color: var(--slate-50); /* 使用基础颜色值 */
   padding: 15px;
   border-radius: 4px;
-  border: 1px solid rgb(var(--border-secondary));
+  border: 1px solid var(--slate-200); /* 使用基础颜色值 */
 }
 
 .i18n-editable-section {
-  background-color: rgb(var(--bg-info-primary));
+  background-color: var(--sky-50); /* 使用基础颜色值 */
   padding: 15px;
   border-radius: 4px;
-  border: 1px solid rgb(var(--border-info-primary));
+  border: 1px solid var(--sky-300); /* 使用基础颜色值 */
 }
 
 .action-bar {
@@ -2480,6 +2501,61 @@ export default {
   gap: 10px;
 }
 
+/* 搜索和选择器样式 */
+.search-input {
+  width: 180px;
+}
+
+.subsystem-select {
+  width: 180px;
+  margin-left: 10px;
+}
+
+.language-select {
+  width: 150px;
+}
+
+.full-width-select {
+  width: 100%;
+}
+
+/* 表格单元格样式 */
+.param-cell {
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* 对话框头部样式 */
+.dialog-header-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+}
+
+.dialog-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dialog-header-label {
+  font-size: 14px;
+  color: var(--slate-600); /* 使用基础颜色值 */
+}
+
+/* 导出语言提示样式 */
+.export-language-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--slate-400); /* 使用基础颜色值 */
+}
+
+/* 预览图片样式 */
+.preview-image {
+  width: 100%;
+}
+
 .tech-drawer-header {
   display: flex;
   align-items: center;
@@ -2490,11 +2566,11 @@ export default {
 .tech-drawer-title {
   font-size: 16px;
   font-weight: 600;
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
 }
 
 .tech-drawer-subtitle {
-  color: rgb(var(--text-disabled));
+  color: var(--slate-400); /* 使用基础颜色值 */
   font-size: 12px;
   margin-top: 4px;
 }
@@ -2525,7 +2601,7 @@ export default {
 
 .tech-section-title {
   font-size: 13px;
-  color: rgb(var(--text-secondary));
+  color: var(--slate-600); /* 使用基础颜色值 */
   margin: 4px 0 6px;
   display: flex;
   align-items: center;
@@ -2534,7 +2610,7 @@ export default {
 
 .tech-section-hint {
   font-size: 12px;
-  color: rgb(var(--text-disabled));
+  color: var(--slate-400); /* 使用基础颜色值 */
   font-weight: 400;
 }
 
@@ -2560,16 +2636,16 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 6px 8px;
-  border: 1px solid rgb(var(--input-border));
+  border: 1px solid var(--slate-300); /* 使用基础颜色值 */
   border-radius: 6px;
-  background: rgb(var(--input-background));
+  background: var(--black-white-white); /* 使用基础颜色值 */
   cursor: pointer;
   transition: background-color 0.15s, border-color 0.15s;
 }
 
 .tech-file-item:hover {
-  background: rgb(var(--bg-primary-hover));
-  border-color: rgb(var(--input-border));
+  background: var(--slate-50); /* 使用基础颜色值 */
+  border-color: var(--slate-300); /* 使用基础颜色值 */
 }
 
 .tech-file-left {
@@ -2581,7 +2657,7 @@ export default {
 
 .tech-file-icon {
   font-size: 14px;
-  color: rgb(var(--text-secondary));
+  color: var(--slate-600); /* 使用基础颜色值 */
 }
 
 .tech-file-meta {
@@ -2594,7 +2670,7 @@ export default {
 
 .tech-file-name {
   font-size: 13px;
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2603,7 +2679,7 @@ export default {
 
 .tech-file-size {
   font-size: 12px;
-  color: rgb(var(--text-disabled));
+  color: var(--slate-400); /* 使用基础颜色值 */
   white-space: nowrap;
 }
 
@@ -2631,8 +2707,8 @@ export default {
   flex-shrink: 0;
   padding: 8px 0 12px 0; /* 上8px， 下12px */
   margin-top: auto;
-  border-top: 1px solid rgb(var(--border));
-  background: rgb(var(--background));
+  border-top: 1px solid var(--slate-200); /* 使用基础颜色值 */
+  background: var(--black-white-white); /* 使用基础颜色值 */
 }
 
 .error-code-form {
@@ -2653,10 +2729,7 @@ export default {
   gap: 12px;
 }
 
-/* 避免弹窗出现横向滚动条，保留右侧安全间距 */
-:deep(.el-dialog__body) {
-  overflow-x: hidden;
-}
+/* Dialog 样式通过 design-tokens.css 中的 Design Tokens 统一管理 */
 
 /* 确保输入控件不会超出容器宽度 */
 :deep(.error-code-form .el-input),
@@ -2685,9 +2758,16 @@ export default {
   white-space: nowrap;
 }
 .explanation-tooltip.dark {
-  background: rgba(0,0,0,0.85);
-  color: rgb(var(--text-white));
+  background: var(--overlay-dark);
+  color: var(--black-white-white); /* 使用基础颜色值 */
   border: none;
+}
+
+/* 同步选项的checkbox样式 */
+.sync-options-group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
 }
 
 /* 布尔选项的checkbox样式 */
@@ -2706,7 +2786,7 @@ export default {
   display: inline-block;
   width: 1px;
   height: 16px;
-  background-color: rgb(var(--input-border));
+  background-color: var(--slate-300); /* 使用基础颜色值 */
   margin: 0 16px;
   vertical-align: middle;
 }
@@ -2750,12 +2830,12 @@ export default {
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid rgb(var(--input-border));
+  border: 1px solid var(--slate-300); /* 使用基础颜色值 */
   transition: border-color 0.2s;
 }
 
 .query-image-thumbnail:hover {
-  border-color: rgb(var(--primary));
+  border-color: var(--slate-900); /* 使用基础颜色值 */
 }
 
 .query-image-thumbnail img {
@@ -2768,7 +2848,7 @@ export default {
 .query-image-thumbnail .image-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-medium);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2781,7 +2861,7 @@ export default {
 }
 
 .query-image-thumbnail .image-overlay i {
-  color: rgb(var(--text-white));
+  color: var(--black-white-white); /* 使用基础颜色值 */
   font-size: 20px;
 }
 
@@ -2801,12 +2881,12 @@ export default {
 }
 
 .query-file-item:hover {
-  background-color: rgb(var(--bg-secondary));
+  background-color: var(--slate-50); /* 使用基础颜色值 */
 }
 
 .query-file-icon {
   font-size: 14px;
-  color: rgb(var(--text-secondary));
+  color: var(--slate-600); /* 使用基础颜色值 */
   flex-shrink: 0;
 }
 
@@ -2821,7 +2901,7 @@ export default {
 
 .query-file-name {
   font-size: 13px;
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2830,7 +2910,7 @@ export default {
 
 .query-file-size {
   font-size: 12px;
-  color: rgb(var(--text-disabled));
+  color: var(--slate-400); /* 使用基础颜色值 */
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -2875,13 +2955,13 @@ export default {
 .basic-info-label {
   font-size: 13px;
   font-weight: 600;
-  color: rgb(var(--text-secondary));
+  color: var(--slate-600); /* 使用基础颜色值 */
   margin-bottom: 8px;
 }
 
 .basic-info-value {
   font-size: 14px;
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
   line-height: 1.6;
   word-wrap: break-word;
 }
@@ -2894,17 +2974,17 @@ export default {
 
 .basic-info-param-item {
   font-size: 14px;
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
   line-height: 1.6;
 }
 
 .basic-info-param-item .param-label {
-  color: rgb(var(--text-secondary));
+  color: var(--slate-600); /* 使用基础颜色值 */
   font-weight: 500;
 }
 
 .basic-info-param-item .param-value {
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
 }
 
 .basic-info-attachments {
@@ -2924,36 +3004,12 @@ export default {
   font-family: inherit;
   font-size: 14px;
   line-height: 1.6;
-  color: rgb(var(--text-primary));
+  color: var(--slate-900); /* 使用基础颜色值 */
   white-space: pre-wrap;
   word-wrap: break-word;
   background: transparent;
   border: none;
 }
 
-/* 下拉菜单项悬浮效果 - 推荐的CSS解决方案 */
-
-/* 方法1: 使用全局样式覆盖 (推荐) */
-:global(.el-dropdown-menu .el-dropdown-menu__item.dropdown-item-normal:hover) {
-  background-color: var(--dropdown-item-normal-hover-bg) !important;
-  color: var(--dropdown-item-normal-hover-color) !important;
-  transition: all 0.2s ease !important;
-}
-
-:global(.el-dropdown-menu .el-dropdown-menu__item.dropdown-item-danger:hover) {
-  background-color: var(--dropdown-item-danger-hover-bg) !important;
-  color: var(--dropdown-item-danger-hover-color) !important;
-  transition: all 0.2s ease !important;
-}
-
-/* 方法2: 备用方案 - 使用深度选择器和更高优先级 */
-:deep(.el-dropdown-menu .dropdown-item-normal:hover) {
-  background-color: var(--dropdown-item-normal-hover-bg) !important;
-  color: var(--dropdown-item-normal-hover-color) !important;
-}
-
-:deep(.el-dropdown-menu .dropdown-item-danger:hover) {
-  background-color: var(--dropdown-item-danger-hover-bg) !important;
-  color: var(--dropdown-item-danger-hover-color) !important;
-}
+/* 下拉菜单样式通过 design-tokens.css 中的 Design Tokens 统一管理 */
 </style>

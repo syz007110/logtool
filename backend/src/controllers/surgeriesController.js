@@ -1,5 +1,6 @@
 const { Op, Sequelize } = require('sequelize');
 const Surgery = require('../models/surgery');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 // const LogEntry = require('../models/log_entry');
 // [MIGRATION] LogEntry migrated to ClickHouse. Mocking Sequelize model to prevent crash.
 const LogEntry = {
@@ -160,8 +161,7 @@ exports.listSurgeries = async (req, res) => {
       where.start_time = { [Op.lte]: endDate };
     }
 
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 20;
+    const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
     const offset = (pageNum - 1) * limitNum;
 
     const { rows, count } = await Surgery.findAndCountAll({
@@ -283,6 +283,162 @@ exports.getLogEntriesByRange = async (req, res) => {
   } catch (error) {
     console.error('getLogEntriesByRange error:', error);
     res.status(500).json({ success: false, message: '获取日志条目失败', error: error.message });
+  }
+};
+
+// 获取按设备分组的手术数据列表（用于设备列表页）
+// ⚠️ 性能优化：之前前端会循环请求所有手术数据后在内存中分组，数据量大时非常慢
+// 这里改为数据库层按 device_id 分组 + 分页，只返回当前页设备汇总信息
+exports.listSurgeriesByDevice = async (req, res) => {
+  try {
+    const { keyword } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.DEVICE_GROUP);
+    
+    const { postgresqlSequelize } = require('../config/postgresql');
+    const offset = (page - 1) * limit;
+
+    // 关键点：surgeries 在 PostgreSQL，但 devices 在 MySQL（默认 sequelize）。
+    // 所以这里不能在 PostgreSQL SQL 里直接 JOIN devices；改为：
+    // 1) PostgreSQL：unnest(device_ids) 后按 device_id 分组 + 分页
+    // 2) MySQL：仅查询当前页 device_id 的设备信息（hospital/device_model）并合并
+
+    const keywordStr = (keyword || '').toString().trim();
+    const keywordLower = keywordStr.toLowerCase();
+
+    // 先在 MySQL devices 表里找出“医院/设备号匹配 keyword”的 device_id（用于补充医院筛选）
+    // 说明：仅用于过滤/补齐当前页设备信息，不在 PostgreSQL 内 JOIN devices
+    let deviceIdsMatchedByMysql = [];
+    if (keywordLower) {
+      try {
+        const like = `%${keywordLower}%`;
+        const matched = await Device.findAll({
+          where: {
+            [Op.or]: [
+              { device_id: { [Op.like]: like } },
+              { hospital: { [Op.like]: like } }
+            ]
+          },
+          attributes: ['device_id'],
+          limit: 5000 // 安全上限：避免 keyword 过宽导致返回过多设备
+        });
+        deviceIdsMatchedByMysql = matched.map(d => d.device_id).filter(Boolean);
+      } catch (e) {
+        // 设备库查询失败不应影响主流程：退化为仅按 device_id 模糊匹配
+        deviceIdsMatchedByMysql = [];
+      }
+    }
+
+    // PostgreSQL where（针对展开后的 device_id）
+    // - keyword：device_id 模糊匹配（覆盖“设备不在 MySQL 表”的情况）
+    // - keyword：如果 MySQL 匹配到了医院/设备号，再把这些 device_id 也 OR 进来
+    let pgParamIndex = 1;
+    const pgWhereParts = [];
+    const pgBinds = [];
+
+    if (keywordLower) {
+      const like = `%${keywordLower}%`;
+      if (deviceIdsMatchedByMysql.length > 0) {
+        pgWhereParts.push(`(LOWER(device_id) LIKE $${pgParamIndex} OR device_id = ANY($${pgParamIndex + 1}::text[]))`);
+        pgBinds.push(like);
+        pgBinds.push(deviceIdsMatchedByMysql);
+        pgParamIndex += 2;
+      } else {
+        pgWhereParts.push(`LOWER(device_id) LIKE $${pgParamIndex}`);
+        pgBinds.push(like);
+        pgParamIndex += 1;
+      }
+    }
+
+    const pgWhereSql = pgWhereParts.length ? ('WHERE ' + pgWhereParts.join(' AND ')) : '';
+
+    // 1) 总数：设备分组后的数量（用于分页）
+    const countSql = `
+      WITH expanded AS (
+        SELECT unnest(device_ids) AS device_id, start_time
+        FROM surgeries
+        WHERE device_ids IS NOT NULL AND array_length(device_ids, 1) > 0
+      )
+      SELECT COUNT(DISTINCT device_id) AS total
+      FROM expanded
+      ${pgWhereSql}
+    `;
+    const countRows = await postgresqlSequelize.query(countSql, {
+      bind: pgBinds,
+      type: Sequelize.QueryTypes.SELECT
+    });
+    const total = Number(countRows?.[0]?.total || 0);
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+    // 2) 当前页：按 device_id 分组统计
+    const dataSql = `
+      WITH expanded AS (
+        SELECT unnest(device_ids) AS device_id, start_time
+        FROM surgeries
+        WHERE device_ids IS NOT NULL AND array_length(device_ids, 1) > 0
+      )
+      SELECT
+        device_id,
+        COUNT(*) AS surgery_count,
+        MAX(start_time) AS latest_surgery_time
+      FROM expanded
+      ${pgWhereSql}
+      GROUP BY device_id
+      ORDER BY latest_surgery_time DESC NULLS LAST
+      LIMIT $${pgParamIndex} OFFSET $${pgParamIndex + 1}
+    `;
+
+    const dataRows = await postgresqlSequelize.query(dataSql, {
+      bind: [...pgBinds, limit, offset],
+      type: Sequelize.QueryTypes.SELECT
+    });
+
+    const pageDeviceIds = (dataRows || []).map(r => r.device_id).filter(Boolean);
+
+    // MySQL：补齐当前页设备信息
+    const deviceIdToInfo = new Map();
+    if (pageDeviceIds.length > 0) {
+      try {
+        const devices = await Device.findAll({
+          where: { device_id: { [Op.in]: pageDeviceIds } },
+          attributes: ['device_id', 'hospital', 'device_model']
+        });
+        devices.forEach(d => {
+          deviceIdToInfo.set(d.device_id, {
+            hospital_name: d.hospital || null,
+            device_model: d.device_model || null
+          });
+        });
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    const device_groups = (dataRows || []).map(r => {
+      const info = deviceIdToInfo.get(r.device_id) || {};
+      return {
+        device_id: r.device_id || '未知设备',
+        hospital_name: info.hospital_name || null,
+        device_name: info.device_model || null,
+        surgery_count: Number(r.surgery_count || 0),
+        latest_surgery_time: r.latest_surgery_time || null
+      };
+    });
+
+    res.json({
+      success: true,
+      device_groups,
+      pagination: {
+        current_page: page,
+        page_size: limit,
+        total: total,
+        total_pages: totalPages,
+        has_next: page < totalPages,
+        has_prev: page > 1
+      }
+    });
+  } catch (error) {
+    console.error('listSurgeriesByDevice error:', error);
+    res.status(500).json({ success: false, message: '获取设备分组手术数据失败', error: error.message });
   }
 };
 

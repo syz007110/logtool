@@ -1,7 +1,7 @@
 <template>
   <div class="account-container">
     <el-row :gutter="20">
-      <!-- 基本信息 -->
+      <!-- 个人信息卡片 -->
       <el-col :span="12">
         <el-card class="profile-card">
           <template #header>
@@ -20,7 +20,7 @@
               <el-tag>{{ getRoleText(profileData.role) }}</el-tag>
             </el-form-item>
             <el-form-item :label="$t('users.createTime')">
-              <span>{{ formatDate(profileData.created_at) }}</span>
+              <span class="form-text">{{ formatDate(profileData.created_at) }}</span>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleUpdateProfile" :loading="updatingProfile">{{ $t('shared.save') }}</el-button>
@@ -28,7 +28,7 @@
           </el-form>
         </el-card>
       </el-col>
-      <!-- 修改密码 -->
+      <!-- 修改密码卡片 -->
       <el-col :span="12">
         <el-card class="password-card">
           <template #header>
@@ -53,7 +53,6 @@
         </el-card>
       </el-col>
     </el-row>
-
   </div>
 </template>
 
@@ -226,26 +225,56 @@ export default {
 
 <style scoped>
 .account-container {
-  height: 100%;
+  height: calc(100vh - 64px);
+  background: var(--black-white-white);
+  padding: 24px;
+  overflow: auto;
 }
 
 .profile-card,
 .password-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
   height: 100%;
+}
+
+.profile-card :deep(.el-card__body),
+.password-card :deep(.el-card__body) {
+  padding: 20px;
 }
 
 .card-header {
   font-weight: 600;
+  color: var(--gray-900);
+  font-size: 16px;
 }
 
-.card-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.form-text {
+  color: var(--gray-900);
 }
 
 .el-form-item:last-child {
   margin-bottom: 0;
 }
-</style> 
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .account-container {
+    padding: 16px;
+  }
+  
+  .profile-card :deep(.el-card__body),
+  .password-card :deep(.el-card__body) {
+    padding: 16px;
+  }
+  
+  .el-row {
+    flex-direction: column;
+  }
+  
+  .el-col {
+    width: 100% !important;
+    margin-bottom: 20px;
+  }
+}
+</style>

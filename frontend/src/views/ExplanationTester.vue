@@ -1,97 +1,149 @@
 <template>
-  <div>
-    <a-page-header title="测试" sub-title="仅管理员可用" />
-    <a-tabs style="margin-top: 16px">
-      <a-tab-pane key="explanation" tab="释义测试">
-        <a-card>
-      <a-form layout="vertical">
-        <a-row :gutter="16">
-          <a-col :span="8">
-            <a-form-item label="故障码 (code)">
-              <a-input v-model:value="form.code" placeholder="可填日志中的完整故障码如 1010A，或 0X010A" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="子系统 (可选)">
-              <a-input v-model:value="form.subsystem" placeholder="如 1-9 或 A" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="自定义模板 (可选，优先使用)">
-              <a-input v-model:value="form.template" placeholder="如: 轴{0:d} 错误码 {1:x}" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="6">
-            <a-form-item label="参数1">
-              <a-input v-model:value="form.param1" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="参数2">
-              <a-input v-model:value="form.param2" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="参数3">
-              <a-input v-model:value="form.param3" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="参数4">
-              <a-input v-model:value="form.param4" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-space>
-          <a-button type="primary" :loading="loading" @click="handleParse">解析</a-button>
-          <a-button @click="handleReset">重置</a-button>
-        </a-space>
-      </a-form>
-    </a-card>
-    <a-card style="margin-top: 16px" v-if="result">
-      <a-descriptions bordered title="解析结果" :column="1">
-        <a-descriptions-item label="子系统">{{ result.subsystem }}</a-descriptions-item>
-        <a-descriptions-item label="臂号">{{ result.arm }}</a-descriptions-item>
-        <a-descriptions-item label="关节号">{{ result.joint }}</a-descriptions-item>
-        <a-descriptions-item label="模板">{{ result.template }}</a-descriptions-item>
-        <a-descriptions-item label="参数">{{ JSON.stringify(result.params) }}</a-descriptions-item>
-        <a-descriptions-item label="释义">{{ result.explanation }}</a-descriptions-item>
-      </a-descriptions>
-    </a-card>
-      </a-tab-pane>
+  <div class="explanation-tester-container">
+    <el-card class="main-card">
+      <el-tabs v-model="activeTab" class="tabs-container">
+        <el-tab-pane label="释义测试" name="explanation">
+          <div class="tab-content">
+            <el-form label-position="top" class="explanation-form">
+              <!-- 故障码输入 -->
+              <div class="form-section">
+                <el-form-item label="故障码 (code)" required>
+                  <el-input 
+                    v-model="form.code" 
+                    placeholder="可填日志中的完整故障码如 1010A，或 0X010A" 
+                    size="large"
+                    class="code-input"
+                  />
+                </el-form-item>
+              </div>
 
-      <a-tab-pane key="viz" tab="可视化测试">
-        <a-card title="输入手术结构化数据 (JSON)">
-          <a-textarea
-            v-model:value="vizJsonText"
-            :auto-size="{ minRows: 14 }"
-            placeholder="粘贴手术结构化数据，或点击填充示例"
-          />
-          <a-space style="margin-top: 12px">
-            <a-button type="primary" @click="handleRenderViz">跳转可视化页面</a-button>
-            <a-button @click="fillVizExample">填充示例</a-button>
-          </a-space>
-        </a-card>
-        <a-card style="margin-top: 16px" title="说明">
-          <div style="color: #666; line-height: 1.6;">
-            <p>• 输入手术结构化数据JSON格式</p>
-            <p>• 点击"跳转可视化页面"将在新标签页打开手术可视化</p>
-            <p>• 点击"填充示例"可加载测试数据</p>
-            <p>• 可视化页面将显示甘特图、状态机变化、网络延时等图表</p>
+              <!-- 可选配置 -->
+              <div class="form-section">
+                <div class="section-title">可选配置</div>
+                <el-row :gutter="16">
+                  <el-col :span="12">
+                    <el-form-item label="子系统">
+                      <el-input v-model="form.subsystem" placeholder="如 1-9 或 A" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="自定义模板 (优先使用)">
+                      <el-input v-model="form.template" placeholder="如: 轴{0:d} 错误码 {1:x}" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+              </div>
+
+              <!-- 参数输入 -->
+              <div class="form-section">
+                <div class="section-title">模板参数</div>
+                <el-row :gutter="16">
+                  <el-col :span="12">
+                    <el-form-item label="参数1">
+                      <el-input v-model="form.param1" placeholder="参数1的值" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="参数2">
+                      <el-input v-model="form.param2" placeholder="参数2的值" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                  <el-col :span="12">
+                    <el-form-item label="参数3">
+                      <el-input v-model="form.param3" placeholder="参数3的值" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="参数4">
+                      <el-input v-model="form.param4" placeholder="参数4的值" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="form-actions">
+                <el-space>
+                  <el-button type="primary" :loading="loading" @click="handleParse">解析</el-button>
+                  <el-button @click="handleReset">重置</el-button>
+                </el-space>
+              </div>
+            </el-form>
+            
+            <!-- 解析结果 -->
+            <div class="result-section" v-if="result">
+              <div class="result-title">解析结果</div>
+              <div class="result-content">
+                <div class="result-item">
+                  <span class="result-label">子系统：</span>
+                  <span class="result-value">{{ result.subsystem || '-' }}</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">臂号：</span>
+                  <span class="result-value">{{ result.arm || '-' }}</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">关节号：</span>
+                  <span class="result-value">{{ result.joint || '-' }}</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">模板：</span>
+                  <span class="result-value">{{ result.template || '-' }}</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">参数：</span>
+                  <span class="result-value">{{ JSON.stringify(result.params) || '-' }}</span>
+                </div>
+                <div class="result-item result-item-main">
+                  <span class="result-label">释义：</span>
+                  <span class="result-value explanation-text">{{ result.explanation || '-' }}</span>
+                </div>
+              </div>
+            </div>
           </div>
-        </a-card>
-      </a-tab-pane>
-    </a-tabs>
+        </el-tab-pane>
+
+        <el-tab-pane label="可视化测试" name="viz">
+          <div class="tab-content">
+            <el-card class="viz-card">
+              <template #header>
+                <div class="card-header">输入手术结构化数据 (JSON)</div>
+              </template>
+              <el-input
+                v-model="vizJsonText"
+                type="textarea"
+                :autosize="{ minRows: 14 }"
+                placeholder="粘贴手术结构化数据，或点击填充示例"
+              />
+              <el-space style="margin-top: 12px">
+                <el-button type="primary" @click="handleRenderViz">跳转可视化页面</el-button>
+                <el-button @click="fillVizExample">填充示例</el-button>
+              </el-space>
+            </el-card>
+            <el-card class="info-card" style="margin-top: 16px">
+              <template #header>
+                <div class="card-header">说明</div>
+              </template>
+              <div class="info-text">
+                <p>• 输入手术结构化数据JSON格式</p>
+                <p>• 点击"跳转可视化页面"将在新标签页打开手术可视化</p>
+                <p>• 点击"填充示例"可加载测试数据</p>
+                <p>• 可视化页面将显示甘特图、状态机变化、网络延时等图表</p>
+              </div>
+            </el-card>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
   </div>
-  
 </template>
 
 <script>
 import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
 import api from '../api'
-import { message } from 'ant-design-vue'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { GANTT_STYLE, GANTT_COLORS, normalizeSurgeryData, toMs } from '../utils/visualizationConfig'
 import { visualizeSurgery as visualizeSurgeryData } from '../utils/visualizationHelper'
@@ -99,6 +151,7 @@ import { visualizeSurgery as visualizeSurgeryData } from '../utils/visualization
 export default {
   name: 'ExplanationTester',
   setup() {
+    const activeTab = ref('explanation')
     const form = reactive({
       code: '',
       subsystem: '',
@@ -116,7 +169,7 @@ export default {
 
     const handleParse = async () => {
       if (!form.code) {
-        message.warning('请填写故障码 code')
+        ElMessage.warning('请填写故障码 code')
         return
       }
       loading.value = true
@@ -403,7 +456,7 @@ export default {
 
     const handleRenderViz = () => {
       if (!vizJsonText.value) {
-        message.warning('请粘贴手术结构化数据 JSON')
+        ElMessage.warning('请粘贴手术结构化数据 JSON')
         return
       }
       try {
@@ -411,7 +464,7 @@ export default {
         // 使用统一的可视化函数，跳转到可视化页面
         visualizeSurgeryData(raw)
       } catch (e) {
-        message.error('JSON 解析失败，请检查格式')
+        ElMessage.error('JSON 解析失败，请检查格式')
       }
     }
 
@@ -497,6 +550,7 @@ export default {
     })
 
     return {
+      activeTab,
       form, loading, result, handleParse, handleReset,
       vizJsonText, vizChartRef, handleRenderViz, fillVizExample
     }
@@ -505,6 +559,182 @@ export default {
 </script>
 
 <style scoped>
+.explanation-tester-container {
+  height: calc(100vh - 64px);
+  background: var(--black-white-white);
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px;
+}
+
+.tabs-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.tabs-container :deep(.el-tabs__content) {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabs-container :deep(.el-tab-pane) {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.tab-content {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.explanation-form {
+  max-width: 800px;
+}
+
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.code-input {
+  font-family: 'Courier New', monospace;
+}
+
+.form-actions {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.result-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  max-width: 800px;
+}
+
+.result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.result-item {
+  display: flex;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.result-item-main {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.result-label {
+  color: var(--gray-600);
+  font-weight: 500;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.result-value {
+  color: var(--gray-900);
+  flex: 1;
+  word-break: break-word;
+}
+
+.explanation-text {
+  color: var(--gray-900);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.info-text {
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.card-header {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 16px;
+}
+
+.viz-card,
+.info-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+}
+
+.info-text p {
+  margin: 0 0 8px 0;
+}
+
+.info-text p:last-child {
+  margin-bottom: 0;
+}
+
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .explanation-tester-container {
+    padding: 16px;
+  }
+  
+  .main-card :deep(.el-card__body) {
+    padding: 16px;
+  }
+}
 </style>
 
 

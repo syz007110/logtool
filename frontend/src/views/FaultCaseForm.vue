@@ -3,16 +3,9 @@
     <!-- 顶部标题栏和操作按钮 -->
     <div class="page-header">
       <div class="header-left">
-        <el-button text @click="goBack" class="back-button">
-          <el-icon><ArrowLeft /></el-icon>
-        </el-button>
-        <div class="title-section">
-          <h1 class="page-title">{{ isEdit ? $t('faultCases.edit') : $t('faultCases.create') }}</h1>
-          <span class="draft-status">{{ $t('faultCases.statusDraft') }}</span>
-        </div>
+        <h1 class="page-title">{{ isEdit ? $t('faultCases.edit') : $t('faultCases.create') }}</h1>
       </div>
       <div class="header-right">
-        <el-button @click="goBack">{{ $t('shared.cancel') }}</el-button>
         <el-button type="primary" :loading="saving" @click="save()">
           <el-icon><Document /></el-icon>
           {{ $t('faultCases.publish') }}
@@ -25,7 +18,7 @@
       <!-- 左列 -->
       <div class="form-left-column">
         <!-- 案例定义板块 -->
-        <el-card class="section-card" shadow="hover">
+        <el-card class="section-card">
           <template #header>
             <div class="section-header">
               <h2 class="section-title">{{ $t('faultCases.sections.problemDefinition') }}</h2>
@@ -38,7 +31,20 @@
                   {{ $t('faultCases.fields.module') }}
                   <span class="required">*</span>
                 </label>
-                <el-input v-model="form.module" :placeholder="$t('faultCases.modulePlaceholder')" />
+                <el-select
+                  v-model="form.module"
+                  filterable
+                  clearable
+                  style="width: 100%"
+                  :placeholder="$t('faultCases.modulePlaceholder')"
+                >
+                  <el-option
+                    v-for="module in moduleOptions"
+                    :key="module.module_key"
+                    :label="module.displayName"
+                    :value="module.module_key"
+                  />
+                </el-select>
               </div>
               <div class="form-item">
                 <label class="form-label">{{ $t('faultCases.fields.jira_key') }}</label>
@@ -71,7 +77,7 @@
         </el-card>
 
         <!-- 分析与结果板块 -->
-        <el-card class="section-card" shadow="hover">
+        <el-card class="section-card">
           <template #header>
             <div class="section-header">
               <h2 class="section-title">{{ $t('faultCases.sections.analysisResolution') }}</h2>
@@ -105,7 +111,6 @@
                 v-model="form.remark" 
                 type="textarea" 
                 :rows="4"
-                :placeholder="$t('faultCases.remarkPlaceholder')"
                 class="remark-textarea"
               />
             </div>
@@ -116,7 +121,7 @@
       <!-- 右列 -->
       <div class="form-right-column">
         <!-- 分类板块 -->
-        <el-card class="section-card" shadow="hover">
+        <el-card class="section-card">
           <template #header>
             <div class="section-header">
               <el-icon class="section-icon"><FolderOpened /></el-icon>
@@ -144,27 +149,38 @@
 
             <div class="form-item">
               <label class="form-label">{{ $t('faultCases.fields.related_error_code_ids') }}</label>
-              <div class="error-codes-selector">
-                <div class="selected-error-codes">
-                  <el-tag
-                    v-for="codeId in form.related_error_code_ids"
-                    :key="codeId"
-                    closable
-                    size="small"
-                    style="margin-right: 8px; margin-bottom: 8px;"
-                    @close="removeErrorCode(codeId)"
+              <div class="error-codes-selector-new">
+                <el-select
+                  v-model="form.related_error_code_ids"
+                  multiple
+                  filterable
+                  remote
+                  reserve-keyword
+                  :placeholder="$t('faultCases.searchErrorCodes')"
+                  :remote-method="remoteSearchErrorCodes"
+                  :loading="remoteErrorCodeLoading"
+                  class="error-code-select"
+                  @change="handleErrorCodeSelectChange"
+                >
+                  <el-option
+                    v-for="item in remoteErrorCodeOptions"
+                    :key="item.id"
+                    :label="formatErrorCodeOptionLabel(item)"
+                    :value="item.id"
                   >
-                    {{ getErrorCodeLabel(codeId) }}
-                  </el-tag>
-                </div>
+                    <div class="error-code-option">
+                      <span class="option-code">{{ item.code }}</span>
+                      <span class="option-subsystem">{{ item.subsystem }}</span>
+                      <span class="option-hint">{{ item.user_hint || item.operation || '-' }}</span>
+                    </div>
+                  </el-option>
+                </el-select>
                 <el-button
-                  type="primary"
-                  plain
-                  size="small"
+                  type="default"
+                  class="advanced-select-btn"
                   @click="showErrorCodeDialog = true"
                 >
-                  <el-icon><Plus /></el-icon>
-                  {{ $t('faultCases.selectErrorCodes') }}
+                  <el-icon><Search /></el-icon>
                 </el-button>
               </div>
             </div>
@@ -172,6 +188,7 @@
             <div class="form-item">
               <label class="form-label">{{ $t('faultCases.fields.keywords') }}</label>
               <el-select
+                ref="keywordSelect"
                 v-model="keywordTags"
                 multiple
                 filterable
@@ -184,7 +201,7 @@
                 :placeholder="$t('faultCases.keywordsPlaceholder')"
                 @keyup.enter="handleKeywordEnter"
                 @keydown.enter.prevent
-                @input="handleKeywordSelectInput"
+                @change="handleKeywordSelectInput"
               >
                 <el-option
                   v-for="(keyword, index) in keywordTags"
@@ -194,11 +211,30 @@
                 />
               </el-select>
             </div>
+
+            <div class="form-item">
+              <label class="form-label">{{ $t('faultCases.fields.status') }}</label>
+              <el-select
+                v-model="form.status"
+                filterable
+                clearable
+                style="width: 100%"
+                :placeholder="$t('faultCases.statusPlaceholder')"
+                :loading="statusLoading"
+              >
+                <el-option
+                  v-for="status in statusOptions"
+                  :key="status.status_key"
+                  :label="status.displayName"
+                  :value="status.status_key"
+                />
+              </el-select>
+            </div>
           </el-form>
         </el-card>
 
         <!-- 附件板块 -->
-        <el-card class="section-card" shadow="hover">
+        <el-card class="section-card">
           <template #header>
             <div class="section-header">
               <el-icon class="section-icon"><Paperclip /></el-icon>
@@ -221,14 +257,6 @@
               <div class="upload-text">{{ $t('faultCases.uploadClickText') }}</div>
               <div class="upload-hint">{{ $t('faultCases.uploadTip') }}</div>
             </el-upload>
-            <div v-if="form.attachments.length > 0" class="attachment-list">
-              <div v-for="(a, idx) in form.attachments" :key="idx" class="attachment-item">
-                <a :href="a.url" target="_blank" rel="noopener noreferrer" class="attachment-link">
-                  {{ a.original_name || a.filename || a.url }}
-                </a>
-                <span class="attachment-meta">({{ formatSize(a.size_bytes) }})</span>
-              </div>
-            </div>
           </div>
         </el-card>
       </div>
@@ -300,14 +328,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
-import { Search, ArrowLeft, Document, FolderOpened, Paperclip, Upload, Plus } from '@element-plus/icons-vue'
+import { Search, Document, FolderOpened, Paperclip, Upload, Plus } from '@element-plus/icons-vue'
 import api from '../api'
 
 export default {
   name: 'FaultCaseForm',
   components: {
     Search,
-    ArrowLeft,
     Document,
     FolderOpened,
     Paperclip,
@@ -315,7 +342,7 @@ export default {
     Plus
   },
   setup() {
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const router = useRouter()
     const route = useRoute()
     const store = useStore()
@@ -340,13 +367,180 @@ export default {
       related_error_code_ids: [],
       attachments: [],
       updated_at_user: null,
-      is_published: false
+      status: ''
     })
 
     const uploadFileList = ref([])
     const equipmentModelOptions = ref([])
     const equipmentModelLoading = ref(false)
     const keywordTags = ref([])
+    const keywordSelect = ref(null)
+
+    // Related Error Codes Remote Search
+    const remoteErrorCodeOptions = ref([])
+    const remoteErrorCodeLoading = ref(false)
+
+    const remoteSearchErrorCodes = (query) => {
+      const trimmed = String(query || '').trim()
+      if (trimmed !== '') {
+        remoteErrorCodeLoading.value = true
+        if (errorCodeSearchTimer) clearTimeout(errorCodeSearchTimer)
+        
+        errorCodeSearchTimer = setTimeout(async () => {
+          try {
+            // 若输入看起来是“故障码”（如 010A / 0x010A），优先走 code 精确匹配；否则走 keyword 模糊搜索
+            const normalizedCode = trimmed.replace(/^0x/i, '').toUpperCase()
+            const isLikelyCode = /^[0-9A-F]{4}$/.test(normalizedCode)
+
+            const resp = await api.errorCodes.getList(
+              isLikelyCode
+                ? { code: normalizedCode, page: 1, limit: 20 }
+                : { keyword: trimmed, page: 1, limit: 20 }
+            )
+            remoteErrorCodeOptions.value = resp.data?.errorCodes || []
+            
+            // 确保已选择的项也在列表中，否则 label 会显示为 ID
+            await ensureSelectedOptionsInRemote()
+          } catch (e) {
+            console.error('Failed to remote search error codes:', e)
+          } finally {
+            remoteErrorCodeLoading.value = false
+          }
+        }, 300)
+      } else {
+        remoteErrorCodeOptions.value = []
+      }
+    }
+
+    const ensureSelectedOptionsInRemote = async () => {
+      const selectedIds = form.related_error_code_ids
+      if (!selectedIds || selectedIds.length === 0) return
+
+      const missingIds = selectedIds.filter(id => !remoteErrorCodeOptions.value.find(opt => opt.id === id))
+      if (missingIds.length > 0) {
+        try {
+          const resp = await api.errorCodes.getList({ ids: missingIds.join(',') })
+          const missingOptions = resp.data?.errorCodes || []
+          remoteErrorCodeOptions.value = [...remoteErrorCodeOptions.value, ...missingOptions]
+        } catch (e) {
+          console.error('Failed to load missing selected error codes:', e)
+        }
+      }
+    }
+
+    const formatErrorCodeOptionLabel = (item) => {
+      return `${item.subsystem ? item.subsystem + ' - ' : ''}${item.code}`
+    }
+
+    const handleErrorCodeSelectChange = () => {
+      // 当选择变化时，更新本地映射以便显示 label（如果需要的话，目前 el-select 内部会自动处理展示）
+      loadErrorCodeOptionsForSelected()
+    }
+
+    // Module options
+    const moduleList = ref([])
+    const moduleLoading = ref(false)
+    const isZhCN = computed(() => {
+      const currentLocale = locale.value || 'zh-CN'
+      return currentLocale === 'zh-CN'
+    })
+    const moduleOptions = computed(() => {
+      return moduleList.value.map(module => ({
+        ...module,
+        displayName: isZhCN.value ? module.name_zh : module.name_en
+      }))
+    })
+
+    // Status options
+    const statusList = ref([])
+    const statusLoading = ref(false)
+    const statusOptions = computed(() => {
+      return statusList.value.map(status => ({
+        ...status,
+        displayName: isZhCN.value ? status.name_zh : status.name_en
+      }))
+    })
+
+    // Load module list
+    const loadModules = async () => {
+      if (moduleList.value.length > 0) return
+      
+      // 检查权限
+      const hasPermission = store.getters['auth/hasPermission']?.('fault_case_config:manage')
+      if (!hasPermission) {
+        console.warn('没有权限加载故障案例模块列表: fault_case_config:manage', {
+          user: store.state.auth.user,
+          permissions: store.getters['auth/permissions']
+        })
+        // 即使没有权限，也尝试调用 API，以便显示明确的错误信息
+      }
+      
+      moduleLoading.value = true
+      try {
+        const resp = await api.faultCaseModules.getList({ is_active: true })
+        console.log('获取故障案例模块列表响应:', resp.data)
+        if (resp.data?.success) {
+          moduleList.value = resp.data.modules || []
+          console.log('模块列表加载成功，共', moduleList.value.length, '条记录')
+        } else {
+          console.error('获取故障案例模块列表失败: 响应数据格式不正确', resp.data)
+          ElMessage.error('获取模块列表失败: 响应数据格式不正确')
+        }
+      } catch (e) {
+        console.error('获取故障案例模块列表失败:', e)
+        // 如果是权限错误，显示更明确的提示
+        if (e.response?.status === 403) {
+          ElMessage.warning(t('faultCases.noPermissionToLoadModules') || '没有权限加载模块列表，请联系管理员授予 fault_case_config:manage 权限')
+        } else if (e.response?.status === 401) {
+          ElMessage.warning('未登录或登录已过期，请重新登录')
+        } else {
+          ElMessage.error(t('faultCases.failedToLoadModules') || '加载模块列表失败: ' + (e.response?.data?.message || e.message))
+        }
+      } finally {
+        moduleLoading.value = false
+      }
+    }
+
+    // Load status list
+    const loadStatuses = async () => {
+      if (statusList.value.length > 0) return
+      
+      // 检查权限
+      const hasPermission = store.getters['auth/hasPermission']?.('fault_case_config:manage')
+      if (!hasPermission) {
+        console.warn('没有权限加载故障案例状态列表: fault_case_config:manage', {
+          user: store.state.auth.user,
+          permissions: store.getters['auth/permissions']
+        })
+        // 即使没有权限，也尝试调用 API，以便显示明确的错误信息
+        // 这样可以区分权限问题和 API 问题
+      }
+      
+      statusLoading.value = true
+      try {
+        const resp = await api.faultCaseStatuses.getList({ is_active: true })
+        console.log('获取故障案例状态列表响应:', resp.data)
+        if (resp.data?.success) {
+          statusList.value = resp.data.statuses || []
+          console.log('状态列表加载成功，共', statusList.value.length, '条记录')
+        } else {
+          console.error('获取故障案例状态列表失败: 响应数据格式不正确', resp.data)
+          ElMessage.error('获取状态列表失败: 响应数据格式不正确')
+        }
+      } catch (e) {
+        console.error('获取故障案例状态列表失败:', e)
+        // 如果是权限错误，显示更明确的提示
+        if (e.response?.status === 403) {
+          ElMessage.warning(t('faultCases.noPermissionToLoadStatuses') || '没有权限加载状态列表，请联系管理员授予 fault_case_config:manage 权限')
+        } else if (e.response?.status === 401) {
+          ElMessage.warning('未登录或登录已过期，请重新登录')
+        } else {
+          ElMessage.error(t('faultCases.failedToLoadStatuses') || '加载状态列表失败: ' + (e.response?.data?.message || e.message))
+        }
+      } finally {
+        statusLoading.value = false
+      }
+    }
 
     // Error code selection dialog
     const showErrorCodeDialog = ref(false)
@@ -370,7 +564,7 @@ export default {
     const parseKeywords = (raw) => {
       if (!raw) return []
       return String(raw)
-        .split(/[,，\s]+/)
+        .split(/[,，\s\n\r]+/) // 支持多种分隔符，包括换行
         .map((s) => s.trim())
         .filter(Boolean)
     }
@@ -384,6 +578,14 @@ export default {
 
     const handleKeywordEnter = () => {
       updateKeywordsRaw()
+      // 形成标签后清空输入框内容
+      if (keywordSelect.value) {
+        nextTick(() => {
+          if (keywordSelect.value.states) {
+            keywordSelect.value.states.inputValue = ''
+          }
+        })
+      }
     }
 
     const updateKeywordsRaw = () => {
@@ -431,7 +633,7 @@ export default {
       }
       try {
         const resp = await api.errorCodes.getList({ ids: form.related_error_code_ids.join(',') })
-        const codes = resp.data?.error_codes || []
+        const codes = resp.data?.errorCodes || []
         errorCodeOptionsMap.value.clear()
         codes.forEach((code) => {
           errorCodeOptionsMap.value.set(code.id, {
@@ -458,8 +660,9 @@ export default {
         }
         errorCodeTableLoading.value = true
         try {
-          const resp = await api.errorCodes.getList({ q, page: 1, limit: 50 })
-          errorCodeTableData.value = resp.data?.error_codes || []
+          // 高级弹窗同样对齐后端：keyword 模糊搜索
+          const resp = await api.errorCodes.getList({ keyword: q, page: 1, limit: 50 })
+          errorCodeTableData.value = resp.data?.errorCodes || []
         } catch (e) {
           console.error('Failed to search error codes:', e)
           ElMessage.error(t('shared.requestFailed'))
@@ -483,6 +686,7 @@ export default {
         }
       })
       loadErrorCodeOptionsForSelected()
+      ensureSelectedOptionsInRemote() // 同步更新远程搜索选项
       showErrorCodeDialog.value = false
       errorCodeSearch.value = ''
       errorCodeTableData.value = []
@@ -532,17 +736,23 @@ export default {
       ElMessage.warning(t('faultCases.uploadExceed'))
     }
 
+    const handleFileClick = (file) => {
+      if (file.url) {
+        window.open(file.url, '_blank', 'noopener,noreferrer')
+      }
+    }
+
     const goBack = () => {
       router.back()
     }
 
     const save = async () => {
-      // 基本验证
+      // 基本验证：标题和模块是必填项
       if (!form.title || !form.title.trim()) {
         ElMessage.warning(t('faultCases.validation.titleRequired'))
         return
       }
-      if (!form.module || !form.module.trim()) {
+      if (!form.module || (typeof form.module === 'string' && !form.module.trim())) {
         ElMessage.warning(t('faultCases.validation.moduleRequired'))
         return
       }
@@ -564,7 +774,7 @@ export default {
           related_error_code_ids: form.related_error_code_ids || [],
           attachments: form.attachments.map((a) => a.id || a.url) || [],
           updated_at_user: form.updated_at_user || undefined,
-          is_published: form.is_published
+          status: form.status || undefined
         }
 
         if (isEdit.value) {
@@ -589,24 +799,188 @@ export default {
       }
     }
 
+    // 判断是否为客诉项目
+    const isComplaintProject = (issue) => {
+      if (!issue) return false
+      const projectName = issue.projectName || ''
+      const projectKey = issue.projectKey || ''
+      // 如果项目名称包含"客诉"或项目key包含特定标识，则认为是客诉项目
+      return projectName.includes('客诉') || projectKey.toUpperCase().includes('COMPLAINT') || projectKey.toUpperCase().includes('KS')
+    }
+
     const loadFaultCase = async () => {
       if (!isEdit.value) {
         if (route.query.source === 'jira' && route.query.jira_key) {
           form.source = 'jira'
           form.jira_key = route.query.jira_key
           try {
+            // 确保状态列表已加载（如果还没有加载）
+            if (statusList.value.length === 0) {
+              await loadStatuses()
+            }
+            
+            // 确保模块列表已加载（如果还没有加载）
+            if (moduleList.value.length === 0) {
+              await loadModules()
+            }
+            
             const resp = await api.jira.getIssue(route.query.jira_key)
             const issue = resp.data?.issue
             if (issue) {
-              form.module = issue.components?.[0] || issue.module || ''
+              // 基础信息字段
+              // title: 对应JIRA的summary
               form.title = issue.summary || issue.title || ''
+              
+              // module: 对应JIRA的components，需要通过模块映射表匹配
+              const jiraModule = Array.isArray(issue.components) && issue.components.length > 0
+                ? issue.components.join(', ')
+                : (issue.module || '')
+              
+              if (jiraModule) {
+                const jiraModuleStr = String(jiraModule).trim()
+                console.log('[模块映射] JIRA 模块值:', jiraModuleStr)
+                console.log('[模块映射] 可用模块列表数量:', moduleList.value.length)
+                
+                // 如果模块列表为空，再次尝试加载
+                if (moduleList.value.length === 0) {
+                  console.warn('[模块映射] 模块列表为空，尝试重新加载...')
+                  await loadModules()
+                }
+                
+                // 处理多个模块值（用逗号分隔）
+                const moduleParts = jiraModuleStr.split(',').map(p => p.trim()).filter(Boolean)
+                const matchedModuleKeys = []
+                
+                for (const part of moduleParts) {
+                  const matchedModule = moduleList.value.find(module => {
+                    if (!module.is_active) return false
+                    // 检查模块的映射值是否包含JIRA的模块值，或直接匹配module_key
+                    const mappingValues = module.mapping_values || []
+                    const matched = mappingValues.some(mv => String(mv).trim() === part) || module.module_key === part
+                    if (matched) {
+                      console.log(`[模块映射] 找到匹配的模块: ${module.module_key} (${module.name_zh}), 映射值:`, mappingValues)
+                    }
+                    return matched
+                  })
+                  
+                  if (matchedModule) {
+                    matchedModuleKeys.push(matchedModule.module_key)
+                  }
+                }
+                
+                if (matchedModuleKeys.length > 0) {
+                  form.module = matchedModuleKeys.join(', ')
+                  console.log(`[模块映射] 设置表单模块为: ${form.module}`)
+                } else {
+                  form.module = ''
+                  console.warn(`[模块映射] 未找到匹配的模块映射，JIRA 模块: "${jiraModuleStr}"`)
+                  console.log('[模块映射] 当前模块列表:', moduleList.value.map(m => ({
+                    key: m.module_key,
+                    name: m.name_zh,
+                    mappings: m.mapping_values || []
+                  })))
+                }
+              } else {
+                form.module = ''
+                console.log('[模块映射] JIRA issue 没有模块值')
+              }
+              
+              // status: 对应JIRA的status，需要通过状态映射表匹配
+              if (issue.status) {
+                // 查找匹配的状态：遍历所有状态的映射值，找到匹配的status_key
+                const jiraStatus = String(issue.status).trim()
+                console.log('[状态映射] JIRA 状态值:', jiraStatus)
+                console.log('[状态映射] 可用状态列表数量:', statusList.value.length)
+                
+                // 如果状态列表为空，再次尝试加载
+                if (statusList.value.length === 0) {
+                  console.warn('[状态映射] 状态列表为空，尝试重新加载...')
+                  await loadStatuses()
+                }
+                
+                const matchedStatus = statusList.value.find(status => {
+                  if (!status.is_active) return false
+                  // 检查状态的映射值是否包含JIRA的status
+                  const mappingValues = status.mapping_values || []
+                  const matched = mappingValues.some(mv => String(mv).trim() === jiraStatus)
+                  if (matched) {
+                    console.log(`[状态映射] 找到匹配的状态: ${status.status_key} (${status.name_zh}), 映射值:`, mappingValues)
+                  }
+                  return matched
+                })
+                
+                if (matchedStatus) {
+                  form.status = matchedStatus.status_key
+                  console.log(`[状态映射] 设置表单状态为: ${form.status} (${matchedStatus.name_zh})`)
+                } else {
+                  form.status = ''
+                  console.warn(`[状态映射] 未找到匹配的状态映射，JIRA 状态: "${jiraStatus}"`)
+                  console.log('[状态映射] 当前状态列表:', statusList.value.map(s => ({
+                    key: s.status_key,
+                    name: s.name_zh,
+                    mappings: s.mapping_values || []
+                  })))
+                }
+              } else {
+                form.status = ''
+                console.log('[状态映射] JIRA issue 没有状态值')
+              }
+              
+              // 判断是否为客诉项目
+              const isComplaint = isComplaintProject(issue)
+              
+              // 内容字段映射
+              if (isComplaint) {
+                // 客诉字段映射
+                // symptom: 客诉对应customfield_12213
+                form.symptom = issue.customfield_12213 || ''
+                // possible_causes: 客诉对应customfield_10705
+                form.possible_causes = issue.customfield_10705 || ''
+                // solution: 客诉对应customfield_12233+customfield_12239
+                const containment = issue.customfield_12233 || ''
+                const longTerm = issue.customfield_12239 || ''
+                form.solution = [containment, longTerm].filter(Boolean).join('\n\n')
+              } else {
+                // 普通JIRA字段映射
+                // symptom: 普通JIRA对应description
               form.symptom = issue.description || ''
-              form.possible_causes = issue.possible_causes || ''
-              form.solution = issue.solution || ''
-              form.remark = issue.remark || ''
+                // possible_causes: 普通JIRA对应customfield_12284
+                form.possible_causes = issue.customfield_12284 || ''
+                // solution: 普通JIRA对应customfield_10600
+                form.solution = issue.customfield_10600 || ''
+              }
+              
+              // remark: 备注字段，JIRA中没有对应字段，保持为空
+              form.remark = ''
+              
+              // 附件字段: 对应JIRA的attachment
+              if (Array.isArray(issue.attachments) && issue.attachments.length > 0) {
+                // 将JIRA附件转换为系统附件格式
+                // 注意：JIRA附件的content字段是完整的下载URL，但可能需要认证
+                // 这里先记录附件信息，实际使用时可能需要通过后端代理下载
+                form.attachments = issue.attachments.slice(0, 10).map((att) => ({
+                  url: att.content || att.url || '',
+                  storage: 'local', // JIRA附件暂时标记为local，实际可能需要特殊处理
+                  filename: att.filename || '',
+                  original_name: att.filename || '',
+                  mime_type: att.mimeType || '',
+                  size_bytes: att.size || 0
+                })).filter(att => att.url && att.original_name) // 只保留有URL和文件名的附件
+                
+                // 更新上传文件列表用于显示
+                uploadFileList.value = form.attachments.map((a, index) => ({
+                  name: a.original_name || a.filename || `attachment_${index}`,
+                  url: a.url,
+                  uid: `jira_${index}_${Date.now()}`
+                }))
+              } else {
+                form.attachments = []
+                uploadFileList.value = []
+              }
             }
           } catch (e) {
             console.error('Failed to load Jira issue:', e)
+            ElMessage.error(t('shared.requestFailed'))
           }
         }
         return
@@ -629,11 +1003,12 @@ export default {
           form.related_error_code_ids = data.related_error_code_ids || []
           form.attachments = data.attachments || []
           form.updated_at_user = data.updated_at_user || null
-          form.is_published = data.is_published || false
+          form.status = data.status || ''
 
           loadKeywordsFromRaw()
           if (form.related_error_code_ids.length > 0) {
             loadErrorCodeOptionsForSelected()
+            ensureSelectedOptionsInRemote() // 初始化远程搜索选项，确保已选项能显示 Label
           }
           if (form.attachments.length > 0) {
             uploadFileList.value = form.attachments.map((a) => ({
@@ -649,9 +1024,67 @@ export default {
       }
     }
 
-    onMounted(() => {
-      loadFaultCase()
+    // 添加文件列表项点击事件监听
+    const setupFileListClickHandler = () => {
+      nextTick(() => {
+        const uploadEl = document.querySelector('.attachment-upload')
+        if (uploadEl) {
+          // 移除旧的事件监听器（如果存在）
+          const existingHandler = uploadEl._fileClickHandler
+          if (existingHandler) {
+            uploadEl.removeEventListener('click', existingHandler)
+          }
+          
+          // 添加新的事件监听器
+          const clickHandler = (e) => {
+            const fileNameEl = e.target.closest('.el-upload-list__item-name')
+            if (fileNameEl && !e.target.closest('.el-upload-list__item-delete')) {
+              const fileItem = fileNameEl.closest('.el-upload-list__item')
+              if (fileItem) {
+                // 通过 data-uid 属性查找对应的文件对象
+                const uid = fileItem.getAttribute('data-uid') || fileItem.querySelector('[data-uid]')?.getAttribute('data-uid')
+                if (uid) {
+                  const file = uploadFileList.value.find(f => String(f.uid) === String(uid))
+                  if (file && file.url) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    window.open(file.url, '_blank', 'noopener,noreferrer')
+                  }
+                } else {
+                  // 如果没有 uid，通过索引查找
+                  const fileIndex = Array.from(fileItem.parentElement?.children || []).indexOf(fileItem)
+                  const file = uploadFileList.value[fileIndex]
+                  if (file && file.url) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    window.open(file.url, '_blank', 'noopener,noreferrer')
+                  }
+                }
+              }
+            }
+          }
+          
+          uploadEl._fileClickHandler = clickHandler
+          uploadEl.addEventListener('click', clickHandler)
+        }
+      })
+    }
+
+    onMounted(async () => {
+      // 先加载状态和模块列表，然后再加载故障案例数据（从 JIRA 添加时需要状态列表进行映射）
+      await Promise.all([
+        loadModules(),
+        loadStatuses()
+      ])
+      // 状态列表加载完成后再加载故障案例数据，确保状态映射可以正常工作
+      await loadFaultCase()
+      setupFileListClickHandler()
     })
+
+    // 监听文件列表变化，重新设置事件监听器
+    watch(uploadFileList, () => {
+      setupFileListClickHandler()
+    }, { deep: true })
 
     return {
       form,
@@ -664,8 +1097,11 @@ export default {
       equipmentModelLoading,
       loadEquipmentModels,
       keywordTags,
+      keywordSelect,
       handleKeywordSelectInput,
       handleKeywordEnter,
+      moduleOptions,
+      moduleLoading,
       showErrorCodeDialog,
       errorCodeSearch,
       errorCodeTableData,
@@ -678,7 +1114,15 @@ export default {
       handleUploadRequest,
       handleUploadRemove,
       handleExceed,
-      formatSize
+      handleFileClick,
+      formatSize,
+      statusOptions,
+      statusLoading,
+      remoteErrorCodeOptions,
+      remoteErrorCodeLoading,
+      remoteSearchErrorCodes,
+      formatErrorCodeOptionLabel,
+      handleErrorCodeSelectChange
     }
   }
 }
@@ -686,50 +1130,33 @@ export default {
 
 <style scoped>
 .fault-case-form-page {
-  min-height: 100vh;
-  background: rgba(236, 236, 240, 0.1);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   padding: 24px;
+  overflow-y: auto;
 }
 
 .page-header {
-  background: white;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 16px 24px;
+  padding: 12px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
-  box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.back-button {
-  padding: 8px;
-}
-
-.title-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .page-title {
   margin: 0;
   font-size: 18px;
   font-weight: bold;
-  color: #0a0a0a;
+  color: rgb(var(--foreground));
   line-height: 28px;
-}
-
-.draft-status {
-  font-size: 12px;
-  color: #717182;
-  line-height: 16px;
 }
 
 .header-right {
@@ -742,6 +1169,8 @@ export default {
   display: flex;
   gap: 24px;
   align-items: flex-start;
+  flex: 1;
+  min-height: 0;
 }
 
 .form-left-column {
@@ -760,26 +1189,22 @@ export default {
   flex-shrink: 0;
 }
 
+/* 使用 Element Plus 默认卡片样式，只添加必要的阴影 */
 .section-card {
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-  box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--card-shadow);
 }
 
 .section-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .section-title {
   margin: 0;
   font-size: 18px;
   font-weight: bold;
-  color: #0a0a0a;
+  color: rgb(var(--foreground));
   line-height: 28px;
 }
 
@@ -787,20 +1212,20 @@ export default {
   margin: 0;
   font-size: 14px;
   font-weight: normal;
-  color: #717182;
+  color: rgb(var(--muted-foreground));
   text-transform: uppercase;
   letter-spacing: 0.7px;
 }
 
 .section-icon {
   font-size: 16px;
-  color: #717182;
+  color: rgb(var(--muted-foreground));
 }
 
 .attachment-count {
   margin-left: auto;
   font-size: 12px;
-  color: #717182;
+  color: rgb(var(--muted-foreground));
 }
 
 .form-row {
@@ -819,42 +1244,72 @@ export default {
 
 .form-label {
   font-size: 14px;
-  color: #0a0a0a;
+  color: rgb(var(--foreground));
   line-height: 14px;
 }
 
 .required {
-  color: #fb2c36;
+  color: var(--red-500);
   margin-left: 4px;
 }
 
 .solution-label {
   font-weight: bold;
-  color: #008236;
+  color: var(--green-600);
 }
 
 .solution-textarea :deep(.el-textarea__inner) {
-  background: rgba(240, 253, 244, 0.2);
-  border-color: #b9f8cf;
+  background: var(--green-50);
+  border-color: var(--green-300);
 }
 
 .remark-textarea :deep(.el-textarea__inner) {
-  background: rgba(255, 251, 235, 0.3);
-  border-color: #fef3c6;
+  background: var(--yellow-50);
+  border-color: var(--yellow-200);
 }
 
-.error-codes-selector {
+.error-codes-selector-new {
   display: flex;
-  flex-direction: column;
   gap: 8px;
+  align-items: flex-start;
 }
 
-.selected-error-codes {
+.error-code-select {
+  flex: 1;
+}
+
+.advanced-select-btn {
+  flex-shrink: 0;
+}
+
+.error-code-option {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 32px;
+  gap: 12px;
+  align-items: center;
   padding: 4px 0;
+}
+
+.option-code {
+  font-weight: bold;
+  color: rgb(var(--foreground));
+  min-width: 80px;
+}
+
+.option-subsystem {
+  color: rgb(var(--muted-foreground));
+  font-size: 12px;
+  background: rgb(var(--muted));
+  padding: 0 6px;
+  border-radius: 4px;
+}
+
+.option-hint {
+  color: rgb(var(--muted-foreground));
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
 }
 
 .attachment-section {
@@ -870,60 +1325,37 @@ export default {
 .attachment-upload :deep(.el-upload-dragger) {
   width: 100%;
   padding: 40px 20px;
-  border: 2px dashed rgba(113, 113, 130, 0.2);
-  border-radius: 10px;
+  border: 2px dashed rgb(var(--border));
+  border-radius: var(--radius-md);
   background: transparent;
 }
 
 .upload-icon {
   font-size: 32px;
-  color: #717182;
+  color: rgb(var(--muted-foreground));
   margin-bottom: 12px;
 }
 
 .upload-text {
   font-size: 14px;
-  color: #0a0a0a;
+  color: rgb(var(--foreground));
   margin-bottom: 8px;
 }
 
 .upload-hint {
   font-size: 12px;
-  color: #717182;
+  color: rgb(var(--muted-foreground));
 }
 
-.attachment-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.attachment-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  background: #f5f7fa;
-}
-
-.attachment-link {
-  color: #409eff;
+/* 让文件列表项的文件名可点击跳转 */
+.attachment-upload :deep(.el-upload-list__item-name) {
+  color: rgb(var(--text-brand-primary));
+  cursor: pointer;
   text-decoration: none;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.attachment-link:hover {
+.attachment-upload :deep(.el-upload-list__item-name:hover) {
   text-decoration: underline;
-}
-
-.attachment-meta {
-  color: #909399;
-  font-size: 12px;
-  flex-shrink: 0;
 }
 
 .error-code-dialog-content {
@@ -942,10 +1374,10 @@ export default {
 
 .selected-count {
   padding: 12px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  background: rgb(var(--muted));
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  color: #606266;
+  color: rgb(var(--muted-foreground));
 }
 
 .min-w-0 {

@@ -17,7 +17,7 @@
       </div>
       
       <div class="action-section">
-        <el-button class="btn-primary" @click="showAddDialog" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
+        <el-button type="primary" @click="showAddDialog" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
           <el-icon><Plus /></el-icon>
           {{ $t('analysisCategories.addCategory') }}
         </el-button>
@@ -46,11 +46,28 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column :label="$t('shared.operation')" fixed="right" width="180" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
+          <el-table-column :label="$t('shared.operation')" fixed="right" width="180" align="left" v-if="$store.getters['auth/hasPermission']('loglevel:manage')">
             <template #default="{ row }">
-              <div class="action-buttons">
-                <el-button @click="handleEdit(row)" class="btn-text btn-sm">{{$t('shared.edit')}}</el-button>
-                <el-button @click="handleDelete(row)" class="btn-text-danger btn-sm">{{$t('shared.delete')}}</el-button>
+              <div class="operation-buttons">
+                <el-button
+                  text
+                  size="small"
+                  @click="handleEdit(row)"
+                  :aria-label="$t('shared.edit')"
+                  :title="$t('shared.edit')"
+                >
+                  {{ $t('shared.edit') }}
+                </el-button>
+                <el-button
+                  text
+                  size="small"
+                  class="btn-danger-text"
+                  @click="handleDelete(row)"
+                  :aria-label="$t('shared.delete')"
+                  :title="$t('shared.delete')"
+                >
+                  {{ $t('shared.delete') }}
+                </el-button>
               </div>
             </template>
           </el-table-column>
@@ -121,7 +138,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button class="btn-secondary" @click="handleCancel">{{ $t('shared.cancel') }}</el-button>
-          <el-button class="btn-primary" @click="handleSubmit">{{ $t('shared.confirm') }}</el-button>
+          <el-button type="primary" @click="handleSubmit">{{ $t('shared.confirm') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -130,7 +147,8 @@
 
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
@@ -251,17 +269,19 @@ export default {
       dialogVisible.value = true
     }
     
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     // 删除
     const handleDelete = async (record) => {
       try {
-        await ElMessageBox.confirm(t('analysisCategories.deleteConfirm'), t('shared.warning'), {
-          confirmButtonText: t('shared.confirm'),
-          cancelButtonText: t('shared.cancel'),
-          type: 'warning',
-          confirmButtonClass: 'btn-primary-danger',
-          cancelButtonClass: 'btn-secondary'
+        const confirmed = await confirmDelete(record, {
+          message: t('analysisCategories.deleteConfirm'),
+          title: t('shared.warning')
         })
-        
+
+        if (!confirmed) return
+
         const response = await api.analysisCategories.delete(record.id)
         if (response.data.success) {
           ElMessage.success(t('shared.messages.deleteSuccess'))
@@ -270,10 +290,8 @@ export default {
           ElMessage.error(response.data.message || t('shared.messages.deleteFailed'))
         }
       } catch (error) {
-        if (error !== 'cancel') {
-          console.error('删除失败:', error)
-          ElMessage.error(t('shared.messages.deleteFailed'))
-        }
+        console.error('删除失败:', error)
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
     
@@ -412,19 +430,14 @@ export default {
   overflow-y: auto !important;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
 .pagination-wrapper {
   display: flex;
   justify-content: center;
   flex-shrink: 0;
   padding: 8px 0 12px 0; /* 上8px， 下12px */
   margin-top: auto;
-  border-top: 1px solid rgb(var(--border));
-  background: rgb(var(--background));
+  border-top: 1px solid var(--gray-200);
+  background: var(--black-white-white);
 }
 
 .dialog-footer {

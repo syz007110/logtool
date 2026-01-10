@@ -7,6 +7,7 @@ const { translateText } = require('../services/translationService');
 
 const FaultCase = require('../mongoModels/FaultCase');
 const FaultCaseI18n = require('../mongoModels/FaultCaseI18n');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 const ErrorCode = require('../models/error_code');
 const Permission = require('../models/permission');
@@ -100,7 +101,7 @@ function toObjectId(id) {
 }
 
 function effectiveUpdatedAt(doc) {
-  return doc?.updated_at_user || doc?.updatedAt || doc?.createdAt || new Date(0);
+  return doc?.updatedAt || doc?.createdAt || new Date(0);
 }
 
 async function ensureMongoReady() {
@@ -110,9 +111,8 @@ async function ensureMongoReady() {
 
 async function canReadCase(req, faultCase) {
   if (!faultCase) return false;
-  if (faultCase.is_published === true) return true; // is_published: true 表示已发布
-  if (req.user && faultCase.created_by === req.user.id) return true;
-  return false;
+  // 数据库中的记录都是已发布状态，所有用户都可以查看
+  return true;
 }
 
 async function canEditCase(req, faultCase) {
@@ -121,22 +121,13 @@ async function canEditCase(req, faultCase) {
   return false;
 }
 
-function withLegacyFieldFallback(obj) {
-  if (!obj || typeof obj !== 'object') return obj;
-  // Map old fields to new names if new ones are empty (backward compatible display)
-  const out = { ...obj };
-  if (!out.solution && out.troubleshooting_steps) out.solution = out.troubleshooting_steps;
-  if (!out.remark && out.experience) out.remark = out.experience;
-  return out;
-}
-
 async function overlayI18nIfNeeded(req, faultCaseObj) {
   const accept = req.headers['accept-language'] || req.query.lang || 'zh';
   const lang = normalizeLang(accept);
-  if (!faultCaseObj || lang === 'zh') return withLegacyFieldFallback(faultCaseObj);
+  if (!faultCaseObj || lang === 'zh') return faultCaseObj;
 
   const i18n = await FaultCaseI18n.findOne({ fault_case_id: faultCaseObj._id, lang });
-  if (!i18n) return withLegacyFieldFallback(faultCaseObj);
+  if (!i18n) return faultCaseObj;
 
   const overlay = (k) => (typeof i18n[k] === 'string' && i18n[k].trim() !== '' ? i18n[k] : faultCaseObj[k]);
   const merged = {
@@ -146,12 +137,9 @@ async function overlayI18nIfNeeded(req, faultCaseObj) {
     possible_causes: overlay('possible_causes'),
     solution: overlay('solution'),
     remark: overlay('remark'),
-    // legacy fields not in i18n table, keep original
-    troubleshooting_steps: faultCaseObj.troubleshooting_steps,
-    experience: faultCaseObj.experience,
     keywords: Array.isArray(i18n.keywords) && i18n.keywords.length ? i18n.keywords : faultCaseObj.keywords
   };
-  return withLegacyFieldFallback(merged);
+  return merged;
 }
 
 async function validateRelatedErrorCodes(ids = []) {
@@ -194,11 +182,17 @@ async function uploadFaultCaseAttachments(req, res) {
       const storage = STORAGE === 'oss' ? 'oss' : 'local';
 
       if (STORAGE === 'oss') {
-        const client = await getOssClient();
-        objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
-        const result = await client.put(objectKey, file.path);
-        url = withQueryToken(buildOssUrl(objectKey, result?.url), req);
-        safeUnlink(file.path);
+        try {
+          const client = await getOssClient();
+          objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
+          const result = await client.put(objectKey, file.path);
+          url = withQueryToken(buildOssUrl(objectKey, result?.url), req);
+          safeUnlink(file.path);
+        } catch (err) {
+          console.error('上传OSS失败:', err.message);
+          safeUnlink(file.path);
+          return res.status(500).json({ message: '上传失败，请稍后重试', error: err.message });
+        }
       } else {
         ensureTempDir();
         const filename = path.basename(file.path);
@@ -235,9 +229,14 @@ async function finalizeAttachment(asset, req) {
       const filename = path.basename(result.object_key || result.url);
       const src = path.resolve(TMP_DIR, filename);
       const dest = path.resolve(LOCAL_DIR, filename);
-      fs.renameSync(src, dest);
-      result.object_key = filename;
-      result.url = buildLocalUrl(filename);
+      try {
+        fs.renameSync(src, dest);
+        result.object_key = filename;
+        result.url = buildLocalUrl(filename);
+      } catch (e) {
+        console.warn('移动临时文件失败:', e.message);
+        throw new Error('保存附件失败（本地文件移动失败）');
+      }
     }
     return result;
   }
@@ -246,18 +245,28 @@ async function finalizeAttachment(asset, req) {
   if (result.storage === 'oss' && result.object_key && result.object_key.includes('/tmp/')) {
     const client = await getOssClient();
     const destKey = result.object_key.replace('/tmp/', '/');
-    await client.copy(destKey, result.object_key);
-    await client.delete(result.object_key);
-    result.object_key = destKey;
-    result.url = withQueryToken(buildOssUrl(destKey), req);
+    try {
+      await client.copy(destKey, result.object_key);
+      await client.delete(result.object_key);
+      result.object_key = destKey;
+      result.url = withQueryToken(buildOssUrl(destKey), req);
+    } catch (e) {
+      console.warn('OSS 复制/删除临时文件失败:', e.message);
+      throw new Error('保存附件失败（OSS 文件搬运失败）');
+    }
   } else if (result.storage === 'oss' && result.object_key && result.object_key.startsWith(TMP_PREFIX)) {
     // safety: in case TMP_PREFIX doesn't contain /tmp/ exactly
     const client = await getOssClient();
     const destKey = buildOssObjectKey(path.basename(result.object_key));
-    await client.copy(destKey, result.object_key);
-    await client.delete(result.object_key);
-    result.object_key = destKey;
-    result.url = withQueryToken(buildOssUrl(destKey), req);
+    try {
+      await client.copy(destKey, result.object_key);
+      await client.delete(result.object_key);
+      result.object_key = destKey;
+      result.url = withQueryToken(buildOssUrl(destKey), req);
+    } catch (e) {
+      console.warn('OSS 复制/删除临时文件失败:', e.message);
+      throw new Error('保存附件失败（OSS 文件搬运失败）');
+    }
   }
   return result;
 }
@@ -298,16 +307,11 @@ const createFaultCase = async (req, res) => {
       possible_causes = '',
       solution = '',
       remark = '',
-      // legacy
-      troubleshooting_steps = '',
-      experience = '',
       equipment_model = '',
-      device_id = '',
       keywords,
       related_error_code_ids = [],
       attachments = [],
-      updated_at_user = null,
-      is_published = false
+      status = ''
     } = req.body || {};
 
     if (!title || !String(title).trim()) return res.status(400).json({ message: 'title 不能为空' });
@@ -332,8 +336,6 @@ const createFaultCase = async (req, res) => {
     const finalized = [];
     for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
 
-    const nowUser = updated_at_user ? new Date(updated_at_user) : null;
-
     const faultCase = await FaultCase.create({
       source: src,
       ...(jiraKey ? { jira_key: jiraKey } : {}),
@@ -341,20 +343,15 @@ const createFaultCase = async (req, res) => {
       title: String(title).trim(),
       symptom,
       possible_causes,
-      solution: solution || troubleshooting_steps || '',
-      remark: remark || experience || '',
-      troubleshooting_steps: troubleshooting_steps || '',
-      experience: experience || '',
+      solution,
+      remark,
       equipment_model: Array.isArray(equipment_model) ? equipment_model.filter(m => m && String(m).trim()).map(m => String(m).trim()) : (equipment_model ? [String(equipment_model).trim()] : []),
-      // keep legacy field only when explicitly provided (best-effort backward compatibility)
-      ...(device_id !== undefined ? { device_id: String(device_id || '').trim() } : {}),
       keywords: parseKeywords(keywords),
       related_error_code_ids: relatedIds,
       attachments: finalized,
-      is_published: !!is_published, // false 表示草稿，true 表示已发布
+      status: String(status || '').trim(), // 工作流状态，对应 fault_case_statuses 表的 status_key
       created_by: req.user.id,
-      updated_by: req.user.id,
-      updated_at_user: nowUser
+      updated_by: req.user.id
     });
 
     return res.status(201).json({ message: req.t('shared.created'), faultCase });
@@ -386,16 +383,11 @@ const updateFaultCase = async (req, res) => {
       possible_causes,
       solution,
       remark,
-      // legacy
-      troubleshooting_steps,
-      experience,
       equipment_model,
-      device_id,
       keywords,
       related_error_code_ids,
       attachments,
-      updated_at_user = undefined,
-      is_published
+      status
     } = req.body || {};
 
     if (title !== undefined && !String(title).trim()) return res.status(400).json({ message: 'title 不能为空' });
@@ -419,11 +411,7 @@ const updateFaultCase = async (req, res) => {
     if (possible_causes !== undefined) patch.possible_causes = possible_causes || '';
     if (solution !== undefined) patch.solution = solution || '';
     if (remark !== undefined) patch.remark = remark || '';
-    if (troubleshooting_steps !== undefined) patch.troubleshooting_steps = troubleshooting_steps || '';
-    if (experience !== undefined) patch.experience = experience || '';
     if (equipment_model !== undefined) patch.equipment_model = Array.isArray(equipment_model) ? equipment_model.filter(m => m && String(m).trim()).map(m => String(m).trim()) : (equipment_model ? [String(equipment_model).trim()] : []);
-    // legacy support (not used by new UI)
-    if (device_id !== undefined) patch.device_id = String(device_id || '').trim();
     if (keywords !== undefined) patch.keywords = parseKeywords(keywords);
     if (related_error_code_ids !== undefined) patch.related_error_code_ids = await validateRelatedErrorCodes(related_error_code_ids);
     if (attachments !== undefined) {
@@ -432,8 +420,7 @@ const updateFaultCase = async (req, res) => {
       for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
       patch.attachments = finalized;
     }
-    if (updated_at_user !== undefined) patch.updated_at_user = updated_at_user ? new Date(updated_at_user) : null;
-    if (is_published !== undefined) patch.is_published = !!is_published;
+    if (status !== undefined) patch.status = String(status || '').trim();
 
     // validate jira source requires jira_key
     const effectiveSource = patch.source || faultCase.source || 'manual';
@@ -502,12 +489,11 @@ const listLatestFaultCases = async (req, res) => {
     if (!(await ensureMongoReady())) {
       return res.status(503).json({ message: 'MongoDB 未连接，故障案例功能不可用' });
     }
-    const limit = Math.min(Number.parseInt(req.query.limit || '5', 10) || 5, 20);
+    const { limit } = normalizePagination(1, req.query.limit || '5', 20);
 
     const docs = await FaultCase.aggregate([
-      { $match: { is_published: true } }, // is_published: true 表示已发布
-      { $addFields: { effectiveUpdatedAt: { $ifNull: ['$updated_at_user', '$updatedAt'] } } },
-      { $sort: { effectiveUpdatedAt: -1, updatedAt: -1 } },
+      { $match: {} }, // 数据库中的记录都是已发布状态
+      { $sort: { updatedAt: -1 } },
       { $limit: limit }
     ]);
 
@@ -527,19 +513,18 @@ const searchFaultCases = async (req, res) => {
     }
     const q = (req.query.q || '').toString().trim();
     const errorCode = (req.query.errorCode || req.query.error_code || '').toString().trim();
-    const limit = Math.min(Number.parseInt(req.query.limit || '20', 10) || 20, 100);
+    const { limit } = normalizePagination(1, req.query.limit, MAX_PAGE_SIZE.FAULT_CASE);
     const mine = String(req.query.mine || '').toLowerCase() === '1' || String(req.query.mine || '').toLowerCase() === 'true';
 
     const filter = {};
 
     // visibility:
-    // - mine=1: only my cases (draft/pending/rejected/published)
-    // - else: published OR my drafts
+    // - mine=1: only my cases
+    // - else: all cases (数据库中的记录都是已发布状态)
     if (mine) {
       filter.created_by = req.user.id;
-    } else {
-      filter.$or = [{ is_published: true }, { created_by: req.user.id }]; // is_published: true 表示已发布
     }
+    // 否则不添加筛选条件，返回所有记录
 
     const and = [];
     if (q) {
@@ -572,8 +557,7 @@ const searchFaultCases = async (req, res) => {
 
     const docs = await FaultCase.aggregate([
       { $match: filter },
-      { $addFields: { effectiveUpdatedAt: { $ifNull: ['$updated_at_user', '$updatedAt'] } } },
-      { $sort: { effectiveUpdatedAt: -1, updatedAt: -1 } },
+      { $sort: { updatedAt: -1 } },
       { $limit: limit }
     ]);
 

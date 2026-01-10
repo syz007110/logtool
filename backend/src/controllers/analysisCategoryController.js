@@ -2,6 +2,7 @@ const AnalysisCategory = require('../models/analysis_category');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 // 获取所有分析分类（支持分页和搜索）
 const getAnalysisCategories = async (req, res) => {
@@ -24,8 +25,7 @@ const getAnalysisCategories = async (req, res) => {
     }
     
     // 解析分页参数
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 10;
+    const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
     const offset = (pageNum - 1) * limitNum;
     
     // 使用 findAndCountAll 获取分页数据和总数

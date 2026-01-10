@@ -62,7 +62,8 @@
       "nl": "荷兰语",
       "sk": "斯洛伐克语",
       "ro": "罗马尼亚语",
-      "da": "丹麦语"
+      "da": "丹麦语",
+      "lv": "拉脱维亚语"
     },
     "languageOptions": {
       "zh": "中文 (zh)",
@@ -150,12 +151,14 @@
       "attachments": "附件"
     },
     "jiraKeyPlaceholder": "例如：LOG-4420",
+    "modulePlaceholder": "选择模块",
     "titlePlaceholder": "请输入故障案例的主标题...",
     "symptomPlaceholder": "详细描述观察到的现象...",
     "possibleCausesPlaceholder": "是什么导致了这个问题？硬件故障？配置错误？",
     "solutionPlaceholder": "解决此问题的分步说明...",
     "remarkPlaceholder": "内部注释、调试步骤...",
-    "keywordsPlaceholder": "用逗号或空格分隔，例如：轴故障, 编码器, 抖动",
+    "keywordsPlaceholder": "可用回车分隔，例如：轴故障, 编码器, 抖动",
+    "statusPlaceholder": "选择状态",
     "relatedErrorCodesPlaceholder": "关联 MySQL 故障码 ID（逗号分隔），例如：12, 34",
     "deviceSelectPlaceholder": "输入关键词搜索设备（device_id/医院等）",
     "equipmentModelPlaceholder": "输入或选择设备型号",
@@ -165,6 +168,10 @@
     "searchErrorCodesHint": "请输入关键词搜索故障码",
     "selectedErrorCodesCount": "已选择 {count} 个故障码",
     "updatedAtUserPlaceholder": "可选：手动指定更新时间（用于展示排序）",
+    "noPermissionToLoadModules": "没有权限加载模块列表，请联系管理员授予 fault_case_config:manage 权限",
+    "failedToLoadModules": "加载模块列表失败",
+    "noPermissionToLoadStatuses": "没有权限加载状态列表，请联系管理员授予 fault_case_config:manage 权限",
+    "failedToLoadStatuses": "加载状态列表失败",
     "validation": {
       "titleRequired": "标题不能为空",
       "moduleRequired": "模块不能为空"
@@ -183,9 +190,11 @@
       "attachments": "附件",
       "related_error_code_ids": "关联故障码",
       "device_id": "设备编号",
-    "equipment_model": "设备型号",
+      "equipment_model": "设备型号",
       "keywords": "关键词",
-      "updated_at_user": "更新时间（手动）"
+      "status": "状态",
+      "updated_at_user": "更新时间（手动）",
+      "hintInfo": "提示信息"
     },
     "columns": {
       "title": "标题",
@@ -531,6 +540,9 @@
       "inactive": "禁用",
       "mappings": "映射",
       "mappingsTitle": "映射管理",
+      "mappingFields": "映射字段",
+      "mappingFieldsPlaceholder": "输入值（例如 'Pending, Open'）并按 Enter...",
+      "mappingTip": "提示：您可以粘贴逗号分隔的值以一次添加多个项目。",
       "addMapping": "新增映射",
       "editMapping": "编辑映射",
       "deleteMappingConfirm": "确定要删除这条映射吗？",
@@ -540,6 +552,8 @@
       "sourceValuePlaceholder": "如 Done / Closed / 已解决",
       "fetchMappingsFailed": "加载映射失败",
       "submitFailed": "提交失败",
+      "editItem": "编辑项目",
+      "editItemSubtitle": "配置名称和映射值。",
       "validation": {
         "sourceFieldRequired": "请输入映射字段",
         "sourceValueRequired": "请输入映射值"
@@ -609,6 +623,8 @@
     "deleteConfirmText": "确定要删除这条多语言内容吗？",
     "exportDialogTitle": "导出多语言XML",
     "selectLanguages": "选择语言",
+    "selectAll": "全选",
+    "clearAll": "清空",
     "selectAtLeastOne": "请至少选择一种语言",
     "multiLanguageExportSuccess": "多语言导出成功",
     "formPlaceholders": {
@@ -739,6 +755,7 @@
     "titlePlaceholder": "请填写问题标题（100字以内）",
     "descriptionPlaceholder": "请描述遇到的问题（500字以内）",
     "fieldTitle": "标题",
+    "issueTitle": "问题标题",
     "description": "描述",
     "images": "图片",
     "uploadTips": "支持 JPG/PNG/WebP，单张≤2MB，最多3张",
@@ -1190,15 +1207,16 @@
     "resetPasswordSuccess": "密码重置成功",
     "resetPasswordFailed": "密码重置失败"
   },
-  "roles": {
-    "title": "角色管理",
-    "name": "角色名称",
-    "description": "角色描述",
-    "permissions": "权限",
-    "userCount": "关联用户数",
-    "addRole": "添加角色",
-    "editRole": "编辑角色",
-    "deleteRole": "删除角色",
+    "roles": {
+      "title": "角色管理",
+      "name": "角色名称",
+      "description": "角色描述",
+      "permissions": "权限",
+      "userCount": "关联用户数",
+      "addRole": "添加角色",
+      "editRole": "编辑角色",
+      "deleteRole": "删除角色",
+      "searchPlaceholder": "搜索角色名称或描述",
     "rules": {
       "nameRequired": "请输入角色名称",
       "descriptionRequired": "请输入角色描述"
@@ -1218,6 +1236,7 @@
       "role": "角色管理",
       "error_code": "故障码管理",
       "fault_case": "故障案例管理",
+      "fault_case_config": "故障案例配置",
       "log": "日志管理",
       "i18n": "多语言管理",
       "device": "设备管理",
@@ -1267,7 +1286,8 @@
       "user.assign_roles": "用户管理 · 分配角色",
       "user.role.assign": "用户管理 · 角色分配",
       "role.assign": "角色管理 · 分配权限",
-      "fault_case.review": "故障案例管理 · 审核"
+      "fault_case.review": "故障案例管理 · 审核",
+      "fault_case_config.manage": "故障案例配置 · 管理"
     }
   },
   "surgeryStatistics": {

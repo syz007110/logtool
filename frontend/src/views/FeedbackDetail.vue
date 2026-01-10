@@ -1,5 +1,5 @@
 <template>
-  <div class="card" v-if="detail">
+  <div class="detail-card" v-if="detail">
     <div class="header">
       <h3>{{ detail.title }}</h3>
       <el-tag :type="statusType(detail.status)">{{ statusText(detail.status) }}</el-tag>
@@ -7,7 +7,13 @@
     <div class="meta">{{ $t('feedback.submitTime') }}：{{ formatTime(detail.created_at) }}</div>
     <div class="desc" v-text="detail.description"></div>
     <div class="images" v-if="detail.images && detail.images.length">
-      <el-image v-for="img in detail.images" :key="img.id" :src="toAbs(img.url)" :preview-src-list="detail.images.map(i=>toAbs(i.url))" />
+      <el-image 
+        v-for="img in detail.images" 
+        :key="img.id" 
+        :src="toAbs(img.url)" 
+        :preview-src-list="detail.images.map(i=>toAbs(i.url))"
+        fit="cover"
+      />
     </div>
   </div>
 </template>
@@ -44,13 +50,49 @@ export default {
 </script>
 
 <style scoped>
-.card { background: #fff; padding: 20px; border-radius: 8px; }
-.header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
-.header h3 { margin: 0; }
-.meta { color: #888; margin-bottom: 12px; }
-.desc { white-space: pre-wrap; margin-bottom: 12px; }
-.images { display: flex; gap: 12px; flex-wrap: wrap; }
-.images .el-image { width: 160px; height: 160px; object-fit: cover; }
+.detail-card {
+  background: rgb(var(--background));
+  padding: 20px;
+  border-radius: var(--radius);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.header h3 {
+  margin: 0;
+  color: rgb(var(--text-primary));
+  font-weight: 600;
+}
+
+.meta {
+  color: rgb(var(--text-secondary));
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.desc {
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+  color: rgb(var(--text-primary));
+  line-height: 1.6;
+}
+
+.images {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.images .el-image {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid rgb(var(--border));
+}
 </style>
-
-

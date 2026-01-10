@@ -1,56 +1,51 @@
 <template>
   <div class="surgeries-container">
-    <!-- 按设备分组的手术列表 -->
-    <el-card class="list-card">
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('logs.surgeryData') }}</span>
-          <div class="header-actions">
-            <div class="search-section">
-              <el-input
-                v-model="keywordFilter"
-                :placeholder="$t('logs.keywordSearchPlaceholder')"
-                class="search-input"
-                clearable
-                @clear="handleKeywordClear"
-              >
-                <template #prefix>
-                  <el-icon><Search /></el-icon>
-                </template>
-              </el-input>
-            </div>
-            <div class="action-section">
-              <button class="btn-secondary btn-sm" @click="resetFilters">
-                <i class="fas fa-undo"></i>
-                {{ $t('shared.reset') }}
-              </button>
-              <button class="btn-secondary btn-sm" @click="loadDeviceGroups">
-                <i class="fas fa-sync-alt"></i>
-                {{ $t('shared.refresh') }}
-              </button>
-            </div>
-          </div>
+    <!-- 统一卡片：包含所有控件 -->
+    <el-card class="main-card">
+      <!-- 搜索和操作栏 -->
+      <div class="action-bar">
+        <div class="search-section">
+          <el-input
+            v-model="keywordFilter"
+            :placeholder="$t('logs.keywordSearchPlaceholder')"
+            class="search-input"
+            clearable
+            @clear="handleKeywordClear"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
         </div>
-      </template>
+        <div class="action-section">
+          <el-button type="default" size="small" :icon="RefreshLeft" @click="resetFilters">
+            {{ $t('shared.reset') }}
+          </el-button>
+          <el-button type="default" size="small" :icon="Refresh" @click="loadDeviceGroups">
+            {{ $t('shared.refresh') }}
+          </el-button>
+        </div>
+      </div>
 
-      <el-table
-        :data="deviceGroups"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-      >
+      <!-- 设备列表 - 可滚动容器 -->
+      <div class="table-container">
+        <el-table
+          :data="deviceGroups"
+          :loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+          v-loading="loading"
+        >
         <el-table-column prop="device_id" :label="$t('logs.deviceId')" width="200">
           <template #default="{ row }">
-            <div class="min-w-0">
-              <el-button 
-                type="text" 
-                @click="showDeviceDetail(row)"
-                style="padding: 0; font-weight: 500; color: var(--text-link); max-width: 100%;"
-                :title="row.device_id"
-              >
-                <span class="one-line-ellipsis" style="display:inline-block; max-width:100%;">{{ row.device_id }}</span>
-              </el-button>
-            </div>
+            <el-button 
+              text
+              size="small"
+              @click="showDeviceDetail(row)"
+              :title="row.device_id"
+            >
+              {{ row.device_id }}
+            </el-button>
           </template>
         </el-table-column>
         <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" min-width="200">
@@ -63,17 +58,23 @@
             <el-tag type="info" size="small">{{ row.surgery_count }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="center">
+        <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
           <template #default="{ row }">
-            <div class="btn-group">
-              <button class="btn-text btn-sm" @click="showDeviceDetail(row)">
-                <i class="fas fa-list"></i>
+            <div class="btn-group operation-buttons">
+              <el-button
+                text
+                size="small"
+                @click="showDeviceDetail(row)"
+                :aria-label="$t('logs.detail')"
+                :title="$t('logs.detail')"
+              >
                 {{ $t('logs.detail') }}
-              </button>
+              </el-button>
             </div>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
 
       <!-- 设备列表分页 -->
       <div class="pagination-wrapper">
@@ -106,10 +107,9 @@
           </div>
           <div class="header-controls">
             <div class="refresh-section">
-              <button class="btn-secondary btn-sm" @click="loadDetailSurgeries">
-                <i class="fas fa-sync-alt"></i>
+              <el-button type="default" size="small" :icon="Refresh" @click="loadDetailSurgeries">
                 {{ $t('shared.refresh') }}
-              </button>
+              </el-button>
             </div>
           </div>
         </div>
@@ -205,18 +205,38 @@
             <el-table-column prop="end_time" :label="$t('logs.surgeryEndTime')">
               <template #default="{ row }">{{ formatDate(row.end_time) }}</template>
             </el-table-column>
-            <el-table-column :label="$t('shared.operation')" align="center">
+            <el-table-column :label="$t('shared.operation')" align="left">
               <template #default="{ row }">
-                <div class="btn-group">
-                  <button class="btn-text btn-sm" @click="viewLogsBySurgery(row)">{{ $t('logs.viewLogs') }}</button>
-                  <button class="btn-text btn-sm" @click="visualizeSurgery(row)">{{ $t('batchAnalysis.visualize') }}</button>
-                  <button 
+                <div class="btn-group operation-buttons">
+                  <el-button
+                    text
+                    size="small"
+                    @click="viewLogsBySurgery(row)"
+                    :aria-label="$t('logs.viewLogs')"
+                    :title="$t('logs.viewLogs')"
+                  >
+                    {{ $t('logs.viewLogs') }}
+                  </el-button>
+                  <el-button
+                    text
+                    size="small"
+                    @click="visualizeSurgery(row)"
+                    :aria-label="$t('batchAnalysis.visualize')"
+                    :title="$t('batchAnalysis.visualize')"
+                  >
+                    {{ $t('batchAnalysis.visualize') }}
+                  </el-button>
+                  <el-button 
                     v-if="canDeleteSurgery" 
-                    class="btn-text-danger btn-sm" 
+                    text
+                    size="small"
+                    class="btn-danger-text"
                     @click="deleteSurgery(row)"
+                    :aria-label="$t('shared.delete')"
+                    :title="$t('shared.delete')"
                   >
                     {{ $t('shared.delete') }}
-                  </button>
+                  </el-button>
                 </div>
               </template>
             </el-table-column>
@@ -244,13 +264,15 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
+import { Search, Refresh, RefreshLeft, List } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 import { formatTime, loadServerTimezone } from '@/utils/timeFormatter'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'Surgeries',
@@ -290,6 +312,11 @@ export default {
     const canDeleteSurgery = computed(() => store.getters['auth/hasPermission']?.('surgery:delete'))
     const hasDeviceReadPermission = computed(() => store.getters['auth/hasPermission']?.('device:read'))
 
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
+
     // 加载设备分组
     const loadDeviceGroups = async (options = {}) => {
       const silent = options && options.silent === true
@@ -306,97 +333,16 @@ export default {
         loading.value = true
         lastDeviceGroupsLoadAt.value = now
 
-        // 可选获取设备列表（用于获取医院信息）；无设备权限则跳过
-        const deviceInfoMap = new Map()
-        try {
-          if (store.getters['auth/hasPermission']?.('device:read')) {
-            const devicesResp = await api.devices.getList({ limit: 1000 })
-            const devices = devicesResp.data?.devices || []
-            devices.forEach(device => {
-              deviceInfoMap.set(device.device_id, {
-                hospital_name: device.hospital || null
-              })
-            })
-          }
-        } catch (_) {
-          // 忽略设备列表拉取失败（例如 403），不影响手术数据分组
-        }
-
-        // 使用后端分页获取所有手术数据（用于分组统计）
-        // 分页循环获取，避免一次性加载过多数据
-        const allSurgeries = []
-        let page = 1
-        const perPage = 1000 // 每次获取1000条，平衡性能和请求次数
-        let hasMore = true
-        let totalCount = 0
-
-        while (hasMore) {
-          const resp = await api.surgeries.list({
-            page,
-            limit: perPage
-          })
-          const surgeries = resp.data?.data || []
-          const total = resp.data?.total || 0
-          
-          if (page === 1) {
-            totalCount = total
-          }
-          
-          allSurgeries.push(...surgeries)
-          
-          // 判断是否还有更多数据
-          hasMore = surgeries.length === perPage && allSurgeries.length < totalCount
-          page++
-          
-          // 安全限制：最多获取50000条数据，避免无限循环
-          if (allSurgeries.length >= 50000) {
-            console.warn('设备分组统计：数据量过大，仅统计前50000条手术数据')
-            break
-          }
-        }
-
-        // 按设备分组并统计
-        const deviceMap = new Map()
-        allSurgeries.forEach(surgery => {
-          const deviceIds = surgery.device_ids || []
-          deviceIds.forEach(deviceId => {
-            if (!deviceMap.has(deviceId)) {
-              const deviceInfo = deviceInfoMap.get(deviceId)
-              // 后端已附带 hospital_names（按手术维度），无设备权限时回退到手术的首个医院名
-              const fallbackHospital = Array.isArray(surgery.hospital_names) && surgery.hospital_names.length > 0
-                ? surgery.hospital_names[0]
-                : (surgery.hospital_name || null)
-              deviceMap.set(deviceId, {
-                device_id: deviceId,
-                hospital_name: deviceInfo?.hospital_name || fallbackHospital || null,
-                surgery_count: 0
-              })
-            }
-            const deviceGroup = deviceMap.get(deviceId)
-            deviceGroup.surgery_count++
-          })
+        // ⚠️ 性能优化：之前实现会循环请求所有手术数据后在内存中分组，数据量大时非常慢
+        // 现在改为直接调用后端按设备分组的接口，数据库层完成分组和分页
+        const resp = await api.surgeries.getByDevice({
+          page: currentPage.value,
+          limit: pageSize.value,
+          keyword: keywordFilter.value.trim() || undefined
         })
-
-        // 转换为数组并排序（按手术数量降序）
-        let groupedArray = Array.from(deviceMap.values())
-          .sort((a, b) => b.surgery_count - a.surgery_count)
-
-        // 应用关键字筛选（支持设备编号和医院名称）
-        const keyword = keywordFilter.value.trim().toLowerCase()
-        if (keyword) {
-          groupedArray = groupedArray.filter(device => {
-            const matchDeviceId = device.device_id?.toLowerCase().includes(keyword) || false
-            const matchHospital = device.hospital_name?.toLowerCase().includes(keyword) || false
-            return matchDeviceId || matchHospital
-          })
-        }
-
-        // 应用分页
-        const total = groupedArray.length
-        const start = (currentPage.value - 1) * pageSize.value
-        const end = start + pageSize.value
-        deviceGroups.value = groupedArray.slice(start, end)
-        deviceTotal.value = total
+        
+        deviceGroups.value = resp.data?.device_groups || []
+        deviceTotal.value = resp.data?.pagination?.total || 0
       } catch (error) {
         if (!silent) {
           ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
@@ -886,21 +832,19 @@ export default {
       visualizeSurgeryData(row, { queryId: row.id })
     }
 
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     // 删除手术
     const deleteSurgery = async (row) => {
       try {
-        await ElMessageBox.confirm(
-          t('logs.messages.confirmDeleteSurgery'),
-          t('shared.messages.deleteConfirmTitle'),
-          {
-            confirmButtonText: t('shared.confirm'),
-            cancelButtonText: t('shared.cancel'),
-            type: 'warning',
-            confirmButtonClass: 'btn-primary-danger',
-            cancelButtonClass: 'btn-secondary'
-          }
-        )
-        
+        const confirmed = await confirmDelete(row, {
+          message: t('logs.messages.confirmDeleteSurgery'),
+          title: t('shared.messages.deleteConfirmTitle')
+        })
+
+        if (!confirmed) return
+
         await api.surgeries.remove(row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
         // 如果是在抽屉中删除，刷新抽屉数据；否则刷新设备列表
@@ -912,9 +856,7 @@ export default {
           loadDeviceGroups()
         }
       } catch (e) {
-        if (e !== 'cancel') {
-          ElMessage.error(t('shared.messages.deleteFailed'))
-        }
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
 
@@ -1048,7 +990,12 @@ export default {
       // 医院信息脱敏
       maskHospitalName,
       // 图标
-      Search
+      Search,
+      Refresh,
+      RefreshLeft,
+      List,
+      // 表格高度
+      tableHeight
     }
   }
 }
@@ -1056,31 +1003,36 @@ export default {
 
 <style scoped>
 .surgeries-container {
-  height: 100%;
-}
-
-.list-card {
-  margin-bottom: 20px;
-}
-
-.card-header {
+  height: calc(100vh - 64px);
+  background: var(--black-white-white);
+  padding: 24px;
+  overflow: hidden;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
 }
 
-.card-header > span {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.main-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
   flex: 1;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .search-section {
@@ -1097,20 +1049,32 @@ export default {
   flex-shrink: 0;
 }
 
-.action-section button.btn-sm {
-  height: 32px;
-  box-sizing: border-box;
-  padding: 6px 12px;
-}
 
 .search-input {
   width: 280px;
 }
 
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
 .pagination-wrapper {
+  padding: 8px 0 12px 0;
   display: flex;
   justify-content: center;
-  margin-top: 20px;
 }
 
 .one-line-ellipsis {
@@ -1137,7 +1101,7 @@ export default {
   align-items: flex-start;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-secondary);
+  border-bottom: 1px solid var(--slate-300);
 }
 
 .device-info {
@@ -1146,13 +1110,13 @@ export default {
 
 .device-info h3 {
   margin: 0 0 10px 0;
-  color: var(--text-primary);
+  color: var(--slate-900);
   font-size: 18px;
 }
 
 .device-info p {
   margin: 5px 0;
-  color: var(--text-secondary);
+  color: var(--slate-600);
   font-size: 14px;
 }
 
@@ -1220,4 +1184,25 @@ export default {
   display: inline-flex;
   align-items: center;
 }
+
+/* 操作列按钮组样式 */
+.operation-buttons {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+/* 删除按钮文字颜色（使用 Design Token） */
+.btn-danger-text {
+  color: var(--el-color-danger) !important;
+}
+
+.btn-danger-text:hover {
+  color: var(--el-color-danger-light-3) !important;
+}
+
+.btn-danger-text:active {
+  color: var(--el-color-danger-dark-2) !important;
+}
+
 </style>

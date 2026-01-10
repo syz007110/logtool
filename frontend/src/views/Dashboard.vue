@@ -1,16 +1,11 @@
 <template>
-  <a-layout class="dashboard-layout">
+  <el-container class="dashboard-layout">
     <!-- 侧边栏 -->
-    <a-layout-sider
+    <el-aside
       v-if="!hideSidebar"
-      :collapsed="collapsed"
-      @update:collapsed="onSiderCollapsedChange"
-      :trigger="null"
-      collapsible
+      :width="collapsed ? '80px' : '256px'"
       class="dashboard-sider"
-      :width="256"
-      :collapsed-width="80"
-      theme="light"
+      :class="{ 'is-collapsed': collapsed }"
     >
       <!-- Logo区域 -->
       <div class="logo">
@@ -25,201 +20,186 @@
       <!-- 菜单容器，可滚动 -->
       <div class="sidebar-menu-container">
         <!-- 菜单 -->
-        <a-menu
-          :selectedKeys="selectedKeys"
-          @update:selectedKeys="onSelectedKeys"
-          :openKeys="openKeys"
-          @update:openKeys="onOpenKeys"
-          mode="inline"
+        <el-menu
+          :default-active="activeMenuKey"
+          :default-openeds="openKeys"
+          :collapse="collapsed"
           class="dashboard-menu"
-          @click="handleMenuClick"
+          @select="handleMenuSelect"
         >
           <!-- 智能搜索：跳转到独立页面 -->
-          <a-menu-item key="/smart-search">
-            <template #icon>
-              <SearchOutlined />
-            </template>
-            <span>{{ $t('smartSearch.title') }}</span>
-          </a-menu-item>
+          <el-menu-item index="/smart-search">
+            <el-icon :size="20"><Search /></el-icon>
+            <template #title>{{ $t('smartSearch.title') }}</template>
+          </el-menu-item>
           
           <!-- 故障码管理 -->
-          <a-sub-menu key="data-management">
-            <template #icon>
-              <DatabaseOutlined />
+          <el-sub-menu index="data-management">
+            <template #title>
+              <el-icon :size="20"><Folder /></el-icon>
+              <span>{{ $t('nav.dataManagement') }}</span>
             </template>
-            <template #title>{{ $t('nav.dataManagement') }}</template>
-            <a-menu-item key="/dashboard/error-codes">
-              <span>{{ $t('errorCodes.title') }}</span>
-            </a-menu-item>
-            <a-menu-item key="/dashboard/i18n-error-codes">
-              <span>{{ $t('i18nErrorCodes.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:read')" key="/dashboard/fault-cases">
-              <span>{{ $t('faultCases.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('loglevel:manage')" key="/dashboard/config-management">
-              <span>{{ $t('configManagement.title') }}</span>
-            </a-menu-item>
-          </a-sub-menu>
+            <el-menu-item index="/dashboard/error-codes">
+              {{ $t('errorCodes.title') }}
+            </el-menu-item>
+            <el-menu-item index="/dashboard/i18n-error-codes">
+              {{ $t('i18nErrorCodes.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:read')" index="/dashboard/fault-cases">
+              {{ $t('faultCases.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('loglevel:manage')" index="/dashboard/config-management">
+              {{ $t('configManagement.title') }}
+            </el-menu-item>
+          </el-sub-menu>
           
           <!-- 日志与手术数据 -->
-          <a-sub-menu key="log-analysis">
-            <template #icon>
-              <FileTextOutlined />
+          <el-sub-menu index="log-analysis">
+            <template #title>
+              <el-icon :size="20"><Document /></el-icon>
+              <span>{{ $t('nav.logAndSurgery') }}</span>
             </template>
-            <template #title>{{ $t('nav.logAndSurgery') }}</template>
-            <a-menu-item key="/dashboard/logs">
-              <span>{{ $t('logs.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('data_replay:manage')" key="/dashboard/data-replay">
-              <span>{{ $t('dataReplay.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('surgery:read') || $store.getters['auth/hasPermission']('surgery:read_own')" key="/dashboard/surgeries">
-              <span>{{ $t('logs.surgeryData') }}</span>
-            </a-menu-item>
-          </a-sub-menu>
+            <el-menu-item index="/dashboard/logs">
+              {{ $t('logs.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('data_replay:manage')" index="/dashboard/data-replay">
+              {{ $t('dataReplay.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('surgery:read') || $store.getters['auth/hasPermission']('surgery:read_own')" index="/dashboard/surgeries">
+              {{ $t('logs.surgeryData') }}
+            </el-menu-item>
+          </el-sub-menu>
           
           <!-- 全局看板 -->
-          <a-menu-item key="/dashboard/global-dashboard">
-            <template #icon>
-              <AppstoreOutlined />
-            </template>
-            <span>{{ $t('globalDashboard.title') }}</span>
-          </a-menu-item>
+          <el-menu-item index="/dashboard/global-dashboard">
+            <el-icon :size="20"><Grid /></el-icon>
+            <template #title>{{ $t('globalDashboard.title') }}</template>
+          </el-menu-item>
           
           <!-- 缺陷反馈 -->
-          <a-menu-item key="/dashboard/feedback">
-            <template #icon>
-              <BugOutlined />
-            </template>
-            <span>{{ $t('feedback.title') }}</span>
-          </a-menu-item>
+          <el-menu-item index="/dashboard/feedback">
+            <el-icon :size="20"><Warning /></el-icon>
+            <template #title>{{ $t('feedback.title') }}</template>
+          </el-menu-item>
           
           <!-- 账户信息 -->
-          <a-menu-item key="/dashboard/account">
-            <template #icon>
-              <UserOutlined />
-            </template>
-            <span>{{ $t('account.title') }}</span>
-          </a-menu-item>
+          <el-menu-item index="/dashboard/account">
+            <el-icon :size="20"><User /></el-icon>
+            <template #title>{{ $t('account.title') }}</template>
+          </el-menu-item>
           
           <!-- 系统管理 -->
-          <a-sub-menu v-if="$store.getters['auth/hasPermission']('user:read') || $store.getters['auth/hasPermission']('role:read') || $store.getters['auth/hasPermission']('device:read') || $store.getters['auth/hasPermission']('history:read_all')" key="system-management">
-            <template #icon>
-              <SettingOutlined />
+          <el-sub-menu v-if="$store.getters['auth/hasPermission']('user:read') || $store.getters['auth/hasPermission']('role:read') || $store.getters['auth/hasPermission']('device:read') || $store.getters['auth/hasPermission']('history:read_all')" index="system-management">
+            <template #title>
+              <el-icon :size="20"><Setting /></el-icon>
+              <span>{{ $t('nav.systemManagement') }}</span>
             </template>
-            <template #title>{{ $t('nav.systemManagement') }}</template>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('user:read')" key="/dashboard/users">
-              <span>{{ $t('users.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('role:read')" key="/dashboard/roles">
-              <span>{{ $t('roles.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('device:read')" key="/dashboard/devices">
-              <span>{{ $t('devices.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('history:read_all') || $store.getters['auth/hasPermission']('history:read_own')" key="/dashboard/history">
-              <span>{{ $t('history.title') }}</span>
-            </a-menu-item>
-            <a-menu-item v-if="$store.getters['auth/hasPermission']('system:monitor')" key="/dashboard/monitoring">
-              <span>{{ $t('monitoring.title') }}</span>
-            </a-menu-item>
-          </a-sub-menu>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('user:read')" index="/dashboard/users">
+              {{ $t('users.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('role:read')" index="/dashboard/roles">
+              {{ $t('roles.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('device:read')" index="/dashboard/devices">
+              {{ $t('devices.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('history:read_all') || $store.getters['auth/hasPermission']('history:read_own')" index="/dashboard/history">
+              {{ $t('history.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('system:monitor')" index="/dashboard/monitoring">
+              {{ $t('monitoring.title') }}
+            </el-menu-item>
+          </el-sub-menu>
           
           <!-- 测试 -->
-          <a-menu-item v-if="$store.getters['auth/hasPermission']('test:explain')" key="/dashboard/explanation-tester">
-            <template #icon>
-              <ExperimentOutlined />
-            </template>
-            <span>{{ $t('nav.test') }}</span>
-          </a-menu-item>
-        </a-menu>
+          <el-menu-item v-if="$store.getters['auth/hasPermission']('test:explain')" index="/dashboard/explanation-tester">
+            <el-icon :size="20"><Tools /></el-icon>
+            <template #title>{{ $t('nav.test') }}</template>
+          </el-menu-item>
+        </el-menu>
       </div>
 
       <!-- 侧边栏底部用户菜单 - 固定在底部 -->
       <div class="sidebar-footer">
         <div class="user-menu-wrapper">
-          <a-dropdown placement="topRight">
-            <div class="user-info-btn">
-              <a-avatar :size="collapsed ? 32 : 36" class="user-avatar">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
-              <div v-if="!collapsed" class="user-details">
-                <span class="username-text">{{ currentUser?.username }}</span>
-                <span class="role-text">{{ currentUser?.role }}</span>
+          <el-dropdown placement="top" trigger="click" @command="handleUserCommand">
+            <div class="user-info-btn" :class="{ 'is-collapsed': collapsed }">
+              <el-avatar :size="collapsed ? 32 : 40" class="user-avatar">
+                <el-icon><User /></el-icon>
+              </el-avatar>
+              <div v-if="!collapsed" class="user-info-content">
+                <div class="user-details">
+                  <span class="username-text">{{ currentUser?.username || 'User' }}</span>
+                  <span class="role-text">{{ getRoleDisplayName(currentUser?.role) }}</span>
+                </div>
+                <el-icon class="chevron-icon"><ArrowDown /></el-icon>
               </div>
-              <SettingOutlined v-if="!collapsed" class="settings-icon" />
             </div>
-            <template #overlay>
-              <a-menu @click="handleUserCommand">
-                <a-menu-item key="profile">
-                  <template #icon><UserOutlined /></template>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile" class="dropdown-item-normal">
+                  <el-icon><User /></el-icon>
                   {{ $t('nav.profile') }}
-                </a-menu-item>
-                <a-menu-divider />
-                <a-menu-item key="logout">
-                  <template #icon><LogoutOutlined /></template>
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout" class="dropdown-item-danger">
+                  <el-icon><SwitchButton /></el-icon>
                   {{ $t('nav.logout') }}
-                </a-menu-item>
-              </a-menu>
+                </el-dropdown-item>
+              </el-dropdown-menu>
             </template>
-          </a-dropdown>
+          </el-dropdown>
         </div>
       </div>
-    </a-layout-sider>
+    </el-aside>
     
     <!-- 主内容区域 -->
-    <a-layout class="main-layout">
+    <el-container class="main-layout">
       <!-- 顶部导航栏 -->
-      <a-layout-header class="dashboard-header">
+      <el-header v-if="!hideSidebar" class="dashboard-header">
         <div class="header-left">
-          <a-button
-            v-if="!hideSidebar"
-            type="text"
+          <el-button
+            text
             class="trigger-btn"
             @click="toggleCollapsed"
           >
-            <template #icon>
-              <MenuUnfoldOutlined v-if="collapsed" />
-              <MenuFoldOutlined v-else />
-            </template>
-          </a-button>
+            <el-icon :size="20"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
+          </el-button>
           
           <!-- 导航层级 (Breadcrumbs) -->
-          <a-breadcrumb class="nav-breadcrumb">
-            <a-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index">
+          <el-breadcrumb class="nav-breadcrumb" separator="/">
+            <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index">
               <router-link v-if="item.path" :to="item.path">{{ item.title }}</router-link>
               <span v-else>{{ item.title }}</span>
-            </a-breadcrumb-item>
-          </a-breadcrumb>
+            </el-breadcrumb-item>
+          </el-breadcrumb>
         </div>
         
         <div class="header-right">
           <!-- 语言切换 -->
-          <a-dropdown>
-            <a-button type="text" class="lang-btn">
-              <template #icon>
-                <GlobalOutlined />
-              </template>
+          <el-dropdown trigger="click" @command="handleLanguageChange">
+            <el-button text class="lang-btn">
+              <el-icon><Globe /></el-icon>
               {{ currentLocaleLabel }}
-            </a-button>
-            <template #overlay>
-              <a-menu @click="handleLanguageChange">
-                <a-menu-item key="zh-CN">中文</a-menu-item>
-                <a-menu-item key="en-US">English</a-menu-item>
-              </a-menu>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+                <el-dropdown-item command="en-US">English</el-dropdown-item>
+              </el-dropdown-menu>
             </template>
-          </a-dropdown>
+          </el-dropdown>
         </div>
-      </a-layout-header>
+      </el-header>
       
       <!-- 内容区域 -->
-      <a-layout-content v-if="!hideSidebar && !hideContentWrapper" class="dashboard-content">
+      <el-main v-if="!hideSidebar && !hideContentWrapper" class="dashboard-content">
         <router-view />
-      </a-layout-content>
-      <router-view v-else />
-    </a-layout>
-  </a-layout>
+      </el-main>
+      <div v-else class="router-view-wrapper">
+        <router-view />
+      </div>
+    </el-container>
+  </el-container>
 </template>
 
 <script>
@@ -228,60 +208,25 @@ import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import { ElMessageBox } from 'element-plus'
 import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  FileTextOutlined,
-  TranslationOutlined,
-  SettingOutlined,
-  PlayCircleOutlined,
-  MessageOutlined,
-  UserOutlined,
-  ClockCircleOutlined,
-  TeamOutlined,
-  KeyOutlined,
-  GlobalOutlined,
-  ExperimentOutlined,
-  // 添加新的图标
-  BugOutlined,
-  DatabaseOutlined,
-  ToolOutlined,
-  BookOutlined,
-  SafetyOutlined,
-  AppstoreOutlined,
-  MonitorOutlined,
-  SearchOutlined,
-  LogoutOutlined
-} from '@ant-design/icons-vue'
+  Search,
+  Folder,
+  Document,
+  Grid,
+  Warning,
+  User,
+  Setting,
+  Tools,
+  Fold,
+  Expand,
+  Globe,
+  SwitchButton,
+  ArrowDown
+} from '@element-plus/icons-vue'
 
 export default {
   name: 'Dashboard',
-  components: {
-    MenuFoldOutlined,
-    MenuUnfoldOutlined,
-    FileTextOutlined,
-    TranslationOutlined,
-    SettingOutlined,
-    PlayCircleOutlined,
-    MessageOutlined,
-    UserOutlined,
-    ClockCircleOutlined,
-    TeamOutlined,
-    KeyOutlined,
-    GlobalOutlined,
-    ExperimentOutlined,
-    // 注册新的图标组件
-    BugOutlined,
-    DatabaseOutlined,
-    ToolOutlined,
-    BookOutlined,
-    SafetyOutlined,
-    AppstoreOutlined,
-    MonitorOutlined,
-    SearchOutlined,
-    LogoutOutlined
-  },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -337,7 +282,8 @@ export default {
         Roles: 'roles.title',
         BatchAnalysis: 'batchAnalysis.title',
         GlobalDashboard: 'globalDashboard.title',
-        Monitoring: 'monitoring.title'
+        Monitoring: 'monitoring.title',
+        ExplanationTester: 'nav.test'
       }
       return nameMap[name]
     }
@@ -376,28 +322,28 @@ export default {
     // 侧边栏折叠状态
     const collapsed = ref(localStorage.getItem('sidebarCollapsed') === '1')
     
-    // 菜单选中状态
-    const selectedKeys = ref([route.path])
+    // Element Plus 菜单使用 default-active（当前激活的菜单项）
+    const activeMenuKey = computed(() => route.path)
     
     // 根据当前路径确定应该展开的子菜单
     const getOpenKeysFromPath = (path) => {
+      const keys = []
       if (path.includes('/error-codes') || path.includes('/i18n-error-codes') || path.includes('/fault-cases') || path.includes('/analysis-categories') || path.includes('/config-management')) {
-        return ['data-management']
+        keys.push('data-management')
       }
       if (path.includes('/logs') || path.includes('/data-replay') || path.includes('/surgeries')) {
-        return ['log-analysis']
+        keys.push('log-analysis')
       }
       if (path.includes('/users') || path.includes('/roles') || path.includes('/devices') || path.includes('/history') || path.includes('/monitoring')) {
-        return ['system-management']
+        keys.push('system-management')
       }
-      return []
+      return keys
     }
     
     const openKeys = ref(getOpenKeysFromPath(route.path))
     
-    // 监听路由变化，更新选中菜单和展开的子菜单
+    // 监听路由变化，更新展开的子菜单
     watch(() => route.path, (newPath) => {
-      selectedKeys.value = [newPath]
       openKeys.value = getOpenKeysFromPath(newPath)
     }, { immediate: true })
     
@@ -405,25 +351,24 @@ export default {
       collapsed.value = !collapsed.value
       localStorage.setItem('sidebarCollapsed', collapsed.value ? '1' : '0')
     }
-
-    const onSiderCollapsedChange = (val) => {
-      collapsed.value = !!val
-      localStorage.setItem('sidebarCollapsed', collapsed.value ? '1' : '0')
-    }
     
-    const handleMenuClick = ({ key }) => {
-      router.push(key)
-    }
-
-    const onSelectedKeys = (keys) => {
-      selectedKeys.value = Array.isArray(keys) ? keys : [keys]
-    }
-
-    const onOpenKeys = (keys) => {
-      openKeys.value = Array.isArray(keys) ? keys : []
+    // Element Plus 菜单选择事件
+    const handleMenuSelect = (index) => {
+      router.push(index)
     }
     
     const currentUser = computed(() => store.getters['auth/currentUser'])
+    
+    // 获取角色显示名称
+    const getRoleDisplayName = (role) => {
+      if (!role) return ''
+      const roleMap = {
+        admin: t('users.roleAdmin'),
+        expert: t('users.roleExpert'),
+        user: t('users.roleUser')
+      }
+      return roleMap[role] || role
+    }
     
     const getPageTitleKey = computed(() => {
       const nameMap = {
@@ -444,7 +389,8 @@ export default {
         Roles: 'roles.title',
         BatchAnalysis: 'batchAnalysis.title',
         GlobalDashboard: 'globalDashboard.title',
-        Monitoring: 'monitoring.title'
+        Monitoring: 'monitoring.title',
+        ExplanationTester: 'nav.test'
       }
       return nameMap[route.name] || 'nav.dashboard'
     })
@@ -453,24 +399,25 @@ export default {
       return t(getPageTitleKey.value)
     })
     
-    const handleUserCommand = async ({ key }) => {
-      console.log('用户菜单点击:', key) // 添加调试信息
-      if (key === 'logout') {
+    const handleUserCommand = async (command) => {
+      console.log('用户菜单点击:', command) // 添加调试信息
+      if (command === 'logout') {
         try {
-          await Modal.confirm({
-            title: t('shared.info'),
-            content: t('shared.messages.confirmLogout'),
-            okText: t('shared.confirm'),
-            cancelText: t('shared.cancel'),
-            onOk: () => {
-              store.dispatch('auth/logout')
-              router.push('/login')
+          await ElMessageBox.confirm(
+            t('shared.messages.confirmLogout'),
+            t('shared.info'),
+            {
+              confirmButtonText: t('shared.confirm'),
+              cancelButtonText: t('shared.cancel'),
+              type: 'warning'
             }
-          })
+          )
+          store.dispatch('auth/logout')
+          router.push('/login')
         } catch {
           // 用户取消
         }
-      } else if (key === 'profile') {
+      } else if (command === 'profile') {
         console.log('跳转到账户页面') // 添加调试信息
         router.push('/dashboard/account')
       }
@@ -481,8 +428,8 @@ export default {
       return cur === 'en-US' ? 'English' : '中文'
     })
 
-    const handleLanguageChange = async ({ key }) => {
-      await loadLocaleMessages?.(key)
+    const handleLanguageChange = async (locale) => {
+      await loadLocaleMessages?.(locale)
     }
     
     // 根据路由 meta 决定是否隐藏侧边栏
@@ -495,24 +442,29 @@ export default {
       return route.name === 'ErrorCodes' ||
              route.name === 'I18nErrorCodes' ||
              route.name === 'FaultCases' ||
-             route.name === 'ConfigManagement'
+             route.name === 'ConfigManagement' ||
+             route.name === 'Logs' ||
+             route.name === 'Surgeries' ||
+             route.name === 'DataReplay' ||
+             route.name === 'GlobalDashboard' ||
+             route.name === 'Feedback' ||
+             route.name === 'Account' ||
+             route.name === 'ExplanationTester'
     })
     
     return {
       collapsed,
-      selectedKeys,
       openKeys,
       toggleCollapsed,
-      handleMenuClick,
-      onSelectedKeys,
-      onOpenKeys,
       currentUser,
+      getRoleDisplayName,
       getPageTitleKey,
       pageTitle,
       handleUserCommand,
       handleLanguageChange,
       currentLocaleLabel,
-      onSiderCollapsedChange,
+      activeMenuKey,
+      handleMenuSelect,
       hideSidebar,
       hideContentWrapper,
       breadcrumbs
@@ -524,48 +476,53 @@ export default {
 <style scoped>
 .dashboard-layout {
   min-height: 100vh;
-  background: rgb(var(--background));
+  background: var(--black-white-white); /* 使用基础颜色值 */
 }
 
 .dashboard-sider {
-  background: rgb(var(--sidebar-background)) !important;
-  border-right: 1px solid rgb(var(--border));
+  background: var(--el-aside-background-color) !important; /* 使用 Element Plus 变量 */
+  border-right: 1px solid var(--el-aside-border-color); /* 使用 Element Plus 变量 */
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑的宽度过渡动画 */
 }
 
-/* 覆盖 ant-design-vue 默认样式 */
-:deep(.ant-layout-sider-children) {
+/* Element Plus 侧边栏样式 */
+:deep(.el-aside) {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
 }
 
 .logo {
-  height: 64px;
+  height: var(--logo-area-height); /* 使用 Design Token */
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(var(--sidebar-background));
-  color: rgb(var(--sidebar-foreground));
+  background: var(--el-aside-background-color); /* 使用 Element Plus 变量 */
+  color: var(--el-menu-text-color); /* 使用 Element Plus 变量 */
   font-size: 18px;
   font-weight: bold;
-  border-bottom: 1px solid rgb(var(--border));
-  padding: 0 16px;
+  border-bottom: 1px solid var(--el-aside-border-color); /* 使用 Element Plus 变量 */
+  padding: 0 var(--logo-area-padding); /* 使用 Design Token */
   flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Logo 区域过渡动画 */
 }
 
 .logo-text {
-  height: 32px;
-  width: auto;
-  /* 如果Logo是白色的，移除 filter 或者根据背景色调整 */
+  height: var(--logo-size); /* 使用 Design Token - 统一尺寸 */
+  width: auto; /* 保持宽高比 */
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .logo-icon-svg {
-  width: 40px;
-  height: 40px;
+  width: var(--logo-size); /* 使用 Design Token - 统一尺寸 */
+  height: var(--logo-size); /* 使用 Design Token - 统一尺寸 */
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-menu-container {
@@ -574,78 +531,15 @@ export default {
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0; /* 允许 flex 子元素缩小 */
-}
-
-.dashboard-menu {
-  background: transparent !important;
-  border-right: none;
-  flex: 1;
-  min-height: 0; /* 允许 flex 子元素缩小 */
-}
-
-/* 菜单交互样式优化 */
-:deep(.ant-menu-item), :deep(.ant-menu-submenu-title) {
-  margin: 4px 8px !important;
-  border-radius: var(--radius) !important;
-  width: calc(100% - 16px) !important;
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-item .anticon), :deep(.ant-menu-submenu-title .anticon) {
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-item:hover), :deep(.ant-menu-submenu-title:hover) {
-  background-color: rgb(var(--sidebar-hover)) !important;
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-item:hover .anticon), :deep(.ant-menu-submenu-title:hover .anticon) {
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-item-selected) {
-  background-color: rgb(var(--sidebar-accent)) !important;
-  color: rgb(var(--sidebar-primary)) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-:deep(.ant-menu-item-selected .anticon) {
-  color: rgb(var(--sidebar-primary)) !important;
-}
-
-/* 子菜单内部项目文字颜色 */
-:deep(.ant-menu-submenu .ant-menu-item) {
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-submenu .ant-menu-item .anticon) {
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-submenu .ant-menu-item:hover) {
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-submenu .ant-menu-item:hover .anticon) {
-  color: rgb(var(--sidebar-foreground)) !important;
-}
-
-:deep(.ant-menu-submenu .ant-menu-item-selected) {
-  color: rgb(var(--sidebar-primary)) !important;
-}
-
-:deep(.ant-menu-submenu .ant-menu-item-selected .anticon) {
-  color: rgb(var(--sidebar-primary)) !important;
+  min-height: 0;
 }
 
 /* 侧边栏底部用户区域 - 固定在底部 */
 .sidebar-footer {
-  padding: 16px 8px;
-  border-top: 1px solid rgb(var(--border));
+  padding: 12px; /* 统一的 padding */
+  border-top: 1px solid var(--gray-200); /* 使用 Design Token - 浅灰色分隔线 */
   flex-shrink: 0;
-  background: rgb(var(--sidebar-background));
+  background: var(--el-aside-background-color); /* 使用 Element Plus 变量 */
   margin-top: auto; /* 确保始终在底部 */
 }
 
@@ -653,58 +547,123 @@ export default {
   width: 100%;
 }
 
-.user-info-btn {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s;
+/* 让 el-dropdown 占满父容器宽度 */
+.user-menu-wrapper :deep(.el-dropdown) {
+  display: block !important;
   width: 100%;
 }
 
+.user-info-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 12px; /* 更舒适的内边距 */
+  border-radius: var(--radius-md); /* 使用 Design Token - 8px 圆角 */
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑过渡动画 */
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent; /* 预留边框位置，hover 时显示 */
+  gap: 12px; /* 元素之间的间距 */
+}
+
 .user-info-btn:hover {
-  background: rgb(var(--sidebar-hover));
+  background: var(--gray-50); /* 极浅灰色背景，更柔和的 hover 效果 */
+  border-color: var(--gray-200); /* 浅灰色边框 */
+}
+
+.user-info-btn:active {
+  background: var(--gray-100); /* 点击时的背景 */
+}
+
+/* 折叠状态下的按钮样式 */
+.user-info-btn.is-collapsed {
+  justify-content: center;
+  padding: 8px;
+  gap: 0;
 }
 
 .user-avatar {
-  background: rgb(var(--primary)); /* 使用设计Token - 蓝紫色 */
+  background: linear-gradient(135deg, var(--indigo-500) 0%, var(--purple-500) 100%); /* 渐变背景 */
+  color: var(--black-white-white); /* 白色图标 */
   flex-shrink: 0;
+  border: 2px solid var(--gray-100); /* 浅色边框 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 轻微阴影 */
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-info-btn:hover .user-avatar {
+  transform: scale(1.05); /* hover 时轻微放大 */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* hover 时阴影加深 */
+}
+
+.user-info-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0; /* 允许内容收缩 */
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .user-details {
-  margin-left: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   flex: 1;
+  min-width: 0; /* 允许内容收缩 */
+  gap: 2px; /* 用户名和角色之间的间距 */
 }
 
 .username-text {
   font-size: 14px;
   font-weight: 600;
-  color: rgb(var(--sidebar-primary)); /* 使用设计Token - 深色文字 */
+  color: var(--gray-900); /* 使用 Design Token - 深灰色文字 */
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+  line-height: 1.4;
 }
 
 .role-text {
   font-size: 12px;
-  color: rgb(var(--sidebar-foreground)); /* 使用设计Token - 灰色文字 */
+  color: var(--gray-500); /* 使用 Design Token - 中等灰色文字 */
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+  line-height: 1.4;
 }
 
-.settings-icon {
-  color: rgb(var(--sidebar-foreground)); /* 使用设计Token - 灰色图标 */
-  font-size: 16px;
-  margin-left: 4px;
+.chevron-icon {
+  color: var(--gray-400); /* 使用 Design Token - 浅灰色图标 */
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 8px;
 }
+
+.user-info-btn:hover .chevron-icon {
+  color: var(--gray-600); /* hover 时图标颜色加深 */
+  transform: translateY(1px); /* 轻微下移，表示可点击 */
+}
+
 
 .main-layout {
-  background: rgb(var(--background));
+  background: var(--black-white-white); /* 使用基础颜色值 */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.router-view-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .dashboard-header {
@@ -723,9 +682,14 @@ export default {
 }
 
 .trigger-btn {
-  font-size: 18px;
   margin-right: 16px;
-  color: rgb(var(--text-secondary)); /* 使用设计Token - 次要文字颜色 */
+  color: var(--slate-600); /* 使用基础颜色值 - 次要文字颜色 */
+}
+
+.trigger-btn .el-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
 }
 
 .nav-breadcrumb {
@@ -739,24 +703,21 @@ export default {
 }
 
 .lang-btn {
-  color: rgb(var(--text-secondary)); /* 使用设计Token - 次要文字颜色 */
+  color: var(--slate-600); /* 使用基础颜色值 - 次要文字颜色 */
 }
 
 .dashboard-content {
-  margin: 0 24px 24px;
-  padding: 24px;
-  background: white;
-  border-radius: 12px;
-  min-height: calc(100vh - 88px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  margin: 0;
+  padding: 0;
+  background: transparent;
   overflow-y: auto;
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
   .dashboard-content {
-    margin: 16px;
-    padding: 16px;
+    margin: 0;
+    padding: 0;
   }
   
   .dashboard-header {

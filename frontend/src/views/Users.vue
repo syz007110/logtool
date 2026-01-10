@@ -1,39 +1,42 @@
 <template>
   <div class="users-container">
-    <!-- 操作栏 -->
-    <div class="action-bar">
-      <div class="search-section">
-        <el-input
-          v-model="searchQuery"
-          :placeholder="$t('users.searchPlaceholder')"
-          style="width: 300px"
-          clearable
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+    <!-- 统一卡片：包含操作栏和列表 -->
+    <el-card class="main-card">
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <div class="search-section">
+          <el-input
+            v-model="searchQuery"
+            :placeholder="$t('users.searchPlaceholder')"
+            style="width: 300px"
+            clearable
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
+        
+        <div class="action-section">
+          <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('user:create')">
+            <el-icon><Plus /></el-icon>
+            {{ $t('users.addUser') }}
+          </el-button>
+        </div>
       </div>
       
-      <div class="action-section">
-        <el-button class="btn-primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('user:create')">
-          <el-icon><Plus /></el-icon>
-          {{ $t('users.addUser') }}
-        </el-button>
-      </div>
-    </div>
-    
-    <!-- 用户列表 -->
-    <el-card class="list-card">
-      <el-table
-        :data="users"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-      >
+      <!-- 用户列表 - 固定表头 -->
+      <div class="table-container">
+        <el-table
+          :data="users"
+          :loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+          v-loading="loading"
+        >
         <el-table-column prop="username" :label="$t('users.username')" width="120" />
-        <el-table-column prop="email" :label="$t('users.email')" width="220" />
+        <el-table-column prop="email" :label="$t('users.email')" min-width="220" />
         <el-table-column prop="role" :label="$t('users.role')" width="100">
           <template #default="{ row }">
             <el-tag>{{ getRoleText(row.role) }}</el-tag>
@@ -46,18 +49,27 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" :label="$t('users.createTime')" width="200" />
-        <el-table-column :label="$t('shared.operation')" fixed="right" width="160">
+        <el-table-column prop="created_at" :label="$t('users.createTime')" min-width="200" />
+        <el-table-column :label="$t('shared.operation')" fixed="right" width="160" align="left">
           <template #default="{ row }">
-            <div class="action-buttons">
-              <el-button @click="handleEdit(row)" class="btn-text btn-sm" v-if="$store.getters['auth/hasPermission']('user:update')">{{ $t('shared.edit') }}</el-button>
+            <div class="operation-buttons">
+              <el-button
+                text
+                size="small"
+                @click="handleEdit(row)"
+                v-if="$store.getters['auth/hasPermission']('user:update')"
+                :aria-label="$t('shared.edit')"
+                :title="$t('shared.edit')"
+              >
+                {{ $t('shared.edit') }}
+              </el-button>
               
               <el-dropdown 
                 trigger="click" 
                 placement="bottom-end"
                 @command="handleMoreAction"
               >
-                <el-button class="btn-text btn-sm">
+                <el-button text size="small">
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
@@ -65,6 +77,7 @@
                     <el-dropdown-item 
                       :command="{ action: 'resetPassword', row }"
                       v-if="$store.getters['auth/hasPermission']('user:update')"
+                      class="dropdown-item-normal"
                     >
                       {{ $t('users.resetPassword') }}
                     </el-dropdown-item>
@@ -73,8 +86,9 @@
                       :command="{ action: 'delete', row }"
                       v-if="$store.getters['auth/hasPermission']('user:delete')"
                       divided
+                      class="dropdown-item-danger"
                     >
-                      <span style="color: var(--el-color-danger)">{{ $t('shared.delete') }}</span>
+                      {{ $t('shared.delete') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -83,6 +97,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
       
       <!-- 分页 -->
       <div class="pagination-wrapper">
@@ -136,8 +151,8 @@
       </el-form>
       
       <template #footer>
-        <el-button class="btn-secondary" @click="showAddDialog = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" @click="handleSave" :loading="saving">
+        <el-button type="default" @click="showAddDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSave" :loading="saving">
           {{ $t('shared.save') }}
         </el-button>
       </template>
@@ -161,8 +176,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="btn-secondary" @click="showEditDialog = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" @click="handleSaveEdit">{{ $t('shared.save') }}</el-button>
+        <el-button type="default" @click="showEditDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSaveEdit">{{ $t('shared.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -184,8 +199,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button class="btn-secondary" @click="showResetPasswordDialog = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" @click="handleResetPassword" :loading="resettingPassword">{{ $t('shared.confirm') }}</el-button>
+        <el-button type="default" @click="showResetPasswordDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" @click="handleResetPassword" :loading="resettingPassword">{{ $t('shared.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -195,12 +210,19 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { MoreFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
+import { MoreFilled, Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'Users',
+  components: {
+    Search,
+    Plus,
+    MoreFilled
+  },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -215,6 +237,10 @@ export default {
     const searchQuery = ref('')
     const currentPage = ref(1)
     const pageSize = ref(20)
+    
+    // 分页节流和去重机制
+    const usersLoading = ref(false)
+    const lastUsersLoadAt = ref(0)
     
     const showEditDialog = ref(false)
     let editUserId = null
@@ -253,19 +279,40 @@ export default {
     const roles = ref([])
     const total = computed(() => store.getters['users/totalCount'])
     const userRole = computed(() => store.getters['auth/userRole'])
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
 
     // 方法
-    const loadUsers = async () => {
+    const loadUsers = async (options = {}) => {
+      const silent = options && options.silent === true
+      const force = options && options.force === true
+      const now = Date.now()
+      if (!force && now - lastUsersLoadAt.value < 2000) {
+        return
+      }
+      if (!force && usersLoading.value) {
+        return
+      }
       try {
+        usersLoading.value = true
         loading.value = true
+        lastUsersLoadAt.value = now
         await store.dispatch('users/fetchUsers', {
           page: currentPage.value,
           limit: pageSize.value,
           search: searchQuery.value
         })
       } catch (error) {
-        ElMessage.error(t('users.loadFailed'))
+        if (!silent) {
+          ElMessage.error(t('users.loadFailed'))
+        } else {
+          console.warn('加载用户失败(已静默):', error?.message || error)
+        }
       } finally {
+        usersLoading.value = false
         loading.value = false
       }
     }
@@ -282,18 +329,18 @@ export default {
     
     const handleSearch = () => {
       currentPage.value = 1
-      loadUsers()
+      loadUsers({ force: true })
     }
     
     const handleSizeChange = (size) => {
       pageSize.value = size
       currentPage.value = 1
-      loadUsers()
+      loadUsers({ force: true })
     }
     
     const handleCurrentChange = (page) => {
       currentPage.value = page
-      loadUsers()
+      loadUsers({ force: true })
     }
     
     const resetForm = () => {
@@ -311,21 +358,23 @@ export default {
       showAddDialog.value = true
     }
     
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(t('users.deleteConfirm'), t('shared.info'), {
-          confirmButtonText: t('shared.confirm'),
-          cancelButtonText: t('shared.cancel'),
-          type: 'warning'
+        const confirmed = await confirmDelete(row, {
+          message: t('users.deleteConfirm'),
+          title: t('shared.info')
         })
-        
+
+        if (!confirmed) return
+
         await store.dispatch('users/deleteUser', row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
-        loadUsers()
+        loadUsers({ force: true })
       } catch (error) {
-        if (error !== 'cancel') {
-          ElMessage.error(t('shared.messages.deleteFailed'))
-        }
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
     
@@ -357,7 +406,7 @@ export default {
         }
         showAddDialog.value = false
         resetForm()
-        loadUsers()
+        loadUsers({ force: true })
       } catch (error) {
         ElMessage.error(t('shared.messages.saveFailed'))
       } finally {
@@ -448,7 +497,7 @@ export default {
         })
         ElMessage.success(t('users.resetPasswordSuccess'))
         showResetPasswordDialog.value = false
-        loadUsers()
+        loadUsers({ force: true })
       } catch (error) {
         ElMessage.error(error.response?.data?.message || t('users.resetPasswordFailed'))
       } finally {
@@ -502,7 +551,8 @@ export default {
       resetPasswordRules,
       openResetPassword,
       handleResetPassword,
-      handleMoreAction
+      handleMoreAction,
+      tableHeight
     }
   }
 }
@@ -510,7 +560,29 @@ export default {
 
 <style scoped>
 .users-container {
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
 }
 
 .action-bar {
@@ -518,10 +590,11 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.search-section {
+  display: flex;
+  align-items: center;
 }
 
 .action-section {
@@ -529,20 +602,32 @@ export default {
   gap: 10px;
 }
 
-.list-card {
-  margin-bottom: 20px;
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
 }
 
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
-.action-buttons {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  gap: 8px;
-}
 </style> 

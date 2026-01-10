@@ -1,6 +1,7 @@
 const OperationLog = require('../models/operation_log');
 const User = require('../models/user');
 const { Op } = require('sequelize');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 // 安全解析 JSON 的辅助函数
 function safeJsonParse(value) {
@@ -32,7 +33,8 @@ function safeJsonParse(value) {
 // 查询操作日志，支持分页和日期过滤
 const getOperationLogs = async (req, res) => {
   try {
-    const { page = 1, limit = 20, date } = req.query;
+    const { date } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
     
     if (date) {
@@ -54,7 +56,7 @@ const getOperationLogs = async (req, res) => {
       ],
       order: [['time', 'DESC']],
       offset: (page - 1) * limit,
-      limit: parseInt(limit)
+      limit
     });
 
     // 格式化返回数据
@@ -73,8 +75,8 @@ const getOperationLogs = async (req, res) => {
     res.json({ 
       total: count, 
       logs: formattedLogs,
-      page: parseInt(page),
-      limit: parseInt(limit)
+      page,
+      limit
     });
   } catch (err) {
     console.error('查询操作日志失败:', err);

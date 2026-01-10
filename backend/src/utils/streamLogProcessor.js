@@ -168,9 +168,22 @@ class StreamLogProcessor {
       
       const { explanation: parsedExplanation } = renderEntryExplanation(entry);
       
+      // 格式化时间戳：如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接使用；否则格式化为无时区格式
+      let timestampStr;
+      if (typeof entry.timestamp === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(entry.timestamp)) {
+        timestampStr = entry.timestamp;
+      } else if (entry.timestamp instanceof Date) {
+        // Date 对象：使用 dayjs 格式化，但不进行时区转换（保持原始时间值）
+        timestampStr = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
+      } else {
+        // 其他格式：尝试解析并格式化
+        const parsed = dayjs(entry.timestamp);
+        timestampStr = parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : dayjs().format('YYYY-MM-DD HH:mm:ss');
+      }
+
       return {
         log_id: logId,
-        timestamp: dayjs(entry.timestamp).isValid() ? dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss') : dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        timestamp: timestampStr,
         error_code: entry.error_code || '',
         param1: entry.param1 || '',
         param2: entry.param2 || '',

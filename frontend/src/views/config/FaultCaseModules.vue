@@ -16,8 +16,8 @@
       </div>
       <div class="action-section">
         <el-button
-          v-if="$store.getters['auth/hasPermission']('loglevel:manage')"
-          class="btn-primary"
+          v-if="$store.getters['auth/hasPermission']('fault_case_config:manage')"
+          type="primary"
           @click="showAddDialog"
         >
           <el-icon><Plus /></el-icon>
@@ -28,11 +28,26 @@
 
     <!-- 表格容器 - 固定表头 -->
     <div class="table-container">
-        <el-table :data="modules" :loading="loading" :height="tableHeight" style="width: 100%" v-loading="loading">
+        <el-table :data="modules" :loading="loading" :height="tableHeight" style="width: 100%" v-loading="loading" table-layout="auto">
           <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="module_key" :label="$t('configManagement.modules.moduleKey')" width="240" />
-          <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('configManagement.common.name')" min-width="220" />
-          <el-table-column v-if="isEnUS" prop="name_en" :label="$t('configManagement.common.name')" min-width="220" />
+          <el-table-column prop="module_key" :label="$t('configManagement.modules.moduleKey')" width="150" />
+          <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('configManagement.common.name')" width="120" min-width="100" />
+          <el-table-column v-if="isEnUS" prop="name_en" :label="$t('configManagement.common.name')" width="120" min-width="100" />
+          <el-table-column :label="$t('configManagement.common.mappings')" min-width="350">
+            <template #default="{ row }">
+              <div class="mapping-tags-container">
+                <el-tag
+                  v-for="(value, index) in (row.mapping_values || [])"
+                  :key="index"
+                  size="small"
+                  class="mapping-tag"
+                >
+                  {{ value }}
+                </el-tag>
+                <span v-if="!row.mapping_values || row.mapping_values.length === 0" class="mapping-empty">-</span>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="sort_order" :label="$t('configManagement.common.sortOrder')" width="110" />
           <el-table-column prop="is_active" :label="$t('configManagement.common.isActive')" width="110">
             <template #default="{ row }">
@@ -44,14 +59,31 @@
           <el-table-column
             :label="$t('shared.operation')"
             fixed="right"
-            width="260"
-            v-if="$store.getters['auth/hasPermission']('loglevel:manage')"
+            width="180"
+            align="left"
+            v-if="$store.getters['auth/hasPermission']('fault_case_config:manage')"
           >
             <template #default="{ row }">
-              <div class="action-buttons">
-                <el-button @click="openMappings(row)" class="btn-text btn-sm">{{ $t('configManagement.common.mappings') }}</el-button>
-                <el-button @click="handleEdit(row)" class="btn-text btn-sm">{{ $t('shared.edit') }}</el-button>
-                <el-button @click="handleDelete(row)" class="btn-text-danger btn-sm">{{ $t('shared.delete') }}</el-button>
+              <div class="operation-buttons">
+                <el-button
+                  text
+                  size="small"
+                  @click="handleEdit(row)"
+                  :aria-label="$t('shared.edit')"
+                  :title="$t('shared.edit')"
+                >
+                  {{ $t('shared.edit') }}
+                </el-button>
+                <el-button
+                  text
+                  size="small"
+                  class="btn-danger-text"
+                  @click="handleDelete(row)"
+                  :aria-label="$t('shared.delete')"
+                  :title="$t('shared.delete')"
+                >
+                  {{ $t('shared.delete') }}
+                </el-button>
               </div>
             </template>
           </el-table-column>
@@ -72,19 +104,28 @@
       </div>
 
     <!-- Add/Edit dialog -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('configManagement.modules.edit') : $t('configManagement.modules.add')" width="640px">
+    <el-dialog 
+      v-model="dialogVisible" 
+      :title="isEdit ? $t('configManagement.common.editItem') : $t('configManagement.modules.add')" 
+      width="640px"
+      class="edit-item-dialog"
+      append-to-body
+      :z-index="3000"
+    >
+      <template #header>
+        <div class="dialog-header">
+          <div class="dialog-title-wrapper">
+            <h3 class="dialog-title">{{ isEdit ? $t('configManagement.common.editItem') : $t('configManagement.modules.add') }}</h3>
+            <p class="dialog-subtitle">{{ $t('configManagement.common.editItemSubtitle') }}</p>
+          </div>
+        </div>
+      </template>
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="120px">
         <el-form-item :label="$t('configManagement.modules.moduleKeyLabel')" prop="module_key">
           <el-input v-model="formData.module_key" :disabled="isEdit" :placeholder="$t('configManagement.modules.moduleKeyPlaceholder')" />
         </el-form-item>
-        <el-form-item :label="$t('configManagement.common.nameZh')" prop="name_zh">
-          <el-input v-model="formData.name_zh" />
-        </el-form-item>
-        <el-form-item :label="$t('configManagement.common.nameEn')" prop="name_en">
-          <el-input v-model="formData.name_en" />
-        </el-form-item>
-        <el-form-item :label="$t('configManagement.common.description')" prop="description">
-          <el-input v-model="formData.description" type="textarea" :rows="3" />
+        <el-form-item :label="$t('configManagement.common.name')" prop="name">
+          <el-input v-model="formData.name" :placeholder="isZhCN ? $t('configManagement.common.nameZh') : $t('configManagement.common.nameEn')" />
         </el-form-item>
         <el-form-item :label="$t('configManagement.common.sortOrder')" prop="sort_order">
           <el-input-number v-model="formData.sort_order" :min="0" :max="999" style="width: 100%" />
@@ -92,80 +133,55 @@
         <el-form-item :label="$t('configManagement.common.isActive')" prop="is_active">
           <el-switch v-model="formData.is_active" />
         </el-form-item>
+        
+        <!-- Mapping Fields Section -->
+        <el-form-item :label="$t('configManagement.common.mappingFields')">
+          <div class="mapping-fields-container">
+            <div class="mapping-input-wrapper">
+              <el-input
+                v-model="mappingInputValue"
+                :placeholder="$t('configManagement.common.mappingFieldsPlaceholder')"
+                @keyup.enter="handleAddMapping"
+                class="mapping-input"
+              />
+              <el-button 
+                type="primary"
+                class="mapping-add-btn" 
+                @click="handleAddMapping"
+              >
+                <el-icon><Plus /></el-icon>
+              </el-button>
+            </div>
+            <div class="mapping-chips" v-if="formData.mappingValues && formData.mappingValues.length > 0">
+              <el-tag
+                v-for="(value, index) in formData.mappingValues"
+                :key="index"
+                closable
+                @close="handleRemoveMapping(index)"
+                class="mapping-chip"
+              >
+                {{ value }}
+              </el-tag>
+            </div>
+            <p class="mapping-tip">{{ $t('configManagement.common.mappingTip') }}</p>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button class="btn-secondary" @click="handleCancel">{{ $t('shared.cancel') }}</el-button>
-          <el-button class="btn-primary" @click="handleSubmit">{{ $t('shared.confirm') }}</el-button>
+          <el-button type="primary" @click="handleSubmit">{{ $t('shared.confirm') }}</el-button>
         </span>
       </template>
     </el-dialog>
 
-    <!-- Mappings drawer -->
-    <el-drawer v-model="mappingsDrawerVisible" :title="$t('configManagement.modules.mappingsTitle')" size="50%">
-      <div class="drawer-header">
-        <div class="drawer-title">
-          <div class="drawer-key">{{ currentModule?.module_key }}</div>
-          <div class="drawer-name">{{ isZhCN ? currentModule?.name_zh : currentModule?.name_en }}</div>
-        </div>
-        <el-button class="btn-primary" @click="showAddMappingDialog">
-          <el-icon><Plus /></el-icon>
-          {{ $t('configManagement.common.addMapping') }}
-        </el-button>
-      </div>
-
-      <el-table :data="mappings" :loading="mappingsLoading" style="width: 100%" v-loading="mappingsLoading">
-        <el-table-column prop="id" label="ID" width="90" />
-        <el-table-column prop="source_field" :label="$t('configManagement.common.sourceField')" width="180" />
-        <el-table-column prop="source_value" :label="$t('configManagement.common.sourceValue')" />
-        <el-table-column prop="sort_order" :label="$t('configManagement.common.sortOrder')" width="110" />
-        <el-table-column prop="is_active" :label="$t('configManagement.common.isActive')" width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'danger'">
-              {{ row.is_active ? $t('configManagement.common.active') : $t('configManagement.common.inactive') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="$t('shared.operation')" fixed="right" width="180">
-          <template #default="{ row }">
-            <div class="action-buttons">
-              <el-button @click="editMapping(row)" class="btn-text btn-sm">{{ $t('shared.edit') }}</el-button>
-              <el-button @click="deleteMapping(row)" class="btn-text-danger btn-sm">{{ $t('shared.delete') }}</el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-drawer>
-
-    <!-- Add/Edit mapping dialog -->
-    <el-dialog v-model="mappingDialogVisible" :title="mappingIsEdit ? $t('configManagement.common.editMapping') : $t('configManagement.common.addMapping')" width="640px">
-      <el-form ref="mappingFormRef" :model="mappingForm" :rules="mappingRules" label-width="120px">
-        <el-form-item :label="$t('configManagement.common.sourceField')" prop="source_field">
-          <el-input v-model="mappingForm.source_field" :placeholder="$t('configManagement.common.sourceFieldPlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="$t('configManagement.common.sourceValue')" prop="source_value">
-          <el-input v-model="mappingForm.source_value" :placeholder="$t('configManagement.common.sourceValuePlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="$t('configManagement.common.sortOrder')" prop="sort_order">
-          <el-input-number v-model="mappingForm.sort_order" :min="0" :max="999" style="width: 100%" />
-        </el-form-item>
-        <el-form-item :label="$t('configManagement.common.isActive')" prop="is_active">
-          <el-switch v-model="mappingForm.is_active" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button class="btn-secondary" @click="mappingDialogVisible = false">{{ $t('shared.cancel') }}</el-button>
-          <el-button class="btn-primary" @click="submitMapping">{{ $t('shared.confirm') }}</el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
@@ -199,20 +215,25 @@ export default {
     const formData = reactive({
       id: null,
       module_key: '',
+      name: '',
       name_zh: '',
       name_en: '',
       description: '',
       sort_order: 0,
-      is_active: true
+      is_active: true,
+      mappingValues: []
     })
+    
+    const mappingInputValue = ref('')
 
     const formRules = {
       module_key: [
         { required: true, message: t('configManagement.modules.validation.moduleKeyRequired'), trigger: 'blur' },
         { pattern: /^[a-z0-9_]+$/, message: t('configManagement.modules.validation.moduleKeyPattern'), trigger: 'blur' }
       ],
-      name_zh: [{ required: true, message: t('configManagement.modules.validation.nameZhRequired'), trigger: 'blur' }],
-      name_en: [{ required: true, message: t('configManagement.modules.validation.nameEnRequired'), trigger: 'blur' }]
+      name: [
+        { required: true, message: isZhCN.value ? t('configManagement.modules.validation.nameZhRequired') : t('configManagement.modules.validation.nameEnRequired'), trigger: 'blur' }
+      ]
     }
 
     const fetchModules = async () => {
@@ -256,14 +277,37 @@ export default {
       Object.assign(formData, {
         id: null,
         module_key: '',
+        name: '',
         name_zh: '',
         name_en: '',
         description: '',
         sort_order: 0,
-        is_active: true
+        is_active: true,
+        mappingValues: []
       })
+      mappingInputValue.value = ''
       formRef.value?.resetFields()
     }
+    
+    const handleAddMapping = () => {
+      if (!mappingInputValue.value.trim()) return
+      
+      // 支持逗号分隔的值
+      const values = mappingInputValue.value.split(',').map(v => v.trim()).filter(v => v)
+      
+      for (const value of values) {
+        if (value && !formData.mappingValues.includes(value)) {
+          formData.mappingValues.push(value)
+        }
+      }
+      
+      mappingInputValue.value = ''
+    }
+    
+    const handleRemoveMapping = (index) => {
+      formData.mappingValues.splice(index, 1)
+    }
+    
 
     const showAddDialog = () => {
       isEdit.value = false
@@ -271,29 +315,45 @@ export default {
       dialogVisible.value = true
     }
 
-    const handleEdit = (row) => {
+    const handleEdit = async (row) => {
       isEdit.value = true
       Object.assign(formData, {
         id: row.id,
         module_key: row.module_key,
+        name: isZhCN.value ? row.name_zh : row.name_en,
         name_zh: row.name_zh,
         name_en: row.name_en,
         description: row.description || '',
         sort_order: row.sort_order ?? 0,
-        is_active: !!row.is_active
+        is_active: !!row.is_active,
+        mappingValues: []
       })
+      
+      // 加载映射值
+      try {
+        const resp = await api.faultCaseModules.getMappings(row.id)
+        if (resp.data?.success && resp.data.mappings) {
+          formData.mappingValues = resp.data.mappings.map(m => m.source_value)
+        }
+      } catch (e) {
+        console.error('加载映射失败:', e)
+      }
+      
       dialogVisible.value = true
     }
 
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(t('configManagement.modules.deleteConfirm'), t('shared.warning'), {
-          confirmButtonText: t('shared.confirm'),
-          cancelButtonText: t('shared.cancel'),
-          type: 'warning',
-          confirmButtonClass: 'btn-primary-danger',
-          cancelButtonClass: 'btn-secondary'
+        const confirmed = await confirmDelete(row, {
+          message: t('configManagement.modules.deleteConfirm'),
+          title: t('shared.warning')
         })
+
+        if (!confirmed) return
+
         const resp = await api.faultCaseModules.delete(row.id)
         if (resp.data?.success) {
           ElMessage.success(t('shared.messages.deleteSuccess'))
@@ -302,13 +362,21 @@ export default {
           ElMessage.error(resp.data?.message || t('shared.messages.deleteFailed'))
         }
       } catch (e) {
-        if (e !== 'cancel') ElMessage.error(t('shared.messages.deleteFailed'))
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
 
     const handleSubmit = async () => {
       try {
         await formRef.value.validate()
+        
+        // 更新name_zh和name_en
+        if (isZhCN.value) {
+          formData.name_zh = formData.name
+        } else {
+          formData.name_en = formData.name
+        }
+        
         const payload = {
           module_key: formData.module_key,
           name_zh: formData.name_zh,
@@ -317,10 +385,47 @@ export default {
           sort_order: formData.sort_order,
           is_active: formData.is_active
         }
-        const resp = isEdit.value
-          ? await api.faultCaseModules.update(formData.id, payload)
-          : await api.faultCaseModules.create(payload)
+        
+        let resp
+        if (isEdit.value) {
+          resp = await api.faultCaseModules.update(formData.id, payload)
+        } else {
+          resp = await api.faultCaseModules.create(payload)
+        }
+        
         if (resp.data?.success) {
+          const itemId = isEdit.value ? formData.id : resp.data.module?.id
+          
+          // 保存映射值
+          if (itemId && formData.mappingValues.length > 0) {
+            try {
+              // 先获取现有映射
+              const mappingsResp = await api.faultCaseModules.getMappings(itemId)
+              const existingMappings = mappingsResp.data?.success ? mappingsResp.data.mappings || [] : []
+              
+              // 删除不在新列表中的映射
+              for (const mapping of existingMappings) {
+                if (!formData.mappingValues.includes(mapping.source_value)) {
+                  await api.faultCaseModules.deleteMapping(mapping.id)
+                }
+              }
+              
+              // 添加新的映射
+              for (const value of formData.mappingValues) {
+                if (!existingMappings.find(m => m.source_value === value)) {
+                  await api.faultCaseModules.createMapping(itemId, {
+                    source_field: 'default',
+                    source_value: value,
+                    sort_order: 0,
+                    is_active: true
+                  })
+                }
+              }
+            } catch (e) {
+              console.error('保存映射失败:', e)
+            }
+          }
+          
           ElMessage.success(isEdit.value ? t('shared.messages.updateSuccess') : t('shared.messages.addSuccess'))
           dialogVisible.value = false
           fetchModules()
@@ -338,111 +443,6 @@ export default {
       resetForm()
     }
 
-    // mappings
-    const mappingsDrawerVisible = ref(false)
-    const mappingsLoading = ref(false)
-    const mappings = ref([])
-    const currentModule = ref(null)
-
-    const openMappings = async (row) => {
-      currentModule.value = row
-      mappingsDrawerVisible.value = true
-      await fetchMappings()
-    }
-
-    const fetchMappings = async () => {
-      if (!currentModule.value?.id) return
-      mappingsLoading.value = true
-      try {
-        const resp = await api.faultCaseModules.getMappings(currentModule.value.id)
-        if (resp.data?.success) mappings.value = resp.data.mappings || []
-      } catch (e) {
-        console.error(e)
-        ElMessage.error(t('configManagement.common.fetchMappingsFailed'))
-      } finally {
-        mappingsLoading.value = false
-      }
-    }
-
-    const mappingDialogVisible = ref(false)
-    const mappingIsEdit = ref(false)
-    const mappingFormRef = ref(null)
-    const mappingForm = reactive({
-      id: null,
-      source_field: 'default',
-      source_value: '',
-      sort_order: 0,
-      is_active: true
-    })
-    const mappingRules = {
-      source_field: [{ required: true, message: t('configManagement.common.validation.sourceFieldRequired'), trigger: 'blur' }],
-      source_value: [{ required: true, message: t('configManagement.common.validation.sourceValueRequired'), trigger: 'blur' }]
-    }
-
-    const showAddMappingDialog = () => {
-      mappingIsEdit.value = false
-      Object.assign(mappingForm, { id: null, source_field: 'default', source_value: '', sort_order: 0, is_active: true })
-      mappingFormRef.value?.resetFields()
-      mappingDialogVisible.value = true
-    }
-
-    const editMapping = (row) => {
-      mappingIsEdit.value = true
-      Object.assign(mappingForm, {
-        id: row.id,
-        source_field: row.source_field,
-        source_value: row.source_value,
-        sort_order: row.sort_order ?? 0,
-        is_active: !!row.is_active
-      })
-      mappingDialogVisible.value = true
-    }
-
-    const submitMapping = async () => {
-      try {
-        await mappingFormRef.value.validate()
-        const payload = {
-          source_field: mappingForm.source_field,
-          source_value: mappingForm.source_value,
-          sort_order: mappingForm.sort_order,
-          is_active: mappingForm.is_active
-        }
-        const resp = mappingIsEdit.value
-          ? await api.faultCaseModules.updateMapping(mappingForm.id, payload)
-          : await api.faultCaseModules.createMapping(currentModule.value.id, payload)
-        if (resp.data?.success) {
-          ElMessage.success(mappingIsEdit.value ? t('shared.messages.updateSuccess') : t('shared.messages.addSuccess'))
-          mappingDialogVisible.value = false
-          fetchMappings()
-        } else {
-          ElMessage.error(resp.data?.message || t('configManagement.common.submitFailed'))
-        }
-      } catch (e) {
-        if (e?.message === 'Validation failed') return
-        ElMessage.error(t('configManagement.common.submitFailed'))
-      }
-    }
-
-    const deleteMapping = async (row) => {
-      try {
-        await ElMessageBox.confirm(t('configManagement.common.deleteMappingConfirm'), t('shared.warning'), {
-          confirmButtonText: t('shared.confirm'),
-          cancelButtonText: t('shared.cancel'),
-          type: 'warning',
-          confirmButtonClass: 'btn-primary-danger',
-          cancelButtonClass: 'btn-secondary'
-        })
-        const resp = await api.faultCaseModules.deleteMapping(row.id)
-        if (resp.data?.success) {
-          ElMessage.success(t('shared.messages.deleteSuccess'))
-          fetchMappings()
-        } else {
-          ElMessage.error(resp.data?.message || t('shared.messages.deleteFailed'))
-        }
-      } catch (e) {
-        if (e !== 'cancel') ElMessage.error(t('shared.messages.deleteFailed'))
-      }
-    }
 
     onMounted(() => fetchModules())
 
@@ -469,20 +469,9 @@ export default {
       handleDelete,
       handleSubmit,
       handleCancel,
-      mappingsDrawerVisible,
-      mappingsLoading,
-      mappings,
-      currentModule,
-      openMappings,
-      mappingDialogVisible,
-      mappingIsEdit,
-      mappingFormRef,
-      mappingForm,
-      mappingRules,
-      showAddMappingDialog,
-      editMapping,
-      submitMapping,
-      deleteMapping
+      mappingInputValue,
+      handleAddMapping,
+      handleRemoveMapping
     }
   }
 }
@@ -504,11 +493,6 @@ export default {
   margin-bottom: 20px;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
 /* 表格容器 - 固定表头 */
 .table-container {
   flex: 1;
@@ -521,6 +505,16 @@ export default {
 
 .table-container :deep(.el-table) {
   flex: 1;
+  width: 100%;
+}
+
+.table-container :deep(.el-table__inner) {
+  width: 100% !important;
+}
+
+.table-container :deep(.el-table__header-wrapper),
+.table-container :deep(.el-table__body-wrapper) {
+  width: 100% !important;
 }
 
 .table-container :deep(.el-table__body-wrapper) {
@@ -533,8 +527,8 @@ export default {
   flex-shrink: 0;
   padding: 8px 0 12px 0; /* 上8px， 下12px */
   margin-top: auto;
-  border-top: 1px solid rgb(var(--border));
-  background: rgb(var(--background));
+  border-top: 1px solid var(--gray-200);
+  background: var(--black-white-white);
 }
 
 .dialog-footer {
@@ -543,21 +537,97 @@ export default {
   gap: 10px;
 }
 
-.drawer-header {
+.dialog-header {
+  margin-bottom: 16px;
+}
+
+.dialog-title-wrapper {
+  margin-bottom: 8px;
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--slate-900);
+  margin: 0 0 4px 0;
+}
+
+.dialog-subtitle {
+  font-size: 14px;
+  color: var(--slate-600);
+  margin: 0;
+}
+
+.mapping-fields-container {
+  width: 100%;
+}
+
+.mapping-input-wrapper {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-.drawer-key {
-  font-weight: 600;
+.mapping-input {
+  flex: 1;
 }
 
-.drawer-name {
-  color: var(--el-text-color-secondary);
+.mapping-add-btn {
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.mapping-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mapping-chip {
+  background-color: var(--slate-100);
+  color: var(--slate-900);
+  border-color: var(--slate-300);
+}
+
+.mapping-tip {
   font-size: 12px;
-  margin-top: 4px;
+  color: var(--slate-600);
+  margin: 0;
+}
+
+.mapping-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  line-height: 1.5;
+  padding: 4px 0;
+}
+
+.mapping-tag {
+  margin: 0 !important;
+  background-color: var(--tag-bg) !important;
+  color: var(--tag-text) !important;
+  border-color: var(--tag-border) !important;
+  border-width: 1px;
+  border-style: solid;
+  font-size: 11px; /* 字体小一号：从12px改为11px */
+  padding: 3px 10px !important; /* 减小高度：从5px改为3px，左右从12px改为10px */
+  border-radius: var(--radius-xs);
+  flex: 0 0 auto; /* 根据内容自适应宽度 */
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: 1.3; /* 减小行高，进一步降低高度 */
+  height: auto;
+}
+
+.mapping-empty {
+  color: var(--slate-600);
+  font-size: 14px;
 }
 </style>
 

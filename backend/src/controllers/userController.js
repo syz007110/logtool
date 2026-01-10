@@ -3,12 +3,28 @@ const Role = require('../models/role');
 const UserRole = require('../models/user_role');
 const bcrypt = require('bcryptjs');
 const { logOperation } = require('../utils/operationLogger');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+const { Op } = require('sequelize');
 
-// 查询用户列表
+// 查询用户列表（支持分页和搜索）
 const getUsers = async (req, res) => {
   try {
-    // 查询所有用户及其角色
-    const users = await User.findAll({
+    const { search = '' } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
+    
+    // 构建查询条件
+    const where = {};
+    if (search) {
+      const searchLower = String(search).toLowerCase().trim();
+      where[Op.or] = [
+        { username: { [Op.like]: `%${searchLower}%` } },
+        { email: { [Op.like]: `%${searchLower}%` } }
+      ];
+    }
+    
+    // 查询用户及其角色（支持分页）
+    const { count: total, rows: users } = await User.findAndCountAll({
+      where,
       attributes: ['id', 'username', 'email', 'is_active', 'created_at'],
       include: [
         {
@@ -24,8 +40,13 @@ const getUsers = async (req, res) => {
             }
           ]
         }
-      ]
+      ],
+      distinct: true, // 使用 distinct 避免多对多关联导致的重复计数
+      order: [['id', 'DESC']], // 使用主键索引排序，性能更好
+      limit,
+      offset: (page - 1) * limit
     });
+    
     // 整理返回格式，合并角色
     const result = users.map(u => ({
       id: u.id,
@@ -35,7 +56,13 @@ const getUsers = async (req, res) => {
       created_at: u.created_at,
       role: u.UserRoles && u.UserRoles.length > 0 && u.UserRoles[0].Role ? u.UserRoles[0].Role.name : null
     }));
-    res.json({ users: result, total: result.length });
+    
+    res.json({ 
+      users: result, 
+      total,
+      page,
+      limit
+    });
   } catch (err) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }

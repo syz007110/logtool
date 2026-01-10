@@ -10,9 +10,9 @@ import 'ant-design-vue/dist/reset.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
 import './assets/styles/i18n-utilities.css'
-import './assets/styles/design-tokens.css'
-// Element Plus样式覆盖必须在Element Plus CSS之后导入
-import './assets/styles/element-plus-overrides.css'
+// 样式导入顺序（必须遵守）：
+import 'element-plus/dist/index.css'                    // 1. Element Plus 基础样式
+import './assets/styles/design-tokens.css'              // 2. Design Tokens（定义所有设计变量）
 import { initResizeObserverFix } from './utils/resizeObserverFix'
 
 // 预加载当前语言后再挂载

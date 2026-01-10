@@ -14,18 +14,17 @@ const {
   deleteFaultCaseStatusMapping
 } = require('../controllers/faultCaseStatusController');
 
-// 读取：登录即可（前端路由会用权限控制入口）
-router.get('/', auth, getFaultCaseStatuses);
-router.get('/:id/mappings', auth, getFaultCaseStatusMappings);
+// 所有操作都需要 fault_case_config:manage 权限（增删改查）
+router.get('/', auth, checkPermission('fault_case_config:manage'), getFaultCaseStatuses);
+router.get('/:id/mappings', auth, checkPermission('fault_case_config:manage'), getFaultCaseStatusMappings);
 
-// 写入：统一用 loglevel:manage（配置管理权限）
-router.post('/', auth, checkPermission('loglevel:manage'), createFaultCaseStatus);
-router.put('/:id', auth, checkPermission('loglevel:manage'), updateFaultCaseStatus);
-router.delete('/:id', auth, checkPermission('loglevel:manage'), deleteFaultCaseStatus);
+router.post('/', auth, checkPermission('fault_case_config:manage'), createFaultCaseStatus);
+router.put('/:id', auth, checkPermission('fault_case_config:manage'), updateFaultCaseStatus);
+router.delete('/:id', auth, checkPermission('fault_case_config:manage'), deleteFaultCaseStatus);
 
-router.post('/:id/mappings', auth, checkPermission('loglevel:manage'), createFaultCaseStatusMapping);
-router.put('/mappings/:mappingId', auth, checkPermission('loglevel:manage'), updateFaultCaseStatusMapping);
-router.delete('/mappings/:mappingId', auth, checkPermission('loglevel:manage'), deleteFaultCaseStatusMapping);
+router.post('/:id/mappings', auth, checkPermission('fault_case_config:manage'), createFaultCaseStatusMapping);
+router.put('/mappings/:mappingId', auth, checkPermission('fault_case_config:manage'), updateFaultCaseStatusMapping);
+router.delete('/mappings/:mappingId', auth, checkPermission('fault_case_config:manage'), deleteFaultCaseStatusMapping);
 
 module.exports = router;
 

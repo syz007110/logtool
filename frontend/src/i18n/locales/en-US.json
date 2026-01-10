@@ -62,7 +62,8 @@
       "nl": "Dutch",
       "sk": "Slovak",
       "ro": "Romanian",
-      "da": "Danish"
+      "da": "Danish",
+      "lv": "Latvian"
     },
     "languageOptions": {
       "zh": "Chinese (zh)",
@@ -150,12 +151,14 @@
       "attachments": "Attachments"
     },
     "jiraKeyPlaceholder": "e.g. LOG-4420",
+    "modulePlaceholder": "Select Module",
     "titlePlaceholder": "Enter the main title of the fault case...",
     "symptomPlaceholder": "Detailed description of the observed phenomenon...",
     "possibleCausesPlaceholder": "What caused this issue? Hardware failure? Config error?",
     "solutionPlaceholder": "Step-by-step instructions to resolve the issue...",
     "remarkPlaceholder": "Internal notes, debug steps taken...",
-    "keywordsPlaceholder": "Comma or space separated, e.g. axis, encoder, jitter",
+    "keywordsPlaceholder": "Enter separated, e.g. axis, encoder, jitter",
+    "statusPlaceholder": "Select Status",
     "relatedErrorCodesPlaceholder": "Related MySQL error code IDs, e.g. 12, 34",
     "deviceSelectPlaceholder": "Type to search devices (device_id/hospital...)",
     "equipmentModelPlaceholder": "Type or select equipment model",
@@ -165,6 +168,10 @@
     "searchErrorCodesHint": "Please enter keywords to search error codes",
     "selectedErrorCodesCount": "Selected {count} error codes",
     "updatedAtUserPlaceholder": "Optional: manually set displayed updated time",
+    "noPermissionToLoadModules": "No permission to load module list. Please contact administrator to grant fault_case_config:manage permission",
+    "failedToLoadModules": "Failed to load module list",
+    "noPermissionToLoadStatuses": "No permission to load status list. Please contact administrator to grant fault_case_config:manage permission",
+    "failedToLoadStatuses": "Failed to load status list",
     "validation": {
       "titleRequired": "Title is required",
       "moduleRequired": "Module is required"
@@ -185,7 +192,9 @@
       "device_id": "Device ID",
       "equipment_model": "Equipment Model",
       "keywords": "Keywords",
-      "updated_at_user": "Updated time (manual)"
+      "status": "Status",
+      "updated_at_user": "Updated time (manual)",
+      "hintInfo": "Hint Information"
     },
     "columns": {
       "title": "Title",
@@ -530,6 +539,9 @@
       "inactive": "Inactive",
       "mappings": "Mappings",
       "mappingsTitle": "Mappings",
+      "mappingFields": "Mapping Fields",
+      "mappingFieldsPlaceholder": "Type value (e.g. 'Pending, Open') and press Enter...",
+      "mappingTip": "Tip: You can paste comma-separated values to add multiple items at once.",
       "addMapping": "Add Mapping",
       "editMapping": "Edit Mapping",
       "deleteMappingConfirm": "Are you sure to delete this mapping?",
@@ -539,6 +551,8 @@
       "sourceValuePlaceholder": "e.g. Done / Closed / Resolved",
       "fetchMappingsFailed": "Failed to load mappings",
       "submitFailed": "Failed to submit",
+      "editItem": "Edit Item",
+      "editItemSubtitle": "Configure the name and mapping values.",
       "validation": {
         "sourceFieldRequired": "Please enter source field",
         "sourceValueRequired": "Please enter source value"
@@ -612,6 +626,8 @@
     "deleteConfirmText": "Are you sure to delete this i18n content?",
     "exportDialogTitle": "Export Multi-language XML",
     "selectLanguages": "Select Languages",
+    "selectAll": "Select All",
+    "clearAll": "Clear All",
     "selectAtLeastOne": "Please select at least one language",
     "multiLanguageExportSuccess": "Multi-language export successful",
     "formPlaceholders": {
@@ -742,6 +758,7 @@
     "titlePlaceholder": "Enter issue title (within 100 chars)",
     "descriptionPlaceholder": "Describe the issue (within 500 chars)",
     "fieldTitle": "Title",
+    "issueTitle": "Issue Title",
     "description": "Description",
     "images": "Images",
     "uploadTips": "JPG/PNG/WebP supported, ≤2MB each, up to 3",
@@ -1201,15 +1218,16 @@
     "resetPasswordSuccess": "Password reset successfully",
     "resetPasswordFailed": "Failed to reset password"
   },
-  "roles": {
-    "title": "Role Management",
-    "name": "Role Name",
-    "description": "Role Description",
-    "permissions": "Permissions",
-    "userCount": "Users",
-    "addRole": "Add Role",
-    "editRole": "Edit Role",
-    "deleteRole": "Delete Role",
+    "roles": {
+      "title": "Role Management",
+      "name": "Role Name",
+      "description": "Role Description",
+      "permissions": "Permissions",
+      "userCount": "Users",
+      "addRole": "Add Role",
+      "editRole": "Edit Role",
+      "deleteRole": "Delete Role",
+      "searchPlaceholder": "Search role name or description",
     "rules": {
       "nameRequired": "Please enter role name",
       "descriptionRequired": "Please enter role description"
@@ -1229,6 +1247,7 @@
       "role": "Role Management",
       "error_code": "Error Code Management",
       "fault_case": "Fault Case Management",
+      "fault_case_config": "Fault Case Configuration",
       "log": "Log Management",
       "i18n": "Localization Management",
       "device": "Device Management",
@@ -1278,7 +1297,8 @@
       "user.assign_roles": "User Management · Assign Roles",
       "user.role.assign": "User Management · Role Assignment",
       "role.assign": "Role Management · Assign Permissions",
-      "fault_case.review": "Fault Case Management · Review"
+      "fault_case.review": "Fault Case Management · Review",
+      "fault_case_config.manage": "Fault Case Configuration · Manage"
     }
   },
   "surgeryStatistics": {

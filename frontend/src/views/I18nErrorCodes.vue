@@ -50,35 +50,33 @@
         </div>
 
         <div class="action-section">
-          <button
-            class="btn-primary"
+          <el-button
+            type="primary"
+            :icon="Plus"
             @click="handleAdd"
             v-if="canCreate"
-            aria-label="$t('i18nErrorCodes.addContent')"
+            :aria-label="$t('i18nErrorCodes.addContent')"
           >
-            <i class="fas fa-plus"></i>
             {{ $t('i18nErrorCodes.addContent') }}
-          </button>
+          </el-button>
 
-          <button
-            class="btn-secondary"
+          <el-button
+            :icon="Upload"
             @click="handleBatchImport"
             v-if="canCreate"
-            aria-label="$t('i18nErrorCodes.batchImport')"
+            :aria-label="$t('i18nErrorCodes.batchImport')"
           >
-            <i class="fas fa-upload"></i>
             {{ $t('i18nErrorCodes.batchImport') }}
-          </button>
+          </el-button>
 
-          <button
-            class="btn-secondary"
+          <el-button
+            :icon="Download"
             @click="handleExport"
             v-if="canExport"
-            aria-label="$t('i18nErrorCodes.exportXML')"
+            :aria-label="$t('i18nErrorCodes.exportXML')"
           >
-            <i class="fas fa-download"></i>
             {{ $t('i18nErrorCodes.exportXML') }}
-          </button>
+          </el-button>
         </div>
       </div>
 
@@ -115,27 +113,30 @@
               <ExplanationCell :text="row.operation || 'N/A'" />
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="180" align="center" fixed="right" v-if="canUpdate || canDelete">
+        <el-table-column :label="$t('shared.operation')" width="180" align="left" fixed="right" v-if="canUpdate || canDelete">
           <template #default="{ row }">
-            <div class="btn-group" style="justify-content: center;">
-              <button
-                class="btn-text"
+            <div class="operation-buttons">
+              <el-button
+                text
+                size="small"
                 @click="handleEdit(row)"
                 v-if="canUpdate"
                 :aria-label="$t('shared.edit')"
                 :title="$t('shared.edit')"
               >
                 {{ $t('shared.edit') }}
-              </button>
-              <button
-                class="btn-text-danger"
+              </el-button>
+              <el-button
+                text
+                size="small"
+                class="btn-danger-text"
                 @click="handleDelete(row)"
                 v-if="canDelete"
                 :aria-label="$t('shared.delete')"
                 :title="$t('shared.delete')"
               >
                 {{ $t('shared.delete') }}
-              </button>
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -224,8 +225,8 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showDialog = false">{{ $t('shared.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="handleSave">{{ $t('shared.save') }}</button>
+          <el-button @click="showDialog = false">{{ $t('shared.cancel') }}</el-button>
+          <el-button type="primary" :loading="saving" :disabled="saving" @click="handleSave">{{ $t('shared.save') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -266,7 +267,7 @@
             accept=".csv"
             multiple
           >
-            <button class="btn-primary">{{ $t('i18nErrorCodes.selectFile') }}</button>
+            <el-button type="primary">{{ $t('i18nErrorCodes.selectFile') }}</el-button>
             <template #tip>
               <div class="el-upload__tip">
                 {{ $t('i18nErrorCodes.import.uploadTip') }}
@@ -293,7 +294,7 @@
               <el-input
                 v-model="importForm.data"
                 type="textarea"
-                :rows="10"
+                :rows="4"
                 :placeholder="$t('i18nErrorCodes.formPlaceholders.csvDataInput')"
               />
           </el-form>
@@ -301,8 +302,8 @@
       </el-tabs>
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="() => { showImportDialog = false; clearImportForm(); }">{{ $t('shared.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': importing }" :disabled="importing" @click="handleImport">{{ $t('i18nErrorCodes.uploadImport') }}</button>
+          <el-button @click="() => { showImportDialog = false; clearImportForm(); }">{{ $t('shared.cancel') }}</el-button>
+          <el-button type="primary" :loading="importing" :disabled="importing" @click="handleImport">{{ $t('i18nErrorCodes.uploadImport') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -317,23 +318,39 @@
     >
       <el-form :model="exportForm" label-width="120px">
         <el-form-item :label="$t('i18nErrorCodes.selectLanguages')" required>
-          <div class="export-language-checkboxes" :style="{ '--lang-col-width': exportLangColWidth + 'px' }">
-            <el-checkbox-group v-model="exportForm.languages">
-              <el-checkbox 
-                v-for="lang in exportLanguageOptions" 
-                :key="lang.value" 
-                :label="lang.value"
-              >
-                {{ lang.label }}
-              </el-checkbox>
-            </el-checkbox-group>
+          <div class="export-language-select-wrapper">
+            <el-select
+              v-model="exportForm.languages"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              :max-collapse-tags="3"
+              popper-class="export-languages-tooltip"
+              class="export-language-select"
+              :placeholder="$t('i18nErrorCodes.selectLanguages')"
+            >
+              <el-option
+                v-for="lang in exportLanguageOptions"
+                :key="lang.value"
+                :label="lang.label"
+                :value="lang.value"
+              />
+            </el-select>
+            <el-button
+              text
+              size="small"
+              class="select-all-btn"
+              @click="handleSelectAllLanguages"
+            >
+              {{ isAllLanguagesSelected ? $t('i18nErrorCodes.clearAll') : $t('i18nErrorCodes.selectAll') }}
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <button class="btn-secondary" @click="showExportDialog = false">{{ $t('shared.cancel') }}</button>
-          <button class="btn-primary" :class="{ 'btn-loading': exporting }" :disabled="exporting" @click="handleExportConfirm">{{ $t('shared.export') }}</button>
+          <el-button @click="showExportDialog = false">{{ $t('shared.cancel') }}</el-button>
+          <el-button type="primary" :loading="exporting" :disabled="exporting" @click="handleExportConfirm">{{ $t('shared.export') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -345,7 +362,8 @@
 
 <script>
 import { ref, reactive, onMounted, computed, watch, onBeforeUnmount, h, resolveComponent } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import { Plus, Upload, Download, Search } from '@element-plus/icons-vue'
 import { useStore } from 'vuex'
 import { useI18n } from 'vue-i18n'
@@ -357,6 +375,9 @@ export default {
   name: 'I18nErrorCodes',
   components: {
     Search,
+    Plus,
+    Upload,
+    Download,
     ExplanationCell: {
       name: 'ExplanationCell',
       props: { 
@@ -466,7 +487,6 @@ export default {
     })
 
     const exportLanguageOptions = ref([])
-    const exportLangColWidth = ref(140)
     
     // 表格高度计算（固定表头）
     const tableHeight = computed(() => {
@@ -603,7 +623,8 @@ export default {
           { value: 'nl', label: t('shared.languageNames.nl') },
           { value: 'sk', label: t('shared.languageNames.sk') },
           { value: 'ro', label: t('shared.languageNames.ro') },
-          { value: 'da', label: t('shared.languageNames.da') }
+          { value: 'da', label: t('shared.languageNames.da') },
+          { value: 'lv', label: t('shared.languageNames.lv') }
         ]
       }
     }
@@ -613,8 +634,6 @@ export default {
       try {
         const response = await api.i18nErrorCodes.getLanguages()
         exportLanguageOptions.value = response.data?.languages || []
-        // 计算最长标签宽度，给每列一个统一的最小宽度，保证多列左对齐
-        exportLangColWidth.value = calcLangColumnWidth(exportLanguageOptions.value)
       } catch (error) {
         console.error('Load export languages error:', error)
         // 如果API调用失败，使用默认的导出语言选项
@@ -629,21 +648,10 @@ export default {
           { value: 'nl', label: t('shared.languageNames.nl') },
           { value: 'sk', label: t('shared.languageNames.sk') },
           { value: 'ro', label: t('shared.languageNames.ro') },
-          { value: 'da', label: t('shared.languageNames.da') }
+          { value: 'da', label: t('shared.languageNames.da') },
+          { value: 'lv', label: t('shared.languageNames.lv') }
         ]
-        exportLangColWidth.value = calcLangColumnWidth(exportLanguageOptions.value)
       }
-    }
-
-    const calcLangColumnWidth = (options) => {
-      const basePadding = 28 // 复选框控件左右内边距与图标所占宽度
-      const maxLabelLength = (options || []).reduce((max, o) => {
-        const len = (o.label || '').length
-        return Math.max(max, len)
-      }, 0)
-      // 粗略按每汉字/字符 14px 估算，再加上控件内边距，限制最小和最大范围
-      const estimated = Math.min(Math.max(Math.ceil(maxLabelLength * 14) + basePadding, 120), 240)
-      return estimated
     }
 
     // 加载多语言故障码列表
@@ -752,29 +760,25 @@ export default {
       }
     }
 
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     // 删除
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(
-          t('i18nErrorCodes.deleteConfirmText'),
-          t('shared.messages.confirmDelete'),
-          {
-            confirmButtonText: t('shared.confirm'),
-            cancelButtonText: t('shared.cancel'),
-            type: 'warning',
-            confirmButtonClass: 'btn-primary-danger',
-            cancelButtonClass: 'btn-secondary'
-          }
-        )
-        
+        const confirmed = await confirmDelete(row, {
+          message: t('i18nErrorCodes.deleteConfirmText'),
+          title: t('shared.messages.confirmDelete')
+        })
+
+        if (!confirmed) return
+
         await api.i18nErrorCodes.delete(row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadI18nErrorCodes()
       } catch (error) {
-        if (error !== 'cancel') {
-          console.error('Delete error:', error)
-          ElMessage.error(t('shared.messages.deleteFailed'))
-        }
+        console.error('Delete error:', error)
+        ElMessage.error(t('shared.messages.deleteFailed'))
       }
     }
 
@@ -971,6 +975,23 @@ export default {
       showExportDialog.value = true
     }
 
+    // 判断是否已全选所有语言
+    const isAllLanguagesSelected = computed(() => {
+      if (exportLanguageOptions.value.length === 0) return false
+      return exportForm.languages.length === exportLanguageOptions.value.length
+    })
+
+    // 全选/清空所有语言
+    const handleSelectAllLanguages = () => {
+      if (isAllLanguagesSelected.value) {
+        // 如果已全选，则清空
+        exportForm.languages = []
+      } else {
+        // 如果未全选，则全选
+        exportForm.languages = exportLanguageOptions.value.map(lang => lang.value)
+      }
+    }
+
     // 确认导出
     const handleExportConfirm = async () => {
       try {
@@ -1039,7 +1060,8 @@ export default {
         nl: 'Dutch',
         sk: 'Czechoslovakia',
         ro: 'Romania',
-        da: 'Denmark'
+        da: 'Denmark',
+        lv: 'Latvia'
       }
       return langMap[lang] || lang
     }
@@ -1057,7 +1079,8 @@ export default {
         nl: 'info',
         sk: 'danger',
         ro: 'warning',
-        da: 'info'
+        da: 'info',
+        lv: 'info'
       }
       return typeMap[lang] || ''
     }
@@ -1144,11 +1167,17 @@ export default {
       clearImportForm,
       handleExport,
       handleExportConfirm,
+      isAllLanguagesSelected,
+      handleSelectAllLanguages,
       getLangDisplayName,
       getLangfileName,
       getLangTagType,
       uploadRef,
-      tableHeight
+      tableHeight,
+      // 图标
+      Plus,
+      Upload,
+      Download
     }
   }
 }
@@ -1156,8 +1185,8 @@ export default {
 
 <style scoped>
 .i18n-error-codes-container {
-  height: calc(100vh - 64px);
-  background: rgb(var(--background));
+  height: 100%;
+  background: var(--black-white-white);
   padding: 24px;
   overflow: hidden;
   display: flex;
@@ -1165,8 +1194,8 @@ export default {
 }
 
 .main-card {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1186,6 +1215,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .search-section {
@@ -1239,32 +1269,32 @@ export default {
   flex-shrink: 0;
   padding: 8px 0 12px 0; /* 上8px， 下12px */
   margin-top: auto;
-  border-top: 1px solid rgb(var(--border));
-  background: rgb(var(--background));
+  border-top: 1px solid var(--gray-200);
+  background: var(--black-white-white);
 }
 
-.export-language-checkboxes {
+.export-language-select-wrapper {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
 }
-.export-language-checkboxes .el-checkbox-group {
-  display: grid;
-  grid-template-columns: repeat(3, var(--lang-col-width));
-  justify-content: start;
-  column-gap: 12px;
-  row-gap: 6px;
+
+.export-language-select-wrapper .el-select,
+.export-language-select-wrapper .export-language-select {
+  width: 320px;
+  max-width: 100%;
 }
-.export-language-checkboxes .el-checkbox {
-  width: var(--lang-col-width, 140px);
-  margin-right: 0;
-  padding-right: 12px;
-  box-sizing: border-box;
+
+.select-all-btn {
+  align-self: flex-start;
+  white-space: nowrap;
 }
+
 
 .csv-format-tip {
-  background-color: #f5f7fa;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  background-color: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
   padding: 12px;
   margin-bottom: 12px;
   font-size: 14px;
@@ -1280,9 +1310,9 @@ export default {
 }
 
 .csv-format-tip pre {
-  background-color: #ffffff;
-  border: 1px solid #dcdfe6;
-  border-radius: 3px;
+  background-color: var(--black-white-white);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-xs);
   padding: 8px;
   margin: 8px 0;
   font-size: 12px;
@@ -1338,15 +1368,6 @@ export default {
     margin: 5vh auto;
   }
 
-  .export-language-checkboxes {
-    grid-template-columns: 1fr !important;
-  }
-
-  .export-language-checkboxes .el-checkbox {
-    width: 100% !important;
-    margin-right: 0 !important;
-    padding-right: 0 !important;
-  }
 }
 </style> 
 <style>
@@ -1371,5 +1392,25 @@ export default {
   background: rgba(0,0,0,0.85);
   color: #fff;
   border: none;
+}
+
+/* 导出语言选择 tooltip 多行显示 */
+:deep(.export-languages-tooltip) {
+  max-width: 500px !important;
+}
+
+/* Element Plus collapse-tags-tooltip 多行显示（全局样式） */
+.el-select__collapse-tags .el-tooltip__popper,
+.el-select__collapse-tags .el-tooltip__popper.is-dark {
+  max-width: 500px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  line-height: 1.5 !important;
+}
+
+.el-select__collapse-tags .el-tooltip__popper .el-tooltip__content {
+  white-space: normal !important;
+  word-break: break-word !important;
+  line-height: 1.5 !important;
 }
 </style>

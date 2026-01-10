@@ -260,7 +260,22 @@ function translatePerLine(line, key) {
     }
     
     // 解析日期和时间
-    const dateTime = parseDateTime(split[0]);
+    // 保留原始时间字符串，避免时区转换问题
+    const rawTimeStr = split[0];
+    let timestampValue;
+    
+    // 如果原始字符串已经是 YYYY-MM-DD HH:mm:ss 格式，直接使用
+    // 否则解析为 Date 对象（用于兼容性，但存储时会再次格式化为字符串）
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(rawTimeStr)) {
+      timestampValue = rawTimeStr; // 直接使用原始字符串，无时区转换
+    } else if (rawTimeStr.startsWith('DT#')) {
+      // DT# 格式：解析后格式化为字符串
+      const dateTime = parseDateTime(rawTimeStr);
+      timestampValue = dayjs(dateTime).format('YYYY-MM-DD HH:mm:ss');
+    } else {
+      // 其他格式：解析为 Date 对象（保持向后兼容）
+      timestampValue = parseDateTime(rawTimeStr);
+    }
     
     // 解析错误码和其他参数
     const errCode = split[1];
@@ -294,7 +309,7 @@ function translatePerLine(line, key) {
     const errDesc = getUserInfoAndOpInfo(errCodeDec, p1, p2, p3, p4);
     
     const result = {
-      timestamp: dateTime,
+      timestamp: timestampValue,
       error_code: errCodeDec,
       param1: p1.toString(),
       param2: p2.toString(),

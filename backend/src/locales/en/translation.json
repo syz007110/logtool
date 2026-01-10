@@ -54,7 +54,8 @@
       "nl": "Dutch",
       "sk": "Slovak",
       "ro": "Romanian",
-      "da": "Danish"
+      "da": "Danish",
+      "lv": "Latvian"
     },
     "subsystemOptions": {
       "1": "01: Motion Control Software",

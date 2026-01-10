@@ -35,7 +35,7 @@ export default {
 <style scoped>
 .config-management-container {
   height: calc(100vh - 64px);
-  background: rgb(var(--background));
+  background: var(--black-white-white);
   padding: 24px;
   overflow: hidden;
   display: flex;
@@ -43,8 +43,8 @@ export default {
 }
 
 .main-card {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
   flex: 1;
   display: flex;
   flex-direction: column;

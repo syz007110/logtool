@@ -18,13 +18,13 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-          <button class="btn-primary search-btn" @click="handleJiraSearch(true)">
+          <el-button type="primary" class="search-btn" @click="handleJiraSearch(true)">
             {{ $t('shared.search') }}
-          </button>
-          <button class="btn-secondary reset-btn" @click="resetFilters">
+          </el-button>
+          <el-button class="reset-btn" @click="resetFilters">
             <el-icon style="margin-right: 4px;"><Refresh /></el-icon>
             {{ $t('shared.reset') }}
-          </button>
+          </el-button>
         </div>
 
         <div class="actions-group">
@@ -40,14 +40,14 @@
               <el-icon class="help-icon"><InfoFilled /></el-icon>
             </el-tooltip>
           </div>
-          <button 
+          <el-button 
             v-if="canCreate"
-            class="btn-secondary create-btn"
+            class="create-btn"
             @click="openCreate"
           >
             <el-icon><Plus /></el-icon>
             {{ $t('faultCases.create') }}
-          </button>
+          </el-button>
         </div>
       </div>
 
@@ -70,39 +70,41 @@
           </el-select>
 
           <el-select
-            :model-value="filteredModuleValues"
+            v-if="hasConfigManagePermission"
+            v-model="filters.moduleKeys"
             :placeholder="$t('faultCases.filters.modulePlaceholder')"
             multiple
             clearable
             collapse-tags
             collapse-tags-tooltip
-            class="filter-select"
-            @change="(val) => { filteredModuleValues = val; handleTableFilterChange(); }"
+            class="filter-select filter-select-module"
+            @change="handleFilterChange"
           >
             <el-option
-              v-for="module in availableModules"
-              :key="module"
-              :label="module"
-              :value="module"
+              v-for="m in availableModuleKeys"
+              :key="m.module_key"
+              :label="isZhCN ? m.name_zh : m.name_en"
+              :value="m.module_key"
             />
           </el-select>
 
           <el-select
-            :model-value="filteredStatusValues"
+            v-if="hasConfigManagePermission"
+            v-model="filters.statusKeys"
             :placeholder="$t('faultCases.filters.statusPlaceholder')"
             multiple
             clearable
             collapse-tags
             collapse-tags-tooltip
-            class="filter-select"
-            @change="(val) => { filteredStatusValues = val; handleTableFilterChange(); }"
+            class="filter-select filter-select-status"
+            @change="handleFilterChange"
           >
             <el-option
-              v-for="status in availableStatuses"
-              :key="status"
-              :label="status"
-              :value="status"
-            />
+              v-for="s in availableStatusKeys"
+              :key="s.status_key"
+              :label="isZhCN ? s.name_zh : s.name_en"
+              :value="s.status_key"
+          />
           </el-select>
 
           <el-date-picker
@@ -125,8 +127,10 @@
     </div>
 
     <!-- Divider between search and table -->
+    <!-- TODO: 需要创建 BaseDivider 组件替换 el-divider -->
     <el-divider style="margin: 20px 0;" />
 
+    <!-- TODO: 需要创建 BaseAlert 组件替换 el-alert -->
     <el-alert
         v-if="jiraState.enabled === false"
         :title="$t('faultCases.jira.notEnabledHint')"
@@ -136,6 +140,7 @@
         style="margin: 10px 0"
       />
 
+      <!-- TODO: 需要创建 BaseAlert 组件替换 el-alert -->
       <el-alert
         v-else-if="jiraState.ok === false && jiraState.message"
         :title="jiraState.message"
@@ -145,52 +150,16 @@
         style="margin: 10px 0"
       />
 
-      <!-- Search Status / Results Info -->
-      <div v-if="jiraQuery.q && (jiraLoading || (hasSearched && (jiraRows.length > 0 || (jiraState.ok === true && !jiraLoading && jiraPager.total === 0))))" class="search-info" style="margin: 10px 0; padding: 8px 12px; background-color: rgb(var(--bg-secondary)); border-radius: 4px;">
-        <el-text v-if="jiraLoading" type="info" size="small">
-          <el-icon class="is-loading" style="margin-right: 6px; vertical-align: middle;"><Loading /></el-icon>
-          <span>正在搜索 "{{ jiraQuery.q }}"...</span>
-        </el-text>
-        <el-text v-else-if="hasSearched && jiraRows.length > 0" type="success" size="small">
-          <el-icon style="margin-right: 6px; vertical-align: middle;"><Check /></el-icon>
-          <span>找到 <strong>{{ jiraPager.total }}</strong> 条结果，当前显示 <strong>{{ jiraRows.length }}</strong> 条</span>
-        </el-text>
-        <el-text v-else-if="hasSearched && jiraState.ok === true && !jiraLoading && jiraPager.total === 0" type="info" size="small">
-          <el-icon style="margin-right: 6px; vertical-align: middle;"><InfoFilled /></el-icon>
-          <span>未找到与 "<strong>{{ jiraQuery.q }}</strong>" 相关的故障案例</span>
-        </el-text>
-      </div>
-
       <!-- Jira Results Table -->
       <div class="table-container">
-      <el-table v-if="jiraLoading || jiraRows.length > 0" :data="jiraRows" :loading="jiraLoading" :height="tableHeight" style="width: 100%" @filter-change="handleTableFilterChange" v-loading="jiraLoading">
+      <el-table :data="jiraRows" :loading="jiraLoading" v-loading="jiraLoading" :height="tableHeight" style="width: 100%" @filter-change="handleTableFilterChange" :empty-text="$t('shared.noData')">
+        <!-- 关键字 -->
         <el-table-column :label="$t('faultCases.jira.columns.key')" width="140">
           <template #default="{ row }">
             <el-link type="primary" :underline="false" @click.prevent="openJiraOrPreview(row)">{{ row.key }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('faultCases.fields.source')" width="110">
-          <template #default="{ row }">
-            <el-tag 
-              size="small" 
-              :type="row.source === 'jira' ? 'warning' : 'info'"
-            >
-              {{ row.source === 'jira' ? 'JIRA' : $t('faultCases.sourceManual') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="module"
-          column-key="module"
-          :label="$t('faultCases.jira.columns.module')"
-          width="180"
-          show-overflow-tooltip
-          :filters="moduleFilters"
-          :filter-method="noFilter"
-          :filter-multiple="true"
-          :filtered-value="filteredModuleValues"
-          filter-placement="bottom-end"
-        />
+        <!-- 主题 -->
         <el-table-column :label="$t('faultCases.jira.columns.summary')" min-width="320">
           <template #default="{ row }">
             <el-tooltip
@@ -203,47 +172,105 @@
             </el-tooltip>
           </template>
         </el-table-column>
+        <!-- 模块 -->
+        <el-table-column
+          column-key="module"
+          :label="$t('faultCases.jira.columns.module')"
+          width="180"
+          :filters="moduleFilters"
+          :filter-method="noFilter"
+          :filter-multiple="true"
+          :filtered-value="filteredModuleValues"
+          filter-placement="bottom-end"
+        >
+          <template #default="{ row }">
+            <el-tooltip
+              :content="getModuleTooltipContent(row)"
+              placement="top"
+              effect="dark"
+              :disabled="!getModuleTooltipContent(row)"
+            >
+              <div class="table-cell-content">
+                <span>
+                  {{ getModuleDisplayText(row.module || '', row.source) }}
+                  <span v-if="!getModuleHasMapping(row.module || '')" class="asterisk">*</span>
+                </span>
+              </div>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <!-- 来源 -->
+        <el-table-column :label="$t('faultCases.fields.source')" width="110">
+          <template #default="{ row }">
+            <el-tag 
+              size="small" 
+              :type="row.source === 'jira' ? 'warning' : 'info'"
+            >
+              {{ row.source === 'jira' ? 'JIRA' : $t('faultCases.sourceManual') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <!-- 状态 -->
         <el-table-column
           prop="status"
           column-key="status"
           :label="$t('faultCases.jira.columns.status')"
           width="140"
-          show-overflow-tooltip
           :filters="statusFilters"
           :filter-method="noFilter"
           :filter-multiple="true"
           :filtered-value="filteredStatusValues"
           filter-placement="bottom-end"
-        />
+        >
+          <template #default="{ row }">
+            <el-tooltip
+              :content="getStatusTooltipContent(row)"
+              placement="top"
+              effect="dark"
+              :disabled="!getStatusTooltipContent(row)"
+            >
+              <div class="table-cell-content">
+                <span>
+                  {{ getStatusDisplayText(row.status || '', row.source) }}
+                  <span v-if="!getStatusHasMapping(row.status || '')" class="asterisk">*</span>
+                </span>
+              </div>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <!-- 更新日期 -->
         <el-table-column :label="$t('faultCases.jira.columns.updated')" width="110">
           <template #default="{ row }">
             {{ formatDateOnly(row.updated) }}
           </template>
         </el-table-column>
+        <!-- 操作 -->
         <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="center">
           <template #default="{ row }">
             <div v-if="row.source === 'jira'" class="btn-group" style="justify-content: center;">
-              <button
-                class="btn-text btn-sm"
+              <el-button
+                text
+                size="small"
                 :disabled="!canCreate"
                 @click="addToFaultCases(row)"
-              >{{ $t('faultCases.jira.addToFaultCases') }}</button>
+              >{{ $t('faultCases.jira.addToFaultCases') }}</el-button>
             </div>
             <div v-else class="btn-group" style="justify-content: center; gap: 8px;">
-              <button
+              <el-button
                 v-if="canUpdate"
-                class="btn-text btn-sm"
+                text
+                size="small"
                 @click="openEditByMixedRow(row)"
-              >{{ $t('shared.edit') }}</button>
+              >{{ $t('shared.edit') }}</el-button>
               <el-dropdown
                 v-if="canDelete"
                 trigger="click"
                 placement="bottom-end"
                 @command="(command) => handleOperationCommand(row, command)"
               >
-                <button class="btn-text btn-sm">
+                <el-button text size="small">
                   <i class="fas fa-ellipsis-h"></i>
-              </button>
+              </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="delete">
@@ -258,15 +285,7 @@
       </el-table>
       </div>
 
-      <!-- Empty state when search completed but no results -->
-      <el-empty
-        v-if="hasSearched && jiraState.ok === true && !jiraLoading && jiraPager.total === 0"
-        :description="$t('shared.noData')"
-        :image-size="80"
-        style="margin: 40px 0;"
-      />
-
-      <div v-if="jiraRows.length > 0" class="pager">
+      <div v-if="jiraPager.total > 0" class="pager">
         <el-pagination
           :current-page="jiraPager.page"
           :page-size="jiraPager.limit"
@@ -318,7 +337,7 @@
         </el-form-item>
 
         <el-form-item :label="$t('faultCases.fields.equipment_model')">
-              <el-select
+          <el-select
             v-model="form.equipment_model"
             multiple
                 filterable
@@ -329,10 +348,15 @@
                 style="width: 100%"
             :placeholder="$t('faultCases.equipmentModelPlaceholder')"
             @focus="loadEquipmentModels"
-              >
-            <el-option v-for="m in equipmentModelOptions" :key="m.value" :label="m.label" :value="m.value" />
-              </el-select>
-            </el-form-item>
+          >
+            <el-option
+              v-for="option in equipmentModelOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+              />
+          </el-select>
+        </el-form-item>
 
         <el-form-item :label="$t('faultCases.fields.keywords')">
           <el-select
@@ -355,6 +379,23 @@
               :key="index"
               :label="keyword"
               :value="keyword"
+          />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('faultCases.fields.status')">
+          <el-select
+            v-model="form.status"
+            filterable
+            clearable
+            style="width: 100%"
+            :placeholder="$t('faultCases.statusPlaceholder')"
+            :loading="loadingStatuses"
+          >
+            <el-option
+              v-for="status in statusOptions"
+              :key="status.status_key"
+              :label="status.displayName"
+              :value="status.status_key"
             />
           </el-select>
         </el-form-item>
@@ -370,7 +411,12 @@
             style="width: 100%"
             :placeholder="$t('faultCases.relatedErrorCodesSelectPlaceholder')"
           >
-            <el-option v-for="ec in errorCodeOptions" :key="ec.value" :label="ec.label" :value="ec.value" />
+            <el-option
+              v-for="option in errorCodeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+          />
           </el-select>
         </el-form-item>
 
@@ -399,8 +445,8 @@
       </el-form>
 
       <template #footer>
-        <button class="btn-secondary" @click="dialog.visible = false">{{ $t('shared.cancel') }}</button>
-        <button class="btn-primary" :class="{ 'btn-loading': saving }" :disabled="saving" @click="save()">{{ $t('faultCases.publish') }}</button>
+        <el-button @click="dialog.visible = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" :loading="saving" :disabled="saving" @click="save()">{{ $t('faultCases.publish') }}</el-button>
       </template>
     </el-dialog>
 
@@ -574,10 +620,10 @@
       <template #footer>
         <div class="jira-dialog-footer">
           <div class="jira-footer-right">
-            <button v-if="jiraPreview.url" class="btn-secondary" @click="openUrl(jiraPreview.url)">
+            <el-button v-if="jiraPreview.url" @click="openUrl(jiraPreview.url)">
               <i class="fas fa-external-link-alt"></i>
               {{ $t('faultCases.jira.openInJira') }}
-            </button>
+            </el-button>
           </div>
         </div>
       </template>
@@ -589,18 +635,15 @@
 <script>
 import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Check, InfoFilled, Search, Refresh, Link, View, Plus, Filter } from '@element-plus/icons-vue'
+import { InfoFilled, Search, Refresh, Link, View, Plus, Filter } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
-
 export default {
   name: 'JiraFaultCases',
   components: {
-    Loading,
-    Check,
     InfoFilled,
     Search,
     Refresh,
@@ -610,7 +653,7 @@ export default {
     Filter
   },
   setup () {
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const store = useStore()
     const router = useRouter()
     const route = useRoute()
@@ -634,8 +677,18 @@ export default {
     // Filters state
     const filters = reactive({
       source: '',
-      dateRange: null
+      dateRange: null,
+      statusKeys: [],
+      moduleKeys: []
     })
+    
+    // Fault case statuses list
+    const faultCaseStatuses = ref([])
+    const loadingStatuses = ref(false)
+    
+    // Fault case modules list
+    const faultCaseModules = ref([])
+    const loadingModules = ref(false)
     const jiraLoading = ref(false)
     const jiraRows = ref([])
     const hasSearched = ref(false) // 标记是否已执行过搜索
@@ -720,7 +773,7 @@ export default {
       related_error_code_ids: [],
       attachments: [],
       updated_at_user: null,
-      is_published: false
+      status: ''
     })
 
     const uploadFileList = ref([])
@@ -911,6 +964,287 @@ export default {
       return Array.from(modules).map((m) => m.trim()).filter(Boolean).sort()
     })
 
+    // 从API获取故障案例状态列表（需要 fault_case_config:manage 权限）
+    const fetchFaultCaseStatuses = async () => {
+      // 检查权限
+      if (!store.getters['auth/hasPermission']('fault_case_config:manage')) {
+        return
+      }
+      loadingStatuses.value = true
+      try {
+        const resp = await api.faultCaseStatuses.getList({ is_active: true })
+        if (resp.data?.success) {
+          faultCaseStatuses.value = resp.data.statuses || []
+        }
+      } catch (e) {
+        console.error('获取故障案例状态列表失败:', e)
+      } finally {
+        loadingStatuses.value = false
+      }
+    }
+    
+    // 从API获取故障案例模块列表（需要 fault_case_config:manage 权限）
+    const fetchFaultCaseModules = async () => {
+      // 检查权限
+      if (!store.getters['auth/hasPermission']('fault_case_config:manage')) {
+        return
+      }
+      loadingModules.value = true
+      try {
+        const resp = await api.faultCaseModules.getList({ is_active: true })
+        if (resp.data?.success) {
+          faultCaseModules.value = resp.data.modules || []
+        }
+      } catch (e) {
+        console.error('获取故障案例模块列表失败:', e)
+      } finally {
+        loadingModules.value = false
+      }
+    }
+    
+    // 检查是否有配置管理权限
+    const hasConfigManagePermission = computed(() => {
+      return store.getters['auth/hasPermission']('fault_case_config:manage')
+    })
+    
+    const availableStatusKeys = computed(() => {
+      if (!hasConfigManagePermission.value) return []
+      return faultCaseStatuses.value.filter(s => s.is_active)
+    })
+    
+    const availableModuleKeys = computed(() => {
+      if (!hasConfigManagePermission.value) return []
+      return faultCaseModules.value.filter(m => m.is_active)
+    })
+    
+    const statusOptions = computed(() => {
+      return faultCaseStatuses.value.map(status => ({
+        ...status,
+        displayName: isZhCN.value ? status.name_zh : status.name_en
+      }))
+    })
+    
+    const isZhCN = computed(() => {
+      const currentLocale = locale.value || 'zh-CN'
+      return currentLocale === 'zh-CN'
+    })
+    
+    // 根据 JIRA 状态值反向查找对应的故障案例状态名称和匹配信息
+    // 通过 mapping_values 匹配，然后根据用户选择的系统语言返回 name_zh 或 name_en
+    // 返回 { displayName, hasMapping, originalValue }
+    const getStatusDisplayInfo = (statusValue) => {
+      if (!statusValue) return { displayName: '-', hasMapping: false, originalValue: '' }
+      const statusStr = String(statusValue).trim()
+      if (!statusStr) return { displayName: '-', hasMapping: false, originalValue: '' }
+      
+      // 首先尝试通过 status_key 直接匹配（MongoDB 存储的是 status_key）
+      const directMatch = faultCaseStatuses.value.find(s => s.is_active && s.status_key === statusStr)
+      if (directMatch) {
+        const displayName = isZhCN.value ? directMatch.name_zh : directMatch.name_en
+        return {
+          displayName: displayName || directMatch.status_key,
+          hasMapping: true,
+          originalValue: '',
+          statusKey: directMatch.status_key
+        }
+      }
+      
+      // 如果不是直接匹配，尝试通过 mapping_values 反向查找（JIRA 原值）
+      for (const status of faultCaseStatuses.value) {
+        if (!status.is_active) continue
+        const mappingValues = status.mapping_values || []
+        const matched = mappingValues.some(mv => String(mv).trim() === statusStr)
+        if (matched) {
+          const displayName = isZhCN.value ? status.name_zh : status.name_en
+          return {
+            displayName: displayName || status.status_key,
+            hasMapping: true,
+            originalValue: statusStr,
+            statusKey: status.status_key
+          }
+        }
+      }
+      
+      // 如果没有找到匹配的映射，返回原始值
+      return {
+        displayName: statusStr,
+        hasMapping: false,
+        originalValue: statusStr
+      }
+    }
+    
+    // 向后兼容：只返回显示名称
+    const getStatusDisplayName = (statusValue) => {
+      return getStatusDisplayInfo(statusValue).displayName
+    }
+    
+    // 根据 JIRA 模块值反向查找对应的故障案例模块名称和匹配信息
+    // 通过 mapping_values 匹配，然后根据用户选择的系统语言返回 name_zh 或 name_en
+    // 返回 { displayName, hasMapping, originalValue }
+    const getModuleDisplayInfo = (moduleValue) => {
+      if (!moduleValue) return { displayName: '-', hasMapping: false, originalValue: '' }
+      const moduleStr = String(moduleValue).trim()
+      if (!moduleStr) return { displayName: '-', hasMapping: false, originalValue: '' }
+      
+      // 首先尝试通过 module_key 直接匹配（MongoDB 存储的是 module_key）
+      const directMatch = faultCaseModules.value.find(m => m.is_active && m.module_key === moduleStr)
+      if (directMatch) {
+        const displayName = isZhCN.value ? directMatch.name_zh : directMatch.name_en
+        return {
+          displayName: displayName || directMatch.module_key,
+          hasMapping: true,
+          originalValue: '',
+          moduleKey: directMatch.module_key
+        }
+      }
+      
+      // 如果不是直接匹配，尝试通过 mapping_values 反向查找（JIRA 原值）
+      // 注意：模块可能是逗号分隔的多个值
+      const moduleParts = moduleStr.split(',').map(p => p.trim()).filter(Boolean)
+      if (moduleParts.length > 1) {
+        // 多个模块值，尝试分别查找
+        const matchedParts = []
+        const unmatchedParts = []
+        for (const part of moduleParts) {
+          let found = false
+          for (const module of faultCaseModules.value) {
+            if (!module.is_active) continue
+            const mappingValues = module.mapping_values || []
+            if (mappingValues.some(mv => String(mv).trim() === part) || module.module_key === part) {
+              const displayName = isZhCN.value ? module.name_zh : module.name_en
+              matchedParts.push(displayName || module.module_key)
+              found = true
+              break
+            }
+          }
+          if (!found) {
+            unmatchedParts.push(part)
+          }
+        }
+        if (matchedParts.length > 0) {
+          const allParts = [...matchedParts, ...unmatchedParts]
+          return {
+            displayName: allParts.join(', '),
+            hasMapping: unmatchedParts.length === 0,
+            originalValue: moduleStr
+          }
+        }
+      } else {
+        // 单个模块值
+        for (const module of faultCaseModules.value) {
+          if (!module.is_active) continue
+          const mappingValues = module.mapping_values || []
+          const matched = mappingValues.some(mv => String(mv).trim() === moduleStr) || module.module_key === moduleStr
+          if (matched) {
+            const displayName = isZhCN.value ? module.name_zh : module.name_en
+            return {
+              displayName: displayName || module.module_key,
+              hasMapping: true,
+              originalValue: moduleStr,
+              moduleKey: module.module_key
+            }
+          }
+        }
+      }
+      
+      // 如果没有找到匹配的映射，返回原始值
+      return {
+        displayName: moduleStr,
+        hasMapping: false,
+        originalValue: moduleStr
+      }
+    }
+    
+    // 向后兼容：只返回显示名称
+    const getModuleDisplayName = (moduleValue) => {
+      return getModuleDisplayInfo(moduleValue).displayName
+    }
+    
+    // 获取状态显示文本（用于查询页面）
+    // 主显示 name 字段，无映射则显示 raw 值
+    const getStatusDisplayText = (statusValue, source) => {
+      const info = getStatusDisplayInfo(statusValue)
+      if (!statusValue) return '-'
+      if (info.hasMapping) {
+        return info.displayName
+      } else {
+        // 无映射则返回 raw 值（星号在模板中单独显示）
+        return info.originalValue || statusValue
+      }
+    }
+    
+    // 获取状态是否有映射（用于添加星号标记）
+    const getStatusHasMapping = (statusValue) => {
+      const info = getStatusDisplayInfo(statusValue)
+      return info.hasMapping
+    }
+    
+    // 获取状态提示内容（hover 显示 JIRA 原值）
+    const getStatusTooltipContent = (row) => {
+      if (!row || !row.status) return ''
+      const info = getStatusDisplayInfo(row.status)
+      // 如果有原值且与显示名称不同，显示原值
+      if (info.originalValue && info.originalValue !== info.displayName) {
+        return row.source === 'jira' ? `JIRA 原值: ${info.originalValue}` : `原值: ${info.originalValue}`
+      }
+      // 如果是 JIRA 来源，显示原始状态值
+      if (row.source === 'jira') {
+        return `JIRA 原值: ${row.status}`
+      }
+      // 如果是 MongoDB 来源且找到了映射，显示原 status_key
+      if (row.source !== 'jira' && info.hasMapping && info.statusKey && info.statusKey !== info.displayName) {
+        return `状态键: ${info.statusKey}`
+      }
+      // 如果没有映射，显示原始值作为提示
+      if (!info.hasMapping && row.status) {
+        return `原值: ${row.status}（未配置映射）`
+      }
+      return ''
+    }
+    
+    // 获取模块显示文本（用于查询页面）
+    // 主显示 name 字段，无映射则显示 raw 值
+    const getModuleDisplayText = (moduleValue, source) => {
+      const info = getModuleDisplayInfo(moduleValue)
+      if (!moduleValue) return '-'
+      if (info.hasMapping) {
+        return info.displayName
+      } else {
+        // 无映射则返回 raw 值（星号在模板中单独显示）
+        return info.originalValue || moduleValue
+      }
+    }
+    
+    // 获取模块是否有映射（用于添加星号标记）
+    const getModuleHasMapping = (moduleValue) => {
+      const info = getModuleDisplayInfo(moduleValue)
+      return info.hasMapping
+    }
+    
+    // 获取模块提示内容（hover 显示 JIRA 原值）
+    const getModuleTooltipContent = (row) => {
+      if (!row || !row.module) return ''
+      const info = getModuleDisplayInfo(row.module)
+      // 如果有原值且与显示名称不同，显示原值
+      if (info.originalValue && info.originalValue !== info.displayName) {
+        return row.source === 'jira' ? `JIRA 原值: ${info.originalValue}` : `原值: ${info.originalValue}`
+      }
+      // 如果是 JIRA 来源，显示原始模块值
+      if (row.source === 'jira') {
+        return `JIRA 原值: ${row.module}`
+      }
+      // 如果是 MongoDB 来源且找到了映射，显示原 module_key
+      if (row.source !== 'jira' && info.hasMapping && info.moduleKey && info.moduleKey !== info.displayName) {
+        return `模块键: ${info.moduleKey}`
+      }
+      // 如果没有映射，显示原始值作为提示
+      if (!info.hasMapping && row.module) {
+        return `原值: ${row.module}（未配置映射）`
+      }
+      return ''
+    }
+    
+    // 保留原有的availableStatuses用于表格筛选（从jiraRows中提取）
     const availableStatuses = computed(() => {
       const statuses = new Set()
       jiraRows.value.forEach((row) => {
@@ -938,7 +1272,12 @@ export default {
       if (!values.length) return []
       return [
         { text: t('faultCases.jira.filters.selectAll'), value: FILTER_ALL },
-        ...values.map((m) => ({ text: m, value: m }))
+        ...values.map((m) => {
+          // 根据模块值获取映射后的显示名称（仅标准字典项）
+          const info = getModuleDisplayInfo(m)
+          const displayName = info.hasMapping ? info.displayName : m
+          return { text: displayName || m, value: m }
+        })
       ]
     })
 
@@ -955,7 +1294,11 @@ export default {
       if (!values.length) return []
       return [
         { text: t('faultCases.jira.filters.selectAll'), value: FILTER_ALL },
-        ...values.map((s) => ({ text: s, value: s }))
+        ...values.map((s) => {
+          // 根据 JIRA 状态值获取映射后的显示名称
+          const displayName = getStatusDisplayName(s)
+          return { text: displayName || s, value: s }
+        })
       ]
     })
 
@@ -1005,6 +1348,12 @@ export default {
         // Apply filters
         if (filters.source) {
           params.source = filters.source
+        }
+        if (filters.moduleKeys && filters.moduleKeys.length > 0) {
+          params.moduleKeys = filters.moduleKeys
+        }
+        if (filters.statusKeys && filters.statusKeys.length > 0) {
+          params.statusKeys = filters.statusKeys
         }
         if (filters.dateRange && Array.isArray(filters.dateRange) && filters.dateRange.length === 2) {
           const [startDate, endDate] = filters.dateRange
@@ -1075,6 +1424,8 @@ export default {
       jiraQuery.q = ''
       filters.source = ''
       filters.dateRange = null
+      filters.statusKeys = []
+      filters.moduleKeys = []
       jiraRows.value = []
       jiraPager.page = 1
       jiraPager.total = 0
@@ -1127,7 +1478,7 @@ export default {
         related_error_code_ids: [],
         attachments: [],
         updated_at_user: null,
-        is_published: false
+        status: ''
       })
       uploadFileList.value = []
       loadKeywordsFromRaw()
@@ -1322,7 +1673,7 @@ export default {
           related_error_code_ids: Array.isArray(fc.related_error_code_ids) ? fc.related_error_code_ids : [],
           attachments: Array.isArray(fc.attachments) ? fc.attachments : [],
           updated_at_user: fc.updated_at_user || null,
-          is_published: fc.is_published === true
+          status: fc.status || ''
         })
         uploadFileList.value = (form.attachments || []).map((a, idx) => ({ name: a.original_name || a.filename || `file-${idx}`, url: a.url }))
         loadKeywordsFromRaw()
@@ -1445,7 +1796,7 @@ export default {
           related_error_code_ids: Array.isArray(form.related_error_code_ids) ? form.related_error_code_ids : [],
           attachments: form.attachments,
           updated_at_user: now, // 自动设置为当前时间
-          is_published: true // 只保留发布，不再保存草稿
+          status: form.status || '' // 使用状态字段
         }
         if (dialog.isEdit && dialog.id) {
           await api.faultCases.update(dialog.id, payload)
@@ -1462,7 +1813,10 @@ export default {
       }
     }
 
-    onMounted(() => {})
+    onMounted(() => {
+      fetchFaultCaseStatuses()
+      fetchFaultCaseModules()
+    })
 
     return {
       t,
@@ -1470,6 +1824,10 @@ export default {
       filters,
       availableModules,
       availableStatuses,
+      availableStatusKeys,
+      availableModuleKeys,
+      hasConfigManagePermission,
+      isZhCN,
       jiraLoading,
       jiraRows,
       jiraState,
@@ -1531,7 +1889,19 @@ export default {
       imagePreview,
       downloadImage,
       tableHeight,
-      isComplaintProject
+      isComplaintProject,
+      statusOptions,
+      loadingStatuses,
+      getStatusDisplayName,
+      getStatusDisplayInfo,
+      getModuleDisplayName,
+      getModuleDisplayInfo,
+      getStatusDisplayText,
+      getStatusHasMapping,
+      getStatusTooltipContent,
+      getModuleDisplayText,
+      getModuleHasMapping,
+      getModuleTooltipContent
     }
   }
 }
@@ -1539,8 +1909,8 @@ export default {
 
 <style scoped>
 .fault-cases-container {
-  height: calc(100vh - 64px);
-  background: rgb(var(--background));
+  height: 100%;
+  background: var(--black-white-white);
   padding: 24px;
   overflow: hidden;
   display: flex;
@@ -1548,8 +1918,8 @@ export default {
 }
 
 .main-card {
-  border-radius: var(--radius);
-  box-shadow: 0 2px 12px var(--shadow-xs);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1567,6 +1937,7 @@ export default {
 /* Search and Actions Section */
 .search-actions-section {
   margin-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .search-actions-row {
@@ -1607,7 +1978,7 @@ export default {
   gap: 8px;
   padding: 6px 10px;
   border: 1px solid rgb(var(--border));
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: rgb(var(--bg-secondary));
 }
 
@@ -1626,6 +1997,7 @@ export default {
   white-space: nowrap;
 }
 
+/* Search Info */
 /* Filters Row */
 .filters-row {
   display: flex;
@@ -1633,6 +2005,7 @@ export default {
   gap: 12px;
   padding: 12px 0;
   border-top: 1px solid rgb(var(--border));
+  flex-shrink: 0;
 }
 
 .filters-label {
@@ -1656,8 +2029,19 @@ export default {
   width: 140px;
 }
 
+/* 模块筛选器加长 */
+.filter-select-module {
+  width: 200px;
+}
+
+/* 状态筛选器加长 */
+.filter-select-status {
+  width: 200px;
+}
+
+/* 时间筛选器缩短 */
 .filter-date-picker {
-  width: 140px;
+  width: 180px;
 }
 
 .filter-results {
@@ -1703,8 +2087,8 @@ export default {
   flex-shrink: 0;
   padding: 8px 0 12px 0; /* 上8px， 下12px */
   margin-top: auto;
-  border-top: 1px solid rgb(var(--border));
-  background: rgb(var(--background));
+  border-top: 1px solid var(--gray-200);
+  background: var(--black-white-white);
 }
 .keywords-input-wrapper {
   width: 100%;
@@ -1747,8 +2131,8 @@ export default {
   max-width: 100%;
   max-height: 70vh;
   object-fit: contain;
-  border-radius: var(--radius);
-  box-shadow: 0 2px 12px var(--shadow-sm-1);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
 }
 
 .image-error {
@@ -1787,7 +2171,7 @@ export default {
   position: relative;
   width: 120px;
   height: 120px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
   border: 1px solid rgb(var(--border));
@@ -1841,28 +2225,45 @@ export default {
 }
 
 /* JIRA Preview Dialog Styles */
-:deep(.jira-preview-dialog) {
-  .el-dialog__header {
-    padding: 20px 24px 0;
-    margin: 0;
-  }
-  .el-dialog__headerbtn {
-    top: 2px;
-    right: 2px;
-    color: rgb(var(--text-tertiary));
-    transition: all 0.3s;
-  }
-  .el-dialog__headerbtn:hover {
-    background-color: rgb(var(--bg-primary-hover));
-    color: rgb(var(--text-secondary));
-  }
-  .el-dialog__body {
-    padding: 0;
-  }
-  .el-dialog__footer {
-    padding: 16px 24px;
-    border-top: 1px solid rgb(var(--border-primary));
-  }
+:deep(.jira-preview-dialog .el-dialog__header) {
+  padding: 20px 24px 0;
+  margin: 0;
+}
+
+:deep(.jira-preview-dialog .el-dialog__headerbtn) {
+  top: 2px;
+  right: 2px;
+  color: rgb(var(--text-tertiary));
+  transition: all 0.3s;
+}
+
+:deep(.jira-preview-dialog .el-dialog__headerbtn:hover) {
+  background-color: rgb(var(--bg-primary-hover));
+  color: rgb(var(--text-secondary));
+}
+
+:deep(.jira-preview-dialog .el-dialog__body) {
+  padding: 0;
+}
+
+:deep(.jira-preview-dialog .el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid rgb(var(--border-primary));
+}
+
+/* 无映射状态的星号样式：红色星号 */
+.asterisk {
+  color: var(--el-color-danger);
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+/* 表格单元格内容样式：单行显示，溢出显示省略号 */
+.table-cell-content {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .jira-preview-content {
@@ -1962,7 +2363,7 @@ export default {
 .jira-content-box {
   background-color: rgb(var(--bg-secondary));
   border: 1px solid rgb(var(--border-primary));
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   padding: 12px 16px;
   font-size: 14px;
   color: rgb(var(--text-secondary));

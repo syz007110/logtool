@@ -5,16 +5,37 @@ const UserRole = require('../models/user_role');
 const User = require('../models/user');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
-// 查询角色列表（包含权限）
+// 查询角色列表（包含权限）- 支持分页和搜索
 const getRoles = async (req, res) => {
   try {
-    const roles = await Role.findAll({
+    const { search = '' } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
+    const where = {};
+    
+    // 搜索条件
+    if (search) {
+      const like = { [Op.like]: `%${search}%` };
+      where[Op.or] = [
+        { name: like },
+        { description: like }
+      ];
+    }
+    
+    // 使用 findAndCountAll 实现分页
+    const { count: total, rows: roles } = await Role.findAndCountAll({
+      where,
+      distinct: true, // 修复：使用 distinct 避免多对多关联导致的重复计数
       include: [
-        { model: Permission, as: 'permissions', attributes: ['name'] },
+        { model: Permission, as: 'permissions', attributes: ['name'], through: { attributes: [] } },
         { model: User, as: 'users', attributes: ['id'], through: { attributes: [] } }
-      ]
+      ],
+      offset: (page - 1) * limit,
+      limit,
+      order: [['id', 'DESC']]
     });
+    
     const data = roles.map(r => ({
       id: r.id,
       name: r.name,
@@ -22,7 +43,8 @@ const getRoles = async (req, res) => {
       userCount: Array.isArray(r.users) ? r.users.length : 0,
       permissions: (r.permissions || []).map(p => p.name)
     }));
-    res.json({ roles: data });
+    
+    res.json({ roles: data, total });
   } catch (err) {
     res.status(500).json({ message: '查询失败', error: err.message });
   }

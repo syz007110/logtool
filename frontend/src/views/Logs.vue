@@ -1,41 +1,46 @@
 <template>
   <div class="logs-container">
-    <!-- 按设备分组的日志列表 -->
-    <el-card class="list-card">
-      <template #header>
-        <div class="card-header">
-          <span>{{ $t('logs.title') }}</span>
-          <div class="header-actions">
+    <!-- 统一卡片：包含搜索栏和列表 -->
+    <el-card class="main-card">
+      <!-- 搜索和操作栏 -->
+      <div class="action-bar">
+        <div class="action-section">
             <!-- 日志上传按钮 - 主要按钮 -->
-            <div class="header-section upload-section" v-if="$store.getters['auth/hasPermission']('log:upload')">
-              <button class="btn-primary btn-sm" @click="showNormalUpload">
+          <el-button 
+            v-if="$store.getters['auth/hasPermission']('log:upload')"
+            type="primary"
+            @click="showNormalUpload"
+          >
                 <i class="fas fa-upload"></i>
                 {{ $t('logs.upload') }}
-              </button>
-            </div>
+              </el-button>
 
             <!-- 重置按钮 - 次要按钮 -->
-            <div class="header-section reset-section">
-              <button class="btn-secondary btn-sm" @click="resetAllFilters">
+          <el-button 
+            type="default"
+            @click="resetAllFilters"
+          >
                 <i class="fas fa-undo"></i>
                 {{ $t('shared.reset') }}
-              </button>
-            </div>
+              </el-button>
 
             <!-- 刷新按钮 - 次要按钮 -->
-            <div class="header-section refresh-section">
-              <button class="btn-secondary btn-sm" @click="loadDeviceGroups">
+          <el-button 
+            type="default"
+            @click="loadDeviceGroups"
+          >
                 <i class="fas fa-sync-alt"></i>
                 {{ $t('shared.refresh') }}
-              </button>
+              </el-button>
             </div>
           </div>
-        </div>
-      </template>
       
+      <!-- 表格容器 - 固定表头 -->
+      <div class="table-container">
       <el-table
         :data="deviceGroups"
         :loading="loading"
+          :height="tableHeight"
         style="width: 100%"
         v-loading="loading"
       >
@@ -63,8 +68,8 @@
                     </template>
                   </el-input>
                   <div class="filter-actions">
-                    <el-button size="small" class="btn-primary btn-sm" @click="applyDeviceFilter">{{ $t('shared.search') }}</el-button>
-                    <el-button size="small" class="btn-secondary btn-sm" @click="resetDeviceFilter">{{ $t('shared.reset') }}</el-button>
+                    <el-button type="primary" size="small" @click="applyDeviceFilter">{{ $t('shared.search') }}</el-button>
+                    <el-button type="default" size="small" @click="resetDeviceFilter">{{ $t('shared.reset') }}</el-button>
                   </div>
                 </div>
                 <template #reference>
@@ -76,9 +81,8 @@
           <template #default="{ row }">
             <div class="min-w-0">
               <el-button 
-                type="text" 
+                text
                 @click="showDeviceDetail(row)"
-                style="padding: 0; font-weight: 500; color: #409eff; max-width: 100%;"
                 :title="row.device_id"
               >
                 <span class="one-line-ellipsis" style="display:inline-block; max-width:100%;">{{ row.device_id }}</span>
@@ -101,26 +105,17 @@
             {{ formatDate(row.latest_update_time) }}
           </template>
         </el-table-column>
-                 <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="center">
+                 <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
            <template #default="{ row }">
-             <div class="btn-group">
-               <button class="btn-text btn-sm" @click="showDeviceDetail(row)">
-                 <i class="fas fa-list"></i>
-               {{ $t('logs.detail') }}
-               </button>
-             
-               <button 
-               v-if="false"
-                 class="btn-text btn-sm"
-               @click="uploadDataForDevice(row)"
-             >
-                 <i class="fas fa-upload"></i>
-               {{ $t('logs.uploadData') }}
-               </button>
+             <div class="operation-buttons">
+               <el-button text size="small" @click="showDeviceDetail(row)">
+                 {{ $t('logs.detail') }}
+               </el-button>
              </div>
            </template>
          </el-table-column>
       </el-table>
+      </div>
       
       <!-- 设备列表分页 -->
       <div class="pagination-wrapper">
@@ -155,28 +150,28 @@
           <div class="header-controls">
             <!-- 第一列：日志上传按钮 -->
             <div class="device-actions">
-              <button class="btn-primary btn-sm" @click="uploadLogForDevice(selectedDevice)">
+              <el-button type="primary" size="small" @click="uploadLogForDevice(selectedDevice)">
                 <i class="fas fa-upload"></i>
                 {{ $t('logs.upload') }}
-              </button>
+              </el-button>
             </div>
             
             <!-- 第二列：筛选控件 -->
             <div class="filter-controls">
               <!-- 重置按钮 - 次要按钮 -->
               <div class="reset-section">
-                <button class="btn-secondary btn-sm" @click="resetDetailFilters">
+                <el-button type="default" size="small" @click="resetDetailFilters">
                   <i class="fas fa-undo"></i>
                   {{ $t('shared.reset') }}
-                </button>
+                </el-button>
               </div>
 
               <!-- 刷新按钮 - 次要按钮 -->
               <div class="refresh-section">
-                <button class="btn-secondary btn-sm" @click="loadDetailLogs">
+                <el-button type="default" size="small" @click="loadDetailLogs">
                   <i class="fas fa-sync-alt"></i>
                   {{ $t('shared.refresh') }}
-                </button>
+                </el-button>
               </div>
             </div>
           </div>
@@ -262,35 +257,39 @@
               <!-- 批量操作组 -->
               <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
               <div class="batch-actions">
-                <button 
-                  class="btn-primary btn-sm" 
+                <el-button 
+                  type="primary"
+                  size="small" 
                   @click="handleBatchAnalyze"
                   :disabled="!canBatchView || !isSameDevice || selectedDetailLogs.length > 20"
                   :title="getBatchViewTitle()"
                 >
                   <i class="fas fa-eye"></i>
                     {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
-                </button>
-                <button 
-                  class="btn-secondary btn-sm" 
+                </el-button>
+                <el-button 
+                  type="default"
+                  size="small" 
                   @click="handleBatchDownload"
                   :disabled="!canBatchDownload"
                   :title="incompleteLogsMessage"
                 >
                   <i class="fas fa-download"></i>
                     {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
-                </button>
-                <button 
-                  class="btn-secondary btn-sm" 
+                </el-button>
+                <el-button 
+                  type="default"
+                  size="small" 
                   @click="handleBatchDelete"
                   :disabled="!canBatchDelete"
                   :title="incompleteLogsMessage"
                 >
                   <i class="fas fa-trash"></i>
                     {{ $t('logs.batchDelete') }} ({{ selectedDetailLogs.length }})
-                </button>
-                <button 
-                  class="btn-secondary btn-sm" 
+                </el-button>
+                <el-button 
+                  type="default"
+                  size="small" 
                   @click="handleBatchReparse"
                   :disabled="selectedDetailLogs.length === 0 || !$store.getters['auth/hasPermission']('log:reparse') || !canBatchReparse || selectedDetailLogs.length > 20"
                   :title="getBatchReparseTitle()"
@@ -298,7 +297,7 @@
                 >
                   <i class="fas fa-sync-alt"></i>
                     {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
-                </button>
+                </el-button>
                 <el-tooltip 
                   :content="$t('logs.deleteOwnOnlyTip')" 
                   placement="top" 
@@ -306,13 +305,14 @@
                 >
                   <el-icon class="info-icon"><InfoFilled /></el-icon>
                 </el-tooltip>
-                <button 
-                  class="btn-secondary btn-sm" 
+                <el-button 
+                  type="default"
+                  size="small" 
                     @click="clearDetailSelection"
                 >
                   <i class="fas fa-times"></i>
                   {{ $t('logs.clearSelection') }}
-                </button>
+                </el-button>
               </div>
             </div>
           </div>
@@ -351,8 +351,8 @@
                     </template>
                   </el-input>
                   <div class="filter-actions">
-                        <el-button size="small" class="btn-primary btn-sm" @click="applyDetailNameFilter">{{ $t('shared.search') }}</el-button>
-                        <el-button size="small" class="btn-secondary btn-sm" @click="resetDetailNameFilter">{{ $t('shared.reset') }}</el-button>
+                        <el-button type="primary" size="small" @click="applyDetailNameFilter">{{ $t('shared.search') }}</el-button>
+                        <el-button type="default" size="small" @click="resetDetailNameFilter">{{ $t('shared.reset') }}</el-button>
                   </div>
                 </div>
                 <template #reference>
@@ -377,25 +377,25 @@
           </template>
         </el-table-column>
         
-        <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="center">
+        <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
           <template #default="{ row }">
-            <div class="btn-group">
-              <button 
-                class="btn-text btn-sm"
+            <div class="operation-buttons">
+              <el-button 
+                text
+                size="small"
                 @click="goToLogAnalysis(row)"
                 :disabled="!canView(row)"
               >
                 {{ $t('logs.view') }}
-              </button>
-            
+              </el-button>
               <el-dropdown 
                 trigger="click" 
                 placement="bottom-end"
                 @command="handleMoreAction"
               >
-                <button class="btn-text btn-sm">
+                <el-button text size="small">
                   <i class="fas fa-ellipsis-h"></i>
-                </button>
+                </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item 
@@ -470,11 +470,11 @@
         </el-table-column>
         <el-table-column :label="$t('shared.operation')" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" class="btn-primary btn-sm" @click="viewLogsBySurgery(row)">{{ $t('logs.viewLogs') }}</el-button>
-            <el-button size="small" class="btn-success btn-sm" @click="visualizeSurgery(row)">{{ $t('logs.visualize') }}</el-button>
+            <el-button text size="small" @click="viewLogsBySurgery(row)">{{ $t('logs.viewLogs') }}</el-button>
+            <el-button text size="small" @click="visualizeSurgery(row)">{{ $t('logs.visualize') }}</el-button>
             <el-popconfirm v-if="$store.getters['auth/hasPermission']('surgery:delete')" :title="$t('logs.messages.confirmDeleteSurgery')" @confirm="deleteSurgery(row)">
               <template #reference>
-                <el-button size="small" class="btn-text-danger btn-sm">{{ $t('shared.delete') }}</el-button>
+                <el-button text size="small" type="danger">{{ $t('shared.delete') }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -515,10 +515,10 @@
         name="file"
         :disabled="uploading"
       >
-        <button class="btn-primary" :disabled="uploading">
+        <el-button type="primary" :disabled="uploading">
           <i class="fas fa-upload"></i>
           {{ $t('logs.chooseFiles') }}
-        </button>
+        </el-button>
         <template #tip>
           <div class="el-upload__tip">
             <div v-if="!uploading">
@@ -536,10 +536,10 @@
       <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
         <div class="file-list-header">
           <span>{{ $t('logs.selectedFiles') }} ({{ uploadFileList.length }})</span>
-            <button class="btn-secondary btn-sm" @click="clearUpload" :disabled="uploading">
+            <el-button type="default" size="small" @click="clearUpload" :disabled="uploading">
               <i class="fas fa-times"></i>
             {{ $t('logs.clear') }}
-            </button>
+            </el-button>
         </div>
         <div class="file-items">
           <div 
@@ -550,15 +550,17 @@
             <el-icon><Document /></el-icon>
             <span class="file-name">{{ file.name || file.originalname }}</span>
             <span class="file-size">{{ file.sizeText }}</span>
-            <button 
-              class="btn-text-danger btn-sm btn-icon"
+            <el-button 
+              text
+              size="small"
+              type="danger"
               @click="removeFile(index)"
               :disabled="uploading"
               :aria-label="$t('logs.removeFile')"
               :title="$t('logs.removeFile')"
             >
               <i class="fas fa-trash"></i>
-            </button>
+            </el-button>
           </div>
         </div>
       </div>
@@ -578,14 +580,15 @@
             </template>
           </el-input>
           
-          <button 
-            class="btn-secondary btn-sm" 
+          <el-button 
+            type="default"
+            size="small" 
             @click="autoFillDeviceId"
             :disabled="!decryptKey.trim()"
           >
             <i class="fas fa-magic"></i>
             {{ $t('logs.autoFillDeviceId') }}
-          </button>
+          </el-button>
           
           <span class="key-separator">{{ $t('logs.or') }}</span>
           
@@ -597,10 +600,10 @@
             :before-upload="beforeKeyUpload"
             :on-change="onKeyFileChange"
           >
-            <button class="btn-secondary btn-sm">
+            <el-button type="default" size="small">
               <i class="fas fa-upload"></i>
               {{ $t('logs.uploadKeyFile') }}
-            </button>
+            </el-button>
           </el-upload>
         </div>
         
@@ -633,14 +636,15 @@
             </template>
           </el-input>
           
-          <button 
-            class="btn-secondary btn-sm" 
+          <el-button 
+            type="default"
+            size="small" 
             @click="autoFillKey"
             :disabled="!deviceId.trim()"
           >
             <i class="fas fa-magic"></i>
             {{ $t('logs.autoFillKey') }}
-          </button>
+          </el-button>
         </div>
         
         <div v-if="deviceIdError" class="device-error">
@@ -652,19 +656,19 @@
 
       <template #footer>
         <div class="upload-actions">
-          <button class="btn-secondary" @click="showUploadDialog = false" :disabled="uploading">
+          <el-button type="default" @click="showUploadDialog = false" :disabled="uploading">
             <i class="fas fa-times"></i>
             {{ $t('shared.cancel') }}
-          </button>
-          <button 
-            class="btn-primary" 
+          </el-button>
+          <el-button 
+            type="primary" 
             @click="submitUpload" 
-            :class="{ 'btn-loading': uploading }"
+            :loading="uploading"
             :disabled="uploading || !canSubmitUpload || uploadFileList.length === 0"
           >
             <i class="fas fa-upload" v-if="!uploading"></i>
             {{ uploading ? $t('logs.uploading') : $t('logs.uploadAndParse') }}
-          </button>
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -696,6 +700,7 @@ import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { useI18n } from 'vue-i18n'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'Logs',
@@ -2905,7 +2910,12 @@ export default {
       openSurgeryDrawerForDevice: openSurgeryDrawerForDevice,
       // 医院信息脱敏
       hasDeviceReadPermission,
-      maskHospitalName
+      maskHospitalName,
+      
+      // 表格高度计算（固定表头）
+      tableHeight: computed(() => {
+        return getTableHeight('basic')
+      })
     }
   }
 }
@@ -2923,24 +2933,87 @@ export default {
 .status-alert {
   margin-bottom: 0;
 }
+
 .logs-container {
-  height: 100%;
+  height: calc(100vh - 64px);
+  background: var(--black-white-white);
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
+.main-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
 
-.card-header {
+.action-bar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-.header-actions {
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
+  flex-direction: column;
 }
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
+.action-section {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* 操作列按钮组样式 */
+.operation-buttons {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+/* 确保操作列（固定右列）的表头和内容都左对齐 */
+.table-container :deep(.el-table__header-wrapper .el-table__header th.is-right),
+.table-container :deep(.el-table__body-wrapper .el-table__body td.is-right) {
+  text-align: left;
+}
+
+.pagination-wrapper {
+  padding: 8px 0 12px 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* 移除旧的 card-header 和 header-actions 样式，使用统一的 action-bar 样式 */
 
 .header-section {
   display: flex;
@@ -2995,16 +3068,16 @@ export default {
 
 .filter-trigger {
   cursor: pointer;
-  color: #909399;
+  color: rgb(var(--text-secondary));
   transition: color 0.3s;
 }
 
 .filter-trigger:hover {
-  color: #409eff;
+  color: rgb(var(--primary));
 }
 
 .filter-trigger.active {
-  color: #409eff;
+  color: rgb(var(--primary));
 }
 
 .filter-panel {
@@ -3014,7 +3087,7 @@ export default {
 .filter-title {
   margin-bottom: 12px;
   font-weight: 500;
-  color: #303133;
+  color: rgb(var(--text-primary));
 }
 
 .filter-actions {
@@ -3121,15 +3194,7 @@ export default {
   margin-top: 10px;
 }
 
-.list-card {
-  margin-bottom: 20px;
-}
-
-.pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-}
+/* .list-card 样式已移除，使用 .main-card 替代 */
 
 .parsing-tip {
   color: #e6a23c;
@@ -3155,9 +3220,9 @@ export default {
 .overall-progress {
   margin-bottom: 20px;
   padding: 20px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
+  background-color: rgb(var(--bg-secondary));
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border-secondary));
 }
 
 .progress-stages {
@@ -3169,21 +3234,21 @@ export default {
 
 .stage {
   font-size: 12px;
-  color: #909399;
+  color: rgb(var(--text-secondary));
   padding: 4px 8px;
   border-radius: 4px;
   transition: all 0.3s ease;
 }
 
 .stage.active {
-  color: #409eff;
-  background-color: #ecf5ff;
+  color: rgb(var(--primary));
+  background-color: rgb(var(--bg-info-primary));
   font-weight: 500;
 }
 
 .stage.completed {
-  color: #67c23a;
-  background-color: #f0f9ff;
+  color: rgb(var(--success));
+  background-color: rgb(var(--bg-success));
   font-weight: 500;
 }
 
@@ -3200,8 +3265,8 @@ export default {
 
 .custom-file-list {
   margin-top: 15px;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
+  border: 1px solid rgb(var(--border-secondary));
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -3210,8 +3275,8 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 10px 15px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: rgb(var(--bg-secondary));
+  border-bottom: 1px solid rgb(var(--border-secondary));
   font-size: 14px;
   font-weight: 500;
 }
@@ -3225,7 +3290,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 8px 15px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgb(var(--border-secondary));
   transition: background-color 0.2s;
 }
 
@@ -3234,19 +3299,19 @@ export default {
 }
 
 .file-item:hover {
-  background-color: #f5f7fa;
+  background-color: rgb(var(--bg-secondary));
 }
 
 .file-item .el-icon {
   margin-right: 8px;
-  color: #909399;
+  color: rgb(var(--text-secondary));
 }
 
 .file-name {
   flex: 1;
   margin-right: 10px;
   font-size: 14px;
-  color: #303133;
+  color: rgb(var(--text-primary));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3255,13 +3320,13 @@ export default {
 .file-size {
   margin-right: 10px;
   font-size: 12px;
-  color: #909399;
+  color: rgb(var(--text-secondary));
 }
 
 .status-tip {
   margin-top: 4px;
   font-size: 11px;
-  color: #e6a23c;
+  color: rgb(var(--warning));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3333,7 +3398,7 @@ export default {
 
 
 .info-icon {
-  color: #909399;
+  color: rgb(var(--text-secondary));
   margin-left: 4px;
   cursor: help;
   font-size: 14px;
@@ -3353,7 +3418,7 @@ export default {
   align-items: flex-start;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid rgb(var(--border-secondary));
 }
 
 .device-info {
@@ -3362,13 +3427,13 @@ export default {
 
 .device-info h3 {
   margin: 0 0 10px 0;
-  color: #303133;
+  color: rgb(var(--text-primary));
   font-size: 18px;
 }
 
 .device-info p {
   margin: 5px 0;
-  color: #606266;
+  color: rgb(var(--text-secondary));
   font-size: 14px;
 }
 

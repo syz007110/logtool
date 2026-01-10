@@ -17,6 +17,7 @@ const websocketService = require('../services/websocketService');
 const errorCodeCache = require('../services/errorCodeCache');
 const { batchInsertHelper } = require('../utils/batchInsertHelper');
 const { getClickHouseClient } = require('../config/clickhouse');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 /**
  * 将时间转换为本地时间格式字符串（与 ClickHouse 存储格式一致）
@@ -348,11 +349,10 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 // 获取日志列表
 const getLogs = async (req, res) => {
   try {
-    let { page = 1, limit = 20, device_id, log_ids } = req.query;
+    const { device_id, log_ids } = req.query;
     // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）+ 状态筛选 + 指定日志ID列表
     const { only_own, year, month, day, hour, time_prefix, time_range_start, time_range_end, status_filter } = req.query;
-    page = parseInt(page, 10);
-    limit = parseInt(limit, 10);
+    let { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     
     // 构建查询条件
     const where = {};
@@ -613,9 +613,8 @@ const getLogTimeFilters = async (req, res) => {
 // 获取按设备分组的日志列表
 const getLogsByDevice = async (req, res) => {
   try {
-    let { page = 1, limit = 20, only_own, time_prefix, device_filter } = req.query;
-    page = parseInt(page, 10);
-    limit = parseInt(limit, 10);
+    const { only_own, time_prefix, device_filter } = req.query;
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.DEVICE_GROUP);
     
     // 构建查询条件
     const where = {};
@@ -637,84 +636,78 @@ const getLogsByDevice = async (req, res) => {
       where.original_name = { [Op.like]: `${tp}%` };
     }
     
-    // 获取所有日志并按设备分组
-    const logs = await Log.findAll({
-      where,
-      order: [['upload_time', 'DESC']]
-    });
-    
-    // 获取所有相关的设备ID
-    const deviceIds = [...new Set(logs.map(log => log.device_id).filter(id => id))];
-    
-    // 批量查询设备信息
-    let deviceMap = {};
-    if (deviceIds.length > 0) {
-      try {
-        const devices = await Device.findAll({
-          where: { device_id: deviceIds },
-          attributes: ['device_id', 'hospital', 'device_model']
-        });
-        
-        // 创建设备ID到设备信息的映射
-        devices.forEach(device => {
-          deviceMap[device.device_id] = device;
-        });
-      } catch (deviceError) {
-        console.warn('查询设备信息失败，将使用默认值:', deviceError.message);
-        deviceMap = {};
-      }
+    // ⚠️ 性能优化：之前实现会全量拉取 logs 后在 Node.js 内存中分组/分页，数据一大就会非常慢。
+    // 这里改为数据库层按 device_id 分组 + 分页，只返回当前页设备汇总信息。
+    const offset = (page - 1) * limit;
+
+    const sqlConds = [];
+    const replacements = {};
+
+    if (where.uploader_id) {
+      sqlConds.push('l.uploader_id = :uploaderId');
+      replacements.uploaderId = where.uploader_id;
     }
-    
-    // 按设备分组并计算统计信息
-    const deviceGroups = {};
-    logs.forEach(log => {
-      const deviceId = log.device_id || '未知设备';
-      if (!deviceGroups[deviceId]) {
-        const deviceInfo = deviceMap[deviceId];
-        deviceGroups[deviceId] = {
-          device_id: deviceId,
-          hospital_name: deviceInfo?.hospital || null,
-          device_name: deviceInfo?.device_model || '未知设备',
-          log_count: 0,
-          latest_update_time: null,
-          logs: []
-        };
-      }
-      
-      deviceGroups[deviceId].logs.push(log);
-      deviceGroups[deviceId].log_count++;
-      
-      // 更新最新时间
-      if (!deviceGroups[deviceId].latest_update_time || 
-          new Date(log.upload_time) > new Date(deviceGroups[deviceId].latest_update_time)) {
-        deviceGroups[deviceId].latest_update_time = log.upload_time;
-      }
-    });
-    
-    // 转换为数组并排序
-    let deviceList = Object.values(deviceGroups).sort((a, b) => 
-      new Date(b.latest_update_time) - new Date(a.latest_update_time)
-    );
-    
-    // 应用设备筛选（前端筛选）
-    if (device_filter && device_filter.trim()) {
-      const filterValue = device_filter.toLowerCase().trim();
-      deviceList = deviceList.filter(device => 
-        device.device_id.toLowerCase().includes(filterValue)
-      );
+    if (where.original_name && where.original_name[Op.like]) {
+      sqlConds.push('l.original_name LIKE :namePrefix');
+      replacements.namePrefix = where.original_name[Op.like];
     }
-    
-    // 计算分页信息
-    const total = deviceList.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    
-    // 分页切片
-    const paginatedDeviceList = deviceList.slice(startIndex, endIndex);
+    if (device_filter && String(device_filter).trim()) {
+      // 设备筛选下推到数据库，避免拉全量后再 filter
+      sqlConds.push('LOWER(COALESCE(l.device_id, \'\')) LIKE :deviceLike');
+      replacements.deviceLike = `%${String(device_filter).toLowerCase().trim()}%`;
+    }
+
+    const whereSql = sqlConds.length ? ('WHERE ' + sqlConds.join(' AND ')) : '';
+
+    // 1) 总数：设备分组后的数量（用于分页）
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM (
+        SELECT COALESCE(l.device_id, '未知设备') AS device_key
+        FROM logs l
+        ${whereSql}
+        GROUP BY device_key
+      ) t
+    `;
+    const countRows = await sequelize.query(countSql, {
+      replacements,
+      type: SequelizeLib.QueryTypes.SELECT
+    });
+    const total = Number(countRows?.[0]?.total || 0);
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+    // 2) 当前页数据：设备汇总（count + max(upload_time)）+ 设备信息
+    const dataSql = `
+      SELECT
+        COALESCE(l.device_id, '未知设备') AS device_id,
+        d.hospital AS hospital_name,
+        d.device_model AS device_model,
+        COUNT(*) AS log_count,
+        MAX(l.upload_time) AS latest_update_time
+      FROM logs l
+      LEFT JOIN devices d ON d.device_id = l.device_id
+      ${whereSql}
+      GROUP BY COALESCE(l.device_id, '未知设备'), d.hospital, d.device_model
+      ORDER BY latest_update_time DESC
+      LIMIT :limit OFFSET :offset
+    `;
+    const rows = await sequelize.query(dataSql, {
+      replacements: { ...replacements, limit, offset },
+      type: SequelizeLib.QueryTypes.SELECT
+    });
+
+    const device_groups = (rows || []).map(r => ({
+      device_id: r.device_id,
+      hospital_name: r.hospital_name || null,
+      device_name: r.device_model || '未知设备',
+      log_count: Number(r.log_count || 0),
+      latest_update_time: r.latest_update_time || null,
+      // 为兼容旧前端结构，保留 logs 字段（当前列表页并不使用该字段）
+      logs: []
+    }));
     
     res.json({ 
-      device_groups: paginatedDeviceList,
+      device_groups,
       pagination: {
         current_page: page,
         page_size: limit,
@@ -1039,9 +1032,17 @@ const parseLog = async (req, res) => {
         explanation
       });
       
+      // 格式化时间戳：如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接使用；否则使用 formatTimeForClickHouse 格式化
+      let timestampStr;
+      if (typeof entry.timestamp === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(entry.timestamp)) {
+        timestampStr = entry.timestamp;
+      } else {
+        timestampStr = formatTimeForClickHouse(entry.timestamp) || dayjs().format('YYYY-MM-DD HH:mm:ss');
+      }
+      
       entries.push({
         log_id: log.id,
-        timestamp: dayjs(entry.timestamp).isValid() ? dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss') : dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        timestamp: timestampStr,
         error_code: entry.error_code || '',
         param1: entry.param1 || '',
         param2: entry.param2 || '',
@@ -1608,8 +1609,7 @@ const getBatchLogEntries = async (req, res) => {
     }
     
     // 分页参数
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 100;
+    const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
     const offset = (pageNum - 1) * limitNum;
     
     // 优化查询：只选择必要的字段
@@ -2243,7 +2243,13 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       let advParamIndex = 0;
       const makeParam = (base, chType, value) => {
         const name = `${base}_${advParamIndex++}`;
+        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
+        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
+        if (chType === 'DateTime') {
+          params[name] = formatTimeForClickHouse(value);
+        } else {
         params[name] = value;
+        }
         return `{${name}:${chType}}`;
       };
 
@@ -2265,25 +2271,31 @@ const exportBatchLogEntriesCSV = async (req, res) => {
           if (value === undefined || value === null || value === '') return null;
 
           if (field === 'timestamp') {
-            const toDate = (v) => {
-              if (v instanceof Date) return v;
-              const d = new Date(v);
-              return Number.isNaN(d.getTime()) ? null : d;
+            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
+            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
+            const formatTimestamp = (v) => {
+              if (!v) return null;
+              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
+              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
+                return v;
+              }
+              // 使用 formatTimeForClickHouse 统一格式化
+              return formatTimeForClickHouse(v);
             };
 
             if (op === 'between') {
               if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toDate(value[0]);
-              const b = toDate(value[1]);
+              const a = formatTimestamp(value[0]);
+              const b = formatTimestamp(value[1]);
               if (!a || !b) return null;
               const p1 = makeParam('adv_ts_from', 'DateTime', a);
               const p2 = makeParam('adv_ts_to', 'DateTime', b);
               return `(timestamp BETWEEN ${p1} AND ${p2})`;
             }
 
-            const d = toDate(value);
-            if (!d) return null;
-            const p = makeParam('adv_ts', 'DateTime', d);
+            const formatted = formatTimestamp(value);
+            if (!formatted) return null;
+            const p = makeParam('adv_ts', 'DateTime', formatted);
 
             switch (op) {
               case '=':
@@ -3425,7 +3437,13 @@ const getLogStatistics = async (req, res) => {
       let advParamIndex = 0;
       const makeParam = (base, chType, value) => {
         const name = `${base}_${advParamIndex++}`;
+        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
+        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
+        if (chType === 'DateTime') {
+          params[name] = formatTimeForClickHouse(value);
+        } else {
         params[name] = value;
+        }
         return `{${name}:${chType}}`;
       };
 
@@ -3450,25 +3468,31 @@ const getLogStatistics = async (req, res) => {
 
           // timestamp 字段
           if (field === 'timestamp') {
-            const toDate = (v) => {
-              if (v instanceof Date) return v;
-              const d = new Date(v);
-              return Number.isNaN(d.getTime()) ? null : d;
+            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
+            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
+            const formatTimestamp = (v) => {
+              if (!v) return null;
+              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
+              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
+                return v;
+              }
+              // 使用 formatTimeForClickHouse 统一格式化
+              return formatTimeForClickHouse(v);
             };
 
             if (op === 'between') {
               if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toDate(value[0]);
-              const b = toDate(value[1]);
+              const a = formatTimestamp(value[0]);
+              const b = formatTimestamp(value[1]);
               if (!a || !b) return null;
               const p1 = makeParam('adv_ts_from', 'DateTime', a);
               const p2 = makeParam('adv_ts_to', 'DateTime', b);
               return `(timestamp BETWEEN ${p1} AND ${p2})`;
             }
 
-            const d = toDate(value);
-            if (!d) return null;
-            const p = makeParam('adv_ts', 'DateTime', d);
+            const formatted = formatTimestamp(value);
+            if (!formatted) return null;
+            const p = makeParam('adv_ts', 'DateTime', formatted);
 
             switch (op) {
               case '=':
@@ -3875,7 +3899,13 @@ const getVisualizationData = async (req, res) => {
       let advParamIndex = 0;
       const makeParam = (base, chType, value) => {
         const name = `${base}_${advParamIndex++}`;
+        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
+        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
+        if (chType === 'DateTime') {
+          params[name] = formatTimeForClickHouse(value);
+        } else {
         params[name] = value;
+        }
         return `{${name}:${chType}}`;
       };
 
@@ -3900,25 +3930,31 @@ const getVisualizationData = async (req, res) => {
 
           // timestamp 字段
           if (field === 'timestamp') {
-            const toDate = (v) => {
-              if (v instanceof Date) return v;
-              const d = new Date(v);
-              return Number.isNaN(d.getTime()) ? null : d;
+            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
+            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
+            const formatTimestamp = (v) => {
+              if (!v) return null;
+              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
+              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
+                return v;
+              }
+              // 使用 formatTimeForClickHouse 统一格式化
+              return formatTimeForClickHouse(v);
             };
 
             if (op === 'between') {
               if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toDate(value[0]);
-              const b = toDate(value[1]);
+              const a = formatTimestamp(value[0]);
+              const b = formatTimestamp(value[1]);
               if (!a || !b) return null;
               const p1 = makeParam('adv_ts_from', 'DateTime', a);
               const p2 = makeParam('adv_ts_to', 'DateTime', b);
               return `(timestamp BETWEEN ${p1} AND ${p2})`;
             }
 
-            const d = toDate(value);
-            if (!d) return null;
-            const p = makeParam('adv_ts', 'DateTime', d);
+            const formatted = formatTimestamp(value);
+            if (!formatted) return null;
+            const p = makeParam('adv_ts', 'DateTime', formatted);
 
             switch (op) {
               case '=':
@@ -4320,8 +4356,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       analysis_category_ids
     } = req.query;
 
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = Math.min(parseInt(limit, 10) || 100, 1000);
+    const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.BATCH_ENTRIES);
     const offset = (pageNum - 1) * limitNum;
 
     // 若未传时间范围且有日志ID，前端会根据 min/max 自动回填建议范围
@@ -4520,7 +4555,13 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       let advParamIndex = 0;
       const makeParam = (base, chType, value) => {
         const name = `${base}_${advParamIndex++}`;
+        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
+        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
+        if (chType === 'DateTime') {
+          params[name] = formatTimeForClickHouse(value);
+        } else {
         params[name] = value;
+        }
         return `{${name}:${chType}}`;
       };
 
@@ -4545,25 +4586,31 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
 
           // timestamp 字段
           if (field === 'timestamp') {
-            const toDate = (v) => {
-              if (v instanceof Date) return v;
-              const d = new Date(v);
-              return Number.isNaN(d.getTime()) ? null : d;
+            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
+            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
+            const formatTimestamp = (v) => {
+              if (!v) return null;
+              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
+              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
+                return v;
+              }
+              // 使用 formatTimeForClickHouse 统一格式化
+              return formatTimeForClickHouse(v);
             };
 
             if (op === 'between') {
               if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toDate(value[0]);
-              const b = toDate(value[1]);
+              const a = formatTimestamp(value[0]);
+              const b = formatTimestamp(value[1]);
               if (!a || !b) return null;
               const p1 = makeParam('adv_ts_from', 'DateTime', a);
               const p2 = makeParam('adv_ts_to', 'DateTime', b);
               return `(timestamp BETWEEN ${p1} AND ${p2})`;
             }
 
-            const d = toDate(value);
-            if (!d) return null;
-            const p = makeParam('adv_ts', 'DateTime', d);
+            const formatted = formatTimestamp(value);
+            if (!formatted) return null;
+            const p = makeParam('adv_ts', 'DateTime', formatted);
 
             switch (op) {
               case '=':
@@ -4724,15 +4771,16 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     const minTimestampFromCount = shouldIncludeTimeSuggestion ? (countRows[0]?.min_ts || null) : null;
     const maxTimestampFromCount = shouldIncludeTimeSuggestion ? (countRows[0]?.max_ts || null) : null;
 
-    // 若前端未传 start/end，则用 COUNT 查询得到的 min/max 作为“有效时间范围”下推到数据查询，
+    // 若前端未传 start/end，则用 COUNT 查询得到的 min/max 作为"有效时间范围"下推到数据查询，
     // 便于按分区裁剪（PARTITION BY toYYYYMM(timestamp)），降低扫全分区/冷数据的概率。
     const dataConditions = [...conditions];
     const dataParams = { ...params };
     if (!start_time && !end_time && minTimestampFromCount && maxTimestampFromCount) {
       dataConditions.push('timestamp >= {auto_start_time:DateTime}');
       dataConditions.push('timestamp <= {auto_end_time:DateTime}');
-      dataParams.auto_start_time = minTimestampFromCount;
-      dataParams.auto_end_time = maxTimestampFromCount;
+      // 使用 formatTimeForClickHouse 确保时间格式正确（无时区）
+      dataParams.auto_start_time = formatTimeForClickHouse(minTimestampFromCount);
+      dataParams.auto_end_time = formatTimeForClickHouse(maxTimestampFromCount);
     }
     const whereSqlForData = dataConditions.length ? 'WHERE ' + dataConditions.join(' AND ') : '';
 

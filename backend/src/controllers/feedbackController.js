@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const Feedback = require('../models/feedback');
 const FeedbackImage = require('../models/feedback_image');
+const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
 function ensureDirSync(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -68,8 +69,7 @@ exports.createFeedback = async (req, res) => {
 // 获取反馈列表（分页、按状态筛选）
 exports.listFeedbacks = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '10', 10), 1), 100);
+    const { page, limit: pageSize } = normalizePagination(req.query.page, req.query.pageSize, MAX_PAGE_SIZE.FEEDBACK);
     const status = (req.query.status || '').trim();
 
     const where = {};

@@ -1,63 +1,106 @@
 <template>
   <div class="roles-container">
-    <!-- 操作栏 -->
-    <div class="action-bar">
-      <el-button class="btn-primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('role:create')">
-        <el-icon><Plus /></el-icon>
-        {{ $t('roles.addRole') }}
-      </el-button>
-    </div>
-    
-    <!-- 角色列表 -->
-    <el-card class="list-card">
-      <el-table
-        :data="roles"
-        :loading="loading"
-        style="width: 100%"
-        v-loading="loading"
-      >
+    <!-- 统一卡片：包含操作栏和列表 -->
+    <el-card class="main-card">
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <div class="search-section">
+          <el-input
+            v-model="searchQuery"
+            :placeholder="$t('roles.searchPlaceholder')"
+            style="width: 300px"
+            clearable
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
+        
+        <div class="action-section">
+          <el-button type="primary" @click="showAddDialog = true" v-if="$store.getters['auth/hasPermission']('role:create')">
+            <el-icon><Plus /></el-icon>
+            {{ $t('roles.addRole') }}
+          </el-button>
+        </div>
+      </div>
+      
+      <!-- 角色列表 - 固定表头 -->
+      <div class="table-container">
+        <el-table
+          :data="roles"
+          :loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+          v-loading="loading"
+        >
         <el-table-column prop="name" :label="$t('roles.name')" width="150" />
         <el-table-column prop="userCount" :label="$t('roles.userCount')" width="120" />
         <el-table-column prop="description" :label="$t('roles.description')" show-overflow-tooltip />
         <!-- 移除权限列 -->
-        <el-table-column :label="$t('shared.operation')" width="180" fixed="right">
+        <el-table-column :label="$t('shared.operation')" width="180" fixed="right" align="left">
           <template #default="{ row }">
-            <el-button 
-              size="small" 
-              class="btn-text btn-sm"
-              @click="handleEdit(row)"
-              v-if="$store.getters['auth/hasPermission']('role:update')"
-            >
-              {{ $t('shared.edit') }}
-            </el-button>
-            <template v-if="$store.getters['auth/hasPermission']('role:delete')">
-              <el-tooltip
-                v-if="isDeleteDisabled(row)"
-                effect="dark"
-                :content="deleteDisabledReason(row)"
+            <div class="operation-buttons">
+              <el-button
+                text
+                size="small"
+                @click="handleEdit(row)"
+                v-if="$store.getters['auth/hasPermission']('role:update')"
+                :aria-label="$t('shared.edit')"
+                :title="$t('shared.edit')"
               >
-                <span>
-                  <el-button 
-                    size="small" 
-                    class="btn-text-danger btn-sm"
-                    :disabled="true"
-                  >
-                    {{ $t('shared.delete') }}
-                  </el-button>
-                </span>
-              </el-tooltip>
-              <el-button 
-                v-else
-                size="small" 
-                class="btn-text-danger btn-sm"
-                @click="handleDelete(row)"
-              >
-                {{ $t('shared.delete') }}
+                {{ $t('shared.edit') }}
               </el-button>
-            </template>
+              <template v-if="$store.getters['auth/hasPermission']('role:delete')">
+                <el-tooltip
+                  v-if="isDeleteDisabled(row)"
+                  effect="dark"
+                  :content="deleteDisabledReason(row)"
+                >
+                  <span>
+                    <el-button
+                      text
+                      size="small"
+                      :disabled="true"
+                      class="btn-danger-text"
+                      :aria-label="$t('shared.delete')"
+                      :title="$t('shared.delete')"
+                    >
+                      {{ $t('shared.delete') }}
+                    </el-button>
+                  </span>
+                </el-tooltip>
+                <el-button
+                  v-else
+                  text
+                  size="small"
+                  class="btn-danger-text"
+                  @click="handleDelete(row)"
+                  :aria-label="$t('shared.delete')"
+                  :title="$t('shared.delete')"
+                >
+                  {{ $t('shared.delete') }}
+                </el-button>
+              </template>
+            </div>
           </template>
         </el-table-column>
       </el-table>
+      </div>
+      
+      <!-- 分页 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
     
     <!-- 添加/编辑角色对话框 -->
@@ -113,8 +156,8 @@
       </el-form>
       
       <template #footer>
-        <el-button class="btn-secondary" @click="showAddDialog = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button class="btn-primary" @click="handleSave" :loading="saving">
+        <el-button type="default" @click="showAddDialog = false">{{ $t('shared.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSave" :loading="saving">
           {{ $t('shared.save') }}
         </el-button>
       </template>
@@ -125,15 +168,19 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
+import { InfoFilled, Plus, Search } from '@element-plus/icons-vue'
 import api from '../api'
 import { useI18n } from 'vue-i18n'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'Roles',
   components: {
-    InfoFilled
+    InfoFilled,
+    Plus,
+    Search
   },
   setup() {
     const store = useStore()
@@ -146,6 +193,14 @@ export default {
     const editingRole = ref(null)
     const permissions = ref([])
     const permTreeRef = ref(null)
+    const searchQuery = ref('')
+    const currentPage = ref(1)
+    const pageSize = ref(20)
+    let searchTimer = null
+    
+    // 分页节流和去重机制
+    const rolesLoading = ref(false)
+    const lastRolesLoadAt = ref(0)
     
     const roleFormRef = ref(null)
     const roleForm = reactive({
@@ -165,6 +220,12 @@ export default {
     
     // 计算属性
     const roles = computed(() => store.getters['users/rolesList'])
+    const total = computed(() => store.getters['users/rolesTotalCount'])
+    
+    // 表格高度计算（固定表头）
+    const tableHeight = computed(() => {
+      return getTableHeight('basic')
+    })
 
     const permissionGroups = computed(() => {
       const groups = {}
@@ -195,6 +256,7 @@ export default {
         role: t('roles.permissionGroups.role'),
         error_code: t('roles.permissionGroups.error_code'),
         fault_case: t('roles.permissionGroups.fault_case'),
+        fault_case_config: t('roles.permissionGroups.fault_case_config'),
         log: t('roles.permissionGroups.log'),
         i18n: t('roles.permissionGroups.i18n'),
         device: t('roles.permissionGroups.device'),
@@ -247,15 +309,56 @@ export default {
     const treeProps = { label: 'label', children: 'children' }
     
     // 方法
-    const loadRoles = async () => {
-      loading.value = true
+    const loadRoles = async (options = {}) => {
+      const silent = options && options.silent === true
+      const force = options && options.force === true
+      const now = Date.now()
+      if (!force && now - lastRolesLoadAt.value < 2000) {
+        return
+      }
+      if (!force && rolesLoading.value) {
+        return
+      }
       try {
-        await store.dispatch('users/fetchRoles')
+        rolesLoading.value = true
+        loading.value = true
+        lastRolesLoadAt.value = now
+        await store.dispatch('users/fetchRoles', {
+          page: currentPage.value,
+          limit: pageSize.value,
+          search: searchQuery.value
+        })
       } catch (error) {
-        ElMessage.error(t('roles.loadFailed'))
+        if (!silent) {
+          ElMessage.error(t('roles.loadFailed'))
+        } else {
+          console.warn('加载角色失败(已静默):', error?.message || error)
+        }
       } finally {
+        rolesLoading.value = false
         loading.value = false
       }
+    }
+    
+    const handleSearch = () => {
+      if (searchTimer) {
+        clearTimeout(searchTimer)
+      }
+      searchTimer = setTimeout(() => {
+        currentPage.value = 1
+        loadRoles({ force: true })
+      }, 300)
+    }
+    
+    const handleSizeChange = (size) => {
+      pageSize.value = size
+      currentPage.value = 1
+      loadRoles({ force: true })
+    }
+    
+    const handleCurrentChange = (page) => {
+      currentPage.value = page
+      loadRoles({ force: true })
     }
 
     const loadPermissions = async () => {
@@ -310,22 +413,25 @@ export default {
       })
     }
     
+    // 使用删除确认 composable pattern
+    const { confirmDelete } = useDeleteConfirm()
+
     const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(t('roles.deleteConfirmText'), t('roles.deleteConfirmTitle'), {
-          confirmButtonText: t('shared.confirm'),
-          cancelButtonText: t('shared.cancel'),
-          type: 'warning'
+        const confirmed = await confirmDelete(row, {
+          message: t('roles.deleteConfirmText'),
+          title: t('roles.deleteConfirmTitle')
         })
+
+        if (!confirmed) return
+
         await store.dispatch('users/deleteRole', row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
-        loadRoles()
+        loadRoles({ force: true })
       } catch (error) {
-        if (error !== 'cancel') {
-          const errorMessage = error?.response?.data?.message || error?.message || t('shared.messages.deleteFailed')
-          ElMessage.error(errorMessage)
-          console.error('删除角色失败:', error)
-        }
+        const errorMessage = error?.response?.data?.message || error?.message || t('shared.messages.deleteFailed')
+        ElMessage.error(errorMessage)
+        console.error('删除角色失败:', error)
       }
     }
     
@@ -347,7 +453,7 @@ export default {
         }
         showAddDialog.value = false
         resetForm()
-        loadRoles()
+        loadRoles({ force: true })
       } catch (error) {
         ElMessage.error(t('shared.messages.saveFailed'))
       } finally {
@@ -399,7 +505,7 @@ export default {
     }
     
     onMounted(() => {
-      loadRoles()
+      loadRoles({ force: true })
       loadPermissions()
     })
 
@@ -464,7 +570,16 @@ export default {
       isDefaultRole,
       isDeleteDisabled,
       deleteDisabledReason,
-      handlePermissionCheck
+      handlePermissionCheck,
+      tableHeight,
+      searchQuery,
+      currentPage,
+      pageSize,
+      total,
+      handleSearch,
+      handleSizeChange,
+      handleCurrentChange,
+      Search
     }
   }
 }
@@ -472,24 +587,75 @@ export default {
 
 <style scoped>
 .roles-container {
+  height: calc(100vh - 64px);
+  background: rgb(var(--background));
+  padding: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
 }
 
 .action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.list-card {
-  margin-bottom: 20px;
+.search-section {
+  display: flex;
+  align-items: center;
+}
+
+.action-section {
+  display: flex;
+  gap: 10px;
+}
+
+/* 表格容器 - 固定表头 */
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
+.pagination-wrapper {
+  padding: 8px 0 12px 0;
+  display: flex;
+  justify-content: center;
 }
 
 h4 {
   margin: 10px 0;
-  color: #333;
+  color: rgb(var(--text-primary));
   font-size: 14px;
 }
 
@@ -500,10 +666,10 @@ h4 {
 
 /* Ant Design Tree Styles */
 .permission-tree-container {
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius-sm);
   padding: 8px;
-  background: #fff;
+  background: rgb(var(--background));
   max-height: 400px;
   overflow-y: auto;
   width: 100%;
@@ -522,21 +688,21 @@ h4 {
   height: 32px;
   line-height: 32px;
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   transition: all 0.2s;
 }
 
 .ant-design-tree :deep(.el-tree-node__content:hover) {
-  background-color: #f5f5f5;
+  background-color: rgb(var(--bg-secondary));
 }
 
 .ant-design-tree :deep(.el-tree-node.is-checked > .el-tree-node__content) {
-  background-color: #e6f7ff;
-  border-color: #1890ff;
+  background-color: rgb(var(--bg-info-primary));
+  border-color: rgb(var(--border-info-primary));
 }
 
 .ant-design-tree :deep(.el-tree-node__expand-icon) {
-  color: #666;
+  color: rgb(var(--text-secondary));
   font-size: 12px;
   margin-right: 4px;
 }
@@ -546,14 +712,14 @@ h4 {
 }
 
 .ant-design-tree :deep(.el-checkbox__input.is-disabled .el-checkbox__inner) {
-  background-color: #f5f5f5;
-  border-color: #d9d9d9;
+  background-color: rgb(var(--bg-secondary));
+  border-color: rgb(var(--border));
   cursor: not-allowed;
 }
 
 .ant-design-tree :deep(.el-checkbox__input.is-disabled.is-checked .el-checkbox__inner) {
-  background-color: #1890ff;
-  border-color: #1890ff;
+  background-color: rgb(var(--primary));
+  border-color: rgb(var(--primary));
 }
 
 .tree-node-content {
@@ -564,7 +730,7 @@ h4 {
 
 .tree-node-label {
   font-size: 14px;
-  color: #262626;
+  color: rgb(var(--text-primary));
   font-weight: 400;
 }
 
@@ -572,11 +738,11 @@ h4 {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  background: #fff7e6;
-  border: 1px solid #ffd591;
-  border-radius: 4px;
+  background: rgb(var(--bg-warning));
+  border: 1px solid rgb(var(--border-warning));
+  border-radius: var(--radius-xs);
   margin-top: 8px;
-  color: #d46b08;
+  color: rgb(var(--text-warning));
   font-size: 12px;
 }
 
@@ -587,12 +753,12 @@ h4 {
 
 /* 禁用状态的样式 */
 .ant-design-tree :deep(.el-tree-node.is-disabled .el-tree-node__content) {
-  background-color: #f5f5f5;
-  color: #bfbfbf;
+  background-color: rgb(var(--bg-secondary));
+  color: rgb(var(--text-disabled));
   cursor: not-allowed;
 }
 
 .ant-design-tree :deep(.el-tree-node.is-disabled .el-tree-node__content:hover) {
-  background-color: #f5f5f5;
+  background-color: rgb(var(--bg-secondary));
 }
 </style> 
