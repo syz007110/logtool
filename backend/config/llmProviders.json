@@ -82,6 +82,18 @@
     "temperature": 0,
     "top_p": 0.1,
     "timeoutMs": 12000
+  },
+  {
+    "id": "glm-4.5-Air",
+    "label": "GLM-4.5-Air",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "GLM_API_KEY",
+    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+    "model": "glm-4.5-Air",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 12000
   }
 ]
 

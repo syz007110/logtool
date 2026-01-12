@@ -370,5 +370,6 @@ export default {
   monitoring,
   faultCases,
   jira,
-  smartSearch
+  smartSearch,
+  explanations
 }

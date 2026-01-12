@@ -1052,6 +1052,49 @@ async function smartSearch(req, res) {
           const cat = it.analysisCategories[0];
           category = targetLang === 'zh' ? (cat.name_zh || cat.name_en || '') : (cat.name_en || cat.name_zh || '');
         }
+        
+        // 解析 explanation：如果有参数，使用参数解析；否则使用 fullExplanation 或原始模板
+        let parsedExplanation = fullExplanation || it.explanation || '';
+        const hasParams = it.param1 || it.param2 || it.param3 || it.param4;
+        if (hasParams && it.explanation) {
+          try {
+            // 构建 error_code：优先使用完整故障码（包含 subsystem + arm + joint + code）
+            let errorCode = '';
+            
+            // 如果是从完整故障码匹配到的记录，使用保存的完整故障码
+            if (it._match?.fullCode && typeof it._match.fullCode === 'string') {
+              errorCode = it._match.fullCode.toUpperCase();
+            } else if (it.subsystem && it.code) {
+              // 如果有 subsystem 和 code，构建完整格式：subsystem + arm + joint + code
+              // 注意：如果 arm 和 joint 未知，使用 '0' 作为占位符
+              // 格式：subsystem + arm(0) + joint(0) + code（去掉 0X 前缀）
+              const codeWithoutPrefix = it.code.replace(/^0X/i, '');
+              // 如果 code 是 4 位（如 010A），则构建为 subsystem + '00' + code = subsystem + '00' + '010A'
+              // 例如：1 + '00' + '010A' = '100010A'
+              errorCode = `${it.subsystem}00${codeWithoutPrefix}`;
+            } else if (it.code) {
+              // 不完整故障码（只有 code，如 010A 或 0X010A）：直接使用 code
+              // 确保格式为 0X010A（parseSubsystemAndCode 需要至少5个字符才能提取 code）
+              errorCode = it.code.startsWith('0X') || it.code.startsWith('0x') 
+                ? it.code.toUpperCase() 
+                : `0X${it.code.toUpperCase()}`;
+            }
+            
+            const rendered = renderEntryExplanation({
+              error_code: errorCode,
+              param1: it.param1 || null,
+              param2: it.param2 || null,
+              param3: it.param3 || null,
+              param4: it.param4 || null,
+              explanation: it.explanation
+            });
+            parsedExplanation = rendered?.explanation || it.explanation || '';
+          } catch (_) {
+            // 解析失败，使用原始 explanation
+            parsedExplanation = it.explanation || '';
+          }
+        }
+        
         return {
           ref: `F${idx + 1}`,
           id: it.id,
@@ -1067,7 +1110,7 @@ async function smartSearch(req, res) {
           param3: it.param3 || '',
           param4: it.param4 || '',
           tech_solution: it.tech_solution || '',
-          explanation: fullExplanation || it.explanation || '',
+          explanation: parsedExplanation,
           category: category
         };
       });

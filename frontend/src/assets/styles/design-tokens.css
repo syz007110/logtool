@@ -396,6 +396,28 @@
   --el-button-disabled-border-color: var(--gray-300); /* 禁用边框颜色 */
 
   /* =========================================
+     Element Plus Checkbox Variables Mapping
+     复选框组件 CSS 变量映射
+       ========================================= */
+
+  /* 复选框选中状态 - 使用天蓝色 (Sky) - 更偏蓝色 */
+  --el-checkbox-checked-bg-color: var(--sky-500); /* 选中背景色 - 天蓝色 (#0ea5e9) */
+  --el-checkbox-checked-border-color: var(--sky-500); /* 选中边框颜色 - 天蓝色 (#0ea5e9) */
+  --el-checkbox-checked-text-color: var(--black-white-white); /* 选中文字颜色 - 白色 */
+
+  /* 复选框 hover 状态 */
+  --el-checkbox-input-border-color-hover: var(--sky-400); /* hover 边框颜色 - 浅天蓝色 (#38bdf8) */
+
+  /* 复选框禁用状态 */
+  --el-checkbox-disabled-input-fill: var(--gray-100); /* 禁用背景色 */
+  --el-checkbox-disabled-border-color: var(--gray-300); /* 禁用边框颜色 */
+  --el-checkbox-disabled-checked-input-fill: var(--gray-300); /* 禁用选中背景色 */
+  --el-checkbox-disabled-checked-border-color: var(--gray-300); /* 禁用选中边框颜色 */
+
+  /* 复选框未选中状态 */
+  --el-checkbox-input-border-color: var(--sky-300); /* 未选中边框颜色 - 浅天蓝色 (#7dd3fc) */
+
+  /* =========================================
      Element Plus Sidebar & Menu Variables
      侧边栏和菜单组件 CSS 变量映射
        ========================================= */
@@ -946,4 +968,31 @@
   background-color: var(--gray-100) !important;
   border-color: var(--slate-300) !important;
   color: var(--slate-800) !important;
+}
+
+/* =========================================
+   Element Plus Checkbox Styles
+   复选框组件样式规则
+   ========================================= */
+
+/* 复选框选中状态 - 天蓝色（更偏蓝色） */
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: var(--sky-500) !important; /* 天蓝色背景 (#0ea5e9) */
+  border-color: var(--sky-500) !important; /* 天蓝色边框 (#0ea5e9) */
+}
+
+/* 复选框 hover 状态 */
+.el-checkbox__input:hover .el-checkbox__inner {
+  border-color: var(--sky-400) !important; /* hover 时浅天蓝色边框 (#38bdf8) */
+}
+
+/* 复选框选中后 hover 状态 */
+.el-checkbox__input.is-checked:hover .el-checkbox__inner {
+  background-color: var(--sky-400) !important; /* hover 时浅天蓝色背景 (#38bdf8) */
+  border-color: var(--sky-400) !important; /* hover 时浅天蓝色边框 (#38bdf8) */
+}
+
+/* 复选框未选中状态 */
+.el-checkbox__inner {
+  border-color: var(--sky-300) !important; /* 未选中时浅天蓝色边框 (#7dd3fc) */
 }

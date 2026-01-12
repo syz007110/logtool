@@ -293,6 +293,16 @@
               </div>
             </template>
 
+            <!-- Assistant message: loading - show loading animation -->
+            <template v-else-if="m.type === 'loading'">
+              <div class="ss-msg-bubble ss-msg-loading">
+                <div class="ss-loading-content">
+                  <el-icon class="ss-loading-icon"><Loading /></el-icon>
+                  <span class="ss-loading-text">{{ $t('smartSearch.thinking') }}</span>
+                </div>
+              </div>
+            </template>
+
             <!-- Assistant message: search result - display directly on background (ChatGPT style) -->
             <template v-else-if="m.type === 'search_result' && m.payload && m.payload.ok">
               <div class="ss-answer-container">
@@ -1561,7 +1571,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
-import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
 import { Earth } from '@icon-park/vue-next'
 import api from '@/api'
 
@@ -1699,12 +1709,8 @@ export default {
         console.error('[load] error:', err)
         conversations.value = []
       }
-      // 默认打开最近一个
-      if (conversations.value.length > 0) {
-        activeConversationId.value = conversations.value[0].id
-      } else {
-        activeConversationId.value = null
-      }
+      // 默认显示新对话（空状态），不自动打开历史对话
+      activeConversationId.value = null
     }
 
     const loadLlmProviders = async () => {
@@ -1716,8 +1722,10 @@ export default {
         llmProviders.value = list
 
         const stored = localStorage.getItem(llmProviderStorageKey.value) || ''
+        // 优先使用用户之前的选择，否则默认选择 qwen-flash
+        const qwenFlash = list.find(p => p && (p.id === 'qwen-flash' || p.id?.includes('qwen-flash')) && p.available)?.id || ''
         const firstAvailable = list.find(p => p && p.available)?.id || ''
-        const fallback = stored || data.defaultProviderId || firstAvailable || (list[0]?.id || '')
+        const fallback = stored || qwenFlash || data.defaultProviderId || firstAvailable || (list[0]?.id || '')
 
         llmProviderId.value = fallback || ''
         if (llmProviderId.value) {
@@ -1904,6 +1912,18 @@ export default {
 
       draft.value = ''
 
+      // 添加 loading 占位消息
+      const loadingMsgId = shortId()
+      const loadingMsg = {
+        id: loadingMsgId,
+        role: 'assistant',
+        type: 'loading',
+        content: '',
+        createdAt: nowIso()
+      }
+      conv.messages = [...(conv.messages || []), loadingMsg]
+      upsertConversation(conv)
+
       sending.value = true
       try {
         const resp = await api.smartSearch.search({
@@ -1914,7 +1934,7 @@ export default {
         })
         const payload = resp?.data || null
         const assistantMsg = {
-          id: shortId(),
+          id: loadingMsgId, // 使用相同的 ID 替换 loading 消息
           role: 'assistant',
           type: 'search_result',
           content: '',
@@ -1924,7 +1944,15 @@ export default {
         
       const conv2 = activeConversation.value
       if (conv2) {
-        conv2.messages = [...(conv2.messages || []), assistantMsg]
+        // 找到 loading 消息的索引并替换
+        const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
+        if (loadingIndex >= 0) {
+          // 使用 splice 确保 Vue 响应式正常工作
+          conv2.messages.splice(loadingIndex, 1, assistantMsg)
+        } else {
+          // 如果找不到，直接添加
+          conv2.messages = [...(conv2.messages || []), assistantMsg]
+        }
           
           // 如果没有查询到结果且意图匹配，则添加推荐卡片消息
           const intent = payload?.recognized?.intent
@@ -1975,10 +2003,23 @@ export default {
         await persistConversation(conv2)
         }
       } catch (e) {
-        const assistantMsg = { id: shortId(), role: 'assistant', content: t('shared.requestFailed'), createdAt: nowIso() }
+        const assistantMsg = { 
+          id: loadingMsgId, // 使用相同的 ID 替换 loading 消息
+          role: 'assistant', 
+          content: t('shared.requestFailed'), 
+          createdAt: nowIso() 
+        }
         const conv2 = activeConversation.value
         if (conv2) {
-          conv2.messages = [...(conv2.messages || []), assistantMsg]
+          // 找到 loading 消息的索引并替换
+          const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
+          if (loadingIndex >= 0) {
+            // 使用 splice 确保 Vue 响应式正常工作
+            conv2.messages.splice(loadingIndex, 1, assistantMsg)
+          } else {
+            // 如果找不到，直接添加
+            conv2.messages = [...(conv2.messages || []), assistantMsg]
+          }
           conv2.updatedAt = nowIso()
           upsertConversation(conv2)
           await persistConversation(conv2)
@@ -2664,6 +2705,7 @@ export default {
       ChatLineRound,
       Grid,
       Paperclip,
+      Loading,
       send,
       openSource,
       openSourcesDrawer,
@@ -3485,6 +3527,32 @@ export default {
   background: #111827;
   border-color: #111827;
   color: #fff;
+}
+.ss-msg-loading {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+.ss-loading-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+}
+.ss-loading-icon {
+  font-size: 16px;
+  animation: ss-loading-spin 1s linear infinite;
+}
+.ss-loading-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+@keyframes ss-loading-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ss-msg-text {
