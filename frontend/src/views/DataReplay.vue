@@ -7,20 +7,62 @@
         <div class="action-section">
           <el-upload
             action=""
-            :http-request="handleUploadRequest"
+            :http-request="handleBatchUploadRequest"
             :show-file-list="false"
             accept=".bin"
+            multiple
+            :limit="20"
+            :on-exceed="handleExceed"
+            :before-upload="beforeBatchUpload"
+            :on-change="handleFileChange"
+            :auto-upload="false"
+            ref="uploadRef"
           >
-            <el-button type="primary" icon="Upload">{{ $t('dataReplay.uploadBinaryFile') }}</el-button>
+            <el-button type="primary" icon="Upload" :disabled="uploading || processing">上传文件（最多20个）</el-button>
           </el-upload>
-          <el-button type="default" :disabled="!fileId" @click="downloadCsv" icon="Download">{{ $t('dataReplay.downloadCSV') }}</el-button>
+          <el-button 
+            type="success" 
+            :disabled="uploadedFiles.length === 0 || uploading || processing" 
+            @click="batchDownloadCsv" 
+            icon="Download"
+            :loading="processing"
+          >
+            批量下载ZIP（{{ uploadedFiles.length }}个文件）
+          </el-button>
         </div>
         
-        <div class="file-info" v-if="fileName">
+        <div class="file-info" v-if="fileName && !batchMode">
           <span class="info-item">{{ $t('dataReplay.fileLabel') }}: {{ fileName }}</span>
           <span class="info-item">{{ $t('dataReplay.sizeLabel') }}: {{ prettySize(fileSize) }}</span>
           <span class="info-item">{{ $t('dataReplay.totalEntriesLabel') }}: {{ totalEntries }}</span>
         </div>
+      </div>
+
+      <!-- 上传进度条 -->
+      <div v-if="uploading" class="progress-section">
+        <div class="progress-header">
+          <span>正在上传文件...</span>
+          <span class="progress-text">{{ uploadProgressText }}</span>
+        </div>
+        <el-progress 
+          :percentage="uploadProgress" 
+          :status="uploadProgress === 100 ? 'success' : undefined"
+          :stroke-width="8"
+        />
+      </div>
+
+      <!-- 下载/打包进度条 -->
+      <div v-if="processing" class="progress-section">
+        <div class="progress-header">
+          <span>正在解析并打包文件...</span>
+          <span class="progress-text">{{ processingProgressText }}</span>
+        </div>
+        <el-progress 
+          :percentage="processingProgress" 
+          :status="processingProgress === 100 ? 'success' : undefined"
+          :stroke-width="8"
+          :indeterminate="processingProgress < 100 && processingProgress > 0"
+        />
       </div>
 
       <!-- 3D可视化区域（临时隐藏三维模型） -->
@@ -119,6 +161,16 @@ export default {
     const rows = ref([])
     const columns = ref([])
     const dataLoaded = ref(false) // 数据是否已加载完成
+
+    // 批量上传相关状态
+    const uploadedFiles = ref([]) // 已上传文件列表 [{ id, filename, size, status }]
+    const uploading = ref(false) // 是否正在上传
+    const processing = ref(false) // 是否正在处理/下载
+    const batchMode = ref(false) // 是否为批量模式
+    const uploadProgress = ref(0) // 上传进度 0-100
+    const uploadProgressText = ref('') // 上传进度文本
+    const processingProgress = ref(0) // 处理进度 0-100
+    const processingProgressText = ref('') // 处理进度文本
 
     // 3D容器引用
     const threeContainer = ref(null)
@@ -1112,11 +1164,250 @@ export default {
         fileName.value = data.filename
         fileSize.value = data.size
         currentPage.value = 1
+        batchMode.value = false
         await fetchPreview(1)
         if (onSuccess) onSuccess(data)
       } catch (err) {
         ElMessage.error(t('dataReplay.uploadFailed'))
         if (onError) onError(err)
+      }
+    }
+
+    // 待上传文件队列
+    const pendingFiles = ref([])
+    const uploadRef = ref(null)
+    let uploadTimer = null // 用于防抖的定时器
+
+    // 上传前检查 - 阻止单个文件自动上传，改为批量上传
+    const beforeBatchUpload = (file) => {
+      // 检查总文件数
+      const totalFiles = uploadedFiles.value.length + (pendingFiles.value?.length || 0)
+      if (totalFiles >= 20) {
+        ElMessage.warning('最多只能上传20个文件')
+        return false
+      }
+      
+      // 阻止单个文件自动上传，我们会在handleFileChange中批量处理
+      return false
+    }
+
+    // 文件选择变化处理 - 选择完成后自动批量上传
+    const handleFileChange = (file, fileList) => {
+      // 检查总文件数
+      const totalFiles = uploadedFiles.value.length + fileList.length
+      if (totalFiles > 20) {
+        ElMessage.warning('最多只能上传20个文件，已自动移除多余文件')
+        // 移除多余的文件
+        if (uploadRef.value) {
+          uploadRef.value.clearFiles()
+          const validFiles = fileList.slice(0, 20 - uploadedFiles.value.length)
+          validFiles.forEach(f => {
+            uploadRef.value.handleStart(f.raw)
+          })
+        }
+        return
+      }
+      
+      // 更新待上传文件列表
+      pendingFiles.value = fileList.map(f => f.raw)
+      
+      // 清除之前的定时器
+      if (uploadTimer) {
+        clearTimeout(uploadTimer)
+        uploadTimer = null
+      }
+      
+      // 如果文件选择完成且当前没有在上传，延迟一下后自动开始批量上传
+      // 延迟是为了确保所有文件都添加到fileList中（防抖处理）
+      if (fileList.length > 0 && !uploading.value) {
+        uploadTimer = setTimeout(() => {
+          // 再次检查，避免重复上传
+          if (pendingFiles.value.length > 0 && !uploading.value) {
+            const filesToUpload = [...pendingFiles.value]
+            pendingFiles.value = [] // 清空待上传列表
+            processPendingFiles(filesToUpload)
+          }
+          uploadTimer = null
+        }, 300) // 300ms延迟，等待用户完成文件选择
+      }
+    }
+
+    // 处理待上传文件队列
+    const processPendingFiles = async (filesToUpload) => {
+      if (!filesToUpload || filesToUpload.length === 0) {
+        return
+      }
+
+      // 如果正在上传，忽略
+      if (uploading.value) {
+        return
+      }
+
+      uploading.value = true
+      batchMode.value = true
+      uploadProgress.value = 0
+      uploadProgressText.value = '准备上传...'
+
+      const totalFiles = filesToUpload.length
+      
+      try {
+        const form = new FormData()
+        filesToUpload.forEach(file => {
+          form.append('files', file)
+        })
+
+        // 先添加到列表，状态为上传中
+        const fileItems = filesToUpload.map(file => ({
+          id: '',
+          filename: file.name,
+          size: file.size,
+          status: 'uploading'
+        }))
+        uploadedFiles.value.push(...fileItems)
+
+        // 更新上传进度
+        uploadProgressText.value = `正在上传 ${totalFiles} 个文件...`
+        uploadProgress.value = 20
+
+        // 发送上传请求
+        uploadProgress.value = 40
+        
+        const { data } = await api.motionData.batchUpload(form)
+        
+        uploadProgress.value = 80
+
+        if (data.files && data.files.length > 0) {
+          // 更新文件状态
+          data.files.forEach((uploadedFile, index) => {
+            if (index < fileItems.length) {
+              fileItems[index].id = uploadedFile.id
+              fileItems[index].status = 'success'
+            }
+          })
+
+          uploadProgress.value = 100
+          uploadProgressText.value = `成功上传 ${data.files.length} 个文件`
+          
+          setTimeout(() => {
+            uploadProgress.value = 0
+            uploadProgressText.value = ''
+          }, 1500)
+          
+          ElMessage.success(`成功上传 ${data.files.length} 个文件`)
+        } else {
+          throw new Error('上传响应格式错误')
+        }
+      } catch (err) {
+        console.error('批量上传失败:', err)
+        // 更新失败的文件状态
+        const fileItems = uploadedFiles.value.filter(f => f.status === 'uploading' && filesToUpload.some(uploaded => uploaded.name === f.filename))
+        fileItems.forEach(item => {
+          item.status = 'error'
+        })
+        uploadProgress.value = 0
+        uploadProgressText.value = ''
+        const errorMsg = err.response?.data?.message || err.message || '未知错误'
+        ElMessage.error(`批量上传失败: ${errorMsg}`)
+      } finally {
+        uploading.value = false
+        // 清空上传组件的文件列表
+        if (uploadRef.value) {
+          uploadRef.value.clearFiles()
+        }
+        // 清除定时器
+        if (uploadTimer) {
+          clearTimeout(uploadTimer)
+          uploadTimer = null
+        }
+      }
+    }
+
+    // 批量上传处理 - 阻止单个文件上传，改为批量处理
+    const handleBatchUploadRequest = async ({ file, onSuccess, onError }) => {
+      // 阻止单个文件上传，我们会在handleFileChange中批量处理
+      // 返回false阻止上传
+      return false
+    }
+
+    // 处理文件数量超限
+    const handleExceed = () => {
+      ElMessage.warning('最多只能选择20个文件')
+    }
+
+    // 批量下载CSV（ZIP格式）
+    const batchDownloadCsv = async () => {
+      if (uploadedFiles.value.length === 0) {
+        ElMessage.warning('请先上传文件')
+        return
+      }
+
+      // 只处理成功上传的文件
+      const successFiles = uploadedFiles.value.filter(f => f.status === 'success')
+      if (successFiles.length === 0) {
+        ElMessage.warning('没有可下载的文件')
+        return
+      }
+
+      processing.value = true
+      processingProgress.value = 10
+      processingProgressText.value = '开始解析文件...'
+
+      try {
+        const fileIds = successFiles.map(f => f.id)
+        const totalFiles = fileIds.length
+        
+        // 更新进度提示
+        processingProgressText.value = `正在解析 ${totalFiles} 个文件...`
+        processingProgress.value = 20
+        
+        // 使用setTimeout模拟进度更新（因为后端是流式返回，无法获取确切进度）
+        const progressInterval = setInterval(() => {
+          if (processingProgress.value < 85) {
+            processingProgress.value += 5
+            if (processingProgress.value < 50) {
+              processingProgressText.value = `正在解析文件... (${processingProgress.value}%)`
+            } else if (processingProgress.value < 80) {
+              processingProgressText.value = `正在打包文件... (${processingProgress.value}%)`
+            } else {
+              processingProgressText.value = `正在生成ZIP文件... (${processingProgress.value}%)`
+            }
+          }
+        }, 300)
+
+        const response = await api.motionData.batchDownloadCsv(fileIds)
+        
+        clearInterval(progressInterval)
+        processingProgress.value = 95
+        processingProgressText.value = '正在准备下载...'
+        
+        // 创建下载链接
+        const blob = new Blob([response.data], { type: 'application/zip' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+        a.download = `motion_data_batch_${timestamp}.zip`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        
+        processingProgress.value = 100
+        processingProgressText.value = `成功打包 ${totalFiles} 个文件`
+        
+        setTimeout(() => {
+          processingProgress.value = 0
+          processingProgressText.value = ''
+        }, 1500)
+        
+        ElMessage.success(`成功下载 ${totalFiles} 个文件的ZIP包`)
+      } catch (err) {
+        console.error('批量下载失败:', err)
+        processingProgress.value = 0
+        processingProgressText.value = ''
+        ElMessage.error(`批量下载失败: ${err.message || '未知错误'}`)
+      } finally {
+        processing.value = false
       }
     }
 
@@ -1208,6 +1499,15 @@ export default {
       }
     }
 
+    // 监听页面刷新/关闭，警告用户
+    const handleBeforeUnload = (e) => {
+      if (uploading.value || processing.value) {
+        e.preventDefault()
+        e.returnValue = '正在上传或下载文件，确定要离开吗？'
+        return e.returnValue
+      }
+    }
+
     onMounted(async () => {
       await fetchConfig()
       await fetchDHModel()
@@ -1217,6 +1517,8 @@ export default {
       // 不在这里初始化3D场景，等待数据加载完成后再初始化
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
+      // 监听页面刷新/关闭
+      window.addEventListener('beforeunload', handleBeforeUnload)
     })
 
     onUnmounted(() => {
@@ -1253,6 +1555,7 @@ export default {
       
       // 移除事件监听器
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
     })
 
     return {
@@ -1260,9 +1563,14 @@ export default {
       showThreeModel,
       threeContainer, threeInitialized, threeRotationEnabled, dataLoaded,
       currentArmModel, isPlaying, currentFrame, playbackSpeed, tableHeight,
-      handleUploadRequest, fetchPreview, downloadCsv, prettySize,
+      handleUploadRequest, handleBatchUploadRequest, handleExceed,
+      fetchPreview, downloadCsv, batchDownloadCsv, prettySize,
       resetThreeView, toggleThreeRotation, switchArmModel,
-      playData, pauseData, stopData, seekToFrame
+      playData, pauseData, stopData, seekToFrame,
+      uploadedFiles, uploading, processing, batchMode,
+      pendingFiles, uploadRef, processPendingFiles, handleFileChange,
+      uploadProgress, uploadProgressText,
+      processingProgress, processingProgressText
     }
   }
 }
@@ -1306,6 +1614,7 @@ export default {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .file-info {
@@ -1316,6 +1625,29 @@ export default {
 
 .info-item {
   font-size: 14px;
+}
+
+.progress-section {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgb(var(--background));
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border));
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  color: rgb(var(--text-primary));
+  font-size: 14px;
+}
+
+.progress-text {
+  color: rgb(var(--text-secondary));
+  font-size: 13px;
 }
 
 .charts-section {

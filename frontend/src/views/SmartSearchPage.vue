@@ -1,59 +1,81 @@
 <template>
   <div class="ss-page">
     <!-- Left history -->
-    <aside class="ss-history" :class="{ collapsed: sidebarCollapsed }">
-      <!-- Logo and Collapse Button -->
-      <div class="ss-history-top">
-        <div class="ss-history-logo" :class="{ collapsed: sidebarCollapsed }">
-          <img src="/Icons/logo.svg" alt="Logo" class="ss-logo-img" />
+    <el-aside
+      :width="sidebarCollapsed ? '80px' : '280px'"
+      class="ss-history"
+      :class="{ 'is-collapsed': sidebarCollapsed }"
+    >
+      <!-- Logo area matching Dashboard.vue -->
+      <div class="logo" :class="{ 'is-collapsed': sidebarCollapsed }">
+        <template v-if="!sidebarCollapsed">
+          <img src="/Icons/logo-text.svg" alt="LogTool" class="logo-text" />
+        </template>
+        <template v-else>
+          <img src="/Icons/logo.svg" alt="LogTool" class="logo-icon-svg" />
+        </template>
+        <!-- Collapse button - visible when expanded, or on hover when collapsed -->
           <el-button 
-            v-if="sidebarCollapsed"
+          v-if="!sidebarCollapsed"
             text 
             size="small" 
             @click="toggleSidebar"
-            :title="$t('smartSearch.expandSidebar')"
-            class="ss-logo-collapse-btn"
+          class="ss-collapse-btn"
           >
-            <el-icon><ArrowRight /></el-icon>
+          <el-icon><ArrowLeft /></el-icon>
           </el-button>
-        </div>
         <el-button 
-          v-if="!sidebarCollapsed"
+          v-else
           text 
           size="small" 
           @click="toggleSidebar"
-          :title="$t('smartSearch.collapseSidebar')"
-          class="ss-history-collapse-btn"
+          class="ss-collapse-btn ss-collapse-btn-hover"
         >
-          <el-icon><ArrowLeft /></el-icon>
+          <el-icon><ArrowRight /></el-icon>
         </el-button>
       </div>
       
-      <div v-if="!sidebarCollapsed" class="ss-history-content-wrapper">
-        <div class="ss-history-menu">
-        <!-- 新对话 - 第一个一级菜单 -->
-        <div class="ss-menu-item" @click="startNewConversation">
-          <span class="ss-menu-item-text">{{ $t('smartSearch.newConversation') }}</span>
+      <!-- New Conversation Button - Standalone -->
+      <div class="ss-new-conv-container" :class="{ 'is-collapsed': sidebarCollapsed }">
+        <el-button 
+          type="primary" 
+          class="ss-new-conv-btn" 
+          @click="startNewConversation"
+        >
+          <el-icon><Plus /></el-icon>
+          <span v-if="!sidebarCollapsed">{{ $t('smartSearch.newConversation') }}</span>
+        </el-button>
         </div>
         
-        <!-- 历史对话 - 第二个一级菜单，可折叠 -->
+      <!-- History Menu Container -->
+      <div class="ss-history-content-wrapper">
+        <div class="ss-history-menu">
+          <!-- 历史对话 - 可折叠 -->
         <div class="ss-menu-section">
           <div class="ss-menu-item" @click="toggleHistoryCollapsed">
-            <span class="ss-menu-item-text">{{ $t('smartSearch.history') }}</span>
-            <el-icon class="ss-menu-arrow" :class="{ collapsed: historyCollapsed }">
+              <el-icon><History /></el-icon>
+              <span v-if="!sidebarCollapsed" class="ss-menu-item-text">{{ $t('smartSearch.history') }}</span>
+              <el-icon v-if="!sidebarCollapsed" class="ss-menu-arrow" :class="{ collapsed: historyCollapsed }">
               <ArrowDown />
             </el-icon>
           </div>
           
-          <!-- 历史对话列表 - 可折叠 -->
-          <div v-show="!historyCollapsed" class="ss-history-content">
+            <!-- 历史对话列表 - 按时间分组 -->
+            <div v-show="!historyCollapsed && !sidebarCollapsed" class="ss-history-content">
             <div v-if="conversations.length === 0" class="ss-history-empty">
               {{ $t('smartSearch.emptyHistory') }}
             </div>
 
             <div v-else class="ss-history-list">
-              <div
-                v-for="c in conversations"
+                <!-- Today -->
+                <div v-if="groupedConversations.today.length > 0" class="ss-history-group">
+                  <div class="ss-history-group-header">
+                    <el-icon class="ss-history-group-arrow"><ArrowDown /></el-icon>
+                    <span class="ss-history-group-title">{{ $t('smartSearch.today') }}</span>
+                  </div>
+                  <div class="ss-history-group-items">
+                    <div
+                      v-for="c in groupedConversations.today"
                 :key="c.id"
                 class="ss-history-item"
                 :class="{ active: c.id === activeConversationId }"
@@ -71,24 +93,189 @@
                 </div>
               </div>
             </div>
+
+                <!-- Yesterday -->
+                <div v-if="groupedConversations.yesterday.length > 0" class="ss-history-group">
+                  <div class="ss-history-group-header">
+                    <el-icon class="ss-history-group-arrow"><ArrowDown /></el-icon>
+                    <span class="ss-history-group-title">{{ $t('smartSearch.yesterday') }}</span>
+                  </div>
+                  <div class="ss-history-group-items">
+                    <div
+                      v-for="c in groupedConversations.yesterday"
+                      :key="c.id"
+                      class="ss-history-item"
+                      :class="{ active: c.id === activeConversationId }"
+                      @click="selectConversation(c.id)"
+                    >
+                      <span class="ss-history-item-text" :title="c.title">{{ c.title }}</span>
+                      <button
+                        class="ss-history-item-delete"
+                        type="button"
+                        :title="$t('smartSearch.deleteConversation')"
+                        @click.stop="deleteConversation(c.id)"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 底部用户名 -->
-      <div v-if="!sidebarCollapsed" class="ss-history-footer">
-        <div class="ss-history-username">
-          {{ currentUser?.username || currentUser?.name || 'User' }}
+      <!-- Sidebar Footer matching Dashboard.vue style -->
+      <div class="sidebar-footer">
+        <div class="footer-menu-items">
+          <div class="footer-menu-item" :class="{ 'is-collapsed': sidebarCollapsed }" @click="goBackToDashboard">
+            <el-icon><Grid /></el-icon>
+            <span v-if="!sidebarCollapsed">{{ $t('smartSearch.backToDashboard') }}</span>
         </div>
       </div>
-    </aside>
+
+        <div class="user-menu-wrapper">
+          <el-dropdown placement="top" trigger="click" @command="handleUserCommand">
+            <div class="user-info-btn" :class="{ 'is-collapsed': sidebarCollapsed }">
+              <el-avatar :size="sidebarCollapsed ? 32 : 40" class="user-avatar">
+                <el-icon><User /></el-icon>
+              </el-avatar>
+              <div v-if="!sidebarCollapsed" class="user-info-content">
+                <div class="user-details">
+                  <span class="username-text">{{ currentUser?.username || currentUser?.name || 'User' }}</span>
+                  <span class="role-text">{{ getRoleDisplayName(currentUser?.role) }}</span>
+                </div>
+                <el-icon class="chevron-icon"><ArrowDown /></el-icon>
+              </div>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile" class="dropdown-item-normal">
+                  <el-icon><User /></el-icon>
+                  {{ $t('nav.profile') }}
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout" class="dropdown-item-danger">
+                  <el-icon><SwitchButton /></el-icon>
+                  {{ $t('nav.logout') }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+      </div>
+    </el-aside>
 
     <!-- Main -->
     <main class="ss-main" :class="{ 'ss-main-compressed': sourceDrawerVisible }">
+      <!-- Top Navigation Bar -->
+      <header class="ss-header">
+        <div class="ss-header-left">
+          <div class="ss-model-selector">
+            <el-dropdown trigger="click" @command="onLlmProviderChange">
+              <div class="ss-model-trigger">
+                <img 
+                  v-if="currentModelIcon" 
+                  :src="currentModelIcon" 
+                  alt="Model Icon" 
+                  class="ss-model-icon-img"
+                />
+                <el-icon v-else class="ss-model-icon"><Cpu /></el-icon>
+                <span class="ss-model-name">{{ currentLlmProviderLabel }}</span>
+                <el-icon class="ss-model-arrow"><ArrowDown /></el-icon>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu class="ss-model-dropdown">
+                  <el-dropdown-item 
+                    v-for="p in llmProviders" 
+                    :key="p.id" 
+                    :command="p.id"
+                    :disabled="p.available === false"
+                    :class="{ active: p.id === llmProviderId }"
+                    class="ss-model-dropdown-item"
+                  >
+                    <img 
+                      v-if="getModelIcon(p)" 
+                      :src="getModelIcon(p)" 
+                      alt="Model Icon" 
+                      class="ss-model-item-icon-img"
+                    />
+                    <el-icon v-else class="ss-model-item-icon">
+                      <Cpu />
+                    </el-icon>
+                    <span class="ss-model-item-text">{{ p.label || p.id }}{{ p.model ? ` · ${p.model}` : '' }}</span>
+                    <el-icon v-if="p.id === llmProviderId" class="ss-model-check"><Check /></el-icon>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </div>
+        
+        <div class="ss-header-right">
+          <!-- 语言切换 -->
+          <el-dropdown trigger="click" @command="handleLanguageChange">
+            <el-button text class="lang-btn">
+              <Earth theme="outline" size="20" fill="#333" class="lang-icon" />
+              <span class="lang-text">{{ currentLocaleLabel }}</span>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="zh-CN">
+                  <span class="lang-item-content">
+                    <span class="lang-emoji">🇨🇳</span>
+                    <span>中文</span>
+                    <el-icon v-if="currentLocale === 'zh-CN'" class="lang-check"><Check /></el-icon>
+                  </span>
+                </el-dropdown-item>
+                <el-dropdown-item command="en-US">
+                  <span class="lang-item-content">
+                    <span class="lang-emoji">🇺🇸</span>
+                    <span>English</span>
+                    <el-icon v-if="currentLocale === 'en-US'" class="lang-check"><Check /></el-icon>
+                  </span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+      </header>
+
       <div ref="messagesEl" class="ss-messages">
         <div v-if="activeMessages.length === 0" class="ss-empty">
-          <div class="ss-empty-title">{{ $t('smartSearch.welcomeTitle') }}</div>
-          <div class="ss-empty-sub">{{ $t('smartSearch.welcomeText') }}</div>
+          <div class="ss-empty-title">{{ $t('smartSearch.welcomeQuestion') }}</div>
+          
+          <div class="ss-quick-cards">
+            <div class="ss-quick-card" @click="handleQuickAction('fault_code')">
+              <div class="ss-quick-card-icon warning">
+                <el-icon><Warning /></el-icon>
+              </div>
+              <div class="ss-quick-card-content">
+                <h3>{{ $t('smartSearch.faultCodeQuery') }}</h3>
+                <p>{{ $t('smartSearch.faultCodeQuerySubtitle') }}</p>
+              </div>
+            </div>
+            
+            <div class="ss-quick-card" @click="handleQuickAction('upload')">
+              <div class="ss-quick-card-icon upload">
+                <el-icon><Upload /></el-icon>
+              </div>
+              <div class="ss-quick-card-content">
+                <h3>{{ $t('smartSearch.logUpload') }}</h3>
+                <p>{{ $t('smartSearch.logUploadSubtitle') }}</p>
+              </div>
+            </div>
+            
+            <div class="ss-quick-card" @click="handleQuickAction('fault_case')">
+              <div class="ss-quick-card-icon case">
+                <el-icon><Notebook /></el-icon>
+              </div>
+              <div class="ss-quick-card-content">
+                <h3>{{ $t('smartSearch.faultCaseQuery') }}</h3>
+                <p>{{ $t('smartSearch.faultCaseQuerySubtitle') }}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-else class="ss-thread">
@@ -144,8 +331,60 @@
                     </div>
                   </div>
 
+                  <!-- find_case: 统一“故障案例”标签（Jira + MongoDB 合并，Jira 优先，按 jira_key 去重） -->
+                  <div v-if="m.payload.recognized?.intent === 'find_case' && m.payload.meta?.jiraError" class="ss-answer-section">
+                    <div class="ss-answer-section-title">故障案例</div>
+                    <div class="ss-answer-section-content">
+                      <div class="ss-jira-error">
+                        <el-alert
+                          :title="m.payload.meta.jiraError.timeout ? 'Jira 连接超时' : 'Jira 连接失败'"
+                          :description="m.payload.meta.jiraError.message || '无法连接到 Jira，历史案例检索已跳过'"
+                          type="warning"
+                          :closable="false"
+                          show-icon
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="m.payload.recognized?.intent === 'find_case' && m.payload.sources && (m.payload.sources.cases || []).length > 0" class="ss-answer-section">
+                    <div class="ss-answer-section-title">故障案例</div>
+                    <div class="ss-answer-section-content">
+                      <div
+                        v-for="c in (m.payload.sources?.cases || [])"
+                        :key="c.ref"
+                        class="ss-case-line"
+                      >
+                        <a
+                          v-if="c.type === 'jira' && c.url"
+                          :href="c.url"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="ss-case-link"
+                        >
+                          <span class="ss-case-key">{{ c.key }}</span>
+                          <span v-if="c.summary" class="ss-case-summary">：{{ c.summary }}</span>
+                          <span class="ss-case-ref">[{{ c.ref }}]</span>
+                        </a>
+                        <a
+                          v-else-if="c.type === 'mongo' && c.id"
+                          class="ss-case-link"
+                          href="#"
+                          @click.prevent="goFaultCaseDetail(c.id)"
+                        >
+                          <span class="ss-case-key">{{ c.title || c.id }}</span>
+                          <span v-if="c.jira_key" class="ss-case-summary">（Jira：{{ c.jira_key }}）</span>
+                          <span class="ss-case-ref">[{{ c.ref }}]</span>
+                        </a>
+                        <template v-else>
+                          <span class="ss-case-key">{{ c.title || c.key || c.id || '-' }}</span>
+                          <span class="ss-case-ref">[{{ c.ref }}]</span>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- 故障码解析 -->
-                  <div v-if="m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
+                  <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
                     <div class="ss-answer-section-title">故障码解析</div>
                     <div class="ss-answer-section-content">
                       <div
@@ -160,39 +399,22 @@
                           </div>
                           
                           <!-- 解释 -->
-                          <div v-if="f.user_hint || f.operation" class="ss-fault-field">
+                          <div v-if="f.explanation" class="ss-fault-field">
                             <span class="ss-fault-field-label">解释：</span>
+                            <span class="ss-fault-field-value">{{ f.explanation }}</span>
+                          </div>
+                          
+                          <!-- 用户提示 -->
+                          <div v-if="f.user_hint || f.operation" class="ss-fault-field">
+                            <span class="ss-fault-field-label">用户提示：</span>
                             <span class="ss-fault-field-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</span>
-                          </div>
-                          
-                          <!-- 参数含义 -->
-                          <div v-if="f.param1 || f.param2 || f.param3 || f.param4" class="ss-fault-field">
-                            <span class="ss-fault-field-label">参数含义：</span>
-                            <div class="ss-fault-params">
-                              <span v-if="f.param1" class="ss-fault-param">参数1：{{ f.param1 }}</span>
-                              <span v-if="f.param2" class="ss-fault-param">参数2：{{ f.param2 }}</span>
-                              <span v-if="f.param3" class="ss-fault-param">参数3：{{ f.param3 }}</span>
-                              <span v-if="f.param4" class="ss-fault-param">参数4：{{ f.param4 }}</span>
-                            </div>
-                          </div>
-                          
-                          <!-- 详细信息 -->
-                          <div v-if="f.detail" class="ss-fault-field">
-                            <span class="ss-fault-field-label">详细信息：</span>
-                            <span class="ss-fault-field-value">{{ f.detail }}</span>
-                          </div>
-                          
-                          <!-- 检查方法 -->
-                          <div v-if="f.method" class="ss-fault-field">
-                            <span class="ss-fault-field-label">检查方法：</span>
-                            <span class="ss-fault-field-value">{{ f.method }}</span>
                           </div>
                           
                           <!-- 分类 -->
                           <div v-if="f.category" class="ss-fault-field">
                             <span class="ss-fault-field-label">分类：</span>
                             <span class="ss-fault-field-value">{{ f.category }}</span>
-                          </div>
+                            </div>
                           
                           <!-- 技术排查方案 -->
                           <div class="ss-fault-field">
@@ -200,8 +422,8 @@
                             <div class="ss-fault-tech-solution">
                               <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-fault-tech-solution-text">
                                 {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
-                              </div>
-                              
+                          </div>
+                          
                               <!-- 加载按钮 -->
                               <div v-if="f.id && !f.tech_solution && !faultTechSolutions.get(f.id)" class="ss-fault-tech-load">
                                 <el-button
@@ -212,9 +434,9 @@
                                 >
                                   加载技术排查方案
                                 </el-button>
-                              </div>
-                              
-                              <!-- 附件 -->
+                          </div>
+                          
+                              <!-- 附件（图片可预览，PDF可点击） -->
                               <div v-if="faultTechSolutions.get(f.id)?.loading" class="ss-fault-attachments">
                                 <div class="ss-fault-attachments-title">附件：</div>
                                 <div class="ss-fault-field-value">加载中...</div>
@@ -257,8 +479,104 @@
                     </div>
                   </div>
 
-                  <!-- 相似历史案例 -->
-                  <div v-if="m.payload.meta?.jiraError" class="ss-answer-section">
+                  <!-- find_case: 故障码解析放到 Jira/Mongo 之后 -->
+                  <div v-if="m.payload.recognized?.intent === 'find_case' && m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
+                    <div class="ss-answer-section-title">故障码解析</div>
+                    <div class="ss-answer-section-content">
+                      <div
+                        v-for="f in (m.payload.sources?.faultCodes || [])"
+                        :key="f.ref"
+                        class="ss-fault-item"
+                      >
+                          <div class="ss-fault-code-line">
+                            <span class="ss-fault-code">{{ f.subsystem ? `${f.subsystem} - ` : '' }}{{ f.code }}</span>
+                            <span v-if="f.short_message" class="ss-fault-message">：{{ f.short_message }}</span>
+                            <span class="ss-fault-ref">[{{ f.ref }}]</span>
+                          </div>
+                          
+                          <!-- 解释 -->
+                          <div v-if="f.explanation" class="ss-fault-field">
+                            <span class="ss-fault-field-label">解释：</span>
+                            <span class="ss-fault-field-value">{{ f.explanation }}</span>
+                          </div>
+                          
+                          <!-- 用户提示 -->
+                          <div v-if="f.user_hint || f.operation" class="ss-fault-field">
+                            <span class="ss-fault-field-label">用户提示：</span>
+                            <span class="ss-fault-field-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</span>
+                          </div>
+                          
+                          <!-- 分类 -->
+                          <div v-if="f.category" class="ss-fault-field">
+                            <span class="ss-fault-field-label">分类：</span>
+                            <span class="ss-fault-field-value">{{ f.category }}</span>
+                          </div>
+                          
+                          <!-- 技术排查方案 -->
+                          <div class="ss-fault-field">
+                            <span class="ss-fault-field-label">技术排查方案：</span>
+                            <div class="ss-fault-tech-solution">
+                              <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-fault-tech-solution-text">
+                                {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
+                              </div>
+                              
+                              <!-- 加载按钮 -->
+                              <div v-if="f.id && !f.tech_solution && !faultTechSolutions.get(f.id)" class="ss-fault-tech-load">
+                                <el-button
+                                  size="small"
+                                  text
+                                  :loading="faultTechSolutions.get(f.id)?.loading"
+                                  @click="loadTechSolution(f.id)"
+                                >
+                                  加载技术排查方案
+                                </el-button>
+                              </div>
+                              
+                              <!-- 附件（图片可预览，PDF可点击） -->
+                              <div v-if="faultTechSolutions.get(f.id)?.loading" class="ss-fault-attachments">
+                                <div class="ss-fault-attachments-title">附件：</div>
+                                <div class="ss-fault-field-value">加载中...</div>
+                              </div>
+                              <div v-else-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
+                                <div class="ss-fault-attachments-title">附件：</div>
+                                <div class="ss-fault-attachments-list">
+                                  <!-- 图片：可预览 -->
+                                  <div
+                                    v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => isImageFile(img))"
+                                    :key="img.uid || img.url"
+                                    class="ss-fault-attachment-image"
+                                  >
+                                    <el-image
+                                      :src="img.url"
+                                      :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
+                                      fit="cover"
+                                      class="ss-attachment-image"
+                                      :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
+                                    />
+                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || '图片' }}</div>
+                                  </div>
+                                  <!-- PDF/其他文件：显示文件名，可点击下载 -->
+                                  <a
+                                    v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
+                                    :key="img.uid || img.url"
+                                    class="ss-fault-attachment-file"
+                                    :href="img.url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    @click.stop
+                                  >
+                                    <span>{{ img.original_name || img.filename || '文件' }}</span>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                    </div>
+                  </div>
+
+                  <!-- 相似历史案例（非 find_case：保持原顺序） -->
+                  <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.meta?.jiraError" class="ss-answer-section">
                     <div class="ss-answer-section-title">相似历史案例（来自 Jira）</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-jira-error">
@@ -272,7 +590,7 @@
                       </div>
                     </div>
                   </div>
-                  <div v-else-if="m.payload.sources && (m.payload.sources.jira || []).length > 0" class="ss-answer-section">
+                  <div v-else-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.jira || []).length > 0" class="ss-answer-section">
                     <div class="ss-answer-section-title">相似历史案例（来自 Jira）</div>
                     <div class="ss-answer-section-content">
                       <div
@@ -300,15 +618,73 @@
                     </div>
                   </div>
 
-                  <!-- 引导按钮 -->
+                  <!-- troubleshoot: MongoDB 故障案例（按 jira_key 去重，Jira 优先） -->
+                  <div v-if="m.payload.recognized?.intent === 'troubleshoot' && m.payload.sources && (m.payload.sources.faultCases || []).length > 0" class="ss-answer-section">
+                    <div class="ss-answer-section-title">相似故障案例（来自 MongoDB）</div>
+                    <div class="ss-answer-section-content">
+                      <div
+                        v-for="c in (m.payload.sources?.faultCases || [])"
+                        :key="c.ref"
+                        class="ss-case-line"
+                      >
+                        <a
+                          class="ss-case-link"
+                          href="#"
+                          @click.prevent="goFaultCaseDetail(c.id)"
+                        >
+                          <span class="ss-case-key">{{ c.title || c.id }}</span>
+                          <span v-if="c.jira_key" class="ss-case-summary">（Jira：{{ c.jira_key }}）</span>
+                          <span class="ss-case-ref">[{{ c.ref }}]</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 引导入口：当无检索结果时，使用与首页一致的 3 个卡片（含日志上传）；有结果时保持按钮 -->
                   <div v-if="m.payload.suggestedRoutes && m.payload.suggestedRoutes.length" class="ss-answer-actions">
-                    <el-button size="small" @click="goErrorCodes">故障码搜索</el-button>
-                    <el-button size="small" @click="goFaultCases">故障案例搜索</el-button>
+                    <template v-if="((m.payload.sources?.faultCodes || []).length + (m.payload.sources?.cases || []).length + (m.payload.sources?.jira || []).length + (m.payload.sources?.faultCases || []).length) === 0">
+                      <div class="ss-no-data-tip">{{ $t('smartSearch.noRelatedData') }}</div>
+                      <div class="ss-quick-cards-inline ss-quick-cards-multiple">
+                        <div class="ss-quick-card" @click="handleQuickAction('fault_case')">
+                          <div class="ss-quick-card-icon case">
+                            <el-icon><Notebook /></el-icon>
+                          </div>
+                          <div class="ss-quick-card-content">
+                            <h3>{{ $t('smartSearch.faultCaseQuery') }}</h3>
+                            <p>{{ $t('smartSearch.faultCaseQuerySubtitle') }}</p>
+                          </div>
+                        </div>
+
+                        <div class="ss-quick-card" @click="handleQuickAction('fault_code')">
+                          <div class="ss-quick-card-icon warning">
+                            <el-icon><Warning /></el-icon>
+                          </div>
+                          <div class="ss-quick-card-content">
+                            <h3>{{ $t('smartSearch.faultCodeQuery') }}</h3>
+                            <p>{{ $t('smartSearch.faultCodeQuerySubtitle') }}</p>
+                          </div>
+                        </div>
+
+                        <div class="ss-quick-card" @click="handleQuickAction('upload')">
+                          <div class="ss-quick-card-icon upload">
+                            <el-icon><Upload /></el-icon>
+                          </div>
+                          <div class="ss-quick-card-content">
+                            <h3>{{ $t('smartSearch.logUpload') }}</h3>
+                            <p>{{ $t('smartSearch.logUploadSubtitle') }}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <el-button size="small" @click="goErrorCodes">故障码搜索</el-button>
+                      <el-button size="small" @click="goFaultCases">故障案例搜索</el-button>
+                    </template>
                   </div>
 
                   <!-- 来源标识和复制按钮 -->
                   <div 
-                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.jira?.length || 0) + (m.payload.sources?.faultCases?.length || 0) > 0" 
+                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.cases?.length || 0) + ((m.payload.sources?.jira || []).length > 0 && !m.payload.sources?.cases) + ((m.payload.sources?.faultCases || []).length > 0 && !m.payload.sources?.cases) > 0" 
                     class="ss-sources-actions"
                   >
                     <div 
@@ -318,27 +694,19 @@
                       <div class="ss-sources-button-icons">
                         <div 
                           v-if="(m.payload.sources?.faultCodes || []).length > 0" 
-                          class="ss-source-icon" 
+                          class="ss-source-icon ss-source-icon-error-code" 
                           :style="{ zIndex: 10 }"
                           title="故障码"
                         >
                           <span class="ss-source-icon-text">ErrCode</span>
                         </div>
                         <div 
-                          v-if="(m.payload.sources?.jira || []).length > 0" 
-                          class="ss-source-icon" 
+                          v-if="(m.payload.sources?.cases || []).length > 0 || (m.payload.sources?.jira || []).length > 0 || (m.payload.sources?.faultCases || []).length > 0" 
+                          class="ss-source-icon ss-source-icon-fault-case" 
                           :style="{ zIndex: 9 }"
-                          title="JIRA"
+                          title="Fault Case"
                         >
-                          <span class="ss-source-icon-text">JIRA</span>
-                        </div>
-                        <div 
-                          v-if="(m.payload.sources?.faultCases || []).length > 0" 
-                          class="ss-source-icon" 
-                          :style="{ zIndex: 8 }"
-                          title="故障案例"
-                        >
-                          <el-icon class="ss-source-icon-svg"><Files /></el-icon>
+                          <span class="ss-source-icon-text">Fault Case</span>
                         </div>
                       </div>
                       <span class="ss-sources-button-text">来源</span>
@@ -377,8 +745,72 @@
                       <div class="ss-debug-title">Jira 检索式</div>
                       <div class="ss-debug-row"><span class="ss-debug-k">jql：</span>{{ m.payload.debug.jira?.jql || '--' }}</div>
                     </div>
+                    <div v-if="m.payload.debug.mongo" class="ss-debug-block">
+                      <div class="ss-debug-title">MongoDB 检索式</div>
+                      <pre class="ss-debug-pre">{{ JSON.stringify(m.payload.debug.mongo, null, 2) }}</pre>
+                    </div>
                   </div>
                 </details>
+              </div>
+            </template>
+
+            <!-- Assistant message: recommendation card - display as quick cards -->
+            <template v-else-if="m.recommendation">
+              <div class="ss-recommendation-wrapper">
+                <!-- 多卡片推荐：暂无相关数据 + 3 个入口 -->
+                <div v-if="m.recommendation.type === 'multiple'" class="ss-recommendation-multiple">
+                  <div class="ss-no-data-tip">{{ $t('smartSearch.noRelatedData') }}</div>
+                  <div class="ss-quick-cards-inline ss-quick-cards-multiple">
+                    <div class="ss-quick-card" @click="handleQuickAction('fault_case')">
+                      <div class="ss-quick-card-icon case">
+                        <el-icon><Notebook /></el-icon>
+                      </div>
+                      <div class="ss-quick-card-content">
+                        <h3>{{ $t('smartSearch.faultCaseQuery') }}</h3>
+                        <p>{{ $t('smartSearch.faultCaseQuerySubtitle') }}</p>
+                      </div>
+                    </div>
+
+                    <div class="ss-quick-card" @click="handleQuickAction('fault_code')">
+                      <div class="ss-quick-card-icon warning">
+                        <el-icon><Warning /></el-icon>
+                      </div>
+                      <div class="ss-quick-card-content">
+                        <h3>{{ $t('smartSearch.faultCodeQuery') }}</h3>
+                        <p>{{ $t('smartSearch.faultCodeQuerySubtitle') }}</p>
+                      </div>
+                    </div>
+
+                    <div class="ss-quick-card" @click="handleQuickAction('upload')">
+                      <div class="ss-quick-card-icon upload">
+                        <el-icon><Upload /></el-icon>
+                      </div>
+                      <div class="ss-quick-card-content">
+                        <h3>{{ $t('smartSearch.logUpload') }}</h3>
+                        <p>{{ $t('smartSearch.logUploadSubtitle') }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 单卡片推荐（find_case / troubleshoot / lookup_fault_code） -->
+                <div v-else class="ss-quick-cards-inline ss-quick-cards-single">
+                  <div class="ss-quick-card" @click="navigateTo(m.recommendation.path)">
+                    <div
+                      class="ss-quick-card-icon"
+                      :class="m.recommendation.type === 'fault_case' ? 'case' : 'warning'"
+                    >
+                      <el-icon v-if="m.recommendation.type === 'fault_case'"><Notebook /></el-icon>
+                      <el-icon v-else><Warning /></el-icon>
+                    </div>
+                    <div class="ss-quick-card-content">
+                      <h3>{{ m.recommendation.title }}</h3>
+                      <p>{{ m.recommendation.text }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ss-msg-time">{{ formatTime(m.createdAt) }}</div>
               </div>
             </template>
 
@@ -419,10 +851,8 @@
           </button>
         </div>
 
-        <div class="ss-actions">
-          <el-button text @click="goClassicPanel">
-            {{ $t('smartSearch.classicPanel') }}
-          </el-button>
+        <div class="ss-disclaimer">
+          {{ $t('smartSearch.disclaimer') }}
         </div>
       </div>
 
@@ -456,9 +886,15 @@
                 <div v-if="expandedSources.has(f.ref)" class="ss-source-expanded">
                   <div class="ss-source-detail">
                     <!-- 解释 -->
-                    <div v-if="f.user_hint || f.operation || f.explanation" class="ss-source-detail-section">
+                    <div v-if="f.explanation" class="ss-source-detail-section">
                       <div class="ss-source-detail-label">解释</div>
-                      <div class="ss-source-detail-value">{{ [f.explanation, f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</div>
+                      <div class="ss-source-detail-value">{{ f.explanation }}</div>
+                    </div>
+                    
+                    <!-- 用户提示 -->
+                    <div v-if="f.user_hint || f.operation" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">用户提示</div>
+                      <div class="ss-source-detail-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</div>
                     </div>
                     
                     <!-- 参数含义 -->
@@ -560,12 +996,217 @@
             </div>
           </div>
 
-          <!-- Jira 来源 -->
-          <div v-if="sourceDrawerMessage?.payload?.sources?.jira?.length" class="ss-sources-group">
-            <div class="ss-sources-group-title">Jira 来源（{{ sourceDrawerMessage?.payload?.sources?.jira?.length }}）</div>
+          <!-- 故障案例来源（合并 Jira + MongoDB） -->
+          <div v-if="(sourceDrawerMessage?.payload?.sources?.cases?.length || 0) + ((sourceDrawerMessage?.payload?.sources?.jira?.length || 0) > 0 && !sourceDrawerMessage?.payload?.sources?.cases) + ((sourceDrawerMessage?.payload?.sources?.faultCases?.length || 0) > 0 && !sourceDrawerMessage?.payload?.sources?.cases) > 0" class="ss-sources-group">
+            <div class="ss-sources-group-title">故障案例（{{ (sourceDrawerMessage?.payload?.sources?.cases?.length || 0) || ((sourceDrawerMessage?.payload?.sources?.jira?.length || 0) + (sourceDrawerMessage?.payload?.sources?.faultCases?.length || 0)) }}）</div>
             <div class="ss-sources-list">
+              <!-- 合并后的 cases（find_case/troubleshoot 意图） -->
+              <template v-if="sourceDrawerMessage?.payload?.sources?.cases?.length">
               <div
-                v-for="j in sourceDrawerMessage.payload.sources.jira"
+                  v-for="c in sourceDrawerMessage.payload.sources.cases"
+                  :key="c.ref"
+                  class="ss-source-item"
+                >
+                  <div class="ss-source-header" @click="toggleSourceExpanded(c.ref)">
+                    <span class="ss-source-ref">[{{ c.ref }}]</span>
+                    <span class="ss-source-text">{{ c.type === 'jira' ? c.key : (c.title || c.key || c.id || '-') }}</span>
+                    <span v-if="c.type === 'jira' && c.summary" class="ss-source-desc">：{{ c.summary }}</span>
+                    <span v-else-if="c.type === 'mongo' && c.title" class="ss-source-desc">：{{ c.title }}</span>
+                    <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(c.ref) }">
+                      <ArrowDown />
+                    </el-icon>
+                  </div>
+                  <div v-if="expandedSources.has(c.ref)" class="ss-source-expanded">
+                    <div class="ss-source-detail">
+                      <!-- Jira (复用 JiraFaultCases 概览弹窗字段；展开时会 getIssue 补齐) -->
+                      <template v-if="c.type === 'jira'">
+                        <div v-if="jiraIssueLoading[c.key]" class="ss-case-loading">正在加载 Jira 详情…</div>
+
+                        <!-- Header: Key / Project Name + Title -->
+                        <div class="ss-case-preview-header">
+                          <div class="ss-case-preview-key-project">
+                            {{ getJiraCase(c).key || c.key || '-' }}<span v-if="getJiraCase(c).projectName"> / {{ getJiraCase(c).projectName }}</span>
+                      </div>
+                          <div class="ss-case-preview-title">{{ getJiraCase(c).summary || c.summary || '-' }}</div>
+                      </div>
+
+                        <!-- Key Information Section: Two Columns -->
+                        <div class="ss-case-key-info">
+                          <div class="ss-case-key-info-left">
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">STATUS</div>
+                              <el-tag v-if="getJiraCase(c).status" type="primary" size="small" class="ss-case-status-tag">
+                                {{ getJiraCase(c).status }}
+                              </el-tag>
+                              <span v-else class="ss-case-info-empty">-</span>
+                            </div>
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">COMPONENTS</div>
+                              <div class="ss-case-components">
+                                <el-tag
+                                  v-for="(comp, idx) in (getJiraCase(c).components || [])"
+                                  :key="idx"
+                                  size="small"
+                                  class="ss-case-component-tag"
+                                >
+                                  {{ comp }}
+                                </el-tag>
+                                <span v-if="!getJiraCase(c).components || getJiraCase(c).components.length === 0" class="ss-case-info-empty">-</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="ss-case-key-info-right">
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">RESOLUTION</div>
+                              <div class="ss-case-info-value">
+                                {{ getJiraCase(c).resolution?.name || 'Unresolved' }}
+                              </div>
+                            </div>
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">UPDATED</div>
+                              <div class="ss-case-info-value">
+                                <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                                {{ formatTime(getJiraCase(c).updated) || '-' }}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- 模块信息（如果components为空，显示module） -->
+                        <div v-if="(!getJiraCase(c).components || getJiraCase(c).components.length === 0) && getJiraCase(c).module" class="ss-source-detail-section">
+                          <div class="ss-source-detail-label">模块</div>
+                          <div class="ss-source-detail-value">{{ getJiraCase(c).module }}</div>
+                        </div>
+
+                        <!-- Content Section: 客诉/普通 两套字段（与 JiraFaultCases 一致） -->
+                        <template v-if="isComplaintProjectByCase(c)">
+                          <div v-if="getJiraCase(c).customfield_12213" class="ss-case-content-section">
+                            <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
+                            <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12213 }}</div>
+                          </div>
+                          <div v-if="getJiraCase(c).customfield_12284" class="ss-case-content-section">
+                            <div class="ss-case-content-label">PRELIMINARY INVESTIGATION</div>
+                            <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12284 }}</div>
+                          </div>
+                          <div class="ss-case-content-two-columns">
+                            <div v-if="getJiraCase(c).customfield_12233" class="ss-case-content-section">
+                              <div class="ss-case-content-label">CONTAINMENT MEASURES</div>
+                              <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12233 }}</div>
+                            </div>
+                            <div v-if="getJiraCase(c).customfield_12239" class="ss-case-content-section">
+                              <div class="ss-case-content-label">LONG-TERM MEASURES</div>
+                              <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12239 }}</div>
+                            </div>
+                          </div>
+                          <div v-if="!getJiraCase(c).customfield_12213 && !getJiraCase(c).customfield_12284 && !getJiraCase(c).customfield_12233 && !getJiraCase(c).customfield_12239" class="ss-case-content-section">
+                            <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
+                            <div class="ss-case-content-box">{{ getJiraCase(c).description || getJiraCase(c).summary || '-' }}</div>
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div v-if="getJiraCase(c).description || getJiraCase(c).summary" class="ss-case-content-section">
+                            <div class="ss-case-content-label">DESCRIPTION</div>
+                            <div class="ss-case-content-box">{{ getJiraCase(c).description || getJiraCase(c).summary }}</div>
+                          </div>
+                          <div v-if="getJiraCase(c).customfield_10705" class="ss-case-content-section">
+                            <div class="ss-case-content-label">INVESTIGATION & CAUSE ANALYSIS</div>
+                            <div class="ss-case-content-box">{{ getJiraCase(c).customfield_10705 }}</div>
+                          </div>
+                          <div v-if="getJiraCase(c).customfield_10600" class="ss-case-content-section">
+                            <div class="ss-case-content-label">SOLUTION DETAILS</div>
+                            <div class="ss-case-content-box">{{ getJiraCase(c).customfield_10600 }}</div>
+                          </div>
+                        </template>
+
+                        <!-- Attachments Section -->
+                        <div v-if="(getJiraCase(c).attachments || []).length > 0" class="ss-case-attachments-section">
+                          <div v-if="getJiraImageAttachments(c).length > 0" class="ss-case-image-attachments">
+                            <div class="ss-case-attachment-label">IMAGE ATTACHMENTS</div>
+                            <div class="ss-case-attachment-images">
+                              <div v-for="img in getJiraImageAttachments(c)" :key="img.id || img.filename" class="ss-case-image-thumbnail" :title="img.filename">
+                                <el-image
+                                  :src="getJiraImageSrc(img)"
+                                  :preview-src-list="getJiraImagePreviewUrls(c)"
+                                  fit="cover"
+                                  class="ss-case-attachment-image"
+                                  :initial-index="getJiraImageIndex(c, img)"
+                                  :preview-teleported="true"
+                                />
+                                <div class="ss-case-image-name">{{ img.filename }}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="getJiraFileAttachments(c).length > 0" class="ss-case-file-attachments">
+                            <div class="ss-case-attachment-label">FILE ATTACHMENTS</div>
+                            <div v-for="file in getJiraFileAttachments(c)" :key="file.id || file.filename" class="ss-case-attachment-item">
+                              <el-link type="primary" :underline="false" @click="downloadJiraFile(file)">
+                                <i class="fas fa-paperclip"></i>
+                                {{ file.filename }}
+                              </el-link>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+
+                      <!-- MongoDB 故障案例（保持现有展示） -->
+                      <template v-else>
+                        <div class="ss-case-preview-header">
+                          <div class="ss-case-preview-key-project">
+                            {{ c.jira_key || c.id || '-' }}
+                          </div>
+                          <div class="ss-case-preview-title">{{ c.title || '-' }}</div>
+                        </div>
+
+                      <div v-if="c.module" class="ss-source-detail-section">
+                        <div class="ss-source-detail-label">模块</div>
+                        <div class="ss-source-detail-value">{{ c.module }}</div>
+                      </div>
+                        <div v-if="c.jira_key" class="ss-source-detail-section">
+                        <div class="ss-source-detail-label">Jira Key</div>
+                        <div class="ss-source-detail-value">{{ c.jira_key }}</div>
+                      </div>
+                        <div v-if="c.updatedAt" class="ss-source-detail-section">
+                        <div class="ss-source-detail-label">更新时间</div>
+                          <div class="ss-source-detail-value">{{ formatTime(c.updatedAt) }}</div>
+                      </div>
+                      </template>
+
+                      <!-- 操作按钮 -->
+                      <div class="ss-source-detail-actions">
+                        <template v-if="c.type === 'jira'">
+                          <button 
+                            v-if="getJiraCase(c).url" 
+                            class="btn-text btn-sm" 
+                            @click.stop="handleJiraJump(getJiraCase(c).url)"
+                          >
+                            跳转 Jira
+                          </button>
+                          <button 
+                            v-else-if="c.key" 
+                            class="btn-text btn-sm" 
+                            @click.stop="handleJiraJumpByKey(c.key)"
+                          >
+                            跳转 Jira
+                          </button>
+                        </template>
+                        <template v-else-if="c.type === 'mongo' && c.id">
+                          <button 
+                            class="btn-text btn-sm" 
+                            @click.stop="goFaultCaseDetail(c.id)"
+                          >
+                            查看详情
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <!-- 兼容旧的 jira 和 faultCases（非 find_case/troubleshoot 意图） -->
+              <template v-else>
+                <!-- Jira 来源 -->
+                <div
+                  v-for="j in (sourceDrawerMessage?.payload?.sources?.jira || [])"
                 :key="j.ref"
                 class="ss-source-item"
               >
@@ -579,26 +1220,137 @@
                 </div>
                 <div v-if="expandedSources.has(j.ref)" class="ss-source-expanded">
                   <div class="ss-source-detail">
-                    <div v-if="j.summary" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">摘要</div>
-                      <div class="ss-source-detail-value">{{ j.summary }}</div>
+                    <div v-if="jiraIssueLoading[j.key]" class="ss-case-loading">正在加载 Jira 详情…</div>
+
+                    <!-- Header: Key / Project Name + Title -->
+                    <div class="ss-case-preview-header">
+                      <div class="ss-case-preview-key-project">
+                        {{ getJiraCase(j).key || j.key || '-' }}<span v-if="getJiraCase(j).projectName"> / {{ getJiraCase(j).projectName }}</span>
                     </div>
-                    <div v-if="j.module" class="ss-source-detail-section">
+                      <div class="ss-case-preview-title">{{ getJiraCase(j).summary || j.summary || '-' }}</div>
+                    </div>
+
+                    <!-- Key Information Section: Two Columns -->
+                    <div class="ss-case-key-info">
+                      <div class="ss-case-key-info-left">
+                        <div class="ss-case-info-item">
+                          <div class="ss-case-info-label">STATUS</div>
+                          <el-tag v-if="getJiraCase(j).status" type="primary" size="small" class="ss-case-status-tag">
+                            {{ getJiraCase(j).status }}
+                          </el-tag>
+                          <span v-else class="ss-case-info-empty">-</span>
+                        </div>
+                        <div class="ss-case-info-item">
+                          <div class="ss-case-info-label">COMPONENTS</div>
+                          <div class="ss-case-components">
+                            <el-tag
+                              v-for="(comp, idx) in (getJiraCase(j).components || [])"
+                              :key="idx"
+                              size="small"
+                              class="ss-case-component-tag"
+                            >
+                              {{ comp }}
+                            </el-tag>
+                            <span v-if="!getJiraCase(j).components || getJiraCase(j).components.length === 0" class="ss-case-info-empty">-</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ss-case-key-info-right">
+                        <div class="ss-case-info-item">
+                          <div class="ss-case-info-label">RESOLUTION</div>
+                          <div class="ss-case-info-value">
+                            {{ getJiraCase(j).resolution?.name || 'Unresolved' }}
+                          </div>
+                        </div>
+                        <div class="ss-case-info-item">
+                          <div class="ss-case-info-label">UPDATED</div>
+                          <div class="ss-case-info-value">
+                            <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                            {{ formatTime(getJiraCase(j).updated) || '-' }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 模块信息（如果components为空，显示module） -->
+                    <div v-if="(!getJiraCase(j).components || getJiraCase(j).components.length === 0) && getJiraCase(j).module" class="ss-source-detail-section">
                       <div class="ss-source-detail-label">模块</div>
-                      <div class="ss-source-detail-value">{{ j.module }}</div>
+                      <div class="ss-source-detail-value">{{ getJiraCase(j).module }}</div>
                     </div>
-                    <div v-if="j.status" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">状态</div>
-                      <div class="ss-source-detail-value">{{ j.status }}</div>
+
+                    <!-- Content Section: 客诉/普通 两套字段（与 JiraFaultCases 一致） -->
+                    <template v-if="isComplaintProjectByCase(j)">
+                      <div v-if="getJiraCase(j).customfield_12213" class="ss-case-content-section">
+                        <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
+                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12213 }}</div>
                     </div>
-                    <div v-if="j.updated" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">更新时间</div>
-                      <div class="ss-source-detail-value">{{ j.updated }}</div>
+                      <div v-if="getJiraCase(j).customfield_12284" class="ss-case-content-section">
+                        <div class="ss-case-content-label">PRELIMINARY INVESTIGATION</div>
+                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12284 }}</div>
                     </div>
-                    <div v-if="j.url" class="ss-source-detail-actions">
+                      <div class="ss-case-content-two-columns">
+                        <div v-if="getJiraCase(j).customfield_12233" class="ss-case-content-section">
+                          <div class="ss-case-content-label">CONTAINMENT MEASURES</div>
+                          <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12233 }}</div>
+                        </div>
+                        <div v-if="getJiraCase(j).customfield_12239" class="ss-case-content-section">
+                          <div class="ss-case-content-label">LONG-TERM MEASURES</div>
+                          <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12239 }}</div>
+                        </div>
+                      </div>
+                      <div v-if="!getJiraCase(j).customfield_12213 && !getJiraCase(j).customfield_12284 && !getJiraCase(j).customfield_12233 && !getJiraCase(j).customfield_12239" class="ss-case-content-section">
+                        <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
+                        <div class="ss-case-content-box">{{ getJiraCase(j).description || getJiraCase(j).summary || '-' }}</div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div v-if="getJiraCase(j).description || getJiraCase(j).summary" class="ss-case-content-section">
+                        <div class="ss-case-content-label">DESCRIPTION</div>
+                        <div class="ss-case-content-box">{{ getJiraCase(j).description || getJiraCase(j).summary }}</div>
+                      </div>
+                      <div v-if="getJiraCase(j).customfield_10705" class="ss-case-content-section">
+                        <div class="ss-case-content-label">INVESTIGATION & CAUSE ANALYSIS</div>
+                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_10705 }}</div>
+                      </div>
+                      <div v-if="getJiraCase(j).customfield_10600" class="ss-case-content-section">
+                        <div class="ss-case-content-label">SOLUTION DETAILS</div>
+                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_10600 }}</div>
+                      </div>
+                    </template>
+
+                    <!-- Attachments Section -->
+                    <div v-if="(getJiraCase(j).attachments || []).length > 0" class="ss-case-attachments-section">
+                      <div v-if="getJiraImageAttachments(j).length > 0" class="ss-case-image-attachments">
+                        <div class="ss-case-attachment-label">IMAGE ATTACHMENTS</div>
+                        <div class="ss-case-attachment-images">
+                          <div v-for="img in getJiraImageAttachments(j)" :key="img.id || img.filename" class="ss-case-image-thumbnail" :title="img.filename">
+                            <el-image
+                              :src="getJiraImageSrc(img)"
+                              :preview-src-list="getJiraImagePreviewUrls(j)"
+                              fit="cover"
+                              class="ss-case-attachment-image"
+                              :initial-index="getJiraImageIndex(j, img)"
+                              :preview-teleported="true"
+                            />
+                            <div class="ss-case-image-name">{{ img.filename }}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="getJiraFileAttachments(j).length > 0" class="ss-case-file-attachments">
+                        <div class="ss-case-attachment-label">FILE ATTACHMENTS</div>
+                        <div v-for="file in getJiraFileAttachments(j)" :key="file.id || file.filename" class="ss-case-attachment-item">
+                          <el-link type="primary" :underline="false" @click="downloadJiraFile(file)">
+                            <i class="fas fa-paperclip"></i>
+                            {{ file.filename }}
+                          </el-link>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div v-if="getJiraCase(j).url" class="ss-source-detail-actions">
                       <button 
                         class="btn-text btn-sm" 
-                        @click.stop="handleJiraJump(j.url)"
+                        @click.stop="handleJiraJump(getJiraCase(j).url)"
                       >
                         跳转 Jira
                       </button>
@@ -614,6 +1366,88 @@
                   </div>
                 </div>
               </div>
+                <!-- MongoDB 故障案例来源 -->
+                <div
+                  v-for="c in (sourceDrawerMessage?.payload?.sources?.faultCases || [])"
+                  :key="c.ref"
+                  class="ss-source-item"
+                >
+                  <div class="ss-source-header" @click="toggleSourceExpanded(c.ref)">
+                    <span class="ss-source-ref">[{{ c.ref }}]</span>
+                    <span class="ss-source-text">{{ c.title || c.id || '-' }}</span>
+                    <span v-if="c.jira_key" class="ss-source-desc">（Jira：{{ c.jira_key }}）</span>
+                    <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(c.ref) }">
+                      <ArrowDown />
+                    </el-icon>
+            </div>
+                  <div v-if="expandedSources.has(c.ref)" class="ss-source-expanded">
+                    <div class="ss-source-detail">
+                      <!-- Header: Key / Project Name + Title -->
+                      <div class="ss-case-preview-header">
+                        <div class="ss-case-preview-key-project">
+                          {{ c.jira_key || c.id || '-' }}
+                      </div>
+                        <div class="ss-case-preview-title">{{ c.title || '-' }}</div>
+                      </div>
+
+                      <!-- Key Information Section: Two Columns -->
+                      <div class="ss-case-key-info">
+                        <div class="ss-case-key-info-left">
+                          <div class="ss-case-info-item">
+                            <div class="ss-case-info-label">STATUS</div>
+                            <el-tag v-if="c.status" type="primary" size="small" class="ss-case-status-tag">
+                              {{ c.status }}
+                            </el-tag>
+                            <span v-else class="ss-case-info-empty">-</span>
+                          </div>
+                          <div class="ss-case-info-item">
+                            <div class="ss-case-info-label">COMPONENTS</div>
+                            <div class="ss-case-components">
+                              <span v-if="!c.components || c.components.length === 0" class="ss-case-info-empty">-</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="ss-case-key-info-right">
+                          <div class="ss-case-info-item">
+                            <div class="ss-case-info-label">RESOLUTION</div>
+                            <div class="ss-case-info-value">
+                              Unresolved
+                            </div>
+                          </div>
+                          <div class="ss-case-info-item">
+                            <div class="ss-case-info-label">UPDATED</div>
+                            <div class="ss-case-info-value">
+                              <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                              {{ formatTime(c.updatedAt) || '-' }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 模块信息 -->
+                      <div v-if="c.module" class="ss-source-detail-section">
+                        <div class="ss-source-detail-label">模块</div>
+                        <div class="ss-source-detail-value">{{ c.module }}</div>
+                      </div>
+
+                      <!-- Jira Key -->
+                      <div v-if="c.jira_key" class="ss-source-detail-section">
+                        <div class="ss-source-detail-label">Jira Key</div>
+                        <div class="ss-source-detail-value">{{ c.jira_key }}</div>
+                      </div>
+
+                      <div v-if="c.id" class="ss-source-detail-actions">
+                        <button 
+                          class="btn-text btn-sm" 
+                          @click.stop="goFaultCaseDetail(c.id)"
+                        >
+                          查看详情
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -724,9 +1558,11 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy } from '@element-plus/icons-vue'
+import { getCurrentLocale, loadLocaleMessages } from '../i18n'
+import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton } from '@element-plus/icons-vue'
+import { Earth } from '@icon-park/vue-next'
 import api from '@/api'
 
 const MAX_CONVERSATIONS = 5
@@ -749,6 +1585,7 @@ function normalizeTitle (text) {
 
 export default {
   name: 'SmartSearchPage',
+  components: { Earth },
   setup () {
     const store = useStore()
     const router = useRouter()
@@ -760,6 +1597,11 @@ export default {
       return u.id || u.user_id || u.username || 'anonymous'
     })
     const storageKey = computed(() => `smartSearchHistory:${userKey.value}`)
+    const llmProviderStorageKey = computed(() => `smartSearchLlmProvider:${userKey.value}`)
+
+    const llmProviders = ref([])
+    const llmProvidersLoading = ref(false)
+    const llmProviderId = ref('')
 
     const conversations = ref([])
     const activeConversationId = ref(null)
@@ -777,6 +1619,9 @@ export default {
     const sourceDrawerTech = ref(null)
     const faultTechSolutions = ref(new Map()) // Map<faultId, { tech_solution, images, loading }>
     const expandedSources = ref(new Set()) // 展开的来源 ref 集合
+    // Jira issue detail cache for SmartSearch sources drawer (key -> issue detail)
+    const jiraIssueCache = ref({}) // Record<string, issue>
+    const jiraIssueLoading = ref({}) // Record<string, boolean>
     const faultDetailDialogVisible = ref(false)
     const faultDetailItem = ref(null)
     const faultDetailTech = ref(null)
@@ -794,12 +1639,32 @@ export default {
       return '详情'
     })
 
-    const load = () => {
+    const load = async () => {
       try {
+        // 优先从 MongoDB 加载
+        try {
+          const resp = await api.smartSearch.getConversations({ limit: 50 })
+          if (resp?.data?.conversations?.length > 0) {
+            // MongoDB 对话：添加 mongo_ 前缀标识
+            conversations.value = resp.data.conversations.map(conv => ({
+              ...conv,
+              id: `mongo_${conv.id}`
+            }))
+            // 确保每个对话都有标题
+            conversations.value.forEach(conv => {
+              if (!conv.title || conv.title === '新对话') {
+                const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
+                if (firstUserMsg && firstUserMsg.content) {
+                  conv.title = normalizeTitle(firstUserMsg.content)
+                }
+              }
+            })
+          } else {
+            // MongoDB 为空，fallback 到 localStorage（仅读取，不迁移）
         const raw = localStorage.getItem(storageKey.value)
         const parsed = raw ? JSON.parse(raw) : []
         conversations.value = Array.isArray(parsed) ? parsed : []
-        // 确保每个对话都有标题（从第一个用户消息提取前10个字）
+            // 确保每个对话都有标题
         conversations.value.forEach(conv => {
           if (!conv.title || conv.title === '新对话') {
             const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
@@ -808,8 +1673,30 @@ export default {
             }
           }
         })
-        persist() // 保存更新后的标题
-      } catch {
+          }
+        } catch (apiErr) {
+          // 网络错误时 fallback 到 localStorage
+          console.warn('[load] API error, fallback to localStorage:', apiErr)
+          if (apiErr.response?.status === 503) {
+            ElMessage.warning('MongoDB 未连接，显示本地历史对话')
+          } else if (apiErr.response?.status >= 500) {
+            ElMessage.warning('服务器错误，显示本地历史对话')
+          }
+          const raw = localStorage.getItem(storageKey.value)
+          const parsed = raw ? JSON.parse(raw) : []
+          conversations.value = Array.isArray(parsed) ? parsed : []
+          // 确保每个对话都有标题
+          conversations.value.forEach(conv => {
+            if (!conv.title || conv.title === '新对话') {
+              const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
+              if (firstUserMsg && firstUserMsg.content) {
+                conv.title = normalizeTitle(firstUserMsg.content)
+              }
+            }
+          })
+        }
+      } catch (err) {
+        console.error('[load] error:', err)
         conversations.value = []
       }
       // 默认打开最近一个
@@ -820,8 +1707,101 @@ export default {
       }
     }
 
-    const persist = () => {
-      localStorage.setItem(storageKey.value, JSON.stringify(conversations.value))
+    const loadLlmProviders = async () => {
+      llmProvidersLoading.value = true
+      try {
+        const resp = await api.smartSearch.getLlmProviders()
+        const data = resp?.data || {}
+        const list = Array.isArray(data.providers) ? data.providers : []
+        llmProviders.value = list
+
+        const stored = localStorage.getItem(llmProviderStorageKey.value) || ''
+        const firstAvailable = list.find(p => p && p.available)?.id || ''
+        const fallback = stored || data.defaultProviderId || firstAvailable || (list[0]?.id || '')
+
+        llmProviderId.value = fallback || ''
+        if (llmProviderId.value) {
+          localStorage.setItem(llmProviderStorageKey.value, llmProviderId.value)
+        }
+      } catch (_) {
+        const stored = localStorage.getItem(llmProviderStorageKey.value) || ''
+        if (stored) llmProviderId.value = stored
+      } finally {
+        llmProvidersLoading.value = false
+      }
+    }
+
+    const onLlmProviderChange = (id) => {
+      llmProviderId.value = id
+      const v = String(id || '').trim()
+      if (v) localStorage.setItem(llmProviderStorageKey.value, v)
+      else localStorage.removeItem(llmProviderStorageKey.value)
+    }
+
+    const currentLlmProviderLabel = computed(() => {
+      const p = llmProviders.value.find(p => p.id === llmProviderId.value)
+      return p ? (p.label || p.id) : (llmProvidersLoading.value ? t('smartSearch.llmProviderLoading') : t('smartSearch.llmProvider'))
+    })
+
+    // 语言切换逻辑
+    const currentLocale = computed(() => getCurrentLocale())
+    const currentLocaleLabel = computed(() => {
+      const locale = currentLocale.value
+      return locale === 'zh-CN' ? '中文' : 'English'
+    })
+
+    const handleLanguageChange = async (command) => {
+      await loadLocaleMessages(command)
+      // 强制刷新部分依赖 i18n 的计算属性或界面，如果需要的话
+    }
+
+    const persistConversation = async (conv) => {
+      // 只保存到 MongoDB，不再保存到 localStorage
+      if (!conv) return
+
+      try {
+        // 提取 metadata（从最后一次 assistant 消息的 payload 中）
+        const lastAssistantMsg = [...(conv.messages || [])].reverse().find(m => m && m.role === 'assistant')
+        const payload = lastAssistantMsg?.payload || {}
+        const metadata = {
+          intent: payload?.recognized?.intent || null,
+          llmProvider: payload?.meta?.llmProvider || llmProviderId.value || null,
+          llmModel: payload?.meta?.llmModel || null
+        }
+
+        const convData = {
+          title: conv.title || '新对话',
+          messages: conv.messages || [],
+          metadata
+        }
+
+        if (conv.id && conv.id.startsWith('mongo_')) {
+          const mongoId = conv.id.replace('mongo_', '')
+          await api.smartSearch.updateConversation(mongoId, convData)
+          return
+        }
+
+        // 新对话：创建（创建成功后再切换成 mongo_ id，避免中途 id 变化导致找不到会话）
+        const resp = await api.smartSearch.createConversation(convData)
+        const created = resp?.data?.conversation
+        if (created?.id) {
+          const newId = `mongo_${created.id}`
+          const oldId = conv.id
+          // 更新当前会话 id（conv 通常是 conversations 里的引用对象）
+          conv.id = newId
+          // 如果当前激活的是“旧 id”，需要同步切换到新 mongo_ id
+          if (activeConversationId.value === null || activeConversationId.value === oldId) {
+            activeConversationId.value = newId
+          }
+        }
+      } catch (err) {
+        console.error('[persistConversation] Failed to save conversation to MongoDB:', err)
+        if (err.response?.status === 503) {
+          ElMessage.warning('MongoDB 未连接，对话未保存到服务器')
+        } else if (err.response?.status >= 500) {
+          ElMessage.warning('服务器错误，对话未保存到服务器')
+        }
+      }
     }
 
     const activeConversation = computed(() => {
@@ -835,6 +1815,30 @@ export default {
 
     const questionCount = computed(() => {
       return activeMessages.value.filter(m => m && m.role === 'user').length
+    })
+
+    // 历史对话按时间分组
+    const groupedConversations = computed(() => {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+
+      const groups = {
+        today: [],
+        yesterday: []
+      }
+
+      conversations.value.forEach(conv => {
+        const convDate = new Date(conv.updatedAt || conv.createdAt || now.toISOString())
+        if (convDate >= today) {
+          groups.today.push(conv)
+        } else if (convDate >= yesterday) {
+          groups.yesterday.push(conv)
+        }
+      })
+
+      return groups
     })
 
     const canSend = computed(() => !sending.value && draft.value.trim().length > 0)
@@ -855,11 +1859,10 @@ export default {
       if (idx >= 0) conversations.value.splice(idx, 1)
       // 最新放顶部
       conversations.value.unshift(conv)
-      // 限制最多 5 个
+      // 限制最多 5 个（前端显示限制，实际 MongoDB 中可保存更多）
       if (conversations.value.length > MAX_CONVERSATIONS) {
         conversations.value = conversations.value.slice(0, MAX_CONVERSATIONS)
       }
-      persist()
     }
 
     const ensureActiveConversation = () => {
@@ -896,7 +1899,8 @@ export default {
       // 首问生成标题
       if (!conv.title || conv.title === '新对话') conv.title = normalizeTitle(text)
       conv.updatedAt = nowIso()
-      upsertConversation({ ...conv })
+      // 这里不要触发持久化，避免中途 id 变化导致后续找不到会话
+      upsertConversation(conv)
 
       draft.value = ''
 
@@ -904,8 +1908,9 @@ export default {
       try {
         const resp = await api.smartSearch.search({
           query: text,
-          limits: { errorCodes: 10, jira: 10 },
+          limits: { errorCodes: 10, jira: 10, faultCases: 10 },
           debug: true,
+          llmProviderId: llmProviderId.value || undefined
         })
         const payload = resp?.data || null
         const assistantMsg = {
@@ -916,19 +1921,67 @@ export default {
           payload,
           createdAt: nowIso()
         }
-      const conv2 = conversations.value.find(c => c.id === conv.id)
+        
+      const conv2 = activeConversation.value
       if (conv2) {
         conv2.messages = [...(conv2.messages || []), assistantMsg]
+          
+          // 如果没有查询到结果且意图匹配，则添加推荐卡片消息
+          const intent = payload?.recognized?.intent
+          const hasFaultCodes = (payload?.sources?.faultCodes || []).length > 0
+          const hasCases = (payload?.sources?.cases || []).length > 0 || (payload?.sources?.jira || []).length > 0 || (payload?.sources?.faultCases || []).length > 0
+          const hasAnyResults = hasFaultCodes || hasCases
+          
+          if ((intent === 'find_case' || intent === 'troubleshoot') && !hasCases) {
+            conv2.messages.push({
+              id: shortId(),
+              role: 'assistant',
+              content: '',
+              createdAt: nowIso(),
+              recommendation: {
+                type: 'fault_case',
+                title: t('smartSearch.faultCaseQuery'),
+                text: t('smartSearch.faultCaseQuerySubtitle'),
+                path: '/dashboard/fault-cases'
+              }
+            })
+          } else if (intent === 'lookup_fault_code' && !hasFaultCodes) {
+            conv2.messages.push({
+              id: shortId(),
+              role: 'assistant',
+              content: '',
+              createdAt: nowIso(),
+              recommendation: {
+                type: 'fault_code',
+                title: t('smartSearch.faultCodeQuery'),
+                text: t('smartSearch.faultCodeQuerySubtitle'),
+                path: '/dashboard/error-codes'
+              }
+            })
+          } else if ((intent === 'how_to_use' || intent === 'definition' || intent === 'other') && !hasAnyResults) {
+            conv2.messages.push({
+              id: shortId(),
+              role: 'assistant',
+              content: '',
+              createdAt: nowIso(),
+              recommendation: {
+                type: 'multiple'
+              }
+            })
+          }
+          
         conv2.updatedAt = nowIso()
-        upsertConversation({ ...conv2 })
+        upsertConversation(conv2)
+        await persistConversation(conv2)
         }
       } catch (e) {
         const assistantMsg = { id: shortId(), role: 'assistant', content: t('shared.requestFailed'), createdAt: nowIso() }
-        const conv2 = conversations.value.find(c => c.id === conv.id)
+        const conv2 = activeConversation.value
         if (conv2) {
           conv2.messages = [...(conv2.messages || []), assistantMsg]
           conv2.updatedAt = nowIso()
-          upsertConversation({ ...conv2 })
+          upsertConversation(conv2)
+          await persistConversation(conv2)
         }
       } finally {
         sending.value = false
@@ -1009,11 +2062,149 @@ export default {
       expandedSources.value.clear()
     }
 
+    const findSourceItemByRef = (ref) => {
+      const msg = sourceDrawerMessage.value
+      const sources = msg?.payload?.sources || {}
+      const cases = Array.isArray(sources.cases) ? sources.cases : []
+      const jira = Array.isArray(sources.jira) ? sources.jira : []
+      const faultCases = Array.isArray(sources.faultCases) ? sources.faultCases : []
+
+      const inCases = cases.find(x => x && x.ref === ref)
+      if (inCases) return { kind: 'cases', item: inCases }
+      const inJira = jira.find(x => x && x.ref === ref)
+      if (inJira) return { kind: 'jira', item: inJira }
+      const inFaultCases = faultCases.find(x => x && x.ref === ref)
+      if (inFaultCases) return { kind: 'faultCases', item: inFaultCases }
+      return { kind: '', item: null }
+    }
+
+    const ensureJiraIssueLoaded = async (key, fallback = {}) => {
+      const k = String(key || '').trim()
+      if (!k) return
+      if (jiraIssueLoading.value[k]) return
+      if (jiraIssueCache.value[k] && jiraIssueCache.value[k]._loaded) return
+
+      jiraIssueLoading.value = { ...jiraIssueLoading.value, [k]: true }
+      // Put fallback first so UI has something to render immediately
+      jiraIssueCache.value = {
+        ...jiraIssueCache.value,
+        [k]: { ...(fallback || {}), ...(jiraIssueCache.value[k] || {}), key: k }
+      }
+
+      try {
+        const resp = await api.jira.getIssue(k)
+        const issue = resp?.data?.issue || null
+        if (issue) {
+          jiraIssueCache.value = {
+            ...jiraIssueCache.value,
+            [k]: { ...(fallback || {}), ...(jiraIssueCache.value[k] || {}), ...issue, key: k, _loaded: true }
+          }
+        } else {
+          jiraIssueCache.value = {
+            ...jiraIssueCache.value,
+            [k]: { ...(jiraIssueCache.value[k] || {}), _loaded: true }
+          }
+        }
+      } catch (_) {
+        // keep best-effort fallback
+        jiraIssueCache.value = {
+          ...jiraIssueCache.value,
+          [k]: { ...(jiraIssueCache.value[k] || {}), _loaded: true }
+        }
+      } finally {
+        jiraIssueLoading.value = { ...jiraIssueLoading.value, [k]: false }
+      }
+    }
+
+    const getJiraCase = (item) => {
+      const key = String(item?.key || item?.jira_key || '').trim()
+      if (key && jiraIssueCache.value[key]) {
+        return { ...(item || {}), ...(jiraIssueCache.value[key] || {}) }
+      }
+      return item || {}
+    }
+
+    const isComplaintProjectByCase = (item) => {
+      const it = getJiraCase(item)
+      const projectName = it.projectName || ''
+      const projectKey = it.projectKey || ''
+      return String(projectName).includes('客诉') || String(projectKey).toUpperCase().includes('COMPLAINT') || String(projectKey).toUpperCase().includes('KS')
+    }
+
+    const isImageAttachment = (attachment) => {
+      const filename = attachment?.filename || attachment?.original_name || ''
+      const mimeType = attachment?.mimeType || attachment?.mime_type || ''
+      const supportedImageTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+        'image/bmp', 'image/webp', 'image/svg+xml'
+      ]
+      const isImageByMime = supportedImageTypes.includes(String(mimeType).toLowerCase())
+      const imageExtensions = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i
+      const isImageByExtension = imageExtensions.test(filename)
+      return isImageByMime || isImageByExtension
+    }
+
+    const getAttachmentUrl = (attachment) => {
+      return attachment?.content || attachment?.url || ''
+    }
+
+    const getJiraImageSrc = (img) => {
+      const raw = getAttachmentUrl(img)
+      if (!raw) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      qs.set('url', raw)
+      // `el-image` 的请求不会带 Authorization 头；后端 auth 中间件支持 GET query token
+      if (token) qs.set('token', token)
+      return `/api/jira/attachment/proxy?${qs.toString()}`
+    }
+
+    const getJiraImageAttachments = (item) => {
+      const it = getJiraCase(item)
+      const atts = Array.isArray(it.attachments) ? it.attachments : []
+      return atts.filter(att => getAttachmentUrl(att) && isImageAttachment(att))
+    }
+
+    const getJiraFileAttachments = (item) => {
+      const it = getJiraCase(item)
+      const atts = Array.isArray(it.attachments) ? it.attachments : []
+      return atts.filter(att => !isImageAttachment(att))
+    }
+
+    const getJiraImagePreviewUrls = (item) => {
+      return getJiraImageAttachments(item).map(img => getJiraImageSrc(img)).filter(Boolean)
+    }
+
+    const getJiraImageIndex = (item, img) => {
+      return getJiraImageAttachments(item).findIndex(x => x?.id === img?.id)
+    }
+
+    const downloadJiraFile = (file) => {
+      const url = getAttachmentUrl(file)
+      if (!url) return
+      try {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = file.filename || 'attachment'
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } catch (_) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      }
+    }
+
     const toggleSourceExpanded = (ref) => {
       if (expandedSources.value.has(ref)) {
         expandedSources.value.delete(ref)
       } else {
         expandedSources.value.add(ref)
+        // If this is a Jira item, fetch full issue detail (same as JiraFaultCases preview)
+        const { item } = findSourceItemByRef(ref)
+        const isJira = item && (item.type === 'jira' || item.key)
+        const key = isJira ? String(item.key || item.jira_key || '').trim() : ''
+        if (key) ensureJiraIssueLoaded(key, item)
       }
     }
 
@@ -1178,15 +2369,52 @@ export default {
       draft.value = ''
     }
 
-    const selectConversation = (id) => {
+    const selectConversation = async (id) => {
       activeConversationId.value = id
       draft.value = ''
+      
+      // 如果是 MongoDB 对话，确保加载完整数据
+      if (id && id.startsWith('mongo_')) {
+        const mongoId = id.replace('mongo_', '')
+        const localConv = conversations.value.find(c => c.id === id)
+        // 如果本地对话消息不完整，从 API 加载
+        if (!localConv || !localConv.messages || localConv.messages.length === 0) {
+          try {
+            const resp = await api.smartSearch.getConversation(mongoId)
+            if (resp?.data?.conversation) {
+              const conv = resp.data.conversation
+              const idx = conversations.value.findIndex(c => c.id === id)
+              if (idx >= 0) {
+                conversations.value[idx] = {
+                  ...conv,
+                  id: `mongo_${conv.id}`
+                }
+              }
+            }
+          } catch (err) {
+            console.error('[selectConversation] Failed to load conversation:', err)
+          }
+        }
+      }
     }
 
-    const deleteConversation = (id) => {
+    const deleteConversation = async (id) => {
+      // 如果是 MongoDB 对话，调用 API 删除
+      if (id && id.startsWith('mongo_')) {
+        const mongoId = id.replace('mongo_', '')
+        try {
+          await api.smartSearch.deleteConversation(mongoId)
+        } catch (err) {
+          console.error('[deleteConversation] Failed to delete from MongoDB:', err)
+          ElMessage.error('删除对话失败')
+          return
+        }
+      }
+      
+      // 从本地列表移除
       const nextList = conversations.value.filter(c => c.id !== id)
       conversations.value = nextList
-      persist()
+      
       if (activeConversationId.value === id) {
         activeConversationId.value = nextList[0]?.id || null
       }
@@ -1202,6 +2430,66 @@ export default {
 
     const goFaultCases = () => {
       router.push('/dashboard/fault-cases')
+    }
+
+    const goFaultCaseDetail = (id) => {
+      const s = String(id || '').trim()
+      if (!s) return
+      router.push(`/dashboard/fault-cases/${encodeURIComponent(s)}`)
+    }
+
+    const goBackToDashboard = () => {
+      router.push('/dashboard')
+    }
+
+    const handleUserCommand = async (command) => {
+      if (command === 'logout') {
+        try {
+          await ElMessageBox.confirm(
+            t('shared.messages.confirmLogout'),
+            t('shared.info'),
+            {
+              confirmButtonText: t('shared.confirm'),
+              cancelButtonText: t('shared.cancel'),
+              type: 'warning'
+            }
+          )
+          store.dispatch('auth/logout')
+          router.push('/login')
+        } catch {
+          // 用户取消
+        }
+      } else if (command === 'profile') {
+        router.push('/dashboard/account')
+      }
+    }
+
+    const getRoleDisplayName = (role) => {
+      if (!role) return ''
+      const roleMap = {
+        admin: t('users.roleAdmin'),
+        expert: t('users.roleExpert'),
+        user: t('users.roleUser')
+      }
+      return roleMap[role] || role
+    }
+
+    const handleQuickAction = (action) => {
+      if (action === 'fault_code') {
+        router.push('/dashboard/error-codes')
+      } else if (action === 'upload') {
+        router.push('/dashboard/logs')
+      } else if (action === 'fault_case') {
+        router.push('/dashboard/fault-cases')
+      } else if (action === 'analyze500') {
+        draft.value = t('smartSearch.quickActionAnalyze500')
+      } else if (action === 'slowQueries') {
+        draft.value = t('smartSearch.quickActionSlowQueries')
+      }
+    }
+
+    const navigateTo = (path) => {
+      router.push(path)
     }
 
     const formatLlmRaw = (raw) => {
@@ -1248,6 +2536,57 @@ export default {
       return intentLabelMap[intent] || intent || '未知'
     }
 
+    // 根据模型 ID 或 label 获取对应的 SVG 图标路径
+    const getModelIcon = (provider) => {
+      if (!provider) return null
+      const id = String(provider.id || '').toLowerCase()
+      const label = String(provider.label || '').toLowerCase()
+      
+      // 匹配规则：优先匹配 ID，其次匹配 label
+      const iconMap = {
+        'gpt-4': '/Icons/svg/gpt-4.svg',
+        'gpt-3.5': '/Icons/svg/gpt-35.svg',
+        'gpt': '/Icons/svg/gpt-4.svg',
+        'claude': '/Icons/svg/claude.svg',
+        'gemini': '/Icons/svg/gemini.svg',
+        'qwen': '/Icons/svg/qwen.svg',
+        'deepseek': '/Icons/svg/deepseek.svg',
+        'moonshot': '/Icons/svg/moonshot.svg',
+        'spark': '/Icons/svg/spark.svg',
+        'skylark': '/Icons/svg/skylark.svg',
+        'llama': '/Icons/svg/llama.svg',
+        'glm': '/Icons/svg/glm.svg',
+        'baichuan': '/Icons/svg/baichuan.svg',
+        'hunyuan': '/Icons/svg/hunyuan.svg',
+        'new-bing': '/Icons/svg/new-bing.svg',
+        'midjourney': '/Icons/svg/midjourney.svg',
+        'stable-diffusion': '/Icons/svg/stable-diffusion.svg',
+        'kimi': '/Icons/svg/moonshot.svg'
+      }
+      
+      // 尝试匹配 ID
+      for (const [key, path] of Object.entries(iconMap)) {
+        if (id.includes(key)) {
+          return path
+        }
+      }
+      
+      // 尝试匹配 label
+      for (const [key, path] of Object.entries(iconMap)) {
+        if (label.includes(key)) {
+          return path
+        }
+      }
+      
+      // 默认返回 null，使用默认图标
+      return null
+    }
+
+    const currentModelIcon = computed(() => {
+      const provider = llmProviders.value.find(p => p.id === llmProviderId.value)
+      return getModelIcon(provider)
+    })
+
     const noop = () => {}
 
     const toggleSidebar = () => {
@@ -1260,6 +2599,7 @@ export default {
 
     onMounted(() => {
       load()
+      loadLlmProviders()
       scrollToBottom()
     })
 
@@ -1268,12 +2608,23 @@ export default {
       activeConversationId,
       activeMessages,
       questionCount,
+      groupedConversations,
       draft,
       canSend,
       sending,
       messagesEl,
       MAX_INPUT_CHARS,
       currentUser,
+      llmProviders,
+      llmProvidersLoading,
+      llmProviderId,
+      onLlmProviderChange,
+      currentLlmProviderLabel,
+      currentModelIcon,
+      getModelIcon,
+      currentLocale,
+      currentLocaleLabel,
+      handleLanguageChange,
       sidebarCollapsed,
       historyCollapsed,
       sourceDrawerVisible,
@@ -1285,6 +2636,16 @@ export default {
       sourceDrawerTitle,
       faultTechSolutions,
       expandedSources,
+      jiraIssueCache,
+      jiraIssueLoading,
+      getJiraCase,
+      isComplaintProjectByCase,
+      getJiraImageAttachments,
+      getJiraFileAttachments,
+      getJiraImagePreviewUrls,
+      getJiraImageIndex,
+      getJiraImageSrc,
+      downloadJiraFile,
       faultDetailDialogVisible,
       faultDetailItem,
       faultDetailTech,
@@ -1300,6 +2661,9 @@ export default {
       Warning,
       Link,
       Files,
+      ChatLineRound,
+      Grid,
+      Paperclip,
       send,
       openSource,
       openSourcesDrawer,
@@ -1307,6 +2671,8 @@ export default {
       openFaultDetailDialog,
       handleJiraJump,
       handleJiraJumpByKey,
+      handleUserCommand,
+      getRoleDisplayName,
       copyAnswerText,
       startNewConversation,
       selectConversation,
@@ -1314,12 +2680,16 @@ export default {
       goClassicPanel,
       goErrorCodes,
       goFaultCases,
+      goFaultCaseDetail,
+      goBackToDashboard,
+      handleQuickAction,
       formatTime,
       formatShortTime,
       formatLlmRaw,
       getIntentLabel,
       toggleSidebar,
       toggleHistoryCollapsed,
+      navigateTo,
       noop
     }
   }
@@ -1330,73 +2700,122 @@ export default {
 .ss-page {
   height: 100vh;
   display: flex;
-  background: #f7f7f8;
+  background: var(--black-white-white);
 }
 
 .ss-history {
-  width: 280px;
-  border-right: 1px solid #e5e7eb;
-  background: #f5f5f5;
-  color: #374151;
+  background: var(--smart-search-sidebar-background-color) !important;
+  border-right: 1px solid var(--el-aside-border-color);
   display: flex;
   flex-direction: column;
-  transition: width 0.2s ease;
-}
-
-.ss-history.collapsed {
-  width: 60px;
-}
-
-.ss-history-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
+  height: 100vh;
+  overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
-.ss-history-logo {
+.ss-history.is-collapsed {
+  width: 80px;
+}
+
+.logo {
+  height: var(--logo-area-height);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
+  background: var(--smart-search-sidebar-background-color);
+  color: var(--el-menu-text-color);
+  border-bottom: 1px solid var(--el-aside-border-color);
+  padding: 0 var(--logo-area-padding);
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
-.ss-history-logo.collapsed {
-  justify-content: center;
-  width: 100%;
+.logo.is-collapsed {
   cursor: pointer;
 }
 
-.ss-logo-img {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  transition: opacity 0.2s;
+.logo-text {
+  height: var(--logo-size);
+  width: auto;
 }
 
-.ss-logo-collapse-btn {
+.logo-icon-svg {
+  width: var(--logo-size);
+  height: var(--logo-size);
+}
+
+.ss-collapse-btn {
   position: absolute;
-  top: 50%;
+  right: 8px;
+  color: var(--gray-400);
+}
+
+.logo.is-collapsed .ss-collapse-btn {
+  position: absolute;
+  right: auto;
   left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0;
+  transform: translateX(-50%);
+}
+
+.logo.is-collapsed .logo-icon-svg {
   transition: opacity 0.2s;
-  pointer-events: none;
 }
 
-.ss-history-logo.collapsed:hover .ss-logo-img {
+.logo.is-collapsed .ss-collapse-btn-hover {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  position: absolute;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.logo.is-collapsed:hover .logo-icon-svg {
   opacity: 0;
 }
 
-.ss-history-logo.collapsed:hover .ss-logo-collapse-btn {
+.logo.is-collapsed:hover .ss-collapse-btn-hover {
   opacity: 1;
   pointer-events: auto;
 }
 
-.ss-history-collapse-btn {
+.ss-new-conv-container {
+  padding: 16px;
   flex-shrink: 0;
+}
+
+.ss-new-conv-container.is-collapsed {
+  padding: 16px 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.ss-new-conv-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  background: var(--black-white-white) !important;
+  color: var(--gray-900) !important;
+  border: 1px solid var(--gray-200) !important;
+}
+
+.ss-new-conv-btn:hover {
+  background: var(--gray-50) !important;
+  border-color: var(--gray-300) !important;
+}
+
+.is-collapsed .ss-new-conv-btn {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
 }
 
 .ss-history-content-wrapper {
@@ -1409,40 +2828,45 @@ export default {
 
 .ss-history-menu {
   padding: 8px 0;
-  border-bottom: 1px solid #e5e7eb;
   overflow-y: auto;
   flex: 1;
 }
 
 .ss-menu-section {
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--gray-200);
 }
 
 .ss-menu-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 10px 16px;
   cursor: pointer;
   transition: background-color 0.15s;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
+  font-size: 14px;
+  color: var(--gray-700);
+  gap: 12px;
 }
 
 .ss-menu-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.ss-menu-item .el-icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .ss-menu-item-text {
   flex: 1;
+  font-weight: 500;
 }
 
 .ss-menu-arrow {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   transition: transform 0.2s;
-  color: #6b7280;
+  color: var(--gray-400);
 }
 
 .ss-menu-arrow.collapsed {
@@ -1453,14 +2877,12 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .ss-history-empty {
-  padding: 12px 16px 12px 32px;
+  padding: 12px 16px 12px 46px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--gray-500);
 }
 
 .ss-history-list {
@@ -1469,32 +2891,66 @@ export default {
   flex-direction: column;
 }
 
+.ss-history-group {
+  margin-bottom: 8px;
+}
+
+.ss-history-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 46px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ss-history-group-arrow {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.ss-history-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ss-history-group-items {
+  display: flex;
+  flex-direction: column;
+}
+
 .ss-history-item {
   position: relative;
-  padding: 8px 16px 8px 32px;
+  padding: 8px 16px 8px 46px;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin: 2px 8px;
+  border-radius: var(--radius-sm);
 }
 
 .ss-history-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--gray-100);
 }
 
 .ss-history-item.active {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: var(--gray-100);
+  color: var(--gray-900);
 }
 
 .ss-history-item.active .ss-history-item-text {
-  color: #6366f1;
-  font-weight: 500;
+  color: var(--gray-900);
+  font-weight: 600;
 }
 
 .ss-history-item-text {
-  font-size: 14px;
-  color: #374151;
+  font-size: 13px;
+  color: var(--gray-600);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1508,9 +2964,9 @@ export default {
   height: 20px;
   border: none;
   background: transparent;
-  color: #6b7280;
+  color: var(--gray-400);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   padding: 0;
   margin-left: 8px;
@@ -1525,24 +2981,138 @@ export default {
 }
 
 .ss-history-item-delete:hover {
-  color: #ef4444;
+  color: var(--red-500);
 }
 
-.ss-history-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--gray-200);
   flex-shrink: 0;
+  background: var(--smart-search-sidebar-background-color);
   margin-top: auto;
 }
 
-.ss-history-username {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  text-align: left;
+.footer-menu-items {
+  margin-bottom: 8px;
+}
+
+.footer-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.footer-menu-item:hover {
+  background-color: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.footer-menu-item.is-collapsed {
+  justify-content: center;
+  padding: 10px;
+  gap: 0;
+}
+
+.footer-menu-item .el-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.user-menu-wrapper {
+  width: 100%;
+}
+
+.user-menu-wrapper :deep(.el-dropdown) {
+  display: block !important;
+  width: 100%;
+}
+
+.user-info-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  gap: 12px;
+}
+
+.user-info-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-200);
+}
+
+.user-info-btn.is-collapsed {
+  justify-content: center;
+  padding: 8px;
+  gap: 0;
+}
+
+.user-avatar {
+  background: linear-gradient(135deg, var(--indigo-500) 0%, var(--purple-500) 100%);
+  color: var(--black-white-white);
+  flex-shrink: 0;
+  border: 2px solid var(--gray-100);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-info-btn:hover .user-avatar {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-info-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.username-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
   white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.role-text {
+  font-size: 12px;
+  color: var(--gray-500);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.chevron-icon {
+  color: var(--gray-400);
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .ss-main {
@@ -1551,6 +3121,138 @@ export default {
   flex-direction: column;
   min-width: 0;
   transition: margin-right 0.3s ease;
+  background: #ffffff;
+}
+
+.ss-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: none;
+  background: var(--black-white-white);
+  flex-shrink: 0;
+}
+
+.ss-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.ss-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.ss-model-selector {
+  display: flex;
+  align-items: center;
+}
+
+.ss-model-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: var(--gray-900);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.ss-model-trigger:hover {
+  background-color: var(--gray-100);
+}
+
+.ss-model-icon {
+  font-size: 18px;
+  color: var(--indigo-500);
+}
+
+.ss-model-icon-img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.ss-model-arrow {
+  font-size: 14px;
+  color: var(--gray-400);
+  margin-left: 4px;
+}
+
+.ss-model-dropdown {
+  min-width: 220px;
+  padding: var(--radius-md);
+}
+
+.ss-model-dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--radius-md) !important;
+}
+
+.ss-model-item-icon {
+  margin-right: 8px;
+  font-size: 16px;
+  flex-shrink: 0;
+  color: var(--gray-600);
+}
+
+.ss-model-item-icon-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.ss-model-item-text {
+  flex: 1;
+  color: var(--gray-900);
+}
+
+.ss-model-check {
+  margin-left: auto;
+  color: var(--indigo-500);
+  flex-shrink: 0;
+}
+
+.lang-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+  font-size: 14px;
+  color: var(--gray-700);
+  padding: 4px var(--radius-md);
+}
+
+.lang-item-content {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+  width: 100%;
+}
+
+.lang-emoji {
+  font-size: 16px;
+}
+
+.lang-check {
+  margin-left: auto;
+  color: var(--indigo-500);
+}
+
+.lang-icon {
+  margin-right: 2px;
+}
+
+.lang-text {
+  font-weight: 500;
 }
 
 /* 当抽屉打开时，压缩主区域 */
@@ -1571,19 +3273,184 @@ export default {
   justify-content: center;
   flex-direction: column;
   text-align: center;
-  gap: 10px;
+  gap: 24px;
+  padding: 40px 20px;
+}
+
+.ss-empty-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+}
+
+.ss-empty-icon {
+  font-size: 48px;
+  color: var(--slate-400);
+}
+
+.ss-quick-cards {
+  display: flex;
+  gap: 16px;
+  max-width: 900px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.ss-quick-card {
+  flex: 1;
+  max-width: 280px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.ss-quick-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.ss-quick-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.ss-quick-card-icon.warning {
+  background: #fff7ed;
+  color: #f97316;
+}
+
+.ss-quick-card-icon.upload {
+  background: #f0f9ff;
+  color: #0ea5e9;
+}
+
+.ss-quick-card-icon.case {
+  background: #f0fdf4;
+  color: #22c55e;
+}
+
+.ss-quick-card-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.ss-quick-card-content p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.ss-recommendation-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  max-width: 400px;
+  text-align: left;
+}
+
+.ss-recommendation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.ss-recommendation-header .el-icon {
+  font-size: 18px;
+  color: #409eff;
+}
+
+.ss-recommendation-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+/* 推荐卡片包装器 - 在对话中显示 */
+.ss-recommendation-wrapper {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 内联快速卡片容器 - 用于在对话中显示单个/多个卡片 */
+.ss-quick-cards-inline {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.ss-quick-cards-inline .ss-quick-card {
+  max-width: 280px;
+  margin: 0;
+}
+
+/* 单个卡片：左对齐 */
+.ss-quick-cards-single {
+  justify-content: flex-start;
+}
+
+/* 多个卡片：居中 + 可换行（与初始页面的视觉一致） */
+.ss-quick-cards-multiple {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ss-quick-cards-multiple .ss-quick-card {
+  flex: 1;
+}
+
+/* 多卡片推荐容器 */
+.ss-recommendation-multiple {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  width: 100%;
+}
+
+/* 暂无相关数据提示 */
+.ss-no-data-tip {
+  font-size: 16px;
+  color: var(--gray-600);
+  text-align: center;
 }
 
 .ss-empty-title {
-  font-size: 26px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.ss-empty-sub {
-  max-width: 720px;
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--slate-900);
+  margin: 0;
 }
 
 .ss-thread {
@@ -1695,26 +3562,46 @@ export default {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  background: #ffffff;
-  border: 2px solid #f3f4f6;
+  background: var(--black-white-white);
+  border: 2px solid var(--gray-200);
   border-radius: 10px;
   margin-left: -10px;
   transition: all 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px var(--shadow-xs);
 }
 
 .ss-source-icon:first-child {
   margin-left: 0;
 }
 
+/* 故障码标签 - 浅红色 */
+.ss-source-icon-error-code {
+  border-color: var(--red-200);
+  background-color: var(--red-50);
+}
+
+.ss-source-icon-error-code .ss-source-icon-text {
+  color: var(--red-600);
+}
+
+/* 故障案例标签 - 蓝色 */
+.ss-source-icon-fault-case {
+  border-color: var(--blue-200);
+  background-color: var(--blue-50);
+}
+
+.ss-source-icon-fault-case .ss-source-icon-text {
+  color: var(--blue-600);
+}
+
 .ss-source-icon-svg {
   font-size: 12px;
-  color: #374151;
+  color: var(--gray-700);
 }
 
 .ss-source-icon-text {
   font-size: 10px;
-  color: #374151;
+  color: var(--gray-700);
   font-weight: 600;
   white-space: nowrap;
   line-height: 1;
@@ -1722,7 +3609,7 @@ export default {
 
 .ss-sources-button-text {
   font-size: 12px;
-  color: #374151;
+  color: var(--gray-700);
   font-weight: 500;
 }
 
@@ -1933,6 +3820,190 @@ export default {
 
 .ss-source-detail-actions {
   margin-top: 8px;
+}
+
+.ss-source-detail-actions button {
+  background: none;
+  border: none;
+  color: var(--blue-600);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.ss-source-detail-actions button:hover {
+  color: var(--blue-700);
+  text-decoration: underline;
+}
+
+/* 故障案例预览样式（类似JiraFaultCases概览模式） */
+.ss-case-preview-header {
+  margin-bottom: 24px;
+}
+
+.ss-case-preview-key-project {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+
+.ss-case-preview-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gray-900);
+  line-height: 1.5;
+}
+
+.ss-case-key-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.ss-case-key-info-left,
+.ss-case-key-info-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ss-case-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-case-info-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ss-case-info-value {
+  font-size: 14px;
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+}
+
+.ss-case-info-empty {
+  font-size: 14px;
+  color: var(--gray-400);
+}
+
+.ss-case-status-tag {
+  display: inline-block;
+  width: fit-content;
+}
+
+.ss-case-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ss-case-component-tag {
+  background-color: var(--gray-100);
+  color: var(--gray-700);
+  border: none;
+}
+
+/* 内容区域样式（类似概览模式） */
+.ss-case-content-section {
+  margin-bottom: 20px;
+}
+
+.ss-case-content-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.ss-case-content-box {
+  font-size: 14px;
+  color: var(--gray-700);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.ss-case-content-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.ss-case-loading {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.ss-case-attachments-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.ss-case-image-attachments,
+.ss-case-file-attachments {
+  margin-bottom: 16px;
+}
+
+.ss-case-attachment-label {
+  font-size: 13px;
+  color: #374151;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.ss-case-attachment-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.ss-case-image-thumbnail {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.ss-case-attachment-image {
+  width: 100%;
+  height: 100px;
+  display: block;
+}
+
+.ss-case-image-name {
+  font-size: 11px;
+  padding: 6px 8px;
+  color: #374151;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-case-attachment-item {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 故障码详情弹窗 */
@@ -2216,6 +4287,10 @@ export default {
   .ss-cards {
     grid-template-columns: 1fr;
   }
+  
+  .ss-empty-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ss-msg-time {
@@ -2226,8 +4301,8 @@ export default {
 
 .ss-composer-wrap {
   padding: 14px 16px 18px;
-  border-top: 1px solid #e5e7eb;
-  background: linear-gradient(180deg, rgba(247,247,248,0) 0%, #f7f7f8 40%, #f7f7f8 100%);
+  border-top: none;
+  background: var(--black-white-white);
 }
 
 .ss-composer-wrap.centered {
@@ -2291,6 +4366,15 @@ export default {
   cursor: not-allowed;
   transform: none;
   opacity: 1;
+}
+
+.ss-disclaimer {
+  max-width: 900px;
+  margin: 8px auto 0;
+  font-size: 12px;
+  color: var(--slate-500);
+  text-align: center;
+  padding: 0 16px;
 }
 
 .ss-actions {

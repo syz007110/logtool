@@ -137,13 +137,17 @@ const updateUser = async (req, res) => {
     
     // 密码修改逻辑
     if (password) {
-      if (!oldPassword) {
-        return res.status(400).json({ message: req.t('user.oldPasswordRequired') });
+      // 如果是修改自己的密码，需要提供原密码验证
+      if (isUpdatingSelf) {
+        if (!oldPassword) {
+          return res.status(400).json({ message: req.t('user.oldPasswordRequired') });
+        }
+        const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!isMatch) {
+          return res.status(400).json({ message: req.t('user.oldPasswordIncorrect') });
+        }
       }
-      const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
-      if (!isMatch) {
-        return res.status(400).json({ message: req.t('user.oldPasswordIncorrect') });
-      }
+      // 管理员重置其他用户密码时，不需要原密码（权限已在中间件中检查）
       const password_hash = await bcrypt.hash(password, 10);
       await user.update({ password_hash });
     }

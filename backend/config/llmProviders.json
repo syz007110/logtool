@@ -1,0 +1,87 @@
+[
+  {
+    "id": "qwen-flash",
+    "label": "Qwen Flash",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "QWEN_API_KEY",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-flash",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 12000
+  },
+  {
+    "id": "qwen-max",
+    "label": "Qwen Max",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "QWEN_API_KEY",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-max",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 30000
+  },
+  {
+    "id": "qwen-plus",
+    "label": "Qwen Plus",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "QWEN_API_KEY",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-plus",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 30000
+  },
+  {
+    "id": "qwen-turbo",
+    "label": "Qwen Turbo",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "QWEN_API_KEY",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-turbo",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 30000
+  },
+  {
+    "id": "kimi-k2-thinking",
+    "label": "Kimi-k2-thinking",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "QWEN_API_KEY",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "kimi-k2-thinking",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 30000
+  },
+  {
+    "id": "deepseek-v3.2",
+    "label": "DeepSeek V3.2",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "QWEN_API_KEY",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "deepseek-v3.2",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 30000
+  },
+  {
+    "id": "deepseek-chat",
+    "label": "DeepSeek Chat",
+    "kind": "openai_compatible",
+    "requiresApiKey": true,
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "baseUrl": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "temperature": 0,
+    "top_p": 0.1,
+    "timeoutMs": 12000
+  }
+]
+

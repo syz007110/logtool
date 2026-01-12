@@ -248,8 +248,11 @@
   },
   "login": {
     "title": "LogTool System",
+    "welcomeBack": "Welcome Back",
+    "welcomeSubtitle": "Please sign in to your account",
     "username": "Username",
     "password": "Password",
+    "forgotPassword": "Forgot Password?",
     "login": "Login",
     "dingtalkScan": "Login with DingTalk",
     "tabPassword": "Password Login",
@@ -1642,7 +1645,30 @@
     "welcomeText": "I can help you query error codes, analyze logs, and answer technical questions. Type your question to start a conversation, or upload log files for analysis.",
     "emptyState": "Start typing your question, or select log analysis and upload log files",
     "expandSidebar": "Expand sidebar",
-    "collapseSidebar": "Collapse sidebar"
+    "collapseSidebar": "Collapse sidebar",
+    "llmProvider": "Model",
+    "llmProviderLoading": "Loading models",
+    "llmProviderUnavailable": "Unavailable",
+    "backToDashboard": "Back to Dashboard",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "welcomeQuestion": "How can I help you today?",
+    "faultCodeQuery": "Fault Code Query",
+    "faultCodeQuerySubtitle": "Lookup definition & solutions",
+    "logUpload": "Log Upload",
+    "logUploadSubtitle": "Analyze local log files",
+    "faultCaseQuery": "Fault Case Query",
+    "faultCaseQuerySubtitle": "Search known issues",
+    "faultCaseRecommendation": "I've found the relevant Fault Cases page for you, where you can view more detailed history.",
+    "faultCodeRecommendation": "I've found the relevant Error Codes management page for you, where you can view all recorded error definitions.",
+    "noRelatedData": "No related data",
+    "goToFaultCase": "Go to Fault Cases",
+    "goToFaultCode": "Go to Error Codes",
+    "quickActionAnalyze500": "Analyze 500 Errors",
+    "quickActionAnalyze500Subtitle": "Find spikes in last 24h",
+    "quickActionSlowQueries": "Slow Queries",
+    "quickActionSlowQueriesSubtitle": "Identify bottlenecks > 2s",
+    "disclaimer": "AI responses may be inaccurate. Check source data."
   }
 }
 

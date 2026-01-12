@@ -152,11 +152,16 @@
 
       <!-- Jira Results Table -->
       <div class="table-container">
-      <el-table :data="jiraRows" :loading="jiraLoading" v-loading="jiraLoading" :height="tableHeight" style="width: 100%" @filter-change="handleTableFilterChange" :empty-text="$t('shared.noData')">
+      <el-table :data="jiraRows" :loading="jiraLoading" v-loading="jiraLoading" :height="tableHeight" style="width: 100%" :empty-text="$t('shared.noData')">
         <!-- 关键字 -->
-        <el-table-column :label="$t('faultCases.jira.columns.key')" width="140">
+        <el-table-column :label="$t('faultCases.jira.columns.key')" width="140" align="left">
           <template #default="{ row }">
-            <el-link type="primary" :underline="false" @click.prevent="openJiraOrPreview(row)">{{ row.key }}</el-link>
+            <el-button
+              text
+              type="primary"
+              size="small"
+              @click="openJiraOrPreview(row)"
+            >{{ row.key }}</el-button>
           </template>
         </el-table-column>
         <!-- 主题 -->
@@ -174,14 +179,8 @@
         </el-table-column>
         <!-- 模块 -->
         <el-table-column
-          column-key="module"
           :label="$t('faultCases.jira.columns.module')"
           width="180"
-          :filters="moduleFilters"
-          :filter-method="noFilter"
-          :filter-multiple="true"
-          :filtered-value="filteredModuleValues"
-          filter-placement="bottom-end"
         >
           <template #default="{ row }">
             <el-tooltip
@@ -213,14 +212,8 @@
         <!-- 状态 -->
         <el-table-column
           prop="status"
-          column-key="status"
           :label="$t('faultCases.jira.columns.status')"
           width="140"
-          :filters="statusFilters"
-          :filter-method="noFilter"
-          :filter-multiple="true"
-          :filtered-value="filteredStatusValues"
-          filter-placement="bottom-end"
         >
           <template #default="{ row }">
             <el-tooltip
@@ -245,40 +238,34 @@
           </template>
         </el-table-column>
         <!-- 操作 -->
-        <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="center">
+        <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="left">
           <template #default="{ row }">
-            <div v-if="row.source === 'jira'" class="btn-group" style="justify-content: center;">
-              <el-button
-                text
-                size="small"
-                :disabled="!canCreate"
-                @click="addToFaultCases(row)"
-              >{{ $t('faultCases.jira.addToFaultCases') }}</el-button>
-            </div>
-            <div v-else class="btn-group" style="justify-content: center; gap: 8px;">
-              <el-button
-                v-if="canUpdate"
-                text
-                size="small"
-                @click="openEditByMixedRow(row)"
-              >{{ $t('shared.edit') }}</el-button>
-              <el-dropdown
-                v-if="canDelete"
-                trigger="click"
-                placement="bottom-end"
-                @command="(command) => handleOperationCommand(row, command)"
-              >
-                <el-button text size="small">
-                  <i class="fas fa-ellipsis-h"></i>
-              </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="delete">
-                      {{ $t('shared.delete') }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-            </template>
-              </el-dropdown>
+            <div class="operation-buttons">
+              <template v-if="row.source === 'jira'">
+                <el-button
+                  text
+                  size="small"
+                  :disabled="!canCreate"
+                  @click="addToFaultCases(row)"
+                >{{ $t('faultCases.jira.addToFaultCases') }}</el-button>
+              </template>
+              <template v-else>
+                <el-button
+                  v-if="canUpdate"
+                  text
+                  size="small"
+                  @click="openEditByMixedRow(row)"
+                >{{ $t('shared.edit') }}</el-button>
+                <el-button
+                  v-if="canDelete"
+                  text
+                  size="small"
+                  class="btn-danger-text"
+                  @click="handleDelete(row)"
+                  :aria-label="$t('shared.delete')"
+                  :title="$t('shared.delete')"
+                >{{ $t('shared.delete') }}</el-button>
+              </template>
             </div>
           </template>
         </el-table-column>
@@ -297,158 +284,6 @@
         />
       </div>
 
-    <!-- Create / Edit dialog -->
-    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? $t('faultCases.edit') : $t('faultCases.create')" width="980px">
-      <el-form ref="formRef" :model="form" label-width="140px">
-        <el-row :gutter="12">
-          <el-col :span="8">
-            <el-form-item :label="$t('faultCases.fields.source')">
-              <el-tag :type="form.source === 'jira' ? 'warning' : 'info'">
-                {{ form.source === 'jira' ? 'jira' : $t('faultCases.sourceManual') }}
-              </el-tag>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="$t('faultCases.fields.jira_key')">
-              <el-input v-model="form.jira_key" :disabled="form.source !== 'jira'" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="$t('faultCases.fields.module')">
-              <el-input v-model="form.module" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item :label="$t('faultCases.fields.title')" required>
-          <el-input v-model="form.title" />
-        </el-form-item>
-        <el-form-item :label="$t('faultCases.fields.symptom')">
-          <el-input v-model="form.symptom" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item :label="$t('faultCases.fields.possible_causes')">
-          <el-input v-model="form.possible_causes" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item :label="$t('faultCases.fields.solution')">
-          <el-input v-model="form.solution" type="textarea" :rows="4" />
-        </el-form-item>
-        <el-form-item :label="$t('faultCases.fields.remark')">
-          <el-input v-model="form.remark" type="textarea" :rows="3" />
-        </el-form-item>
-
-        <el-form-item :label="$t('faultCases.fields.equipment_model')">
-          <el-select
-            v-model="form.equipment_model"
-            multiple
-                filterable
-                clearable
-            collapse-tags
-            collapse-tags-tooltip
-            :max-collapse-tags="3"
-                style="width: 100%"
-            :placeholder="$t('faultCases.equipmentModelPlaceholder')"
-            @focus="loadEquipmentModels"
-          >
-            <el-option
-              v-for="option in equipmentModelOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-              />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item :label="$t('faultCases.fields.keywords')">
-          <el-select
-            v-model="keywordTags"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            collapse-tags
-            collapse-tags-tooltip
-            :max-collapse-tags="3"
-                style="width: 100%"
-            :placeholder="$t('faultCases.keywordsPlaceholder')"
-            @keyup.enter="handleKeywordEnter"
-            @keydown.enter.prevent
-            @input="handleKeywordSelectInput"
-          >
-            <el-option
-              v-for="(keyword, index) in keywordTags"
-              :key="index"
-              :label="keyword"
-              :value="keyword"
-          />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('faultCases.fields.status')">
-          <el-select
-            v-model="form.status"
-            filterable
-            clearable
-            style="width: 100%"
-            :placeholder="$t('faultCases.statusPlaceholder')"
-            :loading="loadingStatuses"
-          >
-            <el-option
-              v-for="status in statusOptions"
-              :key="status.status_key"
-              :label="status.displayName"
-              :value="status.status_key"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('faultCases.fields.related_error_code_ids')">
-          <el-select
-            v-model="form.related_error_code_ids"
-            multiple
-            filterable
-            remote
-            clearable
-            :remote-method="searchErrorCodes"
-            :loading="errorCodeLoading"
-            style="width: 100%"
-            :placeholder="$t('faultCases.relatedErrorCodesSelectPlaceholder')"
-          >
-            <el-option
-              v-for="option in errorCodeOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-          />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item :label="$t('faultCases.fields.attachments')">
-          <el-upload
-            multiple
-            :file-list="uploadFileList"
-            :http-request="handleUploadRequest"
-            :on-remove="handleUploadRemove"
-            :on-exceed="handleExceed"
-          >
-            <el-button>{{ $t('faultCases.upload') }}</el-button>
-            <template #tip>
-              <div class="el-upload__tip">
-                {{ $t('faultCases.uploadTip') }}
-              </div>
-            </template>
-          </el-upload>
-          <div v-if="form.attachments.length" class="attachment-preview">
-            <div v-for="(a, idx) in form.attachments" :key="idx" class="attachment-item">
-              <a :href="a.url" target="_blank" rel="noopener noreferrer">{{ a.original_name || a.filename || a.url }}</a>
-              <span class="attachment-meta">({{ formatSize(a.size_bytes) }})</span>
-            </div>
-          </div>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="dialog.visible = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" :disabled="saving" @click="save()">{{ $t('faultCases.publish') }}</el-button>
-      </template>
-    </el-dialog>
 
     <!-- Image preview dialog -->
     <el-dialog v-model="imagePreview.visible" :title="imagePreview.filename || '图片预览'" width="90%" top="5vh" :close-on-click-modal="true">
@@ -481,7 +316,7 @@
       :title="''" 
       width="820px"
       class="jira-preview-dialog"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
     >
       <div v-loading="jiraPreview.loading" class="jira-preview-content">
         <!-- Header: Key / Project Name + Title -->
@@ -589,7 +424,7 @@
                 :title="img.filename"
               >
                 <el-image
-                  :src="img.content"
+                  :src="getImageSrc(img)"
                   :preview-src-list="imagePreviewUrls"
                   fit="cover"
                   class="jira-attachment-image"
@@ -634,12 +469,13 @@
 
 <script>
 import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { InfoFilled, Search, Refresh, Link, View, Plus, Filter } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { getTableHeight } from '@/utils/tableHeight'
+import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import api from '../api'
 export default {
   name: 'JiraFaultCases',
@@ -751,41 +587,6 @@ export default {
     const canUpdate = computed(() => store.getters['auth/hasPermission']?.('fault_case:update'))
     const canDelete = computed(() => store.getters['auth/hasPermission']?.('fault_case:delete'))
 
-    // Dialog state
-    const dialog = reactive({ visible: false, isEdit: false, id: null })
-    const saving = ref(false)
-    const formRef = ref(null)
-
-    // Form state
-    const form = reactive({
-      source: 'manual',
-      jira_key: '',
-      module: '',
-      title: '',
-      symptom: '',
-      possible_causes: '',
-      solution: '',
-      remark: '',
-      troubleshooting_steps: '',
-      experience: '',
-      equipment_model: [],
-      keywordsRaw: '',
-      related_error_code_ids: [],
-      attachments: [],
-      updated_at_user: null,
-      status: ''
-    })
-
-    const uploadFileList = ref([])
-
-    // Equipment model dictionary options
-    const equipmentModelOptions = ref([])
-    const equipmentModelLoading = ref(false)
-
-    // Keywords input with tags (displayed inside input)
-    const keywordTags = ref([])
-    const errorCodeOptions = ref([])
-    const errorCodeLoading = ref(false)
     
     // 表格高度计算（固定表头）
     const tableHeight = computed(() => {
@@ -811,8 +612,8 @@ export default {
 
     // 判断是否为图片
     const isImageAttachment = (attachment) => {
-      const filename = attachment.filename || ''
-      const mimeType = attachment.mimeType || ''
+      const filename = attachment?.filename || attachment?.original_name || ''
+      const mimeType = attachment?.mimeType || attachment?.mime_type || ''
 
       // 支持的图片格式
       const supportedImageTypes = [
@@ -821,7 +622,7 @@ export default {
       ]
 
       // 通过 MIME 类型判断
-      const isImageByMime = supportedImageTypes.includes(mimeType.toLowerCase())
+      const isImageByMime = supportedImageTypes.includes(String(mimeType).toLowerCase())
 
       // 通过文件扩展名判断
       const imageExtensions = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i
@@ -830,10 +631,25 @@ export default {
       return isImageByMime || isImageByExtension
     }
 
+    const getAttachmentUrl = (attachment) => {
+      return attachment?.content || attachment?.url || ''
+    }
+
+    const getImageSrc = (img) => {
+      const raw = getAttachmentUrl(img)
+      if (!raw) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      qs.set('url', raw)
+      // `el-image` 的请求不会带 Authorization 头；后端 auth 中间件支持 GET query token
+      if (token) qs.set('token', token)
+      return `/api/jira/attachment/proxy?${qs.toString()}`
+    }
+
     // 获取图片附件列表
     const imageAttachments = computed(() => {
       if (!jiraPreview.attachments || !Array.isArray(jiraPreview.attachments)) return []
-      return jiraPreview.attachments.filter(att => att.content && isImageAttachment(att))
+      return jiraPreview.attachments.filter(att => getAttachmentUrl(att) && isImageAttachment(att))
     })
 
     // 获取非图片附件列表
@@ -844,7 +660,7 @@ export default {
 
     // 获取图片预览 URL 列表（用于 el-image 的 preview-src-list）
     const imagePreviewUrls = computed(() => {
-      return imageAttachments.value.map(img => img.content).filter(Boolean)
+      return imageAttachments.value.map(img => getImageSrc(img)).filter(Boolean)
     })
 
     // 获取图片在预览列表中的索引
@@ -854,10 +670,11 @@ export default {
 
     // 下载文件
     const downloadFile = (file) => {
-      if (file.content) {
+      const url = getAttachmentUrl(file)
+      if (url) {
         try {
           const link = document.createElement('a')
-          link.href = file.content
+          link.href = url
           link.download = file.filename || 'attachment'
           link.target = '_blank'
           document.body.appendChild(link)
@@ -866,7 +683,7 @@ export default {
         } catch (error) {
           console.warn('文件下载失败:', error)
           // 降级：直接在新标签页打开
-          window.open(file.content, '_blank')
+          window.open(url, '_blank')
         }
       } else {
         console.warn('附件缺少 content URL:', file)
@@ -913,42 +730,6 @@ export default {
       return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
     }
 
-    const parseKeywords = (raw) => {
-      if (!raw) return []
-      return String(raw)
-        .split(/[,，\s]+/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-    }
-
-    // Handle keyword select input - auto-sync with keywordsRaw
-    const handleKeywordSelectInput = (value) => {
-      // value is the array of selected keywords
-      if (Array.isArray(value)) {
-        keywordTags.value = value
-        updateKeywordsRaw()
-      }
-    }
-
-    // Handle Enter key in select input
-    const handleKeywordEnter = () => {
-      // Enter key is handled by el-select's allow-create
-      updateKeywordsRaw()
-    }
-
-    // Update keywordsRaw from tags
-    const updateKeywordsRaw = () => {
-      form.keywordsRaw = keywordTags.value.join(', ')
-    }
-
-    // Load keywords from keywordsRaw
-    const loadKeywordsFromRaw = () => {
-      if (form.keywordsRaw) {
-        keywordTags.value = parseKeywords(form.keywordsRaw)
-      } else {
-        keywordTags.value = []
-      }
-    }
 
     // Available filter options
     const availableModules = computed(() => {
@@ -1017,12 +798,6 @@ export default {
       return faultCaseModules.value.filter(m => m.is_active)
     })
     
-    const statusOptions = computed(() => {
-      return faultCaseStatuses.value.map(status => ({
-        ...status,
-        displayName: isZhCN.value ? status.name_zh : status.name_en
-      }))
-    })
     
     const isZhCN = computed(() => {
       const currentLocale = locale.value || 'zh-CN'
@@ -1460,29 +1235,6 @@ export default {
       await fetchJiraPage()
     }
 
-    // Dialog functions
-    const resetForm = () => {
-      Object.assign(form, {
-        source: 'manual',
-        jira_key: '',
-        module: '',
-        title: '',
-        symptom: '',
-        possible_causes: '',
-        solution: '',
-        remark: '',
-        troubleshooting_steps: '',
-        experience: '',
-        equipment_model: [],
-        keywordsRaw: '',
-        related_error_code_ids: [],
-        attachments: [],
-        updated_at_user: null,
-        status: ''
-      })
-      uploadFileList.value = []
-      loadKeywordsFromRaw()
-    }
 
     const openCreate = () => {
       const routeData = router.resolve('/dashboard/fault-cases/new')
@@ -1576,9 +1328,9 @@ export default {
         return
       }
 
-      // For mongo rows without jira_key, go to local detail
+      // For mongo rows without jira_key, go to edit page
       if (source !== 'jira' && !row?.jira_key) {
-        return goDetailByMixedRow(row)
+        return openEditByMixedRow(row)
       }
 
       // Default: open Jira url
@@ -1636,6 +1388,9 @@ export default {
           jiraPreview.customfield_12233 = issue.customfield_12233 || ''
           jiraPreview.customfield_12239 = issue.customfield_12239 || ''
         }
+        // NOTE:
+        // - 图片预览：走后端“实时代理(流式转发)”（getImageSrc）
+        // - 其他附件：保持 Jira 原始链接，点击后直接跳转/打开
       } catch (_) {
         // keep best-effort from row
       } finally {
@@ -1649,39 +1404,6 @@ export default {
       router.push(`/dashboard/fault-cases/${id}`)
     }
 
-    const openEdit = async (row) => {
-      resetForm()
-      dialog.visible = true
-      dialog.isEdit = true
-      dialog.id = row._id
-      try {
-        const resp = await api.faultCases.get(row._id)
-        const fc = resp.data.faultCase
-        Object.assign(form, {
-          source: fc.source || 'manual',
-          jira_key: fc.jira_key || '',
-          module: fc.module || '',
-          title: fc.title || '',
-          symptom: fc.symptom || '',
-          possible_causes: fc.possible_causes || '',
-          solution: fc.solution || fc.troubleshooting_steps || '',
-          remark: fc.remark || fc.experience || '',
-          troubleshooting_steps: fc.troubleshooting_steps || '',
-          experience: fc.experience || '',
-          equipment_model: Array.isArray(fc.equipment_model) ? fc.equipment_model : (fc.equipment_model ? [fc.equipment_model] : []),
-          keywordsRaw: Array.isArray(fc.keywords) ? fc.keywords.join(', ') : '',
-          related_error_code_ids: Array.isArray(fc.related_error_code_ids) ? fc.related_error_code_ids : [],
-          attachments: Array.isArray(fc.attachments) ? fc.attachments : [],
-          updated_at_user: fc.updated_at_user || null,
-          status: fc.status || ''
-        })
-        uploadFileList.value = (form.attachments || []).map((a, idx) => ({ name: a.original_name || a.filename || `file-${idx}`, url: a.url }))
-        loadKeywordsFromRaw()
-      } catch (e) {
-        ElMessage.error(e.response?.data?.message || 'Load failed')
-      }
-    }
-
     const goDetail = (row) => {
       router.push(`/dashboard/fault-cases/${row._id}`)
     }
@@ -1693,125 +1415,32 @@ export default {
       window.open(routeData.href, '_blank')
     }
 
-    const handleOperationCommand = (row, command) => {
-      if (command === 'delete') {
-        const id = row?.fault_case_id || row?._id
-        if (id) {
-          confirmDelete({ _id: id })
-        }
-      }
-    }
+    // 使用删除确认 composable pattern
+    const { confirmDelete: confirmDeleteAction } = useDeleteConfirm()
 
-    const confirmDelete = async (row) => {
+    const handleDelete = async (row) => {
       try {
-        await ElMessageBox.confirm(t('shared.messages.confirmDelete'), t('shared.messages.deleteConfirmTitle'), { type: 'warning' })
-        await api.faultCases.delete(row._id)
+        const id = row?.fault_case_id || row?._id
+        if (!id) return
+
+        const confirmed = await confirmDeleteAction({ _id: id }, {
+          message: t('shared.messages.confirmDelete'),
+          title: t('shared.messages.deleteConfirmTitle')
+        })
+
+        if (!confirmed) return
+
+        await api.faultCases.delete(id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
         await handleJiraSearch(false)
-      } catch (_) {}
-    }
-
-    // Equipment model dictionary (MySQL) - Load all active models on focus
-    const loadEquipmentModels = async () => {
-      if (equipmentModelOptions.value.length > 0) return // 已加载过，不重复加载
-      equipmentModelLoading.value = true
-      try {
-        const resp = await api.deviceModels.getList({ search: '', limit: 100, includeInactive: 'false' })
-        const items = Array.isArray(resp.data.models) ? resp.data.models : []
-        equipmentModelOptions.value = items.map((m) => ({
-          label: m.device_model,
-          value: m.device_model
-        }))
-      } catch (e) {
-        equipmentModelOptions.value = []
-      } finally {
-        equipmentModelLoading.value = false
-      }
-    }
-
-    const searchErrorCodes = async (q) => {
-      errorCodeLoading.value = true
-      try {
-        const resp = await api.errorCodes.getList({ page: 1, limit: 20, keyword: q || '' })
-        const items = Array.isArray(resp.data.errorCodes) ? resp.data.errorCodes : []
-        errorCodeOptions.value = items.map((ec) => ({
-          label: `${ec.code}${ec.short_message ? ` - ${ec.short_message}` : ''}`,
-          value: ec.id
-        }))
-      } catch (e) {
-        errorCodeOptions.value = []
-      } finally {
-        errorCodeLoading.value = false
-      }
-    }
-
-    // Upload functions
-    const handleUploadRequest = async ({ file }) => {
-      try {
-        const fd = new FormData()
-        fd.append('files', file)
-        const resp = await api.faultCases.uploadAttachments(fd)
-        const uploaded = resp.data.files?.[0]
-        if (uploaded) {
-          form.attachments.push(uploaded)
-          uploadFileList.value.push({ name: uploaded.original_name || uploaded.filename || file.name, url: uploaded.url })
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Delete error:', error)
+          ElMessage.error(t('shared.messages.deleteFailed'))
         }
-      } catch (e) {
-        ElMessage.error(e.response?.data?.message || 'Upload failed')
       }
     }
 
-    const handleUploadRemove = (file) => {
-      const idx = (form.attachments || []).findIndex((a) => a.url === file.url || a.original_name === file.name)
-      if (idx >= 0) form.attachments.splice(idx, 1)
-    }
-
-    const handleExceed = () => {
-      ElMessage.warning(t('faultCases.uploadExceed'))
-    }
-
-    // Save function
-    const save = async () => {
-      if (!form.title || !form.title.trim()) {
-        ElMessage.warning(t('faultCases.validation.titleRequired'))
-        return
-      }
-      saving.value = true
-      try {
-        // 更新时间自动设置为当前时间
-        const now = new Date().toISOString()
-        const payload = {
-          source: form.source,
-          jira_key: form.jira_key,
-          module: form.module,
-          title: form.title,
-          symptom: form.symptom,
-          possible_causes: form.possible_causes,
-          solution: form.solution,
-          remark: form.remark,
-          troubleshooting_steps: form.troubleshooting_steps,
-          experience: form.experience,
-          equipment_model: Array.isArray(form.equipment_model) ? form.equipment_model : [],
-          keywords: parseKeywords(form.keywordsRaw),
-          related_error_code_ids: Array.isArray(form.related_error_code_ids) ? form.related_error_code_ids : [],
-          attachments: form.attachments,
-          updated_at_user: now, // 自动设置为当前时间
-          status: form.status || '' // 使用状态字段
-        }
-        if (dialog.isEdit && dialog.id) {
-          await api.faultCases.update(dialog.id, payload)
-        } else {
-          await api.faultCases.create(payload)
-        }
-        ElMessage.success(t('shared.messages.saveSuccess'))
-        dialog.visible = false
-        await handleJiraSearch(false)
-      } catch (e) {
-        ElMessage.error(e.response?.data?.message || t('shared.messages.saveFailed'))
-      } finally {
-        saving.value = false
-      }
-    }
 
     onMounted(() => {
       fetchFaultCaseStatuses()
@@ -1836,17 +1465,6 @@ export default {
       canCreate,
       canUpdate,
       canDelete,
-      dialog,
-      form,
-      formRef,
-      saving,
-      uploadFileList,
-      equipmentModelOptions,
-      equipmentModelLoading,
-      loadEquipmentModels,
-      errorCodeOptions,
-      errorCodeLoading,
-      searchErrorCodes,
       formatDate,
       formatDateOnly,
       formatSize,
@@ -1868,29 +1486,20 @@ export default {
       previewJiraIssue,
       preferJiraPreview,
       goDetailByMixedRow,
-      openEdit,
       openEditByMixedRow,
       goDetail,
-      confirmDelete,
-      handleOperationCommand,
-      handleUploadRequest,
-      handleUploadRemove,
-      handleExceed,
-      save,
-      keywordTags,
-      handleKeywordSelectInput,
-      handleKeywordEnter,
+      handleDelete,
       formatFileSize,
       imageAttachments,
       fileAttachments,
       imagePreviewUrls,
       getImageIndex,
       downloadFile,
+      getImageSrc,
       imagePreview,
       downloadImage,
       tableHeight,
       isComplaintProject,
-      statusOptions,
       loadingStatuses,
       getStatusDisplayName,
       getStatusDisplayInfo,
@@ -2202,6 +1811,7 @@ export default {
   justify-content: center;
   opacity: 0;
   transition: opacity 0.3s;
+  pointer-events: none; /* 让点击事件穿透到 el-image */
 }
 
 .jira-image-thumbnail:hover .jira-image-overlay {
@@ -2484,12 +2094,20 @@ export default {
     padding: 8px 4px;
   }
 
-  /* 按钮组在小屏幕上的处理 */
-  .btn-group {
-    gap: 4px;
+  /* 关键字列按钮左对齐 */
+  :deep(.el-table__body-wrapper .el-table__body tr td:first-child .el-button--text) {
+    margin-left: 0;
+    padding-left: 0;
   }
 
-  .btn-group button {
+  /* 操作按钮组 */
+  .operation-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .operation-buttons button {
     padding: 4px 8px;
     font-size: 12px;
   }

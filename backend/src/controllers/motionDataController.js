@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const archiver = require('archiver');
+const { PassThrough } = require('stream');
 
 // Binary layout constants (must match example/dataDecode.py MotionData)
 const ENTRY_SIZE_BYTES = 924; // 8 + (207*4) + 4 + 4 + 8 + 8 + (16*4)
@@ -124,6 +126,30 @@ async function uploadBinary(req, res) {
   }
 }
 
+// POST /batch-upload (multer handles multiple files, max 20)
+async function batchUploadBinary(req, res) {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: '缺少文件' });
+    }
+    
+    if (req.files.length > 20) {
+      return res.status(400).json({ message: '最多只能上传20个文件' });
+    }
+    
+    const files = req.files.map(file => ({
+      id: file.filename,
+      filename: file.originalname,
+      size: file.size
+    }));
+    
+    return res.json({ files });
+  } catch (err) {
+    console.error('批量上传二进制失败:', err);
+    res.status(500).json({ message: '上传失败', error: err.message });
+  }
+}
+
 // GET /config
 async function getMotionFormat(req, res) {
   try {
@@ -209,12 +235,159 @@ async function downloadCsv(req, res) {
   }
 }
 
+// 生成单个文件的CSV流（用于ZIP打包）
+function generateCsvStream(filePath, originalFilename) {
+  ensureFileExists(filePath);
+  const stats = fs.statSync(filePath);
+  const totalEntries = Math.floor(stats.size / ENTRY_SIZE_BYTES);
+
+  const configList = loadMotionFormat();
+  const fieldnames = configList.map((c) => c.index);
+  const headers = configList.map((c) => c.name);
+
+  // 创建PassThrough流
+  const stream = new PassThrough();
+
+  // 异步生成CSV内容
+  (async () => {
+    try {
+      // 写入BOM和表头
+      stream.write('\ufeff'); // BOM for Excel
+      stream.write(headers.join(',') + '\n');
+
+      const fd = fs.openSync(filePath, 'r');
+      const CHUNK_ROWS = 2000;
+      
+      for (let offset = 0; offset < totalEntries; offset += CHUNK_ROWS) {
+        const currentLimit = Math.min(CHUNK_ROWS, totalEntries - offset);
+        const startByte = offset * ENTRY_SIZE_BYTES;
+        const length = currentLimit * ENTRY_SIZE_BYTES;
+        const buffer = Buffer.alloc(length);
+        fs.readSync(fd, buffer, 0, length, startByte);
+        
+        for (let i = 0; i < length; i += ENTRY_SIZE_BYTES) {
+          const rowObj = parseEntry(buffer, i);
+          const row = fieldnames.map((key) => {
+            const value = rowObj[key];
+            if (value === undefined || value === null) return '';
+            // Escape commas and quotes
+            const str = String(value);
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+              return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+          }).join(',');
+          stream.write(row + '\n');
+        }
+      }
+      
+      fs.closeSync(fd);
+      stream.end(); // 结束流
+    } catch (err) {
+      console.error(`生成CSV流失败 (${originalFilename}):`, err);
+      stream.destroy(err);
+    }
+  })();
+
+  return stream;
+}
+
+// POST /batch-download-csv
+async function batchDownloadCsv(req, res) {
+  const { fileIds } = req.body;
+  
+  if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
+    return res.status(400).json({ message: '缺少文件ID列表' });
+  }
+  
+  if (fileIds.length > 20) {
+    return res.status(400).json({ message: '最多只能处理20个文件' });
+  }
+
+  try {
+    const configList = loadMotionFormat();
+    const errors = [];
+    const successFiles = [];
+    
+    // 设置响应头
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const zipFileName = `motion_data_batch_${timestamp}.zip`;
+    
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+    
+    // 创建ZIP归档
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // 最高压缩级别
+    });
+    
+    archive.on('error', (err) => {
+      console.error('ZIP归档错误:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'ZIP打包失败', error: err.message });
+      }
+    });
+    
+    archive.pipe(res);
+    
+    // 处理每个文件
+    for (const fileId of fileIds) {
+      try {
+        const filePath = getUploadedFilePathById(fileId);
+        ensureFileExists(filePath);
+        
+        // 获取原始文件名（去掉时间戳前缀）
+        const originalName = fileId.replace(/^\d+-\d+-/, '');
+        const csvFileName = originalName.replace(/\.bin$/i, '.csv') || `${fileId}.csv`;
+        
+        // 生成CSV流并添加到ZIP
+        const csvStream = generateCsvStream(filePath, originalName);
+        archive.append(csvStream, { name: csvFileName });
+        
+        successFiles.push({ id: fileId, filename: csvFileName });
+      } catch (err) {
+        console.error(`处理文件 ${fileId} 失败:`, err);
+        errors.push({
+          id: fileId,
+          error: err.message
+        });
+        // 继续处理其他文件
+      }
+    }
+    
+    // 如果有错误，添加错误日志文件到ZIP
+    if (errors.length > 0) {
+      const errorLog = JSON.stringify({
+        message: '部分文件解析失败',
+        errors: errors,
+        successCount: successFiles.length,
+        totalCount: fileIds.length
+      }, null, 2);
+      archive.append(errorLog, { name: 'errors.json' });
+    }
+    
+    // 完成ZIP归档
+    await archive.finalize();
+    
+    // 注意：这里不需要等待，因为流式输出会自动处理
+    // res会在archive完成后自动结束
+    
+  } catch (err) {
+    console.error('批量CSV导出失败:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: '导出失败', error: err.message });
+    }
+  }
+}
+
 module.exports = {
   uploadBinary,
+  batchUploadBinary,
   getMotionFormat,
   getDhModelConfig,
   previewParsedData,
   downloadCsv,
+  batchDownloadCsv,
 };
 
 

@@ -15,6 +15,10 @@ const ALLOWED_MIMES = (process.env.FAULT_CASE_ALLOWED_MIMES ||
   'image/jpeg,image/png,image/gif,image/webp,image/bmp,' +
   'application/pdf,application/zip,application/x-zip-compressed,' +
   'application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation,' +
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,' +
+  'application/vnd.ms-powerpoint,application/vnd.ms-excel,' +
+  'application/vnd.ms-outlook,' +
   'text/plain,application/octet-stream')
   .split(',')
   .map((s) => s.trim())

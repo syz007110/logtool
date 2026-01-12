@@ -8,10 +8,12 @@ const auth = require('../middlewares/auth');
 const { checkPermission } = require('../middlewares/permission');
 const {
   uploadBinary,
+  batchUploadBinary,
   getMotionFormat,
   getDhModelConfig,
   previewParsedData,
   downloadCsv,
+  batchDownloadCsv,
 } = require('../controllers/motionDataController');
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/temp');
@@ -34,11 +36,17 @@ router.get('/dh-model', auth, checkPermission('data_replay:manage'), getDhModelC
 // Upload binary - admin only
 router.post('/upload', auth, checkPermission('data_replay:manage'), upload.single('file'), uploadBinary);
 
+// Batch upload binary - admin only (max 20 files)
+router.post('/batch-upload', auth, checkPermission('data_replay:manage'), upload.array('files', 20), batchUploadBinary);
+
 // Preview parsed data - admin only
 router.get('/:id/preview', auth, checkPermission('data_replay:manage'), previewParsedData);
 
 // Download CSV - admin only
 router.get('/:id/download-csv', auth, checkPermission('data_replay:manage'), downloadCsv);
+
+// Batch download CSV as ZIP - admin only
+router.post('/batch-download-csv', auth, checkPermission('data_replay:manage'), batchDownloadCsv);
 
 module.exports = router;
 

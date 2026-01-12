@@ -645,8 +645,9 @@
                 inline-prompt
               />
               <el-button 
+                text
                 size="small" 
-                class="btn-text-danger btn-sm"
+                class="btn-danger-text"
                 @click="clearAllConditionsOnly" 
                 :disabled="!filtersRoot.conditions || filtersRoot.conditions.length === 0"
               >{{ $t('batchAnalysis.clearAllConditions') }}</el-button>
@@ -660,7 +661,7 @@
           <div class="common-templates" v-if="templates && templates.length">
             <div class="section-title">{{ $t('batchAnalysis.commonSearchExpressions') }}</div>
             <div class="tags-ops">
-              <el-button size="small" class="btn-primary btn-sm" plain @click="applySelectedTemplate" :disabled="!selectedTemplateName">{{ $t('batchAnalysis.apply') }}</el-button>
+              <el-button type="primary" size="small" @click="applySelectedTemplate" :disabled="!selectedTemplateName">{{ $t('batchAnalysis.apply') }}</el-button>
               <span class="hint">{{ $t('batchAnalysis.templateHint') }}</span>
             </div>
             <div class="tags-wrap antd-tags single-select">
@@ -719,7 +720,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button class="btn-secondary" @click="showAdvancedFilter = false">{{ $t('shared.cancel') }}</el-button>
-          <el-button class="btn-primary" @click="applyAdvancedFilters">{{ $t('batchAnalysis.apply') }}</el-button>
+          <el-button type="primary" @click="applyAdvancedFilters">{{ $t('batchAnalysis.apply') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -878,7 +879,7 @@ export default {
                     }
                   }
                 }),
-            h(ElButton, { class: 'btn-text-danger btn-sm', style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => t('shared.delete') })
+            h(ElButton, { text: true, size: 'small', class: 'btn-danger-text', style: 'margin-left:8px;', onClick: () => props.removeNodeAt(parent, idx) }, { default: () => t('shared.delete') })
           ])
         }
 
@@ -913,7 +914,7 @@ export default {
                   h('div', { class: 'group-actions' }, [
                     h(ElButton, { size: 'small', class: 'btn-secondary btn-sm', onClick: () => props.addConditionToGroup(node) }, { default: () => t('batchAnalysis.addCondition') }),
                     h(ElButton, { size: 'small', class: 'btn-secondary btn-sm', onClick: () => props.addGroupToGroup(node) }, { default: () => t('batchAnalysis.addGroup') }),
-                    h(ElButton, { size: 'small', class: 'btn-text-danger btn-sm', onClick: () => props.removeNodeAt(group, idx) }, { default: () => t('batchAnalysis.deleteGroup') })
+                    h(ElButton, { text: true, size: 'small', class: 'btn-danger-text', onClick: () => props.removeNodeAt(group, idx) }, { default: () => t('batchAnalysis.deleteGroup') })
                   ])
                 ]),
                 h(Self, {

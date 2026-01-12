@@ -188,9 +188,6 @@
       width="400px"
     >
       <el-form :model="resetPasswordForm" :rules="resetPasswordRules" ref="resetPasswordFormRef" label-width="130px">
-        <el-form-item :label="$t('users.oldPassword')" prop="oldPassword">
-          <el-input v-model="resetPasswordForm.oldPassword" type="password" show-password style="max-width: 100%" />
-        </el-form-item>
         <el-form-item :label="$t('users.newPassword')" prop="newPassword">
           <el-input v-model="resetPasswordForm.newPassword" type="password" show-password style="max-width: 100%" />
         </el-form-item>
@@ -448,16 +445,13 @@ export default {
     
     // data
     const showResetPasswordDialog = ref(false)
-    const resetPasswordForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
+    const resetPasswordForm = reactive({ newPassword: '', confirmPassword: '' })
     const resettingPassword = ref(false)
     const resetPasswordFormRef = ref(null)
     let resetUserId = null
 
     // 校验规则
     const resetPasswordRules = computed(() => ({
-      oldPassword: [
-        { required: true, message: t('users.validation.oldPasswordRequired'), trigger: 'blur' }
-      ],
       newPassword: [
         { required: true, message: t('users.validation.newPasswordRequired'), trigger: 'blur' },
         { min: 6, message: t('users.validation.passwordMinLength'), trigger: 'blur' }
@@ -477,7 +471,6 @@ export default {
     // 打开重置密码弹窗
     const openResetPassword = (row) => {
       resetUserId = row.id
-      resetPasswordForm.oldPassword = ''
       resetPasswordForm.newPassword = ''
       resetPasswordForm.confirmPassword = ''
       showResetPasswordDialog.value = true
@@ -491,7 +484,6 @@ export default {
         await store.dispatch('users/updateUser', {
           id: resetUserId,
           data: {
-            oldPassword: resetPasswordForm.oldPassword,
             password: resetPasswordForm.newPassword
           }
         })

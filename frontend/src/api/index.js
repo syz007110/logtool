@@ -272,8 +272,12 @@ const motionData = {
   upload: (formData) => api.post('/motion-data/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  batchUpload: (formData) => api.post('/motion-data/batch-upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   preview: (id, params) => api.get(`/motion-data/${id}/preview`, { params }),
-  downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' })
+  downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' }),
+  batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }, { responseType: 'blob' })
 }
 
 const feedback = {
@@ -325,12 +329,21 @@ const faultCases = {
 const jira = {
   search: (params) => api.get('/jira/search', { params }),
   searchMixed: (params) => api.get('/jira/search-mixed', { params }),
-  getIssue: (key) => api.get(`/jira/issue/${encodeURIComponent(String(key || '').trim())}`)
+  getIssue: (key) => api.get(`/jira/issue/${encodeURIComponent(String(key || '').trim())}`),
+  previewAttachments: (key) => api.get(`/jira/issue/${encodeURIComponent(String(key || '').trim())}/attachments/preview`),
+  importAttachments: (key) => api.post(`/jira/issue/${encodeURIComponent(String(key || '').trim())}/attachments/import`)
 }
 
 // Smart Search (aggregated)
 const smartSearch = {
-  search: (payload) => api.post('/smart-search/search', payload)
+  search: (payload) => api.post('/smart-search/search', payload),
+  getLlmProviders: () => api.get('/smart-search/llm/providers'),
+  // 对话管理
+  getConversations: (params) => api.get('/smart-search/conversations', { params }),
+  getConversation: (id) => api.get(`/smart-search/conversations/${id}`),
+  createConversation: (data) => api.post('/smart-search/conversations', data),
+  updateConversation: (id, data) => api.put(`/smart-search/conversations/${id}`, data),
+  deleteConversation: (id) => api.delete(`/smart-search/conversations/${id}`)
 }
 
 export default {

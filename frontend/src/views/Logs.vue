@@ -9,27 +9,27 @@
           <el-button 
             v-if="$store.getters['auth/hasPermission']('log:upload')"
             type="primary"
+            :icon="Upload"
             @click="showNormalUpload"
           >
-                <i class="fas fa-upload"></i>
                 {{ $t('logs.upload') }}
               </el-button>
 
             <!-- 重置按钮 - 次要按钮 -->
           <el-button 
             type="default"
+            :icon="RefreshLeft"
             @click="resetAllFilters"
           >
-                <i class="fas fa-undo"></i>
                 {{ $t('shared.reset') }}
               </el-button>
 
             <!-- 刷新按钮 - 次要按钮 -->
           <el-button 
             type="default"
+            :icon="Refresh"
             @click="loadDeviceGroups"
           >
-                <i class="fas fa-sync-alt"></i>
                 {{ $t('shared.refresh') }}
               </el-button>
             </div>
@@ -134,311 +134,325 @@
     <!-- 设备详细日志列表抽屉 -->
     <el-drawer
       v-model="showDeviceDetailDrawer"
-      :title="`${selectedDevice?.device_id} ${$t('logs.detailLogs')}`"
       direction="rtl"
       size="1200px"
+      :with-header="false"
       :before-close="handleDrawerClose"
     >
       <div class="device-detail-content">
-        <!-- 设备信息头部 -->
-        <div class="device-header">
-          <div class="device-info">
-            <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
-            <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
-            <p>{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}</p>
-          </div>
-          <div class="header-controls">
-            <!-- 第一列：日志上传按钮 -->
-            <div class="device-actions">
-              <el-button type="primary" size="small" @click="uploadLogForDevice(selectedDevice)">
-                <i class="fas fa-upload"></i>
-                {{ $t('logs.upload') }}
-              </el-button>
-            </div>
-            
-            <!-- 第二列：筛选控件 -->
-            <div class="filter-controls">
-              <!-- 重置按钮 - 次要按钮 -->
-              <div class="reset-section">
-                <el-button type="default" size="small" @click="resetDetailFilters">
-                  <i class="fas fa-undo"></i>
-                  {{ $t('shared.reset') }}
-                </el-button>
+        <!-- 详细日志列表 - 使用卡片包裹 -->
+        <el-card class="detail-logs-card">
+          <!-- 卡片头部：关闭按钮和设备信息 -->
+          <div class="detail-logs-card-header">
+            <div class="device-header">
+              <div class="device-info">
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
+                <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
+                <p>{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}</p>
               </div>
+              <div class="header-controls">
+                <!-- 第一列：日志上传按钮 -->
+                <div class="device-actions">
+                  <el-button type="primary" size="small" :icon="Upload" @click="uploadLogForDevice(selectedDevice)">
+                    {{ $t('logs.upload') }}
+                  </el-button>
+                </div>
+                
+                <!-- 第二列：筛选控件 -->
+                <div class="filter-controls">
+                  <!-- 重置按钮 - 次要按钮 -->
+                  <div class="reset-section">
+                    <el-button type="default" size="small" :icon="RefreshLeft" @click="resetDetailFilters">
+                      {{ $t('shared.reset') }}
+                    </el-button>
+                  </div>
 
-              <!-- 刷新按钮 - 次要按钮 -->
-              <div class="refresh-section">
-                <el-button type="default" size="small" @click="loadDetailLogs">
-                  <i class="fas fa-sync-alt"></i>
-                  {{ $t('shared.refresh') }}
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 详细日志列表 -->
-        <div class="detail-logs-section">
-          <div class="detail-filters">
-            <el-tabs
-              v-model="detailStatusFilter"
-              class="detail-status-tabs"
-              @tab-change="handleStatusFilterChange"
-            >
-              <el-tab-pane
-                v-for="tab in detailStatusTabs"
-                :key="tab.value"
-                :label="tab.label"
-                :name="tab.value"
-              />
-            </el-tabs>
-            <div class="time-filter-bar">
-              <div class="quick-range-group">
-            <el-radio-group
-              v-model="detailQuickRange"
-              size="small"
-              @change="handleQuickRangeChange"
-            >
-              <el-radio-button
-                v-for="option in detailQuickRangeOptions"
-                :key="option.value"
-                :label="option.value"
-              >
-                {{ option.label }}
-              </el-radio-button>
-            </el-radio-group>
-              </div>
-            <div class="custom-range-selects">
-              <el-select
-                v-model="detailSelectedYear"
-                size="small"
-                class="time-select"
-                @change="handleYearChange"
-              >
-                <el-option
-                  v-for="option in detailYearOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              <el-select
-                v-model="detailSelectedMonth"
-                size="small"
-                class="time-select"
-                @change="handleMonthChange"
-              >
-                <el-option
-                  v-for="option in detailMonthOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              <el-select
-                v-model="detailSelectedDay"
-                size="small"
-                class="time-select"
-                @change="handleDayChange"
-              >
-                <el-option
-                  v-for="option in detailDayOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              </div>
-            </div>
-          </div>
-            <div class="detail-header">
-            <h4 class="min-w-0 one-line-ellipsis" :title="$t('logs.title')">{{ $t('logs.title') }}</h4>
-            <div class="detail-actions">
-              <!-- 批量操作组 -->
-              <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
-              <div class="batch-actions">
-                <el-button 
-                  type="primary"
-                  size="small" 
-                  @click="handleBatchAnalyze"
-                  :disabled="!canBatchView || !isSameDevice || selectedDetailLogs.length > 20"
-                  :title="getBatchViewTitle()"
-                >
-                  <i class="fas fa-eye"></i>
-                    {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-button 
-                  type="default"
-                  size="small" 
-                  @click="handleBatchDownload"
-                  :disabled="!canBatchDownload"
-                  :title="incompleteLogsMessage"
-                >
-                  <i class="fas fa-download"></i>
-                    {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-button 
-                  type="default"
-                  size="small" 
-                  @click="handleBatchDelete"
-                  :disabled="!canBatchDelete"
-                  :title="incompleteLogsMessage"
-                >
-                  <i class="fas fa-trash"></i>
-                    {{ $t('logs.batchDelete') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-button 
-                  type="default"
-                  size="small" 
-                  @click="handleBatchReparse"
-                  :disabled="selectedDetailLogs.length === 0 || !$store.getters['auth/hasPermission']('log:reparse') || !canBatchReparse || selectedDetailLogs.length > 20"
-                  :title="getBatchReparseTitle()"
-                  v-if="$store.getters['auth/hasPermission']('log:reparse')"
-                >
-                  <i class="fas fa-sync-alt"></i>
-                    {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
-                </el-button>
-                <el-tooltip 
-                  :content="$t('logs.deleteOwnOnlyTip')" 
-                  placement="top" 
-                  v-if="!$store.getters['auth/hasPermission']('log:delete') && $store.getters['auth/hasPermission']('log:delete_own')"
-                >
-                  <el-icon class="info-icon"><InfoFilled /></el-icon>
-                </el-tooltip>
-                <el-button 
-                  type="default"
-                  size="small" 
-                    @click="clearDetailSelection"
-                >
-                  <i class="fas fa-times"></i>
-                  {{ $t('logs.clearSelection') }}
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </div>
-      
-      <el-table
-            :data="detailLogs"
-            :loading="detailLoading"
-        style="width: 100%"
-            v-loading="detailLoading"
-            @selection-change="handleDetailSelectionChange"
-            row-key="id"
-      >
-        <el-table-column type="selection" width="55" />
-            <el-table-column prop="original_name" :label="$t('logs.logFilename')" width="240">
-          <template #header>
-            <div class="col-header">
-                  <span>{{ $t('logs.logFilename') }}</span>
-              <el-popover
-                placement="bottom-start"
-                width="260"
-                    :visible="showDetailNameFilterPanel"
-                    @update:visible="showDetailNameFilterPanel = $event"
-                popper-class="custom-filter-panel"
-              >
-                <div class="filter-panel">
-                  <div class="filter-title">{{ $t('logs.timePrefix') }}</div>
-                  <el-input
-                        v-model="detailNameTimePrefix"
-                    :placeholder="$t('logs.timePrefixPlaceholder')"
-                    clearable
-                        @keyup.enter="applyDetailNameFilter"
-                  >
-                    <template #prefix>
-                      <el-icon><Search /></el-icon>
-                    </template>
-                  </el-input>
-                  <div class="filter-actions">
-                        <el-button type="primary" size="small" @click="applyDetailNameFilter">{{ $t('shared.search') }}</el-button>
-                        <el-button type="default" size="small" @click="resetDetailNameFilter">{{ $t('shared.reset') }}</el-button>
+                  <!-- 刷新按钮 - 次要按钮 -->
+                  <div class="refresh-section">
+                    <el-button type="default" size="small" :icon="Refresh" @click="loadDetailLogs">
+                      {{ $t('shared.refresh') }}
+                    </el-button>
                   </div>
                 </div>
-                <template #reference>
-                      <el-icon :class="['filter-trigger', { active: !!detailNameTimePrefix }]"><Filter /></el-icon>
-                </template>
-              </el-popover>
+                
+                <!-- 关闭按钮 -->
+                <el-button 
+                  text 
+                  size="small" 
+                  :icon="Close" 
+                  @click="handleDrawerClose"
+                  class="close-drawer-btn"
+                  :title="$t('shared.close')"
+                />
+              </div>
             </div>
-          </template>
-        </el-table-column>
-            <el-table-column prop="uploader_id" :label="$t('logs.uploaderId')" width="150" />
-        <el-table-column prop="upload_time" :label="$t('logs.uploadTime')" width="260">
-          <template #default="{ row }">
-            {{ formatDate(row.upload_time) }}
-          </template>
-        </el-table-column>
-        
-        <el-table-column :label="$t('logs.status')" width="160" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getRowStatusType(row)" size="small">
-              {{ getRowStatusText(row) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        
-        <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
-          <template #default="{ row }">
-            <div class="operation-buttons">
-              <el-button 
-                text
+          </div>
+          <!-- 筛选和操作栏 -->
+          <div class="detail-logs-header">
+            <div class="detail-filters">
+              <el-tabs
+                v-model="detailStatusFilter"
+                class="detail-status-tabs"
+                @tab-change="handleStatusFilterChange"
+              >
+                <el-tab-pane
+                  v-for="tab in detailStatusTabs"
+                  :key="tab.value"
+                  :label="tab.label"
+                  :name="tab.value"
+                />
+              </el-tabs>
+              <div class="time-filter-bar">
+                <div class="quick-range-group">
+              <el-radio-group
+                v-model="detailQuickRange"
                 size="small"
-                @click="goToLogAnalysis(row)"
-                :disabled="!canView(row)"
+                @change="handleQuickRangeChange"
               >
-                {{ $t('logs.view') }}
-              </el-button>
-              <el-dropdown 
-                trigger="click" 
-                placement="bottom-end"
-                @command="handleMoreAction"
-              >
-                <el-button text size="small">
-                  <i class="fas fa-ellipsis-h"></i>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item 
-                      :command="{ action: 'download', row }"
-                      :disabled="!canDownload(row)"
-                    >
-                      {{ $t('logs.download') }}
-                    </el-dropdown-item>
-                    <el-dropdown-item 
-                      :command="{ action: 'delete', row }"
-                      v-if="canDeleteLog(row)"
-                      :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
-                    >
-                      {{ $t('shared.delete') }}
-                    </el-dropdown-item>
-                    <el-dropdown-item 
-                      :command="{ action: 'reparse', row }"
-                      v-if="canReparse"
-                      :disabled="!canReparseLog(row) || row.parsing"
-                    >
-                      {{ $t('logs.reparse') }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+                <el-radio-button
+                  v-for="option in detailQuickRangeOptions"
+                  :key="option.value"
+                  :label="option.value"
+                >
+                  {{ option.label }}
+                </el-radio-button>
+              </el-radio-group>
+                </div>
+              <div class="custom-range-selects">
+                <el-select
+                  v-model="detailSelectedYear"
+                  size="small"
+                  class="time-select"
+                  @change="handleYearChange"
+                >
+                  <el-option
+                    v-for="option in detailYearOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="detailSelectedMonth"
+                  size="small"
+                  class="time-select"
+                  @change="handleMonthChange"
+                >
+                  <el-option
+                    v-for="option in detailMonthOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="detailSelectedDay"
+                  size="small"
+                  class="time-select"
+                  @change="handleDayChange"
+                >
+                  <el-option
+                    v-for="option in detailDayOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                </div>
+              </div>
             </div>
-          </template>
-        </el-table-column>
-      </el-table>
-      
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-              :current-page="detailCurrentPage"
-              :page-size="detailPageSize"
-          :page-sizes="[10, 20, 50, 100]"
-              :total="detailTotal"
-          layout="total, sizes, prev, pager, next, jumper"
-              @size-change="handleDetailSizeChange"
-              @current-change="handleDetailCurrentChange"
-        />
-      </div>
-        </div>
+            <div class="detail-header">
+              <h4 class="min-w-0 one-line-ellipsis" :title="$t('logs.title')">{{ $t('logs.title') }}</h4>
+              <div class="detail-actions">
+                <!-- 批量操作组 -->
+                <div class="batch-section" v-if="selectedDetailLogs && selectedDetailLogs.length > 0">
+                <div class="batch-actions">
+                  <el-button 
+                    type="primary"
+                    size="small" 
+                    @click="handleBatchAnalyze"
+                    :disabled="!canBatchView || !isSameDevice || selectedDetailLogs.length > 20"
+                    :title="getBatchViewTitle()"
+                  >
+                    <i class="fas fa-eye"></i>
+                      {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
+                  </el-button>
+                  <el-button 
+                    type="default"
+                    size="small" 
+                    @click="handleBatchDownload"
+                    :disabled="!canBatchDownload"
+                    :title="incompleteLogsMessage"
+                  >
+                    <i class="fas fa-download"></i>
+                      {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
+                  </el-button>
+                  <el-button 
+                    type="default"
+                    size="small" 
+                    @click="handleBatchDelete"
+                    :disabled="!canBatchDelete"
+                    :title="incompleteLogsMessage"
+                  >
+                    <i class="fas fa-trash"></i>
+                      {{ $t('logs.batchDelete') }} ({{ selectedDetailLogs.length }})
+                  </el-button>
+                  <el-button 
+                    type="default"
+                    size="small" 
+                    @click="handleBatchReparse"
+                    :disabled="selectedDetailLogs.length === 0 || !$store.getters['auth/hasPermission']('log:reparse') || !canBatchReparse || selectedDetailLogs.length > 20"
+                    :title="getBatchReparseTitle()"
+                    v-if="$store.getters['auth/hasPermission']('log:reparse')"
+                  >
+                    <i class="fas fa-sync-alt"></i>
+                      {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
+                  </el-button>
+                  <el-tooltip 
+                    :content="$t('logs.deleteOwnOnlyTip')" 
+                    placement="top" 
+                    v-if="!$store.getters['auth/hasPermission']('log:delete') && $store.getters['auth/hasPermission']('log:delete_own')"
+                  >
+                    <el-icon class="info-icon"><InfoFilled /></el-icon>
+                  </el-tooltip>
+                  <el-button 
+                    type="default"
+                    size="small" 
+                      @click="clearDetailSelection"
+                  >
+                    <i class="fas fa-times"></i>
+                    {{ $t('logs.clearSelection') }}
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+        
+          <!-- 表格容器 - 可滚动 -->
+          <div class="detail-table-container">
+            <el-table
+              :data="detailLogs"
+              :loading="detailLoading"
+              style="width: 100%"
+              v-loading="detailLoading"
+              @selection-change="handleDetailSelectionChange"
+              row-key="id"
+            >
+              <el-table-column type="selection" width="55" />
+              <el-table-column prop="original_name" :label="$t('logs.logFilename')" width="240">
+                <template #header>
+                  <div class="col-header">
+                        <span>{{ $t('logs.logFilename') }}</span>
+                    <el-popover
+                      placement="bottom-start"
+                      width="260"
+                          :visible="showDetailNameFilterPanel"
+                          @update:visible="showDetailNameFilterPanel = $event"
+                      popper-class="custom-filter-panel"
+                    >
+                      <div class="filter-panel">
+                        <div class="filter-title">{{ $t('logs.timePrefix') }}</div>
+                        <el-input
+                              v-model="detailNameTimePrefix"
+                          :placeholder="$t('logs.timePrefixPlaceholder')"
+                          clearable
+                              @keyup.enter="applyDetailNameFilter"
+                        >
+                          <template #prefix>
+                            <el-icon><Search /></el-icon>
+                          </template>
+                        </el-input>
+                        <div class="filter-actions">
+                              <el-button type="primary" size="small" @click="applyDetailNameFilter">{{ $t('shared.search') }}</el-button>
+                              <el-button type="default" size="small" @click="resetDetailNameFilter">{{ $t('shared.reset') }}</el-button>
+                        </div>
+                      </div>
+                      <template #reference>
+                            <el-icon :class="['filter-trigger', { active: !!detailNameTimePrefix }]"><Filter /></el-icon>
+                      </template>
+                    </el-popover>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="uploader_id" :label="$t('logs.uploaderId')" width="150" />
+              <el-table-column prop="upload_time" :label="$t('logs.uploadTime')" width="260">
+                <template #default="{ row }">
+                  {{ formatDate(row.upload_time) }}
+                </template>
+              </el-table-column>
+              
+              <el-table-column :label="$t('logs.status')" width="160" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="getRowStatusType(row)" size="small">
+                    {{ getRowStatusText(row) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              
+              <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
+                <template #default="{ row }">
+                  <div class="operation-buttons">
+                    <el-button 
+                      text
+                      size="small"
+                      @click="goToLogAnalysis(row)"
+                      :disabled="!canView(row)"
+                    >
+                      {{ $t('logs.view') }}
+                    </el-button>
+                    <el-dropdown 
+                      trigger="click" 
+                      placement="bottom-end"
+                      @command="handleMoreAction"
+                    >
+                      <el-button text size="small">
+                        <i class="fas fa-ellipsis-h"></i>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item 
+                            :command="{ action: 'download', row }"
+                            :disabled="!canDownload(row)"
+                          >
+                            {{ $t('logs.download') }}
+                          </el-dropdown-item>
+                          <el-dropdown-item 
+                            :command="{ action: 'delete', row }"
+                            v-if="canDeleteLog(row)"
+                            :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
+                          >
+                            {{ $t('shared.delete') }}
+                          </el-dropdown-item>
+                          <el-dropdown-item 
+                            :command="{ action: 'reparse', row }"
+                            v-if="canReparse"
+                            :disabled="!canReparseLog(row) || row.parsing"
+                          >
+                            {{ $t('logs.reparse') }}
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          
+          <!-- 分页 -->
+          <div class="detail-pagination-wrapper">
+            <el-pagination
+                  :current-page="detailCurrentPage"
+                  :page-size="detailPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+                  :total="detailTotal"
+              layout="total, sizes, prev, pager, next, jumper"
+                  @size-change="handleDetailSizeChange"
+                  @current-change="handleDetailCurrentChange"
+            />
+          </div>
+        </el-card>
       </div>
     </el-drawer>
 
@@ -474,7 +488,7 @@
             <el-button text size="small" @click="visualizeSurgery(row)">{{ $t('logs.visualize') }}</el-button>
             <el-popconfirm v-if="$store.getters['auth/hasPermission']('surgery:delete')" :title="$t('logs.messages.confirmDeleteSurgery')" @confirm="deleteSurgery(row)">
               <template #reference>
-                <el-button text size="small" type="danger">{{ $t('shared.delete') }}</el-button>
+                <el-button text size="small" class="btn-danger-text">{{ $t('shared.delete') }}</el-button>
               </template>
             </el-popconfirm>
           </template>
@@ -551,9 +565,9 @@
             <span class="file-name">{{ file.name || file.originalname }}</span>
             <span class="file-size">{{ file.sizeText }}</span>
             <el-button 
-              text
-              size="small"
               type="danger"
+              plain
+              size="small"
               @click="removeFile(index)"
               :disabled="uploading"
               :aria-label="$t('logs.removeFile')"
@@ -694,7 +708,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Monitor, Key, Document, Warning, InfoFilled, Filter } from '@element-plus/icons-vue'
+import { Search, Monitor, Key, Document, Warning, InfoFilled, Filter, Upload, Refresh, RefreshLeft, Close } from '@element-plus/icons-vue'
 import websocketClient from '@/services/websocketClient'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
@@ -1623,7 +1637,7 @@ export default {
         // 更新表格选择状态（需要手动设置）
         nextTick(() => {
           // 清除所有选择
-          const table = document.querySelector('.detail-logs-section .el-table')
+          const table = document.querySelector('.detail-table-container .el-table')
           if (table) {
             const checkboxes = table.querySelectorAll('.el-table__row .el-checkbox__input')
             checkboxes.forEach((checkbox, index) => {
@@ -2912,6 +2926,19 @@ export default {
       hasDeviceReadPermission,
       maskHospitalName,
       
+      // 图标组件
+      Search,
+      Monitor,
+      Key,
+      Document,
+      Warning,
+      InfoFilled,
+      Filter,
+      Upload,
+      Refresh,
+      RefreshLeft,
+      Close,
+      
       // 表格高度计算（固定表头）
       tableHeight: computed(() => {
         return getTableHeight('basic')
@@ -3406,19 +3433,27 @@ export default {
 
 /* 设备详情相关样式 */
 .device-detail-content {
-  padding: 12px 10px 10px 10px;
+  padding: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* 卡片头部：包含关闭按钮和设备信息 */
+.detail-logs-card-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgb(var(--border-secondary));
 }
 
 .device-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgb(var(--border-secondary));
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .device-info {
@@ -3439,9 +3474,18 @@ export default {
 
 .header-controls {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: center;
   gap: 12px;
+}
+
+.close-drawer-btn {
+  margin-left: auto;
+  color: rgb(var(--text-secondary));
+}
+
+.close-drawer-btn:hover {
+  color: rgb(var(--text-primary));
 }
 
 .filter-controls {
@@ -3490,11 +3534,69 @@ export default {
   flex-direction: column;
 }
 
+/* 详细日志卡片样式 - 类似故障码页面 */
+.detail-logs-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-logs-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+.detail-logs-card-header {
+  padding: 0;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgb(var(--border-secondary));
+}
+
+.detail-logs-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
 .detail-filters {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+/* 表格容器 - 固定表头，可滚动 */
+.detail-table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.detail-table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
+/* 分页容器 - 固定在底部 */
+.detail-pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
 .detail-status-tabs:deep(.el-tabs__nav-wrap) {
@@ -3512,7 +3614,8 @@ export default {
 .detail-header {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 5px;
+  justify-content: space-between;
+  margin-bottom: 0;
   gap: 50px;
 }
 

@@ -18,10 +18,10 @@
           </el-input>
         </div>
         <div class="action-section">
-          <el-button type="default" size="small" :icon="RefreshLeft" @click="resetFilters">
+          <el-button type="default" :icon="RefreshLeft" @click="resetFilters">
             {{ $t('shared.reset') }}
           </el-button>
-          <el-button type="default" size="small" :icon="Refresh" @click="loadDeviceGroups">
+          <el-button type="default" :icon="Refresh" @click="loadDeviceGroups">
             {{ $t('shared.refresh') }}
           </el-button>
         </div>
@@ -93,157 +93,175 @@
     <!-- 设备详细手术数据抽屉 -->
     <el-drawer
       v-model="showDeviceDetailDrawer"
-      :title="`${selectedDevice?.device_id} ${$t('logs.surgeryData')}`"
       direction="rtl"
       size="1200px"
+      :with-header="false"
       :before-close="handleDrawerClose"
     >
       <div class="device-detail-content">
-        <!-- 设备信息头部 -->
-        <div class="device-header">
-          <div class="device-info">
-            <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
-            <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
-          </div>
-          <div class="header-controls">
-            <div class="refresh-section">
-              <el-button type="default" size="small" :icon="Refresh" @click="loadDetailSurgeries">
-                {{ $t('shared.refresh') }}
-              </el-button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 详细手术数据列表 -->
-        <div class="detail-surgeries-section">
-          <div class="detail-filters">
-            <el-tabs
-              v-model="detailTypeFilter"
-              class="detail-type-tabs"
-              @tab-change="handleTypeTabChange"
-            >
-              <el-tab-pane
-                v-for="tab in detailTypeTabs"
-                :key="tab.value"
-                :label="tab.label"
-                :name="tab.value"
-              />
-            </el-tabs>
-            <div class="time-filter-bar">
-              <div class="quick-range-group">
-                <el-radio-group
-                  v-model="detailQuickRange"
-                  size="small"
-                  @change="handleQuickRangeChange"
-                >
-                  <el-radio-button
-                    v-for="option in detailQuickRangeOptions"
-                    :key="option.value"
-                    :label="option.value"
-                  >
-                    {{ option.label }}
-                  </el-radio-button>
-                </el-radio-group>
+        <!-- 详细手术数据列表 - 使用卡片包裹 -->
+        <el-card class="detail-surgeries-card">
+          <!-- 卡片头部：关闭按钮和设备信息 -->
+          <div class="detail-surgeries-card-header">
+            <div class="device-header">
+              <div class="device-info">
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
+                <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
               </div>
-              <div class="custom-range-selects">
-                <el-select
-                  v-model="detailSelectedYear"
-                  size="small"
-                  class="time-select"
-                  @change="handleYearChange"
-                >
-                  <el-option
-                    v-for="option in detailYearOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <el-select
-                  v-model="detailSelectedMonth"
-                  size="small"
-                  class="time-select"
-                  @change="handleMonthChange"
-                >
-                  <el-option
-                    v-for="option in detailMonthOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <el-select
-                  v-model="detailSelectedDay"
-                  size="small"
-                  class="time-select"
-                  @change="handleDayChange"
-                >
-                  <el-option
-                    v-for="option in detailDayOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-              </div>
-            </div>
-          </div>
-          <el-table
-            :data="detailSurgeries"
-            :loading="detailLoading"
-            style="width: 100%"
-            v-loading="detailLoading"
-          >
-            <el-table-column :label="$t('logs.surgeryId')">
-              <template #default="{ row }">
-                {{ row.display_surgery_id }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="start_time" :label="$t('logs.surgeryStartTime')">
-              <template #default="{ row }">{{ formatDate(row.start_time) }}</template>
-            </el-table-column>
-            <el-table-column prop="end_time" :label="$t('logs.surgeryEndTime')">
-              <template #default="{ row }">{{ formatDate(row.end_time) }}</template>
-            </el-table-column>
-            <el-table-column :label="$t('shared.operation')" align="left">
-              <template #default="{ row }">
-                <div class="btn-group operation-buttons">
-                  <el-button
-                    text
-                    size="small"
-                    @click="viewLogsBySurgery(row)"
-                    :aria-label="$t('logs.viewLogs')"
-                    :title="$t('logs.viewLogs')"
-                  >
-                    {{ $t('logs.viewLogs') }}
-                  </el-button>
-                  <el-button
-                    text
-                    size="small"
-                    @click="visualizeSurgery(row)"
-                    :aria-label="$t('batchAnalysis.visualize')"
-                    :title="$t('batchAnalysis.visualize')"
-                  >
-                    {{ $t('batchAnalysis.visualize') }}
-                  </el-button>
-                  <el-button 
-                    v-if="canDeleteSurgery" 
-                    text
-                    size="small"
-                    class="btn-danger-text"
-                    @click="deleteSurgery(row)"
-                    :aria-label="$t('shared.delete')"
-                    :title="$t('shared.delete')"
-                  >
-                    {{ $t('shared.delete') }}
+              <div class="header-controls">
+                <div class="refresh-section">
+                  <el-button type="default" :icon="Refresh" @click="loadDetailSurgeries">
+                    {{ $t('shared.refresh') }}
                   </el-button>
                 </div>
-              </template>
-            </el-table-column>
-          </el-table>
+                <!-- 关闭按钮 -->
+                <el-button 
+                  text 
+                  size="small" 
+                  :icon="Close" 
+                  @click="handleDrawerClose"
+                  class="close-drawer-btn"
+                  :title="$t('shared.close')"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 筛选和操作栏 -->
+          <div class="detail-surgeries-header">
+            <div class="detail-filters">
+              <el-tabs
+                v-model="detailTypeFilter"
+                class="detail-type-tabs"
+                @tab-change="handleTypeTabChange"
+              >
+                <el-tab-pane
+                  v-for="tab in detailTypeTabs"
+                  :key="tab.value"
+                  :label="tab.label"
+                  :name="tab.value"
+                />
+              </el-tabs>
+              <div class="time-filter-bar">
+                <div class="quick-range-group">
+                  <el-radio-group
+                    v-model="detailQuickRange"
+                    size="small"
+                    @change="handleQuickRangeChange"
+                  >
+                    <el-radio-button
+                      v-for="option in detailQuickRangeOptions"
+                      :key="option.value"
+                      :label="option.value"
+                    >
+                      {{ option.label }}
+                    </el-radio-button>
+                  </el-radio-group>
+                </div>
+                <div class="custom-range-selects">
+                  <el-select
+                    v-model="detailSelectedYear"
+                    size="small"
+                    class="time-select"
+                    @change="handleYearChange"
+                  >
+                    <el-option
+                      v-for="option in detailYearOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <el-select
+                    v-model="detailSelectedMonth"
+                    size="small"
+                    class="time-select"
+                    @change="handleMonthChange"
+                  >
+                    <el-option
+                      v-for="option in detailMonthOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <el-select
+                    v-model="detailSelectedDay"
+                    size="small"
+                    class="time-select"
+                    @change="handleDayChange"
+                  >
+                    <el-option
+                      v-for="option in detailDayOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 表格容器 - 可滚动 -->
+          <div class="detail-table-container">
+            <el-table
+              :data="detailSurgeries"
+              :loading="detailLoading"
+              style="width: 100%"
+              v-loading="detailLoading"
+            >
+              <el-table-column :label="$t('logs.surgeryId')">
+                <template #default="{ row }">
+                  {{ row.display_surgery_id }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="start_time" :label="$t('logs.surgeryStartTime')">
+                <template #default="{ row }">{{ formatDate(row.start_time) }}</template>
+              </el-table-column>
+              <el-table-column prop="end_time" :label="$t('logs.surgeryEndTime')">
+                <template #default="{ row }">{{ formatDate(row.end_time) }}</template>
+              </el-table-column>
+              <el-table-column :label="$t('shared.operation')" align="left">
+                <template #default="{ row }">
+                  <div class="btn-group operation-buttons">
+                    <el-button
+                      text
+                      size="small"
+                      @click="viewLogsBySurgery(row)"
+                      :aria-label="$t('logs.viewLogs')"
+                      :title="$t('logs.viewLogs')"
+                    >
+                      {{ $t('logs.viewLogs') }}
+                    </el-button>
+                    <el-button
+                      text
+                      size="small"
+                      @click="visualizeSurgery(row)"
+                      :aria-label="$t('batchAnalysis.visualize')"
+                      :title="$t('batchAnalysis.visualize')"
+                    >
+                      {{ $t('batchAnalysis.visualize') }}
+                    </el-button>
+                    <el-button 
+                      v-if="canDeleteSurgery" 
+                      text
+                      size="small"
+                      class="btn-danger-text"
+                      @click="deleteSurgery(row)"
+                      :aria-label="$t('shared.delete')"
+                      :title="$t('shared.delete')"
+                    >
+                      {{ $t('shared.delete') }}
+                    </el-button>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
 
           <!-- 分页 -->
-          <div class="pagination-wrapper">
+          <div class="detail-pagination-wrapper">
             <el-pagination
               :current-page="detailCurrentPage"
               :page-size="detailPageSize"
@@ -254,7 +272,7 @@
               @current-change="handleDetailCurrentChange"
             />
           </div>
-        </div>
+        </el-card>
       </div>
     </el-drawer>
   </div>
@@ -266,7 +284,7 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
-import { Search, Refresh, RefreshLeft, List } from '@element-plus/icons-vue'
+import { Search, Refresh, RefreshLeft, List, Close } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
@@ -507,14 +525,6 @@ export default {
     })
 
 
-    const updateQuickRangeBySelections = () => {
-      const allSelected =
-        detailSelectedYear.value === 'all' &&
-        detailSelectedMonth.value === 'all' &&
-        detailSelectedDay.value === 'all'
-      detailQuickRange.value = allSelected ? 'all' : 'custom'
-    }
-
     const handleTypeTabChange = () => {
       detailCurrentPage.value = 1
       loadDetailSurgeries()
@@ -536,10 +546,11 @@ export default {
       if (value === 'all') {
         detailSelectedMonth.value = 'all'
         detailSelectedDay.value = 'all'
+        detailQuickRange.value = 'all'
       } else {
         syncDetailSelections()
+        detailQuickRange.value = 'custom'
       }
-      updateQuickRangeBySelections()
       detailCurrentPage.value = 1
       loadDetailSurgeries()
     }
@@ -548,17 +559,33 @@ export default {
       detailSelectedMonth.value = value
       if (value === 'all') {
         detailSelectedDay.value = 'all'
+        if (detailSelectedYear.value === 'all') {
+          detailQuickRange.value = 'all'
+        } else {
+          detailQuickRange.value = 'custom'
+        }
       } else {
         syncDetailSelections()
+        detailQuickRange.value = 'custom'
       }
-      updateQuickRangeBySelections()
       detailCurrentPage.value = 1
       loadDetailSurgeries()
     }
 
     const handleDayChange = (value) => {
       detailSelectedDay.value = value
-      updateQuickRangeBySelections()
+      if (value === 'all') {
+        if (
+          detailSelectedYear.value === 'all' &&
+          detailSelectedMonth.value === 'all'
+        ) {
+          detailQuickRange.value = 'all'
+        } else {
+          detailQuickRange.value = 'custom'
+        }
+      } else {
+        detailQuickRange.value = 'custom'
+      }
       detailCurrentPage.value = 1
       loadDetailSurgeries()
     }
@@ -592,13 +619,7 @@ export default {
       if (!dayValues.includes(detailSelectedDay.value)) {
         detailSelectedDay.value = 'all'
       }
-      if (
-        detailSelectedYear.value === 'all' &&
-        detailSelectedMonth.value === 'all' &&
-        detailSelectedDay.value === 'all'
-      ) {
-        detailQuickRange.value = 'all'
-      }
+      // 不再自动更新 detailQuickRange，由 handleYearChange/handleMonthChange/handleDayChange 直接设置
     }
 
     const loadDetailTimeFilters = async () => {
@@ -994,6 +1015,7 @@ export default {
       Refresh,
       RefreshLeft,
       List,
+      Close,
       // 表格高度
       tableHeight
     }
@@ -1089,19 +1111,45 @@ export default {
 
 /* 设备详情相关样式 */
 .device-detail-content {
-  padding: 12px 10px 10px 10px;
+  padding: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* 详细手术数据卡片样式 - 类似故障码页面 */
+.detail-surgeries-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-surgeries-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+/* 卡片头部：包含关闭按钮和设备信息 */
+.detail-surgeries-card-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgb(var(--border-secondary));
 }
 
 .device-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--slate-300);
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .device-info {
@@ -1122,8 +1170,18 @@ export default {
 
 .header-controls {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
+}
+
+.close-drawer-btn {
+  margin-left: auto;
+  color: rgb(var(--text-secondary));
+}
+
+.close-drawer-btn:hover {
+  color: rgb(var(--text-primary));
 }
 
 .refresh-section {
@@ -1138,10 +1196,44 @@ export default {
   gap: 16px;
 }
 
+.detail-surgeries-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
 .detail-filters {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-bottom: 0;
+}
+
+/* 表格容器 - 固定表头，可滚动 */
+.detail-table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.detail-table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
+/* 分页容器 - 固定在底部 */
+.detail-pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  margin-top: auto;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--background));
 }
 
 .detail-type-tabs:deep(.el-tabs__nav-wrap) {

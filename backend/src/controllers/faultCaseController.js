@@ -11,7 +11,6 @@ const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination'
 
 const ErrorCode = require('../models/error_code');
 const Permission = require('../models/permission');
-const { objectKeyFromUrl } = require('../utils/oss');
 
 const {
   STORAGE,
@@ -30,8 +29,6 @@ const {
   buildOssObjectKey,
   buildTempOssObjectKey
 } = require('../config/faultCaseStorage');
-
-const USE_BACKEND_OSS_PROXY = String(process.env.FAULT_CASE_OSS_USE_PROXY || process.env.OSS_USE_BACKEND_PROXY || '').toLowerCase() === 'true';
 
 function getBearerToken(req) {
   const raw = req?.headers?.authorization || req?.get?.('authorization') || '';
@@ -55,21 +52,34 @@ function safeUnlink(p) {
   } catch (_) {}
 }
 
+function buildAttachmentUrlForResponse(a, req) {
+  if (!a || typeof a !== 'object') return a;
+  const storage = a.storage === 'oss' ? 'oss' : 'local';
+  const key = String(a.object_key || '').replace(/^\//, '');
+
+  // Prefer generating url from object_key (MongoDB only stores object_key)
+  if (storage === 'oss') {
+    if (!key) return a;
+    return { ...a, url: withQueryToken(buildOssUrl(key), req) };
+  }
+
+  // local storage
+  if (key) {
+    const filename = path.basename(key);
+    if (key.startsWith('tmp/')) return { ...a, url: buildTempLocalUrl(filename) };
+    return { ...a, url: buildLocalUrl(filename) };
+  }
+
+  // fallback: keep existing url if any (historical data)
+  return a;
+}
+
 function normalizeFaultCaseAttachmentsForResponse(faultCaseObj, req) {
-  if (!USE_BACKEND_OSS_PROXY) return faultCaseObj;
   if (!faultCaseObj || !Array.isArray(faultCaseObj.attachments)) return faultCaseObj;
 
   const attachments = faultCaseObj.attachments.map((a) => {
     if (!a) return a;
-    const storage = a.storage === 'oss' ? 'oss' : 'local';
-    if (storage !== 'oss') return a;
-
-    // Prefer object_key; fallback to parsing from url (historical internal URLs)
-    const key = String(a.object_key || objectKeyFromUrl(a.url) || '').replace(/^\//, '');
-    if (!key) return a;
-
-    // buildOssUrl will return proxy url when USE_BACKEND_OSS_PROXY is enabled
-    return { ...a, url: withQueryToken(buildOssUrl(key), req) };
+    return buildAttachmentUrlForResponse(a, req);
   });
 
   return { ...faultCaseObj, attachments };
@@ -183,11 +193,11 @@ async function uploadFaultCaseAttachments(req, res) {
 
       if (STORAGE === 'oss') {
         try {
-          const client = await getOssClient();
-          objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
-          const result = await client.put(objectKey, file.path);
-          url = withQueryToken(buildOssUrl(objectKey, result?.url), req);
-          safeUnlink(file.path);
+        const client = await getOssClient();
+        objectKey = buildTempOssObjectKey(path.basename(file.filename || file.originalname || 'file'));
+        const result = await client.put(objectKey, file.path);
+        url = withQueryToken(buildOssUrl(objectKey, result?.url), req);
+        safeUnlink(file.path);
         } catch (err) {
           console.error('上传OSS失败:', err.message);
           safeUnlink(file.path);
@@ -218,21 +228,20 @@ async function uploadFaultCaseAttachments(req, res) {
   }
 }
 
-async function finalizeAttachment(asset, req) {
+async function finalizeAttachment(asset, _req) {
   const result = { ...asset };
 
   // local: move tmp -> permanent
   if (result.storage === 'local') {
     ensureLocalDir();
-    const isTemp = (result.object_key && result.object_key.startsWith('tmp/')) || (result.url && result.url.includes('/fault-cases/tmp/'));
+    const isTemp = result.object_key && String(result.object_key).startsWith('tmp/');
     if (isTemp) {
-      const filename = path.basename(result.object_key || result.url);
+      const filename = path.basename(result.object_key);
       const src = path.resolve(TMP_DIR, filename);
       const dest = path.resolve(LOCAL_DIR, filename);
       try {
-        fs.renameSync(src, dest);
-        result.object_key = filename;
-        result.url = buildLocalUrl(filename);
+      fs.renameSync(src, dest);
+      result.object_key = filename;
       } catch (e) {
         console.warn('移动临时文件失败:', e.message);
         throw new Error('保存附件失败（本地文件移动失败）');
@@ -246,10 +255,9 @@ async function finalizeAttachment(asset, req) {
     const client = await getOssClient();
     const destKey = result.object_key.replace('/tmp/', '/');
     try {
-      await client.copy(destKey, result.object_key);
-      await client.delete(result.object_key);
-      result.object_key = destKey;
-      result.url = withQueryToken(buildOssUrl(destKey), req);
+    await client.copy(destKey, result.object_key);
+    await client.delete(result.object_key);
+    result.object_key = destKey;
     } catch (e) {
       console.warn('OSS 复制/删除临时文件失败:', e.message);
       throw new Error('保存附件失败（OSS 文件搬运失败）');
@@ -259,10 +267,9 @@ async function finalizeAttachment(asset, req) {
     const client = await getOssClient();
     const destKey = buildOssObjectKey(path.basename(result.object_key));
     try {
-      await client.copy(destKey, result.object_key);
-      await client.delete(result.object_key);
-      result.object_key = destKey;
-      result.url = withQueryToken(buildOssUrl(destKey), req);
+    await client.copy(destKey, result.object_key);
+    await client.delete(result.object_key);
+    result.object_key = destKey;
     } catch (e) {
       console.warn('OSS 复制/删除临时文件失败:', e.message);
       throw new Error('保存附件失败（OSS 文件搬运失败）');
@@ -276,19 +283,34 @@ function normalizeAttachmentsPayload(arr) {
   return arr
     .map((x) => {
       if (!x || typeof x !== 'object') return null;
-      if (!x.url || !x.storage) return null;
+      if (!x.storage || !x.object_key) return null;
       return {
-        url: String(x.url),
         storage: x.storage === 'oss' ? 'oss' : 'local',
         filename: x.filename ? String(x.filename) : '',
         original_name: x.original_name ? String(x.original_name) : '',
-        object_key: x.object_key ? String(x.object_key) : '',
+        object_key: String(x.object_key),
         mime_type: x.mime_type ? String(x.mime_type) : '',
         size_bytes: Number.isFinite(Number(x.size_bytes)) ? Number(x.size_bytes) : undefined
       };
     })
     .filter(Boolean)
     .slice(0, MAX_FILES);
+}
+
+function normalizeAttachmentsPayloadStrict(arr) {
+  if (arr === undefined) return undefined;
+  if (!Array.isArray(arr)) {
+    const err = new Error('attachments 必须为数组');
+    err.status = 400;
+    throw err;
+  }
+  const normalized = normalizeAttachmentsPayload(arr);
+  if (normalized.length !== arr.length) {
+    const err = new Error('attachments 中存在无效项（必须包含 storage + object_key）');
+    err.status = 400;
+    throw err;
+  }
+  return normalized;
 }
 
 // ----- CRUD / Search -----
@@ -332,9 +354,14 @@ const createFaultCase = async (req, res) => {
     }
 
     const relatedIds = await validateRelatedErrorCodes(related_error_code_ids);
-    const normalizedAttachments = normalizeAttachmentsPayload(attachments);
+    const normalizedAttachments = normalizeAttachmentsPayloadStrict(attachments) || [];
     const finalized = [];
     for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
+    const persistedAttachments = finalized.map((a) => {
+      if (!a) return a;
+      const { url, ...rest } = a;
+      return rest;
+    });
 
     const faultCase = await FaultCase.create({
       source: src,
@@ -348,14 +375,20 @@ const createFaultCase = async (req, res) => {
       equipment_model: Array.isArray(equipment_model) ? equipment_model.filter(m => m && String(m).trim()).map(m => String(m).trim()) : (equipment_model ? [String(equipment_model).trim()] : []),
       keywords: parseKeywords(keywords),
       related_error_code_ids: relatedIds,
-      attachments: finalized,
+      attachments: persistedAttachments,
       status: String(status || '').trim(), // 工作流状态，对应 fault_case_statuses 表的 status_key
       created_by: req.user.id,
       updated_by: req.user.id
     });
 
-    return res.status(201).json({ message: req.t('shared.created'), faultCase });
+    return res.status(201).json({
+      message: req.t('shared.created'),
+      faultCase: normalizeFaultCaseAttachmentsForResponse(faultCase.toObject(), req)
+    });
   } catch (err) {
+    if (err && err.status === 400) {
+      return res.status(400).json({ message: err.message });
+    }
     console.error('createFaultCase error:', err);
     return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
@@ -415,10 +448,14 @@ const updateFaultCase = async (req, res) => {
     if (keywords !== undefined) patch.keywords = parseKeywords(keywords);
     if (related_error_code_ids !== undefined) patch.related_error_code_ids = await validateRelatedErrorCodes(related_error_code_ids);
     if (attachments !== undefined) {
-      const normalizedAttachments = normalizeAttachmentsPayload(attachments);
+      const normalizedAttachments = normalizeAttachmentsPayloadStrict(attachments);
       const finalized = [];
       for (const a of normalizedAttachments) finalized.push(await finalizeAttachment(a, req));
-      patch.attachments = finalized;
+      patch.attachments = finalized.map((a) => {
+        if (!a) return a;
+        const { url, ...rest } = a;
+        return rest;
+      });
     }
     if (status !== undefined) patch.status = String(status || '').trim();
 
@@ -435,8 +472,14 @@ const updateFaultCase = async (req, res) => {
     if (Object.keys(unset).length) updateOps.$unset = unset;
     const updated = await FaultCase.findByIdAndUpdate(id, updateOps, { new: true });
 
-    return res.json({ message: req.t('shared.updated'), faultCase: updated });
+    return res.json({
+      message: req.t('shared.updated'),
+      faultCase: normalizeFaultCaseAttachmentsForResponse(updated.toObject(), req)
+    });
   } catch (err) {
+    if (err && err.status === 400) {
+      return res.status(400).json({ message: err.message });
+    }
     console.error('updateFaultCase error:', err);
     return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
@@ -555,11 +598,17 @@ const searchFaultCases = async (req, res) => {
 
     if (and.length) filter.$and = and;
 
-    const docs = await FaultCase.aggregate([
+    // 打印查询语句
+    const queryPipeline = [
       { $match: filter },
       { $sort: { updatedAt: -1 } },
       { $limit: limit }
-    ]);
+    ];
+    console.log('[故障案例查询] MongoDB 查询语句:');
+    console.log(JSON.stringify(queryPipeline, null, 2));
+    console.log('[故障案例查询] 查询参数:', { q, errorCode, limit, mine });
+
+    const docs = await FaultCase.aggregate(queryPipeline);
 
     const out = [];
     for (const d of docs) out.push(normalizeFaultCaseAttachmentsForResponse(await overlayI18nIfNeeded(req, d), req));

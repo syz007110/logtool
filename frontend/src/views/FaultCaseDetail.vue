@@ -93,9 +93,20 @@
           <el-table v-else :data="faultCase.attachments" style="width: 100%">
             <el-table-column prop="original_name" :label="$t('faultCases.columns.attachment')" min-width="240">
               <template #default="{ row }">
-                <a :href="row.url" target="_blank" rel="noopener noreferrer">
-                  {{ row.original_name || row.filename || row.url }}
-                </a>
+                <div class="attachment-cell">
+                  <el-image
+                    v-if="isImageAttachment(row) && row.url"
+                    :src="row.url"
+                    :preview-src-list="attachmentImagePreviewUrls"
+                    :initial-index="getAttachmentImageIndex(row)"
+                    :preview-teleported="true"
+                    fit="cover"
+                    class="attachment-thumb"
+                  />
+                  <a :href="row.url" target="_blank" rel="noopener noreferrer">
+                    {{ row.original_name || row.filename || row.url }}
+                  </a>
+                </div>
               </template>
             </el-table-column>
             <el-table-column prop="mime_type" :label="$t('faultCases.columns.mime')" width="200" show-overflow-tooltip />
@@ -295,6 +306,29 @@ export default {
       return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
     }
 
+    const isImageAttachment = (a) => {
+      if (!a) return false
+      const mime = String(a.mime_type || a.mimeType || '').toLowerCase()
+      if (mime.startsWith('image/')) return true
+      const name = String(a.original_name || a.filename || '').toLowerCase()
+      return /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(name)
+    }
+
+    const attachmentImagePreviewUrls = computed(() => {
+      const list = faultCase.value?.attachments || []
+      return list
+        .filter(isImageAttachment)
+        .map(a => a?.url)
+        .filter(Boolean)
+    })
+
+    const getAttachmentImageIndex = (row) => {
+      const url = row?.url
+      if (!url) return 0
+      const idx = attachmentImagePreviewUrls.value.findIndex(u => u === url)
+      return idx >= 0 ? idx : 0
+    }
+
     const loadStatuses = async () => {
       try {
         const resp = await api.faultCaseStatuses.getList({ is_active: true })
@@ -381,6 +415,9 @@ export default {
       canDelete,
       formatDate,
       formatSize,
+      isImageAttachment,
+      attachmentImagePreviewUrls,
+      getAttachmentImageIndex,
       goBack,
       goEdit,
       handleDelete,
@@ -443,6 +480,19 @@ export default {
   color: var(--el-text-color-secondary);
   margin-top: 4px;
   font-style: italic;
+}
+
+.attachment-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attachment-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  flex: 0 0 auto;
 }
 </style>
 

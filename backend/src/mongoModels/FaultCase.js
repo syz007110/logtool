@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const AttachmentSchema = new mongoose.Schema({
-  url: { type: String, required: true },
+  // 仅存路径/Key（object_key）；url 在接口响应时按 object_key 动态生成
   storage: { type: String, enum: ['local', 'oss'], required: true },
   filename: { type: String },
   original_name: { type: String },

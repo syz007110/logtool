@@ -36,7 +36,7 @@
           <!-- 故障码管理 -->
           <el-sub-menu index="data-management">
             <template #title>
-              <el-icon :size="20"><Folder /></el-icon>
+              <el-icon :size="20"><Files /></el-icon>
               <span>{{ $t('nav.dataManagement') }}</span>
             </template>
             <el-menu-item index="/dashboard/error-codes">
@@ -48,7 +48,7 @@
             <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:read')" index="/dashboard/fault-cases">
               {{ $t('faultCases.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('loglevel:manage')" index="/dashboard/config-management">
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:manage')" index="/dashboard/config-management">
               {{ $t('configManagement.title') }}
             </el-menu-item>
           </el-sub-menu>
@@ -113,7 +113,7 @@
           
           <!-- 测试 -->
           <el-menu-item v-if="$store.getters['auth/hasPermission']('test:explain')" index="/dashboard/explanation-tester">
-            <el-icon :size="20"><Tools /></el-icon>
+            <el-icon :size="20"><Aim /></el-icon>
             <template #title>{{ $t('nav.test') }}</template>
           </el-menu-item>
         </el-menu>
@@ -178,7 +178,7 @@
           <!-- 语言切换 -->
           <el-dropdown trigger="click" @command="handleLanguageChange">
             <el-button text class="lang-btn">
-              <el-icon><Globe /></el-icon>
+              <Earth theme="outline" size="20" fill="#333" class="lang-icon" />
               {{ currentLocaleLabel }}
             </el-button>
             <template #dropdown>
@@ -211,22 +211,37 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
   Search,
-  Folder,
+  Files,
   Document,
   Grid,
   Warning,
   User,
   Setting,
-  Tools,
+  Aim,
   Fold,
   Expand,
-  Globe,
   SwitchButton,
   ArrowDown
 } from '@element-plus/icons-vue'
+import { Earth } from '@icon-park/vue-next'
 
 export default {
   name: 'Dashboard',
+  components: {
+    Search,
+    Files,
+    Document,
+    Grid,
+    Warning,
+    User,
+    Setting,
+    Aim,
+    Fold,
+    Expand,
+    SwitchButton,
+    ArrowDown,
+    Earth
+  },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -704,6 +719,10 @@ export default {
 
 .lang-btn {
   color: var(--slate-600); /* 使用基础颜色值 - 次要文字颜色 */
+}
+
+.lang-btn .lang-icon {
+  margin-right: 6px;
 }
 
 .dashboard-content {

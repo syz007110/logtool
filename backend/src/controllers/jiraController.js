@@ -1,7 +1,177 @@
-const { getJiraConfig, searchIssues, getIssue } = require('../services/jiraService');
+const path = require('path');
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
+const { getJiraConfig, searchIssues, getIssue, downloadJiraAttachmentToFile } = require('../services/jiraService');
 const { connectMongo, isMongoConnected } = require('../config/mongodb');
 const FaultCase = require('../mongoModels/FaultCase');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+
+const {
+  STORAGE,
+  TMP_DIR,
+  MAX_FILES,
+  MAX_FILE_SIZE,
+  ALLOWED_MIMES,
+  ensureTempDir,
+  getOssClient,
+  buildOssUrl,
+  buildTempOssObjectKey,
+  buildTempLocalUrl
+} = require('../config/faultCaseStorage');
+
+function safeUnlink(p) {
+  try {
+    if (p && fs.existsSync(p)) fs.unlinkSync(p);
+  } catch (_) {}
+}
+
+function safeFilename(name, fallback = 'file') {
+  const base = path.basename(String(name || '').trim() || fallback);
+  return base.replace(/[\r\n"]/g, '_');
+}
+
+function getBearerToken(req) {
+  const raw = req?.headers?.authorization || req?.get?.('authorization') || '';
+  const parts = String(raw).split(' ');
+  if (parts.length === 2 && /^bearer$/i.test(parts[0])) return parts[1];
+  return '';
+}
+
+function withQueryToken(urlStr, req) {
+  const token = getBearerToken(req);
+  if (!token) return urlStr;
+  if (!urlStr || !String(urlStr).includes('/api/oss/')) return urlStr;
+  if (String(urlStr).includes('token=')) return urlStr;
+  const sep = String(urlStr).includes('?') ? '&' : '?';
+  return `${urlStr}${sep}token=${encodeURIComponent(token)}`;
+}
+
+function buildJiraAuthHeaders(cfg) {
+  const headers = {};
+  if (!cfg || !cfg.enabled) return headers;
+  if (cfg.authType === 'basic') {
+    const raw = `${cfg.username}:${cfg.apiToken}`;
+    const token = Buffer.from(raw, 'utf8').toString('base64');
+    headers.Authorization = `Basic ${token}`;
+  } else if (cfg.authType === 'bearer') {
+    headers.Authorization = `Bearer ${cfg.bearerToken}`;
+  }
+  return headers;
+}
+
+function isPrivateHost(hostname) {
+  const h = String(hostname || '').trim().toLowerCase();
+  if (!h) return true;
+  if (h === 'localhost' || h === '::1') return true;
+  if (h.endsWith('.local') || h.endsWith('.internal')) return true;
+
+  // IPv4 private ranges (best-effort, without DNS resolve)
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) {
+    const [a, b] = h.split('.').map((x) => Number.parseInt(x, 10));
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    return false;
+  }
+  return false;
+}
+
+async function proxyStreamWithRedirects(startUrl, res, { headers, timeoutMs, maxBytes } = {}) {
+  const MAX_REDIRECTS = 5;
+  let redirects = 0;
+
+  const doOnce = (currentUrl) => new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(String(currentUrl || '').trim());
+    } catch (e) {
+      return reject(new Error('Invalid url'));
+    }
+    const isHttps = parsed.protocol === 'https:';
+    const client = isHttps ? https : http;
+
+    const req = client.request({
+      protocol: parsed.protocol,
+      hostname: parsed.hostname,
+      port: parsed.port,
+      path: `${parsed.pathname}${parsed.search || ''}`,
+      method: 'GET',
+      headers: headers || {}
+    }, (up) => {
+      const status = up.statusCode || 0;
+
+      if ([301, 302, 303, 307, 308].includes(status) && up.headers.location && redirects < MAX_REDIRECTS) {
+        redirects += 1;
+        const nextUrl = new URL(up.headers.location, parsed).toString();
+        up.resume();
+        return resolve({ redirect: true, nextUrl });
+      }
+
+      if (status < 200 || status >= 300) {
+        up.resume();
+        const err = new Error(`Upstream failed: ${status}`);
+        err.status = status;
+        return reject(err);
+      }
+
+      const len = Number.parseInt(up.headers['content-length'] || '0', 10) || 0;
+      if (maxBytes && len && len > maxBytes) {
+        up.resume();
+        const err = new Error(`File too large: ${len}`);
+        err.status = 413;
+        return reject(err);
+      }
+
+      const passthrough = ['content-type', 'content-length', 'cache-control', 'etag', 'last-modified'];
+      for (const h of passthrough) {
+        if (up.headers[h]) res.setHeader(h, up.headers[h]);
+      }
+      if (!res.getHeader('cache-control')) {
+        res.setHeader('cache-control', 'private, max-age=300');
+      }
+
+      res.status(status);
+
+      let received = 0;
+      up.on('data', (chunk) => {
+        received += chunk.length;
+        if (maxBytes && received > maxBytes) {
+          try { req.destroy(new Error('File too large')); } catch (_) {}
+        }
+      });
+      up.on('error', (e) => reject(e));
+      up.on('end', () => resolve({ redirect: false }));
+      up.pipe(res);
+    });
+
+    req.on('error', (e) => reject(e));
+    req.setTimeout(timeoutMs || 8000, () => {
+      try { req.destroy(new Error('Request timeout')); } catch (_) {}
+      const err = new Error('Proxy timeout');
+      err.code = 'ETIMEDOUT';
+      reject(err);
+    });
+    req.end();
+  });
+
+  let current = String(startUrl || '').trim();
+  while (true) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await doOnce(current);
+    if (!r?.redirect) return;
+    const next = String(r.nextUrl || '');
+    const nextParsed = new URL(next);
+    if (isPrivateHost(nextParsed.hostname)) {
+      const err = new Error('Forbidden redirect host');
+      err.status = 403;
+      throw err;
+    }
+    current = next;
+  }
+}
 
 async function ensureMongoReady() {
   await connectMongo();
@@ -125,461 +295,22 @@ async function searchJiraIssues(req, res) {
 
 // Mixed search: Jira issues + Mongo fault cases in one list (sorted by updated desc, backend pagination)
 async function searchJiraIssuesMixed(req, res) {
-  const cfg = getJiraConfig();
-  const q = (req.query.q || req.query.keyword || '').toString().trim();
-
-  const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.JIRA);
-
-  // Two-stage aggregation strategy:
-  // - MongoDB: stable internal dataset -> do precise pagination with skip/limit
-  // - Jira: external system (slow/limited) -> fetch a bounded "window" (top N), then merge
-  const JIRA_WINDOW = Math.min(Math.max(Number.parseInt(req.query.jiraWindow || '50', 10) || 50, 10), 50);
-
-  // Filters (applied to both Jira and MongoDB)
-  const source = req.query.source;
-  const modules = req.query.modules ? (Array.isArray(req.query.modules) ? req.query.modules : [req.query.modules]) : undefined;
-  const moduleKeys = req.query.moduleKeys ? (Array.isArray(req.query.moduleKeys) ? req.query.moduleKeys : [req.query.moduleKeys]) : undefined;
-  const statusKeys = req.query.statusKeys ? (Array.isArray(req.query.statusKeys) ? req.query.statusKeys : [req.query.statusKeys]) : undefined;
-  const updatedFrom = req.query.updatedFrom || req.query.updated_from;
-  const updatedTo = req.query.updatedTo || req.query.updated_to;
-  
-  // 将moduleKeys转换为映射值（按source_field分组）
-  let moduleMappingsByField = {}; // { source_field: [source_value, ...], ... }
-  if (moduleKeys && moduleKeys.length > 0) {
-    try {
-      const FaultCaseModule = require('../models/fault_case_module');
-      const FaultCaseModuleMapping = require('../models/fault_case_module_mapping');
-      const { Op } = require('sequelize');
-      
-      // 先查询模块ID
-      const moduleRecords = await FaultCaseModule.findAll({
-        where: {
-          module_key: { [Op.in]: moduleKeys },
-          is_active: true
-        },
-        attributes: ['id']
-      });
-      
-      if (moduleRecords.length > 0) {
-        const moduleIds = moduleRecords.map(m => m.id);
-        
-        // 查询所有选中模块对应的映射值（包含source_field和source_value）
-        const mappings = await FaultCaseModuleMapping.findAll({
-          where: {
-            is_active: true,
-            module_id: { [Op.in]: moduleIds }
-          },
-          attributes: ['source_field', 'source_value']
-        });
-        
-        // 按source_field分组
-        mappings.forEach(m => {
-          const field = m.source_field || 'default';
-          if (!moduleMappingsByField[field]) {
-            moduleMappingsByField[field] = [];
-          }
-          if (m.source_value) {
-            moduleMappingsByField[field].push(m.source_value);
-          }
-        });
-        
-        // 去重
-        Object.keys(moduleMappingsByField).forEach(field => {
-          moduleMappingsByField[field] = [...new Set(moduleMappingsByField[field])].filter(Boolean);
-        });
-      }
-    } catch (err) {
-      console.error('转换模块映射失败:', err);
-      moduleMappingsByField = {};
-    }
-  }
-  
-  // 为了向后兼容，如果使用了旧的modules参数且没有moduleKeys，则保持原逻辑
-  // 否则，使用映射后的值
-  let finalModules = modules;
-  if (moduleKeys && moduleKeys.length > 0) {
-    // 合并所有字段的映射值（用于向后兼容，但实际查询时会按字段分组）
-    const allModuleValues = Object.values(moduleMappingsByField).flat();
-    if (allModuleValues.length > 0) {
-      finalModules = allModuleValues;
-    }
-  }
-  
-  // 将statusKeys转换为映射值
-  let statuses = undefined;
-  if (statusKeys && statusKeys.length > 0) {
-    try {
-      const FaultCaseStatus = require('../models/fault_case_status');
-      const FaultCaseStatusMapping = require('../models/fault_case_status_mapping');
-      const { Op } = require('sequelize');
-      
-      // 先查询状态ID
-      const statusRecords = await FaultCaseStatus.findAll({
-        where: {
-          status_key: { [Op.in]: statusKeys },
-          is_active: true
-        },
-        attributes: ['id']
-      });
-      
-      if (statusRecords.length > 0) {
-        const statusIds = statusRecords.map(s => s.id);
-        
-        // 查询所有选中状态对应的映射值
-        const mappings = await FaultCaseStatusMapping.findAll({
-          where: {
-            is_active: true,
-            status_id: { [Op.in]: statusIds }
-          },
-          attributes: ['source_value']
-        });
-        
-        // 提取所有映射值，去重
-        statuses = [...new Set(mappings.map(m => m.source_value))].filter(Boolean);
-      }
-    } catch (err) {
-      console.error('转换状态映射失败:', err);
-      statuses = undefined;
-    }
-  }
-
-  // ---- Jira ----
-  let jiraResp;
-  if (!cfg.enabled) {
-    jiraResp = {
-      ok: true,
-      enabled: false,
-      issues: [],
-      items: [],
-      total: 0,
-      page: 1,
-      limit: 0,
-      startAt: 0,
-      maxResults: 0,
-      message: 'Jira integration is not configured'
-    };
-  } else if (q && q.length > 200) {
-    jiraResp = {
-      ok: false,
-      enabled: true,
-      issues: [],
-      items: [],
-      total: 0,
-      page: 1,
-      limit: 0,
-      startAt: 0,
-      maxResults: 0,
-      message: '关键词过长（最多200字符）'
-    };
-  } else {
-    try {
-      jiraResp = await searchIssues({
-        q,
-        page: 1,
-        // bounded window for Jira
-        limit: JIRA_WINDOW,
-        modules: finalModules,
-        moduleMappingsByField: Object.keys(moduleMappingsByField).length > 0 ? moduleMappingsByField : undefined,
-        statuses,
-        updatedFrom,
-        updatedTo
-      });
-    } catch (err) {
-      // 提取 Jira 返回的具体错误信息
-      let jiraErrorMsg = '';
-      if (err?.body) {
-        if (typeof err.body === 'object' && err.body.errorMessages) {
-          jiraErrorMsg = Array.isArray(err.body.errorMessages) 
-            ? err.body.errorMessages.join('; ') 
-            : String(err.body.errorMessages);
-        } else if (typeof err.body === 'object' && err.body.message) {
-          jiraErrorMsg = String(err.body.message);
-        } else if (typeof err.body === 'string') {
-          jiraErrorMsg = err.body;
-        }
-      }
-      
-      console.warn('[jira] mixed search failed (jira part):', err?.status || err?.code || '', err?.message || err);
-      if (jiraErrorMsg) {
-        console.warn('[jira] Jira error message:', jiraErrorMsg);
-      }
-      
-      // 根据错误类型提供更明确的提示
-      let message = 'Jira 搜索失败';
-      const errCode = err?.code || '';
-      const errMessage = String(err?.message || '').toLowerCase();
-      
-      // 网络连接错误（通常是没连 VPN 或无法访问 JIRA 服务器）
-      if (errCode === 'ECONNREFUSED' || errCode === 'ENOTFOUND' || errCode === 'EHOSTUNREACH' || 
-          errCode === 'ETIMEDOUT' || errMessage.includes('timeout') || errMessage.includes('connect') ||
-          errMessage.includes('refused') || errMessage.includes('not found')) {
-        message = '无法连接到 JIRA 服务器（请检查 VPN 连接或网络配置）';
-      } else if (err?.status === 401 || err?.status === 403) {
-        message = 'JIRA 认证失败（请检查 API Token 或权限配置）';
-      } else if (err?.status === 400) {
-        // 400 错误通常是 JQL 语法错误或字段名无效
-        if (jiraErrorMsg) {
-          message = `JIRA 请求失败（400）: ${jiraErrorMsg}`;
-        } else {
-          message = 'JIRA 请求失败（400）: JQL 语法错误或字段名无效，请检查筛选条件';
-        }
-      } else if (err?.status >= 400 && err?.status < 500) {
-        message = jiraErrorMsg ? `JIRA 请求失败（${err.status}）: ${jiraErrorMsg}` : `JIRA 请求失败（错误代码: ${err.status}）`;
-      } else if (err?.status >= 500) {
-        message = 'JIRA 服务器错误，请稍后重试';
-      } else {
-        message = 'Jira 搜索失败（请检查后端配置、网络或权限）';
-      }
-      
-      jiraResp = {
-        ok: false,
-        enabled: true,
-        issues: [],
-        items: [],
-        total: 0,
-        page: 1,
-        limit: JIRA_WINDOW,
-        startAt: 0,
-        maxResults: JIRA_WINDOW,
-        message
-      };
-    }
-  }
-
-  const jiraItemsRaw = Array.isArray(jiraResp?.items) ? jiraResp.items : (Array.isArray(jiraResp?.issues) ? jiraResp.issues : []);
-  const jiraItems = jiraItemsRaw.map((it) => ({ ...(it || {}), source: 'jira' }));
-  const jiraTotal = Number.isFinite(Number(jiraResp?.total)) ? Number(jiraResp.total) : jiraItems.length;
-
-  // ---- Mongo fault cases ----
-  let mongoOk = true;
-  let mongoMessage = '';
-  let mongoTotal = 0;
-  let mongoItems = [];
-
-  try {
-    const mongoReady = await ensureMongoReady();
-    if (!mongoReady) {
-      mongoOk = false;
-      mongoMessage = 'MongoDB 未连接，故障案例功能不可用';
-    } else if (!q) {
-      // When no keyword, keep old behavior: this mixed endpoint is for keyword search
-      mongoItems = [];
-      mongoTotal = 0;
-    } else {
-      const mine = String(req.query.mine || '').toLowerCase() === '1' || String(req.query.mine || '').toLowerCase() === 'true';
-      const keywords = parseKeywords(q);
-      
-      // MongoDB $text search limitation: $text must be at top level and cannot be mixed with $or in $and
-      // Solution: Use regex-based search instead of $text for better compatibility
-      const filter = {};
-
-      // Visibility condition
-      if (mine) {
-        filter.created_by = req.user.id;
-      }
-      // 否则不添加筛选条件，返回所有记录（数据库中的记录都是已发布状态）
-
-      // Source filter (manual/jira)
-      if (source) {
-        filter.source = source;
-      }
-
-      // Module filter - 支持通过映射表查询（多个字段OR条件）
-      if (moduleKeys && moduleKeys.length > 0 && Object.keys(moduleMappingsByField).length > 0) {
-        // 构建OR条件：多个字段的映射值
-        const moduleOrConditions = [];
-        Object.keys(moduleMappingsByField).forEach(field => {
-          const values = moduleMappingsByField[field];
-          if (values.length > 0) {
-            // 根据source_field映射到MongoDB字段
-            // 常见映射：'component' -> 'module', 'module' -> 'module', 'subsystem' -> 'subsystem' 等
-            const mongoField = field === 'default' ? 'module' : field;
-            moduleOrConditions.push({ [mongoField]: { $in: values } });
-          }
-        });
-        if (moduleOrConditions.length > 0) {
-          // 模块筛选条件（多个字段OR）
-          const moduleFilter = moduleOrConditions.length === 1 
-            ? moduleOrConditions[0] 
-            : { $or: moduleOrConditions };
-          
-          // 如果有可见性$or条件，需要使用$and来组合
-          if (filter.$or && Array.isArray(filter.$or)) {
-            filter.$and = [
-              { $or: filter.$or }, // 可见性条件
-              moduleFilter // 模块筛选条件
-            ];
-            delete filter.$or;
-          } else {
-            // 没有可见性$or条件，直接添加模块筛选
-            Object.assign(filter, moduleFilter);
-          }
-        }
-      } else if (finalModules && finalModules.length > 0) {
-        // 向后兼容：直接使用modules参数
-        filter.module = { $in: finalModules };
-      }
-
-      // Status filter - MongoDB fault cases don't have status field, skip this filter for MongoDB
-      // Date range filter
-      if (updatedFrom || updatedTo) {
-        const dateFilter = {};
-        if (updatedFrom) {
-          dateFilter.$gte = new Date(updatedFrom);
-        }
-        if (updatedTo) {
-          dateFilter.$lte = new Date(updatedTo);
-        }
-        filter.updatedAt = dateFilter;
-      }
-
-      // Search condition: use regex on text fields + keywords match
-      const searchConditions = [];
-      const searchRegex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      searchConditions.push(
-        { title: searchRegex },
-        { symptom: searchRegex },
-        { possible_causes: searchRegex },
-        { solution: searchRegex },
-        { remark: searchRegex }
-      );
-      if (keywords.length > 0) {
-        searchConditions.push({ keywords: { $in: keywords } });
-      }
-
-      // Combine all conditions with $and
-      const allConditions = [];
-
-      // Add visibility condition
-      if (mine) {
-        allConditions.push({ created_by: req.user.id });
-      }
-      // 否则不添加筛选条件，返回所有记录（数据库中的记录都是已发布状态）
-
-      // Add source filter
-      if (source) {
-        allConditions.push({ source });
-      }
-
-      // Add module filter - 支持通过映射表查询（多个字段OR条件）
-      if (moduleKeys && moduleKeys.length > 0 && Object.keys(moduleMappingsByField).length > 0) {
-        // 构建OR条件：多个字段的映射值
-        const moduleOrConditions = [];
-        Object.keys(moduleMappingsByField).forEach(field => {
-          const values = moduleMappingsByField[field];
-          if (values.length > 0) {
-            // 根据source_field映射到MongoDB字段
-            const mongoField = field === 'default' ? 'module' : field;
-            moduleOrConditions.push({ [mongoField]: { $in: values } });
-          }
-        });
-        if (moduleOrConditions.length > 0) {
-          allConditions.push({ $or: moduleOrConditions });
-        }
-      } else if (finalModules && finalModules.length > 0) {
-        // 向后兼容：直接使用modules参数
-        allConditions.push({ module: { $in: finalModules } });
-      }
-
-      // Add date range filter
-      if (updatedFrom || updatedTo) {
-        const dateFilter = {};
-        if (updatedFrom) {
-          dateFilter.$gte = new Date(updatedFrom);
-        }
-        if (updatedTo) {
-          dateFilter.$lte = new Date(updatedTo);
-        }
-        allConditions.push({ updatedAt: dateFilter });
-      }
-
-      // Add search condition
-      allConditions.push({ $or: searchConditions });
-
-      filter.$and = allConditions;
-
-      mongoTotal = await FaultCase.countDocuments(filter);
-
-      // Precise pagination for Mongo, with a small "offset correction window" to account for Jira items
-      // potentially appearing before Mongo items in the unified sorted list.
-      const start = (page - 1) * limit;
-      const mongoSkip = Math.max(0, start - JIRA_WINDOW);
-      const mongoLimit = limit + (JIRA_WINDOW * 2);
-
-      const docs = await FaultCase.aggregate([
-        { $match: filter },
-        { $sort: { updatedAt: -1 } },
-        { $skip: mongoSkip },
-        { $limit: mongoLimit }
-      ]);
-
-      const baseUrl = jiraResp?.baseUrl || cfg.baseUrl || '';
-      mongoItems = (docs || []).map((d) => {
-        const id = d?._id ? String(d._id) : '';
-        const jiraKey = d?.jira_key ? String(d.jira_key).trim() : '';
-        const key = jiraKey || (id ? `FC-${id.slice(-6).toUpperCase()}` : '');
-        const updated = d?.updatedAt || d?.createdAt || null;
-        const url = (jiraKey && baseUrl) ? `${baseUrl.replace(/\/+$/, '')}/browse/${encodeURIComponent(jiraKey)}` : '';
-        return {
-          source: 'mongo',
-          key,
-          jira_key: jiraKey,
-          fault_case_id: id,
-          module: d?.module || '',
-          summary: d?.title || '',
-          status: d?.status || '',
-          updated,
-          url
-        };
-      }).filter((x) => x && x.key);
-    }
-  } catch (err) {
-    mongoOk = false;
-    mongoMessage = 'MongoDB 搜索失败';
-    console.warn('[jira] mixed search failed (mongo part):', err?.message || err);
-  }
-
-  // ---- merge + sort + slice ----
-  // Total should reflect actual fetchable data:
-  // - JIRA: only top JIRA_WINDOW items are available (even if jiraTotal reports more)
-  //   Use actual returned count if jiraTotal is not available
-  // - MongoDB: all matching items are available
-  const jiraActualCount = jiraItems.length;
-  // If jiraTotal exists, cap it at JIRA_WINDOW; otherwise use actual count (also capped)
-  const jiraActualTotal = jiraTotal 
-    ? Math.min(jiraTotal, JIRA_WINDOW)
-    : Math.min(jiraActualCount, JIRA_WINDOW);
-  const total = jiraActualTotal + (mongoTotal || 0);
-  let items = [];
-  let message = jiraResp?.message || '';
-
-  // Merge Jira top-window + Mongo paged-window, then slice relative to mongoSkip
-  const merged = [...jiraItems, ...mongoItems].sort((a, b) => safeDateMs(b?.updated) - safeDateMs(a?.updated));
-  const startAbs = (page - 1) * limit;
-  const mongoSkipForSlice = Math.max(0, startAbs - JIRA_WINDOW);
-  const startLocal = Math.max(0, startAbs - mongoSkipForSlice);
-  items = merged.slice(startLocal, startLocal + limit);
-  
-  // If we've exhausted available data but total was higher, adjust total to reflect reality
-  // This prevents showing "815 results" when only ~50 JIRA + some Mongo items are actually available
-  if (items.length === 0 && startAbs >= total) {
-    // Page is beyond available data, but we already adjusted total above
-  }
-
-  return res.json({
-    ok: jiraResp?.ok !== false,
-    enabled: jiraResp?.enabled !== false,
-    message,
-    // extra info for troubleshooting mongo problems, while keeping old jira response contract intact
-    mongo_ok: mongoOk,
-    mongo_message: mongoMessage,
-    total,
-    page,
-    limit,
-    // keep backward compatible keys for existing UIs
-    issues: items,
-    items
+  const { runJiraMongoMixedSearch } = require('../services/jiraMixedSearchService');
+  const resp = await runJiraMongoMixedSearch({
+    user: req.user,
+    q: req.query.q || req.query.keyword || '',
+    page: req.query.page,
+    limit: req.query.limit,
+    jiraWindow: req.query.jiraWindow,
+    source: req.query.source,
+    modules: req.query.modules,
+    moduleKeys: req.query.moduleKeys,
+    statusKeys: req.query.statusKeys,
+    updatedFrom: req.query.updatedFrom || req.query.updated_from,
+    updatedTo: req.query.updatedTo || req.query.updated_to,
+    mine: req.query.mine
   });
+  return res.json(resp);
 }
 
 module.exports = {
@@ -620,6 +351,198 @@ module.exports = {
       }
       
       return res.json({ ok: false, enabled: true, issue: null, message });
+    }
+  },
+  // Stream Jira attachment via backend so browser can render images without Jira CORS/auth.
+  // Only allow proxying urls that start with JIRA_BASE_URL (first hop), then allow redirects to public hosts.
+  proxyJiraAttachment: async (req, res) => {
+    const cfg = getJiraConfig();
+    if (!cfg.enabled) {
+      return res.status(400).json({ message: 'Jira integration is not configured' });
+    }
+
+    const rawUrl = String(req.query.url || '').trim();
+    if (!rawUrl) return res.status(400).json({ message: 'url required' });
+
+    let parsed;
+    let base;
+    try {
+      parsed = new URL(rawUrl);
+      base = new URL(cfg.baseUrl);
+    } catch (_) {
+      return res.status(400).json({ message: 'invalid url' });
+    }
+
+    if (!/^https?:$/.test(parsed.protocol)) return res.status(400).json({ message: 'invalid protocol' });
+
+    // first hop must be Jira base host (avoid open proxy / SSRF)
+    if (String(parsed.hostname).toLowerCase() !== String(base.hostname).toLowerCase()) {
+      return res.status(403).json({ message: 'forbidden url host' });
+    }
+
+    try {
+      const headers = buildJiraAuthHeaders(cfg);
+      if (req.headers.range) headers.Range = req.headers.range;
+      const maxBytes = Number.isFinite(Number(MAX_FILE_SIZE)) ? Number(MAX_FILE_SIZE) : (50 * 1024 * 1024);
+      await proxyStreamWithRedirects(rawUrl, res, { headers, timeoutMs: cfg.timeoutMs, maxBytes });
+    } catch (err) {
+      const status = err?.status || err?.statusCode || 500;
+      const message = err?.message || 'proxy failed';
+      console.warn('[jira] proxy attachment failed:', status, message);
+      if (!res.headersSent) return res.status(status).json({ message });
+    }
+  },
+  // Preview Jira issue attachments by downloading them into fault-case temp storage.
+  // This avoids browser CORS/auth issues when directly using Jira attachment URLs.
+  previewJiraIssueAttachments: async (req, res) => {
+    const cfg = getJiraConfig();
+    if (!cfg.enabled) {
+      return res.status(400).json({ message: 'Jira integration is not configured' });
+    }
+    const key = (req.params.key || '').toString().trim();
+    if (!key) return res.status(400).json({ message: 'issue key required' });
+
+    try {
+      const issueResp = await getIssue(key);
+      const issue = issueResp?.issue || null;
+      const list = Array.isArray(issue?.attachments) ? issue.attachments : [];
+      if (!list.length) return res.json({ success: true, files: [] });
+
+      const previewFiles = [];
+      const limited = list.slice(0, MAX_FILES);
+
+      for (const att of limited) {
+        const originalName = safeFilename(att?.filename || 'file');
+        const mimeType = String(att?.mimeType || '').trim();
+        const size = Number.isFinite(Number(att?.size)) ? Number(att.size) : 0;
+
+        if (size && size > MAX_FILE_SIZE) continue;
+        if (ALLOWED_MIMES.length && mimeType && !ALLOWED_MIMES.includes(mimeType)) continue;
+
+        const contentUrl = String(att?.content || '').trim();
+        if (!contentUrl) continue;
+
+        const tmpLocalDir = ensureTempDir();
+        const localTmpName = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}-${originalName}`;
+        const localTmpPath = path.resolve(tmpLocalDir, localTmpName);
+
+        try {
+          await downloadJiraAttachmentToFile(contentUrl, localTmpPath, { maxBytes: MAX_FILE_SIZE });
+
+          if (STORAGE === 'oss') {
+            const client = await getOssClient();
+            const objectKey = buildTempOssObjectKey(localTmpName);
+            await client.put(objectKey, localTmpPath);
+            safeUnlink(localTmpPath);
+            previewFiles.push({
+              storage: 'oss',
+              object_key: objectKey,
+              filename: localTmpName,
+              original_name: originalName,
+              mime_type: mimeType,
+              size_bytes: size || undefined,
+              url: withQueryToken(buildOssUrl(objectKey), req)
+            });
+          } else {
+            previewFiles.push({
+              storage: 'local',
+              object_key: `tmp/${localTmpName}`,
+              filename: localTmpName,
+              original_name: originalName,
+              mime_type: mimeType,
+              size_bytes: size || undefined,
+              url: buildTempLocalUrl(localTmpName)
+            });
+          }
+        } catch (e) {
+          safeUnlink(localTmpPath);
+        }
+      }
+
+      return res.json({ success: true, files: previewFiles });
+    } catch (err) {
+      console.warn('[jira] preview attachments failed:', err?.status || err?.code || '', err?.message || err);
+      return res.status(500).json({ message: '预览JIRA附件失败', error: err.message });
+    }
+  },
+  // Import Jira issue attachments into fault-case temp storage and return object_key list for form usage.
+  importJiraIssueAttachments: async (req, res) => {
+    const cfg = getJiraConfig();
+    if (!cfg.enabled) {
+      return res.status(400).json({ message: 'Jira integration is not configured' });
+    }
+    const key = (req.params.key || '').toString().trim();
+    if (!key) return res.status(400).json({ message: 'issue key required' });
+
+    try {
+      const issueResp = await getIssue(key);
+      const issue = issueResp?.issue || null;
+      const list = Array.isArray(issue?.attachments) ? issue.attachments : [];
+      if (!list.length) return res.json({ success: true, files: [] });
+
+      const imported = [];
+      const limited = list.slice(0, MAX_FILES);
+
+      for (const att of limited) {
+        const originalName = safeFilename(att?.filename || 'file');
+        const mimeType = String(att?.mimeType || '').trim();
+        const size = Number.isFinite(Number(att?.size)) ? Number(att.size) : 0;
+
+        if (size && size > MAX_FILE_SIZE) {
+          // skip oversized
+          continue;
+        }
+        if (ALLOWED_MIMES.length && mimeType && !ALLOWED_MIMES.includes(mimeType)) {
+          // skip unsupported mime
+          continue;
+        }
+
+        const contentUrl = String(att?.content || '').trim();
+        if (!contentUrl) continue;
+
+        const tmpLocalDir = ensureTempDir();
+        const localTmpName = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}-${originalName}`;
+        const localTmpPath = path.resolve(tmpLocalDir, localTmpName);
+
+        try {
+          await downloadJiraAttachmentToFile(contentUrl, localTmpPath, { maxBytes: MAX_FILE_SIZE });
+
+          if (STORAGE === 'oss') {
+            const client = await getOssClient();
+            const objectKey = buildTempOssObjectKey(localTmpName);
+            await client.put(objectKey, localTmpPath);
+            safeUnlink(localTmpPath);
+            imported.push({
+              storage: 'oss',
+              object_key: objectKey,
+              filename: localTmpName,
+              original_name: originalName,
+              mime_type: mimeType,
+              size_bytes: size || undefined,
+              url: withQueryToken(buildOssUrl(objectKey), req)
+            });
+          } else {
+            // local: keep in TMP_DIR
+            imported.push({
+              storage: 'local',
+              object_key: `tmp/${localTmpName}`,
+              filename: localTmpName,
+              original_name: originalName,
+              mime_type: mimeType,
+              size_bytes: size || undefined,
+              url: buildTempLocalUrl(localTmpName)
+            });
+          }
+        } catch (e) {
+          safeUnlink(localTmpPath);
+          // skip failed attachment
+        }
+      }
+
+      return res.json({ success: true, files: imported });
+    } catch (err) {
+      console.warn('[jira] import attachments failed:', err?.status || err?.code || '', err?.message || err);
+      return res.status(500).json({ message: '导入JIRA附件失败', error: err.message });
     }
   }
 };

@@ -108,14 +108,14 @@ const routes = [
         path: 'config-management',
         name: 'ConfigManagement',
         component: () => import('../views/ConfigManagement.vue'),
-        meta: { requiresPermission: 'loglevel:manage' }
+        meta: { requiresPermission: 'fault_case:manage' }
       },
       {
         // 兼容旧入口：日志分析等级 -> 配置管理
         path: 'analysis-categories',
         name: 'AnalysisCategories',
         redirect: '/dashboard/config-management',
-        meta: { requiresPermission: 'loglevel:manage' }
+        meta: { requiresPermission: 'fault_case:manage' }
       },
       {
         path: 'logs',

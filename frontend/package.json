@@ -13,6 +13,7 @@
     "@antv/f2": "^4.0.51",
     "@element-plus/icons-vue": "^2.1.0",
     "@fortawesome/fontawesome-free": "^6.4.0",
+    "@icon-park/vue-next": "^1.4.2",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.4.0",
     "bull": "^4.16.5",

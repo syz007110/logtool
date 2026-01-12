@@ -248,8 +248,11 @@
   },
   "login": {
     "title": "故障码管理工具",
+    "welcomeBack": "欢迎回来",
+    "welcomeSubtitle": "请登录您的账户",
     "username": "用户名",
     "password": "密码",
+    "forgotPassword": "忘记密码？",
     "login": "登录",
     "dingtalkScan": "钉钉扫码登录",
     "tabPassword": "账号密码登录",
@@ -1625,7 +1628,30 @@
     "welcomeText": "我可以帮您查询故障码、分析日志、解答技术问题。输入您的问题开始对话，或上传日志文件进行分析。",
     "emptyState": "开始输入您的问题，或选择日志分析并上传日志文件",
     "expandSidebar": "展开侧边栏",
-    "collapseSidebar": "折叠侧边栏"
+    "collapseSidebar": "折叠侧边栏",
+    "llmProvider": "模型",
+    "llmProviderLoading": "模型加载中",
+    "llmProviderUnavailable": "不可用",
+    "backToDashboard": "返回仪表板",
+    "today": "今天",
+    "yesterday": "昨天",
+    "welcomeQuestion": "今天我能为您做些什么？",
+    "faultCodeQuery": "故障码查询",
+    "faultCodeQuerySubtitle": "查看释义与解决方案",
+    "logUpload": "日志上传",
+    "logUploadSubtitle": "分析本地日志文件",
+    "faultCaseQuery": "故障案例查询",
+    "faultCaseQuerySubtitle": "检索已知问题",
+    "faultCaseRecommendation": "为您找到相关的故障案例页面，您可以前往查看更多详细历史记录。",
+    "faultCodeRecommendation": "为您找到相关的故障码管理页面，您可以前往查看所有已记录的错误定义。",
+    "noRelatedData": "暂无相关数据",
+    "goToFaultCase": "前往故障案例",
+    "goToFaultCode": "前往故障码管理",
+    "quickActionAnalyze500": "分析 500 错误",
+    "quickActionAnalyze500Subtitle": "查找过去 24 小时内的峰值",
+    "quickActionSlowQueries": "慢查询",
+    "quickActionSlowQueriesSubtitle": "识别超过 2 秒的瓶颈",
+    "disclaimer": "AI 回复可能不准确。请检查源数据。"
   }
 }
 

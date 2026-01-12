@@ -1,31 +1,16 @@
 <template>
   <div class="login-container">
     <!-- 左侧背景区 -->
-    <div class="login-left">
-      <svg class="bg-pattern" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
-            <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="rgb(var(--primary))"/>
-        <rect width="100%" height="100%" fill="url(#grid)"/>
-        <!-- 装饰性几何图形 -->
-        <circle cx="200" cy="200" r="150" fill="rgba(255, 255, 255, 0.03)"/>
-        <circle cx="800" cy="300" r="200" fill="rgba(255, 255, 255, 0.02)"/>
-        <circle cx="300" cy="700" r="180" fill="rgba(255, 255, 255, 0.025)"/>
-        <circle cx="750" cy="750" r="120" fill="rgba(255, 255, 255, 0.03)"/>
-      </svg>
-    </div>
+    <div class="login-left" :style="{ backgroundImage: 'url(/login-bg.jpg)' }"></div>
 
     <!-- 右侧表单区 -->
     <div class="login-right">
       <!-- 语言切换器 -->
       <div class="lang-switch">
         <el-dropdown @command="changeLanguage" trigger="click">
-          <el-button type="text" class="lang-button">
-            <el-icon><Setting /></el-icon>
-            <span>{{ currentLocaleLabel }}</span>
+          <el-button text class="lang-btn">
+            <Earth theme="outline" size="20" fill="#333" class="lang-icon" />
+            {{ currentLocaleLabel }}
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
@@ -61,16 +46,13 @@
               </el-form-item>
               
               <el-form-item prop="password">
-                <div class="password-wrapper">
-                  <el-input
-                    v-model="loginFormData.password"
-                    type="password"
-                    :placeholder="$t('login.password')"
-                    size="large"
-                    show-password
-                  />
-                  <a href="#" class="forgot-link">{{ $t('login.forgotPassword') }}</a>
-                </div>
+                <el-input
+                  v-model="loginFormData.password"
+                  type="password"
+                  :placeholder="$t('login.password')"
+                  size="large"
+                  show-password
+                />
               </el-form-item>
               
               <el-form-item>
@@ -157,13 +139,13 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
-import { Setting } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import * as dd from 'dingtalk-jsapi'
+import { Earth } from '@icon-park/vue-next'
 
 export default {
   name: 'Login',
-  components: { Setting },
+  components: { Earth },
   setup() {
     const store = useStore()
     const router = useRouter()
@@ -347,8 +329,7 @@ export default {
       currentLocaleLabel,
       handleLogin,
       handleRegister,
-      changeLanguage,
-      Setting
+      changeLanguage
     }
   }
 }
@@ -364,17 +345,12 @@ export default {
 /* 左侧背景区 - 60% */
 .login-left {
   width: 60%;
-  background: rgb(var(--primary));
+  height: 100vh;
+  background-size: auto 100%;
+  background-position: center;
+  background-repeat: no-repeat;
   position: relative;
   overflow: hidden;
-}
-
-.bg-pattern {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
 }
 
 /* 右侧操作区 - 40% */
@@ -394,12 +370,12 @@ export default {
   z-index: 10;
 }
 
-.lang-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: rgb(var(--text-primary));
-  padding: 0.5rem 1rem;
+.lang-btn {
+  color: var(--slate-600); /* 使用基础颜色值 - 次要文字颜色 */
+}
+
+.lang-btn .lang-icon {
+  margin-right: 6px;
 }
 
 .form-content {
@@ -433,26 +409,6 @@ export default {
   margin-top: 1.5rem;
 }
 
-.password-wrapper {
-  width: 100%;
-  position: relative;
-}
-
-.forgot-link {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.875rem;
-  color: rgb(var(--text-brand-primary));
-  text-decoration: none;
-  padding-right: 0.75rem;
-  z-index: 1;
-}
-
-.forgot-link:hover {
-  color: rgb(var(--text-brand-primary-hover));
-}
 
 .submit-button {
   width: 100%;
@@ -470,6 +426,8 @@ export default {
   .login-left {
     width: 100%;
     min-height: 30vh;
+    height: 30vh;
+    background-size: cover;
   }
 
   .login-right {

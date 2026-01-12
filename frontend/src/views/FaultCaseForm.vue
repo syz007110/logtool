@@ -703,16 +703,16 @@ export default {
 
     const handleUploadRequest = async (options) => {
       const formData = new FormData()
-      formData.append('file', options.file)
+      formData.append('files', options.file)
       try {
         const resp = await api.faultCases.uploadAttachments(formData)
-        const attachment = resp.data?.attachment
-        if (attachment) {
-          form.attachments.push(attachment)
+        const uploaded = resp.data?.files?.[0]
+        if (uploaded) {
+          form.attachments.push(uploaded)
           uploadFileList.value.push({
-            name: attachment.original_name || attachment.filename,
-            url: attachment.url,
-            uid: attachment.id || Date.now()
+            name: uploaded.original_name || uploaded.filename,
+            url: uploaded.url,
+            uid: uploaded.id || Date.now()
           })
         }
       } catch (e) {
@@ -772,7 +772,8 @@ export default {
           equipment_model: form.equipment_model || [],
           keywords: form.keywordsRaw || undefined,
           related_error_code_ids: form.related_error_code_ids || [],
-          attachments: form.attachments.map((a) => a.id || a.url) || [],
+          // 后端期望附件为对象数组（含 storage/object_key/url 等）；不要压缩为字符串数组，否则会被后端丢弃
+          attachments: form.attachments || [],
           updated_at_user: form.updated_at_user || undefined,
           status: form.status || undefined
         }
@@ -953,29 +954,23 @@ export default {
               // remark: 备注字段，JIRA中没有对应字段，保持为空
               form.remark = ''
               
-              // 附件字段: 对应JIRA的attachment
-              if (Array.isArray(issue.attachments) && issue.attachments.length > 0) {
-                // 将JIRA附件转换为系统附件格式
-                // 注意：JIRA附件的content字段是完整的下载URL，但可能需要认证
-                // 这里先记录附件信息，实际使用时可能需要通过后端代理下载
-                form.attachments = issue.attachments.slice(0, 10).map((att) => ({
-                  url: att.content || att.url || '',
-                  storage: 'local', // JIRA附件暂时标记为local，实际可能需要特殊处理
-                  filename: att.filename || '',
-                  original_name: att.filename || '',
-                  mime_type: att.mimeType || '',
-                  size_bytes: att.size || 0
-                })).filter(att => att.url && att.original_name) // 只保留有URL和文件名的附件
-                
-                // 更新上传文件列表用于显示
-                uploadFileList.value = form.attachments.map((a, index) => ({
+              // 附件字段（严格对齐“先上传临时、发布后入库/OSS”逻辑）：
+              // 方案B：自动把JIRA附件导入到临时区，拿到 object_key 后再写入 form.attachments
+              form.attachments = []
+              uploadFileList.value = []
+              try {
+                const importResp = await api.jira.importAttachments(route.query.jira_key)
+                const files = Array.isArray(importResp.data?.files) ? importResp.data.files : []
+                form.attachments = files
+                uploadFileList.value = files.map((a, index) => ({
                   name: a.original_name || a.filename || `attachment_${index}`,
                   url: a.url,
-                  uid: `jira_${index}_${Date.now()}`
+                  uid: a.object_key || `${index}_${Date.now()}`
                 }))
-              } else {
-                form.attachments = []
-                uploadFileList.value = []
+              } catch (e) {
+                // 导入失败不阻塞创建；用户仍可手动上传
+                console.error('Failed to import Jira attachments:', e)
+                ElMessage.warning('JIRA附件导入失败，可稍后手动上传')
               }
             }
           } catch (e) {
@@ -988,7 +983,7 @@ export default {
 
       try {
         const resp = await api.faultCases.get(route.params.id)
-        const data = resp.data?.fault_case
+        const data = resp.data?.faultCase
         if (data) {
           form.source = data.source || 'manual'
           form.jira_key = data.jira_key || ''

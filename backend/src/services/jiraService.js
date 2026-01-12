@@ -1,6 +1,20 @@
 const http = require('http');
 const https = require('https');
 const url = require('url');
+const fs = require('fs');
+
+function buildAuthHeaders(cfg) {
+  const headers = {};
+  if (!cfg || !cfg.enabled) return headers;
+  if (cfg.authType === 'basic') {
+    const raw = `${cfg.username}:${cfg.apiToken}`;
+    const token = Buffer.from(raw, 'utf8').toString('base64');
+    headers['Authorization'] = `Basic ${token}`;
+  } else if (cfg.authType === 'bearer') {
+    headers['Authorization'] = `Bearer ${cfg.bearerToken}`;
+  }
+  return headers;
+}
 
 function normalizeBaseUrl(baseUrl) {
   const s = String(baseUrl || '').trim();
@@ -384,7 +398,7 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
 
   const apiPath = `/rest/api/${cfg.apiVersion}/search`;
   // Jira 6.x (API v2) is most compatible with GET /search.
-  const fields = 'summary,updated,status,project,components,attachment,resolution';
+  const fields = 'summary,updated,status,project,components,attachment,resolution,description,customfield_10705,customfield_10600';
   const qs = buildQueryString({
     jql,
     startAt: offset,
@@ -438,8 +452,14 @@ async function searchIssues({ q, jql: overrideJql, page = 1, limit = undefined, 
       description: it.fields.resolution.description || ''
     } : null;
 
+    // 提取描述和自定义字段
+    const descriptionRaw = it?.fields?.description;
+    const description = normalizeJiraDescription(descriptionRaw);
+    const customfield_10705 = it?.fields?.customfield_10705 != null ? normalizeJiraDescription(it.fields.customfield_10705) : '';
+    const customfield_10600 = it?.fields?.customfield_10600 != null ? normalizeJiraDescription(it.fields.customfield_10600) : '';
+
     const issueUrl = key ? `${cfg.baseUrl}/browse/${encodeURIComponent(key)}` : cfg.baseUrl;
-    return { key, module, components, projectKey, projectName, summary, status, updated, url: issueUrl, attachments, resolution };
+    return { key, module, components, projectKey, projectName, summary, status, updated, url: issueUrl, attachments, resolution, description, customfield_10705, customfield_10600 };
   }).filter((x) => x && x.key);
 
   const total = Number.isFinite(Number(resp?.json?.total)) ? Number(resp.json.total) : out.length;
@@ -571,12 +591,107 @@ async function getIssue(issueKey, { fields = 'summary,updated,status,project,com
   };
 }
 
+function downloadToFile(fileUrl, destPath, { timeoutMs = 8000, maxBytes = 0, headers = {} } = {}) {
+  return new Promise((resolve, reject) => {
+    const MAX_REDIRECTS = 5;
+    let redirects = 0;
+
+    const doOnce = (currentUrl) => {
+      try {
+        const parsed = url.parse(currentUrl);
+        const isHttps = parsed.protocol === 'https:';
+        const client = isHttps ? https : http;
+
+        const req = client.request({
+          protocol: parsed.protocol,
+          hostname: parsed.hostname,
+          port: parsed.port,
+          path: parsed.path,
+          method: 'GET',
+          headers
+        }, (res) => {
+          const status = res.statusCode || 0;
+
+          // redirect
+          if ([301, 302, 303, 307, 308].includes(status) && res.headers.location && redirects < MAX_REDIRECTS) {
+            redirects += 1;
+            const nextUrl = url.resolve(currentUrl, res.headers.location);
+            res.resume();
+            return doOnce(nextUrl);
+          }
+
+          if (status < 200 || status >= 300) {
+            res.resume();
+            const err = new Error(`Download failed: ${status}`);
+            err.status = status;
+            return reject(err);
+          }
+
+          const len = Number.parseInt(res.headers['content-length'] || '0', 10) || 0;
+          if (maxBytes && len && len > maxBytes) {
+            res.resume();
+            const err = new Error(`File too large: ${len}`);
+            err.code = 'FILE_TOO_LARGE';
+            err.status = 413;
+            return reject(err);
+          }
+
+          let received = 0;
+          const out = fs.createWriteStream(destPath);
+          out.on('error', (e) => {
+            try { res.destroy(e); } catch (_) {}
+            reject(e);
+          });
+
+          res.on('data', (chunk) => {
+            received += chunk.length;
+            if (maxBytes && received > maxBytes) {
+              try { req.destroy(new Error('File too large')); } catch (_) {}
+            }
+          });
+
+          res.on('error', (e) => reject(e));
+
+          out.on('finish', () => resolve({ bytes: received, headers: res.headers }));
+          res.pipe(out);
+        });
+
+        req.on('error', (err) => reject(err));
+        req.setTimeout(timeoutMs || 8000, () => {
+          try { req.destroy(new Error('Request timeout')); } catch (_) {}
+          const err = new Error('Download timeout');
+          err.code = 'ETIMEDOUT';
+          reject(err);
+        });
+        req.end();
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    doOnce(String(fileUrl || '').trim());
+  });
+}
+
+async function downloadJiraAttachmentToFile(attachmentUrl, destPath, { timeoutMs, maxBytes } = {}) {
+  const cfg = getJiraConfig();
+  if (!cfg.enabled) {
+    const err = new Error('Jira integration is not configured');
+    err.status = 400;
+    throw err;
+  }
+  const headers = buildAuthHeaders(cfg);
+  // JIRA 可能对附件请求返回302到CDN；保留 Authorization 头（通常无害）
+  return downloadToFile(attachmentUrl, destPath, { timeoutMs: timeoutMs || cfg.timeoutMs, maxBytes, headers });
+}
+
 module.exports = {
   getJiraConfig,
   searchIssues,
   buildJql,
   buildJqlFromQueryPlan,
-  getIssue
+  getIssue,
+  downloadJiraAttachmentToFile
 };
 
 

@@ -3,7 +3,6 @@
 /* Learn more: kigen.design */
 
 :root {
-
   /* red (Base Tokens) */
   --red-50: #fef2f2;
   --red-100: #fee2e2;
@@ -305,7 +304,7 @@
   --overlay-dark: rgba(0, 0, 0, 0.85);
   --overlay-medium: rgba(0, 0, 0, 0.5);
 
-    /* =========================================
+  /* =========================================
      Element Plus Button Variables Mapping
      按钮组件 CSS 变量映射
        ========================================= */
@@ -321,7 +320,9 @@
   --el-color-primary-light-7: var(--gray-400); /* 浅色背景（约 30%） */
   --el-color-primary-light-8: var(--gray-300); /* 更浅背景（约 20%） */
   --el-color-primary-light-9: var(--gray-200); /* 极浅背景（约 10%） */
-  --el-color-primary-dark-2: var(--gray-700); /* active 状态深色（约 20% 更深） */
+  --el-color-primary-dark-2: var(
+    --gray-700
+  ); /* active 状态深色（约 20% 更深） */
   /* 注意：primary 按钮的文字颜色会自动设置为白色（与背景对比） */
 
   /* 次要按钮 (Secondary/Default Button - type="default") */
@@ -340,9 +341,15 @@
   /* ⚠️ 注意：Element Plus 的文字按钮默认使用 --el-color-primary 作为文字颜色 */
   /* 为了使用蓝紫色，我们需要覆盖文字按钮的颜色 */
   --el-button-text-color: var(--indigo-600); /* 蓝紫色文字 (#4f46e5) */
-  --el-button-text-hover-bg-color: var(--gray-100); /* hover 背景（透明按钮 hover 时的背景） */
-  --el-button-text-hover-text-color: var(--indigo-700); /* hover 文字颜色（更深的蓝紫色） */
-  --el-button-text-active-text-color: var(--indigo-800); /* active 文字颜色（最深的蓝紫色） */
+  --el-button-text-hover-bg-color: var(
+    --gray-100
+  ); /* hover 背景（透明按钮 hover 时的背景） */
+  --el-button-text-hover-text-color: var(
+    --indigo-700
+  ); /* hover 文字颜色（更深的蓝紫色） */
+  --el-button-text-active-text-color: var(
+    --indigo-800
+  ); /* active 文字颜色（最深的蓝紫色） */
 
   /* 危险按钮 (Danger Button - type="danger") */
   /* Element Plus 使用 --el-color-danger 作为危险色，自动生成变体 */
@@ -383,18 +390,29 @@
 
   /* 按钮禁用状态 (Disabled State) */
   --el-button-disabled-bg-color: var(--gray-100); /* 禁用背景 */
-  --el-button-disabled-text-color: var(--alpha-light-300); /* 禁用文字颜色（28% 透明度黑色） */
+  --el-button-disabled-text-color: var(
+    --alpha-light-300
+  ); /* 禁用文字颜色（28% 透明度黑色） */
   --el-button-disabled-border-color: var(--gray-300); /* 禁用边框颜色 */
-  
-    /* =========================================
+
+  /* =========================================
      Element Plus Sidebar & Menu Variables
      侧边栏和菜单组件 CSS 变量映射
        ========================================= */
 
   /* 侧边栏 (Aside) */
   --el-aside-width: 256px; /* 侧边栏宽度 */
-  --el-aside-background-color: var(--black-white-white); /* 侧边栏背景色 - 纯白色 (#ffffff) */
-  --el-aside-border-color: var(--gray-200); /* 侧边栏边框颜色 - 浅灰色 (#e5e7eb) */
+  --el-aside-background-color: var(
+    --gray-50
+  ); /* 侧边栏背景色 - 浅灰色 (#f9fafb) */
+  --el-aside-border-color: var(
+    --gray-200
+  ); /* 侧边栏边框颜色 - 浅灰色 (#e5e7eb) */
+
+  /* 智能搜索页面侧边栏 (Smart Search Sidebar) */
+  --smart-search-sidebar-background-color: var(
+    --slate-100
+  ); /* 智能搜索页面侧边栏背景色 - 蓝灰色 (#f1f5f9) */
 
   /* Logo 区域 (Logo Area) */
   --logo-area-height: 64px; /* Logo 区域高度 */
@@ -405,9 +423,15 @@
   /* 菜单 (Menu) */
   --el-menu-bg-color: transparent; /* 菜单背景色（透明） */
   --el-menu-text-color: var(--gray-600); /* 菜单文字颜色 - 中等灰色 (#4b5563) */
-  --el-menu-active-color: var(--gray-900); /* 激活菜单项文字颜色 - 深灰色 (#111827) */
-  --el-menu-hover-bg-color: var(--gray-100); /* hover 背景色 - 浅灰色 (#f3f4f6) */
-  --el-menu-hover-text-color: var(--gray-800); /* hover 文字颜色 - 深灰色 (#1f2937) */
+  --el-menu-active-color: var(
+    --gray-900
+  ); /* 激活菜单项文字颜色 - 深灰色 (#111827) */
+  --el-menu-hover-bg-color: var(
+    --gray-100
+  ); /* hover 背景色 - 浅灰色 (#f3f4f6) */
+  --el-menu-hover-text-color: var(
+    --gray-800
+  ); /* hover 文字颜色 - 深灰色 (#1f2937) */
   --el-menu-item-height: 40px; /* 菜单项高度 */
   --el-menu-item-font-size: 14px; /* 菜单项字体大小 */
   --el-menu-border-color: transparent; /* 菜单边框颜色 */
@@ -416,13 +440,23 @@
   --el-menu-icon-width: 24px; /* 图标宽度 */
 
   /* 菜单项选中状态 */
-  --el-menu-active-bg-color: var(--gray-100); /* 选中项背景色 - 浅灰色 (#f3f4f6) */
-  --el-menu-active-text-color: var(--gray-900); /* 选中项文字颜色 - 深灰色 (#111827) */
+  --el-menu-active-bg-color: var(
+    --gray-100
+  ); /* 选中项背景色 - 浅灰色 (#f3f4f6) */
+  --el-menu-active-text-color: var(
+    --gray-900
+  ); /* 选中项文字颜色 - 深灰色 (#111827) */
 
   /* 子菜单 (Submenu) */
-  --el-submenu-title-hover-bg-color: var(--gray-100); /* 子菜单标题 hover 背景 - 浅灰色 */
-  --el-submenu-title-text-color: var(--gray-600); /* 子菜单标题文字颜色 - 中等灰色 */
-  --el-submenu-title-hover-text-color: var(--gray-800); /* 子菜单标题 hover 文字颜色 - 深灰色 */
+  --el-submenu-title-hover-bg-color: var(
+    --gray-100
+  ); /* 子菜单标题 hover 背景 - 浅灰色 */
+  --el-submenu-title-text-color: var(
+    --gray-600
+  ); /* 子菜单标题文字颜色 - 中等灰色 */
+  --el-submenu-title-hover-text-color: var(
+    --gray-800
+  ); /* 子菜单标题 hover 文字颜色 - 深灰色 */
 
   /* 侧边栏折叠状态 (Sidebar Collapsed State) */
   --sidebar-collapsed-width: 80px; /* 折叠状态侧边栏宽度 */
@@ -430,6 +464,32 @@
   --sidebar-footer-padding-collapsed: 16px 0; /* 底部用户区域内边距（折叠状态） */
   --user-info-btn-padding: 8px; /* 用户信息按钮内边距（展开状态） */
   --user-info-btn-padding-collapsed: 8px 0; /* 用户信息按钮内边距（折叠状态） */
+
+  /* =========================================
+     Element Plus Table Variables
+     表格组件 CSS 变量映射
+       ========================================= */
+
+  /* 表格表头 (Table Header) */
+  /* Element Plus 官方变量（如果存在） */
+  --el-table-header-bg-color: var(
+    --slate-100
+  ); /* 表头背景色 - 浅灰色 (#f1f5f9) */
+  --el-table-header-text-color: var(
+    --slate-900
+  ); /* 表头文字颜色 - 深灰色 (#0f172a) */
+  --el-table-header-border-color: var(
+    --slate-200
+  ); /* 表头边框颜色 - 浅灰色 (#e2e8f0) */
+
+  /* 自定义变量（用于样式规则） */
+  --table-header-bg-color: var(--slate-100); /* 表头背景色 - 浅灰色 (#f1f5f9) */
+  --table-header-text-color: var(
+    --slate-900
+  ); /* 表头文字颜色 - 深灰色 (#0f172a) */
+  --table-header-border-color: var(
+    --slate-200
+  ); /* 表头边框颜色 - 浅灰色 (#e2e8f0) */
 }
 
 /* =========================================
@@ -588,7 +648,9 @@
 .el-dropdown-menu {
   background-color: var(--black-white-white) !important; /* 白色背景 */
   border: none !important; /* 无边框 */
-  box-shadow: var(--card-shadow) !important; /* 卡片阴影：0 2px 12px rgba(0, 0, 0, 0.03) */
+  box-shadow: var(
+    --card-shadow
+  ) !important; /* 卡片阴影：0 2px 12px rgba(0, 0, 0, 0.03) */
   border-radius: var(--radius-md) !important; /* 8px 圆角 */
   padding: 6px 4px !important; /* 上下内边距 6px，左右内边距 4px（外侧留白） */
 }
@@ -600,7 +662,9 @@
   margin: 2px 0 !important; /* 上下外边距 2px，增加菜单项间距 */
   font-size: 14px !important; /* 字体大小 */
   line-height: 1.5 !important; /* 行高 */
-  border-radius: var(--radius-sm) !important; /* 6px 圆角，使 hover 背景更圆润 */
+  border-radius: var(
+    --radius-sm
+  ) !important; /* 6px 圆角，使 hover 背景更圆润 */
   transition: background-color 0.2s ease !important; /* 背景色过渡动画 */
   display: flex !important;
   align-items: center !important;
@@ -716,6 +780,68 @@
 .el-table__header {
   border-top-left-radius: var(--radius-md) !important;
   border-top-right-radius: var(--radius-md) !important;
+}
+
+/* =========================================
+   Element Plus 表格表头样式
+   Table Header Styles
+   ========================================= */
+
+/* 表格表头背景色和文字颜色 - 使用更具体的选择器确保覆盖 */
+.el-table .el-table__header-wrapper {
+  background-color: #f1f5f9 !important; /* --slate-100 */
+  background: #f1f5f9 !important;
+}
+
+.el-table .el-table__header {
+  background-color: #f1f5f9 !important; /* --slate-100 */
+  background: #f1f5f9 !important;
+}
+
+/* 表头单元格 - 覆盖所有可能的表头元素 */
+.el-table .el-table__header th,
+.el-table .el-table__header .el-table__cell,
+.el-table__header-wrapper th,
+.el-table__header-wrapper .el-table__cell,
+.el-table thead th,
+.el-table thead .el-table__cell,
+.el-table th.el-table__cell {
+  background-color: #f1f5f9 !important; /* --slate-100 */
+  background: #f1f5f9 !important; /* 同时设置 background 和 background-color */
+  color: #0f172a !important; /* --slate-900 */
+  border-bottom-color: #e2e8f0 !important; /* --slate-200 */
+  font-weight: 600 !important; /* 表头文字加粗，突出显示 */
+}
+
+/* 表头单元格内的文字 */
+.el-table .el-table__header .cell,
+.el-table__header-wrapper .cell,
+.el-table thead .cell,
+.el-table th .cell {
+  color: #0f172a !important; /* --slate-900 */
+  font-weight: 600 !important;
+}
+
+/* 确保表头行也有背景色 */
+.el-table .el-table__header tr,
+.el-table thead tr {
+  background-color: #f1f5f9 !important; /* --slate-100 */
+  background: #f1f5f9 !important;
+}
+
+/* 覆盖 Element Plus 可能使用的内联样式或更高优先级的样式 */
+.el-table[class*="el-table"] .el-table__header th,
+.el-table[class*="el-table"] .el-table__header .el-table__cell {
+  background-color: #f1f5f9 !important; /* --slate-100 */
+  background: #f1f5f9 !important;
+}
+
+/* 使用属性选择器确保覆盖 */
+.el-table th[class*="el-table__cell"],
+.el-table .el-table__header th[class*="el-table__cell"] {
+  background-color: #f1f5f9 !important; /* --slate-100 */
+  background: #f1f5f9 !important;
+  color: #0f172a !important; /* --slate-900 */
 }
 
 /* Element Plus 分页器圆角 */
