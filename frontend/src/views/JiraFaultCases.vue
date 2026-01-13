@@ -1341,12 +1341,13 @@ export default {
         return
       }
 
-      // For mongo rows without jira_key, go to edit page
-      if (source !== 'jira' && !row?.jira_key) {
+      // For MongoDB cases (source !== 'jira'), always go to edit page
+      // Even if they have jira_key (added from JIRA), they are now MongoDB cases with case_code
+      if (source !== 'jira') {
         return openEditByMixedRow(row)
       }
 
-      // Default: open Jira url
+      // For Jira cases only: open Jira url
       if (url) return openUrl(url)
 
       // Fallback: if url missing, try preview from backend

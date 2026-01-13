@@ -1908,8 +1908,14 @@ export default {
     }
 
     // 通用附件代理 URL 函数（适用于所有类型的附件）
+    // OSS 公网 URL 和本地代理 URL 直接使用，Jira 附件使用代理
     const getGenericAttachmentProxyUrl = (url) => {
       if (!url) return ''
+      // OSS 公网 URL 或后端代理 URL 直接使用，不需要代理
+      if (!needsProxy(url)) {
+        return url
+      }
+      // Jira 附件或其他需要代理的 URL 使用代理
       const token = store?.state?.auth?.token || ''
       const qs = new URLSearchParams()
       qs.set('url', url)
@@ -2187,10 +2193,31 @@ export default {
       return attachment?.url || attachment?.content || ''
     }
 
-    // 获取 MongoDB 附件代理 URL
+    // 判断 URL 是否需要代理（Jira 附件需要代理，OSS 公网 URL 和本地代理 URL 不需要）
+    const needsProxy = (url) => {
+      if (!url) return false
+      const urlStr = String(url)
+      // OSS 公网 URL（https:// 或 http://）不需要代理
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+        return false
+      }
+      // 后端代理 URL（/api/oss/）不需要代理
+      if (urlStr.startsWith('/api/oss/')) {
+        return false
+      }
+      // 其他 URL（Jira 附件、相对路径等）需要代理
+      return true
+    }
+
+    // 获取 MongoDB 附件 URL（OSS 直接使用，其他使用代理）
     const getMongoAttachmentProxyUrl = (attachment) => {
       const raw = getMongoAttachmentUrl(attachment)
       if (!raw) return ''
+      // OSS 公网 URL 或后端代理 URL 直接使用，不需要代理
+      if (!needsProxy(raw)) {
+        return raw
+      }
+      // 其他 URL（如相对路径）使用代理
       const token = store?.state?.auth?.token || ''
       const qs = new URLSearchParams()
       qs.set('url', raw)

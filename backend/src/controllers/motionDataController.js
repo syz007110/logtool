@@ -136,8 +136,8 @@ async function batchUploadBinary(req, res) {
       return res.status(400).json({ message: '缺少文件' });
     }
     
-    if (req.files.length > 20) {
-      return res.status(400).json({ message: '最多只能上传20个文件' });
+    if (req.files.length > 5) {
+      return res.status(400).json({ message: '最多只能上传5个文件' });
     }
     
     const userId = req.user ? req.user.id : null;

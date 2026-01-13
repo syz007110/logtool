@@ -736,9 +736,31 @@ export default {
       ElMessage.warning(t('faultCases.uploadExceed'))
     }
 
+    // 判断 URL 是否需要代理（Jira 附件需要代理，OSS 公网 URL 和本地代理 URL 不需要）
+    const needsProxy = (url) => {
+      if (!url) return false
+      const urlStr = String(url)
+      // OSS 公网 URL（https:// 或 http://）不需要代理
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+        return false
+      }
+      // 后端代理 URL（/api/oss/）不需要代理
+      if (urlStr.startsWith('/api/oss/')) {
+        return false
+      }
+      // 其他 URL（Jira 附件、相对路径等）需要代理
+      return true
+    }
+
     // 获取附件代理 URL（适用于所有文件类型，包括图片和非图片）
+    // OSS 公网 URL 和本地代理 URL 直接使用，Jira 附件使用代理
     const getAttachmentProxyUrl = (url) => {
       if (!url) return ''
+      // OSS 公网 URL 或后端代理 URL 直接使用，不需要代理
+      if (!needsProxy(url)) {
+        return url
+      }
+      // Jira 附件或其他需要代理的 URL 使用代理
       const token = store?.state?.auth?.token || ''
       const qs = new URLSearchParams()
       qs.set('url', url)

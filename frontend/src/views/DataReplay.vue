@@ -11,14 +11,14 @@
             :show-file-list="false"
             accept=".bin"
             multiple
-            :limit="20"
+            :limit="5"
             :on-exceed="handleExceed"
             :before-upload="beforeBatchUpload"
             :on-change="handleFileChange"
             :auto-upload="false"
             ref="uploadRef"
           >
-            <el-button type="primary" icon="Upload" :disabled="uploading || processing">上传文件（最多20个）</el-button>
+            <el-button type="primary" icon="Upload" :disabled="uploading || processing">上传文件（最多5个）</el-button>
           </el-upload>
           <el-button 
             type="success" 
@@ -1185,10 +1185,10 @@ export default {
 
     // 上传前检查 - 阻止单个文件自动上传，改为批量上传
     const beforeBatchUpload = (file) => {
-      // 检查总文件数
+      // 检查总文件数（限制为5个）
       const totalFiles = uploadedFiles.value.length + (pendingFiles.value?.length || 0)
-      if (totalFiles >= 20) {
-        ElMessage.warning('最多只能上传20个文件')
+      if (totalFiles >= 5) {
+        ElMessage.warning('最多只能上传5个文件')
         return false
       }
       
@@ -1198,14 +1198,14 @@ export default {
 
     // 文件选择变化处理 - 选择完成后自动批量上传
     const handleFileChange = (file, fileList) => {
-      // 检查总文件数
+      // 检查总文件数（限制为5个）
       const totalFiles = uploadedFiles.value.length + fileList.length
-      if (totalFiles > 20) {
-        ElMessage.warning('最多只能上传20个文件，已自动移除多余文件')
+      if (totalFiles > 5) {
+        ElMessage.warning('最多只能上传5个文件，已自动移除多余文件')
         // 移除多余的文件
         if (uploadRef.value) {
           uploadRef.value.clearFiles()
-          const validFiles = fileList.slice(0, 20 - uploadedFiles.value.length)
+          const validFiles = fileList.slice(0, 5 - uploadedFiles.value.length)
           validFiles.forEach(f => {
             uploadRef.value.handleStart(f.raw)
           })
@@ -1410,12 +1410,21 @@ export default {
           uploadProgress.value = 100
           uploadProgressText.value = '上传完成'
           
-          // 更新文件列表
+          // 更新文件列表（仅更新已存在的文件项，不添加新文件）
+          // 注意：刷新页面后 uploadedFiles 为空，这里只更新 task.fileItems，不会添加到 uploadedFiles
           if (task.result && task.result.files) {
             task.result.files.forEach((uploadedFile, index) => {
               if (index < task.fileItems.length) {
                 task.fileItems[index].id = uploadedFile.id
                 task.fileItems[index].status = 'success'
+                
+                // 只有当文件已经在 uploadedFiles 中时，才更新状态
+                // 刷新页面后 uploadedFiles 为空，所以不会更新
+                const existingFile = uploadedFiles.value.find(f => f.filename === task.fileItems[index].filename)
+                if (existingFile) {
+                  existingFile.id = uploadedFile.id
+                  existingFile.status = 'success'
+                }
               }
             })
           }
@@ -1426,6 +1435,12 @@ export default {
               const fileItem = task.fileItems.find(f => f.filename === error.filename)
               if (fileItem) {
                 fileItem.status = 'error'
+              }
+              
+              // 更新 uploadedFiles 中对应的文件状态
+              const existingFile = uploadedFiles.value.find(f => f.filename === error.filename)
+              if (existingFile) {
+                existingFile.status = 'error'
               }
             })
           }
@@ -1468,15 +1483,32 @@ export default {
           processingProgress.value = 100
           processingProgressText.value = '打包完成，准备下载...'
           
-          // 自动下载ZIP文件
+          // 自动下载ZIP文件（仅在页面可见时）
           if (task.result && task.result.downloadUrl) {
-            downloadTaskResultFile(taskId)
+            // 检查页面是否可见
+            if (document.visibilityState === 'visible') {
+              // 页面可见，立即下载
+              downloadTaskResultFile(taskId)
+            } else {
+              // 页面不可见，等待页面可见后再下载
+              ElMessage.info('打包完成，页面可见后将自动下载')
+              const handleVisibilityChange = () => {
+                if (document.visibilityState === 'visible') {
+                  downloadTaskResultFile(taskId)
+                  document.removeEventListener('visibilitychange', handleVisibilityChange)
+                }
+              }
+              document.addEventListener('visibilitychange', handleVisibilityChange)
+            }
           }
           
+          // 下载完成后，清除文件列表（因为文件是临时文件，下载后应该清空）
           setTimeout(() => {
             processingProgress.value = 0
             processingProgressText.value = ''
             processing.value = false
+            // 清除文件列表，用户需要重新上传
+            uploadedFiles.value = []
           }, 1500)
           
           ElMessage.success('打包完成')
@@ -1511,6 +1543,12 @@ export default {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
+        
+        // 下载成功后，清除文件列表（因为文件是临时文件，下载后应该清空）
+        // 延迟清除，确保下载已完成
+        setTimeout(() => {
+          uploadedFiles.value = []
+        }, 500)
       } catch (err) {
         console.error('下载任务结果失败:', err)
         const errorMsg = err.response?.data?.message || err.message || '未知错误'
@@ -1533,7 +1571,7 @@ export default {
 
     // 处理文件数量超限
     const handleExceed = () => {
-      ElMessage.warning('最多只能选择20个文件')
+      ElMessage.warning('最多只能选择5个文件')
     }
 
     // 批量下载CSV（ZIP格式）- 改为异步队列处理
@@ -1701,7 +1739,8 @@ export default {
         if (data.success && data.data && Array.isArray(data.data)) {
           const tasks = data.data
           
-          // 只恢复活跃的任务（waiting/active），已完成和失败的可以忽略
+          // 只恢复活跃的任务（waiting/active），用于显示进度
+          // 注意：不恢复已完成的任务，刷新后文件列表清空，用户需要重新上传
           const activeTaskStates = ['waiting', 'active']
           const activeTasksToRestore = tasks.filter(task => 
             activeTaskStates.includes(task.status)
@@ -1740,37 +1779,36 @@ export default {
                 // 重新启动轮询
                 startTaskPolling(task.id)
               } else if (task.type === 'batch-download') {
-                // 恢复下载任务
-                activeTasks.value.set(task.id, {
-                  type: 'download',
-                  status: task.status,
-                  progress: task.progress || 0,
-                  result: task.result || null,
-                  error: task.error || null
-                })
-                
-                // 恢复进度显示
-                if (task.status === 'active') {
-                  processingProgress.value = task.progress || 0
-                  processingProgressText.value = `正在处理... (${task.progress || 0}%)`
-                  processing.value = true
-                }
-                
-                // 如果已完成且有下载链接，提示用户
-                if (task.status === 'completed' && task.result?.downloadUrl) {
-                  processingProgress.value = 100
-                  processingProgressText.value = '打包完成，准备下载...'
-                  processing.value = false
-                  ElMessage.info('检测到已完成的任务，可以下载结果文件')
-                }
-                
-                // 重新启动轮询（如果还在进行中）
-                if (task.status !== 'completed' && task.status !== 'failed') {
+                // 只恢复活跃的下载任务（waiting/active），不恢复已完成的任务
+                // 因为刷新页面后文件列表已清空，用户需要重新上传才能打包下载
+                if (task.status === 'waiting' || task.status === 'active') {
+                  // 恢复下载任务
+                  activeTasks.value.set(task.id, {
+                    type: 'download',
+                    status: task.status,
+                    progress: task.progress || 0,
+                    result: task.result || null,
+                    error: task.error || null
+                  })
+                  
+                  // 恢复进度显示
+                  if (task.status === 'active') {
+                    processingProgress.value = task.progress || 0
+                    processingProgressText.value = `正在处理... (${task.progress || 0}%)`
+                    processing.value = true
+                  }
+                  
+                  // 重新启动轮询
                   startTaskPolling(task.id)
                 }
+                // 注意：不恢复已完成的任务，避免刷新后自动下载
               }
             })
           }
+          
+          // 注意：不恢复已完成的下载任务
+          // 因为刷新页面后文件列表已清空，用户需要重新上传才能打包下载
+          // 如果恢复已完成的任务并自动下载，会导致重复下载
         }
       } catch (err) {
         console.warn('恢复任务状态失败（已忽略）:', err)
