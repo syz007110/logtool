@@ -79,9 +79,10 @@ class WebSocketService extends EventEmitter {
       this.subClient.on('error', (e) => console.error('Redis SUB 错误:', e.message));
       await this.subClient.connect();
 
-      // 订阅两个频道
+      // 订阅三个频道
       const LOG_CH = 'ws:log_status_change';
       const BATCH_CH = 'ws:batch_status_change';
+      const MOTION_DATA_CH = 'ws:motion_data_task_status';
 
       await this.subClient.subscribe(LOG_CH, (message) => {
         try {
@@ -102,6 +103,16 @@ class WebSocketService extends EventEmitter {
           this.broadcastBatchStatusChange(data);
         } catch (e) {
           console.error('订阅处理失败(BATCH_CH):', e.message);
+        }
+      });
+
+      await this.subClient.subscribe(MOTION_DATA_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (!data || !data.taskId) return;
+          this.broadcastMotionDataTaskStatus(data);
+        } catch (e) {
+          console.error('订阅处理失败(MOTION_DATA_CH):', e.message);
         }
       });
 
@@ -299,6 +310,53 @@ class WebSocketService extends EventEmitter {
       subscribers.forEach(clientId => this.sendToClient(clientId, message));
       console.log(`📡 推送批量状态变化: 设备 ${deviceId}, ${changes?.length || 0} 个变化`);
     }
+  }
+
+  // 推送MotionData任务状态变化（发布到 Redis 频道）
+  async pushMotionDataTaskStatus(taskId, status, progress, userId, result = null, error = null) {
+    const payload = JSON.stringify({
+      taskId,
+      status,
+      progress,
+      userId,
+      result,
+      error,
+      timestamp: Date.now(),
+      source: this.processId
+    });
+    const channel = 'ws:motion_data_task_status';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        this.broadcastMotionDataTaskStatus(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布MotionData任务状态变化失败:', e.message);
+      this.broadcastMotionDataTaskStatus(JSON.parse(payload));
+    }
+  }
+
+  // 广播MotionData任务状态变化到所有客户端（不依赖设备订阅）
+  broadcastMotionDataTaskStatus(data) {
+    const { taskId, status, progress, userId, result, error, timestamp } = data || {};
+    if (!taskId) return;
+    
+    const message = {
+      type: 'motion_data_task_status',
+      taskId,
+      status,
+      progress,
+      userId,
+      result,
+      error,
+      timestamp
+    };
+    
+    // 广播给所有连接的客户端（MotionData任务不依赖设备订阅）
+    this.broadcast(message);
+    console.log(`📡 推送MotionData任务状态: 任务 ${taskId}, 状态 ${status}, 进度 ${progress}%`);
   }
 
   // 推送给特定客户端

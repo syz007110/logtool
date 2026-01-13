@@ -217,6 +217,7 @@ async function runJiraMongoMixedSearch({
   let mongoMessage = '';
   let mongoTotal = 0;
   let mongoItems = [];
+  let mongoDebug = null; // MongoDB query debug info
 
   try {
     if (!wantMongo) {
@@ -325,6 +326,26 @@ async function runJiraMongoMixedSearch({
           mongoModules: mongoModuleKeyArr
         });
 
+        // Save MongoDB query debug info
+        mongoDebug = {
+          filter,
+          queryPipeline,
+          queryParams: {
+            q: keyword,
+            source,
+            modules: finalModules,
+            moduleKeys: moduleKeyArr,
+            statusKeys: statusKeyArr,
+            updatedFrom,
+            updatedTo,
+            page: pageNum,
+            limit: limitNum,
+            mine: mineBool,
+            mongoSearchTerms: effectiveTerms,
+            mongoModules: mongoModuleKeyArr
+          }
+        };
+
         mongoTotal = await FaultCase.countDocuments(filter);
         const docs = await FaultCase.aggregate(queryPipeline);
 
@@ -374,8 +395,10 @@ async function runJiraMongoMixedSearch({
     ok: jiraResp?.ok !== false,
     enabled: jiraResp?.enabled !== false,
     message: jiraResp?.message || '',
+    jql: jiraResp?.jql || '', // Include JQL for debug display
     mongo_ok: mongoOk,
     mongo_message: mongoMessage,
+    mongo_debug: mongoDebug, // Include MongoDB query debug info
     total,
     page: pageNum,
     limit: limitNum,

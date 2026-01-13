@@ -149,6 +149,10 @@ class WebSocketClient {
           this.handleBatchStatusChange(message)
           break
 
+        case 'motion_data_task_status':
+          this.handleMotionDataTaskStatus(message)
+          break
+
         case 'pong':
           // 心跳响应，无需处理
           break
@@ -181,6 +185,21 @@ class WebSocketClient {
     const { deviceId, changes, timestamp } = message
     console.log(`🔄 批量状态变化: 设备 ${deviceId}, ${changes?.length || 0} 个变化 @ ${timestamp}`)
     this.triggerEvent('batchStatusChange', { deviceId, changes: changes || [], timestamp })
+  }
+
+  // 处理MotionData任务状态变化
+  handleMotionDataTaskStatus (message) {
+    const { taskId, status, progress, userId, result, error, timestamp } = message
+    console.log(`🔄 MotionData任务状态变化: 任务 ${taskId}, 状态 ${status}, 进度 ${progress}% @ ${timestamp}`)
+    this.triggerEvent('motionDataTaskStatusChange', {
+      taskId,
+      status,
+      progress,
+      userId,
+      result,
+      error,
+      timestamp
+    })
   }
 
   // 处理连接关闭

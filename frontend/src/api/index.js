@@ -277,7 +277,10 @@ const motionData = {
   }),
   preview: (id, params) => api.get(`/motion-data/${id}/preview`, { params }),
   downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' }),
-  batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }, { responseType: 'blob' })
+  batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }),
+  getUserTasks: () => api.get('/motion-data/tasks'), // 获取用户所有任务（用于恢复）
+  getTaskStatus: (taskId) => api.get(`/motion-data/task/${taskId}`),
+  downloadTaskResult: (taskId) => api.get(`/motion-data/task/${taskId}/download`, { responseType: 'blob' })
 }
 
 const feedback = {

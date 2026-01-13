@@ -33,6 +33,7 @@
     "clear": "清空",
     "submit":"提交",
     "back": "返回",
+    "updated": "更新时间",
     "messages": {
       "deleteSuccess": "删除成功",
       "deleteFailed": "删除失败",

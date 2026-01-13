@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const { PassThrough } = require('stream');
+const { motionDataQueue } = require('../config/queue');
+const websocketService = require('../services/websocketService');
+const { logOperation } = require('../utils/operationLogger');
 
 // Binary layout constants (must match example/dataDecode.py MotionData)
 const ENTRY_SIZE_BYTES = 924; // 8 + (207*4) + 4 + 4 + 8 + 8 + (16*4)
@@ -137,15 +140,86 @@ async function batchUploadBinary(req, res) {
       return res.status(400).json({ message: '最多只能上传20个文件' });
     }
     
+    const userId = req.user ? req.user.id : null;
+    
+    // 准备文件信息（文件已由 multer 保存到临时目录）
     const files = req.files.map(file => ({
       id: file.filename,
-      filename: file.originalname,
+      path: file.path,
+      originalName: file.originalname,
       size: file.size
     }));
     
-    return res.json({ files });
+    // 创建队列任务
+    // 注意：不要设置 removeOnComplete/removeOnFail 为 true，否则任务完成后立即删除，
+    // 前端查询时会提示"任务不存在或已过期"。使用队列默认配置保留最近的任务。
+    const job = await motionDataQueue.add('batch-upload', {
+      type: 'batch-upload',
+      files,
+      userId
+    }, {
+      priority: 10,
+      attempts: 1
+      // 使用队列默认配置：removeOnComplete: 50, removeOnFail: 25
+    });
+    
+    // 推送任务状态：waiting
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'waiting', 0, userId);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '数据回放-批量上传',
+        description: `上传 ${files.length} 个运动数据文件`,
+        user_id: userId,
+        username: req.user?.username || '',
+        status: 'pending',
+        ip: req.ip || req.connection?.remoteAddress || '',
+        user_agent: req.headers['user-agent'] || '',
+        details: {
+          taskId: job.id,
+          fileCount: files.length,
+          files: files.map(f => ({
+            filename: f.originalName,
+            size: f.size
+          }))
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志记录失败（已忽略）:', logError.message);
+    }
+    
+    // 立即返回任务ID和文件基本信息
+    return res.json({
+      taskId: job.id,
+      status: 'waiting',
+      files: files.map(f => ({
+        id: f.id,
+        filename: f.originalName,
+        size: f.size
+      }))
+    });
   } catch (err) {
     console.error('批量上传二进制失败:', err);
+    
+    // 如果队列创建失败，清理已上传的文件
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        try {
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+            console.log(`已清理失败任务的文件: ${file.path}`);
+          }
+        } catch (unlinkError) {
+          console.error(`清理文件失败 ${file.path}:`, unlinkError);
+        }
+      });
+    }
+    
     res.status(500).json({ message: '上传失败', error: err.message });
   }
 }
@@ -305,78 +379,253 @@ async function batchDownloadCsv(req, res) {
   }
 
   try {
-    const configList = loadMotionFormat();
-    const errors = [];
-    const successFiles = [];
+    const userId = req.user ? req.user.id : null;
+    
+    // 创建队列任务
+    // 注意：不要设置 removeOnComplete/removeOnFail 为 true，否则任务完成后立即删除，
+    // 前端查询时会提示"任务不存在或已过期"。使用队列默认配置保留最近的任务。
+    const job = await motionDataQueue.add('batch-download', {
+      type: 'batch-download',
+      fileIds,
+      userId
+    }, {
+      priority: 10,
+      attempts: 1
+      // 使用队列默认配置：removeOnComplete: 50, removeOnFail: 25
+    });
+    
+    // 推送任务状态：waiting
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'waiting', 0, userId);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '数据回放-批量打包下载',
+        description: `打包下载 ${fileIds.length} 个运动数据文件为CSV`,
+        user_id: userId,
+        username: req.user?.username || '',
+        status: 'pending',
+        ip: req.ip || req.connection?.remoteAddress || '',
+        user_agent: req.headers['user-agent'] || '',
+        details: {
+          taskId: job.id,
+          fileCount: fileIds.length,
+          fileIds: fileIds
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志记录失败（已忽略）:', logError.message);
+    }
+    
+    // 立即返回任务ID
+    return res.json({
+      taskId: job.id,
+      status: 'waiting',
+      fileCount: fileIds.length
+    });
+  } catch (err) {
+    console.error('批量CSV导出失败:', err);
+    res.status(500).json({ message: '创建下载任务失败', error: err.message });
+  }
+}
+
+// GET /task/:taskId - 查询任务状态
+async function getTaskStatus(req, res) {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user ? req.user.id : null;
+    const job = await motionDataQueue.getJob(taskId);
+    
+    if (!job) {
+      return res.status(404).json({ success: false, message: '任务不存在或已过期' });
+    }
+    
+    // 验证任务归属：只有任务创建者可以查询（管理员可以查询所有任务）
+    const taskUserId = job.data?.userId;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('data_replay:manage');
+    if (taskUserId && taskUserId !== userId && !isAdmin) {
+      return res.status(403).json({ success: false, message: '无权访问此任务' });
+    }
+    
+    const state = await job.getState();
+    const progress = await job.progress();
+    
+    let payload = {
+      id: job.id,
+      status: state,
+      progress: progress,
+      createdAt: job.timestamp,
+      data: job.data
+    };
+    
+    if (state === 'completed') {
+      const returnValue = job.returnvalue || {};
+      payload.result = {
+        downloadUrl: returnValue.zipFilePath ? `/motion-data/task/${taskId}/download` : null,
+        zipFileName: returnValue.zipFileName || null,
+        files: returnValue.successFiles || returnValue.files || null,
+        errors: returnValue.errors || null,
+        size: returnValue.size || null
+      };
+    } else if (state === 'failed') {
+      payload.error = job.failedReason || '任务失败';
+    }
+    
+    return res.json({ success: true, data: payload });
+  } catch (error) {
+    console.error('查询队列任务状态失败:', error);
+    res.status(500).json({ success: false, message: '查询任务状态失败', error: error.message });
+  }
+}
+
+// GET /tasks - 获取用户的所有活跃任务（用于页面刷新后恢复任务状态）
+async function getUserTasks(req, res) {
+  try {
+    const userId = req.user ? req.user.id : null;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('data_replay:manage');
+    
+    if (!userId && !isAdmin) {
+      return res.status(401).json({ success: false, message: '未授权' });
+    }
+    
+    // 获取所有状态的任务（waiting, active, completed, failed）
+    // 限制数量：只获取最近的任务，避免性能问题
+    const [waitingJobs, activeJobs, completedJobs, failedJobs] = await Promise.all([
+      motionDataQueue.getWaiting(0, 100),
+      motionDataQueue.getActive(0, 100),
+      motionDataQueue.getCompleted(0, 50), // 只获取最近50个完成的任务
+      motionDataQueue.getFailed(0, 25) // 只获取最近25个失败的任务
+    ]);
+    
+    // 合并所有任务
+    const allJobs = [...waitingJobs, ...activeJobs, ...completedJobs, ...failedJobs];
+    
+    // 过滤：只返回当前用户的任务（管理员可以查看所有任务）
+    const userTasks = allJobs.filter(job => {
+      const taskUserId = job.data?.userId;
+      return isAdmin || (taskUserId && taskUserId === userId);
+    });
+    
+    // 转换为前端需要的格式
+    const tasks = await Promise.all(userTasks.map(async (job) => {
+      const state = await job.getState();
+      const progress = await job.progress();
+      
+      const task = {
+        id: job.id,
+        type: job.data?.type || 'unknown',
+        status: state,
+        progress: progress,
+        createdAt: job.timestamp,
+        data: job.data
+      };
+      
+      if (state === 'completed') {
+        const returnValue = job.returnvalue || {};
+        task.result = {
+          downloadUrl: returnValue.zipFilePath ? `/motion-data/task/${job.id}/download` : null,
+          zipFileName: returnValue.zipFileName || null,
+          files: returnValue.successFiles || returnValue.files || null,
+          errors: returnValue.errors || null,
+          size: returnValue.size || null
+        };
+      } else if (state === 'failed') {
+        task.error = job.failedReason || '任务失败';
+      }
+      
+      return task;
+    }));
+    
+    // 按创建时间倒序排列（最新的在前）
+    tasks.sort((a, b) => b.createdAt - a.createdAt);
+    
+    return res.json({ success: true, data: tasks });
+  } catch (error) {
+    console.error('获取用户任务列表失败:', error);
+    res.status(500).json({ success: false, message: '获取任务列表失败', error: error.message });
+  }
+}
+
+// GET /task/:taskId/download - 下载任务结果（ZIP文件）
+async function downloadTaskResult(req, res) {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user ? req.user.id : null;
+    const job = await motionDataQueue.getJob(taskId);
+    
+    if (!job) {
+      return res.status(404).json({ message: '任务不存在或已过期' });
+    }
+    
+    // 验证任务归属：只有任务创建者可以下载（管理员可以下载所有任务）
+    const taskUserId = job.data?.userId;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('data_replay:manage');
+    if (taskUserId && taskUserId !== userId && !isAdmin) {
+      return res.status(403).json({ message: '无权访问此任务' });
+    }
+    
+    const state = await job.getState();
+    if (state !== 'completed') {
+      return res.status(400).json({ message: `任务尚未完成，当前状态: ${state}` });
+    }
+    
+    const returnValue = job.returnvalue || {};
+    const zipFilePath = returnValue.zipFilePath;
+    
+    if (!zipFilePath || !fs.existsSync(zipFilePath)) {
+      return res.status(404).json({ message: '结果文件不存在或已过期' });
+    }
+    
+    // 安全检查：确保文件路径在预期目录内，防止路径遍历攻击
+    const normalizedPath = path.normalize(zipFilePath);
+    const expectedDir = path.normalize(path.resolve(__dirname, '../../uploads/temp/motion-data'));
+    if (!normalizedPath.startsWith(expectedDir)) {
+      console.error(`安全警告: 尝试访问非法路径 ${zipFilePath}`);
+      return res.status(403).json({ message: '非法文件路径' });
+    }
+    
+    const zipFileName = returnValue.zipFileName || `motion_data_batch_${taskId}.zip`;
     
     // 设置响应头
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const zipFileName = `motion_data_batch_${timestamp}.zip`;
-    
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
     
-    // 创建ZIP归档
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // 最高压缩级别
-    });
+    // 流式传输文件
+    const fileStream = fs.createReadStream(zipFilePath);
     
-    archive.on('error', (err) => {
-      console.error('ZIP归档错误:', err);
+    // 处理流错误
+    fileStream.on('error', (err) => {
+      console.error('文件流传输错误:', err);
       if (!res.headersSent) {
-        res.status(500).json({ message: 'ZIP打包失败', error: err.message });
+        res.status(500).json({ message: '文件传输失败', error: err.message });
+      } else {
+        // 如果响应头已发送，只能关闭连接
+        res.destroy();
       }
     });
     
-    archive.pipe(res);
+    // 处理响应错误
+    res.on('error', (err) => {
+      console.error('响应流错误:', err);
+      fileStream.destroy();
+    });
     
-    // 处理每个文件
-    for (const fileId of fileIds) {
-      try {
-        const filePath = getUploadedFilePathById(fileId);
-        ensureFileExists(filePath);
-        
-        // 获取原始文件名（去掉时间戳前缀）
-        const originalName = fileId.replace(/^\d+-\d+-/, '');
-        const csvFileName = originalName.replace(/\.bin$/i, '.csv') || `${fileId}.csv`;
-        
-        // 生成CSV流并添加到ZIP
-        const csvStream = generateCsvStream(filePath, originalName);
-        archive.append(csvStream, { name: csvFileName });
-        
-        successFiles.push({ id: fileId, filename: csvFileName });
-      } catch (err) {
-        console.error(`处理文件 ${fileId} 失败:`, err);
-        errors.push({
-          id: fileId,
-          error: err.message
-        });
-        // 继续处理其他文件
+    // 客户端断开连接时清理
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        fileStream.destroy();
       }
-    }
+    });
     
-    // 如果有错误，添加错误日志文件到ZIP
-    if (errors.length > 0) {
-      const errorLog = JSON.stringify({
-        message: '部分文件解析失败',
-        errors: errors,
-        successCount: successFiles.length,
-        totalCount: fileIds.length
-      }, null, 2);
-      archive.append(errorLog, { name: 'errors.json' });
-    }
+    fileStream.pipe(res);
     
-    // 完成ZIP归档
-    await archive.finalize();
-    
-    // 注意：这里不需要等待，因为流式输出会自动处理
-    // res会在archive完成后自动结束
-    
-  } catch (err) {
-    console.error('批量CSV导出失败:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ message: '导出失败', error: err.message });
-    }
+  } catch (error) {
+    console.error('下载任务结果失败:', error);
+    res.status(500).json({ message: '下载失败', error: error.message });
   }
 }
 
@@ -388,6 +637,9 @@ module.exports = {
   previewParsedData,
   downloadCsv,
   batchDownloadCsv,
+  getTaskStatus,
+  getUserTasks,
+  downloadTaskResult,
 };
 
 

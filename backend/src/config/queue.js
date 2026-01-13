@@ -62,6 +62,18 @@ const surgeryAnalysisQueue = new Queue('surgery-analysis', {
   }
 });
 
+// MotionData 处理队列（数据回放上传和打包下载）
+const motionDataQueue = new Queue('motion-data', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 10, // 高优先级（用户主动操作）
+    timeout: parseInt(process.env.MOTION_DATA_QUEUE_TIMEOUT_MS) || 900000, // 15分钟（打包可能较慢）
+    removeOnComplete: 50,
+    removeOnFail: 25
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('error', (error) => {
   console.error('[队列] 队列错误:', error);
@@ -98,6 +110,15 @@ surgeryAnalysisQueue.on('failed', (job, err) => {
   console.error('[手术分析队列] 任务失败:', job.id, err.message);
 });
 
+// MotionData 队列事件监听
+motionDataQueue.on('error', (error) => {
+  console.error('[MotionData队列] 队列错误:', error);
+});
+
+motionDataQueue.on('failed', (job, err) => {
+  console.error('[MotionData队列] 任务失败:', job.id, err.message);
+});
+
 // 通用队列完成事件监听
 logProcessingQueue.on('completed', (job) => {
   console.log(`[队列] 任务 ${job.id} 完成`);
@@ -115,8 +136,16 @@ surgeryAnalysisQueue.on('completed', (job) => {
   console.log(`[手术分析队列] 任务 ${job.id} 完成`);
 });
 
+motionDataQueue.on('completed', (job) => {
+  console.log(`[MotionData队列] 任务 ${job.id} 完成`);
+});
+
 logProcessingQueue.on('stalled', (job) => {
   console.warn(`[队列] 任务 ${job.id} 停滞`);
+});
+
+motionDataQueue.on('stalled', (job) => {
+  console.warn(`[MotionData队列] 任务 ${job.id} 停滞`);
 });
 
 module.exports = {
@@ -124,6 +153,7 @@ module.exports = {
   realtimeProcessingQueue,
   historicalProcessingQueue,
   surgeryAnalysisQueue,
+  motionDataQueue,
   redisConfig,
   queueOptions
 };

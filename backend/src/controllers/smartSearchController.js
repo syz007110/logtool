@@ -237,8 +237,7 @@ async function searchMongoFaultCases({ queryText, searchTerms, modules, relatedE
     }
 
     if (and.length) filter.$and = and;
-    debug.filter = filter;
-
+    
     // 打印 MongoDB 查询语句
     const queryPipeline = [
       { $match: filter },
@@ -248,6 +247,11 @@ async function searchMongoFaultCases({ queryText, searchTerms, modules, relatedE
     console.log('[智能搜索-MongoDB] MongoDB 查询语句:');
     console.log(JSON.stringify(queryPipeline, null, 2));
     console.log('[智能搜索-MongoDB] 查询参数:', { queryText: q, searchTerms: terms, modules: moduleArr, relatedErrorCodeIds: relatedIds, limit: safeLimit });
+
+    // Include queryPipeline in debug info
+    debug.filter = filter;
+    debug.queryPipeline = queryPipeline;
+    debug.queryParams = { queryText: q, searchTerms: terms, modules: moduleArr, relatedErrorCodeIds: relatedIds, limit: safeLimit };
 
     const docs = await FaultCase.aggregate(queryPipeline);
 
@@ -1147,7 +1151,20 @@ async function smartSearch(req, res) {
         mongoModules: q.component || []
       });
 
-      mongoDebug = { mixed: true, ...(mixedResp || {}) };
+      // Extract JQL from mixed search response for debug display
+      if (mixedResp?.jql) {
+        jiraJql = mixedResp.jql;
+      }
+
+      // Extract MongoDB query debug info (not the entire response)
+      if (mixedResp?.mongo_debug) {
+        mongoDebug = {
+          mixed: true,
+          ...mixedResp.mongo_debug
+        };
+      } else {
+        mongoDebug = { mixed: true, skipped: true, reason: 'no_mongo_query' };
+      }
 
       // Jira error note (best-effort; mixed endpoint only returns message)
       if (mixedResp?.ok === false) {

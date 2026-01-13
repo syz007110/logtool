@@ -460,7 +460,7 @@
                                     class="ss-fault-attachment-image"
                                   >
                                     <el-image
-                                      :src="img.url"
+                                      :src="getGenericAttachmentProxyUrl(img.url)"
                                       :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
                                       fit="cover"
                                       class="ss-attachment-image"
@@ -473,7 +473,7 @@
                                     v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
                                     :key="img.uid || img.url"
                                     class="ss-fault-attachment-file"
-                                    :href="img.url"
+                                    :href="getGenericAttachmentProxyUrl(img.url)"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     @click.stop
@@ -556,7 +556,7 @@
                                     class="ss-fault-attachment-image"
                                   >
                                     <el-image
-                                      :src="img.url"
+                                      :src="getGenericAttachmentProxyUrl(img.url)"
                                       :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
                                       fit="cover"
                                       class="ss-attachment-image"
@@ -569,7 +569,7 @@
                                     v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
                                     :key="img.uid || img.url"
                                     class="ss-fault-attachment-file"
-                                    :href="img.url"
+                                    :href="getGenericAttachmentProxyUrl(img.url)"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     @click.stop
@@ -954,7 +954,7 @@
                             class="ss-fault-attachment-image"
                           >
                             <el-image
-                              :src="img.url"
+                              :src="getGenericAttachmentProxyUrl(img.url)"
                               :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
                               fit="cover"
                               class="ss-attachment-image"
@@ -967,7 +967,7 @@
                             v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
                             :key="img.uid || img.url"
                             class="ss-fault-attachment-file"
-                            :href="img.url"
+                            :href="getGenericAttachmentProxyUrl(img.url)"
                             target="_blank"
                             rel="noopener noreferrer"
                             @click.stop
@@ -1377,7 +1377,7 @@
                       v-for="img in faultDetailTech.images"
                       :key="img.uid || img.url"
                       class="ss-fault-detail-dialog-attach"
-                      :href="img.url"
+                      :href="getGenericAttachmentProxyUrl(img.url)"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -1907,9 +1907,20 @@ export default {
       return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.gif') || name.endsWith('.webp') || name.endsWith('.bmp')
     }
 
+    // 通用附件代理 URL 函数（适用于所有类型的附件）
+    const getGenericAttachmentProxyUrl = (url) => {
+      if (!url) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      qs.set('url', url)
+      // 后端 auth 中间件支持 GET query token，用于处理跨域和认证
+      if (token) qs.set('token', token)
+      return `/api/jira/attachment/proxy?${qs.toString()}`
+    }
+
     const getImagePreviewList = (images) => {
       if (!Array.isArray(images)) return []
-      return images.filter(img => isImageFile(img)).map(img => img.url)
+      return images.filter(img => isImageFile(img)).map(img => getGenericAttachmentProxyUrl(img.url))
     }
 
     const getImageIndex = (images, currentImg) => {
@@ -2103,15 +2114,20 @@ export default {
       return attachment?.content || attachment?.url || ''
     }
 
-    const getJiraImageSrc = (img) => {
-      const raw = getAttachmentUrl(img)
+    // 获取附件代理 URL（适用于所有文件类型，包括图片和非图片）
+    const getAttachmentProxyUrl = (attachment) => {
+      const raw = getAttachmentUrl(attachment)
       if (!raw) return ''
       const token = store?.state?.auth?.token || ''
       const qs = new URLSearchParams()
       qs.set('url', raw)
-      // `el-image` 的请求不会带 Authorization 头；后端 auth 中间件支持 GET query token
+      // 后端 auth 中间件支持 GET query token，用于处理跨域和认证
       if (token) qs.set('token', token)
       return `/api/jira/attachment/proxy?${qs.toString()}`
+    }
+
+    const getJiraImageSrc = (img) => {
+      return getAttachmentProxyUrl(img)
     }
 
     const getJiraImageAttachments = (item) => {
@@ -2135,18 +2151,32 @@ export default {
     }
 
     const downloadJiraFile = (file) => {
-      const url = getAttachmentUrl(file)
-      if (!url) return
+      const rawUrl = getAttachmentUrl(file)
+      if (!rawUrl) {
+        console.warn('附件缺少 content URL:', file)
+        ElMessage.warning('附件链接无效')
+        return
+      }
+      
+      // 使用后端代理 URL，解决跨域和认证问题（适用于未连接 JIRA 的情况）
+      const proxyUrl = getAttachmentProxyUrl(file)
       try {
         const link = document.createElement('a')
-        link.href = url
+        link.href = proxyUrl
         link.download = file.filename || 'attachment'
         link.target = '_blank'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
-      } catch (_) {
-        window.open(url, '_blank', 'noopener,noreferrer')
+      } catch (error) {
+        console.warn('文件下载失败:', error)
+        // 降级：尝试使用原始 URL（可能失败）
+        try {
+          window.open(proxyUrl, '_blank')
+        } catch (fallbackError) {
+          console.error('降级下载也失败:', fallbackError)
+          ElMessage.error('文件下载失败，请检查网络连接')
+        }
       }
     }
 
@@ -2157,11 +2187,20 @@ export default {
       return attachment?.url || attachment?.content || ''
     }
 
+    // 获取 MongoDB 附件代理 URL
+    const getMongoAttachmentProxyUrl = (attachment) => {
+      const raw = getMongoAttachmentUrl(attachment)
+      if (!raw) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      qs.set('url', raw)
+      // 后端 auth 中间件支持 GET query token，用于处理跨域和认证
+      if (token) qs.set('token', token)
+      return `/api/jira/attachment/proxy?${qs.toString()}`
+    }
+
     const getMongoImageSrc = (img) => {
-      const url = getMongoAttachmentUrl(img)
-      if (!url) return ''
-      // 如果是 OSS URL，直接使用；否则可能需要代理
-      return url
+      return getMongoAttachmentProxyUrl(img)
     }
 
     const getMongoImageAttachments = (item) => {
@@ -2209,18 +2248,32 @@ export default {
     }
 
     const downloadMongoFile = (file) => {
-      const url = getMongoAttachmentUrl(file)
-      if (!url) return
+      const rawUrl = getMongoAttachmentUrl(file)
+      if (!rawUrl) {
+        console.warn('附件缺少 URL:', file)
+        ElMessage.warning('附件链接无效')
+        return
+      }
+      
+      // 使用后端代理 URL，解决跨域和认证问题
+      const proxyUrl = getMongoAttachmentProxyUrl(file)
       try {
         const link = document.createElement('a')
-        link.href = url
+        link.href = proxyUrl
         link.download = file.filename || file.name || 'attachment'
         link.target = '_blank'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
-      } catch (_) {
-        window.open(url, '_blank', 'noopener,noreferrer')
+      } catch (error) {
+        console.warn('文件下载失败:', error)
+        // 降级：尝试使用原始 URL（可能失败）
+        try {
+          window.open(proxyUrl, '_blank')
+        } catch (fallbackError) {
+          console.error('降级下载也失败:', fallbackError)
+          ElMessage.error('文件下载失败，请检查网络连接')
+        }
       }
     }
 

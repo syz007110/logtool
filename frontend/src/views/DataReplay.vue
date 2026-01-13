@@ -145,6 +145,7 @@ import { useI18n } from 'vue-i18n'
 import * as THREE from 'three'
 import api from '../api'
 import { getTableHeight } from '@/utils/tableHeight'
+import websocketClient from '../services/websocketClient'
 
 export default {
   name: 'DataReplay',
@@ -171,6 +172,10 @@ export default {
     const uploadProgressText = ref('') // 上传进度文本
     const processingProgress = ref(0) // 处理进度 0-100
     const processingProgressText = ref('') // 处理进度文本
+    
+    // 任务状态管理
+    const activeTasks = ref(new Map()) // taskId -> { type: 'upload'|'download', status, progress, result, error }
+    let taskPollingIntervals = new Map() // taskId -> intervalId
 
     // 3D容器引用
     const threeContainer = ref(null)
@@ -1232,7 +1237,7 @@ export default {
       }
     }
 
-    // 处理待上传文件队列
+    // 处理待上传文件队列（改为异步队列处理）
     const processPendingFiles = async (filesToUpload) => {
       if (!filesToUpload || filesToUpload.length === 0) {
         return
@@ -1265,37 +1270,48 @@ export default {
         }))
         uploadedFiles.value.push(...fileItems)
 
-        // 更新上传进度
-        uploadProgressText.value = `正在上传 ${totalFiles} 个文件...`
-        uploadProgress.value = 20
-
-        // 发送上传请求
-        uploadProgress.value = 40
+        // 发送上传请求（现在返回任务ID）
+        uploadProgressText.value = `正在创建上传任务...`
+        uploadProgress.value = 10
         
         const { data } = await api.motionData.batchUpload(form)
         
-        uploadProgress.value = 80
-
-        if (data.files && data.files.length > 0) {
-          // 更新文件状态
-          data.files.forEach((uploadedFile, index) => {
-            if (index < fileItems.length) {
-              fileItems[index].id = uploadedFile.id
-              fileItems[index].status = 'success'
-            }
+        if (data.taskId) {
+          // 创建队列任务成功，开始监听任务状态
+          const taskId = data.taskId
+          activeTasks.value.set(taskId, {
+            type: 'upload',
+            status: data.status || 'waiting',
+            progress: 0,
+            result: null,
+            error: null,
+            fileItems: fileItems
           })
-
-          uploadProgress.value = 100
-          uploadProgressText.value = `成功上传 ${data.files.length} 个文件`
           
-          setTimeout(() => {
-            uploadProgress.value = 0
-            uploadProgressText.value = ''
-          }, 1500)
+          uploadProgressText.value = `任务已创建，等待处理...`
+          uploadProgress.value = 20
           
-          ElMessage.success(`成功上传 ${data.files.length} 个文件`)
+          // 启动轮询（WebSocket 失败时的兜底）
+          startTaskPolling(taskId)
         } else {
-          throw new Error('上传响应格式错误')
+          // 兼容旧格式（如果没有 taskId，说明后端还没更新）
+          if (data.files && data.files.length > 0) {
+            data.files.forEach((uploadedFile, index) => {
+              if (index < fileItems.length) {
+                fileItems[index].id = uploadedFile.id
+                fileItems[index].status = 'success'
+              }
+            })
+            uploadProgress.value = 100
+            uploadProgressText.value = `成功上传 ${data.files.length} 个文件`
+            setTimeout(() => {
+              uploadProgress.value = 0
+              uploadProgressText.value = ''
+            }, 1500)
+            ElMessage.success(`成功上传 ${data.files.length} 个文件`)
+          } else {
+            throw new Error('上传响应格式错误')
+          }
         }
       } catch (err) {
         console.error('批量上传失败:', err)
@@ -1308,8 +1324,8 @@ export default {
         uploadProgressText.value = ''
         const errorMsg = err.response?.data?.message || err.message || '未知错误'
         ElMessage.error(`批量上传失败: ${errorMsg}`)
-      } finally {
         uploading.value = false
+      } finally {
         // 清空上传组件的文件列表
         if (uploadRef.value) {
           uploadRef.value.clearFiles()
@@ -1318,6 +1334,192 @@ export default {
         if (uploadTimer) {
           clearTimeout(uploadTimer)
           uploadTimer = null
+        }
+      }
+    }
+    
+    // 启动任务状态轮询（兜底机制）
+    const startTaskPolling = (taskId) => {
+      // 如果已有轮询，先清除
+      if (taskPollingIntervals.has(taskId)) {
+        clearInterval(taskPollingIntervals.get(taskId))
+      }
+      
+      let pollCount = 0
+      const MAX_POLL_COUNT = 300 // 最多轮询300次（10分钟，每2秒一次）
+      
+      const pollInterval = setInterval(async () => {
+        try {
+          pollCount++
+          
+          // 防止无限轮询
+          if (pollCount > MAX_POLL_COUNT) {
+            console.warn(`任务 ${taskId} 轮询超时，停止轮询`)
+            stopTaskPolling(taskId)
+            ElMessage.warning('任务处理超时，请刷新页面查看状态')
+            return
+          }
+          
+          const { data } = await api.motionData.getTaskStatus(taskId)
+          if (data.success && data.data) {
+            const taskData = data.data
+            updateTaskStatus(taskId, taskData)
+            
+            // 如果任务已完成或失败，停止轮询
+            if (taskData.status === 'completed' || taskData.status === 'failed') {
+              stopTaskPolling(taskId)
+            }
+          }
+        } catch (err) {
+          console.error(`轮询任务 ${taskId} 状态失败:`, err)
+          // 如果任务不存在（404），停止轮询
+          if (err.response?.status === 404) {
+            console.warn(`任务 ${taskId} 不存在，停止轮询`)
+            stopTaskPolling(taskId)
+          }
+        }
+      }, 2000) // 每2秒轮询一次
+      
+      taskPollingIntervals.set(taskId, pollInterval)
+    }
+    
+    // 停止任务状态轮询
+    const stopTaskPolling = (taskId) => {
+      if (taskPollingIntervals.has(taskId)) {
+        clearInterval(taskPollingIntervals.get(taskId))
+        taskPollingIntervals.delete(taskId)
+      }
+    }
+    
+    // 更新任务状态
+    const updateTaskStatus = (taskId, taskData) => {
+      const task = activeTasks.value.get(taskId)
+      if (!task) return
+      
+      task.status = taskData.status
+      task.progress = taskData.progress || 0
+      task.result = taskData.result || null
+      task.error = taskData.error || null
+      
+      // 根据任务类型更新UI
+      if (task.type === 'upload') {
+        uploadProgress.value = task.progress
+        if (task.status === 'active') {
+          uploadProgressText.value = `正在处理文件... (${task.progress}%)`
+        } else if (task.status === 'completed') {
+          uploadProgress.value = 100
+          uploadProgressText.value = '上传完成'
+          
+          // 更新文件列表
+          if (task.result && task.result.files) {
+            task.result.files.forEach((uploadedFile, index) => {
+              if (index < task.fileItems.length) {
+                task.fileItems[index].id = uploadedFile.id
+                task.fileItems[index].status = 'success'
+              }
+            })
+          }
+          
+          // 如果有错误文件，标记为失败
+          if (task.result && task.result.errors) {
+            task.result.errors.forEach((error) => {
+              const fileItem = task.fileItems.find(f => f.filename === error.filename)
+              if (fileItem) {
+                fileItem.status = 'error'
+              }
+            })
+          }
+          
+          setTimeout(() => {
+            uploadProgress.value = 0
+            uploadProgressText.value = ''
+            uploading.value = false
+          }, 1500)
+          
+          const successCount = task.result?.files?.length || 0
+          const errorCount = task.result?.errors?.length || 0
+          if (errorCount > 0) {
+            ElMessage.warning(`上传完成: ${successCount} 个成功, ${errorCount} 个失败`)
+          } else {
+            ElMessage.success(`成功上传 ${successCount} 个文件`)
+          }
+          
+          stopTaskPolling(taskId)
+          activeTasks.value.delete(taskId)
+        } else if (task.status === 'failed') {
+          uploadProgress.value = 0
+          uploadProgressText.value = ''
+          uploading.value = false
+          ElMessage.error(`上传失败: ${task.error || '未知错误'}`)
+          
+          // 标记所有文件为失败
+          task.fileItems.forEach(item => {
+            item.status = 'error'
+          })
+          
+          stopTaskPolling(taskId)
+          activeTasks.value.delete(taskId)
+        }
+      } else if (task.type === 'download') {
+        processingProgress.value = task.progress
+        if (task.status === 'active') {
+          processingProgressText.value = `正在处理... (${task.progress}%)`
+        } else if (task.status === 'completed') {
+          processingProgress.value = 100
+          processingProgressText.value = '打包完成，准备下载...'
+          
+          // 自动下载ZIP文件
+          if (task.result && task.result.downloadUrl) {
+            downloadTaskResultFile(taskId)
+          }
+          
+          setTimeout(() => {
+            processingProgress.value = 0
+            processingProgressText.value = ''
+            processing.value = false
+          }, 1500)
+          
+          ElMessage.success('打包完成')
+          stopTaskPolling(taskId)
+          activeTasks.value.delete(taskId)
+        } else if (task.status === 'failed') {
+          processingProgress.value = 0
+          processingProgressText.value = ''
+          processing.value = false
+          ElMessage.error(`打包失败: ${task.error || '未知错误'}`)
+          stopTaskPolling(taskId)
+          activeTasks.value.delete(taskId)
+        }
+      }
+    }
+    
+    // 下载任务结果文件
+    const downloadTaskResultFile = async (taskId) => {
+      try {
+        const response = await api.motionData.downloadTaskResult(taskId)
+        const blob = new Blob([response.data], { type: 'application/zip' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        
+        // 从任务结果获取文件名，或使用默认名称
+        const task = activeTasks.value.get(taskId)
+        const fileName = task?.result?.zipFileName || `motion_data_batch_${taskId}.zip`
+        a.download = fileName
+        
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (err) {
+        console.error('下载任务结果失败:', err)
+        const errorMsg = err.response?.data?.message || err.message || '未知错误'
+        ElMessage.error(`下载失败: ${errorMsg}`)
+        
+        // 如果是因为任务不存在或权限问题，清理任务状态
+        if (err.response?.status === 404 || err.response?.status === 403) {
+          stopTaskPolling(taskId)
+          activeTasks.value.delete(taskId)
         }
       }
     }
@@ -1334,7 +1536,7 @@ export default {
       ElMessage.warning('最多只能选择20个文件')
     }
 
-    // 批量下载CSV（ZIP格式）
+    // 批量下载CSV（ZIP格式）- 改为异步队列处理
     const batchDownloadCsv = async () => {
       if (uploadedFiles.value.length === 0) {
         ElMessage.warning('请先上传文件')
@@ -1349,65 +1551,43 @@ export default {
       }
 
       processing.value = true
-      processingProgress.value = 10
-      processingProgressText.value = '开始解析文件...'
+      processingProgress.value = 0
+      processingProgressText.value = '正在创建下载任务...'
 
       try {
         const fileIds = successFiles.map(f => f.id)
         const totalFiles = fileIds.length
         
-        // 更新进度提示
-        processingProgressText.value = `正在解析 ${totalFiles} 个文件...`
-        processingProgress.value = 20
+        // 发送下载请求（现在返回任务ID）
+        const { data } = await api.motionData.batchDownloadCsv(fileIds)
         
-        // 使用setTimeout模拟进度更新（因为后端是流式返回，无法获取确切进度）
-        const progressInterval = setInterval(() => {
-          if (processingProgress.value < 85) {
-            processingProgress.value += 5
-            if (processingProgress.value < 50) {
-              processingProgressText.value = `正在解析文件... (${processingProgress.value}%)`
-            } else if (processingProgress.value < 80) {
-              processingProgressText.value = `正在打包文件... (${processingProgress.value}%)`
-            } else {
-              processingProgressText.value = `正在生成ZIP文件... (${processingProgress.value}%)`
-            }
-          }
-        }, 300)
-
-        const response = await api.motionData.batchDownloadCsv(fileIds)
-        
-        clearInterval(progressInterval)
-        processingProgress.value = 95
-        processingProgressText.value = '正在准备下载...'
-        
-        // 创建下载链接
-        const blob = new Blob([response.data], { type: 'application/zip' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-        a.download = `motion_data_batch_${timestamp}.zip`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        
-        processingProgress.value = 100
-        processingProgressText.value = `成功打包 ${totalFiles} 个文件`
-        
-        setTimeout(() => {
-          processingProgress.value = 0
-          processingProgressText.value = ''
-        }, 1500)
-        
-        ElMessage.success(`成功下载 ${totalFiles} 个文件的ZIP包`)
+        if (data.taskId) {
+          // 创建队列任务成功，开始监听任务状态
+          const taskId = data.taskId
+          activeTasks.value.set(taskId, {
+            type: 'download',
+            status: data.status || 'waiting',
+            progress: 0,
+            result: null,
+            error: null
+          })
+          
+          processingProgressText.value = `任务已创建，等待处理...`
+          processingProgress.value = 10
+          
+          // 启动轮询（WebSocket 失败时的兜底）
+          startTaskPolling(taskId)
+        } else {
+          // 兼容旧格式（如果没有 taskId，说明后端还没更新）
+          throw new Error('下载响应格式错误，请更新后端')
+        }
       } catch (err) {
         console.error('批量下载失败:', err)
         processingProgress.value = 0
         processingProgressText.value = ''
-        ElMessage.error(`批量下载失败: ${err.message || '未知错误'}`)
-      } finally {
         processing.value = false
+        const errorMsg = err.response?.data?.message || err.message || '未知错误'
+        ElMessage.error(`批量下载失败: ${errorMsg}`)
       }
     }
 
@@ -1508,11 +1688,112 @@ export default {
       }
     }
 
+    // WebSocket 任务状态监听
+    const handleMotionDataTaskStatusChange = (data) => {
+      const { taskId, status, progress, result, error } = data
+      updateTaskStatus(taskId, { status, progress, result, error })
+    }
+    
+    // 恢复任务状态（页面刷新后）
+    const restoreTasks = async () => {
+      try {
+        const { data } = await api.motionData.getUserTasks()
+        if (data.success && data.data && Array.isArray(data.data)) {
+          const tasks = data.data
+          
+          // 只恢复活跃的任务（waiting/active），已完成和失败的可以忽略
+          const activeTaskStates = ['waiting', 'active']
+          const activeTasksToRestore = tasks.filter(task => 
+            activeTaskStates.includes(task.status)
+          )
+          
+          if (activeTasksToRestore.length > 0) {
+            console.log(`恢复 ${activeTasksToRestore.length} 个活跃任务`)
+            
+            activeTasksToRestore.forEach(task => {
+              // 根据任务类型恢复
+              if (task.type === 'batch-upload') {
+                // 恢复上传任务
+                const fileItems = task.data?.files?.map(f => ({
+                  id: f.id || '',
+                  filename: f.originalName || f.filename || '',
+                  size: f.size || 0,
+                  status: 'uploading' // 恢复时标记为上传中
+                })) || []
+                
+                activeTasks.value.set(task.id, {
+                  type: 'upload',
+                  status: task.status,
+                  progress: task.progress || 0,
+                  result: task.result || null,
+                  error: task.error || null,
+                  fileItems: fileItems
+                })
+                
+                // 恢复进度显示
+                if (task.status === 'active') {
+                  uploadProgress.value = task.progress || 0
+                  uploadProgressText.value = `正在处理文件... (${task.progress || 0}%)`
+                  uploading.value = true
+                }
+                
+                // 重新启动轮询
+                startTaskPolling(task.id)
+              } else if (task.type === 'batch-download') {
+                // 恢复下载任务
+                activeTasks.value.set(task.id, {
+                  type: 'download',
+                  status: task.status,
+                  progress: task.progress || 0,
+                  result: task.result || null,
+                  error: task.error || null
+                })
+                
+                // 恢复进度显示
+                if (task.status === 'active') {
+                  processingProgress.value = task.progress || 0
+                  processingProgressText.value = `正在处理... (${task.progress || 0}%)`
+                  processing.value = true
+                }
+                
+                // 如果已完成且有下载链接，提示用户
+                if (task.status === 'completed' && task.result?.downloadUrl) {
+                  processingProgress.value = 100
+                  processingProgressText.value = '打包完成，准备下载...'
+                  processing.value = false
+                  ElMessage.info('检测到已完成的任务，可以下载结果文件')
+                }
+                
+                // 重新启动轮询（如果还在进行中）
+                if (task.status !== 'completed' && task.status !== 'failed') {
+                  startTaskPolling(task.id)
+                }
+              }
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('恢复任务状态失败（已忽略）:', err)
+        // 不影响页面正常加载
+      }
+    }
+
     onMounted(async () => {
       await fetchConfig()
       await fetchDHModel()
       await loadGeometryConfig()
       await loadHierarchyConfig()
+      
+      // 连接 WebSocket（如果还没连接）
+      if (!websocketClient.isConnected()) {
+        websocketClient.connect()
+      }
+      
+      // 监听 MotionData 任务状态变化
+      websocketClient.on('motionDataTaskStatusChange', handleMotionDataTaskStatusChange)
+      
+      // 恢复任务状态（页面刷新后）
+      await restoreTasks()
       
       // 不在这里初始化3D场景，等待数据加载完成后再初始化
       // 监听窗口大小变化
@@ -1522,6 +1803,15 @@ export default {
     })
 
     onUnmounted(() => {
+      // 移除 WebSocket 监听
+      websocketClient.off('motionDataTaskStatusChange', handleMotionDataTaskStatusChange)
+      
+      // 清理所有任务轮询
+      taskPollingIntervals.forEach((intervalId) => {
+        clearInterval(intervalId)
+      })
+      taskPollingIntervals.clear()
+      
       // 清理Three.js资源
       if (threeRenderer) {
         threeRenderer.dispose()
@@ -1570,7 +1860,8 @@ export default {
       uploadedFiles, uploading, processing, batchMode,
       pendingFiles, uploadRef, processPendingFiles, handleFileChange,
       uploadProgress, uploadProgressText,
-      processingProgress, processingProgressText
+      processingProgress, processingProgressText,
+      activeTasks
     }
   }
 }

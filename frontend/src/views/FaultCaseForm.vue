@@ -736,9 +736,22 @@ export default {
       ElMessage.warning(t('faultCases.uploadExceed'))
     }
 
+    // 获取附件代理 URL（适用于所有文件类型，包括图片和非图片）
+    const getAttachmentProxyUrl = (url) => {
+      if (!url) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      qs.set('url', url)
+      // 后端 auth 中间件支持 GET query token，用于处理跨域和认证
+      if (token) qs.set('token', token)
+      return `/api/jira/attachment/proxy?${qs.toString()}`
+    }
+
     const handleFileClick = (file) => {
       if (file.url) {
-        window.open(file.url, '_blank', 'noopener,noreferrer')
+        // 使用后端代理 URL，解决跨域和认证问题
+        const proxyUrl = getAttachmentProxyUrl(file.url)
+        window.open(proxyUrl, '_blank', 'noopener,noreferrer')
       }
     }
 
@@ -1109,7 +1122,9 @@ export default {
                   if (file && file.url) {
                     e.preventDefault()
                     e.stopPropagation()
-                    window.open(file.url, '_blank', 'noopener,noreferrer')
+                    // 使用后端代理 URL，解决跨域和认证问题
+                    const proxyUrl = getAttachmentProxyUrl(file.url)
+                    window.open(proxyUrl, '_blank', 'noopener,noreferrer')
                   }
                 } else {
                   // 如果没有 uid，通过索引查找
@@ -1118,7 +1133,9 @@ export default {
                   if (file && file.url) {
                     e.preventDefault()
                     e.stopPropagation()
-                    window.open(file.url, '_blank', 'noopener,noreferrer')
+                    // 使用后端代理 URL，解决跨域和认证问题
+                    const proxyUrl = getAttachmentProxyUrl(file.url)
+                    window.open(proxyUrl, '_blank', 'noopener,noreferrer')
                   }
                 }
               }

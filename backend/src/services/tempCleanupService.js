@@ -149,6 +149,10 @@ async function runOnce({ log }) {
       ? String(process.env.MOTION_DATA_TMP_DIR)
       : path.resolve(__dirname, '../../uploads/temp');
     await cleanupLocalDir({ label: 'motion-data', dirPath, cutoffMs, log });
+    
+    // 清理 motion-data 结果目录（ZIP文件）
+    const resultDirPath = path.resolve(__dirname, '../../uploads/temp/motion-data');
+    await cleanupLocalDir({ label: 'motion-data-results', dirPath: resultDirPath, cutoffMs, log });
   }
 
   // Optional: a super-simple safety sweep for any tmp cleanup when TTL is used elsewhere

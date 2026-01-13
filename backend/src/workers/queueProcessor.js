@@ -2,24 +2,29 @@ const {
   logProcessingQueue, 
   realtimeProcessingQueue, 
   historicalProcessingQueue, 
-  surgeryAnalysisQueue 
+  surgeryAnalysisQueue,
+  motionDataQueue
 } = require('../config/queue');
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog } = require('./batchProcessor');
+const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
 const Log = require('../models/log');
 const websocketService = require('../services/websocketService');
+const { logOperation } = require('../utils/operationLogger');
 
 // 设置并发处理数量
 const CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 3;
 const REALTIME_CONCURRENCY = parseInt(process.env.REALTIME_QUEUE_CONCURRENCY) || 2; // 实时处理并发数
 const HISTORICAL_CONCURRENCY = parseInt(process.env.HISTORICAL_QUEUE_CONCURRENCY) || 1; // 历史处理并发数
 const SURGERY_CONCURRENCY = parseInt(process.env.SURGERY_QUEUE_CONCURRENCY) || 3;
+const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURRENCY) || 2;
 
 console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
 console.log(`[队列系统] 启动实时处理队列，并发数: ${REALTIME_CONCURRENCY}`);
 console.log(`[队列系统] 启动历史处理队列，并发数: ${HISTORICAL_CONCURRENCY}`);
 console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONCURRENCY}`);
+console.log(`[队列系统] 启动MotionData处理队列，并发数: ${MOTION_DATA_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -291,6 +296,186 @@ surgeryAnalysisQueue.process('analyze-surgeries', SURGERY_CONCURRENCY, async (jo
   }
 });
 
+// 注册MotionData批量上传处理器
+motionDataQueue.process('batch-upload', MOTION_DATA_CONCURRENCY, async (job) => {
+  try {
+    console.log(`[MotionData队列处理器] 开始处理批量上传任务: ${job.id}`);
+    
+    // 推送任务状态：active
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'active', 0, job.data.userId);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    const result = await processBatchUpload(job);
+    
+    // 推送任务状态：completed
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'completed', 100, job.data.userId, result);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    // 更新操作日志状态：success
+    try {
+      await logOperation({
+        operation: '数据回放-批量上传',
+        description: `上传完成: ${result.files?.length || 0} 个文件成功${result.errors?.length ? `, ${result.errors.length} 个失败` : ''}`,
+        user_id: job.data.userId,
+        username: null, // Worker 中无法获取用户名
+        status: 'success',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          successCount: result.files?.length || 0,
+          errorCount: result.errors?.length || 0,
+          files: result.files || [],
+          errors: result.errors || []
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    console.log(`[MotionData队列处理器] 批量上传任务 ${job.id} 完成`);
+    return result;
+  } catch (error) {
+    console.error(`[MotionData队列处理器] 批量上传任务 ${job.id} 失败:`, error);
+    
+    // 推送任务状态：failed
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'failed', 0, job.data.userId, null, error.message);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    // 更新操作日志状态：failed
+    try {
+      await logOperation({
+        operation: '数据回放-批量上传',
+        description: `上传失败: ${error.message}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'failed',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          error: error.message,
+          fileCount: job.data.files?.length || 0
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    throw error;
+  }
+});
+
+// 注册MotionData批量打包下载处理器
+motionDataQueue.process('batch-download', MOTION_DATA_CONCURRENCY, async (job) => {
+  try {
+    console.log(`[MotionData队列处理器] 开始处理批量打包下载任务: ${job.id}`);
+    
+    // 推送任务状态：active
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'active', 0, job.data.userId);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    const result = await processBatchDownload(job);
+    
+    // 推送任务状态：completed
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'completed', 100, job.data.userId, result);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    // 更新操作日志状态：success
+    try {
+      await logOperation({
+        operation: '数据回放-批量打包下载',
+        description: `打包完成: ${result.successFiles?.length || 0} 个文件${result.errors?.length ? `, ${result.errors.length} 个失败` : ''}, ZIP大小: ${formatFileSize(result.size || 0)}`,
+        user_id: job.data.userId,
+        username: null, // Worker 中无法获取用户名
+        status: 'success',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          zipFileName: result.zipFileName,
+          zipFilePath: result.zipFilePath,
+          successCount: result.successFiles?.length || 0,
+          errorCount: result.errors?.length || 0,
+          size: result.size,
+          successFiles: result.successFiles || [],
+          errors: result.errors || []
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    console.log(`[MotionData队列处理器] 批量打包下载任务 ${job.id} 完成`);
+    return result;
+  } catch (error) {
+    console.error(`[MotionData队列处理器] 批量打包下载任务 ${job.id} 失败:`, error);
+    
+    // 推送任务状态：failed
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'failed', 0, job.data.userId, null, error.message);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+    
+    // 更新操作日志状态：failed
+    try {
+      await logOperation({
+        operation: '数据回放-批量打包下载',
+        description: `打包失败: ${error.message}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'failed',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          error: error.message,
+          fileCount: job.data.fileIds?.length || 0
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    throw error;
+  }
+});
+
+// 辅助函数：格式化文件大小
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// MotionData队列进度更新监听（Bull 的 progress 事件在 job.progress() 调用时触发）
+motionDataQueue.on('progress', (job, progress) => {
+  try {
+    const status = job.opts?.status || 'active';
+    websocketService.pushMotionDataTaskStatus(job.id, status, progress, job.data?.userId);
+  } catch (wsError) {
+    console.warn('WebSocket 进度推送失败:', wsError.message);
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('waiting', (jobId) => {
   console.log(`任务 ${jobId} 等待处理`);
@@ -333,16 +518,35 @@ surgeryAnalysisQueue.on('failed', (job, err) => {
   console.error(`[手术队列] 任务 ${job.id} 失败:`, err && err.message);
 });
 
+// MotionData队列事件监听
+motionDataQueue.on('waiting', (jobId) => {
+  console.log(`[MotionData队列] 任务 ${jobId} 等待处理`);
+});
+
+motionDataQueue.on('active', (job) => {
+  console.log(`[MotionData队列] 任务 ${job.id} 开始处理`);
+});
+
+motionDataQueue.on('completed', (job, result) => {
+  console.log(`[MotionData队列] 任务 ${job.id} 完成`);
+});
+
+motionDataQueue.on('failed', (job, err) => {
+  console.error(`[MotionData队列] 任务 ${job.id} 失败:`, err && err.message);
+});
+
 // 优雅关闭
 process.on('SIGTERM', async () => {
   console.log('收到SIGTERM信号，正在关闭队列...');
   await logProcessingQueue.close();
+  await motionDataQueue.close();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('收到SIGINT信号，正在关闭队列...');
   await logProcessingQueue.close();
+  await motionDataQueue.close();
   process.exit(0);
 });
 

@@ -14,6 +14,9 @@ const {
   previewParsedData,
   downloadCsv,
   batchDownloadCsv,
+  getTaskStatus,
+  getUserTasks,
+  downloadTaskResult,
 } = require('../controllers/motionDataController');
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/temp');
@@ -47,6 +50,11 @@ router.get('/:id/download-csv', auth, checkPermission('data_replay:manage'), dow
 
 // Batch download CSV as ZIP - admin only
 router.post('/batch-download-csv', auth, checkPermission('data_replay:manage'), batchDownloadCsv);
+
+// Task status and result download - admin only
+router.get('/tasks', auth, checkPermission('data_replay:manage'), getUserTasks); // 获取用户所有任务（用于恢复）
+router.get('/task/:taskId', auth, checkPermission('data_replay:manage'), getTaskStatus);
+router.get('/task/:taskId/download', auth, checkPermission('data_replay:manage'), downloadTaskResult);
 
 module.exports = router;
 

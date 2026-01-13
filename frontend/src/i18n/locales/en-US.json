@@ -33,6 +33,7 @@
     "unknown": "Unknown",
     "submit":"submit",
     "back": "Back",
+    "updated": "Updated",
     "messages": {
       "deleteSuccess": "Deleted successfully",
       "deleteFailed": "Delete failed",
