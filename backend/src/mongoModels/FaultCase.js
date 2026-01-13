@@ -20,6 +20,7 @@ const ReviewSchema = new mongoose.Schema({
 
 const FaultCaseSchema = new mongoose.Schema({
   // 基础信息字段
+  case_code: { type: String }, // 自增编号：FC-1/FC-2...（用于列表关键字展示）
   source: { type: String, enum: ['jira', 'manual'], default: 'manual' }, // 数据源：jira 或 手动输入
   jira_key: { type: String }, // JIRA 工单关键字，仅当 source=jira 时使用
   module: { type: String, default: '' }, // 模块/部件分类
@@ -69,6 +70,13 @@ FaultCaseSchema.index({ title: 'text', symptom: 'text', possible_causes: 'text',
 FaultCaseSchema.index({ related_error_code_ids: 1 });
 FaultCaseSchema.index({ created_by: 1, updatedAt: -1 });
 FaultCaseSchema.index({ source: 1, jira_key: 1 });
+FaultCaseSchema.index(
+  { case_code: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { case_code: { $type: 'string' } }
+  }
+);
 FaultCaseSchema.index(
   { jira_key: 1 },
   {

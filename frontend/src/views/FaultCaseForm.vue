@@ -323,7 +323,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
@@ -742,7 +742,73 @@ export default {
       }
     }
 
-    const goBack = () => {
+    // 清理临时附件（取消编辑时使用）
+    const cleanupTempAttachments = async () => {
+      // 只在新建模式下清理（编辑模式下不清理，因为可能已有永久文件）
+      if (isEdit.value) return
+      
+      const tmpUrls = form.attachments
+        .filter((att) => {
+          const url = att.url || ''
+          return url && (url.includes('/fault-cases/tmp/') || url.includes('/tmp/'))
+        })
+        .map((att) => att.url)
+      
+      if (!tmpUrls.length) return
+      
+      try {
+        await api.faultCases.cleanupTempFiles(tmpUrls)
+      } catch (e) {
+        // 静默处理清理失败，避免影响关闭
+        console.warn('cleanup temp files failed', e)
+      }
+    }
+
+    // 页面关闭/切后台时的“尽力清理”
+    // - axios 在 unload 时经常被浏览器直接中断
+    // - sendBeacon 不能自定义 Authorization 头（本项目用 Bearer token），所以用 fetch keepalive
+    let exitCleanupSent = false
+    const cleanupTempAttachmentsKeepalive = () => {
+      if (exitCleanupSent) return
+      if (isEdit.value) return
+
+      const tmpUrls = (form.attachments || [])
+        .map((att) => att?.url)
+        .filter((url) => url && (String(url).includes('/fault-cases/tmp/') || String(url).includes('/tmp/')))
+
+      if (!tmpUrls.length) return
+
+      const token = store?.state?.auth?.token || ''
+      if (!token) return
+
+      exitCleanupSent = true
+      try {
+        fetch('/api/fault-cases/attachments/cleanup-temp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ urls: tmpUrls }),
+          keepalive: true
+        })
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    const handlePageHide = () => {
+      cleanupTempAttachmentsKeepalive()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        cleanupTempAttachmentsKeepalive()
+      }
+    }
+
+    const goBack = async () => {
+      await cleanupTempAttachments()
       router.back()
     }
 
@@ -1074,6 +1140,17 @@ export default {
       // 状态列表加载完成后再加载故障案例数据，确保状态映射可以正常工作
       await loadFaultCase()
       setupFileListClickHandler()
+
+      // 关页/刷新/切后台时，尽力清理临时附件（仅新建模式）
+      window.addEventListener('pagehide', handlePageHide)
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    })
+
+    // 组件卸载前清理临时文件
+    onBeforeUnmount(() => {
+      window.removeEventListener('pagehide', handlePageHide)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      cleanupTempAttachments()
     })
 
     // 监听文件列表变化，重新设置事件监听器

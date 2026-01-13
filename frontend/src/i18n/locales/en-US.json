@@ -191,9 +191,10 @@
       "related_error_code_ids": "Related error codes",
       "device_id": "Device ID",
       "equipment_model": "Equipment Model",
+      "case_code": "Case No.",
       "keywords": "Keywords",
       "status": "Status",
-      "updated_at_user": "Updated time (manual)",
+      "updated_at_user": "Updated time",
       "hintInfo": "Hint Information"
     },
     "columns": {

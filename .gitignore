@@ -5,6 +5,8 @@ node_modules
 *.md
 .env
 /infrastructure
+/.cursor
+/.vscode
 docker-compose.yml
 /example
 # 依赖与构建

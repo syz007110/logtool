@@ -5,12 +5,9 @@
         <div class="card-header">
           <div class="title-wrap">
             <span class="title">{{ faultCase?.title || '-' }}</span>
-            <el-tag v-if="faultCase && faultCase.status" type="info">
+            <span v-if="faultCase && faultCase.status && String(faultCase.status).trim()" class="status-text">
               {{ getStatusDisplayName(faultCase.status) }}
-            </el-tag>
-            <el-tag v-else-if="faultCase" type="info">
-              {{ $t('faultCases.statusDraft') }}
-            </el-tag>
+            </span>
           </div>
           <div class="actions">
             <el-button @click="goBack">{{ $t('shared.back') || 'Back' }}</el-button>
@@ -20,12 +17,9 @@
         </div>
       </template>
 
-      <el-descriptions v-if="faultCase" :column="2" border>
-        <el-descriptions-item :label="$t('faultCases.fields.source')">
-          {{ faultCase.source || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="$t('faultCases.fields.jira_key')">
-          {{ faultCase.jira_key || '-' }}
+      <el-descriptions v-if="faultCase" :column="2" border label-width="100px">
+        <el-descriptions-item :label="$t('faultCases.fields.title')" :span="2">
+          {{ faultCase.title || '-' }}
         </el-descriptions-item>
         <el-descriptions-item :label="$t('faultCases.fields.module')">
           <div>
@@ -43,15 +37,15 @@
             </div>
           </div>
         </el-descriptions-item>
+        <el-descriptions-item :label="$t('faultCases.fields.jira_key')">
+          {{ faultCase.jira_key || '-' }}
+        </el-descriptions-item>
         <el-descriptions-item :label="$t('faultCases.fields.equipment_model')">
           <template v-if="Array.isArray(faultCase.equipment_model) && faultCase.equipment_model.length > 0">
-            <el-tag v-for="(model, idx) in faultCase.equipment_model" :key="idx" size="small" style="margin-right: 8px;">{{ model }}</el-tag>
+            <span>{{ faultCase.equipment_model.join(', ') }}</span>
           </template>
           <span v-else-if="faultCase.equipment_model">{{ faultCase.equipment_model }}</span>
           <span v-else>-</span>
-        </el-descriptions-item>
-        <el-descriptions-item :label="$t('faultCases.fields.updated_at_user')">
-          {{ formatDate(faultCase.updated_at_user || faultCase.updatedAt || faultCase.createdAt) }}
         </el-descriptions-item>
         <el-descriptions-item :label="$t('faultCases.fields.related_error_code_ids')" :span="2">
           <span v-if="Array.isArray(faultCase.related_error_code_ids) && faultCase.related_error_code_ids.length">
@@ -65,6 +59,9 @@
           </span>
           <span v-else>-</span>
         </el-descriptions-item>
+        <el-descriptions-item :label="$t('faultCases.fields.updated_at_user')" :span="2">
+          {{ formatDate(faultCase.updated_at_user || faultCase.updatedAt || faultCase.createdAt) }}
+        </el-descriptions-item>
       </el-descriptions>
 
       <el-divider />
@@ -77,12 +74,12 @@
         <div class="section-body pre">{{ faultCase?.possible_causes || '-' }}</div>
       </div>
       <div class="section">
-        <div class="section-title">{{ $t('faultCases.fields.troubleshooting_steps') }}</div>
-        <div class="section-body pre">{{ faultCase?.solution || faultCase?.troubleshooting_steps || '-' }}</div>
+        <div class="section-title">{{ $t('faultCases.fields.solution') }}</div>
+        <div class="section-body pre">{{ faultCase?.solution || '-' }}</div>
       </div>
       <div class="section">
-        <div class="section-title">{{ $t('faultCases.fields.experience') }}</div>
-        <div class="section-body pre">{{ faultCase?.remark || faultCase?.experience || '-' }}</div>
+        <div class="section-title">{{ $t('faultCases.fields.remark') }}</div>
+        <div class="section-body pre">{{ faultCase?.remark || '-' }}</div>
       </div>
 
       <el-divider />
@@ -445,6 +442,11 @@ export default {
 .title {
   font-weight: 600;
   font-size: 16px;
+}
+.status-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  margin-left: 8px;
 }
 .actions {
   display: flex;

@@ -7,6 +7,7 @@ const path = require('path');
 
 const {
   uploadFaultCaseAttachments,
+  cleanupTempFaultCaseFiles,
   createFaultCase,
   updateFaultCase,
   deleteFaultCase,
@@ -66,6 +67,9 @@ router.post(
     });
   }
 );
+
+// 清理临时附件（取消编辑时使用）
+router.post('/attachments/cleanup-temp', auth, checkPermission('fault_case:create'), cleanupTempFaultCaseFiles);
 
 // Latest 5 cases (published)
 router.get('/latest', auth, checkPermission('fault_case:read'), listLatestFaultCases);

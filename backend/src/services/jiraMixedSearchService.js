@@ -332,12 +332,14 @@ async function runJiraMongoMixedSearch({
         mongoItems = (docs || []).map((d) => {
           const id = d?._id ? String(d._id) : '';
           const jiraKey = d?.jira_key ? String(d.jira_key).trim() : '';
-          const key = jiraKey || (id ? `FC-${id.slice(-6).toUpperCase()}` : '');
+          const caseCode = d?.case_code ? String(d.case_code).trim() : '';
+          const key = caseCode || jiraKey || (id ? `FC-${id.slice(-6).toUpperCase()}` : '');
           const updated = d?.updatedAt || d?.createdAt || null;
           const url = (jiraKey && baseUrl) ? `${baseUrl.replace(/\/+$/, '')}/browse/${encodeURIComponent(jiraKey)}` : '';
           return {
             source: 'mongo',
             key,
+            case_code: caseCode,
             jira_key: jiraKey,
             fault_case_id: id,
             module: d?.module || '',

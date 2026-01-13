@@ -60,6 +60,7 @@ const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewa
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
+const { startTempCleanupJob } = require('./services/tempCleanupService');
 
 // 初始化队列系统
 try {
@@ -311,6 +312,13 @@ if (isMainProcess) {
           // 初始化 WebSocket 服务
           websocketService.initialize(server);
           console.log(`[进程 ${process.pid}] 🔌 WebSocket 服务已启动`);
+
+          // 临时文件兜底清理（统一任务）：
+          // - 故障案例 tmp
+          // - 技术排查方案 tmp
+          // - motion-data 上传 tmp
+          // 仅在主进程运行一次定时任务
+          startTempCleanupJob();
           
           // 初始化队列管理器
           (async () => {

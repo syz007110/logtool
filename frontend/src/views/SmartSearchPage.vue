@@ -365,11 +365,10 @@
                         class="ss-case-line"
                       >
                         <a
-                          v-if="c.type === 'jira' && c.url"
-                          :href="c.url"
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          v-if="c.type === 'jira'"
                           class="ss-case-link"
+                          href="#"
+                          @click.prevent="openSourcesDrawerAndExpand(m, c.ref)"
                         >
                           <span class="ss-case-key">{{ c.key }}</span>
                           <span v-if="c.summary" class="ss-case-summary">：{{ c.summary }}</span>
@@ -379,7 +378,7 @@
                           v-else-if="c.type === 'mongo' && c.id"
                           class="ss-case-link"
                           href="#"
-                          @click.prevent="goFaultCaseDetail(c.id)"
+                          @click.prevent="openSourcesDrawerAndExpand(m, c.ref)"
                         >
                           <span class="ss-case-key">{{ c.title || c.id }}</span>
                           <span v-if="c.jira_key" class="ss-case-summary">（Jira：{{ c.jira_key }}）</span>
@@ -585,14 +584,14 @@
                     </div>
                   </div>
 
-                  <!-- 相似历史案例（非 find_case：保持原顺序） -->
+                  <!-- 相似案例（非 find_case：统一使用 sources.cases / K 序号） -->
                   <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.meta?.jiraError" class="ss-answer-section">
-                    <div class="ss-answer-section-title">相似历史案例（来自 Jira）</div>
+                    <div class="ss-answer-section-title">相似案例</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-jira-error">
                         <el-alert
                           :title="m.payload.meta.jiraError.timeout ? 'Jira 连接超时' : 'Jira 连接失败'"
-                          :description="m.payload.meta.jiraError.message || '无法连接到 Jira，历史案例检索已跳过'"
+                          :description="m.payload.meta.jiraError.message || '无法连接到 Jira，Jira 侧案例检索已跳过'"
                           type="warning"
                           :closable="false"
                           show-icon
@@ -600,51 +599,29 @@
                       </div>
                     </div>
                   </div>
-                  <div v-else-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.jira || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">相似历史案例（来自 Jira）</div>
+                  <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.cases || []).length > 0" class="ss-answer-section">
+                    <div class="ss-answer-section-title">相似案例</div>
                     <div class="ss-answer-section-content">
                       <div
-                        v-for="j in (m.payload.sources?.jira || [])"
-                        :key="j.ref"
-                        class="ss-case-line"
-                      >
-                        <a
-                          v-if="j.url"
-                          :href="j.url"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="ss-case-link"
-                        >
-                          <span class="ss-case-key">{{ j.key }}</span>
-                          <span v-if="j.summary" class="ss-case-summary">：{{ j.summary }}</span>
-                          <span class="ss-case-ref">[{{ j.ref }}]</span>
-                        </a>
-                        <template v-else>
-                          <span class="ss-case-key">{{ j.key }}</span>
-                          <span v-if="j.summary" class="ss-case-summary">：{{ j.summary }}</span>
-                          <span class="ss-case-ref">[{{ j.ref }}]</span>
-                        </template>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- troubleshoot: MongoDB 故障案例（按 jira_key 去重，Jira 优先） -->
-                  <div v-if="m.payload.recognized?.intent === 'troubleshoot' && m.payload.sources && (m.payload.sources.faultCases || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">相似故障案例（来自 MongoDB）</div>
-                    <div class="ss-answer-section-content">
-                      <div
-                        v-for="c in (m.payload.sources?.faultCases || [])"
+                        v-for="c in (m.payload.sources?.cases || [])"
                         :key="c.ref"
                         class="ss-case-line"
                       >
                         <a
                           class="ss-case-link"
                           href="#"
-                          @click.prevent="goFaultCaseDetail(c.id)"
+                          @click.prevent="openSourcesDrawerAndExpand(m, c.ref)"
                         >
-                          <span class="ss-case-key">{{ c.title || c.id }}</span>
-                          <span v-if="c.jira_key" class="ss-case-summary">（Jira：{{ c.jira_key }}）</span>
-                          <span class="ss-case-ref">[{{ c.ref }}]</span>
+                          <template v-if="c.type === 'jira'">
+                            <span class="ss-case-key">{{ c.key }}</span>
+                            <span v-if="c.summary" class="ss-case-summary">：{{ c.summary }}</span>
+                            <span class="ss-case-ref">[{{ c.ref }}]</span>
+                          </template>
+                          <template v-else>
+                            <span class="ss-case-key">{{ getMongoCase(c).case_code || getMongoCase(c).id || c.id || '-' }}</span>
+                            <span class="ss-case-summary">：{{ getMongoCase(c).title || c.title || '-' }}</span>
+                            <span class="ss-case-ref">[{{ c.ref }}]</span>
+                          </template>
                         </a>
                       </div>
                     </div>
@@ -694,7 +671,7 @@
 
                   <!-- 来源标识和复制按钮 -->
                   <div 
-                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.cases?.length || 0) + ((m.payload.sources?.jira || []).length > 0 && !m.payload.sources?.cases) + ((m.payload.sources?.faultCases || []).length > 0 && !m.payload.sources?.cases) > 0" 
+                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.cases?.length || 0) > 0" 
                     class="ss-sources-actions"
                   >
                     <div 
@@ -711,7 +688,7 @@
                           <span class="ss-source-icon-text">ErrCode</span>
                         </div>
                         <div 
-                          v-if="(m.payload.sources?.cases || []).length > 0 || (m.payload.sources?.jira || []).length > 0 || (m.payload.sources?.faultCases || []).length > 0" 
+                          v-if="(m.payload.sources?.cases || []).length > 0" 
                           class="ss-source-icon ss-source-icon-fault-case" 
                           :style="{ zIndex: 9 }"
                           title="Fault Case"
@@ -1006,9 +983,9 @@
             </div>
           </div>
 
-          <!-- 故障案例来源（合并 Jira + MongoDB） -->
-          <div v-if="(sourceDrawerMessage?.payload?.sources?.cases?.length || 0) + ((sourceDrawerMessage?.payload?.sources?.jira?.length || 0) > 0 && !sourceDrawerMessage?.payload?.sources?.cases) + ((sourceDrawerMessage?.payload?.sources?.faultCases?.length || 0) > 0 && !sourceDrawerMessage?.payload?.sources?.cases) > 0" class="ss-sources-group">
-            <div class="ss-sources-group-title">故障案例（{{ (sourceDrawerMessage?.payload?.sources?.cases?.length || 0) || ((sourceDrawerMessage?.payload?.sources?.jira?.length || 0) + (sourceDrawerMessage?.payload?.sources?.faultCases?.length || 0)) }}）</div>
+          <!-- 故障案例来源：统一使用 sources.cases（K 序号） -->
+          <div v-if="(sourceDrawerMessage?.payload?.sources?.cases?.length || 0) > 0" class="ss-sources-group">
+            <div class="ss-sources-group-title">故障案例（{{ sourceDrawerMessage?.payload?.sources?.cases?.length || 0 }}）</div>
             <div class="ss-sources-list">
               <!-- 合并后的 cases（find_case/troubleshoot 意图） -->
               <template v-if="sourceDrawerMessage?.payload?.sources?.cases?.length">
@@ -1019,9 +996,16 @@
                 >
                   <div class="ss-source-header" @click="toggleSourceExpanded(c.ref)">
                     <span class="ss-source-ref">[{{ c.ref }}]</span>
-                    <span class="ss-source-text">{{ c.type === 'jira' ? c.key : (c.title || c.key || c.id || '-') }}</span>
-                    <span v-if="c.type === 'jira' && c.summary" class="ss-source-desc">：{{ c.summary }}</span>
-                    <span v-else-if="c.type === 'mongo' && c.title" class="ss-source-desc">：{{ c.title }}</span>
+                    <template v-if="c.type === 'jira'">
+                      <span class="ss-source-text">{{ c.key }}</span>
+                      <span v-if="c.summary" class="ss-source-desc">：{{ c.summary }}</span>
+                    </template>
+                    <template v-else-if="c.type === 'mongo'">
+                      <span class="ss-source-text">{{ (getMongoCase(c).case_code || getMongoCase(c).id || '-') }}：{{ getMongoCase(c).title || c.title || '-' }}</span>
+                    </template>
+                    <template v-else>
+                      <span class="ss-source-text">{{ c.title || c.key || c.id || '-' }}</span>
+                    </template>
                     <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(c.ref) }">
                       <ArrowDown />
                     </el-icon>
@@ -1158,27 +1142,125 @@
                         </div>
                       </template>
 
-                      <!-- MongoDB 故障案例（保持现有展示） -->
+                      <!-- MongoDB 故障案例（概览方式显示） -->
                       <template v-else>
+                        <div v-if="mongoCaseLoading[c.id]" class="ss-case-loading">正在加载故障案例详情…</div>
+                        <!-- Header: Key / ID + Title -->
                         <div class="ss-case-preview-header">
                           <div class="ss-case-preview-key-project">
-                            {{ c.jira_key || c.id || '-' }}
+                            {{ getMongoCase(c).case_code || getMongoCase(c).jira_key || getMongoCase(c).id || '-' }}<span v-if="getMongoCase(c).title">：{{ getMongoCase(c).title }}</span>
                           </div>
-                          <div class="ss-case-preview-title">{{ c.title || '-' }}</div>
+                          <div class="ss-case-preview-title">{{ getMongoCase(c).title || '-' }}</div>
                         </div>
 
-                      <div v-if="c.module" class="ss-source-detail-section">
-                        <div class="ss-source-detail-label">模块</div>
-                        <div class="ss-source-detail-value">{{ c.module }}</div>
-                      </div>
-                        <div v-if="c.jira_key" class="ss-source-detail-section">
-                        <div class="ss-source-detail-label">Jira Key</div>
-                        <div class="ss-source-detail-value">{{ c.jira_key }}</div>
-                      </div>
-                        <div v-if="c.updatedAt" class="ss-source-detail-section">
-                        <div class="ss-source-detail-label">更新时间</div>
-                          <div class="ss-source-detail-value">{{ formatTime(c.updatedAt) }}</div>
-                      </div>
+                        <!-- Key Information Section: Two Columns -->
+                        <div class="ss-case-key-info">
+                          <div class="ss-case-key-info-left">
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">STATUS</div>
+                              <el-tag v-if="getMongoCase(c).status" type="primary" size="small" class="ss-case-status-tag">
+                                {{ getMongoCase(c).status }}
+                              </el-tag>
+                              <span v-else class="ss-case-info-empty">-</span>
+                            </div>
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">MODULE</div>
+                              <div class="ss-case-info-value">
+                                {{ getMongoCase(c).module || '-' }}
+                              </div>
+                            </div>
+                          </div>
+                          <div class="ss-case-key-info-right">
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">EQUIPMENT MODEL</div>
+                              <div class="ss-case-info-value">
+                                {{
+                                  Array.isArray(getMongoCase(c).equipment_model)
+                                    ? (getMongoCase(c).equipment_model.join(', ') || '-')
+                                    : (getMongoCase(c).equipment_model || '-')
+                                }}
+                              </div>
+                            </div>
+                            <div class="ss-case-info-item">
+                              <div class="ss-case-info-label">UPDATED</div>
+                              <div class="ss-case-info-value">
+                                <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                                {{ formatDateTime(getMongoCase(c).updated_at_user || getMongoCase(c).updatedAt || getMongoCase(c).updated || getMongoCase(c).createdAt) || '-' }}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Jira Key (if exists) -->
+                        <div v-if="getMongoCase(c).jira_key" class="ss-source-detail-section">
+                          <div class="ss-source-detail-label">Jira Key</div>
+                          <div class="ss-source-detail-value">{{ getMongoCase(c).jira_key }}</div>
+                        </div>
+
+                        <!-- Content Section -->
+                        <div class="ss-case-content-section">
+                          <div class="ss-case-content-label">SYMPTOM</div>
+                          <div class="ss-case-content-box">{{ getMongoCase(c).symptom || '-' }}</div>
+                        </div>
+
+                        <div class="ss-case-content-section">
+                          <div class="ss-case-content-label">POSSIBLE CAUSES</div>
+                          <div class="ss-case-content-box">{{ getMongoCase(c).possible_causes || '-' }}</div>
+                        </div>
+
+                        <div class="ss-case-content-section">
+                          <div class="ss-case-content-label">RESOLUTION</div>
+                          <div class="ss-case-content-box">{{ getMongoCase(c).resolution || getMongoCase(c).solution || '-' }}</div>
+                        </div>
+
+                        <div class="ss-case-content-section">
+                          <div class="ss-case-content-label">REMARK</div>
+                          <div class="ss-case-content-box">{{ getMongoCase(c).remark || '-' }}</div>
+                        </div>
+
+                        <!-- Related Error Codes -->
+                        <div class="ss-source-detail-section">
+                          <div class="ss-source-detail-label">关联故障码</div>
+                          <div class="ss-source-detail-value">
+                            <span v-if="Array.isArray(getMongoCase(c).related_error_code_ids) && getMongoCase(c).related_error_code_ids.length > 0">
+                              {{ getMongoCase(c).related_error_code_ids.join(', ') }}
+                            </span>
+                            <span v-else>-</span>
+                          </div>
+                        </div>
+
+                        <!-- Attachments Section -->
+                        <div class="ss-case-attachments-section">
+                          <div v-if="getMongoImageAttachments(getMongoCase(c)).length > 0" class="ss-case-image-attachments">
+                            <div class="ss-case-attachment-label">IMAGE ATTACHMENTS</div>
+                            <div class="ss-case-attachment-images">
+                              <div v-for="img in getMongoImageAttachments(getMongoCase(c))" :key="img.uid || img.url || img.id" class="ss-case-image-thumbnail" :title="img.original_name || img.filename || img.name">
+                                <el-image
+                                  :src="getMongoImageSrc(img)"
+                                  :preview-src-list="getMongoImagePreviewUrls(getMongoCase(c))"
+                                  fit="cover"
+                                  class="ss-case-attachment-image"
+                                  :initial-index="getMongoImageIndex(getMongoCase(c), img)"
+                                  :preview-teleported="true"
+                                />
+                                <div class="ss-case-image-name">{{ img.original_name || img.filename || img.name || '图片' }}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="getMongoFileAttachments(getMongoCase(c)).length > 0" class="ss-case-file-attachments">
+                            <div class="ss-case-attachment-label">FILE ATTACHMENTS</div>
+                            <div v-for="file in getMongoFileAttachments(getMongoCase(c))" :key="file.uid || file.url || file.id" class="ss-case-attachment-item">
+                              <el-link type="primary" :underline="false" @click="downloadMongoFile(file)">
+                                <i class="fas fa-paperclip"></i>
+                                {{ file.original_name || file.filename || file.name || '文件' }}
+                              </el-link>
+                            </div>
+                          </div>
+                          <div v-if="getMongoImageAttachments(getMongoCase(c)).length === 0 && getMongoFileAttachments(getMongoCase(c)).length === 0" class="ss-source-detail-section">
+                            <div class="ss-source-detail-label">附件</div>
+                            <div class="ss-source-detail-value">-</div>
+                          </div>
+                        </div>
                       </template>
 
                       <!-- 操作按钮 -->
@@ -1207,252 +1289,6 @@
                             查看详情
                           </button>
                         </template>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <!-- 兼容旧的 jira 和 faultCases（非 find_case/troubleshoot 意图） -->
-              <template v-else>
-                <!-- Jira 来源 -->
-                <div
-                  v-for="j in (sourceDrawerMessage?.payload?.sources?.jira || [])"
-                :key="j.ref"
-                class="ss-source-item"
-              >
-                <div class="ss-source-header" @click="toggleSourceExpanded(j.ref)">
-                  <span class="ss-source-ref">[{{ j.ref }}]</span>
-                  <span class="ss-source-text">{{ j.key }}</span>
-                  <span v-if="j.summary" class="ss-source-desc">：{{ j.summary }}</span>
-                  <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(j.ref) }">
-                    <ArrowDown />
-                  </el-icon>
-                </div>
-                <div v-if="expandedSources.has(j.ref)" class="ss-source-expanded">
-                  <div class="ss-source-detail">
-                    <div v-if="jiraIssueLoading[j.key]" class="ss-case-loading">正在加载 Jira 详情…</div>
-
-                    <!-- Header: Key / Project Name + Title -->
-                    <div class="ss-case-preview-header">
-                      <div class="ss-case-preview-key-project">
-                        {{ getJiraCase(j).key || j.key || '-' }}<span v-if="getJiraCase(j).projectName"> / {{ getJiraCase(j).projectName }}</span>
-                    </div>
-                      <div class="ss-case-preview-title">{{ getJiraCase(j).summary || j.summary || '-' }}</div>
-                    </div>
-
-                    <!-- Key Information Section: Two Columns -->
-                    <div class="ss-case-key-info">
-                      <div class="ss-case-key-info-left">
-                        <div class="ss-case-info-item">
-                          <div class="ss-case-info-label">STATUS</div>
-                          <el-tag v-if="getJiraCase(j).status" type="primary" size="small" class="ss-case-status-tag">
-                            {{ getJiraCase(j).status }}
-                          </el-tag>
-                          <span v-else class="ss-case-info-empty">-</span>
-                        </div>
-                        <div class="ss-case-info-item">
-                          <div class="ss-case-info-label">COMPONENTS</div>
-                          <div class="ss-case-components">
-                            <el-tag
-                              v-for="(comp, idx) in (getJiraCase(j).components || [])"
-                              :key="idx"
-                              size="small"
-                              class="ss-case-component-tag"
-                            >
-                              {{ comp }}
-                            </el-tag>
-                            <span v-if="!getJiraCase(j).components || getJiraCase(j).components.length === 0" class="ss-case-info-empty">-</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="ss-case-key-info-right">
-                        <div class="ss-case-info-item">
-                          <div class="ss-case-info-label">RESOLUTION</div>
-                          <div class="ss-case-info-value">
-                            {{ getJiraCase(j).resolution?.name || 'Unresolved' }}
-                          </div>
-                        </div>
-                        <div class="ss-case-info-item">
-                          <div class="ss-case-info-label">UPDATED</div>
-                          <div class="ss-case-info-value">
-                            <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
-                            {{ formatTime(getJiraCase(j).updated) || '-' }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 模块信息（如果components为空，显示module） -->
-                    <div v-if="(!getJiraCase(j).components || getJiraCase(j).components.length === 0) && getJiraCase(j).module" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">模块</div>
-                      <div class="ss-source-detail-value">{{ getJiraCase(j).module }}</div>
-                    </div>
-
-                    <!-- Content Section: 客诉/普通 两套字段（与 JiraFaultCases 一致） -->
-                    <template v-if="isComplaintProjectByCase(j)">
-                      <div v-if="getJiraCase(j).customfield_12213" class="ss-case-content-section">
-                        <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
-                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12213 }}</div>
-                    </div>
-                      <div v-if="getJiraCase(j).customfield_12284" class="ss-case-content-section">
-                        <div class="ss-case-content-label">PRELIMINARY INVESTIGATION</div>
-                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12284 }}</div>
-                    </div>
-                      <div class="ss-case-content-two-columns">
-                        <div v-if="getJiraCase(j).customfield_12233" class="ss-case-content-section">
-                          <div class="ss-case-content-label">CONTAINMENT MEASURES</div>
-                          <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12233 }}</div>
-                        </div>
-                        <div v-if="getJiraCase(j).customfield_12239" class="ss-case-content-section">
-                          <div class="ss-case-content-label">LONG-TERM MEASURES</div>
-                          <div class="ss-case-content-box">{{ getJiraCase(j).customfield_12239 }}</div>
-                        </div>
-                      </div>
-                      <div v-if="!getJiraCase(j).customfield_12213 && !getJiraCase(j).customfield_12284 && !getJiraCase(j).customfield_12233 && !getJiraCase(j).customfield_12239" class="ss-case-content-section">
-                        <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
-                        <div class="ss-case-content-box">{{ getJiraCase(j).description || getJiraCase(j).summary || '-' }}</div>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div v-if="getJiraCase(j).description || getJiraCase(j).summary" class="ss-case-content-section">
-                        <div class="ss-case-content-label">DESCRIPTION</div>
-                        <div class="ss-case-content-box">{{ getJiraCase(j).description || getJiraCase(j).summary }}</div>
-                      </div>
-                      <div v-if="getJiraCase(j).customfield_10705" class="ss-case-content-section">
-                        <div class="ss-case-content-label">INVESTIGATION & CAUSE ANALYSIS</div>
-                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_10705 }}</div>
-                      </div>
-                      <div v-if="getJiraCase(j).customfield_10600" class="ss-case-content-section">
-                        <div class="ss-case-content-label">SOLUTION DETAILS</div>
-                        <div class="ss-case-content-box">{{ getJiraCase(j).customfield_10600 }}</div>
-                      </div>
-                    </template>
-
-                    <!-- Attachments Section -->
-                    <div v-if="(getJiraCase(j).attachments || []).length > 0" class="ss-case-attachments-section">
-                      <div v-if="getJiraImageAttachments(j).length > 0" class="ss-case-image-attachments">
-                        <div class="ss-case-attachment-label">IMAGE ATTACHMENTS</div>
-                        <div class="ss-case-attachment-images">
-                          <div v-for="img in getJiraImageAttachments(j)" :key="img.id || img.filename" class="ss-case-image-thumbnail" :title="img.filename">
-                            <el-image
-                              :src="getJiraImageSrc(img)"
-                              :preview-src-list="getJiraImagePreviewUrls(j)"
-                              fit="cover"
-                              class="ss-case-attachment-image"
-                              :initial-index="getJiraImageIndex(j, img)"
-                              :preview-teleported="true"
-                            />
-                            <div class="ss-case-image-name">{{ img.filename }}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div v-if="getJiraFileAttachments(j).length > 0" class="ss-case-file-attachments">
-                        <div class="ss-case-attachment-label">FILE ATTACHMENTS</div>
-                        <div v-for="file in getJiraFileAttachments(j)" :key="file.id || file.filename" class="ss-case-attachment-item">
-                          <el-link type="primary" :underline="false" @click="downloadJiraFile(file)">
-                            <i class="fas fa-paperclip"></i>
-                            {{ file.filename }}
-                          </el-link>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div v-if="getJiraCase(j).url" class="ss-source-detail-actions">
-                      <button 
-                        class="btn-text btn-sm" 
-                        @click.stop="handleJiraJump(getJiraCase(j).url)"
-                      >
-                        跳转 Jira
-                      </button>
-                    </div>
-                    <div v-else-if="j.key" class="ss-source-detail-actions">
-                      <button 
-                        class="btn-text btn-sm" 
-                        @click.stop="handleJiraJumpByKey(j.key)"
-                      >
-                        跳转 Jira
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-                <!-- MongoDB 故障案例来源 -->
-                <div
-                  v-for="c in (sourceDrawerMessage?.payload?.sources?.faultCases || [])"
-                  :key="c.ref"
-                  class="ss-source-item"
-                >
-                  <div class="ss-source-header" @click="toggleSourceExpanded(c.ref)">
-                    <span class="ss-source-ref">[{{ c.ref }}]</span>
-                    <span class="ss-source-text">{{ c.title || c.id || '-' }}</span>
-                    <span v-if="c.jira_key" class="ss-source-desc">（Jira：{{ c.jira_key }}）</span>
-                    <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(c.ref) }">
-                      <ArrowDown />
-                    </el-icon>
-            </div>
-                  <div v-if="expandedSources.has(c.ref)" class="ss-source-expanded">
-                    <div class="ss-source-detail">
-                      <!-- Header: Key / Project Name + Title -->
-                      <div class="ss-case-preview-header">
-                        <div class="ss-case-preview-key-project">
-                          {{ c.jira_key || c.id || '-' }}
-                      </div>
-                        <div class="ss-case-preview-title">{{ c.title || '-' }}</div>
-                      </div>
-
-                      <!-- Key Information Section: Two Columns -->
-                      <div class="ss-case-key-info">
-                        <div class="ss-case-key-info-left">
-                          <div class="ss-case-info-item">
-                            <div class="ss-case-info-label">STATUS</div>
-                            <el-tag v-if="c.status" type="primary" size="small" class="ss-case-status-tag">
-                              {{ c.status }}
-                            </el-tag>
-                            <span v-else class="ss-case-info-empty">-</span>
-                          </div>
-                          <div class="ss-case-info-item">
-                            <div class="ss-case-info-label">COMPONENTS</div>
-                            <div class="ss-case-components">
-                              <span v-if="!c.components || c.components.length === 0" class="ss-case-info-empty">-</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="ss-case-key-info-right">
-                          <div class="ss-case-info-item">
-                            <div class="ss-case-info-label">RESOLUTION</div>
-                            <div class="ss-case-info-value">
-                              Unresolved
-                            </div>
-                          </div>
-                          <div class="ss-case-info-item">
-                            <div class="ss-case-info-label">UPDATED</div>
-                            <div class="ss-case-info-value">
-                              <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
-                              {{ formatTime(c.updatedAt) || '-' }}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- 模块信息 -->
-                      <div v-if="c.module" class="ss-source-detail-section">
-                        <div class="ss-source-detail-label">模块</div>
-                        <div class="ss-source-detail-value">{{ c.module }}</div>
-                      </div>
-
-                      <!-- Jira Key -->
-                      <div v-if="c.jira_key" class="ss-source-detail-section">
-                        <div class="ss-source-detail-label">Jira Key</div>
-                        <div class="ss-source-detail-value">{{ c.jira_key }}</div>
-                      </div>
-
-                      <div v-if="c.id" class="ss-source-detail-actions">
-                        <button 
-                          class="btn-text btn-sm" 
-                          @click.stop="goFaultCaseDetail(c.id)"
-                        >
-                          查看详情
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -1632,6 +1468,9 @@ export default {
     // Jira issue detail cache for SmartSearch sources drawer (key -> issue detail)
     const jiraIssueCache = ref({}) // Record<string, issue>
     const jiraIssueLoading = ref({}) // Record<string, boolean>
+    // MongoDB fault case detail cache for SmartSearch sources drawer (id -> faultCase detail)
+    const mongoCaseCache = ref({}) // Record<string, faultCase>
+    const mongoCaseLoading = ref({}) // Record<string, boolean>
     const faultDetailDialogVisible = ref(false)
     const faultDetailItem = ref(null)
     const faultDetailTech = ref(null)
@@ -1648,6 +1487,8 @@ export default {
       }
       return '详情'
     })
+
+    // Drawer case list always uses merged `sources.cases` (K1/K2...)
 
     const load = async () => {
       try {
@@ -2103,6 +1944,16 @@ export default {
       expandedSources.value.clear()
     }
 
+    const openSourcesDrawerAndExpand = (message, ref) => {
+      openSourcesDrawer(message)
+      const r = String(ref || '').trim()
+      if (!r) return
+      // 自动展开并触发对应来源（Jira/Mongo）详情懒加载
+      if (!expandedSources.value.has(r)) {
+        toggleSourceExpanded(r)
+      }
+    }
+
     const findSourceItemByRef = (ref) => {
       const msg = sourceDrawerMessage.value
       const sources = msg?.payload?.sources || {}
@@ -2161,6 +2012,69 @@ export default {
       const key = String(item?.key || item?.jira_key || '').trim()
       if (key && jiraIssueCache.value[key]) {
         return { ...(item || {}), ...(jiraIssueCache.value[key] || {}) }
+      }
+      return item || {}
+    }
+
+    const ensureMongoCaseLoaded = async (id, fallback = {}) => {
+      const k = String(id || '').trim()
+      if (!k) return
+      if (mongoCaseLoading.value[k]) return
+      if (mongoCaseCache.value[k] && mongoCaseCache.value[k]._loaded) return
+
+      mongoCaseLoading.value = { ...mongoCaseLoading.value, [k]: true }
+      // Put fallback first so UI has something to render immediately
+      mongoCaseCache.value = {
+        ...mongoCaseCache.value,
+        [k]: { ...(fallback || {}), ...(mongoCaseCache.value[k] || {}), id: k }
+      }
+
+      try {
+        const resp = await api.faultCases.get(k)
+        const fc = resp?.data?.faultCase || null
+        if (fc) {
+          mongoCaseCache.value = {
+            ...mongoCaseCache.value,
+            [k]: { ...(fallback || {}), ...(mongoCaseCache.value[k] || {}), ...fc, id: k, _loaded: true }
+          }
+        } else {
+          mongoCaseCache.value = {
+            ...mongoCaseCache.value,
+            [k]: { ...(mongoCaseCache.value[k] || {}), _loaded: true }
+          }
+        }
+      } catch (_) {
+        // keep best-effort fallback
+        mongoCaseCache.value = {
+          ...mongoCaseCache.value,
+          [k]: { ...(mongoCaseCache.value[k] || {}), _loaded: true }
+        }
+      } finally {
+        mongoCaseLoading.value = { ...mongoCaseLoading.value, [k]: false }
+      }
+    }
+
+    // Auto-fetch MongoDB fault case detail for cases in the latest search result (so answer "来源区" can show full fields)
+    const prefetchedMongoCaseIds = new Set()
+    watch(() => activeMessages.value.length, () => {
+      const last = activeMessages.value[activeMessages.value.length - 1]
+      if (!last || last.type !== 'search_result' || !last.payload || !last.payload.ok) return
+      const cases = last.payload?.sources?.cases || []
+      for (const c of cases) {
+        if (!c || c.type !== 'mongo') continue
+        const id = String(c.id || c.fault_case_id || c._id || '').trim()
+        if (!id) continue
+        if (prefetchedMongoCaseIds.has(id)) continue
+        prefetchedMongoCaseIds.add(id)
+        // fire and forget
+        ensureMongoCaseLoaded(id, c)
+      }
+    })
+
+    const getMongoCase = (item) => {
+      const id = String(item?.id || item?._id || item?.fault_case_id || '').trim()
+      if (id && mongoCaseCache.value[id]) {
+        return { ...(item || {}), ...(mongoCaseCache.value[id] || {}), id }
       }
       return item || {}
     }
@@ -2236,6 +2150,80 @@ export default {
       }
     }
 
+    // MongoDB 附件处理函数
+    const getMongoAttachmentUrl = (attachment) => {
+      // MongoDB 附件可能是对象（有 url 字段）或字符串（直接是 URL）
+      if (typeof attachment === 'string') return attachment
+      return attachment?.url || attachment?.content || ''
+    }
+
+    const getMongoImageSrc = (img) => {
+      const url = getMongoAttachmentUrl(img)
+      if (!url) return ''
+      // 如果是 OSS URL，直接使用；否则可能需要代理
+      return url
+    }
+
+    const getMongoImageAttachments = (item) => {
+      const it = item || {}
+      const attachments = []
+      if (Array.isArray(it.attachments)) attachments.push(...it.attachments)
+      // 兼容历史字段：url 可能直接存 OSS 路径
+      if (it.url && isImageFile({ filename: it.url, url: it.url })) {
+        attachments.push({ url: it.url, filename: it.url })
+      }
+      return attachments.filter(att => {
+        const url = getMongoAttachmentUrl(att)
+        if (!url) return false
+        const filename = att?.original_name || att?.filename || att?.name || url
+        return isImageAttachment({ ...(att || {}), filename })
+      })
+    }
+
+    const getMongoFileAttachments = (item) => {
+      const it = item || {}
+      const attachments = []
+      if (Array.isArray(it.attachments)) attachments.push(...it.attachments)
+      // 兼容历史字段：url 可能直接存 OSS 路径
+      if (it.url && !isImageFile({ filename: it.url, url: it.url })) {
+        attachments.push({ url: it.url, filename: it.url })
+      }
+      return attachments.filter(att => {
+        const url = getMongoAttachmentUrl(att)
+        if (!url) return false
+        const filename = att?.original_name || att?.filename || att?.name || url
+        return !isImageAttachment({ ...(att || {}), filename })
+      })
+    }
+
+    const getMongoImagePreviewUrls = (item) => {
+      return getMongoImageAttachments(item).map(img => getMongoImageSrc(img)).filter(Boolean)
+    }
+
+    const getMongoImageIndex = (item, img) => {
+      return getMongoImageAttachments(item).findIndex(x => {
+        const xUrl = getMongoAttachmentUrl(x)
+        const imgUrl = getMongoAttachmentUrl(img)
+        return xUrl === imgUrl || (x.uid && img.uid && x.uid === img.uid)
+      })
+    }
+
+    const downloadMongoFile = (file) => {
+      const url = getMongoAttachmentUrl(file)
+      if (!url) return
+      try {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = file.filename || file.name || 'attachment'
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } catch (_) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      }
+    }
+
     const toggleSourceExpanded = (ref) => {
       if (expandedSources.value.has(ref)) {
         expandedSources.value.delete(ref)
@@ -2246,6 +2234,11 @@ export default {
         const isJira = item && (item.type === 'jira' || item.key)
         const key = isJira ? String(item.key || item.jira_key || '').trim() : ''
         if (key) ensureJiraIssueLoaded(key, item)
+
+        // If this is a MongoDB fault case item, fetch full detail on demand
+        const isMongo = item && (item.type === 'mongo' || item.source === 'mongo' || item.id)
+        const mongoId = isMongo ? String(item.id || item.fault_case_id || item._id || '').trim() : ''
+        if (mongoId) ensureMongoCaseLoaded(mongoId, item)
       }
     }
 
@@ -2353,8 +2346,20 @@ export default {
         })
       }
       
-      // 相似历史案例
-      if (payload.sources?.jira?.length > 0) {
+      // 相似案例（统一 sources.cases / K 序号）
+      if (payload.sources?.cases?.length > 0) {
+        parts.push('相似案例')
+        payload.sources.cases.forEach(c => {
+          if (c?.type === 'jira') {
+            parts.push(`${c.key}${c.summary ? `：${c.summary}` : ''} [${c.ref}]`)
+          } else {
+            const title = c.title || c.id || '-'
+            parts.push(`${title}${c.jira_key ? `（Jira：${c.jira_key}）` : ''} [${c.ref}]`)
+          }
+        })
+        parts.push('')
+      } else if (payload.sources?.jira?.length > 0) {
+        // 兼容旧数据：没有 cases 时回退到 jira
         parts.push('相似历史案例（来自 Jira）')
         payload.sources.jira.forEach(j => {
           parts.push(`${j.key}${j.summary ? `：${j.summary}` : ''} [${j.ref}]`)
@@ -2556,6 +2561,22 @@ export default {
       }
     }
 
+    const formatDateTime = (iso) => {
+      if (!iso) return ''
+      try {
+        const d = new Date(iso)
+        return d.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      } catch {
+        return ''
+      }
+    }
+
     const formatShortTime = (iso) => {
       try {
         const d = new Date(iso)
@@ -2679,7 +2700,9 @@ export default {
       expandedSources,
       jiraIssueCache,
       jiraIssueLoading,
+      mongoCaseLoading,
       getJiraCase,
+      getMongoCase,
       isComplaintProjectByCase,
       getJiraImageAttachments,
       getJiraFileAttachments,
@@ -2687,6 +2710,12 @@ export default {
       getJiraImageIndex,
       getJiraImageSrc,
       downloadJiraFile,
+      getMongoImageAttachments,
+      getMongoFileAttachments,
+      getMongoImagePreviewUrls,
+      getMongoImageIndex,
+      getMongoImageSrc,
+      downloadMongoFile,
       faultDetailDialogVisible,
       faultDetailItem,
       faultDetailTech,
@@ -2709,6 +2738,7 @@ export default {
       send,
       openSource,
       openSourcesDrawer,
+      openSourcesDrawerAndExpand,
       toggleSourceExpanded,
       openFaultDetailDialog,
       handleJiraJump,
@@ -2726,6 +2756,7 @@ export default {
       goBackToDashboard,
       handleQuickAction,
       formatTime,
+      formatDateTime,
       formatShortTime,
       formatLlmRaw,
       getIntentLabel,

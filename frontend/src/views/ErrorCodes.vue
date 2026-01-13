@@ -242,7 +242,6 @@
               :disabled="!selectedI18nLang || selectedI18nLang === 'zh-CN'"
               @click="handleAutoTranslate"
             >
-              <i v-if="translating" class="fas fa-spinner fa-spin"></i>
               {{ $t('errorCodes.i18nTechFields.autoTranslate') }}
             </el-button>
           </div>
@@ -661,7 +660,8 @@
       :with-header="false"
       @close="handleDrawerClose"
     >
-      <template #title>
+      <div class="tech-drawer-body" v-loading="techDrawerLoading">
+        <!-- 抽屉头部 -->
         <div class="tech-drawer-header">
           <div>
             <div class="tech-drawer-title">{{ $t('errorCodes.techSolutionDrawer.title') }}</div>
@@ -678,9 +678,6 @@
             </el-button>
           </div>
         </div>
-      </template>
-
-      <div class="tech-drawer-body" v-loading="techDrawerLoading">
         <el-form label-position="top" label-width="0" class="tech-form compact-form">
           <el-form-item class="tech-input-item">
             <el-input
@@ -2561,6 +2558,9 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--slate-200); /* 使用基础颜色值 */
+  margin-bottom: 16px;
 }
 
 .tech-drawer-title {
@@ -2581,7 +2581,7 @@ export default {
 }
 
 .tech-drawer-body {
-  padding: 8px 5px 16px;
+  padding: 0 20px 20px 20px;
 }
 
 .tech-upload :deep(.el-upload--picture-card),

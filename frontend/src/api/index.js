@@ -319,6 +319,7 @@ const faultCases = {
   uploadAttachments: (formData) => api.post('/fault-cases/attachments/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  cleanupTempFiles: (urls) => api.post('/fault-cases/attachments/cleanup-temp', { urls }),
   // i18n
   getI18nByLang: (id, lang) => api.get(`/fault-cases/${id}/i18n`, { params: { lang } }),
   saveI18nByLang: (id, lang, data) => api.put(`/fault-cases/${id}/i18n`, { lang, ...data }),

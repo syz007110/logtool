@@ -6,6 +6,7 @@ const { connectMongo, isMongoConnected } = require('../config/mongodb');
 const { translateText } = require('../services/translationService');
 
 const FaultCase = require('../mongoModels/FaultCase');
+const Counter = require('../mongoModels/Counter');
 const FaultCaseI18n = require('../mongoModels/FaultCaseI18n');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 
@@ -119,6 +120,21 @@ async function ensureMongoReady() {
   return isMongoConnected();
 }
 
+async function nextFaultCaseSeq() {
+  const doc = await Counter.findOneAndUpdate(
+    { _id: 'fault_cases' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ).lean();
+  return Number(doc?.seq || 0);
+}
+
+function formatFaultCaseCode(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num <= 0) return '';
+  return `FC-${num}`;
+}
+
 async function canReadCase(req, faultCase) {
   if (!faultCase) return false;
   // 数据库中的记录都是已发布状态，所有用户都可以查看
@@ -225,6 +241,72 @@ async function uploadFaultCaseAttachments(req, res) {
   } catch (err) {
     console.error('上传故障案例附件失败:', err);
     return res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
+  }
+}
+
+// 清理临时附件（取消编辑时使用）
+async function cleanupTempFaultCaseFiles(req, res) {
+  try {
+    const { urls = [] } = req.body || {};
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.json({ deleted: [], skipped: [] });
+    }
+    const deleted = [];
+    const skipped = [];
+
+    for (const rawUrl of urls) {
+      if (!rawUrl || typeof rawUrl !== 'string') {
+        skipped.push(rawUrl);
+        continue;
+      }
+      // 只处理临时文件：检查是否包含 /tmp/ 路径
+      const isLocalTmp = rawUrl.includes('/fault-cases/tmp/') || rawUrl.startsWith('/static/fault-cases/tmp/');
+      const isOssTmp = rawUrl.includes('/fault-cases/tmp/');
+      if (!isLocalTmp && !isOssTmp) {
+        skipped.push(rawUrl);
+        continue;
+      }
+
+      // 本地存储
+      if (STORAGE === 'local' || rawUrl.startsWith('/static/fault-cases/tmp/')) {
+        const filename = rawUrl.split('/').pop();
+        const filePath = path.resolve(TMP_DIR, filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            deleted.push(rawUrl);
+          } catch (e) {
+            console.warn('删除本地临时文件失败:', e.message);
+            skipped.push(rawUrl);
+          }
+        } else {
+          skipped.push(rawUrl);
+        }
+        continue;
+      }
+
+      // OSS 存储
+      try {
+        const client = await getOssClient();
+        // 从 URL 提取 object key：假设包含 TMP_PREFIX
+        const idx = rawUrl.indexOf(TMP_PREFIX.replace(/\/$/, '/'));
+        if (idx === -1) {
+          skipped.push(rawUrl);
+          continue;
+        }
+        const objectKey = rawUrl.slice(idx);
+        await client.delete(objectKey);
+        deleted.push(rawUrl);
+      } catch (e) {
+        console.warn('删除OSS临时文件失败:', e.message);
+        skipped.push(rawUrl);
+      }
+    }
+
+    res.json({ deleted, skipped });
+  } catch (err) {
+    console.error('清理临时附件失败:', err);
+    res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 }
 
@@ -363,7 +445,16 @@ const createFaultCase = async (req, res) => {
       return rest;
     });
 
+    // Generate auto-increment case code (FC-1/FC-2/...) for both manual create and Jira-import create
+    let caseCode = '';
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const seq = await nextFaultCaseSeq();
+      caseCode = formatFaultCaseCode(seq);
+      if (caseCode) break;
+    }
+
     const faultCase = await FaultCase.create({
+      ...(caseCode ? { case_code: caseCode } : {}),
       source: src,
       ...(jiraKey ? { jira_key: jiraKey } : {}),
       module: String(module || '').trim(),
@@ -749,6 +840,7 @@ const autoTranslateFaultCaseI18n = async (req, res) => {
 
 module.exports = {
   uploadFaultCaseAttachments,
+  cleanupTempFaultCaseFiles,
   createFaultCase,
   updateFaultCase,
   deleteFaultCase,
