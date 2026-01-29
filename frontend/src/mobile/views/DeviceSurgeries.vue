@@ -1021,7 +1021,7 @@ export default {
 .page {
   /* 使用 100% 而不是 100vh，避免超出视口 */
   min-height: 100%;
-  background-color: #f7f8fa;
+  background-color: var(--m-color-bg);
   padding-top: 0;
   /* 底部留白由 App.vue 全局样式统一设置 */
   box-sizing: border-box;
@@ -1033,21 +1033,21 @@ export default {
   left: 0;
   right: 0;
   z-index: 100;
-  background-color: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 12px 16px;
-  padding-top: max(12px, calc(env(safe-area-inset-top) + 12px));
+  background-color: var(--m-color-surface);
+  border-bottom: 1px solid var(--m-color-border);
+  padding: var(--m-space-3) var(--m-space-4);
+  padding-top: max(var(--m-space-3), calc(env(safe-area-inset-top) + var(--m-space-3)));
 }
 
 .header-container {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--m-space-3);
 }
 
 .back-icon {
   font-size: 20px;
-  color: #323233;
+  color: var(--m-color-text);
   cursor: pointer;
   flex-shrink: 0;
   margin-top: 2px;
@@ -1063,15 +1063,15 @@ export default {
 .header-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--m-space-2);
   flex-wrap: wrap;
   justify-content: space-between;
 }
 
 .header-title {
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 600;
-  color: #101828;
+  color: var(--m-color-text);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1081,7 +1081,7 @@ export default {
 .header-meta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--m-space-2);
   flex-wrap: wrap;
 }
 
@@ -1092,13 +1092,13 @@ export default {
 }
 
 .info-text {
-  font-size: 12px;
-  color: #6a7282;
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text-secondary);
   line-height: 16px;
 }
 
 .info-value-primary {
-  color: #155dfc;
+  color: var(--m-color-brand);
   font-weight: 600;
   margin-right: 2px;
 }
@@ -1116,34 +1116,34 @@ export default {
   z-index: 90;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background-color: #f7f8fa;
-  padding: 12px;
-  padding-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  gap: var(--m-space-3);
+  background-color: var(--m-color-bg);
+  padding: var(--m-space-3);
+  padding-bottom: var(--m-space-3);
+  box-shadow: var(--m-shadow-card);
 }
 
 .search-container {
-  background-color: #fff;
-  padding: 12px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background-color: var(--m-color-surface);
+  padding: var(--m-space-3);
+  border-radius: var(--m-radius-md);
+  box-shadow: var(--m-shadow-card);
 }
 
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: #f7f8fa;
-  border-radius: 8px;
-  padding: 0 12px;
+  background-color: var(--m-color-bg);
+  border-radius: var(--m-radius-md);
+  padding: 0 var(--m-space-3);
   height: 36px;
 }
 
 .search-icon {
-  font-size: 16px;
-  color: #969799;
-  margin-right: 8px;
+  font-size: var(--m-font-size-lg);
+  color: var(--gray-400);
+  margin-right: var(--m-space-2);
   flex-shrink: 0;
 }
 
@@ -1151,13 +1151,13 @@ export default {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 14px;
-  color: #323233;
+  font-size: var(--m-font-size-md);
+  color: var(--m-color-text);
   outline: none;
 }
 
 .search-input::placeholder {
-  color: #969799;
+  color: var(--gray-400);
 }
 
 .filter-menu {
@@ -1178,29 +1178,29 @@ export default {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: var(--m-font-size-md);
   font-weight: 500;
-  color: #323233;
+  color: var(--m-color-text);
 }
 
 .quick-options {
   display: flex;
-  gap: 8px;
+  gap: var(--m-space-2);
   flex-wrap: wrap;
 }
 
 .quick-option {
-  padding: 6px 12px;
-  border-radius: 16px;
-  background-color: #f2f3f5;
+  padding: 6px var(--m-space-3);
+  border-radius: var(--m-radius-xl);
+  background-color: var(--gray-100);
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .quick-option.active {
-  background-color: #1989fa;
-  color: #fff;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .custom-options {
@@ -1217,27 +1217,27 @@ export default {
 
 .custom-label {
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
 }
 
 .option-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--m-space-2);
 }
 
 .option-pill {
-  padding: 6px 12px;
-  border-radius: 16px;
-  background-color: #f2f3f5;
+  padding: 6px var(--m-space-3);
+  border-radius: var(--m-radius-xl);
+  background-color: var(--gray-100);
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .option-pill.active {
-  background-color: #1989fa;
-  color: #fff;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .time-filter-actions {
@@ -1246,17 +1246,17 @@ export default {
 }
 
 .action-pill {
-  padding: 6px 16px;
-  border-radius: 16px;
-  background-color: #f2f3f5;
+  padding: 6px var(--m-space-4);
+  border-radius: var(--m-radius-xl);
+  background-color: var(--gray-100);
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .action-pill:hover {
-  background-color: #1989fa;
-  color: #fff;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .surgery-list {
@@ -1266,15 +1266,15 @@ export default {
 }
 
 .surgery-card {
-  background-color: #fff;
-  border-radius: 8px;
+  background-color: var(--m-color-surface);
+  border-radius: var(--m-radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--m-shadow-card);
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .surgery-card:active {
-  background-color: #f7f8fa;
+  background-color: var(--m-color-bg);
   transform: scale(0.98);
 }
 
@@ -1293,9 +1293,9 @@ export default {
 }
 
 .surgery-id {
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 600;
-  color: #323233;
+  color: var(--m-color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1325,9 +1325,9 @@ export default {
 }
 
 .surgery-procedure {
-  font-size: 14px;
+  font-size: var(--m-font-size-md);
   font-weight: 500;
-  color: #323233;
+  color: var(--m-color-text);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1343,16 +1343,16 @@ export default {
 .time-row {
   display: flex;
   align-items: center;
-  font-size: 14px;
-  gap: 4px;
+  font-size: var(--m-font-size-md);
+  gap: var(--m-space-1);
 }
 
 .time-label {
-  color: #646566;
+  color: var(--gray-500);
 }
 
 .time-value {
-  color: #323233;
+  color: var(--m-color-text);
   font-weight: 500;
 }
 
@@ -1362,22 +1362,22 @@ export default {
 }
 
 :deep(.van-list__loading) {
-  padding: 20px 0;
+  padding: var(--m-space-5) 0;
   text-align: center;
-  color: #969799;
-  font-size: 14px;
+  color: var(--gray-400);
+  font-size: var(--m-font-size-md);
 }
 
 :deep(.van-list__finished) {
-  padding: 20px 0;
+  padding: var(--m-space-5) 0;
   text-align: center;
-  color: #969799;
-  font-size: 14px;
+  color: var(--gray-400);
+  font-size: var(--m-font-size-md);
 }
 
 :deep(.van-dropdown-menu) {
-  background-color: #fff;
-  border-radius: 8px;
+  background-color: var(--m-color-surface);
+  border-radius: var(--m-radius-md);
 }
 
 :deep(.van-dropdown-menu__item) {

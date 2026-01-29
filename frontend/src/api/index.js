@@ -33,11 +33,17 @@ api.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response
       switch (status) {
+        case 423:
+          if (error.config?.url?.includes('/auth/login')) {
+            const mins = Math.ceil((data?.retryAfter ?? 900) / 60)
+            ElMessage.error(data?.message || i18nInstance.global.t('auth.loginLocked', { minutes: mins }))
+          } else {
+            ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
+          }
+          break
         case 401:
-          // 检查是否是登录接口的错误，如果是则显示具体的错误信息
-          if (error.config.url && error.config.url.includes('/auth/login')) {
-            // 登录接口的错误，显示后端返回的具体错误信息
-            ElMessage.error(data.message || i18nInstance.global.t('auth.invalidCredentials'))
+          if (error.config?.url?.includes('/auth/login')) {
+            ElMessage.error(data?.message || i18nInstance.global.t('auth.invalidCredentials'))
           } else {
             // 其他接口的401错误，说明token过期
             ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
@@ -55,7 +61,7 @@ api.interceptors.response.use(
           ElMessage.error(i18nInstance.global.t('shared.serverError'))
           break
         default:
-          ElMessage.error(data.message || i18nInstance.global.t('shared.requestFailed'))
+          ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
       }
     } else {
       ElMessage.error(i18nInstance.global.t('shared.networkError'))
@@ -66,6 +72,7 @@ api.interceptors.response.use(
 
 // API模块
 const auth = {
+  getCaptcha: () => api.get('/auth/captcha'),
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
   me: () => api.get('/auth/me'),
@@ -140,7 +147,9 @@ const logs = {
   download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/logs/${id}`),
   batchDelete: (logIds) => api.delete('/logs/batch', { data: { logIds } }),
-  batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }, { responseType: 'blob' }),
+  batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }),
+  getBatchDownloadTaskStatus: (taskId) => api.get(`/logs/batch/download/${taskId}/status`),
+  downloadBatchDownloadResult: (taskId) => api.get(`/logs/batch/download/${taskId}/result`, { responseType: 'blob' }),
   batchReparse: (logIds) => api.post('/logs/batch/reparse', { logIds }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params, signal = null) => api.get('/logs/entries/batch', {
@@ -149,7 +158,9 @@ const logs = {
   }),
   getStatistics: (params) => api.get('/logs/entries/statistics', { params }),
   getVisualizationData: (params) => api.get('/logs/entries/visualization', { params }),
-  exportBatchEntries: (params) => api.get('/logs/entries/export', { params, responseType: 'blob' }),
+  exportBatchEntries: (params) => api.get('/logs/entries/export', { params }),
+  getExportCsvTaskStatus: (taskId) => api.get(`/logs/entries/export/${taskId}/status`),
+  downloadExportCsvResult: (taskId) => api.get(`/logs/entries/export/${taskId}/result`, { responseType: 'blob' }),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
   analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
@@ -268,6 +279,7 @@ const deviceModels = {
 // Motion data APIs
 const motionData = {
   getConfig: () => api.get('/motion-data/config'),
+  getConfigClassified: () => api.get('/motion-data/config/classified'),
   getDhModel: () => api.get('/motion-data/dh-model'),
   upload: (formData) => api.post('/motion-data/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -275,9 +287,20 @@ const motionData = {
   batchUpload: (formData) => api.post('/motion-data/batch-upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  // Metadata list & manage
+  listFiles: (params) => api.get('/motion-data/files', { params }),
+  listFilesByDevice: (params) => api.get('/motion-data/files/by-device', { params }),
+  getTimeFilters: (params) => api.get('/motion-data/files/time-filters', { params }),
+  deleteFile: (id) => api.delete(`/motion-data/files/${id}`),
+  batchDeleteFiles: (ids) => api.post('/motion-data/files/batch-delete', { ids }),
+  downloadRaw: (id) => api.get(`/motion-data/files/${id}/download/raw`, { responseType: 'blob' }),
+  downloadParsed: (id, format = 'jsonl') => api.get(`/motion-data/files/${id}/download/parsed`, { params: { format }, responseType: 'blob' }),
+  batchDownloadRawZip: (ids) => api.post('/motion-data/files/batch-download/raw', { ids }, { responseType: 'blob' }),
   preview: (id, params) => api.get(`/motion-data/${id}/preview`, { params }),
+  getSeries: (id, params) => api.get(`/motion-data/files/${id}/series`, { params }),
   downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' }),
   batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }),
+  batchDownload: (fileIds, format = 'csv') => api.post('/motion-data/batch-download', { fileIds, format }),
   getUserTasks: () => api.get('/motion-data/tasks'), // 获取用户所有任务（用于恢复）
   getTaskStatus: (taskId) => api.get(`/motion-data/task/${taskId}`),
   downloadTaskResult: (taskId) => api.get(`/motion-data/task/${taskId}/download`, { responseType: 'blob' })
@@ -350,6 +373,24 @@ const smartSearch = {
   deleteConversation: (id) => api.delete(`/smart-search/conversations/${id}`)
 }
 
+// Knowledge base (KB)
+const kb = {
+  status: () => api.get('/kb/status'),
+  listDocuments: (params) => api.get('/kb/documents', { params }),
+  search: (params) => api.get('/kb/search', { params }),
+  uploadDocuments: (formData) => api.post('/kb/documents/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  // KB file types (tags)
+  listFileTypes: (params) => api.get('/kb/file-types', { params }),
+  createFileType: (data) => api.post('/kb/file-types', data),
+  updateFileType: (id, data) => api.put(`/kb/file-types/${id}`, data),
+  deleteFileType: (id) => api.delete(`/kb/file-types/${id}`),
+  deleteDocument: (id) => api.delete(`/kb/documents/${id}`),
+  rebuildDocument: (id) => api.post(`/kb/documents/${id}/rebuild`),
+  getChunkContent: (docId, chunkNo) => api.get(`/kb/chunks/${docId}/${chunkNo}`)
+}
+
 export default {
   auth,
   errorCodes,
@@ -375,5 +416,6 @@ export default {
   faultCases,
   jira,
   smartSearch,
+  kb,
   explanations
 }

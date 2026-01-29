@@ -1,3 +1,17 @@
 {
-  "chatgpt.openOnStartup": false
+  // 方法1: 将特定配置文件关联为 jsonc 类型，并禁用格式化
+  "files.associations": {
+    "**/config/motionFormat.json": "jsonc",
+    "**/config/motionFormatClassified.json": "jsonc"
+  },
+  // 禁用 jsonc 文件的格式化
+  "[jsonc]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null
+  },
+  // 方法2: 如果方法1不够，可以全局禁用 JSON 格式化（会影响所有 JSON 文件）
+  // 取消下面的注释来启用：
+  // "[json]": {
+  //   "editor.formatOnSave": false
+  // }
 }

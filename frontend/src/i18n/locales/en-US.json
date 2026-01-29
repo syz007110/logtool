@@ -31,7 +31,7 @@
     "requestFailed": "Request failed",
     "networkError": "Network connection failed",
     "unknown": "Unknown",
-    "submit":"submit",
+    "submit": "submit",
     "back": "Back",
     "updated": "Updated",
     "messages": {
@@ -64,7 +64,8 @@
       "sk": "Slovak",
       "ro": "Romanian",
       "da": "Danish",
-      "lv": "Latvian"
+      "lv": "Latvian",
+      "ru": "Russian"
     },
     "languageOptions": {
       "zh": "Chinese (zh)",
@@ -274,7 +275,21 @@
   "auth": {
     "invalidCredentials": "Invalid username or password",
     "tokenExpired": "Login expired, please login again",
-    "insufficientPermissions": "Insufficient permissions"
+    "insufficientPermissions": "Insufficient permissions",
+    "loginLocked": "Too many failed login attempts. Account locked for {{minutes}} minutes",
+    "captchaRequired": "Please enter the captcha",
+    "captchaInvalid": "Invalid captcha",
+    "mustChangePasswordTitle": "Please change your password",
+    "mustChangePasswordDesc": "Your password does not meet the current security policy. Please change it before continuing."
+  },
+  "passwordStrength": {
+    "required": "Please enter password",
+    "minLength": "Password must be at least 8 characters",
+    "requireUpper": "Must contain uppercase (A-Z)",
+    "requireLower": "Must contain lowercase (a-z)",
+    "requireDigit": "Must contain digit (0-9)",
+    "sameAsUsername": "Cannot be same as username",
+    "noConsecutive4": "No 4+ consecutive identical characters"
   },
   "register": {
     "title": "User Registration",
@@ -292,7 +307,7 @@
       "emailRequired": "Please enter email",
       "emailFormat": "Please enter a valid email format",
       "passwordRequired": "Please enter password",
-      "passwordMinLength": "Password must be at least 6 characters",
+      "passwordMinLength": "Password must be at least 8 characters",
       "confirmPasswordRequired": "Please confirm password",
       "passwordMismatch": "Passwords do not match"
     }
@@ -309,6 +324,64 @@
     "logAndSurgery": "Logs & Surgery Data",
     "systemManagement": "System",
     "test": "Test"
+  },
+  "knowledgeBase": {
+    "title": "Knowledge Base",
+    "upload": "Upload",
+    "filters": {
+      "statusPlaceholder": "Status",
+      "uploadDatePlaceholder": "Upload date",
+      "fileTypePlaceholder": "File type"
+    },
+    "search": {
+      "placeholder": "Keywords (filename/content)",
+      "drawerTitle": "Search Results",
+      "hint": "Enter keywords and press Enter to search",
+      "empty": "No results",
+      "resultCount": "{count} results"
+    },
+    "columns": {
+      "filename": "Filename",
+      "fileType": "File Type",
+      "uploadTime": "Upload Time",
+      "status": "Status"
+    },
+    "actions": {
+      "delete": "Delete",
+      "download": "Download",
+      "rebuild": "Rebuild Index"
+    },
+    "uploadDialog": {
+      "title": "Upload KB files",
+      "chooseFiles": "Choose files",
+      "tip": "Supports .docx / .md / .txt, max {maxSize} per file, up to {maxFiles} files per upload",
+      "selectedFiles": "{count} file(s) selected",
+      "typePlaceholder": "Select file types (multiple allowed)",
+      "typeRequired": "Please select at least one type for each file",
+      "typeLoadFailed": "Failed to load file types",
+      "uploaderNotReady": "Upload component is not ready",
+      "chooseFilesRequired": "Please choose files to upload"
+    },
+    "statusText": {
+      "uploading": "Uploading",
+      "queued": "Queued",
+      "parsing": "Parsing",
+      "parse_failed": "Parse failed",
+      "parsed": "Completed",
+      "file_error": "File error",
+      "processing_failed": "Processing failed",
+      "upload_failed": "Upload failed",
+      "deleting": "Deleting"
+    },
+    "messages": {
+      "confirmDelete": "Delete this file?",
+      "rebuildConfirmTitle": "Rebuild Index",
+      "confirmRebuild": "Rebuild the index for this file? (Re-chunk and reindex)",
+      "rebuildQueued": "Rebuild task queued",
+      "rebuildFailed": "Rebuild failed",
+      "maxFiles": "You can select up to {count} files",
+      "uploadQueued": "Uploaded {count} files, queued for processing"
+    }
   },
   "errorCodes": {
     "title": "Error Codes",
@@ -337,7 +410,7 @@
     "multilangColumnsOptional": "Multi-language",
     "selectLanguages": "Select languages",
     "fullCode": "Full Error Code",
-      "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include system ID prefix)",
+    "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include system ID prefix)",
     "formLabels": {
       "subsystem": "System ID",
       "code": "Error Code",
@@ -531,7 +604,8 @@
     "tabs": {
       "logLevels": "Analysis Levels",
       "faultCaseStatuses": "Fault Case Statuses",
-      "faultCaseModules": "Modules"
+      "faultCaseModules": "Modules",
+      "kbFileTypes": "KB File Types"
     },
     "common": {
       "name": "Name",
@@ -593,6 +667,34 @@
       "validation": {
         "moduleKeyRequired": "Please enter module key",
         "moduleKeyPattern": "Module key can only contain lowercase letters, numbers and underscores",
+        "nameZhRequired": "Please enter Chinese name",
+        "nameEnRequired": "Please enter English name"
+      }
+    },
+    "kbFileTypes": {
+      "add": "Add Type",
+      "subtitle": "Configure KB file types used as upload tags.",
+      "searchPlaceholder": "Search types...",
+      "fetchFailed": "Failed to fetch file types",
+      "submitFailed": "Failed to submit",
+      "deleteConfirm": "Are you sure to delete this type?",
+      "columns": {
+        "code": "Code",
+        "name": "Name",
+        "sortOrder": "Sort Order",
+        "enabled": "Enabled"
+      },
+      "form": {
+        "code": "Code",
+        "codePlaceholder": "e.g. SOP / MANUAL / FAQ",
+        "name": "Name",
+        "namePlaceholder": "Please enter name",
+        "sortOrder": "Sort Order",
+        "enabled": "Enabled"
+      },
+      "validation": {
+        "codeRequired": "Please enter code",
+        "codePattern": "Code can only contain letters, numbers, underscores or hyphens",
         "nameZhRequired": "Please enter Chinese name",
         "nameEnRequired": "Please enter English name"
       }
@@ -747,8 +849,15 @@
   },
   "dataReplay": {
     "title": "Data Parsing",
+    "dataCount": "Data Count",
+    "fileListDrawerTitle": "Motion Data List",
+    "detailDrawerTitle": "Detail",
+    "uploadMotionData": "Upload motion data",
+    "uploadDialogMaxFiles": "Max 5 files",
     "uploadBinaryFile": "Upload Binary File (.bin)",
     "downloadCSV": "Download CSV",
+    "download": "Download",
+    "downloadRaw": "Download raw",
     "fileLabel": "File",
     "sizeLabel": "Size",
     "totalEntriesLabel": "Total Entries",
@@ -1150,7 +1259,7 @@
       "emailFormat": "Please enter a valid email",
       "oldPasswordRequired": "Please enter old password",
       "newPasswordRequired": "Please enter new password",
-      "newPasswordMin": "Password must be at least 6 characters",
+      "newPasswordMin": "Password must be at least 8 characters",
       "confirmPasswordRequired": "Please confirm password"
     }
   },
@@ -1199,7 +1308,7 @@
       "usernameLength": "Username must be between 3 and 20 characters",
       "emailFormat": "Please enter a valid email format",
       "passwordRequired": "Please enter password",
-      "passwordMinLength": "Password must be at least 6 characters",
+      "passwordMinLength": "Password must be at least 8 characters",
       "statusRequired": "Please select status",
       "roleRequired": "Please select role",
       "oldPasswordRequired": "Please enter old password",
@@ -1223,16 +1332,16 @@
     "resetPasswordSuccess": "Password reset successfully",
     "resetPasswordFailed": "Failed to reset password"
   },
-    "roles": {
-      "title": "Role Management",
-      "name": "Role Name",
-      "description": "Role Description",
-      "permissions": "Permissions",
-      "userCount": "Users",
-      "addRole": "Add Role",
-      "editRole": "Edit Role",
-      "deleteRole": "Delete Role",
-      "searchPlaceholder": "Search role name or description",
+  "roles": {
+    "title": "Role Management",
+    "name": "Role Name",
+    "description": "Role Description",
+    "permissions": "Permissions",
+    "userCount": "Users",
+    "addRole": "Add Role",
+    "editRole": "Edit Role",
+    "deleteRole": "Delete Role",
+    "searchPlaceholder": "Search role name or description",
     "rules": {
       "nameRequired": "Please enter role name",
       "descriptionRequired": "Please enter role description"
@@ -1391,6 +1500,7 @@
     "tabs": {
       "error": "Errors",
       "logs": "Logs",
+      "smartSearch": "Smart Search",
       "surgeries": "Surgeries",
       "profile": "Me"
     },
@@ -1627,6 +1737,79 @@
       "surgeryIdRequired": "Surgery ID is required"
     }
   },
+  "dataAnalysis": {
+    "title": "Data Analysis",
+    "multiModalAnalysis": "Multi-Modal Analysis",
+    "selectNewData": "Select New Data",
+    "surgeryVideo": "Surgery Video",
+    "clickToSelectDataSource": "Click to select data source",
+    "surgeryLogs": "Surgery Logs",
+    "selectLogToSync": "Select a log file to automatically load linked video and sensor data",
+    "operationalData": "Operational Data",
+    "visualizationOfDeviceParameters": "Visualization of device parameters",
+    "addVideo": "Add Video",
+    "addMotionData": "Add Motion Data",
+    "addLogs": "Add Logs",
+    "logs": "Logs",
+    "filterLogs": "Filter logs...",
+    "noLogs": "No logs",
+    "selectAnalysisDataSource": "Select Analysis Data Source",
+    "device": "Device",
+    "selectDevice": "Select Device",
+    "timeRangeLogFile": "Time Range (Log File)",
+    "selectLogFile": "Select Log File",
+    "startTime": "Start Time",
+    "selectStartTime": "Select Start Time",
+    "endTime": "End Time",
+    "maxDurationHint": "Note: Max duration is 5 minutes.",
+    "note": "Note:",
+    "autoSyncHint": "Video and Operational Data will be automatically synchronized based on the selected log timestamp. Max duration: 5 minutes.",
+    "loadData": "Load Data",
+    "selectLogFirst": "Please select a log file first",
+    "logNotFound": "Log file not found",
+    "noLogEntries": "No log entries in this time range",
+    "invalidTimeRange": "Invalid time range",
+    "loadSuccess": "Data loaded successfully",
+    "loadFailed": "Failed to load data",
+    "fetchLogsFailed": "Failed to fetch log list",
+    "fetchDevicesFailed": "Failed to load device list",
+    "selectLogData": "Select Log Data",
+    "deviceList": "Device List",
+    "logFileList": "Log File List",
+    "selectDeviceFirst": "Please select a device first",
+    "selectedLogs": "Selected Logs",
+    "selectedFiles": "Files",
+    "maxSelect2Logs": "Maximum 2 log files can be selected",
+    "configTimeline": "Configure Timeline",
+    "videoStartTime": "Video Start Time",
+    "videoStartTimeHint": "Set the actual time (HH:mm:ss) corresponding to when the video starts playing, used to synchronize with the timeline of logs and operational data",
+    "currentVideoStartTime": "Current Video Start Time",
+    "currentVideoStartTimeHint": "Displays the currently configured video start time, or \"-\" if not configured",
+    "videoTimeConfigHint": "Seek video to a key moment, then set the actual time for that frame; the system will infer video start/end and sync with logs",
+    "currentVideoProgress": "Current Video Progress",
+    "currentVideoProgressHint": "Progress bar position when the dialog opened, used to infer the actual time for video 0:00",
+    "currentFrameTime": "Actual Time for Current Frame",
+    "currentFrameTimeHint": "Set the actual time (HH:mm:ss) for the current progress position, used to sync with logs and operational data",
+    "inferredVideoStart": "Inferred: Video Start Time",
+    "inferredVideoEnd": "Inferred: Video End Time",
+    "pleaseSelectStartTime": "Select this moment",
+    "videoNotReady": "Please load the video first",
+    "videoTimeConfigSuccess": "Video start time configured successfully",
+    "motionTimeGapWarning": "Detected non-continuous operational data time, gap about {gap} minutes ({prevFile} to {currFile}). Continue?",
+    "confirmTitle": "Confirm",
+    "selectedCount": "Selected",
+    "motionPickTitle": "Multiple operational data files found, please select (max 5)",
+    "motionPickHint": "Multiple operational data files detected in the same hour, please select up to 5 for loading (each file is about 1 minutes).",
+    "autoAddMotionConfirm": "Available operational data file found for this time period: {fileName}. Auto-load?",
+    "autoAddLogsConfirm": "Available log files found for this time period (max 2 will be auto-added):\n{fileNames}\nAuto-load?",
+    "motionNotFoundTitle": "No operational data found for the corresponding time period",
+    "motionNotFoundMessage": "No operational data found for the time period ({start} to {end}). Cannot add manually.",
+    "motionNotFoundShortHint": "No data found for the time period. Cannot add manually.",
+    "logNotFoundTitle": "No log data found for the corresponding time period",
+    "logNotFoundMessage": "No log data found for the time period ({start} to {end}). Cannot add manually.",
+    "noLogEntriesInMotionRange": "No log entries in the operational data time range",
+    "logEntriesLimited": "Log entries limited by operational data time range, total {count} entries"
+  },
   "smartSearch": {
     "title": "Smart Search",
     "summary": "Summary",
@@ -1673,5 +1856,3 @@
     "disclaimer": "AI responses may be inaccurate. Check source data."
   }
 }
-
-

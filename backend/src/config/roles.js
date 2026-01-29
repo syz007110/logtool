@@ -67,7 +67,13 @@ const ROLES = {
       // 数据诊断权限
       'data_replay:upload',
       'data_replay:read',
-      'data_replay:download'
+      'data_replay:download',
+
+      // 知识库（KB）管理权限
+      'kb:read',
+      'kb:upload',
+      'kb:delete',
+      'kb:rebuild'
     ]
   },
   
@@ -122,7 +128,12 @@ const ROLES = {
       // 数据解析（原数据诊断）权限
       'data_replay:upload',
       'data_replay:read',
-      'data_replay:download'
+      'data_replay:download',
+
+      // 知识库（KB）
+      'kb:read',
+      'kb:upload',
+      'kb:delete'
     ]
   },
   
@@ -155,7 +166,10 @@ const ROLES = {
       // 手术数据权限
       'surgery:analyze',
       'surgery:read',
-      'surgery:export'
+      'surgery:export',
+
+      // 知识库（KB）：允许检索/下载
+      'kb:read'
     ]
   },
   
@@ -175,7 +189,10 @@ const ROLES = {
       'history:export',
 
       // 故障案例审核权限
-      'fault_case:review'
+      'fault_case:review',
+
+      // 知识库（KB）：只读
+      'kb:read'
     ]
   }
 };

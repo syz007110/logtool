@@ -103,6 +103,7 @@ function normalizeRoleName (roleName, roleId) {
 
 const getters = {
   isAuthenticated: (state) => !!state.token,
+  mustChangePassword: (state) => !!state.user?.mustChangePassword,
   userRole: (state) => (state.user ? normalizeRoleName(state.user.role, state.user.role_id) : null),
   currentUser: state => state.user,
   currentLanguage: state => state.language,

@@ -11,8 +11,9 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import '@fortawesome/fontawesome-free/css/all.css'
 import './assets/styles/i18n-utilities.css'
 // 样式导入顺序（必须遵守）：
-import 'element-plus/dist/index.css'                    // 1. Element Plus 基础样式
-import './assets/styles/design-tokens.css'              // 2. Design Tokens（定义所有设计变量）
+import 'element-plus/dist/index.css' // 1. Element Plus 基础样式
+import './assets/styles/design-tokens.css' // 2. Design Tokens（定义所有设计变量）
+import './assets/styles/mobile-design-tokens.css' // 3. Mobile Design Tokens（移动端 scoped 覆盖 & Vant 映射）
 import { initResizeObserverFix } from './utils/resizeObserverFix'
 
 // 预加载当前语言后再挂载

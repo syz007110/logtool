@@ -172,7 +172,7 @@ export default {
 .page {
   /* 使用 100% 而不是 100vh，避免超出视口 */
   min-height: 100%;
-  background-color: #f7f8fa;
+  background-color: var(--m-color-bg);
   /* 底部留白由 App.vue 全局样式统一设置 */
   box-sizing: border-box;
 }
@@ -184,44 +184,44 @@ export default {
   left: 0;
   right: 0;
   z-index: 100;
-  background-color: #fff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  background-color: var(--m-color-surface);
+  box-shadow: var(--m-shadow-card);
 }
 
 .header {
-  padding: 16px;
-  padding-top: max(16px, calc(env(safe-area-inset-top) + 8px));
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: var(--m-space-4);
+  padding-top: max(var(--m-space-4), calc(env(safe-area-inset-top) + var(--m-space-2)));
+  border-bottom: 1px solid var(--m-color-border);
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: var(--m-font-size-xl);
   font-weight: 600;
-  color: #323233;
+  color: var(--m-color-text);
   margin: 0;
   line-height: 24px;
 }
 
 .search-container {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background-color: #fff;
+  padding: var(--m-space-3) var(--m-space-4);
+  border-bottom: 1px solid var(--m-color-border);
+  background-color: var(--m-color-surface);
 }
 
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
-  background-color: #f7f8fa;
-  border-radius: 8px;
-  padding: 0 12px;
+  background-color: var(--m-color-bg);
+  border-radius: var(--m-radius-md);
+  padding: 0 var(--m-space-3);
   height: 36px;
 }
 
 .search-icon {
-  font-size: 16px;
-  color: #969799;
-  margin-right: 8px;
+  font-size: var(--m-font-size-lg);
+  color: var(--gray-400);
+  margin-right: var(--m-space-2);
   flex-shrink: 0;
 }
 
@@ -229,13 +229,13 @@ export default {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 14px;
-  color: #323233;
+  font-size: var(--m-font-size-md);
+  color: var(--m-color-text);
   outline: none;
 }
 
 .search-input::placeholder {
-  color: #969799;
+  color: var(--gray-400);
 }
 
 .content {
@@ -251,15 +251,15 @@ export default {
 }
 
 .device-card {
-  background-color: #fff;
-  border-radius: 8px;
+  background-color: var(--m-color-surface);
+  border-radius: var(--m-radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--m-shadow-card);
   transition: all 0.3s ease;
 }
 
 .device-card:active {
-  background-color: #f7f8fa;
+  background-color: var(--m-color-bg);
   transform: scale(0.98);
 }
 
@@ -283,9 +283,9 @@ export default {
 }
 
 .device-id {
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 500;
-  color: #323233;
+  color: var(--m-color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -294,8 +294,8 @@ export default {
 }
 
 .hospital-name {
-  font-size: 14px;
-  color: #646566;
+  font-size: var(--m-font-size-md);
+  color: var(--gray-500);
   margin-bottom: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -305,34 +305,34 @@ export default {
 .log-badge {
   display: inline-flex;
   align-items: center;
-  background-color: #f0f0f0;
-  border-radius: 12px;
-  padding: 2px 8px;
+  background-color: var(--gray-200);
+  border-radius: var(--m-radius-lg);
+  padding: 2px var(--m-space-2);
   height: 22px;
   flex-shrink: 0;
-  margin-left: 12px;
+  margin-left: var(--m-space-3);
 }
 
 .badge-text {
-  font-size: 14px;
+  font-size: var(--m-font-size-md);
   font-weight: 500;
-  color: #646566;
+  color: var(--gray-500);
 }
 
 .badge-label {
-  font-size: 12px;
-  color: #646566;
+  font-size: var(--m-font-size-sm);
+  color: var(--gray-500);
   margin-left: 2px;
 }
 
 .arrow-icon {
-  margin-left: 12px;
+  margin-left: var(--m-space-3);
   flex-shrink: 0;
 }
 
 .arrow-icon .van-icon {
-  font-size: 16px;
-  color: #969799;
+  font-size: var(--m-font-size-lg);
+  color: var(--gray-400);
 }
 
 .empty-state {
@@ -341,16 +341,16 @@ export default {
 
 /* 加载状态优化 */
 :deep(.van-list__loading) {
-  padding: 20px 0;
+  padding: var(--m-space-5) 0;
   text-align: center;
-  color: #969799;
-  font-size: 14px;
+  color: var(--gray-400);
+  font-size: var(--m-font-size-md);
 }
 
 :deep(.van-list__finished) {
-  padding: 20px 0;
+  padding: var(--m-space-5) 0;
   text-align: center;
-  color: #969799;
-  font-size: 14px;
+  color: var(--gray-400);
+  font-size: var(--m-font-size-md);
 }
 </style>

@@ -119,9 +119,114 @@ async function proxyFaultCaseObject(req, res) {
   });
 }
 
+async function proxyKbObject(req, res) {
+  // eslint-disable-next-line global-require
+  const kbStorage = require('../config/kbStorage');
+  const prefixes = [
+    (kbStorage.OSS_PREFIX || 'kb/').replace(/^\//, ''),
+    (kbStorage.TMP_PREFIX || 'kb/tmp/').replace(/^\//, '')
+  ];
+  return proxyOssObject(req, res, {
+    getClient: kbStorage.getOssClient,
+    allowedPrefixes: prefixes,
+    defaultFilename: 'kb-document',
+    permissionHint: 'kb:read'
+  });
+}
+
+async function proxyMotionDataObject(req, res) {
+  // eslint-disable-next-line global-require
+  const motionStorage = require('../config/motionDataStorage');
+  const fs = require('fs');
+  const path = require('path');
+
+  // 如果使用本地存储，直接从本地文件系统读取
+  if (motionStorage.STORAGE === 'local') {
+    try {
+      const keyParam = req.query.key || '';
+      const urlParam = req.query.url || '';
+      const raw = keyParam || urlParam;
+      if (!raw) {
+        return res.status(400).json({ message: 'Missing key' });
+      }
+
+      let objectKey = keyParam ? String(keyParam) : (urlParam ? decodeURIComponent(urlParam) : '');
+      objectKey = String(objectKey || '').replace(/^\//, '');
+      if (!objectKey) {
+        return res.status(400).json({ message: 'Invalid key' });
+      }
+
+      // 构建本地文件路径
+      const localPath = path.join(motionStorage.LOCAL_DIR, objectKey);
+      
+      // 安全检查：确保路径在 LOCAL_DIR 内，防止路径遍历攻击
+      const normalizedPath = path.normalize(localPath);
+      const normalizedDir = path.normalize(motionStorage.LOCAL_DIR);
+      if (!normalizedPath.startsWith(normalizedDir)) {
+        return res.status(403).json({ message: 'Forbidden path' });
+      }
+
+      if (!fs.existsSync(localPath)) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+
+      const stats = fs.statSync(localPath);
+      const fileSize = stats.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(localPath, { start, end });
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'application/octet-stream',
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+      } else {
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': 'application/octet-stream',
+        };
+        if (isTruthy(req.query.download)) {
+          const filename = safeFilename(req.query.filename || path.basename(objectKey), 'motion-data');
+          head['Content-Disposition'] = `attachment; filename="${filename}"`;
+        }
+        res.writeHead(200, head);
+        fs.createReadStream(localPath).pipe(res);
+      }
+    } catch (err) {
+      const status = err?.status || err?.statusCode || 500;
+      const code = err?.code || err?.name || 'LOCAL_STORAGE_ERROR';
+      const message = err?.message || 'Local storage proxy failed';
+      console.error('[motion-data][local][proxy] failed:', { code, status, message });
+      return res.status(status).json({ message, code });
+    }
+    return;
+  }
+
+  // OSS 存储：使用原有逻辑
+  const prefixes = [
+    (motionStorage.OSS_PREFIX || 'motion-data/').replace(/^\//, '')
+  ];
+  return proxyOssObject(req, res, {
+    getClient: motionStorage.getOssClient,
+    allowedPrefixes: prefixes,
+    defaultFilename: 'motion-data',
+    permissionHint: 'data_replay:manage'
+  });
+}
+
 module.exports = {
   proxyTechSolutionObject,
-  proxyFaultCaseObject
+  proxyFaultCaseObject,
+  proxyKbObject,
+  proxyMotionDataObject
 };
 
 

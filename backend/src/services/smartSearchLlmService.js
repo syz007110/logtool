@@ -316,6 +316,9 @@ function normalizeQueryFields(parsed, defaults = {}) {
   const days = Number.isFinite(Number(parsed?.days)) ? Number(parsed.days) : daysFallback;
   const safeDays = Math.min(Math.max(Math.floor(days), 1), 3650);
 
+  // keywords: for definition/how_to_use topic extraction
+  const keywords = normalizeStringArray(parsed?.keywords, 12);
+
   const faultCodesRaw = Array.isArray(parsed?.fault_codes) ? parsed.fault_codes : [];
   const faultCodes = [];
   const seen = new Set();
@@ -329,6 +332,7 @@ function normalizeQueryFields(parsed, defaults = {}) {
   }
 
   return {
+    keywords,
     fault_codes: faultCodes,
     symptom: normalizeStringArray(parsed?.symptom, 12),
     trigger: normalizeStringArray(parsed?.trigger, 12),

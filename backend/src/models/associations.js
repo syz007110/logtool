@@ -19,6 +19,9 @@ const FaultCaseStatus = require('./fault_case_status');
 const FaultCaseStatusMapping = require('./fault_case_status_mapping');
 const FaultCaseModule = require('./fault_case_module');
 const FaultCaseModuleMapping = require('./fault_case_module_mapping');
+const KbDocument = require('./kb_document');
+const KbFileType = require('./kb_file_type');
+const KbDocumentFileType = require('./kb_document_file_type');
 
 // 防止重复定义关联 - 使用进程级别的检查
 const associationsProcessKey = `associations_${process.pid}`;
@@ -213,6 +216,28 @@ function defineAssociations() {
   FaultCaseModuleMapping.belongsTo(FaultCaseModule, {
     foreignKey: 'module_id',
     as: 'module'
+  });
+
+  // KB 相关关联
+  // KbDocument 与 KbDocumentFileType 的一对多关联
+  KbDocument.hasMany(KbDocumentFileType, {
+    foreignKey: 'doc_id',
+    as: 'fileTypes',
+    onDelete: 'CASCADE'
+  });
+  KbDocumentFileType.belongsTo(KbDocument, {
+    foreignKey: 'doc_id',
+    as: 'document'
+  });
+
+  // KbDocumentFileType 与 KbFileType 的一对多关联
+  KbDocumentFileType.belongsTo(KbFileType, {
+    foreignKey: 'file_type_id',
+    as: 'fileType'
+  });
+  KbFileType.hasMany(KbDocumentFileType, {
+    foreignKey: 'file_type_id',
+    as: 'documentFileTypes'
   });
 
   console.log('✅ 模型关联定义完成');

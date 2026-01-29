@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-
-const STORAGE = (process.env.TECH_SOLUTION_STORAGE || 'local').toLowerCase();
+const { STORAGE } = require('./storageMode');
 const LOCAL_DIR = process.env.TECH_SOLUTION_LOCAL_DIR || path.resolve(__dirname, '../../uploads/tech-solution');
 const TMP_DIR = path.resolve(LOCAL_DIR, 'tmp');
 const LOCAL_PUBLIC_BASE = (process.env.TECH_SOLUTION_PUBLIC_BASE || '/static/tech-solution').replace(/\/$/, '');

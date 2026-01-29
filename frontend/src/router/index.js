@@ -13,6 +13,13 @@ const routes = [
     component: () => import('../views/SmartSearchPage.vue'),
     meta: { requiresAuth: true, noSidebar: true }
   },
+  // 多模态数据分析工具（统一时间轴联动）
+  {
+    path: '/data-analysis',
+    name: 'DataAnalysis',
+    component: () => import('../views/DataAnalysisPage.vue'),
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'log:read_all' }
+  },
   {
     path: '/login',
     name: 'Login',
@@ -87,6 +94,12 @@ const routes = [
         meta: { requiresPermission: 'fault_case:read' }
       },
       {
+        path: 'knowledge-base',
+        name: 'KnowledgeBase',
+        component: () => import('../views/KnowledgeBase.vue'),
+        meta: { requiresPermission: 'kb:read' }
+      },
+      {
         path: 'fault-cases/new',
         name: 'FaultCaseCreate',
         component: () => import('../views/FaultCaseForm.vue'),
@@ -108,14 +121,14 @@ const routes = [
         path: 'config-management',
         name: 'ConfigManagement',
         component: () => import('../views/ConfigManagement.vue'),
-        meta: { requiresPermission: 'fault_case:manage' }
+        meta: { requiresPermission: 'fault_case_config:manage' }
       },
       {
         // 兼容旧入口：日志分析等级 -> 配置管理
         path: 'analysis-categories',
         name: 'AnalysisCategories',
         redirect: '/dashboard/config-management',
-        meta: { requiresPermission: 'fault_case:manage' }
+        meta: { requiresPermission: 'fault_case_config:manage' }
       },
       {
         path: 'logs',
@@ -223,7 +236,8 @@ const routes = [
     component: () => import('../mobile/MobileLayout.vue'),
     meta: { requiresAuth: true, noSidebar: true, isMobile: true },
     children: [
-      { path: '', redirect: '/m/error' },
+      { path: '', redirect: '/m/smart-search' },
+      { path: 'smart-search', name: 'MSmartSearch', component: () => import('../mobile/views/MobileSmartSearch.vue'), meta: { hideTabbar: false } },
       { path: 'error', name: 'MError', component: () => import('../mobile/views/ErrorQuery.vue') },
       { path: 'logs', name: 'MLogs', component: () => import('../mobile/views/LogDevices.vue') },
       { path: 'logs/:deviceId', name: 'MDeviceLogs', component: () => import('../mobile/views/DeviceLogs.vue'), meta: { hideTabbar: true } },
@@ -244,15 +258,25 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, from, next) => {
   const isAuthenticated = store.getters['auth/isAuthenticated']
+  const mustChangePassword = store.getters['auth/mustChangePassword']
   const userRole = store.getters['auth/userRole']
   const hasPermission = store.getters['auth/hasPermission']
   const isMobileRoute = to.path.startsWith('/m')
+  const accountPath = '/dashboard/account'
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next(isMobileRoute ? '/m/login' : '/login')
-  } else if (to.meta.requiresAdmin && userRole !== 'admin') {
+    return
+  }
+  if (isAuthenticated && mustChangePassword && to.path !== accountPath) {
+    next(accountPath)
+    return
+  }
+  if (to.meta.requiresAdmin && userRole !== 'admin') {
     next('/dashboard')
-  } else if (to.meta.requiresPermission) {
+    return
+  }
+  if (to.meta.requiresPermission) {
     const required = to.meta.requiresPermission
     const allowed = Array.isArray(required)
       ? required.some((p) => hasPermission?.(p))
@@ -262,11 +286,13 @@ router.beforeEach((to, from, next) => {
     } else {
       next()
     }
-  } else if ((to.path === '/login' || to.path === '/m/login') && isAuthenticated && from.path !== to.path) {
-    next(isMobileRoute ? '/m' : '/smart-search')
-  } else {
-    next()
+    return
   }
+  if ((to.path === '/login' || to.path === '/m/login') && isAuthenticated && from.path !== to.path) {
+    next(mustChangePassword ? accountPath : (isMobileRoute ? '/m' : '/smart-search'))
+    return
+  }
+  next()
 })
 
 export default router

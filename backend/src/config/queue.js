@@ -74,6 +74,18 @@ const motionDataQueue = new Queue('motion-data', {
   }
 });
 
+// KnowledgeBase ingest queue（docx/md/txt → chunks → PG → ES）
+const kbIngestQueue = new Queue('kb-ingest', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 5,
+    timeout: parseInt(process.env.KB_QUEUE_TIMEOUT_MS) || 600000, // 10分钟
+    removeOnComplete: 200,
+    removeOnFail: 100
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('error', (error) => {
   console.error('[队列] 队列错误:', error);
@@ -119,6 +131,15 @@ motionDataQueue.on('failed', (job, err) => {
   console.error('[MotionData队列] 任务失败:', job.id, err.message);
 });
 
+// KB ingest 队列事件监听
+kbIngestQueue.on('error', (error) => {
+  console.error('[KB队列] 队列错误:', error);
+});
+
+kbIngestQueue.on('failed', (job, err) => {
+  console.error('[KB队列] 任务失败:', job.id, err.message);
+});
+
 // 通用队列完成事件监听
 logProcessingQueue.on('completed', (job) => {
   console.log(`[队列] 任务 ${job.id} 完成`);
@@ -140,6 +161,10 @@ motionDataQueue.on('completed', (job) => {
   console.log(`[MotionData队列] 任务 ${job.id} 完成`);
 });
 
+kbIngestQueue.on('completed', (job) => {
+  console.log(`[KB队列] 任务 ${job.id} 完成`);
+});
+
 logProcessingQueue.on('stalled', (job) => {
   console.warn(`[队列] 任务 ${job.id} 停滞`);
 });
@@ -154,6 +179,7 @@ module.exports = {
   historicalProcessingQueue,
   surgeryAnalysisQueue,
   motionDataQueue,
+  kbIngestQueue,
   redisConfig,
   queueOptions
 };

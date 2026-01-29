@@ -1,9 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-
-// Storage mode: local | oss
-// 复用排查方案的存储模式配置（如果未单独设置 FAULT_CASE_STORAGE）
-const STORAGE = (process.env.FAULT_CASE_STORAGE || process.env.TECH_SOLUTION_STORAGE || 'local').toLowerCase();
+const { STORAGE } = require('./storageMode');
 const LOCAL_DIR = process.env.FAULT_CASE_LOCAL_DIR || path.resolve(__dirname, '../../uploads/fault-cases');
 const TMP_DIR = path.resolve(LOCAL_DIR, 'tmp');
 const LOCAL_PUBLIC_BASE = (process.env.FAULT_CASE_PUBLIC_BASE || '/static/fault-cases').replace(/\/$/, '');

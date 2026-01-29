@@ -1959,35 +1959,20 @@ export default {
       foundRecord.value = null
       queryTechAttachments.value = []
       try {
-        const payload = { code: upper }
-        const previewResp = await api.explanations.preview(payload)
-        queryResult.value = previewResp.data
-        let subsystem = queryForm.subsystem || queryResult.value?.subsystem || null
-        if (!subsystem && isFull) {
-          const s = upper.charAt(0)
-          if (/^[1-9A]$/.test(s)) subsystem = s
-        }
-        // 若输入的是短码（010A/0X010A）必须有下拉选择的子系统
-        if (isShort && !subsystem) {
-          ElMessage.info(t('errorCodes.selectSubsystem'))
-          queryLoading.value = false
-          return
-        }
-        const codeOnly = normalizeFullCode(upper)
-        if (subsystem) {
-          try {
-            const recResp = await api.errorCodes.getByCodeAndSubsystem(codeOnly, subsystem)
-            foundRecord.value = recResp?.data?.errorCode || null
-            // 如果查询到记录，加载技术排查方案附件
-            if (foundRecord.value?.id) {
-              await loadQueryTechAttachments(foundRecord.value.id)
-            } else {
-              queryTechAttachments.value = []
-            }
-          } catch (_) {
-            foundRecord.value = null
-            queryTechAttachments.value = []
-          }
+        const subsystem = (queryForm.subsystem || '').toUpperCase() || undefined
+        // 统一接口：/error-codes?q=... 可识别完整码/类型码/关键词；preview=1 时同时返回释义前缀
+        const resp = await api.errorCodes.getList({
+          q: upper,
+          subsystem,
+          page: 1,
+          limit: 10,
+          preview: 1
+        })
+        const data = resp?.data || {}
+        queryResult.value = data.preview || null
+        foundRecord.value = (data.errorCodes && data.errorCodes[0]) ? data.errorCodes[0] : null
+        if (foundRecord.value?.id) {
+          await loadQueryTechAttachments(foundRecord.value.id)
         } else {
           queryTechAttachments.value = []
         }

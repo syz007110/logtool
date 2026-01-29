@@ -9,6 +9,25 @@ const fs = require('fs');
 const errorCodeCache = require('../services/errorCodeCache');
 const { translateFields } = require('../services/translationService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
+
+// 检查ES是否启用
+function isErrorCodeEsEnabled() {
+  const raw = process.env.ERROR_CODE_ES_ENABLED;
+  if (raw == null) return true; // 默认启用
+  const s = String(raw).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+// 同步故障码到ES（异步，不阻塞主流程）
+async function syncErrorCodeToEs(errorCodeId, lang = 'zh') {
+  if (!isErrorCodeEsEnabled()) return;
+  try {
+    await indexErrorCodeToEs({ errorCodeId, lang, refresh: 'false' });
+  } catch (e) {
+    console.warn(`[ES同步] 故障码 ${errorCodeId} (${lang}) 同步失败:`, e?.message || e);
+  }
+}
 
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
@@ -166,6 +185,9 @@ const upsertI18nErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响多语言故障码操作:', cacheError.message);
     }
     
+    // 同步到ES（异步，不阻塞响应）
+    syncErrorCodeToEs(error_code_id_to_use, lang).catch(() => {});
+    
     res.json({ 
       message: existing ? req.t('i18nErrorCode.updateSuccess') : req.t('i18nErrorCode.createSuccess'), 
       i18nErrorCode 
@@ -193,7 +215,19 @@ const deleteI18nErrorCode = async (req, res) => {
       return res.status(404).json({ message: req.t('i18nErrorCode.contentNotFound') });
     }
     
+    const errorCodeId = i18nErrorCode.error_code_id;
+    const lang = i18nErrorCode.lang;
+    
     await i18nErrorCode.destroy();
+    
+    // 从ES删除对应语言版本的索引
+    if (isErrorCodeEsEnabled()) {
+      try {
+        await deleteErrorCodeFromEs({ errorCodeId, lang, refresh: 'false' });
+      } catch (esError) {
+        console.warn(`[ES同步] 故障码 ${errorCodeId} (${lang}) 删除失败:`, esError?.message || esError);
+      }
+    }
     
     // 记录操作日志
     if (req.user) {
@@ -356,7 +390,7 @@ const batchImportI18nErrorCodes = async (req, res) => {
 // 获取支持的语言列表
 const getSupportedLanguages = async (req, res) => {
   try {
-    // 预定义的语言列表 - 只支持指定的10种语言
+    // 预定义的语言列表 - 只支持指定的语言
     const predefinedLanguages = [
       { value: 'zh', label: req.t('shared.languageNames.zh') },
       { value: 'en', label: req.t('shared.languageNames.en') },
@@ -369,7 +403,8 @@ const getSupportedLanguages = async (req, res) => {
       { value: 'sk', label: req.t('shared.languageNames.sk') },
       { value: 'ro', label: req.t('shared.languageNames.ro') },
       { value: 'da', label: req.t('shared.languageNames.da') },
-      { value: 'lv', label: req.t('shared.languageNames.lv') }
+      { value: 'lv', label: req.t('shared.languageNames.lv') },
+      { value: 'ru', label: req.t('shared.languageNames.ru') }
     ];
     
     // 获取数据库中已有的语言代码

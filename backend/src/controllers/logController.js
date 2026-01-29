@@ -2026,7 +2026,7 @@ const getBatchLogEntries = async (req, res) => {
   }
 };
 
-// 导出批量日志明细为 CSV（服务端生成，单请求下载）
+// 导出批量日志明细为 CSV（异步队列模式）
 const exportBatchLogEntriesCSV = async (req, res) => {
   try {
     const {
@@ -2038,458 +2038,228 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       filters
     } = req.query;
 
-    // 构建查询条件（与 getBatchLogEntries 保持一致）
-    const where = {};
-    if (log_ids) {
-      const ids = log_ids.split(',').map(id => parseInt(id.trim()));
-      where.log_id = { [Op.in]: ids };
-    }
-    if (error_code) {
-      where.error_code = { [Op.like]: `%${error_code}%` };
-    }
-    if (start_time || end_time) {
-      where.timestamp = {};
-      if (start_time) where.timestamp[Op.gte] = new Date(start_time);
-      if (end_time) where.timestamp[Op.lte] = new Date(end_time);
-    }
-    if (search) {
-      const keywordOr = {
-        [Op.or]: [
-          { explanation: { [Op.like]: `%${search}%` } },
-          { error_code: { [Op.like]: `%${search}%` } }
-        ]
-      };
-      if (where[Op.and]) {
-        where[Op.and].push(keywordOr);
-      } else {
-        const baseConds = [];
-        Object.keys(where).forEach(k => {
-          if (k !== Op.and && k !== Op.or) {
-            baseConds.push({ [k]: where[k] });
-            delete where[k];
-          }
-        });
-        where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
-      }
-    }
-
-    const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
-    let firstOccurrenceRequested = false;
-    const buildCondition = (field, operator, value) => {
-      if (!allowedFields.has(field)) return null;
-      const isNumericParam = ['param1', 'param2', 'param3', 'param4'].includes(field);
-      const buildOpValue = (sequelizeOperator, val) => {
-        if (isNumericParam) {
-          const castCol = SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)');
-          if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
-            const arr = Array.isArray(val) ? val : [val];
-            const nums = arr.map(v => Number(v)).filter(v => !Number.isNaN(v));
-            if (nums.length === 0) return null;
-            return SequelizeLib.where(castCol, { [sequelizeOperator]: nums });
-          }
-          if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
-            if (!Array.isArray(val) || val.length !== 2) return null;
-            const a = Number(val[0]); const b = Number(val[1]);
-            if (Number.isNaN(a) || Number.isNaN(b)) return null;
-            return SequelizeLib.where(castCol, sequelizeOperator, [a, b]);
-          }
-          const n = Number(val);
-          if (Number.isNaN(n)) return null;
-          return SequelizeLib.where(castCol, sequelizeOperator, n);
-    }
-        if (field === 'timestamp' && (sequelizeOperator === Op.between || sequelizeOperator === Op.gte || sequelizeOperator === Op.lte || sequelizeOperator === Op.gt || sequelizeOperator === Op.lt || sequelizeOperator === Op.eq || sequelizeOperator === Op.ne)) {
-          const toDate = (d) => {
-            if (d instanceof Date) return d; if (typeof d === 'string' || typeof d === 'number') return new Date(d); return null;
-          };
-          if (sequelizeOperator === Op.between) {
-            if (!Array.isArray(val) || val.length !== 2) return null;
-            const a = toDate(val[0]); const b = toDate(val[1]);
-            if (!a || !b) return null; return { [field]: { [Op.between]: [a, b] } };
-          }
-          const d = toDate(val); if (!d) return null; return { [field]: { [sequelizeOperator]: d } };
-        }
-        if (sequelizeOperator === Op.regexp) {
-          if (typeof val !== 'string' || val.length > 200) return null; return { [field]: { [Op.regexp]: val } };
-        }
-        if (sequelizeOperator === Op.like) return { [field]: { [Op.like]: `%${val}%` } };
-        if (sequelizeOperator === Op.in || sequelizeOperator === Op.notIn) {
-          const arr = Array.isArray(val) ? val : String(val).split(',').map(s => s.trim()).filter(Boolean);
-          return { [field]: { [sequelizeOperator]: arr } };
-        }
-        if (sequelizeOperator === Op.between || sequelizeOperator === Op.notBetween) {
-          if (!Array.isArray(val) || val.length !== 2) return null; return { [field]: { [sequelizeOperator]: val } };
-        }
-        if (isNumericParam) {
-          const n = Number(val); if (Number.isNaN(n)) return null; return SequelizeLib.where(SequelizeLib.cast(SequelizeLib.col(field), 'DECIMAL(18,6)'), sequelizeOperator, n);
-        }
-        return { [field]: { [sequelizeOperator]: val } };
-      };
-      switch ((operator || '').toLowerCase()) {
-        case 'firstof': firstOccurrenceRequested = true; return null;
-        case '=': return buildOpValue(Op.eq, value);
-        case '!=':
-        case '<>': return buildOpValue(Op.ne, value);
-        case '>': return buildOpValue(Op.gt, value);
-        case '>=': return buildOpValue(Op.gte, value);
-        case '<': return buildOpValue(Op.lt, value);
-        case '<=': return buildOpValue(Op.lte, value);
-        case 'between': return buildOpValue(Op.between, value);
-        case 'notbetween': return isNumericParam ? null : buildOpValue(Op.notBetween, value);
-        case 'in': return isNumericParam ? null : buildOpValue(Op.in, value);
-        case 'notin': return isNumericParam ? null : buildOpValue(Op.notIn, value);
-        case 'like': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.like, value);
-        case 'contains': return field === 'explanation' ? buildOpValue(Op.like, value) : (isNumericParam ? null : buildOpValue(Op.like, value));
-        case 'notcontains': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.notLike]: `%${value}%` } };
-        case 'startswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `${value}%` } };
-        case 'endswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `%${value}` } };
-        case 'regex': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.regexp, value);
-        default: return null;
-      }
-    };
-
-    // 1) 日志ID解析（导出权限对所有用户一致，不再按角色做额外过滤）
-    const requestedLogIds = log_ids
-      ? String(log_ids)
-          .split(',')
-          .map(id => parseInt(id.trim(), 10))
-          .filter(n => Number.isInteger(n) && n > 0)
-      : [];
-
-    let allowedLogIds = [...requestedLogIds];
-
-    // 2) 基于允许的日志ID获取当前版本（最新版本）；如果未指定日志ID，则不按版本过滤
-    let logVersionPairs = null;
-    if (allowedLogIds && allowedLogIds.length > 0) {
-    const logs = await Log.findAll({
-        where: { id: { [Op.in]: allowedLogIds } },
-        attributes: ['id', 'version']
-      });
-
-      logVersionPairs = logs.map(l => [
-        Number(l.id),
-        Number(Number.isInteger(l.version) ? l.version : 1)
-      ]);
-    }
-
-    // 3) 构建 ClickHouse 查询条件
-    const client = getClickHouseClient();
-    const conditions = [];
-    const params = {};
-
-    if (logVersionPairs && logVersionPairs.length > 0) {
-      const tupleList = logVersionPairs
-        .map(([logId, version]) => `(${Number(logId)}, ${Number(version)})`)
-        .join(', ');
-      conditions.push(`(log_id, version) IN (${tupleList})`);
-    }
-
-    if (error_code) {
-      conditions.push('error_code LIKE {error_code:String}');
-      params.error_code = `%${error_code}%`;
-    }
-
-    if (start_time) {
-      conditions.push('timestamp >= {start_time:DateTime}');
-      // 使用本地时间格式，与存储格式保持一致（YYYY-MM-DD HH:mm:ss，无时区）
-      params.start_time = formatTimeForClickHouse(start_time);
-    }
-    if (end_time) {
-      conditions.push('timestamp <= {end_time:DateTime}');
-      // 使用本地时间格式，与存储格式保持一致
-      params.end_time = formatTimeForClickHouse(end_time);
-    }
-
-    if (search && String(search).trim().length > 0) {
-      const raw = String(search).trim();
-      const hexMatch = /^[0-9a-fA-F]{4,6}$/.test(raw);
-      if (hexMatch) {
-        conditions.push('code4 = {search_code4:String}');
-        params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
-      } else {
-        conditions.push(
-          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
-        );
-        params.search_kw = raw;
-        params.search_like = `%${raw}%`;
-      }
-    }
-
-    const parseAdvancedFilters = (raw) => {
-      if (!raw) return null;
-      let parsed = raw;
-      if (typeof raw === 'string') {
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          return null;
-        }
-      }
-      return parsed;
-    };
-
-    const advancedFilters = parseAdvancedFilters(filters);
-
-    if (advancedFilters) {
-      const allowedFields = new Set([
-        'timestamp',
-        'error_code',
-        'param1',
-        'param2',
-        'param3',
-        'param4',
-        'explanation'
-      ]);
-
-      let advParamIndex = 0;
-      const makeParam = (base, chType, value) => {
-        const name = `${base}_${advParamIndex++}`;
-        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
-        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
-        if (chType === 'DateTime') {
-          params[name] = formatTimeForClickHouse(value);
-        } else {
-        params[name] = value;
-        }
-        return `{${name}:${chType}}`;
-      };
-
-      const buildAdvancedExpr = (node) => {
-        if (!node) return null;
-
-        if (Array.isArray(node)) {
-          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
-          if (parts.length === 0) return null;
-          return `(${parts.join(' AND ')})`;
-        }
-
-        if (node.field && node.operator) {
-          const field = String(node.field);
-          const op = String(node.operator || '').toLowerCase();
-          const value = node.value;
-
-          if (!allowedFields.has(field)) return null;
-          if (value === undefined || value === null || value === '') return null;
-
-          if (field === 'timestamp') {
-            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
-            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
-            const formatTimestamp = (v) => {
-              if (!v) return null;
-              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
-              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
-                return v;
-              }
-              // 使用 formatTimeForClickHouse 统一格式化
-              return formatTimeForClickHouse(v);
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = formatTimestamp(value[0]);
-              const b = formatTimestamp(value[1]);
-              if (!a || !b) return null;
-              const p1 = makeParam('adv_ts_from', 'DateTime', a);
-              const p2 = makeParam('adv_ts_to', 'DateTime', b);
-              return `(timestamp BETWEEN ${p1} AND ${p2})`;
-            }
-
-            const formatted = formatTimestamp(value);
-            if (!formatted) return null;
-            const p = makeParam('adv_ts', 'DateTime', formatted);
-
-            switch (op) {
-              case '=':
-              case '==':
-                return `timestamp = ${p}`;
-              case '!=':
-              case '<>':
-                return `timestamp != ${p}`;
-              case '>':
-                return `timestamp > ${p}`;
-              case '>=':
-                return `timestamp >= ${p}`;
-              case '<':
-                return `timestamp < ${p}`;
-              case '<=':
-                return `timestamp <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          if (field === 'error_code') {
-            const p = makeParam('adv_ec', 'String', String(value));
-            switch (op) {
-              case '=':
-                return `error_code = ${p}`;
-              case '!=':
-              case '<>':
-                return `error_code != ${p}`;
-              case 'contains':
-              case 'like':
-                return `positionCaseInsensitive(error_code, ${p}) > 0`;
-              case 'regex':
-                return `match(error_code, ${p})`;
-              case 'startswith':
-                return `startsWith(error_code, ${p})`;
-              case 'endswith':
-                return `endsWith(error_code, ${p})`;
-              default:
-                return null;
-            }
-          }
-
-          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
-            const colExpr = `toFloat64OrNull(${field})`;
-            const toNum = (v) => {
-              const n = Number(v);
-              return Number.isFinite(n) ? n : null;
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toNum(value[0]);
-              const b = toNum(value[1]);
-              if (a === null || b === null) return null;
-              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
-              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
-              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
-            }
-
-            const n = toNum(value);
-            if (n === null) return null;
-            const p = makeParam(`adv_${field}`, 'Float64', n);
-
-            switch (op) {
-              case '=':
-                return `${colExpr} = ${p}`;
-              case '!=':
-              case '<>':
-                return `${colExpr} != ${p}`;
-              case '>':
-                return `${colExpr} > ${p}`;
-              case '>=':
-                return `${colExpr} >= ${p}`;
-              case '<':
-                return `${colExpr} < ${p}`;
-              case '<=':
-                return `${colExpr} <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          if (field === 'explanation') {
-            const p = makeParam('adv_expl', 'String', String(value));
-            if (op === 'contains' || op === 'like') {
-              return `positionCaseInsensitive(explanation, ${p}) > 0`;
-            }
-            return null;
-          }
-
-          return null;
-        }
-
-        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-          const childExprs = node.conditions
-            .map(child => buildAdvancedExpr(child))
-            .filter(Boolean);
-          if (childExprs.length === 0) return null;
-          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
-          return `(${childExprs.join(joiner)})`;
-        }
-
-        return null;
-      };
-
-      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
-      if (advancedWhereSql) {
-        conditions.push(advancedWhereSql);
-      }
-    }
-
-    const whereSql = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-
-    // 响应头
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="batch_log_entries_${Date.now()}.csv"`);
-    // UTF-8 BOM
-    res.write('\uFEFF');
-    // 表头
-    const headers = ['日志文件','时间戳','故障码','参数1','参数2','参数3','参数4','释义'];
-    res.write(headers.join(',') + '\n');
-
-    const attributes = ['log_id','timestamp','error_code','param1','param2','param3','param4','explanation'];
-    const idToNameCache = new Map();
-    const getLogName = async (logId) => {
-      if (idToNameCache.has(logId)) return idToNameCache.get(logId);
-      const lg = await Log.findByPk(logId, { attributes: ['original_name'] });
-      const name = lg?.original_name || '';
-      idToNameCache.set(logId, name);
-      return name;
-    };
-    const csvEscape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const userId = req.user.id;
     
-    const limit = 5000;
-    let offset = 0;
-
-    while (true) {
-      const query = `
-        SELECT 
-          log_id,
-          timestamp,
-          error_code,
-          param1,
-          param2,
-          param3,
-          param4,
-          explanation
-        FROM log_entries
-        ${whereSql}
-        ORDER BY timestamp ASC, log_id ASC, row_index ASC
-        LIMIT {limit:UInt32} OFFSET {offset:UInt32}
-      `;
-
-      const queryParams = {
-        ...params,
-        limit: limit,
-        offset: offset
-      };
-
-      const result = await client.query({
-        query,
-        query_params: queryParams,
-      format: 'JSONEachRow'
+    // 创建队列任务
+    const job = await logProcessingQueue.add('export-csv', {
+      type: 'export-csv',
+      params: {
+        log_ids,
+        search,
+        error_code,
+        start_time,
+        end_time,
+        filters
+      },
+      userId
+    }, {
+      priority: 10,
+      attempts: 1,
+      timeout: 600000 // 10分钟超时
     });
-    const rows = await result.json();
-
-      if (!rows || rows.length === 0) break;
-
-    for (const row of rows) {
-        const logName = await getLogName(row.log_id);
-      const localTs = dayjs(row.timestamp).format('YYYY-MM-DD HH:mm:ss');
-      const line = [
-        csvEscape(logName),
-        csvEscape(localTs),
-        csvEscape(row.error_code),
-        csvEscape(row.param1),
-        csvEscape(row.param2),
-        csvEscape(row.param3),
-        csvEscape(row.param4),
-        csvEscape(row.explanation)
-      ].join(',');
-      res.write(line + '\n');
-      }
-
-      if (rows.length < limit) break;
-      offset += rows.length;
+    
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '日志-导出CSV',
+        description: `导出日志条目为CSV`,
+        user_id: userId,
+        username: req.user?.username || '',
+        status: 'pending',
+        ip: req.ip || req.connection?.remoteAddress || '',
+        user_agent: req.headers['user-agent'] || '',
+        details: {
+          taskId: job.id,
+          log_ids: log_ids || null,
+          filters: filters || null
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志记录失败（已忽略）:', logError.message);
     }
-    return res.end();
+    
+    // 立即返回任务ID
+    return res.json({
+      taskId: job.id,
+      status: 'waiting'
+    });
+    
   } catch (err) {
-    console.error('导出日志明细CSV失败:', err);
-    return res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
+    console.error('创建CSV导出任务失败:', err);
+    res.status(500).json({ 
+      message: req.t('log.analysis.failed'), 
+      error: err.message
+    });
   }
 };
+
+// 查询CSV导出任务状态
+const getExportCsvTaskStatus = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const job = await logProcessingQueue.getJob(taskId);
+    
+    if (!job) {
+      return res.status(404).json({ success: false, message: '任务不存在或已过期' });
+    }
+    
+    // 验证任务归属：只有任务创建者可以查询（管理员可以查询所有任务）
+    const taskUserId = job.data?.userId;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:read_all');
+    if (taskUserId && taskUserId !== userId && !isAdmin) {
+      return res.status(403).json({ success: false, message: '无权访问此任务' });
+    }
+    
+    const state = await job.getState();
+    
+    let payload = {
+      id: job.id,
+      status: state,
+      createdAt: job.timestamp,
+      data: job.data
+    };
+    
+    if (state === 'completed') {
+      const returnValue = job.returnvalue || {};
+      payload.result = {
+        downloadUrl: returnValue.csvFilePath ? `/logs/entries/export/${taskId}/result` : null,
+        csvFileName: returnValue.csvFileName || null,
+        rowCount: returnValue.rowCount || null,
+        size: returnValue.size || null
+      };
+    } else if (state === 'failed') {
+      payload.error = job.failedReason || '任务失败';
+    }
+    
+    return res.json({ success: true, data: payload });
+  } catch (error) {
+    console.error('查询CSV导出任务状态失败:', error);
+    res.status(500).json({ success: false, message: '查询任务状态失败', error: error.message });
+  }
+};
+
+// 下载CSV导出任务结果
+const downloadExportCsvResult = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const job = await logProcessingQueue.getJob(taskId);
+    
+    if (!job) {
+      return res.status(404).json({ message: '任务不存在或已过期' });
+    }
+    
+    // 验证任务归属：只有任务创建者可以下载（管理员可以下载所有任务）
+    const taskUserId = job.data?.userId;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:read_all');
+    if (taskUserId && taskUserId !== userId && !isAdmin) {
+      return res.status(403).json({ message: '无权访问此任务' });
+    }
+    
+    const state = await job.getState();
+    if (state !== 'completed') {
+      return res.status(400).json({ message: `任务尚未完成，当前状态: ${state}` });
+    }
+    
+    const returnValue = job.returnvalue || {};
+    const csvFilePath = returnValue.csvFilePath;
+    
+    if (!csvFilePath || !fs.existsSync(csvFilePath)) {
+      return res.status(404).json({ message: '结果文件不存在或已过期' });
+    }
+    
+    // 安全检查：确保文件路径在预期目录内，防止路径遍历攻击
+    const normalizedPath = path.normalize(csvFilePath);
+    const expectedDir = path.normalize(path.resolve(__dirname, '../../temp'));
+    if (!normalizedPath.startsWith(expectedDir)) {
+      console.error(`安全警告: 尝试访问非法路径 ${csvFilePath}`);
+      return res.status(403).json({ message: '非法文件路径' });
+    }
+    
+    const csvFileName = returnValue.csvFileName || `batch_log_entries_${taskId}.csv`;
+    
+    // 设置响应头
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${csvFileName}"`);
+    
+    // 流式传输文件
+    const fileStream = fs.createReadStream(csvFilePath);
+    
+    // 处理流错误
+    fileStream.on('error', (err) => {
+      console.error('文件流传输错误:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: '文件传输失败', error: err.message });
+      } else {
+        res.destroy();
+      }
+      // 清理临时文件
+      try {
+        if (fs.existsSync(csvFilePath)) {
+          fs.unlinkSync(csvFilePath);
+        }
+      } catch (unlinkErr) {
+        console.warn('清理临时文件失败:', unlinkErr);
+      }
+    });
+    
+    // 处理响应错误
+    res.on('error', (err) => {
+      console.error('响应流错误:', err);
+      fileStream.destroy();
+      // 清理临时文件
+      try {
+        if (fs.existsSync(csvFilePath)) {
+          fs.unlinkSync(csvFilePath);
+        }
+      } catch (unlinkErr) {
+        console.warn('清理临时文件失败:', unlinkErr);
+      }
+    });
+    
+    // 响应完成后清理临时文件（确保客户端已接收完数据）
+    res.on('finish', () => {
+      // 延迟删除，确保文件流完全关闭
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(csvFilePath)) {
+            fs.unlinkSync(csvFilePath);
+            console.log(`[CSV导出] 已清理临时文件: ${csvFilePath}`);
+          }
+        } catch (unlinkErr) {
+          console.warn('清理临时文件失败:', unlinkErr);
+        }
+      }, 1000); // 延迟1秒删除
+    });
+    
+    // 客户端断开连接时清理
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        fileStream.destroy();
+      }
+      // 如果响应未完成，延迟清理（给客户端一些时间重连）
+      if (!res.writableEnded) {
+        setTimeout(() => {
+          try {
+            if (fs.existsSync(csvFilePath)) {
+              fs.unlinkSync(csvFilePath);
+            }
+          } catch (unlinkErr) {
+            console.warn('清理临时文件失败:', unlinkErr);
+          }
+        }, 5000); // 延迟5秒删除
+      }
+    });
+    
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('下载CSV导出结果失败:', error);
+    res.status(500).json({ message: '下载失败', error: error.message });
+  }
+};
+
 
 // 下载日志
 const downloadLog = async (req, res) => {
@@ -2856,6 +2626,7 @@ const validateDeviceId = (deviceId) => {
     };
 
 // 批量下载日志
+// 批量下载日志（异步队列模式）
 const batchDownloadLogs = async (req, res) => {
   try {
     const { logIds } = req.body;
@@ -2874,7 +2645,7 @@ const batchDownloadLogs = async (req, res) => {
       return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
     
-    // 获取所有要下载的日志
+    // 获取所有要下载的日志（用于验证）
     const logs = [];
     for (const id of numericLogIds) {
       const log = await Log.findByPk(id);
@@ -2911,99 +2682,221 @@ const batchDownloadLogs = async (req, res) => {
       });
     }
     
-    // 创建临时目录用于存放文件
-    const tempDir = path.join(__dirname, '../../temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+    // 创建队列任务
+    const { logProcessingQueue } = require('../config/queue');
+    const job = await logProcessingQueue.add('batch-download', {
+      type: 'batch-download',
+      logIds: numericLogIds,
+      userId,
+      userRole
+    }, {
+      priority: 10,
+      attempts: 1,
+      timeout: 600000 // 10分钟超时
+    });
+    
+    // 记录操作日志
+    try {
+      await logOperation({
+        operation: '日志-批量下载',
+        description: `批量下载 ${numericLogIds.length} 个日志文件`,
+        user_id: userId,
+        username: req.user?.username || '',
+        status: 'pending',
+        ip: req.ip || req.connection?.remoteAddress || '',
+        user_agent: req.headers['user-agent'] || '',
+        details: {
+          taskId: job.id,
+          logIds: numericLogIds,
+          logCount: numericLogIds.length
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志记录失败（已忽略）:', logError.message);
     }
     
-    // 生成ZIP文件名
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const zipFileName = `logs_batch_${timestamp}.zip`;
-    const zipFilePath = path.join(tempDir, zipFileName);
-    
-    // 创建ZIP文件
-    const archiver = require('archiver');
-    const output = fs.createWriteStream(zipFilePath);
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // 设置压缩级别
-    });
-    
-    output.on('close', () => {
-      console.log(`ZIP文件创建完成: ${zipFilePath}, 大小: ${archive.pointer()} bytes`);
-    });
-    
-    archive.on('error', (err) => {
-      throw err;
-    });
-    
-    archive.pipe(output);
-    
-    // 添加文件到ZIP
-    for (const log of logs) {
-      try {
-        let fileContent = '';
-        let fileName = '';
-        
-        // 优先从保存的解密文件中读取
-        if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
-          fileContent = fs.readFileSync(log.decrypted_path, 'utf-8');
-          fileName = path.basename(log.decrypted_path);
-        } else {
-          // 如果解密文件不存在，从 ClickHouse log_entries 生成
-          const version = Number.isInteger(log.version) ? log.version : 1;
-          fileContent = await buildDecryptedContentFromClickHouse(log.id, version);
-          if (fileContent) {
-            fileName = log.original_name.replace('.medbot', '_decrypted.txt');
-          }
-        }
-        
-        if (fileContent) {
-          // 在ZIP中创建子目录，按设备编号分组
-          const deviceDir = log.device_id || 'unknown';
-          const zipPath = `${deviceDir}/${fileName}`;
-          archive.append(fileContent, { name: zipPath });
-        }
-      } catch (error) {
-        console.error(`处理日志 ${log.id} 时出错:`, error);
-        // 继续处理其他文件
-      }
-    }
-    
-    // 完成ZIP文件
-    await archive.finalize();
-    
-    // 等待文件写入完成
-    await new Promise((resolve, reject) => {
-      output.on('close', resolve);
-      output.on('error', reject);
-    });
-    
-    // 设置响应头
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
-    res.setHeader('Content-Length', fs.statSync(zipFilePath).size);
-    
-    // 发送ZIP文件
-    const fileStream = fs.createReadStream(zipFilePath);
-    fileStream.pipe(res);
-    
-    // 文件发送完成后删除临时文件
-    fileStream.on('end', () => {
-      try {
-        fs.unlinkSync(zipFilePath);
-        console.log(`临时文件已删除: ${zipFilePath}`);
-      } catch (error) {
-        console.error('删除临时文件失败:', error);
-      }
+    // 立即返回任务ID
+    return res.json({
+      taskId: job.id,
+      status: 'waiting',
+      fileCount: numericLogIds.length
     });
     
   } catch (err) {
-    console.error('批量下载失败:', err);
+    console.error('创建批量下载任务失败:', err);
     res.status(500).json({ 
       message: req.t('log.download.failed'), 
       error: err.message
     });
+  }
+};
+
+// 查询批量下载任务状态
+const getBatchDownloadTaskStatus = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const { logProcessingQueue } = require('../config/queue');
+    const job = await logProcessingQueue.getJob(taskId);
+    
+    if (!job) {
+      return res.status(404).json({ success: false, message: '任务不存在或已过期' });
+    }
+    
+    // 验证任务归属：只有任务创建者可以查询（管理员可以查询所有任务）
+    const taskUserId = job.data?.userId;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:download');
+    if (taskUserId && taskUserId !== userId && !isAdmin) {
+      return res.status(403).json({ success: false, message: '无权访问此任务' });
+    }
+    
+    const state = await job.getState();
+    
+    let payload = {
+      id: job.id,
+      status: state,
+      createdAt: job.timestamp,
+      data: job.data
+    };
+    
+    if (state === 'completed') {
+      const returnValue = job.returnvalue || {};
+      payload.result = {
+        downloadUrl: returnValue.zipFilePath ? `/logs/batch/download/${taskId}/result` : null,
+        zipFileName: returnValue.zipFileName || null,
+        fileCount: returnValue.fileCount || null,
+        size: returnValue.size || null
+      };
+    } else if (state === 'failed') {
+      payload.error = job.failedReason || '任务失败';
+    }
+    
+    return res.json({ success: true, data: payload });
+      } catch (error) {
+    console.error('查询批量下载任务状态失败:', error);
+    res.status(500).json({ success: false, message: '查询任务状态失败', error: error.message });
+  }
+};
+
+// 下载批量下载任务结果（ZIP文件）
+const downloadBatchDownloadResult = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const { logProcessingQueue } = require('../config/queue');
+    const job = await logProcessingQueue.getJob(taskId);
+    
+    if (!job) {
+      return res.status(404).json({ message: '任务不存在或已过期' });
+    }
+    
+    // 验证任务归属：只有任务创建者可以下载（管理员可以下载所有任务）
+    const taskUserId = job.data?.userId;
+    const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:download');
+    if (taskUserId && taskUserId !== userId && !isAdmin) {
+      return res.status(403).json({ message: '无权访问此任务' });
+    }
+    
+    const state = await job.getState();
+    if (state !== 'completed') {
+      return res.status(400).json({ message: `任务尚未完成，当前状态: ${state}` });
+    }
+    
+    const returnValue = job.returnvalue || {};
+    const zipFilePath = returnValue.zipFilePath;
+    
+    if (!zipFilePath || !fs.existsSync(zipFilePath)) {
+      return res.status(404).json({ message: '结果文件不存在或已过期' });
+    }
+    
+    // 安全检查：确保文件路径在预期目录内，防止路径遍历攻击
+    const normalizedPath = path.normalize(zipFilePath);
+    const expectedDir = path.normalize(path.resolve(__dirname, '../../temp'));
+    if (!normalizedPath.startsWith(expectedDir)) {
+      console.error(`安全警告: 尝试访问非法路径 ${zipFilePath}`);
+      return res.status(403).json({ message: '非法文件路径' });
+    }
+    
+    const zipFileName = returnValue.zipFileName || `logs_batch_${taskId}.zip`;
+    
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+    
+    // 流式传输文件
+    const fileStream = fs.createReadStream(zipFilePath);
+    
+    // 处理流错误
+    fileStream.on('error', (err) => {
+      console.error('文件流传输错误:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: '文件传输失败', error: err.message });
+      } else {
+        res.destroy();
+      }
+      // 清理临时文件
+      try {
+        if (fs.existsSync(zipFilePath)) {
+          fs.unlinkSync(zipFilePath);
+        }
+      } catch (unlinkErr) {
+        console.warn('清理临时文件失败:', unlinkErr);
+      }
+    });
+    
+    // 处理响应错误
+    res.on('error', (err) => {
+      console.error('响应流错误:', err);
+      fileStream.destroy();
+      // 清理临时文件
+      try {
+        if (fs.existsSync(zipFilePath)) {
+          fs.unlinkSync(zipFilePath);
+        }
+      } catch (unlinkErr) {
+        console.warn('清理临时文件失败:', unlinkErr);
+      }
+    });
+    
+    // 响应完成后清理临时文件（确保客户端已接收完数据）
+    res.on('finish', () => {
+      // 延迟删除，确保文件流完全关闭
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(zipFilePath)) {
+            fs.unlinkSync(zipFilePath);
+            console.log(`[批量下载] 已清理临时文件: ${zipFilePath}`);
+          }
+        } catch (unlinkErr) {
+          console.warn('清理临时文件失败:', unlinkErr);
+        }
+      }, 1000); // 延迟1秒删除
+    });
+    
+    // 客户端断开连接时清理
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        fileStream.destroy();
+      }
+      // 如果响应未完成，延迟清理（给客户端一些时间重连）
+      if (!res.writableEnded) {
+        setTimeout(() => {
+          try {
+            if (fs.existsSync(zipFilePath)) {
+              fs.unlinkSync(zipFilePath);
+            }
+          } catch (unlinkErr) {
+            console.warn('清理临时文件失败:', unlinkErr);
+          }
+        }, 5000); // 延迟5秒删除
+      }
+    });
+    
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('下载批量下载结果失败:', error);
+    res.status(500).json({ message: '下载失败', error: error.message });
   }
 };
 
@@ -4409,15 +4302,19 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       }
     }
 
-    // 当有日志ID时，只查询每个日志当前版本（最新版本）
+    // 当有日志ID时，只查询每个日志当前版本（最新版本），且仅允许已解析的日志（与前端 selectable 一致）
     let logVersionPairs = null;
     if (requestedLogIds && requestedLogIds.length > 0) {
       const logs = await Log.findAll({
         where: { id: requestedLogIds },
-        attributes: ['id', 'version']
+        attributes: ['id', 'version', 'status']
       });
+      const parsedLogs = logs.filter(l => String(l.status || '').trim() === 'parsed');
+      if (parsedLogs.length !== logs.length) {
+        return res.status(400).json({ message: '只能加载状态为已解析的日志文件' });
+      }
 
-      logVersionPairs = logs.map(l => [
+      logVersionPairs = parsedLogs.map(l => [
         Number(l.id),
         Number(Number.isInteger(l.version) ? l.version : 1)
       ]);
@@ -4866,6 +4763,9 @@ module.exports = {
   getLogTimeFilters,
   uploadLog,
   parseLog,
+  batchDownloadLogs,
+  getBatchDownloadTaskStatus,
+  downloadBatchDownloadResult,
   reparseLog,
   batchReparseLogs,
   exportBatchLogEntriesCSV,
@@ -4879,6 +4779,11 @@ module.exports = {
   autoFillKey,
   batchDeleteLogs,
   batchDownloadLogs,
+  getBatchDownloadTaskStatus,
+  downloadBatchDownloadResult,
+  exportBatchLogEntriesCSV,
+  getExportCsvTaskStatus,
+  downloadExportCsvResult,
   analyzeSurgeryData,
   getSearchTemplates,
   importSearchTemplates,

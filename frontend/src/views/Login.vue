@@ -54,7 +54,19 @@
                   show-password
                 />
               </el-form-item>
-              
+              <el-form-item v-if="requireCaptcha" :label="$t('auth.captchaRequired')">
+                <div class="captcha-row">
+                  <div class="captcha-svg" v-html="captchaSvg" />
+                  <el-button text type="primary" @click="fetchCaptcha" :loading="captchaLoading">{{ $t('shared.refresh') }}</el-button>
+                </div>
+                <el-input
+                  v-model="loginFormData.captchaCode"
+                  :placeholder="$t('auth.captchaRequired')"
+                  size="large"
+                  maxlength="6"
+                  style="margin-top: 8px"
+                />
+              </el-form-item>
               <el-form-item>
                 <el-button 
                   type="primary" 
@@ -142,6 +154,8 @@ import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { useI18n } from 'vue-i18n'
 import * as dd from 'dingtalk-jsapi'
 import { Earth } from '@icon-park/vue-next'
+import api from '@/api'
+import { validatePasswordStrength } from '@/utils/passwordStrength'
 
 export default {
   name: 'Login',
@@ -158,6 +172,10 @@ export default {
     const registerLoading = ref(false)
     const dingLoading = ref(false)
     const autoLoginTried = ref(false)
+    const requireCaptcha = ref(false)
+    const captchaId = ref('')
+    const captchaSvg = ref('')
+    const captchaLoading = ref(false)
     
     // H5 免登所需 corpId / appKey，允许从 URL ?corpid= 透传
     const urlParams = new URLSearchParams(window.location.search)
@@ -177,7 +195,8 @@ export default {
     
     const loginFormData = reactive({
       username: '',
-      password: ''
+      password: '',
+      captchaCode: ''
     })
 
     const registerFormData = reactive({
@@ -195,6 +214,29 @@ export default {
         callback(new Error(t('register.validation.passwordMismatch')))
       } else {
         callback()
+      }
+    }
+
+    const validateRegisterPassword = (rule, value, callback) => {
+      const r = validatePasswordStrength(value, registerFormData.username)
+      if (!r.valid) {
+        callback(new Error(t('passwordStrength.' + (r.messageKey || 'minLength'))))
+      } else {
+        callback()
+      }
+    }
+
+    const fetchCaptcha = async () => {
+      try {
+        captchaLoading.value = true
+        const { data } = await api.auth.getCaptcha()
+        captchaId.value = data.id
+        captchaSvg.value = data.svg || ''
+        loginFormData.captchaCode = ''
+      } catch (e) {
+        requireCaptcha.value = false
+      } finally {
+        captchaLoading.value = false
       }
     }
 
@@ -218,7 +260,7 @@ export default {
       ],
       password: [
         { required: true, message: t('register.validation.passwordRequired'), trigger: 'blur' },
-        { min: 6, message: t('register.validation.passwordMinLength'), trigger: 'blur' }
+        { validator: validateRegisterPassword, trigger: 'blur' }
       ],
       confirmPassword: [
         { required: true, message: t('register.validation.confirmPasswordRequired'), trigger: 'blur' },
@@ -229,15 +271,31 @@ export default {
     const handleLogin = async () => {
       try {
         await loginForm.value.validate()
+        if (requireCaptcha.value && !loginFormData.captchaCode?.trim()) {
+          ElMessage.warning(t('auth.captchaRequired'))
+          return
+        }
         loading.value = true
-        
-        await store.dispatch('auth/login', loginFormData)
+        const payload = { username: loginFormData.username, password: loginFormData.password }
+        if (requireCaptcha.value) {
+          payload.captchaId = captchaId.value
+          payload.captchaCode = loginFormData.captchaCode.trim()
+        }
+        const res = await store.dispatch('auth/login', payload)
         ElMessage.success(t('login.loginSuccess'))
+        requireCaptcha.value = false
         const isMobileContext = window.location.pathname.startsWith('/m')
-        router.push(isMobileContext ? '/m' : '/smart-search')
+        if (res?.data?.mustChangePassword) {
+          router.push('/dashboard/account')
+        } else {
+          router.push(isMobileContext ? '/m' : '/smart-search')
+        }
       } catch (error) {
-        // 不在这里显示错误信息，因为响应拦截器已经处理了
-        console.error('登录失败:', error)
+        const d = error.response?.data
+        if ((error.response?.status === 401 || error.response?.status === 400) && d?.requireCaptcha) {
+          requireCaptcha.value = true
+          fetchCaptcha()
+        }
       } finally {
         loading.value = false
       }
@@ -329,7 +387,11 @@ export default {
       currentLocaleLabel,
       handleLogin,
       handleRegister,
-      changeLanguage
+      changeLanguage,
+      requireCaptcha,
+      captchaSvg,
+      captchaLoading,
+      fetchCaptcha
     }
   }
 }
@@ -415,6 +477,24 @@ export default {
   height: 48px;
   font-size: 1rem;
   font-weight: 500;
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.captcha-svg {
+  width: 120px;
+  height: 40px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.captcha-svg :deep(svg) {
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* 响应式设计 */

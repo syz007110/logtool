@@ -2,6 +2,7 @@ const User = require('../models/user');
 const Role = require('../models/role');
 const UserRole = require('../models/user_role');
 const bcrypt = require('bcryptjs');
+const { validatePasswordStrength } = require('../utils/passwordStrength');
 const { logOperation } = require('../utils/operationLogger');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const { Op } = require('sequelize');
@@ -73,6 +74,8 @@ const createUser = async (req, res) => {
   try {
     const { username, password, email, roles = [] } = req.body;
     if (!username || !password) return res.status(400).json({ message: req.t('user.requiredUsernamePassword') });
+    const pw = validatePasswordStrength(password, username);
+    if (!pw.valid) return res.status(400).json({ message: req.t('user.' + pw.message) });
     const exist = await User.findOne({ where: { username } });
     if (exist) return res.status(409).json({ message: req.t('user.usernameExists') });
     const password_hash = await bcrypt.hash(password, 10);
@@ -137,7 +140,8 @@ const updateUser = async (req, res) => {
     
     // 密码修改逻辑
     if (password) {
-      // 如果是修改自己的密码，需要提供原密码验证
+      const pw = validatePasswordStrength(password, user.username);
+      if (!pw.valid) return res.status(400).json({ message: req.t('user.' + pw.message) });
       if (isUpdatingSelf) {
         if (!oldPassword) {
           return res.status(400).json({ message: req.t('user.oldPasswordRequired') });
@@ -147,9 +151,8 @@ const updateUser = async (req, res) => {
           return res.status(400).json({ message: req.t('user.oldPasswordIncorrect') });
         }
       }
-      // 管理员重置其他用户密码时，不需要原密码（权限已在中间件中检查）
       const password_hash = await bcrypt.hash(password, 10);
-      await user.update({ password_hash });
+      await user.update({ password_hash, must_change_password: false });
     }
     // 记录操作日志
     try {

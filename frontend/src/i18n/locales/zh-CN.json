@@ -31,8 +31,10 @@
     "networkError": "网络连接失败",
     "unknown": "未知",
     "clear": "清空",
-    "submit":"提交",
+    "submit": "提交",
     "back": "返回",
+    "prev": "上一步",
+    "next": "下一步",
     "updated": "更新时间",
     "messages": {
       "deleteSuccess": "删除成功",
@@ -64,7 +66,8 @@
       "sk": "斯洛伐克语",
       "ro": "罗马尼亚语",
       "da": "丹麦语",
-      "lv": "拉脱维亚语"
+      "lv": "拉脱维亚语",
+      "ru": "俄语"
     },
     "languageOptions": {
       "zh": "中文 (zh)",
@@ -274,7 +277,21 @@
   "auth": {
     "invalidCredentials": "用户名或密码错误",
     "tokenExpired": "登录已过期，请重新登录",
-    "insufficientPermissions": "权限不足"
+    "insufficientPermissions": "权限不足",
+    "loginLocked": "连续登录失败次数过多，账号已临时锁定 {{minutes}} 分钟",
+    "captchaRequired": "请先输入验证码",
+    "captchaInvalid": "验证码错误",
+    "mustChangePasswordTitle": "请先修改密码",
+    "mustChangePasswordDesc": "您的密码不符合当前安全策略，请先修改密码后再继续使用。"
+  },
+  "passwordStrength": {
+    "required": "请输入密码",
+    "minLength": "密码至少 8 位",
+    "requireUpper": "须包含大写字母（A-Z）",
+    "requireLower": "须包含小写字母（a-z）",
+    "requireDigit": "须包含数字（0-9）",
+    "sameAsUsername": "不能与用户名相同",
+    "noConsecutive4": "不允许连续相同字符 ≥4 个"
   },
   "register": {
     "title": "用户注册",
@@ -292,7 +309,7 @@
       "emailRequired": "请输入邮箱",
       "emailFormat": "请输入正确的邮箱格式",
       "passwordRequired": "请输入密码",
-      "passwordMinLength": "密码长度不能少于 6 个字符",
+      "passwordMinLength": "密码至少 8 位",
       "confirmPasswordRequired": "请确认密码",
       "passwordMismatch": "两次输入的密码不一致"
     }
@@ -309,6 +326,64 @@
     "logAndSurgery": "日志与手术数据",
     "systemManagement": "系统管理",
     "test": "测试"
+  },
+  "knowledgeBase": {
+    "title": "知识库",
+    "upload": "上传文件",
+    "filters": {
+      "statusPlaceholder": "状态筛选",
+      "uploadDatePlaceholder": "上传日期",
+      "fileTypePlaceholder": "文件类型筛选"
+    },
+    "search": {
+      "placeholder": "关键词（文件名/内容）",
+      "drawerTitle": "关键词检索结果",
+      "hint": "请输入关键词并回车检索",
+      "empty": "未找到相关内容",
+      "resultCount": "{count} 条"
+    },
+    "columns": {
+      "filename": "文件名",
+      "fileType": "文件类型",
+      "uploadTime": "上传时间",
+      "status": "状态"
+    },
+    "actions": {
+      "delete": "删除",
+      "download": "下载",
+      "rebuild": "更新索引"
+    },
+    "uploadDialog": {
+      "title": "上传知识库文件",
+      "chooseFiles": "选择文件",
+      "tip": "支持 .docx / .md / .txt，单个文件不超过 {maxSize}，最多同时上传 {maxFiles} 个文件",
+      "selectedFiles": "已选择 {count} 个文件",
+      "typePlaceholder": "请选择文件类型（可多选）",
+      "typeRequired": "请为每个文件选择至少一个类型",
+      "typeLoadFailed": "加载文件类型失败",
+      "uploaderNotReady": "上传组件未初始化",
+      "chooseFilesRequired": "请选择要上传的文件"
+    },
+    "statusText": {
+      "uploading": "上传中",
+      "queued": "队列中",
+      "parsing": "解析中",
+      "parse_failed": "解析失败",
+      "parsed": "完成",
+      "file_error": "文件错误",
+      "processing_failed": "处理失败",
+      "upload_failed": "上传失败",
+      "deleting": "删除中"
+    },
+    "messages": {
+      "confirmDelete": "确认删除该文件吗？",
+      "rebuildConfirmTitle": "更新索引确认",
+      "confirmRebuild": "确认更新该文件的索引吗？（将重新分块并重建索引）",
+      "rebuildQueued": "更新索引任务已加入队列",
+      "rebuildFailed": "更新索引失败",
+      "maxFiles": "最多只能选择 {count} 个文件",
+      "uploadQueued": "已上传 {count} 个文件，已进入处理队列"
+    }
   },
   "errorCodes": {
     "title": "故障码",
@@ -532,7 +607,8 @@
     "tabs": {
       "logLevels": "日志分析等级",
       "faultCaseStatuses": "故障案例状态",
-      "faultCaseModules": "模块"
+      "faultCaseModules": "模块",
+      "kbFileTypes": "知识库文件类型"
     },
     "common": {
       "name": "名称",
@@ -594,6 +670,34 @@
       "validation": {
         "moduleKeyRequired": "请输入模块标识",
         "moduleKeyPattern": "模块标识只能包含小写字母、数字和下划线",
+        "nameZhRequired": "请输入中文名称",
+        "nameEnRequired": "请输入英文名称"
+      }
+    },
+    "kbFileTypes": {
+      "add": "新增类型",
+      "subtitle": "配置知识库文件类型，用于上传时选择标签。",
+      "searchPlaceholder": "搜索类型...",
+      "fetchFailed": "获取文件类型失败",
+      "submitFailed": "提交失败",
+      "deleteConfirm": "确定要删除该类型吗？",
+      "columns": {
+        "code": "类型标识",
+        "name": "名称",
+        "sortOrder": "排序顺序",
+        "enabled": "是否启用"
+      },
+      "form": {
+        "code": "类型标识",
+        "codePlaceholder": "如 SOP / MANUAL / FAQ",
+        "name": "名称",
+        "namePlaceholder": "请输入名称",
+        "sortOrder": "排序顺序",
+        "enabled": "是否启用"
+      },
+      "validation": {
+        "codeRequired": "请输入类型标识",
+        "codePattern": "类型标识只能包含字母、数字、下划线或横线",
         "nameZhRequired": "请输入中文名称",
         "nameEnRequired": "请输入英文名称"
       }
@@ -744,14 +848,23 @@
   },
   "dataReplay": {
     "title": "数据解析",
+    "dataCount": "数据数量",
+    "fileListDrawerTitle": "运动数据列表",
+    "detailDrawerTitle": "详情",
+    "uploadMotionData": "上传运行数据",
+    "uploadDialogMaxFiles": "最多 5 个文件",
     "uploadBinaryFile": "上传二进制文件(.bin)",
     "downloadCSV": "下载CSV",
+    "download": "下载",
+    "downloadRaw": "下载原数据",
     "fileLabel": "文件",
     "sizeLabel": "大小",
     "totalEntriesLabel": "总条数",
     "uploadFailed": "上传失败",
     "downloadFailed": "下载失败",
-    "threeSceneInitFailed": "3D场景初始化失败，请检查浏览器WebGL支持"
+    "threeSceneInitFailed": "3D场景初始化失败，请检查浏览器WebGL支持",
+    "fileName": "文件名",
+    "processingFailed": "处理失败"
   },
   "feedback": {
     "title": "缺陷反馈",
@@ -1096,6 +1209,16 @@
       "completed": "完成",
       "incomplete": "未完成"
     },
+    "status": {
+      "parsed": "已完成",
+      "parsing": "解析中",
+      "parseFailed": "解析失败",
+      "decryptFailed": "解密失败",
+      "fileError": "文件错误",
+      "queueFailed": "队列失败",
+      "uploadFailed": "上传失败",
+      "uploading": "上传中"
+    },
     "errors": {
       "loadDeviceGroupsFailed": "加载设备分组失败",
       "loadLogsFailed": "加载日志失败",
@@ -1144,7 +1267,7 @@
       "emailFormat": "请输入正确的邮箱格式",
       "oldPasswordRequired": "请输入原密码",
       "newPasswordRequired": "请输入新密码",
-      "newPasswordMin": "密码长度不能少于 6 个字符",
+      "newPasswordMin": "密码至少 8 位",
       "confirmPasswordRequired": "请确认密码"
     }
   },
@@ -1193,7 +1316,7 @@
       "usernameLength": "用户名长度在 3 到 20 个字符",
       "emailFormat": "请输入正确的邮箱格式",
       "passwordRequired": "请输入密码",
-      "passwordMinLength": "密码长度不能少于 6 个字符",
+      "passwordMinLength": "密码至少 8 位",
       "statusRequired": "请选择状态",
       "roleRequired": "请选择账户类型",
       "oldPasswordRequired": "请输入原密码",
@@ -1212,16 +1335,16 @@
     "resetPasswordSuccess": "密码重置成功",
     "resetPasswordFailed": "密码重置失败"
   },
-    "roles": {
-      "title": "角色管理",
-      "name": "角色名称",
-      "description": "角色描述",
-      "permissions": "权限",
-      "userCount": "关联用户数",
-      "addRole": "添加角色",
-      "editRole": "编辑角色",
-      "deleteRole": "删除角色",
-      "searchPlaceholder": "搜索角色名称或描述",
+  "roles": {
+    "title": "角色管理",
+    "name": "角色名称",
+    "description": "角色描述",
+    "permissions": "权限",
+    "userCount": "关联用户数",
+    "addRole": "添加角色",
+    "editRole": "编辑角色",
+    "deleteRole": "删除角色",
+    "searchPlaceholder": "搜索角色名称或描述",
     "rules": {
       "nameRequired": "请输入角色名称",
       "descriptionRequired": "请输入角色描述"
@@ -1380,6 +1503,7 @@
     "tabs": {
       "error": "故障码",
       "logs": "日志",
+      "smartSearch": "智能搜索",
       "surgeries": "手术",
       "profile": "我的"
     },
@@ -1404,7 +1528,7 @@
       "roles": {
         "admin": "管理员",
         "expert": "专家用户",
-      "user": "普通用户"
+        "user": "普通用户"
       }
     },
     "surgeries": {
@@ -1610,6 +1734,91 @@
       "surgeryIdRequired": "手术ID不能为空"
     }
   },
+  "dataAnalysis": {
+    "title": "数据分析",
+    "multiModalAnalysis": "多模态数据分析",
+    "selectNewData": "选择新数据",
+    "surgeryVideo": "手术视频",
+    "clickToSelectDataSource": "点击选择数据源",
+    "surgeryLogs": "手术日志",
+    "selectLogToSync": "选择日志文件以自动加载关联的视频和传感器数据",
+    "operationalData": "运行数据",
+    "visualizationOfDeviceParameters": "设备参数可视化",
+    "addVideo": "添加视频",
+    "addMotionData": "添加运行数据",
+    "addLogs": "添加日志",
+    "logs": "日志",
+    "filterLogs": "过滤日志...",
+    "noLogs": "暂无日志",
+    "selectAnalysisDataSource": "选择分析数据源",
+    "device": "设备",
+    "selectDevice": "选择设备",
+    "timeRangeLogFile": "时间范围（日志文件）",
+    "selectLogFile": "选择日志文件",
+    "startTime": "开始时间",
+    "selectStartTime": "选择开始时间",
+    "endTime": "结束时间",
+    "maxDurationHint": "注意：最大持续时间为 5 分钟。",
+    "note": "提示：",
+    "autoSyncHint": "视频和运行数据将根据所选日志时间戳自动同步。最大持续时间：5 分钟。",
+    "loadData": "加载数据",
+    "selectLogFirst": "请先选择日志文件",
+    "logNotFound": "日志文件不存在",
+    "noLogEntries": "该时间范围内没有日志条目",
+    "selectStartTime": "请选择开始时间",
+    "invalidTimeRange": "时间范围不合法",
+    "loadSuccess": "数据加载成功",
+    "loadFailed": "加载数据失败",
+    "fetchLogsFailed": "获取日志列表失败",
+    "fetchDevicesFailed": "加载设备列表失败",
+    "selectLogData": "选择日志数据",
+    "deviceList": "设备列表",
+    "logFileList": "日志文件列表",
+    "selectDeviceFirst": "请先选择设备",
+    "selectedLogs": "已选择日志",
+    "selectedFiles": "文件",
+    "maxSelect2Logs": "最多只能选择2个日志文件",
+    "configure": "配置曲线图",
+    "addChart": "添加曲线图",
+    "motionFileList": "运行数据文件列表",
+    "selectedMotion": "已选择运行数据",
+    "maxSelect5Motion": "最多只能选择5个运行数据文件",
+    "selectMotionFirst": "请先选择运行数据文件",
+    "selectComplete": "请完成所有步骤并选择至少一个变量",
+    "configSuccess": "配置成功",
+    "noPermission": "无权限访问分类配置",
+    "classifiedNotFound": "分类配置文件不存在",
+    "loadClassifiedFailed": "加载分类配置失败",
+    "configTimeline": "配置时间轴",
+    "videoStartTime": "视频起始时间",
+    "videoStartTimeHint": "设置视频开始播放时对应的实际时间（时:分:秒），用于与日志和运行数据的时间轴同步",
+    "currentVideoStartTime": "当前视频起始时间",
+    "currentVideoStartTimeHint": "显示当前已配置的视频起始时间，如果未配置则显示 \"-\"",
+    "videoTimeConfigHint": "将视频拖到关键时刻，填写该画面对应的实际时间，系统将反推视频开始与结束时间并与日志同步",
+    "currentVideoProgress": "当前视频进度",
+    "currentVideoProgressHint": "打开弹窗时进度条位置，用于反推视频 0 秒对应的实际时间",
+    "currentFrameTime": "当前画面对应的实际时间",
+    "currentFrameTimeHint": "设置当前进度条位置对应的实际时间（时:分:秒），用于与日志和运行数据的时间轴同步",
+    "inferredVideoStart": "推断：视频开始时间",
+    "inferredVideoEnd": "推断：视频结束时间",
+    "pleaseSelectStartTime": "请选择该时刻",
+    "videoNotReady": "请先加载视频",
+    "videoTimeConfigSuccess": "视频起始时间配置成功",
+    "motionTimeGapWarning": "检测到运行数据时间不连续，间隔约 {gap} 分钟（{prevFile} 到 {currFile}）。是否继续？",
+    "confirmTitle": "确认",
+    "selectedCount": "已选择",
+    "motionPickTitle": "发现多个运行数据文件，请选择（最多5个）",
+    "motionPickHint": "同一小时内检测到多个运行数据文件，请选择最多5个用于加载（每个文件约1分钟）。",
+    "autoAddMotionConfirm": "检测到该时间段有可用运行数据文件：{fileName}。是否自动加载？",
+    "autoAddLogsConfirm": "检测到该时间段有可用日志文件（最多自动添加2个）：\n{fileNames}\n是否自动加载？",
+    "motionNotFoundTitle": "未找到对应时间段的运行数据",
+    "motionNotFoundMessage": "未找到对应时间段的运行数据（{start} 至 {end}），无法手动添加。",
+    "motionNotFoundShortHint": "未找到对应时间段，无法手动添加",
+    "logNotFoundTitle": "未找到对应时间段的日志数据",
+    "logNotFoundMessage": "未找到对应时间段的日志数据（{start} 至 {end}），无法手动添加。",
+    "noLogEntriesInMotionRange": "运行数据时间范围内没有日志条目",
+    "logEntriesLimited": "已根据运行数据时间范围限定日志条目，共 {count} 条"
+  },
   "smartSearch": {
     "title": "智能搜索",
     "summary": "综合摘要",
@@ -1656,5 +1865,3 @@
     "disclaimer": "AI 回复可能不准确。请检查源数据。"
   }
 }
-
-

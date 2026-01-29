@@ -212,6 +212,7 @@ import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import { MoreFilled, Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
+import { validatePasswordStrength } from '@/utils/passwordStrength'
 
 export default {
   name: 'Users',
@@ -251,6 +252,15 @@ export default {
     })
     const userForm = ref(getDefaultUserForm())
     
+    const validateUserPassword = (rule, value, callback) => {
+      const r = validatePasswordStrength(value, userForm.value?.username)
+      if (!r.valid) {
+        callback(new Error(t('passwordStrength.' + (r.messageKey || 'minLength'))))
+      } else {
+        callback()
+      }
+    }
+    
     const rules = computed(() => ({
       username: [
         { required: true, message: t('users.validation.usernameRequired'), trigger: 'blur' },
@@ -261,7 +271,7 @@ export default {
       ],
       password: editingUser.value ? [] : [
         { required: true, message: t('users.validation.passwordRequired'), trigger: 'blur' },
-        { min: 6, message: t('users.validation.passwordMinLength'), trigger: 'blur' }
+        { validator: validateUserPassword, trigger: 'blur' }
       ],
       status: [
         { required: true, message: t('users.validation.statusRequired'), trigger: 'change' }
@@ -449,12 +459,22 @@ export default {
     const resettingPassword = ref(false)
     const resetPasswordFormRef = ref(null)
     let resetUserId = null
+    const resetUsername = ref('')
+
+    const validateResetPassword = (rule, value, callback) => {
+      const r = validatePasswordStrength(value, resetUsername.value)
+      if (!r.valid) {
+        callback(new Error(t('passwordStrength.' + (r.messageKey || 'minLength'))))
+      } else {
+        callback()
+      }
+    }
 
     // 校验规则
     const resetPasswordRules = computed(() => ({
       newPassword: [
         { required: true, message: t('users.validation.newPasswordRequired'), trigger: 'blur' },
-        { min: 6, message: t('users.validation.passwordMinLength'), trigger: 'blur' }
+        { validator: validateResetPassword, trigger: 'blur' }
       ],
       confirmPassword: [
         { required: true, message: t('users.validation.confirmPasswordRequired'), trigger: 'blur' },
@@ -471,6 +491,7 @@ export default {
     // 打开重置密码弹窗
     const openResetPassword = (row) => {
       resetUserId = row.id
+      resetUsername.value = row.username || ''
       resetPasswordForm.newPassword = ''
       resetPasswordForm.confirmPassword = ''
       showResetPasswordDialog.value = true

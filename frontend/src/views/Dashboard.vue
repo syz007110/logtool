@@ -48,7 +48,10 @@
             <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:read')" index="/dashboard/fault-cases">
               {{ $t('faultCases.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:manage')" index="/dashboard/config-management">
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('kb:read')" index="/dashboard/knowledge-base">
+              {{ $t('knowledgeBase.title') }}
+            </el-menu-item>
+            <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case_config:manage')" index="/dashboard/config-management">
               {{ $t('configManagement.title') }}
             </el-menu-item>
           </el-sub-menu>
@@ -117,6 +120,19 @@
             <template #title>{{ $t('nav.test') }}</template>
           </el-menu-item>
         </el-menu>
+      </div>
+
+      <!-- 侧边栏底部工具按钮区域 -->
+      <div class="sidebar-tools" v-if="!collapsed || $store.getters['auth/hasPermission']('log:read_all')">
+        <el-button
+          v-if="$store.getters['auth/hasPermission']('log:read_all')"
+          class="tool-button"
+          :class="{ 'is-collapsed': collapsed }"
+          @click="openDataAnalysisInNewTab"
+        >
+          <el-icon :size="20"><TrendCharts /></el-icon>
+          <span v-if="!collapsed">{{ $t('dataAnalysis.title') }}</span>
+        </el-button>
       </div>
 
       <!-- 侧边栏底部用户菜单 - 固定在底部 -->
@@ -221,7 +237,8 @@ import {
   Fold,
   Expand,
   SwitchButton,
-  ArrowDown
+  ArrowDown,
+  TrendCharts
 } from '@element-plus/icons-vue'
 import { Earth } from '@icon-park/vue-next'
 
@@ -240,7 +257,8 @@ export default {
     Expand,
     SwitchButton,
     ArrowDown,
-    Earth
+    Earth,
+    TrendCharts
   },
   setup() {
     const store = useStore()
@@ -251,14 +269,14 @@ export default {
     // 辅助函数：根据路由名称获取一级菜单信息
     const getParentMenuForRoute = (routeName) => {
       // 数据管理
-      if (['ErrorCodes', 'I18nErrorCodes', 'FaultCases', 'FaultCaseDetail', 'FaultCaseCreate', 'FaultCaseEdit', 'AnalysisCategories', 'ConfigManagement'].includes(routeName)) {
+      if (['ErrorCodes', 'I18nErrorCodes', 'FaultCases', 'FaultCaseDetail', 'FaultCaseCreate', 'FaultCaseEdit', 'KnowledgeBase', 'AnalysisCategories', 'ConfigManagement'].includes(routeName)) {
         return {
           titleKey: 'nav.dataManagement',
           key: 'data-management'
         }
       }
       // 日志与手术数据
-      if (['Logs', 'DataReplay', 'Surgeries', 'BatchAnalysis'].includes(routeName)) {
+      if (['Logs', 'DataReplay', 'Surgeries', 'BatchAnalysis', 'DataAnalysis'].includes(routeName)) {
         return {
           titleKey: 'nav.logAndSurgery',
           key: 'log-analysis'
@@ -284,6 +302,7 @@ export default {
         FaultCaseDetail: 'faultCases.title',
         FaultCaseCreate: 'faultCases.title',
         FaultCaseEdit: 'faultCases.title',
+        KnowledgeBase: 'knowledgeBase.title',
         AnalysisCategories: 'analysisCategories.title',
         ConfigManagement: 'configManagement.title',
         Logs: 'logs.title',
@@ -346,7 +365,7 @@ export default {
       if (path.includes('/error-codes') || path.includes('/i18n-error-codes') || path.includes('/fault-cases') || path.includes('/analysis-categories') || path.includes('/config-management')) {
         keys.push('data-management')
       }
-      if (path.includes('/logs') || path.includes('/data-replay') || path.includes('/surgeries')) {
+      if (path.includes('/logs') || path.includes('/data-replay') || path.includes('/surgeries') || path.includes('/data-analysis')) {
         keys.push('log-analysis')
       }
       if (path.includes('/users') || path.includes('/roles') || path.includes('/devices') || path.includes('/history') || path.includes('/monitoring')) {
@@ -403,6 +422,7 @@ export default {
         Users: 'users.title',
         Roles: 'roles.title',
         BatchAnalysis: 'batchAnalysis.title',
+        DataAnalysis: 'dataAnalysis.title',
         GlobalDashboard: 'globalDashboard.title',
         Monitoring: 'monitoring.title',
         ExplanationTester: 'nav.test'
@@ -436,6 +456,12 @@ export default {
         console.log('跳转到账户页面') // 添加调试信息
         router.push('/dashboard/account')
       }
+    }
+
+    // 在新标签页打开数据分析页面
+    const openDataAnalysisInNewTab = () => {
+      const routeData = router.resolve('/data-analysis')
+      window.open(routeData.href, '_blank')
     }
     
     const currentLocaleLabel = computed(() => {
@@ -476,6 +502,7 @@ export default {
       getPageTitleKey,
       pageTitle,
       handleUserCommand,
+      openDataAnalysisInNewTab,
       handleLanguageChange,
       currentLocaleLabel,
       activeMenuKey,
@@ -550,6 +577,25 @@ export default {
 }
 
 /* 侧边栏底部用户区域 - 固定在底部 */
+.sidebar-tools {
+  padding: 12px;
+  border-top: 1px solid var(--el-aside-border-color);
+  background: var(--el-aside-background-color);
+}
+
+.tool-button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 12px 16px;
+  border-radius: 6px;
+}
+
+.tool-button.is-collapsed {
+  width: auto;
+  padding: 12px;
+  justify-content: center;
+}
+
 .sidebar-footer {
   padding: 12px; /* 统一的 padding */
   border-top: 1px solid var(--gray-200); /* 使用 Design Token - 浅灰色分隔线 */

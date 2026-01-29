@@ -23,6 +23,7 @@
   "dependencies": {
     "@alicloud/credentials": "^2.3.1",
     "@clickhouse/client": "^1.14.0",
+    "@elastic/elasticsearch": "^9.2.0",
     "7zip-bin": "^5.1.1",
     "ali-oss": "^6.23.0",
     "archiver": "^7.0.1",
@@ -42,17 +43,19 @@
     "i18next-fs-backend": "^2.3.1",
     "i18next-http-middleware": "^3.3.2",
     "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.11.0",
+    "mongoose": "^8.10.0",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.5",
     "node-7z": "^3.0.0",
     "pg": "^8.16.3",
     "redis": "^4.6.10",
     "sequelize": "^6.35.0",
+    "svg-captcha": "^1.4.0",
     "tar": "^6.1.11",
     "ws": "^8.18.3",
     "xml2js": "^0.6.2",
-    "yauzl": "^2.10.0",
-    "mongoose": "^8.10.0"
+    "yauzl": "^2.10.0"
   },
   "devDependencies": {
     "nearley": "^2.20.1",

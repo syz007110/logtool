@@ -11,6 +11,9 @@
       <el-tab-pane :label="$t('configManagement.tabs.faultCaseModules')" name="modules">
         <FaultCaseModules />
       </el-tab-pane>
+      <el-tab-pane :label="$t('configManagement.tabs.kbFileTypes')" name="kbFileTypes">
+        <KnowledgeBaseFileTypes />
+      </el-tab-pane>
     </el-tabs>
     </el-card>
   </div>
@@ -21,10 +24,11 @@ import { ref } from 'vue'
 import AnalysisCategories from './AnalysisCategories.vue'
 import FaultCaseStatuses from './config/FaultCaseStatuses.vue'
 import FaultCaseModules from './config/FaultCaseModules.vue'
+import KnowledgeBaseFileTypes from './config/KnowledgeBaseFileTypes.vue'
 
 export default {
   name: 'ConfigManagement',
-  components: { AnalysisCategories, FaultCaseStatuses, FaultCaseModules },
+  components: { AnalysisCategories, FaultCaseStatuses, FaultCaseModules, KnowledgeBaseFileTypes },
   setup() {
     const activeTab = ref('loglevels')
     return { activeTab }

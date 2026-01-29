@@ -244,6 +244,16 @@
       <div ref="messagesEl" class="ss-messages">
         <div v-if="activeMessages.length === 0" class="ss-empty">
           <div class="ss-empty-title">{{ $t('smartSearch.welcomeQuestion') }}</div>
+
+          <div v-if="showLlmUnavailableHint" class="ss-llm-unavailable-hint">
+            <el-alert
+              title="当前智能搜索不可用"
+              description="当前未接入大模型或额度已用完，请使用经典面板功能。"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+          </div>
           
           <div class="ss-quick-cards">
             <div class="ss-quick-card" @click="handleQuickAction('fault_code')">
@@ -303,13 +313,64 @@
               </div>
             </template>
 
+            <!-- Assistant message: LLM unavailable - show hint + quick cards -->
+            <template v-else-if="m.type === 'llm_unavailable' || (m.type === 'search_result' && m.payload && m.payload.meta && m.payload.meta.llmAvailable === false)">
+              <div class="ss-recommendation-wrapper">
+                <div class="ss-llm-unavailable-hint">
+                  <el-alert
+                    title="当前智能搜索不可用"
+                    :description="(m.payload && m.payload.answerText) ? m.payload.answerText : (m.content || '当前未接入大模型或额度已用完，请使用经典面板功能。')"
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                  />
+                </div>
+
+                <div class="ss-recommendation-multiple">
+                  <div class="ss-quick-cards-inline ss-quick-cards-multiple">
+                    <div class="ss-quick-card" @click="handleQuickAction('upload')">
+                      <div class="ss-quick-card-icon upload">
+                        <el-icon><Upload /></el-icon>
+                      </div>
+                      <div class="ss-quick-card-content">
+                        <h3>{{ $t('smartSearch.logUpload') }}</h3>
+                        <p>{{ $t('smartSearch.logUploadSubtitle') }}</p>
+                      </div>
+                    </div>
+
+                    <div class="ss-quick-card" @click="handleQuickAction('fault_code')">
+                      <div class="ss-quick-card-icon warning">
+                        <el-icon><Warning /></el-icon>
+                      </div>
+                      <div class="ss-quick-card-content">
+                        <h3>{{ $t('smartSearch.faultCodeQuery') }}</h3>
+                        <p>{{ $t('smartSearch.faultCodeQuerySubtitle') }}</p>
+                      </div>
+                    </div>
+
+                    <div class="ss-quick-card" @click="handleQuickAction('fault_case')">
+                      <div class="ss-quick-card-icon case">
+                        <el-icon><Notebook /></el-icon>
+                      </div>
+                      <div class="ss-quick-card-content">
+                        <h3>{{ $t('smartSearch.faultCaseQuery') }}</h3>
+                        <p>{{ $t('smartSearch.faultCaseQuerySubtitle') }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ss-msg-time">{{ formatTime(m.createdAt) }}</div>
+              </div>
+            </template>
+
             <!-- Assistant message: search result - display directly on background (ChatGPT style) -->
             <template v-else-if="m.type === 'search_result' && m.payload && m.payload.ok">
               <div class="ss-answer-container">
                 <!-- 1) 答案区 -->
                 <div class="ss-answer-area">
                   <!-- 识别到的查询要点 -->
-                  <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length || m.payload.recognized.component?.length || m.payload.recognized.neg?.length || m.payload.recognized.intent || m.payload.recognized.days)" class="ss-answer-section">
+                  <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.keywords?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length || m.payload.recognized.component?.length || m.payload.recognized.neg?.length || m.payload.recognized.intent || m.payload.recognized.days)" class="ss-answer-section">
                     <div class="ss-answer-section-title">识别到的查询要点</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-query-points">
@@ -321,6 +382,9 @@
                         </template>
                         <template v-else-if="m.payload.recognized.typeCodes?.length">
                           <div>故障类型：{{ m.payload.recognized.typeCodes.join(' / ') }}</div>
+                        </template>
+                        <template v-if="m.payload.recognized.keywords?.length">
+                          <div>关键词：{{ m.payload.recognized.keywords.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.symptom?.length">
                           <div>现象：{{ m.payload.recognized.symptom.join(' / ') }}</div>
@@ -627,51 +691,47 @@
                     </div>
                   </div>
 
-                  <!-- 引导入口：当无检索结果时，使用与首页一致的 3 个卡片（含日志上传）；有结果时保持按钮 -->
-                  <div v-if="m.payload.suggestedRoutes && m.payload.suggestedRoutes.length" class="ss-answer-actions">
-                    <template v-if="((m.payload.sources?.faultCodes || []).length + (m.payload.sources?.cases || []).length + (m.payload.sources?.jira || []).length + (m.payload.sources?.faultCases || []).length) === 0">
-                      <div class="ss-no-data-tip">{{ $t('smartSearch.noRelatedData') }}</div>
-                      <div class="ss-quick-cards-inline ss-quick-cards-multiple">
-                        <div class="ss-quick-card" @click="handleQuickAction('fault_case')">
-                          <div class="ss-quick-card-icon case">
-                            <el-icon><Notebook /></el-icon>
-                          </div>
-                          <div class="ss-quick-card-content">
-                            <h3>{{ $t('smartSearch.faultCaseQuery') }}</h3>
-                            <p>{{ $t('smartSearch.faultCaseQuerySubtitle') }}</p>
-                          </div>
+                  <!-- Knowledge 知识库文档 -->
+                  <div v-if="m.payload.sources && (m.payload.sources.kbDocs || []).length > 0" class="ss-answer-section">
+                    <div class="ss-answer-section-title">Knowledge（{{ m.payload.sources.kbDocs.length }}）</div>
+                    <div class="ss-answer-section-content">
+                      <div
+                        v-for="(kb, idx) in (m.payload.sources.kbDocs || []).slice(0, 5)"
+                        :key="kb.ref || idx"
+                        class="ss-kb-item"
+                      >
+                        <div class="ss-kb-header">
+                          <span class="ss-kb-ref">[{{ kb.ref }}]</span>
+                          <span class="ss-kb-title">{{ kb.title || '-' }}</span>
+                          <span v-if="kb.headingPath" class="ss-kb-heading">{{ kb.headingPath }}</span>
                         </div>
-
-                        <div class="ss-quick-card" @click="handleQuickAction('fault_code')">
-                          <div class="ss-quick-card-icon warning">
-                            <el-icon><Warning /></el-icon>
-                          </div>
-                          <div class="ss-quick-card-content">
-                            <h3>{{ $t('smartSearch.faultCodeQuery') }}</h3>
-                            <p>{{ $t('smartSearch.faultCodeQuerySubtitle') }}</p>
-                          </div>
-                        </div>
-
-                        <div class="ss-quick-card" @click="handleQuickAction('upload')">
-                          <div class="ss-quick-card-icon upload">
-                            <el-icon><Upload /></el-icon>
-                          </div>
-                          <div class="ss-quick-card-content">
-                            <h3>{{ $t('smartSearch.logUpload') }}</h3>
-                            <p>{{ $t('smartSearch.logUploadSubtitle') }}</p>
-                          </div>
-                        </div>
+                        <div 
+                          class="ss-kb-snippet" 
+                          v-html="sanitizeSnippet(kb.snippet)"
+                        ></div>
+                        <a
+                          class="ss-kb-link"
+                          href="#"
+                          @click.prevent="openSourcesDrawerAndExpand(m, kb.ref)"
+                        >
+                          查看详情
+                        </a>
                       </div>
-                    </template>
-                    <template v-else>
-                      <el-button size="small" @click="goErrorCodes">故障码搜索</el-button>
-                      <el-button size="small" @click="goFaultCases">故障案例搜索</el-button>
-                    </template>
+                      <div v-if="(m.payload.sources.kbDocs || []).length > 5" class="ss-kb-more">
+                        <el-button 
+                          size="small" 
+                          text 
+                          @click="openSourcesDrawer(m)"
+                        >
+                          查看全部 {{ m.payload.sources.kbDocs.length }} 条 Knowledge 来源
+                        </el-button>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- 来源标识和复制按钮 -->
                   <div 
-                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.cases?.length || 0) > 0" 
+                    v-if="(m.payload.sources?.faultCodes?.length || 0) + (m.payload.sources?.cases?.length || 0) + (m.payload.sources?.kbDocs?.length || 0) > 0" 
                     class="ss-sources-actions"
                   >
                     <div 
@@ -694,6 +754,14 @@
                           title="Fault Case"
                         >
                           <span class="ss-source-icon-text">Fault Case</span>
+                        </div>
+                        <div 
+                          v-if="(m.payload.sources?.kbDocs || []).length > 0" 
+                          class="ss-source-icon ss-source-icon-knowledge" 
+                          :style="{ zIndex: 8 }"
+                          title="Knowledge"
+                        >
+                          <span class="ss-source-icon-text">Knowledge</span>
                         </div>
                       </div>
                       <span class="ss-sources-button-text">来源</span>
@@ -1296,6 +1364,39 @@
               </template>
             </div>
           </div>
+
+          <!-- 知识库来源：使用 sources.kbDocs（D 序号） -->
+          <div v-if="(sourceDrawerMessage?.payload?.sources?.kbDocs?.length || 0) > 0" class="ss-sources-group">
+            <div class="ss-sources-group-title">Knowledge（{{ sourceDrawerMessage?.payload?.sources?.kbDocs?.length || 0 }}）</div>
+            <div class="ss-sources-list">
+              <div
+                v-for="k in (sourceDrawerMessage?.payload?.sources?.kbDocs || [])"
+                :key="k.ref || `${k.docId}-${k.chunkNo}`"
+                class="ss-source-item"
+              >
+                <div class="ss-source-header" @click="toggleSourceExpanded(k.ref)">
+                  <span class="ss-source-ref">[{{ k.ref || 'D' }}]</span>
+                  <span class="ss-kb-title" :title="k.title || k.path">{{ k.title || k.path || '-' }}</span>
+                  <span v-if="k.headingPath" class="ss-source-desc">：{{ k.headingPath }}</span>
+                  <el-icon class="ss-source-expand-icon" :class="{ expanded: expandedSources.has(k.ref) }">
+                    <ArrowDown />
+                  </el-icon>
+                </div>
+                <div v-if="expandedSources.has(k.ref)" class="ss-source-expanded">
+                  <div class="ss-source-detail">
+                    <div class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">片段</div>
+                      <div class="ss-source-detail-value ss-kb-snippet" v-html="sanitizeSnippet(k.snippet)"></div>
+                    </div>
+                    <div v-if="k.path" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">Path</div>
+                      <div class="ss-source-detail-value">{{ k.path }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </el-drawer>
 
@@ -1448,6 +1549,19 @@ export default {
     const llmProviders = ref([])
     const llmProvidersLoading = ref(false)
     const llmProviderId = ref('')
+
+    const anyLlmProviderAvailable = computed(() => {
+      const list = Array.isArray(llmProviders.value) ? llmProviders.value : []
+      return list.some(p => p && p.available)
+    })
+
+    // Used only for UI hint (avoid flashing before providers are loaded)
+    const showLlmUnavailableHint = computed(() => {
+      if (llmProvidersLoading.value) return false
+      const list = Array.isArray(llmProviders.value) ? llmProviders.value : []
+      if (list.length === 0) return false
+      return !anyLlmProviderAvailable.value
+    })
 
     const conversations = ref([])
     const activeConversationId = ref(null)
@@ -1753,6 +1867,21 @@ export default {
 
       draft.value = ''
 
+      // LLM 不可用：不发请求，直接提示 + 给三个入口卡片
+      if (showLlmUnavailableHint.value) {
+        conv.messages = [...(conv.messages || []), {
+          id: shortId(),
+          role: 'assistant',
+          type: 'llm_unavailable',
+          content: '当前未接入大模型或额度已用完，请使用经典面板功能。',
+          createdAt: nowIso()
+        }]
+        conv.updatedAt = nowIso()
+        upsertConversation(conv)
+        await persistConversation(conv)
+        return
+      }
+
       // 添加 loading 占位消息
       const loadingMsgId = shortId()
       const loadingMsg = {
@@ -1799,7 +1928,8 @@ export default {
           const intent = payload?.recognized?.intent
           const hasFaultCodes = (payload?.sources?.faultCodes || []).length > 0
           const hasCases = (payload?.sources?.cases || []).length > 0 || (payload?.sources?.jira || []).length > 0 || (payload?.sources?.faultCases || []).length > 0
-          const hasAnyResults = hasFaultCodes || hasCases
+          const hasKbDocs = (payload?.sources?.kbDocs || []).length > 0
+          const hasAnyResults = hasFaultCodes || hasCases || hasKbDocs
           
           if ((intent === 'find_case' || intent === 'troubleshoot') && !hasCases) {
             conv2.messages.push({
@@ -1977,6 +2107,7 @@ export default {
       const cases = Array.isArray(sources.cases) ? sources.cases : []
       const jira = Array.isArray(sources.jira) ? sources.jira : []
       const faultCases = Array.isArray(sources.faultCases) ? sources.faultCases : []
+      const kbDocs = Array.isArray(sources.kbDocs) ? sources.kbDocs : []
 
       const inCases = cases.find(x => x && x.ref === ref)
       if (inCases) return { kind: 'cases', item: inCases }
@@ -1984,7 +2115,32 @@ export default {
       if (inJira) return { kind: 'jira', item: inJira }
       const inFaultCases = faultCases.find(x => x && x.ref === ref)
       if (inFaultCases) return { kind: 'faultCases', item: inFaultCases }
+      const inKbDocs = kbDocs.find(x => x && x.ref === ref)
+      if (inKbDocs) return { kind: 'kbDocs', item: inKbDocs }
       return { kind: '', item: null }
+    }
+
+    const escapeHtml = (s) => {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    }
+
+    // 仅允许 <em> 高亮标签，避免 v-html 风险
+    const sanitizeSnippet = (html) => {
+      const raw = String(html || '')
+      const OPEN = '___SS_EM_OPEN___'
+      const CLOSE = '___SS_EM_CLOSE___'
+      const withTokens = raw
+        .replace(/<\s*em\s*>/gi, OPEN)
+        .replace(/<\s*\/\s*em\s*>/gi, CLOSE)
+      const escaped = escapeHtml(withTokens)
+      return escaped
+        .replaceAll(OPEN, '<em>')
+        .replaceAll(CLOSE, '</em>')
     }
 
     const ensureJiraIssueLoaded = async (key, fallback = {}) => {
@@ -2362,6 +2518,9 @@ export default {
           queryPoints.push(`故障码：${rec.fullCodes.join(' / ')}`)
         } else if (rec.typeCodes?.length) {
           queryPoints.push(`故障类型：${rec.typeCodes.join(' / ')}`)
+        }
+        if (rec.keywords?.length) {
+          queryPoints.push(`关键词：${rec.keywords.join(' / ')}`)
         }
         if (rec.symptom?.length) {
           queryPoints.push(`现象：${rec.symptom.join(' / ')}`)
@@ -2762,6 +2921,7 @@ export default {
       llmProviderId,
       onLlmProviderChange,
       currentLlmProviderLabel,
+      showLlmUnavailableHint,
       currentModelIcon,
       getModelIcon,
       currentLocale,
@@ -2840,6 +3000,7 @@ export default {
       formatShortTime,
       formatLlmRaw,
       getIntentLabel,
+      sanitizeSnippet,
       toggleSidebar,
       toggleHistoryCollapsed,
       navigateTo,
@@ -3430,6 +3591,11 @@ export default {
   padding: 40px 20px;
 }
 
+.ss-llm-unavailable-hint {
+  width: 100%;
+  max-width: 900px;
+}
+
 .ss-empty-icon-wrapper {
   display: flex;
   align-items: center;
@@ -3773,6 +3939,16 @@ export default {
   color: var(--blue-600);
 }
 
+/* Knowledge 标签 - 紫色 */
+.ss-source-icon-knowledge {
+  border-color: var(--purple-200);
+  background-color: var(--purple-50);
+}
+
+.ss-source-icon-knowledge .ss-source-icon-text {
+  color: var(--purple-600);
+}
+
 .ss-source-icon-svg {
   font-size: 12px;
   color: var(--gray-700);
@@ -3911,6 +4087,18 @@ export default {
   line-height: 1.2;
 }
 
+.ss-kb-title {
+  font-size: 12px;
+  color: #111827;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
 .ss-source-desc {
   font-size: 12px;
   color: #6b7280;
@@ -3961,6 +4149,15 @@ export default {
   color: #111827;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+/* KB snippet highlight */
+.ss-kb-snippet :deep(em) {
+  font-style: normal;
+  padding: 0 2px;
+  border-radius: 2px;
+  background: var(--el-color-warning-light-8);
+  color: var(--el-color-warning-dark-2);
 }
 
 .ss-source-detail-params {
@@ -4850,6 +5047,87 @@ export default {
   font-size: 13px;
   color: #6b7280;
   margin-left: 8px;
+}
+
+/* Knowledge 知识库文档样式 */
+.ss-kb-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  transition: all 0.2s;
+}
+
+.ss-kb-item:hover {
+  border-color: #d1d5db;
+  background: #ffffff;
+}
+
+.ss-kb-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.ss-kb-ref {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.ss-kb-title {
+  font-weight: 600;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.ss-kb-heading {
+  font-size: 12px;
+  color: #6b7280;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-kb-snippet {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #374151;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.ss-kb-snippet :deep(em) {
+  font-style: normal;
+  padding: 0 2px;
+  border-radius: 2px;
+  background: var(--el-color-warning-light-8);
+  color: var(--el-color-warning-dark-2);
+}
+
+.ss-kb-link {
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.ss-kb-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.ss-kb-more {
+  margin-top: 8px;
+  text-align: center;
 }
 
 /* Missing notes */

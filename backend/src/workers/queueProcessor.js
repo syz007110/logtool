@@ -3,12 +3,14 @@ const {
   realtimeProcessingQueue, 
   historicalProcessingQueue, 
   surgeryAnalysisQueue,
-  motionDataQueue
+  motionDataQueue,
+  kbIngestQueue
 } = require('../config/queue');
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { processLogFile } = require('./logProcessor');
-const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog } = require('./batchProcessor');
+const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog, processBatchDownload: processLogsBatchDownload, processExportCsv } = require('./batchProcessor');
 const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
+const { processKbIngestJob } = require('./kbIngestProcessor');
 const Log = require('../models/log');
 const websocketService = require('../services/websocketService');
 const { logOperation } = require('../utils/operationLogger');
@@ -19,12 +21,14 @@ const REALTIME_CONCURRENCY = parseInt(process.env.REALTIME_QUEUE_CONCURRENCY) ||
 const HISTORICAL_CONCURRENCY = parseInt(process.env.HISTORICAL_QUEUE_CONCURRENCY) || 1; // 历史处理并发数
 const SURGERY_CONCURRENCY = parseInt(process.env.SURGERY_QUEUE_CONCURRENCY) || 3;
 const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURRENCY) || 2;
+const KB_INGEST_CONCURRENCY = parseInt(process.env.KB_QUEUE_CONCURRENCY) || 2;
 
 console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
 console.log(`[队列系统] 启动实时处理队列，并发数: ${REALTIME_CONCURRENCY}`);
 console.log(`[队列系统] 启动历史处理队列，并发数: ${HISTORICAL_CONCURRENCY}`);
 console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONCURRENCY}`);
 console.log(`[队列系统] 启动MotionData处理队列，并发数: ${MOTION_DATA_CONCURRENCY}`);
+console.log(`[队列系统] 启动知识库入库队列，并发数: ${KB_INGEST_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -279,6 +283,123 @@ logProcessingQueue.process('batch-delete', 1, async (job) => {
   }
 });
 
+// 注册批量下载处理器
+logProcessingQueue.process('batch-download', 1, async (job) => {
+  console.log(`[批量下载] 开始处理任务: ${job.id}`);
+  
+  try {
+    const result = await processLogsBatchDownload(job);
+    console.log(`[批量下载] 任务 ${job.id} 完成`);
+    
+    // 更新操作日志状态：success
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '日志-批量下载',
+        description: `批量下载完成: ${result.fileCount}/${result.totalCount} 个文件成功${result.errors?.length ? `, ${result.errors.length} 个失败` : ''}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'success',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          fileCount: result.fileCount,
+          totalCount: result.totalCount,
+          errors: result.errors || []
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`[批量下载] 任务 ${job.id} 失败:`, error);
+    
+    // 更新操作日志状态：failed
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '日志-批量下载',
+        description: `批量下载失败: ${error.message}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'failed',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          error: error.message,
+          logIds: job.data.logIds || []
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    throw error;
+  }
+});
+
+// 注册CSV导出处理器
+logProcessingQueue.process('export-csv', 1, async (job) => {
+  console.log(`[CSV导出] 开始处理任务: ${job.id}`);
+  
+  try {
+    const result = await processExportCsv(job);
+    console.log(`[CSV导出] 任务 ${job.id} 完成`);
+    
+    // 更新操作日志状态：success
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '日志-导出CSV',
+        description: `CSV导出完成: ${result.rowCount} 行数据`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'success',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          rowCount: result.rowCount,
+          fileSize: result.size
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`[CSV导出] 任务 ${job.id} 失败:`, error);
+    
+    // 更新操作日志状态：failed
+    try {
+      const { logOperation } = require('../utils/operationLogger');
+      await logOperation({
+        operation: '日志-导出CSV',
+        description: `CSV导出失败: ${error.message}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'failed',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          error: error.message,
+          params: job.data.params || {}
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+    
+    throw error;
+  }
+});
+
 // 注册手术分析处理器
 surgeryAnalysisQueue.process('analyze-surgeries', SURGERY_CONCURRENCY, async (job) => {
   try {
@@ -457,6 +578,23 @@ motionDataQueue.process('batch-download', MOTION_DATA_CONCURRENCY, async (job) =
   }
 });
 
+// 注册知识库入库处理器（上传 → OSS → PG chunks → ES）
+kbIngestQueue.process('ingest-kb', KB_INGEST_CONCURRENCY, async (job) => {
+  try {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[KB队列处理器] 开始处理入库任务: ${job.id}`);
+    }
+    const result = await processKbIngestJob(job);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[KB队列处理器] 入库任务完成: ${job.id}`);
+    }
+    return result;
+  } catch (error) {
+    console.error(`[KB队列处理器] 入库任务 ${job.id} 失败:`, error);
+    throw error;
+  }
+});
+
 // 辅助函数：格式化文件大小
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -540,6 +678,7 @@ process.on('SIGTERM', async () => {
   console.log('收到SIGTERM信号，正在关闭队列...');
   await logProcessingQueue.close();
   await motionDataQueue.close();
+  await kbIngestQueue.close();
   process.exit(0);
 });
 
@@ -547,6 +686,7 @@ process.on('SIGINT', async () => {
   console.log('收到SIGINT信号，正在关闭队列...');
   await logProcessingQueue.close();
   await motionDataQueue.close();
+  await kbIngestQueue.close();
   process.exit(0);
 });
 

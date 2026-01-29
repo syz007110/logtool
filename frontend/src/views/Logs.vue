@@ -146,9 +146,8 @@
           <div class="detail-logs-card-header">
             <div class="device-header">
               <div class="device-info">
-                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}</span>（{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}）</h3>
                 <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
-                <p>{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}</p>
               </div>
               <div class="header-controls">
                 <!-- 第一列：日志上传按钮 -->
@@ -421,6 +420,7 @@
                             :command="{ action: 'delete', row }"
                             v-if="canDeleteLog(row)"
                             :disabled="!(row.status === 'parsed' || row.status === 'decrypt_failed' || row.status === 'parse_failed' || row.status === 'file_error' || row.status === 'failed' || row.status === 'queue_failed' || row.status === 'upload_failed' || row.status === 'delete_failed')"
+                            class="dropdown-item-danger"
                           >
                             {{ $t('shared.delete') }}
                           </el-dropdown-item>
@@ -2451,28 +2451,63 @@ export default {
       window.open(routeData.href, '_blank')
     }
     
-    // 批量下载
+    // 批量下载（异步队列模式）
     const handleBatchDownload = async () => {
       try {
-        ElMessage.info('正在打包文件，请稍候...')
-        
         const logIds = selectedDetailLogs.value.map(log => log.id)
-        const response = await store.dispatch('logs/batchDownloadLogs', logIds)
         
-        // 创建下载链接
-        const blob = new Blob([response.data])
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
+        // 创建任务
+        const { data } = await api.logs.batchDownload(logIds)
+        const taskId = data?.taskId
+        if (!taskId) throw new Error('未返回 taskId')
         
-        // 生成ZIP文件名
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-        link.download = `logs_batch_${timestamp}.zip`
+        ElMessage.info('批量下载任务已创建，正在处理...')
         
-        link.click()
-        window.URL.revokeObjectURL(url)
+        // 轮询任务状态
+        const pollInterval = setInterval(async () => {
+          try {
+            const resp = await api.logs.getBatchDownloadTaskStatus(taskId)
+            const st = resp.data?.data
+            const state = st?.status
+            
+            if (state === 'completed') {
+              clearInterval(pollInterval)
+              if (timeoutId) clearTimeout(timeoutId)
+              // 下载结果文件
+              try {
+                const downloadResp = await api.logs.downloadBatchDownloadResult(taskId)
+                const zipName = st?.result?.zipFileName || `logs_batch_${Date.now()}.zip`
+                const blob = new Blob([downloadResp.data])
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = zipName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                window.URL.revokeObjectURL(url)
+                ElMessage.success('批量下载完成')
+              } catch (downloadErr) {
+                ElMessage.error(downloadErr?.response?.data?.message || '下载结果文件失败')
+              }
+            } else if (state === 'failed') {
+              clearInterval(pollInterval)
+              if (timeoutId) clearTimeout(timeoutId)
+              ElMessage.error(st?.error || '批量下载任务失败')
+            }
+            // waiting/active 状态继续轮询
+          } catch (pollErr) {
+            clearInterval(pollInterval)
+            if (timeoutId) clearTimeout(timeoutId)
+            ElMessage.error('查询任务状态失败')
+          }
+        }, 2000) // 每2秒轮询一次
         
-        ElMessage.success('批量下载完成')
+        // 超时保护（10分钟）
+        const timeoutId = setTimeout(() => {
+          clearInterval(pollInterval)
+          ElMessage.warning('批量下载任务超时，请稍后重试')
+        }, 600000)
       } catch (error) {
         console.error('批量下载失败:', error)
         const errorMessage = error.response?.data?.message || error.message || '批量下载失败'
@@ -3442,8 +3477,8 @@ export default {
 /* 卡片头部：包含关闭按钮和设备信息 */
 .detail-logs-card-header {
   flex-shrink: 0;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgb(var(--border-secondary));
 }
 
@@ -3458,16 +3493,18 @@ export default {
 
 .device-info {
   flex: 1;
+  min-width: 0;
 }
 
 .device-info h3 {
-  margin: 0 0 10px 0;
+  margin: 0 0 6px 0;
   color: rgb(var(--text-primary));
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .device-info p {
-  margin: 5px 0;
+  margin: 0;
   color: rgb(var(--text-secondary));
   font-size: 14px;
 }
@@ -3554,8 +3591,8 @@ export default {
 
 .detail-logs-card-header {
   padding: 0;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgb(var(--border-secondary));
 }
 

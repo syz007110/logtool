@@ -63,7 +63,7 @@ const MAX_PAGE_SIZE = {
 function normalizePagination(page, limit, maxLimit = MAX_PAGE_SIZE.STANDARD) {
   const pageNum = Math.max(parseInt(page, 10) || DEFAULT_PAGE, DEFAULT_PAGE);
   const limitNum = Math.min(
-    Math.max(parseInt(limit, 10) || DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZE),
+    Math.max(parseInt(limit, 10) || DEFAULT_PAGE_SIZE, 1),
     maxLimit
   );
   return { page: pageNum, limit: limitNum };

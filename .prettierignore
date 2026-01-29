@@ -1,0 +1,3 @@
+# 忽略配置文件，保持原始格式
+backend/src/config/motionFormat.json
+backend/src/config/motionFormatClassified.json

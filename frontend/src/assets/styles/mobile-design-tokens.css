@@ -1,0 +1,65 @@
+/* Mobile Design Tokens
+ * - Scoped by :root[data-platform="mobile"] to avoid affecting desktop pages.
+ * - This file is intended to "bridge" our design system tokens into mobile (Vant) theming.
+ * - Prefer using these variables (or Vant variables) in mobile views instead of hard-coded hex values.
+ */
+
+:root[data-platform="mobile"] {
+  /* ===== Brand / Core ===== */
+  /* Keep aligned with PWA theme-color in public/index.html */
+  --m-color-brand: #155dfc;
+
+  --m-color-bg: var(--gray-50);
+  --m-color-surface: var(--black-white-white);
+  --m-color-text: var(--gray-900);
+  --m-color-text-secondary: var(--gray-600);
+  --m-color-border: var(--gray-200);
+
+  --m-radius-sm: var(--radius-sm);
+  --m-radius-md: var(--radius-md);
+  --m-radius-lg: var(--radius-lg);
+
+  --m-shadow-card: var(--card-shadow);
+
+  /* ===== Typography (mobile) ===== */
+  --m-font-size-xs: 11px;
+  --m-font-size-sm: 12px;
+  --m-font-size-md: 14px;
+  --m-font-size-lg: 16px;
+  --m-font-size-xl: 18px;
+
+  --m-line-height-md: 1.5;
+  --m-line-height-lg: 1.7;
+
+  /* ===== Spacing (mobile) ===== */
+  --m-space-1: 4px;
+  --m-space-2: 8px;
+  --m-space-3: 12px;
+  --m-space-4: 16px;
+  --m-space-5: 20px;
+  --m-space-6: 24px;
+
+  /* ===== Vant Theme Mapping ===== */
+  --van-primary-color: var(--m-color-brand);
+  --van-text-color: var(--m-color-text);
+  --van-text-color-2: var(--m-color-text-secondary);
+  --van-border-color: var(--m-color-border);
+  --van-background: var(--m-color-bg);
+  --van-background-2: var(--m-color-surface);
+
+  /* NavBar */
+  --van-nav-bar-background: var(--m-color-surface);
+  --van-nav-bar-title-text-color: var(--m-color-text);
+  --van-nav-bar-icon-color: var(--m-color-text);
+
+  /* Cell */
+  --van-cell-background: var(--m-color-surface);
+
+  /* Popup */
+  --van-popup-background: var(--m-color-surface);
+
+  /* Button (primary) */
+  --van-button-primary-background: var(--m-color-brand);
+  --van-button-primary-border-color: var(--m-color-brand);
+}
+

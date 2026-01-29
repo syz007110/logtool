@@ -1,0 +1,40 @@
+{
+  "$comment": "故障码ES检索字段权重配置",
+  "$description": "权重值越大，该字段在搜索时的优先级越高。支持动态添加新字段。",
+  "$note": "配置格式支持两种：1. 简单格式 { field: weight }  2. 详细格式 { field: { weight: 5, description: \"...\" } }",
+  "$example_add_field": "要添加新字段，只需在 weights 对象中添加：\"new_field\": { \"weight\": 2, \"description\": \"新字段说明\" }",
+  "weights": {
+    "code": {
+      "weight": 5,
+      "description": "故障码权重最高，精确匹配时优先级最高"
+    },
+    "short_message": {
+      "weight": 3,
+      "description": "简短描述，用户最常搜索的字段"
+    },
+    "user_hint": {
+      "weight": 2,
+      "description": "用户提示信息"
+    },
+    "operation": {
+      "weight": 2,
+      "description": "操作说明"
+    },
+    "detail": {
+      "weight": 1,
+      "description": "详细信息"
+    },
+    "tech_solution": {
+      "weight": 1,
+      "description": "技术方案"
+    },
+    "method": {
+      "weight": 0.5,
+      "description": "方法（权重较低，避免噪音）"
+    },
+    "explanation": {
+      "weight": 0.5,
+      "description": "解释（权重较低，避免噪音）"
+    }
+  }
+}

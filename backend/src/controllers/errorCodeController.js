@@ -7,6 +7,8 @@ const { sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
+const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
+const { searchByKeywords } = require('../services/errorCodeSearchService');
 const fs = require('fs');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const path = require('path');
@@ -29,6 +31,7 @@ const {
   TMP_DIR,
   LOCAL_DIR
 } = require('../config/techSolutionStorage');
+const { searchErrorCodesUnified } = require('../services/errorCodeUnifiedService');
 
 function getBearerToken(req) {
   const raw = req?.headers?.authorization || req?.get?.('authorization') || '';
@@ -44,6 +47,43 @@ function withQueryToken(url, req) {
   if (String(url).includes('token=')) return url;
   const sep = String(url).includes('?') ? '&' : '?';
   return `${url}${sep}token=${encodeURIComponent(token)}`;
+}
+
+// 检查ES是否启用
+function isErrorCodeEsEnabled() {
+  const raw = process.env.ERROR_CODE_ES_ENABLED;
+  if (raw == null) return true; // 默认启用
+  const s = String(raw).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+// 同步故障码到ES（异步，不阻塞主流程）
+async function syncErrorCodeToEs(errorCodeId, lang = 'zh') {
+  if (!isErrorCodeEsEnabled()) return;
+  try {
+    await indexErrorCodeToEs({ errorCodeId, lang, refresh: 'false' });
+  } catch (e) {
+    console.warn(`[ES同步] 故障码 ${errorCodeId} (${lang}) 同步失败:`, e?.message || e);
+  }
+}
+
+// 同步故障码所有语言版本到ES
+async function syncErrorCodeAllLangsToEs(errorCodeId) {
+  if (!isErrorCodeEsEnabled()) return;
+  try {
+    // 查询所有语言版本
+    const i18nList = await I18nErrorCode.findAll({
+      where: { error_code_id: errorCodeId },
+      attributes: ['lang']
+    });
+    const langs = ['zh', ...i18nList.map(i => i.lang).filter(l => l !== 'zh')];
+    // 同步所有语言版本
+    for (const lang of langs) {
+      await syncErrorCodeToEs(errorCodeId, lang);
+    }
+  } catch (e) {
+    console.warn(`[ES同步] 故障码 ${errorCodeId} 全语言同步失败:`, e?.message || e);
+  }
 }
 
 // 根据故障码自动判断故障等级和处理措施
@@ -424,6 +464,9 @@ const createErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码创建:', cacheError.message);
     }
     
+    // 同步到ES（异步，不阻塞响应）
+    syncErrorCodeToEs(errorCode.id, 'zh').catch(() => {});
+    
     res.status(201).json({ message: req.t('shared.created'), errorCode });
   } catch (err) {
     console.error('创建故障码失败:', err);
@@ -434,146 +477,14 @@ const createErrorCode = async (req, res) => {
 // 查询故障码（支持简单和高级搜索）
 const getErrorCodes = async (req, res) => {
   try {
-    const { code, subsystem, level, category, keyword, q, ids } = req.query;
-    const keywordQuery = (keyword ?? q);
-    const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
-    const where = {};
-
-    // 从 Accept-Language 头或查询参数获取语言偏好（用于决定是否需要 JOIN i18n 表）
-    const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
-    const targetLang = acceptLanguage.startsWith('en')
-      ? 'en'
-      : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
-
-    // 支持 ids 批量查询：用于前端回显已选中的故障码（避免 label 显示为 ID）
-    if (ids) {
-      const idList = String(ids)
-        .split(',')
-        .map((s) => Number(String(s).trim()))
-        .filter((n) => Number.isFinite(n));
-      if (idList.length > 0) {
-        where.id = { [Op.in]: idList };
-      } else {
-        return res.json({ errorCodes: [], total: 0 });
-      }
-    } else {
-      if (code) {
-        const c = String(code).trim();
-        // 兼容 010A / 0x010A / 0X010A，避免库内格式不一致导致“精确查”查不到
-        const m = c.match(/^(0x)?([0-9a-fA-F]{4})$/i);
-        if (m) {
-          const tail = String(m[2] || '').toUpperCase();
-          where.code = { [Op.in]: [tail, `0x${tail}`, `0X${tail}`] };
-        } else {
-          where.code = c;
-        }
-      }
-      if (subsystem) where.subsystem = subsystem;
-      if (level) where.level = level;
-      if (category) where.category = category;
-      if (keywordQuery) {
-        const kw = String(keywordQuery);
-        where[Op.or] = [
-          { short_message: { [Op.like]: `%${kw}%` } },
-          { user_hint: { [Op.like]: `%${kw}%` } },
-          { operation: { [Op.like]: `%${kw}%` } },
-          { code: { [Op.like]: `%${kw}%` } }
-        ];
-      }
-    }
-
-    // 构造 include：列表页需要分类；但中文场景无需 JOIN i18n 表（可显著提速）
-    const include = [];
-    if (!ids) {
-      include.push({
-        model: AnalysisCategory,
-        as: 'analysisCategories',
-        through: { attributes: [] }, // 不返回关联表的字段
-        attributes: ['id', 'category_key', 'name_zh', 'name_en']
-      });
-    }
-    if (!ids && targetLang !== 'zh') {
-      include.push({
-        model: I18nErrorCode,
-        as: 'i18nContents',
-        required: false,
-        attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
-      });
-    }
-
-    const findOptions = {
-      where,
-      distinct: true,  // ✅ 修复：使用 distinct 避免多对多关联导致的重复计数
-      include,
-      // 固定排序，且与 (subsystem, code) 索引一致，减少 filesort
-      order: [['subsystem', 'ASC'], ['code', 'ASC']]
-    };
-
-    // ids 查询不走分页（前端只需要回显已选项）
-    let total = 0;
-    let errorCodes = [];
-    if (ids) {
-      errorCodes = await ErrorCode.findAll(findOptions);
-      total = errorCodes.length;
-    } else {
-      const result = await ErrorCode.findAndCountAll({
-        ...findOptions,
-        offset: (page - 1) * limit,
-        limit
-      });
-      total = result.count;
-      errorCodes = result.rows;
-    }
-    
-    // 处理每个故障码，合并对应语言的多语言内容
-    const processedErrorCodes = errorCodes.map(errorCode => {
-      const errorCodeData = errorCode.toJSON();
-      
-      // 如果是中文，直接返回主表数据（不需要合并）
-      if (targetLang === 'zh' || targetLang === 'zh-CN') {
-        // 移除 i18nContents，因为不需要
-        delete errorCodeData.i18nContents;
-        return errorCodeData;
-      }
-      
-      // 查找对应语言的多语言内容
-      const i18nContent = errorCodeData.i18nContents?.find(content => {
-        // 匹配语言代码：'en' 匹配 'en', 'en-US' 等
-        const contentLang = content.lang.split('-')[0];
-        return contentLang === targetLang;
-      });
-      
-      // 如果找到对应语言的内容，合并到主记录
-      if (i18nContent) {
-        // 合并多语言字段：只要多语言记录存在该字段（即使为空字符串），就使用多语言值
-        const i18nFields = [
-          'short_message',
-          'user_hint',
-          'operation',
-          'detail',
-          'method',
-          'param1',
-          'param2',
-          'param3',
-          'param4',
-          'tech_solution',
-          'explanation',
-        ];
-        i18nFields.forEach((field) => {
-          if (Object.prototype.hasOwnProperty.call(i18nContent, field)) {
-            errorCodeData[field] = i18nContent[field] ?? '';
-          }
-        });
-      }
-      
-      // 移除 i18nContents 数组，因为已经合并到主记录
-      delete errorCodeData.i18nContents;
-      
-      return errorCodeData;
+    const out = await searchErrorCodesUnified({
+      ...req.query,
+      acceptLanguage: req.headers['accept-language'] || req.query.lang || 'zh',
+      t: req.t
     });
-    
-    res.json({ errorCodes: processedErrorCodes, total });
+    return res.json(out);
   } catch (err) {
+    console.error('[故障码搜索] 查询失败:', err);
     res.status(500).json({ message: '查询失败', error: err.message });
   }
 };
@@ -696,6 +607,9 @@ const updateErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码更新:', cacheError.message);
     }
     
+    // 同步到ES（异步，不阻塞响应）- 同步所有语言版本
+    syncErrorCodeAllLangsToEs(errorCode.id).catch(() => {});
+    
     res.json({ message: req.t('shared.updated'), errorCode });
   } catch (err) {
     console.error('更新故障码失败:', err);
@@ -719,6 +633,15 @@ const deleteErrorCode = async (req, res) => {
       category: errorCode.category
     };
     
+    // 从ES删除故障码索引（所有语言版本）
+    if (isErrorCodeEsEnabled()) {
+      try {
+        await deleteErrorCodeFromEs({ errorCodeId: id, refresh: 'false' });
+      } catch (esError) {
+        console.warn(`[ES同步] 故障码 ${id} 删除失败:`, esError?.message || esError);
+      }
+    }
+    
     // 同步删除多语言记录
     try {
       await I18nErrorCode.destroy({
@@ -741,6 +664,35 @@ const deleteErrorCode = async (req, res) => {
       }
     } catch (mapError) {
       console.warn('清理 code_category_map 映射失败，但不影响故障码删除:', mapError.message);
+    }
+    
+    // 删除技术排查方案的附件文件
+    try {
+      const techImages = await TechSolutionImage.findAll({
+        where: { error_code_id: id }
+      });
+      for (const img of techImages) {
+        try {
+          if (img.storage === 'oss' && img.object_key) {
+            const client = await getOssClient();
+            const objectKey = String(img.object_key).replace(/^\//, '');
+            await client.delete(objectKey);
+            console.log(`已删除OSS技术方案附件: ${objectKey}`);
+          } else if (img.storage === 'local' && img.object_key) {
+            const filePath = path.resolve(LOCAL_DIR, String(img.object_key));
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`已删除本地技术方案附件: ${filePath}`);
+            }
+          }
+        } catch (e) {
+          console.warn(`删除技术方案附件文件失败 (${img.object_key || img.url}):`, e.message);
+        }
+      }
+      // 删除数据库记录
+      await TechSolutionImage.destroy({ where: { error_code_id: id } });
+    } catch (techImageError) {
+      console.warn('删除技术排查方案附件失败，但不影响故障码删除:', techImageError.message);
     }
     
     await errorCode.destroy();
@@ -1324,7 +1276,37 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
       return res.status(400).json({ message: '故障码和子系统参数都是必需的' });
     }
     
-    const errorCode = await ErrorCode.findOne({
+    // 优先使用ES精确查询，失败时fallback到MySQL
+    let errorCode = null;
+    try {
+      const { searchByCode: searchErrorCodeByCodeEs } = require('../services/errorCodeSearchService');
+      const esResult = await searchErrorCodeByCodeEs({ 
+        code, 
+        subsystem, 
+        lang: req.headers['accept-language'] || req.query.lang || 'zh'
+      });
+      
+      if (esResult.ok && esResult.item) {
+        // ES查询成功，从MySQL获取完整数据（包括关联数据）
+        errorCode = await ErrorCode.findByPk(esResult.item.id, {
+          include: [
+            {
+              model: I18nErrorCode,
+              as: 'i18nContents',
+              required: false,
+              attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
+            }
+          ]
+        });
+      }
+    } catch (esError) {
+      // ES查询失败，fallback到MySQL
+      console.warn('[故障码查询] ES查询失败，fallback到MySQL:', esError?.message || esError);
+    }
+    
+    // 如果ES查询失败或没有结果，使用MySQL查询
+    if (!errorCode) {
+      errorCode = await ErrorCode.findOne({
       where: { code, subsystem },
       include: [
         {
@@ -1335,6 +1317,7 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
         }
       ]
     });
+    }
     
     if (!errorCode) {
       return res.json({ errorCode: null });
@@ -1577,6 +1560,11 @@ const updateTechSolutionDetail = async (req, res) => {
       sort_order: Number.isFinite(img.sort_order) ? img.sort_order : idx
     }));
 
+    // 在删除数据库记录之前，先获取要删除的图片信息，以便删除OSS文件
+    const existingImages = await TechSolutionImage.findAll({
+      where: { error_code_id: id }
+    });
+
     await sequelize.transaction(async (t) => {
       await errorCode.update({ tech_solution: tech_solution || null }, { transaction: t });
       await TechSolutionImage.destroy({ where: { error_code_id: id }, transaction: t });
@@ -1584,6 +1572,55 @@ const updateTechSolutionDetail = async (req, res) => {
         await TechSolutionImage.bulkCreate(assetsToSave, { transaction: t });
       }
     });
+
+    // 删除OSS上的旧文件（在事务提交后执行，避免影响事务）
+    if (existingImages.length > 0) {
+      // 找出不在新列表中的文件（即被删除的文件）
+      // 使用 object_key 进行比较，因为它是文件的唯一标识
+      const newObjectKeys = new Set(
+        assetsToSave
+          .map(img => {
+            // 从 object_key 或 url 中提取 object_key
+            if (img.object_key) return String(img.object_key).replace(/^\//, '');
+            if (img.url) {
+              // 尝试从 URL 中提取 object_key
+              const urlStr = String(img.url);
+              if (urlStr.includes('/tech-solution/')) {
+                const match = urlStr.match(/tech-solution\/([^?]+)/);
+                if (match) return `tech-solution/${match[1]}`;
+              }
+            }
+            return null;
+          })
+          .filter(Boolean)
+      );
+
+      const toDelete = existingImages.filter(img => {
+        const imgKey = img.object_key ? String(img.object_key).replace(/^\//, '') : null;
+        return imgKey && !newObjectKeys.has(imgKey);
+      });
+
+      // 删除OSS或本地文件
+      for (const img of toDelete) {
+        try {
+          if (img.storage === 'oss' && img.object_key) {
+            const client = await getOssClient();
+            const objectKey = String(img.object_key).replace(/^\//, '');
+            await client.delete(objectKey);
+            console.log(`已删除OSS技术方案附件: ${objectKey}`);
+          } else if (img.storage === 'local' && img.object_key) {
+            const filePath = path.resolve(LOCAL_DIR, String(img.object_key));
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`已删除本地技术方案附件: ${filePath}`);
+            }
+          }
+        } catch (e) {
+          // 静默处理删除失败，避免影响主要操作
+          console.warn(`删除技术方案附件文件失败 (${img.object_key || img.url}):`, e.message);
+        }
+      }
+    }
 
     const freshImages = await TechSolutionImage.findAll({
       where: { error_code_id: id },
@@ -1667,6 +1704,58 @@ const cleanupTempTechFiles = async (req, res) => {
   }
 };
 
+// 批量同步故障码到ES
+const syncErrorCodesToEs = async (req, res) => {
+  try {
+    const { errorCodeIds, lang, recreateIndex } = req.body;
+
+    // 检查ES是否启用
+    if (!isErrorCodeEsEnabled()) {
+      return res.status(503).json({ 
+        message: 'ES同步功能已禁用',
+        error: 'ERROR_CODE_ES_ENABLED=false'
+      });
+    }
+
+    const { bulkIndexErrorCodes, ensureErrorCodeIndex } = require('../services/errorCodeIndexService');
+    const targetLang = lang || 'zh';
+
+    // 如果需要重建索引
+    if (recreateIndex) {
+      try {
+        await ensureErrorCodeIndex({ recreate: true });
+        console.log('✅ 故障码ES索引已重建');
+      } catch (e) {
+        console.error('重建ES索引失败:', e);
+        return res.status(500).json({ 
+          message: '重建ES索引失败', 
+          error: e?.message || e 
+        });
+      }
+    }
+
+    // 批量同步
+    const summary = await bulkIndexErrorCodes({
+      errorCodeIds: errorCodeIds && Array.isArray(errorCodeIds) ? errorCodeIds : null,
+      lang: targetLang,
+      batchSize: 100
+    });
+
+    res.json({
+      message: '批量同步完成',
+      summary: {
+        indexed: summary.indexed,
+        failed: summary.failed,
+        total: summary.indexed + summary.failed,
+        errors: summary.errors.slice(0, 10) // 只返回前10个错误
+      }
+    });
+  } catch (err) {
+    console.error('批量同步故障码到ES失败:', err);
+    res.status(500).json({ message: '批量同步失败', error: err.message });
+  }
+};
+
 module.exports = {
   createErrorCode,
   getErrorCodes,
@@ -1679,5 +1768,6 @@ module.exports = {
   uploadTechSolutionImages,
   getTechSolutionDetail,
   updateTechSolutionDetail,
-  cleanupTempTechFiles
+  cleanupTempTechFiles,
+  syncErrorCodesToEs
 }; 

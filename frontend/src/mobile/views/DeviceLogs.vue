@@ -1217,7 +1217,7 @@ export default {
 .page {
   /* 使用 100% 而不是 100vh，避免超出视口 */
   min-height: 100%;
-  background-color: #f7f8fa;
+  background-color: var(--m-color-bg);
   /* 底部留白由 App.vue 全局样式统一设置 */
   box-sizing: border-box;
 }
@@ -1229,10 +1229,10 @@ export default {
   left: 0;
   right: 0;
   z-index: 100;
-  background-color: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 12px 16px;
-  padding-top: max(12px, calc(env(safe-area-inset-top) + 12px));
+  background-color: var(--m-color-surface);
+  border-bottom: 1px solid var(--m-color-border);
+  padding: var(--m-space-3) var(--m-space-4);
+  padding-top: max(var(--m-space-3), calc(env(safe-area-inset-top) + var(--m-space-3)));
 }
 
 .header-container {
@@ -1243,7 +1243,7 @@ export default {
 
 .back-icon {
   font-size: 20px;
-  color: #323233;
+  color: var(--m-color-text);
   cursor: pointer;
   flex-shrink: 0;
   margin-top: 2px;
@@ -1265,9 +1265,9 @@ export default {
 }
 
 .header-title {
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 600;
-  color: #101828;
+  color: var(--m-color-text);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1280,8 +1280,8 @@ export default {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
-  color: #6a7282;
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text-secondary);
   line-height: 16px;
 }
 
@@ -1289,21 +1289,21 @@ export default {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
-  color: #6a7282;
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text-secondary);
   line-height: 16px;
   margin-left: auto;
 }
 
 .header-row .info-text {
-  font-size: 12px;
-  color: #6a7282;
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text-secondary);
   line-height: 16px;
 }
 
 .info-text {
-  font-size: 12px;
-  color: #6a7282;
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text-secondary);
   line-height: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1311,7 +1311,7 @@ export default {
 }
 
 .info-value-primary {
-  color: #155dfc;
+  color: var(--m-color-brand);
   font-weight: 600;
   margin-right: 2px;
 }
@@ -1319,26 +1319,26 @@ export default {
 /* 筛选区域（固定定位） */
 .filter-section {
   position: fixed;
-  top: calc(max(16px, calc(env(safe-area-inset-top) + 8px)) + 40px);
+  top: calc(max(var(--m-space-4), calc(env(safe-area-inset-top) + var(--m-space-2))) + 40px);
   left: 0;
   right: 0;
   z-index: 90;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background-color: #f7f8fa;
-  padding: 12px;
-  padding-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  gap: var(--m-space-3);
+  background-color: var(--m-color-bg);
+  padding: var(--m-space-3);
+  padding-bottom: var(--m-space-3);
+  box-shadow: var(--m-shadow-card);
 }
 
 .content {
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: var(--m-space-3);
+  padding-right: var(--m-space-3);
   /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
-  padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
+  padding-bottom: max(var(--m-space-5), env(safe-area-inset-bottom) + var(--m-space-5));
   /* 给固定区域留出空间：header高度 + 筛选区域高度 */
-  padding-top: calc(max(16px, calc(env(safe-area-inset-top) + 8px)) + 40px + 12px + 134px);
+  padding-top: calc(max(var(--m-space-4), calc(env(safe-area-inset-top) + var(--m-space-2))) + 40px + var(--m-space-3) + 134px);
 }
 
 /* 时间范围选择器 */
@@ -1360,9 +1360,9 @@ export default {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: var(--m-font-size-md);
   font-weight: 500;
-  color: #323233;
+  color: var(--m-color-text);
 }
 
 .quick-options {
@@ -1372,17 +1372,17 @@ export default {
 }
 
 .quick-option {
-  padding: 6px 12px;
-  border-radius: 16px;
-  background-color: #f2f3f5;
+  padding: 6px var(--m-space-3);
+  border-radius: var(--m-radius-xl);
+  background-color: var(--gray-100);
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .quick-option.active {
-  background-color: #1989fa;
-  color: #fff;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .custom-options {
@@ -1399,7 +1399,7 @@ export default {
 
 .custom-label {
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
 }
 
 .option-pills {
@@ -1409,17 +1409,17 @@ export default {
 }
 
 .option-pill {
-  padding: 6px 12px;
-  border-radius: 16px;
-  background-color: #f2f3f5;
+  padding: 6px var(--m-space-3);
+  border-radius: var(--m-radius-xl);
+  background-color: var(--gray-100);
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .option-pill.active {
-  background-color: #1989fa;
-  color: #fff;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .time-filter-actions {
@@ -1428,17 +1428,17 @@ export default {
 }
 
 .action-pill {
-  padding: 6px 16px;
-  border-radius: 16px;
-  background-color: #f2f3f5;
+  padding: 6px var(--m-space-4);
+  border-radius: var(--m-radius-xl);
+  background-color: var(--gray-100);
   font-size: 13px;
-  color: #646566;
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .action-pill:hover {
-  background-color: #1989fa;
-  color: #fff;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .log-list {
@@ -1448,16 +1448,16 @@ export default {
 }
 
 .log-card {
-  background-color: #fff;
-  border-radius: 14px;
-  border: 1.439px solid rgba(0, 0, 0, 0.1);
+  background-color: var(--m-color-surface);
+  border-radius: var(--m-radius-lg);
+  border: 1.439px solid var(--m-color-border);
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .log-card:active {
-  background-color: #f5f5f5;
+  background-color: var(--gray-100);
 }
 
 .card-content {
@@ -1468,9 +1468,9 @@ export default {
 }
 
 .file-name {
-  font-size: 14px;
+  font-size: var(--m-font-size-md);
   font-weight: 400;
-  color: #101828;
+  color: var(--m-color-text);
   line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1484,9 +1484,9 @@ export default {
 }
 
 .view-text {
-  font-size: 12px;
+  font-size: var(--m-font-size-sm);
   font-weight: 400;
-  color: #99a1af;
+  color: var(--gray-400);
   line-height: 16px;
   margin-right: auto;
 }
@@ -1499,11 +1499,11 @@ export default {
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--m-space-1);
   height: 22.85px;
-  border-radius: 8px;
+  border-radius: var(--m-radius-md);
   padding: 0 9.42px;
-  font-size: 12px;
+  font-size: var(--m-font-size-sm);
   font-weight: 400;
   line-height: 16px;
 }
@@ -1515,13 +1515,13 @@ export default {
 }
 
 .status-badge-success {
-  background-color: #ecfdf3;
-  color: #027a48;
+  background-color: var(--green-50);
+  color: var(--green-700);
 }
 
 .status-badge-error {
-  background-color: #fef3f2;
-  color: #b42318;
+  background-color: var(--red-50);
+  color: var(--red-700);
 }
 
 .empty-state {
@@ -1529,17 +1529,17 @@ export default {
 }
 
 :deep(.van-list__loading) {
-  padding: 20px 0;
+  padding: var(--m-space-5) 0;
   text-align: center;
-  color: #969799;
-  font-size: 14px;
+  color: var(--gray-400);
+  font-size: var(--m-font-size-md);
 }
 
 :deep(.van-list__finished) {
-  padding: 20px 0;
+  padding: var(--m-space-5) 0;
   text-align: center;
-  color: #969799;
-  font-size: 14px;
+  color: var(--gray-400);
+  font-size: var(--m-font-size-md);
 }
 
 </style>

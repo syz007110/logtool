@@ -22,7 +22,8 @@ const {
   uploadTechSolutionImages,
   getTechSolutionDetail,
   updateTechSolutionDetail,
-  cleanupTempTechFiles
+  cleanupTempTechFiles,
+  syncErrorCodesToEs
 } = require('../controllers/errorCodeController');
 const {
   getErrorCodeI18nByLang,
@@ -53,6 +54,25 @@ const techSolutionUpload = multer({
   }
 });
 
+// ES状态检查接口（用于调试）- 所有已登录用户可用
+router.get('/es-status', auth, async (req, res) => {
+  try {
+    const { isElasticsearchAvailable } = require('../services/errorCodeSearchService');
+    const isAvailable = await isElasticsearchAvailable();
+    res.json({
+      available: isAvailable,
+      message: isAvailable ? 'Elasticsearch可用' : 'Elasticsearch不可用',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({
+      available: false,
+      message: '检查ES状态失败',
+      error: err.message
+    });
+  }
+});
+
 // 查询（支持简单/高级搜索）- 需要 error_code:read 权限
 router.get('/', auth, checkPermission('error_code:read'), getErrorCodes);
 // 根据故障码和子系统查找故障码 - 所有已登录用户可用
@@ -63,6 +83,8 @@ router.get('/export/xml', auth, checkPermission('error_code:read'), exportErrorC
 router.get('/export/multi-xml', auth, checkPermission('error_code:read'), exportMultiLanguageXML);
 // CSV导出 - 需要 error_code:read 权限
 router.get('/export/csv', auth, checkPermission('error_code:read'), exportErrorCodesToCSV);
+// 批量同步故障码到ES - 需要 error_code:update 权限
+router.post('/sync-to-es', auth, checkPermission('error_code:update'), syncErrorCodesToEs);
 
 // 技术排查方案：上传/获取/更新
 router.post(

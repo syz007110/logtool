@@ -7,8 +7,9 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import en from 'element-plus/es/locale/lang/en'
 
@@ -16,7 +17,69 @@ export default {
   name: 'App',
   setup() {
     const { locale } = useI18n()
+    const route = useRoute()
     const elementLocale = computed(() => (String(locale.value).startsWith('en') ? en : zhCn))
+
+    // ===== Platform scoping (Design Tokens) =====
+    const isMobileRoute = computed(() => {
+      const p = String(route.path || '')
+      return route.meta?.isMobile === true || p.startsWith('/m/')
+    })
+
+    const setPlatform = (isMobile) => {
+      try {
+        document.documentElement.dataset.platform = isMobile ? 'mobile' : 'web'
+      } catch (_) {}
+    }
+
+    watch(
+      isMobileRoute,
+      (v) => {
+        setPlatform(!!v)
+      },
+      { immediate: true }
+    )
+
+    // ===== Disable pinch zoom (extra hardening for iOS) =====
+    // Note: viewport meta already sets user-scalable=no. Some iOS versions may still allow gesture zoom.
+    const preventGestureZoom = (e) => {
+      try {
+        e.preventDefault()
+      } catch (_) {}
+    }
+    let gestureBound = false
+    const bindGesture = () => {
+      if (gestureBound) return
+      gestureBound = true
+      window.addEventListener('gesturestart', preventGestureZoom, { passive: false })
+      window.addEventListener('gesturechange', preventGestureZoom, { passive: false })
+      window.addEventListener('gestureend', preventGestureZoom, { passive: false })
+    }
+    const unbindGesture = () => {
+      if (!gestureBound) return
+      gestureBound = false
+      window.removeEventListener('gesturestart', preventGestureZoom)
+      window.removeEventListener('gesturechange', preventGestureZoom)
+      window.removeEventListener('gestureend', preventGestureZoom)
+    }
+
+    watch(
+      isMobileRoute,
+      (v) => {
+        // only bind on small screens + mobile routes
+        const isSmall = typeof window !== 'undefined' && window.matchMedia
+          ? window.matchMedia('(max-width: 768px)').matches
+          : false
+        if (v && isSmall) bindGesture()
+        else unbindGesture()
+      },
+      { immediate: true }
+    )
+
+    onBeforeUnmount(() => {
+      unbindGesture()
+    })
+
     return { elementLocale }
   }
 }

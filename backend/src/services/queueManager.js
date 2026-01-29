@@ -7,7 +7,8 @@ const {
   logProcessingQueue, 
   realtimeProcessingQueue, 
   historicalProcessingQueue, 
-  surgeryAnalysisQueue 
+  surgeryAnalysisQueue,
+  kbIngestQueue
 } = require('../config/queue');
 
 class QueueManager {
@@ -16,7 +17,8 @@ class QueueManager {
       logProcessing: logProcessingQueue,
       realtime: realtimeProcessingQueue,
       historical: historicalProcessingQueue,
-      surgery: surgeryAnalysisQueue
+      surgery: surgeryAnalysisQueue,
+      kb: kbIngestQueue
     };
     
     this.initialized = false;
@@ -142,6 +144,8 @@ class QueueManager {
         return this.queues.realtime;
       case 'auto-upload':
         return this.queues.historical;
+      case 'kb-upload':
+        return this.queues.kb;
       default:
         return this.queues.logProcessing; // 默认使用通用队列
     }

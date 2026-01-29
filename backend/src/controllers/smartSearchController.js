@@ -18,11 +18,15 @@ const {
   buildKeywordExtractionMessages
 } = require('../services/smartSearchLlmService');
 const { runJiraMongoMixedSearch } = require('../services/jiraMixedSearchService');
+const { searchSnippets: searchKbSnippets, buildSnippetAnswerText: buildKbSnippetAnswerText } = require('../services/kbSearchService');
+const { searchByKeywords: searchErrorCodesByKeywordsEs, searchByTypeCodes: searchErrorCodesByTypeCodesEs } = require('../services/errorCodeSearchService');
+const { searchErrorCodesUnified } = require('../services/errorCodeUnifiedService');
 
 const DEFAULT_LIMITS = {
   errorCodes: 10,
   jira: 10,
-  faultCases: 10
+  faultCases: 10,
+  kbDocs: 5
 };
 
 function makeOperationId() {
@@ -145,6 +149,8 @@ function toStringArray(val) {
 function normalizePlanQuery(raw) {
   const q = (raw && typeof raw === 'object') ? raw : {};
   return {
+    // 用于概念/主题词抽取（definition/how_to_use），也可辅助 KB 检索
+    keywords: uniq(parseKeywords(q.keywords)).slice(0, 12),
     fault_codes: toStringArray(q.fault_codes),
     symptom: toStringArray(q.symptom),
     trigger: toStringArray(q.trigger),
@@ -370,6 +376,53 @@ function mergeErrorCodeByLang(errorCodeData, targetLang) {
 }
 
 async function searchErrorCodesByKeywords({ keywords, targetLang, limit }) {
+  const kwList = (keywords || []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 12);
+  if (kwList.length === 0) {
+    return { items: [], debug: { keywordAttempts: [], method: 'none' } };
+  }
+
+  // 1. 尝试使用ES搜索
+  try {
+    const esResult = await searchErrorCodesByKeywordsEs({ keywords: kwList, lang: targetLang, limit });
+    if (esResult.ok && esResult.items && esResult.items.length > 0) {
+      // ES搜索成功，需要补充分析分类信息
+      console.log(`[智能搜索-故障码关键词] ✅ 使用ES检索，关键词: [${kwList.join(', ')}], 匹配数: ${esResult.items.length}, ES总数: ${esResult.debug?.total || esResult.items.length}`);
+      
+      const include = [
+        {
+          model: AnalysisCategory,
+          as: 'analysisCategories',
+          through: { attributes: [] },
+          attributes: ['id', 'category_key', 'name_zh', 'name_en'],
+          required: false
+        }
+      ];
+
+      // 为ES结果补充分析分类
+      const enrichedItems = [];
+      for (const item of esResult.items) {
+        if (item.id) {
+          const errorCode = await ErrorCode.findByPk(item.id, { include });
+          if (errorCode) {
+            const data = mergeErrorCodeByLang(errorCode.toJSON(), targetLang);
+            enrichedItems.push({ ...data, _match: item._match, _score: item._score });
+          } else {
+            enrichedItems.push(item);
+          }
+        } else {
+          enrichedItems.push(item);
+        }
+      }
+
+      return { items: enrichedItems.slice(0, limit), debug: { ...esResult.debug, method: 'es' } };
+    } else {
+      console.log(`[智能搜索-故障码关键词] ℹ️ ES无结果，使用MySQL检索，关键词: [${kwList.join(', ')}]`);
+    }
+  } catch (e) {
+    console.warn('[智能搜索-故障码关键词] ❌ ES搜索失败，fallback到MySQL:', e?.message || e);
+  }
+
+  // 2. Fallback到MySQL搜索
   const include = [
     {
       model: AnalysisCategory,
@@ -404,7 +457,6 @@ async function searchErrorCodesByKeywords({ keywords, targetLang, limit }) {
   const out = [];
   const seen = new Set();
 
-  const kwList = (keywords || []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 12);
   for (const kw of kwList) {
     if (kw.length <= 1) continue;
     used.push(kw);
@@ -435,13 +487,55 @@ async function searchErrorCodesByKeywords({ keywords, targetLang, limit }) {
     if (out.length >= limit) break;
   }
 
-  return { items: out.slice(0, limit), debug: { keywordAttempts: used } };
+  return { items: out.slice(0, limit), debug: { keywordAttempts: used, method: 'mysql' } };
 }
 
 async function getErrorCodesByTypeCodes({ typeCodes, targetLang, limit }) {
   const codes = (typeCodes || []).map((x) => normalizeTypeCode(x)).filter(Boolean).slice(0, 12);
   if (!codes.length) return { items: [], debug: { typeCodes: [] } };
 
+  // 1. 优先使用ES搜索（故障类型码前缀匹配）
+  try {
+    const esResult = await searchErrorCodesByTypeCodesEs({ typeCodes: codes, lang: targetLang, limit });
+    if (esResult.ok && esResult.items && esResult.items.length > 0) {
+      console.log(`[智能搜索-故障类型码] ✅ 使用ES检索，类型码: [${codes.join(', ')}], 匹配数: ${esResult.items.length}, ES总数: ${esResult.debug?.total || esResult.items.length}`);
+      
+      // ES搜索成功，需要补充分析分类信息
+      const include = [
+        {
+          model: AnalysisCategory,
+          as: 'analysisCategories',
+          through: { attributes: [] },
+          attributes: ['id', 'category_key', 'name_zh', 'name_en'],
+          required: false
+        }
+      ];
+
+      // 为ES结果补充分析分类
+      const enrichedItems = [];
+      for (const item of esResult.items) {
+        if (item.id) {
+          const errorCode = await ErrorCode.findByPk(item.id, { include });
+          if (errorCode) {
+            const data = mergeErrorCodeByLang(errorCode.toJSON(), targetLang);
+            enrichedItems.push({ ...data, _match: item._match, _score: item._score });
+          } else {
+            enrichedItems.push({ ...item, _match: { type: 'fault_type', code: item.code } });
+          }
+        } else {
+          enrichedItems.push({ ...item, _match: { type: 'fault_type', code: item.code } });
+        }
+      }
+
+      return { items: enrichedItems.slice(0, limit), debug: { ...esResult.debug, method: 'es' } };
+    } else {
+      console.log(`[智能搜索-故障类型码] ℹ️ ES无结果，使用MySQL检索，类型码: [${codes.join(', ')}]`);
+    }
+  } catch (e) {
+    console.warn('[智能搜索-故障类型码] ❌ ES搜索失败，fallback到MySQL:', e?.message || e);
+  }
+
+  // 2. Fallback到MySQL搜索
   const include = [
     {
       model: AnalysisCategory,
@@ -485,7 +579,7 @@ async function getErrorCodesByTypeCodes({ typeCodes, targetLang, limit }) {
     .slice(0, Math.max(limit, 1))
     .map((x) => ({ ...x, _match: { type: 'fault_type', code: x.code } }));
 
-  return { items: out, debug: { typeCodes: codes } };
+  return { items: out, debug: { typeCodes: codes, method: 'mysql' } };
 }
 
 async function getErrorCodeBySubsystemAndCode({ subsystem, code, targetLang }) {
@@ -547,6 +641,7 @@ function buildAnswerText({ recognized, faultSources, jiraSources, faultCaseSourc
   if (intent && intentLabelMap[intent]) points.push(`意图：${intentLabelMap[intent]}`);
   if (recognized?.fullCodes?.length) points.push(`故障码：${recognized.fullCodes.join(' / ')}`);
   else if (recognized?.typeCodes?.length) points.push(`故障类型：${recognized.typeCodes.join(' / ')}`);
+  if (recognized?.plan?.query?.keywords?.length) points.push(`关键词：${recognized.plan.query.keywords.join(' / ')}`);
   if (recognized?.plan?.query?.symptom?.length) points.push(`现象：${recognized.plan.query.symptom.join(' / ')}`);
   if (recognized?.plan?.query?.trigger?.length) points.push(`触发条件：${recognized.plan.query.trigger.join(' / ')}`);
 
@@ -655,7 +750,8 @@ async function smartSearch(req, res) {
     const limits = {
       errorCodes: clampInt(body?.limits?.errorCodes, 1, 30, DEFAULT_LIMITS.errorCodes),
       jira: clampInt(body?.limits?.jira, 0, 50, DEFAULT_LIMITS.jira),
-      faultCases: clampInt(body?.limits?.faultCases, 0, 50, DEFAULT_LIMITS.faultCases)
+      faultCases: clampInt(body?.limits?.faultCases, 0, 50, DEFAULT_LIMITS.faultCases),
+      kbDocs: clampInt(body?.limits?.kbDocs, 0, 20, DEFAULT_LIMITS.kbDocs)
     };
     const includeDebug = body?.debug === true || body?.includeDebug === true || req.query?.debug === '1';
 
@@ -775,7 +871,9 @@ async function smartSearch(req, res) {
     ].map(normalizeTypeCode).filter(Boolean));
 
     // If nothing extracted and no fault code recognized, guide user to classic panels
-    const hasAnyIntent = mergedTypeCodes.length ||
+    const hasAnyIntent = intent === 'definition' || intent === 'how_to_use' ||
+      mergedTypeCodes.length ||
+      (q.keywords || []).length ||
       (q.symptom || []).length ||
       (q.trigger || []).length ||
       (q.component || []).length;
@@ -849,13 +947,27 @@ async function smartSearch(req, res) {
     if (!jiraCfg.enabled) strategy.doJira = false;
 
     if (intent === 'how_to_use') {
-      const answerText =
-        '我可以帮你做“故障码库 + Jira 历史案例”的智能检索（不做知识性自由回答）。\n\n' +
+      let kb = { ok: true, items: [], debug: { skipped: true, reason: 'not_run' } };
+      if (limits.kbDocs > 0) {
+        try {
+          const kbQuery = (q.keywords || []).length ? q.keywords.join(' ') : query;
+          kb = await searchKbSnippets(kbQuery, { lang: targetLang, limit: limits.kbDocs });
+        } catch (e) {
+          kb = { ok: false, items: [], error: { message: String(e?.message || e), code: e?.code || 'kb_search_failed' } };
+        }
+      }
+
+      const kbAnswer = buildKbSnippetAnswerText(kb.items);
+      const fallbackText =
+        '我可以帮你做“故障码库 + Jira 历史案例 + 知识库文档”的智能检索（优先返回原文片段，不做无依据推断）。\n\n' +
         '你可以这样问：\n' +
         '- “165100A 是什么故障？”（查故障码）\n' +
         '- “断网 插拔器械 有人遇到吗？”（找历史案例）\n' +
+        '- “网络断连 如何排查？”（知识库/说明书片段）\n' +
         '- “010A 断网 怎么排查？”（排查/修复）\n\n' +
         '也可以直接使用经典面板进行检索。';
+
+      const answerText = kbAnswer || fallbackText;
       const meta = {
         lang: targetLang,
         elapsedMs: Date.now() - startedAt,
@@ -870,7 +982,18 @@ async function smartSearch(req, res) {
         ok: true,
         queryPlan,
         answerText,
-        sources: { faultCodes: [], jira: [] },
+        recognized: {
+          fullCodes: recognizedCodes.fullCodes || [],
+          typeCodes: recognizedCodes.typeCodes || [],
+          intent: intent,
+          keywords: q.keywords || [],
+          symptom: q.symptom || [],
+          trigger: q.trigger || [],
+          component: q.component || [],
+          neg: q.neg || [],
+          days: q.days || 180
+        },
+        sources: { faultCodes: [], jira: [], kbDocs: kb.items || [] },
         suggestedRoutes: [
           { label: '故障码搜索', path: '/dashboard/error-codes' },
           { label: '故障案例搜索', path: '/dashboard/fault-cases' }
@@ -885,7 +1008,8 @@ async function smartSearch(req, res) {
             queryPlan: {
               ...queryPlan,
               planner: { recognizedCodes, mergedTypeCodes, intent, strategy }
-            }
+            },
+            kb
           }
         } : {})
       };
@@ -912,10 +1036,22 @@ async function smartSearch(req, res) {
     }
 
     if (intent === 'definition') {
-      const answerText =
-        '我目前没有接入“知识库/百科”，无法对概念类问题做可靠解释。\n' +
-        '但我可以帮你在“故障码库 + Jira 历史案例”里检索。\n\n' +
-        '请补充：故障码（如 165100A / 010A）或现象关键词（如 断网/抖动/报警），或直接使用经典面板。';
+      let kb = { ok: true, items: [], debug: { skipped: true, reason: 'not_run' } };
+      if (limits.kbDocs > 0) {
+        try {
+          const kbQuery = (q.keywords || []).length ? q.keywords.join(' ') : query;
+          kb = await searchKbSnippets(kbQuery, { lang: targetLang, limit: limits.kbDocs });
+        } catch (e) {
+          kb = { ok: false, items: [], error: { message: String(e?.message || e), code: e?.code || 'kb_search_failed' } };
+        }
+      }
+
+      const kbAnswer = buildKbSnippetAnswerText(kb.items);
+      const fallbackText =
+        '我目前没有接入可可靠解释的百科知识库，但可以在“说明书/需求/设计文档（原文片段）+ 故障码库 + Jira 历史案例”中检索。\n\n' +
+        '请补充：关键名词、模块名、或故障码（如 165100A / 010A），我会返回最相关的原文片段引用。';
+
+      const answerText = kbAnswer || fallbackText;
       const meta = {
         lang: targetLang,
         elapsedMs: Date.now() - startedAt,
@@ -930,7 +1066,18 @@ async function smartSearch(req, res) {
         ok: true,
         queryPlan,
         answerText,
-        sources: { faultCodes: [], jira: [] },
+        recognized: {
+          fullCodes: recognizedCodes.fullCodes || [],
+          typeCodes: recognizedCodes.typeCodes || [],
+          intent: intent,
+          keywords: q.keywords || [],
+          symptom: q.symptom || [],
+          trigger: q.trigger || [],
+          component: q.component || [],
+          neg: q.neg || [],
+          days: q.days || 180
+        },
+        sources: { faultCodes: [], jira: [], kbDocs: kb.items || [] },
         suggestedRoutes: [
           { label: '故障码搜索', path: '/dashboard/error-codes' },
           { label: '故障案例搜索', path: '/dashboard/fault-cases' }
@@ -945,7 +1092,8 @@ async function smartSearch(req, res) {
             queryPlan: {
               ...queryPlan,
               planner: { recognizedCodes, mergedTypeCodes, intent, strategy }
-            }
+            },
+            kb
           }
         } : {})
       };
@@ -971,25 +1119,22 @@ async function smartSearch(req, res) {
       return res.json(responsePayload);
     }
 
-    // Step 3-1: Fault code retrieval
+    // Step 3-1: Fault code retrieval (reuse unified search)
     const missNotes = [];
 
-    // Full fault code: explain first (no params), then fetch its record (subsystem + type code)
-    let fullExplanation = null;
-    if (recognizedCodes.fullCodes && recognizedCodes.fullCodes.length) {
-      try {
-        await ensureCacheReady();
-        const fc = recognizedCodes.fullCodes[0];
-        const rendered = renderEntryExplanation({ error_code: fc, param1: null, param2: null, param3: null, param4: null });
-        fullExplanation = rendered?.explanation || null;
-      } catch (_) {
-        fullExplanation = null;
-      }
-    }
+    // Full fault code: reuse unified preview to get a rendered explanation + prefix (no params)
+    let faultCodesPreview = null;
 
-    const keywords = uniq([...(q.symptom || []), ...(q.trigger || []), ...(q.component || [])]).slice(0, 12);
+    // 合并所有关键词来源：keywords（LLM提取的通用关键词）+ symptom + trigger + component
+    const keywords = uniq([
+      ...(q.keywords || []),
+      ...(q.symptom || []),
+      ...(q.trigger || []),
+      ...(q.component || [])
+    ]).slice(0, 12);
 
     let faultSources = [];
+    let faultCodesSearch = null; // unified-like structure: { errorCodes, total, _meta, preview }
     let typeResp = { items: [], debug: { typeCodes: [] } };
     let kwResp = { items: [], debug: { keywordAttempts: [] } };
     if (!strategy.doFault) {
@@ -999,33 +1144,79 @@ async function smartSearch(req, res) {
       const hasFullCode = recognizedCodes.fullCodes && recognizedCodes.fullCodes.length > 0;
       const hasTypeCodeOnly = !hasFullCode && mergedTypeCodes.length > 0;
 
-      // 有完整故障码时：使用完整故障码检索
+      // 有完整故障码时：统一检索（精确查）+ 可选 preview
       if (hasFullCode) {
         const fc = recognizedCodes.fullCodes[0];
-        const subsystem = fc.charAt(0);
-        const typeCode = normalizeTypeCode(fc.slice(-4));
-        if (subsystem && typeCode) {
-          exactRecord = await getErrorCodeBySubsystemAndCode({ subsystem, code: typeCode, targetLang });
-          if (exactRecord) exactRecord._match = { type: 'full_code', fullCode: fc };
+        const derivedSubsystem = String(fc || '').trim().toUpperCase().charAt(0);
+        const unified = await searchErrorCodesUnified({
+          q: fc,
+          subsystem: derivedSubsystem || undefined,
+          page: 1,
+          limit: Math.max(limits.errorCodes, 10),
+          preview: 1,
+          acceptLanguage: targetLang,
+          t: req.t
+        });
+        faultCodesPreview = unified?.preview || null;
+        exactRecord = (unified?.errorCodes && unified.errorCodes[0]) ? unified.errorCodes[0] : null;
+        if (exactRecord) {
+          exactRecord._match = { type: 'full_code', fullCode: fc, method: unified?._meta?.searchMethod || 'exact' };
         }
       }
 
       // 只有不完整的故障码（故障类型）时：使用故障类型检索所有子系统
       if (hasTypeCodeOnly) {
-        typeResp = await getErrorCodesByTypeCodes({
-          typeCodes: mergedTypeCodes,
-          targetLang,
-          limit: limits.errorCodes
-        });
+        // 复用统一检索：每个 typeCode 调一次（便于维持“精确查”的识别与结构）
+        const merged = [];
+        const seenType = new Set();
+        for (const tc of mergedTypeCodes) {
+          // eslint-disable-next-line no-await-in-loop
+          const r = await searchErrorCodesUnified({
+            q: tc,
+            page: 1,
+            limit: limits.errorCodes,
+            acceptLanguage: targetLang,
+            t: req.t
+          });
+          for (const it of r?.errorCodes || []) {
+            const key = String(it?.id || `${it?.subsystem || ''}:${it?.code || ''}`);
+            if (seenType.has(key)) continue;
+            seenType.add(key);
+            merged.push(it);
+            if (merged.length >= limits.errorCodes) break;
+          }
+          if (merged.length >= limits.errorCodes) break;
+        }
+        typeResp = { items: merged, debug: { typeCodes: mergedTypeCodes } };
       }
 
       // 关键词检索（作为补充）
-      if (keywords.length > 0) {
-        kwResp = await searchErrorCodesByKeywords({
-          keywords,
-          targetLang,
-          limit: limits.errorCodes
-        });
+      // 注意：对于 find_case 或 troubleshoot 意图，不使用 keywords 检索故障码，只使用 fault_codes
+      if (keywords.length > 0 && intent !== 'find_case' && intent !== 'troubleshoot') {
+        const outItems = [];
+        const seenKw = new Set();
+        const used = [];
+        for (const kw of keywords) {
+          if (!kw || String(kw).trim().length <= 1) continue;
+          used.push(String(kw).trim());
+          // eslint-disable-next-line no-await-in-loop
+          const r = await searchErrorCodesUnified({
+            q: kw,
+            page: 1,
+            limit: limits.errorCodes,
+            acceptLanguage: targetLang,
+            t: req.t
+          });
+          for (const it of r?.errorCodes || []) {
+            const key = String(it?.id || `${it?.subsystem || ''}:${it?.code || ''}`);
+            if (seenKw.has(key)) continue;
+            seenKw.add(key);
+            outItems.push(it);
+            if (outItems.length >= limits.errorCodes) break;
+          }
+          if (outItems.length >= limits.errorCodes) break;
+        }
+        kwResp = { items: outItems, debug: { keywordAttempts: used } };
       }
 
       const mergedFault = [];
@@ -1058,7 +1249,7 @@ async function smartSearch(req, res) {
         }
         
         // 解析 explanation：如果有参数，使用参数解析；否则使用 fullExplanation 或原始模板
-        let parsedExplanation = fullExplanation || it.explanation || '';
+        let parsedExplanation = (faultCodesPreview && faultCodesPreview.explanation) ? faultCodesPreview.explanation : (it.explanation || '');
         const hasParams = it.param1 || it.param2 || it.param3 || it.param4;
         if (hasParams && it.explanation) {
           try {
@@ -1101,23 +1292,27 @@ async function smartSearch(req, res) {
         
         return {
           ref: `F${idx + 1}`,
-          id: it.id,
-          subsystem: it.subsystem,
-          code: it.code,
-          short_message: it.short_message || '',
-          user_hint: it.user_hint || '',
-          operation: it.operation || '',
-          detail: it.detail || '',
-          method: it.method || '',
-          param1: it.param1 || '',
-          param2: it.param2 || '',
-          param3: it.param3 || '',
-          param4: it.param4 || '',
-          tech_solution: it.tech_solution || '',
+          ...it,
+          // 覆盖 explanation（必要时按参数解析）
           explanation: parsedExplanation,
-          category: category
+          // 兼容 UI：确保 category 有可读值
+          category: category || it.category || ''
         };
       });
+
+      // 提供一个与 GET /error-codes 对齐的“故障码检索结果结构”，方便前端/调用方复用
+      faultCodesSearch = {
+        errorCodes: faultItems,
+        total: faultItems.length,
+        preview: faultCodesPreview,
+        _meta: {
+          recognized: hasFullCode
+            ? { kind: 'full_code', input: recognizedCodes.fullCodes?.[0] || '' }
+            : (hasTypeCodeOnly ? { kind: 'type_code', input: mergedTypeCodes?.[0] || '' } : { kind: 'keyword', input: keywords?.[0] || '' }),
+          typeCodes: mergedTypeCodes || [],
+          keywordAttempts: kwResp?.debug?.keywordAttempts || []
+        }
+      };
     }
 
     // Step 3-2/3-3: For find_case / troubleshoot, reuse /jira/search-mixed core logic (keyword + filters)
@@ -1131,7 +1326,7 @@ async function smartSearch(req, res) {
     let jiraJql = '';
 
     if ((intent === 'find_case' || intent === 'troubleshoot') && (limits.jira > 0 || limits.faultCases > 0)) {
-      const searchTerms = uniq([...(q.symptom || []), ...(q.trigger || [])]).slice(0, 12);
+      const searchTerms = uniq([...(q.keywords || []), ...(q.symptom || []), ...(q.trigger || [])]).slice(0, 12);
       const mixedQ = searchTerms.join(' ').trim() || String(query || '').trim();
 
       const mixedResp = await runJiraMongoMixedSearch({
@@ -1306,6 +1501,7 @@ async function smartSearch(req, res) {
         fullCodes: recognizedCodes.fullCodes || [],
         typeCodes: recognizedCodes.typeCodes || [],
         intent: intent,
+        keywords: q.keywords || [],
         symptom: q.symptom || [],
         trigger: q.trigger || [],
         component: q.component || [],
@@ -1315,6 +1511,8 @@ async function smartSearch(req, res) {
       missNotes: missNotes || [],
       sources: {
         faultCodes: faultSources,
+        faultCodesPreview,
+        faultCodesSearch,
         jira: jiraSources,
         faultCases: faultCaseSources
       },

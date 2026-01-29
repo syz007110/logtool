@@ -1,5 +1,13 @@
 <template>
   <div class="account-container">
+    <el-alert
+      v-if="mustChangePassword"
+      type="warning"
+      :title="$t('auth.mustChangePasswordTitle')"
+      :description="$t('auth.mustChangePasswordDesc')"
+      show-icon
+      class="force-change-alert"
+    />
     <el-row :gutter="20">
       <!-- 个人信息卡片 -->
       <el-col :span="12">
@@ -59,13 +67,16 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { validatePasswordStrength } from '@/utils/passwordStrength'
 
 export default {
   name: 'Account',
   setup() {
     const store = useStore()
+    const router = useRouter()
     const { t, locale } = useI18n()
     
     // 响应式数据
@@ -103,13 +114,22 @@ export default {
       }
     }
     
+    const validateNewPassword = (rule, value, callback) => {
+      const r = validatePasswordStrength(value, profileData.username)
+      if (!r.valid) {
+        callback(new Error(t('passwordStrength.' + (r.messageKey || 'minLength'))))
+      } else {
+        callback()
+      }
+    }
+    
     const passwordRules = {
       oldPassword: [
         { required: true, message: t('account.rules.oldPasswordRequired'), trigger: 'blur' }
       ],
       newPassword: [
         { required: true, message: t('account.rules.newPasswordRequired'), trigger: 'blur' },
-        { min: 6, message: t('account.rules.newPasswordMin'), trigger: 'blur' }
+        { validator: validateNewPassword, trigger: 'blur' }
       ],
       confirmPassword: [
         { required: true, message: t('account.rules.confirmPasswordRequired'), trigger: 'blur' },
@@ -117,8 +137,10 @@ export default {
       ]
     }
     
+    const mustChangePassword = computed(() => store.getters['auth/mustChangePassword'])
+
     // 计算属性
-    const currentUser = computed(() => store.getters.currentUser)
+    const currentUser = computed(() => store.getters['auth/currentUser'])
     
     // 方法
     const loadUserProfile = () => {
@@ -159,7 +181,7 @@ export default {
         }
         await store.dispatch('users/updateUser', {
           id: store.getters['auth/currentUser'].id,
-          data: { 
+          data: {
             password: passwordData.newPassword,
             oldPassword: passwordData.oldPassword
           }
@@ -167,6 +189,8 @@ export default {
         ElMessage.success(t('account.changePasswordSuccess'))
         Object.assign(passwordData, { oldPassword: '', newPassword: '', confirmPassword: '' })
         passwordForm.value.resetFields()
+        await store.dispatch('auth/refreshMe')
+        router.push('/smart-search')
       } catch (error) {
         ElMessage.error(error.response?.data?.message || t('account.changePasswordFailed'))
       } finally {
@@ -217,7 +241,8 @@ export default {
       getRoleType,
       getRoleText,
       formatDate,
-      currentUser
+      currentUser,
+      mustChangePassword
     }
   }
 }
@@ -229,6 +254,10 @@ export default {
   background: var(--black-white-white);
   padding: 24px;
   overflow: auto;
+}
+
+.force-change-alert {
+  margin-bottom: 16px;
 }
 
 .profile-card,

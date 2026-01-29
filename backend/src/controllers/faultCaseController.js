@@ -538,6 +538,10 @@ const updateFaultCase = async (req, res) => {
     if (equipment_model !== undefined) patch.equipment_model = Array.isArray(equipment_model) ? equipment_model.filter(m => m && String(m).trim()).map(m => String(m).trim()) : (equipment_model ? [String(equipment_model).trim()] : []);
     if (keywords !== undefined) patch.keywords = parseKeywords(keywords);
     if (related_error_code_ids !== undefined) patch.related_error_code_ids = await validateRelatedErrorCodes(related_error_code_ids);
+    // 在更新附件之前，先获取现有的附件信息，以便删除不再使用的OSS文件
+    const existingAttachments = faultCase.attachments || [];
+    let attachmentsToDelete = [];
+
     if (attachments !== undefined) {
       const normalizedAttachments = normalizeAttachmentsPayloadStrict(attachments);
       const finalized = [];
@@ -546,6 +550,17 @@ const updateFaultCase = async (req, res) => {
         if (!a) return a;
         const { url, ...rest } = a;
         return rest;
+      });
+
+      // 找出被删除的附件（不在新列表中的旧附件）
+      const newObjectKeys = new Set(
+        patch.attachments
+          .map(a => a?.object_key ? String(a.object_key).replace(/^\//, '') : null)
+          .filter(Boolean)
+      );
+      attachmentsToDelete = existingAttachments.filter(a => {
+        const oldKey = a?.object_key ? String(a.object_key).replace(/^\//, '') : null;
+        return oldKey && !newObjectKeys.has(oldKey);
       });
     }
     if (status !== undefined) patch.status = String(status || '').trim();
@@ -562,6 +577,29 @@ const updateFaultCase = async (req, res) => {
     const updateOps = { $set: patch };
     if (Object.keys(unset).length) updateOps.$unset = unset;
     const updated = await FaultCase.findByIdAndUpdate(id, updateOps, { new: true });
+
+    // 删除OSS上的旧附件文件（在数据库更新后执行）
+    if (attachmentsToDelete.length > 0) {
+      for (const attachment of attachmentsToDelete) {
+        try {
+          if (attachment.storage === 'oss' && attachment.object_key) {
+            const client = await getOssClient();
+            const objectKey = String(attachment.object_key).replace(/^\//, '');
+            await client.delete(objectKey);
+            console.log(`已删除OSS故障案例附件: ${objectKey}`);
+          } else if (attachment.storage === 'local' && attachment.object_key) {
+            const filePath = path.resolve(LOCAL_DIR, String(attachment.object_key));
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`已删除本地故障案例附件: ${filePath}`);
+            }
+          }
+        } catch (e) {
+          // 静默处理删除失败，避免影响主要操作
+          console.warn(`删除故障案例附件文件失败 (${attachment.object_key || 'unknown'}):`, e.message);
+        }
+      }
+    }
 
     return res.json({
       message: req.t('shared.updated'),
@@ -587,6 +625,28 @@ const deleteFaultCase = async (req, res) => {
     const faultCase = await FaultCase.findById(id);
     if (!faultCase) return res.status(404).json({ message: req.t('shared.notFound') });
     if (!(await canEditCase(req, faultCase))) return res.status(403).json({ message: '权限不足' });
+
+    // 删除故障案例的附件文件
+    const attachments = faultCase.attachments || [];
+    for (const attachment of attachments) {
+      try {
+        if (attachment.storage === 'oss' && attachment.object_key) {
+          const client = await getOssClient();
+          const objectKey = String(attachment.object_key).replace(/^\//, '');
+          await client.delete(objectKey);
+          console.log(`已删除OSS故障案例附件: ${objectKey}`);
+        } else if (attachment.storage === 'local' && attachment.object_key) {
+          const filePath = path.resolve(LOCAL_DIR, String(attachment.object_key));
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`已删除本地故障案例附件: ${filePath}`);
+          }
+        }
+      } catch (e) {
+        // 静默处理删除失败，避免影响主要操作
+        console.warn(`删除故障案例附件文件失败 (${attachment.object_key || 'unknown'}):`, e.message);
+      }
+    }
 
     await FaultCase.deleteOne({ _id: id });
     await FaultCaseI18n.deleteMany({ fault_case_id: id });

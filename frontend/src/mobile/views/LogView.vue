@@ -974,7 +974,7 @@ export default {
 .page {
   /* 使用 100% 而不是 100vh，避免超出视口 */
   min-height: 100%;
-  background-color: #f7f8fa;
+  background-color: var(--m-color-bg);
   /* 底部留白由 App.vue 全局样式统一设置 */
   box-sizing: border-box;
 }
@@ -987,9 +987,9 @@ export default {
   left: 0;
   right: 0;
   z-index: 100;
-  background-color: #fff;
-  border-bottom: 1.439px solid rgba(0, 0, 0, 0.1);
-  padding: 14px 16px;
+  background-color: var(--m-color-surface);
+  border-bottom: 1.439px solid var(--m-color-border);
+  padding: 14px var(--m-space-4);
   /* 顶部安全区域：防止被前置摄像头遮挡 */
   padding-top: max(14px, calc(env(safe-area-inset-top) + 14px));
 }
@@ -997,21 +997,21 @@ export default {
 .header-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--m-space-2);
 }
 
 .back-icon {
   font-size: 20px;
-  color: #323233;
+  color: var(--m-color-text);
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .header-title {
   flex: 1;
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 400;
-  color: #000;
+  color: var(--m-color-text);
   line-height: 24px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1026,25 +1026,25 @@ export default {
   left: 0;
   right: 0;
   z-index: 99;
-  background-color: #fff;
-  border-bottom: 1.439px solid rgba(0, 0, 0, 0.1);
-  padding: 8px;
+  background-color: var(--m-color-surface);
+  border-bottom: 1.439px solid var(--m-color-border);
+  padding: var(--m-space-2);
 }
 
 .filter-buttons {
   display: flex;
-  gap: 4px;
+  gap: var(--m-space-1);
   align-items: center;
 }
 
 .filter-button {
   flex: 1;
   height: 32px;
-  border-radius: 8px;
-  border: 1.439px solid rgba(0, 0, 0, 0.1);
-  background-color: #fff;
-  color: #000;
-  font-size: 12px;
+  border-radius: var(--m-radius-md);
+  border: 1.439px solid var(--m-color-border);
+  background-color: var(--m-color-surface);
+  color: var(--m-color-text);
+  font-size: var(--m-font-size-sm);
   font-weight: 400;
   line-height: 16px;
   cursor: pointer;
@@ -1054,27 +1054,27 @@ export default {
 }
 
 .filter-button.active {
-  background-color: #155dfc;
-  color: #fff;
-  border-color: #155dfc;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
+  border-color: var(--m-color-brand);
 }
 
 .filter-summary {
-  margin-top: 8px;
+  margin-top: var(--m-space-2);
   padding: 6px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: #f3f4f6;
+  background-color: var(--gray-100);
   border: 1px solid rgba(21, 93, 252, 0.15);
-  border-radius: 8px;
-  font-size: 12px;
-  color: #364153;
+  border-radius: var(--m-radius-md);
+  font-size: var(--m-font-size-sm);
+  color: var(--gray-700);
 }
 
 .filter-summary-icon {
-  font-size: 14px;
-  color: #155dfc;
+  font-size: var(--m-font-size-md);
+  color: var(--m-color-brand);
   flex-shrink: 0;
 }
 
@@ -1085,15 +1085,15 @@ export default {
 }
 
 .filter-summary-clear {
-  font-size: 14px;
-  color: #969799;
+  font-size: var(--m-font-size-md);
+  color: var(--gray-400);
   cursor: pointer;
-  padding: 4px;
+  padding: var(--m-space-1);
   flex-shrink: 0;
 }
 
 .filter-summary-clear:active {
-  color: #323233;
+  color: var(--m-color-text);
   opacity: 0.7;
 }
 
@@ -1117,9 +1117,9 @@ export default {
 }
 
 .entry-card {
-  background-color: #fff;
-  border: 1.439px solid rgba(0, 0, 0, 0.1);
-  border-radius: 14px;
+  background-color: var(--m-color-surface);
+  border: 1.439px solid var(--m-color-border);
+  border-radius: var(--m-radius-lg);
   padding: 9.42px;
   box-sizing: border-box;
 }
@@ -1127,15 +1127,15 @@ export default {
 .entry-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--m-space-2);
+  margin-bottom: var(--m-space-1);
   min-height: 22.85px;
 }
 
 .entry-time {
-  font-size: 12px;
+  font-size: var(--m-font-size-sm);
   font-weight: 400;
-  color: #6a7282;
+  color: var(--m-color-text-secondary);
   line-height: 16px;
   flex-shrink: 0;
 }
@@ -1144,10 +1144,10 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--m-color-surface);
   padding: 3.44px 9.44px;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--m-radius-md);
+  font-size: var(--m-font-size-sm);
   font-weight: 400;
   line-height: 16px;
   height: 22.85px;
@@ -1156,34 +1156,34 @@ export default {
 
 /* 故障码背景颜色：根据结尾字母 */
 .error-code-badge.error-code-a {
-  background-color: #d4183d; /* 红色 */
+  background-color: var(--red-600); /* 红色 */
 }
 
 .error-code-badge.error-code-b {
-  background-color: #ff9800; /* 橙色 */
+  background-color: var(--orange-500); /* 橙色 */
 }
 
 .error-code-badge.error-code-c {
-  background-color: #26a69a; /* 蓝绿色 */
+  background-color: var(--emerald-600); /* 蓝绿色 */
 }
 
 .error-code-badge.error-code-default {
-  background-color: #9e9e9e; /* 浅灰色 */
+  background-color: var(--gray-400); /* 浅灰色 */
 }
 
 .entry-content {
-  font-size: 12px;
+  font-size: var(--m-font-size-sm);
   font-weight: 400;
-  color: #364153;
+  color: var(--gray-700);
   line-height: 19.5px;
   word-break: break-word;
 }
 
 .footer-stats {
   text-align: center;
-  font-size: 12px;
-  color: #969799;
-  padding: 12px 0;
+  font-size: var(--m-font-size-sm);
+  color: var(--gray-400);
+  padding: var(--m-space-3) 0;
 }
 
 .empty-state {
@@ -1208,21 +1208,21 @@ export default {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background-color: #fff;
-  color: #323233;
+  background-color: var(--m-color-surface);
+  color: var(--m-color-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--m-shadow-card);
   cursor: pointer;
   transition: all 0.3s;
-  border: 1px solid #ebedf0;
+  border: 1px solid var(--m-color-border);
 }
 
 .search-fab.has-filters {
-  background-color: #155dfc;
-  color: #fff;
-  border-color: #155dfc;
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
+  border-color: var(--m-color-brand);
 }
 
 .search-fab:active {
@@ -1246,21 +1246,21 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebedf0;
-  margin-bottom: 16px;
+  padding-bottom: var(--m-space-4);
+  border-bottom: 1px solid var(--m-color-border);
+  margin-bottom: var(--m-space-4);
 }
 
 .drawer-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 600;
-  color: #323233;
+  color: var(--m-color-text);
 }
 
 .drawer-header .van-icon {
   font-size: 20px;
-  color: #969799;
+  color: var(--gray-400);
   cursor: pointer;
 }
 
@@ -1270,35 +1270,35 @@ export default {
 }
 
 .drawer-footer {
-  padding-top: 16px;
-  border-top: 1px solid #ebedf0;
+  padding-top: var(--m-space-4);
+  border-top: 1px solid var(--m-color-border);
 }
 
 .tag-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--m-space-2);
 }
 
 .time-input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ebedf0;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #323233;
-  background-color: #fff;
+  padding: var(--m-space-2) var(--m-space-3);
+  border: 1px solid var(--m-color-border);
+  border-radius: var(--m-radius-xs);
+  font-size: var(--m-font-size-md);
+  color: var(--m-color-text);
+  background-color: var(--m-color-surface);
   box-sizing: border-box;
 }
 
 .time-input:focus {
   outline: none;
-  border-color: #155dfc;
+  border-color: var(--m-color-brand);
 }
 
 /* 搜索操作菜单样式 */
 .search-menu-content {
-  background-color: #fff;
+  background-color: var(--m-color-surface);
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
   padding: 0;
@@ -1307,40 +1307,40 @@ export default {
 .search-menu-handle {
   width: 100px;
   height: 8px;
-  background-color: #ececf0;
+  background-color: var(--gray-200);
   border-radius: 48293200px;
   margin: 17px auto;
 }
 
 .search-menu-header {
-  padding: 16px;
+  padding: var(--m-space-4);
   padding-bottom: 0;
 }
 
 .search-menu-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--m-space-2);
   margin-bottom: 6px;
 }
 
 .search-menu-title-icon {
   font-size: 20px;
-  color: #323233;
+  color: var(--m-color-text);
 }
 
 .search-menu-title h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   font-weight: 600;
-  color: #323233;
+  color: var(--m-color-text);
   line-height: 24px;
 }
 
 .search-menu-description {
   margin: 0;
-  font-size: 14px;
-  color: #717182;
+  font-size: var(--m-font-size-md);
+  color: var(--gray-500);
   line-height: 20px;
 }
 
@@ -1350,8 +1350,8 @@ export default {
 }
 
 .search-tabs-container {
-  background-color: #ececf0;
-  border-radius: 14px;
+  background-color: var(--gray-200);
+  border-radius: var(--m-radius-lg);
   padding: 3px;
   display: flex;
   position: relative;
@@ -1363,9 +1363,9 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--m-space-2);
   height: 29px;
-  border-radius: 14px;
+  border-radius: var(--m-radius-lg);
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
@@ -1374,18 +1374,18 @@ export default {
 }
 
 .search-tab-item.active {
-  background-color: #fff;
+  background-color: var(--m-color-surface);
   border-color: rgba(0, 0, 0, 0);
 }
 
 .search-tab-icon {
-  font-size: 16px;
-  color: #323233;
+  font-size: var(--m-font-size-lg);
+  color: var(--m-color-text);
 }
 
 .search-tab-text {
-  font-size: 12px;
-  color: #323233;
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text);
   font-weight: 400;
   line-height: 16px;
 }
@@ -1402,23 +1402,23 @@ export default {
 }
 
 .search-input-field {
-  background-color: #f3f3f5;
-  border-radius: 8px;
+  background-color: var(--gray-100);
+  border-radius: var(--m-radius-md);
   border: 1.439px solid transparent;
 }
 
 .search-input-field :deep(.van-field__control) {
   background-color: transparent;
-  padding: 4px 12px;
-  font-size: 14px;
-  color: #717182;
+  padding: var(--m-space-1) var(--m-space-3);
+  font-size: var(--m-font-size-md);
+  color: var(--gray-500);
 }
 
 .search-confirm-btn {
   height: 40px;
-  border-radius: 8px;
-  background-color: #155dfc;
-  font-size: 14px;
+  border-radius: var(--m-radius-md);
+  background-color: var(--m-color-brand);
+  font-size: var(--m-font-size-md);
   font-weight: 400;
 }
 

@@ -10,13 +10,24 @@ const {
   uploadBinary,
   batchUploadBinary,
   getMotionFormat,
+  getMotionFormatClassified,
   getDhModelConfig,
   previewParsedData,
+  getSeriesByTimeRange,
   downloadCsv,
   batchDownloadCsv,
+  batchDownload,
   getTaskStatus,
   getUserTasks,
   downloadTaskResult,
+  listMotionDataFiles,
+  listMotionDataFilesByDevice,
+  getMotionDataTimeFilters,
+  downloadMotionDataRaw,
+  downloadMotionDataParsed,
+  batchDownloadMotionDataRawZip,
+  deleteMotionDataFile,
+  batchDeleteMotionDataFiles,
 } = require('../controllers/motionDataController');
 
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/temp');
@@ -32,29 +43,42 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// ===== 重要：具体路由必须放在参数路由之前，避免被拦截 =====
+
 // Config endpoints - admin only
+router.get('/config/classified', auth, checkPermission('data_replay:manage'), getMotionFormatClassified);
 router.get('/config', auth, checkPermission('data_replay:manage'), getMotionFormat);
 router.get('/dh-model', auth, checkPermission('data_replay:manage'), getDhModelConfig);
 
-// Upload binary - admin only
-router.post('/upload', auth, checkPermission('data_replay:manage'), upload.single('file'), uploadBinary);
-
-// Batch upload binary - admin only (max 5 files)
-router.post('/batch-upload', auth, checkPermission('data_replay:manage'), upload.array('files', 5), batchUploadBinary);
-
-// Preview parsed data - admin only
-router.get('/:id/preview', auth, checkPermission('data_replay:manage'), previewParsedData);
-
-// Download CSV - admin only
-router.get('/:id/download-csv', auth, checkPermission('data_replay:manage'), downloadCsv);
-
-// Batch download CSV as ZIP - admin only
-router.post('/batch-download-csv', auth, checkPermission('data_replay:manage'), batchDownloadCsv);
-
-// Task status and result download - admin only
-router.get('/tasks', auth, checkPermission('data_replay:manage'), getUserTasks); // 获取用户所有任务（用于恢复）
+// Task status and result download - admin only (放在参数路由之前)
+router.get('/tasks', auth, checkPermission('data_replay:manage'), getUserTasks);
 router.get('/task/:taskId', auth, checkPermission('data_replay:manage'), getTaskStatus);
 router.get('/task/:taskId/download', auth, checkPermission('data_replay:manage'), downloadTaskResult);
+
+// Motion data metadata list / manage - admin only
+router.get('/files', auth, checkPermission('data_replay:manage'), listMotionDataFiles);
+router.get('/files/by-device', auth, checkPermission('data_replay:manage'), listMotionDataFilesByDevice);
+router.get('/files/time-filters', auth, checkPermission('data_replay:manage'), getMotionDataTimeFilters);
+router.post('/files/batch-delete', auth, checkPermission('data_replay:manage'), batchDeleteMotionDataFiles);
+router.post('/files/batch-download/raw', auth, checkPermission('data_replay:manage'), batchDownloadMotionDataRawZip);
+router.get('/files/:id/download/raw', auth, checkPermission('data_replay:manage'), downloadMotionDataRaw);
+router.get('/files/:id/download/parsed', auth, checkPermission('data_replay:manage'), downloadMotionDataParsed);
+router.get('/files/:id/series', auth, checkPermission('data_replay:manage'), getSeriesByTimeRange);
+router.delete('/files/:id', auth, checkPermission('data_replay:manage'), deleteMotionDataFile);
+
+// Upload binary - admin only
+router.post('/upload', auth, checkPermission('data_replay:manage'), upload.single('file'), uploadBinary);
+router.post('/batch-upload', auth, checkPermission('data_replay:manage'), upload.array('files', 5), batchUploadBinary);
+
+// Batch download as ZIP - admin only (支持 CSV 和 JSONL 格式)
+router.post('/batch-download', auth, checkPermission('data_replay:manage'), batchDownload);
+router.post('/batch-download-csv', auth, checkPermission('data_replay:manage'), batchDownloadCsv);
+
+// ===== 参数路由放在最后，避免拦截具体路由 =====
+// Preview parsed data - admin only
+router.get('/:id/preview', auth, checkPermission('data_replay:manage'), previewParsedData);
+// Download CSV - admin only
+router.get('/:id/download-csv', auth, checkPermission('data_replay:manage'), downloadCsv);
 
 module.exports = router;
 

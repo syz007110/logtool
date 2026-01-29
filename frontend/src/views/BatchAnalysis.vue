@@ -743,7 +743,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponen
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled, TrendCharts } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import SurgeryDataCompare from '@/components/SurgeryDataCompare.vue'
@@ -760,6 +760,7 @@ export default {
     ArrowLeft,
     DataAnalysis,
     Warning,
+    TrendCharts,
     TimeSeriesChart,
     SurgeryDataCompare,
     ExplanationCell: {
@@ -1818,33 +1819,76 @@ export default {
       return [timeRangeLimit.value[0], timeRangeLimit.value[1]]
     })
 
-    // 导出CSV（直接导航下载，避免大Blob占用内存）
+    // 导出CSV（异步队列模式）
     const exportToCSV = async () => {
       try {
-        const token = store.state.auth?.token
-        if (!token) {
-          ElMessage.error('未登录或登录已过期')
-          return
-        }
         const logIds = selectedLogs.value.map(l => l.id).join(',')
-        const params = new URLSearchParams()
-        if (logIds) params.set('log_ids', logIds)
+        const params = {}
+        if (logIds) params.log_ids = logIds
         if (advancedMode.value && leafConditionCount.value > 0) {
           const filtersPayload = buildFiltersPayload()
-          if (filtersPayload) params.set('filters', JSON.stringify(filtersPayload))
+          if (filtersPayload) params.filters = JSON.stringify(filtersPayload)
         }
         if (timeRange.value && timeRange.value.length === 2) {
-          params.set('start_time', timeRange.value[0])
-          params.set('end_time', timeRange.value[1])
+          params.start_time = timeRange.value[0]
+          params.end_time = timeRange.value[1]
         }
-        if (searchKeyword.value) params.set('search', searchKeyword.value)
-        // 携带token到query，后端GET支持query token认证
-        params.set('token', token)
-        const base = '/api/logs/entries/export'
-        const url = `${base}?${params.toString()}`
-        // 新开标签下载，避免阻断当前页面
-        window.open(url, '_blank')
+        if (searchKeyword.value) params.search = searchKeyword.value
+        
+        // 创建任务
+        const { data } = await api.logs.exportBatchEntries(params)
+        const taskId = data?.taskId
+        if (!taskId) throw new Error('未返回 taskId')
+        
+        ElMessage.info('CSV导出任务已创建，正在处理...')
+        
+        // 轮询任务状态
+        const pollInterval = setInterval(async () => {
+          try {
+            const resp = await api.logs.getExportCsvTaskStatus(taskId)
+            const st = resp.data?.data
+            const state = st?.status
+            
+            if (state === 'completed') {
+              clearInterval(pollInterval)
+              if (timeoutId) clearTimeout(timeoutId)
+              // 下载结果文件
+              try {
+                const downloadResp = await api.logs.downloadExportCsvResult(taskId)
+                const csvName = st?.result?.csvFileName || `batch_log_entries_${Date.now()}.csv`
+                const blob = new Blob([downloadResp.data], { type: 'text/csv;charset=utf-8;' })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = csvName
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                setTimeout(() => URL.revokeObjectURL(url), 100)
+                ElMessage.success('CSV导出成功')
+              } catch (downloadErr) {
+                ElMessage.error(downloadErr?.response?.data?.message || '下载结果文件失败')
+              }
+            } else if (state === 'failed') {
+              clearInterval(pollInterval)
+              if (timeoutId) clearTimeout(timeoutId)
+              ElMessage.error(st?.error || 'CSV导出任务失败')
+            }
+            // waiting/active 状态继续轮询
+          } catch (pollErr) {
+            clearInterval(pollInterval)
+            if (timeoutId) clearTimeout(timeoutId)
+            ElMessage.error('查询任务状态失败')
+          }
+        }, 2000) // 每2秒轮询一次
+        
+        // 超时保护（10分钟）
+        const timeoutId = setTimeout(() => {
+          clearInterval(pollInterval)
+          ElMessage.warning('CSV导出任务超时，请稍后重试')
+        }, 600000)
       } catch (error) {
+        console.error('导出CSV失败:', error)
         ElMessage.error('导出CSV失败: ' + (error?.response?.data?.message || error?.message || '未知错误'))
       }
     }
@@ -3496,12 +3540,20 @@ export default {
           await fetchGlobalStatistics()
         }
         
-        // 默认选择全部时间范围（最早至最晚）
-        if (timeRangeLimit.value) {
-          timeRange.value = [
-            formatTimestamp(timeRangeLimit.value[0]),
-            formatTimestamp(timeRangeLimit.value[1])
-          ]
+        // 支持从路由 query 传入时间范围（用于外部页面一键打开批量查看）
+        const qStart = route.query?.start_time
+        const qEnd = route.query?.end_time
+        const hasQueryTimeRange = !!(qStart && qEnd)
+        if (hasQueryTimeRange) {
+          timeRange.value = [String(qStart), String(qEnd)]
+        } else {
+          // 默认选择全部时间范围（最早至最晚）
+          if (timeRangeLimit.value) {
+            timeRange.value = [
+              formatTimestamp(timeRangeLimit.value[0]),
+              formatTimestamp(timeRangeLimit.value[1])
+            ]
+          }
         }
         
         // 初始化加载数据（loadBatchLogEntries 内部会控制 loading 状态）

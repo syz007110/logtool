@@ -56,6 +56,7 @@ const faultCaseModulesRouter = require('./routes/faultCaseModules');
 const ossRouter = require('./routes/oss');
 const jiraRouter = require('./routes/jira');
 const smartSearchRouter = require('./routes/smartSearch');
+const kbRouter = require('./routes/kb');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
@@ -140,6 +141,8 @@ app.use('/static/feedback', express.static(path.resolve(__dirname, '../uploads/f
 app.use('/static/tech-solution', express.static(path.resolve(__dirname, '../uploads/tech-solution')));
 // 静态资源：故障案例附件（本地存储）
 app.use('/static/fault-cases', express.static(path.resolve(__dirname, '../uploads/fault-cases')));
+// 静态资源：知识库文件（本地存储）
+app.use('/static/kb', express.static(path.resolve(__dirname, '../uploads/kb')));
 
 // 路由占位
 app.get('/', (req, res) => {
@@ -235,6 +238,7 @@ app.use('/api/fault-case-statuses', faultCaseStatusesRouter);
 app.use('/api/fault-case-modules', faultCaseModulesRouter);
 app.use('/api/jira', jiraRouter);
 app.use('/api/smart-search', smartSearchRouter);
+app.use('/api/kb', kbRouter);
 
 // 错误处理中间件
 app.use(errorMonitoring);

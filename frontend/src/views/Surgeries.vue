@@ -105,7 +105,7 @@
           <div class="detail-surgeries-card-header">
             <div class="device-header">
               <div class="device-info">
-                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ $t('logs.deviceId') }}：{{ selectedDevice?.device_id }}</span></h3>
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}</span>（{{ $t('logs.totalSurgeries') }}：{{ detailTotal }}）</h3>
                 <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
               </div>
               <div class="header-controls">
@@ -1135,11 +1135,11 @@ export default {
   padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
 }
 
-/* 卡片头部：包含关闭按钮和设备信息 */
+/* 卡片头部：包含关闭按钮和设备信息（与 DataReplay 详细列表统一） */
 .detail-surgeries-card-header {
   flex-shrink: 0;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgb(var(--border-secondary));
 }
 
@@ -1154,17 +1154,19 @@ export default {
 
 .device-info {
   flex: 1;
+  min-width: 0;
 }
 
 .device-info h3 {
-  margin: 0 0 10px 0;
-  color: var(--slate-900);
-  font-size: 18px;
+  margin: 0 0 6px 0;
+  color: rgb(var(--text-primary));
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .device-info p {
-  margin: 5px 0;
-  color: var(--slate-600);
+  margin: 0;
+  color: rgb(var(--text-secondary));
   font-size: 14px;
 }
 

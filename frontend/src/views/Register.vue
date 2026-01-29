@@ -95,6 +95,7 @@ import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { validatePasswordStrength } from '@/utils/passwordStrength'
 
 export default {
   name: 'Register',
@@ -123,6 +124,15 @@ export default {
       }
     }
     
+    const validatePassword = (rule, value, callback) => {
+      const r = validatePasswordStrength(value, formData.username)
+      if (!r.valid) {
+        callback(new Error(t('passwordStrength.' + (r.messageKey || 'minLength'))))
+      } else {
+        callback()
+      }
+    }
+    
     const rules = computed(() => ({
       username: [
         { required: true, message: t('register.validation.usernameRequired'), trigger: 'blur' },
@@ -134,7 +144,7 @@ export default {
       ],
       password: [
         { required: true, message: t('register.validation.passwordRequired'), trigger: 'blur' },
-        { min: 6, message: t('register.validation.passwordMinLength'), trigger: 'blur' }
+        { validator: validatePassword, trigger: 'blur' }
       ],
       confirmPassword: [
         { required: true, message: t('register.validation.confirmPasswordRequired'), trigger: 'blur' },

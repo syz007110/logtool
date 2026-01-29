@@ -1,0 +1,1062 @@
+{
+  "系统": {
+    "整机状态": [
+      {
+        "index": "dint_data",
+        "name": "状态机"
+      },
+      {
+        "index": "real_data_163",
+        "name": "内窥镜末端视角角度"
+      },
+      {
+        "index": "real_data_164",
+        "name": "控制比例"
+      },
+      {
+        "index": "real_data_161",
+        "name": "监视器倾角"
+      }
+    ],
+    "错误码": [
+      {
+        "index": "uint_data",
+        "name": "错误码"
+      }
+    ],
+    "IO信号": [
+      {
+        "index": "bool_data_0",
+        "name": "离合脚踏"
+      },
+      {
+        "index": "bool_data_1",
+        "name": "左手离合"
+      },
+      {
+        "index": "bool_data_2",
+        "name": "右手离合"
+      },
+      {
+        "index": "bool_data_3",
+        "name": "左电切"
+      },
+      {
+        "index": "bool_data_4",
+        "name": "右电切"
+      },
+      {
+        "index": "bool_data_5",
+        "name": "左电凝"
+      },
+      {
+        "index": "bool_data_6",
+        "name": "右电凝"
+      },
+      {
+        "index": "bool_data_7",
+        "name": "臂切换踏板"
+      }
+    ]
+  },
+  "左手": {
+    "关节实际位置": [
+      {
+        "index": "real_data_0",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_1",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_2",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_3",
+        "name": "4关节实际位置"
+      },
+      {
+        "index": "real_data_4",
+        "name": "5关节实际位置"
+      },
+      {
+        "index": "real_data_5",
+        "name": "6关节实际位置"
+      },
+      {
+        "index": "real_data_6",
+        "name": "7关节实际位置"
+      }
+    ],
+    "关节实际速度": [
+      {
+        "index": "real_data_42",
+        "name": "1关节实际速度"
+      },
+      {
+        "index": "real_data_43",
+        "name": "2关节实际速度"
+      },
+      {
+        "index": "real_data_44",
+        "name": "3关节实际速度"
+      },
+      {
+        "index": "real_data_45",
+        "name": "4关节实际速度"
+      },
+      {
+        "index": "real_data_46",
+        "name": "5关节实际速度"
+      },
+      {
+        "index": "real_data_47",
+        "name": "6关节实际速度"
+      },
+      {
+        "index": "real_data_48",
+        "name": "7关节实际速度"
+      }
+    ],
+    "笛卡尔姿态(视野系)": [
+      {
+        "index": "real_data_14",
+        "name": "笛卡尔姿态-w(视野系)"
+      },
+      {
+        "index": "real_data_15",
+        "name": "笛卡尔姿态-x(视野系)"
+      },
+      {
+        "index": "real_data_16",
+        "name": "笛卡尔姿态-y(视野系)"
+      },
+      {
+        "index": "real_data_17",
+        "name": "笛卡尔姿态-z(视野系)"
+      }
+    ],
+    "笛卡尔位置(视野系)": [
+      {
+        "index": "real_data_18",
+        "name": "笛卡尔位置-X(视野系)"
+      },
+      {
+        "index": "real_data_19",
+        "name": "笛卡尔位置-Y(视野系)"
+      },
+      {
+        "index": "real_data_20",
+        "name": "笛卡尔位置-Z(视野系)"
+      }
+    ],
+    "笛卡尔姿态(基座标系)": [
+      {
+        "index": "real_data_28",
+        "name": "笛卡尔姿态-w(基座标系)"
+      },
+      {
+        "index": "real_data_29",
+        "name": "笛卡尔姿态-x(基座标系)"
+      },
+      {
+        "index": "real_data_30",
+        "name": "笛卡尔姿态-y(基座标系)"
+      },
+      {
+        "index": "real_data_31",
+        "name": "笛卡尔姿态-z(基座标系)"
+      }
+    ],
+    "笛卡尔位置(基座标系)": [
+      {
+        "index": "real_data_32",
+        "name": "笛卡尔位置-X(基座标系)"
+      },
+      {
+        "index": "real_data_33",
+        "name": "笛卡尔位置-Y(基座标系)"
+      },
+      {
+        "index": "real_data_34",
+        "name": "笛卡尔位置-Z(基座标系)"
+      }
+    ],
+    "笛卡尔位姿速度(视野系)": [
+      {
+        "index": "real_data_56",
+        "name": "笛卡尔线速度-X(视野系)"
+      },
+      {
+        "index": "real_data_57",
+        "name": "笛卡尔线速度-Y(视野系)"
+      },
+      {
+        "index": "real_data_58",
+        "name": "笛卡尔线速度-Z(视野系)"
+      },
+      {
+        "index": "real_data_59",
+        "name": "笛卡尔角速度-u(视野系)"
+      },
+      {
+        "index": "real_data_60",
+        "name": "笛卡尔角速度-v(视野系)"
+      },
+      {
+        "index": "real_data_61",
+        "name": "笛卡尔角速度-w(视野系)"
+      }
+    ],
+    "笛卡尔位姿速度(基座标系)": [
+      {
+        "index": "real_data_68",
+        "name": "笛卡尔线速度-X(基座标系)"
+      },
+      {
+        "index": "real_data_69",
+        "name": "笛卡尔线速度-Y(基座标系)"
+      },
+      {
+        "index": "real_data_70",
+        "name": "笛卡尔线速度-Z(基座标系)"
+      },
+      {
+        "index": "real_data_71",
+        "name": "笛卡尔角速度-u(基座标系)"
+      },
+      {
+        "index": "real_data_72",
+        "name": "笛卡尔角速度-v(基座标系)"
+      },
+      {
+        "index": "real_data_73",
+        "name": "笛卡尔角速度-w(基座标系)"
+      }
+    ],
+    "开合角度": [
+      {
+        "index": "real_data_167",
+        "name": "开合角度"
+      }
+    ]
+  },
+  "右手": {
+    "关节实际位置": [
+      {
+        "index": "real_data_7",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_8",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_9",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_10",
+        "name": "4关节实际位置"
+      },
+      {
+        "index": "real_data_11",
+        "name": "5关节实际位置"
+      },
+      {
+        "index": "real_data_12",
+        "name": "6关节实际位置"
+      },
+      {
+        "index": "real_data_13",
+        "name": "7关节实际位置"
+      }
+    ],
+    "关节实际速度": [
+      {
+        "index": "real_data_49",
+        "name": "1关节实际速度"
+      },
+      {
+        "index": "real_data_50",
+        "name": "2关节实际速度"
+      },
+      {
+        "index": "real_data_51",
+        "name": "3关节实际速度"
+      },
+      {
+        "index": "real_data_52",
+        "name": "4关节实际速度"
+      },
+      {
+        "index": "real_data_53",
+        "name": "5关节实际速度"
+      },
+      {
+        "index": "real_data_54",
+        "name": "6关节实际速度"
+      },
+      {
+        "index": "real_data_55",
+        "name": "7关节实际速度"
+      }
+    ],
+    "笛卡尔姿态(视野系)": [
+      {
+        "index": "real_data_21",
+        "name": "笛卡尔姿态-w(视野系)"
+      },
+      {
+        "index": "real_data_22",
+        "name": "笛卡尔姿态-x(视野系)"
+      },
+      {
+        "index": "real_data_23",
+        "name": "笛卡尔姿态-y(视野系)"
+      },
+      {
+        "index": "real_data_24",
+        "name": "笛卡尔姿态-z(视野系)"
+      }
+    ],
+    "笛卡尔位置(视野系)": [
+      {
+        "index": "real_data_25",
+        "name": "笛卡尔位置-X(视野系)"
+      },
+      {
+        "index": "real_data_26",
+        "name": "笛卡尔位置-Y(视野系)"
+      },
+      {
+        "index": "real_data_27",
+        "name": "笛卡尔位置-Z(视野系)"
+      }
+    ],
+    "笛卡尔姿态(基座标系)": [
+      {
+        "index": "real_data_35",
+        "name": "笛卡尔姿态-w(基座标系)"
+      },
+      {
+        "index": "real_data_36",
+        "name": "笛卡尔姿态-x(基座标系)"
+      },
+      {
+        "index": "real_data_37",
+        "name": "笛卡尔姿态-y(基座标系)"
+      },
+      {
+        "index": "real_data_38",
+        "name": "笛卡尔姿态-z(基座标系)"
+      }
+    ],
+    "笛卡尔位置(基座标系)": [
+      {
+        "index": "real_data_39",
+        "name": "笛卡尔位置-X(基座标系)"
+      },
+      {
+        "index": "real_data_40",
+        "name": "笛卡尔位置-Y(基座标系)"
+      },
+      {
+        "index": "real_data_41",
+        "name": "笛卡尔位置-Z(基座标系)"
+      }
+    ],
+    "笛卡尔位姿速度(视野系)": [
+      {
+        "index": "real_data_62",
+        "name": "笛卡尔线速度-X(视野系)"
+      },
+      {
+        "index": "real_data_63",
+        "name": "笛卡尔线速度-Y(视野系)"
+      },
+      {
+        "index": "real_data_64",
+        "name": "笛卡尔线速度-Z(视野系)"
+      },
+      {
+        "index": "real_data_65",
+        "name": "笛卡尔角速度-u(视野系)"
+      },
+      {
+        "index": "real_data_66",
+        "name": "笛卡尔角速度-v(视野系)"
+      },
+      {
+        "index": "real_data_67",
+        "name": "笛卡尔角速度-w(视野系)"
+      }
+    ],
+    "笛卡尔位姿速度(基座标系)": [
+      {
+        "index": "real_data_74",
+        "name": "笛卡尔线速度-X(基座标系)"
+      },
+      {
+        "index": "real_data_75",
+        "name": "笛卡尔线速度-Y(基座标系)"
+      },
+      {
+        "index": "real_data_76",
+        "name": "笛卡尔线速度-Z(基座标系)"
+      },
+      {
+        "index": "real_data_77",
+        "name": "笛卡尔角速度-u(基座标系)"
+      },
+      {
+        "index": "real_data_78",
+        "name": "笛卡尔角速度-v(基座标系)"
+      },
+      {
+        "index": "real_data_79",
+        "name": "笛卡尔角速度-w(基座标系)"
+      }
+    ],
+    "开合角度": [
+      {
+        "index": "real_data_168",
+        "name": "开合角度"
+      }
+    ]
+  },
+  "工具臂(左手)": {
+    "关节位置": [
+      {
+        "index": "real_data_80",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_81",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_82",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_83",
+        "name": "4关节实际位置"
+      },
+      {
+        "index": "real_data_84",
+        "name": "5关节实际位置"
+      },
+      {
+        "index": "real_data_85",
+        "name": "6关节实际位置"
+      }
+    ],
+    "关节速度": [
+      {
+        "index": "real_data_132",
+        "name": "1关节实际速度"
+      },
+      {
+        "index": "real_data_133",
+        "name": "2关节实际速度"
+      },
+      {
+        "index": "real_data_134",
+        "name": "3关节实际速度"
+      },
+      {
+        "index": "real_data_135",
+        "name": "4关节实际速度"
+      },
+      {
+        "index": "real_data_136",
+        "name": "5关节实际速度"
+      },
+      {
+        "index": "real_data_137",
+        "name": "6关节实际速度"
+      }
+    ],
+    "子悬吊位置": [
+      {
+        "index": "real_data_86",
+        "name": "子悬吊实际位置"
+      }
+    ],
+    "调整臂关节位置": [
+      {
+        "index": "real_data_88",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_89",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_90",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_91",
+        "name": "4关节实际位置"
+      }
+    ],
+    "笛卡尔位姿(视野系)": [
+      {
+        "index": "real_data_104",
+        "name": "笛卡尔位置-X(视野系)"
+      },
+      {
+        "index": "real_data_105",
+        "name": "笛卡尔位置-Y(视野系)"
+      },
+      {
+        "index": "real_data_106",
+        "name": "笛卡尔位置-Z(视野系)"
+      },
+      {
+        "index": "real_data_107",
+        "name": "笛卡尔姿态-w(视野系)"
+      },
+      {
+        "index": "real_data_108",
+        "name": "笛卡尔姿态-x(视野系)"
+      },
+      {
+        "index": "real_data_109",
+        "name": "笛卡尔姿态-y(视野系)"
+      },
+      {
+        "index": "real_data_110",
+        "name": "笛卡尔姿态-z(视野系)"
+      }
+    ],
+    "笛卡尔位姿(基座标系)": [
+      {
+        "index": "real_data_118",
+        "name": "笛卡尔位置-X(基座标系)"
+      },
+      {
+        "index": "real_data_119",
+        "name": "笛卡尔位置-Y(基座标系)"
+      },
+      {
+        "index": "real_data_120",
+        "name": "笛卡尔位置-Z(基座标系)"
+      },
+      {
+        "index": "real_data_121",
+        "name": "笛卡尔姿态-w(基座标系)"
+      },
+      {
+        "index": "real_data_122",
+        "name": "笛卡尔姿态-x(基座标系)"
+      },
+      {
+        "index": "real_data_123",
+        "name": "笛卡尔姿态-y(基座标系)"
+      },
+      {
+        "index": "real_data_124",
+        "name": "笛卡尔姿态-z(基座标系)"
+      }
+    ],
+    "期望笛卡尔位姿(视野系)": [
+      {
+        "index": "real_data_169",
+        "name": "笛卡尔位置-X(视野系)"
+      },
+      {
+        "index": "real_data_170",
+        "name": "笛卡尔位置-Y(视野系)"
+      },
+      {
+        "index": "real_data_171",
+        "name": "笛卡尔位置-Z(视野系)"
+      },
+      {
+        "index": "real_data_172",
+        "name": "笛卡尔姿态-w(视野系)"
+      },
+      {
+        "index": "real_data_173",
+        "name": "笛卡尔姿态-x(视野系)"
+      },
+      {
+        "index": "real_data_174",
+        "name": "笛卡尔姿态-y(视野系)"
+      },
+      {
+        "index": "real_data_175",
+        "name": "笛卡尔姿态-z(视野系)"
+      }
+    ],
+    "开合角度": [
+      {
+        "index": "real_data_165",
+        "name": "开合角度"
+      }
+    ],
+    "重力补偿": [
+      {
+        "index": "real_data_183",
+        "name": "1关节重力补偿"
+      },
+      {
+        "index": "real_data_184",
+        "name": "2关节重力补偿"
+      },
+      {
+        "index": "real_data_185",
+        "name": "3关节重力补偿"
+      }
+    ],
+    "柔顺力": [
+      {
+        "index": "real_data_195",
+        "name": "1关节柔顺力"
+      },
+      {
+        "index": "real_data_196",
+        "name": "2关节柔顺力"
+      },
+      {
+        "index": "real_data_197",
+        "name": "3关节柔顺力"
+      }
+    ],
+    "器械类型": [
+      {
+        "index": "instType_0",
+        "name": "器械类型"
+      }
+    ],
+    "器械UDI": [
+      {
+        "index": "instUDI_0",
+        "name": "器械UDI_p1"
+      },
+      {
+        "index": "instUDI_1",
+        "name": "器械UDI_p2"
+      },
+      {
+        "index": "instUDI_2",
+        "name": "器械UDI_p3"
+      },
+      {
+        "index": "instUDI_3",
+        "name": "器械UDI_p4"
+      }
+    ]
+  },
+  "工具臂(右手)": {
+    "关节位置": [
+      {
+        "index": "real_data_92",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_93",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_94",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_95",
+        "name": "4关节实际位置"
+      },
+      {
+        "index": "real_data_96",
+        "name": "5关节实际位置"
+      },
+      {
+        "index": "real_data_97",
+        "name": "6关节实际位置"
+      }
+    ],
+    "关节速度": [
+      {
+        "index": "real_data_138",
+        "name": "1关节实际速度"
+      },
+      {
+        "index": "real_data_139",
+        "name": "2关节实际速度"
+      },
+      {
+        "index": "real_data_140",
+        "name": "3关节实际速度"
+      },
+      {
+        "index": "real_data_141",
+        "name": "4关节实际速度"
+      },
+      {
+        "index": "real_data_142",
+        "name": "5关节实际速度"
+      },
+      {
+        "index": "real_data_143",
+        "name": "6关节实际速度"
+      }
+    ],
+    "子悬吊位置": [
+      {
+        "index": "real_data_98",
+        "name": "子悬吊实际位置"
+      }
+    ],
+    "调整臂关节位置": [
+      {
+        "index": "real_data_100",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_101",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_102",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_103",
+        "name": "4关节实际位置"
+      }
+    ],
+    "笛卡尔位姿(视野系)": [
+      {
+        "index": "real_data_111",
+        "name": "笛卡尔位置-X(视野系)"
+      },
+      {
+        "index": "real_data_112",
+        "name": "笛卡尔位置-Y(视野系)"
+      },
+      {
+        "index": "real_data_113",
+        "name": "笛卡尔位置-Z(视野系)"
+      },
+      {
+        "index": "real_data_114",
+        "name": "笛卡尔姿态-w(视野系)"
+      },
+      {
+        "index": "real_data_115",
+        "name": "笛卡尔姿态-x(视野系)"
+      },
+      {
+        "index": "real_data_116",
+        "name": "笛卡尔姿态-y(视野系)"
+      },
+      {
+        "index": "real_data_117",
+        "name": "笛卡尔姿态-z(视野系)"
+      }
+    ],
+    "笛卡尔位姿(基座标系)": [
+      {
+        "index": "real_data_125",
+        "name": "笛卡尔位置-X(基座标系)"
+      },
+      {
+        "index": "real_data_126",
+        "name": "笛卡尔位置-Y(基座标系)"
+      },
+      {
+        "index": "real_data_127",
+        "name": "笛卡尔位置-Z(基座标系)"
+      },
+      {
+        "index": "real_data_128",
+        "name": "笛卡尔姿态-w(基座标系)"
+      },
+      {
+        "index": "real_data_129",
+        "name": "笛卡尔姿态-x(基座标系)"
+      },
+      {
+        "index": "real_data_130",
+        "name": "笛卡尔姿态-y(基座标系)"
+      },
+      {
+        "index": "real_data_131",
+        "name": "笛卡尔姿态-z(基座标系)"
+      }
+    ],
+    "期望笛卡尔位姿(视野系)": [
+      {
+        "index": "real_data_176",
+        "name": "笛卡尔位置-X(视野系)"
+      },
+      {
+        "index": "real_data_177",
+        "name": "笛卡尔位置-Y(视野系)"
+      },
+      {
+        "index": "real_data_178",
+        "name": "笛卡尔位置-Z(视野系)"
+      },
+      {
+        "index": "real_data_179",
+        "name": "笛卡尔姿态-w(视野系)"
+      },
+      {
+        "index": "real_data_180",
+        "name": "笛卡尔姿态-x(视野系)"
+      },
+      {
+        "index": "real_data_181",
+        "name": "笛卡尔姿态-y(视野系)"
+      },
+      {
+        "index": "real_data_182",
+        "name": "笛卡尔姿态-z(视野系)"
+      }
+    ],
+    "开合角度": [
+      {
+        "index": "real_data_166",
+        "name": "开合角度"
+      }
+    ],
+    "重力补偿": [
+      {
+        "index": "real_data_186",
+        "name": "1关节重力补偿"
+      },
+      {
+        "index": "real_data_187",
+        "name": "2关节重力补偿"
+      },
+      {
+        "index": "real_data_188",
+        "name": "3关节重力补偿"
+      }
+    ],
+    "柔顺力": [
+      {
+        "index": "real_data_198",
+        "name": "1关节柔顺力"
+      },
+      {
+        "index": "real_data_199",
+        "name": "2关节柔顺力"
+      },
+      {
+        "index": "real_data_200",
+        "name": "3关节柔顺力"
+      }
+    ],
+    "器械类型": [
+      {
+        "index": "instType_1",
+        "name": "器械类型"
+      }
+    ],
+    "器械UDI": [
+      {
+        "index": "instUDI_4",
+        "name": "器械UDI_p1"
+      },
+      {
+        "index": "instUDI_5",
+        "name": "器械UDI_p2"
+      },
+      {
+        "index": "instUDI_6",
+        "name": "器械UDI_p3"
+      },
+      {
+        "index": "instUDI_7",
+        "name": "器械UDI_p4"
+      }
+    ]
+  },
+  "持镜臂": {
+    "关节位置": [
+      {
+        "index": "real_data_144",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_145",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_146",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_147",
+        "name": "4关节实际位置"
+      }
+    ],
+    "子悬吊位置": [
+      {
+        "index": "real_data_149",
+        "name": "子悬吊实际位置"
+      }
+    ],
+    "调整臂关节位置": [
+      {
+        "index": "real_data_150",
+        "name": "1关节实际位置"
+      },
+      {
+        "index": "real_data_151",
+        "name": "2关节实际位置"
+      },
+      {
+        "index": "real_data_152",
+        "name": "3关节实际位置"
+      },
+      {
+        "index": "real_data_153",
+        "name": "4关节实际位置"
+      }
+    ],
+    "笛卡尔位姿(悬吊系)": [
+      {
+        "index": "real_data_154",
+        "name": "笛卡尔位置-X(悬吊系)"
+      },
+      {
+        "index": "real_data_155",
+        "name": "笛卡尔位置-Y(悬吊系)"
+      },
+      {
+        "index": "real_data_156",
+        "name": "笛卡尔位置-Z(悬吊系)"
+      },
+      {
+        "index": "real_data_157",
+        "name": "笛卡尔姿态-w(悬吊系)"
+      },
+      {
+        "index": "real_data_158",
+        "name": "笛卡尔姿态-x(悬吊系)"
+      },
+      {
+        "index": "real_data_159",
+        "name": "笛卡尔姿态-y(悬吊系)"
+      },
+      {
+        "index": "real_data_160",
+        "name": "笛卡尔姿态-z(悬吊系)"
+      }
+    ],
+    "重力补偿": [
+      {
+        "index": "real_data_189",
+        "name": "1关节重力补偿"
+      },
+      {
+        "index": "real_data_190",
+        "name": "2关节重力补偿"
+      },
+      {
+        "index": "real_data_191",
+        "name": "3关节重力补偿"
+      }
+    ],
+    "柔顺力": [
+      {
+        "index": "real_data_201",
+        "name": "1关节柔顺力"
+      },
+      {
+        "index": "real_data_202",
+        "name": "2关节柔顺力"
+      },
+      {
+        "index": "real_data_203",
+        "name": "3关节柔顺力"
+      }
+    ],
+    "器械类型": [
+      {
+        "index": "instType_2",
+        "name": "器械类型"
+      }
+    ],
+    "器械UDI": [
+      {
+        "index": "instUDI_8",
+        "name": "器械UDI_p1"
+      },
+      {
+        "index": "instUDI_9",
+        "name": "器械UDI_p2"
+      },
+      {
+        "index": "instUDI_10",
+        "name": "器械UDI_p3"
+      },
+      {
+        "index": "instUDI_11",
+        "name": "器械UDI_p4"
+      }
+    ]
+  },
+  "保持臂": {
+    "重力补偿": [
+      {
+        "index": "real_data_192",
+        "name": "1关节重力补偿"
+      },
+      {
+        "index": "real_data_193",
+        "name": "2关节重力补偿"
+      },
+      {
+        "index": "real_data_194",
+        "name": "3关节重力补偿"
+      }
+    ],
+    "柔顺力": [
+      {
+        "index": "real_data_204",
+        "name": "1关节柔顺力"
+      },
+      {
+        "index": "real_data_205",
+        "name": "2关节柔顺力"
+      },
+      {
+        "index": "real_data_206",
+        "name": "3关节柔顺力"
+      }
+    ],
+    "器械类型": [
+      {
+        "index": "instType_3",
+        "name": "器械类型"
+      }
+    ],
+    "器械UDI": [
+      {
+        "index": "instUDI_12",
+        "name": "器械UDI_p1"
+      },
+      {
+        "index": "instUDI_13",
+        "name": "器械UDI_p2"
+      },
+      {
+        "index": "instUDI_14",
+        "name": "器械UDI_p3"
+      },
+      {
+        "index": "instUDI_15",
+        "name": "器械UDI_p4"
+      }
+    ]
+  }
+}

@@ -12,6 +12,8 @@ const {
   deleteLog, 
   batchDeleteLogs,
   batchDownloadLogs,
+  getBatchDownloadTaskStatus,
+  downloadBatchDownloadResult,
   getLogEntries,
   getBatchLogEntriesClickhouse,
   getLogStatistics,
@@ -21,6 +23,8 @@ const {
   getSearchTemplates,
   importSearchTemplates,
   exportBatchLogEntriesCSV,
+  getExportCsvTaskStatus,
+  downloadExportCsvResult,
   reparseLog,
   batchReparseLogs,
   getQueueStatus,
@@ -78,6 +82,10 @@ router.delete('/batch', auth, checkLogPermission('delete'), batchDeleteLogs);
 
 // 批量下载日志 - 必须放在带参数的路由之前
 router.post('/batch/download', auth, checkLogPermission('download'), batchDownloadLogs);
+// 查询批量下载任务状态
+router.get('/batch/download/:taskId/status', auth, checkLogPermission('download'), getBatchDownloadTaskStatus);
+// 下载批量下载任务结果
+router.get('/batch/download/:taskId/result', auth, checkLogPermission('download'), downloadBatchDownloadResult);
 
 // 批量重新解析（仅管理员）
 router.post('/batch/reparse', auth, checkPermission('log:reparse'), batchReparseLogs);
@@ -91,8 +99,12 @@ router.delete('/:id', auth, checkLogPermission('delete'), deleteLog);
 // 获取日志明细 - 根据用户角色决定查看权限
 router.get('/:id/entries', auth, checkLogPermission('read_all'), getLogEntries);
 
-// 批量导出日志明细 CSV（服务端流式导出）
+// 批量导出日志明细 CSV（异步队列模式）
 router.get('/entries/export', auth, checkLogPermission('read_all'), exportBatchLogEntriesCSV);
+// 查询CSV导出任务状态
+router.get('/entries/export/:taskId/status', auth, checkLogPermission('read_all'), getExportCsvTaskStatus);
+// 下载CSV导出任务结果
+router.get('/entries/export/:taskId/result', auth, checkLogPermission('read_all'), downloadExportCsvResult);
 
 // 手术统计分析
 router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), analyzeSurgeryData);

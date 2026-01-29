@@ -55,7 +55,8 @@
       "sk": "Slovak",
       "ro": "Romanian",
       "da": "Danish",
-      "lv": "Latvian"
+      "lv": "Latvian",
+      "ru": "Russian"
     },
     "subsystemOptions": {
       "1": "01: Motion Control Software",
@@ -109,9 +110,16 @@
   },
   "user": {
     "requiredUsernamePassword": "Username and password are required",
+    "passwordRequired": "Please enter password",
     "usernameExists": "Username already exists",
     "oldPasswordRequired": "Please enter old password",
     "oldPasswordIncorrect": "Old password is incorrect",
+    "passwordMinLength": "Password must be at least 8 characters",
+    "passwordRequireUpper": "Password must contain uppercase letter (A-Z)",
+    "passwordRequireLower": "Password must contain lowercase letter (a-z)",
+    "passwordRequireDigit": "Password must contain digit (0-9)",
+    "passwordSameAsUsername": "Password cannot be the same as username",
+    "passwordNoConsecutive4": "Password must not contain 4+ consecutive identical characters",
     "operations": {
       "create": "Create User",
       "createDescription": "Create user: {{username}}",
@@ -125,7 +133,10 @@
   "auth": {
     "invalidCredentials": "Invalid username or password",
     "loginSuccess": "Login successful",
-    "unauthenticated": "Not authenticated"
+    "unauthenticated": "Not authenticated",
+    "loginLocked": "Too many failed login attempts. Account locked for {{minutes}} minutes",
+    "captchaRequired": "Please enter the captcha",
+    "captchaInvalid": "Invalid captcha"
   },
   "log": {
     "notSet": "Not set",

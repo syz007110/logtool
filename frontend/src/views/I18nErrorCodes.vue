@@ -624,7 +624,8 @@ export default {
           { value: 'sk', label: t('shared.languageNames.sk') },
           { value: 'ro', label: t('shared.languageNames.ro') },
           { value: 'da', label: t('shared.languageNames.da') },
-          { value: 'lv', label: t('shared.languageNames.lv') }
+          { value: 'lv', label: t('shared.languageNames.lv') },
+          { value: 'ru', label: t('shared.languageNames.ru') }
         ]
       }
     }
@@ -649,7 +650,8 @@ export default {
           { value: 'sk', label: t('shared.languageNames.sk') },
           { value: 'ro', label: t('shared.languageNames.ro') },
           { value: 'da', label: t('shared.languageNames.da') },
-          { value: 'lv', label: t('shared.languageNames.lv') }
+          { value: 'lv', label: t('shared.languageNames.lv') },
+          { value: 'ru', label: t('shared.languageNames.ru') }
         ]
       }
     }
@@ -1061,7 +1063,8 @@ export default {
         sk: 'Czechoslovakia',
         ro: 'Romania',
         da: 'Denmark',
-        lv: 'Latvia'
+        lv: 'Latvia',
+        ru: 'Russian'
       }
       return langMap[lang] || lang
     }
@@ -1080,7 +1083,8 @@ export default {
         sk: 'danger',
         ro: 'warning',
         da: 'info',
-        lv: 'info'
+        lv: 'info',
+        ru: 'warning'
       }
       return typeMap[lang] || ''
     }

@@ -11,6 +11,7 @@ const User = sequelize.define('users', {
   dingtalk_mobile: { type: DataTypes.STRING(32), allowNull: true },
   dingtalk_nick: { type: DataTypes.STRING(100), allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  must_change_password: { type: DataTypes.BOOLEAN, defaultValue: false },
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, {
   timestamps: false
