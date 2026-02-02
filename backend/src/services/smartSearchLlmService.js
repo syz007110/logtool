@@ -108,7 +108,7 @@ function hydrateProvider(spec) {
   const apiKeyEnv = String(spec.apiKeyEnv || '').trim();
   const apiKey =
     String(spec.apiKey || (apiKeyEnv ? (process.env[apiKeyEnv] || process.env[apiKeyEnv.toUpperCase()] || '') : '') || '').trim();
-   const baseUrl = normalizeBaseUrl(String(spec.baseUrl || (spec.baseUrlEnv ? process.env[spec.baseUrlEnv] : '') || spec.defaultBaseUrl || ''));
+  const baseUrl = normalizeBaseUrl(String(spec.baseUrl || (spec.baseUrlEnv ? process.env[spec.baseUrlEnv] : '') || spec.defaultBaseUrl || ''));
   const model = String(spec.model || (spec.modelEnv ? process.env[spec.modelEnv] : '') || spec.defaultModel || '').trim();
 
   return {
@@ -120,9 +120,9 @@ function hydrateProvider(spec) {
     apiKey,
     baseUrl,
     model,
-     timeoutMs,
-     temperature,
-     topP
+    timeoutMs,
+    temperature,
+    topP
   };
 }
 
@@ -393,7 +393,7 @@ function doJsonRequest({ method, endpoint, pathName, headers, body, timeoutMs })
           let json = null;
           try {
             json = data ? JSON.parse(data) : null;
-          } catch (_) {}
+          } catch (_) { }
           const status = res.statusCode || 0;
           if (status >= 200 && status < 300) return resolve({ status, json });
           const err = new Error(`LLM request failed: ${status}`);
@@ -405,7 +405,7 @@ function doJsonRequest({ method, endpoint, pathName, headers, body, timeoutMs })
 
       req.on('error', (err) => reject(err));
       req.setTimeout(timeoutMs || 12000, () => {
-        try { req.destroy(new Error('Request timeout')); } catch (_) {}
+        try { req.destroy(new Error('Request timeout')); } catch (_) { }
         const err = new Error('LLM request timeout');
         err.code = 'ETIMEDOUT';
         reject(err);
@@ -491,7 +491,7 @@ function doSseRequest({ endpoint, pathName, headers, body, timeoutMs, onEvent })
 
       req.on('error', (err) => reject(err));
       req.setTimeout(timeoutMs || 12000, () => {
-        try { req.destroy(new Error('Request timeout')); } catch (_) {}
+        try { req.destroy(new Error('Request timeout')); } catch (_) { }
         const err = new Error('LLM request timeout');
         err.code = 'ETIMEDOUT';
         reject(err);
@@ -535,8 +535,8 @@ async function extractQueryPlanWithProvider({ providerId, query, defaults }) {
   const messages = buildQueryPlanExtractionMessages(prompt, defaults);
   const request = {
     model: provider.model,
-     temperature: provider.temperature ?? 0,
-     top_p: provider.topP ?? 0.1,
+    temperature: provider.temperature ?? 0,
+    top_p: provider.topP ?? 0.1,
     messages
   };
 
@@ -563,6 +563,168 @@ async function extractQueryPlanWithProvider({ providerId, query, defaults }) {
   return { plan, raw, model: provider.model, provider: { id: provider.id, label: provider.label }, messages };
 }
 
+function buildBatchFiltersExtractionMessages(prompt, {
+  timeFormat = 'YYYY-MM-DD HH:mm:ss'
+} = {}) {
+  const schema = {
+    search: 'string (optional)',
+    filters: {
+      logic: "'AND'|'OR'",
+      conditions: [
+        // leaf: { field, operator, value }
+        // group: { logic, conditions }
+      ]
+    },
+    start_time: `${timeFormat} (optional)`,
+    end_time: `${timeFormat} (optional)`
+  };
+
+  const allowed = {
+    fields: ['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation'],
+    operators: ['=', '!=', '>', '>=', '<', '<=', 'between', 'contains', 'notcontains', 'regex', 'startsWith', 'endsWith'],
+    logic: ['AND', 'OR']
+  };
+
+  const promptConfig = smartSearchPrompts?.batchFiltersExtraction || {};
+  const systemTemplate = Array.isArray(promptConfig.system)
+    ? promptConfig.system.join('\n')
+    : '';
+  const systemContent = systemTemplate
+    ? renderPromptTemplate(systemTemplate, {
+      schema: JSON.stringify(schema, null, 2),
+      timeFormat,
+      allowedFields: allowed.fields.join(', '),
+      allowedOperators: allowed.operators.join(', '),
+      allowedLogic: allowed.logic.join(', ')
+    })
+    : buildBatchFiltersExtractionFallback(schema, allowed, timeFormat);
+
+  return [
+    { role: 'system', content: systemContent },
+    { role: 'user', content: String(prompt || '').trim() }
+  ];
+}
+
+function buildBatchFiltersExtractionFallback(schema, allowed, timeFormat) {
+  return [
+    'You are a strict JSON generator.',
+    'Convert the user natural language into a JSON object with a FIXED schema used by a frontend advanced filter.',
+    'Output ONLY the JSON object. No markdown. No explanation.',
+    '',
+    'Schema:',
+    JSON.stringify(schema, null, 2),
+    '',
+    'Rules:',
+    `- Allowed field values: ${allowed.fields.join(', ')}`,
+    `- Allowed operator values: ${allowed.operators.join(', ')}`,
+    `- Allowed logic values: ${allowed.logic.join(', ')}`,
+    `- If user does not specify something, omit the key (do NOT invent).`,
+    `- For operator "between", value MUST be an array of 2 items.`,
+    `- For time range, use "${timeFormat}" format (no timezone suffix).`,
+    `- If you cannot map anything, return {}.`
+  ].join('\n');
+}
+
+function normalizeBatchFiltersJson(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+
+  const out = {};
+  if (typeof obj.search === 'string' && obj.search.trim()) out.search = obj.search.trim();
+
+  const timeRe = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/;
+  if (typeof obj.start_time === 'string' && timeRe.test(obj.start_time.trim())) out.start_time = obj.start_time.trim();
+  if (typeof obj.end_time === 'string' && timeRe.test(obj.end_time.trim())) out.end_time = obj.end_time.trim();
+
+  const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
+  const allowedOps = new Set(['=', '!=', '>', '>=', '<', '<=', 'between', 'contains', 'notcontains', 'regex', 'startsWith', 'endsWith']);
+  const allowedLogic = new Set(['AND', 'OR']);
+
+  const normalizeNode = (node) => {
+    if (!node || typeof node !== 'object') return null;
+    if (node.field && node.operator) {
+      const field = String(node.field || '').trim();
+      const operator = String(node.operator || '').trim();
+      if (!allowedFields.has(field)) return null;
+      if (!allowedOps.has(operator)) return null;
+
+      let value = node.value;
+      if (operator === 'between') {
+        if (!Array.isArray(value) || value.length < 2) return null;
+        value = [value[0], value[1]];
+      } else {
+        // allow primitive or string; keep as-is for frontend normalization
+        if (value === undefined || value === null || value === '') return null;
+      }
+      return { field, operator, value };
+    }
+
+    if (Array.isArray(node.conditions)) {
+      const logic = String(node.logic || 'AND').trim().toUpperCase();
+      const logicNorm = allowedLogic.has(logic) ? logic : 'AND';
+      const children = node.conditions.map(normalizeNode).filter(Boolean);
+      if (children.length === 0) return null;
+      return { logic: logicNorm, conditions: children };
+    }
+
+    return null;
+  };
+
+  const filters = normalizeNode(obj.filters);
+  if (filters) out.filters = filters;
+  return out;
+}
+
+async function extractBatchFiltersWithProvider({ providerId, text }) {
+  const provider = resolveProvider(providerId);
+  const status = getSmartSearchLlmStatusForProvider(provider);
+  if (!status.available) {
+    const err = new Error(`LLM not available: ${status.reason}`);
+    err.code = status.reason;
+    throw err;
+  }
+
+  const prompt = String(text || '').trim();
+  if (!prompt) {
+    return {
+      result: {},
+      raw: { content: '', usage: null, model: provider.model },
+      model: provider.model,
+      provider: { id: provider.id, label: provider.label },
+      messages: buildBatchFiltersExtractionMessages('')
+    };
+  }
+
+  const messages = buildBatchFiltersExtractionMessages(prompt);
+  const request = {
+    model: provider.model,
+    temperature: provider.temperature ?? 0,
+    top_p: provider.topP ?? 0.1,
+    messages
+  };
+
+  const resp = await doJsonRequest({
+    method: 'POST',
+    endpoint: provider.baseUrl,
+    pathName: '/chat/completions',
+    headers: buildAuthHeaders(provider),
+    body: request,
+    timeoutMs: provider.timeoutMs
+  });
+
+  const content = resp?.json?.choices?.[0]?.message?.content ?? '';
+  const parsed = extractFirstJsonObject(content);
+  const result = normalizeBatchFiltersJson(parsed || {});
+
+  const raw = {
+    content,
+    usage: resp?.json?.usage || null,
+    model: resp?.json?.model || provider.model,
+    provider: provider.id
+  };
+
+  return { result, raw, model: provider.model, provider: { id: provider.id, label: provider.label }, messages };
+}
+
 async function streamKeywordExtractionWithProvider({ providerId, query, onDelta, onUsage, onRawEvent }) {
   const provider = resolveProvider(providerId);
   const status = getSmartSearchLlmStatusForProvider(provider);
@@ -578,8 +740,8 @@ async function streamKeywordExtractionWithProvider({ providerId, query, onDelta,
   const messages = buildKeywordExtractionMessages(prompt);
   const request = {
     model: provider.model,
-     temperature: provider.temperature ?? 0,
-     top_p: provider.topP ?? 0.1,
+    temperature: provider.temperature ?? 0,
+    top_p: provider.topP ?? 0.1,
     messages,
     stream: true,
     stream_options: { include_usage: true }
@@ -622,6 +784,7 @@ module.exports = {
   buildKeywordExtractionMessages,
   buildQueryPlanExtractionMessages,
   extractQueryPlanWithProvider,
+  extractBatchFiltersWithProvider,
   streamKeywordExtractionWithProvider
 };
 

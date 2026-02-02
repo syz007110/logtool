@@ -122,17 +122,34 @@
         </el-menu>
       </div>
 
-      <!-- 侧边栏底部工具按钮区域 -->
+      <!-- 侧边栏底部工具箱（点击展开：分析工具、翻译工具） -->
       <div class="sidebar-tools" v-if="!collapsed || $store.getters['auth/hasPermission']('log:read_all')">
-        <el-button
+        <el-dropdown
           v-if="$store.getters['auth/hasPermission']('log:read_all')"
-          class="tool-button"
-          :class="{ 'is-collapsed': collapsed }"
-          @click="openDataAnalysisInNewTab"
+          trigger="click"
+          placement="right-start"
+          @command="handleToolboxCommand"
         >
-          <el-icon :size="20"><TrendCharts /></el-icon>
-          <span v-if="!collapsed">{{ $t('dataAnalysis.title') }}</span>
-        </el-button>
+          <el-button
+            class="tool-button"
+            :class="{ 'is-collapsed': collapsed }"
+          >
+            <el-icon :size="20"><Operation /></el-icon>
+            <span v-if="!collapsed">{{ $t('toolbox.title') }}</span>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="analysis">
+                <el-icon><TrendCharts /></el-icon>
+                <span>{{ $t('toolbox.analysisTool') }}</span>
+              </el-dropdown-item>
+              <el-dropdown-item command="translate">
+                <el-icon><Document /></el-icon>
+                <span>{{ $t('toolbox.translateTool') }}</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
 
       <!-- 侧边栏底部用户菜单 - 固定在底部 -->
@@ -238,7 +255,8 @@ import {
   Expand,
   SwitchButton,
   ArrowDown,
-  TrendCharts
+  TrendCharts,
+  Operation
 } from '@element-plus/icons-vue'
 import { Earth } from '@icon-park/vue-next'
 
@@ -258,7 +276,8 @@ export default {
     SwitchButton,
     ArrowDown,
     Earth,
-    TrendCharts
+    TrendCharts,
+    Operation
   },
   setup() {
     const store = useStore()
@@ -317,7 +336,8 @@ export default {
         BatchAnalysis: 'batchAnalysis.title',
         GlobalDashboard: 'globalDashboard.title',
         Monitoring: 'monitoring.title',
-        ExplanationTester: 'nav.test'
+        ExplanationTester: 'nav.test',
+        TranslateTool: 'toolbox.translateTool'
       }
       return nameMap[name]
     }
@@ -463,6 +483,15 @@ export default {
       const routeData = router.resolve('/data-analysis')
       window.open(routeData.href, '_blank')
     }
+
+    // 工具箱下拉选择：分析工具 | 翻译工具
+    const handleToolboxCommand = (command) => {
+      if (command === 'analysis') {
+        openDataAnalysisInNewTab()
+      } else if (command === 'translate') {
+        router.push('/dashboard/translate-tool')
+      }
+    }
     
     const currentLocaleLabel = computed(() => {
       const cur = getCurrentLocale?.() || 'zh-CN'
@@ -490,7 +519,8 @@ export default {
              route.name === 'GlobalDashboard' ||
              route.name === 'Feedback' ||
              route.name === 'Account' ||
-             route.name === 'ExplanationTester'
+             route.name === 'ExplanationTester' ||
+             route.name === 'TranslateTool'
     })
     
     return {
@@ -503,6 +533,7 @@ export default {
       pageTitle,
       handleUserCommand,
       openDataAnalysisInNewTab,
+      handleToolboxCommand,
       handleLanguageChange,
       currentLocaleLabel,
       activeMenuKey,
@@ -581,6 +612,11 @@ export default {
   padding: 12px;
   border-top: 1px solid var(--el-aside-border-color);
   background: var(--el-aside-background-color);
+}
+
+.sidebar-tools :deep(.el-dropdown) {
+  display: block;
+  width: 100%;
 }
 
 .tool-button {

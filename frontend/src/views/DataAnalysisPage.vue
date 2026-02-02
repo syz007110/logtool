@@ -8,29 +8,6 @@
       accept="video/*"
       @change="onVideoFileChange"
     />
-    <!-- 顶部工具栏（Figma） -->
-    <div class="da-toolbar">
-      <div class="da-toolbar-left">
-        <el-icon class="da-title-icon"><DataAnalysis /></el-icon>
-        <div class="da-title">{{ $t('dataAnalysis.title') || 'Data Analysis' }}</div>
-      </div>
-      <div class="da-toolbar-right">
-        <el-button class="da-date-btn" @click="handleDateButtonClick">
-          <el-icon><Calendar /></el-icon>
-          {{ selectedDateLabel }}
-        </el-button>
-        <el-button
-          class="da-primary-btn"
-          type="primary"
-          :disabled="hasMotionData && logMatchNotFound"
-          @click="openSelectionDialog()"
-        >
-          <el-icon><Plus /></el-icon>
-          {{ $t('dataAnalysis.selectNewData') || 'Select New Data' }}
-        </el-button>
-      </div>
-    </div>
-
     <!-- 主内容区：空态允许滚动避免底部被裁剪，分析态 overflow hidden 以等高布局 -->
     <div class="da-content" :class="{ 'da-content-empty': !hasData }">
       <!-- 空态（Figma） -->
@@ -73,7 +50,7 @@
               <span class="video-section-bar-title">{{ $t('dataAnalysis.surgeryVideo') || 'Surgery Video' }}</span>
               <div class="video-section-bar-actions">
                 <template v-if="!videoCollapsed">
-                  <el-button v-if="videoSource" size="small" @click="showVideoTimeConfigDialog = true">
+                  <el-button v-if="videoSource && (hasLogsData || hasMotionData)" size="small" @click="showVideoTimeConfigDialog = true">
                     <el-icon><Clock /></el-icon>
                     {{ $t('dataAnalysis.configTimeline') || '配置时间轴' }}
                   </el-button>
@@ -97,16 +74,17 @@
                 <el-icon><VideoPlay /></el-icon>
                 <span>{{ $t('dataAnalysis.addVideo') || '添加视频' }}</span>
               </div>
-              <video
-                v-else
-                ref="videoPlayer"
-                :src="videoSource"
-                controls
-                controlsList="nodownload"
-                class="video-player"
-                @loadedmetadata="onVideoLoaded"
-                @timeupdate="onVideoTimeUpdate"
-              />
+              <template v-else>
+                <video
+                  ref="videoPlayer"
+                  :src="videoSource"
+                  controls
+                  controlsList="nodownload"
+                  class="video-player"
+                  @loadedmetadata="onVideoLoaded"
+                  @timeupdate="onVideoTimeUpdate"
+                />
+              </template>
             </div>
           </div>
 
@@ -221,8 +199,8 @@
               <el-icon><Document /></el-icon>
             </div>
             <div class="da-card-title">{{ $t('dataAnalysis.surgeryLogs') || 'Surgery Logs' }}</div>
-            <div class="da-card-subtitle">
-              {{ $t('dataAnalysis.selectLogToSync') || 'Select a log file to automatically load linked video and sensor data' }}
+            <div v-if="!(hasMotionData && logMatchNotFound)" class="da-card-subtitle">
+              {{ $t('dataAnalysis.selectLogToSync') }}
             </div>
             <el-alert
               v-if="hasMotionData && logMatchNotFound && logMatchNotFoundRangeMs?.startMs != null && logMatchNotFoundRangeMs?.endMs != null"
@@ -236,11 +214,17 @@
           <!-- 已添加日志时显示日志列表 -->
           <template v-else>
             <div class="logs-header">
-              <h3>{{ $t('dataAnalysis.logs') }}</h3>
+              <div class="logs-header-title-row">
+                <h3>{{ $t('dataAnalysis.logs') }}</h3>
+                <el-button size="small" @click="clearLogs">
+                  <el-icon><Delete /></el-icon>
+                  {{ $t('shared.clear') || '清空' }}
+                </el-button>
+              </div>
               <div class="logs-header-actions">
                 <el-input
                   v-model="logFilter"
-                  :placeholder="$t('dataAnalysis.filterLogs') || '过滤日志...'"
+                  :placeholder="$t('dataAnalysis.searchFaultCode') || '搜索故障码'"
                   clearable
                   class="log-filter-input"
                 >
@@ -248,10 +232,6 @@
                     <el-icon><Search /></el-icon>
                   </template>
                 </el-input>
-                <el-button size="small" @click="clearLogs">
-                  <el-icon><Delete /></el-icon>
-                  {{ $t('shared.clear') || '清空' }}
-                </el-button>
               </div>
             </div>
             <div v-if="displayLogTimeRange?.first != null && displayLogTimeRange?.last != null" class="log-time-range">
@@ -557,9 +537,14 @@
         </div>
       </div>
       <template #footer>
-        <el-button @click="showAutoMotionPickDialog = false">{{ $t('shared.cancel') || '取消' }}</el-button>
-        <el-button type="primary" :disabled="autoMotionPickedIds.length === 0" @click="confirmAutoMotionPick">
-          {{ $t('shared.confirm') || '确定' }}
+        <el-button @click="showAutoMotionPickDialog = false" :disabled="loading">{{ $t('shared.cancel') || '取消' }}</el-button>
+        <el-button
+          type="primary"
+          :loading="loading"
+          :disabled="autoMotionPickedIds.length === 0"
+          @click="confirmAutoMotionPick"
+        >
+          {{ $t('dataAnalysis.loadData') || '加载数据' }}
         </el-button>
       </template>
     </el-dialog>
@@ -874,16 +859,17 @@
           <el-button
             v-if="motionConfigStep === 2"
             type="primary"
+            :loading="motionConfigLoading"
             :disabled="!motionPickFieldIndexes.length"
             @click="applyMotionSlotConfig"
           >
-            {{ $t('shared.confirm') || '确定' }}
+            {{ $t('dataAnalysis.loadData') }}
           </el-button>
         </div>
       </template>
     </el-dialog>
 
-    <!-- 配置视频时间轴弹窗：以当前进度条位置为锚点，填写该画面对应的实际时间，反推视频起止 -->
+    <!-- 配置视频时间轴弹窗：以当前进度条位置为锚点，填写该画面对应的实际时间 -->
     <el-dialog
       v-model="showVideoTimeConfigDialog"
       width="500px"
@@ -891,45 +877,42 @@
       @close="onVideoTimeConfigDialogClose"
     >
       <div class="video-time-config-content">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 20px"
-        >
-          <template #title>
-            {{ $t('dataAnalysis.videoTimeConfigHint') || '将视频拖到关键时刻，填写该画面对应的实际时间，系统将反推视频开始与结束时间并与日志同步' }}
-          </template>
-        </el-alert>
-        <el-form :model="videoTimeConfigForm" label-width="160px">
+        <el-form :model="videoTimeConfigForm" label-width="180px">
           <el-form-item :label="$t('dataAnalysis.currentVideoProgress') || '当前视频进度'">
             <div class="current-time-display">
               {{ formatConfigDialogVideoProgress(configDialogVideoCurrentTime) }}
             </div>
-            <div class="form-item-hint">
-              {{ $t('dataAnalysis.currentVideoProgressHint') || '打开弹窗时进度条位置，用于反推视频 0 秒对应的实际时间' }}
-            </div>
           </el-form-item>
           <el-form-item :label="$t('dataAnalysis.currentFrameTime') || '当前画面对应的实际时间'">
+            <template v-if="videoConfigTimeRange">
+              <el-select
+                v-if="videoConfigIsCrossDay"
+                v-model="videoTimeConfigForm.selectedDate"
+                :placeholder="$t('dataAnalysis.selectDate') || '选择日期'"
+                style="width: 100%; margin-bottom: 8px"
+              >
+                <el-option
+                  v-for="opt in videoConfigDateOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+              <div v-else class="video-config-date-hint">
+                {{ formatYmd(new Date(videoConfigTimeRange.first)) }}
+              </div>
+            </template>
             <el-time-picker
               v-model="videoTimeConfigForm.startTime"
               format="HH:mm:ss"
               value-format="HH:mm:ss"
               :placeholder="$t('dataAnalysis.selectStartTime') || '选择该时刻'"
+              :disabled-hours="videoConfigDisabledHours"
+              :disabled-minutes="videoConfigDisabledMinutes"
+              :disabled-seconds="videoConfigDisabledSeconds"
               style="width: 100%"
             />
-            <div class="form-item-hint">
-              {{ $t('dataAnalysis.currentFrameTimeHint') || '设置当前进度条位置对应的实际时间（时:分:秒），用于与日志和运行数据的时间轴同步' }}
-            </div>
           </el-form-item>
-          <template v-if="inferredVideoTimeRange">
-            <el-form-item :label="$t('dataAnalysis.inferredVideoStart') || '推断：视频开始时间'">
-              <div class="current-time-display">{{ formatVideoStartTime(inferredVideoTimeRange.startMs) }}</div>
-            </el-form-item>
-            <el-form-item v-if="inferredVideoTimeRange.endMs != null" :label="$t('dataAnalysis.inferredVideoEnd') || '推断：视频结束时间'">
-              <div class="current-time-display">{{ formatVideoStartTime(inferredVideoTimeRange.endMs) }}</div>
-            </el-form-item>
-          </template>
         </el-form>
       </div>
       <template #footer>
@@ -945,10 +928,11 @@
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import dayjs from 'dayjs'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, VideoPlay, TrendCharts, Document, Search, Calendar, DataAnalysis, Monitor, Filter, Clock, Delete, Fold, Expand } from '@element-plus/icons-vue'
+import { VideoPlay, TrendCharts, Document, Search, Monitor, Filter, Clock, Delete, Fold, Expand, Close } from '@element-plus/icons-vue'
 import MotionTimeSeriesChart from '@/components/MotionTimeSeriesChart.vue'
 import VirtualTable from '@/components/VirtualTable.vue'
 import api from '@/api'
@@ -958,13 +942,10 @@ export default {
   components: {
     MotionTimeSeriesChart,
     VirtualTable,
-    Plus,
     VideoPlay,
     TrendCharts,
     Document,
     Search,
-    Calendar,
-    DataAnalysis,
     Monitor,
     Filter,
     Clock,
@@ -1015,17 +996,26 @@ export default {
     const motionPickCategory = ref('') // 选中的数据类型（如"关节实际位置"）
     const motionPickFieldIndexes = ref([]) // 选中的变量索引列表
     const motionFieldFilter = ref('')
+    const motionConfigLoading = ref(false) // 添加数据图确认按钮加载状态
     const motionClassifiedData = ref({}) // motionFormatClassified.json 的完整数据
     // 兼容旧代码（保留用于热力图等）
     const motionPickTheme = ref('left_hand')
     const videoSource = ref(null)
-    const videoStartTime = ref(null) // 视频起始时间（毫秒时间戳）
+    const videoStartTime = ref(null) // 旧逻辑：视频 0 秒对应绝对时间（未配置锚点时 fallback 用）
+    const videoAnchorLogMs = ref(null) // Tlogn：配置时「当前画面对应的实际时间」绝对时间戳（ms）
+    const videoAnchorVideoMs = ref(null) // Tvideon：配置时当前视频进度（ms）
     const showVideoTimeConfigDialog = ref(false) // 配置视频时间轴弹窗
     const configDialogVideoCurrentTime = ref(0) // 打开弹窗时当前视频进度（秒），用于「当前画面对应的实际时间」反推 videoStartTime
     const configDialogVideoDuration = ref(0) // 打开弹窗时视频总时长（秒），用于推断视频结束时间
     const videoTimeConfigForm = ref({
-      startTime: null // 格式：HH:mm:ss，当前画面对应的实际时间
+      startTime: null, // HH:mm:ss
+      selectedDate: null // YYYY-MM-DD，仅跨天/跨月时使用
     })
+    const resetVideoAnchor = () => {
+      videoStartTime.value = null
+      videoAnchorLogMs.value = null
+      videoAnchorVideoMs.value = null
+    }
     const logTimeLimit = ref({ min: null, max: null })
     const videoObjectUrl = ref(null)
 
@@ -1249,11 +1239,12 @@ export default {
       const logIds = selectedLogFiles.value.map((l) => l.id).join(',')
       const startStr = formatYmdHms(new Date(startMs))
       const endStr = formatYmdHms(new Date(endMs))
-      const pageSize = 500
-      const maxPages = 10
+      // 与后端 BATCH_ENTRIES 上限一致；单窗口页数上限兼顾“取完本窗口”与内存/CPU（每条约数百字节，50 页≈50k 条≈15–20MB + sort/map 主线程耗时）
+      const pageSize = 1000
+      const maxPagesSafety = 50
 
       const all = []
-      for (let page = 1; page <= maxPages; page++) {
+      for (let page = 1; page <= maxPagesSafety; page++) {
         const resp = await api.logs.getBatchEntries({
           log_ids: logIds,
           start_time: startStr,
@@ -1290,9 +1281,18 @@ export default {
 
     const replaceLogWindow = async (startMs, endMs) => {
       if (logWindowLoading.value) return
+      const clamped = clampToAllowedRange(startMs, endMs)
+      // 夹紧后窗口与当前完全一致时，不做重复请求（同时释放 directionLock，避免上层卡死）
+      if (
+        logWindowStartMs.value === clamped.startMs &&
+        logWindowEndMs.value === clamped.endMs &&
+        (logEntries.value?.length || 0) > 0
+      ) {
+        logWindowDirectionLock.value = null
+        return
+      }
       logWindowLoading.value = true
       try {
-        const clamped = clampToAllowedRange(startMs, endMs)
         logWindowStartMs.value = clamped.startMs
         logWindowEndMs.value = clamped.endMs
         const fetched = await fetchLogWindow(clamped.startMs, clamped.endMs)
@@ -1379,6 +1379,62 @@ export default {
       return getFiniteFirstLast(filteredLogEntryTs.value)
     })
 
+    // 视频配置/联动用的时间范围：优先日志最早～最晚；无日志则用运行数据；两者都没有为 null
+    const videoConfigTimeRange = computed(() => {
+      const logR = logDataRangeAbsMs.value
+      if (logR?.first != null && logR?.last != null && Number.isFinite(logR.first) && Number.isFinite(logR.last)) {
+        return { first: logR.first, last: logR.last }
+      }
+      const motionR = getMotionRangeFromRows(motionRawRows.value)
+      if (motionR?.startMs != null && motionR?.endMs != null && Number.isFinite(motionR.startMs) && Number.isFinite(motionR.endMs)) {
+        return { first: motionR.startMs, last: motionR.endMs }
+      }
+      return null
+    })
+
+    // 配置时间轴：是否跨天/跨月（多天则需选择日期）
+    const videoConfigIsCrossDay = computed(() => {
+      const range = videoConfigTimeRange.value
+      if (!range || range.first == null || range.last == null) return false
+      const firstD = dayjs(range.first)
+      const lastD = dayjs(range.last)
+      return firstD.startOf('day').valueOf() !== lastD.startOf('day').valueOf()
+    })
+
+    // 配置时间轴：跨天时供选择的日期列表（起止日两个日期）
+    const videoConfigDateOptions = computed(() => {
+      const range = videoConfigTimeRange.value
+      if (!range || range.first == null || range.last == null || !videoConfigIsCrossDay.value) return []
+      const options = []
+      options.push({ value: formatYmd(new Date(range.first)), label: formatYmd(new Date(range.first)) })
+      options.push({ value: formatYmd(new Date(range.last)), label: formatYmd(new Date(range.last)) })
+      return options
+    })
+
+    // 配置时间轴：当前选中日期对应的有效时间范围（用于 disabled-hours/minutes/seconds）
+    const videoConfigSelectedDayRange = computed(() => {
+      const range = videoConfigTimeRange.value
+      if (!range || range.first == null || range.last == null) return null
+      if (!videoConfigIsCrossDay.value) {
+        return { first: range.first, last: range.last }
+      }
+      const selDate = videoTimeConfigForm.value.selectedDate
+      if (!selDate) return null
+      const selDayStart = dayjs(selDate).startOf('day').valueOf()
+      const selDayEnd = selDayStart + 24 * 60 * 60 * 1000 - 1
+      const firstD = dayjs(range.first)
+      const lastD = dayjs(range.last)
+      const firstDayStart = firstD.startOf('day').valueOf()
+      const lastDayStart = lastD.startOf('day').valueOf()
+      if (selDayStart === firstDayStart) {
+        return { first: range.first, last: Math.min(range.last, selDayEnd) }
+      }
+      if (selDayStart === lastDayStart) {
+        return { first: Math.max(range.first, selDayStart), last: range.last }
+      }
+      return { first: selDayStart, last: selDayEnd }
+    })
+
     // 日志板块上方显示的时间跨度：有统一时间轴时显示 timeBase ~ timeBase+maxTime，否则显示 logDataRangeAbsMs
     const displayLogTimeRange = computed(() => {
       const tb = timeBase.value
@@ -1419,11 +1475,6 @@ export default {
       const ss = String(d.getSeconds()).padStart(2, '0')
       return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
     }
-
-    const selectedDateLabel = computed(() => {
-      if (selectionForm.value.startTime) return formatYmd(selectionForm.value.startTime)
-      return formatYmd(selectedDate.value) || '---- -- --'
-    })
 
     const computedEndTime = computed(() => {
       const startStr = selectionForm.value.startTime
@@ -1549,7 +1600,7 @@ export default {
     }
 
     // 统一时间跨度：两者都有取交集；只有一种就用该数据跨度；清空则复位
-    const syncTimelineRangeByLoadedData = async ({ preserveCursorAbs = true } = {}) => {
+    const syncTimelineRangeByLoadedData = async ({ preserveCursorAbs = true, skipReplaceLogWindow = false } = {}) => {
       const logRange = getLogRangeAbsMs()
       const motionRange = getMotionRangeFromRows(motionRawRows.value)
 
@@ -1560,6 +1611,7 @@ export default {
       }
 
       const forceReplaceLogWindow = async (startMs, endMs) => {
+        if (skipReplaceLogWindow) return
         if (selectedLogFiles.value.length > 0 && Number.isFinite(startMs) && Number.isFinite(endMs)) {
           await replaceLogWindow(startMs, endMs)
         }
@@ -1597,26 +1649,158 @@ export default {
     }
 
     const MOTION_SERIES_MAX_POINTS = 3000
+    const MOTION_SERIES_PREVIEW_POINTS = 400
 
-    const fetchMotionSeriesInRange = async () => {
+    // 简单节流：降低 timeupdate/拖动导致的高频 DOM/请求压力
+    const throttle = (fn, waitMs) => {
+      let last = 0
+      let timer = null
+      let lastArgs = null
+      return (...args) => {
+        const now = Date.now()
+        lastArgs = args
+        const remain = waitMs - (now - last)
+        if (remain <= 0) {
+          if (timer) { clearTimeout(timer); timer = null }
+          last = now
+          const callArgs = lastArgs
+          lastArgs = null
+          fn(...callArgs)
+          return
+        }
+        if (timer) return
+        timer = setTimeout(() => {
+          timer = null
+          last = Date.now()
+          const callArgs = lastArgs
+          lastArgs = null
+          if (callArgs) fn(...callArgs)
+        }, remain)
+      }
+    }
+
+    // 运行数据拉取：缓存 + 取消旧请求（Abort） + 忽略过期结果
+    const motionSeriesCache = new Map() // key -> rows
+    const motionSeriesInFlight = new Map() // key -> Promise<rows>
+    const MOTION_SERIES_CACHE_MAX = 8
+    const motionSeriesAbortRef = ref(null) // AbortController
+    let motionSeriesSeq = 0
+
+    const buildMotionSeriesKey = ({ fileIds, startMs, endMs, maxPoints }) => {
+      const ids = (fileIds || []).map(String).sort().join(',')
+      return `${ids}|${Math.floor(startMs)}|${Math.ceil(endMs)}|${maxPoints}`
+    }
+    const setMotionSeriesCache = (key, rows) => {
+      if (!key) return
+      if (motionSeriesCache.has(key)) motionSeriesCache.delete(key)
+      motionSeriesCache.set(key, rows)
+      while (motionSeriesCache.size > MOTION_SERIES_CACHE_MAX) {
+        const firstKey = motionSeriesCache.keys().next().value
+        motionSeriesCache.delete(firstKey)
+      }
+    }
+
+    const fetchMotionSeriesByRangeAndPoints = async ({ files, startMs, endMs, maxPoints, controller, seq }) => {
+      const start = Math.floor(startMs)
+      const end = Math.ceil(endMs)
+      const fileIds = (files || []).map((f) => f?.id).filter((v) => v != null)
+      const key = buildMotionSeriesKey({ fileIds, startMs: start, endMs: end, maxPoints })
+
+      const cached = motionSeriesCache.get(key)
+      if (cached) return { key, rows: cached, cached: true }
+
+      const inFlight = motionSeriesInFlight.get(key)
+      if (inFlight) {
+        const rows = await inFlight
+        return { key, rows, cached: false }
+      }
+
+      const p = Promise.all(
+        files.map((f) =>
+          api.motionData.getSeries(
+            f.id,
+            { start_ms: start, end_ms: end, max_points: maxPoints },
+            controller?.signal
+          ).then((r) => r.data?.rows || []).catch(() => [])
+        )
+      ).then((results) => {
+        const merged = results.flat()
+        merged.sort((a, b) => toEpochMs(a?.ulint_data) - toEpochMs(b?.ulint_data))
+        return merged
+      })
+
+      motionSeriesInFlight.set(key, p)
+      try {
+        const rows = await p
+        motionSeriesInFlight.delete(key)
+        if (seq != null && seq !== motionSeriesSeq) return { key, rows: null, cached: false }
+        if (controller?.signal?.aborted) return { key, rows: null, cached: false }
+        setMotionSeriesCache(key, rows)
+        return { key, rows, cached: false }
+      } catch (e) {
+        motionSeriesInFlight.delete(key)
+        if (controller?.signal?.aborted) return { key, rows: null, cached: false }
+        throw e
+      }
+    }
+
+    // 两段式：先预览点数快速出图，再后台拉满点数替换
+    const fetchMotionSeriesInRangeTwoStage = async () => {
       const startMs = timeBase.value
       const endMs = timeBase.value != null && Number.isFinite(maxTime.value) ? Number(timeBase.value) + Number(maxTime.value) : null
       const files = selectedMotionFiles.value || []
       if (startMs == null || endMs == null || !files.length) return
+
+      // 取消之前的请求（用户拖动时间轴/切换文件时）
+      try { motionSeriesAbortRef.value?.abort?.() } catch (e) {}
+      const controller = new AbortController()
+      motionSeriesAbortRef.value = controller
+      const seq = ++motionSeriesSeq
+
       try {
-        const results = await Promise.all(
-          files.map((f) =>
-            api.motionData.getSeries(f.id, {
-              start_ms: Math.floor(startMs),
-              end_ms: Math.ceil(endMs),
-              max_points: MOTION_SERIES_MAX_POINTS
-            }).then((r) => r.data?.rows || []).catch(() => [])
-          )
-        )
-        const merged = results.flat()
-        merged.sort((a, b) => toEpochMs(a?.ulint_data) - toEpochMs(b?.ulint_data))
-        motionRawRows.value = merged
+        // 先尝试满量缓存（若命中就不再走预览）
+        const fullFirst = await fetchMotionSeriesByRangeAndPoints({
+          files,
+          startMs,
+          endMs,
+          maxPoints: MOTION_SERIES_MAX_POINTS,
+          controller,
+          seq
+        })
+        if (fullFirst?.rows?.length) {
+          motionRawRows.value = fullFirst.rows
+          return { previewRows: fullFirst.rows, fullPromise: Promise.resolve(fullFirst.rows), seq }
+        }
+
+        // 预览：点数更小，期望后端更快返回
+        const previewRes = await fetchMotionSeriesByRangeAndPoints({
+          files,
+          startMs,
+          endMs,
+          maxPoints: MOTION_SERIES_PREVIEW_POINTS,
+          controller,
+          seq
+        })
+        if (seq !== motionSeriesSeq || controller.signal.aborted) return
+        if (previewRes?.rows) motionRawRows.value = previewRes.rows
+
+        // 后台拉满量：完成后替换
+        const fullPromise = fetchMotionSeriesByRangeAndPoints({
+          files,
+          startMs,
+          endMs,
+          maxPoints: MOTION_SERIES_MAX_POINTS,
+          controller,
+          seq
+        }).then((res) => {
+          if (seq !== motionSeriesSeq || controller.signal.aborted) return null
+          if (res?.rows) motionRawRows.value = res.rows
+          return res?.rows || null
+        }).catch(() => null)
+
+        return { previewRows: previewRes?.rows || null, fullPromise, seq }
       } catch (e) {
+        if (controller.signal.aborted) return
         console.warn('按时间范围拉取运行数据失败（保留当前数据）:', e)
       }
     }
@@ -1661,39 +1845,12 @@ export default {
         motionMatchNotFound.value = false
         motionMatchNotFoundRangeMs.value = { startMs: null, endMs: null }
 
-        if (files.length === 1) {
-          const f = files[0]
-          const fileName = f?.original_name || f?.filename || f?.id || ''
-          try {
-            await ElMessageBox.confirm(
-              t('dataAnalysis.autoAddMotionConfirm', { fileName }) ||
-                `检测到该时间段有可用运行数据文件：${fileName}。是否自动加载？`,
-              t('dataAnalysis.confirmTitle') || '确认',
-              {
-                confirmButtonText: t('shared.confirm') || '确定',
-                cancelButtonText: t('shared.cancel') || '取消',
-                type: 'info'
-              }
-            )
-          } catch {
-            return
-          }
-          await loadMotionSingleFile(f)
-          return
-        }
-
-        // 多个文件：使用现有选择弹窗（用户点“确定”即为确认）
+        // 统一使用多选弹窗（1 个或多个文件都弹窗，由用户点击「加载数据」确认；不预选，避免误以为已勾选并加载）
         autoMotionCandidates.value = files
         // 统一使用 string id，避免 selectable/includes 发生类型不一致导致“已勾选但不可取消/不可再选”
-        autoMotionPickedIds.value = files.length > 0 ? [String(files[0].id).trim()] : []
+        autoMotionPickedIds.value = []
+        autoMotionPendingKeep.value = null
         showAutoMotionPickDialog.value = true
-        // 弹窗打开后，待表格 ref 可用时同步选择（el-dialog 内表格可能延迟挂载，ref 在 nextTick 仍为 null）
-        nextTick(() => {
-          const firstFile = files.find(f => String(f?.id ?? '').trim() === autoMotionPickedIds.value[0])
-          if (firstFile) {
-            autoMotionPendingKeep.value = [firstFile]
-          }
-        })
       } catch (e) {
         console.warn('自动匹配运行数据失败（不影响日志）:', e)
       }
@@ -1790,7 +1947,8 @@ export default {
         motionSlots.value = motionSlots.value.map((s) => ({ ...s, title: '', series: [] }))
         motionMatchNotFound.value = false
         motionMatchNotFoundRangeMs.value = { startMs: null, endMs: null }
-        await syncTimelineRangeByLoadedData()
+        // 此处日志窗口已在 replaceLogWindow 加载完成，避免 sync 内再次 replaceLogWindow 造成重复请求/限流
+        await syncTimelineRangeByLoadedData({ preserveCursorAbs: true, skipReplaceLogWindow: true })
       } catch (e) {
         console.warn('自动加载运行数据失败（不影响日志）:', e)
       } finally {
@@ -1875,20 +2033,34 @@ export default {
       autoMotionPickedIds.value = selection.map(f => String(f?.id ?? '').trim()).filter(Boolean)
     }
 
-    // ref 可用时应用待回选（el-dialog 内表格延迟挂载导致 selection-change 时 ref 常为 null）
+    // ref 可用时：有待回选则应用；否则若弹窗已打开则清空勾选（避免 reserve-selection 恢复上次勾选）
     watch(
       autoMotionTableRef,
       (newRef) => {
+        if (!newRef) return
         const pending = autoMotionPendingKeep.value
-        if (!newRef || !pending?.length) return
-        newRef.clearSelection()
-        pending.forEach((row) => newRef.toggleRowSelection(row, true))
-        autoMotionPendingKeep.value = null
+        if (pending?.length) {
+          newRef.clearSelection()
+          pending.forEach((row) => newRef.toggleRowSelection(row, true))
+          autoMotionPendingKeep.value = null
+          return
+        }
+        if (showAutoMotionPickDialog.value) {
+          newRef.clearSelection()
+        }
       },
       { immediate: true }
     )
     watch(showAutoMotionPickDialog, (open) => {
-      if (!open) autoMotionPendingKeep.value = null
+      if (!open) {
+        autoMotionPendingKeep.value = null
+        return
+      }
+      // 弹窗打开时清空勾选；若表格已挂载则立即清空，否则等 watch(autoMotionTableRef) 里清空
+      nextTick(() => {
+        const ref = autoMotionTableRef.value
+        if (ref) ref.clearSelection()
+      })
     })
 
     // 检查运行数据时间是否连续
@@ -1951,18 +2123,21 @@ export default {
         }
       }
 
-      showAutoMotionPickDialog.value = false
-      
-      // 加载选中的运行数据文件（最多5个）
-      await loadMotionFilesData(selectedFiles)
-
-      // 自动匹配日志（需要用户确认；不影响手动选择）
-      if (!hasLogsData.value && !suppressAutoLogFromMotion.value) {
-        const deviceId = String(selectedFiles?.[0]?.device_id || '').trim()
-        const range = getMotionRangeFromRows(motionRawRows.value)
-        if (deviceId && range) {
-          await autoPickLogsByRange(deviceId, range.startMs, range.endMs)
+      try {
+        // 加载选中的运行数据文件（最多5个），loadMotionFilesData 内会设置 loading，完成后才关闭弹窗
+        await loadMotionFilesData(selectedFiles)
+        showAutoMotionPickDialog.value = false
+        // 自动匹配日志（需要用户确认；不影响手动选择）
+        if (!hasLogsData.value && !suppressAutoLogFromMotion.value) {
+          const deviceId = String(selectedFiles?.[0]?.device_id || '').trim()
+          const range = getMotionRangeFromRows(motionRawRows.value)
+          if (deviceId && range) {
+            await autoPickLogsByRange(deviceId, range.startMs, range.endMs)
+          }
         }
+      } catch (e) {
+        console.warn('自动匹配确认后加载运行数据失败:', e)
+        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
       }
     }
 
@@ -2004,11 +2179,6 @@ export default {
       openSelectionDialog(type)
     }
 
-    const handleDateButtonClick = () => {
-      // 仅用于对齐 Figma 顶部日期按钮样式；后续可接入日期选择逻辑
-      openSelectionDialog()
-    }
-
     const triggerLocalVideoPicker = () => {
       videoFileInput.value?.click()
     }
@@ -2020,12 +2190,12 @@ export default {
         videoObjectUrl.value = null
       }
       videoSource.value = null
-      videoStartTime.value = null
-      cursorMs.value = 0
-      maxTime.value = 0
+      resetVideoAnchor()
+      // 不重置 cursorMs / maxTime：时间轴由日志/运行数据决定，清空视频后再次添加不应改变日志范围
     }
 
     const clearLogs = () => {
+      resetVideoAnchor()
       // 联动清空：清空日志时同时清空运行数据（保持一致性）
       clearLogsData()
       clearMotionData()
@@ -2087,33 +2257,132 @@ export default {
       return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     }
 
-    // 应用视频时间配置：当前进度条位置 = 用户选择的实际时间，反推 videoStartTime
+    // 时间选择器：限制在选中日期的有效时间范围内（单日直接用 range，跨日用 selectedDayRange）
+    const videoConfigDisabledHours = () => {
+      const range = videoConfigSelectedDayRange.value
+      if (range?.first == null || range?.last == null) return []
+      const firstD = dayjs(range.first)
+      const lastD = dayjs(range.last)
+      const disabled = []
+      for (let h = 0; h < firstD.hour(); h++) disabled.push(h)
+      for (let h = lastD.hour() + 1; h < 24; h++) disabled.push(h)
+      return disabled
+    }
+    const videoConfigDisabledMinutes = (hour) => {
+      const range = videoConfigSelectedDayRange.value
+      if (range?.first == null || range?.last == null) return []
+      const firstD = dayjs(range.first)
+      const lastD = dayjs(range.last)
+      const disabled = []
+      if (hour === firstD.hour()) {
+        for (let m = 0; m < firstD.minute(); m++) disabled.push(m)
+      }
+      if (hour === lastD.hour()) {
+        for (let m = lastD.minute() + 1; m < 60; m++) disabled.push(m)
+      }
+      return disabled
+    }
+    const videoConfigDisabledSeconds = (hour, minute) => {
+      const range = videoConfigSelectedDayRange.value
+      if (range?.first == null || range?.last == null) return []
+      const firstD = dayjs(range.first)
+      const lastD = dayjs(range.last)
+      const disabled = []
+      if (hour === firstD.hour() && minute === firstD.minute()) {
+        for (let s = 0; s < firstD.second(); s++) disabled.push(s)
+      }
+      if (hour === lastD.hour() && minute === lastD.minute()) {
+        for (let s = lastD.second() + 1; s < 60; s++) disabled.push(s)
+      }
+      return disabled
+    }
+
+    // 应用视频时间配置：Tvideon 对应 Tlogn；基准日期取日志范围起始日，仅选时/分/秒
     const applyVideoTimeConfig = () => {
       const timeStr = videoTimeConfigForm.value.startTime
-      if (!timeStr) {
+      if (!timeStr || typeof timeStr !== 'string') {
         ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime') || '请选择该时刻对应时间')
+        return
+      }
+      const range = videoConfigTimeRange.value
+      if (!range || range.first == null || range.last == null) {
+        ElMessage.warning(t('dataAnalysis.noDataForVideoConfig') || '没有日志或运行数据，无需配置时间轴')
+        return
+      }
+      if (videoConfigIsCrossDay.value && !videoTimeConfigForm.value.selectedDate) {
+        ElMessage.warning(t('dataAnalysis.pleaseSelectDate') || '请先选择日期')
+        return
+      }
+      const parts = timeStr.split(':').map(Number)
+      if (parts.length < 3 || !parts.every(Number.isFinite)) {
+        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime') || '请选择有效的时:分:秒')
+        return
+      }
+      const [hours, minutes, seconds] = parts
+      let baseDate
+      if (videoConfigIsCrossDay.value && videoTimeConfigForm.value.selectedDate) {
+        baseDate = new Date(videoTimeConfigForm.value.selectedDate)
+      } else {
+        baseDate = new Date(range.first)
+      }
+      baseDate.setHours(hours, minutes, seconds, 0)
+      const tlogn = baseDate.getTime()
+      if (!Number.isFinite(tlogn)) {
+        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime') || '请选择有效的时:分:秒')
         return
       }
       if (!videoPlayer.value || !Number.isFinite(configDialogVideoCurrentTime.value)) {
         ElMessage.warning(t('dataAnalysis.videoNotReady') || '请先加载视频')
         return
       }
+      if (tlogn < range.first || tlogn > range.last) {
+        ElMessage.warning(t('dataAnalysis.selectTimeInLogRange') || '请选择日志时间范围内的时刻')
+        return
+      }
+      const tvideon = Math.floor((configDialogVideoCurrentTime.value ?? 0) * 1000)
+      const tb = timeBase.value
+      const mt = maxTime.value
+      if (tb == null || !Number.isFinite(mt) || mt <= 0) {
+        ElMessage.warning(t('dataAnalysis.noDataForVideoConfig') || '请先加载日志或运行数据以确定联动轴')
+        return
+      }
+      const tlogstart = tb
+      const tlogend = tb + mt
+      videoAnchorLogMs.value = tlogn
+      videoAnchorVideoMs.value = tvideon
+      videoStartTime.value = null
 
-      const [hours, minutes, seconds] = timeStr.split(':').map(Number)
-      const today = new Date()
-      today.setHours(hours, minutes, seconds, 0)
-      const thatTimeMs = today.getTime()
-      const curSec = configDialogVideoCurrentTime.value ?? 0
-      videoStartTime.value = thatTimeMs - curSec * 1000
+      const durationMs = (videoPlayer.value?.duration ?? 0) * 1000
+      const videoStartLogMs = tlogn - tvideon
+      const videoEndLogMs = videoStartLogMs + durationMs
+      const startLogStr = formatYmdHms(new Date(videoStartLogMs))
+      const endLogStr = formatYmdHms(new Date(videoEndLogMs))
 
       showVideoTimeConfigDialog.value = false
-      ElMessage.success(t('dataAnalysis.videoTimeConfigSuccess') || '视频起始时间配置成功')
+      ElMessage.success(
+        t('dataAnalysis.videoTimeConfigSuccess') || '视频起始时间配置成功'
+      )
+      ElMessage.info({
+        message: `${t('dataAnalysis.videoStartMapsToLog') || '视频0s →'} ${startLogStr}\n${t('dataAnalysis.videoEndMapsToLog') || '视频结束 →'} ${endLogStr}`,
+        duration: 6000,
+        showClose: true
+      })
     }
 
     // 关闭视频时间配置弹窗时的处理
     const onVideoTimeConfigDialogClose = () => {
       // 关闭时不清空表单，下次打开由 watch 根据当前进度与 videoStartTime 回填
     }
+
+    // 仅添加视频时：src 切换后强制进度为 0（不依赖 loadedmetadata 时机）
+    watch(videoSource, (url) => {
+      if (!url) return
+      nextTick(() => {
+        if (videoPlayer.value?.src && videoPlayer.value.src === url) {
+          videoPlayer.value.currentTime = 0
+        }
+      })
+    })
 
     // 打开配置弹窗时捕获当前视频进度，并回填「当前画面对应的实际时间」
     watch(showVideoTimeConfigDialog, (open) => {
@@ -2123,10 +2392,30 @@ export default {
           const dur = videoPlayer.value?.duration ?? 0
           configDialogVideoCurrentTime.value = cur
           configDialogVideoDuration.value = dur
-          if (videoStartTime.value != null && Number.isFinite(cur)) {
-            videoTimeConfigForm.value.startTime = formatVideoStartTime(Number(videoStartTime.value) + cur * 1000)
-          } else {
+          const range = videoConfigTimeRange.value
+          if (range?.first == null || range?.last == null) {
             videoTimeConfigForm.value.startTime = null
+            videoTimeConfigForm.value.selectedDate = null
+          } else {
+            let clamped
+            if (videoAnchorLogMs.value != null && videoAnchorVideoMs.value != null && Number.isFinite(cur)) {
+              const ms = videoAnchorLogMs.value + (cur * 1000 - videoAnchorVideoMs.value)
+              clamped = Math.min(Math.max(ms, range.first), range.last)
+            } else if (videoStartTime.value != null && Number.isFinite(cur)) {
+              const ms = Number(videoStartTime.value) + cur * 1000
+              clamped = Math.min(Math.max(ms, range.first), range.last)
+            } else if (Number.isFinite(cur)) {
+              const suggestedMs = range.first + cur * 1000
+              clamped = Math.min(Math.max(suggestedMs, range.first), range.last)
+            } else {
+              clamped = range.first
+            }
+            videoTimeConfigForm.value.startTime = formatVideoStartTime(clamped)
+            if (videoConfigIsCrossDay.value) {
+              videoTimeConfigForm.value.selectedDate = formatYmd(new Date(clamped))
+            } else {
+              videoTimeConfigForm.value.selectedDate = null
+            }
           }
         })
       }
@@ -2134,15 +2423,27 @@ export default {
 
     // 根据「当前画面对应的实际时间」推断视频开始/结束时间（弹窗内展示用）
     const inferredVideoTimeRange = computed(() => {
+      const dur = configDialogVideoDuration.value
+      if (videoAnchorLogMs.value != null && videoAnchorVideoMs.value != null && Number.isFinite(dur) && dur >= 0) {
+        const startMs = videoAnchorLogMs.value - videoAnchorVideoMs.value
+        return { startMs, endMs: startMs + dur * 1000 }
+      }
       const timeStr = videoTimeConfigForm.value.startTime
       const cur = configDialogVideoCurrentTime.value
-      const dur = configDialogVideoDuration.value
+      const range = videoConfigTimeRange.value
       if (!timeStr || !Number.isFinite(cur)) return null
-      const [h, m, s] = timeStr.split(':').map(Number)
-      if (!Number.isFinite(h) || !Number.isFinite(m) || !Number.isFinite(s)) return null
-      const today = new Date()
-      today.setHours(h, m, s, 0)
-      const thatMs = today.getTime()
+      const parts = timeStr.split(':').map(Number)
+      if (parts.length < 3 || !parts.every(Number.isFinite)) return null
+      const [h, m, s] = parts
+      let baseDate
+      if (videoConfigIsCrossDay.value && videoTimeConfigForm.value.selectedDate) {
+        baseDate = new Date(videoTimeConfigForm.value.selectedDate)
+      } else {
+        baseDate = range?.first != null ? new Date(range.first) : new Date()
+      }
+      baseDate.setHours(h, m, s, 0)
+      const thatMs = baseDate.getTime()
+      if (!Number.isFinite(thatMs)) return null
       const startMs = thatMs - cur * 1000
       const endMs = Number.isFinite(dur) && dur >= 0 ? startMs + dur * 1000 : null
       return { startMs, endMs }
@@ -2780,12 +3081,12 @@ export default {
     const getMotionStatusText = (row) => {
       const s = String(row?.status || '').trim()
       const map = {
-        completed: t('logs.statusFilter.completed') || '完成',
-        parsing: t('logs.status.parsing') || '解析中',
-        uploading: t('logs.status.uploading') || '上传中',
-        parse_failed: t('logs.status.parseFailed') || '解析失败',
-        file_error: t('logs.status.fileError') || '文件错误',
-        processing_failed: t('dataReplay.processingFailed') || '处理失败'
+        completed: t('logs.statusFilter.completed'),
+        parsing: t('logs.statusText.parsing'),
+        uploading: t('logs.statusText.uploading'),
+        parse_failed: t('logs.statusText.parse_failed'),
+        file_error: t('logs.statusText.file_error'),
+        processing_failed: t('dataReplay.processingFailed')
       }
       return map[s] || s || '-'
     }
@@ -2946,13 +3247,15 @@ export default {
     // 获取日志状态文本
     const getLogStatusText = (row) => {
       const statusMap = {
-        parsed: t('logs.status.parsed') || '已完成',
-        parsing: t('logs.status.parsing') || '解析中',
-        parse_failed: t('logs.status.parseFailed') || '解析失败',
-        decrypt_failed: t('logs.status.decryptFailed') || '解密失败',
-        file_error: t('logs.status.fileError') || '文件错误',
-        queue_failed: t('logs.status.queueFailed') || '队列失败',
-        upload_failed: t('logs.status.uploadFailed') || '上传失败'
+        parsed: t('logs.statusText.parsed'),
+        parsing: t('logs.statusText.parsing'),
+        parse_failed: t('logs.statusText.parse_failed'),
+        decrypt_failed: t('logs.statusText.decrypt_failed'),
+        file_error: t('logs.statusText.file_error'),
+        queue_failed: t('logs.statusText.failed'),
+        upload_failed: t('logs.statusText.failed'),
+        uploading: t('logs.statusText.uploading'),
+        queued: t('logs.statusText.queued')
       }
       return statusMap[row.status] || row.status || '-'
     }
@@ -3371,22 +3674,48 @@ export default {
 
     const syncVideoToCursorAbs = (absMs) => {
       if (!videoPlayer.value || !videoSource.value) return
-      // 未配置时默认为日志起始时间（timeBase），使点击日志可同步视频
-      if (videoStartTime.value == null) {
-        if (timeBase.value != null) {
-          videoStartTime.value = timeBase.value
+      const durationMs = (videoPlayer.value.duration || 0) * 1000
+      const tvideos = 0
+      const tvideoe = durationMs
+
+      if (videoAnchorLogMs.value != null && videoAnchorVideoMs.value != null) {
+        const tb = timeBase.value
+        const mt = maxTime.value
+        if (tb == null || !Number.isFinite(mt) || mt <= 0) return
+        const tlogstart = tb
+        const tlogend = tb + mt
+        const tlogn = videoAnchorLogMs.value
+        const tvideon = videoAnchorVideoMs.value
+        const tDeltaBase = tlogn - tlogstart
+        const tnbase = tvideon - tDeltaBase
+        const clampedAbs = Math.max(tlogstart, Math.min(tlogend, absMs))
+        const timelinePos = clampedAbs - tlogstart
+        let videoTimeMs
+        if (tnbase > 0) {
+          videoTimeMs = timelinePos + tnbase
         } else {
-          return
+          if (timelinePos < -tnbase) videoTimeMs = tvideos
+          else videoTimeMs = timelinePos + tnbase
         }
+        videoTimeMs = Math.max(tvideos, Math.min(tvideoe, videoTimeMs))
+        const tSec = videoTimeMs / 1000
+        if (!Number.isFinite(tSec)) return
+        suppressVideoTimeSync.value = true
+        videoPlayer.value.currentTime = tSec
+        setTimeout(() => { suppressVideoTimeSync.value = false }, 0)
+        return
+      }
+
+      if (videoStartTime.value == null) {
+        if (timeBase.value != null) videoStartTime.value = timeBase.value
+        else return
       }
       const relMs = absMs - Number(videoStartTime.value)
       const tSec = relMs / 1000
       if (Number.isNaN(tSec) || tSec < 0 || tSec > (videoPlayer.value.duration || 0)) return
       suppressVideoTimeSync.value = true
       videoPlayer.value.currentTime = tSec
-      setTimeout(() => {
-        suppressVideoTimeSync.value = false
-      }, 0)
+      setTimeout(() => { suppressVideoTimeSync.value = false }, 0)
     }
 
     const binarySearchNearestIndex = (sortedTs, targetTs) => {
@@ -3427,6 +3756,11 @@ export default {
       }
     }
 
+    const throttledScrollToLogEntryAbs = throttle(scrollToLogEntryAbs, 80)
+    const throttledEnsureLogWindowContains = throttle((absMs) => {
+      if (!logWindowLoading.value) ensureLogWindowContains(absMs)
+    }, 200)
+
     const setCursorByAbsMs = (absMs, source = '') => {
       if (!Number.isFinite(absMs)) return
       if (timeBase.value == null) {
@@ -3441,18 +3775,20 @@ export default {
         syncVideoToCursorAbs(absMs)
       }
       // 避免视频 timeupdate 过于频繁触发窗口重拉
-      if (!logWindowLoading.value) {
-        ensureLogWindowContains(absMs)
-      }
-      scrollToLogEntryAbs(absMs)
+      throttledEnsureLogWindowContains(absMs)
+      throttledScrollToLogEntryAbs(absMs)
     }
+
+    const throttledSyncVideoToCursorAbsForTimeline = throttle((absMs) => {
+      syncVideoToCursorAbs(absMs)
+    }, 33)
 
     const onTimelineChange = (value) => {
       cursorMs.value = value
       const abs = cursorAbsMs.value
       if (abs != null) {
-        syncVideoToCursorAbs(abs)
-        scrollToLogEntryAbs(abs)
+        throttledSyncVideoToCursorAbsForTimeline(abs)
+        throttledScrollToLogEntryAbs(abs)
       }
     }
 
@@ -3462,10 +3798,8 @@ export default {
       videoPlayer.value.currentTime = 0
       const durationMs = Math.floor((videoPlayer.value.duration || 0) * 1000)
       if (durationMs > 0) {
-        // 视频长于日志/运行数据时：已有 timeBase（数据跨度）则不再拉长时间轴，保持 maxTime 为数据跨度，播放超出部分时游标钉在首/末（见 onVideoTimeUpdate）
-        if (timeBase.value != null && Number.isFinite(maxTime.value) && maxTime.value > 0) {
-          maxTime.value = Math.min(maxTime.value, durationMs)
-        } else {
+        // 时间轴由日志/运行数据决定：已有 timeBase+maxTime 时不因视频缩短或拉长时间轴；仅在没有数据时用视频时长作为 maxTime
+        if (timeBase.value == null || !Number.isFinite(maxTime.value) || maxTime.value <= 0) {
           maxTime.value = durationMs
         }
         cursorMs.value = Math.min(cursorMs.value, maxTime.value)
@@ -3478,27 +3812,44 @@ export default {
       if (suppressVideoTimeSync.value) return
       const videoTimeMs = Math.floor(videoPlayer.value.currentTime * 1000)
       if (Number.isNaN(videoTimeMs)) return
-      // 若配置了视频起始时间 + timeBase，则用绝对时间驱动联动
+      const durationMs = (videoPlayer.value.duration || 0) * 1000
+      const tvideos = 0
+      const tvideoe = durationMs
+
+      if (videoAnchorLogMs.value != null && videoAnchorVideoMs.value != null) {
+        const tb = timeBase.value
+        const mt = maxTime.value
+        if (tb == null || !Number.isFinite(mt) || mt <= 0) return
+        const tlogstart = tb
+        const tlogend = tb + mt
+        const tlogn = videoAnchorLogMs.value
+        const tvideon = videoAnchorVideoMs.value
+        const tDeltaBase = tlogn - tlogstart
+        const tnbase = tvideon - tDeltaBase
+        let cursorAbs
+        if (tnbase > 0) {
+          if (videoTimeMs < tnbase) return
+          cursorAbs = tlogstart + (videoTimeMs - tnbase)
+        } else {
+          if (videoTimeMs + tnbase < 0) return
+          cursorAbs = tlogstart + (videoTimeMs + tnbase)
+        }
+        cursorAbs = Math.max(tlogstart, Math.min(tlogend, cursorAbs))
+        if (!Number.isFinite(cursorAbs)) return
+        setCursorByAbsMs(cursorAbs, 'video')
+        return
+      }
+
       if (videoStartTime.value != null && timeBase.value != null) {
         const abs = Number(videoStartTime.value) + videoTimeMs
         const { first, last } = logDataRangeAbsMs.value || {}
-        // 视频覆盖时间可能长于日志：超出后钉在最后一条日志（不回拉视频，只限制联动游标）
-        if (Number.isFinite(last) && abs > last) {
-          setCursorByAbsMs(last, 'video')
-          return
-        }
-        if (Number.isFinite(first) && abs < first) {
-          setCursorByAbsMs(first, 'video')
-          return
-        }
+        if (Number.isFinite(last) && abs > last) { setCursorByAbsMs(last, 'video'); return }
+        if (Number.isFinite(first) && abs < first) { setCursorByAbsMs(first, 'video'); return }
         setCursorByAbsMs(abs, 'video')
         return
       }
       cursorMs.value = Math.max(0, Math.min(maxTime.value, videoTimeMs))
-      // 旧模式下也尽量滚动日志（若已存在 timeBase）
-      if (cursorAbsMs.value != null) {
-        scrollToLogEntryAbs(cursorAbsMs.value)
-      }
+      if (cursorAbsMs.value != null) scrollToLogEntryAbs(cursorAbsMs.value)
     }
 
     const onMotionRangeChange = (range) => {
@@ -3791,6 +4142,7 @@ export default {
     }
 
     const clearMotion = () => {
+      resetVideoAnchor()
       clearMotionData()
       // 联动清空：同时清空日志数据（保持数据一致性）
       clearLogsData()
@@ -3827,18 +4179,40 @@ export default {
       return series
     }
 
-    const applyMotionSlotConfig = () => {
+    const applyMotionSlotConfig = async () => {
       const slotIdx = activeMotionSlotIndex.value
       if (!motionPickSubject.value || !motionPickCategory.value || !motionPickFieldIndexes.value.length) {
         ElMessage.warning(t('dataAnalysis.selectComplete') || '请完成所有步骤并选择至少一个变量')
         return
       }
-      const series = buildSeriesForFieldIndexes(motionPickFieldIndexes.value)
-      const varCount = motionPickFieldIndexes.value.length
-      const title = `${motionPickSubject.value} / ${motionPickCategory.value}${varCount > 1 ? ` (${varCount}个变量)` : ''}`
-      motionSlots.value[slotIdx] = { ...motionSlots.value[slotIdx], title, series }
-      showMotionConfigDrawer.value = false
-      ElMessage.success(t('dataAnalysis.configSuccess') || '配置成功')
+      try {
+        motionConfigLoading.value = true
+        await nextTick()
+        const varCount = motionPickFieldIndexes.value.length
+        const title = `${motionPickSubject.value} / ${motionPickCategory.value}${varCount > 1 ? ` (${varCount}个变量)` : ''}`
+        const pickedIndexes = [...motionPickFieldIndexes.value]
+
+        // 两段式：先预览出图，再后台替换成满量数据
+        const res = await fetchMotionSeriesInRangeTwoStage()
+        const previewSeries = buildSeriesForFieldIndexes(pickedIndexes)
+        motionSlots.value[slotIdx] = { ...motionSlots.value[slotIdx], title, series: previewSeries }
+        showMotionConfigDrawer.value = false
+        ElMessage.success(t('dataAnalysis.configSuccess') || '配置成功')
+
+        // 后台拉满量：不阻塞弹窗关闭与 loading 结束
+        res?.fullPromise?.then((fullRows) => {
+          if (!fullRows || !Array.isArray(fullRows) || !fullRows.length) return
+          const curSlot = motionSlots.value[slotIdx]
+          if (!curSlot || curSlot.title !== title) return
+          const series = buildSeriesForFieldIndexes(pickedIndexes)
+          motionSlots.value[slotIdx] = { ...curSlot, series }
+        })
+      } catch (e) {
+        console.warn('配置曲线图失败:', e)
+        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+      } finally {
+        motionConfigLoading.value = false
+      }
     }
 
     const isEntryHighlighted = (entry, index) => {
@@ -3866,6 +4240,10 @@ export default {
       if (!el) return
       if (el.scrollTop === 0) {
         if (logWindowDirectionLock.value) return
+        // 已经到最早允许范围时不再向前翻
+        if (logAllowedStartMs.value != null && logWindowStartMs.value != null && logWindowStartMs.value <= logAllowedStartMs.value) {
+          return
+        }
         logWindowDirectionLock.value = 'prev'
         // 如果窗口未初始化，使用当前时间创建一个窗口
         if (logWindowStartMs.value == null || logWindowEndMs.value == null) {
@@ -3881,6 +4259,10 @@ export default {
 
     const onLogVirtualLoadMore = () => {
       if (logWindowDirectionLock.value) return
+      // 已经到最晚允许范围时不再向后翻
+      if (logAllowedEndMs.value != null && logWindowEndMs.value != null && logWindowEndMs.value >= logAllowedEndMs.value) {
+        return
+      }
       logWindowDirectionLock.value = 'next'
       // 如果窗口未初始化，使用当前时间创建一个窗口
       if (logWindowStartMs.value == null || logWindowEndMs.value == null) {
@@ -4080,7 +4462,6 @@ export default {
       videoFileInput,
       logsContainer,
       logVirtualTableRef,
-      selectedDateLabel,
       selectionForm,
       devices,
       availableLogs,
@@ -4118,6 +4499,7 @@ export default {
       openMotionSlotConfig,
       clearMotionSlot,
       clearMotion,
+      motionConfigLoading,
       applyMotionSlotConfig,
       clearVideo,
       clearLogs,
@@ -4136,16 +4518,22 @@ export default {
       logVirtualColumns,
       formatTime,
       formatTimestamp,
+      formatYmd,
       formatYmdHms,
       openSelectionDialog,
       openMotionSelectionDialog,
-      handleDateButtonClick,
       handlePlaceholderClick,
       triggerLocalVideoPicker,
       onVideoFileChange,
       clearVideo,
       showVideoTimeConfigDialog,
       videoTimeConfigForm,
+      videoConfigTimeRange,
+      videoConfigIsCrossDay,
+      videoConfigDateOptions,
+      videoConfigDisabledHours,
+      videoConfigDisabledMinutes,
+      videoConfigDisabledSeconds,
       configDialogVideoCurrentTime,
       inferredVideoTimeRange,
       formatVideoStartTime,
@@ -4286,50 +4674,6 @@ export default {
   display: none;
 }
 
-.da-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 56px;
-  padding: 0 16px;
-  background: var(--black-white-white);
-  border-bottom: 1px solid var(--slate-200);
-}
-
-.da-toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.da-title-icon {
-  font-size: 20px;
-  color: var(--slate-900);
-}
-
-.da-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--slate-900);
-}
-
-.da-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.da-date-btn {
-  height: 32px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--alpha-light-200);
-}
-
-.da-primary-btn {
-  height: 32px;
-  border-radius: var(--radius-md);
-}
-
 .da-content {
   flex: 1;
   display: flex;
@@ -4343,9 +4687,9 @@ export default {
   overflow: hidden;
 }
 
-/* 空态：不显示滚动条，与分析态一致；视频/倍速等由播放器自带 */
+/* 空态：允许滚动避免三张卡片被裁剪 */
 .da-content-empty {
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .da-empty {
@@ -4421,14 +4765,14 @@ export default {
   max-width: 360px;
 }
 
-/* 分析态样式：随 .da-content 可用高度伸缩，使左右面板始终等高 */
+/* 分析态样式：随 .da-content 可用高度伸缩，使左右面板始终等高；未添加数据时允许滚动避免裁剪 */
 .analysis-view {
   display: flex;
   align-items: stretch;
   gap: 24px;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .left-panel {
@@ -4458,6 +4802,7 @@ export default {
   border: none;
   background: transparent;
   overflow: visible; /* 允许悬浮效果不被裁剪 */
+  min-height: 328px; /* 避免日志空卡片被裁剪 */
 }
 
 .logs-card-empty {
@@ -4598,6 +4943,8 @@ export default {
   padding: 0;
   background: transparent;
   overflow: visible; /* 允许悬浮效果不被裁剪 */
+  flex: 0 0 auto;
+  min-height: 328px; /* 避免运行数据空卡片被裁剪 */
 }
 
 /* 有日志无运行数据且已标记未找到：收起到一条窄栏（方案2） */
@@ -5076,8 +5423,15 @@ export default {
   border-bottom: 1px solid var(--slate-200);
 }
 
+.logs-header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .logs-header h3 {
-  margin: 0 0 12px 0;
+  margin: 0;
   font-size: 16px;
   font-weight: 500;
 }
@@ -5513,6 +5867,8 @@ export default {
   /* 作为 flex 子项占满 logs-content 的剩余高度 */
   flex: 1;
   min-height: 0;
+  /* 保证滚动区域至少有高度，避免父级裁剪导致“看到的底部”不是真实底部、load-more 不触发 */
+  min-height: 200px;
   border: none;
 }
 
@@ -5574,10 +5930,13 @@ export default {
   padding: 8px 0;
 }
 
+.video-config-date-hint {
+  font-size: 12px;
+  color: var(--slate-500);
+  margin-bottom: 8px;
+}
+
 .current-time-display {
-  padding: 8px 12px;
-  background: var(--slate-50);
-  border-radius: var(--radius-sm);
   color: var(--slate-700);
   font-size: 14px;
 }

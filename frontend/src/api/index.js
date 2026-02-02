@@ -165,7 +165,8 @@ const logs = {
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
   analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   getSearchTemplates: () => api.get('/logs/search-templates'),
-  importSearchTemplates: (templates) => api.post('/logs/search-templates/import', { templates })
+  importSearchTemplates: (templates) => api.post('/logs/search-templates/import', { templates }),
+  nlToBatchFilters: (payload) => api.post('/logs/entries/batch/nl-to-filters', payload)
 }
 
 const operationLogs = {
@@ -234,7 +235,8 @@ const surgeryStatistics = {
   getList: (params) => api.get('/surgery-statistics', { params }),
   analyze: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
-  analyzeByLogIds: (logIds, includePostgreSQLStructure = false) => api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure }),
+  analyzeByLogIds: (logIds, includePostgreSQLStructure = false, timezoneOffsetMinutes = null) =>
+    api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure, timezoneOffsetMinutes }),
   getAnalysisTaskStatus: (taskId) => api.get(`/surgery-statistics/task/${taskId}`),
   getUserAnalysisTasks: () => api.get('/surgery-statistics/tasks'),
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
@@ -297,7 +299,7 @@ const motionData = {
   downloadParsed: (id, format = 'jsonl') => api.get(`/motion-data/files/${id}/download/parsed`, { params: { format }, responseType: 'blob' }),
   batchDownloadRawZip: (ids) => api.post('/motion-data/files/batch-download/raw', { ids }, { responseType: 'blob' }),
   preview: (id, params) => api.get(`/motion-data/${id}/preview`, { params }),
-  getSeries: (id, params) => api.get(`/motion-data/files/${id}/series`, { params }),
+  getSeries: (id, params, signal = null) => api.get(`/motion-data/files/${id}/series`, { params, signal }),
   downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' }),
   batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }),
   batchDownload: (fileIds, format = 'csv') => api.post('/motion-data/batch-download', { fileIds, format }),

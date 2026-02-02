@@ -226,8 +226,12 @@ const routes = [
         component: () => import('../views/Surgeries.vue'),
         // 允许拥有全部或仅本人可读权限的用户访问
         meta: { requiresPermission: ['surgery:read', 'surgery:read_own'] }
+      },
+      {
+        path: 'translate-tool',
+        name: 'TranslateTool',
+        component: () => import('../views/TranslateTool.vue')
       }
-
     ]
   },
   // 移动端主路由

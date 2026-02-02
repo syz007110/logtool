@@ -238,7 +238,7 @@ async function getSeriesByTimeRange(req, res) {
       if (filePath && filePath.includes('motion-data-series') && fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
-    } catch (_) {}
+    } catch (_) { }
   } catch (err) {
     const status = err.status || 500;
     res.status(status).json({ message: err.message || '查询失败' });
@@ -541,9 +541,9 @@ async function getMotionFormat(req, res) {
 async function getMotionFormatClassified(req, res) {
   try {
     if (!fs.existsSync(MOTION_FORMAT_CLASSIFIED_PATH)) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: `Motion format classified config file not found: ${MOTION_FORMAT_CLASSIFIED_PATH}` 
+        message: `Motion format classified config file not found: ${MOTION_FORMAT_CLASSIFIED_PATH}`
       });
     }
     const json = fs.readFileSync(MOTION_FORMAT_CLASSIFIED_PATH, 'utf-8');
@@ -551,7 +551,7 @@ async function getMotionFormatClassified(req, res) {
     res.json({ success: true, data: classified });
   } catch (err) {
     console.error('getMotionFormatClassified error:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: `Failed to read motion format classified config: ${err.message}`,
       error: String(err?.message || err)
@@ -1408,18 +1408,18 @@ async function downloadMotionDataParsed(req, res) {
         res.on('finish', () => {
           try {
             if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-          } catch (_) {}
+          } catch (_) { }
         });
         res.on('error', () => {
           try {
             if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-          } catch (_) {}
+          } catch (_) { }
         });
       }
     } else {
       // JSONL 格式：直接下载解析后的文件
       if (!row.parsed_object_key) return res.status(404).json({ message: '解析文件不存在（parsed_object_key为空）' });
-      
+
       if (storage === 'local') {
         // 本地存储：从 parsed_object_key 解析出本地路径
         const localPath = path.join(motionStorage.LOCAL_DIR, row.parsed_object_key);

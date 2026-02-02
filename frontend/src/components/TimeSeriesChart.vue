@@ -1,5 +1,5 @@
 <template>
-  <div class="chart-outer" :style="{ width: width ? width + 'px' : '100%', padding: (typeof outerPadding === 'number' ? (outerPadding + 'px') : (outerPadding || 0)) }">
+  <div class="chart-outer" :style="{ width: (width != null && width > 0) ? width + 'px' : '100%', padding: (typeof outerPadding === 'number' ? (outerPadding + 'px') : (outerPadding || 0)) }">
     <div ref="chartContainer" :style="{ width: '100%', height: height + 'px' }"></div>
     <div v-if="showRangeLabels" class="slider-labels">
       <div class="label-item">{{ startLabel }}</div>
@@ -30,7 +30,7 @@ export default {
     },
     width: {
       type: Number,
-      default: 600
+      default: null
     },
     yAxisFormat: {
       type: String,
@@ -39,6 +39,14 @@ export default {
     showRangeLabels: {
       type: Boolean,
       default: true
+      },
+      // 可选：按指定时区偏移(分钟)格式化 X 轴/tooltip/范围标签
+      // 说明：seriesData 的时间值必须是 epoch 毫秒（或可被 ECharts 当作时间戳的值）
+      // - 传 null/undefined：沿用浏览器本地时区显示（默认行为）
+      // - 传数字：按 UTC + offsetMinutes 显示（例如 480 表示 UTC+8）
+      timezoneOffsetMinutes: {
+        type: [Number, String],
+        default: null
       },
       // 外层容器与 chart 的间距（px 或 CSS 字符串），作用于 chart-outer 的 padding
       outerPadding: {
@@ -111,19 +119,68 @@ export default {
     const rangeStartMs = ref(0)
     const rangeEndMs = ref(0)
 
+    const getTimezoneOffsetMinutes = () => {
+      if (props.timezoneOffsetMinutes == null || props.timezoneOffsetMinutes === '') return null
+      const n = typeof props.timezoneOffsetMinutes === 'string'
+        ? parseInt(props.timezoneOffsetMinutes, 10)
+        : props.timezoneOffsetMinutes
+      return Number.isFinite(n) ? n : null
+    }
+
     const formatTs = (ms) => {
       try {
-        const d = new Date(ms)
-        const y = d.getFullYear()
-        const m = String(d.getMonth() + 1).padStart(2, '0')
-        const day = String(d.getDate()).padStart(2, '0')
-        const hh = String(d.getHours()).padStart(2, '0')
-        const mm = String(d.getMinutes()).padStart(2, '0')
-        const ss = String(d.getSeconds()).padStart(2, '0')
+        const offsetMinutes = getTimezoneOffsetMinutes()
+        // 未指定时区：沿用浏览器本地时区
+        if (offsetMinutes == null) {
+          const d = new Date(ms)
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          const hh = String(d.getHours()).padStart(2, '0')
+          const mm = String(d.getMinutes()).padStart(2, '0')
+          const ss = String(d.getSeconds()).padStart(2, '0')
+          return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
+        }
+        // 指定时区：用 UTC getter + (ms + offset) 避免本地时区影响
+        const d = new Date(ms + offsetMinutes * 60 * 1000)
+        const y = d.getUTCFullYear()
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(d.getUTCDate()).padStart(2, '0')
+        const hh = String(d.getUTCHours()).padStart(2, '0')
+        const mm = String(d.getUTCMinutes()).padStart(2, '0')
+        const ss = String(d.getUTCSeconds()).padStart(2, '0')
         return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
       } catch (_) {
         return ''
       }
+    }
+
+    // X 轴刻度标签：按时间跨度用短格式，与原来 ECharts time 轴风格一致（短跨度不显示年月）
+    const formatTsAxisLabel = (ms, timeSpanMs) => {
+      try {
+        const offsetMinutes = getTimezoneOffsetMinutes()
+        const displayMs = offsetMinutes != null ? ms + offsetMinutes * 60 * 1000 : ms
+        const d = offsetMinutes != null ? new Date(displayMs) : new Date(ms)
+        const getY = () => (offsetMinutes != null ? d.getUTCFullYear() : d.getFullYear())
+        const getM = () => String((offsetMinutes != null ? d.getUTCMonth() : d.getMonth()) + 1).padStart(2, '0')
+        const getD = () => String(offsetMinutes != null ? d.getUTCDate() : d.getDate()).padStart(2, '0')
+        const getH = () => String(offsetMinutes != null ? d.getUTCHours() : d.getHours()).padStart(2, '0')
+        const getMi = () => String(offsetMinutes != null ? d.getUTCMinutes() : d.getMinutes()).padStart(2, '0')
+        const getS = () => String(offsetMinutes != null ? d.getUTCSeconds() : d.getSeconds()).padStart(2, '0')
+        const dayMs = 24 * 60 * 60 * 1000
+        const weekMs = 7 * dayMs
+        if (timeSpanMs < dayMs) return `${getH()}:${getMi()}:${getS()}`
+        if (timeSpanMs < weekMs) return `${getM()}-${getD()} ${getH()}:${getMi()}`
+        return `${getY()}-${getM()}-${getD()} ${getH()}:${getMi()}`
+      } catch (_) {
+        return ''
+      }
+    }
+
+    const formatYAxisValue = (value) => {
+      if (props.yAxisFormat === 'integer') return Math.round(value).toString()
+      if (props.yAxisFormat === 'decimal') return Number(value).toFixed(1)
+      return String(value)
     }
 
     const startLabel = computed(() => formatTs(rangeStartMs.value))
@@ -170,6 +227,10 @@ export default {
               : (props.enableSlider ? 60 : 16)
           }
         : { left: 16, right: 16, top: 16, bottom: props.enableSlider ? 60 : 16, containLabel: true }
+
+      const minX = Math.min(...validData.map(d => d[0]))
+      const maxX = Math.max(...validData.map(d => d[0]))
+      const timeSpanMs = maxX - minX
       
       const option = {
         backgroundColor: 'transparent', // 移除整个图表背景色
@@ -185,6 +246,16 @@ export default {
           textStyle: {
             color: '#f9fafb',
             fontSize: 11
+          },
+          formatter: (params) => {
+            if (!params || !Array.isArray(params) || params.length === 0) return ''
+            const axisMs = params[0]?.axisValue
+            const timeStr = formatTs(axisMs)
+            const lines = params.map((p) => {
+              const val = Array.isArray(p.value) ? p.value[1] : p.value
+              return `${p.marker || ''} ${p.seriesName || ''}: ${formatYAxisValue(val)}`
+            })
+            return `${timeStr}<br/>${lines.join('<br/>')}`
           },
           axisPointer: {
             type: 'line',
@@ -216,13 +287,14 @@ export default {
           axisLabel: {
             color: '#6a7282',
             fontSize: 11,
-            margin: 10
+            margin: 10,
+            formatter: (value) => formatTsAxisLabel(value, timeSpanMs)
           },
           splitLine: {
             show: false
           },
-          min: Math.min(...validData.map(d => d[0])),
-          max: Math.max(...validData.map(d => d[0]))
+          min: minX,
+          max: maxX
         },
         yAxis: {
           type: 'value',
@@ -234,14 +306,7 @@ export default {
             fontSize: 11,
             width: 40,
             overflow: 'truncate',
-            formatter: (value) => {
-              if (props.yAxisFormat === 'integer') {
-                return Math.round(value).toString()
-              } else if (props.yAxisFormat === 'decimal') {
-                return value.toFixed(1)
-              }
-              return value.toString()
-            }
+            formatter: (value) => formatYAxisValue(value)
           },
           splitLine: {
             show: true,
@@ -296,14 +361,26 @@ export default {
               },
               preventDefaultMouseMove: false,
               labelFormatter: (value) => {
-                const date = new Date(value)
-                const year = date.getFullYear()
-                const month = String(date.getMonth() + 1).padStart(2, '0')
-                const day = String(date.getDate()).padStart(2, '0')
-                const hours = String(date.getHours()).padStart(2, '0')
-                const minutes = String(date.getMinutes()).padStart(2, '0')
-                const seconds = String(date.getSeconds()).padStart(2, '0')
-                
+                const offsetMinutes = getTimezoneOffsetMinutes()
+                // 未指定：本地时区
+                if (offsetMinutes == null) {
+                  const date = new Date(value)
+                  const year = date.getFullYear()
+                  const month = String(date.getMonth() + 1).padStart(2, '0')
+                  const day = String(date.getDate()).padStart(2, '0')
+                  const hours = String(date.getHours()).padStart(2, '0')
+                  const minutes = String(date.getMinutes()).padStart(2, '0')
+                  const seconds = String(date.getSeconds()).padStart(2, '0')
+                  return `${year}-${month}-${day}\n${hours}:${minutes}:${seconds}`
+                }
+                // 指定：UTC getter + (ms + offset)
+                const date = new Date(value + offsetMinutes * 60 * 1000)
+                const year = date.getUTCFullYear()
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+                const day = String(date.getUTCDate()).padStart(2, '0')
+                const hours = String(date.getUTCHours()).padStart(2, '0')
+                const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+                const seconds = String(date.getUTCSeconds()).padStart(2, '0')
                 return `${year}-${month}-${day}\n${hours}:${minutes}:${seconds}`
               }
             }
@@ -313,7 +390,8 @@ export default {
           {
             name: props.seriesName,
             type: 'line',
-            symbol: 'none',
+            symbol: 'circle',
+            symbolSize: 2,
             smooth: props.smooth,
             step: props.step || false,
             sampling: false,
@@ -539,6 +617,13 @@ export default {
         createChart()
       })
     }, { deep: true })
+
+    // 监听时区偏移变化：需要重建 formatter 才能生效
+    watch(() => props.timezoneOffsetMinutes, () => {
+      nextTick(() => {
+        createChart()
+      })
+    })
 
     // 监听高度变化
     watch(() => props.height, () => {

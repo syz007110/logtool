@@ -775,7 +775,9 @@ export default {
       const minute = minuteStr != null ? Number(minuteStr) : 0
       if ([year, month, day, hour].some(num => Number.isNaN(num))) return null
       if (minuteStr != null && Number.isNaN(minute)) return null
-      const date = new Date(Date.UTC(year, month - 1, day, hour, minute || 0, 0, 0))
+      // 文件名中的时间通常是“本地时间字面值”（例如设备/现场记录时间），
+      // 这里必须按本地时区构造 Date；否则用 Date.UTC 会导致在本地显示时额外 +8（或其它偏移）。
+      const date = new Date(year, month - 1, day, hour, minute || 0, 0, 0)
       if (Number.isNaN(date.getTime())) return null
       return {
         year,

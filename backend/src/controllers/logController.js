@@ -59,6 +59,46 @@ function formatTimeForClickHouse(timeValue) {
   return null;
 }
 
+/**
+ * 将 ClickHouse 中的 naive DateTime（无时区）解析为 UTC epoch 毫秒
+ *
+ * 说明：
+ * - 系统存储的时间无时区概念，因此必须依赖“存储时区约定”来解释该时间含义
+ * - 当前项目约定存储时区为 UTC+8（北京时间），即：local_time = utc_time + 8h
+ * - 为避免服务器部署时区不同导致 `new Date('YYYY-MM-DD HH:mm:ss')` 解析偏移，
+ *   这里显式按约定转换：utcMs = localMs - STORAGE_OFFSET_MINUTES
+ */
+function parseNaiveDateTimeToMs(value) {
+  if (value == null || value === '') return NaN;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value < 1e12 ? value * 1000 : value;
+
+  // 存储时区约定：UTC+8（分钟）
+  const STORAGE_OFFSET_MINUTES = 480;
+
+  const s = String(value).trim();
+  // 支持：YYYY-MM-DD HH:mm:ss(.SSS) 或 ISO 里常见的 T 分隔
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/);
+  if (m) {
+    const [, yy, MM, dd, hh, mi, ss, ms] = m;
+    // 先把“字面值”当作 UTC 解析成 epoch，然后再按存储时区约定换算到真正的 UTC epoch：
+    // local(UTC+8) = utc + 8h  =>  utc = local - 8h
+    const localAsUtcMs = Date.UTC(
+      parseInt(yy, 10),
+      parseInt(MM, 10) - 1,
+      parseInt(dd, 10),
+      parseInt(hh, 10),
+      parseInt(mi, 10),
+      parseInt(ss, 10),
+      parseInt((ms || '0').padEnd(3, '0'), 10)
+    );
+    return localAsUtcMs - STORAGE_OFFSET_MINUTES * 60 * 1000;
+  }
+
+  const dt = new Date(value);
+  return isNaN(dt.getTime()) ? NaN : dt.getTime();
+}
+
 // [MIGRATION] LogEntry migrated to ClickHouse. Mocking Sequelize model to prevent crash.
 const LogEntry = {
   findAll: async () => { console.warn('[MIGRATION] LogEntry.findAll called but table migrated to ClickHouse'); return []; },
@@ -2035,7 +2075,8 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       error_code,
       start_time,
       end_time,
-      filters
+      filters,
+      display_timezone_offset_minutes
     } = req.query;
 
     const userId = req.user.id;
@@ -2049,7 +2090,8 @@ const exportBatchLogEntriesCSV = async (req, res) => {
         error_code,
         start_time,
         end_time,
-        filters
+        filters,
+        display_timezone_offset_minutes
       },
       userId
     }, {
@@ -3659,7 +3701,8 @@ const getVisualizationData = async (req, res) => {
       filters,
       start_time,
       end_time,
-      search
+      search,
+      display_timezone_offset_minutes
     } = req.query;
     
     if (!log_ids || !error_code || !parameter_index) {
@@ -4007,14 +4050,18 @@ const getVisualizationData = async (req, res) => {
     });
     const dataRows = await dataResult.json();
     
-    // 处理数据格式
+    const displayOffsetMinutes = Number.isFinite(Number(display_timezone_offset_minutes))
+      ? parseInt(display_timezone_offset_minutes, 10)
+      : null;
+
+    // 处理数据格式（直接使用字面时间戳，时区转换完全由前端处理）
     const chartData = (dataRows || []).map(entry => {
-      const ts = entry.timestamp ? new Date(entry.timestamp).getTime() : NaN;
-      const timestamp = Number.isNaN(ts) ? null : ts;
+      const timestamp = parseNaiveDateTimeToMs(entry.timestamp);
+      if (!Number.isFinite(timestamp)) return null;
       const paramRaw = entry.param_value;
       const paramValue = paramRaw != null && paramRaw !== '' ? parseFloat(paramRaw) : 0;
       return [timestamp, Number.isFinite(paramValue) ? paramValue : 0];
-    }).filter(([ts]) => ts !== null);
+    }).filter(item => item !== null);
     
     // 查询故障码参数含义
     let paramName = `参数${paramIndex + 1}`;
@@ -4063,7 +4110,9 @@ const getVisualizationData = async (req, res) => {
         chartTitle,
         errorCode: error_code,
         parameterIndex: parameter_index,
-        dataCount: chartData.length
+        dataCount: chartData.length,
+        timezoneApplied: displayOffsetMinutes != null,
+        displayTimezoneOffsetMinutes: displayOffsetMinutes
       }
     });
     

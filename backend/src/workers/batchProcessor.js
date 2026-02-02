@@ -37,6 +37,48 @@ function formatTimeForClickHouse(timeValue) {
   return null;
 }
 
+// ClickHouse 中存储为 naive DateTime（无时区），约定为 UTC+8
+const STORAGE_OFFSET_MINUTES = 480;
+const parseNaiveDateTimeToUtcMs = (value) => {
+  if (value == null || value === '') return NaN;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value < 1e12 ? value * 1000 : value;
+
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/);
+  if (m) {
+    const [, yy, MM, dd, hh, mi, ss, ms] = m;
+    const localMs = Date.UTC(
+      parseInt(yy, 10),
+      parseInt(MM, 10) - 1,
+      parseInt(dd, 10),
+      parseInt(hh, 10),
+      parseInt(mi, 10),
+      parseInt(ss, 10),
+      parseInt((ms || '0').padEnd(3, '0'), 10)
+    );
+    return localMs - STORAGE_OFFSET_MINUTES * 60 * 1000;
+  }
+
+  const dt = new Date(value);
+  return isNaN(dt.getTime()) ? NaN : dt.getTime();
+};
+
+const formatEpochMsInOffset = (utcMs, offsetMinutes) => {
+  if (!Number.isFinite(utcMs)) return '';
+  const off = Number(offsetMinutes);
+  if (!Number.isFinite(off)) return '';
+  const displayMs = utcMs + off * 60 * 1000;
+  const d = new Date(displayMs);
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  const ss = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+};
+
 // 上传目录（与 logProcessor 中保持一致）
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
 
@@ -541,7 +583,8 @@ async function processExportCsv(job) {
     error_code,
     start_time,
     end_time,
-    filters
+    filters,
+    display_timezone_offset_minutes
   } = params;
 
   console.log(`[CSV导出] 开始处理任务 ${job.id}`);
@@ -848,6 +891,10 @@ async function processExportCsv(job) {
   let offset = 0;
   let totalRows = 0;
 
+  const displayOffsetMinutes = Number.isFinite(Number(display_timezone_offset_minutes))
+    ? parseInt(display_timezone_offset_minutes, 10)
+    : STORAGE_OFFSET_MINUTES;
+
   while (true) {
     const query = `
       SELECT 
@@ -882,7 +929,8 @@ async function processExportCsv(job) {
 
     for (const row of rows) {
       const logName = await getLogName(row.log_id);
-      const localTs = dayjs(row.timestamp).format('YYYY-MM-DD HH:mm:ss');
+      const utcMs = parseNaiveDateTimeToUtcMs(row.timestamp);
+      const localTs = formatEpochMsInOffset(utcMs, displayOffsetMinutes) || String(row.timestamp || '');
       const line = [
         csvEscape(logName),
         csvEscape(localTs),

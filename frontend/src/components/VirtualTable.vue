@@ -13,13 +13,14 @@
     
     <div class="virtual-table-body" ref="bodyRef" @scroll="handleScroll">
       <div class="virtual-table-spacer" :style="{ height: totalHeight + 'px' }">
-        <!-- 调试信息 -->
-        <div v-if="false" style="position: absolute; top: 0; left: 0; background: yellow; padding: 4px; font-size: 12px; z-index: 9999;">
-          visibleItems: {{ visibleItems.length }}, 
-          visibleRange: {{ JSON.stringify(visibleRange) }}, 
-          containerHeight: {{ containerHeight }}, 
-          totalHeight: {{ totalHeight }}
-        </div>
+        <!-- 底部哨兵：进入视口时触发 load-more，避免外层裁剪导致 scroll 判断不到底部 -->
+        <div
+          v-show="data.length > 0 && totalHeight > 0"
+          ref="loadMoreSentinelRef"
+          class="virtual-table-load-more-sentinel"
+          :style="{ top: (totalHeight - 2) + 'px' }"
+          aria-hidden="true"
+        />
         <div 
           class="virtual-table-row"
           :class="getRowClassName(item, startIndex + index)"
@@ -78,6 +79,10 @@ export default {
       type: Number,
       default: 5
     },
+    debug: {
+      type: Boolean,
+      default: false
+    },
     rowClassName: {
       type: Function,
       default: null
@@ -87,9 +92,22 @@ export default {
   setup(props, { emit }) {
     const containerRef = ref(null)
     const bodyRef = ref(null)
+    const loadMoreSentinelRef = ref(null)
     const scrollTop = ref(0)
     const containerHeight = ref(0)
     let resizeObserver = null
+    let loadMoreObserver = null
+    let scrollRafPending = false
+    let pendingScrollTop = 0
+    let lastLoadMoreEmit = 0
+    const LOAD_MORE_DEBOUNCE_MS = 800
+
+    const debugLog = (...args) => {
+      if (props.debug) console.log('[VirtualTable]', ...args)
+    }
+    const debugWarn = (...args) => {
+      if (props.debug) console.warn('[VirtualTable]', ...args)
+    }
     
     // 计算总高度
     const totalHeight = computed(() => {
@@ -99,28 +117,26 @@ export default {
     // 计算可见区域的起始和结束索引
     const visibleRange = computed(() => {
       if (props.data.length === 0) {
-        console.log('[VirtualTable] visibleRange: data is empty')
+        debugLog('visibleRange: data is empty')
         return { start: 0, end: 0, startIndex: 0 }
       }
       if (containerHeight.value === 0) {
-        console.warn('[VirtualTable] visibleRange: containerHeight is 0, data.length:', props.data.length)
+        debugWarn('visibleRange: containerHeight is 0, data.length:', props.data.length)
         // 即使容器高度为0，也尝试渲染一些行，以便容器能够获得高度
         return { start: 0, end: Math.min(10, props.data.length), startIndex: 0 }
       }
-      const start = Math.floor(scrollTop.value / props.itemHeight)
-      const visibleCount = Math.ceil(containerHeight.value / props.itemHeight)
+      const start = Math.floor((Math.max(0, scrollTop.value) || 0) / props.itemHeight)
+      const visibleCount = Math.max(1, Math.ceil(containerHeight.value / props.itemHeight))
       const actualStart = Math.max(0, start - props.buffer)
-      // 计算结束索引：需要渲染足够多的行以填满容器，并加上缓冲区
-      // 确保渲染足够的行数，避免顶部或底部只显示少量行
-      const minVisibleRows = Math.max(visibleCount, 5) // 至少渲染5行或可见行数
-      const end = Math.min(actualStart + minVisibleRows + props.buffer, props.data.length)
+      // 结束索引：可见行数 + 前后 buffer
+      const end = Math.min(actualStart + visibleCount + 2 * props.buffer, props.data.length)
       
       const range = {
         start: actualStart,
         end: Math.max(end, actualStart + 1), // 确保至少渲染一行
         startIndex: actualStart
       }
-      console.log('[VirtualTable] visibleRange:', range, 'containerHeight:', containerHeight.value, 'scrollTop:', scrollTop.value)
+      debugLog('visibleRange:', range, 'containerHeight:', containerHeight.value, 'scrollTop:', scrollTop.value)
       return range
     })
     
@@ -128,7 +144,7 @@ export default {
     const visibleItems = computed(() => {
       const { start, end } = visibleRange.value
       const items = props.data.slice(start, end)
-      console.log('[VirtualTable] visibleItems:', items.length, 'range:', { start, end }, 'data.length:', props.data.length)
+      debugLog('visibleItems:', items.length, 'range:', { start, end }, 'data.length:', props.data.length)
       return items
     })
     
@@ -179,15 +195,27 @@ export default {
     // 处理滚动事件
     const handleScroll = (event) => {
       const el = event.target
-      scrollTop.value = el.scrollTop
+      const currentScrollTop = el.scrollTop
+      pendingScrollTop = currentScrollTop
+      if (!scrollRafPending) {
+        scrollRafPending = true
+        requestAnimationFrame(() => {
+          scrollTop.value = pendingScrollTop
+          scrollRafPending = false
+        })
+      }
       emit('scroll', event)
       
       // 检查是否需要加载更多数据（滚动到底部附近）
-      const { end } = visibleRange.value
-      const scrollBottom = el.scrollTop + el.clientHeight
+      const scrollBottom = currentScrollTop + el.clientHeight
       const totalScrollHeight = props.data.length * props.itemHeight
+      // 基于当前事件现场计算 end，避免 rAF 节流导致 visibleRange 仍是旧值
+      const visibleCountNow = Math.max(1, Math.ceil(el.clientHeight / props.itemHeight))
+      const startNow = Math.floor(Math.max(0, currentScrollTop) / props.itemHeight)
+      const actualStartNow = Math.max(0, startNow - props.buffer)
+      const endNow = Math.min(actualStartNow + visibleCountNow + 2 * props.buffer, props.data.length)
       // 当滚动到距离底部小于一个 itemHeight 时触发加载
-      if (scrollBottom >= totalScrollHeight - props.itemHeight && end >= props.data.length - props.buffer) {
+      if (scrollBottom >= totalScrollHeight - props.itemHeight && endNow >= props.data.length - props.buffer) {
         emit('load-more')
       }
     }
@@ -198,7 +226,8 @@ export default {
     
     // 更新容器高度
     const measureContainerHeight = () => {
-      const el = containerRef.value
+      // 用可滚动区域的真实高度（bodyRef），避免把 header 高度算进去导致渲染行数偏少/抖动
+      const el = bodyRef.value || containerRef.value
       if (!el) return 0
       const rect = el.getBoundingClientRect?.()
       const h = rect?.height ?? el.clientHeight ?? 0
@@ -216,11 +245,11 @@ export default {
       }
 
       containerHeight.value = height
-      console.log('[VirtualTable] updateContainerHeight:', height, 'oldHeight:', oldHeight, 'data.length:', props.data.length)
+      debugLog('updateContainerHeight:', height, 'oldHeight:', oldHeight, 'data.length:', props.data.length)
 
       // 如果高度从0变为有值，强制触发一次更新
       if (oldHeight === 0 && height > 0 && props.data.length > 0) {
-        console.log('[VirtualTable] 容器高度从0变为有值，触发更新')
+        debugLog('容器高度从0变为有值，触发更新')
         await nextTick()
         // 通过访问 visibleRange 来触发重新计算
         const _ = visibleRange.value
@@ -230,7 +259,7 @@ export default {
     const updateContainerHeight = async () => {
       await nextTick()
       if (!containerRef.value) {
-        console.warn('[VirtualTable] containerRef.value is null')
+        debugWarn('containerRef.value is null')
         return
       }
       await commitContainerHeightWithRetry(0)
@@ -259,13 +288,15 @@ export default {
       window.addEventListener('resize', updateContainerHeight)
 
       // 监听容器尺寸变化（比 window.resize 更可靠）
-      if (window.ResizeObserver && containerRef.value) {
+      const roTarget = bodyRef.value || containerRef.value
+      if (window.ResizeObserver && roTarget) {
         resizeObserver = new window.ResizeObserver(() => {
           // 不阻塞 observer 回调
           updateContainerHeight()
         })
-        resizeObserver.observe(containerRef.value)
+        resizeObserver.observe(roTarget)
       }
+
     })
     
     onUnmounted(() => {
@@ -278,17 +309,53 @@ export default {
         }
         resizeObserver = null
       }
+      if (loadMoreObserver && loadMoreSentinelRef.value) {
+        try {
+          loadMoreObserver.unobserve(loadMoreSentinelRef.value)
+        } catch (e) {}
+        loadMoreObserver.disconnect()
+        loadMoreObserver = null
+      }
     })
     
     // 监听数据变化
     watch(() => props.data.length, () => {
       updateContainerHeight()
     })
+
+    // 数据加载后建立底部哨兵 observer（哨兵 v-show 依赖 totalHeight > 0）
+    const setupLoadMoreObserver = () => {
+      nextTick(() => {
+        const body = bodyRef.value
+        const sentinel = loadMoreSentinelRef.value
+        if (!body || !sentinel || props.data.length === 0 || typeof IntersectionObserver === 'undefined') return
+        if (loadMoreObserver) {
+          try { loadMoreObserver.unobserve(sentinel) } catch (e) {}
+          loadMoreObserver.disconnect()
+          loadMoreObserver = null
+        }
+        loadMoreObserver = new IntersectionObserver(
+          (entries) => {
+            const entry = entries[0]
+            if (!entry?.isIntersecting || props.data.length === 0) return
+            const now = Date.now()
+            if (now - lastLoadMoreEmit < LOAD_MORE_DEBOUNCE_MS) return
+            lastLoadMoreEmit = now
+            emit('load-more')
+          },
+          { root: body, rootMargin: '0px', threshold: 0 }
+        )
+        loadMoreObserver.observe(sentinel)
+      })
+    }
+    watch(() => props.data.length, () => {
+      if (props.data.length > 0) setupLoadMoreObserver()
+    }, { immediate: true })
     
     // 监听容器高度变化，确保在高度更新后重新计算可见区域
     watch(containerHeight, (newHeight) => {
       if (newHeight > 0 && props.data.length > 0) {
-        console.log('[VirtualTable] containerHeight changed to:', newHeight)
+        debugLog('containerHeight changed to:', newHeight)
         // 触发 visibleRange 重新计算（通过访问它）
         const _ = visibleRange.value
       }
@@ -345,6 +412,15 @@ export default {
 .virtual-table-spacer {
   position: relative;
   width: 100%;
+}
+
+.virtual-table-load-more-sentinel {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 2px;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .virtual-table-row {

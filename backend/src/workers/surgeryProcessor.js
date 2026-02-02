@@ -72,7 +72,7 @@ function computeSourceAndEntryRange(surgery, entries) {
 
 // 共享分析逻辑：尽量复用控制器中的实现，不改变核心分析逻辑
 async function processSurgeryAnalysisJob(job) {
-  const { logIds, includePostgreSQLStructure = false } = job.data || {};
+  const { logIds, includePostgreSQLStructure = false, timezoneOffsetMinutes = null } = job.data || {};
 
   if (!Array.isArray(logIds) || logIds.length === 0) {
     throw new Error('logIds不能为空');
@@ -169,6 +169,10 @@ async function processSurgeryAnalysisJob(job) {
       : 'UNKNOWN';
     surgery.device_id = deviceDisplayId;
     surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
+    // 记录本次“入库结构”使用的目标时区偏移（分钟），用于后续导出/覆盖保持一致
+    if (timezoneOffsetMinutes !== null && timezoneOffsetMinutes !== undefined && timezoneOffsetMinutes !== '') {
+      surgery.timezone_offset_minutes = timezoneOffsetMinutes;
+    }
     // 生成与原逻辑一致的surgery_id
     surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
     // 计算来源日志与条目范围
@@ -178,7 +182,7 @@ async function processSurgeryAnalysisJob(job) {
     surgery.log_entry_end_id = maxEntryId;
     // 需要PostgreSQL预览时，生成与控制器一致的preview结构
     if (includePostgreSQLStructure === true) {
-      surgery.postgresql_row_preview = buildPostgresRowPreview(surgery, deviceDisplayId);
+      surgery.postgresql_row_preview = buildPostgresRowPreview(surgery, deviceDisplayId, timezoneOffsetMinutes);
     }
   });
 

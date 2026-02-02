@@ -6,9 +6,10 @@
       <div class="card-header" :style="{ borderBottom: 'none' }">
         <div class="header-left">
           <span class="title">{{ $t('batchAnalysis.title') }}</span>
-          <el-tag v-if="batchCount > 0 && selectedLogsCount > 0" type="info" size="small">
-              {{ $t('batchAnalysis.deviceId') }}：{{ selectedLogs[0]?.device_id || $t('shared.unknown') }}
-            </el-tag>
+          <div class="header-tag-block" v-if="batchCount > 0 && selectedLogsCount > 0">
+            <span class="header-tag-label">{{ $t('batchAnalysis.deviceId') }}：</span>
+            <span class="header-tag-value">{{ selectedLogs[0]?.device_id || $t('shared.unknown') }}</span>
+          </div>
           <el-tooltip placement="bottom" effect="light" transition="el-fade-in-linear" popper-class="selected-files-popper" :disabled="selectedLogsCount === 0">
             <template #content>
               <div class="selected-files-tooltip">
@@ -16,16 +17,17 @@
                   {{ log.original_name }}
                 </el-tag>
               </div>
-            </template>       
-            <el-tag type="info" size="small">
-              {{ $t('batchAnalysis.selectedFiles', { count: selectedLogsCount }) }}
-            </el-tag>
+            </template>
+            <div class="header-tag-block">
+              <span class="header-tag-value">{{ $t('batchAnalysis.selectedFiles', { count: selectedLogsCount }) }}</span>
+            </div>
           </el-tooltip>
         </div>
         <div class="header-right">
           <el-button 
             v-if="!loading && batchCount > 0" 
             type="primary"
+            size="small"
             @click="exportToCSV"
           >
             <el-icon><Download /></el-icon>
@@ -34,6 +36,7 @@
           <el-button 
             v-if="!loading && batchCount > 0" 
             type="default"
+            size="small"
             @click="showClipboard"
           >
             <el-icon><DocumentCopy /></el-icon>
@@ -42,6 +45,7 @@
           <el-button 
             v-if="!loading && selectedLogsCount > 0 && batchCount > 0" 
             type="default"
+            size="small"
             @click="showSurgeryStatistics"
           >
             <el-icon><DataAnalysis /></el-icon>
@@ -65,10 +69,10 @@
               </template>
             </el-table-column> -->
             <el-table-column :label="$t('logs.surgeryStartTime')" width="180">
-              <template #default="{ row }">{{ formatTimestamp(row.surgery_start_time || row.start_time) }}</template>
+              <template #default="{ row }">{{ formatTimestampWithTimezone(row.surgery_start_time || row.start_time, displayTimezoneOffsetMinutes) || formatTimestamp(row.surgery_start_time || row.start_time) }}</template>
             </el-table-column>
             <el-table-column :label="$t('logs.surgeryEndTime')" width="180">
-              <template #default="{ row }">{{ formatTimestamp(row.surgery_end_time || row.end_time) }}</template>
+              <template #default="{ row }">{{ formatTimestampWithTimezone(row.surgery_end_time || row.end_time, displayTimezoneOffsetMinutes) || formatTimestamp(row.surgery_end_time || row.end_time) }}</template>
             </el-table-column>
             <el-table-column :label="$t('shared.operation')" width="320" :fixed="surgeryStats.length > 0 ? 'right' : false" align="left">
               <template #default="{ row }">
@@ -104,74 +108,35 @@
 
       <!-- 搜索和筛选 -->
       <div class="search-section" :style="{ marginTop: '8px' }">
-        <div class="search-grid">
-          <!-- 1/5 分析等级（预置维度，独立于高级搜索） -->
-          <div class="grid-item">
-            <div class="item-title">{{ $t('batchAnalysis.analysisLevel') }}</div>
-            <el-popover placement="bottom-start" trigger="click" width="460" popper-class="analysis-level-popover">
-              <template #reference>
-                <el-button size="small" class="btn-primary btn-sm" style="width: 100%;">
-                  <span>{{ analysisLevelLabel }}</span>
-                </el-button>
-              </template>
-              <div class="analysis-level-content">
-                <div class="preset-buttons">
-                  <el-button 
-                    size="small" 
-                    :class="isPresetActive('ALL') ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
-                    @click="applyPreset('ALL')"
-                  >{{ $t('batchAnalysis.fullLogs') }}</el-button>
-                  <el-button 
-                    size="small" 
-                    :class="isPresetActive('FINE') ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
-                    @click="applyPreset('FINE')"
-                  >{{ $t('batchAnalysis.detailedLogs') }}</el-button>
-                  <el-button 
-                    size="small" 
-                    :class="isPresetActive('KEY') ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
-                    @click="applyPreset('KEY')"
-                  >{{ $t('batchAnalysis.keyLogs') }}</el-button>
-                </div>
-                <el-divider style="margin: 12px 0;" />
-                <div class="category-checkboxes">
-                  <el-checkbox-group v-model="selectedAnalysisCategoryIds" @change="onAnalysisCategoriesChange">
-                    <el-checkbox 
-                      v-for="c in analysisCategories" 
-                      :key="c.id" 
-                      :label="c.id"
-                    >{{ getCategoryDisplayName(c) }}</el-checkbox>
-                  </el-checkbox-group>
-                </div>
-              </div>
-            </el-popover>
-          </div>
-
-          <!-- 2/5 时间搜索框 -->
-          <div class="grid-item">
-            <div class="item-title">{{ $t('batchAnalysis.timeRange') }}</div>
+        <div class="compact-toolbar">
+          <!-- 第一行：高级选项、时间范围、关键词搜索 -->
+          <div class="toolbar-row-1">
+            <el-button 
+              size="small" 
+              @click="filterDrawerVisible = !filterDrawerVisible"
+              class="btn-secondary btn-sm filter-toggle-btn"
+            >
+              <el-icon><Filter /></el-icon>
+              {{ $t('batchAnalysis.advancedFilter') }}
+            </el-button>
             <el-date-picker
-              v-model="timeRange"
+              v-model="timeRangeDisplay"
               type="datetimerange"
               :range-separator="$t('logs.to')"
               :start-placeholder="$t('logs.startTime')"
               :end-placeholder="$t('logs.endTime')"
               format="YYYY-MM-DD HH:mm:ss"
               value-format="YYYY-MM-DD HH:mm:ss"
-              class="time-range"
+              class="time-range-toolbar"
               size="small"
-               :default-value="defaultPickerRange"
+              :default-value="defaultPickerRange"
               :disabled-date="disableOutOfRangeDates"
               @change="handleTimeRangeChange"
             />
-          </div>
-          
-          <!-- 3/5 简单搜索框 -->
-          <div class="grid-item">
-            <div class="item-title">{{ $t('batchAnalysis.keyword') }}</div>
             <el-input
               v-model="searchKeyword"
               :placeholder="$t('batchAnalysis.searchPlaceholder')"
-              class="search-input"
+              class="search-input-compact"
               clearable
               @input="handleSearch"
               @compositionstart="onCompositionStart"
@@ -183,73 +148,261 @@
               </template>
             </el-input>
           </div>
-
-          <!-- 4/5 高级搜索入口 -->
-          <div class="grid-item">
-            <div class="item-title">{{ $t('batchAnalysis.advancedFilter') }}</div>
-            <div class="advanced-actions">
-              <el-button size="small" class="btn-primary btn-sm" plain @click="showAdvancedFilter = true">{{ $t('batchAnalysis.advancedFilter') }}</el-button>
-              <div class="advanced-summary" v-if="leafConditionCount > 0">
-                {{ $t('batchAnalysis.conditionsAdded', { count: leafConditionCount, logic: filtersRoot.logic }) }}
+          <!-- 第二行：分析等级、搜索表达式摘要，清除所有条件按钮 -->
+          <div class="toolbar-row-2">
+            <div class="filter-summary-horizontal" v-if="analysisLevelLabel !== $t('batchAnalysis.analysisLevelNotSelected') || searchExpression">
+              <div class="summary-block" v-if="analysisLevelLabel !== $t('batchAnalysis.analysisLevelNotSelected')">
+                <span class="summary-block-label">{{ $t('batchAnalysis.analysisLevel') }}：</span>
+                <span class="summary-block-value">{{ analysisLevelLabel }}</span>
+              </div>
+              <div class="summary-block summary-block-expr" v-if="searchExpression">
+                <span class="summary-block-label">{{ $t('batchAnalysis.searchExpression') }}：</span>
+                <span class="summary-block-expr-value" :title="searchExpression">{{ searchExpression }}</span>
               </div>
             </div>
-          </div>
-
-          <!-- 5/5 清除搜索 -->
-          <div class="grid-item">
-            <div class="item-title">{{ $t('batchAnalysis.clearSearch') }}</div>
-            <el-button size="small" @click="clearFilters">{{ $t('batchAnalysis.clearAllConditions') }}</el-button>
-          </div>
-        </div>
-
-        <!-- 搜索表达式展示（分析等级独立显示） -->
-        <div class="filter-summary" v-if="analysisLevelLabel !== $t('batchAnalysis.analysisLevelNotSelected') || searchExpression">
-          <div class="filter-item" v-if="analysisLevelLabel !== $t('batchAnalysis.analysisLevelNotSelected')">
-            <span class="label">{{ $t('batchAnalysis.analysisLevel') }}：</span>
-            <el-tag size="small" type="info">{{ analysisLevelLabel }}</el-tag>
-          </div>
-          <div class="filter-item" v-if="searchExpression">
-          <span class="label">{{ $t('batchAnalysis.searchExpression') }}：</span>
-          <span class="expr">{{ searchExpression }}</span>
+            <el-button
+              size="small"
+              type="danger"
+              plain
+              :disabled="!hasActiveFilters"
+              @click="clearFilters"
+              class="clear-filters-toolbar-btn"
+            >
+              <el-icon><Delete /></el-icon>
+              {{ $t('batchAnalysis.clearAllConditions') }}
+            </el-button>
           </div>
         </div>
       </div>
 
-      <!-- 日志条目表格 -->
-      <div class="entries-section">
-        <div class="section-header">
-          <h3>{{ $t('batchAnalysis.logEntries') }} ({{ filteredCount }})</h3>
+      <!-- 筛选抽屉改为侧边栏 -->
+      <div class="main-content-layout">
+        <div class="filter-sidebar" :class="{ 'sidebar-hidden': !filterDrawerVisible }">
+          <div class="filter-sidebar-content">
+            <div class="filter-sidebar-header">
+              <el-radio-group v-model="filterSidebarActiveTab" class="el-segmented-control" size="small">
+                <el-radio-button label="level">{{ $t('batchAnalysis.logLevelTab') }}</el-radio-button>
+                <el-radio-button label="search">{{ $t('batchAnalysis.searchTab') }}</el-radio-button>
+                <el-radio-button label="settings">{{ $t('batchAnalysis.settingsTab') }}</el-radio-button>
+              </el-radio-group>
+            </div>
+
+            <div class="filter-sidebar-body" ref="filterSidebarBodyRef">
+              <!-- Log Level -->
+              <div v-show="filterSidebarActiveTab === 'level'" class="drawer-section analysis-level-tab">
+                <!-- 预设等级：与「自定义」同级。卡片文字在 i18n 中修改：batchAnalysis.fullLogs/fullLogsDesc、detailedLogs/detailedLogsDesc、keyLogs/keyLogsDesc -->
+                <div class="level-tab-section">
+                  <div class="section-title drawer-section-title">{{ $t('batchAnalysis.presetLevels') }}</div>
+                  <div class="level-cards">
+                    <div class="level-card" :class="{ active: pendingLevelPresetKey === 'ALL' }" @click="onSelectLevelCard('ALL')">
+                      <div class="level-card-title">{{ $t('batchAnalysis.fullLogs') }}</div>
+                      <div class="level-card-desc">{{ $t('batchAnalysis.fullLogsDesc') }}</div>
+                    </div>
+                    <div class="level-card" :class="{ active: pendingLevelPresetKey === 'FINE' }" @click="onSelectLevelCard('FINE')">
+                      <div class="level-card-title">{{ $t('batchAnalysis.detailedLogs') }}</div>
+                      <div class="level-card-desc">{{ $t('batchAnalysis.detailedLogsDesc') }}</div>
+                    </div>
+                    <div class="level-card" :class="{ active: pendingLevelPresetKey === 'KEY' }" @click="onSelectLevelCard('KEY')">
+                      <div class="level-card-title">{{ $t('batchAnalysis.keyLogs') }}</div>
+                      <div class="level-card-desc">{{ $t('batchAnalysis.keyLogsDesc') }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 自定义：与「预设等级」同级，内容左右留白与预设一致；启用时自动滚动到视口中心 -->
+                <div class="level-tab-section" ref="customSectionRef">
+                  <div class="level-tab-section-header">
+                    <div class="section-title drawer-section-title">{{ $t('batchAnalysis.customSubsystemFilter') }}</div>
+                    <el-switch v-model="customSubsystemActive" size="small" :active-text="$t('batchAnalysis.active')" />
+                  </div>
+                  <div class="category-section-content">
+                    <el-input
+                      v-model="categorySearchKeyword"
+                      :placeholder="$t('batchAnalysis.subsystemSearchPlaceholder')"
+                      clearable
+                      size="small"
+                      class="category-search-input"
+                      :disabled="!customSubsystemActive"
+                    >
+                      <template #prefix>
+                        <el-icon><Search /></el-icon>
+                      </template>
+                    </el-input>
+
+                    <div class="subsystem-meta">
+                      <span class="subsystem-count">{{ $t('batchAnalysis.itemsFound', { n: filteredCategoriesForLevel.length }) }}</span>
+                      <div class="subsystem-actions">
+                        <el-button link size="small" :disabled="!customSubsystemActive" @click="selectAllCategories">{{ $t('batchAnalysis.selectAll') }}</el-button>
+                        <el-button link size="small" :disabled="!customSubsystemActive" @click="clearCategorySelection">{{ $t('batchAnalysis.none') }}</el-button>
+                      </div>
+                    </div>
+
+                    <div class="category-chips-wrap" :class="{ 'chips-disabled': !customSubsystemActive }">
+                      <div
+                        v-for="c in filteredCategoriesForLevel"
+                        :key="c.id"
+                        class="category-chip"
+                        :class="{ active: pendingSelectedAnalysisCategoryIds.includes(c.id) }"
+                        @click="customSubsystemActive && toggleCategoryChip(c)"
+                      >
+                        {{ getCategoryDisplayName(c) }}
+                      </div>
+                      <div v-if="filteredCategoriesForLevel.length === 0" class="category-list-empty">{{ $t('batchAnalysis.categoryNoMatch') }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search：分为 3 部分：自然语言搜索、常用搜索表达式、导入搜索表达式；隐藏筛选条件 -->
+              <div v-show="filterSidebarActiveTab === 'search'" class="drawer-section advanced-filter-inline">
+                <!-- 1. 自然语言搜索 -->
+                <div class="search-tab-section">
+                  <div class="section-title drawer-section-title">{{ $t('batchAnalysis.naturalLanguageSearch') }}</div>
+                  <div class="nl-card">
+                    <el-input
+                      v-model="nlQuery"
+                      type="textarea"
+                      :rows="4"
+                      :placeholder="$t('batchAnalysis.naturalLanguagePlaceholder')"
+                      class="nl-textarea"
+                    />
+                    <el-button type="primary" size="small" class="nl-generate-btn" :loading="nlGenerating" :disabled="!nlQuery.trim()" @click="generateFilterExpression">
+                      {{ $t('batchAnalysis.generateFilterExpression') }}
+                    </el-button>
+                  </div>
+                </div>
+
+                <!-- 2. 常用搜索表达式：标签使用 filter-chip 样式，仅显示名称 -->
+                <div class="search-tab-section" v-if="templates && templates.length">
+                  <div class="section-title drawer-section-title">{{ $t('batchAnalysis.commonSearchExpressions') }}</div>
+                  <div class="saved-expr-chips-wrap">
+                    <div
+                      v-for="tpl in templates"
+                      :key="tpl.name"
+                      class="saved-expr-chip filter-chip-style"
+                      :class="{ active: selectedTemplateName === tpl.name }"
+                      @click="selectTemplateCard(tpl.name)"
+                    >
+                      {{ tpl.name }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. 导入搜索表达式 -->
+                <div class="search-tab-section">
+                  <div class="section-title drawer-section-title">{{ $t('batchAnalysis.importSearchExpression') }}</div>
+                  <el-upload :show-file-list="false" accept="application/json" :before-upload="beforeImportTemplates" class="import-upload-inline">
+                    <el-button size="small" class="btn-secondary btn-sm">{{ $t('batchAnalysis.importJsonExpressionFile') }}</el-button>
+                  </el-upload>
+                </div>
+
+                <!-- 底部：搜索表达式预览（自然语言/常用表达式/导入选中后显示） -->
+                <div class="search-tab-preview" v-if="searchTabPreviewExpression">
+                  <span class="search-tab-preview-label">{{ $t('batchAnalysis.expressionPreview') }}：</span>
+                  <span class="search-tab-preview-expr" :title="searchTabPreviewExpression">{{ searchTabPreviewExpression }}</span>
+                </div>
+              </div>
+
+              <!-- Settings -->
+              <div v-show="filterSidebarActiveTab === 'settings'" class="drawer-section">
+                <div class="section-title drawer-section-title">{{ $t('batchAnalysis.timezoneConversion') }}</div>
+                <el-select
+                  v-model="pendingDisplayTimezoneOffsetMinutes"
+                  :placeholder="$t('batchAnalysis.timezoneConversion')"
+                  class="timezone-select-full"
+                  size="small"
+                >
+                  <el-option
+                    v-for="opt in timezoneOptions"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </div>
+            </div>
+
+            <div class="drawer-footer">
+              <el-button size="small" @click="resetSidebarFilters" class="btn-secondary btn-sm drawer-footer-reset">
+                {{ $t('batchAnalysis.resetSidebarFilters') }}
+              </el-button>
+              <el-button size="small" type="primary" @click="applySidebarFilters" class="drawer-footer-apply">
+                {{ $t('batchAnalysis.applyChanges') }}
+              </el-button>
+            </div>
+          </div>
         </div>
 
-        <!-- 加载状态 -->
-        <div v-if="loading" class="loading-section">
-          <el-empty :description="$t('batchAnalysis.loadingLogData')" />
-        </div>
+        <div class="main-content-area">
+          <!-- 点击遮罩关闭侧边栏 -->
+          <div
+            v-show="filterDrawerVisible"
+            class="sidebar-backdrop"
+            @click="filterDrawerVisible = false"
+          />
+        <!-- 日志条目表格 -->
+        <div class="entries-section">
+          <div class="section-header">
+            <h3>{{ $t('batchAnalysis.logEntries') }} ({{ filteredCount }})</h3>
+          </div>
 
-        <!-- 数据表格 -->
-        <div v-else class="table-container">
-          <!-- 数据表格 -->
-          <el-table 
-            :data="paginatedEntries" 
-            style="width: 100%"
-            v-loading="loading"
-            height="60vh"
-            :stripe="false"
-            table-layout="fixed"
-            row-key="id"
-            :row-class-name="getRowClassName"
-            :row-style="getRowStyle"
-            @current-change="forceRelayout"
-            @selection-change="forceRelayout"
-            @sort-change="forceRelayout"
-            @filter-change="forceRelayout"
-            @expand-change="forceRelayout"
-          >
+          <!-- 加载状态 -->
+          <div v-if="loading" class="loading-section">
+            <el-empty :description="$t('batchAnalysis.loadingLogData')" />
+          </div>
+
+          <!-- 数据表格：仅此表格使用紧凑样式，不影响其他页面的表格 -->
+          <div v-else class="table-container compact-log-entries-table">
+            <el-table 
+              :data="paginatedEntries" 
+              style="width: 100%"
+              v-loading="loading"
+              height="100%"
+              :stripe="false"
+              table-layout="fixed"
+              row-key="id"
+              :row-class-name="getRowClassName"
+              :row-style="getRowStyle"
+              @current-change="forceRelayout"
+              @selection-change="forceRelayout"
+              @sort-change="forceRelayout"
+              @filter-change="forceRelayout"
+              @expand-change="forceRelayout"
+            >
             <!-- 标记颜色列 -->
-            <el-table-column prop="color_mark" width="4%">
+            <el-table-column
+              prop="color_mark"
+              width="4%"
+              class-name="color-mark-body-cell"
+              label-class-name="color-mark-header-cell"
+            >
               <template #header>
-                <div class="col-header">
-                  <span></span>
+                <div class="col-header header-color-mark">
+                  <el-popover
+                    placement="bottom-start"
+                    :width="200"
+                    trigger="manual"
+                    v-model:visible="headerColorPopoverVisible"
+                    popper-class="color-picker-popover"
+                  >
+                    <template #reference>
+                      <div
+                        class="header-color-indicator"
+                        :title="$t('batchAnalysis.markAllWithColorHint')"
+                        @click.stop="headerColorPopoverVisible = !headerColorPopoverVisible"
+                      />
+                    </template>
+                    <div class="color-picker-menu header-color-picker-menu">
+                      <div
+                        v-for="color in colorOptions"
+                        :key="color.value || 'none'"
+                        class="color-option"
+                        :class="{ 'no-color': color.value === null }"
+                        :style="color.value ? { backgroundColor: color.value } : {}"
+                        @click="applyColorToAllFilteredRows(color.value)"
+                      />
+                    </div>
+                  </el-popover>
                 </div>
               </template>
               <template #default="{ row }">
@@ -298,7 +451,7 @@
             </el-table-column>
             
             <!-- 文件名/时间戳列 -->
-            <el-table-column prop="file_info" width="15%">
+            <el-table-column prop="file_info" width="11%">
               <template #header>
                 <div class="col-header">
                   <span>{{ $t('batchAnalysis.timestampWithFilename') }}</span>
@@ -306,13 +459,13 @@
               </template>
               <template #default="{ row }">
                 <div class="file-info-cell">
-                    <div class="timestamp" :title="row.log_name">{{ row.timestamp_text }}</div>
+                    <div class="timestamp" :title="row.log_name">{{ formatTimestampWithTimezone(row.timestamp, displayTimezoneOffsetMinutes) || row.timestamp_text }}</div>
                 </div>
               </template>
             </el-table-column>
             
             <!-- 故障码列 -->
-            <el-table-column prop="error_code" width="12%">
+            <el-table-column prop="error_code" width="6%">
               <template #header>
                 <div class="col-header">
                   <span>{{ $t('batchAnalysis.errorCode') }}</span>
@@ -333,7 +486,7 @@
             </el-table-column>
             
             <!-- 释义列 -->
-            <el-table-column prop="explanation" width="45%">
+            <el-table-column prop="explanation" width="56%">
               <template #header>
                 <div class="col-header">
                   <span>{{ $t('batchAnalysis.explanation') }}</span>
@@ -347,7 +500,7 @@
             </el-table-column>
             
             <!-- 参数列 -->
-            <el-table-column prop="parameters" width="20%">
+            <el-table-column prop="parameters" width="15%">
               <template #header>
                 <div class="col-header">
                   <span>{{ $t('batchAnalysis.parameters') }}</span>
@@ -418,30 +571,38 @@
             </el-table-column>
             
             
-            <!-- 操作列（备注功能已移除，仅保留上下文分析与日志摘取） -->
-            <el-table-column prop="operations" width="10%">
+            <!-- 操作列：固定 8% 保证列宽稳定；侧边栏展开时用「更多」下拉 -->
+            <el-table-column prop="operations" width="8%">
               <template #header>
                 <div class="col-header">
                   <span>{{ $t('batchAnalysis.operations') }}</span>
                 </div>
               </template>
               <template #default="{ row }">
-                <div class="operations-cell">
-                  <!-- 操作图标按钮 -->
-                  <el-button 
-                    text
-                    @click="handleContextAnalysis(row)"
-                    class="operation-btn"
-                  >
-                    <el-icon><View /></el-icon>
-                  </el-button>
-                  <el-button 
-                    text
-                    @click="handleLogCapture(row)"
-                    class="operation-btn"
-                  >
-                    <el-icon><DocumentCopy /></el-icon>
-                  </el-button>
+                <div class="operations-cell" :class="{ 'sidebar-open': filterDrawerVisible }">
+                  <!-- 侧边栏展开时显示：两套都渲染，用 CSS 显隐避免 v-if 导致整列重渲染 -->
+                  <div class="operation-when-sidebar-open">
+                    <el-dropdown trigger="click" @command="(cmd) => onOperationsCommand(cmd, row)" class="operations-dropdown">
+                      <el-button text size="small" class="operation-more-btn">
+                        {{ $t('batchAnalysis.more') }}
+                        <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="context">{{ $t('batchAnalysis.contextAnalysisTitle') }}</el-dropdown-item>
+                          <el-dropdown-item command="capture">{{ $t('batchAnalysis.logExtraction') }}</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                  <div class="operation-when-sidebar-closed">
+                    <el-button text @click="handleContextAnalysis(row)" class="operation-btn operation-btn-context">
+                      <el-icon><View /></el-icon>
+                    </el-button>
+                    <el-button text @click="handleLogCapture(row)" class="operation-btn operation-btn-capture">
+                      <el-icon><DocumentCopy /></el-icon>
+                    </el-button>
+                  </div>
                 </div>
               </template>
             </el-table-column>
@@ -459,6 +620,8 @@
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
           />
+        </div>
+
         </div>
 
         <!-- 上下文分析对话框 -->
@@ -561,7 +724,7 @@
                   <div class="thumbnail-title">{{ chart.title }}</div>
                   <div class="thumbnail-chart" :id="`chart-thumb-${chart.id}`"></div>
                   <div class="thumbnail-info">
-                    <div class="thumbnail-time">{{ formatTimestamp(chart.timestamp) }}</div>
+                    <div class="thumbnail-time">{{ formatTimestampWithTimezone(chart.timestamp, displayTimezoneOffsetMinutes) || formatTimestamp(chart.timestamp) }}</div>
                   </div>
                   <el-button 
                     size="small" 
@@ -608,6 +771,7 @@
           v-model="chartDetailVisible"
           :title="$t('batchAnalysis.visualizationChartTitle')"
           width="56%"
+          class="chart-detail-dialog"
           :close-on-click-modal="true"
           @opened="onChartDialogOpened"
         >
@@ -618,112 +782,18 @@
                 v-if="currentChartData && Array.isArray(currentChartData.data) && currentChartData.data.length > 0"
                 :series-data="currentChartData.data"
                 :series-name="currentChartData.parameterValue || $t('batchAnalysis.visualizationDataDefault')"
-                :height="450"
+                :height="chartDetailHeight"
                 :show-range-labels="false"
+                :timezone-offset-minutes="displayTimezoneOffsetMinutes"
               />
-              <div v-else style="width:100%;height:450px;display:flex;align-items:center;justify-content:center;color:#909399;">{{ $t('batchAnalysis.visualizationNoDataText') }}</div>
+              <div v-else class="chart-no-data">{{ $t('batchAnalysis.visualizationNoDataText') }}</div>
             </div>
           </div>
         </el-dialog>
+        </div>
       </div>
       </el-card>
     </div>
-
-    <!-- 高级筛选弹窗 -->
-    <el-dialog v-model="showAdvancedFilter" :title="$t('batchAnalysis.advancedFilter')" width="880px">
-      <div class="advanced-filter">
-        <!-- 1. 条件组（支持嵌套） -->
-        <div class="section">
-          <div class="section-title-row">
-            <div class="section-title">{{ $t('batchAnalysis.conditionGroupWithNesting') }}</div>
-            <div class="ops-right">
-              <el-switch
-                v-model="useLocalAdvanced"
-                size="small"
-                :active-text="$t('batchAnalysis.local')"
-                :inactive-text="$t('batchAnalysis.server')"
-                inline-prompt
-              />
-              <el-button 
-                text
-                size="small" 
-                class="btn-danger-text"
-                @click="clearAllConditionsOnly" 
-                :disabled="!filtersRoot.conditions || filtersRoot.conditions.length === 0"
-              >{{ $t('batchAnalysis.clearAllConditions') }}</el-button>
-            </div>
-          </div>
-          <div class="expr-preview" v-if="advancedExpression" ref="exprPreviewRef">
-            <span class="label">{{ $t('batchAnalysis.expressionPreview') }}：</span>
-            <span class="expr">{{ advancedExpression }}</span>
-          </div>
-          <!-- 常用搜索表达式（内嵌于条件组下，位于表达式预览下侧） -->
-          <div class="common-templates" v-if="templates && templates.length">
-            <div class="section-title">{{ $t('batchAnalysis.commonSearchExpressions') }}</div>
-            <div class="tags-ops">
-              <el-button type="primary" size="small" @click="applySelectedTemplate" :disabled="!selectedTemplateName">{{ $t('batchAnalysis.apply') }}</el-button>
-              <span class="hint">{{ $t('batchAnalysis.templateHint') }}</span>
-            </div>
-            <div class="tags-wrap antd-tags single-select">
-              <a-checkable-tag
-                v-for="tpl in templates"
-                :key="tpl.name"
-                :checked="selectedTemplateName === tpl.name"
-                @change="(checked) => onTemplateSingleSelect(tpl.name, checked)"
-                class="tpl-tag bordered"
-              >
-                {{ tpl.name }}
-              </a-checkable-tag>
-            </div>
-          </div>
-          <div class="group-root">
-            <div class="group-header">
-              <span>{{ $t('batchAnalysis.rootGroupLogic') }}：</span>
-              <el-radio-group v-model="filtersRoot.logic" style="margin-left: 8px;">
-            <el-radio-button label="AND">AND</el-radio-button>
-            <el-radio-button label="OR">OR</el-radio-button>
-          </el-radio-group>
-              <div class="group-actions" style="margin-left: 24px;">
-                <el-button size="small" class="btn-secondary btn-sm" @click="addConditionToGroup(filtersRoot)" style="margin-right: 12px;">{{ $t('batchAnalysis.addCondition') }}</el-button>
-                <el-button size="small" class="btn-secondary btn-sm" @click="addGroupToGroup(filtersRoot)">{{ $t('batchAnalysis.addGroup') }}</el-button>
-        </div>
-            </div>
-            <ConditionGroup
-              :group="filtersRoot"
-              :get-operator-options="getOperatorOptions"
-              :on-field-change="onFieldChange"
-              :on-operator-change="onOperatorChange"
-              :add-condition-to-group="addConditionToGroup"
-              :add-group-to-group="addGroupToGroup"
-              :remove-node-at="removeNodeAt"
-              :is-root="true"
-            />
-          </div>
-        </div>
-
-        <!-- 2. 导入表达式 -->
-        <div class="section">
-          <div class="section-title">{{ $t('batchAnalysis.importExpression') }}</div>
-        <div class="import-row">
-          <el-upload 
-            :show-file-list="false" 
-            accept="application/json"
-            :before-upload="beforeImportTemplates"
-          >
-              <el-button size="small" class="btn-secondary btn-sm">{{ $t('batchAnalysis.importTemplates') }}</el-button>
-          </el-upload>
-        </div>
-        </div>
-
-        
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button class="btn-secondary" @click="showAdvancedFilter = false">{{ $t('shared.cancel') }}</el-button>
-          <el-button type="primary" @click="applyAdvancedFilters">{{ $t('batchAnalysis.apply') }}</el-button>
-        </span>
-      </template>
-    </el-dialog>
 
     <!-- 手术数据比对对话框 -->
     <SurgeryDataCompare
@@ -743,7 +813,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponen
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, Close, View, Edit, Delete, InfoFilled, TrendCharts } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, ArrowDown, DataAnalysis, Warning, DocumentCopy, View, Edit, Delete, InfoFilled, TrendCharts, Filter, Operation } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import SurgeryDataCompare from '@/components/SurgeryDataCompare.vue'
@@ -761,6 +831,8 @@ export default {
     DataAnalysis,
     Warning,
     TrendCharts,
+    Filter,
+    Operation,
     TimeSeriesChart,
     SurgeryDataCompare,
     ExplanationCell: {
@@ -771,7 +843,7 @@ export default {
         return () => h('span', {
           class: 'explanation-ellipsis',
           title: props.text,
-          style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:#606266;'
+          style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:var(--slate-600);'
         }, props.text)
       }
     },
@@ -947,10 +1019,26 @@ export default {
     const { t, locale } = useI18n()
     
     const loading = ref(false)
+    const filterDrawerVisible = ref(false)
+    const filterSidebarActiveTab = ref('level')
     const selectedLogs = ref([])
     const batchLogEntries = ref([])
     const searchKeyword = ref('')
     const timeRange = ref(null)
+    // 时区显示：日志按原时区存储，检索时使用转换前的时间；此处选中的时区仅影响前端显示
+    const displayTimezoneOffsetMinutes = ref(480) // 480 = 与当前默认原时区一致，无转换
+    const timezoneOptions = [
+      { label: 'UTC+8 北京（无转换）', value: 480 },
+      { label: 'UTC+9 东京', value: 540 },
+      { label: 'UTC+7 曼谷', value: 420 },
+      { label: 'UTC+5:30 印度', value: 330 },
+      { label: 'UTC+0 伦敦', value: 0 },
+      { label: 'UTC-1 柏林/巴黎(冬)', value: -60 },
+      { label: 'UTC-5 纽约(EST)', value: -300 },
+      { label: 'UTC-6 芝加哥(CST)', value: -360 },
+      { label: 'UTC-8 洛杉矶(PST)', value: -480 },
+      { label: 'UTC-10 夏威夷', value: -600 }
+    ]
     const currentPage = ref(1)
     const pageSize = ref(50)
     const totalCount = ref(0)
@@ -959,8 +1047,6 @@ export default {
     const globalMinTs = ref(null)
     const globalMaxTs = ref(null)
     const advancedMode = ref(false)
-    const useLocalAdvanced = ref(false)
-    
     // 已移除虚拟化表格，使用后端分页
     
     // 上下文分析相关
@@ -992,6 +1078,7 @@ export default {
     // 可视化相关
     const parameterSelectVisible = ref(false)
     const activeColorPopoverRowId = ref(null)
+    const headerColorPopoverVisible = ref(false)
     const activeNotesPopoverRowId = ref(null)
     const hoveredNameRowId = ref(null)
     const activeParamPopoverRowId = ref(null)
@@ -1005,6 +1092,7 @@ export default {
     const chartDetailVisible = ref(false)
     const chartTitle = ref('')
     const chartContainer = ref(null)
+    const chartDetailHeight = ref(450)
     const chartInstance = ref(null)
     const chartThumbnails = ref([])
     const currentChartData = ref(null)
@@ -1016,6 +1104,18 @@ export default {
     const analysisCategories = ref([])
     const analysisPresets = ref({ ALL: [], FINE: [], KEY: [] })
     const selectedAnalysisCategoryIds = ref([])
+    const categorySearchKeyword = ref('')
+    
+    // 根据搜索关键词过滤分析分类（用于列表展示与“全选”范围）
+    const filteredCategoriesForLevel = computed(() => {
+      const list = analysisCategories.value || []
+      const kw = (categorySearchKeyword.value || '').trim().toLowerCase()
+      if (!kw) return list
+      return list.filter(c => {
+        const name = (getCategoryDisplayName(c) || '').toLowerCase()
+        return name.includes(kw)
+      })
+    })
     
     // 计算当前语言
     const currentLocale = computed(() => locale.value || 'zh-CN')
@@ -1053,14 +1153,12 @@ export default {
       analysisCategories.value = cats.data.categories || []
       const presets = (presetsRes.data?.presets) || { ALL: [], FINE: [], KEY: [] }
       analysisPresets.value = presets
-      // 根据后端提供的 rolePreset 进行默认选择
-      const rolePresetMap = presetsRes.data?.rolePreset || {}
-      const roleId = String(store.state.auth?.user?.role_id || '')
-      const presetKey = rolePresetMap[roleId] || rolePresetMap.default || 'KEY'
-      if (presets[presetKey]) {
-        selectedAnalysisCategoryIds.value = [...presets[presetKey]]
+      // 默认显示全量日志，不再根据用户/角色映射
+      const presetKey = 'ALL'
+      if (presets[presetKey] && presets[presetKey].length >= 0) {
+        selectedAnalysisCategoryIds.value = [...(presets[presetKey] || [])]
       } else {
-        selectedAnalysisCategoryIds.value = [...(presets.KEY || [])]
+        selectedAnalysisCategoryIds.value = [...(presets.ALL || [])]
       }
     }
 
@@ -1068,11 +1166,98 @@ export default {
       if (!analysisPresets.value[key]) return false
       return sameSet(selectedAnalysisCategoryIds.value, analysisPresets.value[key])
     }
+    // 当前为“自定义”等级（已选分类且不等于任一预设）
+    const isCustomLevel = computed(() => {
+      const ids = selectedAnalysisCategoryIds.value
+      if (!ids || ids.length === 0) return false
+      return !isPresetActive('ALL') && !isPresetActive('FINE') && !isPresetActive('KEY')
+    })
 
     const applyPreset = (key) => {
       if (!analysisPresets.value[key]) return
       selectedAnalysisCategoryIds.value = [...analysisPresets.value[key]]
       onAnalysisCategoriesChange()
+    }
+
+    const levelChipOptions = computed(() => [
+      { key: 'ALL', label: t('batchAnalysis.fullLogs') },
+      { key: 'FINE', label: t('batchAnalysis.detailedLogs') },
+      { key: 'KEY', label: t('batchAnalysis.keyLogs') },
+      { key: 'CUSTOM', label: t('batchAnalysis.custom') }
+    ])
+    // 当前选中的预设 key（与 Logs.vue quick-range 一致，用于 el-radio-group）
+    const levelPresetKey = computed({
+      get () {
+        if (isPresetActive('ALL')) return 'ALL'
+        if (isPresetActive('FINE')) return 'FINE'
+        if (isPresetActive('KEY')) return 'KEY'
+        return 'CUSTOM'
+      },
+      set (key) {
+        if (key !== 'CUSTOM') applyPreset(key)
+      }
+    })
+    const onLevelPresetChange = (key) => {
+      if (key !== 'CUSTOM') applyPreset(key)
+    }
+
+    // 侧边栏待提交：等级预设（仅改 pending，不请求）
+    const isPresetActivePending = (key) => {
+      if (!analysisPresets.value[key]) return false
+      return sameSet(pendingSelectedAnalysisCategoryIds.value, analysisPresets.value[key])
+    }
+    const pendingLevelPresetKey = computed(() => {
+      if (isPresetActivePending('ALL')) return 'ALL'
+      if (isPresetActivePending('FINE')) return 'FINE'
+      if (isPresetActivePending('KEY')) return 'KEY'
+      return 'CUSTOM'
+    })
+    const applyPresetPending = (key) => {
+      if (!analysisPresets.value[key]) return
+      pendingSelectedAnalysisCategoryIds.value = [...(analysisPresets.value[key] || [])]
+    }
+
+    // UI: 自定义子系统筛选开关（仅影响侧边栏交互，不改变检索格式）
+    const customSubsystemActive = ref(false)
+    const filterSidebarBodyRef = ref(null)
+    const customSectionRef = ref(null)
+    const scrollCustomSectionToCenter = () => {
+      const container = filterSidebarBodyRef.value
+      const target = customSectionRef.value
+      if (!container || !target) return
+      const containerRect = container.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+      const targetCenterInView = targetRect.top - containerRect.top + targetRect.height / 2
+      const containerCenter = container.clientHeight / 2
+      const delta = targetCenterInView - containerCenter
+      container.scrollTop = Math.max(0, container.scrollTop + delta)
+    }
+    watch(customSubsystemActive, (val) => {
+      if (val) nextTick(scrollCustomSectionToCenter)
+    })
+    const onSelectLevelCard = (key) => {
+      customSubsystemActive.value = false
+      applyPresetPending(key)
+    }
+    // 全选：将当前筛选出的分类全部选中（仅改 pending）
+    const selectAllCategories = () => {
+      const list = filteredCategoriesForLevel.value
+      if (list.length === 0) return
+      pendingSelectedAnalysisCategoryIds.value = list.map(c => c.id)
+    }
+    // 清空选择（仅改 pending）
+    const clearCategorySelection = () => {
+      pendingSelectedAnalysisCategoryIds.value = []
+    }
+    // Chip 点击：切换该分类的选中状态（仅改 pending）
+    const toggleCategoryChip = (c) => {
+      const ids = pendingSelectedAnalysisCategoryIds.value
+      const has = ids.includes(c.id)
+      if (has) {
+        pendingSelectedAnalysisCategoryIds.value = ids.filter(id => id !== c.id)
+      } else {
+        pendingSelectedAnalysisCategoryIds.value = [...ids, c.id]
+      }
     }
 
     const onAnalysisCategoriesChange = () => {
@@ -1261,8 +1446,8 @@ export default {
       // 检查时间范围是否是用户主动设置的（而不是系统自动设置的完整范围）
       const hasUserTimeRange = !!(timeRange.value && timeRange.value.length === 2 && 
         timeRangeLimit.value && 
-        (timeRange.value[0] !== formatTimestamp(timeRangeLimit.value[0]) || 
-         timeRange.value[1] !== formatTimestamp(timeRangeLimit.value[1])))
+        (timeRange.value[0] !== getStorageTimeString(timeRangeLimit.value[0]) || 
+         timeRange.value[1] !== getStorageTimeString(timeRangeLimit.value[1])))
       
       return !!(hasSearch || hasUserTimeRange || hasAdvancedConditions)
     })
@@ -1365,12 +1550,12 @@ export default {
       }
     }
     
-    // 颜色选项：红、黄、蓝、绿
+    // 颜色选项：红、黄、蓝、绿（各加深一档）
     const colorOptions = ref([
-      { value: '#D7BDE2', label: '红色' },
-      { value: '#D1F2EB', label: '黄色' },
-      { value: '#FCF3CF', label: '蓝色' },
-      { value: '#d6eaf8', label: '绿色' },
+      { value: '#C39BD3', label: '红色' },
+      { value: '#A8E6CF', label: '黄色' },
+      { value: '#F9E79F', label: '蓝色' },
+      { value: '#AED6F1', label: '绿色' },
       { value: null, label: '无' }
     ])
     // 表格列配置（仅用于传统表格）
@@ -1383,9 +1568,31 @@ export default {
       { prop: 'operations', label: '操作' }
     ])
 
-    // 高级筛选弹窗与条件
-    const showAdvancedFilter = ref(false)
+    // 高级筛选条件
     const filtersRoot = ref({ logic: 'AND', conditions: [] })
+
+    // 侧边栏待提交状态：仅点「应用」后才写入 applied 并请求列表
+    const deepCloneFilters = (node) => {
+      if (!node) return null
+      if (node.field && node.operator) {
+        const val = node.value
+        return {
+          field: node.field,
+          operator: node.operator,
+          value: Array.isArray(val) ? [...val] : val
+        }
+      }
+      if (Array.isArray(node.conditions)) {
+        return {
+          logic: node.logic || 'AND',
+          conditions: node.conditions.map(deepCloneFilters).filter(Boolean)
+        }
+      }
+      return { logic: 'AND', conditions: [] }
+    }
+    const pendingFiltersRoot = ref({ logic: 'AND', conditions: [] })
+    const pendingSelectedAnalysisCategoryIds = ref([])
+    const pendingDisplayTimezoneOffsetMinutes = ref(480)
     
     // 手术统计相关
     const surgeryStatisticsVisible = ref(false)
@@ -1395,26 +1602,86 @@ export default {
     const selectedTemplateName = ref('')
     const importExpressionText = ref('')
 
-    // 搜索表达式（显示在搜索卡片中）
-    const groupToString = (node) => {
+    // Saved expressions preview (compact text)
+    const templatePreviewMap = computed(() => {
+      const map = {}
+      const list = Array.isArray(templates.value) ? templates.value : []
+      for (const tpl of list) {
+        const node = tpl?.filters || null
+        map[tpl.name] = node ? groupToString(node, displayTimezoneOffsetMinutes.value) : ''
+      }
+      return map
+    })
+
+    const selectTemplateCard = (name) => {
+      const v = String(name || '').trim()
+      if (!v) return
+      selectedTemplateName.value = v
+      applySelectedTemplate()
+    }
+
+    // Natural language → (search/filters/start_time/end_time)
+    const nlQuery = ref('')
+    const nlGenerating = ref(false)
+    const generateFilterExpression = async () => {
+      const text = String(nlQuery.value || '').trim()
+      if (!text) return
+      nlGenerating.value = true
+      try {
+        const resp = await api.logs.nlToBatchFilters({ text })
+        const result = resp?.data?.result || {}
+
+        const hasSearch = typeof result.search === 'string' && result.search.trim()
+        const hasTime = !!(result.start_time && result.end_time)
+        const hasFilters = !!(result.filters && Array.isArray(result.filters.conditions) && result.filters.conditions.length > 0)
+
+        if (!hasSearch && !hasTime && !hasFilters) {
+          ElMessage.warning(t('batchAnalysis.nlNoResult'))
+          return
+        }
+
+        if (hasSearch) searchKeyword.value = result.search.trim()
+        if (hasTime) timeRange.value = [String(result.start_time), String(result.end_time)]
+        if (result.filters && typeof result.filters === 'object') {
+          pendingFiltersRoot.value = deepCloneFilters(result.filters)
+        }
+
+        filterSidebarActiveTab.value = 'search'
+        ElMessage.success(t('batchAnalysis.nlApplied'))
+      } catch (e) {
+        const status = e?.response?.status
+        if (status === 503) {
+          ElMessage.warning(t('batchAnalysis.llmUnavailable'))
+        } else {
+          ElMessage.error(t('batchAnalysis.nlFailed'))
+        }
+      } finally {
+        nlGenerating.value = false
+      }
+    }
+
+    // 搜索表达式（显示在搜索卡片中）；timestamp 条件值按显示时区展示
+    const groupToString = (node, displayOffset = null) => {
       if (!node) return ''
-      // 叶子条件
       if (node.field && node.operator) {
-        const val = Array.isArray(node.value) ? node.value.join(',') : (node.value ?? '')
+        let val = Array.isArray(node.value) ? node.value.join(',') : (node.value ?? '')
+        if (node.field === 'timestamp' && displayOffset != null) {
+          if (Array.isArray(node.value) && node.value.length >= 2) {
+            val = [convertStorageToDisplay(node.value[0], displayOffset), convertStorageToDisplay(node.value[1], displayOffset)].join(' ~ ')
+          } else if (node.value != null && node.value !== '') {
+            val = convertStorageToDisplay(String(node.value), displayOffset)
+          }
+        }
         return `${node.field} ${node.operator} ${val}`
       }
-      // 分组：始终使用括号包裹，不再在前缀标注逻辑 [AND]/[OR]
       if (Array.isArray(node.conditions)) {
         const logic = node.logic || 'AND'
         const inner = node.conditions
-          .map(child => groupToString(child))
+          .map(child => groupToString(child, displayOffset))
           .filter(Boolean)
           .join(` ${logic} `)
         if (!inner) return ''
-        // 根组与子组均仅使用括号包裹，逻辑通过括号内部的连接词体现
-        if (node === filtersRoot.value) {
-          return `(${inner})`
-        }
+        if (node === filtersRoot.value) return `(${inner})`
         return `(${inner})`
       }
       return ''
@@ -1422,21 +1689,41 @@ export default {
     const searchExpression = computed(() => {
       const segments = []
       if (timeRange.value && timeRange.value.length === 2) {
-        const [start, end] = timeRange.value
-        segments.push(`${t('batchAnalysis.searchExpressionTime')}: ${formatTimestamp(start)} ~ ${formatTimestamp(end)}`)
+        const startDisplay = convertStorageToDisplay(timeRange.value[0], displayTimezoneOffsetMinutes.value)
+        const endDisplay = convertStorageToDisplay(timeRange.value[1], displayTimezoneOffsetMinutes.value)
+        segments.push(`${t('batchAnalysis.searchExpressionTime')}: ${startDisplay} ~ ${endDisplay}`)
       }
       if (searchKeyword.value) {
         segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${searchKeyword.value}`)
       }
-      const adv = groupToString(filtersRoot.value)
+      const adv = groupToString(filtersRoot.value, displayTimezoneOffsetMinutes.value)
       if (adv) segments.push(`${adv}`)
       return segments.join(t('batchAnalysis.searchExpressionAnd'))
     })
 
     // 仅用于高级筛选弹窗内部的表达式展示，不在这里加"时间/关键字"前缀
     const advancedExpression = computed(() => {
-      const adv = groupToString(filtersRoot.value)
+      const adv = groupToString(filtersRoot.value, displayTimezoneOffsetMinutes.value)
       return adv || ''
+    })
+    // 侧边栏内表达式预览（待提交状态）
+    const pendingAdvancedExpression = computed(() => {
+      const adv = groupToString(pendingFiltersRoot.value, pendingDisplayTimezoneOffsetMinutes.value)
+      return adv || ''
+    })
+    // 搜索标签页底部：当前选中/待应用的搜索表达式预览（自然语言、常用表达式、导入后均会更新）
+    const searchTabPreviewExpression = computed(() => {
+      const segments = []
+      if (timeRange.value && timeRange.value.length === 2) {
+        const startDisplay = convertStorageToDisplay(timeRange.value[0], pendingDisplayTimezoneOffsetMinutes.value)
+        const endDisplay = convertStorageToDisplay(timeRange.value[1], pendingDisplayTimezoneOffsetMinutes.value)
+        segments.push(`${t('batchAnalysis.searchExpressionTime')}: ${startDisplay} ~ ${endDisplay}`)
+      }
+      if (searchKeyword.value) {
+        segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${searchKeyword.value}`)
+      }
+      if (pendingAdvancedExpression.value) segments.push(pendingAdvancedExpression.value)
+      return segments.join(t('batchAnalysis.searchExpressionAnd'))
     })
 
     const countLeafConditions = (node) => {
@@ -1446,18 +1733,11 @@ export default {
       return 0
     }
     const leafConditionCount = computed(() => countLeafConditions(filtersRoot.value))
+    const pendingLeafConditionCount = computed(() => countLeafConditions(pendingFiltersRoot.value))
 
-    // 过滤后的条目（后端分页，前端只做简单过滤）
+    // 过滤后的条目（仅服务端筛选，无本地二次过滤）
     const filteredEntries = computed(() => {
-      const list = Array.isArray(batchLogEntries.value) ? batchLogEntries.value : []
-      let entries = list
-
-      // 本地高级筛选（仅在本地模式下）
-      if (advancedMode.value && useLocalAdvanced.value && leafConditionCount.value > 0) {
-        entries = entries.filter(e => evaluateAdvanced(e))
-      }
-
-      return entries
+      return Array.isArray(batchLogEntries.value) ? batchLogEntries.value : []
     })
 
     const batchCount = computed(() => Array.isArray(batchLogEntries.value) ? batchLogEntries.value.length : 0)
@@ -1592,11 +1872,12 @@ export default {
             globalMaxTs.value = max
             const needInit = !timeRange.value || timeRange.value.length !== 2
             const [curStart, curEnd] = needInit ? [null, null] : timeRange.value
-            const curStartDate = curStart ? new Date(curStart) : null
-            const curEndDate = curEnd ? new Date(curEnd) : null
-            const outOfRange = !curStartDate || !curEndDate || curStartDate < min || curEndDate > max
+            const curStartDate = curStart ? new Date(parseStorageTimeToUtcMs(curStart)) : null
+            const curEndDate = curEnd ? new Date(parseStorageTimeToUtcMs(curEnd)) : null
+            const minMs = min.getTime(); const maxMs = max.getTime()
+            const outOfRange = !curStartDate || !curEndDate || curStartDate.getTime() < minMs || curEndDate.getTime() > maxMs
             if (needInit || outOfRange) {
-              timeRange.value = [formatTimestamp(min), formatTimestamp(max)]
+              timeRange.value = [getStorageTimeString(minTimestamp), getStorageTimeString(maxTimestamp)]
             }
           }
         }
@@ -1753,18 +2034,22 @@ export default {
       await fetchFilteredStatistics()
     }
 
-    // 时间范围变化处理
+    // 时间范围变化处理（timeRange 存原时区，越界纠正按原时区比较）
     const handleTimeRangeChange = async () => {
-      // 越界纠正
       if (timeRangeLimit.value && timeRange.value && timeRange.value.length === 2) {
-        const [min, max] = timeRangeLimit.value
-        let [start, end] = timeRange.value
-        const s = new Date(start)
-        const e = new Date(end)
-        let changed = false
-        if (s < min) { start = min; changed = true }
-        if (e > max) { end = max; changed = true }
-        if (changed) timeRange.value = [formatTimestamp(start), formatTimestamp(end)]
+        const limitStart = getStorageTimeString(timeRangeLimit.value[0])
+        const limitEnd = getStorageTimeString(timeRangeLimit.value[1])
+        if (limitStart && limitEnd) {
+          let [start, end] = timeRange.value
+          const startMs = parseStorageTimeToUtcMs(start)
+          const endMs = parseStorageTimeToUtcMs(end)
+          const minMs = parseStorageTimeToUtcMs(limitStart)
+          const maxMs = parseStorageTimeToUtcMs(limitEnd)
+          let changed = false
+          if (!Number.isNaN(startMs) && !Number.isNaN(minMs) && startMs < minMs) { start = limitStart; changed = true }
+          if (!Number.isNaN(endMs) && !Number.isNaN(maxMs) && endMs > maxMs) { end = limitEnd; changed = true }
+          if (changed) timeRange.value = [start, end]
+        }
       }
       
       // 取消之前的请求
@@ -1797,11 +2082,9 @@ export default {
       await fetchGlobalStatistics()
     }
 
-    // 仅清空高级条件，不影响其他筛选（供弹窗内一键清空使用）
+    // 仅清空高级条件（待提交状态），点「应用」后生效
     const clearAllConditionsOnly = () => {
-      filtersRoot.value = { logic: 'AND', conditions: [] }
-      // 清空后自动重新搜索
-      debouncedSearch()
+      pendingFiltersRoot.value = { logic: 'AND', conditions: [] }
     }
 
     // 禁用超出范围的日期
@@ -1834,6 +2117,7 @@ export default {
           params.end_time = timeRange.value[1]
         }
         if (searchKeyword.value) params.search = searchKeyword.value
+        params.display_timezone_offset_minutes = displayTimezoneOffsetMinutes.value
         
         // 创建任务
         const { data } = await api.logs.exportBatchEntries(params)
@@ -1941,6 +2225,116 @@ export default {
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     }
 
+    // 时区转换显示：将原时区存储的时间戳按选中时区显示，仅影响前端
+    const formatTimestampWithTimezone = (timestamp, offsetMinutes) => {
+      if (timestamp == null || timestamp === '') return ''
+      if (offsetMinutes == null || offsetMinutes === 480) return '' // 与原时区一致(默认480)时用原样显示
+      let utcMs
+      const str = String(timestamp).trim()
+      const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+      if (match) {
+        const [, y, M, d, h, m, s, ms] = match
+        // 按原时区解析为 UTC 毫秒
+        utcMs = Date.UTC(
+          parseInt(y, 10),
+          parseInt(M, 10) - 1,
+          parseInt(d, 10),
+          parseInt(h, 10) - 8,
+          parseInt(m, 10),
+          parseInt(s, 10) || 0,
+          parseInt((ms || '0').padEnd(3, '0'), 10) || 0
+        )
+      } else {
+        const date = new Date(timestamp)
+        if (isNaN(date.getTime())) return ''
+        utcMs = date.getTime()
+      }
+      // 目标时区本地时间 = UTC + offsetMinutes
+      const displayMs = utcMs + (offsetMinutes * 60 * 1000)
+      const disp = new Date(displayMs)
+      const yy = disp.getUTCFullYear()
+      const mm = String(disp.getUTCMonth() + 1).padStart(2, '0')
+      const dd = String(disp.getUTCDate()).padStart(2, '0')
+      const hh = String(disp.getUTCHours()).padStart(2, '0')
+      const mi = String(disp.getUTCMinutes()).padStart(2, '0')
+      const ss = String(disp.getUTCSeconds()).padStart(2, '0')
+      return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+    }
+
+    const onTimezoneChange = () => { /* 仅依赖 displayTimezoneOffsetMinutes 触发重渲染 */ }
+
+    // 原时区/存储时区 ↔ 显示时区：检索时转化为原时区（转换前的时间），界面显示用选中时区。原时区不一定是北京，此处默认 480（UTC+8）
+    const STORAGE_OFFSET_MINUTES = 480
+    const parseStorageTimeToUtcMs = (storageStr) => {
+      if (!storageStr || typeof storageStr !== 'string') return NaN
+      const m = String(storageStr).trim().match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+      if (m) {
+        const h = parseInt(m[4], 10) - (STORAGE_OFFSET_MINUTES / 60)
+        return Date.UTC(
+          parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10),
+          h, parseInt(m[5], 10), parseInt(m[6], 10) || 0,
+          parseInt((m[7] || '0').padEnd(3, '0'), 10) || 0
+        )
+      }
+      return new Date(storageStr).getTime()
+    }
+    const formatUtcMsToStorageTime = (utcMs) => {
+      if (utcMs == null || Number.isNaN(utcMs)) return ''
+      const d = new Date(utcMs + STORAGE_OFFSET_MINUTES * 60 * 1000)
+      const yy = d.getUTCFullYear()
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+      const dd = String(d.getUTCDate()).padStart(2, '0')
+      const hh = String(d.getUTCHours()).padStart(2, '0')
+      const mi = String(d.getUTCMinutes()).padStart(2, '0')
+      const ss = String(d.getUTCSeconds()).padStart(2, '0')
+      return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+    }
+    const convertStorageToDisplay = (storageStr, displayOffsetMinutes) => {
+      if (!storageStr) return ''
+      if (displayOffsetMinutes == null || displayOffsetMinutes === STORAGE_OFFSET_MINUTES) return storageStr
+      const utcMs = parseStorageTimeToUtcMs(storageStr)
+      if (Number.isNaN(utcMs)) return storageStr
+      const displayMs = utcMs + (displayOffsetMinutes * 60 * 1000)
+      const d = new Date(displayMs)
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`
+    }
+    const convertDisplayToStorage = (displayStr, displayOffsetMinutes) => {
+      if (!displayStr) return ''
+      if (displayOffsetMinutes == null || displayOffsetMinutes === STORAGE_OFFSET_MINUTES) return displayStr
+      const m = String(displayStr).trim().match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+      if (!m) return displayStr
+      const utcMs = Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), parseInt(m[4], 10), parseInt(m[5], 10), parseInt(m[6], 10) || 0, parseInt((m[7] || '0').padEnd(3, '0'), 10) || 0) - (displayOffsetMinutes * 60 * 1000)
+      return formatUtcMsToStorageTime(utcMs)
+    }
+    const getStorageTimeString = (ts) => {
+      if (ts == null) return ''
+      if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(ts)) return ts
+      const date = new Date(ts)
+      if (Number.isNaN(date.getTime())) return ''
+      return formatUtcMsToStorageTime(date.getTime())
+    }
+
+    // 时间筛选器：内部存原时区(检索用)，界面显示用选中时区
+    const timeRangeDisplay = computed({
+      get () {
+        if (!timeRange.value || timeRange.value.length !== 2) return null
+        return [
+          convertStorageToDisplay(timeRange.value[0], displayTimezoneOffsetMinutes.value),
+          convertStorageToDisplay(timeRange.value[1], displayTimezoneOffsetMinutes.value)
+        ]
+      },
+      set (v) {
+        if (v && v.length === 2) {
+          timeRange.value = [
+            convertDisplayToStorage(v[0], displayTimezoneOffsetMinutes.value),
+            convertDisplayToStorage(v[1], displayTimezoneOffsetMinutes.value)
+          ]
+        } else {
+          timeRange.value = v
+        }
+      }
+    })
+
     // 读取服务端时区偏移（分钟），统一前端显示
     const serverOffsetMinutes = ref(null)
     const loadServerTimezone = async () => {
@@ -2025,7 +2419,7 @@ export default {
         showSurgeryStatsDialog.value = true
         surgeryStatsLoading.value = true
       const logIds = selectedLogs.value.map(log => log.id)
-        const resp = await api.surgeryStatistics.analyzeByLogIds(logIds, true)
+        const resp = await api.surgeryStatistics.analyzeByLogIds(logIds, true, displayTimezoneOffsetMinutes.value)
 
         if (resp.data?.taskId) {
           const taskId = resp.data.taskId
@@ -2160,7 +2554,7 @@ export default {
           conditions = Array.isArray(first?.filters?.conditions) ? first.filters.conditions : []
         }
         if (conditions.length > 0) {
-          filtersRoot.value = { logic, conditions: [...conditions] }
+          pendingFiltersRoot.value = { logic, conditions: [...conditions] }
           ElMessage.success('已从文件填充到高级条件')
         } else {
           ElMessage.warning('未识别到可用的表达式内容')
@@ -2344,7 +2738,8 @@ export default {
           filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
           // 仅填充，不立即执行；等待点击"应用"
           ElMessage.success('表达式已填充，请点击"应用"执行搜索')
-          showAdvancedFilter.value = true
+          filterDrawerVisible.value = true
+          filterSidebarActiveTab.value = 'advanced'
           await nextTick()
           if (exprPreviewRef.value && exprPreviewRef.value.scrollIntoView) {
             exprPreviewRef.value.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -2383,7 +2778,7 @@ export default {
       try {
         // 使用统一的接口，一次性分析所有选中的日志
         const logIds = selectedLogs.value.map(log => log.id)
-        const response = await api.surgeryStatistics.analyzeByLogIds(logIds, true)
+        const response = await api.surgeryStatistics.analyzeByLogIds(logIds, true, displayTimezoneOffsetMinutes.value)
         
         if (response.data.success) {
           ElMessage.success(response.data.message || `成功分析出 ${response.data.data?.length || 0} 场手术`)
@@ -2397,7 +2792,7 @@ export default {
       }
     }
 
-    // 构建filters payload
+    // 构建filters payload（检索用转换前时间：timeRange 与高级条件中 timestamp 均为原时区）
     const buildFiltersPayload = () => {
       const normalizeNode = (node) => {
         if (!node) return null
@@ -2523,15 +2918,42 @@ export default {
         group.conditions.splice(idx, 1)
       }
     }
-    const applyAdvancedFilters = async () => {
-      // 直接根据当前条件构建 payload 并执行
-      showAdvancedFilter.value = false
-      advancedMode.value = true
+    // 侧边栏打开时：同步已应用状态到待提交（表单显示当前生效的配置）
+    const syncAppliedToPending = () => {
+      pendingSelectedAnalysisCategoryIds.value = [...(selectedAnalysisCategoryIds.value || [])]
+      pendingFiltersRoot.value = deepCloneFilters(filtersRoot.value)
+      pendingDisplayTimezoneOffsetMinutes.value = displayTimezoneOffsetMinutes.value
+    }
+    watch(filterDrawerVisible, (visible) => {
+      if (visible) syncAppliedToPending()
+    })
+
+    // 时区变化后刷新可视化图表（轴刻度/tooltip 需要重新格式化）
+    watch(displayTimezoneOffsetMinutes, () => {
+      if (!chartDetailVisible.value || !currentChartData.value) return
+      nextTick(() => {
+        showChartDetail(currentChartData.value)
+      })
+    })
+
+    // 应用：待提交 → 已应用，并请求列表
+    const applySidebarFilters = async () => {
+      selectedAnalysisCategoryIds.value = [...pendingSelectedAnalysisCategoryIds.value]
+      filtersRoot.value = deepCloneFilters(pendingFiltersRoot.value)
+      displayTimezoneOffsetMinutes.value = pendingDisplayTimezoneOffsetMinutes.value
+      advancedMode.value = pendingLeafConditionCount.value > 0
       currentPage.value = 1
       await loadBatchLogEntries(1, true)
-      
-      // 获取筛选统计
       await fetchFilteredStatistics()
+    }
+
+    // 重置：已应用 → 待提交（丢弃未应用的修改）
+    const resetSidebarFilters = () => {
+      syncAppliedToPending()
+    }
+
+    const applyAdvancedFilters = async () => {
+      await applySidebarFilters()
     }
 
     // 保存颜色标记到sessionStorage
@@ -2643,8 +3065,8 @@ export default {
         explanation: row.explanation
       })
       
-      // 直接将纯文本附加到摘取板（不包含参数）
-      const timestamp = formatTimestamp(row.timestamp)
+      // 直接将纯文本附加到摘取板（不包含参数），时间戳按当前时区显示
+      const timestamp = formatTimestampWithTimezone(row.timestamp, displayTimezoneOffsetMinutes.value) || formatTimestamp(row.timestamp)
       const line = `${timestamp} ${row.error_code} ${row.explanation}`.trim()
       clipboardContent.value = (clipboardContent.value ? clipboardContent.value + '\n' : '') + line
       
@@ -2653,6 +3075,11 @@ export default {
       clipboardVisible.value = true
       
       ElMessage.success(t('batchAnalysis.clipboardAdded', { current: clipboardEntries.value.length, max: maxClipboardEntries }))
+    }
+
+    const onOperationsCommand = (command, row) => {
+      if (command === 'context') handleContextAnalysis(row)
+      else if (command === 'capture') handleLogCapture(row)
     }
 
     // 更新剪贴板内容
@@ -2832,7 +3259,13 @@ export default {
         } else if (fullErrorCode.length >= 6 && /^[1-9A]0X[0-9A-F]{3}[ABCDE]$/.test(fullErrorCode)) {
           subsystemToQuery = fullErrorCode.charAt(0)
         }
-        const visualizationParams = { log_ids: logIds, error_code: row.error_code, parameter_index: paramIndex, subsystem: subsystemToQuery }
+        const visualizationParams = {
+          log_ids: logIds,
+          error_code: row.error_code,
+          parameter_index: paramIndex,
+          subsystem: subsystemToQuery,
+          display_timezone_offset_minutes: displayTimezoneOffsetMinutes.value
+        }
         // 加入当前筛选条件（与列表加载保持一致）
         if (advancedMode.value && leafConditionCount.value > 0) {
           const filtersPayload = buildFiltersPayload()
@@ -2848,21 +3281,29 @@ export default {
           visualizationParams.search = searchKeyword.value
         }
         const response = await api.logs.getVisualizationData(visualizationParams)
-        const { chartData, chartTitle: apiChartTitle, paramName } = response.data.data
+        const {
+          chartData,
+          chartTitle: apiChartTitle,
+          paramName,
+          timezoneApplied,
+          displayTimezoneOffsetMinutes: responseDisplayOffset
+        } = response.data.data
         if (!Array.isArray(chartData) || chartData.length === 0) {
           ElMessage.warning(t('batchAnalysis.visualizationNoData'))
           return
         }
         chartTitle.value = apiChartTitle
         const validData = chartData
-          currentChartData.value = {
+        currentChartData.value = {
             id: `chart_${Date.now()}`,
             title: apiChartTitle,
             timestamp: new Date().toISOString(),
             parameter: selectedParameter.value,
             parameterValue: paramName,
             data: validData,
-            errorCode: row.error_code
+          errorCode: row.error_code,
+          timezoneApplied: !!timezoneApplied,
+          displayTimezoneOffsetMinutes: responseDisplayOffset ?? null
           }
           addChartToSidebar()
         ElMessage.success(t('batchAnalysis.visualizationDataRetrieved', { count: chartData.length }))
@@ -2957,7 +3398,8 @@ export default {
           series: [{
             name: `${chartData.parameterValue}`,
             type: 'line',
-            symbol: 'none',
+            symbol: 'circle',
+            symbolSize: 2,
             sampling: false,
             lineStyle: { width: 1.5, color: '#409EFF' },
             areaStyle: {
@@ -3064,8 +3506,45 @@ export default {
             return
           }
           
-          // 获取智能时间格式化函数
-          const smartTimeFormatter = getSmartTimeFormatter(validData)
+          // 统一将时间值归一化为毫秒（后端如返回秒级时间戳，也能正确绘图/标注）
+          const toMs = (v) => {
+            if (v == null) return NaN
+            if (v instanceof Date) return v.getTime()
+            if (typeof v === 'number') return v < 1e12 ? v * 1000 : v
+            return Number(new Date(v))
+          }
+          const validDataMs = validData
+            .map(d => [toMs(d[0]), d[1]])
+            .filter(d => Array.isArray(d) && d.length >= 2 && Number.isFinite(d[0]) && Number.isFinite(d[1]))
+
+          if (validDataMs.length === 0) {
+            ElMessage.error('没有有效的图表数据')
+            return
+          }
+          // 图表时间格式化：统一按当前显示时区输出（不复用 formatTimestampWithTimezone 的 “offset=480 返回空串” 规则）
+          // 存储时区约定：数据库存的是无时区的"字面时间"，默认约定为UTC+8
+          // 当displayTimezoneOffsetMinutes=480时，显示原始时间（不转换）
+          // 当displayTimezoneOffsetMinutes=其他值时，做相对于存储时区(480)的转换
+          const STORAGE_OFFSET_MINUTES = 480
+          // 用户期望显示的时区相对于存储时区的偏移
+          const displayRelativeOffset = displayTimezoneOffsetMinutes.value - STORAGE_OFFSET_MINUTES
+
+          // 图表时间格式化（用于tooltip和axisLabel）
+          // 使用 type:'value' 的x轴，ECharts不做时区转换，完全由formatter控制显示
+          const chartTimeLabel = (value) => {
+            const ms = toMs(value)
+            if (!Number.isFinite(ms)) return ''
+            // offset=480时显示原始时间，其他值时做相对转换
+            const displayMs = ms + displayRelativeOffset * 60 * 1000
+            const d = new Date(displayMs)
+            const yy = d.getUTCFullYear()
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const dd = String(d.getUTCDate()).padStart(2, '0')
+            const hh = String(d.getUTCHours()).padStart(2, '0')
+            const mi = String(d.getUTCMinutes()).padStart(2, '0')
+            const ss = String(d.getUTCSeconds()).padStart(2, '0')
+            return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+          }
           
           // 重新创建完整图表 - 完全匹配 ECharts 官方时间轴面积图示例
           const option = {
@@ -3074,6 +3553,16 @@ export default {
               trigger: 'axis',
               position: function (pt) {
                 return [pt[0], '10%'];
+              },
+              formatter: (params) => {
+                if (!Array.isArray(params) || params.length === 0) return ''
+                const t = params[0].axisValue
+                const timeStr = chartTimeLabel(t)
+                const seriesLines = params.map(p => {
+                  const v = Array.isArray(p.value) ? p.value[1] : p.value
+                  return p.marker + ' ' + (p.seriesName || '') + ': ' + v
+                })
+                return timeStr + '<br/>' + seriesLines.join('<br/>')
               }
             },
             legend: undefined,
@@ -3087,10 +3576,13 @@ export default {
               }
             },
             xAxis: {
-              type: 'time',
+              type: 'value',  // 使用value类型，避免ECharts的时区转换
               boundaryGap: false,
-              min: Math.min(...validData.map(d => d[0])),
-              max: Math.max(...validData.map(d => d[0]))
+              min: Math.min(...validDataMs.map(d => d[0])),
+              max: Math.max(...validDataMs.map(d => d[0])),
+              axisLabel: {
+                formatter: chartTimeLabel
+              }
             },
             yAxis: {
               type: 'value',
@@ -3144,7 +3636,8 @@ export default {
               {
                 name: chartData.parameterValue || '数据',
                 type: 'line',
-                symbol: 'none',
+                symbol: 'circle',
+                symbolSize: 2,
                 sampling: false,
                 itemStyle: {
                   color: 'rgb(255, 70, 131)'
@@ -3164,7 +3657,7 @@ export default {
                     global: false
                   }
                 },
-                data: validData
+                data: validDataMs
               }
             ]
           }
@@ -3307,6 +3800,14 @@ export default {
 
     const onChartDialogOpened = () => {
       nextTick(() => {
+        const updateChartHeight = () => {
+          if (chartContainer.value) {
+            const h = chartContainer.value.offsetHeight
+            if (h > 0) chartDetailHeight.value = h
+          }
+        }
+        updateChartHeight()
+        setTimeout(updateChartHeight, 50)
         const chartElement = document.getElementById('visualizationChart')
         if (!chartElement) return
         if (chartElement.offsetWidth === 0 || chartElement.offsetHeight === 0) {
@@ -3334,7 +3835,7 @@ export default {
               { type: 'inside', start: 0, end: 100, realtime: true, throttle: 100, zoomLock: false, xAxisIndex: 0, filterMode: 'filter', preventDefaultMouseMove: true },
               { type: 'slider', start: 0, end: 100, realtime: true, throttle: 100, zoomLock: false, showDetail: true, showDataShadow: true, xAxisIndex: 0, bottom: 10, filterMode: 'filter', moveHandleSize: 8, preventDefaultMouseMove: true }
             ],
-            series: [ { name: '数据', type: 'line', symbol: 'none', sampling: false, data: validData } ]
+            series: [ { name: '数据', type: 'line', symbol: 'circle', symbolSize: 2, sampling: false, data: validData } ]
           }
           chartInstance.value.setOption(option, true)
           setTimeout(() => {
@@ -3400,6 +3901,31 @@ export default {
       }
       document.addEventListener('click', closeOnOutsideClick, true)
     }
+
+    // 表头「全部标记」：将所选颜色应用至当前所有筛选行
+    const applyColorToAllFilteredRows = (colorValue) => {
+      const entries = batchLogEntries.value
+      if (!Array.isArray(entries) || entries.length === 0) return
+      entries.forEach(entry => {
+        entry.color_mark = colorValue ?? null
+      })
+      saveColorMarksToStorage()
+      headerColorPopoverVisible.value = false
+      nextTick(() => {})
+    }
+
+    watch(headerColorPopoverVisible, (visible) => {
+      if (!visible) return
+      const closeOnOutsideClick = (e) => {
+        const target = e.target
+        const inTrigger = target && target.closest && target.closest('.header-color-indicator')
+        const inPopover = target && target.closest && target.closest('.el-popover')
+        if (inTrigger || inPopover) return
+        headerColorPopoverVisible.value = false
+        document.removeEventListener('click', closeOnOutsideClick, true)
+      }
+      nextTick(() => document.addEventListener('click', closeOnOutsideClick, true))
+    })
 
     // 提示：formatTimeForDisplay 在备注功能中使用，已不再对外暴露
 
@@ -3491,11 +4017,7 @@ export default {
       if (!selectedTemplateName.value) return
       const tpl = templates.value.find(t => t.name === selectedTemplateName.value)
       if (!tpl) return
-      filtersRoot.value = {
-        logic: tpl.filters?.logic || 'AND',
-        conditions: Array.isArray(tpl.filters?.conditions) ? [...tpl.filters.conditions] : []
-      }
-      // 不立即执行搜索，用户可继续增删条件
+      pendingFiltersRoot.value = deepCloneFilters(tpl.filters || { logic: 'AND', conditions: [] })
     }
 
     const onOperatorChange = (cond) => {
@@ -3513,6 +4035,15 @@ export default {
         }
       }
     }
+
+    const closeSidebarOnEscape = (e) => {
+      if (e.key === 'Escape' && filterDrawerVisible.value) {
+        filterDrawerVisible.value = false
+      }
+    }
+    onMounted(() => {
+      document.addEventListener('keydown', closeSidebarOnEscape)
+    })
 
     onMounted(async () => {
       // 首屏显示加载状态，避免先显示 no data
@@ -3570,6 +4101,7 @@ export default {
 
     // 组件销毁时清理ECharts实例
     onBeforeUnmount(() => {
+      document.removeEventListener('keydown', closeSidebarOnEscape)
       if (chartInstance.value) {
         chartInstance.value.dispose()
         chartInstance.value = null
@@ -3595,22 +4127,33 @@ export default {
 
     return {
       activeColorPopoverRowId,
+      headerColorPopoverVisible,
+      applyColorToAllFilteredRows,
       activeNotesPopoverRowId,
       hoveredNameRowId,
       toggleColorPopover,
+      filterDrawerVisible,
+      filterSidebarActiveTab,
+      filterSidebarBodyRef,
+      customSectionRef,
+      customSubsystemActive,
+      onSelectLevelCard,
       loading,
       selectedLogs,
       batchLogEntries,
       searchKeyword,
       timeRange,
+      timeRangeDisplay,
+      displayTimezoneOffsetMinutes,
+      timezoneOptions,
+      formatTimestampWithTimezone,
+      onTimezoneChange,
       currentPage,
       pageSize,
       totalCount,
       totalPages,
       advancedMode,
-      useLocalAdvanced,
       tableColumns,
-      showAdvancedFilter,
       filtersRoot,
       filteredEntries,
       paginatedEntries,
@@ -3625,10 +4168,27 @@ export default {
       analysisCategories,
       analysisPresets,
       selectedAnalysisCategoryIds,
+      categorySearchKeyword,
+      filteredCategoriesForLevel,
+      selectAllCategories,
+      clearCategorySelection,
+      toggleCategoryChip,
       analysisLevelLabel,
       isPresetActive,
+      isCustomLevel,
+      levelChipOptions,
+      levelPresetKey,
+      onLevelPresetChange,
       applyPreset,
       onAnalysisCategoriesChange,
+      pendingLevelPresetKey,
+      pendingSelectedAnalysisCategoryIds,
+      pendingFiltersRoot,
+      pendingDisplayTimezoneOffsetMinutes,
+      pendingAdvancedExpression,
+      searchTabPreviewExpression,
+      resetSidebarFilters,
+      applySidebarFilters,
       getCategoryDisplayName,
       loadSelectedLogs,
       loadBatchLogEntries,
@@ -3663,12 +4223,17 @@ export default {
       defaultPickerRange,
       disableOutOfRangeDates,
       templates,
+      templatePreviewMap,
       applyTemplateByName,
       beforeImportTemplates,
       selectedTemplateName,
       onTemplateSingleSelect,
       applySelectedTemplate,
+      selectTemplateCard,
       importExpressionText,
+      nlQuery,
+      nlGenerating,
+      generateFilterExpression,
       
       applyExpressionJSON,
       applyExpressionSmart,
@@ -3691,6 +4256,7 @@ export default {
       loadColorMarksFromStorage,
       handleContextAnalysis,
       handleLogCapture,
+      onOperationsCommand,
       // 上下文分析相关
       contextAnalysisVisible,
       contextAnalysisRow,
@@ -3769,228 +4335,821 @@ export default {
 .batch-analysis-container {
   padding: 0;
   height: 100vh;
-  overflow: auto;
-  background-color: #f5f7fa;
-  box-sizing: border-box;
-}
-
-.analysis-card {
-  /* 使用外层 wrapper 控制留白，卡片高度自适应 */
-  height: auto;
   display: flex;
   flex-direction: column;
-  row-gap: 16px;
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
-  overflow: visible;
+  background-color: var(--slate-100);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .analysis-card-wrapper {
-  padding: 16px;
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.analysis-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  overflow: hidden;
+  margin: 0;
+}
+
+:deep(.analysis-card .el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 0;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 8px 16px;
   background-color: white;
-  border-bottom: none;
+  border-bottom: 1px solid var(--slate-200);
+  flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.title {
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.log-info {
-  margin: 10px 20px;
-}
-
-.log-info .el-descriptions {
-  font-size: 12px;
-}
-
-.log-info .el-descriptions__label {
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.log-info .el-descriptions__label,
-.log-info .el-descriptions__content {
-  white-space: normal;
-  word-break: break-word;
-}
-
-/* 自定义列宽样式 */
-.log-info .el-descriptions__body {
-  width: 100%;
-}
-
-.log-info .el-descriptions__table {
-  width: 100%;
-  table-layout: fixed;
-}
-
-.log-info .el-descriptions__cell {
-  padding: 8px 12px;
-  vertical-align: top;
-}
-
-/* 文件名列 - 较宽 */
-.log-info .el-descriptions__cell:nth-child(1) {
-  width: 50%;
-}
-
-/* 设备编号列 - 较窄 */
-.log-info .el-descriptions__cell:nth-child(2) {
-  width: 15%;
-}
-
-/* 文件大小列 - 较窄 */
-.log-info .el-descriptions__cell:nth-child(3) {
-  width: 20%;
-}
-
-/* 上传用户ID列 - 较宽 */
-.log-info .el-descriptions__cell:nth-child(4) {
-  width: 15%;
-}
-
-.logs-list {
-  display: flex;
+  gap: 16px;
   flex-wrap: wrap;
-  gap: 4px;
+  min-width: 0;
+}
+.card-header .header-tag-block {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.card-header .title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--slate-900);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* 摘要/信息块：设备编号、分析等级、搜索表达式（使用 design token） */
+.header-tag-block,
+.summary-block {
+  font-size: var(--summary-block-font-size);
+  color: var(--summary-block-label-color);
+  padding: var(--summary-block-padding);
+  background: var(--summary-block-bg);
+  border: 1px solid var(--summary-block-border);
+  border-radius: var(--summary-block-radius);
+  flex-shrink: 0;
+}
+
+.header-tag-block .header-tag-label,
+.summary-block .summary-block-label {
+  color: var(--summary-block-label-color);
+  margin-right: 4px;
+}
+
+.header-tag-block .header-tag-value,
+.summary-block .summary-block-value {
+  color: var(--summary-block-value-color);
+}
+
+.summary-block-expr {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-block-expr-value {
+  color: var(--summary-block-value-color);
+  font-family: monospace;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .search-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0 10px 5px 10px;
-  padding: 16px;
+  padding: 8px 16px;
   background-color: white;
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--slate-200);
+  flex-shrink: 0;
 }
 
-.search-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+.compact-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toolbar-row-1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 50%;
+}
+.toolbar-row-1 .filter-toggle-btn {
+  flex-shrink: 0;
+}
+.toolbar-row-1 .search-input-compact {
+  flex-shrink: 0;
+}
+
+.toolbar-row-2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-row-2 .filter-summary-horizontal {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar-row-2 .clear-filters-toolbar-btn {
+  margin-left: auto;
+}
+
+.filter-toggle-btn {
+  background-color: var(--sky-50);
+  border-color: var(--sky-300);
+  color: var(--sky-600);
+}
+
+.filter-toggle-btn:hover {
+  background-color: var(--sky-500);
+  border-color: var(--sky-500);
+  color: var(--black-white-white);
+}
+
+.time-range-toolbar {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.search-input-compact {
+  width: 220px;
+}
+
+.clear-filters-toolbar-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.filter-summary-horizontal {
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
-  align-items: start;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
-.grid-item {
+.summary-item {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.item-title {
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
-  color: #909399;
-}
-
-.search-input {
-  width: 100%;
-}
-
-.keyword-field-select {
-  width: 110px;
-}
-
-.time-range {
-  width: 100%;
-}
-
-.advanced-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.advanced-summary {
-  font-size: 12px;
-  color: #606266;
-}
-
-/* 分析等级 Popover 样式 */
-.analysis-level-content {
-  padding: 8px;
-}
-
-.preset-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.category-checkboxes .el-checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.category-checkboxes .el-checkbox {
-  margin: 0 !important;
+  color: var(--slate-600);
+  white-space: nowrap;
+  background: var(--slate-100);
   padding: 4px 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  border-radius: var(--radius-xs);
 }
 
-.category-checkboxes .el-checkbox:hover {
-  background-color: #f5f7fa;
+.summary-item-expr {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-all;
 }
 
-/* 筛选条件摘要样式（分析等级独立显示） */
-.filter-summary {
-  margin-top: 12px;
+.summary-item .expr {
+  color: var(--el-color-info);
+  font-family: monospace;
+  font-size: 12px;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* 抽屉样式 */
+.filter-drawer-content {
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 24px;
+  height: 100%;
 }
 
-.filter-item {
+.main-content-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.main-content-area {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.sidebar-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+/* 侧边栏悬浮：盖在列表上，不挤占宽度，选项仅点「应用」后生效 */
+.filter-sidebar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  z-index: 20;
+  min-height: 0;
+  background-color: var(--black-white-white);
+  border-right: 1px solid var(--slate-200);
+  transform: translateX(0);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-sidebar.sidebar-hidden {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.filter-sidebar-content {
+  width: 320px; /* 保持固定宽度以防缩放时抖动 */
+  padding: 10px 8px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.filter-sidebar-header {
+  flex-shrink: 0;
+  padding: 0 0 8px 0;
+}
+.filter-sidebar-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--slate-900);
+  line-height: 1.2;
+}
+.filter-sidebar-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--slate-500);
+}
+/* 侧边栏分段使用 design-tokens.css 中的 .el-segmented-control */
+.filter-sidebar-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+/* 分析等级内「预设等级」「自定义」同级区块 */
+.level-tab-section {
+  margin-bottom: 24px;
+}
+.level-tab-section:last-child {
+  margin-bottom: 0;
+}
+.level-tab-section .section-title.drawer-section-title {
+  margin-bottom: 12px;
+}
+.level-tab-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+/* 自定义区块：与预设等级一致的左右留白，不贴满侧边栏 */
+.category-section-content {
+  margin-left: 6px;
+  margin-right: 6px;
+}
+.level-tab-section .category-search-input {
+  margin-bottom: 12px;
+}
+.level-tab-section .subsystem-meta {
+  margin-bottom: 12px;
+}
+.level-tab-section .category-list-wrap {
+  margin-top: 4px;
+}
+
+.level-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-left: 6px;
+  margin-right: 6px;
+}
+.level-card {
+  border: 1px solid var(--slate-200);
+  background: var(--black-white-white);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.level-card:hover {
+  border-color: var(--slate-300);
+  background: var(--slate-50);
+}
+.level-card.active {
+  border-color: var(--slate-300);
+  background: var(--slate-100);
+}
+/* 卡片标题：修改 design-tokens.css 中 --level-card-title-* 或本类 */
+.level-card-title {
+  font-size: var(--level-card-title-font-size);
+  font-weight: var(--level-card-title-font-weight);
+  color: var(--level-card-title-color);
+}
+/* 卡片描述：修改 design-tokens.css 中 --level-card-desc-* 或本类 */
+.level-card-desc {
+  margin-top: var(--level-card-desc-margin-top);
+  font-size: var(--level-card-desc-font-size);
+  color: var(--level-card-desc-color);
+  line-height: var(--level-card-desc-line-height);
+}
+
+.subsystem-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 12px;
-  color: #606266;
-  padding: 6px 8px;
-  background: #f9fafb;
-  border: 1px dashed #e4e7ed;
-  border-radius: 6px;
+  color: var(--slate-500);
+}
+.subsystem-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.filter-item .label {
-  font-weight: 500;
-  color: #303133;
+/* 搜索标签页：3 部分区块 */
+.search-tab-section {
+  margin-bottom: 14px;
+}
+.search-tab-section .drawer-section-title {
+  margin-bottom: 8px;
 }
 
-.search-expression {
-  margin-top: 6px;
+.nl-card {
+  background: #eef4ff;
+  border: 1px solid #d9e6ff;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nl-generate-btn {
+  width: 100%;
+}
+
+/* 常用搜索表达式：标签使用 --filter-chip- 样式，仅显示名称 */
+.saved-expr-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--filter-chips-gap);
+}
+.saved-expr-chip.filter-chip-style {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--filter-chip-padding-y) var(--filter-chip-padding-x);
+  font-size: var(--filter-chip-font-size);
+  line-height: var(--filter-chip-line-height);
+  color: var(--filter-chip-color);
+  background: var(--filter-chip-bg);
+  border: 1px solid var(--filter-chip-border);
+  border-radius: var(--filter-chip-radius);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.saved-expr-chip.filter-chip-style:hover {
+  background: var(--filter-chip-hover-bg);
+  border-color: var(--filter-chip-hover-border);
+}
+.saved-expr-chip.filter-chip-style.active {
+  background: var(--filter-chip-active-bg);
+  border-color: var(--filter-chip-active-border);
+  color: var(--filter-chip-active-color);
+}
+
+/* 包裹层带 data-v，使下方 :deep 选择器能命中 el-tabs 内部节点 */
+.filter-sidebar-tabs-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-sidebar-tabs-wrap :deep(.el-tabs) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-sidebar-tabs-wrap :deep(.el-tabs__header) {
+  margin: 0 0 12px 0;
+}
+/* 与 Logs.vue detail-status-tabs 一致的标签栏样式：分析等级、高级筛选、时区转换 */
+.filter-sidebar-tabs-wrap :deep(.el-tabs__nav-wrap) {
+  justify-content: flex-start !important;
+}
+.filter-sidebar-tabs-wrap :deep(.el-tabs__nav-scroll) {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.filter-sidebar-tabs-wrap :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.filter-sidebar-tabs-wrap :deep(.el-tabs__content .el-tab-pane) {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-sidebar-tabs-wrap :deep(.el-tabs__item) {
+  font-size: 13px;
+}
+
+.filter-sidebar-tabs-wrap :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawer-section .section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-600);
+  border-left: 3px solid var(--el-color-info);
+  padding-left: 8px;
+}
+
+/* 日志分析等级：快捷选项并排，分级列表撑满侧边栏并滚动 */
+.drawer-section.analysis-level-tab {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 与 Logs.vue 一致的快捷选项组样式 */
+.quick-range-group {
+  flex-shrink: 0;
+}
+.level-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.level-chip {
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+.level-chip:hover {
+  opacity: 0.9;
+}
+
+.drawer-section-title {
+  flex-shrink: 0;
+}
+
+.section-title-row.category-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.category-selected-count {
   font-size: 12px;
-  color: #606266;
+  color: var(--el-text-color-secondary);
+}
+.category-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.category-toolbar .category-search-input {
+  width: 100%;
+}
+.category-toolbar .category-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.category-list-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  background: var(--slate-50);
+  border-radius: var(--radius-xs);
+}
+
+/* 自定义分类：Chip 使用 design-tokens.css 中 --filter-chip-*，圆角适中 */
+.category-chips-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--filter-chips-gap);
+}
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--filter-chip-padding-y) var(--filter-chip-padding-x);
+  font-size: var(--filter-chip-font-size);
+  line-height: var(--filter-chip-line-height);
+  color: var(--filter-chip-color);
+  background: var(--filter-chip-bg);
+  border: 1px solid var(--filter-chip-border);
+  border-radius: var(--filter-chip-radius);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.category-chip:hover {
+  background: var(--filter-chip-hover-bg);
+  border-color: var(--filter-chip-hover-border);
+}
+.category-chip.active {
+  background: var(--filter-chip-active-bg);
+  border-color: var(--filter-chip-active-border);
+  color: var(--filter-chip-active-color);
+}
+.category-chips-wrap.chips-disabled .category-chip {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.category-list-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.category-list-wrap .category-list {
+  min-height: 0;
+}
+
+/* 兼容旧类名 */
+.analysis-level-list-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.analysis-level-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.level-list-item {
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--slate-700);
+  background: var(--slate-50);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.level-list-item:hover {
+  background: var(--slate-100);
+}
+
+.level-list-item.active {
+  background: var(--el-color-info-light-9);
+  color: var(--el-color-info);
+  border-color: var(--el-color-info-light-5);
+}
+
+.level-list-item.checkbox-item {
+  cursor: default;
+}
+
+.level-list-item.checkbox-item .el-checkbox {
+  width: 100%;
+  margin: 0;
+  min-height: 0;
+  align-items: center;
+}
+.level-list-item.checkbox-item .el-checkbox .el-checkbox__label {
+  line-height: 1.35;
+  padding-left: 8px;
+}
+.level-list-item.checkbox-item :deep(.el-checkbox__input) {
+  height: 14px;
+}
+.level-list-item.checkbox-item :deep(.el-checkbox__inner) {
+  width: 14px;
+  height: 14px;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 高级筛选内联 - 侧边栏内直接展示 */
+.advanced-filter-inline {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.advanced-filter-inline .advanced-filter {
+  padding: 0;
+}
+
+.advanced-filter-inline .advanced-filter .section {
+  margin-bottom: 12px;
+}
+
+.advanced-filter-inline .group-root {
+  margin-top: 8px;
+}
+
+.advanced-filter-apply {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--slate-200);
+}
+
+.time-range-full, .timezone-select-full {
+  width: 100% !important;
+}
+
+.advanced-actions-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawer-footer {
+  margin-top: auto;
+  padding: 20px 8px 0;
+  border-top: 1px solid var(--slate-200);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.drawer-footer .drawer-footer-reset {
+  flex: 0 0 auto;
+}
+.drawer-footer .drawer-footer-apply {
+  flex: 1;
+  min-width: 0;
+}
+.drawer-footer .el-button {
+  margin-bottom: 4px;
+}
+
+/* 表格紧凑化 */
+.entries-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.section-header {
+  padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--slate-600);
+}
+
+.table-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 仅对批量日志查看页的日志条目表格应用紧凑样式，不影响项目中其他表格 */
+.compact-log-entries-table :deep(.el-table) {
+  --el-table-row-hover-bg-color: var(--slate-100);
+}
+
+.compact-log-entries-table :deep(.el-table .el-table__row) {
+  height: 24px !important;
+}
+
+.compact-log-entries-table :deep(.el-table .el-table__cell) {
+  padding: 0px 4px !important;
+  font-size: 12px;
+  height: 24px !important;
+}
+
+.compact-log-entries-table :deep(.el-table .cell) {
+  padding: 0 4px !important;
+  line-height: 24px !important;
+  white-space: nowrap;
+}
+
+.compact-log-entries-table :deep(.el-table__header .el-table__cell) {
+  font-weight: 600;
+  color: var(--slate-600);
+  padding: 4px 4px !important;
+  height: 32px !important;
+}
+
+.pagination-wrapper {
+  padding: 8px 16px;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+  color: var(--slate-600);
   padding: 6px 8px;
   background: #f9fafb;
   border: 1px dashed #e4e7ed;
   border-radius: 6px;
-}
-
-.search-expression .label {
-  color: #909399;
-  margin-right: 6px;
-}
-
+  display: flex;
 /* 高级筛选弹窗结构化分区 */
 .advanced-filter .section {
   margin-bottom: 16px;
@@ -4000,7 +5159,7 @@ export default {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #606266;
+  color: var(--slate-600);
 }
 .section-title-row {
   display: flex;
@@ -4090,23 +5249,42 @@ export default {
 }
 .tags-ops .hint {
   font-size: 12px;
-  color: #909399;
+  color: var(--slate-500);
 }
 .ops-right {
   display: flex;
   gap: 8px;
 }
+/* 搜索标签页底部：搜索表达式预览 */
+.search-tab-preview {
+  margin-top: 14px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--slate-600);
+  background: var(--slate-50);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--slate-200);
+}
+.search-tab-preview-label {
+  color: var(--slate-500);
+  margin-right: 6px;
+}
+.search-tab-preview-expr {
+  word-break: break-all;
+  display: inline;
+}
+
 .expr-preview {
   margin: 6px 0 10px 0;
   font-size: 12px;
-  color: #606266;
+  color: var(--slate-600);
   padding: 6px 8px;
   background: #f9fafb;
   border: 1px dashed #e4e7ed;
   border-radius: 6px;
 }
 .expr-preview .label {
-  color: #909399;
+  color: var(--slate-500);
   margin-right: 6px;
 }
 .antd-tags .tpl-tag {
@@ -4139,9 +5317,6 @@ export default {
   overflow: visible;
   margin: 0 10px 5px 10px;
   padding: 10px;
-  background-color: white;
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
 }
 
 .table-container {
@@ -4151,42 +5326,40 @@ export default {
   width: 100%;
 }
 
-/* 使用 Element Plus 默认表格样式 */
-
-/* 颜色标记行样式 - 四种颜色 */
-.el-table .el-table__row.row-marked-red,
-.el-table__body tr.row-marked-red {
+/* 颜色标记行样式 - 仅批量日志条目表格 */
+.compact-log-entries-table .el-table .el-table__row.row-marked-red,
+.compact-log-entries-table .el-table__body tr.row-marked-red {
   background-color: rgba(255, 0, 0, 0.2) !important;
 }
 
-.el-table .el-table__row.row-marked-red:hover {
+.compact-log-entries-table .el-table .el-table__row.row-marked-red:hover {
   background-color: rgba(255, 0, 0, 0.3) !important;
 }
 
-.el-table .el-table__row.row-marked-yellow,
-.el-table__body tr.row-marked-yellow {
+.compact-log-entries-table .el-table .el-table__row.row-marked-yellow,
+.compact-log-entries-table .el-table__body tr.row-marked-yellow {
   background-color: rgba(255, 255, 0, 0.2) !important;
 }
 
-.el-table .el-table__row.row-marked-yellow:hover {
+.compact-log-entries-table .el-table .el-table__row.row-marked-yellow:hover {
   background-color: rgba(255, 255, 0, 0.3) !important;
 }
 
-.el-table .el-table__row.row-marked-blue,
-.el-table__body tr.row-marked-blue {
+.compact-log-entries-table .el-table .el-table__row.row-marked-blue,
+.compact-log-entries-table .el-table__body tr.row-marked-blue {
   background-color: rgba(0, 0, 255, 0.2) !important;
 }
 
-.el-table .el-table__row.row-marked-blue:hover {
+.compact-log-entries-table .el-table .el-table__row.row-marked-blue:hover {
   background-color: rgba(0, 0, 255, 0.3) !important;
 }
 
-.el-table .el-table__row.row-marked-green,
-.el-table__body tr.row-marked-green {
+.compact-log-entries-table .el-table .el-table__row.row-marked-green,
+.compact-log-entries-table .el-table__body tr.row-marked-green {
   background-color: rgba(0, 255, 0, 0.2) !important;
 }
 
-.el-table .el-table__row.row-marked-green:hover {
+.compact-log-entries-table .el-table .el-table__row.row-marked-green:hover {
   background-color: rgba(0, 255, 0, 0.3) !important;
 }
 
@@ -4202,7 +5375,7 @@ export default {
 }
 
 .color-radio.active {
-  border-color: #409eff !important;
+  border-color: var(--el-color-info) !important;
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
 }
 
@@ -4216,7 +5389,7 @@ export default {
   height: 6px;
   border-radius: 50%;
   background-color: white;
-  border: 1px solid #409eff;
+  border: 1px solid var(--el-color-info);
 }
 
 /* 列头样式，与 Logs.vue 保持一致 */
@@ -4228,6 +5401,45 @@ export default {
   text-align: left;
 }
 
+/* 表头颜色列：与行内一致，水平垂直居中 */
+.batch-analysis-container .compact-log-entries-table :deep(.color-mark-header-cell .cell) {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+.header-color-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.header-color-mark .header-color-indicator {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  flex-shrink: 0;
+}
+.header-color-mark .header-color-indicator:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary);
+}
+
+/* 表头颜色选择弹层内选项居中（与行内弹层一致：水平+垂直居中） */
+.color-picker-popover .header-color-picker-menu {
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+}
+.header-color-picker-menu {
+  justify-content: center;
+  align-items: center;
+}
+
 /* 故障码列的特殊列头样式 */
 .col-header:has(.header-hint) {
   flex-direction: column;
@@ -4236,7 +5448,7 @@ export default {
 
 .header-hint {
   font-size: 10px;
-  color: #909399;
+  color: var(--slate-500);
   font-weight: normal;
   font-style: italic;
 }
@@ -4257,8 +5469,8 @@ export default {
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  min-height: 32px;
-  padding: 2px 0;
+  min-height: 22px;
+  padding: 0px 0;
 }
 
 .explanation-ellipsis {
@@ -4267,10 +5479,10 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
-  color: #606266 !important;
-  line-height: 1.4;
+  color: var(--slate-600) !important;
+  line-height: 22px;
 }
 
 /* 黑色背景的暗色气泡 */
@@ -4293,7 +5505,7 @@ export default {
 
 .section-header h3 {
   margin: 0;
-  color: #303133;
+  color: var(--slate-900);
   font-size: 12px;
 }
 
@@ -4302,8 +5514,6 @@ export default {
   justify-content: center;
   align-items: center;
   height: 400px;
-  background-color: #fafafa;
-  border-radius: 8px;
   margin: 20px;
 }
 
@@ -4312,9 +5522,6 @@ export default {
   justify-content: center;
   margin: 10px 20px;
   padding: 8px 0;
-  background-color: white;
-  border-radius: 8px;
-  border: 1px solid #ebeef5;
 }
 
 /* 时间戳/文件名单元格样式 */
@@ -4323,15 +5530,15 @@ export default {
   align-items: center;
   justify-content: flex-start;
   height: 100%;
-  min-height: 32px;
-  font-size: 14px;
+  min-height: 22px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .timestamp {
-  color: #303133;
+  color: var(--slate-900);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -4339,37 +5546,42 @@ export default {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  min-height: 40px;
+  min-height: 0;
+  max-height: 22px;
   width: 100%;
-  color: #606266;
+  color: var(--slate-600);
   word-break: break-all;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.4;
-  padding: 2px 0;
+  line-height: 22px;
+  padding: 0;
 }
 
 .parameters-cell .param-item {
-  margin-right: 12px;
-  display: inline-block;
-  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  display: block;
+  font-size: 13px;
   font-weight: 500;
-  color: #606266;
-}
-
-.parameters-cell .param-item:last-child {
-  margin-right: 0;
+  color: var(--slate-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .param-content {
   flex: 1;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  margin-right: 8px;
-  font-size: 14px;
+  justify-content: space-between;
+  gap: 6px;
+  margin-right: 6px;
+  font-size: 13px;
   font-weight: 500;
-  color: #606266;
+  color: var(--slate-600);
+  min-width: 0;
 }
 
 .param-actions {
@@ -4380,17 +5592,20 @@ export default {
 }
 
 .visualization-btn {
-  font-size: 20px;
-  padding: 1px;
-  height: 28px;
-  width: 28px;
-  min-width: 24px;
-  min-height: 24px;
+  font-size: 14px;
+  padding: 0;
+  height: 20px;
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
   border-radius: 3px;
-  color: #409eff;
-  display: flex;
+  color: var(--el-color-info);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+.visualization-btn .el-icon {
+  font-size: 14px;
 }
 
 .visualization-btn:hover {
@@ -4430,7 +5645,7 @@ export default {
 
 .parameter-select-dialog p {
   margin-bottom: 16px;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 .dialog-actions {
@@ -4442,7 +5657,23 @@ export default {
   margin-left: 8px;
 }
 
+/* 图表详情弹窗撑满：弹窗内容区固定高度 + 图表区域 flex 填充 */
+.chart-detail-dialog.el-dialog .el-dialog__body {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  min-height: 450px;
+  padding: 16px;
+  overflow: hidden;
+}
+
 .chart-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
 }
 
@@ -4456,17 +5687,31 @@ export default {
 }
 
 .chart-container {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: transparent;
   border-radius: 4px;
-  padding: 5px 5px 5px 5px;
+  padding: 0;
   text-align: center;
+}
+
+.chart-no-data {
+  width: 100%;
+  height: 100%;
+  min-height: 450px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--slate-500);
 }
 
 .dialog-subtitle {
   text-align: left;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--slate-900);
   margin: 0 0 8px 0;
 }
 
@@ -4475,11 +5720,27 @@ export default {
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  min-height: 32px;
-  padding: 1px;
+  min-height: 0;
+  max-height: 22px;
+  padding: 0;
   gap: 1px;
 }
-
+/* 操作列：两套 DOM 同时存在，用 CSS 显隐避免 v-if 导致整列重渲染 */
+.operations-cell .operation-when-sidebar-open {
+  display: none;
+}
+.operations-cell .operation-when-sidebar-closed {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.operations-cell.sidebar-open .operation-when-sidebar-open {
+  display: flex;
+  align-items: center;
+}
+.operations-cell.sidebar-open .operation-when-sidebar-closed {
+  display: none;
+}
 
 .error-code-cell {
   display: flex;
@@ -4487,21 +5748,21 @@ export default {
   justify-content: flex-start;
   width: 100%;
   height: 100%;
-  min-height: 20px;
+  min-height: 22px;
   cursor: pointer;
-  padding: 0px 10px;
+  padding: 0px 8px;
   border-radius: 4px;
   transition: all 0.2s ease;
   border: 1px solid transparent;
   box-sizing: border-box;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   position: relative;
   margin: 0;
 }
 
 .error-code-cell:hover {
-  background-color: #f5f7fa;
+  background-color: var(--slate-100);
   border-color: #e4e7ed;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -4568,51 +5829,61 @@ export default {
 }
 
 .operations-cell .operation-btn {
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 1px;
-  height: 28px;
-  width: 28px;
-  min-width: 24px;
-  min-height: 24px;
+  padding: 0;
+  height: 20px;
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
   border-radius: 3px;
   transition: all 0.2s ease;
   flex-shrink: 0;
   margin: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-
-/* 查看上下文按钮 - 绿色 */
-.operations-cell .operation-btn:nth-child(2) {
-  color: #67c23a;
+.operations-cell .operation-btn .el-icon {
+  font-size: 14px;
 }
 
-.operations-cell .operation-btn:nth-child(2):hover {
+/* 上下文分析按钮 - 绿色 */
+.operations-cell .operation-btn-context {
+  color: #67c23a;
+}
+.operations-cell .operation-btn-context:hover {
   color: #85ce61;
   transform: scale(1.05);
 }
 
 /* 日志摘取按钮 - 橙色 */
-.operations-cell .operation-btn:nth-child(3) {
+.operations-cell .operation-btn-capture {
   color: #e6a23c;
 }
-
-.operations-cell .operation-btn:nth-child(3):hover {
+.operations-cell .operation-btn-capture:hover {
   color: #ebb563;
   transform: scale(1.05);
 }
 
-/* 备注按钮 - 蓝色 */
-.operations-cell .operation-btn:nth-child(4) {
-  color: #409eff;
-  cursor: pointer;
+/* 更多下拉触发按钮 - 适配 22px 行高 */
+.operations-cell .operations-dropdown {
+  display: inline-flex;
+  align-items: center;
 }
-
-.operations-cell .operation-btn:nth-child(4):hover {
-  color: #66b1ff;
-  transform: scale(1.05);
+.operations-cell .operation-more-btn {
+  padding: 0 4px;
+  height: 20px;
+  min-height: 20px;
+  font-size: 12px;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.operations-cell .operation-more-btn .el-icon--right {
+  margin-left: 0;
+  font-size: 12px;
 }
 
 /* 颜色指示器样式 - 默认小圆点 */
@@ -4631,7 +5902,7 @@ export default {
 }
 
 .color-indicator:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   transform: scale(1.1);
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2), 0 0 0 1px white;
 }
@@ -4646,41 +5917,42 @@ export default {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 28px;
+  min-height: 22px;
   padding: 0px 0;
 }
 
 /* 标记列样式 */
-.el-table-column[prop="color_mark"] .cell {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="color_mark"] .cell {
   padding: 0px 0px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-height: 28px !important;
+  min-height: 22px !important;
   overflow: visible !important;
 }
 
 /* 故障码列特殊样式 - 确保统计角标完全显示 */
-.el-table-column[prop="error_code"] .cell {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="error_code"] .cell {
   padding: 0px 0px !important;
   overflow: visible !important;
   position: relative !important;
   z-index: 1 !important;
-  min-height: 28px !important;
-  font-size: 14px !important;
+  min-height: 22px !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
   margin: 0px !important;
   border: none !important;
 }
 
-/* 确保表格行有足够的高度 */
-.el-table .el-table__row {
-  min-height: 28px !important;
+/* 确保表格行有极简的高度 */
+.batch-analysis-container .compact-log-entries-table .el-table .el-table__row {
+  height: 22px !important;
+  min-height: 22px !important;
   overflow: visible !important;
 }
 
 /* 确保表格容器不会裁剪悬浮元素，但保持滚动功能 */
-.el-table {
+.batch-analysis-container .compact-log-entries-table .el-table {
   overflow: visible !important;
   width: 100% !important;
   table-layout: fixed !important;
@@ -4688,68 +5960,62 @@ export default {
 }
 
 /* 表格单元格基础样式 */
-.el-table .el-table__cell {
-  height: auto !important;
-  min-height: 20px !important;
+.batch-analysis-container .compact-log-entries-table .el-table .el-table__cell {
+  height: 22px !important;
+  min-height: 22px !important;
   max-height: none !important;
-  padding: 2px 6px !important;
+  padding: 0px 4px !important;
   overflow: visible !important;
   vertical-align: middle !important;
-}
-
-/* 表格单元格内容样式 */
-.el-table--default .cell {
-  height: auto !important;
-  min-height: 20px !important;
-  max-height: none !important;
-  padding: 2px 6px !important;
-  overflow: visible !important;
-}
-
-/* 表格列分割线样式 */
-.el-table .el-table__cell {
   border-right: 1px solid #ebeef5 !important;
 }
 
-.el-table .el-table__cell:last-child {
+/* 表格单元格内容样式 */
+.batch-analysis-container .compact-log-entries-table .el-table--default .cell {
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: none !important;
+  padding: 0px 4px !important;
+  line-height: 22px !important;
+  overflow: visible !important;
+}
+
+.batch-analysis-container .compact-log-entries-table .el-table .el-table__cell:last-child {
   border-right: none !important;
 }
 
 /* 表头单元格样式 */
-.el-table__header .el-table__cell {
+.batch-analysis-container .compact-log-entries-table .el-table__header .el-table__cell {
   box-sizing: border-box !important;
 }
 
-
-/* 确保表格头部正确显示 */
-.el-table__header-wrapper {
+.batch-analysis-container .compact-log-entries-table .el-table__header-wrapper {
   width: 100% !important;
 }
 
-.el-table__header {
+.batch-analysis-container .compact-log-entries-table .el-table__header {
   width: 100% !important;
 }
 
-/* 确保表格体正确显示 */
-.el-table__body-wrapper {
+.batch-analysis-container .compact-log-entries-table .el-table__body-wrapper {
   width: 100% !important;
 }
 
-.el-table__body {
+.batch-analysis-container .compact-log-entries-table .el-table__body {
   width: 100% !important;
 }
 
-.el-table__body-wrapper {
+.batch-analysis-container .compact-log-entries-table .el-table__body-wrapper {
   overflow-x: auto !important;
   overflow-y: visible !important;
 }
 
 /* 强制确保故障码角标不被裁剪 */
-.el-table-column[prop="error_code"] {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="error_code"] {
   overflow: visible !important;
 }
 
-.el-table-column[prop="error_code"] .cell > div {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="error_code"] .cell > div {
   overflow: visible !important;
   position: relative !important;
 }
@@ -4792,7 +6058,7 @@ export default {
 }
 
 .color-option.active {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   border-width: 3px;
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.3);
 }
@@ -4803,13 +6069,13 @@ export default {
 }
 
 .color-option.no-color:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   background-color: #f0f8ff;
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
 }
 
 .color-option.no-color.active {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   background-color: #e6f3ff;
   border-width: 3px;
 }
@@ -4831,7 +6097,7 @@ export default {
 .context-intro {
   margin-bottom: 6px;
   text-align: left;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 .time-range-inputs {
@@ -4850,7 +6116,7 @@ export default {
 
 .time-range-inputs .input-group label {
   font-weight: 500;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 .time-range-inputs .unit-label {
@@ -4895,7 +6161,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 .clipboard-thumbnail .thumb-row .el-icon {
@@ -4930,7 +6196,7 @@ export default {
   top: 50%;
   transform: translateY(-50%);
   font-size: 12px;
-  color: #303133;
+  color: var(--slate-900);
 }
 
 .clipboard-thumbnail .delete-btn {
@@ -4955,7 +6221,7 @@ export default {
 .thumbnails-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--slate-900);
   margin-bottom: 12px;
 }
 
@@ -4976,7 +6242,7 @@ export default {
 }
 
 .chart-thumbnail-item:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   background-color: #f0f9ff;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
@@ -4997,7 +6263,7 @@ export default {
 .thumbnail-title {
   font-size: 12px;
   font-weight: 500;
-  color: #303133;
+  color: var(--slate-900);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5005,7 +6271,7 @@ export default {
 
 .thumbnail-time {
   font-size: 10px;
-  color: #909399;
+  color: var(--slate-500);
 }
 
 .thumbnail-delete-btn {
@@ -5018,7 +6284,7 @@ export default {
   padding: 0;
   opacity: 0;
   transition: opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  color: #909399;
+  color: var(--slate-500);
   border-color: #dcdfe6;
   background-color: transparent;
 }
@@ -5070,7 +6336,7 @@ export default {
 .entries-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--slate-900);
   margin-bottom: 12px;
 }
 
@@ -5085,7 +6351,7 @@ export default {
   align-items: center;
   padding: 8px 12px;
   margin-bottom: 4px;
-  background-color: #f5f7fa;
+  background-color: var(--slate-100);
   border-radius: 4px;
   border: 1px solid #ebeef5;
 }
@@ -5099,13 +6365,13 @@ export default {
 
 .entry-index {
   font-weight: 500;
-  color: #606266;
+  color: var(--slate-600);
   min-width: 20px;
 }
 
 .entry-timestamp {
   font-size: 12px;
-  color: #909399;
+  color: var(--slate-500);
   font-family: 'Courier New', monospace;
 }
 
@@ -5119,6 +6385,17 @@ export default {
 }
 
 
+</style>
+
+<style>
+/* 侧边栏 tabs 与 Logs.vue 一致：无 scoped，避免被 Element 默认样式覆盖 */
+.filter-sidebar-content .el-tabs__nav-wrap {
+  justify-content: flex-start !important;
+}
+.filter-sidebar-content .el-tabs__nav-scroll {
+  display: flex !important;
+  align-items: center !important;
+}
 </style>
 
 <style>
@@ -5144,15 +6421,15 @@ export default {
   align-items: center;
   justify-content: flex-start;
   height: 100%;
-  min-height: 32px;
-  font-size: 14px;
+  min-height: 22px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .timestamp {
-  color: #303133;
+  color: var(--slate-900);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -5160,37 +6437,42 @@ export default {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  min-height: 40px;
+  min-height: 0;
+  max-height: 22px;
   width: 100%;
-  color: #606266;
+  color: var(--slate-600);
   word-break: break-all;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.4;
-  padding: 2px 0;
+  line-height: 22px;
+  padding: 0;
 }
 
 .parameters-cell .param-item {
-  margin-right: 12px;
-  display: inline-block;
-  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  display: block;
+  font-size: 13px;
   font-weight: 500;
-  color: #606266;
-}
-
-.parameters-cell .param-item:last-child {
-  margin-right: 0;
+  color: var(--slate-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .param-content {
   flex: 1;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  margin-right: 8px;
-  font-size: 14px;
+  justify-content: space-between;
+  gap: 6px;
+  margin-right: 6px;
+  font-size: 13px;
   font-weight: 500;
-  color: #606266;
+  color: var(--slate-600);
+  min-width: 0;
 }
 
 .param-actions {
@@ -5201,17 +6483,20 @@ export default {
 }
 
 .visualization-btn {
-  font-size: 20px;
-  padding: 1px;
-  height: 28px;
-  width: 28px;
-  min-width: 24px;
-  min-height: 24px;
+  font-size: 14px;
+  padding: 0;
+  height: 20px;
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
   border-radius: 3px;
-  color: #409eff;
-  display: flex;
+  color: var(--el-color-info);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+.visualization-btn .el-icon {
+  font-size: 14px;
 }
 
 .visualization-btn:hover {
@@ -5251,7 +6536,7 @@ export default {
 
 .parameter-select-dialog p {
   margin-bottom: 16px;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 .dialog-actions {
@@ -5263,10 +6548,6 @@ export default {
   margin-left: 8px;
 }
 
-.chart-detail {
-  padding: 0;
-}
-
 .chart-detail-header {
   display: none;
 }
@@ -5276,18 +6557,11 @@ export default {
   gap: 8px;
 }
 
-.chart-container {
-  background: transparent;
-  border-radius: 4px;
-  padding: 10px 10px 20px 10px;
-  text-align: center;
-}
-
 .dialog-subtitle {
   text-align: left;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--slate-900);
   margin: 0 0 8px 0;
 }
 
@@ -5296,8 +6570,9 @@ export default {
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  min-height: 32px;
-  padding: 1px;
+  min-height: 0;
+  max-height: 22px;
+  padding: 0;
   gap: 1px;
 }
 
@@ -5308,21 +6583,21 @@ export default {
   justify-content: flex-start;
   width: 100%;
   height: 100%;
-  min-height: 20px;
+  min-height: 22px;
   cursor: pointer;
-  padding: 0px 10px;
+  padding: 0px 8px;
   border-radius: 4px;
   transition: all 0.2s ease;
   border: 1px solid transparent;
   box-sizing: border-box;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   position: relative;
   margin: 0;
 }
 
 .error-code-cell:hover {
-  background-color: #f5f7fa;
+  background-color: var(--slate-100);
   border-color: #e4e7ed;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -5389,51 +6664,58 @@ export default {
 }
 
 .operations-cell .operation-btn {
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 1px;
-  height: 28px;
-  width: 28px;
-  min-width: 24px;
-  min-height: 24px;
+  padding: 0;
+  height: 20px;
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
   border-radius: 3px;
   transition: all 0.2s ease;
   flex-shrink: 0;
   margin: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-
-/* 查看上下文按钮 - 绿色 */
-.operations-cell .operation-btn:nth-child(2) {
-  color: #67c23a;
+.operations-cell .operation-btn .el-icon {
+  font-size: 14px;
 }
 
-.operations-cell .operation-btn:nth-child(2):hover {
+.operations-cell .operation-btn-context {
+  color: #67c23a;
+}
+.operations-cell .operation-btn-context:hover {
   color: #85ce61;
   transform: scale(1.05);
 }
 
-/* 日志摘取按钮 - 橙色 */
-.operations-cell .operation-btn:nth-child(3) {
+.operations-cell .operation-btn-capture {
   color: #e6a23c;
 }
-
-.operations-cell .operation-btn:nth-child(3):hover {
+.operations-cell .operation-btn-capture:hover {
   color: #ebb563;
   transform: scale(1.05);
 }
 
-/* 备注按钮 - 灰色（禁用状态） */
-.operations-cell .operation-btn:nth-child(4) {
-  color: #c0c4cc;
-  cursor: not-allowed;
+.operations-cell .operations-dropdown {
+  display: inline-flex;
+  align-items: center;
 }
-
-.operations-cell .operation-btn:nth-child(4):hover {
-  color: #c0c4cc;
-  transform: none;
+.operations-cell .operation-more-btn {
+  padding: 0 4px;
+  height: 20px;
+  min-height: 20px;
+  font-size: 12px;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.operations-cell .operation-more-btn .el-icon--right {
+  margin-left: 0;
+  font-size: 12px;
 }
 
 /* 颜色指示器样式 - 默认小圆点 */
@@ -5452,7 +6734,7 @@ export default {
 }
 
 .color-indicator:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   transform: scale(1.1);
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2), 0 0 0 1px white;
 }
@@ -5467,41 +6749,42 @@ export default {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 28px;
+  min-height: 22px;
   padding: 0px 0;
 }
 
 /* 标记列样式 */
-.el-table-column[prop="color_mark"] .cell {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="color_mark"] .cell {
   padding: 0px 0px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-height: 28px !important;
+  min-height: 22px !important;
   overflow: visible !important;
 }
 
 /* 故障码列特殊样式 - 确保统计角标完全显示 */
-.el-table-column[prop="error_code"] .cell {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="error_code"] .cell {
   padding: 0px 0px !important;
   overflow: visible !important;
   position: relative !important;
   z-index: 1 !important;
-  min-height: 28px !important;
-  font-size: 14px !important;
+  min-height: 22px !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
   margin: 0px !important;
   border: none !important;
 }
 
-/* 确保表格行有足够的高度 */
-.el-table .el-table__row {
-  min-height: 28px !important;
+/* 确保表格行有极简的高度 */
+.batch-analysis-container .compact-log-entries-table .el-table .el-table__row {
+  height: 22px !important;
+  min-height: 22px !important;
   overflow: visible !important;
 }
 
 /* 确保表格容器不会裁剪悬浮元素，但保持滚动功能 */
-.el-table {
+.batch-analysis-container .compact-log-entries-table .el-table {
   overflow: visible !important;
   width: 100% !important;
   table-layout: fixed !important;
@@ -5509,68 +6792,62 @@ export default {
 }
 
 /* 表格单元格基础样式 */
-.el-table .el-table__cell {
-  height: auto !important;
-  min-height: 20px !important;
+.batch-analysis-container .compact-log-entries-table .el-table .el-table__cell {
+  height: 22px !important;
+  min-height: 22px !important;
   max-height: none !important;
-  padding: 2px 6px !important;
+  padding: 0px 4px !important;
   overflow: visible !important;
   vertical-align: middle !important;
-}
-
-/* 表格单元格内容样式 */
-.el-table--default .cell {
-  height: auto !important;
-  min-height: 20px !important;
-  max-height: none !important;
-  padding: 2px 6px !important;
-  overflow: visible !important;
-}
-
-/* 表格列分割线样式 */
-.el-table .el-table__cell {
   border-right: 1px solid #ebeef5 !important;
 }
 
-.el-table .el-table__cell:last-child {
+/* 表格单元格内容样式 */
+.batch-analysis-container .compact-log-entries-table .el-table--default .cell {
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: none !important;
+  padding: 0px 4px !important;
+  line-height: 22px !important;
+  overflow: visible !important;
+}
+
+.batch-analysis-container .compact-log-entries-table .el-table .el-table__cell:last-child {
   border-right: none !important;
 }
 
 /* 表头单元格样式 */
-.el-table__header .el-table__cell {
+.batch-analysis-container .compact-log-entries-table .el-table__header .el-table__cell {
   box-sizing: border-box !important;
 }
 
-
-/* 确保表格头部正确显示 */
-.el-table__header-wrapper {
+.batch-analysis-container .compact-log-entries-table .el-table__header-wrapper {
   width: 100% !important;
 }
 
-.el-table__header {
+.batch-analysis-container .compact-log-entries-table .el-table__header {
   width: 100% !important;
 }
 
-/* 确保表格体正确显示 */
-.el-table__body-wrapper {
+.batch-analysis-container .compact-log-entries-table .el-table__body-wrapper {
   width: 100% !important;
 }
 
-.el-table__body {
+.batch-analysis-container .compact-log-entries-table .el-table__body {
   width: 100% !important;
 }
 
-.el-table__body-wrapper {
+.batch-analysis-container .compact-log-entries-table .el-table__body-wrapper {
   overflow-x: auto !important;
   overflow-y: visible !important;
 }
 
 /* 强制确保故障码角标不被裁剪 */
-.el-table-column[prop="error_code"] {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="error_code"] {
   overflow: visible !important;
 }
 
-.el-table-column[prop="error_code"] .cell > div {
+.batch-analysis-container .compact-log-entries-table .el-table-column[prop="error_code"] .cell > div {
   overflow: visible !important;
   position: relative !important;
 }
@@ -5613,7 +6890,7 @@ export default {
 }
 
 .color-option.active {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   border-width: 3px;
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.3);
 }
@@ -5624,13 +6901,13 @@ export default {
 }
 
 .color-option.no-color:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   background-color: #f0f8ff;
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
 }
 
 .color-option.no-color.active {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   background-color: #e6f3ff;
   border-width: 3px;
 }
@@ -5665,7 +6942,7 @@ export default {
 
 .time-range-inputs .input-group label {
   font-weight: 500;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 /* 日志摘取侧边栏样式 */
@@ -5698,7 +6975,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #606266;
+  color: var(--slate-600);
 }
 
 .clipboard-thumbnail .thumb-row .el-icon {
@@ -5732,7 +7009,7 @@ export default {
 .thumbnails-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--slate-900);
   margin-bottom: 12px;
 }
 
@@ -5753,7 +7030,7 @@ export default {
 }
 
 .chart-thumbnail-item:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-info);
   background-color: #f0f9ff;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
@@ -5774,7 +7051,7 @@ export default {
 .thumbnail-title {
   font-size: 12px;
   font-weight: 500;
-  color: #303133;
+  color: var(--slate-900);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5782,7 +7059,7 @@ export default {
 
 .thumbnail-time {
   font-size: 10px;
-  color: #909399;
+  color: var(--slate-500);
 }
 
 .thumbnail-delete-btn {
@@ -5795,7 +7072,7 @@ export default {
   padding: 0;
   opacity: 0;
   transition: opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  color: #909399;
+  color: var(--slate-500);
   border-color: #dcdfe6;
   background-color: transparent;
 }
@@ -5847,7 +7124,7 @@ export default {
 .entries-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--slate-900);
   margin-bottom: 12px;
 }
 
@@ -5862,7 +7139,7 @@ export default {
   align-items: center;
   padding: 8px 12px;
   margin-bottom: 4px;
-  background-color: #f5f7fa;
+  background-color: var(--slate-100);
   border-radius: 4px;
   border: 1px solid #ebeef5;
 }
@@ -5876,13 +7153,13 @@ export default {
 
 .entry-index {
   font-weight: 500;
-  color: #606266;
+  color: var(--slate-600);
   min-width: 20px;
 }
 
 .entry-timestamp {
   font-size: 12px;
-  color: #909399;
+  color: var(--slate-500);
   font-family: 'Courier New', monospace;
 }
 
@@ -5913,13 +7190,13 @@ export default {
 }
 .notes-list .note-item { padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
 .notes-list .note-item:last-child { border-bottom: none; }
-.note-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #909399; }
+.note-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--slate-500); }
 .note-user.role-admin { color: #f56c6c; }
-.note-user.role-expert { color: #409eff; }
-.note-user.role-user { color: #909399; }
+.note-user.role-expert { color: var(--el-color-info); }
+.note-user.role-user { color: var(--slate-500); }
 .note-time { margin-left: auto; }
 .note-actions { margin-left: 8px; }
-.note-content { margin-top: 4px; font-size: 13px; color: #606266; white-space: pre-wrap; }
+.note-content { margin-top: 4px; font-size: 13px; color: var(--slate-600); white-space: pre-wrap; }
 .note-edit-actions { margin-top: 6px; text-align: right; }
 .notes-pagination { margin-top: 6px; text-align: right; }
 .notes-editor { margin-top: 8px; }

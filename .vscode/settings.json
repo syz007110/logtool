@@ -9,6 +9,7 @@
     "editor.formatOnSave": false,
     "editor.defaultFormatter": null
   },
+  "typescript.workspaceSymbols.excludeLibrarySymbols": false,
   // 方法2: 如果方法1不够，可以全局禁用 JSON 格式化（会影响所有 JSON 文件）
   // 取消下面的注释来启用：
   // "[json]": {

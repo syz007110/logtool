@@ -1,5 +1,60 @@
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 
+// 批量日志查看页面引入“时区转换”后，手术统计/导出也需要对 PostgreSQL 入库内容做同样的时间偏移。
+// 约定：日志时间字符串（无时区后缀）按“存储时区”保存，默认 UTC+8（480 分钟）。
+// 转换方式：先将 storage 时间解析到 UTC，再按目标 offset 输出为同样的无时区字符串。
+const STORAGE_OFFSET_MINUTES = Number.isFinite(Number(process.env.LOG_STORAGE_OFFSET_MINUTES))
+  ? Number(process.env.LOG_STORAGE_OFFSET_MINUTES)
+  : 480;
+
+function clampOffsetMinutes(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  // 合理范围：-14:00 ~ +14:00
+  return Math.min(Math.max(Math.trunc(n), -14 * 60), 14 * 60);
+}
+
+function parseStorageTimeToUtcMs(storageStr) {
+  const s = String(storageStr || '').trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/);
+  if (!m) return NaN;
+  const utcMs = Date.UTC(
+    parseInt(m[1], 10),
+    parseInt(m[2], 10) - 1,
+    parseInt(m[3], 10),
+    parseInt(m[4], 10),
+    parseInt(m[5], 10),
+    parseInt(m[6], 10) || 0,
+    parseInt((m[7] || '0').padEnd(3, '0'), 10) || 0
+  ) - (STORAGE_OFFSET_MINUTES * 60 * 1000);
+  return utcMs;
+}
+
+function formatUtcMsToOffsetTime(utcMs, offsetMinutes) {
+  if (utcMs == null || Number.isNaN(utcMs)) return null;
+  const off = clampOffsetMinutes(offsetMinutes);
+  if (off == null) return null;
+  const ms = utcMs + off * 60 * 1000;
+  const d = new Date(ms);
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  const ss = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+function convertStorageToOffsetTimeString(storageStr, targetOffsetMinutes) {
+  if (!storageStr) return storageStr;
+  const off = clampOffsetMinutes(targetOffsetMinutes);
+  if (off == null || off === STORAGE_OFFSET_MINUTES) return String(storageStr);
+  const utcMs = parseStorageTimeToUtcMs(storageStr);
+  if (!Number.isFinite(utcMs)) return String(storageStr);
+  return formatUtcMsToOffsetTime(utcMs, off) || String(storageStr);
+}
+
 // 格式化为本地原始时间字符串（YYYY-MM-DD HH:mm:ss），用于顶层 start_time/end_time 预览
 function formatUtcDateTime(dateLike) {
   return formatLocalTimeString(dateLike);
@@ -60,6 +115,30 @@ function normalizeStructuredDataTimestamps(node) {
   return node;
 }
 
+// 递归对 structured_data 内时间字段做 “存储时区 -> 目标 offset” 转换
+function convertStructuredDataTimeFields(node, targetOffsetMinutes) {
+  const off = clampOffsetMinutes(targetOffsetMinutes);
+  if (off == null || off === STORAGE_OFFSET_MINUTES) return node;
+  if (node == null) return node;
+  if (Array.isArray(node)) return node.map((x) => convertStructuredDataTimeFields(x, off));
+  if (typeof node === 'object') {
+    const out = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (value == null) { out[key] = value; continue; }
+      const lowerKey = String(key).toLowerCase();
+      const isTimeKey = lowerKey.endsWith('time') || lowerKey.endsWith('timestamp') ||
+        lowerKey === 'start_time' || lowerKey === 'end_time' || lowerKey === 'on_time' || lowerKey === 'off_time';
+      if (isTimeKey && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(value.trim())) {
+        out[key] = convertStorageToOffsetTimeString(value, off);
+      } else {
+        out[key] = convertStructuredDataTimeFields(value, off);
+      }
+    }
+    return out;
+  }
+  return node;
+}
+
 // 辅助：格式化时间为YYYYMMDDHHMM
 function formatTimeForId(dateStr) {
   if (!dateStr) return '000000000000';
@@ -83,7 +162,7 @@ function extractDeviceIdFromSurgeryId(surgeryId) {
 }
 
 // 构建surgeries表行预览（去除重复字段）
-function buildPostgresRowPreview(surgery, deviceId) {
+function buildPostgresRowPreview(surgery, deviceId, timezoneOffsetMinutes = null) {
   let structured = surgery.postgresql_structure || null;
   if (!structured) {
     try {
@@ -92,6 +171,13 @@ function buildPostgresRowPreview(surgery, deviceId) {
     } catch (_) {}
   }
   structured = normalizeStructuredDataTimestamps(structured);
+  structured = convertStructuredDataTimeFields(structured, timezoneOffsetMinutes);
+
+  const tzOff = clampOffsetMinutes(timezoneOffsetMinutes ?? surgery.timezone_offset_minutes);
+  const startRaw = formatUtcDateTime(surgery.surgery_start_time);
+  const endRaw = formatUtcDateTime(surgery.surgery_end_time);
+  const startTime = tzOff == null ? startRaw : convertStorageToOffsetTimeString(startRaw, tzOff);
+  const endTime = tzOff == null ? endRaw : convertStorageToOffsetTimeString(endRaw, tzOff);
 
   const postgresqlData = {
     surgery_id: surgery.surgery_id || `${deviceId || 'UNKNOWN'}-${formatTimeForId(surgery.surgery_start_time)}`,
@@ -101,8 +187,8 @@ function buildPostgresRowPreview(surgery, deviceId) {
     device_ids: deviceId ? [String(deviceId)] : [],
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
-    start_time: formatUtcDateTime(surgery.surgery_start_time),
-    end_time: formatUtcDateTime(surgery.surgery_end_time),
+    start_time: startTime,
+    end_time: endTime,
     has_fault: (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false),
     is_remote: surgery.is_remote_surgery || false,
     success: (structured?.surgery_stats?.success) ?? !(surgery.has_error || false)
@@ -110,6 +196,12 @@ function buildPostgresRowPreview(surgery, deviceId) {
 
   if (structured) {
     const cleanStructuredData = { ...structured };
+    // 记录本次入库结构的时区信息（写入 JSONB，不影响 surgeries 表字段）
+    cleanStructuredData.meta = {
+      ...(cleanStructuredData.meta || {}),
+      timezone_offset_minutes: tzOff == null ? STORAGE_OFFSET_MINUTES : tzOff,
+      storage_offset_minutes: STORAGE_OFFSET_MINUTES
+    };
     delete cleanStructuredData.surgery_id;
     delete cleanStructuredData.start_time;
     delete cleanStructuredData.end_time;
@@ -125,7 +217,7 @@ function buildPostgresRowPreview(surgery, deviceId) {
 }
 
 // 构建将要写入surgeries表的标准行（去除重复字段）
-function buildDbRowFromSurgery(surgery) {
+function buildDbRowFromSurgery(surgery, timezoneOffsetMinutes = null) {
   const devicePrefix = extractDeviceIdFromSurgeryId(surgery.surgery_id);
   let structured = surgery.postgresql_structure || null;
   if (!structured) {
@@ -135,7 +227,14 @@ function buildDbRowFromSurgery(surgery) {
     } catch (_) {}
   }
   structured = normalizeStructuredDataTimestamps(structured);
+  structured = convertStructuredDataTimeFields(structured, timezoneOffsetMinutes);
   const hasFault = (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false);
+
+  const tzOff = clampOffsetMinutes(timezoneOffsetMinutes ?? surgery.timezone_offset_minutes);
+  const startRaw = formatUtcDateTime(surgery.surgery_start_time);
+  const endRaw = formatUtcDateTime(surgery.surgery_end_time);
+  const startTime = tzOff == null ? startRaw : convertStorageToOffsetTimeString(startRaw, tzOff);
+  const endTime = tzOff == null ? endRaw : convertStorageToOffsetTimeString(endRaw, tzOff);
 
   const postgresqlData = {
     surgery_id: surgery.surgery_id,
@@ -145,8 +244,8 @@ function buildDbRowFromSurgery(surgery) {
     device_ids: devicePrefix ? [devicePrefix] : [],
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
-    start_time: formatUtcDateTime(surgery.surgery_start_time),
-    end_time: formatUtcDateTime(surgery.surgery_end_time),
+    start_time: startTime,
+    end_time: endTime,
     has_fault: hasFault,
     is_remote: surgery.is_remote_surgery || false,
     success: (structured?.surgery_stats?.success) ?? !hasFault
@@ -154,6 +253,11 @@ function buildDbRowFromSurgery(surgery) {
 
   if (structured) {
     const cleanStructuredData = { ...structured };
+    cleanStructuredData.meta = {
+      ...(cleanStructuredData.meta || {}),
+      timezone_offset_minutes: tzOff == null ? STORAGE_OFFSET_MINUTES : tzOff,
+      storage_offset_minutes: STORAGE_OFFSET_MINUTES
+    };
     delete cleanStructuredData.surgery_id;
     delete cleanStructuredData.start_time;
     delete cleanStructuredData.end_time;

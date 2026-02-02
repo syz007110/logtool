@@ -18,7 +18,7 @@ function formatRawDateTime(dateLike) {
   if (!dateLike) return null;
   try {
     let timeString = null;
-    
+
     // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接使用
     if (typeof dateLike === 'string') {
       const s = dateLike.trim();
@@ -59,7 +59,7 @@ function formatRawDateTime(dateLike) {
         timeString = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       }
     }
-    
+
     return timeString || null;
   } catch (_) {
     return null;
@@ -77,7 +77,7 @@ function formatRawDateTimeForDb(dateLike) {
 // 格式化时间为原始时间格式（用于API返回，直接返回原始时间字符串）
 function formatTimeForDisplay(dateLike) {
   if (!dateLike) return null;
-  
+
   let d;
   if (dateLike instanceof Date) {
     d = dateLike;
@@ -95,9 +95,9 @@ function formatTimeForDisplay(dateLike) {
   } else {
     d = new Date(dateLike);
   }
-  
+
   if (Number.isNaN(d.getTime())) return null;
-  
+
   // 返回原始时间格式字符串 YYYY-MM-DD HH:mm:ss（无时区信息）
   const pad = (n) => String(n).padStart(2, '0');
   const year = d.getFullYear();
@@ -133,6 +133,83 @@ function normalizeStructuredDataTimestamps(node) {
     return out;
   }
   // 原始类型直接返回
+  return node;
+}
+
+// ===== 时区转换（用于 PostgreSQL 入库内容）=====
+// 约定：日志/手术分析产出的时间字符串（无时区后缀）按“存储时区”保存，默认 UTC+8（480 分钟）。
+// PostgreSQL 入库内容需要按目标 offset（来自前端时区显示设置）统一转换，避免同一份数据在不同页面显示/导出不一致。
+const STORAGE_OFFSET_MINUTES = Number.isFinite(Number(process.env.LOG_STORAGE_OFFSET_MINUTES))
+  ? Number(process.env.LOG_STORAGE_OFFSET_MINUTES)
+  : 480;
+
+function clampOffsetMinutes(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(Math.max(Math.trunc(n), -14 * 60), 14 * 60);
+}
+
+function parseStorageTimeToUtcMs(storageStr) {
+  const s = String(storageStr || '').trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/);
+  if (!m) return NaN;
+  const utcMs = Date.UTC(
+    parseInt(m[1], 10),
+    parseInt(m[2], 10) - 1,
+    parseInt(m[3], 10),
+    parseInt(m[4], 10),
+    parseInt(m[5], 10),
+    parseInt(m[6], 10) || 0,
+    parseInt((m[7] || '0').padEnd(3, '0'), 10) || 0
+  ) - (STORAGE_OFFSET_MINUTES * 60 * 1000);
+  return utcMs;
+}
+
+function formatUtcMsToOffsetTime(utcMs, offsetMinutes) {
+  if (utcMs == null || Number.isNaN(utcMs)) return null;
+  const off = clampOffsetMinutes(offsetMinutes);
+  if (off == null) return null;
+  const ms = utcMs + off * 60 * 1000;
+  const d = new Date(ms);
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  const ss = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+function convertStorageToOffsetTimeString(storageStr, targetOffsetMinutes) {
+  if (!storageStr) return storageStr;
+  const off = clampOffsetMinutes(targetOffsetMinutes);
+  if (off == null || off === STORAGE_OFFSET_MINUTES) return String(storageStr);
+  const utcMs = parseStorageTimeToUtcMs(storageStr);
+  if (!Number.isFinite(utcMs)) return String(storageStr);
+  return formatUtcMsToOffsetTime(utcMs, off) || String(storageStr);
+}
+
+function convertStructuredDataTimeFields(node, targetOffsetMinutes) {
+  const off = clampOffsetMinutes(targetOffsetMinutes);
+  if (off == null || off === STORAGE_OFFSET_MINUTES) return node;
+  if (node == null) return node;
+  if (Array.isArray(node)) return node.map((x) => convertStructuredDataTimeFields(x, off));
+  if (typeof node === 'object') {
+    const out = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (value == null) { out[key] = value; continue; }
+      const lowerKey = String(key).toLowerCase();
+      const isTimeKey = lowerKey.endsWith('time') || lowerKey.endsWith('timestamp') ||
+        lowerKey === 'start_time' || lowerKey === 'end_time' || lowerKey === 'on_time' || lowerKey === 'off_time';
+      if (isTimeKey && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(value.trim())) {
+        out[key] = convertStorageToOffsetTimeString(value, off);
+      } else {
+        out[key] = convertStructuredDataTimeFields(value, off);
+      }
+    }
+    return out;
+  }
   return node;
 }
 
@@ -178,18 +255,24 @@ function extractDeviceIdFromSurgeryId(surgeryId) {
 }
 
 // 辅助：构建surgeries表行预览（去除重复字段）
-function buildPostgresRowPreview(surgery, deviceId) {
+function buildPostgresRowPreview(surgery, deviceId, timezoneOffsetMinutes = null) {
   // 确保 structured_data 存在
   let structured = surgery.postgresql_structure || null;
   if (!structured) {
     try {
       const analyzer = new SurgeryAnalyzer();
       structured = analyzer.toPostgreSQLStructure(surgery);
-    } catch (_) {}
+    } catch (_) { }
   }
   structured = normalizeStructuredDataTimestamps(structured);
-  
+  const tzOff = clampOffsetMinutes(timezoneOffsetMinutes ?? surgery.timezone_offset_minutes);
+  structured = convertStructuredDataTimeFields(structured, tzOff);
+
   // 构建干净的PostgreSQL格式数据，避免重复字段
+  const startRaw = formatRawDateTime(surgery.surgery_start_time);
+  const endRaw = formatRawDateTime(surgery.surgery_end_time);
+  const startTime = tzOff == null ? startRaw : convertStorageToOffsetTimeString(startRaw, tzOff);
+  const endTime = tzOff == null ? endRaw : convertStorageToOffsetTimeString(endRaw, tzOff);
   const postgresqlData = {
     surgery_id: surgery.surgery_id || `${deviceId || 'UNKNOWN'}-${formatTimeForId(surgery.surgery_start_time)}`,
     source_log_ids: Array.isArray(surgery.source_log_ids)
@@ -198,17 +281,23 @@ function buildPostgresRowPreview(surgery, deviceId) {
     device_ids: deviceId ? [String(deviceId)] : [],
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
-    start_time: formatRawDateTime(surgery.surgery_start_time),
-    end_time: formatRawDateTime(surgery.surgery_end_time),
+    start_time: startTime,
+    end_time: endTime,
     has_fault: (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false),
     is_remote: surgery.is_remote_surgery || false,
     success: (structured?.surgery_stats?.success) ?? !(surgery.has_error || false)
   };
-  
+
   // 清理structured_data中的重复字段，只保留核心分析数据
   if (structured) {
     const cleanStructuredData = { ...structured };
-    
+    // 记录本次入库结构的时区信息（写入 JSONB，不新增 surgeries 表字段）
+    cleanStructuredData.meta = {
+      ...(cleanStructuredData.meta || {}),
+      timezone_offset_minutes: tzOff == null ? STORAGE_OFFSET_MINUTES : tzOff,
+      storage_offset_minutes: STORAGE_OFFSET_MINUTES
+    };
+
     // 移除可能与顶层字段重复的信息
     delete cleanStructuredData.surgery_id;
     delete cleanStructuredData.start_time;
@@ -216,17 +305,17 @@ function buildPostgresRowPreview(surgery, deviceId) {
     delete cleanStructuredData.device_id;
     delete cleanStructuredData.device_ids;
     delete cleanStructuredData.source_log_ids;
-    
+
     postgresqlData.structured_data = cleanStructuredData;
   } else {
     postgresqlData.structured_data = null;
   }
-  
+
   return postgresqlData;
 }
 
 // 辅助：构建将要写入surgeries表的标准行（去除重复字段）
-function buildDbRowFromSurgery(surgery) {
+function buildDbRowFromSurgery(surgery, timezoneOffsetMinutes = null) {
   const devicePrefix = extractDeviceIdFromSurgeryId(surgery.surgery_id);
   // 确保 structured_data 存在
   let structured = surgery.postgresql_structure || null;
@@ -234,12 +323,18 @@ function buildDbRowFromSurgery(surgery) {
     try {
       const analyzer = new SurgeryAnalyzer();
       structured = analyzer.toPostgreSQLStructure(surgery);
-    } catch (_) {}
+    } catch (_) { }
   }
   structured = normalizeStructuredDataTimestamps(structured);
+  const tzOff = clampOffsetMinutes(timezoneOffsetMinutes ?? surgery.timezone_offset_minutes);
+  structured = convertStructuredDataTimeFields(structured, tzOff);
   const hasFault = (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false);
-  
+
   // 构建干净的PostgreSQL格式数据，避免重复字段
+  const startRaw = formatRawDateTime(surgery.surgery_start_time);
+  const endRaw = formatRawDateTime(surgery.surgery_end_time);
+  const startTime = tzOff == null ? startRaw : convertStorageToOffsetTimeString(startRaw, tzOff);
+  const endTime = tzOff == null ? endRaw : convertStorageToOffsetTimeString(endRaw, tzOff);
   const postgresqlData = {
     surgery_id: surgery.surgery_id,
     source_log_ids: Array.isArray(surgery.source_log_ids)
@@ -248,17 +343,22 @@ function buildDbRowFromSurgery(surgery) {
     device_ids: devicePrefix ? [devicePrefix] : [],
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
-    start_time: formatRawDateTime(surgery.surgery_start_time),
-    end_time: formatRawDateTime(surgery.surgery_end_time),
+    start_time: startTime,
+    end_time: endTime,
     has_fault: hasFault,
     is_remote: surgery.is_remote_surgery || false,
     success: (structured?.surgery_stats?.success) ?? !hasFault
   };
-  
+
   // 清理structured_data中的重复字段，只保留核心分析数据
   if (structured) {
     const cleanStructuredData = { ...structured };
-    
+    cleanStructuredData.meta = {
+      ...(cleanStructuredData.meta || {}),
+      timezone_offset_minutes: tzOff == null ? STORAGE_OFFSET_MINUTES : tzOff,
+      storage_offset_minutes: STORAGE_OFFSET_MINUTES
+    };
+
     // 移除可能与顶层字段重复的信息
     delete cleanStructuredData.surgery_id;
     delete cleanStructuredData.start_time;
@@ -266,12 +366,12 @@ function buildDbRowFromSurgery(surgery) {
     delete cleanStructuredData.device_id;
     delete cleanStructuredData.device_ids;
     delete cleanStructuredData.source_log_ids;
-    
+
     postgresqlData.structured_data = cleanStructuredData;
   } else {
     postgresqlData.structured_data = null;
   }
-  
+
   return postgresqlData;
 }
 
@@ -305,7 +405,7 @@ const createAnalysisTask = (logIds, userId) => {
     startedAt: null,
     completedAt: null
   };
-  
+
   analysisTasks.set(taskId, task);
   return taskId;
 };
@@ -318,7 +418,7 @@ const updateTaskStatus = (taskId, status, progress = null, result = null, error 
     if (progress !== null) task.progress = progress;
     if (result !== null) task.result = result;
     if (error !== null) task.error = error;
-    
+
     if (status === 'processing' && !task.startedAt) {
       task.startedAt = new Date();
     } else if (status === 'completed' || status === 'failed') {
@@ -332,7 +432,7 @@ const cleanupCompletedTasks = () => {
   const completedTasks = Array.from(analysisTasks.entries())
     .filter(([id, task]) => task.status === 'completed' || task.status === 'failed')
     .sort((a, b) => b[1].completedAt - a[1].completedAt);
-  
+
   // 保留最近100个已完成的任务
   if (completedTasks.length > 100) {
     const toDelete = completedTasks.slice(100);
@@ -351,17 +451,17 @@ const cleanupCompletedTasks = () => {
 function analyzeSurgeries(logEntries, options = {}) {
   const analyzer = new SurgeryAnalyzer();
   const surgeries = analyzer.analyze(logEntries);
-  
+
   // 如果需要PostgreSQL结构化数据
   if (options.includePostgreSQLStructure) {
     surgeries.forEach(surgery => {
       surgery.postgresql_structure = analyzer.toPostgreSQLStructure(surgery);
     });
   }
-  
+
   // 保存到全局变量，供导出功能使用
   global.currentSurgeries = surgeries;
-  
+
   return surgeries;
 }
 
@@ -369,7 +469,7 @@ function analyzeSurgeries(logEntries, options = {}) {
 const getAllSurgeryStatistics = async (req, res) => {
   try {
     const { logIds, includePostgreSQLStructure } = req.query;
-    
+
     let logs;
     if (logIds) {
       // 如果指定了日志ID，只分析指定的日志
@@ -398,7 +498,7 @@ const getAllSurgeryStatistics = async (req, res) => {
         // 获取手术开始和结束时间
         const surgeryStart = new Date(surgery.surgery_start_time).getTime();
         const surgeryEnd = new Date(surgery.surgery_end_time).getTime();
-        
+
         if (!Number.isFinite(surgeryStart) || !Number.isFinite(surgeryEnd)) {
           return { sourceLogIds: [], minEntryId: null, maxEntryId: null };
         }
@@ -416,7 +516,7 @@ const getAllSurgeryStatistics = async (req, res) => {
           .map(time => new Date(time).getTime())
           .filter(time => Number.isFinite(time) && time <= surgeryStart)
           .sort((a, b) => b - a); // 降序排列，取最近的
-        
+
         if (validPowerOnTimes.length > 0) {
           windowStart = validPowerOnTimes[0]; // 最近的（最大的）开机时间
         }
@@ -426,7 +526,7 @@ const getAllSurgeryStatistics = async (req, res) => {
           .map(time => new Date(time).getTime())
           .filter(time => Number.isFinite(time) && time >= surgeryEnd)
           .sort((a, b) => a - b); // 升序排列，取最近的
-        
+
         if (validShutdownTimes.length > 0) {
           windowEnd = validShutdownTimes[0]; // 最近的（最小的）关机时间
         }
@@ -439,9 +539,9 @@ const getAllSurgeryStatistics = async (req, res) => {
 
         // 提取涉及的日志ID
         const sourceLogIds = Array.from(new Set(involved.map(e => e.log_id).filter(Boolean)));
-        
+
         // 提取日志条目ID范围
-        const ids = involved.map(e => e.id).filter(id => 
+        const ids = involved.map(e => e.id).filter(id =>
           typeof id === 'number' || (typeof id === 'string' && id.trim() !== '')
         );
         const minEntryId = ids.length ? Math.min(...ids.map(n => Number(n))) : null;
@@ -462,13 +562,13 @@ const getAllSurgeryStatistics = async (req, res) => {
       });
 
       console.log(`日志 ${log.filename} 包含 ${logEntries.length} 个条目`)
-      
+
       if (logEntries.length > 0) {
-        const surgeries = analyzeSurgeries(logEntries, { 
-          includePostgreSQLStructure: true 
+        const surgeries = analyzeSurgeries(logEntries, {
+          includePostgreSQLStructure: true
         });
         console.log(`从日志 ${log.filename} 分析出 ${surgeries.length} 场手术`)
-        
+
         // 为每个手术分配唯一ID，并生成surgery_id与预览行
         surgeries.forEach(surgery => {
           surgery.id = surgeryIdCounter++;
@@ -487,7 +587,7 @@ const getAllSurgeryStatistics = async (req, res) => {
             surgery.postgresql_row_preview = buildPostgresRowPreview(surgery, deviceDisplayId);
           }
         });
-        
+
         allSurgeries.push(...surgeries);
       }
     }
@@ -510,7 +610,7 @@ const getAllSurgeryStatistics = async (req, res) => {
 const analyzeSortedLogEntries = async (req, res) => {
   try {
     const { logEntries } = req.body;
-    
+
     if (!logEntries || !Array.isArray(logEntries) || logEntries.length === 0) {
       return res.status(400).json({
         success: false,
@@ -519,13 +619,13 @@ const analyzeSortedLogEntries = async (req, res) => {
     }
 
     console.log(`开始分析前端传递的 ${logEntries.length} 条已排序日志条目`);
-    
+
     // 验证日志条目数据结构
     const requiredFields = ['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4'];
-    const isValidEntry = logEntries.every(entry => 
+    const isValidEntry = logEntries.every(entry =>
       requiredFields.every(field => entry.hasOwnProperty(field))
     );
-    
+
     if (!isValidEntry) {
       return res.status(400).json({
         success: false,
@@ -534,8 +634,8 @@ const analyzeSortedLogEntries = async (req, res) => {
     }
 
     // 使用新的分析器进行分析
-    const surgeries = analyzeSurgeries(logEntries, { 
-      includePostgreSQLStructure: true 
+    const surgeries = analyzeSurgeries(logEntries, {
+      includePostgreSQLStructure: true
     });
     console.log(`从已排序日志条目分析出 ${surgeries.length} 场手术`);
 
@@ -561,7 +661,7 @@ const analyzeSortedLogEntries = async (req, res) => {
         // 获取手术开始和结束时间
         const surgeryStart = new Date(surgery.surgery_start_time).getTime();
         const surgeryEnd = new Date(surgery.surgery_end_time).getTime();
-        
+
         if (Number.isFinite(surgeryStart) && Number.isFinite(surgeryEnd)) {
           // 获取开机和关机时间
           const powerOnTimes = surgery.power_on_times || [];
@@ -576,7 +676,7 @@ const analyzeSortedLogEntries = async (req, res) => {
             .map(time => new Date(time).getTime())
             .filter(time => Number.isFinite(time) && time <= surgeryStart)
             .sort((a, b) => b - a); // 降序排列，取最近的
-          
+
           if (validPowerOnTimes.length > 0) {
             windowStart = validPowerOnTimes[0]; // 最近的（最大的）开机时间
           }
@@ -586,7 +686,7 @@ const analyzeSortedLogEntries = async (req, res) => {
             .map(time => new Date(time).getTime())
             .filter(time => Number.isFinite(time) && time >= surgeryEnd)
             .sort((a, b) => a - b); // 升序排列，取最近的
-          
+
           if (validShutdownTimes.length > 0) {
             windowEnd = validShutdownTimes[0]; // 最近的（最小的）关机时间
           }
@@ -600,7 +700,7 @@ const analyzeSortedLogEntries = async (req, res) => {
           // 提取涉及的日志ID
           const sourceLogIds = Array.from(new Set(involved.map(e => e.log_id).filter(Boolean)));
           surgery.source_log_ids = sourceLogIds.length ? sourceLogIds : [];
-          
+
           // 提取日志条目ID范围
           const ids = involved.map(e => e.id).filter(id => typeof id !== 'undefined');
           if (ids.length) {
@@ -636,10 +736,10 @@ const analyzeSortedLogEntries = async (req, res) => {
 
   } catch (error) {
     console.error('分析已排序日志条目失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: '分析已排序日志条目失败', 
-      error: error.message 
+      message: '分析已排序日志条目失败',
+      error: error.message
     });
   }
 };
@@ -648,7 +748,7 @@ const analyzeSortedLogEntries = async (req, res) => {
 const exportSurgeryReport = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     res.json({
       success: true,
       message: '手术报告导出功能开发中',
@@ -657,7 +757,7 @@ const exportSurgeryReport = async (req, res) => {
         download_url: `/api/surgery-statistics/${id}/report.pdf`
       }
     });
-    
+
   } catch (error) {
     console.error('导出手术报告失败:', error);
     res.status(500).json({ message: '导出手术报告失败', error: error.message });
@@ -668,8 +768,8 @@ const exportSurgeryReport = async (req, res) => {
 const { surgeryAnalysisQueue } = require('../config/queue');
 const analyzeByLogIds = async (req, res) => {
   try {
-    const { logIds, includePostgreSQLStructure } = req.body;
-    
+    const { logIds, includePostgreSQLStructure, timezoneOffsetMinutes } = req.body;
+
     if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
       return res.status(400).json({
         success: false,
@@ -682,7 +782,9 @@ const analyzeByLogIds = async (req, res) => {
     const job = await surgeryAnalysisQueue.add('analyze-surgeries', {
       logIds,
       userId: req.user.id,
-      includePostgreSQLStructure: includePostgreSQLStructure === true
+      includePostgreSQLStructure: includePostgreSQLStructure === true,
+      // 目标时区偏移（分钟），用于在生成 PostgreSQL 入库结构前统一转换所有时间字段
+      timezoneOffsetMinutes: timezoneOffsetMinutes ?? null
     }, {
       priority: 1,
       attempts: 2,
@@ -699,10 +801,10 @@ const analyzeByLogIds = async (req, res) => {
 
   } catch (error) {
     console.error('创建手术分析队列任务失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: '创建手术分析任务失败', 
-      error: error.message 
+      message: '创建手术分析任务失败',
+      error: error.message
     });
   }
 };
@@ -712,65 +814,65 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
   try {
     // 更新任务状态为处理中
     updateTaskStatus(taskId, 'processing', 0);
-    
+
     // 获取所有日志的条目数据
     const allLogEntries = [];
     let processedLogs = 0;
     const logIdToDeviceId = new Map();
-    
+
     for (const logId of logIds) {
       try {
         // 更新进度
         const progress = Math.round((processedLogs / logIds.length) * 80); // 80%用于数据获取
         updateTaskStatus(taskId, 'processing', progress);
-        
+
         // 获取单个日志的所有条目
         const logEntries = await LogEntry.findAll({
           where: { log_id: logId },
           order: [['timestamp', 'ASC']],
           raw: true
         });
-        
+
         // 为每个条目添加日志文件名信息
         const logInfo = await Log.findByPk(logId);
         const logName = logInfo ? logInfo.original_name : `日志${logId}`;
         if (logInfo && logInfo.device_id) {
           logIdToDeviceId.set(logId, logInfo.device_id);
         }
-        
+
         const entriesWithLogName = logEntries.map(entry => ({
           ...entry,
           log_name: logName
         }));
-        
+
         allLogEntries.push(...entriesWithLogName);
         processedLogs++;
-        
+
         console.log(`日志 ${logName} (ID: ${logId}) 包含 ${logEntries.length} 条记录`);
-        
+
       } catch (error) {
         console.error(`获取日志ID ${logId} 的条目失败:`, error);
         processedLogs++;
         // 继续处理其他日志，不中断整个分析过程
       }
     }
-    
+
     if (allLogEntries.length === 0) {
       updateTaskStatus(taskId, 'failed', 100, null, '未找到任何日志条目数据');
       return;
     }
-    
+
     console.log(`总共获取到 ${allLogEntries.length} 条日志条目`);
-    
+
     // 更新进度到90%
     updateTaskStatus(taskId, 'processing', 90);
-    
+
     // 使用新的分析器进行分析
-    const surgeries = analyzeSurgeries(allLogEntries, { 
-      includePostgreSQLStructure: includePostgreSQLStructure === true 
+    const surgeries = analyzeSurgeries(allLogEntries, {
+      includePostgreSQLStructure: includePostgreSQLStructure === true
     });
     console.log(`从日志ID列表分析出 ${surgeries.length} 场手术`);
-    
+
     // 为每个手术分配唯一ID与surgery_id
     surgeries.forEach((surgery, index) => {
       surgery.id = index + 1;
@@ -786,7 +888,7 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
         // 获取手术开始和结束时间
         const surgeryStart = new Date(surgery.surgery_start_time).getTime();
         const surgeryEnd = new Date(surgery.surgery_end_time).getTime();
-        
+
         if (Number.isFinite(surgeryStart) && Number.isFinite(surgeryEnd)) {
           // 获取开机和关机时间
           const powerOnTimes = surgery.power_on_times || [];
@@ -801,7 +903,7 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
             .map(time => new Date(time).getTime())
             .filter(time => Number.isFinite(time) && time <= surgeryStart)
             .sort((a, b) => b - a); // 降序排列，取最近的
-          
+
           if (validPowerOnTimes.length > 0) {
             windowStart = validPowerOnTimes[0]; // 最近的（最大的）开机时间
           }
@@ -811,7 +913,7 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
             .map(time => new Date(time).getTime())
             .filter(time => Number.isFinite(time) && time >= surgeryEnd)
             .sort((a, b) => a - b); // 升序排列，取最近的
-          
+
           if (validShutdownTimes.length > 0) {
             windowEnd = validShutdownTimes[0]; // 最近的（最小的）关机时间
           }
@@ -825,7 +927,7 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
           // 提取涉及的日志ID
           const sourceLogIds = Array.from(new Set(involved.map(e => e.log_id).filter(Boolean)));
           surgery.source_log_ids = sourceLogIds.length ? sourceLogIds : [];
-          
+
           // 提取日志条目ID范围
           const ids = involved.map(e => e.id).filter(id => typeof id !== 'undefined');
           if (ids.length) {
@@ -846,21 +948,21 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
         surgery.log_entry_start_id = null;
         surgery.log_entry_end_id = null;
       }
-      
+
       // 如果需要PostgreSQL结构化数据，生成postgresql_row_preview
       if (includePostgreSQLStructure === true) {
         surgery.postgresql_row_preview = buildPostgresRowPreview(surgery, deviceDisplayId);
       }
     });
-    
+
     // 更新任务为完成状态
     updateTaskStatus(taskId, 'completed', 100, surgeries);
-    
+
     // 清理已完成的任务
     cleanupCompletedTasks();
-    
+
     console.log(`分析完成（任务 ${taskId}），生成 ${surgeries.length} 条数据库行`);
-    
+
   } catch (error) {
     console.error('处理分析任务失败:', error);
     updateTaskStatus(taskId, 'failed', 100, null, error.message);
@@ -904,7 +1006,7 @@ const getUserAnalysisTasks = async (req, res) => {
   try {
     const userId = req.user.id;
     const hasSurgeryReadPermission = await userHasDbPermission(userId, 'surgery:read');
-    
+
     const userTasks = Array.from(analysisTasks.values())
       .filter(task => hasSurgeryReadPermission || task.userId === userId)
       .map(task => ({
@@ -917,12 +1019,12 @@ const getUserAnalysisTasks = async (req, res) => {
         logIds: task.logIds
       }))
       .sort((a, b) => b.createdAt - a.createdAt);
-    
+
     res.json({
       success: true,
       data: userTasks
     });
-    
+
   } catch (error) {
     console.error('获取任务列表失败:', error);
     res.status(500).json({
@@ -937,7 +1039,7 @@ const getUserAnalysisTasks = async (req, res) => {
 const exportPostgreSQLData = async (req, res) => {
   try {
     const { logIds } = req.query;
-    
+
     let logs;
     if (logIds) {
       const logIdArray = logIds.split(',').map(id => parseInt(id.trim()));
@@ -962,7 +1064,7 @@ const exportPostgreSQLData = async (req, res) => {
 
       if (logEntries.length > 0) {
         const surgeries = analyzeSurgeries(logEntries, { includePostgreSQLStructure: true });
-        
+
         surgeries.forEach(surgery => {
           surgery.id = surgeryIdCounter++;
           surgery.log_filename = log.filename;
@@ -970,7 +1072,7 @@ const exportPostgreSQLData = async (req, res) => {
           surgery.device_id = deviceId;
           surgery.surgery_id = `${deviceId || 'UNKNOWN'}-${formatTimeForId(surgery.surgery_start_time)}`;
         });
-        
+
         allSurgeries.push(...surgeries);
       }
     }
@@ -990,7 +1092,7 @@ const exportPostgreSQLData = async (req, res) => {
         user_agent: req.headers['user-agent'],
         details: { count: postgresqlData.length, logIds: (logs || []).map(l => l.id) }
       });
-    } catch (_) {}
+    } catch (_) { }
 
     res.json({
       success: true,
@@ -1009,28 +1111,28 @@ const getPostgreSQLSurgeries = async (req, res) => {
   try {
     const Surgery = require('../models/surgery');
     const { limit = 100, offset = 0 } = req.query;
-    
+
     const surgeries = await Surgery.findAll({
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['created_at', 'DESC']]
     });
-    
+
     const total = await Surgery.count();
-    
+
     res.json({
       success: true,
       data: surgeries,
       total,
       message: `成功查询到 ${surgeries.length} 条手术数据`
     });
-    
+
   } catch (error) {
     console.error('查询PostgreSQL手术数据失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: '查询PostgreSQL手术数据失败', 
-      error: error.message 
+      message: '查询PostgreSQL手术数据失败',
+      error: error.message
     });
   }
 };
@@ -1038,7 +1140,7 @@ const getPostgreSQLSurgeries = async (req, res) => {
 // 标准化时间格式，统一转换为原始时间格式进行比较（忽略毫秒，无时区转换）
 function normalizeTimeForComparison(timeValue) {
   if (!timeValue) return null;
-  
+
   try {
     // 处理 Sequelize.literal 对象（从 formatRawDateTimeForDb 返回的）
     if (timeValue && typeof timeValue === 'object' && timeValue.val) {
@@ -1050,7 +1152,7 @@ function normalizeTimeForComparison(timeValue) {
         return match[1]; // 返回纯时间字符串
       }
     }
-    
+
     // 如果已经是原始时间格式字符串，直接返回
     if (typeof timeValue === 'string') {
       if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
@@ -1067,11 +1169,11 @@ function normalizeTimeForComparison(timeValue) {
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       }
     }
-    
+
     // 如果是Date对象，提取原始时间
     const date = timeValue instanceof Date ? timeValue : new Date(timeValue);
     if (isNaN(date.getTime())) return timeValue;
-    
+
     // 使用本地时间方法（不是UTC），按原始时间提取
     const pad = (n) => String(n).padStart(2, '0');
     return (
@@ -1092,10 +1194,10 @@ function normalizeTimeForComparison(timeValue) {
 function compareTimeValues(time1, time2) {
   if (!time1 && !time2) return true;
   if (!time1 || !time2) return false;
-  
+
   const normalized1 = normalizeTimeForComparison(time1);
   const normalized2 = normalizeTimeForComparison(time2);
-  
+
   return normalized1 === normalized2;
 }
 
@@ -1104,7 +1206,7 @@ function deepCompareWithTimeNormalization(obj1, obj2, path = '') {
   if (obj1 === obj2) return true;
   if (obj1 == null || obj2 == null) return false;
   if (typeof obj1 !== typeof obj2) return false;
-  
+
   if (Array.isArray(obj1) && Array.isArray(obj2)) {
     if (obj1.length !== obj2.length) return false;
     for (let i = 0; i < obj1.length; i++) {
@@ -1114,20 +1216,20 @@ function deepCompareWithTimeNormalization(obj1, obj2, path = '') {
     }
     return true;
   }
-  
+
   if (typeof obj1 === 'object') {
     const keys1 = Object.keys(obj1);
     const keys2 = Object.keys(obj2);
-    
+
     if (keys1.length !== keys2.length) return false;
-    
+
     for (const key of keys1) {
       if (!keys2.includes(key)) return false;
-      
+
       const currentPath = path ? `${path}.${key}` : key;
       const val1 = obj1[key];
       const val2 = obj2[key];
-      
+
       // 检查是否为时间字段
       if (key.toLowerCase().includes('time') || key.toLowerCase().includes('timestamp')) {
         if (!compareTimeValues(val1, val2)) {
@@ -1141,7 +1243,7 @@ function deepCompareWithTimeNormalization(obj1, obj2, path = '') {
     }
     return true;
   }
-  
+
   // 基本类型直接比较
   return obj1 === obj2;
 }
@@ -1149,24 +1251,24 @@ function deepCompareWithTimeNormalization(obj1, obj2, path = '') {
 // 比对两个手术数据的差异
 function compareSurgeryData(newData, existingData) {
   const differences = [];
-  
+
   // 比对基础字段
   const basicFields = [
     'start_time', 'end_time', 'has_fault', 'is_remote', 'success',
     'source_log_ids', 'device_ids', 'log_entry_start_id', 'log_entry_end_id'
   ];
-  
+
   basicFields.forEach(field => {
     const newValue = newData[field];
     const existingValue = existingData[field];
-    
+
     let isDifferent = false;
-    
+
     // 对时间字段进行特殊处理
     if (field === 'start_time' || field === 'end_time') {
       const normalizedNew = normalizeTimeForComparison(newValue);
       const normalizedExisting = normalizeTimeForComparison(existingValue);
-      
+
       // 添加调试日志
       if (field === 'start_time') {
         console.log(`🔧 时间比对 - ${field}:`);
@@ -1176,18 +1278,18 @@ function compareSurgeryData(newData, existingData) {
         console.log(`  数据库标准化后: ${normalizedExisting}`);
         console.log(`  是否不同: ${normalizedNew !== normalizedExisting}`);
       }
-      
+
       isDifferent = normalizedNew !== normalizedExisting;
     } else {
       // 其他字段使用原有的JSON比较方式
       isDifferent = JSON.stringify(newValue) !== JSON.stringify(existingValue);
     }
-    
+
     if (isDifferent) {
       // 对于时间字段，确保显示纯字符串（不是 Sequelize.literal 对象）
       let displayNewValue = newValue;
       let displayOldValue = existingValue;
-      
+
       if (field === 'start_time' || field === 'end_time') {
         // 如果是 Sequelize.literal 对象，提取时间字符串
         if (newValue && typeof newValue === 'object' && newValue.val) {
@@ -1202,7 +1304,7 @@ function compareSurgeryData(newData, existingData) {
           displayOldValue = formatTimeForDisplay(existingValue);
         }
       }
-      
+
       differences.push({
         field: field,
         fieldName: getFieldDisplayName(field),
@@ -1212,23 +1314,23 @@ function compareSurgeryData(newData, existingData) {
       });
     }
   });
-  
+
   // 比对结构化数据
   if (newData.structured_data || existingData.structured_data) {
     const structuredDiff = compareStructuredData(
-      newData.structured_data, 
+      newData.structured_data,
       existingData.structured_data
     );
     differences.push(...structuredDiff);
   }
-  
+
   return differences;
 }
 
 // 比对结构化数据的差异
 function compareStructuredData(newStructured, existingStructured) {
   const differences = [];
-  
+
   if (!newStructured && !existingStructured) return differences;
   if (!newStructured || !existingStructured) {
     differences.push({
@@ -1240,7 +1342,7 @@ function compareStructuredData(newStructured, existingStructured) {
     });
     return differences;
   }
-  
+
   // 使用新的深度比较函数进行整体比较
   if (!deepCompareWithTimeNormalization(newStructured, existingStructured)) {
     differences.push({
@@ -1251,14 +1353,14 @@ function compareStructuredData(newStructured, existingStructured) {
       type: 'structured'
     });
   }
-  
+
   return differences;
 }
 
 // 比对器械使用数据
 function compareArmsData(newArms, existingArms) {
   const differences = [];
-  
+
   if (!newArms && !existingArms) return differences;
   if (!newArms || !existingArms) {
     differences.push({
@@ -1270,13 +1372,13 @@ function compareArmsData(newArms, existingArms) {
     });
     return differences;
   }
-  
+
   // 比对每个器械臂
   for (let i = 0; i < Math.max(newArms.length, existingArms.length); i++) {
     const newArm = newArms[i];
     const existingArm = existingArms[i];
     const armId = i + 1;
-    
+
     if (!newArm || !existingArm) {
       differences.push({
         field: `arm${armId}`,
@@ -1287,11 +1389,11 @@ function compareArmsData(newArms, existingArms) {
       });
       continue;
     }
-    
+
     // 比对器械使用记录数量
     const newUsageCount = newArm.instrument_usage?.length || 0;
     const existingUsageCount = existingArm.instrument_usage?.length || 0;
-    
+
     if (newUsageCount !== existingUsageCount) {
       differences.push({
         field: `arm${armId}_usage_count`,
@@ -1302,14 +1404,14 @@ function compareArmsData(newArms, existingArms) {
       });
     }
   }
-  
+
   return differences;
 }
 
 // 比对手术统计数据
 function compareSurgeryStats(newStats, existingStats) {
   const differences = [];
-  
+
   if (!newStats && !existingStats) return differences;
   if (!newStats || !existingStats) {
     differences.push({
@@ -1321,13 +1423,13 @@ function compareSurgeryStats(newStats, existingStats) {
     });
     return differences;
   }
-  
+
   // 比对故障数据
   const statsFields = ['success', 'left_hand_clutch', 'right_hand_clutch', 'foot_clutch', 'endoscope_pedal'];
   statsFields.forEach(field => {
     const newValue = newStats[field];
     const existingValue = existingStats[field];
-    
+
     if (newValue !== existingValue) {
       differences.push({
         field: `stats_${field}`,
@@ -1338,11 +1440,11 @@ function compareSurgeryStats(newStats, existingStats) {
       });
     }
   });
-  
+
   // 比对故障列表
   const newFaultCount = newStats.faults?.length || 0;
   const existingFaultCount = existingStats.faults?.length || 0;
-  
+
   if (newFaultCount !== existingFaultCount) {
     differences.push({
       field: 'fault_count',
@@ -1352,7 +1454,7 @@ function compareSurgeryStats(newStats, existingStats) {
       type: 'fault_count'
     });
   }
-  
+
   return differences;
 }
 
@@ -1388,10 +1490,10 @@ function getStatsFieldDisplayName(field) {
 const exportSingleSurgeryData = async (req, res) => {
   try {
     console.log(`🔧 收到导出手术数据请求: ${req.body?.surgery_id || 'unknown'}`);
-    
+
     // 直接使用前端传递的完整手术数据
     const surgeryData = req.body;
-    
+
     if (!surgeryData) {
       return res.status(400).json({
         success: false,
@@ -1412,13 +1514,13 @@ const exportSingleSurgeryData = async (req, res) => {
       // 存在相同ID，返回比对结果供用户确认
       console.log(`🔧 找到已存在的手术数据: ${postgresqlData.surgery_id}`);
       console.log(`🔧 数据库原始数据 start_time: ${existingSurgery.start_time} (类型: ${typeof existingSurgery.start_time})`);
-      
+
       // 比对时使用原始UTC数据（plain 对象），确保准确性
       const existingPlain = existingSurgery.get ? existingSurgery.get({ plain: true }) : existingSurgery;
       console.log(`🔧 Plain对象 start_time: ${existingPlain.start_time} (类型: ${typeof existingPlain.start_time})`);
-      
+
       const differences = compareSurgeryData(postgresqlData, existingPlain);
-      
+
       // 显示时转换为原始时间格式字符串（纯字符串，不是 Sequelize.literal 对象）
       const convertTimeFields = (data) => {
         if (!data) return data;
@@ -1449,7 +1551,7 @@ const exportSingleSurgeryData = async (req, res) => {
         }
         return converted;
       };
-      
+
       res.json({
         success: false,
         needsConfirmation: true,
@@ -1472,7 +1574,7 @@ const exportSingleSurgeryData = async (req, res) => {
         }
         const savedSurgery = await Surgery.create(dbData);
         console.log('手术数据已存储到PostgreSQL:', savedSurgery.surgery_id);
-        
+
         // 转换时间字段为本地时间格式
         const convertTimeFields = (data) => {
           if (!data) return data;
@@ -1485,7 +1587,7 @@ const exportSingleSurgeryData = async (req, res) => {
           }
           return converted;
         };
-        
+
         // 操作日志
         try {
           const { logOperation } = require('../utils/operationLogger');
@@ -1498,7 +1600,7 @@ const exportSingleSurgeryData = async (req, res) => {
             user_agent: req.headers['user-agent'],
             details: { surgery_id: savedSurgery.surgery_id, postgresql_id: savedSurgery.id }
           });
-        } catch (_) {}
+        } catch (_) { }
 
         res.json({
           success: true,
@@ -1510,7 +1612,7 @@ const exportSingleSurgeryData = async (req, res) => {
         });
       } catch (dbError) {
         console.warn('PostgreSQL存储失败，仅返回数据:', dbError.message);
-        
+
         // 转换时间字段为本地时间格式
         const convertTimeFields = (data) => {
           if (!data) return data;
@@ -1523,7 +1625,7 @@ const exportSingleSurgeryData = async (req, res) => {
           }
           return converted;
         };
-        
+
         res.json({
           success: true,
           data: convertTimeFields(postgresqlData),
@@ -1542,14 +1644,14 @@ const exportSingleSurgeryData = async (req, res) => {
 const confirmOverrideSurgeryData = async (req, res) => {
   try {
     const { surgeryData, confirmOverride } = req.body;
-    
+
     if (!surgeryData) {
       return res.status(400).json({
         success: false,
         message: '未提供手术数据'
       });
     }
-    
+
     if (!confirmOverride) {
       return res.status(400).json({
         success: false,
@@ -1581,11 +1683,11 @@ const confirmOverrideSurgeryData = async (req, res) => {
     if (dbData.end_time) {
       dbData.end_time = formatRawDateTimeForDb(dbData.end_time);
     }
-    
+
     // 执行覆盖操作
     const updatedSurgery = await existingSurgery.update(dbData);
     console.log('手术数据已覆盖:', updatedSurgery.surgery_id);
-    
+
     // 转换时间字段为本地时间格式
     const convertTimeFields = (data) => {
       if (!data) return data;
@@ -1598,7 +1700,7 @@ const confirmOverrideSurgeryData = async (req, res) => {
       }
       return converted;
     };
-    
+
     res.json({
       success: true,
       data: {
@@ -1610,10 +1712,10 @@ const confirmOverrideSurgeryData = async (req, res) => {
 
   } catch (error) {
     console.error('覆盖手术数据失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: '覆盖手术数据失败', 
-      error: error.message 
+      message: '覆盖手术数据失败',
+      error: error.message
     });
   }
 };

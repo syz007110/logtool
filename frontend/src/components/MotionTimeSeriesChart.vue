@@ -244,7 +244,7 @@ export default {
         left: 8,
         right: 8,
         top: hasLegend ? 28 : 8,
-        bottom: props.enableSlider ? 32 : 8, // 无滑块时底部留白更小
+        bottom: props.enableSlider ? 32 : 4, // 无滑块时底部留白更小
         containLabel: true
       }
 
@@ -476,7 +476,8 @@ export default {
           return {
             name: s.name,
             type: 'line',
-            symbol: 'none',
+            symbol: 'circle',
+            symbolSize: 2,
             smooth: props.smooth,
             sampling: false,
             data: s.data,
@@ -542,14 +543,30 @@ export default {
 
       chartInstance.setOption(option, true)
 
-      // 点击数据点：对外抛出时间戳（x轴，ms）
-      chartInstance.off('click')
-      chartInstance.on('click', (params) => {
-        const v = params?.value
-        const ts = Array.isArray(v) ? v[0] : null
-        if (typeof ts === 'number' && Number.isFinite(ts)) {
-          emit('cursorChange', ts)
-        }
+      // 点击图表（折线/区域/空白）：按像素换算到最近数据点时间戳并抛出，避免 symbol 太小点不中
+      const zr = chartInstance.getZr()
+      zr.off('click')
+      zr.on('click', (e) => {
+        const point = e.point != null ? e.point : [e.offsetX, e.offsetY]
+        try {
+          const coord = chartInstance.convertFromPixel({ seriesIndex: 0 }, point)
+          if (!coord || !Array.isArray(coord) || typeof coord[0] !== 'number' || !Number.isFinite(coord[0])) return
+          const xMs = coord[0]
+          const opt = chartInstance.getOption()
+          const seriesList = (opt && opt.series) ? opt.series : []
+          const allTs = []
+          for (const s of seriesList) {
+            if (!s || !Array.isArray(s.data)) continue
+            for (const d of s.data) {
+              const t = Array.isArray(d) ? d[0] : (d && typeof d === 'object' && Array.isArray(d.value) ? d.value[0] : null)
+              if (typeof t === 'number' && Number.isFinite(t)) allTs.push(t)
+            }
+          }
+          if (allTs.length === 0) return
+          const nearest = allTs.reduce((a, b) => Math.abs(a - xMs) <= Math.abs(b - xMs) ? a : b)
+          const clamped = Math.max(globalMinMs, Math.min(globalMaxMs, nearest))
+          emit('cursorChange', clamped)
+        } catch (_) {}
       })
 
       // 初始化全局范围与当前显示范围

@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { 
-  getLogs, 
+const {
+  getLogs,
   getLogsByDevice,
   getLogTimeFilters,
-  uploadLog, 
-  parseLog, 
-  downloadLog, 
-  deleteLog, 
+  uploadLog,
+  parseLog,
+  downloadLog,
+  deleteLog,
   batchDeleteLogs,
   batchDownloadLogs,
   getBatchDownloadTaskStatus,
@@ -32,6 +32,7 @@ const {
   cleanupStuckLogs,
   getStuckLogsStats
 } = require('../controllers/logController');
+const { nlToBatchFilters } = require('../controllers/batchAnalysisNlpController');
 const auth = require('../middlewares/auth');
 const { checkPermission, checkLogPermission } = require('../middlewares/permission');
 const { createRateLimitersWithFallback } = require('../config/rateLimit');
@@ -41,6 +42,8 @@ const rateLimiters = createRateLimitersWithFallback();
 
 // 应用批量搜索速率限制（可通过环境变量禁用）
 router.get('/entries/batch', auth, checkLogPermission('read_all'), rateLimiters.batchSearch, getBatchLogEntriesClickhouse);
+// 自然语言 → 高级筛选 JSON（仅转换层，不引入新检索格式）
+router.post('/entries/batch/nl-to-filters', auth, checkLogPermission('read_all'), rateLimiters.batchSearch, nlToBatchFilters);
 
 // 获取日志统计信息（用于计数功能）
 router.get('/entries/statistics', auth, checkLogPermission('read_all'), getLogStatistics);
