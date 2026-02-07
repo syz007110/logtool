@@ -115,6 +115,42 @@ export default {
       isFinite(item[1])
     )
 
+    // 大数据阈值：超过后启用采样、关闭动画，避免“每点值不同”时渲染/动画卡顿
+    const LARGE_DATA_THRESHOLD = 3000
+
+    // 二分查找：有序 data[[x,y],...] 中首个 data[i][0] >= minX 的下标
+    const findFirstIndexByX = (data, minX) => {
+      let lo = 0
+      let hi = data.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1
+        if (data[mid][0] < minX) lo = mid + 1
+        else hi = mid - 1
+      }
+      return lo
+    }
+    // 二分查找：有序 data 中最后一个 data[i][0] <= maxX 的下标
+    const findLastIndexByX = (data, maxX) => {
+      let lo = 0
+      let hi = data.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1
+        if (data[mid][0] > maxX) hi = mid - 1
+        else lo = mid + 1
+      }
+      return hi
+    }
+    // 在有序时间序列中找离 xMs 最近的时间戳（用于点击定位，避免遍历全部点）
+    const findNearestTimestamp = (data, xMs) => {
+      if (!data || data.length === 0) return null
+      let i = findFirstIndexByX(data, xMs)
+      if (i >= data.length) return data[data.length - 1][0]
+      if (i === 0) return data[0][0]
+      const a = data[i - 1][0]
+      const b = data[i][0]
+      return Math.abs(xMs - a) <= Math.abs(xMs - b) ? a : b
+    }
+
     // 获取当前可见窗口的数据范围（用于 y 轴自适应）
     const getVisibleDataRange = () => {
       try {
@@ -157,19 +193,20 @@ export default {
         const startMs = globalMinMs + (globalMaxMs - globalMinMs) * (startPercent / 100)
         const endMs = globalMinMs + (globalMaxMs - globalMinMs) * (endPercent / 100)
 
-        // 在可见时间范围内查找 y 值范围
+        // 在可见时间范围内查找 y 值范围（二分缩小范围，避免 2 万点全量遍历）
         const seriesList = normalizeSeriesInput()
         let minY = null
         let maxY = null
 
         for (const series of seriesList) {
           const validData = validateSeriesPoints(series.data)
-          for (const point of validData) {
-            const [x, y] = point
-            if (x >= startMs && x <= endMs) {
-              if (minY === null || y < minY) minY = y
-              if (maxY === null || y > maxY) maxY = y
-            }
+          if (validData.length === 0) continue
+          const firstIdx = findFirstIndexByX(validData, startMs)
+          const lastIdx = findLastIndexByX(validData, endMs)
+          for (let i = firstIdx; i <= lastIdx && i < validData.length; i++) {
+            const y = validData[i][1]
+            if (minY === null || y < minY) minY = y
+            if (maxY === null || y > maxY) maxY = y
           }
         }
 
@@ -199,6 +236,72 @@ export default {
       }
     }
 
+    // 顶层 updateYAxisRange，供 createChart 与 updateChart 共用
+    const updateYAxisRange = () => {
+      if (props.yAxisFitMode === 'auto' && chartInstance) {
+        const visibleRange = getVisibleDataRange()
+        if (visibleRange.minY != null && visibleRange.maxY != null &&
+            (visibleRange.minY !== visibleRange.maxY || visibleRange.minY !== 0)) {
+          chartInstance.setOption({
+            yAxis: {
+              min: visibleRange.minY,
+              max: visibleRange.maxY
+            }
+          }, false)
+        }
+      }
+    }
+
+    // 构建 series 配置（折线 + 游标），供 createChart 与 updateChart 共用
+    // totalPoints 用于大数据时启用采样、关动画，减轻“每点值不同”导致的卡顿
+    const buildSeriesArray = (validSeries, totalPoints = 0) => {
+      const isLarge = totalPoints > LARGE_DATA_THRESHOLD
+      const lineSeries = validSeries.map((s, idx) => {
+        const color = s.color || (validSeries.length === 1 ? props.lineColor : null)
+        return {
+          name: s.name,
+          type: 'line',
+          symbol: isLarge ? 'none' : 'circle',
+          symbolSize: isLarge ? 0 : 2,
+          smooth: props.smooth,
+          sampling: isLarge ? 'lttb' : false,
+          data: s.data,
+          animation: !isLarge,
+          animationDelay: isLarge ? undefined : (idx) => idx * 100,
+          animationDuration: isLarge ? 0 : 1000,
+          animationEasing: 'cubicOut',
+          ...(color ? {
+            itemStyle: { color },
+            lineStyle: { width: 2, cap: 'round', join: 'round', color }
+          } : {
+            lineStyle: { width: 2, cap: 'round', join: 'round' }
+          }),
+          areaStyle: validSeries.length === 1
+            ? { opacity: 0.2, color: color || props.lineColor }
+            : undefined
+        }
+      })
+      const cursorSeries = (props.cursorMs != null && props.cursorMs >= globalMinMs && props.cursorMs <= globalMaxMs)
+        ? [{
+            type: 'custom',
+            silent: true,
+            z: 100,
+            renderItem: (params, api) => {
+              const x = api.coord([props.cursorMs, 0])[0]
+              const yTop = params.coordSys.y
+              const height = params.coordSys.height
+              return {
+                type: 'line',
+                shape: { x1: x, y1: yTop, x2: x, y2: yTop + height },
+                style: { stroke: '#ef4444', lineWidth: 2, lineDash: [4, 4] }
+              }
+            },
+            data: [[props.cursorMs, 0]]
+          }]
+        : []
+      return [...lineSeries, ...cursorSeries]
+    }
+
     const createChart = () => {
       const seriesList = normalizeSeriesInput()
       if (!chartContainer.value || seriesList.length === 0) {
@@ -210,8 +313,8 @@ export default {
         chartInstance.dispose()
       }
 
-      // 创建新实例
-      chartInstance = echarts.init(chartContainer.value)
+      // 创建新实例（方案五：强制 Canvas 渲染器，大数据量下更稳定）
+      chartInstance = echarts.init(chartContainer.value, null, { renderer: 'canvas' })
 
       const validSeries = seriesList
         .map((s) => ({ ...s, data: validateSeriesPoints(s.data) }))
@@ -235,6 +338,13 @@ export default {
       globalMinY = Math.min(...allY)
       globalMaxY = Math.max(...allY)
 
+      // 方案五：按数据量调整 dataZoom 节流，减少缩放/拖拽时的重绘卡顿
+      const totalPoints = validSeries.reduce((acc, s) => acc + (s.data ? s.data.length : 0), 0)
+      const isLargeData = totalPoints > LARGE_DATA_THRESHOLD
+      const DATA_ZOOM_THROTTLE_SMALL = 100
+      const DATA_ZOOM_THROTTLE_LARGE = 220
+      const dataZoomThrottle = totalPoints > 1500 ? DATA_ZOOM_THROTTLE_LARGE : DATA_ZOOM_THROTTLE_SMALL
+
       // 初始化时用全局范围（setOption 前 model 未就绪，getVisibleDataRange 会 fallback 到全局）
       const initialYRange = props.yAxisFitMode === 'auto' ? getVisibleDataRange() : { minY: globalMinY, maxY: globalMaxY }
 
@@ -250,10 +360,10 @@ export default {
 
       const option = {
         backgroundColor: 'transparent',
-        // 动画配置：平滑生长效果
-        animation: true,
-        animationDuration: 1000,
-        animationDurationUpdate: 750,
+        // 动画配置：大数据时关闭以减轻卡顿
+        animation: !isLargeData,
+        animationDuration: isLargeData ? 0 : 1000,
+        animationDurationUpdate: isLargeData ? 0 : 750,
         animationEasing: 'cubicOut',
         animationEasingUpdate: 'cubicOut',
         grid: gridConfig,
@@ -422,7 +532,7 @@ export default {
             start: 0,
             end: 100,
             realtime: true,
-            throttle: 100,
+            throttle: dataZoomThrottle,
             zoomLock: false,
             xAxisIndex: 0,
             filterMode: 'filter',
@@ -434,7 +544,7 @@ export default {
               start: 0,
               end: 100,
               realtime: true,
-              throttle: 100,
+              throttle: dataZoomThrottle,
               zoomLock: false,
               showDetail: false,
               showDataShadow: false,
@@ -471,79 +581,12 @@ export default {
             }
           ] : [])
         ],
-        series: validSeries.map((s, idx) => {
-          const color = s.color || (validSeries.length === 1 ? props.lineColor : null)
-          return {
-            name: s.name,
-            type: 'line',
-            symbol: 'circle',
-            symbolSize: 2,
-            smooth: props.smooth,
-            sampling: false,
-            data: s.data,
-            // 系列动画配置：从左侧生长
-            animation: true,
-            animationDelay: (idx) => idx * 100, // 多条曲线时错开动画
-            animationDuration: 1000,
-            animationEasing: 'cubicOut',
-            ...(color ? {
-              itemStyle: { color },
-              lineStyle: { 
-                width: 2,  // 稍微加粗线条，更清晰
-                cap: 'round', 
-                join: 'round', 
-                color 
-              }
-            } : {
-              lineStyle: { 
-                width: 2, 
-                cap: 'round', 
-                join: 'round' 
-              }
-            }),
-            areaStyle: validSeries.length === 1
-              ? {
-                  opacity: 0.2,  // 稍微增加透明度，更明显
-                  color: color || props.lineColor
-                }
-              : undefined
-          }
-        }),
-        // 时间游标（用于视频/日志同步）- 使用 custom 系列实现
-        ...(props.cursorMs != null && props.cursorMs >= globalMinMs && props.cursorMs <= globalMaxMs
-          ? [
-              {
-                type: 'custom',
-                silent: true,
-                z: 100,
-                renderItem: (params, api) => {
-                  const x = api.coord([props.cursorMs, 0])[0]
-                  const yTop = params.coordSys.y
-                  const height = params.coordSys.height
-                  return {
-                    type: 'line',
-                    shape: {
-                      x1: x,
-                      y1: yTop,
-                      x2: x,
-                      y2: yTop + height
-                    },
-                    style: {
-                      stroke: '#ef4444',
-                      lineWidth: 2,
-                      lineDash: [4, 4]
-                    }
-                  }
-                },
-                data: [[props.cursorMs, 0]]
-              }
-            ]
-          : [])
+        series: buildSeriesArray(validSeries, totalPoints)
       }
 
       chartInstance.setOption(option, true)
 
-      // 点击图表（折线/区域/空白）：按像素换算到最近数据点时间戳并抛出，避免 symbol 太小点不中
+      // 点击图表：用二分查找最近时间戳，避免 2 万点全量遍历
       const zr = chartInstance.getZr()
       zr.off('click')
       zr.on('click', (e) => {
@@ -554,16 +597,16 @@ export default {
           const xMs = coord[0]
           const opt = chartInstance.getOption()
           const seriesList = (opt && opt.series) ? opt.series : []
-          const allTs = []
+          let timeData = null
           for (const s of seriesList) {
-            if (!s || !Array.isArray(s.data)) continue
-            for (const d of s.data) {
-              const t = Array.isArray(d) ? d[0] : (d && typeof d === 'object' && Array.isArray(d.value) ? d.value[0] : null)
-              if (typeof t === 'number' && Number.isFinite(t)) allTs.push(t)
+            if (s && s.type !== 'custom' && Array.isArray(s.data) && s.data.length > 0) {
+              timeData = s.data
+              break
             }
           }
-          if (allTs.length === 0) return
-          const nearest = allTs.reduce((a, b) => Math.abs(a - xMs) <= Math.abs(b - xMs) ? a : b)
+          if (!timeData || timeData.length === 0) return
+          const nearest = findNearestTimestamp(timeData, xMs)
+          if (nearest == null) return
           const clamped = Math.max(globalMinMs, Math.min(globalMaxMs, nearest))
           emit('cursorChange', clamped)
         } catch (_) {}
@@ -630,22 +673,6 @@ export default {
         }
       }
 
-      // 更新 y 轴范围（当启用自适应模式时）
-      const updateYAxisRange = () => {
-        if (props.yAxisFitMode === 'auto' && chartInstance) {
-          const visibleRange = getVisibleDataRange()
-          if (visibleRange.minY != null && visibleRange.maxY != null && 
-              (visibleRange.minY !== visibleRange.maxY || visibleRange.minY !== 0)) {
-            chartInstance.setOption({
-              yAxis: {
-                min: visibleRange.minY,
-                max: visibleRange.maxY
-              }
-            }, false)
-          }
-        }
-      }
-      
       // 监听 dataZoom 事件
       chartInstance.off('dataZoom')
       chartInstance.on('dataZoom', (ev) => {
@@ -705,6 +732,30 @@ export default {
           })
         }, 100)
       }
+    }
+
+    // 方案三：数据变化时仅增量更新 option，避免 dispose + 整图重建
+    const updateChart = (validSeries) => {
+      if (!chartInstance || !validSeries.length) return
+      const totalPoints = validSeries.reduce((acc, s) => acc + (s.data ? s.data.length : 0), 0)
+      const allX = validSeries.flatMap((s) => s.data.map((d) => d[0]))
+      const minX = Math.min(...allX)
+      const maxX = Math.max(...allX)
+      globalMinMs = minX
+      globalMaxMs = maxX
+      const allY = validSeries.flatMap((s) => s.data.map((d) => d[1]))
+      globalMinY = Math.min(...allY)
+      globalMaxY = Math.max(...allY)
+      const initialYRange = props.yAxisFitMode === 'auto' ? getVisibleDataRange() : { minY: globalMinY, maxY: globalMaxY }
+      chartInstance.setOption({
+        xAxis: { min: globalMinMs, max: globalMaxMs },
+        yAxis: { min: initialYRange.minY, max: initialYRange.maxY },
+        series: buildSeriesArray(validSeries, totalPoints)
+      }, false)
+      rangeStartMs.value = globalMinMs
+      rangeEndMs.value = globalMaxMs
+      emit('rangeChange', { startMs: globalMinMs, endMs: globalMaxMs })
+      nextTick(() => updateYAxisRange())
     }
 
     const resizeChart = () => {
@@ -767,10 +818,26 @@ export default {
       }, false)
     }
 
-    // 监听数据变化
+    // 监听数据变化（方案三：有实例且数据有效时仅增量更新，避免整图重建）
     watch(() => props.seriesData, () => {
       nextTick(() => {
-        createChart()
+        const seriesList = normalizeSeriesInput()
+        if (!chartContainer.value) return
+        const validSeries = seriesList
+          .map((s) => ({ ...s, data: validateSeriesPoints(s.data) }))
+          .filter((s) => s.data.length > 0)
+        if (validSeries.length === 0) {
+          if (chartInstance) {
+            chartInstance.dispose()
+            chartInstance = null
+          }
+          return
+        }
+        if (chartInstance) {
+          updateChart(validSeries)
+        } else {
+          createChart()
+        }
       })
     }, { deep: true })
 

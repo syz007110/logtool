@@ -1,4 +1,4 @@
-{
+﻿{
   "shared": {
     "confirm": "确认",
     "cancel": "取消",
@@ -758,18 +758,18 @@
       "manualTab": "手动输入",
       "formatDescription": "CSV文件格式说明：",
       "formatColumns": "CSV文件应包含以下列（第一行为标题行）：",
-      "formatColumnsList": "subsystem,code,lang,short_message,user_hint,operation",
+      "formatColumnsList": "subsystem,code,lang,short_message,user_hint,operation,detail,method,param1,param2,param3,param4",
       "formatExample": "示例内容：",
       "supportedLanguages": "支持的语言代码：",
       "supportedLanguagesList": "zh(中文), en(英语), fr(法语), de(德语), es(西班牙语), it(意大利语), pt(葡萄牙语), nl(荷兰语), sk(斯洛伐克语), ro(罗马尼亚语), da(丹麦语)",
       "validationRules": "⚠️ 数据验证规则：",
-      "rule1": "每行数据必须包含6个字段",
+      "rule1": "每行数据至少包含6个字段，可扩展到12个字段",
       "rule2": "必须满足以下条件之一：",
       "rule2a": "1) user_hint 和 operation 至少一个不为空",
       "rule2b": "2) short_message 和 operation 至少一个不为空",
       "rule3": "故障码必须先在故障码管理中创建",
       "manualFormatDescription": "CSV格式说明：",
-      "manualFormatExample": "每行数据格式：子系统号,故障码,语言代码,精简提示,用户提示,操作信息",
+      "manualFormatExample": "每行数据格式：子系统号,故障码,语言代码,精简提示,用户提示,操作信息[,detail,method,param1,param2,param3,param4]",
       "manualFormatSample": "示例：",
       "uploadTip": "只能上传csv文件，且不超过10MB",
       "selectCsvFile": "请选择CSV文件",
@@ -781,7 +781,7 @@
       "errorDetails": "错误详情：{errorMessages}",
       "importSuccess": "导入成功：共导入 {successCount} 条数据",
       "rowValidationError": "第{row}行：需要满足以下条件之一：1) user_hint和operation至少一个不为空，或2) short_message和operation至少一个不为空",
-      "rowFormatError": "第{row}行：数据格式不正确，需要6个字段"
+      "rowFormatError": "第{row}行：数据格式不正确，至少需要6个字段"
     },
     "messages": {
       "loadFailed": "加载失败",

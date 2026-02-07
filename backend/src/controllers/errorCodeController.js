@@ -907,6 +907,7 @@ const exportMultiLanguageXML = async (req, res) => {
   try {
     const { languages = 'zh' } = req.query;
     const langList = languages.split(',').map(lang => lang.trim());
+    console.log(`[exportMultiLanguageXML] start languages=${languages}`);
     
     // 语言代码映射 - 只支持指定的10种语言
     const langMap = {
@@ -925,26 +926,87 @@ const exportMultiLanguageXML = async (req, res) => {
     
     // 转换语言代码
     const targetLangList = langList.map(lang => langMap[lang] || lang);
+    const i18nQueryLangs = Array.from(new Set([...targetLangList, 'zh']));
+    const i18nQueryLangSet = new Set(i18nQueryLangs);
+    const queryStart = Date.now();
     
-    // 获取所有故障码及其多语言内容
+    // 获取所有故障码
+    const queryErrorCodesStart = Date.now();
     const errorCodes = await ErrorCode.findAll({
-      include: [{
-        model: I18nErrorCode,
-        as: 'i18nContents',
-        required: false
-      }],
-      order: [['subsystem', 'ASC'], ['code', 'ASC']]
+      attributes: [
+        'id',
+        'subsystem',
+        'code',
+        'is_axis_error',
+        'is_arm_error',
+        'short_message',
+        'user_hint',
+        'operation',
+        'detail',
+        'method',
+        'param1',
+        'param2',
+        'param3',
+        'param4',
+        'for_expert',
+        'for_novice',
+        'related_log',
+        'solution'
+      ],
+      order: [['subsystem', 'ASC'], ['code', 'ASC']],
+      raw: true
     });
+    const queryErrorCodesMs = Date.now() - queryErrorCodesStart;
+    const errorCodeIds = errorCodes.map(item => item.id);
+
+    // 只取目标语言和中文回退的多语言行，避免联表放大
+    const queryI18nStart = Date.now();
+    const i18nRows = await I18nErrorCode.findAll({
+      where: {
+        error_code_id: { [Op.in]: errorCodeIds }
+      },
+      attributes: [
+        'error_code_id',
+        'lang',
+        'short_message',
+        'user_hint',
+        'operation',
+        'detail',
+        'method',
+        'param1',
+        'param2',
+        'param3',
+        'param4'
+      ],
+      raw: true
+    });
+    const queryI18nMs = Date.now() - queryI18nStart;
+    const queryCostMs = Date.now() - queryStart;
     
     if (errorCodes.length === 0) {
       return res.status(404).json({ message: '没有找到故障码数据' });
     }
     
-    console.log(`找到 ${errorCodes.length} 个故障码`);
-    console.log('请求的语言:', langList);
-    console.log('目标语言:', targetLangList);
-    
+    const xmlBuildStart = Date.now();
     const xmlResults = {};
+    const i18nByErrorCodeId = new Map();
+    i18nRows.forEach(row => {
+      if (!i18nQueryLangSet.has(row.lang)) return;
+      let byLang = i18nByErrorCodeId.get(row.error_code_id);
+      if (!byLang) {
+        byLang = Object.create(null);
+        i18nByErrorCodeId.set(row.error_code_id, byLang);
+      }
+      byLang[row.lang] = row;
+    });
+    const groupedByCodes = {};
+    errorCodes.forEach(errorCode => {
+      if (!groupedByCodes[errorCode.subsystem]) {
+        groupedByCodes[errorCode.subsystem] = [];
+      }
+      groupedByCodes[errorCode.subsystem].push(errorCode);
+    });
+    const sortedSubsystems = Object.keys(groupedByCodes).sort();
     
     // 为每种语言生成XML
     for (const language of langList) {
@@ -991,30 +1053,13 @@ const exportMultiLanguageXML = async (req, res) => {
 \t</prefix>
 \t<instance>\n`;
 
-      // 按子系统分组
-      const groupedByCodes = {};
-      errorCodes.forEach(errorCode => {
-        if (!groupedByCodes[errorCode.subsystem]) {
-          groupedByCodes[errorCode.subsystem] = [];
-        }
-        groupedByCodes[errorCode.subsystem].push(errorCode);
-      });
-
       // 生成每个子系统的故障码
-      Object.keys(groupedByCodes).sort().forEach(subsystem => {
+      sortedSubsystems.forEach(subsystem => {
         xmlContent += `\t\t<subsystem id="${subsystem}">\n`;
         
         groupedByCodes[subsystem].forEach(errorCode => {
           // 获取当前语言的多语言内容
-          const i18nContent = errorCode.i18nContents && errorCode.i18nContents.length > 0 
-            ? errorCode.i18nContents.find(content => content.lang === targetLang)
-            : null;
-          
-          // 调试信息
-          if (errorCode.code === '0X010A') {
-            console.log(`故障码 ${errorCode.code} 的多语言内容:`, errorCode.i18nContents);
-            console.log(`目标语言 ${targetLang} 的内容:`, i18nContent);
-          }
+          const i18nContent = (i18nByErrorCodeId.get(errorCode.id) || Object.create(null))[targetLang] || null;
           
           xmlContent += `\t\t\t<error_code id="${errorCode.code}">\n`;
           xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
@@ -1024,18 +1069,24 @@ const exportMultiLanguageXML = async (req, res) => {
           const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
           const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
           const operation = i18nContent ? i18nContent.operation : errorCode.operation;
+          const detail = i18nContent ? i18nContent.detail : errorCode.detail;
+          const method = i18nContent ? i18nContent.method : errorCode.method;
+          const param1 = i18nContent ? i18nContent.param1 : errorCode.param1;
+          const param2 = i18nContent ? i18nContent.param2 : errorCode.param2;
+          const param3 = i18nContent ? i18nContent.param3 : errorCode.param3;
+          const param4 = i18nContent ? i18nContent.param4 : errorCode.param4;
           
           xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
           xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;
           xmlContent += `\t\t\t\t<opinfo>${escapeXml(operation || '')}</opinfo>\n`;
           
           xmlContent += `\t\t\t\t<isArm>${errorCode.is_arm_error ? 'True' : 'False'}</isArm>\n`;
-          xmlContent += `\t\t\t\t<detInfo>${escapeXml(errorCode.detail || '')}</detInfo>\n`;
-          xmlContent += `\t\t\t\t<method>${escapeXml(errorCode.method || '')}</method>\n`;
-          xmlContent += `\t\t\t\t<para1>${escapeXml(errorCode.param1 || '')}</para1>\n`;
-          xmlContent += `\t\t\t\t<para2>${escapeXml(errorCode.param2 || '')}</para2>\n`;
-          xmlContent += `\t\t\t\t<para3>${escapeXml(errorCode.param3 || '')}</para3>\n`;
-          xmlContent += `\t\t\t\t<para4>${escapeXml(errorCode.param4 || '')}</para4>\n`;
+          xmlContent += `\t\t\t\t<detInfo>${escapeXml(detail || '')}</detInfo>\n`;
+          xmlContent += `\t\t\t\t<method>${escapeXml(method || '')}</method>\n`;
+          xmlContent += `\t\t\t\t<para1>${escapeXml(param1 || '')}</para1>\n`;
+          xmlContent += `\t\t\t\t<para2>${escapeXml(param2 || '')}</para2>\n`;
+          xmlContent += `\t\t\t\t<para3>${escapeXml(param3 || '')}</para3>\n`;
+          xmlContent += `\t\t\t\t<para4>${escapeXml(param4 || '')}</para4>\n`;
           xmlContent += `\t\t\t\t<expert>${errorCode.for_expert ? '1.0' : '0.0'}</expert>\n`;
           xmlContent += `\t\t\t\t<learner>${errorCode.for_novice ? '1.0' : '0.0'}</learner>\n`;
           xmlContent += `\t\t\t\t<log>${errorCode.related_log ? '1.0' : '0.0'}</log>\n`;
@@ -1050,6 +1101,8 @@ const exportMultiLanguageXML = async (req, res) => {
       xmlResults[language] = xmlContent;
     }
     
+    const xmlBuildCostMs = Date.now() - xmlBuildStart;
+
     // 记录操作日志
     if (req.user) {
       try {
@@ -1068,13 +1121,14 @@ const exportMultiLanguageXML = async (req, res) => {
       }
     }
     
+    console.log(`[exportMultiLanguageXML] done langs=${langList.join(',')} codes=${errorCodes.length} i18nRows=${i18nRows.length} queryMs=${queryCostMs} queryCodesMs=${queryErrorCodesMs} queryI18nMs=${queryI18nMs} buildMs=${xmlBuildCostMs}`);
     res.json({
       message: '多语言XML导出成功',
       languages: langList,
       xmlResults
     });
   } catch (err) {
-    console.error('多语言XML导出失败:', err);
+    console.error('[exportMultiLanguageXML] failed:', err);
     res.status(500).json({ message: '多语言XML导出失败', error: err.message });
   }
 };

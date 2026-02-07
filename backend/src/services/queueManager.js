@@ -8,7 +8,8 @@ const {
   realtimeProcessingQueue, 
   historicalProcessingQueue, 
   surgeryAnalysisQueue,
-  kbIngestQueue
+  kbIngestQueue,
+  translateQueue
 } = require('../config/queue');
 
 class QueueManager {
@@ -18,7 +19,8 @@ class QueueManager {
       realtime: realtimeProcessingQueue,
       historical: historicalProcessingQueue,
       surgery: surgeryAnalysisQueue,
-      kb: kbIngestQueue
+      kb: kbIngestQueue,
+      translate: translateQueue
     };
     
     this.initialized = false;

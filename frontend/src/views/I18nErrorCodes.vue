@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="i18n-error-codes-container" v-if="isClient">
     <!-- 统一卡片：包含搜索栏和列表 -->
     <el-card class="main-card">
@@ -247,9 +247,9 @@
             <p>{{ $t('i18nErrorCodes.import.formatColumns') }}</p>
             <p><strong>{{ $t('i18nErrorCodes.import.formatColumnsList') }}</strong></p>
             <p><strong>{{ $t('i18nErrorCodes.import.formatExample') }}</strong></p>
-            <pre>subsystem,code,lang,short_message,user_hint,operation
-1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态
-1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status</pre>
+            <pre>subsystem,code,lang,short_message,user_hint,operation,detail,method,param1,param2,param3,param4
+1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态,,detail sample,method sample,p1,p2,p3,p4
+1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status,,detail sample,method sample,p1,p2,p3,p4</pre>
             <p><strong>{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</strong></p>
             <p><strong>{{ $t('i18nErrorCodes.import.validationRules') }}</strong></p>
             <p>• {{ $t('i18nErrorCodes.import.rule1') }}</p>
@@ -281,8 +281,8 @@
                 <p><strong>{{ $t('i18nErrorCodes.import.manualFormatDescription') }}</strong></p>
                 <p>{{ $t('i18nErrorCodes.import.manualFormatExample') }}</p>
                 <p><strong>{{ $t('i18nErrorCodes.import.manualFormatSample') }}</strong></p>
-                <pre>1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态
-1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status</pre>
+                <pre>1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态,,detail sample,method sample,p1,p2,p3,p4
+1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status,,detail sample,method sample,p1,p2,p3,p4</pre>
                 <p><strong>{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</strong></p>
                 <p><strong>{{ $t('i18nErrorCodes.import.validationRules') }}</strong></p>
                 <p>• {{ $t('i18nErrorCodes.import.rule1') }}</p>
@@ -893,7 +893,13 @@ export default {
                   lang: values[2],
                   short_message: values[3],
                   user_hint: values[4],
-                  operation: values[5]
+                  operation: values[5],
+                  detail: values[6] || '',
+                  method: values[7] || '',
+                  param1: values[8] || '',
+                  param2: values[9] || '',
+                  param3: values[10] || '',
+                  param4: values[11] || ''
                 }
                 
                 // 客户端验证：检查内容字段

@@ -86,6 +86,18 @@ const kbIngestQueue = new Queue('kb-ingest', {
   }
 });
 
+// Document translation queue（docx/md/json/txt → translated file）
+const translateQueue = new Queue('translate', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 8, // 用户主动操作：高于 kb，低于 realtime
+    timeout: parseInt(process.env.TRANSLATE_QUEUE_TIMEOUT_MS) || 900000, // 15分钟（LLM 可能较慢）
+    removeOnComplete: 200,
+    removeOnFail: 100
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('error', (error) => {
   console.error('[队列] 队列错误:', error);
@@ -140,6 +152,15 @@ kbIngestQueue.on('failed', (job, err) => {
   console.error('[KB队列] 任务失败:', job.id, err.message);
 });
 
+// Translate 队列事件监听
+translateQueue.on('error', (error) => {
+  console.error('[Translate队列] 队列错误:', error);
+});
+
+translateQueue.on('failed', (job, err) => {
+  console.error('[Translate队列] 任务失败:', job.id, err.message);
+});
+
 // 通用队列完成事件监听
 logProcessingQueue.on('completed', (job) => {
   console.log(`[队列] 任务 ${job.id} 完成`);
@@ -165,6 +186,10 @@ kbIngestQueue.on('completed', (job) => {
   console.log(`[KB队列] 任务 ${job.id} 完成`);
 });
 
+translateQueue.on('completed', (job) => {
+  console.log(`[Translate队列] 任务 ${job.id} 完成`);
+});
+
 logProcessingQueue.on('stalled', (job) => {
   console.warn(`[队列] 任务 ${job.id} 停滞`);
 });
@@ -180,6 +205,7 @@ module.exports = {
   surgeryAnalysisQueue,
   motionDataQueue,
   kbIngestQueue,
+  translateQueue,
   redisConfig,
   queueOptions
 };

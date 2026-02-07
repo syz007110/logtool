@@ -4,13 +4,15 @@ const {
   historicalProcessingQueue, 
   surgeryAnalysisQueue,
   motionDataQueue,
-  kbIngestQueue
+  kbIngestQueue,
+  translateQueue
 } = require('../config/queue');
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog, processBatchDownload: processLogsBatchDownload, processExportCsv } = require('./batchProcessor');
 const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
 const { processKbIngestJob } = require('./kbIngestProcessor');
+const { processTranslateJob } = require('./translateProcessor');
 const Log = require('../models/log');
 const websocketService = require('../services/websocketService');
 const { logOperation } = require('../utils/operationLogger');
@@ -22,6 +24,8 @@ const HISTORICAL_CONCURRENCY = parseInt(process.env.HISTORICAL_QUEUE_CONCURRENCY
 const SURGERY_CONCURRENCY = parseInt(process.env.SURGERY_QUEUE_CONCURRENCY) || 3;
 const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURRENCY) || 2;
 const KB_INGEST_CONCURRENCY = parseInt(process.env.KB_QUEUE_CONCURRENCY) || 2;
+// 文档翻译队列并发数，可选 env: TRANSLATE_QUEUE_CONCURRENCY（默认 1）
+const TRANSLATE_CONCURRENCY = parseInt(process.env.TRANSLATE_QUEUE_CONCURRENCY) || 1;
 
 console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
 console.log(`[队列系统] 启动实时处理队列，并发数: ${REALTIME_CONCURRENCY}`);
@@ -29,6 +33,7 @@ console.log(`[队列系统] 启动历史处理队列，并发数: ${HISTORICAL_C
 console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONCURRENCY}`);
 console.log(`[队列系统] 启动MotionData处理队列，并发数: ${MOTION_DATA_CONCURRENCY}`);
 console.log(`[队列系统] 启动知识库入库队列，并发数: ${KB_INGEST_CONCURRENCY}`);
+console.log(`[队列系统] 启动文档翻译队列，并发数: ${TRANSLATE_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -595,6 +600,56 @@ kbIngestQueue.process('ingest-kb', KB_INGEST_CONCURRENCY, async (job) => {
   }
 });
 
+// 注册文档翻译处理器（上传文档 → 分块翻译 → 生成结果文件）
+translateQueue.process('translate-document', TRANSLATE_CONCURRENCY, async (job) => {
+  try {
+    console.log(`[Translate队列处理器] 开始处理翻译任务: ${job.id}`);
+    const result = await processTranslateJob(job);
+    console.log(`[Translate队列处理器] 翻译任务 ${job.id} 完成`);
+    // 操作日志：记录翻译文件名与消耗 token（参考智能搜索）
+    try {
+      const originalName = job.data?.originalName || 'document';
+      const usage = result?.meta?.usage || {};
+      const tokens = {
+        input_tokens: usage.input_tokens ?? usage.prompt_tokens ?? 0,
+        output_tokens: usage.output_tokens ?? usage.completion_tokens ?? 0
+      };
+      await logOperation({
+        operation: 'document_translate',
+        description: `文档翻译: ${originalName}`,
+        user_id: job.data?.userId ?? null,
+        username: job.data?.username ?? '',
+        status: 'success',
+        ip: '',
+        user_agent: '',
+        details: { filename: originalName, tokens }
+      });
+    } catch (logErr) {
+      console.warn('[Translate队列处理器] 操作日志记录失败（已忽略）:', logErr?.message);
+    }
+    return result;
+  } catch (error) {
+    console.error(`[Translate队列处理器] 翻译任务 ${job.id} 失败:`, error);
+    // 失败时也记录操作日志
+    try {
+      const originalName = job.data?.originalName || 'document';
+      await logOperation({
+        operation: 'document_translate',
+        description: `文档翻译（失败）: ${originalName}`,
+        user_id: job.data?.userId ?? null,
+        username: job.data?.username ?? '',
+        status: 'failed',
+        ip: '',
+        user_agent: '',
+        details: { filename: originalName, error: error?.message }
+      });
+    } catch (logErr) {
+      console.warn('[Translate队列处理器] 操作日志记录失败（已忽略）:', logErr?.message);
+    }
+    throw error;
+  }
+});
+
 // 辅助函数：格式化文件大小
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -679,6 +734,7 @@ process.on('SIGTERM', async () => {
   await logProcessingQueue.close();
   await motionDataQueue.close();
   await kbIngestQueue.close();
+  await translateQueue.close();
   process.exit(0);
 });
 
@@ -687,6 +743,7 @@ process.on('SIGINT', async () => {
   await logProcessingQueue.close();
   await motionDataQueue.close();
   await kbIngestQueue.close();
+  await translateQueue.close();
   process.exit(0);
 });
 

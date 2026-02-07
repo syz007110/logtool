@@ -22,7 +22,19 @@
           v-loading="loading"
         >
         <el-table-column prop="operation" :label="$t('history.operation')" width="150" />
-        <el-table-column prop="description" :label="$t('history.description')" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="$t('history.description')" min-width="200">
+          <template #default="{ row }">
+            <el-tooltip
+              :content="row.description || ''"
+              placement="top"
+              effect="dark"
+              :show-after="500"
+              :disabled="!row.description"
+            >
+              <span class="description-cell">{{ row.description }}</span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
         <el-table-column prop="user" :label="$t('history.user')" width="120" />
         <el-table-column prop="time" :label="$t('history.time')" min-width="180">
           <template #default="{ row }">
@@ -317,5 +329,13 @@ export default {
   font-size: 12px;
   overflow-x: auto;
   color: rgb(var(--text-primary));
+}
+
+.description-cell {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style> 

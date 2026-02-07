@@ -28,7 +28,7 @@ const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination'
  */
 function formatTimeForClickHouse(timeValue) {
   if (!timeValue) return null;
-  
+
   // 如果已经是字符串格式
   if (typeof timeValue === 'string') {
     // 处理 ISO 格式：2025-12-13T14:21:10.000Z -> 2025-12-13 14:21:10
@@ -37,25 +37,25 @@ function formatTimeForClickHouse(timeValue) {
       .replace(/\.\d{3}Z?$/, '')
       .replace(/Z$/, '')
       .trim();
-    
+
     // 验证格式是否为 YYYY-MM-DD HH:mm:ss
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(formatted)) {
       return formatted;
     }
-    
+
     // 如果不是标准格式，尝试用 dayjs 解析
     const parsed = dayjs(formatted);
     if (parsed.isValid()) {
       return parsed.format('YYYY-MM-DD HH:mm:ss');
     }
   }
-  
+
   // 如果是 Date 对象或其他格式，使用 dayjs 格式化
   const parsed = dayjs(timeValue);
   if (parsed.isValid()) {
     return parsed.format('YYYY-MM-DD HH:mm:ss');
   }
-  
+
   return null;
 }
 
@@ -200,7 +200,7 @@ async function hasExplanationFulltextIndex() {
 // 分类允许码缓存（5分钟）：key = sorted category ids
 const allowCodesCache = { data: new Map(), ttlMs: 5 * 60 * 1000 };
 async function getAllowCodesForCategories(categoryIds) {
-  const key = 'cat:' + [...categoryIds].sort((a,b)=>a-b).join(',');
+  const key = 'cat:' + [...categoryIds].sort((a, b) => a - b).join(',');
   const now = Date.now();
   const cached = allowCodesCache.data.get(key);
   if (cached && (now - cached.at) < allowCodesCache.ttlMs) return cached.value;
@@ -251,9 +251,9 @@ async function buildCategoryFilterJoin(categoryIds) {
     `SELECT COUNT(*) as cnt FROM code_category_map WHERE analysis_category_id IN (:ids)`,
     { replacements: { ids: categoryIds }, type: SequelizeLib.QueryTypes.SELECT }
   );
-  
+
   const hasPrecomputedData = countResult && countResult.cnt > 0;
-  
+
   if (hasPrecomputedData) {
     // ✅ 优先使用预计算表（最快）
     console.log('[分类过滤] 使用预计算表 code_category_map，分类数:', categoryIds.length);
@@ -294,7 +294,7 @@ async function buildCategoryFilterJoin(categoryIds) {
  */
 function buildWhereConditions(where) {
   const conditions = [];
-  
+
   // 处理 log_id
   if (where.log_id) {
     if (where.log_id[Op.in]) {
@@ -304,7 +304,7 @@ function buildWhereConditions(where) {
       conditions.push(`log_entries.log_id = ${sequelize.escape(where.log_id)}`);
     }
   }
-  
+
   // 处理 timestamp
   if (where.timestamp) {
     if (where.timestamp[Op.gte]) {
@@ -318,7 +318,7 @@ function buildWhereConditions(where) {
       conditions.push(`log_entries.timestamp BETWEEN ${sequelize.escape(start)} AND ${sequelize.escape(end)}`);
     }
   }
-  
+
   // 处理 error_code
   if (where.error_code) {
     if (where.error_code[Op.like]) {
@@ -327,12 +327,12 @@ function buildWhereConditions(where) {
       conditions.push(`log_entries.error_code = ${sequelize.escape(where.error_code)}`);
     }
   }
-  
+
   // 处理 code4（如果是十六进制搜索）
   if (where.code4) {
     conditions.push(`log_entries.code4 = ${sequelize.escape(where.code4)}`);
   }
-  
+
   // ✅ 修复：递归处理 Op.and 数组，提取嵌套的条件
   if (where[Op.and] && Array.isArray(where[Op.and])) {
     where[Op.and].forEach(subCondition => {
@@ -345,7 +345,7 @@ function buildWhereConditions(where) {
       }
     });
   }
-  
+
   return conditions;
 }
 
@@ -393,10 +393,10 @@ const getLogs = async (req, res) => {
     // 新增筛选：仅看自己 + 基于文件名前缀(YYYYMMDDHH)的时间筛选（年/月/日/小时 或 直接前缀 或 区间）+ 状态筛选 + 指定日志ID列表
     const { only_own, year, month, day, hour, time_prefix, time_range_start, time_range_end, status_filter } = req.query;
     let { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
-    
+
     // 构建查询条件
     const where = {};
-    
+
     // 优先支持通过 log_ids 直接查询指定的日志（用于批量分析页面）
     if (log_ids) {
       const ids = String(log_ids)
@@ -410,7 +410,7 @@ const getLogs = async (req, res) => {
         limit = ids.length; // 设置为 ID 数量，确保返回所有匹配的日志
       }
     }
-    
+
     if (device_id) {
       where.device_id = device_id;
     }
@@ -423,7 +423,7 @@ const getLogs = async (req, res) => {
     if (truthy(only_own) && req.user && req.user.id) {
       where.uploader_id = req.user.id;
     }
-    
+
     // 状态筛选：'completed' 表示已完成（parsed, completed），'incomplete' 表示未完成（其他状态）
     if (status_filter && status_filter !== 'all') {
       if (status_filter === 'completed') {
@@ -431,7 +431,7 @@ const getLogs = async (req, res) => {
         where.status = { [Op.in]: ['parsed', 'completed'] };
       } else if (status_filter === 'incomplete') {
         // 未完成状态：上传中，解密中，解密失败，解析失败，文件错误，处理失败等
-        where.status = { 
+        where.status = {
           [Op.in]: [
             'uploading', 'queued', 'decrypting', 'parsing',
             'failed', 'decrypt_failed', 'parse_failed', 'file_error',
@@ -522,11 +522,11 @@ const getLogs = async (req, res) => {
         addTokenRangeCondition(prefixCandidate, prefixCandidate);
       }
     }
-    
+
     // 权限控制：所有用户都可以看到所有日志，但删除权限在删除接口中单独控制
     // 普通用户、专家用户和管理员都可以查看所有日志
     // 删除权限在deleteLog函数中单独检查
-    
+
     // 第一步：查询日志
     const { count: total, rows: logs } = await Log.findAndCountAll({
       where,
@@ -540,7 +540,7 @@ const getLogs = async (req, res) => {
 
     // 第二步：获取所有相关的设备ID
     const deviceIds = [...new Set(logs.map(log => log.device_id).filter(id => id))];
-    
+
     // 第三步：批量查询设备信息
     let deviceMap = {};
     if (deviceIds.length > 0) {
@@ -549,7 +549,7 @@ const getLogs = async (req, res) => {
           where: { device_id: deviceIds },
           attributes: ['device_id', 'hospital', 'device_model']
         });
-        
+
         // 创建设备ID到设备信息的映射
         devices.forEach(device => {
           deviceMap[device.device_id] = device;
@@ -564,7 +564,7 @@ const getLogs = async (req, res) => {
     const processedLogs = logs.map(log => {
       const logData = log.toJSON();
       const deviceInfo = deviceMap[logData.device_id];
-      
+
       return {
         ...logData,
         hospital_name: deviceInfo?.hospital || null,
@@ -655,10 +655,10 @@ const getLogsByDevice = async (req, res) => {
   try {
     const { only_own, time_prefix, device_filter } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.DEVICE_GROUP);
-    
+
     // 构建查询条件
     const where = {};
-    
+
     // 仅看自己：uploader_id 等于当前用户
     const truthy = (v) => {
       if (v === undefined || v === null) return false;
@@ -668,14 +668,14 @@ const getLogsByDevice = async (req, res) => {
     if (truthy(only_own) && req.user && req.user.id) {
       where.uploader_id = req.user.id;
     }
-    
+
     // 时间前缀筛选
     const prefixFromParam = (p) => typeof p === 'string' ? p.trim() : (p ?? '').toString();
     const tp = prefixFromParam(time_prefix);
     if (tp && /^[0-9]{4}(?:[0-9]{2}){0,3}$/.test(tp)) {
       where.original_name = { [Op.like]: `${tp}%` };
     }
-    
+
     // ⚠️ 性能优化：之前实现会全量拉取 logs 后在 Node.js 内存中分组/分页，数据一大就会非常慢。
     // 这里改为数据库层按 device_id 分组 + 分页，只返回当前页设备汇总信息。
     const offset = (page - 1) * limit;
@@ -745,8 +745,8 @@ const getLogsByDevice = async (req, res) => {
       // 为兼容旧前端结构，保留 logs 字段（当前列表页并不使用该字段）
       logs: []
     }));
-    
-    res.json({ 
+
+    res.json({
       device_groups,
       pagination: {
         current_page: page,
@@ -791,10 +791,10 @@ const uploadLog = async (req, res) => {
     const sourceHeader = (req.get('x-upload-source') || 'user-upload').toLowerCase();
     const source = sourceHeader === 'auto-upload' ? 'auto-upload' : 'user-upload';
     const clientId = req.get('x-client-id') || null;
-    
+
     // 从请求头获取设备编号
     const deviceId = req.headers['x-device-id'] || '0000-00'; // 默认设备编号
-    
+
     // 打印监控目标路径相关信息
     console.log('=== 日志上传监控信息 ===');
     console.log('上传来源:', source);
@@ -805,23 +805,23 @@ const uploadLog = async (req, res) => {
     files.forEach((file, index) => {
       console.log(`  ${index + 1}. ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     });
-    
+
     // 验证设备编号格式
     if (deviceId !== '0000-00' && !validateDeviceId(deviceId)) {
       return res.status(400).json({ message: req.t('log.upload.invalidDeviceIdFormat') });
     }
-    
+
     const uploadedLogs = [];
-    
+
     for (const file of files) {
       // 根据设备编号和日志时间自动获取解密密钥
-    let decryptKey = null;
-      
-    if (deviceId !== '0000-00') {
-      try {
+      let decryptKey = null;
+
+      if (deviceId !== '0000-00') {
+        try {
           // 从文件名提取日志时间
           const logDate = extractTimeFromFileName(file.originalname);
-          
+
           if (logDate) {
             console.log(`从文件名提取到日志时间: ${logDate.toISOString().split('T')[0]}`);
             // 使用多密钥管理服务获取密钥
@@ -831,43 +831,43 @@ const uploadLog = async (req, res) => {
             // 如果无法提取时间，使用当前日期
             decryptKey = await getKeyForDeviceAndDate(deviceId, new Date());
           }
-          
+
           // 如果多密钥管理未找到，回退到 devices.device_key（向后兼容）
           if (!decryptKey) {
             console.log(`多密钥管理未找到密钥，尝试使用设备默认密钥...`);
-        const device = await Device.findOne({ where: { device_id: deviceId } });
-        if (device && device.device_key) {
-          decryptKey = device.device_key;
+            const device = await Device.findOne({ where: { device_id: deviceId } });
+            if (device && device.device_key) {
+              decryptKey = device.device_key;
               console.log(`✅ 使用设备 ${deviceId} 的默认密钥: ${decryptKey.substring(0, 8)}...`);
             }
+          }
+        } catch (error) {
+          console.warn('获取设备密钥失败:', error.message);
         }
-      } catch (error) {
-        console.warn('获取设备密钥失败:', error.message);
+      } else {
+        console.log('使用默认设备编号，跳过密钥查找');
       }
-    } else {
-      console.log('使用默认设备编号，跳过密钥查找');
-    }
-    
-    // 如果无法自动获取密钥，尝试从请求头获取（向后兼容）
-    if (!decryptKey) {
-      decryptKey = req.headers['x-decrypt-key'];
-    }
-    
-    if (!decryptKey) {
-      return res.status(400).json({ message: req.t('log.upload.keyNotFound') });
-    }
-    
-    // 验证密钥格式
-    if (!validateKey(decryptKey)) {
-      return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
-    }
+
+      // 如果无法自动获取密钥，尝试从请求头获取（向后兼容）
+      if (!decryptKey) {
+        decryptKey = req.headers['x-decrypt-key'];
+      }
+
+      if (!decryptKey) {
+        return res.status(400).json({ message: req.t('log.upload.keyNotFound') });
+      }
+
+      // 验证密钥格式
+      if (!validateKey(decryptKey)) {
+        return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
+      }
       let log;
       try {
         console.log(`\n--- 处理文件: ${file.originalname} ---`);
         console.log(`文件大小: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
         console.log(`设备编号: ${deviceId}`);
         console.log(`解密密钥: ${decryptKey ? decryptKey.substring(0, 8) + '...' : '未提供'}`);
-        
+
         // 如果已存在相同 device_id + original_name 的日志，则视为重复上传
         // 逻辑：
         //  - 复用同一条 logs 记录（不新增行）
@@ -908,7 +908,7 @@ const uploadLog = async (req, res) => {
             key_id: decryptKey || null
           });
         }
-        
+
         // 注意：密钥不再在上传时立即保存到设备表
         // 改为在解密成功后再保存，避免错误密钥污染设备表
         // logs表的key_id仍然保存，用于记录使用的密钥
@@ -941,14 +941,14 @@ const uploadLog = async (req, res) => {
           removeOnComplete: true,
           removeOnFail: true
         });
-        
+
         console.log(`✅ 文件 ${file.originalname} 已添加到队列，任务ID: ${job.id}`);
-        
+
         uploadedLogs.push(log);
       } catch (error) {
         console.error(`处理文件 ${file.originalname} 失败:`, error);
         console.error('错误堆栈:', error.stack);
-        
+
         // 如果日志记录已创建，更新状态为失败
         if (log && log.id) {
           try {
@@ -957,7 +957,7 @@ const uploadLog = async (req, res) => {
             console.error('更新日志状态失败:', updateError);
           }
         }
-        
+
         // 删除临时文件
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
@@ -965,7 +965,7 @@ const uploadLog = async (req, res) => {
         throw new Error(`文件 ${file.originalname} 解密失败: ${error.message}`);
       }
     }
-    
+
     console.log('\n=== 上传完成总结 ===');
     console.log(`✅ 成功上传 ${uploadedLogs.length} 个文件`);
     console.log(`📊 设备编号: ${deviceId}`);
@@ -973,7 +973,7 @@ const uploadLog = async (req, res) => {
     console.log(`📤 上传来源: ${source}`);
     console.log(`🆔 客户端ID: ${clientId || '未提供'}`);
     console.log('========================\n');
-    
+
     // 操作日志
     try {
       const { logOperation } = require('../utils/operationLogger');
@@ -991,10 +991,10 @@ const uploadLog = async (req, res) => {
           filenames: uploadedLogs.map(l => l.original_name)
         }
       });
-    } catch (_) {}
+    } catch (_) { }
 
-    res.json({ 
-      message: req.t('log.upload.success', { count: uploadedLogs.length }), 
+    res.json({
+      message: req.t('log.upload.success', { count: uploadedLogs.length }),
       logs: uploadedLogs,
       queued: true,
       device_id: deviceId // 添加设备编号，用于前端自动展开
@@ -1010,49 +1010,49 @@ const parseLog = async (req, res) => {
     const { id } = req.params;
     const log = await Log.findByPk(id);
     if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
-    
+
     // 权限控制：普通用户只能解析自己的日志，专家用户和管理员可以解析任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
       return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
-    
+
     const filePath = path.join(UPLOAD_DIR, log.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: req.t('log.parse.fileNotFound') });
-    
+
     // 读取文件内容
     const content = fs.readFileSync(filePath, 'utf-8');
-    
+
     // 使用数据库中保存的密钥进行解密
     const key = log.key_id;
     if (!key) {
       return res.status(400).json({ message: req.t('log.parse.keyNotFound') });
     }
-    
+
     // 预加载故障码表到缓存
     console.log('🔄 预加载故障码表...');
     await errorCodeCache.loadAllErrorCodes();
     console.log('✅ 故障码表预加载完成');
-    
+
     // 解密日志内容
     const decryptedEntries = decryptLogContent(content, key);
-    
+
     // 统一：预热解析依赖
     await ensureCacheReady();
 
     // 转换为数据库格式并查询正确的释义（统一解析逻辑）
     const entries = [];
     console.log(`🚀 开始处理 ${decryptedEntries.length} 个解密后的日志条目`);
-    
+
     let rowIndex = 1;
     const currentVersion = log.version || 1;
-    
+
     for (const entry of decryptedEntries) {
       // 根据需求，通过解密后的故障码首位+('0X'+故障码后4位)去匹配error_codes表
       const errorCodeStr = entry.error_code;
       let subsystem = '';
       let code = '';
-      
+
       if (errorCodeStr && errorCodeStr.length >= 5) {
         subsystem = errorCodeStr.charAt(0).toUpperCase(); // 首位，统一转换为大写
         if (!/^[1-9A-F]$/.test(subsystem)) { subsystem = ''; }
@@ -1060,7 +1060,7 @@ const parseLog = async (req, res) => {
       }
       // 使用缓存查询error_codes表获取正确的释义
       let explanation = entry.explanation; // 默认使用原始释义（模板选择由统一服务完成）
-      
+
       // 统一解析
       const { explanation: parsedExplanation } = renderEntryExplanation({
         error_code: entry.error_code,
@@ -1071,7 +1071,7 @@ const parseLog = async (req, res) => {
         timestamp: entry.timestamp,
         explanation
       });
-      
+
       // 格式化时间戳：如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接使用；否则使用 formatTimeForClickHouse 格式化
       let timestampStr;
       if (typeof entry.timestamp === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(entry.timestamp)) {
@@ -1079,7 +1079,7 @@ const parseLog = async (req, res) => {
       } else {
         timestampStr = formatTimeForClickHouse(entry.timestamp) || dayjs().format('YYYY-MM-DD HH:mm:ss');
       }
-      
+
       entries.push({
         log_id: log.id,
         timestamp: timestampStr,
@@ -1095,9 +1095,9 @@ const parseLog = async (req, res) => {
         row_index: rowIndex++
       });
     }
-    
+
     console.log('解析日志释义完成，示例:', entries[0]?.explanation);
-    
+
     // 插入 ClickHouse
     try {
       const batchSize = 20000;
@@ -1115,16 +1115,16 @@ const parseLog = async (req, res) => {
       console.error('❌ 数据库插入失败:', insertError.message);
       throw new Error(`数据库插入失败: ${insertError.message}`);
     }
-    
+
     // 更新日志状态
     const oldStatus = log.status;
     log.status = 'parsed';
     log.parse_time = new Date();
     await log.save();
-    
+
     // 推送状态变化到 WebSocket
     pushLogStatusChange(log.id, oldStatus, 'parsed');
-    
+
     // 操作日志
     try {
       const { logOperation } = require('../utils/operationLogger');
@@ -1137,7 +1137,7 @@ const parseLog = async (req, res) => {
         user_agent: req.headers['user-agent'],
         details: { log_id: log.id, entries: entries.length, device_id: log.device_id }
       });
-    } catch (_) {}
+    } catch (_) { }
 
     res.json({ message: req.t('log.parse.success'), count: entries.length });
   } catch (err) {
@@ -1153,10 +1153,10 @@ const getQueueStatus = async (req, res) => {
     const active = await logProcessingQueue.getActive();
     const completed = await logProcessingQueue.getCompleted();
     const failed = await logProcessingQueue.getFailed();
-    
+
     // 获取队列统计信息
     const queueStats = await logProcessingQueue.getJobCounts();
-    
+
     res.json({
       waiting: waiting.length,
       active: active.length,
@@ -1167,9 +1167,9 @@ const getQueueStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('获取队列状态失败:', error);
-    res.status(500).json({ 
-      message: req.t('log.queue.statusFailed'), 
-      error: error.message 
+    res.status(500).json({
+      message: req.t('log.queue.statusFailed'),
+      error: error.message
     });
   }
 };
@@ -1178,25 +1178,25 @@ const getQueueStatus = async (req, res) => {
 const getLogEntries = async (req, res) => {
   const startTime = Date.now();
   const logId = req.params.id;
-  
+
   console.log(`[getLogEntries] ========== 开始处理请求 ==========`);
   console.log(`[getLogEntries] log_id: ${logId}`);
   console.log(`[getLogEntries] 用户信息: ${req.user ? `id=${req.user.id}, role_id=${req.user.role_id}` : '未登录'}`);
-  
+
   try {
     const { id } = req.params;
-    
+
     // 先检查日志是否存在并验证权限
     console.log(`[getLogEntries] 查询日志记录: id=${id}`);
     const log = await Log.findByPk(id);
-    
+
     if (!log) {
       console.log(`[getLogEntries] 日志不存在: id=${id}`);
       return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
-    
+
     console.log(`[getLogEntries] 日志记录找到: id=${log.id}, original_name=${log.original_name}, device_id=${log.device_id}, status=${log.status}, version=${log.version || 1}, upload_time=${log.upload_time}`);
-    
+
     // 权限控制：普通用户只能查看自己的日志明细
     if (req.user && req.user.role_id === 3) {
       if (log.uploader_id !== req.user.id) {
@@ -1204,13 +1204,13 @@ const getLogEntries = async (req, res) => {
         return res.status(403).json({ message: req.t('common.unauthorized') });
       }
     }
-    
+
     const currentVersion = log.version || 1;
     console.log(`[getLogEntries] 当前版本: ${currentVersion}`);
-    
+
     console.log(`[getLogEntries] 开始查询 ClickHouse: log_id=${id}, version=${currentVersion}`);
     const queryStartTime = Date.now();
-    
+
     const result = await getClickHouseClient().query({
       query: `
         SELECT * 
@@ -1224,18 +1224,18 @@ const getLogEntries = async (req, res) => {
       },
       format: 'JSONEachRow'
     });
-    
+
     const queryTime = Date.now() - queryStartTime;
     console.log(`[getLogEntries] ClickHouse 查询完成，耗时: ${queryTime}ms`);
-    
+
     const parseStartTime = Date.now();
     const entries = await result.json();
     const parseTime = Date.now() - parseStartTime;
     const totalTime = Date.now() - startTime;
-    
+
     console.log(`[getLogEntries] 查询成功: 返回条目数=${entries?.length || 0}, 解析耗时=${parseTime}ms, 总耗时=${totalTime}ms`);
     console.log(`[getLogEntries] ========== 请求处理完成 ==========`);
-    
+
     res.json({ entries });
   } catch (err) {
     const totalTime = Date.now() - startTime;
@@ -1254,31 +1254,31 @@ const getLogEntries = async (req, res) => {
 // 批量获取日志明细（用于分析功能）
 const getBatchLogEntries = async (req, res) => {
   try {
-    const { 
-      log_ids, 
-      search, 
-      error_code, 
-      start_time, 
-      end_time, 
-      page = 1, 
+    const {
+      log_ids,
+      search,
+      error_code,
+      start_time,
+      end_time,
+      page = 1,
       limit = 100,
       filters, // 高级筛选条件（JSON字符串或对象）
       analysis_category_ids // 预置维度：分析分类ID数组（逗号分隔或数组）
     } = req.query;
 
     // [MIGRATION] ClickHouse 迁移中，暂停 MySQL 批量查询
-      return res.json({
-        entries: [],
-        total: 0,
+    return res.json({
+      entries: [],
+      total: 0,
       page: parseInt(page),
       limit: parseInt(limit),
       totalPages: 0,
       migration_notice: 'System is migrating to ClickHouse. Analysis features are temporarily unavailable.'
     });
-    
+
     // 仅在首次加载或未选择时间范围时，返回建议的时间范围（min/max）
     const shouldIncludeTimeSuggestion = !start_time && !end_time;
-    
+
     // 生成缓存键
     const cacheKey = cacheManager.generateKey('batch_search', {
       userId: req.user?.id || 'anonymous',
@@ -1292,30 +1292,30 @@ const getBatchLogEntries = async (req, res) => {
       analysis_category_ids,  // ✅ 添加分析等级参数到缓存键
       filters: filters ? JSON.stringify(filters) : ''
     });
-    
+
     // 尝试从缓存获取结果
     const cachedResult = await cacheManager.get(cacheKey);
     if (cachedResult) {
       console.log(`[缓存命中] 批量搜索: ${cacheKey}`);
       return res.json(cachedResult);
     }
-    
+
     console.log(`[缓存未命中] 执行批量搜索: ${cacheKey}`);
-    
+
     // 构建查询条件
     const where = {};
-    
+
     // 日志ID筛选
     if (log_ids) {
       const ids = log_ids.split(',').map(id => parseInt(id.trim()));
       where.log_id = { [Op.in]: ids };
     }
-    
+
     // 故障码筛选
     if (error_code) {
       where.error_code = { [Op.like]: `%${error_code}%` };
     }
-    
+
     // 时间范围筛选
     if (start_time || end_time) {
       where.timestamp = {};
@@ -1326,7 +1326,7 @@ const getBatchLogEntries = async (req, res) => {
         where.timestamp[Op.lte] = new Date(end_time);
       }
     }
-    
+
     // 简单搜索优化：
     // 1) 若关键词为 4-6位十六进制（如 571e），优先按规范码等值过滤：code4 = '0X571E'（避免 explanation LIKE 全表扫描）
     // 2) 否则：error_code LIKE；explanation 仅在无 FULLTEXT 时回退为 LIKE，与 error_code 组成 OR
@@ -1356,12 +1356,12 @@ const getBatchLogEntries = async (req, res) => {
           conds.unshift({ explanation: { [Op.like]: `%${s}%` } });
         }
         const keywordOr = { [Op.or]: conds };
-      if (where[Op.and]) {
-        where[Op.and].push(keywordOr);
-      } else {
-        const baseConds = [];
+        if (where[Op.and]) {
+          where[Op.and].push(keywordOr);
+        } else {
+          const baseConds = [];
           Object.keys(where).forEach(k => { if (k !== Op.and && k !== Op.or) { baseConds.push({ [k]: where[k] }); delete where[k]; } });
-        where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
+          where[Op.and] = baseConds.length > 0 ? baseConds.concat([keywordOr]) : [keywordOr];
         }
       }
     }
@@ -1373,9 +1373,9 @@ const getBatchLogEntries = async (req, res) => {
       const ids = Array.isArray(analysis_category_ids)
         ? analysis_category_ids.map(v => parseInt(String(v))).filter(n => Number.isInteger(n))
         : String(analysis_category_ids)
-            .split(',')
-            .map(s => parseInt(s.trim()))
-            .filter(n => Number.isInteger(n));
+          .split(',')
+          .map(s => parseInt(s.trim()))
+          .filter(n => Number.isInteger(n));
 
       if (ids.length > 0) {
         if (!getBatchLogEntries._catCache) getBatchLogEntries._catCache = { count: null, at: 0 };
@@ -1433,7 +1433,7 @@ const getBatchLogEntries = async (req, res) => {
             if (typeof d === 'string' || typeof d === 'number') return new Date(d);
             return null;
           };
-          
+
           if (sequelizeOperator === Op.between) {
             if (!Array.isArray(val) || val.length !== 2) return null;
             const startDate = toDate(val[0]);
@@ -1500,7 +1500,7 @@ const getBatchLogEntries = async (req, res) => {
         case 'notin': return isNumericParam ? null : buildOpValue(Op.notIn, value);
         case 'like': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.like, value);
         case 'contains': return field === 'explanation' ? buildOpValue(Op.like, value) : (isNumericParam ? null : buildOpValue(Op.like, value));
-        case 'notcontains': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.notLike]: `%${value}%` } };
+        case 'notcontains': return isNumericParam ? null : { [field]: { [Op.notLike]: `%${value}%` } };
         case 'startswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `${value}%` } };
         case 'endswith': return (isNumericParam || field === 'explanation') ? null : { [field]: { [Op.like]: `%${value}` } };
         case 'regex': return (isNumericParam || field === 'explanation') ? null : buildOpValue(Op.regexp, value);
@@ -1526,10 +1526,10 @@ const getBatchLogEntries = async (req, res) => {
       if (node.field && node.operator) {
         const f = String(node.field).toLowerCase();
         const op = String(node.operator).toLowerCase();
-        // explanation 仅保留 contains，且下推到数据库；其他解释类操作不允许
-        if (f === 'explanation') return op !== 'contains';
+        // explanation：contains / notcontains 下推到数据库；其他（regex 等）在内存过滤
+        if (f === 'explanation') return op !== 'contains' && op !== 'notcontains';
         // 参数字段仅在正则时视为昂贵，其余操作下推到数据库
-        if (['param1','param2','param3','param4'].includes(f)) return op === 'regex';
+        if (['param1', 'param2', 'param3', 'param4'].includes(f)) return op === 'regex';
         return false;
       }
       if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
@@ -1574,12 +1574,12 @@ const getBatchLogEntries = async (req, res) => {
           }
         });
         where[Op.and] = baseConds.length > 0 ? baseConds.concat([advancedWhere]) : [advancedWhere];
-        }
+      }
     } else if (advancedFilters && expensiveAdvanced) {
       // 昂贵条件在应用层过滤
       postFilterAdvanced = advancedFilters;
     }
-    
+
     // 权限控制：普通用户只能查看自己的日志明细
     if (req.user && req.user.role_id) {
       const userRole = req.user.role_id;
@@ -1590,11 +1590,11 @@ const getBatchLogEntries = async (req, res) => {
           attributes: ['id']
         });
         const userLogIds = userLogs.map(log => log.id);
-        
+
         if (where.log_id) {
           // 如果已经指定了log_ids，需要取交集
-          const requestedIds = Array.isArray(where.log_id[Op.in]) 
-            ? where.log_id[Op.in] 
+          const requestedIds = Array.isArray(where.log_id[Op.in])
+            ? where.log_id[Op.in]
             : [where.log_id[Op.in]];
           const allowedIds = requestedIds.filter(id => userLogIds.includes(id));
           where.log_id = { [Op.in]: allowedIds };
@@ -1604,7 +1604,7 @@ const getBatchLogEntries = async (req, res) => {
       }
       // 管理员用户（role_id = 1）和专家用户（role_id = 2）可以查看所有日志，无需额外限制
     }
-    
+
     // 若未传时间范围且有日志ID，尝试基于文件名推导时间窗口（YYYYMMDDhh_log.medbot）
     // 注意：文件名时间为本地时间(UTC+8)，数据库存储为UTC时间，需要转换
     let derivedMinTs = null;
@@ -1647,17 +1647,17 @@ const getBatchLogEntries = async (req, res) => {
         where.timestamp = { [Op.gte]: derivedMinTs, [Op.lte]: derivedMaxTs };
       }
     }
-    
+
     // 分页参数
     const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
     const offset = (pageNum - 1) * limitNum;
-    
+
     // 优化查询：只选择必要的字段
     const attributes = [
-      'id', 'log_id', 'timestamp', 'error_code', 
+      'id', 'log_id', 'timestamp', 'error_code',
       'param1', 'param2', 'param3', 'param4', 'explanation'
     ];
-    
+
     if (firstOccurrenceRequested) {
       console.log('[NLP] firstof enabled: fetching all matched entries for first-occurrence reduction');
       // 为保证首次过滤正确，先取全量匹配（不分页），再按 (log_id, error_code) 取最早一条
@@ -1712,51 +1712,51 @@ const getBatchLogEntries = async (req, res) => {
       const overallStart = Date.now();
 
       const baseOrder = [['timestamp', 'ASC'], ['id', 'ASC']];
-      
+
       // 修复：更可靠的 log_id 检测（支持数组递归）
       const detectHasLogIdFilter = (node) => {
         if (!node) return false;
         if (typeof node !== 'object') return false;
-        
+
         // 检查数组
         if (Array.isArray(node)) {
           return node.some(item => detectHasLogIdFilter(item));
         }
-        
+
         // 检查顶层是否有 log_id
         if (Object.prototype.hasOwnProperty.call(node, 'log_id')) return true;
-        
+
         // 递归检查所有属性
         for (const key of Object.keys(node)) {
           if (detectHasLogIdFilter(node[key])) return true;
         }
-        
+
         return false;
       };
-      
+
       // 双重保险：优先使用查询参数判断，回退到对象检测
       const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
       const hasLogId = hasLogIdParam || detectHasLogIdFilter(where);
-      
+
       if (hasLogIdParam && !detectHasLogIdFilter(where)) {
         console.warn('[索引选择] 参数有 log_ids 但 where 对象检测失败，已自动修正');
       }
-      
+
       const hasAdvancedFilters = !!(advancedFilters && Object.keys(advancedFilters).length > 0);
-      
+
       // 始终为 ID 阶段强制时间排序索引，确保按时间顺序早停
       const idIndexHints = hasLogId
         ? [{ type: 'FORCE', values: ['idx_log_entries_logid_ts_id'] }]
         : [{ type: 'FORCE', values: ['idx_log_entries_ts_id'] }];
-      
+
       // 调试日志：显示索引选择
       console.log(`[索引选择] hasLogIdParam=${hasLogIdParam}, hasLogId=${hasLogId}, 使用索引: ${hasLogId ? 'idx_log_entries_logid_ts_id' : 'idx_log_entries_ts_id'}`);
       // COUNT/聚合在启用分类过滤且走 JOIN 路径时使用规范化组合索引，其余交由优化器或沿用时间索引
       const countAggIndexHints = analysisFilterActive
         ? (hasLogId
-            ? [{ type: 'FORCE', values: ['idx_log_entries_logid_ts_norm'] }]
-            : [{ type: 'FORCE', values: ['idx_log_entries_ts_norm'] }]
-          )
+          ? [{ type: 'FORCE', values: ['idx_log_entries_logid_ts_norm'] }]
+          : [{ type: 'FORCE', values: ['idx_log_entries_ts_norm'] }]
+        )
         : idIndexHints;
 
       let idPhaseTime = 0, detailsPhaseTime = 0, countPhaseTime = 0, aggPhaseTime = 0;
@@ -1770,13 +1770,13 @@ const getBatchLogEntries = async (req, res) => {
           : String(analysis_category_ids).split(',').map(s => parseInt(s.trim())).filter(Number.isInteger);
 
         console.log(`[分类过滤优化] 启用 JOIN 方式，分类ID: ${catIds.join(',')}`);
-        
+
         // 获取 JOIN 配置
         const joinInfo = await buildCategoryFilterJoin(catIds);
-        
+
         // ✅ 构建基础WHERE条件（log_id + timestamp + error_code）
         const baseConditions = buildWhereConditions(where);
-        
+
         // ⚠️ 关键字搜索条件单独处理（避免重复添加）
         let searchCondition = null;
         if (search && String(search).trim().length > 0) {
@@ -1803,24 +1803,24 @@ const getBatchLogEntries = async (req, res) => {
             }
           }
         }
-        
+
         // ✅ 优化WHERE顺序：log_id/timestamp在前（利用索引），关键字搜索在后
         const allConditions = [...baseConditions];
         if (searchCondition) {
           allConditions.push(searchCondition);
         }
-        
+
         const whereClause = allConditions.length > 0 ? `WHERE ${allConditions.join(' AND ')}` : '';
-        
+
         console.log(`[WHERE条件] log_id/timestamp: ${baseConditions.length}, 关键字: ${searchCondition ? 1 : 0}`);
-        
+
         // 阶段一：使用原生 SQL 查询 ID（带 JOIN 或 EXISTS）
-      const idPhaseStart = Date.now();
-        
+        const idPhaseStart = Date.now();
+
         // 优化策略：使用 EXISTS 子查询代替 JOIN，避免笛卡尔积，并添加索引提示
         const hasLogIdParam = !!(log_ids && String(log_ids).trim().length > 0);
         const forceIndex = hasLogIdParam ? 'FORCE INDEX (idx_log_entries_logid_ts_id)' : 'FORCE INDEX (idx_log_entries_ts_id)';
-        
+
         let idQuery;
         if (joinInfo.useJoin) {
           // 使用 EXISTS 子查询代替 INNER JOIN，性能更好
@@ -1848,11 +1848,11 @@ const getBatchLogEntries = async (req, res) => {
           LIMIT ${limitNum} OFFSET ${offset}
         `;
         }
-        
+
         console.log(`[SQL] ID查询 (使用${joinInfo.useJoin ? 'EXISTS子查询' : '直接查询'}):\n${idQuery}`);
-        const idRows = await sequelize.query(idQuery, { 
+        const idRows = await sequelize.query(idQuery, {
           type: SequelizeLib.QueryTypes.SELECT,
-          logging: console.log 
+          logging: console.log
         });
         idPhaseTime = Date.now() - idPhaseStart;
         ids = idRows.map(r => r.id);
@@ -1860,27 +1860,27 @@ const getBatchLogEntries = async (req, res) => {
         console.log(`[阶段一] ID查询完成: ${idPhaseTime}ms, 获取 ${ids.length} 条ID`);
 
         // 阶段二：根据 ID 查询详情（使用 ORM）
-      const detailsPhaseStart = Date.now();
-      const entries = ids.length > 0
-          ? await LogEntry.findAll({ 
-              where: { id: ids }, 
-              attributes, 
-              include: [{ model: Log, as: 'Log', attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time'] }], 
-              order: baseOrder, 
-              subQuery: false, 
-              logging: console.log 
-            })
+        const detailsPhaseStart = Date.now();
+        const entries = ids.length > 0
+          ? await LogEntry.findAll({
+            where: { id: ids },
+            attributes,
+            include: [{ model: Log, as: 'Log', attributes: ['original_name', 'device_id', 'uploader_id', 'upload_time'] }],
+            order: baseOrder,
+            subQuery: false,
+            logging: console.log
+          })
           : [];
         detailsPhaseTime = Date.now() - detailsPhaseStart;
 
         console.log(`[阶段二] 详情查询完成: ${detailsPhaseTime}ms, 获取 ${entries.length} 条记录`);
 
         // 并行执行 COUNT 与时间范围聚合（使用原生 SQL）
-      const countPhaseStart = Date.now();
-        
+        const countPhaseStart = Date.now();
+
         // 优化：使用 EXISTS 子查询代替 JOIN，并添加索引提示
         let countQuery, aggQuery;
-        
+
         if (joinInfo.useJoin) {
           const categoryIdList = analysis_category_ids.split(',').map(id => sequelize.escape(id)).join(',');
           countQuery = `
@@ -1894,7 +1894,7 @@ const getBatchLogEntries = async (req, res) => {
                 AND ccm.analysis_category_id IN (${categoryIdList})
             )
         `;
-          
+
           aggQuery = (shouldIncludeTimeSuggestion && !(derivedMinTs && derivedMaxTs)) ? `
           SELECT 
             MIN(log_entries.timestamp) as min_ts,
@@ -1914,7 +1914,7 @@ const getBatchLogEntries = async (req, res) => {
           FROM log_entries ${forceIndex}
           ${whereClause}
         `;
-          
+
           aggQuery = (shouldIncludeTimeSuggestion && !(derivedMinTs && derivedMaxTs)) ? `
           SELECT 
             MIN(log_entries.timestamp) as min_ts,
@@ -1923,26 +1923,26 @@ const getBatchLogEntries = async (req, res) => {
           ${whereClause}
         ` : null;
         }
-        
+
         const [countRows, aggRows] = await Promise.all([
           sequelize.query(countQuery, { type: SequelizeLib.QueryTypes.SELECT, logging: console.log }),
-          aggQuery 
+          aggQuery
             ? sequelize.query(aggQuery, { type: SequelizeLib.QueryTypes.SELECT, logging: console.log })
             : Promise.resolve([{ min_ts: derivedMinTs || null, max_ts: derivedMaxTs || null }])
         ]);
         countPhaseTime = Date.now() - countPhaseStart;
 
         total = (Array.isArray(countRows) && countRows[0] && countRows[0].cnt !== undefined) ? Number(countRows[0].cnt) : 0;
-        if (Array.isArray(aggRows) && aggRows[0]) { 
-          minTimestamp = aggRows[0].min_ts || null; 
-          maxTimestamp = aggRows[0].max_ts || null; 
+        if (Array.isArray(aggRows) && aggRows[0]) {
+          minTimestamp = aggRows[0].min_ts || null;
+          maxTimestamp = aggRows[0].max_ts || null;
         }
-        
+
         console.log(`[阶段三] 计数/聚合完成: ${countPhaseTime}ms, 总数: ${total}`);
 
-      const queryTime = Date.now() - overallStart;
+        const queryTime = Date.now() - overallStart;
         console.log(`[查询完成] 总耗时: ${queryTime}ms, 结果数量: ${entries.length}, 总数: ${total}`);
-        console.log(`[性能分析] ID: ${idPhaseTime}ms (${(idPhaseTime/queryTime*100).toFixed(1)}%), 详情: ${detailsPhaseTime}ms (${(detailsPhaseTime/queryTime*100).toFixed(1)}%), 计数: ${countPhaseTime}ms (${(countPhaseTime/queryTime*100).toFixed(1)}%)`);
+        console.log(`[性能分析] ID: ${idPhaseTime}ms (${(idPhaseTime / queryTime * 100).toFixed(1)}%), 详情: ${detailsPhaseTime}ms (${(detailsPhaseTime / queryTime * 100).toFixed(1)}%), 计数: ${countPhaseTime}ms (${(countPhaseTime / queryTime * 100).toFixed(1)}%)`);
 
         if (queryTime > 3000) {
           console.warn(`[性能警告] 查询耗时 ${queryTime}ms，建议优化筛选条件`);
@@ -1950,13 +1950,13 @@ const getBatchLogEntries = async (req, res) => {
           console.log(`[性能优秀] 查询耗时 ${queryTime}ms ✅`);
         }
 
-        const result = { 
-          entries, 
-          total, 
-          page: pageNum, 
-          limit: limitNum, 
-          totalPages: Math.ceil(total / limitNum), 
-          minTimestamp: shouldIncludeTimeSuggestion ? (minTimestamp || derivedMinTs || null) : null, 
+        const result = {
+          entries,
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          minTimestamp: shouldIncludeTimeSuggestion ? (minTimestamp || derivedMinTs || null) : null,
           maxTimestamp: shouldIncludeTimeSuggestion ? (maxTimestamp || derivedMaxTs || null) : null,
           _performance: {
             optimized: true,
@@ -1969,13 +1969,13 @@ const getBatchLogEntries = async (req, res) => {
           }
         };
 
-        try { 
-          await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL); 
-          console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`); 
-        } catch (cacheError) { 
-          console.warn('缓存存储失败:', cacheError.message); 
+        try {
+          await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL);
+          console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`);
+        } catch (cacheError) {
+          console.warn('缓存存储失败:', cacheError.message);
         }
-        
+
         return res.json(result);
       } else {
         // 原有路径（无分类过滤或包含高级筛选）
@@ -2012,7 +2012,7 @@ const getBatchLogEntries = async (req, res) => {
                 case 'like':
                 case 'contains': return (get(f) ?? '').toString().includes(String(v));
                 case 'notcontains': return !(get(f) ?? '').toString().includes(String(v));
-                case 'regex': try { return new RegExp(String(v)).test((get(f) ?? '').toString()); } catch(_) { return false; }
+                case 'regex': try { return new RegExp(String(v)).test((get(f) ?? '').toString()); } catch (_) { return false; }
                 case '=': return (get(f) ?? '') == v;
                 case '!=':
                 case '<>': return (get(f) ?? '') != v;
@@ -2020,7 +2020,7 @@ const getBatchLogEntries = async (req, res) => {
                 case '>=': return Number(get(f)) >= Number(v);
                 case '<': return Number(get(f)) < Number(v);
                 case '<=': return Number(get(f)) <= Number(v);
-                case 'between': return Array.isArray(v) && v.length===2 && Number(get(f)) >= Number(v[0]) && Number(get(f)) <= Number(v[1]);
+                case 'between': return Array.isArray(v) && v.length === 2 && Number(get(f)) >= Number(v[0]) && Number(get(f)) <= Number(v[1]);
                 default: return true;
               }
             }
@@ -2057,7 +2057,7 @@ const getBatchLogEntries = async (req, res) => {
         const result = { entries, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum), minTimestamp: shouldIncludeTimeSuggestion ? (minTimestamp || derivedMinTs || null) : null, maxTimestamp: shouldIncludeTimeSuggestion ? (maxTimestamp || derivedMaxTs || null) : null };
 
         try { await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL); console.log(`[缓存存储] 批量搜索结果已缓存: ${cacheKey}`); } catch (cacheError) { console.warn('缓存存储失败:', cacheError.message); }
-      return res.json(result);
+        return res.json(result);
       }
     }
   } catch (err) {
@@ -2080,7 +2080,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
     } = req.query;
 
     const userId = req.user.id;
-    
+
     // 创建队列任务
     const job = await logProcessingQueue.add('export-csv', {
       type: 'export-csv',
@@ -2099,7 +2099,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
       attempts: 1,
       timeout: 600000 // 10分钟超时
     });
-    
+
     // 记录操作日志
     try {
       await logOperation({
@@ -2119,17 +2119,17 @@ const exportBatchLogEntriesCSV = async (req, res) => {
     } catch (logError) {
       console.warn('操作日志记录失败（已忽略）:', logError.message);
     }
-    
+
     // 立即返回任务ID
     return res.json({
       taskId: job.id,
       status: 'waiting'
     });
-    
+
   } catch (err) {
     console.error('创建CSV导出任务失败:', err);
-    res.status(500).json({ 
-      message: req.t('log.analysis.failed'), 
+    res.status(500).json({
+      message: req.t('log.analysis.failed'),
       error: err.message
     });
   }
@@ -2141,27 +2141,27 @@ const getExportCsvTaskStatus = async (req, res) => {
     const { taskId } = req.params;
     const userId = req.user.id;
     const job = await logProcessingQueue.getJob(taskId);
-    
+
     if (!job) {
       return res.status(404).json({ success: false, message: '任务不存在或已过期' });
     }
-    
+
     // 验证任务归属：只有任务创建者可以查询（管理员可以查询所有任务）
     const taskUserId = job.data?.userId;
     const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:read_all');
     if (taskUserId && taskUserId !== userId && !isAdmin) {
       return res.status(403).json({ success: false, message: '无权访问此任务' });
     }
-    
+
     const state = await job.getState();
-    
+
     let payload = {
       id: job.id,
       status: state,
       createdAt: job.timestamp,
       data: job.data
     };
-    
+
     if (state === 'completed') {
       const returnValue = job.returnvalue || {};
       payload.result = {
@@ -2173,7 +2173,7 @@ const getExportCsvTaskStatus = async (req, res) => {
     } else if (state === 'failed') {
       payload.error = job.failedReason || '任务失败';
     }
-    
+
     return res.json({ success: true, data: payload });
   } catch (error) {
     console.error('查询CSV导出任务状态失败:', error);
@@ -2187,30 +2187,30 @@ const downloadExportCsvResult = async (req, res) => {
     const { taskId } = req.params;
     const userId = req.user.id;
     const job = await logProcessingQueue.getJob(taskId);
-    
+
     if (!job) {
       return res.status(404).json({ message: '任务不存在或已过期' });
     }
-    
+
     // 验证任务归属：只有任务创建者可以下载（管理员可以下载所有任务）
     const taskUserId = job.data?.userId;
     const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:read_all');
     if (taskUserId && taskUserId !== userId && !isAdmin) {
       return res.status(403).json({ message: '无权访问此任务' });
     }
-    
+
     const state = await job.getState();
     if (state !== 'completed') {
       return res.status(400).json({ message: `任务尚未完成，当前状态: ${state}` });
     }
-    
+
     const returnValue = job.returnvalue || {};
     const csvFilePath = returnValue.csvFilePath;
-    
+
     if (!csvFilePath || !fs.existsSync(csvFilePath)) {
       return res.status(404).json({ message: '结果文件不存在或已过期' });
     }
-    
+
     // 安全检查：确保文件路径在预期目录内，防止路径遍历攻击
     const normalizedPath = path.normalize(csvFilePath);
     const expectedDir = path.normalize(path.resolve(__dirname, '../../temp'));
@@ -2218,16 +2218,16 @@ const downloadExportCsvResult = async (req, res) => {
       console.error(`安全警告: 尝试访问非法路径 ${csvFilePath}`);
       return res.status(403).json({ message: '非法文件路径' });
     }
-    
+
     const csvFileName = returnValue.csvFileName || `batch_log_entries_${taskId}.csv`;
-    
+
     // 设置响应头
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${csvFileName}"`);
-    
+
     // 流式传输文件
     const fileStream = fs.createReadStream(csvFilePath);
-    
+
     // 处理流错误
     fileStream.on('error', (err) => {
       console.error('文件流传输错误:', err);
@@ -2245,7 +2245,7 @@ const downloadExportCsvResult = async (req, res) => {
         console.warn('清理临时文件失败:', unlinkErr);
       }
     });
-    
+
     // 处理响应错误
     res.on('error', (err) => {
       console.error('响应流错误:', err);
@@ -2259,7 +2259,7 @@ const downloadExportCsvResult = async (req, res) => {
         console.warn('清理临时文件失败:', unlinkErr);
       }
     });
-    
+
     // 响应完成后清理临时文件（确保客户端已接收完数据）
     res.on('finish', () => {
       // 延迟删除，确保文件流完全关闭
@@ -2274,7 +2274,7 @@ const downloadExportCsvResult = async (req, res) => {
         }
       }, 1000); // 延迟1秒删除
     });
-    
+
     // 客户端断开连接时清理
     res.on('close', () => {
       if (!res.writableEnded) {
@@ -2293,9 +2293,9 @@ const downloadExportCsvResult = async (req, res) => {
         }, 5000); // 延迟5秒删除
       }
     });
-    
+
     fileStream.pipe(res);
-    
+
   } catch (error) {
     console.error('下载CSV导出结果失败:', error);
     res.status(500).json({ message: '下载失败', error: error.message });
@@ -2309,38 +2309,38 @@ const downloadLog = async (req, res) => {
     const { id } = req.params;
     const log = await Log.findByPk(id);
     if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
-    
+
     // 权限控制：普通用户只能下载自己的日志，专家用户和管理员可以下载任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
       return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
-    
+
     // 优先从保存的解密文件中读取
     if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
       const fileContent = fs.readFileSync(log.decrypted_path, 'utf-8');
-      
+
       // 设置响应头
       res.setHeader('Content-Type', 'text/plain');
       res.setHeader('Content-Disposition', `attachment; filename="${path.basename(log.decrypted_path)}"`);
-      
+
       // 发送文件内容
       res.send(fileContent);
       return;
     }
-    
+
     // 如果解密文件不存在，从 ClickHouse log_entries 生成
     const version = Number.isInteger(log.version) ? log.version : 1;
     const fileContent = await buildDecryptedContentFromClickHouse(log.id, version);
-    
+
     if (!fileContent) {
       return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
-    
+
     // 设置响应头
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Content-Disposition', `attachment; filename="${log.original_name.replace('.medbot', '_decrypted.txt')}"`);
-    
+
     // 发送文件内容
     res.send(fileContent);
   } catch (err) {
@@ -2361,25 +2361,25 @@ const reparseLog = async (req, res) => {
 
     const job = await logProcessingQueue.add('batch-reparse', { logIds: [log.id], userId: req.user ? req.user.id : null });
     return res.status(202).json({ message: req.t('log.batchReparse.success'), jobId: job.id, logId: log.id });
-      } catch (err) {
-      console.error('重新解析失败:', err);
-      try {
-        const { id } = req.params || {};
-        if (id) {
-          const log = await Log.findByPk(id);
-          if (log) {
-            // 重新解析失败通常是解析阶段的问题
-            const oldStatus = log.status;
-            log.status = 'parse_failed';
-            await log.save();
-            
-            // 推送状态变化到 WebSocket
-            pushLogStatusChange(log.id, oldStatus, 'parse_failed');
-          }
+  } catch (err) {
+    console.error('重新解析失败:', err);
+    try {
+      const { id } = req.params || {};
+      if (id) {
+        const log = await Log.findByPk(id);
+        if (log) {
+          // 重新解析失败通常是解析阶段的问题
+          const oldStatus = log.status;
+          log.status = 'parse_failed';
+          await log.save();
+
+          // 推送状态变化到 WebSocket
+          pushLogStatusChange(log.id, oldStatus, 'parse_failed');
         }
-      } catch (_) {}
-      return res.status(500).json({ message: req.t('log.batchReparse.failed'), error: err.message });
-    }
+      }
+    } catch (_) { }
+    return res.status(500).json({ message: req.t('log.batchReparse.failed'), error: err.message });
+  }
 };
 
 // 批量重新解析（仅更新释义）并同步文件 - 仅管理员
@@ -2398,11 +2398,11 @@ const batchReparseLogs = async (req, res) => {
     if (normalizedIds.length === 0) {
       return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
-    
+
     // 预先将这些日志标记为 parsing，便于前端实时反馈
     try {
       // 先查出旧状态与设备ID，构建批量变更列表
-      const logs = await Log.findAll({ where: { id: normalizedIds }, attributes: ['id','status','device_id'] });
+      const logs = await Log.findAll({ where: { id: normalizedIds }, attributes: ['id', 'status', 'device_id'] });
       const deviceChangesMap = new Map();
       logs.forEach(l => {
         if (!l.device_id) return;
@@ -2445,9 +2445,9 @@ const batchReparseLogs = async (req, res) => {
       createdJobs.push(j.id);
     }
     console.log(`已创建 ${createdJobs.length} 个单日志重新解析任务: ${createdJobs.join(', ')}`);
-    
-    res.json({ 
-      message: req.t('log.batchReparse.success'), 
+
+    res.json({
+      message: req.t('log.batchReparse.success'),
       jobIds: createdJobs,
       queued: true,
       logCount: normalizedIds.length
@@ -2464,20 +2464,20 @@ const deleteLog = async (req, res) => {
     const { id } = req.params;
     const log = await Log.findByPk(id);
     if (!log) return res.status(404).json({ message: req.t('log.parse.notFound') });
-    
+
     // 权限控制：普通用户只能删除自己的日志，专家用户和管理员可以删除任何日志
     const userRole = req.user.role_id;
     if (userRole === 3 && log.uploader_id !== req.user.id) { // 普通用户且不是自己的日志
       return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
-    
+
     // 立即更新状态为"删除中"
     const oldStatus = log.status;
     await log.update({ status: 'deleting' });
-    
+
     // 推送状态变化到 WebSocket
     pushLogStatusChange(log.id, oldStatus, 'deleting');
-    
+
     // 将删除任务加入队列
     const job = await logProcessingQueue.add('delete-single', {
       logId: id,
@@ -2487,13 +2487,13 @@ const deleteLog = async (req, res) => {
       delay: 0,
       attempts: 1
     });
-    
-    res.json({ 
-      message: req.t('log.delete.success'), 
+
+    res.json({
+      message: req.t('log.delete.success'),
       queued: true,
       jobId: job.id
     });
-    
+
   } catch (err) {
     res.status(500).json({ message: req.t('log.delete.failed'), error: err.message });
   }
@@ -2503,18 +2503,18 @@ const deleteLog = async (req, res) => {
 const autoFillDeviceId = async (req, res) => {
   try {
     const { key } = req.query;
-    
+
     if (!key) {
       return res.status(400).json({ message: req.t('device.provideKey') });
     }
-    
+
     // 1) 设备表
     try {
       const device = await Device.findOne({ where: { device_key: key } });
       if (device && device.device_id) {
         return res.json({ device_id: device.device_id });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2) 在logs表中查找使用过该密钥的设备编号
     const log = await Log.findOne({
@@ -2522,7 +2522,7 @@ const autoFillDeviceId = async (req, res) => {
       order: [['original_name', 'DESC']], // 获取最新的记录
       attributes: ['device_id']
     });
-    
+
     if (log && log.device_id) {
       res.json({ device_id: log.device_id });
     } else {
@@ -2537,18 +2537,18 @@ const autoFillDeviceId = async (req, res) => {
 const autoFillKey = async (req, res) => {
   try {
     const { device_id } = req.query;
-    
+
     if (!device_id) {
       return res.status(400).json({ message: req.t('device.requiredId') });
     }
-    
+
     // 1) 设备表
     try {
       const device = await Device.findOne({ where: { device_id } });
       if (device && device.device_key) {
         return res.json({ key: device.device_key });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2) 在logs表中查找该设备编号使用过的密钥
     const log = await Log.findOne({
@@ -2556,7 +2556,7 @@ const autoFillKey = async (req, res) => {
       order: [['original_name', 'DESC']], // 获取最新的记录
       attributes: ['key_id']
     });
-    
+
     if (log && log.key_id) {
       res.json({ key: log.key_id });
     } else {
@@ -2581,112 +2581,112 @@ const validateDeviceId = (deviceId) => {
   return deviceIdRegex.test(deviceId);
 };
 
-    // 批量删除日志
-    const batchDeleteLogs = async (req, res) => {
-      try {
-        const { logIds } = req.body;
-        
-        if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
-          return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
-        }
-        
-        const userRole = req.user.role_id;
-        const userId = req.user.id;
-        
-        // 确保logIds是数字类型
-        const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
-        
-        if (numericLogIds.length === 0) {
-          return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
-        }
-        
-        // 获取所有要删除的日志进行权限检查
-        const logs = [];
-        for (const id of numericLogIds) {
-          const log = await Log.findByPk(id);
-          if (log) {
-            logs.push(log);
-          }
-        }
-        
-        if (logs.length === 0) {
-          return res.status(404).json({ 
-            message: req.t('log.parse.notFound'),
-            requestedIds: numericLogIds,
-            foundCount: logs.length
-          });
-        }
-        
-        // 权限检查：普通用户只能删除自己的日志
-        if (userRole === 3) {
-          const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
-          if (unauthorizedLogs.length > 0) {
-            return res.status(403).json({ 
-              message: req.t('log.parse.permissionDenied'),
-              unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
-            });
-          }
-        }
-        
-        // 立即更新所有日志状态为"删除中"
-        await Log.update(
-          { status: 'deleting' },
-          { where: { id: numericLogIds } }
-        );
-        
-        // 将批量删除任务添加到队列
-        console.log(`将批量删除任务添加到队列，日志数量: ${numericLogIds.length}`);
-        
-        const job = await logProcessingQueue.add('batch-delete', {
-          logIds: numericLogIds,
-          userId: req.user ? req.user.id : null
-        }, {
-          priority: 1, // 高优先级，与日志处理同级
-          delay: 0, // 立即处理
-          attempts: 1, // 只重试1次，避免重复错误
-          backoff: {
-            type: 'exponential',
-            delay: 2000
-          }
-        });
-        
-        console.log(`批量删除任务已添加到队列，任务ID: ${job.id}`);
-        
-        res.json({ 
-          message: req.t('log.delete.success'), 
-          jobId: job.id,
-          queued: true,
-          logCount: numericLogIds.length
-        });
-      } catch (err) {
-        console.error('批量删除失败:', err);
-        res.status(500).json({ 
-          message: req.t('log.delete.failed'), 
-          error: err.message
+// 批量删除日志
+const batchDeleteLogs = async (req, res) => {
+  try {
+    const { logIds } = req.body;
+
+    if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+      return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
+    }
+
+    const userRole = req.user.role_id;
+    const userId = req.user.id;
+
+    // 确保logIds是数字类型
+    const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+
+    if (numericLogIds.length === 0) {
+      return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
+    }
+
+    // 获取所有要删除的日志进行权限检查
+    const logs = [];
+    for (const id of numericLogIds) {
+      const log = await Log.findByPk(id);
+      if (log) {
+        logs.push(log);
+      }
+    }
+
+    if (logs.length === 0) {
+      return res.status(404).json({
+        message: req.t('log.parse.notFound'),
+        requestedIds: numericLogIds,
+        foundCount: logs.length
+      });
+    }
+
+    // 权限检查：普通用户只能删除自己的日志
+    if (userRole === 3) {
+      const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
+      if (unauthorizedLogs.length > 0) {
+        return res.status(403).json({
+          message: req.t('log.parse.permissionDenied'),
+          unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
         });
       }
-    };
+    }
+
+    // 立即更新所有日志状态为"删除中"
+    await Log.update(
+      { status: 'deleting' },
+      { where: { id: numericLogIds } }
+    );
+
+    // 将批量删除任务添加到队列
+    console.log(`将批量删除任务添加到队列，日志数量: ${numericLogIds.length}`);
+
+    const job = await logProcessingQueue.add('batch-delete', {
+      logIds: numericLogIds,
+      userId: req.user ? req.user.id : null
+    }, {
+      priority: 1, // 高优先级，与日志处理同级
+      delay: 0, // 立即处理
+      attempts: 1, // 只重试1次，避免重复错误
+      backoff: {
+        type: 'exponential',
+        delay: 2000
+      }
+    });
+
+    console.log(`批量删除任务已添加到队列，任务ID: ${job.id}`);
+
+    res.json({
+      message: req.t('log.delete.success'),
+      jobId: job.id,
+      queued: true,
+      logCount: numericLogIds.length
+    });
+  } catch (err) {
+    console.error('批量删除失败:', err);
+    res.status(500).json({
+      message: req.t('log.delete.failed'),
+      error: err.message
+    });
+  }
+};
 
 // 批量下载日志
 // 批量下载日志（异步队列模式）
 const batchDownloadLogs = async (req, res) => {
   try {
     const { logIds } = req.body;
-    
+
     if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
       return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
-    
+
     const userRole = req.user.role_id;
     const userId = req.user.id;
-    
+
     // 确保logIds是数字类型
     const numericLogIds = logIds.map(id => parseInt(id)).filter(id => !isNaN(id));
-    
+
     if (numericLogIds.length === 0) {
       return res.status(400).json({ message: req.t('log.batchReparse.notFound') });
     }
-    
+
     // 获取所有要下载的日志（用于验证）
     const logs = [];
     for (const id of numericLogIds) {
@@ -2695,35 +2695,35 @@ const batchDownloadLogs = async (req, res) => {
         logs.push(log);
       }
     }
-    
+
     if (logs.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: req.t('log.parse.notFound'),
         requestedIds: numericLogIds,
         foundCount: logs.length
       });
     }
-    
+
     // 权限检查：普通用户只能下载自己的日志
     if (userRole === 3) {
       const unauthorizedLogs = logs.filter(log => log.uploader_id !== userId);
       if (unauthorizedLogs.length > 0) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           message: req.t('log.parse.permissionDenied'),
           unauthorizedLogs: unauthorizedLogs.map(log => ({ id: log.id, original_name: log.original_name }))
         });
       }
     }
-    
+
     // 检查是否所有日志都已解析完成
     const unparsedLogs = logs.filter(log => log.status !== 'parsed');
     if (unparsedLogs.length > 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: req.t('log.parse.failed'),
         unparsedLogs: unparsedLogs.map(log => ({ id: log.id, original_name: log.original_name, status: log.status }))
       });
     }
-    
+
     // 创建队列任务
     const { logProcessingQueue } = require('../config/queue');
     const job = await logProcessingQueue.add('batch-download', {
@@ -2736,7 +2736,7 @@ const batchDownloadLogs = async (req, res) => {
       attempts: 1,
       timeout: 600000 // 10分钟超时
     });
-    
+
     // 记录操作日志
     try {
       await logOperation({
@@ -2756,18 +2756,18 @@ const batchDownloadLogs = async (req, res) => {
     } catch (logError) {
       console.warn('操作日志记录失败（已忽略）:', logError.message);
     }
-    
+
     // 立即返回任务ID
     return res.json({
       taskId: job.id,
       status: 'waiting',
       fileCount: numericLogIds.length
     });
-    
+
   } catch (err) {
     console.error('创建批量下载任务失败:', err);
-    res.status(500).json({ 
-      message: req.t('log.download.failed'), 
+    res.status(500).json({
+      message: req.t('log.download.failed'),
       error: err.message
     });
   }
@@ -2780,27 +2780,27 @@ const getBatchDownloadTaskStatus = async (req, res) => {
     const userId = req.user.id;
     const { logProcessingQueue } = require('../config/queue');
     const job = await logProcessingQueue.getJob(taskId);
-    
+
     if (!job) {
       return res.status(404).json({ success: false, message: '任务不存在或已过期' });
     }
-    
+
     // 验证任务归属：只有任务创建者可以查询（管理员可以查询所有任务）
     const taskUserId = job.data?.userId;
     const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:download');
     if (taskUserId && taskUserId !== userId && !isAdmin) {
       return res.status(403).json({ success: false, message: '无权访问此任务' });
     }
-    
+
     const state = await job.getState();
-    
+
     let payload = {
       id: job.id,
       status: state,
       createdAt: job.timestamp,
       data: job.data
     };
-    
+
     if (state === 'completed') {
       const returnValue = job.returnvalue || {};
       payload.result = {
@@ -2812,9 +2812,9 @@ const getBatchDownloadTaskStatus = async (req, res) => {
     } else if (state === 'failed') {
       payload.error = job.failedReason || '任务失败';
     }
-    
+
     return res.json({ success: true, data: payload });
-      } catch (error) {
+  } catch (error) {
     console.error('查询批量下载任务状态失败:', error);
     res.status(500).json({ success: false, message: '查询任务状态失败', error: error.message });
   }
@@ -2827,30 +2827,30 @@ const downloadBatchDownloadResult = async (req, res) => {
     const userId = req.user.id;
     const { logProcessingQueue } = require('../config/queue');
     const job = await logProcessingQueue.getJob(taskId);
-    
+
     if (!job) {
       return res.status(404).json({ message: '任务不存在或已过期' });
     }
-    
+
     // 验证任务归属：只有任务创建者可以下载（管理员可以下载所有任务）
     const taskUserId = job.data?.userId;
     const isAdmin = req.user && req.user.permissions && req.user.permissions.includes('log:download');
     if (taskUserId && taskUserId !== userId && !isAdmin) {
       return res.status(403).json({ message: '无权访问此任务' });
     }
-    
+
     const state = await job.getState();
     if (state !== 'completed') {
       return res.status(400).json({ message: `任务尚未完成，当前状态: ${state}` });
     }
-    
+
     const returnValue = job.returnvalue || {};
     const zipFilePath = returnValue.zipFilePath;
-    
+
     if (!zipFilePath || !fs.existsSync(zipFilePath)) {
       return res.status(404).json({ message: '结果文件不存在或已过期' });
     }
-    
+
     // 安全检查：确保文件路径在预期目录内，防止路径遍历攻击
     const normalizedPath = path.normalize(zipFilePath);
     const expectedDir = path.normalize(path.resolve(__dirname, '../../temp'));
@@ -2858,16 +2858,16 @@ const downloadBatchDownloadResult = async (req, res) => {
       console.error(`安全警告: 尝试访问非法路径 ${zipFilePath}`);
       return res.status(403).json({ message: '非法文件路径' });
     }
-    
+
     const zipFileName = returnValue.zipFileName || `logs_batch_${taskId}.zip`;
-    
+
     // 设置响应头
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
-    
+
     // 流式传输文件
     const fileStream = fs.createReadStream(zipFilePath);
-    
+
     // 处理流错误
     fileStream.on('error', (err) => {
       console.error('文件流传输错误:', err);
@@ -2885,7 +2885,7 @@ const downloadBatchDownloadResult = async (req, res) => {
         console.warn('清理临时文件失败:', unlinkErr);
       }
     });
-    
+
     // 处理响应错误
     res.on('error', (err) => {
       console.error('响应流错误:', err);
@@ -2899,7 +2899,7 @@ const downloadBatchDownloadResult = async (req, res) => {
         console.warn('清理临时文件失败:', unlinkErr);
       }
     });
-    
+
     // 响应完成后清理临时文件（确保客户端已接收完数据）
     res.on('finish', () => {
       // 延迟删除，确保文件流完全关闭
@@ -2914,7 +2914,7 @@ const downloadBatchDownloadResult = async (req, res) => {
         }
       }, 1000); // 延迟1秒删除
     });
-    
+
     // 客户端断开连接时清理
     res.on('close', () => {
       if (!res.writableEnded) {
@@ -2933,9 +2933,9 @@ const downloadBatchDownloadResult = async (req, res) => {
         }, 5000); // 延迟5秒删除
       }
     });
-    
+
     fileStream.pipe(res);
-    
+
   } catch (error) {
     console.error('下载批量下载结果失败:', error);
     res.status(500).json({ message: '下载失败', error: error.message });
@@ -2946,40 +2946,40 @@ const downloadBatchDownloadResult = async (req, res) => {
 const analyzeSurgeryData = async (req, res) => {
   try {
     const { logId } = req.params;
-    
+
     // 获取日志信息
     const log = await Log.findByPk(logId);
     if (!log) {
       return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
-    
+
     // 获取日志条目
     const entries = await LogEntry.findAll({
       where: { log_id: logId },
       order: [['timestamp', 'ASC']],
       raw: true
     });
-    
+
     if (entries.length === 0) {
       return res.status(404).json({ message: req.t('log.parse.notFound') });
     }
-    
+
     // 为每个条目添加日志文件名信息
     const entriesWithLogName = entries.map(entry => ({
       ...entry,
       log_name: log.original_name
     }));
-    
+
     // 使用更完善的手术分析逻辑
     const { analyzeSurgeries } = require('./surgeryStatisticsController');
     const surgeries = analyzeSurgeries(entriesWithLogName);
-    
+
     // 为每个手术分配唯一ID
     surgeries.forEach((surgery, index) => {
       surgery.id = index + 1;
       surgery.log_filename = log.original_name;
     });
-    
+
     res.json({
       success: true,
       data: surgeries,
@@ -3028,39 +3028,39 @@ const analyzeSurgeryFromEntries = (entries, log) => {
       arm4: 0
     }
   };
-  
+
   // 分析每个日志条目
   entries.forEach(entry => {
     const timestamp = new Date(entry.timestamp);
     const errorCode = entry.error_code;
     const explanation = entry.explanation || '';
-    
+
     // 分析开机/关机时间
     if (explanation.includes('开机') || explanation.includes('系统启动') || explanation.includes('power on')) {
       if (!surgeryData.surgeryInfo.powerOnTime || timestamp < surgeryData.surgeryInfo.powerOnTime) {
         surgeryData.surgeryInfo.powerOnTime = timestamp;
       }
     }
-    
+
     if (explanation.includes('关机') || explanation.includes('系统关闭') || explanation.includes('power off')) {
       if (!surgeryData.surgeryInfo.powerOffTime || timestamp > surgeryData.surgeryInfo.powerOffTime) {
         surgeryData.surgeryInfo.powerOffTime = timestamp;
       }
     }
-    
+
     // 分析手术开始/结束时间
     if (explanation.includes('手术开始') || explanation.includes('surgery start')) {
       if (!surgeryData.surgeryInfo.startTime || timestamp < surgeryData.surgeryInfo.startTime) {
         surgeryData.surgeryInfo.startTime = timestamp;
       }
     }
-    
+
     if (explanation.includes('手术结束') || explanation.includes('surgery end')) {
       if (!surgeryData.surgeryInfo.endTime || timestamp > surgeryData.surgeryInfo.endTime) {
         surgeryData.surgeryInfo.endTime = timestamp;
       }
     }
-    
+
     // 分析工具臂使用情况
     if (explanation.includes('工具臂1') || explanation.includes('arm 1')) {
       surgeryData.toolArms.arm1.totalActiveTime += 1; // 假设每个条目代表1秒
@@ -3068,38 +3068,38 @@ const analyzeSurgeryFromEntries = (entries, log) => {
         surgeryData.toolArms.arm1.energyTime += 1;
       }
     }
-    
+
     if (explanation.includes('工具臂2') || explanation.includes('arm 2')) {
       surgeryData.toolArms.arm2.totalActiveTime += 1;
       if (explanation.includes('能量') || explanation.includes('energy')) {
         surgeryData.toolArms.arm2.energyTime += 1;
       }
     }
-    
+
     if (explanation.includes('工具臂3') || explanation.includes('arm 3')) {
       surgeryData.toolArms.arm3.totalActiveTime += 1;
       if (explanation.includes('能量') || explanation.includes('energy')) {
         surgeryData.toolArms.arm3.energyTime += 1;
       }
     }
-    
+
     if (explanation.includes('工具臂4') || explanation.includes('arm 4')) {
       surgeryData.toolArms.arm4.totalActiveTime += 1;
       if (explanation.includes('能量') || explanation.includes('energy')) {
         surgeryData.toolArms.arm4.energyTime += 1;
       }
     }
-    
+
     // 分析安全报警
-    if (explanation.includes('报警') || explanation.includes('警告') || explanation.includes('错误') || 
-        explanation.includes('alarm') || explanation.includes('warning') || explanation.includes('error')) {
+    if (explanation.includes('报警') || explanation.includes('警告') || explanation.includes('错误') ||
+      explanation.includes('alarm') || explanation.includes('warning') || explanation.includes('error')) {
       surgeryData.safetyAlarms.push({
         timestamp: timestamp,
         type: explanation.includes('错误') || explanation.includes('error') ? 'error' : 'warning',
         message: explanation
       });
     }
-    
+
     // 分析状态机变化
     if (explanation.includes('状态') || explanation.includes('state')) {
       surgeryData.stateMachineChanges.push({
@@ -3107,7 +3107,7 @@ const analyzeSurgeryFromEntries = (entries, log) => {
         state: explanation
       });
     }
-    
+
     // 分析脚踏信号
     if (explanation.includes('能量脚踏') || explanation.includes('energy pedal')) {
       surgeryData.footPedalSignals.energy++;
@@ -3118,7 +3118,7 @@ const analyzeSurgeryFromEntries = (entries, log) => {
     if (explanation.includes('镜头控制') || explanation.includes('camera control')) {
       surgeryData.footPedalSignals.camera++;
     }
-    
+
     // 分析手离合信号
     if (explanation.includes('手离合') && explanation.includes('1')) {
       surgeryData.handClutchSignals.arm1++;
@@ -3133,19 +3133,19 @@ const analyzeSurgeryFromEntries = (entries, log) => {
       surgeryData.handClutchSignals.arm4++;
     }
   });
-  
+
   // 计算总手术时长
   if (surgeryData.surgeryInfo.startTime && surgeryData.surgeryInfo.endTime) {
-    surgeryData.surgeryInfo.totalDuration = 
+    surgeryData.surgeryInfo.totalDuration =
       Math.floor((surgeryData.surgeryInfo.endTime - surgeryData.surgeryInfo.startTime) / 1000 / 60); // 分钟
   }
-  
+
   // 模拟工具使用详情（基于实际数据生成）
   surgeryData.toolArms.arm1.tools = generateToolUsage(surgeryData.toolArms.arm1.totalActiveTime, 'arm1');
   surgeryData.toolArms.arm2.tools = generateToolUsage(surgeryData.toolArms.arm2.totalActiveTime, 'arm2');
   surgeryData.toolArms.arm3.tools = generateToolUsage(surgeryData.toolArms.arm3.totalActiveTime, 'arm3');
   surgeryData.toolArms.arm4.tools = generateToolUsage(surgeryData.toolArms.arm4.totalActiveTime, 'arm4');
-  
+
   return surgeryData;
 };
 
@@ -3160,7 +3160,7 @@ const generateToolUsage = (totalTime, armId) => {
     { name: '缝合器', udi: 'SUT-2023-4587' },
     { name: '切割吻合器', udi: 'CUT-ANAST-9988' }
   ];
-  
+
   if (totalTime > 0) {
     // 根据总时间分配工具使用
     const tool1 = toolTypes[Math.floor(Math.random() * toolTypes.length)];
@@ -3172,7 +3172,7 @@ const generateToolUsage = (totalTime, armId) => {
       endTime: '10:55',
       duration: time1
     });
-    
+
     if (totalTime > time1) {
       const tool2 = toolTypes[Math.floor(Math.random() * toolTypes.length)];
       const time2 = totalTime - time1;
@@ -3185,20 +3185,20 @@ const generateToolUsage = (totalTime, armId) => {
       });
     }
   }
-  
+
   return tools;
 };
 
 // 获取日志统计信息（用于计数功能）
 const getLogStatistics = async (req, res) => {
   try {
-    const { 
-      log_ids, 
-      search, 
-      error_code, 
-      start_time, 
+    const {
+      log_ids,
+      search,
+      error_code,
+      start_time,
       end_time,
-      filters 
+      filters
     } = req.query;
 
     // 保护：没有时间范围时，ClickHouse 的统计（GROUP BY）可能需要扫大量分区/冷数据，
@@ -3221,13 +3221,13 @@ const getLogStatistics = async (req, res) => {
         }
       });
     }
-    
+
     // 解析日志ID
     const requestedLogIds = log_ids
       ? String(log_ids)
         .split(',')
         .map(id => parseInt(id.trim(), 10))
-          .filter(n => Number.isInteger(n) && n > 0)
+        .filter(n => Number.isInteger(n) && n > 0)
       : [];
 
     // 权限控制：普通用户只能查看自己的日志统计（基于 MySQL logs 元数据）
@@ -3235,33 +3235,33 @@ const getLogStatistics = async (req, res) => {
     if (req.user && req.user.role_id) {
       const userRole = req.user.role_id;
       if (userRole === 3) { // 普通用户
-      const userLogs = await Log.findAll({
-        where: { uploader_id: req.user.id },
-        attributes: ['id']
-      });
+        const userLogs = await Log.findAll({
+          where: { uploader_id: req.user.id },
+          attributes: ['id']
+        });
         const userLogIds = userLogs.map(log => log.id);
 
         if (allowedLogIds.length > 0) {
           allowedLogIds = allowedLogIds.filter(id => userLogIds.includes(id));
-      } else {
+        } else {
           // 未指定 log_ids，则只统计当前用户的日志
           allowedLogIds = userLogIds;
-    }
+        }
 
         if (!allowedLogIds || allowedLogIds.length === 0) {
-      return res.json({
-        success: true,
-        errorCodeCounts: {},
-        logCounts: {},
-        totalErrorCodes: 0,
-        totalLogEntries: 0,
-        queryConditions: {
-          log_ids: 0,
-          hasSearch: !!search,
-          hasErrorCodeFilter: !!error_code,
-          hasTimeRange: !!(start_time || end_time)
-        }
-      });
+          return res.json({
+            success: true,
+            errorCodeCounts: {},
+            logCounts: {},
+            totalErrorCodes: 0,
+            totalLogEntries: 0,
+            queryConditions: {
+              log_ids: 0,
+              hasSearch: !!search,
+              hasErrorCodeFilter: !!error_code,
+              hasTimeRange: !!(start_time || end_time)
+            }
+          });
         }
       }
     }
@@ -3269,10 +3269,10 @@ const getLogStatistics = async (req, res) => {
     // 基于允许的日志ID获取当前版本（最新版本）；如果未指定日志ID，则不按版本过滤
     let logVersionPairs = null;
     if (allowedLogIds && allowedLogIds.length > 0) {
-    const logs = await Log.findAll({
+      const logs = await Log.findAll({
         where: { id: { [Op.in]: allowedLogIds } },
-      attributes: ['id', 'version']
-    });
+        attributes: ['id', 'version']
+      });
 
       logVersionPairs = logs.map(l => [
         Number(l.id),
@@ -3280,19 +3280,19 @@ const getLogStatistics = async (req, res) => {
       ]);
 
       if (!logVersionPairs || logVersionPairs.length === 0) {
-      return res.json({
-        success: true,
-        errorCodeCounts: {},
-        logCounts: {},
-        totalErrorCodes: 0,
-        totalLogEntries: 0,
-        queryConditions: {
-          log_ids: 0,
-          hasSearch: !!search,
-          hasErrorCodeFilter: !!error_code,
-          hasTimeRange: !!(start_time || end_time)
-        }
-      });
+        return res.json({
+          success: true,
+          errorCodeCounts: {},
+          logCounts: {},
+          totalErrorCodes: 0,
+          totalLogEntries: 0,
+          queryConditions: {
+            log_ids: 0,
+            hasSearch: !!search,
+            hasErrorCodeFilter: !!error_code,
+            hasTimeRange: !!(start_time || end_time)
+          }
+        });
       }
     }
 
@@ -3357,6 +3357,9 @@ const getLogStatistics = async (req, res) => {
     };
 
     const advancedFilters = parseAdvancedFilters(filters);
+    if (advancedFilters) {
+      console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
+    }
 
     if (advancedFilters) {
       const allowedFields = new Set([
@@ -3377,7 +3380,7 @@ const getLogStatistics = async (req, res) => {
         if (chType === 'DateTime') {
           params[name] = formatTimeForClickHouse(value);
         } else {
-        params[name] = value;
+          params[name] = value;
         }
         return `{${name}:${chType}}`;
       };
@@ -3452,21 +3455,22 @@ const getLogStatistics = async (req, res) => {
           // error_code 字段
           if (field === 'error_code') {
             const p = makeParam('adv_ec', 'String', String(value));
+            const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
             switch (op) {
               case '=':
-                return `error_code = ${p}`;
+                return wrap(`error_code = ${p}`);
               case '!=':
               case '<>':
-                return `error_code != ${p}`;
+                return wrap(`error_code != ${p}`);
               case 'contains':
               case 'like':
-                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+                return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
               case 'regex':
-                return `match(error_code, ${p})`;
+                return wrap(`match(error_code, ${p})`);
               case 'startswith':
-                return `startsWith(error_code, ${p})`;
+                return wrap(`startsWith(error_code, ${p})`);
               case 'endswith':
-                return `endsWith(error_code, ${p})`;
+                return wrap(`endsWith(error_code, ${p})`);
               default:
                 return null;
             }
@@ -3540,6 +3544,9 @@ const getLogStatistics = async (req, res) => {
 
       const advancedWhereSql = buildAdvancedExpr(advancedFilters);
       if (advancedWhereSql) {
+        console.log('[batch-advanced] where sql:', advancedWhereSql);
+      }
+      if (advancedWhereSql) {
         conditions.push(advancedWhereSql);
       }
     }
@@ -3585,7 +3592,7 @@ const getLogStatistics = async (req, res) => {
       errorCodeCounts[code] = count;
       logCounts[code] = count;
     }
-    
+
     res.json({
       success: true,
       errorCodeCounts,
@@ -3599,7 +3606,7 @@ const getLogStatistics = async (req, res) => {
         hasTimeRange: !!(start_time || end_time)
       }
     });
-    
+
   } catch (err) {
     console.error('获取日志统计失败:', err);
     res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
@@ -3611,23 +3618,23 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
   try {
     console.log(`[分批查询] 开始分批查询，日志ID数量: ${logIds.length}`);
     const startTime = Date.now();
-    
+
     // 分批大小：每次处理5个日志文件
     const batchSize = 5;
     const batches = [];
     for (let i = 0; i < logIds.length; i += batchSize) {
       batches.push(logIds.slice(i, i + batchSize));
     }
-    
+
     console.log(`[分批查询] 分为 ${batches.length} 批，每批 ${batchSize} 个日志文件`);
-    
+
     // 并行执行分批查询
     const batchResults = await Promise.all(batches.map(async (batchIds, batchIndex) => {
       const batchStartTime = Date.now();
       console.log(`[分批查询] 执行第 ${batchIndex + 1}/${batches.length} 批，日志ID: ${batchIds.join(',')}`);
-      
+
       const batchWhere = { ...baseWhere, log_id: { [Op.in]: batchIds } };
-      
+
       const { count: batchTotal, rows: batchEntries } = await LogEntry.findAndCountAll({
         where: batchWhere,
         attributes: ['id', 'log_id', 'timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation'],
@@ -3639,30 +3646,30 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
         distinct: true,
         subQuery: false
       });
-      
+
       const batchTime = Date.now() - batchStartTime;
       console.log(`[分批查询] 第 ${batchIndex + 1} 批完成，耗时: ${batchTime}ms，结果: ${batchEntries.length} 条`);
-      
+
       return {
         entries: batchEntries,
         total: batchTotal,
         batchTime
       };
     }));
-    
+
     // 合并结果
     const allEntries = batchResults.flatMap(batch => batch.entries);
     const totalCount = batchResults.reduce((sum, batch) => sum + batch.total, 0);
     const totalTime = Date.now() - startTime;
-    
+
     console.log(`[分批查询] 所有批次完成，总耗时: ${totalTime}ms，总结果: ${allEntries.length} 条`);
-    
+
     // 分页处理
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
     const offset = (page - 1) * limit;
     const paginatedEntries = allEntries.slice(offset, offset + limit);
-    
+
     const result = {
       entries: paginatedEntries,
       total: totalCount,
@@ -3674,7 +3681,7 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
       batchMode: true,
       batchCount: batches.length
     };
-    
+
     // 缓存结果
     try {
       await cacheManager.set(cacheKey, result, cacheManager.cacheConfig.searchCacheTTL);
@@ -3682,7 +3689,7 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
     } catch (cacheError) {
       console.warn('缓存存储失败:', cacheError.message);
     }
-    
+
     return res.json(result);
   } catch (error) {
     console.error('[分批查询] 执行失败:', error);
@@ -3693,9 +3700,9 @@ const executeBatchQuery = async (req, res, logIds, baseWhere, cacheKey, shouldIn
 // 获取可视化数据（专门用于图表生成，已迁移到 ClickHouse）
 const getVisualizationData = async (req, res) => {
   try {
-    const { 
-      log_ids, 
-      error_code, 
+    const {
+      log_ids,
+      error_code,
       parameter_index, // 1, 2, 3, 4
       subsystem,
       filters,
@@ -3704,20 +3711,20 @@ const getVisualizationData = async (req, res) => {
       search,
       display_timezone_offset_minutes
     } = req.query;
-    
+
     if (!log_ids || !error_code || !parameter_index) {
-      return res.status(400).json({ 
-        message: req.t('log.analysis.failed') 
+      return res.status(400).json({
+        message: req.t('log.analysis.failed')
       });
     }
-    
+
     const paramIndex = parseInt(parameter_index) - 1; // 转换为0,1,2,3
     if (paramIndex < 0 || paramIndex > 3) {
-      return res.status(400).json({ 
-        message: req.t('log.analysis.failed') 
+      return res.status(400).json({
+        message: req.t('log.analysis.failed')
       });
     }
-    
+
     // 解析日志ID
     const requestedLogIds = String(log_ids)
       .split(',')
@@ -3735,15 +3742,15 @@ const getVisualizationData = async (req, res) => {
     if (req.user && req.user.role_id) {
       const userRole = req.user.role_id;
       if (userRole === 3) { // 普通用户
-      const userLogs = await Log.findAll({
+        const userLogs = await Log.findAll({
           where: { uploader_id: req.user.id, id: { [Op.in]: requestedLogIds } },
-        attributes: ['id']
-      });
+          attributes: ['id']
+        });
         const userLogIds = userLogs.map(log => log.id);
-        
+
         allowedLogIds = requestedLogIds.filter(id => userLogIds.includes(id));
         if (allowedLogIds.length === 0) {
-        return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
+          return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
         }
       }
     }
@@ -3820,6 +3827,9 @@ const getVisualizationData = async (req, res) => {
     };
 
     const advancedFilters = parseAdvancedFilters(filters);
+    if (advancedFilters) {
+      console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
+    }
 
     if (advancedFilters) {
       const allowedFields = new Set([
@@ -3840,7 +3850,7 @@ const getVisualizationData = async (req, res) => {
         if (chType === 'DateTime') {
           params[name] = formatTimeForClickHouse(value);
         } else {
-        params[name] = value;
+          params[name] = value;
         }
         return `{${name}:${chType}}`;
       };
@@ -3915,21 +3925,22 @@ const getVisualizationData = async (req, res) => {
           // error_code 字段
           if (field === 'error_code') {
             const p = makeParam('adv_ec', 'String', String(value));
+            const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
             switch (op) {
               case '=':
-                return `error_code = ${p}`;
+                return wrap(`error_code = ${p}`);
               case '!=':
               case '<>':
-                return `error_code != ${p}`;
+                return wrap(`error_code != ${p}`);
               case 'contains':
               case 'like':
-                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+                return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
               case 'regex':
-                return `match(error_code, ${p})`;
+                return wrap(`match(error_code, ${p})`);
               case 'startswith':
-                return `startsWith(error_code, ${p})`;
+                return wrap(`startsWith(error_code, ${p})`);
               case 'endswith':
-                return `endsWith(error_code, ${p})`;
+                return wrap(`endsWith(error_code, ${p})`);
               default:
                 return null;
             }
@@ -4003,6 +4014,9 @@ const getVisualizationData = async (req, res) => {
 
       const advancedWhereSql = buildAdvancedExpr(advancedFilters);
       if (advancedWhereSql) {
+        console.log('[batch-advanced] where sql:', advancedWhereSql);
+      }
+      if (advancedWhereSql) {
         conditions.push(advancedWhereSql);
       }
     }
@@ -4027,11 +4041,11 @@ const getVisualizationData = async (req, res) => {
     });
     const rangeRows = await rangeResult.json();
     const timeRangeRow = rangeRows[0] || {};
-    
+
     if (!timeRangeRow.startTime || !timeRangeRow.endTime) {
       return res.status(404).json({ message: req.t('log.visualization.noDataFound') });
     }
-    
+
     // 再查询该故障码的所有数据（在同一条件下）
     const paramCol = `param${paramIndex + 1}`;
     const dataQuery = `
@@ -4049,7 +4063,7 @@ const getVisualizationData = async (req, res) => {
       format: 'JSONEachRow'
     });
     const dataRows = await dataResult.json();
-    
+
     const displayOffsetMinutes = Number.isFinite(Number(display_timezone_offset_minutes))
       ? parseInt(display_timezone_offset_minutes, 10)
       : null;
@@ -4062,11 +4076,11 @@ const getVisualizationData = async (req, res) => {
       const paramValue = paramRaw != null && paramRaw !== '' ? parseFloat(paramRaw) : 0;
       return [timestamp, Number.isFinite(paramValue) ? paramValue : 0];
     }).filter(item => item !== null);
-    
+
     // 查询故障码参数含义
     let paramName = `参数${paramIndex + 1}`;
     let chartTitle = `参数${paramIndex + 1}`;
-    
+
     if (subsystem) {
       try {
         // 从error_code中提取故障码
@@ -4074,20 +4088,20 @@ const getVisualizationData = async (req, res) => {
         if (error_code.length >= 5) {
           codeToQuery = '0X' + error_code.slice(-4);
         }
-        
+
         const ErrorCode = require('../models/error_code');
         const errorCodeRecord = await ErrorCode.findOne({
-          where: { 
-            code: codeToQuery, 
-            subsystem: subsystem 
+          where: {
+            code: codeToQuery,
+            subsystem: subsystem
           }
         });
-        
+
         if (errorCodeRecord) {
           const paramFields = ['param1', 'param2', 'param3', 'param4'];
           const paramField = paramFields[paramIndex];
           const actualParamName = errorCodeRecord[paramField];
-          
+
           if (actualParamName && actualParamName.trim()) {
             paramName = actualParamName.trim();
             chartTitle = actualParamName.trim();
@@ -4097,7 +4111,7 @@ const getVisualizationData = async (req, res) => {
         console.warn('查询故障码参数含义失败:', error.message);
       }
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -4115,7 +4129,7 @@ const getVisualizationData = async (req, res) => {
         displayTimezoneOffsetMinutes: displayOffsetMinutes
       }
     });
-    
+
   } catch (err) {
     console.error('获取可视化数据失败:', err);
     res.status(500).json({ message: req.t('log.visualization.getDataFailed'), error: err.message });
@@ -4126,7 +4140,7 @@ const getVisualizationData = async (req, res) => {
 const cleanupStuckLogs = async (req, res) => {
   try {
     console.log('🔍 开始清理卡死的日志...');
-    
+
     // 查找卡在解析中状态的日志
     const stuckLogs = await Log.findAll({
       where: {
@@ -4134,18 +4148,18 @@ const cleanupStuckLogs = async (req, res) => {
       },
       order: [['upload_time', 'ASC']]
     });
-    
+
     console.log(`📊 发现 ${stuckLogs.length} 个卡死的日志`);
-    
+
     if (stuckLogs.length === 0) {
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         message: req.t('log.cleanup.noStuckLogs'),
         cleanedCount: 0,
         failedCount: 0
       });
     }
-    
+
     // 清理策略
     const cleanupStrategy = {
       parsing: 'parse_failed',      // 解析中 -> 解析失败
@@ -4155,22 +4169,22 @@ const cleanupStuckLogs = async (req, res) => {
       deleting: 'delete_failed',    // 删除中 -> 删除失败
       delete_failed: 'failed'       // 删除失败 -> 通用失败（可删除）
     };
-    
+
     let cleanedCount = 0;
     let failedCount = 0;
     const cleanedLogs = [];
-    
+
     for (const log of stuckLogs) {
       try {
         const oldStatus = log.status;
         const newStatus = cleanupStrategy[log.status] || 'failed';
-        
+
         // 更新日志状态
         await log.update({
           status: newStatus,
           parse_time: new Date()
         });
-        
+
         // 如果是解析中的日志，清理相关的日志条目
         if (oldStatus === 'parsing') {
           try {
@@ -4180,7 +4194,7 @@ const cleanupStuckLogs = async (req, res) => {
             console.warn(`⚠️ 清理日志 ${log.id} 条目数据失败:`, entryError.message);
           }
         }
-        
+
         cleanedLogs.push({
           id: log.id,
           originalName: log.original_name,
@@ -4188,18 +4202,18 @@ const cleanupStuckLogs = async (req, res) => {
           oldStatus,
           newStatus
         });
-        
+
         console.log(`✅ 日志 ${log.id} 状态已更新: ${oldStatus} -> ${newStatus}`);
         cleanedCount++;
-        
+
       } catch (error) {
         console.error(`❌ 清理日志 ${log.id} 失败:`, error.message);
         failedCount++;
       }
     }
-    
+
     console.log(`📊 清理完成: 成功 ${cleanedCount} 个, 失败 ${failedCount} 个`);
-    
+
     res.json({
       success: true,
       message: req.t('log.cleanup.cleanupComplete', { cleanedCount, failedCount }),
@@ -4207,7 +4221,7 @@ const cleanupStuckLogs = async (req, res) => {
       failedCount,
       cleanedLogs
     });
-    
+
   } catch (error) {
     console.error('❌ 清理卡死日志失败:', error);
     res.status(500).json({
@@ -4230,7 +4244,7 @@ const getStuckLogsStats = async (req, res) => {
       group: ['status'],
       raw: true
     });
-    
+
     // 检查卡死日志
     const stuckLogs = await Log.findAll({
       where: {
@@ -4239,7 +4253,7 @@ const getStuckLogsStats = async (req, res) => {
       attributes: ['id', 'original_name', 'device_id', 'status', 'upload_time'],
       order: [['upload_time', 'ASC']]
     });
-    
+
     // 计算卡死时长
     const now = Date.now();
     const stuckLogsWithAge = stuckLogs.map(log => {
@@ -4253,7 +4267,7 @@ const getStuckLogsStats = async (req, res) => {
         stuckMinutes: age
       };
     });
-    
+
     res.json({
       success: true,
       data: {
@@ -4262,7 +4276,7 @@ const getStuckLogsStats = async (req, res) => {
         stuckCount: stuckLogs.length
       }
     });
-    
+
   } catch (error) {
     console.error('❌ 获取卡死日志统计失败:', error);
     res.status(500).json({
@@ -4295,7 +4309,8 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       page = 1,
       limit = 100,
       filters,
-      analysis_category_ids
+      analysis_category_ids,
+      ids_only
     } = req.query;
 
     const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.BATCH_ENTRIES);
@@ -4390,7 +4405,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     // 注意：使用字符串拼接而不是参数化查询，因为 ClickHouse 客户端对 Array(Tuple(...)) 类型的参数解析存在问题
     if (logVersionPairs && logVersionPairs.length > 0) {
       // 构建 (log_id, version) 元组列表的 SQL 字符串
-      const tupleList = logVersionPairs.map(([logId, version]) => 
+      const tupleList = logVersionPairs.map(([logId, version]) =>
         `(${Number(logId)}, ${Number(version)})`
       ).join(', ');
       conditions.push(`(log_id, version) IN (${tupleList})`);
@@ -4435,9 +4450,9 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       const ids = Array.isArray(analysis_category_ids)
         ? analysis_category_ids.map(v => parseInt(String(v), 10)).filter(Number.isInteger)
         : String(analysis_category_ids)
-            .split(',')
-            .map(s => parseInt(s.trim(), 10))
-            .filter(Number.isInteger);
+          .split(',')
+          .map(s => parseInt(s.trim(), 10))
+          .filter(Number.isInteger);
 
       if (ids.length > 0) {
         const allowList = await getAllowCodesForCategories(ids);
@@ -4486,6 +4501,9 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     };
 
     const advancedFilters = parseAdvancedFilters(filters);
+    if (advancedFilters) {
+      console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
+    }
 
     if (advancedFilters) {
       const allowedFields = new Set([
@@ -4506,7 +4524,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
         if (chType === 'DateTime') {
           params[name] = formatTimeForClickHouse(value);
         } else {
-        params[name] = value;
+          params[name] = value;
         }
         return `{${name}:${chType}}`;
       };
@@ -4581,21 +4599,22 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
           // error_code 字段
           if (field === 'error_code') {
             const p = makeParam('adv_ec', 'String', String(value));
+            const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
             switch (op) {
               case '=':
-                return `error_code = ${p}`;
+                return wrap(`error_code = ${p}`);
               case '!=':
               case '<>':
-                return `error_code != ${p}`;
+                return wrap(`error_code != ${p}`);
               case 'contains':
               case 'like':
-                return `positionCaseInsensitive(error_code, ${p}) > 0`;
+                return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
               case 'regex':
-                return `match(error_code, ${p})`;
+                return wrap(`match(error_code, ${p})`);
               case 'startswith':
-                return `startsWith(error_code, ${p})`;
+                return wrap(`startsWith(error_code, ${p})`);
               case 'endswith':
-                return `endsWith(error_code, ${p})`;
+                return wrap(`endsWith(error_code, ${p})`);
               default:
                 return null;
             }
@@ -4669,6 +4688,9 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
 
       const advancedWhereSql = buildAdvancedExpr(advancedFilters);
       if (advancedWhereSql) {
+        console.log('[batch-advanced] where sql:', advancedWhereSql);
+      }
+      if (advancedWhereSql) {
         conditions.push(advancedWhereSql);
       }
     }
@@ -4730,6 +4752,27 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     }
     const whereSqlForData = dataConditions.length ? 'WHERE ' + dataConditions.join(' AND ') : '';
 
+    // ids_only：仅返回 log_id, version, row_index，用于前端「全部标记」等场景，单次请求避免 429
+    const IDS_ONLY_MAX = 50000;
+    if (ids_only && (ids_only === '1' || String(ids_only).toLowerCase() === 'true')) {
+      const idsLimit = Math.min(total, IDS_ONLY_MAX);
+      const idsQuery = `
+        SELECT log_id, version, row_index
+        FROM log_entries
+        ${whereSqlForData}
+        ORDER BY timestamp ASC, log_id ASC, row_index ASC
+        LIMIT ${idsLimit}
+      `;
+      // 必须传完整 dataParams：WHERE 中可能包含 cat_subsystem_* / cat_codes_* 占位符，不能删除
+      const idsResult = await client.query({
+        query: idsQuery,
+        query_params: dataParams,
+        format: 'JSONEachRow'
+      });
+      const idRows = await idsResult.json();
+      return res.json({ ids: idRows, total, truncated: total > IDS_ONLY_MAX });
+    }
+
     // 执行数据查询（分页）
     // 注意：LIMIT 和 OFFSET 直接使用数值，因为 ClickHouse 参数化查询对 LIMIT/OFFSET 支持可能有问题
     const baseQuery = `
@@ -4769,7 +4812,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       format: 'JSONEachRow'
     });
     const rows = await result.json();
-    
+
     console.log('[ClickHouse] 查询返回行数:', rows.length, '期望:', limitNum, 'offset:', queryOffset);
 
     // ClickHouse 已完成所有过滤，直接使用查询结果作为当前页
@@ -4781,7 +4824,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     // 优先使用 COUNT 查询的结果（更准确），否则使用当前页数据的时间范围
     let minTimestamp = minTimestampFromCount;
     let maxTimestamp = maxTimestampFromCount;
-    
+
     if (shouldIncludeTimeSuggestion && !minTimestamp && !maxTimestamp && rows.length > 0) {
       // 如果没有从 COUNT 查询获取到时间范围，使用当前查询结果的时间范围
       const timestamps = rows.map(r => new Date(r.timestamp).getTime()).filter(t => !Number.isNaN(t));

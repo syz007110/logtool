@@ -4161,12 +4161,38 @@ export default {
       })
     }
 
+    // 从 motionClassifiedData 中根据 index 查找对应的 name
+    const getNameFromClassifiedData = (index) => {
+      const data = motionClassifiedData.value || {}
+      const indexStr = String(index || '')
+      
+      // 遍历所有 subject 和 category 查找匹配的 index
+      for (const subjectKey in data) {
+        const subjectData = data[subjectKey]
+        if (!subjectData || typeof subjectData !== 'object') continue
+        
+        for (const categoryKey in subjectData) {
+          const variables = subjectData[categoryKey]
+          if (!Array.isArray(variables)) continue
+          
+          const variable = variables.find(v => String(v?.index || '') === indexStr)
+          if (variable && variable.name) {
+            return variable.name
+          }
+        }
+      }
+      
+      // 如果没找到，尝试从 motionFieldMeta 获取（兼容旧数据）
+      const metaMap = new Map(motionFieldMeta.value.map((m) => [m.index, m]))
+      const m = metaMap.get(index)
+      return m?.label || m?.name || indexStr
+    }
+
     const buildSeriesForFieldIndexes = (indexes) => {
       const rows = motionRawRows.value || []
-      const metaMap = new Map(motionFieldMeta.value.map((m) => [m.index, m]))
       const series = []
       for (const idx of indexes) {
-        const m = metaMap.get(idx)
+        const name = getNameFromClassifiedData(idx)
         const points = []
         for (const r of rows) {
           const x = toEpochMs(r.ulint_data)
@@ -4174,7 +4200,7 @@ export default {
           if (!Number.isFinite(x) || !Number.isFinite(y)) continue
           points.push([x, y])
         }
-        series.push({ name: m?.label || idx, data: points })
+        series.push({ name: name, data: points })
       }
       return series
     }

@@ -263,6 +263,7 @@ export default {
         history: t('roles.permissionGroups.history'),
         surgery: t('roles.permissionGroups.surgery'),
         data_replay: t('roles.permissionGroups.data_replay'),
+        kb: t('roles.permissionGroups.kb'),
         dashboard: t('roles.permissionGroups.dashboard'),
         test: t('roles.permissionGroups.test'),
         system: t('roles.permissionGroups.system'),

@@ -677,6 +677,9 @@ async function processExportCsv(job) {
   };
 
   const advancedFilters = parseAdvancedFilters(filters);
+  if (advancedFilters) {
+    console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
+  }
 
   if (advancedFilters) {
     const allowedFields = new Set([
@@ -762,21 +765,22 @@ async function processExportCsv(job) {
 
         if (field === 'error_code') {
           const p = makeParam('adv_ec', 'String', String(value));
+          const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
           switch (op) {
             case '=':
-              return `error_code = ${p}`;
+              return wrap(`error_code = ${p}`);
             case '!=':
             case '<>':
-              return `error_code != ${p}`;
+              return wrap(`error_code != ${p}`);
             case 'contains':
             case 'like':
-              return `positionCaseInsensitive(error_code, ${p}) > 0`;
+              return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
             case 'regex':
-              return `match(error_code, ${p})`;
+              return wrap(`match(error_code, ${p})`);
             case 'startswith':
-              return `startsWith(error_code, ${p})`;
+              return wrap(`startsWith(error_code, ${p})`);
             case 'endswith':
-              return `endsWith(error_code, ${p})`;
+              return wrap(`endsWith(error_code, ${p})`);
             default:
               return null;
           }

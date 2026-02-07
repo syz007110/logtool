@@ -82,6 +82,30 @@ const checkPermission = (requiredPermission) => {
   };
 };
 
+// 满足任一权限即通过（用于分析工具等需要多角色可读的接口）
+const checkPermissionAny = (requiredPermissions) => {
+  const list = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
+  return async (req, res, next) => {
+    try {
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ message: '用户信息缺失，请重新登录' });
+      }
+      const userId = req.user.id;
+      for (const perm of list) {
+        if (await userHasDbPermission(userId, perm)) return next();
+        try {
+          const userRoles = await loadUserRoles(userId);
+          if (legacyRoles.hasPermission(userRoles, perm)) return next();
+        } catch (_) {}
+      }
+      return res.status(403).json({ message: '权限不足', requiredPermissions: list });
+    } catch (error) {
+      console.error('权限检查错误:', error);
+      return res.status(500).json({ message: '权限检查失败', error: error.message });
+    }
+  };
+};
+
 // 资源所有者检查中间件
 const checkResourceOwnership = (resourceModel, resourceIdField = 'id') => {
   return async (req, res, next) => {
@@ -220,6 +244,7 @@ const checkUserUpdatePermission = async (req, res, next) => {
 
 module.exports = {
   checkPermission,
+  checkPermissionAny,
   checkResourceOwnership,
   checkLogPermission,
   checkUserUpdatePermission,

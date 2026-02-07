@@ -266,7 +266,7 @@ const deleteI18nErrorCode = async (req, res) => {
 // 批量导入多语言故障码内容
 const batchImportI18nErrorCodes = async (req, res) => {
   try {
-    const { data } = req.body; // 期望格式: [{subsystem, code, lang, short_message, user_hint, operation}, ...]
+    const { data } = req.body; // 期望格式: [{subsystem, code, lang, short_message, user_hint, operation, detail, method, param1, param2, param3, param4}, ...]
     
     if (!Array.isArray(data) || data.length === 0) {
       return res.status(400).json({ message: '数据格式错误或为空' });
@@ -277,7 +277,20 @@ const batchImportI18nErrorCodes = async (req, res) => {
     
     for (const item of data) {
       try {
-        const { subsystem, code, lang, short_message, user_hint, operation } = item;
+        const {
+          subsystem,
+          code,
+          lang,
+          short_message,
+          user_hint,
+          operation,
+          detail,
+          method,
+          param1,
+          param2,
+          param3,
+          param4
+        } = item;
         
         // 验证必填字段
         if (!subsystem || !code || !lang) {
@@ -321,7 +334,13 @@ const batchImportI18nErrorCodes = async (req, res) => {
           await existing.update({
             short_message,
             user_hint,
-            operation
+            operation,
+            detail,
+            method,
+            param1,
+            param2,
+            param3,
+            param4
           });
           i18nErrorCode = existing;
         } else {
@@ -331,7 +350,13 @@ const batchImportI18nErrorCodes = async (req, res) => {
             lang,
             short_message,
             user_hint,
-            operation
+            operation,
+            detail,
+            method,
+            param1,
+            param2,
+            param3,
+            param4
           });
         }
         
@@ -486,7 +511,9 @@ const uploadCSV = async (req, res) => {
     const errors = [];
     let lineNumber = 0;
     let isFirstRow = true;
-    let expectedHeaders = ['subsystem', 'code', 'lang', 'short_message', 'user_hint', 'operation'];
+    const baseHeaders = ['subsystem', 'code', 'lang', 'short_message', 'user_hint', 'operation'];
+    const extraHeaders = ['detail', 'method', 'param1', 'param2', 'param3', 'param4'];
+    let expectedHeaders = baseHeaders;
     
     // 读取CSV文件，确保UTF-8编码
     fs.createReadStream(req.file.path, { encoding: 'utf8' })
@@ -502,15 +529,22 @@ const uploadCSV = async (req, res) => {
           isFirstRow = false;
           // 检查列名是否正确
           const headers = Object.values(row);
-          const isValidHeaders = expectedHeaders.every((header, index) => 
+          const hasBaseHeaders = baseHeaders.every((header, index) =>
             headers[index] && headers[index].toLowerCase().trim() === header.toLowerCase()
           );
-          
-          if (!isValidHeaders) {
+          const hasExtraHeaders = extraHeaders.every((header, index) =>
+            headers[baseHeaders.length + index] &&
+            headers[baseHeaders.length + index].toLowerCase().trim() === header.toLowerCase()
+          );
+
+          const isExactBase = headers.length === baseHeaders.length && hasBaseHeaders;
+          const isExactFull = headers.length === (baseHeaders.length + extraHeaders.length) && hasBaseHeaders && hasExtraHeaders;
+
+          if (!isExactBase && !isExactFull) {
             errors.push({ 
               line: lineNumber, 
               row, 
-              error: `第${lineNumber}行列名不正确，期望: ${expectedHeaders.join(', ')}，实际: ${headers.join(', ')}` 
+              error: `第${lineNumber}行列名不正确，期望: ${baseHeaders.join(', ')} 或 ${[...baseHeaders, ...extraHeaders].join(', ')}，实际: ${headers.join(', ')}` 
             });
           }
           return; // 跳过第一行
@@ -518,7 +552,20 @@ const uploadCSV = async (req, res) => {
         
         // 处理数据行
         const values = Object.values(row);
-        const [subsystem, code, lang, short_message, user_hint, operation] = values;
+        const [
+          subsystem,
+          code,
+          lang,
+          short_message,
+          user_hint,
+          operation,
+          detail,
+          method,
+          param1,
+          param2,
+          param3,
+          param4
+        ] = values;
         
         // 检查必填字段
         if (!subsystem || !code || !lang) {
@@ -559,7 +606,13 @@ const uploadCSV = async (req, res) => {
           lang: lang.trim(),
           short_message: short_message ? short_message.trim() : '',
           user_hint: user_hint ? user_hint.trim() : '',
-          operation: operation ? operation.trim() : ''
+          operation: operation ? operation.trim() : '',
+          detail: detail ? detail.trim() : '',
+          method: method ? method.trim() : '',
+          param1: param1 ? param1.trim() : '',
+          param2: param2 ? param2.trim() : '',
+          param3: param3 ? param3.trim() : '',
+          param4: param4 ? param4.trim() : ''
         });
       })
       .on('end', async () => {
@@ -580,7 +633,20 @@ const uploadCSV = async (req, res) => {
           
           for (const item of results) {
             try {
-              const { subsystem, code, lang, short_message, user_hint, operation } = item;
+              const {
+                subsystem,
+                code,
+                lang,
+                short_message,
+                user_hint,
+                operation,
+                detail,
+                method,
+                param1,
+                param2,
+                param3,
+                param4
+              } = item;
               
               // 通过subsystem和code查找error_code_id
               const errorCode = await ErrorCode.findOne({
@@ -608,7 +674,13 @@ const uploadCSV = async (req, res) => {
                 await existing.update({
                   short_message,
                   user_hint,
-                  operation
+                  operation,
+                  detail,
+                  method,
+                  param1,
+                  param2,
+                  param3,
+                  param4
                 });
                 i18nErrorCode = existing;
               } else {
@@ -618,7 +690,13 @@ const uploadCSV = async (req, res) => {
                   lang,
                   short_message,
                   user_hint,
-                  operation
+                  operation,
+                  detail,
+                  method,
+                  param1,
+                  param2,
+                  param3,
+                  param4
                 });
               }
               

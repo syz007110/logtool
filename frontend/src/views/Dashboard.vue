@@ -122,10 +122,9 @@
         </el-menu>
       </div>
 
-      <!-- 侧边栏底部工具箱（点击展开：分析工具、翻译工具） -->
-      <div class="sidebar-tools" v-if="!collapsed || $store.getters['auth/hasPermission']('log:read_all')">
+      <!-- 侧边栏底部工具箱（点击展开：分析工具、翻译工具；翻译无权限要求，分析需 log:read_all） -->
+      <div class="sidebar-tools" v-if="currentUser">
         <el-dropdown
-          v-if="$store.getters['auth/hasPermission']('log:read_all')"
           trigger="click"
           placement="right-start"
           @command="handleToolboxCommand"
@@ -139,7 +138,7 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="analysis">
+              <el-dropdown-item v-if="$store.getters['auth/hasPermission']('log:read_all')" command="analysis">
                 <el-icon><TrendCharts /></el-icon>
                 <span>{{ $t('toolbox.analysisTool') }}</span>
               </el-dropdown-item>
@@ -484,12 +483,13 @@ export default {
       window.open(routeData.href, '_blank')
     }
 
-    // 工具箱下拉选择：分析工具 | 翻译工具
+    // 工具箱下拉选择：分析工具 | 翻译工具（均在新标签页打开）
     const handleToolboxCommand = (command) => {
       if (command === 'analysis') {
         openDataAnalysisInNewTab()
       } else if (command === 'translate') {
-        router.push('/dashboard/translate-tool')
+        const routeData = router.resolve('/translate-tool')
+        window.open(routeData.href, '_blank')
       }
     }
     
@@ -519,8 +519,7 @@ export default {
              route.name === 'GlobalDashboard' ||
              route.name === 'Feedback' ||
              route.name === 'Account' ||
-             route.name === 'ExplanationTester' ||
-             route.name === 'TranslateTool'
+             route.name === 'ExplanationTester'
     })
     
     return {

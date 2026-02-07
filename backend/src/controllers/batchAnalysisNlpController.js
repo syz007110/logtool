@@ -69,7 +69,17 @@ async function nlToBatchFilters(req, res) {
   }
 
   try {
-    const llm = await extractBatchFiltersWithProvider({ providerId: llmProviderId, text });
+    const presetNames = Array.isArray(req.body.presetNames) ? req.body.presetNames : undefined;
+    const ctx = req.body.context && typeof req.body.context === 'object' ? req.body.context : null;
+    const context = ctx
+      ? {
+        firstMessage: ctx.firstMessage,
+        previousSpec: ctx.previousResult || ctx.previousSpec,
+        answers: Array.isArray(ctx.answers) ? ctx.answers : [],
+        logTimeRange: typeof ctx.logTimeRange === 'string' ? ctx.logTimeRange : (ctx.logTimeRange && ctx.logTimeRange.min != null && ctx.logTimeRange.max != null ? `${ctx.logTimeRange.min} ~ ${ctx.logTimeRange.max}` : '')
+      }
+      : undefined;
+    const llm = await extractBatchFiltersWithProvider({ providerId: llmProviderId, text, presetNames, context });
     const result = llm?.result || {};
     const hasSearch = typeof result.search === 'string' && result.search.trim();
     const hasTime = !!(result.start_time && result.end_time);

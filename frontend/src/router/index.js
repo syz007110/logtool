@@ -20,6 +20,13 @@ const routes = [
     component: () => import('../views/DataAnalysisPage.vue'),
     meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'log:read_all' }
   },
+  // 文档翻译工具（独立标签页，无侧边栏）
+  {
+    path: '/translate-tool',
+    name: 'TranslateTool',
+    component: () => import('../views/TranslateTool.vue'),
+    meta: { requiresAuth: true, noSidebar: true }
+  },
   {
     path: '/login',
     name: 'Login',
@@ -229,8 +236,8 @@ const routes = [
       },
       {
         path: 'translate-tool',
-        name: 'TranslateTool',
-        component: () => import('../views/TranslateTool.vue')
+        name: 'DashboardTranslateTool',
+        redirect: '/translate-tool'
       }
     ]
   },

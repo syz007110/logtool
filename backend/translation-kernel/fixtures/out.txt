@@ -1,0 +1,5 @@
+这是一个测试文档。
+
+请检查 HDMI input、HDMI output、usb flash disk 等术语是否保持一致。
+谢谢。
+

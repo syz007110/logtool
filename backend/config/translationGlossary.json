@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "langPair": "zh->en",
+  "entries": [
+    { "source": "2D/3D切换", "target": "2D/3D toggle" },
+    { "source": "3D垂直校准", "target": "3D vertical calibration" },
+    { "source": "3D水平校准", "target": "3D horizontal calibration" },
+    { "source": "DP输出", "target": "DP output" },
+    { "source": "HDMI输出", "target": "HDMI output" },
+    { "source": "HDMI输入", "target": "HDMI input" },
+    { "source": "PVC卷材", "target": "PVC coil" },
+    { "source": "SDI输出", "target": "SDI output" },
+    { "source": "SDI输入", "target": "SDI input" },
+    { "source": "U盘", "target": "usb flash disk" },
+    { "source": "Windows 通讯开发平台", "target": "Windows Communications Development Platform" },
+    { "source": "安装工具", "target": "installation tool" },
+    { "source": "按键控制", "target": "button control" },
+    { "source": "白大褂", "target": "white gown" },
+    { "source": "白平衡", "target": "white balance" },
+    { "source": "白纱布", "target": "white gauze" },
+    { "source": "包装", "target": "package" },
+    { "source": "保修", "target": "warranty" }
+  ],
+  "synonyms": [
+    { "canonical": "usb flash disk", "variants": ["USB drive", "usb drive", "thumb drive", "USB flash drive", "usb flash drive"] }
+  ]
+}
+

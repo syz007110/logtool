@@ -171,6 +171,7 @@
               :content="row.summary || ''"
               placement="top"
               effect="dark"
+              :show-after="500"
               :disabled="!row.summary"
             >
               <span class="summary-cell">{{ row.summary }}</span>
@@ -187,6 +188,7 @@
               :content="getModuleTooltipContent(row)"
               placement="top"
               effect="dark"
+              :show-after="500"
               :disabled="!getModuleTooltipContent(row)"
             >
               <div class="table-cell-content">
@@ -220,6 +222,7 @@
               :content="getStatusTooltipContent(row)"
               placement="top"
               effect="dark"
+              :show-after="500"
               :disabled="!getStatusTooltipContent(row)"
             >
               <div class="table-cell-content">

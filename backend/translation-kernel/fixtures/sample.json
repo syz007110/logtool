@@ -1,0 +1,11 @@
+{
+  "title": "示例",
+  "items": [
+    {
+      "name": "HDMI输入",
+      "desc": "请插入U盘，然后切换2D/3D切换。"
+    }
+  ],
+  "keepKey": "do-not-translate-keys"
+}
+

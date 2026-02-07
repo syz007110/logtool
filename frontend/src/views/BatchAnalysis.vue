@@ -255,14 +255,55 @@
 
               <!-- Search：分为 3 部分：自然语言搜索、常用搜索表达式、导入搜索表达式；隐藏筛选条件 -->
               <div v-show="filterSidebarActiveTab === 'search'" class="drawer-section advanced-filter-inline">
-                <!-- 1. 自然语言搜索 -->
+                <!-- 1. 自然语言搜索：追问时显示对话形式 + 单行输入 -->
                 <div class="search-tab-section">
                   <div class="section-title drawer-section-title">{{ $t('batchAnalysis.naturalLanguageSearch') }}</div>
-                  <div class="nl-card">
+                  <template v-if="nlSpec && nlSpec.meta && nlSpec.meta.status === 'need_clarification'">
+                    <div class="nl-conversation">
+                      <div class="nl-messages">
+                        <div
+                          v-for="(msg, i) in nlConversationMessages"
+                          :key="i"
+                          :class="['nl-msg', 'nl-msg-' + msg.role]"
+                        >
+                          <span class="nl-msg-label">{{ msg.role === 'assistant' ? $t('batchAnalysis.nlAssistant') : $t('batchAnalysis.nlYou') }}</span>
+                          <div class="nl-msg-content">{{ msg.content }}</div>
+                        </div>
+                      </div>
+                      <div class="nl-reply-row">
+                        <el-input
+                          v-model="nlInputLine"
+                          type="text"
+                          :placeholder="$t('batchAnalysis.nlReplyPlaceholder')"
+                          class="nl-input-line"
+                          clearable
+                          @keyup.enter="submitNlReply"
+                        />
+                        <el-button type="primary" size="small" class="nl-send-reply-btn" :loading="nlGenerating" :disabled="!nlInputLine.trim()" @click="submitNlReply">
+                          {{ $t('batchAnalysis.nlSendReply') }}
+                        </el-button>
+                      </div>
+                      <div v-if="nlQuestionOptions.length" class="nl-options-row">
+                        <el-button
+                          v-for="(opt, oi) in nlQuestionOptions"
+                          :key="`${opt}-${oi}`"
+                          size="small"
+                          class="nl-option-btn"
+                          @click="nlInputLine = String(opt || '')"
+                        >
+                          {{ opt }}
+                        </el-button>
+                      </div>
+                      <el-button size="small" class="nl-cancel-clarification" @click="cancelNlClarification">
+                        {{ $t('batchAnalysis.nlCancelClarification') }}
+                      </el-button>
+                    </div>
+                  </template>
+                  <div v-else class="nl-card">
                     <el-input
                       v-model="nlQuery"
                       type="textarea"
-                      :rows="4"
+                      :autosize="{ minRows: 3, maxRows: 6 }"
                       :placeholder="$t('batchAnalysis.naturalLanguagePlaceholder')"
                       class="nl-textarea"
                     />
@@ -296,6 +337,17 @@
                   </el-upload>
                 </div>
 
+                <!-- 自然语言 stats 动作：统计展示（置于表达式预览上方） -->
+                <div v-if="nlStatsCounts && nlStatsCounts.length" class="search-tab-stats">
+                  <div class="search-tab-stats-label">{{ $t('batchAnalysis.nlStatsLabel') }}：</div>
+                  <div class="search-tab-stats-list">
+                    <div v-for="(s, i) in nlStatsCounts" :key="i" class="search-tab-stats-item">
+                      <span class="search-tab-stats-field">{{ s.field === 'error_code' ? $t('batchAnalysis.errorCode') : s.field }} {{ s.value }}：</span>
+                      <span class="search-tab-stats-count">{{ s.count }}</span>
+                      <span class="search-tab-stats-unit">{{ $t('batchAnalysis.nlStatsUnit') }}</span>
+                    </div>
+                  </div>
+                </div>
                 <!-- 底部：搜索表达式预览（自然语言/常用表达式/导入选中后显示） -->
                 <div class="search-tab-preview" v-if="searchTabPreviewExpression">
                   <span class="search-tab-preview-label">{{ $t('batchAnalysis.expressionPreview') }}：</span>
@@ -363,6 +415,7 @@
               row-key="id"
               :row-class-name="getRowClassName"
               :row-style="getRowStyle"
+              :cell-class-name="getCellClassName"
               @current-change="forceRelayout"
               @selection-change="forceRelayout"
               @sort-change="forceRelayout"
@@ -459,7 +512,15 @@
               </template>
               <template #default="{ row }">
                 <div class="file-info-cell">
-                    <div class="timestamp" :title="row.log_name">{{ formatTimestampWithTimezone(row.timestamp, displayTimezoneOffsetMinutes) || row.timestamp_text }}</div>
+                  <el-tooltip
+                    :content="getTimestampFileInfoTooltip(row)"
+                    placement="top"
+                    effect="dark"
+                    :show-after="500"
+                    :disabled="!getTimestampFileInfoTooltip(row)"
+                  >
+                    <span class="timestamp-cell-ellipsis">{{ formatTimestampWithTimezone(row.timestamp, displayTimezoneOffsetMinutes) || row.timestamp_text }}</span>
+                  </el-tooltip>
                 </div>
               </template>
             </el-table-column>
@@ -493,9 +554,17 @@
                 </div>
               </template>
               <template #default="{ row }">
-                <div class="explanation-cell">
-                  <ExplanationCell :text="row.explanation" />
-                </div>
+                <el-tooltip
+                  :content="row.explanation || ''"
+                  placement="top"
+                  effect="dark"
+                  :show-after="500"
+                  :disabled="!row.explanation"
+                >
+                  <div class="explanation-cell">
+                    <ExplanationCell :text="row.explanation" :show-title="false" />
+                  </div>
+                </el-tooltip>
               </template>
             </el-table-column>
             
@@ -571,7 +640,7 @@
             </el-table-column>
             
             
-            <!-- 操作列：固定 8% 保证列宽稳定；侧边栏展开时用「更多」下拉 -->
+            <!-- 操作列：固定 8%，始终显示图标按钮（高级选项已为侧边栏悬浮，无需根据侧边栏切换） -->
             <el-table-column prop="operations" width="8%">
               <template #header>
                 <div class="col-header">
@@ -579,30 +648,13 @@
                 </div>
               </template>
               <template #default="{ row }">
-                <div class="operations-cell" :class="{ 'sidebar-open': filterDrawerVisible }">
-                  <!-- 侧边栏展开时显示：两套都渲染，用 CSS 显隐避免 v-if 导致整列重渲染 -->
-                  <div class="operation-when-sidebar-open">
-                    <el-dropdown trigger="click" @command="(cmd) => onOperationsCommand(cmd, row)" class="operations-dropdown">
-                      <el-button text size="small" class="operation-more-btn">
-                        {{ $t('batchAnalysis.more') }}
-                        <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                      </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item command="context">{{ $t('batchAnalysis.contextAnalysisTitle') }}</el-dropdown-item>
-                          <el-dropdown-item command="capture">{{ $t('batchAnalysis.logExtraction') }}</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
-                  </div>
-                  <div class="operation-when-sidebar-closed">
-                    <el-button text @click="handleContextAnalysis(row)" class="operation-btn operation-btn-context">
-                      <el-icon><View /></el-icon>
-                    </el-button>
-                    <el-button text @click="handleLogCapture(row)" class="operation-btn operation-btn-capture">
-                      <el-icon><DocumentCopy /></el-icon>
-                    </el-button>
-                  </div>
+                <div class="operations-cell">
+                  <el-button text @click="handleContextAnalysis(row)" class="operation-btn operation-btn-context">
+                    <el-icon><View /></el-icon>
+                  </el-button>
+                  <el-button text @click="handleLogCapture(row)" class="operation-btn operation-btn-capture">
+                    <el-icon><DocumentCopy /></el-icon>
+                  </el-button>
                 </div>
               </template>
             </el-table-column>
@@ -813,7 +865,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, h, resolveComponen
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Download, ArrowLeft, ArrowDown, DataAnalysis, Warning, DocumentCopy, View, Edit, Delete, InfoFilled, TrendCharts, Filter, Operation } from '@element-plus/icons-vue'
+import { Search, Download, ArrowLeft, DataAnalysis, Warning, DocumentCopy, View, Edit, Delete, InfoFilled, TrendCharts, Filter, Operation } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import TimeSeriesChart from '@/components/TimeSeriesChart.vue'
 import SurgeryDataCompare from '@/components/SurgeryDataCompare.vue'
@@ -837,12 +889,14 @@ export default {
     SurgeryDataCompare,
     ExplanationCell: {
       name: 'ExplanationCell',
-      props: { text: { type: String, default: '' } },
+      props: {
+        text: { type: String, default: '' },
+        showTitle: { type: Boolean, default: true } // 由外层 el-tooltip 提供提示时传 false，避免双 tooltip
+      },
       setup(props) {
-        // 简化：无需观察器，使用原生 title 提示，避免每格测量
         return () => h('span', {
           class: 'explanation-ellipsis',
-          title: props.text,
+          title: props.showTitle ? props.text : undefined,
           style: 'display:inline-block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:var(--slate-600);'
         }, props.text)
       }
@@ -1028,16 +1082,49 @@ export default {
     // 时区显示：日志按原时区存储，检索时使用转换前的时间；此处选中的时区仅影响前端显示
     const displayTimezoneOffsetMinutes = ref(480) // 480 = 与当前默认原时区一致，无转换
     const timezoneOptions = [
+      // UTC+14 ~ UTC+12
+      { label: 'UTC+14 莱恩群岛', value: 840 },
+      { label: 'UTC+13 汤加/萨摩亚', value: 780 },
+      { label: 'UTC+12 新西兰(冬)/斐济', value: 720 },
+      { label: 'UTC+12:45 查塔姆群岛(新西兰)', value: 765 },
+      { label: 'UTC+11 所罗门/悉尼(冬)', value: 660 },
+      // UTC+10 ~ UTC+8
+      { label: 'UTC+10:30 洛德豪岛/阿德莱德(夏令)', value: 630 },
+      { label: 'UTC+10 悉尼/布里斯班/符拉迪沃斯托克', value: 600 },
+      { label: 'UTC+9:30 阿德莱德/达尔文(澳大利亚)', value: 570 },
+      { label: 'UTC+9 东京/首尔', value: 540 },
+      { label: 'UTC+8:45 尤克拉(澳大利亚)', value: 525 },
       { label: 'UTC+8 北京（无转换）', value: 480 },
-      { label: 'UTC+9 东京', value: 540 },
-      { label: 'UTC+7 曼谷', value: 420 },
+      { label: 'UTC+7 曼谷/雅加达/胡志明', value: 420 },
+      // UTC+6 ~ UTC+4
+      { label: 'UTC+6:30 缅甸/科科斯群岛', value: 390 },
+      { label: 'UTC+6 达卡/阿拉木图', value: 360 },
+      { label: 'UTC+5:45 尼泊尔', value: 345 },
       { label: 'UTC+5:30 印度', value: 330 },
-      { label: 'UTC+0 伦敦', value: 0 },
-      { label: 'UTC-1 柏林/巴黎(冬)', value: -60 },
-      { label: 'UTC-5 纽约(EST)', value: -300 },
-      { label: 'UTC-6 芝加哥(CST)', value: -360 },
+      { label: 'UTC+5 伊斯兰堡/叶卡捷琳堡', value: 300 },
+      { label: 'UTC+4:30 阿富汗', value: 270 },
+      { label: 'UTC+4 迪拜/莫斯科(冬)', value: 240 },
+      { label: 'UTC+3:30 伊朗', value: 210 },
+      { label: 'UTC+3 莫斯科/伊斯坦布尔/东非', value: 180 },
+      { label: 'UTC+2 开罗/雅典/开普敦', value: 120 },
+      // UTC+1 ~ UTC-1
+      { label: 'UTC+1 柏林/巴黎(冬)/中欧', value: 60 },
+      { label: 'UTC+0 伦敦/都柏林', value: 0 },
+      { label: 'UTC-1 亚速尔/佛得角', value: -60 },
+      // UTC-2 ~ UTC-5
+      { label: 'UTC-2 巴西(部分)', value: -120 },
+      { label: 'UTC-3 布宜诺斯艾利斯/圣保罗', value: -180 },
+      { label: 'UTC-3:30 纽芬兰', value: -210 },
+      { label: 'UTC-4 加拉加斯/圣地亚哥(智利)', value: -240 },
+      { label: 'UTC-5 纽约(EST)/波哥大', value: -300 },
+      { label: 'UTC-6 芝加哥(CST)/墨西哥城', value: -360 },
+      { label: 'UTC-7 丹佛(MST)/凤凰城', value: -420 },
       { label: 'UTC-8 洛杉矶(PST)', value: -480 },
-      { label: 'UTC-10 夏威夷', value: -600 }
+      { label: 'UTC-9 阿拉斯加', value: -540 },
+      { label: 'UTC-9:30 马克萨斯群岛(法属波利尼西亚)', value: -570 },
+      { label: 'UTC-10 夏威夷', value: -600 },
+      { label: 'UTC-11 萨摩亚(美)', value: -660 },
+      { label: 'UTC-12 贝克岛', value: -720 }
     ]
     const currentPage = ref(1)
     const pageSize = ref(50)
@@ -1576,11 +1663,13 @@ export default {
       if (!node) return null
       if (node.field && node.operator) {
         const val = node.value
-        return {
+        const out = {
           field: node.field,
           operator: node.operator,
           value: Array.isArray(val) ? [...val] : val
         }
+        if (node.negate !== undefined) out.negate = !!node.negate
+        return out
       }
       if (Array.isArray(node.conditions)) {
         return {
@@ -1589,6 +1678,31 @@ export default {
         }
       }
       return { logic: 'AND', conditions: [] }
+    }
+
+    // 完整故障码：7 位十六进制，首位 [1-9A]，后 6 位 [0-9A-F]
+    const isCompleteErrorCode = (v) => {
+      const s = (v != null ? String(v).trim() : '').toUpperCase()
+      return s.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(s)
+    }
+
+    // 递归规范化 error_code：等于/包含 → 完整码用 eq、非完整用 contains；排除 → 完整码用 !=、非完整用 notcontains（不包含）
+    const normalizeErrorCodeOperatorInFilters = (root) => {
+      if (!root) return
+      if (root.field === 'error_code' && root.operator !== undefined) {
+        const op = String(root.operator).toLowerCase()
+        const complete = isCompleteErrorCode(root.value)
+        if (op === '!=' || op === '<>') {
+          root.operator = complete ? '!=' : 'notcontains'
+          return
+        }
+        if (op === 'notcontains') return
+        root.operator = complete ? '=' : 'contains'
+        return
+      }
+      if (Array.isArray(root.conditions)) {
+        root.conditions.forEach(normalizeErrorCodeOperatorInFilters)
+      }
     }
     const pendingFiltersRoot = ref({ logic: 'AND', conditions: [] })
     const pendingSelectedAnalysisCategoryIds = ref([])
@@ -1620,34 +1734,310 @@ export default {
       applySelectedTemplate()
     }
 
-    // Natural language → (search/filters/start_time/end_time)
+    // Natural language → (search/filters/start_time/end_time)；追问时对话形式 + 单行输入
     const nlQuery = ref('')
     const nlGenerating = ref(false)
+    const nlSpec = ref(null)
+    const nlConversationMessages = ref([])
+    const nlInputLine = ref('')
+    const nlAnswers = ref([])
+    const nlAppliedActions = ref([])
+    const pendingNlActions = ref([])
+    const nlPreviewCleared = ref(false)
+
+    // 与颜色标记功能同源：仅使用 colorOptions 中的颜色，默认第一个（紫色）
+    const markColorOptions = computed(() => (colorOptions.value || []).filter((c) => c && c.value != null))
+    const defaultMarkColor = computed(() => markColorOptions.value[0]?.value ?? '#C39BD3')
+    // NL 1.1.0 颜色名映射到现有四种选项的 hex（与 colorOptions 的 value 一致：红/黄/蓝/绿），保证标色与前端打勾一致
+    const NL_COLOR_NAME_MAP = { yellow: '#A8E6CF', purple: '#C39BD3', green: '#AED6F1', blue: '#F9E79F', red: '#C39BD3' }
+    const resolveMarkColor = (mark) => {
+      if (!mark) return defaultMarkColor.value
+      const raw = mark.color != null ? String(mark.color).trim().toLowerCase() : ''
+      if (!raw) return defaultMarkColor.value
+      if (raw.startsWith('#')) {
+        const found = markColorOptions.value.find((c) => c.value && c.value.toLowerCase() === raw.toLowerCase())
+        return found ? found.value : defaultMarkColor.value
+      }
+      const mappedHex = NL_COLOR_NAME_MAP[raw]
+      if (mappedHex) {
+        const found = markColorOptions.value.find((c) => c.value && c.value.toLowerCase() === mappedHex.toLowerCase())
+        return found ? found.value : defaultMarkColor.value
+      }
+      const hex = '#' + raw
+      const found = markColorOptions.value.find((c) => c.value && c.value.toLowerCase() === hex.toLowerCase())
+      return found ? found.value : defaultMarkColor.value
+    }
+    // 多 mark 支持：每个 mark 可有 field/value 限定范围，按顺序第一个匹配生效
+    const nlMarkActions = computed(() => {
+      const marks = (nlAppliedActions.value || []).filter((a) => a && a.type === 'mark')
+      return marks.map((m) => {
+        const scope = (m.field != null && m.value != null && String(m.value).trim())
+          ? { field: String(m.field).trim() || 'error_code', value: String(m.value).trim() }
+          : null
+        return { colorHex: resolveMarkColor(m), scope }
+      })
+    })
+    const rowMatchesMarkScope = (scope, row) => {
+      if (!scope) return true
+      const v = row[scope.field] != null ? String(row[scope.field]).trim() : ''
+      return v.toLowerCase().includes(scope.value.toLowerCase()) || scope.value.toLowerCase().includes(v.toLowerCase())
+    }
+    // 统一使用 row.color_mark（手动 + NL mark 均写入此处）
+    const getColorForRow = (row) => row.color_mark || null
+    const nlHighlightTerms = computed(() => {
+      const terms = []
+      ;(nlAppliedActions.value || []).filter((a) => a && a.type === 'highlight').forEach((a) => {
+        if (Array.isArray(a.terms)) terms.push(...a.terms)
+      })
+      return [...new Set(terms)]
+    })
+    // stats 只支持故障码，使用现有故障码统计（getErrorCodeCount / 后端筛选统计）
+    const nlStatsActions = computed(() => {
+      return (nlAppliedActions.value || []).filter((a) => a && a.type === 'stats' && (String(a.field || 'error_code').toLowerCase() === 'error_code'))
+    })
+    const nlStatsCounts = computed(() => {
+      return nlStatsActions.value.map((s) => {
+        const value = s.value != null ? String(s.value).trim() : ''
+        let count = 0
+        if (value) {
+          count = getErrorCodeCount(value, false)
+          if (count === 0) {
+            const source = (currentStatisticsKey.value && statisticsCache.value[currentStatisticsKey.value])
+              ? statisticsCache.value[currentStatisticsKey.value]
+              : filteredErrorCodeCounts.value
+            const vUpper = value.toUpperCase()
+            if (source && typeof source === 'object') {
+              count = Object.entries(source).reduce((sum, [k, c]) => {
+                const kStr = String(k || '').toUpperCase()
+                return sum + (kStr.includes(vUpper) || vUpper.includes(kStr) ? (Number(c) || 0) : 0)
+              }, 0)
+            }
+          }
+        }
+        return { field: 'error_code', value: s.value, count }
+      })
+    })
+
+    // 兼容后端返回：1) 数组 [ { field, op, value }, ... ]；2) NL 1.1.0 AST (type/group/children、type/condition、type/preset_ref)，规范为 { logic, conditions } 且保留 negate
+    const normalizeNlResultFilters = (result, presetTemplates = null) => {
+      if (!result || typeof result !== 'object') return
+      const f = result.filters
+      if (!f) return
+      const mapNlOpToLegacy = (op) => {
+        const v = String(op || '').toLowerCase()
+        if (!v) return v
+        if (v === 'eq') return '='
+        if (v === 'gte') return '>='
+        if (v === 'lte') return '<='
+        return v
+      }
+      const list = presetTemplates && Array.isArray(presetTemplates) ? presetTemplates : []
+      const astNodeToLegacy = (node) => {
+        if (!node || typeof node !== 'object') return null
+        if (node.type === 'group' && Array.isArray(node.children)) {
+          const conditions = node.children.map(astNodeToLegacy).filter(Boolean)
+          if (conditions.length === 0) return null
+          return { logic: (node.logic || 'AND').toUpperCase() === 'OR' ? 'OR' : 'AND', conditions }
+        }
+        if (node.type === 'condition' && node.field != null) {
+          const op = mapNlOpToLegacy(node.op ?? node.operator)
+          if (op == null) return null
+          const out = { field: node.field, operator: op, value: node.value }
+          if (node.negate !== undefined) out.negate = !!node.negate
+          return out
+        }
+        if (node.type === 'preset_ref' && node.name) {
+          const tpl = list.find((t) => t && t.name === node.name)
+          const root = tpl?.filters
+          if (!root) return null
+          if (root.type === 'group' && Array.isArray(root.children)) return astNodeToLegacy(root)
+          if (root.type === 'condition') return astNodeToLegacy(root)
+          if (root.logic && Array.isArray(root.conditions)) return { logic: root.logic, conditions: root.conditions.map(astNodeToLegacy).filter(Boolean) }
+          return null
+        }
+        if (node.field != null && node.operator != null) {
+          const out = { field: node.field, operator: mapNlOpToLegacy(node.operator), value: node.value }
+          if (node.negate !== undefined) out.negate = !!node.negate
+          return out
+        }
+        if (Array.isArray(node.conditions) && node.logic) {
+          const conditions = node.conditions.map(astNodeToLegacy).filter(Boolean)
+          if (conditions.length === 0) return null
+          return { logic: (node.logic || 'AND').toUpperCase() === 'OR' ? 'OR' : 'AND', conditions }
+        }
+        return null
+      }
+      if (Array.isArray(f) && f.length > 0) {
+        const conditions = f.map(astNodeToLegacy).filter(Boolean)
+        if (conditions.length > 0) {
+          result.filters = { logic: 'AND', conditions }
+        }
+        return
+      }
+      if (f.type === 'group' && Array.isArray(f.children)) {
+        const converted = astNodeToLegacy(f)
+        if (converted) result.filters = converted
+        return
+      }
+      if (f.type === 'condition' && f.field != null) {
+        const one = astNodeToLegacy(f)
+        if (one) result.filters = { logic: 'AND', conditions: [one] }
+        return
+      }
+      if (f.type === 'preset_ref' && f.name) {
+        const one = astNodeToLegacy(f)
+        if (one) result.filters = one.logic ? one : { logic: 'AND', conditions: [one] }
+      }
+    }
+
+    const applyNlResult = (result) => {
+      normalizeNlResultFilters(result, templates.value)
+      const hasSearch = typeof result.search === 'string' && result.search.trim()
+      const hasTime = !!(result.start_time && result.end_time)
+      const hasFilters = !!(result.filters && (result.filters.conditions?.length > 0 || (result.filters.logic && result.filters.conditions)))
+
+      if (hasSearch) searchKeyword.value = result.search.trim()
+      if (hasTime) timeRange.value = [String(result.start_time), String(result.end_time)]
+      if (result.filters && typeof result.filters === 'object') {
+        pendingFiltersRoot.value = deepCloneFilters(result.filters)
+        normalizeErrorCodeOperatorInFilters(pendingFiltersRoot.value)
+      }
+      // 仅当本次 NL 返回了 actions 时才覆盖；纯筛选（无 actions）时保留已有的 mark/highlight/stats
+      if (Array.isArray(result.actions) && result.actions.length > 0) {
+        pendingNlActions.value = [...result.actions]
+      }
+      nlPreviewCleared.value = false
+      filterSidebarActiveTab.value = 'search'
+      ElMessage.success(t('batchAnalysis.nlApplied'))
+    }
+
+    const cancelNlClarification = () => {
+      nlSpec.value = null
+      nlConversationMessages.value = []
+      nlInputLine.value = ''
+      nlAnswers.value = []
+    }
+
+    const clearNlAppliedActions = () => {
+      nlAppliedActions.value = []
+      pendingNlActions.value = []
+    }
+
     const generateFilterExpression = async () => {
       const text = String(nlQuery.value || '').trim()
       if (!text) return
       nlGenerating.value = true
+      nlPreviewCleared.value = true
+      cancelNlClarification()
       try {
-        const resp = await api.logs.nlToBatchFilters({ text })
+        const presetNames = (templates.value || []).map((t) => t && t.name).filter(Boolean)
+        const limit = timeRangeLimit.value
+        let logTimeRange = (limit && limit.length === 2 && getStorageTimeString(limit[0]) && getStorageTimeString(limit[1]))
+          ? `${getStorageTimeString(limit[0])} ~ ${getStorageTimeString(limit[1])}`
+          : ''
+        if (!logTimeRange && timeRange.value && timeRange.value.length === 2) {
+          const s0 = getStorageTimeString(timeRange.value[0])
+          const s1 = getStorageTimeString(timeRange.value[1])
+          if (s0 && s1) logTimeRange = `${s0} ~ ${s1}`
+        }
+        const resp = await api.logs.nlToBatchFilters({
+          text,
+          presetNames,
+          context: logTimeRange ? { logTimeRange } : undefined
+        })
         const result = resp?.data?.result || {}
+        normalizeNlResultFilters(result, templates.value)
+        const meta = result.meta || {}
+        const status = meta.status || 'ok'
 
         const hasSearch = typeof result.search === 'string' && result.search.trim()
         const hasTime = !!(result.start_time && result.end_time)
-        const hasFilters = !!(result.filters && Array.isArray(result.filters.conditions) && result.filters.conditions.length > 0)
+        const hasFilters = !!(result.filters && (result.filters.conditions?.length > 0 || (result.filters.logic && result.filters.conditions)))
+        const hasActions = Array.isArray(result.actions) && result.actions.length > 0
 
-        if (!hasSearch && !hasTime && !hasFilters) {
-          ElMessage.warning(t('batchAnalysis.nlNoResult'))
+        if (status === 'need_clarification') {
+          nlSpec.value = result
+          nlConversationMessages.value = [
+            { role: 'user', content: text },
+            { role: 'assistant', content: (meta.explain || '') + (meta.questions?.length ? '\n\n' + meta.questions.map((q) => q.question).join('\n') : '') }
+          ]
+          nlInputLine.value = meta.questions?.[0]?.default || ''
           return
         }
 
-        if (hasSearch) searchKeyword.value = result.search.trim()
-        if (hasTime) timeRange.value = [String(result.start_time), String(result.end_time)]
-        if (result.filters && typeof result.filters === 'object') {
-          pendingFiltersRoot.value = deepCloneFilters(result.filters)
+        if (!hasSearch && !hasTime && !hasFilters && !hasActions) {
+          ElMessage.warning(t('batchAnalysis.nlNoResult'))
+          return
         }
+        applyNlResult(result)
+      } catch (e) {
+        const status = e?.response?.status
+        if (status === 503) {
+          ElMessage.warning(t('batchAnalysis.llmUnavailable'))
+        } else {
+          ElMessage.error(t('batchAnalysis.nlFailed'))
+        }
+      } finally {
+        nlGenerating.value = false
+      }
+    }
 
-        filterSidebarActiveTab.value = 'search'
-        ElMessage.success(t('batchAnalysis.nlApplied'))
+    const submitNlReply = async () => {
+      const reply = String(nlInputLine.value || '').trim()
+      if (!reply || !nlSpec.value) return
+      const firstMessage = String(nlQuery.value || '').trim()
+      const questions = nlSpec.value.meta?.questions || []
+      const slot = questions[0]?.slot || 'time_range'
+      const newAnswers = [...nlAnswers.value, { slot, value: reply }]
+
+      nlGenerating.value = true
+      try {
+        const presetNames = (templates.value || []).map((t) => t && t.name).filter(Boolean)
+        const limit = timeRangeLimit.value
+        let logTimeRange = (limit && limit.length === 2 && getStorageTimeString(limit[0]) && getStorageTimeString(limit[1]))
+          ? `${getStorageTimeString(limit[0])} ~ ${getStorageTimeString(limit[1])}`
+          : ''
+        if (!logTimeRange && timeRange.value && timeRange.value.length === 2) {
+          const s0 = getStorageTimeString(timeRange.value[0])
+          const s1 = getStorageTimeString(timeRange.value[1])
+          if (s0 && s1) logTimeRange = `${s0} ~ ${s1}`
+        }
+        const resp = await api.logs.nlToBatchFilters({
+          text: reply,
+          presetNames,
+          context: {
+            firstMessage,
+            previousResult: nlSpec.value,
+            answers: newAnswers,
+            ...(logTimeRange ? { logTimeRange } : {})
+          }
+        })
+        const result = resp?.data?.result || {}
+        normalizeNlResultFilters(result, templates.value)
+        const meta = result.meta || {}
+        const status = meta.status || 'ok'
+
+        nlConversationMessages.value = [
+          ...nlConversationMessages.value,
+          { role: 'user', content: reply },
+          { role: 'assistant', content: (meta.explain || '') + (meta.questions?.length ? '\n\n' + meta.questions.map((q) => q.question).join('\n') : '') }
+        ]
+        nlInputLine.value = meta.questions?.[0]?.default || ''
+        nlAnswers.value = newAnswers
+        nlSpec.value = result
+
+        if (status !== 'need_clarification') {
+          const hasSearch = typeof result.search === 'string' && result.search.trim()
+          const hasTime = !!(result.start_time && result.end_time)
+          const hasFilters = !!(result.filters && (result.filters.conditions?.length > 0 || (result.filters.logic && result.filters.conditions)))
+          const hasActions = Array.isArray(result.actions) && result.actions.length > 0
+          if (hasSearch || hasTime || hasFilters || hasActions) {
+            applyNlResult(result)
+          } else {
+            ElMessage.warning(t('batchAnalysis.nlNoResult'))
+          }
+          cancelNlClarification()
+        }
       } catch (e) {
         const status = e?.response?.status
         if (status === 503) {
@@ -1672,7 +2062,8 @@ export default {
             val = convertStorageToDisplay(String(node.value), displayOffset)
           }
         }
-        return `${node.field} ${node.operator} ${val}`
+        const expr = `${node.field} ${node.operator} ${val}`
+        return node.negate ? `NOT (${expr})` : expr
       }
       if (Array.isArray(node.conditions)) {
         const logic = node.logic || 'AND'
@@ -1686,6 +2077,29 @@ export default {
       }
       return ''
     }
+    const formatNlActionsSummary = (actions) => {
+      const arr = Array.isArray(actions) ? actions : []
+      const parts = []
+      arr.filter((a) => a && a.type === 'mark').forEach((mark) => {
+        const colorStr = mark.color != null ? String(mark.color) : ''
+        const scopeStr = (mark.field != null && mark.value != null) ? `${mark.field}=${mark.value}` : ''
+        const inner = [colorStr, scopeStr].filter(Boolean).join(' ')
+        parts.push(`${t('batchAnalysis.nlActionMark')}(${inner || '—'})`)
+      })
+      arr.filter((a) => a && a.type === 'highlight').forEach((a) => {
+        if (Array.isArray(a.terms) && a.terms.length) parts.push(`${t('batchAnalysis.nlActionHighlight')}(${a.terms.join(',')})`)
+      })
+      arr.filter((a) => a && a.type === 'stats').forEach((a) => {
+        if (a.field != null && a.value != null) parts.push(`${t('batchAnalysis.nlActionStats')}(${a.field}=${a.value})`)
+      })
+      return parts.join('、')
+    }
+    const nlAppliedActionsSummary = computed(() => formatNlActionsSummary(nlAppliedActions.value))
+    const pendingNlActionsSummary = computed(() => formatNlActionsSummary(pendingNlActions.value))
+    const nlQuestionOptions = computed(() => {
+      const options = nlSpec.value?.meta?.questions?.[0]?.options
+      return Array.isArray(options) ? options.filter((o) => o != null && String(o).trim() !== '') : []
+    })
     const searchExpression = computed(() => {
       const segments = []
       if (timeRange.value && timeRange.value.length === 2) {
@@ -1711,8 +2125,9 @@ export default {
       const adv = groupToString(pendingFiltersRoot.value, pendingDisplayTimezoneOffsetMinutes.value)
       return adv || ''
     })
-    // 搜索标签页底部：当前选中/待应用的搜索表达式预览（自然语言、常用表达式、导入后均会更新）
+    // 搜索标签页底部：当前选中/待应用的搜索表达式预览（自然语言、常用表达式、导入后均会更新），含待应用动作
     const searchTabPreviewExpression = computed(() => {
+      if (nlPreviewCleared.value) return ''
       const segments = []
       if (timeRange.value && timeRange.value.length === 2) {
         const startDisplay = convertStorageToDisplay(timeRange.value[0], pendingDisplayTimezoneOffsetMinutes.value)
@@ -1723,6 +2138,7 @@ export default {
         segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${searchKeyword.value}`)
       }
       if (pendingAdvancedExpression.value) segments.push(pendingAdvancedExpression.value)
+      if (pendingNlActionsSummary.value) segments.push(`${t('batchAnalysis.nlActionsPreview')}：${pendingNlActionsSummary.value}`)
       return segments.join(t('batchAnalysis.searchExpressionAnd'))
     })
 
@@ -1860,6 +2276,14 @@ export default {
         if (selectedAnalysisCategoryIds.value?.length) {
           baseParams.analysis_category_ids = selectedAnalysisCategoryIds.value.join(',')
         }
+        console.log('[NL] loadBatchLogEntries.baseParams', baseParams)
+        if (baseParams.filters) {
+          try {
+            console.log('[NL] loadBatchLogEntries.filters', JSON.parse(baseParams.filters))
+          } catch (e) {
+            console.warn('[NL] loadBatchLogEntries.filters parse failed', e)
+          }
+        }
         const response = await store.dispatch('logs/fetchBatchLogEntries', baseParams, signal)
         const { entries, total, totalPages: serverTotalPages, page: serverPage, minTimestamp, maxTimestamp } = response.data
 
@@ -1929,6 +2353,7 @@ export default {
         
         // 加载保存的颜色标记
         loadColorMarksFromStorage()
+        materializeNlMarksToStorage()
         // 加载备注
         loadRemarksFromStorage()
         
@@ -2261,6 +2686,14 @@ export default {
       return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`
     }
 
+    // 时间戳（文件名）列悬浮提示：完整时间戳 + 文件名
+    const getTimestampFileInfoTooltip = (row) => {
+      const text = formatTimestampWithTimezone(row.timestamp, displayTimezoneOffsetMinutes.value) || row.timestamp_text || ''
+      const name = row.log_name ? String(row.log_name).trim() : ''
+      if (!text && !name) return ''
+      return name ? `${text} / ${name}` : text
+    }
+
     const onTimezoneChange = () => { /* 仅依赖 displayTimezoneOffsetMinutes 触发重渲染 */ }
 
     // 原时区/存储时区 ↔ 显示时区：检索时转化为原时区（转换前的时间），界面显示用选中时区。原时区不一定是北京，此处默认 480（UTC+8）
@@ -2555,6 +2988,7 @@ export default {
         }
         if (conditions.length > 0) {
           pendingFiltersRoot.value = { logic, conditions: [...conditions] }
+          clearNlAppliedActions()
           ElMessage.success('已从文件填充到高级条件')
         } else {
           ElMessage.warning('未识别到可用的表达式内容')
@@ -2714,7 +3148,8 @@ export default {
     const evaluateNode = (node, entry) => {
       if (!node) return true
       if (node.field && node.operator) {
-        return evalCondition(node.field, node.operator, node.value, entry)
+        const ret = evalCondition(node.field, node.operator, node.value, entry)
+        return node.negate ? !ret : ret
       }
       if (Array.isArray(node.conditions)) {
         const logic = node.logic || 'AND'
@@ -2802,11 +3237,13 @@ export default {
           const normalizedValue = normalizeValue(node.field, node.operator, node.value)
           if (normalizedValue === null) return null
           
-          return {
+          const out = {
             field: node.field,
             operator: node.operator,
             value: normalizedValue
           }
+          if (node.negate) out.negate = true
+          return out
         }
         if (Array.isArray(node.conditions)) {
           const children = node.conditions.map(normalizeNode).filter(Boolean)
@@ -2945,23 +3382,35 @@ export default {
       currentPage.value = 1
       await loadBatchLogEntries(1, true)
       await fetchFilteredStatistics()
+      // action（高亮/标记/统计）在筛选生效后再应用
+      nlAppliedActions.value = [...(pendingNlActions.value || [])]
+      // NL mark 写入 row.color_mark + sessionStorage（与手动标记同一存储）
+      materializeNlMarksToStorage()
+      saveNlMarkActionsToStorage()
     }
 
     // 重置：已应用 → 待提交（丢弃未应用的修改）
     const resetSidebarFilters = () => {
       syncAppliedToPending()
+      clearNlAppliedActions()
     }
 
     const applyAdvancedFilters = async () => {
       await applySidebarFilters()
     }
 
-    // 保存颜色标记到sessionStorage
+    // 保存颜色标记到 sessionStorage（与已有数据合并，避免翻页后只保存当前页导致其他页标记丢失）
     const saveColorMarksToStorage = () => {
-      const colorMarks = {}
+      let colorMarks = {}
+      try {
+        const stored = sessionStorage.getItem('batchLogColorMarks')
+        if (stored) colorMarks = JSON.parse(stored) || {}
+      } catch (_) {}
       batchLogEntries.value.forEach(entry => {
         if (entry.color_mark) {
           colorMarks[entry.id] = entry.color_mark
+        } else if (Object.prototype.hasOwnProperty.call(colorMarks, entry.id)) {
+          delete colorMarks[entry.id]
         }
       })
       sessionStorage.setItem('batchLogColorMarks', JSON.stringify(colorMarks))
@@ -2984,6 +3433,48 @@ export default {
       }
     }
 
+    // 将 NL mark 结果写入 row.color_mark + sessionStorage（与手动标记同一存储）
+    const materializeNlMarksToStorage = () => {
+      const marks = nlMarkActions.value
+      if (!marks.length) return
+      let changed = false
+      batchLogEntries.value.forEach(entry => {
+        if (entry.color_mark) return
+        for (const { colorHex, scope } of marks) {
+          if (rowMatchesMarkScope(scope, entry)) {
+            entry.color_mark = colorHex
+            changed = true
+            break
+          }
+        }
+      })
+      if (changed) saveColorMarksToStorage()
+    }
+
+    const BATCH_LOG_NL_MARK_KEY = 'batchLogNlMarkActions'
+    const saveNlMarkActionsToStorage = () => {
+      const marks = (nlAppliedActions.value || []).filter((a) => a && a.type === 'mark')
+      if (marks.length > 0) {
+        sessionStorage.setItem(BATCH_LOG_NL_MARK_KEY, JSON.stringify(marks))
+      } else {
+        sessionStorage.removeItem(BATCH_LOG_NL_MARK_KEY)
+      }
+    }
+    const loadNlMarkActionsFromStorage = () => {
+      try {
+        const stored = sessionStorage.getItem(BATCH_LOG_NL_MARK_KEY)
+        if (stored) {
+          const marks = JSON.parse(stored)
+          if (Array.isArray(marks) && marks.length > 0) {
+            const rest = (nlAppliedActions.value || []).filter((a) => a && a.type !== 'mark')
+            const pendRest = (pendingNlActions.value || []).filter((a) => a && a.type !== 'mark')
+            nlAppliedActions.value = [...rest, ...marks]
+            pendingNlActions.value = [...pendRest, ...marks]
+          }
+        }
+      } catch (_) {}
+    }
+
     // 处理颜色变化
     const selectColor = (row, colorValue) => {
       // 如果点击的是当前选中的颜色，则取消选择
@@ -3002,42 +3493,51 @@ export default {
       // TODO: 保存颜色标记到后端
     }
 
-    // 根据颜色标记设置行的样式类
+    const hexToRgba = (hex, alpha = 0.2) => {
+      if (!hex || typeof hex !== 'string') return ''
+      const h = hex.replace(/^#/, '')
+      if (h.length !== 6) return ''
+      const r = parseInt(h.slice(0, 2), 16)
+      const g = parseInt(h.slice(2, 4), 16)
+      const b = parseInt(h.slice(4, 6), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+
+    // 根据颜色标记设置行的样式类（手动 + NL mark 均存入 row.color_mark）
     const getRowClassName = ({ row }) => {
-      if (row.color_mark) {
-        // 根据颜色值返回对应的CSS类名
-        let className = ''
-        switch (row.color_mark) {
-          case '#ff0000': className = 'row-marked-red'; break
-          case '#ffff00': className = 'row-marked-yellow'; break
-          case '#0000ff': className = 'row-marked-blue'; break
-          case '#00ff00': className = 'row-marked-green'; break
-          default: className = ''
+      const color = getColorForRow(row)
+      if (color) {
+        switch (color) {
+          case '#ff0000': return 'row-marked-red'
+          case '#ffff00': return 'row-marked-yellow'
+          case '#0000ff': return 'row-marked-blue'
+          case '#00ff00': return 'row-marked-green'
+          case '#800080': return 'row-marked-purple'
+          default: return ''
         }
-        console.log('行样式类名:', className, '颜色值:', row.color_mark, '行数据:', row)
-        return className
       }
       return ''
     }
 
     // 根据颜色标记设置行的内联样式
     const getRowStyle = ({ row }) => {
-      if (row.color_mark) {
-        // 将十六进制颜色转换为rgba格式
-        const hexToRgba = (hex, alpha = 0.2) => {
-          const r = parseInt(hex.slice(1, 3), 16)
-          const g = parseInt(hex.slice(3, 5), 16)
-          const b = parseInt(hex.slice(5, 7), 16)
-          return `rgba(${r}, ${g}, ${b}, ${alpha})`
-        }
-        
-        const backgroundColor = hexToRgba(row.color_mark, 0.2)
-        console.log('行内联样式:', backgroundColor, '颜色值:', row.color_mark)
-        return {
-          backgroundColor: backgroundColor
-        }
+      const color = getColorForRow(row)
+      if (color) {
+        return { backgroundColor: hexToRgba(color, 0.2) }
       }
       return {}
+    }
+
+    // 自然语言 highlight 动作：对指定列加高亮 class
+    const getCellClassName = ({ column }) => {
+      const terms = nlHighlightTerms.value || []
+      if (!terms.length) return ''
+      const prop = column?.property || ''
+      if (prop === 'error_code' && terms.includes('error_code')) return 'nl-highlight-cell'
+      if (prop === 'explanation' && terms.includes('explanation')) return 'nl-highlight-cell'
+      if (prop === 'parameters' && ['param1', 'param2', 'param3', 'param4'].some((p) => terms.includes(p))) return 'nl-highlight-cell'
+      if ((prop === 'file_info' || prop === 'timestamp') && terms.includes('timestamp')) return 'nl-highlight-cell'
+      return ''
     }
 
     // 操作按钮处理方法
@@ -3075,11 +3575,6 @@ export default {
       clipboardVisible.value = true
       
       ElMessage.success(t('batchAnalysis.clipboardAdded', { current: clipboardEntries.value.length, max: maxClipboardEntries }))
-    }
-
-    const onOperationsCommand = (command, row) => {
-      if (command === 'context') handleContextAnalysis(row)
-      else if (command === 'capture') handleLogCapture(row)
     }
 
     // 更新剪贴板内容
@@ -3902,16 +4397,113 @@ export default {
       document.addEventListener('click', closeOnOutsideClick, true)
     }
 
-    // 表头「全部标记」：将所选颜色应用至当前所有筛选行
-    const applyColorToAllFilteredRows = (colorValue) => {
-      const entries = batchLogEntries.value
-      if (!Array.isArray(entries) || entries.length === 0) return
-      entries.forEach(entry => {
+    // 生成与 loadBatchLogEntries 一致的请求参数（用于按页拉取）
+    const buildBatchFetchParams = (page) => {
+      const logIds = selectedLogs.value.map(l => l.id).join(',')
+      const baseParams = { log_ids: logIds, page, limit: pageSize.value }
+      if (advancedMode.value && leafConditionCount.value > 0) {
+        const filtersPayload = buildFiltersPayload()
+        if (filtersPayload) baseParams.filters = JSON.stringify(filtersPayload)
+      }
+      if (timeRange.value && timeRange.value.length === 2) {
+        baseParams.start_time = timeRange.value[0]
+        baseParams.end_time = timeRange.value[1]
+      }
+      if (searchKeyword.value) baseParams.search = searchKeyword.value
+      if (selectedAnalysisCategoryIds.value?.length) {
+        baseParams.analysis_category_ids = selectedAnalysisCategoryIds.value.join(',')
+      }
+      return baseParams
+    }
+
+    const MAX_PAGES_FOR_MARK_ALL = 20
+    const MARK_ALL_PAGE_DELAY_MS = 400
+
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+    const mergeColorMarksForIds = (allIdsToMark, colorValue) => {
+      let colorMarks = {}
+      try {
+        const stored = sessionStorage.getItem('batchLogColorMarks')
+        if (stored) colorMarks = JSON.parse(stored) || {}
+      } catch (_) {}
+      const val = colorValue ?? null
+      allIdsToMark.forEach(id => {
+        if (val) colorMarks[id] = val
+        else delete colorMarks[id]
+      })
+      sessionStorage.setItem('batchLogColorMarks', JSON.stringify(colorMarks))
+      batchLogEntries.value.forEach(entry => {
         entry.color_mark = colorValue ?? null
       })
-      saveColorMarksToStorage()
+    }
+
+    // 表头「全部标记」：优先使用后端 ids_only 单次请求；失败时回退为逐页请求+延迟
+    const clearNlMarkActions = () => {
+      const marks = (nlAppliedActions.value || []).filter((a) => a && a.type !== 'mark')
+      const pendMarks = (pendingNlActions.value || []).filter((a) => a && a.type !== 'mark')
+      nlAppliedActions.value = marks
+      pendingNlActions.value = pendMarks
+      sessionStorage.removeItem(BATCH_LOG_NL_MARK_KEY)
+    }
+
+    const applyColorToAllFilteredRows = async (colorValue) => {
+      const total = totalPages.value
+      if (!total || total < 1) {
+        const entries = batchLogEntries.value
+        if (Array.isArray(entries) && entries.length > 0) {
+          entries.forEach(entry => { entry.color_mark = colorValue ?? null })
+          saveColorMarksToStorage()
+        }
+        if (colorValue == null) clearNlMarkActions()
+        headerColorPopoverVisible.value = false
+        return
+      }
+      const loadingMsg = ElMessage({ type: 'info', message: t('batchAnalysis.markAllLoading'), duration: 0 })
+      try {
+        let allIdsToMark = []
+        const params = buildBatchFetchParams(1)
+        delete params.page
+        try {
+          const res = await api.logs.getBatchEntryIds(params)
+          const ids = res?.data?.ids
+          if (Array.isArray(ids) && ids.length > 0) {
+            allIdsToMark = ids.map((r) => `${r.log_id || 'log'}-${r.version || 1}-${r.row_index ?? 0}`)
+            if (res.data.truncated) {
+              ElMessage.warning(t('batchAnalysis.markAllIdsTruncated', { n: 50000 }))
+            } else {
+              ElMessage.success(t('batchAnalysis.markAllFilteredDone'))
+            }
+          }
+        } catch (_) {
+          allIdsToMark = []
+        }
+        if (allIdsToMark.length === 0) {
+          const pagesToFetch = Math.min(total, MAX_PAGES_FOR_MARK_ALL)
+          for (let p = 1; p <= pagesToFetch; p++) {
+            if (p > 1) await delay(MARK_ALL_PAGE_DELAY_MS)
+            const res = await store.dispatch('logs/fetchBatchLogEntries', buildBatchFetchParams(p))
+            const entries = res?.data?.entries || []
+            entries.forEach(entry => {
+              allIdsToMark.push(`${entry.log_id || 'log'}-${entry.version || 1}-${entry.row_index ?? 0}`)
+            })
+          }
+          if (pagesToFetch < total) {
+            ElMessage.warning(t('batchAnalysis.markAllPagesLimited', { n: pagesToFetch, total }))
+          } else {
+            ElMessage.success(t('batchAnalysis.markAllFilteredDone'))
+          }
+        }
+        loadingMsg.close()
+        if (allIdsToMark.length > 0) {
+          mergeColorMarksForIds(allIdsToMark, colorValue)
+        }
+      } catch (e) {
+        loadingMsg.close()
+        ElMessage.error(t('batchAnalysis.markAllFilteredFailed') || (e?.message || 'Mark all failed'))
+      }
+      if (colorValue == null) clearNlMarkActions()
       headerColorPopoverVisible.value = false
-      nextTick(() => {})
     }
 
     watch(headerColorPopoverVisible, (visible) => {
@@ -4018,6 +4610,7 @@ export default {
       const tpl = templates.value.find(t => t.name === selectedTemplateName.value)
       if (!tpl) return
       pendingFiltersRoot.value = deepCloneFilters(tpl.filters || { logic: 'AND', conditions: [] })
+      clearNlAppliedActions()
     }
 
     const onOperatorChange = (cond) => {
@@ -4065,6 +4658,8 @@ export default {
         
         // 加载计数数据
         loadCountsFromStorage()
+        // 恢复 NL mark 动作（用于 materialize）
+        loadNlMarkActionsFromStorage()
         
         // 如果有选中的日志，获取全局统计
         if (selectedLogs.value.length > 0) {
@@ -4147,6 +4742,7 @@ export default {
       displayTimezoneOffsetMinutes,
       timezoneOptions,
       formatTimestampWithTimezone,
+      getTimestampFileInfoTooltip,
       onTimezoneChange,
       currentPage,
       pageSize,
@@ -4233,7 +4829,13 @@ export default {
       importExpressionText,
       nlQuery,
       nlGenerating,
+      nlSpec,
+      nlConversationMessages,
+      nlInputLine,
+      nlQuestionOptions,
       generateFilterExpression,
+      submitNlReply,
+      cancelNlClarification,
       
       applyExpressionJSON,
       applyExpressionSmart,
@@ -4252,11 +4854,12 @@ export default {
       selectColor,
       getRowClassName,
       getRowStyle,
+      getCellClassName,
+      nlStatsCounts,
       saveColorMarksToStorage,
       loadColorMarksFromStorage,
       handleContextAnalysis,
       handleLogCapture,
-      onOperationsCommand,
       // 上下文分析相关
       contextAnalysisVisible,
       contextAnalysisRow,
@@ -4740,6 +5343,91 @@ export default {
 }
 .nl-generate-btn {
   width: 100%;
+}
+
+/* 自然语言追问：对话形式 + 单行输入 */
+.nl-conversation {
+  background: #eef4ff;
+  border: 1px solid #d9e6ff;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nl-messages {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nl-msg { display: flex; flex-direction: column; gap: 2px; }
+.nl-msg-label { font-size: 11px; color: var(--el-text-color-secondary); font-weight: 600; }
+.nl-msg-user .nl-msg-label { color: var(--el-color-primary); }
+.nl-msg-content { font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.nl-reply-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.nl-input-line { flex: 1; }
+.nl-send-reply-btn { flex-shrink: 0; }
+.nl-options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nl-option-btn {
+  padding: 0 10px;
+}
+.nl-cancel-clarification { margin-top: 4px; }
+
+.search-tab-stats {
+  margin-top: 14px;
+  margin-bottom: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  background: linear-gradient(135deg, #eef4ff 0%, #e8f5e9 100%);
+  border: 1px solid rgba(64, 158, 255, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+.search-tab-stats-label {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 6px;
+}
+.search-tab-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.search-tab-stats-item {
+  display: inline-flex;
+  align-items: baseline;
+}
+.search-tab-stats-field {
+  color: var(--el-text-color-regular);
+}
+.search-tab-stats-count {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--el-color-primary);
+  margin: 0 2px;
+}
+.search-tab-stats-unit {
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+}
+
+/* 自然语言 highlight 动作：列单元格高亮 */
+.compact-log-entries-table .nl-highlight-cell {
+  background-color: rgba(255, 235, 59, 0.35) !important;
 }
 
 /* 常用搜索表达式：标签使用 --filter-chip- 样式，仅显示名称 */
@@ -5363,6 +6051,13 @@ export default {
   background-color: rgba(0, 255, 0, 0.3) !important;
 }
 
+.compact-log-entries-table .el-table .el-table__row.row-marked-purple,
+.compact-log-entries-table .el-table__body tr.row-marked-purple {
+  background-color: rgba(128, 0, 128, 0.2) !important;
+}
+.compact-log-entries-table .el-table .el-table__row.row-marked-purple:hover {
+  background-color: rgba(128, 0, 128, 0.3) !important;
+}
 
 .color-radio {
   width: 12px !important;
@@ -5533,6 +6228,18 @@ export default {
   min-height: 22px;
   font-size: 13px;
   font-weight: 500;
+}
+
+.timestamp-cell-ellipsis {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--slate-900);
+  font-weight: 500;
+  font-size: 13px;
+  text-align: left;
 }
 
 .timestamp {
@@ -5724,22 +6431,6 @@ export default {
   max-height: 22px;
   padding: 0;
   gap: 1px;
-}
-/* 操作列：两套 DOM 同时存在，用 CSS 显隐避免 v-if 导致整列重渲染 */
-.operations-cell .operation-when-sidebar-open {
-  display: none;
-}
-.operations-cell .operation-when-sidebar-closed {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-.operations-cell.sidebar-open .operation-when-sidebar-open {
-  display: flex;
-  align-items: center;
-}
-.operations-cell.sidebar-open .operation-when-sidebar-closed {
-  display: none;
 }
 
 .error-code-cell {

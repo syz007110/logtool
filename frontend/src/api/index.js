@@ -156,6 +156,10 @@ const logs = {
     params,
     signal // 支持 AbortController
   }),
+  /** 仅拉取当前筛选条件下的行 ID（log_id, version, row_index），用于「全部标记」等，单次请求避免 429 */
+  getBatchEntryIds: (params) => api.get('/logs/entries/batch', {
+    params: { ...params, ids_only: 1, limit: 50000, page: 1 }
+  }),
   getStatistics: (params) => api.get('/logs/entries/statistics', { params }),
   getVisualizationData: (params) => api.get('/logs/entries/visualization', { params }),
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params }),
@@ -375,6 +379,15 @@ const smartSearch = {
   deleteConversation: (id) => api.delete(`/smart-search/conversations/${id}`)
 }
 
+// Translate (document)
+const translate = {
+  createDocumentTask: (formData) => api.post('/translate/document', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getTaskStatus: (taskId) => api.get(`/translate/tasks/${taskId}/status`),
+  downloadResult: (taskId) => api.get(`/translate/tasks/${taskId}/result`, { responseType: 'blob' })
+}
+
 // Knowledge base (KB)
 const kb = {
   status: () => api.get('/kb/status'),
@@ -418,6 +431,7 @@ export default {
   faultCases,
   jira,
   smartSearch,
+  translate,
   kb,
   explanations
 }

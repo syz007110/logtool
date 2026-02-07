@@ -5,7 +5,7 @@ const fs = require('fs');
 const router = express.Router();
 
 const auth = require('../middlewares/auth');
-const { checkPermission } = require('../middlewares/permission');
+const { checkPermission, checkPermissionAny } = require('../middlewares/permission');
 const {
   uploadBinary,
   batchUploadBinary,
@@ -45,10 +45,10 @@ const upload = multer({ storage });
 
 // ===== 重要：具体路由必须放在参数路由之前，避免被拦截 =====
 
-// Config endpoints - admin only
-router.get('/config/classified', auth, checkPermission('data_replay:manage'), getMotionFormatClassified);
-router.get('/config', auth, checkPermission('data_replay:manage'), getMotionFormat);
-router.get('/dh-model', auth, checkPermission('data_replay:manage'), getDhModelConfig);
+// Config 只读接口：分析工具需加载分类配置，允许 log:read_all / data_replay:read / data_replay:manage 任一即可
+router.get('/config/classified', auth, checkPermissionAny(['data_replay:manage', 'data_replay:read', 'log:read_all']), getMotionFormatClassified);
+router.get('/config', auth, checkPermissionAny(['data_replay:manage', 'data_replay:read', 'log:read_all']), getMotionFormat);
+router.get('/dh-model', auth, checkPermissionAny(['data_replay:manage', 'data_replay:read', 'log:read_all']), getDhModelConfig);
 
 // Task status and result download - admin only (放在参数路由之前)
 router.get('/tasks', auth, checkPermission('data_replay:manage'), getUserTasks);
