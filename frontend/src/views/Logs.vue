@@ -44,7 +44,7 @@
         style="width: 100%"
         v-loading="loading"
       >
-        <el-table-column prop="device_id" :label="$t('logs.deviceId')" width="200">
+        <el-table-column prop="device_id" :label="$t('logs.deviceId')" min-width="160">
           <template #header>
             <div class="col-header">
               <span>{{ $t('logs.deviceId') }}</span>
@@ -105,7 +105,7 @@
             {{ formatDate(row.latest_update_time) }}
           </template>
         </el-table-column>
-                 <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
+                 <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="left">
            <template #default="{ row }">
              <div class="operation-buttons">
                <el-button text size="small" @click="showDeviceDetail(row)">

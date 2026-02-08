@@ -132,7 +132,14 @@
               <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
             </el-form-item>
             <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
-              <el-input v-model="form.device_model" />
+              <el-select v-model="form.device_model" filterable clearable style="width: 100%">
+                <el-option
+                  v-for="item in deviceModelOptions"
+                  :key="item.id || item.device_model"
+                  :label="item.device_model"
+                  :value="item.device_model"
+                />
+              </el-select>
             </el-form-item>
             <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
               <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
@@ -257,7 +264,14 @@
           <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
         </el-form-item>
         <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
-          <el-input v-model="form.device_model" />
+          <el-select v-model="form.device_model" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in deviceModelOptions"
+              :key="item.id || item.device_model"
+              :label="item.device_model"
+              :value="item.device_model"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
           <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
@@ -339,6 +353,7 @@ export default {
 
     // 设备型号相关
     const deviceModels = ref([])
+    const deviceModelOptions = ref([])
     const modelsLoading = ref(false)
     const modelPage = ref(1)
     const modelLimit = ref(20)
@@ -452,6 +467,12 @@ export default {
         Object.assign(form, { device_id: '', device_model: '', device_key: '', hospital: '' })
         deviceKeys.value = []
         activeTab.value = 'basic'
+      }
+      if (!deviceModelOptions.value.length) {
+        loadDeviceModelOptions()
+      }
+      if (form.device_model && !deviceModelOptions.value.some(item => item.device_model === form.device_model)) {
+        deviceModelOptions.value = [{ id: null, device_model: form.device_model }, ...deviceModelOptions.value]
       }
       showEdit.value = true
     }
@@ -637,6 +658,22 @@ export default {
       }
     }
 
+    const loadDeviceModelOptions = async () => {
+      try {
+        const res = await api.deviceModels.getList({
+          page: 1,
+          limit: 1000,
+          includeInactive: 'true'
+        })
+        deviceModelOptions.value = (res.data.models || []).map(item => ({
+          id: item.id,
+          device_model: item.device_model
+        }))
+      } catch (e) {
+        console.error('加载设备型号下拉失败:', e)
+      }
+    }
+
     const loadDeviceModels = async () => {
       modelsLoading.value = true
       try {
@@ -703,6 +740,7 @@ export default {
           }
           showModelEdit.value = false
           loadDeviceModels()
+          loadDeviceModelOptions()
         } catch (e) {
           ElMessage.error(e.response?.data?.message || '操作失败')
         } finally {
@@ -727,6 +765,7 @@ export default {
         await api.deviceModels.delete(row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadDeviceModels()
+        loadDeviceModelOptions()
       } catch (e) {
         if (e !== 'cancel') {
           ElMessage.error(e.response?.data?.message || t('shared.messages.deleteFailed'))
@@ -743,6 +782,7 @@ export default {
 
     onMounted(() => {
       loadDevices({ force: true })
+      loadDeviceModelOptions()
       // 如果默认Tab是设备型号，加载设备型号列表
       if (mainTab.value === 'models') {
         loadDeviceModels()
@@ -768,6 +808,7 @@ export default {
       canEdit,
       // 设备型号
       deviceModels,
+      deviceModelOptions,
       modelsLoading,
       modelPage,
       modelLimit,
@@ -953,5 +994,3 @@ code {
   margin-top: 4px;
 }
 </style>
-
-

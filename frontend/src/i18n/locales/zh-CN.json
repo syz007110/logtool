@@ -1,4 +1,4 @@
-﻿{
+{
   "shared": {
     "confirm": "确认",
     "cancel": "取消",
@@ -367,6 +367,8 @@
     "statusText": {
       "uploading": "上传中",
       "queued": "队列中",
+      "decrypting": "解密中",
+      "decrypt_failed": "解密失败",
       "parsing": "解析中",
       "parse_failed": "解析失败",
       "parsed": "完成",
@@ -1781,6 +1783,30 @@
     "translateTool": "翻译工具",
     "translateToolDesc": "文档与文本翻译，后续开放功能",
     "translateToolPlaceholder": "翻译功能开发中，敬请期待"
+  },
+  "translateTool": {
+    "title": "翻译工具",
+    "subtitle": "",
+    "advancedSettings": "高级设置",
+    "documentTranslation": "文档翻译",
+    "textTranslation": "文本翻译",
+    "textModeComingSoon": "文本翻译模式即将推出",
+    "clickOrDrag": "点击或拖拽文件到此处上传",
+    "supportedFormats": "支持格式",
+    "selectFile": "请选择要翻译的文件",
+    "translate": "翻译",
+    "download": "下载结果",
+    "taskId": "任务 ID",
+    "status": "状态",
+    "statusWaiting": "排队中",
+    "statusRunning": "处理中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失败",
+    "progress": "进度",
+    "error": "错误",
+    "provider": "模型提供方",
+    "providerAuto": "默认 (SMART_SEARCH_LLM_DEFAULT_PROVIDER)",
+    "providerHint": "默认使用后端配置的 SMART_SEARCH_LLM_DEFAULT_PROVIDER。可在此选择其他可用提供方。"
   },
   "dataAnalysis": {
     "title": "分析工具",

@@ -11,14 +11,22 @@ function pickPythonBin() {
   return bin || 'python';
 }
 
+function pickTranslateProvidersFile(backendRoot) {
+  const providersFileRel = String(
+    process.env.TRANSLATE_LLM_PROVIDERS_FILE
+    || process.env.SMART_SEARCH_LLM_PROVIDERS_FILE
+    || 'config/llmProviders.json'
+  ).trim();
+  return path.isAbsolute(providersFileRel)
+    ? providersFileRel
+    : path.resolve(backendRoot, providersFileRel);
+}
+
 function spawnTranslateCli({ inputPath, outputPath, sourceLang, targetLang, providerId }) {
   return new Promise((resolve, reject) => {
     const backendRoot = path.resolve(__dirname, '..', '..');
     const kernelCli = path.resolve(backendRoot, 'translation-kernel', 'cli.py');
-    const providersFileRel = String(process.env.SMART_SEARCH_LLM_PROVIDERS_FILE || 'config/llmProviders.json').trim();
-    const providersFile = path.isAbsolute(providersFileRel)
-      ? providersFileRel
-      : path.resolve(backendRoot, providersFileRel);
+    const providersFile = pickTranslateProvidersFile(backendRoot);
 
     const glossaryFile = path.resolve(backendRoot, 'config', 'translationGlossary.json');
 

@@ -365,6 +365,8 @@
     "statusText": {
       "uploading": "Uploading",
       "queued": "Queued",
+      "decrypting": "Decrypting",
+      "decrypt_failed": "Decrypt failed",
       "parsing": "Parsing",
       "parse_failed": "Parse failed",
       "parsed": "Completed",
@@ -1804,7 +1806,7 @@
     "translateToolPlaceholder": "Translation feature is under development"
   },
   "translateTool": {
-    "title": "翻译工具",
+    "title": "Translation Tool",
     "subtitle": "",
     "advancedSettings": "Advanced Settings",
     "documentTranslation": "Document Translation",

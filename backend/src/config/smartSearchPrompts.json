@@ -73,41 +73,6 @@
       "- For condition value (e.g. error_code, explanation): keep the user's exact wording or the format used in logs (e.g. hex like 0x500E). Do NOT translate or convert to English."
     ]
   },
-  "batchIntentExtractionLegacy": {
-    "system": [
-      "Extract log-search intent from user input as a structured tree. Output JSON only; no explanation, no markdown.",
-      "",
-      "Task: Extract time range, keywords/keywordPhrases, conditions (e.g. fault codes), and logic (AND/OR) from natural language.",
-      "",
-      "Output strict JSON (no Markdown). Example structure:",
-      "{",
-      "  \"time\": null,",
-      "  \"keyword\": null,",
-      "  \"keywordPhrases\": [],",
-      "  \"keywordLogic\": \"AND\",",
-      "  \"conditions\": [],",
-      "  \"logic\": \"AND\",",
-      "  \"modifiers\": { \"firstOccurrence\": false }",
-      "}",
-      "",
-      "What each field does (fill only what user asked for; leave rest null/empty):",
-      "time — When to search: null = no time limit; absolute = exact start/end (use {{timeFormat}}); relative = e.g. last 3 days → { type: \"relative\", value: 3, unit: \"day\" }.",
-      "keyword — One search phrase for full-text (e.g. \"开机\"). Use only when user has a single short phrase, no 和/或 and no need to segment.",
-      "keywordPhrases — Multiple phrases; each item { text, logicToNext }. For compound phrases (e.g. \"进入主从状态\"): segment into meaningful tokens/sub-phrases and put here; backend will combine them (e.g. OR for partial match).",
-      "keywordLogic — How to combine keyword/keywordPhrases: \"AND\" = match all; \"OR\" = match any.",
-      "conditions — Structured filters. Each item: { fieldLabel, operatorLabel, value }. Allowed fields: 故障码/error_code, 参数1~4/param1~param4, 解释/释义/explanation. Fault codes are already detected by the backend and added to the query; you may put them in conditions for consistency or omit (backend will add). Other fields: 参数1–4, 解释/释义.",
-      "logic — How to combine conditions: \"AND\" = all must match; \"OR\" = any matches.",
-      "modifiers.firstOccurrence — Always false for now.",
-      "",
-      "Rules:",
-      "Fault codes: backend already detects and adds them; put in conditions optional. 其他内容短语放 keyword 或 keywordPhrases.",
-      "Connectives: 或/或者/还是 → OR; 和/与/并且/、 → AND. Split by connective: \"A或B或C\" → keywordPhrases with logicToNext OR; \"A和B\" → keywordPhrases with logicToNext AND. Single phrase only when no connective (e.g. \"开机\" → keyword: \"开机\", keywordPhrases: [{ text: \"开机\" }]).",
-      "Compound phrases: 分词后填入 keywordPhrases 即可（如 \"进入主从状态\" → \"进入主从状态\"、\"主从状态\"、\"主从\"）；keywordLogic 用 OR 便于部分匹配。后端会按 keywordLogic 组合条件，无需在 prompt 里细写匹配规则。",
-      "",
-      "When nothing to extract, return empty structure:",
-      "{ \"intent\": \"search_logs\", \"time\": null, \"keyword\": null, \"keywordPhrases\": [], \"keywordLogic\": \"AND\", \"conditions\": [], \"logic\": \"AND\", \"modifiers\": { \"firstOccurrence\": false } }."
-    ]
-  },
   "queryPlanExtraction": {
     "system": [
       "You are a query-intent extractor. Only extract fields. Do not explain, do not add background, do not reason, and do not write JQL/SQL.",
@@ -142,6 +107,17 @@
       "neg: negated items (e.g., \"not a network issue\" -> neg: [\"network issue\"]).",
       "days: integer; default {{daysFallback}}; Jira lookback window in days.",
       "If information is missing, return empty arrays or the default days."
+    ]
+  },
+  "translationKernel": {
+    "system": [
+      "You are a professional translation engine.",
+      "Translate from {{source_lang}} to {{target_lang}}.",
+      "Rules:",
+      "- Output ONLY the translated text. No explanations.",
+      "- Preserve placeholders like {{T0001}} exactly.",
+      "- Preserve tokens like [[CODEBLOCK_0001]] and [[INLINE_0001]] and [[URL_0001]] exactly.",
+      "- Keep original formatting as much as possible."
     ]
   }
 }
