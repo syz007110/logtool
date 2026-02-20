@@ -12,12 +12,17 @@ router.post('/analyze-sorted-entries', auth, checkPermission('surgery:read'), su
 
 // 通过日志ID列表分析手术数据（管理员、专家）
 router.post('/analyze-by-log-ids', auth, checkPermission('surgery:read'), surgeryStatisticsController.analyzeByLogIds);
+router.post('/analyze-by-device-range', auth, checkPermission('surgery:read'), surgeryStatisticsController.analyzeByDeviceRange);
 
 // 查询分析任务状态（管理员、专家）
 router.get('/task/:taskId', auth, checkPermission('surgery:read'), surgeryStatisticsController.getAnalysisTaskStatus);
 
 // 获取用户的分析任务列表（管理员、专家）
 router.get('/tasks', auth, checkPermission('surgery:read'), surgeryStatisticsController.getUserAnalysisTasks);
+router.get('/tasks/active', auth, checkPermission('surgery:read'), surgeryStatisticsController.getGlobalActiveAnalysisTasks);
+router.get('/pending-exports', auth, checkPermission('surgery:read'), surgeryStatisticsController.getPendingExports);
+router.get('/pending-exports/:id', auth, checkPermission('surgery:read'), surgeryStatisticsController.getPendingExportDetail);
+router.post('/pending-exports/:id/resolve', auth, checkPermission('surgery:export'), surgeryStatisticsController.resolvePendingExport);
 
 // 导出手术报告（管理员、专家）
 router.get('/:id/export', auth, checkPermission('surgery:export'), surgeryStatisticsController.exportSurgeryReport);

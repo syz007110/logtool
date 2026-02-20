@@ -165,9 +165,9 @@ const logs = {
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params }),
   getExportCsvTaskStatus: (taskId) => api.get(`/logs/entries/export/${taskId}/status`),
   downloadExportCsvResult: (taskId) => api.get(`/logs/entries/export/${taskId}/result`, { responseType: 'blob' }),
+  getActiveTasks: () => api.get('/logs/tasks/active'),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
-  analyzeSurgery: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   getSearchTemplates: () => api.get('/logs/search-templates'),
   importSearchTemplates: (templates) => api.post('/logs/search-templates/import', { templates }),
   nlToBatchFilters: (payload) => api.post('/logs/entries/batch/nl-to-filters', payload)
@@ -237,24 +237,36 @@ const i18n = {
 
 const surgeryStatistics = {
   getList: (params) => api.get('/surgery-statistics', { params }),
-  analyze: (logId) => api.get(`/logs/${logId}/surgery-analysis`),
   analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
-  analyzeByLogIds: (logIds, includePostgreSQLStructure = false, timezoneOffsetMinutes = null) =>
-    api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure, timezoneOffsetMinutes }),
+  analyzeByLogIds: (logIds, includePostgreSQLStructure = false, timezoneOffsetMinutes = null, options = {}) =>
+    api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure, timezoneOffsetMinutes, ...options }),
+  analyzeByDeviceRange: (deviceId, startTime, endTime, includePostgreSQLStructure = false, timezoneOffsetMinutes = null) =>
+    api.post('/surgery-statistics/analyze-by-device-range', {
+      deviceId,
+      startTime,
+      endTime,
+      includePostgreSQLStructure,
+      timezoneOffsetMinutes
+    }),
   getAnalysisTaskStatus: (taskId) => api.get(`/surgery-statistics/task/${taskId}`),
   getUserAnalysisTasks: () => api.get('/surgery-statistics/tasks'),
+  getActiveTasks: () => api.get('/surgery-statistics/tasks/active'),
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
   exportPostgreSQLData: (params) => api.get('/surgery-statistics/export/postgresql', { params }),
   exportSingleSurgeryData: (surgeryData) => api.post('/surgery-statistics/export-single', surgeryData),
   confirmOverrideSurgeryData: (surgeryData, confirmOverride = true) => api.post('/surgery-statistics/confirm-override', { surgeryData, confirmOverride }),
-  getPostgreSQLSurgeries: (params) => api.get('/surgery-statistics/postgresql', { params })
+  getPostgreSQLSurgeries: (params) => api.get('/surgery-statistics/postgresql', { params }),
+  getPendingExports: (params) => api.get('/surgery-statistics/pending-exports', { params }),
+  getPendingExportDetail: (id, params) => api.get(`/surgery-statistics/pending-exports/${id}`, { params }),
+  resolvePendingExport: (id, action) => api.post(`/surgery-statistics/pending-exports/${id}/resolve`, { action })
 }
 
 // Surgeries CRUD (PostgreSQL persisted)
 const surgeries = {
   list: (params) => api.get('/surgeries', { params }),
   getByDevice: (params) => api.get('/surgeries/by-device', { params }),
-  get: (id) => api.get(`/surgeries/${id}`),
+  getFailedAnalysisGroups: (params) => api.get('/surgeries/failed-analysis-groups', { params }),
+  get: (id, params) => api.get(`/surgeries/${id}`, { params }),
   remove: (id) => api.delete(`/surgeries/${id}`),
   getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`),
   getTimeFilters: (params) => api.get('/surgeries/time-filters', { params })
@@ -308,6 +320,7 @@ const motionData = {
   batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }),
   batchDownload: (fileIds, format = 'csv') => api.post('/motion-data/batch-download', { fileIds, format }),
   getUserTasks: () => api.get('/motion-data/tasks'), // 获取用户所有任务（用于恢复）
+  getActiveTasks: () => api.get('/motion-data/tasks/active'),
   getTaskStatus: (taskId) => api.get(`/motion-data/task/${taskId}`),
   downloadTaskResult: (taskId) => api.get(`/motion-data/task/${taskId}/download`, { responseType: 'blob' })
 }

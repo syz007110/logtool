@@ -35,7 +35,7 @@
           <div class="upload-text-main">{{ $t('translateTool.clickOrDrag') }}</div>
           <div class="upload-text-sub">
             {{ $t('translateTool.supportedFormats') }}:
-            <span class="mono">.txt, .md, .json, .docx</span>
+            <span class="mono">.txt, .md, .json, .docx, .xml</span>
           </div>
         </el-upload>
 

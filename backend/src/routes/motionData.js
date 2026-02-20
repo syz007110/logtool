@@ -19,6 +19,7 @@ const {
   batchDownload,
   getTaskStatus,
   getUserTasks,
+  getGlobalActiveTasks,
   downloadTaskResult,
   listMotionDataFiles,
   listMotionDataFilesByDevice,
@@ -51,6 +52,7 @@ router.get('/config', auth, checkPermissionAny(['data_replay:manage', 'data_repl
 router.get('/dh-model', auth, checkPermissionAny(['data_replay:manage', 'data_replay:read', 'log:read_all']), getDhModelConfig);
 
 // Task status and result download - admin only (放在参数路由之前)
+router.get('/tasks/active', auth, getGlobalActiveTasks);
 router.get('/tasks', auth, checkPermission('data_replay:manage'), getUserTasks);
 router.get('/task/:taskId', auth, checkPermission('data_replay:manage'), getTaskStatus);
 router.get('/task/:taskId/download', auth, checkPermission('data_replay:manage'), downloadTaskResult);

@@ -10,6 +10,7 @@ const errorCodeCache = require('../services/errorCodeCache');
 const { translateFields } = require('../services/translationService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
+const { getPredefinedLanguages } = require('../config/i18nLanguages');
 
 // 检查ES是否启用
 function isErrorCodeEsEnabled() {
@@ -415,22 +416,7 @@ const batchImportI18nErrorCodes = async (req, res) => {
 // 获取支持的语言列表
 const getSupportedLanguages = async (req, res) => {
   try {
-    // 预定义的语言列表 - 只支持指定的语言
-    const predefinedLanguages = [
-      { value: 'zh', label: req.t('shared.languageNames.zh') },
-      { value: 'en', label: req.t('shared.languageNames.en') },
-      { value: 'fr', label: req.t('shared.languageNames.fr') },
-      { value: 'de', label: req.t('shared.languageNames.de') },
-      { value: 'es', label: req.t('shared.languageNames.es') },
-      { value: 'it', label: req.t('shared.languageNames.it') },
-      { value: 'pt', label: req.t('shared.languageNames.pt') },
-      { value: 'nl', label: req.t('shared.languageNames.nl') },
-      { value: 'sk', label: req.t('shared.languageNames.sk') },
-      { value: 'ro', label: req.t('shared.languageNames.ro') },
-      { value: 'da', label: req.t('shared.languageNames.da') },
-      { value: 'lv', label: req.t('shared.languageNames.lv') },
-      { value: 'ru', label: req.t('shared.languageNames.ru') }
-    ];
+    const predefinedLanguages = getPredefinedLanguages((key) => req.t(key));
     
     // 获取数据库中已有的语言代码
     const existingLanguages = await I18nErrorCode.findAll({

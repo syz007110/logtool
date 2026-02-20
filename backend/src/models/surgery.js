@@ -23,10 +23,10 @@ const Surgery = postgresqlSequelize.define('Surgery', {
     allowNull: true,
     comment: '溯源的日志文件ID数组'
   },
-  device_ids: {
-    type: DataTypes.ARRAY(DataTypes.TEXT),
+  device_id: {
+    type: DataTypes.TEXT,
     allowNull: true,
-    comment: '关联的设备编号数组（字符串）'
+    comment: '关联的设备编号'
   },
   // 起止日志条目ID范围（用于快速查看手术涉及的日志）
   log_entry_start_id: {
@@ -38,6 +38,16 @@ const Surgery = postgresqlSequelize.define('Surgery', {
     type: DataTypes.INTEGER,
     allowNull: true,
     comment: '结束日志条目ID'
+  },
+  log_entry_start_log_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '起始日志条目所属log_id'
+  },
+  log_entry_end_log_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '结束日志条目所属log_id'
   },
   start_time: {
     type: DataTypes.DATE,
@@ -108,6 +118,9 @@ const Surgery = postgresqlSequelize.define('Surgery', {
     },
     {
       fields: ['last_analyzed_at']
+    },
+    {
+      fields: ['device_id']
     }
   ]
 });

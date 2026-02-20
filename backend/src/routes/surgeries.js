@@ -12,6 +12,8 @@ router.get('/by-device', auth, checkPermission('surgery:read'), surgeriesControl
 
 // 获取时间筛选选项（年、月、日）
 router.get('/time-filters', auth, checkPermission('surgery:read'), surgeriesController.getSurgeryTimeFilters);
+// 获取设备手术分析失败分组（详情抽屉展示/分组重试）
+router.get('/failed-analysis-groups', auth, checkPermission('surgery:read'), surgeriesController.getFailedAnalysisGroups);
 
 // 获取单条
 router.get('/:id', auth, checkPermission('surgery:read'), surgeriesController.getSurgeryById);

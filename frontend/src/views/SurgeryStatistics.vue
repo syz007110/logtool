@@ -635,6 +635,45 @@ export default {
         analyzing.value = false
       }
     }
+
+    // 通过URL参数中的设备+时间范围直接分析手术数据
+    const loadBatchLogEntriesByDeviceRange = async () => {
+      try {
+        const deviceId = route.query.deviceId
+        const startTime = route.query.startTime
+        const endTime = route.query.endTime
+        if (!deviceId || !startTime || !endTime) return
+
+        analyzing.value = true
+        const response = await api.surgeryStatistics.analyzeByDeviceRange(
+          deviceId,
+          startTime,
+          endTime
+        )
+
+        if (response.data.success && response.data.taskId) {
+          await pollTaskResult(response.data.taskId)
+        } else if (response.data.success && response.data.data) {
+          surgeries.value = response.data.data || []
+          if (surgeries.value.length > 0) {
+            activeTab.value = surgeries.value[0].id.toString()
+            surgeries.value.forEach(surgery => {
+              armDetailsVisible[surgery.id] = false
+              showAllAlarms[surgery.id] = false
+              postgresqlPreviewVisible[surgery.id] = false
+              postgresqlDataText[surgery.id] = ''
+            })
+          }
+          ElMessage.success(response.data.message || `成功统计出 ${surgeries.value.length} 场手术`)
+        } else {
+          ElMessage.error(response.data.message || '统计失败')
+        }
+      } catch (error) {
+        ElMessage.error('按设备范围分析失败: ' + (error.response?.data?.message || error.message))
+      } finally {
+        analyzing.value = false
+      }
+    }
     
     // 轮询任务结果
     const pollTaskResult = async (taskId) => {
@@ -879,9 +918,11 @@ export default {
       }
 
       try {
-        // 设备编号统一使用字符串：优先后端返回的 device_ids，其次预览，最后从 surgery_id 提取前缀
+        // 设备编号统一使用字符串：优先后端返回的 device_id，其次兼容旧字段 device_ids，再回退到 surgery_id 前缀
         const extractedPrefix = surgery.surgery_id ? surgery.surgery_id.split('-').slice(0, -1).join('-') : undefined
-        const deviceIdStr = (Array.isArray(surgery.device_ids) && surgery.device_ids[0])
+        const deviceIdStr = surgery.device_id
+          || surgery.postgresql_row_preview?.device_id
+          || (Array.isArray(surgery.device_ids) && surgery.device_ids[0])
           || (surgery.postgresql_row_preview?.device_ids?.[0])
           || extractedPrefix
         
@@ -890,7 +931,7 @@ export default {
         const surgeriesData = {
           surgery_id: surgery.surgery_id,
           source_log_ids: Array.isArray(surgery.source_log_ids) ? surgery.source_log_ids : (surgery.log_id ? [surgery.log_id] : []),
-          device_ids: deviceIdStr ? [String(deviceIdStr)] : [],
+          device_id: deviceIdStr ? String(deviceIdStr) : null,
           log_entry_start_id: surgery.log_entry_start_id || null,
           log_entry_end_id: surgery.log_entry_end_id || null,
           start_time: formatUtcForDatabase(surgery.surgery_start_time),
@@ -3162,6 +3203,15 @@ export default {
         await loadBatchLogEntriesByIds()
         return
       }
+
+      // 其次处理 URL 参数中的设备+时间范围
+      const deviceId = route.query.deviceId
+      const startTime = route.query.startTime
+      const endTime = route.query.endTime
+      if (deviceId && startTime && endTime) {
+        await loadBatchLogEntriesByDeviceRange()
+        return
+      }
       
       // 如果没有URL参数，检查是否有sessionStorage数据
       if (logEntries.value.length > 0) {
@@ -3207,6 +3257,7 @@ export default {
         getAnalysisButtonText,
         getTimeRange,
         loadBatchLogEntriesByIds,
+        loadBatchLogEntriesByDeviceRange,
         pollTaskResult,
         getPowerOnTime,
         getPowerOffTime,

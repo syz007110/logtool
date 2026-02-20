@@ -207,6 +207,58 @@
         </div>
         
         <div class="header-right">
+          <el-popover
+            v-model:visible="taskPopoverVisible"
+            trigger="click"
+            placement="bottom-end"
+            :width="320"
+            popper-class="task-status-popover"
+          >
+            <template #reference>
+                <el-button class="task-pill-btn task-status-capsule">
+                  <span class="capsule-dot" :class="{ 'capsule-dot--breathing': inProgressTaskCount > 0 }" />
+                  <span class="capsule-title">{{ $t('taskQueue.activeLabel', { count: inProgressTaskCount }) }}</span>
+                  <span class="capsule-divider" />
+                  <el-icon class="capsule-icon"><Clock /></el-icon>
+                  <span class="capsule-metric waiting">{{ $t('taskQueue.waitingLabel', { count: waitingTaskCount }) }}</span>
+                </el-button>
+            </template>
+            <div class="task-popover-content">
+              <div class="task-popover-header">
+                <div class="task-popover-header-left">
+                  <el-icon class="task-popover-header-icon"><Operation /></el-icon>
+                  <span>{{ $t('taskQueue.popoverTitle') }}</span>
+                </div>
+              </div>
+              <div class="task-popover-body">
+                <div v-if="taskLoading" class="task-loading-tip">{{ $t('taskQueue.syncing') }}</div>
+                <div v-if="!hasInProgressTasks && !taskLoading" class="task-empty">
+                  {{ $t('taskQueue.empty') }}
+                </div>
+                <div v-for="queue in queueSummaryList" :key="queue.key" class="queue-row">
+                  <div class="queue-icon-wrap">
+                    <el-icon class="queue-icon">
+                      <component :is="queue.icon" />
+                    </el-icon>
+                  </div>
+                  <div class="queue-main">
+                    <div class="queue-name">{{ $t(queue.nameKey) }}</div>
+                  </div>
+                  <div class="queue-metrics">
+                    <div class="queue-metric">
+                      <div class="queue-metric-value active">{{ queue.active }}</div>
+                      <div class="queue-metric-label">{{ $t('taskQueue.metricActive') }}</div>
+                    </div>
+                    <div class="queue-metric-divider" />
+                    <div class="queue-metric">
+                      <div class="queue-metric-value wait">{{ queue.waiting }}</div>
+                      <div class="queue-metric-label">{{ $t('taskQueue.metricWait') }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-popover>
           <!-- 语言切换 -->
           <el-dropdown trigger="click" @command="handleLanguageChange">
             <el-button text class="lang-btn">
@@ -235,12 +287,14 @@
 </template>
 
 <script>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import api from '../api'
+import websocketClient from '@/services/websocketClient'
 import {
   Search,
   Files,
@@ -250,6 +304,9 @@ import {
   User,
   Setting,
   Aim,
+  Clock,
+  DataAnalysis,
+  VideoPlay,
   Fold,
   Expand,
   SwitchButton,
@@ -270,6 +327,9 @@ export default {
     User,
     Setting,
     Aim,
+    Clock,
+    DataAnalysis,
+    VideoPlay,
     Fold,
     Expand,
     SwitchButton,
@@ -501,6 +561,173 @@ export default {
     const handleLanguageChange = async (locale) => {
       await loadLocaleMessages?.(locale)
     }
+
+    const taskPopoverVisible = ref(false)
+    const taskLoading = ref(false)
+    const taskRefreshTimer = ref(null)
+    const taskWsRefreshTimer = ref(null)
+    const globalTaskGroups = ref({
+      logs: [],
+      motion: [],
+      surgery: []
+    })
+
+    const normalizeProgress = (value) => {
+      const num = Number(value)
+      if (!Number.isFinite(num)) return 0
+      return Math.max(0, Math.min(100, Math.round(num)))
+    }
+
+    const statusSortRank = (status) => {
+      if (status === 'active' || status === 'processing') return 0
+      if (status === 'waiting' || status === 'pending') return 1
+      return 2
+    }
+
+    const sortTasks = (tasks) => {
+      return [...tasks].sort((a, b) => {
+        const rankDiff = statusSortRank(a.status) - statusSortRank(b.status)
+        if (rankDiff !== 0) return rankDiff
+        const at = new Date(a.createdAt || 0).getTime()
+        const bt = new Date(b.createdAt || 0).getTime()
+        return bt - at
+      })
+    }
+
+    const mapLogTask = (task) => {
+      return {
+        id: `log-${task.id}`,
+        status: task.status,
+        progress: normalizeProgress(task.progress)
+      }
+    }
+
+    const mapMotionTask = (task) => {
+      return {
+        id: `motion-${task.id}`,
+        status: task.status,
+        progress: normalizeProgress(task.progress)
+      }
+    }
+
+    const mapSurgeryTask = (task) => {
+      return {
+        id: `surgery-${task.id}`,
+        status: task.status,
+        progress: normalizeProgress(task.progress)
+      }
+    }
+
+    const loadGlobalActiveTasks = async () => {
+      taskLoading.value = true
+      try {
+        const [logResp, motionResp, surgeryResp] = await Promise.allSettled([
+          api.logs.getActiveTasks(),
+          api.motionData.getActiveTasks(),
+          api.surgeryStatistics.getActiveTasks()
+        ])
+
+        const toData = (resp) => {
+          if (resp.status !== 'fulfilled') return []
+          const payload = resp.value?.data?.data
+          if (Array.isArray(payload)) return payload
+          if (Array.isArray(payload?.items)) return payload.items
+          // /surgery-statistics/tasks/active returns { queue, grouped }
+          if (Array.isArray(payload?.grouped)) return payload.grouped
+          if (Array.isArray(resp.value?.data?.items)) return resp.value.data.items
+          return []
+        }
+        globalTaskGroups.value = {
+          logs: sortTasks(toData(logResp)
+            .filter((t) => ['waiting', 'active'].includes(t.status))
+            .map(mapLogTask)),
+          motion: sortTasks(toData(motionResp)
+            .filter((t) => ['waiting', 'active'].includes(t.status))
+            .map(mapMotionTask)),
+          surgery: sortTasks(toData(surgeryResp)
+            .filter((t) => ['waiting', 'active', 'processing'].includes(t.status))
+            .map(mapSurgeryTask))
+        }
+      } finally {
+        taskLoading.value = false
+      }
+    }
+
+    const countByStatus = (items) => {
+      const list = Array.isArray(items) ? items : []
+      return list.reduce((acc, item) => {
+        const status = String(item?.status || '')
+        if (status === 'active' || status === 'processing') acc.active += 1
+        if (status === 'waiting' || status === 'pending') acc.waiting += 1
+        return acc
+      }, { active: 0, waiting: 0 })
+    }
+
+    const queueSummaryList = computed(() => {
+      const logs = countByStatus(globalTaskGroups.value.logs)
+      const surgery = countByStatus(globalTaskGroups.value.surgery)
+      const motion = countByStatus(globalTaskGroups.value.motion)
+      return [
+        { key: 'logs', queueId: 'q1', nameKey: 'taskQueue.queueLogs', icon: Operation, active: logs.active, waiting: logs.waiting },
+        { key: 'surgery', queueId: 'q2', nameKey: 'taskQueue.queueSurgery', icon: DataAnalysis, active: surgery.active, waiting: surgery.waiting },
+        { key: 'motion', queueId: 'q3', nameKey: 'taskQueue.queueMotion', icon: VideoPlay, active: motion.active, waiting: motion.waiting }
+      ]
+    })
+
+    const inProgressTaskCount = computed(() => {
+      return queueSummaryList.value.reduce((sum, queue) => sum + queue.active, 0)
+    })
+
+    const waitingTaskCount = computed(() => {
+      return queueSummaryList.value.reduce((sum, queue) => sum + queue.waiting, 0)
+    })
+
+    const hasInProgressTasks = computed(() => (inProgressTaskCount.value + waitingTaskCount.value) > 0)
+
+    watch(taskPopoverVisible, (visible) => {
+      if (visible) loadGlobalActiveTasks()
+    })
+
+    const scheduleTaskRefreshFromWs = () => {
+      if (taskWsRefreshTimer.value) return
+      taskWsRefreshTimer.value = setTimeout(() => {
+        taskWsRefreshTimer.value = null
+        loadGlobalActiveTasks()
+      }, 600)
+    }
+
+    const handleMotionTaskStatusChange = () => {
+      scheduleTaskRefreshFromWs()
+    }
+    const handleLogTaskStatusChange = () => {
+      scheduleTaskRefreshFromWs()
+    }
+    const handleSurgeryTaskStatusChange = () => {
+      scheduleTaskRefreshFromWs()
+    }
+
+    onMounted(() => {
+      try { websocketClient.connect() } catch (_) {}
+      websocketClient.on('motionDataTaskStatusChange', handleMotionTaskStatusChange)
+      websocketClient.on('logTaskStatusChange', handleLogTaskStatusChange)
+      websocketClient.on('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
+      loadGlobalActiveTasks()
+      taskRefreshTimer.value = setInterval(loadGlobalActiveTasks, 8000)
+    })
+
+    onBeforeUnmount(() => {
+      websocketClient.off('motionDataTaskStatusChange', handleMotionTaskStatusChange)
+      websocketClient.off('logTaskStatusChange', handleLogTaskStatusChange)
+      websocketClient.off('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
+      if (taskRefreshTimer.value) {
+        clearInterval(taskRefreshTimer.value)
+        taskRefreshTimer.value = null
+      }
+      if (taskWsRefreshTimer.value) {
+        clearTimeout(taskWsRefreshTimer.value)
+        taskWsRefreshTimer.value = null
+      }
+    })
     
     // 根据路由 meta 决定是否隐藏侧边栏
     const hideSidebar = computed(() => {
@@ -539,7 +766,14 @@ export default {
       handleMenuSelect,
       hideSidebar,
       hideContentWrapper,
-      breadcrumbs
+      breadcrumbs,
+      taskPopoverVisible,
+      taskLoading,
+      queueSummaryList,
+      inProgressTaskCount,
+      waitingTaskCount,
+      hasInProgressTasks,
+      loadGlobalActiveTasks
     }
   }
 }
@@ -804,6 +1038,212 @@ export default {
 
 .lang-btn .lang-icon {
   margin-right: 6px;
+}
+
+.task-pill-btn {
+  border-radius: var(--capsule-btn-radius) !important;
+  border: var(--capsule-btn-border) !important;
+  color: var(--slate-700);
+  background: var(--capsule-btn-bg) !important;
+  min-height: var(--capsule-btn-min-height) !important;
+}
+
+.task-status-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--capsule-btn-gap);
+  padding: var(--capsule-btn-padding-y) var(--capsule-btn-padding-x);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.capsule-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emerald-500);
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.4);
+  transition: opacity 0.6s ease, box-shadow 0.6s ease, transform 0.6s ease;
+}
+
+/* 有进行中任务时，进行中圆点呼吸灯效果 */
+.capsule-dot--breathing {
+  animation: capsule-dot-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes capsule-dot-breathe {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5), 0 1px 3px rgba(16, 185, 129, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0), 0 1px 3px rgba(16, 185, 129, 0.5);
+    transform: scale(1.05);
+  }
+}
+
+.capsule-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-800);
+  margin-right: 2px;
+  margin-left: 8px;
+}
+
+.capsule-divider {
+  width: 1px;
+  height: var(--capsule-btn-divider-height);
+  background: var(--slate-300);
+  flex-shrink: 0;
+  margin: 0 14px;
+}
+
+.capsule-icon {
+  color: var(--slate-500);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.capsule-metric {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate-600);
+  margin-left: 8px;
+}
+
+.capsule-metric.waiting {
+  color: var(--slate-500);
+}
+
+.task-popover-content {
+  width: 100%;
+  background: var(--black-white-white);
+}
+
+:deep(.task-status-popover) {
+  padding: 0 !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--slate-200) !important;
+  box-shadow: 0 4px 12px rgba(2, 6, 23, 0.08) !important;
+}
+
+.task-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.task-popover-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--slate-900);
+}
+
+.task-popover-header-icon {
+  color: var(--slate-500);
+  font-size: 14px;
+}
+
+.task-popover-body {
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.task-loading-tip {
+  font-size: 11px;
+  color: var(--slate-500);
+  padding: 6px 12px;
+}
+
+.task-empty {
+  color: var(--slate-500);
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.queue-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--slate-100);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.queue-icon {
+  font-size: 14px;
+  color: var(--slate-500);
+}
+
+.queue-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.queue-name {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--slate-900);
+}
+
+.queue-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.queue-metric {
+  text-align: right;
+  min-width: 40px;
+}
+
+.queue-metric-value {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.queue-metric-value.active {
+  color: var(--emerald-500);
+}
+
+.queue-metric-value.wait {
+  color: var(--orange-500);
+}
+
+.queue-metric-label {
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--slate-400);
+  letter-spacing: 0.02em;
+}
+
+.queue-metric-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--slate-200);
 }
 
 .dashboard-content {

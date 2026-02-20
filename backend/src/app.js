@@ -61,6 +61,7 @@ const translateRouter = require('./routes/translate');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
+const errorCodeCacheSyncService = require('./services/errorCodeCacheSyncService');
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
 const { startTempCleanupJob } = require('./services/tempCleanupService');
 
@@ -84,6 +85,11 @@ try {
 } catch (error) {
   console.warn('⚠️ 缓存系统初始化失败:', error.message);
 }
+
+// 初始化故障码缓存跨进程同步订阅（所有进程）
+errorCodeCacheSyncService.initializeSubscriber().catch((e) => {
+  console.warn('⚠️ 故障码缓存同步订阅初始化失败:', e.message);
+});
 
 // 初始化 i18next（文件后端 + HTTP 中间件）
 i18next

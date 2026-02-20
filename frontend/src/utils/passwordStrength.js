@@ -4,20 +4,20 @@
  * @param {string} [username]
  * @returns {{ valid: boolean, messageKey?: string }}
  */
-export function validatePasswordStrength(password, username) {
+export function validatePasswordStrength (password, username) {
   if (!password || typeof password !== 'string') {
-    return { valid: false, messageKey: 'required' };
+    return { valid: false, messageKey: 'required' }
   }
-  const p = password;
-  if (p.length < 8) return { valid: false, messageKey: 'minLength' };
-  if (!/[A-Z]/.test(p)) return { valid: false, messageKey: 'requireUpper' };
-  if (!/[a-z]/.test(p)) return { valid: false, messageKey: 'requireLower' };
-  if (!/[0-9]/.test(p)) return { valid: false, messageKey: 'requireDigit' };
+  const p = password
+  if (p.length < 8) return { valid: false, messageKey: 'minLength' }
+  if (!/[A-Z]/.test(p)) return { valid: false, messageKey: 'requireUpper' }
+  if (!/[a-z]/.test(p)) return { valid: false, messageKey: 'requireLower' }
+  if (!/[0-9]/.test(p)) return { valid: false, messageKey: 'requireDigit' }
   if (username && typeof username === 'string' && username.trim()) {
     if (p.toLowerCase() === username.trim().toLowerCase()) {
-      return { valid: false, messageKey: 'sameAsUsername' };
+      return { valid: false, messageKey: 'sameAsUsername' }
     }
   }
-  if (/(.)\1{3,}/.test(p)) return { valid: false, messageKey: 'noConsecutive4' };
-  return { valid: true };
+  if (/(.)\1{3,}/.test(p)) return { valid: false, messageKey: 'noConsecutive4' }
+  return { valid: true }
 }

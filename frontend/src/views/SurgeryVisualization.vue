@@ -1,35 +1,75 @@
 
 <template>
   <div class="viz-page">
-    <!-- 顶部标题卡片 -->
-    <el-card class="title-card">
-          <div class="surgery-info">
-        <span class="surgery-id">{{ meta.surgery_id || '-' }}</span>
-        <el-tag v-if="meta.is_remote" color="green" size="small" class="surgery-tag remote-tag">{{$t('surgeryVisualization.remoteSurgery')}}</el-tag>
-        <el-tag v-if="meta.is_fault" color="red" size="small" class="surgery-tag fault-tag">{{$t('surgeryVisualization.faultSurgery')}}</el-tag>
-          </div>
-    </el-card>
+    <!-- 顶部导航栏 -->
+    <header class="viz-nav-bar">
+      <div class="nav-bar-left">
+        <div class="nav-row nav-row-id">
+          <span class="surgery-id">{{ meta.surgery_id || '--' }}</span>
+          <el-tag v-if="meta.is_remote" color="green" size="small" class="surgery-tag remote-tag">{{ $t('surgeryVisualization.remoteSurgery') }}</el-tag>
+          <el-tag v-if="meta.is_fault" color="red" size="small" class="surgery-tag fault-tag">{{ $t('surgeryVisualization.faultSurgery') }}</el-tag>
+        </div>
+        <div class="nav-row nav-row-meta">
+          <span class="surgery-procedure">{{ surgeryProcedureLabel }}</span>
+          <span class="surgery-date">{{ surgeryDateLabel }}</span>
+        </div>
+      </div>
+      <div class="nav-bar-right">
+        <div class="time-metric">
+          <div class="time-metric-label">{{ $t('surgeryVisualization.totalDuration') }}</div>
+          <div class="time-metric-value">{{ totalDurationLabel }}</div>
+        </div>
+        <span class="time-metric-sep">|</span>
+        <div class="time-metric">
+          <div class="time-metric-label">{{ $t('surgeryVisualization.operationTime') }}</div>
+          <div class="time-metric-value time-metric-value--operation">{{ operationTimeLabel }}</div>
+        </div>
+        <el-dropdown trigger="click" @command="handleExportCommand" class="report-export-dropdown">
+          <el-button class="report-export-btn" type="primary" size="small">
+            {{ $t('surgeryVisualization.report.exportReport') }}
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="csv">CSV</el-dropdown-item>
+              <el-dropdown-item command="html">{{ $t('surgeryVisualization.report.exportHtml') }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </header>
 
     <!-- 手术概况卡片 -->
     <el-card class="overview-card">
       <div class="section-header">
-        {{$t('surgeryVisualization.overview')}}
+        {{ $t('surgeryVisualization.overview') }}
         <div class="zoom-controls min-w-0">
-          <button @click="resetZoom" class="zoom-reset-btn compact-btn">{{$t('surgeryVisualization.resetZoom')}}</button>
+          <button @click="resetZoom" class="zoom-reset-btn compact-btn">{{ $t('surgeryVisualization.resetZoom') }}</button>
           <span class="zoom-level one-line-ellipsis" :title="Math.round(zoomLevel * 100) + '%'">{{ Math.round(zoomLevel * 100) }}%</span>
         </div>
       </div>
         <div 
+          ref="timelineContainerRef"
           class="timeline-container"
           :class="{ 'dragging': isDragging }"
           :data-zoom-level="zoomLevel"
           @wheel.prevent="handleWheel"
           @mousedown="handleDragStart"
-          @mousemove="handleDragMove"
+          @mousemove="handleTimelineMouseMove"
           @mouseup="handleDragEnd"
           @mouseleave="handleMouseLeave"
           @mouseenter="handleMouseEnter"
         >
+        <div v-if="timelineCrosshair.visible" class="timeline-crosshair-layer">
+          <div class="timeline-crosshair-line vertical" :style="getCrosshairVerticalStyle()"></div>
+          <div
+            v-if="timelineCrosshair.timeLabel"
+            class="timeline-time-tooltip"
+            :style="getCrosshairTooltipStyle()"
+          >
+            {{ timelineCrosshair.timeLabel }}
+          </div>
+        </div>
         <!-- 表格头部 -->
         <div class="timeline-header">
           <div class="arm-column"><span class="one-line-ellipsis" :title="$t('surgeryVisualization.activity')">{{$t('surgeryVisualization.activity')}}</span></div>
@@ -40,7 +80,18 @@
               class="time-column"
               :style="getTimeColumnStyle()"
             >
-              <span class="one-line-ellipsis" :title="getTimeColumnText(index)">{{ getTimeColumnText(index) }}</span>
+              <div class="time-column-content">
+                <span class="one-line-ellipsis time-column-label" :title="getTimeColumnText(index)">{{ getTimeColumnText(index) }}</span>
+                <div class="time-column-ticks">
+                  <span
+                    v-for="tick in timeScaleTicks"
+                    :key="`tick-${index}-${tick.minute}`"
+                    class="time-column-tick"
+                    :class="{ 'is-major': tick.isMajor }"
+                    :style="{ left: `${tick.position}%` }"
+                  ></span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -99,7 +150,36 @@
             :key="arm.arm_id" 
             class="timeline-row"
           >
-            <div class="arm-cell"><span class="one-line-ellipsis" :title="arm.name">{{ arm.name }}</span></div>
+            <div class="arm-cell" :class="{ 'arm-cell--instrument': arm.arm_id >= 1 && arm.arm_id <= 4 }">
+              <template v-if="arm.arm_id >= 1 && arm.arm_id <= 4">
+                <div class="instrument-cell-inner" :class="{ 'instrument-card--highlight': getInstrumentCard(arm.arm_id)?.highlighted }">
+                  <template v-if="getInstrumentCard(arm.arm_id)?.highlighted">
+                    <div v-if="hasInstrumentImage(getInstrumentCard(arm.arm_id))" class="instrument-card-icon">
+                      <img
+                        v-show="!instrumentImageFailed.has(arm.arm_id)"
+                        :src="getInstrumentImageUrl(getInstrumentCard(arm.arm_id)?.instrumentType)"
+                        :alt="getInstrumentCard(arm.arm_id)?.instrumentName"
+                        class="instrument-card-img"
+                        @error="onInstrumentImageError(arm.arm_id)"
+                      />
+                      <el-icon
+                        v-show="instrumentImageFailed.has(arm.arm_id)"
+                        :size="24"
+                        class="instrument-card-icon-fallback"
+                      ><Box /></el-icon>
+                    </div>
+                    <div class="instrument-card-body">
+                      <div class="instrument-card-name">{{ getInstrumentCard(arm.arm_id)?.instrumentName || '--' }}</div>
+                      <div class="instrument-card-meta">
+                        <el-tag v-if="getInstrumentCard(arm.arm_id)?.isTraining" size="small" type="info" class="instrument-card-tag">{{ $t('surgeryVisualization.trainingInstrument') }}</el-tag>
+                      </div>
+                    </div>
+                  </template>
+                  <span class="instrument-cell-arm-label">{{ $t('surgeryVisualization.armN', { n: arm.arm_id }) }}</span>
+                </div>
+              </template>
+              <span v-else class="one-line-ellipsis" :title="arm.name">{{ arm.name }}</span>
+            </div>
             <div class="time-cells" :style="getTimeCellsStyle()">
               <div 
                 v-for="(_, index) in Array(getTotalHours()).fill(0)" 
@@ -110,6 +190,13 @@
                 }"
                 :style="getTimeGridStyle()"
               >
+                <!-- 手术阶段背景色（甘特图所有行用不同颜色标识） -->
+                <div
+                  v-for="(period, periodIndex) in getSurgeryPhasePeriodsInHour(index)"
+                  :key="`phase-${index}-${periodIndex}`"
+                  class="surgery-phase-background"
+                  :style="getSurgeryPhaseStyle(period, index)"
+                ></div>
                 <!-- state: 30 时间段背景（精确到秒） -->
                 <template v-if="arm.arm_id === 0">
                   <div
@@ -222,7 +309,7 @@
       </div>
     </el-drawer>
 
-    <!-- 右侧抽屉：器械使用情况列表 -->
+    <!-- 右侧抽屉：器械使用情况列表 + 能量激发表格 -->
     <el-drawer
       v-model="drawerVisible"
       :title="drawerTitle"
@@ -231,68 +318,102 @@
       destroy-on-close
     >
       <div class="drawer-table-wrapper">
-        <el-table
-          :data="drawerInstruments"
-          stripe
-          border
-          size="small"
-        >
-        <el-table-column prop="arm_id" label="安装的臂号" width="100" align="center" />
-          <el-table-column prop="instrument_type" label="器械类型" width="180" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span :title="formatInstrumentType(row)">{{ formatInstrumentType(row) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="udi" label="器械UDI" width="220" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span :title="row.udi || '-'" style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="start_time" label="器械安装时间" width="220" align="center">
-            <template #default="{ row }">
-              <span :title="row.start_time || '-'">{{ formatSegmentTime(row.start_time) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="end_time" label="器械拔下时间" width="220" align="center">
-            <template #default="{ row }">
-              <span :title="row.end_time || '-'">{{ formatSegmentTime(row.end_time) }}</span>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="drawer-section">
+          <div class="drawer-section-title">{{ $t('surgeryVisualization.report.instrumentUsageTime') }}</div>
+          <el-table
+            :data="drawerInstruments"
+            stripe
+            border
+            size="small"
+            style="min-width: 100%"
+          >
+            <el-table-column prop="arm_id" :label="$t('surgeryVisualization.report.armNumber')" width="90" align="center" />
+            <el-table-column prop="instrument_type" :label="$t('surgeryVisualization.report.instrumentType')" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :title="formatInstrumentType(row)">{{ formatInstrumentType(row) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span :title="row.udi || '-'" style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="start_time" :label="$t('surgeryVisualization.report.installTime')" width="160" align="center">
+              <template #default="{ row }">
+                <span :title="row.start_time || '-'">{{ formatSegmentTime(row.start_time) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="end_time" :label="$t('surgeryVisualization.report.removeTime')" width="160" align="center">
+              <template #default="{ row }">
+                <span :title="row.end_time || '-'">{{ formatSegmentTime(row.end_time) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('surgeryVisualization.report.cumulativeUsage')" width="120" align="center">
+              <template #default="{ row }">
+                {{ formatCumulativeUsage(row.cumulative_usage) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="drawer-section drawer-energy-section">
+          <div class="drawer-section-title">{{ $t('surgeryVisualization.report.energyActivation') }}</div>
+          <el-table
+            :data="drawerEnergyTableRows"
+            stripe
+            border
+            size="small"
+            style="min-width: 100%"
+            row-key="rowKey"
+          >
+            <el-table-column type="expand" width="48" align="center">
+              <template #default="{ row }">
+                <div class="drawer-energy-expand">
+                  <el-table :data="row.detailEvents" size="small" border style="width: 100%" class="drawer-energy-expand-table">
+                    <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="200" align="right" />
+                    <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="140" align="right" />
+                    <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" width="200" align="right" />
+                  </el-table>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" width="90" align="center" />
+            <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="120" align="center" />
+            <el-table-column prop="totalGripsActiveLabel" :label="$t('surgeryVisualization.report.totalActivationTime')" width="100" align="center" />
+            <el-table-column prop="count" :label="$t('surgeryVisualization.report.totalActivationCount')" width="100" align="center" />
+          </el-table>
+          <div v-if="drawerEnergyTableRows.length === 0" class="drawer-energy-empty">
+            {{ $t('surgeryVisualization.report.drawerNoEnergy') }}
+          </div>
+        </div>
       </div>
     </el-drawer>
 
     <!-- 图表区域：手术状态机变化、网络延迟情况和操作数据汇总 -->
-    <div class="charts-row" v-if="showCharts && (hasStateMachineData || hasNetworkLatencyData || hasOperationData)">
-      <!-- 手术状态机变化卡片 -->
-      <el-card class="state-machine-card" v-if="hasStateMachineData">
+    <div class="charts-row" v-if="showCharts && (hasSurgeryPhaseData || hasNetworkLatencyData || hasOperationData)">
+      <!-- 手术阶段时间比例（Nightingale 南丁格尔图） -->
+      <el-card class="state-machine-card" v-if="hasSurgeryPhaseData">
         <div class="section-header">
-          {{$t('surgeryVisualization.stateMachineChanges')}}
+          {{ $t('surgeryVisualization.surgeryPhaseTimeTitle') }}
         </div>
-        <div class="chart-container">
-          <TimeSeriesChart
-            :series-data="stateMachineChartData"
-            :series-name="$t('surgeryVisualization.stateMachine')"
-            :height="300"
-            :width="600"
-            :y-axis-format="'integer'"
-            :show-range-labels="true"
-            :outer-padding="12"
-            :grid-padding="{ left: 20, right: 20, top: 30, bottom: 30, containLabel: true }"
-            chart-type="line"
-            :smooth="false"
-            step="start"
-            line-color="#fbbf24"
-            area-color="#fef3c7"
-            area-color-end="#fde68a"
-            :slider-style="{
-              handleColor: '#fbbf24',
-              borderColor: 'rgba(251, 191, 36, 0.3)',
-              fillerColor: 'rgba(251, 191, 36, 0.2)',
-              backgroundColor: 'rgba(254, 243, 199, 0.15)',
-              height: 15
-            }"
-          />
+        <div class="chart-container nightingale-container">
+          <div
+            v-if="nightingaleChartData.length === 0"
+            class="nightingale-empty"
+          >
+            {{ $t('surgeryVisualization.noSurgeryPhaseData') }}
+          </div>
+          <div
+            v-else
+            ref="nightingaleChartRef"
+            class="nightingale-chart"
+            :style="{ width: '100%', height: '300px' }"
+          ></div>
         </div>
       </el-card>
 
@@ -460,6 +581,7 @@
       <div class="tooltip-title">{{ getSegmentTooltipTitle(hoveredSegment) }}</div>
       <div class="tooltip-content">
         <div>{{$t('surgeryVisualization.tooltipUdi')}}: {{ hoveredSegment.udi || $t('surgeryVisualization.tooltipNoUdi') }}</div>
+        <div>{{ $t('surgeryVisualization.tooltipToolLife') }}: {{ getSegmentToolLife(hoveredSegment) }}</div>
         <div>{{$t('surgeryVisualization.tooltipDuration')}}: {{ getSegmentDuration(hoveredSegment) }}{{$t('shared.minutes')}}</div>
         <div>{{$t('surgeryVisualization.tooltipInstall')}}: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
         <div>{{$t('surgeryVisualization.tooltipRemove')}}: {{ formatSegmentTime(hoveredSegment.remove_time || hoveredSegment.end_time) }}</div>
@@ -489,13 +611,14 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Box, ArrowDown } from '@element-plus/icons-vue'
 import api from '../api'
 import { normalizeSurgeryData as normalize } from '../utils/visualizationConfig'
 import { resolveInstrumentTypeLabel } from '../utils/analysisMappings'
 import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
+import * as echarts from 'echarts'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 import OperationSummaryTable from '../components/OperationSummaryTable.vue'
 import { Tabs, TabPane } from 'ant-design-vue'
@@ -508,7 +631,9 @@ export default {
     OperationSummaryTable,
     Tabs,
     TabPane,
-    Loading
+    Loading,
+    Box,
+    ArrowDown
   },
   setup() {
     // 移除不需要的图表引用
@@ -524,10 +649,18 @@ export default {
       if (value === null || value === undefined || value === '') return ''
       return typeof value === 'string' ? value : String(value)
     }
-    
+
+    // 器械类型格式化：优先使用 i18n（根据当前语言），回退到 analysisMappings
     const formatInstrumentType = (row) => {
       if (!row) return '-'
       const rawValue = row.tool_type ?? row.instrument_type ?? row.instrumentName ?? row.instrument_name ?? row.toolType
+      if (rawValue === null || rawValue === undefined || rawValue === '') return '-'
+      const code = typeof rawValue === 'number' && Number.isFinite(rawValue) ? String(rawValue) : String(rawValue).trim()
+      if (code) {
+        const i18nKey = `surgeryVisualization.instruments.${code}`
+        const translated = t(i18nKey)
+        if (translated && translated !== i18nKey) return translated
+      }
       const label = getInstrumentLabel(rawValue)
       return label || row.tool_type || row.instrument_type || '-'
     }
@@ -577,13 +710,43 @@ export default {
     const dragVelocity = ref(0)
     const lastDragTime = ref(0)
     const inertiaAnimationId = ref(null)
+    const armColumnWidth = 200
+    const timelineContainerRef = ref(null)
+    const timelineCrosshair = reactive({
+      visible: false,
+      x: armColumnWidth,
+      y: 0,
+      timeLabel: ''
+    })
+    const crosshairTimeMs = ref(null)
+    const instrumentImageFailed = ref(new Set())
+    const onInstrumentImageError = (armId) => {
+      instrumentImageFailed.value = new Set([...instrumentImageFailed.value, armId])
+    }
+    watch(() => currentData.value?.surgery_id, () => {
+      instrumentImageFailed.value = new Set()
+    })
+    watch(() => locale?.value, () => {
+      if (hasSurgeryPhaseData.value && nightingaleChartData.value?.length) {
+        nextTick(() => updateNightingaleChart())
+      }
+    })
+    const timeScaleTicks = [
+      { minute: 15, position: 25, isMajor: false },
+      { minute: 30, position: 50, isMajor: true },
+      { minute: 45, position: 75, isMajor: false }
+    ]
     
     // 图表相关
     const showCharts = ref(false)
     const hasStateMachineData = ref(false)
+    const hasSurgeryPhaseData = ref(false)
     const hasNetworkLatencyData = ref(false)
     const hasOperationData = ref(false)
     const stateMachineChartData = ref([])
+    const nightingaleChartData = ref([])
+    const nightingaleChartRef = ref(null)
+    let nightingaleChartInstance = null
     const networkLatencyChartData = ref([])
     const operationSummaryData = ref({})
     
@@ -759,8 +922,9 @@ export default {
     const getSegmentTooltip = (segment) => {
       const duration = calculateDuration(segment.start || segment.install_time || segment.start_time, 
                                        segment.end || segment.remove_time || segment.end_time)
-      const toolType = getSegmentInstrumentLabel(segment)
+      const toolType = formatInstrumentType(segment)
       const udi = segment.udi || t('surgeryVisualization.tooltipNoUdi')
+      const toolLife = getSegmentToolLife(segment)
       
       // 使用原始时间显示
       const installTime = segment.install_time || segment.start_time
@@ -780,7 +944,13 @@ export default {
         })
       }
       
-      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('shared.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatTime(removeTime)}`
+      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipToolLife')}: ${toolLife}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('shared.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatTime(removeTime)}`
+    }
+
+    const getSegmentToolLife = (segment) => {
+      if (!segment) return '--'
+      const life = segment.tool_life
+      return (life === 0 || life) ? life : '--'
     }
     
     // ========== SVG覆盖层相关函数 ==========
@@ -792,8 +962,8 @@ export default {
       return {
         position: 'absolute',
         top: '0',
-        left: '120px', // 偏移arm-column的宽度
-        width: 'calc(100% - 120px)', // 减去arm-column宽度
+        left: '200px', // 偏移arm-column的宽度
+        width: 'calc(100% - 200px)', // 减去arm-column宽度
         height: '100%',
         pointerEvents: 'auto',
           zIndex: '20'
@@ -801,7 +971,7 @@ export default {
       } else {
         // 缩放视图：与HTML表格缩放保持一致
         const totalHours = getTotalHours()
-        const containerWidth = window.innerWidth - 120
+        const containerWidth = window.innerWidth - 200
         const baseColumnWidth = containerWidth / totalHours
         const scaledColumnWidth = baseColumnWidth * zoomLevel.value
         const scaledWidth = scaledColumnWidth * totalHours
@@ -809,7 +979,7 @@ export default {
         return {
           position: 'absolute',
           top: '0',
-          left: '120px',
+          left: '200px',
           width: `${scaledWidth}px`,
           height: '100%',
           pointerEvents: 'auto',
@@ -833,9 +1003,9 @@ export default {
       if (!localTime) return 0
       
       
-      // 使用本地时间计算位置
+      // 使用本地时间计算位置（跨天时 getHourFromTime 已 +24，此处只用「小时内分钟」0-60）
       const localHour = getHourFromTime(startTime)
-      const localMinute = getMinutesFromTime(startTime)
+      const localMinute = getMinutesWithinHour(startTime)
       
       // 获取表格起始小时
       const tableStartHour = getTableStartHour()
@@ -855,10 +1025,10 @@ export default {
       
       if (zoomLevel.value === 1) {
         // 默认视图：使用容器实际宽度
-        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 120 : window.innerWidth - 120
+        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 200 : window.innerWidth - 200
       } else {
         // 缩放视图：使用缩放后的宽度
-        const baseContainerWidth = window.innerWidth - 120
+        const baseContainerWidth = window.innerWidth - 200
         const baseColumnWidth = baseContainerWidth / totalHours
         const scaledColumnWidth = baseColumnWidth * zoomLevel.value
         containerWidth = scaledColumnWidth * totalHours
@@ -911,10 +1081,10 @@ export default {
       if (zoomLevel.value === 1) {
         // 默认视图：使用容器实际宽度
         const timelineContainer = document.querySelector('.timeline-container')
-        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 120 : window.innerWidth - 120
+        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 200 : window.innerWidth - 200
       } else {
         // 缩放视图：使用缩放后的宽度
-        const baseContainerWidth = window.innerWidth - 120
+        const baseContainerWidth = window.innerWidth - 200
         const baseColumnWidth = baseContainerWidth / totalHours
         const scaledColumnWidth = baseColumnWidth * zoomLevel.value
         containerWidth = scaledColumnWidth * totalHours
@@ -935,9 +1105,9 @@ export default {
       const localTime = getLocalTime(endTime)
       if (!localTime) return 0
       
-      // 使用本地时间计算位置
+      // 使用本地时间计算位置（跨天时 getHourFromTime 已 +24，此处只用「小时内分钟」0-60）
       const localHour = getHourFromTime(endTime)
-      const localMinute = getMinutesFromTime(endTime)
+      const localMinute = getMinutesWithinHour(endTime)
       
       // 获取表格起始小时
       const tableStartHour = getTableStartHour()
@@ -957,10 +1127,10 @@ export default {
       
       if (zoomLevel.value === 1) {
         // 默认视图：使用容器实际宽度
-        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 120 : window.innerWidth - 120
+        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 200 : window.innerWidth - 200
       } else {
         // 缩放视图：使用缩放后的宽度
-        const baseContainerWidth = window.innerWidth - 120
+        const baseContainerWidth = window.innerWidth - 200
         const baseColumnWidth = baseContainerWidth / totalHours
         const scaledColumnWidth = baseColumnWidth * zoomLevel.value
         containerWidth = scaledColumnWidth * totalHours
@@ -980,8 +1150,72 @@ export default {
     const getSegmentHeight = () => {
       return 25// 固定高度
     }
-    
-    
+
+    // 能量激发条高度（紧贴器械条下侧）
+    const getEnergyBarHeight = () => 10
+
+    // 能量激发条Y坐标（器械条下侧紧贴）
+    const getEnergyBarY = (arm, segment) => {
+      return getSegmentY(arm, segment) + getSegmentHeight()
+    }
+
+    // 能量激发条的X坐标（复用时间定位逻辑，跨天用 getMinutesWithinHour）
+    const getEnergyBarX = (evt) => {
+      const startTime = evt.start
+      if (!startTime) return 0
+      const localHour = getHourFromTime(startTime)
+      const localMinute = getMinutesWithinHour(startTime)
+      const tableStartHour = getTableStartHour()
+      const totalHours = getTotalHours()
+      const hourIndex = localHour - tableStartHour
+      const minuteOffset = localMinute / 60
+      const totalPosition = (hourIndex + minuteOffset) / totalHours
+      const timelineContainer = document.querySelector('.timeline-container')
+      let containerWidth
+      if (zoomLevel.value === 1) {
+        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 200 : window.innerWidth - 200
+      } else {
+        const baseContainerWidth = window.innerWidth - 200
+        const baseColumnWidth = baseContainerWidth / totalHours
+        const scaledColumnWidth = baseColumnWidth * zoomLevel.value
+        containerWidth = scaledColumnWidth * totalHours
+      }
+      const x = totalPosition * containerWidth
+      return Math.max(0, x)
+    }
+
+    // 能量激发条的宽度
+    const getEnergyBarWidth = (evt) => {
+      const startTime = evt.start
+      const endTime = evt.end || evt.start
+      if (!startTime) return 3
+      const startLocal = getLocalTime(startTime)
+      const endLocal = getLocalTime(endTime)
+      if (!startLocal || !endLocal) return 3
+      const durationMs = endLocal.getTime() - startLocal.getTime()
+      const durationMinutes = durationMs / (1000 * 60)
+      const totalHours = getTotalHours()
+      let containerWidth
+      if (zoomLevel.value === 1) {
+        const timelineContainer = document.querySelector('.timeline-container')
+        containerWidth = timelineContainer ? timelineContainer.offsetWidth - 200 : window.innerWidth - 200
+      } else {
+        const baseContainerWidth = window.innerWidth - 200
+        const baseColumnWidth = baseContainerWidth / totalHours
+        const scaledColumnWidth = baseColumnWidth * zoomLevel.value
+        containerWidth = scaledColumnWidth * totalHours
+      }
+      const minuteWidth = (containerWidth / totalHours) / 60
+      const width = durationMinutes * minuteWidth
+      return Math.max(2, width)
+    }
+
+    // 能量激发类型颜色
+    const getEnergyBarColor = (type) => {
+      const colors = { cut: '#ef4444', coag: '#f59e0b', bipolar: '#8b5cf6' }
+      return colors[type] || '#94a3b8'
+    }
+
     // 处理器械段点击
     const handleSegmentClick = (segment, event) => {
       event.stopPropagation()
@@ -1031,6 +1265,7 @@ export default {
     // 统一的鼠标移动处理，确保tooltip跟随鼠标
     const handleMouseMove = (event) => {
       tooltipPosition.value = { x: event.clientX + 5, y: event.clientY - 5 }
+      updateTimelineCrosshair(event)
     }
 
     // 事件悬停进入/离开
@@ -1238,9 +1473,9 @@ export default {
       return localTime.toLocaleDateString(locale?.value || document?.documentElement?.lang || 'zh-CN', { weekday: 'long' })
     }
     
-    // 获取器械段tooltip标题（解析器械类型为文字）
+    // 获取器械段tooltip标题（解析器械类型为文字，使用 i18n）
     const getSegmentTooltipTitle = (segment) => {
-      return getSegmentInstrumentLabel(segment)
+      return formatInstrumentType(segment)
     }
     
     // 获取器械段使用时长
@@ -1264,6 +1499,31 @@ export default {
         minute: '2-digit',
         second: '2-digit'
       })
+    }
+
+    // 格式化时间（精确到毫秒），用于能量激发事件
+    const formatSegmentTimeWithMs = (timeStr) => {
+      if (!timeStr) return t('surgeryVisualization.unknown')
+      const localTime = getLocalTime(timeStr)
+      if (!localTime) return t('surgeryVisualization.unknown')
+
+      const y = localTime.getFullYear()
+      const m = String(localTime.getMonth() + 1).padStart(2, '0')
+      const d = String(localTime.getDate()).padStart(2, '0')
+      const hh = String(localTime.getHours()).padStart(2, '0')
+      const mm = String(localTime.getMinutes()).padStart(2, '0')
+      const ss = String(localTime.getSeconds()).padStart(2, '0')
+      const ms = String(localTime.getMilliseconds()).padStart(3, '0')
+      return `${y}/${m}/${d} ${hh}:${mm}:${ss}.${ms}`
+    }
+
+    // 格式化累加使用时间：total_hours + total_minutes（根据当前语言）
+    const formatCumulativeUsage = (cu) => {
+      if (!cu || (cu.total_hours == null && cu.total_minutes == null)) return '--'
+      const h = Number(cu.total_hours) || 0
+      const m = Number(cu.total_minutes) || 0
+      if (h > 0) return t('surgeryVisualization.report.hoursMinutes', { hours: h, minutes: m })
+      return t('surgeryVisualization.report.minutesOnly', { minutes: m })
     }
     
     
@@ -1361,7 +1621,7 @@ export default {
       }
       
       // 获取当前容器宽度（考虑缩放）
-      const armColumnWidth = 120
+      const armColumnWidth = 200
       const baseContainerWidth = window.innerWidth - armColumnWidth
       const scaledContainerWidth = baseContainerWidth * zoomLevel.value
       
@@ -1644,6 +1904,7 @@ export default {
     }
     
     // 从时间字符串获取分钟数（本地时间，支持跨天，精确到秒）
+    // 用于 getSegmentStyle 等需要「从基准日 0 点起的总分钟数」的场景（跨天时 +1440）
     const getMinutesFromTime = (timeStr) => {
       if (!timeStr) return 0
       const localTime = getLocalTime(timeStr)
@@ -1669,6 +1930,17 @@ export default {
       }
       
       return preciseMinutes
+    }
+
+    // 仅返回「当前小时内的分钟」（0～60），用于 SVG 坐标 getSegmentX/getSegmentEndX。
+    // 跨天已由 getHourFromTime 的 +24 体现，这里不再加 1440，否则会导致颜色条 x 超出可视区域。
+    const getMinutesWithinHour = (timeStr) => {
+      if (!timeStr) return 0
+      const localTime = getLocalTime(timeStr)
+      if (!localTime) return 0
+      const minutes = localTime.getMinutes()
+      const seconds = localTime.getSeconds()
+      return minutes + (seconds / 60)
     }
     
     // 计算持续时间（分钟）
@@ -1701,14 +1973,14 @@ export default {
       }
     }
     
-    // 获取线框颜色（比背景色更深的颜色）
+    // 获取线框颜色（黑灰色线框）
     const getStrokeColor = (armId) => {
       switch (armId) {
-        case 1: return '#0000001A'  // 1号臂 - 深蓝色线框
-        case 2: return '#0000001A'  // 2号臂 - 深绿色线框
-        case 3: return '#0000001A'  // 3号臂 - 深金色线框
-        case 4: return '#0000001A'  // 4号臂 - 深橙红色线框
-        default: return '#4A148C' // 默认深紫色线框
+        case 1:
+        case 2:
+        case 3:
+        case 4: return 'rgba(60, 60, 60, 0.35)'
+        default: return 'rgba(60, 60, 60, 0.4)'
       }
     }
     
@@ -1733,12 +2005,10 @@ export default {
       return segmentY + height / 2 + 4 // 文本垂直居中，稍微向下偏移
     }
     
-    // 获取器械显示名称
+    // 获取器械显示名称（使用 i18n）
     const getInstrumentDisplayName = (segment) => {
-      const toolType = getSegmentInstrumentLabel(segment)
-      if (!toolType) return t('surgeryVisualization.unknownInstrument')
-      
-      // 显示完整的器械名称，不进行简写
+      const toolType = formatInstrumentType(segment)
+      if (!toolType || toolType === '-') return t('surgeryVisualization.unknownInstrument')
       return toolType
     }
     
@@ -1825,17 +2095,17 @@ export default {
       const arms = Array.isArray(data?.arms) ? data.arms : []
       
       
-      // 处理arms数据，确保每个arm有正确的segments
+      // 处理arms数据，确保每个arm有正确的segments和cumulative_usage
       const processedArms = arms.map((arm, index) => {
         const armId = arm.arm_id || (index + 1)
         const armName = arm.name || t('surgeryVisualization.armN', { n: armId })
         const segments = Array.isArray(arm.instrument_usage) ? arm.instrument_usage : []
-        
-        
+        const cumulative_usage = arm.cumulative_usage || null
         return {
           name: armName,
           arm_id: armId,
-          segments: segments
+          segments,
+          cumulative_usage
         }
       })
       
@@ -1849,7 +2119,8 @@ export default {
           allArms.push({
             name: t('surgeryVisualization.armN', { n: i }),
             arm_id: i,
-            segments: []
+            segments: [],
+            cumulative_usage: null
           })
         }
       }
@@ -2014,6 +2285,10 @@ export default {
       
       // 检查是否有图表数据
       const surgeryStatsForCharts = data.surgery_stats || {}
+      const stages = surgeryStatsForCharts.surgical_stage
+      const phaseOrder = ['power_on_stage', 'positioning_stage', 'instrument_installation_stage', 'surgery_operation_stage', 'withdrawal_stage', 'power_off_stage']
+      hasSurgeryPhaseData.value = !!(stages && typeof stages === 'object' && phaseOrder.some(key => stages[key] && (stages[key].start_time || stages[key].end_time)))
+      if (!hasSurgeryPhaseData.value) nightingaleChartData.value = []
       hasStateMachineData.value = !!(surgeryStatsForCharts.state_machine)
       hasNetworkLatencyData.value = !!(surgeryStatsForCharts.network_latency_ms && meta.is_remote)
       
@@ -2039,12 +2314,16 @@ export default {
         operationSummaryData.value = {}
       }
       
-      showCharts.value = hasStateMachineData.value || hasNetworkLatencyData.value || hasOperationData.value
+      showCharts.value = hasSurgeryPhaseData.value || hasNetworkLatencyData.value || hasOperationData.value
       
-      // 初始化图表
+      // 初始化图表（含手术阶段南丁格尔图）
       if (showCharts.value) {
         nextTick(() => {
           initCharts(data)
+          if (hasSurgeryPhaseData.value) {
+            nightingaleChartData.value = getSurgeryPhaseNightingaleData(data)
+            nextTick(() => updateNightingaleChart())
+          }
         })
       }
     }
@@ -2096,7 +2375,7 @@ export default {
     }
 
     const handleResize = () => {
-      // 图表大小调整现在由TimeSeriesChart组件内部处理
+      if (nightingaleChartInstance) nightingaleChartInstance.resize()
     }
     
     // 初始化图表
@@ -2181,6 +2460,93 @@ export default {
       }
       
       return 0
+    }
+    
+    // 手术阶段顺序与南丁格尔图颜色（与甘特图阶段背景一致风格）
+    const NIGHTINGALE_PHASE_ORDER = ['power_on_stage', 'positioning_stage', 'instrument_installation_stage', 'surgery_operation_stage', 'withdrawal_stage', 'power_off_stage']
+    const NIGHTINGALE_PHASE_COLORS = {
+      power_on_stage: '#1890ff',
+      positioning_stage: '#52c41a',
+      instrument_installation_stage: '#faad14',
+      surgery_operation_stage: '#f5222d',
+      withdrawal_stage: '#722ed1',
+      power_off_stage: '#595959'
+    }
+    const NIGHTINGALE_PHASE_I18N = {
+      power_on_stage: 'surgeryVisualization.phasePowerOn',
+      positioning_stage: 'surgeryVisualization.phasePositioning',
+      instrument_installation_stage: 'surgeryVisualization.phaseInstrumentInstall',
+      surgery_operation_stage: 'surgeryVisualization.phaseSurgeryOperation',
+      withdrawal_stage: 'surgeryVisualization.phaseWithdrawal',
+      power_off_stage: 'surgeryVisualization.phasePowerOff'
+    }
+    const getSurgeryPhaseNightingaleData = (data) => {
+      const stages = (data || currentData.value)?.surgery_stats?.surgical_stage
+      if (!stages || typeof stages !== 'object') return []
+      const list = []
+      for (const key of NIGHTINGALE_PHASE_ORDER) {
+        const stage = stages[key]
+        if (!stage || (!stage.start_time && !stage.end_time)) continue
+        const start = getLocalTime(stage.start_time)
+        const end = getLocalTime(stage.end_time)
+        const durationMs = (start && end) ? Math.max(0, end.getTime() - start.getTime()) : 0
+        if (durationMs <= 0) continue
+        list.push({
+          name: t(NIGHTINGALE_PHASE_I18N[key]),
+          value: Math.round(durationMs / 1000),
+          itemStyle: { color: NIGHTINGALE_PHASE_COLORS[key] }
+        })
+      }
+      return list
+    }
+    const updateNightingaleChart = () => {
+      const el = nightingaleChartRef.value
+      const data = nightingaleChartData.value
+      if (!el) return
+      if (!data || data.length === 0) {
+        if (nightingaleChartInstance) {
+          nightingaleChartInstance.dispose()
+          nightingaleChartInstance = null
+        }
+        return
+      }
+      if (!nightingaleChartInstance) {
+        nightingaleChartInstance = echarts.init(el)
+      }
+      const formatDurationSeconds = (seconds) => {
+        const sec = Number(seconds) || 0
+        const m = Math.floor(sec / 60)
+        const s = sec % 60
+        if (m > 0 && s > 0) return t('surgeryVisualization.chartMinutesSeconds', { m, s })
+        if (m > 0) return t('surgeryVisualization.chartMinutesOnly', { m })
+        return t('surgeryVisualization.chartSecondsOnly', { s })
+      }
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: (params) => {
+            const durationStr = formatDurationSeconds(params.value)
+            return `${params.marker}${params.name}: ${durationStr}`
+          }
+        },
+        legend: { orient: 'vertical', left: 'left', top: 'middle' },
+        series: [{
+          type: 'pie',
+          radius: ['18%', '85%'],
+          center: ['55%', '50%'],
+          roseType: 'area',
+          itemStyle: { borderColor: '#fff', borderWidth: 1 },
+          label: {
+            show: true,
+            formatter: (params) => {
+              const durationStr = formatDurationSeconds(params.value)
+              return `${params.name}\n${durationStr}`
+            }
+          },
+          data
+        }]
+      }
+      nightingaleChartInstance.setOption(option, true)
     }
     
     // 处理网络延迟数据
@@ -2674,6 +3040,92 @@ export default {
       console.log('🔍 State 30 时间段分析:', periods)
     }
     
+    // 手术阶段背景：从 surgical_stage 生成时间段及颜色
+    const SURGERY_PHASE_COLORS = {
+      power_on_stage: 'rgba(24, 144, 255, 0.12)',
+      positioning_stage: 'rgba(82, 196, 26, 0.12)',
+      instrument_installation_stage: 'rgba(250, 173, 20, 0.12)',
+      surgery_operation_stage: 'rgba(245, 34, 45, 0.08)',
+      withdrawal_stage: 'rgba(114, 46, 209, 0.1)',
+      power_off_stage: 'rgba(0, 0, 0, 0.04)'
+    }
+    const getSurgeryPhasePeriods = () => {
+      const stages = currentData.value?.surgery_stats?.surgical_stage
+      if (!stages || typeof stages !== 'object') return []
+      const order = ['power_on_stage', 'positioning_stage', 'instrument_installation_stage', 'surgery_operation_stage', 'withdrawal_stage', 'power_off_stage']
+      return order
+        .filter(key => stages[key] && (stages[key].start_time || stages[key].end_time))
+        .map(key => ({
+          start: stages[key].start_time,
+          end: stages[key].end_time,
+          phaseKey: key,
+          color: SURGERY_PHASE_COLORS[key] || 'rgba(0,0,0,0.05)'
+        }))
+    }
+    const getSurgeryPhasePeriodsInHour = (hourIndex) => {
+      const periods = getSurgeryPhasePeriods()
+      if (periods.length === 0) return []
+      const tableStartHour = getTableStartHour()
+      const actualHour = tableStartHour + hourIndex
+      return periods
+        .map(period => {
+          const startHour = getHourFromTime(period.start)
+          const endHour = getHourFromTime(period.end)
+          const periodStartHourIndex = startHour - tableStartHour
+          const periodEndHourIndex = endHour - tableStartHour
+          if ((periodStartHourIndex <= hourIndex && periodEndHourIndex >= hourIndex) || periodStartHourIndex === hourIndex) {
+            return {
+              startHour,
+              endHour,
+              actualHour,
+              originalPeriod: period
+            }
+          }
+          return null
+        })
+        .filter(Boolean)
+    }
+    const getSurgeryPhaseStyle = (period, hourIndex) => {
+      if (!period || !period.originalPeriod) return {}
+      const startLocalTime = getLocalTime(period.originalPeriod.start)
+      const endLocalTime = getLocalTime(period.originalPeriod.end)
+      if (!startLocalTime || !endLocalTime) return {}
+      const tableStartHour = getTableStartHour()
+      const actualHour = tableStartHour + hourIndex
+      const startHour = period.startHour
+      const endHour = period.endHour
+      let left = 0
+      let width = 0
+      if (startHour === actualHour && endHour === actualHour) {
+        const startM = startLocalTime.getMinutes() + startLocalTime.getSeconds() / 60
+        const endM = endLocalTime.getMinutes() + endLocalTime.getSeconds() / 60
+        left = (startM / 60) * 100
+        width = ((endM - startM) / 60) * 100
+      } else if (startHour === actualHour && endHour > actualHour) {
+        const startM = startLocalTime.getMinutes() + startLocalTime.getSeconds() / 60
+        left = (startM / 60) * 100
+        width = ((60 - startM) / 60) * 100
+      } else if (startHour < actualHour && endHour === actualHour) {
+        const endM = endLocalTime.getMinutes() + endLocalTime.getSeconds() / 60
+        width = (endM / 60) * 100
+      } else if (startHour < actualHour && endHour > actualHour) {
+        left = 0
+        width = 100
+      } else return {}
+      const actualLeft = Math.max(0, Math.min(100, left))
+      const actualWidth = Math.max(0, Math.min(100 - actualLeft, width))
+      return {
+        position: 'absolute',
+        left: `${actualLeft}%`,
+        width: `${actualWidth}%`,
+        top: '0',
+        height: '100%',
+        backgroundColor: period.originalPeriod.color,
+        zIndex: 0,
+        pointerEvents: 'none'
+      }
+    }
+
     // 获取某个小时单元格内的所有 state: 30 时间段（精确到秒，使用与器械使用情况相同的定位方式）
     const getState30PeriodsInHour = (hourIndex) => {
       if (state30Periods.value.length === 0) return []
@@ -2801,7 +3253,7 @@ export default {
         event.stopPropagation()
       }
       
-      const armColumnWidth = 120
+      const armColumnWidth = 200
       const rect = container.getBoundingClientRect()
       const mouseXInContainer = event.clientX - rect.left
       // 鼠标在时间区域内的相对位置（去除左侧活动名称列）
@@ -2859,8 +3311,9 @@ export default {
       // 只在缩放状态下启用拖拽
       if (zoomLevel.value <= 1) return
       
-      // 检查是否点击在可拖拽区域（避免与器械段点击冲突）
+      // 检查是否点击在可拖拽区域（避免与器械段/能量条点击冲突）
       if (event.target.closest('.instrument-segment-svg') || 
+          event.target.closest('.energy-activation-svg') ||
           event.target.closest('.timeline-event') ||
           event.target.closest('.arm-column') ||
           event.target.closest('.arm-cell')) {
@@ -2913,7 +3366,7 @@ export default {
       isDragging.value = false
       
       // 恢复样式
-      event.currentTarget.style.cursor = 'grab'
+      event.currentTarget.style.cursor = 'crosshair'
       event.currentTarget.style.userSelect = ''
       
       // 惯性滚动 - 优化参数，提供更精确的控制
@@ -2961,8 +3414,9 @@ export default {
     
     // 鼠标进入容器
     const handleMouseEnter = (event) => {
+      updateTimelineCrosshair(event)
       if (zoomLevel.value > 1) {
-        event.currentTarget.style.cursor = 'grab'
+        event.currentTarget.style.cursor = 'crosshair'
       }
     }
     
@@ -2972,10 +3426,136 @@ export default {
       if (isDragging.value) {
         handleDragEnd(event)
       }
+      hideTimelineCrosshair()
       
       // 恢复默认光标
       event.currentTarget.style.cursor = 'default'
     }
+
+    const resolveTimelineContainer = (event) => {
+      if (timelineContainerRef.value) return timelineContainerRef.value
+      const maybeContainer = event?.currentTarget
+      if (maybeContainer?.classList?.contains('timeline-container')) return maybeContainer
+      return event?.target?.closest?.('.timeline-container') || null
+    }
+
+    const formatCrosshairTime = (date) => {
+      if (!date) return ''
+      return date.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })
+    }
+
+    // 用与器械条同一套格子（第一行的 .time-grid）判断鼠标在哪一列，列索引即小时索引
+    const getHourCellAtPoint = (clientX) => {
+      const container = timelineContainerRef.value
+      if (!container) return null
+      const firstRow = container.querySelector('.timeline-body .timeline-row')
+      if (!firstRow) return null
+      const timeCells = firstRow.querySelector('.time-cells')
+      if (!timeCells) return null
+      const grids = timeCells.querySelectorAll('.time-grid')
+      if (!grids.length) return null
+      for (let i = 0; i < grids.length; i++) {
+        const r = grids[i].getBoundingClientRect()
+        if (clientX >= r.left && clientX <= r.right) {
+          const w = r.width || 1
+          const fractionInCell = Math.max(0, Math.min(1, (clientX - r.left) / w))
+          return { hourIndex: i, fractionInCell }
+        }
+      }
+      if (clientX < grids[0].getBoundingClientRect().left) {
+        return { hourIndex: 0, fractionInCell: 0 }
+      }
+      const last = grids[grids.length - 1].getBoundingClientRect()
+      if (clientX > last.right) {
+        return { hourIndex: grids.length - 1, fractionInCell: 1 }
+      }
+      return null
+    }
+
+    const updateTimelineCrosshair = (event) => {
+      const container = timelineContainerRef.value || resolveTimelineContainer(event)
+      if (!container) return
+
+      const rect = container.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+
+      const isInContainer = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height
+      const isInTimeArea = x >= armColumnWidth
+      const crosshairX = x + (container.scrollLeft || 0)
+
+      if (!isInContainer || !isInTimeArea) {
+        timelineCrosshair.visible = false
+        timelineCrosshair.timeLabel = ''
+        crosshairTimeMs.value = null
+        return
+      }
+
+      const baseTime = getLocalTime(timelineBaseTime.value)
+      if (!baseTime) {
+        timelineCrosshair.visible = true
+        timelineCrosshair.x = crosshairX
+        timelineCrosshair.y = y
+        timelineCrosshair.timeLabel = ''
+        crosshairTimeMs.value = null
+        return
+      }
+
+      const totalHours = getTotalHours()
+      if (totalHours <= 0) {
+        timelineCrosshair.visible = true
+        timelineCrosshair.x = crosshairX
+        timelineCrosshair.y = y
+        timelineCrosshair.timeLabel = ''
+        crosshairTimeMs.value = null
+        return
+      }
+      const visibleTimeWidth = rect.width - armColumnWidth
+      const mouseXInTimeArea = x - armColumnWidth
+      // 与首行时间轴一致：考虑横向滚动与缩放后的内容总宽度，用“内容坐标”算比例
+      const contentTimeWidth = zoomLevel.value === 1
+        ? visibleTimeWidth
+        : (window.innerWidth - armColumnWidth) * zoomLevel.value
+      const positionInContent = (container.scrollLeft || 0) + mouseXInTimeArea
+      const positionRatio = contentTimeWidth > 0 ? Math.max(0, Math.min(1, positionInContent / contentTimeWidth)) : 0
+      // 与表头一致：首行显示的是整点（07:00、08:00），用“基准时刻所在小时的 0 分 0 秒”作为时间轴起点
+      const displayStart = new Date(baseTime.getTime())
+      displayStart.setMinutes(0, 0, 0)
+      const timeAtPosition = new Date(displayStart.getTime() + positionRatio * totalHours * 60 * 60 * 1000)
+
+      timelineCrosshair.visible = true
+      timelineCrosshair.x = crosshairX
+      timelineCrosshair.y = y
+      timelineCrosshair.timeLabel = formatCrosshairTime(timeAtPosition)
+      crosshairTimeMs.value = timeAtPosition.getTime()
+    }
+
+    const hideTimelineCrosshair = () => {
+      timelineCrosshair.visible = false
+      timelineCrosshair.timeLabel = ''
+      crosshairTimeMs.value = null
+    }
+
+    const handleTimelineMouseMove = (event) => {
+      updateTimelineCrosshair(event)
+      handleDragMove(event)
+    }
+
+    const getCrosshairVerticalStyle = () => ({
+      left: `${timelineCrosshair.x}px`
+    })
+
+    const getCrosshairTooltipStyle = () => ({
+      left: `${timelineCrosshair.x + 8}px`,
+      top: '8px'
+    })
     
     // 获取时间列容器样式
     const getTimeColumnsStyle = () => {
@@ -2984,7 +3564,7 @@ export default {
         return { flex: 1 }
       } else {
         // 缩放视图：基于默认视图的实际宽度进行缩放
-        const baseWidth = 100 - (120 / window.innerWidth * 100) // 减去arm-column占用的百分比
+        const baseWidth = 100 - (200 / window.innerWidth * 100) // 减去arm-column占用的百分比
         const scaledWidth = baseWidth * zoomLevel.value
         return { width: `${scaledWidth}%` }
       }
@@ -3005,7 +3585,7 @@ export default {
         // 缩放视图：基于默认视图的实际宽度进行缩放
         const totalHours = getTotalHours()
         const containerWidth = window.innerWidth
-        const armColumnWidth = 120
+        const armColumnWidth = 200
         const availableWidth = containerWidth - armColumnWidth
         const baseColumnWidth = availableWidth / totalHours
         const scaledColumnWidth = baseColumnWidth * zoomLevel.value
@@ -3022,7 +3602,7 @@ export default {
         // 缩放视图：基于默认视图的实际宽度进行缩放
         const totalHours = getTotalHours()
         const containerWidth = window.innerWidth
-        const armColumnWidth = 120
+        const armColumnWidth = 200
         const availableWidth = containerWidth - armColumnWidth
         const baseColumnWidth = availableWidth / totalHours
         const scaledColumnWidth = baseColumnWidth * zoomLevel.value
@@ -3074,7 +3654,10 @@ export default {
 
     onBeforeUnmount(() => {
       window.removeEventListener('resize', handleResize)
-      // 图表实例现在由TimeSeriesChart组件内部管理
+      if (nightingaleChartInstance) {
+        nightingaleChartInstance.dispose()
+        nightingaleChartInstance = null
+      }
     })
 
     // 使用统一的时间格式化函数
@@ -3122,13 +3705,631 @@ export default {
       } catch (_) {}
     }
 
+    const getDurationLabelFromTimeRange = (startTime, endTime) => {
+      const startMs = toMs(startTime)
+      const endMs = toMs(endTime)
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return '--'
+      const totalMinutes = Math.floor((endMs - startMs) / 60000)
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      return `${hours}h ${minutes}m`
+    }
+
+    const getDurationLabelForSegment = (segment) => {
+      if (!segment) return '--'
+      const usage = segment.cumulative_usage || segment
+      const usageLabel = formatCumulativeUsage(usage)
+      if (usageLabel && usageLabel !== '--') return usageLabel
+      const start = segment.start_time || segment.start || segment.install_time
+      const end = segment.end_time || segment.end || segment.remove_time
+      return getDurationLabelFromTimeRange(start, end)
+    }
+
+    const escapeHtml = (value) => {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    }
+
+    // 报告用时间格式 YYYY/mm/dd hh/mm
+    const formatReportDateTime = (timeStr) => {
+      if (!timeStr) return '--'
+      const localTime = getLocalTime(timeStr)
+      if (!localTime) return '--'
+      const y = localTime.getFullYear()
+      const m = String(localTime.getMonth() + 1).padStart(2, '0')
+      const d = String(localTime.getDate()).padStart(2, '0')
+      const hh = String(localTime.getHours()).padStart(2, '0')
+      const mm = String(localTime.getMinutes()).padStart(2, '0')
+      return `${y}/${m}/${d} ${hh}:${mm}`
+    }
+
+    // 报告用时长：xx小时mm分钟（根据当前语言）
+    const getDurationHoursMinutesLabel = (startTime, endTime) => {
+      const startMs = toMs(startTime)
+      const endMs = toMs(endTime)
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return '--'
+      const totalMinutes = Math.floor((endMs - startMs) / 60000)
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      if (hours > 0) return t('surgeryVisualization.report.hoursMinutes', { hours, minutes })
+      return t('surgeryVisualization.report.minutesOnly', { minutes })
+    }
+
+    // 报告用能量类型（根据当前语言）
+    const formatEnergyTypeForReport = (type) => {
+      const map = {
+        cut: 'surgeryVisualization.report.energyCut',
+        coag: 'surgeryVisualization.report.energyCoag',
+        bipolar: 'surgeryVisualization.report.energyBipolar',
+        ultrasonic: 'surgeryVisualization.report.energyUltrasonic',
+        ultrasonicmax: 'surgeryVisualization.report.energyUltrasonicMax'
+      }
+      const key = map[String(type).toLowerCase()]
+      return type ? (key ? t(key) : type) : '-'
+    }
+
+    const getOperationSummaryRowsForReport = () => {
+      const data = operationSummaryData.value || {}
+      return [
+        { name: t('surgeryVisualization.report.endoscopePedal'), value: Number(data.endoscope_pedal) || 0 },
+        { name: t('surgeryVisualization.report.footClutch'), value: Number(data.foot_clutch) || 0 },
+        { name: t('surgeryVisualization.report.leftHandClutch'), value: Number(data.left_hand_clutch) || 0 },
+        { name: t('surgeryVisualization.report.rightHandClutch'), value: Number(data.right_hand_clutch) || 0 },
+        { name: t('surgeryVisualization.report.armSwitchCount'), value: Number(data.arm_switch_count) || 0 }
+      ]
+    }
+
+    const getSurgeryPhaseRowsForReport = () => {
+      const phasePeriods = getSurgeryPhasePeriods()
+      return phasePeriods.map((period) => {
+        const start = period.start
+        const end = period.end
+        const startLabel = formatReportDateTime(start)
+        const endLabel = formatReportDateTime(end)
+        const durationLabel = getDurationHoursMinutesLabel(start, end)
+        const i18nKey = NIGHTINGALE_PHASE_I18N[period.phaseKey]
+        const phaseName = i18nKey ? t(i18nKey) : period.phaseKey
+        return {
+          phaseName,
+          startLabel,
+          endLabel,
+          durationLabel
+        }
+      })
+    }
+
+    const getInstrumentRowsForReport = () => {
+      const rows = []
+      for (let armId = 1; armId <= 4; armId++) {
+        const arm = (armsData.value || []).find(a => Number(a.arm_id) === armId)
+        let segments = arm ? getAllSegmentsForArm(arm) : []
+        if ((!segments || segments.length === 0) && Array.isArray(currentData.value?.arms)) {
+          const rawArm = currentData.value.arms.find(a => Number(a.arm_id) === armId)
+          segments = Array.isArray(rawArm?.instrument_usage) ? rawArm.instrument_usage : []
+        }
+        const sorted = [...(segments || [])].sort((a, b) => toMs(a.start_time || a.start || a.install_time) - toMs(b.start_time || b.start || b.install_time))
+        sorted.forEach((segment) => {
+          const start = segment.start_time || segment.start || segment.install_time
+          const end = segment.end_time || segment.end || segment.remove_time
+          rows.push({
+            armId,
+            instrumentType: formatInstrumentType(segment),
+            udi: segment?.udi || '-',
+            installTime: formatReportDateTime(start),
+            removeTime: formatReportDateTime(end),
+            cumulativeUsage: getDurationHoursMinutesLabel(start, end)
+          })
+        })
+      }
+      return rows
+    }
+
+    // 报告用能量激发表格（独立表格）：安装的臂号|器械类型|器械UDI|能量激发类型|能量激发开始时间|能量激发持续时间|器械闭合状态激发持续时间
+    const getReportEnergyTableRows = () => {
+      const rows = []
+      for (let armId = 1; armId <= 4; armId++) {
+        const arm = (armsData.value || []).find(a => Number(a.arm_id) === armId)
+        let segments = arm ? getAllSegmentsForArm(arm) : []
+        if ((!segments || segments.length === 0) && Array.isArray(currentData.value?.arms)) {
+          const rawArm = currentData.value.arms.find(a => Number(a.arm_id) === armId)
+          segments = Array.isArray(rawArm?.instrument_usage) ? rawArm.instrument_usage : []
+        }
+        const sorted = [...(segments || [])].sort((a, b) => toMs(a.start_time || a.start || a.install_time) - toMs(b.start_time || b.start || b.install_time))
+        sorted.forEach((segment) => {
+          const instrumentType = formatInstrumentType(segment)
+          const udi = segment?.udi || '-'
+          ;(segment.energy_activation || []).forEach((evt) => {
+            if (!evt || (!evt.start && !evt.end)) return
+            const startMs = toMs(evt.start)
+            const activeSec = rawToSeconds(evt.active ?? evt.Active ?? 0)
+            const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
+            rows.push({
+              armId,
+              instrumentType,
+              udi,
+              energyType: formatEnergyTypeForReport(evt.type),
+              startTime: formatReportDateTime(evt.start),
+              durationLabel: formatSecOneDecimalNoRound(activeSec),
+              gripsActiveLabel: formatSecOneDecimalNoRound(gripsActiveSec),
+              _gripsActiveSec: Math.floor(gripsActiveSec * 10) / 10,
+              _startMs: startMs
+            })
+          })
+        })
+      }
+      rows.sort((a, b) => (a._startMs || 0) - (b._startMs || 0))
+      return rows
+    }
+
+    // 报告用能量激发统计（底部）：能量激发类型=xxx，总激发时间=xx s，总激发次数=xx
+    const getReportEnergyStatsRows = () => {
+      const byType = {}
+      const energyRows = getReportEnergyTableRows()
+      energyRows.forEach((r) => {
+        const key = r.energyType
+        if (!byType[key]) byType[key] = { totalSec: 0, count: 0 }
+        byType[key].totalSec += r._gripsActiveSec || 0
+        byType[key].count += 1
+      })
+      return Object.entries(byType).map(([type, s]) => ({
+        type,
+        totalLabel: formatSecOneDecimalNoRound(s.totalSec),
+        count: s.count
+      }))
+    }
+
+    const getNightingaleChartImageForReport = () => {
+      if (!nightingaleChartInstance || !Array.isArray(nightingaleChartData.value) || nightingaleChartData.value.length === 0) return ''
+      try {
+        return nightingaleChartInstance.getDataURL({
+          type: 'png',
+          pixelRatio: 2,
+          backgroundColor: '#ffffff'
+        })
+      } catch (_) {
+        return ''
+      }
+    }
+
+    const getPhaseFootnoteLines = () => [
+      t('surgeryVisualization.report.phaseFootnote1'),
+      t('surgeryVisualization.report.phaseFootnote2'),
+      t('surgeryVisualization.report.phaseFootnote3'),
+      t('surgeryVisualization.report.phaseFootnote4'),
+      t('surgeryVisualization.report.phaseFootnote5'),
+      t('surgeryVisualization.report.phaseFootnote6')
+    ]
+
+    const buildSurgeryReportHtml = () => {
+      const surgeryId = meta.surgery_id || '--'
+      const startTime = formatReportDateTime(meta.start_time)
+      const endTime = formatReportDateTime(meta.end_time)
+      const totalDuration = getDurationHoursMinutesLabel(meta.start_time, meta.end_time)
+      const operationTime = (() => {
+        const stage = currentData.value?.surgery_stats?.surgical_stage?.surgery_operation_stage
+        const min = stage && Number.isFinite(Number(stage.total_duration)) ? Number(stage.total_duration) : null
+        if (min !== null && min >= 0) {
+          const h = Math.floor(min / 60)
+          const m = min % 60
+          return h > 0 ? t('surgeryVisualization.report.hoursMinutes', { hours: h, minutes: m }) : t('surgeryVisualization.report.minutesOnly', { minutes: m })
+        }
+        return '--'
+      })()
+      const phaseRows = getSurgeryPhaseRowsForReport()
+      const instrumentRows = getInstrumentRowsForReport()
+      const reportEnergyRows = getReportEnergyTableRows()
+      const reportEnergyStats = getReportEnergyStatsRows()
+      const operationRows = getOperationSummaryRowsForReport()
+      const chartImage = getNightingaleChartImageForReport()
+      const faultRows = (faultRecords.value || []).map((row) => ({
+        time: formatReportDateTime(row.timestamp),
+        code: row.error_code || '-',
+        explanation: faultExplanations.value?.get(row.rowKey) || row.explanation || t('surgeryVisualization.noExplanation'),
+        status: row.status || '-'
+      }))
+
+      const tags = [
+        meta.is_fault ? `<span class="report-tag tag-danger">${escapeHtml(t('surgeryVisualization.report.faultSurgeryTag'))}</span>` : '',
+        meta.is_remote ? `<span class="report-tag tag-remote">${escapeHtml(t('surgeryVisualization.report.remoteSurgeryTag'))}</span>` : ''
+      ].filter(Boolean).join(' ')
+
+      const net = networkLatencyStats.value || {}
+      const rttMax = net.maxLatency != null ? escapeHtml(String(net.maxLatency)) : '--'
+      const rttAvg = net.avgLatency != null ? escapeHtml(String(net.avgLatency)) : '--'
+      const rttMin = net.minLatency != null ? escapeHtml(String(net.minLatency)) : '--'
+      const disconnectionCount = net.disconnectionCount != null ? escapeHtml(String(net.disconnectionCount)) : '0'
+
+      const phaseRowsHtml = phaseRows.length > 0
+        ? phaseRows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.phaseName)}</td>
+            <td>${escapeHtml(row.startLabel)}</td>
+            <td>${escapeHtml(row.endLabel)}</td>
+            <td>${escapeHtml(row.durationLabel)}</td>
+          </tr>
+        `).join('')
+        : `<tr><td colspan="4" class="empty-cell">${escapeHtml(t('surgeryVisualization.noSurgeryPhaseData'))}</td></tr>`
+
+      const phaseFootnoteHtml = getPhaseFootnoteLines().map(line => `<div class="report-footnote">${escapeHtml(line)}</div>`).join('')
+
+      const instrumentRowsHtml = instrumentRows.length > 0
+        ? instrumentRows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.armId)}</td>
+            <td>${escapeHtml(row.instrumentType)}</td>
+            <td>${escapeHtml(row.udi)}</td>
+            <td>${escapeHtml(row.installTime)}</td>
+            <td>${escapeHtml(row.removeTime)}</td>
+            <td>${escapeHtml(row.cumulativeUsage)}</td>
+          </tr>
+        `).join('')
+        : `<tr><td colspan="6" class="empty-cell">${escapeHtml(t('surgeryVisualization.report.noInstrumentData'))}</td></tr>`
+
+      const reportEnergyRowsHtml = reportEnergyRows.length > 0
+        ? reportEnergyRows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.armId)}</td>
+            <td>${escapeHtml(row.instrumentType)}</td>
+            <td>${escapeHtml(row.udi)}</td>
+            <td>${escapeHtml(row.energyType)}</td>
+            <td>${escapeHtml(row.startTime)}</td>
+            <td>${escapeHtml(row.durationLabel)}</td>
+            <td>${escapeHtml(row.gripsActiveLabel)}</td>
+          </tr>
+        `).join('')
+        : `<tr><td colspan="7" class="empty-cell">${escapeHtml(t('surgeryVisualization.report.noEnergyRecords'))}</td></tr>`
+
+      const reportEnergyStatsHtml = reportEnergyStats.map(s => `
+        <div class="report-footnote">${escapeHtml(t('surgeryVisualization.report.energyStatTemplate', { type: s.type, total: s.totalLabel, count: s.count }))}</div>
+      `).join('')
+
+      const faultRowsHtml = faultRows.length > 0
+        ? faultRows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.time)}</td>
+            <td>${escapeHtml(row.code)}</td>
+            <td>${escapeHtml(row.explanation)}</td>
+            <td>${escapeHtml(row.status)}</td>
+          </tr>
+        `).join('')
+        : `<tr><td colspan="4" class="empty-cell">${escapeHtml(t('surgeryVisualization.report.noAlarmData'))}</td></tr>`
+
+      const operationRowsHtml = meta.is_fault
+        ? operationRows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.name)}</td>
+            <td>${escapeHtml(String(row.value))}</td>
+          </tr>
+        `).join('')
+        : ''
+
+      const remoteMetricsHtml = meta.is_remote
+        ? `
+          <div class="section">
+            <div class="section-title">${escapeHtml(t('surgeryVisualization.report.remoteNetworkMetrics'))}</div>
+            <table class="report-table report-table-noborder">
+              <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.rttMax'))}</td><td>${rttMax} ms</td></tr>
+              <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.rttAvg'))}</td><td>${rttAvg} ms</td></tr>
+              <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.rttMin'))}</td><td>${rttMin} ms</td></tr>
+              <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.disconnectionCount'))}</td><td>${disconnectionCount} ${escapeHtml(t('surgeryVisualization.report.times'))}</td></tr>
+            </table>
+          </div>
+        `
+        : ''
+
+      const currentLocale = locale?.value || 'zh-CN'
+      const htmlLang = currentLocale.startsWith('en') ? 'en' : 'zh-CN'
+      const generatedAt = new Date().toLocaleString(currentLocale)
+
+      return `
+        <html lang="${htmlLang}">
+          <head>
+            <meta charset="utf-8" />
+            <title>${escapeHtml(t('surgeryVisualization.report.reportTitle'))}-${escapeHtml(surgeryId)}</title>
+            <style>
+              body { font-family: "SimSun", "PingFang SC", "Microsoft YaHei", sans-serif; margin: 20px; color: #333; font-size: 12px; }
+              .report-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; border-bottom: 2px solid #333; padding-bottom: 6px; }
+              .report-meta { color: #666; font-size: 11px; margin-bottom: 16px; }
+              .report-id-row { margin-bottom: 4px; }
+              .report-id-row.second { margin-bottom: 12px; }
+              .report-tag { display: inline-block; padding: 1px 6px; margin-left: 6px; font-size: 11px; color: #fff; }
+              .tag-danger { background: #c00; }
+              .tag-remote { background: #06c; }
+              .section { margin-top: 20px; }
+              .section-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; }
+              .report-metrics-row { display: table; width: 100%; margin-bottom: 12px; }
+              .report-metrics-row > div { display: table-cell; width: 50%; vertical-align: top; padding-right: 16px; }
+              .report-metrics-row > div:last-child { padding-right: 0; padding-left: 16px; }
+              table.report-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 0; }
+              table.report-table th, table.report-table td { border: 1px solid #333; padding: 6px 8px; text-align: left; }
+              table.report-table th { background: #f0f0f0; font-weight: bold; }
+              table.report-table-noborder { border: none !important; }
+              table.report-table-noborder th, table.report-table-noborder td { border: none !important; padding: 4px 8px 4px 0; }
+              .metric-name { color: #666; width: 140px; }
+              .report-footnote { font-size: 10px; color: #666; margin-top: 4px; }
+              .empty-cell { text-align: center; color: #999; }
+              .tree-cell { background: #f9f9f9; color: #555; font-size: 11px; }
+              .energy-row td { font-size: 11px; }
+              .energy-stat-row .report-stat-cell { font-size: 11px; color: #555; }
+              .chart-image { max-width: 100%; max-height: 320px; display: block; }
+              .chart-wrap { margin-bottom: 0; }
+              @media print {
+                body { margin: 10mm; font-size: 11px; }
+                .section { break-inside: avoid; }
+                table.report-table { font-size: 11px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="report-title">${escapeHtml(t('surgeryVisualization.report.reportTitle'))}</div>
+            <div class="report-meta">${escapeHtml(t('surgeryVisualization.report.reportGeneratedAt'))}${escapeHtml(generatedAt)}</div>
+            <div class="report-id-row">${escapeHtml(surgeryId)}</div>
+            <div class="report-id-row second">${escapeHtml(t('surgeryVisualization.report.surgeryLog'))} ${tags}</div>
+
+            <div class="section">
+              <div class="section-title">${escapeHtml(t('surgeryVisualization.report.mainMetrics'))}</div>
+              <div class="report-metrics-row">
+                <div>
+                  <table class="report-table report-table-noborder">
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.surgeryStartTime'))}</td><td>${escapeHtml(startTime)}</td></tr>
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.surgeryEndTime'))}</td><td>${escapeHtml(endTime)}</td></tr>
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.surgeryTotalTime'))}</td><td>${escapeHtml(totalDuration)}</td></tr>
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.masterSlaveOperationTime'))}</td><td>${escapeHtml(operationTime)}</td></tr>
+                  </table>
+                </div>
+                <div>
+                  ${meta.is_remote ? `
+                  <table class="report-table report-table-noborder">
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.rttMax'))}</td><td>${rttMax} ms</td></tr>
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.rttAvg'))}</td><td>${rttAvg} ms</td></tr>
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.rttMin'))}</td><td>${rttMin} ms</td></tr>
+                    <tr><td class="metric-name">${escapeHtml(t('surgeryVisualization.report.disconnectionCount'))}</td><td>${disconnectionCount} ${escapeHtml(t('surgeryVisualization.report.times'))}</td></tr>
+                  </table>
+                  ` : `<table class="report-table report-table-noborder"><tr><td class="metric-name">—</td><td>${escapeHtml(t('surgeryVisualization.report.notRemoteSurgery'))}</td></tr></table>`}
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">${escapeHtml(t('surgeryVisualization.report.phaseChartAndList'))}</div>
+              <div class="report-metrics-row">
+                <div class="chart-wrap">
+                  ${chartImage
+                    ? `<img class="chart-image" src="${chartImage}" alt="Nightingale Chart" />`
+                    : `<div class="empty-cell" style="padding: 40px 0;">${escapeHtml(t('surgeryVisualization.report.noPhaseChartData'))}</div>`}
+                </div>
+                <div>
+                  <table class="report-table report-table-noborder">
+                    <thead>
+                      <tr>
+                        <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.stage'))}</th>
+                        <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.startTime'))}</th>
+                        <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.endTime'))}</th>
+                        <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.duration'))}</th>
+                      </tr>
+                    </thead>
+                    <tbody>${phaseRowsHtml}</tbody>
+                  </table>
+                  <div class="report-footnote" style="margin-top:8px;">${phaseFootnoteHtml}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">${escapeHtml(t('surgeryVisualization.report.instrumentUsage'))}</div>
+              <table class="report-table report-table-noborder">
+                <thead>
+                  <tr>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.armNumber'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.instrumentType'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.instrumentUDI'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.installTime'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.removeTime'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.cumulativeUsage'))}</th>
+                  </tr>
+                </thead>
+                <tbody>${instrumentRowsHtml}</tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">${escapeHtml(t('surgeryVisualization.report.energyActivation'))}</div>
+              <table class="report-table report-table-noborder">
+                <thead>
+                  <tr>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.armNumber'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.instrumentType'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.instrumentUDI'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.energyType'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.energyStartTime'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.energyDuration'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.gripsActiveDuration'))}</th>
+                  </tr>
+                </thead>
+                <tbody>${reportEnergyRowsHtml}</tbody>
+              </table>
+              <div class="report-energy-stats" style="margin-top:8px;">${reportEnergyStatsHtml}</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">${escapeHtml(t('surgeryVisualization.report.alarmList'))}</div>
+              <table class="report-table report-table-noborder">
+                <thead>
+                  <tr>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.faultTime'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.faultCode'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.faultExplanation'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.status'))}</th>
+                  </tr>
+                </thead>
+                <tbody>${faultRowsHtml}</tbody>
+              </table>
+            </div>
+
+            ${meta.is_fault ? `
+            <div class="section">
+              <div class="section-title">${escapeHtml(t('surgeryVisualization.report.operationSummary'))}</div>
+              <table class="report-table report-table-noborder">
+                <thead>
+                  <tr>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.operationType'))}</th>
+                    <th style="border-bottom:1px solid #ddd;">${escapeHtml(t('surgeryVisualization.report.count'))}</th>
+                  </tr>
+                </thead>
+                <tbody>${operationRowsHtml}</tbody>
+              </table>
+            </div>
+            ` : ''}
+
+            ${remoteMetricsHtml}
+          </body>
+        </html>
+      `
+    }
+
+    const exportReport = () => {
+      const html = buildSurgeryReportHtml()
+      const surgeryId = meta.surgery_id || 'unknown'
+      const reportWindow = window.open('', '_blank')
+      if (reportWindow) {
+        reportWindow.document.open()
+        reportWindow.document.write(html)
+        reportWindow.document.close()
+        return
+      }
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `surgery_report_${surgeryId}.html`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    const escapeCsv = (v) => {
+      const s = String(v ?? '')
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+      return s
+    }
+    const csvRow = (arr) => arr.map(escapeCsv).join(',')
+
+    const buildSurgeryReportCsv = () => {
+      const surgeryId = meta.surgery_id || '--'
+      const startTime = formatReportDateTime(meta.start_time)
+      const endTime = formatReportDateTime(meta.end_time)
+      const totalDuration = getDurationHoursMinutesLabel(meta.start_time, meta.end_time)
+      const operationTime = (() => {
+        const stage = currentData.value?.surgery_stats?.surgical_stage?.surgery_operation_stage
+        const min = stage && Number.isFinite(Number(stage.total_duration)) ? Number(stage.total_duration) : null
+        if (min !== null && min >= 0) {
+          const h = Math.floor(min / 60)
+          const m = min % 60
+          return h > 0 ? t('surgeryVisualization.report.hoursMinutes', { hours: h, minutes: m }) : t('surgeryVisualization.report.minutesOnly', { minutes: m })
+        }
+        return '--'
+      })()
+      const net = networkLatencyStats.value || {}
+      const phaseRows = getSurgeryPhaseRowsForReport()
+      const instrumentRows = getInstrumentRowsForReport()
+      const reportEnergyRows = getReportEnergyTableRows()
+      const reportEnergyStats = getReportEnergyStatsRows()
+      const operationRows = getOperationSummaryRowsForReport()
+      const faultRows = (faultRecords.value || []).map((row) => ({
+        time: formatReportDateTime(row.timestamp),
+        code: row.error_code || '-',
+        explanation: faultExplanations.value?.get(row.rowKey) || row.explanation || t('surgeryVisualization.noExplanation'),
+        status: row.status || '-'
+      }))
+      const lines = []
+      lines.push(t('surgeryVisualization.report.reportTitle'))
+      lines.push(csvRow([t('surgeryVisualization.report.surgeryId'), surgeryId]))
+      lines.push(csvRow([t('surgeryVisualization.report.surgeryLog'), (meta.is_fault ? t('surgeryVisualization.report.faultSurgeryTag') : '') + (meta.is_remote ? ' ' + t('surgeryVisualization.report.remoteSurgeryTag') : '')]))
+      lines.push('')
+      lines.push(t('surgeryVisualization.report.mainMetrics'))
+      lines.push(csvRow([t('surgeryVisualization.report.surgeryStartTime'), startTime]))
+      lines.push(csvRow([t('surgeryVisualization.report.surgeryEndTime'), endTime]))
+      lines.push(csvRow([t('surgeryVisualization.report.surgeryTotalTime'), totalDuration]))
+      lines.push(csvRow([t('surgeryVisualization.report.masterSlaveOperationTime'), operationTime]))
+      if (meta.is_remote) {
+        lines.push(csvRow([t('surgeryVisualization.report.rttMax') + '(ms)', net.maxLatency ?? '--']))
+        lines.push(csvRow([t('surgeryVisualization.report.rttAvg') + '(ms)', net.avgLatency ?? '--']))
+        lines.push(csvRow([t('surgeryVisualization.report.rttMin') + '(ms)', net.minLatency ?? '--']))
+        lines.push(csvRow([t('surgeryVisualization.report.disconnectionCount'), net.disconnectionCount ?? '0']))
+      }
+      lines.push('')
+      lines.push(t('surgeryVisualization.report.phaseList'))
+      lines.push(csvRow([t('surgeryVisualization.report.stage'), t('surgeryVisualization.report.startTime'), t('surgeryVisualization.report.endTime'), t('surgeryVisualization.report.duration')]))
+      phaseRows.forEach((r) => lines.push(csvRow([r.phaseName, r.startLabel, r.endLabel, r.durationLabel])))
+      lines.push('')
+      lines.push(t('surgeryVisualization.report.instrumentUsage'))
+      lines.push(csvRow([t('surgeryVisualization.report.armNumber'), t('surgeryVisualization.report.instrumentType'), t('surgeryVisualization.report.instrumentUDI'), t('surgeryVisualization.report.installTime'), t('surgeryVisualization.report.removeTime'), t('surgeryVisualization.report.cumulativeUsage')]))
+      instrumentRows.forEach((row) => {
+        lines.push(csvRow([row.armId, row.instrumentType, row.udi, row.installTime, row.removeTime, row.cumulativeUsage]))
+      })
+      lines.push('')
+      lines.push(t('surgeryVisualization.report.energyActivation'))
+      lines.push(csvRow([t('surgeryVisualization.report.armNumber'), t('surgeryVisualization.report.instrumentType'), t('surgeryVisualization.report.instrumentUDI'), t('surgeryVisualization.report.energyType'), t('surgeryVisualization.report.energyStartTime'), t('surgeryVisualization.report.energyDuration'), t('surgeryVisualization.report.gripsActiveDuration')]))
+      reportEnergyRows.forEach((row) => {
+        lines.push(csvRow([row.armId, row.instrumentType, row.udi, row.energyType, row.startTime, row.durationLabel, row.gripsActiveLabel]))
+      })
+      reportEnergyStats.forEach((s) => {
+        lines.push(csvRow(['', t('surgeryVisualization.report.statistics'), t('surgeryVisualization.report.energyStatTemplate', { type: s.type, total: s.totalLabel, count: s.count }), '', '', '', '']))
+      })
+      lines.push('')
+      lines.push(t('surgeryVisualization.report.alarmList'))
+      lines.push(csvRow([t('surgeryVisualization.report.faultTime'), t('surgeryVisualization.report.faultCode'), t('surgeryVisualization.report.faultExplanation'), t('surgeryVisualization.status')]))
+      faultRows.forEach((r) => lines.push(csvRow([r.time, r.code, r.explanation, r.status])))
+      if (meta.is_fault) {
+        lines.push('')
+        lines.push(t('surgeryVisualization.report.operationSummary'))
+        lines.push(csvRow([t('surgeryVisualization.report.operationType'), t('surgeryVisualization.report.count')]))
+        operationRows.forEach((r) => lines.push(csvRow([r.name, r.value])))
+      }
+      return lines.join('\r\n')
+    }
+
+    const exportReportCsv = () => {
+      const csv = buildSurgeryReportCsv()
+      const surgeryId = meta.surgery_id || 'unknown'
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `surgery_report_${surgeryId}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    const handleExportCommand = (command) => {
+      if (command === 'csv') exportReportCsv()
+      else if (command === 'html') exportReport()
+    }
+
     // 抽屉相关状态与数据
     const drawerVisible = ref(false)
     const selectedArmId = ref(0)
     const drawerInstruments = ref([])
     const drawerTitle = computed(() => {
-      if (!selectedArmId.value) return '器械使用情况'
-      return `器械使用情况 - 工具臂 ${selectedArmId.value}`
+      if (!selectedArmId.value) return t('surgeryVisualization.report.drawerTitle')
+      return t('surgeryVisualization.report.drawerTitleWithArm', { armId: selectedArmId.value })
+    })
+
+    // 当前抽屉对应臂的累加使用时间（用于表格列展示）
+    const drawerArmCumulativeUsage = computed(() => {
+      const targetArmId = selectedArmId.value
+      if (!targetArmId) return null
+      const arm = (armsData.value || []).find(a => a.arm_id === targetArmId)
+      if (arm?.cumulative_usage) return arm.cumulative_usage
+      const raw = currentData.value?.arms
+      if (Array.isArray(raw)) {
+        const rawArm = raw.find(a => Number(a.arm_id) === Number(targetArmId))
+        return rawArm?.cumulative_usage || null
+      }
+      return null
     })
     
     // 左侧抽屉：手术事件序列
@@ -3168,13 +4369,220 @@ export default {
       drawerInstruments.value = normalized
     }
 
+    // 某条器械行对应的能量激发列表（用于展开行内嵌子表）
+    const getEnergyListForRow = (row) => {
+      return (row?.energy_activation || []).filter(evt => evt && (evt.start || evt.end))
+    }
+
+    // 能量激发统计列表（从抽屉器械列表扁平化）
+    const drawerEnergyActivations = computed(() => {
+      const list = drawerInstruments.value || []
+      const result = []
+      list.forEach(seg => {
+        const armId = seg.arm_id ?? selectedArmId.value
+        ;(seg.energy_activation || []).forEach(evt => {
+          if (evt && (evt.start || evt.end)) {
+            result.push({
+              arm_id: armId,
+              type: evt.type || null,
+              start: evt.start || null,
+              end: evt.end || null
+            })
+          }
+        })
+      })
+      result.sort((a, b) => {
+        const ta = toMs(a.start)
+        const tb = toMs(b.start)
+        return ta - tb
+      })
+      return result
+    })
+
+    // active/GripsActive 为 10 倍数据，7 表示 0.7s；Energy Duration 用 active，Grips Active Duration 用 GripsActive
+    const rawToSeconds = (raw) => {
+      const v = Number(raw)
+      return Number.isFinite(v) ? v / 10 : 0
+    }
+    const formatSecOneDecimalNoRound = (sec) => {
+      const s = Number(sec)
+      if (!Number.isFinite(s)) return '0.0 s'
+      const truncated = Math.floor(s * 10) / 10
+      return truncated.toFixed(1) + ' s'
+    }
+
+    // 抽屉内能量激发表格：按 (器械段, 能量类型) 聚合，主表 总激发时间=GripsActive 字段时间和(s)、总激发次数；展开为每条 开始时间|激发持续时间|器械闭合状态激发持续时间
+    const drawerEnergyTableRows = computed(() => {
+      const list = drawerInstruments.value || []
+      const rows = []
+      list.forEach((seg, segIndex) => {
+        const armId = seg.arm_id ?? selectedArmId.value
+        const instrumentType = formatInstrumentType(seg)
+        const udi = seg?.udi || '-'
+        const events = (seg.energy_activation || []).filter(evt => evt && (evt.start || evt.end))
+        const byType = {}
+        events.forEach((evt) => {
+          const typeKey = formatEnergyType(evt.type)
+          if (!byType[typeKey]) byType[typeKey] = []
+          const activeSec = rawToSeconds(evt.active ?? evt.Active ?? 0)
+          const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
+          byType[typeKey].push({
+            startTime: formatSegmentTimeWithMs(evt.start),
+            durationLabel: formatSecOneDecimalNoRound(activeSec),
+            gripsActiveLabel: formatSecOneDecimalNoRound(gripsActiveSec),
+            _gripsActiveSec: Math.floor(gripsActiveSec * 10) / 10
+          })
+        })
+        Object.entries(byType).forEach(([energyType, detailEvents]) => {
+          const totalGripsActiveSec = detailEvents.reduce((sum, e) => sum + (e._gripsActiveSec || 0), 0)
+          const gripsLabel = formatSecOneDecimalNoRound(totalGripsActiveSec)
+          rows.push({
+            rowKey: `energy-${armId}-${segIndex}-${energyType}-${udi}`,
+            armId,
+            instrumentType,
+            udi,
+            energyType,
+            totalGripsActiveLabel: gripsLabel,
+            count: detailEvents.length,
+            detailEvents
+          })
+        })
+      })
+      return rows
+    })
+
+    // 能量激发类型显示
+    const formatEnergyType = (type) => {
+      const map = {
+        cut: '切割',
+        coag: '凝血',
+        bipolar: '双极',
+        ultrasonic: '超声',
+        ultrasonicMax: '超声(最大)'
+      }
+      return type ? (map[String(type).toLowerCase()] || type) : '-'
+    }
+
+    // 标题栏：术式（无数据显示 --）
+    const surgeryProcedureLabel = computed(() => {
+      const procedure = currentData.value?.surgery_stats?.procedure
+      if (procedure !== undefined && procedure !== null && String(procedure).trim() !== '') return String(procedure).trim()
+      return '--'
+    })
+    // 标题栏：手术日期（按手术开始事件 年/月/日）
+    const surgeryDateLabel = computed(() => {
+      const start = meta.start_time || currentData.value?.timeline?.surgeryStart
+      if (!start) return '--'
+      const d = getLocalTime(start)
+      if (!d) return '--'
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}/${m}/${day}`
+    })
+    // 总时间：手术所有阶段总时长（分钟）
+    const totalDurationLabel = computed(() => {
+      const stages = currentData.value?.surgery_stats?.surgical_stage
+      if (stages && typeof stages === 'object') {
+        const total = [stages.power_on_stage, stages.positioning_stage, stages.instrument_installation_stage, stages.surgery_operation_stage, stages.withdrawal_stage, stages.power_off_stage]
+          .filter(Boolean)
+          .reduce((sum, s) => sum + (Number(s.total_duration) || 0), 0)
+        if (total >= 0) return `${total} ${t('shared.minutes')}`
+      }
+      const start = meta.start_time
+      const end = meta.end_time
+      if (start && end) {
+        const a = toMs(start)
+        const b = toMs(end)
+        if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
+          const min = Math.floor((b - a) / 60000)
+          return `${min} ${t('shared.minutes')}`
+        }
+      }
+      return '--'
+    })
+    // 主从操作时间：手术操作阶段时长
+    const operationTimeLabel = computed(() => {
+      const stage = currentData.value?.surgery_stats?.surgical_stage?.surgery_operation_stage
+      const min = stage && Number.isFinite(Number(stage.total_duration)) ? Number(stage.total_duration) : null
+      if (min !== null && min >= 0) return `${min} ${t('shared.minutes')}`
+      return '--'
+    })
+
+    // 器械卡片：1-4 号臂，含类型码、名称、使用次数、培训 tag、十字光标时刻是否高亮
+    const instrumentCards = computed(() => {
+      const list = []
+      const tMs = crosshairTimeMs.value
+      for (let armId = 1; armId <= 4; armId++) {
+        const arm = (armsData.value || []).find(a => a.arm_id === armId)
+        const segments = arm ? getAllSegmentsForArm(arm) : []
+        const usageCount = segments.length
+        let instrumentName = '--'
+        let instrumentType = null
+        if (segments.length > 0) {
+          let seg = null
+          if (tMs != null) {
+            const atTime = segments.find(s => {
+              const start = toMs(s.start_time || s.start || s.install_time)
+              const end = toMs(s.end_time || s.end || s.remove_time)
+              return Number.isFinite(start) && Number.isFinite(end) && tMs >= start && tMs <= end
+            })
+            seg = atTime || segments[0]
+          } else {
+            seg = segments[0]
+          }
+          instrumentName = formatInstrumentType(seg)
+          const raw = seg.tool_type ?? seg.instrument_type ?? seg.toolType ?? seg.instrumentName
+          if (raw !== undefined && raw !== null && raw !== '') instrumentType = typeof raw === 'number' ? raw : String(raw).trim()
+        }
+        const isTraining = segments.some(s => s.is_training === true || s.training === true)
+        const highlighted = tMs != null && segments.some(s => {
+          const start = toMs(s.start_time || s.start || s.install_time)
+          const end = toMs(s.end_time || s.end || s.remove_time)
+          return Number.isFinite(start) && Number.isFinite(end) && tMs >= start && tMs <= end
+        })
+        list.push({ armId, instrumentType, instrumentName, usageCount, isTraining, highlighted })
+      }
+      return list
+    })
+
+    // 器械图片 URL：图片放在 public/instruments/，文件名为 类型码.png（如 1.png、2.png）
+    const getInstrumentImageUrl = (instrumentType) => {
+      if (instrumentType === undefined || instrumentType === null || instrumentType === '') return ''
+      const key = typeof instrumentType === 'number' ? instrumentType : String(instrumentType).trim()
+      if (!key) return ''
+      return `/instruments/${encodeURIComponent(key)}.png`
+    }
+    // 无器械（类型 0 或空）不显示图片占位
+    const hasInstrumentImage = (card) => {
+      if (!card) return false
+      const t = card.instrumentType
+      if (t === undefined || t === null || t === '') return false
+      if (t === 0 || t === '0') return false
+      return true
+    }
+    const getInstrumentCard = (armId) => instrumentCards.value.find(c => c.armId === armId)
+
     return { 
       loadFromStorage, 
       loadById, 
       loading, 
       surgeryIdInput, 
-      meta, 
+      meta,
+      surgeryProcedureLabel,
+      surgeryDateLabel,
+      totalDurationLabel,
+      operationTimeLabel,
+      instrumentCards,
+      getInstrumentImageUrl,
+      hasInstrumentImage,
+      getInstrumentCard,
+      instrumentImageFailed,
+      onInstrumentImageError,
+      crosshairTimeMs, 
       exportStructured, 
+      exportReport,
+      handleExportCommand,
       visibleAlertRows, 
       showAllAlerts, 
       // 故障表折叠/展开
@@ -3215,10 +4623,17 @@ export default {
       handleMouseLeave,
       stopInertiaScroll,
       isDragging,
+      timelineCrosshair,
+      timeScaleTicks,
+      handleTimelineMouseMove,
+      getCrosshairVerticalStyle,
+      getCrosshairTooltipStyle,
       getTimeColumnsStyle,
       getTimeCellsStyle,
       getTimeColumnStyle,
       getTimeGridStyle,
+      getSurgeryPhasePeriodsInHour,
+      getSurgeryPhaseStyle,
       // SVG覆盖层相关函数
       getOverlayStyle,
       getAllSegmentsForArm,
@@ -3227,6 +4642,11 @@ export default {
       getSegmentWidth,
       getSegmentHeight,
       getSegmentEndX,
+      getEnergyBarX,
+      getEnergyBarY,
+      getEnergyBarWidth,
+      getEnergyBarHeight,
+      getEnergyBarColor,
       getInstrumentColor,
       handleSegmentClick,
       handleSegmentHover,
@@ -3241,7 +4661,11 @@ export default {
       getEventWeekday,
       processEventGroup,
       getSegmentDuration,
+      getSegmentToolLife,
       formatSegmentTime,
+      formatSegmentTimeWithMs,
+      formatCumulativeUsage,
+      drawerArmCumulativeUsage,
       getArmColor,
       getTextColor,
       getStrokeColor,
@@ -3252,6 +4676,9 @@ export default {
       // 图表相关
       showCharts,
       hasStateMachineData,
+      hasSurgeryPhaseData,
+      nightingaleChartData,
+      nightingaleChartRef,
       hasNetworkLatencyData,
       hasOperationData,
       stateMachineChartData,
@@ -3265,6 +4692,10 @@ export default {
       drawerVisible,
       drawerTitle,
       drawerInstruments,
+      getEnergyListForRow,
+      drawerEnergyActivations,
+      drawerEnergyTableRows,
+      formatEnergyType,
       selectedArmId,
       // 左侧抽屉：事件序列
       eventSequenceDrawerVisible,
@@ -3296,112 +4727,172 @@ export default {
   gap: 16px; 
 }
 
-/* 标题卡片样式 */
-.title-card {
-  margin-bottom: 0;
-  width: fit-content;
-  min-width: auto;
+/* 顶部导航栏 */
+.viz-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  padding: 10px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  margin-bottom: 8px;
+}
+.nav-bar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nav-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nav-row-id .surgery-id { font-size: 14px; font-weight: 600; color: #000; }
+.nav-row-meta { font-size: 12px; color: #666; }
+.nav-row-meta .surgery-procedure { margin-right: 8px; }
+.nav-row-meta .surgery-date { color: #999; }
+.nav-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.report-export-btn {
+  margin-left: 8px;
+}
+.time-metric { text-align: center; }
+.time-metric-label { font-size: 11px; color: #999; margin-bottom: 2px; }
+.time-metric-value { font-size: 14px; font-weight: 600; color: #333; }
+.time-metric-value--operation { color: var(--blue-600, #2563eb); }
+.time-metric-sep { color: #ddd; font-size: 14px; }
+
+.surgery-tag { margin: 0 2px; }
+.viz-nav-bar .el-tag.fault-tag { background-color: #f48d8f !important; color: white !important; border: none !important; }
+.viz-nav-bar .el-tag.fault-tag .el-tag__content { color: white !important; }
+.viz-nav-bar .el-tag.remote-tag { background-color: #bfbfbf !important; color: white !important; border: none !important; }
+.viz-nav-bar .el-tag.remote-tag .el-tag__content { color: white !important; }
+
+/* 首列器械单元格（1-4 号臂） */
+.arm-cell--instrument {
+  justify-content: flex-start;
+  padding: 0;
+  align-items: stretch;
+  position: relative;
+  background: var(--viz-surface, #f5f7fa);
+}
+.arm-cell--instrument .instrument-cell-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
   height: auto;
-  min-height: auto;
+  min-width: 0;
+  background: var(--viz-surface, #f5f7fa);
+  opacity: 0.7;
+  border-radius: 6px;
 }
-
-/* 通过CSS变量控制Element Plus卡片内边距 */
-.title-card {
-  --el-card-padding: 8px 12px;
+.arm-cell--instrument .instrument-cell-inner.instrument-card--highlight {
+  opacity: 1;
 }
-
-/* 移除对el-card__body的直接控制，让Element Plus自己管理 */
-
-.surgery-info { 
-  display: flex; 
-  align-items: center; 
-  gap: 8px; /* 减少元素间距 */
-  flex-wrap: wrap;
-  margin: 0; /* 移除容器边距 */
-  padding: 0; /* 移除容器内边距 */
+.instrument-cell-inner {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
 }
-
-.surgery-id {
+.instrument-cell-inner.instrument-card--highlight {
+  outline: 2px solid #5a5a5a;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+.arm-cell--instrument .instrument-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: var(--viz-surface, #f5f7fa);
+}
+.arm-cell--instrument .instrument-card-img {
+  width: 34px;
+  height: 34px;
+}
+.arm-cell--instrument .instrument-card-body { flex: 1; min-width: 0; }
+.arm-cell--instrument .instrument-card-name {
   font-size: 12px;
+  margin-bottom: 2px;
+  color: #666;
+}
+.arm-cell--instrument .instrument-cell-inner.instrument-card--highlight .instrument-card-name {
+  color: #333;
+}
+.arm-cell--instrument .instrument-card-meta { font-size: 10px; color: #999; }
+.arm-cell--instrument .instrument-cell-inner.instrument-card--highlight .instrument-card-meta { color: #666; }
+.instrument-cell-arm-label {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 13px;
   font-weight: 600;
-  color: #000;
-  margin: 0; /* 移除所有外边距 */
-  padding: 2px 4px; /* 减少内边距 */
+  color: #666;
 }
-
-.surgery-tag { 
-  margin: 0 4px; /* 上下边距为0，左右边距为4px */
+.arm-cell--instrument .instrument-cell-inner.instrument-card--highlight .instrument-cell-arm-label {
+  color: #333;
+  margin-right: 10px;
 }
-
-/* 故障手术标签样式 */
-.surgery-tag[color="red"] {
-  background-color: #f48d8f !important;
-  color: white !important;
-  border: none !important;
+.arm-cell--instrument .instrument-cell-inner:not(.instrument-card--highlight) {
+  justify-content: center;
 }
-
-/* 更具体的选择器来覆盖Element Plus默认样式 */
-.title-card .surgery-tag[color="red"] {
-  background-color: #f48d8f !important;
-  color: white !important;
-  border: none !important;
+.arm-cell--instrument .instrument-cell-inner:not(.instrument-card--highlight) .instrument-cell-arm-label { margin-left: 0; }
+.instrument-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--viz-surface, #f5f7fa);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #909399;
 }
-
-/* 使用类名选择器 */
-.surgery-tag.fault-tag {
-  background-color: #f48d8f !important;
-  color: white !important;
-  border: none !important;
+.instrument-card-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
-
-/* 强制覆盖Element Plus的默认样式 */
-.title-card .el-tag.fault-tag {
-  background-color: #f48d8f !important;
-  color: white !important;
-  border: none !important;
+.instrument-card-icon-fallback {
+  color: var(--viz-text-tertiary, #909399);
 }
-
-.title-card .el-tag.fault-tag .el-tag__content {
-  color: white !important;
+.instrument-card-body { flex: 1; min-width: 0; }
+.instrument-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-/* 远程手术标签样式 */
-.surgery-tag[color="green"] {
-  background-color: #bfbfbf !important;
-  color: white !important;
-  border: none !important;
+.instrument-card-meta {
+  font-size: 11px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-
-/* 更具体的选择器来覆盖Element Plus默认样式 */
-.title-card .surgery-tag[color="green"] {
-  background-color: #bfbfbf !important;
-  color: white !important;
-  border: none !important;
-}
-
-/* 使用类名选择器 */
-.surgery-tag.remote-tag {
-  background-color: #bfbfbf !important;
-  color: white !important;
-  border: none !important;
-}
-
-/* 强制覆盖Element Plus的默认样式 */
-.title-card .el-tag.remote-tag {
-  background-color: #bfbfbf !important;
-  color: white !important;
-  border: none !important;
-}
-
-.title-card .el-tag.remote-tag .el-tag__content {
-  color: white !important;
-}
+.instrument-card-tag { flex-shrink: 0; }
 
 /* 手术概况卡片样式 */
 .overview-card {
   margin-bottom: 0;
 }
 
+.overview-card .section-header { 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600; 
+  margin-bottom: 12px; 
+  font-size: 16px;
+  color: #333;
+}
 .section-header { 
   display: flex;
   justify-content: space-between;
@@ -3465,6 +4956,39 @@ export default {
   transition: cursor 0.2s ease;
 }
 
+.timeline-crosshair-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 24;
+}
+
+.timeline-crosshair-line {
+  position: absolute;
+  pointer-events: none;
+}
+
+.timeline-crosshair-line.vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(60, 60, 60, 0.7);
+}
+
+.timeline-time-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 18px;
+  color: #fff;
+  background: rgba(48, 49, 51, 0.85);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 26;
+}
+
 /* 拖拽状态样式 */
 .timeline-container.dragging {
   cursor: grabbing !important;
@@ -3473,38 +4997,39 @@ export default {
 
 /* 缩放状态下的拖拽样式 */
 .timeline-container[data-zoom-level]:not([data-zoom-level="1"]) {
-  cursor: grab;
+  cursor: crosshair;
 }
 
 .timeline-container[data-zoom-level]:not([data-zoom-level="1"]):hover {
-  cursor: grab;
+  cursor: crosshair;
 }
 
 .timeline-header {
   display: flex;
-  background: #fafafa;
+  background: #fff;
   border-bottom: 2px solid #d9d9d9;
-  min-width: max-content; /* 确保容器宽度不小于内容宽度 */
-  /* 确保与body部分宽度一致 */
+  min-width: max-content;
   flex-shrink: 0;
+  line-height: 0.7; /* 行高减小约 30% */
 }
 
 .arm-column {
-  width: 120px;
-  flex-shrink: 0; /* 防止收缩，保持固定宽度 */
-  padding: 16px 12px;
+  width: 200px;
+  flex-shrink: 0;
+  padding: 10px 12px;
   font-weight: 600;
   border-right: 1px solid #d9d9d9;
-  background: #fafafa;
+  background: #fff;
+  color: #262626;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #262626;
-  position: sticky; /* 冻结活动名称列 */
+  line-height: 0.7;
+  position: sticky;
   left: 0;
   z-index: 30;
-  box-shadow: 1px 0 0 0 #d9d9d9; /* 分隔线阴影，保证缩放时可见 */
+  box-shadow: 1px 0 0 0 #d9d9d9;
 }
 
 .time-columns {
@@ -3515,19 +5040,53 @@ export default {
 }
 
 .time-column {
-  flex-shrink: 0; /* 防止收缩，使用动态宽度 */
-  padding: 16px 4px;
+  flex-shrink: 0;
+  padding: 6px 4px 6px;
   text-align: center;
   font-size: 12px;
   font-weight: 600;
   border-right: 1px solid #f0f0f0;
-  background: #fafafa;
+  background: #fff;
   color: #595959;
-  min-width: 30px; /* 最小宽度 */
+  min-width: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  line-height: 0.7;
+}
+
+.time-column-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.time-column-label {
+  line-height: 1;
+}
+
+.time-column-ticks {
+  position: relative;
+  width: 100%;
+  height: 8px;
+}
+
+.time-column-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 4px;
+  background: #c0c4cc;
+  transform: translateX(-50%);
+}
+
+.time-column-tick.is-major {
+  height: 6px;
+  background: #909399;
 }
 
 .timeline-body {
@@ -3554,7 +5113,7 @@ export default {
 }
 
 .arm-cell {
-  width: 120px;
+  width: 200px;
   flex-shrink: 0; /* 防止收缩，保持固定宽度 */
   padding: 16px 12px;
   display: flex;
@@ -3594,6 +5153,15 @@ export default {
 
 .time-grid:hover {
   background-color: #f5f5f5;
+}
+
+/* 手术阶段背景 */
+.surgery-phase-background {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* state: 30 时间段背景色（浅橙色） */
@@ -3975,6 +5543,56 @@ export default {
   transform: translateY(-1px);
 }
 
+/* 能量激发条样式（紧贴器械条下侧） */
+.energy-activation-svg {
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.92;
+}
+
+.drawer-section {
+  margin-bottom: 20px;
+}
+.drawer-section:last-child {
+  margin-bottom: 0;
+}
+.drawer-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--el-text-color-primary, #303133);
+}
+.drawer-energy-section {
+  margin-top: 24px;
+}
+.drawer-energy-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--el-fill-color-light, #f5f7fa);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+}
+.drawer-energy-summary-line {
+  line-height: 1.6;
+}
+.drawer-energy-expand {
+  padding: 8px 16px 12px 24px;
+}
+.drawer-energy-expand .el-table {
+  margin-bottom: 0;
+}
+.drawer-energy-expand-table .el-table__header th,
+.drawer-energy-expand-table .el-table__body td {
+  text-align: right;
+}
+.drawer-energy-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #303133;
+}
+
 /* 器械文本样式 */
 .instrument-text {
   font-size: 11px;
@@ -4224,6 +5842,18 @@ export default {
   overflow: auto;
 }
 
+.drawer-energy-nested {
+  padding: 8px 16px 12px 24px;
+}
+.drawer-energy-nested .el-table {
+  margin-bottom: 0;
+}
+.drawer-energy-empty {
+  padding: 12px 24px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
 /* 图表容器样式 */
 .chart-container {
   padding: 0;
@@ -4234,6 +5864,24 @@ export default {
   height: 300px; /* 固定高度，确保一致性 */
   overflow: visible; /* 允许内容溢出，避免裁剪 */
   position: relative; /* 为tooltip提供定位基准 */
+}
+
+.chart-container.nightingale-container {
+  min-height: 300px;
+}
+
+.nightingale-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  width: 100%;
+  color: #909399;
+  font-size: 14px;
+}
+
+.nightingale-chart {
+  min-height: 300px;
 }
 
 .chart {

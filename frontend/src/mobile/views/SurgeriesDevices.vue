@@ -125,7 +125,9 @@ export default {
 
         const map = new Map()
         all.forEach(s => {
-          const deviceIds = Array.isArray(s.device_ids) ? s.device_ids : []
+          const deviceIds = Array.isArray(s.device_ids)
+            ? s.device_ids
+            : (s.device_id ? [s.device_id] : [])
           const hospital =
             (Array.isArray(s.hospital_names) && s.hospital_names[0]) ||
             s.hospital_name ||

@@ -153,6 +153,14 @@ class WebSocketClient {
           this.handleMotionDataTaskStatus(message)
           break
 
+        case 'log_task_status':
+          this.handleLogTaskStatus(message)
+          break
+
+        case 'surgery_task_status':
+          this.handleSurgeryTaskStatus(message)
+          break
+
         case 'pong':
           // 心跳响应，无需处理
           break
@@ -197,6 +205,30 @@ class WebSocketClient {
       progress,
       userId,
       result,
+      error,
+      timestamp
+    })
+  }
+
+  // 处理日志队列任务状态变化（全局）
+  handleLogTaskStatus (message) {
+    const { taskId, status, progress, error, timestamp } = message
+    this.triggerEvent('logTaskStatusChange', {
+      taskId,
+      status,
+      progress,
+      error,
+      timestamp
+    })
+  }
+
+  // 处理手术队列任务状态变化（全局）
+  handleSurgeryTaskStatus (message) {
+    const { taskId, status, progress, error, timestamp } = message
+    this.triggerEvent('surgeryTaskStatusChange', {
+      taskId,
+      status,
+      progress,
       error,
       timestamp
     })

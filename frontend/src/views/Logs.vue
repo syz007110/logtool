@@ -339,7 +339,7 @@
               row-key="id"
             >
               <el-table-column type="selection" width="55" />
-              <el-table-column prop="original_name" :label="$t('logs.logFilename')" width="240">
+              <el-table-column prop="original_name" :label="$t('logs.logFilename')" min-width="240">
                 <template #header>
                   <div class="col-header">
                         <span>{{ $t('logs.logFilename') }}</span>
@@ -381,7 +381,7 @@
                 </template>
               </el-table-column>
               
-              <el-table-column :label="$t('logs.status')" width="160" align="center">
+              <el-table-column :label="$t('shared.status')" width="160" align="center">
                 <template #default="{ row }">
                   <el-tag :type="getRowStatusType(row)" size="small">
                     {{ getRowStatusText(row) }}
@@ -389,7 +389,7 @@
                 </template>
               </el-table-column>
               
-              <el-table-column :label="$t('shared.operation')" width="200" fixed="right" align="left">
+              <el-table-column :label="$t('shared.operation')" width="200" align="left">
                 <template #default="{ row }">
                   <div class="operation-buttons">
                     <el-button 

@@ -7,6 +7,7 @@ const { sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const errorCodeCache = require('../services/errorCodeCache');
+const errorCodeCacheSyncService = require('../services/errorCodeCacheSyncService');
 const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
 const { searchByKeywords } = require('../services/errorCodeSearchService');
 const fs = require('fs');
@@ -465,6 +466,7 @@ const createErrorCode = async (req, res) => {
     }
     
     // 同步到ES（异步，不阻塞响应）
+    await errorCodeCacheSyncService.publishReload('error_code_created', { errorCodeId: errorCode.id });
     syncErrorCodeToEs(errorCode.id, 'zh').catch(() => {});
     
     res.status(201).json({ message: req.t('shared.created'), errorCode });
@@ -608,6 +610,7 @@ const updateErrorCode = async (req, res) => {
     }
     
     // 同步到ES（异步，不阻塞响应）- 同步所有语言版本
+    await errorCodeCacheSyncService.publishReload('error_code_updated', { errorCodeId: errorCode.id });
     syncErrorCodeAllLangsToEs(errorCode.id).catch(() => {});
     
     res.json({ message: req.t('shared.updated'), errorCode });
@@ -723,6 +726,7 @@ const deleteErrorCode = async (req, res) => {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码删除:', cacheError.message);
     }
     
+    await errorCodeCacheSyncService.publishReload('error_code_deleted', { errorCodeId: Number(id) });
     res.json({ message: req.t('shared.deleted') });
   } catch (err) {
     console.error('删除故障码失败:', err);

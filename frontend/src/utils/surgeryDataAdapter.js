@@ -49,6 +49,49 @@ function normalizeTimeToRaw (timeValue) {
 }
 
 /**
+ * 保持原始时间格式（精确到毫秒）
+ * @param {string|Date} timeValue - 时间字符串或Date对象
+ * @returns {string} 原始时间格式字符串 (YYYY-MM-DD HH:mm:ss.SSS)
+ */
+function normalizeTimeToRawWithMs (timeValue) {
+  if (!timeValue) return null
+
+  try {
+    if (typeof timeValue === 'string') {
+      const rawMatch = timeValue.match(
+        /^(\d{4})-(\d{2})-(\d{2})[T\s]+(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/
+      )
+      if (rawMatch) {
+        const year = Number(rawMatch[1])
+        const month = Number(rawMatch[2])
+        const day = Number(rawMatch[3])
+        const hour = Number(rawMatch[4])
+        const minute = Number(rawMatch[5])
+        const second = Number(rawMatch[6])
+        const ms = String(rawMatch[7] || '0').padEnd(3, '0').slice(0, 3)
+        const d = new Date(year, month - 1, day, hour, minute, second, Number(ms))
+        const pad = (n) => String(n).padStart(2, '0')
+        const padMs = (n) => String(n).padStart(3, '0')
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${padMs(d.getMilliseconds())}`
+      }
+    }
+
+    const date = timeValue instanceof Date ? timeValue : new Date(timeValue)
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ 无效的毫秒时间格式:', timeValue)
+      return timeValue
+    }
+
+    const pad = (n) => String(n).padStart(2, '0')
+    const padMs = (n) => String(n).padStart(3, '0')
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${padMs(date.getMilliseconds())}`
+  } catch (error) {
+    console.warn('⚠️ 毫秒时间转换失败:', timeValue, error)
+    return timeValue
+  }
+}
+
+/**
  * 统一的手术数据适配器
  * @param {Object} rawData - 原始手术数据（可能来自统计页面或数据库）
  * @returns {Object} 标准化的手术数据
@@ -68,6 +111,9 @@ export function adaptSurgeryData (rawData) {
   // 情况1：手术统计页面的数据格式
   if (rawData.postgresql_row_preview?.structured_data) {
     structuredData = rawData.postgresql_row_preview.structured_data
+    const deviceId = rawData.postgresql_row_preview.device_id ||
+      (Array.isArray(rawData.postgresql_row_preview.device_ids) ? rawData.postgresql_row_preview.device_ids[0] : null) ||
+      null
     metadata = {
       surgery_id: rawData.surgery_id || rawData.postgresql_row_preview.surgery_id,
       // 统一标准化为原始时间格式（YYYY-MM-DD HH:mm:ss）
@@ -75,31 +121,40 @@ export function adaptSurgeryData (rawData) {
       end_time: normalizeTimeToRaw(rawData.surgery_end_time || rawData.postgresql_row_preview.end_time),
       is_remote: rawData.is_remote_surgery || rawData.postgresql_row_preview.is_remote,
       has_fault: rawData.has_error || rawData.postgresql_row_preview.has_fault,
-      device_ids: rawData.postgresql_row_preview.device_ids || [],
+      device_id: deviceId,
+      device_ids: deviceId ? [deviceId] : [],
       source_log_ids: rawData.postgresql_row_preview.source_log_ids || []
     }
   } else if (rawData.structured_data) {
     // 情况2：数据库手术记录的数据格式
     structuredData = rawData.structured_data
+    const deviceId = rawData.device_id ||
+      (Array.isArray(rawData.device_ids) ? rawData.device_ids[0] : null) ||
+      null
     metadata = {
       surgery_id: rawData.surgery_id,
       start_time: normalizeTimeToRaw(rawData.start_time),
       end_time: normalizeTimeToRaw(rawData.end_time),
       is_remote: rawData.is_remote,
       has_fault: rawData.has_fault,
-      device_ids: rawData.device_ids || [],
+      device_id: deviceId,
+      device_ids: deviceId ? [deviceId] : [],
       source_log_ids: rawData.source_log_ids || []
     }
   } else if (rawData.arms || rawData.surgery_stats || rawData.power_cycles) {
     // 情况3：直接传入的结构化数据
     structuredData = rawData
+    const deviceId = rawData.device_id ||
+      (Array.isArray(rawData.device_ids) ? rawData.device_ids[0] : null) ||
+      null
     metadata = {
       surgery_id: rawData.surgery_id,
       start_time: normalizeTimeToRaw(rawData.start_time || rawData.surgery_start_time),
       end_time: normalizeTimeToRaw(rawData.end_time || rawData.surgery_end_time),
       is_remote: rawData.is_remote,
       has_fault: rawData.has_fault,
-      device_ids: rawData.device_ids || [],
+      device_id: deviceId,
+      device_ids: deviceId ? [deviceId] : [],
       source_log_ids: rawData.source_log_ids || []
     }
   } else if (rawData.arm1_usage || rawData.state_machine_changes || rawData.alarm_details) {
@@ -111,7 +166,8 @@ export function adaptSurgeryData (rawData) {
       end_time: normalizeTimeToRaw(rawData.surgery_end_time),
       is_remote: rawData.is_remote_surgery,
       has_fault: rawData.has_error,
-      device_ids: [],
+      device_id: rawData.device_id || null,
+      device_ids: rawData.device_id ? [rawData.device_id] : [],
       source_log_ids: rawData.log_id ? [rawData.log_id] : []
     }
   }
@@ -156,16 +212,48 @@ function convertAnalysisDataToStructured (analysisData) {
     }
   }
 
-  // 转换器械使用数据
+  // 转换器械使用数据（含能量激发：过滤到与器械使用时间重叠的激发段）
   for (let i = 1; i <= 4; i++) {
     const armUsage = analysisData[`arm${i}_usage`] || []
-    const instrumentUsage = armUsage.map(usage => ({
-      tool_type: usage.instrumentName || usage.tool_type || '未知器械',
-      udi: usage.udi || '无UDI',
-      start_time: normalizeTimeToRaw(usage.startTime || usage.start_time),
-      end_time: normalizeTimeToRaw(usage.endTime || usage.end_time),
-      energy_activation: []
-    }))
+    const armEnergyActivations = analysisData[`arm${i}_energy_activation`] || []
+
+    const instrumentUsage = armUsage.map(usage => {
+      const usageStart = usage.startTime || usage.start_time
+      const usageEnd = usage.endTime || usage.end_time
+      const usageStartMs = usageStart ? new Date(usageStart).getTime() : NaN
+      const usageEndMs = usageEnd ? new Date(usageEnd).getTime() : NaN
+
+      const energyForUsage = armEnergyActivations
+        .filter((evt) => {
+          if (!evt || !evt.start) return false
+          const evtStart = evt.start ? new Date(evt.start).getTime() : NaN
+          const evtEnd = evt.end ? new Date(evt.end).getTime() : NaN
+          if (!Number.isFinite(usageStartMs) || !Number.isFinite(evtStart)) return false
+          const uEnd = Number.isFinite(usageEndMs) ? usageEndMs : Number.POSITIVE_INFINITY
+          const eEnd = Number.isFinite(evtEnd) ? evtEnd : evtStart
+          return evtStart <= uEnd && eEnd >= usageStartMs
+        })
+        .map((evt) => ({
+          start: normalizeTimeToRaw(evt.start),
+          end: normalizeTimeToRaw(evt.end || evt.start),
+          active: evt.active ?? 0,
+          GripsActive: evt.GripsActive ?? 0,
+          type: evt.type || null
+        }))
+
+      return {
+        tool_type: usage.instrumentName || usage.tool_type || '未知器械',
+        udi: usage.udi || '无UDI',
+        cumulative_usage: usage.cumulative_usage || null,
+        start_time: normalizeTimeToRaw(usageStart),
+        end_time: normalizeTimeToRaw(usageEnd),
+        energy_activation: energyForUsage.map((evt) => ({
+          ...evt,
+          start: normalizeTimeToRawWithMs(evt.start),
+          end: normalizeTimeToRawWithMs(evt.end || evt.start)
+        }))
+      }
+    })
 
     structured.arms.push({
       arm_id: i,
@@ -249,6 +337,7 @@ function standardizeStructuredData (structuredData) {
       network_latency_ms: structuredData.surgery_stats?.network_latency_ms || [],
       faults: structuredData.surgery_stats?.faults || [],
       state_machine: structuredData.surgery_stats?.state_machine || [],
+      surgical_stage: structuredData.surgery_stats?.surgical_stage ?? null,
       arm_switch_count: structuredData.surgery_stats?.arm_switch_count || 0,
       left_hand_clutch: structuredData.surgery_stats?.left_hand_clutch || 0,
       right_hand_clutch: structuredData.surgery_stats?.right_hand_clutch || 0,
@@ -274,7 +363,15 @@ function standardizeStructuredData (structuredData) {
       standardized.arms[i].instrument_usage = standardized.arms[i].instrument_usage.map(usage => ({
         ...usage,
         start_time: normalizeTimeToRaw(usage.start_time),
-        end_time: normalizeTimeToRaw(usage.end_time)
+        end_time: normalizeTimeToRaw(usage.end_time),
+        cumulative_usage: usage.cumulative_usage || null,
+        energy_activation: Array.isArray(usage.energy_activation)
+          ? usage.energy_activation.map(evt => ({
+            ...evt,
+            start: normalizeTimeToRawWithMs(evt.start),
+            end: normalizeTimeToRawWithMs(evt.end || evt.start)
+          }))
+          : []
       }))
     }
   }

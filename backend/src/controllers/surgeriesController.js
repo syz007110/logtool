@@ -13,6 +13,9 @@ const LogEntry = {
 };
 const Log = require('../models/log');
 const Device = require('../models/device');
+const SurgeryExportPending = require('../models/surgeryExportPending');
+const SurgeryAnalysisFailedLog = require('../models/surgeryAnalysisFailedLog');
+const SurgeryAnalysisFailedGroup = require('../models/surgeryAnalysisFailedGroup');
 
 // 将Date对象转换为原始时间字符串（不进行时区转换）
 function formatRawDateTime(dateLike) {
@@ -37,11 +40,11 @@ function formatRawDateTime(dateLike) {
         return dateLike;
       }
     }
-    
+
     // 如果是Date对象，提取原始时间
     const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
     if (isNaN(date.getTime())) return null;
-    
+
     // 使用本地时间方法（不是UTC），按原始时间提取
     const pad = (n) => String(n).padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
@@ -51,12 +54,13 @@ function formatRawDateTime(dateLike) {
 }
 
 // 转换Sequelize模型实例为纯对象，并将时间字段转换为原始时间字符串
-function convertSurgeryToPlain(surgery) {
+function convertSurgeryToPlain(surgery, options = {}) {
   if (!surgery) return null;
-  
+  const { transformStructuredDataTimes = true } = options;
+
   // 使用 get({ plain: true }) 获取纯对象
   const plain = surgery.get ? surgery.get({ plain: true }) : surgery;
-  
+
   // 转换时间字段
   const converted = { ...plain };
   if (converted.start_time) {
@@ -65,25 +69,29 @@ function convertSurgeryToPlain(surgery) {
   if (converted.end_time) {
     converted.end_time = formatRawDateTime(converted.end_time);
   }
-  
-  // 递归转换structured_data中的时间字段
-  if (converted.structured_data && typeof converted.structured_data === 'object') {
+  // 向前兼容旧前端字段（逐步淘汰）
+  if (!Array.isArray(converted.device_ids)) {
+    converted.device_ids = converted.device_id ? [converted.device_id] : [];
+  }
+
+  // 递归转换structured_data中的时间字段（大 JSON 场景可按需关闭）
+  if (transformStructuredDataTimes && converted.structured_data && typeof converted.structured_data === 'object') {
     converted.structured_data = convertStructuredDataTimes(converted.structured_data);
   }
-  
+
   return converted;
 }
 
 // 递归转换structured_data中的所有时间字段
 function convertStructuredDataTimes(data) {
   if (!data || typeof data !== 'object') return data;
-  
+
   if (Array.isArray(data)) {
     return data.map(item => convertStructuredDataTimes(item));
   }
-  
+
   const converted = { ...data };
-  
+
   for (const [key, value] of Object.entries(converted)) {
     const lowerKey = String(key).toLowerCase();
     // 检查是否是时间字段
@@ -96,18 +104,17 @@ function convertStructuredDataTimes(data) {
       converted[key] = convertStructuredDataTimes(value);
     }
   }
-  
+
   return converted;
 }
 
 // 列表：支持 device_id 模糊筛选与分页
 exports.listSurgeries = async (req, res) => {
   try {
-    const { device_id, page = 1, limit = 20, type, time_range_start, time_range_end } = req.query;
+    const { device_id, page = 1, limit = 20, type, time_range_start, time_range_end, skip_count, include_structured_data } = req.query;
     const where = {};
     if (device_id) {
-      // 精确匹配包含该设备编号的手术（PostgreSQL ARRAY contains）
-      where.device_ids = { [Op.contains]: [String(device_id)] };
+      where.device_id = String(device_id);
     }
 
     if (type === 'fault') {
@@ -164,30 +171,78 @@ exports.listSurgeries = async (req, res) => {
     const { page: pageNum, limit: limitNum } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
     const offset = (pageNum - 1) * limitNum;
 
-    const { rows, count } = await Surgery.findAndCountAll({
+    const shouldSkipCount = ['1', 'true', 'yes'].includes(String(skip_count || '').toLowerCase());
+    const includeStructuredData = !['0', 'false', 'no'].includes(String(include_structured_data || '').toLowerCase());
+    const queryLimit = shouldSkipCount ? (limitNum + 1) : limitNum;
+    const findAllOptions = {
       where,
       order: [['start_time', 'DESC']],
-      limit: limitNum,
+      limit: queryLimit,
       offset
-    });
+    };
+    if (!includeStructuredData) {
+      findAllOptions.attributes = { exclude: ['structured_data'] };
+    }
 
-    // 附带医院名称（仅基于 surgery.device_ids 与设备表关联，不额外要求设备权限）
+    let rows = [];
+    let count = null;
+    let hasMore = false;
+
+    if (shouldSkipCount) {
+      rows = await Surgery.findAll(findAllOptions);
+      if (rows.length > limitNum) {
+        hasMore = true;
+        rows = rows.slice(0, limitNum);
+      }
+    } else {
+      // 并行执行 count 与 list，避免 findAndCountAll 的串行两查导致设备详情列表加载慢
+      [rows, count] = await Promise.all([
+        Surgery.findAll({ ...findAllOptions, limit: limitNum }),
+        Surgery.count({ where })
+      ]);
+    }
+
+    const surgeryIds = Array.from(new Set((rows || []).map(r => r.surgery_id).filter(Boolean)));
+    const pendingBySurgeryId = new Map();
+    if (surgeryIds.length > 0) {
+      try {
+        const pendingRows = await SurgeryExportPending.findAll({
+          where: { surgery_id: { [Op.in]: surgeryIds } },
+          attributes: ['id', 'surgery_id', 'updated_at']
+        });
+        pendingRows.forEach((item) => {
+          pendingBySurgeryId.set(item.surgery_id, {
+            pending_export_id: item.id,
+            pending_updated_at: item.updated_at
+          });
+        });
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    // 附带医院名称（仅基于 surgery.device_id 与设备表关联，不额外要求设备权限）
     try {
-      // 收集所有出现的设备编号
-      const allDeviceIds = Array.from(new Set((rows || []).flatMap(r => Array.isArray(r.device_ids) ? r.device_ids : []).filter(Boolean)));
+      const allDeviceIds = Array.from(new Set((rows || []).map(r => r.device_id).filter(Boolean)));
       let deviceIdToHospital = new Map();
       if (allDeviceIds.length > 0) {
         const devices = await Device.findAll({ where: { device_id: { [Op.in]: allDeviceIds } }, attributes: ['device_id', 'hospital'] });
         deviceIdToHospital = new Map(devices.map(d => [d.device_id, d.hospital || null]));
       }
 
-      // 为每条手术记录附加 hospital_names（数组）与 hospital_name（首个非空）
+      // 为每条手术记录附加 hospital_names（兼容字段）与 hospital_name
       rows.forEach(r => {
-        const ids = Array.isArray(r.device_ids) ? r.device_ids : [];
-        const hospitals = ids.map(id => deviceIdToHospital.get(id) || null).filter(h => h);
-        // 注意：直接修改实例不会丢失字段；返回时序列化为JSON
+        const did = r.device_id || null;
+        const pending = pendingBySurgeryId.get(r.surgery_id) || null;
+        const hospital = did ? (deviceIdToHospital.get(did) || null) : null;
+        const hospitals = hospital ? [hospital] : [];
         r.setDataValue('hospital_names', hospitals);
         r.setDataValue('hospital_name', hospitals.length > 0 ? hospitals[0] : null);
+        // 向前兼容旧前端字段，逐步淘汰 device_ids
+        r.setDataValue('device_ids', did ? [did] : []);
+        r.setDataValue('has_pending_confirmation', !!pending);
+        r.setDataValue('pending_export_id', pending ? pending.pending_export_id : null);
+        r.setDataValue('pending_updated_at', pending ? pending.pending_updated_at : null);
       });
     } catch (e) {
       // 附加失败不影响主体数据
@@ -195,8 +250,15 @@ exports.listSurgeries = async (req, res) => {
 
     // 转换时间字段为原始时间字符串，避免JSON序列化时的UTC转换
     const convertedRows = rows.map(row => convertSurgeryToPlain(row));
-    
-    res.json({ success: true, data: convertedRows, total: count, page: pageNum, limit: limitNum });
+
+    res.json({
+      success: true,
+      data: convertedRows,
+      total: count,
+      page: pageNum,
+      limit: limitNum,
+      has_more: hasMore
+    });
   } catch (error) {
     console.error('listSurgeries error:', error);
     res.status(500).json({ success: false, message: '获取手术数据失败', error: error.message });
@@ -207,6 +269,7 @@ exports.listSurgeries = async (req, res) => {
 exports.getSurgeryById = async (req, res) => {
   try {
     const { id: rawId } = req.params;
+    const rawStructuredData = ['1', 'true', 'yes'].includes(String(req.query?.raw_structured_data || '').toLowerCase());
     let item = null;
 
     // 先尝试按主键（数值型）查找
@@ -224,8 +287,10 @@ exports.getSurgeryById = async (req, res) => {
     }
 
     // 转换时间字段为原始时间字符串，避免JSON序列化时的UTC转换
-    const convertedItem = convertSurgeryToPlain(item);
-    
+    const convertedItem = convertSurgeryToPlain(item, {
+      transformStructuredDataTimes: !rawStructuredData
+    });
+
     res.json({ success: true, data: convertedItem });
   } catch (error) {
     console.error('getSurgeryById error:', error);
@@ -239,6 +304,10 @@ exports.deleteSurgery = async (req, res) => {
     const id = parseInt(req.params.id);
     const item = await Surgery.findByPk(id);
     if (!item) return res.status(404).json({ success: false, message: '未找到手术数据' });
+    // 同步清理待确认表中相同 surgery_id 的记录（即便 FK 级联未命中也可保证一致性）
+    if (item.surgery_id) {
+      await SurgeryExportPending.destroy({ where: { surgery_id: String(item.surgery_id) } });
+    }
     await item.destroy();
     // 操作日志
     try {
@@ -252,7 +321,7 @@ exports.deleteSurgery = async (req, res) => {
         user_agent: req.headers['user-agent'],
         details: { id, surgery_id: item.surgery_id || null }
       });
-    } catch (_) {}
+    } catch (_) { }
 
     res.json({ success: true, message: '删除成功' });
   } catch (error) {
@@ -293,13 +362,13 @@ exports.listSurgeriesByDevice = async (req, res) => {
   try {
     const { keyword } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.DEVICE_GROUP);
-    
+
     const { postgresqlSequelize } = require('../config/postgresql');
     const offset = (page - 1) * limit;
 
     // 关键点：surgeries 在 PostgreSQL，但 devices 在 MySQL（默认 sequelize）。
     // 所以这里不能在 PostgreSQL SQL 里直接 JOIN devices；改为：
-    // 1) PostgreSQL：unnest(device_ids) 后按 device_id 分组 + 分页
+    // 1) PostgreSQL：按单列 device_id 分组 + 分页
     // 2) MySQL：仅查询当前页 device_id 的设备信息（hospital/device_model）并合并
 
     const keywordStr = (keyword || '').toString().trim();
@@ -328,7 +397,7 @@ exports.listSurgeriesByDevice = async (req, res) => {
       }
     }
 
-    // PostgreSQL where（针对展开后的 device_id）
+    // PostgreSQL where（针对 device_id）
     // - keyword：device_id 模糊匹配（覆盖“设备不在 MySQL 表”的情况）
     // - keyword：如果 MySQL 匹配到了医院/设备号，再把这些 device_id 也 OR 进来
     let pgParamIndex = 1;
@@ -349,41 +418,81 @@ exports.listSurgeriesByDevice = async (req, res) => {
       }
     }
 
-    const pgWhereSql = pgWhereParts.length ? ('WHERE ' + pgWhereParts.join(' AND ')) : '';
+    const pgWhereSql = pgWhereParts.length ? (' AND ' + pgWhereParts.join(' AND ')) : '';
 
-    // 1) 总数：设备分组后的数量（用于分页）
-    const countSql = `
-      WITH expanded AS (
-        SELECT unnest(device_ids) AS device_id, start_time
-        FROM surgeries
-        WHERE device_ids IS NOT NULL AND array_length(device_ids, 1) > 0
-      )
-      SELECT COUNT(DISTINCT device_id) AS total
-      FROM expanded
-      ${pgWhereSql}
-    `;
-    const countRows = await postgresqlSequelize.query(countSql, {
-      bind: pgBinds,
-      type: Sequelize.QueryTypes.SELECT
-    });
-    const total = Number(countRows?.[0]?.total || 0);
-    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+    let hasPendingTable = false;
+    try {
+      const tableCheck = await postgresqlSequelize.query(`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_name = 'surgery_export_pending'
+        ) AS exists
+      `, { type: Sequelize.QueryTypes.SELECT });
+      hasPendingTable = !!tableCheck?.[0]?.exists;
+    } catch (_) {
+      hasPendingTable = false;
+    }
 
-    // 2) 当前页：按 device_id 分组统计
+    const pendingByDeviceCte = hasPendingTable
+      ? `
+      pending_by_device AS (
+        SELECT
+          COALESCE(
+            s.device_id,
+            p.new_data->'postgresqlData'->>'device_id',
+            p.new_data->'newData'->>'device_id'
+          ) AS device_id,
+          COUNT(*) AS pending_confirm_count
+        FROM surgery_export_pending p
+        LEFT JOIN surgeries s ON s.id = p.existing_postgresql_id
+        WHERE COALESCE(
+          s.device_id,
+          p.new_data->'postgresqlData'->>'device_id',
+          p.new_data->'newData'->>'device_id'
+        ) IS NOT NULL
+        AND COALESCE(
+          s.device_id,
+          p.new_data->'postgresqlData'->>'device_id',
+          p.new_data->'newData'->>'device_id'
+        ) <> ''
+        GROUP BY COALESCE(
+          s.device_id,
+          p.new_data->'postgresqlData'->>'device_id',
+          p.new_data->'newData'->>'device_id'
+        )
+      )`
+      : `
+      pending_by_device AS (
+        SELECT
+          NULL::text AS device_id,
+          0::bigint AS pending_confirm_count
+        WHERE FALSE
+      )`;
+
+    // 单次扫描：先分组，再使用窗口函数返回总分组数，避免 count/data 两次全表展开
     const dataSql = `
-      WITH expanded AS (
-        SELECT unnest(device_ids) AS device_id, start_time
+      WITH
+      grouped AS (
+        SELECT
+          device_id,
+          COUNT(*) AS surgery_count,
+          MAX(start_time) AS latest_surgery_time
         FROM surgeries
-        WHERE device_ids IS NOT NULL AND array_length(device_ids, 1) > 0
-      )
+        WHERE device_id IS NOT NULL AND device_id <> ''
+        ${pgWhereSql}
+        GROUP BY device_id
+      ),
+      ${pendingByDeviceCte}
       SELECT
-        device_id,
-        COUNT(*) AS surgery_count,
-        MAX(start_time) AS latest_surgery_time
-      FROM expanded
-      ${pgWhereSql}
-      GROUP BY device_id
-      ORDER BY latest_surgery_time DESC NULLS LAST
+        g.device_id,
+        g.surgery_count,
+        g.latest_surgery_time,
+        COALESCE(p.pending_confirm_count, 0) AS pending_confirm_count,
+        COUNT(*) OVER() AS total_groups
+      FROM grouped g
+      LEFT JOIN pending_by_device p ON p.device_id = g.device_id
+      ORDER BY g.latest_surgery_time DESC NULLS LAST
       LIMIT $${pgParamIndex} OFFSET $${pgParamIndex + 1}
     `;
 
@@ -392,7 +501,35 @@ exports.listSurgeriesByDevice = async (req, res) => {
       type: Sequelize.QueryTypes.SELECT
     });
 
+    const total = Number(dataRows?.[0]?.total_groups || 0);
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
     const pageDeviceIds = (dataRows || []).map(r => r.device_id).filter(Boolean);
+    const failedByDevice = new Map();
+    if (pageDeviceIds.length > 0) {
+      try {
+        if (typeof SurgeryAnalysisFailedLog.ensureTable === 'function') {
+          await SurgeryAnalysisFailedLog.ensureTable();
+        }
+        const failedRows = await SurgeryAnalysisFailedLog.findAll({
+          where: { device_id: { [Op.in]: pageDeviceIds } },
+          attributes: ['device_id', 'failed_log_ids', 'failed_log_details', 'updated_at']
+        });
+        failedRows.forEach((item) => {
+          const ids = Array.isArray(item.failed_log_ids)
+            ? Array.from(new Set(item.failed_log_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))))
+            : [];
+          failedByDevice.set(item.device_id, {
+            failed_log_ids: ids,
+            failed_log_details: Array.isArray(item.failed_log_details) ? item.failed_log_details : [],
+            failed_log_count: ids.length,
+            failed_updated_at: item.updated_at || null
+          });
+        });
+      } catch (_) {
+        // ignore: table may not exist in old env
+      }
+    }
 
     // MySQL：补齐当前页设备信息
     const deviceIdToInfo = new Map();
@@ -415,12 +552,18 @@ exports.listSurgeriesByDevice = async (req, res) => {
 
     const device_groups = (dataRows || []).map(r => {
       const info = deviceIdToInfo.get(r.device_id) || {};
+      const failedInfo = failedByDevice.get(r.device_id) || null;
       return {
         device_id: r.device_id || '未知设备',
         hospital_name: info.hospital_name || null,
         device_name: info.device_model || null,
         surgery_count: Number(r.surgery_count || 0),
-        latest_surgery_time: r.latest_surgery_time || null
+        latest_surgery_time: r.latest_surgery_time || null,
+        pending_confirm_count: Number(r.pending_confirm_count || 0),
+        failed_analysis_log_count: Number(failedInfo?.failed_log_count || 0),
+        failed_analysis_log_ids: Array.isArray(failedInfo?.failed_log_ids) ? failedInfo.failed_log_ids : [],
+        failed_analysis_log_details: Array.isArray(failedInfo?.failed_log_details) ? failedInfo.failed_log_details : [],
+        failed_analysis_updated_at: failedInfo?.failed_updated_at || null
       };
     });
 
@@ -451,7 +594,7 @@ exports.getSurgeryTimeFilters = async (req, res) => {
     }
 
     const { postgresqlSequelize } = require('../config/postgresql');
-    
+
     // 使用PostgreSQL的生成列 start_year, start_month, start_day
     // 注意：PostgreSQL中使用 $1, $2 等位置参数
     const query = `
@@ -460,7 +603,7 @@ exports.getSurgeryTimeFilters = async (req, res) => {
         start_month AS month,
         start_day AS day
       FROM surgeries
-      WHERE $1 = ANY(device_ids)
+      WHERE device_id = $1
         AND start_time IS NOT NULL
         AND start_year IS NOT NULL
       ORDER BY year DESC, month DESC, day DESC
@@ -546,6 +689,44 @@ exports.getSurgeryTimeFilters = async (req, res) => {
   } catch (error) {
     console.error('getSurgeryTimeFilters error:', error);
     return res.status(500).json({ success: false, message: '获取手术时间筛选项失败', error: error.message });
+  }
+};
+
+// 获取设备维度的手术分析失败分组（用于详情抽屉展示 + 分组重试）
+exports.getFailedAnalysisGroups = async (req, res) => {
+  try {
+    const deviceId = String(req.query?.device_id || '').trim();
+    if (!deviceId) {
+      return res.status(400).json({ success: false, message: 'device_id is required' });
+    }
+
+    if (typeof SurgeryAnalysisFailedGroup.ensureTable === 'function') {
+      await SurgeryAnalysisFailedGroup.ensureTable();
+    }
+    const rows = await SurgeryAnalysisFailedGroup.findAll({
+      where: { device_id: deviceId },
+      order: [['last_failed_at', 'DESC']],
+      attributes: [
+        'id',
+        'device_id',
+        'failed_log_ids',
+        'source_group_log_ids',
+        'failed_log_details',
+        'fail_count',
+        'first_failed_at',
+        'last_failed_at',
+        'last_task_id',
+        'updated_by'
+      ]
+    });
+
+    return res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('getFailedAnalysisGroups error:', error);
+    return res.status(500).json({ success: false, message: '获取失败分组记录失败', error: error.message });
   }
 };
 

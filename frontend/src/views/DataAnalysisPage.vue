@@ -443,7 +443,7 @@
                     <span class="one-line-ellipsis" :title="row.original_name || row.filename">{{ row.original_name || row.filename }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="$t('logs.status')" width="160" align="center">
+                <el-table-column :label="$t('shared.status')" width="160" align="center">
                   <template #default="{ row }">
                     <el-tag :type="getLogStatusType(row)" size="small">
                       {{ getLogStatusText(row) }}
@@ -524,7 +524,7 @@
               <span class="one-line-ellipsis" :title="row.original_name || row.filename">{{ row.original_name || row.filename }}</span>
             </template>
           </el-table-column>
-          <el-table-column :label="$t('logs.status')" width="160" align="center">
+          <el-table-column :label="$t('shared.status')" width="160" align="center">
             <template #default="{ row }">
               <el-tag :type="getMotionStatusType(row)" size="small">
                 {{ getMotionStatusText(row) }}
@@ -705,7 +705,7 @@
                     <span class="one-line-ellipsis" :title="row.original_name || row.filename">{{ row.original_name || row.filename }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="$t('logs.status')" width="160" align="center">
+                <el-table-column :label="$t('shared.status')" width="160" align="center">
                   <template #default="{ row }">
                     <el-tag :type="getMotionStatusType(row)" size="small">
                       {{ getMotionStatusText(row) }}

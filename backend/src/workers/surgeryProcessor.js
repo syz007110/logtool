@@ -58,10 +58,21 @@ function computeSourceAndEntryRange(surgery, entries) {
     const ids = involved.map(e => e.id).filter(id => typeof id !== 'undefined');
     if (ids.length) {
       const numeric = ids.map(n => Number(n)).filter(v => Number.isFinite(v));
+      let minEntryId = null;
+      let maxEntryId = null;
+      if (numeric.length > 0) {
+        minEntryId = numeric[0];
+        maxEntryId = numeric[0];
+        for (let i = 1; i < numeric.length; i += 1) {
+          const v = numeric[i];
+          if (v < minEntryId) minEntryId = v;
+          if (v > maxEntryId) maxEntryId = v;
+        }
+      }
       return {
         sourceLogIds,
-        minEntryId: numeric.length ? Math.min(...numeric) : null,
-        maxEntryId: numeric.length ? Math.max(...numeric) : null
+        minEntryId,
+        maxEntryId
       };
     }
     return { sourceLogIds, minEntryId: null, maxEntryId: null };
@@ -82,6 +93,8 @@ async function processSurgeryAnalysisJob(job) {
   const allLogEntries = [];
   let processedLogs = 0;
   const logIdToDeviceId = new Map();
+  const failedLogs = [];
+  const skippedLogs = [];
   const client = getClickHouseClient();
 
   // 预先拉取所有相关日志的元数据（包括 version），避免循环中重复查询
@@ -100,6 +113,10 @@ async function processSurgeryAnalysisJob(job) {
       const logInfo = logMetaMap.get(numericLogId);
 
       if (!logInfo) {
+        skippedLogs.push({
+          logId: numericLogId,
+          reason: 'log metadata not found'
+        });
         processedLogs++;
         continue;
       }
@@ -141,6 +158,10 @@ async function processSurgeryAnalysisJob(job) {
       allLogEntries.push(...entriesWithLogName);
       processedLogs++;
     } catch (e) {
+      failedLogs.push({
+        logId: Number(logId),
+        reason: e?.message || 'unknown error'
+      });
       processedLogs++;
     }
   }
@@ -157,7 +178,7 @@ async function processSurgeryAnalysisJob(job) {
     surgeries.forEach((surgery) => {
       try {
         surgery.postgresql_structure = analyzer.toPostgreSQLStructure(surgery);
-      } catch (_) {}
+      } catch (_) { }
     });
   }
 
@@ -187,7 +208,15 @@ async function processSurgeryAnalysisJob(job) {
   });
 
   await job.progress(100);
-  return { surgeries };
+  const failedLogIds = Array.from(new Set(failedLogs.map((item) => Number(item.logId)).filter((v) => Number.isFinite(v))));
+  const skippedLogIds = Array.from(new Set(skippedLogs.map((item) => Number(item.logId)).filter((v) => Number.isFinite(v))));
+  return {
+    surgeries,
+    failedLogs,
+    failedLogIds,
+    skippedLogs,
+    skippedLogIds
+  };
 }
 
 module.exports = {

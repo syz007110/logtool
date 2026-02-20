@@ -26,7 +26,7 @@ function getOutputDir() {
 }
 
 function isSupportedExt(ext) {
-  return new Set(['.txt', '.md', '.json', '.docx']).has(ext);
+  return new Set(['.txt', '.md', '.json', '.docx', '.xml']).has(ext);
 }
 
 function decodeMaybeLatin1(name) {
@@ -54,7 +54,7 @@ async function createTranslateTask(req, res) {
       return res.status(400).json({
         success: false,
         message: `不支持的文件类型: ${ext || '(无后缀)'}`,
-        supported: ['.txt', '.md', '.json', '.docx']
+        supported: ['.txt', '.md', '.json', '.docx', '.xml']
       });
     }
 

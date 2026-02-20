@@ -54,13 +54,12 @@
         </div>
       </div>
 
-      <!-- 手术统计结果（列表） -->
+      <!-- 手术统计结果（列表）：弹窗内做加载效果，分析结束后展示结果 -->
       <el-dialog v-model="showSurgeryStatsDialog" :title="$t('batchAnalysis.surgeryStatistics')" width="900px" append-to-body>
         <div v-if="surgeryStatsLoading" style="padding: 24px 0;">
           <el-empty :description="$t('batchAnalysis.analyzing')" />
         </div>
-        <div v-else>
-          <el-table :data="surgeryStats" style="width:100%">
+        <el-table v-else :data="surgeryStats" style="width:100%">
             <el-table-column prop="surgery_id" :label="$t('logs.surgeryId')" width="220" />
             <!-- 手术术式列已隐藏 -->
             <!-- <el-table-column label="手术术式" min-width="200">
@@ -89,7 +88,6 @@
               </template>
             </el-table-column>
           </el-table>
-        </div>
         <template #footer>
           <el-button class="btn-secondary" @click="showSurgeryStatsDialog=false">{{ $t('batchAnalysis.close') }}</el-button>
         </template>
@@ -535,6 +533,7 @@
               <template #default="{ row }">
                 <div class="error-code-cell" @click="toggleErrorCodeStatistics(row.error_code)">
                   {{ row.error_code }}
+                  <span v-if="row.is_ungraded" class="ungraded-mark">*</span>
                   <span 
                     v-if="showStatisticsForErrorCode === row.error_code && getErrorCodeCountDisplay(row.error_code)" 
                     class="error-code-badge"
@@ -854,7 +853,11 @@
       :existing-data="compareData.existingData"
       :new-data="compareData.newData"
       :differences="compareData.differences"
+      :text-diff="compareData.textDiff || ''"
       :surgery-data="compareData.surgeryData"
+      :allow-keep-existing="Number(compareData.pendingExportId || 0) > 0"
+      :pending-export-id="compareData.pendingExportId || null"
+      :full-data-included="compareData.fullDataIncluded === true"
       @confirmed="showCompareDialog = false"
     />
   </div>
@@ -2250,7 +2253,8 @@ export default {
         const baseParams = {
           log_ids: logIds,
           page,
-          limit: pageSize.value
+          limit: pageSize.value,
+          include_ungraded: true
         }
         
         // 添加高级筛选条件
@@ -2835,30 +2839,35 @@ export default {
 
     // 无
 
-    // 跳转到手术统计页面
+    // 手术数据分析（与手术数据页一致：analyzeByLogIds + 轮询 task 状态）；仅本页霸屏等待，分析结束后再打开弹窗展示结果列表
     const showSurgeryStatistics = async () => {
-      // 需要具备手术分析权限（管理员、专家）
       if (!store.getters['auth/hasPermission']?.('surgery:read')) {
         ElMessage.warning(t('batchAnalysis.insufficientPermissions'))
         return
       }
-      // 确保有已排序的日志条目数据
       if (batchLogEntries.value.length === 0) {
         ElMessage.warning(t('batchAnalysis.loadLogEntriesFirst'))
         return
       }
-      
+
       try {
+        surgeryStatsPollingCancelled.value = false
         showSurgeryStatsDialog.value = true
         surgeryStatsLoading.value = true
-      const logIds = selectedLogs.value.map(log => log.id)
-        const resp = await api.surgeryStatistics.analyzeByLogIds(logIds, true, displayTimezoneOffsetMinutes.value)
+        const logIds = selectedLogs.value.map(log => log.id)
+        const resp = await api.surgeryStatistics.analyzeByLogIds(
+          logIds,
+          true,
+          displayTimezoneOffsetMinutes.value,
+          { autoImport: true }
+        )
 
         if (resp.data?.taskId) {
           const taskId = resp.data.taskId
           let attempts = 0
-          const maxAttempts = 30 // 最多轮询30秒
+          const maxAttempts = 30
           while (attempts < maxAttempts) {
+            if (surgeryStatsPollingCancelled.value) break
             try {
               const status = await api.surgeryStatistics.getAnalysisTaskStatus(taskId)
               const result = status.data?.data?.result
@@ -2866,21 +2875,18 @@ export default {
                 surgeryStats.value = result
                 break
               }
-            } catch (_) {
-              // 忽略单次失败继续轮询
-            }
+            } catch (_) {}
             await new Promise(r => setTimeout(r, 1000))
             attempts++
           }
-          if (!Array.isArray(surgeryStats.value) || surgeryStats.value.length === 0) {
+          if (!surgeryStatsPollingCancelled.value && (!Array.isArray(surgeryStats.value) || surgeryStats.value.length === 0)) {
             ElMessage.warning('未获取到手术统计结果，请稍后重试')
           }
         } else {
-          // 兼容旧版直接返回数据的情况
           surgeryStats.value = resp.data?.data || []
         }
       } catch (e) {
-        ElMessage.error('手术统计失败')
+        if (!surgeryStatsPollingCancelled.value) ElMessage.error('手术统计失败')
       } finally {
         surgeryStatsLoading.value = false
       }
@@ -2894,9 +2900,10 @@ export default {
       } catch {}
     }
 
-    // 手术统计（仅列表显示）
+    // 手术统计（仅列表显示）；关闭弹窗时停止轮询，避免任务卡住且「进行中」数量不更新
     const showSurgeryStatsDialog = ref(false)
     const surgeryStatsLoading = ref(false)
+    const surgeryStatsPollingCancelled = ref(false)
     const surgeryStats = ref([])
     const exportingRow = ref({})
     const surgeryJsonDialogVisible = ref(false)
@@ -2906,6 +2913,11 @@ export default {
 
     // 权限检查
     const hasExportPermission = computed(() => store.getters['auth/hasPermission']?.('surgery:export'))
+
+    // 关闭手术统计弹窗且正在加载时，停止轮询，避免「进行中」卡住（后端会在 /tasks/active 时刷新状态）
+    watch(showSurgeryStatsDialog, (visible) => {
+      if (!visible && surgeryStatsLoading.value) surgeryStatsPollingCancelled.value = true
+    })
 
     const visualizeSurgeryStat = (row) => {
       // 优先使用准备写入数据库的结构（与手术数据页一致）
@@ -2946,7 +2958,10 @@ export default {
               existingData: response.data.existingData,
               newData: response.data.newData,
               differences: response.data.differences,
-              surgeryData: row
+              textDiff: response.data.textDiff || '',
+              surgeryData: row,
+              pendingExportId: response.data.pending_export_id || null,
+              fullDataIncluded: true
             }
           }
         } else {
@@ -3213,7 +3228,12 @@ export default {
       try {
         // 使用统一的接口，一次性分析所有选中的日志
         const logIds = selectedLogs.value.map(log => log.id)
-        const response = await api.surgeryStatistics.analyzeByLogIds(logIds, true, displayTimezoneOffsetMinutes.value)
+        const response = await api.surgeryStatistics.analyzeByLogIds(
+          logIds,
+          true,
+          displayTimezoneOffsetMinutes.value,
+          { autoImport: true }
+        )
         
         if (response.data.success) {
           ElMessage.success(response.data.message || `成功分析出 ${response.data.data?.length || 0} 场手术`)
@@ -4400,7 +4420,7 @@ export default {
     // 生成与 loadBatchLogEntries 一致的请求参数（用于按页拉取）
     const buildBatchFetchParams = (page) => {
       const logIds = selectedLogs.value.map(l => l.id).join(',')
-      const baseParams = { log_ids: logIds, page, limit: pageSize.value }
+      const baseParams = { log_ids: logIds, page, limit: pageSize.value, include_ungraded: true }
       if (advancedMode.value && leafConditionCount.value > 0) {
         const filtersPayload = buildFiltersPayload()
         if (filtersPayload) baseParams.filters = JSON.stringify(filtersPayload)
@@ -6633,6 +6653,12 @@ export default {
   font-weight: 500 !important;
   margin: 0px !important;
   border: none !important;
+}
+
+.ungraded-mark {
+  margin-left: 2px;
+  color: var(--el-color-warning);
+  font-weight: 700;
 }
 
 /* 确保表格行有极简的高度 */

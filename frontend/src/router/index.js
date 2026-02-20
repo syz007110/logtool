@@ -149,11 +149,6 @@ const routes = [
         meta: { requiresPermission: 'log:read_all' }
       },
       {
-        path: 'log-analysis/:id',
-        name: 'LogAnalysis',
-        redirect: (to) => ({ path: '/surgery-statistics', query: { logIds: to.params.id } })
-      },
-      {
         path: 'batch-analysis/:logIds',
         name: 'BatchAnalysis',
         component: () => import('../views/BatchAnalysis.vue'),

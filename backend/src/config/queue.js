@@ -51,12 +51,20 @@ const historicalProcessingQueue = new Queue('historical-processing', {
 });
 
 // 手术分析队列（与日志处理分离，避免相互影响）
+const surgeryQueueLockDuration = parseInt(process.env.SURGERY_QUEUE_LOCK_DURATION_MS, 10) || 30 * 60 * 1000;
+const surgeryQueueStalledInterval = parseInt(process.env.SURGERY_QUEUE_STALLED_INTERVAL_MS, 10) || 60 * 1000;
+const surgeryQueueMaxStalledCount = parseInt(process.env.SURGERY_QUEUE_MAX_STALLED_COUNT, 10) || 2;
 const surgeryAnalysisQueue = new Queue('surgery-analysis', {
   ...queueOptions,
+  settings: {
+    lockDuration: surgeryQueueLockDuration,
+    stalledInterval: surgeryQueueStalledInterval,
+    maxStalledCount: surgeryQueueMaxStalledCount
+  },
   defaultJobOptions: {
     ...queueOptions.defaultJobOptions,
     // 手术统计分析可能更耗时，适当放宽超时时间
-    timeout: parseInt(process.env.SURGERY_QUEUE_TIMEOUT_MS) || 600000,
+    timeout: parseInt(process.env.SURGERY_QUEUE_TIMEOUT_MS) || 1800000,
     removeOnComplete: 200,
     removeOnFail: 100
   }
@@ -127,6 +135,11 @@ historicalProcessingQueue.on('failed', (job, err) => {
 
 // 手术分析队列事件监听
 surgeryAnalysisQueue.on('error', (error) => {
+  const message = error?.message || '';
+  if (message.includes('Lock mismatch')) {
+    console.warn('[手术分析队列] 任务锁冲突（建议检查多进程并发与任务耗时）:', message);
+    return;
+  }
   console.error('[手术分析队列] 队列错误:', error);
 });
 

@@ -199,6 +199,7 @@ async function hasExplanationFulltextIndex() {
 
 // 分类允许码缓存（5分钟）：key = sorted category ids
 const allowCodesCache = { data: new Map(), ttlMs: 5 * 60 * 1000 };
+const allMappedCodesCache = { value: null, at: 0, ttlMs: 5 * 60 * 1000 };
 async function getAllowCodesForCategories(categoryIds) {
   const key = 'cat:' + [...categoryIds].sort((a, b) => a - b).join(',');
   const now = Date.now();
@@ -232,6 +233,44 @@ async function getAllowCodesForCategories(categoryIds) {
   }
   const value = Array.from(group.entries()).map(([s, set]) => ({ subsystem_char: s, codes: Array.from(set) }));
   allowCodesCache.data.set(key, { value, at: now });
+  return value;
+}
+
+async function getAllMappedCodes() {
+  const now = Date.now();
+  if (allMappedCodesCache.value && (now - allMappedCodesCache.at) < allMappedCodesCache.ttlMs) {
+    return allMappedCodesCache.value;
+  }
+
+  // 优先读取预计算映射表；若无数据再回退到实时 JOIN
+  let rows = await sequelize.query(
+    `SELECT DISTINCT subsystem_char, code4
+     FROM code_category_map`,
+    { type: SequelizeLib.QueryTypes.SELECT }
+  );
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    rows = await sequelize.query(
+      `SELECT DISTINCT LEFT(ec.subsystem,1) AS subsystem_char,
+                      CONCAT('0X', UPPER(RIGHT(ec.code,4))) AS code4
+       FROM error_codes ec
+       INNER JOIN error_code_analysis_categories ecac ON ec.id = ecac.error_code_id`,
+      { type: SequelizeLib.QueryTypes.SELECT }
+    );
+  }
+
+  const group = new Map();
+  for (const r of rows) {
+    const s = r.subsystem_char;
+    const c = r.code4;
+    if (!s || !c) continue;
+    if (!group.has(s)) group.set(s, new Set());
+    group.get(s).add(c);
+  }
+
+  const value = Array.from(group.entries()).map(([s, set]) => ({ subsystem_char: s, codes: Array.from(set) }));
+  allMappedCodesCache.value = value;
+  allMappedCodesCache.at = now;
   return value;
 }
 
@@ -1174,6 +1213,43 @@ const getQueueStatus = async (req, res) => {
   }
 };
 
+// 获取全局进行中日志处理任务（所有登录用户一致）
+const getGlobalActiveLogTasks = async (req, res) => {
+  try {
+    const [waitingJobs, activeJobs] = await Promise.all([
+      logProcessingQueue.getWaiting(0, 200),
+      logProcessingQueue.getActive(0, 200)
+    ]);
+
+    const jobs = [...waitingJobs, ...activeJobs];
+    const tasks = await Promise.all(jobs.map(async (job) => {
+      const state = await job.getState();
+      const progress = await job.progress();
+      return {
+        id: job.id,
+        type: job.name || 'log-processing',
+        status: state,
+        progress: Number.isFinite(Number(progress)) ? Number(progress) : 0,
+        createdAt: job.timestamp,
+        data: {
+          logIds: Array.isArray(job.data?.logIds) ? job.data.logIds : [],
+          logId: job.data?.logId || null
+        }
+      };
+    }));
+
+    tasks.sort((a, b) => b.createdAt - a.createdAt);
+    return res.json({ success: true, data: tasks });
+  } catch (error) {
+    console.error('获取全局日志活跃任务失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取任务列表失败',
+      error: error.message
+    });
+  }
+};
+
 // 获取日志明细
 const getLogEntries = async (req, res) => {
   const startTime = Date.now();
@@ -1329,7 +1405,7 @@ const getBatchLogEntries = async (req, res) => {
 
     // 简单搜索优化：
     // 1) 若关键词为 4-6位十六进制（如 571e），优先按规范码等值过滤：code4 = '0X571E'（避免 explanation LIKE 全表扫描）
-    // 2) 否则：error_code LIKE；explanation 仅在无 FULLTEXT 时回退为 LIKE，与 error_code 组成 OR
+    // 2) 否则：error_code 不区分大小写匹配；explanation 仅在无 FULLTEXT 时回退为 LIKE，与 error_code 组成 OR
     let simpleSearchActive = false;
     if (search && String(search).trim().length > 0) {
       simpleSearchActive = true;
@@ -1341,7 +1417,10 @@ const getBatchLogEntries = async (req, res) => {
         where.code4 = normalized;
       } else {
         const s = raw;
-        const ecLike = { error_code: { [Op.like]: `%${s}%` } };
+        const ecLike = SequelizeLib.where(
+          SequelizeLib.fn('LOWER', SequelizeLib.col('error_code')),
+          { [Op.like]: `%${String(s).toLowerCase()}%` }
+        );
         const conds = [ecLike];
         try {
           const ftOk = await hasExplanationFulltextIndex();
@@ -1349,7 +1428,7 @@ const getBatchLogEntries = async (req, res) => {
             const ftExpr = `MATCH (explanation) AGAINST (${sequelize.escape('+' + s.replace(/\s+/g, ' +'))} IN BOOLEAN MODE)`;
             conds.unshift(SequelizeLib.literal(ftExpr));
           } else {
-            // 回退：与 error_code LIKE 组成 OR，但依赖时间窗/日志ID限制来收敛扫描
+            // 回退：与 error_code 不区分大小写匹配组成 OR，但依赖时间窗/日志ID限制来收敛扫描
             conds.unshift({ explanation: { [Op.like]: `%${s}%` } });
           }
         } catch (_) {
@@ -1789,16 +1868,16 @@ const getBatchLogEntries = async (req, res) => {
               if (ftOk) {
                 // 使用全文索引（BOOLEAN模式支持中文ngram分词）
                 const keyword = raw.replace(/\s+/g, ' +');
-                searchCondition = `(MATCH(log_entries.explanation) AGAINST(${sequelize.escape('+' + keyword)} IN BOOLEAN MODE) OR log_entries.error_code LIKE ${sequelize.escape('%' + raw + '%')})`;
+                searchCondition = `(MATCH(log_entries.explanation) AGAINST(${sequelize.escape('+' + keyword)} IN BOOLEAN MODE) OR LOWER(log_entries.error_code) LIKE ${sequelize.escape('%' + String(raw).toLowerCase() + '%')})`;
                 console.log(`[全文索引] 使用FULLTEXT索引搜索关键字: ${raw}`);
               } else {
                 // 回退到LIKE（如果全文索引不存在）
-                searchCondition = `(log_entries.explanation LIKE ${sequelize.escape('%' + raw + '%')} OR log_entries.error_code LIKE ${sequelize.escape('%' + raw + '%')})`;
+                searchCondition = `(log_entries.explanation LIKE ${sequelize.escape('%' + raw + '%')} OR LOWER(log_entries.error_code) LIKE ${sequelize.escape('%' + String(raw).toLowerCase() + '%')})`;
                 console.warn(`[性能警告] 全文索引不存在，使用LIKE查询可能较慢`);
               }
             } catch (ftError) {
               // 检测失败时回退到LIKE
-              searchCondition = `(log_entries.explanation LIKE ${sequelize.escape('%' + raw + '%')} OR log_entries.error_code LIKE ${sequelize.escape('%' + raw + '%')})`;
+              searchCondition = `(log_entries.explanation LIKE ${sequelize.escape('%' + raw + '%')} OR LOWER(log_entries.error_code) LIKE ${sequelize.escape('%' + String(raw).toLowerCase() + '%')})`;
               console.warn(`[全文索引检测失败] 回退到LIKE查询:`, ftError.message);
             }
           }
@@ -2942,55 +3021,6 @@ const downloadBatchDownloadResult = async (req, res) => {
   }
 };
 
-// 手术统计分析
-const analyzeSurgeryData = async (req, res) => {
-  try {
-    const { logId } = req.params;
-
-    // 获取日志信息
-    const log = await Log.findByPk(logId);
-    if (!log) {
-      return res.status(404).json({ message: req.t('log.parse.notFound') });
-    }
-
-    // 获取日志条目
-    const entries = await LogEntry.findAll({
-      where: { log_id: logId },
-      order: [['timestamp', 'ASC']],
-      raw: true
-    });
-
-    if (entries.length === 0) {
-      return res.status(404).json({ message: req.t('log.parse.notFound') });
-    }
-
-    // 为每个条目添加日志文件名信息
-    const entriesWithLogName = entries.map(entry => ({
-      ...entry,
-      log_name: log.original_name
-    }));
-
-    // 使用更完善的手术分析逻辑
-    const { analyzeSurgeries } = require('./surgeryStatisticsController');
-    const surgeries = analyzeSurgeries(entriesWithLogName);
-
-    // 为每个手术分配唯一ID
-    surgeries.forEach((surgery, index) => {
-      surgery.id = index + 1;
-      surgery.log_filename = log.original_name;
-    });
-
-    res.json({
-      success: true,
-      data: surgeries,
-      message: req.t('log.analysis.success', { count: surgeries.length })
-    });
-  } catch (err) {
-    console.error('手术统计分析失败:', err);
-    res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
-  }
-};
-
 // 从日志条目中分析手术数据
 const analyzeSurgeryFromEntries = (entries, log) => {
   const surgeryData = {
@@ -3335,10 +3365,9 @@ const getLogStatistics = async (req, res) => {
         params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
       } else {
         conditions.push(
-          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR positionCaseInsensitive(error_code, {search_kw:String}) > 0)'
         );
         params.search_kw = raw;
-        params.search_like = `%${raw}%`;
       }
     }
 
@@ -3805,10 +3834,9 @@ const getVisualizationData = async (req, res) => {
         params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
       } else {
         conditions.push(
-          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR positionCaseInsensitive(error_code, {search_kw:String}) > 0)'
         );
         params.search_kw = raw;
-        params.search_like = `%${raw}%`;
       }
     }
 
@@ -4310,6 +4338,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
       limit = 100,
       filters,
       analysis_category_ids,
+      include_ungraded,
       ids_only
     } = req.query;
 
@@ -4400,6 +4429,24 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     const client = getClickHouseClient();
     const conditions = [];
     const params = {};
+    const includeUngraded = include_ungraded === undefined
+      ? true
+      : !['false', '0', 'no', 'off'].includes(String(include_ungraded).toLowerCase());
+
+    const buildCodeGroupExpr = (groups, prefix) => {
+      const conds = [];
+      let idx = 0;
+      for (const grp of groups || []) {
+        if (!grp || !grp.subsystem_char || !Array.isArray(grp.codes) || grp.codes.length === 0) continue;
+        const pName = `${prefix}_codes_${idx}`;
+        const sName = `${prefix}_subsystem_${idx}`;
+        conds.push(`(subsystem_char = {${sName}:String} AND code4 IN {${pName}:Array(String)})`);
+        params[sName] = grp.subsystem_char;
+        params[pName] = grp.codes;
+        idx += 1;
+      }
+      return conds.length > 0 ? `(${conds.join(' OR ')})` : '';
+    };
 
     // 按 (log_id, version) 组合过滤：确保只查询最新版本的数据
     // 注意：使用字符串拼接而不是参数化查询，因为 ClickHouse 客户端对 Array(Tuple(...)) 类型的参数解析存在问题
@@ -4436,16 +4483,16 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
         params.search_code4 = '0X' + raw.slice(-4).toUpperCase();
       } else {
         conditions.push(
-          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR error_code LIKE {search_like:String})'
+          '(positionCaseInsensitive(explanation, {search_kw:String}) > 0 OR positionCaseInsensitive(error_code, {search_kw:String}) > 0)'
         );
         params.search_kw = raw;
-        params.search_like = `%${raw}%`;
       }
     }
 
     // 分析分类过滤（独立于高级搜索，在数据库层执行）
     // 通过 code_category_map 或 error_code_analysis_categories 表获取允许的故障码列表
     // 然后在 ClickHouse WHERE 子句中过滤 (subsystem_char, code4) 组合
+    let allMappedExpr = '';
     if (analysis_category_ids) {
       const ids = Array.isArray(analysis_category_ids)
         ? analysis_category_ids.map(v => parseInt(String(v), 10)).filter(Number.isInteger)
@@ -4456,34 +4503,39 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
 
       if (ids.length > 0) {
         const allowList = await getAllowCodesForCategories(ids);
-        if (!allowList || allowList.length === 0) {
-          return res.json({
-            entries: [],
-            total: 0,
-            page: pageNum,
-            limit: limitNum,
-            totalPages: 0,
-            minTimestamp: null,
-            maxTimestamp: null
-          });
-        }
+        const selectedExpr = buildCodeGroupExpr(allowList, 'cat_selected');
+        const allMappedGroups = await getAllMappedCodes();
+        allMappedExpr = buildCodeGroupExpr(allMappedGroups, 'cat_all');
 
-        const catConds = [];
-        let groupIndex = 0;
-        for (const grp of allowList) {
-          if (!grp || !grp.subsystem_char || !Array.isArray(grp.codes) || grp.codes.length === 0) continue;
-          const pName = `cat_codes_${groupIndex}`;
-          const sName = `cat_subsystem_${groupIndex}`;
-          catConds.push(`(subsystem_char = {${sName}:String} AND code4 IN {${pName}:Array(String)})`);
-          params[sName] = grp.subsystem_char;
-          params[pName] = grp.codes;
-          groupIndex += 1;
-        }
-
-        if (catConds.length > 0) {
-          conditions.push(`(${catConds.join(' OR ')})`);
+        if (includeUngraded) {
+          if (selectedExpr && allMappedExpr) {
+            conditions.push(`(${selectedExpr} OR NOT ${allMappedExpr})`);
+          } else if (selectedExpr) {
+            conditions.push(selectedExpr);
+          } else if (allMappedExpr) {
+            conditions.push(`(NOT ${allMappedExpr})`);
+          }
+          // 若 allMappedExpr 为空，表示当前无任何分级映射，未分级即全量，不追加条件
+        } else {
+          if (!selectedExpr) {
+            return res.json({
+              entries: [],
+              total: 0,
+              page: pageNum,
+              limit: limitNum,
+              totalPages: 0,
+              minTimestamp: null,
+              maxTimestamp: null
+            });
+          }
+          conditions.push(selectedExpr);
         }
       }
+    }
+
+    if (!allMappedExpr) {
+      const allMappedGroups = await getAllMappedCodes();
+      allMappedExpr = buildCodeGroupExpr(allMappedGroups, 'cat_all_flag');
     }
 
     // ---------- 高级搜索表达式 filters：下推到 ClickHouse ----------
@@ -4785,6 +4837,7 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
         param3,
         param4,
         explanation,
+        ${allMappedExpr ? `if(${allMappedExpr}, 0, 1)` : '1'} AS is_ungraded,
         version,
         row_index
       FROM log_entries
@@ -4876,10 +4929,10 @@ module.exports = {
   exportBatchLogEntriesCSV,
   getExportCsvTaskStatus,
   downloadExportCsvResult,
-  analyzeSurgeryData,
   getSearchTemplates,
   importSearchTemplates,
   getQueueStatus,
+  getGlobalActiveLogTasks,
   executeBatchQuery,
   getVisualizationData,
   cleanupStuckLogs,

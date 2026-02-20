@@ -1,14 +1,14 @@
 [
   {
-    "id": "glm-4.5-Air",
-    "label": "GLM-4.5-Air (Translate)",
+    "id": "deepseek-chat",
+    "label": "DeepSeek Chat",
     "kind": "openai_compatible",
     "requiresApiKey": true,
-    "apiKeyEnv": "GLM_API_KEY",
-    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
-    "model": "glm-4.5-Air",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "baseUrl": "https://api.deepseek.com",
+    "model": "deepseek-chat",
     "temperature": 0,
     "top_p": 0.1,
-    "timeoutMs": 12000
+    "timeoutMs": 60000
   }
 ]

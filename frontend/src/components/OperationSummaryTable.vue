@@ -1,7 +1,7 @@
 <template>
   <div class="operation-summary-table">
     <el-table :data="tableData" stripe class="summary-table">
-      <el-table-column prop="operation" label="操作类型" align="left">
+      <el-table-column prop="operation" :label="$t('surgeryVisualization.report.operationType')" align="left">
         <template #default="{ row }">
           <div class="operation-cell">
             <span class="operation-name">{{ row.operation }}</span>
@@ -9,7 +9,7 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="count" label="次数" width="200" align="right">
+      <el-table-column prop="count" :label="$t('surgeryVisualization.report.count')" width="200" align="right">
         <template #default="{ row }">
           <span class="count-value">{{ row.count }}</span>
         </template>
@@ -20,6 +20,7 @@
 
 <script>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'OperationSummaryTable',
@@ -30,21 +31,22 @@ export default {
     }
   },
   setup(props) {
+    const { t } = useI18n()
     const tableData = computed(() => {
       const data = props.operationData || {}
       const operations = [
-        { key: 'endoscope_pedal', name: '内窥镜脚踏触发' },
-        { key: 'foot_clutch', name: '脚离合触发' },
-        { key: 'left_hand_clutch', name: '左手离合触发' },
-        { key: 'right_hand_clutch', name: '右手离合触发' },
-        { key: 'arm_switch_count', name: '臂切换触发' }
+        { key: 'endoscope_pedal', i18nKey: 'surgeryVisualization.operationEndoscopePedal' },
+        { key: 'foot_clutch', i18nKey: 'surgeryVisualization.operationFootClutch' },
+        { key: 'left_hand_clutch', i18nKey: 'surgeryVisualization.operationLeftHandClutch' },
+        { key: 'right_hand_clutch', i18nKey: 'surgeryVisualization.operationRightHandClutch' },
+        { key: 'arm_switch_count', i18nKey: 'surgeryVisualization.operationArmSwitch' }
       ]
       
       const counts = operations.map(op => data[op.key] || 0)
       const maxCount = Math.max(...counts, 1) // 至少为1，避免除零
       
       return operations.map(op => ({
-        operation: op.name,
+        operation: t(op.i18nKey),
         count: data[op.key] || 0,
         maxCount: maxCount
       }))

@@ -937,6 +937,41 @@ async function getUserTasks(req, res) {
   }
 }
 
+// GET /tasks/active - 获取全局进行中任务（所有登录用户一致）
+async function getGlobalActiveTasks(req, res) {
+  try {
+    const [waitingJobs, activeJobs] = await Promise.all([
+      motionDataQueue.getWaiting(0, 200),
+      motionDataQueue.getActive(0, 200)
+    ]);
+
+    const jobs = [...waitingJobs, ...activeJobs];
+    const tasks = await Promise.all(jobs.map(async (job) => {
+      const state = await job.getState();
+      const progress = await job.progress();
+      return {
+        id: job.id,
+        type: job.data?.type || 'unknown',
+        status: state,
+        progress: Number.isFinite(Number(progress)) ? Number(progress) : 0,
+        createdAt: job.timestamp,
+        data: {
+          format: job.data?.format || null,
+          fileCount: Array.isArray(job.data?.files)
+            ? job.data.files.length
+            : (Array.isArray(job.data?.fileIds) ? job.data.fileIds.length : null)
+        }
+      };
+    }));
+
+    tasks.sort((a, b) => b.createdAt - a.createdAt);
+    return res.json({ success: true, data: tasks });
+  } catch (error) {
+    console.error('获取全局运行数据活跃任务失败:', error);
+    res.status(500).json({ success: false, message: '获取任务列表失败', error: error.message });
+  }
+}
+
 // GET /task/:taskId/download - 下载任务结果（ZIP文件）
 async function downloadTaskResult(req, res) {
   try {
@@ -1642,6 +1677,7 @@ module.exports = {
   batchDownload,
   getTaskStatus,
   getUserTasks,
+  getGlobalActiveTasks,
   downloadTaskResult,
   listMotionDataFiles,
   listMotionDataFilesByDevice,

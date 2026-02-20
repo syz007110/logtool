@@ -83,6 +83,8 @@ class WebSocketService extends EventEmitter {
       const LOG_CH = 'ws:log_status_change';
       const BATCH_CH = 'ws:batch_status_change';
       const MOTION_DATA_CH = 'ws:motion_data_task_status';
+      const LOG_TASK_CH = 'ws:log_task_status';
+      const SURGERY_TASK_CH = 'ws:surgery_task_status';
 
       await this.subClient.subscribe(LOG_CH, (message) => {
         try {
@@ -113,6 +115,26 @@ class WebSocketService extends EventEmitter {
           this.broadcastMotionDataTaskStatus(data);
         } catch (e) {
           console.error('订阅处理失败(MOTION_DATA_CH):', e.message);
+        }
+      });
+
+      await this.subClient.subscribe(LOG_TASK_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (!data || !data.taskId) return;
+          this.broadcastLogTaskStatus(data);
+        } catch (e) {
+          console.error('订阅处理失败(LOG_TASK_CH):', e.message);
+        }
+      });
+
+      await this.subClient.subscribe(SURGERY_TASK_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (!data || !data.taskId) return;
+          this.broadcastSurgeryTaskStatus(data);
+        } catch (e) {
+          console.error('订阅处理失败(SURGERY_TASK_CH):', e.message);
         }
       });
 
@@ -357,6 +379,84 @@ class WebSocketService extends EventEmitter {
     // 广播给所有连接的客户端（MotionData任务不依赖设备订阅）
     this.broadcast(message);
     console.log(`📡 推送MotionData任务状态: 任务 ${taskId}, 状态 ${status}, 进度 ${progress}%`);
+  }
+
+  // 推送日志队列任务状态变化（发布到 Redis 频道）
+  async pushLogTaskStatus(taskId, status, progress = 0, data = null, error = null) {
+    const payload = JSON.stringify({
+      taskId,
+      status,
+      progress,
+      data,
+      error,
+      timestamp: Date.now(),
+      source: this.processId
+    });
+    const channel = 'ws:log_task_status';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        this.broadcastLogTaskStatus(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布日志任务状态变化失败:', e.message);
+      this.broadcastLogTaskStatus(JSON.parse(payload));
+    }
+  }
+
+  // 广播日志队列任务状态变化到所有客户端
+  broadcastLogTaskStatus(data) {
+    const { taskId, status, progress, error, timestamp } = data || {};
+    if (!taskId) return;
+    this.broadcast({
+      type: 'log_task_status',
+      taskId,
+      status,
+      progress,
+      error,
+      timestamp
+    });
+  }
+
+  // 推送手术分析任务状态变化（发布到 Redis 频道）
+  async pushSurgeryTaskStatus(taskId, status, progress = 0, data = null, error = null) {
+    const payload = JSON.stringify({
+      taskId,
+      status,
+      progress,
+      data,
+      error,
+      timestamp: Date.now(),
+      source: this.processId
+    });
+    const channel = 'ws:surgery_task_status';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        this.broadcastSurgeryTaskStatus(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布手术任务状态变化失败:', e.message);
+      this.broadcastSurgeryTaskStatus(JSON.parse(payload));
+    }
+  }
+
+  // 广播手术分析任务状态变化到所有客户端
+  broadcastSurgeryTaskStatus(data) {
+    const { taskId, status, progress, error, timestamp } = data || {};
+    if (!taskId) return;
+    this.broadcast({
+      type: 'surgery_task_status',
+      taskId,
+      status,
+      progress,
+      error,
+      timestamp
+    });
   }
 
   // 推送给特定客户端

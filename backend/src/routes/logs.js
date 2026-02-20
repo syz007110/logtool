@@ -19,7 +19,6 @@ const {
   getLogStatistics,
   autoFillDeviceId,
   autoFillKey,
-  analyzeSurgeryData,
   getSearchTemplates,
   importSearchTemplates,
   exportBatchLogEntriesCSV,
@@ -28,6 +27,7 @@ const {
   reparseLog,
   batchReparseLogs,
   getQueueStatus,
+  getGlobalActiveLogTasks,
   getVisualizationData,
   cleanupStuckLogs,
   getStuckLogsStats
@@ -72,6 +72,8 @@ router.get('/by-device', auth, checkLogPermission('read_all'), getLogsByDevice);
 
 // 获取队列状态
 router.get('/queue/status', auth, getQueueStatus);
+// 获取全局进行中日志任务（所有登录用户一致）
+router.get('/tasks/active', auth, getGlobalActiveLogTasks);
 
 // 自动填充API - 必须放在带参数的路由之前
 router.get('/auto-fill/device-id', auth, autoFillDeviceId);
@@ -108,9 +110,6 @@ router.get('/entries/export', auth, checkLogPermission('read_all'), exportBatchL
 router.get('/entries/export/:taskId/status', auth, checkLogPermission('read_all'), getExportCsvTaskStatus);
 // 下载CSV导出任务结果
 router.get('/entries/export/:taskId/result', auth, checkLogPermission('read_all'), downloadExportCsvResult);
-
-// 手术统计分析
-router.get('/:logId/surgery-analysis', auth, checkLogPermission('read_all'), analyzeSurgeryData);
 
 // 搜索模板
 router.get('/search-templates', auth, checkLogPermission('read_all'), getSearchTemplates);

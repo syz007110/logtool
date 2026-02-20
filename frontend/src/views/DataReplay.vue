@@ -3,11 +3,11 @@
     <el-card class="main-card">
       <div class="action-bar">
         <div class="action-section">
-          <el-button type="default" :icon="Refresh" @click="loadDeviceGroups({ force: true })">
-            {{ $t('shared.refresh') }}
-          </el-button>
           <el-button type="primary" :icon="Upload" @click="openUploadDialog()">
             {{ $t('dataReplay.uploadMotionData') }}
+          </el-button>
+          <el-button type="default" :icon="Refresh" @click="loadDeviceGroups({ force: true })">
+            {{ $t('shared.refresh') }}
           </el-button>
         </div>
       </div>
@@ -73,11 +73,11 @@
           </div>
           <div class="header-controls">
             <div class="device-actions">
-              <el-button type="primary" size="small" :icon="Upload" :disabled="uploading" @click="openUploadDialog(selectedDevice?.device_id)">
-                {{ $t('dataReplay.uploadMotionData') }}
-              </el-button>
               <el-button type="default" size="small" :icon="Refresh" :disabled="detailLoading" @click="loadDetailFiles">
                 {{ $t('shared.refresh') }}
+              </el-button>
+              <el-button type="primary" size="small" :icon="Upload" :disabled="uploading" @click="openUploadDialog(selectedDevice?.device_id)">
+                {{ $t('dataReplay.uploadMotionData') }}
               </el-button>
             </div>
             <el-button text size="small" :icon="Close" @click="closeDetailDrawer" class="close-drawer-btn" :title="$t('shared.close')" />

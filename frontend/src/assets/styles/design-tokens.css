@@ -525,6 +525,19 @@
   --filter-chips-gap: 6px;
 
   /* =========================================
+     状态胶囊按钮 (Status Capsule Button)
+     顶部导航栏任务状态胶囊，圆角矩形，不被全局按钮样式覆盖
+       ========================================= */
+  --capsule-btn-radius: 20px;
+  --capsule-btn-min-height: 30px;
+  --capsule-btn-padding-y: 5px;
+  --capsule-btn-padding-x: 16px;
+  --capsule-btn-border: 1px solid var(--slate-200);
+  --capsule-btn-bg: var(--black-white-white);
+  --capsule-btn-gap: 12px;
+  --capsule-btn-divider-height: 14px;
+
+  /* =========================================
      Element Plus Sidebar & Menu Variables
      侧边栏和菜单组件 CSS 变量映射
        ========================================= */

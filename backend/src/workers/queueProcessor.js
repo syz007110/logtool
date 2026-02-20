@@ -672,18 +672,27 @@ motionDataQueue.on('progress', (job, progress) => {
 // 队列事件监听
 logProcessingQueue.on('waiting', (jobId) => {
   console.log(`任务 ${jobId} 等待处理`);
+  logProcessingQueue.getJob(jobId).then((job) => {
+    if (!job) return;
+    websocketService.pushLogTaskStatus(job.id, 'waiting', 0, { type: job.name || 'log-processing' });
+  }).catch(() => {});
 });
 
 logProcessingQueue.on('active', (job) => {
   console.log(`任务 ${job.id} 开始处理`);
+  websocketService.pushLogTaskStatus(job.id, 'active', 0, { type: job.name || 'log-processing' });
 });
 
 logProcessingQueue.on('completed', (job, result) => {
   console.log(`任务 ${job.id} 完成，结果:`, result);
+  websocketService.pushLogTaskStatus(job.id, 'completed', 100, { type: job.name || 'log-processing' });
 });
 
 logProcessingQueue.on('failed', (job, err) => {
   console.error(`任务 ${job.id} 失败:`, err.message);
+  if (job && job.id) {
+    websocketService.pushLogTaskStatus(job.id, 'failed', 0, { type: job.name || 'log-processing' }, err?.message || '任务失败');
+  }
 });
 
 logProcessingQueue.on('stalled', (jobId) => {
@@ -697,18 +706,27 @@ logProcessingQueue.on('error', (error) => {
 // 手术队列事件监听
 surgeryAnalysisQueue.on('waiting', (jobId) => {
   console.log(`[手术队列] 任务 ${jobId} 等待处理`);
+  surgeryAnalysisQueue.getJob(jobId).then((job) => {
+    if (!job) return;
+    websocketService.pushSurgeryTaskStatus(job.id, 'waiting', 0, { type: job.name || 'surgery-analysis' });
+  }).catch(() => {});
 });
 
 surgeryAnalysisQueue.on('active', (job) => {
   console.log(`[手术队列] 任务 ${job.id} 开始处理`);
+  websocketService.pushSurgeryTaskStatus(job.id, 'active', 0, { type: job.name || 'surgery-analysis' });
 });
 
 surgeryAnalysisQueue.on('completed', (job, result) => {
   console.log(`[手术队列] 任务 ${job.id} 完成`);
+  websocketService.pushSurgeryTaskStatus(job.id, 'completed', 100, { type: job.name || 'surgery-analysis' });
 });
 
 surgeryAnalysisQueue.on('failed', (job, err) => {
   console.error(`[手术队列] 任务 ${job.id} 失败:`, err && err.message);
+  if (job && job.id) {
+    websocketService.pushSurgeryTaskStatus(job.id, 'failed', 0, { type: job.name || 'surgery-analysis' }, err?.message || '任务失败');
+  }
 });
 
 // MotionData队列事件监听

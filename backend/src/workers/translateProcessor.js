@@ -104,6 +104,7 @@ async function processTranslateJob(job) {
 
   ensureDir(path.dirname(outputPath));
 
+  const t0 = Date.now();
   job.progress(5);
   const { parsed, stderr } = await spawnTranslateCli({
     inputPath,
@@ -113,6 +114,13 @@ async function processTranslateJob(job) {
     providerId
   });
   job.progress(95);
+  const costMs = Date.now() - t0;
+  if (process.env.TRANSLATE_LOG_TIMING) {
+    console.log(`[Translate] kernel total ${costMs}ms (jobId=${job.id})`);
+    if (stderr && stderr.trim()) {
+      console.log(`[Translate] kernel timing stderr:\n${stderr.trim()}`);
+    }
+  }
 
   return {
     ok: true,

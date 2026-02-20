@@ -168,7 +168,7 @@ function buildPostgresRowPreview(surgery, deviceId, timezoneOffsetMinutes = null
     try {
       const analyzer = new SurgeryAnalyzer();
       structured = analyzer.toPostgreSQLStructure(surgery);
-    } catch (_) {}
+    } catch (_) { }
   }
   structured = normalizeStructuredDataTimestamps(structured);
   structured = convertStructuredDataTimeFields(structured, timezoneOffsetMinutes);
@@ -184,9 +184,12 @@ function buildPostgresRowPreview(surgery, deviceId, timezoneOffsetMinutes = null
     source_log_ids: Array.isArray(surgery.source_log_ids)
       ? surgery.source_log_ids
       : (surgery.log_id ? [surgery.log_id] : []),
-    device_ids: deviceId ? [String(deviceId)] : [],
+    device_id: deviceId ? String(deviceId) : null,
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
+    log_entry_start_log_id: surgery.log_entry_start_log_id || null,
+    log_entry_end_log_id: surgery.log_entry_end_log_id || null,
+    log_entry_ranges_by_log_id: surgery.log_entry_ranges_by_log_id || null,
     start_time: startTime,
     end_time: endTime,
     has_fault: (structured?.surgery_stats?.has_fault) ?? (surgery.has_error || false),
@@ -208,6 +211,7 @@ function buildPostgresRowPreview(surgery, deviceId, timezoneOffsetMinutes = null
     delete cleanStructuredData.device_id;
     delete cleanStructuredData.device_ids;
     delete cleanStructuredData.source_log_ids;
+    delete cleanStructuredData.log_entry_ranges_by_log_id;
     postgresqlData.structured_data = cleanStructuredData;
   } else {
     postgresqlData.structured_data = null;
@@ -224,7 +228,7 @@ function buildDbRowFromSurgery(surgery, timezoneOffsetMinutes = null) {
     try {
       const analyzer = new SurgeryAnalyzer();
       structured = analyzer.toPostgreSQLStructure(surgery);
-    } catch (_) {}
+    } catch (_) { }
   }
   structured = normalizeStructuredDataTimestamps(structured);
   structured = convertStructuredDataTimeFields(structured, timezoneOffsetMinutes);
@@ -241,9 +245,12 @@ function buildDbRowFromSurgery(surgery, timezoneOffsetMinutes = null) {
     source_log_ids: Array.isArray(surgery.source_log_ids)
       ? surgery.source_log_ids
       : (surgery.log_id ? [surgery.log_id] : []),
-    device_ids: devicePrefix ? [devicePrefix] : [],
+    device_id: devicePrefix ? String(devicePrefix) : null,
     log_entry_start_id: surgery.log_entry_start_id || null,
     log_entry_end_id: surgery.log_entry_end_id || null,
+    log_entry_start_log_id: surgery.log_entry_start_log_id || null,
+    log_entry_end_log_id: surgery.log_entry_end_log_id || null,
+    log_entry_ranges_by_log_id: surgery.log_entry_ranges_by_log_id || null,
     start_time: startTime,
     end_time: endTime,
     has_fault: hasFault,
@@ -264,6 +271,7 @@ function buildDbRowFromSurgery(surgery, timezoneOffsetMinutes = null) {
     delete cleanStructuredData.device_id;
     delete cleanStructuredData.device_ids;
     delete cleanStructuredData.source_log_ids;
+    delete cleanStructuredData.log_entry_ranges_by_log_id;
     postgresqlData.structured_data = cleanStructuredData;
   } else {
     postgresqlData.structured_data = null;

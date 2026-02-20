@@ -15,6 +15,8 @@ import 'element-plus/dist/index.css' // 1. Element Plus 基础样式
 import './assets/styles/design-tokens.css' // 2. Design Tokens（定义所有设计变量）
 import './assets/styles/mobile-design-tokens.css' // 3. Mobile Design Tokens（移动端 scoped 覆盖 & Vant 映射）
 import { initResizeObserverFix } from './utils/resizeObserverFix'
+import VueDiff from 'vue-diff'
+import 'vue-diff/dist/index.css'
 
 // 预加载当前语言后再挂载
 const app = createApp(App)
@@ -56,6 +58,8 @@ app.use(ElementPlus, {
 
 // 注册 Ant Design Vue（用于 Steps 等组件）
 app.use(Antd)
+// 注册 vue-diff（数据比较弹窗）
+app.use(VueDiff)
 
 // 在挂载前设置 <html lang> 并监听语言变化
 const setHtmlLang = (loc) => {
