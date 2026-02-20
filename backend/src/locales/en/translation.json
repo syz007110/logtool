@@ -74,12 +74,12 @@
       "remoteEnd": "Remote End",
       "remote": "Remote",
       "joint": "Joint",
-      "leftMainControlArm": "Left Main Control Arm",
-      "rightMainControlArm": "Right Main Control Arm",
-      "toolArm1": "Tool Arm 1",
-      "toolArm2": "Tool Arm 2",
-      "toolArm3": "Tool Arm 3",
-      "toolArm4": "Tool Arm 4",
+      "leftMainControlArm": "Left Master Arm",
+      "rightMainControlArm": "Right Master Arm",
+      "toolArm1": "Instrument Arm 1",
+      "toolArm2": "Instrument Arm 2",
+      "toolArm3": "Instrument Arm 3",
+      "toolArm4": "Instrument Arm 4",
       "adjustmentArm1": "Adjustment Arm 1",
       "adjustmentArm2": "Adjustment Arm 2",
       "adjustmentArm3": "Adjustment Arm 3",
@@ -234,5 +234,3 @@
     }
   }
 }
-
-

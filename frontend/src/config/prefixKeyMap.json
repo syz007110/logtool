@@ -4,10 +4,10 @@
   "关节": "joint",
   "左主控制臂": "leftMainControlArm",
   "右主控制臂": "rightMainControlArm",
-  "1号工具臂": "toolArm1",
-  "2号工具臂": "toolArm2",
-  "3号工具臂": "toolArm3",
-  "4号工具臂": "toolArm4",
+  "1号工具臂": "InstrumentArm1",
+  "2号工具臂": "InstrumentArm2",
+  "3号工具臂": "InstrumentArm3",
+  "4号工具臂": "InstrumentArm4",
   "1号调整臂": "adjustmentArm1",
   "2号调整臂": "adjustmentArm2",
   "3号调整臂": "adjustmentArm3",
@@ -19,4 +19,3 @@
   "监视器升降": "monitorLift",
   "监视器旋转": "monitorRotation"
 }
-

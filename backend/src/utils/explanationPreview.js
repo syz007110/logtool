@@ -1,4 +1,5 @@
 const ErrorCode = require('../models/error_code');
+const I18nErrorCode = require('../models/i18n_error_code');
 const { parseExplanation, buildPrefixFromContext } = require('./explanationParser');
 const prefixKeyMap = require('../config/prefixKeyMap.json');
 
@@ -6,7 +7,12 @@ const prefixKeyMap = require('../config/prefixKeyMap.json');
 function translatePrefixText(prefix, t) {
   if (!prefix) return '';
 
-  const getKey = (value) => prefixKeyMap[value] || value;
+  const getKey = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return raw;
+    const compact = raw.replace(/\s+/g, '');
+    return prefixKeyMap[raw] || prefixKeyMap[compact] || raw;
+  };
 
   const translateKey = (key) => {
     const translated = t(`shared.prefixLabels.${key}`);
@@ -16,11 +22,11 @@ function translatePrefixText(prefix, t) {
 
   const translatePart = (part) => {
     // 数字 + 关节，例如 1关节
-    const jointMatch = String(part).match(/^(\d+)(关节)$/);
+    const jointMatch = String(part).match(/^(\d+)(\u5173\u8282)$/);
     if (jointMatch) {
       const num = jointMatch[1];
       const jointTranslated = translateKey('joint') || jointMatch[2];
-      return `${num} ${jointTranslated}`.trim();
+      return `${jointTranslated} ${num}`.trim();
     }
 
     const key = getKey(part);
@@ -37,7 +43,7 @@ function translatePrefixText(prefix, t) {
   const parts = String(prefix).trim().split(/\s+/);
   const segments =
     parts.length === 1
-      ? String(prefix).match(/[\u4e00-\u9fa5A-Za-z]+|\d+/g) || parts
+      ? String(prefix).match(/\d+\u53f7[\u4e00-\u9fa5A-Za-z]+|\d+[\u4e00-\u9fa5A-Za-z]+|[\u4e00-\u9fa5A-Za-z]+|\d+/g) || parts
       : parts;
 
   return segments.map(translatePart).join(' ');
@@ -74,7 +80,7 @@ function deriveFromFullLogCode(input) {
   return { subsystem: null, arm: null, joint: null, normalizedCode: normalizeCode(raw) };
 }
 
-async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, template: payloadTemplate, params = {}, t }) {
+async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, template: payloadTemplate, params = {}, lang, t }) {
   const { param1, param2, param3, param4 } = params || {};
   const { subsystem: parsedSubsystem, arm: parsedArm, joint: parsedJoint, normalizedCode } = deriveFromFullLogCode(rawCode);
   const code = normalizedCode;
@@ -93,7 +99,28 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, temp
     record = await ErrorCode.findOne({ where: { code } });
   }
 
-  const template = (payloadTemplate && String(payloadTemplate)) || (record?.explanation || '');
+  let template = payloadTemplate && String(payloadTemplate);
+  if (!template && record) {
+    const targetLang = (lang && String(lang).trim()) ? String(lang).split('-')[0].toLowerCase() : null;
+    if (targetLang && targetLang !== 'zh') {
+      const i18nRows = await I18nErrorCode.findAll({
+        where: { error_code_id: record.id },
+        attributes: ['lang', 'explanation']
+      });
+      const i18nMatch = i18nRows.find((row) => {
+        const contentLang = String(row.lang || '').split('-')[0].toLowerCase();
+        return contentLang === targetLang && row.explanation;
+      });
+      if (i18nMatch) {
+        template = i18nMatch.explanation;
+      }
+    }
+    if (!template) {
+      template = record.explanation || '';
+    }
+  } else if (!template) {
+    template = record?.explanation || '';
+  }
   if (!record && !payloadTemplate) {
     const err = new Error('not_found');
     err.status = 404;

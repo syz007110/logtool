@@ -315,7 +315,7 @@ export default {
   setup() {
     const route = useRoute()
     const router = useRouter()
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     
     const getInstrumentLabel = (value) => {
       const label = resolveInstrumentTypeLabel(value)
@@ -466,21 +466,29 @@ export default {
           targetSubsystem = parsed.subsystem
         }
         
-        // 构建预览请求载荷
+        // 构建预览请求载荷（lang 用于从 i18n_error_codes 获取对应语言的 explanation）
         const previewPayload = {
           code: errorCode,
           subsystem: targetSubsystem || undefined,
           param1: param1 || undefined,
           param2: param2 || undefined,
           param3: param3 || undefined,
-          param4: param4 || undefined
+          param4: param4 || undefined,
+          lang: locale?.value || undefined
         }
         
-        // 调用释义预览接口
+        // 调用释义预览接口（返回 explanation、prefix 已翻译、prefix_raw 原文）
         const resp = await api.explanations.preview(previewPayload)
         const explanation = resp?.data?.explanation
+        const prefix = resp?.data?.prefix
+        const prefixRaw = resp?.data?.prefix_raw
         
         if (explanation) {
+          // 若有翻译后的 prefix，用其替换 explanation 中的原文前缀后组合显示
+          if (prefix && prefixRaw && String(explanation).startsWith(prefixRaw)) {
+            const body = String(explanation).slice(prefixRaw.length).replace(/^\s+/, '')
+            return body ? `${prefix} ${body}` : prefix
+          }
           return explanation
         }
         

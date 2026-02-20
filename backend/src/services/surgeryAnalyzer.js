@@ -755,7 +755,7 @@ class SurgeryAnalyzer {
   processSurgeryEndEvents(errCodeSuffix, p2, p3, entry) {
     if (errCodeSuffix === '500e' && p2 !== 0 && p3 === 0) {
       const allArmStateZero = this.armStates.every(state => state === 0 || state === -1);
-      const hasValidEndState = this.currentState === 10 || this.currentState === 12 || this.currentState === 13;
+      const hasValidEndState = this.currentState === 1 || this.currentState === 10 || this.currentState === 12 || this.currentState === 13;
 
       // 只有在手术已经开始的情况下才判断结束条件
       if (allArmStateZero && hasValidEndState && this.surgeryStarted) {

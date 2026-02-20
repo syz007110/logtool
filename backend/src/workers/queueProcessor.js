@@ -14,8 +14,10 @@ const { processBatchUpload, processBatchDownload } = require('./motionDataProces
 const { processKbIngestJob } = require('./kbIngestProcessor');
 const { processTranslateJob } = require('./translateProcessor');
 const Log = require('../models/log');
+const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const websocketService = require('../services/websocketService');
 const { logOperation } = require('../utils/operationLogger');
+const { autoImportSurgeries } = require('../controllers/surgeryStatisticsController');
 
 // 设置并发处理数量
 const CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 3;
@@ -26,6 +28,63 @@ const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURREN
 const KB_INGEST_CONCURRENCY = parseInt(process.env.KB_QUEUE_CONCURRENCY) || 2;
 // 文档翻译队列并发数，可选 env: TRANSLATE_QUEUE_CONCURRENCY（默认 1）
 const TRANSLATE_CONCURRENCY = parseInt(process.env.TRANSLATE_QUEUE_CONCURRENCY) || 1;
+
+const normalizeLogIdList = (value) => {
+  const array = Array.isArray(value) ? value : [];
+  return Array.from(new Set(
+    array
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && item > 0)
+  ));
+};
+
+async function syncSurgeryTaskMeta(job, patch = {}) {
+  if (!job || !job.id) return;
+  const queueJobId = String(job.id);
+  try {
+    if (typeof SurgeryAnalysisTaskMeta.ensureTable === 'function') {
+      await SurgeryAnalysisTaskMeta.ensureTable();
+    }
+    const defaults = {
+      queue_job_id: queueJobId,
+      request_id: String(job.data?.requestId || ''),
+      device_id: String(job.data?.deviceId || '').trim() || 'unknown',
+      source_log_ids: normalizeLogIdList(job.data?.logIds),
+      status: 'queued',
+      created_by: Number.isFinite(Number(job.data?.userId)) ? Number(job.data.userId) : null
+    };
+    const [row] = await SurgeryAnalysisTaskMeta.findOrCreate({
+      where: { queue_job_id: queueJobId },
+      defaults
+    });
+    if (row) {
+      await row.update(patch);
+    }
+  } catch (error) {
+    console.warn(`[surgery-analysis] sync task meta failed (${queueJobId}):`, error?.message || error);
+  }
+}
+
+async function autoImportSurgeryResults(job, result) {
+  const summary = { total: 0, imported: 0, pending: 0, failed: 0 };
+  if (!job || job.data?.autoImport !== true) return summary;
+
+  const surgeries = Array.isArray(result?.surgeries) ? result.surgeries : [];
+  summary.total = surgeries.length;
+  if (!surgeries.length) return summary;
+
+  try {
+    const imported = await autoImportSurgeries(surgeries, job.data?.userId);
+    summary.imported = Number(imported?.imported || 0);
+    summary.pending = Number(imported?.pending || 0);
+    summary.failed = Number(imported?.failed || 0);
+  } catch (error) {
+    summary.failed = surgeries.length;
+    console.warn(`[surgery-analysis] auto-import failed (job=${job.id}):`, error?.message || error);
+  }
+
+  return summary;
+}
 
 console.log(`[队列系统] 启动日志处理队列，并发数: ${CONCURRENCY}`);
 console.log(`[队列系统] 启动实时处理队列，并发数: ${REALTIME_CONCURRENCY}`);
@@ -708,22 +767,66 @@ surgeryAnalysisQueue.on('waiting', (jobId) => {
   console.log(`[手术队列] 任务 ${jobId} 等待处理`);
   surgeryAnalysisQueue.getJob(jobId).then((job) => {
     if (!job) return;
+    syncSurgeryTaskMeta(job, { status: 'queued', error_message: null });
     websocketService.pushSurgeryTaskStatus(job.id, 'waiting', 0, { type: job.name || 'surgery-analysis' });
   }).catch(() => {});
 });
 
 surgeryAnalysisQueue.on('active', (job) => {
   console.log(`[手术队列] 任务 ${job.id} 开始处理`);
+  syncSurgeryTaskMeta(job, {
+    status: 'processing',
+    started_at: new Date(),
+    error_message: null
+  });
   websocketService.pushSurgeryTaskStatus(job.id, 'active', 0, { type: job.name || 'surgery-analysis' });
 });
 
-surgeryAnalysisQueue.on('completed', (job, result) => {
+surgeryAnalysisQueue.on('completed', async (job, result) => {
   console.log(`[手术队列] 任务 ${job.id} 完成`);
-  websocketService.pushSurgeryTaskStatus(job.id, 'completed', 100, { type: job.name || 'surgery-analysis' });
+  const failedLogIds = normalizeLogIdList(result?.failedLogIds);
+  const importSummary = await autoImportSurgeryResults(job, result);
+  const hasImportFailures = Number(importSummary.failed || 0) > 0;
+  const status = (failedLogIds.length > 0 || hasImportFailures) ? 'failed' : 'completed';
+  const errorParts = [];
+  if (failedLogIds.length > 0) errorParts.push(`${failedLogIds.length} log(s) failed`);
+  if (hasImportFailures) errorParts.push(`${importSummary.failed} surgery row(s) import failed`);
+  if (status === 'completed') {
+    await SurgeryAnalysisTaskMeta.destroy({
+      where: { queue_job_id: String(job.id) }
+    }).catch(() => {});
+  } else {
+    await syncSurgeryTaskMeta(job, {
+      status,
+      error_message: errorParts.length > 0 ? errorParts.join('; ') : null,
+      started_at: new Date(job.processedOn || Date.now()),
+      completed_at: new Date()
+    });
+  }
+  if (job?.data?.autoImport === true) {
+    console.log(
+      `[surgery-analysis] auto-import summary (job=${job.id}): total=${importSummary.total}, imported=${importSummary.imported}, pending=${importSummary.pending}, failed=${importSummary.failed}`
+    );
+  }
+  websocketService.pushSurgeryTaskStatus(
+    job.id,
+    status === 'failed' ? 'failed' : 'completed',
+    100,
+    { type: job.name || 'surgery-analysis' },
+    status === 'failed' ? (errorParts.join('; ') || 'Task failed') : undefined
+  );
 });
 
 surgeryAnalysisQueue.on('failed', (job, err) => {
   console.error(`[手术队列] 任务 ${job.id} 失败:`, err && err.message);
+  if (job) {
+    syncSurgeryTaskMeta(job, {
+      status: 'failed',
+      error_message: err?.message || '任务失败',
+      started_at: new Date(job.processedOn || Date.now()),
+      completed_at: new Date()
+    });
+  }
   if (job && job.id) {
     websocketService.pushSurgeryTaskStatus(job.id, 'failed', 0, { type: job.name || 'surgery-analysis' }, err?.message || '任务失败');
   }

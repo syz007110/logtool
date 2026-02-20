@@ -287,7 +287,7 @@
 </template>
 
 <script>
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, markRaw } from 'vue'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
@@ -668,9 +668,9 @@ export default {
       const surgery = countByStatus(globalTaskGroups.value.surgery)
       const motion = countByStatus(globalTaskGroups.value.motion)
       return [
-        { key: 'logs', queueId: 'q1', nameKey: 'taskQueue.queueLogs', icon: Operation, active: logs.active, waiting: logs.waiting },
-        { key: 'surgery', queueId: 'q2', nameKey: 'taskQueue.queueSurgery', icon: DataAnalysis, active: surgery.active, waiting: surgery.waiting },
-        { key: 'motion', queueId: 'q3', nameKey: 'taskQueue.queueMotion', icon: VideoPlay, active: motion.active, waiting: motion.waiting }
+        { key: 'logs', queueId: 'q1', nameKey: 'taskQueue.queueLogs', icon: markRaw(Operation), active: logs.active, waiting: logs.waiting },
+        { key: 'surgery', queueId: 'q2', nameKey: 'taskQueue.queueSurgery', icon: markRaw(DataAnalysis), active: surgery.active, waiting: surgery.waiting },
+        { key: 'motion', queueId: 'q3', nameKey: 'taskQueue.queueMotion', icon: markRaw(VideoPlay), active: motion.active, waiting: motion.waiting }
       ]
     })
 

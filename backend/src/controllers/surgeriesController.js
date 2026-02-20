@@ -14,8 +14,7 @@ const LogEntry = {
 const Log = require('../models/log');
 const Device = require('../models/device');
 const SurgeryExportPending = require('../models/surgeryExportPending');
-const SurgeryAnalysisFailedLog = require('../models/surgeryAnalysisFailedLog');
-const SurgeryAnalysisFailedGroup = require('../models/surgeryAnalysisFailedGroup');
+const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 
 // 将Date对象转换为原始时间字符串（不进行时区转换）
 function formatRawDateTime(dateLike) {
@@ -505,31 +504,6 @@ exports.listSurgeriesByDevice = async (req, res) => {
     const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
 
     const pageDeviceIds = (dataRows || []).map(r => r.device_id).filter(Boolean);
-    const failedByDevice = new Map();
-    if (pageDeviceIds.length > 0) {
-      try {
-        if (typeof SurgeryAnalysisFailedLog.ensureTable === 'function') {
-          await SurgeryAnalysisFailedLog.ensureTable();
-        }
-        const failedRows = await SurgeryAnalysisFailedLog.findAll({
-          where: { device_id: { [Op.in]: pageDeviceIds } },
-          attributes: ['device_id', 'failed_log_ids', 'failed_log_details', 'updated_at']
-        });
-        failedRows.forEach((item) => {
-          const ids = Array.isArray(item.failed_log_ids)
-            ? Array.from(new Set(item.failed_log_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))))
-            : [];
-          failedByDevice.set(item.device_id, {
-            failed_log_ids: ids,
-            failed_log_details: Array.isArray(item.failed_log_details) ? item.failed_log_details : [],
-            failed_log_count: ids.length,
-            failed_updated_at: item.updated_at || null
-          });
-        });
-      } catch (_) {
-        // ignore: table may not exist in old env
-      }
-    }
 
     // MySQL：补齐当前页设备信息
     const deviceIdToInfo = new Map();
@@ -552,18 +526,13 @@ exports.listSurgeriesByDevice = async (req, res) => {
 
     const device_groups = (dataRows || []).map(r => {
       const info = deviceIdToInfo.get(r.device_id) || {};
-      const failedInfo = failedByDevice.get(r.device_id) || null;
       return {
         device_id: r.device_id || '未知设备',
         hospital_name: info.hospital_name || null,
         device_name: info.device_model || null,
         surgery_count: Number(r.surgery_count || 0),
         latest_surgery_time: r.latest_surgery_time || null,
-        pending_confirm_count: Number(r.pending_confirm_count || 0),
-        failed_analysis_log_count: Number(failedInfo?.failed_log_count || 0),
-        failed_analysis_log_ids: Array.isArray(failedInfo?.failed_log_ids) ? failedInfo.failed_log_ids : [],
-        failed_analysis_log_details: Array.isArray(failedInfo?.failed_log_details) ? failedInfo.failed_log_details : [],
-        failed_analysis_updated_at: failedInfo?.failed_updated_at || null
+        pending_confirm_count: Number(r.pending_confirm_count || 0)
       };
     });
 
@@ -692,31 +661,34 @@ exports.getSurgeryTimeFilters = async (req, res) => {
   }
 };
 
-// 获取设备维度的手术分析失败分组（用于详情抽屉展示 + 分组重试）
-exports.getFailedAnalysisGroups = async (req, res) => {
+// 获取设备维度的手术分析任务元数据（用于详情抽屉失败/异常行展示与重试）
+exports.getAnalysisTaskMetaByDevice = async (req, res) => {
   try {
     const deviceId = String(req.query?.device_id || '').trim();
     if (!deviceId) {
       return res.status(400).json({ success: false, message: 'device_id is required' });
     }
 
-    if (typeof SurgeryAnalysisFailedGroup.ensureTable === 'function') {
-      await SurgeryAnalysisFailedGroup.ensureTable();
+    if (typeof SurgeryAnalysisTaskMeta.ensureTable === 'function') {
+      await SurgeryAnalysisTaskMeta.ensureTable();
     }
-    const rows = await SurgeryAnalysisFailedGroup.findAll({
+    const rows = await SurgeryAnalysisTaskMeta.findAll({
       where: { device_id: deviceId },
-      order: [['last_failed_at', 'DESC']],
+      order: [['updated_at', 'DESC']],
       attributes: [
         'id',
+        'queue_job_id',
+        'request_id',
         'device_id',
-        'failed_log_ids',
-        'source_group_log_ids',
-        'failed_log_details',
-        'fail_count',
-        'first_failed_at',
-        'last_failed_at',
-        'last_task_id',
-        'updated_by'
+        'source_log_ids',
+        'display_surgery_id',
+        'status',
+        'error_message',
+        'created_by',
+        'started_at',
+        'completed_at',
+        'created_at',
+        'updated_at'
       ]
     });
 
@@ -725,8 +697,8 @@ exports.getFailedAnalysisGroups = async (req, res) => {
       data: rows
     });
   } catch (error) {
-    console.error('getFailedAnalysisGroups error:', error);
-    return res.status(500).json({ success: false, message: '获取失败分组记录失败', error: error.message });
+    console.error('getAnalysisTaskMetaByDevice error:', error);
+    return res.status(500).json({ success: false, message: '获取分析任务元数据失败', error: error.message });
   }
 };
 

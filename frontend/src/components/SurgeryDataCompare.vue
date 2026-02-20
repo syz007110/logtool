@@ -45,15 +45,10 @@
       <div class="diff-block">
         <div class="diff-label">{{ $t('surgeryCompare.diffContent') }}</div>
         <div class="diff-vue-diff-wrapper" ref="diffWrapperRef">
-          <Diff
+          <UnifiedDiffDualLineNums
             ref="diffRef"
             :prev="prevText"
             :current="currentText"
-            mode="unified"
-            theme="light"
-            language="json"
-            :folding="true"
-            :virtual-scroll="false"
           />
         </div>
       </div>
@@ -80,6 +75,7 @@ import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
+import UnifiedDiffDualLineNums from './UnifiedDiffDualLineNums.vue'
 
 const { t } = useI18n()
 
@@ -118,11 +114,21 @@ const diffWrapperRef = ref(null)
 const diffLineElements = ref([])
 const currentDiffIndex = ref(0)
 
+function sortObjectKeys(obj) {
+  if (obj === null || typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(sortObjectKeys)
+  const out = {}
+  for (const k of Object.keys(obj).sort()) {
+    out[k] = sortObjectKeys(obj[k])
+  }
+  return out
+}
+
 const formatValue = (value) => {
   if (value === null || value === undefined) return ''
   if (typeof value === 'object') {
     try {
-      return JSON.stringify(value, null, 2)
+      return JSON.stringify(sortObjectKeys(value), null, 2)
     } catch (_) {
       return String(value)
     }
@@ -148,7 +154,9 @@ function collectDiffLineElements() {
       '[class*="line-add"]',
       '[class*="line-remove"]',
       '[class*="add"]',
-      '[class*="remove"]'
+      '[class*="remove"]',
+      '.diff-row-added',
+      '.diff-row-removed'
     ]
     const set = new Set()
     sel.forEach((s) => {
@@ -290,10 +298,15 @@ const handleKeepExisting = async () => {
 }
 
 .diff-vue-diff-wrapper {
-  max-height: 400px;
-  overflow: auto;
   border: 1px solid var(--el-border-color);
   border-radius: 6px;
+  font-size: 12px;
+}
+
+.diff-vue-diff-wrapper :deep(pre),
+.diff-vue-diff-wrapper :deep(code),
+.diff-vue-diff-wrapper :deep(.diff-line) {
+  font-size: 12px !important;
 }
 
 .diff-vue-diff-wrapper :deep(.diff-line-highlight) {

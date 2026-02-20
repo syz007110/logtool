@@ -30,6 +30,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => response,
   error => {
+    if (error.config?._silentError === true) {
+      return Promise.reject(error)
+    }
     if (error.response) {
       const { status, data } = error.response
       switch (status) {
@@ -248,7 +251,7 @@ const surgeryStatistics = {
       includePostgreSQLStructure,
       timezoneOffsetMinutes
     }),
-  getAnalysisTaskStatus: (taskId) => api.get(`/surgery-statistics/task/${taskId}`),
+  getAnalysisTaskStatus: (taskId, config = {}) => api.get(`/surgery-statistics/task/${taskId}`, config),
   getUserAnalysisTasks: () => api.get('/surgery-statistics/tasks'),
   getActiveTasks: () => api.get('/surgery-statistics/tasks/active'),
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
@@ -265,7 +268,7 @@ const surgeryStatistics = {
 const surgeries = {
   list: (params) => api.get('/surgeries', { params }),
   getByDevice: (params) => api.get('/surgeries/by-device', { params }),
-  getFailedAnalysisGroups: (params) => api.get('/surgeries/failed-analysis-groups', { params }),
+  getAnalysisTaskMeta: (params) => api.get('/surgeries/analysis-task-meta', { params }),
   get: (id, params) => api.get(`/surgeries/${id}`, { params }),
   remove: (id) => api.delete(`/surgeries/${id}`),
   getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`),

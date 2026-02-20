@@ -365,7 +365,7 @@
                   <el-option
                     v-for="opt in timezoneOptions"
                     :key="opt.value"
-                    :label="opt.label"
+                    :label="$t(opt.labelKey)"
                     :value="opt.value"
                   />
                 </el-select>
@@ -1085,50 +1085,11 @@ export default {
     // 时区显示：日志按原时区存储，检索时使用转换前的时间；此处选中的时区仅影响前端显示
     const displayTimezoneOffsetMinutes = ref(480) // 480 = 与当前默认原时区一致，无转换
     const timezoneOptions = [
-      // UTC+14 ~ UTC+12
-      { label: 'UTC+14 莱恩群岛', value: 840 },
-      { label: 'UTC+13 汤加/萨摩亚', value: 780 },
-      { label: 'UTC+12 新西兰(冬)/斐济', value: 720 },
-      { label: 'UTC+12:45 查塔姆群岛(新西兰)', value: 765 },
-      { label: 'UTC+11 所罗门/悉尼(冬)', value: 660 },
-      // UTC+10 ~ UTC+8
-      { label: 'UTC+10:30 洛德豪岛/阿德莱德(夏令)', value: 630 },
-      { label: 'UTC+10 悉尼/布里斯班/符拉迪沃斯托克', value: 600 },
-      { label: 'UTC+9:30 阿德莱德/达尔文(澳大利亚)', value: 570 },
-      { label: 'UTC+9 东京/首尔', value: 540 },
-      { label: 'UTC+8:45 尤克拉(澳大利亚)', value: 525 },
-      { label: 'UTC+8 北京（无转换）', value: 480 },
-      { label: 'UTC+7 曼谷/雅加达/胡志明', value: 420 },
-      // UTC+6 ~ UTC+4
-      { label: 'UTC+6:30 缅甸/科科斯群岛', value: 390 },
-      { label: 'UTC+6 达卡/阿拉木图', value: 360 },
-      { label: 'UTC+5:45 尼泊尔', value: 345 },
-      { label: 'UTC+5:30 印度', value: 330 },
-      { label: 'UTC+5 伊斯兰堡/叶卡捷琳堡', value: 300 },
-      { label: 'UTC+4:30 阿富汗', value: 270 },
-      { label: 'UTC+4 迪拜/莫斯科(冬)', value: 240 },
-      { label: 'UTC+3:30 伊朗', value: 210 },
-      { label: 'UTC+3 莫斯科/伊斯坦布尔/东非', value: 180 },
-      { label: 'UTC+2 开罗/雅典/开普敦', value: 120 },
-      // UTC+1 ~ UTC-1
-      { label: 'UTC+1 柏林/巴黎(冬)/中欧', value: 60 },
-      { label: 'UTC+0 伦敦/都柏林', value: 0 },
-      { label: 'UTC-1 亚速尔/佛得角', value: -60 },
-      // UTC-2 ~ UTC-5
-      { label: 'UTC-2 巴西(部分)', value: -120 },
-      { label: 'UTC-3 布宜诺斯艾利斯/圣保罗', value: -180 },
-      { label: 'UTC-3:30 纽芬兰', value: -210 },
-      { label: 'UTC-4 加拉加斯/圣地亚哥(智利)', value: -240 },
-      { label: 'UTC-5 纽约(EST)/波哥大', value: -300 },
-      { label: 'UTC-6 芝加哥(CST)/墨西哥城', value: -360 },
-      { label: 'UTC-7 丹佛(MST)/凤凰城', value: -420 },
-      { label: 'UTC-8 洛杉矶(PST)', value: -480 },
-      { label: 'UTC-9 阿拉斯加', value: -540 },
-      { label: 'UTC-9:30 马克萨斯群岛(法属波利尼西亚)', value: -570 },
-      { label: 'UTC-10 夏威夷', value: -600 },
-      { label: 'UTC-11 萨摩亚(美)', value: -660 },
-      { label: 'UTC-12 贝克岛', value: -720 }
-    ]
+      840, 780, 720, 765, 660, 630, 600, 570, 540, 525, 480, 420, 390, 360, 345, 330, 300, 270, 240, 210, 180, 120, 60, 0, -60, -120, -180, -210, -240, -300, -360, -420, -480, -540, -570, -600, -660, -720
+    ].map((value) => ({
+      value,
+      labelKey: `batchAnalysis.timezoneOptions.${value}`
+    }))
     const currentPage = ref(1)
     const pageSize = ref(50)
     const totalCount = ref(0)

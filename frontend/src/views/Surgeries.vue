@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <div class="surgeries-container">
-    <!-- 统一卡片：包含所有控件 -->
+    <!-- 缁熶竴鍗＄墖锛氬寘鍚墍鏈夋帶浠?-->
     <el-card class="main-card">
-      <!-- 搜索和操作栏 -->
+      <!-- 鎼滅储鍜屾搷浣滄爮 -->
       <div class="action-bar">
         <div class="search-section">
           <el-button
@@ -34,7 +34,7 @@
         </div>
       </div>
 
-      <!-- 设备列表 - 可滚动容器 -->
+      <!-- 璁惧鍒楄〃 - 鍙粴鍔ㄥ鍣?-->
       <div class="table-container">
         <el-table
           :data="deviceGroups"
@@ -96,7 +96,7 @@
         </el-table>
       </div>
 
-      <!-- 设备列表分页 -->
+      <!-- 璁惧鍒楄〃鍒嗛〉 -->
       <div class="pagination-wrapper">
         <el-pagination
           :current-page="currentPage"
@@ -110,7 +110,7 @@
       </div>
     </el-card>
 
-    <!-- 手术数据统计参数弹窗 -->
+    <!-- 鎵嬫湳鏁版嵁缁熻鍙傛暟寮圭獥 -->
     <el-dialog
       v-model="showAnalyzeDialog"
       :title="$t('batchAnalysis.surgeryStatistics')"
@@ -185,7 +185,7 @@
       </template>
     </el-dialog>
 
-    <!-- 手术数据统计结果弹窗（列表） -->
+    <!-- 鎵嬫湳鏁版嵁缁熻缁撴灉寮圭獥锛堝垪琛級 -->
     <el-dialog
       v-model="showAnalyzeResultDialog"
       :title="$t('batchAnalysis.surgeryStatistics')"
@@ -230,7 +230,7 @@
       </template>
     </el-dialog>
 
-    <!-- 查看数据弹窗（手术统计结果） -->
+    <!-- 鏌ョ湅鏁版嵁寮圭獥锛堟墜鏈粺璁＄粨鏋滐級 -->
     <el-dialog
       v-model="analysisSurgeryJsonVisible"
       :title="$t('batchAnalysis.surgeryDataPostgresFormat')"
@@ -246,7 +246,7 @@
       </template>
     </el-dialog>
 
-    <!-- 手术数据差异比对（与批量日志页一致） -->
+    <!-- 鎵嬫湳鏁版嵁宸紓姣斿锛堜笌鎵归噺鏃ュ織椤典竴鑷达級 -->
     <SurgeryDataCompare
       v-model="showCompareDialog"
       :surgery-id="compareData.surgeryId"
@@ -263,7 +263,7 @@
       @load-full-data="loadCompareFullData"
     />
 
-    <!-- 设备详细手术数据抽屉 -->
+    <!-- 璁惧璇︾粏鎵嬫湳鏁版嵁鎶藉眽 -->
     <el-drawer
       v-model="showDeviceDetailDrawer"
       direction="rtl"
@@ -272,14 +272,14 @@
       :before-close="handleDrawerClose"
     >
       <div class="device-detail-content">
-        <!-- 详细手术数据列表 - 使用卡片包裹 -->
+        <!-- 璇︾粏鎵嬫湳鏁版嵁鍒楄〃 - 浣跨敤鍗＄墖鍖呰９ -->
         <el-card class="detail-surgeries-card">
-          <!-- 卡片头部：关闭按钮和设备信息 -->
+          <!-- 鍗＄墖澶撮儴锛氬叧闂寜閽拰璁惧淇℃伅 -->
           <div class="detail-surgeries-card-header">
             <div class="device-header">
               <div class="device-info">
-                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}</span>（{{ $t('logs.totalSurgeries') }}：{{ detailTotal }}）</h3>
-                <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}</span> ({{ $t('logs.totalSurgeries') }}: {{ detailTotal }})</h3>
+                <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}: {{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
               </div>
               <div class="header-controls">
                 <div class="refresh-section">
@@ -287,7 +287,7 @@
                     {{ $t('shared.refresh') }}
                   </el-button>
                 </div>
-                <!-- 关闭按钮 -->
+                <!-- 鍏抽棴鎸夐挳 -->
                 <el-button 
                   text 
                   size="small" 
@@ -300,47 +300,7 @@
             </div>
           </div>
 
-          <div v-if="detailFailedGroupsLoading || detailFailedGroups.length > 0" class="failed-group-panel">
-            <div class="failed-group-panel-title">
-              最近失败分组（按 failed_log_ids 聚合）
-            </div>
-            <div v-if="detailFailedGroupsLoading" class="failed-group-panel-loading">
-              加载失败分组中...
-            </div>
-            <div v-else class="failed-group-list">
-              <div
-                v-for="group in detailFailedGroups"
-                :key="group.id"
-                class="failed-group-item"
-              >
-                <div class="failed-group-item-main">
-                  <el-tag type="danger" size="small">
-                    failed_log_ids: {{ (group.failed_log_ids || []).join(', ') || '-' }}
-                  </el-tag>
-                  <el-tag type="info" size="small">
-                    原始分组: {{ (group.source_group_log_ids || []).join(', ') || '-' }}
-                  </el-tag>
-                  <el-tag size="small">
-                    失败次数: {{ Number(group.fail_count || 1) }}
-                  </el-tag>
-                  <span class="failed-group-time">最近失败: {{ formatDate(group.last_failed_at) }}</span>
-                </div>
-                <div class="failed-group-actions">
-                  <el-button
-                    text
-                    type="danger"
-                    size="small"
-                    :loading="retryingFailedGroupId === group.id"
-                    @click="retryFailedGroup(group)"
-                  >
-                    重试该组
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 筛选和操作栏 -->
+          <!-- 绛涢€夊拰鎿嶄綔鏍?-->
           <div class="detail-surgeries-header">
             <div class="detail-filters">
               <el-tabs
@@ -416,7 +376,7 @@
             </div>
           </div>
 
-          <!-- 表格容器 - 可滚动 -->
+          <!-- 琛ㄦ牸瀹瑰櫒 - 鍙粴鍔?-->
           <div class="detail-table-container">
             <el-table
               :data="detailSurgeries"
@@ -437,8 +397,11 @@
               </el-table-column>
               <el-table-column :label="$t('logs.surgeryStatusLabel')" width="100" align="center">
                 <template #default="{ row }">
+                  <el-tag v-if="row._isTaskMeta" size="small" :type="getTaskMetaStatusTag(row).type">
+                    {{ getTaskMetaStatusTag(row).label }}
+                  </el-tag>
                   <el-tag v-if="row.has_pending_confirmation" size="small" type="warning">{{ $t('logs.surgeryStatusPendingConfirm') }}</el-tag>
-                  <el-tag v-else size="small" type="success">{{ $t('logs.surgeryStatusExported') }}</el-tag>
+                  <el-tag v-else-if="!row._isTaskMeta" size="small" type="success">{{ $t('logs.surgeryStatusExported') }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column :label="$t('shared.operation')" align="left" width="220">
@@ -450,8 +413,19 @@
                       @click="visualizeSurgery(row)"
                       :aria-label="$t('batchAnalysis.visualize')"
                       :title="$t('batchAnalysis.visualize')"
+                      :disabled="row._isTaskMeta"
                     >
                       {{ $t('batchAnalysis.visualize') }}
+                    </el-button>
+                    <el-button
+                      v-if="row._isTaskMeta && canRetryTaskMeta(row)"
+                      text
+                      size="small"
+                      type="danger"
+                      :loading="retryingFailedGroupId === row._metaTaskId"
+                      @click="retryFailedGroup(row)"
+                    >
+                      {{ $t('logs.reparse') }}
                     </el-button>
                     <el-button
                       v-if="row.has_pending_confirmation"
@@ -467,6 +441,7 @@
                       {{ $t('logs.pendingConfirmProcess') }}
                     </el-button>
                     <el-dropdown
+                      v-if="!row._isTaskMeta"
                       trigger="click"
                       placement="bottom-end"
                       @command="(cmd) => handleDetailSurgeryMoreAction(cmd, row)"
@@ -498,7 +473,7 @@
             </el-table>
           </div>
 
-          <!-- 分页 -->
+          <!-- 鍒嗛〉 -->
           <div class="detail-pagination-wrapper">
             <el-pagination
               :current-page="detailCurrentPage"
@@ -530,6 +505,7 @@ import SurgeryDataCompare from '@/components/SurgeryDataCompare.vue'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 import { formatTime, loadServerTimezone } from '@/utils/timeFormatter'
 import { getTableHeight } from '@/utils/tableHeight'
+import websocketClient from '@/services/websocketClient'
 
 export default {
   name: 'Surgeries',
@@ -541,9 +517,8 @@ export default {
     const router = useRouter()
     const { t, locale } = useI18n()
 
-    const ANALYSIS_FAILED_CACHE_KEY = 'surgeries.analysis.failedLogsByDevice.v1'
 
-    // 设备分组相关数据
+    // 璁惧鍒嗙粍鐩稿叧鏁版嵁
     const loading = ref(false)
     const deviceGroups = ref([])
     const deviceTotal = ref(0)
@@ -554,7 +529,7 @@ export default {
     const lastDeviceGroupsLoadAt = ref(0)
     let searchDebounceTimer = null
 
-    // 设备详情抽屉相关
+    // 璁惧璇︽儏鎶藉眽鐩稿叧
     const showDeviceDetailDrawer = ref(false)
     const selectedDevice = ref(null)
     const detailSurgeries = ref([])
@@ -562,8 +537,7 @@ export default {
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
     const detailTotal = ref(0)
-    const detailFailedGroups = ref([])
-    const detailFailedGroupsLoading = ref(false)
+    const detailTaskMetaRows = ref([])
     const retryingFailedGroupId = ref(null)
     const detailAvailableYears = ref([])
     const detailAvailableMonths = ref({})
@@ -574,7 +548,7 @@ export default {
     const detailSelectedMonth = ref('all')
     const detailSelectedDay = ref('all')
 
-    // 手术分析弹窗相关
+    // 鎵嬫湳鍒嗘瀽寮圭獥鐩稿叧
     const showAnalyzeDialog = ref(false)
     const showAnalyzeResultDialog = ref(false)
     const analysisSubmitting = ref(false)
@@ -592,7 +566,6 @@ export default {
     const analysisExportingRow = ref({})
     const analysisSurgeryJsonVisible = ref(false)
     const analysisSurgeryJsonText = ref('')
-    const analysisFailedByDevice = ref({})
     const showCompareDialog = ref(false)
     const compareData = ref({})
     const compareLoading = ref(false)
@@ -602,7 +575,7 @@ export default {
     const hasDeviceReadPermission = computed(() => store.getters['auth/hasPermission']?.('device:read'))
     const hasExportPermission = computed(() => store.getters['auth/hasPermission']?.('surgery:export'))
 
-    // 表格高度计算（固定表头）
+    // 琛ㄦ牸楂樺害璁＄畻锛堝浐瀹氳〃澶达級
     const tableHeight = computed(() => {
       return getTableHeight('basic')
     })
@@ -615,124 +588,12 @@ export default {
       ))
     }
 
-    const persistFailedLogCache = () => {
-      try {
-        localStorage.setItem(ANALYSIS_FAILED_CACHE_KEY, JSON.stringify(analysisFailedByDevice.value || {}))
-      } catch (_) {
-        // ignore
-      }
-    }
-
-    const loadFailedLogCache = () => {
-      try {
-        const raw = localStorage.getItem(ANALYSIS_FAILED_CACHE_KEY)
-        if (!raw) return
-        const parsed = JSON.parse(raw)
-        if (!parsed || typeof parsed !== 'object') return
-        const normalized = {}
-        Object.entries(parsed).forEach(([deviceId, item]) => {
-          const did = String(deviceId || '').trim()
-          if (!did) return
-          const logIds = normalizeLogIds(item?.logIds)
-          if (!logIds.length) return
-          normalized[did] = {
-            logIds,
-            details: Array.isArray(item?.details) ? item.details : [],
-            updatedAt: item?.updatedAt || null
-          }
-        })
-        analysisFailedByDevice.value = normalized
-      } catch (_) {
-        // ignore broken cache
-      }
-    }
-
-    const refreshDeviceFailureMarks = () => {
-      deviceGroups.value = (deviceGroups.value || []).map((row) => {
-        const did = String(row?.device_id || '').trim()
-        const cached = did ? analysisFailedByDevice.value[did] : null
-        const serverIds = normalizeLogIds(row?.failed_analysis_log_ids)
-        const finalIds = serverIds.length > 0 ? serverIds : normalizeLogIds(cached?.logIds)
-        return {
-          ...row,
-          failed_analysis_log_ids: finalIds,
-          failed_analysis_log_count: Number(finalIds.length || 0),
-          failed_analysis_updated_at: row?.failed_analysis_updated_at || cached?.updatedAt || null
-        }
-      })
-    }
-
-    const syncFailureCacheFromServerRows = (rows = []) => {
-      const merged = { ...(analysisFailedByDevice.value || {}) }
-      ;(Array.isArray(rows) ? rows : []).forEach((row) => {
-        const did = String(row?.device_id || '').trim()
-        if (!did) return
-        const serverIds = normalizeLogIds(row?.failed_analysis_log_ids)
-        if (!serverIds.length) {
-          delete merged[did]
-          return
-        }
-        merged[did] = {
-          logIds: serverIds,
-          details: Array.isArray(row?.failed_analysis_log_details) ? row.failed_analysis_log_details : (merged[did]?.details || []),
-          updatedAt: row?.failed_analysis_updated_at || merged[did]?.updatedAt || null
-        }
-      })
-      analysisFailedByDevice.value = merged
-      persistFailedLogCache()
-    }
-
-    const updateFailedLogsForDevice = (deviceId, failedLogDetails = []) => {
-      const did = String(deviceId || '').trim()
-      if (!did) return
-      const details = (Array.isArray(failedLogDetails) ? failedLogDetails : []).map((item) => ({
-        logId: Number(item?.logId),
-        reason: item?.reason || 'unknown error'
-      })).filter((item) => Number.isFinite(item.logId))
-      const logIds = normalizeLogIds(details.map((item) => item.logId))
-      if (!logIds.length) {
-        delete analysisFailedByDevice.value[did]
-      } else {
-        analysisFailedByDevice.value[did] = {
-          logIds,
-          details,
-          updatedAt: new Date().toISOString()
-        }
-      }
-      persistFailedLogCache()
-      refreshDeviceFailureMarks()
-    }
-
-    const clearFailedLogsForDevice = (deviceId) => {
-      const did = String(deviceId || '').trim()
-      if (!did) return
-      if (!analysisFailedByDevice.value[did]) return
-      delete analysisFailedByDevice.value[did]
-      persistFailedLogCache()
-      refreshDeviceFailureMarks()
-    }
-
     const getFailedLogCountForDevice = (deviceId) => {
-      const did = String(deviceId || '').trim()
-      if (!did) return 0
-      const row = (deviceGroups.value || []).find((item) => String(item?.device_id || '').trim() === did)
-      const serverCount = Number(row?.failed_analysis_log_count || 0)
-      if (serverCount > 0) return serverCount
-      const item = analysisFailedByDevice.value[did]
-      return Array.isArray(item?.logIds) ? item.logIds.length : 0
+      void deviceId
+      return 0
     }
 
-    const getFailedLogIdsForDevice = (deviceId) => {
-      const did = String(deviceId || '').trim()
-      if (!did) return []
-      const row = (deviceGroups.value || []).find((item) => String(item?.device_id || '').trim() === did)
-      const serverIds = normalizeLogIds(row?.failed_analysis_log_ids)
-      if (serverIds.length > 0) return serverIds
-      const item = analysisFailedByDevice.value[did]
-      return normalizeLogIds(item?.logIds)
-    }
-
-    // 加载设备分组
+    // 鍔犺浇璁惧鍒嗙粍
     const loadDeviceGroups = async (options = {}) => {
       const silent = options && options.silent === true
       const force = options && options.force === true
@@ -748,8 +609,7 @@ export default {
         loading.value = true
         lastDeviceGroupsLoadAt.value = now
 
-        // ⚠️ 性能优化：之前实现会循环请求所有手术数据后在内存中分组，数据量大时非常慢
-        // 现在改为直接调用后端按设备分组的接口，数据库层完成分组和分页
+        // 鈿狅笍 鎬ц兘浼樺寲锛氫箣鍓嶅疄鐜颁細寰幆璇锋眰鎵€鏈夋墜鏈暟鎹悗鍦ㄥ唴瀛樹腑鍒嗙粍锛屾暟鎹噺澶ф椂闈炲父鎱?        // 鐜板湪鏀逛负鐩存帴璋冪敤鍚庣鎸夎澶囧垎缁勭殑鎺ュ彛锛屾暟鎹簱灞傚畬鎴愬垎缁勫拰鍒嗛〉
         const resp = await api.surgeries.getByDevice({
           page: currentPage.value,
           limit: pageSize.value,
@@ -757,13 +617,11 @@ export default {
         })
         
         const groups = Array.isArray(resp.data?.device_groups) ? resp.data.device_groups : []
-        syncFailureCacheFromServerRows(groups)
         deviceGroups.value = groups
-        refreshDeviceFailureMarks()
         deviceTotal.value = resp.data?.pagination?.total || 0
       } catch (error) {
         if (!silent) {
-          ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
+          ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
         }
       } finally {
         deviceGroupsLoading.value = false
@@ -794,7 +652,7 @@ export default {
       return `${y}-${mo}-${d} ${h}:${mi}`
     }
 
-    // 设备下拉：从日志侧取“有上传过日志”的设备（logs 表按 device_id 分组）
+    // Load device options for surgery analysis from uploaded logs.
     const loadAnalysisDeviceOptions = async (keyword = '') => {
       try {
         analysisDeviceLoading.value = true
@@ -808,12 +666,12 @@ export default {
           .map((g) => {
             const deviceId = String(g.device_id || '').trim()
             if (!deviceId) return null
-            const label = g.hospital_name ? `${deviceId}（${g.hospital_name}）` : deviceId
+            const label = g.hospital_name ? `${deviceId} (${g.hospital_name})` : deviceId
             return { value: deviceId, label }
           })
           .filter(Boolean)
       } catch (error) {
-        ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
+        ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
       } finally {
         analysisDeviceLoading.value = false
       }
@@ -866,7 +724,7 @@ export default {
           analysisForm.value.endLogId = normalized[normalized.length - 1].logId
         }
       } catch (error) {
-        ElMessage.error('加载可分析日志失败')
+        ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
       } finally {
         analysisLogLoading.value = false
       }
@@ -887,44 +745,96 @@ export default {
       await loadParsedLogsForAnalysis(deviceId)
     }
 
-    const pollSurgeryAnalysisTask = async (taskId) => {
-      const maxAttempts = 60
-      let attempts = 0
-      while (attempts < maxAttempts) {
-        const resp = await api.surgeryStatistics.getAnalysisTaskStatus(taskId)
+    const pollSurgeryAnalysisTask = async (taskId, options = {}) => {
+      const pollIntervalMs = Number(options.pollIntervalMs || 3000)
+      const timeoutMs = Number(options.timeoutMs || 10 * 60 * 1000)
+      const startedAt = Date.now()
+      while (Date.now() - startedAt < timeoutMs) {
+        const resp = await api.surgeryStatistics.getAnalysisTaskStatus(taskId, { _silentError: true })
         const task = resp.data?.data
         if (task?.status === 'completed') {
           return {
+            taskId: String(taskId),
             surgeries: Array.isArray(task.result) ? task.result : [],
             exportSummary: task.exportSummary || null,
             failedLogIds: normalizeLogIds(task.failedLogIds),
-            failedLogDetails: Array.isArray(task.failedLogDetails) ? task.failedLogDetails : []
+            failedLogDetails: Array.isArray(task.failedLogDetails) ? task.failedLogDetails : [],
+            timedOut: false
           }
         }
         if (task?.status === 'failed') {
           const err = new Error(task.error || '分析任务失败')
+          err.taskId = String(taskId)
           err.failedLogIds = normalizeLogIds(task.failedLogIds)
           err.failedLogDetails = Array.isArray(task.failedLogDetails) ? task.failedLogDetails : []
           throw err
         }
-        attempts += 1
-        await new Promise((resolve) => setTimeout(resolve, 3000))
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
       }
-      throw new Error('分析任务超时，请稍后重试')
+      return {
+        taskId: String(taskId),
+        surgeries: [],
+        exportSummary: null,
+        failedLogIds: [],
+        failedLogDetails: [],
+        timedOut: true
+      }
     }
 
-    const runAnalyzeAndAutoImportInBackground = async (taskId, fallbackRows = null, context = {}) => {
+    const runAnalyzeAndAutoImportInBackground = async (taskIds, fallbackRows = null, context = {}) => {
       try {
         let summary = null
         let surgeries = []
         let failedLogIds = []
         let failedLogDetails = []
-        if (taskId) {
-          const taskResult = await pollSurgeryAnalysisTask(taskId)
-          surgeries = taskResult.surgeries
-          summary = taskResult.exportSummary
-          failedLogIds = normalizeLogIds(taskResult.failedLogIds)
-          failedLogDetails = Array.isArray(taskResult.failedLogDetails) ? taskResult.failedLogDetails : []
+        let timedOutTaskIds = []
+        const normalizedTaskIds = Array.isArray(taskIds) ? taskIds.filter(Boolean) : []
+        if (normalizedTaskIds.length > 0) {
+          const timeoutMs = Math.min(
+            60 * 60 * 1000,
+            Math.max(10 * 60 * 1000, normalizedTaskIds.length * 2 * 60 * 1000)
+          )
+          const settled = await Promise.allSettled(
+            normalizedTaskIds.map((id) => pollSurgeryAnalysisTask(id, { timeoutMs }))
+          )
+          const taskResults = settled
+            .filter((item) => item.status === 'fulfilled')
+            .map((item) => item.value)
+          const failedResults = settled
+            .filter((item) => item.status === 'rejected')
+            .map((item) => item.reason)
+
+          surgeries = taskResults
+            .filter((item) => !item?.timedOut)
+            .flatMap((item) => (Array.isArray(item?.surgeries) ? item.surgeries : []))
+          const summarySeed = { total: 0, imported: 0, pending: 0, failed: 0 }
+          summary = taskResults
+            .filter((item) => !item?.timedOut)
+            .reduce((acc, item) => {
+              const s = item?.exportSummary || { total: 0, imported: 0, pending: 0, failed: 0 }
+              return {
+                total: Number(acc.total || 0) + Number(s.total || 0),
+                imported: Number(acc.imported || 0) + Number(s.imported || 0),
+                pending: Number(acc.pending || 0) + Number(s.pending || 0),
+                failed: Number(acc.failed || 0) + Number(s.failed || 0)
+              }
+            }, summarySeed)
+          failedLogIds = normalizeLogIds(
+            taskResults.flatMap((item) => normalizeLogIds(item?.failedLogIds))
+              .concat(failedResults.flatMap((item) => normalizeLogIds(item?.failedLogIds)))
+          )
+          failedLogDetails = taskResults.flatMap((item) => (Array.isArray(item?.failedLogDetails) ? item.failedLogDetails : []))
+            .concat(failedResults.flatMap((item) => (Array.isArray(item?.failedLogDetails) ? item.failedLogDetails : [])))
+          timedOutTaskIds = taskResults
+            .filter((item) => item?.timedOut)
+            .map((item) => String(item.taskId))
+
+          if (failedResults.length > 0) {
+            const firstError = failedResults[0]
+            const err = new Error(firstError?.message || `部分任务失败 (${failedResults.length})`)
+            err._backgroundTaskError = true
+            throw err
+          }
         } else if (Array.isArray(fallbackRows)) {
           surgeries = fallbackRows
           summary = {
@@ -935,21 +845,10 @@ export default {
           }
         }
 
-        if (context?.deviceId) {
-          if (failedLogIds.length > 0) {
-            updateFailedLogsForDevice(
-              context.deviceId,
-              (failedLogDetails.length > 0 ? failedLogDetails : failedLogIds.map((logId) => ({ logId, reason: 'unknown error' })))
-            )
-          } else {
-            clearFailedLogsForDevice(context.deviceId)
-          }
-        }
-
         await loadDeviceGroups({ silent: true, force: true })
         if (showDeviceDetailDrawer.value) {
           await loadDetailSurgeries({ silent: true })
-          await loadDetailFailedGroups({ silent: true })
+          await loadDetailTaskMeta({ silent: true })
         }
         const finalSummary = summary || {
           total: surgeries.length,
@@ -963,18 +862,11 @@ export default {
         if (failedLogIds.length > 0) {
           ElMessage.warning(`本次仍有 ${failedLogIds.length} 个日志分析失败，已在设备详情抽屉记录，可按分组重试`)
         }
-      } catch (error) {
-        if (context?.deviceId) {
-          const failedLogIds = normalizeLogIds(error?.failedLogIds)
-          if (failedLogIds.length > 0) {
-            const failedLogDetails = Array.isArray(error?.failedLogDetails) ? error.failedLogDetails : []
-            updateFailedLogsForDevice(
-              context.deviceId,
-              (failedLogDetails.length > 0 ? failedLogDetails : failedLogIds.map((logId) => ({ logId, reason: error?.message || 'analysis failed' })))
-            )
-          }
+        if (timedOutTaskIds.length > 0) {
+          ElMessage.warning(`仍有 ${timedOutTaskIds.length} 个任务在后台执行，稍后请在设备详情中查看最新状态`)
         }
-        ElMessage.error(error?.response?.data?.message || error.message || '后台手术分析/入库失败')
+      } catch (error) {
+        ElMessage.error(error?.response?.data?.message || error.message || '后台手术分析/入库失败，请稍后重试')
       }
     }
 
@@ -1007,14 +899,17 @@ export default {
       analysisSubmitting.value = true
       try {
         const resp = await api.surgeryStatistics.analyzeByLogIds(selectedLogIds, true, null, { autoImport: true })
-        if (resp.data?.taskId) {
+        const taskIds = Array.isArray(resp.data?.taskIds)
+          ? resp.data.taskIds
+          : (resp.data?.taskId ? [resp.data.taskId] : [])
+        if (taskIds.length > 0) {
           showAnalyzeDialog.value = false
           ElMessage.success('手术分析任务已加入队列，系统将在后台自动入库')
-          runAnalyzeAndAutoImportInBackground(resp.data.taskId, null, { deviceId })
+          runAnalyzeAndAutoImportInBackground(taskIds, null, { deviceId })
         } else if (Array.isArray(resp.data?.data)) {
           showAnalyzeDialog.value = false
           ElMessage.success('手术分析完成，系统正在自动入库')
-          runAnalyzeAndAutoImportInBackground(null, resp.data.data, { deviceId })
+          runAnalyzeAndAutoImportInBackground([], resp.data.data, { deviceId })
         } else {
           throw new Error(resp.data?.message || '创建手术分析任务失败')
         }
@@ -1025,7 +920,7 @@ export default {
       }
     }
 
-    // 手术统计结果列表操作（与批量日志页一致：可视化、查看数据、导出）
+    // 鎵嬫湳缁熻缁撴灉鍒楄〃鎿嶄綔锛堜笌鎵归噺鏃ュ織椤典竴鑷达細鍙鍖栥€佹煡鐪嬫暟鎹€佸鍑猴級
     const visualizeSurgeryStatFromResult = (row) => {
       const data = row?.postgresql_row_preview || row
       visualizeSurgeryData(data)
@@ -1043,7 +938,7 @@ export default {
         analysisExportingRow.value[row.id] = true
         const response = await api.surgeryStatistics.exportSingleSurgeryData(row)
         if (response.data.success) {
-          ElMessage.success('手术数据已成功导出到PostgreSQL数据库')
+          ElMessage.success('手术数据已成功导出到 PostgreSQL 数据库')
         } else if (response.data.needsConfirmation) {
           ElMessage.warning(response.data.message || t('logs.messages.surgeryExistsAsPending', { id: response.data.surgery_id }))
           loadDeviceGroups({ silent: true, force: true })
@@ -1054,7 +949,7 @@ export default {
           ElMessage.warning(response.data.message || '导出完成，但可能未存储到数据库')
         }
       } catch (e) {
-        ElMessage.error('导出到PostgreSQL数据库失败: ' + (e?.response?.data?.message || e?.message || ''))
+        ElMessage.error('导出到 PostgreSQL 数据库失败: ' + (e?.response?.data?.message || e?.message || ''))
       } finally {
         analysisExportingRow.value[row.id] = false
       }
@@ -1068,7 +963,7 @@ export default {
       }
       try {
         compareLoadingRowId.value = row.surgery_id
-        // 默认不拉取完整 structured_data，加快首屏响应；展开「显示详细比对」时再请求 full=1
+        // 榛樿涓嶆媺鍙栧畬鏁?structured_data锛屽姞蹇灞忓搷搴旓紱灞曞紑銆屾樉绀鸿缁嗘瘮瀵广€嶆椂鍐嶈姹?full=1
         const resp = await api.surgeryStatistics.getPendingExportDetail(pendingId, { full: '0' })
         const detail = resp.data?.data || {}
         showCompareDialog.value = true
@@ -1194,7 +1089,7 @@ export default {
           }
         })
       } else {
-        // 年份为'all'时，显示所有年份的月份合集
+        // 骞翠唤涓?all'鏃讹紝鏄剧ず鎵€鏈夊勾浠界殑鏈堜唤鍚堥泦
         Object.values(monthsMap).forEach(list => {
           (list || []).forEach(month => {
             const num = Number(month)
@@ -1206,7 +1101,7 @@ export default {
       }
 
       if (!monthsSet.size) {
-        // 如果没有数据，显示所有月份（1-12）
+        // If there is no data, show all months (1-12).
         for (let m = 1; m <= 12; m += 1) {
           monthsSet.add(String(m).padStart(2, '0'))
         }
@@ -1228,7 +1123,7 @@ export default {
       const daysMap = detailAvailableDays.value || {}
 
       if (detailSelectedYear.value !== 'all' && detailSelectedMonth.value !== 'all') {
-        // 已选择年份和月份，显示该年月下的所有日期
+        // Year and month selected: show available days in that month.
         const key = `${detailSelectedYear.value}-${detailSelectedMonth.value}`
         const days = daysMap[key] || []
         days.forEach(day => {
@@ -1238,7 +1133,7 @@ export default {
           }
         })
       } else if (detailSelectedYear.value !== 'all') {
-        // 只选择了年份，显示该年份下所有月份的日期
+        // 鍙€夋嫨浜嗗勾浠斤紝鏄剧ず璇ュ勾浠戒笅鎵€鏈夋湀浠界殑鏃ユ湡
         Object.entries(daysMap).forEach(([key, list]) => {
           if (key.startsWith(`${detailSelectedYear.value}-`)) {
             (list || []).forEach(day => {
@@ -1250,7 +1145,7 @@ export default {
           }
         })
       } else {
-        // 年份为'all'，显示所有日期
+        // Year is 'all': show all days across years/months.
         Object.values(daysMap).forEach(list => {
           (list || []).forEach(day => {
             const num = Number(day)
@@ -1262,7 +1157,7 @@ export default {
       }
 
       if (!daysSet.size) {
-        // 如果没有数据，显示所有日期（1-31）
+        // If there is no data, show all days (1-31).
         for (let d = 1; d <= 31; d += 1) {
           daysSet.add(String(d).padStart(2, '0'))
         }
@@ -1345,24 +1240,20 @@ export default {
     }
 
 
-    // 显示设备详情
-    const loadDetailFailedGroups = async (options = {}) => {
+    const loadDetailTaskMeta = async (options = {}) => {
       const deviceId = String(selectedDevice.value?.device_id || '').trim()
       if (!deviceId) {
-        detailFailedGroups.value = []
+        detailTaskMetaRows.value = []
         return
       }
       try {
-        detailFailedGroupsLoading.value = true
-        const resp = await api.surgeries.getFailedAnalysisGroups({ device_id: deviceId })
-        detailFailedGroups.value = Array.isArray(resp.data?.data) ? resp.data.data : []
+        const resp = await api.surgeries.getAnalysisTaskMeta({ device_id: deviceId })
+        detailTaskMetaRows.value = Array.isArray(resp.data?.data) ? resp.data.data : []
       } catch (error) {
-        detailFailedGroups.value = []
+        detailTaskMetaRows.value = []
         if (!options?.silent) {
-          ElMessage.error('加载失败分组记录失败')
+          ElMessage.error('加载分析任务元数据失败')
         }
-      } finally {
-        detailFailedGroupsLoading.value = false
       }
     }
 
@@ -1372,27 +1263,29 @@ export default {
         ElMessage.warning('设备编号无效')
         return
       }
-      const sourceGroup = normalizeLogIds(group?.source_group_log_ids)
-      const failedIds = normalizeLogIds(group?.failed_log_ids)
-      const retryLogIds = sourceGroup.length > 0 ? sourceGroup : failedIds
+      const sourceGroup = normalizeLogIds(group?.source_log_ids)
+      const retryLogIds = sourceGroup
       if (!retryLogIds.length) {
-        ElMessage.warning('该分组没有可重试的日志ID')
+        ElMessage.warning('该分组没有可重试的日志 ID')
         return
       }
       try {
-        retryingFailedGroupId.value = group?.id || null
+        retryingFailedGroupId.value = group?._metaTaskId || group?.id || null
         const resp = await api.surgeryStatistics.analyzeByLogIds(
           retryLogIds,
           true,
           null,
-          { autoImport: true, retryFailedGroupId: group?.id || null }
+          { autoImport: true }
         )
-        if (resp.data?.taskId) {
+        const taskIds = Array.isArray(resp.data?.taskIds)
+          ? resp.data.taskIds
+          : (resp.data?.taskId ? [resp.data.taskId] : [])
+        if (taskIds.length > 0) {
           ElMessage.success(`分组重试任务已提交（${retryLogIds.length} 条日志）`)
-          runAnalyzeAndAutoImportInBackground(resp.data.taskId, null, { deviceId })
+          runAnalyzeAndAutoImportInBackground(taskIds, null, { deviceId })
         } else if (Array.isArray(resp.data?.data)) {
           ElMessage.success('分组重试分析完成，系统正在自动入库')
-          runAnalyzeAndAutoImportInBackground(null, resp.data.data, { deviceId })
+          runAnalyzeAndAutoImportInBackground([], resp.data.data, { deviceId })
         } else {
           throw new Error(resp.data?.message || '创建分组重试任务失败')
         }
@@ -1403,13 +1296,13 @@ export default {
       }
     }
 
-    // 显示设备详情
+    // 鏄剧ず璁惧璇︽儏
     const showDeviceDetail = (device) => {
       selectedDevice.value = device
       showDeviceDetailDrawer.value = true
       detailSurgeries.value = []
       detailTotal.value = Number(device?.surgery_count || 0)
-      detailFailedGroups.value = []
+      detailTaskMetaRows.value = []
       detailCurrentPage.value = 1
       detailTypeFilter.value = 'all'
       detailQuickRange.value = 'all'
@@ -1421,7 +1314,7 @@ export default {
       detailAvailableDays.value = {}
       loadDetailTimeFilters()
       loadDetailSurgeries({ fast: true })
-      loadDetailFailedGroups({ silent: true })
+      loadDetailTaskMeta({ silent: true })
     }
 
     const syncDetailSelections = () => {
@@ -1433,7 +1326,7 @@ export default {
       if (!dayValues.includes(detailSelectedDay.value)) {
         detailSelectedDay.value = 'all'
       }
-      // 不再自动更新 detailQuickRange，由 handleYearChange/handleMonthChange/handleDayChange 直接设置
+      // 涓嶅啀鑷姩鏇存柊 detailQuickRange锛岀敱 handleYearChange/handleMonthChange/handleDayChange 鐩存帴璁剧疆
     }
 
     const loadDetailTimeFilters = async () => {
@@ -1579,7 +1472,45 @@ export default {
       return params
     }
 
-    // 加载设备详细手术数据
+    const getTaskMetaStatusTag = (row) => {
+      const status = String(row?.task_status || '').trim()
+      if (status === 'queued') return { label: '排队中', type: 'info' }
+      if (status === 'processing') return { label: '分析中', type: 'warning' }
+      if (status === 'completed') return { label: '已完成', type: 'success' }
+      if (status === 'completed_partial') return { label: '分析失败', type: 'danger' }
+      if (status === 'failed') return { label: '分析失败', type: 'danger' }
+      return { label: status || '未知', type: 'info' }
+    }
+
+    const canRetryTaskMeta = (row) => {
+      const status = String(row?.task_status || '').trim()
+      return status === 'failed' || status === 'completed_partial'
+    }
+
+    const buildFailedTaskRowsForDetail = () => {
+      const deviceId = String(selectedDevice.value?.device_id || '').trim() || 'unknown'
+      const rows = Array.isArray(detailTaskMetaRows.value) ? detailTaskMetaRows.value : []
+      return rows.map((item, index) => {
+        const sourceIds = normalizeLogIds(item?.source_log_ids)
+        const displayId = item?.display_surgery_id || `${deviceId}-0000000000`
+        return {
+          id: `meta-${item?.queue_job_id || item?.id || index}`,
+          surgery_id: displayId,
+          display_surgery_id: displayId,
+          start_time: item?.completed_at || item?.updated_at || item?.created_at || null,
+          end_time: item?.completed_at || item?.updated_at || item?.created_at || null,
+          has_pending_confirmation: false,
+          source_log_ids: sourceIds,
+          _isTaskMeta: true,
+          _metaTaskId: item?.id || null,
+          source_log_ids_raw: sourceIds,
+          error_message: item?.error_message || '',
+          task_status: item?.status || 'queued'
+        }
+      })
+    }
+
+    // 鍔犺浇璁惧璇︾粏鎵嬫湳鏁版嵁
     const loadDetailSurgeries = async (options = {}) => {
       if (!selectedDevice.value) return
       try {
@@ -1588,7 +1519,7 @@ export default {
           device_id: selectedDevice.value.device_id,
           page: detailCurrentPage.value,
           limit: detailPageSize.value,
-          // 列表场景不返回 structured_data 大字段，减少传输和前端处理耗时
+          // 鍒楄〃鍦烘櫙涓嶈繑鍥?structured_data 澶у瓧娈碉紝鍑忓皯浼犺緭鍜屽墠绔鐞嗚€楁椂
           include_structured_data: 0
         }
         if (detailTypeFilter.value !== 'all') {
@@ -1629,6 +1560,9 @@ export default {
           }
         })
 
+        await loadDetailTaskMeta({ silent: true })
+        const failedRows = detailCurrentPage.value === 1 ? buildFailedTaskRowsForDetail() : []
+
         const respTotal = resp.data?.total
         if (typeof respTotal === 'number') {
           detailTotal.value = respTotal
@@ -1647,19 +1581,19 @@ export default {
           }
         }
 
-        detailSurgeries.value = mapped
+        detailSurgeries.value = [...failedRows, ...mapped]
 
         syncDetailSelections()
       } catch (e) {
         if (!options?.silent) {
-        ElMessage.error(t('logs.errors.loadSurgeryDataFailed'))
+          ElMessage.error(e?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
         }
       } finally {
         detailLoading.value = false
       }
     }
 
-    // 设备详情手术数据「查看数据」：显示 surgeries 表全部字段
+    // Detail view: preview full surgery row data.
     const previewSurgeryDataFromDetail = async (row) => {
       try {
         let data = null
@@ -1677,7 +1611,7 @@ export default {
       }
     }
 
-    // 设备详情手术数据「更多」操作
+    // Detail view: "more actions" handler.
     const handleDetailSurgeryMoreAction = (cmd, row) => {
       if (cmd === 'viewLogs') {
         viewLogsBySurgery(row)
@@ -1688,16 +1622,16 @@ export default {
       }
     }
 
-    // 查看手术相关日志
+    // 鏌ョ湅鎵嬫湳鐩稿叧鏃ュ織
     const viewLogsBySurgery = async (row) => {
       try {
-        // 直接从手术记录的 source_log_ids 字段获取日志ID数组
+        // 鐩存帴浠庢墜鏈褰曠殑 source_log_ids 瀛楁鑾峰彇鏃ュ織ID鏁扮粍
         const sourceLogIds = Array.isArray(row.source_log_ids) ? row.source_log_ids : []
         if (!sourceLogIds.length) {
           ElMessage.warning(t('logs.messages.noRelatedLogFiles'))
           return
         }
-        // 过滤掉无效值并去重
+        // 杩囨护鎺夋棤鏁堝€煎苟鍘婚噸
         const ids = Array.from(new Set(sourceLogIds.filter(id => id != null && id !== undefined && id !== '')))
         if (!ids.length) {
           ElMessage.warning(t('logs.messages.noRelatedLogFiles'))
@@ -1710,11 +1644,11 @@ export default {
       }
     }
 
-    // 可视化手术
+    // Visualize surgery.
     const visualizeSurgery = async (row) => {
       try {
         let surgeryRow = row
-        // 设备详情列表默认不带 structured_data，点击可视化时再按需拉取单条完整数据
+        // 璁惧璇︽儏鍒楄〃榛樿涓嶅甫 structured_data锛岀偣鍑诲彲瑙嗗寲鏃跺啀鎸夐渶鎷夊彇鍗曟潯瀹屾暣鏁版嵁
         if (!row?.structured_data && row?.id) {
           const resp = await api.surgeries.get(row.id, { raw_structured_data: 1 })
           surgeryRow = resp.data?.data || row
@@ -1725,10 +1659,10 @@ export default {
       }
     }
 
-    // 使用删除确认 composable pattern
+    // 浣跨敤鍒犻櫎纭 composable pattern
     const { confirmDelete } = useDeleteConfirm()
 
-    // 删除手术
+    // 鍒犻櫎鎵嬫湳
     const deleteSurgery = async (row) => {
       try {
         const confirmed = await confirmDelete(row, {
@@ -1740,10 +1674,10 @@ export default {
 
         await api.surgeries.remove(row.id)
         ElMessage.success(t('shared.messages.deleteSuccess'))
-        // 如果是在抽屉中删除，刷新抽屉数据；否则刷新设备列表
+        // If deleting inside the detail drawer, refresh drawer rows first.
         if (showDeviceDetailDrawer.value && selectedDevice.value) {
           loadDetailSurgeries()
-          // 同时更新设备分组列表中的计数
+          // 鍚屾椂鏇存柊璁惧鍒嗙粍鍒楄〃涓殑璁℃暟
           loadDeviceGroups({ silent: true })
         } else {
           loadDeviceGroups()
@@ -1753,19 +1687,19 @@ export default {
       }
     }
 
-    // 关闭抽屉
+    // 鍏抽棴鎶藉眽
     const handleDrawerClose = () => {
       showDeviceDetailDrawer.value = false
       selectedDevice.value = null
       detailSurgeries.value = []
       detailTotal.value = 0
-      detailFailedGroups.value = []
+      detailTaskMetaRows.value = []
       detailAvailableYears.value = []
       detailAvailableMonths.value = {}
       detailAvailableDays.value = {}
     }
 
-    // 设备列表分页处理
+    // 璁惧鍒楄〃鍒嗛〉澶勭悊
     const handleDeviceSizeChange = (newSize) => {
       pageSize.value = newSize
       currentPage.value = 1
@@ -1777,7 +1711,7 @@ export default {
       loadDeviceGroups({ force: true })
     }
 
-    // 详细手术列表分页处理
+    // 璇︾粏鎵嬫湳鍒楄〃鍒嗛〉澶勭悊
     const handleDetailSizeChange = (size) => {
       detailPageSize.value = size
       detailCurrentPage.value = 1
@@ -1789,7 +1723,7 @@ export default {
       loadDetailSurgeries()
     }
 
-    // 关键字搜索防抖处理
+    // Debounced keyword search.
     watch(keywordFilter, (newVal) => {
       if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer)
@@ -1797,10 +1731,10 @@ export default {
       searchDebounceTimer = setTimeout(() => {
         currentPage.value = 1
         loadDeviceGroups({ force: true })
-      }, 300) // 300ms 防抖
+      }, 300) // 300ms 闃叉姈
     })
 
-    // 清空搜索框时的处理
+    // Handle keyword clear.
     const handleKeywordClear = () => {
       if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer)
@@ -1809,32 +1743,72 @@ export default {
       loadDeviceGroups({ force: true })
     }
 
-    // 重置筛选
+    // Reset filters.
     const resetFilters = () => {
       keywordFilter.value = ''
       currentPage.value = 1
       loadDeviceGroups({ force: true })
     }
 
-    // 日期格式化（使用统一的时间格式化函数，按原始时间显示，无时区转换）
+    // Format date using the shared helper without timezone conversion.
     const formatDate = (dateString) => {
-      return formatTime(dateString, false, false) // useServerTimezone=false, isUtcTime=false（原始时间）
+      return formatTime(dateString, false, false) // useServerTimezone=false, isUtcTime=false锛堝師濮嬫椂闂达級
+    }
+
+    const wsSyncingTaskIds = new Set()
+    let surgeryTaskWsRefreshTimer = null
+
+    const scheduleSurgeryTaskMetaRefresh = () => {
+      if (!showDeviceDetailDrawer.value) return
+      if (surgeryTaskWsRefreshTimer) {
+        clearTimeout(surgeryTaskWsRefreshTimer)
+      }
+      surgeryTaskWsRefreshTimer = setTimeout(async () => {
+        try {
+          await loadDetailTaskMeta({ silent: true })
+          await loadDetailSurgeries({ silent: true })
+          await loadDeviceGroups({ silent: true, force: true })
+        } catch (_) {
+          // ignore ws-triggered refresh errors
+        }
+      }, 400)
+    }
+
+    const handleSurgeryTaskStatusChange = (event) => {
+      const taskId = String(event?.taskId || '').trim()
+      if (!taskId) return
+      if (!wsSyncingTaskIds.has(taskId)) {
+        wsSyncingTaskIds.add(taskId)
+        api.surgeryStatistics.getAnalysisTaskStatus(taskId, { _silentError: true })
+          .catch(() => {})
+          .finally(() => {
+            wsSyncingTaskIds.delete(taskId)
+            scheduleSurgeryTaskMetaRefresh()
+          })
+      } else {
+        scheduleSurgeryTaskMetaRefresh()
+      }
     }
 
     onMounted(() => {
       loadServerTimezone()
-      loadFailedLogCache()
       loadDeviceGroups()
+      try { websocketClient.connect() } catch (_) {}
+      websocketClient.on('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
     })
 
     onUnmounted(() => {
       if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer)
       }
+      if (surgeryTaskWsRefreshTimer) {
+        clearTimeout(surgeryTaskWsRefreshTimer)
+      }
+      websocketClient.off('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
     })
 
     return {
-      // 设备分组相关
+      // 璁惧鍒嗙粍鐩稿叧
       loading,
       deviceGroups,
       deviceTotal,
@@ -1858,7 +1832,7 @@ export default {
       compareData,
       compareLoading,
       hasExportPermission,
-      // 设备详情相关
+      // 璁惧璇︽儏鐩稿叧
       showDeviceDetailDrawer,
       selectedDevice,
       detailSurgeries,
@@ -1866,8 +1840,7 @@ export default {
       detailCurrentPage,
       detailPageSize,
       detailTotal,
-      detailFailedGroups,
-      detailFailedGroupsLoading,
+      detailTaskMetaRows,
       retryingFailedGroupId,
       detailTypeFilter,
       detailTypeTabs,
@@ -1879,10 +1852,10 @@ export default {
       detailYearOptions,
       detailMonthOptions,
       detailDayOptions,
-      // 权限
+      // 鏉冮檺
       canDeleteSurgery,
       hasDeviceReadPermission,
-      // 方法
+      // 鏂规硶
       loadDeviceGroups,
       openSurgeryAnalysisDialog,
       loadAnalysisDeviceOptions,
@@ -1897,6 +1870,8 @@ export default {
       loadCompareFullData,
       handleDetailSurgeryMoreAction,
       handleCompareConfirmed,
+      getTaskMetaStatusTag,
+      canRetryTaskMeta,
       showDeviceDetail,
       retryFailedGroup,
       loadDetailSurgeries,
@@ -1916,16 +1891,16 @@ export default {
       handleDayChange,
       resetFilters,
       formatDate,
-      // 医院信息脱敏
+      // 鍖婚櫌淇℃伅鑴辨晱
       maskHospitalName,
-      // 图标
+      // 鍥炬爣
       Search,
       Refresh,
       RefreshLeft,
       DataAnalysis,
       List,
       Close,
-      // 表格高度
+      // 琛ㄦ牸楂樺害
       tableHeight
     }
   }
@@ -1956,7 +1931,7 @@ export default {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+  padding: 20px 20px 4px 20px; /* 搴曢儴 padding 鍑忓皯鍒?4px */
 }
 
 .action-bar {
@@ -2000,7 +1975,7 @@ export default {
   padding: 20px 0;
 }
 
-/* 表格容器 - 固定表头 */
+/* 琛ㄦ牸瀹瑰櫒 - 鍥哄畾琛ㄥご */
 .table-container {
   flex: 1;
   overflow: hidden;
@@ -2033,7 +2008,7 @@ export default {
   min-width: 0;
 }
 
-/* 设备详情相关样式 */
+/* 璁惧璇︽儏鐩稿叧鏍峰紡 */
 .device-detail-content {
   padding: 0;
   height: 100%;
@@ -2041,7 +2016,7 @@ export default {
   flex-direction: column;
 }
 
-/* 详细手术数据卡片样式 - 类似故障码页面 */
+/* 璇︾粏鎵嬫湳鏁版嵁鍗＄墖鏍峰紡 - 绫讳技鏁呴殰鐮侀〉闈?*/
 .detail-surgeries-card {
   border-radius: var(--radius-md);
   box-shadow: var(--card-shadow);
@@ -2056,10 +2031,10 @@ export default {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+  padding: 20px 20px 4px 20px; /* 搴曢儴 padding 鍑忓皯鍒?4px */
 }
 
-/* 卡片头部：包含关闭按钮和设备信息（与 DataReplay 详细列表统一） */
+/* 鍗＄墖澶撮儴锛氬寘鍚叧闂寜閽拰璁惧淇℃伅锛堜笌 DataReplay 璇︾粏鍒楄〃缁熶竴锛?*/
 .detail-surgeries-card-header {
   flex-shrink: 0;
   margin-bottom: 12px;
@@ -2110,55 +2085,6 @@ export default {
   color: rgb(var(--text-primary));
 }
 
-.failed-group-panel {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgb(var(--border-secondary));
-  border-radius: 6px;
-  background: rgb(var(--background-secondary));
-}
-
-.failed-group-panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: rgb(var(--text-primary));
-}
-
-.failed-group-panel-loading {
-  color: rgb(var(--text-secondary));
-  font-size: 12px;
-}
-
-.failed-group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.failed-group-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: rgb(var(--black-white-white));
-  border: 1px solid rgb(var(--border-secondary));
-}
-
-.failed-group-item-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.failed-group-time {
-  font-size: 12px;
-  color: rgb(var(--text-secondary));
-}
-
 .refresh-section {
   display: flex;
   align-items: center;
@@ -2183,7 +2109,7 @@ export default {
   margin-bottom: 0;
 }
 
-/* 表格容器 - 固定表头，可滚动 */
+/* 琛ㄦ牸瀹瑰櫒 - 鍥哄畾琛ㄥご锛屽彲婊氬姩 */
 .detail-table-container {
   flex: 1;
   overflow: hidden;
@@ -2200,12 +2126,12 @@ export default {
   overflow-y: auto !important;
 }
 
-/* 分页容器 - 固定在底部 */
+/* 鍒嗛〉瀹瑰櫒 - 鍥哄畾鍦ㄥ簳閮?*/
 .detail-pagination-wrapper {
   display: flex;
   justify-content: center;
   flex-shrink: 0;
-  padding: 8px 0 12px 0; /* 上8px， 下12px */
+  padding: 8px 0 12px 0; /* 涓?px锛?涓?2px */
   margin-top: auto;
   border-top: 1px solid rgb(var(--border));
   background: rgb(var(--background));
@@ -2258,7 +2184,7 @@ export default {
   gap: 6px;
 }
 
-/* 操作列按钮组样式 */
+/* 鎿嶄綔鍒楁寜閽粍鏍峰紡 */
 .operation-buttons {
   display: flex;
   justify-content: flex-start;
@@ -2266,7 +2192,7 @@ export default {
   gap: 8px;
 }
 
-/* 删除按钮文字颜色（使用 Design Token） */
+/* 鍒犻櫎鎸夐挳鏂囧瓧棰滆壊锛堜娇鐢?Design Token锛?*/
 .btn-danger-text {
   color: var(--el-color-danger) !important;
 }
@@ -2280,3 +2206,4 @@ export default {
 }
 
 </style>
+

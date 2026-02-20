@@ -24,6 +24,21 @@
           <div class="time-metric-label">{{ $t('surgeryVisualization.operationTime') }}</div>
           <div class="time-metric-value time-metric-value--operation">{{ operationTimeLabel }}</div>
         </div>
+        <span class="time-metric-sep">|</span>
+        <el-select
+          v-model="displayTimezoneOffsetMinutes"
+          :placeholder="$t('batchAnalysis.timezoneConversion')"
+          size="small"
+          class="timezone-select-nav"
+          style="width: 180px;"
+        >
+          <el-option
+            v-for="opt in timezoneOptions"
+            :key="opt.value"
+            :label="$t(opt.labelKey)"
+            :value="opt.value"
+          />
+        </el-select>
         <el-dropdown trigger="click" @command="handleExportCommand" class="report-export-dropdown">
           <el-button class="report-export-btn" type="primary" size="small">
             {{ $t('surgeryVisualization.report.exportReport') }}
@@ -302,7 +317,7 @@
           </el-table-column>
           <el-table-column prop="event_time" label="事件时间" width="220" align="center">
             <template #default="{ row }">
-              <span :title="row.event_time || '-'">{{ row.event_time || '-' }}</span>
+              <span :title="formatEventTime(row.event) || '-'">{{ formatEventTime(row.event) || '-' }}</span>
             </template>
           </el-table-column>
         </el-table>
@@ -676,6 +691,14 @@ export default {
     }
     
     const meta = reactive({ surgery_id: null, start_time: null, end_time: null, is_remote: false, is_fault: false })
+    // 时区显示：surgeries 表数据按 UTC+8 存储，此处选中的时区仅影响前端显示和导出报告
+    const displayTimezoneOffsetMinutes = ref(480) // 480 = UTC+8（无转换）
+    const timezoneOptions = [
+      840, 780, 720, 765, 660, 630, 600, 570, 540, 525, 480, 420, 390, 360, 345, 330, 300, 270, 240, 210, 180, 120, 60, 0, -60, -120, -180, -210, -240, -300, -360, -420, -480, -540, -570, -600, -660, -720
+    ].map((value) => ({
+      value,
+      labelKey: `batchAnalysis.timezoneOptions.${value}`
+    }))
     const alertRows = ref([])
     const showAllAlerts = ref(false)
     const currentData = ref(null)
@@ -729,6 +752,11 @@ export default {
     watch(() => locale?.value, () => {
       if (hasSurgeryPhaseData.value && nightingaleChartData.value?.length) {
         nextTick(() => updateNightingaleChart())
+      }
+      // 语言切换时重新加载故障释义（使用 i18n_error_codes 对应语言）
+      faultExplanations.value = new Map()
+      if (faultRecords.value?.length) {
+        nextTick(() => loadFaultExplanations())
       }
     })
     const timeScaleTicks = [
@@ -926,25 +954,9 @@ export default {
       const udi = segment.udi || t('surgeryVisualization.tooltipNoUdi')
       const toolLife = getSegmentToolLife(segment)
       
-      // 使用原始时间显示
       const installTime = segment.install_time || segment.start_time
       const removeTime = segment.remove_time || segment.end_time
-      
-      const formatTime = (timeStr) => {
-        if (!timeStr) return t('surgeryVisualization.unknown')
-        const localTime = getLocalTime(timeStr)
-        if (!localTime) return t('surgeryVisualization.unknown')
-        return localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        })
-      }
-      
-      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipToolLife')}: ${toolLife}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('shared.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatTime(removeTime)}`
+      return `${toolType}\n\n${t('surgeryVisualization.tooltipUdi')}: ${udi}\n${t('surgeryVisualization.tooltipToolLife')}: ${toolLife}\n${t('surgeryVisualization.tooltipDuration')}: ${duration}${t('shared.minutes')}\n${t('surgeryVisualization.tooltipInstall')}: ${formatSegmentTime(installTime)}\n${t('surgeryVisualization.tooltipRemove')}: ${formatSegmentTime(removeTime)}`
     }
 
     const getSegmentToolLife = (segment) => {
@@ -1391,11 +1403,11 @@ export default {
       // 5. 按照用户要求的顺序重新排序
       const sortedEvents = sortEventsBySequence(events)
       
-      // 6. 转换为显示格式
+      // 6. 转换为显示格式（存原始 event 以便时区变更时重新格式化）
       eventSequenceList.value = sortedEvents.map((event, index) => ({
         sequence: index + 1,
         event_name: event.name,
-        event_time: formatEventTime(event),
+        event,
         event_type: event.type,
         arm_id: event.arm_id,
         instrument_type: event.instrument_type,
@@ -1458,9 +1470,13 @@ export default {
         zIndex: 9999
       }
     }
-    // 事件时间与星期格式化（与器械tooltip一致）
+    // 事件时间与星期格式化（支持时区转换）
     const formatEventTime = (ev) => {
-      const localTime = getLocalTime(ev?.time)
+      const timeStr = ev?.time
+      if (!timeStr) return t('surgeryVisualization.unknown')
+      const converted = formatTimestampWithTimezone(timeStr, displayTimezoneOffsetMinutes.value)
+      if (converted) return converted
+      const localTime = getLocalTime(timeStr)
       if (!localTime) return t('surgeryVisualization.unknown')
       return localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
         year: 'numeric', month: '2-digit', day: '2-digit',
@@ -1486,9 +1502,11 @@ export default {
       )
     }
     
-    // 格式化器械段时间
+    // 格式化器械段时间（支持时区转换）
     const formatSegmentTime = (timeStr) => {
       if (!timeStr) return t('surgeryVisualization.unknown')
+      const converted = formatTimestampWithTimezone(timeStr, displayTimezoneOffsetMinutes.value)
+      if (converted) return converted
       const localTime = getLocalTime(timeStr)
       if (!localTime) return t('surgeryVisualization.unknown')
       return localTime.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
@@ -1501,12 +1519,16 @@ export default {
       })
     }
 
-    // 格式化时间（精确到毫秒），用于能量激发事件
+    // 格式化时间（精确到毫秒），用于能量激发事件（支持时区转换）
     const formatSegmentTimeWithMs = (timeStr) => {
       if (!timeStr) return t('surgeryVisualization.unknown')
+      const converted = formatTimestampWithTimezone(timeStr, displayTimezoneOffsetMinutes.value)
+      if (converted) {
+        const match = converted.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/)
+        if (match) return `${match[1]}/${match[2]}/${match[3]} ${match[4]}:${match[5]}:${match[6]}.000`
+      }
       const localTime = getLocalTime(timeStr)
       if (!localTime) return t('surgeryVisualization.unknown')
-
       const y = localTime.getFullYear()
       const m = String(localTime.getMonth() + 1).padStart(2, '0')
       const d = String(localTime.getDate()).padStart(2, '0')
@@ -2025,21 +2047,29 @@ export default {
       return '#722ed1'
     }
     
-    // 获取时间列显示文本（显示实际小时数，支持跨天显示）
+    // 获取时间列显示文本（显示实际小时数，支持跨天显示和时区转换）
     const getTimeColumnText = (hour) => {
       if (!timelineBaseTime.value) return '00:00'
       
-      // 计算相对于时间基准的小时数
-      const baseTime = getLocalTime(timelineBaseTime.value)
-      if (!baseTime) return '00:00'
-      
-      // 计算当前小时的实际时间
-      const currentTime = new Date(baseTime.getTime() + hour * 60 * 60 * 1000)
-      const actualHour = currentTime.getHours()
-      
-      // 检查是否跨天
-      const baseDate = baseTime.getDate()
-      const currentDate = currentTime.getDate()
+      const baseUtcMs = parseStorageTimeToUtcMs(timelineBaseTime.value)
+      if (Number.isNaN(baseUtcMs)) {
+        const baseTime = getLocalTime(timelineBaseTime.value)
+        if (!baseTime) return '00:00'
+        const currentTime = new Date(baseTime.getTime() + hour * 60 * 60 * 1000)
+        const actualHour = currentTime.getHours()
+        const baseDate = baseTime.getDate()
+        const currentDate = currentTime.getDate()
+        if (currentDate > baseDate) return `(${String(actualHour).padStart(2, '0')}:00+1)`
+        return `${String(actualHour).padStart(2, '0')}:00`
+      }
+      const offset = displayTimezoneOffsetMinutes.value
+      const displayBaseMs = baseUtcMs + (offset || 480) * 60 * 1000
+      const currentDisplayMs = displayBaseMs + hour * 60 * 60 * 1000
+      const baseD = new Date(displayBaseMs)
+      const currentD = new Date(currentDisplayMs)
+      const actualHour = currentD.getUTCHours()
+      const baseDate = baseD.getUTCDate()
+      const currentDate = currentD.getUTCDate()
       
       if (currentDate > baseDate) {
         // 跨天了，显示 (xx:00+1) 格式
@@ -2087,6 +2117,75 @@ export default {
       
       // 直接使用原始时间，不进行时区转换
       return new Date(timeMs)
+    }
+
+    // 存储时区：UTC+8
+    const STORAGE_OFFSET_MINUTES = 480
+    const parseStorageTimeToUtcMs = (storageStr) => {
+      if (!storageStr || typeof storageStr !== 'string') return NaN
+      const m = String(storageStr).trim().match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+      if (m) {
+        const h = parseInt(m[4], 10) - (STORAGE_OFFSET_MINUTES / 60)
+        return Date.UTC(
+          parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10),
+          h, parseInt(m[5], 10), parseInt(m[6], 10) || 0,
+          parseInt((m[7] || '0').padEnd(3, '0'), 10) || 0
+        )
+      }
+      return new Date(storageStr).getTime()
+    }
+    // 时区转换显示：将原时区(UTC+8)存储的时间戳按选中时区显示
+    const formatTimestampWithTimezone = (timestamp, offsetMinutes) => {
+      if (timestamp == null || timestamp === '') return ''
+      if (offsetMinutes == null || offsetMinutes === 480) return ''
+      let utcMs
+      const str = String(timestamp).trim()
+      const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+      if (match) {
+        const [, y, M, d, h, m, s, ms] = match
+        utcMs = Date.UTC(
+          parseInt(y, 10), parseInt(M, 10) - 1, parseInt(d, 10),
+          parseInt(h, 10) - 8, parseInt(m, 10), parseInt(s, 10) || 0,
+          parseInt((ms || '0').padEnd(3, '0'), 10) || 0
+        )
+      } else {
+        const date = new Date(timestamp)
+        if (isNaN(date.getTime())) return ''
+        utcMs = date.getTime()
+      }
+      const displayMs = utcMs + (offsetMinutes * 60 * 1000)
+      const disp = new Date(displayMs)
+      const yy = disp.getUTCFullYear()
+      const mm = String(disp.getUTCMonth() + 1).padStart(2, '0')
+      const dd = String(disp.getUTCDate()).padStart(2, '0')
+      const hh = String(disp.getUTCHours()).padStart(2, '0')
+      const mi = String(disp.getUTCMinutes()).padStart(2, '0')
+      const ss = String(disp.getUTCSeconds()).padStart(2, '0')
+      return `${yy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+    }
+    const formatTimeForDisplay = (timeStr) => {
+      if (!timeStr) return '--'
+      const converted = formatTimestampWithTimezone(timeStr, displayTimezoneOffsetMinutes.value)
+      if (converted) return converted
+      return formatTime(timeStr, false, false)
+    }
+    const formatTimeForDisplayReport = (timeStr) => {
+      if (!timeStr) return '--'
+      const converted = formatTimestampWithTimezone(timeStr, displayTimezoneOffsetMinutes.value)
+      if (converted) {
+        const [datePart, timePart] = converted.split(' ')
+        const [y, m, d] = datePart.split('-')
+        const [hh, mm] = (timePart || '').split(':')
+        return `${y}/${m}/${d} ${hh || '00'}:${mm || '00'}`
+      }
+      const localTime = getLocalTime(timeStr)
+      if (!localTime) return '--'
+      const y = localTime.getFullYear()
+      const m = String(localTime.getMonth() + 1).padStart(2, '0')
+      const d = String(localTime.getDate()).padStart(2, '0')
+      const hh = String(localTime.getHours()).padStart(2, '0')
+      const mm = String(localTime.getMinutes()).padStart(2, '0')
+      return `${y}/${m}/${d} ${hh}:${mm}`
     }
 
     const renderTimeline = (data) => {
@@ -2708,11 +2807,26 @@ export default {
       calculateNetworkLatencyStats(startMs, endMs)
     }
     
-    // 格式化统计时间显示
+    // 格式化统计时间显示（支持时区转换）
     const formatStatsTime = (date) => {
       if (!date) return ''
       try {
-        const d = new Date(date)
+        const utcMs = new Date(date).getTime()
+        if (Number.isNaN(utcMs)) return ''
+        const offset = displayTimezoneOffsetMinutes.value
+        let d
+        if (offset != null && offset !== 480) {
+          const displayMs = utcMs + offset * 60 * 1000
+          d = new Date(displayMs)
+          const y = d.getUTCFullYear()
+          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+          const day = String(d.getUTCDate()).padStart(2, '0')
+          const hh = String(d.getUTCHours()).padStart(2, '0')
+          const mm = String(d.getUTCMinutes()).padStart(2, '0')
+          const ss = String(d.getUTCSeconds()).padStart(2, '0')
+          return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
+        }
+        d = new Date(utcMs)
         const y = d.getFullYear()
         const m = String(d.getMonth() + 1).padStart(2, '0')
         const day = String(d.getDate()).padStart(2, '0')
@@ -2761,21 +2875,29 @@ export default {
           targetSubsystem = parsed.subsystem
         }
         
-        // 构建预览请求载荷
+        // 构建预览请求载荷（lang 用于从 i18n_error_codes 获取对应语言的 explanation）
         const previewPayload = {
           code: errorCode,
           subsystem: targetSubsystem || undefined,
           param1: param1 || undefined,
           param2: param2 || undefined,
           param3: param3 || undefined,
-          param4: param4 || undefined
+          param4: param4 || undefined,
+          lang: locale?.value || undefined
         }
         
-        // 调用释义预览接口
+        // 调用释义预览接口（返回 explanation、prefix 已翻译、prefix_raw 原文）
         const resp = await api.explanations.preview(previewPayload)
         const explanation = resp?.data?.explanation
+        const prefix = resp?.data?.prefix
+        const prefixRaw = resp?.data?.prefix_raw
         
         if (explanation) {
+          // 若有翻译后的 prefix，用其替换 explanation 中的原文前缀后组合显示
+          if (prefix && prefixRaw && String(explanation).startsWith(prefixRaw)) {
+            const body = String(explanation).slice(prefixRaw.length).replace(/^\s+/, '')
+            return body ? `${prefix} ${body}` : prefix
+          }
           return explanation
         }
         
@@ -2795,11 +2917,6 @@ export default {
         
         // 如果正在加载或已有释义，跳过
         if (faultExplanationLoading.value.has(rowKey) || faultExplanations.value.has(rowKey)) {
-          continue
-        }
-        
-        // 如果已经有explanation且不是默认值，跳过
-        if (row.explanation && row.explanation !== t('surgeryVisualization.noExplanation')) {
           continue
         }
         
@@ -2881,8 +2998,11 @@ export default {
     // 格式化故障时间
     const formatFaultTime = (timestamp) => {
       if (!timestamp) return t('surgeryVisualization.unknownTime')
+      const converted = formatTimeForDisplay(String(timestamp))
+      if (converted && converted !== '--') return converted
       try {
         const date = new Date(timestamp)
+        if (Number.isNaN(date.getTime())) return t('surgeryVisualization.unknownTime')
         return date.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
           year: 'numeric',
           month: '2-digit',
@@ -3660,8 +3780,8 @@ export default {
       }
     })
 
-    // 使用统一的时间格式化函数
-    const fmtTime = (v) => formatTime(v, false, false) // useServerTimezone=false, isUtcTime=false（原始时间）
+    // 使用统一的时间格式化函数（支持时区转换）
+    const fmtTime = (v) => formatTimeForDisplay(v)
     const timelineDisplay = reactive({ powerOn: '-', previousSurgeryEnd: '-', surgeryStart: '-', surgeryEnd: '-', powerOff: '-' })
 
     const renderAlerts = (data) => {
@@ -3688,6 +3808,13 @@ export default {
       const arr = alertRows.value || []
       if (showAllAlerts.value) return arr
       return arr.slice(0, 5)
+    })
+
+    // 时区变更时重新刷新显示
+    watch(displayTimezoneOffsetMinutes, () => {
+      if (currentData.value) {
+        renderAlerts(currentData.value)
+      }
     })
 
     const exportStructured = () => {
@@ -3734,18 +3861,8 @@ export default {
         .replace(/'/g, '&#39;')
     }
 
-    // 报告用时间格式 YYYY/mm/dd hh/mm
-    const formatReportDateTime = (timeStr) => {
-      if (!timeStr) return '--'
-      const localTime = getLocalTime(timeStr)
-      if (!localTime) return '--'
-      const y = localTime.getFullYear()
-      const m = String(localTime.getMonth() + 1).padStart(2, '0')
-      const d = String(localTime.getDate()).padStart(2, '0')
-      const hh = String(localTime.getHours()).padStart(2, '0')
-      const mm = String(localTime.getMinutes()).padStart(2, '0')
-      return `${y}/${m}/${d} ${hh}:${mm}`
-    }
+    // 报告用时间格式 YYYY/mm/dd hh/mm（支持时区转换）
+    const formatReportDateTime = (timeStr) => formatTimeForDisplayReport(timeStr)
 
     // 报告用时长：xx小时mm分钟（根据当前语言）
     const getDurationHoursMinutesLabel = (startTime, endTime) => {
@@ -3998,14 +4115,12 @@ export default {
         `).join('')
         : `<tr><td colspan="4" class="empty-cell">${escapeHtml(t('surgeryVisualization.report.noAlarmData'))}</td></tr>`
 
-      const operationRowsHtml = meta.is_fault
-        ? operationRows.map(row => `
-          <tr>
-            <td>${escapeHtml(row.name)}</td>
-            <td>${escapeHtml(String(row.value))}</td>
-          </tr>
-        `).join('')
-        : ''
+      const operationRowsHtml = operationRows.map(row => `
+        <tr>
+          <td>${escapeHtml(row.name)}</td>
+          <td>${escapeHtml(String(row.value))}</td>
+        </tr>
+      `).join('')
 
       const remoteMetricsHtml = meta.is_remote
         ? `
@@ -4170,7 +4285,6 @@ export default {
               </table>
             </div>
 
-            ${meta.is_fault ? `
             <div class="section">
               <div class="section-title">${escapeHtml(t('surgeryVisualization.report.operationSummary'))}</div>
               <table class="report-table report-table-noborder">
@@ -4183,7 +4297,6 @@ export default {
                 <tbody>${operationRowsHtml}</tbody>
               </table>
             </div>
-            ` : ''}
 
             ${remoteMetricsHtml}
           </body>
@@ -4276,19 +4389,22 @@ export default {
       reportEnergyRows.forEach((row) => {
         lines.push(csvRow([row.armId, row.instrumentType, row.udi, row.energyType, row.startTime, row.durationLabel, row.gripsActiveLabel]))
       })
-      reportEnergyStats.forEach((s) => {
-        lines.push(csvRow(['', t('surgeryVisualization.report.statistics'), t('surgeryVisualization.report.energyStatTemplate', { type: s.type, total: s.totalLabel, count: s.count }), '', '', '', '']))
-      })
+      if (reportEnergyStats.length > 0) {
+        lines.push('')
+        lines.push(t('surgeryVisualization.report.statistics'))
+        lines.push(csvRow([t('surgeryVisualization.report.energyType'), t('surgeryVisualization.report.totalActivationTime'), t('surgeryVisualization.report.totalActivationCount')]))
+        reportEnergyStats.forEach((s) => {
+          lines.push(csvRow([s.type, s.totalLabel, s.count]))
+        })
+      }
       lines.push('')
       lines.push(t('surgeryVisualization.report.alarmList'))
       lines.push(csvRow([t('surgeryVisualization.report.faultTime'), t('surgeryVisualization.report.faultCode'), t('surgeryVisualization.report.faultExplanation'), t('surgeryVisualization.status')]))
       faultRows.forEach((r) => lines.push(csvRow([r.time, r.code, r.explanation, r.status])))
-      if (meta.is_fault) {
-        lines.push('')
-        lines.push(t('surgeryVisualization.report.operationSummary'))
-        lines.push(csvRow([t('surgeryVisualization.report.operationType'), t('surgeryVisualization.report.count')]))
-        operationRows.forEach((r) => lines.push(csvRow([r.name, r.value])))
-      }
+      lines.push('')
+      lines.push(t('surgeryVisualization.report.operationSummary'))
+      lines.push(csvRow([t('surgeryVisualization.report.operationType'), t('surgeryVisualization.report.count')]))
+      operationRows.forEach((r) => lines.push(csvRow([r.name, r.value])))
       return lines.join('\r\n')
     }
 
@@ -4469,10 +4585,16 @@ export default {
       if (procedure !== undefined && procedure !== null && String(procedure).trim() !== '') return String(procedure).trim()
       return '--'
     })
-    // 标题栏：手术日期（按手术开始事件 年/月/日）
+    // 标题栏：手术日期（按手术开始事件 年/月/日，支持时区转换）
     const surgeryDateLabel = computed(() => {
       const start = meta.start_time || currentData.value?.timeline?.surgeryStart
       if (!start) return '--'
+      const converted = formatTimestampWithTimezone(start, displayTimezoneOffsetMinutes.value)
+      if (converted) {
+        const [datePart] = converted.split(' ')
+        const [y, m, d] = datePart.split('-')
+        return `${y}/${m}/${d}`
+      }
       const d = getLocalTime(start)
       if (!d) return '--'
       const y = d.getFullYear()
@@ -4569,6 +4691,8 @@ export default {
       loading, 
       surgeryIdInput, 
       meta,
+      displayTimezoneOffsetMinutes,
+      timezoneOptions,
       surgeryProcedureLabel,
       surgeryDateLabel,
       totalDurationLabel,
@@ -4760,6 +4884,8 @@ export default {
 .time-metric-value { font-size: 14px; font-weight: 600; color: #333; }
 .time-metric-value--operation { color: var(--blue-600, #2563eb); }
 .time-metric-sep { color: #ddd; font-size: 14px; }
+
+.timezone-select-nav { margin-left: 8px; }
 
 .surgery-tag { margin: 0 2px; }
 .viz-nav-bar .el-tag.fault-tag { background-color: #f48d8f !important; color: white !important; border: none !important; }
@@ -5999,7 +6125,5 @@ export default {
 }
 
 </style>
-
-
 
 

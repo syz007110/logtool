@@ -11,8 +11,7 @@ const LogEntry = {
 const Log = require('../models/log');
 const Surgery = require('../models/surgery');
 const SurgeryExportPending = require('../models/surgeryExportPending');
-const SurgeryAnalysisFailedLog = require('../models/surgeryAnalysisFailedLog');
-const SurgeryAnalysisFailedGroup = require('../models/surgeryAnalysisFailedGroup');
+const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op, Sequelize } = require('sequelize');
 const { userHasDbPermission } = require('../middlewares/permission');
@@ -610,194 +609,37 @@ function normalizeLogIdList(logIds) {
   ));
 }
 
-function buildFailedArtifactsFromStates(states = []) {
-  const perDeviceSnapshot = new Map();
-  const failedGroups = [];
-
-  const normalizedStates = Array.isArray(states) ? states : [];
-  normalizedStates.forEach((state) => {
-    const did = String(state?.deviceId || '').trim();
-    if (!did) return;
-    if (!perDeviceSnapshot.has(did)) perDeviceSnapshot.set(did, []);
-
-    const sourceGroupLogIds = normalizeLogIdList(state?.logIds);
-    let failedDetails = [];
-
-    if (state?.state === 'completed') {
-      failedDetails = (Array.isArray(state?.result?.failedLogs) ? state.result.failedLogs : [])
-        .map((item) => ({
-          logId: Number(item?.logId),
-          reason: item?.reason || 'analysis failed'
-        }))
-        .filter((item) => Number.isFinite(item.logId));
-    } else if (state?.state === 'failed') {
-      const fallbackLogIds = normalizeLogIdList(state?.logIds);
-      failedDetails = fallbackLogIds.map((logId) => ({
-        logId,
-        reason: state?.error || 'sub task failed'
-      }));
-    }
-
-    if (failedDetails.length > 0) {
-      perDeviceSnapshot.get(did).push(...failedDetails);
-      const failedLogIds = normalizeLogIdList(failedDetails.map((item) => item.logId));
-      failedGroups.push({
-        deviceId: did,
-        failedLogIds,
-        failedLogDetails: failedDetails,
-        sourceGroupLogIds
-      });
-    }
-  });
-
-  perDeviceSnapshot.forEach((items, deviceId) => {
-    const byLogId = new Map();
-    for (const item of items) {
-      if (!byLogId.has(item.logId)) byLogId.set(item.logId, item.reason || 'unknown error');
-    }
-    perDeviceSnapshot.set(deviceId, Array.from(byLogId.entries()).map(([logId, reason]) => ({ logId, reason })));
-  });
-
-  return {
-    perDeviceSnapshot,
-    failedGroups
-  };
+function mapQueueStateToTaskStatus(state) {
+  if (state === 'completed') return 'completed';
+  if (state === 'failed') return 'failed';
+  if (state === 'active') return 'processing';
+  if (state === 'waiting' || state === 'delayed') return 'queued';
+  return 'queued';
 }
 
-async function persistFailedLogsByDevice(perDeviceFailedMap, taskMeta = {}) {
-  if (!(perDeviceFailedMap instanceof Map)) return;
-  const updates = [];
-  perDeviceFailedMap.forEach((details, deviceId) => {
-    const did = String(deviceId || '').trim();
-    if (!did) return;
-    const normalizedDetails = (Array.isArray(details) ? details : [])
-      .map((item) => ({
-        logId: Number(item?.logId),
-        reason: item?.reason || 'unknown error'
-      }))
-      .filter((item) => Number.isFinite(item.logId));
-    updates.push({
-      deviceId: did,
-      details: normalizedDetails,
-      logIds: normalizeLogIdList(normalizedDetails.map((item) => item.logId))
-    });
-  });
-  if (updates.length === 0) return;
-
-  try {
-    if (typeof SurgeryAnalysisFailedLog.ensureTable === 'function') {
-      await SurgeryAnalysisFailedLog.ensureTable();
-    }
-    for (const item of updates) {
-      if (item.logIds.length === 0) {
-        await SurgeryAnalysisFailedLog.destroy({ where: { device_id: item.deviceId } });
-        continue;
-      }
-      await SurgeryAnalysisFailedLog.upsert({
-        device_id: item.deviceId,
-        failed_log_ids: item.logIds,
-        failed_log_details: item.details,
-        last_task_id: taskMeta.taskId ? String(taskMeta.taskId) : null,
-        updated_by: Number.isFinite(Number(taskMeta.userId)) ? Number(taskMeta.userId) : null
-      });
-    }
-  } catch (error) {
-    console.warn('[surgery-analysis-failed-log] persist failed:', error?.message || error);
+function deriveYyyyhhmmFromFirstLog(log) {
+  if (!log) return null;
+  const token = String(log.file_time_token || '').trim();
+  if (/^\d{12}$/.test(token)) {
+    return `${token.slice(0, 4)}${token.slice(8, 10)}${token.slice(10, 12)}`;
   }
+  if (/^\d{10}$/.test(token)) {
+    return `${token.slice(0, 4)}${token.slice(8, 10)}00`;
+  }
+  const uploadTime = log.upload_time ? new Date(log.upload_time) : null;
+  if (uploadTime && !Number.isNaN(uploadTime.getTime())) {
+    const yyyy = String(uploadTime.getFullYear());
+    const hh = String(uploadTime.getHours()).padStart(2, '0');
+    const mm = String(uploadTime.getMinutes()).padStart(2, '0');
+    return `${yyyy}${hh}${mm}`;
+  }
+  return null;
 }
 
-async function persistFailedLogGroups(failedGroups = [], taskMeta = {}) {
-  const groups = (Array.isArray(failedGroups) ? failedGroups : [])
-    .map((group) => {
-      const deviceId = String(group?.deviceId || '').trim();
-      const failedLogIds = normalizeLogIdList(group?.failedLogIds);
-      const sourceGroupLogIds = normalizeLogIdList(group?.sourceGroupLogIds);
-      const failedLogDetails = (Array.isArray(group?.failedLogDetails) ? group.failedLogDetails : [])
-        .map((item) => ({
-          logId: Number(item?.logId),
-          reason: item?.reason || 'unknown error'
-        }))
-        .filter((item) => Number.isFinite(item.logId));
-      return {
-        deviceId,
-        failedLogIds,
-        failedLogDetails,
-        sourceGroupLogIds
-      };
-    })
-    .filter((group) => group.deviceId && group.failedLogIds.length > 0);
-  if (groups.length === 0) return;
-
-  try {
-    if (typeof SurgeryAnalysisFailedGroup.ensureTable === 'function') {
-      await SurgeryAnalysisFailedGroup.ensureTable();
-    }
-    for (const group of groups) {
-      const signature = group.failedLogIds.join(',');
-      const existed = await SurgeryAnalysisFailedGroup.findOne({
-        where: {
-          device_id: group.deviceId,
-          failed_log_ids_key: signature
-        }
-      });
-      if (existed) {
-        await existed.update({
-          failed_log_ids: group.failedLogIds,
-          source_group_log_ids: group.sourceGroupLogIds,
-          failed_log_details: group.failedLogDetails,
-          last_task_id: taskMeta.taskId ? String(taskMeta.taskId) : existed.last_task_id,
-          updated_by: Number.isFinite(Number(taskMeta.userId)) ? Number(taskMeta.userId) : existed.updated_by,
-          fail_count: Number(existed.fail_count || 0) + 1,
-          last_failed_at: new Date()
-        });
-      } else {
-        await SurgeryAnalysisFailedGroup.create({
-          device_id: group.deviceId,
-          failed_log_ids: group.failedLogIds,
-          failed_log_ids_key: signature,
-          source_group_log_ids: group.sourceGroupLogIds,
-          failed_log_details: group.failedLogDetails,
-          last_task_id: taskMeta.taskId ? String(taskMeta.taskId) : null,
-          updated_by: Number.isFinite(Number(taskMeta.userId)) ? Number(taskMeta.userId) : null,
-          fail_count: 1,
-          first_failed_at: new Date(),
-          last_failed_at: new Date()
-        });
-      }
-    }
-  } catch (error) {
-    console.warn('[surgery-analysis-failed-group] persist failed:', error?.message || error);
-  }
-}
-
-async function cleanupRetriedFailedGroups(states = []) {
-  const retryGroupIds = [];
-  for (const state of (Array.isArray(states) ? states : [])) {
-    const retryFailedGroupId = Number(state?.retryFailedGroupId);
-    if (!Number.isFinite(retryFailedGroupId)) continue;
-    if (state?.state !== 'completed') continue;
-    const failedFromIds = normalizeLogIdList(state?.result?.failedLogIds);
-    const failedFromDetails = normalizeLogIdList(
-      (Array.isArray(state?.result?.failedLogs) ? state.result.failedLogs : []).map((item) => item?.logId)
-    );
-    const finalFailed = failedFromIds.length > 0 ? failedFromIds : failedFromDetails;
-    if (finalFailed.length === 0) {
-      retryGroupIds.push(retryFailedGroupId);
-    }
-  }
-  const uniqueIds = Array.from(new Set(retryGroupIds));
-  if (uniqueIds.length === 0) return;
-
-  try {
-    if (typeof SurgeryAnalysisFailedGroup.ensureTable === 'function') {
-      await SurgeryAnalysisFailedGroup.ensureTable();
-    }
-    await SurgeryAnalysisFailedGroup.destroy({
-      where: { id: { [Op.in]: uniqueIds } }
-    });
-  } catch (error) {
-    console.warn('[surgery-analysis-failed-group] cleanup retry success groups failed:', error?.message || error);
-  }
+function buildFailedDisplaySurgeryId(deviceId, firstLog) {
+  const d = String(deviceId || '').trim() || 'unknown';
+  const yyyyhhmm = deriveYyyyhhmmFromFirstLog(firstLog) || '00000000';
+  return `${d}-${yyyyhhmm}00`;
 }
 
 async function upsertPendingExportRecord({ surgeryId, existingPostgresqlId, newData, userId }) {
@@ -819,6 +661,64 @@ async function upsertPendingExportRecord({ surgeryId, existingPostgresqlId, newD
   return created.id;
 }
 
+async function clearPendingExportRecordBySurgeryId(surgeryId) {
+  if (!surgeryId) return;
+  await SurgeryExportPending.destroy({ where: { surgery_id: surgeryId } });
+}
+
+function sanitizePendingComparisonData(value, parentKey = '') {
+  if (value == null) return value;
+
+  if (value instanceof Date) {
+    return formatTimeForDisplay(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizePendingComparisonData(item, parentKey));
+  }
+
+  if (typeof value === 'object') {
+    const out = {};
+    const excludedDbFields = new Set(['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'last_analyzed_at']);
+    for (const [key, v] of Object.entries(value)) {
+      if (excludedDbFields.has(key)) continue;
+      out[key] = sanitizePendingComparisonData(v, key);
+    }
+    return out;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const lowerParentKey = String(parentKey || '').toLowerCase();
+    const keyLooksLikeTime = lowerParentKey.endsWith('time') ||
+      lowerParentKey.endsWith('timestamp') ||
+      lowerParentKey === 'start_time' ||
+      lowerParentKey === 'end_time' ||
+      lowerParentKey === 'on_time' ||
+      lowerParentKey === 'off_time' ||
+      lowerParentKey === 'recoverytime';
+
+    if (keyLooksLikeTime && (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(trimmed) || /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed))) {
+      return formatTimeForDisplay(trimmed) || trimmed;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed)) {
+      return formatTimeForDisplay(trimmed) || trimmed;
+    }
+  }
+
+  return value;
+}
+
+function sanitizeDifferencesForDisplay(differences) {
+  if (!Array.isArray(differences)) return [];
+  return differences.map((diff) => ({
+    ...diff,
+    oldValue: sanitizePendingComparisonData(diff?.oldValue, diff?.field || ''),
+    newValue: sanitizePendingComparisonData(diff?.newValue, diff?.field || '')
+  }));
+}
+
 async function autoImportSurgeries(surgeries, userId) {
   const summary = { total: 0, imported: 0, pending: 0, failed: 0 };
   if (!Array.isArray(surgeries)) return summary;
@@ -835,6 +735,10 @@ async function autoImportSurgeries(surgeries, userId) {
       }
       const existingPlain = existing.get ? existing.get({ plain: true }) : existing;
       const differences = compareSurgeryData(postgresqlData, existingPlain);
+      if (differences.length === 0) {
+        await clearPendingExportRecordBySurgeryId(postgresqlData.surgery_id);
+        continue;
+      }
       await upsertPendingExportRecord({
         surgeryId: postgresqlData.surgery_id,
         existingPostgresqlId: existing.id,
@@ -1215,7 +1119,8 @@ const analyzeByLogIds = async (req, res) => {
     }
 
     const groups = groupLogsByDeviceContinuity(selectedLogs);
-    const childJobs = [];
+    const jobs = [];
+    const requestId = `surgery-req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const requestLogIdsSorted = [...numericLogIds].sort((a, b) => a - b);
     for (const group of groups) {
       const groupDeviceId = String(group?.[0]?.device_id || '').trim() || null;
@@ -1224,10 +1129,12 @@ const analyzeByLogIds = async (req, res) => {
       const isExactRetryGroup = Number.isFinite(Number(retryFailedGroupId))
         && requestLogIdsSorted.length === groupLogIdsSorted.length
         && requestLogIdsSorted.every((id, idx) => id === groupLogIdsSorted[idx]);
-      const childJob = await surgeryAnalysisQueue.add('analyze-surgeries', {
+      const job = await surgeryAnalysisQueue.add('analyze-surgeries', {
         logIds: groupLogIds,
         deviceId: groupDeviceId,
         retryFailedGroupId: isExactRetryGroup ? Number(retryFailedGroupId) : null,
+        requestId,
+        autoImport: autoImport === true,
         userId: req.user.id,
         includePostgreSQLStructure: includePostgreSQLStructure === true,
         timezoneOffsetMinutes: timezoneOffsetMinutes ?? null
@@ -1238,32 +1145,53 @@ const analyzeByLogIds = async (req, res) => {
         removeOnComplete: 100,
         removeOnFail: 50
       });
-      childJobs.push(childJob);
+      jobs.push({
+        job,
+        groupDeviceId,
+        groupLogIds
+      });
     }
 
-    const parentTaskId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    analysisTasks.set(parentTaskId, {
-      id: parentTaskId,
-      userId: req.user.id,
-      status: 'processing',
-      progress: 0,
-      result: null,
-      error: null,
-      exportSummary: { total: 0, imported: 0, pending: 0, failed: 0 },
-      autoImport: autoImport === true,
-      autoImportDone: false,
-      processedChildJobIds: [],
-      childJobIds: childJobs.map((job) => job.id),
-      logIds: numericLogIds,
-      createdAt: new Date(),
-      startedAt: new Date(),
-      completedAt: null
-    });
+    if (typeof SurgeryAnalysisTaskMeta.ensureTable === 'function') {
+      await SurgeryAnalysisTaskMeta.ensureTable();
+    }
+    for (const item of jobs) {
+      await SurgeryAnalysisTaskMeta.upsert({
+        queue_job_id: String(item.job.id),
+        request_id: requestId,
+        device_id: item.groupDeviceId || 'unknown',
+        source_log_ids: normalizeLogIdList(item.groupLogIds),
+        status: 'queued',
+        created_by: req.user.id
+      });
+    }
+
+    let removedRetryTaskMetaId = null;
+    const retryMetaIdNum = Number(retryFailedGroupId);
+    if (Number.isFinite(retryMetaIdNum) && retryMetaIdNum > 0) {
+      try {
+        const oldMeta = await SurgeryAnalysisTaskMeta.findByPk(retryMetaIdNum);
+        if (oldMeta) {
+          const oldSourceLogIdsSorted = normalizeLogIdList(oldMeta.source_log_ids).sort((a, b) => a - b);
+          const canRemoveOldMeta = oldSourceLogIdsSorted.length === requestLogIdsSorted.length
+            && oldSourceLogIdsSorted.every((id, idx) => id === requestLogIdsSorted[idx]);
+          if (canRemoveOldMeta) {
+            await oldMeta.destroy();
+            removedRetryTaskMetaId = retryMetaIdNum;
+          }
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup old retry task meta:', cleanupError?.message || cleanupError);
+      }
+    }
 
     return res.json({
       success: true,
-      taskId: parentTaskId,
-      subTaskCount: childJobs.length,
+      requestId,
+      taskIds: jobs.map((item) => String(item.job.id)),
+      taskId: jobs.length > 0 ? String(jobs[0].job.id) : null,
+      subTaskCount: jobs.length,
+      removedRetryTaskMetaId,
       message: 'Analysis task queued'
     });
 
@@ -1489,245 +1417,118 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
   }
 };
 
-// Refresh a grouped task's status from queue (no autoImport). Used so "进行中" count stays correct when frontend stops polling (e.g. dialog closed).
-const refreshGroupedTaskStatusFromQueue = async (groupedTask) => {
-  if (!groupedTask || !Array.isArray(groupedTask.childJobIds)) return;
-  const childJobs = await Promise.all(groupedTask.childJobIds.map((id) => surgeryAnalysisQueue.getJob(id)));
-  if (childJobs.some((item) => !item)) {
-    groupedTask.status = 'failed';
-    groupedTask.progress = 100;
-    groupedTask.error = 'Sub task not found';
-    groupedTask.completedAt = new Date();
-    return;
-  }
-  const states = await Promise.all(childJobs.map(async (job) => ({
-    jobId: job.id,
-    state: await job.getState(),
-    progress: Number(await job.progress()) || 0,
-    result: job.returnvalue,
-    error: job.failedReason,
-    logIds: Array.isArray(job.data?.logIds) ? job.data.logIds : [],
-    deviceId: String(job.data?.deviceId || '').trim() || null,
-    retryFailedGroupId: Number.isFinite(Number(job.data?.retryFailedGroupId)) ? Number(job.data?.retryFailedGroupId) : null
-  })));
-  const failedStates = states.filter((s) => s.state === 'failed');
-  const completedStates = states.filter((s) => s.state === 'completed');
-  const allFinished = states.every((s) => s.state === 'completed' || s.state === 'failed');
-  if (allFinished) {
-    groupedTask.result = completedStates.flatMap((s) => s.result?.surgeries || s.result || []);
-    const { perDeviceSnapshot, failedGroups } = buildFailedArtifactsFromStates(states);
-    const allFailedLogDetails = Array.from(perDeviceSnapshot.values()).flat();
-    groupedTask.failedLogDetails = allFailedLogDetails;
-    groupedTask.failedLogIds = Array.from(new Set(allFailedLogDetails.map((item) => item.logId)));
-    await persistFailedLogsByDevice(perDeviceSnapshot, {
-      taskId: groupedTask.id,
-      userId: groupedTask.userId
-    });
-    await persistFailedLogGroups(failedGroups, {
-      taskId: groupedTask.id,
-      userId: groupedTask.userId
-    });
-    await cleanupRetriedFailedGroups(states);
-    groupedTask.progress = 100;
-    groupedTask.completedAt = new Date();
-    if (completedStates.length === 0) {
-      groupedTask.status = 'failed';
-      groupedTask.error = failedStates[0]?.error || 'All sub tasks failed';
-    } else {
-      groupedTask.status = 'completed';
-      groupedTask.error = failedStates.length > 0 ? `${failedStates.length} sub task(s) failed` : null;
-    }
-  } else {
-    groupedTask.status = 'processing';
-    groupedTask.progress = Math.round(
-      states.reduce((sum, s) => sum + (Number(s.progress) || 0), 0) / Math.max(states.length, 1)
-    );
-  }
-};
-
-// Query analysis task status (merged from queue jobs).
+// Query analysis task status (single queue job).
 const getAnalysisTaskStatus = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const groupedTask = analysisTasks.get(taskId);
-    if (groupedTask && Array.isArray(groupedTask.childJobIds)) {
-      const childJobs = await Promise.all(groupedTask.childJobIds.map((id) => surgeryAnalysisQueue.getJob(id)));
-      if (childJobs.some((item) => !item)) {
-        groupedTask.status = 'failed';
-        groupedTask.progress = 100;
-        groupedTask.error = 'Sub task not found';
-      } else {
-        const states = await Promise.all(childJobs.map(async (job) => ({
-          jobId: job.id,
-          state: await job.getState(),
-          progress: Number(await job.progress()) || 0,
-          result: job.returnvalue,
-          error: job.failedReason,
-          logIds: Array.isArray(job.data?.logIds) ? job.data.logIds : [],
-          deviceId: String(job.data?.deviceId || '').trim() || null,
-          retryFailedGroupId: Number.isFinite(Number(job.data?.retryFailedGroupId)) ? Number(job.data?.retryFailedGroupId) : null
-        })));
-
-        if (groupedTask.autoImport === true) {
-          const processedSet = new Set(Array.isArray(groupedTask.processedChildJobIds) ? groupedTask.processedChildJobIds : []);
-          const newlyCompleted = states.filter((s) => s.state === 'completed' && !processedSet.has(s.jobId));
-          for (const s of newlyCompleted) {
-            const surgeries = Array.isArray(s.result?.surgeries)
-              ? s.result.surgeries
-              : (Array.isArray(s.result) ? s.result : []);
-            if (surgeries.length > 0) {
-              const delta = await autoImportSurgeries(surgeries, groupedTask.userId);
-              groupedTask.exportSummary = mergeImportSummary(groupedTask.exportSummary, delta);
-            }
-            console.log(
-              `[surgery-auto-import] parent=${groupedTask.id} child=${s.jobId} surgeries=${surgeries.length} ` +
-              `summary(total=${groupedTask.exportSummary.total}, imported=${groupedTask.exportSummary.imported}, ` +
-              `pending=${groupedTask.exportSummary.pending}, failed=${groupedTask.exportSummary.failed})`
-            );
-            processedSet.add(s.jobId);
-          }
-          groupedTask.processedChildJobIds = Array.from(processedSet);
-        }
-
-        const failedStates = states.filter((s) => s.state === 'failed');
-        const completedStates = states.filter((s) => s.state === 'completed');
-        const allFinished = states.every((s) => s.state === 'completed' || s.state === 'failed');
-
-        if (allFinished) {
-          // Aggregate successful results even when some child jobs fail.
-          groupedTask.result = completedStates.flatMap((s) => s.result?.surgeries || s.result || []);
-          groupedTask.autoImportDone = groupedTask.autoImport === true;
-          const { perDeviceSnapshot, failedGroups } = buildFailedArtifactsFromStates(states);
-          const allFailedLogDetails = Array.from(perDeviceSnapshot.values()).flat();
-          groupedTask.failedLogDetails = allFailedLogDetails;
-          groupedTask.failedLogIds = Array.from(new Set(allFailedLogDetails.map((item) => item.logId)));
-          await persistFailedLogsByDevice(perDeviceSnapshot, {
-            taskId: groupedTask.id,
-            userId: groupedTask.userId
-          });
-          await persistFailedLogGroups(failedGroups, {
-            taskId: groupedTask.id,
-            userId: groupedTask.userId
-          });
-          await cleanupRetriedFailedGroups(states);
-
-          groupedTask.progress = 100;
-          groupedTask.completedAt = new Date();
-
-          if (completedStates.length === 0) {
-            groupedTask.status = 'failed';
-            groupedTask.error = failedStates[0]?.error || 'All sub tasks failed';
-          } else {
-            groupedTask.status = 'completed';
-            // Keep warning in error field for UI display/logging when partial failures exist.
-            groupedTask.error = failedStates.length > 0
-              ? `${failedStates.length} sub task(s) failed, successful results were imported`
-              : null;
-          }
-        } else {
-          groupedTask.status = 'processing';
-          groupedTask.progress = Math.round(
-            states.reduce((sum, s) => sum + (Number(s.progress) || 0), 0) / Math.max(states.length, 1)
-          );
-        }
-      }
-      return res.json({
-        success: true,
-        data: {
-          id: groupedTask.id,
-          status: groupedTask.status,
-          progress: groupedTask.progress,
-          createdAt: groupedTask.createdAt,
-          startedAt: groupedTask.startedAt,
-          completedAt: groupedTask.completedAt,
-          result: groupedTask.result,
-          error: groupedTask.error || null,
-          exportSummary: groupedTask.exportSummary || null,
-          failedLogIds: Array.isArray(groupedTask.failedLogIds) ? groupedTask.failedLogIds : [],
-          failedLogDetails: Array.isArray(groupedTask.failedLogDetails) ? groupedTask.failedLogDetails : []
-        }
-      });
-    }
-
-    const job = await surgeryAnalysisQueue.getJob(taskId);
+    const queueJobId = String(taskId);
+    const job = await surgeryAnalysisQueue.getJob(queueJobId);
     if (!job) return res.status(404).json({ success: false, message: 'Task not found or expired' });
 
     const state = await job.getState();
-    const progress = await job.progress();
+    const progress = Number(await job.progress()) || 0;
+    const mappedStatus = mapQueueStateToTaskStatus(state);
+    if (typeof SurgeryAnalysisTaskMeta.ensureTable === 'function') {
+      await SurgeryAnalysisTaskMeta.ensureTable();
+    }
+    let meta = await SurgeryAnalysisTaskMeta.findOne({ where: { queue_job_id: queueJobId } });
+    if (!meta && state !== 'completed') {
+      await SurgeryAnalysisTaskMeta.create({
+        queue_job_id: queueJobId,
+        request_id: String(job.data?.requestId || ''),
+        device_id: String(job.data?.deviceId || '').trim() || 'unknown',
+        source_log_ids: normalizeLogIdList(job.data?.logIds),
+        status: state === 'failed' ? 'failed' : 'queued',
+        created_by: Number.isFinite(Number(job.data?.userId)) ? Number(job.data?.userId) : null,
+        error_message: state === 'failed' ? (job.failedReason || 'Task failed') : null,
+        started_at: state === 'active' ? new Date() : null,
+        completed_at: state === 'failed' ? new Date() : null
+      });
+      meta = await SurgeryAnalysisTaskMeta.findOne({ where: { queue_job_id: queueJobId } });
+    }
+
     const payload = {
       id: job.id,
-      status: state,
-      progress: progress,
+      status: mappedStatus,
+      progress,
       createdAt: job.timestamp,
       data: job.data
     };
-    const retryFailedGroupId = Number.isFinite(Number(job.data?.retryFailedGroupId))
-      ? Number(job.data?.retryFailedGroupId)
-      : null;
 
-    if (state === 'completed') payload.result = job.returnvalue?.surgeries || job.returnvalue || null;
-    if (state === 'failed') payload.error = job.failedReason || 'Task failed';
+    const sourceLogIds = normalizeLogIdList(job.data?.logIds);
+    const firstLogId = sourceLogIds.length > 0 ? sourceLogIds[0] : null;
+    const firstLog = firstLogId ? await Log.findByPk(firstLogId, {
+      attributes: ['id', 'file_time_token', 'upload_time']
+    }) : null;
+    const displaySurgeryId = buildFailedDisplaySurgeryId(job.data?.deviceId, firstLog);
+    const metaStatus = String(meta?.status || '');
+
     if (state === 'completed') {
-      payload.failedLogIds = Array.isArray(job.returnvalue?.failedLogIds) ? job.returnvalue.failedLogIds : [];
-      payload.failedLogDetails = Array.isArray(job.returnvalue?.failedLogs) ? job.returnvalue.failedLogs : [];
-      const deviceId = String(job.data?.deviceId || '').trim();
-      if (deviceId) {
-        const perDeviceSnapshot = new Map([
-          [deviceId, payload.failedLogDetails]
-        ]);
-        const failedGroups = payload.failedLogIds.length > 0 ? [{
-          deviceId,
-          failedLogIds: normalizeLogIdList(payload.failedLogIds),
-          failedLogDetails: payload.failedLogDetails,
-          sourceGroupLogIds: normalizeLogIdList(job.data?.logIds)
-        }] : [];
-        await persistFailedLogsByDevice(perDeviceSnapshot, {
-          taskId: job.id,
-          userId: job.data?.userId
-        });
-        await persistFailedLogGroups(failedGroups, {
-          taskId: job.id,
-          userId: job.data?.userId
-        });
-      }
-      if (Number.isFinite(retryFailedGroupId) && normalizeLogIdList(payload.failedLogIds).length === 0) {
-        try {
-          if (typeof SurgeryAnalysisFailedGroup.ensureTable === 'function') {
-            await SurgeryAnalysisFailedGroup.ensureTable();
-          }
-          await SurgeryAnalysisFailedGroup.destroy({ where: { id: retryFailedGroupId } });
-        } catch (error) {
-          console.warn('[surgery-analysis-failed-group] cleanup single retry group failed:', error?.message || error);
+      const surgeries = Array.isArray(job.returnvalue?.surgeries)
+        ? job.returnvalue.surgeries
+        : (Array.isArray(job.returnvalue) ? job.returnvalue : []);
+      const failedLogDetails = Array.isArray(job.returnvalue?.failedLogs) ? job.returnvalue.failedLogs : [];
+      const failedLogIds = Array.isArray(job.returnvalue?.failedLogIds)
+        ? normalizeLogIdList(job.returnvalue.failedLogIds)
+        : normalizeLogIdList(failedLogDetails.map((x) => x?.logId));
+
+      let exportSummary = {
+        total: 0,
+        imported: 0,
+        pending: 0,
+        failed: 0
+      };
+
+      const hasFailures = failedLogIds.length > 0 || Number(exportSummary.failed || 0) > 0;
+      payload.status = hasFailures ? 'failed' : 'completed';
+
+      payload.result = surgeries;
+      payload.failedLogIds = failedLogIds;
+      payload.failedLogDetails = failedLogDetails;
+      payload.exportSummary = exportSummary;
+
+      if (meta) {
+        if (!hasFailures) {
+          await meta.destroy();
+        } else {
+          await meta.update({
+            status: 'failed',
+            error_message: `${failedLogIds.length} log(s) failed`,
+            display_surgery_id: displaySurgeryId,
+            completed_at: new Date(),
+            started_at: meta.started_at || new Date()
+          });
         }
       }
-    }
-    if (state === 'failed') {
-      payload.failedLogIds = Array.isArray(job.data?.logIds) ? job.data.logIds : [];
-      payload.failedLogDetails = payload.failedLogIds.map((logId) => ({
+    } else if (state === 'failed') {
+      const failedLogIds = sourceLogIds;
+      const failedLogDetails = failedLogIds.map((logId) => ({
         logId: Number(logId),
-        reason: payload.error || 'Task failed'
+        reason: job.failedReason || 'Task failed'
       }));
-      const deviceId = String(job.data?.deviceId || '').trim();
-      if (deviceId) {
-        const perDeviceSnapshot = new Map([
-          [deviceId, payload.failedLogDetails]
-        ]);
-        const failedGroups = payload.failedLogIds.length > 0 ? [{
-          deviceId,
-          failedLogIds: normalizeLogIdList(payload.failedLogIds),
-          failedLogDetails: payload.failedLogDetails,
-          sourceGroupLogIds: normalizeLogIdList(job.data?.logIds)
-        }] : [];
-        await persistFailedLogsByDevice(perDeviceSnapshot, {
-          taskId: job.id,
-          userId: job.data?.userId
+      payload.error = job.failedReason || 'Task failed';
+      payload.failedLogIds = failedLogIds;
+      payload.failedLogDetails = failedLogDetails;
+      payload.exportSummary = { total: 0, imported: 0, pending: 0, failed: 0 };
+
+      if (meta) {
+        await meta.update({
+          status: 'failed',
+          error_message: payload.error,
+          display_surgery_id: displaySurgeryId,
+          completed_at: new Date(),
+          started_at: meta.started_at || new Date()
         });
-        await persistFailedLogGroups(failedGroups, {
-          taskId: job.id,
-          userId: job.data?.userId
+      }
+    } else {
+      if (meta) {
+        await meta.update({
+          status: mappedStatus,
+          started_at: mappedStatus === 'processing' ? (meta.started_at || new Date()) : meta.started_at
         });
       }
     }
+
     return res.json({ success: true, data: payload });
   } catch (error) {
     console.error('Failed to query queue task status:', error);
@@ -1740,19 +1541,24 @@ const getUserAnalysisTasks = async (req, res) => {
   try {
     const userId = req.user.id;
     const hasSurgeryReadPermission = await userHasDbPermission(userId, 'surgery:read');
-
-    const userTasks = Array.from(analysisTasks.values())
-      .filter(task => hasSurgeryReadPermission || task.userId === userId)
-      .map(task => ({
-        id: task.id,
-        status: task.status,
-        progress: task.progress,
-        createdAt: task.createdAt,
-        startedAt: task.startedAt,
-        completedAt: task.completedAt,
-        logIds: task.logIds
-      }))
-      .sort((a, b) => b.createdAt - a.createdAt);
+    if (typeof SurgeryAnalysisTaskMeta.ensureTable === 'function') {
+      await SurgeryAnalysisTaskMeta.ensureTable();
+    }
+    const where = hasSurgeryReadPermission ? {} : { created_by: userId };
+    const rows = await SurgeryAnalysisTaskMeta.findAll({
+      where,
+      order: [['created_at', 'DESC']],
+      limit: 200
+    });
+    const userTasks = rows.map((task) => ({
+      id: String(task.queue_job_id),
+      status: String(task.status || 'queued'),
+      progress: null,
+      createdAt: task.created_at,
+      startedAt: task.started_at,
+      completedAt: task.completed_at,
+      logIds: normalizeLogIdList(task.source_log_ids)
+    }));
 
     res.json({
       success: true,
@@ -1771,27 +1577,17 @@ const getUserAnalysisTasks = async (req, res) => {
 
 const getGlobalActiveAnalysisTasks = async (req, res) => {
   try {
-    // Refresh status from queue for grouped tasks still marked processing, so closing the dialog doesn't leave "进行中" stuck
-    const groupedTasks = Array.from(analysisTasks.values()).filter(
-      (task) => Array.isArray(task.childJobIds) && task.status !== 'completed' && task.status !== 'failed'
-    );
-    await Promise.all(groupedTasks.map((task) => refreshGroupedTaskStatusFromQueue(task)));
-
     const queueJobs = await surgeryAnalysisQueue.getJobs(['active', 'waiting', 'delayed']);
-    const grouped = Array.from(analysisTasks.values())
-      .filter((task) => Array.isArray(task.childJobIds) && task.status !== 'completed' && task.status !== 'failed')
-      .map((task) => ({
-        id: task.id,
-        status: task.status,
-        progress: task.progress,
-        childCount: task.childJobIds.length,
-        createdAt: task.createdAt
-      }));
+    const withStatus = await Promise.all(queueJobs.map(async (job) => {
+      const state = await job.getState().catch(() => 'unknown');
+      const status = state === 'active' ? 'processing' : (state === 'waiting' || state === 'delayed' ? 'waiting' : 'waiting');
+      return { id: job.id, name: job.name, data: job.data, createdAt: job.timestamp, status };
+    }));
     return res.json({
       success: true,
       data: {
-        queue: queueJobs.map((job) => ({ id: job.id, name: job.name, data: job.data, createdAt: job.timestamp })),
-        grouped
+        queue: withStatus,
+        grouped: withStatus
       }
     });
   } catch (error) {
@@ -1830,10 +1626,13 @@ const getPendingExportDetail = async (req, res) => {
     const existing = await Surgery.findByPk(plain.existing_postgresql_id);
     const existingPlain = existing?.get ? existing.get({ plain: true }) : (existing || {});
     const newDataFull = payload.postgresqlData || payload.newData || {};
-    const differences = Array.isArray(payload.differences) ? payload.differences : compareSurgeryData(newDataFull, existingPlain);
+    const rawDifferences = Array.isArray(payload.differences) ? payload.differences : compareSurgeryData(newDataFull, existingPlain);
+    const differences = sanitizeDifferencesForDisplay(rawDifferences);
+    const existingComparableFull = sanitizePendingComparisonData(existingPlain);
+    const newComparableFull = sanitizePendingComparisonData(newDataFull);
 
-    let existingData = existingPlain;
-    let newData = newDataFull;
+    let existingData = existingComparableFull;
+    let newData = newComparableFull;
     if (!full) {
       existingData = {};
       newData = {};
@@ -1996,6 +1795,19 @@ const getPostgreSQLSurgeries = async (req, res) => {
   }
 };
 
+// JSON stringify with sorted object keys (order-independent comparison).
+function jsonStringifySorted(value) {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return '[' + value.map((v) => jsonStringifySorted(v)).join(',') + ']';
+  }
+  const keys = Object.keys(value).sort();
+  const pairs = keys.map((k) => JSON.stringify(k) + ':' + jsonStringifySorted(value[k]));
+  return '{' + pairs.join(',') + '}';
+}
+
 // Normalize time values for comparison (ignore timezone-format differences).
 function normalizeTimeForComparison(timeValue) {
   if (!timeValue) return null;
@@ -2140,8 +1952,8 @@ function compareSurgeryData(newData, existingData) {
 
       isDifferent = normalizedNew !== normalizedExisting;
     } else {
-      // Other fields: JSON string comparison.
-      isDifferent = JSON.stringify(newValue) !== JSON.stringify(existingValue);
+      // Other fields: compare with sorted keys to ignore key order.
+      isDifferent = jsonStringifySorted(newValue) !== jsonStringifySorted(existingValue);
     }
 
     if (isDifferent) {
@@ -2379,6 +2191,14 @@ const exportSingleSurgeryData = async (req, res) => {
       console.log(`[EXPORT] Plain start_time: ${existingPlain.start_time} (type: ${typeof existingPlain.start_time})`);
 
       const differences = compareSurgeryData(postgresqlData, existingPlain);
+      if (differences.length === 0) {
+        await clearPendingExportRecordBySurgeryId(postgresqlData.surgery_id);
+        return res.json({
+          success: true,
+          surgery_id: postgresqlData.surgery_id,
+          message: `Existing surgery ${postgresqlData.surgery_id} is identical, skipped pending confirmation`
+        });
+      }
       const pendingExportId = await upsertPendingExportRecord({
         surgeryId: postgresqlData.surgery_id,
         existingPostgresqlId: existingSurgery.id,
@@ -2603,5 +2423,6 @@ module.exports = {
   exportPostgreSQLData,
   exportSingleSurgeryData,
   confirmOverrideSurgeryData,
-  getPostgreSQLSurgeries
+  getPostgreSQLSurgeries,
+  autoImportSurgeries
 };

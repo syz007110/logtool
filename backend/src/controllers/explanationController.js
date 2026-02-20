@@ -7,13 +7,14 @@ const { buildExplanationPreview } = require('../utils/explanationPreview');
  */
 const previewParse = async (req, res) => {
   try {
-    const { code: rawCode, subsystem: bodySubsystem, template: payloadTemplate, param1, param2, param3, param4 } = req.body || {};
+    const { code: rawCode, subsystem: bodySubsystem, template: payloadTemplate, param1, param2, param3, param4, lang } = req.body || {};
 
     const out = await buildExplanationPreview({
       rawCode,
       subsystem: bodySubsystem,
       template: payloadTemplate,
       params: { param1, param2, param3, param4 },
+      lang: lang || null,
       t: req.t
     });
 

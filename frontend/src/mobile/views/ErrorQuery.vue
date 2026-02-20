@@ -395,7 +395,10 @@ export default {
     })
     // 将中文前缀转换为英文键名
     const getPrefixKey = (chinesePrefix) => {
-      return prefixKeyMap[chinesePrefix] || chinesePrefix
+      const raw = String(chinesePrefix || '').trim()
+      if (!raw) return raw
+      const compact = raw.replace(/\s+/g, '')
+      return prefixKeyMap[raw] || prefixKeyMap[compact] || raw
     }
     
     // 翻译前缀文本（根据系统语言）
@@ -2207,4 +2210,3 @@ export default {
   flex-shrink: 0;
 }
 </style>
-
