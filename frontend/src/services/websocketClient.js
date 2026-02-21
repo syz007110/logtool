@@ -224,9 +224,10 @@ class WebSocketClient {
 
   // 处理手术队列任务状态变化（全局）
   handleSurgeryTaskStatus (message) {
-    const { taskId, status, progress, error, timestamp } = message
+    const { taskId, deviceId, status, progress, error, timestamp } = message
     this.triggerEvent('surgeryTaskStatusChange', {
       taskId,
+      deviceId,
       status,
       progress,
       error,

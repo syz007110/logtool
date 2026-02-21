@@ -168,7 +168,7 @@ const logs = {
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params }),
   getExportCsvTaskStatus: (taskId) => api.get(`/logs/entries/export/${taskId}/status`),
   downloadExportCsvResult: (taskId) => api.get(`/logs/entries/export/${taskId}/result`, { responseType: 'blob' }),
-  getActiveTasks: () => api.get('/logs/tasks/active'),
+  getActiveTasks: (config = {}) => api.get('/logs/tasks/active', config),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
   getSearchTemplates: () => api.get('/logs/search-templates'),
@@ -243,17 +243,18 @@ const surgeryStatistics = {
   analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
   analyzeByLogIds: (logIds, includePostgreSQLStructure = false, timezoneOffsetMinutes = null, options = {}) =>
     api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure, timezoneOffsetMinutes, ...options }),
-  analyzeByDeviceRange: (deviceId, startTime, endTime, includePostgreSQLStructure = false, timezoneOffsetMinutes = null) =>
+  analyzeByDeviceRange: (deviceId, startTime, endTime, includePostgreSQLStructure = false, timezoneOffsetMinutes = null, options = {}) =>
     api.post('/surgery-statistics/analyze-by-device-range', {
       deviceId,
       startTime,
       endTime,
       includePostgreSQLStructure,
-      timezoneOffsetMinutes
+      timezoneOffsetMinutes,
+      ...options
     }),
   getAnalysisTaskStatus: (taskId, config = {}) => api.get(`/surgery-statistics/task/${taskId}`, config),
   getUserAnalysisTasks: () => api.get('/surgery-statistics/tasks'),
-  getActiveTasks: () => api.get('/surgery-statistics/tasks/active'),
+  getActiveTasks: (config = {}) => api.get('/surgery-statistics/tasks/active', config),
   exportReport: (id) => api.get(`/surgery-statistics/${id}/export`, { responseType: 'blob' }),
   exportPostgreSQLData: (params) => api.get('/surgery-statistics/export/postgresql', { params }),
   exportSingleSurgeryData: (surgeryData) => api.post('/surgery-statistics/export-single', surgeryData),
@@ -266,13 +267,15 @@ const surgeryStatistics = {
 
 // Surgeries CRUD (PostgreSQL persisted)
 const surgeries = {
-  list: (params) => api.get('/surgeries', { params }),
-  getByDevice: (params) => api.get('/surgeries/by-device', { params }),
-  getAnalysisTaskMeta: (params) => api.get('/surgeries/analysis-task-meta', { params }),
+  list: (params, config = {}) => api.get('/surgeries', { params, ...config }),
+  getByDevice: (params, config = {}) => api.get('/surgeries/by-device', { params, ...config }),
+  getAnalysisTaskMeta: (params, config = {}) => api.get('/surgeries/analysis-task-meta', { params, ...config }),
+  removeAnalysisTaskMeta: (id) => api.delete(`/surgeries/analysis-task-meta/${id}`),
   get: (id, params) => api.get(`/surgeries/${id}`, { params }),
+  batchDelete: (surgeryIds) => api.delete('/surgeries/batch', { data: { surgeryIds } }),
   remove: (id) => api.delete(`/surgeries/${id}`),
   getLogEntriesByRange: (id) => api.get(`/surgeries/${id}/log-entries`),
-  getTimeFilters: (params) => api.get('/surgeries/time-filters', { params })
+  getTimeFilters: (params, config = {}) => api.get('/surgeries/time-filters', { params, ...config })
 }
 
 const devices = {
@@ -323,7 +326,7 @@ const motionData = {
   batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }),
   batchDownload: (fileIds, format = 'csv') => api.post('/motion-data/batch-download', { fileIds, format }),
   getUserTasks: () => api.get('/motion-data/tasks'), // 获取用户所有任务（用于恢复）
-  getActiveTasks: () => api.get('/motion-data/tasks/active'),
+  getActiveTasks: (config = {}) => api.get('/motion-data/tasks/active', config),
   getTaskStatus: (taskId) => api.get(`/motion-data/task/${taskId}`),
   downloadTaskResult: (taskId) => api.get(`/motion-data/task/${taskId}/download`, { responseType: 'blob' })
 }

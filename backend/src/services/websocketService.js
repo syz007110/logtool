@@ -421,11 +421,12 @@ class WebSocketService extends EventEmitter {
   }
 
   // 推送手术分析任务状态变化（发布到 Redis 频道）
-  async pushSurgeryTaskStatus(taskId, status, progress = 0, data = null, error = null) {
+  async pushSurgeryTaskStatus(taskId, status, progress = 0, data = null, error = null, deviceId = null) {
     const payload = JSON.stringify({
       taskId,
       status,
       progress,
+      deviceId: String(deviceId || '').trim() || null,
       data,
       error,
       timestamp: Date.now(),
@@ -448,15 +449,25 @@ class WebSocketService extends EventEmitter {
   // 广播手术分析任务状态变化到所有客户端
   broadcastSurgeryTaskStatus(data) {
     const { taskId, status, progress, error, timestamp } = data || {};
+    const deviceId = String(data?.deviceId || '').trim() || null;
     if (!taskId) return;
-    this.broadcast({
+    const message = {
       type: 'surgery_task_status',
       taskId,
+      deviceId,
       status,
       progress,
       error,
       timestamp
-    });
+    };
+    if (deviceId) {
+      const subscribers = this.deviceSubscriptions.get(deviceId);
+      if (subscribers && subscribers.size > 0) {
+        subscribers.forEach(clientId => this.sendToClient(clientId, message));
+        return;
+      }
+    }
+    this.broadcast(message);
   }
 
   // 推送给特定客户端

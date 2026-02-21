@@ -87,7 +87,7 @@
         </div>
         <!-- 表格头部 -->
         <div class="timeline-header">
-          <div class="arm-column"><span class="one-line-ellipsis" :title="$t('surgeryVisualization.activity')">{{$t('surgeryVisualization.activity')}}</span></div>
+          <div class="arm-column"></div>
             <div class="time-columns" :style="getTimeColumnsStyle()">
             <div 
               v-for="(_, index) in Array(getTotalHours()).fill(0)" 
@@ -372,37 +372,64 @@
         </div>
         <div class="drawer-section drawer-energy-section">
           <div class="drawer-section-title">{{ $t('surgeryVisualization.report.energyActivation') }}</div>
-          <el-table
-            :data="drawerEnergyTableRows"
-            stripe
-            border
-            size="small"
-            style="min-width: 100%"
-            row-key="rowKey"
-          >
-            <el-table-column type="expand" width="48" align="center">
-              <template #default="{ row }">
-                <div class="drawer-energy-expand">
-                  <el-table :data="row.detailEvents" size="small" border style="width: 100%" class="drawer-energy-expand-table">
-                    <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="200" align="right" />
-                    <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="140" align="right" />
-                    <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" width="200" align="right" />
-                  </el-table>
+          <div v-if="drawerEnergyTableRows.length > 0" class="drawer-energy-layout">
+            <div class="drawer-energy-main">
+              <el-table
+                :data="drawerEnergyTableRows"
+                stripe
+                border
+                size="small"
+                style="width: 100%"
+                row-key="rowKey"
+                highlight-current-row
+                :current-row-key="selectedEnergyRowKey"
+                @current-change="handleEnergyRowChange"
+              >
+                <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" width="90" align="center" />
+                <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" min-width="180" show-overflow-tooltip />
+                <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" min-width="170" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="140" align="center" />
+                <el-table-column prop="totalGripsActiveLabel" :label="$t('surgeryVisualization.report.totalActivationTime')" width="170" align="center" />
+                <el-table-column prop="count" :label="$t('surgeryVisualization.report.totalActivationCount')" width="170" align="center" />
+              </el-table>
+            </div>
+            <div class="drawer-energy-detail">
+              <div class="drawer-energy-detail-metrics">
+                <div class="drawer-energy-metric-card">
+                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.armNumber') }}</div>
+                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.armId : '--' }}</div>
                 </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" width="90" align="center" />
-            <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" min-width="120" show-overflow-tooltip />
-            <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" min-width="140" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="120" align="center" />
-            <el-table-column prop="totalGripsActiveLabel" :label="$t('surgeryVisualization.report.totalActivationTime')" width="100" align="center" />
-            <el-table-column prop="count" :label="$t('surgeryVisualization.report.totalActivationCount')" width="100" align="center" />
-          </el-table>
-          <div v-if="drawerEnergyTableRows.length === 0" class="drawer-energy-empty">
+                <div class="drawer-energy-metric-card">
+                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.energyType') }}</div>
+                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.energyType : '--' }}</div>
+                </div>
+                <div class="drawer-energy-metric-card">
+                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.totalActivationTime') }}</div>
+                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.totalGripsActiveLabel : '--' }}</div>
+                </div>
+                <div class="drawer-energy-metric-card">
+                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.totalActivationCount') }}</div>
+                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.count : 0 }}</div>
+                </div>
+              </div>
+              <el-table
+                :data="selectedEnergyDetailEvents"
+                border
+                size="small"
+                style="width: 100%"
+                max-height="420"
+              >
+                <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="200" align="center" />
+                <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="140" align="center" />
+                <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" min-width="180" align="center" />
+              </el-table>
+            </div>
+          </div>
+          <div v-else class="drawer-energy-empty">
             {{ $t('surgeryVisualization.report.drawerNoEnergy') }}
           </div>
         </div>
@@ -2628,11 +2655,17 @@ export default {
             return `${params.marker}${params.name}: ${durationStr}`
           }
         },
-        legend: { orient: 'vertical', left: 'left', top: 'middle' },
+        legend: {
+          orient: 'vertical',
+          left: '2%',
+          top: 'middle',
+          itemGap: 14,
+          padding: [0, 8, 0, 0]
+        },
         series: [{
           type: 'pie',
           radius: ['18%', '85%'],
-          center: ['55%', '50%'],
+          center: ['62%', '50%'],
           roseType: 'area',
           itemStyle: { borderColor: '#fff', borderWidth: 1 },
           label: {
@@ -3561,6 +3594,39 @@ export default {
 
     const formatCrosshairTime = (date) => {
       if (!date) return ''
+      const y = date.getFullYear()
+      const M = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      const h = String(date.getHours()).padStart(2, '0')
+      const m = String(date.getMinutes()).padStart(2, '0')
+      const s = String(date.getSeconds()).padStart(2, '0')
+      const storageLike = `${y}-${M}-${d} ${h}:${m}:${s}`
+      const converted = formatTimestampWithTimezone(storageLike, displayTimezoneOffsetMinutes.value)
+
+      if (converted) {
+        const match = converted.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
+        if (match) {
+          const [, yy, MM, dd, hh, mm, ss] = match
+          const displayMs = Date.UTC(
+            parseInt(yy, 10),
+            parseInt(MM, 10) - 1,
+            parseInt(dd, 10),
+            parseInt(hh, 10),
+            parseInt(mm, 10),
+            parseInt(ss, 10)
+          )
+          return new Intl.DateTimeFormat(locale?.value || document?.documentElement?.lang || 'zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone: 'UTC'
+          }).format(new Date(displayMs))
+        }
+      }
+
       return date.toLocaleString(locale?.value || document?.documentElement?.lang || 'zh-CN', {
         month: '2-digit',
         day: '2-digit',
@@ -3814,6 +3880,9 @@ export default {
     watch(displayTimezoneOffsetMinutes, () => {
       if (currentData.value) {
         renderAlerts(currentData.value)
+      }
+      if (timelineCrosshair.visible && Number.isFinite(crosshairTimeMs.value)) {
+        timelineCrosshair.timeLabel = formatCrosshairTime(new Date(crosshairTimeMs.value))
       }
     })
 
@@ -4429,6 +4498,8 @@ export default {
     const drawerVisible = ref(false)
     const selectedArmId = ref(0)
     const drawerInstruments = ref([])
+    const selectedEnergyRowKey = ref('')
+    const selectedEnergyRow = ref(null)
     const drawerTitle = computed(() => {
       if (!selectedArmId.value) return t('surgeryVisualization.report.drawerTitle')
       return t('surgeryVisualization.report.drawerTitleWithArm', { armId: selectedArmId.value })
@@ -4567,16 +4638,50 @@ export default {
       return rows
     })
 
+    const selectedEnergyDetailEvents = computed(() => {
+      return Array.isArray(selectedEnergyRow.value?.detailEvents) ? selectedEnergyRow.value.detailEvents : []
+    })
+
+    const ensureDrawerEnergySelection = () => {
+      const rows = drawerEnergyTableRows.value || []
+      if (!rows.length) {
+        selectedEnergyRowKey.value = ''
+        selectedEnergyRow.value = null
+        return
+      }
+      const current = rows.find(r => r.rowKey === selectedEnergyRowKey.value)
+      if (current) {
+        selectedEnergyRow.value = current
+        return
+      }
+      selectedEnergyRow.value = rows[0]
+      selectedEnergyRowKey.value = rows[0].rowKey
+    }
+
+    const handleEnergyRowChange = (row) => {
+      selectedEnergyRow.value = row || null
+      selectedEnergyRowKey.value = row?.rowKey || ''
+    }
+
+    watch(drawerEnergyTableRows, () => {
+      ensureDrawerEnergySelection()
+    }, { immediate: true })
+
+    watch(drawerVisible, (visible) => {
+      if (visible) ensureDrawerEnergySelection()
+    })
+
     // 能量激发类型显示
     const formatEnergyType = (type) => {
       const map = {
-        cut: '切割',
-        coag: '凝血',
-        bipolar: '双极',
-        ultrasonic: '超声',
-        ultrasonicMax: '超声(最大)'
+        cut: 'surgeryVisualization.report.energyCut',
+        coag: 'surgeryVisualization.report.energyCoag',
+        bipolar: 'surgeryVisualization.report.energyBipolar',
+        ultrasonic: 'surgeryVisualization.report.energyUltrasonic',
+        ultrasonicmax: 'surgeryVisualization.report.energyUltrasonicMax'
       }
-      return type ? (map[String(type).toLowerCase()] || type) : '-'
+      const key = map[String(type).toLowerCase()]
+      return type ? (key ? t(key) : type) : '-'
     }
 
     // 标题栏：术式（无数据显示 --）
@@ -4816,6 +4921,10 @@ export default {
       drawerVisible,
       drawerTitle,
       drawerInstruments,
+      selectedEnergyRowKey,
+      selectedEnergyRow,
+      selectedEnergyDetailEvents,
+      handleEnergyRowChange,
       getEnergyListForRow,
       drawerEnergyActivations,
       drawerEnergyTableRows,
@@ -5702,15 +5811,43 @@ export default {
 .drawer-energy-summary-line {
   line-height: 1.6;
 }
-.drawer-energy-expand {
-  padding: 8px 16px 12px 24px;
+.drawer-energy-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr);
+  gap: 14px;
+  align-items: start;
 }
-.drawer-energy-expand .el-table {
-  margin-bottom: 0;
+.drawer-energy-main {
+  min-width: 0;
 }
-.drawer-energy-expand-table .el-table__header th,
-.drawer-energy-expand-table .el-table__body td {
-  text-align: right;
+.drawer-energy-detail {
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--el-bg-color, #fff);
+}
+.drawer-energy-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.drawer-energy-metric-card {
+  border: 1px solid var(--el-border-color-light, #ebeef5);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--el-fill-color-extra-light, #fafafa);
+}
+.drawer-energy-metric-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  margin-bottom: 4px;
+}
+.drawer-energy-metric-value {
+  font-size: 13px;
+  color: var(--el-text-color-primary, #303133);
+  font-weight: 600;
+  line-height: 1.3;
 }
 .drawer-energy-title {
   font-size: 14px;
@@ -6108,6 +6245,10 @@ export default {
 @media (max-width: 1200px) {
   .charts-row {
     flex-direction: column;
+  }
+
+  .drawer-energy-layout {
+    grid-template-columns: 1fr;
   }
   
   .state-machine-card,

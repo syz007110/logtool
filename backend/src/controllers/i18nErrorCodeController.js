@@ -11,6 +11,7 @@ const { translateFields } = require('../services/translationService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
 const { getPredefinedLanguages } = require('../config/i18nLanguages');
+const subsystemCodes = require('../../../shared/i18n/subsystemCodes.json');
 
 // 检查ES是否启用
 function isErrorCodeEsEnabled() {
@@ -447,18 +448,10 @@ const getSupportedLanguages = async (req, res) => {
 const getSubsystems = async (req, res) => {
   try {
     // 预定义的子系统列表
-    const predefinedSubsystems = [
-      { value: '1', label: req.t('shared.subsystemOptions.1') },
-      { value: '2', label: req.t('shared.subsystemOptions.2') },
-      { value: '3', label: req.t('shared.subsystemOptions.3') },
-      { value: '4', label: req.t('shared.subsystemOptions.4') },
-      { value: '5', label: req.t('shared.subsystemOptions.5') },
-      { value: '6', label: req.t('shared.subsystemOptions.6') },
-      { value: '7', label: req.t('shared.subsystemOptions.7') },
-      { value: '8', label: req.t('shared.subsystemOptions.8') },
-      { value: '9', label: req.t('shared.subsystemOptions.9') },
-      { value: 'A', label: req.t('shared.subsystemOptions.A') }
-    ];
+    const predefinedSubsystems = subsystemCodes.map((code) => ({
+      value: code,
+      label: req.t(`shared.subsystemOptions.${code}`)
+    }));
     
     // 获取数据库中已有的子系统号
     const existingSubsystems = await ErrorCode.findAll({

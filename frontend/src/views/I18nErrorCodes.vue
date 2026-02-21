@@ -370,6 +370,7 @@ import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
 import JSZip from 'jszip'
+import subsystemCodes from '../../../shared/i18n/subsystemCodes.json'
 
 export default {
   name: 'I18nErrorCodes',
@@ -589,18 +590,10 @@ export default {
       } catch (error) {
         console.error('Load subsystems error:', error)
         // 如果API调用失败，使用默认的子系统选项
-        subsystemOptions.value = [
-          { value: '1', label: t('shared.subsystemOptions.1') },
-          { value: '2', label: t('shared.subsystemOptions.2') },
-          { value: '3', label: t('shared.subsystemOptions.3') },
-          { value: '4', label: t('shared.subsystemOptions.4') },
-          { value: '5', label: t('shared.subsystemOptions.5') },
-          { value: '6', label: t('shared.subsystemOptions.6') },
-          { value: '7', label: t('shared.subsystemOptions.7') },
-          { value: '8', label: t('shared.subsystemOptions.8') },
-          { value: '9', label: t('shared.subsystemOptions.9') },
-          { value: 'A', label: t('shared.subsystemOptions.A') }
-        ]
+        subsystemOptions.value = subsystemCodes.map((code) => ({
+          value: code,
+          label: t(`shared.subsystemOptions.${code}`)
+        }))
       }
     }
 

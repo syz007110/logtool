@@ -566,11 +566,24 @@ export default {
     const taskLoading = ref(false)
     const taskRefreshTimer = ref(null)
     const taskWsRefreshTimer = ref(null)
+    const taskLastPollAt = ref(0)
+    const taskRefreshInFlight = ref(false)
+    const taskRefreshPending = ref(false)
+    const nextAllowedTaskRefreshAt = ref(0)
+    const task429BackoffMs = ref(0)
     const globalTaskGroups = ref({
       logs: [],
       motion: [],
       surgery: []
     })
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)))
+    const isRateLimitedError = (error) => Number(error?.response?.status) === 429
+    const parseRetryAfterMs = (error, fallbackMs = 1500) => {
+      const sec = Number(error?.response?.data?.retryAfter || 0)
+      if (Number.isFinite(sec) && sec > 0) return sec * 1000
+      return fallbackMs
+    }
 
     const normalizeProgress = (value) => {
       const num = Number(value)
@@ -618,14 +631,41 @@ export default {
       }
     }
 
-    const loadGlobalActiveTasks = async () => {
+    const loadGlobalActiveTasks = async (options = {}) => {
+      const now = Date.now()
+      if (taskRefreshInFlight.value) {
+        taskRefreshPending.value = true
+        return
+      }
+      if (!options?.force && now < nextAllowedTaskRefreshAt.value) {
+        taskRefreshPending.value = true
+        return
+      }
+      taskLastPollAt.value = now
+      taskRefreshInFlight.value = true
       taskLoading.value = true
       try {
         const [logResp, motionResp, surgeryResp] = await Promise.allSettled([
-          api.logs.getActiveTasks(),
-          api.motionData.getActiveTasks(),
-          api.surgeryStatistics.getActiveTasks()
+          api.logs.getActiveTasks({ _silentError: true }),
+          api.motionData.getActiveTasks({ _silentError: true }),
+          api.surgeryStatistics.getActiveTasks({ _silentError: true })
         ])
+
+        const settled = [logResp, motionResp, surgeryResp]
+        const rateLimitErrors = settled
+          .filter((item) => item.status === 'rejected' && isRateLimitedError(item.reason))
+          .map((item) => item.reason)
+        if (rateLimitErrors.length > 0) {
+          const waitMs = parseRetryAfterMs(
+            rateLimitErrors[0],
+            Math.min(30000, Math.max(1000, (task429BackoffMs.value || 1000) * 2))
+          )
+          task429BackoffMs.value = waitMs
+          nextAllowedTaskRefreshAt.value = Date.now() + waitMs
+        } else {
+          task429BackoffMs.value = 0
+          nextAllowedTaskRefreshAt.value = 0
+        }
 
         const toData = (resp) => {
           if (resp.status !== 'fulfilled') return []
@@ -650,6 +690,15 @@ export default {
         }
       } finally {
         taskLoading.value = false
+        taskRefreshInFlight.value = false
+        if (taskRefreshPending.value) {
+          taskRefreshPending.value = false
+          const waitMs = Math.max(0, nextAllowedTaskRefreshAt.value - Date.now())
+          if (waitMs > 0) {
+            await sleep(waitMs)
+          }
+          loadGlobalActiveTasks({ force: true })
+        }
       }
     }
 
@@ -685,14 +734,14 @@ export default {
     const hasInProgressTasks = computed(() => (inProgressTaskCount.value + waitingTaskCount.value) > 0)
 
     watch(taskPopoverVisible, (visible) => {
-      if (visible) loadGlobalActiveTasks()
+      if (visible) loadGlobalActiveTasks({ force: true })
     })
 
     const scheduleTaskRefreshFromWs = () => {
       if (taskWsRefreshTimer.value) return
       taskWsRefreshTimer.value = setTimeout(() => {
         taskWsRefreshTimer.value = null
-        loadGlobalActiveTasks()
+        loadGlobalActiveTasks({ force: true })
       }, 600)
     }
 
@@ -711,8 +760,14 @@ export default {
       websocketClient.on('motionDataTaskStatusChange', handleMotionTaskStatusChange)
       websocketClient.on('logTaskStatusChange', handleLogTaskStatusChange)
       websocketClient.on('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
-      loadGlobalActiveTasks()
-      taskRefreshTimer.value = setInterval(loadGlobalActiveTasks, 8000)
+      loadGlobalActiveTasks({ force: true })
+      taskRefreshTimer.value = setInterval(() => {
+        const intervalMs = hasInProgressTasks.value ? 15000 : 30000
+        const now = Date.now()
+        if (now - taskLastPollAt.value < intervalMs) return
+        taskLastPollAt.value = now
+        loadGlobalActiveTasks()
+      }, 1000)
     })
 
     onBeforeUnmount(() => {

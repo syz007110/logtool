@@ -1,7 +1,7 @@
 const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
 const { parseExplanation, buildPrefixFromContext } = require('./explanationParser');
-const prefixKeyMap = require('../config/prefixKeyMap.json');
+const prefixKeyMap = require('../../../shared/i18n/prefixKeyMap.json');
 
 // 将中文前缀翻译为目标语言（依据 i18n 语言）
 function translatePrefixText(prefix, t) {

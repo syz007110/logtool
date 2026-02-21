@@ -295,7 +295,6 @@ function buildPostgresRowPreview(surgery, deviceId, timezoneOffsetMinutes = null
     surgery_id: surgery.surgery_id || `${deviceId || 'UNKNOWN'}-${formatTimeForId(surgery.surgery_start_time)}`,
     source_log_ids: sourceLogIds,
     device_id: normalizedDeviceId,
-    device_ids: normalizedDeviceId ? [normalizedDeviceId] : [],
     log_entry_start_id: toNullableInt(surgery.log_entry_start_id),
     log_entry_end_id: toNullableInt(surgery.log_entry_end_id),
     log_entry_start_log_id: startLogId,
@@ -364,7 +363,6 @@ function buildDbRowFromSurgery(surgery, timezoneOffsetMinutes = null) {
     surgery_id: surgery.surgery_id,
     source_log_ids: sourceLogIds,
     device_id: normalizedDeviceId,
-    device_ids: normalizedDeviceId ? [normalizedDeviceId] : [],
     log_entry_start_id: toNullableInt(surgery.log_entry_start_id),
     log_entry_end_id: toNullableInt(surgery.log_entry_end_id),
     log_entry_start_log_id: startLogId,
@@ -679,7 +677,7 @@ function sanitizePendingComparisonData(value, parentKey = '') {
 
   if (typeof value === 'object') {
     const out = {};
-    const excludedDbFields = new Set(['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'last_analyzed_at']);
+    const excludedDbFields = new Set(['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'last_analyzed_at', 'device_ids']);
     for (const [key, v] of Object.entries(value)) {
       if (excludedDbFields.has(key)) continue;
       out[key] = sanitizePendingComparisonData(v, key);
@@ -712,11 +710,13 @@ function sanitizePendingComparisonData(value, parentKey = '') {
 
 function sanitizeDifferencesForDisplay(differences) {
   if (!Array.isArray(differences)) return [];
-  return differences.map((diff) => ({
+  return differences
+    .filter((diff) => String(diff?.field || '') !== 'device_ids')
+    .map((diff) => ({
     ...diff,
     oldValue: sanitizePendingComparisonData(diff?.oldValue, diff?.field || ''),
     newValue: sanitizePendingComparisonData(diff?.newValue, diff?.field || '')
-  }));
+    }));
 }
 
 async function autoImportSurgeries(surgeries, userId) {
@@ -893,7 +893,6 @@ const getAllSurgeryStatistics = async (req, res) => {
           surgery.log_filename = log.filename;
           const deviceDisplayId = (log && log.device_id !== undefined && log.device_id !== null) ? String(log.device_id) : 'UNKNOWN';
           surgery.device_id = deviceDisplayId;
-          surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
           surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
           // Compute source logs and entry range using extended time window.
           const { sourceLogIds, minEntryId, maxEntryId, startLogId, endLogId } = computeSourceAndEntryRange(surgery, logEntries);
@@ -974,7 +973,6 @@ const analyzeSortedLogEntries = async (req, res) => {
         ? String(logMap.get(surgery.log_id).device_id)
         : 'UNKNOWN';
       surgery.device_id = deviceDisplayId;
-      surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
       surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
       // Compute source logs and entry-id range by expanded surgery time window.
       try {
@@ -1207,7 +1205,15 @@ const analyzeByLogIds = async (req, res) => {
 
 const analyzeByDeviceRange = async (req, res) => {
   try {
-    const { deviceId, startTime, endTime, includePostgreSQLStructure, timezoneOffsetMinutes } = req.body || {};
+    const {
+      deviceId,
+      startTime,
+      endTime,
+      includePostgreSQLStructure,
+      timezoneOffsetMinutes,
+      autoImport,
+      retryFailedGroupId
+    } = req.body || {};
     if (!deviceId || !startTime || !endTime) {
       return res.status(400).json({ success: false, message: 'deviceId/startTime/endTime required' });
     }
@@ -1216,10 +1222,14 @@ const analyzeByDeviceRange = async (req, res) => {
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       return res.status(400).json({ success: false, message: 'Invalid time range' });
     }
+    if (start.getTime() > end.getTime()) {
+      return res.status(400).json({ success: false, message: 'Invalid time range' });
+    }
 
     const logs = await Log.findAll({
       where: {
         device_id: String(deviceId),
+        status: 'parsed',
         upload_time: { [Op.between]: [start, end] }
       },
       attributes: ['id'],
@@ -1233,7 +1243,8 @@ const analyzeByDeviceRange = async (req, res) => {
     req.body = {
       ...req.body,
       logIds,
-      autoImport: false,
+      autoImport: autoImport === true,
+      retryFailedGroupId: Number.isFinite(Number(retryFailedGroupId)) ? Number(retryFailedGroupId) : null,
       includePostgreSQLStructure: includePostgreSQLStructure === true,
       timezoneOffsetMinutes: timezoneOffsetMinutes ?? null
     };
@@ -1317,7 +1328,6 @@ const processAnalysisTask = async (taskId, logIds, includePostgreSQLStructure = 
         ? String(logIdToDeviceId.get(surgery.log_id))
         : 'UNKNOWN';
       surgery.device_id = deviceDisplayId;
-      surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
       surgery.surgery_id = `${deviceDisplayId}-${formatTimeForId(surgery.surgery_start_time)}`;
       // Compute source logs and entry-id range by expanded time window.
       try {
@@ -1925,7 +1935,7 @@ function compareSurgeryData(newData, existingData) {
   // Compare basic fields.
   const basicFields = [
     'start_time', 'end_time', 'has_fault', 'is_remote', 'success',
-    'source_log_ids', 'device_id', 'device_ids',
+    'source_log_ids', 'device_id',
     'log_entry_start_id', 'log_entry_end_id', 'log_entry_start_log_id', 'log_entry_end_log_id'
   ];
 
@@ -2138,7 +2148,6 @@ function getFieldDisplayName(field) {
     is_remote: 'is_remote',
     success: 'success',
     source_log_ids: 'source_log_ids',
-    device_ids: 'device_ids',
     log_entry_start_id: 'log_entry_start_id',
     log_entry_end_id: 'log_entry_end_id'
   };

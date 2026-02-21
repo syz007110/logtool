@@ -18,10 +18,12 @@
         <el-button
           v-if="!fullDataIncluded"
           size="small"
+          :type="loadingFullData ? 'primary' : 'default'"
           :loading="loadingFullData"
+          :disabled="loadingFullData"
           @click="emit('load-full-data')"
         >
-          {{ $t('surgeryCompare.loadFullData') }}
+          {{ loadingFullData ? $t('surgeryCompare.loadingFullData') : $t('surgeryCompare.loadFullData') }}
         </el-button>
         <template v-if="diffLineElements.length > 0">
           <el-button
@@ -44,7 +46,12 @@
 
       <div class="diff-block">
         <div class="diff-label">{{ $t('surgeryCompare.diffContent') }}</div>
-        <div class="diff-vue-diff-wrapper" ref="diffWrapperRef">
+        <div
+          class="diff-vue-diff-wrapper"
+          ref="diffWrapperRef"
+          v-loading="loadingFullData"
+          :element-loading-text="$t('surgeryCompare.loadingFullData')"
+        >
           <UnifiedDiffDualLineNums
             ref="diffRef"
             :prev="prevText"
@@ -124,10 +131,32 @@ function sortObjectKeys(obj) {
   return out
 }
 
+function estimateNodeCount(obj, limit = 2000) {
+  let count = 0
+  const stack = [obj]
+  while (stack.length) {
+    const cur = stack.pop()
+    if (!cur || typeof cur !== 'object') continue
+    count++
+    if (count > limit) return count
+    if (Array.isArray(cur)) {
+      for (const item of cur) stack.push(item)
+    } else {
+      for (const v of Object.values(cur)) stack.push(v)
+    }
+  }
+  return count
+}
+
 const formatValue = (value) => {
   if (value === null || value === undefined) return ''
   if (typeof value === 'object') {
     try {
+      const nodeCount = estimateNodeCount(value)
+      // Skip deep key sorting on huge payloads to reduce UI blocking.
+      if (nodeCount > 2000) {
+        return JSON.stringify(value, null, 2)
+      }
       return JSON.stringify(sortObjectKeys(value), null, 2)
     } catch (_) {
       return String(value)

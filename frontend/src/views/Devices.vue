@@ -17,7 +17,7 @@
           <!-- 设备列表 - 固定表头 -->
           <div class="table-container">
             <el-table :data="devices" :loading="loading" :height="tableHeight" style="width: 100%">
-        <el-table-column prop="device_id" :label="$t('devices.deviceId')" width="160" />
+        <el-table-column prop="device_id" :label="$t('shared.deviceId')" width="160" />
         <el-table-column prop="device_model" :label="$t('devices.deviceModel')" width="160" />
         <el-table-column prop="device_key" :label="$t('devices.deviceKey')" min-width="200" />
         <el-table-column prop="hospital" :label="$t('devices.hospital')" min-width="200">
@@ -128,7 +128,7 @@
       <el-tabs v-model="activeTab" v-if="editing">
         <el-tab-pane label="基本信息" name="basic">
           <el-form :model="form" label-width="110px" :rules="rules" ref="formRef">
-            <el-form-item :label="$t('devices.deviceId')" prop="device_id">
+            <el-form-item :label="$t('shared.deviceId')" prop="device_id">
               <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
             </el-form-item>
             <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
@@ -260,7 +260,7 @@
         </el-tab-pane>
       </el-tabs>
       <el-form v-else :model="form" label-width="110px" :rules="rules" ref="formRef">
-        <el-form-item :label="$t('devices.deviceId')" prop="device_id">
+        <el-form-item :label="$t('shared.deviceId')" prop="device_id">
           <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
         </el-form-item>
         <el-form-item :label="$t('devices.deviceModel')" prop="device_model">

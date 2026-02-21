@@ -214,7 +214,7 @@
         <!-- 状态 -->
         <el-table-column
           prop="status"
-          :label="$t('faultCases.jira.columns.status')"
+          :label="$t('shared.status')"
           width="140"
         >
           <template #default="{ row }">

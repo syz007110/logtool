@@ -280,8 +280,9 @@ import api from '@/api'
 import { fetchRecentSearches, storeRecentSearch } from '@/utils/offline/recentSearchStore'
 import { replaceErrorCodes, upsertErrorCodes, getErrorCodeLocal, searchErrorCodesLocal, getErrorCodeSyncMeta, getErrorCodeCount } from '@/utils/offline/errorCodeTableStore'
 import { derivePrefixFromRecord, derivePrefixLabel } from '@/utils/offline/prefixUtils'
-import categoryKeyMap from '@/config/categoryKeyMap.json'
-import prefixKeyMap from '@/config/prefixKeyMap.json'
+import categoryKeyMap from '../../../../shared/i18n/categoryKeyMap.json'
+import prefixKeyMap from '../../../../shared/i18n/prefixKeyMap.json'
+import subsystemCodes from '../../../../shared/i18n/subsystemCodes.json'
 
 export default {
   name: 'MErrorQuery',
@@ -323,18 +324,9 @@ export default {
     // 保存用户原始输入的故障类型（用于历史记录）
     const originalUserInput = ref('')
     
-    const subsystemOptions = computed(() => [
-      { text: t('shared.subsystemOptions.1'), value: '1' },
-      { text: t('shared.subsystemOptions.2'), value: '2' },
-      { text: t('shared.subsystemOptions.3'), value: '3' },
-      { text: t('shared.subsystemOptions.4'), value: '4' },
-      { text: t('shared.subsystemOptions.5'), value: '5' },
-      { text: t('shared.subsystemOptions.6'), value: '6' },
-      { text: t('shared.subsystemOptions.7'), value: '7' },
-      { text: t('shared.subsystemOptions.8'), value: '8' },
-      { text: t('shared.subsystemOptions.9'), value: '9' },
-      { text: t('shared.subsystemOptions.A'), value: 'A' }
-    ])
+    const subsystemOptions = computed(() =>
+      subsystemCodes.map((code) => ({ text: t(`shared.subsystemOptions.${code}`), value: code }))
+    )
 
     const keywordResults = ref([])
     const keywordQuery = ref('')
@@ -346,7 +338,7 @@ export default {
     const syncingErrorCodes = ref(false)
     const FULL_SYNC_INTERVAL = 1000 * 60 * 60 * 12
     const PAGE_SIZE = 200
-    const SUBSYSTEM_CODES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A']
+    const SUBSYSTEM_CODES = subsystemCodes
     
     const toNormalizedTypeCode = (input) => {
       if (!input) return ''

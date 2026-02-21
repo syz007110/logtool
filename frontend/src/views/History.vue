@@ -36,12 +36,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="user" :label="$t('history.user')" width="120" />
-        <el-table-column prop="time" :label="$t('history.time')" min-width="180">
+        <el-table-column prop="time" :label="$t('shared.time')" min-width="180">
           <template #default="{ row }">
             {{ formatDate(row.time) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="$t('history.status')" width="100">
+        <el-table-column prop="status" :label="$t('shared.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
               {{ $t(getStatusText(row.status)) }}
@@ -92,8 +92,8 @@
           <el-descriptions-item :label="$t('history.operation')">{{ selectedRecord.operation }}</el-descriptions-item>
           <el-descriptions-item :label="$t('history.description')">{{ selectedRecord.description }}</el-descriptions-item>
           <el-descriptions-item :label="$t('history.user')">{{ selectedRecord.user }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('history.time')">{{ formatDate(selectedRecord.time) }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('history.status')">
+          <el-descriptions-item :label="$t('shared.time')">{{ formatDate(selectedRecord.time) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('shared.status')">
             <el-tag :type="getStatusType(selectedRecord.status)">
               {{ $t(getStatusText(selectedRecord.status)) }}
             </el-tag>

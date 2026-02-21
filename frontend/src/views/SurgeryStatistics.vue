@@ -299,7 +299,7 @@
                                 :style="getUsageTimelineStyle(usage, surgery)"
                               >
                                 <el-tooltip 
-                                  :content="`${$t('surgeryStatistics.instrument')}: ${usage.instrumentName}\n${$t('surgeryStatistics.time')}: ${formatTime(usage.startTime)} - ${formatTime(usage.endTime)}\n${$t('surgeryStatistics.duration')}: ${Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)} ${$t('shared.minutes')}`"
+                                  :content="`${$t('surgeryStatistics.instrument')}: ${usage.instrumentName}\n${$t('shared.time')}: ${formatTime(usage.startTime)} - ${formatTime(usage.endTime)}\n${$t('surgeryStatistics.duration')}: ${Math.floor((new Date(usage.endTime) - new Date(usage.startTime)) / 1000 / 60)} ${$t('shared.minutes')}`"
                                   placement="top"
                                   :show-arrow="true"
                                   :popper-class="'usage-time-tooltip'"
@@ -341,7 +341,7 @@
               </template>
               
               <el-table :data="getAlarmDetails(surgery).slice(0, showAllAlarms[surgery.id] ? undefined : 5)" style="width: 100%">
-                <el-table-column prop="time" :label="$t('history.time')" width="180">
+                <el-table-column prop="time" :label="$t('shared.time')" width="180">
                   <template #default="{ row }">
                     {{ formatTime(row.time) }}
                   </template>
@@ -918,12 +918,10 @@ export default {
       }
 
       try {
-        // 设备编号统一使用字符串：优先后端返回的 device_id，其次兼容旧字段 device_ids，再回退到 surgery_id 前缀
+        // 设备编号统一使用字符串：优先后端返回的 device_id，再回退到 surgery_id 前缀
         const extractedPrefix = surgery.surgery_id ? surgery.surgery_id.split('-').slice(0, -1).join('-') : undefined
         const deviceIdStr = surgery.device_id
           || surgery.postgresql_row_preview?.device_id
-          || (Array.isArray(surgery.device_ids) && surgery.device_ids[0])
-          || (surgery.postgresql_row_preview?.device_ids?.[0])
           || extractedPrefix
         
         // 构建完整的surgeries表数据

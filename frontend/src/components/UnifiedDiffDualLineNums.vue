@@ -1,5 +1,9 @@
 <template>
-  <div class="unified-diff-dual-lines" ref="rootRef">
+  <div
+    class="unified-diff-dual-lines"
+    ref="rootRef"
+    :style="{ '--line-num-width': lineNumWidth }"
+  >
     <div
       v-for="(line, idx) in lines"
       :key="idx"
@@ -7,7 +11,8 @@
       :class="{
         'diff-row-removed': line.type === 'removed',
         'diff-row-added': line.type === 'added',
-        'diff-row-equal': line.type === 'equal'
+        'diff-row-equal': line.type === 'equal',
+        'diff-row-collapsed': line.type === 'collapsed'
       }"
     >
       <span class="line-num line-num-old">{{ line.oldNum ?? '' }}</span>
@@ -83,8 +88,53 @@ function computeUnifiedLinesWithDualNums(prev, current) {
 }
 
 const lines = computed(() => {
-  return computeUnifiedLinesWithDualNums(props.prev, props.current)
+  const raw = computeUnifiedLinesWithDualNums(props.prev, props.current)
+  // For huge payloads, collapse long equal blocks to reduce DOM nodes and repaint cost.
+  if (raw.length > 1200) {
+    return collapseEqualLines(raw, 3, 30)
+  }
+  return raw
 })
+
+const lineNumWidth = computed(() => {
+  const maxLineNum = lines.value.reduce((max, line) => {
+    const oldNum = Number(line?.oldNum || 0)
+    const newNum = Number(line?.newNum || 0)
+    return Math.max(max, oldNum, newNum)
+  }, 0)
+  const digits = Math.max(String(maxLineNum || 1).length, 2)
+  return `${Math.max(digits + 4, 6)}ch`
+})
+
+function collapseEqualLines(lines, context = 3, minCollapseRun = 30) {
+  const out = []
+  let i = 0
+  while (i < lines.length) {
+    if (lines[i].type !== 'equal') {
+      out.push(lines[i])
+      i += 1
+      continue
+    }
+    let j = i
+    while (j < lines.length && lines[j].type === 'equal') j += 1
+    const runLen = j - i
+    if (runLen > (context * 2 + minCollapseRun)) {
+      out.push(...lines.slice(i, i + context))
+      out.push({
+        type: 'collapsed',
+        oldNum: null,
+        newNum: null,
+        prefix: '...',
+        value: `${runLen - context * 2} unchanged lines`
+      })
+      out.push(...lines.slice(j - context, j))
+    } else {
+      out.push(...lines.slice(i, j))
+    }
+    i = j
+  }
+  return out
+}
 
 defineExpose({
   rootRef,
@@ -109,8 +159,8 @@ defineExpose({
 }
 
 .diff-row .line-num {
-  flex: 0 0 36px;
-  min-width: 36px;
+  flex: 0 0 var(--line-num-width, 4ch);
+  min-width: var(--line-num-width, 4ch);
   padding: 0 6px;
   text-align: right;
   color: #999;
@@ -155,5 +205,11 @@ defineExpose({
 
 .diff-row-equal .line-content {
   background: transparent;
+}
+
+.diff-row-collapsed .line-content {
+  color: #666;
+  background: #fafafa;
+  font-style: italic;
 }
 </style>

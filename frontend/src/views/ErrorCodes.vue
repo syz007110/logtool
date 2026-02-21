@@ -742,8 +742,9 @@ import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
 import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import api from '../api'
-import prefixKeyMap from '../config/prefixKeyMap.json'
-import categoryKeyMap from '../config/categoryKeyMap.json'
+import prefixKeyMap from '../../../shared/i18n/prefixKeyMap.json'
+import categoryKeyMap from '../../../shared/i18n/categoryKeyMap.json'
+import subsystemCodes from '../../../shared/i18n/subsystemCodes.json'
 // Base 组件已移除，直接使用 Element Plus 组件
 // Shared 组件
 import { PageContainer } from '@/components/shared'
@@ -956,18 +957,9 @@ export default {
       { label: t('shared.languageOptions.da'), value: 'da' }
     ]
     
-    const subsystemOptions = computed(() => [
-      { label: t('shared.subsystemOptions.1'), value: '1' },
-      { label: t('shared.subsystemOptions.2'), value: '2' },
-      { label: t('shared.subsystemOptions.3'), value: '3' },
-      { label: t('shared.subsystemOptions.4'), value: '4' },
-      { label: t('shared.subsystemOptions.5'), value: '5' },
-      { label: t('shared.subsystemOptions.6'), value: '6' },
-      { label: t('shared.subsystemOptions.7'), value: '7' },
-      { label: t('shared.subsystemOptions.8'), value: '8' },
-      { label: t('shared.subsystemOptions.9'), value: '9' },
-      { label: t('shared.subsystemOptions.A'), value: 'A' }
-    ])
+    const subsystemOptions = computed(() =>
+      subsystemCodes.map((code) => ({ label: t(`shared.subsystemOptions.${code}`), value: code }))
+    )
     
     // 故障分类选项（根据系统语言显示翻译）
     const categoryOptions = computed(() => [
@@ -2140,6 +2132,32 @@ export default {
     
     const handleSave = async () => {
       try {
+        // 英文/其他非中文编辑模式：仅保存 i18n 字段，避免主表中文字段校验导致失败
+        if (editingErrorCode.value && selectedI18nLang.value && selectedI18nLang.value !== 'zh-CN') {
+          saving.value = true
+          await api.errorCodes.saveI18nByLang(
+            editingErrorCode.value.id,
+            selectedI18nLang.value,
+            {
+              short_message: i18nForm.short_message,
+              user_hint: i18nForm.user_hint,
+              operation: i18nForm.operation,
+              detail: i18nForm.detail,
+              method: i18nForm.method,
+              param1: i18nForm.param1,
+              param2: i18nForm.param2,
+              param3: i18nForm.param3,
+              param4: i18nForm.param4,
+              tech_solution: i18nForm.tech_solution,
+              explanation: i18nForm.explanation
+            }
+          )
+          ElMessage.success(t('errorCodes.i18nTechFields.saveSuccess'))
+          showAddDialog.value = false
+          loadErrorCodes()
+          return
+        }
+
         await errorCodeFormRef.value.validate()
         saving.value = true
         
@@ -2265,7 +2283,7 @@ export default {
         if (error.response && error.response.data && error.response.data.errors) {
           ElMessage.error(error.response.data.errors.join(', '))
         } else {
-          ElMessage.error(t('errorCodes.message.saveFailed'))
+          ElMessage.error(error?.response?.data?.message || t('shared.messages.saveFailed'))
         }
       } finally {
         saving.value = false

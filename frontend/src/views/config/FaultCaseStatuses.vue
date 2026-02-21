@@ -31,8 +31,8 @@
         <el-table :data="statuses" :loading="loading" :height="tableHeight" style="width: 100%" v-loading="loading" table-layout="auto">
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="status_key" :label="$t('configManagement.statuses.statusKey')" width="150" />
-          <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('configManagement.common.name')" width="120" min-width="100" />
-          <el-table-column v-if="isEnUS" prop="name_en" :label="$t('configManagement.common.name')" width="120" min-width="100" />
+          <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('shared.name')" width="120" min-width="100" />
+          <el-table-column v-if="isEnUS" prop="name_en" :label="$t('shared.name')" width="120" min-width="100" />
           <el-table-column :label="$t('configManagement.common.mappings')" min-width="350">
             <template #default="{ row }">
               <div class="mapping-tags-container">
@@ -124,7 +124,7 @@
         <el-form-item :label="$t('configManagement.statuses.statusKeyLabel')" prop="status_key">
           <el-input v-model="formData.status_key" :disabled="isEdit" :placeholder="$t('configManagement.statuses.statusKeyPlaceholder')" />
         </el-form-item>
-        <el-form-item :label="$t('configManagement.common.name')" prop="name">
+        <el-form-item :label="$t('shared.name')" prop="name">
           <el-input v-model="formData.name" :placeholder="isZhCN ? $t('configManagement.common.nameZh') : $t('configManagement.common.nameEn')" />
         </el-form-item>
         <el-form-item :label="$t('configManagement.common.sortOrder')" prop="sort_order">

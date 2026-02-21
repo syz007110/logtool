@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="surgeries-container">
     <!-- 缁熶竴鍗＄墖锛氬寘鍚墍鏈夋帶浠?-->
     <el-card class="main-card">
@@ -58,7 +58,7 @@
                 {{ $t('logs.pendingConfirmCount', { count: Number(row.pending_confirm_count || 0) }) }}
               </el-tag>
               <el-tag v-if="getFailedLogCountForDevice(row.device_id) > 0" size="small" type="danger">
-                分析失败日志 {{ getFailedLogCountForDevice(row.device_id) }} 条
+                {{ $t('logs.failedAnalysisLogCount', { count: getFailedLogCountForDevice(row.device_id) }) }}
               </el-tag>
             </div>
           </template>
@@ -78,7 +78,7 @@
             {{ formatDate(row.latest_surgery_time) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="220" fixed="right" align="left">
+        <el-table-column :label="$t('shared.operation')" width="240" fixed="right" align="left">
           <template #default="{ row }">
             <div class="btn-group operation-buttons">
               <el-button
@@ -126,9 +126,12 @@
             clearable
             reserve-keyword
             :placeholder="$t('logs.deviceId')"
-            :remote-method="loadAnalysisDeviceOptions"
-            :loading="analysisDeviceLoading"
+            :remote-method="handleAnalysisDeviceSearch"
+            :loading="analysisDeviceInitialLoading"
+            :teleported="false"
             class="analysis-select"
+            popper-class="analysis-device-select-popper"
+            @visible-change="handleAnalysisDeviceVisibleChange"
             @change="handleAnalysisDeviceChange"
           >
             <el-option
@@ -140,38 +143,26 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('batchAnalysis.startLogTime')">
-          <el-select
-            v-model="analysisForm.startLogId"
-            filterable
+          <el-date-picker
+            v-model="analysisForm.startTime"
+            type="date"
+            value-format="YYYY-MM-DD"
             clearable
-            :disabled="!analysisForm.deviceId || analysisLogLoading"
-            :placeholder="$t('batchAnalysis.selectStartLogPlaceholder')"
+            :disabled="!analysisForm.deviceId"
+            :placeholder="$t('batchAnalysis.selectStartTime')"
             class="analysis-select"
-          >
-            <el-option
-              v-for="item in analysisLogOptions"
-              :key="item.logId"
-              :label="item.label"
-              :value="item.logId"
-            />
-          </el-select>
+          />
         </el-form-item>
         <el-form-item :label="$t('batchAnalysis.endLogTime')">
-          <el-select
-            v-model="analysisForm.endLogId"
-            filterable
+          <el-date-picker
+            v-model="analysisForm.endTime"
+            type="date"
+            value-format="YYYY-MM-DD"
             clearable
-            :disabled="!analysisForm.deviceId || analysisLogLoading"
-            :placeholder="$t('batchAnalysis.selectEndLogPlaceholder')"
+            :disabled="!analysisForm.deviceId"
+            :placeholder="$t('batchAnalysis.endTime')"
             class="analysis-select"
-          >
-            <el-option
-              v-for="item in analysisLogOptions"
-              :key="`end-${item.logId}`"
-              :label="item.label"
-              :value="item.logId"
-            />
-          </el-select>
+          />
         </el-form-item>
       </el-form>
       <div class="analysis-hint">
@@ -196,14 +187,14 @@
         <el-empty :description="$t('batchAnalysis.analyzing')" />
       </div>
       <el-table v-else :data="analysisResultRows" style="width: 100%">
-        <el-table-column prop="surgery_id" :label="$t('logs.surgeryId')" min-width="220" />
+        <el-table-column prop="surgery_id" :label="$t('logs.surgeryId')" min-width="180" />
         <el-table-column :label="$t('logs.surgeryStartTime')" min-width="180">
           <template #default="{ row }">{{ formatDate(row.surgery_start_time || row.start_time) }}</template>
         </el-table-column>
         <el-table-column :label="$t('logs.surgeryEndTime')" min-width="180">
           <template #default="{ row }">{{ formatDate(row.surgery_end_time || row.end_time) }}</template>
         </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="320" align="left">
+        <el-table-column :label="$t('shared.operation')" width="360" align="left">
           <template #default="{ row }">
             <div class="btn-group operation-buttons">
               <el-button text size="small" @click="visualizeSurgeryStatFromResult(row)">
@@ -373,29 +364,50 @@
                   </el-select>
                 </div>
               </div>
+              <div class="batch-section" v-if="selectedDetailSurgeries.length > 0">
+                <div class="batch-actions">
+                  <el-button
+                    type="default"
+                    size="small"
+                    :loading="batchDeletingSurgeries"
+                    :disabled="!canDeleteSurgery || batchDeletingSurgeries"
+                    @click="handleBatchDeleteSurgeries"
+                  >
+                    <i class="fas fa-trash"></i>
+                    {{ $t('logs.batchDelete') }} ({{ selectedDetailSurgeries.length }})
+                  </el-button>
+                  <el-button type="default" size="small" @click="clearDetailSelection">
+                    <i class="fas fa-times"></i>
+                    {{ $t('logs.clearSelection') }}
+                  </el-button>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- 琛ㄦ牸瀹瑰櫒 - 鍙粴鍔?-->
           <div class="detail-table-container">
             <el-table
+              ref="detailTableRef"
               :data="detailSurgeries"
               :loading="detailLoading"
               style="width: 100%"
               v-loading="detailLoading"
+              @selection-change="handleDetailSelectionChange"
             >
-              <el-table-column :label="$t('logs.surgeryId')">
+              <el-table-column type="selection" width="55" :selectable="isSurgeryRowSelectable" />
+              <el-table-column :label="$t('logs.surgeryId')" min-width="220">
                 <template #default="{ row }">
                   {{ row.display_surgery_id }}
                 </template>
               </el-table-column>
-              <el-table-column prop="start_time" :label="$t('logs.surgeryStartTime')">
+              <el-table-column prop="start_time" :label="$t('logs.surgeryStartTime')" width="170">
                 <template #default="{ row }">{{ formatDate(row.start_time) }}</template>
               </el-table-column>
-              <el-table-column prop="end_time" :label="$t('logs.surgeryEndTime')">
+              <el-table-column prop="end_time" :label="$t('logs.surgeryEndTime')" width="170">
                 <template #default="{ row }">{{ formatDate(row.end_time) }}</template>
               </el-table-column>
-              <el-table-column :label="$t('logs.surgeryStatusLabel')" width="100" align="center">
+              <el-table-column :label="$t('logs.surgeryStatusLabel')" width="130" align="center">
                 <template #default="{ row }">
                   <el-tag v-if="row._isTaskMeta" size="small" :type="getTaskMetaStatusTag(row).type">
                     {{ getTaskMetaStatusTag(row).label }}
@@ -404,7 +416,7 @@
                   <el-tag v-else-if="!row._isTaskMeta" size="small" type="success">{{ $t('logs.surgeryStatusExported') }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('shared.operation')" align="left" width="220">
+              <el-table-column :label="$t('shared.operation')" align="left" width="300">
                 <template #default="{ row }">
                   <div class="operation-buttons">
                     <el-button
@@ -428,10 +440,19 @@
                       {{ $t('logs.reparse') }}
                     </el-button>
                     <el-button
+                      v-if="row._isTaskMeta && canRetryTaskMeta(row) && canDeleteSurgery"
+                      text
+                      size="small"
+                      type="danger"
+                      :loading="deletingFailedGroupId === row._metaTaskId"
+                      @click="deleteFailedTaskMeta(row)"
+                    >
+                      {{ $t('shared.delete') }}
+                    </el-button>
+                    <el-button
                       v-if="row.has_pending_confirmation"
                       text
                       size="small"
-                      type="warning"
                       :loading="compareLoadingRowId === row.surgery_id"
                       :disabled="compareLoadingRowId != null"
                       @click="openPendingCompare(row)"
@@ -492,10 +513,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import { Search, Refresh, RefreshLeft, List, Close, DataAnalysis } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
@@ -527,18 +548,23 @@ export default {
     const keywordFilter = ref('')
     const deviceGroupsLoading = ref(false)
     const lastDeviceGroupsLoadAt = ref(0)
+    let deviceGroupsReloadPending = false
     let searchDebounceTimer = null
 
     // 璁惧璇︽儏鎶藉眽鐩稿叧
     const showDeviceDetailDrawer = ref(false)
     const selectedDevice = ref(null)
+    const detailTableRef = ref(null)
     const detailSurgeries = ref([])
+    const selectedDetailSurgeries = ref([])
+    const batchDeletingSurgeries = ref(false)
     const detailLoading = ref(false)
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
     const detailTotal = ref(0)
     const detailTaskMetaRows = ref([])
     const retryingFailedGroupId = ref(null)
+    const deletingFailedGroupId = ref(null)
     const detailAvailableYears = ref([])
     const detailAvailableMonths = ref({})
     const detailAvailableDays = ref({})
@@ -555,13 +581,16 @@ export default {
     const analysisResultLoading = ref(false)
     const analysisResultRows = ref([])
     const analysisDeviceLoading = ref(false)
-    const analysisLogLoading = ref(false)
+    const analysisDeviceInitialLoading = ref(false)
     const analysisDeviceOptions = ref([])
-    const analysisLogOptions = ref([])
+    const analysisDeviceQuery = ref('')
+    const analysisDevicePage = ref(1)
+    const analysisDevicePageSize = 20
+    const analysisDeviceHasNext = ref(false)
     const analysisForm = ref({
       deviceId: '',
-      startLogId: null,
-      endLogId: null
+      startTime: '',
+      endTime: ''
     })
     const analysisExportingRow = ref({})
     const analysisSurgeryJsonVisible = ref(false)
@@ -588,9 +617,53 @@ export default {
       ))
     }
 
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)))
+
+    const isRateLimitedError = (error) => Number(error?.response?.status) === 429
+
+    const getRetryAfterMs = (error, fallbackMs = 1500) => {
+      const retryAfterSec = Number(error?.response?.data?.retryAfter || 0)
+      if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+        return retryAfterSec * 1000
+      }
+      return fallbackMs
+    }
+
+    const withRateLimitRetry = async (requestFn, options = {}) => {
+      const maxRetries = Number(options.maxRetries ?? 1)
+      const fallbackMs = Number(options.fallbackMs ?? 1500)
+      let attempt = 0
+      while (true) {
+        try {
+          return await requestFn()
+        } catch (error) {
+          if (!isRateLimitedError(error) || attempt >= maxRetries) {
+            throw error
+          }
+          const waitMs = getRetryAfterMs(error, fallbackMs * (attempt + 1))
+          await sleep(waitMs)
+          attempt += 1
+        }
+      }
+    }
+
     const getFailedLogCountForDevice = (deviceId) => {
       void deviceId
       return 0
+    }
+
+    const isSurgeryRowSelectable = (row) => {
+      if (!row || row._isTaskMeta) return false
+      return Number.isFinite(Number(row.id))
+    }
+
+    const clearDetailSelection = () => {
+      selectedDetailSurgeries.value = []
+      detailTableRef.value?.clearSelection?.()
+    }
+
+    const handleDetailSelectionChange = (selection) => {
+      selectedDetailSurgeries.value = (Array.isArray(selection) ? selection : []).filter(isSurgeryRowSelectable)
     }
 
     // 鍔犺浇璁惧鍒嗙粍
@@ -602,6 +675,7 @@ export default {
         return
       }
       if (!force && deviceGroupsLoading.value) {
+        deviceGroupsReloadPending = true
         return
       }
       try {
@@ -610,11 +684,14 @@ export default {
         lastDeviceGroupsLoadAt.value = now
 
         // 鈿狅笍 鎬ц兘浼樺寲锛氫箣鍓嶅疄鐜颁細寰幆璇锋眰鎵€鏈夋墜鏈暟鎹悗鍦ㄥ唴瀛樹腑鍒嗙粍锛屾暟鎹噺澶ф椂闈炲父鎱?        // 鐜板湪鏀逛负鐩存帴璋冪敤鍚庣鎸夎澶囧垎缁勭殑鎺ュ彛锛屾暟鎹簱灞傚畬鎴愬垎缁勫拰鍒嗛〉
-        const resp = await api.surgeries.getByDevice({
-          page: currentPage.value,
-          limit: pageSize.value,
-          keyword: keywordFilter.value.trim() || undefined
-        })
+        const resp = await withRateLimitRetry(
+          () => api.surgeries.getByDevice({
+            page: currentPage.value,
+            limit: pageSize.value,
+            keyword: keywordFilter.value.trim() || undefined
+          }, { _silentError: true }),
+          { maxRetries: silent ? 2 : 1, fallbackMs: 1500 }
+        )
         
         const groups = Array.isArray(resp.data?.device_groups) ? resp.data.device_groups : []
         deviceGroups.value = groups
@@ -626,150 +703,169 @@ export default {
       } finally {
         deviceGroupsLoading.value = false
         loading.value = false
+        if (deviceGroupsReloadPending) {
+          deviceGroupsReloadPending = false
+          loadDeviceGroups({ silent: true, force: true })
+        }
       }
     }
 
-    const buildLogTimeMs = (log) => {
-      if (!log) return null
-      const y = Number(log.file_year)
-      const mo = Number(log.file_month)
-      const d = Number(log.file_day)
-      const h = Number(log.file_hour)
-      const mi = log.file_minute != null && log.file_minute !== '' ? Number(log.file_minute) : 0
-      if (![y, mo, d, h, mi].every((v) => Number.isFinite(v))) return null
-      return new Date(y, mo - 1, d, h, mi, 0, 0).getTime()
-    }
-
-    const formatLogTimeLabel = (log) => {
-      const ts = buildLogTimeMs(log)
-      if (!Number.isFinite(ts)) return log?.original_name || `log-${log?.id || ''}`
-      const dt = new Date(ts)
-      const y = dt.getFullYear()
-      const mo = String(dt.getMonth() + 1).padStart(2, '0')
-      const d = String(dt.getDate()).padStart(2, '0')
-      const h = String(dt.getHours()).padStart(2, '0')
-      const mi = String(dt.getMinutes()).padStart(2, '0')
-      return `${y}-${mo}-${d} ${h}:${mi}`
-    }
-
-    // Load device options for surgery analysis from uploaded logs.
-    const loadAnalysisDeviceOptions = async (keyword = '') => {
-      try {
-        analysisDeviceLoading.value = true
-        const resp = await api.logs.getByDevice({
-          page: 1,
-          limit: 200,
-          device_filter: String(keyword || '').trim() || undefined
+    const mapAnalysisDeviceOptions = (groups) => {
+      return (Array.isArray(groups) ? groups : [])
+        .map((g) => {
+          const deviceId = String(g.device_id || '').trim()
+          if (!deviceId) return null
+          const label = g.hospital_name ? `${deviceId} (${g.hospital_name})` : deviceId
+          return { value: deviceId, label }
         })
-        const groups = Array.isArray(resp.data?.device_groups) ? resp.data.device_groups : []
-        analysisDeviceOptions.value = groups
-          .map((g) => {
-            const deviceId = String(g.device_id || '').trim()
-            if (!deviceId) return null
-            const label = g.hospital_name ? `${deviceId} (${g.hospital_name})` : deviceId
-            return { value: deviceId, label }
-          })
-          .filter(Boolean)
+        .filter(Boolean)
+    }
+
+    let analysisDeviceScrollWrap = null
+    let analysisDeviceBindRetryTimer = null
+    const unbindAnalysisDeviceInfiniteScroll = () => {
+      if (analysisDeviceBindRetryTimer) {
+        clearTimeout(analysisDeviceBindRetryTimer)
+        analysisDeviceBindRetryTimer = null
+      }
+      if (analysisDeviceScrollWrap) {
+        analysisDeviceScrollWrap.removeEventListener('scroll', onAnalysisDeviceDropdownScroll)
+        analysisDeviceScrollWrap = null
+      }
+    }
+
+    const loadAnalysisDeviceOptions = async (keyword = '', options = {}) => {
+      const page = Number(options.page || 1)
+      const append = options.append === true && page > 1
+      try {
+        const shouldShowInitialLoading = !append
+        analysisDeviceInitialLoading.value = shouldShowInitialLoading
+        analysisDeviceLoading.value = true
+        analysisDeviceQuery.value = String(keyword || '').trim()
+        const resp = await api.logs.getByDevice({
+          page,
+          limit: analysisDevicePageSize,
+          device_filter: analysisDeviceQuery.value || undefined
+        })
+        const groups = mapAnalysisDeviceOptions(resp.data?.device_groups)
+        const pagination = resp.data?.pagination || {}
+        analysisDevicePage.value = Number(pagination.current_page || page)
+        analysisDeviceHasNext.value = pagination.has_next === true
+        if (!append) {
+          analysisDeviceOptions.value = groups
+        } else {
+          const seen = new Set(analysisDeviceOptions.value.map((item) => item.value))
+          const next = groups.filter((item) => !seen.has(item.value))
+          if (next.length > 0) {
+            analysisDeviceOptions.value.push(...next)
+          }
+        }
       } catch (error) {
         ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
       } finally {
         analysisDeviceLoading.value = false
+        analysisDeviceInitialLoading.value = false
       }
     }
 
-    const loadParsedLogsForAnalysis = async (deviceId) => {
-      const did = String(deviceId || '').trim()
-      if (!did) return
-      try {
-        analysisLogLoading.value = true
-        analysisLogOptions.value = []
-        analysisForm.value.startLogId = null
-        analysisForm.value.endLogId = null
+    const handleAnalysisDeviceSearch = async (keyword = '') => {
+      await loadAnalysisDeviceOptions(keyword, { page: 1, append: false })
+    }
 
-        let page = 1
-        const limit = 500
-        const maxPages = 40
-        let allLogs = []
-        let total = 0
-        do {
-          const resp = await api.logs.getList({
-            device_id: did,
-            status_filter: 'parsed',
-            page,
-            limit
-          })
-          const logs = Array.isArray(resp.data?.logs) ? resp.data.logs : []
-          total = Number(resp.data?.total || 0)
-          allLogs = allLogs.concat(logs)
-          if (!logs.length) break
-          page += 1
-        } while ((page - 1) < maxPages && allLogs.length < total)
+    const onAnalysisDeviceDropdownScroll = () => {
+      if (!analysisDeviceScrollWrap || analysisDeviceLoading.value || !analysisDeviceHasNext.value) return
+      const remain = analysisDeviceScrollWrap.scrollHeight - (analysisDeviceScrollWrap.scrollTop + analysisDeviceScrollWrap.clientHeight)
+      if (remain > 24) return
+      loadAnalysisDeviceOptions(analysisDeviceQuery.value, {
+        page: analysisDevicePage.value + 1,
+        append: true
+      })
+    }
 
-        const normalized = allLogs
-          .map((log) => {
-            const ts = buildLogTimeMs(log)
-            if (!Number.isFinite(ts)) return null
-            return {
-              logId: log.id,
-              timestampMs: ts,
-              label: `${formatLogTimeLabel(log)} (${log.original_name || `ID:${log.id}`})`
-            }
-          })
-          .filter(Boolean)
-          .sort((a, b) => a.timestampMs - b.timestampMs)
-
-        analysisLogOptions.value = normalized
-        if (normalized.length > 0) {
-          analysisForm.value.startLogId = normalized[0].logId
-          analysisForm.value.endLogId = normalized[normalized.length - 1].logId
+    const bindAnalysisDeviceInfiniteScroll = async (retry = 0) => {
+      await nextTick()
+      const dropdown = document.querySelector('.analysis-device-select-popper')
+      const wrap = dropdown?.querySelector('.el-select-dropdown__wrap') || dropdown?.querySelector('.el-scrollbar__wrap')
+      if (!wrap) {
+        if (retry < 6) {
+          analysisDeviceBindRetryTimer = setTimeout(() => bindAnalysisDeviceInfiniteScroll(retry + 1), 50)
         }
-      } catch (error) {
-        ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
-      } finally {
-        analysisLogLoading.value = false
+        return
       }
+      if (analysisDeviceScrollWrap === wrap) return
+      unbindAnalysisDeviceInfiniteScroll()
+      analysisDeviceScrollWrap = wrap
+      analysisDeviceScrollWrap.addEventListener('scroll', onAnalysisDeviceDropdownScroll, { passive: true })
+    }
+
+    const handleAnalysisDeviceVisibleChange = async (visible) => {
+      if (!visible) {
+        unbindAnalysisDeviceInfiniteScroll()
+        return
+      }
+      if (!analysisDeviceOptions.value.length) {
+        await loadAnalysisDeviceOptions(analysisDeviceQuery.value, { page: 1, append: false })
+      }
+      bindAnalysisDeviceInfiniteScroll()
     }
 
     const openSurgeryAnalysisDialog = async () => {
       showAnalyzeDialog.value = true
-      if (!analysisDeviceOptions.value.length) {
-        await loadAnalysisDeviceOptions('')
-      }
+      await loadAnalysisDeviceOptions('', { page: 1, append: false })
       if (selectedDevice.value?.device_id) {
         analysisForm.value.deviceId = selectedDevice.value.device_id
-        await loadParsedLogsForAnalysis(selectedDevice.value.device_id)
+        const selectedId = String(selectedDevice.value.device_id || '').trim()
+        if (selectedId && !analysisDeviceOptions.value.some((item) => item.value === selectedId)) {
+          const label = selectedDevice.value?.hospital_name
+            ? `${selectedId} (${selectedDevice.value.hospital_name})`
+            : selectedId
+          analysisDeviceOptions.value.unshift({ value: selectedId, label })
+        }
       }
     }
 
-    const handleAnalysisDeviceChange = async (deviceId) => {
-      await loadParsedLogsForAnalysis(deviceId)
+    const handleAnalysisDeviceChange = () => {
+      analysisForm.value.startTime = ''
+      analysisForm.value.endTime = ''
     }
 
     const pollSurgeryAnalysisTask = async (taskId, options = {}) => {
-      const pollIntervalMs = Number(options.pollIntervalMs || 3000)
+      const pollIntervalMs = Number(options.pollIntervalMs || 8000)
       const timeoutMs = Number(options.timeoutMs || 10 * 60 * 1000)
       const startedAt = Date.now()
       while (Date.now() - startedAt < timeoutMs) {
-        const resp = await api.surgeryStatistics.getAnalysisTaskStatus(taskId, { _silentError: true })
-        const task = resp.data?.data
-        if (task?.status === 'completed') {
-          return {
-            taskId: String(taskId),
-            surgeries: Array.isArray(task.result) ? task.result : [],
-            exportSummary: task.exportSummary || null,
-            failedLogIds: normalizeLogIds(task.failedLogIds),
-            failedLogDetails: Array.isArray(task.failedLogDetails) ? task.failedLogDetails : [],
-            timedOut: false
+        try {
+          const resp = await api.surgeryStatistics.getAnalysisTaskStatus(taskId, { _silentError: true })
+          const task = resp.data?.data
+          if (task?.status === 'completed') {
+            return {
+              taskId: String(taskId),
+              surgeries: Array.isArray(task.result) ? task.result : [],
+              exportSummary: task.exportSummary || null,
+              failedLogIds: normalizeLogIds(task.failedLogIds),
+              failedLogDetails: Array.isArray(task.failedLogDetails) ? task.failedLogDetails : [],
+              timedOut: false
+            }
           }
+          if (task?.status === 'failed') {
+            const err = new Error(task.error || t('logs.messages.analysisTaskFailed'))
+            err.taskId = String(taskId)
+            err.failedLogIds = normalizeLogIds(task.failedLogIds)
+            err.failedLogDetails = Array.isArray(task.failedLogDetails) ? task.failedLogDetails : []
+            throw err
+          }
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        } catch (error) {
+          if (Number(error?.response?.status) === 429) {
+            const retryAfterMs = Math.max(
+              1000,
+              Number(error?.response?.data?.retryAfter || 0) * 1000 || pollIntervalMs
+            )
+            await new Promise((resolve) => setTimeout(resolve, retryAfterMs))
+            continue
+          }
+          throw error
         }
-        if (task?.status === 'failed') {
-          const err = new Error(task.error || '分析任务失败')
-          err.taskId = String(taskId)
-          err.failedLogIds = normalizeLogIds(task.failedLogIds)
-          err.failedLogDetails = Array.isArray(task.failedLogDetails) ? task.failedLogDetails : []
-          throw err
-        }
-        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
       }
       return {
         taskId: String(taskId),
@@ -794,8 +890,12 @@ export default {
             60 * 60 * 1000,
             Math.max(10 * 60 * 1000, normalizedTaskIds.length * 2 * 60 * 1000)
           )
+          const pollIntervalMs = Math.min(
+            60 * 1000,
+            Math.max(8000, normalizedTaskIds.length * 8000)
+          )
           const settled = await Promise.allSettled(
-            normalizedTaskIds.map((id) => pollSurgeryAnalysisTask(id, { timeoutMs }))
+            normalizedTaskIds.map((id) => pollSurgeryAnalysisTask(id, { timeoutMs, pollIntervalMs }))
           )
           const taskResults = settled
             .filter((item) => item.status === 'fulfilled')
@@ -831,7 +931,7 @@ export default {
 
           if (failedResults.length > 0) {
             const firstError = failedResults[0]
-            const err = new Error(firstError?.message || `部分任务失败 (${failedResults.length})`)
+            const err = new Error(firstError?.message || t('logs.messages.partialTasksFailed', { count: failedResults.length }))
             err._backgroundTaskError = true
             throw err
           }
@@ -856,65 +956,74 @@ export default {
           pending: 0,
           failed: 0
         }
-        ElMessage.success(
-          `手术分析与自动入库完成：共 ${finalSummary.total} 条，已入库 ${finalSummary.imported} 条，待确认 ${finalSummary.pending} 条，失败 ${finalSummary.failed} 条`
-        )
+        ElMessage.success(t('logs.messages.analyzeImportCompleted', {
+          total: finalSummary.total,
+          imported: finalSummary.imported,
+          pending: finalSummary.pending,
+          failed: finalSummary.failed
+        }))
         if (failedLogIds.length > 0) {
-          ElMessage.warning(`本次仍有 ${failedLogIds.length} 个日志分析失败，已在设备详情抽屉记录，可按分组重试`)
+          ElMessage.warning(t('logs.messages.failedLogsStillPresent', { count: failedLogIds.length }))
         }
         if (timedOutTaskIds.length > 0) {
-          ElMessage.warning(`仍有 ${timedOutTaskIds.length} 个任务在后台执行，稍后请在设备详情中查看最新状态`)
+          ElMessage.warning(t('logs.messages.tasksStillRunning', { count: timedOutTaskIds.length }))
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error.message || '后台手术分析/入库失败，请稍后重试')
+        ElMessage.error(error?.response?.data?.message || error.message || t('logs.messages.backgroundAnalyzeImportFailed'))
       }
     }
 
     const submitAnalyzeByLogRange = async () => {
-      const { deviceId, startLogId, endLogId } = analysisForm.value
+      const { deviceId, startTime, endTime } = analysisForm.value
       if (!deviceId) {
-        ElMessage.warning('请选择设备编号')
+        ElMessage.warning(t('logs.messages.pleaseSelectDeviceId'))
         return
       }
-      if (!startLogId || !endLogId) {
-        ElMessage.warning('请选择开始和结束日志时间')
+      if (!startTime || !endTime) {
+        ElMessage.warning(t('logs.messages.pleaseSelectStartEndLogTime'))
         return
       }
-
-      const startIndex = analysisLogOptions.value.findIndex((item) => item.logId === startLogId)
-      const endIndex = analysisLogOptions.value.findIndex((item) => item.logId === endLogId)
-      if (startIndex < 0 || endIndex < 0) {
-        ElMessage.warning('请选择有效的日志时间范围')
-        return
+      const parseDayBoundary = (day, isEnd) => {
+        const parts = String(day || '').split('-').map((v) => Number(v))
+        if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return null
+        const [y, m, d] = parts
+        return isEnd
+          ? new Date(y, m - 1, d, 23, 59, 59, 999)
+          : new Date(y, m - 1, d, 0, 0, 0, 0)
       }
-
-      const from = Math.min(startIndex, endIndex)
-      const to = Math.max(startIndex, endIndex)
-      const selectedLogIds = analysisLogOptions.value.slice(from, to + 1).map((item) => item.logId)
-      if (!selectedLogIds.length) {
-        ElMessage.warning('未找到可分析日志')
+      const startDate = parseDayBoundary(startTime, false)
+      const endDate = parseDayBoundary(endTime, true)
+      if (!startDate || !endDate || startDate.getTime() > endDate.getTime()) {
+        ElMessage.warning(t('logs.messages.pleaseSelectValidLogRange'))
         return
       }
 
       analysisSubmitting.value = true
       try {
-        const resp = await api.surgeryStatistics.analyzeByLogIds(selectedLogIds, true, null, { autoImport: true })
+        const resp = await api.surgeryStatistics.analyzeByDeviceRange(
+          deviceId,
+          startDate.toISOString(),
+          endDate.toISOString(),
+          true,
+          null,
+          { autoImport: true }
+        )
         const taskIds = Array.isArray(resp.data?.taskIds)
           ? resp.data.taskIds
           : (resp.data?.taskId ? [resp.data.taskId] : [])
         if (taskIds.length > 0) {
           showAnalyzeDialog.value = false
-          ElMessage.success('手术分析任务已加入队列，系统将在后台自动入库')
+          ElMessage.success(t('logs.messages.analysisTaskQueuedAutoImport'))
           runAnalyzeAndAutoImportInBackground(taskIds, null, { deviceId })
         } else if (Array.isArray(resp.data?.data)) {
           showAnalyzeDialog.value = false
-          ElMessage.success('手术分析完成，系统正在自动入库')
+          ElMessage.success(t('logs.messages.analysisCompletedAutoImporting'))
           runAnalyzeAndAutoImportInBackground([], resp.data.data, { deviceId })
         } else {
-          throw new Error(resp.data?.message || '创建手术分析任务失败')
+          throw new Error(resp.data?.message || t('logs.messages.createAnalysisTaskFailed'))
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error.message || '手术数据统计失败')
+        ElMessage.error(error?.response?.data?.message || error.message || t('logs.messages.analysisStatisticsFailed'))
       } finally {
         analysisSubmitting.value = false
       }
@@ -938,7 +1047,7 @@ export default {
         analysisExportingRow.value[row.id] = true
         const response = await api.surgeryStatistics.exportSingleSurgeryData(row)
         if (response.data.success) {
-          ElMessage.success('手术数据已成功导出到 PostgreSQL 数据库')
+          ElMessage.success(t('logs.messages.exportPostgresSuccess'))
         } else if (response.data.needsConfirmation) {
           ElMessage.warning(response.data.message || t('logs.messages.surgeryExistsAsPending', { id: response.data.surgery_id }))
           loadDeviceGroups({ silent: true, force: true })
@@ -946,10 +1055,10 @@ export default {
             loadDetailSurgeries({ silent: true })
           }
         } else {
-          ElMessage.warning(response.data.message || '导出完成，但可能未存储到数据库')
+          ElMessage.warning(response.data.message || t('logs.messages.exportPostgresMaybeNotSaved'))
         }
       } catch (e) {
-        ElMessage.error('导出到 PostgreSQL 数据库失败: ' + (e?.response?.data?.message || e?.message || ''))
+        ElMessage.error(`${t('logs.messages.exportPostgresFailed')}: ${e?.response?.data?.message || e?.message || ''}`)
       } finally {
         analysisExportingRow.value[row.id] = false
       }
@@ -1247,12 +1356,15 @@ export default {
         return
       }
       try {
-        const resp = await api.surgeries.getAnalysisTaskMeta({ device_id: deviceId })
+        const resp = await withRateLimitRetry(
+          () => api.surgeries.getAnalysisTaskMeta({ device_id: deviceId }, { _silentError: true }),
+          { maxRetries: options?.silent ? 2 : 1, fallbackMs: 1500 }
+        )
         detailTaskMetaRows.value = Array.isArray(resp.data?.data) ? resp.data.data : []
       } catch (error) {
         detailTaskMetaRows.value = []
         if (!options?.silent) {
-          ElMessage.error('加载分析任务元数据失败')
+          ElMessage.error(t('logs.messages.analysisTaskMetaLoadFailed'))
         }
       }
     }
@@ -1260,46 +1372,85 @@ export default {
     const retryFailedGroup = async (group) => {
       const deviceId = String(selectedDevice.value?.device_id || '').trim()
       if (!deviceId) {
-        ElMessage.warning('设备编号无效')
+        ElMessage.warning(t('logs.messages.invalidDeviceId'))
         return
       }
       const sourceGroup = normalizeLogIds(group?.source_log_ids)
       const retryLogIds = sourceGroup
       if (!retryLogIds.length) {
-        ElMessage.warning('该分组没有可重试的日志 ID')
+        ElMessage.warning(t('logs.messages.noRetryLogIdsInGroup'))
         return
       }
       try {
+        const retryMetaIdNum = Number(group?._metaTaskId)
+        const retryOptions = {
+          autoImport: true,
+          ...(Number.isFinite(retryMetaIdNum) && retryMetaIdNum > 0
+            ? { retryFailedGroupId: retryMetaIdNum }
+            : {})
+        }
         retryingFailedGroupId.value = group?._metaTaskId || group?.id || null
         const resp = await api.surgeryStatistics.analyzeByLogIds(
           retryLogIds,
           true,
           null,
-          { autoImport: true }
+          retryOptions
         )
         const taskIds = Array.isArray(resp.data?.taskIds)
           ? resp.data.taskIds
           : (resp.data?.taskId ? [resp.data.taskId] : [])
         if (taskIds.length > 0) {
-          ElMessage.success(`分组重试任务已提交（${retryLogIds.length} 条日志）`)
+          ElMessage.success(t('logs.messages.retryTaskQueued', { count: retryLogIds.length }))
           runAnalyzeAndAutoImportInBackground(taskIds, null, { deviceId })
         } else if (Array.isArray(resp.data?.data)) {
-          ElMessage.success('分组重试分析完成，系统正在自动入库')
+          ElMessage.success(t('logs.messages.retryAnalysisCompletedAutoImporting'))
           runAnalyzeAndAutoImportInBackground([], resp.data.data, { deviceId })
         } else {
-          throw new Error(resp.data?.message || '创建分组重试任务失败')
+          throw new Error(resp.data?.message || t('logs.messages.createRetryTaskFailed'))
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error.message || '分组重试任务创建失败')
+        ElMessage.error(error?.response?.data?.message || error.message || t('logs.messages.createRetryTaskFailed'))
       } finally {
         retryingFailedGroupId.value = null
       }
     }
 
+    const deleteFailedTaskMeta = async (group) => {
+      const metaId = Number(group?._metaTaskId || group?.id)
+      if (!Number.isFinite(metaId) || metaId <= 0) {
+        ElMessage.warning(t('logs.messages.invalidTaskIdentifier'))
+        return
+      }
+      try {
+        const confirmed = await confirmDelete(group, {
+          message: t('logs.messages.confirmDeleteFailedAnalysisTask'),
+          title: t('shared.messages.deleteConfirmTitle')
+        })
+        if (!confirmed) return
+        deletingFailedGroupId.value = metaId
+        await api.surgeries.removeAnalysisTaskMeta(metaId)
+        ElMessage.success(t('shared.messages.deleteSuccess'))
+        await loadDetailTaskMeta({ silent: true })
+        await loadDetailSurgeries({ silent: true })
+      } catch (error) {
+        ElMessage.error(error?.response?.data?.message || t('shared.messages.deleteFailed'))
+      } finally {
+        deletingFailedGroupId.value = null
+      }
+    }
+
     // 鏄剧ず璁惧璇︽儏
     const showDeviceDetail = (device) => {
+      const previousDeviceId = String(selectedDevice.value?.device_id || '').trim()
+      if (previousDeviceId) {
+        try { websocketClient.unsubscribeFromDevice(previousDeviceId) } catch (_) {}
+      }
       selectedDevice.value = device
       showDeviceDetailDrawer.value = true
+      const currentDeviceId = String(device?.device_id || '').trim()
+      if (currentDeviceId) {
+        try { websocketClient.subscribeToDevice(currentDeviceId) } catch (_) {}
+      }
       detailSurgeries.value = []
       detailTotal.value = Number(device?.surgery_count || 0)
       detailTaskMetaRows.value = []
@@ -1474,12 +1625,12 @@ export default {
 
     const getTaskMetaStatusTag = (row) => {
       const status = String(row?.task_status || '').trim()
-      if (status === 'queued') return { label: '排队中', type: 'info' }
-      if (status === 'processing') return { label: '分析中', type: 'warning' }
-      if (status === 'completed') return { label: '已完成', type: 'success' }
-      if (status === 'completed_partial') return { label: '分析失败', type: 'danger' }
-      if (status === 'failed') return { label: '分析失败', type: 'danger' }
-      return { label: status || '未知', type: 'info' }
+      if (status === 'queued') return { label: t('logs.surgeryTaskStatus.queued'), type: 'info' }
+      if (status === 'processing') return { label: t('logs.surgeryTaskStatus.processing'), type: 'warning' }
+      if (status === 'completed') return { label: t('logs.surgeryTaskStatus.completed'), type: 'success' }
+      if (status === 'completed_partial') return { label: t('logs.surgeryTaskStatus.failed'), type: 'danger' }
+      if (status === 'failed') return { label: t('logs.surgeryTaskStatus.failed'), type: 'danger' }
+      return { label: status || t('logs.surgeryTaskStatus.unknown'), type: 'info' }
     }
 
     const canRetryTaskMeta = (row) => {
@@ -1537,7 +1688,10 @@ export default {
           params.skip_count = 1
         }
 
-        const resp = await api.surgeries.list(params)
+        const resp = await withRateLimitRetry(
+          () => api.surgeries.list(params, { _silentError: true }),
+          { maxRetries: options?.silent ? 2 : 1, fallbackMs: 1500 }
+        )
         const list = Array.isArray(resp.data?.data) ? resp.data.data : []
         const mapped = list.map((entry, index) => {
           const startDate = entry.start_time ? new Date(entry.start_time) : null
@@ -1582,6 +1736,7 @@ export default {
         }
 
         detailSurgeries.value = [...failedRows, ...mapped]
+        clearDetailSelection()
 
         syncDetailSelections()
       } catch (e) {
@@ -1687,10 +1842,68 @@ export default {
       }
     }
 
+    const handleBatchDeleteSurgeries = async () => {
+      if (!canDeleteSurgery.value) return
+      const selectedRows = selectedDetailSurgeries.value.filter(isSurgeryRowSelectable)
+      if (!selectedRows.length) {
+        ElMessage.warning(t('logs.messages.pleaseSelectSurgeryToDelete'))
+        return
+      }
+      try {
+        await ElMessageBox.confirm(
+          t('logs.messages.confirmBatchDelete', { count: selectedRows.length }),
+          t('logs.messages.batchDeleteConfirm'),
+          {
+            confirmButtonText: t('shared.confirm'),
+            cancelButtonText: t('shared.cancel'),
+            type: 'warning'
+          }
+        )
+
+        const ids = selectedRows
+          .map((row) => Number(row.id))
+          .filter((id) => Number.isFinite(id))
+
+        if (!ids.length) {
+          ElMessage.warning(t('logs.messages.pleaseSelectSurgeryToDelete'))
+          return
+        }
+
+        batchDeletingSurgeries.value = true
+        const resp = await api.surgeries.batchDelete(ids)
+        ElMessage.success(resp?.data?.message || t('shared.success'))
+        clearDetailSelection()
+
+        // Batch delete is queued; refresh a few times to pick up async completion.
+        loadDetailSurgeries({ silent: true })
+        loadDeviceGroups({ silent: true, force: true })
+        setTimeout(() => {
+          loadDetailSurgeries({ silent: true })
+          loadDeviceGroups({ silent: true, force: true })
+        }, 1500)
+        setTimeout(() => {
+          loadDetailSurgeries({ silent: true })
+          loadDeviceGroups({ silent: true, force: true })
+        }, 4000)
+      } catch (error) {
+        if (error !== 'cancel') {
+          const msg = error?.response?.data?.message || error?.message || t('logs.messages.batchDeleteFailed')
+          ElMessage.error(msg)
+        }
+      } finally {
+        batchDeletingSurgeries.value = false
+      }
+    }
+
     // 鍏抽棴鎶藉眽
     const handleDrawerClose = () => {
+      const currentDeviceId = String(selectedDevice.value?.device_id || '').trim()
+      if (currentDeviceId) {
+        try { websocketClient.unsubscribeFromDevice(currentDeviceId) } catch (_) {}
+      }
       showDeviceDetailDrawer.value = false
       selectedDevice.value = null
+      clearDetailSelection()
       detailSurgeries.value = []
       detailTotal.value = 0
       detailTaskMetaRows.value = []
@@ -1755,8 +1968,16 @@ export default {
       return formatTime(dateString, false, false) // useServerTimezone=false, isUtcTime=false锛堝師濮嬫椂闂达級
     }
 
-    const wsSyncingTaskIds = new Set()
     let surgeryTaskWsRefreshTimer = null
+    let surgeryTaskRefreshInFlight = false
+    let surgeryTaskRefreshPending = false
+
+    const ensureSurgeryDeviceSubscription = () => {
+      if (!showDeviceDetailDrawer.value) return
+      const currentDeviceId = String(selectedDevice.value?.device_id || '').trim()
+      if (!currentDeviceId) return
+      try { websocketClient.subscribeToDevice(currentDeviceId) } catch (_) {}
+    }
 
     const scheduleSurgeryTaskMetaRefresh = () => {
       if (!showDeviceDetailDrawer.value) return
@@ -1764,12 +1985,23 @@ export default {
         clearTimeout(surgeryTaskWsRefreshTimer)
       }
       surgeryTaskWsRefreshTimer = setTimeout(async () => {
+        if (surgeryTaskRefreshInFlight) {
+          surgeryTaskRefreshPending = true
+          return
+        }
+        surgeryTaskRefreshInFlight = true
         try {
-          await loadDetailTaskMeta({ silent: true })
           await loadDetailSurgeries({ silent: true })
-          await loadDeviceGroups({ silent: true, force: true })
+          await loadDeviceGroups({ silent: true })
+          while (surgeryTaskRefreshPending) {
+            surgeryTaskRefreshPending = false
+            await loadDetailSurgeries({ silent: true })
+            await loadDeviceGroups({ silent: true })
+          }
         } catch (_) {
           // ignore ws-triggered refresh errors
+        } finally {
+          surgeryTaskRefreshInFlight = false
         }
       }, 400)
     }
@@ -1777,17 +2009,12 @@ export default {
     const handleSurgeryTaskStatusChange = (event) => {
       const taskId = String(event?.taskId || '').trim()
       if (!taskId) return
-      if (!wsSyncingTaskIds.has(taskId)) {
-        wsSyncingTaskIds.add(taskId)
-        api.surgeryStatistics.getAnalysisTaskStatus(taskId, { _silentError: true })
-          .catch(() => {})
-          .finally(() => {
-            wsSyncingTaskIds.delete(taskId)
-            scheduleSurgeryTaskMetaRefresh()
-          })
-      } else {
-        scheduleSurgeryTaskMetaRefresh()
-      }
+      if (!showDeviceDetailDrawer.value) return
+      const selectedDeviceId = String(selectedDevice.value?.device_id || '').trim()
+      if (!selectedDeviceId) return
+      const eventDeviceId = String(event?.deviceId || '').trim()
+      if (eventDeviceId && eventDeviceId !== selectedDeviceId) return
+      scheduleSurgeryTaskMetaRefresh()
     }
 
     onMounted(() => {
@@ -1795,16 +2022,23 @@ export default {
       loadDeviceGroups()
       try { websocketClient.connect() } catch (_) {}
       websocketClient.on('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
+      websocketClient.on('connection', ensureSurgeryDeviceSubscription)
     })
 
     onUnmounted(() => {
       if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer)
       }
+      unbindAnalysisDeviceInfiniteScroll()
       if (surgeryTaskWsRefreshTimer) {
         clearTimeout(surgeryTaskWsRefreshTimer)
       }
       websocketClient.off('surgeryTaskStatusChange', handleSurgeryTaskStatusChange)
+      websocketClient.off('connection', ensureSurgeryDeviceSubscription)
+      const currentDeviceId = String(selectedDevice.value?.device_id || '').trim()
+      if (currentDeviceId) {
+        try { websocketClient.unsubscribeFromDevice(currentDeviceId) } catch (_) {}
+      }
     })
 
     return {
@@ -1821,9 +2055,10 @@ export default {
       analysisResultLoading,
       analysisResultRows,
       analysisDeviceLoading,
-      analysisLogLoading,
+      analysisDeviceInitialLoading,
       analysisDeviceOptions,
-      analysisLogOptions,
+      analysisDevicePage,
+      analysisDeviceHasNext,
       analysisForm,
       analysisExportingRow,
       analysisSurgeryJsonVisible,
@@ -1842,8 +2077,12 @@ export default {
       detailTotal,
       detailTaskMetaRows,
       retryingFailedGroupId,
+      deletingFailedGroupId,
       detailTypeFilter,
       detailTypeTabs,
+      detailTableRef,
+      selectedDetailSurgeries,
+      batchDeletingSurgeries,
       detailQuickRange,
       detailQuickRangeOptions,
       detailSelectedYear,
@@ -1859,6 +2098,8 @@ export default {
       loadDeviceGroups,
       openSurgeryAnalysisDialog,
       loadAnalysisDeviceOptions,
+      handleAnalysisDeviceSearch,
+      handleAnalysisDeviceVisibleChange,
       getFailedLogCountForDevice,
       handleAnalysisDeviceChange,
       submitAnalyzeByLogRange,
@@ -1874,6 +2115,11 @@ export default {
       canRetryTaskMeta,
       showDeviceDetail,
       retryFailedGroup,
+      deleteFailedTaskMeta,
+      isSurgeryRowSelectable,
+      handleDetailSelectionChange,
+      clearDetailSelection,
+      handleBatchDeleteSurgeries,
       loadDetailSurgeries,
       viewLogsBySurgery,
       visualizeSurgery,
@@ -1973,6 +2219,11 @@ export default {
 
 .analysis-result-loading {
   padding: 20px 0;
+}
+
+.analysis-device-select-popper .el-select-dropdown__wrap,
+.analysis-device-select-popper .el-scrollbar__wrap {
+  max-height: 280px;
 }
 
 /* 琛ㄦ牸瀹瑰櫒 - 鍥哄畾琛ㄥご */
@@ -2109,6 +2360,25 @@ export default {
   margin-bottom: 0;
 }
 
+.batch-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 240px;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: var(--sky-50);
+  border: 1px solid var(--sky-200);
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+}
+
 /* 琛ㄦ牸瀹瑰櫒 - 鍥哄畾琛ㄥご锛屽彲婊氬姩 */
 .detail-table-container {
   flex: 1;
@@ -2206,4 +2476,3 @@ export default {
 }
 
 </style>
-

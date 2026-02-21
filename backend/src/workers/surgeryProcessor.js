@@ -189,7 +189,6 @@ async function processSurgeryAnalysisJob(job) {
       ? String(logIdToDeviceId.get(surgery.log_id))
       : 'UNKNOWN';
     surgery.device_id = deviceDisplayId;
-    surgery.device_ids = deviceDisplayId ? [deviceDisplayId] : [];
     // 记录本次“入库结构”使用的目标时区偏移（分钟），用于后续导出/覆盖保持一致
     if (timezoneOffsetMinutes !== null && timezoneOffsetMinutes !== undefined && timezoneOffsetMinutes !== '') {
       surgery.timezone_offset_minutes = timezoneOffsetMinutes;
@@ -222,5 +221,4 @@ async function processSurgeryAnalysisJob(job) {
 module.exports = {
   processSurgeryAnalysisJob
 };
-
 

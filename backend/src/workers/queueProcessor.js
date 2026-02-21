@@ -8,6 +8,7 @@ const {
   translateQueue
 } = require('../config/queue');
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
+const { batchDeleteSurgeries } = require('./surgeryBatchProcessor');
 const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog, processBatchDownload: processLogsBatchDownload, processExportCsv } = require('./batchProcessor');
 const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
@@ -768,7 +769,7 @@ surgeryAnalysisQueue.on('waiting', (jobId) => {
   surgeryAnalysisQueue.getJob(jobId).then((job) => {
     if (!job) return;
     syncSurgeryTaskMeta(job, { status: 'queued', error_message: null });
-    websocketService.pushSurgeryTaskStatus(job.id, 'waiting', 0, { type: job.name || 'surgery-analysis' });
+    websocketService.pushSurgeryTaskStatus(job.id, 'waiting', 0, { type: job.name || 'surgery-analysis' }, null, job?.data?.deviceId);
   }).catch(() => {});
 });
 
@@ -779,7 +780,7 @@ surgeryAnalysisQueue.on('active', (job) => {
     started_at: new Date(),
     error_message: null
   });
-  websocketService.pushSurgeryTaskStatus(job.id, 'active', 0, { type: job.name || 'surgery-analysis' });
+  websocketService.pushSurgeryTaskStatus(job.id, 'active', 0, { type: job.name || 'surgery-analysis' }, null, job?.data?.deviceId);
 });
 
 surgeryAnalysisQueue.on('completed', async (job, result) => {
@@ -813,7 +814,8 @@ surgeryAnalysisQueue.on('completed', async (job, result) => {
     status === 'failed' ? 'failed' : 'completed',
     100,
     { type: job.name || 'surgery-analysis' },
-    status === 'failed' ? (errorParts.join('; ') || 'Task failed') : undefined
+    status === 'failed' ? (errorParts.join('; ') || 'Task failed') : undefined,
+    job?.data?.deviceId
   );
 });
 
@@ -828,7 +830,20 @@ surgeryAnalysisQueue.on('failed', (job, err) => {
     });
   }
   if (job && job.id) {
-    websocketService.pushSurgeryTaskStatus(job.id, 'failed', 0, { type: job.name || 'surgery-analysis' }, err?.message || '任务失败');
+    websocketService.pushSurgeryTaskStatus(job.id, 'failed', 0, { type: job.name || 'surgery-analysis' }, err?.message || '任务失败', job?.data?.deviceId);
+  }
+});
+
+// Register surgery batch delete processor.
+logProcessingQueue.process('batch-delete-surgeries', 1, async (job) => {
+  console.log(`Start surgery batch-delete job: ${job.id}`);
+  try {
+    const result = await batchDeleteSurgeries(job);
+    console.log(`Surgery batch-delete job ${job.id} completed`);
+    return result;
+  } catch (error) {
+    console.error(`Surgery batch-delete job ${job.id} failed:`, error);
+    throw error;
   }
 });
 

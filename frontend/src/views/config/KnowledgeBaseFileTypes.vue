@@ -38,8 +38,8 @@
       >
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="code" :label="$t('configManagement.kbFileTypes.columns.code')" width="200" />
-        <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('analysisCategories.name')" min-width="200" />
-        <el-table-column v-if="isEnUS" prop="name_en" :label="$t('analysisCategories.name')" min-width="200" />
+        <el-table-column v-if="isZhCN" prop="name_zh" :label="$t('shared.name')" min-width="200" />
+        <el-table-column v-if="isEnUS" prop="name_en" :label="$t('shared.name')" min-width="200" />
         <el-table-column prop="sort_order" :label="$t('analysisCategories.sortOrder')" width="100" />
         <el-table-column prop="enabled" :label="$t('analysisCategories.isActive')" width="100">
           <template #default="{ row }">

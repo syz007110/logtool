@@ -85,7 +85,7 @@
                 <button
                   class="ss-history-item-delete"
                   type="button"
-                  :title="$t('smartSearch.deleteConversation')"
+                  :title="$t('shared.delete')"
                   @click.stop="deleteConversation(c.id)"
                 >
                   ×
@@ -112,7 +112,7 @@
                       <button
                         class="ss-history-item-delete"
                         type="button"
-                        :title="$t('smartSearch.deleteConversation')"
+                        :title="$t('shared.delete')"
                         @click.stop="deleteConversation(c.id)"
                       >
                         ×

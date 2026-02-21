@@ -7,7 +7,7 @@
         <div class="header-left">
           <span class="title">{{ $t('batchAnalysis.title') }}</span>
           <div class="header-tag-block" v-if="batchCount > 0 && selectedLogsCount > 0">
-            <span class="header-tag-label">{{ $t('batchAnalysis.deviceId') }}：</span>
+            <span class="header-tag-label">{{ $t('shared.deviceId') }}：</span>
             <span class="header-tag-value">{{ selectedLogs[0]?.device_id || $t('shared.unknown') }}</span>
           </div>
           <el-tooltip placement="bottom" effect="light" transition="el-fade-in-linear" popper-class="selected-files-popper" :disabled="selectedLogsCount === 0">
@@ -121,8 +121,8 @@
               v-model="timeRangeDisplay"
               type="datetimerange"
               :range-separator="$t('logs.to')"
-              :start-placeholder="$t('logs.startTime')"
-              :end-placeholder="$t('logs.endTime')"
+              :start-placeholder="$t('shared.startTime')"
+              :end-placeholder="$t('shared.endTime')"
               format="YYYY-MM-DD HH:mm:ss"
               value-format="YYYY-MM-DD HH:mm:ss"
               class="time-range-toolbar"

@@ -29,7 +29,7 @@
             </div>
           </div>
         </el-descriptions-item>
-        <el-descriptions-item :label="$t('faultCases.fields.status')">
+        <el-descriptions-item :label="$t('shared.status')">
           <div>
             <div>{{ getStatusDisplayName(faultCase.status) }}</div>
             <div v-if="getStatusReference(faultCase)" class="reference-hint">

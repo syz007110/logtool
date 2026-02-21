@@ -15,6 +15,7 @@ const Log = require('../models/log');
 const Device = require('../models/device');
 const SurgeryExportPending = require('../models/surgeryExportPending');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
+const { logProcessingQueue } = require('../config/queue');
 
 // 将Date对象转换为原始时间字符串（不进行时区转换）
 function formatRawDateTime(dateLike) {
@@ -69,9 +70,6 @@ function convertSurgeryToPlain(surgery, options = {}) {
     converted.end_time = formatRawDateTime(converted.end_time);
   }
   // 向前兼容旧前端字段（逐步淘汰）
-  if (!Array.isArray(converted.device_ids)) {
-    converted.device_ids = converted.device_id ? [converted.device_id] : [];
-  }
 
   // 递归转换structured_data中的时间字段（大 JSON 场景可按需关闭）
   if (transformStructuredDataTimes && converted.structured_data && typeof converted.structured_data === 'object') {
@@ -237,8 +235,6 @@ exports.listSurgeries = async (req, res) => {
         const hospitals = hospital ? [hospital] : [];
         r.setDataValue('hospital_names', hospitals);
         r.setDataValue('hospital_name', hospitals.length > 0 ? hospitals[0] : null);
-        // 向前兼容旧前端字段，逐步淘汰 device_ids
-        r.setDataValue('device_ids', did ? [did] : []);
         r.setDataValue('has_pending_confirmation', !!pending);
         r.setDataValue('pending_export_id', pending ? pending.pending_export_id : null);
         r.setDataValue('pending_updated_at', pending ? pending.pending_updated_at : null);
@@ -326,6 +322,46 @@ exports.deleteSurgery = async (req, res) => {
   } catch (error) {
     console.error('deleteSurgery error:', error);
     res.status(500).json({ success: false, message: '删除手术数据失败', error: error.message });
+  }
+};
+
+exports.batchDeleteSurgeries = async (req, res) => {
+  try {
+    const surgeryIds = Array.isArray(req.body?.surgeryIds) ? req.body.surgeryIds : [];
+    const numericIds = Array.from(new Set(
+      surgeryIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ));
+
+    if (!numericIds.length) {
+      return res.status(400).json({ success: false, message: 'surgeryIds is required' });
+    }
+
+    if (numericIds.length > 50) {
+      return res.status(400).json({ success: false, message: '最多批量删除50条手术记录' });
+    }
+
+    const job = await logProcessingQueue.add('batch-delete-surgeries', {
+      type: 'batch-delete-surgeries',
+      surgeryIds: numericIds,
+      userId: req.user?.id || null
+    }, {
+      priority: 10,
+      attempts: 1,
+      timeout: 10 * 60 * 1000
+    });
+
+    return res.status(202).json({
+      success: true,
+      queued: true,
+      message: '批量删除任务已加入队列，正在处理中...',
+      taskId: job.id,
+      surgeryCount: numericIds.length
+    });
+  } catch (error) {
+    console.error('batchDeleteSurgeries error:', error);
+    return res.status(500).json({ success: false, message: '批量删除手术数据失败', error: error.message });
   }
 };
 
@@ -702,4 +738,26 @@ exports.getAnalysisTaskMetaByDevice = async (req, res) => {
   }
 };
 
+exports.deleteAnalysisTaskMeta = async (req, res) => {
+  try {
+    const metaId = Number(req.params?.id);
+    if (!Number.isFinite(metaId) || metaId <= 0) {
+      return res.status(400).json({ success: false, message: 'invalid id' });
+    }
 
+    if (typeof SurgeryAnalysisTaskMeta.ensureTable === 'function') {
+      await SurgeryAnalysisTaskMeta.ensureTable();
+    }
+
+    const row = await SurgeryAnalysisTaskMeta.findByPk(metaId);
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'analysis task meta not found' });
+    }
+
+    await row.destroy();
+    return res.json({ success: true, message: 'analysis task meta deleted' });
+  } catch (error) {
+    console.error('deleteAnalysisTaskMeta error:', error);
+    return res.status(500).json({ success: false, message: '删除分析任务失败', error: error.message });
+  }
+};

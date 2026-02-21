@@ -102,7 +102,7 @@
             {{ formatDate(row.upload_time) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('knowledgeBase.columns.status')" width="160" align="center">
+        <el-table-column :label="$t('shared.status')" width="160" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
               {{ getStatusText(row.status) }}
@@ -118,7 +118,7 @@
                 @click="download(row)"
                 :disabled="row.status !== 'parsed'"
               >
-                {{ $t('knowledgeBase.actions.download') }}
+                {{ $t('shared.download') }}
               </el-button>
               <el-dropdown
                 v-if="$store.getters['auth/hasPermission']('kb:rebuild') || $store.getters['auth/hasPermission']('kb:delete')"
@@ -144,7 +144,7 @@
                       class="dropdown-item-danger"
                       :disabled="!canDelete(row)"
                     >
-                      {{ $t('knowledgeBase.actions.delete') }}
+                      {{ $t('shared.delete') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>

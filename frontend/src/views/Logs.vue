@@ -2465,16 +2465,17 @@ export default {
         
         ElMessage.info('批量下载任务已创建，正在处理...')
         
-        // 轮询任务状态
-        const pollInterval = setInterval(async () => {
+        // 轮询任务状态：低频 + 429 退避，避免触发全局限流
+        const pollIntervalMs = 5000
+        const timeoutMs = 10 * 60 * 1000
+        const startedAt = Date.now()
+        while (Date.now() - startedAt < timeoutMs) {
           try {
             const resp = await api.logs.getBatchDownloadTaskStatus(taskId)
             const st = resp.data?.data
             const state = st?.status
-            
+
             if (state === 'completed') {
-              clearInterval(pollInterval)
-              if (timeoutId) clearTimeout(timeoutId)
               // 下载结果文件
               try {
                 const downloadResp = await api.logs.downloadBatchDownloadResult(taskId)
@@ -2492,24 +2493,27 @@ export default {
               } catch (downloadErr) {
                 ElMessage.error(downloadErr?.response?.data?.message || '下载结果文件失败')
               }
-            } else if (state === 'failed') {
-              clearInterval(pollInterval)
-              if (timeoutId) clearTimeout(timeoutId)
-              ElMessage.error(st?.error || '批量下载任务失败')
+              return
             }
-            // waiting/active 状态继续轮询
+            if (state === 'failed') {
+              ElMessage.error(st?.error || '批量下载任务失败')
+              return
+            }
           } catch (pollErr) {
-            clearInterval(pollInterval)
-            if (timeoutId) clearTimeout(timeoutId)
+            if (Number(pollErr?.response?.status) === 429) {
+              const retryAfterMs = Math.max(
+                1000,
+                Number(pollErr?.response?.data?.retryAfter || 0) * 1000 || pollIntervalMs
+              )
+              await new Promise((resolve) => setTimeout(resolve, retryAfterMs))
+              continue
+            }
             ElMessage.error('查询任务状态失败')
+            return
           }
-        }, 2000) // 每2秒轮询一次
-        
-        // 超时保护（10分钟）
-        const timeoutId = setTimeout(() => {
-          clearInterval(pollInterval)
-          ElMessage.warning('批量下载任务超时，请稍后重试')
-        }, 600000)
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        }
+        ElMessage.warning('批量下载任务超时，请稍后重试')
       } catch (error) {
         console.error('批量下载失败:', error)
         const errorMessage = error.response?.data?.message || error.message || '批量下载失败'

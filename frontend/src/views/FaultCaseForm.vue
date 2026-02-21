@@ -213,7 +213,7 @@
             </div>
 
             <div class="form-item">
-              <label class="form-label">{{ $t('faultCases.fields.status') }}</label>
+              <label class="form-label">{{ $t('shared.status') }}</label>
               <el-select
                 v-model="form.status"
                 filterable

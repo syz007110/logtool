@@ -14,6 +14,8 @@ router.get('/by-device', auth, checkPermission('surgery:read'), surgeriesControl
 router.get('/time-filters', auth, checkPermission('surgery:read'), surgeriesController.getSurgeryTimeFilters);
 // 获取设备手术分析任务元数据（详情抽屉失败行展示/分组重试）
 router.get('/analysis-task-meta', auth, checkPermission('surgery:read'), surgeriesController.getAnalysisTaskMetaByDevice);
+router.delete('/analysis-task-meta/:id', auth, checkPermission('surgery:delete'), surgeriesController.deleteAnalysisTaskMeta);
+router.delete('/batch', auth, checkPermission('surgery:delete'), surgeriesController.batchDeleteSurgeries);
 
 // 获取单条
 router.get('/:id', auth, checkPermission('surgery:read'), surgeriesController.getSurgeryById);
@@ -25,5 +27,3 @@ router.delete('/:id', auth, checkPermission('surgery:delete'), surgeriesControll
 router.get('/:id/log-entries', auth, checkPermission('surgery:read'), surgeriesController.getLogEntriesByRange);
 
 module.exports = router;
-
-
