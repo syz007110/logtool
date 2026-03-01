@@ -67,9 +67,14 @@
             <template #header>
               <div class="card-header">
                 <span>{{ $t('globalDashboard.systemOverview') }}</span>
+                <el-tag size="small" class="version-tag">v{{ appVersion }}</el-tag>
               </div>
             </template>
-            <p class="system-overview-text">{{ $t('globalDashboard.systemOverview') }}</p>
+            <div v-if="changelogCurrent" class="system-overview-content">
+              <div class="release-notes-label">{{ $t('globalDashboard.releaseNotes') }}</div>
+              <pre class="changelog-text">{{ changelogCurrent }}</pre>
+            </div>
+            <p v-else class="system-overview-text">{{ $t('globalDashboard.systemOverview') }}</p>
           </el-card>
         </el-col>
       </el-row>
@@ -173,11 +178,18 @@ export default {
       loadStats()
     })
 
+    /* eslint-disable no-undef */
+    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '-'
+    const changelogCurrent = typeof __APP_CHANGELOG_CURRENT__ !== 'undefined' ? __APP_CHANGELOG_CURRENT__ : ''
+    /* eslint-enable no-undef */
+
     return {
       loading,
       stats,
       displayStats,
-      loadStats
+      loadStats,
+      appVersion,
+      changelogCurrent
     }
   }
 }
@@ -201,6 +213,9 @@ export default {
 }
 
 .card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-weight: 600;
   color: var(--gray-900);
   font-size: 16px;
@@ -256,6 +271,35 @@ export default {
   font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.version-tag {
+  margin-left: 0;
+}
+
+.system-overview-content {
+  color: var(--gray-700);
+  font-size: 14px;
+  overflow: visible;
+  min-height: 0;
+}
+
+.release-notes-label {
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.changelog-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--gray-600);
+  max-height: 280px;
+  overflow-y: auto;
 }
 
 .system-overview-text {

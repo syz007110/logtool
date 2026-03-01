@@ -635,6 +635,57 @@
   /* 表头文字颜色 - 深灰色 (#0f172a) */
   --table-header-border-color: var(--slate-200);
   /* 表头边框颜色 - 浅灰色 (#e2e8f0) */
+
+  /* =========================================
+     手术可视化 - 器械抽屉 (Sheet / Drawer)
+     Figma: SheetContent, SheetHeader, 器械基本信息
+       ========================================= */
+  /* 抽屉头部 */
+  --sheet-header-padding-y: 16px;
+  --sheet-header-padding-x: 16px;
+  --sheet-header-gap: 6px;
+  --sheet-header-accent-bg: var(--blue-600);
+  /* 标题左侧蓝色块 #155dfc → blue-600 */
+  --sheet-header-accent-size: 16px;
+  --sheet-header-accent-radius: var(--radius-sm);
+  --sheet-header-title-font-size: 20px;
+  --sheet-header-title-font-weight: 600;
+  --sheet-header-title-color: var(--slate-950);
+  /* 器械名 #0a0a0a */
+  --sheet-header-subtitle-color: var(--slate-400);
+  /* "| Arm N" #90a1b9 */
+  --sheet-header-subtitle-font-size: 16px;
+  --sheet-header-datetime-font-size: 14px;
+  --sheet-header-datetime-color: var(--slate-600);
+  /* 第二行时间 #62748e */
+
+  /* 器械基本信息卡片 */
+  --sheet-info-card-bg: rgba(248, 250, 252, 0.5);
+  /* Figma rgba(248,250,252,0.5) ≈ slate-50 + alpha */
+  --sheet-info-card-border: var(--slate-100);
+  --sheet-info-card-border-width: 1.6px;
+  --sheet-info-card-radius: var(--radius-xl);
+  --sheet-info-card-padding-x: 25.6px;
+  --sheet-info-card-padding-y: 25.6px;
+  --sheet-info-card-gap: 24px;
+  --sheet-info-title-bar-width: 4px;
+  --sheet-info-title-bar-bg: var(--blue-600);
+  --sheet-info-title-bar-radius: var(--radius-full);
+  --sheet-info-title-font-size: 12px;
+  --sheet-info-title-font-weight: 700;
+  --sheet-info-title-color: var(--slate-400);
+  /* 标签色 #90a1b9 */
+  --sheet-info-title-tracking: 1.2px;
+  --sheet-info-label-font-size: 10px;
+  --sheet-info-label-color: var(--slate-400);
+  --sheet-info-label-weight: 700;
+  --sheet-info-value-font-size: 14px;
+  --sheet-info-value-color: var(--slate-800);
+  /* #1d293d */
+  --sheet-info-value-udi-color: var(--slate-700);
+  /* UDI 值 #314158 */
+  --sheet-info-value-weight: 600;
+  --sheet-info-field-gap: 6px;
 }
 
 /* =========================================

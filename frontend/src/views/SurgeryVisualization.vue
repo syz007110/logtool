@@ -129,7 +129,7 @@
               :height="getSegmentHeight()"
                 :fill="getArmColor(arm.arm_id)"
                 :stroke="getStrokeColor(arm.arm_id)"
-              stroke-width="2"
+              stroke-width="1"
               rx="3"
               ry="3"
               class="instrument-segment-svg"
@@ -156,6 +156,30 @@
             </g>
           </g>
           
+        </svg>
+
+        <!-- 能量激发密度图单独一层，置于手术阶段背景之上、时间线事件之下（z-index: 22） -->
+        <svg
+          class="timeline-overlay timeline-overlay--density"
+          :width="getTimelineContainerWidth()"
+          :height="getTimelineOverlayHeight()"
+          :style="getDensityOverlayStyle()"
+          preserveAspectRatio="none"
+        >
+          <g
+            v-for="arm in armsData.filter(a => a.arm_id >= 1 && a.arm_id <= 4)"
+            :key="`density-${arm.arm_id}`"
+            class="energy-density-strip"
+          >
+            <path
+              :d="getDensityPathD(arm)"
+              :fill="getArmColor(arm.arm_id)"
+              fill-opacity="0.65"
+              stroke="rgba(0,0,0,0.2)"
+              stroke-width="0.5"
+              vector-effect="non-scaling-stroke"
+            />
+          </g>
         </svg>
         
         <!-- 表格主体 -->
@@ -327,110 +351,147 @@
     <!-- 右侧抽屉：器械使用情况列表 + 能量激发表格 -->
     <el-drawer
       v-model="drawerVisible"
-      :title="drawerTitle"
       direction="rtl"
       :size="1000"
       destroy-on-close
+      class="drawer-instrument-usage"
     >
+      <template #header>
+        <div class="drawer-sheet-header">
+          <div class="drawer-sheet-title-row">
+            <span class="drawer-sheet-accent" />
+            <span class="drawer-sheet-title">{{ drawerHeaderInstrumentName }}</span>
+            <span class="drawer-sheet-subtitle">| {{ $t('surgeryVisualization.report.armLabel', { armId: selectedArmId || drawerPrimaryInstrument?.arm_id || 1 }) }}</span>
+          </div>
+          <div class="drawer-sheet-datetime">{{ drawerHeaderDatetime }}</div>
+        </div>
+      </template>
       <div class="drawer-table-wrapper">
-        <div class="drawer-section">
-          <div class="drawer-section-title">{{ $t('surgeryVisualization.report.instrumentUsageTime') }}</div>
-          <el-table
-            :data="drawerInstruments"
-            stripe
-            border
-            size="small"
-            style="min-width: 100%"
-          >
-            <el-table-column prop="arm_id" :label="$t('surgeryVisualization.report.armNumber')" width="90" align="center" />
-            <el-table-column prop="instrument_type" :label="$t('surgeryVisualization.report.instrumentType')" min-width="140" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span :title="formatInstrumentType(row)">{{ formatInstrumentType(row) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" min-width="160" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span :title="row.udi || '-'" style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="start_time" :label="$t('surgeryVisualization.report.installTime')" width="160" align="center">
-              <template #default="{ row }">
-                <span :title="row.start_time || '-'">{{ formatSegmentTime(row.start_time) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="end_time" :label="$t('surgeryVisualization.report.removeTime')" width="160" align="center">
-              <template #default="{ row }">
-                <span :title="row.end_time || '-'">{{ formatSegmentTime(row.end_time) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('surgeryVisualization.report.cumulativeUsage')" width="120" align="center">
-              <template #default="{ row }">
-                {{ formatCumulativeUsage(row.cumulative_usage) }}
-              </template>
-            </el-table-column>
-          </el-table>
+        <!-- 器械基本信息：分栏区块（与 BatchAnalysis 预设等级/自然语言搜索 同风格，无卡片边框背景） -->
+        <div v-if="drawerPrimaryInstrument" class="drawer-info-section">
+          <div class="section-title drawer-section-title drawer-info-section-title">
+            <span class="drawer-info-section-title-bar" />
+            <span>{{ $t('surgeryVisualization.report.instrumentBasicInfo') }}</span>
+          </div>
+          <div class="drawer-info-section-grid">
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.armNumber') }}</div>
+              <div class="drawer-info-section-value">Arm {{ drawerPrimaryInstrument.arm_id ?? selectedArmId }}</div>
+            </div>
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.instrumentType') }}</div>
+              <div class="drawer-info-section-value">{{ formatInstrumentType(drawerPrimaryInstrument) }}</div>
+            </div>
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.instrumentUDI') }}</div>
+              <div class="drawer-info-section-value drawer-info-section-value--udi">{{ drawerPrimaryInstrument.udi || '--' }}</div>
+            </div>
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.installTimeShort') }}</div>
+              <div class="drawer-info-section-value">{{ formatSegmentTime(drawerPrimaryInstrument.start_time) }}</div>
+            </div>
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.removeTimeShort') }}</div>
+              <div class="drawer-info-section-value">{{ formatSegmentTime(drawerPrimaryInstrument.end_time) }}</div>
+            </div>
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.usageDuration') }}</div>
+              <div class="drawer-info-section-value">{{ drawerPrimaryUsageDuration }}</div>
+            </div>
+            <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.cumulativeUsage') }}</div>
+              <div class="drawer-info-section-value">{{ drawerPrimaryCumulativeUsageDisplay }}</div>
+            </div>
+          </div>
         </div>
         <div class="drawer-section drawer-energy-section">
-          <div class="drawer-section-title">{{ $t('surgeryVisualization.report.energyActivation') }}</div>
-          <div v-if="drawerEnergyTableRows.length > 0" class="drawer-energy-layout">
-            <div class="drawer-energy-main">
-              <el-table
-                :data="drawerEnergyTableRows"
-                stripe
-                border
-                size="small"
-                style="width: 100%"
-                row-key="rowKey"
-                highlight-current-row
-                :current-row-key="selectedEnergyRowKey"
-                @current-change="handleEnergyRowChange"
-              >
-                <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" width="90" align="center" />
-                <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" min-width="180" show-overflow-tooltip />
-                <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" min-width="170" show-overflow-tooltip>
-                  <template #default="{ row }">
-                    <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="140" align="center" />
-                <el-table-column prop="totalGripsActiveLabel" :label="$t('surgeryVisualization.report.totalActivationTime')" width="170" align="center" />
-                <el-table-column prop="count" :label="$t('surgeryVisualization.report.totalActivationCount')" width="170" align="center" />
-              </el-table>
+          <div class="drawer-energy-header-row">
+            <div class="section-title drawer-section-title drawer-info-section-title">
+              <span class="drawer-info-section-title-bar" />
+              <span>{{ $t('surgeryVisualization.report.energyActivation') }}</span>
             </div>
-            <div class="drawer-energy-detail">
-              <div class="drawer-energy-detail-metrics">
-                <div class="drawer-energy-metric-card">
-                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.armNumber') }}</div>
-                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.armId : '--' }}</div>
-                </div>
-                <div class="drawer-energy-metric-card">
-                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.energyType') }}</div>
-                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.energyType : '--' }}</div>
-                </div>
-                <div class="drawer-energy-metric-card">
-                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.totalActivationTime') }}</div>
-                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.totalGripsActiveLabel : '--' }}</div>
-                </div>
-                <div class="drawer-energy-metric-card">
-                  <div class="drawer-energy-metric-label">{{ $t('surgeryVisualization.report.totalActivationCount') }}</div>
-                  <div class="drawer-energy-metric-value">{{ selectedEnergyRow ? selectedEnergyRow.count : 0 }}</div>
-                </div>
-              </div>
+          </div>
+          <div v-if="drawerEnergySummaryTableRows.length > 0" class="drawer-energy-content">
+            <div class="drawer-energy-table-wrap">
               <el-table
-                :data="selectedEnergyDetailEvents"
+                :data="drawerEnergySummaryTableRows"
+                stripe
                 border
                 size="small"
                 style="width: 100%"
                 max-height="420"
               >
-                <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="200" align="center" />
-                <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="140" align="center" />
-                <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" min-width="180" align="center" />
+                <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" :width="drawerReportColWidthArm" align="center" />
+                <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" :width="drawerReportColWidthInstrumentType" show-overflow-tooltip />
+                <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" :min-width="drawerReportColWidthUdi" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
+                <el-table-column prop="totalTimeLabel" :label="$t('surgeryVisualization.report.totalActivationTime')" width="120" align="center" />
+                <el-table-column prop="count" :label="$t('surgeryVisualization.report.totalActivationCount')" width="100" align="center" />
               </el-table>
             </div>
           </div>
           <div v-else class="drawer-energy-empty">
             {{ $t('surgeryVisualization.report.drawerNoEnergy') }}
+          </div>
+          <div v-if="drawerEnergySummaryTableRows.length > 0 && (drawerEnergyDurationHistogram.n > 0 || drawerEnergyDetailTableRows.length > 0)" class="drawer-section drawer-energy-view-section">
+            <div class="drawer-energy-view-header">
+              <div class="section-title drawer-section-title drawer-info-section-title">
+                <span class="drawer-info-section-title-bar" />
+                <span>{{ $t('surgeryVisualization.report.energyActivation') }}</span>
+              </div>
+              <el-radio-group v-model="drawerEnergyViewMode" size="small" class="drawer-energy-view-toggle">
+                <el-radio-button label="chart">{{ $t('surgeryVisualization.report.energyViewChart') }}</el-radio-button>
+                <el-radio-button label="table">{{ $t('surgeryVisualization.report.energyViewDetailTable') }}</el-radio-button>
+              </el-radio-group>
+            </div>
+            <div v-show="drawerEnergyViewMode === 'chart'" class="drawer-energy-charts">
+              <div class="drawer-energy-chart-panel">
+                <div class="drawer-energy-chart-card drawer-energy-density-card">
+                  <div class="drawer-energy-card-header">
+                    <div class="drawer-energy-card-title">{{ $t('surgeryVisualization.report.energyDensityTitle') }}</div>
+                  </div>
+                  <div class="drawer-energy-density-wrap">
+                    <EnergyDensityChart v-if="drawerEnergyDensity.numBuckets > 0" :density-data="drawerEnergyDensity" />
+                    <div v-else class="drawer-energy-empty drawer-energy-empty-overlay">{{ $t('surgeryVisualization.report.noEnergyRecords') }}</div>
+                  </div>
+                </div>
+                <div class="drawer-energy-chart-card drawer-energy-histogram-card">
+                  <div class="drawer-energy-card-header">
+                    <div class="drawer-energy-card-title">{{ $t('surgeryVisualization.report.durationHistogramTitle') }}</div>
+                  </div>
+                  <div class="drawer-energy-histogram-wrap">
+                    <DurationHistogramChart v-if="drawerEnergyDurationHistogram.n > 0" :histogram-data="drawerEnergyDurationHistogram" />
+                    <div v-else class="drawer-energy-empty drawer-energy-empty-overlay">{{ $t('surgeryVisualization.report.noEnergyRecords') }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-show="drawerEnergyViewMode === 'table'" class="drawer-energy-detail-table-wrap">
+              <el-table
+                :data="drawerEnergyDetailTableRows"
+                stripe
+                border
+                size="small"
+                style="width: 100%"
+                max-height="360"
+              >
+                <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" :width="drawerReportColWidthArm" align="center" />
+                <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" :width="drawerReportColWidthInstrumentType" show-overflow-tooltip />
+                <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" :min-width="drawerReportColWidthUdi" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
+                <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="160" align="center" />
+                <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="120" align="center" />
+                <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" width="140" align="center" />
+              </el-table>
+            </div>
           </div>
         </div>
       </div>
@@ -663,6 +724,8 @@ import { formatTime, loadServerTimezone } from '../utils/timeFormatter'
 import * as echarts from 'echarts'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 import OperationSummaryTable from '../components/OperationSummaryTable.vue'
+import EnergyDensityChart from '../components/EnergyDensityChart.vue'
+import DurationHistogramChart from '../components/DurationHistogramChart.vue'
 import { Tabs, TabPane } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 
@@ -671,6 +734,8 @@ export default {
   components: {
     TimeSeriesChart,
     OperationSummaryTable,
+    EnergyDensityChart,
+    DurationHistogramChart,
     Tabs,
     TabPane,
     Loading,
@@ -1026,6 +1091,20 @@ export default {
         }
       }
     }
+
+    // 能量密度图专用 overlay 样式（z-index 22：在手术阶段/主 overlay 之上，在时间线事件 25 之下）
+    const getDensityOverlayStyle = () => {
+      const base = getOverlayStyle()
+      return { ...base, zIndex: '22', pointerEvents: 'none' }
+    }
+
+    // 时间轴 overlay 总高度（像素），与 getSegmentY 坐标系一致，用于密度图 SVG viewport
+    const getTimelineOverlayHeight = () => {
+      const headerHeight = 50
+      const rowHeight = 50
+      const n = (armsData.value && armsData.value.length) || 0
+      return headerHeight + n * rowHeight
+    }
     
     // 获取所有器械使用段（用于SVG显示）
     const getAllSegmentsForArm = (arm) => {
@@ -1184,11 +1263,53 @@ export default {
       
       return Math.max(0, x)
     }
+
+    // 时间轴内容区宽度（像素），与 getSegmentX 一致；首帧或未挂载时用计算值兜底
+    const getTimelineContainerWidth = () => {
+      const totalHours = getTotalHours()
+      const timelineContainer = document.querySelector('.timeline-container')
+      let w = 0
+      if (zoomLevel.value === 1) {
+        w = timelineContainer ? timelineContainer.offsetWidth - 200 : 0
+        if (w <= 0) w = Math.max(0, (typeof window !== 'undefined' ? window.innerWidth : 800) - 200)
+      } else {
+        const baseContainerWidth = typeof window !== 'undefined' ? window.innerWidth - 200 : 600
+        const baseColumnWidth = baseContainerWidth / totalHours
+        const scaledColumnWidth = baseColumnWidth * zoomLevel.value
+        w = scaledColumnWidth * totalHours
+      }
+      return w
+    }
     
     // 获取器械段的高度
     const getSegmentHeight = () => {
       return 25// 固定高度
     }
+
+    // 时间轴可见范围（毫秒），用于能量密度分桶
+    const getTimelineRangeMs = () => {
+      let base = null
+      if (timelineBaseTime.value) {
+        base = getLocalTime(timelineBaseTime.value)
+      }
+      if (!base && currentData.value?.start_time) {
+        base = getLocalTime(currentData.value.start_time)
+      }
+      if (!base) return null
+      const startHour = getTableStartHour()
+      const totalHours = getTotalHours()
+      const startMs = base.getTime() + startHour * 3600000
+      const endMs = base.getTime() + (startHour + totalHours) * 3600000
+      return { startMs, endMs }
+    }
+
+    // 能量密度条 Y 坐标（器械使用条下侧）
+    const getDensityStripY = (arm) => {
+      return getSegmentY(arm, {}) + getSegmentHeight()
+    }
+
+    // 能量密度条高度
+    const getDensityStripHeight = () => 12
 
     // 能量激发条高度（紧贴器械条下侧）
     const getEnergyBarHeight = () => 10
@@ -1253,18 +1374,17 @@ export default {
     const getEnergyBarColor = (type) => {
       const colors = { cut: '#ef4444', coag: '#f59e0b', bipolar: '#8b5cf6' }
       return colors[type] || '#94a3b8'
+      // 打开抽屉并显示对应臂的器械使用列表
     }
 
-    // 处理器械段点击
+    // 处理器械段点击：打开抽屉并显示该条对应的插拔记录（仅本条）
     const handleSegmentClick = (segment, event) => {
       event.stopPropagation()
-      // 打开抽屉并显示对应臂的器械使用列表
       try {
         const armId = Number(segment.arm_id) || inferArmIdFromSegment(segment)
         selectedArmId.value = armId
         drawerVisible.value = true
-        // 预计算抽屉数据
-        computeDrawerInstruments()
+        computeDrawerInstruments(segment)
       } catch (_) {
         drawerVisible.value = true
       }
@@ -3467,6 +3587,7 @@ export default {
       // 检查是否点击在可拖拽区域（避免与器械段/能量条点击冲突）
       if (event.target.closest('.instrument-segment-svg') || 
           event.target.closest('.energy-activation-svg') ||
+          event.target.closest('.energy-density-strip') ||
           event.target.closest('.timeline-event') ||
           event.target.closest('.arm-column') ||
           event.target.closest('.arm-cell')) {
@@ -4039,8 +4160,8 @@ export default {
               udi,
               energyType: formatEnergyTypeForReport(evt.type),
               startTime: formatReportDateTime(evt.start),
-              durationLabel: formatSecOneDecimalNoRound(activeSec),
-              gripsActiveLabel: formatSecOneDecimalNoRound(gripsActiveSec),
+              durationLabel: formatEnergyDurationMs(activeSec),
+              gripsActiveLabel: formatEnergyDurationMs(gripsActiveSec),
               _gripsActiveSec: Math.floor(gripsActiveSec * 10) / 10,
               _startMs: startMs
             })
@@ -4063,7 +4184,7 @@ export default {
       })
       return Object.entries(byType).map(([type, s]) => ({
         type,
-        totalLabel: formatSecOneDecimalNoRound(s.totalSec),
+        totalLabel: formatEnergyDurationMs(s.totalSec),
         count: s.count
       }))
     }
@@ -4494,18 +4615,49 @@ export default {
       else if (command === 'html') exportReport()
     }
 
-    // 抽屉相关状态与数据
+    // 抽屉相关状态与数据（器械使用时间表与能量激发表前三列列宽一致）
+    const drawerReportColWidthArm = 90
+    const drawerReportColWidthInstrumentType = 120
+    const drawerReportColWidthUdi = 140
     const drawerVisible = ref(false)
     const selectedArmId = ref(0)
     const drawerInstruments = ref([])
-    const selectedEnergyRowKey = ref('')
-    const selectedEnergyRow = ref(null)
     const drawerTitle = computed(() => {
       if (!selectedArmId.value) return t('surgeryVisualization.report.drawerTitle')
       return t('surgeryVisualization.report.drawerTitleWithArm', { armId: selectedArmId.value })
     })
 
-    // 当前抽屉对应臂的累加使用时间（用于表格列展示）
+    // 抽屉当前主器械（第一条，用于头部标题与器械基本信息卡片）
+    const drawerPrimaryInstrument = computed(() => {
+      const list = drawerInstruments.value || []
+      return list.length > 0 ? list[0] : null
+    })
+    const drawerHeaderInstrumentName = computed(() => {
+      const inst = drawerPrimaryInstrument.value
+      return inst ? formatInstrumentType(inst) : t('surgeryVisualization.report.drawerTitle')
+    })
+    const drawerHeaderDatetime = computed(() => {
+      const inst = drawerPrimaryInstrument.value
+      if (inst?.start_time) return formatSegmentTime(inst.start_time)
+      const start = meta.start_time || currentData.value?.timeline?.surgeryStart
+      return start ? formatSegmentTime(start) : '--'
+    })
+    const drawerPrimaryUsageDuration = computed(() => {
+      const inst = drawerPrimaryInstrument.value
+      if (!inst) return '--'
+      const label = getDurationLabelFromTimeRange(inst.start_time || inst.start, inst.end_time || inst.end)
+      if (label === '--') return '--'
+      const startMs = toMs(inst.start_time || inst.start)
+      const endMs = toMs(inst.end_time || inst.end)
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return label
+      const totalMinutes = Math.round((endMs - startMs) / 60000)
+      if (totalMinutes < 60) return `${totalMinutes} min`
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      return minutes ? `${hours}h ${minutes}m` : `${hours}h`
+    })
+
+    // 当前抽屉对应臂的累加使用时间
     const drawerArmCumulativeUsage = computed(() => {
       const targetArmId = selectedArmId.value
       if (!targetArmId) return null
@@ -4518,6 +4670,13 @@ export default {
       }
       return null
     })
+
+    // 器械基本信息中展示的累计使用时间：优先使用主器械的 cumulative_usage，否则使用臂级 cumulative_usage
+    const drawerPrimaryCumulativeUsageDisplay = computed(() => {
+      const inst = drawerPrimaryInstrument.value
+      const cu = inst?.cumulative_usage ?? drawerArmCumulativeUsage.value
+      return formatCumulativeUsage(cu)
+    })
     
     // 左侧抽屉：手术事件序列
     const eventSequenceDrawerVisible = ref(false)
@@ -4526,28 +4685,35 @@ export default {
       return '手术事件序列'
     })
     
-    // 计算并填充抽屉内的器械列表
-    const computeDrawerInstruments = () => {
+    // 计算并填充抽屉内的器械列表：传入被点击的 segment 时只显示该条插拔记录，否则显示该臂全部
+    const computeDrawerInstruments = (clickedSegment) => {
       const targetArmId = selectedArmId.value
       if (!targetArmId) {
         drawerInstruments.value = []
         return
       }
-      // 优先从当前渲染数据获取
-      const arm = (armsData.value || []).find(a => a.arm_id === targetArmId)
-      let segments = Array.isArray(arm?.segments) ? arm.segments : []
+      if (clickedSegment) {
+        // 点击某条使用时间条：只显示该条对应的插拔记录
+        const s = clickedSegment
+        const single = {
+          ...s,
+          arm_id: targetArmId,
+          start_time: s.start_time ?? s.start ?? s.install_time,
+          end_time: s.end_time ?? s.end ?? s.remove_time
+        }
+        drawerInstruments.value = [single]
+        return
+      }
+      // 未传 segment 时：显示该臂所有插拔记录（兼容）
       
       // 作为回退，从原始structured_data中取
+      const arm = (armsData.value || []).find(a => a.arm_id === targetArmId)
+      let segments = Array.isArray(arm?.segments) ? arm.segments : []
       if ((!segments || segments.length === 0) && currentData.value && Array.isArray(currentData.value.arms)) {
         const rawArm = currentData.value.arms.find(a => Number(a.arm_id) === Number(targetArmId))
         segments = Array.isArray(rawArm?.instrument_usage) ? rawArm.instrument_usage : []
       }
-      
-      const normalized = (segments || []).map(s => ({
-        ...s,
-        arm_id: targetArmId
-      }))
-      // 按安装时间排序
+      const normalized = (segments || []).map(s => ({ ...s, arm_id: targetArmId }))
       normalized.sort((a, b) => {
         const ta = toMs(a.start_time)
         const tb = toMs(b.start_time)
@@ -4591,84 +4757,344 @@ export default {
       const v = Number(raw)
       return Number.isFinite(v) ? v / 10 : 0
     }
+
+    // 从能量激发事件中解析持续时间（秒），支持：duration_sec/duration（秒）、duration_ms（毫秒）、active/Active/GripsActive/gripsActive（10倍秒）
+    const getEnergyEventDurationSec = (evt) => {
+      if (evt.duration_sec != null && evt.duration_sec !== '') {
+        const s = Number(evt.duration_sec)
+        if (Number.isFinite(s)) return s
+      }
+      if (evt.duration != null && evt.duration !== '') {
+        const s = Number(evt.duration)
+        if (Number.isFinite(s)) return s
+      }
+      if (evt.duration_ms != null && evt.duration_ms !== '') {
+        const ms = Number(evt.duration_ms)
+        if (Number.isFinite(ms)) return ms / 1000
+      }
+      // 持续激发时间：优先 active/Active（总激发时长），无则用 GripsActive/gripsActive
+      return rawToSeconds(evt.active ?? evt.Active ?? evt.GripsActive ?? evt.gripsActive ?? 0)
+    }
+
+    // 某臂下所有能量激发事件，归一为 [startMs, endMs) 区间（用于密度分桶）；支持仅有 start + duration 的数据
+    const getEnergyEventsForArm = (arm) => {
+      const segments = getAllSegmentsForArm(arm)
+      const events = []
+      segments.forEach((seg) => {
+        ;(seg.energy_activation || []).forEach((evt) => {
+          const startRaw = evt.start ?? evt.start_time
+          if (!evt || (!startRaw && !evt.end)) return
+          const startMs = toMs(startRaw)
+          if (!Number.isFinite(startMs)) return
+          let endMs = evt.end != null && evt.end !== '' ? toMs(evt.end) : NaN
+          if (!Number.isFinite(endMs)) {
+            const sec = getEnergyEventDurationSec(evt)
+            endMs = startMs + sec * 1000
+          }
+          if (endMs <= startMs) endMs = startMs + 1
+          events.push({ startMs, endMs })
+        })
+      })
+      return events
+    }
+
+    // 按 2000ms 分桶计算能量密度：强度 = 桶内累计激发时长 / 桶时长，事件 [start, end) 与桶求交集累加；使用激发开始时间 + 持续激发时间得到 [start, end)
+    const ENERGY_DENSITY_BUCKET_MS = 2000
+    const computeEnergyDensityForArm = (arm) => {
+      const range = getTimelineRangeMs()
+      if (!range) return { intensities: [], startMs: 0, endMs: 0, numBuckets: 0 }
+      const { startMs, endMs } = range
+      const spanMs = endMs - startMs
+      const numBuckets = Math.ceil(spanMs / ENERGY_DENSITY_BUCKET_MS)
+      const buckets = new Array(numBuckets).fill(0)
+      const events = getEnergyEventsForArm(arm)
+      events.forEach(({ startMs: s, endMs: e }) => {
+        const b0 = Math.floor((s - startMs) / ENERGY_DENSITY_BUCKET_MS)
+        const b1 = Math.ceil((e - startMs) / ENERGY_DENSITY_BUCKET_MS)
+        for (let i = Math.max(0, b0); i < Math.min(numBuckets, b1); i++) {
+          const bucketStart = startMs + i * ENERGY_DENSITY_BUCKET_MS
+          const bucketEnd = bucketStart + ENERGY_DENSITY_BUCKET_MS
+          const overlap = Math.max(0, Math.min(e, bucketEnd) - Math.max(s, bucketStart))
+          buckets[i] += overlap
+        }
+      })
+      const intensities = buckets.map((sum) => Math.min(1, sum / ENERGY_DENSITY_BUCKET_MS))
+      return { intensities, startMs, endMs, numBuckets }
+    }
+
+    // 能量密度条 SVG path d：按像素列采样，每列取该时间范围内 2000ms 桶的最大强度，绘制面积图
+    const getDensityPathD = (arm) => {
+      const stripY = getDensityStripY(arm)
+      const stripHeight = getDensityStripHeight()
+      const width = Math.max(1, getTimelineContainerWidth())
+      const density = computeEnergyDensityForArm(arm)
+      // 无时间范围或无桶数据时仍绘制一条扁平 strip，避免完全不显示
+      if (!density.intensities.length) {
+        const bottom = stripY + stripHeight
+        return `M 0 ${stripY} L ${width} ${stripY} L ${width} ${bottom} L 0 ${bottom} Z`
+      }
+      const { intensities, numBuckets } = density
+      const bottom = stripY + stripHeight
+      let d = `M 0 ${bottom}`
+      for (let x = 0; x <= width; x++) {
+        const bucketLo = (x / width) * numBuckets
+        const bucketHi = ((x + 1) / width) * numBuckets
+        let maxI = 0
+        const iLo = Math.floor(bucketLo)
+        const iHi = Math.min(numBuckets, Math.ceil(bucketHi))
+        for (let i = iLo; i < iHi; i++) {
+          if (intensities[i] > maxI) maxI = intensities[i]
+        }
+        const y = bottom - maxI * stripHeight
+        d += ` L ${x} ${y}`
+      }
+      d += ` L ${width} ${bottom} Z`
+      return d
+    }
+
     const formatSecOneDecimalNoRound = (sec) => {
       const s = Number(sec)
       if (!Number.isFinite(s)) return '0.0 s'
       const truncated = Math.floor(s * 10) / 10
       return truncated.toFixed(1) + ' s'
     }
+    // 能量激发时间按毫秒显示
+    const formatEnergyDurationMs = (sec) => {
+      const s = Number(sec)
+      if (!Number.isFinite(s)) return '0 ms'
+      const ms = Math.round(s * 1000)
+      return ms + ' ms'
+    }
 
-    // 抽屉内能量激发表格：按 (器械段, 能量类型) 聚合，主表 总激发时间=GripsActive 字段时间和(s)、总激发次数；展开为每条 开始时间|激发持续时间|器械闭合状态激发持续时间
-    const drawerEnergyTableRows = computed(() => {
+    // 抽屉内能量激发统计表：安装的臂号|器械类型|器械UDI|能量激发类型|总激发时间|总激发次数
+    const drawerEnergySummaryTableRows = computed(() => {
       const list = drawerInstruments.value || []
-      const rows = []
-      list.forEach((seg, segIndex) => {
+      const map = new Map()
+      list.forEach((seg) => {
         const armId = seg.arm_id ?? selectedArmId.value
         const instrumentType = formatInstrumentType(seg)
         const udi = seg?.udi || '-'
-        const events = (seg.energy_activation || []).filter(evt => evt && (evt.start || evt.end))
-        const byType = {}
-        events.forEach((evt) => {
-          const typeKey = formatEnergyType(evt.type)
-          if (!byType[typeKey]) byType[typeKey] = []
-          const activeSec = rawToSeconds(evt.active ?? evt.Active ?? 0)
+        ;(seg.energy_activation || []).forEach((evt) => {
+          if (!evt || (!evt.start && !evt.end)) return
           const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
-          byType[typeKey].push({
-            startTime: formatSegmentTimeWithMs(evt.start),
-            durationLabel: formatSecOneDecimalNoRound(activeSec),
-            gripsActiveLabel: formatSecOneDecimalNoRound(gripsActiveSec),
-            _gripsActiveSec: Math.floor(gripsActiveSec * 10) / 10
-          })
-        })
-        Object.entries(byType).forEach(([energyType, detailEvents]) => {
-          const totalGripsActiveSec = detailEvents.reduce((sum, e) => sum + (e._gripsActiveSec || 0), 0)
-          const gripsLabel = formatSecOneDecimalNoRound(totalGripsActiveSec)
-          rows.push({
-            rowKey: `energy-${armId}-${segIndex}-${energyType}-${udi}`,
-            armId,
-            instrumentType,
-            udi,
-            energyType,
-            totalGripsActiveLabel: gripsLabel,
-            count: detailEvents.length,
-            detailEvents
-          })
+          const key = `${armId}|${instrumentType}|${udi}|${formatEnergyType(evt.type)}`
+          if (!map.has(key)) {
+            map.set(key, { armId, instrumentType, udi, energyType: formatEnergyType(evt.type), totalMs: 0, count: 0 })
+          }
+          const row = map.get(key)
+          row.totalMs += Math.round(gripsActiveSec * 1000)
+          row.count += 1
         })
       })
+      const rows = Array.from(map.values()).map(r => ({
+        ...r,
+        totalTimeLabel: r.totalMs + ' ms',
+        count: r.count
+      }))
+      rows.sort((a, b) => (a.armId - b.armId) || (a.instrumentType || '').localeCompare(b.instrumentType || '') || (a.udi || '').localeCompare(b.udi || '') || (a.energyType || '').localeCompare(b.energyType || ''))
       return rows
     })
 
-    const selectedEnergyDetailEvents = computed(() => {
-      return Array.isArray(selectedEnergyRow.value?.detailEvents) ? selectedEnergyRow.value.detailEvents : []
+    // 抽屉内能量激发明细表（每条激发一条）：臂号|器械类型|器械UDI|能量激发类型|能量激发开始时间|能量激发持续时间|器械闭合状态激发持续时间
+    const drawerEnergyDetailTableRows = computed(() => {
+      const list = drawerInstruments.value || []
+      const rows = []
+      list.forEach((seg) => {
+        const armId = seg.arm_id ?? selectedArmId.value
+        const instrumentType = formatInstrumentType(seg)
+        const udi = seg?.udi || '-'
+        ;(seg.energy_activation || []).forEach((evt) => {
+          if (!evt || (!evt.start && !evt.end)) return
+          const activeSec = rawToSeconds(evt.active ?? evt.Active ?? 0)
+          const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
+          rows.push({
+            armId,
+            instrumentType,
+            udi,
+            energyType: formatEnergyType(evt.type),
+            startTime: formatSegmentTimeWithMs(evt.start),
+            durationLabel: formatEnergyDurationMs(activeSec),
+            gripsActiveLabel: formatEnergyDurationMs(gripsActiveSec)
+          })
+        })
+      })
+      rows.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+      return rows
     })
 
-    const ensureDrawerEnergySelection = () => {
-      const rows = drawerEnergyTableRows.value || []
-      if (!rows.length) {
-        selectedEnergyRowKey.value = ''
-        selectedEnergyRow.value = null
-        return
-      }
-      const current = rows.find(r => r.rowKey === selectedEnergyRowKey.value)
-      if (current) {
-        selectedEnergyRow.value = current
-        return
-      }
-      selectedEnergyRow.value = rows[0]
-      selectedEnergyRowKey.value = rows[0].rowKey
+    const drawerEnergyViewMode = ref('chart')
+
+    // 器械使用时间的总时长范围（所有器械段的最小开始～最大结束），用于抽屉内密度图 x 轴
+    const instrumentUsageRangeMs = computed(() => {
+      const list = drawerInstruments.value || []
+      if (list.length === 0) return null
+      let minStart = Infinity
+      let maxEnd = -Infinity
+      list.forEach((seg) => {
+        const start = toMs(seg.start_time || seg.start || seg.install_time)
+        const end = toMs(seg.end_time || seg.end || seg.remove_time)
+        if (Number.isFinite(start)) minStart = Math.min(minStart, start)
+        if (Number.isFinite(end)) maxEnd = Math.max(maxEnd, end)
+      })
+      if (minStart === Infinity || maxEnd === -Infinity || maxEnd <= minStart) return null
+      return { startMs: minStart, endMs: maxEnd }
+    })
+
+    // 抽屉内所有能量激发事件（来自 drawerInstruments），归一为 [startMs, endMs)，用于密度分桶
+    const getAllEnergyEventsForDrawer = () => {
+      const list = drawerInstruments.value || []
+      const events = []
+      list.forEach((seg) => {
+        ;(seg.energy_activation || []).forEach((evt) => {
+          const startRaw = evt.start ?? evt.start_time
+          if (!evt || (!startRaw && !evt.end)) return
+          const startMs = toMs(startRaw)
+          if (!Number.isFinite(startMs)) return
+          let endMs = evt.end != null && evt.end !== '' ? toMs(evt.end) : NaN
+          if (!Number.isFinite(endMs)) {
+            const sec = getEnergyEventDurationSec(evt)
+            endMs = startMs + sec * 1000
+          }
+          if (endMs <= startMs) endMs = startMs + 1
+          events.push({ startMs, endMs })
+        })
+      })
+      return events
     }
 
-    const handleEnergyRowChange = (row) => {
-      selectedEnergyRow.value = row || null
-      selectedEnergyRowKey.value = row?.rowKey || ''
+    // 热力图行：闭合状态 × 类型（与图示一致：Clamped 上、Unclamped 下，每类下 Bipolar-Coag / Monopolar-Cut / Ultrasonic）
+    const ENERGY_DENSITY_HEATMAP_ROW_ORDER = [
+      { closure: 'clamped', typeKey: 'bipolar-coag' },
+      { closure: 'clamped', typeKey: 'monopolar-cut' },
+      { closure: 'clamped', typeKey: 'ultrasonic' },
+      { closure: 'unclamped', typeKey: 'bipolar-coag' },
+      { closure: 'unclamped', typeKey: 'monopolar-cut' },
+      { closure: 'unclamped', typeKey: 'ultrasonic' }
+    ]
+    const getEnergyEventTypeKey = (type) => {
+      const t = String(type || '').toLowerCase()
+      if (t === 'cut') return 'monopolar-cut'
+      if (t === 'coag' || t === 'bipolar') return 'bipolar-coag'
+      if (t === 'ultrasonic' || t === 'ultrasonicmax') return 'ultrasonic'
+      return t || 'other'
     }
+    // 抽屉内能量激发事件（带类型与闭合/非闭合时长），用于热力图分桶
+    const getDrawerEnergyEventsForHeatmap = () => {
+      const list = drawerInstruments.value || []
+      const events = []
+      list.forEach((seg) => {
+        ;(seg.energy_activation || []).forEach((evt) => {
+          const startRaw = evt.start ?? evt.start_time
+          if (!evt || (!startRaw && !evt.end)) return
+          const startMs = toMs(startRaw)
+          if (!Number.isFinite(startMs)) return
+          let endMs = evt.end != null && evt.end !== '' ? toMs(evt.end) : NaN
+          if (!Number.isFinite(endMs)) {
+            const sec = getEnergyEventDurationSec(evt)
+            endMs = startMs + sec * 1000
+          }
+          if (endMs <= startMs) endMs = startMs + 1
+          const activeSec = getEnergyEventDurationSec(evt)
+          const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
+          const typeKey = getEnergyEventTypeKey(evt.type)
+          events.push({ startMs, endMs, typeKey, activeSec, gripsActiveSec })
+        })
+      })
+      return events
+    }
+    // 抽屉内能量激发密度热力图：10s 分桶，行 = 闭合状态 × 类型，强度 = 占空比，颜色区分
+    const DRAWER_DENSITY_BUCKET_MS = 10000
+    const drawerEnergyDensity = computed(() => {
+      const range = instrumentUsageRangeMs.value
+      const rowOrder = ENERGY_DENSITY_HEATMAP_ROW_ORDER
+      const numRows = rowOrder.length
+      if (!range) return { heatmap: true, rowLabels: [], matrix: [], numBuckets: 0, bucketMs: DRAWER_DENSITY_BUCKET_MS }
+      const { startMs, endMs } = range
+      const spanMs = endMs - startMs
+      const numBuckets = Math.ceil(spanMs / DRAWER_DENSITY_BUCKET_MS)
+      const matrix = Array.from({ length: numRows }, () => new Array(numBuckets).fill(0))
+      const events = getDrawerEnergyEventsForHeatmap()
+      events.forEach(({ startMs: s, endMs: e, typeKey, activeSec, gripsActiveSec }) => {
+        const totalSec = activeSec > 0 ? activeSec : 0.001
+        const clampRatio = Math.max(0, Math.min(1, gripsActiveSec / totalSec))
+        const unclampRatio = 1 - clampRatio
+        const b0 = Math.floor((s - startMs) / DRAWER_DENSITY_BUCKET_MS)
+        const b1 = Math.ceil((e - startMs) / DRAWER_DENSITY_BUCKET_MS)
+        for (let i = Math.max(0, b0); i < Math.min(numBuckets, b1); i++) {
+          const bucketStart = startMs + i * DRAWER_DENSITY_BUCKET_MS
+          const bucketEnd = bucketStart + DRAWER_DENSITY_BUCKET_MS
+          const overlapMs = Math.max(0, Math.min(e, bucketEnd) - Math.max(s, bucketStart))
+          const rowIdxClamped = rowOrder.findIndex(r => r.closure === 'clamped' && r.typeKey === typeKey)
+          const rowIdxUnclamped = rowOrder.findIndex(r => r.closure === 'unclamped' && r.typeKey === typeKey)
+          if (rowIdxClamped >= 0) matrix[rowIdxClamped][i] += (overlapMs / 1000) * clampRatio
+          if (rowIdxUnclamped >= 0) matrix[rowIdxUnclamped][i] += (overlapMs / 1000) * unclampRatio
+        }
+      })
+      const bucketSec = DRAWER_DENSITY_BUCKET_MS / 1000
+      const intensitiesMatrix = matrix.map(row => row.map(sum => Math.min(1, sum / bucketSec)))
+      // 表头式两列：第一列 闭合/非闭合，第二列 三种激发类型；闭合与非闭合间插入半行间隔（spacer）
+      const closureLabel = t('surgeryVisualization.report.energyDensityClamped')
+      const unclosureLabel = t('surgeryVisualization.report.energyDensityUnclamped')
+      const typeLabels = {
+        'bipolar-coag': t('surgeryVisualization.report.energyBipolarCoag'),
+        'monopolar-cut': t('surgeryVisualization.report.energyMonopolarCut'),
+        ultrasonic: t('surgeryVisualization.report.energyUltrasonic')
+      }
+      const rowLabels = []
+      const matrixWithSpacer = []
+      const spacerRow = new Array(numBuckets).fill(-1) // -1 表示 spacer，图表内渲染为空
+      rowOrder.forEach(({ closure, typeKey }, i) => {
+        if (i === 3) {
+          rowLabels.push({ spacer: true }) // spacer 行，闭合与非闭合之间半行间隔
+          matrixWithSpacer.push([...spacerRow])
+        }
+        const closureStr = closure === 'clamped' ? closureLabel : unclosureLabel
+        const typeStr = typeLabels[typeKey] || typeKey
+        rowLabels.push({ closure: closureStr, type: typeStr })
+        matrixWithSpacer.push(intensitiesMatrix[i])
+      })
+      return { heatmap: true, rowLabels, matrix: matrixWithSpacer, numBuckets, bucketMs: DRAWER_DENSITY_BUCKET_MS, startMs, endMs }
+    })
 
-    watch(drawerEnergyTableRows, () => {
-      ensureDrawerEnergySelection()
-    }, { immediate: true })
-
-    watch(drawerVisible, (visible) => {
-      if (visible) ensureDrawerEnergySelection()
+    // 能量激发持续时间直方图：100ms 分桶，中位数与 P90（较长 10% 阈值）
+    const BIN_MS = 100
+    const drawerEnergyDurationHistogram = computed(() => {
+      const list = drawerInstruments.value || []
+      const durationsMs = []
+      list.forEach(seg => {
+        ;(seg.energy_activation || []).forEach(evt => {
+          if (!evt || (!evt.start && !evt.end)) return
+          // 优先闭合状态激发时长，无则用总激发时长，保证有激发数据时直方图必有数据
+          const sec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? evt.Active ?? evt.active ?? 0)
+          durationsMs.push(Math.round(sec * 1000))
+        })
+      })
+      if (durationsMs.length === 0) {
+        return { binCenters: [], counts: [], median: null, p90: null, p95: null, n: 0 }
+      }
+      const maxMs = Math.max(...durationsMs)
+      const numBins = Math.max(1, Math.ceil((maxMs + 1) / BIN_MS))
+      const binCenters = Array.from({ length: numBins }, (_, i) => (i + 0.5) * BIN_MS)
+      const counts = Array(numBins).fill(0)
+      durationsMs.forEach(ms => {
+        const binIndex = Math.min(Math.floor(ms / BIN_MS), numBins - 1)
+        counts[binIndex]++
+      })
+      const sorted = [...durationsMs].sort((a, b) => a - b)
+      const n = sorted.length
+      const median = n % 2 === 1 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2
+      // 较长 10% 的阈值 = P90：有 10% 的激发持续时间 ≥ 该值
+      const p90Index = Math.min(Math.max(0, Math.ceil(n * 0.9) - 1), n - 1)
+      const p90 = sorted[p90Index]
+      const p95Index = Math.min(Math.max(0, Math.ceil(n * 0.95) - 1), n - 1)
+      const p95 = sorted[p95Index]
+      // 显示用 x 轴上限：适当放大范围使每桶在横向上更窄，保证中位数与 P90 在范围内，至少 400ms
+      const refVal = Math.max(p90 || 0, median || 0)
+      const displayXMax = Math.min(maxMs, Math.max(400, Math.ceil((refVal * 1.85) / BIN_MS) * BIN_MS))
+      const numBinsDisplay = Math.max(1, Math.min(numBins, Math.ceil(displayXMax / BIN_MS)))
+      const binCentersShow = binCenters.slice(0, numBinsDisplay)
+      const countsShow = counts.slice(0, numBinsDisplay)
+      return { binCenters: binCentersShow, counts: countsShow, median, p90, p95, n, binWidth: BIN_MS, xMax: numBinsDisplay * BIN_MS }
     })
 
     // 能量激发类型显示
@@ -4865,12 +5291,16 @@ export default {
       getSurgeryPhaseStyle,
       // SVG覆盖层相关函数
       getOverlayStyle,
+      getDensityOverlayStyle,
+      getTimelineContainerWidth,
+      getTimelineOverlayHeight,
       getAllSegmentsForArm,
       getSegmentX,
       getSegmentY,
       getSegmentWidth,
       getSegmentHeight,
       getSegmentEndX,
+      getDensityPathD,
       getEnergyBarX,
       getEnergyBarY,
       getEnergyBarWidth,
@@ -4918,16 +5348,24 @@ export default {
       handleNetworkLatencyRangeChange,
       formatStatsTime,
       // 抽屉相关
+      drawerReportColWidthArm,
+      drawerReportColWidthInstrumentType,
+      drawerReportColWidthUdi,
       drawerVisible,
       drawerTitle,
       drawerInstruments,
-      selectedEnergyRowKey,
-      selectedEnergyRow,
-      selectedEnergyDetailEvents,
-      handleEnergyRowChange,
+      drawerPrimaryInstrument,
+      drawerHeaderInstrumentName,
+      drawerHeaderDatetime,
+      drawerPrimaryUsageDuration,
+      drawerPrimaryCumulativeUsageDisplay,
       getEnergyListForRow,
       drawerEnergyActivations,
-      drawerEnergyTableRows,
+      drawerEnergySummaryTableRows,
+      drawerEnergyDetailTableRows,
+      drawerEnergyViewMode,
+      drawerEnergyDensity,
+      drawerEnergyDurationHistogram,
       formatEnergyType,
       selectedArmId,
       // 左侧抽屉：事件序列
@@ -5785,6 +6223,14 @@ export default {
   opacity: 0.92;
 }
 
+.timeline-overlay--density {
+  pointer-events: none;
+}
+
+.energy-density-strip {
+  pointer-events: none;
+}
+
 .drawer-section {
   margin-bottom: 20px;
 }
@@ -5792,13 +6238,126 @@ export default {
   margin-bottom: 0;
 }
 .drawer-section-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--drawer-section-title-font-size, 14px);
+  font-weight: var(--drawer-section-title-font-weight, 600);
   margin-bottom: 10px;
   color: var(--el-text-color-primary, #303133);
 }
 .drawer-energy-section {
   margin-top: 24px;
+}
+.drawer-energy-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+.drawer-energy-header-row .drawer-section-title {
+  margin-bottom: 0;
+}
+.drawer-energy-view-toggle {
+  flex-shrink: 0;
+}
+.drawer-energy-content {
+  min-height: 0;
+}
+.drawer-energy-chart-wrap {
+  padding: 8px 0;
+}
+.drawer-energy-table-wrap {
+  overflow-x: auto;
+}
+.drawer-energy-view-section {
+  margin-top: var(--el-component-padding, 8px);
+  padding-top: 0;
+}
+.drawer-energy-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--el-spacing-small, 8px);
+  margin-bottom: var(--el-spacing-small, 8px);
+}
+.drawer-energy-view-header .drawer-section-title {
+  margin-bottom: 0;
+}
+.drawer-energy-view-toggle {
+  flex-shrink: 0;
+}
+.drawer-energy-charts {
+  min-height: 0;
+}
+.drawer-energy-chart-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+.drawer-energy-chart-card {
+  border: 1.6px solid #f1f5f9;
+  border-radius: 16px;
+  padding: 24px 24px 16px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 43, 0.08), 0 1px 2px rgba(15, 23, 43, 0.06);
+  text-align: left;
+  min-height: 302px;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-energy-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 15px;
+  margin-bottom: 16px;
+}
+.drawer-energy-card-title {
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #90a1b9;
+  text-transform: uppercase;
+}
+.drawer-energy-density-wrap {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  min-height: 220px;
+}
+.drawer-energy-density-wrap .drawer-energy-empty-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--el-fill-color-blank, #fff);
+}
+.drawer-energy-histogram-wrap {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  min-height: 240px;
+}
+.drawer-energy-histogram-wrap .drawer-energy-empty-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--el-fill-color-blank, #fff);
+}
+.drawer-energy-detail-table-wrap {
+  overflow-x: auto;
 }
 .drawer-energy-summary {
   margin-top: 12px;
@@ -6099,10 +6658,190 @@ export default {
   overflow-y: auto;
 }
 
-/* 抽屉内表格滚动容器，确保纵向/横向都能滚动 */
-.drawer-table-wrapper {
-  max-height: calc(100vh - 140px);
+/* 抽屉内：不出现整体滚动条，三块（器械使用时、能量激发、激发持续时间分布）均能正常显示，仅表格内部滚动；用 gap 控制 header 与 body 间距，避免 margin 合并；:deep 穿透 scoped 以作用到 Element Plus 渲染的 drawer 节点 */
+.viz-page :deep(.drawer-instrument-usage.el-drawer) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.viz-page :deep(.drawer-instrument-usage .el-drawer__header) {
+  margin-bottom: 0; /* 覆盖 Element Plus 默认 32px，间距由父级 gap 控制 */
+  padding: var(--sheet-header-padding-y, 16px) var(--sheet-header-padding-x, 16px);
+  padding-right: 48px;
+}
+.viz-page :deep(.drawer-instrument-usage .el-drawer__body) {
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  padding-right: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 抽屉头部（Figma SheetHeader）：器械名 | Arm N + 时间，使用 design token */
+.drawer-sheet-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sheet-header-gap, 2px); /* 标题行与日期行间隔减小 */
+  width: 100%;
+}
+.drawer-sheet-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.drawer-sheet-accent {
+  width: var(--sheet-header-accent-size, 10px);
+  height: var(--sheet-header-accent-size, 10px);
+  min-width: var(--sheet-header-accent-size, 10px);
+  min-height: var(--sheet-header-accent-size, 10px);
+  background: var(--sheet-header-accent-bg);
+  border-radius: var(--sheet-header-accent-radius);
+  flex-shrink: 0;
+}
+.drawer-sheet-title {
+  font-size: var(--sheet-header-title-font-size, 20px);
+  font-weight: var(--sheet-header-title-font-weight, 600);
+  color: var(--sheet-header-title-color);
+  line-height: 28px;
+}
+.drawer-sheet-subtitle {
+  font-size: var(--sheet-header-subtitle-font-size, 16px);
+  font-weight: 300;
+  color: var(--sheet-header-subtitle-color);
+  line-height: 24px;
+}
+.drawer-sheet-datetime {
+  font-size: var(--sheet-header-datetime-font-size, 14px);
+  font-weight: 500;
+  color: var(--sheet-header-datetime-color);
+  line-height: 20px;
+}
+
+/* 器械基本信息：分栏区块（与 BatchAnalysis 预设等级/自然语言搜索 同风格，无边框无背景） */
+.drawer-info-section {
+  margin-bottom: 24px;
+}
+.drawer-info-section .section-title.drawer-section-title {
+  margin-bottom: 12px;
+}
+/* 与 .drawer-section-title 使用相同字体 token，保持标题一致 */
+.drawer-info-section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--drawer-section-title-font-size, 14px);
+  font-weight: var(--drawer-section-title-font-weight, 600);
+  color: var(--el-text-color-primary, #303133);
+}
+.drawer-info-section-title-bar {
+  width: var(--sheet-info-title-bar-width, 4px);
+  height: 12px;
+  min-width: var(--sheet-info-title-bar-width, 4px);
+  background: var(--sheet-info-title-bar-bg);
+  border-radius: var(--sheet-info-title-bar-radius);
+}
+.drawer-info-section-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 40px;
+  row-gap: 16px; /* 第一行与第二行间隔减小 */
+  margin-left: 6px;
+  margin-right: 6px;
+}
+.drawer-info-section-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sheet-info-field-gap, 2px); /* 标签与值行间隔减小 */
+}
+.drawer-info-section-label {
+  font-size: var(--sheet-info-label-font-size, 10px);
+  font-weight: var(--sheet-info-label-weight, 700);
+  color: var(--sheet-info-label-color);
+  text-transform: uppercase;
+  line-height: 15px;
+}
+.drawer-info-section-value {
+  font-size: var(--sheet-info-value-font-size, 14px);
+  font-weight: var(--sheet-info-value-weight, 600);
+  color: var(--sheet-info-value-color);
+  line-height: 20px;
+}
+.drawer-info-section-value--udi {
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--sheet-info-value-udi-color);
+}
+
+.drawer-instrument-usage .drawer-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px 16px;
+}
+/* 能量激发为 drawer 内第一个 section（器械使用时间表格已移除） */
+.drawer-instrument-usage .drawer-section:first-child {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.drawer-instrument-usage .drawer-energy-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-instrument-usage .drawer-energy-section .drawer-energy-content {
+  flex: 0 0 auto;
+}
+.drawer-instrument-usage .drawer-energy-section .drawer-energy-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+}
+.drawer-instrument-usage .drawer-energy-view-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-view-header {
+  flex: 0 0 auto;
+}
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-chart-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-chart-card {
+  min-height: 0;
+}
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-density-wrap,
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-histogram-wrap {
+  min-height: 220px;
+}
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-histogram-wrap {
+  min-height: 240px;
+}
+.drawer-instrument-usage .drawer-energy-view-section :deep(.energy-density-chart),
+.drawer-instrument-usage .drawer-energy-view-section :deep(.duration-histogram-chart) {
+  height: 220px;
+  min-height: 220px;
+}
+.drawer-instrument-usage .drawer-energy-view-section :deep(.duration-histogram-chart) {
+  height: 240px;
+  min-height: 240px;
+}
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-detail-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+}
+.drawer-instrument-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .drawer-energy-nested {
