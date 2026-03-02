@@ -1831,7 +1831,7 @@
       "energyDensityX": "Instrument usage time",
       "energyDensityY": "Duty cycle",
       "energyDensityTooltip": "{start}s - {end}s: duty {duty}%",
-      "energyDensityHeatmapTooltip": "{row} | {start}s - {end}s: intensity {duty}%",
+      "energyDensityHeatmapTooltip": "State/Type: {row} | Time: {start}s - {end}s | Duty cycle: {duty}%",
       "energyDensityClamped": "Clamped",
       "energyDensityUnclamped": "Unclamped",
       "energyDensityClosureCol": "Clamped/Unclamped",

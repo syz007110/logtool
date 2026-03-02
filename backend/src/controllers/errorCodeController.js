@@ -10,6 +10,7 @@ const errorCodeCache = require('../services/errorCodeCache');
 const errorCodeCacheSyncService = require('../services/errorCodeCacheSyncService');
 const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
 const { searchByKeywords } = require('../services/errorCodeSearchService');
+const prefixTranslations = require('../config/prefixTranslations.json');
 const fs = require('fs');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const path = require('path');
@@ -90,13 +91,13 @@ async function syncErrorCodeAllLangsToEs(errorCodeId) {
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
   if (!code) return { level: '无', solution: 'tips' };
-  
+
   // 解析故障码：0X + 3位16进制数字 + A/B/C/D/E
   const match = code.match(/^0X([0-9A-F]{3})([ABCDE])$/);
   if (!match) return { level: '无', solution: 'tips' };
-  
+
   const [, hexPart, severity] = match;
-  
+
   // 根据故障码末尾字母判断等级
   let level = '无';
   switch (severity) {
@@ -113,7 +114,7 @@ const analyzeErrorCode = (code) => {
       level = '无';
       break;
   }
-  
+
   // 根据故障码末尾字母判断处理措施
   let solution = 'tips';
   switch (severity) {
@@ -133,7 +134,7 @@ const analyzeErrorCode = (code) => {
       solution = 'log';
       break;
   }
-  
+
   return { level, solution };
 };
 
@@ -190,7 +191,7 @@ async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
 const convertCategoryToChinese = (category) => {
   const categoryMap = {
     'software': '软件',
-    'hardware': '硬件', 
+    'hardware': '硬件',
     'logRecord': '日志记录',
     'operationTip': '操作提示',
     'safetyProtection': '安全保护'
@@ -200,13 +201,13 @@ const convertCategoryToChinese = (category) => {
 
 const safeUnlink = (filePath) => {
   if (!filePath) return;
-  fs.unlink(filePath, () => {});
+  fs.unlink(filePath, () => { });
 };
 
 // 将URL转换为完整的、可直接访问的URL
 const normalizeImageUrl = (img, req) => {
   if (!img || !img.url) return img?.url || '';
-  
+
   const url = String(img.url);
   const storageType = img.storage || STORAGE; // 如果没有指定，使用全局配置的存储类型
   const USE_BACKEND_OSS_PROXY = String(process.env.TECH_SOLUTION_OSS_USE_PROXY || process.env.OSS_USE_BACKEND_PROXY || '').toLowerCase() === 'true';
@@ -217,12 +218,12 @@ const normalizeImageUrl = (img, req) => {
     const key = encodeURIComponent(objectKey);
     return withQueryToken(`/api/oss/tech-solution?key=${key}`, req);
   }
-  
+
   // 如果已经是完整的URL（http/https），直接返回
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  
+
   // 本地存储：相对路径需要转换为绝对URL
   if (storageType === 'local') {
     // 如果是相对路径（以/开头），需要添加协议和主机
@@ -232,7 +233,7 @@ const normalizeImageUrl = (img, req) => {
       // 最后使用 Host 头
       let host = req?.get('x-forwarded-host');
       let protocol = req?.get('x-forwarded-proto') || req?.protocol || (req?.secure ? 'https' : 'http');
-      
+
       if (!host) {
         // 尝试从 Origin 头获取
         const origin = req?.get('origin') || req?.headers?.origin;
@@ -246,7 +247,7 @@ const normalizeImageUrl = (img, req) => {
           }
         }
       }
-      
+
       if (!host) {
         // 尝试从 Referer 头获取（移动端可能没有 Origin 头）
         const referer = req?.get('referer') || req?.headers?.referer;
@@ -260,18 +261,18 @@ const normalizeImageUrl = (img, req) => {
           }
         }
       }
-      
+
       if (!host) {
         host = req?.get('host') || req?.headers?.host || 'localhost:3000';
       }
-      
+
       const finalUrl = `${protocol}://${host}${url}`;
       return finalUrl;
     }
     // 如果不是相对路径，直接返回（可能是完整URL但前面判断没捕获到）
     return url;
   }
-  
+
   // OSS存储：根据配置处理URL
   if (storageType === 'oss') {
     // 如果配置了公共基础URL，URL应该已经是完整的
@@ -286,7 +287,7 @@ const normalizeImageUrl = (img, req) => {
     // 没有配置OSS_PUBLIC_BASE，返回原URL（可能是objectKey，需要前端处理）
     return url;
   }
-  
+
   // 其他情况，直接返回原URL
   return url;
 };
@@ -327,49 +328,49 @@ const normalizeAssetPayload = (img, index) => {
 // 输入验证函数
 const validateErrorCodeData = (data) => {
   const errors = [];
-  
+
   // 基础必填字段验证
   const basicRequiredFields = [
-    'subsystem', 'code', 'is_axis_error', 'is_arm_error', 
+    'subsystem', 'code', 'is_axis_error', 'is_arm_error',
     'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'category'
   ];
-  
+
   basicRequiredFields.forEach(field => {
     if (!data[field] && data[field] !== false && data[field] !== 0) {
       errors.push(`${field} 是必填字段`);
     }
   });
-  
+
   // 英文字段验证（可选）：不再强制依赖主表英文字段，英文内容通过 i18n 表提交即可
-  
+
   // 中文字段验证：short_message和operation不都为空，user_hint和operation不都为空
-  if ((!data.short_message || data.short_message.trim() === '') && 
-      (!data.operation || data.operation.trim() === '')) {
+  if ((!data.short_message || data.short_message.trim() === '') &&
+    (!data.operation || data.operation.trim() === '')) {
     errors.push('精简提示信息和操作信息不能都为空');
   }
-  
-  if ((!data.user_hint || data.user_hint.trim() === '') && 
-      (!data.operation || data.operation.trim() === '')) {
+
+  if ((!data.user_hint || data.user_hint.trim() === '') &&
+    (!data.operation || data.operation.trim() === '')) {
     errors.push('用户提示信息和操作信息不能都为空');
   }
-  
+
   // 子系统验证 - 仅允许1-9,A
   if (data.subsystem && !/^[1-9A]$/.test(data.subsystem)) {
     errors.push('子系统编号必须是1-9或A中的一个');
   }
-  
+
   // 故障码格式验证
   if (data.code && !/^0X[0-9A-F]{3}[ABCDE]$/.test(data.code)) {
     errors.push('故障码格式不正确，应为0X加3位16进制数字加A、B、C、D、E中的一个字母');
   }
-  
+
   // 分类验证 - 支持英文键值和中文值
   const validCategories = ['software', 'hardware', 'logRecord', 'operationTip', 'safetyProtection'];
   const validCategoriesChinese = ['软件', '硬件', '日志记录', '操作提示', '安全保护'];
   if (data.category && !validCategories.includes(data.category) && !validCategoriesChinese.includes(data.category)) {
     errors.push('故障分类必须是：软件、硬件、日志记录、操作提示、安全保护 中的一个');
   }
-  
+
   return errors;
 };
 
@@ -380,35 +381,35 @@ const createErrorCode = async (req, res) => {
     // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
     // 此处不再处理这些字段
     const mainData = stripEnglishFields(data);
-    
+
     // 转换分类为中文值
     if (mainData.category) {
       mainData.category = convertCategoryToChinese(mainData.category);
     }
-    
+
     // 输入验证
     const validationErrors = validateErrorCodeData(mainData);
     if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-        message: req.t('shared.validationFailed'), 
-        errors: validationErrors 
+      return res.status(400).json({
+        message: req.t('shared.validationFailed'),
+        errors: validationErrors
       });
     }
-    
+
     // 检查子系统+故障码组合是否唯一
-    const duplicateCheck = await ErrorCode.findOne({ 
-      where: { 
-        subsystem: mainData.subsystem, 
-        code: mainData.code 
-      } 
+    const duplicateCheck = await ErrorCode.findOne({
+      where: {
+        subsystem: mainData.subsystem,
+        code: mainData.code
+      }
     });
     if (duplicateCheck) {
       return res.status(409).json({ message: req.t('errorCode.duplicate') });
     }
-    
+
     // 根据故障码自动判断故障等级和处理措施
     const { level, solution } = analyzeErrorCode(mainData.code);
-    
+
     // 创建故障码数据，自动设置等级和处理措施，专家模式和初学者模式默认为True
     const errorCodeData = {
       ...mainData,
@@ -417,12 +418,12 @@ const createErrorCode = async (req, res) => {
       for_expert: mainData.for_expert !== undefined ? mainData.for_expert : true,
       for_novice: mainData.for_novice !== undefined ? mainData.for_novice : true
     };
-    
+
     const errorCode = await ErrorCode.create(errorCodeData);
-    
+
     // 注意：short_message/user_hint/operation 的多语言内容由多语言管理模块管理
     // 此处不再自动创建多语言记录
-    
+
     // 保存分析分类关联
     if (data.analysisCategories && Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
       try {
@@ -437,7 +438,7 @@ const createErrorCode = async (req, res) => {
         console.warn('创建分析分类关联失败，但不影响故障码创建:', categoryError.message);
       }
     }
-    
+
     // 记录操作日志（如果失败不影响主要操作）
     if (req.user) {
       try {
@@ -456,7 +457,7 @@ const createErrorCode = async (req, res) => {
         console.warn('记录操作日志失败，但不影响故障码创建:', logError.message);
       }
     }
-    
+
     // 重新加载故障码缓存
     try {
       await errorCodeCache.reloadCache();
@@ -464,11 +465,11 @@ const createErrorCode = async (req, res) => {
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码创建:', cacheError.message);
     }
-    
+
     // 同步到ES（异步，不阻塞响应）
     await errorCodeCacheSyncService.publishReload('error_code_created', { errorCodeId: errorCode.id });
-    syncErrorCodeToEs(errorCode.id, 'zh').catch(() => {});
-    
+    syncErrorCodeToEs(errorCode.id, 'zh').catch(() => { });
+
     res.status(201).json({ message: req.t('shared.created'), errorCode });
   } catch (err) {
     console.error('创建故障码失败:', err);
@@ -499,49 +500,49 @@ const updateErrorCode = async (req, res) => {
     // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
     // 此处不再处理这些字段
     const mainData = stripEnglishFields(data);
-    
+
     // 转换分类为中文值
     if (mainData.category) {
       mainData.category = convertCategoryToChinese(mainData.category);
     }
-    
+
     // 查找故障码
     const errorCode = await ErrorCode.findByPk(id);
     if (!errorCode) {
       return res.status(404).json({ message: req.t('shared.notFound') });
     }
-    
+
     // 输入验证
     const validationErrors = validateErrorCodeData(mainData);
     if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-        message: req.t('shared.validationFailed'), 
-        errors: validationErrors 
+      return res.status(400).json({
+        message: req.t('shared.validationFailed'),
+        errors: validationErrors
       });
     }
-    
+
     // 检查子系统+故障码组合唯一性（排除当前记录）
-    if ((mainData.subsystem && mainData.subsystem !== errorCode.subsystem) || 
-        (mainData.code && mainData.code !== errorCode.code)) {
-      const duplicateCheck = await ErrorCode.findOne({ 
-        where: { 
-          subsystem: mainData.subsystem || errorCode.subsystem, 
+    if ((mainData.subsystem && mainData.subsystem !== errorCode.subsystem) ||
+      (mainData.code && mainData.code !== errorCode.code)) {
+      const duplicateCheck = await ErrorCode.findOne({
+        where: {
+          subsystem: mainData.subsystem || errorCode.subsystem,
           code: mainData.code || errorCode.code,
           id: { [Op.ne]: id }
-        } 
+        }
       });
       if (duplicateCheck) {
         return res.status(409).json({ message: req.t('errorCode.duplicate') });
       }
     }
-    
+
     // 保存更新前的数据用于日志记录
     const oldData = {
       code: errorCode.code,
       subsystem: errorCode.subsystem,
       category: errorCode.category
     };
-    
+
     // 始终根据故障码重新计算等级和处理措施，确保存储的是中文枚举值
     // 使用更新后的故障码（如果有）或当前故障码
     const codeToAnalyze = mainData.code || errorCode.code;
@@ -549,12 +550,12 @@ const updateErrorCode = async (req, res) => {
     let updateData = { ...mainData };
     updateData.level = level;  // 始终使用重新计算的中文值
     updateData.solution = solution;  // 始终使用重新计算的英文键值
-    
+
     await errorCode.update(updateData);
-    
+
     // 注意：short_message/user_hint/operation 的多语言内容由多语言管理模块管理
     // 此处不再自动创建/更新多语言记录
-    
+
     // 更新分析分类关联
     if (data.analysisCategories !== undefined) {
       try {
@@ -562,7 +563,7 @@ const updateErrorCode = async (req, res) => {
         await ErrorCodeAnalysisCategory.destroy({
           where: { error_code_id: errorCode.id }
         });
-        
+
         // 如果有新的分类，创建新关联
         if (Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
           const categoryAssociations = data.analysisCategories.map(categoryId => ({
@@ -577,7 +578,7 @@ const updateErrorCode = async (req, res) => {
         console.warn('更新分析分类关联失败，但不影响故障码更新:', categoryError.message);
       }
     }
-    
+
     // 记录操作日志（如果失败不影响主要操作）
     if (req.user) {
       try {
@@ -600,7 +601,7 @@ const updateErrorCode = async (req, res) => {
         console.warn('记录操作日志失败，但不影响故障码更新:', logError.message);
       }
     }
-    
+
     // 重新加载故障码缓存
     try {
       await errorCodeCache.reloadCache();
@@ -608,11 +609,11 @@ const updateErrorCode = async (req, res) => {
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码更新:', cacheError.message);
     }
-    
+
     // 同步到ES（异步，不阻塞响应）- 同步所有语言版本
     await errorCodeCacheSyncService.publishReload('error_code_updated', { errorCodeId: errorCode.id });
-    syncErrorCodeAllLangsToEs(errorCode.id).catch(() => {});
-    
+    syncErrorCodeAllLangsToEs(errorCode.id).catch(() => { });
+
     res.json({ message: req.t('shared.updated'), errorCode });
   } catch (err) {
     console.error('更新故障码失败:', err);
@@ -628,14 +629,14 @@ const deleteErrorCode = async (req, res) => {
     if (!errorCode) {
       return res.status(404).json({ message: req.t('shared.notFound') });
     }
-    
+
     // 保存删除的数据用于日志记录
     const deletedData = {
       code: errorCode.code,
       subsystem: errorCode.subsystem,
       category: errorCode.category
     };
-    
+
     // 从ES删除故障码索引（所有语言版本）
     if (isErrorCodeEsEnabled()) {
       try {
@@ -644,7 +645,7 @@ const deleteErrorCode = async (req, res) => {
         console.warn(`[ES同步] 故障码 ${id} 删除失败:`, esError?.message || esError);
       }
     }
-    
+
     // 同步删除多语言记录
     try {
       await I18nErrorCode.destroy({
@@ -653,7 +654,7 @@ const deleteErrorCode = async (req, res) => {
     } catch (i18nError) {
       console.warn('删除多语言记录失败，但不影响故障码删除:', i18nError.message);
     }
-    
+
     // 同步删除 code_category_map 映射（删除故障码前）
     try {
       const subsystemChar = normalizeSubsystemChar(errorCode.subsystem);
@@ -668,7 +669,7 @@ const deleteErrorCode = async (req, res) => {
     } catch (mapError) {
       console.warn('清理 code_category_map 映射失败，但不影响故障码删除:', mapError.message);
     }
-    
+
     // 删除技术排查方案的附件文件
     try {
       const techImages = await TechSolutionImage.findAll({
@@ -697,9 +698,9 @@ const deleteErrorCode = async (req, res) => {
     } catch (techImageError) {
       console.warn('删除技术排查方案附件失败，但不影响故障码删除:', techImageError.message);
     }
-    
+
     await errorCode.destroy();
-    
+
     // 记录操作日志（如果失败不影响主要操作）
     if (req.user) {
       try {
@@ -717,7 +718,7 @@ const deleteErrorCode = async (req, res) => {
         console.warn('记录操作日志失败，但不影响故障码删除:', logError.message);
       }
     }
-    
+
     // 重新加载故障码缓存
     try {
       await errorCodeCache.reloadCache();
@@ -725,7 +726,7 @@ const deleteErrorCode = async (req, res) => {
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响故障码删除:', cacheError.message);
     }
-    
+
     await errorCodeCacheSyncService.publishReload('error_code_deleted', { errorCodeId: Number(id) });
     res.json({ message: req.t('shared.deleted') });
   } catch (err) {
@@ -738,8 +739,8 @@ const deleteErrorCode = async (req, res) => {
 const exportErrorCodesToXML = async (req, res) => {
   try {
     const { language = 'zh' } = req.query;
-    
-    // 语言代码映射 - 只支持指定的10种语言
+
+    // 语言代码映射
     const langMap = {
       'zh': 'zh',      // 中文（简体）
       'en': 'en',      // 英语
@@ -751,11 +752,13 @@ const exportErrorCodesToXML = async (req, res) => {
       'nl': 'nl',      // 荷兰语
       'sk': 'sk',      // 斯洛伐克语
       'ro': 'ro',      // 罗马尼亚语
-      'da': 'da'       // 丹麦语
+      'da': 'da',      // 丹麦语
+      'lv': 'lv',      // 拉脱维亚语
+      'ru': 'ru'       // 俄语
     };
-    
+
     const targetLang = langMap[language] || 'zh';
-    
+
     // 获取所有故障码及其多语言内容
     const errorCodes = await ErrorCode.findAll({
       include: [{
@@ -766,53 +769,17 @@ const exportErrorCodesToXML = async (req, res) => {
       }],
       order: [['subsystem', 'ASC'], ['code', 'ASC']]
     });
-    
+
     if (errorCodes.length === 0) {
       return res.status(404).json({ message: req.t('errorCode.noData') });
     }
-    
+
     // 生成XML内容
     let xmlContent = "<?xml version='1.0' encoding='utf-8'?>\n<Medbot>\n";
-    
-    // 添加前缀信息
-    xmlContent += `\t<prefix>
-\t\t<prefix_arm>
-\t\t\t<arm_num id="1">${targetLang === 'en' ? 'Left hand' : '左手'}</arm_num>
-\t\t\t<arm_num id="2">${targetLang === 'en' ? 'Right hand' : '右手'}</arm_num>
-\t\t\t<arm_num id="3">${targetLang === 'en' ? 'Arm 1' : '1号臂'}</arm_num>
-\t\t\t<arm_num id="4">${targetLang === 'en' ? 'Arm 2' : '2号臂'}</arm_num>
-\t\t\t<arm_num id="5">${targetLang === 'en' ? 'Arm 3' : '3号臂'}</arm_num>
-\t\t\t<arm_num id="6">${targetLang === 'en' ? 'Arm 4' : '4号臂'}</arm_num>
-\t\t\t<arm_num id="7">${targetLang === 'en' ? 'Arm 1' : '1号臂'}</arm_num>
-\t\t\t<arm_num id="8">${targetLang === 'en' ? 'Arm 2' : '2号臂'}</arm_num>
-\t\t\t<arm_num id="9">${targetLang === 'en' ? 'Arm 3' : '3号臂'}</arm_num>
-\t\t\t<arm_num id="10">${targetLang === 'en' ? 'Arm 4' : '4号臂'}</arm_num>
-\t\t\t<arm_num id="11">${targetLang === 'en' ? 'Slave IO' : '主端IO'}</arm_num>
-\t\t\t<arm_num id="12">${targetLang === 'en' ? 'Master IO' : '从端IO'}</arm_num>
-\t\t</prefix_arm>
-\t\t<prefix_axis>
-\t\t\t<axis_num id="1">${targetLang === 'en' ? 'Joint 1' : '关节1'}</axis_num>
-\t\t\t<axis_num id="2">${targetLang === 'en' ? 'Joint 2' : '关节2'}</axis_num>
-\t\t\t<axis_num id="3">${targetLang === 'en' ? 'Joint 3' : '关节3'}</axis_num>
-\t\t\t<axis_num id="4">${targetLang === 'en' ? 'Joint 4' : '关节4'}</axis_num>
-\t\t\t<axis_num id="5">${targetLang === 'en' ? 'Joint 5' : '关节5'}</axis_num>
-\t\t\t<axis_num id="6">${targetLang === 'en' ? 'Joint 6' : '关节6'}</axis_num>
-\t\t\t<axis_num id="7">${targetLang === 'en' ? 'Joint 7' : '关节7'}</axis_num>
-\t\t</prefix_axis>
-\t\t<prefix_patient>
-\t\t\t<axis_num id="0">${targetLang === 'en' ? 'Armrest' : '扶手'}</axis_num>
-\t\t\t<axis_num id="1">${targetLang === 'en' ? 'Left wheel' : '左轮'}</axis_num>
-\t\t\t<axis_num id="2">${targetLang === 'en' ? 'Right wheel' : '右轮'}</axis_num>
-\t\t\t<axis_num id="3">${targetLang === 'en' ? 'Support' : '支撑'}</axis_num>
-\t\t\t<axis_num id="4">${targetLang === 'en' ? 'Column lifting' : '立柱升降'}</axis_num>
-\t\t\t<axis_num id="5">${targetLang === 'en' ? 'IO Module' : 'IO 模组'}</axis_num>
-\t\t\t<axis_num id="6">${targetLang === 'en' ? 'Beam extension' : '横梁伸缩'}</axis_num>
-\t\t\t<axis_num id="7">${targetLang === 'en' ? 'Main suspension rotation' : '主悬吊旋转'}</axis_num>
-\t\t\t<axis_num id="8">${targetLang === 'en' ? 'Beam rotation' : '横梁旋转'}</axis_num>
-\t\t\t<axis_num id="9">${targetLang === 'en' ? 'Battery' : '锂电池'}</axis_num>
-\t\t</prefix_patient>
-\t</prefix>
-\t<instance>\n`;
+
+    // 前缀信息使用固定翻译表（不依赖数据库）
+    xmlContent += buildPrefixXml(targetLang);
+    xmlContent += '\t<instance>\n';
 
     // 按子系统分组
     const groupedByCodes = {};
@@ -826,26 +793,26 @@ const exportErrorCodesToXML = async (req, res) => {
     // 生成每个子系统的故障码
     Object.keys(groupedByCodes).sort().forEach(subsystem => {
       xmlContent += `\t\t<subsystem id="${subsystem}">\n`;
-      
+
       groupedByCodes[subsystem].forEach(errorCode => {
         // 获取多语言内容
-        const i18nContent = errorCode.i18nContents && errorCode.i18nContents.length > 0 
-          ? errorCode.i18nContents[0] 
+        const i18nContent = errorCode.i18nContents && errorCode.i18nContents.length > 0
+          ? errorCode.i18nContents[0]
           : null;
-        
+
         xmlContent += `\t\t\t<error_code id="${errorCode.code}">\n`;
         xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
         xmlContent += `\t\t\t\t<description>${escapeXml(errorCode.detail || '')}</description>\n`;
-        
+
         // 优先使用 i18n 内容；若无，则回退主表中文
         const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
         const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
         const operation = i18nContent ? i18nContent.operation : errorCode.operation;
-        
+
         xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
         xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;
         xmlContent += `\t\t\t\t<opinfo>${escapeXml(operation || '')}</opinfo>\n`;
-        
+
         xmlContent += `\t\t\t\t<isArm>${errorCode.is_arm_error ? 'True' : 'False'}</isArm>\n`;
         xmlContent += `\t\t\t\t<detInfo>${escapeXml(errorCode.detail || '')}</detInfo>\n`;
         xmlContent += `\t\t\t\t<method>${escapeXml(errorCode.method || '')}</method>\n`;
@@ -859,12 +826,12 @@ const exportErrorCodesToXML = async (req, res) => {
         xmlContent += `\t\t\t\t<action>${errorCode.solution || 'tip'}</action>\n`;
         xmlContent += `\t\t\t</error_code>\n`;
       });
-      
+
       xmlContent += `\t\t</subsystem>\n`;
     });
 
     xmlContent += `\t</instance>\n</Medbot>`;
-    
+
     // 记录操作日志（如果失败不影响主要操作）
     if (req.user) {
       try {
@@ -882,12 +849,12 @@ const exportErrorCodesToXML = async (req, res) => {
         console.warn('记录操作日志失败，但不影响XML导出:', logError.message);
       }
     }
-    
+
     // 设置响应头
     const filename = `FaultAnalysis_${language}.xml`;
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    
+
     res.send(xmlContent);
   } catch (err) {
     console.error('XML导出失败:', err);
@@ -906,14 +873,42 @@ const escapeXml = (text) => {
     .replace(/'/g, '&#39;');
 };
 
+const getOrderedPrefixIds = (sectionMap = {}) => {
+  return Object.keys(sectionMap).sort((a, b) => Number(a) - Number(b));
+};
+
+const buildPrefixSectionXml = (sectionKey, tagName, targetLang) => {
+  const sectionMap = prefixTranslations[sectionKey] || {};
+  const ids = getOrderedPrefixIds(sectionMap);
+  let sectionXml = `\t\t<${sectionKey}>\n`;
+
+  ids.forEach((id) => {
+    const translations = sectionMap[id] || {};
+    const value = translations[targetLang] ?? translations.zh ?? translations.en ?? '';
+    sectionXml += `\t\t\t<${tagName} id="${id}">${escapeXml(value)}</${tagName}>\n`;
+  });
+
+  sectionXml += `\t\t</${sectionKey}>\n`;
+  return sectionXml;
+};
+
+const buildPrefixXml = (targetLang) => {
+  let prefixXml = '\t<prefix>\n';
+  prefixXml += buildPrefixSectionXml('prefix_arm', 'arm_num', targetLang);
+  prefixXml += buildPrefixSectionXml('prefix_axis', 'axis_num', targetLang);
+  prefixXml += buildPrefixSectionXml('prefix_patient', 'axis_num', targetLang);
+  prefixXml += '\t</prefix>\n';
+  return prefixXml;
+};
+
 // 多语言XML导出功能
 const exportMultiLanguageXML = async (req, res) => {
   try {
     const { languages = 'zh' } = req.query;
     const langList = languages.split(',').map(lang => lang.trim());
     console.log(`[exportMultiLanguageXML] start languages=${languages}`);
-    
-    // 语言代码映射 - 只支持指定的10种语言
+
+    // 语言代码映射
     const langMap = {
       'zh': 'zh',      // 中文（简体）
       'en': 'en',      // 英语
@@ -925,15 +920,17 @@ const exportMultiLanguageXML = async (req, res) => {
       'nl': 'nl',      // 荷兰语
       'sk': 'sk',      // 斯洛伐克语
       'ro': 'ro',      // 罗马尼亚语
-      'da': 'da'       // 丹麦语
+      'da': 'da',      // 丹麦语
+      'lv': 'lv',      // 拉脱维亚语
+      'ru': 'ru'       // 俄语
     };
-    
+
     // 转换语言代码
     const targetLangList = langList.map(lang => langMap[lang] || lang);
     const i18nQueryLangs = Array.from(new Set([...targetLangList, 'zh']));
     const i18nQueryLangSet = new Set(i18nQueryLangs);
     const queryStart = Date.now();
-    
+
     // 获取所有故障码
     const queryErrorCodesStart = Date.now();
     const errorCodes = await ErrorCode.findAll({
@@ -986,11 +983,11 @@ const exportMultiLanguageXML = async (req, res) => {
     });
     const queryI18nMs = Date.now() - queryI18nStart;
     const queryCostMs = Date.now() - queryStart;
-    
+
     if (errorCodes.length === 0) {
       return res.status(404).json({ message: '没有找到故障码数据' });
     }
-    
+
     const xmlBuildStart = Date.now();
     const xmlResults = {};
     const i18nByErrorCodeId = new Map();
@@ -1011,64 +1008,28 @@ const exportMultiLanguageXML = async (req, res) => {
       groupedByCodes[errorCode.subsystem].push(errorCode);
     });
     const sortedSubsystems = Object.keys(groupedByCodes).sort();
-    
+
     // 为每种语言生成XML
     for (const language of langList) {
       const targetLang = langMap[language] || language;
       let xmlContent = "<?xml version='1.0' encoding='utf-8'?>\n<Medbot>\n";
-      
-      // 添加前缀信息
-      xmlContent += `\t<prefix>
-\t\t<prefix_arm>
-\t\t\t<arm_num id="1">${targetLang === 'en' ? 'Left hand' : '左手'}</arm_num>
-\t\t\t<arm_num id="2">${targetLang === 'en' ? 'Right hand' : '右手'}</arm_num>
-\t\t\t<arm_num id="3">${targetLang === 'en' ? 'Arm 1' : '1号臂'}</arm_num>
-\t\t\t<arm_num id="4">${targetLang === 'en' ? 'Arm 2' : '2号臂'}</arm_num>
-\t\t\t<arm_num id="5">${targetLang === 'en' ? 'Arm 3' : '3号臂'}</arm_num>
-\t\t\t<arm_num id="6">${targetLang === 'en' ? 'Arm 4' : '4号臂'}</arm_num>
-\t\t\t<arm_num id="7">${targetLang === 'en' ? 'Arm 1' : '1号臂'}</arm_num>
-\t\t\t<arm_num id="8">${targetLang === 'en' ? 'Arm 2' : '2号臂'}</arm_num>
-\t\t\t<arm_num id="9">${targetLang === 'en' ? 'Arm 3' : '3号臂'}</arm_num>
-\t\t\t<arm_num id="10">${targetLang === 'en' ? 'Arm 4' : '4号臂'}</arm_num>
-\t\t\t<arm_num id="11">${targetLang === 'en' ? 'Slave IO' : '主端IO'}</arm_num>
-\t\t\t<arm_num id="12">${targetLang === 'en' ? 'Master IO' : '从端IO'}</arm_num>
-\t\t</prefix_arm>
-\t\t<prefix_axis>
-\t\t\t<axis_num id="1">${targetLang === 'en' ? 'Joint 1' : '关节1'}</axis_num>
-\t\t\t<axis_num id="2">${targetLang === 'en' ? 'Joint 2' : '关节2'}</axis_num>
-\t\t\t<axis_num id="3">${targetLang === 'en' ? 'Joint 3' : '关节3'}</axis_num>
-\t\t\t<axis_num id="4">${targetLang === 'en' ? 'Joint 4' : '关节4'}</axis_num>
-\t\t\t<axis_num id="5">${targetLang === 'en' ? 'Joint 5' : '关节5'}</axis_num>
-\t\t\t<axis_num id="6">${targetLang === 'en' ? 'Joint 6' : '关节6'}</axis_num>
-\t\t\t<axis_num id="7">${targetLang === 'en' ? 'Joint 7' : '关节7'}</axis_num>
-\t\t</prefix_axis>
-\t\t<prefix_patient>
-\t\t\t<axis_num id="0">${targetLang === 'en' ? 'Armrest' : '扶手'}</axis_num>
-\t\t\t<axis_num id="1">${targetLang === 'en' ? 'Left wheel' : '左轮'}</axis_num>
-\t\t\t<axis_num id="2">${targetLang === 'en' ? 'Right wheel' : '右轮'}</axis_num>
-\t\t\t<axis_num id="3">${targetLang === 'en' ? 'Support' : '支撑'}</axis_num>
-\t\t\t<axis_num id="4">${targetLang === 'en' ? 'Column lifting' : '立柱升降'}</axis_num>
-\t\t\t<axis_num id="5">${targetLang === 'en' ? 'IO Module' : 'IO 模组'}</axis_num>
-\t\t\t<axis_num id="6">${targetLang === 'en' ? 'Beam extension' : '横梁伸缩'}</axis_num>
-\t\t\t<axis_num id="7">${targetLang === 'en' ? 'Main suspension rotation' : '主悬吊旋转'}</axis_num>
-\t\t\t<axis_num id="8">${targetLang === 'en' ? 'Beam rotation' : '横梁旋转'}</axis_num>
-\t\t\t<axis_num id="9">${targetLang === 'en' ? 'Battery' : '锂电池'}</axis_num>
-\t\t</prefix_patient>
-\t</prefix>
-\t<instance>\n`;
+
+      // 前缀信息使用固定翻译表（不依赖数据库）
+      xmlContent += buildPrefixXml(targetLang);
+      xmlContent += '\t<instance>\n';
 
       // 生成每个子系统的故障码
       sortedSubsystems.forEach(subsystem => {
         xmlContent += `\t\t<subsystem id="${subsystem}">\n`;
-        
+
         groupedByCodes[subsystem].forEach(errorCode => {
           // 获取当前语言的多语言内容
           const i18nContent = (i18nByErrorCodeId.get(errorCode.id) || Object.create(null))[targetLang] || null;
-          
+
           xmlContent += `\t\t\t<error_code id="${errorCode.code}">\n`;
           xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
           xmlContent += `\t\t\t\t<description>${escapeXml(errorCode.detail || '')}</description>\n`;
-          
+
           // 优先使用 i18n 内容；若无，则回退主表中文
           const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
           const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
@@ -1079,11 +1040,11 @@ const exportMultiLanguageXML = async (req, res) => {
           const param2 = i18nContent ? i18nContent.param2 : errorCode.param2;
           const param3 = i18nContent ? i18nContent.param3 : errorCode.param3;
           const param4 = i18nContent ? i18nContent.param4 : errorCode.param4;
-          
+
           xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
           xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;
           xmlContent += `\t\t\t\t<opinfo>${escapeXml(operation || '')}</opinfo>\n`;
-          
+
           xmlContent += `\t\t\t\t<isArm>${errorCode.is_arm_error ? 'True' : 'False'}</isArm>\n`;
           xmlContent += `\t\t\t\t<detInfo>${escapeXml(detail || '')}</detInfo>\n`;
           xmlContent += `\t\t\t\t<method>${escapeXml(method || '')}</method>\n`;
@@ -1097,14 +1058,14 @@ const exportMultiLanguageXML = async (req, res) => {
           xmlContent += `\t\t\t\t<action>${errorCode.solution || 'tip'}</action>\n`;
           xmlContent += `\t\t\t</error_code>\n`;
         });
-        
+
         xmlContent += `\t\t</subsystem>\n`;
       });
 
       xmlContent += `\t</instance>\n</Medbot>`;
       xmlResults[language] = xmlContent;
     }
-    
+
     const xmlBuildCostMs = Date.now() - xmlBuildStart;
 
     // 记录操作日志
@@ -1124,7 +1085,7 @@ const exportMultiLanguageXML = async (req, res) => {
         console.warn('记录操作日志失败，但不影响多语言XML导出:', logError.message);
       }
     }
-    
+
     console.log(`[exportMultiLanguageXML] done langs=${langList.join(',')} codes=${errorCodes.length} i18nRows=${i18nRows.length} queryMs=${queryCostMs} queryCodesMs=${queryErrorCodesMs} queryI18nMs=${queryI18nMs} buildMs=${xmlBuildCostMs}`);
     res.json({
       message: '多语言XML导出成功',
@@ -1173,7 +1134,7 @@ const exportErrorCodesToCSV = async (req, res) => {
     // 根据格式选择分隔符和转义函数
     const isTsv = format === 'tsv';
     const separator = isTsv ? '\t' : ',';
-    
+
     // 根据格式选择字段
     const baseFields = isTsv ? [
       'id',
@@ -1232,12 +1193,12 @@ const exportErrorCodesToCSV = async (req, res) => {
         .replace(/"/g, '""')  // 双引号转义
         .replace(/\n/g, ' ')  // 换行符替换为空格
         .replace(/\r/g, ' '); // 回车符替换为空格
-      
+
       // TSV格式：制表符替换为空格
       if (isTsv) {
         s = s.replace(/\t/g, ' ');
       }
-      
+
       return `"${s}"`;
     };
 
@@ -1277,13 +1238,13 @@ const exportErrorCodesToCSV = async (req, res) => {
           row.push(escapeValue(categoryNames));
           continue;
         }
-        
+
         // subsystem字段保持原样，不做任何处理
         if (field === 'subsystem') {
           row.push(escapeValue(ecPlain[field]));
           continue;
         }
-        
+
         // 如果是多语言字段，且找到了对应语言的内容，则使用多语言内容
         // 注意：即使多语言字段为空字符串，只要存在对应语言的多语言记录，也应该使用（可能是空字符串）
         if (i18nFields.includes(field) && i18nContent && i18nContent.hasOwnProperty(field)) {
@@ -1307,7 +1268,7 @@ const exportErrorCodesToCSV = async (req, res) => {
           description: `导出故障码CSV文件 (语言: ${targetLang || '中文/默认'})`,
           details: { language: targetLang || 'zh', exportCount: errorCodes.length }
         });
-      } catch {}
+      } catch { }
     }
 
     // 输出 CSV/TSV（带 BOM 以兼容 Excel）
@@ -1315,7 +1276,7 @@ const exportErrorCodesToCSV = async (req, res) => {
     const content = bom + lines.join('\r\n');
     const extension = isTsv ? 'tsv' : 'csv';
     const mimeType = isTsv ? 'text/tab-separated-values' : 'text/csv';
-    const filename = `error_codes_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.${extension}`;
+    const filename = `error_codes_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${extension}`;
     res.setHeader('Content-Type', `${mimeType}; charset=utf-8`);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return res.send(content);
@@ -1329,21 +1290,21 @@ const exportErrorCodesToCSV = async (req, res) => {
 const getErrorCodeByCodeAndSubsystem = async (req, res) => {
   try {
     const { code, subsystem } = req.query;
-    
+
     if (!code || !subsystem) {
       return res.status(400).json({ message: '故障码和子系统参数都是必需的' });
     }
-    
+
     // 优先使用ES精确查询，失败时fallback到MySQL
     let errorCode = null;
     try {
       const { searchByCode: searchErrorCodeByCodeEs } = require('../services/errorCodeSearchService');
-      const esResult = await searchErrorCodeByCodeEs({ 
-        code, 
-        subsystem, 
+      const esResult = await searchErrorCodeByCodeEs({
+        code,
+        subsystem,
         lang: req.headers['accept-language'] || req.query.lang || 'zh'
       });
-      
+
       if (esResult.ok && esResult.item) {
         // ES查询成功，从MySQL获取完整数据（包括关联数据）
         errorCode = await ErrorCode.findByPk(esResult.item.id, {
@@ -1361,34 +1322,34 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
       // ES查询失败，fallback到MySQL
       console.warn('[故障码查询] ES查询失败，fallback到MySQL:', esError?.message || esError);
     }
-    
+
     // 如果ES查询失败或没有结果，使用MySQL查询
     if (!errorCode) {
       errorCode = await ErrorCode.findOne({
-      where: { code, subsystem },
-      include: [
-        {
-          model: I18nErrorCode,
-          as: 'i18nContents',
-          required: false,
-          attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
-        }
-      ]
-    });
+        where: { code, subsystem },
+        include: [
+          {
+            model: I18nErrorCode,
+            as: 'i18nContents',
+            required: false,
+            attributes: ['id', 'lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
+          }
+        ]
+      });
     }
-    
+
     if (!errorCode) {
       return res.json({ errorCode: null });
     }
-    
+
     // 根据请求语言合并多语言内容
     // 从 Accept-Language 头或查询参数获取语言偏好
     const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
     // 标准化语言代码：'en-US' -> 'en', 'zh-CN' -> 'zh', 'zh' -> 'zh'
     const targetLang = acceptLanguage.startsWith('en') ? 'en' : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
-    
+
     const errorCodeData = errorCode.toJSON();
-    
+
     // 如果是中文，直接返回主表数据（不需要合并）
     if (targetLang !== 'zh' && targetLang !== 'zh-CN') {
       // 查找对应语言的多语言内容
@@ -1397,7 +1358,7 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
         const contentLang = content.lang.split('-')[0];
         return contentLang === targetLang;
       });
-      
+
       // 如果找到对应语言的内容，合并到主记录
       if (i18nContent) {
         // 合并多语言字段：只要多语言记录存在该字段（即使为空字符串），就使用多语言值
@@ -1421,10 +1382,10 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
         });
       }
     }
-    
+
     // 移除 i18nContents 数组，因为已经合并到主记录
     delete errorCodeData.i18nContents;
-    
+
     res.json({ errorCode: errorCodeData });
   } catch (err) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
@@ -1769,7 +1730,7 @@ const syncErrorCodesToEs = async (req, res) => {
 
     // 检查ES是否启用
     if (!isErrorCodeEsEnabled()) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         message: 'ES同步功能已禁用',
         error: 'ERROR_CODE_ES_ENABLED=false'
       });
@@ -1785,9 +1746,9 @@ const syncErrorCodesToEs = async (req, res) => {
         console.log('✅ 故障码ES索引已重建');
       } catch (e) {
         console.error('重建ES索引失败:', e);
-        return res.status(500).json({ 
-          message: '重建ES索引失败', 
-          error: e?.message || e 
+        return res.status(500).json({
+          message: '重建ES索引失败',
+          error: e?.message || e
         });
       }
     }

@@ -26,72 +26,86 @@ function buildOption (data) {
   const { binCenters, counts, median, p90, p95 } = data
   const nBins = binCenters.length
   if (nBins === 0) return null
-  const categories = binCenters.map(c => String(Math.round(c - BIN_MS / 2)))
-  const binIndexForMedian = median != null && Number.isFinite(median) ? Math.min(Math.floor(median / BIN_MS), nBins - 1) : -1
-  const binIndexForP90 = p90 != null && Number.isFinite(p90) ? Math.min(Math.floor(p90 / BIN_MS), nBins - 1) : -1
-  const binIndexForP95 = p95 != null && Number.isFinite(p95) ? Math.min(Math.floor(p95 / BIN_MS), nBins - 1) : -1
+  const maxX = nBins * BIN_MS
+  const barData = counts.map((count, idx) => [idx * BIN_MS, count, (idx + 1) * BIN_MS])
+  const maxCount = counts.length ? Math.max(...counts) : 0
+  const clampX = (v) => Math.max(0, Math.min(maxX, Number(v)))
+  const valueForMedian = median != null && Number.isFinite(median) ? clampX(median) : null
+  const valueForP90 = p90 != null && Number.isFinite(p90) ? clampX(p90) : null
+  const valueForP95 = p95 != null && Number.isFinite(p95) ? clampX(p95) : null
+  const tickStepBins = Math.max(1, Math.ceil(nBins / 10))
+  const tickStepMs = tickStepBins * BIN_MS
   const colorP50 = '#2e7d32'
   const colorP90 = '#ed6c02'
   const colorP95 = '#c62828'
-  const markLineCategoryData = []
-  if (binIndexForMedian >= 0) {
-    markLineCategoryData.push({
-      xAxis: binIndexForMedian,
+  const formatStatValue = (v) => (v != null && Number.isFinite(v) ? String(v) : '-')
+  const markLineValueData = []
+  if (valueForMedian != null) {
+    markLineValueData.push({
+      xAxis: valueForMedian,
       lineStyle: { type: 'dashed', color: colorP50 },
-      label: { formatter: () => t('surgeryVisualization.report.durationHistogramP50', { value: Math.round(median) }), color: colorP50 }
+      label: { formatter: () => t('surgeryVisualization.report.durationHistogramP50', { value: formatStatValue(median) }), color: colorP50 }
     })
   }
-  if (binIndexForP90 >= 0 && binIndexForP90 !== binIndexForMedian) {
-    markLineCategoryData.push({
-      xAxis: binIndexForP90,
+  if (valueForP90 != null && valueForP90 !== valueForMedian) {
+    markLineValueData.push({
+      xAxis: valueForP90,
       lineStyle: { type: 'dashed', color: colorP90 },
-      label: { formatter: () => t('surgeryVisualization.report.durationHistogramP90', { value: Math.round(p90) }), color: colorP90, offset: [0, 8] }
+      label: { formatter: () => t('surgeryVisualization.report.durationHistogramP90', { value: formatStatValue(p90) }), color: colorP90, offset: [0, 8] }
     })
   }
-  if (binIndexForP95 >= 0) {
-    markLineCategoryData.push({
-      xAxis: binIndexForP95,
+  if (valueForP95 != null) {
+    markLineValueData.push({
+      xAxis: valueForP95,
       lineStyle: { type: 'dashed', color: colorP95 },
-      label: { formatter: () => t('surgeryVisualization.report.durationHistogramP95', { value: Math.round(p95) }), color: colorP95, offset: [0, -8] }
+      label: { formatter: () => t('surgeryVisualization.report.durationHistogramP95', { value: formatStatValue(p95) }), color: colorP95, offset: [0, -8] }
     })
   }
-  const markAreaP95ToMax = (binIndexForP95 >= 0 && nBins > 0)
+  const markAreaP95ToMax = (valueForP95 != null && nBins > 0)
     ? [
-        { xAxis: binIndexForP95, yAxis: 'min' },
-        { xAxis: nBins - 1, yAxis: 'max' }
+        { xAxis: valueForP95, yAxis: 0 },
+        { xAxis: maxX, yAxis: maxCount }
       ]
     : null
 
   return {
     tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
+      trigger: 'item',
       formatter: (params) => {
-        const p = params && params[0]
-        if (!p || p.data == null) return ''
-        const idx = p.dataIndex
-        const start = idx * BIN_MS
-        const end = (idx + 1) * BIN_MS
-        return `${start}-${end} ms: ${p.data}`
+        if (!params || !Array.isArray(params.data)) return ''
+        const start = params.data[0]
+        const count = params.data[1]
+        const end = params.data[2]
+        return `${start}-${end} ms: ${count}`
       }
     },
-    grid: { left: 52, right: 40, top: 28, bottom: 56, containLabel: true },
+    grid: { left: 66, right: 40, top: 28, bottom: 56, containLabel: true },
     xAxis: {
-      type: 'category',
+      type: 'value',
+      min: 0,
+      max: maxX,
+      interval: tickStepMs,
       name: t('surgeryVisualization.report.durationHistogramX'),
       nameLocation: 'middle',
       nameGap: 42,
       nameTextStyle: { fontSize: 12 },
       axisLine: { show: true },
       axisTick: { show: true },
-      axisLabel: { show: true, interval: 2, rotate: nBins > 14 ? 45 : 0 },
-      data: categories
+      axisLabel: {
+        show: true,
+        rotate: 0,
+        align: 'center',
+        margin: 8
+      },
+      splitLine: { show: false }
     },
     yAxis: {
       type: 'value',
       name: t('surgeryVisualization.report.durationHistogramY'),
+      nameLocation: 'middle',
+      nameRotate: 90,
       nameTextStyle: { fontSize: 12 },
-      nameGap: 36,
+      nameGap: 46,
       axisLine: { show: true },
       axisTick: { show: true },
       axisLabel: { show: true },
@@ -100,10 +114,37 @@ function buildOption (data) {
     },
     series: [
       {
-        type: 'bar',
-        data: counts,
-        barCategoryGap: '0%',
-        barWidth: '95%',
+        type: 'custom',
+        name: t('surgeryVisualization.report.durationHistogramY'),
+        data: barData,
+        renderItem: (params, api) => {
+          const start = api.value(0)
+          const count = api.value(1)
+          const end = api.value(2)
+          const p0 = api.coord([start, 0])
+          const p1 = api.coord([end, count])
+          const shape = echarts.graphic.clipRectByRect(
+            {
+              x: p0[0],
+              y: p1[1],
+              width: Math.max(1, p1[0] - p0[0] - 1),
+              height: Math.max(1, p0[1] - p1[1])
+            },
+            {
+              x: params.coordSys.x,
+              y: params.coordSys.y,
+              width: params.coordSys.width,
+              height: params.coordSys.height
+            }
+          )
+          return shape
+            ? {
+                type: 'rect',
+                shape,
+                style: api.style()
+              }
+            : null
+        },
         itemStyle: {
           color: {
             type: 'linear',
@@ -119,7 +160,7 @@ function buildOption (data) {
             ]
           }
         },
-        ...(markLineCategoryData.length ? { markLine: { symbol: 'none', data: markLineCategoryData } } : {}),
+        ...(markLineValueData.length ? { markLine: { symbol: 'none', data: markLineValueData } } : {}),
         ...(markAreaP95ToMax ? { markArea: { silent: true, data: [[markAreaP95ToMax[0], markAreaP95ToMax[1]]], itemStyle: { color: 'rgba(244, 67, 54, 0.12)' } } } : {})
       }
     ]

@@ -1820,7 +1820,7 @@
       "energyDensityX": "器械使用时间",
       "energyDensityY": "占空比",
       "energyDensityTooltip": "{start}s - {end}s：占空比 {duty}%",
-      "energyDensityHeatmapTooltip": "{row} | {start}s - {end}s：强度 {duty}%",
+      "energyDensityHeatmapTooltip": "状态/类型：{row} | 时间：{start}s - {end}s | 占空比：{duty}%",
       "energyDensityClamped": "闭合",
       "energyDensityUnclamped": "非闭合",
       "energyDensityClosureCol": "闭合/非闭合",

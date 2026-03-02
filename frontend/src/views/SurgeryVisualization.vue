@@ -320,31 +320,46 @@
     <!-- 右侧抽屉：手术事件序列列表 -->
     <el-drawer
       v-model="eventSequenceDrawerVisible"
-      :title="eventSequenceDrawerTitle"
       direction="rtl"
-      :size="600"
+      :size="1000"
       destroy-on-close
+      class="drawer-instrument-usage drawer-event-sequence"
     >
-      <div class="event-sequence-wrapper">
-        <el-table
-          :data="eventSequenceList"
-          stripe
-          border
-          size="small"
-          :default-sort="{ prop: 'sequence', order: 'ascending' }"
-        >
-          <el-table-column prop="sequence" label="序号" width="80" align="center" sortable />
-          <el-table-column prop="event_name" label="事件名称" min-width="200" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span :title="row.event_name">{{ row.event_name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="event_time" label="事件时间" width="220" align="center">
-            <template #default="{ row }">
-              <span :title="formatEventTime(row.event) || '-'">{{ formatEventTime(row.event) || '-' }}</span>
-            </template>
-          </el-table-column>
-        </el-table>
+      <template #header>
+        <div class="drawer-sheet-header">
+          <div class="drawer-sheet-title-row">
+            <span class="drawer-sheet-accent" />
+            <span class="drawer-sheet-title">{{ eventSequenceDrawerTitle }}</span>
+            <span class="drawer-sheet-subtitle">| {{ eventSequenceList.length }} 条</span>
+          </div>
+        </div>
+      </template>
+      <div class="drawer-table-wrapper">
+        <div class="drawer-section">
+          <div class="drawer-energy-table-wrap drawer-event-sequence-table-wrap">
+            <el-table
+              :data="eventSequenceList"
+              stripe
+              border
+              size="small"
+              style="width: 100%"
+              :default-sort="{ prop: 'sequence', order: 'ascending' }"
+              max-height="620"
+            >
+              <el-table-column prop="sequence" label="序号" width="80" align="center" sortable />
+              <el-table-column prop="event_name" label="事件名称" min-width="200" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span :title="row.event_name">{{ row.event_name }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="event_time" label="事件时间" width="220" align="center">
+                <template #default="{ row }">
+                  <span :title="formatEventTime(row.event) || '-'">{{ formatEventTime(row.event) || '-' }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
       </div>
     </el-drawer>
 
@@ -387,6 +402,10 @@
               <div class="drawer-info-section-value drawer-info-section-value--udi">{{ drawerPrimaryInstrument.udi || '--' }}</div>
             </div>
             <div class="drawer-info-section-field">
+              <div class="drawer-info-section-label">{{ $t('surgeryVisualization.tooltipToolLife') }}</div>
+              <div class="drawer-info-section-value">{{ getSegmentToolLife(drawerPrimaryInstrument) }}</div>
+            </div>
+            <div class="drawer-info-section-field">
               <div class="drawer-info-section-label">{{ $t('surgeryVisualization.report.installTimeShort') }}</div>
               <div class="drawer-info-section-value">{{ formatSegmentTime(drawerPrimaryInstrument.start_time) }}</div>
             </div>
@@ -415,6 +434,7 @@
             <div class="drawer-energy-table-wrap">
               <el-table
                 :data="drawerEnergySummaryTableRows"
+                row-key="summaryKey"
                 stripe
                 border
                 size="small"
@@ -431,6 +451,32 @@
                 <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
                 <el-table-column prop="totalTimeLabel" :label="$t('surgeryVisualization.report.totalActivationTime')" width="120" align="center" />
                 <el-table-column prop="count" :label="$t('surgeryVisualization.report.totalActivationCount')" width="100" align="center" />
+                <el-table-column type="expand" width="48" align="center">
+                  <template #default="{ row }">
+                    <div class="drawer-energy-detail-table-wrap drawer-energy-detail-table-wrap--inline">
+                      <el-table
+                        :data="getEnergyDetailRowsForSummaryRow(row)"
+                        stripe
+                        border
+                        size="small"
+                        style="width: 100%"
+                        max-height="320"
+                      >
+                        <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" :width="drawerReportColWidthArm" align="center" />
+                        <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" :width="drawerReportColWidthInstrumentType" show-overflow-tooltip />
+                        <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" :min-width="drawerReportColWidthUdi" show-overflow-tooltip>
+                          <template #default="{ row: detailRow }">
+                            <span style="font-family: 'Courier New', monospace;">{{ detailRow.udi || '-' }}</span>
+                          </template>
+                        </el-table-column>
+                        <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
+                        <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="160" align="center" />
+                        <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="120" align="center" />
+                        <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" width="140" align="center" />
+                      </el-table>
+                    </div>
+                  </template>
+                </el-table-column>
               </el-table>
             </div>
           </div>
@@ -438,30 +484,20 @@
             {{ $t('surgeryVisualization.report.drawerNoEnergy') }}
           </div>
           <div v-if="drawerEnergySummaryTableRows.length > 0 && (drawerEnergyDurationHistogram.n > 0 || drawerEnergyDetailTableRows.length > 0)" class="drawer-section drawer-energy-view-section">
-            <div class="drawer-energy-view-header">
-              <div class="section-title drawer-section-title drawer-info-section-title">
-                <span class="drawer-info-section-title-bar" />
-                <span>{{ $t('surgeryVisualization.report.energyActivation') }}</span>
-              </div>
-              <el-radio-group v-model="drawerEnergyViewMode" size="small" class="drawer-energy-view-toggle">
-                <el-radio-button label="chart">{{ $t('surgeryVisualization.report.energyViewChart') }}</el-radio-button>
-                <el-radio-button label="table">{{ $t('surgeryVisualization.report.energyViewDetailTable') }}</el-radio-button>
-              </el-radio-group>
-            </div>
-            <div v-show="drawerEnergyViewMode === 'chart'" class="drawer-energy-charts">
+            <div class="drawer-energy-charts">
               <div class="drawer-energy-chart-panel">
-                <div class="drawer-energy-chart-card drawer-energy-density-card">
-                  <div class="drawer-energy-card-header">
-                    <div class="drawer-energy-card-title">{{ $t('surgeryVisualization.report.energyDensityTitle') }}</div>
+                <div class="drawer-energy-block drawer-energy-density-block">
+                  <div class="drawer-energy-block-header">
+                    <div class="drawer-energy-block-title">{{ $t('surgeryVisualization.report.energyDensityTitle') }}</div>
                   </div>
                   <div class="drawer-energy-density-wrap">
                     <EnergyDensityChart v-if="drawerEnergyDensity.numBuckets > 0" :density-data="drawerEnergyDensity" />
                     <div v-else class="drawer-energy-empty drawer-energy-empty-overlay">{{ $t('surgeryVisualization.report.noEnergyRecords') }}</div>
                   </div>
                 </div>
-                <div class="drawer-energy-chart-card drawer-energy-histogram-card">
-                  <div class="drawer-energy-card-header">
-                    <div class="drawer-energy-card-title">{{ $t('surgeryVisualization.report.durationHistogramTitle') }}</div>
+                <div class="drawer-energy-block drawer-energy-histogram-block">
+                  <div class="drawer-energy-block-header">
+                    <div class="drawer-energy-block-title">{{ $t('surgeryVisualization.report.durationHistogramTitle') }}</div>
                   </div>
                   <div class="drawer-energy-histogram-wrap">
                     <DurationHistogramChart v-if="drawerEnergyDurationHistogram.n > 0" :histogram-data="drawerEnergyDurationHistogram" />
@@ -469,28 +505,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-            <div v-show="drawerEnergyViewMode === 'table'" class="drawer-energy-detail-table-wrap">
-              <el-table
-                :data="drawerEnergyDetailTableRows"
-                stripe
-                border
-                size="small"
-                style="width: 100%"
-                max-height="360"
-              >
-                <el-table-column prop="armId" :label="$t('surgeryVisualization.report.armNumber')" :width="drawerReportColWidthArm" align="center" />
-                <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" :width="drawerReportColWidthInstrumentType" show-overflow-tooltip />
-                <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" :min-width="drawerReportColWidthUdi" show-overflow-tooltip>
-                  <template #default="{ row }">
-                    <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
-                <el-table-column prop="startTime" :label="$t('surgeryVisualization.report.energyStartTime')" width="160" align="center" />
-                <el-table-column prop="durationLabel" :label="$t('surgeryVisualization.report.energyDuration')" width="120" align="center" />
-                <el-table-column prop="gripsActiveLabel" :label="$t('surgeryVisualization.report.gripsActiveDuration')" width="140" align="center" />
-              </el-table>
             </div>
           </div>
         </div>
@@ -4888,6 +4902,7 @@ export default {
       })
       const rows = Array.from(map.values()).map(r => ({
         ...r,
+        summaryKey: `${r.armId}|${r.instrumentType}|${r.udi}|${r.energyType}`,
         totalTimeLabel: r.totalMs + ' ms',
         count: r.count
       }))
@@ -4922,7 +4937,14 @@ export default {
       return rows
     })
 
-    const drawerEnergyViewMode = ref('chart')
+    const getEnergyDetailRowsForSummaryRow = (summaryRow) => {
+      return (drawerEnergyDetailTableRows.value || []).filter(r =>
+        Number(r.armId) === Number(summaryRow.armId) &&
+        String(r.instrumentType || '') === String(summaryRow.instrumentType || '') &&
+        String(r.udi || '') === String(summaryRow.udi || '') &&
+        String(r.energyType || '') === String(summaryRow.energyType || '')
+      )
+    }
 
     // 器械使用时间的总时长范围（所有器械段的最小开始～最大结束），用于抽屉内密度图 x 轴
     const instrumentUsageRangeMs = computed(() => {
@@ -4982,6 +5004,25 @@ export default {
     const getDrawerEnergyEventsForHeatmap = () => {
       const list = drawerInstruments.value || []
       const events = []
+      const getTotalActiveSecForDensity = (evt, startMs, endMs) => {
+        if (evt.duration_sec != null && evt.duration_sec !== '') {
+          const s = Number(evt.duration_sec)
+          if (Number.isFinite(s) && s > 0) return s
+        }
+        if (evt.duration != null && evt.duration !== '') {
+          const s = Number(evt.duration)
+          if (Number.isFinite(s) && s > 0) return s
+        }
+        if (evt.duration_ms != null && evt.duration_ms !== '') {
+          const ms = Number(evt.duration_ms)
+          if (Number.isFinite(ms) && ms > 0) return ms / 1000
+        }
+        // active/Active 是总激发时长；不要用 GripsActive 兜底，否则占空比会退化为 0/1。
+        const activeSec = rawToSeconds(evt.active ?? evt.Active ?? 0)
+        if (activeSec > 0) return activeSec
+        const eventSec = Math.max(0.001, (endMs - startMs) / 1000)
+        return eventSec
+      }
       list.forEach((seg) => {
         ;(seg.energy_activation || []).forEach((evt) => {
           const startRaw = evt.start ?? evt.start_time
@@ -4994,7 +5035,7 @@ export default {
             endMs = startMs + sec * 1000
           }
           if (endMs <= startMs) endMs = startMs + 1
-          const activeSec = getEnergyEventDurationSec(evt)
+          const activeSec = getTotalActiveSecForDensity(evt, startMs, endMs)
           const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
           const typeKey = getEnergyEventTypeKey(evt.type)
           events.push({ startMs, endMs, typeKey, activeSec, gripsActiveSec })
@@ -5016,7 +5057,7 @@ export default {
       const events = getDrawerEnergyEventsForHeatmap()
       events.forEach(({ startMs: s, endMs: e, typeKey, activeSec, gripsActiveSec }) => {
         const totalSec = activeSec > 0 ? activeSec : 0.001
-        const clampRatio = Math.max(0, Math.min(1, gripsActiveSec / totalSec))
+        const clampRatio = Math.max(0, Math.min(1, Math.max(0, gripsActiveSec) / totalSec))
         const unclampRatio = 1 - clampRatio
         const b0 = Math.floor((s - startMs) / DRAWER_DENSITY_BUCKET_MS)
         const b1 = Math.ceil((e - startMs) / DRAWER_DENSITY_BUCKET_MS)
@@ -5363,7 +5404,7 @@ export default {
       drawerEnergyActivations,
       drawerEnergySummaryTableRows,
       drawerEnergyDetailTableRows,
-      drawerEnergyViewMode,
+      getEnergyDetailRowsForSummaryRow,
       drawerEnergyDensity,
       drawerEnergyDurationHistogram,
       formatEnergyType,
@@ -6291,29 +6332,23 @@ export default {
 }
 .drawer-energy-chart-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: stretch;
 }
-.drawer-energy-chart-card {
-  border: 1.6px solid #f1f5f9;
-  border-radius: 16px;
-  padding: 24px 24px 16px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 43, 0.08), 0 1px 2px rgba(15, 23, 43, 0.06);
-  text-align: left;
-  min-height: 302px;
+.drawer-energy-block {
   display: flex;
   flex-direction: column;
+  text-align: left;
 }
-.drawer-energy-card-header {
+.drawer-energy-block-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 15px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
-.drawer-energy-card-title {
+.drawer-energy-block-title {
   font-size: 10px;
   line-height: 15px;
   font-weight: 700;
@@ -6324,8 +6359,8 @@ export default {
 .drawer-energy-density-wrap {
   position: relative;
   width: 100%;
-  height: 220px;
-  min-height: 220px;
+  height: 280px;
+  min-height: 280px;
 }
 .drawer-energy-density-wrap .drawer-energy-empty-overlay {
   position: absolute;
@@ -6333,7 +6368,7 @@ export default {
   top: 0;
   right: 0;
   bottom: 0;
-  min-height: 220px;
+  min-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6358,6 +6393,9 @@ export default {
 }
 .drawer-energy-detail-table-wrap {
   overflow-x: auto;
+}
+.drawer-energy-detail-table-wrap--inline {
+  margin-top: 10px;
 }
 .drawer-energy-summary {
   margin-top: 12px;
@@ -6651,10 +6689,9 @@ export default {
   min-width: 0;
 }
 
-/* 左侧抽屉：事件序列列表 */
-.event-sequence-wrapper {
-  padding: 20px;
-  height: 100%;
+/* 事件序列抽屉：沿用器械使用抽屉的表格容器风格 */
+.drawer-event-sequence-table-wrap {
+  max-height: 620px;
   overflow-y: auto;
 }
 
@@ -6671,7 +6708,7 @@ export default {
 }
 .viz-page :deep(.drawer-instrument-usage .el-drawer__body) {
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
   padding: 0;
   padding-right: 0;
   display: flex;
@@ -6773,9 +6810,9 @@ export default {
 }
 
 .drawer-instrument-usage .drawer-table-wrapper {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: 100%;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   padding: 0 16px 16px 16px;
@@ -6788,9 +6825,7 @@ export default {
   min-height: 0;
 }
 .drawer-instrument-usage .drawer-energy-section {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
 }
@@ -6802,33 +6837,33 @@ export default {
   overflow-y: auto;
 }
 .drawer-instrument-usage .drawer-energy-view-section {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: 560px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 .drawer-instrument-usage .drawer-energy-view-section .drawer-energy-view-header {
   flex: 0 0 auto;
 }
 .drawer-instrument-usage .drawer-energy-view-section .drawer-energy-chart-panel {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: 560px; /* 密度图 280px + 直方图 240px + gap，避免被压扁并保证可滚动 */
 }
-.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-chart-card {
+.drawer-instrument-usage .drawer-energy-view-section .drawer-energy-block {
   min-height: 0;
 }
 .drawer-instrument-usage .drawer-energy-view-section .drawer-energy-density-wrap,
 .drawer-instrument-usage .drawer-energy-view-section .drawer-energy-histogram-wrap {
-  min-height: 220px;
+  min-height: 280px;
 }
 .drawer-instrument-usage .drawer-energy-view-section .drawer-energy-histogram-wrap {
   min-height: 240px;
 }
-.drawer-instrument-usage .drawer-energy-view-section :deep(.energy-density-chart),
-.drawer-instrument-usage .drawer-energy-view-section :deep(.duration-histogram-chart) {
-  height: 220px;
-  min-height: 220px;
+.drawer-instrument-usage .drawer-energy-view-section :deep(.energy-density-chart-wrap),
+.drawer-instrument-usage .drawer-energy-view-section :deep(.energy-density-chart) {
+  height: 280px;
+  min-height: 280px;
 }
 .drawer-instrument-usage .drawer-energy-view-section :deep(.duration-histogram-chart) {
   height: 240px;
