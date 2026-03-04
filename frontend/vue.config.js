@@ -7,8 +7,8 @@ function getVersionAndChangelog() {
   const rootDir = path.resolve(__dirname, '..')
   const versionPath = path.join(rootDir, 'VERSION')
   const changelogPath = path.join(rootDir, 'CHANGELOG.md')
-  const version = fs.readFileSync(versionPath, 'utf8').trim()
-  const changelog = fs.readFileSync(changelogPath, 'utf8')
+  const version = fs.existsSync(versionPath) ? fs.readFileSync(versionPath, 'utf8').trim() : '0.0.0'
+  const changelog = fs.existsSync(changelogPath) ? fs.readFileSync(changelogPath, 'utf8') : ''
   const versionEscaped = version.replace(/\./g, '\\.')
   const regex = new RegExp(`## \\[${versionEscaped}\\] - ([^\\n]+)\\n([\\s\\S]*?)(?=\\n---\\s*\\n|\\n## \\[|$)`)
   const match = changelog.match(regex)
@@ -17,6 +17,9 @@ function getVersionAndChangelog() {
 }
 
 const { version: APP_VERSION, content: APP_CHANGELOG_CURRENT } = getVersionAndChangelog()
+const APP_TARGET = ['all', 'web', 'mobile'].includes((process.env.VUE_APP_TARGET || '').toLowerCase())
+  ? String(process.env.VUE_APP_TARGET).toLowerCase()
+  : 'all'
 
 module.exports = defineConfig({
   transpileDependencies: true,
@@ -24,6 +27,7 @@ module.exports = defineConfig({
     config.plugin('define').tap((definitions) => {
       definitions[0]['__APP_VERSION__'] = JSON.stringify(APP_VERSION)
       definitions[0]['__APP_CHANGELOG_CURRENT__'] = JSON.stringify(APP_CHANGELOG_CURRENT)
+      definitions[0]['__APP_TARGET__'] = JSON.stringify(APP_TARGET)
       return definitions
     })
     config.module
@@ -65,5 +69,6 @@ module.exports = defineConfig({
     hot: false,
     liveReload: false
   },
-  publicPath: '/'
+  publicPath: '/',
+  outputDir: APP_TARGET === 'all' ? 'dist' : `dist-${APP_TARGET}`
 })
