@@ -4,10 +4,14 @@
   "description": "LogTool Frontend - Vue.js application",
   "main": "index.js",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
+    "serve": "VUE_APP_TARGET=all vue-cli-service serve",
+    "serve:web": "VUE_APP_TARGET=web vue-cli-service serve",
+    "serve:mobile": "VUE_APP_TARGET=mobile vue-cli-service serve",
+    "build": "VUE_APP_TARGET=all vue-cli-service build",
+    "build:web": "VUE_APP_TARGET=web vue-cli-service build",
+    "build:mobile": "VUE_APP_TARGET=mobile vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "dev": "vue-cli-service serve --port 8080"
+    "dev": "VUE_APP_TARGET=all vue-cli-service serve --port 8080"
   },
   "dependencies": {
     "@antv/f2": "^4.0.51",

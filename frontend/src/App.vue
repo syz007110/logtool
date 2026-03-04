@@ -7,9 +7,8 @@
 </template>
 
 <script>
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import en from 'element-plus/es/locale/lang/en'
 
@@ -17,81 +16,17 @@ export default {
   name: 'App',
   setup() {
     const { locale } = useI18n()
-    const route = useRoute()
     const elementLocale = computed(() => (String(locale.value).startsWith('en') ? en : zhCn))
-
-    // ===== Platform scoping (Design Tokens) =====
-    const isMobileRoute = computed(() => {
-      const p = String(route.path || '')
-      return route.meta?.isMobile === true || p.startsWith('/m/')
-    })
-
-    const setPlatform = (isMobile) => {
-      try {
-        document.documentElement.dataset.platform = isMobile ? 'mobile' : 'web'
-      } catch (_) {}
-    }
-
-    watch(
-      isMobileRoute,
-      (v) => {
-        setPlatform(!!v)
-      },
-      { immediate: true }
-    )
-
-    // ===== Disable pinch zoom (extra hardening for iOS) =====
-    // Note: viewport meta already sets user-scalable=no. Some iOS versions may still allow gesture zoom.
-    const preventGestureZoom = (e) => {
-      try {
-        e.preventDefault()
-      } catch (_) {}
-    }
-    let gestureBound = false
-    const bindGesture = () => {
-      if (gestureBound) return
-      gestureBound = true
-      window.addEventListener('gesturestart', preventGestureZoom, { passive: false })
-      window.addEventListener('gesturechange', preventGestureZoom, { passive: false })
-      window.addEventListener('gestureend', preventGestureZoom, { passive: false })
-    }
-    const unbindGesture = () => {
-      if (!gestureBound) return
-      gestureBound = false
-      window.removeEventListener('gesturestart', preventGestureZoom)
-      window.removeEventListener('gesturechange', preventGestureZoom)
-      window.removeEventListener('gestureend', preventGestureZoom)
-    }
-
-    watch(
-      isMobileRoute,
-      (v) => {
-        // only bind on small screens + mobile routes
-        const isSmall = typeof window !== 'undefined' && window.matchMedia
-          ? window.matchMedia('(max-width: 768px)').matches
-          : false
-        if (v && isSmall) bindGesture()
-        else unbindGesture()
-      },
-      { immediate: true }
-    )
-
-    onBeforeUnmount(() => {
-      unbindGesture()
-    })
-
     return { elementLocale }
   }
 }
 </script>
 
 <style>
-/* 全局样式优化，减少ResizeObserver错误 */
 * {
   box-sizing: border-box;
 }
 
-/* 优化Element Plus组件的渲染性能 */
 .el-tabs__content {
   contain: layout style paint;
 }
@@ -108,7 +43,6 @@ export default {
   contain: layout style paint;
 }
 
-/* 减少不必要的重绘 */
 .el-tabs__item {
   will-change: auto;
 }
@@ -117,12 +51,10 @@ export default {
   will-change: auto;
 }
 
-/* 优化动画性能 */
 .el-collapse-transition {
   transition: height 0.3s ease-in-out, padding-top 0.3s ease-in-out, padding-bottom 0.3s ease-in-out;
 }
 
-/* 禁用某些可能导致ResizeObserver错误的动画 */
 .el-tabs__item.is-active {
   transition: none !important;
 }
@@ -143,12 +75,10 @@ export default {
   transition: none !important;
 }
 
-/* 禁用所有可能导致ResizeObserver错误的过渡动画 */
 .el-tabs * {
   transition: none !important;
 }
 
-/* 全局字体设置 */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -157,7 +87,6 @@ body {
   padding: 0;
 }
 
-/* 滚动条样式 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -177,12 +106,9 @@ body {
   background: #a8a8a8;
 }
 
-/* 移动端页面统一底部留白设置 */
 @media (max-width: 768px) {
-  /* 所有移动端页面统一使用相同的底部留白 */
   .page {
     padding-bottom: max(0px, env(safe-area-inset-bottom) - 20px) !important;
   }
 }
 </style>
-
