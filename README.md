@@ -75,3 +75,30 @@ Common options:
 - `--allow-dirty` (deploy even with local uncommitted files)
 
 If your server path or PM2 process name differs, pass the corresponding options.
+
+## Branch workflow（分支收尾：推送后自动删分支）
+
+希望流程：从 main 拉分支开发 → 推送 → 自动删掉该分支（远程+本地），不用再手动删本地分支。
+
+1. **从主分支拉取并开新分支、开发**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/xxx
+   # 开发、commit...
+   ```
+
+2. **推送后一键收尾（自动删远程+本地分支，并回到 main）**
+   - **Windows（PowerShell）：**
+     ```powershell
+     .\deploy\finish-branch.ps1
+     ```
+   - **Linux / macOS / Git Bash：**
+     ```bash
+     bash deploy/finish-branch.sh
+     ```
+   脚本会：推送当前分支 → 切回 main 并 pull → 删除远程分支 → 删除本地分支。
+
+3. **若在 GitHub/GitLab 上通过 MR/PR 合并并已删除远程分支**，只删本地分支时可加参数：
+   - PowerShell: `.\deploy\finish-branch.ps1 -NoDeleteRemote`
+   - Bash: `bash deploy/finish-branch.sh --no-delete-remote`
