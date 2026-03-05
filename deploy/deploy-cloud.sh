@@ -2,12 +2,15 @@
 
 set -Eeuo pipefail
 
+# Ubuntu deploy script
+#
 # Usage:
-#   ./deploy/deploy-cloud.sh
-#   ./deploy/deploy-cloud.sh --branch main --with-nginx
+#   bash deploy/deploy-cloud.sh
+#   bash deploy/deploy-cloud.sh --repo-dir ~/logtool --deploy-dir /www/server/logtool --branch main --with-nginx
 #
 # Optional env vars:
-#   APP_DIR=/www/server/logtool
+#   REPO_DIR=$HOME/logtool
+#   DEPLOY_DIR=/www/server/logtool
 #   GIT_REMOTE=origin
 #   GIT_BRANCH=main
 #   PM2_APP_NAME=logtool-cluster
@@ -16,7 +19,8 @@ set -Eeuo pipefail
 #   ALLOW_DIRTY=0
 #   HEALTHCHECK_URL=http://127.0.0.1/health
 
-APP_DIR="${APP_DIR:-/www/server/logtool}"
+REPO_DIR="${REPO_DIR:-$HOME/logtool}"
+DEPLOY_DIR="${DEPLOY_DIR:-/www/server/logtool}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 PM2_APP_NAME="${PM2_APP_NAME:-logtool-cluster}"
@@ -39,7 +43,9 @@ usage() {
 Cloud deploy script for LogTool.
 
 Options:
-  --app-dir <path>      Project directory on server
+  --repo-dir <path>     Git repository directory on server
+  --deploy-dir <path>   Frontend artifact directory served by nginx
+  --app-dir <path>      Backward compatible alias of --repo-dir
   --branch <name>       Git branch to deploy
   --remote <name>       Git remote name (default: origin)
   --pm2-name <name>     PM2 app name in ecosystem.config.js
@@ -52,8 +58,12 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --app-dir)
-      APP_DIR="$2"
+    --repo-dir|--app-dir)
+      REPO_DIR="$2"
+      shift 2
+      ;;
+    --deploy-dir)
+      DEPLOY_DIR="$2"
       shift 2
       ;;
     --branch)
@@ -102,10 +112,11 @@ case "$DEPLOY_TARGET" in
     ;;
 esac
 
-[[ -d "$APP_DIR" ]] || die "APP_DIR not found: $APP_DIR"
-cd "$APP_DIR"
+[[ -d "$REPO_DIR" ]] || die "REPO_DIR not found: $REPO_DIR"
+mkdir -p "$DEPLOY_DIR"
+cd "$REPO_DIR"
 
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repo: $APP_DIR"
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repo: $REPO_DIR"
 
 if [[ "$ALLOW_DIRTY" != "1" ]] && [[ -n "$(git status --porcelain)" ]]; then
   die "Working tree has local changes. Commit/stash first, or pass --allow-dirty."
@@ -119,7 +130,7 @@ git pull --ff-only "$GIT_REMOTE" "$GIT_BRANCH"
 install_deps() {
   local dir="$1"
   log "Installing dependencies in $dir"
-  cd "$APP_DIR/$dir"
+  cd "$REPO_DIR/$dir"
   if [[ -f package-lock.json ]]; then
     npm ci
   else
@@ -130,7 +141,7 @@ install_deps() {
 install_deps backend
 install_deps frontend
 
-cd "$APP_DIR/frontend"
+cd "$REPO_DIR/frontend"
 if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "web" ]]; then
   log "Building frontend web package"
   npm run build:web
@@ -141,11 +152,33 @@ if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "mobile" ]]; then
   npm run build:mobile
 fi
 
+sync_artifact() {
+  local source_dir="$1"
+  local target_dir="$2"
+  [[ -d "$source_dir" ]] || die "Build output missing: $source_dir"
+  log "Syncing $(basename "$source_dir") to $target_dir"
+  mkdir -p "$target_dir"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete "$source_dir"/ "$target_dir"/
+  else
+    rm -rf "${target_dir:?}/"*
+    cp -a "$source_dir"/. "$target_dir"/
+  fi
+}
+
+if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "web" ]]; then
+  sync_artifact "$REPO_DIR/frontend/dist-web" "$DEPLOY_DIR/dist-web"
+fi
+
+if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "mobile" ]]; then
+  sync_artifact "$REPO_DIR/frontend/dist-mobile" "$DEPLOY_DIR/dist-mobile"
+fi
+
 log "Ensuring backend log directory exists"
-mkdir -p "$APP_DIR/backend/logs"
+mkdir -p "$REPO_DIR/backend/logs"
 
 log "Restarting backend with PM2: $PM2_APP_NAME"
-cd "$APP_DIR"
+cd "$REPO_DIR"
 if pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
   pm2 restart "$PM2_APP_NAME" --update-env
 else
