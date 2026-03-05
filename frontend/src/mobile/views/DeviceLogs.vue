@@ -1226,8 +1226,9 @@ export default {
 .mobile-header {
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 480px);
   z-index: 100;
   background-color: var(--m-color-surface);
   border-bottom: 1px solid var(--m-color-border);
@@ -1320,8 +1321,9 @@ export default {
 .filter-section {
   position: fixed;
   top: calc(max(var(--m-space-4), calc(env(safe-area-inset-top) + var(--m-space-2))) + 40px);
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 480px);
   z-index: 90;
   display: flex;
   flex-direction: column;
@@ -1333,6 +1335,8 @@ export default {
 }
 
 .content {
+  width: min(100%, 480px);
+  margin: 0 auto;
   padding-left: var(--m-space-3);
   padding-right: var(--m-space-3);
   /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
