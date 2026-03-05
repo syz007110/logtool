@@ -6,12 +6,20 @@ set -Eeuo pipefail
 #
 #   ./deploy/finish-branch.sh
 #   ./deploy/finish-branch.sh --no-delete-remote   # 只删本地分支（例如已在网页合并并删除了远程）
+<<<<<<< HEAD
 #   ./deploy/finish-branch.sh --force              # 本地分支未合并时也强制删除（-D）
+=======
+#
+# 要求：当前分支不能是 main/master，且已 commit 所有需要提交的改动。
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
 
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 MAIN_BRANCH="${MAIN_BRANCH:-main}"
 DELETE_REMOTE="${DELETE_REMOTE:-1}"
+<<<<<<< HEAD
 FORCE_DELETE="${FORCE_DELETE:-0}"
+=======
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
 
 log() { echo "[$(date '+%F %T')] $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -23,11 +31,17 @@ Push current branch, switch to main, pull, then delete remote and local branch.
 Usage:
   ./deploy/finish-branch.sh              # push, checkout main, pull, delete remote + local
   ./deploy/finish-branch.sh --no-delete-remote   # only delete local branch (remote already removed by MR/PR)
+<<<<<<< HEAD
   ./deploy/finish-branch.sh --force       # force delete local branch even if not merged (-D)
 
 Options:
   --no-delete-remote    Do not delete the branch on remote (e.g. after merge via GitHub/GitLab)
   --force               Force delete local branch with -D (use when branch is not merged)
+=======
+
+Options:
+  --no-delete-remote    Do not delete the branch on remote (e.g. after merge via GitHub/GitLab)
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
   -h, --help            Show this help
 EOF
 }
@@ -35,7 +49,10 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-delete-remote) DELETE_REMOTE=0; shift ;;
+<<<<<<< HEAD
     --force) FORCE_DELETE=1; shift ;;
+=======
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
   esac
@@ -66,6 +83,7 @@ if [[ "$DELETE_REMOTE" == "1" ]]; then
 fi
 
 log "Deleting local branch: $CURRENT"
+<<<<<<< HEAD
 if [[ "$FORCE_DELETE" == "1" ]]; then
   git branch -D "$CURRENT"
 else
@@ -79,5 +97,8 @@ else
     exit 1
   fi
 fi
+=======
+git branch -d "$CURRENT"
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
 
 log "Done. You are on $MAIN_BRANCH; branch $CURRENT has been removed."

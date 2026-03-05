@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Usage:
 #   .\deploy\finish-branch.ps1
 #   .\deploy\finish-branch.ps1 -NoDeleteRemote  # only delete local branch
@@ -6,6 +7,15 @@
 param(
     [switch]$NoDeleteRemote,
     [switch]$Force
+=======
+# 用法：在功能分支上执行，推送后切回 main、拉取最新，并删除远程+本地分支（无需手动删本地）
+#
+#   .\deploy\finish-branch.ps1
+#   .\deploy\finish-branch.ps1 -NoDeleteRemote   # 只删本地分支（例如已在网页合并并删除了远程）
+
+param(
+    [switch]$NoDeleteRemote
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +51,7 @@ if (-not $NoDeleteRemote) {
 }
 
 Log "Deleting local branch: $current"
+<<<<<<< HEAD
 if ($Force) {
     git branch -D $current
 } else {
@@ -57,3 +68,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Log ('Done. You are on ' + $mainBranch + ', branch ' + $current + ' has been removed.')
+=======
+git branch -d $current
+if ($LASTEXITCODE -ne 0) { Die "git branch -d failed" }
+
+Log "Done. You are on $mainBranch; branch $current has been removed."
+>>>>>>> a2ee0a606b7b2f976ea1ebd75e33269b96dff2fb
