@@ -19,6 +19,7 @@ export const mobileRoutes = [
       { path: 'surgeries', name: 'MSurgeries', component: () => import('../../mobile/views/SurgeriesDevices.vue'), meta: { isMobile: true } },
       { path: 'surgeries/:deviceId', name: 'MDeviceSurgeries', component: () => import('../../mobile/views/DeviceSurgeries.vue'), meta: { hideTabbar: true, isMobile: true } },
       { path: 'surgery-visualization/:surgeryId', name: 'MSurgeryVisualization', component: () => import('../../mobile/views/SurgeryVisualization.vue'), meta: { hideTabbar: true, isMobile: true } },
+      { path: 'surgery-timeline/:surgeryId', name: 'MSurgeryTimeline', component: () => import('../../mobile/views/SurgeryTimeline.vue'), meta: { hideTabbar: true, isMobile: true } },
       { path: 'profile', name: 'MProfile', component: () => import('../../mobile/views/Profile.vue'), meta: { isMobile: true } }
     ]
   }

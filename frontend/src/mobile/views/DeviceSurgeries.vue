@@ -6,28 +6,19 @@
         <div class="header-content">
             <div class="header-row">
               <div class="header-title">{{ deviceId }}</div>
-              <div v-if="deviceInfo" class="header-meta">
-                <span class="info-text">
-                  {{ $t('mobile.deviceSurgeries.hospitalName') }}：{{ deviceInfo.hospital || '-' }}
-                </span>
-              </div>
-              <div class="header-total">
-                <span class="info-text">
-                  <span class="info-value-primary">{{ totalSurgeries }}</span>{{ $t('mobile.deviceSurgeries.surgeriesUnit') }}
-                </span>
+              <button type="button" class="header-search-btn" @click="toggleSearch">🔍</button>
             </div>
-          </div>
         </div>
       </div>
     </div>
 
     <div
-      class="filters-fixed"
-      ref="filtersRef"
+      class="top-stack-fixed"
+      ref="topStackRef"
       :style="{ top: headerHeight + 'px' }"
     >
-      <!-- 搜索框 -->
-      <div class="search-container">
+      <div class="filters-fixed" ref="filtersRef">
+      <div v-if="showSearch" class="search-container">
         <div class="search-box">
           <van-icon name="search" class="search-icon" />
           <input
@@ -40,95 +31,140 @@
         </div>
       </div>
 
-      <!-- 筛选按钮 -->
-      <div class="filter-menu">
-        <van-dropdown-menu>
-          <van-dropdown-item
-            v-model="surgeryTypeFilter"
-            :options="surgeryTypeOptions"
-            @change="handleFilterChange"
-          />
-          <van-dropdown-item
-            ref="timeDropdownRef"
-            :title="timeFilterTitle"
-            @open="onTimeDropdownOpen"
-          >
-            <div class="time-filter-panel">
-              <div class="time-filter-section">
-                <div class="section-title">{{ quickRangeTitle }}</div>
-                <div class="quick-options">
-                  <div
-                    v-for="option in quickRangeOptions"
-                    :key="option.value"
-                    class="quick-option"
-                    :class="{ active: selectedQuickRange === option.value }"
-                    @click="selectQuickRange(option.value)"
-                  >
-                    {{ option.text }}
-                  </div>
-                </div>
-              </div>
-              <div class="time-filter-section">
-                <div class="section-title">{{ customRangeTitle }}</div>
-                <div class="custom-options">
-                  <div class="custom-row">
-                    <div class="custom-label">{{ yearLabel }}</div>
-                    <div class="option-pills">
-                      <div
-                        v-for="option in yearOptions"
-                        :key="option.value"
-                        class="option-pill"
-                        :class="{ active: selectedYear === option.value }"
-                        @click="selectYear(option.value)"
-                      >
-                        {{ option.text }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="custom-row">
-                    <div class="custom-label">{{ monthLabel }}</div>
-                    <div class="option-pills">
-                      <div
-                        v-for="option in monthOptions"
-                        :key="option.value"
-                        class="option-pill"
-                        :class="{ active: selectedMonth === option.value }"
-                        @click="selectMonth(option.value)"
-                      >
-                        {{ option.text }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="custom-row">
-                    <div class="custom-label">{{ dayLabel }}</div>
-                    <div class="option-pills">
-                      <div
-                        v-for="option in dayOptions"
-                        :key="option.value"
-                        class="option-pill"
-                        :class="{ active: selectedDay === option.value }"
-                        @click="selectDay(option.value)"
-                      >
-                        {{ option.text }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="time-filter-actions">
-                <div class="action-pill" @click="clearTimeFilters">
-                  {{ clearText }}
-                </div>
-              </div>
-            </div>
-          </van-dropdown-item>
-        </van-dropdown-menu>
+      <div class="chip-row">
+        <button class="filter-chip" type="button" @click="openFilterSheet('time')">时间：{{ timeChipLabel }}</button>
+        <button class="filter-chip" type="button" @click="openFilterSheet('type')">类型：{{ typeChipLabel }}</button>
+        <button class="filter-chip" type="button" @click="openFilterSheet('sort')">排序：{{ sortChipLabel }}</button>
+        <button class="filter-chip filter-chip-more" type="button" @click="openFilterSheet('all')">更多</button>
+      </div>
+      <div class="quick-row">
+        <button
+          v-for="option in quickShortcutOptions"
+          :key="option.value"
+          type="button"
+          class="quick-shortcut"
+          :class="{ active: selectedQuickRange === option.value }"
+          @click="selectQuickRange(option.value)"
+        >
+          {{ option.text }}
+        </button>
+      </div>
+      </div>
+
+      <div class="kpi-block" ref="kpiRef">
+        <div class="kpi-card">
+          <div class="kpi-item">
+            <div class="kpi-value">{{ recent7Stats.count }}</div>
+            <div class="kpi-label">手术数</div>
+          </div>
+          <div class="kpi-item">
+            <div class="kpi-value">{{ recent7Stats.avgDuration }}</div>
+            <div class="kpi-label">平均时长</div>
+          </div>
+          <div class="kpi-item">
+            <div class="kpi-value">{{ recent7Stats.faultRate }}</div>
+            <div class="kpi-label">异常率</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="content" :style="{ paddingTop: contentPaddingTop + 'px' }">
+    <van-popup class="filter-popup" v-model:show="filterSheetVisible" position="bottom" round :style="{ maxHeight: '70vh' }">
+      <div class="sheet-wrap">
+        <div class="sheet-title">筛选条件</div>
+
+        <div class="sheet-body">
+          <div v-if="sheetMode === 'all' || sheetMode === 'time'" class="time-filter-panel">
+            <div class="time-filter-section">
+              <div class="section-title">{{ customRangeTitle }}</div>
+              <div
+                v-if="selectedQuickRange !== 'custom' && selectedQuickRange !== 'all'"
+                class="time-mode-hint"
+              >
+                当前使用快捷范围：{{ timeChipLabel }}。选择年月日后将切换为自定义时间。
+              </div>
+              <div class="custom-options">
+                <div class="custom-row">
+                  <div class="custom-label">{{ yearLabel }}</div>
+                  <div class="option-pills">
+                    <div
+                      v-for="option in yearOptions"
+                      :key="option.value"
+                      class="option-pill"
+                      :class="{ active: selectedYear === option.value }"
+                      @click="selectYear(option.value)"
+                    >
+                      {{ option.text }}
+                    </div>
+                  </div>
+                </div>
+                <div v-if="selectedYear !== 'all'" class="custom-row">
+                  <div class="custom-label">{{ monthLabel }}</div>
+                  <div class="option-pills">
+                    <div
+                      v-for="option in monthOptions"
+                      :key="option.value"
+                      class="option-pill"
+                      :class="{ active: selectedMonth === option.value }"
+                      @click="selectMonth(option.value)"
+                    >
+                      {{ option.text }}
+                    </div>
+                  </div>
+                </div>
+                <div v-if="selectedYear !== 'all' && selectedMonth !== 'all'" class="custom-row">
+                  <div class="custom-label">{{ dayLabel }}</div>
+                  <div class="option-pills">
+                    <div
+                      v-for="option in dayOptions"
+                      :key="option.value"
+                      class="option-pill"
+                      :class="{ active: selectedDay === option.value }"
+                      @click="selectDay(option.value)"
+                    >
+                      {{ option.text }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="sheetMode === 'all' || sheetMode === 'type'" class="time-filter-section">
+            <div class="section-title">手术类型</div>
+            <div class="quick-options">
+              <div
+                v-for="option in surgeryTypeOptions"
+                :key="option.value"
+                class="quick-option"
+                :class="{ active: surgeryTypeFilter === option.value }"
+                @click="setSurgeryType(option.value)"
+              >
+                {{ option.text }}
+              </div>
+            </div>
+          </div>
+
+          <div v-if="sheetMode === 'all' || sheetMode === 'sort'" class="time-filter-section">
+            <div class="section-title">排序方式</div>
+            <div class="quick-options">
+              <div class="quick-option" :class="{ active: sortOrder === 'latest' }" @click="setSortOrder('latest')">最新优先</div>
+              <div class="quick-option" :class="{ active: sortOrder === 'earliest' }" @click="setSortOrder('earliest')">最早优先</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button type="button" class="action-pill" @click="clearAllFilters">重置</button>
+          <button type="button" class="action-pill action-pill-primary" @click="closeFilterSheet">关闭</button>
+        </div>
+      </div>
+    </van-popup>
+
+    <div class="content" :class="{ 'is-empty-mode': isEmptyState }" :style="{ paddingTop: contentPaddingTop + 'px', '--list-min-height': listMinHeight + 'px' }">
+      <div class="list-stage">
       <!-- 手术列表 -->
-      <van-list :finished="finished" :loading="loading" :offset="100" @load="onLoad">
+      <van-list v-if="!isEmptyState" class="surgery-list-container" :finished="finished" :loading="loading" :offset="100" @load="onLoad">
         <div class="surgery-list">
           <div
             v-for="item in items"
@@ -139,55 +175,34 @@
             <div class="card-content">
               <div class="card-header">
                 <div class="surgery-id">{{ buildSurgeryId(item) }}</div>
-                <div v-if="shouldShowTypeBadges(item)" class="type-badges">
-                  <van-tag
-                    v-if="shouldShowRemoteTag(item)"
-                    type="primary"
-                    size="small"
-                    class="type-badge"
-                  >
-                    {{ $t('surgeryVisualization.remoteSurgery') }}
-                  </van-tag>
-                  <van-tag
-                    v-if="shouldShowFaultTag(item)"
-                    type="danger"
-                    size="small"
-                    class="type-badge"
-                  >
-                    {{ $t('surgeryVisualization.faultSurgery') }}
-                  </van-tag>
+                <div class="type-badges">
+                  <span v-if="shouldShowRemoteTag(item)" class="status-chip is-remote">{{ $t('surgeryVisualization.remoteSurgery') }}</span>
+                  <span :class="['status-chip', getSurgeryStatusClass(item)]">{{ getSurgeryStatusText(item) }}</span>
                 </div>
               </div>
               <div class="card-mid">
-                <div class="card-subheader">
-                  <div class="surgery-procedure">{{ item.procedure || '-' }}</div>
+                <div v-if="item.procedure" class="surgery-procedure">{{ item.procedure }}</div>
+                <div class="time-row time-row-primary">
+                  <span class="time-label">{{ $t('mobile.deviceSurgeries.startTime') }}:</span>
+                  <span class="time-value">{{ formatTime(item.start_time) }}</span>
                 </div>
-                <div class="time-info-list">
-                  <div class="time-row">
-                    <span class="time-label">{{ $t('mobile.deviceSurgeries.startTime') }}:</span>
-                    <span class="time-value">{{ formatTime(item.start_time) }}</span>
-                  </div>
-                  <div class="time-row">
-                    <span class="time-label">{{ $t('mobile.deviceSurgeries.endTime') }}:</span>
-                    <span class="time-value">{{ formatTime(item.end_time) }}</span>
-                  </div>
-                  <div class="time-row">
-                    <span class="time-label">{{ $t('mobile.deviceSurgeries.duration') }}:</span>
-                    <span class="time-value">{{ formatDuration(item.start_time, item.end_time) }}</span>
-                  </div>
+                <div class="card-meta-row">
+                  <span class="meta-item">{{ $t('mobile.deviceSurgeries.duration') }}：{{ formatDuration(item.start_time, item.end_time) }}</span>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
       </van-list>
-      
+
       <!-- 空状态 -->
       <van-empty
-        v-if="!loading && filteredTotal === 0 && finished"
+        v-else
         :description="$t('shared.noData')"
         class="empty-state"
       />
+      </div>
     </div>
   </div>
 </template>
@@ -199,10 +214,8 @@ import { useI18n } from 'vue-i18n'
 import { 
   List as VanList, 
   Empty as VanEmpty, 
-  Icon as VanIcon, 
-  Tag as VanTag,
-  DropdownMenu,
-  DropdownItem
+  Icon as VanIcon,
+  Popup as VanPopup
 } from 'vant'
 import api from '@/api'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from '@/utils/surgeryDataAdapter'
@@ -213,9 +226,7 @@ export default {
     'van-list': VanList,
     'van-empty': VanEmpty,
     'van-icon': VanIcon,
-    'van-tag': VanTag,
-    'van-dropdown-menu': DropdownMenu,
-    'van-dropdown-item': DropdownItem
+    'van-popup': VanPopup
   },
   setup() {
     const route = useRoute()
@@ -223,12 +234,18 @@ export default {
     const { t } = useI18n()
     const deviceId = computed(() => route.params?.deviceId || '')
     const headerRef = ref(null)
+    const topStackRef = ref(null)
     const filtersRef = ref(null)
+    const kpiRef = ref(null)
     const headerHeight = ref(0)
     const filtersHeight = ref(0)
+    const kpiHeight = ref(0)
+    const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 812)
     const keyword = ref('')
+    const showSearch = ref(false)
     const surgeryTypeFilter = ref('all')
-    const selectedQuickRange = ref('all')
+    const sortOrder = ref('latest')
+    const selectedQuickRange = ref('7d')
     const selectedYear = ref('all')
     const selectedMonth = ref('all')
     const selectedDay = ref('all')
@@ -242,7 +259,8 @@ export default {
     const prepared = ref(false)
     const page = ref(1)
     const pageSize = 20
-    const timeDropdownRef = ref(null)
+    const filterSheetVisible = ref(false)
+    const sheetMode = ref('all')
 
     const translateOr = (key, fallback) => {
       const result = t(key)
@@ -261,6 +279,20 @@ export default {
       { text: translateOr('mobile.deviceSurgeries.last7Days', '近7天'), value: '7d' },
       { text: translateOr('mobile.deviceSurgeries.last30Days', '近30天'), value: '30d' }
     ]))
+
+    const typeChipLabel = computed(() => {
+      const current = surgeryTypeOptions.value.find(option => option.value === surgeryTypeFilter.value)
+      return current?.text || '全部'
+    })
+
+    const quickShortcutOptions = computed(() => quickRangeOptions.value.filter(option => ['1d', '7d', '30d'].includes(option.value)))
+
+    const sortChipLabel = computed(() => (sortOrder.value === 'earliest' ? '最早' : '最新'))
+
+    const timeChipLabel = computed(() => {
+      if (selectedQuickRange.value === 'custom') return '自定义'
+      return quickRangeMap.value[selectedQuickRange.value] || '近7天'
+    })
 
     const quickRangeTitle = computed(() =>
       translateOr('mobile.deviceSurgeries.quickRangeTitle', '快捷选择')
@@ -519,6 +551,89 @@ export default {
       return hasFaultTag(item) ? 1 : 0
     }
 
+    const getDurationMinutes = (start, end) => {
+      if (!start || !end) return 0
+      const startTime = new Date(start)
+      const endTime = new Date(end)
+      if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) return 0
+      const duration = endTime - startTime
+      if (duration <= 0) return 0
+      return Math.round(duration / (1000 * 60))
+    }
+
+    const filterBySelectedTimeRange = (source) => {
+      let filtered = [...source]
+
+      if (selectedQuickRange.value !== 'all' && selectedQuickRange.value !== 'custom') {
+        const now = Date.now()
+        let durationMs = 0
+        if (selectedQuickRange.value === '1d') durationMs = 24 * 60 * 60 * 1000
+        if (selectedQuickRange.value === '7d') durationMs = 7 * 24 * 60 * 60 * 1000
+        if (selectedQuickRange.value === '30d') durationMs = 30 * 24 * 60 * 60 * 1000
+        if (durationMs > 0) {
+          const threshold = now - durationMs
+          filtered = filtered.filter(item => {
+            if (!item.start_time) return false
+            const date = new Date(item.start_time)
+            if (Number.isNaN(date.getTime())) return false
+            return date.getTime() >= threshold
+          })
+        }
+      }
+
+      if (selectedQuickRange.value === 'custom' || selectedQuickRange.value === 'all') {
+        if (selectedYear.value !== 'all') {
+          filtered = filtered.filter(item => {
+            if (!item.start_time) return false
+            const date = new Date(item.start_time)
+            if (Number.isNaN(date.getTime())) return false
+            return String(date.getFullYear()) === selectedYear.value
+          })
+        }
+        if (selectedMonth.value !== 'all') {
+          filtered = filtered.filter(item => {
+            if (!item.start_time) return false
+            const date = new Date(item.start_time)
+            if (Number.isNaN(date.getTime())) return false
+            return String(date.getMonth() + 1).padStart(2, '0') === selectedMonth.value
+          })
+        }
+        if (selectedDay.value !== 'all') {
+          filtered = filtered.filter(item => {
+            if (!item.start_time) return false
+            const date = new Date(item.start_time)
+            if (Number.isNaN(date.getTime())) return false
+            return String(date.getDate()).padStart(2, '0') === selectedDay.value
+          })
+        }
+      }
+
+      return filtered
+    }
+
+    const recent7Stats = computed(() => {
+      const timeFiltered = filterBySelectedTimeRange(surgeries.value)
+      const count = timeFiltered.length
+      if (!count) {
+        return {
+          count: 0,
+          avgDuration: '0分钟',
+          faultRate: '0%'
+        }
+      }
+
+      const totalMinutes = timeFiltered.reduce((sum, item) => sum + getDurationMinutes(item.start_time, item.end_time), 0)
+      const avgMinutes = Math.round(totalMinutes / count)
+      const faultCount = timeFiltered.filter(item => hasFaultTag(item)).length
+      const rate = ((faultCount / count) * 100).toFixed(1)
+
+      return {
+        count,
+        avgDuration: `${avgMinutes}分钟`,
+        faultRate: `${rate}%`
+      }
+    })
+
     const buildSurgeryId = (item) => {
       if (!item) return '-'
       const start = item.start_time ? new Date(item.start_time) : null
@@ -558,17 +673,39 @@ export default {
     const fetchSurgeries = async () => {
       loading.value = true
       try {
-        const resp = await api.surgeries.list({
-          device_id: deviceId.value,
-          limit: 10000
-        })
-        const list = resp?.data?.data || []
-        const mapped = list.map((entry, index) => ({
+        const all = []
+        let pageNo = 1
+        const pageSizeFetch = 1000
+        let hasMore = true
+        let totalCount = 0
+
+        while (hasMore) {
+          const resp = await api.surgeries.list({
+            device_id: deviceId.value,
+            page: pageNo,
+            limit: pageSizeFetch
+          })
+
+          const pageList = Array.isArray(resp?.data?.data) ? resp.data.data : []
+          const total = Number(resp?.data?.total || 0)
+          if (pageNo === 1) totalCount = total
+
+          all.push(...pageList)
+          hasMore = pageList.length > 0 && all.length < totalCount
+          pageNo += 1
+
+          if (all.length >= 50000) {
+            console.warn('Device surgeries: too many rows, capped at 50000')
+            break
+          }
+        }
+
+        const mapped = all.map((entry, index) => ({
           ...entry,
           internalId: entry.id ?? entry.surgery_id ?? `${deviceId.value}-${index}`
         }))
         surgeries.value = mapped
-        totalSurgeries.value = resp?.data?.total || mapped.length
+        totalSurgeries.value = totalCount || mapped.length
         if (!deviceInfo.value && mapped.length > 0) {
           deviceInfo.value = {
             hospital: mapped[0].hospital_name || mapped[0].hospital_names?.[0] || '-'
@@ -585,7 +722,8 @@ export default {
     }
 
     const getFilteredSource = () => {
-      let source = [...surgeries.value]
+      let source = filterBySelectedTimeRange(surgeries.value)
+
       if (surgeryTypeFilter.value !== 'all') {
         source = source.filter(item => {
           if (surgeryTypeFilter.value === 'remote') return isRemoteSurgery(item)
@@ -594,49 +732,6 @@ export default {
         })
       }
 
-      if (selectedQuickRange.value !== 'all' && selectedQuickRange.value !== 'custom') {
-        const now = Date.now()
-        let durationMs = 0
-        if (selectedQuickRange.value === '1d') durationMs = 24 * 60 * 60 * 1000
-        if (selectedQuickRange.value === '7d') durationMs = 7 * 24 * 60 * 60 * 1000
-        if (selectedQuickRange.value === '30d') durationMs = 30 * 24 * 60 * 60 * 1000
-        if (durationMs > 0) {
-          const threshold = now - durationMs
-          source = source.filter(item => {
-            if (!item.start_time) return false
-            const date = new Date(item.start_time)
-            if (Number.isNaN(date.getTime())) return false
-            return date.getTime() >= threshold
-          })
-        }
-      }
-
-      if (selectedQuickRange.value === 'custom' || selectedQuickRange.value === 'all') {
-        if (selectedYear.value !== 'all') {
-          source = source.filter(item => {
-            if (!item.start_time) return false
-            const date = new Date(item.start_time)
-            if (Number.isNaN(date.getTime())) return false
-            return String(date.getFullYear()) === selectedYear.value
-          })
-        }
-        if (selectedMonth.value !== 'all') {
-          source = source.filter(item => {
-            if (!item.start_time) return false
-            const date = new Date(item.start_time)
-            if (Number.isNaN(date.getTime())) return false
-            return String(date.getMonth() + 1).padStart(2, '0') === selectedMonth.value
-          })
-        }
-        if (selectedDay.value !== 'all') {
-          source = source.filter(item => {
-            if (!item.start_time) return false
-            const date = new Date(item.start_time)
-            if (Number.isNaN(date.getTime())) return false
-            return String(date.getDate()).padStart(2, '0') === selectedDay.value
-          })
-        }
-      }
       if (keyword.value.trim()) {
         const kw = keyword.value.trim().toLowerCase()
         source = source.filter(item => {
@@ -645,6 +740,13 @@ export default {
           return compositeId.includes(kw) || procedureText.includes(kw)
         })
       }
+
+      source.sort((a, b) => {
+        const aTime = a?.start_time ? new Date(a.start_time).getTime() : 0
+        const bTime = b?.start_time ? new Date(b.start_time).getTime() : 0
+        return sortOrder.value === 'earliest' ? aTime - bTime : bTime - aTime
+      })
+
       return source
     }
 
@@ -694,33 +796,57 @@ export default {
       resetAndReload()
     }
 
+    const toggleSearch = () => {
+      showSearch.value = !showSearch.value
+      if (!showSearch.value && keyword.value) {
+        keyword.value = ''
+        resetAndReload()
+      }
+      nextTick(updateLayoutMetrics)
+    }
+
     const handleFilterChange = () => {
       resetAndReload()
     }
 
-    const closeTimeDropdown = () => {
-      timeDropdownRef.value?.toggle(false)
+    const openFilterSheet = (mode = 'all') => {
+      sheetMode.value = mode
+      filterSheetVisible.value = true
     }
 
-    const onTimeDropdownOpen = () => {
-      // no-op placeholder for future analytics hooks
+    const closeFilterSheet = () => {
+      filterSheetVisible.value = false
+    }
+
+    const setSurgeryType = (value) => {
+      surgeryTypeFilter.value = value
+      resetAndReload()
+    }
+
+    const setSortOrder = (value) => {
+      sortOrder.value = value
+      resetAndReload()
+    }
+
+    const clearAllFilters = () => {
+      surgeryTypeFilter.value = 'all'
+      sortOrder.value = 'latest'
+      selectedQuickRange.value = '7d'
+      selectedYear.value = 'all'
+      selectedMonth.value = 'all'
+      selectedDay.value = 'all'
+      keyword.value = ''
+      resetAndReload()
+      closeFilterSheet()
     }
 
     const selectQuickRange = (value) => {
-      if (value === selectedQuickRange.value) {
-        closeTimeDropdown()
-        return
-      }
+      if (value === selectedQuickRange.value) return
       selectedQuickRange.value = value
-      if (value !== 'custom') {
-        selectedYear.value = 'all'
-        selectedMonth.value = 'all'
-        selectedDay.value = 'all'
-      }
+      selectedYear.value = 'all'
+      selectedMonth.value = 'all'
+      selectedDay.value = 'all'
       resetAndReload()
-      if (value !== 'custom') {
-        closeTimeDropdown()
-      }
     }
 
     const syncTimeFilterSelections = () => {
@@ -894,24 +1020,48 @@ export default {
       selectedMonth.value = 'all'
       selectedDay.value = 'all'
       resetAndReload()
-      closeTimeDropdown()
+      closeFilterSheet()
     }
 
     const shouldShowRemoteTag = (item) => isRemoteSurgery(item)
     const shouldShowFaultTag = (item) => hasFaultTag(item)
-    const shouldShowTypeBadges = (item) => shouldShowRemoteTag(item) || shouldShowFaultTag(item)
+
+    const getSurgeryStatusKey = (item) => {
+      if (shouldShowFaultTag(item)) return 'fault'
+      return 'normal'
+    }
+
+    const getSurgeryStatusText = (item) => {
+      const key = getSurgeryStatusKey(item)
+      if (key === 'fault') return t('surgeryVisualization.faultSurgery')
+      return translateOr('mobile.deviceSurgeries.normalStatus', '正常')
+    }
+
+    const getSurgeryStatusClass = (item) => {
+      const key = getSurgeryStatusKey(item)
+      if (key === 'fault') return 'is-fault'
+      return 'is-normal'
+    }
 
     const updateLayoutMetrics = () => {
+      if (typeof window !== 'undefined') {
+        viewportHeight.value = window.innerHeight
+      }
       if (headerRef.value) {
         headerHeight.value = headerRef.value.getBoundingClientRect().height
       }
       if (filtersRef.value) {
         filtersHeight.value = filtersRef.value.getBoundingClientRect().height
       }
+      if (kpiRef.value) {
+        kpiHeight.value = kpiRef.value.getBoundingClientRect().height
+      }
     }
 
     const pagePaddingTop = computed(() => headerHeight.value || 0)
-    const contentPaddingTop = computed(() => (filtersHeight.value || 0) + 12)
+    const contentPaddingTop = computed(() => (filtersHeight.value || 0) + (kpiHeight.value || 0) + 16)
+    const listMinHeight = computed(() => Math.max(260, viewportHeight.value - contentPaddingTop.value - 20))
+    const isEmptyState = computed(() => !loading.value && filteredTotal.value === 0 && finished.value)
 
     onMounted(async () => {
       // 先加载时间筛选数据
@@ -966,31 +1116,44 @@ export default {
     return {
       deviceId,
       headerRef,
+      topStackRef,
       filtersRef,
+      kpiRef,
       headerHeight,
       pagePaddingTop,
       contentPaddingTop,
+      listMinHeight,
+      isEmptyState,
       deviceInfo,
       totalSurgeries,
       keyword,
+      showSearch,
+      filterSheetVisible,
+      sheetMode,
       surgeryTypeFilter,
+      sortOrder,
       selectedYear,
       selectedMonth,
       selectedDay,
       surgeryTypeOptions,
+      quickShortcutOptions,
       yearOptions,
       monthOptions,
       dayOptions,
+      recent7Stats,
       items,
       filteredTotal,
       loading,
       finished,
       onLoad,
       handleSearchInput,
+      toggleSearch,
       handleFilterChange,
-      timeDropdownRef,
       selectedQuickRange,
       quickRangeOptions,
+      typeChipLabel,
+      timeChipLabel,
+      sortChipLabel,
       quickRangeTitle,
       customRangeTitle,
       yearLabel,
@@ -998,17 +1161,22 @@ export default {
       dayLabel,
       clearText,
       timeFilterTitle,
+      openFilterSheet,
+      closeFilterSheet,
+      setSurgeryType,
+      setSortOrder,
+      clearAllFilters,
       selectQuickRange,
       selectYear,
       selectMonth,
       selectDay,
       clearTimeFilters,
-      onTimeDropdownOpen,
       formatTime,
       formatDuration,
-      shouldShowTypeBadges,
       shouldShowRemoteTag,
       shouldShowFaultTag,
+      getSurgeryStatusText,
+      getSurgeryStatusClass,
       getFaultCount,
       buildSurgeryId,
       openVisualization
@@ -1078,18 +1246,6 @@ export default {
   white-space: nowrap;
 }
 
-.header-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--m-space-2);
-  flex-wrap: wrap;
-}
-
-.header-total {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-}
 
 .info-text {
   font-size: var(--m-font-size-sm);
@@ -1097,35 +1253,72 @@ export default {
   line-height: 16px;
 }
 
-.info-value-primary {
-  color: var(--m-color-brand);
-  font-weight: 600;
-  margin-right: 2px;
-}
-
 .content {
-  padding: 12px;
+  padding: 10px 12px 12px;
   /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
   padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
 }
 
-.filters-fixed {
+.content.is-empty-mode {
+  padding-bottom: 0;
+}
+
+.top-stack-fixed {
   position: fixed;
   left: 0;
   right: 0;
   z-index: 90;
+  background-color: var(--m-color-bg);
+}
+
+.kpi-block {
+  padding: 0 12px 6px;
+}
+
+.kpi-card {
+  background-color: var(--m-color-surface);
+  border-radius: var(--m-radius-md);
+  box-shadow: var(--m-shadow-card);
+  padding: 10px 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kpi-item {
+  text-align: center;
+  border-right: 1px solid var(--m-color-border);
+}
+
+.kpi-item:last-child {
+  border-right: none;
+}
+
+.kpi-value {
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--m-color-text);
+}
+
+.kpi-label {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--m-color-text-secondary);
+}
+
+.filters-fixed {
   display: flex;
   flex-direction: column;
-  gap: var(--m-space-3);
+  gap: 8px;
   background-color: var(--m-color-bg);
-  padding: var(--m-space-3);
-  padding-bottom: var(--m-space-3);
+  padding: 8px 12px;
   box-shadow: var(--m-shadow-card);
 }
 
 .search-container {
   background-color: var(--m-color-surface);
-  padding: var(--m-space-3);
+  padding: 8px;
   border-radius: var(--m-radius-md);
   box-shadow: var(--m-shadow-card);
 }
@@ -1160,8 +1353,96 @@ export default {
   color: var(--gray-400);
 }
 
-.filter-menu {
-  background-color: transparent;
+.header-search-btn {
+  border: none;
+  background: transparent;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--m-color-text-secondary);
+}
+
+.chip-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.quick-row {
+  display: flex;
+  gap: 8px;
+}
+
+.quick-shortcut {
+  border: 1px solid var(--m-color-border);
+  background: var(--m-color-surface);
+  color: var(--m-color-text-secondary);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.quick-shortcut.active {
+  background: var(--m-color-brand);
+  border-color: var(--m-color-brand);
+  color: var(--m-color-surface);
+}
+
+.filter-chip {
+  border: 1px solid var(--m-color-border);
+  background: var(--m-color-surface);
+  color: var(--m-color-text-secondary);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.filter-chip-more {
+  color: var(--m-color-brand);
+  border-color: rgba(21, 93, 252, 0.3);
+}
+
+.sheet-wrap {
+  padding: 14px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.sheet-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--m-color-text);
+}
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--m-color-surface);
+  padding-top: 6px;
+}
+
+.action-pill-primary {
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
 }
 
 .time-filter-panel {
@@ -1181,6 +1462,14 @@ export default {
   font-size: var(--m-font-size-md);
   font-weight: 500;
   color: var(--m-color-text);
+}
+
+.time-mode-hint {
+  font-size: 12px;
+  color: var(--m-color-text-secondary);
+  background: var(--gray-100);
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 .quick-options {
@@ -1224,6 +1513,7 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: var(--m-space-2);
+  align-content: flex-start;
 }
 
 .option-pill {
@@ -1282,14 +1572,14 @@ export default {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .surgery-id {
@@ -1301,43 +1591,33 @@ export default {
   white-space: nowrap;
 }
 
-.type-badge {
-  flex-shrink: 0;
-}
-
 .type-badges {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+.status-chip {
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-weight: 600;
 }
 
 .card-mid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.card-subheader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .surgery-procedure {
-  font-size: var(--m-font-size-md);
-  font-weight: 500;
-  color: var(--m-color-text);
-  flex: 1;
+  font-size: 13px;
+  color: var(--m-color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.time-info-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .time-row {
@@ -1345,6 +1625,10 @@ export default {
   align-items: center;
   font-size: var(--m-font-size-md);
   gap: var(--m-space-1);
+}
+
+.time-row-primary {
+  font-size: 13px;
 }
 
 .time-label {
@@ -1356,13 +1640,60 @@ export default {
   font-weight: 500;
 }
 
-
-.empty-state {
-  margin-top: 60px;
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
+.meta-item {
+  font-size: 12px;
+  color: var(--m-color-text-secondary);
+}
+
+.status-chip.is-normal {
+  background: rgba(18, 183, 106, 0.14);
+  color: #067647;
+}
+
+.status-chip.is-fault {
+  background: rgba(240, 68, 56, 0.14);
+  color: #b42318;
+}
+
+.status-chip.is-remote {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+
+
+.list-stage {
+  min-height: var(--list-min-height);
+}
+
+.surgery-list-container {
+  min-height: var(--list-min-height);
+}
+
+.empty-state {
+  min-height: var(--list-min-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state :deep(.van-empty) {
+  padding: 0;
+}
+
+
 :deep(.van-list__loading) {
-  padding: var(--m-space-5) 0;
+  min-height: var(--list-min-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   color: var(--gray-400);
   font-size: var(--m-font-size-md);
@@ -1375,12 +1706,4 @@ export default {
   font-size: var(--m-font-size-md);
 }
 
-:deep(.van-dropdown-menu) {
-  background-color: var(--m-color-surface);
-  border-radius: var(--m-radius-md);
-}
-
-:deep(.van-dropdown-menu__item) {
-  padding: 0 12px;
-}
 </style>

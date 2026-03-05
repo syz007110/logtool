@@ -55,6 +55,16 @@
       <template v-if="activeTab === 'overview'">
         <!-- 手术概况卡片（包含关键指标和时间线） -->
         <div class="section-card overview-card">
+          <button
+            v-if="canOpenTimeline"
+            type="button"
+            class="timeline-entry"
+            @click="openTimelineView"
+          >
+            <span class="timeline-entry-title">View case timeline</span>
+            <span class="timeline-entry-arrow">→</span>
+          </button>
+
           <div class="overview-layout">
             <!-- 左侧：关键事件时间线 -->
             <div class="overview-left">
@@ -330,6 +340,20 @@ export default {
     const loading = ref(false)
     const activeTab = ref('overview')
     const timelineEvents = ref([])
+
+    const canOpenTimeline = computed(() => {
+      const hasId = !!(surgeryId || surgeryData.value?.surgery_id)
+      const hasData = !!surgeryData.value
+      const hasTimeline = timelineEvents.value.length > 0
+      const hasArms = Array.isArray(surgeryData.value?.arms) && surgeryData.value.arms.some(a => Array.isArray(a.instrument_usage) && a.instrument_usage.length > 0)
+      return hasId && hasData && (hasTimeline || hasArms)
+    })
+
+    const openTimelineView = () => {
+      const id = surgeryData.value?.surgery_id || surgeryId
+      if (!id) return
+      router.push({ name: 'MSurgeryTimeline', params: { surgeryId: id } })
+    }
 
     const isRemoteSurgery = computed(() => {
       return surgeryData.value?.is_remote === true || surgeryData.value?.isRemote === true
@@ -1272,7 +1296,9 @@ export default {
       hasNetworkLatency,
       timelineEvents,
       faultExplanations,
-      faultExplanationLoading
+      faultExplanationLoading,
+      canOpenTimeline,
+      openTimelineView
     }
   }
 }
@@ -1282,8 +1308,22 @@ export default {
 .page {
   min-height: 100%;
   background-color: #f7f8fa;
-  padding-top: 46px;
+  padding-top: calc(46px + env(safe-area-inset-top));
   box-sizing: border-box;
+}
+
+:deep(.van-nav-bar) {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+:deep(.van-nav-bar__content) {
+  height: 42px;
+}
+
+:deep(.van-nav-bar__title) {
+  font-size: 15px;
+  max-width: 62vw;
 }
 
 .content {
@@ -1521,6 +1561,29 @@ export default {
 
 .overview-card {
   padding: 16px;
+}
+
+.timeline-entry {
+  width: 100%;
+  border: 1px solid var(--m-color-border, rgba(0, 0, 0, 0.1));
+  background: var(--m-color-surface, #fff);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.timeline-entry-title {
+  font-size: 13px;
+  color: #101828;
+  font-weight: 600;
+}
+
+.timeline-entry-arrow {
+  color: #6a7282;
+  font-size: 14px;
 }
 
 .overview-layout {

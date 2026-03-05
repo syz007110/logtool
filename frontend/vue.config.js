@@ -21,6 +21,8 @@ const APP_TARGET = ['all', 'web', 'mobile'].includes((process.env.VUE_APP_TARGET
   ? String(process.env.VUE_APP_TARGET).toLowerCase()
   : 'all'
 
+const APP_BASE = APP_TARGET === 'mobile' ? '/m/' : '/'
+
 module.exports = defineConfig({
   transpileDependencies: true,
   chainWebpack: (config) => {
@@ -51,6 +53,7 @@ module.exports = defineConfig({
   lintOnSave: false,
   devServer: {
     port: 8080,
+    allowedHosts: 'all',
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -69,6 +72,6 @@ module.exports = defineConfig({
     hot: false,
     liveReload: false
   },
-  publicPath: '/',
+  publicPath: APP_BASE,
   outputDir: APP_TARGET === 'all' ? 'dist' : `dist-${APP_TARGET}`
 })
