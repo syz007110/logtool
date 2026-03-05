@@ -9,6 +9,7 @@ node_modules
 /.vscode
 docker-compose.yml
 /example
+/deploy
 # 依赖与构建
 backend/node_modules/
 frontend/node_modules/
