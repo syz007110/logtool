@@ -1,0 +1,29 @@
+{
+  "name": "LogTool - 故障码管理与日志分析系统",
+  "short_name": "LogTool",
+  "description": "故障码管理与日志分析系统",
+  "start_url": "/m/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#155dfc",
+  "orientation": "portrait",
+  "scope": "/m/",
+  "icons": [
+    {
+      "src": "/Icons/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Icons/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": []
+}
+

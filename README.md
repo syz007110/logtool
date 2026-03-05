@@ -48,3 +48,30 @@ Default integrated build (`npm run build` or `npm run serve`) preserves existing
 ## Migration reference
 See:
 - `frontend/docs/frontend-split-migration.md`
+
+## Cloud deploy script
+Use `deploy/deploy-cloud.sh` on your Linux server to:
+- pull latest git code
+- install backend/frontend dependencies
+- build frontend by target (`all`, `web`, `mobile`)
+- restart backend via PM2
+- optionally reload nginx
+
+Example:
+
+```bash
+cd /www/server/logtool
+bash deploy/deploy-cloud.sh --branch main --with-nginx
+bash deploy/deploy-cloud.sh --branch main --target web
+bash deploy/deploy-cloud.sh --branch main --target mobile
+```
+
+Common options:
+- `--app-dir /www/server/logtool`
+- `--branch <branch-name>`
+- `--remote origin`
+- `--pm2-name logtool-cluster`
+- `--target all|web|mobile` (default: `all`)
+- `--allow-dirty` (deploy even with local uncommitted files)
+
+If your server path or PM2 process name differs, pass the corresponding options.

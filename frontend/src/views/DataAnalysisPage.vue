@@ -4694,6 +4694,7 @@ export default {
   flex-direction: column;
   height: 100vh;
   background: var(--slate-50);
+  overflow: hidden;
 }
 
 .da-hidden-file-input {
@@ -4704,7 +4705,7 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  padding: clamp(12px, 2vw, 24px);
   min-height: 0;
 }
 
@@ -4715,20 +4716,27 @@ export default {
 
 /* 空态：允许滚动避免三张卡片被裁剪 */
 .da-content-empty {
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .da-empty {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .da-empty-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   grid-template-areas:
     'video logs'
     'motion logs';
   gap: 24px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .da-empty-card {
@@ -4746,17 +4754,17 @@ export default {
 
 .da-card-video {
   grid-area: video;
-  min-height: 307px;
+  min-height: 0;
 }
 
 .da-card-motion {
   grid-area: motion;
-  min-height: 307px;
+  min-height: 0;
 }
 
 .da-card-logs {
   grid-area: logs;
-  min-height: 638px;
+  min-height: 0;
 }
 
 .da-empty-card:hover {
@@ -4789,6 +4797,17 @@ export default {
   color: var(--slate-500);
   text-align: center;
   max-width: 360px;
+}
+
+@media (max-width: 1200px) {
+  .da-empty-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      'video'
+      'logs'
+      'motion';
+  }
 }
 
 /* 分析态样式：随 .da-content 可用高度伸缩，使左右面板始终等高；未添加数据时允许滚动避免裁剪 */
