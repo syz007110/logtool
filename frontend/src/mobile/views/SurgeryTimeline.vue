@@ -132,7 +132,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { NavBar as VanNavBar, Popup as VanPopup, showToast } from 'vant'
 import api from '@/api'
 import { adaptSurgeryData, validateAdaptedData } from '@/utils/surgeryDataAdapter'
-import { resolveInstrumentTypeLabel } from '@/utils/analysisMappings'
+import { resolveInstrumentTypeLabel, INSTRUMENT_TYPE_MAP } from '@/utils/analysisMappings'
 
 export default {
   name: 'MSurgeryTimeline',
@@ -354,11 +354,24 @@ export default {
       return `${hh}:${mm}:${ss}`
     }
 
-    const getInstrumentImageUrl = (instrumentType) => {
+    const normalizeInstrumentTypeCode = (instrumentType) => {
       if (instrumentType === undefined || instrumentType === null || instrumentType === '') return ''
-      const key = typeof instrumentType === 'number' ? instrumentType : String(instrumentType).trim()
-      if (!key || key === '0') return ''
-      return `/instruments/${encodeURIComponent(key)}.png`
+      const raw = typeof instrumentType === 'number' ? instrumentType : String(instrumentType).trim()
+      if (raw === '' || raw === 0 || raw === '0') return ''
+      const asNum = Number(raw)
+      if (Number.isFinite(asNum) && asNum !== 0) return String(asNum)
+      const byName = Object.entries(INSTRUMENT_TYPE_MAP).find(([, name]) => String(name).trim() === String(raw).trim())
+      if (byName && byName[0] !== '0') return String(byName[0])
+      const matchedNum = String(raw).match(/\d+/)
+      if (matchedNum && matchedNum[0] !== '0') return matchedNum[0]
+      return ''
+    }
+
+    const getInstrumentImageUrl = (instrumentType) => {
+      const code = normalizeInstrumentTypeCode(instrumentType)
+      if (!code) return ''
+      const base = (process.env.BASE_URL || '/').replace(/\/?$/, '/')
+      return `${base}instruments/${encodeURIComponent(code)}.png`
     }
 
     const armSnapshotCards = computed(() => {
@@ -369,7 +382,7 @@ export default {
           const e = toMs(item.end_time || item.remove_time || item.end || item.start_time)
           return Number.isFinite(s) && Number.isFinite(e) && Number.isFinite(ms) && s <= ms && ms <= e
         })
-        const rawType = seg?.tool_type ?? seg?.instrument_type ?? seg?.instrument_name
+        const rawType = seg?.instrument_type ?? seg?.toolType ?? seg?.tool_type ?? seg?.instrument_name ?? seg?.instrumentName
         return {
           armId: arm.arm_id,
           udi: seg?.udi || '-',
@@ -713,7 +726,7 @@ export default {
   width: 44px;
   height: 44px;
   border-radius: 0;
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  background: transparent;
 }
 
 .arm-snapshot-image {
