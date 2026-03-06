@@ -1,5 +1,7 @@
 import argparse
+import base64
 import hashlib
+import hmac
 import json
 import os
 import random
@@ -9,6 +11,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -20,6 +23,20 @@ from typing import Any, Dict, List, Optional, Tuple
 
 PROMPT_VERSION = "v2"
 LOG_TIMING = str(os.environ.get("TRANSLATE_LOG_TIMING", "")).strip().lower() in ("1", "true", "yes", "on")
+LINE_MERGE_DELIM = "<<<LN>>>"  # 非 LLM 逐行合并时使用的行分隔符，翻译后需还原为 \n
+
+# 讯飞等 MT 可能将 <<<LN>>> 改写为 <LN>、<<、< < 等，需容错还原
+_LINE_DELIM_PATTERN = re.compile(
+    r"<<<\s*LN\s*>>>|<\s*LN\s*>|<\s*<",
+    re.IGNORECASE,
+)
+
+
+def _restore_line_merge_delim(text: str) -> str:
+    """将 MT 可能改写后的行分隔符还原为 \\n"""
+    out = text.replace(LINE_MERGE_DELIM, "\n")
+    out = _LINE_DELIM_PATTERN.sub("\n", out)
+    return out
 
 
 def _norm(s: str) -> str:
@@ -91,6 +108,8 @@ class Provider:
     kind: str
     requires_api_key: bool
     api_key: str
+    app_id: str
+    api_secret: str
     base_url: str
     model: str
     timeout_ms: int
@@ -118,6 +137,10 @@ def load_providers(providers_file: Path) -> List[Provider]:
 
         api_key_env = str(spec.get("apiKeyEnv") or "").strip()
         api_key = str(spec.get("apiKey") or (os.environ.get(api_key_env, "") if api_key_env else "") or "").strip()
+        app_id_env = str(spec.get("appIdEnv") or "").strip()
+        app_id = str(spec.get("appId") or (os.environ.get(app_id_env, "") if app_id_env else "") or "").strip()
+        api_secret_env = str(spec.get("apiSecretEnv") or "").strip()
+        api_secret = str(spec.get("apiSecret") or (os.environ.get(api_secret_env, "") if api_secret_env else "") or "").strip()
         base_url = normalize_base_url(str(spec.get("baseUrl") or "").strip())
         model = str(spec.get("model") or "").strip()
         label = str(spec.get("label") or pid).strip() or pid
@@ -134,6 +157,8 @@ def load_providers(providers_file: Path) -> List[Provider]:
                 kind=kind,
                 requires_api_key=requires_api_key,
                 api_key=api_key,
+                app_id=app_id,
+                api_secret=api_secret,
                 base_url=base_url,
                 model=model,
                 timeout_ms=timeout_ms,
@@ -168,6 +193,16 @@ def llm_available(p: Provider) -> Tuple[bool, str]:
     enabled = str(os.environ.get("SMART_SEARCH_LLM_ENABLED", "true")).strip().lower() not in ("0", "false", "no", "off")
     if not enabled:
         return False, "not_enabled"
+    if p.kind == "xfyun":
+        if not p.app_id:
+            return False, "missing_app_id"
+        if not p.api_key:
+            return False, "missing_api_key"
+        if not p.api_secret:
+            return False, "missing_api_secret"
+        if not p.base_url:
+            return False, "missing_base_url"
+        return True, "ok"
     if p.requires_api_key and not p.api_key:
         return False, "missing_api_key"
     if not p.base_url:
@@ -247,53 +282,65 @@ class SqliteCache:
             self.conn.commit()
 
 
-def glossary_load(
-    glossary_file: Path,
+def glossary_load_from_sqlite(
+    glossary_db: Path,
+    source_lang: str,
+    target_lang: str,
+    domain: Optional[str] = None,
 ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, List[str]]], str, Dict[str, Any]]:
     """
-    Returns: (entries, synonyms, glossary_hash)
-    entries: [(source, target)]
-    synonyms: [(canonical, [variants...])]
+    SQLite glossary loader (compatible with randomTranslate schema):
+    - term_concept(id, domain, ...)
+    - term_lexeme(concept_id, lang, text, priority, status, ...)
     """
-    raw = safe_json_load(glossary_file)
     entries: List[Tuple[str, str]] = []
     synonyms: List[Tuple[str, List[str]]] = []
-
     options: Dict[str, Any] = {}
-    if isinstance(raw, dict):
-        arr = raw.get("entries")
-        if isinstance(arr, list):
-            for item in arr:
-                if isinstance(item, dict):
-                    s = str(item.get("source") or "").strip()
-                    t = str(item.get("target") or "").strip()
-                    if s and t:
-                        entries.append((s, t))
-        opt = raw.get("options")
-        if isinstance(opt, dict):
-            options = opt
-        syn = raw.get("synonyms")
-        if isinstance(syn, list):
-            for item in syn:
-                if isinstance(item, dict):
-                    canonical = str(item.get("canonical") or "").strip()
-                    variants = item.get("variants")
-                    if canonical and isinstance(variants, list):
-                        vs = [str(v).strip() for v in variants if str(v).strip()]
-                        if vs:
-                            synonyms.append((canonical, vs))
-    elif isinstance(raw, list):
-        for item in raw:
-            if isinstance(item, dict):
-                s = str(item.get("source") or "").strip()
-                t = str(item.get("target") or "").strip()
-                if s and t:
-                    entries.append((s, t))
 
-    # stable hash
+    if not glossary_db.exists():
+        norm_obj = {
+            "mode": "sqlite",
+            "db": str(glossary_db),
+            "source_lang": source_lang,
+            "target_lang": target_lang,
+            "domain": domain or "",
+            "entries": [],
+        }
+        glossary_hash = sha256_text(json.dumps(norm_obj, ensure_ascii=False, separators=(",", ":")))
+        return entries, synonyms, glossary_hash, options
+
+    src = normalize_lang(source_lang)
+    tgt = normalize_lang(target_lang)
+    conn = sqlite3.connect(str(glossary_db))
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT ls.text AS src_text, lt.text AS tgt_text
+            FROM term_concept c
+            JOIN term_lexeme ls ON ls.concept_id = c.id AND ls.lang = ? AND ls.status = 'approved'
+            JOIN term_lexeme lt ON lt.concept_id = c.id AND lt.lang = ? AND lt.status = 'approved'
+            WHERE (? IS NULL OR c.domain = ?)
+            ORDER BY LENGTH(ls.text) DESC, ls.priority ASC
+            """,
+            (src, tgt, domain, domain),
+        )
+        rows = cur.fetchall()
+        for row in rows:
+            s = str((row[0] if len(row) > 0 else "") or "").strip()
+            t = str((row[1] if len(row) > 1 else "") or "").strip()
+            if s and t:
+                entries.append((s, t))
+    finally:
+        conn.close()
+
     norm_obj = {
+        "mode": "sqlite",
+        "db": str(glossary_db),
+        "source_lang": src,
+        "target_lang": tgt,
+        "domain": domain or "",
         "entries": sorted(entries, key=lambda x: (x[0], x[1])),
-        "synonyms": sorted([(c, sorted(vs)) for (c, vs) in synonyms], key=lambda x: x[0]),
     }
     glossary_hash = sha256_text(json.dumps(norm_obj, ensure_ascii=False, separators=(",", ":")))
     return entries, synonyms, glossary_hash, options
@@ -359,9 +406,27 @@ def make_term_placeholders(
 
 
 def restore_placeholders(text: str, placeholder_map: Dict[str, str]) -> str:
+    """Restore terminology placeholders. Handles Xunfei/MT output variants."""
     out = text
     for ph, tgt in placeholder_map.items():
+        # 1) strict restore first for exact placeholders, e.g. {{T0001}}
         out = out.replace(ph, tgt)
+        m = re.match(r"\{\{T(\d{4})\}\}", ph)
+        if not m:
+            continue
+        idx = m.group(1)
+        patterns = [
+            # "{{ T0001 }}" (double braces, optional spaces)
+            re.compile(r"\{\{\s*T\s*" + idx + r"\s*\}\}", re.IGNORECASE),
+            # "{ { T0001 } }" (space between braces - Xunfei output)
+            re.compile(r"\{\s*\{\s*T\s*" + idx + r"\s*\}\s*\}", re.IGNORECASE),
+            # "{ T0001 }" (single braces - Xunfei output)
+            re.compile(r"\{\s*T\s*" + idx + r"\s*\}", re.IGNORECASE),
+            # "\{\{T0001\}\}" (escaped)
+            re.compile(r"\\\{\s*\\\{\s*T\s*" + idx + r"\s*\\\}\s*\\\}", re.IGNORECASE),
+        ]
+        for pattern in patterns:
+            out = pattern.sub(tgt, out)
     return out
 
 
@@ -419,6 +484,18 @@ def restore_markdown(text: str, token_map: Dict[str, str]) -> str:
     # restore urls first (they're inside parentheses)
     for k, v in token_map.items():
         out = out.replace(k, v)
+    # tolerant restore for model-altered markdown protection tokens, e.g.
+    # "[[ URL_0001 ]]", "[ [INLINE_0002] ]", "[[codeblock 0003]]"
+    for k, v in token_map.items():
+        m = re.match(r"\[\[([A-Z]+)_(\d{4})\]\]", k)
+        if not m:
+            continue
+        prefix, idx = m.group(1), m.group(2)
+        pattern = re.compile(
+            rf"\[\s*\[\s*{re.escape(prefix)}\s*[_\-\s]*{idx}\s*\]\s*\]",
+            re.IGNORECASE,
+        )
+        out = pattern.sub(v, out)
     return out
 
 
@@ -438,6 +515,69 @@ def split_paragraphs_keep_separators(text: str) -> List[Tuple[str, bool]]:
     if last < len(text):
         parts.append((text[last:], False))
     return parts
+
+
+def merge_short_lines(
+    lines: List[str],
+    min_chars: int,
+    max_chars: int,
+) -> List[Tuple[str, bool]]:
+    """
+    合并短行用于翻译，用 LINE_MERGE_DELIM 连接，翻译后需 split 还原为 \\n。
+    空行不参与合并，作为自然边界。
+    """
+    if min_chars <= 0:
+        segments = []
+        for i, line in enumerate(lines):
+            if i > 0:
+                segments.append(("\n", True))
+            segments.append((line, False))
+        return segments
+    out: List[Tuple[str, bool]] = []
+    buf: List[str] = []
+    buf_len = 0
+
+    def flush_buf() -> None:
+        nonlocal buf, buf_len
+        if buf:
+            merged = LINE_MERGE_DELIM.join(buf)
+            out.append((merged, False))
+            buf, buf_len = [], 0
+
+    for i, line in enumerate(lines):
+        line_len = len(line)
+        is_empty = not line.strip()
+        if is_empty:
+            flush_buf()
+            out.append((line, False))
+            if i < len(lines) - 1:
+                out.append(("\n", True))
+            continue
+        if not buf:
+            if line_len < min_chars:
+                buf = [line]
+                buf_len = line_len
+            else:
+                out.append((line, False))
+                if i < len(lines) - 1:
+                    out.append(("\n", True))
+            continue
+        add_len = 1 + line_len
+        if buf_len + add_len <= max_chars and (line_len < min_chars or buf_len < min_chars):
+            buf.append(line)
+            buf_len += add_len
+        else:
+            flush_buf()
+            out.append(("\n", True))
+            if line_len < min_chars:
+                buf = [line]
+                buf_len = line_len
+            else:
+                out.append((line, False))
+                if i < len(lines) - 1:
+                    out.append(("\n", True))
+    flush_buf()
+    return out
 
 
 def merge_short_segments(
@@ -557,6 +697,86 @@ def _sleep_backoff(attempt: int, base_ms: int, mult: float) -> None:
     time.sleep(delay / 1000.0)
 
 
+def normalize_lang(lang: str) -> str:
+    l = str(lang or "").strip().lower()
+    mapping = {
+        "zh": "cn",
+        "zh-cn": "cn",
+        "zh_cn": "cn",
+        "en-us": "en",
+        "en_us": "en",
+        "jp": "ja",
+    }
+    return mapping.get(l, l)
+
+
+def call_xfyun_translate(provider: Provider, text: str, source_lang: str, target_lang: str) -> Tuple[str, Dict[str, Any]]:
+    endpoint = provider.base_url
+    u = urllib.parse.urlparse(endpoint)
+    host = u.netloc
+    path = u.path or "/v1/its"
+
+    now = time.gmtime()
+    date_str = time.strftime("%a, %d %b %Y %H:%M:%S GMT", now)
+
+    request_line = f"POST {path} HTTP/1.1"
+    signature_origin = f"host: {host}\ndate: {date_str}\n{request_line}"
+    signature = base64.b64encode(
+        hmac.new(provider.api_secret.encode("utf-8"), signature_origin.encode("utf-8"), hashlib.sha256).digest()
+    ).decode("utf-8")
+
+    authorization_origin = (
+        f'api_key="{provider.api_key}", algorithm="hmac-sha256", '
+        f'headers="host date request-line", signature="{signature}"'
+    )
+    authorization = base64.b64encode(authorization_origin.encode("utf-8")).decode("utf-8")
+
+    query = urllib.parse.urlencode({
+        "authorization": authorization,
+        "host": host,
+        "date": date_str,
+    })
+    url = f"{endpoint}?{query}"
+
+    from_lang = normalize_lang(source_lang)
+    to_lang = normalize_lang(target_lang)
+    body = {
+        "header": {"app_id": provider.app_id, "status": 3},
+        "parameter": {"its": {"from": from_lang, "to": to_lang, "result": {}}},
+        "payload": {
+            "input_data": {
+                "encoding": "utf8",
+                "status": 3,
+                "text": base64.b64encode(str(text).encode("utf-8")).decode("utf-8"),
+            }
+        },
+    }
+    payload = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Accept": "application/json", "Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=(provider.timeout_ms / 1000.0)) as resp:
+        raw = resp.read().decode("utf-8", errors="replace")
+        data = json.loads(raw) if raw else {}
+
+    header = data.get("header", {})
+    code = int(header.get("code", -1))
+    if code != 0:
+        raise RuntimeError(f"XFYUN API error: code={code}, message={header.get('message')}, sid={header.get('sid')}")
+
+    text_b64 = (((data.get("payload") or {}).get("result") or {}).get("text") or "")
+    if not text_b64:
+        raise RuntimeError("XFYUN API returned empty translation text")
+    decoded = base64.b64decode(text_b64).decode("utf-8", errors="replace")
+    decoded_json = json.loads(decoded)
+    translated = (((decoded_json.get("trans_result") or {}).get("dst")) or "").strip()
+    return translated, {"provider": provider.id, "model": provider.model or "xfyun-its"}
+
+
 def call_openai_compatible(provider: Provider, messages: List[Dict[str, str]]) -> Tuple[str, Dict[str, Any]]:
     url = provider.base_url.rstrip("/") + "/chat/completions"
     headers: Dict[str, str] = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -660,8 +880,11 @@ def translate_text_with_cache(
         return translated, {"dryRun": True}, False
 
     t_llm = time.perf_counter()
-    messages = build_translation_messages(lang_in, lang_out, original_text, system_prompt=system_prompt)
-    content, meta = call_openai_compatible(provider, messages)
+    if provider.kind == "xfyun":
+        content, meta = call_xfyun_translate(provider, original_text, lang_in, lang_out)
+    else:
+        messages = build_translation_messages(lang_in, lang_out, original_text, system_prompt=system_prompt)
+        content, meta = call_openai_compatible(provider, messages)
     _log_timing("llm_call", t_llm)
     translated = str(content).strip()
 
@@ -727,34 +950,39 @@ def translate_plain_text(
     _log_timing("term_placeholders", t_terms)
 
     t_split = time.perf_counter()
-    segments = split_paragraphs_keep_separators(work)
-    merge_enabled = str(os.environ.get("TRANSLATE_MERGE_SHORT_PARAGRAPHS", "")).strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-    if merge_enabled:
+    # 机器翻译 API（如讯飞）：逐行翻译，MT 会重排句子，合并后换行易错位；LLM：按段落翻译
+    is_mt = provider.kind != "openai_compatible"
+    preserve_lines = is_mt
+    if preserve_lines:
+        lines = work.split("\n")
+        # MT 默认逐行，不合并，精确保留行边界
+        segments = []
+        for i, ln in enumerate(lines):
+            if i > 0:
+                segments.append(("\n", True))
+            segments.append((ln, False))
+    else:
+        segments = split_paragraphs_keep_separators(work)
         merge_min = clamp_int(os.environ.get("TRANSLATE_MERGE_MIN_CHARS"), 50, 2000, 200)
         segments = merge_short_segments(segments, min_chars=merge_min, max_chars=max_chars)
     _log_timing("split_paragraphs", t_split)
-    out_parts: List[str] = []
     meta = {"chunks": 0, "cachedChunks": 0, "usage": {"input_tokens": 0, "output_tokens": 0}}
+    chunk_concurrency = clamp_int(os.environ.get("TRANSLATE_CHUNK_CONCURRENCY"), 1, 16, 4)
+    # MT 默认 segment 并发 4，LLM 默认 1
+    segment_concurrency = clamp_int(
+        os.environ.get("TRANSLATE_SEGMENT_CONCURRENCY"), 1, 16,
+        4 if is_mt else 1,
+    )
 
-    for seg, is_sep in segments:
-        if is_sep:
-            out_parts.append(seg)
-            continue
-        if not seg.strip():
-            out_parts.append(seg)
-            continue
-
+    def translate_one_segment(seg: str) -> Tuple[str, int, int, Dict[str, int]]:
+        """Translate one segment. Returns (joined_text, chunks, cached_chunks, usage)."""
         subchunks = split_long_text(seg, max_chars=max_chars)
         translated_sub: List[str] = []
-        concurrency = clamp_int(os.environ.get("TRANSLATE_CHUNK_CONCURRENCY"), 1, 16, 4)
-        if concurrency <= 1 or len(subchunks) <= 1:
+        seg_chunks = 0
+        seg_cached = 0
+        seg_usage: Dict[str, int] = {}
+        if chunk_concurrency <= 1 or len(subchunks) <= 1:
             for ch in subchunks:
-                meta["chunks"] += 1
                 translated, _m, was_cached = translate_text_with_cache(
                     cache=cache,
                     provider=provider,
@@ -765,15 +993,16 @@ def translate_plain_text(
                     original_text=ch,
                     system_prompt=system_prompt,
                 )
-                if was_cached:
-                    meta["cachedChunks"] += 1
-                meta["usage"] = _merge_usage(meta.get("usage"), _m.get("usage"))
                 translated_sub.append(translated)
+                seg_chunks += 1
+                if was_cached:
+                    seg_cached += 1
+                seg_usage = _merge_usage(seg_usage, _m.get("usage"))
         else:
             futures = []
-            with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            with ThreadPoolExecutor(max_workers=chunk_concurrency) as executor:
                 for idx, ch in enumerate(subchunks):
-                    meta["chunks"] += 1
+                    seg_chunks += 1
                     futures.append(
                         (idx, executor.submit(
                             translate_text_with_cache,
@@ -791,11 +1020,46 @@ def translate_plain_text(
                 for idx, fut in futures:
                     translated, _m, was_cached = fut.result()
                     if was_cached:
-                        meta["cachedChunks"] += 1
-                    meta["usage"] = _merge_usage(meta.get("usage"), _m.get("usage"))
+                        seg_cached += 1
+                    seg_usage = _merge_usage(seg_usage, _m.get("usage"))
                     results[idx] = translated
                 translated_sub = [r or "" for r in results]
-        out_parts.append("".join(translated_sub))
+        joined = "".join(translated_sub)
+        if preserve_lines:
+            joined = _restore_line_merge_delim(joined)
+        return joined, seg_chunks, seg_cached, seg_usage
+
+    items: List[Tuple[bool, str]] = [(is_sep, seg) for seg, is_sep in segments]
+    content_indices = [i for i, (is_sep, seg) in enumerate(items) if not is_sep and seg.strip()]
+
+    if segment_concurrency <= 1 or len(content_indices) <= 1:
+        translated_map: Dict[int, str] = {}
+        for i in content_indices:
+            seg = items[i][1]
+            joined, sc, sc_cached, su = translate_one_segment(seg)
+            translated_map[i] = joined
+            meta["chunks"] += sc
+            meta["cachedChunks"] += sc_cached
+            meta["usage"] = _merge_usage(meta.get("usage"), su)
+    else:
+        translated_map = {}
+        with ThreadPoolExecutor(max_workers=segment_concurrency) as executor:
+            futures_map = {i: executor.submit(translate_one_segment, items[i][1]) for i in content_indices}
+            for i, fut in futures_map.items():
+                joined, sc, sc_cached, su = fut.result()
+                translated_map[i] = joined
+                meta["chunks"] += sc
+                meta["cachedChunks"] += sc_cached
+                meta["usage"] = _merge_usage(meta.get("usage"), su)
+
+    out_parts: List[str] = []
+    for i, (is_sep, seg) in enumerate(items):
+        if is_sep:
+            out_parts.append(seg)
+        elif not seg.strip():
+            out_parts.append(seg)
+        else:
+            out_parts.append(translated_map[i])
 
     out = "".join(out_parts)
     out = restore_placeholders(out, placeholder_map)
@@ -1238,7 +1502,8 @@ def cmd_translate_file(args: argparse.Namespace) -> int:
     input_path = Path(args.input).resolve()
     output_path = Path(args.output).resolve()
     providers_file = Path(args.providers_file).resolve()
-    glossary_file = Path(args.glossary_file).resolve()
+    glossary_db = Path(args.glossary_db).resolve() if args.glossary_db else None
+    glossary_domain = str(args.glossary_domain or "").strip() or None
     max_chars = int(args.max_chars)
 
     providers = load_providers(providers_file)
@@ -1256,8 +1521,15 @@ def cmd_translate_file(args: argparse.Namespace) -> int:
     t_glossary = time.perf_counter()
     if glossary_disabled:
         entries, synonyms, glossary_hash, glossary_options = [], [], "disabled", {}
+    elif not glossary_db:
+        raise RuntimeError("Missing --glossary-db (SQLite glossary is required)")
     else:
-        entries, synonyms, glossary_hash, glossary_options = glossary_load(glossary_file)
+        entries, synonyms, glossary_hash, glossary_options = glossary_load_from_sqlite(
+            glossary_db=glossary_db,
+            source_lang=args.source_lang,
+            target_lang=args.target_lang,
+            domain=glossary_domain,
+        )
     _log_timing("glossary_load", t_glossary)
 
     prompts_file = None
@@ -1277,13 +1549,12 @@ def cmd_translate_file(args: argparse.Namespace) -> int:
     )
     _log_timing("prompt_resolve", t_prompt)
 
-    # cache location: ../uploads/translate/cache.sqlite (single-machine)
-    backend_root = Path(__file__).resolve().parents[1]
+    # Use the same SQLite file for glossary and cache (different tables).
     raw_cache_db = str(os.environ.get("TRANSLATE_CACHE_DB", "") or "").strip()
     if raw_cache_db:
         cache_db = Path(raw_cache_db).expanduser()
     else:
-        cache_db = backend_root / "translation-kernel" / ".cache" / "cache.sqlite"
+        cache_db = glossary_db
     t_cache = time.perf_counter()
     cache = SqliteCache(cache_db)
     _log_timing("cache_init", t_cache)
@@ -1336,7 +1607,8 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--target-lang", required=True)
     t.add_argument("--providers-file", required=True)
     t.add_argument("--provider-id", required=False, default=None)
-    t.add_argument("--glossary-file", required=True)
+    t.add_argument("--glossary-db", required=True)
+    t.add_argument("--glossary-domain", required=False, default=None)
     t.add_argument("--max-chars", required=False, default=str(int(os.environ.get("TRANSLATE_CHUNK_MAX_CHARS", "1200"))))
     t.set_defaults(func=cmd_translate_file)
 

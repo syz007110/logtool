@@ -2515,6 +2515,7 @@ export default {
         if (!taskId) throw new Error('未返回 taskId')
         
         ElMessage.info('CSV导出任务已创建，正在处理...')
+        let lastHintState = null
         
         // 轮询任务状态
         const pollInterval = setInterval(async () => {
@@ -2522,6 +2523,16 @@ export default {
             const resp = await api.logs.getExportCsvTaskStatus(taskId)
             const st = resp.data?.data
             const state = st?.status
+
+            // 仅在状态变化时提示，避免重复弹窗
+            if (state && state !== lastHintState) {
+              if (state === 'waiting') {
+                ElMessage.info('CSV导出任务排队中，请稍候...')
+              } else if (state === 'active') {
+                ElMessage.info('CSV导出任务处理中，请稍候...')
+              }
+              lastHintState = state
+            }
             
             if (state === 'completed') {
               clearInterval(pollInterval)

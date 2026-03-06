@@ -2174,6 +2174,8 @@
   "translateTool": {
     "title": "Translation Tool",
     "subtitle": "",
+    "engineXfyun": "XFYun",
+    "engineDeepseek": "DeepSeek (LLM)",
     "advancedSettings": "Advanced Settings",
     "documentTranslation": "Document Translation",
     "textTranslation": "Text Translation",

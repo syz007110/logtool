@@ -2,13 +2,12 @@
   <div class="translate-tool-page">
     <div class="translate-tool-header">
       <h1 class="translate-tool-title">{{ $t('translateTool.title') }}</h1>
-      <el-button class="translate-tool-advanced-btn" plain @click="advancedVisible = true">
-        <el-icon style="margin-right: 6px"><Setting /></el-icon>
-        {{ $t('translateTool.advancedSettings') }}
-      </el-button>
     </div>
 
     <div class="translate-tool-lang-bar">
+      <el-select v-model="engine" class="engine-select">
+        <el-option v-for="opt in engineOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+      </el-select>
       <el-select v-model="sourceLang" class="lang-select" filterable>
         <el-option v-for="opt in langOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
       </el-select>
@@ -81,35 +80,24 @@
         </div>
       </div>
     </el-card>
-
-    <el-drawer v-model="advancedVisible" :title="$t('translateTool.advancedSettings')" size="420px">
-      <div class="advanced-section">
-        <div class="advanced-label">{{ $t('translateTool.provider') }}</div>
-        <el-select v-model="providerId" filterable clearable :placeholder="$t('translateTool.providerAuto')">
-          <el-option
-            v-for="p in providerOptions"
-            :key="p.id"
-            :label="`${p.label} (${p.model})${p.available ? '' : ' - ' + p.reason}`"
-            :value="p.id"
-            :disabled="!p.available"
-          />
-        </el-select>
-        <div class="advanced-hint">{{ $t('translateTool.providerHint') }}</div>
-      </div>
-    </el-drawer>
   </div>
 </template>
 
 <script>
 import api from '../api'
 import { ElMessage } from 'element-plus'
-import { Setting, UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled } from '@element-plus/icons-vue'
 
 export default {
   name: 'TranslateTool',
-  components: { Setting, UploadFilled },
+  components: { UploadFilled },
   data() {
     return {
+      engine: 'xfyun',
+      engineOptions: [
+        { value: 'xfyun', label: this.$t('translateTool.engineXfyun') },
+        { value: 'deepseek-chat', label: this.$t('translateTool.engineDeepseek') }
+      ],
       sourceLang: 'zh',
       targetLang: 'en',
       langOptions: [
@@ -130,28 +118,13 @@ export default {
       taskState: null,
       taskProgress: 0,
       taskFailedReason: '',
-      pollTimer: null,
-      advancedVisible: false,
-      providerOptions: [],
-      providerId: ''
+      pollTimer: null
     }
-  },
-  mounted() {
-    this.loadProviders()
   },
   beforeUnmount() {
     this.stopPolling()
   },
   methods: {
-    async loadProviders() {
-      try {
-        const resp = await api.smartSearch.getLlmProviders()
-        const list = resp?.data?.data || resp?.data || []
-        this.providerOptions = Array.isArray(list) ? list : []
-      } catch (e) {
-        // provider is optional
-      }
-    },
     onFileChange(file, files) {
       this.fileList = (files || []).slice(-1)
     },
@@ -181,7 +154,7 @@ export default {
         formData.append('file', raw)
         formData.append('sourceLang', this.sourceLang)
         formData.append('targetLang', this.targetLang)
-        if (this.providerId) formData.append('providerId', this.providerId)
+        if (this.engine) formData.append('providerId', this.engine)
 
         const resp = await api.translate.createDocumentTask(formData)
         const taskId = resp?.data?.data?.taskId
@@ -286,6 +259,9 @@ export default {
   background: var(--el-fill-color-blank);
   margin-bottom: 12px;
 }
+.engine-select {
+  width: 220px;
+}
 .lang-select {
   width: 240px;
 }
@@ -345,19 +321,5 @@ export default {
 .error-text {
   color: var(--el-color-danger);
   word-break: break-word;
-}
-.advanced-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.advanced-label {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-}
-.advanced-hint {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.4;
 }
 </style>

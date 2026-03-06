@@ -2154,6 +2154,8 @@
   "translateTool": {
     "title": "翻译工具",
     "subtitle": "",
+    "engineXfyun": "讯飞翻译",
+    "engineDeepseek": "DeepSeek（大模型）",
     "advancedSettings": "高级设置",
     "documentTranslation": "文档翻译",
     "textTranslation": "文本翻译",

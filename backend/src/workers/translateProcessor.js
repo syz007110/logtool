@@ -15,11 +15,27 @@ function pickTranslateProvidersFile(backendRoot) {
   const providersFileRel = String(
     process.env.TRANSLATE_LLM_PROVIDERS_FILE
     || process.env.SMART_SEARCH_LLM_PROVIDERS_FILE
-    || 'config/llmProviders.json'
+    || 'config/translateLlmProviders.json'
   ).trim();
   return path.isAbsolute(providersFileRel)
     ? providersFileRel
     : path.resolve(backendRoot, providersFileRel);
+}
+
+function pickGlossaryDbFile(backendRoot) {
+  const glossaryDbRel = String(process.env.TRANSLATE_GLOSSARY_DB || '').trim();
+  if (glossaryDbRel) {
+    return path.isAbsolute(glossaryDbRel)
+      ? glossaryDbRel
+      : path.resolve(backendRoot, glossaryDbRel);
+  }
+  const defaultDb = path.resolve(backendRoot, 'config', 'translationGlossary.sqlite');
+  return fs.existsSync(defaultDb) ? defaultDb : null;
+}
+
+function pickGlossaryDomain() {
+  const v = String(process.env.TRANSLATE_GLOSSARY_DOMAIN || '').trim();
+  return v || null;
 }
 
 function spawnTranslateCli({ inputPath, outputPath, sourceLang, targetLang, providerId }) {
@@ -28,7 +44,11 @@ function spawnTranslateCli({ inputPath, outputPath, sourceLang, targetLang, prov
     const kernelCli = path.resolve(backendRoot, 'translation-kernel', 'cli.py');
     const providersFile = pickTranslateProvidersFile(backendRoot);
 
-    const glossaryFile = path.resolve(backendRoot, 'config', 'translationGlossary.json');
+    const glossaryDb = pickGlossaryDbFile(backendRoot);
+    const glossaryDomain = pickGlossaryDomain();
+    if (!glossaryDb) {
+      return reject(new Error('Missing SQLite glossary. Set TRANSLATE_GLOSSARY_DB or provide backend/config/translationGlossary.sqlite'));
+    }
 
     const args = [
       kernelCli,
@@ -43,9 +63,12 @@ function spawnTranslateCli({ inputPath, outputPath, sourceLang, targetLang, prov
       targetLang,
       '--providers-file',
       providersFile,
-      '--glossary-file',
-      glossaryFile
+      '--glossary-db',
+      glossaryDb
     ];
+    if (glossaryDomain) {
+      args.push('--glossary-domain', glossaryDomain);
+    }
     if (providerId) {
       args.push('--provider-id', providerId);
     }

@@ -25,6 +25,17 @@ const queueOptions = {
 
 // 创建队列实例
 const logProcessingQueue = new Queue('log-processing', queueOptions);
+// CSV 导出队列（与常规日志任务分离，避免相互阻塞）
+const csvExportQueue = new Queue('csv-export', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 10,
+    timeout: parseInt(process.env.CSV_EXPORT_QUEUE_TIMEOUT_MS) || 600000, // 10分钟
+    removeOnComplete: 200,
+    removeOnFail: 100
+  }
+});
 
 // 实时处理队列（用户请求）- 高优先级
 const realtimeProcessingQueue = new Queue('realtime-processing', {
@@ -115,6 +126,14 @@ logProcessingQueue.on('failed', (job, err) => {
   console.error('[队列] 任务失败:', job.id, err.message);
 });
 
+csvExportQueue.on('error', (error) => {
+  console.error('[CSV导出队列] 队列错误:', error);
+});
+
+csvExportQueue.on('failed', (job, err) => {
+  console.error('[CSV导出队列] 任务失败:', job.id, err.message);
+});
+
 // 实时处理队列事件监听
 realtimeProcessingQueue.on('error', (error) => {
   console.error('[实时队列] 队列错误:', error);
@@ -179,6 +198,10 @@ logProcessingQueue.on('completed', (job) => {
   console.log(`[队列] 任务 ${job.id} 完成`);
 });
 
+csvExportQueue.on('completed', (job) => {
+  console.log(`[CSV导出队列] 任务 ${job.id} 完成`);
+});
+
 realtimeProcessingQueue.on('completed', (job) => {
   console.log(`[实时队列] 任务 ${job.id} 完成`);
 });
@@ -207,12 +230,17 @@ logProcessingQueue.on('stalled', (job) => {
   console.warn(`[队列] 任务 ${job.id} 停滞`);
 });
 
+csvExportQueue.on('stalled', (job) => {
+  console.warn(`[CSV导出队列] 任务 ${job.id} 停滞`);
+});
+
 motionDataQueue.on('stalled', (job) => {
   console.warn(`[MotionData队列] 任务 ${job.id} 停滞`);
 });
 
 module.exports = {
   logProcessingQueue,
+  csvExportQueue,
   realtimeProcessingQueue,
   historicalProcessingQueue,
   surgeryAnalysisQueue,

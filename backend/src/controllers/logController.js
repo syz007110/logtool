@@ -10,7 +10,7 @@ const { decryptLogContent } = require('../utils/decryptUtils');
 const { getKeyForDeviceAndDate } = require('../services/deviceKeyService');
 const { extractTimeFromFileName } = require('../utils/logTimeExtractor');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
-const { logProcessingQueue, realtimeProcessingQueue } = require('../config/queue');
+const { logProcessingQueue, csvExportQueue, realtimeProcessingQueue } = require('../config/queue');
 const queueManager = require('../services/queueManager');
 const { cacheManager } = require('../config/cache');
 const websocketService = require('../services/websocketService');
@@ -2161,7 +2161,7 @@ const exportBatchLogEntriesCSV = async (req, res) => {
     const userId = req.user.id;
 
     // 创建队列任务
-    const job = await logProcessingQueue.add('export-csv', {
+    const job = await csvExportQueue.add('export-csv', {
       type: 'export-csv',
       params: {
         log_ids,
@@ -2214,12 +2214,19 @@ const exportBatchLogEntriesCSV = async (req, res) => {
   }
 };
 
+const getCsvExportJobByTaskId = async (taskId) => {
+  // 优先读取新队列任务；回退旧队列兼容历史任务
+  const job = await csvExportQueue.getJob(taskId);
+  if (job) return job;
+  return logProcessingQueue.getJob(taskId);
+};
+
 // 查询CSV导出任务状态
 const getExportCsvTaskStatus = async (req, res) => {
   try {
     const { taskId } = req.params;
     const userId = req.user.id;
-    const job = await logProcessingQueue.getJob(taskId);
+    const job = await getCsvExportJobByTaskId(taskId);
 
     if (!job) {
       return res.status(404).json({ success: false, message: '任务不存在或已过期' });
@@ -2265,7 +2272,7 @@ const downloadExportCsvResult = async (req, res) => {
   try {
     const { taskId } = req.params;
     const userId = req.user.id;
-    const job = await logProcessingQueue.getJob(taskId);
+    const job = await getCsvExportJobByTaskId(taskId);
 
     if (!job) {
       return res.status(404).json({ message: '任务不存在或已过期' });

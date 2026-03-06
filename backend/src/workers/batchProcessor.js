@@ -855,8 +855,6 @@ async function processExportCsv(job) {
     }
   }
 
-  const whereSql = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-
   await job.progress(25);
 
   // 创建临时目录
@@ -882,28 +880,68 @@ async function processExportCsv(job) {
 
   // 查询并写入CSV
   const idToNameCache = new Map();
-  const getLogName = async (logId) => {
-    if (idToNameCache.has(logId)) return idToNameCache.get(logId);
-    const lg = await Log.findByPk(logId, { attributes: ['original_name'] });
-    const name = lg?.original_name || '';
-    idToNameCache.set(logId, name);
-    return name;
+  const cacheLogNames = async (logIds) => {
+    const uniqueIds = Array.from(new Set(
+      (Array.isArray(logIds) ? logIds : [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )).filter((id) => !idToNameCache.has(id));
+    if (uniqueIds.length === 0) return;
+
+    const logs = await Log.findAll({
+      where: { id: { [Op.in]: uniqueIds } },
+      attributes: ['id', 'original_name']
+    });
+
+    for (const lg of logs) {
+      idToNameCache.set(Number(lg.id), lg?.original_name || '');
+    }
+    // 确保未查到的 id 不会重复触发数据库查询
+    for (const id of uniqueIds) {
+      if (!idToNameCache.has(id)) {
+        idToNameCache.set(id, '');
+      }
+    }
   };
   const csvEscape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
   const limit = 5000;
-  let offset = 0;
   let totalRows = 0;
+  let batchRounds = 0;
+  let lastCursor = null;
+
+  // 若请求已限定日志集合，先批量缓存日志名，避免逐行 await 查询
+  await cacheLogNames(requestedLogIds);
 
   const displayOffsetMinutes = Number.isFinite(Number(display_timezone_offset_minutes))
     ? parseInt(display_timezone_offset_minutes, 10)
     : STORAGE_OFFSET_MINUTES;
 
   while (true) {
+    const pageConditions = [...conditions];
+    const finalQueryParams = {
+      ...queryParams,
+      limit
+    };
+    if (lastCursor) {
+      pageConditions.push(
+        `(
+          timestamp > {cursor_ts:DateTime}
+          OR (timestamp = {cursor_ts:DateTime} AND log_id > {cursor_log_id:UInt32})
+          OR (timestamp = {cursor_ts:DateTime} AND log_id = {cursor_log_id:UInt32} AND row_index > {cursor_row_index:Int64})
+        )`
+      );
+      finalQueryParams.cursor_ts = lastCursor.timestamp;
+      finalQueryParams.cursor_log_id = lastCursor.logId;
+      finalQueryParams.cursor_row_index = lastCursor.rowIndex;
+    }
+    const whereSql = pageConditions.length ? 'WHERE ' + pageConditions.join(' AND ') : '';
+
     const query = `
       SELECT 
         log_id,
         timestamp,
+        row_index,
         error_code,
         param1,
         param2,
@@ -913,14 +951,8 @@ async function processExportCsv(job) {
       FROM log_entries
       ${whereSql}
       ORDER BY timestamp ASC, log_id ASC, row_index ASC
-      LIMIT {limit:UInt32} OFFSET {offset:UInt32}
+      LIMIT {limit:UInt32}
     `;
-
-    const finalQueryParams = {
-      ...queryParams,
-      limit: limit,
-      offset: offset
-    };
 
     const result = await client.query({
       query,
@@ -931,8 +963,12 @@ async function processExportCsv(job) {
 
     if (!rows || rows.length === 0) break;
 
+    // 按批次补齐日志名缓存，避免逐行查询数据库
+    const batchLogIds = rows.map((row) => row.log_id);
+    await cacheLogNames(batchLogIds);
+
     for (const row of rows) {
-      const logName = await getLogName(row.log_id);
+      const logName = idToNameCache.get(Number(row.log_id)) || '';
       const utcMs = parseNaiveDateTimeToUtcMs(row.timestamp);
       const localTs = formatEpochMsInOffset(utcMs, displayOffsetMinutes) || String(row.timestamp || '');
       const line = [
@@ -950,14 +986,21 @@ async function processExportCsv(job) {
     }
 
     // 更新进度：30% + (已处理行数估算) * 60%
-    // 由于无法提前知道总行数，使用固定步进
-    if (offset % (limit * 10) === 0) {
-      const progress = Math.min(90, 30 + Math.floor((offset / (limit * 100)) * 60));
+    // 由于无法提前知道总行数，按批次固定步进估算
+    batchRounds += 1;
+    if (batchRounds % 10 === 0) {
+      const progress = Math.min(90, 30 + Math.floor((batchRounds / 100) * 60));
       await job.progress(progress);
     }
 
-    if (rows.length < limit) break;
-    offset += rows.length;
+    const tail = rows[rows.length - 1];
+    lastCursor = {
+      timestamp: formatTimeForClickHouse(tail?.timestamp),
+      logId: Number(tail?.log_id) || 0,
+      rowIndex: Number(tail?.row_index) || 0
+    };
+
+    if (rows.length < limit || !lastCursor.timestamp) break;
   }
 
   output.end();

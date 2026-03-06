@@ -1,5 +1,6 @@
 const { 
   logProcessingQueue, 
+  csvExportQueue,
   realtimeProcessingQueue, 
   historicalProcessingQueue, 
   surgeryAnalysisQueue,
@@ -29,6 +30,7 @@ const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURREN
 const KB_INGEST_CONCURRENCY = parseInt(process.env.KB_QUEUE_CONCURRENCY) || 2;
 // 文档翻译队列并发数，可选 env: TRANSLATE_QUEUE_CONCURRENCY（默认 1）
 const TRANSLATE_CONCURRENCY = parseInt(process.env.TRANSLATE_QUEUE_CONCURRENCY) || 1;
+const CSV_EXPORT_CONCURRENCY = parseInt(process.env.CSV_EXPORT_QUEUE_CONCURRENCY) || 2;
 
 const normalizeLogIdList = (value) => {
   const array = Array.isArray(value) ? value : [];
@@ -94,6 +96,7 @@ console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONC
 console.log(`[队列系统] 启动MotionData处理队列，并发数: ${MOTION_DATA_CONCURRENCY}`);
 console.log(`[队列系统] 启动知识库入库队列，并发数: ${KB_INGEST_CONCURRENCY}`);
 console.log(`[队列系统] 启动文档翻译队列，并发数: ${TRANSLATE_CONCURRENCY}`);
+console.log(`[队列系统] 启动CSV导出队列，并发数: ${CSV_EXPORT_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -407,14 +410,14 @@ logProcessingQueue.process('batch-download', 1, async (job) => {
   }
 });
 
-// 注册CSV导出处理器
-logProcessingQueue.process('export-csv', 1, async (job) => {
-  console.log(`[CSV导出] 开始处理任务: ${job.id}`);
-  
+// CSV 导出处理逻辑（供旧队列与新导出专用队列复用）
+const handleCsvExportJob = async (job) => {
+  console.log(`[CSV导出] 开始处理任务: ${job.id} (queue=${job.queue.name})`);
+
   try {
     const result = await processExportCsv(job);
-    console.log(`[CSV导出] 任务 ${job.id} 完成`);
-    
+    console.log(`[CSV导出] 任务 ${job.id} 完成 (queue=${job.queue.name})`);
+
     // 更新操作日志状态：success
     try {
       const { logOperation } = require('../utils/operationLogger');
@@ -463,7 +466,12 @@ logProcessingQueue.process('export-csv', 1, async (job) => {
     
     throw error;
   }
-});
+};
+
+// 兼容历史任务：保留旧队列处理器（并发 1）
+logProcessingQueue.process('export-csv', 1, handleCsvExportJob);
+// 新任务走独立 CSV 队列
+csvExportQueue.process('export-csv', CSV_EXPORT_CONCURRENCY, handleCsvExportJob);
 
 // 注册手术分析处理器
 surgeryAnalysisQueue.process('analyze-surgeries', SURGERY_CONCURRENCY, async (job) => {
