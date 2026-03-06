@@ -12,25 +12,14 @@
       <div class="metrics-strip">
         <div class="strip-header">
           <div class="strip-id">{{ displaySurgeryId }}</div>
-          <button v-if="canOpenTimeline" type="button" class="overview-icon-btn" @click="openTimelineView" aria-label="查看Overview">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="20" y2="18" />
-              <line x1="9" y1="4" x2="9" y2="8" />
-              <line x1="14" y1="10" x2="14" y2="14" />
-              <line x1="7" y1="16" x2="7" y2="20" />
-            </svg>
-            <span>Overview</span>
-          </button>
         </div>
         <div class="strip-metrics">
-          <span class="strip-item">开始时间：{{ startTimeMetric }}</span>
-          <span class="strip-item">结束时间：{{ endTimeMetric }}</span>
-          <span class="strip-item">器械使用数：{{ totalInstrumentCount }}</span>
-          <span class="strip-item">安全报警数量：{{ faultSummary.total }}</span>
-          <span class="strip-item">平均网络延时：{{ hasNetworkLatency ? formatNetworkLatency(averageNetworkLatency) : '-' }}</span>
-          <span class="strip-item">手术时长：{{ formatDuration(totalDuration) }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricStartTime') }}：{{ startTimeMetric }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricEndTime') }}：{{ endTimeMetric }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricInstrumentCount') }}：{{ totalInstrumentCount }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricAlertCount') }}：{{ faultSummary.total }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricAvgNetworkLatency') }}：{{ hasNetworkLatency ? formatNetworkLatency(averageNetworkLatency) : '-' }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricSurgeryDuration') }}：{{ formatDuration(totalDuration) }}</span>
         </div>
       </div>
 
@@ -48,6 +37,7 @@
         </div>
 
         <van-swipe
+          :key="`swipe-${swipeRenderKey}`"
           ref="contentSwipeRef"
           class="tab-swipe"
           :loop="false"
@@ -57,11 +47,11 @@
           <van-swipe-item>
             <div class="tab-panel-body">
               <div class="section-card stage-section-card">
-                <div class="section-header">手术阶段</div>
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.surgeryPhases') }}</div>
                 <template v-if="hasStageShare">
                   <div class="stage-panel-content">
                     <div class="stage-rose-shell">
-                      <div ref="stageChartRef" class="stage-rose-chart" aria-label="手术阶段占比图"></div>
+                      <div ref="stageChartRef" class="stage-rose-chart" :aria-label="$t('mobile.surgeryVisualization.stageShareAria')"></div>
                     </div>
                     <div class="stage-fixed-info" v-if="selectedStageRow">
                       {{ selectedStageRow.label }}：{{ selectedStageRow.startLabel }} - {{ selectedStageRow.endLabel }}
@@ -92,7 +82,7 @@
           <van-swipe-item>
             <div class="tab-panel-body">
               <div v-if="hasInstrumentUsage" class="section-card instrument-card">
-                <div class="section-header">器械详情</div>
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.instrumentDetails') }}</div>
                 <div class="instrument-cards">
                   <div v-for="armGroup in instrumentUsageRows" :key="armGroup.id" class="instrument-card-item">
                     <div class="instrument-card-header" @click="toggleCard(armGroup.id)">
@@ -126,11 +116,19 @@
                             <span class="instrument-info-value time">{{ formatDisplayTime(instrument.removeTime) }}</span>
                           </div>
                           <div class="instrument-info-row">
-                            <span class="instrument-info-label">激发次数</span>
-                            <span class="instrument-info-value">{{ instrument.energySummary.activationCount }}次</span>
+                            <span class="instrument-info-label">{{ $t('surgeryVisualization.tooltipToolLife') }}</span>
+                            <span class="instrument-info-value">{{ instrument.toolLifeLabel }}</span>
                           </div>
                           <div class="instrument-info-row">
-                            <span class="instrument-info-label">总激发时长</span>
+                            <span class="instrument-info-label">{{ $t('surgeryVisualization.report.cumulativeUsage') }}</span>
+                            <span class="instrument-info-value">{{ instrument.cumulativeUsageLabel }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.energyActivationCount') }}</span>
+                            <span class="instrument-info-value">{{ instrument.energySummary.activationCount }}{{ $t('mobile.surgeryVisualization.countSuffix') }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.energyTotalActivationDuration') }}</span>
                             <span class="instrument-info-value">{{ instrument.energySummary.totalActivationDurationLabel }}</span>
                           </div>
                           <button
@@ -139,7 +137,7 @@
                             class="energy-analysis-cta"
                             @click="openEnergyAnalysis(instrument)"
                           >
-                            查看能量详情
+                            {{ $t('mobile.surgeryVisualization.viewEnergyDetails') }}
                           </button>
                         </div>
                       </div>
@@ -150,6 +148,20 @@
               </div>
               <div v-else class="placeholder-card">
                 <van-empty :description="$t('mobile.surgeryVisualization.noInstrumentData')" />
+              </div>
+            </div>
+          </van-swipe-item>
+
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div class="section-card overview-tab-card">
+                <div class="rotate-mask-inline">
+                  <div class="rotate-mask-card">
+                    <div class="rotate-title">请横屏查看时间轴</div>
+                    <div class="rotate-desc">横屏后将自动进入全屏总览页面</div>
+                    <div v-if="!canOpenTimeline" class="overview-unavailable">暂无可用总览数据</div>
+                  </div>
+                </div>
               </div>
             </div>
           </van-swipe-item>
@@ -249,58 +261,31 @@
         <div class="energy-analysis-sheet">
           <div class="energy-analysis-sheet-header">
             <div class="energy-analysis-sheet-title">{{ selectedInstrumentForEnergy?.toolType || '-' }}</div>
-            <div class="energy-analysis-sheet-subtitle">UDI: {{ selectedInstrumentForEnergy?.udi || '-' }}</div>
-          </div>
-          <div class="energy-analysis-segmented">
-            <button
-              v-for="tab in energyAnalysisTabs"
-              :key="tab.key"
-              type="button"
-              :class="['energy-analysis-segment', { active: activeEnergyAnalysisTab === tab.key }]"
-              @click="activeEnergyAnalysisTab = tab.key"
-            >
-              {{ tab.label }}
-            </button>
+            <div class="energy-analysis-sheet-subtitle">{{ $t('mobile.surgeryVisualization.instrumentUdi') }}: {{ selectedInstrumentForEnergy?.udi || '-' }}</div>
           </div>
           <div class="energy-analysis-sheet-body">
-            <div v-if="activeEnergyAnalysisTab === 'density'" class="energy-analysis-view">
-              <energy-density-chart
-                v-if="selectedInstrumentEnergyDensity.numBuckets > 0"
-                :density-data="selectedInstrumentEnergyDensity"
-              />
-              <van-empty v-else description="暂无能量激发数据" />
-            </div>
-            <div v-else-if="activeEnergyAnalysisTab === 'duration'" class="energy-analysis-view">
-              <duration-histogram-chart
-                v-if="selectedInstrumentDurationHistogram.n > 0"
-                :histogram-data="selectedInstrumentDurationHistogram"
-              />
-              <van-empty v-else description="暂无持续时间数据" />
-            </div>
-            <div v-else class="energy-analysis-view">
+            <div class="energy-analysis-view">
               <div v-if="selectedInstrumentEnergyDetails.length > 0" class="energy-detail-table">
-                <div class="energy-detail-row energy-detail-header">
-                  <span>开始</span>
-                  <span>结束</span>
-                  <span>类型</span>
-                  <span>Active</span>
-                  <span>GripsActive</span>
-                  <span>Duration</span>
+                <div class="energy-detail-head-block">
+                  <div class="energy-detail-row energy-detail-header">
+                    <span>{{ $t('mobile.surgeryVisualization.energyType') }}</span>
+                    <span>{{ $t('mobile.surgeryVisualization.energyStartTime') }}</span>
+                    <span>{{ $t('surgeryVisualization.report.energyDuration') }}</span>
+                    <span>{{ $t('surgeryVisualization.report.gripsActiveDuration') }}</span>
+                  </div>
                 </div>
                 <div
                   v-for="row in selectedInstrumentEnergyDetails"
                   :key="row.key"
                   class="energy-detail-row"
                 >
-                  <span>{{ row.startLabel }}</span>
-                  <span>{{ row.endLabel }}</span>
                   <span>{{ row.typeLabel }}</span>
-                  <span>{{ row.activeLabel }}</span>
-                  <span>{{ row.gripsActiveLabel }}</span>
+                  <span>{{ row.startLabel }}</span>
                   <span>{{ row.durationLabel }}</span>
+                  <span>{{ row.gripsActiveLabel }}</span>
                 </div>
               </div>
-              <van-empty v-else description="暂无能量激发明细" />
+              <van-empty v-else :description="$t('mobile.surgeryVisualization.noEnergyDetails')" />
             </div>
           </div>
         </div>
@@ -312,7 +297,7 @@
 </template>
 
 <script>
-import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, onActivated, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showToast } from 'vant'
@@ -327,8 +312,6 @@ import {
 } from 'vant'
 import api from '@/api'
 import NetworkLatencyChart from '@/components/NetworkLatencyChart.vue'
-import EnergyDensityChart from '@/components/EnergyDensityChart.vue'
-import DurationHistogramChart from '@/components/DurationHistogramChart.vue'
 import { normalizeSurgeryData } from '@/utils/visualizationConfig'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from '@/utils/surgeryDataAdapter'
 import { resolveInstrumentTypeLabel } from '@/utils/analysisMappings'
@@ -355,8 +338,6 @@ export default {
     'van-swipe': VanSwipe,
     'van-swipe-item': VanSwipeItem,
     'network-latency-chart': NetworkLatencyChart,
-    'energy-density-chart': EnergyDensityChart,
-    'duration-histogram-chart': DurationHistogramChart,
   },
   setup() {
     const route = useRoute()
@@ -381,31 +362,39 @@ export default {
       return `${Math.round(value * 1000)} ms`
     }
 
-    const formatDateTimeWithMs = (timestampMs) => {
+    const getSegmentToolLifeLabel = (segment) => {
+      if (!segment) return '--'
+      const life = segment.tool_life
+      return (life === 0 || life) ? String(life) : '--'
+    }
+
+    const formatCumulativeUsage = (cu) => {
+      if (!cu || (cu.total_hours == null && cu.total_minutes == null)) return '--'
+      const h = Number(cu.total_hours) || 0
+      const m = Number(cu.total_minutes) || 0
+      if (h > 0) return t('surgeryVisualization.report.hoursMinutes', { hours: h, minutes: m })
+      return t('surgeryVisualization.report.minutesOnly', { minutes: m })
+    }
+
+    const formatClockTime = (timestampMs) => {
       if (!Number.isFinite(timestampMs)) return '-'
       const date = new Date(timestampMs)
       if (Number.isNaN(date.getTime())) return '-'
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
       const hour = String(date.getHours()).padStart(2, '0')
       const minute = String(date.getMinutes()).padStart(2, '0')
       const second = String(date.getSeconds()).padStart(2, '0')
-      const ms = String(date.getMilliseconds()).padStart(3, '0')
-      return `${year}-${month}-${day} ${hour}:${minute}:${second}.${ms}`
+      return `${hour}:${minute}:${second}`
     }
 
     const formatEnergyType = (typeRaw) => {
-      const normalized = String(typeRaw || '').toLowerCase().trim()
+      const typeKey = getEnergyEventTypeKey(typeRaw)
       const map = {
-        cut: '切割',
-        coag: '凝血',
-        bipolar: '双极',
-        ultrasonic: '超声',
-        ultrasonicmax: '超声(最大)'
+        'bipolar-coag': 'surgeryVisualization.report.energyBipolarCoag',
+        'monopolar-cut': 'surgeryVisualization.report.energyMonopolarCut',
+        ultrasonic: 'surgeryVisualization.report.energyUltrasonic',
+        other: 'surgeryVisualization.report.energyOther'
       }
-      if (!normalized) return '其他'
-      return map[normalized] || (typeRaw ? String(typeRaw) : '其他')
+      return t(map[typeKey] || map.other)
     }
 
     const getEnergyEventTypeKey = (type) => {
@@ -480,8 +469,8 @@ export default {
             activeSec,
             gripsActiveSec,
             durationSec,
-            startLabel: formatDateTimeWithMs(startMs),
-            endLabel: formatDateTimeWithMs(endMs),
+            startLabel: formatClockTime(startMs),
+            endLabel: formatClockTime(endMs),
             activeLabel: formatEnergyDurationMs(activeSec),
             gripsActiveLabel: formatEnergyDurationMs(gripsActiveSec),
             durationLabel: formatEnergyDurationMs(durationSec)
@@ -534,8 +523,14 @@ export default {
             matrixWithSpacer.push([...spacerRow])
           }
           rowLabels.push({
-            closure: row.closure === 'clamped' ? '闭合' : '非闭合',
-            type: row.typeKey === 'bipolar-coag' ? '双极凝血' : (row.typeKey === 'monopolar-cut' ? '单极切割' : '超声')
+            closure: row.closure === 'clamped'
+              ? t('surgeryVisualization.report.energyDensityClamped')
+              : t('surgeryVisualization.report.energyDensityUnclamped'),
+            type: row.typeKey === 'bipolar-coag'
+              ? t('surgeryVisualization.report.energyBipolarCoag')
+              : (row.typeKey === 'monopolar-cut'
+                ? t('surgeryVisualization.report.energyMonopolarCut')
+                : t('surgeryVisualization.report.energyUltrasonic'))
           })
           matrixWithSpacer.push(intensitiesMatrix[idx])
         })
@@ -589,54 +584,88 @@ export default {
     const loading = ref(false)
     const timelineEvents = ref([])
     const contentSwipeRef = ref(null)
-    const contentTabs = [
-      { key: 'stages', label: '手术阶段' },
-      { key: 'instruments', label: '器械详情' },
-      { key: 'operations', label: '操作汇总' },
-      { key: 'alerts', label: '安全报警' },
-      { key: 'network', label: '网络延时' }
-    ]
+    const contentTabs = computed(() => ([
+      { key: 'stages', label: t('mobile.surgeryVisualization.tabStagesShort') },
+      { key: 'instruments', label: t('mobile.surgeryVisualization.tabInstrumentsShort') },
+      { key: 'overview', label: t('mobile.surgeryVisualization.tabOverviewShort') },
+      { key: 'operations', label: t('mobile.surgeryVisualization.tabSummaryShort') },
+      { key: 'alerts', label: t('mobile.surgeryVisualization.tabAlertsShort') },
+      { key: 'network', label: t('mobile.surgeryVisualization.tabNetworkShort') }
+    ]))
+    const swipeTabKeys = ['stages', 'instruments', 'overview', 'operations', 'alerts', 'network']
+    const getSwipeIndexByKey = (key) => swipeTabKeys.findIndex(k => k === key)
     const stageChartRef = ref(null)
     const selectedStageKey = ref('')
     let stageChartInstance = null
     let stageChartResizeObserver = null
-    const activeContentTab = ref(contentTabs[0].key)
+    const activeContentTab = ref(contentTabs.value[0].key)
     const energyAnalysisPopupVisible = ref(false)
     const selectedInstrumentForEnergy = ref(null)
-    const energyAnalysisTabs = [
-      { key: 'density', label: '能量激发密度图' },
-      { key: 'duration', label: '持续时间分布图' },
-      { key: 'details', label: '能量激发明细表' }
-    ]
-    const activeEnergyAnalysisTab = ref(energyAnalysisTabs[0].key)
 
     const switchContentTab = (tabKey) => {
-      const targetIndex = contentTabs.findIndex(tab => tab.key === tabKey)
+      const targetIndex = getSwipeIndexByKey(tabKey)
       if (targetIndex < 0) return
       activeContentTab.value = tabKey
       contentSwipeRef.value?.swipeTo?.(targetIndex, { immediate: true })
     }
 
     const onContentSwipeChange = (index) => {
-      const tab = contentTabs[index]
-      if (tab) {
-        activeContentTab.value = tab.key
+      const tabKey = swipeTabKeys[index]
+      if (tabKey) {
+        activeContentTab.value = tabKey
       }
     }
 
     const canOpenTimeline = computed(() => {
       const hasId = !!(surgeryId || surgeryData.value?.surgery_id)
       const hasData = !!surgeryData.value
-      const hasTimeline = timelineEvents.value.length > 0
-      const hasArms = Array.isArray(surgeryData.value?.arms) && surgeryData.value.arms.some(a => Array.isArray(a.instrument_usage) && a.instrument_usage.length > 0)
-      return hasId && hasData && (hasTimeline || hasArms)
+      return hasId && hasData
     })
 
-    const openTimelineView = () => {
+    const tryLockLandscapeForOverview = async () => {
+      try {
+        if (window?.screen?.orientation?.lock) {
+          await window.screen.orientation.lock('landscape')
+        }
+      } catch (_) {
+        // iOS Safari / non-PWA may reject; timeline page has rotate-mask fallback.
+      }
+    }
+
+    const openTimelineView = async () => {
       const id = surgeryData.value?.surgery_id || surgeryId
       if (!id) return
-      router.push({ name: 'MSurgeryTimeline', params: { surgeryId: id } })
+      await tryLockLandscapeForOverview()
+      router.push({
+        name: 'MSurgeryTimeline',
+        params: { surgeryId: id },
+        query: { from: 'viz-tab', fullscreen: '1' }
+      })
     }
+
+    const isOverviewPortrait = ref(typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : true)
+    const swipeRenderKey = ref(0)
+    const forceTabLayout = () => {
+      nextTick(() => {
+        swipeRenderKey.value += 1
+        const idx = getSwipeIndexByKey(activeContentTab.value)
+        if (idx >= 0) contentSwipeRef.value?.swipeTo?.(idx, { immediate: true })
+        if (activeContentTab.value === 'stages') {
+          window.setTimeout(() => updateStageChart(), 80)
+        }
+      })
+    }
+    const updateOverviewOrientation = () => {
+      if (typeof window === 'undefined') return
+      isOverviewPortrait.value = window.innerHeight > window.innerWidth
+      forceTabLayout()
+    }
+
+    watch([activeContentTab, isOverviewPortrait, canOpenTimeline], ([tabKey, portrait, canOpen]) => {
+      if (tabKey === 'overview' && !portrait && canOpen) {
+        openTimelineView()
+      }
+    })
 
     const displaySurgeryId = computed(() => surgeryData.value?.surgery_id || surgeryId || '-')
 
@@ -879,7 +908,8 @@ export default {
         const armId = arm.arm_id || arm.armId || armIndex + 1
         const armIndexForDisplay = typeof armId === 'number' ? armId : (armIndex + 1)
         const armLabelFormatted = t('mobile.surgeryVisualization.armFallback', { index: armIndexForDisplay })
-        
+        const armCumulativeUsage = arm.cumulative_usage || null
+
         const instruments = usageList.map((usage, usageIndex) => {
           // 兼容多种字段命名：install_time/start_time, remove_time/end_time
           const install = usage.install_time || usage.start_time || usage.installTime || usage.startTime
@@ -903,6 +933,7 @@ export default {
           const udi = usage.udi || usage.udi_code || usage.udiCode || '-'
           const energyActivation = Array.isArray(usage.energy_activation) ? usage.energy_activation : []
           const energySummary = buildInstrumentEnergySummary(energyActivation, install, remove)
+          const cumulativeUsageRaw = usage.cumulative_usage || armCumulativeUsage
           return {
             id: `${armId}-${usageIndex}`,
             instrumentType,
@@ -910,6 +941,8 @@ export default {
             udi: udi,
             installTime: install,
             removeTime: remove,
+            toolLifeLabel: getSegmentToolLifeLabel(usage),
+            cumulativeUsageLabel: formatCumulativeUsage(cumulativeUsageRaw),
             energySummary
           }
         })
@@ -931,17 +964,8 @@ export default {
 
     const openEnergyAnalysis = (instrument) => {
       selectedInstrumentForEnergy.value = instrument || null
-      activeEnergyAnalysisTab.value = energyAnalysisTabs[0].key
       energyAnalysisPopupVisible.value = true
     }
-
-    const selectedInstrumentEnergyDensity = computed(() => {
-      return selectedInstrumentForEnergy.value?.energySummary?.density || { heatmap: true, rowLabels: [], matrix: [], numBuckets: 0, bucketMs: DRAWER_DENSITY_BUCKET_MS }
-    })
-
-    const selectedInstrumentDurationHistogram = computed(() => {
-      return selectedInstrumentForEnergy.value?.energySummary?.histogram || { binCenters: [], counts: [], median: null, p90: null, p95: null, n: 0 }
-    })
 
     const selectedInstrumentEnergyDetails = computed(() => {
       return selectedInstrumentForEnergy.value?.energySummary?.details || []
@@ -965,19 +989,19 @@ export default {
     }
     const isCardExpanded = (cardId) => expandedCards.value.has(cardId)
 
-    const stageMeta = [
-      { key: 'power_on_stage', label: '开机阶段', color: '#1890ff' },
-      { key: 'positioning_stage', label: '定位阶段', color: '#52c41a' },
-      { key: 'instrument_installation_stage', label: '器械安装', color: '#faad14' },
-      { key: 'surgery_operation_stage', label: '手术操作', color: '#f5222d' },
-      { key: 'withdrawal_stage', label: '撤离阶段', color: '#722ed1' },
-      { key: 'power_off_stage', label: '关机阶段', color: '#595959' }
-    ]
+    const stageMeta = computed(() => ([
+      { key: 'power_on_stage', label: t('mobile.surgeryVisualization.phasePowerOn'), color: '#1890ff' },
+      { key: 'positioning_stage', label: t('mobile.surgeryVisualization.phasePositioning'), color: '#52c41a' },
+      { key: 'instrument_installation_stage', label: t('mobile.surgeryVisualization.phaseInstrumentInstall'), color: '#faad14' },
+      { key: 'surgery_operation_stage', label: t('mobile.surgeryVisualization.phaseSurgeryOperation'), color: '#f5222d' },
+      { key: 'withdrawal_stage', label: t('mobile.surgeryVisualization.phaseWithdrawal'), color: '#722ed1' },
+      { key: 'power_off_stage', label: t('mobile.surgeryVisualization.phasePowerOff'), color: '#595959' }
+    ]))
 
     const stageShareRows = computed(() => {
       const surgicalStage = surgeryData.value?.surgery_stats?.surgical_stage
       if (!surgicalStage || typeof surgicalStage !== 'object') return []
-      const entries = stageMeta
+      const entries = stageMeta.value
         .map((meta) => {
           const stage = surgicalStage[meta.key]
           if (!stage || typeof stage !== 'object') return null
@@ -1067,6 +1091,17 @@ export default {
         if (key) selectedStageKey.value = key
       })
       stageChartInstance.resize()
+    }
+
+    const ensureStageChartObserver = () => {
+      if (typeof ResizeObserver === 'undefined' || !stageChartRef.value) return
+      if (stageChartResizeObserver) {
+        try { stageChartResizeObserver.disconnect() } catch (_) {}
+      }
+      stageChartResizeObserver = new ResizeObserver(() => {
+        stageChartInstance?.resize()
+      })
+      stageChartResizeObserver.observe(stageChartRef.value)
     }
 
     const networkLatencySeries = computed(() => {
@@ -1450,8 +1485,29 @@ export default {
       } else if (!rows.some(row => row.key === selectedStageKey.value)) {
         selectedStageKey.value = rows[0].key
       }
-      nextTick(() => updateStageChart())
+      if (activeContentTab.value === 'stages') {
+        nextTick(() => updateStageChart())
+      }
     }, { deep: true, immediate: true })
+
+    watch(activeContentTab, (tabKey) => {
+      if (tabKey === 'stages') {
+        nextTick(() => updateStageChart())
+      }
+    })
+
+    watch(swipeRenderKey, () => {
+      if (stageChartInstance) {
+        stageChartInstance.dispose()
+        stageChartInstance = null
+      }
+      if (activeContentTab.value === 'stages') {
+        nextTick(() => {
+          updateStageChart()
+          ensureStageChartObserver()
+        })
+      }
+    })
 
     onMounted(async () => {
       if (!surgeryId) {
@@ -1459,22 +1515,34 @@ export default {
         router.back()
         return
       }
+      updateOverviewOrientation()
+      window.addEventListener('resize', updateOverviewOrientation)
+      window.addEventListener('orientationchange', updateOverviewOrientation)
+      forceTabLayout()
       const loadedFromSession = loadFromSession()
       if (!loadedFromSession) {
         await fetchSurgeryData()
       }
       nextTick(() => {
         updateStageChart()
-        if (typeof ResizeObserver !== 'undefined' && stageChartRef.value) {
-          stageChartResizeObserver = new ResizeObserver(() => {
-            stageChartInstance?.resize()
-          })
-          stageChartResizeObserver.observe(stageChartRef.value)
-        }
+        ensureStageChartObserver()
       })
     })
 
+    onActivated(() => {
+      updateOverviewOrientation()
+      forceTabLayout()
+      if (activeContentTab.value === 'stages') {
+        nextTick(() => {
+          updateStageChart()
+          ensureStageChartObserver()
+        })
+      }
+    })
+
     onBeforeUnmount(() => {
+      window.removeEventListener('resize', updateOverviewOrientation)
+      window.removeEventListener('orientationchange', updateOverviewOrientation)
       if (stageChartResizeObserver && stageChartRef.value) {
         try {
           stageChartResizeObserver.unobserve(stageChartRef.value)
@@ -1518,10 +1586,6 @@ export default {
       openEnergyAnalysis,
       energyAnalysisPopupVisible,
       selectedInstrumentForEnergy,
-      energyAnalysisTabs,
-      activeEnergyAnalysisTab,
-      selectedInstrumentEnergyDensity,
-      selectedInstrumentDurationHistogram,
       selectedInstrumentEnergyDetails,
       totalInstrumentCount,
       averageNetworkLatency,
@@ -1537,7 +1601,9 @@ export default {
       faultExplanations,
       faultExplanationLoading,
       canOpenTimeline,
-      openTimelineView
+      openTimelineView,
+      isOverviewPortrait,
+      swipeRenderKey
     }
   }
 }
@@ -1632,15 +1698,16 @@ export default {
 .tab-bar {
   display: flex;
   gap: 2px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   padding-bottom: 0;
   border-bottom: 1px solid #e4e7ec;
 }
 
 .tab-bar .tab-button {
-  flex: 0 0 auto;
-  min-width: 72px;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  font-size: 12px;
 }
 
 .tab-swipe {
@@ -1991,6 +2058,73 @@ export default {
   gap: 8px;
 }
 
+.overview-tab-card {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rotate-mask-inline {
+  width: 100%;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.rotate-mask-card {
+  width: 100%;
+  max-width: 340px;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.rotate-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.rotate-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.overview-ready {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.overview-enter-btn {
+  border: 1px solid #c9d4e5;
+  background: #f8fbff;
+  color: #1f3b6e;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.overview-enter-btn:disabled {
+  opacity: 0.55;
+}
+
+.overview-unavailable {
+  font-size: 12px;
+  color: #6b7280;
+}
+
 .metrics-section {
   background: transparent;
   border: none;
@@ -2012,16 +2146,18 @@ export default {
 }
 
 .overview-icon-btn {
-  border: 1px solid #d0d5dd;
-  background: #fff;
-  color: #334155;
+  border: 1px solid #c9d4e5;
+  background: #f8fbff;
+  color: #1f3b6e;
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  justify-content: center;
+  gap: 6px;
   line-height: 1;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .overview-icon-btn:active {
@@ -2845,7 +2981,7 @@ export default {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
 }
 
 .energy-analysis-view {
@@ -2858,10 +2994,19 @@ export default {
   gap: 8px;
 }
 
+.energy-detail-head-block {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+}
+
 .energy-detail-row {
   display: grid;
-  grid-template-columns: 1.5fr 1.5fr 0.8fr 0.8fr 0.9fr 0.9fr;
+  grid-template-columns: 0.82fr 0.82fr 0.96fr 1.4fr;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   font-size: 11px;
   color: #374151;
   padding: 8px;
@@ -2875,13 +3020,17 @@ export default {
   text-overflow: ellipsis;
 }
 
+.energy-detail-header span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
 .energy-detail-header {
-  position: sticky;
-  top: 0;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: transparent;
+  color: #374151;
   font-weight: 600;
-  z-index: 1;
 }
 
 .instrument-info-row {
