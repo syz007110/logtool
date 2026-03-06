@@ -35,19 +35,6 @@
         <button class="filter-chip" type="button" @click="openFilterSheet('time')">时间：{{ timeChipLabel }}</button>
         <button class="filter-chip" type="button" @click="openFilterSheet('type')">类型：{{ typeChipLabel }}</button>
         <button class="filter-chip" type="button" @click="openFilterSheet('sort')">排序：{{ sortChipLabel }}</button>
-        <button class="filter-chip filter-chip-more" type="button" @click="openFilterSheet('all')">更多</button>
-      </div>
-      <div class="quick-row">
-        <button
-          v-for="option in quickShortcutOptions"
-          :key="option.value"
-          type="button"
-          class="quick-shortcut"
-          :class="{ active: selectedQuickRange === option.value }"
-          @click="selectQuickRange(option.value)"
-        >
-          {{ option.text }}
-        </button>
       </div>
       </div>
 
@@ -74,15 +61,31 @@
         <div class="sheet-title">筛选条件</div>
 
         <div class="sheet-body">
-          <div v-if="sheetMode === 'all' || sheetMode === 'time'" class="time-filter-panel">
+          <div v-if="sheetMode === 'time'" class="time-filter-panel">
             <div class="time-filter-section">
-              <div class="section-title">{{ customRangeTitle }}</div>
-              <div
-                v-if="selectedQuickRange !== 'custom' && selectedQuickRange !== 'all'"
-                class="time-mode-hint"
-              >
-                当前使用快捷范围：{{ timeChipLabel }}。选择年月日后将切换为自定义时间。
+              <div class="section-title">{{ quickRangeTitle }}</div>
+              <div class="quick-options">
+                <div
+                  v-for="option in quickRangeOptions"
+                  :key="option.value"
+                  class="quick-option"
+                  :class="{ active: selectedQuickRange === option.value }"
+                  @click="selectQuickRange(option.value)"
+                >
+                  {{ option.text }}
+                </div>
+                <div
+                  class="quick-option"
+                  :class="{ active: selectedQuickRange === 'custom' }"
+                  @click="selectCustomRange"
+                >
+                  自定义
+                </div>
               </div>
+            </div>
+
+            <div v-if="selectedQuickRange === 'custom'" class="time-filter-section">
+              <div class="section-title">{{ customRangeTitle }}</div>
               <div class="custom-options">
                 <div class="custom-row">
                   <div class="custom-label">{{ yearLabel }}</div>
@@ -130,7 +133,7 @@
             </div>
           </div>
 
-          <div v-if="sheetMode === 'all' || sheetMode === 'type'" class="time-filter-section">
+          <div v-if="sheetMode === 'type'" class="time-filter-section">
             <div class="section-title">手术类型</div>
             <div class="quick-options">
               <div
@@ -145,7 +148,7 @@
             </div>
           </div>
 
-          <div v-if="sheetMode === 'all' || sheetMode === 'sort'" class="time-filter-section">
+          <div v-if="sheetMode === 'sort'" class="time-filter-section">
             <div class="section-title">排序方式</div>
             <div class="quick-options">
               <div class="quick-option" :class="{ active: sortOrder === 'latest' }" @click="setSortOrder('latest')">最新优先</div>
@@ -260,7 +263,7 @@ export default {
     const page = ref(1)
     const pageSize = 20
     const filterSheetVisible = ref(false)
-    const sheetMode = ref('all')
+    const sheetMode = ref('time')
 
     const translateOr = (key, fallback) => {
       const result = t(key)
@@ -284,8 +287,6 @@ export default {
       const current = surgeryTypeOptions.value.find(option => option.value === surgeryTypeFilter.value)
       return current?.text || '全部'
     })
-
-    const quickShortcutOptions = computed(() => quickRangeOptions.value.filter(option => ['1d', '7d', '30d'].includes(option.value)))
 
     const sortChipLabel = computed(() => (sortOrder.value === 'earliest' ? '最早' : '最新'))
 
@@ -809,7 +810,7 @@ export default {
       resetAndReload()
     }
 
-    const openFilterSheet = (mode = 'all') => {
+    const openFilterSheet = (mode = 'time') => {
       sheetMode.value = mode
       filterSheetVisible.value = true
     }
@@ -843,6 +844,15 @@ export default {
     const selectQuickRange = (value) => {
       if (value === selectedQuickRange.value) return
       selectedQuickRange.value = value
+      selectedYear.value = 'all'
+      selectedMonth.value = 'all'
+      selectedDay.value = 'all'
+      resetAndReload()
+    }
+
+    const selectCustomRange = () => {
+      if (selectedQuickRange.value === 'custom') return
+      selectedQuickRange.value = 'custom'
       selectedYear.value = 'all'
       selectedMonth.value = 'all'
       selectedDay.value = 'all'
@@ -1136,7 +1146,6 @@ export default {
       selectedMonth,
       selectedDay,
       surgeryTypeOptions,
-      quickShortcutOptions,
       yearOptions,
       monthOptions,
       dayOptions,
@@ -1167,6 +1176,7 @@ export default {
       setSortOrder,
       clearAllFilters,
       selectQuickRange,
+      selectCustomRange,
       selectYear,
       selectMonth,
       selectDay,
@@ -1371,26 +1381,6 @@ export default {
   padding-bottom: 2px;
 }
 
-.quick-row {
-  display: flex;
-  gap: 8px;
-}
-
-.quick-shortcut {
-  border: 1px solid var(--m-color-border);
-  background: var(--m-color-surface);
-  color: var(--m-color-text-secondary);
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 12px;
-}
-
-.quick-shortcut.active {
-  background: var(--m-color-brand);
-  border-color: var(--m-color-brand);
-  color: var(--m-color-surface);
-}
-
 .filter-chip {
   border: 1px solid var(--m-color-border);
   background: var(--m-color-surface);
@@ -1399,11 +1389,6 @@ export default {
   padding: 6px 10px;
   font-size: 12px;
   white-space: nowrap;
-}
-
-.filter-chip-more {
-  color: var(--m-color-brand);
-  border-color: rgba(21, 93, 252, 0.3);
 }
 
 .sheet-wrap {

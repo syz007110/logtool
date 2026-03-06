@@ -1,6 +1,7 @@
 <template>
-  <div class="timeline-page">
+  <div class="timeline-page" :class="{ 'timeline-page--fullscreen': isFullscreenMode }">
     <van-nav-bar
+      v-if="!isFullscreenMode"
       title="Case Timeline"
       left-arrow
       @click-left="$router.back()"
@@ -9,7 +10,20 @@
     />
 
     <div class="timeline-content" v-if="surgeryData">
-      <div class="tip">建议横屏查看 · 支持拖动十字光标</div>
+      <div v-if="!isFullscreenMode" class="tip">建议横屏查看 · 支持拖动十字光标</div>
+
+      <div v-if="isFullscreenMode" class="fullscreen-top-cards">
+        <div v-for="card in armSnapshotCards" :key="card.armId" class="arm-snapshot-card">
+          <img v-if="card.imageUrl" class="arm-snapshot-image" :src="card.imageUrl" alt="instrument" />
+          <div v-else class="arm-snapshot-avatar"></div>
+          <div class="arm-snapshot-main">
+            <div class="arm-snapshot-title">Arm{{ card.armId }}</div>
+            <div class="arm-snapshot-meta">UDI: {{ card.udi }}</div>
+            <div class="arm-snapshot-meta">寿命: {{ card.toolLife }}</div>
+            <div class="arm-snapshot-meta">安装: {{ card.install }}</div>
+          </div>
+        </div>
+      </div>
 
       <div v-if="showRotateMask" class="rotate-mask">
         <div class="rotate-mask-card">
@@ -26,7 +40,26 @@
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
       >
-        <div class="timeline-inner" :style="{ '--row-height': `${rowHeight}px`, '--total-hours': `${totalHours}` }">
+        <template v-if="isFullscreenMode">
+          <canvas ref="overviewCanvasRef" class="overview-canvas"></canvas>
+          <div
+            v-if="crosshair.show"
+            class="crosshair-overlay"
+            :style="{ left: `${crosshair.x}px` }"
+          >
+            <div class="crosshair-tip">{{ crosshair.label }}</div>
+          </div>
+          <div v-if="hoverInfo.show" class="hover-info-card">
+            <div class="hover-info-title">{{ hoverInfo.title }}</div>
+            <div>UDI码: {{ hoverInfo.udi }}</div>
+            <div>器械寿命: {{ hoverInfo.toolLifeLabel }}</div>
+            <div>使用时长: {{ hoverInfo.durationLabel }}</div>
+            <div>安装时刻: {{ hoverInfo.startLabel }}</div>
+            <div>拔下时刻: {{ hoverInfo.endLabel }}</div>
+          </div>
+        </template>
+
+        <div v-else class="timeline-inner" :style="{ '--row-height': `${rowHeight}px`, '--total-hours': `${totalHours}` }">
           <div class="timeline-axis">
             <div class="arm-col"></div>
             <div class="hour-cols">
@@ -94,22 +127,25 @@
 </template>
 
 <script>
-import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { NavBar as VanNavBar, Popup as VanPopup, showToast } from 'vant'
 import api from '@/api'
 import { adaptSurgeryData, validateAdaptedData } from '@/utils/surgeryDataAdapter'
-import { resolveInstrumentTypeLabel } from '@/utils/analysisMappings'
+import { resolveInstrumentTypeLabel, INSTRUMENT_TYPE_MAP } from '@/utils/analysisMappings'
 
 export default {
   name: 'MSurgeryTimeline',
   components: { 'van-nav-bar': VanNavBar, 'van-popup': VanPopup },
   setup() {
     const route = useRoute()
+    const router = useRouter()
     const surgeryId = route.params?.surgeryId
+    const isFullscreenMode = computed(() => route.query?.fullscreen === '1')
     const surgeryData = ref(null)
     const viewportRef = ref(null)
     const timelineCanvasRef = ref(null)
+    const overviewCanvasRef = ref(null)
     const armColWidth = 72
     const viewportWidth = ref(0)
     const viewportHeight = ref(0)
@@ -124,7 +160,14 @@ export default {
     const isPortrait = ref(false)
     const updateOrientationState = () => {
       isPortrait.value = window.innerHeight > window.innerWidth
-      nextTick(updateViewportMetrics)
+      if (isFullscreenMode.value && isPortrait.value) {
+        router.back()
+        return
+      }
+      nextTick(() => {
+        updateViewportMetrics()
+        drawOverviewCanvas()
+      })
     }
     const showRotateMask = computed(() => isPortrait.value)
 
@@ -290,29 +333,264 @@ export default {
     }
 
     const crosshair = ref({ show: false, x: 0, label: '' })
+    const currentCrosshairMs = ref(null)
+    const hoverInfo = ref({
+      show: false,
+      title: '-',
+      udi: '-',
+      toolLifeLabel: '-',
+      startLabel: '-',
+      endLabel: '-',
+      durationLabel: '-'
+    })
     const dragging = ref(false)
 
-    const updateCrosshair = (clientX) => {
-      const canvas = timelineCanvasRef.value
-      if (!canvas || !timelineStart.value || !timelineEnd.value) return
-      const rect = canvas.getBoundingClientRect()
+    const formatClock = (t) => {
+      const d = new Date(t)
+      if (Number.isNaN(d.getTime())) return '-'
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      const ss = String(d.getSeconds()).padStart(2, '0')
+      return `${hh}:${mm}:${ss}`
+    }
+
+    const normalizeInstrumentTypeCode = (instrumentType) => {
+      if (instrumentType === undefined || instrumentType === null || instrumentType === '') return ''
+      const raw = typeof instrumentType === 'number' ? instrumentType : String(instrumentType).trim()
+      if (raw === '' || raw === 0 || raw === '0') return ''
+      const asNum = Number(raw)
+      if (Number.isFinite(asNum) && asNum !== 0) return String(asNum)
+      const byName = Object.entries(INSTRUMENT_TYPE_MAP).find(([, name]) => String(name).trim() === String(raw).trim())
+      if (byName && byName[0] !== '0') return String(byName[0])
+      const matchedNum = String(raw).match(/\d+/)
+      if (matchedNum && matchedNum[0] !== '0') return matchedNum[0]
+      return ''
+    }
+
+    const getInstrumentImageUrl = (instrumentType) => {
+      const code = normalizeInstrumentTypeCode(instrumentType)
+      if (!code) return ''
+      const base = (process.env.BASE_URL || '/').replace(/\/?$/, '/')
+      return `${base}instruments/${encodeURIComponent(code)}.png`
+    }
+
+    const armSnapshotCards = computed(() => {
+      const ms = Number.isFinite(currentCrosshairMs.value) ? currentCrosshairMs.value : timelineStart.value
+      return arms.value.map((arm) => {
+        const seg = (arm.instrument_usage || []).find((item) => {
+          const s = toMs(item.start_time || item.install_time || item.start)
+          const e = toMs(item.end_time || item.remove_time || item.end || item.start_time)
+          return Number.isFinite(s) && Number.isFinite(e) && Number.isFinite(ms) && s <= ms && ms <= e
+        })
+        const rawType = seg?.instrument_type ?? seg?.toolType ?? seg?.tool_type ?? seg?.instrument_name ?? seg?.instrumentName
+        return {
+          armId: arm.arm_id,
+          udi: seg?.udi || '-',
+          toolLife: (seg && (seg.tool_life === 0 || seg.tool_life)) ? String(seg.tool_life) : '-',
+          install: seg ? formatClock(seg.start_time || seg.install_time || seg.start) : '-',
+          imageUrl: seg ? getInstrumentImageUrl(rawType) : ''
+        }
+      })
+    })
+
+    const drawOverviewCanvas = () => {
+      if (!isFullscreenMode.value) return
+      const canvas = overviewCanvasRef.value
+      const vp = viewportRef.value
+      if (!canvas || !vp) return
+      const dpr = window.devicePixelRatio || 1
+      const width = vp.clientWidth
+      const height = vp.clientHeight
+      if (width <= 0 || height <= 0) return
+      canvas.width = Math.floor(width * dpr)
+      canvas.height = Math.floor(height * dpr)
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, width, height)
+
+      const axisH = 22
+      const leftW = 64
+      const rows = ['events', ...arms.value.map(a => a.arm_id)]
+      const rowCount = Math.max(2, rows.length)
+      const laneH = Math.max(30, (height - axisH) / rowCount)
+      const plotW = Math.max(1, width - leftW)
+
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(0, 0, width, height)
+      ctx.strokeStyle = '#e5eaf2'
+      ctx.strokeRect(0.5, 0.5, width - 1, height - 1)
+
+      ctx.fillStyle = '#fafcff'
+      ctx.fillRect(leftW, 0, plotW, axisH)
+      ctx.strokeStyle = '#e5eaf2'
+      ctx.beginPath(); ctx.moveTo(leftW, axisH + 0.5); ctx.lineTo(width, axisH + 0.5); ctx.stroke()
+
+      ctx.fillStyle = '#fcfdff'
+      ctx.fillRect(0, axisH, leftW, height - axisH)
+      ctx.beginPath(); ctx.moveTo(leftW + 0.5, axisH); ctx.lineTo(leftW + 0.5, height); ctx.stroke()
+
+      const colW = plotW / Math.max(1, totalHours.value)
+      for (let i = 0; i <= totalHours.value; i++) {
+        const x = leftW + i * colW
+        ctx.strokeStyle = '#edf1f6'
+        ctx.beginPath(); ctx.moveTo(x + 0.5, axisH); ctx.lineTo(x + 0.5, height); ctx.stroke()
+      }
+      rows.forEach((_, i) => {
+        const y = axisH + i * laneH
+        ctx.strokeStyle = '#eef2f7'
+        ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); ctx.stroke()
+      })
+
+      ctx.font = '10px sans-serif'
+      ctx.fillStyle = '#64748b'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      hourMarks.value.forEach((m, i) => {
+        const x = leftW + (i + 0.5) * colW
+        ctx.fillText(m, x, axisH / 2)
+      })
+
+      ctx.fillStyle = '#475569'
+      ctx.textAlign = 'center'
+      ctx.fillText('Events', leftW / 2, axisH + laneH / 2)
+      arms.value.forEach((arm, idx) => {
+        ctx.fillText(`Arm ${arm.arm_id}`, leftW / 2, axisH + (idx + 1.5) * laneH)
+      })
+
+      // faults
+      faults.value.forEach((t) => {
+        const x = leftW + mapRatio(t) * plotW
+        ctx.strokeStyle = 'rgba(239,68,68,.7)'
+        ctx.beginPath(); ctx.moveTo(x + 0.5, axisH); ctx.lineTo(x + 0.5, height); ctx.stroke()
+      })
+      // events
+      events.value.forEach((ev) => {
+        const x = leftW + mapRatio(ev.time) * plotW
+        const y = axisH + laneH / 2
+        ctx.fillStyle = ev.symbol === 'square' ? '#38bdf8' : '#22c55e'
+        if (ev.symbol === 'square') ctx.fillRect(x - 4, y - 4, 8, 8)
+        else { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill() }
+      })
+
+      const segH = Math.max(8, Math.min(14, laneH * 0.34))
+      arms.value.forEach((arm, idx) => {
+        ;(arm.instrument_usage || []).forEach((seg) => {
+          const { leftPct, widthPct } = getSegmentMetrics(seg)
+          const x = leftW + (leftPct / 100) * plotW
+          const w = Math.max(6, (widthPct / 100) * plotW)
+          const y = axisH + (idx + 1) * laneH + (laneH - segH) / 2
+          ctx.fillStyle = getArmColor(arm.arm_id)
+          const r = Math.min(6, segH / 2)
+          ctx.beginPath()
+          ctx.moveTo(x + r, y)
+          ctx.lineTo(x + w - r, y)
+          ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+          ctx.lineTo(x + w, y + segH - r)
+          ctx.quadraticCurveTo(x + w, y + segH, x + w - r, y + segH)
+          ctx.lineTo(x + r, y + segH)
+          ctx.quadraticCurveTo(x, y + segH, x, y + segH - r)
+          ctx.lineTo(x, y + r)
+          ctx.quadraticCurveTo(x, y, x + r, y)
+          ctx.fill()
+        })
+      })
+    }
+
+    const formatDurationMMSS = (ms) => {
+      const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000))
+      const minutes = Math.floor(totalSeconds / 60)
+      const seconds = totalSeconds % 60
+      return `${String(minutes).padStart(2, '0')}分钟${String(seconds).padStart(2, '0')}秒`
+    }
+
+    const updateCrosshair = (clientX, clientY, options = {}) => {
+      const { updateTooltip = false } = options
+      if (!timelineStart.value || !timelineEnd.value) return
+      const target = isFullscreenMode.value ? overviewCanvasRef.value : timelineCanvasRef.value
+      if (!target) return
+      const rect = target.getBoundingClientRect()
       const timelineX = clientX - rect.left
       if (timelineX < 0 || timelineX > rect.width) return
-      const ratio = timelineX / Math.max(1, rect.width)
+      let ratio = timelineX / Math.max(1, rect.width)
+      if (isFullscreenMode.value) {
+        const leftW = 64
+        const plotW = Math.max(1, rect.width - leftW)
+        ratio = (timelineX - leftW) / plotW
+      }
+      ratio = Math.max(0, Math.min(1, ratio))
       const ms = timelineStart.value + ratio * (timelineEnd.value - timelineStart.value)
-      crosshair.value = { show: true, x: armColWidth + timelineX, label: fmt(ms) }
+      currentCrosshairMs.value = ms
+      crosshair.value = { show: true, x: (isFullscreenMode.value ? timelineX : (armColWidth + timelineX)), label: fmt(ms) }
+
+      if (!isFullscreenMode.value || !updateTooltip) return
+
+      const axisH = 22
+      const leftW = 64
+      const rowCount = Math.max(2, 1 + arms.value.length)
+      const laneH = Math.max(30, (rect.height - axisH) / rowCount)
+      const segH = Math.max(8, Math.min(14, laneH * 0.34))
+      const y = clientY - rect.top
+      const laneIndex = Math.floor((y - axisH) / laneH) - 1
+      const arm = arms.value[laneIndex]
+      if (!arm || timelineX < leftW) {
+        hoverInfo.value.show = false
+        return
+      }
+
+      const plotW = Math.max(1, rect.width - leftW)
+      const xInPlot = timelineX - leftW
+      const hitY = axisH + (laneIndex + 1) * laneH + (laneH - segH) / 2
+      const hitBottom = hitY + segH
+      if (y < hitY || y > hitBottom) {
+        hoverInfo.value.show = false
+        return
+      }
+
+      let hitSeg = null
+      ;(arm.instrument_usage || []).forEach(seg => {
+        if (hitSeg) return
+        const metrics = getSegmentMetrics(seg)
+        const segX = (metrics.leftPct / 100) * plotW
+        const segW = Math.max(6, (metrics.widthPct / 100) * plotW)
+        if (xInPlot >= segX && xInPlot <= segX + segW) {
+          hitSeg = seg
+        }
+      })
+
+      if (!hitSeg) {
+        hoverInfo.value.show = false
+        return
+      }
+
+      const startRaw = hitSeg.start_time || hitSeg.install_time || hitSeg.start
+      const endRaw = hitSeg.end_time || hitSeg.remove_time || hitSeg.end || startRaw
+      const s = toMs(startRaw)
+      const e = toMs(endRaw)
+      const durationMs = Number.isFinite(s) && Number.isFinite(e) ? Math.max(0, Math.round(e - s)) : 0
+
+      hoverInfo.value = {
+        show: true,
+        title: getType(hitSeg),
+        udi: hitSeg.udi || '-',
+        toolLifeLabel: (hitSeg.tool_life === 0 || hitSeg.tool_life) ? String(hitSeg.tool_life) : '--',
+        startLabel: fmt(startRaw),
+        endLabel: fmt(endRaw),
+        durationLabel: formatDurationMMSS(durationMs)
+      }
     }
 
     const onPointerDown = (e) => {
       const vp = viewportRef.value
       if (!vp) return
       dragging.value = true
-      updateCrosshair(e.clientX)
+      updateCrosshair(e.clientX, e.clientY, { updateTooltip: true })
     }
 
     const onPointerMove = (e) => {
       if (!dragging.value) return
-      updateCrosshair(e.clientX)
+      updateCrosshair(e.clientX, e.clientY, { updateTooltip: false })
     }
 
     const onPointerUp = () => {
@@ -356,6 +634,13 @@ export default {
       }
     }
 
+    watch([isFullscreenMode, arms, events, faults, hourMarks], () => {
+      if (!Number.isFinite(currentCrosshairMs.value) && Number.isFinite(timelineStart.value)) {
+        currentCrosshairMs.value = timelineStart.value
+      }
+      nextTick(() => drawOverviewCanvas())
+    }, { deep: true })
+
     onMounted(async () => {
       updateOrientationState()
       window.addEventListener('resize', updateOrientationState)
@@ -363,6 +648,7 @@ export default {
       await tryLockLandscape()
       setTimeout(updateOrientationState, 200)
       await load()
+      nextTick(() => drawOverviewCanvas())
     })
 
     onBeforeUnmount(() => {
@@ -386,15 +672,19 @@ export default {
       getType,
       viewportRef,
       timelineCanvasRef,
+      overviewCanvasRef,
       onPointerDown,
       onPointerMove,
       onPointerUp,
       crosshair,
+      hoverInfo,
+      armSnapshotCards,
       drawerVisible,
       selected,
       openSegment,
       fmt,
-      showRotateMask
+      showRotateMask,
+      isFullscreenMode
     }
   }
 }
@@ -402,13 +692,59 @@ export default {
 
 <style scoped>
 .timeline-page { min-height: 100%; background: #f5f7fb; padding-top: calc(46px + env(safe-area-inset-top)); }
+.timeline-page--fullscreen { padding-top: 0; }
 
 :deep(.van-nav-bar) { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 :deep(.van-nav-bar__content) { height: 42px; }
 :deep(.van-nav-bar__title) { font-size: 15px; max-width: 62vw; }
 .timeline-content { padding: 10px; position: relative; }
+.timeline-page--fullscreen .timeline-content { padding: 6px; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; }
+.timeline-page--fullscreen .timeline-viewport { flex: 1; min-height: 0; }
 .tip { font-size: 12px; color: #64748b; margin-bottom: 8px; }
-.timeline-viewport { overflow: hidden; border: 1px solid #dbe3ef; border-radius: 10px; background: #fff; }
+.timeline-viewport { overflow: hidden; border: 1px solid #dbe3ef; border-radius: 10px; background: #fff; position: relative; }
+
+.fullscreen-top-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.arm-snapshot-card {
+  border: 1px solid #dbe4f2;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 6px;
+  align-items: center;
+  min-height: 44px;
+  overflow: hidden;
+}
+
+.arm-snapshot-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.arm-snapshot-image {
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+  object-fit: cover;
+  border: none;
+  background: #fff;
+}
+
+.arm-snapshot-main { min-width: 0; padding-right: 6px; }
+.arm-snapshot-title { font-size: 10px; font-weight: 700; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arm-snapshot-meta { font-size: 9px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overview-canvas { width: 100%; height: 100%; display: block; }
+.crosshair-overlay { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(17,24,39,.7); pointer-events: none; z-index: 8; }
+.hover-info-card { position: absolute; right: 8px; top: 8px; background: rgba(255,255,255,.95); border: 1px solid #dbe4f2; border-radius: 8px; padding: 7px; font-size: 10px; color: #334155; z-index: 9; max-width: 180px; }
+.hover-info-title { font-weight: 700; color: #1e3a8a; margin-bottom: 3px; }
 
 .rotate-mask {
   position: absolute;
