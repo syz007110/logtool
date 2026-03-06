@@ -9,285 +9,287 @@
     />
 
     <div class="content">
-      <div v-if="surgeryData" class="info-card">
-        <div class="info-header">
-          <div class="info-title one-line">{{ displaySurgeryId }}</div>
-          <div class="info-subtitle one-line">{{ procedureName }}</div>
+      <div class="metrics-strip">
+        <div class="strip-header">
+          <div class="strip-id">{{ displaySurgeryId }}</div>
         </div>
-        <div class="info-divider" />
-        <div class="info-grid">
-          <div class="info-grid-item">
-            <div class="info-grid-label">{{ $t('mobile.surgeryVisualization.startLabel') }}</div>
-            <div class="info-grid-value">{{ startTimeDisplay }}</div>
-          </div>
-          <div class="info-grid-item">
-            <div class="info-grid-label">{{ $t('mobile.surgeryVisualization.endLabel') }}</div>
-            <div class="info-grid-value">{{ endTimeDisplay }}</div>
-          </div>
+        <div class="strip-metrics">
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricStartTime') }}：{{ startTimeMetric }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricEndTime') }}：{{ endTimeMetric }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricInstrumentCount') }}：{{ totalInstrumentCount }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricAlertCount') }}：{{ faultSummary.total }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricAvgNetworkLatency') }}：{{ hasNetworkLatency ? formatNetworkLatency(averageNetworkLatency) : '-' }}</span>
+          <span class="strip-item">{{ $t('mobile.surgeryVisualization.metricSurgeryDuration') }}：{{ formatDuration(totalDuration) }}</span>
         </div>
       </div>
 
-      <div class="tab-section">
-        <div class="tab-row">
+      <div class="tabbed-panel">
+        <div class="tab-bar">
           <button
-            v-for="tab in primaryTabs"
+            v-for="tab in contentTabs"
             :key="tab.key"
             type="button"
-            :class="['tab-button', { active: activeTab === tab.key }]"
-            @click="activeTab = tab.key"
+            :class="['tab-button', { active: activeContentTab === tab.key }]"
+            @click="switchContentTab(tab.key)"
           >
             {{ tab.label }}
           </button>
         </div>
-        <div class="tab-row">
-          <button
-            v-for="tab in secondaryTabs"
-            :key="tab.key"
-            type="button"
-            :class="['tab-button', { active: activeTab === tab.key }]"
-            @click="activeTab = tab.key"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-      </div>
 
-      <template v-if="activeTab === 'overview'">
-        <!-- 手术概况卡片（包含关键指标和时间线） -->
-        <div class="section-card overview-card">
-          <button
-            v-if="canOpenTimeline"
-            type="button"
-            class="timeline-entry"
-            @click="openTimelineView"
-          >
-            <span class="timeline-entry-title">View case timeline</span>
-            <span class="timeline-entry-arrow">→</span>
-          </button>
+        <van-swipe
+          :key="`swipe-${swipeRenderKey}`"
+          ref="contentSwipeRef"
+          class="tab-swipe"
+          :loop="false"
+          :show-indicators="false"
+          @change="onContentSwipeChange"
+        >
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div class="section-card stage-section-card">
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.surgeryPhases') }}</div>
+                <template v-if="hasStageShare">
+                  <div class="stage-panel-content">
+                    <div class="stage-rose-shell">
+                      <div ref="stageChartRef" class="stage-rose-chart" :aria-label="$t('mobile.surgeryVisualization.stageShareAria')"></div>
+                    </div>
+                    <div class="stage-fixed-info" v-if="selectedStageRow">
+                      {{ selectedStageRow.label }}：{{ selectedStageRow.startLabel }} - {{ selectedStageRow.endLabel }}
+                    </div>
+                    <div class="stage-share-list">
+                      <button
+                        v-for="row in stageShareRows"
+                        :key="`${row.key}-meta`"
+                        type="button"
+                        class="stage-share-item"
+                        :class="{ active: selectedStageRow && selectedStageRow.key === row.key }"
+                        @click="selectedStageKey = row.key"
+                      >
+                        <span class="stage-dot" :style="{ backgroundColor: row.color }"></span>
+                        <span class="stage-name">{{ row.label }}</span>
+                        <span class="stage-value">{{ row.percent }}%</span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+                <div v-else class="placeholder-card">
+                  <van-empty :description="$t('mobile.surgeryVisualization.noSurgeryPhaseData')" />
+                </div>
+              </div>
+            </div>
+          </van-swipe-item>
 
-          <div class="overview-layout">
-            <!-- 左侧：关键事件时间线 -->
-            <div class="overview-left">
-              <div v-if="timelineEvents.length > 0">
-                <div class="section-header">{{ $t('mobile.surgeryVisualization.timelineTitle') }}</div>
-                <div class="timeline-list">
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div v-if="hasInstrumentUsage" class="section-card instrument-card">
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.instrumentDetails') }}</div>
+                <div class="instrument-cards">
+                  <div v-for="armGroup in instrumentUsageRows" :key="armGroup.id" class="instrument-card-item">
+                    <div class="instrument-card-header" @click="toggleCard(armGroup.id)">
+                      <div class="instrument-card-title">
+                        <span class="instrument-arm-badge">{{ armGroup.armLabel }}</span>
+                        <span class="instrument-count">{{ armGroup.instrumentTypes.join('、') }}</span>
+                      </div>
+                      <span :class="['instrument-expand-icon', { expanded: isCardExpanded(armGroup.id) }]">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </span>
+                    </div>
+                    <div v-show="isCardExpanded(armGroup.id)" class="instrument-card-body">
+                      <div class="instrument-grid">
+                        <div v-for="instrument in armGroup.instruments" :key="instrument.id" class="instrument-item">
+                        <div class="instrument-item-header">
+                          <span class="instrument-type">{{ instrument.toolType }}</span>
+                        </div>
+                        <div class="instrument-item-details">
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentUdi') }}</span>
+                            <span class="instrument-info-value">{{ instrument.udi }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentInstall') }}</span>
+                            <span class="instrument-info-value time">{{ formatDisplayTime(instrument.installTime) }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentRemove') }}</span>
+                            <span class="instrument-info-value time">{{ formatDisplayTime(instrument.removeTime) }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('surgeryVisualization.tooltipToolLife') }}</span>
+                            <span class="instrument-info-value">{{ instrument.toolLifeLabel }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('surgeryVisualization.report.cumulativeUsage') }}</span>
+                            <span class="instrument-info-value">{{ instrument.cumulativeUsageLabel }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.energyActivationCount') }}</span>
+                            <span class="instrument-info-value">{{ instrument.energySummary.activationCount }}{{ $t('mobile.surgeryVisualization.countSuffix') }}</span>
+                          </div>
+                          <div class="instrument-info-row">
+                            <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.energyTotalActivationDuration') }}</span>
+                            <span class="instrument-info-value">{{ instrument.energySummary.totalActivationDurationLabel }}</span>
+                          </div>
+                          <button
+                            v-if="instrument.energySummary.activationCount > 0"
+                            type="button"
+                            class="energy-analysis-cta"
+                            @click="openEnergyAnalysis(instrument)"
+                          >
+                            {{ $t('mobile.surgeryVisualization.viewEnergyDetails') }}
+                          </button>
+                        </div>
+                      </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="placeholder-card">
+                <van-empty :description="$t('mobile.surgeryVisualization.noInstrumentData')" />
+              </div>
+            </div>
+          </van-swipe-item>
+
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div class="section-card overview-tab-card">
+                <div class="rotate-mask-inline">
+                  <div class="rotate-mask-card">
+                    <div class="rotate-title">请横屏查看时间轴</div>
+                    <div class="rotate-desc">横屏后将自动进入全屏总览页面</div>
+                    <div v-if="!canOpenTimeline" class="overview-unavailable">暂无可用总览数据</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </van-swipe-item>
+
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div v-if="hasOperationSummary" class="section-card">
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.operationSummary') }}</div>
+                <div class="table table-operations">
+                  <div class="table-row table-header">
+                    <span>{{ $t('mobile.surgeryVisualization.operationType') }}</span>
+                    <span class="align-right">{{ $t('mobile.surgeryVisualization.operationCount') }}</span>
+                  </div>
+                  <div v-for="row in operationSummaryRows" :key="row.key" class="table-row">
+                    <span>{{ row.label }}</span>
+                    <span class="align-right">{{ row.count }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="placeholder-card">
+                <van-empty :description="$t('mobile.surgeryVisualization.noOperationData')" />
+              </div>
+            </div>
+          </van-swipe-item>
+
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div v-if="hasAlerts" class="section-card">
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.alertsTitle') }}</div>
+                <div class="alert-list">
                   <div
-                    v-for="event in timelineEvents"
-                    :key="`${event.type}-${event.time}`"
-                    class="timeline-list-item"
+                    v-for="row in visibleFaultRows"
+                    :key="`${row.errorCode}-${row.timestamp}`"
+                    :class="['alert-card-item', row.statusKey === 'unprocessed' ? 'alert-card-unprocessed' : 'alert-card-processed']"
                   >
-                    <div class="timeline-event-name">{{ event.name }}</div>
-                    <div class="timeline-event-time">{{ formatEventTime(event.time) }}</div>
-                  </div>
-                </div>
-              </div>
-              <div v-else>
-                <div class="section-header">{{ $t('mobile.surgeryVisualization.timelineTitle') }}</div>
-                <div class="empty-state">
-                  <van-empty :description="$t('mobile.surgeryVisualization.noTimelineData')" />
-                </div>
-              </div>
-            </div>
-
-            <!-- 右侧：关键指标 -->
-            <div class="overview-right">
-              <div class="section-header">{{ $t('mobile.surgeryVisualization.keyMetrics') }}</div>
-              <div class="kpi-grid">
-                <div class="kpi-item kpi-item-duration">
-                  <div class="kpi-content">
-                    <div class="kpi-value">{{ formatDuration(totalDuration) }}</div>
-                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiDuration') }}</div>
-                  </div>
-                </div>
-                <div class="kpi-item kpi-item-alerts">
-                  <div class="kpi-content">
-                    <div class="kpi-value">{{ faultSummary.total }}</div>
-                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiAlerts') }}</div>
-                  </div>
-                </div>
-                <div class="kpi-item kpi-item-instruments">
-                  <div class="kpi-content">
-                    <div class="kpi-value">{{ totalInstrumentCount }}</div>
-                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiInstruments') }}</div>
-                  </div>
-                </div>
-                <div v-if="isRemoteSurgery && hasNetworkLatency" class="kpi-item kpi-item-network">
-                  <div class="kpi-content">
-                    <div class="kpi-value">{{ formatNetworkLatency(averageNetworkLatency) }}</div>
-                    <div class="kpi-label">{{ $t('mobile.surgeryVisualization.kpiNetworkLatency') }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <template v-else-if="activeTab === 'alerts'">
-        <div v-if="hasAlerts" class="section-card alert-card">
-          <div class="section-header">{{ $t('mobile.surgeryVisualization.alertsTitle') }}</div>
-          <div class="alert-list">
-            <div
-              v-for="row in visibleFaultRows"
-              :key="`${row.errorCode}-${row.timestamp}`"
-              :class="['alert-card-item', row.statusKey === 'unprocessed' ? 'alert-card-unprocessed' : 'alert-card-processed']"
-            >
-              <div class="alert-card-header">
-                <span class="alert-card-time">{{ formatDisplayTime(row.timestamp) }}</span>
-                <span :class="['alert-card-status', row.statusKey === 'processed' ? 'status-processed' : 'status-unprocessed']">
-                  {{ row.statusLabel }}
-                </span>
-              </div>
-              <div class="alert-card-code">{{ row.errorCode }}</div>
-              <div class="alert-card-message">
-                <div v-if="faultExplanationLoading.has(row.rowKey)" class="explanation-loading">
-                  <van-loading type="spinner" size="14px" vertical />
-                  <span>{{ $t('shared.loading') }}</span>
-                </div>
-                <div v-else-if="faultExplanations.has(row.rowKey)">
-                  {{ faultExplanations.get(row.rowKey) }}
-                </div>
-                <div v-else>{{ row.message }}</div>
-              </div>
-            </div>
-          </div>
-          <button
-            v-if="faultRows.length > 5"
-            type="button"
-            class="toggle-button"
-            @click="toggleFaultRows"
-          >
-            {{ showAllFaults ? $t('mobile.surgeryVisualization.collapse') : $t('mobile.surgeryVisualization.expand') }}
-          </button>
-          <div class="summary-text">
-            {{ $t('mobile.surgeryVisualization.alertSummary', { total: faultSummary.total, processed: faultSummary.processed, unprocessed: faultSummary.unprocessed }) }}
-          </div>
-        </div>
-        <div v-else class="placeholder-card">
-          <van-empty :description="$t('mobile.surgeryVisualization.noAlertData')" />
-        </div>
-      </template>
-
-      <template v-else-if="activeTab === 'network'">
-        <div v-if="hasNetworkLatency" class="section-card network-card chart-card">
-          <div class="section-header">{{ $t('mobile.surgeryVisualization.networkLatencyChartTitle') }}</div>
-          <network-latency-chart
-            :data="networkLatencySeries"
-            :height="280"
-            time-mask="HH:mm"
-            :time-tick-count="5"
-            :value-tick-count="5"
-            :normal-threshold="110"
-            :warning-threshold="1000"
-          />
-        </div>
-        <div v-else class="placeholder-card">
-          <van-empty :description="$t('mobile.surgeryVisualization.noNetworkData')" />
-        </div>
-      </template>
-
-      <template v-else-if="activeTab === 'stateMachine'">
-        <div v-if="hasStateMachine" class="section-card state-machine-card chart-card">
-          <div class="section-header">{{ $t('mobile.surgeryVisualization.stateMachineTitle') }}</div>
-          <state-machine-chart
-            :data="stateMachineSeries"
-            :height="280"
-            time-mask="HH:mm"
-            :time-tick-count="5"
-            :value-tick-count="6"
-            :padding="[0, 0, 0, 0]"
-          />
-        </div>
-        <div v-else class="placeholder-card">
-          <van-empty :description="$t('mobile.surgeryVisualization.noStateMachineData')" />
-        </div>
-      </template>
-
-      <template v-else-if="activeTab === 'instruments'">
-        <div v-if="hasInstrumentUsage" class="section-card instrument-card">
-          <div class="section-header">{{ $t('mobile.surgeryVisualization.instrumentUsageTitle') }}</div>
-          <div class="instrument-cards">
-            <div
-              v-for="armGroup in instrumentUsageRows"
-              :key="armGroup.id"
-              class="instrument-card-item"
-            >
-              <div
-                class="instrument-card-header"
-                @click="toggleCard(armGroup.id)"
-              >
-                <div class="instrument-card-title">
-                  <span class="instrument-arm-badge">{{ armGroup.armLabel }}</span>
-                  <span class="instrument-count">{{ armGroup.instrumentTypes.join('、') }}</span>
-                </div>
-                <span :class="['instrument-expand-icon', { expanded: isCardExpanded(armGroup.id) }]">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </span>
-              </div>
-              <div
-                v-show="isCardExpanded(armGroup.id)"
-                class="instrument-card-body"
-              >
-                <div
-                  v-for="instrument in armGroup.instruments"
-                  :key="instrument.id"
-                  class="instrument-item"
-                >
-                  <div class="instrument-item-header">
-                    <span class="instrument-type">{{ instrument.toolType }}</span>
-                  </div>
-                  <div class="instrument-item-details">
-                    <div class="instrument-info-row">
-                      <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentUdi') }}</span>
-                      <span class="instrument-info-value">{{ instrument.udi }}</span>
+                    <div class="alert-card-header">
+                      <span class="alert-card-time">{{ formatDisplayTime(row.timestamp) }}</span>
+                      <span :class="['alert-card-status', row.statusKey === 'processed' ? 'status-processed' : 'status-unprocessed']">
+                        {{ row.statusLabel }}
+                      </span>
                     </div>
-                    <div class="instrument-info-row">
-                      <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentInstall') }}</span>
-                      <span class="instrument-info-value time">{{ formatDisplayTime(instrument.installTime) }}</span>
-                    </div>
-                    <div class="instrument-info-row">
-                      <span class="instrument-info-label">{{ $t('mobile.surgeryVisualization.instrumentRemove') }}</span>
-                      <span class="instrument-info-value time">{{ formatDisplayTime(instrument.removeTime) }}</span>
+                    <div class="alert-card-code">{{ row.errorCode }}</div>
+                    <div class="alert-card-message">
+                      <div v-if="faultExplanationLoading.has(row.rowKey)" class="explanation-loading">
+                        <van-loading type="spinner" size="14px" vertical />
+                        <span>{{ $t('shared.loading') }}</span>
+                      </div>
+                      <div v-else-if="faultExplanations.has(row.rowKey)">
+                        {{ faultExplanations.get(row.rowKey) }}
+                      </div>
+                      <div v-else>{{ row.message }}</div>
                     </div>
                   </div>
                 </div>
+                <button v-if="faultRows.length > 5" type="button" class="toggle-button" @click="toggleFaultRows">
+                  {{ showAllFaults ? $t('mobile.surgeryVisualization.collapse') : $t('mobile.surgeryVisualization.expand') }}
+                </button>
+                <div class="summary-text">
+                  {{ $t('mobile.surgeryVisualization.alertSummary', { total: faultSummary.total, processed: faultSummary.processed, unprocessed: faultSummary.unprocessed }) }}
+                </div>
+              </div>
+              <div v-else class="placeholder-card">
+                <van-empty :description="$t('mobile.surgeryVisualization.noAlertData')" />
               </div>
             </div>
-          </div>
-        </div>
-        <div v-else class="placeholder-card">
-          <van-empty :description="$t('mobile.surgeryVisualization.noInstrumentData')" />
-        </div>
-      </template>
+          </van-swipe-item>
 
-      <template v-else-if="activeTab === 'operations'">
-        <div v-if="hasOperationSummary" class="section-card operation-card">
-          <div class="section-header">{{ $t('mobile.surgeryVisualization.operationSummary') }}</div>
-          <div class="table table-operations">
-            <div class="table-row table-header">
-              <span>{{ $t('mobile.surgeryVisualization.operationType') }}</span>
-              <span class="align-right">{{ $t('mobile.surgeryVisualization.operationCount') }}</span>
+          <van-swipe-item>
+            <div class="tab-panel-body">
+              <div v-if="hasNetworkLatency" class="section-card chart-card">
+                <div class="section-header">{{ $t('mobile.surgeryVisualization.networkLatencyChartTitle') }}</div>
+                <network-latency-chart
+                  :data="networkLatencySeries"
+                  :height="280"
+                  time-mask="HH:mm"
+                  :time-tick-count="5"
+                  :value-tick-count="5"
+                  :normal-threshold="110"
+                  :warning-threshold="1000"
+                />
+              </div>
+              <div v-else class="placeholder-card">
+                <van-empty :description="$t('mobile.surgeryVisualization.noNetworkData')" />
+              </div>
             </div>
-            <div
-              v-for="row in operationSummaryRows"
-              :key="row.key"
-              class="table-row"
-            >
-              <span>{{ row.label }}</span>
-              <span class="align-right">{{ row.count }}</span>
-            </div>
-          </div>
-        </div>
-        <div v-else class="placeholder-card">
-          <van-empty :description="$t('mobile.surgeryVisualization.noOperationData')" />
-        </div>
-      </template>
-
-      <div v-else class="placeholder-card">
-        <van-empty :description="$t('mobile.surgeryVisualization.comingSoon')" />
+          </van-swipe-item>
+        </van-swipe>
       </div>
+
+      <van-popup
+        v-model:show="energyAnalysisPopupVisible"
+        position="bottom"
+        round
+        class="energy-analysis-popup"
+        :style="{ height: '76vh' }"
+      >
+        <div class="energy-analysis-sheet">
+          <div class="energy-analysis-sheet-header">
+            <div class="energy-analysis-sheet-title">{{ selectedInstrumentForEnergy?.toolType || '-' }}</div>
+            <div class="energy-analysis-sheet-subtitle">{{ $t('mobile.surgeryVisualization.instrumentUdi') }}: {{ selectedInstrumentForEnergy?.udi || '-' }}</div>
+          </div>
+          <div class="energy-analysis-sheet-body">
+            <div class="energy-analysis-view">
+              <div v-if="selectedInstrumentEnergyDetails.length > 0" class="energy-detail-table">
+                <div class="energy-detail-head-block">
+                  <div class="energy-detail-row energy-detail-header">
+                    <span>{{ $t('mobile.surgeryVisualization.energyType') }}</span>
+                    <span>{{ $t('mobile.surgeryVisualization.energyStartTime') }}</span>
+                    <span>{{ $t('surgeryVisualization.report.energyDuration') }}</span>
+                    <span>{{ $t('surgeryVisualization.report.gripsActiveDuration') }}</span>
+                  </div>
+                </div>
+                <div
+                  v-for="row in selectedInstrumentEnergyDetails"
+                  :key="row.key"
+                  class="energy-detail-row"
+                >
+                  <span>{{ row.typeLabel }}</span>
+                  <span>{{ row.startLabel }}</span>
+                  <span>{{ row.durationLabel }}</span>
+                  <span>{{ row.gripsActiveLabel }}</span>
+                </div>
+              </div>
+              <van-empty v-else :description="$t('mobile.surgeryVisualization.noEnergyDetails')" />
+            </div>
+          </div>
+        </div>
+      </van-popup>
 
       <van-loading v-if="loading" class="loading-state" />
     </div>
@@ -295,23 +297,36 @@
 </template>
 
 <script>
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, onActivated, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showToast } from 'vant'
+import * as echarts from 'echarts'
 import {
   NavBar as VanNavBar,
   Empty as VanEmpty,
-  Loading as VanLoading
+  Loading as VanLoading,
+  Popup as VanPopup,
+  Swipe as VanSwipe,
+  SwipeItem as VanSwipeItem
 } from 'vant'
 import api from '@/api'
 import NetworkLatencyChart from '@/components/NetworkLatencyChart.vue'
-import StateMachineChart from '@/components/StateMachineChart.vue'
 import { normalizeSurgeryData } from '@/utils/visualizationConfig'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from '@/utils/surgeryDataAdapter'
 import { resolveInstrumentTypeLabel } from '@/utils/analysisMappings'
 
 const SEGMENT_COLOR_ORDER = ['incision', 'test', 'scope', 'general']
+const DRAWER_DENSITY_BUCKET_MS = 10000
+const HISTOGRAM_BIN_MS = 100
+const ENERGY_DENSITY_HEATMAP_ROW_ORDER = [
+  { closure: 'clamped', typeKey: 'bipolar-coag' },
+  { closure: 'clamped', typeKey: 'monopolar-cut' },
+  { closure: 'clamped', typeKey: 'ultrasonic' },
+  { closure: 'unclamped', typeKey: 'bipolar-coag' },
+  { closure: 'unclamped', typeKey: 'monopolar-cut' },
+  { closure: 'unclamped', typeKey: 'ultrasonic' }
+]
 
 export default {
   name: 'MSurgeryVisualization',
@@ -319,8 +334,10 @@ export default {
     'van-nav-bar': VanNavBar,
     'van-empty': VanEmpty,
     'van-loading': VanLoading,
+    'van-popup': VanPopup,
+    'van-swipe': VanSwipe,
+    'van-swipe-item': VanSwipeItem,
     'network-latency-chart': NetworkLatencyChart,
-    'state-machine-chart': StateMachineChart
   },
   setup() {
     const route = useRoute()
@@ -334,75 +351,338 @@ export default {
       return typeof value === 'string' ? value : String(value)
     }
 
+    const rawToSeconds = (raw) => {
+      const value = Number(raw)
+      return Number.isFinite(value) ? value / 10 : 0
+    }
+
+    const formatEnergyDurationMs = (sec) => {
+      const value = Number(sec)
+      if (!Number.isFinite(value) || value < 0) return '0 ms'
+      return `${Math.round(value * 1000)} ms`
+    }
+
+    const getSegmentToolLifeLabel = (segment) => {
+      if (!segment) return '--'
+      const life = segment.tool_life
+      return (life === 0 || life) ? String(life) : '--'
+    }
+
+    const formatCumulativeUsage = (cu) => {
+      if (!cu || (cu.total_hours == null && cu.total_minutes == null)) return '--'
+      const h = Number(cu.total_hours) || 0
+      const m = Number(cu.total_minutes) || 0
+      if (h > 0) return t('surgeryVisualization.report.hoursMinutes', { hours: h, minutes: m })
+      return t('surgeryVisualization.report.minutesOnly', { minutes: m })
+    }
+
+    const formatClockTime = (timestampMs) => {
+      if (!Number.isFinite(timestampMs)) return '-'
+      const date = new Date(timestampMs)
+      if (Number.isNaN(date.getTime())) return '-'
+      const hour = String(date.getHours()).padStart(2, '0')
+      const minute = String(date.getMinutes()).padStart(2, '0')
+      const second = String(date.getSeconds()).padStart(2, '0')
+      return `${hour}:${minute}:${second}`
+    }
+
+    const formatEnergyType = (typeRaw) => {
+      const typeKey = getEnergyEventTypeKey(typeRaw)
+      const map = {
+        'bipolar-coag': 'surgeryVisualization.report.energyBipolarCoag',
+        'monopolar-cut': 'surgeryVisualization.report.energyMonopolarCut',
+        ultrasonic: 'surgeryVisualization.report.energyUltrasonic',
+        other: 'surgeryVisualization.report.energyOther'
+      }
+      return t(map[typeKey] || map.other)
+    }
+
+    const getEnergyEventTypeKey = (type) => {
+      const normalized = String(type || '').toLowerCase().trim()
+      if (normalized === 'cut') return 'monopolar-cut'
+      if (normalized === 'coag' || normalized === 'bipolar') return 'bipolar-coag'
+      if (normalized === 'ultrasonic' || normalized === 'ultrasonicmax') return 'ultrasonic'
+      return 'other'
+    }
+
+    const getEnergyEventDurationSec = (evt) => {
+      if (!evt || typeof evt !== 'object') return 0
+      const candidatesInSeconds = [evt.duration_sec, evt.duration]
+      for (const candidate of candidatesInSeconds) {
+        const value = Number(candidate)
+        if (Number.isFinite(value) && value >= 0) return value
+      }
+
+      const durationMs = Number(evt.duration_ms)
+      if (Number.isFinite(durationMs) && durationMs >= 0) return durationMs / 1000
+
+      const activeSec = rawToSeconds(evt.active ?? evt.Active ?? evt.GripsActive ?? evt.gripsActive)
+      if (activeSec > 0) return activeSec
+
+      const startMs = parseTimestamp(evt.start ?? evt.start_time)
+      const endMs = parseTimestamp(evt.end ?? evt.end_time)
+      if (startMs !== null && endMs !== null && endMs >= startMs) {
+        return (endMs - startMs) / 1000
+      }
+      return 0
+    }
+
+    const getTotalActiveSecForDensity = (evt, startMs, endMs) => {
+      if (evt.duration_sec != null && evt.duration_sec !== '') {
+        const sec = Number(evt.duration_sec)
+        if (Number.isFinite(sec) && sec > 0) return sec
+      }
+      if (evt.duration != null && evt.duration !== '') {
+        const sec = Number(evt.duration)
+        if (Number.isFinite(sec) && sec > 0) return sec
+      }
+      if (evt.duration_ms != null && evt.duration_ms !== '') {
+        const ms = Number(evt.duration_ms)
+        if (Number.isFinite(ms) && ms > 0) return ms / 1000
+      }
+      const activeSec = rawToSeconds(evt.active ?? evt.Active ?? 0)
+      if (activeSec > 0) return activeSec
+      return Math.max(0.001, (endMs - startMs) / 1000)
+    }
+
+    const buildInstrumentEnergySummary = (energyActivation, installTime, removeTime) => {
+      const sourceEvents = Array.isArray(energyActivation) ? energyActivation : []
+      const events = sourceEvents
+        .filter(evt => evt && typeof evt === 'object')
+        .map((evt, index) => {
+          const startMs = parseTimestamp(evt.start ?? evt.start_time)
+          if (!Number.isFinite(startMs)) return null
+          let endMs = parseTimestamp(evt.end ?? evt.end_time)
+          if (!Number.isFinite(endMs)) {
+            endMs = startMs + (getEnergyEventDurationSec(evt) * 1000)
+          }
+          if (!Number.isFinite(endMs) || endMs <= startMs) endMs = startMs + 1
+          const activeSec = getTotalActiveSecForDensity(evt, startMs, endMs)
+          const gripsActiveSec = rawToSeconds(evt.GripsActive ?? evt.gripsActive ?? 0)
+          const durationSec = getEnergyEventDurationSec(evt)
+          return {
+            key: `evt-${index}-${startMs}`,
+            startMs,
+            endMs,
+            typeLabel: formatEnergyType(evt.type),
+            typeKey: getEnergyEventTypeKey(evt.type),
+            activeSec,
+            gripsActiveSec,
+            durationSec,
+            startLabel: formatClockTime(startMs),
+            endLabel: formatClockTime(endMs),
+            activeLabel: formatEnergyDurationMs(activeSec),
+            gripsActiveLabel: formatEnergyDurationMs(gripsActiveSec),
+            durationLabel: formatEnergyDurationMs(durationSec)
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.startMs - b.startMs)
+
+      const activationCount = events.length
+      const totalActivationDurationSec = events.reduce((sum, evt) => sum + Math.max(0, evt.activeSec || 0), 0)
+
+      let rangeStart = parseTimestamp(installTime)
+      let rangeEnd = parseTimestamp(removeTime)
+      if (!Number.isFinite(rangeStart)) rangeStart = events.length > 0 ? events[0].startMs : NaN
+      if (!Number.isFinite(rangeEnd)) rangeEnd = events.length > 0 ? events[events.length - 1].endMs : NaN
+      if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeEnd <= rangeStart) {
+        rangeStart = events.length > 0 ? Math.min(...events.map(evt => evt.startMs)) : NaN
+        rangeEnd = events.length > 0 ? Math.max(...events.map(evt => evt.endMs)) : NaN
+      }
+
+      let density = { heatmap: true, rowLabels: [], matrix: [], numBuckets: 0, bucketMs: DRAWER_DENSITY_BUCKET_MS }
+      if (Number.isFinite(rangeStart) && Number.isFinite(rangeEnd) && rangeEnd > rangeStart) {
+        const spanMs = rangeEnd - rangeStart
+        const numBuckets = Math.ceil(spanMs / DRAWER_DENSITY_BUCKET_MS)
+        const matrix = Array.from({ length: ENERGY_DENSITY_HEATMAP_ROW_ORDER.length }, () => new Array(numBuckets).fill(0))
+        events.forEach(({ startMs, endMs, typeKey, activeSec, gripsActiveSec }) => {
+          const totalSec = activeSec > 0 ? activeSec : 0.001
+          const clampRatio = Math.max(0, Math.min(1, Math.max(0, gripsActiveSec) / totalSec))
+          const unclampRatio = 1 - clampRatio
+          const b0 = Math.floor((startMs - rangeStart) / DRAWER_DENSITY_BUCKET_MS)
+          const b1 = Math.ceil((endMs - rangeStart) / DRAWER_DENSITY_BUCKET_MS)
+          for (let i = Math.max(0, b0); i < Math.min(numBuckets, b1); i++) {
+            const bucketStart = rangeStart + i * DRAWER_DENSITY_BUCKET_MS
+            const bucketEnd = bucketStart + DRAWER_DENSITY_BUCKET_MS
+            const overlapMs = Math.max(0, Math.min(endMs, bucketEnd) - Math.max(startMs, bucketStart))
+            const rowIdxClamped = ENERGY_DENSITY_HEATMAP_ROW_ORDER.findIndex(row => row.closure === 'clamped' && row.typeKey === typeKey)
+            const rowIdxUnclamped = ENERGY_DENSITY_HEATMAP_ROW_ORDER.findIndex(row => row.closure === 'unclamped' && row.typeKey === typeKey)
+            if (rowIdxClamped >= 0) matrix[rowIdxClamped][i] += (overlapMs / 1000) * clampRatio
+            if (rowIdxUnclamped >= 0) matrix[rowIdxUnclamped][i] += (overlapMs / 1000) * unclampRatio
+          }
+        })
+        const bucketSec = DRAWER_DENSITY_BUCKET_MS / 1000
+        const intensitiesMatrix = matrix.map(row => row.map(sum => Math.min(1, sum / bucketSec)))
+        const rowLabels = []
+        const matrixWithSpacer = []
+        const spacerRow = new Array(numBuckets).fill(-1)
+        ENERGY_DENSITY_HEATMAP_ROW_ORDER.forEach((row, idx) => {
+          if (idx === 3) {
+            rowLabels.push({ spacer: true })
+            matrixWithSpacer.push([...spacerRow])
+          }
+          rowLabels.push({
+            closure: row.closure === 'clamped'
+              ? t('surgeryVisualization.report.energyDensityClamped')
+              : t('surgeryVisualization.report.energyDensityUnclamped'),
+            type: row.typeKey === 'bipolar-coag'
+              ? t('surgeryVisualization.report.energyBipolarCoag')
+              : (row.typeKey === 'monopolar-cut'
+                ? t('surgeryVisualization.report.energyMonopolarCut')
+                : t('surgeryVisualization.report.energyUltrasonic'))
+          })
+          matrixWithSpacer.push(intensitiesMatrix[idx])
+        })
+        density = {
+          heatmap: true,
+          rowLabels,
+          matrix: matrixWithSpacer,
+          numBuckets,
+          bucketMs: DRAWER_DENSITY_BUCKET_MS,
+          startMs: rangeStart,
+          endMs: rangeEnd
+        }
+      }
+
+      const durationsMs = events.map(evt => {
+        if (evt.gripsActiveSec > 0) return Math.round(evt.gripsActiveSec * 1000)
+        if (evt.activeSec > 0) return Math.round(evt.activeSec * 1000)
+        return Math.round(Math.max(0, evt.durationSec || 0) * 1000)
+      })
+      let histogram = { binCenters: [], counts: [], median: null, p90: null, p95: null, n: 0 }
+      if (durationsMs.length > 0) {
+        const maxMs = Math.max(...durationsMs)
+        const numBins = Math.max(1, Math.ceil((maxMs + 1) / HISTOGRAM_BIN_MS))
+        const binCenters = Array.from({ length: numBins }, (_, i) => (i + 0.5) * HISTOGRAM_BIN_MS)
+        const counts = Array(numBins).fill(0)
+        durationsMs.forEach(ms => {
+          const binIndex = Math.min(Math.floor(ms / HISTOGRAM_BIN_MS), numBins - 1)
+          counts[binIndex]++
+        })
+        const sorted = [...durationsMs].sort((a, b) => a - b)
+        const n = sorted.length
+        const median = n % 2 === 1 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2
+        const p90 = sorted[Math.min(Math.max(0, Math.ceil(n * 0.9) - 1), n - 1)]
+        const p95 = sorted[Math.min(Math.max(0, Math.ceil(n * 0.95) - 1), n - 1)]
+        histogram = { binCenters, counts, median, p90, p95, n, binWidth: HISTOGRAM_BIN_MS, xMax: numBins * HISTOGRAM_BIN_MS }
+      }
+
+      return {
+        activationCount,
+        totalActivationDurationSec,
+        totalActivationDurationLabel: formatEnergyDurationMs(totalActivationDurationSec),
+        density,
+        histogram,
+        details: events
+      }
+    }
+
     const surgeryId = route.params?.surgeryId || route.query?.surgeryId || ''
     const surgeryData = ref(null)
     const armsData = ref([])
     const loading = ref(false)
-    const activeTab = ref('overview')
     const timelineEvents = ref([])
+    const contentSwipeRef = ref(null)
+    const contentTabs = computed(() => ([
+      { key: 'stages', label: t('mobile.surgeryVisualization.tabStagesShort') },
+      { key: 'instruments', label: t('mobile.surgeryVisualization.tabInstrumentsShort') },
+      { key: 'overview', label: t('mobile.surgeryVisualization.tabOverviewShort') },
+      { key: 'operations', label: t('mobile.surgeryVisualization.tabSummaryShort') },
+      { key: 'alerts', label: t('mobile.surgeryVisualization.tabAlertsShort') },
+      { key: 'network', label: t('mobile.surgeryVisualization.tabNetworkShort') }
+    ]))
+    const swipeTabKeys = ['stages', 'instruments', 'overview', 'operations', 'alerts', 'network']
+    const getSwipeIndexByKey = (key) => swipeTabKeys.findIndex(k => k === key)
+    const stageChartRef = ref(null)
+    const selectedStageKey = ref('')
+    let stageChartInstance = null
+    let stageChartResizeObserver = null
+    const activeContentTab = ref(contentTabs.value[0].key)
+    const energyAnalysisPopupVisible = ref(false)
+    const selectedInstrumentForEnergy = ref(null)
+
+    const switchContentTab = (tabKey) => {
+      const targetIndex = getSwipeIndexByKey(tabKey)
+      if (targetIndex < 0) return
+      activeContentTab.value = tabKey
+      contentSwipeRef.value?.swipeTo?.(targetIndex, { immediate: true })
+    }
+
+    const onContentSwipeChange = (index) => {
+      const tabKey = swipeTabKeys[index]
+      if (tabKey) {
+        activeContentTab.value = tabKey
+      }
+    }
 
     const canOpenTimeline = computed(() => {
       const hasId = !!(surgeryId || surgeryData.value?.surgery_id)
       const hasData = !!surgeryData.value
-      const hasTimeline = timelineEvents.value.length > 0
-      const hasArms = Array.isArray(surgeryData.value?.arms) && surgeryData.value.arms.some(a => Array.isArray(a.instrument_usage) && a.instrument_usage.length > 0)
-      return hasId && hasData && (hasTimeline || hasArms)
+      return hasId && hasData
     })
 
-    const openTimelineView = () => {
-      const id = surgeryData.value?.surgery_id || surgeryId
-      if (!id) return
-      router.push({ name: 'MSurgeryTimeline', params: { surgeryId: id } })
+    const tryLockLandscapeForOverview = async () => {
+      try {
+        if (window?.screen?.orientation?.lock) {
+          await window.screen.orientation.lock('landscape')
+        }
+      } catch (_) {
+        // iOS Safari / non-PWA may reject; timeline page has rotate-mask fallback.
+      }
     }
 
-    const isRemoteSurgery = computed(() => {
-      return surgeryData.value?.is_remote === true || surgeryData.value?.isRemote === true
-    })
-
-    const primaryTabs = computed(() => {
-      const tabs = [
-        { key: 'overview', label: t('mobile.surgeryVisualization.tabOverview') }
-      ]
-      // 只在有安全报警时显示安全报警标签页
-      if (hasAlerts.value) {
-        tabs.push({ key: 'alerts', label: t('mobile.surgeryVisualization.tabAlerts') })
-      }
-      // 只在远程手术时显示网络延时标签页
-      if (isRemoteSurgery.value) {
-        tabs.push({ key: 'network', label: t('mobile.surgeryVisualization.tabNetwork') })
-      }
-      return tabs
-    })
-
-    const secondaryTabs = computed(() => ([
-      { key: 'stateMachine', label: t('mobile.surgeryVisualization.tabStateMachine') },
-      { key: 'instruments', label: t('mobile.surgeryVisualization.tabInstrument') },
-      { key: 'operations', label: t('mobile.surgeryVisualization.tabOperation') }
-    ]))
-
-    const formatTime = (time) => {
-      if (!time) return '-'
-      const date = new Date(time)
-      if (Number.isNaN(date.getTime())) return '-'
-      return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+    const openTimelineView = async () => {
+      const id = surgeryData.value?.surgery_id || surgeryId
+      if (!id) return
+      await tryLockLandscapeForOverview()
+      router.push({
+        name: 'MSurgeryTimeline',
+        params: { surgeryId: id },
+        query: { from: 'viz-tab', fullscreen: '1' }
       })
     }
 
+    const isOverviewPortrait = ref(typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : true)
+    const swipeRenderKey = ref(0)
+    const forceTabLayout = () => {
+      nextTick(() => {
+        swipeRenderKey.value += 1
+        const idx = getSwipeIndexByKey(activeContentTab.value)
+        if (idx >= 0) contentSwipeRef.value?.swipeTo?.(idx, { immediate: true })
+        if (activeContentTab.value === 'stages') {
+          window.setTimeout(() => updateStageChart(), 80)
+        }
+      })
+    }
+    const updateOverviewOrientation = () => {
+      if (typeof window === 'undefined') return
+      isOverviewPortrait.value = window.innerHeight > window.innerWidth
+      forceTabLayout()
+    }
+
+    watch([activeContentTab, isOverviewPortrait, canOpenTimeline], ([tabKey, portrait, canOpen]) => {
+      if (tabKey === 'overview' && !portrait && canOpen) {
+        openTimelineView()
+      }
+    })
+
     const displaySurgeryId = computed(() => surgeryData.value?.surgery_id || surgeryId || '-')
-    const procedureName = computed(() =>
-      surgeryData.value?.procedure ||
-      surgeryData.value?.operation ||
-      surgeryData.value?.surgery_name ||
-      '-'
-    )
-    const startTimeDisplay = computed(() => formatTime(surgeryData.value?.start_time))
-    const endTimeDisplay = computed(() => formatTime(surgeryData.value?.end_time))
+
+    const formatMetricTime = (time) => {
+      if (!time) return '-'
+      const date = new Date(time)
+      if (Number.isNaN(date.getTime())) return '-'
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${year}-${month}-${day} ${hours}:${minutes}`
+    }
+
+    const startTimeMetric = computed(() => formatMetricTime(surgeryData.value?.start_time))
+    const endTimeMetric = computed(() => formatMetricTime(surgeryData.value?.end_time))
 
     const totalDuration = computed(() => {
       if (!surgeryData.value?.start_time || !surgeryData.value?.end_time) return 0
@@ -424,20 +704,6 @@ export default {
         minute: '2-digit',
         second: '2-digit'
       })
-    }
-
-    const formatEventTime = (time) => {
-      if (!time) return '-'
-      const date = new Date(time)
-      if (Number.isNaN(date.getTime())) return '-'
-      // 格式：2025/09/12 9:00:36
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      const seconds = String(date.getSeconds()).padStart(2, '0')
-      return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
     }
 
     const resolveFaultStatus = (fault) => {
@@ -642,28 +908,42 @@ export default {
         const armId = arm.arm_id || arm.armId || armIndex + 1
         const armIndexForDisplay = typeof armId === 'number' ? armId : (armIndex + 1)
         const armLabelFormatted = t('mobile.surgeryVisualization.armFallback', { index: armIndexForDisplay })
-        
+        const armCumulativeUsage = arm.cumulative_usage || null
+
         const instruments = usageList.map((usage, usageIndex) => {
           // 兼容多种字段命名：install_time/start_time, remove_time/end_time
           const install = usage.install_time || usage.start_time || usage.installTime || usage.startTime
           const remove = usage.remove_time || usage.end_time || usage.removeTime || usage.endTime
+          const instrumentTypeRaw = (
+            usage.tool_type ??
+            usage.instrument_type ??
+            usage.instrument_name ??
+            usage.toolType ??
+            usage.instrumentType ??
+            usage.instrumentName
+          )
+          const instrumentType = instrumentTypeRaw === undefined || instrumentTypeRaw === null
+            ? ''
+            : (typeof instrumentTypeRaw === 'number' ? instrumentTypeRaw : String(instrumentTypeRaw).trim())
           // 兼容多种字段命名：tool_type/instrument_type/instrument_name（下划线）或 toolType/instrumentType/instrumentName（驼峰）
           const toolType = getInstrumentLabel(
-            usage.tool_type ?? 
-            usage.instrument_type ?? 
-            usage.instrument_name ?? 
-            usage.toolType ?? 
-            usage.instrumentType ?? 
-            usage.instrumentName
+            instrumentType
           )
           // 兼容多种UDI字段命名
           const udi = usage.udi || usage.udi_code || usage.udiCode || '-'
+          const energyActivation = Array.isArray(usage.energy_activation) ? usage.energy_activation : []
+          const energySummary = buildInstrumentEnergySummary(energyActivation, install, remove)
+          const cumulativeUsageRaw = usage.cumulative_usage || armCumulativeUsage
           return {
             id: `${armId}-${usageIndex}`,
+            instrumentType,
             toolType: toolType || '-',
             udi: udi,
             installTime: install,
-            removeTime: remove
+            removeTime: remove,
+            toolLifeLabel: getSegmentToolLifeLabel(usage),
+            cumulativeUsageLabel: formatCumulativeUsage(cumulativeUsageRaw),
+            energySummary
           }
         })
         
@@ -681,7 +961,23 @@ export default {
       return groupedArms
     })
     const hasInstrumentUsage = computed(() => instrumentUsageRows.value.length > 0)
-    
+
+    const openEnergyAnalysis = (instrument) => {
+      selectedInstrumentForEnergy.value = instrument || null
+      energyAnalysisPopupVisible.value = true
+    }
+
+    const selectedInstrumentEnergyDetails = computed(() => {
+      return selectedInstrumentForEnergy.value?.energySummary?.details || []
+    })
+
+    const parseTimestamp = (value) => {
+      if (!value) return null
+      const date = new Date(value)
+      if (Number.isNaN(date.getTime())) return null
+      return date.getTime()
+    }
+
     // 折叠/展开状态管理
     const expandedCards = ref(new Set())
     const toggleCard = (cardId) => {
@@ -693,31 +989,120 @@ export default {
     }
     const isCardExpanded = (cardId) => expandedCards.value.has(cardId)
 
-    const extractStateNumber = (value) => {
-      if (value === null || value === undefined) return 0
-      if (typeof value === 'number' && Number.isFinite(value)) return value
-      const str = String(value)
-      const bracketMatch = str.match(/\((\d+)\)/)
-      if (bracketMatch) return parseInt(bracketMatch[1], 10)
-      const numberMatch = str.match(/\d+/)
-      if (numberMatch) return parseInt(numberMatch[0], 10)
-      return 0
+    const stageMeta = computed(() => ([
+      { key: 'power_on_stage', label: t('mobile.surgeryVisualization.phasePowerOn'), color: '#1890ff' },
+      { key: 'positioning_stage', label: t('mobile.surgeryVisualization.phasePositioning'), color: '#52c41a' },
+      { key: 'instrument_installation_stage', label: t('mobile.surgeryVisualization.phaseInstrumentInstall'), color: '#faad14' },
+      { key: 'surgery_operation_stage', label: t('mobile.surgeryVisualization.phaseSurgeryOperation'), color: '#f5222d' },
+      { key: 'withdrawal_stage', label: t('mobile.surgeryVisualization.phaseWithdrawal'), color: '#722ed1' },
+      { key: 'power_off_stage', label: t('mobile.surgeryVisualization.phasePowerOff'), color: '#595959' }
+    ]))
+
+    const stageShareRows = computed(() => {
+      const surgicalStage = surgeryData.value?.surgery_stats?.surgical_stage
+      if (!surgicalStage || typeof surgicalStage !== 'object') return []
+      const entries = stageMeta.value
+        .map((meta) => {
+          const stage = surgicalStage[meta.key]
+          if (!stage || typeof stage !== 'object') return null
+          const start = parseTimestamp(stage.start_time)
+          const end = parseTimestamp(stage.end_time)
+          let duration = 0
+          if (start !== null && end !== null && end > start) {
+            duration = end - start
+          } else {
+            const raw = Number(stage.total_duration)
+            if (Number.isFinite(raw) && raw > 0) {
+              duration = raw
+            }
+          }
+          if (!(duration > 0)) return null
+          return {
+            key: meta.key,
+            label: meta.label,
+            color: meta.color,
+            duration,
+            startLabel: formatMetricTime(stage.start_time),
+            endLabel: formatMetricTime(stage.end_time)
+          }
+        })
+        .filter(Boolean)
+      const total = entries.reduce((sum, item) => sum + item.duration, 0)
+      if (total <= 0) return []
+      return entries
+        .map(item => ({ ...item, percent: Math.max(1, Math.round((item.duration / total) * 100)) }))
+        .sort((a, b) => b.percent - a.percent)
+    })
+    const hasStageShare = computed(() => stageShareRows.value.length > 0)
+    const selectedStageRow = computed(() => {
+      const rows = stageShareRows.value
+      if (!rows.length) return null
+      return rows.find(row => row.key === selectedStageKey.value) || rows[0]
+    })
+
+    const updateStageChart = (retryCount = 0) => {
+      const el = stageChartRef.value
+      const rows = stageShareRows.value
+      if (!el) return
+      if (!rows.length) {
+        if (stageChartInstance) {
+          stageChartInstance.dispose()
+          stageChartInstance = null
+        }
+        return
+      }
+      if (el.clientWidth <= 0 || el.clientHeight <= 0) {
+        if (retryCount < 20) {
+          window.setTimeout(() => updateStageChart(retryCount + 1), 60)
+        }
+        return
+      }
+      if (!stageChartInstance) {
+        stageChartInstance = echarts.init(el)
+      }
+      const option = {
+        tooltip: {
+          show: false,
+          trigger: 'item'
+        },
+        series: [{
+          type: 'pie',
+          radius: ['18%', '92%'],
+          center: ['50%', '52%'],
+          roseType: 'area',
+          label: { show: false },
+          labelLine: { show: false },
+          itemStyle: {
+            borderColor: '#fff',
+            borderWidth: 1
+          },
+          data: rows.map(row => ({
+            name: row.label,
+            value: row.duration,
+            stageKey: row.key,
+            itemStyle: { color: row.color }
+          }))
+        }]
+      }
+      stageChartInstance.setOption(option, true)
+      stageChartInstance.off('click')
+      stageChartInstance.on('click', (params) => {
+        const key = params?.data?.stageKey
+        if (key) selectedStageKey.value = key
+      })
+      stageChartInstance.resize()
     }
 
-    const stateMachineSeries = computed(() => {
-      const list = surgeryData.value?.surgery_stats?.state_machine
-      if (!Array.isArray(list)) return []
-      return list
-        .map(item => {
-          const timestamp = item.time || item.timestamp
-          const date = timestamp ? new Date(timestamp) : null
-          if (!date || Number.isNaN(date.getTime())) return null
-          return [date.getTime(), extractStateNumber(item.state)]
-        })
-        .filter(entry => Array.isArray(entry))
-        .sort((a, b) => a[0] - b[0])
-    })
-    const hasStateMachine = computed(() => stateMachineSeries.value.length > 0)
+    const ensureStageChartObserver = () => {
+      if (typeof ResizeObserver === 'undefined' || !stageChartRef.value) return
+      if (stageChartResizeObserver) {
+        try { stageChartResizeObserver.disconnect() } catch (_) {}
+      }
+      stageChartResizeObserver = new ResizeObserver(() => {
+        stageChartInstance?.resize()
+      })
+      stageChartResizeObserver.observe(stageChartRef.value)
+    }
 
     const networkLatencySeries = computed(() => {
       const list = surgeryData.value?.surgery_stats?.network_latency_ms
@@ -796,82 +1181,6 @@ export default {
       showAllFaults.value = !showAllFaults.value
     }
 
-    const legendItems = computed(() => [
-      { key: 'incision', label: t('mobile.surgeryVisualization.legendIncision'), color: 'legend-incision' },
-      { key: 'node', label: t('mobile.surgeryVisualization.legendSurgeryNode'), color: 'legend-node' },
-      { key: 'test', label: t('mobile.surgeryVisualization.legendTestInstrument'), color: 'legend-test' },
-      { key: 'scope', label: t('mobile.surgeryVisualization.legendScope'), color: 'legend-scope' },
-      { key: 'general', label: t('mobile.surgeryVisualization.legendGeneralInstrument'), color: 'legend-general' }
-    ])
-
-    const timelineStartDate = computed(() => {
-      const timestamps = []
-      timelineEvents.value.forEach(event => {
-        const date = new Date(event.time)
-        if (!Number.isNaN(date.getTime())) {
-          timestamps.push(date.getTime())
-        }
-      })
-      if (surgeryData.value?.start_time) {
-        const startDate = new Date(surgeryData.value.start_time)
-        if (!Number.isNaN(startDate.getTime())) {
-          timestamps.push(startDate.getTime())
-        }
-      }
-      if (!timestamps.length) return null
-      const minTime = Math.min(...timestamps)
-      const start = new Date(minTime)
-      start.setMinutes(0, 0, 0)
-      start.setHours(start.getHours() - 1)
-      return start
-    })
-
-    const timelineEndDate = computed(() => {
-      const timestamps = []
-      timelineEvents.value.forEach(event => {
-        const date = new Date(event.time)
-        if (!Number.isNaN(date.getTime())) {
-          timestamps.push(date.getTime())
-        }
-      })
-      if (surgeryData.value?.end_time) {
-        const endDate = new Date(surgeryData.value.end_time)
-        if (!Number.isNaN(endDate.getTime())) {
-          timestamps.push(endDate.getTime())
-        }
-      }
-      if (!timestamps.length) return null
-      const maxTime = Math.max(...timestamps)
-      const end = new Date(maxTime)
-      end.setMinutes(0, 0, 0)
-      end.setHours(end.getHours() + 1)
-      if (timelineStartDate.value && end <= timelineStartDate.value) {
-        return new Date(timelineStartDate.value.getTime() + 60 * 60 * 1000)
-      }
-      return end
-    })
-
-    const formatHourMark = (date) => date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-
-    const timelineMarks = computed(() => {
-      const start = timelineStartDate.value
-      const end = timelineEndDate.value
-      if (!start || !end) return []
-
-      const marks = []
-      const current = new Date(start)
-      while (current <= end) {
-        marks.push(formatHourMark(current))
-        current.setHours(current.getHours() + 1)
-      }
-      if (!marks.length) {
-        marks.push(formatHourMark(start))
-        marks.push(formatHourMark(new Date(start.getTime() + 60 * 60 * 1000)))
-      }
-      return marks
-    })
-
-    const timelineCells = computed(() => Math.max(1, timelineMarks.value.length - 1))
 
     const resolveSegmentColor = (segment, armIndex) => {
       if (!segment) return SEGMENT_COLOR_ORDER[armIndex % SEGMENT_COLOR_ORDER.length]
@@ -1014,14 +1323,6 @@ export default {
             timelineEvents.value = []
           }
           
-          // 如果当前在network标签页，但手术不是远程手术，切换到overview
-          if (activeTab.value === 'network' && !(adapted.is_remote === true || adapted.isRemote === true)) {
-            activeTab.value = 'overview'
-          }
-          // 如果当前在alerts标签页，但没有安全报警，切换到overview
-          if (activeTab.value === 'alerts' && !hasAlerts.value) {
-            activeTab.value = 'overview'
-          }
           return true
         }
         
@@ -1040,14 +1341,6 @@ export default {
           timelineEvents.value = []
         }
         
-        // 如果当前在network标签页，但手术不是远程手术，切换到overview
-        if (activeTab.value === 'network' && !(raw.is_remote === true || raw.isRemote === true)) {
-          activeTab.value = 'overview'
-        }
-        // 如果当前在alerts标签页，但没有安全报警，切换到overview
-        if (activeTab.value === 'alerts' && !hasAlerts.value) {
-          activeTab.value = 'overview'
-        }
         return true
       } catch (error) {
         console.error('❌ Failed to apply visualization data:', error)
@@ -1182,66 +1475,37 @@ export default {
       }
     }
 
-    const getSegmentStyle = (segment) => {
-      if (!surgeryData.value?.start_time || !surgeryData.value?.end_time) return {}
-      const start = new Date(surgeryData.value.start_time)
-      const end = new Date(surgeryData.value.end_time)
-      const totalDuration = end - start
-      if (!Number.isFinite(totalDuration) || totalDuration <= 0) {
-        return { left: '0%', width: '100%' }
+    watch(instrumentUsageRows, () => {
+      // 保持响应链路，当前无需额外副作用
+    }, { immediate: true })
+
+    watch(stageShareRows, (rows) => {
+      if (!rows.length) {
+        selectedStageKey.value = ''
+      } else if (!rows.some(row => row.key === selectedStageKey.value)) {
+        selectedStageKey.value = rows[0].key
       }
-
-      // 兼容多种字段命名：start_time/install_time（下划线）或 startTime/installTime（驼峰）
-      const segmentStartRaw = segment.start_time || segment.start || segment.install_time || segment.startTime || segment.installTime
-      const segmentEndRaw = segment.end_time || segment.end || segment.remove_time || segment.endTime || segment.removeTime || segmentStartRaw
-      const segmentStart = new Date(segmentStartRaw || start)
-      const segmentEnd = new Date(segmentEndRaw || segmentStartRaw || end)
-      const safeStart = Number.isNaN(segmentStart.getTime()) ? start.getTime() : segmentStart.getTime()
-      const safeEnd = Number.isNaN(segmentEnd.getTime()) ? safeStart + 5 * 60 * 1000 : segmentEnd.getTime()
-
-      const leftPercent = ((safeStart - start.getTime()) / totalDuration) * 100
-      const widthPercent = ((safeEnd - safeStart) / totalDuration) * 100
-      const clampedLeft = Math.max(0, Math.min(100, leftPercent))
-      const maxWidth = Math.max(6, Math.min(100 - clampedLeft, widthPercent))
-
-      return {
-        left: `${clampedLeft}%`,
-        width: `${maxWidth}%`
+      if (activeContentTab.value === 'stages') {
+        nextTick(() => updateStageChart())
       }
-    }
+    }, { deep: true, immediate: true })
 
-    const getEventsForCell = (cellIndex) => {
-      if (!timelineStartDate.value) return []
-      const cellStart = new Date(timelineStartDate.value.getTime() + cellIndex * 60 * 60 * 1000)
-      const cellEnd = new Date(cellStart.getTime() + 60 * 60 * 1000)
-      return timelineEvents.value.filter(event => {
-        const eventDate = new Date(event.time)
-        if (Number.isNaN(eventDate.getTime())) return false
-        if (cellIndex === timelineCells.value - 1) {
-          return eventDate >= cellStart && eventDate <= cellEnd
-        }
-        return eventDate >= cellStart && eventDate < cellEnd
-      })
-    }
-
-    const getEventDotClass = (type) => {
-      if (type === 'power_on' || type === 'power_off') return 'event-dot-power'
-      if (type === 'surgery_start' || type === 'surgery_end') return 'event-dot-surgery'
-      if (type === 'previous_end') return 'event-dot-previous'
-      return 'event-dot-default'
-    }
-
-    // 监听isRemoteSurgery变化，如果从远程手术变为非远程手术，且当前在network标签页，切换到overview
-    watch(isRemoteSurgery, (isRemote) => {
-      if (!isRemote && activeTab.value === 'network') {
-        activeTab.value = 'overview'
+    watch(activeContentTab, (tabKey) => {
+      if (tabKey === 'stages') {
+        nextTick(() => updateStageChart())
       }
     })
 
-    // 监听hasAlerts变化，如果没有安全报警且当前在alerts标签页，切换到overview
-    watch(hasAlerts, (hasAlertsValue) => {
-      if (!hasAlertsValue && activeTab.value === 'alerts') {
-        activeTab.value = 'overview'
+    watch(swipeRenderKey, () => {
+      if (stageChartInstance) {
+        stageChartInstance.dispose()
+        stageChartInstance = null
+      }
+      if (activeContentTab.value === 'stages') {
+        nextTick(() => {
+          updateStageChart()
+          ensureStageChartObserver()
+        })
       }
     })
 
@@ -1251,9 +1515,45 @@ export default {
         router.back()
         return
       }
+      updateOverviewOrientation()
+      window.addEventListener('resize', updateOverviewOrientation)
+      window.addEventListener('orientationchange', updateOverviewOrientation)
+      forceTabLayout()
       const loadedFromSession = loadFromSession()
       if (!loadedFromSession) {
         await fetchSurgeryData()
+      }
+      nextTick(() => {
+        updateStageChart()
+        ensureStageChartObserver()
+      })
+    })
+
+    onActivated(() => {
+      updateOverviewOrientation()
+      forceTabLayout()
+      if (activeContentTab.value === 'stages') {
+        nextTick(() => {
+          updateStageChart()
+          ensureStageChartObserver()
+        })
+      }
+    })
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('resize', updateOverviewOrientation)
+      window.removeEventListener('orientationchange', updateOverviewOrientation)
+      if (stageChartResizeObserver && stageChartRef.value) {
+        try {
+          stageChartResizeObserver.unobserve(stageChartRef.value)
+        } catch (_) {
+          // ignore observer cleanup errors
+        }
+      }
+      stageChartResizeObserver = null
+      if (stageChartInstance) {
+        stageChartInstance.dispose()
+        stageChartInstance = null
       }
     })
 
@@ -1261,17 +1561,15 @@ export default {
       surgeryData,
       armsData,
       loading,
-      activeTab,
-      primaryTabs,
-      secondaryTabs,
+      contentSwipeRef,
+      contentTabs,
+      activeContentTab,
+      switchContentTab,
+      onContentSwipeChange,
       displaySurgeryId,
-      procedureName,
-      startTimeDisplay,
-      endTimeDisplay,
+      startTimeMetric,
+      endTimeMetric,
       totalDuration,
-      legendItems,
-      timelineMarks,
-      timelineCells,
       faultRows,
       visibleFaultRows,
       hasAlerts,
@@ -1279,26 +1577,33 @@ export default {
       showAllFaults,
       toggleFaultRows,
       formatDisplayTime,
-      formatEventTime,
       formatDuration,
       formatNetworkLatency,
       operationSummaryRows,
       hasOperationSummary,
       instrumentUsageRows,
       hasInstrumentUsage,
+      openEnergyAnalysis,
+      energyAnalysisPopupVisible,
+      selectedInstrumentForEnergy,
+      selectedInstrumentEnergyDetails,
       totalInstrumentCount,
       averageNetworkLatency,
       toggleCard,
       isCardExpanded,
-      stateMachineSeries,
-      hasStateMachine,
+      stageShareRows,
+      hasStageShare,
+      selectedStageKey,
+      selectedStageRow,
+      stageChartRef,
       networkLatencySeries,
       hasNetworkLatency,
-      timelineEvents,
       faultExplanations,
       faultExplanationLoading,
       canOpenTimeline,
-      openTimelineView
+      openTimelineView,
+      isOverviewPortrait,
+      swipeRenderKey
     }
   }
 }
@@ -1306,8 +1611,15 @@ export default {
 
 <style scoped>
 .page {
-  min-height: 100%;
-  background-color: #f7f8fa;
+  --surface-bg: #ffffff;
+  --soft-bg: #f7f8fa;
+  --line-color: #e4e7ec;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
+  background-color: var(--soft-bg);
   padding-top: calc(46px + env(safe-area-inset-top));
   box-sizing: border-box;
 }
@@ -1330,18 +1642,195 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px 12px 24px;
+  min-height: calc(100vh - 46px - env(safe-area-inset-top));
+  min-height: calc(100dvh - 46px - env(safe-area-inset-top));
+  height: calc(100dvh - 46px - env(safe-area-inset-top));
+  padding: 12px 12px calc(8px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.metrics-strip {
+  background: transparent;
+  border-bottom: 1px solid #dbe0e7;
+  padding: 6px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.strip-id {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.strip-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  align-items: baseline;
+}
+
+.strip-item {
+  font-size: 12px;
+  color: #344054;
+  line-height: 1.65;
+  min-width: 0;
+}
+
+.tabbed-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  padding-bottom: 0;
+  border-bottom: 1px solid #e4e7ec;
+}
+
+.tab-bar .tab-button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  font-size: 12px;
+}
+
+.tab-swipe {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.tab-swipe :deep(.van-swipe__track) {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.tab-swipe :deep(.van-swipe-item) {
+  display: flex;
+  height: 100%;
+}
+
+.tab-panel-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tab-panel-body > .section-card,
+.tab-panel-body > .placeholder-card {
+  flex: 1;
+}
+
+.tab-panel-body > .stage-section-card {
+  flex: 0 0 auto;
+}
+
+.tab-panel-body .section-card {
+  padding: 10px 10px 8px;
+}
+
+.stage-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stage-rose-shell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.stage-rose-chart {
+  width: 100%;
+  height: 240px;
+  min-height: 220px;
+}
+
+.stage-fixed-info {
+  margin-top: 0;
+  margin-bottom: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.stage-share-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+.stage-share-item {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 4px 6px;
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #334155;
+  min-width: 0;
+  text-align: left;
+}
+
+.stage-share-item.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.stage-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.stage-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-value {
+  font-weight: 600;
 }
 
 .info-card {
-  background-color: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
-  padding: 16px;
+  background-color: var(--surface-bg);
+  border: 1px solid var(--line-color);
+  border-radius: var(--radius-lg);
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  gap: 10px;
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
 }
 
 .info-header {
@@ -1409,19 +1898,21 @@ export default {
 .tab-button {
   flex: 1;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   background: transparent;
-  font-size: 12px;
-  color: #4a5565;
-  line-height: 16px;
-  padding: 8px 4px;
+  font-size: 13px;
+  color: #667085;
+  line-height: 18px;
+  padding: 8px 2px 10px;
   font-weight: 500;
+  border-bottom: 2px solid transparent;
 }
 
 .tab-button.active {
-  background-color: #fff;
-  color: #101828;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  background-color: transparent;
+  color: #155dfc;
+  border-bottom-color: #155dfc;
+  box-shadow: none;
 }
 
 .gantt-card {
@@ -1560,19 +2051,149 @@ export default {
 }
 
 .overview-card {
-  padding: 16px;
+  background: var(--surface-bg);
+  border-color: var(--line-color);
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
+  padding: 10px;
+  gap: 8px;
+}
+
+.overview-tab-card {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rotate-mask-inline {
+  width: 100%;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.rotate-mask-card {
+  width: 100%;
+  max-width: 340px;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.rotate-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.rotate-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.overview-ready {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.overview-enter-btn {
+  border: 1px solid #c9d4e5;
+  background: #f8fbff;
+  color: #1f3b6e;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.overview-enter-btn:disabled {
+  opacity: 0.55;
+}
+
+.overview-unavailable {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.metrics-section {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.summary-merged-head {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e5eaf2;
+}
+
+.summary-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.overview-icon-btn {
+  border: 1px solid #c9d4e5;
+  background: #f8fbff;
+  color: #1f3b6e;
+  border-radius: 999px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.overview-icon-btn:active {
+  transform: scale(0.98);
+}
+
+.summary-meta-line {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #667085;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metrics-subheader {
+  margin-top: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #475467;
+  font-weight: 600;
 }
 
 .timeline-entry {
   width: 100%;
-  border: 1px solid var(--m-color-border, rgba(0, 0, 0, 0.1));
-  background: var(--m-color-surface, #fff);
+  border: 1px solid #cfd4dc;
+  background: #ffffff;
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .timeline-entry-title {
@@ -1586,32 +2207,8 @@ export default {
   font-size: 14px;
 }
 
-.overview-layout {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-.overview-left {
-  flex: 1;
-  min-width: 0;
-}
-
-.overview-right {
-  flex: 1;
-  min-width: 0;
-}
-
-/* 在小屏幕上优化间距，确保两列布局在普通手机上也能良好显示 */
-@media (max-width: 640px) {
-  .overview-layout {
-    gap: 12px;
-  }
-}
-
-.overview-left .section-header,
-.overview-right .section-header {
-  margin-bottom: 12px;
+.overview-section + .overview-section {
+  margin-top: 4px;
 }
 
 .empty-state {
@@ -1620,63 +2217,193 @@ export default {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 6px;
 }
 
 .kpi-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 16px;
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  min-height: 80px;
+  justify-content: flex-start;
+  padding: 0;
+  min-height: 24px;
+  border: none;
+  background: transparent;
 }
 
 .kpi-item:active {
-  opacity: 0.9;
-  transform: scale(0.98);
+  opacity: 1;
+  transform: none;
 }
 
-.kpi-item-duration {
-  background: #667eea;
-}
-
-.kpi-item-alerts {
-  background: #f5576c;
-}
-
-.kpi-item-instruments {
-  background: #4facfe;
-}
-
-.kpi-item-network {
-  background: #43e97b;
+.kpi-item-duration,
+.kpi-item-alerts,
+.kpi-item-instruments,
+.kpi-item-network,
+.kpi-item-time {
+  background: transparent;
 }
 
 .kpi-content {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-  text-align: center;
+  flex-direction: row-reverse;
+  gap: 4px;
+  align-items: baseline;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .kpi-value {
-  font-size: 24px;
+  font-size: 13px;
   font-weight: 600;
-  color: #fff;
-  line-height: 1.2;
-  word-break: break-word;
+  color: #111827;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.kpi-item-time .kpi-value {
+  font-size: 11px;
 }
 
 .kpi-label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.4;
+  font-size: 11px;
+  color: #667085;
+  line-height: 1.2;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.risk-card {
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  padding: 8px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #111827;
+}
+
+.risk-card:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.risk-card-title {
+  font-size: 10px;
+  font-weight: 500;
+  color: #475467;
+  line-height: 1.4;
+}
+
+.risk-card-value {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.risk-card-arrow {
+  align-self: flex-end;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.risk-card-fault {
+  background: #fff1f1;
+  border-color: #fecaca;
+  color: #b42318;
+}
+
+.risk-card-network {
+  background: #eff8ff;
+  border-color: #bfdbfe;
+  color: #175cd3;
+}
+
+.risk-card-operation {
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+  color: #027a48;
+}
+
+.overview-arm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.overview-arm-card {
+  border: 1px solid #d0d5dd;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  padding: 9px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+}
+
+.overview-arm-card.active {
+  border-color: #528bff;
+  box-shadow: 0 0 0 1px rgba(82, 139, 255, 0.2);
+  background: #f5f8ff;
+}
+
+.overview-arm-card:active {
+  opacity: 0.86;
+}
+
+.overview-arm-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.overview-arm-metric {
+  font-size: 11px;
+  color: #667085;
+}
+
+.focused-arm-panel {
+  margin-top: 2px;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px;
+}
+
+.focused-arm-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.focused-arm-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.focused-arm-subtitle {
+  font-size: 11px;
+  color: #667085;
+}
+
+.focused-arm-body {
+  padding-top: 8px;
+  gap: 10px;
+  border-top-color: rgba(102, 112, 133, 0.2);
 }
 
 .timeline-list {
@@ -1811,12 +2538,46 @@ export default {
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   padding: 24px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .loading-state {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+:deep(.detail-sheet) {
+  max-height: 72vh;
+}
+
+.detail-sheet-head {
+  display: flex;
+  gap: 8px;
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.detail-sheet-tab {
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  color: #475467;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.detail-sheet-tab.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.detail-sheet-body {
+  padding: 10px 12px 14px;
+  overflow: auto;
 }
 
 .one-line {
@@ -1842,15 +2603,15 @@ export default {
 }
 
 .section-card {
-  background-color: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  padding: 16px;
+  background-color: var(--surface-bg);
+  border: 1px solid var(--line-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 0;
 }
 
 .chart-card {
@@ -2075,39 +2836,201 @@ export default {
 .instrument-card-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.instrument-item {
+.instrument-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.instrument-item:not(:last-child) {
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+.instrument-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }
 
 .instrument-item-header {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
 }
 
-.instrument-item-header .instrument-type {
-  font-size: 14px;
+.instrument-image-toggle {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.instrument-image {
+  width: 100%;
+  height: 88px;
+  object-fit: contain;
+}
+
+.instrument-image-panel {
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  overflow: hidden;
+}
+
+.instrument-image-fallback {
+  width: 100%;
+  height: 88px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  color: #667085;
   font-weight: 600;
-  color: #101828;
 }
 
 .instrument-item-details {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-left: 4px;
+}
+
+.energy-analysis-cta {
+  margin-top: 2px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  width: 100%;
+}
+
+.energy-analysis-popup {
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  overflow: hidden;
+}
+
+.energy-analysis-sheet {
+  height: 76vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.energy-analysis-sheet-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.energy-analysis-sheet-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.energy-analysis-sheet-subtitle {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.energy-analysis-segmented {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.energy-analysis-segment {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #4b5563;
+  border-radius: 999px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.energy-analysis-segment.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.energy-analysis-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+}
+
+.energy-analysis-view {
+  min-height: 160px;
+}
+
+.energy-detail-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.energy-detail-head-block {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+}
+
+.energy-detail-row {
+  display: grid;
+  grid-template-columns: 0.82fr 0.82fr 0.96fr 1.4fr;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 11px;
+  color: #374151;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.energy-detail-row span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.energy-detail-header span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
+.energy-detail-header {
+  background: transparent;
+  color: #374151;
+  font-weight: 600;
 }
 
 .instrument-info-row {
@@ -2121,23 +3044,29 @@ export default {
 
 .instrument-info-label {
   color: #6a7282;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 60px;
+  min-width: 46px;
 }
 
 .instrument-info-value {
   color: #364153;
   text-align: right;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex: 1;
 }
 
 .instrument-info-value.time {
-  font-size: 12px;
+  font-size: 11px;
   color: #6a7282;
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-all;
 }
 
 .status-tag {
@@ -2207,45 +3136,48 @@ export default {
   margin: 0;
 }
 
-/* 普通手机（375px-414px）保持两列显示，只有非常小的屏幕才上下排列 */
-@media (max-width: 360px) {
-  .overview-layout {
-    flex-direction: column;
-    gap: 24px;
-  }
-  .overview-left,
-  .overview-right {
-    width: 100%;
-  }
+.energy-analysis-view :deep(.energy-density-chart-wrap),
+.energy-analysis-view :deep(.energy-density-chart) {
+  min-height: 210px;
+}
+
+.energy-analysis-view :deep(.duration-histogram-chart) {
+  min-height: 210px;
 }
 
 @media (max-width: 480px) {
   .kpi-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
   }
   .kpi-item {
-    padding: 14px;
-    min-height: 70px;
+    min-height: 22px;
   }
   .kpi-value {
-    font-size: 22px;
+    font-size: 12px;
   }
   .kpi-label {
-    font-size: 12px;
+    font-size: 10px;
   }
   .instrument-card-item {
     padding: 12px;
   }
+  .instrument-grid {
+    gap: 8px;
+  }
+  .instrument-item {
+    padding: 8px;
+    width: 100%;
+  }
   .instrument-info-label {
-    min-width: 56px;
+    min-width: 42px;
     font-size: 11px;
   }
   .instrument-info-value {
-    font-size: 12px;
+    font-size: 11px;
   }
   .instrument-type {
-    font-size: 14px;
+    font-size: 13px;
   }
   .table-alerts .table-row {
     grid-template-columns: 1.2fr 0.8fr 1.8fr 1fr;
@@ -2254,4 +3186,3 @@ export default {
 }
 
 </style>
-
