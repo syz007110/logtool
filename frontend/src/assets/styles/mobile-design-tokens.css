@@ -7,8 +7,8 @@
 :root[data-platform="mobile"] {
   /* ===== Brand / Core ===== */
   /* Keep aligned with PWA theme-color in public/index.html */
-  --m-color-brand: #155dfc;
-  --m-color-brand-strong: #2b7fff;
+  --m-color-brand: #032b71;
+  --m-color-brand-strong: #496ffe;
   --m-color-brand-soft: var(--blue-50);
 
   --m-color-bg: var(--gray-50);

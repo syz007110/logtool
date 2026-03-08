@@ -1857,6 +1857,8 @@
   },
   "mobile": {
     "tabs": {
+      "devices": "设备",
+      "smartQa": "智能问答",
       "error": "故障码",
       "logs": "日志",
       "smartSearch": "智能搜索",
@@ -1864,6 +1866,7 @@
       "profile": "我的"
     },
     "titles": {
+      "devices": "设备",
       "errorQuery": "故障码查询",
       "logs": "日志管理",
       "surgeries": "手术数据",
@@ -1890,6 +1893,12 @@
     "surgeries": {
       "searchPlaceholder": "搜索设备编号或医院名称",
       "surgeriesUnit": "台手术"
+    },
+    "devices": {
+      "searchPlaceholder": "搜索设备编号或医院名称",
+      "logData": "日志数据",
+      "surgeryData": "手术数据",
+      "runtimeData": "运行数据"
     },
     "deviceSurgeries": {
       "hospitalName": "医院名称",
