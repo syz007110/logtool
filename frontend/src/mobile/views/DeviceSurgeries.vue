@@ -6,7 +6,17 @@
         <div class="header-content">
             <div class="header-row">
               <div class="header-title">{{ deviceId }}</div>
-              <button type="button" class="header-search-btn" @click="toggleSearch">🔍</button>
+              <div v-if="deviceInfo" class="header-hospital">
+                <span class="info-text">{{ $t('mobile.deviceLogs.hospitalName') || '医院名称' }}：{{ deviceInfo.hospital || '-' }}</span>
+              </div>
+              <div class="header-logs">
+                <span class="info-text">{{ $t('logs.totalSurgeries') || '手术总数' }}：<span class="info-value-primary">{{ totalSurgeries }}</span></span>
+              </div>
+            </div>
+            <div class="tab-bar">
+              <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceLogs', params: { deviceId } })">日志数据</button>
+              <button class="tab-button active" type="button">手术数据</button>
+              <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceMotions', params: { deviceId } })">运行数据</button>
             </div>
         </div>
       </div>
@@ -1278,8 +1288,46 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
+.header-hospital {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.header-logs {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--m-color-border);
+  margin-top: var(--m-space-1);
+}
+
+.tab-button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--m-color-text-secondary);
+  line-height: 18px;
+  padding: 8px 2px 10px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-button.active {
+  color: var(--m-color-brand);
+  border-bottom-color: var(--m-color-brand);
+}
 
 .info-text {
   font-size: var(--m-font-size-sm);

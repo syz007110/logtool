@@ -1868,6 +1868,8 @@
   },
   "mobile": {
     "tabs": {
+      "devices": "Devices",
+      "smartQa": "Smart Q&A",
       "error": "Errors",
       "logs": "Logs",
       "smartSearch": "Smart Search",
@@ -1875,6 +1877,7 @@
       "profile": "Me"
     },
     "titles": {
+      "devices": "Devices",
       "errorQuery": "Error Code Query",
       "logs": "Log Management",
       "surgeries": "Surgery Data",
@@ -1907,6 +1910,12 @@
     "surgeries": {
       "searchPlaceholder": "Search device ID or hospital name",
       "surgeriesUnit": "surgeries"
+    },
+    "devices": {
+      "searchPlaceholder": "Search device ID or hospital name",
+      "logData": "Log Data",
+      "surgeryData": "Surgery Data",
+      "runtimeData": "Runtime Data"
     },
     "deviceSurgeries": {
       "hospitalName": "Hospital Name",

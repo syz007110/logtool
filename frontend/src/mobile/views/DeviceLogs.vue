@@ -15,6 +15,11 @@
               <span class="info-text">{{ $t('logs.logCount') || '日志总数' }}：<span class="info-value-primary">{{ totalLogs }}</span></span>
             </div>
           </div>
+          <div class="tab-bar">
+            <button class="tab-button active" type="button">日志数据</button>
+            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceSurgeries', params: { deviceId } })">手术数据</button>
+            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceMotions', params: { deviceId } })">运行数据</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1155,6 +1160,7 @@ export default {
       page.value = 1
       finished.value = false
       allLogs.value = []
+      onLoad()
       nextTick(updateLayoutMetrics)
       window.addEventListener('resize', updateLayoutMetrics)
     })
@@ -1315,6 +1321,32 @@ export default {
   color: var(--m-color-brand);
   font-weight: 600;
   margin-right: 2px;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--m-color-border);
+  margin-top: var(--m-space-1);
+}
+
+.tab-button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--m-color-text-secondary);
+  line-height: 18px;
+  padding: 8px 2px 10px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-button.active {
+  color: var(--m-color-brand);
+  border-bottom-color: var(--m-color-brand);
 }
 
 /* 筛选区域（固定定位） */
