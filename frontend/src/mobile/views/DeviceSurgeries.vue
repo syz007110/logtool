@@ -32,9 +32,9 @@
       </div>
 
       <div class="chip-row">
-        <button class="filter-chip" type="button" @click="openFilterSheet('time')">时间：{{ timeChipLabel }}</button>
-        <button class="filter-chip" type="button" @click="openFilterSheet('type')">类型：{{ typeChipLabel }}</button>
-        <button class="filter-chip" type="button" @click="openFilterSheet('sort')">排序：{{ sortChipLabel }}</button>
+        <button class="filter-chip" type="button" @click="openFilterSheet('time')">{{ timeChipPrefix }}: {{ timeChipLabel }}</button>
+        <button class="filter-chip" type="button" @click="openFilterSheet('type')">{{ typeChipPrefix }}: {{ typeChipLabel }}</button>
+        <button class="filter-chip" type="button" @click="openFilterSheet('sort')">{{ sortChipPrefix }}: {{ sortChipLabel }}</button>
       </div>
       </div>
 
@@ -42,15 +42,15 @@
         <div class="kpi-card">
           <div class="kpi-item">
             <div class="kpi-value">{{ recent7Stats.count }}</div>
-            <div class="kpi-label">手术数</div>
+            <div class="kpi-label">{{ $t('mobile.deviceSurgeries.kpiSurgeryCount') }}</div>
           </div>
           <div class="kpi-item">
             <div class="kpi-value">{{ recent7Stats.avgDuration }}</div>
-            <div class="kpi-label">平均时长</div>
+            <div class="kpi-label">{{ $t('mobile.deviceSurgeries.kpiAvgDuration') }}</div>
           </div>
           <div class="kpi-item">
             <div class="kpi-value">{{ recent7Stats.faultRate }}</div>
-            <div class="kpi-label">异常率</div>
+            <div class="kpi-label">{{ $t('mobile.deviceSurgeries.kpiFaultRate') }}</div>
           </div>
         </div>
       </div>
@@ -58,7 +58,7 @@
 
     <van-popup class="filter-popup" v-model:show="filterSheetVisible" position="bottom" round :style="{ maxHeight: '70vh' }">
       <div class="sheet-wrap">
-        <div class="sheet-title">筛选条件</div>
+        <div class="sheet-title">{{ sheetTitle }}</div>
 
         <div class="sheet-body">
           <div v-if="sheetMode === 'time'" class="time-filter-panel">
@@ -79,7 +79,7 @@
                   :class="{ active: selectedQuickRange === 'custom' }"
                   @click="selectCustomRange"
                 >
-                  自定义
+                  {{ customOptionLabel }}
                 </div>
               </div>
             </div>
@@ -134,7 +134,7 @@
           </div>
 
           <div v-if="sheetMode === 'type'" class="time-filter-section">
-            <div class="section-title">手术类型</div>
+            <div class="section-title">{{ surgeryTypeTitle }}</div>
             <div class="quick-options">
               <div
                 v-for="option in surgeryTypeOptions"
@@ -149,17 +149,17 @@
           </div>
 
           <div v-if="sheetMode === 'sort'" class="time-filter-section">
-            <div class="section-title">排序方式</div>
+            <div class="section-title">{{ sortTitle }}</div>
             <div class="quick-options">
-              <div class="quick-option" :class="{ active: sortOrder === 'latest' }" @click="setSortOrder('latest')">最新优先</div>
-              <div class="quick-option" :class="{ active: sortOrder === 'earliest' }" @click="setSortOrder('earliest')">最早优先</div>
+              <div class="quick-option" :class="{ active: sortOrder === 'latest' }" @click="setSortOrder('latest')">{{ sortLatestLabel }}</div>
+              <div class="quick-option" :class="{ active: sortOrder === 'earliest' }" @click="setSortOrder('earliest')">{{ sortEarliestLabel }}</div>
             </div>
           </div>
         </div>
 
         <div class="sheet-actions">
-          <button type="button" class="action-pill" @click="clearAllFilters">重置</button>
-          <button type="button" class="action-pill action-pill-primary" @click="closeFilterSheet">关闭</button>
+          <button type="button" class="action-pill" @click="clearAllFilters">{{ $t('shared.reset') }}</button>
+          <button type="button" class="action-pill action-pill-primary" @click="closeFilterSheet">{{ $t('shared.close') }}</button>
         </div>
       </div>
     </van-popup>
@@ -234,7 +234,7 @@ export default {
   setup() {
     const route = useRoute()
     const router = useRouter()
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const deviceId = computed(() => route.params?.deviceId || '')
     const headerRef = ref(null)
     const topStackRef = ref(null)
@@ -276,6 +276,10 @@ export default {
       { text: t('surgeryVisualization.faultSurgery'), value: 'fault' }
     ]))
 
+    const timeChipPrefix = computed(() => t('mobile.deviceSurgeries.timeLabel'))
+    const typeChipPrefix = computed(() => t('mobile.deviceSurgeries.typeLabel'))
+    const sortChipPrefix = computed(() => t('mobile.deviceSurgeries.sortLabel'))
+
     const quickRangeOptions = computed(() => ([
       { text: translateOr('mobile.deviceSurgeries.timeAll', '全部时间'), value: 'all' },
       { text: translateOr('mobile.deviceSurgeries.last1Day', '近1天'), value: '1d' },
@@ -285,15 +289,26 @@ export default {
 
     const typeChipLabel = computed(() => {
       const current = surgeryTypeOptions.value.find(option => option.value === surgeryTypeFilter.value)
-      return current?.text || '全部'
+      return current?.text || t('mobile.deviceSurgeries.filterAll')
     })
 
-    const sortChipLabel = computed(() => (sortOrder.value === 'earliest' ? '最早' : '最新'))
+    const sortChipLabel = computed(() =>
+      sortOrder.value === 'earliest'
+        ? t('mobile.deviceSurgeries.sortEarliestShort')
+        : t('mobile.deviceSurgeries.sortLatestShort')
+    )
 
     const timeChipLabel = computed(() => {
-      if (selectedQuickRange.value === 'custom') return '自定义'
-      return quickRangeMap.value[selectedQuickRange.value] || '近7天'
+      if (selectedQuickRange.value === 'custom') return t('mobile.deviceSurgeries.customRange')
+      return quickRangeMap.value[selectedQuickRange.value] || t('mobile.deviceSurgeries.last7Days')
     })
+
+    const sheetTitle = computed(() => t('mobile.deviceSurgeries.filterTitle'))
+    const customOptionLabel = computed(() => t('mobile.deviceSurgeries.customRange'))
+    const surgeryTypeTitle = computed(() => t('mobile.deviceSurgeries.surgeryTypeTitle'))
+    const sortTitle = computed(() => t('mobile.deviceSurgeries.sortTitle'))
+    const sortLatestLabel = computed(() => t('mobile.deviceSurgeries.sortLatestFirst'))
+    const sortEarliestLabel = computed(() => t('mobile.deviceSurgeries.sortEarliestFirst'))
 
     const quickRangeTitle = computed(() =>
       translateOr('mobile.deviceSurgeries.quickRangeTitle', '快捷选择')
@@ -506,7 +521,7 @@ export default {
       if (!time) return '-'
       const date = new Date(time)
       if (Number.isNaN(date.getTime())) return '-'
-      return date.toLocaleString('zh-CN', {
+      return date.toLocaleString(locale.value || 'zh-CN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -618,7 +633,7 @@ export default {
       if (!count) {
         return {
           count: 0,
-          avgDuration: '0分钟',
+          avgDuration: `0${t('mobile.deviceSurgeries.minute')}`,
           faultRate: '0%'
         }
       }
@@ -630,7 +645,7 @@ export default {
 
       return {
         count,
-        avgDuration: `${avgMinutes}分钟`,
+        avgDuration: `${avgMinutes}${t('mobile.deviceSurgeries.minute')}`,
         faultRate: `${rate}%`
       }
     })
@@ -1161,8 +1176,17 @@ export default {
       selectedQuickRange,
       quickRangeOptions,
       typeChipLabel,
+      timeChipPrefix,
+      typeChipPrefix,
+      sortChipPrefix,
       timeChipLabel,
       sortChipLabel,
+      sheetTitle,
+      customOptionLabel,
+      surgeryTypeTitle,
+      sortTitle,
+      sortLatestLabel,
+      sortEarliestLabel,
       quickRangeTitle,
       customRangeTitle,
       yearLabel,
@@ -1264,7 +1288,7 @@ export default {
 }
 
 .content {
-  padding: 10px 12px 12px;
+  padding: var(--m-space-2) var(--m-space-3) var(--m-space-3);
   /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
   padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
 }
@@ -1282,7 +1306,7 @@ export default {
 }
 
 .kpi-block {
-  padding: 0 12px 6px;
+  padding: 0 var(--m-space-3) var(--m-space-2);
 }
 
 .kpi-card {
@@ -1638,18 +1662,18 @@ export default {
 }
 
 .status-chip.is-normal {
-  background: rgba(18, 183, 106, 0.14);
-  color: #067647;
+  background: var(--m-color-success-bg);
+  color: var(--m-color-success-text);
 }
 
 .status-chip.is-fault {
-  background: rgba(240, 68, 56, 0.14);
-  color: #b42318;
+  background: var(--m-color-danger-bg);
+  color: var(--m-color-danger-text);
 }
 
 .status-chip.is-remote {
-  background: rgba(37, 99, 235, 0.14);
-  color: #1d4ed8;
+  background: var(--m-color-info-bg);
+  color: var(--m-color-info-text);
 }
 
 

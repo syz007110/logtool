@@ -6,6 +6,12 @@ export const mobileRoutes = [
     meta: { requiresAuth: false, noSidebar: true, isMobile: true }
   },
   {
+    path: 'register',
+    name: 'MRegister',
+    component: () => import('../../mobile/views/MobileRegister.vue'),
+    meta: { requiresAuth: false, noSidebar: true, isMobile: true }
+  },
+  {
     path: '',
     component: () => import('../../mobile/MobileLayout.vue'),
     meta: { requiresAuth: true, noSidebar: true, isMobile: true },

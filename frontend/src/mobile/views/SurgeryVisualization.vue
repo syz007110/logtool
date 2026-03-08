@@ -157,9 +157,9 @@
               <div class="section-card overview-tab-card">
                 <div class="rotate-mask-inline">
                   <div class="rotate-mask-card">
-                    <div class="rotate-title">请横屏查看时间轴</div>
-                    <div class="rotate-desc">横屏后将自动进入全屏总览页面</div>
-                    <div v-if="!canOpenTimeline" class="overview-unavailable">暂无可用总览数据</div>
+                    <div class="rotate-title">{{ $t('mobile.surgeryVisualization.rotateTitle') }}</div>
+                    <div class="rotate-desc">{{ $t('mobile.surgeryVisualization.rotateDesc') }}</div>
+                    <div v-if="!canOpenTimeline" class="overview-unavailable">{{ $t('mobile.surgeryVisualization.overviewUnavailable') }}</div>
                   </div>
                 </div>
               </div>
@@ -696,7 +696,7 @@ export default {
       if (!time) return '-'
       const date = new Date(time)
       if (Number.isNaN(date.getTime())) return '-'
-      return date.toLocaleString('zh-CN', {
+      return date.toLocaleString(locale.value || 'zh-CN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -1611,11 +1611,11 @@ export default {
 
 <style scoped>
 .page {
-  --surface-bg: #ffffff;
-  --soft-bg: #f7f8fa;
-  --line-color: #e4e7ec;
-  --radius-lg: 12px;
-  --radius-md: 10px;
+  --surface-bg: var(--m-color-surface);
+  --soft-bg: var(--m-color-bg);
+  --line-color: var(--m-color-border);
+  --radius-lg: var(--m-radius-lg);
+  --radius-md: var(--m-radius-md);
   min-height: 100vh;
   min-height: 100dvh;
   height: 100dvh;
@@ -1652,7 +1652,7 @@ export default {
 
 .metrics-strip {
   background: transparent;
-  border-bottom: 1px solid #dbe0e7;
+  border-bottom: 1px solid var(--line-color);
   padding: 6px 0 12px;
   display: flex;
   flex-direction: column;
@@ -1669,7 +1669,7 @@ export default {
 .strip-id {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--m-color-text);
   line-height: 1.3;
 }
 
@@ -1682,7 +1682,7 @@ export default {
 
 .strip-item {
   font-size: 12px;
-  color: #344054;
+  color: var(--m-color-text-secondary);
   line-height: 1.65;
   min-width: 0;
 }
@@ -1700,7 +1700,7 @@ export default {
   gap: 2px;
   overflow: hidden;
   padding-bottom: 0;
-  border-bottom: 1px solid #e4e7ec;
+  border-bottom: 1px solid var(--line-color);
 }
 
 .tab-bar .tab-button {
@@ -1773,10 +1773,10 @@ export default {
   margin-bottom: 4px;
   padding: 6px 10px;
   border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--m-color-surface-soft);
+  border: 1px solid var(--m-color-border);
   font-size: 11px;
-  color: #334155;
+  color: var(--m-color-text-secondary);
   line-height: 1.4;
 }
 
@@ -1796,14 +1796,14 @@ export default {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #334155;
+  color: var(--m-color-text-secondary);
   min-width: 0;
   text-align: left;
 }
 
 .stage-share-item.active {
-  border-color: #bfdbfe;
-  background: #eff6ff;
+  border-color: var(--blue-200);
+  background: var(--blue-50);
 }
 
 .stage-dot {
@@ -2606,7 +2606,7 @@ export default {
   background-color: var(--surface-bg);
   border: 1px solid var(--line-color);
   border-radius: var(--radius-lg);
-  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.04);
+  box-shadow: var(--m-shadow-sm);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -2629,7 +2629,7 @@ export default {
 .section-header {
   font-size: 14px;
   font-weight: 600;
-  color: #101828;
+  color: var(--m-color-text);
 }
 
 .table {
@@ -3081,20 +3081,20 @@ export default {
 }
 
 .status-processed {
-  background: rgba(22, 163, 74, 0.12);
-  color: #15803d;
+  background: var(--m-color-success-bg);
+  color: var(--m-color-success-text);
 }
 
 .status-unprocessed {
-  background: rgba(234, 88, 12, 0.16);
-  color: #c2410c;
+  background: var(--m-color-warning-bg);
+  color: var(--m-color-warning-text);
 }
 
 .toggle-button {
   align-self: center;
   background: none;
   border: none;
-  color: #2563eb;
+  color: var(--m-color-brand);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;

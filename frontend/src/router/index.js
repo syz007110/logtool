@@ -41,7 +41,7 @@ if (appTarget === 'mobile') {
   })
   routes.push({ path: '/smart-search', redirect: '/m/smart-search' })
   routes.push({ path: '/login', redirect: '/m/login' })
-  routes.push({ path: '/register', redirect: '/m/login' })
+  routes.push({ path: '/register', redirect: '/m/register' })
 }
 
 routes.push({
