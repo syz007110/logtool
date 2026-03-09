@@ -78,16 +78,27 @@ try {
     : null
 } catch (_) {}
 
+const markBootReady = () => {
+  try {
+    window.__APP_BOOT_READY__ = true
+    window.dispatchEvent(new Event('app:boot-ready'))
+  } catch (_) {}
+}
+
 // 确保当前语言包加载完成后再挂载
-loadLocaleMessages(getCurrentLocale()).then(() => {
+loadLocaleMessages(getCurrentLocale()).then(async () => {
   app.mount('#app')
-}).catch(() => {
+  await router.isReady()
+  markBootReady()
+}).catch(async () => {
   app.mount('#app')
+  await router.isReady()
+  markBootReady()
 })
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+    navigator.serviceWorker.register(`${process.env.BASE_URL}service-worker.js`).catch((err) => {
       console.error('Service worker registration failed:', err)
     })
   })
