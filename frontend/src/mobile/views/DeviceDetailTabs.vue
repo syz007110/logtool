@@ -43,9 +43,6 @@
         <section class="tab-pane" v-else-if="activeTab === 'surgeries'">
           <DeviceSurgeries v-if="mountedTabs.surgeries" ref="surgeriesViewRef" />
         </section>
-        <section class="tab-pane" v-else>
-          <DeviceMotions v-if="mountedTabs.motions" ref="motionsViewRef" />
-        </section>
       </template>
     </div>
 
@@ -65,12 +62,11 @@ import { Icon as VanIcon } from 'vant'
 import api from '@/api'
 import DeviceLogs from './DeviceLogs.vue'
 import DeviceSurgeries from './DeviceSurgeries.vue'
-import DeviceMotions from './DeviceMotions.vue'
 
 const ROUTE_TAB_MAP = {
   MDeviceLogs: 'logs',
   MDeviceSurgeries: 'surgeries',
-  MDeviceMotions: 'motions'
+  MDeviceMotions: 'logs'
 }
 
 export default {
@@ -78,8 +74,7 @@ export default {
   components: {
     'van-icon': VanIcon,
     DeviceLogs,
-    DeviceSurgeries,
-    DeviceMotions
+    DeviceSurgeries
   },
   setup() {
     const route = useRoute()
@@ -94,7 +89,6 @@ export default {
     const headerHeight = ref(0)
     const logsViewRef = ref(null)
     const surgeriesViewRef = ref(null)
-    const motionsViewRef = ref(null)
     const entering = ref(true)
     const touchStartX = ref(0)
     const hospitalFallback = ref('')
@@ -103,30 +97,22 @@ export default {
 
     const resolveTabByRoute = () => ROUTE_TAB_MAP[route.name] || 'logs'
     const activeTab = ref(resolveTabByRoute())
-    const mountedTabs = ref({ logs: false, surgeries: false, motions: false })
+    const mountedTabs = ref({ logs: false, surgeries: false })
     mountedTabs.value[activeTab.value] = true
 
     const tabs = computed(() => ([
       { key: 'logs', label: translateOr('mobile.devices.logData', '日志数据') },
-      { key: 'surgeries', label: translateOr('mobile.devices.surgeryData', '手术数据') },
-      { key: 'motions', label: translateOr('mobile.devices.runtimeData', '运行数据') }
+      { key: 'surgeries', label: translateOr('mobile.devices.surgeryData', '手术数据') }
     ]))
 
-    const tabIndexMap = { logs: 0, surgeries: 1, motions: 2 }
-    const tabKeyByIndex = ['logs', 'surgeries', 'motions']
-
-    const currentViewRef = computed(() => {
-      if (activeTab.value === 'surgeries') return surgeriesViewRef.value
-      if (activeTab.value === 'motions') return motionsViewRef.value
-      return logsViewRef.value
-    })
+    const tabIndexMap = { logs: 0, surgeries: 1 }
+    const tabKeyByIndex = ['logs', 'surgeries']
 
 
     const currentHospital = computed(() => {
       const values = [
         logsViewRef.value?.deviceInfo?.hospital,
         surgeriesViewRef.value?.deviceInfo?.hospital,
-        motionsViewRef.value?.deviceInfo?.hospital,
         hospitalFallback.value
       ]
       return values.find(v => v && v !== '-') || ''
@@ -134,13 +120,11 @@ export default {
 
     const currentCount = computed(() => {
       if (activeTab.value === 'surgeries') return Number(surgeriesViewRef.value?.totalSurgeries || 0)
-      if (activeTab.value === 'motions') return Number(motionsViewRef.value?.totalMotion || 0)
       return Number(logsViewRef.value?.totalLogs || 0)
     })
 
     const currentCountLabel = computed(() => {
       if (activeTab.value === 'surgeries') return translateOr('logs.totalSurgeries', '手术总数')
-      if (activeTab.value === 'motions') return translateOr('mobile.devices.runtimeData', '运行数据')
       return translateOr('logs.logCount', '日志总数')
     })
 
@@ -155,15 +139,13 @@ export default {
 
     const fetchHospitalFallback = async () => {
       try {
-        const [logRes, surgeryRes, motionRes] = await Promise.all([
+        const [logRes, surgeryRes] = await Promise.all([
           api.logs.getList({ device_id: deviceId.value, page: 1, limit: 1 }),
-          api.surgeries.list({ device_id: deviceId.value, page: 1, limit: 1 }),
-          api.motionData.listFiles({ device_id: deviceId.value, page: 1, limit: 1 })
+          api.surgeries.list({ device_id: deviceId.value, page: 1, limit: 1 })
         ])
         const logHospital = logRes?.data?.logs?.[0]?.hospital_name
         const surgeryHospital = surgeryRes?.data?.data?.[0]?.hospital_name
-        const motionHospital = motionRes?.data?.data?.[0]?.hospital_name
-        hospitalFallback.value = logHospital || surgeryHospital || motionHospital || ''
+        hospitalFallback.value = logHospital || surgeryHospital || ''
       } catch (_) {}
     }
 
@@ -183,7 +165,7 @@ export default {
       const delta = endX - touchStartX.value
       if (Math.abs(delta) < 56) return
       const idx = tabIndexMap[activeTab.value] ?? 0
-      const next = delta < 0 ? Math.min(2, idx + 1) : Math.max(0, idx - 1)
+      const next = delta < 0 ? Math.min(1, idx + 1) : Math.max(0, idx - 1)
       const tabKey = tabKeyByIndex[next]
       if (tabKey) switchTab(tabKey)
     }
@@ -236,7 +218,6 @@ export default {
       mountedTabs,
       logsViewRef,
       surgeriesViewRef,
-      motionsViewRef,
       currentHospital,
       currentCount,
       currentCountLabel,

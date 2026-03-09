@@ -14,9 +14,8 @@
             </div>
           </div>
           <div class="tab-bar">
-            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceLogs', params: { deviceId } })">日志数据</button>
-            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceSurgeries', params: { deviceId } })">手术数据</button>
-            <button class="tab-button active" type="button">运行数据</button>
+            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceLogs', params: { deviceId } })">{{ $t('mobile.devices.logData') }}</button>
+            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceSurgeries', params: { deviceId } })">{{ $t('mobile.devices.surgeryData') }}</button>
           </div>
         </div>
       </div>

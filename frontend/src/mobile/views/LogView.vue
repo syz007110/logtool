@@ -39,42 +39,46 @@
     </div>
 
     <div class="content" :style="{ paddingTop: contentPaddingTop }">
-      <!-- 日志条目列表 -->
-      <div class="entries-list">
-        <div
-          v-for="entry in filteredEntries"
-          :key="entry.id"
-          class="entry-card"
-        >
-          <div class="entry-header">
-            <div class="entry-time">{{ formatTimestamp(entry.timestamp) }}</div>
-            <span 
-              v-if="entry.error_code" 
-              :class="['error-code-badge', getErrorCodeClass(entry.error_code)]"
-            >
-              {{ entry.error_code }}
-            </span>
-          </div>
-          <div class="entry-content">
-            {{ entry.explanation || entry.message || '-' }}
+      <template v-if="!loading">
+        <!-- 日志条目列表 -->
+        <div class="entries-list">
+          <div
+            v-for="entry in filteredEntries"
+            :key="entry.id"
+            class="entry-card"
+          >
+            <div class="entry-header">
+              <div class="entry-time">{{ formatTimestamp(entry.timestamp) }}</div>
+              <span 
+                v-if="entry.error_code" 
+                :class="['error-code-badge', getErrorCodeClass(entry.error_code)]"
+              >
+                {{ entry.error_code }}
+              </span>
+            </div>
+            <div class="entry-content">
+              {{ entry.explanation || entry.message || '-' }}
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- 底部统计 -->
-      <div v-if="!hasActiveFilters" class="footer-stats">
-        {{ $t('mobile.logView.displayStats', { current: filteredEntries.length, total: allEntries.length }) }}
-      </div>
+        <!-- 底部统计 -->
+        <div v-if="filteredEntries.length > 0 && !hasActiveFilters" class="footer-stats">
+          {{ $t('mobile.logView.displayStats', { current: filteredEntries.length, total: allEntries.length }) }}
+        </div>
 
-      <!-- 空状态 -->
-      <van-empty
-        v-if="!loading && filteredEntries.length === 0"
-        :description="$t('shared.noData')"
-        class="empty-state"
-      />
+        <!-- 空状态 -->
+        <van-empty
+          v-if="filteredEntries.length === 0"
+          :description="$t('shared.noData')"
+          class="empty-state"
+        />
+      </template>
 
       <!-- 加载状态 -->
-      <van-loading v-if="loading" class="loading-state" />
+      <div v-else class="loading-state">
+        <van-loading type="spinner" size="24px" vertical>{{ $t('shared.loading') }}</van-loading>
+      </div>
     </div>
     
     <!-- 悬浮搜索按钮 -->
@@ -105,9 +109,9 @@
         <div class="search-menu-header">
           <div class="search-menu-title">
             <van-icon name="filter-o" class="search-menu-title-icon" />
-            <h2>日志筛选</h2>
+            <h2>{{ $t('mobile.logView.filterTitle') }}</h2>
           </div>
-          <p class="search-menu-description">通过多种方式筛选和查找日志</p>
+          <p class="search-menu-description">{{ $t('mobile.logView.filterDescription') }}</p>
         </div>
         
         <!-- 标签页导航 -->
@@ -131,12 +135,12 @@
           <div v-if="selectedSearchTab === 0" class="search-tab-panel">
             <van-field
               v-model="tempSearchQuery"
-              placeholder="搜索关键词或故障码"
+              :placeholder="$t('mobile.logView.searchPlaceholder')"
               clearable
               class="search-input-field"
             />
             <van-button type="primary" block class="search-confirm-btn" @click="handleKeywordConfirm">
-              确定
+              {{ $t('mobile.logView.confirm') }}
             </van-button>
           </div>
           
@@ -160,18 +164,18 @@
                 class="tag-option-btn"
                 disabled
               >
-                暂无常用标签
+                {{ $t('mobile.logView.noCommonTags') }}
               </van-button>
             </div>
             <van-button type="primary" block class="search-confirm-btn" @click="handleTagConfirm">
-              确定
+              {{ $t('mobile.logView.confirm') }}
             </van-button>
           </div>
           
           <!-- 时间筛选 -->
           <div v-if="selectedSearchTab === 2" class="search-tab-panel">
             <van-cell-group>
-              <van-cell title="开始时间">
+              <van-cell :title="$t('mobile.logView.startTime')">
                 <template #value>
                   <input
                     v-model="tempStartTimeFormatted"
@@ -181,7 +185,7 @@
                   />
                 </template>
               </van-cell>
-              <van-cell title="结束时间">
+              <van-cell :title="$t('mobile.logView.endTime')">
                 <template #value>
                   <input
                     v-model="tempEndTimeFormatted"
@@ -198,10 +202,10 @@
               class="clear-time-btn"
               @click="clearTempTime"
             >
-              清除时间
+              {{ $t('mobile.logView.clearTime') }}
             </van-button>
             <van-button type="primary" block class="search-confirm-btn" @click="handleTimeConfirm">
-              确定
+              {{ $t('mobile.logView.confirm') }}
             </van-button>
           </div>
         </div>
@@ -404,17 +408,17 @@ export default {
     const tempTagFilter = ref(null)
     
     // 搜索操作菜单选项（注意顺序：关键字、常用搜索项、时间）
-    const searchActions = [
-      { name: '关键字', icon: 'search' },
-      { name: '常用搜索项', icon: 'label-o' },
-      { name: '时间', icon: 'clock-o' }
-    ]
+    const searchActions = computed(() => ([
+      { name: t('mobile.logView.keywordTab'), icon: 'search' },
+      { name: t('mobile.logView.commonTagsTab'), icon: 'label-o' },
+      { name: t('mobile.logView.timeTab'), icon: 'clock-o' }
+    ]))
 
-    const analysisLevelOptions = [
-      { text: '全量日志', value: 'ALL' },
-      { text: '精细日志', value: 'FINE' },
-      { text: '关键日志', value: 'KEY' }
-    ]
+    const analysisLevelOptions = computed(() => ([
+      { text: t('mobile.logView.levelAll'), value: 'ALL' },
+      { text: t('mobile.logView.levelFine'), value: 'FINE' },
+      { text: t('mobile.logView.levelKey'), value: 'KEY' }
+    ]))
 
     const filteredEntries = computed(() => {
       // 移动端筛选主要在后端完成，前端只做简单处理
@@ -1104,6 +1108,7 @@ export default {
 
 .content {
   padding: 12px;
+  min-height: 100vh;
   /* 增加底部 padding，确保滚动能正确触发（移除底部导航栏后需要更多空间） */
   padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
   /* padding-top 通过动态计算设置，避免被固定区域遮挡 */
@@ -1193,7 +1198,11 @@ export default {
 .loading-state {
   display: flex;
   justify-content: center;
-  padding: 40px 0;
+  align-items: center;
+  min-height: calc(100vh - 220px);
+  padding: var(--m-space-6) 0;
+  color: var(--m-color-text-secondary);
+  font-size: var(--m-font-size-sm);
 }
 
 /* 悬浮搜索按钮 */
