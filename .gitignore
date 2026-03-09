@@ -14,6 +14,8 @@ docker-compose.yml
 backend/node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/dist-web/
+frontend/dist-mobile/
 *.log
 
 # 运行时数据
