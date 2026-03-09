@@ -139,9 +139,9 @@ const i18nErrorCodes = {
 }
 
 const logs = {
-  getList: (params) => api.get('/logs', { params }),
-  getByDevice: (params) => api.get('/logs/by-device', { params }),
-  getTimeFilters: (params) => api.get('/logs/time-filters', { params }),
+  getList: (params, config = {}) => api.get('/logs', { params, ...config }),
+  getByDevice: (params, config = {}) => api.get('/logs/by-device', { params, ...config }),
+  getTimeFilters: (params, config = {}) => api.get('/logs/time-filters', { params, ...config }),
   upload: (formData) => api.post('/logs/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

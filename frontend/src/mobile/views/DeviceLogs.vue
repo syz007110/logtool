@@ -724,7 +724,7 @@ export default {
       }
 
       try {
-        const resp = await api.logs.getTimeFilters({ device_id: deviceId.value })
+        const resp = await api.logs.getTimeFilters({ device_id: deviceId.value }, { _silentError: true })
         const data = resp?.data?.data || {}
 
         const yearsArray = Array.isArray(data.years) ? data.years : []
@@ -950,7 +950,7 @@ export default {
       
       try {
         // 方法1：尝试从 getByDevice 获取（不使用 limit: 1，而是获取所有设备组）
-        const resp = await api.logs.getByDevice({ device_id: deviceId.value, limit: 10000 })
+        const resp = await api.logs.getByDevice({ device_id: deviceId.value, limit: 10000 }, { _silentError: true })
         const groups = resp?.data?.device_groups || []
         const group = groups.find(g => g.device_id === deviceId.value)
         if (group) {

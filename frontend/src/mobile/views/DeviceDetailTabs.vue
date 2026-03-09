@@ -55,7 +55,7 @@
 </template>
 
 <script>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Icon as VanIcon } from 'vant'
@@ -151,13 +151,9 @@ export default {
 
     const switchTab = (tabKey) => {
       if (activeTab.value === tabKey) return
-      entering.value = true
       activeTab.value = tabKey
       mountedTabs.value[tabKey] = true
       measureHeader()
-      setTimeout(() => {
-        entering.value = false
-      }, 180)
     }
 
     const onTouchStart = (e) => {
@@ -180,36 +176,11 @@ export default {
 
     const surgeriesSearchActive = computed(() => Boolean(surgeriesViewRef.value?.showSearch))
 
-    const showSkeleton = computed(() => {
-      if (entering.value) return true
-
-      if (activeTab.value === 'logs') {
-        const loading = Boolean(logsViewRef.value?.loading)
-        const hasData = Number(logsViewRef.value?.filteredLogs?.length || 0) > 0
-        return loading && !hasData
-      }
-
-      if (activeTab.value === 'surgeries') {
-        const loading = Boolean(surgeriesViewRef.value?.loading)
-        const hasData = Number(surgeriesViewRef.value?.items?.length || 0) > 0
-        return loading && !hasData
-      }
-
-      return false
-    })
+    const showSkeleton = computed(() => false)
 
     const toggleSurgeriesSearch = () => {
       surgeriesViewRef.value?.toggleSearch?.()
     }
-
-    watchEffect(() => {
-      const fromLogs = logsViewRef.value?.deviceInfo?.hospital
-      const fromSurgeries = surgeriesViewRef.value?.deviceInfo?.hospital
-      const resolved = [fromLogs, fromSurgeries].find(v => v && v !== '-')
-      if (resolved) {
-        hospitalFallback.value = resolved
-      }
-    })
 
     watch(() => route.name, () => {
       const targetTab = resolveTabByRoute()

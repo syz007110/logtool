@@ -1,22 +1,21 @@
 <template>
   <div class="mobile-login-page">
     <div class="mobile-login-shell">
-      <div class="mobile-login-lang">
-        <el-dropdown @command="changeLanguage" trigger="click">
-          <el-button text class="lang-btn">
-            <el-icon><InfoFilled /></el-icon>
-            {{ currentLocaleLabel }}
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="zh-CN">{{ $t('shared.languageNames.zh') }}</el-dropdown-item>
-              <el-dropdown-item command="en-US">{{ $t('shared.languageNames.en') }}</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-
       <div class="mobile-login-card">
+        <div class="mobile-login-lang">
+          <el-dropdown @command="changeLanguage" trigger="click">
+            <el-button text class="lang-btn">
+              <el-icon><InfoFilled /></el-icon>
+              {{ currentLocaleLabel }}
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+                <el-dropdown-item command="en-US">English</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
         <div class="mobile-login-brand">
           <img :src="logoUrl" alt="LogTool" class="brand-logo" />
           <p class="brand-subtitle">{{ $t('mobile.login.subtitle') }}</p>
@@ -131,7 +130,7 @@ export default {
     const logoUrl = resolveBaseLogoUrl()
 
     const currentLocaleLabel = computed(() =>
-      getCurrentLocale() === 'en-US' ? t('shared.languageNames.en') : t('shared.languageNames.zh')
+      getCurrentLocale() === 'en-US' ? 'English' : '中文'
     )
 
     const rules = computed(() => ({
@@ -220,16 +219,23 @@ export default {
 
 <style scoped>
 .mobile-login-page {
-  min-height: 100%;
-  height: 100%;
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  height: 100dvh;
   background: var(--m-color-bg);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .mobile-login-shell {
   min-height: 100%;
+  height: 100%;
   padding: calc(env(safe-area-inset-top) + var(--m-space-4)) var(--m-space-4) var(--m-space-4);
   background: var(--m-gradient-auth-bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobile-login-lang {
