@@ -7,19 +7,38 @@
 :root[data-platform="mobile"] {
   /* ===== Brand / Core ===== */
   /* Keep aligned with PWA theme-color in public/index.html */
-  --m-color-brand: #155dfc;
+  --m-color-brand: #032b71;
+  --m-color-brand-strong: #496ffe;
+  --m-color-brand-soft: var(--blue-50);
 
   --m-color-bg: var(--gray-50);
   --m-color-surface: var(--black-white-white);
+  --m-color-surface-soft: var(--gray-100);
   --m-color-text: var(--gray-900);
   --m-color-text-secondary: var(--gray-600);
+  --m-color-text-tertiary: var(--gray-500);
   --m-color-border: var(--gray-200);
+  --m-color-border-strong: var(--gray-300);
+
+  --m-color-success-bg: rgba(18, 183, 106, 0.14);
+  --m-color-success-text: #067647;
+  --m-color-danger-bg: rgba(240, 68, 56, 0.14);
+  --m-color-danger-text: #b42318;
+  --m-color-info-bg: rgba(37, 99, 235, 0.14);
+  --m-color-info-text: #1d4ed8;
+  --m-color-warning-bg: var(--orange-50);
+  --m-color-warning-text: var(--orange-700);
 
   --m-radius-sm: var(--radius-sm);
   --m-radius-md: var(--radius-md);
   --m-radius-lg: var(--radius-lg);
+  --m-radius-xl: var(--radius-xl);
+  --m-radius-pill: var(--radius-full);
 
   --m-shadow-card: var(--card-shadow);
+  --m-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --m-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.03);
+  --m-shadow-lg: 0 10px 26px rgba(23, 48, 104, 0.08);
 
   /* ===== Typography (mobile) ===== */
   --m-font-size-xs: 11px;
@@ -27,17 +46,49 @@
   --m-font-size-md: 14px;
   --m-font-size-lg: 16px;
   --m-font-size-xl: 18px;
+  --m-font-size-2xl: 24px;
+
+  --m-font-weight-medium: 500;
+  --m-font-weight-semibold: 600;
+  --m-font-weight-bold: 700;
 
   --m-line-height-md: 1.5;
   --m-line-height-lg: 1.7;
+  --m-line-height-tight: 1.25;
 
   /* ===== Spacing (mobile) ===== */
+  --m-space-0: 2px;
   --m-space-1: 4px;
   --m-space-2: 8px;
   --m-space-3: 12px;
   --m-space-4: 16px;
   --m-space-5: 20px;
   --m-space-6: 24px;
+  --m-space-7: 28px;
+  --m-space-8: 32px;
+
+  /* ===== Auth / Entry Surface ===== */
+  --m-gradient-auth-bg: linear-gradient(180deg, #eef3ff 0%, #f6f8fc 260px, #f6f8fc 100%);
+  --m-auth-card-bg: var(--m-color-surface);
+  --m-auth-card-border: #e8eefb;
+
+  /* ===== Input ===== */
+  --m-input-height-md: 44px;
+  --m-input-radius: 12px;
+  --m-input-bg: var(--m-color-surface);
+  --m-input-border-color: #dce6fb;
+  --m-input-border-color-focus: #4f7de8;
+  --m-input-placeholder-color: var(--m-color-text-tertiary);
+
+  /* ===== Button ===== */
+  --m-button-height-md: 44px;
+  --m-button-radius: 12px;
+  --m-button-font-size: var(--m-font-size-lg);
+  --m-button-font-weight: var(--m-font-weight-semibold);
+  --m-button-primary-bg: var(--m-color-brand);
+  --m-button-primary-text: var(--black-white-white);
+  --m-button-secondary-bg: var(--m-color-surface-soft);
+  --m-button-secondary-text: var(--m-color-text);
 
   /* ===== Vant Theme Mapping ===== */
   --van-primary-color: var(--m-color-brand);
@@ -61,5 +112,12 @@
   /* Button (primary) */
   --van-button-primary-background: var(--m-color-brand);
   --van-button-primary-border-color: var(--m-color-brand);
-}
+  --van-button-default-height: var(--m-button-height-md);
+  --van-button-default-border-radius: var(--m-button-radius);
+  --van-button-primary-color: var(--m-button-primary-text);
 
+  /* Field / Input */
+  --van-field-placeholder-text-color: var(--m-input-placeholder-color);
+  --van-field-input-text-color: var(--m-color-text);
+  --van-field-label-color: var(--m-color-text-secondary);
+}

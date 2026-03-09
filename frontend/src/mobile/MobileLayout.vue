@@ -2,11 +2,42 @@
   <div class="mobile-layout" :class="{ 'no-tabbar': hideTabbar }">
     <router-view />
     <van-tabbar v-if="!hideTabbar" route fixed placeholder safe-area-inset-bottom>
-      <van-tabbar-item :to="{ name: 'MLogs' }" icon="notes-o">{{ $t('mobile.tabs.logs') }}</van-tabbar-item>
-      <van-tabbar-item :to="{ name: 'MError' }" icon="search">{{ $t('mobile.tabs.error') }}</van-tabbar-item>
-      <van-tabbar-item :to="{ name: 'MSmartSearch' }" icon="share-o">{{ $t('mobile.tabs.smartSearch') || '智能搜索' }}</van-tabbar-item>
-      <van-tabbar-item :to="{ name: 'MSurgeries' }" icon="orders-o">{{ $t('mobile.tabs.surgeries') }}</van-tabbar-item>
-      <van-tabbar-item :to="{ name: 'MProfile' }" icon="user-o">{{ $t('mobile.tabs.profile') }}</van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'MDevices' }">
+        <template #icon="{ active }">
+          <svg class="tabbar-custom-icon" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M5 35C5 33.8954 5.89543 33 7 33H41C42.1046 33 43 33.8954 43 35V42H5V35Z" :fill="active ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M42 18L34 18L28 12L34 6L42 6" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="8" cy="12" r="4" :fill="active ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="4"/>
+            <path d="M12 12L28 12" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 16L18 33" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </template>
+        {{ $t('mobile.tabs.devices') }}
+      </van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'MSmartSearch' }">
+        <template #icon="{ active }">
+          <svg class="tabbar-custom-icon" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="9" y="18" width="30" height="24" rx="2" :fill="active ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="4"/>
+            <circle cx="17" cy="26" r="2" :fill="active ? 'white' : 'currentColor'"/>
+            <circle cx="31" cy="26" r="2" :fill="active ? 'white' : 'currentColor'"/>
+            <path d="M20 32C18.8954 32 18 32.8954 18 34C18 35.1046 18.8954 36 20 36V32ZM28 36C29.1046 36 30 35.1046 30 34C30 32.8954 29.1046 32 28 32V36ZM20 36H28V32H20V36Z" :fill="active ? 'white' : 'currentColor'"/>
+            <path d="M24 10V18" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 26V34" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M44 26V34" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="8" r="2" :fill="active ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="4"/>
+          </svg>
+        </template>
+        {{ $t('mobile.tabs.smartQa') }}
+      </van-tabbar-item>
+      <van-tabbar-item :to="{ name: 'MProfile' }">
+        <template #icon="{ active }">
+          <svg class="tabbar-custom-icon" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="24" cy="12" r="8" :fill="active ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M42 44C42 34.0589 33.9411 26 24 26C14.0589 26 6 34.0589 6 44" :fill="active ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </template>
+        {{ $t('mobile.tabs.profile') }}
+      </van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -52,13 +83,18 @@ export default {
 }
 
 :deep(.van-tabbar-item--active) {
-  color: #2b7fff;
+  color: var(--m-color-brand);
 }
 
 :deep(.van-tabbar-item__icon) {
   font-size: 24px;
   margin-bottom: 4px;
 }
-</style>
 
+.tabbar-custom-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+</style>
 

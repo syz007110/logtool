@@ -15,6 +15,10 @@
               <span class="info-text">{{ $t('logs.logCount') || '日志总数' }}：<span class="info-value-primary">{{ totalLogs }}</span></span>
             </div>
           </div>
+          <div class="tab-bar">
+            <button class="tab-button active" type="button">{{ $t('mobile.devices.logData') }}</button>
+            <button class="tab-button" type="button" @click="$router.push({ name: 'MDeviceSurgeries', params: { deviceId } })">{{ $t('mobile.devices.surgeryData') }}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -26,89 +30,118 @@
       :style="{ top: headerHeight + 'px' }"
     >
       <div class="filter-menu">
-        <van-dropdown-menu>
-          <van-dropdown-item
-            v-model="statusFilter"
-            :options="statusOptions"
-            @change="handleStatusSelect"
-          />
-          <van-dropdown-item
-            ref="timeDropdownRef"
-            :title="timeFilterTitle"
-            @open="onTimeDropdownOpen"
-          >
-            <div class="time-filter-panel">
-              <div class="time-filter-section">
-                <div class="section-title">{{ quickRangeTitle }}</div>
-                <div class="quick-options">
-                  <div
-                    v-for="option in quickRangeOptions"
-                    :key="option.value"
-                    class="quick-option"
-                    :class="{ active: selectedQuickRange === option.value }"
-                    @click="selectQuickRange(option.value)"
-                  >
-                    {{ option.text }}
+        <div class="chip-row">
+          <button class="filter-chip" type="button" @click="openFilterSheet('time')">{{ timeChipPrefix }}: {{ timeFilterTitle }}</button>
+          <button class="filter-chip" type="button" @click="openFilterSheet('status')">{{ statusChipPrefix }}: {{ statusChipLabel }}</button>
+          <button class="filter-chip" type="button" @click="openFilterSheet('sort')">{{ sortChipPrefix }}: {{ sortChipLabel }}</button>
         </div>
       </div>
-              </div>
-              <div class="time-filter-section">
-                <div class="section-title">{{ customRangeTitle }}</div>
-                <div class="custom-options">
-                  <div class="custom-row">
-                    <div class="custom-label">{{ yearLabel }}</div>
-                    <div class="option-pills">
-                      <div
-                        v-for="option in yearOptions"
-          :key="option.value"
-                        class="option-pill"
-                        :class="{ active: selectedYear === option.value }"
-                        @click="selectYear(option.value)"
-        >
-          {{ option.text }}
-        </div>
-                    </div>
-                  </div>
-                  <div class="custom-row">
-                    <div class="custom-label">{{ monthLabel }}</div>
-                    <div class="option-pills">
-                      <div
-                        v-for="option in monthOptions"
-                        :key="option.value"
-                        class="option-pill"
-                        :class="{ active: selectedMonth === option.value }"
-                        @click="selectMonth(option.value)"
-                      >
-                        {{ option.text }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="custom-row">
-                    <div class="custom-label">{{ dayLabel }}</div>
-                    <div class="option-pills">
-                      <div
-                        v-for="option in dayOptions"
-                        :key="option.value"
-                        class="option-pill"
-                        :class="{ active: selectedDay === option.value }"
-                        @click="selectDay(option.value)"
-                      >
-                        {{ option.text }}
-                      </div>
-                    </div>
-                  </div>
+    </div>
+
+    <van-popup class="filter-popup" v-model:show="filterSheetVisible" position="bottom" round :style="{ maxHeight: '70vh' }">
+      <div class="sheet-wrap">
+        <div class="sheet-title">{{ sheetTitle }}</div>
+        <div class="sheet-body">
+          <div v-if="sheetMode === 'time'" class="time-filter-panel">
+            <div class="time-filter-section">
+              <div class="section-title">{{ quickRangeTitle }}</div>
+              <div class="quick-options">
+                <div
+                  v-for="option in quickRangeOptions"
+                  :key="option.value"
+                  class="quick-option"
+                  :class="{ active: selectedQuickRange === option.value }"
+                  @click="selectQuickRange(option.value)"
+                >
+                  {{ option.text }}
                 </div>
-              </div>
-              <div class="time-filter-actions">
-                <div class="action-pill" @click="clearTimeFilters">
-                  {{ clearText }}
+                <div
+                  class="quick-option"
+                  :class="{ active: selectedQuickRange === 'custom' }"
+                  @click="selectCustomRange"
+                >
+                  {{ customOptionLabel }}
                 </div>
               </div>
             </div>
-          </van-dropdown-item>
-        </van-dropdown-menu>
+            <div v-if="selectedQuickRange === 'custom'" class="time-filter-section">
+              <div class="section-title">{{ customRangeTitle }}</div>
+              <div class="custom-options">
+                <div class="custom-row">
+                  <div class="custom-label">{{ yearLabel }}</div>
+                  <div class="option-pills">
+                    <div
+                      v-for="option in yearOptions"
+                      :key="option.value"
+                      class="option-pill"
+                      :class="{ active: selectedYear === option.value }"
+                      @click="selectYear(option.value)"
+                    >
+                      {{ option.text }}
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-row">
+                  <div class="custom-label">{{ monthLabel }}</div>
+                  <div class="option-pills">
+                    <div
+                      v-for="option in monthOptions"
+                      :key="option.value"
+                      class="option-pill"
+                      :class="{ active: selectedMonth === option.value }"
+                      @click="selectMonth(option.value)"
+                    >
+                      {{ option.text }}
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-row">
+                  <div class="custom-label">{{ dayLabel }}</div>
+                  <div class="option-pills">
+                    <div
+                      v-for="option in dayOptions"
+                      :key="option.value"
+                      class="option-pill"
+                      :class="{ active: selectedDay === option.value }"
+                      @click="selectDay(option.value)"
+                    >
+                      {{ option.text }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="sheetMode === 'status'" class="time-filter-section">
+            <div class="section-title">{{ statusTitle }}</div>
+            <div class="quick-options">
+              <div
+                v-for="option in statusOptions"
+                :key="option.value"
+                class="quick-option"
+                :class="{ active: statusFilter === option.value }"
+                @click="setStatusFilter(option.value)"
+              >
+                {{ option.text }}
+              </div>
+            </div>
+          </div>
+
+          <div v-if="sheetMode === 'sort'" class="time-filter-section">
+            <div class="section-title">{{ sortTitle }}</div>
+            <div class="quick-options">
+              <div class="quick-option" :class="{ active: sortOrder === 'latest' }" @click="setSortOrder('latest')">{{ sortLatestLabel }}</div>
+              <div class="quick-option" :class="{ active: sortOrder === 'earliest' }" @click="setSortOrder('earliest')">{{ sortEarliestLabel }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="action-pill" @click="clearAllFilters">{{ $t('shared.reset') }}</button>
+          <button type="button" class="action-pill action-pill-primary" @click="closeFilterSheet">{{ $t('shared.close') }}</button>
+        </div>
       </div>
-    </div>
+    </van-popup>
 
     <!-- 日志列表内容区域 -->
     <div class="content" :style="{ paddingTop: contentPaddingTop + 'px' }">
@@ -166,8 +199,7 @@ import {
   List as VanList, 
   Empty as VanEmpty,
   Icon as VanIcon,
-  DropdownMenu,
-  DropdownItem
+  Popup as VanPopup
 } from 'vant'
 import api from '@/api'
 
@@ -177,8 +209,7 @@ export default {
     'van-list': VanList,
     'van-empty': VanEmpty,
     'van-icon': VanIcon,
-    'van-dropdown-menu': DropdownMenu,
-    'van-dropdown-item': DropdownItem
+    'van-popup': VanPopup
   },
   setup() {
     const route = useRoute()
@@ -195,11 +226,13 @@ export default {
     const loading = ref(false)
     const finished = ref(false)
     const statusFilter = ref('all')
+    const sortOrder = ref('latest')
+    const filterSheetVisible = ref(false)
+    const sheetMode = ref('time')
     const selectedQuickRange = ref('all')
     const selectedYear = ref('all')
     const selectedMonth = ref('all')
     const selectedDay = ref('all')
-    const timeDropdownRef = ref(null)
     const page = ref(1)
     const pageSize = 20
     const currentYear = new Date().getFullYear()
@@ -252,6 +285,23 @@ export default {
       { text: t('mobile.deviceLogs.statusCompleted'), value: 'completed' },
       { text: t('mobile.deviceLogs.statusIncomplete'), value: 'incomplete' }
     ]))
+
+    const timeChipPrefix = computed(() => t('mobile.deviceLogs.timeLabel'))
+    const statusChipPrefix = computed(() => t('mobile.deviceLogs.statusLabel'))
+    const sortChipPrefix = computed(() => t('mobile.deviceLogs.sortLabel'))
+    const sheetTitle = computed(() => t('mobile.deviceLogs.filterTitle'))
+    const customOptionLabel = computed(() => t('mobile.deviceSurgeries.customRange'))
+    const statusTitle = computed(() => t('mobile.deviceLogs.statusLabel'))
+    const sortTitle = computed(() => t('mobile.deviceLogs.sortTitle'))
+    const sortLatestLabel = computed(() => t('mobile.deviceLogs.sortLatestFirst'))
+    const sortEarliestLabel = computed(() => t('mobile.deviceLogs.sortEarliestFirst'))
+    const sortChipLabel = computed(() => sortOrder.value === 'earliest'
+      ? t('mobile.deviceLogs.sortEarliestShort')
+      : t('mobile.deviceLogs.sortLatestShort'))
+    const statusChipLabel = computed(() => {
+      const current = statusOptions.value.find(option => option.value === statusFilter.value)
+      return current?.text || statusOptions.value[0]?.text || ''
+    })
 
     const quickRangeOptions = computed(() => ([
       { text: translateOr('mobile.deviceLogs.timeAll', '全部时间'), value: 'all' },
@@ -737,17 +787,17 @@ export default {
       }
     }
 
-    const closeTimeDropdown = () => {
-      timeDropdownRef.value?.toggle(false)
+    const openFilterSheet = (mode = 'time') => {
+      sheetMode.value = mode
+      filterSheetVisible.value = true
     }
 
-    const onTimeDropdownOpen = () => {
-      // placeholder for analytics hooks
+    const closeFilterSheet = () => {
+      filterSheetVisible.value = false
     }
 
     const selectQuickRange = (value) => {
       if (value === selectedQuickRange.value) {
-        closeTimeDropdown()
         return
       }
       selectedQuickRange.value = value
@@ -757,9 +807,15 @@ export default {
         selectedDay.value = 'all'
       }
       resetAndReload()
-      if (value !== 'custom') {
-        closeTimeDropdown()
-      }
+    }
+
+    const selectCustomRange = () => {
+      if (selectedQuickRange.value === 'custom') return
+      selectedQuickRange.value = 'custom'
+      selectedYear.value = 'all'
+      selectedMonth.value = 'all'
+      selectedDay.value = 'all'
+      resetAndReload()
     }
 
     const selectYear = (value) => {
@@ -827,7 +883,27 @@ export default {
       selectedMonth.value = 'all'
       selectedDay.value = 'all'
       resetAndReload()
-      closeTimeDropdown()
+    }
+
+    const setStatusFilter = (value) => {
+      statusFilter.value = value
+      resetAndReload()
+    }
+
+    const setSortOrder = (value) => {
+      sortOrder.value = value
+      resetAndReload()
+    }
+
+    const clearAllFilters = () => {
+      statusFilter.value = 'all'
+      sortOrder.value = 'latest'
+      selectedQuickRange.value = 'all'
+      selectedYear.value = 'all'
+      selectedMonth.value = 'all'
+      selectedDay.value = 'all'
+      resetAndReload()
+      closeFilterSheet()
     }
 
     // 定义完成状态和未完成状态
@@ -850,20 +926,20 @@ export default {
     // 状态筛选在前端进行（因为后端不支持状态筛选参数）
     // 时间筛选在后端进行（使用 time_range_start 和 time_range_end）
     const filteredLogs = computed(() => {
-      // 如果状态筛选是"全部"，直接返回
-      if (statusFilter.value === 'all') {
-        return allLogs.value
-      }
-      // 完成状态：只显示已完成的状态
+      let source = [...allLogs.value]
       if (statusFilter.value === 'completed') {
-        return allLogs.value.filter(log => completedStatuses.includes(log.status))
+        source = source.filter(log => completedStatuses.includes(log.status))
+      } else if (statusFilter.value === 'incomplete') {
+        source = source.filter(log => incompleteStatuses.includes(log.status))
       }
-      // 未完成状态：显示所有未完成的状态
-      if (statusFilter.value === 'incomplete') {
-        return allLogs.value.filter(log => incompleteStatuses.includes(log.status))
-      }
-      // 默认返回全部
-      return allLogs.value
+
+      source.sort((a, b) => {
+        const aTime = parseLogDate(a)?.getTime?.() || 0
+        const bTime = parseLogDate(b)?.getTime?.() || 0
+        return sortOrder.value === 'earliest' ? aTime - bTime : bTime - aTime
+      })
+
+      return source
     })
 
     const fetchDeviceInfo = async () => {
@@ -1038,10 +1114,6 @@ export default {
       onLoad()
     }
 
-    const handleStatusSelect = (value) => {
-      statusFilter.value = value
-      resetAndReload()
-    }
 
     const getStatusBadgeClass = (status) => {
       if (status === 'parsed' || status === 'completed') {
@@ -1140,6 +1212,7 @@ export default {
         availableMonthsByYear.value = {}
         availableDaysByYearMonth.value = {}
         statusFilter.value = 'all'
+        sortOrder.value = 'latest'
         selectedQuickRange.value = 'all'
         selectedYear.value = 'all'
         selectedMonth.value = 'all'
@@ -1155,6 +1228,7 @@ export default {
       page.value = 1
       finished.value = false
       allLogs.value = []
+      onLoad()
       nextTick(updateLayoutMetrics)
       window.addEventListener('resize', updateLayoutMetrics)
     })
@@ -1177,6 +1251,20 @@ export default {
       finished,
       statusFilter,
       statusOptions,
+      sortOrder,
+      filterSheetVisible,
+      sheetMode,
+      timeChipPrefix,
+      statusChipPrefix,
+      sortChipPrefix,
+      statusChipLabel,
+      sortChipLabel,
+      sheetTitle,
+      customOptionLabel,
+      statusTitle,
+      sortTitle,
+      sortLatestLabel,
+      sortEarliestLabel,
       selectedQuickRange,
       selectedYear,
       selectedMonth,
@@ -1192,15 +1280,18 @@ export default {
       yearOptions,
       monthOptions,
       dayOptions,
-      timeDropdownRef,
       onLoad,
-      handleStatusSelect,
+      openFilterSheet,
+      closeFilterSheet,
       selectQuickRange,
+      selectCustomRange,
       selectYear,
       selectMonth,
       selectDay,
       clearTimeFilters,
-      onTimeDropdownOpen,
+      setStatusFilter,
+      setSortOrder,
+      clearAllFilters,
       formatFileSize,
       formatTime,
       getUploaderName,
@@ -1317,6 +1408,32 @@ export default {
   margin-right: 2px;
 }
 
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--m-color-border);
+  margin-top: var(--m-space-1);
+}
+
+.tab-button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--m-color-text-secondary);
+  line-height: 18px;
+  padding: 8px 2px 10px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-button.active {
+  color: var(--m-color-brand);
+  border-bottom-color: var(--m-color-brand);
+}
+
 /* 筛选区域（固定定位） */
 .filter-section {
   position: fixed;
@@ -1331,12 +1448,12 @@ export default {
   background-color: var(--m-color-bg);
   padding: var(--m-space-3);
   padding-bottom: var(--m-space-3);
-  box-shadow: var(--m-shadow-card);
 }
 
 .content {
   width: min(100%, 480px);
   margin: 0 auto;
+  background-color: var(--m-color-bg);
   padding-left: var(--m-space-3);
   padding-right: var(--m-space-3);
   /* 增加底部 padding，确保滚动能正确触发加载（移除底部导航栏后需要更多空间） */
@@ -1350,7 +1467,63 @@ export default {
   background-color: transparent;
 }
 
-.time-filter-panel {
+.chip-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filter-chip {
+  border: 1px solid var(--m-color-border);
+  background: var(--m-color-surface);
+  color: var(--m-color-text-secondary);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sheet-wrap {
+  padding: 14px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.sheet-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--m-color-text);
+}
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--m-color-surface);
+  padding-top: 6px;
+}
+
+.action-pill-primary {
+  background-color: var(--m-color-brand);
+  color: var(--m-color-surface);
+}
+
+.time-filter-panel { 
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1449,6 +1622,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background-color: var(--m-color-bg);
 }
 
 .log-card {
