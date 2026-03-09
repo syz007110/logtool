@@ -468,9 +468,16 @@
       "solution": "处理措施",
       "solutionPlaceholder": "根据故障码自动判断",
       "detail": "详细信息",
-      "method": "检测方法",
+      "method": "检测方案",
       "techSolution": "技术排查方案",
       "explanation": "解释"
+    },
+    "formSections": {
+      "faultCodeDefinition": "故障码定义",
+      "faultPrompt": "故障提示",
+      "faultParams": "故障参数",
+      "faultDescription": "故障说明",
+      "faultParsing": "故障解析"
     },
     "remoteSubsystemLabels": {
       "1": "08：远程运动控制软件",
@@ -483,7 +490,7 @@
       "A": "05：驱动器软件"
     },
     "checkboxLabels": {
-      "isAxisError": "是否轴错误",
+      "isAxisError": "解析臂号",
       "isArmError": "是否臂错误",
       "forExpert": "专家模式",
       "forNovice": "初学者模式",

@@ -149,10 +149,10 @@ function makeErrorCodeDoc({ errorCode, i18nData, lang }) {
     category: errorCode.category || '',
     is_axis_error: !!errorCode.is_axis_error,
     is_arm_error: !!errorCode.is_arm_error,
-    param1: errorCode.param1 || '',
-    param2: errorCode.param2 || '',
-    param3: errorCode.param3 || '',
-    param4: errorCode.param4 || ''
+    param1: '',
+    param2: '',
+    param3: '',
+    param4: ''
   };
 
   // 合并多语言字段
@@ -170,9 +170,6 @@ function makeErrorCodeDoc({ errorCode, i18nData, lang }) {
     if (i18nData && Object.prototype.hasOwnProperty.call(i18nData, field)) {
       // 如果i18n数据中存在该字段（即使为空），使用i18n值
       doc[field] = i18nData[field] ?? '';
-    } else if (Object.prototype.hasOwnProperty.call(errorCode, field)) {
-      // 否则使用主表的值（中文默认值）
-      doc[field] = errorCode[field] || '';
     } else {
       doc[field] = '';
     }
@@ -201,15 +198,12 @@ async function indexErrorCodeToEs({ errorCodeId, lang = 'zh', refresh = 'false' 
   }
 
   // 查询多语言数据
-  let i18nData = null;
-  if (lang !== 'zh') {
-    const i18n = await I18nErrorCode.findOne({
-      where: { error_code_id: errorCodeId, lang }
-    });
-    if (i18n) {
-      i18nData = i18n.toJSON ? i18n.toJSON() : i18n;
-    }
-  }
+  const i18nList = await I18nErrorCode.findAll({
+    where: { error_code_id: errorCodeId, lang: { [require('sequelize').Op.in]: [lang, 'zh'] } }
+  });
+  const targetI18n = i18nList.find((item) => item.lang === lang);
+  const zhI18n = i18nList.find((item) => item.lang === 'zh');
+  const i18nData = (targetI18n || zhI18n || null)?.toJSON?.() || (targetI18n || zhI18n || null);
 
   // 转换为ES文档
   const doc = makeErrorCodeDoc({
@@ -273,15 +267,17 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
 
     // 批量查询多语言数据
     let i18nMap = new Map();
-    if (lang !== 'zh') {
+    {
       const i18nList = await I18nErrorCode.findAll({
         where: {
           error_code_id: { [require('sequelize').Op.in]: batch },
-          lang
+          lang: { [require('sequelize').Op.in]: [lang, 'zh'] }
         }
       });
       for (const i18n of i18nList) {
-        i18nMap.set(i18n.error_code_id, i18n.toJSON ? i18n.toJSON() : i18n);
+        const key = i18n.error_code_id;
+        if (!i18nMap.has(key)) i18nMap.set(key, {});
+        i18nMap.get(key)[i18n.lang] = i18n.toJSON ? i18n.toJSON() : i18n;
       }
     }
 
@@ -289,7 +285,8 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
     const ops = [];
     for (const errorCode of errorCodes) {
       const ecData = errorCode.toJSON ? errorCode.toJSON() : errorCode;
-      const i18nData = i18nMap.get(ecData.id) || null;
+      const i18nByLang = i18nMap.get(ecData.id) || {};
+      const i18nData = i18nByLang[lang] || i18nByLang.zh || null;
       const doc = makeErrorCodeDoc({ errorCode: ecData, i18nData, lang });
       const docId = `${ecData.id}:${lang}`;
 

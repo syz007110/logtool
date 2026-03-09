@@ -210,11 +210,12 @@
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="showAddDialog"
-      width="1000px"
+      width="760px"
       :close-on-click-modal="false"
+      class="error-code-dialog"
     >
       <template #header>
-        <div class="dialog-header-content">
+        <div class="dialog-header-content" v-if="showI18nHeader">
           <div class="dialog-header-left">
             <span class="dialog-header-label">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
             <el-select 
@@ -251,215 +252,168 @@
         ref="errorCodeFormRef"
         :model="errorCodeForm"
         :rules="rules"
-        label-width="140px"
+        :label-position="formLabelPosition"
+        label-width="100px"
         class="error-code-form"
       >
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.subsystem')" prop="subsystem">
-              <el-select v-model="errorCodeForm.subsystem" :placeholder="$t('errorCodes.selectSubsystem')" @change="handleSubsystemChange">
-                <el-option
-                  v-for="option in subsystemOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
+        <el-tabs v-model="formActiveTab" class="error-code-form-tabs">
+          <!-- 故障码定义：两列显示 -->
+          <el-tab-pane :label="$t('errorCodes.formSections.faultCodeDefinition')" name="main">
+            <div class="form-tab-content form-tab-main">
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.subsystem')" prop="subsystem">
+                    <el-select v-model="errorCodeForm.subsystem" :placeholder="$t('errorCodes.selectSubsystem')" @change="handleSubsystemChange" class="form-field-full">
+                      <el-option v-for="option in subsystemOptions" :key="option.value" :label="option.label" :value="option.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.code')" prop="code">
+                    <el-input v-model="errorCodeForm.code" :placeholder="$t('errorCodes.formLabels.codePlaceholder')" @input="handleCodeChange" class="form-field-full" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row v-if="showSyncOption">
+                <el-col :span="24">
+                  <el-form-item :label="$t('errorCodes.formLabels.syncOption')">
+                    <div class="sync-options-group">
+                      <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">{{ $t('errorCodes.formLabels.syncToRemote') }}</el-checkbox>
+                      <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">{{ $t('errorCodes.formLabels.syncToLocal') }}</el-checkbox>
+                    </div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row v-if="showSyncOption">
+                <el-col :span="24">
+                  <el-form-item :label="$t('errorCodes.formLabels.optionSettings')">
+                    <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
+                      <el-checkbox label="is_axis_error">{{ $t('errorCodes.checkboxLabels.isAxisError') }}</el-checkbox>
+                      <span class="checkbox-divider"></span>
+                      <el-checkbox label="for_expert">{{ $t('errorCodes.checkboxLabels.forExpert') }}</el-checkbox>
+                      <span class="checkbox-divider"></span>
+                      <el-checkbox label="for_novice">{{ $t('errorCodes.checkboxLabels.forNovice') }}</el-checkbox>
+                      <span class="checkbox-divider"></span>
+                      <el-checkbox label="related_log">{{ $t('errorCodes.checkboxLabels.relatedLog') }}</el-checkbox>
+                    </el-checkbox-group>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.category')" prop="category">
+                    <el-select v-model="currentForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')" class="form-field-full">
+                      <el-option v-for="option in categoryOptions" :key="option.value" :label="option.label" :value="option.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.level')" prop="level">
+                    <el-input :model-value="getLevelDisplay(currentForm.level)" readonly :placeholder="$t('errorCodes.formLabels.levelPlaceholder')" class="form-field-full" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.analysisCategories')" prop="analysisCategories">
+                    <el-select
+                      v-model="errorCodeForm.analysisCategories"
+                      multiple
+                      collapse-tags
+                      collapse-tags-tooltip
+                      popper-class="analysis-categories-tooltip"
+                      :placeholder="$t('errorCodes.formLabels.analysisCategoriesPlaceholder')"
+                      class="form-field-full"
+                    >
+                      <el-option v-for="option in analysisCategoryOptions" :key="option.id" :label="option.displayName" :value="option.id" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.solution')" prop="solution">
+                    <el-input :model-value="getSolutionDisplay(currentForm.solution)" readonly :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" class="form-field-full" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </el-tab-pane>
+
+          <!-- 故障提示 -->
+          <el-tab-pane :label="$t('errorCodes.formSections.faultPrompt')" name="prompt">
+            <div class="form-tab-content form-tab-i18n">
+              <el-form-item :label="$t('errorCodes.formLabels.shortMessage')" prop="short_message">
+                <el-input v-model="currentForm.short_message" type="textarea" :rows="2" />
+              </el-form-item>
+              <el-form-item :label="$t('errorCodes.formLabels.userHint')" prop="user_hint">
+                <el-input v-model="currentForm.user_hint" type="textarea" :rows="2" />
+              </el-form-item>
+              <el-form-item :label="$t('errorCodes.formLabels.operation')" prop="operation">
+                <el-input v-model="currentForm.operation" type="textarea" :rows="2" />
+              </el-form-item>
+            </div>
+          </el-tab-pane>
+
+          <!-- 故障参数：2x2 两列显示 -->
+          <el-tab-pane :label="$t('errorCodes.formSections.faultParams')" name="params">
+            <div class="form-tab-content form-tab-i18n">
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
+                    <el-input v-model="currentForm.param1" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
+                    <el-input v-model="currentForm.param2" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
+                    <el-input v-model="currentForm.param3" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
+                    <el-input v-model="currentForm.param4" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+          </el-tab-pane>
+
+          <!-- 故障说明 -->
+          <el-tab-pane :label="$t('errorCodes.formSections.faultDescription')" name="description">
+            <div class="form-tab-content form-tab-i18n">
+              <el-form-item :label="$t('errorCodes.formLabels.detail')" prop="detail">
+                <el-input v-model="currentForm.detail" type="textarea" :rows="3" />
+              </el-form-item>
+              <el-form-item :label="$t('errorCodes.formLabels.method')" prop="method">
+                <el-input v-model="currentForm.method" type="textarea" :rows="3" />
+              </el-form-item>
+              <el-form-item :label="$t('errorCodes.formLabels.techSolution')" prop="tech_solution">
+                <el-input v-model="currentForm.tech_solution" type="textarea" :rows="3" />
+              </el-form-item>
+            </div>
+          </el-tab-pane>
+
+          <!-- 故障解析 -->
+          <el-tab-pane :label="$t('errorCodes.formSections.faultParsing')" name="parsing">
+            <div class="form-tab-content form-tab-i18n">
+              <el-form-item :label="$t('errorCodes.formLabels.explanation')" prop="explanation" class="explanation-form-item">
+                <JsonEditor
+                  v-if="formActiveTab === 'parsing'"
+                  :key="'explanation-' + selectedI18nLang"
+                  :model-value="explanationValue"
+                  height="220px"
+                  :placeholder="$t('errorCodes.formLabels.explanation')"
+                  @update:model-value="onExplanationInput"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.code')" prop="code">
-              <el-input 
-                v-model="errorCodeForm.code" 
-                :placeholder="$t('errorCodes.formLabels.codePlaceholder')" 
-                @input="handleCodeChange"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- 同步选项 -->
-        <el-row v-if="showSyncOption">
-          <el-col :span="24">
-            <el-form-item :label="$t('errorCodes.formLabels.syncOption')">
-              <div class="sync-options-group">
-                <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">
-                  {{ $t('errorCodes.formLabels.syncToRemote') }}
-                </el-checkbox>
-                <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">
-                  {{ $t('errorCodes.formLabels.syncToLocal') }}
-                </el-checkbox>
-              </div>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- 选项设置 -->
-        <el-row v-if="showSyncOption">
-          <el-col :span="24">
-            <el-form-item :label="$t('errorCodes.formLabels.optionSettings')">
-              <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
-                <el-checkbox label="is_axis_error">{{ $t('errorCodes.checkboxLabels.isAxisError') }}</el-checkbox>
-                <span class="checkbox-divider"></span>
-                <el-checkbox label="is_arm_error">{{ $t('errorCodes.checkboxLabels.isArmError') }}</el-checkbox>
-                <span class="checkbox-divider"></span>
-                <el-checkbox label="for_expert">{{ $t('errorCodes.checkboxLabels.forExpert') }}</el-checkbox>
-                <span class="checkbox-divider"></span>
-                <el-checkbox label="for_novice">{{ $t('errorCodes.checkboxLabels.forNovice') }}</el-checkbox>
-                <span class="checkbox-divider"></span>
-                <el-checkbox label="related_log">{{ $t('errorCodes.checkboxLabels.relatedLog') }}</el-checkbox>
-              </el-checkbox-group>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- UI显示字段（根据选择的语言动态显示） -->
-        <el-form-item :label="$t('errorCodes.formLabels.shortMessage')" prop="short_message">
-          <el-input 
-            v-model="currentForm.short_message" 
-            type="textarea" 
-            :rows="2"
-          />
-        </el-form-item>
-
-        <el-form-item :label="$t('errorCodes.formLabels.userHint')" prop="user_hint">
-          <el-input 
-            v-model="currentForm.user_hint" 
-            type="textarea" 
-            :rows="2"
-          />
-        </el-form-item>
-
-        <el-form-item :label="$t('errorCodes.formLabels.operation')" prop="operation">
-          <el-input 
-            v-model="currentForm.operation" 
-            type="textarea" 
-            :rows="2"
-          />
-        </el-form-item>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.category')" prop="category">
-              <el-select v-model="currentForm.category" :placeholder="$t('errorCodes.validation.categoryRequired')">
-                <el-option
-                  v-for="option in categoryOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.level')" prop="level">
-              <el-input 
-                :model-value="getLevelDisplay(currentForm.level)" 
-                readonly 
-                :placeholder="$t('errorCodes.formLabels.levelPlaceholder')" 
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.analysisCategories')" prop="analysisCategories">
-              <el-select 
-                v-model="errorCodeForm.analysisCategories" 
-                multiple 
-                collapse-tags
-                collapse-tags-tooltip
-                popper-class="analysis-categories-tooltip"
-                :placeholder="$t('errorCodes.formLabels.analysisCategoriesPlaceholder')"
-                class="full-width-select"
-              >
-                <el-option
-                  v-for="option in analysisCategoryOptions"
-                  :key="option.id"
-                  :label="option.displayName"
-                  :value="option.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.solution')" prop="solution">
-              <el-input 
-                :model-value="getSolutionDisplay(currentForm.solution)" 
-                readonly 
-                :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" 
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- 技术说明字段：根据选择的语言动态显示 -->
-        <el-form-item :label="$t('errorCodes.formLabels.detail')" prop="detail">
-          <el-input 
-            v-model="currentForm.detail" 
-            type="textarea" 
-            :rows="3"
-          />
-        </el-form-item>
-
-        <el-form-item :label="$t('errorCodes.formLabels.method')" prop="method">
-          <el-input 
-            v-model="currentForm.method" 
-            type="textarea" 
-            :rows="3"
-          />
-        </el-form-item>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
-              <el-input 
-                v-model="currentForm.param1"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
-              <el-input 
-                v-model="currentForm.param2"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
-              <el-input 
-                v-model="currentForm.param3"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
-              <el-input 
-                v-model="currentForm.param4"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item :label="$t('errorCodes.formLabels.techSolution')" prop="tech_solution">
-          <el-input 
-            v-model="currentForm.tech_solution" 
-            type="textarea" 
-            :rows="3"
-          />
-        </el-form-item>
-
-        <el-form-item :label="$t('errorCodes.formLabels.explanation')" prop="explanation">
-          <el-input 
-            v-model="currentForm.explanation" 
-            type="textarea" 
-            :rows="3"
-          />
-        </el-form-item>
+              </el-form-item>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </el-form>
 
       <template #footer>
@@ -748,10 +702,13 @@ import subsystemCodes from '../../../shared/i18n/subsystemCodes.json'
 // Base 组件已移除，直接使用 Element Plus 组件
 // Shared 组件
 import { PageContainer } from '@/components/shared'
+import JsonEditor from '@/components/JsonEditor.vue'
+import { DEFAULT_EXPLANATION_TEMPLATE } from '@/utils/explanationEditor'
 
 export default {
   name: 'ErrorCodes',
   components: {
+    JsonEditor,
     Search,
     Plus,
     Download,
@@ -860,6 +817,13 @@ export default {
     const selectedExportLang = ref('')
     const exportFormat = ref('csv')
     
+    // 表单 Tab：默认显示故障码定义
+    const formActiveTab = ref('main')
+    // 上下布局：i18n 相关 tab 使用 label 在上
+    const formLabelPosition = ref('top')
+    // 故障提示、故障参数、故障说明、故障解析 显示语言选择与自动翻译
+    const i18nTabNames = ['prompt', 'params', 'description', 'parsing']
+    const showI18nHeader = computed(() => i18nTabNames.includes(formActiveTab.value))
     // 多语言编辑相关数据
     const selectedI18nLang = ref('zh-CN') // 默认中文
     const i18nForm = reactive({
@@ -923,9 +887,29 @@ export default {
         // 计算属性通常不需要 setter，但为了完整性保留
       }
     })
+    // 故障解析 explanation 单独绑定，避免 CodeMirror 与 Proxy 的 v-model 兼容问题
+    const explanationValue = computed(() => {
+      if (selectedI18nLang.value === 'zh-CN') {
+        return String(errorCodeForm.explanation || '')
+      }
+      return String(i18nForm.explanation || '')
+    })
+    const onExplanationInput = (v) => {
+      if (selectedI18nLang.value === 'zh-CN') {
+        errorCodeForm.explanation = v
+      } else {
+        i18nForm.explanation = v
+      }
+    }
     const translating = ref(false)
     const savingI18n = ref(false)
     const i18nLanguageOptions = ref([])
+
+    const normalizeI18nLang = (lang) => {
+      if (!lang) return 'zh'
+      if (lang === 'zh-CN') return 'zh'
+      return String(lang).split('-')[0]
+    }
     
     // 计算当前语言
     const currentLocale = computed(() => locale.value || 'zh-CN')
@@ -1084,58 +1068,10 @@ export default {
           { required: true, message: t('errorCodes.validation.codeRequired'), trigger: 'blur' },
           { pattern: /^0X[0-9A-F]{3}[ABCDE]$/, message: t('errorCodes.validation.codeFormat'), trigger: 'blur' }
         ],
-        detail: [
-          { required: true, message: t('errorCodes.validation.detailRequired'), trigger: 'blur' }
-        ],
-        method: [
-          { required: true, message: t('errorCodes.validation.methodRequired'), trigger: 'blur' }
-        ],
-        param1: [
-          { required: true, message: t('errorCodes.validation.param1Required'), trigger: 'blur' }
-        ],
-        param2: [
-          { required: true, message: t('errorCodes.validation.param2Required'), trigger: 'blur' }
-        ],
-        param3: [
-          { required: true, message: t('errorCodes.validation.param3Required'), trigger: 'blur' }
-        ],
-        param4: [
-          { required: true, message: t('errorCodes.validation.param4Required'), trigger: 'blur' }
-        ],
         category: [
           { required: true, message: t('errorCodes.validation.categoryRequired'), trigger: 'change' }
         ]
       };
-
-      // 动态验证中文字段
-      const hasOperation = errorCodeForm.operation && errorCodeForm.operation.trim() !== '';
-      
-      baseRules.short_message = [
-        { 
-          required: !hasOperation, 
-          message: t('errorCodes.validation.shortMessageCannotBothEmpty'), 
-          trigger: 'blur' 
-        }
-      ];
-      
-      baseRules.user_hint = [
-        { 
-          required: !hasOperation, 
-          message: t('errorCodes.validation.userHintCannotBothEmpty'), 
-          trigger: 'blur' 
-        }
-      ];
-      
-      baseRules.operation = [
-        { 
-          required: !(errorCodeForm.short_message && errorCodeForm.short_message.trim() !== '') && 
-                    !(errorCodeForm.user_hint && errorCodeForm.user_hint.trim() !== ''), 
-          message: t('errorCodes.validation.atLeastTwoRequired'), 
-          trigger: 'blur' 
-        }
-      ];
-
-
       return baseRules;
     });
     
@@ -1308,19 +1244,25 @@ export default {
     
     
     
-    // 加载分析分类
+    // 加载分析分类（用于故障码表单的日志分析分类下拉）
+    // 注意：需传 limit 获取全部，否则分页默认只返回 20 条；下拉需展示所有启用分类
     const loadAnalysisCategories = async () => {
       try {
         const response = await api.analysisCategories.getList({
-          is_active: true
+          is_active: true,
+          limit: 500
         })
-        if (response.data.success) {
-          analysisCategories.value = response.data.categories || []
+        const data = response?.data
+        if (data?.success) {
+          analysisCategories.value = data.categories ?? []
           // 设置默认的"未分类"选项
           setDefaultNullCategory()
+        } else {
+          analysisCategories.value = []
         }
       } catch (error) {
         console.error('Failed to load analysis categories:', error)
+        analysisCategories.value = []
         ElMessage.error(t('errorCodes.message.loadAnalysisCategoriesFailed'))
       }
     }
@@ -1342,7 +1284,7 @@ export default {
     const handleBooleanOptionsChange = (values) => {
       // 根据checkbox的选中状态更新表单值
       errorCodeForm.is_axis_error = values.includes('is_axis_error')
-      errorCodeForm.is_arm_error = values.includes('is_arm_error')
+      errorCodeForm.is_arm_error = false
       errorCodeForm.for_expert = values.includes('for_expert')
       errorCodeForm.for_novice = values.includes('for_novice')
       errorCodeForm.related_log = values.includes('related_log')
@@ -1352,7 +1294,6 @@ export default {
     const initBooleanOptions = () => {
       const options = []
       if (errorCodeForm.is_axis_error) options.push('is_axis_error')
-      if (errorCodeForm.is_arm_error) options.push('is_arm_error')
       if (errorCodeForm.for_expert) options.push('for_expert')
       if (errorCodeForm.for_novice) options.push('for_novice')
       if (errorCodeForm.related_log) options.push('related_log')
@@ -1616,7 +1557,11 @@ export default {
     
     const handleAdd = async () => {
       resetForm()
+      errorCodeForm.explanation = DEFAULT_EXPLANATION_TEMPLATE
+      formActiveTab.value = 'main'
       initBooleanOptions()
+      // 确保分析分类已加载（若 onMounted 时未成功可重试）
+      await loadAnalysisCategories()
       setDefaultNullCategory()
       
       // 加载多语言选项列表
@@ -1667,6 +1612,9 @@ export default {
           // 将数据库中的处理措施值（可能是任何语言的翻译）转换为英文键值
           // 以便 getSolutionDisplay 函数能根据系统语言正确显示翻译
           errorCodeForm[key] = convertSolutionToKey(row[key])
+        } else if (key === 'is_arm_error') {
+          // 前端不显示，编辑时默认 false
+          errorCodeForm[key] = false
         } else if (row[key] !== undefined) {
           errorCodeForm[key] = row[key]
         }
@@ -1677,6 +1625,8 @@ export default {
       // 初始化布尔选项
       initBooleanOptions()
       
+      // 确保分析分类已加载（下拉选项依赖此数据）
+      await loadAnalysisCategories()
       // 加载多语言选项列表
       await loadI18nLanguages()
       
@@ -1742,9 +1692,9 @@ export default {
         return
       }
       
-      // 如果切换到中文，直接使用 errorCodeForm，不需要加载
+      // 如果切换到中文，也从 i18n(lang=zh) 加载，避免依赖主表文本字段
       if (lang === 'zh-CN') {
-        return
+        if (!editingErrorCode.value) return
       }
       
       // 如果是新增模式，直接重置表单（等待用户保存故障码基本信息后再加载）
@@ -1755,7 +1705,8 @@ export default {
       
       try {
         // 加载该语言的多语言内容（包括 UI 字段和技术字段）
-        const response = await api.errorCodes.getI18nByLang(editingErrorCode.value.id, lang)
+        const normalizedLang = normalizeI18nLang(lang)
+        const response = await api.errorCodes.getI18nByLang(editingErrorCode.value.id, normalizedLang)
         if (response.data && response.data.i18nContent) {
           const content = response.data.i18nContent
           // UI 字段
@@ -1772,6 +1723,19 @@ export default {
           i18nForm.tech_solution = content.tech_solution || ''
           i18nForm.explanation = content.explanation || ''
           // 注意：solution, level, category 不在 i18n_error_codes 表中，不加载
+        } else if (lang === 'zh-CN' && response.data?.errorCode?.defaultFields) {
+          const defaults = response.data.errorCode.defaultFields
+          errorCodeForm.short_message = defaults.short_message || ''
+          errorCodeForm.user_hint = defaults.user_hint || ''
+          errorCodeForm.operation = defaults.operation || ''
+          errorCodeForm.detail = defaults.detail || ''
+          errorCodeForm.method = defaults.method || ''
+          errorCodeForm.param1 = defaults.param1 || ''
+          errorCodeForm.param2 = defaults.param2 || ''
+          errorCodeForm.param3 = defaults.param3 || ''
+          errorCodeForm.param4 = defaults.param4 || ''
+          errorCodeForm.tech_solution = defaults.tech_solution || ''
+          errorCodeForm.explanation = defaults.explanation || ''
         } else {
           resetI18nForm()
         }
@@ -1800,7 +1764,7 @@ export default {
         // 调用自动翻译API（后端只翻译空白字段，不覆盖已有内容）
         const response = await api.errorCodes.autoTranslateI18n(
           editingErrorCode.value.id,
-          selectedI18nLang.value,
+          normalizeI18nLang(selectedI18nLang.value),
           false // 始终只翻译空白字段，不覆盖已有内容
         )
         
@@ -1846,7 +1810,7 @@ export default {
         
         await api.errorCodes.saveI18nByLang(
           editingErrorCode.value.id,
-          selectedI18nLang.value,
+          normalizeI18nLang(selectedI18nLang.value),
           i18nForm
         )
         
@@ -2132,32 +2096,6 @@ export default {
     
     const handleSave = async () => {
       try {
-        // 英文/其他非中文编辑模式：仅保存 i18n 字段，避免主表中文字段校验导致失败
-        if (editingErrorCode.value && selectedI18nLang.value && selectedI18nLang.value !== 'zh-CN') {
-          saving.value = true
-          await api.errorCodes.saveI18nByLang(
-            editingErrorCode.value.id,
-            selectedI18nLang.value,
-            {
-              short_message: i18nForm.short_message,
-              user_hint: i18nForm.user_hint,
-              operation: i18nForm.operation,
-              detail: i18nForm.detail,
-              method: i18nForm.method,
-              param1: i18nForm.param1,
-              param2: i18nForm.param2,
-              param3: i18nForm.param3,
-              param4: i18nForm.param4,
-              tech_solution: i18nForm.tech_solution,
-              explanation: i18nForm.explanation
-            }
-          )
-          ElMessage.success(t('errorCodes.i18nTechFields.saveSuccess'))
-          showAddDialog.value = false
-          loadErrorCodes()
-          return
-        }
-
         await errorCodeFormRef.value.validate()
         saving.value = true
         
@@ -2179,27 +2117,26 @@ export default {
           }
         }
         
-        // 如果当前选择的是非中文语言，保存多语言内容到 i18n_error_codes 表
-        if (selectedI18nLang.value && selectedI18nLang.value !== 'zh-CN' && errorCodeId) {
+        // 始终保存当前编辑语言的文本内容到 i18n_error_codes（含 zh）
+        if (selectedI18nLang.value && errorCodeId) {
+          const langToSave = normalizeI18nLang(selectedI18nLang.value)
+          const source = selectedI18nLang.value === 'zh-CN' ? errorCodeForm : i18nForm
           try {
             await api.errorCodes.saveI18nByLang(
               errorCodeId,
-              selectedI18nLang.value,
+              langToSave,
               {
-                // UI 字段
-                short_message: i18nForm.short_message,
-                user_hint: i18nForm.user_hint,
-                operation: i18nForm.operation,
-                // 技术字段
-                detail: i18nForm.detail,
-                method: i18nForm.method,
-                param1: i18nForm.param1,
-                param2: i18nForm.param2,
-                param3: i18nForm.param3,
-                param4: i18nForm.param4,
-                tech_solution: i18nForm.tech_solution,
-                explanation: i18nForm.explanation
-                // 注意：solution, level, category 不在 i18n_error_codes 表中，不保存这些字段
+                short_message: source.short_message,
+                user_hint: source.user_hint,
+                operation: source.operation,
+                detail: source.detail,
+                method: source.method,
+                param1: source.param1,
+                param2: source.param2,
+                param3: source.param3,
+                param4: source.param4,
+                tech_solution: source.tech_solution,
+                explanation: source.explanation
               }
             )
           } catch (i18nError) {
@@ -2341,6 +2278,9 @@ export default {
        currentPage,
        pageSize,
        errorCodeFormRef,
+       formActiveTab,
+       formLabelPosition,
+       showI18nHeader,
        queryLoading,
        queryForm,
        queryResult,
@@ -2426,6 +2366,8 @@ export default {
        // 多语言编辑相关方法
        handleLanguageChange,
        handleAutoTranslate,
+       explanationValue,
+       onExplanationInput,
        handleSaveI18n,
        getLanguageLabel,
        tableHeight
@@ -2459,6 +2401,56 @@ export default {
   height: 100%;
   overflow: hidden;
   padding: 20px 20px 4px 20px; /* 底部 padding 减少到 4px */
+}
+
+/* 故障码弹窗：整体与输入框收窄 */
+.error-code-dialog :deep(.el-dialog__body) {
+  padding: 12px 20px 16px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+.error-code-form-tabs :deep(.el-tabs__header) {
+  margin-bottom: 12px;
+}
+.error-code-form-tabs :deep(.el-tabs__item) {
+  font-size: 14px;
+}
+.error-code-form-tabs :deep(.el-tabs__content) {
+  overflow: visible;
+}
+.form-tab-content {
+  padding: 4px 0;
+  overflow: visible; /* 避免输入框 placeholder/提示被裁剪 */
+}
+/* 故障码定义 Tab：输入框宽度，保证 placeholder 完整显示 */
+.form-tab-main :deep(.el-input),
+.form-tab-main :deep(.el-select),
+.form-field-full {
+  width: 100%;
+  max-width: 520px;
+}
+.form-tab-main :deep(.el-select .el-select__wrapper) {
+  min-width: 0;
+}
+.form-tab-main .sync-options-group,
+.form-tab-main .boolean-options-group {
+  max-width: 580px;
+}
+/* 故障详细信息 Tab：输入框适度收窄，overflow: visible 避免 placeholder 被裁剪 */
+.form-tab-i18n {
+  overflow: visible;
+}
+.form-tab-i18n :deep(.el-input) {
+  max-width: 100%;
+}
+.form-tab-i18n :deep(.el-input),
+.form-tab-i18n :deep(.el-input--default),
+.form-tab-i18n :deep(.el-textarea__inner) {
+  max-width: 100%;
+}
+.form-tab-i18n .json-editor-wrapper {
+  width: 100%;
+  max-width: 100%;
 }
 
 .i18n-readonly-section {
@@ -2622,6 +2614,19 @@ export default {
 
 .compact-form :deep(.el-form-item) {
   margin-bottom: 12px;
+}
+
+.explanation-form-item :deep(.el-form-item__content) {
+  width: 100%;
+}
+
+.explanation-form-item :deep(.el-form-item__content) > * {
+  width: 100%;
+}
+
+/* 释义编辑器补全悬浮窗：确保不被父级 overflow 裁剪 */
+.explanation-form-item {
+  overflow: visible;
 }
 
 .tech-input-item :deep(.el-textarea__inner) {

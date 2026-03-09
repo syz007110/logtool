@@ -88,30 +88,80 @@ async function syncErrorCodeAllLangsToEs(errorCodeId) {
   }
 }
 
+const I18N_TEXT_FIELDS = [
+  'short_message',
+  'user_hint',
+  'operation',
+  'detail',
+  'method',
+  'param1',
+  'param2',
+  'param3',
+  'param4',
+  'tech_solution',
+  'explanation'
+];
+
+const MAIN_STRUCT_FIELDS = [
+  'subsystem',
+  'code',
+  'is_axis_error',
+  'is_arm_error',
+  'for_expert',
+  'for_novice',
+  'related_log',
+  'category'
+];
+
+const toMainStructData = (data) => {
+  const out = {};
+  if (!data || typeof data !== 'object') return out;
+  MAIN_STRUCT_FIELDS.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
+      out[field] = data[field];
+    }
+  });
+  return out;
+};
+
+const pickI18nContent = (contents = [], targetLang = 'zh') => {
+  const normalized = String(targetLang || 'zh').split('-')[0];
+  const target = contents.find((item) => String(item.lang || '').split('-')[0] === normalized);
+  if (target) return target;
+  return contents.find((item) => String(item.lang || '').split('-')[0] === 'zh') || null;
+};
+
+const applyI18nTextFields = (base, i18nContent) => {
+  I18N_TEXT_FIELDS.forEach((field) => {
+    base[field] = i18nContent?.[field] ?? '';
+  });
+  return base;
+};
+
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
-  if (!code) return { level: '无', solution: 'tips' };
+  if (!code) return { level: 'none', solution: 'tips' };
 
   // 解析故障码：0X + 3位16进制数字 + A/B/C/D/E
   const match = code.match(/^0X([0-9A-F]{3})([ABCDE])$/);
-  if (!match) return { level: '无', solution: 'tips' };
+  if (!match) return { level: 'none', solution: 'tips' };
 
   const [, hexPart, severity] = match;
 
   // 根据故障码末尾字母判断等级
-  let level = '无';
+  let level = 'none';
   switch (severity) {
     case 'A': // A类故障：高级
-      level = '高级';
+      level = 'high';
       break;
     case 'B': // B类故障：中级
-      level = '中级';
+      level = 'medium';
       break;
     case 'C': // C类故障：低级
-      level = '低级';
+      level = 'low';
       break;
     default: // D、E类故障：无
-      level = '无';
+      level = 'none';
       break;
   }
 
@@ -186,18 +236,6 @@ async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
     console.warn('[code_category_map] upsert failed:', e.message);
   }
 }
-
-// 将英文分类键值转换为中文标准键值
-const convertCategoryToChinese = (category) => {
-  const categoryMap = {
-    'software': '软件',
-    'hardware': '硬件',
-    'logRecord': '日志记录',
-    'operationTip': '操作提示',
-    'safetyProtection': '安全保护'
-  };
-  return categoryMap[category] || category;
-};
 
 const safeUnlink = (filePath) => {
   if (!filePath) return;
@@ -331,8 +369,7 @@ const validateErrorCodeData = (data) => {
 
   // 基础必填字段验证
   const basicRequiredFields = [
-    'subsystem', 'code', 'is_axis_error', 'is_arm_error',
-    'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'category'
+    'subsystem', 'code', 'is_axis_error', 'is_arm_error', 'category'
   ];
 
   basicRequiredFields.forEach(field => {
@@ -341,18 +378,7 @@ const validateErrorCodeData = (data) => {
     }
   });
 
-  // 英文字段验证（可选）：不再强制依赖主表英文字段，英文内容通过 i18n 表提交即可
-
-  // 中文字段验证：short_message和operation不都为空，user_hint和operation不都为空
-  if ((!data.short_message || data.short_message.trim() === '') &&
-    (!data.operation || data.operation.trim() === '')) {
-    errors.push('精简提示信息和操作信息不能都为空');
-  }
-
-  if ((!data.user_hint || data.user_hint.trim() === '') &&
-    (!data.operation || data.operation.trim() === '')) {
-    errors.push('用户提示信息和操作信息不能都为空');
-  }
+  // 文本字段已迁移至 i18n_error_codes，主表不再校验文本内容
 
   // 子系统验证 - 仅允许1-9,A
   if (data.subsystem && !/^[1-9A]$/.test(data.subsystem)) {
@@ -366,8 +392,7 @@ const validateErrorCodeData = (data) => {
 
   // 分类验证 - 支持英文键值和中文值
   const validCategories = ['software', 'hardware', 'logRecord', 'operationTip', 'safetyProtection'];
-  const validCategoriesChinese = ['软件', '硬件', '日志记录', '操作提示', '安全保护'];
-  if (data.category && !validCategories.includes(data.category) && !validCategoriesChinese.includes(data.category)) {
+  if (data.category && !validCategories.includes(data.category)) {
     errors.push('故障分类必须是：软件、硬件、日志记录、操作提示、安全保护 中的一个');
   }
 
@@ -380,12 +405,7 @@ const createErrorCode = async (req, res) => {
     const data = req.body;
     // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
     // 此处不再处理这些字段
-    const mainData = stripEnglishFields(data);
-
-    // 转换分类为中文值
-    if (mainData.category) {
-      mainData.category = convertCategoryToChinese(mainData.category);
-    }
+    const mainData = toMainStructData(stripEnglishFields(data));
 
     // 输入验证
     const validationErrors = validateErrorCodeData(mainData);
@@ -499,12 +519,7 @@ const updateErrorCode = async (req, res) => {
     const data = req.body;
     // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
     // 此处不再处理这些字段
-    const mainData = stripEnglishFields(data);
-
-    // 转换分类为中文值
-    if (mainData.category) {
-      mainData.category = convertCategoryToChinese(mainData.category);
-    }
+    const mainData = toMainStructData(stripEnglishFields(data));
 
     // 查找故障码
     const errorCode = await ErrorCode.findByPk(id);
@@ -764,7 +779,6 @@ const exportErrorCodesToXML = async (req, res) => {
       include: [{
         model: I18nErrorCode,
         as: 'i18nContents',
-        where: { lang: targetLang },
         required: false
       }],
       order: [['subsystem', 'ASC'], ['code', 'ASC']]
@@ -795,31 +809,25 @@ const exportErrorCodesToXML = async (req, res) => {
       xmlContent += `\t\t<subsystem id="${subsystem}">\n`;
 
       groupedByCodes[subsystem].forEach(errorCode => {
-        // 获取多语言内容
-        const i18nContent = errorCode.i18nContents && errorCode.i18nContents.length > 0
-          ? errorCode.i18nContents[0]
-          : null;
+        // 获取目标语言内容，缺失时回退 zh
+        const i18nContent = pickI18nContent(errorCode.i18nContents || [], targetLang);
+        const merged = applyI18nTextFields({}, i18nContent);
 
         xmlContent += `\t\t\t<error_code id="${errorCode.code}">\n`;
         xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
-        xmlContent += `\t\t\t\t<description>${escapeXml(errorCode.detail || '')}</description>\n`;
+        xmlContent += `\t\t\t\t<description>${escapeXml(merged.detail || '')}</description>\n`;
 
-        // 优先使用 i18n 内容；若无，则回退主表中文
-        const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
-        const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
-        const operation = i18nContent ? i18nContent.operation : errorCode.operation;
-
-        xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
-        xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;
-        xmlContent += `\t\t\t\t<opinfo>${escapeXml(operation || '')}</opinfo>\n`;
+        xmlContent += `\t\t\t\t<simple>${escapeXml(merged.short_message || '')}</simple>\n`;
+        xmlContent += `\t\t\t\t<userInfo>${escapeXml(merged.user_hint || '')}</userInfo>\n`;
+        xmlContent += `\t\t\t\t<opinfo>${escapeXml(merged.operation || '')}</opinfo>\n`;
 
         xmlContent += `\t\t\t\t<isArm>${errorCode.is_arm_error ? 'True' : 'False'}</isArm>\n`;
-        xmlContent += `\t\t\t\t<detInfo>${escapeXml(errorCode.detail || '')}</detInfo>\n`;
-        xmlContent += `\t\t\t\t<method>${escapeXml(errorCode.method || '')}</method>\n`;
-        xmlContent += `\t\t\t\t<para1>${escapeXml(errorCode.param1 || '')}</para1>\n`;
-        xmlContent += `\t\t\t\t<para2>${escapeXml(errorCode.param2 || '')}</para2>\n`;
-        xmlContent += `\t\t\t\t<para3>${escapeXml(errorCode.param3 || '')}</para3>\n`;
-        xmlContent += `\t\t\t\t<para4>${escapeXml(errorCode.param4 || '')}</para4>\n`;
+        xmlContent += `\t\t\t\t<detInfo>${escapeXml(merged.detail || '')}</detInfo>\n`;
+        xmlContent += `\t\t\t\t<method>${escapeXml(merged.method || '')}</method>\n`;
+        xmlContent += `\t\t\t\t<para1>${escapeXml(merged.param1 || '')}</para1>\n`;
+        xmlContent += `\t\t\t\t<para2>${escapeXml(merged.param2 || '')}</para2>\n`;
+        xmlContent += `\t\t\t\t<para3>${escapeXml(merged.param3 || '')}</para3>\n`;
+        xmlContent += `\t\t\t\t<para4>${escapeXml(merged.param4 || '')}</para4>\n`;
         xmlContent += `\t\t\t\t<expert>${errorCode.for_expert ? '1.0' : '0.0'}</expert>\n`;
         xmlContent += `\t\t\t\t<learner>${errorCode.for_novice ? '1.0' : '0.0'}</learner>\n`;
         xmlContent += `\t\t\t\t<log>${errorCode.related_log ? '1.0' : '0.0'}</log>\n`;
@@ -940,15 +948,6 @@ const exportMultiLanguageXML = async (req, res) => {
         'code',
         'is_axis_error',
         'is_arm_error',
-        'short_message',
-        'user_hint',
-        'operation',
-        'detail',
-        'method',
-        'param1',
-        'param2',
-        'param3',
-        'param4',
         'for_expert',
         'for_novice',
         'related_log',
@@ -1023,23 +1022,22 @@ const exportMultiLanguageXML = async (req, res) => {
         xmlContent += `\t\t<subsystem id="${subsystem}">\n`;
 
         groupedByCodes[subsystem].forEach(errorCode => {
-          // 获取当前语言的多语言内容
-          const i18nContent = (i18nByErrorCodeId.get(errorCode.id) || Object.create(null))[targetLang] || null;
+          // 获取当前语言内容，缺失时回退 zh
+          const i18nByLang = i18nByErrorCodeId.get(errorCode.id) || Object.create(null);
+          const i18nContent = i18nByLang[targetLang] || i18nByLang.zh || null;
 
           xmlContent += `\t\t\t<error_code id="${errorCode.code}">\n`;
           xmlContent += `\t\t\t\t<axis>${errorCode.is_axis_error ? 'True' : 'False'}</axis>\n`;
-          xmlContent += `\t\t\t\t<description>${escapeXml(errorCode.detail || '')}</description>\n`;
-
-          // 优先使用 i18n 内容；若无，则回退主表中文
-          const shortMessage = i18nContent ? i18nContent.short_message : errorCode.short_message;
-          const userHint = i18nContent ? i18nContent.user_hint : errorCode.user_hint;
-          const operation = i18nContent ? i18nContent.operation : errorCode.operation;
-          const detail = i18nContent ? i18nContent.detail : errorCode.detail;
-          const method = i18nContent ? i18nContent.method : errorCode.method;
-          const param1 = i18nContent ? i18nContent.param1 : errorCode.param1;
-          const param2 = i18nContent ? i18nContent.param2 : errorCode.param2;
-          const param3 = i18nContent ? i18nContent.param3 : errorCode.param3;
-          const param4 = i18nContent ? i18nContent.param4 : errorCode.param4;
+          const detail = i18nContent?.detail || '';
+          const method = i18nContent?.method || '';
+          const param1 = i18nContent?.param1 || '';
+          const param2 = i18nContent?.param2 || '';
+          const param3 = i18nContent?.param3 || '';
+          const param4 = i18nContent?.param4 || '';
+          const shortMessage = i18nContent?.short_message || '';
+          const userHint = i18nContent?.user_hint || '';
+          const operation = i18nContent?.operation || '';
+          xmlContent += `\t\t\t\t<description>${escapeXml(detail || '')}</description>\n`;
 
           xmlContent += `\t\t\t\t<simple>${escapeXml(shortMessage || '')}</simple>\n`;
           xmlContent += `\t\t\t\t<userInfo>${escapeXml(userHint || '')}</userInfo>\n`;
@@ -1219,18 +1217,13 @@ const exportErrorCodesToCSV = async (req, res) => {
         ? ecPlain.analysisCategories.map((c) => c.name_zh || c.name_en || c.category_key).join('|')
         : '';
 
-      // 如果选择了语言，查找对应语言的多语言内容
+      const allI18n = Array.isArray(ecPlain.i18nContents) ? ecPlain.i18nContents : [];
+      const zhContent = allI18n.find((content) => String(content.lang || '').split('-')[0] === 'zh') || null;
       let i18nContent = null;
-      if (isValidLang && targetLang !== 'zh') {
-        // 查找对应语言的多语言内容
-        if (Array.isArray(ecPlain.i18nContents)) {
-          i18nContent = ecPlain.i18nContents.find(content => {
-            // 匹配语言代码：'en' 匹配 'en', 'en-US' 等
-            const contentLang = content.lang.split('-')[0];
-            return contentLang === targetLang;
-          });
-        }
+      if (isValidLang && targetLang) {
+        i18nContent = allI18n.find((content) => String(content.lang || '').split('-')[0] === targetLang) || null;
       }
+      const effectiveI18n = i18nContent || zhContent;
 
       // 填充基础字段
       for (const field of baseFields) {
@@ -1245,12 +1238,15 @@ const exportErrorCodesToCSV = async (req, res) => {
           continue;
         }
 
-        // 如果是多语言字段，且找到了对应语言的内容，则使用多语言内容
-        // 注意：即使多语言字段为空字符串，只要存在对应语言的多语言记录，也应该使用（可能是空字符串）
-        if (i18nFields.includes(field) && i18nContent && i18nContent.hasOwnProperty(field)) {
-          row.push(escapeValue(i18nContent[field] || ''));
+        // 多语言字段统一从 i18n 读取：目标语言优先，缺失回退 zh，再缺失为空
+        if (i18nFields.includes(field)) {
+          if (effectiveI18n && Object.prototype.hasOwnProperty.call(effectiveI18n, field)) {
+            row.push(escapeValue(effectiveI18n[field] || ''));
+          } else {
+            row.push(escapeValue(''));
+          }
         } else {
-          // 否则使用主表的中文内容
+          // 结构字段从主表读取
           row.push(escapeValue(ecPlain[field]));
         }
       }
@@ -1350,38 +1346,8 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
 
     const errorCodeData = errorCode.toJSON();
 
-    // 如果是中文，直接返回主表数据（不需要合并）
-    if (targetLang !== 'zh' && targetLang !== 'zh-CN') {
-      // 查找对应语言的多语言内容
-      const i18nContent = errorCodeData.i18nContents?.find(content => {
-        // 匹配语言代码：'en' 匹配 'en', 'en-US' 等
-        const contentLang = content.lang.split('-')[0];
-        return contentLang === targetLang;
-      });
-
-      // 如果找到对应语言的内容，合并到主记录
-      if (i18nContent) {
-        // 合并多语言字段：只要多语言记录存在该字段（即使为空字符串），就使用多语言值
-        const i18nFields = [
-          'short_message',
-          'user_hint',
-          'operation',
-          'detail',
-          'method',
-          'param1',
-          'param2',
-          'param3',
-          'param4',
-          'tech_solution',
-          'explanation',
-        ];
-        i18nFields.forEach((field) => {
-          if (Object.prototype.hasOwnProperty.call(i18nContent, field)) {
-            errorCodeData[field] = i18nContent[field] ?? '';
-          }
-        });
-      }
-    }
+    const i18nContent = pickI18nContent(errorCodeData.i18nContents || [], targetLang);
+    applyI18nTextFields(errorCodeData, i18nContent);
 
     // 移除 i18nContents 数组，因为已经合并到主记录
     delete errorCodeData.i18nContents;
@@ -1481,7 +1447,7 @@ const getTechSolutionDetail = async (req, res) => {
       return res.status(404).json({ message: req.t('shared.notFound') });
     }
     const images = (errorCode.techSolutionImages || []).map(img => mapTechImageResponse(img, req));
-    let techSolutionText = errorCode.tech_solution || '';
+    let techSolutionText = '';
 
     // 语言优先：当 Accept-Language 不是中文时，尝试使用 i18n 版本
     const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
@@ -1489,14 +1455,9 @@ const getTechSolutionDetail = async (req, res) => {
       ? 'en'
       : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
 
-    if (targetLang && targetLang !== 'zh' && targetLang !== 'zh-CN') {
-      const i18nContent = errorCode.i18nContents?.find((item) => {
-        const contentLang = item.lang.split('-')[0];
-        return contentLang === targetLang;
-      });
-      if (i18nContent && typeof i18nContent.tech_solution === 'string') {
-        techSolutionText = i18nContent.tech_solution;
-      }
+    const i18nContent = pickI18nContent(errorCode.i18nContents || [], targetLang);
+    if (i18nContent && typeof i18nContent.tech_solution === 'string') {
+      techSolutionText = i18nContent.tech_solution;
     }
 
     res.json({
@@ -1584,8 +1545,18 @@ const updateTechSolutionDetail = async (req, res) => {
       where: { error_code_id: id }
     });
 
+    const acceptLanguage = req.headers['accept-language'] || req.query.lang || 'zh';
+    const targetLang = acceptLanguage.startsWith('en')
+      ? 'en'
+      : (acceptLanguage.startsWith('zh') ? 'zh' : acceptLanguage.split('-')[0]);
+
     await sequelize.transaction(async (t) => {
-      await errorCode.update({ tech_solution: tech_solution || null }, { transaction: t });
+      const [i18nContent] = await I18nErrorCode.findOrCreate({
+        where: { error_code_id: id, lang: targetLang },
+        defaults: { error_code_id: id, lang: targetLang },
+        transaction: t
+      });
+      await i18nContent.update({ tech_solution: tech_solution || null }, { transaction: t });
       await TechSolutionImage.destroy({ where: { error_code_id: id }, transaction: t });
       if (assetsToSave.length > 0) {
         await TechSolutionImage.bulkCreate(assetsToSave, { transaction: t });

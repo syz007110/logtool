@@ -142,10 +142,6 @@
                 <el-icon><TrendCharts /></el-icon>
                 <span>{{ $t('toolbox.analysisTool') }}</span>
               </el-dropdown-item>
-              <el-dropdown-item command="translate">
-                <el-icon><Document /></el-icon>
-                <span>{{ $t('toolbox.translateTool') }}</span>
-              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -396,7 +392,6 @@ export default {
         GlobalDashboard: 'globalDashboard.title',
         Monitoring: 'monitoring.title',
         ExplanationTester: 'nav.test',
-        TranslateTool: 'toolbox.translateTool'
       }
       return nameMap[name]
     }
@@ -547,9 +542,6 @@ export default {
     const handleToolboxCommand = (command) => {
       if (command === 'analysis') {
         openDataAnalysisInNewTab()
-      } else if (command === 'translate') {
-        const routeData = router.resolve('/translate-tool')
-        window.open(routeData.href, '_blank')
       }
     }
     

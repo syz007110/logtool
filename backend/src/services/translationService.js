@@ -1,6 +1,6 @@
 /**
  * 翻译服务
- * 支持讯飞（iFlytek）机器翻译 API 自动翻译
+ * 支持讯飞（iFlytek）机器翻译 API，供故障码、故障案例自动翻译使用
  */
 
 const https = require('https');
@@ -11,6 +11,8 @@ const LANGUAGE_MAP = {
   'zh': 'cn',
   'zh-CN': 'cn',
   'en': 'en',
+  'en-US': 'en',
+  'en-GB': 'en',
   'fr': 'fr',
   'de': 'de',
   'es': 'es',
@@ -100,7 +102,7 @@ async function translateText(text, targetLang, sourceLang = 'zh-CN') {
       // 生成请求体
       const postBody = getPostBody(text, source, target, appId);
       const postData = JSON.stringify(postBody);
-      
+
       // 获取当前时间 RFC1123格式
       const date = new Date().toUTCString();
       const digest = getDigest(postBody);
@@ -132,7 +134,7 @@ async function translateText(text, targetLang, sourceLang = 'zh-CN') {
         res.on('end', () => {
           try {
             const response = JSON.parse(data);
-            
+
             // 讯飞API响应格式
             if (response.code === 0 && response.data && response.data.result && response.data.result.trans_result) {
               resolve(response.data.result.trans_result.dst);
@@ -176,13 +178,10 @@ async function translateFields(fields, targetLang, sourceLang = 'zh-CN', options
   const translatedFields = {};
 
   // 需要翻译的字段列表
-  // 注意：category、solution、level 是选择项或自动识别字段，不参与自动翻译
   const fieldsToTranslate = [
-    // UI 显示字段
     'short_message',
     'user_hint',
     'operation',
-    // 技术说明字段
     'detail',
     'method',
     'param1',
@@ -191,9 +190,6 @@ async function translateFields(fields, targetLang, sourceLang = 'zh-CN', options
     'param4',
     'tech_solution',
     'explanation'
-    // category: 下拉选择项，选项标签通过前端 i18n 翻译，值不需要翻译
-    // solution: 通过故障码自动识别，通过前端 i18n 翻译显示，值不需要翻译
-    // level: 通过故障码自动识别，通过前端 i18n 翻译显示，值不需要翻译
   ];
 
   // 并发翻译所有字段
@@ -216,7 +212,6 @@ async function translateFields(fields, targetLang, sourceLang = 'zh-CN', options
       return { fieldName, value: translated, translated: true };
     } catch (error) {
       console.error(`Failed to translate field ${fieldName}:`, error.message);
-      // 翻译失败时，保留现有值或返回空字符串
       return { fieldName, value: existingValue || '', translated: false, error: error.message };
     }
   });
@@ -228,17 +223,14 @@ async function translateFields(fields, targetLang, sourceLang = 'zh-CN', options
   const fieldsToTranslateCount = results.filter(r => {
     const sourceValue = fields[r.fieldName];
     const existingValue = existingFields[r.fieldName];
-    // 需要翻译的字段：源值不为空，且（不是只翻译空字段 或 现有值为空）
     return sourceValue && sourceValue.trim() !== '' && (!onlyEmpty || !existingValue || existingValue.trim() === '');
   }).length;
 
-  // 如果有需要翻译的字段，但没有任何字段被成功翻译，抛出错误
   if (fieldsToTranslateCount > 0 && translatedCount === 0) {
     const errors = results.filter(r => r.error).map(r => `${r.fieldName}: ${r.error}`).join('; ');
     throw new Error(`所有字段翻译失败。错误信息: ${errors || 'Translation service unavailable'}`);
   }
 
-  // 构建结果对象
   results.forEach(({ fieldName, value }) => {
     translatedFields[fieldName] = value;
   });
@@ -251,4 +243,3 @@ module.exports = {
   translateFields,
   LANGUAGE_MAP
 };
-

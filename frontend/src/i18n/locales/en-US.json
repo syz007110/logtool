@@ -470,6 +470,13 @@
       "techSolution": "Technical Solution",
       "explanation": "Explanation"
     },
+    "formSections": {
+      "faultCodeDefinition": "Fault Code Definition",
+      "faultPrompt": "Fault Prompt",
+      "faultParams": "Fault Parameters",
+      "faultDescription": "Fault Description",
+      "faultParsing": "Fault Parsing"
+    },
     "remoteSubsystemLabels": {
       "1": "08: Remote Motion Control Software",
       "3": "09: Remote Console Software",
@@ -481,7 +488,7 @@
       "A": "05: Drive Software"
     },
     "checkboxLabels": {
-      "isAxisError": "Axis Error",
+      "isAxisError": "Parse Arm Number",
       "isArmError": "Arm Error",
       "forExpert": "Expert Mode",
       "forNovice": "Novice Mode",

@@ -57,7 +57,6 @@ const ossRouter = require('./routes/oss');
 const jiraRouter = require('./routes/jira');
 const smartSearchRouter = require('./routes/smartSearch');
 const kbRouter = require('./routes/kb');
-const translateRouter = require('./routes/translate');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
@@ -246,8 +245,6 @@ app.use('/api/fault-case-modules', faultCaseModulesRouter);
 app.use('/api/jira', jiraRouter);
 app.use('/api/smart-search', smartSearchRouter);
 app.use('/api/kb', kbRouter);
-app.use('/api/translate', translateRouter);
-
 // 错误处理中间件
 app.use(errorMonitoring);
 app.use((err, req, res, next) => {

@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-// 加载转义表
-const faultMappingsPath = path.join(__dirname, '../config/FaultMappings.json');
+// 加载转义表（优先 shared，回退 backend/config）
+const faultMappingsPath = path.join(__dirname, '../../../shared/config/FaultMappings.json');
+const faultMappingsFallbackPath = path.join(__dirname, '../config/FaultMappings.json');
 let faultMappings = null;
 
 // 加载单位换算表（可选）
@@ -16,7 +17,8 @@ let prefixMappings = null;
 function loadFaultMappings() {
   if (!faultMappings) {
     try {
-      const mappingsContent = fs.readFileSync(faultMappingsPath, 'utf-8');
+      const p = fs.existsSync(faultMappingsPath) ? faultMappingsPath : faultMappingsFallbackPath;
+      const mappingsContent = fs.readFileSync(p, 'utf-8');
       faultMappings = JSON.parse(mappingsContent);
     } catch (error) {
       console.error('加载转义表失败:', error);

@@ -16,12 +16,6 @@ export const webRoutes = [
     meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'log:read_all' }
   },
   {
-    path: '/translate-tool',
-    name: 'TranslateTool',
-    component: () => import('../../views/TranslateTool.vue'),
-    meta: { requiresAuth: true, noSidebar: true }
-  },
-  {
     path: '/login',
     name: 'Login',
     component: () => import('../../views/Login.vue'),
@@ -209,11 +203,6 @@ export const webRoutes = [
         component: () => import('../../views/Surgeries.vue'),
         meta: { requiresPermission: ['surgery:read', 'surgery:read_own'] }
       },
-      {
-        path: 'translate-tool',
-        name: 'DashboardTranslateTool',
-        redirect: '/translate-tool'
-      }
     ]
   }
 ]

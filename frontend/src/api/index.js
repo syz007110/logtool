@@ -398,15 +398,6 @@ const smartSearch = {
   deleteConversation: (id) => api.delete(`/smart-search/conversations/${id}`)
 }
 
-// Translate (document)
-const translate = {
-  createDocumentTask: (formData) => api.post('/translate/document', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  getTaskStatus: (taskId) => api.get(`/translate/tasks/${taskId}/status`),
-  downloadResult: (taskId) => api.get(`/translate/tasks/${taskId}/result`, { responseType: 'blob' })
-}
-
 // Knowledge base (KB)
 const kb = {
   status: () => api.get('/kb/status'),
@@ -450,7 +441,6 @@ export default {
   faultCases,
   jira,
   smartSearch,
-  translate,
   kb,
   explanations
 }

@@ -13,6 +13,20 @@ const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/error
 const { getPredefinedLanguages } = require('../config/i18nLanguages');
 const subsystemCodes = require('../../../shared/i18n/subsystemCodes.json');
 
+const I18N_TEXT_FIELDS = [
+  'short_message',
+  'user_hint',
+  'operation',
+  'detail',
+  'method',
+  'param1',
+  'param2',
+  'param3',
+  'param4',
+  'tech_solution',
+  'explanation'
+];
+
 // 检查ES是否启用
 function isErrorCodeEsEnabled() {
   const raw = process.env.ERROR_CODE_ES_ENABLED;
@@ -771,13 +785,21 @@ const getErrorCodeI18nByLang = async (req, res) => {
       return res.status(404).json({ message: 'Error code not found' });
     }
 
-    // 查找该语言的多语言内容
-    const i18nContent = await I18nErrorCode.findOne({
-      where: {
-        error_code_id: id,
-        lang
-      }
-    });
+    // 查找该语言与中文基准内容
+    const [i18nContent, zhContent] = await Promise.all([
+      I18nErrorCode.findOne({
+        where: {
+          error_code_id: id,
+          lang
+        }
+      }),
+      I18nErrorCode.findOne({
+        where: {
+          error_code_id: id,
+          lang: 'zh'
+        }
+      })
+    ]);
 
     // 返回默认语言（中文）和指定语言的内容
     res.json({
@@ -785,16 +807,19 @@ const getErrorCodeI18nByLang = async (req, res) => {
         id: errorCode.id,
         subsystem: errorCode.subsystem,
         code: errorCode.code,
-        // 默认语言字段（只读）
+        // 默认语言字段（lang=zh，只读）
         defaultFields: {
-          detail: errorCode.detail,
-          method: errorCode.method,
-          param1: errorCode.param1,
-          param2: errorCode.param2,
-          param3: errorCode.param3,
-          param4: errorCode.param4,
-          tech_solution: errorCode.tech_solution,
-          explanation: errorCode.explanation
+          short_message: zhContent?.short_message || '',
+          user_hint: zhContent?.user_hint || '',
+          operation: zhContent?.operation || '',
+          detail: zhContent?.detail || '',
+          method: zhContent?.method || '',
+          param1: zhContent?.param1 || '',
+          param2: zhContent?.param2 || '',
+          param3: zhContent?.param3 || '',
+          param4: zhContent?.param4 || '',
+          tech_solution: zhContent?.tech_solution || '',
+          explanation: zhContent?.explanation || ''
           // 注意：solution, level, category 不在 i18n_error_codes 表中，只从 error_codes 表读取
         }
       },
@@ -927,23 +952,23 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
       return res.status(404).json({ message: 'Error code not found' });
     }
 
-    // 获取源语言字段（默认中文）
-    // 注意：solution, level, category 不在 i18n_error_codes 表中，不参与自动翻译
-    const sourceFields = {
-      // UI 显示字段
-      short_message: errorCode.short_message,
-      user_hint: errorCode.user_hint,
-      operation: errorCode.operation,
-      // 技术说明字段
-      detail: errorCode.detail,
-      method: errorCode.method,
-      param1: errorCode.param1,
-      param2: errorCode.param2,
-      param3: errorCode.param3,
-      param4: errorCode.param4,
-      tech_solution: errorCode.tech_solution,
-      explanation: errorCode.explanation
-    };
+    // 获取中文基准内容作为翻译源
+    const zhI18n = await I18nErrorCode.findOne({
+      where: {
+        error_code_id: id,
+        lang: 'zh'
+      }
+    });
+    if (!zhI18n) {
+      return res.status(400).json({
+        message: '自动翻译失败：缺少中文基准内容（lang=zh）'
+      });
+    }
+
+    const sourceFields = {};
+    I18N_TEXT_FIELDS.forEach((field) => {
+      sourceFields[field] = zhI18n[field] || '';
+    });
 
     // 获取已存在的目标语言内容
     const existingI18n = await I18nErrorCode.findOne({

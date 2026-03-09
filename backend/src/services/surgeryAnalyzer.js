@@ -7,7 +7,7 @@ const STATE_MACHINE_STATES = faultMappings['1'];
 // 内窥镜类型集合（这些类型之间的转换不算更换器械，只是图像识别更新类型）
 const ENDOSCOPE_TYPES = new Set([9, 10, 11, 23, 24]);
 const ANALYZER_DEBUG = ['1', 'true', 'yes', 'on'].includes(String(process.env.SURGERY_ANALYZER_DEBUG || '').toLowerCase());
-const INSTRUMENT_TYPE_WAIT_WINDOW_MS = 2000;
+const INSTRUMENT_TYPE_WAIT_WINDOW_MS = 8000;
 
 /** 超过此长度时用迭代归并排序，避免原生 sort 递归导致栈溢出 */
 const LARGE_ARRAY_SORT_THRESHOLD = 60000;
@@ -224,7 +224,7 @@ class SurgeryAnalyzer {
     const p3 = parseInt(entry.param3) || 0;
     const p4 = parseInt(entry.param4) || 0;
 
-    // 过期未匹配到类型的安装窗口清理（2秒）
+    // 过期未匹配到类型的安装窗口清理（8秒）
     this.expirePendingInstrumentInstallWindows(entry.timestamp);
 
     // 处理网络事件
@@ -689,7 +689,7 @@ class SurgeryAnalyzer {
             const isInstrumentRemoved = p2 !== 7 && p3 === 7;
 
             if (isInstrumentInserted) {
-              // 状态到4：先创建器械使用记录，再打开2秒匹配窗口等待类型+UDI补齐
+              // 状态到4：先创建器械使用记录，再打开8秒匹配窗口等待类型+UDI补齐
               this.createInstrumentUsageOnInstall(armIndex, entry);
               this.openPendingInstrumentInstallWindow(armIndex, entry);
               this.tryFinalizePendingInstrumentInstall(armIndex, entry, this.armInsts[armIndex] || 0);

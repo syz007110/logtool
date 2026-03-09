@@ -18,6 +18,13 @@ function normalizeBool(v) {
   return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
+function pickLocalizedI18n(i18nContents = [], targetLang = 'zh') {
+  const normalized = String(targetLang || 'zh').split('-')[0];
+  const target = i18nContents.find((content) => String(content.lang || '').split('-')[0] === normalized);
+  if (target) return target;
+  return i18nContents.find((content) => String(content.lang || '').split('-')[0] === 'zh') || null;
+}
+
 /**
  * 统一的故障码检索：识别(完整码/类型码/关键词) + ES/DB + 可选 preview
  *
@@ -229,7 +236,7 @@ async function searchErrorCodesUnified({
       attributes: ['id', 'category_key', 'name_zh', 'name_en']
     });
   }
-  if (!ids && targetLang !== 'zh') {
+  if (!ids) {
     include.push({
       model: I18nErrorCode,
       as: 'i18nContents',
@@ -268,36 +275,35 @@ async function searchErrorCodesUnified({
     }
   }
 
+  const i18nFields = [
+    'short_message',
+    'user_hint',
+    'operation',
+    'detail',
+    'method',
+    'param1',
+    'param2',
+    'param3',
+    'param4',
+    'tech_solution',
+    'explanation'
+  ];
+
   const processedErrorCodes = errorCodes.map(errorCode => {
     const errorCodeData = errorCode.toJSON();
-    if (targetLang === 'zh' || targetLang === 'zh-CN') {
-      delete errorCodeData.i18nContents;
-      return errorCodeData;
-    }
 
-    const i18nContent = errorCodeData.i18nContents?.find(content => {
-      const contentLang = content.lang.split('-')[0];
-      return contentLang === targetLang;
-    });
-
+    const i18nContent = pickLocalizedI18n(errorCodeData.i18nContents || [], targetLang);
     if (i18nContent) {
-      const i18nFields = [
-        'short_message',
-        'user_hint',
-        'operation',
-        'detail',
-        'method',
-        'param1',
-        'param2',
-        'param3',
-        'param4',
-        'tech_solution',
-        'explanation',
-      ];
       i18nFields.forEach((field) => {
         if (Object.prototype.hasOwnProperty.call(i18nContent, field)) {
           errorCodeData[field] = i18nContent[field] ?? '';
+        } else {
+          errorCodeData[field] = '';
         }
+      });
+    } else {
+      i18nFields.forEach((field) => {
+        errorCodeData[field] = '';
       });
     }
 

@@ -1,4 +1,5 @@
 const ErrorCode = require('../models/error_code');
+const I18nErrorCode = require('../models/i18n_error_code');
 
 /**
  * 故障码缓存服务
@@ -34,7 +35,14 @@ class ErrorCodeCache {
       const startTime = Date.now();
       
       const errorCodes = await ErrorCode.findAll({
-        attributes: ['id', 'subsystem', 'code', 'explanation', 'short_message']
+        attributes: ['id', 'subsystem', 'code'],
+        include: [{
+          model: I18nErrorCode,
+          as: 'i18nContents',
+          required: false,
+          where: { lang: 'zh' },
+          attributes: ['short_message', 'explanation']
+        }]
       });
 
       console.log(`📊 加载了 ${errorCodes.length} 个故障码记录`);
@@ -47,8 +55,8 @@ class ErrorCodeCache {
           id: code.id,
           subsystem: code.subsystem,
           code: code.code,
-          explanation: code.explanation,
-          short_message: code.short_message
+          explanation: code.i18nContents?.[0]?.explanation || '',
+          short_message: code.i18nContents?.[0]?.short_message || ''
         });
       });
 
