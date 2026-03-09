@@ -1,7 +1,7 @@
 <template>
   <div class="mobile-layout" :class="{ 'no-tabbar': hideTabbar }">
     <router-view />
-    <van-tabbar v-if="!hideTabbar" route fixed placeholder safe-area-inset-bottom>
+    <van-tabbar v-if="!hideTabbar" route fixed placeholder>
       <van-tabbar-item :to="{ name: 'MDevices' }">
         <template #icon="{ active }">
           <svg class="tabbar-custom-icon" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -66,7 +66,7 @@ export default {
 
 <style scoped>
 .mobile-layout {
-  padding-bottom: 65px;
+  padding-bottom: 0;
 }
 
 .mobile-layout.no-tabbar {
@@ -76,10 +76,17 @@ export default {
 :deep(.van-tabbar) {
   border-top: 1px solid #ebedf0;
   background: #fff;
+  height: 50px;
+  padding-bottom: max(0px, env(safe-area-inset-bottom) - 8px);
+  box-sizing: content-box;
+  width: 100%;
+  left: 0;
+  transform: none;
 }
 
 :deep(.van-tabbar-item) {
   font-size: 12px;
+  height: 100%;
 }
 
 :deep(.van-tabbar-item--active) {
@@ -95,6 +102,13 @@ export default {
   width: 24px;
   height: 24px;
   display: block;
+}
+
+/* iOS 添加到主屏幕后（standalone）safe-area 往往更大，单独收紧 tabbar 高度 */
+@media (display-mode: standalone) {
+  :deep(.van-tabbar) {
+    padding-bottom: max(0px, env(safe-area-inset-bottom) - 22px);
+  }
 }
 </style>
 

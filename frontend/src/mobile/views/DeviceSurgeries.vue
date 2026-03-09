@@ -926,7 +926,7 @@ export default {
       }
 
       try {
-        const resp = await api.surgeries.getTimeFilters({ device_id: deviceId.value })
+        const resp = await api.surgeries.getTimeFilters({ device_id: deviceId.value }, { _silentError: true })
         const data = resp?.data?.data || {}
 
         const yearsArray = Array.isArray(data.years) ? data.years : []

@@ -1988,6 +1988,15 @@ export default {
   background: var(--m-color-surface);
 }
 
+.m-ss-header :deep(.van-nav-bar) {
+  padding-top: max(var(--m-space-4), calc(env(safe-area-inset-top) + var(--m-space-2)));
+  box-sizing: content-box;
+}
+
+.m-ss-header :deep(.van-nav-bar__content) {
+  height: 44px;
+}
+
 .m-ss-header-left {
   display: flex;
   align-items: center;
@@ -2088,6 +2097,8 @@ export default {
   flex-direction: column;
   height: 100%;
   padding: var(--m-space-4);
+  padding-top: max(var(--m-space-4), calc(env(safe-area-inset-top) + var(--m-space-2)));
+  box-sizing: border-box;
   background: var(--m-color-bg);
 }
 
