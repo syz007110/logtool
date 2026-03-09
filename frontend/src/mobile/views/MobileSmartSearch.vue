@@ -547,6 +547,13 @@
                       <p>{{ $t('smartSearch.faultCodeQuerySubtitle') }}</p>
                     </div>
                   </div>
+                  <div class="m-quick-card" @click="handleQuickAction('knowledge')">
+                    <div class="card-icon knowledge"><van-icon name="description" /></div>
+                    <div class="card-content">
+                      <h3>{{ $t('mobile.smartSearch.quickKnowledgeSearch') }}</h3>
+                      <p>{{ $t('mobile.smartSearch.quickKnowledgeSearchSubtitle') }}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2769,13 +2776,21 @@ export default {
 
 .m-ss-input-wrap {
   position: fixed;
-  bottom: calc(50px + env(safe-area-inset-bottom)); /* Above tabbar */
+  /* 与 MobileLayout.vue 的 tabbar 高度计算保持一致，避免出现可见缝隙 */
+  bottom: calc(50px + max(0px, env(safe-area-inset-bottom) - 8px));
   left: 0;
   right: 0;
   background: var(--m-color-surface);
   padding: var(--m-space-2) var(--m-space-3);
   border-top: 1px solid var(--m-color-border);
   z-index: 100;
+}
+
+/* iOS standalone 模式下，tabbar 会进一步收紧 safe-area 偏移，这里同步对齐 */
+@media (display-mode: standalone) {
+  .m-ss-input-wrap {
+    bottom: calc(50px + max(0px, env(safe-area-inset-bottom) - 22px));
+  }
 }
 
 .input-container {
