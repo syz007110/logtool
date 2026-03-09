@@ -15,8 +15,8 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import en from 'element-plus/es/locale/lang/en'
 import SplashScreen from './components/SplashScreen.vue'
 
-const SPLASH_MIN_MS = 1000
-const SPLASH_MAX_MS = 2500
+const SPLASH_COMPLETE_HOLD_MS = 250
+const SPLASH_HARD_MAX_MS = 4000
 const SPLASH_LEAVE_MS = 240
 
 export default {
@@ -29,18 +29,18 @@ export default {
     const showSplash = ref(__APP_TARGET__ === 'mobile')
     const splashLeaving = ref(false)
     let cleanupTimer = null
-    let minTimer = null
-    let maxTimer = null
+    let completeHoldTimer = null
+    let hardMaxTimer = null
     let bootReady = false
-    let minElapsed = false
+    let splashAnimComplete = false
 
     const clearTimers = () => {
       if (cleanupTimer) clearTimeout(cleanupTimer)
-      if (minTimer) clearTimeout(minTimer)
-      if (maxTimer) clearTimeout(maxTimer)
+      if (completeHoldTimer) clearTimeout(completeHoldTimer)
+      if (hardMaxTimer) clearTimeout(hardMaxTimer)
       cleanupTimer = null
-      minTimer = null
-      maxTimer = null
+      completeHoldTimer = null
+      hardMaxTimer = null
     }
 
     const hideSplash = () => {
@@ -53,11 +53,21 @@ export default {
 
     const tryFinishSplash = () => {
       if (!showSplash.value) return
-      if (bootReady && minElapsed) hideSplash()
+      if (!(bootReady && splashAnimComplete)) return
+      if (completeHoldTimer) return
+
+      completeHoldTimer = setTimeout(() => {
+        hideSplash()
+      }, SPLASH_COMPLETE_HOLD_MS)
     }
 
     const onBootReady = () => {
       bootReady = true
+      tryFinishSplash()
+    }
+
+    const onSplashComplete = () => {
+      splashAnimComplete = true
       tryFinishSplash()
     }
 
@@ -72,16 +82,12 @@ export default {
     onMounted(() => {
       if (!showSplash.value) return
 
-      minTimer = setTimeout(() => {
-        minElapsed = true
-        tryFinishSplash()
-      }, SPLASH_MIN_MS)
-
-      maxTimer = setTimeout(() => {
+      hardMaxTimer = setTimeout(() => {
         hideSplash()
-      }, SPLASH_MAX_MS)
+      }, SPLASH_HARD_MAX_MS)
 
       window.addEventListener('app:boot-ready', onBootReady, { once: true })
+      window.addEventListener('app:splash-complete', onSplashComplete, { once: true })
 
       if (window.__APP_BOOT_READY__ === true) {
         onBootReady()
@@ -91,6 +97,7 @@ export default {
     onBeforeUnmount(() => {
       clearTimers()
       window.removeEventListener('app:boot-ready', onBootReady)
+      window.removeEventListener('app:splash-complete', onSplashComplete)
       document.body.classList.remove('splash-lock')
     })
 

@@ -1,14 +1,16 @@
 <template>
   <div class="splash-screen" :class="{ 'is-leaving': leaving }" role="status" aria-live="polite" aria-label="App is loading">
     <div class="splash-center">
-      <img class="splash-logo" :src="logoSrc" alt="LogTool" />
+      <div ref="lottieRef" class="splash-lottie" v-show="lottieReady" />
+      <img v-show="!lottieReady" class="splash-logo" :src="logoSrc" alt="LogTool" />
       <div class="splash-text">LogTool</div>
     </div>
   </div>
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import lottie from 'lottie-web'
 
 export default {
   name: 'SplashScreen',
@@ -19,8 +21,68 @@ export default {
     }
   },
   setup() {
-    const logoSrc = computed(() => `${process.env.BASE_URL || '/'}Icons/logo.svg`)
-    return { logoSrc }
+    const lottieRef = ref(null)
+    const lottieReady = ref(false)
+    let lottieInstance = null
+
+    const notifySplashComplete = () => {
+      try {
+        window.dispatchEvent(new Event('app:splash-complete'))
+      } catch (_) {}
+    }
+
+    const base = process.env.BASE_URL || '/'
+    const logoSrc = computed(() => `${base}Icons/logo.svg`)
+    const lottiePath = computed(() => `${base}startLogoV2.json`)
+
+    onMounted(() => {
+      const safetyTimer = setTimeout(() => {
+        notifySplashComplete()
+      }, 2800)
+
+      if (!lottieRef.value) {
+        setTimeout(() => {
+          clearTimeout(safetyTimer)
+          notifySplashComplete()
+        }, 900)
+        return
+      }
+
+      try {
+        lottieInstance = lottie.loadAnimation({
+          container: lottieRef.value,
+          renderer: 'svg',
+          loop: false,
+          autoplay: true,
+          path: lottiePath.value,
+          rendererSettings: {
+            preserveAspectRatio: 'xMidYMid meet'
+          }
+        })
+
+        lottieInstance.addEventListener('complete', () => {
+          clearTimeout(safetyTimer)
+          notifySplashComplete()
+        })
+        lottieReady.value = true
+      } catch (error) {
+        console.warn('Splash lottie load failed, fallback to logo animation', error)
+        lottieReady.value = false
+        setTimeout(() => {
+          clearTimeout(safetyTimer)
+          notifySplashComplete()
+        }, 900)
+      }
+    })
+
+    onBeforeUnmount(() => {
+      try {
+        lottieInstance?.removeEventListener?.('complete', notifySplashComplete)
+        lottieInstance?.destroy?.()
+      } catch (_) {}
+    })
+
+    return { logoSrc, lottieRef, lottieReady }
   }
 }
 </script>
@@ -47,6 +109,11 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+}
+
+.splash-lottie {
+  width: 120px;
+  height: 120px;
 }
 
 .splash-logo {
