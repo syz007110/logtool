@@ -35,9 +35,9 @@
             </div>
 
             <div class="card-row-tags">
-              <span class="data-tag">{{ $t('mobile.devices.logData') }} {{ item.logCount ?? 0 }}</span>
-              <span class="data-tag">{{ $t('mobile.devices.surgeryData') }} {{ item.surgeryCount ?? 0 }}</span>
-              <span class="data-tag">{{ $t('mobile.devices.runtimeData') || '运行数据' }} {{ item.motionCount ?? 0 }}</span>
+              <span class="data-tag data-tag--log">{{ $t('mobile.devices.logData') }} {{ item.logCount ?? 0 }}</span>
+              <span class="data-tag data-tag--surgery">{{ $t('mobile.devices.surgeryData') }} {{ item.surgeryCount ?? 0 }}</span>
+              <span class="data-tag data-tag--runtime">{{ $t('mobile.devices.runtimeData') || '运行数据' }} {{ item.motionCount ?? 0 }}</span>
             </div>
           </button>
         </div>
@@ -392,11 +392,23 @@ export default {
   align-items: center;
   padding: 2px var(--m-space-2);
   border-radius: var(--m-radius-pill);
-  background: var(--m-color-surface-soft);
-  color: var(--m-color-text-secondary);
-  border: 1px solid var(--m-color-border);
   font-size: var(--m-font-size-xs);
   line-height: 18px;
+}
+
+.data-tag--log {
+  background: var(--m-color-info-bg);
+  color: var(--m-color-info-text);
+}
+
+.data-tag--surgery {
+  background: var(--m-color-success-bg);
+  color: var(--m-color-success-text);
+}
+
+.data-tag--runtime {
+  background: var(--m-color-warning-bg);
+  color: var(--m-color-warning-text);
 }
 
 .empty-state {

@@ -45,22 +45,6 @@
         </div>
       </section>
 
-      <section class="permissions-card">
-        <div class="section-title">{{ $t('mobile.profile.permissionsTitle') }}</div>
-        <div v-if="permissionsDisplay.length" class="permission-list">
-          <span
-            v-for="permission in permissionsDisplay"
-            :key="permission"
-            class="permission-pill"
-          >
-            {{ permission }}
-          </span>
-        </div>
-        <div v-else class="permission-empty">
-          {{ $t('mobile.profile.permissionsEmpty') }}
-        </div>
-      </section>
-
       <button class="logout-button" type="button" @click="onLogout">
         <van-icon name="log-out" class="logout-icon" />
         <span>{{ $t('mobile.profile.logout') }}</span>
@@ -133,89 +117,6 @@ export default {
       )
     })
 
-    const formatPermissionGroup = (permission) => {
-      if (!permission) return ''
-      if (typeof permission === 'object') {
-        const groupLike =
-          permission.groupLabel ||
-          permission.group ||
-          permission.category ||
-          permission.module ||
-          permission.parentLabel
-        if (groupLike) {
-          const nested = formatPermissionGroup(groupLike)
-          if (nested) return nested
-        }
-        return (
-          permission.label ||
-          permission.name ||
-          permission.title ||
-          formatPermissionGroup(permission.code)
-        )
-      }
-      const text = String(permission).trim()
-      if (!text) return ''
-      const normalized = text.toLowerCase()
-
-      const segments = normalized.split(':')
-      const groupKey = segments[0] || ''
-
-      if (!groupKey || groupKey === normalized) {
-        const aliasLabel = getGroupAliasLabel(normalized)
-        if (aliasLabel) return aliasLabel
-        return text
-      }
-
-      const groupLabelKey = `roles.permissionGroups.${groupKey}`
-      const groupLabelValue = t(groupLabelKey)
-      if (groupLabelValue && groupLabelValue !== groupLabelKey) {
-        return groupLabelValue
-      }
-
-      const aliasLabel = getGroupAliasLabel(groupKey)
-      if (aliasLabel) return aliasLabel
-
-      return groupKey.toUpperCase()
-    }
-
-    const permissionsDisplay = computed(() => {
-      const permissions = currentUser.value?.permissions
-      let normalizedList = []
-
-      if (Array.isArray(permissions)) {
-        normalizedList = permissions
-      } else if (typeof permissions === 'string') {
-        normalizedList = permissions
-          .split(/[,，\s]+/)
-          .map((item) => item.trim())
-          .filter(Boolean)
-      }
-
-      const formattedGroups = normalizedList
-        .map((permission) => formatPermissionGroup(permission))
-        .filter(Boolean)
-
-      return Array.from(new Set(formattedGroups))
-    })
-
-    const getGroupAliasLabel = (source) => {
-      if (!source) return ''
-      const normalized = source.toLowerCase()
-      const aliasMappings = [
-        { regex: /(fault|error|code)/, group: 'error_code' },
-        { regex: /(log|journal)/, group: 'log' },
-        { regex: /(surgery|operation)/, group: 'surgery' },
-        { regex: /(system|setting|config)/, group: 'system' },
-        { regex: /(device|equipment)/, group: 'device' },
-        { regex: /(data[_-]?replay|replay)/, group: 'data_replay' }
-      ]
-      const matched = aliasMappings.find(item => item.regex.test(normalized))
-      if (!matched) return ''
-      const labelKey = `roles.permissionGroups.${matched.group}`
-      const labelValue = t(labelKey)
-      return labelValue && labelValue !== labelKey ? labelValue : ''
-    }
-
     const onLogout = () => {
       try {
         store.dispatch('auth/logout')
@@ -231,7 +132,6 @@ export default {
       usernameDisplay,
       idDisplay,
       roleDisplay,
-      permissionsDisplay,
       onLogout
     }
   }
@@ -241,55 +141,51 @@ export default {
 <style scoped>
 .page {
   min-height: 100vh;
-  background-color: #f5f7fa;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) 0 24px;
+  background-color: var(--m-color-bg);
+  padding: calc(var(--m-space-4) + env(safe-area-inset-top, 0px)) 0 var(--m-space-6);
   box-sizing: border-box;
 }
 
 .page-header {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
-  padding: 0 16px 16px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #101828;
-  background-color: #f5f7fa;
+  padding: 0 var(--m-space-4) var(--m-space-4);
+  font-size: var(--m-font-size-lg);
+  font-weight: var(--m-font-weight-medium);
+  color: var(--m-color-text);
+  background-color: var(--m-color-bg);
   z-index: 1;
 }
 
 .content {
-  padding: 0 16px;
+  padding: 0 var(--m-space-4);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.profile-card,
-.permissions-card {
-  background: #ffffff;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+  gap: var(--m-space-4);
 }
 
 .profile-card {
+  background: var(--m-color-surface);
+  border-radius: var(--m-radius-lg);
+  border: 1px solid var(--m-color-border);
+  padding: var(--m-space-4);
+  box-shadow: var(--m-shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--m-space-4);
 }
 
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--m-space-3);
 }
 
 .avatar-wrapper {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background-color: #101828;
+  background-color: var(--m-color-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -304,126 +200,95 @@ export default {
 
 .avatar-placeholder .van-icon {
   font-size: 32px;
-  color: #ffffff;
+  color: var(--m-color-surface);
 }
 
 .profile-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--m-space-1);
 }
 
 .profile-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: #101828;
-  line-height: 1.4;
+  font-size: var(--m-font-size-xl);
+  font-weight: var(--m-font-weight-semibold);
+  color: var(--m-color-text);
+  line-height: var(--m-line-height-md);
 }
 
 .profile-username {
-  font-size: 14px;
-  color: #6a7282;
+  font-size: var(--m-font-size-md);
+  color: var(--m-color-text-secondary);
 }
 
 .profile-divider {
   height: 1px;
-  background-color: #edf0f3;
+  background-color: var(--m-color-border);
 }
 
 .profile-details {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--m-space-3);
 }
 
 .detail-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
-  color: #4a5565;
+  font-size: var(--m-font-size-md);
+  color: var(--m-color-text-secondary);
 }
 
 .detail-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--m-space-2);
 }
 
 .detail-icon {
-  font-size: 16px;
-  color: #98a2b3;
+  font-size: var(--m-font-size-lg);
+  color: var(--m-color-text-tertiary);
 }
 
 .detail-value {
-  color: #101828;
-  font-weight: 500;
+  color: var(--m-color-text);
+  font-weight: var(--m-font-weight-medium);
 }
 
 .detail-badge {
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background-color: #f7f8fa;
-  font-size: 12px;
-  color: #101828;
-}
-
-.permissions-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #364153;
-  margin-bottom: 12px;
-}
-
-.permission-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.permission-pill {
-  padding: 4px 12px;
-  border-radius: 8px;
-  background-color: #eceef2;
-  font-size: 12px;
-  color: #030213;
-}
-
-.permission-empty {
-  font-size: 12px;
-  color: #98a2b3;
+  padding: var(--m-space-1) var(--m-space-3);
+  border-radius: var(--m-radius-sm);
+  border: 1px solid var(--m-color-border);
+  background-color: var(--m-color-surface-soft);
+  font-size: var(--m-font-size-sm);
+  color: var(--m-color-text);
 }
 
 .logout-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--m-space-2);
   width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #ffc9c9;
-  background-color: #ffffff;
-  color: #e7000b;
-  font-size: 14px;
-  font-weight: 500;
+  padding: var(--m-space-3);
+  border-radius: var(--m-radius-sm);
+  border: 1px solid var(--m-color-danger-bg);
+  background-color: var(--m-color-surface);
+  color: var(--m-color-danger-text);
+  font-size: var(--m-font-size-md);
+  font-weight: var(--m-font-weight-medium);
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .logout-button:active {
-  background-color: #fff5f5;
+  background-color: var(--m-color-danger-bg);
   transform: scale(0.99);
 }
 
 .logout-icon {
-  font-size: 16px;
+  font-size: var(--m-font-size-lg);
   color: inherit;
 }
 </style>

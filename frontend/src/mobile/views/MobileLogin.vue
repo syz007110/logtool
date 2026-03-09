@@ -55,6 +55,20 @@
             />
           </el-form-item>
 
+          <el-form-item v-if="requireCaptcha" prop="captchaCode" class="captcha-form-item">
+            <div class="captcha-row">
+              <div class="captcha-svg" v-html="captchaSvg" />
+              <el-button text type="primary" @click="fetchCaptcha" :loading="captchaLoading">{{ $t('shared.refresh') }}</el-button>
+            </div>
+            <el-input
+              v-model="formData.captchaCode"
+              :placeholder="$t('auth.captchaRequired')"
+              size="large"
+              maxlength="6"
+              style="margin-top: 8px"
+            />
+          </el-form-item>
+
           <el-form-item class="login-submit-item">
             <el-button
               type="primary"
@@ -86,6 +100,7 @@ import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../../i18n'
 import { InfoFilled, User, Lock } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import api from '@/api'
 
 function resolveBaseLogoUrl() {
   const rawBase = process.env.BASE_URL || '/'
@@ -104,10 +119,15 @@ export default {
 
     const formData = reactive({
       username: '',
-      password: ''
+      password: '',
+      captchaCode: ''
     })
 
     const loading = ref(false)
+    const requireCaptcha = ref(false)
+    const captchaId = ref('')
+    const captchaSvg = ref('')
+    const captchaLoading = ref(false)
     const logoUrl = resolveBaseLogoUrl()
 
     const currentLocaleLabel = computed(() =>
@@ -116,18 +136,57 @@ export default {
 
     const rules = computed(() => ({
       username: [{ required: true, message: t('login.validation.usernameRequired'), trigger: 'blur' }],
-      password: [{ required: true, message: t('login.validation.passwordRequired'), trigger: 'blur' }]
+      password: [{ required: true, message: t('login.validation.passwordRequired'), trigger: 'blur' }],
+      captchaCode: [{ required: requireCaptcha.value, message: t('auth.captchaRequired'), trigger: 'blur' }]
     }))
+
+    const fetchCaptcha = async () => {
+      try {
+        captchaLoading.value = true
+        const { data } = await api.auth.getCaptcha()
+        captchaId.value = data.id
+        captchaSvg.value = data.svg || ''
+        formData.captchaCode = ''
+      } catch (_) {
+        requireCaptcha.value = false
+      } finally {
+        captchaLoading.value = false
+      }
+    }
 
     const handleLogin = async () => {
       try {
         await loginForm.value.validate()
+        if (requireCaptcha.value && !formData.captchaCode?.trim()) {
+          ElMessage.warning(t('auth.captchaRequired'))
+          return
+        }
         loading.value = true
 
-        await store.dispatch('auth/login', formData)
+        const payload = {
+          username: formData.username,
+          password: formData.password
+        }
+
+        if (requireCaptcha.value) {
+          payload.captchaId = captchaId.value
+          payload.captchaCode = formData.captchaCode.trim()
+        }
+
+        const res = await store.dispatch('auth/login', payload)
         ElMessage.success(t('login.loginSuccess'))
-        router.push('/m')
+        requireCaptcha.value = false
+        if (res?.data?.mustChangePassword) {
+          router.push('/m/profile')
+        } else {
+          router.push('/m')
+        }
       } catch (error) {
+        const d = error?.response?.data
+        if ((error?.response?.status === 401 || error?.response?.status === 400) && d?.requireCaptcha) {
+          requireCaptcha.value = true
+          fetchCaptcha()
+        }
         console.error('Login failed:', error)
       } finally {
         loading.value = false
@@ -145,6 +204,10 @@ export default {
       rules,
       currentLocaleLabel,
       logoUrl,
+      requireCaptcha,
+      captchaSvg,
+      captchaLoading,
+      fetchCaptcha,
       handleLogin,
       changeLanguage,
       InfoFilled,
@@ -236,6 +299,33 @@ export default {
 
 .mobile-login-form :deep(.el-input__wrapper.is-focus) {
   box-shadow: 0 0 0 1px var(--m-input-border-color-focus) inset;
+}
+
+.captcha-form-item {
+  margin-bottom: 12px;
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.captcha-svg {
+  width: 120px;
+  height: 40px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--m-radius-sm);
+  border: 1px solid var(--m-color-border);
+  background: var(--m-color-surface);
+}
+
+.captcha-svg :deep(svg) {
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .login-submit-item {
