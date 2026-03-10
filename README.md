@@ -149,3 +149,5 @@ If your server path or PM2 process name differs, pass the corresponding options.
 cd ~/logtool
 docker exec -it logtool-mysql-1 mysql -u root -p
 ```
+进入 Clickhouse 容器进行数据库维护：
+docker exec -it logtool-clickhouse-1 clickhouse-client

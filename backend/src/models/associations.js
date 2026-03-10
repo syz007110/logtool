@@ -33,8 +33,16 @@ if (global[associationsProcessKey]) {
 global[associationsProcessKey] = true;
 console.log(`[进程 ${process.pid}] 开始定义模型关联...`);
 
+// 防止重复执行（queueProcessor 和 app.js 都会调用，需幂等）
+const associationsDefinedKey = `associations_defined_${process.pid}`;
+
 // 定义模型关联关系
 function defineAssociations() {
+  if (global[associationsDefinedKey]) {
+    return;
+  }
+  global[associationsDefinedKey] = true;
+
   // User 和 Role 的多对多关联
   User.belongsToMany(Role, {
     through: UserRole,

@@ -7,6 +7,11 @@ const {
   motionDataQueue,
   kbIngestQueue
 } = require('../config/queue');
+
+// 工作进程不加载 app.js，需在此确保 Sequelize 模型关联已定义（error_codes ↔ i18n_error_codes 等）
+const { defineAssociations } = require('../models/associations');
+defineAssociations();
+
 const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { batchDeleteSurgeries } = require('./surgeryBatchProcessor');
 const { processLogFile } = require('./logProcessor');
