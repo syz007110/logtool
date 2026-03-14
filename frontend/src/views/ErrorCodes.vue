@@ -187,7 +187,7 @@
             clearable
           >
             <el-option
-              v-for="option in languageOptions"
+              v-for="option in exportLanguageOptions"
               :key="option.value"
               :label="option.label"
               :value="option.value"
@@ -212,14 +212,17 @@
       v-model="showAddDialog"
       width="760px"
       :close-on-click-modal="false"
+      :destroy-on-close="true"
       class="error-code-dialog"
+      @closed="handleAddDialogClosed"
     >
       <template #header>
-        <div class="dialog-header-content" v-if="showI18nHeader">
-          <div class="dialog-header-left">
+        <div class="dialog-header-content">
+          <span class="dialog-header-title">{{ getDialogTitle() }}</span>
+          <div v-if="showI18nHeader" class="dialog-header-right">
             <span class="dialog-header-label">{{ $t('errorCodes.i18nTechFields.selectLanguage') }}:</span>
-            <el-select 
-              v-model="selectedI18nLang" 
+            <el-select
+              v-model="selectedI18nLang"
               :placeholder="$t('errorCodes.i18nTechFields.selectLanguage')"
               class="language-select"
               size="small"
@@ -274,17 +277,7 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              <el-row v-if="showSyncOption">
-                <el-col :span="24">
-                  <el-form-item :label="$t('errorCodes.formLabels.syncOption')">
-                    <div class="sync-options-group">
-                      <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">{{ $t('errorCodes.formLabels.syncToRemote') }}</el-checkbox>
-                      <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">{{ $t('errorCodes.formLabels.syncToLocal') }}</el-checkbox>
-                    </div>
-                  </el-form-item>
-                </el-col>
-              </el-row>
-              <el-row v-if="showSyncOption">
+              <el-row>
                 <el-col :span="24">
                   <el-form-item :label="$t('errorCodes.formLabels.optionSettings')">
                     <el-checkbox-group v-model="booleanOptions" @change="handleBooleanOptionsChange" class="boolean-options-group">
@@ -338,45 +331,55 @@
             </div>
           </el-tab-pane>
 
-          <!-- 故障提示 -->
+          <!-- 提示信息 -->
           <el-tab-pane :label="$t('errorCodes.formSections.faultPrompt')" name="prompt">
             <div class="form-tab-content form-tab-i18n">
-              <el-form-item :label="$t('errorCodes.formLabels.shortMessage')" prop="short_message">
+              <el-form-item :label="$t('errorCodes.formLabels.promptNormalUser')" prop="short_message">
                 <el-input v-model="currentForm.short_message" type="textarea" :rows="2" />
               </el-form-item>
-              <el-form-item :label="$t('errorCodes.formLabels.userHint')" prop="user_hint">
-                <el-input v-model="currentForm.user_hint" type="textarea" :rows="2" />
+              <el-form-item :label="$t('errorCodes.formLabels.promptAdminUser')" prop="user_hint">
+                <el-input
+                  v-model="currentForm.user_hint"
+                  type="textarea"
+                  :rows="2"
+                  @focus="onPromptAdminUserFocus"
+                />
               </el-form-item>
               <el-form-item :label="$t('errorCodes.formLabels.operation')" prop="operation">
                 <el-input v-model="currentForm.operation" type="textarea" :rows="2" />
               </el-form-item>
+              <div class="prompt-preview">
+                <div class="prompt-preview-label">{{ $t('errorCodes.formLabels.promptPreview') }}</div>
+                <div class="prompt-preview-line">{{ promptPreviewLine1 }}</div>
+                <div class="prompt-preview-line">{{ promptPreviewLine2 }}</div>
+              </div>
             </div>
           </el-tab-pane>
 
-          <!-- 故障参数：2x2 两列显示 -->
+          <!-- 参数：普通输入框 -->
           <el-tab-pane :label="$t('errorCodes.formSections.faultParams')" name="params">
             <div class="form-tab-content form-tab-i18n">
               <el-row :gutter="16">
                 <el-col :span="12">
                   <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
-                    <el-input v-model="currentForm.param1" />
+                    <el-input v-model="currentForm.param1" clearable :placeholder="$t('errorCodes.formLabels.param1')" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
                   <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
-                    <el-input v-model="currentForm.param2" />
+                    <el-input v-model="currentForm.param2" clearable :placeholder="$t('errorCodes.formLabels.param2')" />
                   </el-form-item>
                 </el-col>
               </el-row>
               <el-row :gutter="16">
                 <el-col :span="12">
                   <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
-                    <el-input v-model="currentForm.param3" />
+                    <el-input v-model="currentForm.param3" clearable :placeholder="$t('errorCodes.formLabels.param3')" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
                   <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
-                    <el-input v-model="currentForm.param4" />
+                    <el-input v-model="currentForm.param4" clearable :placeholder="$t('errorCodes.formLabels.param4')" />
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -417,12 +420,19 @@
       </el-form>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button type="default" @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</el-button>
-          <el-button type="primary" :loading="saving" :disabled="saving" @click="handleSave">
-            {{ getSaveButtonText() }}
-          </el-button>
-        </span>
+        <div class="dialog-footer error-code-dialog-footer">
+          <div v-if="showSyncOption" class="dialog-footer-sync">
+            <span class="dialog-footer-sync-label">{{ $t('errorCodes.formLabels.syncOption') }}</span>
+            <el-checkbox v-model="syncToRemote" v-if="isLocalSubsystem">{{ $t('errorCodes.formLabels.syncToRemote') }}</el-checkbox>
+            <el-checkbox v-model="syncToLocal" v-if="isRemoteSubsystem">{{ $t('errorCodes.formLabels.syncToLocal') }}</el-checkbox>
+          </div>
+          <span class="dialog-footer-actions">
+            <el-button type="default" @click="showAddDialog = false">{{ $t('errorCodes.buttonTexts.cancel') }}</el-button>
+            <el-button type="primary" :loading="saving" :disabled="saving" @click="handleSave">
+              {{ getSaveButtonText() }}
+            </el-button>
+          </span>
+        </div>
       </template>
     </el-dialog>
     <!-- 故障码查询弹窗 -->
@@ -816,6 +826,7 @@ export default {
     const booleanOptions = ref([])
     const selectedExportLang = ref('')
     const exportFormat = ref('csv')
+    const exportLanguageOptions = ref([])
     
     // 表单 Tab：默认显示故障码定义
     const formActiveTab = ref('main')
@@ -1031,6 +1042,7 @@ export default {
     // 同步相关变量
     const syncToRemote = ref(false)
     const syncToLocal = ref(false)
+
     
          const errorCodeForm = reactive({
        subsystem: '',
@@ -1187,6 +1199,12 @@ export default {
       const subsystem = errorCodeForm.subsystem
       return subsystem === '8' || subsystem === '9' || subsystem === 'A'
     })
+
+    const syncToMirror = computed(() => {
+      if (isLocalSubsystem.value) return syncToRemote.value
+      if (isRemoteSubsystem.value) return syncToLocal.value
+      return false
+    })
     
     const techImageFileList = computed(() => techForm.images
       .filter((img) => (img.mime_type || '').startsWith('image/') || img.file_type === 'image')
@@ -1289,6 +1307,32 @@ export default {
       errorCodeForm.for_novice = values.includes('for_novice')
       errorCodeForm.related_log = values.includes('related_log')
     }
+
+    // 提示信息 tab：管理员账户输入框获得焦点且为空时，用普通账户提示信息填充
+    const onPromptAdminUserFocus = () => {
+      const sm = selectedI18nLang.value === 'zh-CN' ? errorCodeForm.short_message : i18nForm.short_message
+      const uh = selectedI18nLang.value === 'zh-CN' ? errorCodeForm.user_hint : i18nForm.user_hint
+      if (!uh || !String(uh).trim()) {
+        const val = (sm && String(sm).trim()) ? String(sm).trim() : ''
+        if (selectedI18nLang.value === 'zh-CN') {
+          errorCodeForm.user_hint = val
+        } else {
+          i18nForm.user_hint = val
+        }
+      }
+    }
+
+    // 提示信息 tab 底部预览：第一行 普通账户提示信息，操作信息；第二行 管理员账户提示信息，操作信息
+    const promptPreviewLine1 = computed(() => {
+      const a = selectedI18nLang.value === 'zh-CN' ? errorCodeForm.short_message : i18nForm.short_message
+      const b = selectedI18nLang.value === 'zh-CN' ? errorCodeForm.operation : i18nForm.operation
+      return [a, b].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join('，') || '—'
+    })
+    const promptPreviewLine2 = computed(() => {
+      const a = selectedI18nLang.value === 'zh-CN' ? errorCodeForm.user_hint : i18nForm.user_hint
+      const b = selectedI18nLang.value === 'zh-CN' ? errorCodeForm.operation : i18nForm.operation
+      return [a, b].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join('，') || '—'
+    })
     
     // 从表单值初始化布尔选项
     const initBooleanOptions = () => {
@@ -1503,7 +1547,18 @@ export default {
       } catch { return '' }
     }
 
-    const openExportDialog = () => {
+    const loadExportLanguages = async () => {
+      try {
+        const response = await api.i18nErrorCodes.getLanguages()
+        exportLanguageOptions.value = response.data?.languages || []
+      } catch (error) {
+        console.error('Failed to load export languages:', error)
+        exportLanguageOptions.value = [...languageOptions]
+      }
+    }
+
+    const openExportDialog = async () => {
+      await loadExportLanguages()
       showExportDialog.value = true
     }
 
@@ -1546,11 +1601,11 @@ export default {
            errorCodeForm[key] = ''
          }
        })
-       editingErrorCode.value = null
-       // 重置同步选项
-       syncToRemote.value = false
-       syncToLocal.value = false
-       if (errorCodeFormRef.value) {
+      editingErrorCode.value = null
+      // 重置同步选项
+      syncToRemote.value = false
+      syncToLocal.value = false
+      if (errorCodeFormRef.value) {
          errorCodeFormRef.value.clearValidate()
        }
      }
@@ -1566,29 +1621,36 @@ export default {
       
       // 加载多语言选项列表
       await loadI18nLanguages()
-      
-      // 根据系统语言自动设置默认语言
+      // 语言选择与当前界面语言对应，弹窗打开即显示主表+多语言表中对应语言的内容
       const systemLang = locale.value || 'zh-CN'
       if (systemLang !== 'zh' && systemLang !== 'zh-CN') {
-        // 查找匹配的语言选项
-        const matchedLang = i18nLanguageOptions.value.find(lang => 
-          lang.value === systemLang || 
-          lang.value === systemLang.split('-')[0] // 支持 'en-US' -> 'en'
+        const matchedLang = i18nLanguageOptions.value.find(lang =>
+          lang.value === systemLang || lang.value === systemLang.split('-')[0]
         )
-        if (matchedLang) {
-          selectedI18nLang.value = matchedLang.value
-        } else {
-          // 如果没有匹配，默认选择英文
-          selectedI18nLang.value = i18nLanguageOptions.value.find(lang => lang.value === 'en')?.value || 'zh-CN'
-        }
+        selectedI18nLang.value = matchedLang ? matchedLang.value : 'zh-CN'
       } else {
-        // 中文系统默认显示中文
         selectedI18nLang.value = 'zh-CN'
       }
-      
       resetI18nForm()
       showAddDialog.value = true
     }
+
+    const handleAddDialogClosed = () => {
+      // CodeMirror 自动补全浮层挂在 body 下，某些场景会残留并撑高页面可滚动区域
+      const selectors = [
+        '.cm-tooltip-autocomplete',
+        '.cm-tooltip',
+        '.cm-completionInfo'
+      ]
+      selectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((node) => {
+          if (node && node.parentNode === document.body) {
+            document.body.removeChild(node)
+          }
+        })
+      })
+    }
+
     const openQueryDialog = () => {
       showQueryDialog.value = true
     }
@@ -1629,31 +1691,24 @@ export default {
       await loadAnalysisCategories()
       // 加载多语言选项列表
       await loadI18nLanguages()
-      
-      // 根据系统语言自动设置默认语言
+      // 语言选择与当前界面语言对应，弹窗打开即显示主表+多语言表中对应语言的内容
       const systemLang = locale.value || 'zh-CN'
       if (systemLang !== 'zh' && systemLang !== 'zh-CN') {
-        // 查找匹配的语言选项
-        const matchedLang = i18nLanguageOptions.value.find(lang => 
-          lang.value === systemLang || 
-          lang.value === systemLang.split('-')[0] // 支持 'en-US' -> 'en'
+        const matchedLang = i18nLanguageOptions.value.find(lang =>
+          lang.value === systemLang || lang.value === systemLang.split('-')[0]
         )
         if (matchedLang) {
           selectedI18nLang.value = matchedLang.value
-          // 加载该语言的多语言内容
           await handleLanguageChange(matchedLang.value)
         } else {
-          // 如果没有匹配，默认选择英文
-          selectedI18nLang.value = i18nLanguageOptions.value.find(lang => lang.value === 'en')?.value || 'zh-CN'
+          selectedI18nLang.value = 'zh-CN'
           if (selectedI18nLang.value !== 'zh-CN') {
             await handleLanguageChange(selectedI18nLang.value)
           }
         }
       } else {
-        // 中文系统默认显示中文
         selectedI18nLang.value = 'zh-CN'
       }
-      
       showAddDialog.value = true
     }
     
@@ -1746,26 +1801,26 @@ export default {
       }
     }
     
-    // 自动翻译（只翻译空白字段，保护人工修改）
+    // 自动翻译：目标语言 = 下拉菜单当前选中的选项；只翻译空白字段，不覆盖已有内容
     const handleAutoTranslate = async () => {
       if (!selectedI18nLang.value) {
         return
       }
-      
-      // 新增模式下，需要有故障码ID才能翻译
+      // 禁止对「默认语言」执行翻译（源语言为中文，不能翻译成中文）
+      if (selectedI18nLang.value === 'zh-CN') {
+        return
+      }
       if (!editingErrorCode.value) {
         ElMessage.warning('请先保存故障码基本信息，再进行自动翻译')
         return
       }
-      
       try {
         translating.value = true
-        
-        // 调用自动翻译API（后端只翻译空白字段，不覆盖已有内容）
+        const targetLang = normalizeI18nLang(selectedI18nLang.value)
         const response = await api.errorCodes.autoTranslateI18n(
           editingErrorCode.value.id,
-          normalizeI18nLang(selectedI18nLang.value),
-          false // 始终只翻译空白字段，不覆盖已有内容
+          targetLang,
+          false
         )
         
         if (response.data && response.data.translatedFields) {
@@ -2081,115 +2136,43 @@ export default {
       syncToLocal.value = false
     }
     
-    // 获取对应的子系统值
-    const getCorrespondingSubsystem = (currentSubsystem) => {
-      const subsystemMap = {
-        '1': '8', // 本地运动控制 -> 远程运动控制
-        '8': '1', // 远程运动控制 -> 本地运动控制
-        '3': '9', // 本地医生控制台 -> 远程医生控制台
-        '9': '3', // 远程医生控制台 -> 本地医生控制台
-        '5': 'A', // 本地驱动器 -> 远程驱动器
-        'A': '5'  // 远程驱动器 -> 本地驱动器
-      }
-      return subsystemMap[currentSubsystem]
-    }
-    
     const handleSave = async () => {
       try {
         await errorCodeFormRef.value.validate()
         saving.value = true
-        
-        const savePromises = []
         let errorCodeId = editingErrorCode.value?.id
-        
-        // 主故障码保存（始终保存中文内容到 error_codes 表）
+        const selectedLang = normalizeI18nLang(selectedI18nLang.value || 'zh-CN')
+        const i18nSource = selectedI18nLang.value === 'zh-CN' ? errorCodeForm : i18nForm
+        const requestPayload = {
+          ...errorCodeForm,
+          syncToMirror: syncToMirror.value,
+          i18nPayload: {
+            lang: selectedLang,
+            short_message: i18nSource.short_message,
+            user_hint: i18nSource.user_hint,
+            operation: i18nSource.operation,
+            detail: i18nSource.detail,
+            method: i18nSource.method,
+            param1: i18nSource.param1,
+            param2: i18nSource.param2,
+            param3: i18nSource.param3,
+            param4: i18nSource.param4,
+            tech_solution: i18nSource.tech_solution,
+            explanation: i18nSource.explanation
+          }
+        }
+
         if (editingErrorCode.value) {
-          savePromises.push(
-            store.dispatch('errorCodes/updateErrorCode', {
-              id: editingErrorCode.value.id,
-              data: errorCodeForm
-            })
-          )
+          const updateResult = await store.dispatch('errorCodes/updateErrorCode', {
+            id: editingErrorCode.value.id,
+            data: requestPayload
+          })
+          errorCodeId = updateResult?.data?.errorCode?.id || errorCodeId
         } else {
-          const createResult = await store.dispatch('errorCodes/createErrorCode', errorCodeForm)
-          if (createResult.data && createResult.data.errorCode) {
+          const createResult = await store.dispatch('errorCodes/createErrorCode', requestPayload)
+          if (createResult?.data?.errorCode) {
             errorCodeId = createResult.data.errorCode.id
           }
-        }
-        
-        // 始终保存当前编辑语言的文本内容到 i18n_error_codes（含 zh）
-        if (selectedI18nLang.value && errorCodeId) {
-          const langToSave = normalizeI18nLang(selectedI18nLang.value)
-          const source = selectedI18nLang.value === 'zh-CN' ? errorCodeForm : i18nForm
-          try {
-            await api.errorCodes.saveI18nByLang(
-              errorCodeId,
-              langToSave,
-              {
-                short_message: source.short_message,
-                user_hint: source.user_hint,
-                operation: source.operation,
-                detail: source.detail,
-                method: source.method,
-                param1: source.param1,
-                param2: source.param2,
-                param3: source.param3,
-                param4: source.param4,
-                tech_solution: source.tech_solution,
-                explanation: source.explanation
-              }
-            )
-          } catch (i18nError) {
-            console.error('Save i18n failed:', i18nError)
-            // 多语言保存失败不影响主表保存
-          }
-        }
-        
-        // 同步保存
-        if (syncToRemote.value && isLocalSubsystem.value) {
-          const remoteSubsystem = getCorrespondingSubsystem(errorCodeForm.subsystem)
-          const remoteData = { ...errorCodeForm, subsystem: remoteSubsystem }
-          
-          if (editingErrorCode.value) {
-            // 编辑模式：查找并更新对应的远程故障码
-            savePromises.push(
-              store.dispatch('errorCodes/updateErrorCodeByCode', {
-                code: errorCodeForm.code,
-                subsystem: remoteSubsystem,
-                data: remoteData
-              })
-            )
-          } else {
-            // 添加模式：创建远程故障码
-            savePromises.push(
-              store.dispatch('errorCodes/createErrorCode', remoteData)
-            )
-          }
-        }
-        
-        if (syncToLocal.value && isRemoteSubsystem.value) {
-          const localSubsystem = getCorrespondingSubsystem(errorCodeForm.subsystem)
-          const localData = { ...errorCodeForm, subsystem: localSubsystem }
-          
-          if (editingErrorCode.value) {
-            // 编辑模式：查找并更新对应的本地故障码
-            savePromises.push(
-              store.dispatch('errorCodes/updateErrorCodeByCode', {
-                code: errorCodeForm.code,
-                subsystem: localSubsystem,
-                data: localData
-              })
-            )
-          } else {
-            // 添加模式：创建本地故障码
-            savePromises.push(
-              store.dispatch('errorCodes/createErrorCode', localData)
-            )
-          }
-        }
-        
-        if (savePromises.length > 0) {
-          await Promise.all(savePromises)
         }
         
         // 如果是新增模式，保存后需要更新 editingErrorCode，以便后续编辑
@@ -2306,6 +2289,7 @@ export default {
       showExportDialog,
       selectedExportLang,
       exportFormat,
+      exportLanguageOptions,
       languageOptions,
       openExportDialog,
       handleExportCSV,
@@ -2327,6 +2311,7 @@ export default {
        handleSizeChange,
        handleCurrentChange,
        handleAdd,
+       handleAddDialogClosed,
        openQueryDialog,
        handleEdit,
        handleDelete,
@@ -2370,7 +2355,10 @@ export default {
        onExplanationInput,
        handleSaveI18n,
        getLanguageLabel,
-       tableHeight
+       tableHeight,
+       promptPreviewLine1,
+       promptPreviewLine2,
+       onPromptAdminUserFocus,
      }
   }
 }
@@ -2453,6 +2441,27 @@ export default {
   max-width: 100%;
 }
 
+/* 提示信息 tab 底部预览：小字、无卡片 */
+.prompt-preview {
+  margin-top: 8px;
+}
+.prompt-preview-label {
+  font-size: 11px;
+  color: var(--slate-500);
+  margin-bottom: 4px;
+}
+.prompt-preview-line {
+  font-size: 11px;
+  color: var(--slate-600);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+.prompt-preview-line:last-child {
+  margin-bottom: 0;
+}
+
+/* 参数 tab：参考转义表 + 选值 + 输入框 同行 */
+
 .i18n-readonly-section {
   background-color: var(--slate-50); /* 使用基础颜色值 */
   padding: 15px;
@@ -2524,11 +2533,18 @@ export default {
 .dialog-header-content {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 15px;
   width: 100%;
 }
 
-.dialog-header-left {
+.dialog-header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--slate-800);
+}
+
+.dialog-header-right {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2536,7 +2552,7 @@ export default {
 
 .dialog-header-label {
   font-size: 14px;
-  color: var(--slate-600); /* 使用基础颜色值 */
+  color: var(--slate-600);
 }
 
 /* 导出语言提示样式 */
@@ -2624,9 +2640,13 @@ export default {
   width: 100%;
 }
 
-/* 释义编辑器补全悬浮窗：确保不被父级 overflow 裁剪 */
+/* 释义编辑器：确保补全/ lint 警告等悬浮窗不被裁剪，且表单项错误提示显示在最上层 */
 .explanation-form-item {
   overflow: visible;
+}
+.explanation-form-item :deep(.el-form-item__error) {
+  position: relative;
+  z-index: 10;
 }
 
 .tech-input-item :deep(.el-textarea__inner) {
@@ -2732,6 +2752,33 @@ export default {
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+}
+
+.error-code-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+}
+
+.dialog-footer-sync {
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--slate-600);
+  font-size: 13px;
+}
+
+.dialog-footer-sync-label {
+  font-weight: 500;
+  color: var(--slate-700);
+}
+
+.dialog-footer-actions {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 

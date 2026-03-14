@@ -21,7 +21,7 @@ const Backend = require('i18next-fs-backend');
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const { sequelize } = require('./models');
+const { sequelize, Sequelize } = require('./models');
 const { defineAssociations } = require('./models/associations');
 const { postgresqlSequelize, testConnection: testPostgreSQLConnection } = require('./config/postgresql');
 const { createRateLimitersWithFallback } = require('./config/rateLimit');
@@ -41,6 +41,8 @@ const surgeryStatisticsRouter = require('./routes/surgeryStatistics');
 const surgeriesRouter = require('./routes/surgeries');
 const devicesRouter = require('./routes/devices');
 const deviceModelsRouter = require('./routes/deviceModels');
+const hospitalsRouter = require('./routes/hospitals');
+const geoDictionariesRouter = require('./routes/geoDictionaries');
 const motionDataRouter = require('./routes/motionData');
 const feedbackRouter = require('./routes/feedback');
 const dashboardRouter = require('./routes/dashboard');
@@ -108,6 +110,22 @@ i18next
   });
 
 const app = express();
+
+const ensureDeviceHospitalCodeColumn = async () => {
+  try {
+    const queryInterface = sequelize.getQueryInterface();
+    const tableDef = await queryInterface.describeTable('devices');
+    if (!Object.prototype.hasOwnProperty.call(tableDef, 'hospital_code')) {
+      await queryInterface.addColumn('devices', 'hospital_code', {
+        type: Sequelize.STRING(100),
+        allowNull: true
+      });
+      console.log(`[进程 ${process.pid}] ✅ 已自动补充 devices.hospital_code 字段`);
+    }
+  } catch (error) {
+    console.warn(`[进程 ${process.pid}] ⚠️ 检查/补充 devices.hospital_code 失败:`, error.message);
+  }
+};
 
 // 配置代理信任（解决X-Forwarded-For头部问题）
 app.set('trust proxy', 1);
@@ -226,6 +244,8 @@ app.use('/api/logs', logsRouter);
 app.use('/api/fault-cases', faultCasesRouter);
 app.use('/api/devices', devicesRouter);
 app.use('/api/device-models', deviceModelsRouter);
+app.use('/api/hospitals', hospitalsRouter);
+app.use('/api/geo', geoDictionariesRouter);
 app.use('/api/motion-data', motionDataRouter);
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/auth', authRouter);
@@ -271,6 +291,7 @@ if (isMainProcess) {
       try {
         await sequelize.authenticate();
         console.log(`[进程 ${process.pid}] MySQL数据库连接成功`);
+        await ensureDeviceHospitalCodeColumn();
 
         // Connect MongoDB for fault-cases module (non-fatal for other modules)
         try {

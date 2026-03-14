@@ -3,7 +3,7 @@ const path = require('path')
 const fs = require('fs')
 
 // 读取 VERSION 并解析 CHANGELOG 中当前版本对应的内容
-function getVersionAndChangelog() {
+function getVersionAndChangelog () {
   const rootDir = path.resolve(__dirname, '..')
   const versionPath = path.join(rootDir, 'VERSION')
   const changelogPath = path.join(rootDir, 'CHANGELOG.md')
@@ -27,9 +27,9 @@ module.exports = defineConfig({
   transpileDependencies: true,
   chainWebpack: (config) => {
     config.plugin('define').tap((definitions) => {
-      definitions[0]['__APP_VERSION__'] = JSON.stringify(APP_VERSION)
-      definitions[0]['__APP_CHANGELOG_CURRENT__'] = JSON.stringify(APP_CHANGELOG_CURRENT)
-      definitions[0]['__APP_TARGET__'] = JSON.stringify(APP_TARGET)
+      definitions[0].__APP_VERSION__ = JSON.stringify(APP_VERSION)
+      definitions[0].__APP_CHANGELOG_CURRENT__ = JSON.stringify(APP_CHANGELOG_CURRENT)
+      definitions[0].__APP_TARGET__ = JSON.stringify(APP_TARGET)
       return definitions
     })
     config.module

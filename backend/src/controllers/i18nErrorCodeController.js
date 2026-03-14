@@ -45,6 +45,22 @@ async function syncErrorCodeToEs(errorCodeId, lang = 'zh') {
   }
 }
 
+async function syncErrorCodeAllLangsToEs(errorCodeId) {
+  if (!isErrorCodeEsEnabled()) return;
+  try {
+    const i18nList = await I18nErrorCode.findAll({
+      where: { error_code_id: errorCodeId },
+      attributes: ['lang']
+    });
+    const langs = ['zh', ...i18nList.map((item) => item.lang).filter((lang) => lang !== 'zh')];
+    for (const lang of langs) {
+      await syncErrorCodeToEs(errorCodeId, lang);
+    }
+  } catch (e) {
+    console.warn(`[ES同步] 故障码 ${errorCodeId} 全语言同步失败:`, e?.message || e);
+  }
+}
+
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
   try {
@@ -202,7 +218,7 @@ const upsertI18nErrorCode = async (req, res) => {
     }
     
     // 同步到ES（异步，不阻塞响应）
-    syncErrorCodeToEs(error_code_id_to_use, lang).catch(() => {});
+    syncErrorCodeAllLangsToEs(error_code_id_to_use).catch(() => {});
     
     res.json({ 
       message: existing ? req.t('i18nErrorCode.updateSuccess') : req.t('i18nErrorCode.createSuccess'), 
@@ -927,6 +943,8 @@ const saveErrorCodeI18nByLang = async (req, res) => {
       console.warn('重新加载故障码缓存失败:', cacheError.message);
     }
 
+    syncErrorCodeAllLangsToEs(id).catch(() => {});
+
     res.json({
       message: i18nContent ? 'Updated successfully' : 'Created successfully',
       i18nContent
@@ -1093,6 +1111,8 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
     } catch (cacheError) {
       console.warn('重新加载故障码缓存失败:', cacheError.message);
     }
+
+    syncErrorCodeAllLangsToEs(id).catch(() => {});
 
     res.json({
       message: 'Translation completed',

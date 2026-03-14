@@ -8,6 +8,9 @@ const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
 const Device = require('./device');
 const DeviceKey = require('./deviceKey');
+const GeoCountry = require('./geo_country');
+const GeoRegion = require('./geo_region');
+const HospitalMaster = require('./hospital_master');
 const Feedback = require('./feedback');
 const FeedbackImage = require('./feedback_image');
 const Permission = require('./permission');
@@ -146,6 +149,51 @@ function defineAssociations() {
     targetKey: 'device_id',
     foreignKey: 'device_id',
     as: 'Device'
+  });
+
+  // 地理与医院主数据关联
+  GeoCountry.hasMany(GeoRegion, {
+    sourceKey: 'country_code',
+    foreignKey: 'country_code',
+    as: 'regions'
+  });
+  GeoRegion.belongsTo(GeoCountry, {
+    targetKey: 'country_code',
+    foreignKey: 'country_code',
+    as: 'country'
+  });
+
+  GeoCountry.hasMany(HospitalMaster, {
+    sourceKey: 'country_code',
+    foreignKey: 'country_code',
+    as: 'hospitals'
+  });
+  HospitalMaster.belongsTo(GeoCountry, {
+    targetKey: 'country_code',
+    foreignKey: 'country_code',
+    as: 'Country'
+  });
+
+  GeoRegion.hasMany(HospitalMaster, {
+    sourceKey: 'region_code',
+    foreignKey: 'region_code',
+    as: 'hospitals'
+  });
+  HospitalMaster.belongsTo(GeoRegion, {
+    targetKey: 'region_code',
+    foreignKey: 'region_code',
+    as: 'Region'
+  });
+
+  HospitalMaster.hasMany(Device, {
+    sourceKey: 'id',
+    foreignKey: 'hospital_id',
+    as: 'devices'
+  });
+  Device.belongsTo(HospitalMaster, {
+    targetKey: 'id',
+    foreignKey: 'hospital_id',
+    as: 'HospitalMaster'
   });
 
   // ErrorCode 和 I18nErrorCode 的一对多关联

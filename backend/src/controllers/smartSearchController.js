@@ -341,34 +341,27 @@ function extractFaultCodesFromText(query) {
 
 function mergeErrorCodeByLang(errorCodeData, targetLang) {
   if (!errorCodeData) return errorCodeData;
-  if (targetLang === 'zh') {
-    delete errorCodeData.i18nContents;
-    return errorCodeData;
-  }
+  const normalized = String(targetLang || 'zh').split('-')[0];
+  const i18nList = Array.isArray(errorCodeData.i18nContents) ? errorCodeData.i18nContents : [];
+  const i18nContent = i18nList.find((c) => String(c?.lang || '').split('-')[0] === normalized)
+    || i18nList.find((c) => String(c?.lang || '').split('-')[0] === 'zh')
+    || null;
 
-  const i18nContent = Array.isArray(errorCodeData.i18nContents)
-    ? errorCodeData.i18nContents.find((c) => String(c?.lang || '').split('-')[0] === targetLang)
-    : null;
-
-  if (i18nContent) {
-    const i18nFields = [
-      'short_message',
-      'user_hint',
-      'operation',
-      'detail',
-      'method',
-      'param1',
-      'param2',
-      'param3',
-      'param4',
-      'tech_solution',
-      'explanation'
-    ];
-    for (const f of i18nFields) {
-      if (Object.prototype.hasOwnProperty.call(i18nContent, f)) {
-        errorCodeData[f] = i18nContent[f] ?? '';
-      }
-    }
+  const i18nFields = [
+    'short_message',
+    'user_hint',
+    'operation',
+    'detail',
+    'method',
+    'param1',
+    'param2',
+    'param3',
+    'param4',
+    'tech_solution',
+    'explanation'
+  ];
+  for (const f of i18nFields) {
+    errorCodeData[f] = i18nContent?.[f] ?? '';
   }
 
   delete errorCodeData.i18nContents;
@@ -460,13 +453,30 @@ async function searchErrorCodesByKeywords({ keywords, targetLang, limit }) {
   for (const kw of kwList) {
     if (kw.length <= 1) continue;
     used.push(kw);
+    // MySQL 回退：先查 i18n 文本命中，避免在 include+limit 子查询中引用 i18n 别名。
     // eslint-disable-next-line no-await-in-loop
-    const rows = await ErrorCode.findAll({
+    const i18nMatches = await I18nErrorCode.findAll({
       where: {
         [Op.or]: [
           { short_message: { [Op.like]: `%${kw}%` } },
           { user_hint: { [Op.like]: `%${kw}%` } },
-          { operation: { [Op.like]: `%${kw}%` } },
+          { operation: { [Op.like]: `%${kw}%` } }
+        ]
+      },
+      attributes: ['error_code_id'],
+      raw: true
+    });
+    const i18nMatchedIds = Array.from(new Set(
+      (i18nMatches || [])
+        .map((row) => Number(row.error_code_id))
+        .filter((id) => Number.isFinite(id))
+    ));
+
+    // eslint-disable-next-line no-await-in-loop
+    const rows = await ErrorCode.findAll({
+      where: {
+        [Op.or]: [
+          ...(i18nMatchedIds.length > 0 ? [{ id: { [Op.in]: i18nMatchedIds } }] : []),
           { code: { [Op.like]: `%${kw}%` } },
           { subsystem: { [Op.like]: `%${kw}%` } }
         ]

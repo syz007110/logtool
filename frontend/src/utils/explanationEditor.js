@@ -7,12 +7,17 @@ import { linter, lintGutter } from '@codemirror/lint'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { ViewPlugin, Decoration, EditorView, tooltips } from '@codemirror/view'
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
-import faultMappings from '../../../shared/config/FaultMappings.json'
+import faultMappingsRaw from '../../../shared/config/FaultMappings.json'
 
-// 转义表补全选项：从 FaultMappings 生成 { index, info }
-const FAULT_MAPPING_OPTIONS = Object.entries(faultMappings || {}).map(([idx, table]) => {
+// _meta 为转义表命名，仅用于提示；实际映射表键为数字字符串
+const FAULT_MAPPINGS_META = (faultMappingsRaw && faultMappingsRaw._meta) || {}
+const mappingEntries = Object.entries(faultMappingsRaw || {}).filter(([k]) => k !== '_meta')
+
+// 转义表补全选项：从 FaultMappings 生成 { index, info }，info 优先使用 _meta 名称
+const FAULT_MAPPING_OPTIONS = mappingEntries.map(([idx, table]) => {
+  const name = FAULT_MAPPINGS_META[idx] || ''
   const sample = typeof table === 'object' ? Object.values(table).find(v => v && String(v).trim()) : ''
-  const info = sample ? `如: ${String(sample).slice(0, 20)}${String(sample).length > 20 ? '…' : ''}` : `转义表 ${idx}`
+  const info = name || (sample ? `如: ${String(sample).slice(0, 20)}${String(sample).length > 20 ? '…' : ''}` : `转义表 ${idx}`)
   return { index: idx, info }
 })
 // 0 表示跳过映射，直接使用参数原始值（与后端 explanationParser 一致）
@@ -94,7 +99,7 @@ const MATCH_OPERATORS = [
 /**
  * 占位符补全：输入 { 时触发
  */
-function explanationCompletionSource(context) {
+function explanationCompletionSource (context) {
   // 使用全文光标前内容，避免仅用当前行时在换行/JSON 等场景下匹配不到
   const before = context.state.sliceDoc(0, context.pos)
   let from = context.pos
@@ -124,7 +129,7 @@ function explanationCompletionSource(context) {
     }
   }
 
-  // 情况2：刚输入 {，在 match 对象开头，如 "param1": { 或 "param1": { 
+  // 情况2：刚输入 {，在 match 对象开头，如 "param1": { 或 "param1": {
   const matchOpStart = before.match(/"param[1-4]":\s*\{\s*$/)
   if (matchOpStart) {
     from = context.pos
@@ -163,7 +168,7 @@ function explanationCompletionSource(context) {
         from,
         options,
         validFor: /^\{[0-3]:-?\d*$/,
-        filter: false  // 禁用默认过滤，显示全部转义表选项
+        filter: false // 禁用默认过滤，显示全部转义表选项
       }
     }
   }
@@ -183,7 +188,7 @@ function explanationCompletionSource(context) {
       from,
       options,
       validFor: /^\{[0-3]?\|[^}]*$/,
-      filter: false  // 禁用默认过滤，显示全部 14 个过滤器
+      filter: false // 禁用默认过滤，显示全部 14 个过滤器
     }
   }
 
@@ -206,7 +211,7 @@ function explanationCompletionSource(context) {
       from,
       options,
       validFor: /^\{[0-3]$/,
-      filter: false  // 禁用默认过滤，显示全部占位符/转义表/过滤器
+      filter: false // 禁用默认过滤，显示全部占位符/转义表/过滤器
     }
   }
 
@@ -227,17 +232,19 @@ function explanationCompletionSource(context) {
 // 占位符高亮：{0}、{1}、{0|scale(0.001)} 等
 const PLACEHOLDER_REGEX = /\{[0-3](?::-?\d+)?(?:\|[^}]*)?\}/g
 
-function placeholderHighlightPlugin() {
+function placeholderHighlightPlugin () {
   return ViewPlugin.fromClass(class {
-    constructor(view) {
+    constructor (view) {
       this.decorations = this.buildDecorations(view)
     }
-    update(update) {
+
+    update (update) {
       if (update.docChanged) {
         this.decorations = this.buildDecorations(update.view)
       }
     }
-    buildDecorations(view) {
+
+    buildDecorations (view) {
       const decos = []
       const text = view.state.doc.toString()
       let m
@@ -255,7 +262,7 @@ function placeholderHighlightPlugin() {
 /**
  * 占位符语法校验：未闭合的 { }
  */
-function placeholderLinter(view) {
+function placeholderLinter (view) {
   const text = view.state.doc.toString()
   const diagnostics = []
 
@@ -316,7 +323,7 @@ function placeholderLinter(view) {
 /**
  * 合并校验：JSON 格式时用 JSON 校验，否则用占位符校验
  */
-function explanationLinter(view) {
+function explanationLinter (view) {
   const text = view.state.doc.toString()
   const trimmed = text.trim()
 
@@ -332,11 +339,14 @@ function explanationLinter(view) {
 /**
  * 故障解析编辑器的 CodeMirror 扩展
  */
-export function explanationExtensions() {
+export function explanationExtensions () {
   return [
-    tooltips({ parent: document.body }), /* 补全悬浮窗渲染到 body，避免被弹窗 overflow 裁剪 */
+    tooltips({
+      parent: document.body,
+      position: 'fixed'
+    }), /* 悬浮窗挂到 body 且使用 fixed，避免关闭弹窗后撑大页面滚动范围 */
     EditorView.theme({
-      '&': { height: '100%', overflow: 'visible' },  /* visible 允许补全悬浮窗溢出，不被裁剪 */
+      '&': { height: '100%', overflow: 'visible' }, /* visible 允许补全悬浮窗溢出，不被裁剪 */
       '.cm-scroller': { overflow: 'auto' }
     }),
     syntaxHighlighting(defaultHighlightStyle),

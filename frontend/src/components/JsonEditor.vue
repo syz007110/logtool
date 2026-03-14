@@ -93,9 +93,10 @@ export default {
 </style>
 
 <style>
-/* 补全悬浮窗渲染到 body 后，需提高 z-index 以显示在弹窗之上（Element Plus 弹窗约 3000） */
+/* 补全、lint 等所有悬浮窗渲染到 body 后，需提高 z-index 以显示在弹窗之上（Element Plus 弹窗约 3000） */
 .cm-tooltip-autocomplete,
-.cm-tooltips {
+.cm-tooltips,
+.cm-tooltip {
   z-index: 9999 !important;
 }
 </style>

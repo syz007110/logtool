@@ -34,6 +34,10 @@ const {
   LOCAL_DIR
 } = require('../config/techSolutionStorage');
 const { searchErrorCodesUnified } = require('../services/errorCodeUnifiedService');
+const {
+  syncMirrorErrorCodeBySourceId,
+  isMirrorSubsystem
+} = require('../services/errorCodeMirrorSyncService');
 
 function getBearerToken(req) {
   const raw = req?.headers?.authorization || req?.get?.('authorization') || '';
@@ -113,6 +117,20 @@ const MAIN_STRUCT_FIELDS = [
   'category'
 ];
 
+const I18N_PAYLOAD_FIELDS = [
+  'short_message',
+  'user_hint',
+  'operation',
+  'detail',
+  'method',
+  'param1',
+  'param2',
+  'param3',
+  'param4',
+  'tech_solution',
+  'explanation'
+];
+
 const toMainStructData = (data) => {
   const out = {};
   if (!data || typeof data !== 'object') return out;
@@ -137,6 +155,54 @@ const applyI18nTextFields = (base, i18nContent) => {
   });
   return base;
 };
+
+const normalizeI18nLang = (lang) => {
+  const raw = String(lang || 'zh').trim().toLowerCase();
+  if (!raw) return 'zh';
+  if (raw === 'zh-cn' || raw.startsWith('zh')) return 'zh';
+  if (raw === 'en-us' || raw.startsWith('en')) return 'en';
+  return raw.split('-')[0];
+};
+
+const pickI18nPayload = (data) => {
+  if (!data || typeof data !== 'object' || !data.i18nPayload || typeof data.i18nPayload !== 'object') {
+    return null;
+  }
+  const lang = normalizeI18nLang(data.i18nPayload.lang || data.i18nPayload.language);
+  const payload = { lang };
+  I18N_PAYLOAD_FIELDS.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(data.i18nPayload, field)) {
+      payload[field] = data.i18nPayload[field] || null;
+    }
+  });
+  return payload;
+};
+
+async function upsertI18nPayloadForErrorCode({ errorCodeId, i18nPayload, transaction }) {
+  if (!i18nPayload || !errorCodeId) return;
+  const { lang } = i18nPayload;
+  const writeData = {};
+  I18N_PAYLOAD_FIELDS.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(i18nPayload, field)) {
+      writeData[field] = i18nPayload[field] || null;
+    }
+  });
+
+  const existing = await I18nErrorCode.findOne({
+    where: { error_code_id: errorCodeId, lang },
+    transaction
+  });
+
+  if (existing) {
+    await existing.update(writeData, { transaction });
+  } else {
+    await I18nErrorCode.create({
+      error_code_id: errorCodeId,
+      lang,
+      ...writeData
+    }, { transaction });
+  }
+}
 
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
@@ -210,9 +276,9 @@ const normalizeCode4 = (code) => {
 };
 
 // 局部维护 code_category_map：删除旧映射，插入新映射
-async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
+async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds, transaction = null) {
   try {
-    const ec = await ErrorCode.findByPk(errorCodeId, { attributes: ['subsystem', 'code'] });
+    const ec = await ErrorCode.findByPk(errorCodeId, { attributes: ['subsystem', 'code'], transaction });
     if (!ec) return;
     const subsystemChar = normalizeSubsystemChar(ec.subsystem);
     const code4 = normalizeCode4(ec.code);
@@ -220,7 +286,7 @@ async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
 
     await sequelize.query(
       'DELETE FROM code_category_map WHERE subsystem_char = :s AND code4 = :c',
-      { replacements: { s: subsystemChar, c: code4 } }
+      { replacements: { s: subsystemChar, c: code4 }, transaction }
     );
 
     if (Array.isArray(categoryIds) && categoryIds.length > 0) {
@@ -229,7 +295,7 @@ async function upsertCodeCategoryMapForErrorCode(errorCodeId, categoryIds) {
         .map((id) => `(${sequelize.escape(subsystemChar)}, ${sequelize.escape(code4)}, ${Number(id)})`);
       if (values.length > 0) {
         const sql = `INSERT INTO code_category_map (subsystem_char, code4, analysis_category_id) VALUES ${values.join(',')}`;
-        await sequelize.query(sql);
+        await sequelize.query(sql, { transaction });
       }
     }
   } catch (e) {
@@ -402,7 +468,9 @@ const validateErrorCodeData = (data) => {
 // 新增故障码
 const createErrorCode = async (req, res) => {
   try {
-    const data = req.body;
+    const data = req.body || {};
+    const syncToMirror = Boolean(data.syncToMirror);
+    const i18nPayload = pickI18nPayload(data);
     // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
     // 此处不再处理这些字段
     const mainData = toMainStructData(stripEnglishFields(data));
@@ -414,17 +482,6 @@ const createErrorCode = async (req, res) => {
         message: req.t('shared.validationFailed'),
         errors: validationErrors
       });
-    }
-
-    // 检查子系统+故障码组合是否唯一
-    const duplicateCheck = await ErrorCode.findOne({
-      where: {
-        subsystem: mainData.subsystem,
-        code: mainData.code
-      }
-    });
-    if (duplicateCheck) {
-      return res.status(409).json({ message: req.t('errorCode.duplicate') });
     }
 
     // 根据故障码自动判断故障等级和处理措施
@@ -439,25 +496,50 @@ const createErrorCode = async (req, res) => {
       for_novice: mainData.for_novice !== undefined ? mainData.for_novice : true
     };
 
-    const errorCode = await ErrorCode.create(errorCodeData);
+    let errorCode = null;
+    let mirrorResult = null;
 
-    // 注意：short_message/user_hint/operation 的多语言内容由多语言管理模块管理
-    // 此处不再自动创建多语言记录
+    await sequelize.transaction(async (transaction) => {
+      // 检查子系统+故障码组合是否唯一
+      const duplicateCheck = await ErrorCode.findOne({
+        where: {
+          subsystem: mainData.subsystem,
+          code: mainData.code
+        },
+        transaction
+      });
+      if (duplicateCheck) {
+        const duplicateError = new Error(req.t('errorCode.duplicate'));
+        duplicateError.statusCode = 409;
+        throw duplicateError;
+      }
 
-    // 保存分析分类关联
-    if (data.analysisCategories && Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
-      try {
-        const categoryAssociations = data.analysisCategories.map(categoryId => ({
+      errorCode = await ErrorCode.create(errorCodeData, { transaction });
+
+      if (Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
+        const categoryAssociations = data.analysisCategories.map((categoryId) => ({
           error_code_id: errorCode.id,
           analysis_category_id: categoryId
         }));
-        await ErrorCodeAnalysisCategory.bulkCreate(categoryAssociations);
-        // 同步 code_category_map
-        await upsertCodeCategoryMapForErrorCode(errorCode.id, data.analysisCategories);
-      } catch (categoryError) {
-        console.warn('创建分析分类关联失败，但不影响故障码创建:', categoryError.message);
+        await ErrorCodeAnalysisCategory.bulkCreate(categoryAssociations, { transaction });
+        await upsertCodeCategoryMapForErrorCode(errorCode.id, data.analysisCategories, transaction);
       }
-    }
+
+      if (i18nPayload) {
+        await upsertI18nPayloadForErrorCode({
+          errorCodeId: errorCode.id,
+          i18nPayload,
+          transaction
+        });
+      }
+
+      if (syncToMirror && isMirrorSubsystem(errorCode.subsystem)) {
+        mirrorResult = await syncMirrorErrorCodeBySourceId({
+          sourceErrorCodeId: errorCode.id,
+          transaction
+        });
+      }
+    });
 
     // 记录操作日志（如果失败不影响主要操作）
     if (req.user) {
@@ -488,11 +570,21 @@ const createErrorCode = async (req, res) => {
 
     // 同步到ES（异步，不阻塞响应）
     await errorCodeCacheSyncService.publishReload('error_code_created', { errorCodeId: errorCode.id });
-    syncErrorCodeToEs(errorCode.id, 'zh').catch(() => { });
+    syncErrorCodeAllLangsToEs(errorCode.id).catch(() => { });
+    if (mirrorResult?.targetErrorCodeId) {
+      syncErrorCodeAllLangsToEs(mirrorResult.targetErrorCodeId).catch(() => { });
+    }
 
-    res.status(201).json({ message: req.t('shared.created'), errorCode });
+    res.status(201).json({
+      message: req.t('shared.created'),
+      errorCode,
+      mirrorSync: mirrorResult || null
+    });
   } catch (err) {
     console.error('创建故障码失败:', err);
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
@@ -516,16 +608,12 @@ const getErrorCodes = async (req, res) => {
 const updateErrorCode = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const data = req.body || {};
+    const syncToMirror = Boolean(data.syncToMirror);
+    const i18nPayload = pickI18nPayload(data);
     // 注意：short_message_en/user_hint_en/operation_en 已由多语言管理模块管理
     // 此处不再处理这些字段
     const mainData = toMainStructData(stripEnglishFields(data));
-
-    // 查找故障码
-    const errorCode = await ErrorCode.findByPk(id);
-    if (!errorCode) {
-      return res.status(404).json({ message: req.t('shared.notFound') });
-    }
 
     // 输入验证
     const validationErrors = validateErrorCodeData(mainData);
@@ -536,63 +624,90 @@ const updateErrorCode = async (req, res) => {
       });
     }
 
-    // 检查子系统+故障码组合唯一性（排除当前记录）
-    if ((mainData.subsystem && mainData.subsystem !== errorCode.subsystem) ||
-      (mainData.code && mainData.code !== errorCode.code)) {
-      const duplicateCheck = await ErrorCode.findOne({
-        where: {
-          subsystem: mainData.subsystem || errorCode.subsystem,
-          code: mainData.code || errorCode.code,
-          id: { [Op.ne]: id }
-        }
-      });
-      if (duplicateCheck) {
-        return res.status(409).json({ message: req.t('errorCode.duplicate') });
+    let errorCode = null;
+    let oldData = null;
+    let mirrorResult = null;
+
+    await sequelize.transaction(async (transaction) => {
+      // 查找故障码
+      errorCode = await ErrorCode.findByPk(id, { transaction });
+      if (!errorCode) {
+        const notFoundError = new Error(req.t('shared.notFound'));
+        notFoundError.statusCode = 404;
+        throw notFoundError;
       }
-    }
 
-    // 保存更新前的数据用于日志记录
-    const oldData = {
-      code: errorCode.code,
-      subsystem: errorCode.subsystem,
-      category: errorCode.category
-    };
+      // 检查子系统+故障码组合唯一性（排除当前记录）
+      if ((mainData.subsystem && mainData.subsystem !== errorCode.subsystem) ||
+        (mainData.code && mainData.code !== errorCode.code)) {
+        const duplicateCheck = await ErrorCode.findOne({
+          where: {
+            subsystem: mainData.subsystem || errorCode.subsystem,
+            code: mainData.code || errorCode.code,
+            id: { [Op.ne]: id }
+          },
+          transaction
+        });
+        if (duplicateCheck) {
+          const duplicateError = new Error(req.t('errorCode.duplicate'));
+          duplicateError.statusCode = 409;
+          throw duplicateError;
+        }
+      }
 
-    // 始终根据故障码重新计算等级和处理措施，确保存储的是中文枚举值
-    // 使用更新后的故障码（如果有）或当前故障码
-    const codeToAnalyze = mainData.code || errorCode.code;
-    const { level, solution } = analyzeErrorCode(codeToAnalyze);
-    let updateData = { ...mainData };
-    updateData.level = level;  // 始终使用重新计算的中文值
-    updateData.solution = solution;  // 始终使用重新计算的英文键值
+      oldData = {
+        code: errorCode.code,
+        subsystem: errorCode.subsystem,
+        category: errorCode.category
+      };
 
-    await errorCode.update(updateData);
+      // 始终根据故障码重新计算等级和处理措施
+      const codeToAnalyze = mainData.code || errorCode.code;
+      const { level, solution } = analyzeErrorCode(codeToAnalyze);
+      const updateData = {
+        ...mainData,
+        level,
+        solution
+      };
 
-    // 注意：short_message/user_hint/operation 的多语言内容由多语言管理模块管理
-    // 此处不再自动创建/更新多语言记录
+      await errorCode.update(updateData, { transaction });
 
-    // 更新分析分类关联
-    if (data.analysisCategories !== undefined) {
-      try {
-        // 先删除所有现有关联
+      // 更新分析分类关联
+      if (data.analysisCategories !== undefined) {
         await ErrorCodeAnalysisCategory.destroy({
-          where: { error_code_id: errorCode.id }
+          where: { error_code_id: errorCode.id },
+          transaction
         });
 
-        // 如果有新的分类，创建新关联
         if (Array.isArray(data.analysisCategories) && data.analysisCategories.length > 0) {
-          const categoryAssociations = data.analysisCategories.map(categoryId => ({
+          const categoryAssociations = data.analysisCategories.map((categoryId) => ({
             error_code_id: errorCode.id,
             analysis_category_id: categoryId
           }));
-          await ErrorCodeAnalysisCategory.bulkCreate(categoryAssociations);
+          await ErrorCodeAnalysisCategory.bulkCreate(categoryAssociations, { transaction });
         }
-        // 同步 code_category_map（无分类则清空映射）
-        await upsertCodeCategoryMapForErrorCode(errorCode.id, Array.isArray(data.analysisCategories) ? data.analysisCategories : []);
-      } catch (categoryError) {
-        console.warn('更新分析分类关联失败，但不影响故障码更新:', categoryError.message);
+        await upsertCodeCategoryMapForErrorCode(
+          errorCode.id,
+          Array.isArray(data.analysisCategories) ? data.analysisCategories : [],
+          transaction
+        );
       }
-    }
+
+      if (i18nPayload) {
+        await upsertI18nPayloadForErrorCode({
+          errorCodeId: errorCode.id,
+          i18nPayload,
+          transaction
+        });
+      }
+
+      if (syncToMirror && isMirrorSubsystem(errorCode.subsystem)) {
+        mirrorResult = await syncMirrorErrorCodeBySourceId({
+          sourceErrorCodeId: errorCode.id,
+          transaction
+        });
+      }
+    });
 
     // 记录操作日志（如果失败不影响主要操作）
     if (req.user) {
@@ -628,10 +743,20 @@ const updateErrorCode = async (req, res) => {
     // 同步到ES（异步，不阻塞响应）- 同步所有语言版本
     await errorCodeCacheSyncService.publishReload('error_code_updated', { errorCodeId: errorCode.id });
     syncErrorCodeAllLangsToEs(errorCode.id).catch(() => { });
+    if (mirrorResult?.targetErrorCodeId) {
+      syncErrorCodeAllLangsToEs(mirrorResult.targetErrorCodeId).catch(() => { });
+    }
 
-    res.json({ message: req.t('shared.updated'), errorCode });
+    res.json({
+      message: req.t('shared.updated'),
+      errorCode,
+      mirrorSync: mirrorResult || null
+    });
   } catch (err) {
     console.error('更新故障码失败:', err);
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }
 };
@@ -1098,38 +1223,18 @@ const exportMultiLanguageXML = async (req, res) => {
 
 // CSV导出功能（包含主表全部字段，可选包含多语言字段）
 const exportErrorCodesToCSV = async (req, res) => {
+  const startedAt = Date.now();
+  const stageDurations = {};
+  const markStage = (name, fromTs) => {
+    stageDurations[name] = Date.now() - fromTs;
+  };
   try {
     const { language = '', format = 'csv' } = req.query;
-    const targetLang = String(language).trim();
+    const targetLang = String(language).trim().toLowerCase();
+    const exportLang = targetLang || 'zh';
+    const exportLangBase = exportLang.split('-')[0];
 
-    // 支持的语言列表（与系统一致）
-    const supportedLangs = new Set(['zh', 'en', 'fr', 'de', 'es', 'it', 'pt', 'nl', 'sk', 'ro', 'da']);
-    const isValidLang = targetLang && supportedLangs.has(targetLang);
-
-    // 读取所有故障码以及所有多语言内容（用于替换）
-    const errorCodes = await ErrorCode.findAll({
-      include: [
-        {
-          model: I18nErrorCode,
-          as: 'i18nContents',
-          required: false,
-          attributes: ['lang', 'short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation']
-        },
-        {
-          model: AnalysisCategory,
-          as: 'analysisCategories',
-          through: { attributes: [] },
-          attributes: ['id', 'category_key', 'name_zh', 'name_en']
-        }
-      ],
-      order: [['subsystem', 'ASC'], ['code', 'ASC']]
-    });
-
-    if (!errorCodes || errorCodes.length === 0) {
-      return res.status(404).json({ message: '没有找到故障码数据' });
-    }
-
-    // 根据格式选择分隔符和转义函数
+    // 根据格式选择分隔符
     const isTsv = format === 'tsv';
     const separator = isTsv ? '\t' : ',';
 
@@ -1182,7 +1287,27 @@ const exportErrorCodesToCSV = async (req, res) => {
       'category'
     ];
 
+    // 先只拉取主表字段，避免与多关联 JOIN 导致行数膨胀
+    const structuralFields = ['id', 'subsystem', 'code', 'is_axis_error', 'is_arm_error', 'solution', 'for_expert', 'for_novice', 'related_log', 'stop_report', 'level', 'category'];
+    const queryMainStartedAt = Date.now();
+    const errorCodes = await ErrorCode.findAll({
+      attributes: structuralFields,
+      order: [['subsystem', 'ASC'], ['code', 'ASC']],
+      raw: true
+    });
+    markStage('queryMainMs', queryMainStartedAt);
+
+    if (!Array.isArray(errorCodes) || errorCodes.length === 0) {
+      console.info('[ErrorCodeExportTiming] exportErrorCodesToCSV empty result', {
+        format,
+        language: exportLang,
+        totalMs: Date.now() - startedAt,
+        ...stageDurations
+      });
+      return res.status(404).json({ message: '没有找到故障码数据' });
+    }
     const header = [...baseFields];
+    const errorCodeIds = errorCodes.map((ec) => ec.id);
 
     // CSV/TSV 转义 - 处理包含特殊字符的内容
     const escapeValue = (value) => {
@@ -1200,59 +1325,100 @@ const exportErrorCodesToCSV = async (req, res) => {
       return `"${s}"`;
     };
 
-    // 生成行
-    const lines = [];
-    // 表头
-    lines.push(header.map(escapeValue).join(separator));
-
     // 多语言字段列表（这些字段如果在 i18n_error_codes 中有对应语言的内容，则替换）
     const i18nFields = ['short_message', 'user_hint', 'operation', 'detail', 'method', 'param1', 'param2', 'param3', 'param4', 'tech_solution', 'explanation'];
-
-    for (const ec of errorCodes) {
-      const row = [];
-      const ecPlain = ec.toJSON();
-
-      // 分析分类（导出为逗号分隔的名称，中文优先）
-      const categoryNames = Array.isArray(ecPlain.analysisCategories)
-        ? ecPlain.analysisCategories.map((c) => c.name_zh || c.name_en || c.category_key).join('|')
-        : '';
-
-      const allI18n = Array.isArray(ecPlain.i18nContents) ? ecPlain.i18nContents : [];
-      const zhContent = allI18n.find((content) => String(content.lang || '').split('-')[0] === 'zh') || null;
-      let i18nContent = null;
-      if (isValidLang && targetLang) {
-        i18nContent = allI18n.find((content) => String(content.lang || '').split('-')[0] === targetLang) || null;
-      }
-      const effectiveI18n = i18nContent || zhContent;
-
-      // 填充基础字段
-      for (const field of baseFields) {
-        if (field === 'category' && categoryNames) {
-          row.push(escapeValue(categoryNames));
-          continue;
-        }
-
-        // subsystem字段保持原样，不做任何处理
-        if (field === 'subsystem') {
-          row.push(escapeValue(ecPlain[field]));
-          continue;
-        }
-
-        // 多语言字段统一从 i18n 读取：目标语言优先，缺失回退 zh，再缺失为空
-        if (i18nFields.includes(field)) {
-          if (effectiveI18n && Object.prototype.hasOwnProperty.call(effectiveI18n, field)) {
-            row.push(escapeValue(effectiveI18n[field] || ''));
-          } else {
-            row.push(escapeValue(''));
-          }
-        } else {
-          // 结构字段从主表读取
-          row.push(escapeValue(ecPlain[field]));
-        }
-      }
-
-      lines.push(row.join(separator));
+    const i18nLangWhere = [
+      { lang: exportLang },
+      { lang: { [Op.like]: `${exportLang}-%` } }
+    ];
+    if (exportLangBase && exportLangBase !== exportLang) {
+      i18nLangWhere.push({ lang: exportLangBase });
+      i18nLangWhere.push({ lang: { [Op.like]: `${exportLangBase}-%` } });
     }
+    const queryI18nStartedAt = Date.now();
+    const allI18nRows = await I18nErrorCode.findAll({
+      where: {
+        error_code_id: { [Op.in]: errorCodeIds },
+        [Op.or]: i18nLangWhere
+      },
+      attributes: ['error_code_id', 'lang', ...i18nFields],
+      raw: true
+    });
+    markStage('queryI18nMs', queryI18nStartedAt);
+
+    if (allI18nRows.length === 0) {
+      console.info('[ErrorCodeExportTiming] exportErrorCodesToCSV no language data', {
+        format,
+        language: exportLang,
+        rowCount: errorCodes.length,
+        totalMs: Date.now() - startedAt,
+        ...stageDurations
+      });
+      return res.status(404).json({ message: '无对应语言' });
+    }
+
+    // 预聚合：每个 error_code_id 按语言匹配优先级填充字段（不回退中文）
+    const buildI18nMapStartedAt = Date.now();
+    const scoreLang = (langRaw) => {
+      const lang = String(langRaw || '').toLowerCase();
+      if (lang === exportLang) return 3;
+      if (lang === exportLangBase) return 2;
+      if (lang.startsWith(`${exportLang}-`) || lang.startsWith(`${exportLangBase}-`)) return 1;
+      return 0;
+    };
+    const i18nByErrorCode = new Map();
+    for (const row of allI18nRows) {
+      const errorCodeId = row.error_code_id;
+      const langScore = scoreLang(row.lang);
+      if (langScore <= 0) continue;
+      let bucket = i18nByErrorCode.get(errorCodeId);
+      if (!bucket) {
+        bucket = { values: {}, fieldScore: {} };
+        i18nByErrorCode.set(errorCodeId, bucket);
+      }
+      i18nFields.forEach((field) => {
+        const v = row[field];
+        if (v === null || v === undefined || v === '') return;
+        const currentScore = bucket.fieldScore[field] || 0;
+        if (!bucket.values[field] || langScore >= currentScore) {
+          bucket.values[field] = v;
+          bucket.fieldScore[field] = langScore;
+        }
+      });
+    }
+    markStage('buildI18nMapMs', buildI18nMapStartedAt);
+
+    // 分析分类改为分步查询，避免与 i18n 联表产生笛卡尔放大
+    const queryRelationsStartedAt = Date.now();
+    const relationRows = await ErrorCodeAnalysisCategory.findAll({
+      where: { error_code_id: { [Op.in]: errorCodeIds } },
+      attributes: ['error_code_id', 'analysis_category_id'],
+      raw: true
+    });
+    markStage('queryCategoryRelationMs', queryRelationsStartedAt);
+    const categoryIds = [...new Set(relationRows.map((r) => r.analysis_category_id).filter(Boolean))];
+    const queryCategoriesStartedAt = Date.now();
+    const categories = categoryIds.length > 0
+      ? await AnalysisCategory.findAll({
+        where: { id: { [Op.in]: categoryIds } },
+        attributes: ['id', 'category_key', 'name_zh', 'name_en'],
+        raw: true
+      })
+      : [];
+    markStage('queryCategoriesMs', queryCategoriesStartedAt);
+    const categoryById = new Map(categories.map((c) => [c.id, c]));
+    const buildCategoryMapStartedAt = Date.now();
+    const categoryNamesByErrorCode = new Map();
+    for (const rel of relationRows) {
+      const ecId = rel.error_code_id;
+      const cat = categoryById.get(rel.analysis_category_id);
+      if (!cat) continue;
+      const name = cat.name_zh || cat.name_en || cat.category_key || '';
+      if (!name) continue;
+      if (!categoryNamesByErrorCode.has(ecId)) categoryNamesByErrorCode.set(ecId, []);
+      categoryNamesByErrorCode.get(ecId).push(name);
+    }
+    markStage('buildCategoryMapMs', buildCategoryMapStartedAt);
 
     // 记录操作日志
     if (req.user) {
@@ -1261,22 +1427,69 @@ const exportErrorCodesToCSV = async (req, res) => {
           user_id: req.user.id,
           username: req.user.username,
           operation: 'CSV导出',
-          description: `导出故障码CSV文件 (语言: ${targetLang || '中文/默认'})`,
-          details: { language: targetLang || 'zh', exportCount: errorCodes.length }
+          description: `导出故障码CSV文件 (语言: ${exportLang})`,
+          details: { language: exportLang, exportCount: errorCodes.length }
         });
       } catch { }
     }
 
-    // 输出 CSV/TSV（带 BOM 以兼容 Excel）
-    const bom = '\uFEFF';
-    const content = bom + lines.join('\r\n');
+    // 输出 CSV/TSV（带 BOM 以兼容 Excel），采用流式写出降低内存占用
     const extension = isTsv ? 'tsv' : 'csv';
     const mimeType = isTsv ? 'text/tab-separated-values' : 'text/csv';
     const filename = `error_codes_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${extension}`;
     res.setHeader('Content-Type', `${mimeType}; charset=utf-8`);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(content);
+    const streamWriteStartedAt = Date.now();
+    res.write('\uFEFF');
+    res.write(`${header.map(escapeValue).join(separator)}\r\n`);
+
+    for (const ec of errorCodes) {
+      const row = [];
+      const categoryNames = (categoryNamesByErrorCode.get(ec.id) || []).join('|');
+      const effectiveI18n = i18nByErrorCode.get(ec.id)?.values || null;
+
+      for (const field of baseFields) {
+        if (field === 'category' && categoryNames) {
+          row.push(escapeValue(categoryNames));
+          continue;
+        }
+
+        if (field === 'subsystem') {
+          row.push(escapeValue(ec[field]));
+          continue;
+        }
+
+        if (i18nFields.includes(field)) {
+          if (effectiveI18n && Object.prototype.hasOwnProperty.call(effectiveI18n, field)) {
+            row.push(escapeValue(effectiveI18n[field] || ''));
+          } else {
+            row.push(escapeValue(''));
+          }
+        } else {
+          row.push(escapeValue(ec[field]));
+        }
+      }
+      res.write(`${row.join(separator)}\r\n`);
+    }
+    markStage('streamWriteMs', streamWriteStartedAt);
+    const totalMs = Date.now() - startedAt;
+    console.info('[ErrorCodeExportTiming] exportErrorCodesToCSV done', {
+      format,
+      language: exportLang,
+      rowCount: errorCodes.length,
+      i18nRowCount: allI18nRows.length,
+      relationRowCount: relationRows.length,
+      uniqueCategoryCount: categoryIds.length,
+      totalMs,
+      ...stageDurations
+    });
+    return res.end();
   } catch (err) {
+    console.error('[ErrorCodeExportTiming] exportErrorCodesToCSV failed', {
+      totalMs: Date.now() - startedAt,
+      ...stageDurations,
+      error: err?.message || String(err)
+    });
     console.error('CSV导出失败:', err);
     return res.status(500).json({ message: 'CSV导出失败', error: err.message });
   }
@@ -1616,6 +1829,8 @@ const updateTechSolutionDetail = async (req, res) => {
       where: { error_code_id: id },
       order: [['sort_order', 'ASC'], ['id', 'ASC']]
     });
+
+    syncErrorCodeAllLangsToEs(id).catch(() => { });
 
     res.json({
       message: req.t('shared.updated'),

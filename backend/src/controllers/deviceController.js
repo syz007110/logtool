@@ -1,6 +1,7 @@
 const Device = require('../models/device');
 const DeviceKey = require('../models/deviceKey');
 const Log = require('../models/log');
+const HospitalMaster = require('../models/hospital_master');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const { getDeviceKeys, addDeviceKey, updateDeviceKey, deleteDeviceKey } = require('../services/deviceKeyService');
@@ -9,25 +10,75 @@ const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination'
 // 列表
 const listDevices = async (req, res) => {
   try {
-    const { search = '' } = req.query;
+    const { search = '', country_code, region_code, hospital_id } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
+    const hospitalWhere = {};
+    if (country_code) hospitalWhere.country_code = String(country_code).trim();
+    if (region_code) hospitalWhere.region_code = String(region_code).trim();
+    if (hospital_id !== undefined && hospital_id !== null && hospital_id !== '') {
+      const hospitalIdNum = Number(hospital_id);
+      if (!Number.isFinite(hospitalIdNum) || hospitalIdNum <= 0) {
+        return res.status(400).json({ message: 'hospital_id 必须为正整数' });
+      }
+      where.hospital_id = hospitalIdNum;
+    }
+
     if (search) {
       const like = { [Op.like]: `%${search}%` };
-      where[Op.or] = [
+      const searchOr = [
         { device_id: like },
         { device_model: like },
-        { device_key: like },
-        { hospital: like }
+        { device_key: like }
       ];
+      const matchedHospitals = await HospitalMaster.findAll({
+        attributes: ['id'],
+        where: { hospital_name_std: like },
+        limit: 2000
+      });
+      const matchedHospitalIds = matchedHospitals.map(item => item.id);
+      if (matchedHospitalIds.length > 0) {
+        searchOr.push({ hospital_id: { [Op.in]: matchedHospitalIds } });
+      }
+      where[Op.or] = searchOr;
     }
+
+    const includeHospital = {
+      model: HospitalMaster,
+      as: 'HospitalMaster',
+      attributes: ['id', 'hospital_code', 'hospital_name_std', 'country_code', 'region_code', 'status'],
+      include: [{ model: require('../models/geo_region'), as: 'Region', attributes: ['region_code', 'region_name'], required: false }],
+      required: Object.keys(hospitalWhere).length > 0
+    };
+    if (Object.keys(hospitalWhere).length > 0) {
+      includeHospital.where = hospitalWhere;
+    }
+
     const { count: total, rows: devices } = await Device.findAndCountAll({
       where,
+      include: [includeHospital],
       offset: (page - 1) * limit,
       limit,
-      order: [['updated_at', 'DESC']]
+      order: [['updated_at', 'DESC']],
+      distinct: true
     });
-    res.json({ devices, total });
+
+    const result = devices.map(item => {
+      const data = item.toJSON();
+      const hospitalInfo = data.HospitalMaster || null;
+      const regionInfo = hospitalInfo?.Region || null;
+      return {
+        ...data,
+        hospital_id: data.hospital_id || hospitalInfo?.id || null,
+        hospital_code: data.hospital_code || hospitalInfo?.hospital_code || null,
+        hospital_name: hospitalInfo?.hospital_name_std || '',
+        country_code: hospitalInfo?.country_code || null,
+        region_code: hospitalInfo?.region_code || null,
+        region_name: regionInfo?.region_name || null
+      };
+    });
+
+    res.json({ devices: result, total });
   } catch (e) {
     res.status(500).json({ message: req.t('device.listFailed'), error: e.message });
   }
@@ -36,7 +87,7 @@ const listDevices = async (req, res) => {
 // 创建
 const createDevice = async (req, res) => {
   try {
-    const { device_id, device_model, device_key, hospital } = req.body;
+    const { device_id, device_model, device_key, hospital_id } = req.body;
     if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
     // 简单格式校验：与日志相同规则
     const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
@@ -49,7 +100,38 @@ const createDevice = async (req, res) => {
     }
     const existed = await Device.findOne({ where: { device_id } });
     if (existed) return res.status(409).json({ message: req.t('device.idExists') });
-    const record = await Device.create({ device_id, device_model, device_key, hospital, created_at: new Date(), updated_at: new Date() });
+
+    let resolvedHospitalId = null;
+    let resolvedHospitalCode = null;
+    if (hospital_id !== undefined && hospital_id !== null && hospital_id !== '') {
+      const hospitalIdNum = Number(hospital_id);
+      if (!Number.isFinite(hospitalIdNum) || hospitalIdNum <= 0) {
+        return res.status(400).json({ message: 'hospital_id 必须为正整数' });
+      }
+      const hospitalRecord = await HospitalMaster.findByPk(hospitalIdNum);
+      if (!hospitalRecord) {
+        return res.status(400).json({ message: '医院不存在' });
+      }
+      resolvedHospitalId = hospitalRecord.id;
+      resolvedHospitalCode = hospitalRecord.hospital_code;
+    }
+
+    const createPayload = {
+      device_id,
+      device_model,
+      device_key,
+      hospital_id: resolvedHospitalId,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    if (Object.prototype.hasOwnProperty.call(Device.rawAttributes, 'hospital_code')) {
+      createPayload.hospital_code = resolvedHospitalCode;
+    }
+    // 兼容历史字段：不再维护医院名称归属
+    if (Object.prototype.hasOwnProperty.call(Device.rawAttributes, 'hospital')) {
+      createPayload.hospital = null;
+    }
+    const record = await Device.create(createPayload);
 
     // 操作日志
     try {
@@ -60,7 +142,13 @@ const createDevice = async (req, res) => {
         username: req.user?.username,
         ip: req.ip,
         user_agent: req.headers['user-agent'],
-        details: { device_id, device_model, device_key: device_key ? '***' : null, hospital }
+        details: {
+          device_id,
+          device_model,
+          device_key: device_key ? '***' : null,
+          hospital_id: resolvedHospitalId,
+          hospital_code: resolvedHospitalCode
+        }
       });
     } catch (logErr) {
       console.warn('记录操作日志失败（创建设备）:', logErr.message);
@@ -76,7 +164,7 @@ const createDevice = async (req, res) => {
 const updateDevice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { device_id, device_model, device_key, hospital } = req.body;
+    const { device_id, device_model, device_key, hospital_id } = req.body;
     const device = await Device.findByPk(id);
     if (!device) return res.status(404).json({ message: req.t('device.notFound') });
     if (device_id && device_id !== device.device_id) {
@@ -91,10 +179,38 @@ const updateDevice = async (req, res) => {
     if (device_key && !macRegex.test(device_key)) {
       return res.status(400).json({ message: req.t('device.invalidKeyFormat') });
     }
+    let nextHospitalId = device.hospital_id;
+    let nextHospitalCode = Object.prototype.hasOwnProperty.call(device, 'hospital_code') ? device.hospital_code : null;
+    const hasHospitalIdField = Object.prototype.hasOwnProperty.call(req.body, 'hospital_id');
+    if (hasHospitalIdField) {
+      if (hospital_id === null || hospital_id === '') {
+        nextHospitalId = null;
+        nextHospitalCode = null;
+      } else {
+        const hospitalIdNum = Number(hospital_id);
+        if (!Number.isFinite(hospitalIdNum) || hospitalIdNum <= 0) {
+          return res.status(400).json({ message: 'hospital_id 必须为正整数' });
+        }
+        const hospitalRecord = await HospitalMaster.findByPk(hospitalIdNum);
+        if (!hospitalRecord) {
+          return res.status(400).json({ message: '医院不存在' });
+        }
+        nextHospitalId = hospitalRecord.id;
+        nextHospitalCode = hospitalRecord.hospital_code;
+      }
+    }
+
     device.device_id = device_id ?? device.device_id;
     device.device_model = device_model ?? device.device_model;
     device.device_key = device_key ?? device.device_key;
-    device.hospital = hospital ?? device.hospital;
+    device.hospital_id = nextHospitalId;
+    if (Object.prototype.hasOwnProperty.call(device, 'hospital_code')) {
+      device.hospital_code = nextHospitalCode;
+    }
+    // 兼容历史字段：不再维护医院名称归属
+    if (Object.prototype.hasOwnProperty.call(device, 'hospital')) {
+      device.hospital = null;
+    }
     device.updated_at = new Date();
     await device.save();
 
@@ -107,7 +223,14 @@ const updateDevice = async (req, res) => {
         username: req.user?.username,
         ip: req.ip,
         user_agent: req.headers['user-agent'],
-        details: { id: device.id, device_id: device.device_id, device_model, device_key: device_key ? '***' : undefined, hospital }
+        details: {
+          id: device.id,
+          device_id: device.device_id,
+          device_model,
+          device_key: device_key ? '***' : undefined,
+          hospital_id: device.hospital_id,
+          hospital_code: Object.prototype.hasOwnProperty.call(device, 'hospital_code') ? device.hospital_code : null
+        }
       });
     } catch (logErr) {
       console.warn('记录操作日志失败（更新设备）:', logErr.message);

@@ -1220,13 +1220,14 @@ async function listMotionDataFilesByDevice(req, res) {
     const dataSql = `
       SELECT
         m.device_id AS device_id,
-        d.hospital AS hospital_name,
+        hm.hospital_name_std AS hospital_name,
         COUNT(*) AS data_count,
         MAX(COALESCE(m.file_time, m.upload_time)) AS latest_upload_time
       FROM motion_data_files m
       LEFT JOIN devices d ON d.device_id = m.device_id
+      LEFT JOIN hospital_master hm ON hm.id = d.hospital_id
       ${whereSql}
-      GROUP BY m.device_id, d.hospital
+      GROUP BY m.device_id, hm.hospital_name_std
       ORDER BY latest_upload_time DESC
       LIMIT :limit OFFSET :offset
     `;

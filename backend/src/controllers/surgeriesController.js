@@ -13,6 +13,7 @@ const LogEntry = {
 };
 const Log = require('../models/log');
 const Device = require('../models/device');
+const HospitalMaster = require('../models/hospital_master');
 const SurgeryExportPending = require('../models/surgeryExportPending');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const { logProcessingQueue } = require('../config/queue');
@@ -218,13 +219,24 @@ exports.listSurgeries = async (req, res) => {
       }
     }
 
-    // 附带医院名称（仅基于 surgery.device_id 与设备表关联，不额外要求设备权限）
+    // 附带医院名称（通过 device.hospital_id 关联 hospital_master，不读取设备历史 hospital 字段）
     try {
       const allDeviceIds = Array.from(new Set((rows || []).map(r => r.device_id).filter(Boolean)));
       let deviceIdToHospital = new Map();
       if (allDeviceIds.length > 0) {
-        const devices = await Device.findAll({ where: { device_id: { [Op.in]: allDeviceIds } }, attributes: ['device_id', 'hospital'] });
-        deviceIdToHospital = new Map(devices.map(d => [d.device_id, d.hospital || null]));
+        const devices = await Device.findAll({
+          where: { device_id: { [Op.in]: allDeviceIds } },
+          attributes: ['device_id', 'hospital_id'],
+          include: [{
+            model: HospitalMaster,
+            as: 'HospitalMaster',
+            attributes: ['hospital_name_std'],
+            required: false
+          }]
+        });
+        deviceIdToHospital = new Map(
+          devices.map(d => [d.device_id, d.HospitalMaster?.hospital_name_std || null])
+        );
       }
 
       // 为每条手术记录附加 hospital_names（兼容字段）与 hospital_name
@@ -404,12 +416,12 @@ exports.listSurgeriesByDevice = async (req, res) => {
     // 关键点：surgeries 在 PostgreSQL，但 devices 在 MySQL（默认 sequelize）。
     // 所以这里不能在 PostgreSQL SQL 里直接 JOIN devices；改为：
     // 1) PostgreSQL：按单列 device_id 分组 + 分页
-    // 2) MySQL：仅查询当前页 device_id 的设备信息（hospital/device_model）并合并
+    // 2) MySQL：仅查询当前页 device_id 的设备信息（hospital_master/device_model）并合并
 
     const keywordStr = (keyword || '').toString().trim();
     const keywordLower = keywordStr.toLowerCase();
 
-    // 先在 MySQL devices 表里找出“医院/设备号匹配 keyword”的 device_id（用于补充医院筛选）
+    // 先在 MySQL devices + hospital_master 里找出“医院/设备号匹配 keyword”的 device_id（用于补充医院筛选）
     // 说明：仅用于过滤/补齐当前页设备信息，不在 PostgreSQL 内 JOIN devices
     let deviceIdsMatchedByMysql = [];
     if (keywordLower) {
@@ -419,10 +431,17 @@ exports.listSurgeriesByDevice = async (req, res) => {
           where: {
             [Op.or]: [
               { device_id: { [Op.like]: like } },
-              { hospital: { [Op.like]: like } }
+              { '$HospitalMaster.hospital_name_std$': { [Op.like]: like } }
             ]
           },
+          include: [{
+            model: HospitalMaster,
+            as: 'HospitalMaster',
+            attributes: [],
+            required: false
+          }],
           attributes: ['device_id'],
+          subQuery: false,
           limit: 5000 // 安全上限：避免 keyword 过宽导致返回过多设备
         });
         deviceIdsMatchedByMysql = matched.map(d => d.device_id).filter(Boolean);
@@ -547,11 +566,17 @@ exports.listSurgeriesByDevice = async (req, res) => {
       try {
         const devices = await Device.findAll({
           where: { device_id: { [Op.in]: pageDeviceIds } },
-          attributes: ['device_id', 'hospital', 'device_model']
+          attributes: ['device_id', 'device_model', 'hospital_id'],
+          include: [{
+            model: HospitalMaster,
+            as: 'HospitalMaster',
+            attributes: ['hospital_name_std'],
+            required: false
+          }]
         });
         devices.forEach(d => {
           deviceIdToInfo.set(d.device_id, {
-            hospital_name: d.hospital || null,
+            hospital_name: d.HospitalMaster?.hospital_name_std || null,
             device_model: d.device_model || null
           });
         });

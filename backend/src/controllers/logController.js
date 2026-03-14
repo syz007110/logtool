@@ -5,6 +5,7 @@ const ErrorCode = require('../models/error_code');
 const AnalysisCategory = require('../models/analysis_category');
 const { sequelize } = require('../models');
 const Device = require('../models/device');
+const HospitalMaster = require('../models/hospital_master');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { getKeyForDeviceAndDate } = require('../services/deviceKeyService');
@@ -586,7 +587,13 @@ const getLogs = async (req, res) => {
       try {
         const devices = await Device.findAll({
           where: { device_id: deviceIds },
-          attributes: ['device_id', 'hospital', 'device_model']
+          attributes: ['device_id', 'device_model', 'hospital_id'],
+          include: [{
+            model: HospitalMaster,
+            as: 'HospitalMaster',
+            attributes: ['hospital_name_std'],
+            required: false
+          }]
         });
 
         // 创建设备ID到设备信息的映射
@@ -606,7 +613,7 @@ const getLogs = async (req, res) => {
 
       return {
         ...logData,
-        hospital_name: deviceInfo?.hospital || null,
+        hospital_name: deviceInfo?.HospitalMaster?.hospital_name_std || null,
         device_name: deviceInfo?.device_model || req.t('log.unknownDevice')
       };
     });
@@ -759,14 +766,15 @@ const getLogsByDevice = async (req, res) => {
     const dataSql = `
       SELECT
         COALESCE(l.device_id, '未知设备') AS device_id,
-        d.hospital AS hospital_name,
+        hm.hospital_name_std AS hospital_name,
         d.device_model AS device_model,
         COUNT(*) AS log_count,
         MAX(l.upload_time) AS latest_update_time
       FROM logs l
       LEFT JOIN devices d ON d.device_id = l.device_id
+      LEFT JOIN hospital_master hm ON hm.id = d.hospital_id
       ${whereSql}
-      GROUP BY COALESCE(l.device_id, '未知设备'), d.hospital, d.device_model
+      GROUP BY COALESCE(l.device_id, '未知设备'), hm.hospital_name_std, d.device_model
       ORDER BY latest_update_time DESC
       LIMIT :limit OFFSET :offset
     `;

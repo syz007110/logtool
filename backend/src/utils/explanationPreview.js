@@ -101,25 +101,30 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, temp
 
   let template = payloadTemplate && String(payloadTemplate);
   if (!template && record) {
-    const targetLang = (lang && String(lang).trim()) ? String(lang).split('-')[0].toLowerCase() : null;
-    if (targetLang && targetLang !== 'zh') {
-      const i18nRows = await I18nErrorCode.findAll({
-        where: { error_code_id: record.id },
-        attributes: ['lang', 'explanation']
-      });
-      const i18nMatch = i18nRows.find((row) => {
+    const targetLang = (lang && String(lang).trim())
+      ? String(lang).split('-')[0].toLowerCase()
+      : null;
+
+    // 主表已不再保存多语言文本，释义模板优先从 i18n_error_codes 读取
+    const i18nRows = await I18nErrorCode.findAll({
+      where: { error_code_id: record.id },
+      attributes: ['lang', 'explanation']
+    });
+
+    const pickTemplate = (wantedLang) => {
+      if (!wantedLang) return null;
+      return i18nRows.find((row) => {
         const contentLang = String(row.lang || '').split('-')[0].toLowerCase();
-        return contentLang === targetLang && row.explanation;
-      });
-      if (i18nMatch) {
-        template = i18nMatch.explanation;
-      }
-    }
-    if (!template) {
-      template = record.explanation || '';
-    }
+        return contentLang === wantedLang && row.explanation;
+      }) || null;
+    };
+
+    const exactLangMatch = pickTemplate(targetLang);
+    const zhFallback = pickTemplate('zh');
+    template = exactLangMatch?.explanation || zhFallback?.explanation || '';
+
   } else if (!template) {
-    template = record?.explanation || '';
+    template = '';
   }
   if (!record && !payloadTemplate) {
     const err = new Error('not_found');

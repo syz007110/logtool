@@ -202,7 +202,7 @@ export const webRoutes = [
         name: 'Surgeries',
         component: () => import('../../views/Surgeries.vue'),
         meta: { requiresPermission: ['surgery:read', 'surgery:read_own'] }
-      },
+      }
     ]
   }
 ]

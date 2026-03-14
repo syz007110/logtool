@@ -214,10 +214,27 @@ async function searchErrorCodesUnified({
         }
 
         if (!esMatchedIds || esMatchedIds.length === 0) {
+          // MySQL 回退：先在 i18n_error_codes 查文本命中，再回主表按 id 过滤。
+          // 避免在 findAndCountAll(limit+include) 子查询中引用 i18nContents 别名导致 Unknown column。
+          const i18nMatches = await I18nErrorCode.findAll({
+            where: {
+              [Op.or]: [
+                { short_message: { [Op.like]: `%${kw}%` } },
+                { user_hint: { [Op.like]: `%${kw}%` } },
+                { operation: { [Op.like]: `%${kw}%` } }
+              ]
+            },
+            attributes: ['error_code_id'],
+            raw: true
+          });
+          const i18nMatchedIds = Array.from(new Set(
+            (i18nMatches || [])
+              .map((row) => Number(row.error_code_id))
+              .filter((id) => Number.isFinite(id))
+          ));
+
           where[Op.or] = [
-            { short_message: { [Op.like]: `%${kw}%` } },
-            { user_hint: { [Op.like]: `%${kw}%` } },
-            { operation: { [Op.like]: `%${kw}%` } },
+            ...(i18nMatchedIds.length > 0 ? [{ id: { [Op.in]: i18nMatchedIds } }] : []),
             { code: { [Op.like]: `%${kw}%` } }
           ];
           esScoreMap = null;

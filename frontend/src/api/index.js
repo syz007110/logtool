@@ -292,6 +292,18 @@ const devices = {
   deleteKey: (keyId) => api.delete(`/devices/keys/${keyId}`)
 }
 
+const hospitals = {
+  getList: (params) => api.get('/hospitals', { params }),
+  create: (data) => api.post('/hospitals', data),
+  update: (id, data) => api.put(`/hospitals/${id}`, data),
+  delete: (id) => api.delete(`/hospitals/${id}`)
+}
+
+const geo = {
+  getCountries: (params) => api.get('/geo/countries', { params }),
+  getRegions: (params) => api.get('/geo/regions', { params })
+}
+
 // Device model dictionary (MySQL)
 const deviceModels = {
   getList: (params) => api.get('/device-models', { params }),
@@ -431,6 +443,8 @@ export default {
   i18n,
   surgeryStatistics,
   devices,
+  hospitals,
+  geo,
   deviceModels,
   motionData,
   feedback,

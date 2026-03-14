@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const DeviceModelDict = require('../models/device_model_dict');
+const Device = require('../models/device');
 
 // GET /api/device-models?search=&page=&limit=
 const listDeviceModels = async (req, res) => {
@@ -84,12 +85,17 @@ const updateDeviceModel = async (req, res) => {
   }
 };
 
-// DELETE /api/device-models/:id
+// DELETE /api/device-models/:id（与医院一致：有关联设备时不允许删除，可改为停用）
 const deleteDeviceModel = async (req, res) => {
   try {
     const { id } = req.params;
     const record = await DeviceModelDict.findByPk(id);
     if (!record) return res.status(404).json({ message: req.t('shared.notFound') });
+
+    const inUseCount = await Device.count({ where: { device_model: record.device_model } });
+    if (inUseCount > 0) {
+      return res.status(409).json({ message: '该型号已有关联设备，无法删除，可改为停用' });
+    }
 
     await record.destroy();
     return res.json({ message: req.t('shared.deleted') });
