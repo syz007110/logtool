@@ -7,6 +7,7 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
 const errorCodeCache = require('../services/errorCodeCache');
+const errorCodeCacheSyncService = require('../services/errorCodeCacheSyncService');
 const { translateFields } = require('../services/translationService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const { indexErrorCodeToEs, deleteErrorCodeFromEs } = require('../services/errorCodeIndexService');
@@ -58,6 +59,15 @@ async function syncErrorCodeAllLangsToEs(errorCodeId) {
     }
   } catch (e) {
     console.warn(`[ES同步] 故障码 ${errorCodeId} 全语言同步失败:`, e?.message || e);
+  }
+}
+
+async function reloadAndBroadcastErrorCodeCache(reason, meta = {}) {
+  try {
+    await errorCodeCache.reloadCache();
+    await errorCodeCacheSyncService.publishReload(reason, meta);
+  } catch (cacheError) {
+    throw cacheError;
   }
 }
 
@@ -211,7 +221,10 @@ const upsertI18nErrorCode = async (req, res) => {
     
     // 重新加载故障码缓存（多语言故障码增删改后）
     try {
-      await errorCodeCache.reloadCache();
+      await reloadAndBroadcastErrorCodeCache('i18n_error_code_upsert', {
+        errorCodeId: error_code_id_to_use,
+        lang
+      });
       console.log('🔄 故障码缓存已重新加载（多语言故障码操作后）');
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响多语言故障码操作:', cacheError.message);
@@ -282,7 +295,10 @@ const deleteI18nErrorCode = async (req, res) => {
     
     // 重新加载故障码缓存（删除多语言故障码后）
     try {
-      await errorCodeCache.reloadCache();
+      await reloadAndBroadcastErrorCodeCache('i18n_error_code_deleted', {
+        errorCodeId,
+        lang
+      });
       console.log('🔄 故障码缓存已重新加载（删除多语言故障码后）');
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响多语言故障码删除:', cacheError.message);
@@ -427,7 +443,7 @@ const batchImportI18nErrorCodes = async (req, res) => {
     
     // 重新加载故障码缓存（多语言内容更新后）
     try {
-      await errorCodeCache.reloadCache();
+      await reloadAndBroadcastErrorCodeCache('i18n_error_code_batch_import');
       console.log('🔄 故障码缓存已重新加载（批量导入多语言故障码后）');
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响批量导入:', cacheError.message);
@@ -744,7 +760,7 @@ const uploadCSV = async (req, res) => {
           
           // 重新加载故障码缓存（CSV批量导入后）
           try {
-            await errorCodeCache.reloadCache();
+            await reloadAndBroadcastErrorCodeCache('i18n_error_code_csv_import');
             console.log('🔄 故障码缓存已重新加载（CSV批量导入多语言故障码后）');
           } catch (cacheError) {
             console.warn('⚠️ 重新加载故障码缓存失败，但不影响CSV批量导入:', cacheError.message);
@@ -938,7 +954,10 @@ const saveErrorCodeI18nByLang = async (req, res) => {
 
     // 重新加载故障码缓存
     try {
-      await errorCodeCache.reloadCache();
+      await reloadAndBroadcastErrorCodeCache('i18n_error_code_content_saved', {
+        errorCodeId: id,
+        lang
+      });
     } catch (cacheError) {
       console.warn('重新加载故障码缓存失败:', cacheError.message);
     }
@@ -1107,7 +1126,10 @@ const autoTranslateErrorCodeI18n = async (req, res) => {
 
     // 重新加载故障码缓存
     try {
-      await errorCodeCache.reloadCache();
+      await reloadAndBroadcastErrorCodeCache('i18n_error_code_auto_translated', {
+        errorCodeId: id,
+        lang
+      });
     } catch (cacheError) {
       console.warn('重新加载故障码缓存失败:', cacheError.message);
     }

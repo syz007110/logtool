@@ -1,7 +1,19 @@
 <template>
   <div class="login-container">
     <!-- 左侧背景区 -->
-    <div class="login-left" :style="{ backgroundImage: 'url(/login-bg.jpg)' }"></div>
+    <div class="login-left">
+      <div class="login-left-placeholder" :class="{ hidden: bgLoaded }"></div>
+      <img
+        class="login-left-image"
+        src="/login-bg.jpg"
+        alt=""
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+        @load="onBgLoaded"
+        :class="{ loaded: bgLoaded }"
+      />
+    </div>
 
     <!-- 右侧表单区 -->
     <div class="login-right">
@@ -53,6 +65,11 @@
                   size="large"
                   show-password
                 />
+              </el-form-item>
+              <el-form-item class="remember-me-item">
+                <el-checkbox v-model="loginFormData.rememberMe">
+                  {{ $t('login.rememberMe') }}
+                </el-checkbox>
               </el-form-item>
               <el-form-item v-if="requireCaptcha" :label="$t('auth.captchaRequired')">
                 <div class="captcha-row">
@@ -176,6 +193,7 @@ export default {
     const captchaId = ref('')
     const captchaSvg = ref('')
     const captchaLoading = ref(false)
+    const bgLoaded = ref(false)
     
     // H5 免登所需 corpId / appKey，允许从 URL ?corpid= 透传
     const urlParams = new URLSearchParams(window.location.search)
@@ -196,7 +214,8 @@ export default {
     const loginFormData = reactive({
       username: '',
       password: '',
-      captchaCode: ''
+      captchaCode: '',
+      rememberMe: false
     })
 
     const registerFormData = reactive({
@@ -276,7 +295,11 @@ export default {
           return
         }
         loading.value = true
-        const payload = { username: loginFormData.username, password: loginFormData.password }
+        const payload = {
+          username: loginFormData.username,
+          password: loginFormData.password,
+          rememberMe: !!loginFormData.rememberMe
+        }
         if (requireCaptcha.value) {
           payload.captchaId = captchaId.value
           payload.captchaCode = loginFormData.captchaCode.trim()
@@ -344,6 +367,10 @@ export default {
       await loadLocaleMessages(language)
     }
 
+    const onBgLoaded = () => {
+      bgLoaded.value = true
+    }
+
     const tryAutoDingTalkLogin = async () => {
       if (autoLoginTried.value) return
       autoLoginTried.value = true
@@ -391,7 +418,9 @@ export default {
       requireCaptcha,
       captchaSvg,
       captchaLoading,
-      fetchCaptcha
+      fetchCaptcha,
+      bgLoaded,
+      onBgLoaded
     }
   }
 }
@@ -408,11 +437,38 @@ export default {
 .login-left {
   width: 60%;
   height: 100vh;
-  background-size: auto 100%;
-  background-position: center;
-  background-repeat: no-repeat;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(120deg, #e9eef7 0%, #d8e0ef 100%);
+}
+
+.login-left-placeholder {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.55), transparent 35%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.4), transparent 30%),
+    linear-gradient(120deg, #e9eef7 0%, #d8e0ef 100%);
+  transition: opacity 260ms ease;
+  opacity: 1;
+}
+
+.login-left-placeholder.hidden {
+  opacity: 0;
+}
+
+.login-left-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.login-left-image.loaded {
+  opacity: 1;
 }
 
 /* 右侧操作区 - 40% */
@@ -507,7 +563,6 @@ export default {
     width: 100%;
     min-height: 30vh;
     height: 30vh;
-    background-size: cover;
   }
 
   .login-right {

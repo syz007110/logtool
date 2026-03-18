@@ -1,11 +1,46 @@
+const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
 const User = require('../models/user')
 const UserRole = require('../models/user_role')
 const Role = require('../models/role')
 const Permission = require('../models/permission')
 const { Op } = require('sequelize')
 const { exchangeUser } = require('../services/dingtalkService')
+const { parseRememberMe, issueTokenPair } = require('../services/authSessionService')
+
+const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'rt'
+const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || 'csrf_token'
+
+function getRefreshCookieOptions(maxAgeMs) {
+  const secure = String(process.env.AUTH_COOKIE_SECURE || '').trim().toLowerCase() === 'true' || process.env.NODE_ENV === 'production'
+  const sameSiteRaw = String(process.env.AUTH_COOKIE_SAMESITE || 'lax').trim().toLowerCase()
+  const sameSite = ['lax', 'strict', 'none'].includes(sameSiteRaw) ? sameSiteRaw : 'lax'
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/api/auth',
+    maxAge: maxAgeMs
+  }
+}
+
+function getDeviceInfo(req) {
+  const ua = String(req.headers?.['user-agent'] || '').trim()
+  return ua ? ua.slice(0, 255) : null
+}
+
+function getCsrfCookieOptions(maxAgeMs) {
+  const secure = String(process.env.AUTH_COOKIE_SECURE || '').trim().toLowerCase() === 'true' || process.env.NODE_ENV === 'production'
+  const sameSiteRaw = String(process.env.AUTH_COOKIE_SAMESITE || 'lax').trim().toLowerCase()
+  const sameSite = ['lax', 'strict', 'none'].includes(sameSiteRaw) ? sameSiteRaw : 'lax'
+  return {
+    httpOnly: false,
+    secure,
+    sameSite,
+    path: '/',
+    maxAge: maxAgeMs
+  }
+}
 
 async function getUserPrimaryRole (userId) {
   const userRole = await UserRole.findOne({ where: { user_id: userId } })
@@ -38,7 +73,7 @@ async function ensureDefaultRole (userId) {
 
 const loginWithDingTalk = async (req, res) => {
   try {
-    const { authCode } = req.body
+    const { authCode, rememberMe } = req.body
     if (!authCode) {
       return res.status(400).json({ message: req.t('auth.invalidCredentials') })
     }
@@ -71,11 +106,20 @@ const loginWithDingTalk = async (req, res) => {
 
     const { roleName, roleId } = await getUserPrimaryRole(user.id)
     const permissions = await getUserPermissions(user.id)
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '12h' })
+    const remember = parseRememberMe(rememberMe)
+    const pair = await issueTokenPair({
+      userId: user.id,
+      username: user.username,
+      rememberMe: remember,
+      deviceInfo: getDeviceInfo(req),
+      ipAddress: req.ip || null
+    })
+    res.cookie(REFRESH_COOKIE_NAME, pair.refreshToken, getRefreshCookieOptions(pair.refreshTokenMaxAgeMs))
+    res.cookie(CSRF_COOKIE_NAME, crypto.randomBytes(24).toString('base64url'), getCsrfCookieOptions(pair.refreshTokenMaxAgeMs))
 
     res.json({
       message: req.t('auth.loginSuccess') || 'OK',
-      token,
+      token: pair.accessToken,
       user: {
         id: user.id,
         username: user.username,
@@ -95,4 +139,3 @@ const loginWithDingTalk = async (req, res) => {
 module.exports = {
   loginWithDingTalk
 }
-

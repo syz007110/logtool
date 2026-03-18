@@ -21,8 +21,14 @@ const { processKbIngestJob } = require('./kbIngestProcessor');
 const Log = require('../models/log');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const websocketService = require('../services/websocketService');
+const errorCodeCacheSyncService = require('../services/errorCodeCacheSyncService');
 const { logOperation } = require('../utils/operationLogger');
 const { autoImportSurgeries } = require('../controllers/surgeryStatisticsController');
+
+// 队列消费进程不一定经过 app.js，这里补上故障码缓存跨进程同步订阅。
+errorCodeCacheSyncService.initializeSubscriber().catch((e) => {
+  console.warn('⚠️ 队列进程故障码缓存同步订阅初始化失败:', e.message);
+});
 
 // 设置并发处理数量
 const CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 3;

@@ -65,6 +65,10 @@ const cacheInitializer = require('./services/cacheInitializer');
 const errorCodeCacheSyncService = require('./services/errorCodeCacheSyncService');
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
 const { startTempCleanupJob } = require('./services/tempCleanupService');
+const { startRefreshTokenCleanupJob } = require('./services/refreshTokenCleanupService');
+
+let tempCleanupJob = null;
+let refreshTokenCleanupJob = null;
 
 // 初始化队列系统
 try {
@@ -143,7 +147,7 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -348,7 +352,8 @@ if (isMainProcess) {
           // - 技术排查方案 tmp
           // - motion-data 上传 tmp
           // 仅在主进程运行一次定时任务
-          startTempCleanupJob();
+          tempCleanupJob = startTempCleanupJob();
+          refreshTokenCleanupJob = startRefreshTokenCleanupJob();
           
           // 初始化队列管理器
           (async () => {
@@ -375,6 +380,8 @@ if (isMainProcess) {
 // 优雅关闭
 process.on('SIGTERM', async () => {
   console.log('收到SIGTERM信号，正在优雅关闭...');
+  try { tempCleanupJob?.stop?.(); } catch (_) {}
+  try { refreshTokenCleanupJob?.stop?.(); } catch (_) {}
   await cacheManager.disconnect();
   await sequelize.close();
   await disconnectMongo();
@@ -383,6 +390,8 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('收到SIGINT信号，正在优雅关闭...');
+  try { tempCleanupJob?.stop?.(); } catch (_) {}
+  try { refreshTokenCleanupJob?.stop?.(); } catch (_) {}
   await cacheManager.disconnect();
   await sequelize.close();
   await disconnectMongo();

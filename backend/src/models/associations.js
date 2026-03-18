@@ -1,4 +1,5 @@
 const User = require('./user');
+const RefreshToken = require('./refresh_token');
 const Role = require('./role');
 const UserRole = require('./user_role');
 const ErrorCode = require('./error_code');
@@ -81,6 +82,15 @@ function defineAssociations() {
   User.hasMany(UserRole, {
     foreignKey: 'user_id',
     as: 'UserRoles'
+  });
+
+  User.hasMany(RefreshToken, {
+    foreignKey: 'user_id',
+    as: 'refreshTokens'
+  });
+  RefreshToken.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user'
   });
 
   // UserRole 和 assigned_by 用户的关联

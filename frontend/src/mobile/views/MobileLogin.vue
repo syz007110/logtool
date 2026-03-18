@@ -54,6 +54,12 @@
             />
           </el-form-item>
 
+          <el-form-item class="remember-me-item">
+            <el-checkbox v-model="formData.rememberMe">
+              {{ $t('login.rememberMe') }}
+            </el-checkbox>
+          </el-form-item>
+
           <el-form-item v-if="requireCaptcha" prop="captchaCode" class="captcha-form-item">
             <div class="captcha-row">
               <div class="captcha-svg" v-html="captchaSvg" />
@@ -119,7 +125,8 @@ export default {
     const formData = reactive({
       username: '',
       password: '',
-      captchaCode: ''
+      captchaCode: '',
+      rememberMe: false
     })
 
     const loading = ref(false)
@@ -164,7 +171,8 @@ export default {
 
         const payload = {
           username: formData.username,
-          password: formData.password
+          password: formData.password,
+          rememberMe: !!formData.rememberMe
         }
 
         if (requireCaptcha.value) {

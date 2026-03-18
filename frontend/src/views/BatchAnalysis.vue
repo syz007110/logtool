@@ -347,9 +347,35 @@
                   </div>
                 </div>
                 <!-- 底部：搜索表达式预览（自然语言/常用表达式/导入选中后显示） -->
-                <div class="search-tab-preview" v-if="searchTabPreviewExpression">
-                  <span class="search-tab-preview-label">{{ $t('batchAnalysis.expressionPreview') }}：</span>
-                  <span class="search-tab-preview-expr" :title="searchTabPreviewExpression">{{ searchTabPreviewExpression }}</span>
+                <div class="search-tab-preview" v-if="searchTabPreviewExpression || searchPreviewEditMode">
+                  <div class="search-tab-preview-head">
+                    <span class="search-tab-preview-label">{{ $t('batchAnalysis.expressionPreview') }}：</span>
+                    <el-button
+                      v-if="!searchPreviewEditMode"
+                      link
+                      size="small"
+                      class="search-tab-preview-edit-btn"
+                      @click="openSearchPreviewEditor"
+                    >
+                      修改
+                    </el-button>
+                  </div>
+                  <div v-if="!searchPreviewEditMode" class="search-tab-preview-view">
+                    <span class="search-tab-preview-expr" :title="searchTabPreviewExpression">{{ searchTabPreviewExpression }}</span>
+                  </div>
+                  <div v-else class="search-tab-preview-editor">
+                    <el-input
+                      v-model="searchPreviewExpressionDraft"
+                      type="textarea"
+                      :autosize="{ minRows: 8 }"
+                      resize="none"
+                      placeholder='{"logic":"AND","conditions":[]}'
+                    />
+                    <div class="search-tab-preview-editor-actions">
+                      <el-button size="small" @click="cancelSearchPreviewEdit">取消</el-button>
+                      <el-button size="small" type="primary" @click="applySearchPreviewEdit">应用表达式修改</el-button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1081,6 +1107,24 @@ export default {
     const selectedLogs = ref([])
     const batchLogEntries = ref([])
     const searchKeyword = ref('')
+    const normalizeSearchKeywordForQuery = (input) => {
+      const trimmed = String(input || '').trim()
+      if (!trimmed) return ''
+      const compact = trimmed.replace(/\s+/g, '')
+
+      // 仅对“明确是故障码”的输入做大小写规范化（按入库小写），不做长度压缩/短码化。
+      // 避免把完整故障码错误转换成 0xxxxx 短码，导致检索结果回归。
+      const isShortCode = /^(?:0x)?[0-9a-f]{3}[a-e]$/i.test(compact)
+      const isFullCode = /^[1-9a][0-9a-f]{5}[a-e]$/i.test(compact)
+      const isSubsystemPlusShort = /^[1-9a]0x[0-9a-f]{3}[a-e]$/i.test(compact)
+
+      if (isShortCode || isFullCode || isSubsystemPlusShort) {
+        return compact.toLowerCase()
+      }
+
+      return trimmed
+    }
+    const normalizedSearchKeyword = computed(() => normalizeSearchKeywordForQuery(searchKeyword.value))
     const timeRange = ref(null)
     // 时区显示：日志按原时区存储，检索时使用转换前的时间；此处选中的时区仅影响前端显示
     const displayTimezoneOffsetMinutes = ref(480) // 480 = 与当前默认原时区一致，无转换
@@ -1329,8 +1373,8 @@ export default {
         params.start_time = timeRange.value[0]
         params.end_time = timeRange.value[1]
       }
-      if (searchKeyword.value) {
-        params.search = searchKeyword.value
+      if (normalizedSearchKeyword.value) {
+        params.search = normalizedSearchKeyword.value
       }
       try {
         return JSON.stringify(params)
@@ -1407,8 +1451,8 @@ export default {
         }
         
         // 添加关键词搜索（与loadBatchLogEntries保持一致）
-        if (searchKeyword.value) {
-          params.search = searchKeyword.value
+        if (normalizedSearchKeyword.value) {
+          params.search = normalizedSearchKeyword.value
         }
         
         // 生成缓存键
@@ -1650,10 +1694,17 @@ export default {
       return s.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(s)
     }
 
-    // 递归规范化 error_code：等于/包含 → 完整码用 eq、非完整用 contains；排除 → 完整码用 !=、非完整用 notcontains（不包含）
+    // 递归规范化 error_code：
+    // 1) 操作符：等于/包含 → 完整码用 eq、非完整用 contains；排除 → 完整码用 !=、非完整用 notcontains
+    // 2) 值：按 log_entries 入库规则统一为小写
     const normalizeErrorCodeOperatorInFilters = (root) => {
       if (!root) return
       if (root.field === 'error_code' && root.operator !== undefined) {
+        if (typeof root.value === 'string') {
+          root.value = root.value.trim().toLowerCase()
+        } else if (Array.isArray(root.value)) {
+          root.value = root.value.map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : v))
+        }
         const op = String(root.operator).toLowerCase()
         const complete = isCompleteErrorCode(root.value)
         if (op === '!=' || op === '<>') {
@@ -1669,6 +1720,8 @@ export default {
       }
     }
     const pendingFiltersRoot = ref({ logic: 'AND', conditions: [] })
+    const searchPreviewEditMode = ref(false)
+    const searchPreviewExpressionDraft = ref('')
     const pendingSelectedAnalysisCategoryIds = ref([])
     const pendingDisplayTimezoneOffsetMinutes = ref(480)
     
@@ -2071,8 +2124,8 @@ export default {
         const endDisplay = convertStorageToDisplay(timeRange.value[1], displayTimezoneOffsetMinutes.value)
         segments.push(`${t('batchAnalysis.searchExpressionTime')}: ${startDisplay} ~ ${endDisplay}`)
       }
-      if (searchKeyword.value) {
-        segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${searchKeyword.value}`)
+      if (normalizedSearchKeyword.value) {
+        segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${normalizedSearchKeyword.value}`)
       }
       const adv = groupToString(filtersRoot.value, displayTimezoneOffsetMinutes.value)
       if (adv) segments.push(`${adv}`)
@@ -2098,13 +2151,46 @@ export default {
         const endDisplay = convertStorageToDisplay(timeRange.value[1], pendingDisplayTimezoneOffsetMinutes.value)
         segments.push(`${t('batchAnalysis.searchExpressionTime')}: ${startDisplay} ~ ${endDisplay}`)
       }
-      if (searchKeyword.value) {
-        segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${searchKeyword.value}`)
+      if (normalizedSearchKeyword.value) {
+        segments.push(`${t('batchAnalysis.searchExpressionKeywordAll')}: ${normalizedSearchKeyword.value}`)
       }
       if (pendingAdvancedExpression.value) segments.push(pendingAdvancedExpression.value)
       if (pendingNlActionsSummary.value) segments.push(`${t('batchAnalysis.nlActionsPreview')}：${pendingNlActionsSummary.value}`)
       return segments.join(t('batchAnalysis.searchExpressionAnd'))
     })
+
+    const openSearchPreviewEditor = () => {
+      searchPreviewExpressionDraft.value = JSON.stringify(pendingFiltersRoot.value || { logic: 'AND', conditions: [] }, null, 2)
+      searchPreviewEditMode.value = true
+    }
+
+    const cancelSearchPreviewEdit = () => {
+      searchPreviewEditMode.value = false
+    }
+
+    const applySearchPreviewEdit = () => {
+      const raw = String(searchPreviewExpressionDraft.value || '').trim()
+      if (!raw) {
+        ElMessage.warning('请输入表达式 JSON')
+        return
+      }
+      try {
+        const parsed = JSON.parse(raw)
+        if (!parsed || (!Array.isArray(parsed.conditions) && !Array.isArray(parsed.filters?.conditions))) {
+          ElMessage.error('JSON格式不正确，缺少 conditions')
+          return
+        }
+        const logic = parsed.logic || parsed.filters?.logic || 'AND'
+        const conditions = Array.isArray(parsed.conditions) ? parsed.conditions : parsed.filters.conditions
+        pendingFiltersRoot.value = deepCloneFilters({ logic, conditions: Array.isArray(conditions) ? conditions : [] })
+        normalizeErrorCodeOperatorInFilters(pendingFiltersRoot.value)
+        searchPreviewEditMode.value = false
+        nlPreviewCleared.value = false
+        ElMessage.success('表达式修改已更新，请点击“应用更改”生效')
+      } catch (e) {
+        ElMessage.error('解析失败：' + e.message)
+      }
+    }
 
     const countLeafConditions = (node) => {
       if (!node) return 0
@@ -2233,8 +2319,8 @@ export default {
         }
         
         // 添加关键词搜索
-        if (searchKeyword.value) {
-          baseParams.search = searchKeyword.value
+        if (normalizedSearchKeyword.value) {
+          baseParams.search = normalizedSearchKeyword.value
         }
         
         // 调用后端分页接口，支持请求取消
@@ -2506,7 +2592,7 @@ export default {
           params.start_time = timeRange.value[0]
           params.end_time = timeRange.value[1]
         }
-        if (searchKeyword.value) params.search = searchKeyword.value
+        if (normalizedSearchKeyword.value) params.search = normalizedSearchKeyword.value
         params.display_timezone_offset_minutes = displayTimezoneOffsetMinutes.value
         
         // 创建任务
@@ -3352,6 +3438,7 @@ export default {
       pendingSelectedAnalysisCategoryIds.value = [...(selectedAnalysisCategoryIds.value || [])]
       pendingFiltersRoot.value = deepCloneFilters(filtersRoot.value)
       pendingDisplayTimezoneOffsetMinutes.value = displayTimezoneOffsetMinutes.value
+      searchPreviewEditMode.value = false
     }
     watch(filterDrawerVisible, (visible) => {
       if (visible) syncAppliedToPending()
@@ -3367,6 +3454,7 @@ export default {
 
     // 应用：待提交 → 已应用，并请求列表
     const applySidebarFilters = async () => {
+      normalizeErrorCodeOperatorInFilters(pendingFiltersRoot.value)
       selectedAnalysisCategoryIds.value = [...pendingSelectedAnalysisCategoryIds.value]
       filtersRoot.value = deepCloneFilters(pendingFiltersRoot.value)
       displayTimezoneOffsetMinutes.value = pendingDisplayTimezoneOffsetMinutes.value
@@ -3764,8 +3852,8 @@ export default {
           visualizationParams.start_time = timeRange.value[0]
           visualizationParams.end_time = timeRange.value[1]
         }
-        if (searchKeyword.value) {
-          visualizationParams.search = searchKeyword.value
+        if (normalizedSearchKeyword.value) {
+          visualizationParams.search = normalizedSearchKeyword.value
         }
         const response = await api.logs.getVisualizationData(visualizationParams)
         const {
@@ -4401,7 +4489,7 @@ export default {
         baseParams.start_time = timeRange.value[0]
         baseParams.end_time = timeRange.value[1]
       }
-      if (searchKeyword.value) baseParams.search = searchKeyword.value
+      if (normalizedSearchKeyword.value) baseParams.search = normalizedSearchKeyword.value
       if (selectedAnalysisCategoryIds.value?.length) {
         baseParams.analysis_category_ids = selectedAnalysisCategoryIds.value.join(',')
       }
@@ -4775,6 +4863,11 @@ export default {
       pendingDisplayTimezoneOffsetMinutes,
       pendingAdvancedExpression,
       searchTabPreviewExpression,
+      searchPreviewEditMode,
+      searchPreviewExpressionDraft,
+      openSearchPreviewEditor,
+      cancelSearchPreviewEdit,
+      applySearchPreviewEdit,
       resetSidebarFilters,
       applySidebarFilters,
       getCategoryDisplayName,
@@ -5945,13 +6038,34 @@ export default {
   border-radius: var(--radius-xs);
   border: 1px solid var(--slate-200);
 }
+.search-tab-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .search-tab-preview-label {
   color: var(--slate-500);
   margin-right: 6px;
 }
+.search-tab-preview-view {
+  margin-top: 4px;
+}
 .search-tab-preview-expr {
   word-break: break-all;
   display: inline;
+}
+.search-tab-preview-editor {
+  margin-top: 8px;
+}
+.search-tab-preview-editor :deep(.el-textarea__inner) {
+  overflow-y: hidden;
+}
+.search-tab-preview-editor-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .expr-preview {
@@ -6526,9 +6640,16 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
 }
 .operations-cell .operation-btn .el-icon {
   font-size: 14px;
+}
+.compact-log-entries-table :deep(.el-table__row:hover .operations-cell .operation-btn),
+.compact-log-entries-table :deep(.el-table__row.current-row .operations-cell .operation-btn) {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* 上下文分析按钮 - 绿色 */
@@ -7367,9 +7488,16 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
 }
 .operations-cell .operation-btn .el-icon {
   font-size: 14px;
+}
+.compact-log-entries-table :deep(.el-table__row:hover .operations-cell .operation-btn),
+.compact-log-entries-table :deep(.el-table__row.current-row .operations-cell .operation-btn) {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .operations-cell .operation-btn-context {

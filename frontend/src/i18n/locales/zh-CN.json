@@ -264,6 +264,7 @@
     "welcomeSubtitle": "请登录您的账户",
     "username": "用户名",
     "password": "密码",
+    "rememberMe": "保持登录状态",
     "forgotPassword": "忘记密码？",
     "login": "登录",
     "dingtalkScan": "钉钉扫码登录",

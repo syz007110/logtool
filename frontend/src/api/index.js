@@ -4,11 +4,30 @@ import store from '../store'
 import router from '../router'
 import i18nInstance from '../i18n'
 
+function getCookieValue(name) {
+  const escaped = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]*)`))
+  return m ? decodeURIComponent(m[1]) : ''
+}
+
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api',
+  withCredentials: true,
   timeout: 120000 // 增加到2分钟，支持大量日志文件的批量查询
 })
+
+let refreshPromise = null
+
+async function refreshAccessTokenOnce() {
+  if (!refreshPromise) {
+    refreshPromise = store.dispatch('auth/refreshToken')
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
 
 // 请求拦截器
 api.interceptors.request.use(
@@ -21,6 +40,10 @@ api.interceptors.request.use(
     const currentLang = i18nInstance.global.locale.value || 'zh-CN'
     const langHeader = currentLang.startsWith('en') ? 'en' : 'zh'
     config.headers['Accept-Language'] = langHeader
+    const csrfToken = getCookieValue('csrf_token')
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken
+    }
     return config
   },
   error => Promise.reject(error)
@@ -29,7 +52,7 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   response => response,
-  error => {
+  async error => {
     if (error.config?._silentError === true) {
       return Promise.reject(error)
     }
@@ -47,6 +70,25 @@ api.interceptors.response.use(
         case 401:
           if (error.config?.url?.includes('/auth/login')) {
             ElMessage.error(data?.message || i18nInstance.global.t('auth.invalidCredentials'))
+          } else if (error.config?.url?.includes('/auth/refresh')) {
+            ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+            store.dispatch('auth/logout')
+            router.push('/login')
+          } else if (!error.config?._retry) {
+            error.config._retry = true
+            try {
+              await refreshAccessTokenOnce()
+              const token = store.state.auth?.token
+              if (token) {
+                error.config.headers = error.config.headers || {}
+                error.config.headers.Authorization = `Bearer ${token}`
+              }
+              return api.request(error.config)
+            } catch (_) {
+              ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+              store.dispatch('auth/logout')
+              router.push('/login')
+            }
           } else {
             // 其他接口的401错误，说明token过期
             ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
@@ -79,7 +121,9 @@ const auth = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
   me: () => api.get('/auth/me'),
-  dingtalkLogin: (authCode) => api.post('/auth/dingtalk/login', { authCode })
+  dingtalkLogin: (authCode, rememberMe = true) => api.post('/auth/dingtalk/login', { authCode, rememberMe }),
+  refresh: () => api.post('/auth/refresh', {}, { _silentError: true }),
+  logout: () => api.post('/auth/logout', {}, { _silentError: true })
 }
 
 const errorCodes = {

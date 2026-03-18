@@ -1,32 +1,68 @@
 import api from '../../api'
 
+const PERSIST_KEY = 'auth_persist'
+
+function readJson(storage, key) {
+  try {
+    const v = storage.getItem(key)
+    return v ? JSON.parse(v) : null
+  } catch (_) {
+    return null
+  }
+}
+
+function getInitialPersist() {
+  if (localStorage.getItem(PERSIST_KEY) === '1') return true
+  if (localStorage.getItem('token')) return true
+  if (sessionStorage.getItem(PERSIST_KEY) === '1') return false
+  return false
+}
+
+function getInitialToken() {
+  return localStorage.getItem('token') || sessionStorage.getItem('token') || null
+}
+
+function getInitialUser() {
+  return readJson(localStorage, 'user') || readJson(sessionStorage, 'user') || null
+}
+
+function applyPersistence(state) {
+  const primary = state.persist ? localStorage : sessionStorage
+  const secondary = state.persist ? sessionStorage : localStorage
+  if (state.token) primary.setItem('token', state.token)
+  else primary.removeItem('token')
+  if (state.user) primary.setItem('user', JSON.stringify(state.user))
+  else primary.removeItem('user')
+  secondary.removeItem('token')
+  secondary.removeItem('user')
+  localStorage.setItem(PERSIST_KEY, state.persist ? '1' : '0')
+  sessionStorage.setItem(PERSIST_KEY, state.persist ? '1' : '0')
+}
+
 const state = {
-  token: localStorage.getItem('token') || null,
-  user: JSON.parse(localStorage.getItem('user')) || null,
+  token: getInitialToken(),
+  user: getInitialUser(),
+  persist: getInitialPersist(),
   language: localStorage.getItem('language') || 'zh-CN'
 }
 
 const mutations = {
+  SET_PERSIST (state, persist) {
+    state.persist = !!persist
+    applyPersistence(state)
+  },
   SET_TOKEN (state, token) {
     state.token = token
-    if (token) {
-      localStorage.setItem('token', token)
-    } else {
-      localStorage.removeItem('token')
-    }
+    applyPersistence(state)
   },
   SET_PERMISSIONS (state, permissions) {
     if (!state.user) return
     state.user = { ...state.user, permissions: Array.isArray(permissions) ? permissions : [] }
-    localStorage.setItem('user', JSON.stringify(state.user))
+    applyPersistence(state)
   },
   SET_USER (state, user) {
     state.user = user
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('user')
-    }
+    applyPersistence(state)
   },
   SET_LANGUAGE (state, language) {
     state.language = language
@@ -38,6 +74,7 @@ const actions = {
   async login ({ commit }, credentials) {
     try {
       const response = await api.auth.login(credentials)
+      commit('SET_PERSIST', !!credentials?.rememberMe)
       commit('SET_TOKEN', response.data.token)
       commit('SET_USER', response.data.user)
       return response
@@ -65,9 +102,10 @@ const actions = {
     }
   },
 
-  async dingtalkLogin ({ commit }, { authCode }) {
+  async dingtalkLogin ({ commit }, { authCode, rememberMe = true }) {
     try {
-      const response = await api.auth.dingtalkLogin(authCode)
+      const response = await api.auth.dingtalkLogin(authCode, rememberMe)
+      commit('SET_PERSIST', !!rememberMe)
       commit('SET_TOKEN', response.data.token)
       commit('SET_USER', response.data.user)
       return response
@@ -76,7 +114,14 @@ const actions = {
     }
   },
 
+  async refreshToken ({ commit }) {
+    const response = await api.auth.refresh()
+    commit('SET_TOKEN', response.data.token)
+    return response
+  },
+
   logout ({ commit }) {
+    api.auth.logout().catch(() => {})
     commit('SET_TOKEN', null)
     commit('SET_USER', null)
   },

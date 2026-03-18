@@ -262,6 +262,7 @@
     "welcomeSubtitle": "Please sign in to your account",
     "username": "Username",
     "password": "Password",
+    "rememberMe": "Keep me signed in",
     "forgotPassword": "Forgot Password?",
     "login": "Login",
     "dingtalkScan": "Login with DingTalk",

@@ -508,7 +508,13 @@
     </el-drawer>
 
     <!-- 上传日志弹窗 -->
-    <el-dialog v-model="showUploadDialog" :title="$t('logs.uploadDialog.title')" width="700px" append-to-body>
+    <el-dialog
+      v-model="showUploadDialog"
+      :title="$t('logs.uploadDialog.title')"
+      width="700px"
+      append-to-body
+      @closed="handleUploadDialogClosed"
+    >
 
       <el-upload
         ref="uploadRef"
@@ -670,7 +676,7 @@
 
       <template #footer>
         <div class="upload-actions">
-          <el-button type="default" @click="showUploadDialog = false" :disabled="uploading">
+          <el-button type="default" @click="handleUploadCancel" :disabled="uploading">
             <i class="fas fa-times"></i>
             {{ $t('shared.cancel') }}
           </el-button>
@@ -729,6 +735,7 @@ export default {
     const loading = ref(false)
     const uploading = ref(false) // 仅表示"文件上传阶段"
     const showUploadDialog = ref(false)
+    const skipUploadDialogClosedCleanup = ref(false)
     const overallProgress = ref(0) // 总体进度
     const processingStatus = ref('') // 处理状态
     const uploadRef = ref(null)
@@ -1895,6 +1902,7 @@ export default {
       }
       
       uploadRef.value.submit()
+      skipUploadDialogClosedCleanup.value = true
       // 点击上传并解析后立即关闭弹窗
       showUploadDialog.value = false
       // 刷新一次设备分组列表，展示最新的"上传中/处理中"状态
@@ -1989,6 +1997,20 @@ export default {
       // 重置上传状态和进度
       uploading.value = false
       overallProgress.value = 0
+    }
+
+    const handleUploadCancel = () => {
+      showUploadDialog.value = false
+    }
+
+    const handleUploadDialogClosed = () => {
+      if (skipUploadDialogClosedCleanup.value) {
+        skipUploadDialogClosedCleanup.value = false
+        return
+      }
+      if (!uploading.value) {
+        clearUpload()
+      }
     }
 
     // 进度格式化方法
@@ -2826,6 +2848,8 @@ export default {
       dateShortcuts,
       beforeUpload,
       submitUpload,
+      handleUploadCancel,
+      handleUploadDialogClosed,
       clearUpload,
       onUploadSuccess,
       onUploadError,
