@@ -149,5 +149,18 @@ If your server path or PM2 process name differs, pass the corresponding options.
 cd ~/logtool
 docker exec -it logtool-mysql-1 mysql -u root -p
 ```
+
 进入 Clickhouse 容器进行数据库维护：
+
+```bash
 docker exec -it logtool-clickhouse-1 clickhouse-client
+```
+
+进入ES 容器进行检索维护
+
+```bash
+#检查索引
+curl -s -u elastic:Mykey "http://localhost:9200/_cat/indices?v"
+#检查是否可以访问
+curl -s -u elastic:940927syz "http://localhost:9200"
+```

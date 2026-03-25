@@ -1694,9 +1694,23 @@ export default {
       return s.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(s)
     }
 
+    const normalizeErrorCodeOperatorAlias = (operator) => {
+      const raw = String(operator ?? '').trim()
+      const lower = raw.toLowerCase()
+      if (lower === 'startwith' || lower === 'startswith') return 'startsWith'
+      if (lower === 'endwith' || lower === 'endswith') return 'endsWith'
+      if (lower === 'not contains' || lower === 'not_contains') return 'notcontains'
+      if (lower === 'regex') return 'regex'
+      if (lower === 'contains') return 'contains'
+      if (lower === 'notcontains') return 'notcontains'
+      if (lower === '!=' || lower === '<>' || lower === '=') return lower
+      return raw
+    }
+
     // 递归规范化 error_code：
-    // 1) 操作符：等于/包含 → 完整码用 eq、非完整用 contains；排除 → 完整码用 !=、非完整用 notcontains
-    // 2) 值：按 log_entries 入库规则统一为小写
+    // 1) 操作符：仅对等于/不等于/包含做完整码优化；startsWith/endsWith/regex 保持原语义
+    // 2) 兼容历史别名：startwith/endwith
+    // 3) 值：按 log_entries 入库规则统一为小写
     const normalizeErrorCodeOperatorInFilters = (root) => {
       if (!root) return
       if (root.field === 'error_code' && root.operator !== undefined) {
@@ -1705,13 +1719,21 @@ export default {
         } else if (Array.isArray(root.value)) {
           root.value = root.value.map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : v))
         }
-        const op = String(root.operator).toLowerCase()
+        const normalizedOp = normalizeErrorCodeOperatorAlias(root.operator)
+        const op = String(normalizedOp).toLowerCase()
         const complete = isCompleteErrorCode(root.value)
+        if (op === 'startswith' || op === 'endswith' || op === 'regex') {
+          root.operator = normalizedOp
+          return
+        }
         if (op === '!=' || op === '<>') {
           root.operator = complete ? '!=' : 'notcontains'
           return
         }
-        if (op === 'notcontains') return
+        if (op === 'notcontains') {
+          root.operator = 'notcontains'
+          return
+        }
         root.operator = complete ? '=' : 'contains'
         return
       }
@@ -3128,7 +3150,9 @@ export default {
     }
 
     const evalCondition = (field, operator, value, entry) => {
-      const op = String(operator || '').toLowerCase()
+      let op = String(operator || '').toLowerCase()
+      if (op === 'startwith') op = 'startswith'
+      if (op === 'endwith') op = 'endswith'
       const raw = getFieldValue(entry, field)
       if (raw === undefined || raw === null) return false
 
