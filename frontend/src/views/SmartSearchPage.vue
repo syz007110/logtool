@@ -1930,6 +1930,7 @@ export default {
           const hasCases = (payload?.sources?.cases || []).length > 0 || (payload?.sources?.jira || []).length > 0 || (payload?.sources?.faultCases || []).length > 0
           const hasKbDocs = (payload?.sources?.kbDocs || []).length > 0
           const hasAnyResults = hasFaultCodes || hasCases || hasKbDocs
+          const hasNoQueryPointHint = String(payload?.answerText || '').includes('未识别到可用检索要点')
           
           if ((intent === 'find_case' || intent === 'troubleshoot') && !hasCases) {
             conv2.messages.push({
@@ -1957,7 +1958,7 @@ export default {
                 path: '/dashboard/error-codes'
               }
             })
-          } else if ((intent === 'how_to_use' || intent === 'definition' || intent === 'other') && !hasAnyResults) {
+          } else if ((intent === 'how_to_use' || intent === 'definition' || intent === 'other' || hasNoQueryPointHint) && !hasAnyResults) {
             conv2.messages.push({
               id: shortId(),
               role: 'assistant',
@@ -5221,4 +5222,3 @@ export default {
   white-space: nowrap;
 }
 </style>
-
