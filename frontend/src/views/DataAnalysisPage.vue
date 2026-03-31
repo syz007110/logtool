@@ -173,7 +173,7 @@
                         :series-data="slot.series"
                         height="100%"
                         :enable-slider="false"
-                        :cursor-ms="cursorAbsMs"
+                        :cursor-ms="motionCursorAbsMs"
                         class="motion-slot-chart"
                         @range-change="onMotionRangeChange"
                         @cursor-change="onMotionCursorChange"
@@ -1110,6 +1110,7 @@ export default {
     // 时间轴
     const cursorMs = ref(0) // 当前光标位置（相对时间，毫秒）
     const maxTime = ref(0) // 最大时间（毫秒）
+    const motionCursorAbsMs = ref(null) // 运行数据图表用的节流游标，降低大数据重绘压力
     const playbackSpeed = ref(1)
     const timeBase = ref(null) // 时间基准（第一个日志条目的绝对时间戳）
 
@@ -1550,10 +1551,16 @@ export default {
     const getMotionRangeFromRows = (rows) => {
       const arr = Array.isArray(rows) ? rows : []
       if (!arr.length) return null
-      const firstMs = toEpochMs(arr[0]?.ulint_data)
-      const lastMs = toEpochMs(arr[arr.length - 1]?.ulint_data)
-      if (!Number.isFinite(firstMs) || !Number.isFinite(lastMs)) return null
-      return { startMs: Math.min(firstMs, lastMs), endMs: Math.max(firstMs, lastMs) }
+      let minMs = Infinity
+      let maxMs = -Infinity
+      for (let i = 0; i < arr.length; i++) {
+        const ts = toEpochMs(arr[i]?.ulint_data)
+        if (!Number.isFinite(ts) || ts <= 0) continue
+        if (ts < minMs) minMs = ts
+        if (ts > maxMs) maxMs = ts
+      }
+      if (!Number.isFinite(minMs) || !Number.isFinite(maxMs)) return null
+      return { startMs: minMs, endMs: maxMs }
     }
 
     const getLogRangeAbsMs = () => {
@@ -1620,9 +1627,10 @@ export default {
       if (logRange && motionRange) {
         const overlapStart = Math.max(logRange.startMs, motionRange.startMs)
         const overlapEnd = Math.min(logRange.endMs, motionRange.endMs)
-        // 理论上不应出现 overlapEnd < overlapStart（自动匹配下），这里做安全兜底
-        const s = overlapEnd < overlapStart ? overlapStart : overlapStart
-        const e = overlapEnd < overlapStart ? overlapStart : overlapEnd
+        // 当两者无交集时，回退到日志范围，避免时间轴被压缩成近 0 秒导致联动“卡住”
+        const hasOverlap = overlapEnd >= overlapStart
+        const s = hasOverlap ? overlapStart : logRange.startMs
+        const e = hasOverlap ? overlapEnd : logRange.endMs
         setAllowed(s, e)
         await applyTimelineRange(s, e, { preserveCursorAbs })
         await forceReplaceLogWindow(s, e)
@@ -1678,6 +1686,19 @@ export default {
         }, remain)
       }
     }
+
+    const pushMotionCursorAbsThrottled = throttle((absMs) => {
+      motionCursorAbsMs.value = absMs
+    }, 120)
+
+    watch([cursorAbsMs, hasMotionData, motionCollapsed], ([absMs, hasMotion, collapsed]) => {
+      if (absMs == null || !Number.isFinite(absMs)) {
+        motionCursorAbsMs.value = null
+        return
+      }
+      if (!hasMotion || collapsed) return
+      pushMotionCursorAbsThrottled(absMs)
+    }, { immediate: true })
 
     // 运行数据拉取：缓存 + 取消旧请求（Abort） + 忽略过期结果
     const motionSeriesCache = new Map() // key -> rows
@@ -3897,6 +3918,21 @@ export default {
           }
         }
 
+        // 兼容 YYYYMMDDHHmmss（14位数字，无毫秒）
+        if (/^\d{14}$/.test(str)) {
+          const year = parseInt(str.substring(0, 4), 10)
+          const month = parseInt(str.substring(4, 6), 10) - 1
+          const day = parseInt(str.substring(6, 8), 10)
+          const hours = parseInt(str.substring(8, 10), 10)
+          const minutes = parseInt(str.substring(10, 12), 10)
+          const seconds = parseInt(str.substring(12, 14), 10)
+          const date = new Date(year, month, day, hours, minutes, seconds, 0)
+          const ms = date.getTime()
+          if (Number.isFinite(ms) && ms > 0) {
+            return ms
+          }
+        }
+
         // 尝试作为 BigInt 处理（纳秒/微秒/毫秒）
         const bi = BigInt(str)
         // 经验阈值：毫秒(1e12~1e13), 微秒(~1e15), 纳秒(~1e18)
@@ -4535,6 +4571,7 @@ export default {
       videoStartTime,
       cursorMs,
       cursorAbsMs,
+      motionCursorAbsMs,
       maxTime,
       playbackSpeed,
       logFilter,

@@ -18,9 +18,13 @@ const {
   buildKeywordExtractionMessages
 } = require('../services/smartSearchLlmService');
 const { runJiraMongoMixedSearch } = require('../services/jiraMixedSearchService');
-const { searchSnippets: searchKbSnippets, buildSnippetAnswerText: buildKbSnippetAnswerText } = require('../services/kbSearchService');
+const { buildSnippetAnswerText: buildKbSnippetAnswerText } = require('../services/kbSearchService');
 const { searchByKeywords: searchErrorCodesByKeywordsEs, searchByTypeCodes: searchErrorCodesByTypeCodesEs } = require('../services/errorCodeSearchService');
 const { searchErrorCodesUnified } = require('../services/errorCodeUnifiedService');
+const {
+  shouldUseMKnowledgeForIntent,
+  searchMKnowledgeForKbIntent
+} = require('../services/mKnowledgeSmartSearchService');
 
 const DEFAULT_LIMITS = {
   errorCodes: 10,
@@ -100,6 +104,24 @@ function fireAndForgetOperationLog(payload) {
 function parseBool(v) {
   const s = String(v ?? '').trim().toLowerCase();
   return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+function extractBearerToken(req) {
+  const authHeader = String(req?.headers?.authorization || '').trim();
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
+  return authHeader.slice(7).trim();
+}
+
+function resolveMKnowledgeErrorStatus(error) {
+  const status = Number(error?.status || 0);
+  if (status >= 400 && status < 600) return status;
+  return 502;
+}
+
+function resolveMKnowledgeErrorStatus(error) {
+  const status = Number(error?.status || 0);
+  if (status >= 400 && status < 600) return status;
+  return 502;
 }
 
 function getSmartSearchLlmStatus(providerId) {
@@ -960,10 +982,33 @@ async function smartSearch(req, res) {
       let kb = { ok: true, items: [], debug: { skipped: true, reason: 'not_run' } };
       if (limits.kbDocs > 0) {
         try {
-          const kbQuery = (q.keywords || []).length ? q.keywords.join(' ') : query;
-          kb = await searchKbSnippets(kbQuery, { lang: targetLang, limit: limits.kbDocs });
+          if (!shouldUseMKnowledgeForIntent(intent)) {
+            return res.status(500).json({
+              ok: false,
+              message: 'knowledge_intent_route_unexpected'
+            });
+          }
+          const remoteKb = await searchMKnowledgeForKbIntent({
+            token: extractBearerToken(req),
+            query,
+            keywords: q.keywords || [],
+            limit: limits.kbDocs
+          });
+          if (!remoteKb.ok) {
+            const status = resolveMKnowledgeErrorStatus(remoteKb.error);
+            return res.status(status).json({
+              ok: false,
+              message: 'knowledge retrieval failed',
+              error: remoteKb.error || { code: 'mknowledge_request_error', message: 'mknowledge request failed' }
+            });
+          }
+          kb = { ok: true, items: remoteKb.items || [], debug: { provider: 'mknowledge' } };
         } catch (e) {
-          kb = { ok: false, items: [], error: { message: String(e?.message || e), code: e?.code || 'kb_search_failed' } };
+          return res.status(502).json({
+            ok: false,
+            message: 'knowledge retrieval failed',
+            error: { message: String(e?.message || e), code: e?.code || 'mknowledge_request_error' }
+          });
         }
       }
 
@@ -1049,10 +1094,33 @@ async function smartSearch(req, res) {
       let kb = { ok: true, items: [], debug: { skipped: true, reason: 'not_run' } };
       if (limits.kbDocs > 0) {
         try {
-          const kbQuery = (q.keywords || []).length ? q.keywords.join(' ') : query;
-          kb = await searchKbSnippets(kbQuery, { lang: targetLang, limit: limits.kbDocs });
+          if (!shouldUseMKnowledgeForIntent(intent)) {
+            return res.status(500).json({
+              ok: false,
+              message: 'knowledge_intent_route_unexpected'
+            });
+          }
+          const remoteKb = await searchMKnowledgeForKbIntent({
+            token: extractBearerToken(req),
+            query,
+            keywords: q.keywords || [],
+            limit: limits.kbDocs
+          });
+          if (!remoteKb.ok) {
+            const status = resolveMKnowledgeErrorStatus(remoteKb.error);
+            return res.status(status).json({
+              ok: false,
+              message: 'knowledge retrieval failed',
+              error: remoteKb.error || { code: 'mknowledge_request_error', message: 'mknowledge request failed' }
+            });
+          }
+          kb = { ok: true, items: remoteKb.items || [], debug: { provider: 'mknowledge' } };
         } catch (e) {
-          kb = { ok: false, items: [], error: { message: String(e?.message || e), code: e?.code || 'kb_search_failed' } };
+          return res.status(502).json({
+            ok: false,
+            message: 'knowledge retrieval failed',
+            error: { message: String(e?.message || e), code: e?.code || 'mknowledge_request_error' }
+          });
         }
       }
 

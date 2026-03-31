@@ -755,6 +755,9 @@ export default {
     const detailLoading = ref(false)
     const lastDetailLogsLoadAt = ref(0)
     let detailReloadTimer = null
+    let detailWsRefreshTimer = null
+    const detailWsRefreshPending = ref(false)
+    const DETAIL_WS_REFRESH_DEBOUNCE_MS = 5000
     const detailCurrentPage = ref(1)
     const detailPageSize = ref(20)
     const detailTypeFilter = ref('all')
@@ -1283,7 +1286,28 @@ export default {
         if (!silent) ElMessage.error(t('logs.errors.loadDeviceDetailLogsFailed'))
       } finally {
         detailLoading.value = false
+        if (detailWsRefreshPending.value) {
+          detailWsRefreshPending.value = false
+          if (detailWsRefreshTimer) clearTimeout(detailWsRefreshTimer)
+          detailWsRefreshTimer = setTimeout(() => {
+            detailWsRefreshTimer = null
+            loadDetailLogs({ force: true, silent: true })
+          }, DETAIL_WS_REFRESH_DEBOUNCE_MS)
+        }
       }
+    }
+
+    const scheduleDetailLogsRefreshFromWs = () => {
+      if (!selectedDevice.value || !showDeviceDetailDrawer.value) return
+      if (detailLoading.value) {
+        detailWsRefreshPending.value = true
+        return
+      }
+      if (detailWsRefreshTimer) return
+      detailWsRefreshTimer = setTimeout(() => {
+        detailWsRefreshTimer = null
+        loadDetailLogs({ force: true, silent: true })
+      }, DETAIL_WS_REFRESH_DEBOUNCE_MS)
     }
     
     const syncDetailSelections = () => {
@@ -2064,10 +2088,8 @@ export default {
         if (selectedDevice.value && 
             showDeviceDetailDrawer.value && 
             selectedDevice.value.device_id === data.deviceId) {
-          
-          console.log('WebSocket 状态变化，准备自动刷新详细日志列表')
-          // 静默刷新，并通过节流避免过多请求
-          loadDetailLogs({ silent: true })
+          console.log('WebSocket 状态变化，准备合并刷新详细日志列表')
+          scheduleDetailLogsRefreshFromWs()
         }
       })
       
@@ -2093,10 +2115,8 @@ export default {
         if (selectedDevice.value && 
             showDeviceDetailDrawer.value && 
             selectedDevice.value.device_id === data.deviceId) {
-          
-          console.log('WebSocket 批量状态变化，准备自动刷新详细日志列表')
-          // 静默刷新，并通过节流避免过多请求
-          loadDetailLogs({ silent: true })
+          console.log('WebSocket 批量状态变化，准备合并刷新详细日志列表')
+          scheduleDetailLogsRefreshFromWs()
         }
       })
       
@@ -2122,6 +2142,10 @@ export default {
       
       // 清理定时器
       onUnmounted(() => {
+        if (detailWsRefreshTimer) {
+          clearTimeout(detailWsRefreshTimer)
+          detailWsRefreshTimer = null
+        }
         if (statusUpdateTimer) {
           clearInterval(statusUpdateTimer)
         }

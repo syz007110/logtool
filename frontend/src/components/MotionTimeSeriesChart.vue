@@ -1,11 +1,12 @@
 <template>
   <div class="motion-chart-outer" :style="{ width: width ? width + 'px' : '100%', height: resolvedHeight }">
     <div ref="chartContainer" :style="{ width: '100%', height: '100%' }"></div>
+    <div class="motion-chart-cursor" :style="cursorOverlayStyle"></div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUpdated, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 
 export default {
@@ -72,12 +73,24 @@ export default {
     let globalMaxY = null
     const rangeStartMs = ref(0)
     const rangeEndMs = ref(0)
+    let cursorRafId = null
+    let pendingCursorMs = null
+    let pendingCursorForce = false
+    let lastCursorRenderMs = null
+    const CURSOR_RENDER_MIN_STEP_MS = 80
+    const cursorVisible = ref(false)
+    const cursorLeftPx = ref(0)
 
     const resolvedHeight = computed(() => {
       if (typeof props.height === 'number') return `${props.height}px`
       const s = String(props.height || '').trim()
       return s || '100%'
     })
+
+    const cursorOverlayStyle = computed(() => ({
+      display: cursorVisible.value ? 'block' : 'none',
+      left: `${cursorLeftPx.value}px`
+    }))
 
     const normalizeSeriesInput = () => {
       const input = Array.isArray(props.seriesData) ? props.seriesData : []
@@ -117,6 +130,63 @@ export default {
 
     // 大数据阈值：超过后启用采样、关闭动画，避免“每点值不同”时渲染/动画卡顿
     const LARGE_DATA_THRESHOLD = 3000
+    const MAX_RENDER_POINTS_MIN = 600
+    const MAX_RENDER_POINTS_MAX = 2400
+
+    const getRenderPointBudget = () => {
+      const width = chartContainer.value?.clientWidth || 0
+      const budget = width > 0 ? Math.floor(width * 1.5) : 1200
+      return Math.max(MAX_RENDER_POINTS_MIN, Math.min(MAX_RENDER_POINTS_MAX, budget))
+    }
+
+    const downsamplePointsForRender = (points, maxPoints) => {
+      const arr = Array.isArray(points) ? points : []
+      if (arr.length <= maxPoints || maxPoints < 4) return arr
+
+      const result = []
+      const bucketSize = Math.ceil(arr.length / maxPoints)
+
+      for (let start = 0; start < arr.length; start += bucketSize) {
+        const end = Math.min(arr.length, start + bucketSize)
+        const bucket = arr.slice(start, end)
+        if (!bucket.length) continue
+
+        const first = bucket[0]
+        const last = bucket[bucket.length - 1]
+        let minPoint = first
+        let maxPoint = first
+
+        for (let i = 1; i < bucket.length; i++) {
+          const point = bucket[i]
+          if (point[1] < minPoint[1]) minPoint = point
+          if (point[1] > maxPoint[1]) maxPoint = point
+        }
+
+        const candidates = [first]
+        if (minPoint !== first && minPoint !== last) candidates.push(minPoint)
+        if (maxPoint !== first && maxPoint !== last && maxPoint !== minPoint) candidates.push(maxPoint)
+        if (last !== first) candidates.push(last)
+
+        candidates
+          .sort((a, b) => a[0] - b[0])
+          .forEach((point) => {
+            const prev = result[result.length - 1]
+            if (!prev || prev[0] !== point[0] || prev[1] !== point[1]) {
+              result.push(point)
+            }
+          })
+      }
+
+      return result
+    }
+
+    const prepareSeriesForRender = (validSeries) => {
+      const pointBudget = getRenderPointBudget()
+      return validSeries.map((series) => ({
+        ...series,
+        data: downsamplePointsForRender(series.data, pointBudget)
+      }))
+    }
 
     // 二分查找：有序 data[[x,y],...] 中首个 data[i][0] >= minX 的下标
     const findFirstIndexByX = (data, minX) => {
@@ -252,54 +322,41 @@ export default {
       }
     }
 
-    // 构建 series 配置（折线 + 游标），供 createChart 与 updateChart 共用
+    // 构建 series 配置（仅折线），供 createChart 与 updateChart 共用
     // totalPoints 用于大数据时启用采样、关动画，减轻“每点值不同”导致的卡顿
     const buildSeriesArray = (validSeries, totalPoints = 0) => {
+      const renderSeries = prepareSeriesForRender(validSeries)
       const isLarge = totalPoints > LARGE_DATA_THRESHOLD
-      const lineSeries = validSeries.map((s, idx) => {
-        const color = s.color || (validSeries.length === 1 ? props.lineColor : null)
+      const lineSeries = renderSeries.map((s, idx) => {
+        const color = s.color || (renderSeries.length === 1 ? props.lineColor : null)
         return {
           name: s.name,
           type: 'line',
           symbol: isLarge ? 'none' : 'circle',
           symbolSize: isLarge ? 0 : 2,
-          smooth: props.smooth,
-          sampling: isLarge ? 'lttb' : false,
+          smooth: isLarge ? false : props.smooth,
+          sampling: false,
           data: s.data,
           animation: !isLarge,
           animationDelay: isLarge ? undefined : (idx) => idx * 100,
           animationDuration: isLarge ? 0 : 1000,
           animationEasing: 'cubicOut',
+          progressive: isLarge ? 500 : 0,
+          progressiveThreshold: isLarge ? 1000 : 0,
+          large: isLarge,
+          largeThreshold: LARGE_DATA_THRESHOLD,
           ...(color ? {
             itemStyle: { color },
             lineStyle: { width: 2, cap: 'round', join: 'round', color }
           } : {
             lineStyle: { width: 2, cap: 'round', join: 'round' }
           }),
-          areaStyle: validSeries.length === 1
+          areaStyle: !isLarge && renderSeries.length === 1
             ? { opacity: 0.2, color: color || props.lineColor }
             : undefined
         }
       })
-      const cursorSeries = (props.cursorMs != null && props.cursorMs >= globalMinMs && props.cursorMs <= globalMaxMs)
-        ? [{
-            type: 'custom',
-            silent: true,
-            z: 100,
-            renderItem: (params, api) => {
-              const x = api.coord([props.cursorMs, 0])[0]
-              const yTop = params.coordSys.y
-              const height = params.coordSys.height
-              return {
-                type: 'line',
-                shape: { x1: x, y1: yTop, x2: x, y2: yTop + height },
-                style: { stroke: '#ef4444', lineWidth: 2, lineDash: [4, 4] }
-              }
-            },
-            data: [[props.cursorMs, 0]]
-          }]
-        : []
-      return [...lineSeries, ...cursorSeries]
+      return lineSeries
     }
 
     const createChart = () => {
@@ -585,6 +642,7 @@ export default {
       }
 
       chartInstance.setOption(option, true)
+      scheduleCursorUpdate(props.cursorMs, true)
 
       // 点击图表：用二分查找最近时间戳，避免 2 万点全量遍历
       const zr = chartInstance.getZr()
@@ -694,12 +752,14 @@ export default {
           // 更新 y 轴范围
           nextTick(() => {
             updateYAxisRange()
+            scheduleCursorUpdate(props.cursorMs, true)
             emit('rangeChange', { startMs: rangeStartMs.value, endMs: rangeEndMs.value })
           })
         } else {
           setTimeout(() => {
             nextTick(() => {
               updateYAxisRange()
+              scheduleCursorUpdate(props.cursorMs, true)
               emitRangeChange()
             })
           }, 200)
@@ -717,6 +777,7 @@ export default {
         }
         
         nextTick(() => {
+          scheduleCursorUpdate(props.cursorMs, true)
           emit('rangeChange', { startMs: rangeStartMs.value, endMs: rangeEndMs.value })
         })
       })
@@ -761,61 +822,61 @@ export default {
     const resizeChart = () => {
       if (chartInstance) {
         chartInstance.resize()
+        scheduleCursorUpdate(props.cursorMs, true)
       }
     }
 
     // 更新游标位置
-    const updateCursor = () => {
-      if (!chartInstance || props.cursorMs == null) return
-      
-      const cursorSeries = props.cursorMs >= globalMinMs && props.cursorMs <= globalMaxMs
-        ? [
-            {
-              type: 'custom',
-              silent: true,
-              z: 100,
-              renderItem: (params, api) => {
-                const x = api.coord([props.cursorMs, 0])[0]
-                const yTop = params.coordSys.y
-                const height = params.coordSys.height
-                return {
-                  type: 'line',
-                  shape: {
-                    x1: x,
-                    y1: yTop,
-                    x2: x,
-                    y2: yTop + height
-                  },
-                  style: {
-                    stroke: '#ef4444',
-                    lineWidth: 2,
-                    lineDash: [4, 4]
-                  }
-                }
-              },
-              data: [[props.cursorMs, 0]]
-            }
-          ]
-        : []
+    const updateCursor = (cursorMs) => {
+      if (!chartInstance || cursorMs == null || !Number.isFinite(cursorMs)) {
+        cursorVisible.value = false
+        return
+      }
+      if (cursorMs < globalMinMs || cursorMs > globalMaxMs) {
+        cursorVisible.value = false
+        return
+      }
+      let x = null
+      try {
+        x = chartInstance.convertToPixel({ xAxisIndex: 0 }, cursorMs)
+      } catch (_) {
+        cursorVisible.value = false
+        return
+      }
+      if (!Number.isFinite(x)) {
+        cursorVisible.value = false
+        return
+      }
+      const w = chartContainer.value?.clientWidth || 0
+      if (w <= 0 || x < 0 || x > w) {
+        cursorVisible.value = false
+        return
+      }
+      cursorLeftPx.value = x
+      cursorVisible.value = true
+    }
 
-      // 查找并更新游标系列
-      const option = chartInstance.getOption()
-      const existingSeries = option.series || []
-      
-      // 移除旧的游标系列（通过检查是否有 custom 类型且 data 长度为 1）
-      const filteredSeries = existingSeries.filter((s, idx) => {
-        // 保留原有的数据系列
-        if (s.type !== 'custom' || !s.renderItem) return true
-        // 检查是否是游标系列（通过 data 判断）
-        if (Array.isArray(s.data) && s.data.length === 1 && Array.isArray(s.data[0]) && s.data[0].length === 2) {
-          return false // 移除旧的游标系列
-        }
-        return true
+    const scheduleCursorUpdate = (cursorMs, force = false) => {
+      if (cursorMs == null || !Number.isFinite(cursorMs)) {
+        pendingCursorMs = null
+        pendingCursorForce = false
+        cursorVisible.value = false
+        return
+      }
+      pendingCursorMs = cursorMs
+      pendingCursorForce = pendingCursorForce || force
+      if (cursorRafId != null) return
+      cursorRafId = requestAnimationFrame(() => {
+        cursorRafId = null
+        const nextCursor = pendingCursorMs
+        const forceRender = pendingCursorForce
+        pendingCursorMs = null
+        pendingCursorForce = false
+        if (nextCursor == null || !Number.isFinite(nextCursor)) return
+        if (!forceRender && lastCursorRenderMs != null && Math.abs(nextCursor - lastCursorRenderMs) < CURSOR_RENDER_MIN_STEP_MS) return
+        lastCursorRenderMs = nextCursor
+        updateCursor(nextCursor)
       })
-
-      chartInstance.setOption({
-        series: [...filteredSeries, ...cursorSeries]
-      }, false)
     }
 
     // 监听数据变化（方案三：有实例且数据有效时仅增量更新，避免整图重建）
@@ -835,6 +896,7 @@ export default {
         }
         if (chartInstance) {
           updateChart(validSeries)
+          scheduleCursorUpdate(props.cursorMs, true)
         } else {
           createChart()
         }
@@ -857,9 +919,7 @@ export default {
 
     // 监听游标变化
     watch(() => props.cursorMs, () => {
-      nextTick(() => {
-        updateCursor()
-      })
+      scheduleCursorUpdate(props.cursorMs)
     })
 
     // 监听 y 轴自适应模式变化
@@ -892,17 +952,14 @@ export default {
       }
     })
 
-    // 展开/收起后 DOM 尺寸变化，下一帧再 resize 保证自适应
-    onUpdated(() => {
-      nextTick(() => {
-        requestAnimationFrame(resizeChart)
-      })
-    })
-
     onBeforeUnmount(() => {
       if (resizeObserver && chartContainer.value) {
         resizeObserver.unobserve(chartContainer.value)
         resizeObserver = null
+      }
+      if (cursorRafId != null) {
+        cancelAnimationFrame(cursorRafId)
+        cursorRafId = null
       }
       if (chartInstance) {
         chartInstance.dispose()
@@ -913,7 +970,8 @@ export default {
 
     return {
       chartContainer,
-      resolvedHeight
+      resolvedHeight,
+      cursorOverlayStyle
     }
   }
 }
@@ -921,8 +979,20 @@ export default {
 
 <style scoped>
 .motion-chart-outer {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+
+.motion-chart-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px dashed #ef4444;
+  pointer-events: none;
+  transform: translateX(-1px);
+  z-index: 5;
 }
 </style>

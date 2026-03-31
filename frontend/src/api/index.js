@@ -4,7 +4,7 @@ import store from '../store'
 import router from '../router'
 import i18nInstance from '../i18n'
 
-function getCookieValue(name) {
+function getCookieValue (name) {
   const escaped = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]*)`))
   return m ? decodeURIComponent(m[1]) : ''
@@ -19,7 +19,7 @@ const api = axios.create({
 
 let refreshPromise = null
 
-async function refreshAccessTokenOnce() {
+async function refreshAccessTokenOnce () {
   if (!refreshPromise) {
     refreshPromise = store.dispatch('auth/refreshToken')
       .finally(() => {

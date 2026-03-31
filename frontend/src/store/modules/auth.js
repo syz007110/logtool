@@ -2,7 +2,7 @@ import api from '../../api'
 
 const PERSIST_KEY = 'auth_persist'
 
-function readJson(storage, key) {
+function readJson (storage, key) {
   try {
     const v = storage.getItem(key)
     return v ? JSON.parse(v) : null
@@ -11,22 +11,22 @@ function readJson(storage, key) {
   }
 }
 
-function getInitialPersist() {
+function getInitialPersist () {
   if (localStorage.getItem(PERSIST_KEY) === '1') return true
   if (localStorage.getItem('token')) return true
   if (sessionStorage.getItem(PERSIST_KEY) === '1') return false
   return false
 }
 
-function getInitialToken() {
+function getInitialToken () {
   return localStorage.getItem('token') || sessionStorage.getItem('token') || null
 }
 
-function getInitialUser() {
+function getInitialUser () {
   return readJson(localStorage, 'user') || readJson(sessionStorage, 'user') || null
 }
 
-function applyPersistence(state) {
+function applyPersistence (state) {
   const primary = state.persist ? localStorage : sessionStorage
   const secondary = state.persist ? sessionStorage : localStorage
   if (state.token) primary.setItem('token', state.token)
