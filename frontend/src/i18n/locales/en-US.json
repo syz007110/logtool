@@ -2377,6 +2377,7 @@
     },
     "smartSearch": {
       "emptyHelpTitle": "How can I help you?",
+      "sectionAnswer": "Answer",
       "sectionFaultCase": "Fault Cases",
       "sectionFaultCode": "Fault Code Analysis",
       "sectionSimilarCases": "Similar Cases",
@@ -2407,6 +2408,7 @@
       "kbSection": "Knowledge",
       "kbHeading": "Heading",
       "kbSnippet": "Snippet",
+      "kbImages": "Figures",
       "viewDetail": "View Details",
       "loadingJiraDetail": "Loading Jira details…",
       "loadingFaultCaseDetail": "Loading fault case details…",

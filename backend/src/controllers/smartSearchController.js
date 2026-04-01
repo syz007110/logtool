@@ -23,7 +23,9 @@ const { searchByKeywords: searchErrorCodesByKeywordsEs, searchByTypeCodes: searc
 const { searchErrorCodesUnified } = require('../services/errorCodeUnifiedService');
 const {
   shouldUseMKnowledgeForIntent,
-  searchMKnowledgeForKbIntent
+  searchMKnowledgeForKbIntent,
+  fetchMKnowledgeAssetBuffer,
+  resolveMKnowledgeAuthToken
 } = require('../services/mKnowledgeSmartSearchService');
 
 const DEFAULT_LIMITS = {
@@ -112,16 +114,120 @@ function extractBearerToken(req) {
   return authHeader.slice(7).trim();
 }
 
-function resolveMKnowledgeErrorStatus(error) {
-  const status = Number(error?.status || 0);
-  if (status >= 400 && status < 600) return status;
-  return 502;
+/** GET 可用 query.token（与 auth 中间件一致）；转发 MKnowledge 时须用同一 JWT，否则 upstream Authorization 为空 */
+function extractBearerTokenOrQuery(req) {
+  const fromHeader = extractBearerToken(req);
+  if (fromHeader) return fromHeader;
+  if (req.method === 'GET' && req.query && typeof req.query.token === 'string') {
+    return String(req.query.token).trim();
+  }
+  return '';
 }
 
 function resolveMKnowledgeErrorStatus(error) {
   const status = Number(error?.status || 0);
   if (status >= 400 && status < 600) return status;
   return 502;
+}
+
+function formatKbRetrievalFailureMessage(remoteError, lang = 'zh') {
+  const en = String(lang || '').toLowerCase().startsWith('en');
+  const status = Number(remoteError?.status || 0);
+  const code = String(remoteError?.code || '').trim();
+  const msg = String(remoteError?.message || '').trim();
+  if (status === 401 || status === 403) {
+    return en
+      ? 'Knowledge retrieval unauthorized: set MKNOWLEDGE_BEARER_TOKEN (or a JWT valid on MKnowledge) and ensure kb:read permission.'
+      : '知识库检索未授权：请在 logtool 配置 MKNOWLEDGE_BEARER_TOKEN（或与 MKnowledge 一致的 JWT），并确认账号有 kb:read 权限';
+  }
+  if (code === 'mknowledge_base_url_missing' || /base_url_missing/i.test(code)) {
+    return en
+      ? 'Knowledge retrieval failed: MKNOWLEDGE_BASE_URL is not set.'
+      : '知识库检索失败：未配置 MKNOWLEDGE_BASE_URL';
+  }
+  if (/timeout/i.test(code) || /timeout/i.test(msg)) {
+    return en
+      ? 'Knowledge retrieval timed out: retry later or increase MKNOWLEDGE_TIMEOUT_MS / MKNOWLEDGE_CHAT_TIMEOUT_MS on the server.'
+      : '知识库检索超时：可尝试稍后重试，或在服务端增大 MKNOWLEDGE_TIMEOUT_MS / MKNOWLEDGE_CHAT_TIMEOUT_MS';
+  }
+  if (msg && msg !== 'undefined') {
+    return en ? `Knowledge retrieval failed: ${msg}` : `知识库检索失败：${msg}`;
+  }
+  return en ? 'Knowledge retrieval failed.' : '知识库检索失败（knowledge retrieval failed）';
+}
+
+async function loadMKnowledgeKbOrError(req, { query, keywords, limit, generate, intent, lang }) {
+  if (limit <= 0) {
+    return {
+      ok: true,
+      items: [],
+      generation: null,
+      debug: { skipped: true, reason: 'limit_zero' }
+    };
+  }
+  if (!shouldUseMKnowledgeForIntent(intent)) {
+    return {
+      ok: false,
+      status: 500,
+      payload: { ok: false, message: 'knowledge_intent_route_unexpected' }
+    };
+  }
+  try {
+    const remoteKb = await searchMKnowledgeForKbIntent({
+      token: extractBearerToken(req),
+      query,
+      keywords,
+      limit,
+      generate
+    });
+    if (!remoteKb.ok) {
+      const status = resolveMKnowledgeErrorStatus(remoteKb.error);
+      return {
+        ok: false,
+        status,
+        payload: {
+          ok: false,
+          message: formatKbRetrievalFailureMessage(remoteKb.error, lang),
+          error: remoteKb.error || { code: 'mknowledge_request_error', message: 'mknowledge request failed' }
+        }
+      };
+    }
+    return {
+      ok: true,
+      items: remoteKb.items || [],
+      generation: remoteKb.generation ?? null,
+      debug: { provider: 'mknowledge', raw: remoteKb.raw }
+    };
+  } catch (e) {
+    const wrapped = { message: String(e?.message || e), code: e?.code || 'mknowledge_request_error' };
+    return {
+      ok: false,
+      status: 502,
+      payload: {
+        ok: false,
+        message: formatKbRetrievalFailureMessage(wrapped, lang),
+        error: wrapped
+      }
+    };
+  }
+}
+
+/** 智能搜索 debug：知识库请求参数 + 生成 token 用量（供前端「查看检索详情」） */
+function buildKbRetrievalDebugSummary({ userQuery, keywords, limits, kbGenerate, kb }) {
+  const kbDocsLimit = Number(limits?.kbDocs ?? 0);
+  if (!kb || !Number.isFinite(kbDocsLimit) || kbDocsLimit <= 0) return null;
+  const gen = kb.generation || null;
+  const usage = gen && !gen.error && gen.usage ? gen.usage : null;
+  const raw = kb.debug?.raw && typeof kb.debug.raw === 'object' ? kb.debug.raw : null;
+  return {
+    query: String(userQuery || '').trim(),
+    keywords: Array.isArray(keywords) ? keywords : [],
+    limit: kbDocsLimit,
+    generate: Boolean(kbGenerate),
+    tokenUsage: usage,
+    mknowledgeTimingMs: raw?.timingMs ?? null,
+    mknowledgeLexicalQuery: raw?.lexicalQuery != null ? String(raw.lexicalQuery) : null
+  };
 }
 
 function getSmartSearchLlmStatus(providerId) {
@@ -785,6 +891,9 @@ async function smartSearch(req, res) {
       faultCases: clampInt(body?.limits?.faultCases, 0, 50, DEFAULT_LIMITS.faultCases),
       kbDocs: clampInt(body?.limits?.kbDocs, 0, 20, DEFAULT_LIMITS.kbDocs)
     };
+    const kbGenerate =
+      parseBool(body?.limits?.kbGenerate) ||
+      parseBool(process.env.SMART_SEARCH_MKNOWLEDGE_GENERATE);
     const includeDebug = body?.debug === true || body?.includeDebug === true || req.query?.debug === '1';
 
     const llmStatus = getSmartSearchLlmStatus(llmProviderId);
@@ -979,40 +1088,38 @@ async function smartSearch(req, res) {
     if (!jiraCfg.enabled) strategy.doJira = false;
 
     if (intent === 'how_to_use') {
-      let kb = { ok: true, items: [], debug: { skipped: true, reason: 'not_run' } };
+      let kb = { ok: true, items: [], generation: null, debug: { skipped: true, reason: 'not_run' } };
       if (limits.kbDocs > 0) {
-        try {
-          if (!shouldUseMKnowledgeForIntent(intent)) {
-            return res.status(500).json({
-              ok: false,
-              message: 'knowledge_intent_route_unexpected'
-            });
-          }
-          const remoteKb = await searchMKnowledgeForKbIntent({
-            token: extractBearerToken(req),
-            query,
-            keywords: q.keywords || [],
-            limit: limits.kbDocs
-          });
-          if (!remoteKb.ok) {
-            const status = resolveMKnowledgeErrorStatus(remoteKb.error);
-            return res.status(status).json({
-              ok: false,
-              message: 'knowledge retrieval failed',
-              error: remoteKb.error || { code: 'mknowledge_request_error', message: 'mknowledge request failed' }
-            });
-          }
-          kb = { ok: true, items: remoteKb.items || [], debug: { provider: 'mknowledge' } };
-        } catch (e) {
-          return res.status(502).json({
-            ok: false,
-            message: 'knowledge retrieval failed',
-            error: { message: String(e?.message || e), code: e?.code || 'mknowledge_request_error' }
-          });
+        const kbRes = await loadMKnowledgeKbOrError(req, {
+          query,
+          keywords: q.keywords || [],
+          limit: limits.kbDocs,
+          generate: kbGenerate,
+          intent,
+          lang: targetLang
+        });
+        if (!kbRes.ok) {
+          return res.status(kbRes.status).json(kbRes.payload);
         }
+        kb = {
+          ok: true,
+          items: kbRes.items,
+          generation: kbRes.generation,
+          debug: kbRes.debug
+        };
       }
 
-      const kbAnswer = buildKbSnippetAnswerText(kb.items);
+      const kbAnswer = (() => {
+        if (
+          kbGenerate &&
+          kb.generation &&
+          !kb.generation.error &&
+          String(kb.generation.answer || '').trim()
+        ) {
+          return String(kb.generation.answer).trim();
+        }
+        return buildKbSnippetAnswerText(kb.items);
+      })();
       const fallbackText =
         '我可以帮你做“故障码库 + Jira 历史案例 + 知识库文档”的智能检索（优先返回原文片段，不做无依据推断）。\n\n' +
         '你可以这样问：\n' +
@@ -1031,7 +1138,9 @@ async function smartSearch(req, res) {
         llmAvailable: llmStatus.available,
         llmReason: llmStatus.reason,
         llmProvider: providerPublic?.id || null,
-        llmModel: providerPublic?.model || null
+        llmModel: providerPublic?.model || null,
+        kbGenerate: Boolean(kbGenerate),
+        kbGeneration: kb.generation || null
       };
       const responsePayload = {
         ok: true,
@@ -1064,7 +1173,14 @@ async function smartSearch(req, res) {
               ...queryPlan,
               planner: { recognizedCodes, mergedTypeCodes, intent, strategy }
             },
-            kb
+            kb,
+            kbRetrieval: buildKbRetrievalDebugSummary({
+              userQuery: query,
+              keywords: q.keywords || [],
+              limits,
+              kbGenerate,
+              kb
+            })
           }
         } : {})
       };
@@ -1091,40 +1207,38 @@ async function smartSearch(req, res) {
     }
 
     if (intent === 'definition') {
-      let kb = { ok: true, items: [], debug: { skipped: true, reason: 'not_run' } };
+      let kb = { ok: true, items: [], generation: null, debug: { skipped: true, reason: 'not_run' } };
       if (limits.kbDocs > 0) {
-        try {
-          if (!shouldUseMKnowledgeForIntent(intent)) {
-            return res.status(500).json({
-              ok: false,
-              message: 'knowledge_intent_route_unexpected'
-            });
-          }
-          const remoteKb = await searchMKnowledgeForKbIntent({
-            token: extractBearerToken(req),
-            query,
-            keywords: q.keywords || [],
-            limit: limits.kbDocs
-          });
-          if (!remoteKb.ok) {
-            const status = resolveMKnowledgeErrorStatus(remoteKb.error);
-            return res.status(status).json({
-              ok: false,
-              message: 'knowledge retrieval failed',
-              error: remoteKb.error || { code: 'mknowledge_request_error', message: 'mknowledge request failed' }
-            });
-          }
-          kb = { ok: true, items: remoteKb.items || [], debug: { provider: 'mknowledge' } };
-        } catch (e) {
-          return res.status(502).json({
-            ok: false,
-            message: 'knowledge retrieval failed',
-            error: { message: String(e?.message || e), code: e?.code || 'mknowledge_request_error' }
-          });
+        const kbRes = await loadMKnowledgeKbOrError(req, {
+          query,
+          keywords: q.keywords || [],
+          limit: limits.kbDocs,
+          generate: kbGenerate,
+          intent,
+          lang: targetLang
+        });
+        if (!kbRes.ok) {
+          return res.status(kbRes.status).json(kbRes.payload);
         }
+        kb = {
+          ok: true,
+          items: kbRes.items,
+          generation: kbRes.generation,
+          debug: kbRes.debug
+        };
       }
 
-      const kbAnswer = buildKbSnippetAnswerText(kb.items);
+      const kbAnswer = (() => {
+        if (
+          kbGenerate &&
+          kb.generation &&
+          !kb.generation.error &&
+          String(kb.generation.answer || '').trim()
+        ) {
+          return String(kb.generation.answer).trim();
+        }
+        return buildKbSnippetAnswerText(kb.items);
+      })();
       const fallbackText =
         '我目前没有接入可可靠解释的百科知识库，但可以在“说明书/需求/设计文档（原文片段）+ 故障码库 + Jira 历史案例”中检索。\n\n' +
         '请补充：关键名词、模块名、或故障码（如 165100A / 010A），我会返回最相关的原文片段引用。';
@@ -1138,7 +1252,9 @@ async function smartSearch(req, res) {
         llmAvailable: llmStatus.available,
         llmReason: llmStatus.reason,
         llmProvider: providerPublic?.id || null,
-        llmModel: providerPublic?.model || null
+        llmModel: providerPublic?.model || null,
+        kbGenerate: Boolean(kbGenerate),
+        kbGeneration: kb.generation || null
       };
       const responsePayload = {
         ok: true,
@@ -1171,7 +1287,14 @@ async function smartSearch(req, res) {
               ...queryPlan,
               planner: { recognizedCodes, mergedTypeCodes, intent, strategy }
             },
-            kb
+            kb,
+            kbRetrieval: buildKbRetrievalDebugSummary({
+              userQuery: query,
+              keywords: q.keywords || [],
+              limits,
+              kbGenerate,
+              kb
+            })
           }
         } : {})
       };
@@ -1773,9 +1896,33 @@ async function smartSearchLlmStream(req, res) {
   }
 }
 
+async function getMKnowledgeAssetProxy(req, res) {
+  const fileId = Number(req.params.fileId);
+  const assetId = Number(req.params.assetId);
+  if (!Number.isFinite(fileId) || fileId <= 0 || !Number.isFinite(assetId) || assetId <= 0) {
+    return res.status(400).json({ ok: false, message: 'invalid fileId or assetId' });
+  }
+  const userToken = extractBearerTokenOrQuery(req);
+  const token = resolveMKnowledgeAuthToken(userToken);
+  if (!token) {
+    return res.status(401).json({ ok: false, message: 'unauthorized' });
+  }
+  try {
+    const { buffer, contentType } = await fetchMKnowledgeAssetBuffer({ token, fileId, assetId });
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return res.send(buffer);
+  } catch (err) {
+    const code = Number(err?.status);
+    const status = code >= 400 && code < 600 ? code : 502;
+    return res.status(status).json({ ok: false, message: String(err?.message || err) });
+  }
+}
+
 module.exports = {
   smartSearch,
   smartSearchLlmStream,
+  getMKnowledgeAssetProxy,
   smartSearchLlmProviders: (req, res) => {
     const providers = getProvidersPublic();
     const defaultProviderId = String(process.env.SMART_SEARCH_LLM_DEFAULT_PROVIDER || providers?.[0]?.id || '').trim() || null;

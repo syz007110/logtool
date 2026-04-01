@@ -2360,6 +2360,7 @@
     },
     "smartSearch": {
       "emptyHelpTitle": "有什么可以帮您？",
+      "sectionAnswer": "回答",
       "sectionFaultCase": "故障案例",
       "sectionFaultCode": "故障码解析",
       "sectionSimilarCases": "相似案例",
@@ -2390,6 +2391,7 @@
       "kbSection": "Knowledge",
       "kbHeading": "标题路径",
       "kbSnippet": "片段",
+      "kbImages": "插图",
       "viewDetail": "查看详情",
       "loadingJiraDetail": "正在加载 Jira 详情…",
       "loadingFaultCaseDetail": "正在加载故障案例详情…",

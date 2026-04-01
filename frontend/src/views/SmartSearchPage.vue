@@ -369,6 +369,13 @@
               <div class="ss-answer-container">
                 <!-- 1) 答案区 -->
                 <div class="ss-answer-area">
+                  <!-- 综合回答（含 MKnowledge 生成或片段拼接；与下方 Knowledge 来源区分） -->
+                  <div v-if="(m.payload.answerText || '').trim()" class="ss-answer-section ss-answer-summary">
+                    <div v-if="showAnswerSectionTitle(m.payload)" class="ss-answer-section-title">回答</div>
+                    <div class="ss-answer-section-content">
+                      <div class="ss-answer-text">{{ m.payload.answerText }}</div>
+                    </div>
+                  </div>
                   <!-- 识别到的查询要点 -->
                   <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.keywords?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length || m.payload.recognized.component?.length || m.payload.recognized.neg?.length || m.payload.recognized.intent || m.payload.recognized.days)" class="ss-answer-section">
                     <div class="ss-answer-section-title">识别到的查询要点</div>
@@ -691,8 +698,8 @@
                     </div>
                   </div>
 
-                  <!-- Knowledge 知识库文档 -->
-                  <div v-if="m.payload.sources && (m.payload.sources.kbDocs || []).length > 0" class="ss-answer-section">
+                  <!-- Knowledge 知识库文档（生成成功且有 answer 时隐藏；失败或空 answer 仍展示，见 showKbSnippetListInAnswer） -->
+                  <div v-if="m.payload.sources && (m.payload.sources.kbDocs || []).length > 0 && showKbSnippetListInAnswer(m.payload)" class="ss-answer-section">
                     <div class="ss-answer-section-title">Knowledge（{{ m.payload.sources.kbDocs.length }}）</div>
                     <div class="ss-answer-section-content">
                       <div
@@ -709,6 +716,14 @@
                           class="ss-kb-snippet" 
                           v-html="sanitizeSnippet(kb.snippet)"
                         ></div>
+                        <div v-if="kbImageAssets(kb).length" class="ss-kb-assets">
+                          <SmartSearchKbAssetImg
+                            v-for="a in kbImageAssets(kb)"
+                            :key="`kb-img-${kb.ref}-${a.id}`"
+                            :file-id="kb.fileId"
+                            :asset-id="a.id"
+                          />
+                        </div>
                         <a
                           class="ss-kb-link"
                           href="#"
@@ -780,6 +795,41 @@
                 <details v-if="m.payload.meta?.llmAvailable !== false && m.payload.debug" class="ss-result-debug">
                   <summary class="ss-result-debug-summary">查看检索详情</summary>
                   <div class="ss-result-debug-body">
+                    <div v-if="m.payload.debug.kbRetrieval" class="ss-debug-block">
+                      <div class="ss-debug-title">知识库检索（MKnowledge）</div>
+                      <div class="ss-debug-row">
+                        <span class="ss-debug-k">query：</span>
+                        <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.query || '—' }}</span>
+                      </div>
+                      <div class="ss-debug-row">
+                        <span class="ss-debug-k">关键字：</span>
+                        <span class="ss-debug-v">{{ (m.payload.debug.kbRetrieval.keywords || []).length ? (m.payload.debug.kbRetrieval.keywords || []).join('、') : '—' }}</span>
+                      </div>
+                      <div v-if="m.payload.debug.kbRetrieval.mknowledgeLexicalQuery" class="ss-debug-row">
+                        <span class="ss-debug-k">lexicalQuery：</span>
+                        <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.mknowledgeLexicalQuery }}</span>
+                      </div>
+                      <div class="ss-debug-row">
+                        <span class="ss-debug-k">TopK：</span>
+                        <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.limit }}</span>
+                      </div>
+                      <div class="ss-debug-row">
+                        <span class="ss-debug-k">生成：</span>
+                        <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.generate ? '是' : '否' }}</span>
+                      </div>
+                      <div v-if="m.payload.debug.kbRetrieval.tokenUsage" class="ss-debug-row">
+                        <span class="ss-debug-k">Token 消耗：</span>
+                        <span class="ss-debug-v">{{ formatKbTokenUsage(m.payload.debug.kbRetrieval.tokenUsage) }}</span>
+                      </div>
+                      <div v-else-if="m.payload.debug.kbRetrieval.generate" class="ss-debug-row">
+                        <span class="ss-debug-k">Token 消耗：</span>
+                        <span class="ss-debug-v">—（未生成或未返回 usage）</span>
+                      </div>
+                      <template v-if="m.payload.debug.kbRetrieval.mknowledgeTimingMs != null">
+                        <div class="ss-debug-title" style="margin-top: 8px">MKnowledge timingMs</div>
+                        <pre class="ss-debug-pre">{{ typeof m.payload.debug.kbRetrieval.mknowledgeTimingMs === 'object' ? JSON.stringify(m.payload.debug.kbRetrieval.mknowledgeTimingMs, null, 2) : String(m.payload.debug.kbRetrieval.mknowledgeTimingMs) }}</pre>
+                      </template>
+                    </div>
                     <div v-if="m.payload.debug.llmPrompt" class="ss-debug-block">
                       <div class="ss-debug-title">LLM Prompt（messages）</div>
                       <pre class="ss-debug-pre">{{ JSON.stringify(m.payload.debug.llmPrompt, null, 2) }}</pre>
@@ -1388,6 +1438,17 @@
                       <div class="ss-source-detail-label">片段</div>
                       <div class="ss-source-detail-value ss-kb-snippet" v-html="sanitizeSnippet(k.snippet)"></div>
                     </div>
+                    <div v-if="kbImageAssets(k).length" class="ss-source-detail-section">
+                      <div class="ss-source-detail-label">插图</div>
+                      <div class="ss-source-detail-value ss-kb-assets">
+                        <SmartSearchKbAssetImg
+                          v-for="a in kbImageAssets(k)"
+                          :key="`drawer-kb-img-${k.ref}-${a.id}`"
+                          :file-id="k.fileId"
+                          :asset-id="a.id"
+                        />
+                      </div>
+                    </div>
                     <div v-if="k.path" class="ss-source-detail-section">
                       <div class="ss-source-detail-label">Path</div>
                       <div class="ss-source-detail-value">{{ k.path }}</div>
@@ -1511,6 +1572,7 @@ import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
 import { Earth } from '@icon-park/vue-next'
 import api from '@/api'
+import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
 
 const MAX_CONVERSATIONS = 5
 const MAX_QUESTIONS_PER_CONVERSATION = 5
@@ -1532,7 +1594,7 @@ function normalizeTitle (text) {
 
 export default {
   name: 'SmartSearchPage',
-  components: { Earth },
+  components: { Earth, SmartSearchKbAssetImg },
   setup () {
     const store = useStore()
     const router = useRouter()
@@ -1898,7 +1960,13 @@ export default {
       try {
         const resp = await api.smartSearch.search({
           query: text,
-          limits: { errorCodes: 10, jira: 10, faultCases: 10 },
+          limits: {
+            errorCodes: 10,
+            jira: 10,
+            faultCases: 10,
+            kbDocs: 5,
+            kbGenerate: true
+          },
           debug: true,
           llmProviderId: llmProviderId.value || undefined
         })
@@ -2142,6 +2210,18 @@ export default {
       return escaped
         .replaceAll(OPEN, '<em>')
         .replaceAll(CLOSE, '</em>')
+    }
+
+    const kbImageAssets = (kb) => {
+      const fid = Number(kb?.fileId)
+      if (!Number.isFinite(fid) || fid <= 0) return []
+      const list = Array.isArray(kb?.assets) ? kb.assets : []
+      return list.filter((a) => {
+        if (!a || !a.id) return false
+        const t = String(a.assetType || '').toLowerCase()
+        const mt = String(a.mimeType || '').toLowerCase()
+        return t === 'image' || mt.startsWith('image/')
+      })
     }
 
     const ensureJiraIssueLoaded = async (key, fallback = {}) => {
@@ -2838,6 +2918,36 @@ export default {
       return intentLabelMap[intent] || intent || '未知'
     }
 
+    /**
+     * 开启生成时默认不展示 Knowledge 片段；生成失败、无 generation、或 answer 为空时仍展示片段（与后端 answerText 回退逻辑一致）。
+     */
+    const showKbSnippetListInAnswer = (payload) => {
+      if (!payload?.meta?.kbGenerate) return true
+      const g = payload?.meta?.kbGeneration
+      if (!g || g.error) return true
+      if (!String(g.answer || '').trim()) return true
+      return false
+    }
+
+    /** 模型生成成功时不展示「回答」标题，正文即生成内容 */
+    const showAnswerSectionTitle = (payload) => {
+      const g = payload?.meta?.kbGeneration
+      if (payload?.meta?.kbGenerate && g && !g.error && String(g.answer || '').trim()) return false
+      return true
+    }
+
+    const formatKbTokenUsage = (u) => {
+      if (!u || typeof u !== 'object') return '—'
+      const pt = u.prompt_tokens ?? u.promptTokens
+      const ct = u.completion_tokens ?? u.completionTokens
+      const tt = u.total_tokens ?? u.totalTokens
+      const parts = []
+      if (pt != null) parts.push(`输入 ${pt}`)
+      if (ct != null) parts.push(`输出 ${ct}`)
+      if (tt != null) parts.push(`合计 ${tt}`)
+      return parts.length ? parts.join('，') : JSON.stringify(u)
+    }
+
     // 根据模型 ID 或 label 获取对应的 SVG 图标路径
     const getModelIcon = (provider) => {
       if (!provider) return null
@@ -3001,7 +3111,11 @@ export default {
       formatShortTime,
       formatLlmRaw,
       getIntentLabel,
+      showKbSnippetListInAnswer,
+      showAnswerSectionTitle,
+      formatKbTokenUsage,
       sanitizeSnippet,
+      kbImageAssets,
       toggleSidebar,
       toggleHistoryCollapsed,
       navigateTo,
@@ -4589,6 +4703,11 @@ export default {
   color: #6b7280;
 }
 
+.ss-debug-v {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
 .ss-debug-pre {
   margin: 8px 0 0;
   padding: 10px;
@@ -4783,6 +4902,13 @@ export default {
   flex-direction: column;
   gap: 12px;
   margin-top: 8px;
+}
+
+.ss-answer-summary .ss-answer-text {
+  white-space: pre-wrap;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #101828;
 }
 
 .ss-answer-section:first-child {
@@ -5063,6 +5189,13 @@ export default {
 .ss-kb-item:hover {
   border-color: #d1d5db;
   background: #ffffff;
+}
+
+.ss-kb-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .ss-kb-header {

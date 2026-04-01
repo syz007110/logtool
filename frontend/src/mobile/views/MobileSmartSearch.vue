@@ -191,6 +191,12 @@
 
           <template v-else-if="m.type === 'search_result' && m.payload && m.payload.ok">
             <div class="m-answer-content">
+              <div v-if="(m.payload.answerText || '').trim()" class="m-answer-section m-answer-summary">
+                <div v-if="showAnswerSectionTitle(m.payload)" class="m-answer-section-title">{{ $t('mobile.smartSearch.sectionAnswer') }}</div>
+                <div class="m-answer-section-content m-answer-summary-body">
+                  <div class="m-answer-plain">{{ m.payload.answerText }}</div>
+                </div>
+              </div>
               <!-- 识别到的查询要点 -->
               <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.keywords?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length || m.payload.recognized.component?.length || m.payload.recognized.neg?.length || m.payload.recognized.intent || m.payload.recognized.days)" class="m-answer-section">
                 <div class="m-answer-section-title">{{ $t('mobile.smartSearch.recognized.title') }}</div>
@@ -501,8 +507,8 @@
                 </div>
               </div>
 
-              <!-- Knowledge 知识库文档 -->
-              <div v-if="m.payload.sources && (m.payload.sources.kbDocs || []).length > 0" class="m-answer-section">
+              <!-- Knowledge 知识库文档（生成成功时隐藏片段列表，失败时仍展示） -->
+              <div v-if="m.payload.sources && (m.payload.sources.kbDocs || []).length > 0 && showKbSnippetListInAnswer(m.payload)" class="m-answer-section">
                 <div class="m-answer-section-title">{{ $t('mobile.smartSearch.kbSourcesCount', { count: (m.payload.sources.kbDocs || []).length }) }}</div>
                 <div class="m-answer-section-content">
                   <div
@@ -516,6 +522,14 @@
                     </div>
                     <div v-if="kb.headingPath" class="m-kb-heading">{{ kb.headingPath }}</div>
                     <div class="m-kb-snippet" v-html="sanitizeSnippet(kb.snippet)"></div>
+                    <div v-if="kbImageAssets(kb).length" class="m-kb-assets">
+                      <SmartSearchKbAssetImg
+                        v-for="a in kbImageAssets(kb)"
+                        :key="`m-kb-img-${kb.ref}-${a.id}`"
+                        :file-id="kb.fileId"
+                        :asset-id="a.id"
+                      />
+                    </div>
                     <a class="m-kb-link" href="#" @click.prevent="openSourcesDrawerAndExpand(m, kb.ref)">{{ $t('mobile.smartSearch.viewDetail') }}</a>
                   </div>
                 </div>
@@ -975,6 +989,17 @@
                     <div class="source-detail-label">{{ $t('mobile.smartSearch.kbSnippet') }}</div>
                     <div class="source-detail-value m-kb-snippet" v-html="sanitizeSnippet(k.snippet)"></div>
                   </div>
+                  <div v-if="kbImageAssets(k).length" class="source-detail-section">
+                    <div class="source-detail-label">{{ $t('mobile.smartSearch.kbImages') }}</div>
+                    <div class="source-detail-value m-kb-assets">
+                      <SmartSearchKbAssetImg
+                        v-for="a in kbImageAssets(k)"
+                        :key="`m-drawer-kb-${k.ref}-${a.id}`"
+                        :file-id="k.fileId"
+                        :asset-id="a.id"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -992,6 +1017,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import api from '@/api'
+import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
 import { 
   NavBar as VanNavBar, 
   Icon as VanIcon, 
@@ -1020,7 +1046,8 @@ export default {
     VanImage,
     VanLoading,
     VanField,
-    VanTag
+    VanTag,
+    SmartSearchKbAssetImg
   },
   setup() {
     const { t, locale } = useI18n()
@@ -1299,6 +1326,7 @@ export default {
         const resp = await api.smartSearch.search({
           conversationId: conv.id,
           query: text,
+          limits: { kbDocs: 5, kbGenerate: true },
           llmProviderId: llmProviderId.value || undefined
         })
 
@@ -1309,7 +1337,7 @@ export default {
           id: result.id || Date.now().toString(),
           role: 'assistant',
           type: 'search_result',
-          content: result.answer || '',
+          content: result.answerText || result.answer || '',
           payload: result,
           createdAt: new Date().toISOString()
         }
@@ -1471,6 +1499,21 @@ export default {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
 
+    /** 与桌面 SmartSearchPage：生成成功且有 answer 时不展示片段；失败或空 answer 仍展示 */
+    const showKbSnippetListInAnswer = (payload) => {
+      if (!payload?.meta?.kbGenerate) return true
+      const g = payload?.meta?.kbGeneration
+      if (!g || g.error) return true
+      if (!String(g.answer || '').trim()) return true
+      return false
+    }
+
+    const showAnswerSectionTitle = (payload) => {
+      const g = payload?.meta?.kbGeneration
+      if (payload?.meta?.kbGenerate && g && !g.error && String(g.answer || '').trim()) return false
+      return true
+    }
+
     // 仅允许 <em> 高亮标签
     const sanitizeSnippet = (html) => {
       const raw = String(html || '')
@@ -1483,6 +1526,18 @@ export default {
       return escaped
         .replaceAll(OPEN, '<em>')
         .replaceAll(CLOSE, '</em>')
+    }
+
+    const kbImageAssets = (kb) => {
+      const fid = Number(kb?.fileId)
+      if (!Number.isFinite(fid) || fid <= 0) return []
+      const list = Array.isArray(kb?.assets) ? kb.assets : []
+      return list.filter((a) => {
+        if (!a || !a.id) return false
+        const t = String(a.assetType || '').toLowerCase()
+        const mt = String(a.mimeType || '').toLowerCase()
+        return t === 'image' || mt.startsWith('image/')
+      })
     }
 
     const copyAnswer = async (message) => {
@@ -1952,6 +2007,9 @@ export default {
       toggleSourceExpanded,
       formatMarkdown,
       sanitizeSnippet,
+      showKbSnippetListInAnswer,
+      showAnswerSectionTitle,
+      kbImageAssets,
       getIntentLabel,
       llmProviders,
       llmProvidersLoading,
@@ -2389,6 +2447,13 @@ export default {
   font-size: var(--m-font-size-md);
   line-height: var(--m-line-height-lg);
   color: var(--gray-700);
+}
+
+.m-answer-plain {
+  white-space: pre-wrap;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--m-color-text);
 }
 
 .m-query-points {

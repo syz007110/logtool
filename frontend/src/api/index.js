@@ -53,25 +53,33 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => response,
   async error => {
-    if (error.config?._silentError === true) {
+    const silent = error.config?._silentError === true
+    // 静默请求仍须对 401 走刷新重试（如 SmartSearch 知识库配图），否则 token 将过期时所有 _silentError 请求直接失败且无刷新
+    if (silent && (!error.response || error.response.status !== 401)) {
       return Promise.reject(error)
     }
     if (error.response) {
       const { status, data } = error.response
       switch (status) {
         case 423:
-          if (error.config?.url?.includes('/auth/login')) {
-            const mins = Math.ceil((data?.retryAfter ?? 900) / 60)
-            ElMessage.error(data?.message || i18nInstance.global.t('auth.loginLocked', { minutes: mins }))
-          } else {
-            ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
+          if (!silent) {
+            if (error.config?.url?.includes('/auth/login')) {
+              const mins = Math.ceil((data?.retryAfter ?? 900) / 60)
+              ElMessage.error(data?.message || i18nInstance.global.t('auth.loginLocked', { minutes: mins }))
+            } else {
+              ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
+            }
           }
           break
         case 401:
           if (error.config?.url?.includes('/auth/login')) {
-            ElMessage.error(data?.message || i18nInstance.global.t('auth.invalidCredentials'))
+            if (!silent) {
+              ElMessage.error(data?.message || i18nInstance.global.t('auth.invalidCredentials'))
+            }
           } else if (error.config?.url?.includes('/auth/refresh')) {
-            ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+            if (!silent) {
+              ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+            }
             store.dispatch('auth/logout')
             router.push('/login')
           } else if (!error.config?._retry) {
@@ -85,30 +93,41 @@ api.interceptors.response.use(
               }
               return api.request(error.config)
             } catch (_) {
-              ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+              if (!silent) {
+                ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+              }
               store.dispatch('auth/logout')
               router.push('/login')
             }
           } else {
-            // 其他接口的401错误，说明token过期
-            ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+            if (!silent) {
+              ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+            }
             store.dispatch('auth/logout')
             router.push('/login')
           }
           break
         case 403:
-          ElMessage.error(i18nInstance.global.t('auth.insufficientPermissions'))
+          if (!silent) {
+            ElMessage.error(i18nInstance.global.t('auth.insufficientPermissions'))
+          }
           break
         case 404:
-          ElMessage.error(data?.message || i18nInstance.global.t('shared.resourceNotFound'))
+          if (!silent) {
+            ElMessage.error(data?.message || i18nInstance.global.t('shared.resourceNotFound'))
+          }
           break
         case 500:
-          ElMessage.error(i18nInstance.global.t('shared.serverError'))
+          if (!silent) {
+            ElMessage.error(i18nInstance.global.t('shared.serverError'))
+          }
           break
         default:
-          ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
+          if (!silent) {
+            ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
+          }
       }
-    } else {
+    } else if (!silent) {
       ElMessage.error(i18nInstance.global.t('shared.networkError'))
     }
     return Promise.reject(error)

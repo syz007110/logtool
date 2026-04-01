@@ -59,3 +59,14 @@ test('buildMKnowledgeSearchBody falls back query to keywords join when query emp
   assert.deepEqual(payload.keywords, ['alpha', 'beta']);
 });
 
+test('buildMKnowledgeSearchBody sets generate when requested', () => {
+  const payload = buildMKnowledgeSearchBody({
+    collectionId: 1,
+    query: 'q',
+    keywords: [],
+    limit: 5,
+    generate: true
+  });
+  assert.equal(payload.generate, true);
+});
+

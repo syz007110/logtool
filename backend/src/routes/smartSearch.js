@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 
 const auth = require('../middlewares/auth');
-const { smartSearch, smartSearchLlmStream, smartSearchLlmProviders } = require('../controllers/smartSearchController');
+const {
+  smartSearch,
+  smartSearchLlmStream,
+  smartSearchLlmProviders,
+  getMKnowledgeAssetProxy
+} = require('../controllers/smartSearchController');
 const {
   getConversations,
   getConversation,
@@ -15,6 +20,8 @@ const {
 // NOTE: Smart Search should behave like /error-codes/by-code (auth only),
 // to avoid querying RBAC tables (user_roles/roles) on each request.
 router.post('/search', auth, smartSearch);
+// Proxy MKnowledge chunk image/binary assets (Bearer → MKnowledge)
+router.get('/mknowledge-assets/:fileId/:assetId', auth, getMKnowledgeAssetProxy);
 // Debug: stream the raw LLM output (SSE)
 router.get('/llm-stream', auth, smartSearchLlmStream);
 // LLM providers list (for UI dropdown)
