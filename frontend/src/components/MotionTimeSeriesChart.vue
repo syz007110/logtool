@@ -15,8 +15,8 @@ export default {
   props: {
     seriesData: {
       // 兼容两种形态：
-      // 1) 单曲线：[[tsMs, value], ...]
-      // 2) 多曲线：[{ name: string, data: [[tsMs, value], ...], color?: string }, ...]
+      // 1) 单曲线：[[tsMs, value, pointKey?], ...]
+      // 2) 多曲线：[{ name: string, data: [[tsMs, value, pointKey?], ...], color?: string }, ...]
       type: Array,
       default: () => []
     },
@@ -171,7 +171,7 @@ export default {
           .sort((a, b) => a[0] - b[0])
           .forEach((point) => {
             const prev = result[result.length - 1]
-            if (!prev || prev[0] !== point[0] || prev[1] !== point[1]) {
+            if (!prev || prev[0] !== point[0] || prev[1] !== point[1] || prev[2] !== point[2]) {
               result.push(point)
             }
           })
@@ -210,15 +210,22 @@ export default {
       }
       return hi
     }
-    // 在有序时间序列中找离 xMs 最近的时间戳（用于点击定位，避免遍历全部点）
-    const findNearestTimestamp = (data, xMs) => {
+    // 在有序时间序列中找离 xMs 最近的点（用于点击定位，避免遍历全部点）
+    const findNearestPoint = (data, xMs) => {
       if (!data || data.length === 0) return null
       let i = findFirstIndexByX(data, xMs)
-      if (i >= data.length) return data[data.length - 1][0]
-      if (i === 0) return data[0][0]
-      const a = data[i - 1][0]
-      const b = data[i][0]
-      return Math.abs(xMs - a) <= Math.abs(xMs - b) ? a : b
+      if (i >= data.length) i = data.length - 1
+      else if (i > 0) {
+        const a = data[i - 1][0]
+        const b = data[i][0]
+        if (Math.abs(xMs - a) <= Math.abs(xMs - b)) i = i - 1
+      }
+      const point = data[i]
+      if (!Array.isArray(point)) return null
+      return {
+        point,
+        timestamp: point[0]
+      }
     }
 
     // 获取当前可见窗口的数据范围（用于 y 轴自适应）
@@ -663,10 +670,14 @@ export default {
             }
           }
           if (!timeData || timeData.length === 0) return
-          const nearest = findNearestTimestamp(timeData, xMs)
-          if (nearest == null) return
-          const clamped = Math.max(globalMinMs, Math.min(globalMaxMs, nearest))
-          emit('cursorChange', clamped)
+          const nearest = findNearestPoint(timeData, xMs)
+          if (!nearest || !Number.isFinite(nearest.timestamp)) return
+          const clamped = Math.max(globalMinMs, Math.min(globalMaxMs, nearest.timestamp))
+          const pointKey = Array.isArray(nearest.point) && nearest.point.length >= 3 && nearest.point[2] != null
+            ? String(nearest.point[2])
+            : null
+          if (pointKey) emit('cursorChange', { absMs: clamped, pointKey })
+          else emit('cursorChange', clamped)
         } catch (_) {}
       })
 

@@ -1111,6 +1111,7 @@ export default {
     const cursorMs = ref(0) // 当前光标位置（相对时间，毫秒）
     const maxTime = ref(0) // 最大时间（毫秒）
     const motionCursorAbsMs = ref(null) // 运行数据图表用的节流游标，降低大数据重绘压力
+    const activeMotionPointKey = ref(null) // 运行数据联动主键（时间相同点位时保持稳定）
     const playbackSpeed = ref(1)
     const timeBase = ref(null) // 时间基准（第一个日志条目的绝对时间戳）
 
@@ -1122,6 +1123,12 @@ export default {
 
     // 日志过滤
     const logFilter = ref('')
+    const logFilterDebounceTimer = ref(null)
+    const logServerSearchPage = ref(1)
+    const logServerSearchHasMore = ref(false)
+    const logServerSearchLoading = ref(false)
+    const logServerSearchPageSize = 500
+    const isServerSearchMode = computed(() => String(logFilter.value || '').trim().length > 0)
 
     // 计算属性：已选择的日志名称
     const selectedLogName = computed(() => {
@@ -1160,23 +1167,7 @@ export default {
 
     // 计算属性
     const filteredLogEntries = computed(() => {
-      if (!logFilter.value) {
-        return logEntries.value || []
-      }
-      const filter = logFilter.value.toLowerCase()
-      return (logEntries.value || []).filter(entry => {
-        // 搜索多个字段：故障码、参数、说明等
-        const searchText = [
-          entry.error_code,
-          entry.param1,
-          entry.param2,
-          entry.param3,
-          entry.param4,
-          entry.explanation,
-          entry.log_name
-        ].filter(Boolean).join(' ').toLowerCase()
-        return searchText.includes(filter)
-      })
+      return logEntries.value || []
     })
 
     // 虚拟日志表格列定义
@@ -1280,11 +1271,79 @@ export default {
       return mapped
     }
 
-    const replaceLogWindow = async (startMs, endMs) => {
+    const loadServerSearchPage = async ({ page = 1, append = false } = {}) => {
+      if (!selectedLogFiles.value.length) return
+      const keyword = String(logFilter.value || '').trim().toLowerCase()
+      if (!keyword) return
+      if (logServerSearchLoading.value) return
+
+      logServerSearchLoading.value = true
+      try {
+        const logIds = selectedLogFiles.value.map((l) => l.id).join(',')
+        const resp = await api.logs.getBatchEntries({
+          log_ids: logIds,
+          search: keyword,
+          page,
+          limit: logServerSearchPageSize
+        })
+        const entries = resp?.data?.entries || resp?.entries || resp?.data || []
+        const mapped = mapLogEntries(Array.isArray(entries) ? entries : [])
+        mapped.sort((a, b) => {
+          const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0
+          const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0
+          if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0
+          return timeA - timeB
+        })
+
+        if (append) {
+          const merged = [...(logEntries.value || []), ...mapped]
+          const seen = new Set()
+          const deduped = []
+          for (const item of merged) {
+            const key = String(item?.id || '')
+            if (!key || seen.has(key)) continue
+            seen.add(key)
+            deduped.push(item)
+          }
+          logEntries.value = deduped
+        } else {
+          logEntries.value = mapped
+        }
+
+        const total = Number(resp?.data?.total ?? 0)
+        const loaded = (logEntries.value || []).length
+        logServerSearchHasMore.value = Number.isFinite(total)
+          ? loaded < total
+          : mapped.length >= logServerSearchPageSize
+        logServerSearchPage.value = page
+      } finally {
+        logServerSearchLoading.value = false
+      }
+    }
+
+    const syncLogsBySearchMode = async () => {
+      if (!selectedLogFiles.value.length) return
+      const keyword = String(logFilter.value || '').trim().toLowerCase()
+      if (keyword) {
+        logServerSearchPage.value = 1
+        await loadServerSearchPage({ page: 1, append: false })
+        return
+      }
+
+      logServerSearchHasMore.value = false
+      logServerSearchPage.value = 1
+      if (logWindowStartMs.value != null && logWindowEndMs.value != null) {
+        // 退出搜索模式时强制回拉窗口数据，避免“窗口未变化”被短路逻辑拦截
+        await replaceLogWindow(logWindowStartMs.value, logWindowEndMs.value, { force: true })
+      }
+    }
+
+    const replaceLogWindow = async (startMs, endMs, { force = false } = {}) => {
       if (logWindowLoading.value) return
       const clamped = clampToAllowedRange(startMs, endMs)
       // 夹紧后窗口与当前完全一致时，不做重复请求（同时释放 directionLock，避免上层卡死）
       if (
+        !force &&
         logWindowStartMs.value === clamped.startMs &&
         logWindowEndMs.value === clamped.endMs &&
         (logEntries.value?.length || 0) > 0
@@ -1340,14 +1399,44 @@ export default {
     // 预计算过滤后日志时间戳数组（用于二分定位 & 避免频繁全量扫描）
     const filteredLogEntryTs = ref([])
     const lastAutoScrollIndex = ref(-1)
+    const activeLogEntryId = ref(null)
     watch(filteredLogEntries, (list) => {
       const arr = Array.isArray(list) ? list : []
       filteredLogEntryTs.value = arr.map((e) => {
         const ts = e?.timestamp ? new Date(e.timestamp).getTime() : NaN
         return Number.isFinite(ts) ? ts : NaN
       })
+      if (!arr.length) {
+        lastAutoScrollIndex.value = -1
+        activeLogEntryId.value = null
+        return
+      }
+      if (activeLogEntryId.value != null) {
+        const keepIdx = arr.findIndex((e) => String(e?.id || '') === String(activeLogEntryId.value))
+        if (keepIdx >= 0) {
+          lastAutoScrollIndex.value = keepIdx
+          return
+        }
+      }
       lastAutoScrollIndex.value = -1
+      activeLogEntryId.value = null
     }, { deep: false })
+
+    watch(
+      () => [logFilter.value, selectedLogFiles.value.map((l) => l?.id).join(',')],
+      () => {
+        if (logFilterDebounceTimer.value) {
+          clearTimeout(logFilterDebounceTimer.value)
+          logFilterDebounceTimer.value = null
+        }
+        if (!selectedLogFiles.value.length) return
+        logFilterDebounceTimer.value = setTimeout(() => {
+          syncLogsBySearchMode().catch((e) => {
+            console.warn('同步日志搜索结果失败:', e)
+          })
+        }, 300)
+      }
+    )
 
     // 过滤后日志数据的时间边界（用于视频超出范围时“钉住”到最后一条日志）
     const getFiniteFirstLast = (arr) => {
@@ -1380,16 +1469,29 @@ export default {
       return getFiniteFirstLast(filteredLogEntryTs.value)
     })
 
-    // 视频配置/联动用的时间范围：优先日志最早～最晚；无日志则用运行数据；两者都没有为 null
+    // 视频配置/联动用的时间范围：与主时间轴一致
+    // 两者都有时取交集；无交集时回退日志范围；只有一种时用该数据范围
     const videoConfigTimeRange = computed(() => {
       const logR = logDataRangeAbsMs.value
-      if (logR?.first != null && logR?.last != null && Number.isFinite(logR.first) && Number.isFinite(logR.last)) {
-        return { first: logR.first, last: logR.last }
-      }
+      const hasLog = logR?.first != null && logR?.last != null && Number.isFinite(logR.first) && Number.isFinite(logR.last)
       const motionR = getMotionRangeFromRows(motionRawRows.value)
-      if (motionR?.startMs != null && motionR?.endMs != null && Number.isFinite(motionR.startMs) && Number.isFinite(motionR.endMs)) {
-        return { first: motionR.startMs, last: motionR.endMs }
+      const hasMotion = motionR?.startMs != null && motionR?.endMs != null && Number.isFinite(motionR.startMs) && Number.isFinite(motionR.endMs)
+
+      if (hasLog && hasMotion) {
+        const logStart = Math.min(logR.first, logR.last)
+        const logEnd = Math.max(logR.first, logR.last)
+        const motionStart = Math.min(motionR.startMs, motionR.endMs)
+        const motionEnd = Math.max(motionR.startMs, motionR.endMs)
+        const overlapStart = Math.max(logStart, motionStart)
+        const overlapEnd = Math.min(logEnd, motionEnd)
+        if (overlapEnd >= overlapStart) {
+          return { first: overlapStart, last: overlapEnd }
+        }
+        return { first: logStart, last: logEnd }
       }
+
+      if (hasLog) return { first: logR.first, last: logR.last }
+      if (hasMotion) return { first: motionR.startMs, last: motionR.endMs }
       return null
     })
 
@@ -1563,6 +1665,38 @@ export default {
       return { startMs: minMs, endMs: maxMs }
     }
 
+    const buildMotionRowKey = (row, fileHint = null, fallbackIndex = 0) => {
+      const ts = toEpochMs(row?.ulint_data)
+      const tsPart = Number.isFinite(ts) && ts > 0 ? String(ts) : String(row?.ulint_data || 'na')
+      const sourceId = String(
+        row?.source_file_id ??
+        row?.file_id ??
+        row?.sourceFileId ??
+        fileHint?.id ??
+        fileHint?.source_file_id ??
+        'na'
+      )
+      const seqRaw = row?.sequence ?? row?.seq ?? row?.row_index ?? row?.index ?? fallbackIndex
+      const seq = Number.isFinite(Number(seqRaw)) ? String(Number(seqRaw)) : String(seqRaw ?? fallbackIndex)
+      return `${sourceId}|${tsPart}|${seq}`
+    }
+
+    const normalizeMotionRows = (rows, fileHint = null) => {
+      const arr = Array.isArray(rows) ? rows : []
+      return arr.map((row, idx) => {
+        const base = row && typeof row === 'object' ? row : {}
+        const next = { ...base }
+        const sourceFileId = next.source_file_id ?? next.file_id ?? next.sourceFileId ?? fileHint?.id ?? fileHint?.source_file_id
+        if (sourceFileId != null && next.source_file_id == null) {
+          next.source_file_id = sourceFileId
+        }
+        if (!next.__motion_key) {
+          next.__motion_key = buildMotionRowKey(next, fileHint, idx)
+        }
+        return next
+      })
+    }
+
     const getLogRangeAbsMs = () => {
       const total = logFileTotalTimeRange.value
       const totalMin = total?.min
@@ -1598,7 +1732,7 @@ export default {
       }
 
       // 日志窗口化：仅在“日志文件列表模式”（selectedLogFiles）下移动窗口
-      if (selectedLogFiles.value.length > 0) {
+      if (selectedLogFiles.value.length > 0 && !isServerSearchMode.value) {
         const abs = cursorAbsMs.value ?? newStart
         if (Number.isFinite(abs)) {
           await ensureLogWindowContains(abs)
@@ -1619,7 +1753,15 @@ export default {
 
       const forceReplaceLogWindow = async (startMs, endMs) => {
         if (skipReplaceLogWindow) return
+        if (isServerSearchMode.value) return
         if (selectedLogFiles.value.length > 0 && Number.isFinite(startMs) && Number.isFinite(endMs)) {
+          const span = Math.max(0, Number(endMs) - Number(startMs))
+          // 超过单窗口大小时，坚持窗口化加载，避免一次性全量拉取被分页上限截断后“看起来只有一小段”
+          if (span > logWindowSizeMs) {
+            const anchor = cursorAbsMs.value ?? startMs
+            await ensureLogWindowContains(anchor)
+            return
+          }
           await replaceLogWindow(startMs, endMs)
         }
       }
@@ -1697,6 +1839,12 @@ export default {
         return
       }
       if (!hasMotion || collapsed) return
+      const motionRange = getMotionRangeFromRows(motionRawRows.value)
+      if (motionRange?.startMs != null && motionRange?.endMs != null) {
+        const clamped = Math.max(Number(motionRange.startMs), Math.min(Number(motionRange.endMs), Number(absMs)))
+        pushMotionCursorAbsThrottled(clamped)
+        return
+      }
       pushMotionCursorAbsThrottled(absMs)
     }, { immediate: true })
 
@@ -1789,8 +1937,9 @@ export default {
           seq
         })
         if (fullFirst?.rows?.length) {
-          motionRawRows.value = fullFirst.rows
-          return { previewRows: fullFirst.rows, fullPromise: Promise.resolve(fullFirst.rows), seq }
+          const normalized = normalizeMotionRows(fullFirst.rows)
+          motionRawRows.value = normalized
+          return { previewRows: normalized, fullPromise: Promise.resolve(normalized), seq }
         }
 
         // 预览：点数更小，期望后端更快返回
@@ -1803,7 +1952,7 @@ export default {
           seq
         })
         if (seq !== motionSeriesSeq || controller.signal.aborted) return
-        if (previewRes?.rows) motionRawRows.value = previewRes.rows
+        if (previewRes?.rows) motionRawRows.value = normalizeMotionRows(previewRes.rows)
 
         // 后台拉满量：完成后替换
         const fullPromise = fetchMotionSeriesByRangeAndPoints({
@@ -1815,7 +1964,7 @@ export default {
           seq
         }).then((res) => {
           if (seq !== motionSeriesSeq || controller.signal.aborted) return null
-          if (res?.rows) motionRawRows.value = res.rows
+          if (res?.rows) motionRawRows.value = normalizeMotionRows(res.rows)
           return res?.rows || null
         }).catch(() => null)
 
@@ -1962,7 +2111,7 @@ export default {
         const previewResp = await api.motionData.preview(file.id, { offset: 0, limit: 5000 })
         const rows = previewResp.data?.rows || []
         rows.sort((a, b) => toEpochMs(a?.ulint_data) - toEpochMs(b?.ulint_data))
-        motionRawRows.value = rows
+        motionRawRows.value = normalizeMotionRows(rows, file)
         selectedMotionFile.value = file
         selectedMotionFiles.value = [file]
         motionSlots.value = motionSlots.value.map((s) => ({ ...s, title: '', series: [] }))
@@ -1991,13 +2140,13 @@ export default {
         
         // 合并数据并排序
         const merged = []
-        previews.forEach((resp) => {
+        previews.forEach((resp, idx) => {
           const rows = resp.data?.rows || []
-          if (Array.isArray(rows) && rows.length) merged.push(...rows)
+          if (Array.isArray(rows) && rows.length) merged.push(...normalizeMotionRows(rows, files[idx]))
         })
         merged.sort((a, b) => toEpochMs(a?.ulint_data) - toEpochMs(b?.ulint_data))
-        
-        motionRawRows.value = merged
+
+        motionRawRows.value = normalizeMotionRows(merged)
         selectedMotionFile.value = files[0] || null
         selectedMotionFiles.value = files
         motionSlots.value = motionSlots.value.map((s) => ({ ...s, title: '', series: [] }))
@@ -2372,6 +2521,8 @@ export default {
       videoAnchorLogMs.value = tlogn
       videoAnchorVideoMs.value = tvideon
       videoStartTime.value = null
+      // 仅推动日志/时间轴跳转，不反向改写当前视频时间，避免配置后播放联动异常
+      setCursorByAbsMs(tlogn, 'video')
 
       const durationMs = (videoPlayer.value?.duration ?? 0) * 1000
       const videoStartLogMs = tlogn - tvideon
@@ -3124,12 +3275,12 @@ export default {
           files.map((f) => api.motionData.preview(f.id, { offset: 0, limit: 5000 }))
         )
         const merged = []
-        previews.forEach((resp) => {
+        previews.forEach((resp, idx) => {
           const rows = resp.data?.rows || []
-          if (Array.isArray(rows) && rows.length) merged.push(...rows)
+          if (Array.isArray(rows) && rows.length) merged.push(...normalizeMotionRows(rows, files[idx]))
         })
         merged.sort((a, b) => toEpochMs(a?.ulint_data) - toEpochMs(b?.ulint_data))
-        motionRawRows.value = merged
+        motionRawRows.value = normalizeMotionRows(merged)
         selectedMotionFile.value = files[0] || null
         selectedMotionFiles.value = files
         // 切换文件后默认清空图位，避免错读
@@ -3651,7 +3802,7 @@ export default {
 
         // 检查数据是否成功加载
         const hasData = logEntries.value && logEntries.value.length > 0
-        
+
         // 滚动到顶部（定位到最早的日志条目）
         if (hasData && logVirtualTableRef.value?.scrollToTop) {
           await nextTick()
@@ -3670,9 +3821,15 @@ export default {
         }
 
         await syncTimelineRangeByLoadedData()
-        
+
+        if (isServerSearchMode.value) {
+          await syncLogsBySearchMode()
+        }
+
+        const hasDisplayData = logEntries.value && logEntries.value.length > 0
+
         // 根据数据加载情况显示消息
-        if (hasData) {
+        if (hasDisplayData) {
           ElMessage.success(t('dataAnalysis.loadSuccess') || '数据加载成功')
         } else {
           ElMessage.warning(t('dataAnalysis.noLogEntries') || '该时间范围内没有日志条目')
@@ -3707,17 +3864,8 @@ export default {
         const tlogend = tb + mt
         const tlogn = videoAnchorLogMs.value
         const tvideon = videoAnchorVideoMs.value
-        const tDeltaBase = tlogn - tlogstart
-        const tnbase = tvideon - tDeltaBase
         const clampedAbs = Math.max(tlogstart, Math.min(tlogend, absMs))
-        const timelinePos = clampedAbs - tlogstart
-        let videoTimeMs
-        if (tnbase > 0) {
-          videoTimeMs = timelinePos + tnbase
-        } else {
-          if (timelinePos < -tnbase) videoTimeMs = tvideos
-          else videoTimeMs = timelinePos + tnbase
-        }
+        let videoTimeMs = Number(tvideon) + (clampedAbs - Number(tlogn))
         videoTimeMs = Math.max(tvideos, Math.min(tvideoe, videoTimeMs))
         const tSec = videoTimeMs / 1000
         if (!Number.isFinite(tSec)) return
@@ -3764,13 +3912,46 @@ export default {
       return best
     }
 
-    const scrollToLogEntryAbs = (absMs) => {
+    const findTimeClusterBounds = (arr, centerIdx, ts) => {
+      let start = centerIdx
+      let end = centerIdx
+      while (start > 0 && arr[start - 1] === ts) start -= 1
+      while (end < arr.length - 1 && arr[end + 1] === ts) end += 1
+      return { start, end }
+    }
+
+    const resolveLogEntryIndex = (absMs, preferredEntryId = null) => {
       const tsArr = filteredLogEntryTs.value || []
-      if (!tsArr.length) return
+      const entries = filteredLogEntries.value || []
+      if (!tsArr.length || !entries.length) return -1
       const idx = binarySearchNearestIndex(tsArr, absMs)
+      if (idx < 0) return -1
+      const hitTs = tsArr[idx]
+      if (!Number.isFinite(hitTs)) return idx
+      const { start, end } = findTimeClusterBounds(tsArr, idx, hitTs)
+
+      const preferredId = preferredEntryId != null ? String(preferredEntryId) : null
+      if (preferredId) {
+        for (let i = start; i <= end; i++) {
+          if (String(entries[i]?.id || '') === preferredId) return i
+        }
+      }
+      if (activeLogEntryId.value != null) {
+        const activeId = String(activeLogEntryId.value)
+        for (let i = start; i <= end; i++) {
+          if (String(entries[i]?.id || '') === activeId) return i
+        }
+      }
+      return idx
+    }
+
+    const scrollToLogEntryAbs = (absMs, preferredEntryId = null) => {
+      const idx = resolveLogEntryIndex(absMs, preferredEntryId)
       if (idx < 0) return
       const prev = lastAutoScrollIndex.value
       lastAutoScrollIndex.value = idx
+      const entry = (filteredLogEntries.value || [])[idx]
+      activeLogEntryId.value = entry?.id != null ? String(entry.id) : null
       // 仅当目标行变化时滚动，减少抖动；始终更新 lastAutoScrollIndex 以保证高亮正确
       if (logVirtualTableRef.value?.scrollTo && idx !== prev) {
         logVirtualTableRef.value.scrollTo(Math.max(0, idx - 3))
@@ -3779,11 +3960,13 @@ export default {
 
     const throttledScrollToLogEntryAbs = throttle(scrollToLogEntryAbs, 80)
     const throttledEnsureLogWindowContains = throttle((absMs) => {
+      if (isServerSearchMode.value) return
       if (!logWindowLoading.value) ensureLogWindowContains(absMs)
     }, 200)
 
-    const setCursorByAbsMs = (absMs, source = '') => {
+    const setCursorByAbsMs = (absMs, source = '', preferredEntryId = null) => {
       if (!Number.isFinite(absMs)) return
+      if (source !== 'motion') activeMotionPointKey.value = null
       if (timeBase.value == null) {
         timeBase.value = absMs
         cursorMs.value = 0
@@ -3797,7 +3980,7 @@ export default {
       }
       // 避免视频 timeupdate 过于频繁触发窗口重拉
       throttledEnsureLogWindowContains(absMs)
-      throttledScrollToLogEntryAbs(absMs)
+      throttledScrollToLogEntryAbs(absMs, preferredEntryId)
     }
 
     const throttledSyncVideoToCursorAbsForTimeline = throttle((absMs) => {
@@ -3845,16 +4028,7 @@ export default {
         const tlogend = tb + mt
         const tlogn = videoAnchorLogMs.value
         const tvideon = videoAnchorVideoMs.value
-        const tDeltaBase = tlogn - tlogstart
-        const tnbase = tvideon - tDeltaBase
-        let cursorAbs
-        if (tnbase > 0) {
-          if (videoTimeMs < tnbase) return
-          cursorAbs = tlogstart + (videoTimeMs - tnbase)
-        } else {
-          if (videoTimeMs + tnbase < 0) return
-          cursorAbs = tlogstart + (videoTimeMs + tnbase)
-        }
+        let cursorAbs = Number(tlogn) + (videoTimeMs - Number(tvideon))
         cursorAbs = Math.max(tlogstart, Math.min(tlogend, cursorAbs))
         if (!Number.isFinite(cursorAbs)) return
         setCursorByAbsMs(cursorAbs, 'video')
@@ -4156,6 +4330,7 @@ export default {
       selectedMotionFiles.value = []
       selectedMotionFile.value = null
       motionRawRows.value = []
+      activeMotionPointKey.value = null
       motionSlots.value = motionSlots.value.map((s) => ({ ...s, title: '', series: [] }))
       // 清空运行数据后：清理"运行数据 -> 日志缺失"的提示
       logMatchNotFound.value = false
@@ -4234,7 +4409,7 @@ export default {
           const x = toEpochMs(r.ulint_data)
           const y = Number(r[idx])
           if (!Number.isFinite(x) || !Number.isFinite(y)) continue
-          points.push([x, y])
+          points.push([x, y, r.__motion_key || null])
         }
         series.push({ name: name, data: points })
       }
@@ -4278,7 +4453,10 @@ export default {
     }
 
     const isEntryHighlighted = (entry, index) => {
-      // 只高亮一条：当前时间轴对应的最近一条日志（scrollToLogEntryAbs 定位的那一行）
+      // 只高亮一条：优先按日志唯一 ID 保持稳定命中，同秒多条时不随机跳动
+      if (entry?.id != null && activeLogEntryId.value != null) {
+        return String(entry.id) === String(activeLogEntryId.value)
+      }
       return index != null && index === lastAutoScrollIndex.value
     }
 
@@ -4286,7 +4464,7 @@ export default {
       if (!entry?.timestamp) return
       const entryTime = new Date(entry.timestamp).getTime()
       if (!Number.isFinite(entryTime)) return
-      setCursorByAbsMs(entryTime, 'log')
+      setCursorByAbsMs(entryTime, 'log', entry?.id)
     }
 
     const onLogRowClick = (row) => {
@@ -4298,6 +4476,7 @@ export default {
     }
 
     const onLogVirtualScroll = (evt) => {
+      if (isServerSearchMode.value) return
       const el = evt?.target
       if (!el) return
       if (el.scrollTop === 0) {
@@ -4320,6 +4499,18 @@ export default {
     }
 
     const onLogVirtualLoadMore = () => {
+      if (isServerSearchMode.value) {
+        if (logWindowDirectionLock.value || logServerSearchLoading.value || !logServerSearchHasMore.value) return
+        logWindowDirectionLock.value = 'next'
+        loadServerSearchPage({ page: logServerSearchPage.value + 1, append: true })
+          .catch((e) => {
+            console.warn('加载更多搜索结果失败:', e)
+          })
+          .finally(() => {
+            logWindowDirectionLock.value = null
+          })
+        return
+      }
       if (logWindowDirectionLock.value) return
       // 已经到最晚允许范围时不再向后翻
       if (logAllowedEndMs.value != null && logWindowEndMs.value != null && logWindowEndMs.value >= logAllowedEndMs.value) {
@@ -4337,7 +4528,17 @@ export default {
       }
     }
 
-    const onMotionCursorChange = (absMs) => {
+    const onMotionCursorChange = (payload) => {
+      if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+        const absMs = Number(payload.absMs)
+        if (!Number.isFinite(absMs)) return
+        activeMotionPointKey.value = payload.pointKey != null ? String(payload.pointKey) : null
+        setCursorByAbsMs(absMs, 'motion')
+        return
+      }
+      const absMs = Number(payload)
+      if (!Number.isFinite(absMs)) return
+      activeMotionPointKey.value = null
       setCursorByAbsMs(absMs, 'motion')
     }
 
@@ -4373,6 +4574,7 @@ export default {
           selectedMotionFile.value = null
           selectedMotionFiles.value = []
           motionRawRows.value = []
+          activeMotionPointKey.value = null
           motionMatchNotFound.value = true
           motionMatchNotFoundRangeMs.value = { startMs: startTime, endMs: endTime }
           return
@@ -4403,7 +4605,7 @@ export default {
           rows = previewResp.data?.rows || []
         }
         rows.sort((a, b) => toEpochMs(a?.ulint_data) - toEpochMs(b?.ulint_data))
-        motionRawRows.value = rows
+        motionRawRows.value = normalizeMotionRows(rows, best)
 
         // 切换文件后默认清空图位，避免错读
         motionSlots.value = motionSlots.value.map((s) => ({ ...s, title: '', series: [] }))
@@ -4414,6 +4616,7 @@ export default {
         selectedMotionFile.value = null
         selectedMotionFiles.value = []
         motionRawRows.value = []
+        activeMotionPointKey.value = null
         motionMatchNotFound.value = true
         motionMatchNotFoundRangeMs.value = { startMs: startTime, endMs: endTime }
       }
@@ -4502,6 +4705,10 @@ export default {
     })
 
     onBeforeUnmount(() => {
+      if (logFilterDebounceTimer.value) {
+        clearTimeout(logFilterDebounceTimer.value)
+        logFilterDebounceTimer.value = null
+      }
       if (videoObjectUrl.value) {
         URL.revokeObjectURL(videoObjectUrl.value)
         videoObjectUrl.value = null
