@@ -105,6 +105,24 @@ const kbIngestQueue = new Queue('kb-ingest', {
   }
 });
 
+// Conversation message queue（会话消息异步处理）
+const conversationMessageQueue = new Queue('conversation-message', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 8,
+    attempts: parseInt(process.env.SESSION_QUEUE_MAX_RETRIES, 10) || 3,
+    backoff: {
+      type: 'exponential',
+      delay: parseInt(process.env.SESSION_QUEUE_BACKOFF_MS, 10) || 500
+    },
+    timeout: parseInt(process.env.SESSION_QUEUE_TIMEOUT_MS, 10) || 120000, // 2分钟
+    // 遵循现有策略：保留最近N条
+    removeOnComplete: parseInt(process.env.SESSION_QUEUE_REMOVE_ON_COMPLETE, 10) || 100,
+    removeOnFail: parseInt(process.env.SESSION_QUEUE_REMOVE_ON_FAIL, 10) || 50
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('error', (error) => {
   console.error('[队列] 队列错误:', error);
@@ -172,6 +190,15 @@ kbIngestQueue.on('failed', (job, err) => {
   console.error('[KB队列] 任务失败:', job.id, err.message);
 });
 
+// Conversation 队列事件监听
+conversationMessageQueue.on('error', (error) => {
+  console.error('[会话队列] 队列错误:', error);
+});
+
+conversationMessageQueue.on('failed', (job, err) => {
+  console.error('[会话队列] 任务失败:', job.id, err.message);
+});
+
 // 通用队列完成事件监听
 logProcessingQueue.on('completed', (job) => {
   console.log(`[队列] 任务 ${job.id} 完成`);
@@ -201,6 +228,10 @@ kbIngestQueue.on('completed', (job) => {
   console.log(`[KB队列] 任务 ${job.id} 完成`);
 });
 
+conversationMessageQueue.on('completed', (job) => {
+  console.log(`[会话队列] 任务 ${job.id} 完成`);
+});
+
 logProcessingQueue.on('stalled', (job) => {
   console.warn(`[队列] 任务 ${job.id} 停滞`);
 });
@@ -221,6 +252,7 @@ module.exports = {
   surgeryAnalysisQueue,
   motionDataQueue,
   kbIngestQueue,
+  conversationMessageQueue,
   redisConfig,
   queueOptions
 };

@@ -98,6 +98,7 @@
       v-model="dialogVisible"
       :title="isEdit ? $t('configManagement.common.editItem') : $t('configManagement.kbFileTypes.add')"
       width="600px"
+      class="edit-item-dialog"
       append-to-body
       :z-index="3000"
     >
@@ -409,6 +410,17 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+:deep(.edit-item-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.edit-item-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
 }
 </style>
 

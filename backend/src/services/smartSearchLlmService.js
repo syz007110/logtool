@@ -38,7 +38,7 @@ function getDefaultProviderSpecs() {
       label: 'Qwen',
       kind: 'openai_compatible',
       requiresApiKey: true,
-      apiKeyEnv: 'DASHSCOPE_API_KEY',
+      apiKeyEnv: 'SMART_SEARCH_LLM_API_KEY',
       baseUrlEnv: 'DASHSCOPE_BASE_URL',
       modelEnv: 'SMART_SEARCH_QWEN_MODEL',
       defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',

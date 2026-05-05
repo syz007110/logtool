@@ -59,6 +59,8 @@ const ossRouter = require('./routes/oss');
 const jiraRouter = require('./routes/jira');
 const smartSearchRouter = require('./routes/smartSearch');
 const kbRouter = require('./routes/kb');
+const agentRouter = require('./routes/agent');
+const dingtalkBotRouter = require('./routes/dingtalkBot');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
@@ -66,9 +68,12 @@ const errorCodeCacheSyncService = require('./services/errorCodeCacheSyncService'
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
 const { startTempCleanupJob } = require('./services/tempCleanupService');
 const { startRefreshTokenCleanupJob } = require('./services/refreshTokenCleanupService');
+const { orchestrator } = require('./agentization');
+const { createDingtalkStreamBridge } = require('./agentization/adapters/dingtalk/streamClient');
 
 let tempCleanupJob = null;
 let refreshTokenCleanupJob = null;
+let dingtalkStreamBridge = null;
 
 // 初始化队列系统
 try {
@@ -171,6 +176,8 @@ app.use('/static/tech-solution', express.static(path.resolve(__dirname, '../uplo
 app.use('/static/fault-cases', express.static(path.resolve(__dirname, '../uploads/fault-cases')));
 // 静态资源：知识库文件（本地存储）
 app.use('/static/kb', express.static(path.resolve(__dirname, '../uploads/kb')));
+// 静态资源：agent 测试临时附件（本地存储）
+app.use('/static/agent-assets', express.static(path.resolve(__dirname, '../uploads/agent-assets')));
 
 // 路由占位
 app.get('/', (req, res) => {
@@ -269,6 +276,8 @@ app.use('/api/fault-case-modules', faultCaseModulesRouter);
 app.use('/api/jira', jiraRouter);
 app.use('/api/smart-search', smartSearchRouter);
 app.use('/api/kb', kbRouter);
+app.use('/api/agent', agentRouter);
+app.use('/api/dingtalk/bot', dingtalkBotRouter);
 // 错误处理中间件
 app.use(errorMonitoring);
 app.use((err, req, res, next) => {
@@ -365,6 +374,21 @@ if (isMainProcess) {
               console.warn(`[进程 ${process.pid}] ⚠️ 队列管理器初始化失败:`, queueError.message);
             }
           })();
+
+          // 启动钉钉 Stream 机器人连接（仅主进程）
+          (async () => {
+            try {
+              dingtalkStreamBridge = createDingtalkStreamBridge({ orchestrator });
+              const started = await dingtalkStreamBridge.start();
+              if (!started.started) {
+                console.log(`[进程 ${process.pid}] ℹ️ 钉钉 Stream 未启动: ${started.reason || 'unknown'}`);
+              } else {
+                console.log(`[进程 ${process.pid}] ✅ 钉钉 Stream 已连接`);
+              }
+            } catch (streamError) {
+              console.warn(`[进程 ${process.pid}] ⚠️ 钉钉 Stream 启动失败:`, streamError.message);
+            }
+          })();
         });
       } catch (error) {
         console.error(`[进程 ${process.pid}] ❌ 服务器启动失败:`, error);
@@ -382,6 +406,7 @@ process.on('SIGTERM', async () => {
   console.log('收到SIGTERM信号，正在优雅关闭...');
   try { tempCleanupJob?.stop?.(); } catch (_) {}
   try { refreshTokenCleanupJob?.stop?.(); } catch (_) {}
+  try { await dingtalkStreamBridge?.stop?.(); } catch (_) {}
   await cacheManager.disconnect();
   await sequelize.close();
   await disconnectMongo();
@@ -392,6 +417,7 @@ process.on('SIGINT', async () => {
   console.log('收到SIGINT信号，正在优雅关闭...');
   try { tempCleanupJob?.stop?.(); } catch (_) {}
   try { refreshTokenCleanupJob?.stop?.(); } catch (_) {}
+  try { await dingtalkStreamBridge?.stop?.(); } catch (_) {}
   await cacheManager.disconnect();
   await sequelize.close();
   await disconnectMongo();

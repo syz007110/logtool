@@ -19,7 +19,7 @@ export const mobileRoutes = [
       { path: '', redirect: '/m/devices' },
       { path: 'devices', name: 'MDevices', component: () => import('../../mobile/views/Devices.vue'), meta: { isMobile: true } },
       { path: 'devices/:deviceId', name: 'MDeviceData', component: () => import('../../mobile/views/DeviceData.vue'), meta: { hideTabbar: true, isMobile: true } },
-      { path: 'smart-search', name: 'MSmartSearch', component: () => import('../../mobile/views/MobileSmartSearch.vue'), meta: { hideTabbar: false, isMobile: true } },
+      { path: 'smart-search', name: 'MSmartSearch', component: () => import('../../mobile/views/MobileSmartSearch.vue'), meta: { hideTabbar: false, isMobile: true, requiresPermission: 'smart_search:use' } },
       { path: 'error', name: 'MError', component: () => import('../../mobile/views/ErrorQuery.vue'), meta: { isMobile: true } },
       { path: 'logs', name: 'MLogs', component: () => import('../../mobile/views/LogDevices.vue'), meta: { isMobile: true } },
       { path: 'logs/:deviceId', name: 'MDeviceLogs', component: () => import('../../mobile/views/DeviceDetailTabs.vue'), meta: { hideTabbar: true, isMobile: true } },

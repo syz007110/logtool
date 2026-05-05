@@ -21,6 +21,7 @@ const { runJiraMongoMixedSearch } = require('../services/jiraMixedSearchService'
 const { buildSnippetAnswerText: buildKbSnippetAnswerText } = require('../services/kbSearchService');
 const { searchByKeywords: searchErrorCodesByKeywordsEs, searchByTypeCodes: searchErrorCodesByTypeCodesEs } = require('../services/errorCodeSearchService');
 const { searchErrorCodesUnified } = require('../services/errorCodeUnifiedService');
+const { normalizeTypeCode, extractFaultCodesFromText } = require('../services/faultCodeExtractionService');
 const {
   shouldUseMKnowledgeForIntent,
   searchMKnowledgeForKbIntent,
@@ -288,6 +289,21 @@ function normalizePlanQuery(raw) {
   };
 }
 
+function normalizeQueryPlanOverride(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const allowedIntents = new Set(['troubleshoot', 'lookup_fault_code', 'find_case', 'definition', 'how_to_use', 'other']);
+  const intent = String(src.intent || '').trim();
+  if (!allowedIntents.has(intent)) return null;
+  const query = normalizePlanQuery(src.query);
+  return {
+    intent,
+    query: {
+      ...query,
+      fault_codes: (query.fault_codes || []).map(normalizeTypeCode).filter(Boolean)
+    }
+  };
+}
+
 async function ensureMongoReady() {
   await connectMongo();
   return isMongoConnected();
@@ -415,56 +431,6 @@ function clampInt(n, min, max, fallback) {
   const v = Number.parseInt(n, 10);
   if (!Number.isFinite(v)) return fallback;
   return Math.min(Math.max(v, min), max);
-}
-
-function normalizeTypeCode(input) {
-  const raw = String(input ?? '').trim().toUpperCase();
-  if (!raw) return '';
-  if (/^(?:0X)?[0-9A-F]{3}[A-E]$/.test(raw)) {
-    return raw.startsWith('0X') ? raw : `0X${raw}`;
-  }
-  return '';
-}
-
-function extractFaultCodesFromText(query) {
-  const s = String(query || '').trim().toUpperCase();
-  const fullRe = /[1-9A][0-9A-F]{5}[A-E]/g;
-  const typeRe = /(?:0X)?[0-9A-F]{3}[A-E]/g;
-
-  const fullCodes = [];
-  const fullSeen = new Set();
-  for (const m of s.matchAll(fullRe)) {
-    const v = String(m[0] || '').trim().toUpperCase();
-    if (!v) continue;
-    if (fullSeen.has(v)) continue;
-    fullSeen.add(v);
-    fullCodes.push(v);
-    if (fullCodes.length >= 3) break;
-  }
-
-  const typeCodes = [];
-  const typeSeen = new Set();
-
-  // Derived from full code
-  for (const fc of fullCodes) {
-    const tail4 = fc.slice(-4);
-    const norm = normalizeTypeCode(tail4);
-    if (norm && !typeSeen.has(norm)) {
-      typeSeen.add(norm);
-      typeCodes.push(norm);
-    }
-  }
-
-  for (const m of s.matchAll(typeRe)) {
-    const norm = normalizeTypeCode(m[0]);
-    if (!norm) continue;
-    if (typeSeen.has(norm)) continue;
-    typeSeen.add(norm);
-    typeCodes.push(norm);
-    if (typeCodes.length >= 6) break;
-  }
-
-  return { fullCodes, typeCodes };
 }
 
 function mergeErrorCodeByLang(errorCodeData, targetLang) {
@@ -952,9 +918,17 @@ async function smartSearch(req, res) {
     const recognizedCodes = extractFaultCodesFromText(query);
 
     // Step 2: LLM extracts minimal QueryPlan JSON (no JQL/SQL)
+    const queryPlanOverride = normalizeQueryPlanOverride(body.queryPlanOverride);
     let llm = null;
     try {
-      llm = await extractQueryPlanWithProvider({ providerId: llmProviderId, query, defaults: { days: 180 } });
+      if (queryPlanOverride) {
+        llm = {
+          plan: queryPlanOverride,
+          raw: { mode: 'query_plan_override' }
+        };
+      } else {
+        llm = await extractQueryPlanWithProvider({ providerId: llmProviderId, query, defaults: { days: 180 } });
+      }
     } catch (e) {
       const answerText = '大模型调用失败，请使用经典面板进行搜索。';
       const meta = {
@@ -1929,5 +1903,3 @@ module.exports = {
     return res.json({ ok: true, providers, defaultProviderId });
   }
 };
-
-

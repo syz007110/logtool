@@ -20,11 +20,20 @@ const { defineAssociations } = require('../models/associations');
 const Role = require('../models/role');
 const Permission = require('../models/permission');
 const RolePermission = require('../models/role_permission');
+const PermissionGroup = require('../models/permission_group');
 
 const legacyRoles = require('../config/roles');
 
 function uniq(arr) {
   return Array.from(new Set(arr));
+}
+
+function deriveGroupKey(permissionName, availableGroupKeys) {
+  const name = String(permissionName || '').trim().toLowerCase();
+  const prefix = name.includes(':') ? name.split(':')[0] : '';
+  if (prefix && availableGroupKeys.has(prefix)) return prefix;
+  if (availableGroupKeys.has('other')) return 'other';
+  return prefix || 'other';
 }
 
 async function main() {
@@ -60,16 +69,32 @@ async function main() {
       .filter(Boolean)
   );
 
+  const groups = await PermissionGroup.findAll({ attributes: ['group_key'] });
+  const availableGroupKeys = new Set(groups.map((g) => String(g.group_key || '').trim()).filter(Boolean));
+  const defaultGroupKey = availableGroupKeys.has('other') ? 'other' : null;
+
   const existingPerms = await Permission.findAll({ where: { name: allPermNames } });
   const existingSet = new Set(existingPerms.map((p) => p.name));
 
-  const toCreate = allPermNames.filter((p) => !existingSet.has(p)).map((name) => ({
-    name,
-    description: ''
-  }));
+  const toCreate = allPermNames.filter((p) => !existingSet.has(p)).map((name) => {
+    const group_key = deriveGroupKey(name, availableGroupKeys);
+    return {
+      name,
+      description: '',
+      group_key: group_key || defaultGroupKey || 'other'
+    };
+  });
 
   if (toCreate.length) {
     await Permission.bulkCreate(toCreate, { ignoreDuplicates: true });
+  }
+
+  // Keep group_key aligned for existing permissions as well.
+  for (const p of existingPerms) {
+    const desiredGroupKey = deriveGroupKey(p.name, availableGroupKeys) || defaultGroupKey || 'other';
+    if (p.group_key !== desiredGroupKey) {
+      await p.update({ group_key: desiredGroupKey });
+    }
   }
 
   const permsNow = await Permission.findAll({ where: { name: allPermNames } });

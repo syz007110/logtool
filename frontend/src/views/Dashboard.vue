@@ -28,47 +28,47 @@
           @select="handleMenuSelect"
         >
           <!-- 智能搜索：跳转到独立页面 -->
-          <el-menu-item index="/smart-search">
+          <el-menu-item v-if="canAccessSmartSearch" index="/smart-search">
             <el-icon :size="20"><Search /></el-icon>
             <template #title>{{ $t('smartSearch.title') }}</template>
           </el-menu-item>
           
           <!-- 故障码管理 -->
-          <el-sub-menu index="data-management">
+          <el-sub-menu v-if="showDataManagementMenu" index="data-management">
             <template #title>
               <el-icon :size="20"><Files /></el-icon>
               <span>{{ $t('nav.dataManagement') }}</span>
             </template>
-            <el-menu-item index="/dashboard/error-codes">
+            <el-menu-item v-if="canAccessErrorCodes" index="/dashboard/error-codes">
               {{ $t('errorCodes.title') }}
             </el-menu-item>
-            <el-menu-item index="/dashboard/i18n-error-codes">
+            <el-menu-item v-if="canAccessI18nErrorCodes" index="/dashboard/i18n-error-codes">
               {{ $t('i18nErrorCodes.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case:read')" index="/dashboard/fault-cases">
+            <el-menu-item v-if="canAccessFaultCases" index="/dashboard/fault-cases">
               {{ $t('faultCases.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('kb:read')" index="/dashboard/knowledge-base">
+            <el-menu-item v-if="canAccessKnowledgeBase" index="/dashboard/knowledge-base">
               {{ $t('knowledgeBase.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('fault_case_config:manage')" index="/dashboard/config-management">
+            <el-menu-item v-if="canAccessConfigManagement" index="/dashboard/config-management">
               {{ $t('configManagement.title') }}
             </el-menu-item>
           </el-sub-menu>
           
           <!-- 日志与手术数据 -->
-          <el-sub-menu index="log-analysis">
+          <el-sub-menu v-if="showLogAnalysisMenu" index="log-analysis">
             <template #title>
               <el-icon :size="20"><Document /></el-icon>
               <span>{{ $t('nav.logAndSurgery') }}</span>
             </template>
-            <el-menu-item index="/dashboard/logs">
+            <el-menu-item v-if="canAccessLogs" index="/dashboard/logs">
               {{ $t('logs.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('data_replay:manage')" index="/dashboard/data-replay">
+            <el-menu-item v-if="canAccessDataReplay" index="/dashboard/data-replay">
               {{ $t('dataReplay.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('surgery:read') || $store.getters['auth/hasPermission']('surgery:read_own')" index="/dashboard/surgeries">
+            <el-menu-item v-if="canAccessSurgeries" index="/dashboard/surgeries">
               {{ $t('logs.surgeryData') }}
             </el-menu-item>
           </el-sub-menu>
@@ -92,24 +92,24 @@
           </el-menu-item>
           
           <!-- 系统管理 -->
-          <el-sub-menu v-if="$store.getters['auth/hasPermission']('user:read') || $store.getters['auth/hasPermission']('role:read') || $store.getters['auth/hasPermission']('device:read') || $store.getters['auth/hasPermission']('history:read_all')" index="system-management">
+          <el-sub-menu v-if="showSystemManagementMenu" index="system-management">
             <template #title>
               <el-icon :size="20"><Setting /></el-icon>
               <span>{{ $t('nav.systemManagement') }}</span>
             </template>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('user:read')" index="/dashboard/users">
+            <el-menu-item v-if="canAccessUsers" index="/dashboard/users">
               {{ $t('users.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('role:read')" index="/dashboard/roles">
+            <el-menu-item v-if="canAccessRoles" index="/dashboard/roles">
               {{ $t('roles.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('device:read')" index="/dashboard/devices">
+            <el-menu-item v-if="canAccessDevices" index="/dashboard/devices">
               {{ $t('devices.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('history:read_all') || $store.getters['auth/hasPermission']('history:read_own')" index="/dashboard/history">
+            <el-menu-item v-if="canAccessHistory" index="/dashboard/history">
               {{ $t('history.title') }}
             </el-menu-item>
-            <el-menu-item v-if="$store.getters['auth/hasPermission']('system:monitor')" index="/dashboard/monitoring">
+            <el-menu-item v-if="canAccessMonitoring" index="/dashboard/monitoring">
               {{ $t('monitoring.title') }}
             </el-menu-item>
           </el-sub-menu>
@@ -294,6 +294,44 @@ export default {
     const router = useRouter()
     const route = useRoute()
     const { t } = useI18n()
+    const hasPermission = (permission) => store.getters['auth/hasPermission']?.(permission)
+
+    const canAccessSmartSearch = computed(() => hasPermission('smart_search:use'))
+
+    const canAccessErrorCodes = computed(() => hasPermission('error_code:read'))
+    const canAccessI18nErrorCodes = computed(() => hasPermission('i18n:read'))
+    const canAccessFaultCases = computed(() => hasPermission('fault_case:read'))
+    const canAccessKnowledgeBase = computed(() => hasPermission('kb:read'))
+    const canAccessConfigManagement = computed(() => hasPermission('fault_case_config:manage'))
+    const showDataManagementMenu = computed(() =>
+      canAccessErrorCodes.value ||
+      canAccessI18nErrorCodes.value ||
+      canAccessFaultCases.value ||
+      canAccessKnowledgeBase.value ||
+      canAccessConfigManagement.value
+    )
+
+    const canAccessLogs = computed(() => hasPermission('log:read_all') || hasPermission('log:read_own'))
+    const canAccessDataReplay = computed(() => hasPermission('data_replay:manage'))
+    const canAccessSurgeries = computed(() => hasPermission('surgery:read') || hasPermission('surgery:read_own'))
+    const showLogAnalysisMenu = computed(() =>
+      canAccessLogs.value ||
+      canAccessDataReplay.value ||
+      canAccessSurgeries.value
+    )
+
+    const canAccessUsers = computed(() => hasPermission('user:read'))
+    const canAccessRoles = computed(() => hasPermission('role:read'))
+    const canAccessDevices = computed(() => hasPermission('device:read'))
+    const canAccessHistory = computed(() => hasPermission('history:read_all') || hasPermission('history:read_own'))
+    const canAccessMonitoring = computed(() => hasPermission('system:monitor'))
+    const showSystemManagementMenu = computed(() =>
+      canAccessUsers.value ||
+      canAccessRoles.value ||
+      canAccessDevices.value ||
+      canAccessHistory.value ||
+      canAccessMonitoring.value
+    )
     
     // 辅助函数：根据路由名称获取一级菜单信息
     const getParentMenuForRoute = (routeName) => {
@@ -742,6 +780,23 @@ export default {
       collapsed,
       openKeys,
       toggleCollapsed,
+      canAccessSmartSearch,
+      canAccessErrorCodes,
+      canAccessI18nErrorCodes,
+      canAccessFaultCases,
+      canAccessKnowledgeBase,
+      canAccessConfigManagement,
+      showDataManagementMenu,
+      canAccessLogs,
+      canAccessDataReplay,
+      canAccessSurgeries,
+      showLogAnalysisMenu,
+      canAccessUsers,
+      canAccessRoles,
+      canAccessDevices,
+      canAccessHistory,
+      canAccessMonitoring,
+      showSystemManagementMenu,
       currentUser,
       getRoleDisplayName,
       getPageTitleKey,

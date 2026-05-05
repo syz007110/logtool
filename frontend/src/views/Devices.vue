@@ -225,7 +225,7 @@
       </el-tabs>
     </el-card>
 
-    <el-dialog v-model="showEdit" :title="editing ? $t('devices.editDevice') : $t('devices.addDevice')" width="800px">
+    <el-dialog v-model="showEdit" :title="editing ? $t('devices.editDevice') : $t('devices.addDevice')" width="800px" class="management-dialog">
       <el-tabs v-model="activeTab" v-if="editing">
         <el-tab-pane :label="$t('devices.tabBasicInfo')" name="basic">
           <el-form :model="form" label-width="110px" :rules="rules" ref="formRef">
@@ -456,7 +456,7 @@
     </el-dialog>
 
     <!-- 设备型号编辑对话框 -->
-    <el-dialog v-model="showModelEdit" :title="editingModel ? $t('devices.modelDialogEdit') : $t('devices.modelDialogAdd')" width="500px">
+    <el-dialog v-model="showModelEdit" :title="editingModel ? $t('devices.modelDialogEdit') : $t('devices.modelDialogAdd')" width="500px" class="management-dialog">
       <el-form :model="modelForm" label-width="100px" ref="modelFormRef">
         <el-form-item :label="$t('devices.deviceModel')" prop="device_model" :rules="[{ required: true, message: t('devices.rules.modelRequired'), trigger: 'blur' }]">
           <el-input v-model="modelForm.device_model" :placeholder="$t('devices.modelPlaceholder')" />
@@ -471,7 +471,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showHospitalEdit" :title="editingHospital ? $t('devices.hospitalDialogEdit') : $t('devices.hospitalDialogAdd')" width="560px">
+    <el-dialog v-model="showHospitalEdit" :title="editingHospital ? $t('devices.hospitalDialogEdit') : $t('devices.hospitalDialogAdd')" width="560px" class="management-dialog">
       <el-form :model="hospitalForm" label-width="100px" ref="hospitalFormRef">
         <el-form-item :label="$t('devices.hospitalCode')" prop="code_suffix" :rules="hospitalCodeRules">
           <el-input
@@ -1741,5 +1741,16 @@ code {
   color: rgb(var(--text-error-primary));
   font-size: 12px;
   margin-top: 4px;
+}
+
+:deep(.management-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.management-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
 }
 </style>

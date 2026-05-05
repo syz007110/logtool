@@ -1,0 +1,187 @@
+{
+  "registryVersion": "v1",
+  "tools": [
+    {
+      "toolName": "error_code_lookup",
+      "displayName": "故障码查询",
+      "enabled": true,
+      "intentBindings": [
+        "error_code_lookup"
+      ],
+      "description": "根据故障码查询故障说明、参数含义、检查方法、处理建议。",
+      "llmSummary": {
+        "whenToUse": [
+          "用户询问某个故障码含义",
+          "用户提供故障码并要求排查"
+        ],
+        "requiredSlots": [],
+        "anyOfRequired": [
+          [
+            "errorCode",
+            "keywords"
+          ]
+        ],
+        "optionalSlots": [
+          "language"
+        ],
+        "missingSlotQuestions": {
+          "errorCode": "请提供需要查询的故障码，例如 0X010A。"
+        }
+      },
+      "inputContract": {
+        "type": "object",
+        "requiredSlots": [],
+        "anyOfRequired": [
+          [
+            "errorCode",
+            "keywords"
+          ]
+        ],
+        "optionalSlots": [
+          "language"
+        ],
+        "defaultable": {
+          "language": "zh-CN"
+        },
+        "contextFillable": [
+          "language"
+        ],
+        "properties": {
+          "errorCode": {
+            "type": "string",
+            "description": "故障码，格式如 0X010A",
+            "pattern": "^0X[0-9A-F]{4}$"
+          },
+          "keywords": {
+            "type": "string",
+            "description": "关键词"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "zh-CN",
+              "en-US"
+            ]
+          }
+        }
+      },
+      "outputContract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data",
+          "error"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "empty",
+              "failed"
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "subsystem": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "shortMessage": {
+                    "type": "string"
+                  },
+                  "userHint": {
+                    "type": "string"
+                  },
+                  "operation": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "param1": {
+                        "type": "string"
+                      },
+                      "param2": {
+                        "type": "string"
+                      },
+                      "param3": {
+                        "type": "string"
+                      },
+                      "param4": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "detail": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "techSolution": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "recordId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "execution": {
+        "mode": "sync",
+        "handler": "ErrorCodeLookupTool",
+        "timeoutMs": 5000,
+        "retryable": false
+      },
+      "security": {
+        "riskLevel": "low",
+        "requiredPermissions": [
+          "error_code:read"
+        ],
+        "audit": true
+      }
+    }
+  ]
+}

@@ -1,11 +1,14 @@
-const { 
+const Redis = require('ioredis');
+const {
   logProcessingQueue, 
   csvExportQueue,
   realtimeProcessingQueue, 
   historicalProcessingQueue, 
   surgeryAnalysisQueue,
   motionDataQueue,
-  kbIngestQueue
+  kbIngestQueue,
+  conversationMessageQueue,
+  redisConfig
 } = require('../config/queue');
 
 // 工作进程不加载 app.js，需在此确保 Sequelize 模型关联已定义（error_codes ↔ i18n_error_codes 等）
@@ -18,6 +21,9 @@ const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog, processBatchDownload: processLogsBatchDownload, processExportCsv } = require('./batchProcessor');
 const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
 const { processKbIngestJob } = require('./kbIngestProcessor');
+const { createPlatformTaskRouter } = require('../agentization/router/platformTaskRouter');
+const { createLogtoolToolGateway } = require('../agentization/tools/logtoolToolGateway');
+const { prepareConversationContext, processConversationRequest } = require('../agentization/session/conversationSessionService');
 const Log = require('../models/log');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const websocketService = require('../services/websocketService');
@@ -38,6 +44,110 @@ const SURGERY_CONCURRENCY = parseInt(process.env.SURGERY_QUEUE_CONCURRENCY) || 3
 const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURRENCY) || 2;
 const KB_INGEST_CONCURRENCY = parseInt(process.env.KB_QUEUE_CONCURRENCY) || 2;
 const CSV_EXPORT_CONCURRENCY = parseInt(process.env.CSV_EXPORT_QUEUE_CONCURRENCY) || 2;
+const SESSION_QUEUE_CONCURRENCY = parseInt(process.env.SESSION_QUEUE_CONCURRENCY, 10) || 8;
+const SESSION_INSTANCE_LOCK_TTL_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_TTL_MS, 10) || 120000;
+const SESSION_INSTANCE_LOCK_WAIT_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_WAIT_MS, 10) || 60000;
+const SESSION_INSTANCE_LOCK_RETRY_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_RETRY_MS, 10) || 80;
+const platformTaskRouter = createPlatformTaskRouter();
+const toolGateway = createLogtoolToolGateway();
+const sessionInstanceLockRedis = new Redis({
+  host: redisConfig.host,
+  port: Number(redisConfig.port || 6379),
+  password: redisConfig.password || undefined,
+  db: Number(redisConfig.db || 0),
+  lazyConnect: false
+});
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildInstanceLockKey(instanceId) {
+  return `conversation:instance:${String(instanceId)}:lock`;
+}
+
+async function acquireInstanceLock(instanceId, token) {
+  const lockKey = buildInstanceLockKey(instanceId);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= SESSION_INSTANCE_LOCK_WAIT_MS) {
+    const ok = await sessionInstanceLockRedis.set(
+      lockKey,
+      token,
+      'PX',
+      SESSION_INSTANCE_LOCK_TTL_MS,
+      'NX'
+    );
+    if (ok === 'OK') return lockKey;
+    await sleep(SESSION_INSTANCE_LOCK_RETRY_MS);
+  }
+  throw new Error(`instance lock timeout for instance_id=${instanceId}`);
+}
+
+async function releaseInstanceLock(lockKey, token) {
+  const script = `
+    if redis.call("GET", KEYS[1]) == ARGV[1] then
+      return redis.call("DEL", KEYS[1])
+    else
+      return 0
+    end
+  `;
+  try {
+    await sessionInstanceLockRedis.eval(script, 1, lockKey, token);
+  } catch (_) {}
+}
+
+function toStringArray(input) {
+  if (!Array.isArray(input)) return [];
+  return input.map((item) => String(item || '').trim()).filter(Boolean);
+}
+
+function buildSmartSearchIntentFromResponse(assistantResponse) {
+  const debugMeta = assistantResponse?.debugMeta || {};
+  const recognized = debugMeta?.intentExecution?.recognized || debugMeta?.smartSearch?.recognized;
+  if (!recognized || typeof recognized !== 'object') return null;
+
+  const intent = String(recognized.intent || '').trim();
+  if (!intent) return null;
+
+  return {
+    intent,
+    keywords: toStringArray(recognized.keywords),
+    symptom: toStringArray(recognized.symptom),
+    trigger: toStringArray(recognized.trigger),
+    component: toStringArray(recognized.component),
+    neg: toStringArray(recognized.neg),
+    days: Number.isFinite(Number(recognized.days)) ? Number(recognized.days) : 180
+  };
+}
+
+function enrichIntentResultWithSmartSearch(intentResult, assistantResponse) {
+  const base = intentResult && typeof intentResult === 'object' ? intentResult : {};
+  const intent = String(base.intent || '').trim();
+  const smartSearchIntentSet = new Set([
+    'smart_search',
+    'troubleshoot',
+    'lookup_fault_code',
+    'find_case',
+    'definition',
+    'how_to_use',
+    'other'
+  ]);
+  if (!smartSearchIntentSet.has(intent)) return base;
+
+  const smartSearchIntent = buildSmartSearchIntentFromResponse(assistantResponse);
+  if (!smartSearchIntent) return base;
+
+  const slots = base.slots && typeof base.slots === 'object' ? { ...base.slots } : {};
+  if (!Array.isArray(slots.keywords) || !slots.keywords.length) {
+    slots.keywords = smartSearchIntent.keywords;
+  }
+  slots.smartSearchIntent = smartSearchIntent;
+
+  return {
+    ...base,
+    slots
+  };
+}
 
 const normalizeLogIdList = (value) => {
   const array = Array.isArray(value) ? value : [];
@@ -103,6 +213,7 @@ console.log(`[队列系统] 启动手术分析队列，并发数: ${SURGERY_CONC
 console.log(`[队列系统] 启动MotionData处理队列，并发数: ${MOTION_DATA_CONCURRENCY}`);
 console.log(`[队列系统] 启动知识库入库队列，并发数: ${KB_INGEST_CONCURRENCY}`);
 console.log(`[队列系统] 启动CSV导出队列，并发数: ${CSV_EXPORT_CONCURRENCY}`);
+console.log(`[队列系统] 启动会话队列，并发数: ${SESSION_QUEUE_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -674,6 +785,52 @@ kbIngestQueue.process('ingest-kb', KB_INGEST_CONCURRENCY, async (job) => {
   }
 });
 
+// 注册会话消息处理器（结构化上下文，不含LLM生成）
+conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURRENCY, async (job) => {
+  const request = job?.data?.request;
+  const routing = job?.data?.routing || {};
+  if (!request || typeof request !== 'object') {
+    throw new Error('conversation job request is required');
+  }
+
+  const routedInstanceId = Number(routing?.instance?.id || 0);
+  const prepared = await prepareConversationContext(request, {
+    persistUserMessage: true,
+    instanceId: routedInstanceId > 0 ? routedInstanceId : undefined,
+    activeResolutionHint: routing?.activeResolution || {}
+  });
+  const instanceId = Number(prepared?.instance?.id || 0);
+  if (!Number.isFinite(instanceId) || instanceId <= 0) {
+    throw new Error('instance id is required for conversation processing');
+  }
+  if (routedInstanceId > 0 && routedInstanceId !== instanceId) {
+    throw new Error(`conversation instance drift detected: routed=${routedInstanceId}, actual=${instanceId}`);
+  }
+  const lockToken = `${String(job?.id || 'job')}:${Date.now()}:${Math.random().toString(16).slice(2, 10)}`;
+  const lockKey = await acquireInstanceLock(instanceId, lockToken);
+  try {
+  const intentResult = await platformTaskRouter.route(request, {
+    contextEnvelope: prepared.contextEnvelope,
+    history: prepared.history,
+    instance: prepared.instance,
+    container: prepared.container
+  });
+  const assistantResponse = await toolGateway.invoke(intentResult.intent, request, intentResult);
+  const enrichedIntentResult = enrichIntentResultWithSmartSearch(intentResult, assistantResponse);
+  const result = await processConversationRequest({
+    request,
+    intentResult: enrichedIntentResult,
+    contextEnvelope: prepared.contextEnvelope,
+    activeResolutionHint: prepared.activeResolution,
+    assistantResponse
+  });
+
+  return result;
+  } finally {
+    await releaseInstanceLock(lockKey, lockToken);
+  }
+});
+
 // 辅助函数：格式化文件大小
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -834,6 +991,8 @@ process.on('SIGTERM', async () => {
   await logProcessingQueue.close();
   await motionDataQueue.close();
   await kbIngestQueue.close();
+  await conversationMessageQueue.close();
+  try { await sessionInstanceLockRedis.quit(); } catch (_) {}
   process.exit(0);
 });
 
@@ -842,6 +1001,8 @@ process.on('SIGINT', async () => {
   await logProcessingQueue.close();
   await motionDataQueue.close();
   await kbIngestQueue.close();
+  await conversationMessageQueue.close();
+  try { await sessionInstanceLockRedis.quit(); } catch (_) {}
   process.exit(0);
 });
 

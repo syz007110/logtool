@@ -222,11 +222,27 @@ async function proxyMotionDataObject(req, res) {
   });
 }
 
+async function proxyAgentAssetObject(req, res) {
+  // eslint-disable-next-line global-require
+  const agentAssetStorage = require('../config/agentAssetStorage');
+  const prefixes = [
+    (agentAssetStorage.OSS_PREFIX || 'agent-assets/').replace(/^\//, ''),
+    (agentAssetStorage.TMP_PREFIX || 'agent-assets/tmp/').replace(/^\//, '')
+  ];
+  return proxyOssObject(req, res, {
+    getClient: agentAssetStorage.getOssClient,
+    allowedPrefixes: prefixes,
+    defaultFilename: 'agent-asset',
+    permissionHint: 'smart_search:use'
+  });
+}
+
 module.exports = {
   proxyTechSolutionObject,
   proxyFaultCaseObject,
   proxyKbObject,
-  proxyMotionDataObject
+  proxyMotionDataObject,
+  proxyAgentAssetObject
 };
 
 

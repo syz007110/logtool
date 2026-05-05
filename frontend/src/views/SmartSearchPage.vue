@@ -1599,6 +1599,8 @@ export default {
     const store = useStore()
     const router = useRouter()
     const { t } = useI18n()
+    const hasPermission = (permission) => store.getters['auth/hasPermission']?.(permission)
+    const canAccessLogs = computed(() => hasPermission('log:read_all') || hasPermission('log:read_own'))
 
     const currentUser = computed(() => store.getters['auth/currentUser'])
     const userKey = computed(() => {
@@ -2805,7 +2807,7 @@ export default {
     }
 
     const goBackToDashboard = () => {
-      router.push('/dashboard')
+      router.push(canAccessLogs.value ? '/dashboard/logs' : '/dashboard/account')
     }
 
     const handleUserCommand = async (command) => {

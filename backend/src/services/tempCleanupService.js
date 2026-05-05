@@ -3,6 +3,7 @@ const path = require('path');
 
 const faultCaseStorage = require('../config/faultCaseStorage');
 const techSolutionStorage = require('../config/techSolutionStorage');
+const agentAssetStorage = require('../config/agentAssetStorage');
 
 function parseIntOr(val, fallback) {
   const n = Number.parseInt(String(val ?? ''), 10);
@@ -153,6 +154,31 @@ async function runOnce({ log }) {
     // 清理 motion-data 结果目录（ZIP文件）
     const resultDirPath = path.resolve(__dirname, '../../uploads/temp/motion-data');
     await cleanupLocalDir({ label: 'motion-data-results', dirPath: resultDirPath, cutoffMs, log });
+  }
+
+  // ---- agent-assets tmp ----
+  // Follow global tmp-cleanup switches only:
+  // - TMP_CLEANUP_DISABLED
+  // - TMP_CLEANUP_INTERVAL_MIN
+  // - TMP_CLEANUP_TTL_HOURS
+  {
+    const cutoffMs = nowMs() - Math.max(1, defaultTtlHours) * 60 * 60 * 1000;
+    if (agentAssetStorage.STORAGE === 'oss') {
+      await cleanupOssPrefix({
+        label: 'agent-assets',
+        getClient: agentAssetStorage.getOssClient,
+        prefix: agentAssetStorage.TMP_PREFIX,
+        cutoffMs,
+        log
+      });
+    } else {
+      await cleanupLocalDir({
+        label: 'agent-assets',
+        dirPath: agentAssetStorage.TMP_DIR,
+        cutoffMs,
+        log
+      });
+    }
   }
 
   // Optional: a super-simple safety sweep for any tmp cleanup when TTL is used elsewhere

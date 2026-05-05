@@ -21,6 +21,7 @@
       v-model="showSubmitDialog" 
       :title="$t('feedback.submitTitle')" 
       width="600px"
+      class="feedback-submit-dialog"
       @close="resetForm"
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
@@ -266,5 +267,20 @@ export default {
 
 .no-trigger :deep(.el-upload--picture-card) {
   display: none;
+}
+
+:deep(.feedback-submit-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.feedback-submit-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
+}
+
+:deep(.feedback-submit-dialog .el-textarea__inner) {
+  resize: none;
 }
 </style>

@@ -1,0 +1,6 @@
+{
+  "registryVersion": "v1",
+  "tools": [
+    "./error_code_lookup.json"
+  ]
+}

@@ -92,6 +92,7 @@
       v-model="dialogVisible"
       :title="isEdit ? $t('analysisCategories.editCategory') : $t('analysisCategories.addCategory')"
       width="600px"
+      class="management-dialog"
     >
       <el-form
         ref="formRef"
@@ -444,5 +445,16 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+:deep(.management-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.management-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
 }
 </style>

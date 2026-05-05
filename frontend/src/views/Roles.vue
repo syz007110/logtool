@@ -108,6 +108,7 @@
       v-model="showAddDialog"
       :title="editingRole ? $t('roles.editRole') : $t('roles.addRole')"
       width="600px"
+      class="management-dialog"
     >
       <el-form
         ref="roleFormRef"
@@ -192,6 +193,7 @@ export default {
     const showAddDialog = ref(false)
     const editingRole = ref(null)
     const permissions = ref([])
+    const permissionGroupsMeta = ref([])
     const permTreeRef = ref(null)
     const searchQuery = ref('')
     const currentPage = ref(1)
@@ -227,15 +229,7 @@ export default {
       return getTableHeight('basic')
     })
 
-    const permissionGroups = computed(() => {
-      const groups = {}
-      for (const p of permissions.value) {
-        const prefix = getPermissionPrefix(p.name)
-        if (!groups[prefix]) groups[prefix] = []
-        groups[prefix].push(p)
-      }
-      return groups
-    })
+    const permissionGroups = computed(() => permissionGroupsMeta.value || [])
 
     // 检查是否为管理员角色
     const isAdminRole = computed(() => {
@@ -250,49 +244,19 @@ export default {
         return []
       }
 
-      // 权限分组映射
-      const groupMapping = {
-        user: t('roles.permissionGroups.user'),
-        role: t('roles.permissionGroups.role'),
-        error_code: t('roles.permissionGroups.error_code'),
-        fault_case: t('roles.permissionGroups.fault_case'),
-        fault_case_config: t('roles.permissionGroups.fault_case_config'),
-        log: t('roles.permissionGroups.log'),
-        i18n: t('roles.permissionGroups.i18n'),
-        device: t('roles.permissionGroups.device'),
-        history: t('roles.permissionGroups.history'),
-        surgery: t('roles.permissionGroups.surgery'),
-        data_replay: t('roles.permissionGroups.data_replay'),
-        kb: t('roles.permissionGroups.kb'),
-        dashboard: t('roles.permissionGroups.dashboard'),
-        test: t('roles.permissionGroups.test'),
-        system: t('roles.permissionGroups.system'),
-        loglevel: t('roles.permissionGroups.loglevel')
-      }
-
-      // 按权限前缀分组
-      const groupedPermissions = {}
-      permissions.value.forEach(permission => {
-        const prefix = getPermissionPrefix(permission.name)
-        const groupKey = prefix || 'other'
-        const groupLabel = groupMapping[groupKey] || t('roles.permissionGroups.other')
-        
-        if (!groupedPermissions[groupKey]) {
-          groupedPermissions[groupKey] = {
-            key: `${groupKey}_management`,
-            label: groupLabel,
-            children: []
-          }
-        }
-        
-        groupedPermissions[groupKey].children.push({
+      const treeData = permissionGroups.value.map(group => {
+        const groupLabel = getGroupLabel(group)
+        const children = (group.permissions || []).map(permission => ({
           key: permission.name,
           label: getPermissionLabel(permission, groupLabel),
           description: permission.description
-        })
-      })
-
-      const treeData = Object.values(groupedPermissions)
+        }))
+        return {
+          key: `${group.group_key || 'other'}_management`,
+          label: groupLabel,
+          children
+        }
+      }).filter(group => Array.isArray(group.children) && group.children.length > 0)
 
       // 如果当前编辑的是管理员角色，返回所有权限且禁用
       if (isAdminRole.value) {
@@ -365,8 +329,29 @@ export default {
     const loadPermissions = async () => {
       try {
         const res = await api.permissions.getList()
-        permissions.value = res.data.permissions || []
-        console.log('Loaded permissions:', permissions.value)
+        const flatPermissions = Array.isArray(res.data?.permissions) ? res.data.permissions : []
+        const groupsFromApi = Array.isArray(res.data?.permissionGroups) ? res.data.permissionGroups : []
+        permissions.value = flatPermissions
+        if (groupsFromApi.length > 0) {
+          permissionGroupsMeta.value = groupsFromApi
+        } else {
+          const grouped = {}
+          for (const permission of flatPermissions) {
+            const groupKey = getPermissionPrefix(permission.name)
+            if (!grouped[groupKey]) {
+              grouped[groupKey] = {
+                group_key: groupKey,
+                i18n_key: `roles.permissionGroups.${groupKey}`,
+                name_zh: groupKey,
+                name_en: groupKey,
+                permissions: []
+              }
+            }
+            grouped[groupKey].permissions.push(permission)
+          }
+          permissionGroupsMeta.value = Object.values(grouped)
+        }
+        console.log('Loaded permission groups:', permissionGroupsMeta.value)
       } catch (e) {
         console.error('Failed to load permissions:', e)
         ElMessage.error(t('roles.loadPermsFailed'))
@@ -520,6 +505,17 @@ export default {
       return 'other'
     }
 
+    function getGroupLabel (group) {
+      const i18nKey = String(group?.i18n_key || '').trim()
+      if (i18nKey) {
+        const translated = t(i18nKey)
+        if (translated && translated !== i18nKey) return translated
+      }
+      const zh = String(group?.name_zh || '').trim()
+      const en = String(group?.name_en || '').trim()
+      return zh || en || String(group?.group_key || 'other')
+    }
+
     function getPermissionLabel (permission, groupLabel) {
       const normalizedName = String(permission?.name || '').toLowerCase()
       if (!normalizedName) {
@@ -630,6 +626,29 @@ export default {
   gap: 10px;
 }
 
+.operation-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.operation-buttons :deep(.el-button + .el-button) {
+  margin-left: 0 !important;
+}
+
+:deep(.management-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.management-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
+  padding-right: 14px;
+  scrollbar-gutter: stable;
+}
+
 /* 表格容器 - 固定表头 */
 .table-container {
   flex: 1;
@@ -671,8 +690,8 @@ h4 {
   border-radius: var(--radius-sm);
   padding: 8px;
   background: rgb(var(--background));
-  max-height: 400px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   width: 100%;
   box-sizing: border-box;
 }

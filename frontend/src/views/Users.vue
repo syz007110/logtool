@@ -36,8 +36,8 @@
           v-loading="loading"
         >
         <el-table-column prop="username" :label="$t('users.username')" width="120" />
-        <el-table-column prop="email" :label="$t('users.email')" min-width="220" />
-        <el-table-column prop="role" :label="$t('users.role')" width="100">
+        <el-table-column prop="email" :label="$t('users.email')" min-width="180" />
+        <el-table-column prop="role" :label="$t('users.role')" width="130">
           <template #default="{ row }">
             <el-tag>{{ getRoleText(row.role) }}</el-tag>
           </template>
@@ -118,6 +118,7 @@
       v-model="showAddDialog"
       :title="editingUser ? $t('users.editUser') : $t('users.addUser')"
       width="500px"
+      class="management-dialog"
     >
       <el-form
         ref="userFormRef"
@@ -161,7 +162,7 @@
     
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="showEditDialog" :title="$t('users.editUser')" width="400px">
+    <el-dialog v-model="showEditDialog" :title="$t('users.editUser')" width="400px" class="management-dialog">
       <el-form :model="editForm" label-width="100px">
         <el-form-item :label="$t('users.email')">
           <el-input v-model="editForm.email" />
@@ -186,6 +187,7 @@
       v-model="showResetPasswordDialog"
       :title="$t('users.resetPasswordTitle')"
       width="400px"
+      class="management-dialog"
     >
       <el-form :model="resetPasswordForm" :rules="resetPasswordRules" ref="resetPasswordFormRef" label-width="130px">
         <el-form-item :label="$t('users.newPassword')" prop="newPassword">
@@ -641,6 +643,17 @@ export default {
   margin-top: auto;
   border-top: 1px solid rgb(var(--border));
   background: rgb(var(--background));
+}
+
+:deep(.management-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.management-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
 }
 
 </style> 

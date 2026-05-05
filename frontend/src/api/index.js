@@ -473,6 +473,14 @@ const smartSearch = {
   deleteConversation: (id) => api.delete(`/smart-search/conversations/${id}`)
 }
 
+const agent = {
+  execute: (payload) => api.post('/agent/execute', payload),
+  uploadAssets: (formData) => api.post('/agent/assets/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getTask: (taskId) => api.get(`/agent/tasks/${taskId}`)
+}
+
 // Knowledge base (KB)
 const kb = {
   status: () => api.get('/kb/status'),
@@ -518,6 +526,6 @@ export default {
   faultCases,
   jira,
   smartSearch,
-  kb,
-  explanations
+  agent,
+  kb
 }

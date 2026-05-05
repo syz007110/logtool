@@ -156,6 +156,24 @@ docker exec -it logtool-mysql-1 mysql -u root -p
 docker exec -it logtool-clickhouse-1 clickhouse-client
 ```
 
+进入 MongoDB 容器进行维护：
+
+```bash
+# 无认证
+docker exec -it logtool-mongodb-1 mongosh "mongodb://127.0.0.1:27017/logtool"
+
+# 有认证（推荐）
+docker exec -it logtool-mongodb-1 mongosh "mongodb://<user>:<pass>@127.0.0.1:27017/logtool?authSource=admin"
+```
+
+执行 MongoDB 初始化脚本（例如 agent orchestrator 审计索引）：
+
+```bash
+docker cp /root/logtool/infrastructure/database/agent_orchestrator_mongodb.js logtool-mongodb-1:/tmp/agent_orchestrator_mongodb.js
+docker exec -it logtool-mongodb-1 mongosh "mongodb://<user>:<pass>@127.0.0.1:27017/logtool?authSource=admin" --file /tmp/agent_orchestrator_mongodb.js
+docker exec -it logtool-mongodb-1 mongosh "mongodb://<user>:<pass>@127.0.0.1:27017/logtool?authSource=admin" --eval "db.agent_task_audits.getIndexes()"
+```
+
 进入ES 容器进行检索维护
 
 ```bash

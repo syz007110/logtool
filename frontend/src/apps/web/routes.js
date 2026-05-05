@@ -7,7 +7,7 @@ export const webRoutes = [
     path: '/smart-search',
     name: 'SmartSearchStandalone',
     component: () => import('../../views/SmartSearchPage.vue'),
-    meta: { requiresAuth: true, noSidebar: true }
+    meta: { requiresAuth: true, noSidebar: true, requiresPermission: 'smart_search:use' }
   },
   {
     path: '/data-analysis',
@@ -63,12 +63,14 @@ export const webRoutes = [
       {
         path: 'error-codes',
         name: 'ErrorCodes',
-        component: () => import('../../views/ErrorCodes.vue')
+        component: () => import('../../views/ErrorCodes.vue'),
+        meta: { requiresPermission: 'error_code:read' }
       },
       {
         path: 'i18n-error-codes',
         name: 'I18nErrorCodes',
-        component: () => import('../../views/I18nErrorCodes.vue')
+        component: () => import('../../views/I18nErrorCodes.vue'),
+        meta: { requiresPermission: 'i18n:read' }
       },
       {
         path: 'fault-cases',
@@ -115,7 +117,8 @@ export const webRoutes = [
       {
         path: 'logs',
         name: 'Logs',
-        component: () => import('../../views/Logs.vue')
+        component: () => import('../../views/Logs.vue'),
+        meta: { requiresPermission: ['log:read_all', 'log:read_own'] }
       },
       {
         path: 'log-detail/:id',

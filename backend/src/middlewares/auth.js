@@ -1,31 +1,43 @@
 const jwt = require('jsonwebtoken');
 
+function extractBearerToken(req) {
+  const authHeader = String(req?.headers?.authorization || '').trim();
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
+  return authHeader.slice(7).trim();
+}
+
+function canUseQueryToken(req) {
+  if (req?.method !== 'GET') return false;
+  const tokenInQuery = String(req?.query?.token || '').trim();
+  if (!tokenInQuery) return false;
+
+  const fullPath = `${String(req?.baseUrl || '')}${String(req?.path || '')}`;
+
+  // 仅允许在浏览器难以附加 Authorization 头的资源型 GET 接口中使用 query token
+  const allowPatterns = [
+    /^\/api\/oss\/(tech-solution|fault-cases|kb|motion-data|agent-assets)$/,
+    /^\/api\/smart-search\/mknowledge-assets\/[^/]+\/[^/]+$/,
+    /^\/api\/jira\/attachment\/proxy$/
+  ];
+
+  return allowPatterns.some((pattern) => pattern.test(fullPath));
+}
+
 module.exports = function (req, res, next) {
-  console.log('=== 认证中间件调试信息 ===');
-  console.log('请求路径:', req.path);
-  console.log('Authorization头:', req.headers['authorization']);
-  console.log('JWT_SECRET存在:', !!process.env.JWT_SECRET);
-  
-  let token = req.headers['authorization']?.split(' ')[1];
-  // 允许下载等GET请求通过查询参数携带token，便于直接导航下载
-  if (!token && req.method === 'GET' && req.query && req.query.token) {
-    console.log('使用query token进行认证');
-    token = req.query.token;
+  let token = extractBearerToken(req);
+  if (!token && canUseQueryToken(req)) {
+    token = String(req.query.token || '').trim();
   }
+
   if (!token) {
-    console.log('❌ Token缺失');
     return res.status(401).json({ message: '未登录或token缺失' });
   }
-  
-  console.log('Token:', token.substring(0, 50) + '...');
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token验证成功');
     req.user = decoded;
     next();
   } catch (err) {
-    console.log('❌ Token验证失败:', err.message);
     return res.status(401).json({ message: 'token无效或已过期' });
   }
-}; 
+};

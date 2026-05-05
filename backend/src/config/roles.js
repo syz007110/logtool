@@ -57,6 +57,10 @@ const ROLES = {
       // 历史记录权限
       'history:read_all', // 查看所有历史记录
       'history:export',    // 导出历史记录
+
+      // 队列管理权限
+      'queue:read',
+      'queue:manage',
       
       // 手术数据权限
       'surgery:analyze',
@@ -70,6 +74,7 @@ const ROLES = {
       'data_replay:download',
 
       // 知识库（KB）管理权限
+      'smart_search:use',
       'kb:read',
       'kb:upload',
       'kb:delete',
@@ -118,6 +123,9 @@ const ROLES = {
       
       // 历史记录权限（专家可以查看自己的历史记录）
       'history:read_own',
+
+      // 队列只读权限（用于排障观测）
+      'queue:read',
       
       // 手术数据权限
       'surgery:analyze',
@@ -131,6 +139,7 @@ const ROLES = {
       'data_replay:download',
 
       // 知识库（KB）
+      'smart_search:use',
       'kb:read',
       'kb:upload',
       'kb:delete'
@@ -169,6 +178,7 @@ const ROLES = {
       'surgery:export',
 
       // 知识库（KB）：允许检索/下载
+      'smart_search:use',
       'kb:read'
     ]
   },
@@ -187,11 +197,13 @@ const ROLES = {
       'i18n:read',
       'history:read_all',
       'history:export',
+      'queue:read',
 
       // 故障案例审核权限
       'fault_case:review',
 
       // 知识库（KB）：只读
+      'smart_search:use',
       'kb:read'
     ]
   }

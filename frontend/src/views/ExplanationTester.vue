@@ -135,13 +135,109 @@
             </el-card>
           </div>
         </el-tab-pane>
+
+        <el-tab-pane label="Agent 调试" name="agent">
+          <div class="tab-content">
+            <el-card class="agent-chat-shell">
+              <template #header>
+                <div class="card-header card-header--agent">
+                  <span>Agent Chat 调试</span>
+                  <el-button size="small" @click="createNewAgentConversation">新建会话</el-button>
+                </div>
+              </template>
+
+              <div v-if="!agentMessages.length" class="agent-empty">暂无消息，输入内容后发送。</div>
+              <div v-else ref="agentChatListRef" class="agent-chat-list">
+                <div
+                  v-for="(m, idx) in agentMessages"
+                  :key="`${m.role}-${idx}-${m.createdAt}`"
+                  :class="['agent-chat-item', `agent-chat-item--${m.role}`]"
+                >
+                  <div class="agent-chat-meta">
+                    <span>{{ formatAgentRoleLabel(m.role) }}</span>
+                    <span>{{ formatChatTime(m.createdAt) }}</span>
+                  </div>
+                  <pre class="agent-chat-text">{{ m.text || '（空文本）' }}</pre>
+                  <div v-if="m.attachments && m.attachments.length" class="agent-chat-attachments">
+                    <div v-for="(a, aIdx) in m.attachments" :key="`${a.type}-${aIdx}`" class="agent-chat-attachment-item">
+                      <img
+                        v-if="a.type === 'image' && a.url"
+                        :src="a.url"
+                        class="agent-chat-attachment-image"
+                        alt="attachment"
+                      >
+                      <span>{{ formatAttachmentLabel(a) }}</span>
+                    </div>
+                  </div>
+                  <details v-if="m.debug" class="agent-chat-debug">
+                    <summary>调试数据</summary>
+                    <pre>{{ JSON.stringify(m.debug, null, 2) }}</pre>
+                  </details>
+                </div>
+              </div>
+
+              <div class="agent-composer">
+                <div v-if="agentInput.attachments.length" class="agent-composer-attachments">
+                  <div
+                    v-for="(a, idx) in agentInput.attachments"
+                    :key="`${a.localId}-${idx}`"
+                    class="agent-attachment-chip"
+                  >
+                    <img
+                      v-if="a.type === 'image' && (a.url || a.previewUrl)"
+                      :src="a.url || a.previewUrl"
+                      class="agent-attachment-chip-image"
+                      alt="upload-preview"
+                    >
+                    <span>{{ formatAttachmentLabel(a) }}<span v-if="a.status === 'uploading'">（上传中）</span><span v-else-if="a.status === 'failed'">（上传失败）</span></span>
+                    <el-button link type="danger" @click="removeAgentAttachment(idx)">移除</el-button>
+                  </div>
+                </div>
+
+                <div class="agent-composer-editor-shell">
+                  <div class="agent-composer-toolbar">
+                    <el-space>
+                      <input
+                        ref="agentFileInputRef"
+                        class="agent-file-input"
+                        type="file"
+                        multiple
+                        @change="handleAgentFileChange"
+                      >
+                      <el-button :loading="agentUploading" @click="triggerAgentFileSelect">添加图片/文件</el-button>
+                      <el-button @click="resetAgentInput">清空输入</el-button>
+                      <el-button type="primary" :loading="agentSending || agentUploading" @click="sendAgentMessage">发送</el-button>
+                    </el-space>
+                  </div>
+
+                  <div class="agent-editor-wrap">
+                    <div
+                      ref="agentComposerRef"
+                      class="agent-rich-editor"
+                      contenteditable="true"
+                      @input="handleAgentEditorInput"
+                      @keydown="handleAgentEditorKeydown"
+                      @paste="handleAgentEditorPaste"
+                      @drop.prevent="handleAgentEditorDrop"
+                      @dragover.prevent
+                    ></div>
+                    <div v-if="agentEditorEmpty" class="agent-editor-placeholder">
+                      输入消息（Enter 发送，Shift+Enter 换行；粘贴图片会自动生成图片卡片）
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </el-card>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
 </template>
 
 <script>
-import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import api from '../api'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
@@ -165,6 +261,57 @@ export default {
     const result = ref(null)
     const vizJsonText = ref('')
     const vizChartRef = ref(null)
+    const agentSending = ref(false)
+    const agentUploading = ref(false)
+    const agentMessages = ref([])
+    const agentChatListRef = ref(null)
+    const agentComposerRef = ref(null)
+    const agentEditorEmpty = ref(true)
+    const agentFileInputRef = ref(null)
+    const createAgentConversationId = () => `api_debug_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`
+    const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+    const encodeBase32 = (value, length) => {
+      let num = BigInt(value)
+      let out = ''
+      while (out.length < length) {
+        const idx = Number(num % 32n)
+        out = ULID_ALPHABET[idx] + out
+        num = num / 32n
+      }
+      return out
+    }
+    const generateUlid = (timestampMs = Date.now()) => {
+      const ts = BigInt(Number(timestampMs) || Date.now())
+      const timePart = encodeBase32(ts, 10)
+      const randomBytes = new Uint8Array(10)
+      if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        window.crypto.getRandomValues(randomBytes)
+      } else {
+        for (let i = 0; i < randomBytes.length; i += 1) {
+          randomBytes[i] = Math.floor(Math.random() * 256)
+        }
+      }
+      let rand = 0n
+      for (const b of randomBytes) {
+        rand = (rand << 8n) | BigInt(b)
+      }
+      const randomPart = encodeBase32(rand, 16)
+      return `${timePart}${randomPart}`
+    }
+    const generateUuidV4 = () => {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID()
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+        const r = Math.floor(Math.random() * 16)
+        const v = ch === 'x' ? r : ((r & 0x3) | 0x8)
+        return v.toString(16)
+      })
+    }
+    const agentConversationId = ref(createAgentConversationId())
+    const agentInput = reactive({
+      attachments: []
+    })
     let vizChart = null
 
     const handleParse = async () => {
@@ -540,11 +687,317 @@ export default {
       vizJsonText.value = JSON.stringify(example, null, 2)
     }
 
+    const formatFileSize = (size) => {
+      const val = Number(size || 0)
+      if (!Number.isFinite(val) || val <= 0) return '0 B'
+      if (val < 1024) return `${val} B`
+      if (val < 1024 * 1024) return `${(val / 1024).toFixed(1)} KB`
+      return `${(val / (1024 * 1024)).toFixed(1)} MB`
+    }
+
+    const formatChatTime = (timestamp) => {
+      const t = Number(timestamp)
+      if (!Number.isFinite(t)) return '-'
+      return new Date(t).toLocaleTimeString()
+    }
+
+    const formatAttachmentLabel = (attachment) => {
+      if (!attachment || typeof attachment !== 'object') return 'unknown'
+      if (attachment.type === 'image') return `图片: ${attachment.name || attachment.original_name || '-'}`
+      if (attachment.type === 'file') return `文件: ${attachment.name || attachment.original_name || '-'} (${formatFileSize(attachment.size || attachment.size_bytes)})`
+      return `${attachment.type || 'attachment'}`
+    }
+
+    const formatAgentRoleLabel = (role) => {
+      if (role === 'user') return '你'
+      if (role === 'system') return '系统'
+      return 'Agent'
+    }
+
+    const getConversationRolloverReasonText = (reason, policy = {}) => {
+      if (reason === 'force_new_command') return '收到新建会话指令（/new）'
+      if (reason === 'max_turns') return `达到轮次上限（${Number(policy.maxTurns || 20)} 轮）`
+      if (reason === 'idle_timeout') return `空闲超时（${Number(policy.idleTimeoutMinutes || 30)} 分钟）`
+      if (reason === 'max_tokens') return `超过 token 上限（${Number(policy.maxTokens || 6000)}）`
+      if (reason === 'no_active_instance') return '首次进入会话'
+      return '系统自动切换'
+    }
+
+    const getAgentEditorPlainText = () => {
+      const raw = String(agentComposerRef.value?.innerText || '')
+      return raw.replace(/\u00A0/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+    }
+
+    const syncAgentEditorEmpty = () => {
+      const text = getAgentEditorPlainText()
+      agentEditorEmpty.value = !text
+    }
+
+    const clearAgentEditor = () => {
+      if (agentComposerRef.value) {
+        agentComposerRef.value.innerHTML = ''
+      }
+      syncAgentEditorEmpty()
+    }
+
+    const scrollAgentChatToBottom = async () => {
+      await nextTick()
+      if (!agentChatListRef.value) return
+      agentChatListRef.value.scrollTop = agentChatListRef.value.scrollHeight
+    }
+
+    const uploadAgentFiles = async (files) => {
+      const list = Array.from(files || []).filter(Boolean)
+      if (!list.length) return
+      const placeholders = list.map((f) => ({
+        localId: `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`,
+        type: String(f.type || '').startsWith('image/') ? 'image' : 'file',
+        name: f.name,
+        size: f.size,
+        mimeType: f.type || 'application/octet-stream',
+        status: 'uploading',
+        url: '',
+        previewUrl: String(f.type || '').startsWith('image/') ? URL.createObjectURL(f) : ''
+      }))
+      agentInput.attachments.push(...placeholders)
+      agentUploading.value = true
+      try {
+        const formData = new FormData()
+        list.forEach((file) => formData.append('files', file))
+        const res = await api.agent.uploadAssets(formData)
+        const uploaded = Array.isArray(res?.data?.files) ? res.data.files : []
+        placeholders.forEach((holder, idx) => {
+          const item = uploaded[idx]
+          if (!item) {
+            holder.status = 'failed'
+            return
+          }
+          holder.status = 'ready'
+          holder.id = item.id
+          holder.url = item.url || ''
+          holder.objectKey = item.object_key
+          holder.storage = item.storage
+          holder.name = item.original_name || item.filename || holder.name
+          holder.size = item.size_bytes || holder.size
+          holder.mimeType = item.mime_type || holder.mimeType
+          holder.type = String(holder.mimeType || '').startsWith('image/') ? 'image' : 'file'
+          holder.expiresAt = item.expires_at
+        })
+      } catch (error) {
+        placeholders.forEach((holder) => {
+          holder.status = 'failed'
+        })
+        ElMessage.error(`附件上传失败: ${String(error?.message || error)}`)
+      } finally {
+        agentUploading.value = false
+      }
+    }
+
+    const handleAgentFileChange = async (event) => {
+      const list = Array.from(event?.target?.files || [])
+      await uploadAgentFiles(list)
+      if (agentFileInputRef.value) agentFileInputRef.value.value = ''
+    }
+
+    const triggerAgentFileSelect = () => {
+      agentFileInputRef.value?.click?.()
+    }
+
+    const handleAgentEditorPaste = async (event) => {
+      const items = Array.from(event?.clipboardData?.items || [])
+      const files = items
+        .filter((it) => String(it.kind || '').toLowerCase() === 'file')
+        .map((it) => it.getAsFile())
+        .filter(Boolean)
+      if (!files.length) return
+      event.preventDefault()
+      await uploadAgentFiles(files)
+    }
+
+    const handleAgentEditorDrop = async (event) => {
+      const files = Array.from(event?.dataTransfer?.files || []).filter(Boolean)
+      if (!files.length) return
+      await uploadAgentFiles(files)
+    }
+
+    const handleAgentEditorInput = () => {
+      syncAgentEditorEmpty()
+    }
+
+    const handleAgentEditorKeydown = (event) => {
+      if (event.isComposing) return
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        sendAgentMessage()
+      }
+    }
+
+    const removeAgentAttachment = (index) => {
+      if (!Array.isArray(agentInput.attachments)) return
+      const item = agentInput.attachments[index]
+      if (item && item.previewUrl && item.previewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(item.previewUrl) } catch (_) {}
+      }
+      agentInput.attachments.splice(index, 1)
+    }
+
+    const resetAgentInput = () => {
+      agentInput.attachments.forEach((item) => {
+        if (item && item.previewUrl && item.previewUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(item.previewUrl) } catch (_) {}
+        }
+      })
+      agentInput.attachments = []
+      if (agentFileInputRef.value) agentFileInputRef.value.value = ''
+      clearAgentEditor()
+    }
+
+    const pollAgentTask = async (taskId, timeoutMs = 30000) => {
+      const startedAt = Date.now()
+      while (Date.now() - startedAt < timeoutMs) {
+        const res = await api.agent.getTask(taskId)
+        const task = res?.data?.task
+        if (task?.status === 'completed') {
+          return task.response || task.result || null
+        }
+        if (task?.status === 'failed') {
+          throw new Error(task?.error?.message || 'agent task failed')
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+      throw new Error('agent task timeout')
+    }
+
+    const createNewAgentConversation = () => {
+      agentConversationId.value = createAgentConversationId()
+      agentMessages.value = []
+      resetAgentInput()
+      ElMessage.success('已新建会话')
+    }
+
+    const sendAgentMessage = async () => {
+      const text = getAgentEditorPlainText()
+      const attachments = Array.isArray(agentInput.attachments)
+        ? agentInput.attachments.filter((item) => item && item.status === 'ready')
+        : []
+      const sentAt = Date.now()
+      const messageId = generateUlid(sentAt)
+      const requestId = generateUuidV4()
+      const traceId = generateUuidV4()
+
+      if (!text && attachments.length === 0) {
+        ElMessage.warning('请至少输入文本或添加附件')
+        return
+      }
+
+      agentSending.value = true
+      try {
+        const userMessage = {
+          role: 'user',
+          createdAt: Date.now(),
+          text,
+          attachments
+        }
+        agentMessages.value.push(userMessage)
+        scrollAgentChatToBottom()
+
+        const payloadAttachments = attachments.map((item) => ({
+          type: item.type || 'file',
+          fileId: item.id,
+          url: item.url,
+          name: item.name,
+          size: item.size,
+          mimeType: item.mimeType,
+          objectKey: item.objectKey,
+          storage: item.storage
+        }))
+        const payload = {
+          requestId,
+          traceId,
+          message: {
+            id: messageId,
+            type: attachments.length > 0 ? (text ? 'mixed' : (attachments[0]?.type || 'file')) : 'text',
+            text,
+            attachments: payloadAttachments,
+            sentAt
+          },
+          channel: {
+            type: 'api',
+            conversationType: 'single',
+            conversationId: agentConversationId.value
+          },
+          context: {
+            source: 'explanation_tester',
+            uiTab: 'agent'
+          }
+        }
+        const res = await api.agent.execute(payload)
+        const normalizedRequest = res?.data?.request || null
+        const response = res?.data?.response
+        if (!response) {
+          throw new Error('agent response missing')
+        }
+
+        let finalResponse = response
+        if (response.mode === 'async' && response.taskId) {
+          finalResponse = await pollAgentTask(response.taskId)
+        }
+
+        const instance = finalResponse?.instance
+        if (instance?.created_new) {
+          const instanceNo = Number(instance?.instance_no || 0)
+          const reasonText = getConversationRolloverReasonText(instance?.rollover_reason, finalResponse?.policy || {})
+          agentMessages.value.push({
+            role: 'system',
+            createdAt: Date.now(),
+            text: `已新建会话实例 #${instanceNo}，原因：${reasonText}`,
+            attachments: [],
+            debug: {
+              conversationId: agentConversationId.value,
+              instance
+            }
+          })
+        }
+
+        agentMessages.value.push({
+          role: 'agent',
+          createdAt: Date.now(),
+          text: finalResponse?.text || '',
+          attachments: finalResponse?.attachments || [],
+          debug: {
+            normalizedRequest,
+            responseDebugMeta: finalResponse?.debugMeta || response?.debugMeta || null,
+            contextEnvelope: finalResponse?.context_envelope || null,
+            llmRaw: finalResponse?.llm_raw || null,
+            conversationId: agentConversationId.value
+          }
+        })
+        scrollAgentChatToBottom()
+        resetAgentInput()
+      } catch (error) {
+        agentMessages.value.push({
+          role: 'agent',
+          createdAt: Date.now(),
+          text: `请求失败: ${String(error?.message || error)}`,
+          attachments: [],
+          debug: null
+        })
+        scrollAgentChatToBottom()
+      } finally {
+        agentSending.value = false
+      }
+    }
+
     onMounted(() => {
       const onResize = () => { if (vizChart) vizChart.resize() }
       window.addEventListener('resize', onResize)
     })
     onBeforeUnmount(() => {
+      agentInput.attachments.forEach((item) => {
+        if (item && item.previewUrl && item.previewUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(item.previewUrl) } catch (_) {}
+        }
+      })
       // 注意：匿名处理器不移除，这里主要释放图表
       disposeChart()
     })
@@ -552,7 +1005,13 @@ export default {
     return {
       activeTab,
       form, loading, result, handleParse, handleReset,
-      vizJsonText, vizChartRef, handleRenderViz, fillVizExample
+      vizJsonText, vizChartRef, handleRenderViz, fillVizExample,
+      agentChatListRef, agentFileInputRef, agentComposerRef, agentEditorEmpty,
+      agentInput, agentSending, agentUploading, agentMessages,
+      handleAgentFileChange, triggerAgentFileSelect, handleAgentEditorPaste, handleAgentEditorDrop,
+      handleAgentEditorInput, handleAgentEditorKeydown,
+      removeAgentAttachment, resetAgentInput, sendAgentMessage, createNewAgentConversation,
+      formatFileSize, formatChatTime, formatAttachmentLabel, formatAgentRoleLabel
     }
   }
 }
@@ -710,10 +1169,209 @@ export default {
   font-size: 16px;
 }
 
+.card-header--agent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .viz-card,
 .info-card {
   border-radius: var(--radius-md);
   box-shadow: var(--card-shadow);
+}
+
+.agent-chat-shell {
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  min-height: 640px;
+}
+
+.agent-chat-shell :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 560px;
+}
+
+.agent-composer {
+  margin-top: auto;
+  border-top: 1px solid var(--gray-200);
+  padding-top: 12px;
+}
+
+.agent-file-input {
+  display: none;
+}
+
+.agent-composer-attachments {
+  margin-bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+  font-size: 12px;
+}
+
+.agent-attachment-chip-image {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--gray-200);
+}
+
+.agent-composer-editor-shell {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--black-white-white);
+}
+
+.agent-composer-toolbar {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.agent-editor-wrap {
+  position: relative;
+}
+
+.agent-rich-editor {
+  min-height: 140px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 12px;
+  color: var(--gray-900);
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+}
+
+.agent-rich-editor :deep(ul) {
+  padding-left: 22px;
+}
+
+.agent-rich-editor :deep(blockquote) {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--gray-300);
+  color: var(--gray-700);
+}
+
+.agent-editor-placeholder {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: var(--gray-500);
+  pointer-events: none;
+  font-size: 14px;
+}
+
+.agent-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.agent-empty {
+  color: var(--gray-500);
+  font-size: 13px;
+}
+
+.agent-chat-item {
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  background: var(--black-white-white);
+}
+
+.agent-chat-item--user {
+  background: var(--gray-50);
+  align-self: flex-end;
+  max-width: 86%;
+}
+
+.agent-chat-item--agent {
+  background: var(--black-white-white);
+  max-width: 92%;
+}
+
+.agent-chat-item--system {
+  background: var(--gray-100);
+  border-style: dashed;
+  max-width: 92%;
+}
+
+.agent-chat-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+}
+
+.agent-chat-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--gray-900);
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.agent-chat-attachments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-chat-attachment-item {
+  font-size: 12px;
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-chat-attachment-image {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+}
+
+.agent-chat-debug {
+  margin-top: 10px;
+}
+
+.agent-chat-debug pre {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  overflow: auto;
 }
 
 .info-text p {
@@ -736,5 +1394,3 @@ export default {
   }
 }
 </style>
-
-

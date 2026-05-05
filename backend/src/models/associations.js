@@ -15,6 +15,7 @@ const HospitalMaster = require('./hospital_master');
 const Feedback = require('./feedback');
 const FeedbackImage = require('./feedback_image');
 const Permission = require('./permission');
+const PermissionGroup = require('./permission_group');
 const RolePermission = require('./role_permission');
 const AnalysisCategory = require('./analysis_category');
 const ErrorCodeAnalysisCategory = require('./error_code_analysis_category');
@@ -124,6 +125,18 @@ function defineAssociations() {
   RolePermission.belongsTo(Permission, { foreignKey: 'permission_id', as: 'permission' });
   Role.hasMany(RolePermission, { foreignKey: 'role_id', as: 'rolePermissions' });
   Permission.hasMany(RolePermission, { foreignKey: 'permission_id', as: 'rolePermissions' });
+
+  // Permission 与 PermissionGroup 的多对一关联（group_key -> group_key）
+  Permission.belongsTo(PermissionGroup, {
+    foreignKey: 'group_key',
+    targetKey: 'group_key',
+    as: 'group'
+  });
+  PermissionGroup.hasMany(Permission, {
+    foreignKey: 'group_key',
+    sourceKey: 'group_key',
+    as: 'permissions'
+  });
 
   // Log 和 User 的关联
   Log.belongsTo(User, {

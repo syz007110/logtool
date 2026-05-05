@@ -1,6 +1,12 @@
 const https = require('https');
 const url = require('url');
 const smartSearchPrompts = require('../config/smartSearchPrompts.json');
+const { buildIntentToolPrompt } = require('../agentization/tools/registry/toolPromptBinder');
+const { getAllowedToolNames, loadToolRegistry } = require('../agentization/tools/registry/registryLoader');
+const {
+  resolveProvider,
+  getSmartSearchLlmStatusForProvider
+} = require('./smartSearchLlmService');
 
 function renderPromptTemplate(template, vars) {
   const s = String(template ?? '');
@@ -16,13 +22,19 @@ function normalizeBaseUrl(baseUrl) {
   return s.replace(/\/+$/, '');
 }
 
-function getQwenConfig() {
-  const apiKey = String(process.env.DASHSCOPE_API_KEY || '').trim();
-  const baseUrl = normalizeBaseUrl(process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1');
-  const model = String(process.env.SMART_SEARCH_QWEN_MODEL || 'qwen-flash').trim() || 'qwen-flash';
-  const timeoutMs = Number.parseInt(process.env.SMART_SEARCH_LLM_TIMEOUT_MS || '12000', 10) || 12000;
-
-  return { apiKey, baseUrl, model, timeoutMs };
+function getLlmProviderConfig(providerId) {
+  const provider = resolveProvider(providerId);
+  const status = getSmartSearchLlmStatusForProvider(provider);
+  return {
+    provider,
+    available: Boolean(status?.available),
+    reason: String(status?.reason || ''),
+    apiKey: String(provider?.apiKey || '').trim(),
+    requiresApiKey: Boolean(provider?.requiresApiKey),
+    baseUrl: normalizeBaseUrl(provider?.baseUrl || ''),
+    model: String(provider?.model || '').trim(),
+    timeoutMs: Number.parseInt(String(provider?.timeoutMs || '12000'), 10) || 12000
+  };
 }
 
 function doJsonRequest({ method, endpoint, pathName, headers, body, timeoutMs }) {
@@ -130,6 +142,29 @@ function normalizeStringArray(arr, maxLen = 12) {
   return out;
 }
 
+function clampConfidence(input, fallback = 0.7) {
+  const n = Number(input);
+  if (!Number.isFinite(n)) return fallback;
+  if (n < 0) return 0;
+  if (n > 1) return 1;
+  return n;
+}
+
+function normalizeLanguageTag(input, fallback = 'zh-CN') {
+  const raw = String(input || '').trim();
+  if (!raw) return fallback;
+  const normalized = raw.replace('_', '-');
+  if (/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(normalized)) return normalized;
+  return fallback;
+}
+
+function mapEnvelopeLangToBcp47(input) {
+  const raw = String(input || '').trim().toLowerCase();
+  if (raw === 'zh') return 'zh-CN';
+  if (raw === 'en') return 'en-US';
+  return normalizeLanguageTag(input, 'zh-CN');
+}
+
 const INTENTS = new Set([
   'troubleshoot',
   'lookup_fault_code',
@@ -226,6 +261,254 @@ function buildQueryPlanExtractionMessages(query, defaults = {}) {
   ];
 }
 
+function buildConversationIntentMessages(contextEnvelope) {
+  const envelope = contextEnvelope && typeof contextEnvelope === 'object' ? contextEnvelope : {};
+  const requestedLang = String(envelope?.lang || envelope?.sessionMeta?.lang || 'zh').trim().toLowerCase();
+  const byLang = smartSearchPrompts?.conversationIntentExtractionByLang || {};
+  const promptConfig = byLang[requestedLang] || byLang.zh || {};
+  const systemPrompt = Array.isArray(promptConfig.system)
+    ? promptConfig.system.join('\n')
+    : String(promptConfig.system || '').trim();
+  const staticToolPrompt = Array.isArray(promptConfig.tool)
+    ? promptConfig.tool.join('\n')
+    : String(promptConfig.tool || '').trim();
+  const dynamicToolPrompt = buildIntentToolPrompt();
+  const toolPrompt = dynamicToolPrompt?.toolPrompt || staticToolPrompt;
+  const memoryPrompt = Array.isArray(promptConfig.memory)
+    ? promptConfig.memory.join('\n')
+    : String(promptConfig.memory || '').trim();
+  const userTemplate = Array.isArray(promptConfig.userTemplate)
+    ? promptConfig.userTemplate.join('\n')
+    : String(promptConfig.userTemplate || '').trim();
+  const fallbackPrompt = [
+    'You are a conversation intent extractor.',
+    'Output JSON ONLY.',
+    'Allowed intent: troubleshoot, lookup_fault_code, find_case, definition, how_to_use, other, log_query, surgery_summary, case_record.',
+    'Output schema: {"intent":"","keywords":[],"confidence":0.7,"filters":{"errorCode":"","device":"","Phenomenon":"","Concept":""}}'
+  ].join('\n');
+  const fallbackUserTemplate = [
+    'Context for intent extraction:',
+    '- currentInput.rawText: {{currentInputRawText}}',
+    '- currentInput.fileIds: {{currentInputFileIds}}',
+    '- confirmedSlots: errorCode={{errorCode}}, device={{device}}, phenomenon={{phenomenon}}, concept={{concept}}, component={{component}}',
+    '- historySummary: lastIntent={{lastIntent}}, lastTool={{lastTool}}, lastResultBrief={{lastResultBrief}}',
+    '- historyContext.summary: {{historyContextSummary}}',
+    '- recentTurns:',
+    '{{recentTurnsText}}',
+    '',
+    'Return JSON only with keys: intent, keywords, confidence, filters.'
+  ].join('\n');
+
+  const currentInput = envelope?.currentInput && typeof envelope.currentInput === 'object'
+    ? envelope.currentInput
+    : {};
+  const historyContext = envelope?.historyContext && typeof envelope.historyContext === 'object'
+    ? envelope.historyContext
+    : {};
+  const confirmedSlots = envelope?.confirmedSlots && typeof envelope.confirmedSlots === 'object'
+    ? envelope.confirmedSlots
+    : {};
+  const historySummary = envelope?.historySummary && typeof envelope.historySummary === 'object'
+    ? envelope.historySummary
+    : {};
+  const recentTurns = Array.isArray(historyContext?.recentTurns) ? historyContext.recentTurns : [];
+  const recentTurnsText = recentTurns.length === 0
+    ? '第1轮 user: （无历史）'
+    : recentTurns.map((turn) => {
+        const role = String(turn?.role || '').trim() || 'user';
+        const text = String(turn?.text || '').trim() || '（空）';
+        return `${role}: ${text}`;
+      }).join('\n');
+
+  const userPrompt = renderPromptTemplate(userTemplate || fallbackUserTemplate, {
+    currentInputRawText: String(currentInput?.rawText || '').trim(),
+    currentInputFileIds: Array.isArray(currentInput?.fileIds) ? currentInput.fileIds.join(', ') : '',
+    errorCode: String(confirmedSlots?.errorCode || '未确认'),
+    device: String(confirmedSlots?.device || '未确认'),
+    phenomenon: String(confirmedSlots?.phenomenon || '未确认'),
+    concept: String(confirmedSlots?.concept || '未确认'),
+    component: String(confirmedSlots?.component || '未确认'),
+    lastIntent: String(historySummary?.lastIntent || '无'),
+    lastTool: String(historySummary?.lastTool || '无'),
+    lastResultBrief: String(historySummary?.lastResultBrief || '无'),
+    historyContextSummary: String(historyContext?.summary || '无'),
+    recentTurnsText
+  });
+
+  const messages = [];
+  const dynamicToolRule = [
+    'toolDecision.toolName 只能从以下枚举中选择：',
+    `${(dynamicToolPrompt?.toolNames || []).join(' | ') || 'null'}`
+  ].join('\n');
+  messages.push({ role: 'system', content: [systemPrompt || fallbackPrompt, dynamicToolRule].join('\n') });
+  if (userPrompt) messages.push({ role: 'user', content: userPrompt });
+  if (toolPrompt) messages.push({ role: 'user', content: `[tool]\n${toolPrompt}` });
+  messages.push({ role: 'user', content: `[memory]\n${memoryPrompt || '(empty)'}` });
+  return messages;
+}
+
+function getConversationToolNameAllowlist() {
+  const legacy = ['errorCodeSearch', 'logAnalyzer', 'knowledgeBaseSearch', 'faultCaseSearch', 'faultCollect'];
+  try {
+    const registry = loadToolRegistry();
+    const fromRegistry = Array.from(getAllowedToolNames(registry));
+    const merged = new Set([...legacy, ...fromRegistry]);
+    return merged;
+  } catch (_) {
+    return new Set(legacy);
+  }
+}
+
+function normalizeConversationIntentResult(parsed = {}, options = {}) {
+  const allowedIntents = new Set([
+    'fault_diagnosis',
+    'log_analysis',
+    'error_code_lookup',
+    'knowledge_qa',
+    'provide_missing_info',
+    'fault_collection',
+    'continue_previous_task',
+    'general_chat',
+    'unknown'
+  ]);
+  const toolNames = getConversationToolNameAllowlist();
+  const nextActionTypes = new Set(['ask_user', 'call_tool', 'reply_direct']);
+  const rawIntent = String(parsed.intent || '').trim();
+  const intent = allowedIntents.has(rawIntent) ? rawIntent : 'unknown';
+  const fallbackLanguage = mapEnvelopeLangToBcp47(options?.fallbackLanguage);
+
+  const entitiesRaw = parsed?.entities && typeof parsed.entities === 'object' ? parsed.entities : {};
+  const normalizedErrorCode = normalizeTypeCode(entitiesRaw.errorCode || '');
+  const entities = {
+    errorCode: normalizedErrorCode || null,
+    device: String(entitiesRaw.device || '').trim() || null,
+    phenomenon: String(entitiesRaw.phenomenon || '').trim() || null,
+    concept: String(entitiesRaw.concept || '').trim() || null,
+    component: String(entitiesRaw.component || '').trim() || null,
+    fileIds: normalizeStringArray(entitiesRaw.fileIds, 20)
+  };
+
+  const toolDecisionRaw = parsed?.toolDecision && typeof parsed.toolDecision === 'object' ? parsed.toolDecision : {};
+  const toolNameRaw = String(toolDecisionRaw.toolName || '').trim();
+  const nextActionRaw = parsed?.nextAction && typeof parsed.nextAction === 'object' ? parsed.nextAction : {};
+  const nextActionTypeRaw = String(nextActionRaw.type || '').trim();
+  const wantsCallTool = Boolean(toolDecisionRaw.shouldCallTool) || nextActionTypeRaw === 'call_tool';
+  const toolName = toolNames.has(toolNameRaw) ? toolNameRaw : null;
+  const shouldCallTool = wantsCallTool && Boolean(toolName);
+  const toolDecision = {
+    shouldCallTool,
+    toolName,
+    reason: String(toolDecisionRaw.reason || '').trim()
+  };
+
+  const needClarification = Boolean(parsed?.needClarification);
+  const clarificationQuestionRaw = String(parsed?.clarificationQuestion || '').trim();
+  const clarificationQuestion = needClarification
+    ? (clarificationQuestionRaw || '请补充更多信息')
+    : null;
+
+  let nextActionType = nextActionTypes.has(nextActionTypeRaw) ? nextActionTypeRaw : 'reply_direct';
+  if (needClarification) nextActionType = 'ask_user';
+  else if (toolDecision.shouldCallTool) nextActionType = 'call_tool';
+  const nextAction = {
+    type: nextActionType,
+    message: String(nextActionRaw.message || '').trim()
+  };
+
+  const legacyFilters = {
+    errorCode: entities.errorCode || '',
+    device: entities.device || '',
+    Phenomenon: entities.phenomenon || '',
+    Concept: entities.concept || ''
+  };
+
+  return {
+    intentVersion: /^v\d+$/i.test(String(parsed?.intentVersion || '').trim())
+      ? String(parsed.intentVersion).trim().toLowerCase()
+      : 'v1',
+    intent,
+    entities,
+    toolDecision,
+    needClarification,
+    clarificationQuestion,
+    nextAction,
+    confidence: clampConfidence(parsed?.confidence, 0.7),
+    language: normalizeLanguageTag(parsed?.language, fallbackLanguage),
+    keywords: normalizeKeywords(parsed?.keywords).slice(0, 8),
+    filters: legacyFilters
+  };
+}
+
+function buildProviderAuthHeaders(provider) {
+  const headers = {};
+  if (provider?.requiresApiKey) {
+    const apiKey = String(provider?.apiKey || '').trim();
+    if (!apiKey) {
+      const err = new Error('LLM provider missing api key');
+      err.code = 'MISSING_API_KEY';
+      throw err;
+    }
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
+async function extractConversationIntentWithProvider({ contextEnvelope, providerId }) {
+  const provider = resolveProvider(providerId);
+  const status = getSmartSearchLlmStatusForProvider(provider);
+  if (!status.available) {
+    const err = new Error(`smart-search llm unavailable: ${status.reason}`);
+    err.code = String(status.reason || 'LLM_UNAVAILABLE').toUpperCase();
+    throw err;
+  }
+
+  const messages = buildConversationIntentMessages(contextEnvelope);
+  const request = {
+    model: provider.model,
+    temperature: 0,
+    top_p: 0.1,
+    messages
+  };
+
+  const resp = await doJsonRequest({
+    method: 'POST',
+    endpoint: provider.baseUrl,
+    pathName: '/chat/completions',
+    headers: buildProviderAuthHeaders(provider),
+    body: request,
+    timeoutMs: provider.timeoutMs
+  });
+
+  const content = resp?.json?.choices?.[0]?.message?.content ?? '';
+  const parsed = extractFirstJsonObject(content) || {};
+  const result = normalizeConversationIntentResult(parsed, {
+    fallbackLanguage: contextEnvelope?.lang || contextEnvelope?.sessionMeta?.lang || 'zh'
+  });
+  const raw = {
+    content,
+    usage: resp?.json?.usage || null,
+    model: resp?.json?.model || provider.model
+  };
+  return {
+    ...result,
+    raw,
+    model: provider.model,
+    provider: { id: provider.id, label: provider.label },
+    messages,
+    toolCatalog: (() => {
+      try {
+        const registry = loadToolRegistry();
+        return {
+          version: registry.registryVersion,
+          toolNames: Array.from(getAllowedToolNames(registry))
+        };
+      } catch (_) {
+        return null;
+      }
+    })()
+  };
+}
+
 function doSseRequest({ endpoint, pathName, headers, body, timeoutMs, onEvent }) {
   return new Promise((resolve, reject) => {
     try {
@@ -312,10 +595,15 @@ function doSseRequest({ endpoint, pathName, headers, body, timeoutMs, onEvent })
   });
 }
 
-async function extractKeywordsWithQwen({ query }) {
-  const cfg = getQwenConfig();
-  if (!cfg.apiKey) {
-    const err = new Error('Missing DASHSCOPE_API_KEY');
+async function extractKeywordsWithProvider({ query, providerId }) {
+  const cfg = getLlmProviderConfig(providerId);
+  if (!cfg.available) {
+    const err = new Error(`LLM provider unavailable: ${cfg.reason || 'unknown'}`);
+    err.code = 'MISSING_API_KEY';
+    throw err;
+  }
+  if (cfg.requiresApiKey && !cfg.apiKey) {
+    const err = new Error('Missing LLM provider api key');
     err.code = 'MISSING_API_KEY';
     throw err;
   }
@@ -356,10 +644,15 @@ async function extractKeywordsWithQwen({ query }) {
   return { keywords, raw, model: cfg.model };
 }
 
-async function extractQueryPlanWithQwen({ query, defaults }) {
-  const cfg = getQwenConfig();
-  if (!cfg.apiKey) {
-    const err = new Error('Missing DASHSCOPE_API_KEY');
+async function extractQueryPlanWithProvider({ query, defaults, providerId }) {
+  const cfg = getLlmProviderConfig(providerId);
+  if (!cfg.available) {
+    const err = new Error(`LLM provider unavailable: ${cfg.reason || 'unknown'}`);
+    err.code = 'MISSING_API_KEY';
+    throw err;
+  }
+  if (cfg.requiresApiKey && !cfg.apiKey) {
+    const err = new Error('Missing LLM provider api key');
     err.code = 'MISSING_API_KEY';
     throw err;
   }
@@ -407,10 +700,15 @@ async function extractQueryPlanWithQwen({ query, defaults }) {
   return { plan, raw, model: cfg.model, messages };
 }
 
-async function streamKeywordExtractionWithQwen({ query, onDelta, onUsage, onRawEvent }) {
-  const cfg = getQwenConfig();
-  if (!cfg.apiKey) {
-    const err = new Error('Missing DASHSCOPE_API_KEY');
+async function streamKeywordExtractionWithProvider({ query, onDelta, onUsage, onRawEvent, providerId }) {
+  const cfg = getLlmProviderConfig(providerId);
+  if (!cfg.available) {
+    const err = new Error(`LLM provider unavailable: ${cfg.reason || 'unknown'}`);
+    err.code = 'MISSING_API_KEY';
+    throw err;
+  }
+  if (cfg.requiresApiKey && !cfg.apiKey) {
+    const err = new Error('Missing LLM provider api key');
     err.code = 'MISSING_API_KEY';
     throw err;
   }
@@ -457,12 +755,15 @@ async function streamKeywordExtractionWithQwen({ query, onDelta, onUsage, onRawE
 }
 
 module.exports = {
-  getQwenConfig,
-  extractKeywordsWithQwen,
-  extractQueryPlanWithQwen,
-  streamKeywordExtractionWithQwen,
+  getLlmProviderConfig,
+  extractKeywordsWithProvider,
+  extractQueryPlanWithProvider,
+  extractConversationIntentWithProvider,
+  streamKeywordExtractionWithProvider,
+  buildConversationIntentMessages,
   buildKeywordExtractionMessages,
-  buildQueryPlanExtractionMessages
+  buildQueryPlanExtractionMessages,
+  normalizeConversationIntentResult
 };
 
 

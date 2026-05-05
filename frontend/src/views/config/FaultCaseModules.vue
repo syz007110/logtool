@@ -629,6 +629,16 @@ export default {
   color: var(--slate-600);
   font-size: 14px;
 }
-</style>
 
+:deep(.edit-item-dialog) {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.edit-item-dialog .el-dialog__body) {
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
+}
+</style>
 
