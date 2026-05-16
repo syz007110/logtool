@@ -14,7 +14,7 @@ This repository uses role-based agents to constrain implementation quality, chan
   - 手术数据分析：手术统计、按设备/时间分析、导出与可视化。
   - 故障案例与反馈闭环：案例库（含 i18n）、用户反馈流转、运维监控与审计日志。
   - 权限与治理：用户/角色/权限、操作日志、监控面板。
-- 当前架构方向：不推进完整 Agent 化；保留现有单 `CoreTaskAgent` 作为统一接入与执行壳，能力建设聚焦 `smart-search`。
+- 当前架构方向：不推进完整 Agent 化；保留现有单 `CoreTaskAgent` 作为统一接入与执行壳，能力建设聚焦 `smart-search`。工具路径与 `docs/Agent.md` 一致：意图 → 规划 → 工具执行 → **将 ToolResult 等写入消息后**再构建 `ContextEnvelope`，重新走意图与规划，直至 `reply_direct` 再持久化助手消息。
 - 当前能力目标：
   - 会话式智能搜索：基于单位时间 token + 会话轮次进行限制。
   - 意图识别拓展：上传文件日志分析、手术数据分析、多模态查询预留、故障案例收集。

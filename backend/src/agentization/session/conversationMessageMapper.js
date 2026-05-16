@@ -9,8 +9,8 @@ function asPlainObject(input) {
  * @property {string | undefined} request_id
  * @property {string | undefined} trace_id
  * @property {string | undefined} task_id
- * @property {'user' | 'assistant' | 'tool' | 'system' | 'intent' | 'observation'} role
- * @property {'text' | 'markdown' | 'image' | 'file' | 'mixed' | 'json'} message_type
+ * @property {'user' | 'assistant' | 'tool' | 'system'} role
+ * @property {'text' | 'markdown' | 'image' | 'file' | 'mixed' | 'json' | 'intent_result' | 'tool_result' | 'clarification'} message_type
  * @property {string | undefined} content
  * @property {Record<string, unknown>} payload
  * @property {Record<string, unknown> | undefined} raw_payload
@@ -20,7 +20,7 @@ function asPlainObject(input) {
 
 function normalizeRole(value, fallback = 'system') {
   const role = String(value || '').trim().toLowerCase();
-  if (['user', 'assistant', 'tool', 'system', 'intent', 'observation'].includes(role)) return role;
+  if (['user', 'assistant', 'tool', 'system'].includes(role)) return role;
   return fallback;
 }
 
@@ -48,6 +48,9 @@ function detectContentMessageType({ explicitType, content, attachments, payload 
 
   if (t === 'markdown') return hasAttachments ? 'mixed' : 'markdown';
   if (t === 'text') return hasAttachments ? 'mixed' : 'text';
+  if (t === 'intent_result') return 'intent_result';
+  if (t === 'tool_result') return 'tool_result';
+  if (t === 'clarification') return 'clarification';
   if (t === 'image') return hasText ? 'mixed' : 'image';
   if (t === 'file' || t === 'audio') return hasText ? 'mixed' : 'file';
   if (t === 'json') return 'json';

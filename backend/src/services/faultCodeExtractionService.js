@@ -1,3 +1,6 @@
+const zhBundle = require('../locales/zh/translation.json');
+const enBundle = require('../locales/en/translation.json');
+
 function normalizeTypeCode(input) {
   const raw = String(input ?? '').trim().toUpperCase();
   if (!raw) return '';
@@ -5,6 +8,29 @@ function normalizeTypeCode(input) {
     return raw.startsWith('0X') ? raw : `0X${raw}`;
   }
   return '';
+}
+
+function normalizeErrorCodeInput(input) {
+  const raw = String(input ?? '').trim().toUpperCase();
+  if (!raw) return '';
+  const asType = normalizeTypeCode(raw);
+  if (asType) return asType;
+  const extracted = extractFaultCodesFromText(raw);
+  if (Array.isArray(extracted.typeCodes) && extracted.typeCodes.length > 0) {
+    return String(extracted.typeCodes[0] || '').trim().toUpperCase();
+  }
+  return '';
+}
+
+/** 与故障码查询规则一致：句中若有完整码优先取完整码，否则取类型码；供 confirmedSlots / planner 工具参数，避免把完整码压成仅有类型码。 */
+function resolveAgentFaultCodeToken(input) {
+  const raw = String(input ?? '').trim();
+  if (!raw) return '';
+  const s = raw.toUpperCase();
+  const { fullCodes, typeCodes } = extractFaultCodesFromText(s);
+  if (fullCodes.length > 0) return fullCodes[0];
+  if (typeCodes.length > 0) return typeCodes[0];
+  return normalizeTypeCode(s) || '';
 }
 
 function extractFaultCodesFromText(query) {
@@ -47,8 +73,29 @@ function extractFaultCodesFromText(query) {
   return { fullCodes, typeCodes };
 }
 
+/** 完整故障码首位子系统号 → 与 shared.subsystemOptions 一致的前缀文案（如 01：运动控制软件） */
+function resolveSubsystemPrefixLabel(subsystemChar, language) {
+  const key = String(subsystemChar || '').trim().toUpperCase();
+  if (!/^[1-9A]$/.test(key)) return '';
+  const lng = String(language || 'zh-CN').toLowerCase().startsWith('en') ? 'en' : 'zh';
+  const bundle = lng === 'en' ? enBundle : zhBundle;
+  const map = bundle.shared?.subsystemOptions || {};
+  return String(map[key] || '').trim();
+}
+
+/** 用户句中若含完整故障码，取首条完整码的子系统前缀映射；否则返回空串 */
+function extractSubsystemPrefixFromUserText(text, language) {
+  const { fullCodes } = extractFaultCodesFromText(text);
+  if (!Array.isArray(fullCodes) || fullCodes.length === 0) return '';
+  const sub = String(fullCodes[0] || '').charAt(0);
+  return resolveSubsystemPrefixLabel(sub, language);
+}
+
 module.exports = {
   normalizeTypeCode,
-  extractFaultCodesFromText
+  normalizeErrorCodeInput,
+  resolveAgentFaultCodeToken,
+  extractFaultCodesFromText,
+  resolveSubsystemPrefixLabel,
+  extractSubsystemPrefixFromUserText
 };
-

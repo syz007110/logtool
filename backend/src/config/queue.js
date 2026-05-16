@@ -116,7 +116,7 @@ const conversationMessageQueue = new Queue('conversation-message', {
       type: 'exponential',
       delay: parseInt(process.env.SESSION_QUEUE_BACKOFF_MS, 10) || 500
     },
-    timeout: parseInt(process.env.SESSION_QUEUE_TIMEOUT_MS, 10) || 120000, // 2分钟
+    timeout: parseInt(process.env.SESSION_QUEUE_TIMEOUT_MS, 10) || 30000, // 30秒
     // 遵循现有策略：保留最近N条
     removeOnComplete: parseInt(process.env.SESSION_QUEUE_REMOVE_ON_COMPLETE, 10) || 100,
     removeOnFail: parseInt(process.env.SESSION_QUEUE_REMOVE_ON_FAIL, 10) || 50

@@ -13,8 +13,8 @@ test('context envelope follows target structure', () => {
   const history = [
     { role: 'user', message_type: 'text', content: '查 0X010A' },
     {
-      role: 'intent',
-      message_type: 'json',
+      role: 'assistant',
+      message_type: 'intent_result',
       payload: { intent: 'error_code_search', toolCall: { toolName: 'errorCodeSearch' } }
     },
     { role: 'assistant', message_type: 'text', content: '查询到 3 个子系统下的同类故障码，建议先检查连接。' }
@@ -49,4 +49,17 @@ test('context envelope follows target structure', () => {
   assert.equal(envelope.historyContext.recentTurns.some((t) => t.role === 'user'), true);
   assert.equal(envelope.historyContext.recentTurns.some((t) => t.role === 'assistant'), true);
   assert.equal(envelope.contextVersion, 1);
+});
+
+test('context envelope confirmedSlots preserves full fault code from message', () => {
+  const request = {
+    message: {
+      text: '141010A 什么意思',
+      attachments: []
+    }
+  };
+  const envelope = buildContextEnvelope({ request, history: [], sessionState: { filters: [], pendingSlot: null } });
+  assert.equal(envelope.confirmedSlots.errorCode, '141010A');
+  assert.equal(envelope.confirmedSlots.component, null);
+  assert.deepEqual(envelope.confirmedSlots.fileIds, []);
 });

@@ -1,6 +1,7 @@
 const { postgresqlSequelize } = require('../../config/postgresql');
 const { buildConversationMessageInput } = require('./conversationMessageMapper');
 const { createMessageService } = require('./messageService');
+const { resolveAgentFaultCodeToken } = require('../../services/faultCodeExtractionService');
 
 const messageService = createMessageService();
 
@@ -70,6 +71,29 @@ function logContextEnvelopeDebug(request, contextEnvelope) {
   } catch (error) {
     console.warn('[session-context] debug log failed:', error?.message || error);
   }
+}
+
+function isPrepareDebugEnabled() {
+  const raw = String(process.env.SESSION_PREPARE_DEBUG || 'true').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+function prepareLog(step, payload = {}) {
+  if (!isPrepareDebugEnabled()) return;
+  console.log('[session-prepare]', {
+    step: String(step || ''),
+    ...payload
+  });
+}
+
+function prepareError(step, error, payload = {}) {
+  if (!isPrepareDebugEnabled()) return;
+  console.error('[session-prepare-error]', {
+    step: String(step || ''),
+    message: String(error?.message || error || ''),
+    code: String(error?.code || ''),
+    ...payload
+  });
 }
 
 function getPolicy() {
@@ -148,12 +172,8 @@ function extractLastUserQuery(history) {
 }
 
 function extractFaultCode(text) {
-  const source = String(text || '').trim();
-  if (!source) return '';
-  const codeMatch = source.match(/\b(?:0x)?[0-9a-f]{5,6}\b/i);
-  if (!codeMatch) return '';
-  const normalized = String(codeMatch[0]).toUpperCase();
-  return normalized.startsWith('0X') ? normalized : `0X${normalized}`;
+  const t = resolveAgentFaultCodeToken(text);
+  return t || null;
 }
 
 function createDefaultFilters() {
@@ -222,18 +242,23 @@ function setFilterValue(filters, key, value) {
 
 function mapRecentTurnRole(row) {
   const role = String(row?.role || '').trim().toLowerCase();
-  const messageType = String(row?.message_type || '').trim().toLowerCase();
-  const payload = asPlainObject(row?.payload);
   if (role === 'user') return 'user';
-  if (role === 'assistant' && messageType === 'json' && payload?.intent) return 'intent';
   if (role === 'assistant') return 'assistant';
-  if (role === 'tool') return 'intent';
+  if (role === 'tool' || role === 'observation') return 'tool';
+  if (role === 'system') return 'system';
   return '';
 }
 
 function mapRecentTurnText(row) {
-  const mappedRole = mapRecentTurnRole(row);
-  if (mappedRole === 'intent') return JSON.stringify(asPlainObject(row?.payload));
+  const messageType = String(row?.message_type || '').trim().toLowerCase();
+  if (messageType === 'intent_result') {
+    const p = asPlainObject(row?.payload);
+    const intent = String(p.intent || '').trim();
+    const na = String(p.nextAction?.type || p.next_action?.type || '').trim();
+    return intent
+      ? (`[意图抽取] intent=${intent}${na ? `, nextAction=${na}` : ''}`)
+      : '[意图抽取]';
+  }
   return normalizeHistoryText(row);
 }
 
@@ -257,10 +282,11 @@ function groupHistoryRounds(history) {
 function buildRecentTurns(history, maxTurns = 2) {
   const rounds = groupHistoryRounds(history);
   if (!rounds.length) return [];
-  const picked = rounds.slice(-Math.max(1, maxTurns)).reverse();
+  // 时间正序：先较旧轮、后较新轮，避免“当前仅 user 的最新轮”挤在前面出现连续两条 user
+  const picked = rounds.slice(-Math.max(1, maxTurns));
   const out = [];
   for (let i = 0; i < picked.length; i += 1) {
-    const turnDistance = i + 1;
+    const turnDistance = picked.length - i;
     const roundRows = picked[i];
     for (const row of roundRows) {
       const mappedRole = mapRecentTurnRole(row);
@@ -286,17 +312,12 @@ function buildHistorySummary(history, recentTurns) {
   for (let i = historyRows.length - 1; i >= 0; i -= 1) {
     const row = historyRows[i];
     const role = String(row?.role || '').trim().toLowerCase();
-    const messageType = String(row?.message_type || '').trim().toLowerCase();
     const payload = asPlainObject(row?.payload);
-    const isIntentLike = role === 'tool'
-      || (role === 'assistant' && messageType === 'json' && payload?.intent);
+    const isIntentLike = role === 'tool' || (role === 'assistant' && String(row?.message_type || '').trim().toLowerCase() === 'intent_result');
     if (!isIntentLike) continue;
     const intent = String(payload?.intent || '').trim();
-    const slots = asPlainObject(payload?.slots);
-    const smartSearchIntent = asPlainObject(slots?.smartSearchIntent);
-    const subIntent = String(smartSearchIntent?.intent || '').trim();
     const toolName = String(payload?.toolCall?.toolName || '').trim();
-    if (!lastIntent) lastIntent = subIntent || intent || null;
+    if (!lastIntent) lastIntent = intent || null;
     if (toolName) {
       lastTool = toolName;
     }
@@ -322,16 +343,18 @@ function buildHistoryContextSummary(history, recentTurns) {
   return `系统上一轮回复“${truncateText(assistantText, 80)}”。`;
 }
 
-function buildCurrentInput(request) {
+function buildCurrentInput(request, resolvedRawText = null) {
   const attachments = Array.isArray(request?.message?.attachments) ? request.message.attachments : [];
   const fileIds = Array.from(new Set(
     attachments
       .map((a) => String(a?.fileId || a?.id || '').trim())
       .filter(Boolean)
   ));
+  const originalRawText = String(request?.message?.text || '').trim();
   return {
     messageId: String(request?.message?.id || '').trim() || null,
-    rawText: String(request?.message?.text || '').trim(),
+    rawText: String(resolvedRawText == null ? originalRawText : resolvedRawText).trim(),
+    originalRawText,
     attachments,
     fileIds
   };
@@ -386,7 +409,7 @@ function buildConfirmedSlots({ request, sessionState }) {
   };
 }
 
-function buildContextEnvelope({ request, history, sessionState }) {
+function buildContextEnvelope({ request, history, sessionState, resolvedQuery = null }) {
   const currentQuery = String(request?.message?.text || '').trim();
   const recentTurns = buildRecentTurns(history, 2);
   const mergedSessionState = normalizeSessionState(sessionState);
@@ -400,7 +423,9 @@ function buildContextEnvelope({ request, history, sessionState }) {
   }
 
   return {
-    currentInput: buildCurrentInput(request),
+    currentInput: buildCurrentInput(request, resolvedQuery),
+    currentQuery,
+    resolvedQuery: String(resolvedQuery == null ? currentQuery : resolvedQuery).trim(),
     confirmedSlots: buildConfirmedSlots({
       request: { ...request, __historyRows: history },
       sessionState: mergedSessionState
@@ -416,6 +441,10 @@ function buildContextEnvelope({ request, history, sessionState }) {
     sessionState: mergedSessionState,
     contextVersion: 1
   };
+}
+
+function buildResolvedQueryForContext(request) {
+  return String(request?.message?.text || '').trim();
 }
 
 const MESSAGE_ID_MAX_LENGTH = 128;
@@ -635,12 +664,33 @@ async function prepareConversationContext(request, options = {}) {
   const policy = getPolicy();
   const persistUserMessage = Boolean(options?.persistUserMessage);
   const hintedInstanceId = Number(options?.instanceId || 0);
+  const traceId = String(request?.traceId || '');
+  const requestId = String(request?.requestId || '');
+  const txStartedAt = Date.now();
+  prepareLog('tx:begin', { traceId, requestId, hintedInstanceId, persistUserMessage });
   return postgresqlSequelize.transaction(async (transaction) => {
+    try {
+      await postgresqlSequelize.query(
+        "SET LOCAL statement_timeout = '5s'; SET LOCAL lock_timeout = '2s';",
+        { transaction }
+      );
+      prepareLog('tx:timeouts_set', { traceId, requestId, statementTimeout: '5s', lockTimeout: '2s' });
+    } catch (error) {
+      prepareError('tx:timeouts_set_failed', error, { traceId, requestId });
+    }
+
+    let stepStartedAt = Date.now();
+    prepareLog('ensureContainer:start', { traceId, requestId });
     const container = await ensureContainer(request, transaction);
+    prepareLog('ensureContainer:done', { traceId, requestId, containerId: Number(container?.id || 0), costMs: Date.now() - stepStartedAt });
+
     let activeResolution = null;
     let instance = null;
     if (Number.isFinite(hintedInstanceId) && hintedInstanceId > 0) {
+      stepStartedAt = Date.now();
+      prepareLog('getInstanceByIdForUpdate:start', { traceId, requestId, hintedInstanceId });
       instance = await getInstanceByIdForUpdate(hintedInstanceId, transaction);
+      prepareLog('getInstanceByIdForUpdate:done', { traceId, requestId, hintedInstanceId, instanceId: Number(instance?.id || 0), costMs: Date.now() - stepStartedAt });
       if (!instance) {
         throw new Error(`conversation instance not found: ${hintedInstanceId}`);
       }
@@ -654,25 +704,65 @@ async function prepareConversationContext(request, options = {}) {
         previousInstanceNo: options?.activeResolutionHint?.previousInstanceNo ?? Number(instance.instance_no || 0)
       };
     } else {
+      stepStartedAt = Date.now();
+      prepareLog('resolveActiveInstance:start', { traceId, requestId });
       activeResolution = await resolveActiveInstance(container, request, policy, transaction);
+      prepareLog('resolveActiveInstance:done', {
+        traceId,
+        requestId,
+        instanceId: Number(activeResolution?.instance?.id || 0),
+        createdNewInstance: Boolean(activeResolution?.createdNewInstance),
+        rolloverReason: activeResolution?.rolloverReason || null,
+        costMs: Date.now() - stepStartedAt
+      });
       instance = activeResolution.instance;
     }
     const idempotencyKey = buildIdempotencyKey(request);
     let userMessageInsert = null;
     if (persistUserMessage) {
+      stepStartedAt = Date.now();
+      prepareLog('saveUser:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
       userMessageInsert = await messageService.saveUser({
         instanceId: instance.id,
         request,
         idempotencyKey,
         transaction
       });
+      prepareLog('saveUser:done', {
+        traceId,
+        requestId,
+        instanceId: Number(instance?.id || 0),
+        inserted: Boolean(userMessageInsert?.inserted),
+        messageId: String(request?.message?.id || ''),
+        idempotencyKey: `${String(idempotencyKey || '').slice(0, 24)}...`,
+        costMs: Date.now() - stepStartedAt
+      });
+      stepStartedAt = Date.now();
+      prepareLog('bumpInstanceStats:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
       await bumpInstanceStats(instance.id, request, userMessageInsert.inserted, transaction);
+      prepareLog('bumpInstanceStats:done', { traceId, requestId, instanceId: Number(instance?.id || 0), costMs: Date.now() - stepStartedAt });
     }
+    stepStartedAt = Date.now();
+    prepareLog('loadHistory:start', { traceId, requestId, instanceId: Number(instance?.id || 0), historyTurns: policy.historyTurns });
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
+    prepareLog('loadHistory:done', {
+      traceId,
+      requestId,
+      instanceId: Number(instance?.id || 0),
+      historyCount: Array.isArray(history) ? history.length : 0,
+      firstMessageAt: Array.isArray(history) && history[0] ? history[0].created_at || null : null,
+      lastMessageAt: Array.isArray(history) && history[history.length - 1] ? history[history.length - 1].created_at || null : null,
+      costMs: Date.now() - stepStartedAt
+    });
     const metadata = asPlainObject(instance?.metadata);
     const sessionState = normalizeSessionState(metadata?.session_state);
-    const contextEnvelope = buildContextEnvelope({ request, history, sessionState, policy });
+    const resolvedQuery = buildResolvedQueryForContext(request);
+    stepStartedAt = Date.now();
+    prepareLog('buildContextEnvelope:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
+    const contextEnvelope = buildContextEnvelope({ request, history, sessionState, policy, resolvedQuery });
+    prepareLog('buildContextEnvelope:done', { traceId, requestId, instanceId: Number(instance?.id || 0), costMs: Date.now() - stepStartedAt });
     logContextEnvelopeDebug(request, contextEnvelope);
+    prepareLog('tx:commit_ready', { traceId, requestId, totalCostMs: Date.now() - txStartedAt });
     return {
       container,
       instance,
@@ -683,6 +773,12 @@ async function prepareConversationContext(request, options = {}) {
       idempotencyKey,
       userMessageInsert
     };
+  }).then((result) => {
+    prepareLog('tx:commit', { traceId, requestId, totalCostMs: Date.now() - txStartedAt });
+    return result;
+  }).catch((error) => {
+    prepareError('tx:rollback', error, { traceId, requestId, totalCostMs: Date.now() - txStartedAt });
+    throw error;
   });
 }
 
@@ -701,7 +797,7 @@ async function resolveConversationTarget(request) {
   });
 }
 
-function buildNextSessionState(prevStateInput, contextEnvelope, intentResult) {
+function buildNextSessionState(prevStateInput, contextEnvelope, intentResult, planOutput) {
   const prevState = normalizeSessionState(prevStateInput);
   const nextState = normalizeSessionState(contextEnvelope?.sessionState);
   const mergedFilters = normalizeFilters(prevState.filters);
@@ -723,36 +819,27 @@ function buildNextSessionState(prevStateInput, contextEnvelope, intentResult) {
   }
   nextState.filters = mergedFilters;
 
-  const slots = asPlainObject(intentResult?.slots);
-  const slotFilters = asPlainObject(slots.filters);
-  if (slots.faultCode) {
-    const normalized = String(slots.faultCode).trim().toUpperCase();
-    setFilterValue(nextState.filters, 'errorCode', normalized.startsWith('0X') ? normalized : `0X${normalized}`);
+  const entities = asPlainObject(intentResult?.entities);
+  if (entities.errorCode) {
+    const normalized = resolveAgentFaultCodeToken(entities.errorCode);
+    if (normalized) setFilterValue(nextState.filters, 'errorCode', normalized);
   }
-  if (slotFilters.errorCode) {
-    const normalized = String(slotFilters.errorCode).trim().toUpperCase();
-    setFilterValue(nextState.filters, 'errorCode', normalized.startsWith('0X') ? normalized : `0X${normalized}`);
+  if (entities.device) {
+    setFilterValue(nextState.filters, 'device', entities.device);
   }
-  if (slots.device) {
-    setFilterValue(nextState.filters, 'device', slots.device);
+  if (entities.phenomenon) {
+    setFilterValue(nextState.filters, 'Phenomenon', entities.phenomenon);
   }
-  if (slotFilters.device) {
-    setFilterValue(nextState.filters, 'device', slotFilters.device);
+  if (entities.concept) {
+    setFilterValue(nextState.filters, 'Concept', entities.concept);
   }
-  if (slots.phenomenon || slots.Phenomenon) {
-    setFilterValue(nextState.filters, 'Phenomenon', slots.phenomenon || slots.Phenomenon);
-  }
-  if (slotFilters.Phenomenon || slotFilters.phenomenon) {
-    setFilterValue(nextState.filters, 'Phenomenon', slotFilters.Phenomenon || slotFilters.phenomenon);
-  }
-  if (slots.concept || slots.Concept) {
-    setFilterValue(nextState.filters, 'Concept', slots.concept || slots.Concept);
-  }
-  if (slotFilters.Concept || slotFilters.concept) {
-    setFilterValue(nextState.filters, 'Concept', slotFilters.Concept || slotFilters.concept);
-  }
-  if (Object.prototype.hasOwnProperty.call(slots, 'pendingSlot')) {
-    nextState.pendingSlot = slots.pendingSlot == null ? null : String(slots.pendingSlot).trim() || null;
+  const missingSlots = Array.isArray(planOutput?.clarification?.missingSlots)
+    ? planOutput.clarification.missingSlots.map((x) => String(x || '').trim()).filter(Boolean)
+    : [];
+  if (missingSlots.length > 0) {
+    nextState.pendingSlot = missingSlots[0];
+  } else {
+    nextState.pendingSlot = null;
   }
   return normalizeSessionState(nextState);
 }
@@ -802,8 +889,14 @@ async function bumpInstanceStats(instanceId, request, inserted, transaction) {
   );
 }
 
-async function persistIntentEvent(instanceId, request, intentResult, contextEnvelope, transaction) {
-  const suffix = 'intent';
+function normalizeEventSuffix(base, leg = '') {
+  const tag = String(leg || '').trim().toLowerCase();
+  if (!tag || tag === 'primary') return base;
+  return `${base}_${tag.replace(/[^a-z0-9_]/g, '_')}`;
+}
+
+async function persistIntentEvent(instanceId, request, intentResult, contextEnvelope, transaction, leg = 'primary') {
+  const suffix = normalizeEventSuffix('intent', leg);
   const key = `${buildIdempotencyKey(request)}:${suffix}`;
   const messageId = buildMessageId(request, suffix);
   const requestId = String(request?.requestId || '').trim() || undefined;
@@ -821,7 +914,7 @@ async function persistIntentEvent(instanceId, request, intentResult, contextEnve
     traceId,
     taskId: undefined,
     role: 'assistant',
-    explicitMessageType: 'json',
+    explicitMessageType: 'intent_result',
     content: null,
     payload,
     attachments: [],
@@ -845,7 +938,9 @@ async function persistAssistantResponseEvent(instanceId, request, intentResult, 
     traceId: String(request?.traceId || '').trim() || undefined,
     taskId: undefined,
     role: 'assistant',
-    explicitMessageType: attachments.length > 0 ? 'mixed' : 'text',
+    explicitMessageType: String(assistantResponse?.debugMeta?.plannerDecision || '') === 'ask_user'
+      ? 'clarification'
+      : (attachments.length > 0 ? 'mixed' : 'text'),
     content: text,
     payload: {
       mode: 'llm_response',
@@ -859,6 +954,74 @@ async function persistAssistantResponseEvent(instanceId, request, intentResult, 
     conversationMessageInput: messageInput,
     transaction
   });
+}
+
+async function persistToolResultEvent(instanceId, request, assistantResponse, transaction, leg = 'primary') {
+  const toolResult = asPlainObject(assistantResponse?.debugMeta?.toolResult);
+  if (!toolResult.status) return { inserted: false, row: null };
+  const suffix = normalizeEventSuffix('tool_result', leg);
+  const key = `${buildIdempotencyKey(request)}:${suffix}`;
+  const messageInput = buildConversationMessageInput({
+    instanceId,
+    messageId: buildMessageId(request, suffix),
+    requestId: String(request?.requestId || '').trim() || undefined,
+    traceId: String(request?.traceId || '').trim() || undefined,
+    taskId: undefined,
+    role: 'tool',
+    explicitMessageType: 'tool_result',
+    content: String(assistantResponse?.text || '').trim() || null,
+    payload: toolResult,
+    attachments: [],
+    idempotencyKey: key
+  });
+  return messageService.saveRaw({
+    conversationMessageInput: messageInput,
+    transaction
+  });
+}
+
+async function persistPlanEvents(instanceId, request, assistantResponse, transaction, leg = 'primary') {
+  const debugMeta = asPlainObject(assistantResponse?.debugMeta);
+  const planInputContext = asPlainObject(debugMeta.planInputContext);
+  const planOutput = asPlainObject(debugMeta.planOutput);
+  const inSuffix = normalizeEventSuffix('plan_input', leg);
+  const outSuffix = normalizeEventSuffix('plan_output', leg);
+  const inKey = `${buildIdempotencyKey(request)}:${inSuffix}`;
+  const outKey = `${buildIdempotencyKey(request)}:${outSuffix}`;
+
+  if (Object.keys(planInputContext).length > 0) {
+    const inputMessage = buildConversationMessageInput({
+      instanceId,
+      messageId: buildMessageId(request, inSuffix),
+      requestId: String(request?.requestId || '').trim() || undefined,
+      traceId: String(request?.traceId || '').trim() || undefined,
+      taskId: undefined,
+      role: 'system',
+      explicitMessageType: 'json',
+      content: null,
+      payload: planInputContext,
+      attachments: [],
+      idempotencyKey: inKey
+    });
+    await messageService.saveRaw({ conversationMessageInput: inputMessage, transaction });
+  }
+
+  if (Object.keys(planOutput).length > 0) {
+    const outputMessage = buildConversationMessageInput({
+      instanceId,
+      messageId: buildMessageId(request, outSuffix),
+      requestId: String(request?.requestId || '').trim() || undefined,
+      traceId: String(request?.traceId || '').trim() || undefined,
+      taskId: undefined,
+      role: 'system',
+      explicitMessageType: 'json',
+      content: null,
+      payload: planOutput,
+      attachments: [],
+      idempotencyKey: outKey
+    });
+    await messageService.saveRaw({ conversationMessageInput: outputMessage, transaction });
+  }
 }
 
 function mergeActiveResolution(primary, fallback) {
@@ -878,7 +1041,15 @@ function mergeActiveResolution(primary, fallback) {
   };
 }
 
-async function processConversationRequest({ request, intentResult, contextEnvelope, activeResolutionHint, assistantResponse }) {
+async function processConversationRequest({
+  request,
+  intentResult,
+  contextEnvelope,
+  activeResolutionHint,
+  assistantResponse,
+  phase = 'full',
+  phaseTag = 'primary'
+}) {
   const policy = getPolicy();
   const idempotencyKey = buildIdempotencyKey(request);
 
@@ -915,9 +1086,109 @@ async function processConversationRequest({ request, intentResult, contextEnvelo
     }
 
     const userMsg = normalizeMessagePayload(request);
-    await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction);
+
+    if (phase === 'after_tool') {
+      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, phaseTag);
+      await persistPlanEvents(instance.id, request, assistantResponse, transaction, phaseTag);
+      await persistToolResultEvent(instance.id, request, assistantResponse, transaction, phaseTag);
+      const nextSessionState = buildNextSessionState(
+        instance?.metadata?.session_state,
+        contextEnvelope,
+        intentResult,
+        asPlainObject(assistantResponse?.debugMeta)?.planOutput
+      );
+      await persistSessionState(instance.id, nextSessionState, transaction);
+      return {
+        ok: true,
+        mode: 'sync',
+        phase: 'after_tool',
+        trace_id: request.traceId,
+        request_id: request.requestId,
+        idempotency_key: idempotencyKey,
+        instance: { id: instance.id }
+      };
+    }
+
+    if (phase === 'finalize') {
+      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, phaseTag);
+      await persistPlanEvents(instance.id, request, assistantResponse, transaction, phaseTag);
+      await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction);
+      const nextSessionState = buildNextSessionState(
+        instance?.metadata?.session_state,
+        contextEnvelope,
+        intentResult,
+        asPlainObject(assistantResponse?.debugMeta)?.planOutput
+      );
+      await persistSessionState(instance.id, nextSessionState, transaction);
+      const history = await loadHistory(instance.id, policy.historyTurns, transaction);
+      const promptBlocks = toPromptBlocks({ policy, history, request, intentResult });
+      return {
+        ok: true,
+        mode: 'sync',
+        trace_id: request.traceId,
+        request_id: request.requestId,
+        idempotency_key: idempotencyKey,
+        container: {
+          id: container.id,
+          channel_type: container.channel_type,
+          user_id: container.user_id,
+          conversation_id: container.conversation_id,
+          container_key: container.container_key
+        },
+        instance: {
+          id: instance.id,
+          instance_no: instance.instance_no,
+          status: instance.status,
+          created_new: Boolean(effectiveResolution.createdNewInstance),
+          rollover_reason: effectiveResolution.rolloverReason || null,
+          previous_instance_no: effectiveResolution.previousInstanceNo,
+          turn_count: Number(instance.turn_count || 0),
+          token_count: Number(instance.token_count || 0),
+          version: Number(instance.version || 0) + 1
+        },
+        current_input: userMsg,
+        text: String(assistantResponse?.text || '').trim(),
+        attachments: Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [],
+        history,
+        context_envelope: contextEnvelope ? {
+          currentInput: {
+            messageId: String(contextEnvelope?.currentInput?.messageId || '').trim() || null,
+            rawText: String(contextEnvelope?.currentInput?.rawText || ''),
+            attachments: Array.isArray(contextEnvelope?.currentInput?.attachments) ? contextEnvelope.currentInput.attachments : [],
+            fileIds: Array.isArray(contextEnvelope?.currentInput?.fileIds) ? contextEnvelope.currentInput.fileIds : []
+          },
+          confirmedSlots: asPlainObject(contextEnvelope.confirmedSlots),
+          historySummary: asPlainObject(contextEnvelope.historySummary),
+          historyContext: {
+            summary: String(contextEnvelope?.historyContext?.summary || ''),
+            recentTurns: Array.isArray(contextEnvelope?.historyContext?.recentTurns)
+              ? contextEnvelope.historyContext.recentTurns
+              : []
+          },
+          contextVersion: Number(contextEnvelope.contextVersion || 1)
+        } : null,
+        intent: intentResult,
+        llm_raw: {
+          intent_extraction: asPlainObject(intentResult).llmRaw || null,
+          intent_execution: asPlainObject(assistantResponse?.debugMeta).intentExecution?.llmRaw
+            || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
+            || null
+        },
+        prompt_blocks: promptBlocks,
+        policy
+      };
+    }
+
+    await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, 'primary');
+    await persistPlanEvents(instance.id, request, assistantResponse, transaction, 'primary');
+    await persistToolResultEvent(instance.id, request, assistantResponse, transaction);
     await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction);
-    const nextSessionState = buildNextSessionState(instance?.metadata?.session_state, contextEnvelope, intentResult);
+    const nextSessionState = buildNextSessionState(
+      instance?.metadata?.session_state,
+      contextEnvelope,
+      intentResult,
+      asPlainObject(assistantResponse?.debugMeta)?.planOutput
+    );
     await persistSessionState(instance.id, nextSessionState, transaction);
 
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
@@ -970,7 +1241,7 @@ async function processConversationRequest({ request, intentResult, contextEnvelo
       } : null,
       intent: intentResult,
       llm_raw: {
-        intent_extraction: asPlainObject(intentResult?.slots).llmRaw || null,
+        intent_extraction: asPlainObject(intentResult).llmRaw || null,
         intent_execution: asPlainObject(assistantResponse?.debugMeta).intentExecution?.llmRaw
           || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
           || null

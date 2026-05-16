@@ -28,6 +28,7 @@ function buildRequestId() {
 
 function parseInbound(req) {
   const body = req?.body && typeof req.body === 'object' ? req.body : {};
+  const authUser = req?.user && typeof req.user === 'object' ? req.user : null;
   const incomingMessageId = String(body.message?.id || '').trim();
   const messageId = incomingMessageId
     ? assertMatches(incomingMessageId, ULID_REGEX, 'message.id')
@@ -62,7 +63,12 @@ function parseInbound(req) {
   const request = buildAgentRequest({
     traceId,
     requestId,
-    user: body.user || { id: 'internal' },
+    user: authUser
+      ? {
+          id: authUser.id,
+          name: authUser.username || authUser.name || undefined
+        }
+      : (body.user || { id: 'internal' }),
     channel: rawChannel,
     message: normalizedMessage,
     context: body.context || {},

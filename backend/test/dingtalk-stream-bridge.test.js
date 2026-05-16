@@ -308,3 +308,56 @@ test('stream bridge sends image/file replies when agent response contains attach
   assert.ok(types.includes('image'));
   assert.ok(types.includes('file'));
 });
+
+test('stream bridge prefers agent answer text over instance/intent stub', async () => {
+  let callback;
+  const postCalls = [];
+  const fakeClient = {
+    registerCallbackListener: (_, cb) => {
+      callback = cb;
+      return fakeClient;
+    },
+    connect: async () => {},
+    getAccessToken: async () => '',
+    socketCallBackResponse: () => {}
+  };
+
+  const bridge = createDingtalkStreamBridge({
+    env: {
+      DINGTALK_STREAM_CLIENT_ID: 'cid',
+      DINGTALK_STREAM_CLIENT_SECRET: 'csecret'
+    },
+    logger: console,
+    orchestrator: {
+      execute: async () => ({
+        mode: 'sync',
+        taskId: 'job-1',
+        result: {
+          text: '最终可见回答',
+          instance: { instance_no: 3 },
+          intent: { intent: 'error_code_lookup' }
+        }
+      })
+    },
+    clientFactory: () => fakeClient,
+    postJson: async (url, body) => {
+      postCalls.push({ url, body });
+      return { ok: true };
+    }
+  });
+
+  await bridge.start();
+  await callback({
+    headers: { messageId: 'm-pref' },
+    data: JSON.stringify({
+      senderStaffId: 'u1',
+      text: { content: 'hi' },
+      sessionWebhook: 'https://example.com/hook',
+      conversationId: 'c1'
+    })
+  });
+
+  const main = postCalls.find((x) => x.body?.msgtype === 'text');
+  assert.ok(main);
+  assert.equal(main.body.text.content, '最终可见回答');
+});

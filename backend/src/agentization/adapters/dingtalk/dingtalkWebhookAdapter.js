@@ -1,12 +1,16 @@
 const { buildAgentRequestFromDingtalk } = require('./buildAgentRequestFromDingtalk');
 
-function buildDingtalkReplyFromResult(result) {
+/** 钉钉仅展示用户可见回复，不包含 llm_raw / debugMeta / context_envelope 等 */
+function buildDingtalkUserVisibleText(result) {
+  const text = String(result?.text || '').trim();
+  if (text) return text;
   const intent = String(result?.intent?.intent || '').trim();
   const instanceNo = Number(result?.instance?.instance_no || 0);
-  if (intent) {
+  if (intent && instanceNo) {
     return `已进入会话实例#${instanceNo}，识别意图：${intent}`;
   }
-  return `已进入会话实例#${instanceNo}`;
+  if (instanceNo) return `已进入会话实例#${instanceNo}`;
+  return '已收到消息';
 }
 
 function buildDingtalkWebhookResponse(result) {
@@ -24,7 +28,7 @@ function buildDingtalkWebhookResponse(result) {
         msgtype: 'markdown',
         markdown: {
           title: '处理结果',
-          text: `${buildDingtalkReplyFromResult(result)}\n\n${lines.join('\n')}`
+          text: `${buildDingtalkUserVisibleText(result)}\n\n${lines.join('\n')}`
         }
       };
     }
@@ -32,7 +36,7 @@ function buildDingtalkWebhookResponse(result) {
   return {
     msgtype: 'text',
     text: {
-      content: buildDingtalkReplyFromResult(result)
+      content: buildDingtalkUserVisibleText(result)
     }
   };
 }
@@ -65,6 +69,8 @@ function renderError({ req, res, error }) {
 module.exports = {
   parseInbound,
   renderOutbound,
-  renderError
+  renderError,
+  buildDingtalkUserVisibleText,
+  buildDingtalkWebhookResponse
 };
 

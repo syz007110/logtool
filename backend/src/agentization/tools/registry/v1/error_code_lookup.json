@@ -8,11 +8,10 @@
       "intentBindings": [
         "error_code_lookup"
       ],
-      "description": "根据故障码查询故障说明、参数含义、检查方法、处理建议。",
+      "description": "查询故障码对应的含义、参数说明、检测逻辑与处理建议。支持完整日志码、类型码或描述性关键词；若存在多条匹配，应请用户结合子系统等线索确认。",
       "llmSummary": {
         "whenToUse": [
-          "用户询问某个故障码含义",
-          "用户提供故障码并要求排查"
+          "/searchcode"
         ],
         "requiredSlots": [],
         "anyOfRequired": [
@@ -49,8 +48,8 @@
         "properties": {
           "errorCode": {
             "type": "string",
-            "description": "故障码，格式如 0X010A",
-            "pattern": "^0X[0-9A-F]{4}$"
+            "description": "故障码：完整日志码（如 141010A）或类型码（如 0X010A）",
+            "pattern": "^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$"
           },
           "keywords": {
             "type": "string",
@@ -87,50 +86,113 @@
               {
                 "type": "object",
                 "additionalProperties": false,
+                "required": [
+                  "items",
+                  "ambiguous"
+                ],
                 "properties": {
-                  "subsystem": {
-                    "type": "string"
+                  "ambiguous": {
+                    "type": "boolean",
+                    "description": "items.length > 1 时为 true，需结合自然语言 text 让用户确认子系统或条目"
                   },
-                  "code": {
-                    "type": "string"
-                  },
-                  "shortMessage": {
-                    "type": "string"
-                  },
-                  "userHint": {
-                    "type": "string"
-                  },
-                  "operation": {
-                    "type": "string"
-                  },
-                  "params": {
-                    "type": "object",
-                    "properties": {
-                      "param1": {
-                        "type": "string"
-                      },
-                      "param2": {
-                        "type": "string"
-                      },
-                      "param3": {
-                        "type": "string"
-                      },
-                      "param4": {
-                        "type": "string"
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "subsystem",
+                        "code",
+                        "displayCode",
+                        "shortMessage",
+                        "userHint",
+                        "operation",
+                        "params",
+                        "detail",
+                        "method",
+                        "techSolution",
+                        "category",
+                        "explanation",
+                        "prefix",
+                        "prefixRaw"
+                      ],
+                      "properties": {
+                        "subsystem": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "displayCode": {
+                          "type": "string"
+                        },
+                        "shortMessage": {
+                          "type": "string"
+                        },
+                        "userHint": {
+                          "type": "string"
+                        },
+                        "operation": {
+                          "type": "string"
+                        },
+                        "params": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "param1",
+                            "param2",
+                            "param3",
+                            "param4"
+                          ],
+                          "properties": {
+                            "param1": {
+                              "type": "string"
+                            },
+                            "param2": {
+                              "type": "string"
+                            },
+                            "param3": {
+                              "type": "string"
+                            },
+                            "param4": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string"
+                        },
+                        "techSolution": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "explanation": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "prefix": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "prefixRaw": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
                       }
                     }
-                  },
-                  "detail": {
-                    "type": "string"
-                  },
-                  "method": {
-                    "type": "string"
-                  },
-                  "techSolution": {
-                    "type": "string"
-                  },
-                  "category": {
-                    "type": "string"
                   }
                 }
               },

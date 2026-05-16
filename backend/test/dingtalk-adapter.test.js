@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   buildAgentRequestFromDingtalkPayload
 } = require('../src/agentization/adapters/dingtalk/buildAgentRequestFromDingtalk');
+const { buildDingtalkUserVisibleText } = require('../src/agentization/adapters/dingtalk/dingtalkWebhookAdapter');
 
 test('dingtalk richText is normalized into message.text and attachments', () => {
   const request = buildAgentRequestFromDingtalkPayload({
@@ -50,4 +51,24 @@ test('dingtalk adapter rejects payload without conversationId', () => {
     text: { content: 'hello' },
     senderStaffId: 'u-2'
   }), /conversationId is required/i);
+});
+
+test('dingtalk user-visible text prefers answer over intent stub', () => {
+  assert.equal(
+    buildDingtalkUserVisibleText({
+      text: '故障码说明正文',
+      instance: { instance_no: 2 },
+      intent: { intent: 'error_code_lookup' },
+      llm_raw: { intent_extraction: { x: 1 } }
+    }),
+    '故障码说明正文'
+  );
+  assert.match(
+    buildDingtalkUserVisibleText({
+      text: '',
+      instance: { instance_no: 2 },
+      intent: { intent: 'knowledge_qa' }
+    }),
+    /实例#2/
+  );
 });

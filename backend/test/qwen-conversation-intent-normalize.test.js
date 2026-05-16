@@ -24,16 +24,16 @@ test('normalizeConversationIntentResult keeps metadata fields and clamps confide
 
 test('normalizeConversationIntentResult enforces call_tool consistency', () => {
   const out = normalizeConversationIntentResult({
-    intent: 'knowledge_qa',
+    intent: 'error_code_lookup',
     entities: { fileIds: [] },
-    toolDecision: { shouldCallTool: false, toolName: 'knowledgeBaseSearch', reason: 'need tool' },
+    toolDecision: { shouldCallTool: false, toolName: 'error_code_lookup', reason: 'need tool' },
     needClarification: false,
     clarificationQuestion: null,
     nextAction: { type: 'call_tool', message: '' }
   }, { fallbackLanguage: 'zh-CN' });
 
   assert.equal(out.toolDecision.shouldCallTool, true);
-  assert.equal(out.toolDecision.toolName, 'knowledgeBaseSearch');
+  assert.equal(out.toolDecision.toolName, 'error_code_lookup');
   assert.equal(out.nextAction.type, 'call_tool');
 });
 

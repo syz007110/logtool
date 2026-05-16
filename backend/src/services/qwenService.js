@@ -2,11 +2,12 @@ const https = require('https');
 const url = require('url');
 const smartSearchPrompts = require('../config/smartSearchPrompts.json');
 const { buildIntentToolPrompt } = require('../agentization/tools/registry/toolPromptBinder');
-const { getAllowedToolNames, loadToolRegistry } = require('../agentization/tools/registry/registryLoader');
+const { getAllowedToolNames, loadToolRegistry, resolveToolName } = require('../agentization/tools/registry/registryLoader');
 const {
   resolveProvider,
   getSmartSearchLlmStatusForProvider
 } = require('./smartSearchLlmService');
+const { resolveAgentFaultCodeToken } = require('./faultCodeExtractionService');
 
 function renderPromptTemplate(template, vars) {
   const s = String(template ?? '');
@@ -261,7 +262,7 @@ function buildQueryPlanExtractionMessages(query, defaults = {}) {
   ];
 }
 
-function buildConversationIntentMessages(contextEnvelope) {
+function buildConversationIntentPromptInjectionSnapshot(contextEnvelope) {
   const envelope = contextEnvelope && typeof contextEnvelope === 'object' ? contextEnvelope : {};
   const requestedLang = String(envelope?.lang || envelope?.sessionMeta?.lang || 'zh').trim().toLowerCase();
   const byLang = smartSearchPrompts?.conversationIntentExtractionByLang || {};
@@ -269,11 +270,8 @@ function buildConversationIntentMessages(contextEnvelope) {
   const systemPrompt = Array.isArray(promptConfig.system)
     ? promptConfig.system.join('\n')
     : String(promptConfig.system || '').trim();
-  const staticToolPrompt = Array.isArray(promptConfig.tool)
-    ? promptConfig.tool.join('\n')
-    : String(promptConfig.tool || '').trim();
   const dynamicToolPrompt = buildIntentToolPrompt();
-  const toolPrompt = dynamicToolPrompt?.toolPrompt || staticToolPrompt;
+  const toolPrompt = String(dynamicToolPrompt?.toolPrompt || '').trim();
   const memoryPrompt = Array.isArray(promptConfig.memory)
     ? promptConfig.memory.join('\n')
     : String(promptConfig.memory || '').trim();
@@ -284,7 +282,7 @@ function buildConversationIntentMessages(contextEnvelope) {
     'You are a conversation intent extractor.',
     'Output JSON ONLY.',
     'Allowed intent: troubleshoot, lookup_fault_code, find_case, definition, how_to_use, other, log_query, surgery_summary, case_record.',
-    'Output schema: {"intent":"","keywords":[],"confidence":0.7,"filters":{"errorCode":"","device":"","Phenomenon":"","Concept":""}}'
+    'Output schema: {"intentVersion":"v1","intent":"","entities":{"errorCode":null,"device":null,"phenomenon":null,"concept":null,"component":null,"fileIds":[]},"toolDecision":{"shouldCallTool":false,"toolName":null,"reason":""},"needClarification":false,"clarificationQuestion":null,"nextAction":{"type":"reply_direct","message":""},"answerDraft":null,"confidence":0.7,"language":"zh-CN"}'
   ].join('\n');
   const fallbackUserTemplate = [
     'Context for intent extraction:',
@@ -315,13 +313,18 @@ function buildConversationIntentMessages(contextEnvelope) {
   const recentTurnsText = recentTurns.length === 0
     ? '第1轮 user: （无历史）'
     : recentTurns.map((turn) => {
-        const role = String(turn?.role || '').trim() || 'user';
-        const text = String(turn?.text || '').trim() || '（空）';
-        return `${role}: ${text}`;
-      }).join('\n');
+      const role = String(turn?.role || '').trim() || 'user';
+      const text = String(turn?.text || '').trim() || '（空）';
+      return `${role}: ${text}`;
+    }).join('\n');
+  const normalizedSlotErrorCode = String(confirmedSlots?.errorCode || '').trim().toUpperCase();
+  const currentInputRawText = String(currentInput?.rawText || '').trim();
+  const mergedCurrentInputRawText = normalizedSlotErrorCode
+    ? `${currentInputRawText}\n[system_detected_error_code] ${normalizedSlotErrorCode}`
+    : currentInputRawText;
 
   const userPrompt = renderPromptTemplate(userTemplate || fallbackUserTemplate, {
-    currentInputRawText: String(currentInput?.rawText || '').trim(),
+    currentInputRawText: mergedCurrentInputRawText,
     currentInputFileIds: Array.isArray(currentInput?.fileIds) ? currentInput.fileIds.join(', ') : '',
     errorCode: String(confirmedSlots?.errorCode || '未确认'),
     device: String(confirmedSlots?.device || '未确认'),
@@ -335,27 +338,43 @@ function buildConversationIntentMessages(contextEnvelope) {
     recentTurnsText
   });
 
+  const nullIfEmpty = (s) => {
+    const t = String(s == null ? '' : s).trim();
+    return t ? t : null;
+  };
+  const systemConfigured = nullIfEmpty(systemPrompt);
+  const systemEffective = nullIfEmpty(systemPrompt || fallbackPrompt) || fallbackPrompt;
+  const user = nullIfEmpty(userPrompt);
+  const tool = nullIfEmpty(toolPrompt);
+  const memory = nullIfEmpty(memoryPrompt);
+
   const messages = [];
-  const dynamicToolRule = [
-    'toolDecision.toolName 只能从以下枚举中选择：',
-    `${(dynamicToolPrompt?.toolNames || []).join(' | ') || 'null'}`
-  ].join('\n');
-  messages.push({ role: 'system', content: [systemPrompt || fallbackPrompt, dynamicToolRule].join('\n') });
+  messages.push({ role: 'system', content: systemEffective });
   if (userPrompt) messages.push({ role: 'user', content: userPrompt });
   if (toolPrompt) messages.push({ role: 'user', content: `[tool]\n${toolPrompt}` });
   messages.push({ role: 'user', content: `[memory]\n${memoryPrompt || '(empty)'}` });
-  return messages;
+
+  return {
+    systemPrompt: systemConfigured,
+    systemEffective,
+    systemFallbackUsed: !systemConfigured,
+    userPrompt: user,
+    toolPrompt: tool,
+    memoryPrompt: memory,
+    messages
+  };
+}
+
+function buildConversationIntentMessages(contextEnvelope) {
+  return buildConversationIntentPromptInjectionSnapshot(contextEnvelope).messages;
 }
 
 function getConversationToolNameAllowlist() {
-  const legacy = ['errorCodeSearch', 'logAnalyzer', 'knowledgeBaseSearch', 'faultCaseSearch', 'faultCollect'];
   try {
     const registry = loadToolRegistry();
-    const fromRegistry = Array.from(getAllowedToolNames(registry));
-    const merged = new Set([...legacy, ...fromRegistry]);
-    return merged;
+    return getAllowedToolNames(registry);
   } catch (_) {
-    return new Set(legacy);
+    return new Set();
   }
 }
 
@@ -371,16 +390,23 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
     'general_chat',
     'unknown'
   ]);
-  const toolNames = getConversationToolNameAllowlist();
-  const nextActionTypes = new Set(['ask_user', 'call_tool', 'reply_direct']);
+  let registry = null;
+  let toolNames = new Set();
+  try {
+    registry = loadToolRegistry();
+    toolNames = getAllowedToolNames(registry);
+  } catch (_) {
+    toolNames = getConversationToolNameAllowlist();
+  }
+  const nextActionTypes = new Set(['ask_user', 'call_tool', 'reply_direct', 'reject']);
   const rawIntent = String(parsed.intent || '').trim();
   const intent = allowedIntents.has(rawIntent) ? rawIntent : 'unknown';
   const fallbackLanguage = mapEnvelopeLangToBcp47(options?.fallbackLanguage);
 
   const entitiesRaw = parsed?.entities && typeof parsed.entities === 'object' ? parsed.entities : {};
-  const normalizedErrorCode = normalizeTypeCode(entitiesRaw.errorCode || '');
+  const normalizedErrorCode = resolveAgentFaultCodeToken(entitiesRaw.errorCode || '') || null;
   const entities = {
-    errorCode: normalizedErrorCode || null,
+    errorCode: normalizedErrorCode,
     device: String(entitiesRaw.device || '').trim() || null,
     phenomenon: String(entitiesRaw.phenomenon || '').trim() || null,
     concept: String(entitiesRaw.concept || '').trim() || null,
@@ -393,7 +419,9 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
   const nextActionRaw = parsed?.nextAction && typeof parsed.nextAction === 'object' ? parsed.nextAction : {};
   const nextActionTypeRaw = String(nextActionRaw.type || '').trim();
   const wantsCallTool = Boolean(toolDecisionRaw.shouldCallTool) || nextActionTypeRaw === 'call_tool';
-  const toolName = toolNames.has(toolNameRaw) ? toolNameRaw : null;
+  const resolvedToolName = resolveToolName(toolNameRaw, registry || undefined)
+    || (wantsCallTool ? resolveToolName(intent, registry || undefined) : null);
+  const toolName = resolvedToolName && toolNames.has(resolvedToolName) ? resolvedToolName : null;
   const shouldCallTool = wantsCallTool && Boolean(toolName);
   const toolDecision = {
     shouldCallTool,
@@ -406,6 +434,7 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
   const clarificationQuestion = needClarification
     ? (clarificationQuestionRaw || '请补充更多信息')
     : null;
+  const answerDraftRaw = String(parsed?.answerDraft || '').trim();
 
   let nextActionType = nextActionTypes.has(nextActionTypeRaw) ? nextActionTypeRaw : 'reply_direct';
   if (needClarification) nextActionType = 'ask_user';
@@ -414,6 +443,16 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
     type: nextActionType,
     message: String(nextActionRaw.message || '').trim()
   };
+  let answerDraft = answerDraftRaw || null;
+  if (nextActionType === 'ask_user') {
+    answerDraft = answerDraft || clarificationQuestion || nextAction.message || '请补充更多信息';
+  } else if (nextActionType === 'reply_direct') {
+    answerDraft = answerDraft || nextAction.message || null;
+  } else if (nextActionType === 'reject') {
+    answerDraft = answerDraft || nextAction.message || null;
+  } else {
+    answerDraft = null;
+  }
 
   const legacyFilters = {
     errorCode: entities.errorCode || '',
@@ -432,6 +471,7 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
     needClarification,
     clarificationQuestion,
     nextAction,
+    answerDraft,
     confidence: clampConfidence(parsed?.confidence, 0.7),
     language: normalizeLanguageTag(parsed?.language, fallbackLanguage),
     keywords: normalizeKeywords(parsed?.keywords).slice(0, 8),
@@ -761,6 +801,7 @@ module.exports = {
   extractConversationIntentWithProvider,
   streamKeywordExtractionWithProvider,
   buildConversationIntentMessages,
+  buildConversationIntentPromptInjectionSnapshot,
   buildKeywordExtractionMessages,
   buildQueryPlanExtractionMessages,
   normalizeConversationIntentResult

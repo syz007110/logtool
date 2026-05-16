@@ -12,7 +12,10 @@ test('registry loader reads enabled tools and normalized slot fields', () => {
   assert.ok(target);
   assert.deepEqual(target.inputContract.requiredSlots, []);
   assert.deepEqual(target.inputContract.optionalSlots, ['language']);
-  assert.match(String(target.inputContract?.properties?.errorCode?.pattern || ''), /^\^0X\[0-9A-F\]\{4\}\$$/);
+  assert.equal(
+    String(target.inputContract?.properties?.errorCode?.pattern || ''),
+    '^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$'
+  );
 });
 
 test('tool prompt binder builds prompt from registry fields', () => {
@@ -22,6 +25,7 @@ test('tool prompt binder builds prompt from registry fields', () => {
   assert.match(out.toolPrompt, /error_code_lookup/);
   assert.match(out.toolPrompt, /用途：/);
   assert.match(out.toolPrompt, /anyOfRequired/);
+  assert.doesNotMatch(out.toolPrompt, /适用条件：/);
 });
 
 test('allowed tool names includes registry tools', () => {

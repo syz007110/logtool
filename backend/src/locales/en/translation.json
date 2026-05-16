@@ -97,6 +97,20 @@
     "noData": "No error code data found",
     "notFound": "Error code not found"
   },
+  "errorCodeLookup": {
+    "notFound": "No matching fault code information was found.",
+    "multipleMatchesIntro": "{{count}} matches (same Elasticsearch ranking as the fault-code search page). For a full log code, use the leading subsystem digit to pick the right row; full details below are for the top match.",
+    "multipleMatchesLine": "{{idx}}) Subsystem {{subsystem}}, code {{code}}{{summaryPart}}",
+    "foundPrefix": "Found fault code {{code}}",
+    "labels": {
+      "hintInfo": "Hints",
+      "paramMeaning": "Parameter meanings",
+      "detail": "Details",
+      "detectLogic": "Detection logic",
+      "techSolution": "Technical troubleshooting",
+      "category": "Fault category"
+    }
+  },
   "device": {
     "listFailed": "Failed to get device list",
     "requiredId": "Device ID is required",

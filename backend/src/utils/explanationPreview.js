@@ -170,8 +170,68 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, temp
   };
 }
 
+/**
+ * 与 buildExplanationPreview 相同的 parseExplanation + 前缀规则；不访问数据库。
+ * 供 error_code_lookup 等在已加载 i18n 行后复用。
+ */
+function composeExplanationPreviewFromI18n({
+  rawCode,
+  subsystemFromDb,
+  typeCodeFromDb,
+  template: templateStr,
+  param1,
+  param2,
+  param3,
+  param4,
+  t
+}) {
+  const translate = typeof t === 'function' ? t : (k) => k;
+  const raw = String(rawCode || '').trim();
+  let {
+    subsystem: parsedSubsystem,
+    arm: parsedArm,
+    joint: parsedJoint,
+    normalizedCode
+  } = deriveFromFullLogCode(raw);
+  if (!normalizedCode && typeCodeFromDb) {
+    normalizedCode = normalizeCode(typeCodeFromDb);
+  }
+  const template = String(templateStr || '').trim();
+  if (!template || !normalizedCode) {
+    return { explanation: null, prefix: null, prefixRaw: null };
+  }
+  const subsystem = subsystemFromDb || parsedSubsystem || null;
+  const errorCodeDisplay = raw
+    || (subsystem && normalizedCode
+      ? `${subsystem}${String(normalizedCode).replace(/^0X/i, '')}`
+      : String(normalizedCode || ''));
+  const context = {
+    error_code: String(errorCodeDisplay || ''),
+    subsystem: subsystem || null,
+    arm: parsedArm || null,
+    joint: parsedJoint || null,
+    normalized_code: normalizedCode
+  };
+  const explanation = parseExplanation(
+    template,
+    param1,
+    param2,
+    param3,
+    param4,
+    context
+  );
+  const prefixRaw = buildPrefixFromContext(context) || '';
+  const prefix = translatePrefixText(prefixRaw, translate);
+  return {
+    explanation: String(explanation || '').trim() || null,
+    prefix: String(prefix || '').trim() || null,
+    prefixRaw: String(prefixRaw || '').trim() || null
+  };
+}
+
 module.exports = {
   buildExplanationPreview,
+  composeExplanationPreviewFromI18n,
   deriveFromFullLogCode,
   normalizeCode
 };

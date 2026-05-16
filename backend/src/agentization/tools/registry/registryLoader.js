@@ -94,8 +94,33 @@ function getAllowedToolNames(registry) {
   return new Set(getEnabledTools(registry).map((tool) => tool.toolName));
 }
 
+function buildToolNameMap(registry) {
+  const resolved = registry && typeof registry === 'object' ? registry : loadToolRegistry();
+  const map = new Map();
+  for (const tool of getEnabledTools(resolved)) {
+    const canonical = String(tool?.toolName || '').trim();
+    if (!canonical) continue;
+    map.set(canonical, canonical);
+    const intentBindings = Array.isArray(tool?.intentBindings) ? tool.intentBindings : [];
+    for (const intent of intentBindings) {
+      const key = String(intent || '').trim();
+      if (!key) continue;
+      map.set(key, canonical);
+    }
+  }
+  return map;
+}
+
+function resolveToolName(rawName, registry) {
+  const key = String(rawName || '').trim();
+  if (!key) return null;
+  const map = buildToolNameMap(registry);
+  return map.get(key) || null;
+}
+
 module.exports = {
   loadToolRegistry,
   getEnabledTools,
-  getAllowedToolNames
+  getAllowedToolNames,
+  resolveToolName
 };

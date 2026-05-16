@@ -15,8 +15,7 @@ function buildToolPromptLines(tool, index) {
   lines.push(`${index + 1}. ${tool.toolName}`);
   lines.push(`- 用途：${String(tool?.description || '').trim() || '未提供'}`);
 
-  const whenToUse = Array.isArray(summary.whenToUse) ? summary.whenToUse : [];
-  if (whenToUse.length > 0) lines.push(`- 适用条件：${whenToUse.join('；')}`);
+  // llmSummary.whenToUse 存放用户侧快捷命令（如 /foo），不注入意图模型，避免与 description 重复
 
   const requiredSlots = Array.isArray(summary.requiredSlots) ? summary.requiredSlots : [];
   const anyOfRequired = Array.isArray(summary.anyOfRequired) ? summary.anyOfRequired : [];
@@ -49,12 +48,15 @@ function buildIntentToolPrompt() {
   const tools = getEnabledTools(registry);
   const lines = [];
   lines.push('你不能直接调用工具，只能判断是否需要调用工具，并给出建议。');
-  lines.push('可用工具说明（来源：tool registry）：');
+  lines.push('可用工具如下：');
   tools.forEach((tool, index) => {
     lines.push(...buildToolPromptLines(tool, index));
   });
-  lines.push(`可用工具名枚举：${tools.map((x) => x.toolName).join(' | ') || 'null'}`);
-  lines.push('当 shouldCallTool=true 时，toolName 必须从上述枚举中选择。');
+  if (tools.length > 0) {
+    lines.push(`当 shouldCallTool=true 时，toolName 必须填写上述工具名称之一：${tools.map((x) => x.toolName).join(' | ')}。`);
+  } else {
+    lines.push('当前没有可用工具；shouldCallTool 必须为 false，toolName 必须为 null。');
+  }
   return {
     toolPrompt: lines.join('\n'),
     toolNames: tools.map((tool) => tool.toolName),

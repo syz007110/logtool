@@ -136,12 +136,12 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="Agent 调试" name="agent">
-          <div class="tab-content">
+        <el-tab-pane label="Agent Chat" name="agent">
+          <div class="tab-content tab-content--agent">
             <el-card class="agent-chat-shell">
               <template #header>
                 <div class="card-header card-header--agent">
-                  <span>Agent Chat 调试</span>
+                  <span>Agent Chat</span>
                   <el-button size="small" @click="createNewAgentConversation">新建会话</el-button>
                 </div>
               </template>
@@ -169,10 +169,6 @@
                       <span>{{ formatAttachmentLabel(a) }}</span>
                     </div>
                   </div>
-                  <details v-if="m.debug" class="agent-chat-debug">
-                    <summary>调试数据</summary>
-                    <pre>{{ JSON.stringify(m.debug, null, 2) }}</pre>
-                  </details>
                 </div>
               </div>
 
@@ -710,8 +706,9 @@ export default {
 
     const formatAgentRoleLabel = (role) => {
       if (role === 'user') return '你'
+      if (role === 'tool') return '工具'
       if (role === 'system') return '系统'
-      return 'Agent'
+      return '助手'
     }
 
     const getConversationRolloverReasonText = (reason, policy = {}) => {
@@ -852,20 +849,26 @@ export default {
       clearAgentEditor()
     }
 
-    const pollAgentTask = async (taskId, timeoutMs = 30000) => {
+    const pollAgentTask = async (taskId, timeoutMs = 120000) => {
       const startedAt = Date.now()
+      let lastState = ''
+      let lastFailedReason = ''
       while (Date.now() - startedAt < timeoutMs) {
         const res = await api.agent.getTask(taskId)
         const task = res?.data?.task
-        if (task?.status === 'completed') {
+        const state = String(task?.state || task?.status || '').trim().toLowerCase()
+        lastState = state || lastState
+        lastFailedReason = String(task?.failedReason || '').trim() || lastFailedReason
+        if (state === 'completed') {
           return task.response || task.result || null
         }
-        if (task?.status === 'failed') {
-          throw new Error(task?.error?.message || 'agent task failed')
+        if (state === 'failed') {
+          throw new Error(task?.error?.message || task?.failedReason || 'agent task failed')
         }
         await new Promise((resolve) => setTimeout(resolve, 1000))
       }
-      throw new Error('agent task timeout')
+      const suffix = lastState ? ` (state=${lastState}${lastFailedReason ? `, reason=${lastFailedReason}` : ''})` : ''
+      throw new Error(`agent task timeout${suffix}`)
     }
 
     const createNewAgentConversation = () => {
@@ -932,9 +935,11 @@ export default {
           }
         }
         const res = await api.agent.execute(payload)
-        const normalizedRequest = res?.data?.request || null
-        const response = res?.data?.response
-        if (!response) {
+        const response = res?.data?.response || {
+          mode: res?.data?.mode,
+          taskId: res?.data?.taskId
+        }
+        if (!response?.mode) {
           throw new Error('agent response missing')
         }
 
@@ -951,36 +956,24 @@ export default {
             role: 'system',
             createdAt: Date.now(),
             text: `已新建会话实例 #${instanceNo}，原因：${reasonText}`,
-            attachments: [],
-            debug: {
-              conversationId: agentConversationId.value,
-              instance
-            }
+            attachments: []
           })
         }
 
         agentMessages.value.push({
-          role: 'agent',
+          role: 'assistant',
           createdAt: Date.now(),
           text: finalResponse?.text || '',
-          attachments: finalResponse?.attachments || [],
-          debug: {
-            normalizedRequest,
-            responseDebugMeta: finalResponse?.debugMeta || response?.debugMeta || null,
-            contextEnvelope: finalResponse?.context_envelope || null,
-            llmRaw: finalResponse?.llm_raw || null,
-            conversationId: agentConversationId.value
-          }
+          attachments: finalResponse?.attachments || []
         })
         scrollAgentChatToBottom()
         resetAgentInput()
       } catch (error) {
         agentMessages.value.push({
-          role: 'agent',
+          role: 'assistant',
           createdAt: Date.now(),
           text: `请求失败: ${String(error?.message || error)}`,
-          attachments: [],
-          debug: null
+          attachments: []
         })
         scrollAgentChatToBottom()
       } finally {
@@ -1185,14 +1178,18 @@ export default {
 .agent-chat-shell {
   border-radius: var(--radius-md);
   box-shadow: var(--card-shadow);
-  min-height: 640px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .agent-chat-shell :deep(.el-card__body) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 560px;
+  flex: 1;
+  min-height: 0;
 }
 
 .agent-composer {
@@ -1286,9 +1283,17 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 420px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.tab-content--agent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .agent-empty {
@@ -1309,8 +1314,14 @@ export default {
   max-width: 86%;
 }
 
-.agent-chat-item--agent {
+.agent-chat-item--assistant {
   background: var(--black-white-white);
+  max-width: 92%;
+}
+
+.agent-chat-item--tool {
+  background: #f6ffed;
+  border-color: #b7eb8f;
   max-width: 92%;
 }
 
@@ -1359,19 +1370,6 @@ export default {
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--gray-200);
-}
-
-.agent-chat-debug {
-  margin-top: 10px;
-}
-
-.agent-chat-debug pre {
-  margin-top: 8px;
-  padding: 8px;
-  background: var(--gray-50);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
-  overflow: auto;
 }
 
 .info-text p {

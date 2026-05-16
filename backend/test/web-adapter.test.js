@@ -32,3 +32,18 @@ test('web adapter reuses provided conversationId', () => {
   const r = parseInbound(req);
   assert.equal(r.channel.conversationId, 'web_conv_fixed_1');
 });
+
+test('web adapter uses authenticated user instead of body user', () => {
+  const req = {
+    headers: {},
+    user: { id: 99, username: 'auth_user' },
+    body: {
+      user: { id: 'spoofed' },
+      channel: { type: 'web', conversationType: 'single', conversationId: 'web_conv_auth_1' },
+      message: { text: 'hello' }
+    }
+  };
+  const r = parseInbound(req);
+  assert.equal(r.user.id, '99');
+  assert.equal(r.user.name, 'auth_user');
+});

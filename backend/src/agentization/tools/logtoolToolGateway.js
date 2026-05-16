@@ -1,210 +1,153 @@
 const { buildToolCall } = require('../types/contracts');
-const { smartSearch } = require('../../controllers/smartSearchController');
-const { extractFaultCodesFromText, normalizeTypeCode } = require('../../services/faultCodeExtractionService');
-
-function parseBool(value, fallback = false) {
-  const s = String(value == null ? '' : value).trim().toLowerCase();
-  if (!s) return fallback;
-  if (['1', 'true', 'yes', 'on'].includes(s)) return true;
-  if (['0', 'false', 'no', 'off'].includes(s)) return false;
-  return fallback;
-}
-
-function shouldEnableSmartSearchDebug(request) {
-  const source = String(request?.context?.source || '').trim().toLowerCase();
-  const tab = String(request?.context?.uiTab || '').trim().toLowerCase();
-  if (source === 'explanation_tester' || tab === 'agent') return true;
-  return parseBool(process.env.AGENT_SMART_SEARCH_DEBUG, false);
-}
-
-function runSmartSearchControllerWithPlan({ query, request, llmProviderId, planOverride }) {
-  const includeDebug = shouldEnableSmartSearchDebug(request);
-  return new Promise((resolve, reject) => {
-    const req = {
-      body: {
-        query,
-        limits: {
-          errorCodes: 10,
-          jira: 10,
-          faultCases: 10,
-          kbDocs: 5,
-          kbGenerate: true
-        },
-        debug: includeDebug,
-        ...(planOverride && typeof planOverride === 'object' ? { queryPlanOverride: planOverride } : {}),
-        ...(llmProviderId ? { llmProviderId } : {})
-      },
-      query: includeDebug ? { debug: '1' } : {},
-      headers: {
-        'user-agent': 'agentization-tool'
-      },
-      user: {
-        id: request?.user?.id ?? null,
-        username: request?.user?.name || request?.user?.id || 'agent-user'
-      },
-      ip: ''
-    };
-
-    const res = {
-      _status: 200,
-      status(code) {
-        this._status = Number(code || 500);
-        return this;
-      },
-      json(payload) {
-        const status = Number(this._status || 200);
-        if (status >= 400) {
-          const err = new Error(String(payload?.message || 'smart-search failed'));
-          err.status = status;
-          err.payload = payload;
-          reject(err);
-          return this;
-        }
-        resolve({ status, payload });
-        return this;
-      }
-    };
-
-    Promise.resolve(smartSearch(req, res)).catch((error) => reject(error));
-  });
-}
-
-function toStringArray(input, max = 12) {
-  if (!Array.isArray(input)) return [];
-  return input.map((x) => String(x || '').trim()).filter(Boolean).slice(0, max);
-}
-
-function buildFaultCodeCandidates(query, rawFilters) {
-  const recognized = extractFaultCodesFromText(query);
-  const extracted = Array.isArray(recognized?.typeCodes) ? recognized.typeCodes : [];
-  const filterCode = normalizeTypeCode(rawFilters?.errorCode || '');
-  const set = new Set();
-  for (const c of extracted) set.add(String(c || '').trim());
-  if (filterCode) set.add(filterCode);
-  return Array.from(set).filter(Boolean).slice(0, 12);
-}
-
-function buildPlanOverride(intent, query, slots) {
-  const rawFilters = slots?.filters && typeof slots.filters === 'object' ? slots.filters : {};
-  const keywords = toStringArray(slots?.keywords, 12);
-  const faultCodes = buildFaultCodeCandidates(query, rawFilters);
-  return {
-    intent,
-    query: {
-      keywords,
-      fault_codes: faultCodes,
-      symptom: rawFilters.Phenomenon ? [String(rawFilters.Phenomenon).trim()].filter(Boolean) : [],
-      trigger: [],
-      component: rawFilters.device ? [String(rawFilters.device).trim()].filter(Boolean) : [],
-      neg: [],
-      days: 180
-    }
-  };
-}
-
-async function executeIntentRoute({ routeIntent, request, intentResult, query }) {
-  const llmProviderId = String(request?.context?.llmProviderId || '').trim() || undefined;
-  const slots = intentResult?.slots && typeof intentResult.slots === 'object' ? intentResult.slots : {};
-  const planOverride = buildPlanOverride(routeIntent, query, slots);
-  const { payload } = await runSmartSearchControllerWithPlan({ query, request, llmProviderId, planOverride });
-  return {
-    text: String(payload?.answerText || payload?.answer || '').trim() || (query ? `已接收 ${routeIntent} 请求：${query}` : `已接收 ${routeIntent} 请求`),
-    payload,
-    llmProviderId,
-    planOverride
-  };
-}
-
-function buildIntentExecutionDebug({ routeIntent, common, toolCall, payload }) {
-  return {
-    ...common,
-    executionRoute: routeIntent,
-    toolCall,
-    intentExecution: {
-      route: routeIntent,
-      recognized: payload?.recognized || null,
-      queryPlan: payload?.queryPlan || null,
-      sources: payload?.sources || null,
-      meta: payload?.meta || null,
-      llmRaw: {
-        request: payload?.debug?.llmPrompt || null,
-        response: payload?.debug?.llmRaw || null
-      }
-    }
-  };
-}
-
-function createIntentHandlers() {
-  const directSmartSearchIntents = new Set([
-    'lookup_fault_code',
-    'find_case',
-    'troubleshoot',
-    'definition',
-    'how_to_use',
-    'other',
-    'smart_search'
-  ]);
-  const smartHandlerByIntent = new Map([
-    ['lookup_fault_code', 'ErrorCodeHandler'],
-    ['find_case', 'CaseSearchHandler'],
-    ['definition', 'KbSearchHandler'],
-    ['how_to_use', 'KbSearchHandler'],
-    ['other', 'KbSearchHandler'],
-    ['smart_search', 'KbSearchHandler'],
-    ['troubleshoot', 'KbSearchHandler']
-  ]);
-
-  return {
-    async executeSmartIntent(normalizedIntent, request, intentResult) {
-      const query = String(request?.message?.text || '').trim();
-      const routeIntent = normalizedIntent === 'smart_search' ? 'other' : normalizedIntent;
-      const common = {
-        source: 'logtool',
-        intent: intentResult.intent,
-        traceId: request.traceId,
-        handlerName: smartHandlerByIntent.get(normalizedIntent) || 'KbSearchHandler'
-      };
-
-      if (directSmartSearchIntents.has(normalizedIntent)) {
-        const result = await executeIntentRoute({ routeIntent, request, intentResult, query });
-        const toolCall = buildToolCall({
-          toolName: routeIntent,
-          input: {
-            query,
-            intent: routeIntent,
-            llmProviderId: result.llmProviderId,
-            planOverride: result.planOverride
-          }
-        });
-        return {
-          text: result.text,
-          debugMeta: buildIntentExecutionDebug({
-            routeIntent,
-            common,
-            toolCall,
-            payload: result.payload
-          })
-        };
-      }
-      return null;
-    }
-  };
-}
+const { loadToolRegistry } = require('./registry/registryLoader');
+const { getToolHandler } = require('./handlers');
 
 function createLogtoolToolGateway() {
-  const handlers = createIntentHandlers();
   const handlerByIntent = new Map([
-    ['lookup_fault_code', 'ErrorCodeHandler'],
-    ['find_case', 'CaseSearchHandler'],
-    ['definition', 'KbSearchHandler'],
-    ['how_to_use', 'KbSearchHandler'],
-    ['other', 'KbSearchHandler'],
-    ['smart_search', 'KbSearchHandler'],
     ['log_query', 'LogAnalysisHandler'],
-    ['surgery_summary', 'SurgeryDataHandler'],
-    ['case_record', 'FaultCaseCollectHandler']
+    ['surgery_summary', 'SurgeryDataHandler']
   ]);
+
   return {
+    async executeToolCall({ toolName, args, request, intentResult }) {
+      const handler = getToolHandler(toolName);
+      return handler.execute({ toolName, args, request, intentResult });
+    },
+
+    ensureToolResultMatrix(result) {
+      const status = String(result?.status || '').trim();
+      const data = result?.data;
+      const evidence = Array.isArray(result?.evidence) ? result.evidence : [];
+      const error = result?.error == null ? null : result.error;
+      if (!['success', 'empty', 'failed'].includes(status)) throw new Error(`invalid ToolResult.status: ${status}`);
+      if (status === 'success') {
+        if (!(data && typeof data === 'object')) throw new Error('ToolResult success requires object/array data');
+        if (evidence.length < 1) throw new Error('ToolResult success requires evidence');
+        if (error !== null) throw new Error('ToolResult success requires error=null');
+      }
+      if (status === 'empty' && error !== null) throw new Error('ToolResult empty requires error=null');
+      if (status === 'failed') {
+        if (data !== null) throw new Error('ToolResult failed requires data=null');
+        if (!String(error?.code || '').trim() || !String(error?.message || '').trim()) {
+          throw new Error('ToolResult failed requires error.code and error.message');
+        }
+      }
+      return { status, data: data == null ? null : data, evidence, error };
+    },
+
+    toToolResult(toolName, gatewayOutput) {
+      const text = String(gatewayOutput?.text || '').trim();
+      const data = gatewayOutput?.data && typeof gatewayOutput.data === 'object' ? gatewayOutput.data : null;
+      const payload = gatewayOutput?.debugMeta?.intentExecution || {};
+      const hasPayloadData = payload && typeof payload === 'object' && Object.keys(payload).length > 0;
+      if (!text && !data && !hasPayloadData) return { status: 'empty', data: null, evidence: [], error: null };
+      return {
+        status: data ? 'success' : 'empty',
+        data,
+        evidence: [{ source: 'tool_gateway', recordId: String(toolName || 'unknown') }],
+        error: null
+      };
+    },
+
+    validateToolArguments(toolName, args = {}) {
+      const registry = loadToolRegistry();
+      const tool = registry.byName.get(String(toolName || '').trim());
+      if (!tool) {
+        const err = new Error(`unknown tool: ${toolName}`);
+        err.code = 'TOOL_NOT_FOUND';
+        throw err;
+      }
+      const contract = tool.inputContract || {};
+      const requiredSlots = Array.isArray(contract.requiredSlots) ? contract.requiredSlots : [];
+      const anyOfRequired = Array.isArray(contract.anyOfRequired) ? contract.anyOfRequired : [];
+      const defaultable = contract.defaultable && typeof contract.defaultable === 'object' ? contract.defaultable : {};
+      const properties = contract.properties && typeof contract.properties === 'object' ? contract.properties : {};
+      const out = { ...args };
+      for (const [k, v] of Object.entries(defaultable)) {
+        if (out[k] == null || String(out[k]).trim() === '') out[k] = v;
+      }
+      for (const key of requiredSlots) {
+        if (out[key] == null || String(out[key]).trim() === '') {
+          const err = new Error(`missing required slot: ${key}`);
+          err.code = 'MISSING_REQUIRED_SLOT';
+          err.slot = key;
+          throw err;
+        }
+      }
+      for (const group of anyOfRequired) {
+        if (!Array.isArray(group) || group.length === 0) continue;
+        const ok = group.some((key) => !(out[key] == null || String(out[key]).trim() === ''));
+        if (!ok) {
+          const err = new Error(`missing anyOfRequired slots: ${group.join('|')}`);
+          err.code = 'MISSING_ANYOF_SLOT';
+          err.group = group;
+          throw err;
+        }
+      }
+      for (const [key, spec] of Object.entries(properties)) {
+        const value = out[key];
+        if (value == null || String(value).trim() === '') continue;
+        if (Array.isArray(spec?.enum) && spec.enum.length > 0 && !spec.enum.includes(value)) {
+          const err = new Error(`invalid enum for ${key}`);
+          err.code = 'INVALID_ENUM';
+          err.slot = key;
+          throw err;
+        }
+        if (spec?.pattern) {
+          const reg = new RegExp(spec.pattern);
+          if (!reg.test(String(value))) {
+            const err = new Error(`invalid pattern for ${key}`);
+            err.code = 'INVALID_PATTERN';
+            err.slot = key;
+            throw err;
+          }
+        }
+      }
+      return { tool, arguments: out };
+    },
+
+    async invokeByPlan(planOutput, request, intentResult) {
+      const decision = String(planOutput?.decision || '').trim();
+      if (decision !== 'call_tool') {
+        const text = decision === 'ask_user'
+          ? String(planOutput?.clarification?.question || planOutput?.reason || '请补充必要信息后我再继续。')
+          : (decision === 'reject'
+            ? String(planOutput?.reason || '当前请求不满足执行条件。')
+            : String(planOutput?.reason || '我已理解你的问题。'));
+        return { text, debugMeta: { plannerDecision: decision, planOutput } };
+      }
+
+      const toolName = String(planOutput?.toolCall?.toolName || '').trim();
+      const { arguments: args } = this.validateToolArguments(toolName, planOutput?.toolCall?.arguments || {});
+      let out = null;
+      let toolResult = null;
+      try {
+        out = await this.executeToolCall({ toolName, args, request, intentResult });
+        toolResult = this.ensureToolResultMatrix(this.toToolResult(toolName, out));
+      } catch (error) {
+        toolResult = this.ensureToolResultMatrix({
+          status: 'failed',
+          data: null,
+          evidence: [],
+          error: {
+            code: String(error?.code || 'TOOL_EXECUTION_FAILED'),
+            message: String(error?.message || error || 'tool execution failed')
+          }
+        });
+        out = {
+          text: `工具执行失败：${toolResult.error.message}`,
+          debugMeta: {
+            source: 'logtool',
+            intent: intentResult?.intent,
+            traceId: request?.traceId,
+            executionRoute: toolName,
+            toolCall: { toolName, input: args }
+          }
+        };
+      }
+      return { ...out, debugMeta: { ...(out?.debugMeta || {}), toolResult, planOutput } };
+    },
+
     async invoke(intent, request, intentResult) {
       const query = String(request?.message?.text || '').trim();
       const normalizedIntent = String(intent || '').trim();
@@ -215,46 +158,27 @@ function createLogtoolToolGateway() {
         handlerName: handlerByIntent.get(normalizedIntent) || 'FaultCaseCollectHandler'
       };
 
-      const smartIntentResult = await handlers.executeSmartIntent(normalizedIntent, request, intentResult);
-      if (smartIntentResult) return smartIntentResult;
-
       if (normalizedIntent === 'log_query') {
-        const toolCall = buildToolCall({
-          toolName: 'log_query',
-          input: { query }
-        });
+        const toolCall = buildToolCall({ toolName: 'log_query', input: { query } });
         return {
           text: query ? `已接收 log_query 请求：${query}` : '已接收 log_query 请求',
-          debugMeta: { ...common, executionRoute: 'log_query', handlerName: 'LogAnalysisHandler', toolCall }
+          debugMeta: { ...common, executionRoute: 'log_query', toolCall }
         };
       }
 
       if (normalizedIntent === 'surgery_summary') {
-        const toolCall = buildToolCall({
-          toolName: 'surgery_summary',
-          input: { query }
-        });
+        const toolCall = buildToolCall({ toolName: 'surgery_summary', input: { query } });
         return {
           text: query ? `已接收 surgery_summary 请求：${query}` : '已接收 surgery_summary 请求',
-          debugMeta: { ...common, executionRoute: 'surgery_summary', handlerName: 'SurgeryDataHandler', toolCall }
+          debugMeta: { ...common, executionRoute: 'surgery_summary', toolCall }
         };
       }
 
-      const toolCall = buildToolCall({
-        toolName: 'case_record',
-        input: {
-          query,
-          confirmationRequired: true
-        }
-      });
+      const toolCall = buildToolCall({ toolName: 'case_record', input: { query, confirmationRequired: true } });
       return {
-        text: query
-          ? `已生成 case_record 草稿，待人工确认：${query}`
-          : '已生成 case_record 草稿，待人工确认',
-        actions: [
-          { type: 'human_review', label: '人工确认后入库' }
-        ],
-        debugMeta: { ...common, executionRoute: 'case_record', handlerName: 'FaultCaseCollectHandler', toolCall }
+        text: query ? `已生成 case_record 草稿，待人工确认：${query}` : '已生成 case_record 草稿，待人工确认',
+        actions: [{ type: 'human_review', label: '人工确认后入库' }],
+        debugMeta: { ...common, executionRoute: 'case_record', toolCall }
       };
     }
   };

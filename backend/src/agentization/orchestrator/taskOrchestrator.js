@@ -30,6 +30,16 @@ function createTaskOrchestrator(options = {}) {
 
   const inFlight = new Map();
 
+  function runtimeLog(event, payload = {}) {
+    const raw = String(process.env.AGENT_RUNTIME_STATE_DEBUG || 'true').trim().toLowerCase();
+    const enabled = raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+    if (!enabled) return;
+    console.log('[agent-runtime-orchestrator]', {
+      event: String(event || ''),
+      ...payload
+    });
+  }
+
   function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === 'function';
   }
@@ -48,6 +58,7 @@ function createTaskOrchestrator(options = {}) {
 
   async function transitionTask(taskId, toStatus, mutate, reason) {
     let previousStatus = null;
+    runtimeLog('TRANSITION_BEGIN', { taskId, toStatus, reason: reason || null });
     let nextTask = taskStore.updateTask(taskId, (task) => {
       assertTransition(task.status, toStatus);
       previousStatus = task.status;
@@ -58,6 +69,13 @@ function createTaskOrchestrator(options = {}) {
     if (isPromiseLike(nextTask)) nextTask = await nextTask;
 
     if (!nextTask) return null;
+    runtimeLog('TRANSITION_DONE', {
+      taskId,
+      fromStatus: previousStatus,
+      toStatus,
+      attempt: Number(nextTask?.attempt || 0),
+      reason: reason || null
+    });
 
     appendAudit({
       taskId,
@@ -125,6 +143,11 @@ function createTaskOrchestrator(options = {}) {
   }
 
   async function runTask(taskId, request) {
+    runtimeLog('RUN_TASK_START', {
+      taskId,
+      traceId: String(request?.traceId || ''),
+      requestId: String(request?.requestId || '')
+    });
     let task = taskStore.getTask(taskId);
     if (isPromiseLike(task)) task = await task;
     if (!task || isTerminalStatus(task.status)) return task;
@@ -163,6 +186,12 @@ function createTaskOrchestrator(options = {}) {
         );
         return task;
       } catch (error) {
+        runtimeLog('RUN_TASK_EXECUTE_ERROR', {
+          taskId,
+          message: String(error?.message || error || ''),
+          code: String(error?.code || ''),
+          retryable: isRetryableError(error)
+        });
         const retryable = isRetryableError(error);
         let updatedTask = taskStore.getTask(taskId);
         if (isPromiseLike(updatedTask)) updatedTask = await updatedTask;

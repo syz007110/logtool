@@ -97,6 +97,20 @@
     "noData": "没有找到故障码数据",
     "notFound": "未找到该故障码"
   },
+  "errorCodeLookup": {
+    "notFound": "未查询到匹配的故障码信息。",
+    "multipleMatchesIntro": "共命中 {{count}} 条记录（与故障码检索页相同的 Elasticsearch 排序）。完整日志故障码请按首位子系统号选择对应条目；下文默认展示排序首条的完整说明。",
+    "multipleMatchesLine": "{{idx}}) 子系统 {{subsystem}}，类型码 {{code}}{{summaryPart}}",
+    "foundPrefix": "已查询到故障码 {{code}}",
+    "labels": {
+      "hintInfo": "提示信息",
+      "paramMeaning": "参数含义",
+      "detail": "详细信息",
+      "detectLogic": "检测逻辑",
+      "techSolution": "技术排查方案",
+      "category": "故障分类"
+    }
+  },
   "device": {
     "listFailed": "获取设备列表失败",
     "requiredId": "设备编号必填",

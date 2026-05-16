@@ -256,11 +256,16 @@ function createDingtalkStreamBridge(options = {}) {
         content: response.mode === 'async'
           ? `消息已受理（taskId=${response.taskId || ''}），请稍后查询结果。`
           : (() => {
-              if (normalized?.instance) {
-                return `已进入会话实例#${Number(normalized?.instance?.instance_no || 0)}，识别意图：${String(normalized?.intent?.intent || 'unknown')}`;
-              }
               const text = String(normalized?.text || response?.text || '').trim();
-              return text || '已收到消息';
+              if (text) return text;
+              if (normalized?.instance) {
+                const instanceNo = Number(normalized?.instance?.instance_no || 0);
+                const intent = String(normalized?.intent?.intent || 'unknown').trim();
+                return intent
+                  ? `已进入会话实例#${instanceNo}，识别意图：${intent}`
+                  : `已进入会话实例#${instanceNo}`;
+              }
+              return '已收到消息';
             })()
       }
     }, accessToken ? {
