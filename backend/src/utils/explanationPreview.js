@@ -176,6 +176,8 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, temp
  */
 function composeExplanationPreviewFromI18n({
   rawCode,
+  /** 完整故障码时使用用户原始串解析子系统/臂/关节前缀（多命中时 displayCode 可能为 subsystem:code，无法解析臂号） */
+  prefixSourceRaw,
   subsystemFromDb,
   typeCodeFromDb,
   template: templateStr,
@@ -187,17 +189,21 @@ function composeExplanationPreviewFromI18n({
 }) {
   const translate = typeof t === 'function' ? t : (k) => k;
   const raw = String(rawCode || '').trim();
+  const prefixRawInput = String(prefixSourceRaw || '').trim();
   let {
     subsystem: parsedSubsystem,
     arm: parsedArm,
     joint: parsedJoint,
     normalizedCode
   } = deriveFromFullLogCode(raw);
+  const prefixDerived = prefixRawInput ? deriveFromFullLogCode(prefixRawInput) : null;
+  const usePrefixDerived = Boolean(prefixDerived && prefixDerived.normalizedCode);
+
   if (!normalizedCode && typeCodeFromDb) {
     normalizedCode = normalizeCode(typeCodeFromDb);
   }
   const template = String(templateStr || '').trim();
-  if (!template || !normalizedCode) {
+  if (!normalizedCode) {
     return { explanation: null, prefix: null, prefixRaw: null };
   }
   const subsystem = subsystemFromDb || parsedSubsystem || null;
@@ -205,25 +211,39 @@ function composeExplanationPreviewFromI18n({
     || (subsystem && normalizedCode
       ? `${subsystem}${String(normalizedCode).replace(/^0X/i, '')}`
       : String(normalizedCode || ''));
+
+  const armForContext = usePrefixDerived ? prefixDerived.arm : parsedArm;
+  const jointForContext = usePrefixDerived ? prefixDerived.joint : parsedJoint;
+  const subsystemForContext = usePrefixDerived
+    ? (subsystemFromDb || prefixDerived.subsystem || parsedSubsystem)
+    : subsystem;
+
   const context = {
     error_code: String(errorCodeDisplay || ''),
-    subsystem: subsystem || null,
-    arm: parsedArm || null,
-    joint: parsedJoint || null,
+    subsystem: subsystemForContext || null,
+    arm: armForContext || null,
+    joint: jointForContext || null,
     normalized_code: normalizedCode
   };
-  const explanation = parseExplanation(
-    template,
-    param1,
-    param2,
-    param3,
-    param4,
-    context
-  );
+
   const prefixRaw = buildPrefixFromContext(context) || '';
   const prefix = translatePrefixText(prefixRaw, translate);
+
+  let explanation = null;
+  if (template) {
+    const expl = parseExplanation(
+      template,
+      param1,
+      param2,
+      param3,
+      param4,
+      context
+    );
+    explanation = String(expl || '').trim() || null;
+  }
+
   return {
-    explanation: String(explanation || '').trim() || null,
+    explanation,
     prefix: String(prefix || '').trim() || null,
     prefixRaw: String(prefixRaw || '').trim() || null
   };

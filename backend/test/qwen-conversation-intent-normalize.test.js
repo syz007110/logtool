@@ -20,6 +20,24 @@ test('normalizeConversationIntentResult keeps metadata fields and clamps confide
   assert.equal(out.confidence, 1);
   assert.equal(out.language, 'en-US');
   assert.equal(out.nextAction.type, 'reply_direct');
+  assert.deepEqual(out.toolSlots.values, {});
+});
+
+test('normalizeConversationIntentResult filters toolSlots.values to registry property keys', () => {
+  const out = normalizeConversationIntentResult({
+    intent: 'error_code_lookup',
+    entities: { fileIds: [] },
+    toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
+    toolSlots: {
+      values: { errorCode: '0X010A', bogusKey: 'nope', subsystem: '2' }
+    },
+    needClarification: false,
+    clarificationQuestion: null,
+    nextAction: { type: 'call_tool', message: '' }
+  }, { fallbackLanguage: 'zh-CN' });
+  assert.equal(out.toolSlots.values.errorCode, '0X010A');
+  assert.equal(out.toolSlots.values.subsystem, '2');
+  assert.ok(!Object.prototype.hasOwnProperty.call(out.toolSlots.values, 'bogusKey'));
 });
 
 test('normalizeConversationIntentResult enforces call_tool consistency', () => {
@@ -72,4 +90,29 @@ test('normalizeConversationIntentResult accepts registry tool names', () => {
   assert.equal(out.toolDecision.shouldCallTool, true);
   assert.equal(out.toolDecision.toolName, 'error_code_lookup');
   assert.equal(out.nextAction.type, 'call_tool');
+});
+
+test('normalizeConversationIntentResult maps toolSlots and drops LLM tool arguments', () => {
+  const out = normalizeConversationIntentResult({
+    intent: 'error_code_lookup',
+    entities: { fileIds: [] },
+    toolDecision: {
+      shouldCallTool: true,
+      toolName: 'error_code_lookup',
+      reason: '',
+      arguments: { errorCode: '550E', subsystem: null, keywords: 'x' }
+    },
+    toolSlots: {
+      requiredSlots: ['errorCode'],
+      optionalSlots: ['subsystem'],
+      anyOfRequired: [],
+      missingSlot: 'subsystem'
+    },
+    needClarification: false,
+    clarificationQuestion: null,
+    nextAction: { type: 'call_tool', message: '' }
+  }, { fallbackLanguage: 'zh-CN' });
+
+  assert.deepEqual(out.toolSlots.missingSlots, ['subsystem']);
+  assert.ok(!Object.prototype.hasOwnProperty.call(out.toolDecision, 'arguments'));
 });

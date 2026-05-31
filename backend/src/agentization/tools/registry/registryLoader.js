@@ -22,29 +22,52 @@ function normalizeContractSlots(contract = {}, summary = {}) {
   const optionalSlots = asArray(contract.optionalSlots).length
     ? asArray(contract.optionalSlots)
     : asArray(contract.optional);
+  /** 槽位以 inputContract 为准；仅当契约未写 anyOf 时回退 llmSummary（兼容旧条目） */
   const anyOfRequired = asArray(contract.anyOfRequired).length
     ? asArray(contract.anyOfRequired)
     : asArray(summary.anyOfRequired);
   return { requiredSlots, optionalSlots, anyOfRequired };
 }
 
+/** inputContract.properties 为执行/校验真源；llmSummary.properties 仅可覆盖同名键的局部字段（如 description） */
+function mergeLlmSummaryProperties(contractProps, summaryPropsRaw) {
+  const overlay = summaryPropsRaw && typeof summaryPropsRaw === 'object' ? summaryPropsRaw : {};
+  const hasOverlay = Object.keys(overlay).length > 0;
+  const out = {};
+  for (const k of Object.keys(contractProps)) {
+    const base = contractProps[k] && typeof contractProps[k] === 'object' ? { ...contractProps[k] } : {};
+    if (!hasOverlay) {
+      out[k] = base;
+      continue;
+    }
+    const over = overlay[k] && typeof overlay[k] === 'object' ? overlay[k] : {};
+    out[k] = Object.keys(over).length > 0 ? { ...base, ...over } : { ...base };
+  }
+  return out;
+}
+
 function normalizeTool(tool) {
-  const llmSummary = tool?.llmSummary && typeof tool.llmSummary === 'object' ? tool.llmSummary : {};
+  const llmSummaryRaw = tool?.llmSummary && typeof tool.llmSummary === 'object' ? tool.llmSummary : {};
   const inputContract = tool?.inputContract && typeof tool.inputContract === 'object' ? tool.inputContract : {};
-  const slotShape = normalizeContractSlots(inputContract, llmSummary);
+  const slotShape = normalizeContractSlots(inputContract, llmSummaryRaw);
+
+  const contractProps = inputContract.properties && typeof inputContract.properties === 'object' ? inputContract.properties : {};
+  const summaryPropsRaw = llmSummaryRaw.properties && typeof llmSummaryRaw.properties === 'object' ? llmSummaryRaw.properties : {};
+  const llmSummaryProperties = mergeLlmSummaryProperties(contractProps, summaryPropsRaw);
+
   return {
     ...tool,
     toolName: String(tool?.toolName || '').trim(),
-    enabled: tool?.enabled !== false,
+    enabled: tool.enabled !== false,
     intentBindings: asArray(tool?.intentBindings).map((x) => String(x || '').trim()).filter(Boolean),
     llmSummary: {
-      ...llmSummary,
-      whenToUse: asArray(llmSummary.whenToUse).map((x) => String(x || '').trim()).filter(Boolean),
+      whenToUse: asArray(llmSummaryRaw.whenToUse).map((x) => String(x || '').trim()).filter(Boolean),
       requiredSlots: slotShape.requiredSlots,
       optionalSlots: slotShape.optionalSlots,
       anyOfRequired: slotShape.anyOfRequired,
-      missingSlotQuestions: llmSummary?.missingSlotQuestions && typeof llmSummary.missingSlotQuestions === 'object'
-        ? llmSummary.missingSlotQuestions
+      properties: llmSummaryProperties,
+      missingSlotQuestions: llmSummaryRaw?.missingSlotQuestions && typeof llmSummaryRaw.missingSlotQuestions === 'object'
+        ? llmSummaryRaw.missingSlotQuestions
         : {}
     },
     inputContract: {

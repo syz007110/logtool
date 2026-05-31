@@ -1,4 +1,5 @@
 const qwenService = require('../../services/qwenService');
+const { canonicalizeIntentResultForPipeline } = require('../intent/canonicalizeIntentResult');
 
 function parseBool(value, fallback = true) {
   const s = String(value == null ? '' : value).trim().toLowerCase();
@@ -8,45 +9,17 @@ function parseBool(value, fallback = true) {
   return fallback;
 }
 
-function toText(v) {
-  return String(v == null ? '' : v).trim();
-}
-
-function asObject(v) {
-  return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
-}
-
-function normalizeContextIntent(raw) {
-  const input = asObject(raw);
-  const entities = asObject(input.entities);
-  const nextAction = asObject(input.nextAction);
-  const toolDecision = asObject(input.toolDecision);
-  return {
-    intentVersion: 'v1',
-    intent: toText(input.intent || 'unknown') || 'unknown',
-    entities: {
-      errorCode: entities.errorCode == null ? null : toText(entities.errorCode) || null,
-      device: entities.device == null ? null : toText(entities.device) || null,
-      phenomenon: entities.phenomenon == null ? null : toText(entities.phenomenon) || null,
-      concept: entities.concept == null ? null : toText(entities.concept) || null,
-      component: entities.component == null ? null : toText(entities.component) || null,
-      fileIds: Array.isArray(entities.fileIds) ? entities.fileIds : []
-    },
-    toolDecision: {
-      shouldCallTool: Boolean(toolDecision.shouldCallTool),
-      toolName: toText(toolDecision.toolName) || null,
-      reason: toText(toolDecision.reason)
-    },
-    needClarification: Boolean(input.needClarification),
-    clarificationQuestion: input.clarificationQuestion == null ? null : toText(input.clarificationQuestion) || null,
-    answerDraft: input.answerDraft == null ? null : toText(input.answerDraft) || null,
-    nextAction: {
-      type: toText(nextAction.type || ''),
-      message: toText(nextAction.message || '')
-    },
-    confidence: Number.isFinite(Number(input.confidence)) ? Math.max(0, Math.min(1, Number(input.confidence))) : 0.7,
-    language: toText(input.language || 'zh-CN') || 'zh-CN'
-  };
+function pickIntentCoreFromExtraction(llm) {
+  if (!llm || typeof llm !== 'object') return {};
+  const {
+    raw,
+    model,
+    messages,
+    provider,
+    toolCatalog,
+    ...intentCore
+  } = llm;
+  return intentCore;
 }
 
 function sanitizeIntentLlmRaw(llm) {
@@ -87,9 +60,12 @@ function createPlatformTaskRouter() {
         err.code = String(error?.code || 'INTENT_EXTRACTION_FAILED');
         throw err;
       }
-      const intent = normalizeContextIntent(llm);
+      const intent = pickIntentCoreFromExtraction(llm);
+      const normalized = canonicalizeIntentResultForPipeline(intent, {
+        fallbackLanguage: envelope?.lang || envelope?.sessionMeta?.lang || 'zh-CN'
+      });
       return {
-        ...intent,
+        ...normalized,
         llmRaw: sanitizeIntentLlmRaw(llm)
       };
     }

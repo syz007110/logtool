@@ -439,7 +439,7 @@
     <el-dialog
       v-model="showQueryDialog"
       :title="$t('errorCodes.queryCode')"
-      width="600px"
+      width="720px"
       :close-on-click-modal="false"
     >
       <el-form :model="queryForm" label-width="140px">
@@ -447,6 +447,8 @@
           <el-input 
             v-model="queryForm.fullCode" 
             :placeholder="$t('errorCodes.fullCodePlaceholder')" 
+            maxlength="20"
+            show-word-limit
             clearable
           />
         </el-form-item>
@@ -473,7 +475,38 @@
         </el-form-item>
       </el-form>
 
-      <el-card v-if="queryResult" class="mt-2">
+      <div v-if="queryPickTotalHint" class="query-pick-truncated mt-2">{{ queryPickTotalHint }}</div>
+
+      <el-card v-if="queryKeywordPickActive" class="mt-2 query-pick-card">
+        <div class="query-pick-hint">{{ $t('errorCodes.queryPick.hint') }}</div>
+        <el-table
+          :data="queryPickList"
+          size="small"
+          :max-height="320"
+          highlight-current-row
+          class="query-pick-table"
+          @row-click="selectQueryPick"
+        >
+          <el-table-column prop="subsystem" :label="$t('errorCodes.queryPick.subsystem')" width="88" />
+          <el-table-column prop="code" :label="$t('errorCodes.queryPick.code')" width="120" />
+          <el-table-column :label="$t('i18nErrorCodes.userHint')" min-width="200">
+            <template #default="{ row }">
+              <span class="query-pick-explanation" :title="formatQueryPickPromptText(row)">{{ formatQueryPickPromptText(row) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('errorCodes.queryPick.select')" width="88" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" text @click.stop="selectQueryPick(row)">{{ $t('errorCodes.queryPick.select') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+
+      <div v-if="showQueryPickBackButton" class="query-detail-back">
+        <el-button text type="primary" @click="backToKeywordPickList">{{ $t('errorCodes.queryPick.backToList') }}</el-button>
+      </div>
+
+      <el-card v-if="(queryResult || foundRecord) && !queryKeywordPickActive" class="mt-2">
         <el-tabs v-model="queryResultActiveTab" class="query-result-tabs">
           <!-- 标签页1：基础信息 -->
           <el-tab-pane :label="$t('errorCodes.queryResult.basicInfo')" name="basic">
@@ -822,6 +855,12 @@ export default {
     const queryTechAttachments = ref([])
     const queryTechLoading = ref(false)
     const queryResultActiveTab = ref('basic')
+    const queryKeywordPickActive = ref(false)
+    const queryPickList = ref([])
+    const queryPickTotalHint = ref('')
+    const showQueryPickBackButton = computed(
+      () => queryPickList.value.length > 1 && !queryKeywordPickActive.value && !!foundRecord.value
+    )
     const analysisCategories = ref([])
     const booleanOptions = ref([])
     const selectedExportLang = ref('')
@@ -1652,6 +1691,9 @@ export default {
     }
 
     const openQueryDialog = () => {
+      queryKeywordPickActive.value = false
+      queryPickList.value = []
+      queryPickTotalHint.value = ''
       showQueryDialog.value = true
     }
     
@@ -1935,57 +1977,109 @@ export default {
       }
       return raw
     }
+    const QUERY_KEYWORD_LIST_LIMIT = 10
+
     const handleQuery = async () => {
-      const full = queryForm.fullCode?.trim()
-      if (!full) {
+      const raw = queryForm.fullCode?.trim()
+      if (!raw) {
         ElMessage.warning(t('errorCodes.message.queryWarning'))
         return
       }
-      const upper = full.toUpperCase()
+      if (raw.length > 20) {
+        ElMessage.warning(t('errorCodes.validation.queryKeywordMaxLength'))
+        return
+      }
+      const upper = raw.toUpperCase()
       const startsWithSubsystem = /^[1-9A]/.test(upper)
       const isFull = /^[1-9A][0-9A-F]{5}[A-E]$/.test(upper)
       const isShort = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(upper)
-      // 短码优先：用户可能已通过下拉选择了子系统，不应触发长度校验
+      const isKeyword = !isShort && !isFull
+
+      // 短码须选子系统
       if (isShort) {
         const shortSubsystem = (queryForm.subsystem || '').toUpperCase()
         if (!shortSubsystem) {
           ElMessage.info(t('errorCodes.selectSubsystem'))
           return
         }
-        // 后续查询逻辑在下面统一执行
-      } else {
-        // 先判断“像完整码但长度不对”的情况，例如 12010A（少一位）
+      } else if (!isKeyword) {
+        // 仅“像完整码”但位数不对
         if (startsWithSubsystem && !isFull) {
           ElMessage.warning(t('errorCodes.validation.lengthNotEnough'))
           return
         }
-        // 既不是完整码，也不是故障类型短码
         if (!isFull) {
           ElMessage.warning(t('errorCodes.validation.codeFormat'))
           return
         }
       }
+
+      const qForApi = isKeyword ? raw : upper
+      const subsystemForApi = isKeyword
+        ? undefined
+        : ((queryForm.subsystem || '').toUpperCase() || undefined)
+
       queryLoading.value = true
+      queryKeywordPickActive.value = false
+      queryPickList.value = []
+      queryPickTotalHint.value = ''
       queryResult.value = null
       foundRecord.value = null
       queryTechAttachments.value = []
       try {
-        const subsystem = (queryForm.subsystem || '').toUpperCase() || undefined
-        // 统一接口：/error-codes?q=... 可识别完整码/类型码/关键词；preview=1 时同时返回释义前缀
+        const listLimit = isKeyword ? QUERY_KEYWORD_LIST_LIMIT : 10
         const resp = await api.errorCodes.getList({
-          q: upper,
-          subsystem,
+          q: qForApi,
+          subsystem: subsystemForApi,
           page: 1,
-          limit: 10,
-          preview: 1
+          limit: listLimit,
+          preview: isKeyword ? 0 : 1
         })
         const data = resp?.data || {}
+        const rows = Array.isArray(data.errorCodes) ? data.errorCodes : []
+        const total = Number(data.total) || rows.length
+
+        if (isKeyword && rows.length > 1) {
+          queryKeywordPickActive.value = true
+          queryPickList.value = rows
+          if (total > rows.length) {
+            queryPickTotalHint.value = t('errorCodes.queryPick.truncated', {
+              total,
+              shown: rows.length
+            })
+          }
+          return
+        }
+
+        if (!rows.length) {
+          ElMessage.info(t('errorCodes.message.queryNoResult'))
+          return
+        }
+
+        queryKeywordPickActive.value = false
+        queryPickList.value = []
+
+        if (isKeyword && rows.length === 1) {
+          if (total > rows.length) {
+            queryPickTotalHint.value = t('errorCodes.queryPick.truncated', {
+              total,
+              shown: rows.length
+            })
+          }
+          await loadQueryDetailFromRow(rows[0], { manageLoading: false })
+          return
+        }
+
         queryResult.value = data.preview || null
-        foundRecord.value = (data.errorCodes && data.errorCodes[0]) ? data.errorCodes[0] : null
+        foundRecord.value = rows[0]
+        if (total > rows.length) {
+          queryPickTotalHint.value = t('errorCodes.queryPick.truncated', {
+            total,
+            shown: rows.length
+          })
+        }
         if (foundRecord.value?.id) {
           await loadQueryTechAttachments(foundRecord.value.id)
-        } else {
-          queryTechAttachments.value = []
         }
       } catch (e) {
         // 404错误已经在API拦截器中处理，这里只处理其他错误
@@ -2002,6 +2096,9 @@ export default {
       queryResult.value = null
       foundRecord.value = null
       queryTechAttachments.value = []
+      queryKeywordPickActive.value = false
+      queryPickList.value = []
+      queryPickTotalHint.value = ''
     }
     
     // 加载查询结果的技术排查方案附件
@@ -2029,6 +2126,64 @@ export default {
       } finally {
         queryTechLoading.value = false
       }
+    }
+
+    const formatQueryPickPromptText = (row) => {
+      const s = [row?.user_hint, row?.operation].filter(Boolean).join(', ').trim()
+      return s || '—'
+    }
+
+    const loadQueryDetailFromRow = async (row, { manageLoading = true } = {}) => {
+      if (!row) return
+      if (manageLoading) queryLoading.value = true
+      queryResult.value = null
+      foundRecord.value = null
+      queryTechAttachments.value = []
+      queryResultActiveTab.value = 'basic'
+      try {
+        const resp = await api.errorCodes.getList({
+          code: row.code,
+          subsystem: row.subsystem,
+          page: 1,
+          limit: 1,
+          preview: 1
+        })
+        const data = resp?.data || {}
+        const next = (data.errorCodes && data.errorCodes[0]) ? data.errorCodes[0] : row
+        queryResult.value = data.preview || null
+        foundRecord.value = next
+        if (foundRecord.value?.id) {
+          await loadQueryTechAttachments(foundRecord.value.id)
+        } else {
+          queryTechAttachments.value = []
+        }
+      } catch (e) {
+        if (e?.response?.status !== 404) {
+          ElMessage.error(e?.response?.data?.message || t('errorCodes.message.queryFailed'))
+        }
+        foundRecord.value = row
+        queryResult.value = null
+        if (row.id) {
+          await loadQueryTechAttachments(row.id)
+        } else {
+          queryTechAttachments.value = []
+        }
+      } finally {
+        if (manageLoading) queryLoading.value = false
+      }
+    }
+
+    const selectQueryPick = async (row) => {
+      queryKeywordPickActive.value = false
+      await loadQueryDetailFromRow(row)
+    }
+
+    const backToKeywordPickList = () => {
+      foundRecord.value = null
+      queryResult.value = null
+      queryTechAttachments.value = []
+      queryResultActiveTab.value = 'basic'
+      queryKeywordPickActive.value = true
     }
     
     // 查询结果中的图片预览
@@ -2269,6 +2424,10 @@ export default {
        queryResult,
        foundRecord,
       needSubsystemSelect,
+      queryKeywordPickActive,
+      queryPickList,
+      queryPickTotalHint,
+      showQueryPickBackButton,
       queryTechAttachments,
       queryImageList,
       queryOtherFileList,
@@ -2341,6 +2500,9 @@ export default {
        convertSolutionToKey,
        handleQuery,
        resetQuery,
+       formatQueryPickPromptText,
+       selectQueryPick,
+       backToKeywordPickList,
        handleBooleanOptionsChange,
        // 同步相关方法
        getDialogTitle,
@@ -2976,6 +3138,36 @@ export default {
 .query-file-item .btn-text {
   padding: 0 8px;
   flex-shrink: 0;
+}
+
+.query-pick-truncated {
+  font-size: 12px;
+  color: var(--slate-500);
+  line-height: 1.5;
+}
+
+.query-pick-card .query-pick-hint {
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--slate-700);
+}
+
+.query-pick-table {
+  width: 100%;
+}
+
+.query-pick-explanation {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.query-detail-back {
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
 
 .query-result-tabs {

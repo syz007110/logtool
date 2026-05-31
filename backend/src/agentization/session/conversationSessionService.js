@@ -97,11 +97,16 @@ function prepareError(step, error, payload = {}) {
 }
 
 function getPolicy() {
+  const maxTurns = Number.parseInt(process.env.SESSION_MAX_TURNS || '20', 10) || 20;
+  const historyTurnsRaw = Number.parseInt(process.env.SESSION_CONTEXT_HISTORY_TURNS || '', 10);
+  const historyTurns = Number.isFinite(historyTurnsRaw) && historyTurnsRaw > 0
+    ? historyTurnsRaw
+    : maxTurns;
   return {
-    maxTurns: Number.parseInt(process.env.SESSION_MAX_TURNS || '20', 10) || 20,
+    maxTurns,
     idleTimeoutMinutes: Number.parseInt(process.env.SESSION_IDLE_TIMEOUT_MINUTES || '30', 10) || 30,
     maxTokens: Number.parseInt(process.env.SESSION_MAX_TOKENS || '6000', 10) || 6000,
-    historyTurns: Number.parseInt(process.env.SESSION_CONTEXT_HISTORY_TURNS || '5', 10) || 5
+    historyTurns
   };
 }
 
@@ -409,9 +414,19 @@ function buildConfirmedSlots({ request, sessionState }) {
   };
 }
 
-function buildContextEnvelope({ request, history, sessionState, resolvedQuery = null }) {
+function resolveRecentTurnLimit(policy = {}) {
+  const maxTurns = Number(policy?.maxTurns);
+  const historyTurns = Number(policy?.historyTurns);
+  const safeMaxTurns = Number.isFinite(maxTurns) && maxTurns > 0 ? Math.floor(maxTurns) : 20;
+  const safeHistoryTurns = Number.isFinite(historyTurns) && historyTurns > 0
+    ? Math.floor(historyTurns)
+    : safeMaxTurns;
+  return Math.max(1, Math.min(safeHistoryTurns, safeMaxTurns));
+}
+
+function buildContextEnvelope({ request, history, sessionState, policy, resolvedQuery = null }) {
   const currentQuery = String(request?.message?.text || '').trim();
-  const recentTurns = buildRecentTurns(history, 2);
+  const recentTurns = buildRecentTurns(history, resolveRecentTurnLimit(policy));
   const mergedSessionState = normalizeSessionState(sessionState);
   const historyUserQuery = extractLastUserQuery(history);
   const currentFaultCode = extractFaultCode(currentQuery);

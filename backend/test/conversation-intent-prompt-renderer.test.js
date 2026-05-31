@@ -58,7 +58,7 @@ test('conversation intent prompt renderer selects english template by lang', () 
   }));
 
   assert.equal(messages[0].role, 'system');
-  assert.match(messages[0].content, /You are an intent extractor for conversational requests/);
+  assert.match(messages[0].content, /toolSlots/);
   const userBodies = messages.filter((m) => m.role === 'user').map((m) => m.content);
   const joinedUser = userBodies.join('\n');
   assert.match(joinedUser, /how to handle this fault code/);

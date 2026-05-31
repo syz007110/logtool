@@ -438,8 +438,8 @@
     "selectLanguage": "请选择语言",
     "multilangColumnsOptional": "多语言列（可选）",
     "selectLanguages": "请选择需要包含的语言",
-    "fullCode": "完整故障码",
-    "fullCodePlaceholder": "例如 141010A 或 0X010A（可含子系统前缀）",
+    "fullCode": "故障码 / 关键词",
+    "fullCodePlaceholder": "完整码、短码或关键词，最多 20 字",
     "formLabels": {
       "subsystem": "子系统",
       "code": "故障码",
@@ -529,6 +529,7 @@
       "codeRequired": "请输入故障码",
       "codeFormat": "故障码格式不正确，四位由数字或字母组成的16进制的故障码",
       "lengthNotEnough": "不满足故障码长度要求",
+      "queryKeywordMaxLength": "关键词不能超过 20 个字",
       "detailRequired": "请输入详细信息",
       "methodRequired": "请输入检测方法",
       "param1Required": "请输入参数1",
@@ -559,7 +560,8 @@
     "message": {
       "deleteConfirm": "确定要删除故障码 \"{code}\" 吗？",
       "loadFailed": "加载故障码失败",
-      "queryWarning": "请输入完整故障码",
+      "queryWarning": "请输入故障码或关键词",
+      "queryNoResult": "未查询到匹配的故障码",
       "queryFailed": "查询失败",
       "exportSuccess": "CSV导出已开始下载",
       "loadAnalysisCategoriesFailed": "加载分析分类失败",
@@ -590,6 +592,14 @@
       "title": "技术排查方案",
       "attachmentTitle": "附件",
       "attachmentHint": "最多 5 个，图片可预览，其他类型可下载/打开"
+    },
+    "queryPick": {
+      "hint": "关键词命中多条，请选择一条查看详情",
+      "subsystem": "子系统",
+      "code": "故障码",
+      "select": "查看",
+      "backToList": "返回候选列表",
+      "truncated": "共命中 {total} 条，此处仅展示前 {shown} 条，请缩小关键词"
     },
     "queryResult": {
       "resultInfo": "结果信息",

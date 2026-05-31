@@ -55,6 +55,9 @@ async function searchErrorCodesUnified({
   const keywordQueryInit = (keyword ?? q);
   let keywordQuery = keywordQueryInit;
   const { page: safePage, limit: safeLimit } = normalizePagination(page, limit, MAX_PAGE_SIZE.STANDARD);
+  /** ES 召回：完整码/类型码为约 3×每页条数（最少 10、封顶 50）；关键词检索固定最多 10 条 */
+  const esRecallLimit = Math.min(Math.max(safeLimit * 3, 10), 50);
+  const keywordEsRecallLimit = 10;
 
   const where = {};
   let esScoreMap = null;
@@ -115,11 +118,10 @@ async function searchErrorCodesUnified({
     // 注：这里复用 errorCodeSearchService.searchByKeywords 的“typeCode识别+terms(codeVariants)”逻辑
     if (recognized && (recognized.kind === 'full_code' || recognized.kind === 'type_code')) {
       try {
-        const esLimit = Math.min(Math.max(safeLimit * 3, 10), 50);
         const esResult = await searchByKeywords({
           keywords: [rawInput],
           lang: targetLang,
-          limit: esLimit
+          limit: esRecallLimit
         });
         if (esResult.ok && Array.isArray(esResult.items) && esResult.items.length > 0) {
           const esMatchedIds = esResult.items.map((item) => item.id).filter((id) => Number.isFinite(id));
@@ -167,15 +169,10 @@ async function searchErrorCodesUnified({
       const kw = String(keywordQuery).trim();
       if (kw) {
         try {
-          const esLimit = Math.max(
-            safePage * safeLimit,
-            safeLimit * 3,
-            100
-          );
           const esResult = await searchByKeywords({
             keywords: [kw],
             lang: targetLang,
-            limit: esLimit
+            limit: keywordEsRecallLimit
           });
 
           if (esResult.ok && esResult.items && esResult.items.length > 0) {

@@ -1,5 +1,5 @@
-const { loadToolRegistry, getEnabledTools, resolveToolName } = require('../tools/registry/registryLoader');
-const { resolveAgentFaultCodeToken } = require('../../services/faultCodeExtractionService');
+const { loadToolRegistry, getEnabledTools } = require('../tools/registry/registryLoader');
+const { canonicalizeIntentResultForPipeline } = require('../intent/canonicalizeIntentResult');
 
 function asObject(v) {
   return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
@@ -42,66 +42,48 @@ function buildAvailableTools(userPermissions = []) {
   });
 }
 
-function computeMissingSlotsForTool(contextIntent, toolMeta) {
+function slotValuePresent(val) {
+  if (val == null) return false;
+  if (Array.isArray(val)) return val.length > 0;
+  if (typeof val === 'object') return Object.keys(val).length > 0;
+  return toText(val) !== '';
+}
+
+function computeMissingSlotsForTool(contextIntent, toolMeta, confirmedSlots = {}) {
   const entities = asObject(contextIntent?.entities);
+  const slotVals = asObject(contextIntent?.toolSlots?.values);
+  const confirmed = asObject(confirmedSlots);
   const requiredSlots = Array.isArray(toolMeta?.requiredSlots) ? toolMeta.requiredSlots : [];
   const anyOfRequired = Array.isArray(toolMeta?.anyOfRequired) ? toolMeta.anyOfRequired : [];
   const missing = [];
 
+  const hasSlot = (slot) => {
+    const k = String(slot);
+    if (slotValuePresent(slotVals[k])) return true;
+    if (slotValuePresent(confirmed[k])) return true;
+    if (slotValuePresent(entities[k])) return true;
+    return false;
+  };
+
   for (const slot of requiredSlots) {
-    const val = entities[slot];
-    if (val == null || toText(val) === '') missing.push(String(slot));
+    if (!hasSlot(slot)) missing.push(String(slot));
   }
 
   for (const group of anyOfRequired) {
     if (!Array.isArray(group) || group.length === 0) continue;
-    const hasOne = group.some((slot) => {
-      const val = entities[slot];
-      return !(val == null || toText(val) === '');
-    });
+    const hasOne = group.some((slot) => hasSlot(slot));
     if (!hasOne) missing.push(String(group[0]));
   }
 
   return Array.from(new Set(missing));
 }
 
-function normalizeContextIntent(intentResult) {
-  let registry = null;
-  try {
-    registry = loadToolRegistry();
-  } catch (_) {
-    registry = null;
-  }
-  const structured = asObject(intentResult);
-  const entities = asObject(structured.entities);
-  const nextAction = asObject(structured.nextAction);
-  const toolDecision = asObject(structured.toolDecision);
-  return {
-    intent: toText(structured.intent || 'unknown') || 'unknown',
-    entities: {
-      errorCode: entities.errorCode == null ? null : toText(entities.errorCode) || null,
-      device: entities.device == null ? null : toText(entities.device) || null,
-      phenomenon: entities.phenomenon == null ? null : toText(entities.phenomenon) || null,
-      concept: entities.concept == null ? null : toText(entities.concept) || null,
-      component: entities.component == null ? null : toText(entities.component) || null,
-      fileIds: Array.isArray(entities.fileIds) ? entities.fileIds : []
-    },
-    toolDecision: {
-      shouldCallTool: Boolean(toolDecision.shouldCallTool),
-      toolName: resolveToolName(toolDecision.toolName, registry || undefined)
-        || (toolDecision.shouldCallTool ? resolveToolName(structured.intent, registry || undefined) : null),
-      reason: toText(toolDecision.reason)
-    },
-    needClarification: Boolean(structured.needClarification),
-    clarificationQuestion: structured.clarificationQuestion == null ? null : toText(structured.clarificationQuestion) || null,
-    answerDraft: structured.answerDraft == null ? null : toText(structured.answerDraft) || null,
-    nextAction: {
-      type: toText(nextAction.type || ''),
-      message: toText(nextAction.message || '')
-    },
-    confidence: Number.isFinite(Number(structured.confidence)) ? Number(structured.confidence) : 0.7,
-    language: firstNonEmpty([structured.language, 'zh-CN'])
-  };
+function resolvePlannerFallbackLanguage(planInputContext, intentResult) {
+  const m = planInputContext?.latestUserMessage?.language;
+  if (m) return String(m);
+  const fromIntent = intentResult?.language || planInputContext?.contextIntent?.language;
+  if (fromIntent) return String(fromIntent);
+  return 'zh-CN';
 }
 
 function createV1Planner() {
@@ -109,9 +91,11 @@ function createV1Planner() {
     buildPlan(input) {
       const planInputContext = asObject(input?.planInputContext);
       const request = asObject(input?.request);
-      const fallbackIntent = normalizeContextIntent(input?.intentResult);
-      const contextIntent = asObject(planInputContext.contextIntent).intent
-        ? planInputContext.contextIntent
+      const fbLang = resolvePlannerFallbackLanguage(planInputContext, input?.intentResult);
+      const fallbackIntent = canonicalizeIntentResultForPipeline(input?.intentResult, { fallbackLanguage: fbLang });
+      const rawCtx = asObject(planInputContext.contextIntent);
+      const contextIntent = toText(rawCtx.intent || '')
+        ? canonicalizeIntentResultForPipeline(rawCtx, { fallbackLanguage: fbLang })
         : fallbackIntent;
       const userPermissions = Array.isArray(planInputContext?.runtimeState?.userPermissions)
         ? planInputContext.runtimeState.userPermissions
@@ -127,7 +111,12 @@ function createV1Planner() {
       const decisionType = String(contextIntent.nextAction.type || '').trim();
 
       if (contextIntent.needClarification || decisionType === 'ask_user') {
-        const missingSlots = computeMissingSlotsForTool(contextIntent, preferredTool);
+        const llmMissing = Array.isArray(contextIntent.toolSlots?.missingSlots)
+          ? contextIntent.toolSlots.missingSlots.map((x) => String(x || '').trim()).filter(Boolean)
+          : [];
+        const missingSlots = llmMissing.length > 0
+          ? llmMissing
+          : computeMissingSlotsForTool(contextIntent, preferredTool, asObject(planInputContext.confirmedSlots));
         const questionText = firstNonEmpty([
           contextIntent.answerDraft,
           contextIntent.clarificationQuestion,
@@ -176,15 +165,27 @@ function createV1Planner() {
       }
 
       if (wantsCallTool && canCallTool) {
-        const query = toText(request?.message?.text);
-        const slotCode = toText(planInputContext?.confirmedSlots?.errorCode);
-        const entityCode = resolveAgentFaultCodeToken(contextIntent.entities.errorCode || '');
-        const extractedFromQuery = resolveAgentFaultCodeToken(query);
-        const errorCode = firstNonEmpty([slotCode, entityCode, extractedFromQuery]) || null;
-        const argumentsPayload = {
-          errorCode,
-          keywords: errorCode ? null : (query || null),
-          language: contextIntent.language || 'zh-CN'
+        const ts = contextIntent.toolSlots && typeof contextIntent.toolSlots === 'object'
+          ? contextIntent.toolSlots
+          : {};
+        const toolSlotsSnapshot = {
+          requiredSlots: Array.isArray(ts.requiredSlots) ? [...ts.requiredSlots] : [],
+          optionalSlots: Array.isArray(ts.optionalSlots) ? [...ts.optionalSlots] : [],
+          anyOfRequired: Array.isArray(ts.anyOfRequired)
+            ? ts.anyOfRequired.map((g) => (Array.isArray(g) ? [...g] : []))
+            : [],
+          missingSlots: Array.isArray(ts.missingSlots) ? [...ts.missingSlots] : [],
+          values: ts.values && typeof ts.values === 'object' && !Array.isArray(ts.values) ? { ...ts.values } : {}
+        };
+        const ent = contextIntent.entities;
+        const entitiesSnapshot = {
+          errorCode: ent.errorCode,
+          subsystem: ent.subsystem,
+          device: ent.device,
+          phenomenon: ent.phenomenon,
+          concept: ent.concept,
+          component: ent.component,
+          fileIds: Array.isArray(ent.fileIds) ? [...ent.fileIds] : []
         };
         return {
           plannerOutputVersion: 'v1',
@@ -192,7 +193,11 @@ function createV1Planner() {
           reason: contextIntent.toolDecision.reason || 'tool_required',
           toolCall: {
             toolName: preferredToolName,
-            arguments: argumentsPayload
+            toolSlots: toolSlotsSnapshot,
+            entities: entitiesSnapshot,
+            confirmedSlots: asObject(planInputContext.confirmedSlots),
+            userMessageText: toText(request?.message?.text),
+            language: contextIntent.language || 'zh-CN'
           },
           policySnapshot: asObject(planInputContext.policy).maxSteps ? planInputContext.policy : { maxSteps: 4, maxToolCalls: 2, clarifyRoundLimit: 2, timeoutBudgetMs: 12000 }
         };

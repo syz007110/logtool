@@ -60,7 +60,6 @@ const jiraRouter = require('./routes/jira');
 const smartSearchRouter = require('./routes/smartSearch');
 const kbRouter = require('./routes/kb');
 const agentRouter = require('./routes/agent');
-const dingtalkBotRouter = require('./routes/dingtalkBot');
 const { apiMonitoring, systemMonitoring, errorMonitoring } = require('./middlewares/monitoring');
 const websocketService = require('./services/websocketService');
 const cacheInitializer = require('./services/cacheInitializer');
@@ -277,7 +276,6 @@ app.use('/api/jira', jiraRouter);
 app.use('/api/smart-search', smartSearchRouter);
 app.use('/api/kb', kbRouter);
 app.use('/api/agent', agentRouter);
-app.use('/api/dingtalk/bot', dingtalkBotRouter);
 // 错误处理中间件
 app.use(errorMonitoring);
 app.use((err, req, res, next) => {

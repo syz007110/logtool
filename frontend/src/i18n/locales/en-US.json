@@ -436,8 +436,8 @@
     "selectLanguage": "Please select a language",
     "multilangColumnsOptional": "Multi-language",
     "selectLanguages": "Select languages",
-    "fullCode": "Full Error Code",
-    "fullCodePlaceholder": "e.g. 141010A or 0X010A (may include system ID prefix)",
+    "fullCode": "Error code / keyword",
+    "fullCodePlaceholder": "Full code, short code, or keyword (max 20 characters)",
     "formLabels": {
       "subsystem": "System ID",
       "code": "Error Code",
@@ -527,6 +527,7 @@
       "codeRequired": "Please enter error code",
       "codeFormat": "Invalid error code format, A four-digit hexadecimal fault code consisting of numbers or letters.",
       "lengthNotEnough": "Error code length does not meet requirements",
+      "queryKeywordMaxLength": "Keywords cannot exceed 20 characters",
       "detailRequired": "Please enter detail",
       "methodRequired": "Please enter method",
       "param1Required": "Please enter parameter 1",
@@ -556,7 +557,8 @@
     },
     "message": {
       "deleteConfirm": "Are you sure to delete error code \"{code}\"?",
-      "queryWarning": "Please enter full error code",
+      "queryWarning": "Please enter an error code or keyword",
+      "queryNoResult": "No matching error code found",
       "queryFailed": "Query failed",
       "exportSuccess": "CSV export started",
       "loadAnalysisCategoriesFailed": "Failed to load analysis categories",
@@ -587,6 +589,14 @@
       "title": "Technical Troubleshooting Plan",
       "attachmentTitle": "Attachments",
       "attachmentHint": "Up to 5 files. Images can be previewed; other types can be opened/downloaded."
+    },
+    "queryPick": {
+      "hint": "Multiple matches. Select one to view details.",
+      "subsystem": "Subsystem",
+      "code": "Code",
+      "select": "View",
+      "backToList": "Back to list",
+      "truncated": "{total} matches; showing first {shown}. Narrow your keyword."
     },
     "queryResult": {
       "resultInfo": "Result Information",

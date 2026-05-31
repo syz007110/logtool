@@ -17,6 +17,22 @@ function renderPromptTemplate(template, vars) {
   });
 }
 
+/** Agent 意图 user 模板：缺失或 null/undefined 占位统一渲染为字面量 null */
+function renderConversationIntentUserTemplate(template, vars) {
+  const s = String(template ?? '');
+  return s.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
+    if (!vars || !Object.prototype.hasOwnProperty.call(vars, key)) return 'null';
+    const v = vars[key];
+    if (v == null) return 'null';
+    return String(v);
+  });
+}
+
+function resolveConversationIntentPromptLang(tag) {
+  const s = String(tag || 'zh').trim().toLowerCase();
+  return s.startsWith('en') ? 'en' : 'zh';
+}
+
 function normalizeBaseUrl(baseUrl) {
   const s = String(baseUrl || '').trim();
   if (!s) return '';
@@ -265,37 +281,44 @@ function buildQueryPlanExtractionMessages(query, defaults = {}) {
 function buildConversationIntentPromptInjectionSnapshot(contextEnvelope) {
   const envelope = contextEnvelope && typeof contextEnvelope === 'object' ? contextEnvelope : {};
   const requestedLang = String(envelope?.lang || envelope?.sessionMeta?.lang || 'zh').trim().toLowerCase();
-  const byLang = smartSearchPrompts?.conversationIntentExtractionByLang || {};
-  const promptConfig = byLang[requestedLang] || byLang.zh || {};
+  const byLang = smartSearchPrompts?.conversationIntentExtractionByLang;
+  if (!byLang || typeof byLang !== 'object') {
+    const err = new Error('无配置文件');
+    err.code = 'MISSING_INTENT_PROMPTS_CONFIG';
+    throw err;
+  }
+  const langKey = resolveConversationIntentPromptLang(requestedLang);
+  const promptConfig = byLang[langKey];
+  if (!promptConfig || typeof promptConfig !== 'object') {
+    const err = new Error('无配置文件');
+    err.code = 'MISSING_INTENT_PROMPTS_LANG';
+    throw err;
+  }
+
   const systemPrompt = Array.isArray(promptConfig.system)
     ? promptConfig.system.join('\n')
     : String(promptConfig.system || '').trim();
-  const dynamicToolPrompt = buildIntentToolPrompt();
+  if (!systemPrompt) {
+    const err = new Error('无配置文件');
+    err.code = 'MISSING_INTENT_PROMPTS_SYSTEM';
+    throw err;
+  }
+
+  const dynamicToolPrompt = buildIntentToolPrompt({ lang: requestedLang });
   const toolPrompt = String(dynamicToolPrompt?.toolPrompt || '').trim();
+
   const memoryPrompt = Array.isArray(promptConfig.memory)
     ? promptConfig.memory.join('\n')
     : String(promptConfig.memory || '').trim();
-  const userTemplate = Array.isArray(promptConfig.userTemplate)
+
+  const userTemplateJoined = Array.isArray(promptConfig.userTemplate)
     ? promptConfig.userTemplate.join('\n')
     : String(promptConfig.userTemplate || '').trim();
-  const fallbackPrompt = [
-    'You are a conversation intent extractor.',
-    'Output JSON ONLY.',
-    'Allowed intent: troubleshoot, lookup_fault_code, find_case, definition, how_to_use, other, log_query, surgery_summary, case_record.',
-    'Output schema: {"intentVersion":"v1","intent":"","entities":{"errorCode":null,"device":null,"phenomenon":null,"concept":null,"component":null,"fileIds":[]},"toolDecision":{"shouldCallTool":false,"toolName":null,"reason":""},"needClarification":false,"clarificationQuestion":null,"nextAction":{"type":"reply_direct","message":""},"answerDraft":null,"confidence":0.7,"language":"zh-CN"}'
-  ].join('\n');
-  const fallbackUserTemplate = [
-    'Context for intent extraction:',
-    '- currentInput.rawText: {{currentInputRawText}}',
-    '- currentInput.fileIds: {{currentInputFileIds}}',
-    '- confirmedSlots: errorCode={{errorCode}}, device={{device}}, phenomenon={{phenomenon}}, concept={{concept}}, component={{component}}',
-    '- historySummary: lastIntent={{lastIntent}}, lastTool={{lastTool}}, lastResultBrief={{lastResultBrief}}',
-    '- historyContext.summary: {{historyContextSummary}}',
-    '- recentTurns:',
-    '{{recentTurnsText}}',
-    '',
-    'Return JSON only with keys: intent, keywords, confidence, filters.'
-  ].join('\n');
+  if (!userTemplateJoined) {
+    const err = new Error('无配置文件');
+    err.code = 'MISSING_INTENT_PROMPTS_USER_TEMPLATE';
+    throw err;
+  }
 
   const currentInput = envelope?.currentInput && typeof envelope.currentInput === 'object'
     ? envelope.currentInput
@@ -311,30 +334,40 @@ function buildConversationIntentPromptInjectionSnapshot(contextEnvelope) {
     : {};
   const recentTurns = Array.isArray(historyContext?.recentTurns) ? historyContext.recentTurns : [];
   const recentTurnsText = recentTurns.length === 0
-    ? '第1轮 user: （无历史）'
+    ? null
     : recentTurns.map((turn) => {
       const role = String(turn?.role || '').trim() || 'user';
-      const text = String(turn?.text || '').trim() || '（空）';
-      return `${role}: ${text}`;
+      const textTrim = turn?.text == null ? '' : String(turn.text).trim();
+      const text = textTrim === '' ? null : textTrim;
+      return `${role}: ${text == null ? 'null' : text}`;
     }).join('\n');
+
   const normalizedSlotErrorCode = String(confirmedSlots?.errorCode || '').trim().toUpperCase();
   const currentInputRawText = String(currentInput?.rawText || '').trim();
   const mergedCurrentInputRawText = normalizedSlotErrorCode
     ? `${currentInputRawText}\n[system_detected_error_code] ${normalizedSlotErrorCode}`
     : currentInputRawText;
 
-  const userPrompt = renderPromptTemplate(userTemplate || fallbackUserTemplate, {
-    currentInputRawText: mergedCurrentInputRawText,
-    currentInputFileIds: Array.isArray(currentInput?.fileIds) ? currentInput.fileIds.join(', ') : '',
-    errorCode: String(confirmedSlots?.errorCode || '未确认'),
-    device: String(confirmedSlots?.device || '未确认'),
-    phenomenon: String(confirmedSlots?.phenomenon || '未确认'),
-    concept: String(confirmedSlots?.concept || '未确认'),
-    component: String(confirmedSlots?.component || '未确认'),
-    lastIntent: String(historySummary?.lastIntent || '无'),
-    lastTool: String(historySummary?.lastTool || '无'),
-    lastResultBrief: String(historySummary?.lastResultBrief || '无'),
-    historyContextSummary: String(historyContext?.summary || '无'),
+  const strOrNull = (v) => {
+    if (v == null) return null;
+    const t = String(v).trim();
+    return t ? t : null;
+  };
+
+  const fileIdsArr = Array.isArray(currentInput?.fileIds) ? currentInput.fileIds : [];
+  const userPrompt = renderConversationIntentUserTemplate(userTemplateJoined, {
+    currentInputRawText: mergedCurrentInputRawText || null,
+    currentInputFileIds: fileIdsArr.length > 0 ? fileIdsArr.join(', ') : null,
+    errorCode: strOrNull(confirmedSlots?.errorCode),
+    subsystem: strOrNull(confirmedSlots?.subsystem),
+    device: strOrNull(confirmedSlots?.device),
+    phenomenon: strOrNull(confirmedSlots?.phenomenon),
+    concept: strOrNull(confirmedSlots?.concept),
+    component: strOrNull(confirmedSlots?.component),
+    lastIntent: strOrNull(historySummary?.lastIntent),
+    lastTool: strOrNull(historySummary?.lastTool),
+    lastResultBrief: strOrNull(historySummary?.lastResultBrief),
+    historyContextSummary: strOrNull(historyContext?.summary),
     recentTurnsText
   });
 
@@ -342,25 +375,20 @@ function buildConversationIntentPromptInjectionSnapshot(contextEnvelope) {
     const t = String(s == null ? '' : s).trim();
     return t ? t : null;
   };
-  const systemConfigured = nullIfEmpty(systemPrompt);
-  const systemEffective = nullIfEmpty(systemPrompt || fallbackPrompt) || fallbackPrompt;
-  const user = nullIfEmpty(userPrompt);
-  const tool = nullIfEmpty(toolPrompt);
-  const memory = nullIfEmpty(memoryPrompt);
 
   const messages = [];
-  messages.push({ role: 'system', content: systemEffective });
+  messages.push({ role: 'system', content: systemPrompt });
   if (userPrompt) messages.push({ role: 'user', content: userPrompt });
   if (toolPrompt) messages.push({ role: 'user', content: `[tool]\n${toolPrompt}` });
-  messages.push({ role: 'user', content: `[memory]\n${memoryPrompt || '(empty)'}` });
+  messages.push({ role: 'user', content: `[memory]\n${memoryPrompt}` });
 
   return {
-    systemPrompt: systemConfigured,
-    systemEffective,
-    systemFallbackUsed: !systemConfigured,
-    userPrompt: user,
-    toolPrompt: tool,
-    memoryPrompt: memory,
+    systemPrompt,
+    systemEffective: systemPrompt,
+    systemFallbackUsed: false,
+    userPrompt: nullIfEmpty(userPrompt),
+    toolPrompt: nullIfEmpty(toolPrompt),
+    memoryPrompt: nullIfEmpty(memoryPrompt),
     messages
   };
 }
@@ -376,6 +404,70 @@ function getConversationToolNameAllowlist() {
   } catch (_) {
     return new Set();
   }
+}
+
+function normalizeAnyOfRequiredGroups(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((group) => (Array.isArray(group) ? group.map((s) => String(s ?? '').trim()).filter(Boolean) : []))
+    .filter((g) => g.length > 0);
+}
+
+function normalizeToolSlotValues(raw, allowedKeysSet) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const key = String(k ?? '').trim();
+    if (!key) continue;
+    if (allowedKeysSet && allowedKeysSet.size > 0 && !allowedKeysSet.has(key)) continue;
+    if (v === undefined) continue;
+    if (v == null) {
+      out[key] = null;
+      continue;
+    }
+    if (Array.isArray(v)) {
+      out[key] = v;
+      continue;
+    }
+    if (typeof v === 'object') {
+      out[key] = v;
+      continue;
+    }
+    const s = String(v).trim();
+    out[key] = s || null;
+  }
+  return out;
+}
+
+function normalizeToolSlotsFromParsed(parsed, options = {}) {
+  const ts = parsed?.toolSlots && typeof parsed.toolSlots === 'object' && !Array.isArray(parsed.toolSlots)
+    ? parsed.toolSlots
+    : {};
+  const missingRaw = ts.missingSlots != null ? ts.missingSlots : ts.missingSlot;
+  const missingSlots = Array.isArray(missingRaw)
+    ? normalizeStringArray(missingRaw, 48)
+    : (missingRaw != null && String(missingRaw).trim() ? [String(missingRaw).trim()] : []);
+
+  const toolName = String(options.toolName || '').trim();
+  let allowedKeys = null;
+  if (toolName && options.registry?.byName) {
+    const toolRow = options.registry.byName.get(toolName);
+    const props = toolRow?.inputContract?.properties;
+    if (props && typeof props === 'object') {
+      allowedKeys = new Set(Object.keys(props).map((x) => String(x || '').trim()).filter(Boolean));
+    }
+  }
+
+  const rawVals = ts.values != null ? ts.values : ts.slotValues;
+  const values = normalizeToolSlotValues(rawVals, allowedKeys);
+
+  return {
+    requiredSlots: normalizeStringArray(ts.requiredSlots, 48),
+    optionalSlots: normalizeStringArray(ts.optionalSlots, 48),
+    anyOfRequired: normalizeAnyOfRequiredGroups(ts.anyOfRequired),
+    missingSlots,
+    values
+  };
 }
 
 function normalizeConversationIntentResult(parsed = {}, options = {}) {
@@ -407,6 +499,7 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
   const normalizedErrorCode = resolveAgentFaultCodeToken(entitiesRaw.errorCode || '') || null;
   const entities = {
     errorCode: normalizedErrorCode,
+    subsystem: entitiesRaw.subsystem == null ? null : String(entitiesRaw.subsystem || '').trim().toUpperCase() || null,
     device: String(entitiesRaw.device || '').trim() || null,
     phenomenon: String(entitiesRaw.phenomenon || '').trim() || null,
     concept: String(entitiesRaw.concept || '').trim() || null,
@@ -429,6 +522,7 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
     reason: String(toolDecisionRaw.reason || '').trim()
   };
 
+  const toolSlots = normalizeToolSlotsFromParsed(parsed, { toolName, registry });
   const needClarification = Boolean(parsed?.needClarification);
   const clarificationQuestionRaw = String(parsed?.clarificationQuestion || '').trim();
   const clarificationQuestion = needClarification
@@ -475,7 +569,8 @@ function normalizeConversationIntentResult(parsed = {}, options = {}) {
     confidence: clampConfidence(parsed?.confidence, 0.7),
     language: normalizeLanguageTag(parsed?.language, fallbackLanguage),
     keywords: normalizeKeywords(parsed?.keywords).slice(0, 8),
-    filters: legacyFilters
+    filters: legacyFilters,
+    toolSlots
   };
 }
 

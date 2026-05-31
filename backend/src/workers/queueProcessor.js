@@ -26,6 +26,7 @@ const { createLogtoolToolGateway } = require('../agentization/tools/logtoolToolG
 const { createV1Planner, buildAvailableTools } = require('../agentization/planner/v1Planner');
 const { prepareConversationContext, processConversationRequest } = require('../agentization/session/conversationSessionService');
 const { resolveUserPermissions } = require('../agentization/security/userPermissionResolver');
+const { canonicalizeIntentResultForPipeline } = require('../agentization/intent/canonicalizeIntentResult');
 const { appendAgentDebugMarkdown } = require('../agentization/utils/agentDebugMarkdownLogger');
 const Log = require('../models/log');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
@@ -855,6 +856,8 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
   const userPermissions = await resolveUserPermissions(request?.user || {});
   stepLog(job?.id, 'permissions:done', { costMs: Date.now() - permStartedAt, permissionCount: userPermissions.length });
   const availableTools = buildAvailableTools(userPermissions);
+  request.context = request.context && typeof request.context === 'object' ? request.context : {};
+  request.context.userPermissions = userPermissions;
   const requestMeta = {
     taskId: String(job?.id || request?.requestId || ''),
     runId: `run_${String(job?.id || request?.requestId || '')}`,
@@ -879,29 +882,21 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
   let conversationPersistPhase = 'full';
   let conversationPersistTag = 'primary';
 
-  const normalizeContextIntent = (rawIntent) => ({
-    intentVersion: String(rawIntent?.intentVersion || 'v1'),
-    intent: String(rawIntent?.intent || 'unknown'),
-    entities: rawIntent?.entities && typeof rawIntent.entities === 'object' ? rawIntent.entities : {},
-    toolDecision: rawIntent?.toolDecision && typeof rawIntent.toolDecision === 'object'
-      ? rawIntent.toolDecision
-      : { shouldCallTool: false, toolName: null, reason: '' },
-    needClarification: Boolean(rawIntent?.needClarification),
-    clarificationQuestion: rawIntent?.clarificationQuestion == null ? null : String(rawIntent.clarificationQuestion),
-    answerDraft: rawIntent?.answerDraft == null ? null : String(rawIntent.answerDraft),
-    nextAction: rawIntent?.nextAction && typeof rawIntent.nextAction === 'object'
-      ? rawIntent.nextAction
-      : { type: 'reply_direct', message: '' },
-    confidence: Number.isFinite(Number(rawIntent?.confidence)) ? Number(rawIntent.confidence) : 0.7,
-    language: String(rawIntent?.language || 'zh-CN')
-  });
+  const contextIntentLanguageFallback = () => String(
+    currentIntentResult?.language
+      || currentPrepared?.contextEnvelope?.lang
+      || currentPrepared?.contextEnvelope?.sessionMeta?.lang
+      || 'zh-CN'
+  );
 
   while (loopStep < policyConfig.maxSteps) {
     if (Date.now() - workflowStartedAt > policyConfig.timeoutBudgetMs) {
       break;
     }
     loopStep += 1;
-    const contextIntent = normalizeContextIntent(currentIntentResult);
+    const contextIntent = canonicalizeIntentResultForPipeline(currentIntentResult, {
+      fallbackLanguage: contextIntentLanguageFallback()
+    });
     const remainingCalls = Math.max(0, policyConfig.maxToolCalls - toolCallsUsed);
     const planInputContext = {
       plannerInputVersion: 'v1',
@@ -958,23 +953,6 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
       loopStep
     };
     stepLog(job?.id, 'invoke:loop:done', { loopStep, costMs: Date.now() - invokeStartedAt });
-    try {
-      await appendAgentDebugMarkdown({
-        jobId: job?.id,
-        request,
-        contextEnvelope: currentPrepared?.contextEnvelope || prepared?.contextEnvelope || {},
-        intentResult: currentIntentResult,
-        assistantResponse,
-        includePromptInjection: false,
-        stage: `loop_step_${loopStep}_invoke`
-      });
-    } catch (error) {
-      stepLog(job?.id, 'agent-debug-md:loop_failed', {
-        loopStep,
-        message: String(error?.message || error)
-      });
-    }
-
     if (String(planOutput?.decision || '').trim() !== 'call_tool') {
       conversationPersistIntent = currentIntentResult;
       conversationPersistEnvelope = currentPrepared.contextEnvelope;

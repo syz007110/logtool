@@ -4,6 +4,7 @@
  *   node src/scripts/printAgentToolPrompt.js
  *   node src/scripts/printAgentToolPrompt.js --full
  *   node src/scripts/printAgentToolPrompt.js --json
+ *   node src/scripts/printAgentToolPrompt.js --lang en
  */
 
 const path = require('path');
@@ -19,8 +20,13 @@ const { buildIntentToolPrompt } = require('../agentization/tools/registry/toolPr
 const args = process.argv.slice(2);
 const full = args.includes('--full');
 const jsonOut = args.includes('--json');
+let lang = 'zh';
+const langIdx = args.indexOf('--lang');
+if (langIdx >= 0 && args[langIdx + 1]) {
+  lang = String(args[langIdx + 1] || 'zh').trim();
+}
 
-const built = buildIntentToolPrompt();
+const built = buildIntentToolPrompt({ lang });
 
 if (jsonOut) {
   process.stdout.write(`${JSON.stringify(built, null, 2)}\n`);

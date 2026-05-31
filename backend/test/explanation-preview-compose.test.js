@@ -21,7 +21,26 @@ test('composeExplanationPreviewFromI18n matches preview pipeline without DB', ()
   assert.ok(typeof out.prefix === 'string');
 });
 
-test('composeExplanationPreviewFromI18n returns nulls when no template', () => {
+test('composeExplanationPreviewFromI18n uses prefixSourceRaw for full-code arm/joint when displayCode is compact', () => {
+  const t = (k) => k;
+  const out = composeExplanationPreviewFromI18n({
+    rawCode: '1:010A',
+    prefixSourceRaw: '141010A',
+    subsystemFromDb: '1',
+    typeCodeFromDb: '0X010A',
+    template: '模板',
+    param1: '',
+    param2: '',
+    param3: '',
+    param4: '',
+    t
+  });
+  assert.match(out.explanation, /模板/);
+  assert.ok(out.prefixRaw && out.prefixRaw.includes('2\u53f7\u5de5\u5177\u81c2'));
+  assert.ok(out.prefixRaw.includes('1\u5173\u8282'));
+});
+
+test('composeExplanationPreviewFromI18n returns prefix without template when code resolves', () => {
   const out = composeExplanationPreviewFromI18n({
     rawCode: '1010A',
     subsystemFromDb: '1',
@@ -34,6 +53,6 @@ test('composeExplanationPreviewFromI18n returns nulls when no template', () => {
     t: (k) => k
   });
   assert.equal(out.explanation, null);
-  assert.equal(out.prefix, null);
-  assert.equal(out.prefixRaw, null);
+  assert.ok(out.prefixRaw && String(out.prefixRaw).length > 0);
+  assert.ok(typeof out.prefix === 'string' && out.prefix.length > 0);
 });

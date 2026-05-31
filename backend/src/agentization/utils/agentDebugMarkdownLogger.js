@@ -64,7 +64,8 @@ async function appendAgentDebugMarkdown({
   const recentTurns = Array.isArray(historyContext.recentTurns) ? historyContext.recentTurns : [];
   const intent = asObject(intentResult);
   const nextAction = asObject(intent.nextAction);
-  const toolMeta = asObject(asObject(assistantResponse?.debugMeta).toolResult);
+  const assistMeta = asObject(assistantResponse?.debugMeta);
+  const toolMeta = asObject(assistMeta.toolResult);
 
   const lines = [];
   const now = new Date();
@@ -135,8 +136,39 @@ async function appendAgentDebugMarkdown({
   lines.push(`- 回答内容（answerDraft）: ${formatNullish(intent.answerDraft)}`);
   lines.push('');
 
+  lines.push('### LLM 原生返回（意图抽取）');
+  const intentLlmRaw = intent.llmRaw && typeof intent.llmRaw === 'object' ? intent.llmRaw : null;
+  if (intentLlmRaw && Object.keys(intentLlmRaw).length > 0) {
+    lines.push('```json');
+    lines.push(safeJson(intentLlmRaw));
+    lines.push('```');
+  } else {
+    lines.push('- （无：本轮 intentResult 未附带 llmRaw，或上游未启用意图 LLM）');
+  }
+  lines.push('');
+
   lines.push('### 本回合助手输出');
   lines.push(`- 助手回复文本（assistantResponse.text）: ${formatNullish(asObject(assistantResponse).text)}`);
+  lines.push('');
+
+  lines.push('### LLM 原生返回（执行 / 对话生成）');
+  const execPayload = {};
+  if (assistMeta.intentExecution && typeof assistMeta.intentExecution === 'object' && assistMeta.intentExecution.llmRaw) {
+    execPayload.intentExecution = assistMeta.intentExecution.llmRaw;
+  }
+  if (assistMeta.smartSearch && typeof assistMeta.smartSearch === 'object' && assistMeta.smartSearch.llmRaw) {
+    execPayload.smartSearch = assistMeta.smartSearch.llmRaw;
+  }
+  if (assistMeta.llmRaw != null) {
+    execPayload.debugMetaTopLevel = assistMeta.llmRaw;
+  }
+  if (Object.keys(execPayload).length > 0) {
+    lines.push('```json');
+    lines.push(safeJson(execPayload));
+    lines.push('```');
+  } else {
+    lines.push('- （无：本回合 debugMeta 未记录执行侧 llmRaw，或非 LLM 生成回复）');
+  }
   lines.push('');
 
   if (toolMeta && Object.keys(toolMeta).length > 0 && 'status' in toolMeta) {

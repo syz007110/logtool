@@ -99,7 +99,7 @@
   },
   "errorCodeLookup": {
     "notFound": "No matching fault code information was found.",
-    "multipleMatchesIntro": "{{count}} matches (same Elasticsearch ranking as the fault-code search page). For a full log code, use the leading subsystem digit to pick the right row; full details below are for the top match.",
+    "multipleMatchesIntro": "{{count}} matches. For a full log code, use the leading subsystem digit to pick the right row;",
     "multipleMatchesLine": "{{idx}}) Subsystem {{subsystem}}, code {{code}}{{summaryPart}}",
     "foundPrefix": "Found fault code {{code}}",
     "labels": {
