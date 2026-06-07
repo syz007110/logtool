@@ -1,4 +1,4 @@
-const { buildAgentRequest } = require('../../types/contracts');
+const { buildMessageInput } = require('../../types/contracts');
 const { generateUuidV4 } = require('../../../utils/idGenerators');
 
 function buildTraceIdFromRequest(req) {
@@ -121,7 +121,7 @@ function extractAttachmentsFromRichContent(content) {
   return out;
 }
 
-function buildAgentRequestFromDingtalkPayload(payload, options = {}) {
+function buildMessageInputFromDingtalkPayload(payload, options = {}) {
   const traceId = String(options.traceId || '').trim() || generateUuidV4();
   const requestId = String(options.requestId || '').trim() || generateUuidV4();
   const text = pickText(payload);
@@ -146,7 +146,7 @@ function buildAgentRequestFromDingtalkPayload(payload, options = {}) {
   const rawAttachments = Array.isArray(payload?.attachments) ? payload.attachments : [];
   const attachments = rawAttachments.length > 0 ? rawAttachments : richAttachments;
 
-  return buildAgentRequest({
+  return buildMessageInput({
     traceId,
     requestId,
     user: pickSender(payload),
@@ -160,7 +160,7 @@ function buildAgentRequestFromDingtalkPayload(payload, options = {}) {
       replyWebhookExpiredAt: Number(payload?.sessionWebhookExpiredTime)
     },
     message: {
-      id: messageId,
+      externalMessageId: messageId,
       type: pickMessageType(payload, text),
       text,
       contentRaw,
@@ -176,15 +176,15 @@ function buildAgentRequestFromDingtalkPayload(payload, options = {}) {
   });
 }
 
-function buildAgentRequestFromDingtalk(req) {
+function buildMessageInputFromDingtalk(req) {
   const payload = req?.body && typeof req.body === 'object' ? req.body : {};
-  return buildAgentRequestFromDingtalkPayload(payload, {
+  return buildMessageInputFromDingtalkPayload(payload, {
     traceId: buildTraceIdFromRequest(req),
     requestId: buildRequestIdFromRequest(req)
   });
 }
 
 module.exports = {
-  buildAgentRequestFromDingtalk,
-  buildAgentRequestFromDingtalkPayload
+  buildMessageInputFromDingtalk,
+  buildMessageInputFromDingtalkPayload
 };

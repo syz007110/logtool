@@ -21,7 +21,7 @@ test('stream bridge does not start when credentials are missing', async () => {
       warn: (msg) => logs.push(['warn', msg]),
       error: (msg) => logs.push(['error', msg])
     },
-    orchestrator: { execute: async () => ({ mode: 'sync', text: 'ok' }) },
+    orchestrator: { execute: async () => ({ mode: 'sync', result: { text: 'ok' } }) },
     clientFactory: () => {
       throw new Error('should not create client');
     }
@@ -58,7 +58,7 @@ test('stream bridge handles bot message and replies through session webhook', as
     orchestrator: {
       execute: async (request) => {
         executed.push(request);
-        return { mode: 'sync', text: 'bridge ok' };
+        return { mode: 'sync', result: { text: 'bridge ok' } };
       }
     },
     clientFactory: () => fakeClient,
@@ -88,7 +88,7 @@ test('stream bridge handles bot message and replies through session webhook', as
   assert.equal(executed[0].channel.type, 'dingtalk');
   assert.equal(executed[0].requestId, 'm1');
   assert.equal(executed[0].message.type, 'text');
-  assert.equal(executed[0].message.id, 'm1');
+  assert.equal(executed[0].message.externalMessageId, 'm1');
   assert.equal(executed[0].message.text, 'hello stream');
   assert.equal(executed[0].text, undefined);
   assert.equal(executed[0].context?.raw, undefined);
@@ -128,7 +128,7 @@ test('stream bridge does not print payload sample when debug disabled', async ()
       error: () => {}
     },
     orchestrator: {
-      execute: async () => ({ mode: 'sync', text: 'ok' })
+      execute: async () => ({ mode: 'sync', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
     postJson: async () => ({ ok: true }),
@@ -175,7 +175,7 @@ test('stream bridge prints payload sample when debug enabled', async () => {
       error: () => {}
     },
     orchestrator: {
-      execute: async () => ({ mode: 'sync', text: 'ok' })
+      execute: async () => ({ mode: 'sync', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
     postJson: async () => ({ ok: true }),
@@ -227,7 +227,7 @@ test('stream bridge emits unified agent-request log when AGENT_REQUEST_LOG is en
       error: () => {}
     },
     orchestrator: {
-      execute: async () => ({ mode: 'sync', text: 'ok' })
+      execute: async () => ({ mode: 'sync', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
     postJson: async () => ({ ok: true }),
@@ -254,7 +254,7 @@ test('stream bridge emits unified agent-request log when AGENT_REQUEST_LOG is en
   assert.equal(unifiedLog[1].request.message.attachmentsCount, undefined);
 });
 
-test('stream bridge sends image/file replies when agent response contains attachments', async () => {
+test('stream bridge sends markdown attachment replies when response contains attachments', async () => {
   let callback;
   const postCalls = [];
   const fakeClient = {
@@ -305,8 +305,8 @@ test('stream bridge sends image/file replies when agent response contains attach
   });
 
   const types = postCalls.map((c) => c.body?.msgtype).filter(Boolean);
-  assert.ok(types.includes('image'));
-  assert.ok(types.includes('file'));
+  assert.ok(types.includes('text'));
+  assert.ok(types.includes('markdown'));
 });
 
 test('stream bridge prefers agent answer text over instance/intent stub', async () => {

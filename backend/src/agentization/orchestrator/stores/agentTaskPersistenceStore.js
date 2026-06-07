@@ -106,7 +106,7 @@ function createAgentTaskPersistenceStore() {
       channel: request?.channel,
       user: request?.user,
       message: {
-        id: request?.message?.id,
+        externalMessageId: request?.message?.externalMessageId,
         type: request?.message?.type,
         sentAt: request?.message?.sentAt
       }

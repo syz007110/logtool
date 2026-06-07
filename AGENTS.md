@@ -18,7 +18,7 @@ This repository uses role-based agents to constrain implementation quality, chan
 - 当前能力目标：
   - 会话式智能搜索：基于单位时间 token + 会话轮次进行限制。
   - 意图识别拓展：上传文件日志分析、手术数据分析、多模态查询预留、故障案例收集。
-  - 钉钉渠道增强：接入钉钉机器人 MAGI，并统一进入现有 webhook 链路。
+  - 钉钉渠道增强：接入钉钉机器人 MAGI，经 `dingtalk_stream` 适配器统一进入 Agent 网关。
 - 执行模式：默认同步，超时自动异步化（保持现状）。
 
 ### 技术栈
@@ -27,7 +27,7 @@ This repository uses role-based agents to constrain implementation quality, chan
   - `Vue 3`、`Vue Router`、`Vuex`、`Element Plus`、`Vant`、`axios`、`vue-i18n`、`ECharts`。
 - 后端：
   - `Node.js`、`Express`、`Sequelize`、`Mongoose`、`Redis`、`Bull`、`ws`。
-  - 钉钉接入：`dingtalk-stream`，同时包含 `/api/dingtalk/bot/webhook` 与流式桥接能力。
+  - 钉钉接入：`dingtalk-stream` 长连接（`dingtalk_stream` 适配器），经 `sessionWebhook` 回推回复；无 HTTP Webhook 入口。
 - 数据与存储：
   - MySQL 业务数据、ClickHouse 日志数据冷热分离、MongoDB 故障案例+智能查询历史记录、Redis，并包含 PostgreSQL（手术统计相关）与 Elasticsearch（故障码检索相关）能力接入。
 

@@ -2,20 +2,20 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  buildAgentRequest,
+  buildMessageInput,
   buildIntentResult,
   buildToolCall,
   buildAgentResponse
 } = require('../src/agentization/types/contracts');
 
-test('buildAgentRequest builds request with required fields', () => {
-  const request = buildAgentRequest({
+test('buildMessageInput builds request with required fields', () => {
+  const request = buildMessageInput({
     traceId: 'trace-1',
     requestId: 'req-1',
     user: { id: 'u1' },
     channel: { type: 'dingtalk', conversationId: 'conv-1', conversationType: 'single' },
     message: {
-      id: 'msg-1',
+      externalMessageId: 'msg-1',
       type: 'text',
       text: 'search alarm',
       sentAt: 1710000000000
@@ -29,7 +29,7 @@ test('buildAgentRequest builds request with required fields', () => {
   assert.equal(request.channel.type, 'dingtalk');
   assert.equal(request.channel.conversationId, 'conv-1');
   assert.equal(request.channel.conversationType, 'single');
-  assert.equal(request.message.id, 'msg-1');
+  assert.equal(request.message.externalMessageId, 'msg-1');
   assert.equal(request.message.type, 'text');
   assert.equal(request.message.sentAt, 1710000000000);
   assert.equal(request.message.text, 'search alarm');
@@ -38,9 +38,9 @@ test('buildAgentRequest builds request with required fields', () => {
   assert.equal(request.context.source, 'bot');
 });
 
-test('buildAgentRequest throws when traceId is missing', () => {
+test('buildMessageInput throws when traceId is missing', () => {
   assert.throws(() => {
-    buildAgentRequest({
+    buildMessageInput({
       user: { id: 'u1' },
       channel: { type: 'dingtalk' },
       text: 'x'
@@ -48,14 +48,14 @@ test('buildAgentRequest throws when traceId is missing', () => {
   }, /traceId/i);
 });
 
-test('buildAgentRequest throws when requestId is missing', () => {
+test('buildMessageInput throws when requestId is missing', () => {
   assert.throws(() => {
-    buildAgentRequest({
+    buildMessageInput({
       traceId: 'trace-2',
       user: { id: 'u2' },
       channel: { type: 'api', conversationId: 'api-conv', conversationType: 'single' },
       message: {
-        id: 'msg-2',
+        externalMessageId: 'msg-2',
         type: 'text',
         text: 'hi',
         sentAt: 1710000000001
@@ -64,9 +64,9 @@ test('buildAgentRequest throws when requestId is missing', () => {
   }, /requestId/i);
 });
 
-test('buildAgentRequest throws when message.id is missing', () => {
+test('buildMessageInput throws when message.externalMessageId is missing', () => {
   assert.throws(() => {
-    buildAgentRequest({
+    buildMessageInput({
       traceId: 'trace-2b',
       requestId: 'req-2b',
       user: { id: 'u2' },
@@ -77,12 +77,12 @@ test('buildAgentRequest throws when message.id is missing', () => {
         sentAt: 1710000000002
       }
     });
-  }, /message.id/i);
+  }, /message.externalMessageId/i);
 });
 
-test('buildAgentRequest throws when message is missing', () => {
+test('buildMessageInput throws when message is missing', () => {
   assert.throws(() => {
-    buildAgentRequest({
+    buildMessageInput({
       traceId: 'trace-legacy',
       requestId: 'req-legacy',
       user: { id: 'u3' },
@@ -91,26 +91,26 @@ test('buildAgentRequest throws when message is missing', () => {
   }, /message/i);
 });
 
-test('buildAgentRequest throws when conversationType is missing', () => {
+test('buildMessageInput throws when conversationType is missing', () => {
   assert.throws(() => {
-    buildAgentRequest({
+    buildMessageInput({
       traceId: 'trace-missing-conv-type',
       requestId: 'req-missing-conv-type',
       user: { id: 'u4' },
       channel: { type: 'api', conversationId: 'api-conv' },
-      message: { id: 'msg-missing-conv-type', type: 'text', text: 'hi', sentAt: 1710000000003 }
+      message: { externalMessageId: 'msg-missing-conv-type', type: 'text', text: 'hi', sentAt: 1710000000003 }
     });
   }, /conversationType/i);
 });
 
-test('buildAgentRequest throws when conversationType is invalid', () => {
+test('buildMessageInput throws when conversationType is invalid', () => {
   assert.throws(() => {
-    buildAgentRequest({
+    buildMessageInput({
       traceId: 'trace-invalid-conv-type',
       requestId: 'req-invalid-conv-type',
       user: { id: 'u5' },
       channel: { type: 'api', conversationId: 'api-conv', conversationType: 'chat' },
-      message: { id: 'msg-invalid-conv-type', type: 'text', text: 'hi', sentAt: 1710000000004 }
+      message: { externalMessageId: 'msg-invalid-conv-type', type: 'text', text: 'hi', sentAt: 1710000000004 }
     });
   }, /conversationType/i);
 });
@@ -153,14 +153,14 @@ test('buildAgentResponse keeps taskId optional', () => {
   assert.equal(response.actions.length, 1);
 });
 
-test('buildAgentRequest keeps attachment references including fileId/url/mimeType', () => {
-  const request = buildAgentRequest({
+test('buildMessageInput keeps attachment references including fileId/url/mimeType', () => {
+  const request = buildMessageInput({
     traceId: 'trace-attach',
     requestId: 'req-attach',
     user: { id: 'u-attach' },
     channel: { type: 'api', conversationId: 'conv-attach', conversationType: 'single' },
     message: {
-      id: 'msg-attach',
+      externalMessageId: 'msg-attach',
       text: 'with files',
       attachments: [
         { id: 'f-1', type: 'file', url: 'https://a/b/c.txt', mimeType: 'text/plain' },
@@ -177,14 +177,14 @@ test('buildAgentRequest keeps attachment references including fileId/url/mimeTyp
   assert.equal(request.message.attachments[1].mimeType, 'image/png');
 });
 
-test('buildAgentRequest allows attachment-only messages', () => {
-  const request = buildAgentRequest({
+test('buildMessageInput allows attachment-only messages', () => {
+  const request = buildMessageInput({
     traceId: 'trace-att-only',
     requestId: 'req-att-only',
     user: { id: 'u-1' },
     channel: { type: 'web', conversationType: 'single', conversationId: 'conv-att-only' },
     message: {
-      id: 'm-att-only',
+      externalMessageId: 'm-att-only',
       attachments: [{ type: 'file', fileId: 'f-1' }],
       sentAt: Date.now()
     }
@@ -194,12 +194,12 @@ test('buildAgentRequest allows attachment-only messages', () => {
   assert.equal(request.message.attachments.length, 1);
 });
 
-test('buildAgentRequest requires threadId for group conversation', () => {
-  assert.throws(() => buildAgentRequest({
+test('buildMessageInput requires threadId for group conversation', () => {
+  assert.throws(() => buildMessageInput({
     traceId: 'trace-group',
     requestId: 'req-group',
     user: { id: 'u-2' },
     channel: { type: 'dingtalk', conversationType: 'group', conversationId: 'conv-group' },
-    message: { id: 'm-group', text: 'hello', sentAt: Date.now() }
+    message: { externalMessageId: 'm-group', text: 'hello', sentAt: Date.now() }
   }), /threadId is required/);
 });

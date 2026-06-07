@@ -1,4 +1,4 @@
-const { buildAgentRequest } = require('../../types/contracts');
+const { buildMessageInput } = require('../../types/contracts');
 const { generateUlid, generateUuidV4 } = require('../../../utils/idGenerators');
 
 const ULID_REGEX = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -14,7 +14,7 @@ function assertMatches(value, pattern, fieldName) {
 
 function buildTraceId(req) {
   const fromHeader = String(req?.headers?.['x-trace-id'] || '').trim();
-  if (fromHeader) return fromHeader;
+  if (fromHeader && UUID_V4_REGEX.test(fromHeader)) return fromHeader;
   return generateUuidV4();
 }
 
@@ -29,22 +29,24 @@ function buildRequestId() {
 function parseInbound(req) {
   const body = req?.body && typeof req.body === 'object' ? req.body : {};
   const authUser = req?.user && typeof req.user === 'object' ? req.user : null;
-  const incomingMessageId = String(body.message?.id || '').trim();
-  const messageId = incomingMessageId
-    ? assertMatches(incomingMessageId, ULID_REGEX, 'message.id')
-    : buildWebMessageId(body.message?.sentAt || Date.now());
-  const requestIdRaw = String(body.requestId || '').trim() || buildRequestId();
-  const traceIdRaw = String(body.traceId || '').trim() || buildTraceId(req);
-  const requestId = assertMatches(requestIdRaw, UUID_V4_REGEX, 'requestId');
-  const traceId = assertMatches(traceIdRaw, UUID_V4_REGEX, 'traceId');
+  if (!authUser?.id) {
+    throw new Error('authenticated user is required');
+  }
+  const incomingMessageId = String(body.message?.externalMessageId || '').trim();
+  if (!incomingMessageId) {
+    throw new Error('message.externalMessageId is required');
+  }
+  const externalMessageId = assertMatches(incomingMessageId, ULID_REGEX, 'message.externalMessageId');
+  const requestId = buildRequestId();
+  const traceId = buildTraceId(req);
 
   const normalizedMessage = body.message && typeof body.message === 'object'
     ? {
         ...body.message,
-        id: messageId
+        externalMessageId
       }
     : {
-        id: messageId,
+        externalMessageId,
         type: 'text',
         text: String(body.text || '').trim(),
         attachments: Array.isArray(body.attachments) ? body.attachments : [],
@@ -55,37 +57,46 @@ function parseInbound(req) {
   if (!rawChannel) {
     throw new Error('channel is required');
   }
-  const conversationId = String(rawChannel.conversationId || '').trim();
-  if (!conversationId) {
-    throw new Error('channel.conversationId is required');
+  const channelType = String(rawChannel.type || 'web').trim().toLowerCase();
+  if (channelType !== 'web') {
+    throw new Error('channel.type must be web');
   }
+  const conversationId = String(rawChannel.conversationId || '').trim() || generateUlid();
+  const conversationIdProvided = Boolean(String(rawChannel.conversationId || '').trim());
 
-  const request = buildAgentRequest({
+  const request = buildMessageInput({
     traceId,
     requestId,
-    user: authUser
-      ? {
-          id: authUser.id,
-          name: authUser.username || authUser.name || undefined
-        }
-      : (body.user || { id: 'internal' }),
-    channel: rawChannel,
+    user: {
+      id: String(authUser.id),
+      name: authUser.username || authUser.name || undefined
+    },
+    channel: {
+      ...rawChannel,
+      type: 'web',
+      conversationType: String(rawChannel.conversationType || 'single').trim().toLowerCase() || 'single',
+      conversationId
+    },
     message: normalizedMessage,
     context: body.context || {},
     rawPayload: body.rawPayload
   });
+  request.__conversationIdProvided = conversationIdProvided;
   return request;
 }
 
 function renderOutbound({ req, res, request, response }) {
-  if (response.mode === 'async') {
-    return res.status(202).json({
-      ok: true,
-      traceId: request.traceId,
-      requestId: request.requestId,
-      taskId: response.taskId,
-      mode: 'async'
-    });
+  if (String(response?.mode || '').toLowerCase() !== 'sync') {
+    throw new Error('phase1 supports sync mode only');
+  }
+
+  const result = response?.result && typeof response.result === 'object' ? response.result : {};
+  const out = {
+    text: String(result.text || '').trim(),
+    attachments: Array.isArray(result.attachments) ? result.attachments : []
+  };
+  if (!request.__conversationIdProvided) {
+    out.session = { conversationId: String(request?.channel?.conversationId || '') };
   }
 
   return res.json({
@@ -94,7 +105,7 @@ function renderOutbound({ req, res, request, response }) {
     requestId: request.requestId,
     taskId: response.taskId,
     mode: 'sync',
-    response: response.result
+    response: out
   });
 }
 

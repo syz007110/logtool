@@ -78,8 +78,8 @@ function normalizeAttachments(list) {
     }));
 }
 
-function buildAgentRequest(input) {
-  assertObject(input, 'AgentRequest');
+function buildMessageInput(input) {
+  assertObject(input, 'MessageInput');
 
   const traceId = assertNonEmptyString(input.traceId, 'traceId');
   const requestId = assertNonEmptyString(input.requestId, 'requestId');
@@ -99,10 +99,7 @@ function buildAgentRequest(input) {
   const channel = {
     type: channelType,
     conversationType: normalizeConversationType(input.channel.conversationType),
-    conversationId: assertNonEmptyString(
-      input.channel.conversationId || `${channelType}_${user.id}`,
-      'channel.conversationId'
-    ),
+    conversationId: assertNonEmptyString(input.channel.conversationId, 'channel.conversationId'),
     threadId: optionalString(input.channel.threadId),
     robotCode: optionalString(input.channel.robotCode),
     replyWebhook: optionalString(input.channel.replyWebhook),
@@ -117,8 +114,12 @@ function buildAgentRequest(input) {
   const messageInput = input.message && typeof input.message === 'object' ? input.message : {};
   const messageText = String(messageInput.text || '').trim();
   const attachments = normalizeAttachments(messageInput.attachments);
+  const externalMessageId = assertNonEmptyString(
+    messageInput.externalMessageId,
+    'message.externalMessageId'
+  );
   const message = {
-    id: assertNonEmptyString(messageInput.id, 'message.id'),
+    externalMessageId,
     type: normalizeMessageType(messageInput.type, Boolean(messageText), attachments),
     text: messageText || undefined,
     contentRaw: messageInput.contentRaw,
@@ -200,7 +201,7 @@ function buildAgentResponse(input) {
 }
 
 module.exports = {
-  buildAgentRequest,
+  buildMessageInput,
   buildIntentResult,
   buildToolCall,
   buildAgentResponse

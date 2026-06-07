@@ -81,14 +81,6 @@ function buildSyncResponse(result, taskId) {
   };
 }
 
-function buildAsyncResponse(taskId, reason) {
-  return {
-    mode: 'async',
-    taskId,
-    reason: String(reason || 'queued')
-  };
-}
-
 async function awaitJobResult(job, waitMs) {
   if (!job) return null;
   if (waitMs <= 0) return null;
@@ -113,7 +105,10 @@ async function enqueueConversationRequest(request, options = {}) {
   const queueTaskId = String(job?.id || buildPartitionedJobId(routing.instance.id, taskId));
   const result = await awaitJobResult(job, waitMs);
   if (result) return buildSyncResponse(result, queueTaskId);
-  return buildAsyncResponse(queueTaskId, 'sync_timeout_fallback_async');
+  const error = new Error(`sync processing timeout (${waitMs}ms), taskId=${queueTaskId}`);
+  error.code = 'SYNC_TIMEOUT';
+  error.taskId = queueTaskId;
+  throw error;
 }
 
 async function getConversationTask(taskId) {

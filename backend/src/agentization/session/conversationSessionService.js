@@ -20,7 +20,7 @@ function buildIdempotencyKey(request) {
   const channel = String(request?.channel?.type || '').trim().toLowerCase();
   const userId = String(request?.user?.id || '').trim();
   const conversationId = String(request?.channel?.conversationId || '').trim();
-  const messageId = String(request?.message?.id || '').trim();
+  const messageId = String(request?.message?.externalMessageId || '').trim();
   return `${channel}:${userId}:${conversationId}:${messageId}`;
 }
 
@@ -131,7 +131,7 @@ function getRolloverReason(instance, request, policy) {
 
 function normalizeMessagePayload(request) {
   return {
-    id: request?.message?.id,
+    externalMessageId: request?.message?.externalMessageId,
     type: request?.message?.type,
     text: request?.message?.text || '',
     contentRaw: request?.message?.contentRaw ?? null,
@@ -357,7 +357,7 @@ function buildCurrentInput(request, resolvedRawText = null) {
   ));
   const originalRawText = String(request?.message?.text || '').trim();
   return {
-    messageId: String(request?.message?.id || '').trim() || null,
+    messageId: String(request?.message?.externalMessageId || '').trim() || null,
     rawText: String(resolvedRawText == null ? originalRawText : resolvedRawText).trim(),
     originalRawText,
     attachments,
@@ -465,7 +465,7 @@ function buildResolvedQueryForContext(request) {
 const MESSAGE_ID_MAX_LENGTH = 128;
 
 function buildMessageId(request, suffix) {
-  const base = String(request?.message?.id || request?.requestId || '').trim() || `msg_${Date.now()}`;
+  const base = String(request?.message?.externalMessageId || request?.requestId || '').trim() || `msg_${Date.now()}`;
   const normalizedSuffix = String(suffix || '').trim();
   if (!normalizedSuffix) return base.slice(0, MESSAGE_ID_MAX_LENGTH);
 
@@ -748,7 +748,7 @@ async function prepareConversationContext(request, options = {}) {
         requestId,
         instanceId: Number(instance?.id || 0),
         inserted: Boolean(userMessageInsert?.inserted),
-        messageId: String(request?.message?.id || ''),
+        messageId: String(request?.message?.externalMessageId || ''),
         idempotencyKey: `${String(idempotencyKey || '').slice(0, 24)}...`,
         costMs: Date.now() - stepStartedAt
       });

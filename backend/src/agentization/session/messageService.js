@@ -2,7 +2,7 @@ const { postgresqlSequelize } = require('../../config/postgresql');
 const { buildConversationMessageInput } = require('./conversationMessageMapper');
 
 function normalizeMessageId(request) {
-  const messageId = String(request?.message?.id || '').trim();
+  const messageId = String(request?.message?.externalMessageId || '').trim();
   if (messageId) return messageId;
   return `msg_${Date.now()}`;
 }
@@ -19,7 +19,7 @@ function normalizeTraceId(request) {
 
 function normalizeUserPayload(request) {
   return {
-    id: request?.message?.id,
+    externalMessageId: request?.message?.externalMessageId,
     type: request?.message?.type,
     text: request?.message?.text || '',
     contentRaw: request?.message?.contentRaw ?? null,

@@ -264,7 +264,6 @@ export default {
     const agentComposerRef = ref(null)
     const agentEditorEmpty = ref(true)
     const agentFileInputRef = ref(null)
-    const createAgentConversationId = () => `api_debug_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`
     const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
     const encodeBase32 = (value, length) => {
       let num = BigInt(value)
@@ -294,17 +293,7 @@ export default {
       const randomPart = encodeBase32(rand, 16)
       return `${timePart}${randomPart}`
     }
-    const generateUuidV4 = () => {
-      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-        return window.crypto.randomUUID()
-      }
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
-        const r = Math.floor(Math.random() * 16)
-        const v = ch === 'x' ? r : ((r & 0x3) | 0x8)
-        return v.toString(16)
-      })
-    }
-    const agentConversationId = ref(createAgentConversationId())
+    const agentConversationId = ref('')
     const agentInput = reactive({
       attachments: []
     })
@@ -849,30 +838,8 @@ export default {
       clearAgentEditor()
     }
 
-    const pollAgentTask = async (taskId, timeoutMs = 120000) => {
-      const startedAt = Date.now()
-      let lastState = ''
-      let lastFailedReason = ''
-      while (Date.now() - startedAt < timeoutMs) {
-        const res = await api.agent.getTask(taskId)
-        const task = res?.data?.task
-        const state = String(task?.state || task?.status || '').trim().toLowerCase()
-        lastState = state || lastState
-        lastFailedReason = String(task?.failedReason || '').trim() || lastFailedReason
-        if (state === 'completed') {
-          return task.response || task.result || null
-        }
-        if (state === 'failed') {
-          throw new Error(task?.error?.message || task?.failedReason || 'agent task failed')
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-      }
-      const suffix = lastState ? ` (state=${lastState}${lastFailedReason ? `, reason=${lastFailedReason}` : ''})` : ''
-      throw new Error(`agent task timeout${suffix}`)
-    }
-
     const createNewAgentConversation = () => {
-      agentConversationId.value = createAgentConversationId()
+      agentConversationId.value = ''
       agentMessages.value = []
       resetAgentInput()
       ElMessage.success('已新建会话')
@@ -885,8 +852,6 @@ export default {
         : []
       const sentAt = Date.now()
       const messageId = generateUlid(sentAt)
-      const requestId = generateUuidV4()
-      const traceId = generateUuidV4()
 
       if (!text && attachments.length === 0) {
         ElMessage.warning('请至少输入文本或添加附件')
@@ -914,38 +879,36 @@ export default {
           objectKey: item.objectKey,
           storage: item.storage
         }))
+        const channelPayload = {
+          type: 'web',
+          conversationType: 'single'
+        }
+        if (agentConversationId.value) {
+          channelPayload.conversationId = agentConversationId.value
+        }
         const payload = {
-          requestId,
-          traceId,
           message: {
-            id: messageId,
-            type: attachments.length > 0 ? (text ? 'mixed' : (attachments[0]?.type || 'file')) : 'text',
+            externalMessageId: messageId,
+            type: attachments.length > 0 ? (attachments[0]?.type || 'file') : 'text',
             text,
             attachments: payloadAttachments,
             sentAt
           },
-          channel: {
-            type: 'api',
-            conversationType: 'single',
-            conversationId: agentConversationId.value
-          },
+          channel: channelPayload,
           context: {
             source: 'explanation_tester',
             uiTab: 'agent'
           }
         }
         const res = await api.agent.execute(payload)
-        const response = res?.data?.response || {
-          mode: res?.data?.mode,
-          taskId: res?.data?.taskId
-        }
-        if (!response?.mode) {
+        const mode = String(res?.data?.mode || '').trim().toLowerCase()
+        const finalResponse = res?.data?.response || null
+        if (mode !== 'sync' || !finalResponse) {
           throw new Error('agent response missing')
         }
-
-        let finalResponse = response
-        if (response.mode === 'async' && response.taskId) {
-          finalResponse = await pollAgentTask(response.taskId)
+        const returnedConversationId = String(finalResponse?.session?.conversationId || '').trim()
+        if (returnedConversationId) {
+          agentConversationId.value = returnedConversationId
         }
 
         const instance = finalResponse?.instance

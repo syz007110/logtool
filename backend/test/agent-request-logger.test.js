@@ -18,7 +18,7 @@ test('agent request logger does nothing when disabled', () => {
     requestId: 'r1',
     user: { id: 'user-1' },
     channel: { type: 'api', conversationType: 'single', conversationId: 'conv-1' },
-    message: { id: 'm1', type: 'text', text: 'hello', attachments: [], sentAt: 1 }
+    message: { externalMessageId: 'm1', type: 'text', text: 'hello', attachments: [], sentAt: 1 }
   });
 
   assert.equal(logs.length, 0);
@@ -32,7 +32,7 @@ test('agent request logger logs sanitized payload when enabled', () => {
     random: () => 0
   });
 
-  logger.log('dingtalk-webhook', {
+  logger.log('dingtalk-stream', {
     traceId: 't2',
     requestId: 'r2',
     user: { id: 'staff-123456', name: 'Alice', platformUserId: 'uid-123456' },
@@ -42,12 +42,12 @@ test('agent request logger logs sanitized payload when enabled', () => {
       conversationId: 'conversation-123456',
       replyWebhook: 'https://example.com/hook?token=abc'
     },
-    message: { id: 'm2', type: 'text', text: 'hello world', attachments: [{ type: 'file' }], sentAt: 2 }
+    message: { externalMessageId: 'm2', type: 'text', text: 'hello world', attachments: [{ type: 'file' }], sentAt: 2 }
   });
 
   assert.equal(logs.length, 1);
   assert.equal(logs[0][0], '[agent-request] normalized');
-  assert.equal(logs[0][1].source, 'dingtalk-webhook');
+  assert.equal(logs[0][1].source, 'dingtalk-stream');
   assert.equal(logs[0][1].request.message.attachments.length, 1);
   assert.equal(logs[0][1].request.message.attachmentsCount, undefined);
   assert.equal(logs[0][1].request.user.name, 'Alice');

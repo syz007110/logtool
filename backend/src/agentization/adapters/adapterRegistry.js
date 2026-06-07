@@ -1,9 +1,9 @@
 const webAdapter = require('./web/webAdapter');
-const dingtalkWebhookAdapter = require('./dingtalk/dingtalkWebhookAdapter');
+const dingtalkStreamAdapter = require('./dingtalk/dingtalkStreamAdapter');
 
 const registry = new Map([
   ['web', webAdapter],
-  ['dingtalk_webhook', dingtalkWebhookAdapter]
+  ['dingtalk_stream', dingtalkStreamAdapter]
 ]);
 
 function getAdapter(key) {

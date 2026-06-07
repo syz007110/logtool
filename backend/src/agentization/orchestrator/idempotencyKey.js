@@ -12,7 +12,7 @@ function createSourceIdempotencyKey(request) {
   const conversationId = normalizePart(request?.channel?.conversationId);
   const threadId = normalizePart(request?.channel?.threadId);
   const senderId = normalizePart(request?.user?.platformUserId || request?.user?.id);
-  const messageId = normalizePart(request?.message?.id || request?.requestId);
+  const messageId = normalizePart(request?.message?.externalMessageId || request?.requestId);
 
   return [
     platform,

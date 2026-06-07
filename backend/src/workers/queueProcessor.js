@@ -904,7 +904,7 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
       conversationId: String(request?.channel?.conversationId || ''),
       agentRunId: requestMeta.runId,
       latestUserMessage: {
-        messageId: String(request?.message?.id || ''),
+        messageId: String(request?.message?.externalMessageId || ''),
         content: String(request?.message?.text || ''),
         language: contextIntent.language
       },

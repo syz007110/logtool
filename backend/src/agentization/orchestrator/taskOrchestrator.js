@@ -1,4 +1,4 @@
-const { buildAgentResponse, buildAgentRequest } = require('../types/contracts');
+const { buildAgentResponse, buildMessageInput } = require('../types/contracts');
 const { buildCanonicalId } = require('./idempotencyKey');
 const { assertTransition, isTerminalStatus } = require('./taskStateMachine');
 const { isRetryableError, computeBackoffMs } = require('./retryPolicy');
@@ -329,7 +329,7 @@ function createTaskOrchestrator(options = {}) {
   }
 
   async function execute(input) {
-    const request = buildAgentRequest(input);
+    const request = buildMessageInput(input);
     const preferAsync = Boolean(request.context.preferAsync);
     const startedAt = now();
     const { task, created } = await ensureTask(request);

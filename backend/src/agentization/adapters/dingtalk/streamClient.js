@@ -1,5 +1,6 @@
 const https = require('https');
-const { buildAgentRequestFromDingtalkPayload } = require('./buildAgentRequestFromDingtalk');
+const { getAdapter } = require('../adapterRegistry');
+const { executeAdapterPipeline } = require('../adapterPipeline');
 const { createAgentRequestLogger } = require('../../utils/agentRequestLogger');
 
 const ROBOT_TOPIC = '/v1.0/im/bot/messages/get';
@@ -141,55 +142,6 @@ function buildStreamConversationId(payload, headers) {
   return `stream:${sender}`;
 }
 
-function normalizeAgentResult(response) {
-  if (response && typeof response === 'object' && response.result && typeof response.result === 'object') {
-    return response.result;
-  }
-  return response && typeof response === 'object' ? response : {};
-}
-
-function normalizeAttachments(input) {
-  if (!Array.isArray(input)) return [];
-  return input.filter((a) => a && typeof a === 'object').map((a) => ({
-    type: String(a.type || '').trim().toLowerCase(),
-    url: String(a.url || '').trim(),
-    name: String(a.name || '').trim() || undefined,
-    mimeType: String(a.mimeType || '').trim() || undefined,
-    fileId: String(a.fileId || a.id || '').trim() || undefined
-  }));
-}
-
-function buildAttachmentBody(attachment) {
-  const type = String(attachment?.type || '').trim().toLowerCase();
-  const url = String(attachment?.url || '').trim();
-  const fileId = String(attachment?.fileId || '').trim();
-  const name = String(attachment?.name || '').trim() || 'attachment';
-  if (type === 'image') {
-    const mediaId = fileId || url;
-    if (!mediaId) return null;
-    return { msgtype: 'image', image: { mediaId } };
-  }
-  if (type === 'file' || type === 'audio') {
-    const mediaId = fileId || url;
-    if (!mediaId) return null;
-    return { msgtype: 'file', file: { mediaId, fileName: name } };
-  }
-  return null;
-}
-
-function buildAttachmentFallbackBody(attachment) {
-  const name = String(attachment?.name || '').trim() || 'attachment';
-  const url = String(attachment?.url || '').trim();
-  if (!url) return null;
-  return {
-    msgtype: 'markdown',
-    markdown: {
-      title: '附件',
-      text: `[${name}](${url})`
-    }
-  };
-}
-
 function createDingtalkStreamBridge(options = {}) {
   const env = options.env || process.env;
   const logger = options.logger || defaultLogger();
@@ -215,6 +167,7 @@ function createDingtalkStreamBridge(options = {}) {
   const payloadSampleRate = parseSampleRate(env.DINGTALK_STREAM_PAYLOAD_SAMPLE_RATE, 1);
   const clientId = String(env.DINGTALK_STREAM_CLIENT_ID || env.DINGTALK_APP_KEY || '').trim();
   const clientSecret = String(env.DINGTALK_STREAM_CLIENT_SECRET || env.DINGTALK_APP_SECRET || '').trim();
+  const adapter = options.adapter || getAdapter('dingtalk_stream');
   let client = null;
 
   async function handleRobotMessage(streamEvent) {
@@ -230,67 +183,51 @@ function createDingtalkStreamBridge(options = {}) {
       || `stream_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
     const requestId = headerMessageId || undefined;
 
-    const request = buildAgentRequestFromDingtalkPayload(normalizedPayload, { traceId, requestId });
-    agentRequestLogger.log('dingtalk-stream', request);
-    if (debugPayload && random() < payloadSampleRate) {
-      logger.info('[dingtalk-stream] payload_sample', {
-        traceId,
-        raw: sanitizePayloadForLog(normalizedPayload),
-        normalized: request
-      });
-    }
-
-    const response = await executeRequest(request);
-    const normalized = normalizeAgentResult(response);
-
     const sessionWebhook = String(normalizedPayload?.sessionWebhook || '').trim();
-    if (!sessionWebhook) return;
-
-    const accessToken = typeof client.getAccessToken === 'function'
-      ? await client.getAccessToken()
-      : '';
-
-    const result = await post(sessionWebhook, {
-      msgtype: 'text',
-      text: {
-        content: response.mode === 'async'
-          ? `消息已受理（taskId=${response.taskId || ''}），请稍后查询结果。`
-          : (() => {
-              const text = String(normalized?.text || response?.text || '').trim();
-              if (text) return text;
-              if (normalized?.instance) {
-                const instanceNo = Number(normalized?.instance?.instance_no || 0);
-                const intent = String(normalized?.intent?.intent || 'unknown').trim();
-                return intent
-                  ? `已进入会话实例#${instanceNo}，识别意图：${intent}`
-                  : `已进入会话实例#${instanceNo}`;
-              }
-              return '已收到消息';
-            })()
-      }
-    }, accessToken ? {
-      'x-acs-dingtalk-access-token': accessToken
-    } : {});
-
-    if (typeof client.socketCallBackResponse === 'function' && headers.messageId) {
-      client.socketCallBackResponse(headers.messageId, result);
-    }
-
-    if (response.mode === 'async') return;
-    const attachments = normalizeAttachments(normalized?.attachments);
-    for (const attachment of attachments) {
-      const body = buildAttachmentBody(attachment);
-      try {
-        if (body) {
-          await post(sessionWebhook, body, accessToken ? { 'x-acs-dingtalk-access-token': accessToken } : {});
-          continue;
+    const inboundReq = {
+      headers: {
+        ...headers,
+        'x-dingtalk-request-id': traceId,
+        'x-request-id': requestId
+      },
+      body: normalizedPayload
+    };
+    let acked = false;
+    const outbound = {
+      send: async (body) => {
+        if (!sessionWebhook) {
+          throw new Error('dingtalk sessionWebhook is required');
         }
-      } catch (_) {}
-      const fallbackBody = buildAttachmentFallbackBody(attachment);
-      if (fallbackBody) {
-        await post(sessionWebhook, fallbackBody, accessToken ? { 'x-acs-dingtalk-access-token': accessToken } : {});
+        const accessToken = typeof client.getAccessToken === 'function'
+          ? await client.getAccessToken()
+          : '';
+        const result = await post(sessionWebhook, body, accessToken ? {
+          'x-acs-dingtalk-access-token': accessToken
+        } : {});
+        if (!acked && typeof client.socketCallBackResponse === 'function' && headers.messageId) {
+          client.socketCallBackResponse(headers.messageId, result);
+          acked = true;
+        }
+        return result;
       }
-    }
+    };
+
+    await executeAdapterPipeline({
+      adapter,
+      source: 'dingtalk-stream',
+      req: inboundReq,
+      outbound,
+      execute: executeRequest,
+      agentRequestLogger,
+      onParsed: (request) => {
+        if (!debugPayload || random() >= payloadSampleRate) return;
+        logger.info('[dingtalk-stream] payload_sample', {
+          traceId,
+          raw: sanitizePayloadForLog(normalizedPayload),
+          normalized: request
+        });
+      }
+    });
   }
 
   async function start() {

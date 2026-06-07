@@ -63,7 +63,7 @@ function normalizeRequestForLog(request) {
       replyWebhookExpiredAt: request?.channel?.replyWebhookExpiredAt
     },
     message: {
-      id: String(request?.message?.id || ''),
+      externalMessageId: String(request?.message?.externalMessageId || ''),
       type: request?.message?.type,
       text: String(request?.message?.text || ''),
       contentRaw: request?.message?.contentRaw,
