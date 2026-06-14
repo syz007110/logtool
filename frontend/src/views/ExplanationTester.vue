@@ -894,11 +894,7 @@ export default {
             attachments: payloadAttachments,
             sentAt
           },
-          channel: channelPayload,
-          context: {
-            source: 'explanation_tester',
-            uiTab: 'agent'
-          }
+          channel: channelPayload
         }
         const res = await api.agent.execute(payload)
         const mode = String(res?.data?.mode || '').trim().toLowerCase()

@@ -35,7 +35,29 @@ test('buildMessageInput builds request with required fields', () => {
   assert.equal(request.message.text, 'search alarm');
   assert.equal(request.text, undefined);
   assert.equal(request.attachments, undefined);
-  assert.equal(request.context.source, 'bot');
+  assert.deepEqual(request.context, {});
+});
+
+test('buildMessageInput ignores inbound context and keeps it empty', () => {
+  const request = buildMessageInput({
+    traceId: 'trace-empty-ctx',
+    requestId: 'req-empty-ctx',
+    user: { id: 'u-empty' },
+    channel: { type: 'web', conversationType: 'single', conversationId: 'conv-empty' },
+    message: {
+      externalMessageId: 'msg-empty',
+      type: 'text',
+      text: 'hello',
+      sentAt: Date.now()
+    },
+    context: {
+      source: 'should-not-appear',
+      preferAsync: true,
+      userPermissions: ['error_code:read']
+    }
+  });
+
+  assert.deepEqual(request.context, {});
 });
 
 test('buildMessageInput throws when traceId is missing', () => {
@@ -190,8 +212,27 @@ test('buildMessageInput allows attachment-only messages', () => {
     }
   });
 
+  assert.equal(request.message.type, 'text+attachment');
   assert.equal(request.message.text, undefined);
   assert.equal(request.message.attachments.length, 1);
+});
+
+test('buildMessageInput classifies text with attachments as text+attachment', () => {
+  const request = buildMessageInput({
+    traceId: 'trace-text-attach',
+    requestId: 'req-text-attach',
+    user: { id: 'u-ta' },
+    channel: { type: 'web', conversationType: 'single', conversationId: 'conv-ta' },
+    message: {
+      externalMessageId: 'm-ta',
+      type: 'text',
+      text: 'hello',
+      attachments: [{ type: 'file', fileId: 'file-1' }],
+      sentAt: Date.now()
+    }
+  });
+
+  assert.equal(request.message.type, 'text+attachment');
 });
 
 test('buildMessageInput requires threadId for group conversation', () => {

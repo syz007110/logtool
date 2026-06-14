@@ -49,18 +49,14 @@ function normalizeChannelType(value) {
   throw new Error('channel.type must be one of: dingtalk, feishu, wecom, web, api');
 }
 
-function normalizeMessageType(value, hasText, attachments) {
+function normalizeMessageType(value, attachments) {
   const text = String(value || '').trim().toLowerCase();
-  if (['text', 'richtext', 'rich_text', 'image', 'file', 'audio', 'unknown'].includes(text)) {
-    if (text === 'richtext' || text === 'rich_text') return 'richText';
-    return text;
+  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+  if (hasAttachments) return 'text+attachment';
+  if (text === 'text+attachment' || text === 'text_with_attachment' || text === 'textwithattachment') {
+    return 'text+attachment';
   }
-  if (hasText) return 'text';
-  if (Array.isArray(attachments) && attachments.length > 0) {
-    const firstType = String(attachments[0]?.type || '').trim().toLowerCase();
-    if (firstType === 'image' || firstType === 'file' || firstType === 'audio') return firstType;
-  }
-  return 'unknown';
+  return 'text';
 }
 
 function normalizeAttachments(list) {
@@ -120,7 +116,7 @@ function buildMessageInput(input) {
   );
   const message = {
     externalMessageId,
-    type: normalizeMessageType(messageInput.type, Boolean(messageText), attachments),
+    type: normalizeMessageType(messageInput.type, attachments),
     text: messageText || undefined,
     contentRaw: messageInput.contentRaw,
     attachments,
@@ -129,21 +125,14 @@ function buildMessageInput(input) {
   };
   assertMessageHasContent(messageText, attachments);
 
-  const contextRaw = input.context && typeof input.context === 'object' ? input.context : {};
-  const context = {
-    ...contextRaw,
-    atBot: contextRaw.atBot == null ? undefined : Boolean(contextRaw.atBot),
-    chatbotCorpId: optionalString(contextRaw.chatbotCorpId)
-  };
-
   return {
     traceId,
     requestId,
     user,
     channel,
     message,
-    context,
-    rawPayload: input.rawPayload === undefined ? contextRaw.raw : input.rawPayload
+    context: {},
+    rawPayload: input.rawPayload
   };
 }
 

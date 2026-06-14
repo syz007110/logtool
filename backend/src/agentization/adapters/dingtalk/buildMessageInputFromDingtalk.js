@@ -48,11 +48,8 @@ function pickConversationType(payload) {
   return 'single';
 }
 
-function pickMessageType(payload, text) {
-  const raw = String(payload?.msgtype || payload?.msgType || '').trim().toLowerCase();
-  if (raw === 'text' || raw === 'image' || raw === 'file' || raw === 'audio') return raw;
-  if (raw === 'richtext' || raw === 'rich_text') return 'richText';
-  return text ? 'text' : 'unknown';
+function pickMessageType(attachments) {
+  return Array.isArray(attachments) && attachments.length > 0 ? 'text+attachment' : 'text';
 }
 
 function pickMessageId(payload) {
@@ -161,17 +158,14 @@ function buildMessageInputFromDingtalkPayload(payload, options = {}) {
     },
     message: {
       externalMessageId: messageId,
-      type: pickMessageType(payload, text),
+      type: pickMessageType(attachments),
       text,
       contentRaw,
       attachments,
       sentAt: Number(payload?.createAt || payload?.createTime || payload?.timestamp) || Date.now(),
       senderPlatform: String(payload?.senderPlatform || '').trim() || undefined
     },
-    context: {
-      atBot: payload?.isInAtList == null ? undefined : Boolean(payload.isInAtList),
-      chatbotCorpId: String(payload?.chatbotCorpId || '').trim() || undefined
-    },
+    context: {},
     rawPayload: payload
   });
 }

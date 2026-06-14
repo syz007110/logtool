@@ -78,7 +78,7 @@ function parseInbound(req) {
       conversationId
     },
     message: normalizedMessage,
-    context: body.context || {},
+    context: {},
     rawPayload: body.rawPayload
   });
   request.__conversationIdProvided = conversationIdProvided;
