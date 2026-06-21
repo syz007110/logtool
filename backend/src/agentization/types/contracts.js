@@ -136,6 +136,27 @@ function buildMessageInput(input) {
   };
 }
 
+function buildMessageOutput(input, options = {}) {
+  assertObject(input, 'MessageOutput');
+
+  const text = String(input.text || '').trim();
+  const attachments = normalizeAttachments(input.attachments);
+  if (options.strict !== false) {
+    assertMessageHasContent(text, attachments);
+  }
+
+  const out = { attachments };
+  if (text) out.text = text;
+
+  if (options.session?.conversationId) {
+    out.session = {
+      conversationId: assertNonEmptyString(options.session.conversationId, 'session.conversationId')
+    };
+  }
+
+  return out;
+}
+
 function buildIntentResult(input) {
   assertObject(input, 'IntentResult');
 
@@ -191,6 +212,7 @@ function buildAgentResponse(input) {
 
 module.exports = {
   buildMessageInput,
+  buildMessageOutput,
   buildIntentResult,
   buildToolCall,
   buildAgentResponse

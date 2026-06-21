@@ -1,4 +1,5 @@
 const { conversationMessageQueue } = require('../../config/queue');
+const { projectQueueResultToMessageOutput } = require('../types/messageOutputProjection');
 const { buildIdempotencyKey, resolveConversationTarget } = require('./conversationSessionService');
 const { buildPartitionedJobId } = require('./conversationQueueKeys');
 
@@ -77,8 +78,23 @@ function buildSyncResponse(result, taskId) {
   return {
     mode: 'sync',
     taskId,
-    result
+    result: projectQueueResultToMessageOutput(result)
   };
+}
+
+function buildAsyncResponse(taskId, options = {}) {
+  const reason = String(options.reason || 'async_accepted').trim() || 'async_accepted';
+  return {
+    mode: 'async',
+    taskId,
+    reason,
+    message: String(options.message || '任务已受理，处理完成后可通过 taskId 查询结果').trim()
+  };
+}
+
+function isPreferAsyncRequest(request) {
+  const ctx = request?.context && typeof request.context === 'object' ? request.context : {};
+  return Boolean(ctx.preferAsync);
 }
 
 async function awaitJobResult(job, waitMs) {
@@ -103,12 +119,17 @@ async function enqueueConversationRequest(request, options = {}) {
   const routing = await resolveConversationTarget(request);
   const job = await getOrCreateJob({ taskId, request, routing });
   const queueTaskId = String(job?.id || buildPartitionedJobId(routing.instance.id, taskId));
+
+  if (isPreferAsyncRequest(request)) {
+    return buildAsyncResponse(queueTaskId, { reason: 'prefer_async' });
+  }
+
   const result = await awaitJobResult(job, waitMs);
   if (result) return buildSyncResponse(result, queueTaskId);
-  const error = new Error(`sync processing timeout (${waitMs}ms), taskId=${queueTaskId}`);
-  error.code = 'SYNC_TIMEOUT';
-  error.taskId = queueTaskId;
-  throw error;
+  return buildAsyncResponse(queueTaskId, {
+    reason: 'sync_timeout',
+    message: `处理超时（${waitMs}ms），任务继续在后台执行，请通过 taskId 查询结果`
+  });
 }
 
 async function getConversationTask(taskId) {
@@ -124,7 +145,7 @@ async function getConversationTask(taskId) {
     const result = await job.finished();
     return {
       ...view,
-      result
+      result: projectQueueResultToMessageOutput(result)
     };
   } catch (error) {
     return {
@@ -137,6 +158,9 @@ async function getConversationTask(taskId) {
 
 module.exports = {
   buildTaskIdFromRequest,
+  buildAsyncResponse,
+  buildSyncResponse,
   enqueueConversationRequest,
-  getConversationTask
+  getConversationTask,
+  isPreferAsyncRequest
 };

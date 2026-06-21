@@ -8,7 +8,7 @@ test('agent execute route applies auth and permission middleware', () => {
   const source = fs.readFileSync(file, 'utf8');
   assert.match(
     source,
-    /router\.post\(\s*['"]\/execute['"]\s*,\s*auth\s*,\s*checkPermission\(['"]smart_search:use['"]\)\s*,\s*executeAgentTask\s*\)/,
+    /router\.post\(\s*['"]\/execute['"]\s*,\s*auth\s*,\s*enrichAgentUser\s*,\s*checkPermission\(['"]smart_search:use['"]\)\s*,\s*executeAgentTask\s*\)/,
     'POST /execute should include auth + checkPermission middleware'
   );
 });

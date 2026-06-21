@@ -17,8 +17,21 @@ async function loadUserRoles(userId) {
   });
 }
 
+function normalizeRoleName(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (n === 'admin' || n === '管理员') return 'admin';
+  return n || String(name || '').trim();
+}
+
 function hasAdminRole(userRoles = []) {
-  return userRoles.some((row) => String(row?.Role?.name || '').trim().toLowerCase() === 'admin');
+  return userRoles.some((row) => normalizeRoleName(row?.Role?.name) === 'admin');
+}
+
+async function resolveUserIsAdmin(user) {
+  const userId = normalizeUserId(user?.id);
+  if (!userId) return false;
+  const userRoles = await loadUserRoles(userId);
+  return hasAdminRole(userRoles);
 }
 
 async function loadDbPermissionsByRoleIds(roleIds) {
@@ -49,5 +62,7 @@ async function resolveUserPermissions(user) {
 }
 
 module.exports = {
-  resolveUserPermissions
+  resolveUserPermissions,
+  resolveUserIsAdmin,
+  hasAdminRole
 };

@@ -101,6 +101,20 @@ test('web adapter uses authenticated user instead of body user', () => {
   assert.equal(request.user.name, 'auth_user');
 });
 
+test('web adapter maps isAdmin from authenticated user', () => {
+  const req = buildReq({ user: { id: 99, username: 'auth_user', isAdmin: true } });
+  const request = parseInbound(req);
+  assert.equal(request.user.isAdmin, true);
+
+  const nonAdminReq = buildReq({ user: { id: 99, username: 'auth_user', isAdmin: false } });
+  const nonAdminRequest = parseInbound(nonAdminReq);
+  assert.equal(nonAdminRequest.user.isAdmin, false);
+
+  const unsetReq = buildReq({ user: { id: 99, username: 'auth_user' } });
+  const unsetRequest = parseInbound(unsetReq);
+  assert.equal(unsetRequest.user.isAdmin, undefined);
+});
+
 test('web adapter renderOutbound includes session on first message only', () => {
   const conversationId = generateUlid();
   const firstRequest = {
@@ -143,16 +157,30 @@ test('web adapter renderOutbound includes session on first message only', () => 
   assert.equal(continuationPayload.response.session, undefined);
 });
 
-test('web adapter renderOutbound rejects non-sync mode', () => {
-  assert.throws(
-    () => renderOutbound({
+test('web adapter renderOutbound returns async acceptance payload', () => {
+  const conversationId = generateUlid();
+  const payload = captureJson((items) => {
+    renderOutbound({
       req: {},
-      res: { json: () => {} },
-      request: { __conversationIdProvided: true },
-      response: { mode: 'async', result: { text: 'later' } }
-    }),
-    /phase1 supports sync mode only/i
-  );
+      res: { json: (body) => items.push(body) },
+      request: {
+        traceId: 'trace-async',
+        requestId: 'req-async',
+        channel: { conversationId },
+        __conversationIdProvided: false
+      },
+      response: {
+        mode: 'async',
+        taskId: 'task-async-1',
+        message: '任务已受理'
+      }
+    });
+  });
+  assert.equal(payload.mode, 'async');
+  assert.equal(payload.taskId, 'task-async-1');
+  assert.equal(payload.message, '任务已受理');
+  assert.equal(payload.response, undefined);
+  assert.equal(payload.session.conversationId, conversationId);
 });
 
 test('web adapter renderError returns 400 with message', () => {

@@ -24,8 +24,9 @@ function createUnifiedOrchestrator(options = {}) {
       if (!taskId) return response;
 
       try {
-        await taskStore.ensureAccepted({ taskId, request, mode: response.mode });
-        if (response.mode === 'sync') {
+        const mode = String(response?.mode || 'sync').trim().toLowerCase();
+        await taskStore.ensureAccepted({ taskId, request, mode });
+        if (mode === 'sync') {
           await taskStore.markCompleted({
             taskId,
             request,

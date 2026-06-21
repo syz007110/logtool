@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   buildMessageInput,
+  buildMessageOutput,
   buildIntentResult,
   buildToolCall,
   buildAgentResponse
@@ -243,4 +244,59 @@ test('buildMessageInput requires threadId for group conversation', () => {
     channel: { type: 'dingtalk', conversationType: 'group', conversationId: 'conv-group' },
     message: { externalMessageId: 'm-group', text: 'hello', sentAt: Date.now() }
   }), /threadId is required/);
+});
+
+test('buildMessageOutput builds text-only response', () => {
+  const output = buildMessageOutput({
+    text: 'hello',
+    attachments: []
+  });
+  assert.equal(output.text, 'hello');
+  assert.deepEqual(output.attachments, []);
+  assert.equal(output.session, undefined);
+});
+
+test('buildMessageOutput builds attachment-only response', () => {
+  const output = buildMessageOutput({
+    attachments: [{ type: 'file', fileId: 'f-1', url: 'https://example.com/a.txt' }]
+  });
+  assert.equal(output.text, undefined);
+  assert.equal(output.attachments.length, 1);
+  assert.equal(output.attachments[0].fileId, 'f-1');
+});
+
+test('buildMessageOutput includes optional session', () => {
+  const output = buildMessageOutput({
+    text: 'ok',
+    attachments: []
+  }, {
+    session: { conversationId: 'conv-new' }
+  });
+  assert.equal(output.session.conversationId, 'conv-new');
+});
+
+test('buildMessageOutput throws when text and attachments are both empty in strict mode', () => {
+  assert.throws(() => buildMessageOutput({ attachments: [] }), /cannot both be empty/i);
+});
+
+test('buildMessageOutput allows empty payload when strict is false', () => {
+  const output = buildMessageOutput({ attachments: [] }, { strict: false });
+  assert.equal(output.text, undefined);
+  assert.deepEqual(output.attachments, []);
+});
+
+const { projectQueueResultToMessageOutput } = require('../src/agentization/types/messageOutputProjection');
+
+test('projectQueueResultToMessageOutput strips queue debug fields', () => {
+  const output = projectQueueResultToMessageOutput({
+    ok: true,
+    text: 'reply',
+    attachments: [{ type: 'file', url: 'https://example.com/a.txt' }],
+    history: [{ role: 'user', text: 'old' }],
+    intent: { intent: 'smart_search' }
+  });
+  assert.equal(output.text, 'reply');
+  assert.equal(output.attachments.length, 1);
+  assert.equal(output.history, undefined);
+  assert.equal(output.intent, undefined);
 });

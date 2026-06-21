@@ -69,7 +69,8 @@ function parseInbound(req) {
     requestId,
     user: {
       id: String(authUser.id),
-      name: authUser.username || authUser.name || undefined
+      name: authUser.username || authUser.name || undefined,
+      isAdmin: authUser.isAdmin == null ? undefined : Boolean(authUser.isAdmin)
     },
     channel: {
       ...rawChannel,
@@ -78,7 +79,7 @@ function parseInbound(req) {
       conversationId
     },
     message: normalizedMessage,
-    context: {},
+    context: body.context && typeof body.context === 'object' ? body.context : {},
     rawPayload: body.rawPayload
   });
   request.__conversationIdProvided = conversationIdProvided;
@@ -86,8 +87,24 @@ function parseInbound(req) {
 }
 
 function renderOutbound({ req, res, request, response }) {
-  if (String(response?.mode || '').toLowerCase() !== 'sync') {
-    throw new Error('phase1 supports sync mode only');
+  const mode = String(response?.mode || 'sync').trim().toLowerCase();
+  const base = {
+    ok: true,
+    traceId: request.traceId,
+    requestId: request.requestId,
+    taskId: response.taskId,
+    mode
+  };
+
+  if (mode === 'async') {
+    const payload = {
+      ...base,
+      message: String(response?.message || '任务已受理，处理完成后可通过 taskId 查询结果').trim()
+    };
+    if (!request.__conversationIdProvided) {
+      payload.session = { conversationId: String(request?.channel?.conversationId || '') };
+    }
+    return res.json(payload);
   }
 
   const result = response?.result && typeof response.result === 'object' ? response.result : {};
@@ -100,11 +117,7 @@ function renderOutbound({ req, res, request, response }) {
   }
 
   return res.json({
-    ok: true,
-    traceId: request.traceId,
-    requestId: request.requestId,
-    taskId: response.taskId,
-    mode: 'sync',
+    ...base,
     response: out
   });
 }

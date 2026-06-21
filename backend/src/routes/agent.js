@@ -2,6 +2,7 @@ const express = require('express');
 const { executeAgentTask, getAgentTask } = require('../controllers/agentController');
 const { uploadAgentAssets, MAX_FILES, MAX_FILE_SIZE, ALLOWED_MIMES } = require('../controllers/agentAssetController');
 const auth = require('../middlewares/auth');
+const enrichAgentUser = require('../middlewares/enrichAgentUser');
 const { checkPermission } = require('../middlewares/permission');
 const { ensureTempDir } = require('../config/agentAssetStorage');
 const multer = require('multer');
@@ -67,7 +68,7 @@ router.post(
   }
 );
 
-router.post('/execute', auth, checkPermission('smart_search:use'), executeAgentTask);
+router.post('/execute', auth, enrichAgentUser, checkPermission('smart_search:use'), executeAgentTask);
 router.get('/tasks/:taskId', getAgentTask);
 
 module.exports = router;

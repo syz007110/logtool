@@ -33,12 +33,21 @@ function parseInbound(req) {
   return buildMessageInputFromDingtalk(req);
 }
 
+const DINGTALK_ASYNC_ACK_TEXT = '正在处理您的消息，请稍候…';
+
 async function renderOutbound({ request, response, outbound }) {
   if (!outbound || typeof outbound.send !== 'function') {
     throw new Error('dingtalk stream outbound sink is required');
   }
-  if (String(response?.mode || '').toLowerCase() !== 'sync') {
-    throw new Error('phase1 supports sync mode only');
+  const mode = String(response?.mode || 'sync').trim().toLowerCase();
+  if (mode === 'async') {
+    await outbound.send({
+      msgtype: 'text',
+      text: {
+        content: DINGTALK_ASYNC_ACK_TEXT
+      }
+    });
+    return;
   }
 
   const result = response?.result && typeof response.result === 'object'
