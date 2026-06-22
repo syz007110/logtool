@@ -1,5 +1,5 @@
 const { postgresqlSequelize } = require('../../config/postgresql');
-const { buildConversationMessageInput } = require('./conversationMessageMapper');
+const { buildConversationMessageInput, normalizeInboundMessageType } = require('./conversationMessageMapper');
 
 function normalizeMessageId(request) {
   const messageId = String(request?.message?.externalMessageId || '').trim();
@@ -157,15 +157,18 @@ function createMessageService() {
     return { row: existing[0] || null, inserted: false };
   }
 
-  async function saveUser({ instanceId, request, idempotencyKey, transaction }) {
+  async function saveUser({ instanceId, request, idempotencyKey, taskId, transaction }) {
     const messageInput = buildConversationMessageInput({
       instanceId,
       messageId: normalizeMessageId(request),
       requestId: normalizeRequestId(request),
       traceId: normalizeTraceId(request),
-      taskId: undefined,
+      taskId: String(taskId || '').trim() || undefined,
       role: 'user',
-      explicitMessageType: request?.message?.type || 'text',
+      explicitMessageType: normalizeInboundMessageType(
+        request?.message?.type,
+        Array.isArray(request?.message?.attachments) ? request.message.attachments : []
+      ),
       content: request?.message?.text || '',
       payload: normalizeUserPayload(request),
       rawPayload: request?.rawPayload && typeof request.rawPayload === 'object' ? request.rawPayload : undefined,

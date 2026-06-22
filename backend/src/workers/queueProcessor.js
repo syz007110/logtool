@@ -25,6 +25,8 @@ const { createPlatformTaskRouter } = require('../agentization/router/platformTas
 const { createLogtoolToolGateway } = require('../agentization/tools/logtoolToolGateway');
 const { createV1Planner, buildAvailableTools } = require('../agentization/planner/v1Planner');
 const { prepareConversationContext, processConversationRequest } = require('../agentization/session/conversationSessionService');
+const { createAgentTaskPersistenceStore } = require('../agentization/orchestrator/stores/agentTaskPersistenceStore');
+const { projectQueueResultToMessageOutput } = require('../agentization/types/messageOutputProjection');
 const { resolveUserPermissions } = require('../agentization/security/userPermissionResolver');
 const { canonicalizeIntentResultForPipeline } = require('../agentization/intent/canonicalizeIntentResult');
 const { appendAgentDebugMarkdown } = require('../agentization/utils/agentDebugMarkdownLogger');
@@ -55,6 +57,7 @@ const SESSION_INSTANCE_LOCK_RETRY_MS = parseInt(process.env.SESSION_INSTANCE_LOC
 const platformTaskRouter = createPlatformTaskRouter();
 const toolGateway = createLogtoolToolGateway();
 const planner = createV1Planner();
+const agentTaskStore = createAgentTaskPersistenceStore();
 const sessionInstanceLockRedis = new Redis({
   host: redisConfig.host,
   port: Number(redisConfig.port || 6379),
@@ -784,8 +787,17 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
   }
 
   const routedInstanceId = Number(routing?.instance?.id || 0);
+  const routedTaskId = String(routing?.task?.id || '').trim();
   if (!Number.isFinite(routedInstanceId) || routedInstanceId <= 0) {
     throw new Error('routed instance id is required for conversation processing');
+  }
+
+  if (routedTaskId) {
+    try {
+      await agentTaskStore.markRunning({ taskId: routedTaskId, request });
+    } catch (taskError) {
+      console.warn('[agent-task] markRunning failed:', taskError?.message || taskError);
+    }
   }
 
   const lockToken = `${String(job?.id || 'job')}:${Date.now()}:${Math.random().toString(16).slice(2, 10)}`;
@@ -818,6 +830,7 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
   prepared = await withTimeout(
     prepareConversationContext(request, {
       persistUserMessage: true,
+      taskId: routedTaskId,
       instanceId: routedInstanceId > 0 ? routedInstanceId : undefined,
       activeResolutionHint: routing?.activeResolution || {}
     }),
@@ -859,8 +872,8 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
   request.context = request.context && typeof request.context === 'object' ? request.context : {};
   request.context.userPermissions = userPermissions;
   const requestMeta = {
-    taskId: String(job?.id || request?.requestId || ''),
-    runId: `run_${String(job?.id || request?.requestId || '')}`,
+    taskId: routedTaskId || String(request?.requestId || ''),
+    runId: routedTaskId ? `run_${routedTaskId}` : `run_${String(request?.requestId || '')}`,
     traceId: String(request?.traceId || ''),
     requestId: String(request?.requestId || '')
   };
@@ -974,6 +987,7 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
         contextEnvelope: currentPrepared.contextEnvelope,
         activeResolutionHint: prepared.activeResolution,
         assistantResponse,
+        taskId: routedTaskId,
         phase: 'after_tool',
         phaseTag: `tool${toolCallsUsed}`
       }),
@@ -999,6 +1013,7 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
     currentPrepared = await withTimeout(
       prepareConversationContext(request, {
         persistUserMessage: false,
+        taskId: routedTaskId,
         instanceId: prepared.instance.id,
         activeResolutionHint: {
           createdNewInstance: Boolean(prepared.activeResolution?.createdNewInstance),
@@ -1052,6 +1067,7 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
       contextEnvelope: conversationPersistEnvelope,
       activeResolutionHint: prepared.activeResolution,
       assistantResponse,
+      taskId: routedTaskId,
       phase: conversationPersistPhase,
       phaseTag: conversationPersistTag
     }),
@@ -1074,6 +1090,18 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
     console.warn('[agent-debug-md] append failed:', error?.message || error);
   }
   stepLog(job?.id, 'job:done', { costMs: Date.now() - startedAt });
+
+  if (routedTaskId) {
+    try {
+      await agentTaskStore.markCompleted({
+        taskId: routedTaskId,
+        request,
+        response: projectQueueResultToMessageOutput(result)
+      });
+    } catch (taskError) {
+      console.warn('[agent-task] markCompleted failed:', taskError?.message || taskError);
+    }
+  }
 
   return result;
   } catch (error) {
@@ -1101,6 +1129,13 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
       lastStep,
       totalCostMs: Date.now() - startedAt
     });
+    if (routedTaskId) {
+      try {
+        await agentTaskStore.markFailed({ taskId: routedTaskId, request, error });
+      } catch (taskError) {
+        console.warn('[agent-task] markFailed failed:', taskError?.message || taskError);
+      }
+    }
     throw error;
   } finally {
     if (lockKey) {

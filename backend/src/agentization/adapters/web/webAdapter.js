@@ -87,7 +87,7 @@ function parseInbound(req) {
 }
 
 function renderOutbound({ req, res, request, response }) {
-  const mode = String(response?.mode || 'sync').trim().toLowerCase();
+  const mode = String(response?.mode || 'completed').trim().toLowerCase();
   const base = {
     ok: true,
     traceId: request.traceId,
@@ -96,7 +96,7 @@ function renderOutbound({ req, res, request, response }) {
     mode
   };
 
-  if (mode === 'async') {
+  if (mode === 'accepted') {
     const payload = {
       ...base,
       message: String(response?.message || '任务已受理，处理完成后可通过 taskId 查询结果').trim()

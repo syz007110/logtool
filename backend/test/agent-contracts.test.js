@@ -165,13 +165,13 @@ test('buildToolCall applies defaults for timeout and retry', () => {
 
 test('buildAgentResponse keeps taskId optional', () => {
   const response = buildAgentResponse({
-    mode: 'async',
+    mode: 'accepted',
     text: 'queued',
     actions: [{ type: 'poll' }],
     taskId: 'task-1'
   });
 
-  assert.equal(response.mode, 'async');
+  assert.equal(response.mode, 'accepted');
   assert.equal(response.taskId, 'task-1');
   assert.equal(response.actions.length, 1);
 });

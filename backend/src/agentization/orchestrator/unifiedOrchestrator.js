@@ -18,46 +18,17 @@ function createUnifiedOrchestrator(options = {}) {
   const taskStore = options.taskStore || createAgentTaskPersistenceStore();
 
   async function execute(request) {
-    try {
-      const response = await enqueueConversationRequest(request, { waitMs });
-      const taskId = String(response?.taskId || '').trim();
-      if (!taskId) return response;
-
-      try {
-        const mode = String(response?.mode || 'sync').trim().toLowerCase();
-        await taskStore.ensureAccepted({ taskId, request, mode });
-        if (mode === 'sync') {
-          await taskStore.markCompleted({
-            taskId,
-            request,
-            response: response?.result || {}
-          });
-        }
-      } catch (_) {}
-      return response;
-    } catch (error) {
-      const fallbackTaskId = String(request?.requestId || '').trim();
-      if (fallbackTaskId) {
-        try {
-          await taskStore.ensureAccepted({ taskId: fallbackTaskId, request, mode: 'sync' });
-          await taskStore.markFailed({ taskId: fallbackTaskId, request, error });
-        } catch (_) {}
-      }
-      throw error;
-    }
+    return enqueueConversationRequest(request, { waitMs });
   }
 
   async function getTask(taskId) {
-    const task = await getConversationTask(taskId);
-    try {
-      await taskStore.syncFromQueueTask(taskId, task);
-    } catch (_) {}
-    return task;
+    return getConversationTask(taskId);
   }
 
   return {
     execute,
-    getTask
+    getTask,
+    taskStore
   };
 }
 

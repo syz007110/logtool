@@ -1,6 +1,6 @@
-const crypto = require('crypto');
 const { postgresqlSequelize } = require('../../../config/postgresql');
-const { buildIdempotencyKey } = require('../../session/conversationSessionService');
+const { buildIdempotencyKey } = require('../../session/conversationTurnKeys');
+const { buildTaskIdentity } = require('../agentTaskKeys');
 
 function nowIso() {
   return new Date().toISOString();
@@ -12,12 +12,22 @@ function toTimestamp(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function toCanonicalId(sourceIdempotencyKey) {
-  return crypto.createHash('sha256').update(String(sourceIdempotencyKey || '')).digest('hex');
+function nextEventId() {
+  return `evt_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
 }
 
-function nextId(prefix) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+function buildRequestSnapshot(request) {
+  return {
+    traceId: request?.traceId,
+    requestId: request?.requestId,
+    channel: request?.channel,
+    user: request?.user,
+    message: {
+      externalMessageId: request?.message?.externalMessageId,
+      type: request?.message?.type,
+      sentAt: request?.message?.sentAt
+    }
+  };
 }
 
 function mapQueueStateToTaskStatus(state) {
@@ -29,9 +39,12 @@ function mapQueueStateToTaskStatus(state) {
   return 'queued';
 }
 
+function isTerminalStatus(status) {
+  return ['completed', 'failed', 'cancelled', 'degraded'].includes(String(status || '').trim().toLowerCase());
+}
+
 async function appendEvent({
   taskId,
-  runId = null,
   eventType,
   fromStatus = null,
   toStatus = null,
@@ -43,15 +56,14 @@ async function appendEvent({
 }) {
   await postgresqlSequelize.query(
     `INSERT INTO agent_event (
-       event_id, task_id, run_id, event_type, from_status, to_status, reason, trace_id, request_id, payload, created_at
+       event_id, task_id, event_type, from_status, to_status, reason, trace_id, request_id, payload, created_at
      ) VALUES (
-       :eventId, :taskId, :runId, :eventType, :fromStatus, :toStatus, :reason, :traceId, :requestId, CAST(:payload AS jsonb), NOW()
+       :eventId, :taskId, :eventType, :fromStatus, :toStatus, :reason, :traceId, :requestId, CAST(:payload AS jsonb), NOW()
      )`,
     {
       replacements: {
-        eventId: nextId('evt'),
+        eventId: nextEventId(),
         taskId: String(taskId || ''),
-        runId: runId ? String(runId) : null,
         eventType: String(eventType || '').trim() || 'TASK_EVENT',
         fromStatus: fromStatus ? String(fromStatus) : null,
         toStatus: toStatus ? String(toStatus) : null,
@@ -65,13 +77,13 @@ async function appendEvent({
   );
 }
 
-async function getTaskForUpdate(taskId, transaction) {
+async function getTaskByTaskId(taskId, transaction, forUpdate = false) {
   const [rows] = await postgresqlSequelize.query(
-    `SELECT task_id, status, latest_run_no
+    `SELECT *
        FROM agent_task
       WHERE task_id = :taskId
       LIMIT 1
-      FOR UPDATE`,
+      ${forUpdate ? 'FOR UPDATE' : ''}`,
     {
       replacements: { taskId: String(taskId || '') },
       transaction
@@ -80,16 +92,14 @@ async function getTaskForUpdate(taskId, transaction) {
   return rows?.[0] || null;
 }
 
-async function getLatestRunForUpdate(taskId, transaction) {
+async function getTaskByCanonicalId(canonicalId, transaction) {
   const [rows] = await postgresqlSequelize.query(
-    `SELECT run_id, run_no, status
-       FROM agent_run
-      WHERE task_id = :taskId
-      ORDER BY run_no DESC
-      LIMIT 1
-      FOR UPDATE`,
+    `SELECT *
+       FROM agent_task
+      WHERE canonical_id = :canonicalId
+      LIMIT 1`,
     {
-      replacements: { taskId: String(taskId || '') },
+      replacements: { canonicalId: String(canonicalId || '') },
       transaction
     }
   );
@@ -97,51 +107,43 @@ async function getLatestRunForUpdate(taskId, transaction) {
 }
 
 function createAgentTaskPersistenceStore() {
-  async function ensureAccepted({ taskId, request, mode }) {
+  async function createTask({ request, instanceId }) {
     const sourceIdempotencyKey = buildIdempotencyKey(request);
-    const canonicalId = toCanonicalId(sourceIdempotencyKey);
-    const requestSnapshot = {
-      traceId: request?.traceId,
-      requestId: request?.requestId,
-      channel: request?.channel,
-      user: request?.user,
-      message: {
-        externalMessageId: request?.message?.externalMessageId,
-        type: request?.message?.type,
-        sentAt: request?.message?.sentAt
-      }
-    };
+    const normalizedInstanceId = Number(instanceId || 0);
+    if (!Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
+      throw new Error('instance id is required to create agent task');
+    }
 
-    const initialStatus = mode === 'sync' ? 'running' : 'queued';
+    const { canonicalId, taskId, queueJobId } = buildTaskIdentity(sourceIdempotencyKey, normalizedInstanceId);
+    const requestSnapshot = buildRequestSnapshot(request);
     const transaction = await postgresqlSequelize.transaction();
+
     try {
-      await postgresqlSequelize.query(
+      const [insertedRows] = await postgresqlSequelize.query(
         `INSERT INTO agent_task (
            task_id, canonical_id, source_idempotency_key, status,
-           trace_id, request_id, channel_type, conversation_id, instance_id, thread_id, user_id,
-           request_snapshot, response_snapshot, error_snapshot, latest_run_no,
+           trace_id, request_id, channel_type, conversation_id, instance_id, queue_job_id, thread_id, user_id,
+           request_snapshot, response_snapshot, error_snapshot,
            created_at, updated_at
          ) VALUES (
-           :taskId, :canonicalId, :sourceIdempotencyKey, :status,
-           :traceId, :requestId, :channelType, :conversationId, NULL, :threadId, :userId,
-           CAST(:requestSnapshot AS jsonb), NULL, NULL, 0,
+           :taskId, :canonicalId, :sourceIdempotencyKey, 'queued',
+           :traceId, :requestId, :channelType, :conversationId, :instanceId, :queueJobId, :threadId, :userId,
+           CAST(:requestSnapshot AS jsonb), NULL, NULL,
            NOW(), NOW()
          )
-         ON CONFLICT (task_id)
-         DO UPDATE SET
-           updated_at = NOW(),
-           trace_id = EXCLUDED.trace_id,
-           request_id = EXCLUDED.request_id`,
+         ON CONFLICT (canonical_id) DO NOTHING
+         RETURNING *`,
         {
           replacements: {
-            taskId: String(taskId || ''),
+            taskId,
             canonicalId,
             sourceIdempotencyKey,
-            status: initialStatus,
             traceId: String(request?.traceId || ''),
             requestId: String(request?.requestId || ''),
             channelType: String(request?.channel?.type || ''),
             conversationId: String(request?.channel?.conversationId || ''),
+            instanceId: normalizedInstanceId,
+            queueJobId,
             threadId: String(request?.channel?.threadId || '').trim() || null,
             userId: String(request?.user?.id || ''),
             requestSnapshot: JSON.stringify(requestSnapshot)
@@ -150,99 +152,137 @@ function createAgentTaskPersistenceStore() {
         }
       );
 
-      const currentTask = await getTaskForUpdate(taskId, transaction);
-      if (!currentTask) throw new Error('agent_task not found after ensureAccepted');
+      let task = insertedRows?.[0] || null;
+      let created = Boolean(task);
 
-      let run = await getLatestRunForUpdate(taskId, transaction);
-      if (!run) {
-        const runNo = Number(currentTask.latest_run_no || 0) + 1;
-        const runId = nextId('run');
-        await postgresqlSequelize.query(
-          `INSERT INTO agent_run (
-             run_id, task_id, run_no, status, attempt, max_attempts, next_retry_at,
-             worker_id, lease_token, lease_expires_at,
-             input_snapshot, output_snapshot, error_snapshot,
-             started_at, finished_at, created_at, updated_at
-           ) VALUES (
-             :runId, :taskId, :runNo, :status, 0, 3, NULL,
-             NULL, NULL, NULL,
-             CAST(:inputSnapshot AS jsonb), NULL, NULL,
-             CASE WHEN :status = 'running' THEN NOW() ELSE NULL END, NULL, NOW(), NOW()
-           )`,
-          {
-            replacements: {
-              runId,
-              taskId: String(taskId || ''),
-              runNo,
-              status: initialStatus,
-              inputSnapshot: JSON.stringify(requestSnapshot)
-            },
-            transaction
-          }
-        );
-        await postgresqlSequelize.query(
-          `UPDATE agent_task
-              SET latest_run_no = :runNo,
-                  status = :status,
-                  updated_at = NOW()
-            WHERE task_id = :taskId`,
-          {
-            replacements: { runNo, status: initialStatus, taskId: String(taskId || '') },
-            transaction
-          }
-        );
-        run = { run_id: runId, run_no: runNo, status: initialStatus };
+      if (!task) {
+        task = await getTaskByCanonicalId(canonicalId, transaction);
+      }
+      if (!task) {
+        throw new Error('agent_task not found after createTask');
       }
 
-      await appendEvent({
-        taskId,
-        runId: run.run_id,
-        eventType: 'TASK_ACCEPTED',
-        fromStatus: null,
-        toStatus: currentTask.status || initialStatus,
-        reason: mode === 'sync' ? 'sync_request' : 'async_accepted',
-        traceId: request?.traceId,
-        requestId: request?.requestId,
-        payload: { mode, runNo: run.run_no },
-        transaction
-      });
+      if (created) {
+        await appendEvent({
+          taskId: task.task_id,
+          eventType: 'TASK_ACCEPTED',
+          fromStatus: null,
+          toStatus: 'queued',
+          reason: 'task_created',
+          traceId: request?.traceId,
+          requestId: request?.requestId,
+          payload: {
+            instanceId: normalizedInstanceId,
+            queueJobId: task.queue_job_id || queueJobId
+          },
+          transaction
+        });
+      }
 
       await transaction.commit();
+      return { task, created };
     } catch (error) {
       await transaction.rollback();
       throw error;
     }
   }
 
-  async function markCompleted({ taskId, request, response }) {
+  async function markEnqueued({ taskId, request }) {
     const transaction = await postgresqlSequelize.transaction();
     try {
-      const task = await getTaskForUpdate(taskId, transaction);
+      const task = await getTaskByTaskId(taskId, transaction, true);
       if (!task) {
         await transaction.rollback();
-        return;
+        return null;
       }
-      const run = await getLatestRunForUpdate(taskId, transaction);
       const prevStatus = String(task.status || 'queued');
-
-      if (run) {
-        await postgresqlSequelize.query(
-          `UPDATE agent_run
-              SET status = 'completed',
-                  output_snapshot = CAST(:outputSnapshot AS jsonb),
-                  error_snapshot = NULL,
-                  finished_at = NOW(),
-                  updated_at = NOW()
-            WHERE run_id = :runId`,
-          {
-            replacements: {
-              runId: String(run.run_id || ''),
-              outputSnapshot: JSON.stringify(response || {})
-            },
-            transaction
-          }
-        );
+      if (prevStatus !== 'queued') {
+        await transaction.commit();
+        return task;
       }
+
+      await postgresqlSequelize.query(
+        `UPDATE agent_task
+            SET updated_at = NOW()
+          WHERE task_id = :taskId`,
+        { replacements: { taskId: String(taskId || '') }, transaction }
+      );
+
+      await appendEvent({
+        taskId,
+        eventType: 'TASK_ENQUEUED',
+        fromStatus: prevStatus,
+        toStatus: 'queued',
+        reason: 'queue_enqueued',
+        traceId: request?.traceId,
+        requestId: request?.requestId,
+        payload: { queueJobId: task.queue_job_id || null },
+        transaction
+      });
+
+      await transaction.commit();
+      return task;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async function markRunning({ taskId, request }) {
+    const transaction = await postgresqlSequelize.transaction();
+    try {
+      const task = await getTaskByTaskId(taskId, transaction, true);
+      if (!task) {
+        await transaction.rollback();
+        return null;
+      }
+      const prevStatus = String(task.status || 'queued');
+      if (prevStatus === 'running') {
+        await transaction.commit();
+        return task;
+      }
+      if (isTerminalStatus(prevStatus)) {
+        await transaction.commit();
+        return task;
+      }
+
+      await postgresqlSequelize.query(
+        `UPDATE agent_task
+            SET status = 'running',
+                updated_at = NOW()
+          WHERE task_id = :taskId`,
+        { replacements: { taskId: String(taskId || '') }, transaction }
+      );
+
+      await appendEvent({
+        taskId,
+        eventType: 'TASK_STARTED',
+        fromStatus: prevStatus,
+        toStatus: 'running',
+        reason: 'worker_started',
+        traceId: request?.traceId,
+        requestId: request?.requestId,
+        transaction
+      });
+
+      await transaction.commit();
+      return task;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async function markCompleted({ taskId, request, response, reason = 'worker_completed' }) {
+    const transaction = await postgresqlSequelize.transaction();
+    try {
+      const task = await getTaskByTaskId(taskId, transaction, true);
+      if (!task) {
+        await transaction.rollback();
+        return null;
+      }
+      const prevStatus = String(task.status || 'queued');
+      const responseSnapshot = response || {};
 
       await postgresqlSequelize.query(
         `UPDATE agent_task
@@ -254,64 +294,48 @@ function createAgentTaskPersistenceStore() {
         {
           replacements: {
             taskId: String(taskId || ''),
-            responseSnapshot: JSON.stringify(response || {})
+            responseSnapshot: JSON.stringify(responseSnapshot)
           },
           transaction
         }
       );
 
-      await appendEvent({
-        taskId,
-        runId: run?.run_id || null,
-        eventType: 'TASK_COMPLETED',
-        fromStatus: prevStatus,
-        toStatus: 'completed',
-        reason: 'sync_done',
-        traceId: request?.traceId,
-        requestId: request?.requestId,
-        payload: { mode: 'sync' },
-        transaction
-      });
+      if (prevStatus !== 'completed') {
+        await appendEvent({
+          taskId,
+          eventType: 'TASK_COMPLETED',
+          fromStatus: prevStatus,
+          toStatus: 'completed',
+          reason,
+          traceId: request?.traceId,
+          requestId: request?.requestId,
+          payload: { mode: responseSnapshot?.mode || null },
+          transaction
+        });
+      }
 
       await transaction.commit();
+      return task;
     } catch (error) {
       await transaction.rollback();
       throw error;
     }
   }
 
-  async function markFailed({ taskId, request, error }) {
+  async function markFailed({ taskId, request, error, reason = 'worker_failed' }) {
     const transaction = await postgresqlSequelize.transaction();
     try {
-      const task = await getTaskForUpdate(taskId, transaction);
+      const task = await getTaskByTaskId(taskId, transaction, true);
       if (!task) {
         await transaction.rollback();
-        return;
+        return null;
       }
-      const run = await getLatestRunForUpdate(taskId, transaction);
       const prevStatus = String(task.status || 'queued');
       const errorSnapshot = {
         message: String(error?.message || error || 'unknown error'),
+        code: error?.code ? String(error.code) : undefined,
         at: nowIso()
       };
-
-      if (run) {
-        await postgresqlSequelize.query(
-          `UPDATE agent_run
-              SET status = 'failed',
-                  error_snapshot = CAST(:errorSnapshot AS jsonb),
-                  finished_at = NOW(),
-                  updated_at = NOW()
-            WHERE run_id = :runId`,
-          {
-            replacements: {
-              runId: String(run.run_id || ''),
-              errorSnapshot: JSON.stringify(errorSnapshot)
-            },
-            transaction
-          }
-        );
-      }
 
       await postgresqlSequelize.query(
         `UPDATE agent_task
@@ -328,125 +352,95 @@ function createAgentTaskPersistenceStore() {
         }
       );
 
-      await appendEvent({
-        taskId,
-        runId: run?.run_id || null,
-        eventType: 'TASK_FAILED',
-        fromStatus: prevStatus,
-        toStatus: 'failed',
-        reason: 'execute_error',
-        traceId: request?.traceId,
-        requestId: request?.requestId,
-        payload: errorSnapshot,
-        transaction
-      });
+      if (prevStatus !== 'failed') {
+        await appendEvent({
+          taskId,
+          eventType: 'TASK_FAILED',
+          fromStatus: prevStatus,
+          toStatus: 'failed',
+          reason,
+          traceId: request?.traceId,
+          requestId: request?.requestId,
+          payload: errorSnapshot,
+          transaction
+        });
+      }
 
       await transaction.commit();
+      return task;
     } catch (err) {
       await transaction.rollback();
       throw err;
     }
   }
 
+  async function recordSyncTimeout({ taskId, request, waitMs }) {
+    const task = await getTaskByTaskId(taskId);
+    if (!task) return null;
+    await appendEvent({
+      taskId,
+      eventType: 'TASK_ENQUEUED',
+      fromStatus: String(task.status || 'queued'),
+      toStatus: String(task.status || 'queued'),
+      reason: 'sync_timeout',
+      traceId: request?.traceId,
+      requestId: request?.requestId,
+      payload: { waitMs: Number(waitMs || 0) }
+    });
+    return task;
+  }
+
+  async function getTask(taskId) {
+    return getTaskByTaskId(taskId);
+  }
+
   async function syncFromQueueTask(taskId, queueTask) {
-    if (!queueTask || !taskId) return;
+    if (!queueTask || !taskId) return null;
     const nextStatus = mapQueueStateToTaskStatus(queueTask?.state);
-    const transaction = await postgresqlSequelize.transaction();
-    try {
-      const task = await getTaskForUpdate(taskId, transaction);
-      if (!task) {
-        await transaction.rollback();
-        return;
-      }
-      const run = await getLatestRunForUpdate(taskId, transaction);
-      const prevStatus = String(task.status || '');
+    const task = await getTaskByTaskId(taskId);
+    if (!task) return null;
 
-      if (prevStatus === nextStatus) {
-        await postgresqlSequelize.query(
-          `UPDATE agent_task SET updated_at = NOW() WHERE task_id = :taskId`,
-          { replacements: { taskId: String(taskId || '') }, transaction }
-        );
-        await transaction.commit();
-        return;
-      }
-
-      const responseSnapshot = nextStatus === 'completed' ? JSON.stringify(queueTask?.result || {}) : null;
-      const errorSnapshot = nextStatus === 'failed'
-        ? JSON.stringify({ message: String(queueTask?.failedReason || 'task failed') })
-        : null;
-      const finishedAt = (nextStatus === 'completed' || nextStatus === 'failed')
-        ? toTimestamp(queueTask?.finishedOn || Date.now())
-        : null;
-      const startedAt = toTimestamp(queueTask?.processedOn || null);
-
-      if (run) {
-        await postgresqlSequelize.query(
-          `UPDATE agent_run
-              SET status = :status,
-                  started_at = COALESCE(started_at, :startedAt),
-                  finished_at = CASE WHEN :finishedAt IS NULL THEN finished_at ELSE :finishedAt END,
-                  output_snapshot = CASE WHEN :responseSnapshot IS NULL THEN output_snapshot ELSE CAST(:responseSnapshot AS jsonb) END,
-                  error_snapshot = CASE WHEN :errorSnapshot IS NULL THEN error_snapshot ELSE CAST(:errorSnapshot AS jsonb) END,
-                  updated_at = NOW()
-            WHERE run_id = :runId`,
-          {
-            replacements: {
-              runId: String(run.run_id || ''),
-              status: nextStatus,
-              startedAt,
-              finishedAt,
-              responseSnapshot,
-              errorSnapshot
-            },
-            transaction
-          }
-        );
-      }
-
-      await postgresqlSequelize.query(
-        `UPDATE agent_task
-            SET status = :status,
-                response_snapshot = CASE WHEN :responseSnapshot IS NULL THEN response_snapshot ELSE CAST(:responseSnapshot AS jsonb) END,
-                error_snapshot = CASE WHEN :errorSnapshot IS NULL THEN error_snapshot ELSE CAST(:errorSnapshot AS jsonb) END,
-                updated_at = NOW()
-          WHERE task_id = :taskId`,
-        {
-          replacements: {
-            taskId: String(taskId || ''),
-            status: nextStatus,
-            responseSnapshot,
-            errorSnapshot
-          },
-          transaction
-        }
-      );
-
-      await appendEvent({
-        taskId,
-        runId: run?.run_id || null,
-        eventType: 'TASK_STATUS_SYNC',
-        fromStatus: prevStatus,
-        toStatus: nextStatus,
-        reason: 'poll_sync',
-        payload: {
-          attemptsMade: Number(queueTask?.attemptsMade || 0),
-          processedOn: queueTask?.processedOn || null,
-          finishedOn: queueTask?.finishedOn || null
-        },
-        transaction
-      });
-
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
+    if (isTerminalStatus(task.status)) {
+      return task;
     }
+
+    if (nextStatus === 'running' && String(task.status) !== 'running') {
+      return task;
+    }
+
+    if (nextStatus === 'completed') {
+      await markCompleted({
+        taskId,
+        request: {
+          traceId: task.trace_id,
+          requestId: task.request_id
+        },
+        response: queueTask?.result || {},
+        reason: 'poll_sync'
+      });
+    } else if (nextStatus === 'failed') {
+      await markFailed({
+        taskId,
+        request: {
+          traceId: task.trace_id,
+          requestId: task.request_id
+        },
+        error: { message: String(queueTask?.failedReason || 'task failed') },
+        reason: 'poll_sync'
+      });
+    }
+
+    return getTaskByTaskId(taskId);
   }
 
   return {
-    ensureAccepted,
+    createTask,
+    markEnqueued,
+    markRunning,
     markCompleted,
     markFailed,
+    recordSyncTimeout,
+    getTask,
     syncFromQueueTask
   };
 }

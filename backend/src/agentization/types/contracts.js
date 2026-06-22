@@ -189,9 +189,9 @@ function buildToolCall(input) {
 function buildAgentResponse(input) {
   assertObject(input, 'AgentResponse');
 
-  const mode = String(input.mode || 'sync').trim().toLowerCase();
-  if (mode !== 'sync' && mode !== 'async') {
-    throw new Error('mode must be sync or async');
+  const mode = String(input.mode || 'completed').trim().toLowerCase();
+  if (mode !== 'completed' && mode !== 'accepted') {
+    throw new Error('mode must be completed or accepted');
   }
 
   const out = {

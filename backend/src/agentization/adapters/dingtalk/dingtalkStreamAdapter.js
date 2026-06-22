@@ -39,8 +39,8 @@ async function renderOutbound({ request, response, outbound }) {
   if (!outbound || typeof outbound.send !== 'function') {
     throw new Error('dingtalk stream outbound sink is required');
   }
-  const mode = String(response?.mode || 'sync').trim().toLowerCase();
-  if (mode === 'async') {
+  const mode = String(response?.mode || 'completed').trim().toLowerCase();
+  if (mode === 'accepted') {
     await outbound.send({
       msgtype: 'text',
       text: {

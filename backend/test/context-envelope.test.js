@@ -14,7 +14,7 @@ test('context envelope follows target structure', () => {
     { role: 'user', message_type: 'text', content: '查 0X010A' },
     {
       role: 'assistant',
-      message_type: 'intent_result',
+      message_type: 'intent',
       payload: { intent: 'error_code_search', toolCall: { toolName: 'errorCodeSearch' } }
     },
     { role: 'assistant', message_type: 'text', content: '查询到 3 个子系统下的同类故障码，建议先检查连接。' }

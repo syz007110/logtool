@@ -21,7 +21,7 @@ test('stream bridge does not start when credentials are missing', async () => {
       warn: (msg) => logs.push(['warn', msg]),
       error: (msg) => logs.push(['error', msg])
     },
-    orchestrator: { execute: async () => ({ mode: 'sync', result: { text: 'ok' } }) },
+    orchestrator: { execute: async () => ({ mode: 'completed', result: { text: 'ok' } }) },
     clientFactory: () => {
       throw new Error('should not create client');
     }
@@ -58,7 +58,7 @@ test('stream bridge handles bot message and replies through session webhook', as
     orchestrator: {
       execute: async (request) => {
         executed.push(request);
-        return { mode: 'sync', result: { text: 'bridge ok' } };
+        return { mode: 'completed', result: { text: 'bridge ok' } };
       }
     },
     clientFactory: () => fakeClient,
@@ -128,7 +128,7 @@ test('stream bridge does not print payload sample when debug disabled', async ()
       error: () => {}
     },
     orchestrator: {
-      execute: async () => ({ mode: 'sync', result: { text: 'ok' } })
+      execute: async () => ({ mode: 'completed', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
     postJson: async () => ({ ok: true }),
@@ -175,7 +175,7 @@ test('stream bridge prints payload sample when debug enabled', async () => {
       error: () => {}
     },
     orchestrator: {
-      execute: async () => ({ mode: 'sync', result: { text: 'ok' } })
+      execute: async () => ({ mode: 'completed', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
     postJson: async () => ({ ok: true }),
@@ -227,7 +227,7 @@ test('stream bridge emits unified agent-request log when AGENT_REQUEST_LOG is en
       error: () => {}
     },
     orchestrator: {
-      execute: async () => ({ mode: 'sync', result: { text: 'ok' } })
+      execute: async () => ({ mode: 'completed', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
     postJson: async () => ({ ok: true }),
@@ -275,7 +275,7 @@ test('stream bridge sends markdown attachment replies when response contains att
     logger: console,
     orchestrator: {
       execute: async () => ({
-        mode: 'sync',
+        mode: 'completed',
         result: {
           text: 'with attachments',
           attachments: [
@@ -330,7 +330,7 @@ test('stream bridge prefers agent answer text over instance/intent stub', async 
     logger: console,
     orchestrator: {
       execute: async () => ({
-        mode: 'sync',
+        mode: 'completed',
         taskId: 'job-1',
         result: {
           text: '最终可见回答',

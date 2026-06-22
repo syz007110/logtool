@@ -1,5 +1,13 @@
 const { postgresqlSequelize } = require('../../config/postgresql');
 const { buildConversationMessageInput } = require('./conversationMessageMapper');
+const { isIntentMessageType, resolveDialogueMessageType, MESSAGE_TYPES } = require('./conversationMessageTypes');
+const {
+  buildContainerKey,
+  buildIdempotencyKey,
+  buildMessageId,
+  buildEventIdempotencyKey,
+  extractTokenUsageFromTurn
+} = require('./conversationTurnKeys');
 const { createMessageService } = require('./messageService');
 const { resolveAgentFaultCodeToken } = require('../../services/faultCodeExtractionService');
 
@@ -9,20 +17,6 @@ function nowTs() {
   return new Date();
 }
 
-function buildContainerKey(request) {
-  const channel = String(request?.channel?.type || '').trim().toLowerCase();
-  const userId = String(request?.user?.id || '').trim();
-  const conversationId = String(request?.channel?.conversationId || '').trim();
-  return `${channel}:${userId}:${conversationId}`;
-}
-
-function buildIdempotencyKey(request) {
-  const channel = String(request?.channel?.type || '').trim().toLowerCase();
-  const userId = String(request?.user?.id || '').trim();
-  const conversationId = String(request?.channel?.conversationId || '').trim();
-  const messageId = String(request?.message?.externalMessageId || '').trim();
-  return `${channel}:${userId}:${conversationId}:${messageId}`;
-}
 
 function estimateTokens(input) {
   const text = String(input || '');
@@ -125,6 +119,7 @@ function getRolloverReason(instance, request, policy) {
   if (lastAt && sentAt - lastAt > policy.idleTimeoutMinutes * 60 * 1000) return 'idle_timeout';
 
   const est = estimateTokens(request?.message?.text || '');
+  if (Number(instance.token_count || 0) >= policy.maxTokens) return 'max_tokens';
   if (Number(instance.token_count || 0) + est > policy.maxTokens) return 'max_tokens';
   return null;
 }
@@ -256,13 +251,26 @@ function mapRecentTurnRole(row) {
 
 function mapRecentTurnText(row) {
   const messageType = String(row?.message_type || '').trim().toLowerCase();
-  if (messageType === 'intent_result') {
+  if (isIntentMessageType(messageType)) {
     const p = asPlainObject(row?.payload);
     const intent = String(p.intent || '').trim();
     const na = String(p.nextAction?.type || p.next_action?.type || '').trim();
     return intent
       ? (`[意图抽取] intent=${intent}${na ? `, nextAction=${na}` : ''}`)
       : '[意图抽取]';
+  }
+  if (messageType === MESSAGE_TYPES.TOOL) {
+    const p = asPlainObject(row?.payload);
+    const toolName = String(p.toolName || p.tool_name || '').trim();
+    const status = String(p.status || '').trim();
+    return toolName
+      ? (`[工具结果] tool=${toolName}${status ? `, status=${status}` : ''}`)
+      : '[工具结果]';
+  }
+  if (messageType === MESSAGE_TYPES.PLAN) {
+    const p = asPlainObject(row?.payload);
+    const phase = String(p.phase || '').trim();
+    return phase ? `[规划] phase=${phase}` : '[规划]';
   }
   return normalizeHistoryText(row);
 }
@@ -318,10 +326,11 @@ function buildHistorySummary(history, recentTurns) {
     const row = historyRows[i];
     const role = String(row?.role || '').trim().toLowerCase();
     const payload = asPlainObject(row?.payload);
-    const isIntentLike = role === 'tool' || (role === 'assistant' && String(row?.message_type || '').trim().toLowerCase() === 'intent_result');
+    const isIntentLike = (role === 'assistant' && isIntentMessageType(row?.message_type))
+      || (role === 'tool' && String(row?.message_type || '').trim().toLowerCase() === MESSAGE_TYPES.TOOL);
     if (!isIntentLike) continue;
     const intent = String(payload?.intent || '').trim();
-    const toolName = String(payload?.toolCall?.toolName || '').trim();
+    const toolName = String(payload?.toolCall?.toolName || payload?.toolName || payload?.tool_name || '').trim();
     if (!lastIntent) lastIntent = intent || null;
     if (toolName) {
       lastTool = toolName;
@@ -460,19 +469,6 @@ function buildContextEnvelope({ request, history, sessionState, policy, resolved
 
 function buildResolvedQueryForContext(request) {
   return String(request?.message?.text || '').trim();
-}
-
-const MESSAGE_ID_MAX_LENGTH = 128;
-
-function buildMessageId(request, suffix) {
-  const base = String(request?.message?.externalMessageId || request?.requestId || '').trim() || `msg_${Date.now()}`;
-  const normalizedSuffix = String(suffix || '').trim();
-  if (!normalizedSuffix) return base.slice(0, MESSAGE_ID_MAX_LENGTH);
-
-  const delimiter = ':';
-  const suffixLength = normalizedSuffix.length + delimiter.length;
-  const baseMaxLength = Math.max(1, MESSAGE_ID_MAX_LENGTH - suffixLength);
-  return `${base.slice(0, baseMaxLength)}${delimiter}${normalizedSuffix}`.slice(0, MESSAGE_ID_MAX_LENGTH);
 }
 
 function toPromptBlocks({ policy, history, request, intentResult }) {
@@ -678,6 +674,7 @@ async function loadHistory(instanceId, turns, transaction) {
 async function prepareConversationContext(request, options = {}) {
   const policy = getPolicy();
   const persistUserMessage = Boolean(options?.persistUserMessage);
+  const persistTaskId = normalizePersistTaskId(options?.taskId);
   const hintedInstanceId = Number(options?.instanceId || 0);
   const traceId = String(request?.traceId || '');
   const requestId = String(request?.requestId || '');
@@ -741,6 +738,7 @@ async function prepareConversationContext(request, options = {}) {
         instanceId: instance.id,
         request,
         idempotencyKey,
+        taskId: persistTaskId,
         transaction
       });
       prepareLog('saveUser:done', {
@@ -883,11 +881,9 @@ async function persistSessionState(instanceId, sessionState, transaction) {
 
 async function bumpInstanceStats(instanceId, request, inserted, transaction) {
   if (!inserted) return;
-  const tokenDelta = estimateTokens(request?.message?.text || '');
   await postgresqlSequelize.query(
     `UPDATE conversation_instances
         SET turn_count = turn_count + :turnDelta,
-            token_count = token_count + :tokenDelta,
             last_message_at = TO_TIMESTAMP(:sentAt / 1000.0),
             version = version + 1,
             updated_at = NOW()
@@ -896,12 +892,36 @@ async function bumpInstanceStats(instanceId, request, inserted, transaction) {
       replacements: {
         id: instanceId,
         turnDelta: 1,
-        tokenDelta,
         sentAt: Number(request?.message?.sentAt || Date.now())
       },
       transaction
     }
   );
+}
+
+async function bumpInstanceTokenUsage(instanceId, tokenDelta, transaction) {
+  const delta = Number(tokenDelta || 0);
+  if (!Number.isFinite(delta) || delta <= 0) return;
+  await postgresqlSequelize.query(
+    `UPDATE conversation_instances
+        SET token_count = token_count + :tokenDelta,
+            version = version + 1,
+            updated_at = NOW()
+      WHERE id = :id`,
+    {
+      replacements: {
+        id: instanceId,
+        tokenDelta: delta
+      },
+      transaction
+    }
+  );
+}
+
+async function applyTurnTokenUsage(instanceId, intentResult, assistantResponse, transaction) {
+  const tokenDelta = extractTokenUsageFromTurn(intentResult, assistantResponse);
+  await bumpInstanceTokenUsage(instanceId, tokenDelta, transaction);
+  return tokenDelta;
 }
 
 function normalizeEventSuffix(base, leg = '') {
@@ -910,7 +930,12 @@ function normalizeEventSuffix(base, leg = '') {
   return `${base}_${tag.replace(/[^a-z0-9_]/g, '_')}`;
 }
 
-async function persistIntentEvent(instanceId, request, intentResult, contextEnvelope, transaction, leg = 'primary') {
+function normalizePersistTaskId(value) {
+  const text = String(value || '').trim();
+  return text || undefined;
+}
+
+async function persistIntentEvent(instanceId, request, intentResult, contextEnvelope, transaction, taskId, leg = 'primary') {
   const suffix = normalizeEventSuffix('intent', leg);
   const key = `${buildIdempotencyKey(request)}:${suffix}`;
   const messageId = buildMessageId(request, suffix);
@@ -927,9 +952,9 @@ async function persistIntentEvent(instanceId, request, intentResult, contextEnve
     messageId,
     requestId,
     traceId,
-    taskId: undefined,
+    taskId: normalizePersistTaskId(taskId),
     role: 'assistant',
-    explicitMessageType: 'intent_result',
+    explicitMessageType: MESSAGE_TYPES.INTENT,
     content: null,
     payload,
     attachments: [],
@@ -941,21 +966,23 @@ async function persistIntentEvent(instanceId, request, intentResult, contextEnve
   });
 }
 
-async function persistAssistantResponseEvent(instanceId, request, intentResult, assistantResponse, transaction) {
+async function persistAssistantResponseEvent(instanceId, request, intentResult, assistantResponse, transaction, taskId) {
   const suffix = 'assistant_structured';
   const key = `${buildIdempotencyKey(request)}:${suffix}`;
   const text = String(assistantResponse?.text || '').trim() || `intent=${String(intentResult?.intent || 'unknown')}`;
   const attachments = Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [];
+  const isClarify = String(assistantResponse?.debugMeta?.plannerDecision || '') === 'ask_user';
+  const explicitMessageType = isClarify
+    ? MESSAGE_TYPES.CLARIFY
+    : resolveDialogueMessageType({ content: text, attachments });
   const messageInput = buildConversationMessageInput({
     instanceId,
     messageId: buildMessageId(request, suffix),
     requestId: String(request?.requestId || '').trim() || undefined,
     traceId: String(request?.traceId || '').trim() || undefined,
-    taskId: undefined,
+    taskId: normalizePersistTaskId(taskId),
     role: 'assistant',
-    explicitMessageType: String(assistantResponse?.debugMeta?.plannerDecision || '') === 'ask_user'
-      ? 'clarification'
-      : (attachments.length > 0 ? 'mixed' : 'text'),
+    explicitMessageType,
     content: text,
     payload: {
       mode: 'llm_response',
@@ -971,7 +998,7 @@ async function persistAssistantResponseEvent(instanceId, request, intentResult, 
   });
 }
 
-async function persistToolResultEvent(instanceId, request, assistantResponse, transaction, leg = 'primary') {
+async function persistToolResultEvent(instanceId, request, assistantResponse, transaction, taskId, leg = 'primary') {
   const toolResult = asPlainObject(assistantResponse?.debugMeta?.toolResult);
   if (!toolResult.status) return { inserted: false, row: null };
   const suffix = normalizeEventSuffix('tool_result', leg);
@@ -981,9 +1008,9 @@ async function persistToolResultEvent(instanceId, request, assistantResponse, tr
     messageId: buildMessageId(request, suffix),
     requestId: String(request?.requestId || '').trim() || undefined,
     traceId: String(request?.traceId || '').trim() || undefined,
-    taskId: undefined,
+    taskId: normalizePersistTaskId(taskId),
     role: 'tool',
-    explicitMessageType: 'tool_result',
+    explicitMessageType: MESSAGE_TYPES.TOOL,
     content: String(assistantResponse?.text || '').trim() || null,
     payload: toolResult,
     attachments: [],
@@ -995,7 +1022,7 @@ async function persistToolResultEvent(instanceId, request, assistantResponse, tr
   });
 }
 
-async function persistPlanEvents(instanceId, request, assistantResponse, transaction, leg = 'primary') {
+async function persistPlanEvents(instanceId, request, assistantResponse, transaction, taskId, leg = 'primary') {
   const debugMeta = asPlainObject(assistantResponse?.debugMeta);
   const planInputContext = asPlainObject(debugMeta.planInputContext);
   const planOutput = asPlainObject(debugMeta.planOutput);
@@ -1010,11 +1037,11 @@ async function persistPlanEvents(instanceId, request, assistantResponse, transac
       messageId: buildMessageId(request, inSuffix),
       requestId: String(request?.requestId || '').trim() || undefined,
       traceId: String(request?.traceId || '').trim() || undefined,
-      taskId: undefined,
+      taskId: normalizePersistTaskId(taskId),
       role: 'system',
-      explicitMessageType: 'json',
+      explicitMessageType: MESSAGE_TYPES.PLAN,
       content: null,
-      payload: planInputContext,
+      payload: { phase: 'input', ...planInputContext },
       attachments: [],
       idempotencyKey: inKey
     });
@@ -1027,11 +1054,11 @@ async function persistPlanEvents(instanceId, request, assistantResponse, transac
       messageId: buildMessageId(request, outSuffix),
       requestId: String(request?.requestId || '').trim() || undefined,
       traceId: String(request?.traceId || '').trim() || undefined,
-      taskId: undefined,
+      taskId: normalizePersistTaskId(taskId),
       role: 'system',
-      explicitMessageType: 'json',
+      explicitMessageType: MESSAGE_TYPES.PLAN,
       content: null,
-      payload: planOutput,
+      payload: { phase: 'output', ...planOutput },
       attachments: [],
       idempotencyKey: outKey
     });
@@ -1062,11 +1089,13 @@ async function processConversationRequest({
   contextEnvelope,
   activeResolutionHint,
   assistantResponse,
+  taskId,
   phase = 'full',
   phaseTag = 'primary'
 }) {
   const policy = getPolicy();
   const idempotencyKey = buildIdempotencyKey(request);
+  const persistTaskId = normalizePersistTaskId(taskId);
 
   return postgresqlSequelize.transaction(async (transaction) => {
     const container = await ensureContainer(request, transaction);
@@ -1103,9 +1132,9 @@ async function processConversationRequest({
     const userMsg = normalizeMessagePayload(request);
 
     if (phase === 'after_tool') {
-      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, phaseTag);
-      await persistPlanEvents(instance.id, request, assistantResponse, transaction, phaseTag);
-      await persistToolResultEvent(instance.id, request, assistantResponse, transaction, phaseTag);
+      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, persistTaskId, phaseTag);
+      await persistPlanEvents(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
+      await persistToolResultEvent(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
       const nextSessionState = buildNextSessionState(
         instance?.metadata?.session_state,
         contextEnvelope,
@@ -1113,9 +1142,9 @@ async function processConversationRequest({
         asPlainObject(assistantResponse?.debugMeta)?.planOutput
       );
       await persistSessionState(instance.id, nextSessionState, transaction);
+      await applyTurnTokenUsage(instance.id, intentResult, assistantResponse, transaction);
       return {
         ok: true,
-        mode: 'sync',
         phase: 'after_tool',
         trace_id: request.traceId,
         request_id: request.requestId,
@@ -1125,9 +1154,9 @@ async function processConversationRequest({
     }
 
     if (phase === 'finalize') {
-      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, phaseTag);
-      await persistPlanEvents(instance.id, request, assistantResponse, transaction, phaseTag);
-      await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction);
+      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, persistTaskId, phaseTag);
+      await persistPlanEvents(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
+      await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction, persistTaskId);
       const nextSessionState = buildNextSessionState(
         instance?.metadata?.session_state,
         contextEnvelope,
@@ -1135,11 +1164,11 @@ async function processConversationRequest({
         asPlainObject(assistantResponse?.debugMeta)?.planOutput
       );
       await persistSessionState(instance.id, nextSessionState, transaction);
+      await applyTurnTokenUsage(instance.id, intentResult, assistantResponse, transaction);
       const history = await loadHistory(instance.id, policy.historyTurns, transaction);
       const promptBlocks = toPromptBlocks({ policy, history, request, intentResult });
       return {
         ok: true,
-        mode: 'sync',
         trace_id: request.traceId,
         request_id: request.requestId,
         idempotency_key: idempotencyKey,
@@ -1194,10 +1223,10 @@ async function processConversationRequest({
       };
     }
 
-    await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, 'primary');
-    await persistPlanEvents(instance.id, request, assistantResponse, transaction, 'primary');
-    await persistToolResultEvent(instance.id, request, assistantResponse, transaction);
-    await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction);
+    await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, persistTaskId, 'primary');
+    await persistPlanEvents(instance.id, request, assistantResponse, transaction, persistTaskId, 'primary');
+    await persistToolResultEvent(instance.id, request, assistantResponse, transaction, persistTaskId);
+    await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction, persistTaskId);
     const nextSessionState = buildNextSessionState(
       instance?.metadata?.session_state,
       contextEnvelope,
@@ -1205,13 +1234,13 @@ async function processConversationRequest({
       asPlainObject(assistantResponse?.debugMeta)?.planOutput
     );
     await persistSessionState(instance.id, nextSessionState, transaction);
+    await applyTurnTokenUsage(instance.id, intentResult, assistantResponse, transaction);
 
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
     const promptBlocks = toPromptBlocks({ policy, history, request, intentResult });
 
     return {
       ok: true,
-      mode: 'sync',
       trace_id: request.traceId,
       request_id: request.requestId,
       idempotency_key: idempotencyKey,
@@ -1270,6 +1299,7 @@ async function processConversationRequest({
 module.exports = {
   buildContainerKey,
   buildIdempotencyKey,
+  buildMessageId,
   buildContextEnvelope,
   resolveConversationTarget,
   prepareConversationContext,

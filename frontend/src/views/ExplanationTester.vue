@@ -899,7 +899,7 @@ export default {
         const res = await api.agent.execute(payload)
         const mode = String(res?.data?.mode || '').trim().toLowerCase()
         const finalResponse = res?.data?.response || null
-        if (mode !== 'sync' || !finalResponse) {
+        if (mode !== 'completed' || !finalResponse) {
           throw new Error('agent response missing')
         }
         const returnedConversationId = String(finalResponse?.session?.conversationId || '').trim()

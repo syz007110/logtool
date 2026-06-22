@@ -1,7 +1,9 @@
 const { conversationMessageQueue } = require('../../config/queue');
+const { createAgentTaskPersistenceStore } = require('../orchestrator/stores/agentTaskPersistenceStore');
 const { projectQueueResultToMessageOutput } = require('../types/messageOutputProjection');
-const { buildIdempotencyKey, resolveConversationTarget } = require('./conversationSessionService');
-const { buildPartitionedJobId } = require('./conversationQueueKeys');
+const { resolveConversationTarget } = require('./conversationSessionService');
+
+const taskStore = createAgentTaskPersistenceStore();
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -13,16 +15,20 @@ function normalizeWaitMs(value, fallback) {
   return fallback;
 }
 
-function buildTaskIdFromRequest(request) {
-  return buildIdempotencyKey(request);
+function isTerminalTaskStatus(status) {
+  return ['completed', 'failed', 'cancelled', 'degraded'].includes(String(status || '').trim().toLowerCase());
 }
 
-async function getOrCreateJob({ taskId, request, routing }) {
+async function getOrCreateJob({ queueJobId, request, routing, taskId }) {
   const instanceId = Number(routing?.instance?.id || 0);
   if (!Number.isFinite(instanceId) || instanceId <= 0) {
     throw new Error('conversation instance id is required for queue partitioning');
   }
-  const jobId = buildPartitionedJobId(instanceId, taskId);
+  const jobId = String(queueJobId || '').trim();
+  if (!jobId) {
+    throw new Error('queue job id is required for conversation queue');
+  }
+
   try {
     return await conversationMessageQueue.add(
       'process-conversation',
@@ -36,12 +42,13 @@ async function getOrCreateJob({ taskId, request, routing }) {
           instance: {
             id: routing.instance.id
           },
-          activeResolution: routing.activeResolution
+          activeResolution: routing.activeResolution,
+          task: {
+            id: String(taskId || '')
+          }
         }
       },
-      {
-        jobId
-      }
+      { jobId }
     );
   } catch (error) {
     if (!String(error?.message || '').includes('Job already exists')) throw error;
@@ -60,7 +67,7 @@ function toJobState(job) {
   return 'waiting';
 }
 
-function toTaskView(job) {
+function toQueueTaskView(job) {
   if (!job) return null;
   return {
     taskId: String(job.id),
@@ -74,18 +81,47 @@ function toTaskView(job) {
   };
 }
 
-function buildSyncResponse(result, taskId) {
+function toPersistedTaskView(taskRow, queueView = null) {
+  if (!taskRow) return null;
+  const status = String(taskRow.status || 'queued');
+  const out = {
+    taskId: String(taskRow.task_id || ''),
+    queueJobId: String(taskRow.queue_job_id || ''),
+    status,
+    traceId: String(taskRow.trace_id || ''),
+    requestId: String(taskRow.request_id || ''),
+    instanceId: taskRow.instance_id == null ? null : Number(taskRow.instance_id),
+    createdAt: taskRow.created_at || null,
+    updatedAt: taskRow.updated_at || null,
+    queue: queueView?.queue || 'conversation-message',
+    state: queueView?.state || status,
+    attemptsMade: Number(queueView?.attemptsMade || 0),
+    processedOn: queueView?.processedOn || null,
+    finishedOn: queueView?.finishedOn || null,
+    failedReason: queueView?.failedReason || null
+  };
+
+  if (status === 'completed' && taskRow.response_snapshot) {
+    out.result = taskRow.response_snapshot;
+  }
+  if (status === 'failed' && taskRow.error_snapshot) {
+    out.error = taskRow.error_snapshot;
+  }
+  return out;
+}
+
+function buildCompletedResponse(result, taskId) {
   return {
-    mode: 'sync',
+    mode: 'completed',
     taskId,
     result: projectQueueResultToMessageOutput(result)
   };
 }
 
-function buildAsyncResponse(taskId, options = {}) {
-  const reason = String(options.reason || 'async_accepted').trim() || 'async_accepted';
+function buildAcceptedResponse(taskId, options = {}) {
+  const reason = String(options.reason || 'task_accepted').trim() || 'task_accepted';
   return {
-    mode: 'async',
+    mode: 'accepted',
     taskId,
     reason,
     message: String(options.message || '任务已受理，处理完成后可通过 taskId 查询结果').trim()
@@ -114,19 +150,36 @@ async function awaitJobResult(job, waitMs) {
 }
 
 async function enqueueConversationRequest(request, options = {}) {
-  const taskId = buildTaskIdFromRequest(request);
   const waitMs = normalizeWaitMs(options.waitMs, Number(process.env.SESSION_SYNC_WAIT_MS || 4500));
   const routing = await resolveConversationTarget(request);
-  const job = await getOrCreateJob({ taskId, request, routing });
-  const queueTaskId = String(job?.id || buildPartitionedJobId(routing.instance.id, taskId));
+  const { task } = await taskStore.createTask({
+    request,
+    instanceId: routing.instance.id
+  });
+
+  const publicTaskId = String(task?.task_id || '').trim();
+  const queueJobId = String(task?.queue_job_id || '').trim();
+  if (!publicTaskId || !queueJobId) {
+    throw new Error('agent task id and queue job id are required');
+  }
+
+  const job = await getOrCreateJob({
+    queueJobId,
+    request,
+    routing,
+    taskId: publicTaskId
+  });
+  await taskStore.markEnqueued({ taskId: publicTaskId, request });
 
   if (isPreferAsyncRequest(request)) {
-    return buildAsyncResponse(queueTaskId, { reason: 'prefer_async' });
+    return buildAcceptedResponse(publicTaskId, { reason: 'prefer_async' });
   }
 
   const result = await awaitJobResult(job, waitMs);
-  if (result) return buildSyncResponse(result, queueTaskId);
-  return buildAsyncResponse(queueTaskId, {
+  if (result) return buildCompletedResponse(result, publicTaskId);
+
+  await taskStore.recordSyncTimeout({ taskId: publicTaskId, request, waitMs });
+  return buildAcceptedResponse(publicTaskId, {
     reason: 'sync_timeout',
     message: `处理超时（${waitMs}ms），任务继续在后台执行，请通过 taskId 查询结果`
   });
@@ -135,32 +188,40 @@ async function enqueueConversationRequest(request, options = {}) {
 async function getConversationTask(taskId) {
   const normalized = String(taskId || '').trim();
   if (!normalized) return null;
-  const job = await conversationMessageQueue.getJob(normalized);
-  if (!job) return null;
 
-  const view = toTaskView(job);
-  if (view.state !== 'completed') return view;
+  let taskRow = await taskStore.getTask(normalized);
+  if (!taskRow) return null;
 
-  try {
-    const result = await job.finished();
-    return {
-      ...view,
-      result: projectQueueResultToMessageOutput(result)
-    };
-  } catch (error) {
-    return {
-      ...view,
-      state: 'failed',
-      failedReason: String(error?.message || error || 'failed')
-    };
+  const queueJobId = String(taskRow.queue_job_id || '').trim();
+  const job = queueJobId ? await conversationMessageQueue.getJob(queueJobId) : null;
+  const queueView = toQueueTaskView(job);
+
+  if (job && !isTerminalTaskStatus(taskRow.status)) {
+    let queueResult = null;
+    if (queueView?.state === 'completed') {
+      try {
+        queueResult = await job.finished();
+      } catch (error) {
+        queueView.state = 'failed';
+        queueView.failedReason = String(error?.message || error || 'failed');
+      }
+    }
+
+    await taskStore.syncFromQueueTask(normalized, {
+      ...queueView,
+      result: queueResult ? projectQueueResultToMessageOutput(queueResult) : null
+    });
+    taskRow = await taskStore.getTask(normalized);
   }
+
+  return toPersistedTaskView(taskRow, queueView);
 }
 
 module.exports = {
-  buildTaskIdFromRequest,
-  buildAsyncResponse,
-  buildSyncResponse,
+  buildAcceptedResponse,
+  buildCompletedResponse,
   enqueueConversationRequest,
   getConversationTask,
-  isPreferAsyncRequest
+  isPreferAsyncRequest,
+  toPersistedTaskView
 };

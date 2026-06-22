@@ -128,7 +128,7 @@ test('web adapter renderOutbound includes session on first message only', () => 
     __conversationIdProvided: true
   };
   const response = {
-    mode: 'sync',
+    mode: 'completed',
     taskId: 'task-1',
     result: { text: 'ok', attachments: [], debug: 'strip-me' }
   };
@@ -170,13 +170,13 @@ test('web adapter renderOutbound returns async acceptance payload', () => {
         __conversationIdProvided: false
       },
       response: {
-        mode: 'async',
+        mode: 'accepted',
         taskId: 'task-async-1',
         message: '任务已受理'
       }
     });
   });
-  assert.equal(payload.mode, 'async');
+  assert.equal(payload.mode, 'accepted');
   assert.equal(payload.taskId, 'task-async-1');
   assert.equal(payload.message, '任务已受理');
   assert.equal(payload.response, undefined);
