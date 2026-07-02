@@ -21,15 +21,9 @@ const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog, processBatchDownload: processLogsBatchDownload, processExportCsv } = require('./batchProcessor');
 const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
 const { processKbIngestJob } = require('./kbIngestProcessor');
-const { createPlatformTaskRouter } = require('../agentization/router/platformTaskRouter');
-const { createLogtoolToolGateway } = require('../agentization/tools/logtoolToolGateway');
-const { createV1Planner, buildAvailableTools } = require('../agentization/planner/v1Planner');
-const { prepareConversationContext, processConversationRequest } = require('../agentization/session/conversationSessionService');
-const { createAgentTaskPersistenceStore } = require('../agentization/orchestrator/stores/agentTaskPersistenceStore');
+const { createAgentTaskPersistenceStore } = require('../agentization/taskGateway/stores/agentTaskPersistenceStore');
+const { executeConversationTurn } = require('../agentization/runtime');
 const { projectQueueResultToMessageOutput } = require('../agentization/types/messageOutputProjection');
-const { resolveUserPermissions } = require('../agentization/security/userPermissionResolver');
-const { canonicalizeIntentResultForPipeline } = require('../agentization/intent/canonicalizeIntentResult');
-const { appendAgentDebugMarkdown } = require('../agentization/utils/agentDebugMarkdownLogger');
 const Log = require('../models/log');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const websocketService = require('../services/websocketService');
@@ -54,9 +48,6 @@ const SESSION_QUEUE_CONCURRENCY = parseInt(process.env.SESSION_QUEUE_CONCURRENCY
 const SESSION_INSTANCE_LOCK_TTL_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_TTL_MS, 10) || 120000;
 const SESSION_INSTANCE_LOCK_WAIT_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_WAIT_MS, 10) || 60000;
 const SESSION_INSTANCE_LOCK_RETRY_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_RETRY_MS, 10) || 80;
-const platformTaskRouter = createPlatformTaskRouter();
-const toolGateway = createLogtoolToolGateway();
-const planner = createV1Planner();
 const agentTaskStore = createAgentTaskPersistenceStore();
 const sessionInstanceLockRedis = new Redis({
   host: redisConfig.host,
@@ -773,18 +764,14 @@ kbIngestQueue.process('ingest-kb', KB_INGEST_CONCURRENCY, async (job) => {
   }
 });
 
-// 注册会话消息处理器（结构化上下文，不含LLM生成）
+// 注册会话消息处理器：Worker 负责锁与任务状态，Runtime 负责编排执行
 conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURRENCY, async (job) => {
   const startedAt = Date.now();
   const request = job?.data?.request;
   const routing = job?.data?.routing || {};
   const traceId = String(request?.traceId || '');
   const requestId = String(request?.requestId || '');
-  let lastStep = 'init';
   stepLog(job?.id, 'job:start', { traceId, requestId });
-  if (!request || typeof request !== 'object') {
-    throw new Error('conversation job request is required');
-  }
 
   const routedInstanceId = Number(routing?.instance?.id || 0);
   const routedTaskId = String(routing?.task?.id || '').trim();
@@ -802,7 +789,6 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
 
   const lockToken = `${String(job?.id || 'job')}:${Date.now()}:${Math.random().toString(16).slice(2, 10)}`;
   let lockKey = null;
-  lastStep = 'acquire_lock';
   stepLog(job?.id, 'lock:start', { instanceId: routedInstanceId });
   const lockStartedAt = Date.now();
   try {
@@ -817,316 +803,33 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
     throw error;
   }
 
-  let prepareStartedAt = 0;
-  let debugContextEnvelope = null;
-  let debugIntentResult = null;
-  let debugAssistantResponse = null;
-  let debugIncludePromptInjection = false;
-  let prepared = null;
   try {
-  lastStep = 'prepare_context';
-  stepLog(job?.id, 'prepare:start', { routedInstanceId, traceId, requestId });
-  prepareStartedAt = Date.now();
-  prepared = await withTimeout(
-    prepareConversationContext(request, {
-      persistUserMessage: true,
-      taskId: routedTaskId,
-      instanceId: routedInstanceId > 0 ? routedInstanceId : undefined,
-      activeResolutionHint: routing?.activeResolution || {}
-    }),
-    parseInt(process.env.SESSION_PREPARE_TIMEOUT_MS, 10) || 20000,
-    'prepareConversationContext'
-  );
-  debugContextEnvelope = prepared?.contextEnvelope || null;
-  debugIncludePromptInjection = Boolean(prepared?.activeResolution?.createdNewInstance);
-  stepLog(job?.id, 'prepare:done', { costMs: Date.now() - prepareStartedAt });
-  const instanceId = Number(prepared?.instance?.id || 0);
-  if (!Number.isFinite(instanceId) || instanceId <= 0) {
-    throw new Error('instance id is required for conversation processing');
-  }
-  if (routedInstanceId > 0 && routedInstanceId !== instanceId) {
-    throw new Error(`conversation instance drift detected: routed=${routedInstanceId}, actual=${instanceId}`);
-  }
-  const stepTimeoutMs = parseInt(process.env.SESSION_STEP_TIMEOUT_MS, 10) || 25000;
-  stepLog(job?.id, 'route:start');
-  const routeStartedAt = Date.now();
-  lastStep = 'route';
-  const intentResult = await withTimeout(
-    platformTaskRouter.route(request, {
-      contextEnvelope: prepared.contextEnvelope,
-      history: prepared.history,
-      instance: prepared.instance,
-      container: prepared.container
-    }),
-    stepTimeoutMs,
-    'platformTaskRouter.route'
-  );
-  debugIntentResult = intentResult;
-  stepLog(job?.id, 'route:done', { costMs: Date.now() - routeStartedAt });
-  lastStep = 'resolve_permissions';
-  const permStartedAt = Date.now();
-  stepLog(job?.id, 'permissions:start');
-  const userPermissions = await resolveUserPermissions(request?.user || {});
-  stepLog(job?.id, 'permissions:done', { costMs: Date.now() - permStartedAt, permissionCount: userPermissions.length });
-  const availableTools = buildAvailableTools(userPermissions);
-  request.context = request.context && typeof request.context === 'object' ? request.context : {};
-  request.context.userPermissions = userPermissions;
-  const requestMeta = {
-    taskId: routedTaskId || String(request?.requestId || ''),
-    runId: routedTaskId ? `run_${routedTaskId}` : `run_${String(request?.requestId || '')}`,
-    traceId: String(request?.traceId || ''),
-    requestId: String(request?.requestId || '')
-  };
-  const policyConfig = {
-    maxSteps: 4,
-    maxToolCalls: 2,
-    timeoutBudgetMs: 12000,
-    clarifyRoundLimit: 2
-  };
-  const workflowStartedAt = Date.now();
-  let currentPrepared = prepared;
-  let currentIntentResult = intentResult;
-  let toolCallsUsed = 0;
-  let loopStep = 0;
-  let lastToolSummaryText = '';
-  let assistantResponse = null;
-  let conversationPersistIntent = intentResult;
-  let conversationPersistEnvelope = prepared.contextEnvelope;
-  let conversationPersistPhase = 'full';
-  let conversationPersistTag = 'primary';
-
-  const contextIntentLanguageFallback = () => String(
-    currentIntentResult?.language
-      || currentPrepared?.contextEnvelope?.lang
-      || currentPrepared?.contextEnvelope?.sessionMeta?.lang
-      || 'zh-CN'
-  );
-
-  while (loopStep < policyConfig.maxSteps) {
-    if (Date.now() - workflowStartedAt > policyConfig.timeoutBudgetMs) {
-      break;
-    }
-    loopStep += 1;
-    const contextIntent = canonicalizeIntentResultForPipeline(currentIntentResult, {
-      fallbackLanguage: contextIntentLanguageFallback()
-    });
-    const remainingCalls = Math.max(0, policyConfig.maxToolCalls - toolCallsUsed);
-    const planInputContext = {
-      plannerInputVersion: 'v1',
-      requestMeta,
-      conversationId: String(request?.channel?.conversationId || ''),
-      agentRunId: requestMeta.runId,
-      latestUserMessage: {
-        messageId: String(request?.message?.externalMessageId || ''),
-        content: String(request?.message?.text || ''),
-        language: contextIntent.language
-      },
-      contextIntent,
-      contextSummary: {
-        instanceId: Number(currentPrepared?.instance?.id || 0),
-        turnCount: Number(currentPrepared?.instance?.turn_count || 0),
-        lastMessageAt: currentPrepared?.instance?.last_message_at
-          ? new Date(currentPrepared.instance.last_message_at).getTime()
-          : Date.now()
-      },
-      confirmedSlots: currentPrepared?.contextEnvelope?.confirmedSlots || {},
-      availableTools,
-      runtimeState: {
-        userPermissions,
-        toolCallsUsed,
-        remainingCalls,
-        toolFallbackText: lastToolSummaryText,
-        resetAt: Date.now() + 3600000
-      },
-      policy: policyConfig
-    };
-
-    lastStep = loopStep === 1 ? 'plan' : `plan_${loopStep}`;
-    stepLog(job?.id, 'plan:loop:start', { loopStep, remainingCalls });
-    const planStartedAt = Date.now();
-    const planOutput = planner.buildPlan({ request, planInputContext, intentResult: currentIntentResult });
-    stepLog(job?.id, 'plan:loop:done', {
-      loopStep,
-      costMs: Date.now() - planStartedAt,
-      decision: String(planOutput?.decision || '')
-    });
-
-    lastStep = loopStep === 1 ? 'invoke_tool' : `invoke_tool_${loopStep}`;
-    stepLog(job?.id, 'invoke:loop:start', { loopStep, decision: planOutput?.decision || '' });
-    const invokeStartedAt = Date.now();
-    assistantResponse = await withTimeout(
-      toolGateway.invokeByPlan(planOutput, request, currentIntentResult),
-      stepTimeoutMs,
-      `toolGateway.invokeByPlan:loop:${loopStep}`
-    );
-    assistantResponse.debugMeta = {
-      ...(assistantResponse?.debugMeta || {}),
-      planInputContext,
-      planOutput,
-      loopStep
-    };
-    stepLog(job?.id, 'invoke:loop:done', { loopStep, costMs: Date.now() - invokeStartedAt });
-    if (String(planOutput?.decision || '').trim() !== 'call_tool') {
-      conversationPersistIntent = currentIntentResult;
-      conversationPersistEnvelope = currentPrepared.contextEnvelope;
-      conversationPersistPhase = toolCallsUsed > 0 ? 'finalize' : 'full';
-      conversationPersistTag = toolCallsUsed > 0 ? 'final' : 'primary';
-      break;
-    }
-
-    toolCallsUsed += 1;
-    lastToolSummaryText = String(assistantResponse?.text || '').trim();
-
-    lastStep = `persist_after_tool_${toolCallsUsed}`;
-    stepLog(job?.id, 'persist:after_tool:start', { loopStep, toolCallsUsed });
-    const afterToolPersistStartedAt = Date.now();
-    await withTimeout(
-      processConversationRequest({
-        request,
-        intentResult: currentIntentResult,
-        contextEnvelope: currentPrepared.contextEnvelope,
-        activeResolutionHint: prepared.activeResolution,
-        assistantResponse,
-        taskId: routedTaskId,
-        phase: 'after_tool',
-        phaseTag: `tool${toolCallsUsed}`
-      }),
-      stepTimeoutMs,
-      `processConversationRequest:after_tool:${toolCallsUsed}`
-    );
-    stepLog(job?.id, 'persist:after_tool:done', {
-      loopStep,
-      toolCallsUsed,
-      costMs: Date.now() - afterToolPersistStartedAt
-    });
-
-    if (toolCallsUsed >= policyConfig.maxToolCalls || Date.now() - workflowStartedAt > policyConfig.timeoutBudgetMs) {
-      conversationPersistIntent = currentIntentResult;
-      conversationPersistEnvelope = currentPrepared.contextEnvelope;
-      conversationPersistPhase = 'finalize';
-      conversationPersistTag = 'final';
-      break;
-    }
-
-    const prepareLoopStartedAt = Date.now();
-    stepLog(job?.id, 'prepare:loop:start', { loopStep: loopStep + 1 });
-    currentPrepared = await withTimeout(
-      prepareConversationContext(request, {
-        persistUserMessage: false,
-        taskId: routedTaskId,
-        instanceId: prepared.instance.id,
-        activeResolutionHint: {
-          createdNewInstance: Boolean(prepared.activeResolution?.createdNewInstance),
-          rolloverReason: prepared.activeResolution?.rolloverReason || null,
-          previousInstanceNo: prepared.activeResolution?.previousInstanceNo ?? null
-        }
-      }),
-      parseInt(process.env.SESSION_PREPARE_TIMEOUT_MS, 10) || 20000,
-      `prepareConversationContext:loop:${loopStep + 1}`
-    );
-    debugContextEnvelope = currentPrepared?.contextEnvelope || debugContextEnvelope;
-    stepLog(job?.id, 'prepare:loop:done', {
-      loopStep: loopStep + 1,
-      costMs: Date.now() - prepareLoopStartedAt
-    });
-
-    const routeLoopStartedAt = Date.now();
-    stepLog(job?.id, 'route:loop:start', { loopStep: loopStep + 1 });
-    currentIntentResult = await withTimeout(
-      platformTaskRouter.route(request, {
-        contextEnvelope: currentPrepared.contextEnvelope,
-        history: currentPrepared.history,
-        instance: currentPrepared.instance,
-        container: currentPrepared.container
-      }),
-      stepTimeoutMs,
-      `platformTaskRouter.route:loop:${loopStep + 1}`
-    );
-    debugIntentResult = currentIntentResult;
-    stepLog(job?.id, 'route:loop:done', {
-      loopStep: loopStep + 1,
-      costMs: Date.now() - routeLoopStartedAt
-    });
-  }
-
-  if (!assistantResponse) {
-    assistantResponse = { text: '当前请求未产生可用回复。', debugMeta: {} };
-  }
-  if (!conversationPersistIntent) conversationPersistIntent = currentIntentResult;
-  if (!conversationPersistEnvelope) conversationPersistEnvelope = currentPrepared?.contextEnvelope || prepared.contextEnvelope;
-  if (!conversationPersistPhase) conversationPersistPhase = toolCallsUsed > 0 ? 'finalize' : 'full';
-
-  debugAssistantResponse = assistantResponse;
-  lastStep = 'persist';
-  stepLog(job?.id, 'persist:start');
-  const persistStartedAt = Date.now();
-  const result = await withTimeout(
-    processConversationRequest({
+    const result = await executeConversationTurn({
       request,
-      intentResult: conversationPersistIntent,
-      contextEnvelope: conversationPersistEnvelope,
-      activeResolutionHint: prepared.activeResolution,
-      assistantResponse,
+      routing,
       taskId: routedTaskId,
-      phase: conversationPersistPhase,
-      phaseTag: conversationPersistTag
-    }),
-    stepTimeoutMs,
-    'processConversationRequest'
-  );
-  stepLog(job?.id, 'persist:done', { costMs: Date.now() - persistStartedAt });
-  try {
-    await appendAgentDebugMarkdown({
-      jobId: job?.id,
-      request,
-      contextEnvelope: conversationPersistEnvelope,
-      intentResult: conversationPersistIntent,
-      assistantResponse,
-      includePromptInjection: Boolean(result?.instance?.created_new),
-      stage: 'persist_done'
+      jobId: job?.id
     });
-    stepLog(job?.id, 'agent-debug-md:done', { path: process.env.AGENT_DEBUG_MD_PATH || 'docs/agent-debug-log.md' });
-  } catch (error) {
-    console.warn('[agent-debug-md] append failed:', error?.message || error);
-  }
-  stepLog(job?.id, 'job:done', { costMs: Date.now() - startedAt });
 
-  if (routedTaskId) {
-    try {
-      await agentTaskStore.markCompleted({
-        taskId: routedTaskId,
-        request,
-        response: projectQueueResultToMessageOutput(result)
-      });
-    } catch (taskError) {
-      console.warn('[agent-task] markCompleted failed:', taskError?.message || taskError);
-    }
-  }
+    stepLog(job?.id, 'job:done', { costMs: Date.now() - startedAt });
 
-  return result;
+    if (routedTaskId) {
+      try {
+        await agentTaskStore.markCompleted({
+          taskId: routedTaskId,
+          request,
+          response: projectQueueResultToMessageOutput(result)
+        });
+      } catch (taskError) {
+        console.warn('[agent-task] markCompleted failed:', taskError?.message || taskError);
+      }
+    }
+
+    return result;
   } catch (error) {
-    try {
-      await appendAgentDebugMarkdown({
-        jobId: job?.id,
-        request,
-        contextEnvelope: debugContextEnvelope,
-        intentResult: debugIntentResult || {},
-        assistantResponse: debugAssistantResponse || { debugMeta: {} },
-        includePromptInjection: debugIncludePromptInjection,
-        error,
-        stage: lastStep
-      });
-      stepLog(job?.id, 'agent-debug-md:done', { path: process.env.AGENT_DEBUG_MD_PATH || 'docs/agent-debug-log.md', failedRound: true });
-    } catch (appendError) {
-      console.warn('[agent-debug-md] append failed(on-error):', appendError?.message || appendError);
-    }
-    if (lastStep === 'prepare_context') {
-      stepError(job?.id, 'prepare:failed', error, { costMs: Date.now() - prepareStartedAt, traceId, requestId });
-    }
     stepError(job?.id, 'job:failed', error, {
       traceId,
       requestId,
-      lastStep,
       totalCostMs: Date.now() - startedAt
     });
     if (routedTaskId) {
@@ -1143,8 +846,8 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
       try {
         await releaseInstanceLock(lockKey, lockToken);
         stepLog(job?.id, 'lock:released', { costMs: Date.now() - releaseStartedAt });
-      } catch (error) {
-        stepError(job?.id, 'lock:release_failed', error, { costMs: Date.now() - releaseStartedAt });
+      } catch (releaseError) {
+        stepError(job?.id, 'lock:release_failed', releaseError, { costMs: Date.now() - releaseStartedAt });
       }
     }
   }

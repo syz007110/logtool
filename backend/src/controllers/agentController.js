@@ -1,5 +1,5 @@
 const { executeViaAdapter } = require('./adapterGatewayController');
-const { orchestrator } = require('../agentization');
+const { taskGateway } = require('../agentization');
 const { generateUlid, generateUuidV4 } = require('../utils/idGenerators');
 
 function buildTraceId(req) {
@@ -22,7 +22,7 @@ async function executeAgentTask(req, res) {
 
 async function getAgentTask(req, res) {
   const taskId = String(req.params.taskId || '').trim();
-  const task = await orchestrator.getTask(taskId);
+  const task = await taskGateway.getTask(taskId);
   if (!task) {
     return res.status(404).json({
       ok: false,

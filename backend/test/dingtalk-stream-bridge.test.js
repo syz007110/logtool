@@ -21,7 +21,7 @@ test('stream bridge does not start when credentials are missing', async () => {
       warn: (msg) => logs.push(['warn', msg]),
       error: (msg) => logs.push(['error', msg])
     },
-    orchestrator: { execute: async () => ({ mode: 'completed', result: { text: 'ok' } }) },
+    taskGateway: { execute: async () => ({ mode: 'completed', result: { text: 'ok' } }) },
     clientFactory: () => {
       throw new Error('should not create client');
     }
@@ -55,7 +55,7 @@ test('stream bridge handles bot message and replies through session webhook', as
       DINGTALK_STREAM_CLIENT_SECRET: 'csecret'
     },
     logger: console,
-    orchestrator: {
+    taskGateway: {
       execute: async (request) => {
         executed.push(request);
         return { mode: 'completed', result: { text: 'bridge ok' } };
@@ -127,7 +127,7 @@ test('stream bridge does not print payload sample when debug disabled', async ()
       warn: () => {},
       error: () => {}
     },
-    orchestrator: {
+    taskGateway: {
       execute: async () => ({ mode: 'completed', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
@@ -174,7 +174,7 @@ test('stream bridge prints payload sample when debug enabled', async () => {
       warn: () => {},
       error: () => {}
     },
-    orchestrator: {
+    taskGateway: {
       execute: async () => ({ mode: 'completed', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
@@ -226,7 +226,7 @@ test('stream bridge emits unified agent-request log when AGENT_REQUEST_LOG is en
       warn: () => {},
       error: () => {}
     },
-    orchestrator: {
+    taskGateway: {
       execute: async () => ({ mode: 'completed', result: { text: 'ok' } })
     },
     clientFactory: () => fakeClient,
@@ -273,7 +273,7 @@ test('stream bridge sends markdown attachment replies when response contains att
       DINGTALK_STREAM_CLIENT_SECRET: 'csecret'
     },
     logger: console,
-    orchestrator: {
+    taskGateway: {
       execute: async () => ({
         mode: 'completed',
         result: {
@@ -328,7 +328,7 @@ test('stream bridge prefers agent answer text over instance/intent stub', async 
       DINGTALK_STREAM_CLIENT_SECRET: 'csecret'
     },
     logger: console,
-    orchestrator: {
+    taskGateway: {
       execute: async () => ({
         mode: 'completed',
         taskId: 'job-1',

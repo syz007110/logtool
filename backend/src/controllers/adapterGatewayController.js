@@ -1,6 +1,6 @@
 const { getAdapter } = require('../agentization/adapters/adapterRegistry');
 const { executeAdapterPipeline } = require('../agentization/adapters/adapterPipeline');
-const { orchestrator } = require('../agentization');
+const { taskGateway } = require('../agentization');
 
 async function executeViaAdapter(adapterKey, source, req, res) {
   const adapter = getAdapter(adapterKey);
@@ -9,7 +9,7 @@ async function executeViaAdapter(adapterKey, source, req, res) {
     source,
     req,
     res,
-    execute: (request) => orchestrator.execute(request)
+    execute: (request) => taskGateway.execute(request)
   });
 }
 

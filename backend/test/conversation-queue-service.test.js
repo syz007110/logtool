@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { buildIdempotencyKey } = require('../src/agentization/session/conversationTurnKeys');
-const { buildQueueJobId } = require('../src/agentization/orchestrator/agentTaskKeys');
-const { buildPublicTaskId, toCanonicalId } = require('../src/agentization/orchestrator/agentTaskKeys');
+const { buildQueueJobId } = require('../src/agentization/taskGateway/agentTaskKeys');
+const { buildPublicTaskId, toCanonicalId } = require('../src/agentization/taskGateway/agentTaskKeys');
 
 test('buildIdempotencyKey uses message idempotency key', () => {
   const key = buildIdempotencyKey({

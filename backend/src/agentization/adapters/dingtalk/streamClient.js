@@ -151,8 +151,8 @@ function createDingtalkStreamBridge(options = {}) {
   const agentRequestLogger = options.agentRequestLogger || createAgentRequestLogger({ env, logger, random });
   const executeRequest = (() => {
     if (typeof options.executeRequest === 'function') return options.executeRequest;
-    if (options.orchestrator && typeof options.orchestrator.execute === 'function') {
-      return (request) => options.orchestrator.execute(request);
+    if (options.taskGateway && typeof options.taskGateway.execute === 'function') {
+      return (request) => options.taskGateway.execute(request);
     }
     return async (request) => {
       const { enqueueConversationRequest } = require('../../session/conversationQueueService');

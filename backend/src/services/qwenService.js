@@ -1,13 +1,15 @@
 const https = require('https');
 const url = require('url');
 const smartSearchPrompts = require('../config/smartSearchPrompts.json');
-const { buildIntentToolPrompt } = require('../agentization/tools/registry/toolPromptBinder');
-const { getAllowedToolNames, loadToolRegistry, resolveToolName } = require('../agentization/tools/registry/registryLoader');
+const { runOrchestratorChatCompletion } = require('../agentization/orchestrator/orchestratorLlmService');
+const {
+  buildOrchestratorMessages,
+  buildOrchestratorPromptInjectionSnapshot
+} = require('../agentization/orchestrator/promptRenderer');
 const {
   resolveProvider,
   getSmartSearchLlmStatusForProvider
 } = require('./smartSearchLlmService');
-const { resolveAgentFaultCodeToken } = require('./faultCodeExtractionService');
 
 function renderPromptTemplate(template, vars) {
   const s = String(template ?? '');
@@ -15,22 +17,6 @@ function renderPromptTemplate(template, vars) {
     const v = vars && Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : '';
     return String(v);
   });
-}
-
-/** Agent 意图 user 模板：缺失或 null/undefined 占位统一渲染为字面量 null */
-function renderConversationIntentUserTemplate(template, vars) {
-  const s = String(template ?? '');
-  return s.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
-    if (!vars || !Object.prototype.hasOwnProperty.call(vars, key)) return 'null';
-    const v = vars[key];
-    if (v == null) return 'null';
-    return String(v);
-  });
-}
-
-function resolveConversationIntentPromptLang(tag) {
-  const s = String(tag || 'zh').trim().toLowerCase();
-  return s.startsWith('en') ? 'en' : 'zh';
 }
 
 function normalizeBaseUrl(baseUrl) {
@@ -159,29 +145,6 @@ function normalizeStringArray(arr, maxLen = 12) {
   return out;
 }
 
-function clampConfidence(input, fallback = 0.7) {
-  const n = Number(input);
-  if (!Number.isFinite(n)) return fallback;
-  if (n < 0) return 0;
-  if (n > 1) return 1;
-  return n;
-}
-
-function normalizeLanguageTag(input, fallback = 'zh-CN') {
-  const raw = String(input || '').trim();
-  if (!raw) return fallback;
-  const normalized = raw.replace('_', '-');
-  if (/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(normalized)) return normalized;
-  return fallback;
-}
-
-function mapEnvelopeLangToBcp47(input) {
-  const raw = String(input || '').trim().toLowerCase();
-  if (raw === 'zh') return 'zh-CN';
-  if (raw === 'en') return 'en-US';
-  return normalizeLanguageTag(input, 'zh-CN');
-}
-
 const INTENTS = new Set([
   'troubleshoot',
   'lookup_fault_code',
@@ -278,317 +241,7 @@ function buildQueryPlanExtractionMessages(query, defaults = {}) {
   ];
 }
 
-function buildConversationIntentPromptInjectionSnapshot(contextEnvelope) {
-  const envelope = contextEnvelope && typeof contextEnvelope === 'object' ? contextEnvelope : {};
-  const requestedLang = String(envelope?.lang || envelope?.sessionMeta?.lang || 'zh').trim().toLowerCase();
-  const byLang = smartSearchPrompts?.conversationIntentExtractionByLang;
-  if (!byLang || typeof byLang !== 'object') {
-    const err = new Error('无配置文件');
-    err.code = 'MISSING_INTENT_PROMPTS_CONFIG';
-    throw err;
-  }
-  const langKey = resolveConversationIntentPromptLang(requestedLang);
-  const promptConfig = byLang[langKey];
-  if (!promptConfig || typeof promptConfig !== 'object') {
-    const err = new Error('无配置文件');
-    err.code = 'MISSING_INTENT_PROMPTS_LANG';
-    throw err;
-  }
-
-  const systemPrompt = Array.isArray(promptConfig.system)
-    ? promptConfig.system.join('\n')
-    : String(promptConfig.system || '').trim();
-  if (!systemPrompt) {
-    const err = new Error('无配置文件');
-    err.code = 'MISSING_INTENT_PROMPTS_SYSTEM';
-    throw err;
-  }
-
-  const dynamicToolPrompt = buildIntentToolPrompt({ lang: requestedLang });
-  const toolPrompt = String(dynamicToolPrompt?.toolPrompt || '').trim();
-
-  const memoryPrompt = Array.isArray(promptConfig.memory)
-    ? promptConfig.memory.join('\n')
-    : String(promptConfig.memory || '').trim();
-
-  const userTemplateJoined = Array.isArray(promptConfig.userTemplate)
-    ? promptConfig.userTemplate.join('\n')
-    : String(promptConfig.userTemplate || '').trim();
-  if (!userTemplateJoined) {
-    const err = new Error('无配置文件');
-    err.code = 'MISSING_INTENT_PROMPTS_USER_TEMPLATE';
-    throw err;
-  }
-
-  const currentInput = envelope?.currentInput && typeof envelope.currentInput === 'object'
-    ? envelope.currentInput
-    : {};
-  const historyContext = envelope?.historyContext && typeof envelope.historyContext === 'object'
-    ? envelope.historyContext
-    : {};
-  const confirmedSlots = envelope?.confirmedSlots && typeof envelope.confirmedSlots === 'object'
-    ? envelope.confirmedSlots
-    : {};
-  const historySummary = envelope?.historySummary && typeof envelope.historySummary === 'object'
-    ? envelope.historySummary
-    : {};
-  const recentTurns = Array.isArray(historyContext?.recentTurns) ? historyContext.recentTurns : [];
-  const recentTurnsText = recentTurns.length === 0
-    ? null
-    : recentTurns.map((turn) => {
-      const role = String(turn?.role || '').trim() || 'user';
-      const textTrim = turn?.text == null ? '' : String(turn.text).trim();
-      const text = textTrim === '' ? null : textTrim;
-      return `${role}: ${text == null ? 'null' : text}`;
-    }).join('\n');
-
-  const normalizedSlotErrorCode = String(confirmedSlots?.errorCode || '').trim().toUpperCase();
-  const currentInputRawText = String(currentInput?.rawText || '').trim();
-  const mergedCurrentInputRawText = normalizedSlotErrorCode
-    ? `${currentInputRawText}\n[system_detected_error_code] ${normalizedSlotErrorCode}`
-    : currentInputRawText;
-
-  const strOrNull = (v) => {
-    if (v == null) return null;
-    const t = String(v).trim();
-    return t ? t : null;
-  };
-
-  const fileIdsArr = Array.isArray(currentInput?.fileIds) ? currentInput.fileIds : [];
-  const userPrompt = renderConversationIntentUserTemplate(userTemplateJoined, {
-    currentInputRawText: mergedCurrentInputRawText || null,
-    currentInputFileIds: fileIdsArr.length > 0 ? fileIdsArr.join(', ') : null,
-    errorCode: strOrNull(confirmedSlots?.errorCode),
-    subsystem: strOrNull(confirmedSlots?.subsystem),
-    device: strOrNull(confirmedSlots?.device),
-    phenomenon: strOrNull(confirmedSlots?.phenomenon),
-    concept: strOrNull(confirmedSlots?.concept),
-    component: strOrNull(confirmedSlots?.component),
-    lastIntent: strOrNull(historySummary?.lastIntent),
-    lastTool: strOrNull(historySummary?.lastTool),
-    lastResultBrief: strOrNull(historySummary?.lastResultBrief),
-    historyContextSummary: strOrNull(historyContext?.summary),
-    recentTurnsText
-  });
-
-  const nullIfEmpty = (s) => {
-    const t = String(s == null ? '' : s).trim();
-    return t ? t : null;
-  };
-
-  const messages = [];
-  messages.push({ role: 'system', content: systemPrompt });
-  if (userPrompt) messages.push({ role: 'user', content: userPrompt });
-  if (toolPrompt) messages.push({ role: 'user', content: `[tool]\n${toolPrompt}` });
-  messages.push({ role: 'user', content: `[memory]\n${memoryPrompt}` });
-
-  return {
-    systemPrompt,
-    systemEffective: systemPrompt,
-    systemFallbackUsed: false,
-    userPrompt: nullIfEmpty(userPrompt),
-    toolPrompt: nullIfEmpty(toolPrompt),
-    memoryPrompt: nullIfEmpty(memoryPrompt),
-    messages
-  };
-}
-
-function buildConversationIntentMessages(contextEnvelope) {
-  return buildConversationIntentPromptInjectionSnapshot(contextEnvelope).messages;
-}
-
-function getConversationToolNameAllowlist() {
-  try {
-    const registry = loadToolRegistry();
-    return getAllowedToolNames(registry);
-  } catch (_) {
-    return new Set();
-  }
-}
-
-function normalizeAnyOfRequiredGroups(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((group) => (Array.isArray(group) ? group.map((s) => String(s ?? '').trim()).filter(Boolean) : []))
-    .filter((g) => g.length > 0);
-}
-
-function normalizeToolSlotValues(raw, allowedKeysSet) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  const out = {};
-  for (const [k, v] of Object.entries(raw)) {
-    const key = String(k ?? '').trim();
-    if (!key) continue;
-    if (allowedKeysSet && allowedKeysSet.size > 0 && !allowedKeysSet.has(key)) continue;
-    if (v === undefined) continue;
-    if (v == null) {
-      out[key] = null;
-      continue;
-    }
-    if (Array.isArray(v)) {
-      out[key] = v;
-      continue;
-    }
-    if (typeof v === 'object') {
-      out[key] = v;
-      continue;
-    }
-    const s = String(v).trim();
-    out[key] = s || null;
-  }
-  return out;
-}
-
-function normalizeToolSlotsFromParsed(parsed, options = {}) {
-  const ts = parsed?.toolSlots && typeof parsed.toolSlots === 'object' && !Array.isArray(parsed.toolSlots)
-    ? parsed.toolSlots
-    : {};
-  const missingRaw = ts.missingSlots != null ? ts.missingSlots : ts.missingSlot;
-  const missingSlots = Array.isArray(missingRaw)
-    ? normalizeStringArray(missingRaw, 48)
-    : (missingRaw != null && String(missingRaw).trim() ? [String(missingRaw).trim()] : []);
-
-  const toolName = String(options.toolName || '').trim();
-  let allowedKeys = null;
-  if (toolName && options.registry?.byName) {
-    const toolRow = options.registry.byName.get(toolName);
-    const props = toolRow?.inputContract?.properties;
-    if (props && typeof props === 'object') {
-      allowedKeys = new Set(Object.keys(props).map((x) => String(x || '').trim()).filter(Boolean));
-    }
-  }
-
-  const rawVals = ts.values != null ? ts.values : ts.slotValues;
-  const values = normalizeToolSlotValues(rawVals, allowedKeys);
-
-  return {
-    requiredSlots: normalizeStringArray(ts.requiredSlots, 48),
-    optionalSlots: normalizeStringArray(ts.optionalSlots, 48),
-    anyOfRequired: normalizeAnyOfRequiredGroups(ts.anyOfRequired),
-    missingSlots,
-    values
-  };
-}
-
-function normalizeConversationIntentResult(parsed = {}, options = {}) {
-  const allowedIntents = new Set([
-    'fault_diagnosis',
-    'log_analysis',
-    'error_code_lookup',
-    'knowledge_qa',
-    'provide_missing_info',
-    'fault_collection',
-    'continue_previous_task',
-    'general_chat',
-    'unknown'
-  ]);
-  let registry = null;
-  let toolNames = new Set();
-  try {
-    registry = loadToolRegistry();
-    toolNames = getAllowedToolNames(registry);
-  } catch (_) {
-    toolNames = getConversationToolNameAllowlist();
-  }
-  const nextActionTypes = new Set(['ask_user', 'call_tool', 'reply_direct', 'reject']);
-  const rawIntent = String(parsed.intent || '').trim();
-  const intent = allowedIntents.has(rawIntent) ? rawIntent : 'unknown';
-  const fallbackLanguage = mapEnvelopeLangToBcp47(options?.fallbackLanguage);
-
-  const entitiesRaw = parsed?.entities && typeof parsed.entities === 'object' ? parsed.entities : {};
-  const normalizedErrorCode = resolveAgentFaultCodeToken(entitiesRaw.errorCode || '') || null;
-  const entities = {
-    errorCode: normalizedErrorCode,
-    subsystem: entitiesRaw.subsystem == null ? null : String(entitiesRaw.subsystem || '').trim().toUpperCase() || null,
-    device: String(entitiesRaw.device || '').trim() || null,
-    phenomenon: String(entitiesRaw.phenomenon || '').trim() || null,
-    concept: String(entitiesRaw.concept || '').trim() || null,
-    component: String(entitiesRaw.component || '').trim() || null,
-    fileIds: normalizeStringArray(entitiesRaw.fileIds, 20)
-  };
-
-  const toolDecisionRaw = parsed?.toolDecision && typeof parsed.toolDecision === 'object' ? parsed.toolDecision : {};
-  const toolNameRaw = String(toolDecisionRaw.toolName || '').trim();
-  const nextActionRaw = parsed?.nextAction && typeof parsed.nextAction === 'object' ? parsed.nextAction : {};
-  const nextActionTypeRaw = String(nextActionRaw.type || '').trim();
-  const wantsCallTool = Boolean(toolDecisionRaw.shouldCallTool) || nextActionTypeRaw === 'call_tool';
-  const resolvedToolName = resolveToolName(toolNameRaw, registry || undefined)
-    || (wantsCallTool ? resolveToolName(intent, registry || undefined) : null);
-  const toolName = resolvedToolName && toolNames.has(resolvedToolName) ? resolvedToolName : null;
-  const shouldCallTool = wantsCallTool && Boolean(toolName);
-  const toolDecision = {
-    shouldCallTool,
-    toolName,
-    reason: String(toolDecisionRaw.reason || '').trim()
-  };
-
-  const toolSlots = normalizeToolSlotsFromParsed(parsed, { toolName, registry });
-  const needClarification = Boolean(parsed?.needClarification);
-  const clarificationQuestionRaw = String(parsed?.clarificationQuestion || '').trim();
-  const clarificationQuestion = needClarification
-    ? (clarificationQuestionRaw || '请补充更多信息')
-    : null;
-  const answerDraftRaw = String(parsed?.answerDraft || '').trim();
-
-  let nextActionType = nextActionTypes.has(nextActionTypeRaw) ? nextActionTypeRaw : 'reply_direct';
-  if (needClarification) nextActionType = 'ask_user';
-  else if (toolDecision.shouldCallTool) nextActionType = 'call_tool';
-  const nextAction = {
-    type: nextActionType,
-    message: String(nextActionRaw.message || '').trim()
-  };
-  let answerDraft = answerDraftRaw || null;
-  if (nextActionType === 'ask_user') {
-    answerDraft = answerDraft || clarificationQuestion || nextAction.message || '请补充更多信息';
-  } else if (nextActionType === 'reply_direct') {
-    answerDraft = answerDraft || nextAction.message || null;
-  } else if (nextActionType === 'reject') {
-    answerDraft = answerDraft || nextAction.message || null;
-  } else {
-    answerDraft = null;
-  }
-
-  const legacyFilters = {
-    errorCode: entities.errorCode || '',
-    device: entities.device || '',
-    Phenomenon: entities.phenomenon || '',
-    Concept: entities.concept || ''
-  };
-
-  return {
-    intentVersion: /^v\d+$/i.test(String(parsed?.intentVersion || '').trim())
-      ? String(parsed.intentVersion).trim().toLowerCase()
-      : 'v1',
-    intent,
-    entities,
-    toolDecision,
-    needClarification,
-    clarificationQuestion,
-    nextAction,
-    answerDraft,
-    confidence: clampConfidence(parsed?.confidence, 0.7),
-    language: normalizeLanguageTag(parsed?.language, fallbackLanguage),
-    keywords: normalizeKeywords(parsed?.keywords).slice(0, 8),
-    filters: legacyFilters,
-    toolSlots
-  };
-}
-
-function buildProviderAuthHeaders(provider) {
-  const headers = {};
-  if (provider?.requiresApiKey) {
-    const apiKey = String(provider?.apiKey || '').trim();
-    if (!apiKey) {
-      const err = new Error('LLM provider missing api key');
-      err.code = 'MISSING_API_KEY';
-      throw err;
-    }
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
-  return headers;
-}
-
-async function extractConversationIntentWithProvider({ contextEnvelope, providerId }) {
+async function runOrchestratorLlmWithProvider({ contextEnvelope, providerId, userPermissions, traceId }) {
   const provider = resolveProvider(providerId);
   const status = getSmartSearchLlmStatusForProvider(provider);
   if (!status.available) {
@@ -596,52 +249,12 @@ async function extractConversationIntentWithProvider({ contextEnvelope, provider
     err.code = String(status.reason || 'LLM_UNAVAILABLE').toUpperCase();
     throw err;
   }
-
-  const messages = buildConversationIntentMessages(contextEnvelope);
-  const request = {
-    model: provider.model,
-    temperature: 0,
-    top_p: 0.1,
-    messages
-  };
-
-  const resp = await doJsonRequest({
-    method: 'POST',
-    endpoint: provider.baseUrl,
-    pathName: '/chat/completions',
-    headers: buildProviderAuthHeaders(provider),
-    body: request,
-    timeoutMs: provider.timeoutMs
+  return runOrchestratorChatCompletion({
+    contextEnvelope,
+    provider,
+    userPermissions,
+    traceId
   });
-
-  const content = resp?.json?.choices?.[0]?.message?.content ?? '';
-  const parsed = extractFirstJsonObject(content) || {};
-  const result = normalizeConversationIntentResult(parsed, {
-    fallbackLanguage: contextEnvelope?.lang || contextEnvelope?.sessionMeta?.lang || 'zh'
-  });
-  const raw = {
-    content,
-    usage: resp?.json?.usage || null,
-    model: resp?.json?.model || provider.model
-  };
-  return {
-    ...result,
-    raw,
-    model: provider.model,
-    provider: { id: provider.id, label: provider.label },
-    messages,
-    toolCatalog: (() => {
-      try {
-        const registry = loadToolRegistry();
-        return {
-          version: registry.registryVersion,
-          toolNames: Array.from(getAllowedToolNames(registry))
-        };
-      } catch (_) {
-        return null;
-      }
-    })()
-  };
 }
 
 function doSseRequest({ endpoint, pathName, headers, body, timeoutMs, onEvent }) {
@@ -893,13 +506,12 @@ module.exports = {
   getLlmProviderConfig,
   extractKeywordsWithProvider,
   extractQueryPlanWithProvider,
-  extractConversationIntentWithProvider,
+  runOrchestratorLlmWithProvider,
   streamKeywordExtractionWithProvider,
-  buildConversationIntentMessages,
-  buildConversationIntentPromptInjectionSnapshot,
+  buildOrchestratorMessages,
+  buildOrchestratorPromptInjectionSnapshot,
   buildKeywordExtractionMessages,
-  buildQueryPlanExtractionMessages,
-  normalizeConversationIntentResult
+  buildQueryPlanExtractionMessages
 };
 
 

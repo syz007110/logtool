@@ -5,37 +5,10 @@
       "toolName": "error_code_lookup",
       "displayName": "故障码查询",
       "enabled": true,
-      "intentBindings": [
-        "error_code_lookup"
-      ],
       "description": "查询故障码对应的含义、参数说明、检测逻辑与处理建议。支持完整日志码、类型码或描述性关键词；若存在多条匹配，应该追问用户故障码是什么或子系统号是什么（故障码首位）。",
-      "llmSummary": {
-        "whenToUse": [
-          "用户在故障码管理页面触发故障码查询 handle（handleQuery）",
-          "用户提问故障码/错误码/报警码含义、参数解释、检测逻辑或处理建议"
-        ],
-        "missingSlotQuestions": {
-          "errorCode": "请提供需要查询的故障码，例如 0X010A 或 141010A。",
-          "keywords": "请补充故障码关键词（例如症状、子系统或报错描述）以便查询。"
-        }
-      },
-      "inputContract": {
+      "parameters": {
         "type": "object",
-        "requiredSlots": [],
-        "anyOfRequired": [
-          [
-            "errorCode",
-            "keywords"
-          ]
-        ],
-        "optionalSlots": [
-          "language",
-          "subsystem"
-        ],
-        "defaultable": {
-          "language": "zh-CN"
-        },
-        "contextFillable": [],
+        "additionalProperties": false,
         "properties": {
           "errorCode": {
             "type": "string",
@@ -58,327 +31,30 @@
             "description": "子系统号（单字符），用于在多结果时缩小范围",
             "pattern": "^[1-9A]$"
           }
-        }
-      },
-      "outputContract": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "status",
-          "data",
-          "evidence",
-          "error"
-        ],
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "success",
-              "empty",
-              "failed"
-            ]
-          },
-          "data": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "items",
-                  "ambiguous"
-                ],
-                "properties": {
-                  "ambiguous": {
-                    "type": "boolean",
-                    "description": "items.length > 1 时为 true，需结合自然语言 text 让用户确认子系统或条目"
-                  },
-                  "items": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 5,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "subsystem",
-                        "code",
-                        "displayCode",
-                        "shortMessage",
-                        "userHint",
-                        "operation",
-                        "params",
-                        "detail",
-                        "method",
-                        "techSolution",
-                        "category",
-                        "explanation",
-                        "prefix",
-                        "prefixRaw"
-                      ],
-                      "properties": {
-                        "subsystem": {
-                          "type": "string"
-                        },
-                        "code": {
-                          "type": "string"
-                        },
-                        "displayCode": {
-                          "type": "string"
-                        },
-                        "shortMessage": {
-                          "type": "string"
-                        },
-                        "userHint": {
-                          "type": "string"
-                        },
-                        "operation": {
-                          "type": "string"
-                        },
-                        "params": {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "param1",
-                            "param2",
-                            "param3",
-                            "param4"
-                          ],
-                          "properties": {
-                            "param1": {
-                              "type": "string"
-                            },
-                            "param2": {
-                              "type": "string"
-                            },
-                            "param3": {
-                              "type": "string"
-                            },
-                            "param4": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "detail": {
-                          "type": "string"
-                        },
-                        "method": {
-                          "type": "string"
-                        },
-                        "techSolution": {
-                          "type": "string"
-                        },
-                        "category": {
-                          "type": "string"
-                        },
-                        "explanation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "prefix": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "prefixRaw": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "evidence": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "type",
-                    "engine",
-                    "table",
-                    "pk"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "sql_row"
-                    },
-                    "engine": {
-                      "type": "string",
-                      "enum": [
-                        "mysql"
-                      ]
-                    },
-                    "table": {
-                      "type": "string"
-                    },
-                    "pk": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "column",
-                        "value"
-                      ],
-                      "properties": {
-                        "column": {
-                          "type": "string"
-                        },
-                        "value": {
-                          "type": [
-                            "string",
-                            "number"
-                          ]
-                        }
-                      }
-                    },
-                    "pks": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "column",
-                          "value"
-                        ],
-                        "properties": {
-                          "column": {
-                            "type": "string"
-                          },
-                          "value": {
-                            "type": [
-                              "string",
-                              "number"
-                            ]
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "type",
-                    "engine",
-                    "index",
-                    "documentId"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "const": "search_hit"
-                    },
-                    "engine": {
-                      "type": "string",
-                      "enum": [
-                        "elasticsearch"
-                      ]
-                    },
-                    "index": {
-                      "type": "string"
-                    },
-                    "alias": {
-                      "type": "string"
-                    },
-                    "documentId": {
-                      "type": "string"
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          "error": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "code",
-                  "message"
-                ],
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  },
-                  "message": {
-                    "type": "string"
-                  }
-                }
-              }
-            ]
-          }
         },
-        "allOf": [
+        "anyOf": [
           {
-            "if": {
-              "properties": {
-                "status": {
-                  "const": "failed"
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "data": {
-                  "type": "null"
-                },
-                "error": {
-                  "type": "object",
-                  "required": [
-                    "code",
-                    "message"
-                  ]
-                }
-              }
-            }
+            "required": [
+              "errorCode"
+            ]
           },
           {
-            "if": {
-              "properties": {
-                "status": {
-                  "const": "success"
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "data": {
-                  "type": "object"
-                },
-                "evidence": {
-                  "minItems": 1
-                },
-                "error": {
-                  "type": "null"
-                }
-              }
-            }
+            "required": [
+              "keywords"
+            ]
           }
         ]
       },
-      "execution": {
-        "mode": "sync",
-        "handler": "errorCodeLookupHandler.execute",
-        "timeoutMs": 5000,
-        "retryable": false
+      "runtime": {
+        "defaults": {
+          "language": "zh-CN"
+        },
+        "execution": {
+          "mode": "sync",
+          "handler": "errorCodeLookupHandler.execute",
+          "timeoutMs": 5000,
+          "retryable": false
+        }
       },
       "security": {
         "riskLevel": "low",

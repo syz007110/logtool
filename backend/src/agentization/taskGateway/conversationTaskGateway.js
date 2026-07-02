@@ -10,7 +10,8 @@ function normalizeWaitMs(value, fallback) {
   return fallback;
 }
 
-function createUnifiedOrchestrator(options = {}) {
+/** Turn 交付层：MessageInput → 会话治理 → 建任务入队 */
+function createConversationTaskGateway(options = {}) {
   const waitMs = normalizeWaitMs(
     options.waitMs,
     Number(process.env.SESSION_SYNC_WAIT_MS || process.env.AGENT_SYNC_TIMEOUT_MS || 4500)
@@ -33,5 +34,5 @@ function createUnifiedOrchestrator(options = {}) {
 }
 
 module.exports = {
-  createUnifiedOrchestrator
+  createConversationTaskGateway
 };

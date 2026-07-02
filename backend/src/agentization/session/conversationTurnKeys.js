@@ -38,13 +38,15 @@ function extractLlmTokenUsage(usage) {
   return Number.isFinite(total) && total > 0 ? total : 0;
 }
 
-function extractTokenUsageFromTurn(intentResult, assistantResponse) {
+function extractTokenUsageFromTurn(orchestratorResult, assistantResponse) {
   let total = 0;
-  total += extractLlmTokenUsage(intentResult?.llmRaw?.response?.usage);
+  total += extractLlmTokenUsage(orchestratorResult?.usage);
+  total += extractLlmTokenUsage(orchestratorResult?.llmRaw?.usage);
+  total += extractLlmTokenUsage(orchestratorResult?.llmRaw?.response?.usage);
   const debugMeta = assistantResponse?.debugMeta && typeof assistantResponse.debugMeta === 'object'
     ? assistantResponse.debugMeta
     : {};
-  total += extractLlmTokenUsage(debugMeta?.intentExecution?.llmRaw?.response?.usage);
+  total += extractLlmTokenUsage(debugMeta?.toolExecution?.llmRaw?.response?.usage);
   total += extractLlmTokenUsage(debugMeta?.smartSearch?.llmRaw?.response?.usage);
   return total;
 }

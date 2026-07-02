@@ -1,9 +1,8 @@
 /**
- * 单独打印意图模型使用的 tool 段落（与 qwenService 中 buildIntentToolPrompt 一致）。
- * 用法（在 backend 目录）：
+ * Print registry-derived API function tools (tools[] payload).
+ * Usage (from backend directory):
  *   node src/scripts/printAgentToolPrompt.js
- *   node src/scripts/printAgentToolPrompt.js --full
- *   node src/scripts/printAgentToolPrompt.js --json
+ *   node src/scripts/printAgentToolPrompt.js --provider deepseek-chat
  *   node src/scripts/printAgentToolPrompt.js --lang en
  */
 
@@ -15,27 +14,30 @@ try {
   /* optional */
 }
 
-const { buildIntentToolPrompt } = require('../agentization/tools/registry/toolPromptBinder');
+const { buildFunctionToolsFromRegistry } = require('../agentization/tools/toolSchemaBuilder');
+const { mapFunctionToolsForProvider } = require('../agentization/tools/toolProviderAdapter');
+const { resolveProvider } = require('../services/smartSearchLlmService');
 
 const args = process.argv.slice(2);
-const full = args.includes('--full');
-const jsonOut = args.includes('--json');
 let lang = 'zh';
+let providerId = '';
 const langIdx = args.indexOf('--lang');
 if (langIdx >= 0 && args[langIdx + 1]) {
   lang = String(args[langIdx + 1] || 'zh').trim();
 }
-
-const built = buildIntentToolPrompt({ lang });
-
-if (jsonOut) {
-  process.stdout.write(`${JSON.stringify(built, null, 2)}\n`);
-  process.exit(0);
+const providerIdx = args.indexOf('--provider');
+if (providerIdx >= 0 && args[providerIdx + 1]) {
+  providerId = String(args[providerIdx + 1] || '').trim();
 }
 
-const body = String(built.toolPrompt || '').trim();
-if (full) {
-  process.stdout.write(`[tool]\n${body}\n`);
-} else {
-  process.stdout.write(`${body}\n`);
-}
+const built = buildFunctionToolsFromRegistry({ lang });
+const provider = resolveProvider(providerId);
+const mapped = mapFunctionToolsForProvider(built.tools, provider);
+
+process.stdout.write(`${JSON.stringify({
+  registryVersion: built.registryVersion,
+  toolNames: built.toolNames,
+  provider: provider?.id || null,
+  tools: mapped.tools,
+  tool_choice: mapped.tool_choice || null
+}, null, 2)}\n`);

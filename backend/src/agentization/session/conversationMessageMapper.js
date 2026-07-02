@@ -17,7 +17,7 @@ function asPlainObject(input) {
  * @property {string | undefined} trace_id
  * @property {string | undefined} task_id
  * @property {'user' | 'assistant' | 'tool' | 'system'} role
- * @property {'text' | 'attachment' | 'intent' | 'plan' | 'tool' | 'clarify' | 'error'} message_type
+ * @property {'text' | 'attachment' | 'orchestrator' | 'plan' | 'tool' | 'clarify' | 'error'} message_type
  * @property {string | undefined} content
  * @property {Record<string, unknown>} payload
  * @property {Record<string, unknown> | undefined} raw_payload

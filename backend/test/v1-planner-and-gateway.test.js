@@ -1,244 +1,28 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createV1Planner, buildAvailableTools } = require('../src/agentization/planner/v1Planner');
-const { buildToolArgumentsFromSlotEnvelope } = require('../src/agentization/planner/toolCallSlotEnvelope');
 const { createLogtoolToolGateway } = require('../src/agentization/tools/logtoolToolGateway');
 const { getToolHandler } = require('../src/agentization/tools/handlers');
+const { buildFunctionToolsFromRegistry, toolAllowedForPermissions } = require('../src/agentization/tools/toolSchemaBuilder');
+const { loadToolRegistry, getEnabledTools } = require('../src/agentization/tools/registry/registryLoader');
 
-test('planner returns ask_user when clarification is required', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '这个问题怎么处理' }, context: {} },
-    intentResult: {
-      intent: 'provide_missing_info',
-      needClarification: true,
-      clarificationQuestion: '请提供故障码。',
-      nextAction: { type: 'ask_user', message: '' },
-      toolDecision: { shouldCallTool: false, toolName: null, reason: '' },
-      entities: { fileIds: [] },
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'ask_user');
-  assert.match(out.clarification.question, /故障码/);
-  assert.equal(out.clarification.missingSlots[0], 'errorCode');
-});
+function toolCall(toolName, args, id = 'call-1') {
+  return {
+    id,
+    toolName,
+    arguments: args,
+    rawArguments: JSON.stringify(args)
+  };
+}
 
-test('planner computes missingSlots from tool contract', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '' }, context: {} },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: true,
-      clarificationQuestion: '请补充参数',
-      nextAction: { type: 'ask_user', message: '' },
-      toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
-      entities: { errorCode: null, keywords: null, fileIds: [] },
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'ask_user');
-  assert.equal(Array.isArray(out.clarification.missingSlots), true);
-  assert.equal(out.clarification.missingSlots[0], 'errorCode');
-});
-
-test('planner call_tool passes through full fault code from confirmedSlots without collapsing to type code', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '随便追问一句' }, context: {} },
-    planInputContext: {
-      contextIntent: null,
-      confirmedSlots: { errorCode: '141010A' },
-      runtimeState: { userPermissions: ['error_code:read'] }
-    },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: false,
-      clarificationQuestion: null,
-      toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
-      entities: { errorCode: '0X010A', fileIds: [] },
-      nextAction: { type: 'call_tool', message: '' },
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'call_tool');
-  const args0 = buildToolArgumentsFromSlotEnvelope(out.toolCall);
-  assert.ok(Array.isArray(out.toolCall.toolSlots?.requiredSlots));
-  assert.equal(args0.errorCode, '141010A');
-});
-
-test('planner call_tool keeps full code from user message when slot empty', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '142020A 怎么办' }, context: {} },
-    planInputContext: {
-      contextIntent: null,
-      confirmedSlots: {},
-      runtimeState: { userPermissions: ['error_code:read'] }
-    },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: false,
-      clarificationQuestion: null,
-      toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
-      entities: { errorCode: null, fileIds: [] },
-      nextAction: { type: 'call_tool', message: '' },
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'call_tool');
-  const args = buildToolArgumentsFromSlotEnvelope(out.toolCall);
-  assert.equal(args.errorCode, '142020A');
-});
-
-test('planner forwards subsystem slot to tool arguments', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '010A' }, context: {} },
-    planInputContext: {
-      contextIntent: null,
-      confirmedSlots: { subsystem: '2' },
-      runtimeState: { userPermissions: ['error_code:read'] }
-    },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: false,
-      clarificationQuestion: null,
-      toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
-      entities: { errorCode: '0X010A', fileIds: [] },
-      nextAction: { type: 'call_tool', message: '' },
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'call_tool');
-  const args = buildToolArgumentsFromSlotEnvelope(out.toolCall);
-  assert.equal(args.subsystem, '2');
-});
-
-test('planner ask_user prefers toolSlots.missingSlots from LLM when non-empty', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '010A 含义' }, context: {} },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: true,
-      clarificationQuestion: null,
-      nextAction: { type: 'ask_user', message: '' },
-      toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
-      toolSlots: {
-        requiredSlots: ['errorCode'],
-        optionalSlots: ['subsystem'],
-        anyOfRequired: [],
-        missingSlots: ['subsystem']
-      },
-      entities: { errorCode: '0X010A', fileIds: [] },
-      answerDraft: '请问是哪个子系统的 010A？',
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'ask_user');
-  assert.deepEqual(out.clarification.missingSlots, ['subsystem']);
-  assert.match(out.clarification.question, /子系统/);
-});
-
-test('planner call_tool builds tool arguments from slots and message heuristics only', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '010A' }, context: {} },
-    planInputContext: {
-      contextIntent: null,
-      confirmedSlots: { errorCode: '141010A', subsystem: '1' },
-      runtimeState: { userPermissions: ['error_code:read'] }
-    },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: false,
-      clarificationQuestion: null,
-      toolDecision: {
-        shouldCallTool: true,
-        toolName: 'error_code_lookup',
-        reason: ''
-      },
-      toolSlots: {
-        requiredSlots: ['errorCode'],
-        optionalSlots: ['subsystem', 'keywords'],
-        anyOfRequired: [],
-        missingSlots: []
-      },
-      entities: { fileIds: [] },
-      nextAction: { type: 'call_tool', message: '' },
-      language: 'zh-CN'
-    }
-  });
-  assert.equal(out.decision, 'call_tool');
-  const args = buildToolArgumentsFromSlotEnvelope(out.toolCall);
-  assert.equal(args.errorCode, '141010A');
-  assert.equal(args.subsystem, '1');
-});
-
-test('planner call_tool keeps language from context intent when building heuristics', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '010A' }, context: {} },
-    planInputContext: {
-      contextIntent: null,
-      confirmedSlots: {},
-      runtimeState: { userPermissions: ['error_code:read'] }
-    },
-    intentResult: {
-      intent: 'error_code_lookup',
-      needClarification: false,
-      clarificationQuestion: null,
-      toolDecision: {
-        shouldCallTool: true,
-        toolName: 'error_code_lookup',
-        reason: ''
-      },
-      entities: { fileIds: [] },
-      nextAction: { type: 'call_tool', message: '' },
-      language: 'en-US'
-    }
-  });
-  assert.equal(out.decision, 'call_tool');
-  const args = buildToolArgumentsFromSlotEnvelope(out.toolCall);
-  assert.equal(args.language, 'en-US');
-});
-
-test('planner coerces call_tool to reply_direct when remainingCalls exhausted', () => {
-  const planner = createV1Planner();
-  const out = planner.buildPlan({
-    request: { message: { text: '查码' }, context: {} },
-    planInputContext: {
-      contextIntent: {
-        intent: 'error_code_lookup',
-        entities: { errorCode: '0X010A', fileIds: [] },
-        toolDecision: { shouldCallTool: true, toolName: 'error_code_lookup', reason: '' },
-        needClarification: false,
-        nextAction: { type: 'call_tool', message: '' },
-        answerDraft: null,
-        language: 'zh-CN'
-      },
-      confirmedSlots: {},
-      availableTools: [{
-        name: 'error_code_lookup',
-        allowed: true,
-        requiredSlots: [],
-        anyOfRequired: []
-      }],
-      runtimeState: {
-        userPermissions: ['error_code:read'],
-        remainingCalls: 0,
-        toolFallbackText: '工具侧摘要'
-      },
-      policy: {}
-    },
-    intentResult: {}
-  });
-  assert.equal(out.decision, 'reply_direct');
-  assert.equal(out.reason, '工具侧摘要');
-});
+function turnResult(overrides = {}) {
+  return {
+    turnVersion: 'v1',
+    kind: 'tool_call',
+    toolCalls: [],
+    ...overrides
+  };
+}
 
 test('gateway validates required anyOf slots for error_code_lookup', () => {
   const gateway = createLogtoolToolGateway();
@@ -299,7 +83,7 @@ test('gateway resolves registered tool through independent handler registry', as
     toolName: 'error_code_lookup',
     args: { errorCode: '0X010A', language: 'zh-CN' },
     request: { traceId: 't-1' },
-    intentResult: { intent: 'error_code_lookup' }
+    orchestratorResult: turnResult()
   });
 
   assert.equal(out.text, 'handler:0X010A');
@@ -318,7 +102,7 @@ test('gateway enforces ToolResult matrix for failed status', () => {
   }, /error.code/);
 });
 
-test('gateway invokeByPlan returns failed ToolResult on execution error', async (t) => {
+test('gateway invokeFromToolCall returns failed ToolResult on execution error', async (t) => {
   const gateway = createLogtoolToolGateway();
   const originalExecuteToolCall = gateway.executeToolCall;
   gateway.executeToolCall = async () => {
@@ -328,34 +112,18 @@ test('gateway invokeByPlan returns failed ToolResult on execution error', async 
   };
   t.after(() => { gateway.executeToolCall = originalExecuteToolCall; });
 
-  const out = await gateway.invokeByPlan(
-    {
-      decision: 'call_tool',
-      toolCall: {
-        toolName: 'error_code_lookup',
-        toolSlots: {
-          requiredSlots: [],
-          optionalSlots: [],
-          anyOfRequired: [],
-          missingSlots: [],
-          values: { errorCode: '0X010A', language: 'zh-CN' }
-        },
-        entities: { fileIds: [] },
-        confirmedSlots: {},
-        userMessageText: 'x',
-        language: 'zh-CN'
-      }
-    },
-    { traceId: 't-1', message: { text: 'x' } },
-    { intent: 'error_code_lookup', entities: { errorCode: '0X010A' } }
-  );
+  const out = await gateway.invokeFromToolCall({
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', language: 'zh-CN' }),
+    request: { traceId: 't-1', message: { text: 'x' } },
+    turnResult: turnResult()
+  });
 
   assert.equal(out.debugMeta.toolResult.status, 'failed');
   assert.equal(out.debugMeta.toolResult.data, null);
   assert.equal(out.debugMeta.toolResult.error.code, 'TOOL_BROKEN');
 });
 
-test('gateway maps error_code_lookup output to contracted data fields', async (t) => {
+test('gateway invokeFromToolCall maps error_code_lookup output to contracted data fields', async (t) => {
   const gateway = createLogtoolToolGateway();
   const originalExecuteToolCall = gateway.executeToolCall;
   gateway.executeToolCall = async () => ({
@@ -389,27 +157,11 @@ test('gateway maps error_code_lookup output to contracted data fields', async (t
   });
   t.after(() => { gateway.executeToolCall = originalExecuteToolCall; });
 
-  const out = await gateway.invokeByPlan(
-    {
-      decision: 'call_tool',
-      toolCall: {
-        toolName: 'error_code_lookup',
-        toolSlots: {
-          requiredSlots: [],
-          optionalSlots: [],
-          anyOfRequired: [],
-          missingSlots: [],
-          values: { errorCode: '0X010A', language: 'zh-CN' }
-        },
-        entities: { fileIds: [] },
-        confirmedSlots: {},
-        userMessageText: 'x',
-        language: 'zh-CN'
-      }
-    },
-    { traceId: 't-1', message: { text: '141010A是什么故障码' } },
-    { intent: 'error_code_lookup', entities: { errorCode: '0X010A' } }
-  );
+  const out = await gateway.invokeFromToolCall({
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', language: 'zh-CN' }),
+    request: { traceId: 't-1', message: { text: '141010A是什么故障码' } },
+    turnResult: turnResult()
+  });
 
   assert.equal(out.debugMeta.toolResult.status, 'success');
   const d = out.debugMeta.toolResult.data;
@@ -438,41 +190,26 @@ test('gateway maps error_code_lookup output to contracted data fields', async (t
   assert.deepEqual(Object.keys(first.params).sort(), ['param1', 'param2', 'param3', 'param4']);
 });
 
-test('buildAvailableTools marks tool disallowed when permission missing', () => {
-  const tools = buildAvailableTools([]);
-  const lookup = tools.find((x) => x.name === 'error_code_lookup');
-  assert.equal(Boolean(lookup), true);
-  assert.equal(lookup.allowed, false);
+test('buildFunctionToolsFromRegistry omits tools when permission missing', () => {
+  const registry = loadToolRegistry();
+  const lookup = getEnabledTools(registry).find((x) => x.toolName === 'error_code_lookup');
+  assert.equal(toolAllowedForPermissions(lookup, []), false);
+  const pack = buildFunctionToolsFromRegistry({ userPermissions: [] });
+  assert.equal(pack.tools.some((t) => t.function.name === 'error_code_lookup'), false);
 });
 
-test('gateway denies tool call when explicit permissions miss required scope', async () => {
+test('gateway invokeFromToolCall denies tool call when explicit permissions miss required scope', async () => {
   const gateway = createLogtoolToolGateway();
-  const out = await gateway.invokeByPlan(
-    {
-      decision: 'call_tool',
-      toolCall: {
-        toolName: 'error_code_lookup',
-        toolSlots: {
-          requiredSlots: [],
-          optionalSlots: [],
-          anyOfRequired: [],
-          missingSlots: [],
-          values: { errorCode: '0X010A', language: 'zh-CN' }
-        },
-        entities: { fileIds: [] },
-        confirmedSlots: {},
-        userMessageText: 'x',
-        language: 'zh-CN'
-      }
-    },
-    { traceId: 't-1', context: { userPermissions: [] }, message: { text: 'x' } },
-    { intent: 'error_code_lookup', entities: { errorCode: '0X010A' } }
-  );
+  const out = await gateway.invokeFromToolCall({
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', language: 'zh-CN' }),
+    request: { traceId: 't-1', context: { userPermissions: [] }, message: { text: 'x' } },
+    turnResult: turnResult()
+  });
   assert.equal(out.debugMeta.toolResult.status, 'failed');
   assert.equal(out.debugMeta.toolResult.error.code, 'TOOL_PERMISSION_DENIED');
 });
 
-test('gateway validates output evidence contract', async (t) => {
+test('gateway invokeFromToolCall validates output evidence contract', async (t) => {
   const handler = getToolHandler('error_code_lookup');
   const originalExecute = handler.execute;
   handler.execute = async () => ({
@@ -503,27 +240,11 @@ test('gateway validates output evidence contract', async (t) => {
   t.after(() => { handler.execute = originalExecute; });
 
   const gateway = createLogtoolToolGateway();
-  const out = await gateway.invokeByPlan(
-    {
-      decision: 'call_tool',
-      toolCall: {
-        toolName: 'error_code_lookup',
-        toolSlots: {
-          requiredSlots: [],
-          optionalSlots: [],
-          anyOfRequired: [],
-          missingSlots: [],
-          values: { errorCode: '0X010A', language: 'zh-CN' }
-        },
-        entities: { fileIds: [] },
-        confirmedSlots: {},
-        userMessageText: 'x',
-        language: 'zh-CN'
-      }
-    },
-    { traceId: 't-1', context: { userPermissions: ['error_code:read'] }, message: { text: 'x' } },
-    { intent: 'error_code_lookup', entities: { errorCode: '0X010A' } }
-  );
+  const out = await gateway.invokeFromToolCall({
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', language: 'zh-CN' }),
+    request: { traceId: 't-1', context: { userPermissions: ['error_code:read'] }, message: { text: 'x' } },
+    turnResult: turnResult()
+  });
 
   assert.equal(out.debugMeta.toolResult.status, 'failed');
   assert.equal(out.debugMeta.toolResult.error.code, 'INVALID_TOOL_OUTPUT');

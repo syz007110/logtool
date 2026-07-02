@@ -1,7 +1,10 @@
 const { conversationMessageQueue } = require('../../config/queue');
-const { createAgentTaskPersistenceStore } = require('../orchestrator/stores/agentTaskPersistenceStore');
+const { createAgentTaskPersistenceStore } = require('../taskGateway/stores/agentTaskPersistenceStore');
 const { projectQueueResultToMessageOutput } = require('../types/messageOutputProjection');
-const { resolveConversationTarget } = require('./conversationSessionService');
+const {
+  resolveConversationTarget,
+  persistUserMessageAtTurn
+} = require('./conversationSessionService');
 
 const taskStore = createAgentTaskPersistenceStore();
 
@@ -162,6 +165,11 @@ async function enqueueConversationRequest(request, options = {}) {
   if (!publicTaskId || !queueJobId) {
     throw new Error('agent task id and queue job id are required');
   }
+  await persistUserMessageAtTurn({
+    request,
+    instanceId: routing.instance.id,
+    taskId: publicTaskId
+  });
 
   const job = await getOrCreateJob({
     queueJobId,

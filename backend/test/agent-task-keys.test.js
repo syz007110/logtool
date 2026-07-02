@@ -6,7 +6,7 @@ const {
   buildQueueJobId,
   buildTaskIdentity,
   toCanonicalId
-} = require('../src/agentization/orchestrator/agentTaskKeys');
+} = require('../src/agentization/taskGateway/agentTaskKeys');
 const { buildIdempotencyKey } = require('../src/agentization/session/conversationTurnKeys');
 
 test('buildTaskIdentity derives stable task and queue ids', () => {

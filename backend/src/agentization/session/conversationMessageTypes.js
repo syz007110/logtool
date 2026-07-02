@@ -1,7 +1,7 @@
 const MESSAGE_TYPES = Object.freeze({
   TEXT: 'text',
   ATTACHMENT: 'attachment',
-  INTENT: 'intent',
+  ORCHESTRATOR: 'orchestrator',
   PLAN: 'plan',
   TOOL: 'tool',
   CLARIFY: 'clarify',
@@ -9,7 +9,7 @@ const MESSAGE_TYPES = Object.freeze({
 });
 
 const PIPELINE_MESSAGE_TYPES = Object.freeze([
-  MESSAGE_TYPES.INTENT,
+  MESSAGE_TYPES.ORCHESTRATOR,
   MESSAGE_TYPES.PLAN,
   MESSAGE_TYPES.TOOL,
   MESSAGE_TYPES.CLARIFY,
@@ -22,7 +22,8 @@ const DIALOGUE_MESSAGE_TYPES = Object.freeze([
 ]);
 
 const LEGACY_MESSAGE_TYPE_ALIASES = Object.freeze({
-  intent_result: MESSAGE_TYPES.INTENT,
+  intent_result: MESSAGE_TYPES.ORCHESTRATOR,
+  intent: MESSAGE_TYPES.ORCHESTRATOR,
   tool_result: MESSAGE_TYPES.TOOL,
   clarification: MESSAGE_TYPES.CLARIFY,
   mixed: MESSAGE_TYPES.ATTACHMENT,
@@ -48,8 +49,8 @@ function normalizeStoredMessageType(value) {
   return LEGACY_MESSAGE_TYPE_ALIASES[text] || text;
 }
 
-function isIntentMessageType(messageType) {
-  return normalizeStoredMessageType(messageType) === MESSAGE_TYPES.INTENT;
+function isOrchestratorMessageType(messageType) {
+  return normalizeStoredMessageType(messageType) === MESSAGE_TYPES.ORCHESTRATOR;
 }
 
 function isPipelineMessageType(messageType) {
@@ -101,6 +102,6 @@ module.exports = {
   normalizeInboundMessageType,
   resolveDialogueMessageType,
   resolvePersistMessageType,
-  isIntentMessageType,
+  isOrchestratorMessageType,
   isPipelineMessageType
 };

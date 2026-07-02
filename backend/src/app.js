@@ -67,7 +67,7 @@ const errorCodeCacheSyncService = require('./services/errorCodeCacheSyncService'
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
 const { startTempCleanupJob } = require('./services/tempCleanupService');
 const { startRefreshTokenCleanupJob } = require('./services/refreshTokenCleanupService');
-const { orchestrator } = require('./agentization');
+const { taskGateway } = require('./agentization');
 const { createDingtalkStreamBridge } = require('./agentization/adapters/dingtalk/streamClient');
 
 let tempCleanupJob = null;
@@ -376,7 +376,7 @@ if (isMainProcess) {
           // 启动钉钉 Stream 机器人连接（仅主进程）
           (async () => {
             try {
-              dingtalkStreamBridge = createDingtalkStreamBridge({ orchestrator });
+              dingtalkStreamBridge = createDingtalkStreamBridge({ taskGateway });
               const started = await dingtalkStreamBridge.start();
               if (!started.started) {
                 console.log(`[进程 ${process.pid}] ℹ️ 钉钉 Stream 未启动: ${started.reason || 'unknown'}`);

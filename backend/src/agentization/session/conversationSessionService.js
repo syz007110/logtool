@@ -1,6 +1,6 @@
 const { postgresqlSequelize } = require('../../config/postgresql');
 const { buildConversationMessageInput } = require('./conversationMessageMapper');
-const { isIntentMessageType, resolveDialogueMessageType, MESSAGE_TYPES } = require('./conversationMessageTypes');
+const { isOrchestratorMessageType, resolveDialogueMessageType, MESSAGE_TYPES } = require('./conversationMessageTypes');
 const {
   buildContainerKey,
   buildIdempotencyKey,
@@ -9,7 +9,6 @@ const {
   extractTokenUsageFromTurn
 } = require('./conversationTurnKeys');
 const { createMessageService } = require('./messageService');
-const { resolveAgentFaultCodeToken } = require('../../services/faultCodeExtractionService');
 
 const messageService = createMessageService();
 
@@ -46,21 +45,20 @@ function truncateJson(input, max = 160) {
 function logContextEnvelopeDebug(request, contextEnvelope) {
   if (!isSessionContextDebugEnabled() || !contextEnvelope) return;
   try {
-    const recentTurns = Array.isArray(contextEnvelope.recentTurns) ? contextEnvelope.recentTurns : [];
-    const recentTurnsPreview = recentTurns.slice(-2).map((turn) => ({
+    const historyContext = asPlainObject(contextEnvelope.historyContext);
+    const historyMessages = Array.isArray(historyContext.messages) ? historyContext.messages : [];
+    const historyMessagesPreview = historyMessages.slice(-2).map((turn) => ({
       role: String(turn?.role || ''),
-      text: truncateText(turn?.text, 80)
+      content: truncateText(turn?.content, 80)
     }));
     console.log('[session-context] envelope', {
       traceId: String(request?.traceId || ''),
       requestId: String(request?.requestId || ''),
       currentQuery: truncateText(contextEnvelope.currentQuery, 120),
-      resolvedQuery: truncateText(contextEnvelope.resolvedQuery, 160),
       historySummary: truncateJson(contextEnvelope.historySummary, 200),
-      recentTurnsCount: recentTurns.length,
-      recentTurnsPreview,
-      sessionState: contextEnvelope.sessionState || {},
-      contextVersion: Number(contextEnvelope.contextVersion || 1)
+      historyMessagesCount: historyMessages.length,
+      historyMessagesPreview,
+      contextVersion: Number(contextEnvelope.contextVersion || 2)
     });
   } catch (error) {
     console.warn('[session-context] debug log failed:', error?.message || error);
@@ -161,85 +159,6 @@ function normalizeHistoryText(row) {
   return String(payload?.text || '').trim();
 }
 
-function extractLastUserQuery(history) {
-  for (let i = history.length - 1; i >= 0; i -= 1) {
-    const row = history[i];
-    if (String(row?.role || '') !== 'user') continue;
-    const text = normalizeHistoryText(row);
-    if (text) return text;
-  }
-  return '';
-}
-
-function extractFaultCode(text) {
-  const t = resolveAgentFaultCodeToken(text);
-  return t || null;
-}
-
-function createDefaultFilters() {
-  return [
-    { errorCode: '' },
-    { device: '' },
-    { Phenomenon: '' },
-    { Concept: '' }
-  ];
-}
-
-function normalizeFilters(filtersInput) {
-  const out = createDefaultFilters();
-  const mergeItem = (key, value) => {
-    const idx = out.findIndex((it) => Object.prototype.hasOwnProperty.call(it, key));
-    if (idx < 0) return;
-    out[idx][key] = String(value || '').trim();
-  };
-  if (Array.isArray(filtersInput)) {
-    for (const item of filtersInput) {
-      const src = asPlainObject(item);
-      if (Object.prototype.hasOwnProperty.call(src, 'errorCode')) mergeItem('errorCode', src.errorCode);
-      if (Object.prototype.hasOwnProperty.call(src, 'device')) mergeItem('device', src.device);
-      if (Object.prototype.hasOwnProperty.call(src, 'Phenomenon')) mergeItem('Phenomenon', src.Phenomenon);
-      if (Object.prototype.hasOwnProperty.call(src, 'Concept')) mergeItem('Concept', src.Concept);
-    }
-    return out;
-  }
-  const srcObj = asPlainObject(filtersInput);
-  if (Object.keys(srcObj).length > 0) {
-    mergeItem('errorCode', srcObj.errorCode);
-    mergeItem('device', srcObj.device || srcObj.Device);
-    mergeItem('Phenomenon', srcObj.Phenomenon || srcObj.phenomenon);
-    mergeItem('Concept', srcObj.Concept || srcObj.concept);
-  }
-  return out;
-}
-
-function normalizeSessionState(input = {}) {
-  const src = asPlainObject(input);
-  const filters = normalizeFilters(src.filters);
-  const pendingSlot = src.pendingSlot == null ? null : String(src.pendingSlot).trim() || null;
-  return { filters, pendingSlot };
-}
-
-function getFilterValue(filters, key) {
-  const list = Array.isArray(filters) ? filters : [];
-  for (const item of list) {
-    const obj = asPlainObject(item);
-    if (Object.prototype.hasOwnProperty.call(obj, key)) return String(obj[key] || '').trim();
-  }
-  return '';
-}
-
-function setFilterValue(filters, key, value) {
-  const list = Array.isArray(filters) ? filters : [];
-  const idx = list.findIndex((item) => Object.prototype.hasOwnProperty.call(asPlainObject(item), key));
-  const nextValue = String(value || '').trim();
-  if (idx >= 0) {
-    list[idx] = { [key]: nextValue };
-  } else {
-    list.push({ [key]: nextValue });
-  }
-  return list;
-}
-
 function mapRecentTurnRole(row) {
   const role = String(row?.role || '').trim().toLowerCase();
   if (role === 'user') return 'user';
@@ -251,13 +170,18 @@ function mapRecentTurnRole(row) {
 
 function mapRecentTurnText(row) {
   const messageType = String(row?.message_type || '').trim().toLowerCase();
-  if (isIntentMessageType(messageType)) {
+  if (isOrchestratorMessageType(messageType)) {
     const p = asPlainObject(row?.payload);
-    const intent = String(p.intent || '').trim();
-    const na = String(p.nextAction?.type || p.next_action?.type || '').trim();
-    return intent
-      ? (`[意图抽取] intent=${intent}${na ? `, nextAction=${na}` : ''}`)
-      : '[意图抽取]';
+    const kind = String(p.kind || '').trim();
+    const toolName = String(p.toolCalls?.[0]?.toolName || p.toolCall?.toolName || '').trim();
+    if (kind === 'tool_call' && toolName) {
+      return `[编排决策] kind=tool_call, tool=${toolName}`;
+    }
+    if (kind === 'message') {
+      const preview = String(p.content || '').trim().slice(0, 80);
+      return preview ? `[编排决策] kind=message, content=${preview}` : '[编排决策] kind=message';
+    }
+    return kind ? `[编排决策] kind=${kind}` : '[编排决策]';
   }
   if (messageType === MESSAGE_TYPES.TOOL) {
     const p = asPlainObject(row?.payload);
@@ -266,11 +190,6 @@ function mapRecentTurnText(row) {
     return toolName
       ? (`[工具结果] tool=${toolName}${status ? `, status=${status}` : ''}`)
       : '[工具结果]';
-  }
-  if (messageType === MESSAGE_TYPES.PLAN) {
-    const p = asPlainObject(row?.payload);
-    const phase = String(p.phase || '').trim();
-    return phase ? `[规划] phase=${phase}` : '[规划]';
   }
   return normalizeHistoryText(row);
 }
@@ -292,133 +211,46 @@ function groupHistoryRounds(history) {
   return rounds;
 }
 
-function buildRecentTurns(history, maxTurns = 2) {
+function buildHistoryMessages(history, maxTurns = 2) {
   const rounds = groupHistoryRounds(history);
   if (!rounds.length) return [];
   // 时间正序：先较旧轮、后较新轮，避免“当前仅 user 的最新轮”挤在前面出现连续两条 user
   const picked = rounds.slice(-Math.max(1, maxTurns));
   const out = [];
-  for (let i = 0; i < picked.length; i += 1) {
-    const turnDistance = picked.length - i;
-    const roundRows = picked[i];
+  for (const roundRows of picked) {
     for (const row of roundRows) {
       const mappedRole = mapRecentTurnRole(row);
       if (!mappedRole) continue;
-      const text = mapRecentTurnText(row);
-      if (!text) continue;
+      const content = mapRecentTurnText(row);
+      if (!content) continue;
       out.push({
         role: mappedRole,
-        text,
-        turn: turnDistance
+        content
       });
     }
   }
   return out;
 }
 
-function buildHistorySummary(history, recentTurns) {
-  const lastRound = (Array.isArray(recentTurns) ? recentTurns : []).filter((t) => Number(t.turn) === 1);
-  const assistantTurn = [...lastRound].reverse().find((t) => t.role === 'assistant');
-  let lastIntent = null;
-  let lastTool = null;
-  const historyRows = Array.isArray(history) ? history : [];
-  for (let i = historyRows.length - 1; i >= 0; i -= 1) {
-    const row = historyRows[i];
-    const role = String(row?.role || '').trim().toLowerCase();
-    const payload = asPlainObject(row?.payload);
-    const isIntentLike = (role === 'assistant' && isIntentMessageType(row?.message_type))
-      || (role === 'tool' && String(row?.message_type || '').trim().toLowerCase() === MESSAGE_TYPES.TOOL);
-    if (!isIntentLike) continue;
-    const intent = String(payload?.intent || '').trim();
-    const toolName = String(payload?.toolCall?.toolName || payload?.toolName || payload?.tool_name || '').trim();
-    if (!lastIntent) lastIntent = intent || null;
-    if (toolName) {
-      lastTool = toolName;
-    }
-    if (lastIntent && lastTool) break;
-  }
-
-  const briefRaw = String(assistantTurn?.text || '').trim();
-  const lastResultBrief = briefRaw ? truncateText(briefRaw, 120) : null;
-  return { lastIntent, lastTool, lastResultBrief };
+function excludeCurrentMessageFromHistory(history, request) {
+  const currentMessageId = String(request?.message?.externalMessageId || '').trim();
+  if (!currentMessageId) return Array.isArray(history) ? history : [];
+  return (Array.isArray(history) ? history : []).filter((row) => {
+    const rowMessageId = String(row?.message_id || row?.messageId || '').trim();
+    return rowMessageId !== currentMessageId;
+  });
 }
 
-function buildHistoryContextSummary(history, recentTurns) {
-  const list = Array.isArray(recentTurns) ? recentTurns : [];
-  const lastUser = [...list].reverse().find((t) => t.role === 'user');
-  const lastAssistant = [...list].reverse().find((t) => t.role === 'assistant');
-  const userText = String(lastUser?.text || '').trim();
-  const assistantText = String(lastAssistant?.text || '').trim();
-  if (!userText && !assistantText) return '';
-  if (userText && assistantText) {
-    return `上一轮用户提到“${truncateText(userText, 50)}”，系统回复“${truncateText(assistantText, 80)}”。`;
-  }
-  if (userText) return `上一轮用户提到“${truncateText(userText, 80)}”。`;
-  return `系统上一轮回复“${truncateText(assistantText, 80)}”。`;
-}
-
-function buildCurrentInput(request, resolvedRawText = null) {
+function buildCurrentInput(request) {
   const attachments = Array.isArray(request?.message?.attachments) ? request.message.attachments : [];
   const fileIds = Array.from(new Set(
     attachments
       .map((a) => String(a?.fileId || a?.id || '').trim())
       .filter(Boolean)
   ));
-  const originalRawText = String(request?.message?.text || '').trim();
   return {
     messageId: String(request?.message?.externalMessageId || '').trim() || null,
-    rawText: String(resolvedRawText == null ? originalRawText : resolvedRawText).trim(),
-    originalRawText,
     attachments,
-    fileIds
-  };
-}
-
-function extractComponentFromText(text) {
-  const source = String(text || '').trim();
-  if (!source) return null;
-  const known = ['模拟器', '患者平台', '医生控制台', '图像平台', '工具臂', '调整臂', '主控制臂', '器械'];
-  for (const key of known) {
-    if (source.includes(key)) return key;
-  }
-  return null;
-}
-
-function buildConfirmedSlots({ request, sessionState }) {
-  const filters = Array.isArray(sessionState?.filters) ? sessionState.filters : [];
-  const readFilter = (key) => {
-    for (const item of filters) {
-      const obj = asPlainObject(item);
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        const value = String(obj[key] || '').trim();
-        return value || null;
-      }
-    }
-    return null;
-  };
-  const currentQuery = String(request?.message?.text || '').trim();
-  const extractedFaultCode = extractFaultCode(currentQuery) || null;
-  const currentAttachments = Array.isArray(request?.message?.attachments) ? request.message.attachments : [];
-  const fileIdSet = new Set();
-  const pushFileIdsFrom = (attachments) => {
-    for (const item of Array.isArray(attachments) ? attachments : []) {
-      const id = String(item?.fileId || item?.id || '').trim();
-      if (id) fileIdSet.add(id);
-    }
-  };
-  pushFileIdsFrom(currentAttachments);
-  const historyRows = Array.isArray(request?.__historyRows) ? request.__historyRows : [];
-  for (const row of historyRows) {
-    pushFileIdsFrom(row?.attachments);
-    pushFileIdsFrom(asPlainObject(row?.payload)?.attachments);
-  }
-  const fileIds = Array.from(fileIdSet);
-  return {
-    errorCode: extractedFaultCode || readFilter('errorCode'),
-    device: readFilter('device'),
-    phenomenon: readFilter('Phenomenon'),
-    concept: readFilter('Concept'),
-    component: extractComponentFromText(currentQuery),
     fileIds
   };
 }
@@ -433,60 +265,42 @@ function resolveRecentTurnLimit(policy = {}) {
   return Math.max(1, Math.min(safeHistoryTurns, safeMaxTurns));
 }
 
-function buildContextEnvelope({ request, history, sessionState, policy, resolvedQuery = null }) {
+function buildContextEnvelope({ request, history, policy }) {
   const currentQuery = String(request?.message?.text || '').trim();
-  const recentTurns = buildRecentTurns(history, resolveRecentTurnLimit(policy));
-  const mergedSessionState = normalizeSessionState(sessionState);
-  const historyUserQuery = extractLastUserQuery(history);
-  const currentFaultCode = extractFaultCode(currentQuery);
-  const historyFaultCode = extractFaultCode(historyUserQuery);
-  if (currentFaultCode) {
-    mergedSessionState.filters = setFilterValue(mergedSessionState.filters, 'errorCode', currentFaultCode);
-  } else if (!getFilterValue(mergedSessionState.filters, 'errorCode') && historyFaultCode) {
-    mergedSessionState.filters = setFilterValue(mergedSessionState.filters, 'errorCode', historyFaultCode);
-  }
+  const historyBeforeCurrent = excludeCurrentMessageFromHistory(history, request);
+  const historyMessages = buildHistoryMessages(historyBeforeCurrent, resolveRecentTurnLimit(policy));
 
   return {
-    currentInput: buildCurrentInput(request, resolvedQuery),
     currentQuery,
-    resolvedQuery: String(resolvedQuery == null ? currentQuery : resolvedQuery).trim(),
-    confirmedSlots: buildConfirmedSlots({
-      request: { ...request, __historyRows: history },
-      sessionState: mergedSessionState
-    }),
-    historySummary: buildHistorySummary(history, recentTurns),
+    currentInput: buildCurrentInput(request),
+    historySummary: { summary: null },
     historyContext: {
-      summary: buildHistoryContextSummary(history, recentTurns),
-      recentTurns: recentTurns.map((t) => ({
-        role: t.role,
-        text: t.text
+      messages: historyMessages.map((m) => ({
+        role: m.role,
+        content: m.content
       }))
     },
-    sessionState: mergedSessionState,
-    contextVersion: 1
+    contextVersion: 2
   };
 }
 
-function buildResolvedQueryForContext(request) {
-  return String(request?.message?.text || '').trim();
-}
-
-function toPromptBlocks({ policy, history, request, intentResult }) {
+function toPromptBlocks({ policy, history, request, orchestratorResult }) {
+  const resolved = orchestratorResult;
   const blocks = [];
   blocks.push({
     block_type: 'system',
     order: 1,
     content: {
       safety: 'no_fabrication',
-      mode: 'structured_only'
+      mode: 'chat_completions'
     }
   });
   blocks.push({
     block_type: 'developer',
     order: 2,
     content: {
-      orchestration: 'intent_first',
-      llm_enabled: false
+      orchestration: 'orchestrator_llm',
+      llm_enabled: true
     }
   });
   blocks.push({
@@ -494,7 +308,7 @@ function toPromptBlocks({ policy, history, request, intentResult }) {
     order: 3,
     content: {
       lang: 'zh',
-      intent: intentResult?.intent || null
+      turnKind: String(resolved?.kind || '').trim() || null
     }
   });
   blocks.push({
@@ -506,7 +320,7 @@ function toPromptBlocks({ policy, history, request, intentResult }) {
     block_type: 'tool_context',
     order: 5,
     content: {
-      intent: intentResult
+      orchestrator: resolved
     }
   });
   blocks.push({
@@ -655,31 +469,46 @@ async function resolveActiveInstance(container, request, policy, transaction) {
   };
 }
 
-async function loadHistory(instanceId, turns, transaction) {
-  const limit = Math.max(1, Number(turns || 5) * 2);
+async function loadHistory(instanceId, turns, transaction, options = {}) {
+  const turnLimit = Math.max(1, Math.floor(Number(turns || 5)));
+  const excludeMessageId = String(options?.excludeMessageId || '').trim();
   const [rows] = await postgresqlSequelize.query(
-    `SELECT message_id, role, message_type, content, payload, attachments, created_at
-       FROM conversation_messages
-      WHERE instance_id = :instanceId
-      ORDER BY created_at DESC, id DESC
-      LIMIT :limit`,
+    `WITH eligible AS (
+       SELECT id, message_id, role, message_type, content, payload, attachments, created_at
+         FROM conversation_messages
+        WHERE instance_id = :instanceId
+          AND (:excludeMessageId = '' OR message_id <> :excludeMessageId)
+     ),
+     selected_turns AS (
+       SELECT id
+         FROM eligible
+        WHERE role = 'user'
+        ORDER BY created_at DESC, id DESC
+        LIMIT :turnLimit
+     ),
+     cutoff AS (
+       SELECT MIN(id) AS min_id FROM selected_turns
+     )
+     SELECT message_id, role, message_type, content, payload, attachments, created_at
+       FROM eligible
+      WHERE (SELECT min_id FROM cutoff) IS NULL
+         OR id >= (SELECT min_id FROM cutoff)
+      ORDER BY created_at ASC, id ASC`,
     {
-      replacements: { instanceId, limit },
+      replacements: { instanceId, turnLimit, excludeMessageId },
       transaction
     }
   );
-  return rows.reverse();
+  return rows;
 }
 
 async function prepareConversationContext(request, options = {}) {
   const policy = getPolicy();
-  const persistUserMessage = Boolean(options?.persistUserMessage);
-  const persistTaskId = normalizePersistTaskId(options?.taskId);
   const hintedInstanceId = Number(options?.instanceId || 0);
   const traceId = String(request?.traceId || '');
   const requestId = String(request?.requestId || '');
   const txStartedAt = Date.now();
-  prepareLog('tx:begin', { traceId, requestId, hintedInstanceId, persistUserMessage });
+  prepareLog('tx:begin', { traceId, requestId, hintedInstanceId });
   return postgresqlSequelize.transaction(async (transaction) => {
     try {
       await postgresqlSequelize.query(
@@ -730,34 +559,11 @@ async function prepareConversationContext(request, options = {}) {
       instance = activeResolution.instance;
     }
     const idempotencyKey = buildIdempotencyKey(request);
-    let userMessageInsert = null;
-    if (persistUserMessage) {
-      stepStartedAt = Date.now();
-      prepareLog('saveUser:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
-      userMessageInsert = await messageService.saveUser({
-        instanceId: instance.id,
-        request,
-        idempotencyKey,
-        taskId: persistTaskId,
-        transaction
-      });
-      prepareLog('saveUser:done', {
-        traceId,
-        requestId,
-        instanceId: Number(instance?.id || 0),
-        inserted: Boolean(userMessageInsert?.inserted),
-        messageId: String(request?.message?.externalMessageId || ''),
-        idempotencyKey: `${String(idempotencyKey || '').slice(0, 24)}...`,
-        costMs: Date.now() - stepStartedAt
-      });
-      stepStartedAt = Date.now();
-      prepareLog('bumpInstanceStats:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
-      await bumpInstanceStats(instance.id, request, userMessageInsert.inserted, transaction);
-      prepareLog('bumpInstanceStats:done', { traceId, requestId, instanceId: Number(instance?.id || 0), costMs: Date.now() - stepStartedAt });
-    }
     stepStartedAt = Date.now();
     prepareLog('loadHistory:start', { traceId, requestId, instanceId: Number(instance?.id || 0), historyTurns: policy.historyTurns });
-    const history = await loadHistory(instance.id, policy.historyTurns, transaction);
+    const history = await loadHistory(instance.id, policy.historyTurns, transaction, {
+      excludeMessageId: request?.message?.externalMessageId
+    });
     prepareLog('loadHistory:done', {
       traceId,
       requestId,
@@ -767,12 +573,9 @@ async function prepareConversationContext(request, options = {}) {
       lastMessageAt: Array.isArray(history) && history[history.length - 1] ? history[history.length - 1].created_at || null : null,
       costMs: Date.now() - stepStartedAt
     });
-    const metadata = asPlainObject(instance?.metadata);
-    const sessionState = normalizeSessionState(metadata?.session_state);
-    const resolvedQuery = buildResolvedQueryForContext(request);
     stepStartedAt = Date.now();
     prepareLog('buildContextEnvelope:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
-    const contextEnvelope = buildContextEnvelope({ request, history, sessionState, policy, resolvedQuery });
+    const contextEnvelope = buildContextEnvelope({ request, history, policy });
     prepareLog('buildContextEnvelope:done', { traceId, requestId, instanceId: Number(instance?.id || 0), costMs: Date.now() - stepStartedAt });
     logContextEnvelopeDebug(request, contextEnvelope);
     prepareLog('tx:commit_ready', { traceId, requestId, totalCostMs: Date.now() - txStartedAt });
@@ -783,8 +586,7 @@ async function prepareConversationContext(request, options = {}) {
       history,
       policy,
       contextEnvelope,
-      idempotencyKey,
-      userMessageInsert
+      idempotencyKey
     };
   }).then((result) => {
     prepareLog('tx:commit', { traceId, requestId, totalCostMs: Date.now() - txStartedAt });
@@ -810,73 +612,34 @@ async function resolveConversationTarget(request) {
   });
 }
 
-function buildNextSessionState(prevStateInput, contextEnvelope, intentResult, planOutput) {
-  const prevState = normalizeSessionState(prevStateInput);
-  const nextState = normalizeSessionState(contextEnvelope?.sessionState);
-  const mergedFilters = normalizeFilters(prevState.filters);
-  const nextFilters = normalizeFilters(nextState.filters);
-  for (const item of nextFilters) {
-    const obj = asPlainObject(item);
-    if (Object.prototype.hasOwnProperty.call(obj, 'errorCode') && obj.errorCode) {
-      setFilterValue(mergedFilters, 'errorCode', obj.errorCode);
-    }
-    if (Object.prototype.hasOwnProperty.call(obj, 'device') && obj.device) {
-      setFilterValue(mergedFilters, 'device', obj.device);
-    }
-    if (Object.prototype.hasOwnProperty.call(obj, 'Phenomenon') && obj.Phenomenon) {
-      setFilterValue(mergedFilters, 'Phenomenon', obj.Phenomenon);
-    }
-    if (Object.prototype.hasOwnProperty.call(obj, 'Concept') && obj.Concept) {
-      setFilterValue(mergedFilters, 'Concept', obj.Concept);
-    }
+async function persistUserMessageAtTurn({ request, instanceId, taskId }) {
+  const normalizedInstanceId = Number(instanceId || 0);
+  if (!Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
+    throw new Error('instance id is required to persist user message at turn');
   }
-  nextState.filters = mergedFilters;
+  const persistTaskId = normalizePersistTaskId(taskId);
+  const idempotencyKey = buildIdempotencyKey(request);
 
-  const entities = asPlainObject(intentResult?.entities);
-  if (entities.errorCode) {
-    const normalized = resolveAgentFaultCodeToken(entities.errorCode);
-    if (normalized) setFilterValue(nextState.filters, 'errorCode', normalized);
-  }
-  if (entities.device) {
-    setFilterValue(nextState.filters, 'device', entities.device);
-  }
-  if (entities.phenomenon) {
-    setFilterValue(nextState.filters, 'Phenomenon', entities.phenomenon);
-  }
-  if (entities.concept) {
-    setFilterValue(nextState.filters, 'Concept', entities.concept);
-  }
-  const missingSlots = Array.isArray(planOutput?.clarification?.missingSlots)
-    ? planOutput.clarification.missingSlots.map((x) => String(x || '').trim()).filter(Boolean)
-    : [];
-  if (missingSlots.length > 0) {
-    nextState.pendingSlot = missingSlots[0];
-  } else {
-    nextState.pendingSlot = null;
-  }
-  return normalizeSessionState(nextState);
-}
+  return postgresqlSequelize.transaction(async (transaction) => {
+    const instance = await getInstanceByIdForUpdate(normalizedInstanceId, transaction);
+    if (!instance) {
+      throw new Error(`conversation instance not found: ${normalizedInstanceId}`);
+    }
 
-async function persistSessionState(instanceId, sessionState, transaction) {
-  await postgresqlSequelize.query(
-    `UPDATE conversation_instances
-        SET metadata = jsonb_set(
-              COALESCE(metadata, '{}'::jsonb),
-              '{session_state}',
-              CAST(:sessionState AS jsonb),
-              true
-            ),
-            version = version + 1,
-            updated_at = NOW()
-      WHERE id = :id`,
-    {
-      replacements: {
-        id: instanceId,
-        sessionState: JSON.stringify(normalizeSessionState(sessionState))
-      },
+    const userMessageInsert = await messageService.saveUser({
+      instanceId: normalizedInstanceId,
+      request,
+      idempotencyKey,
+      taskId: persistTaskId,
       transaction
-    }
-  );
+    });
+
+    await bumpInstanceStats(normalizedInstanceId, request, userMessageInsert?.inserted, transaction);
+    return {
+      instanceId: normalizedInstanceId,
+      idempotencyKey
+    };
+  });
 }
 
 async function bumpInstanceStats(instanceId, request, inserted, transaction) {
@@ -918,8 +681,8 @@ async function bumpInstanceTokenUsage(instanceId, tokenDelta, transaction) {
   );
 }
 
-async function applyTurnTokenUsage(instanceId, intentResult, assistantResponse, transaction) {
-  const tokenDelta = extractTokenUsageFromTurn(intentResult, assistantResponse);
+async function applyTurnTokenUsage(instanceId, orchestratorResult, assistantResponse, transaction) {
+  const tokenDelta = extractTokenUsageFromTurn(orchestratorResult, assistantResponse);
   await bumpInstanceTokenUsage(instanceId, tokenDelta, transaction);
   return tokenDelta;
 }
@@ -935,14 +698,14 @@ function normalizePersistTaskId(value) {
   return text || undefined;
 }
 
-async function persistIntentEvent(instanceId, request, intentResult, contextEnvelope, transaction, taskId, leg = 'primary') {
-  const suffix = normalizeEventSuffix('intent', leg);
+async function persistOrchestratorEvent(instanceId, request, orchestratorResult, contextEnvelope, transaction, taskId, leg = 'primary') {
+  const suffix = normalizeEventSuffix('orchestrator', leg);
   const key = `${buildIdempotencyKey(request)}:${suffix}`;
   const messageId = buildMessageId(request, suffix);
   const requestId = String(request?.requestId || '').trim() || undefined;
   const traceId = String(request?.traceId || '').trim() || undefined;
   const payload = {
-    ...asPlainObject(intentResult),
+    ...asPlainObject(orchestratorResult),
     context: {
       currentInput: asPlainObject(contextEnvelope?.currentInput)
     }
@@ -954,7 +717,7 @@ async function persistIntentEvent(instanceId, request, intentResult, contextEnve
     traceId,
     taskId: normalizePersistTaskId(taskId),
     role: 'assistant',
-    explicitMessageType: MESSAGE_TYPES.INTENT,
+    explicitMessageType: MESSAGE_TYPES.ORCHESTRATOR,
     content: null,
     payload,
     attachments: [],
@@ -966,15 +729,12 @@ async function persistIntentEvent(instanceId, request, intentResult, contextEnve
   });
 }
 
-async function persistAssistantResponseEvent(instanceId, request, intentResult, assistantResponse, transaction, taskId) {
+async function persistAssistantResponseEvent(instanceId, request, orchestratorResult, assistantResponse, transaction, taskId) {
   const suffix = 'assistant_structured';
   const key = `${buildIdempotencyKey(request)}:${suffix}`;
-  const text = String(assistantResponse?.text || '').trim() || `intent=${String(intentResult?.intent || 'unknown')}`;
+  const text = String(assistantResponse?.text || '').trim() || 'assistant_reply';
   const attachments = Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [];
-  const isClarify = String(assistantResponse?.debugMeta?.plannerDecision || '') === 'ask_user';
-  const explicitMessageType = isClarify
-    ? MESSAGE_TYPES.CLARIFY
-    : resolveDialogueMessageType({ content: text, attachments });
+  const explicitMessageType = resolveDialogueMessageType({ content: text, attachments });
   const messageInput = buildConversationMessageInput({
     instanceId,
     messageId: buildMessageId(request, suffix),
@@ -986,7 +746,7 @@ async function persistAssistantResponseEvent(instanceId, request, intentResult, 
     content: text,
     payload: {
       mode: 'llm_response',
-      intent: intentResult,
+      turnResult: orchestratorResult,
       response: asPlainObject(assistantResponse)
     },
     attachments,
@@ -1022,50 +782,6 @@ async function persistToolResultEvent(instanceId, request, assistantResponse, tr
   });
 }
 
-async function persistPlanEvents(instanceId, request, assistantResponse, transaction, taskId, leg = 'primary') {
-  const debugMeta = asPlainObject(assistantResponse?.debugMeta);
-  const planInputContext = asPlainObject(debugMeta.planInputContext);
-  const planOutput = asPlainObject(debugMeta.planOutput);
-  const inSuffix = normalizeEventSuffix('plan_input', leg);
-  const outSuffix = normalizeEventSuffix('plan_output', leg);
-  const inKey = `${buildIdempotencyKey(request)}:${inSuffix}`;
-  const outKey = `${buildIdempotencyKey(request)}:${outSuffix}`;
-
-  if (Object.keys(planInputContext).length > 0) {
-    const inputMessage = buildConversationMessageInput({
-      instanceId,
-      messageId: buildMessageId(request, inSuffix),
-      requestId: String(request?.requestId || '').trim() || undefined,
-      traceId: String(request?.traceId || '').trim() || undefined,
-      taskId: normalizePersistTaskId(taskId),
-      role: 'system',
-      explicitMessageType: MESSAGE_TYPES.PLAN,
-      content: null,
-      payload: { phase: 'input', ...planInputContext },
-      attachments: [],
-      idempotencyKey: inKey
-    });
-    await messageService.saveRaw({ conversationMessageInput: inputMessage, transaction });
-  }
-
-  if (Object.keys(planOutput).length > 0) {
-    const outputMessage = buildConversationMessageInput({
-      instanceId,
-      messageId: buildMessageId(request, outSuffix),
-      requestId: String(request?.requestId || '').trim() || undefined,
-      traceId: String(request?.traceId || '').trim() || undefined,
-      taskId: normalizePersistTaskId(taskId),
-      role: 'system',
-      explicitMessageType: MESSAGE_TYPES.PLAN,
-      content: null,
-      payload: { phase: 'output', ...planOutput },
-      attachments: [],
-      idempotencyKey: outKey
-    });
-    await messageService.saveRaw({ conversationMessageInput: outputMessage, transaction });
-  }
-}
-
 function mergeActiveResolution(primary, fallback) {
   const a = asPlainObject(primary);
   const b = asPlainObject(fallback);
@@ -1085,7 +801,7 @@ function mergeActiveResolution(primary, fallback) {
 
 async function processConversationRequest({
   request,
-  intentResult,
+  orchestratorResult,
   contextEnvelope,
   activeResolutionHint,
   assistantResponse,
@@ -1093,6 +809,7 @@ async function processConversationRequest({
   phase = 'full',
   phaseTag = 'primary'
 }) {
+  const resolvedOrchestratorResult = orchestratorResult;
   const policy = getPolicy();
   const idempotencyKey = buildIdempotencyKey(request);
   const persistTaskId = normalizePersistTaskId(taskId);
@@ -1132,17 +849,9 @@ async function processConversationRequest({
     const userMsg = normalizeMessagePayload(request);
 
     if (phase === 'after_tool') {
-      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, persistTaskId, phaseTag);
-      await persistPlanEvents(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
+      await persistOrchestratorEvent(instance.id, request, resolvedOrchestratorResult, contextEnvelope, transaction, persistTaskId, phaseTag);
       await persistToolResultEvent(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
-      const nextSessionState = buildNextSessionState(
-        instance?.metadata?.session_state,
-        contextEnvelope,
-        intentResult,
-        asPlainObject(assistantResponse?.debugMeta)?.planOutput
-      );
-      await persistSessionState(instance.id, nextSessionState, transaction);
-      await applyTurnTokenUsage(instance.id, intentResult, assistantResponse, transaction);
+      await applyTurnTokenUsage(instance.id, resolvedOrchestratorResult, assistantResponse, transaction);
       return {
         ok: true,
         phase: 'after_tool',
@@ -1154,19 +863,11 @@ async function processConversationRequest({
     }
 
     if (phase === 'finalize') {
-      await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, persistTaskId, phaseTag);
-      await persistPlanEvents(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
-      await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction, persistTaskId);
-      const nextSessionState = buildNextSessionState(
-        instance?.metadata?.session_state,
-        contextEnvelope,
-        intentResult,
-        asPlainObject(assistantResponse?.debugMeta)?.planOutput
-      );
-      await persistSessionState(instance.id, nextSessionState, transaction);
-      await applyTurnTokenUsage(instance.id, intentResult, assistantResponse, transaction);
+      await persistOrchestratorEvent(instance.id, request, resolvedOrchestratorResult, contextEnvelope, transaction, persistTaskId, phaseTag);
+      await persistAssistantResponseEvent(instance.id, request, resolvedOrchestratorResult, assistantResponse, transaction, persistTaskId);
+      await applyTurnTokenUsage(instance.id, resolvedOrchestratorResult, assistantResponse, transaction);
       const history = await loadHistory(instance.id, policy.historyTurns, transaction);
-      const promptBlocks = toPromptBlocks({ policy, history, request, intentResult });
+      const promptBlocks = toPromptBlocks({ policy, history, request, orchestratorResult: resolvedOrchestratorResult });
       return {
         ok: true,
         trace_id: request.traceId,
@@ -1195,26 +896,24 @@ async function processConversationRequest({
         attachments: Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [],
         history,
         context_envelope: contextEnvelope ? {
+          currentQuery: String(contextEnvelope?.currentQuery || ''),
           currentInput: {
             messageId: String(contextEnvelope?.currentInput?.messageId || '').trim() || null,
-            rawText: String(contextEnvelope?.currentInput?.rawText || ''),
             attachments: Array.isArray(contextEnvelope?.currentInput?.attachments) ? contextEnvelope.currentInput.attachments : [],
             fileIds: Array.isArray(contextEnvelope?.currentInput?.fileIds) ? contextEnvelope.currentInput.fileIds : []
           },
-          confirmedSlots: asPlainObject(contextEnvelope.confirmedSlots),
           historySummary: asPlainObject(contextEnvelope.historySummary),
           historyContext: {
-            summary: String(contextEnvelope?.historyContext?.summary || ''),
-            recentTurns: Array.isArray(contextEnvelope?.historyContext?.recentTurns)
-              ? contextEnvelope.historyContext.recentTurns
+            messages: Array.isArray(contextEnvelope?.historyContext?.messages)
+              ? contextEnvelope.historyContext.messages
               : []
           },
-          contextVersion: Number(contextEnvelope.contextVersion || 1)
+          contextVersion: Number(contextEnvelope.contextVersion || 2)
         } : null,
-        intent: intentResult,
+        orchestrator: resolvedOrchestratorResult,
         llm_raw: {
-          intent_extraction: asPlainObject(intentResult).llmRaw || null,
-          intent_execution: asPlainObject(assistantResponse?.debugMeta).intentExecution?.llmRaw
+          orchestrator_extraction: asPlainObject(resolvedOrchestratorResult).llmRaw || null,
+          tool_execution: asPlainObject(assistantResponse?.debugMeta).toolExecution?.llmRaw
             || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
             || null
         },
@@ -1223,21 +922,13 @@ async function processConversationRequest({
       };
     }
 
-    await persistIntentEvent(instance.id, request, intentResult, contextEnvelope, transaction, persistTaskId, 'primary');
-    await persistPlanEvents(instance.id, request, assistantResponse, transaction, persistTaskId, 'primary');
+    await persistOrchestratorEvent(instance.id, request, resolvedOrchestratorResult, contextEnvelope, transaction, persistTaskId, 'primary');
     await persistToolResultEvent(instance.id, request, assistantResponse, transaction, persistTaskId);
-    await persistAssistantResponseEvent(instance.id, request, intentResult, assistantResponse, transaction, persistTaskId);
-    const nextSessionState = buildNextSessionState(
-      instance?.metadata?.session_state,
-      contextEnvelope,
-      intentResult,
-      asPlainObject(assistantResponse?.debugMeta)?.planOutput
-    );
-    await persistSessionState(instance.id, nextSessionState, transaction);
-    await applyTurnTokenUsage(instance.id, intentResult, assistantResponse, transaction);
+    await persistAssistantResponseEvent(instance.id, request, resolvedOrchestratorResult, assistantResponse, transaction, persistTaskId);
+    await applyTurnTokenUsage(instance.id, resolvedOrchestratorResult, assistantResponse, transaction);
 
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
-    const promptBlocks = toPromptBlocks({ policy, history, request, intentResult });
+    const promptBlocks = toPromptBlocks({ policy, history, request, orchestratorResult: resolvedOrchestratorResult });
 
     return {
       ok: true,
@@ -1267,26 +958,24 @@ async function processConversationRequest({
       attachments: Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [],
       history,
       context_envelope: contextEnvelope ? {
+        currentQuery: String(contextEnvelope?.currentQuery || ''),
         currentInput: {
           messageId: String(contextEnvelope?.currentInput?.messageId || '').trim() || null,
-          rawText: String(contextEnvelope?.currentInput?.rawText || ''),
           attachments: Array.isArray(contextEnvelope?.currentInput?.attachments) ? contextEnvelope.currentInput.attachments : [],
           fileIds: Array.isArray(contextEnvelope?.currentInput?.fileIds) ? contextEnvelope.currentInput.fileIds : []
         },
-        confirmedSlots: asPlainObject(contextEnvelope.confirmedSlots),
         historySummary: asPlainObject(contextEnvelope.historySummary),
         historyContext: {
-          summary: String(contextEnvelope?.historyContext?.summary || ''),
-          recentTurns: Array.isArray(contextEnvelope?.historyContext?.recentTurns)
-            ? contextEnvelope.historyContext.recentTurns
+          messages: Array.isArray(contextEnvelope?.historyContext?.messages)
+            ? contextEnvelope.historyContext.messages
             : []
         },
-        contextVersion: Number(contextEnvelope.contextVersion || 1)
+        contextVersion: Number(contextEnvelope.contextVersion || 2)
       } : null,
-      intent: intentResult,
+      orchestrator: resolvedOrchestratorResult,
       llm_raw: {
-        intent_extraction: asPlainObject(intentResult).llmRaw || null,
-        intent_execution: asPlainObject(assistantResponse?.debugMeta).intentExecution?.llmRaw
+        orchestrator_extraction: asPlainObject(resolvedOrchestratorResult).llmRaw || null,
+        tool_execution: asPlainObject(assistantResponse?.debugMeta).toolExecution?.llmRaw
           || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
           || null
       },
@@ -1302,6 +991,7 @@ module.exports = {
   buildMessageId,
   buildContextEnvelope,
   resolveConversationTarget,
+  persistUserMessageAtTurn,
   prepareConversationContext,
   processConversationRequest
 };

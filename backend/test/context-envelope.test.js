@@ -6,6 +6,7 @@ const { buildContextEnvelope } = require('../src/agentization/session/conversati
 test('context envelope follows target structure', () => {
   const request = {
     message: {
+      externalMessageId: 'msg-current',
       text: '这个故障码怎么处理 0X010A',
       attachments: [{ fileId: 'file-current-1' }]
     }
@@ -14,52 +15,64 @@ test('context envelope follows target structure', () => {
     { role: 'user', message_type: 'text', content: '查 0X010A' },
     {
       role: 'assistant',
-      message_type: 'intent',
+      message_type: 'orchestrator',
       payload: { intent: 'error_code_search', toolCall: { toolName: 'errorCodeSearch' } }
     },
     { role: 'assistant', message_type: 'text', content: '查询到 3 个子系统下的同类故障码，建议先检查连接。' }
   ];
   history[0].attachments = [{ fileId: 'file-history-1' }];
-  const sessionState = {
-    filters: [{ errorCode: '0X010A' }, { device: '4371-01' }, { Phenomenon: '' }, { Concept: '' }],
-    pendingSlot: null
-  };
 
-  const envelope = buildContextEnvelope({ request, history, sessionState });
+  const envelope = buildContextEnvelope({ request, history });
 
-  assert.equal(envelope.currentInput.rawText.includes('这个故障码怎么处理'), true);
+  assert.equal(envelope.currentQuery.includes('这个故障码怎么处理'), true);
   assert.equal(envelope.currentInput.messageId, null);
   assert.ok(Array.isArray(envelope.currentInput.attachments));
   assert.deepEqual(envelope.currentInput.fileIds, ['file-current-1']);
-  assert.equal(typeof envelope.confirmedSlots, 'object');
-  assert.equal(envelope.confirmedSlots.errorCode, '0X010A');
-  assert.equal(envelope.confirmedSlots.device, '4371-01');
-  assert.equal(envelope.confirmedSlots.phenomenon, null);
-  assert.equal(envelope.confirmedSlots.concept, null);
-  assert.equal(envelope.confirmedSlots.component, null);
-  assert.deepEqual(envelope.confirmedSlots.fileIds, ['file-current-1', 'file-history-1']);
+  assert.equal(Object.prototype.hasOwnProperty.call(envelope, 'confirmedSlots'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(envelope, 'sessionState'), false);
 
-  assert.equal(typeof envelope.historySummary, 'object');
-  assert.equal(envelope.historySummary.lastIntent, 'error_code_search');
-  assert.equal(envelope.historySummary.lastTool, 'errorCodeSearch');
-  assert.equal(typeof envelope.historySummary.lastResultBrief, 'string');
+  assert.deepEqual(envelope.historySummary, { summary: null });
 
-  assert.equal(typeof envelope.historyContext.summary, 'string');
-  assert.ok(Array.isArray(envelope.historyContext.recentTurns));
-  assert.equal(envelope.historyContext.recentTurns.some((t) => t.role === 'user'), true);
-  assert.equal(envelope.historyContext.recentTurns.some((t) => t.role === 'assistant'), true);
-  assert.equal(envelope.contextVersion, 1);
+  assert.equal(Object.prototype.hasOwnProperty.call(envelope.historyContext, 'summary'), false);
+  assert.ok(Array.isArray(envelope.historyContext.messages));
+  assert.equal(envelope.historyContext.messages.some((t) => t.role === 'user'), true);
+  assert.equal(envelope.historyContext.messages.some((t) => t.role === 'assistant'), true);
+  assert.equal(envelope.contextVersion, 2);
 });
 
-test('context envelope confirmedSlots preserves full fault code from message', () => {
+test('context envelope keeps current query as the only current text source', () => {
   const request = {
     message: {
+      externalMessageId: 'msg-current',
       text: '141010A 什么意思',
       attachments: []
     }
   };
-  const envelope = buildContextEnvelope({ request, history: [], sessionState: { filters: [], pendingSlot: null } });
-  assert.equal(envelope.confirmedSlots.errorCode, '141010A');
-  assert.equal(envelope.confirmedSlots.component, null);
-  assert.deepEqual(envelope.confirmedSlots.fileIds, []);
+  const envelope = buildContextEnvelope({ request, history: [] });
+  assert.equal(envelope.currentQuery, '141010A 什么意思');
+  assert.deepEqual(envelope.currentInput.fileIds, []);
+  assert.equal(Object.prototype.hasOwnProperty.call(envelope, 'confirmedSlots'), false);
+});
+
+test('context envelope excludes current user message from history messages', () => {
+  const request = {
+    message: {
+      externalMessageId: 'msg-current',
+      text: '请继续解释这个故障码',
+      attachments: []
+    }
+  };
+  const history = [
+    { message_id: 'msg-prev', role: 'user', message_type: 'text', content: '故障码141010A是什么意思' },
+    { message_id: 'msg-prev:assistant', role: 'assistant', message_type: 'text', content: '141010A 表示……' },
+    { message_id: 'msg-current', role: 'user', message_type: 'text', content: '请继续解释这个故障码' }
+  ];
+
+  const envelope = buildContextEnvelope({ request, history });
+
+  assert.equal(envelope.currentQuery, '请继续解释这个故障码');
+  assert.deepEqual(envelope.historyContext.messages, [
+    { role: 'user', content: '故障码141010A是什么意思' },
+    { role: 'assistant', content: '141010A 表示……' }
+  ]);
 });

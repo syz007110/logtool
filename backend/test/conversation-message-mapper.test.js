@@ -23,11 +23,11 @@ test('normalizeInboundMessageType maps text and attachments', () => {
 test('detectContentMessageType maps pipeline and dialogue types', () => {
   assert.equal(detectContentMessageType({
     role: 'assistant',
-    explicitType: 'intent',
+    explicitType: 'orchestrator',
     content: null,
     attachments: [],
     payload: { intent: 'find_case' }
-  }), MESSAGE_TYPES.INTENT);
+  }), MESSAGE_TYPES.ORCHESTRATOR);
 
   assert.equal(detectContentMessageType({
     role: 'assistant',
@@ -47,7 +47,8 @@ test('detectContentMessageType maps pipeline and dialogue types', () => {
 });
 
 test('normalizeStoredMessageType supports legacy aliases', () => {
-  assert.equal(normalizeStoredMessageType('intent_result'), MESSAGE_TYPES.INTENT);
+  assert.equal(normalizeStoredMessageType('intent_result'), MESSAGE_TYPES.ORCHESTRATOR);
+  assert.equal(normalizeStoredMessageType('intent'), MESSAGE_TYPES.ORCHESTRATOR);
   assert.equal(normalizeStoredMessageType('tool_result'), MESSAGE_TYPES.TOOL);
   assert.equal(normalizeStoredMessageType('clarification'), MESSAGE_TYPES.CLARIFY);
 });
@@ -78,10 +79,10 @@ test('internal event ids and idempotency keys use suffixes', () => {
     user: { id: 'user-1' },
     message: { externalMessageId: '01JMSG001' }
   };
-  assert.equal(buildMessageId(request, 'intent'), '01JMSG001:intent');
+  assert.equal(buildMessageId(request, 'orchestrator'), '01JMSG001:orchestrator');
   assert.equal(
-    buildEventIdempotencyKey(request, 'intent'),
-    'web:user-1:conv-1:01JMSG001:intent'
+    buildEventIdempotencyKey(request, 'orchestrator'),
+    'web:user-1:conv-1:01JMSG001:orchestrator'
   );
 });
 

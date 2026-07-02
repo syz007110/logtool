@@ -111,6 +111,20 @@ function hydrateProvider(spec) {
   const baseUrl = normalizeBaseUrl(String(spec.baseUrl || (spec.baseUrlEnv ? process.env[spec.baseUrlEnv] : '') || spec.defaultBaseUrl || ''));
   const model = String(spec.model || (spec.modelEnv ? process.env[spec.modelEnv] : '') || spec.defaultModel || '').trim();
 
+  const orchestratorJsonOutput = spec.orchestratorJsonOutput && typeof spec.orchestratorJsonOutput === 'object'
+    ? { ...spec.orchestratorJsonOutput }
+    : null;
+  const jsonOutputMode = String(
+    orchestratorJsonOutput?.mode || spec.jsonOutputMode || spec.orchestratorJsonOutputMode || ''
+  ).trim() || null;
+  const orchestratorMaxTokens = spec.orchestratorMaxTokens ?? spec.maxTokens ?? null;
+  const capabilities = spec.capabilities && typeof spec.capabilities === 'object'
+    ? { ...spec.capabilities }
+    : { toolCalls: true, strictTools: { default: false } };
+  const orchestrator = spec.orchestrator && typeof spec.orchestrator === 'object'
+    ? { ...spec.orchestrator }
+    : { toolChoice: 'auto' };
+
   return {
     id: String(spec.id || '').trim(),
     label: String(spec.label || spec.id || '').trim() || String(spec.id || '').trim(),
@@ -122,7 +136,12 @@ function hydrateProvider(spec) {
     model,
     timeoutMs,
     temperature,
-    topP
+    topP,
+    jsonOutputMode,
+    orchestratorJsonOutput: orchestratorJsonOutput || (jsonOutputMode ? { mode: jsonOutputMode } : null),
+    orchestratorMaxTokens,
+    capabilities,
+    orchestrator
   };
 }
 

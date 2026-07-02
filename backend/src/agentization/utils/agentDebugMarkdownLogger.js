@@ -1,6 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
-const { buildConversationIntentPromptInjectionSnapshot } = require('../../services/qwenService');
+const { buildOrchestratorPromptInjectionSnapshot } = require('../orchestrator/promptRenderer');
 
 function isEnabled() {
   const v = String(process.env.AGENT_DEBUG_MD_ENABLED || '').trim().toLowerCase();
@@ -39,17 +39,11 @@ function ynFromAttachments(attachments) {
   return Array.isArray(attachments) && attachments.length > 0 ? '是' : '否';
 }
 
-function historyContextForUserSection(hc) {
-  const h = asObject(hc);
-  const { recentTurns, ...rest } = h;
-  return { ...rest, recentTurns: undefined };
-}
-
 async function appendAgentDebugMarkdown({
   jobId,
   request,
   contextEnvelope,
-  intentResult,
+  orchestratorResult,
   assistantResponse,
   includePromptInjection,
   error,
@@ -59,11 +53,12 @@ async function appendAgentDebugMarkdown({
   const req = asObject(request);
   const env = contextEnvelope && typeof contextEnvelope === 'object' ? contextEnvelope : {};
   const currentInput = asObject(env.currentInput);
-  const rawText = toText(currentInput.rawText);
+  const currentQuery = toText(env.currentQuery);
+  const historySummary = asObject(env.historySummary);
   const historyContext = asObject(env.historyContext);
-  const recentTurns = Array.isArray(historyContext.recentTurns) ? historyContext.recentTurns : [];
-  const intent = asObject(intentResult);
-  const nextAction = asObject(intent.nextAction);
+  const historyMessages = Array.isArray(historyContext.messages) ? historyContext.messages : [];
+  const orchestrator = asObject(orchestratorResult);
+  const toolCalls = Array.isArray(orchestrator.toolCalls) ? orchestrator.toolCalls : [];
   const assistMeta = asObject(assistantResponse?.debugMeta);
   const toolMeta = asObject(assistMeta.toolResult);
 
@@ -77,25 +72,25 @@ async function appendAgentDebugMarkdown({
     let injection = {
       systemPrompt: null,
       userPrompt: null,
-      toolPrompt: null,
+      functionTools: null,
       memoryPrompt: null,
       systemFallbackUsed: false,
       systemEffective: null
     };
     try {
-      injection = buildConversationIntentPromptInjectionSnapshot(env);
+      injection = buildOrchestratorPromptInjectionSnapshot(env);
     } catch (_) {
       injection = {
         systemPrompt: null,
         userPrompt: null,
-        toolPrompt: null,
+        functionTools: null,
         memoryPrompt: null,
         systemFallbackUsed: false,
         systemEffective: null
       };
     }
 
-    lines.push('### 意图抽取提示词（注入，空则为 null）');
+    lines.push('### Orchestrator 提示词（注入，空则为 null）');
     lines.push('> 仅在**新建会话实例**的本轮首次记录；同一会话内后续消息不重复打印。');
     lines.push(`- 系统提示词（配置）: ${formatNullish(injection.systemPrompt)}`);
     if (injection.systemFallbackUsed) {
@@ -103,47 +98,46 @@ async function appendAgentDebugMarkdown({
       lines.push(`- 系统提示词（实际下发）: ${formatNullish(injection.systemEffective)}`);
     }
     lines.push(`- 用户提示词: ${formatNullish(injection.userPrompt)}`);
-    lines.push(`- 工具提示词: ${formatNullish(injection.toolPrompt)}`);
+    lines.push('- API tools[]:');
+    lines.push('```json');
+    lines.push(safeJson(injection.functionTools));
+    lines.push('```');
     lines.push(`- 记忆提示词: ${formatNullish(injection.memoryPrompt)}`);
     lines.push('');
   } else {
-    lines.push('### 意图抽取提示词（注入）');
+    lines.push('### Orchestrator 提示词（注入）');
     lines.push('- （同一会话实例已记录过，略 — 与新建实例时一致）');
     lines.push('');
   }
 
   lines.push('### 用户侧上下文（本回合）');
-  lines.push(`- 当前的问题（currentInput.rawText）: ${formatNullish(rawText)}`);
+  lines.push(`- 当前的问题（currentQuery）: ${formatNullish(currentQuery)}`);
   lines.push(`- 是否包含附件: ${ynFromAttachments(currentInput.attachments)}`);
-  lines.push('- 已确认槽位（ContextEnvelope.confirmedSlots）:');
+  lines.push('- 历史压缩摘要（historySummary，仅压缩发生时有值）:');
   lines.push('```json');
-  lines.push(safeJson(asObject(env.confirmedSlots)));
+  lines.push(safeJson(historySummary));
   lines.push('```');
-  lines.push('- 历史对话总结（historyContext 除 recentTurns）:');
+  lines.push('- 历史消息（historyContext.messages，时间正序：较早 → 较新）:');
   lines.push('```json');
-  lines.push(safeJson(historyContextForUserSection(historyContext)));
-  lines.push('```');
-  lines.push('- 最近轮次（historyContext.recentTurns，时间正序：较早 → 较新）:');
-  lines.push('```json');
-  lines.push(safeJson(recentTurns));
+  lines.push(safeJson(historyMessages));
   lines.push('```');
   lines.push('');
 
-  lines.push('### LLM 结构化输出（意图抽取结果）');
-  lines.push(`- 识别到的意图（intent）: ${formatNullish(intent.intent)}`);
-  lines.push(`- 下一步行为（nextAction.type）: ${formatNullish(nextAction.type)}`);
-  lines.push(`- 下一步提示信息（nextAction.message）: ${formatNullish(nextAction.message)}`);
-  lines.push(`- 回答内容（answerDraft）: ${formatNullish(intent.answerDraft)}`);
+  lines.push('### Orchestrator LLM 结构化输出');
+  lines.push(`- 回合类型（kind）: ${formatNullish(orchestrator.kind)}`);
+  lines.push(`- 结束原因（finishReason）: ${formatNullish(orchestrator.finishReason)}`);
+  lines.push(`- 文本内容（content）: ${formatNullish(orchestrator.content)}`);
+  lines.push(`- 工具调用（toolCalls）: ${toolCalls.length > 0 ? toolCalls.map((tc) => tc.toolName).join(', ') : 'null'}`);
   lines.push('');
 
-  lines.push('### LLM 原生返回（意图抽取）');
-  const intentLlmRaw = intent.llmRaw && typeof intent.llmRaw === 'object' ? intent.llmRaw : null;
-  if (intentLlmRaw && Object.keys(intentLlmRaw).length > 0) {
+  lines.push('### LLM 原生返回（Orchestrator）');
+  const orchestratorLlmRaw = orchestrator.llmRaw && typeof orchestrator.llmRaw === 'object' ? orchestrator.llmRaw : null;
+  if (orchestratorLlmRaw && Object.keys(orchestratorLlmRaw).length > 0) {
     lines.push('```json');
-    lines.push(safeJson(intentLlmRaw));
+    lines.push(safeJson(orchestratorLlmRaw));
     lines.push('```');
   } else {
-    lines.push('- （无：本轮 intentResult 未附带 llmRaw，或上游未启用意图 LLM）');
+    lines.push('- （无：本轮 orchestratorResult 未附带 llmRaw，或上游未启用 Orchestrator LLM）');
   }
   lines.push('');
 
@@ -153,8 +147,8 @@ async function appendAgentDebugMarkdown({
 
   lines.push('### LLM 原生返回（执行 / 对话生成）');
   const execPayload = {};
-  if (assistMeta.intentExecution && typeof assistMeta.intentExecution === 'object' && assistMeta.intentExecution.llmRaw) {
-    execPayload.intentExecution = assistMeta.intentExecution.llmRaw;
+  if (assistMeta.toolExecution && typeof assistMeta.toolExecution === 'object' && assistMeta.toolExecution.llmRaw) {
+    execPayload.toolExecution = assistMeta.toolExecution.llmRaw;
   }
   if (assistMeta.smartSearch && typeof assistMeta.smartSearch === 'object' && assistMeta.smartSearch.llmRaw) {
     execPayload.smartSearch = assistMeta.smartSearch.llmRaw;

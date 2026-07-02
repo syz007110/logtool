@@ -1,0 +1,29 @@
+{
+  "defaultLang": "zh",
+  "blocks": {
+    "system": {
+      "role": "system",
+      "description": "静态系统提示词（Role/Mission/Boundary/Tool Use）"
+    },
+    "tool": {
+      "slot": "tools",
+      "description": "由 registry/v1 经 toolSchemaBuilder 转为 API tools[]，不在 messages 中注入"
+    },
+    "memory": {
+      "role": "user",
+      "tag": "memory",
+      "optional": true,
+      "description": "跨轮记忆（可为空）"
+    }
+  },
+  "langs": {
+    "zh": {
+      "system": "system.md",
+      "memory": "memory.md"
+    },
+    "en": {
+      "system": "system.md",
+      "memory": "memory.md"
+    }
+  }
+}

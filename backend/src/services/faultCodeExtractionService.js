@@ -22,7 +22,7 @@ function normalizeErrorCodeInput(input) {
   return '';
 }
 
-/** 与故障码查询规则一致：句中若有完整码优先取完整码，否则取类型码；供 confirmedSlots / planner 工具参数，避免把完整码压成仅有类型码。 */
+/** 与故障码查询规则一致：句中若有完整码优先取完整码，否则取类型码；供 planner/tool 参数兜底，避免把完整码压成仅有类型码。 */
 function resolveAgentFaultCodeToken(input) {
   const raw = String(input ?? '').trim();
   if (!raw) return '';
