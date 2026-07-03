@@ -3,12 +3,9 @@ const url = require('url');
 const smartSearchPrompts = require('../config/smartSearchPrompts.json');
 const { runOrchestratorChatCompletion } = require('../agentization/orchestrator/orchestratorLlmService');
 const {
-  buildOrchestratorMessages,
-  buildOrchestratorPromptInjectionSnapshot
-} = require('../agentization/orchestrator/promptRenderer');
-const {
   resolveProvider,
-  getSmartSearchLlmStatusForProvider
+  getSmartSearchLlmStatusForProvider,
+  getAgentOrchestratorLlmStatusForProvider
 } = require('./smartSearchLlmService');
 
 function renderPromptTemplate(template, vars) {
@@ -241,19 +238,28 @@ function buildQueryPlanExtractionMessages(query, defaults = {}) {
   ];
 }
 
-async function runOrchestratorLlmWithProvider({ contextEnvelope, providerId, userPermissions, traceId }) {
+async function runOrchestratorLlmWithMessages({
+  contextEnvelope,
+  messages,
+  providerId,
+  userPermissions,
+  traceId,
+  allowEmptyResponse = false
+}) {
   const provider = resolveProvider(providerId);
-  const status = getSmartSearchLlmStatusForProvider(provider);
+  const status = getAgentOrchestratorLlmStatusForProvider(provider);
   if (!status.available) {
-    const err = new Error(`smart-search llm unavailable: ${status.reason}`);
+    const err = new Error(`agent orchestrator llm unavailable: ${status.reason}`);
     err.code = String(status.reason || 'LLM_UNAVAILABLE').toUpperCase();
     throw err;
   }
   return runOrchestratorChatCompletion({
     contextEnvelope,
+    messages,
     provider,
     userPermissions,
-    traceId
+    traceId,
+    allowEmptyResponse
   });
 }
 
@@ -506,10 +512,8 @@ module.exports = {
   getLlmProviderConfig,
   extractKeywordsWithProvider,
   extractQueryPlanWithProvider,
-  runOrchestratorLlmWithProvider,
+  runOrchestratorLlmWithMessages,
   streamKeywordExtractionWithProvider,
-  buildOrchestratorMessages,
-  buildOrchestratorPromptInjectionSnapshot,
   buildKeywordExtractionMessages,
   buildQueryPlanExtractionMessages
 };

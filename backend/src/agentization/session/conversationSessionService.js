@@ -1,13 +1,17 @@
 const { postgresqlSequelize } = require('../../config/postgresql');
 const { buildConversationMessageInput } = require('./conversationMessageMapper');
-const { isOrchestratorMessageType, resolveDialogueMessageType, MESSAGE_TYPES } = require('./conversationMessageTypes');
+const { resolveDialogueMessageType, MESSAGE_TYPES } = require('./conversationMessageTypes');
+const { buildHistoryMessages } = require('./historyProjection');
 const {
   buildContainerKey,
   buildIdempotencyKey,
   buildMessageId,
   buildEventIdempotencyKey,
-  extractTokenUsageFromTurn
+  extractTokenUsageFromTurn,
+  extractTokenUsageFromLoopTrace,
+  EVENT_SUFFIX
 } = require('./conversationTurnKeys');
+const { getLoopPolicy } = require('../runtime/turnPolicy');
 const { createMessageService } = require('./messageService');
 
 const messageService = createMessageService();
@@ -98,7 +102,8 @@ function getPolicy() {
     maxTurns,
     idleTimeoutMinutes: Number.parseInt(process.env.SESSION_IDLE_TIMEOUT_MINUTES || '30', 10) || 30,
     maxTokens: Number.parseInt(process.env.SESSION_MAX_TOKENS || '6000', 10) || 6000,
-    historyTurns
+    historyTurns,
+    ...getLoopPolicy()
   };
 }
 
@@ -152,86 +157,6 @@ function parseJsonSafely(input) {
   }
 }
 
-function normalizeHistoryText(row) {
-  const direct = String(row?.content || '').trim();
-  if (direct) return direct;
-  const payload = asPlainObject(row?.payload);
-  return String(payload?.text || '').trim();
-}
-
-function mapRecentTurnRole(row) {
-  const role = String(row?.role || '').trim().toLowerCase();
-  if (role === 'user') return 'user';
-  if (role === 'assistant') return 'assistant';
-  if (role === 'tool' || role === 'observation') return 'tool';
-  if (role === 'system') return 'system';
-  return '';
-}
-
-function mapRecentTurnText(row) {
-  const messageType = String(row?.message_type || '').trim().toLowerCase();
-  if (isOrchestratorMessageType(messageType)) {
-    const p = asPlainObject(row?.payload);
-    const kind = String(p.kind || '').trim();
-    const toolName = String(p.toolCalls?.[0]?.toolName || p.toolCall?.toolName || '').trim();
-    if (kind === 'tool_call' && toolName) {
-      return `[编排决策] kind=tool_call, tool=${toolName}`;
-    }
-    if (kind === 'message') {
-      const preview = String(p.content || '').trim().slice(0, 80);
-      return preview ? `[编排决策] kind=message, content=${preview}` : '[编排决策] kind=message';
-    }
-    return kind ? `[编排决策] kind=${kind}` : '[编排决策]';
-  }
-  if (messageType === MESSAGE_TYPES.TOOL) {
-    const p = asPlainObject(row?.payload);
-    const toolName = String(p.toolName || p.tool_name || '').trim();
-    const status = String(p.status || '').trim();
-    return toolName
-      ? (`[工具结果] tool=${toolName}${status ? `, status=${status}` : ''}`)
-      : '[工具结果]';
-  }
-  return normalizeHistoryText(row);
-}
-
-function groupHistoryRounds(history) {
-  const rounds = [];
-  let current = null;
-  for (const row of Array.isArray(history) ? history : []) {
-    const role = String(row?.role || '').trim().toLowerCase();
-    if (role === 'user') {
-      if (current && current.length > 0) rounds.push(current);
-      current = [row];
-      continue;
-    }
-    if (!current) continue;
-    current.push(row);
-  }
-  if (current && current.length > 0) rounds.push(current);
-  return rounds;
-}
-
-function buildHistoryMessages(history, maxTurns = 2) {
-  const rounds = groupHistoryRounds(history);
-  if (!rounds.length) return [];
-  // 时间正序：先较旧轮、后较新轮，避免“当前仅 user 的最新轮”挤在前面出现连续两条 user
-  const picked = rounds.slice(-Math.max(1, maxTurns));
-  const out = [];
-  for (const roundRows of picked) {
-    for (const row of roundRows) {
-      const mappedRole = mapRecentTurnRole(row);
-      if (!mappedRole) continue;
-      const content = mapRecentTurnText(row);
-      if (!content) continue;
-      out.push({
-        role: mappedRole,
-        content
-      });
-    }
-  }
-  return out;
-}
-
 function excludeCurrentMessageFromHistory(history, request) {
   const currentMessageId = String(request?.message?.externalMessageId || '').trim();
   if (!currentMessageId) return Array.isArray(history) ? history : [];
@@ -275,10 +200,7 @@ function buildContextEnvelope({ request, history, policy }) {
     currentInput: buildCurrentInput(request),
     historySummary: { summary: null },
     historyContext: {
-      messages: historyMessages.map((m) => ({
-        role: m.role,
-        content: m.content
-      }))
+      messages: historyMessages
     },
     contextVersion: 2
   };
@@ -681,16 +603,10 @@ async function bumpInstanceTokenUsage(instanceId, tokenDelta, transaction) {
   );
 }
 
-async function applyTurnTokenUsage(instanceId, orchestratorResult, assistantResponse, transaction) {
-  const tokenDelta = extractTokenUsageFromTurn(orchestratorResult, assistantResponse);
+async function applyTurnTokenUsage(instanceId, loopTrace, transaction) {
+  const tokenDelta = extractTokenUsageFromLoopTrace(loopTrace);
   await bumpInstanceTokenUsage(instanceId, tokenDelta, transaction);
   return tokenDelta;
-}
-
-function normalizeEventSuffix(base, leg = '') {
-  const tag = String(leg || '').trim().toLowerCase();
-  if (!tag || tag === 'primary') return base;
-  return `${base}_${tag.replace(/[^a-z0-9_]/g, '_')}`;
 }
 
 function normalizePersistTaskId(value) {
@@ -698,23 +614,23 @@ function normalizePersistTaskId(value) {
   return text || undefined;
 }
 
-async function persistOrchestratorEvent(instanceId, request, orchestratorResult, contextEnvelope, transaction, taskId, leg = 'primary') {
-  const suffix = normalizeEventSuffix('orchestrator', leg);
-  const key = `${buildIdempotencyKey(request)}:${suffix}`;
-  const messageId = buildMessageId(request, suffix);
-  const requestId = String(request?.requestId || '').trim() || undefined;
-  const traceId = String(request?.traceId || '').trim() || undefined;
+async function persistOrchestratorTraceEntry(instanceId, request, traceEntry, contextEnvelope, transaction, taskId) {
+  const suffix = String(traceEntry?.suffix || '').trim();
+  if (!suffix) return { inserted: false, row: null };
+
+  const orchestratorResult = asPlainObject(traceEntry.turnResult);
+  const key = buildEventIdempotencyKey(request, suffix);
   const payload = {
-    ...asPlainObject(orchestratorResult),
+    ...orchestratorResult,
     context: {
       currentInput: asPlainObject(contextEnvelope?.currentInput)
     }
   };
   const messageInput = buildConversationMessageInput({
     instanceId,
-    messageId,
-    requestId,
-    traceId,
+    messageId: buildMessageId(request, suffix),
+    requestId: String(request?.requestId || '').trim() || undefined,
+    traceId: String(request?.traceId || '').trim() || undefined,
     taskId: normalizePersistTaskId(taskId),
     role: 'assistant',
     explicitMessageType: MESSAGE_TYPES.ORCHESTRATOR,
@@ -729,12 +645,46 @@ async function persistOrchestratorEvent(instanceId, request, orchestratorResult,
   });
 }
 
-async function persistAssistantResponseEvent(instanceId, request, orchestratorResult, assistantResponse, transaction, taskId) {
-  const suffix = 'assistant_structured';
-  const key = `${buildIdempotencyKey(request)}:${suffix}`;
+async function persistToolTraceEntry(instanceId, request, traceEntry, transaction, taskId) {
+  const suffix = String(traceEntry?.suffix || '').trim();
+  const toolResult = asPlainObject(traceEntry.toolResult);
+  if (!suffix || !toolResult.status) return { inserted: false, row: null };
+
+  const key = buildEventIdempotencyKey(request, suffix);
+  const messageInput = buildConversationMessageInput({
+    instanceId,
+    messageId: buildMessageId(request, suffix),
+    requestId: String(request?.requestId || '').trim() || undefined,
+    traceId: String(request?.traceId || '').trim() || undefined,
+    taskId: normalizePersistTaskId(taskId),
+    role: 'tool',
+    explicitMessageType: MESSAGE_TYPES.TOOL,
+    content: String(traceEntry.content || '').trim() || null,
+    payload: {
+      ...toolResult,
+      toolCallId: traceEntry.toolCallId || null,
+      toolName: traceEntry.toolName || null
+    },
+    attachments: [],
+    idempotencyKey: key
+  });
+  return messageService.saveRaw({
+    conversationMessageInput: messageInput,
+    transaction
+  });
+}
+
+async function persistAssistantStructuredEvent(instanceId, request, loopTrace, assistantResponse, transaction, taskId) {
+  const suffix = EVENT_SUFFIX.ASSISTANT_FINAL;
+  const key = buildEventIdempotencyKey(request, suffix);
   const text = String(assistantResponse?.text || '').trim() || 'assistant_reply';
   const attachments = Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [];
   const explicitMessageType = resolveDialogueMessageType({ content: text, attachments });
+  const orchestratorEntries = Array.isArray(loopTrace)
+    ? loopTrace.filter((entry) => entry?.kind === 'orchestrator')
+    : [];
+  const lastOrchestrator = orchestratorEntries[orchestratorEntries.length - 1] || null;
+
   const messageInput = buildConversationMessageInput({
     instanceId,
     messageId: buildMessageId(request, suffix),
@@ -746,7 +696,9 @@ async function persistAssistantResponseEvent(instanceId, request, orchestratorRe
     content: text,
     payload: {
       mode: 'llm_response',
-      turnResult: orchestratorResult,
+      loopSteps: orchestratorEntries.length,
+      finishReason: lastOrchestrator?.turnResult?.finishReason || null,
+      turnResult: asPlainObject(lastOrchestrator?.turnResult),
       response: asPlainObject(assistantResponse)
     },
     attachments,
@@ -758,21 +710,21 @@ async function persistAssistantResponseEvent(instanceId, request, orchestratorRe
   });
 }
 
-async function persistToolResultEvent(instanceId, request, assistantResponse, transaction, taskId, leg = 'primary') {
-  const toolResult = asPlainObject(assistantResponse?.debugMeta?.toolResult);
-  if (!toolResult.status) return { inserted: false, row: null };
-  const suffix = normalizeEventSuffix('tool_result', leg);
-  const key = `${buildIdempotencyKey(request)}:${suffix}`;
+async function persistErrorRuntimeEvent(instanceId, request, errorRuntime, transaction, taskId) {
+  const suffix = EVENT_SUFFIX.ERROR_RUNTIME;
+  const key = buildEventIdempotencyKey(request, suffix);
+  const payload = asPlainObject(errorRuntime);
+  const text = String(payload.message || 'Agent 内部异常').trim();
   const messageInput = buildConversationMessageInput({
     instanceId,
     messageId: buildMessageId(request, suffix),
     requestId: String(request?.requestId || '').trim() || undefined,
     traceId: String(request?.traceId || '').trim() || undefined,
     taskId: normalizePersistTaskId(taskId),
-    role: 'tool',
-    explicitMessageType: MESSAGE_TYPES.TOOL,
-    content: String(assistantResponse?.text || '').trim() || null,
-    payload: toolResult,
+    role: 'assistant',
+    explicitMessageType: MESSAGE_TYPES.ERROR,
+    content: text,
+    payload,
     attachments: [],
     idempotencyKey: key
   });
@@ -780,6 +732,32 @@ async function persistToolResultEvent(instanceId, request, assistantResponse, tr
     conversationMessageInput: messageInput,
     transaction
   });
+}
+
+async function persistLoopTrace({
+  instanceId,
+  request,
+  loopTrace,
+  contextEnvelope,
+  assistantResponse,
+  errorRuntime,
+  transaction,
+  taskId
+}) {
+  const trace = Array.isArray(loopTrace) ? loopTrace : [];
+  for (const entry of trace) {
+    if (entry?.kind === 'orchestrator') {
+      await persistOrchestratorTraceEntry(instanceId, request, entry, contextEnvelope, transaction, taskId);
+      continue;
+    }
+    if (entry?.kind === 'tool') {
+      await persistToolTraceEntry(instanceId, request, entry, transaction, taskId);
+    }
+  }
+  await persistAssistantStructuredEvent(instanceId, request, trace, assistantResponse, transaction, taskId);
+  if (errorRuntime && typeof errorRuntime === 'object') {
+    await persistErrorRuntimeEvent(instanceId, request, errorRuntime, transaction, taskId);
+  }
 }
 
 function mergeActiveResolution(primary, fallback) {
@@ -801,18 +779,20 @@ function mergeActiveResolution(primary, fallback) {
 
 async function processConversationRequest({
   request,
-  orchestratorResult,
+  loopTrace,
   contextEnvelope,
   activeResolutionHint,
   assistantResponse,
   taskId,
-  phase = 'full',
-  phaseTag = 'primary'
+  errorRuntime = null
 }) {
-  const resolvedOrchestratorResult = orchestratorResult;
   const policy = getPolicy();
   const idempotencyKey = buildIdempotencyKey(request);
   const persistTaskId = normalizePersistTaskId(taskId);
+  const orchestratorEntries = Array.isArray(loopTrace)
+    ? loopTrace.filter((entry) => entry?.kind === 'orchestrator')
+    : [];
+  const lastOrchestratorResult = orchestratorEntries[orchestratorEntries.length - 1]?.turnResult || null;
 
   return postgresqlSequelize.transaction(async (transaction) => {
     const container = await ensureContainer(request, transaction);
@@ -848,87 +828,25 @@ async function processConversationRequest({
 
     const userMsg = normalizeMessagePayload(request);
 
-    if (phase === 'after_tool') {
-      await persistOrchestratorEvent(instance.id, request, resolvedOrchestratorResult, contextEnvelope, transaction, persistTaskId, phaseTag);
-      await persistToolResultEvent(instance.id, request, assistantResponse, transaction, persistTaskId, phaseTag);
-      await applyTurnTokenUsage(instance.id, resolvedOrchestratorResult, assistantResponse, transaction);
-      return {
-        ok: true,
-        phase: 'after_tool',
-        trace_id: request.traceId,
-        request_id: request.requestId,
-        idempotency_key: idempotencyKey,
-        instance: { id: instance.id }
-      };
-    }
-
-    if (phase === 'finalize') {
-      await persistOrchestratorEvent(instance.id, request, resolvedOrchestratorResult, contextEnvelope, transaction, persistTaskId, phaseTag);
-      await persistAssistantResponseEvent(instance.id, request, resolvedOrchestratorResult, assistantResponse, transaction, persistTaskId);
-      await applyTurnTokenUsage(instance.id, resolvedOrchestratorResult, assistantResponse, transaction);
-      const history = await loadHistory(instance.id, policy.historyTurns, transaction);
-      const promptBlocks = toPromptBlocks({ policy, history, request, orchestratorResult: resolvedOrchestratorResult });
-      return {
-        ok: true,
-        trace_id: request.traceId,
-        request_id: request.requestId,
-        idempotency_key: idempotencyKey,
-        container: {
-          id: container.id,
-          channel_type: container.channel_type,
-          user_id: container.user_id,
-          conversation_id: container.conversation_id,
-          container_key: container.container_key
-        },
-        instance: {
-          id: instance.id,
-          instance_no: instance.instance_no,
-          status: instance.status,
-          created_new: Boolean(effectiveResolution.createdNewInstance),
-          rollover_reason: effectiveResolution.rolloverReason || null,
-          previous_instance_no: effectiveResolution.previousInstanceNo,
-          turn_count: Number(instance.turn_count || 0),
-          token_count: Number(instance.token_count || 0),
-          version: Number(instance.version || 0) + 1
-        },
-        current_input: userMsg,
-        text: String(assistantResponse?.text || '').trim(),
-        attachments: Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [],
-        history,
-        context_envelope: contextEnvelope ? {
-          currentQuery: String(contextEnvelope?.currentQuery || ''),
-          currentInput: {
-            messageId: String(contextEnvelope?.currentInput?.messageId || '').trim() || null,
-            attachments: Array.isArray(contextEnvelope?.currentInput?.attachments) ? contextEnvelope.currentInput.attachments : [],
-            fileIds: Array.isArray(contextEnvelope?.currentInput?.fileIds) ? contextEnvelope.currentInput.fileIds : []
-          },
-          historySummary: asPlainObject(contextEnvelope.historySummary),
-          historyContext: {
-            messages: Array.isArray(contextEnvelope?.historyContext?.messages)
-              ? contextEnvelope.historyContext.messages
-              : []
-          },
-          contextVersion: Number(contextEnvelope.contextVersion || 2)
-        } : null,
-        orchestrator: resolvedOrchestratorResult,
-        llm_raw: {
-          orchestrator_extraction: asPlainObject(resolvedOrchestratorResult).llmRaw || null,
-          tool_execution: asPlainObject(assistantResponse?.debugMeta).toolExecution?.llmRaw
-            || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
-            || null
-        },
-        prompt_blocks: promptBlocks,
-        policy
-      };
-    }
-
-    await persistOrchestratorEvent(instance.id, request, resolvedOrchestratorResult, contextEnvelope, transaction, persistTaskId, 'primary');
-    await persistToolResultEvent(instance.id, request, assistantResponse, transaction, persistTaskId);
-    await persistAssistantResponseEvent(instance.id, request, resolvedOrchestratorResult, assistantResponse, transaction, persistTaskId);
-    await applyTurnTokenUsage(instance.id, resolvedOrchestratorResult, assistantResponse, transaction);
+    await persistLoopTrace({
+      instanceId: instance.id,
+      request,
+      loopTrace,
+      contextEnvelope,
+      assistantResponse,
+      errorRuntime,
+      transaction,
+      taskId: persistTaskId
+    });
+    await applyTurnTokenUsage(instance.id, loopTrace, transaction);
 
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
-    const promptBlocks = toPromptBlocks({ policy, history, request, orchestratorResult: resolvedOrchestratorResult });
+    const promptBlocks = toPromptBlocks({
+      policy,
+      history,
+      request,
+      orchestratorResult: lastOrchestratorResult
+    });
 
     return {
       ok: true,
@@ -972,9 +890,9 @@ async function processConversationRequest({
         },
         contextVersion: Number(contextEnvelope.contextVersion || 2)
       } : null,
-      orchestrator: resolvedOrchestratorResult,
+      orchestrator: lastOrchestratorResult,
       llm_raw: {
-        orchestrator_extraction: asPlainObject(resolvedOrchestratorResult).llmRaw || null,
+        orchestrator_extraction: asPlainObject(lastOrchestratorResult).llmRaw || null,
         tool_execution: asPlainObject(assistantResponse?.debugMeta).toolExecution?.llmRaw
           || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
           || null

@@ -180,6 +180,11 @@ async function enqueueConversationRequest(request, options = {}) {
   await taskStore.markEnqueued({ taskId: publicTaskId, request });
 
   if (isPreferAsyncRequest(request)) {
+    await taskStore.markDeferredChannelDelivery({
+      taskId: publicTaskId,
+      reason: 'prefer_async',
+      request
+    });
     return buildAcceptedResponse(publicTaskId, { reason: 'prefer_async' });
   }
 
@@ -187,6 +192,11 @@ async function enqueueConversationRequest(request, options = {}) {
   if (result) return buildCompletedResponse(result, publicTaskId);
 
   await taskStore.recordSyncTimeout({ taskId: publicTaskId, request, waitMs });
+  await taskStore.markDeferredChannelDelivery({
+    taskId: publicTaskId,
+    reason: 'sync_timeout',
+    request
+  });
   return buildAcceptedResponse(publicTaskId, {
     reason: 'sync_timeout',
     message: `处理超时（${waitMs}ms），任务继续在后台执行，请通过 taskId 查询结果`

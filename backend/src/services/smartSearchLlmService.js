@@ -30,6 +30,14 @@ function parseBool(v) {
   return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
+function parseBoolWithDefault(v, fallback) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return fallback;
+  if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+  if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
+  return fallback;
+}
+
 function getDefaultProviderSpecs() {
   // Backward compatible: if SMART_SEARCH_LLM_PROVIDERS is not set, keep existing Qwen config.
   return [
@@ -174,9 +182,7 @@ function resolveProvider(providerId) {
   return pick;
 }
 
-function getSmartSearchLlmStatusForProvider(provider) {
-  // Global quota switches (kept for backward compatibility)
-  const enabled = parseBool(process.env.SMART_SEARCH_LLM_ENABLED);
+function getLlmStatusForProvider(provider, { enabled }) {
   const remainingTokensRaw = process.env.SMART_SEARCH_LLM_TOKEN_REMAINING ?? process.env.SMART_SEARCH_LLM_TOKENS_REMAINING;
   const remainingTokens = remainingTokensRaw !== undefined ? Number.parseInt(String(remainingTokensRaw), 10) : null;
   const quotaExhausted = parseBool(process.env.SMART_SEARCH_LLM_QUOTA_EXHAUSTED);
@@ -216,6 +222,18 @@ function getSmartSearchLlmStatusForProvider(provider) {
       ? { id: provider.id, label: provider.label, kind: provider.kind, model: provider.model }
       : null
   };
+}
+
+function getSmartSearchLlmStatusForProvider(provider) {
+  return getLlmStatusForProvider(provider, {
+    enabled: parseBool(process.env.SMART_SEARCH_LLM_ENABLED)
+  });
+}
+
+function getAgentOrchestratorLlmStatusForProvider(provider) {
+  return getLlmStatusForProvider(provider, {
+    enabled: parseBoolWithDefault(process.env.AGENT_ORCHESTRATOR_LLM_ENABLED, true)
+  });
 }
 
 function getProvidersPublic() {
@@ -1294,6 +1312,7 @@ module.exports = {
   getProvidersPublic,
   resolveProvider,
   getSmartSearchLlmStatusForProvider,
+  getAgentOrchestratorLlmStatusForProvider,
   buildKeywordExtractionMessages,
   buildQueryPlanExtractionMessages,
   extractQueryPlanWithProvider,

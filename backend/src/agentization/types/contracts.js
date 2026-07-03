@@ -12,12 +12,6 @@ function assertNonEmptyString(value, fieldName) {
   return text;
 }
 
-function clampConfidence(confidence) {
-  const num = Number(confidence);
-  if (!Number.isFinite(num)) return 0;
-  return Math.min(Math.max(num, 0), 1);
-}
-
 function optionalString(value) {
   const text = String(value || '').trim();
   return text || undefined;
@@ -157,63 +151,7 @@ function buildMessageOutput(input, options = {}) {
   return out;
 }
 
-function buildIntentResult(input) {
-  assertObject(input, 'IntentResult');
-
-  return {
-    intent: assertNonEmptyString(input.intent, 'intent'),
-    confidence: clampConfidence(input.confidence),
-    slots: input.slots && typeof input.slots === 'object' ? input.slots : {},
-    fallback: Boolean(input.fallback)
-  };
-}
-
-function buildToolCall(input) {
-  assertObject(input, 'ToolCall');
-
-  const retryPolicy = input.retryPolicy && typeof input.retryPolicy === 'object'
-    ? input.retryPolicy
-    : {};
-
-  return {
-    toolName: assertNonEmptyString(input.toolName, 'toolName'),
-    input: input.input && typeof input.input === 'object' ? input.input : {},
-    timeoutMs: Number.isFinite(Number(input.timeoutMs)) ? Number(input.timeoutMs) : 8000,
-    retryPolicy: {
-      maxAttempts: Number.isFinite(Number(retryPolicy.maxAttempts)) ? Number(retryPolicy.maxAttempts) : 1,
-      backoffMs: Number.isFinite(Number(retryPolicy.backoffMs)) ? Number(retryPolicy.backoffMs) : 0
-    }
-  };
-}
-
-function buildAgentResponse(input) {
-  assertObject(input, 'AgentResponse');
-
-  const mode = String(input.mode || 'completed').trim().toLowerCase();
-  if (mode !== 'completed' && mode !== 'accepted') {
-    throw new Error('mode must be completed or accepted');
-  }
-
-  const out = {
-    mode,
-    text: String(input.text || '').trim(),
-    cards: Array.isArray(input.cards) ? input.cards : [],
-    links: Array.isArray(input.links) ? input.links : [],
-    actions: Array.isArray(input.actions) ? input.actions : [],
-    debugMeta: input.debugMeta && typeof input.debugMeta === 'object' ? input.debugMeta : {}
-  };
-
-  if (input.taskId) {
-    out.taskId = String(input.taskId);
-  }
-
-  return out;
-}
-
 module.exports = {
   buildMessageInput,
-  buildMessageOutput,
-  buildIntentResult,
-  buildToolCall,
-  buildAgentResponse
+  buildMessageOutput
 };

@@ -37,16 +37,70 @@ function buildHistoryMessages(contextEnvelope = {}) {
   const out = [];
   for (const row of rows) {
     const role = String(row?.role || '').trim();
-    const content = strOrNull(row?.content);
-    if (!role || !content) continue;
-    if (!['user', 'assistant', 'tool'].includes(role)) continue;
-    const msg = { role, content };
-    if (role === 'tool' && row.tool_call_id) {
-      msg.tool_call_id = String(row.tool_call_id);
+    if (!role || !['user', 'assistant', 'tool'].includes(role)) continue;
+
+    const toolCalls = Array.isArray(row.tool_calls) ? row.tool_calls : [];
+    const content = row.content == null ? null : strOrNull(row.content);
+
+    if (role === 'tool') {
+      const toolCallId = String(row.tool_call_id || '').trim();
+      if (!toolCallId || !content) continue;
+      out.push({ role: 'tool', tool_call_id: toolCallId, content });
+      continue;
     }
-    out.push(msg);
+
+    if (role === 'assistant' && toolCalls.length > 0) {
+      out.push({
+        role: 'assistant',
+        content: row.content == null ? null : content,
+        tool_calls: toolCalls
+      });
+      continue;
+    }
+
+    if (!content) continue;
+    out.push({ role, content });
   }
   return out;
+}
+
+function buildToolsPack(userPermissions) {
+  const registry = loadToolRegistry();
+  return buildFunctionToolsFromRegistry({
+    userPermissions,
+    registry
+  });
+}
+
+/**
+ * Build ChatCompletionRequest using explicit messages (Turn Loop subsequent rounds).
+ */
+function buildChatRequestFromMessages(options = {}) {
+  const messages = Array.isArray(options.messages) ? options.messages : [];
+  const contextEnvelope = asObject(options.contextEnvelope);
+  const lang = resolveLang(contextEnvelope);
+  const { langKey } = loadSystemPrompt(lang);
+  const toolsPack = buildToolsPack(options.userPermissions);
+  const tools = toolsPack.tools.length > 0 ? toolsPack.tools : null;
+
+  return {
+    model: String(options.model || '').trim(),
+    messages: messages.map((msg) => ({ ...msg })),
+    tools,
+    tool_choice: tools ? 'auto' : 'none',
+    temperature: 0,
+    top_p: 0.1,
+    max_tokens: 4096,
+    stream: false,
+    response_format: null,
+    stop: null,
+    extensions: {
+      traceId: String(options.traceId || '').trim() || null,
+      registryVersion: String(toolsPack.registryVersion || 'v1'),
+      lang,
+      langKey
+    }
+  };
 }
 
 /**
@@ -83,12 +137,7 @@ function assembleChatCompletionRequest(options = {}) {
     }
   }
 
-  const registry = loadToolRegistry();
-  const toolsPack = buildFunctionToolsFromRegistry({
-    userPermissions: options.userPermissions,
-    registry
-  });
-
+  const toolsPack = buildToolsPack(options.userPermissions);
   const tools = toolsPack.tools.length > 0 ? toolsPack.tools : null;
 
   return {
@@ -104,15 +153,21 @@ function assembleChatCompletionRequest(options = {}) {
     stop: null,
     extensions: {
       traceId: String(options.traceId || '').trim() || null,
-      registryVersion: String(toolsPack.registryVersion || registry.registryVersion || 'v1'),
+      registryVersion: String(toolsPack.registryVersion || 'v1'),
       lang,
       langKey
     }
   };
 }
 
+function buildInitialLoopMessages(options = {}) {
+  return assembleChatCompletionRequest(options).messages;
+}
+
 module.exports = {
   assembleChatCompletionRequest,
+  buildChatRequestFromMessages,
+  buildInitialLoopMessages,
   buildCurrentUserMessage,
   buildHistoryMessages,
   resolveLang

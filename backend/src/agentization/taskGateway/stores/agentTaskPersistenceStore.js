@@ -1,6 +1,7 @@
 const { postgresqlSequelize } = require('../../../config/postgresql');
 const { buildIdempotencyKey } = require('../../session/conversationTurnKeys');
 const { buildTaskIdentity } = require('../agentTaskKeys');
+const { parseRequestSnapshot } = require('../agentTaskSnapshot');
 
 function nowIso() {
   return new Date().toISOString();
@@ -390,6 +391,34 @@ function createAgentTaskPersistenceStore() {
     return task;
   }
 
+  async function markDeferredChannelDelivery({ taskId, reason = 'accepted', request = null, transaction = null }) {
+    const snapshot = parseRequestSnapshot(await getTaskByTaskId(taskId, transaction));
+    const nextSnapshot = {
+      ...snapshot,
+      delivery: {
+        deferred: true,
+        reason: String(reason || 'accepted')
+      }
+    };
+    if (request) {
+      nextSnapshot.channel = request?.channel || snapshot?.channel || null;
+      nextSnapshot.user = request?.user || snapshot?.user || null;
+    }
+    await postgresqlSequelize.query(
+      `UPDATE agent_task
+          SET request_snapshot = CAST(:requestSnapshot AS jsonb),
+              updated_at = NOW()
+        WHERE task_id = :taskId`,
+      {
+        replacements: {
+          taskId: String(taskId || ''),
+          requestSnapshot: JSON.stringify(nextSnapshot)
+        },
+        transaction
+      }
+    );
+  }
+
   async function getTask(taskId) {
     return getTaskByTaskId(taskId);
   }
@@ -440,6 +469,7 @@ function createAgentTaskPersistenceStore() {
     markCompleted,
     markFailed,
     recordSyncTimeout,
+    markDeferredChannelDelivery,
     getTask,
     syncFromQueueTask
   };

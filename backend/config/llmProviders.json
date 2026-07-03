@@ -25,7 +25,7 @@
     "requiresApiKey": true,
     "apiKeyEnv": "DEEPSEEK_API_KEY",
     "baseUrl": "https://api.deepseek.com",
-    "model": "deepseek-chat",
+    "model": "deepseek-v4-flash",
     "temperature": 0,
     "top_p": 0.1,
     "timeoutMs": 12000,

@@ -14,9 +14,9 @@ function baseRequest() {
   };
 }
 
-test('conversation orchestrator returns native tool_call turn result', async (t) => {
-  const original = qwenService.runOrchestratorLlmWithProvider;
-  qwenService.runOrchestratorLlmWithProvider = async () => ({
+test('conversation orchestrator runWithMessages returns native tool_call turn result', async (t) => {
+  const original = qwenService.runOrchestratorLlmWithMessages;
+  qwenService.runOrchestratorLlmWithMessages = async () => ({
     turnVersion: 'v1',
     kind: 'tool_call',
     content: null,
@@ -32,10 +32,11 @@ test('conversation orchestrator returns native tool_call turn result', async (t)
     chatResponse: { choices: [] }
   });
 
-  t.after(() => { qwenService.runOrchestratorLlmWithProvider = original; });
+  t.after(() => { qwenService.runOrchestratorLlmWithMessages = original; });
 
   const orchestrator = createConversationOrchestrator();
-  const out = await orchestrator.run(baseRequest(), {
+  const out = await orchestrator.runWithMessages(baseRequest(), {
+    messages: [{ role: 'user', content: '查 141010A' }],
     contextEnvelope: { currentQuery: '查 141010A', historyContext: { messages: [] } }
   });
 
@@ -45,9 +46,22 @@ test('conversation orchestrator returns native tool_call turn result', async (t)
   assert.ok(out.llmRaw);
 });
 
-test('conversation orchestrator returns message turn result with content passthrough', async (t) => {
-  const original = qwenService.runOrchestratorLlmWithProvider;
-  qwenService.runOrchestratorLlmWithProvider = async () => ({
+test('conversation orchestrator buildInitialLoopMessages includes system and user', () => {
+  const orchestrator = createConversationOrchestrator();
+  const messages = orchestrator.buildInitialLoopMessages(baseRequest(), {
+    contextEnvelope: {
+      currentQuery: '查 141010A',
+      historyContext: { messages: [{ role: 'user', content: '你好' }] }
+    }
+  });
+
+  assert.equal(messages[0].role, 'system');
+  assert.ok(messages.some((m) => m.role === 'user' && /141010A/.test(m.content)));
+});
+
+test('conversation orchestrator runWithMessages returns message turn result with content passthrough', async (t) => {
+  const original = qwenService.runOrchestratorLlmWithMessages;
+  qwenService.runOrchestratorLlmWithMessages = async () => ({
     turnVersion: 'v1',
     kind: 'message',
     content: '请提供故障码后我再查询。',
@@ -56,10 +70,11 @@ test('conversation orchestrator returns message turn result with content passthr
     usage: { total_tokens: 10 }
   });
 
-  t.after(() => { qwenService.runOrchestratorLlmWithProvider = original; });
+  t.after(() => { qwenService.runOrchestratorLlmWithMessages = original; });
 
   const orchestrator = createConversationOrchestrator();
-  const out = await orchestrator.run(baseRequest(), {
+  const out = await orchestrator.runWithMessages(baseRequest(), {
+    messages: [{ role: 'user', content: '这个问题怎么处理' }],
     contextEnvelope: { currentQuery: '这个问题怎么处理', historyContext: { messages: [] } }
   });
 

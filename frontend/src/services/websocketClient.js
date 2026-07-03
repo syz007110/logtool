@@ -161,6 +161,10 @@ class WebSocketClient {
           this.handleSurgeryTaskStatus(message)
           break
 
+        case 'agent_task_status':
+          this.handleAgentTaskStatus(message)
+          break
+
         case 'pong':
           // 心跳响应，无需处理
           break
@@ -230,6 +234,31 @@ class WebSocketClient {
       deviceId,
       status,
       progress,
+      error,
+      timestamp
+    })
+  }
+
+  handleAgentTaskStatus (message) {
+    const {
+      taskId,
+      status,
+      userId,
+      traceId,
+      requestId,
+      conversationId,
+      result,
+      error,
+      timestamp
+    } = message
+    this.triggerEvent('agentTaskStatusChange', {
+      taskId,
+      status,
+      userId,
+      traceId,
+      requestId,
+      conversationId,
+      result,
       error,
       timestamp
     })

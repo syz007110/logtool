@@ -22,6 +22,7 @@ const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog
 const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
 const { processKbIngestJob } = require('./kbIngestProcessor');
 const { createAgentTaskPersistenceStore } = require('../agentization/taskGateway/stores/agentTaskPersistenceStore');
+const { deliverAgentTaskOutcome } = require('../agentization/delivery/agentTaskDeliveryService');
 const { executeConversationTurn } = require('../agentization/runtime');
 const { projectQueueResultToMessageOutput } = require('../agentization/types/messageOutputProjection');
 const Log = require('../models/log');
@@ -815,10 +816,19 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
 
     if (routedTaskId) {
       try {
+        const projected = projectQueueResultToMessageOutput(result);
         await agentTaskStore.markCompleted({
           taskId: routedTaskId,
           request,
-          response: projectQueueResultToMessageOutput(result)
+          response: projected
+        });
+        const taskRow = await agentTaskStore.getTask(routedTaskId);
+        await deliverAgentTaskOutcome({
+          request,
+          taskId: routedTaskId,
+          taskRow,
+          status: 'completed',
+          result: projected
         });
       } catch (taskError) {
         console.warn('[agent-task] markCompleted failed:', taskError?.message || taskError);
@@ -835,6 +845,14 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
     if (routedTaskId) {
       try {
         await agentTaskStore.markFailed({ taskId: routedTaskId, request, error });
+        const taskRow = await agentTaskStore.getTask(routedTaskId);
+        await deliverAgentTaskOutcome({
+          request,
+          taskId: routedTaskId,
+          taskRow,
+          status: 'failed',
+          error
+        });
       } catch (taskError) {
         console.warn('[agent-task] markFailed failed:', taskError?.message || taskError);
       }

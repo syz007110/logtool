@@ -235,6 +235,8 @@
 <script>
 import { reactive, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import api from '../api'
+import store from '../store'
+import websocketClient from '../services/websocketClient'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { GANTT_STYLE, GANTT_COLORS, normalizeSurgeryData, toMs } from '../utils/visualizationConfig'
@@ -294,6 +296,8 @@ export default {
       return `${timePart}${randomPart}`
     }
     const agentConversationId = ref('')
+    const handledAgentTaskIds = new Set()
+    const pendingAgentTaskIds = new Set()
     const agentInput = reactive({
       attachments: []
     })
@@ -845,6 +849,60 @@ export default {
       ElMessage.success('已新建会话')
     }
 
+    const getCurrentUserId = () => String(store.state.auth?.user?.id || '').trim()
+
+    const appendAssistantFromAgentResult = (finalResponse) => {
+      const returnedConversationId = String(finalResponse?.session?.conversationId || '').trim()
+      if (returnedConversationId) {
+        agentConversationId.value = returnedConversationId
+      }
+      const instance = finalResponse?.instance
+      if (instance?.created_new) {
+        const instanceNo = Number(instance?.instance_no || 0)
+        const reasonText = getConversationRolloverReasonText(instance?.rollover_reason, finalResponse?.policy || {})
+        agentMessages.value.push({
+          role: 'system',
+          createdAt: Date.now(),
+          text: `已新建会话实例 #${instanceNo}，原因：${reasonText}`,
+          attachments: []
+        })
+      }
+      agentMessages.value.push({
+        role: 'assistant',
+        createdAt: Date.now(),
+        text: finalResponse?.text || '',
+        attachments: finalResponse?.attachments || []
+      })
+      scrollAgentChatToBottom()
+    }
+
+    const waitForAgentTaskViaWebSocket = (taskId, timeoutMs = 120000) => new Promise((resolve, reject) => {
+      const normalizedTaskId = String(taskId || '').trim()
+      if (!normalizedTaskId) {
+        reject(new Error('taskId missing'))
+        return
+      }
+      pendingAgentTaskIds.add(normalizedTaskId)
+      const timer = setTimeout(() => {
+        pendingAgentTaskIds.delete(normalizedTaskId)
+        websocketClient.off('agentTaskStatusChange', onUpdate)
+        reject(new Error('等待 Agent 任务结果超时'))
+      }, timeoutMs)
+      const onUpdate = (payload) => {
+        if (String(payload?.taskId || '').trim() !== normalizedTaskId) return
+        const status = String(payload?.status || '').trim().toLowerCase()
+        if (status !== 'completed' && status !== 'failed') return
+        const userId = String(payload?.userId || '').trim()
+        const currentUserId = getCurrentUserId()
+        if (currentUserId && userId && currentUserId !== userId) return
+        clearTimeout(timer)
+        pendingAgentTaskIds.delete(normalizedTaskId)
+        websocketClient.off('agentTaskStatusChange', onUpdate)
+        resolve(payload)
+      }
+      websocketClient.on('agentTaskStatusChange', onUpdate)
+    })
+
     const sendAgentMessage = async () => {
       const text = getAgentEditorPlainText()
       const attachments = Array.isArray(agentInput.attachments)
@@ -898,34 +956,33 @@ export default {
         }
         const res = await api.agent.execute(payload)
         const mode = String(res?.data?.mode || '').trim().toLowerCase()
+        const taskId = String(res?.data?.taskId || '').trim()
+        if (mode === 'accepted') {
+          if (!taskId) throw new Error('agent taskId missing')
+          agentMessages.value.push({
+            role: 'system',
+            createdAt: Date.now(),
+            text: String(res?.data?.message || '任务处理中，完成后将自动推送结果'),
+            attachments: []
+          })
+          scrollAgentChatToBottom()
+          const payload = await waitForAgentTaskViaWebSocket(taskId)
+          handledAgentTaskIds.add(taskId)
+          const asyncStatus = String(payload?.status || '').trim().toLowerCase()
+          if (asyncStatus === 'failed') {
+            throw new Error(String(payload?.error?.message || '任务失败'))
+          }
+          appendAssistantFromAgentResult(payload?.result || {})
+          resetAgentInput()
+          return
+        }
+
         const finalResponse = res?.data?.response || null
         if (mode !== 'completed' || !finalResponse) {
           throw new Error('agent response missing')
         }
-        const returnedConversationId = String(finalResponse?.session?.conversationId || '').trim()
-        if (returnedConversationId) {
-          agentConversationId.value = returnedConversationId
-        }
-
-        const instance = finalResponse?.instance
-        if (instance?.created_new) {
-          const instanceNo = Number(instance?.instance_no || 0)
-          const reasonText = getConversationRolloverReasonText(instance?.rollover_reason, finalResponse?.policy || {})
-          agentMessages.value.push({
-            role: 'system',
-            createdAt: Date.now(),
-            text: `已新建会话实例 #${instanceNo}，原因：${reasonText}`,
-            attachments: []
-          })
-        }
-
-        agentMessages.value.push({
-          role: 'assistant',
-          createdAt: Date.now(),
-          text: finalResponse?.text || '',
-          attachments: finalResponse?.attachments || []
-        })
-        scrollAgentChatToBottom()
+        if (taskId) handledAgentTaskIds.add(taskId)
+        appendAssistantFromAgentResult(finalResponse)
         resetAgentInput()
       } catch (error) {
         agentMessages.value.push({
@@ -943,6 +1000,7 @@ export default {
     onMounted(() => {
       const onResize = () => { if (vizChart) vizChart.resize() }
       window.addEventListener('resize', onResize)
+      websocketClient.connect()
     })
     onBeforeUnmount(() => {
       agentInput.attachments.forEach((item) => {

@@ -3,10 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   buildMessageInput,
-  buildMessageOutput,
-  buildIntentResult,
-  buildToolCall,
-  buildAgentResponse
+  buildMessageOutput
 } = require('../src/agentization/types/contracts');
 
 test('buildMessageInput builds request with required fields', () => {
@@ -136,44 +133,6 @@ test('buildMessageInput throws when conversationType is invalid', () => {
       message: { externalMessageId: 'msg-invalid-conv-type', type: 'text', text: 'hi', sentAt: 1710000000004 }
     });
   }, /conversationType/i);
-});
-
-test('buildIntentResult normalizes fallback and confidence', () => {
-  const intent = buildIntentResult({
-    intent: 'smart_search',
-    confidence: 2,
-    slots: { q: 'abc' }
-  });
-
-  assert.equal(intent.intent, 'smart_search');
-  assert.equal(intent.confidence, 1);
-  assert.equal(intent.fallback, false);
-  assert.equal(intent.slots.q, 'abc');
-});
-
-test('buildToolCall applies defaults for timeout and retry', () => {
-  const call = buildToolCall({
-    toolName: 'smart_search',
-    input: { query: 'abc' }
-  });
-
-  assert.equal(call.toolName, 'smart_search');
-  assert.equal(call.timeoutMs, 8000);
-  assert.equal(call.retryPolicy.maxAttempts, 1);
-  assert.equal(call.retryPolicy.backoffMs, 0);
-});
-
-test('buildAgentResponse keeps taskId optional', () => {
-  const response = buildAgentResponse({
-    mode: 'accepted',
-    text: 'queued',
-    actions: [{ type: 'poll' }],
-    taskId: 'task-1'
-  });
-
-  assert.equal(response.mode, 'accepted');
-  assert.equal(response.taskId, 'task-1');
-  assert.equal(response.actions.length, 1);
 });
 
 test('buildMessageInput keeps attachment references including fileId/url/mimeType', () => {

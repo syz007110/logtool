@@ -1,6 +1,6 @@
 const https = require('https');
 const url = require('url');
-const { assembleChatCompletionRequest } = require('./chatRequestAssembler');
+const { assembleChatCompletionRequest, buildChatRequestFromMessages } = require('./chatRequestAssembler');
 const { adaptChatCompletionRequest } = require('./chatProviderAdapter');
 const { normalizeChatCompletionResponse, parseOrchestratorTurnResult } = require('./chatResponseParser');
 
@@ -75,15 +75,23 @@ async function runOrchestratorChatCompletion({
   provider,
   userPermissions,
   traceId,
-  extraMessages
+  messages,
+  allowEmptyResponse = false
 }) {
-  const chatRequest = assembleChatCompletionRequest({
-    contextEnvelope,
-    userPermissions,
-    model: provider.model,
-    traceId,
-    extraMessages
-  });
+  const chatRequest = Array.isArray(messages) && messages.length > 0
+    ? buildChatRequestFromMessages({
+      messages,
+      contextEnvelope,
+      userPermissions,
+      model: provider.model,
+      traceId
+    })
+    : assembleChatCompletionRequest({
+      contextEnvelope,
+      userPermissions,
+      model: provider.model,
+      traceId
+    });
   const { body: httpBody } = adaptChatCompletionRequest(chatRequest, provider);
 
   const resp = await doJsonRequest({
@@ -98,7 +106,7 @@ async function runOrchestratorChatCompletion({
   const chatResponse = normalizeChatCompletionResponse(resp?.json || {});
   const turnResult = parseOrchestratorTurnResult(chatResponse);
 
-  if (turnResult.kind === 'empty') {
+  if (turnResult.kind === 'empty' && !allowEmptyResponse) {
     const err = new Error('orchestrator LLM returned empty assistant message');
     err.code = 'ORCHESTRATOR_LLM_EMPTY_CONTENT';
     err.meta = { finishReason: turnResult.finishReason, providerId: provider.id };

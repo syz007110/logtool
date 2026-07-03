@@ -4,13 +4,17 @@ function readPositiveInt(envValue, fallback) {
   return fallback;
 }
 
-function defaultTurnPolicy() {
+function getLoopPolicy() {
   return {
-    maxSteps: 4,
-    maxToolCalls: 2,
-    timeoutBudgetMs: 12000,
-    clarifyRoundLimit: 2
+    maxSteps: readPositiveInt(process.env.RUNTIME_MAX_STEPS, 4),
+    maxToolCalls: readPositiveInt(process.env.RUNTIME_MAX_TOOL_CALLS, 3),
+    timeoutBudgetMs: readPositiveInt(process.env.RUNTIME_TIMEOUT_BUDGET_MS, 12000),
+    clarifyRoundLimit: readPositiveInt(process.env.RUNTIME_CLARIFY_ROUND_LIMIT, 2)
   };
+}
+
+function defaultTurnPolicy() {
+  return getLoopPolicy();
 }
 
 function getRuntimeTimeouts() {
@@ -21,6 +25,7 @@ function getRuntimeTimeouts() {
 }
 
 module.exports = {
+  getLoopPolicy,
   defaultTurnPolicy,
   getRuntimeTimeouts
 };

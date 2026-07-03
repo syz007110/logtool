@@ -69,6 +69,6 @@ router.post(
 );
 
 router.post('/execute', auth, enrichAgentUser, checkPermission('smart_search:use'), executeAgentTask);
-router.get('/tasks/:taskId', getAgentTask);
+router.get('/tasks/:taskId', auth, enrichAgentUser, checkPermission('smart_search:use'), getAgentTask);
 
 module.exports = router;

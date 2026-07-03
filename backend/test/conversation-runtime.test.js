@@ -1,15 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { defaultTurnPolicy, getRuntimeTimeouts } = require('../src/agentization/runtime/turnPolicy');
+const { getLoopPolicy, defaultTurnPolicy, getRuntimeTimeouts } = require('../src/agentization/runtime/turnPolicy');
 const { withTimeout, createRuntimeStepLogger } = require('../src/agentization/runtime/runtimeStepUtils');
 
-test('defaultTurnPolicy returns stable loop limits', () => {
-  const policy = defaultTurnPolicy();
+test('getLoopPolicy returns stable loop limits', () => {
+  const policy = getLoopPolicy();
   assert.equal(policy.maxSteps, 4);
-  assert.equal(policy.maxToolCalls, 2);
+  assert.equal(policy.maxToolCalls, 3);
   assert.equal(policy.timeoutBudgetMs, 12000);
   assert.equal(policy.clarifyRoundLimit, 2);
+});
+
+test('defaultTurnPolicy mirrors getLoopPolicy', () => {
+  assert.deepEqual(defaultTurnPolicy(), getLoopPolicy());
 });
 
 test('getRuntimeTimeouts returns positive millisecond values', () => {

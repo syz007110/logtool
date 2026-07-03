@@ -8,7 +8,6 @@ const {
   parseToolArguments
 } = require('../src/agentization/orchestrator/chatResponseParser');
 const { adaptChatCompletionRequest } = require('../src/agentization/orchestrator/chatProviderAdapter');
-const { runTurnLoop } = require('../src/agentization/runtime/turnLoop');
 
 test('assembleChatCompletionRequest builds system + history + current user messages', () => {
   const req = assembleChatCompletionRequest({
@@ -93,39 +92,4 @@ test('parseOrchestratorTurnResult handles content message', () => {
 
 test('parseToolArguments rejects invalid JSON', () => {
   assert.throws(() => parseToolArguments('{bad'), /not valid JSON/i);
-});
-
-test('runTurnLoop passthroughs message content without planner', async () => {
-  const out = await runTurnLoop({
-    request: { traceId: 't-1' },
-    prepared: { contextEnvelope: { currentQuery: 'x' } },
-    turnResult: { kind: 'message', content: '直接回复用户。' },
-    toolGateway: { invokeFromToolCall: async () => ({ text: 'unused' }) },
-    timeouts: { stepMs: 5000 },
-    stepLogger: { log: () => {} },
-    onLastStep: () => {}
-  });
-  assert.equal(out.assistantResponse.text, '直接回复用户。');
-  assert.equal(out.toolCallsUsed, 0);
-});
-
-test('runTurnLoop invokes gateway on tool_call', async (t) => {
-  const gateway = {
-    invokeFromToolCall: async () => ({ text: 'tool done', debugMeta: {} })
-  };
-
-  const out = await runTurnLoop({
-    request: { traceId: 't-1' },
-    prepared: { contextEnvelope: {} },
-    turnResult: {
-      kind: 'tool_call',
-      toolCalls: [{ id: 'c1', toolName: 'error_code_lookup', arguments: { errorCode: '141010A' } }]
-    },
-    toolGateway: gateway,
-    timeouts: { stepMs: 5000 },
-    stepLogger: { log: () => {} },
-    onLastStep: () => {}
-  });
-  assert.equal(out.assistantResponse.text, 'tool done');
-  assert.equal(out.toolCallsUsed, 1);
 });

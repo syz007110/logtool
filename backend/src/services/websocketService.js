@@ -85,6 +85,7 @@ class WebSocketService extends EventEmitter {
       const MOTION_DATA_CH = 'ws:motion_data_task_status';
       const LOG_TASK_CH = 'ws:log_task_status';
       const SURGERY_TASK_CH = 'ws:surgery_task_status';
+      const AGENT_TASK_CH = 'ws:agent_task_status';
 
       await this.subClient.subscribe(LOG_CH, (message) => {
         try {
@@ -135,6 +136,16 @@ class WebSocketService extends EventEmitter {
           this.broadcastSurgeryTaskStatus(data);
         } catch (e) {
           console.error('订阅处理失败(SURGERY_TASK_CH):', e.message);
+        }
+      });
+
+      await this.subClient.subscribe(AGENT_TASK_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (!data || !data.taskId) return;
+          this.broadcastAgentTaskStatus(data);
+        } catch (e) {
+          console.error('订阅处理失败(AGENT_TASK_CH):', e.message);
         }
       });
 
@@ -468,6 +479,51 @@ class WebSocketService extends EventEmitter {
       }
     }
     this.broadcast(message);
+  }
+
+  async pushAgentTaskStatus(taskId, status, userId, meta = null) {
+    const payload = JSON.stringify({
+      taskId: String(taskId || ''),
+      status: String(status || ''),
+      userId: String(userId || ''),
+      traceId: String(meta?.traceId || ''),
+      requestId: String(meta?.requestId || ''),
+      conversationId: String(meta?.conversationId || ''),
+      result: meta?.result || null,
+      error: meta?.error || null,
+      timestamp: Date.now(),
+      source: this.processId
+    });
+    const channel = 'ws:agent_task_status';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        this.broadcastAgentTaskStatus(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布 Agent 任务状态变化失败:', e.message);
+      this.broadcastAgentTaskStatus(JSON.parse(payload));
+    }
+  }
+
+  broadcastAgentTaskStatus(data) {
+    const { taskId, status, userId, traceId, requestId, conversationId, result, error, timestamp } = data || {};
+    if (!taskId) return;
+    this.broadcast({
+      type: 'agent_task_status',
+      taskId,
+      status,
+      userId,
+      traceId,
+      requestId,
+      conversationId,
+      result,
+      error,
+      timestamp
+    });
+    console.log(`📡 推送 Agent 任务状态: 任务 ${taskId}, 状态 ${status}, 用户 ${userId || '-'}`);
   }
 
   // 推送给特定客户端

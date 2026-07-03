@@ -6,7 +6,7 @@ const {
 } = require('../session/conversationSessionService');
 const { resolveUserPermissions } = require('../security/userPermissionResolver');
 const { appendAgentDebugMarkdown } = require('../utils/agentDebugMarkdownLogger');
-const { defaultTurnPolicy, getRuntimeTimeouts } = require('./turnPolicy');
+const { getRuntimeTimeouts } = require('./turnPolicy');
 const { withTimeout, createRuntimeStepLogger } = require('./runtimeStepUtils');
 const { runTurnLoop } = require('./turnLoop');
 
@@ -96,32 +96,28 @@ function createConversationRuntime(options = {}) {
         || request.context.lang
         || 'zh-CN';
 
-      lastStep = 'orchestrator';
-      log('orchestrator:start');
-      const orchestratorStartedAt = Date.now();
-      const turnResult = await withTimeout(
-        deps.conversationOrchestrator.run(request, {
-          contextEnvelope: prepared.contextEnvelope,
-          history: prepared.history,
-          instance: prepared.instance,
-          container: prepared.container
-        }),
-        timeouts.stepMs,
-        'conversationOrchestrator.run'
-      );
-      debugTurnResult = turnResult;
-      log('orchestrator:done', { costMs: Date.now() - orchestratorStartedAt, kind: turnResult?.kind });
-
+      lastStep = 'turn_loop';
+      log('turn_loop:start', {
+        maxSteps: prepared.policy?.maxSteps,
+        maxToolCalls: prepared.policy?.maxToolCalls
+      });
+      const loopStartedAt = Date.now();
       const loopResult = await runTurnLoop({
         request,
         prepared,
-        turnResult,
+        conversationOrchestrator: deps.conversationOrchestrator,
         toolGateway: deps.toolGateway,
+        policy: prepared.policy,
         timeouts: {
           stepMs: timeouts.stepMs
         },
         stepLogger,
         onLastStep: (step) => { lastStep = step; }
+      });
+      log('turn_loop:done', {
+        costMs: Date.now() - loopStartedAt,
+        toolCallsUsed: loopResult.toolCallsUsed,
+        loopTraceCount: Array.isArray(loopResult.loopTrace) ? loopResult.loopTrace.length : 0
       });
 
       debugTurnResult = loopResult.debugOrchestratorResult;
@@ -134,13 +130,12 @@ function createConversationRuntime(options = {}) {
       const result = await withTimeout(
         deps.processConversationRequest({
           request,
-          orchestratorResult: loopResult.conversationPersistOrchestrator,
-          contextEnvelope: loopResult.conversationPersistEnvelope,
+          loopTrace: loopResult.loopTrace,
+          contextEnvelope: prepared.contextEnvelope,
           activeResolutionHint: prepared.activeResolution,
           assistantResponse: loopResult.assistantResponse,
-          taskId: routedTaskId,
-          phase: loopResult.conversationPersistPhase,
-          phaseTag: loopResult.conversationPersistTag
+          errorRuntime: loopResult.errorRuntime,
+          taskId: routedTaskId
         }),
         timeouts.stepMs,
         'processConversationRequest'
@@ -151,8 +146,8 @@ function createConversationRuntime(options = {}) {
         await deps.appendAgentDebugMarkdown({
           jobId,
           request,
-          contextEnvelope: loopResult.conversationPersistEnvelope,
-          orchestratorResult: loopResult.conversationPersistOrchestrator,
+          contextEnvelope: prepared.contextEnvelope,
+          orchestratorResult: loopResult.debugOrchestratorResult,
           assistantResponse: loopResult.assistantResponse,
           includePromptInjection: Boolean(result?.instance?.created_new),
           stage: 'persist_done'
