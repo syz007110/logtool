@@ -112,6 +112,12 @@ function renderOutbound({ req, res, request, response }) {
     text: String(result.text || '').trim(),
     attachments: Array.isArray(result.attachments) ? result.attachments : []
   };
+  if (result.instance && typeof result.instance === 'object') {
+    out.instance = result.instance;
+  }
+  if (result.policy && typeof result.policy === 'object') {
+    out.policy = result.policy;
+  }
   if (!request.__conversationIdProvided) {
     out.session = { conversationId: String(request?.channel?.conversationId || '') };
   }

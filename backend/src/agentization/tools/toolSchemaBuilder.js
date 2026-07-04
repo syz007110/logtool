@@ -23,7 +23,21 @@ function composeToolDescription(tool) {
   return String(tool?.description || '').trim();
 }
 
-function toolAllowedForPermissions(tool, userPermissions) {
+function normalizeChannelType(channelType) {
+  return String(channelType || '').trim().toLowerCase();
+}
+
+function toolAllowsPermissionBypassForChannel(tool, channelType) {
+  const normalized = normalizeChannelType(channelType);
+  if (!normalized) return false;
+  const channels = Array.isArray(tool?.security?.permissionBypassChannels)
+    ? tool.security.permissionBypassChannels
+    : [];
+  return channels.some((item) => normalizeChannelType(item) === normalized);
+}
+
+function toolAllowedForPermissions(tool, userPermissions, channelType) {
+  if (toolAllowsPermissionBypassForChannel(tool, channelType)) return true;
   const requiredPermission = String(tool?.security?.requiredPermissions?.[0] || '').trim();
   if (!requiredPermission) return true;
   const perms = Array.isArray(userPermissions)
@@ -57,9 +71,10 @@ function buildFunctionToolsFromRegistry(options = {}) {
     ? options.registry
     : loadToolRegistry();
   const userPermissions = options.userPermissions;
+  const channelType = options.channelType;
 
   const tools = getEnabledTools(registry)
-    .filter((tool) => toolAllowedForPermissions(tool, userPermissions))
+    .filter((tool) => toolAllowedForPermissions(tool, userPermissions, channelType))
     .map((tool) => registryToolToFunctionTool(tool))
     .filter(Boolean);
 
@@ -80,5 +95,6 @@ module.exports = {
   composeToolDescription,
   buildFunctionToolsFromRegistry,
   registryToolToFunctionTool,
-  toolAllowedForPermissions
+  toolAllowedForPermissions,
+  toolAllowsPermissionBypassForChannel
 };

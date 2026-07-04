@@ -704,15 +704,6 @@ export default {
       return '助手'
     }
 
-    const getConversationRolloverReasonText = (reason, policy = {}) => {
-      if (reason === 'force_new_command') return '收到新建会话指令（/new）'
-      if (reason === 'max_turns') return `达到轮次上限（${Number(policy.maxTurns || 20)} 轮）`
-      if (reason === 'idle_timeout') return `空闲超时（${Number(policy.idleTimeoutMinutes || 30)} 分钟）`
-      if (reason === 'max_tokens') return `超过 token 上限（${Number(policy.maxTokens || 6000)}）`
-      if (reason === 'no_active_instance') return '首次进入会话'
-      return '系统自动切换'
-    }
-
     const getAgentEditorPlainText = () => {
       const raw = String(agentComposerRef.value?.innerText || '')
       return raw.replace(/\u00A0/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
@@ -857,26 +848,19 @@ export default {
         agentConversationId.value = returnedConversationId
       }
       const instance = finalResponse?.instance
-      if (instance?.created_new) {
-        const instanceNo = Number(instance?.instance_no || 0)
-        const reasonText = getConversationRolloverReasonText(instance?.rollover_reason, finalResponse?.policy || {})
-        agentMessages.value.push({
-          role: 'system',
-          createdAt: Date.now(),
-          text: `已新建会话实例 #${instanceNo}，原因：${reasonText}`,
-          attachments: []
-        })
-      }
+      const noticeText = String(instance?.notice || '').trim()
+      const baseText = String(finalResponse?.text || '')
+      const mergedText = noticeText ? `${baseText}\n\n${noticeText}` : baseText
       agentMessages.value.push({
         role: 'assistant',
         createdAt: Date.now(),
-        text: finalResponse?.text || '',
+        text: mergedText,
         attachments: finalResponse?.attachments || []
       })
       scrollAgentChatToBottom()
     }
 
-    const waitForAgentTaskViaWebSocket = (taskId, timeoutMs = 120000) => new Promise((resolve, reject) => {
+    const waitForAgentTaskViaWebSocket = (taskId, timeoutMs = 300000) => new Promise((resolve, reject) => {
       const normalizedTaskId = String(taskId || '').trim()
       if (!normalizedTaskId) {
         reject(new Error('taskId missing'))
@@ -902,6 +886,14 @@ export default {
       }
       websocketClient.on('agentTaskStatusChange', onUpdate)
     })
+
+    const getAgentRequestErrorMessage = (error) => {
+      const responseMessage = String(error?.response?.data?.message || '').trim()
+      if (responseMessage) return responseMessage
+      const directMessage = String(error?.message || '').trim()
+      if (directMessage) return directMessage
+      return String(error || '未知错误')
+    }
 
     const sendAgentMessage = async () => {
       const text = getAgentEditorPlainText()
@@ -959,6 +951,10 @@ export default {
         const taskId = String(res?.data?.taskId || '').trim()
         if (mode === 'accepted') {
           if (!taskId) throw new Error('agent taskId missing')
+          const acceptedConversationId = String(res?.data?.session?.conversationId || '').trim()
+          if (acceptedConversationId) {
+            agentConversationId.value = acceptedConversationId
+          }
           agentMessages.value.push({
             role: 'system',
             createdAt: Date.now(),
@@ -988,7 +984,7 @@ export default {
         agentMessages.value.push({
           role: 'assistant',
           createdAt: Date.now(),
-          text: `请求失败: ${String(error?.message || error)}`,
+          text: `请求失败: ${getAgentRequestErrorMessage(error)}`,
           attachments: []
         })
         scrollAgentChatToBottom()

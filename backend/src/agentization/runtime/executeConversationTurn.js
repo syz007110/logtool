@@ -89,6 +89,10 @@ function createConversationRuntime(options = {}) {
 
       request.context = request.context && typeof request.context === 'object' ? request.context : {};
       request.context.userPermissions = userPermissions;
+      request.context.agentDebug = request.context.agentDebug && typeof request.context.agentDebug === 'object'
+        ? request.context.agentDebug
+        : {};
+      request.context.agentDebug.jobId = String(jobId || '');
       prepared.contextEnvelope = prepared.contextEnvelope && typeof prepared.contextEnvelope === 'object'
         ? prepared.contextEnvelope
         : {};
@@ -141,21 +145,6 @@ function createConversationRuntime(options = {}) {
         'processConversationRequest'
       );
       log('persist:done', { costMs: Date.now() - persistStartedAt });
-
-      try {
-        await deps.appendAgentDebugMarkdown({
-          jobId,
-          request,
-          contextEnvelope: prepared.contextEnvelope,
-          orchestratorResult: loopResult.debugOrchestratorResult,
-          assistantResponse: loopResult.assistantResponse,
-          includePromptInjection: Boolean(result?.instance?.created_new),
-          stage: 'persist_done'
-        });
-        log('agent-debug-md:done', { path: process.env.AGENT_DEBUG_MD_PATH || 'docs/agent-debug-log.md' });
-      } catch (appendError) {
-        console.warn('[agent-debug-md] append failed:', appendError?.message || appendError);
-      }
 
       return result;
     } catch (err) {

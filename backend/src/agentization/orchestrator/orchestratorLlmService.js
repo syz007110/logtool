@@ -3,6 +3,7 @@ const url = require('url');
 const { assembleChatCompletionRequest, buildChatRequestFromMessages } = require('./chatRequestAssembler');
 const { adaptChatCompletionRequest } = require('./chatProviderAdapter');
 const { normalizeChatCompletionResponse, parseOrchestratorTurnResult } = require('./chatResponseParser');
+const { appendLlmApiDebugMarkdown } = require('../utils/agentDebugMarkdownLogger');
 
 function doJsonRequest({ method, endpoint, pathName, headers, body, timeoutMs }) {
   return new Promise((resolve, reject) => {
@@ -74,7 +75,14 @@ async function runOrchestratorChatCompletion({
   contextEnvelope,
   provider,
   userPermissions,
+  channelType,
   traceId,
+  requestId,
+  conversationId,
+  jobId,
+  debugStage,
+  debugStep,
+  debugCallType,
   messages,
   allowEmptyResponse = false
 }) {
@@ -83,27 +91,61 @@ async function runOrchestratorChatCompletion({
       messages,
       contextEnvelope,
       userPermissions,
+      channelType,
       model: provider.model,
       traceId
     })
     : assembleChatCompletionRequest({
       contextEnvelope,
       userPermissions,
+      channelType,
       model: provider.model,
       traceId
     });
   const { body: httpBody } = adaptChatCompletionRequest(chatRequest, provider);
 
-  const resp = await doJsonRequest({
-    method: 'POST',
-    endpoint: provider.baseUrl,
-    pathName: '/chat/completions',
-    headers: buildProviderAuthHeaders(provider),
-    body: httpBody,
-    timeoutMs: provider.timeoutMs
-  });
+  let resp = null;
+  try {
+    resp = await doJsonRequest({
+      method: 'POST',
+      endpoint: provider.baseUrl,
+      pathName: '/chat/completions',
+      headers: buildProviderAuthHeaders(provider),
+      body: httpBody,
+      timeoutMs: provider.timeoutMs
+    });
+  } catch (error) {
+    try {
+      await appendLlmApiDebugMarkdown({
+        jobId,
+        requestId,
+        traceId,
+        conversationId,
+        step: debugStep,
+        callType: debugCallType || 'orchestrator',
+        stage: debugStage || 'orchestrator_llm',
+        requestPayload: httpBody,
+        responsePayload: error?.body || null,
+        error
+      });
+    } catch (_) {}
+    throw error;
+  }
 
   const chatResponse = normalizeChatCompletionResponse(resp?.json || {});
+  try {
+    await appendLlmApiDebugMarkdown({
+      jobId,
+      requestId,
+      traceId,
+      conversationId,
+      step: debugStep,
+      callType: debugCallType || 'orchestrator',
+      stage: debugStage || 'orchestrator_llm',
+      requestPayload: httpBody,
+      responsePayload: chatResponse
+    });
+  } catch (_) {}
   const turnResult = parseOrchestratorTurnResult(chatResponse);
 
   if (turnResult.kind === 'empty' && !allowEmptyResponse) {

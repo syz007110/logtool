@@ -127,6 +127,26 @@ function getRolloverReason(instance, request, policy) {
   return null;
 }
 
+function buildInstanceNotice(effectiveResolution, policy = {}) {
+  if (!effectiveResolution?.createdNewInstance) return null;
+  const reason = String(effectiveResolution?.rolloverReason || '').trim().toLowerCase();
+  if (!reason || reason === 'no_active_instance') return null;
+
+  if (reason === 'max_tokens') {
+    return `达到此对话的token上限（${Number(policy.maxTokens || 6000)}），已新建对话`;
+  }
+  if (reason === 'max_turns') {
+    return `达到此对话的轮次上限（${Number(policy.maxTurns || 20)}轮），已新建对话`;
+  }
+  if (reason === 'idle_timeout') {
+    return `此对话空闲超过${Number(policy.idleTimeoutMinutes || 30)}分钟，已新建对话`;
+  }
+  if (reason === 'force_new_command') {
+    return '收到新建对话指令，已新建对话';
+  }
+  return '已新建对话';
+}
+
 function normalizeMessagePayload(request) {
   return {
     externalMessageId: request?.message?.externalMessageId,
@@ -841,6 +861,7 @@ async function processConversationRequest({
     await applyTurnTokenUsage(instance.id, loopTrace, transaction);
 
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
+    const instanceNotice = buildInstanceNotice(effectiveResolution, policy);
     const promptBlocks = toPromptBlocks({
       policy,
       history,
@@ -866,6 +887,7 @@ async function processConversationRequest({
         status: instance.status,
         created_new: Boolean(effectiveResolution.createdNewInstance),
         rollover_reason: effectiveResolution.rolloverReason || null,
+        notice: instanceNotice,
         previous_instance_no: effectiveResolution.previousInstanceNo,
         turn_count: Number(instance.turn_count || 0),
         token_count: Number(instance.token_count || 0),
@@ -887,6 +909,9 @@ async function processConversationRequest({
           messages: Array.isArray(contextEnvelope?.historyContext?.messages)
             ? contextEnvelope.historyContext.messages
             : []
+        },
+        instance: {
+          notice: instanceNotice
         },
         contextVersion: Number(contextEnvelope.contextVersion || 2)
       } : null,

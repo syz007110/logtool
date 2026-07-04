@@ -45,6 +45,19 @@ function extractUserPermissions(request = {}) {
   return null;
 }
 
+function normalizeChannelType(channelType) {
+  return String(channelType || '').trim().toLowerCase();
+}
+
+function toolAllowsPermissionBypassForChannel(tool, request = {}) {
+  const channelType = normalizeChannelType(request?.channel?.type);
+  if (!channelType) return false;
+  const channels = Array.isArray(tool?.security?.permissionBypassChannels)
+    ? tool.security.permissionBypassChannels
+    : [];
+  return channels.some((item) => normalizeChannelType(item) === channelType);
+}
+
 function normalizeExecution(tool = {}) {
   const runtime = tool?.runtime && typeof tool.runtime === 'object' ? tool.runtime : {};
   const execution = tool?.execution && typeof tool.execution === 'object'
@@ -271,6 +284,7 @@ function createLogtoolToolGateway() {
     },
 
     enforceToolPermission(tool, request) {
+      if (toolAllowsPermissionBypassForChannel(tool, request)) return;
       const requiredPermission = String(tool?.security?.requiredPermissions?.[0] || '').trim();
       if (!requiredPermission) return;
       const rawPermissions = extractUserPermissions(request);
@@ -353,5 +367,6 @@ function createLogtoolToolGateway() {
 }
 
 module.exports = {
-  createLogtoolToolGateway
+  createLogtoolToolGateway,
+  toolAllowsPermissionBypassForChannel
 };

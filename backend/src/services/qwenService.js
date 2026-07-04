@@ -243,7 +243,14 @@ async function runOrchestratorLlmWithMessages({
   messages,
   providerId,
   userPermissions,
+  channelType,
   traceId,
+  requestId,
+  conversationId,
+  jobId,
+  debugStage,
+  debugStep,
+  debugCallType,
   allowEmptyResponse = false
 }) {
   const provider = resolveProvider(providerId);
@@ -258,7 +265,14 @@ async function runOrchestratorLlmWithMessages({
     messages,
     provider,
     userPermissions,
+    channelType,
     traceId,
+    requestId,
+    conversationId,
+    jobId,
+    debugStage,
+    debugStep,
+    debugCallType,
     allowEmptyResponse
   });
 }

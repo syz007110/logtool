@@ -30,23 +30,25 @@ function resolveRunContext(request, context = {}) {
   const userPermissions = Array.isArray(request?.context?.userPermissions)
     ? request.context.userPermissions
     : undefined;
-  return { envelope, llmProviderId, userPermissions };
+  const channelType = String(request?.channel?.type || '').trim().toLowerCase() || undefined;
+  return { envelope, llmProviderId, userPermissions, channelType };
 }
 
 /** Orchestrator LLM：Chat Completions + native tool_calls */
 function createConversationOrchestrator() {
   return {
     buildInitialLoopMessages(request, context = {}) {
-      const { envelope, userPermissions } = resolveRunContext(request, context);
+      const { envelope, userPermissions, channelType } = resolveRunContext(request, context);
       return buildInitialLoopMessages({
         contextEnvelope: envelope,
         userPermissions,
+        channelType,
         traceId: request?.traceId
       });
     },
 
     async runWithMessages(request, context = {}) {
-      const { envelope, llmProviderId, userPermissions } = resolveRunContext(request, context);
+      const { envelope, llmProviderId, userPermissions, channelType } = resolveRunContext(request, context);
       const messages = Array.isArray(context.messages) ? context.messages : [];
       if (!isOrchestratorLlmEnabled()) {
         const err = new Error('orchestrator LLM is disabled by AGENT_ORCHESTRATOR_LLM_ENABLED');
@@ -60,7 +62,14 @@ function createConversationOrchestrator() {
           messages,
           providerId: llmProviderId,
           userPermissions,
+          channelType,
           traceId: request?.traceId,
+          requestId: request?.requestId,
+          conversationId: request?.channel?.conversationId,
+          jobId: context.jobId,
+          debugStage: context.debugStage || 'turn_loop',
+          debugStep: context.step,
+          debugCallType: context.callType || 'orchestrator',
           allowEmptyResponse: Boolean(context.allowEmptyResponse)
         });
       } catch (error) {

@@ -64,14 +64,6 @@ function buildHistoryMessages(contextEnvelope = {}) {
   return out;
 }
 
-function buildToolsPack(userPermissions) {
-  const registry = loadToolRegistry();
-  return buildFunctionToolsFromRegistry({
-    userPermissions,
-    registry
-  });
-}
-
 /**
  * Build ChatCompletionRequest using explicit messages (Turn Loop subsequent rounds).
  */
@@ -80,7 +72,11 @@ function buildChatRequestFromMessages(options = {}) {
   const contextEnvelope = asObject(options.contextEnvelope);
   const lang = resolveLang(contextEnvelope);
   const { langKey } = loadSystemPrompt(lang);
-  const toolsPack = buildToolsPack(options.userPermissions);
+  const toolsPack = buildFunctionToolsFromRegistry({
+    userPermissions: options.userPermissions,
+    channelType: options.channelType,
+    registry: loadToolRegistry()
+  });
   const tools = toolsPack.tools.length > 0 ? toolsPack.tools : null;
 
   return {
@@ -105,7 +101,7 @@ function buildChatRequestFromMessages(options = {}) {
 
 /**
  * Build Orchestrator canonical ChatCompletionRequest from contextEnvelope.
- * @param {{ contextEnvelope?: object, userPermissions?: string[], model?: string, traceId?: string, extraMessages?: object[] }} options
+ * @param {{ contextEnvelope?: object, userPermissions?: string[], channelType?: string, model?: string, traceId?: string, extraMessages?: object[] }} options
  */
 function assembleChatCompletionRequest(options = {}) {
   const contextEnvelope = asObject(options.contextEnvelope);
@@ -137,7 +133,11 @@ function assembleChatCompletionRequest(options = {}) {
     }
   }
 
-  const toolsPack = buildToolsPack(options.userPermissions);
+  const toolsPack = buildFunctionToolsFromRegistry({
+    userPermissions: options.userPermissions,
+    channelType: options.channelType,
+    registry: loadToolRegistry()
+  });
   const tools = toolsPack.tools.length > 0 ? toolsPack.tools : null;
 
   return {

@@ -107,7 +107,11 @@ async function runTurnLoop({
       conversationOrchestrator.runWithMessages(request, {
         messages: loopMessages,
         contextEnvelope,
-        allowEmptyResponse: true
+        allowEmptyResponse: true,
+        step,
+        jobId: request?.context?.agentDebug?.jobId || '',
+        debugStage: 'turn_loop',
+        callType: 'orchestrator'
       }),
       stepTimeoutMs,
       'conversationOrchestrator.runWithMessages'
