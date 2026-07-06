@@ -81,9 +81,9 @@ async function nlToBatchFilters(req, res) {
       : undefined;
     const llm = await extractBatchFiltersWithProvider({ providerId: llmProviderId, text, presetNames, context });
     const result = llm?.result || {};
-    const hasSearch = typeof result.search === 'string' && result.search.trim();
-    const hasTime = !!(result.start_time && result.end_time);
-    const hasFilters = !!(result.filters && Array.isArray(result.filters.conditions) && result.filters.conditions.length > 0);
+    const hasFilters = !!(result.filters && typeof result.filters === 'object');
+    const actionCount = Array.isArray(result.actions) ? result.actions.length : 0;
+    const resultStatus = String(result.meta?.status || 'ok');
 
     const raw = llm?.raw || {};
     const usage = raw.usage && typeof raw.usage === 'object' ? {
@@ -103,7 +103,7 @@ async function nlToBatchFilters(req, res) {
       user_agent: req.headers?.['user-agent'] || '',
       details: {
         input: { text: text || '' },
-        resultSummary: { hasSearch, hasTime, hasFilters },
+        resultSummary: { hasFilters, actionCount, status: resultStatus },
         llmRaw: {
           response: {
             model: raw.model ?? providerPublic?.model ?? null,

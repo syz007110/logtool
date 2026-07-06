@@ -1929,20 +1929,25 @@ export default {
       }
     }
 
+    const hasNlFilters = (filters) => {
+      if (!filters || typeof filters !== 'object') return false
+      if (Array.isArray(filters.conditions)) return filters.conditions.length > 0
+      if (filters.type === 'group' && Array.isArray(filters.children)) return filters.children.length > 0
+      if (filters.type === 'condition' && filters.field != null) return true
+      return false
+    }
+
     const applyNlResult = (result) => {
       normalizeNlResultFilters(result, templates.value)
-      const hasSearch = typeof result.search === 'string' && result.search.trim()
-      const hasTime = !!(result.start_time && result.end_time)
-      const hasFilters = !!(result.filters && (result.filters.conditions?.length > 0 || (result.filters.logic && result.filters.conditions)))
+      const hasFilters = hasNlFilters(result.filters)
+      const hasActions = Array.isArray(result.actions) && result.actions.length > 0
 
-      if (hasSearch) searchKeyword.value = result.search.trim()
-      if (hasTime) timeRange.value = [String(result.start_time), String(result.end_time)]
       if (result.filters && typeof result.filters === 'object') {
         pendingFiltersRoot.value = deepCloneFilters(result.filters)
         normalizeErrorCodeOperatorInFilters(pendingFiltersRoot.value)
       }
       // 仅当本次 NL 返回了 actions 时才覆盖；纯筛选（无 actions）时保留已有的 mark/highlight/stats
-      if (Array.isArray(result.actions) && result.actions.length > 0) {
+      if (hasActions) {
         pendingNlActions.value = [...result.actions]
       }
       nlPreviewCleared.value = false
@@ -1985,13 +1990,10 @@ export default {
           context: logTimeRange ? { logTimeRange } : undefined
         })
         const result = resp?.data?.result || {}
-        normalizeNlResultFilters(result, templates.value)
         const meta = result.meta || {}
         const status = meta.status || 'ok'
 
-        const hasSearch = typeof result.search === 'string' && result.search.trim()
-        const hasTime = !!(result.start_time && result.end_time)
-        const hasFilters = !!(result.filters && (result.filters.conditions?.length > 0 || (result.filters.logic && result.filters.conditions)))
+        const hasFilters = hasNlFilters(result.filters)
         const hasActions = Array.isArray(result.actions) && result.actions.length > 0
 
         if (status === 'need_clarification') {
@@ -2004,7 +2006,7 @@ export default {
           return
         }
 
-        if (!hasSearch && !hasTime && !hasFilters && !hasActions) {
+        if (!hasFilters && !hasActions) {
           ElMessage.warning(t('batchAnalysis.nlNoResult'))
           return
         }
@@ -2052,7 +2054,6 @@ export default {
           }
         })
         const result = resp?.data?.result || {}
-        normalizeNlResultFilters(result, templates.value)
         const meta = result.meta || {}
         const status = meta.status || 'ok'
 
@@ -2066,11 +2067,9 @@ export default {
         nlSpec.value = result
 
         if (status !== 'need_clarification') {
-          const hasSearch = typeof result.search === 'string' && result.search.trim()
-          const hasTime = !!(result.start_time && result.end_time)
-          const hasFilters = !!(result.filters && (result.filters.conditions?.length > 0 || (result.filters.logic && result.filters.conditions)))
+          const hasFilters = hasNlFilters(result.filters)
           const hasActions = Array.isArray(result.actions) && result.actions.length > 0
-          if (hasSearch || hasTime || hasFilters || hasActions) {
+          if (hasFilters || hasActions) {
             applyNlResult(result)
           } else {
             ElMessage.warning(t('batchAnalysis.nlNoResult'))

@@ -903,6 +903,16 @@ function buildBatchIntentExtractionMessages(prompt, { timeFormat = 'YYYY-MM-DD H
   ];
 }
 
+function buildBatchIntentExtractionRequest({ provider, messages }) {
+  return {
+    model: provider.model,
+    temperature: provider.temperature ?? 0,
+    top_p: provider.topP ?? 0.1,
+    messages: Array.isArray(messages) ? messages : [],
+    response_format: { type: 'json_object' }
+  };
+}
+
 function normalizeBatchFiltersJson(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
 
@@ -979,6 +989,26 @@ function parseQuerySpecFromLlm(obj) {
     };
   }
   return spec;
+}
+
+function parseBatchDslFromLlm(obj) {
+  const parsed = parseQuerySpecFromLlm(obj);
+  return {
+    filters: parsed.filters,
+    actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+    meta: {
+      status: ['ok', 'need_clarification', 'fallback'].includes(parsed.meta?.status)
+        ? parsed.meta.status
+        : 'ok',
+      explain: String(parsed.meta?.explain ?? '').trim(),
+      missing_slots: Array.isArray(parsed.meta?.missing_slots)
+        ? parsed.meta.missing_slots.slice(0, 3)
+        : [],
+      questions: Array.isArray(parsed.meta?.questions)
+        ? parsed.meta.questions.slice(0, 1)
+        : []
+    }
+  };
 }
 
 /** 不包含/不等于 的约定与后端处理：
@@ -1159,7 +1189,11 @@ async function extractBatchFiltersWithProvider({ providerId, text, presetNames, 
   const firstMessage = (context && context.firstMessage != null) ? String(context.firstMessage).trim() : prompt;
   if (!prompt && !(context && context.previousSpec)) {
     return {
-      result: {},
+      result: {
+        filters: { type: 'group', logic: 'AND', children: [] },
+        actions: [],
+        meta: { status: 'fallback', explain: '', missing_slots: [], questions: [] }
+      },
       raw: { content: '', usage: null, model: provider.model },
       model: provider.model,
       provider: { id: provider.id, label: provider.label },
@@ -1168,12 +1202,7 @@ async function extractBatchFiltersWithProvider({ providerId, text, presetNames, 
   }
 
   const messages = buildBatchIntentExtractionMessages(prompt, { presetNames, context });
-  const request = {
-    model: provider.model,
-    temperature: provider.temperature ?? 0,
-    top_p: provider.topP ?? 0.1,
-    messages
-  };
+  const request = buildBatchIntentExtractionRequest({ provider, messages });
 
   const resp = await doJsonRequest({
     method: 'POST',
@@ -1187,64 +1216,14 @@ async function extractBatchFiltersWithProvider({ providerId, text, presetNames, 
   const content = resp?.json?.choices?.[0]?.message?.content ?? '';
   let intentAst = extractFirstJsonObject(content);
   if (intentAst && typeof intentAst === 'object') {
-    // 兼容 LLM 返回大写键名：FILTER / ACTIONS / META -> filters / actions / meta
-    if (intentAst.FILTER !== undefined && intentAst.filters === undefined) intentAst.filters = intentAst.FILTER;
+    // 兼容 LLM 返回大写键名：FILTERS / ACTIONS / META -> filters / actions / meta
+    if (intentAst.FILTERS !== undefined && intentAst.filters === undefined) intentAst.filters = intentAst.FILTERS;
     if (intentAst.ACTIONS !== undefined && intentAst.actions === undefined) intentAst.actions = intentAst.ACTIONS;
     if (intentAst.META !== undefined && intentAst.meta === undefined) intentAst.meta = intentAst.META;
     console.log('[batch-nl] Intent AST:', JSON.stringify(intentAst, null, 2));
   }
 
-  const detectedFaultCode = detectFaultCodeFromText(firstMessage);
-
-  let result;
-  if (isQuerySpecShape(intentAst)) {
-    const spec = parseQuerySpecFromLlm(intentAst);
-    const templates = loadSearchTemplates();
-    const templatesByName = {};
-    for (const t of templates) {
-      if (t && t.name) templatesByName[String(t.name).trim()] = t;
-    }
-    result = querySpecToLegacyResult(spec, { templatesByName, detectedFaultCode });
-  } else {
-    const queryDsl = intentAstToQueryDsl(intentAst || {}, { detectedFaultCode });
-    result = normalizeBatchFiltersJson(queryDsl);
-    if (!result.meta) result.meta = { explain: '', status: 'ok' };
-    if (!result.actions) result.actions = [];
-    // LLM 可能返回 filters 为数组 [ group, condition, ... ]，按树解析以保留 OR/AND，避免只剩时间条件
-    if (Array.isArray(intentAst.filters) && intentAst.filters.length > 0) {
-      const wrapped = { type: 'group', logic: 'AND', children: intentAst.filters };
-      const templates = loadSearchTemplates();
-      const templatesByName = {};
-      for (const t of templates) {
-        if (t && t.name) templatesByName[String(t.name).trim()] = t;
-      }
-      const resolved = resolvePresetRefInFilterTree(wrapped, templatesByName);
-      if (resolved) {
-        const timeRe = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/;
-        const timeRange = extractTimeFromFilterTree(resolved);
-        if (timeRange.start_time && timeRe.test(timeRange.start_time)) result.start_time = timeRange.start_time;
-        if (timeRange.end_time && timeRe.test(timeRange.end_time)) result.end_time = timeRange.end_time;
-        const flat = filterTreeToFlat(resolved);
-        if (flat) {
-          let filtersOut = flat.field ? { logic: 'AND', conditions: [flat] } : flat;
-          if (detectedFaultCode && filtersOut.conditions && !filterTreeHasErrorCode(resolved)) {
-            filtersOut = {
-              logic: filtersOut.logic,
-              conditions: [...filtersOut.conditions, { field: 'error_code', operator: 'contains', value: detectedFaultCode }]
-            };
-          }
-          result.filters = filtersOut;
-        }
-      } else if (!result.filters?.conditions?.length) {
-        const conditions = legacyConditionsFromFiltersArray(intentAst.filters);
-        if (conditions.length > 0) result.filters = { logic: 'AND', conditions };
-      }
-    }
-    if (Array.isArray(intentAst.actions)) result.actions = intentAst.actions;
-    if (intentAst.meta && typeof intentAst.meta === 'object') {
-      result.meta = { ...result.meta, ...intentAst.meta };
-    }
-  }
+  const result = parseBatchDslFromLlm(intentAst || {});
 
   const raw = {
     content,
@@ -1317,6 +1296,8 @@ module.exports = {
   buildQueryPlanExtractionMessages,
   extractQueryPlanWithProvider,
   extractBatchFiltersWithProvider,
+  buildBatchIntentExtractionRequest,
+  parseBatchDslFromLlm,
   streamKeywordExtractionWithProvider,
   intentAstToQueryDsl,
   loadNlpMappings
