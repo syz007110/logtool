@@ -8,6 +8,14 @@
           <div class="action-bar">
             <div class="search-section">
               <el-input v-model="search" :placeholder="$t('devices.searchPlaceholder')" style="width: 300px" clearable @input="handleSearch" />
+              <el-select v-model="deviceSeriesFilterId" :placeholder="$t('devices.deviceSeries')" clearable style="width: 160px; margin-left: 8px;" @change="handleDeviceSeriesFilterChange">
+                <el-option
+                  v-for="item in deviceSeriesOptions"
+                  :key="item.id"
+                  :label="getSeriesDisplayName(item)"
+                  :value="item.id"
+                />
+              </el-select>
               <el-select v-model="countryCode" :placeholder="$t('devices.country')" clearable style="width: 140px; margin-left: 8px;" @change="onCountryChange">
                 <el-option v-for="item in countryOptions" :key="item.country_code" :label="item.country_name" :value="item.country_code" />
               </el-select>
@@ -48,7 +56,9 @@
             <el-table :data="devices" :loading="loading" :height="tableHeight" style="width: 100%">
         <el-table-column prop="device_id" :label="$t('shared.deviceId')" min-width="120" />
         <el-table-column prop="device_model" :label="$t('devices.deviceModel')" min-width="110" />
-        <el-table-column prop="device_key" :label="$t('devices.deviceKey')" min-width="140" />
+        <el-table-column :label="$t('devices.deviceSeries')" min-width="140">
+          <template #default="{ row }">{{ getSeriesDisplayName(row) || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="hospital_code" :label="$t('devices.hospitalCode')" min-width="130" />
         <el-table-column prop="hospital_name" :label="$t('devices.hospital')" min-width="160">
           <template #default="{ row }">
@@ -108,6 +118,14 @@
           <div class="action-bar">
             <div class="search-section">
               <el-input v-model="modelSearch" :placeholder="$t('devices.modelSearchPlaceholder')" style="width: 300px" clearable @input="handleModelSearch" />
+              <el-select v-model="modelSeriesFilterId" :placeholder="$t('devices.deviceSeries')" clearable style="width: 160px; margin-left: 8px;" @change="handleModelSeriesFilterChange">
+                <el-option
+                  v-for="item in deviceSeriesOptions"
+                  :key="item.id"
+                  :label="getSeriesDisplayName(item)"
+                  :value="item.id"
+                />
+              </el-select>
             </div>
             <div class="action-section" v-if="$store.getters['auth/hasPermission']('device:update')">
               <el-button type="primary" @click="openModelEdit()">{{ $t('devices.addModel') }}</el-button>
@@ -119,6 +137,9 @@
             <el-table :data="deviceModels" :loading="modelsLoading" :height="tableHeight" style="width: 100%">
             <el-table-column prop="device_model" :label="$t('devices.deviceModel')" min-width="180">
               <template #default="{ row }">{{ row.device_model }}</template>
+            </el-table-column>
+            <el-table-column :label="$t('devices.deviceSeries')" min-width="160">
+              <template #default="{ row }">{{ getSeriesDisplayName(row.DeviceSeries || row) || '-' }}</template>
             </el-table-column>
             <el-table-column :label="$t('devices.status')" width="100">
               <template #default="{ row }">
@@ -232,16 +253,32 @@
             <el-form-item :label="$t('shared.deviceId')" prop="device_id">
               <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
             </el-form-item>
-            <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
-              <el-select v-model="form.device_model" filterable clearable style="width: 100%">
-                <el-option
-                  v-for="item in deviceModelOptions"
-                  :key="item.id || item.device_model"
-                  :label="item.device_model"
-                  :value="item.device_model"
-                />
-              </el-select>
-            </el-form-item>
+            <el-row :gutter="12">
+              <el-col :span="12">
+                <el-form-item :label="$t('devices.deviceSeries')" prop="device_series_id">
+                  <el-select v-model="form.device_series_id" style="width: 100%" :placeholder="$t('devices.selectDeviceSeries')" @change="onDeviceSeriesChange">
+                    <el-option
+                      v-for="item in deviceSeriesOptions"
+                      :key="item.id"
+                      :label="getSeriesDisplayName(item)"
+                      :value="item.id"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
+                  <el-select v-model="form.device_model" filterable clearable style="width: 100%">
+                    <el-option
+                      v-for="item in filteredDeviceModelOptions"
+                      :key="item.id || item.device_model"
+                      :label="item.device_model"
+                      :value="item.device_model"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
             <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
               <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
               <div style="font-size: 12px; color: #909399; margin-top: 4px;">
@@ -398,16 +435,32 @@
         <el-form-item :label="$t('shared.deviceId')" prop="device_id">
           <el-input v-model="form.device_id" :disabled="!!editing" :placeholder="$t('devices.deviceIdPlaceholder')" />
         </el-form-item>
-        <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
-          <el-select v-model="form.device_model" filterable clearable style="width: 100%">
-            <el-option
-              v-for="item in deviceModelOptions"
-              :key="item.id || item.device_model"
-              :label="item.device_model"
-              :value="item.device_model"
-            />
-          </el-select>
-        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item :label="$t('devices.deviceSeries')" prop="device_series_id">
+              <el-select v-model="form.device_series_id" style="width: 100%" :placeholder="$t('devices.selectDeviceSeries')" @change="onDeviceSeriesChange">
+                <el-option
+                  v-for="item in deviceSeriesOptions"
+                  :key="item.id"
+                  :label="getSeriesDisplayName(item)"
+                  :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
+              <el-select v-model="form.device_model" filterable clearable style="width: 100%">
+                <el-option
+                  v-for="item in filteredDeviceModelOptions"
+                  :key="item.id || item.device_model"
+                  :label="item.device_model"
+                  :value="item.device_model"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
           <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
         </el-form-item>
@@ -458,6 +511,16 @@
     <!-- 设备型号编辑对话框 -->
     <el-dialog v-model="showModelEdit" :title="editingModel ? $t('devices.modelDialogEdit') : $t('devices.modelDialogAdd')" width="500px" class="management-dialog">
       <el-form :model="modelForm" label-width="100px" ref="modelFormRef">
+        <el-form-item :label="$t('devices.deviceSeries')" prop="series_id" :rules="[{ required: true, message: t('devices.rules.seriesRequired'), trigger: 'change' }]">
+          <el-select v-model="modelForm.series_id" style="width: 100%" clearable :placeholder="$t('devices.selectDeviceSeries')">
+            <el-option
+              v-for="item in deviceSeriesOptions"
+              :key="item.id"
+              :label="getSeriesDisplayName(item)"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="$t('devices.deviceModel')" prop="device_model" :rules="[{ required: true, message: t('devices.rules.modelRequired'), trigger: 'blur' }]">
           <el-input v-model="modelForm.device_model" :placeholder="$t('devices.modelPlaceholder')" />
         </el-form-item>
@@ -534,6 +597,11 @@ import api from '../api'
 import { useStore } from 'vuex'
 import { maskHospitalName } from '../utils/maskSensitiveData'
 import { getTableHeight } from '@/utils/tableHeight'
+import {
+  filterDeviceModelsBySeries,
+  deriveSeriesIdForDeviceModel,
+  syncDeviceSeriesSelection
+} from '../utils/deviceModelSeries'
 
 export default {
   name: 'Devices',
@@ -541,7 +609,7 @@ export default {
     Plus
   },
   setup() {
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const store = useStore()
     const canEdit = computed(() => {
       return store.getters['auth/hasPermission']('device:update')
@@ -563,6 +631,7 @@ export default {
     const page = ref(1)
     const limit = ref(20)
     const search = ref('')
+    const deviceSeriesFilterId = ref(null)
     const countryCode = ref('')
     const regionCode = ref('')
     const hospitalId = ref(null)
@@ -587,12 +656,21 @@ export default {
     const modelLimit = ref(20)
     const modelTotal = ref(0)
     const modelSearch = ref('')
+    const modelSeriesFilterId = ref(null)
     let modelSearchTimer = null
     const showModelEdit = ref(false)
     const editingModel = ref(null)
     const savingModel = ref(false)
     const modelFormRef = ref(null)
-    const modelForm = reactive({ device_model: '', is_active: true })
+    const deviceSeriesOptions = ref([])
+    const modelForm = reactive({ device_model: '', series_id: null, is_active: true })
+
+    const getSeriesDisplayName = (item) => {
+      if (!item) return ''
+      return String(locale.value || '').startsWith('en')
+        ? (item.series_name_en || item.series_name_zh || item.series_code)
+        : (item.series_name_zh || item.series_name_en || item.series_code)
+    }
 
     const showEdit = ref(false)
     const activeTab = ref('basic')
@@ -600,12 +678,35 @@ export default {
     const formRef = ref(null)
     const form = reactive({
       device_id: '',
+      device_series_id: null,
       device_model: '',
       device_key: '',
       hospital_id: null,
       country_code: '',
       region_code: ''
     })
+
+    const filteredDeviceModelOptions = computed(() => {
+      return filterDeviceModelsBySeries(deviceModelOptions.value, form.device_series_id)
+    })
+
+    const isPositiveSeriesId = (value) => {
+      const num = Number(value)
+      return Number.isInteger(num) && num > 0
+    }
+
+    const resolveSeriesIdForEditRow = (row) => {
+      if (isPositiveSeriesId(row?.series_id)) {
+        return Number(row.series_id)
+      }
+      return deriveSeriesIdForDeviceModel(deviceModelOptions.value, row?.device_model)
+    }
+
+    const isSelectedModelCompatibleWithSeries = () => {
+      if (!form.device_model) return false
+      if (!isPositiveSeriesId(form.device_series_id)) return true
+      return filteredDeviceModelOptions.value.some(item => item.device_model === form.device_model)
+    }
 
     // 医院管理
     const hospitals = ref([])
@@ -646,11 +747,14 @@ export default {
         { required: true, message: t('devices.rules.deviceIdRequired'), trigger: 'blur' },
         { pattern: /^[0-9A-Za-z]+-[0-9A-Za-z]+$/, message: t('devices.rules.deviceIdPattern'), trigger: 'blur' }
       ],
+      device_series_id: [
+        { required: true, message: t('devices.rules.seriesRequired'), trigger: 'change' }
+      ],
+      device_model: [
+        { required: true, message: t('devices.rules.modelRequired'), trigger: 'change' }
+      ],
       device_key: [
         { pattern: /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/, message: t('devices.rules.deviceKeyMac'), trigger: 'blur' }
-      ],
-      hospital_id: [
-        { required: true, message: t('devices.rules.hospitalRequired'), trigger: 'change' }
       ]
     }))
     const hospitalCodeRules = computed(() => [
@@ -726,6 +830,7 @@ export default {
           page: page.value,
           limit: limit.value,
           search: search.value,
+          series_id: deviceSeriesFilterId.value || undefined,
           country_code: countryCode.value || undefined,
           region_code: regionCode.value || undefined,
           hospital_id: hospitalId.value || undefined
@@ -855,6 +960,13 @@ export default {
       handleSearch()
     }
 
+    const handleDeviceSeriesFilterChange = () => {
+      hospitalId.value = null
+      hospitalFilterOptions.value = []
+      page.value = 1
+      loadDevices({ force: true })
+    }
+
     const handleSearch = () => {
       if (searchTimer) {
         clearTimeout(searchTimer)
@@ -877,10 +989,15 @@ export default {
     }
 
     const openEdit = (row) => {
+      const applySeriesSelection = () => {
+        form.device_series_id = resolveSeriesIdForEditRow(row)
+      }
+
       if (row) {
         editing.value = row
         Object.assign(form, {
           device_id: row.device_id,
+          device_series_id: isPositiveSeriesId(row.series_id) ? Number(row.series_id) : null,
           device_model: row.device_model,
           device_key: row.device_key,
           hospital_id: row.hospital_id || null,
@@ -906,6 +1023,7 @@ export default {
         editing.value = null
         Object.assign(form, {
           device_id: '',
+          device_series_id: null,
           device_model: '',
           device_key: '',
           hospital_id: null,
@@ -917,10 +1035,12 @@ export default {
         activeTab.value = 'basic'
       }
       if (!deviceModelOptions.value.length) {
-        loadDeviceModelOptions()
+        loadDeviceModelOptions().then(applySeriesSelection)
+      } else {
+        applySeriesSelection()
       }
       if (form.device_model && !deviceModelOptions.value.some(item => item.device_model === form.device_model)) {
-        deviceModelOptions.value = [{ id: null, device_model: form.device_model }, ...deviceModelOptions.value]
+        deviceModelOptions.value = [{ id: null, device_model: form.device_model, series_id: form.device_series_id }, ...deviceModelOptions.value]
       }
       showEdit.value = true
     }
@@ -1058,13 +1178,22 @@ export default {
 
     const save = async () => {
       await formRef.value?.validate()
+      if (!form.device_model) {
+        ElMessage.error(t('devices.rules.modelRequired'))
+        return
+      }
+      if (!isSelectedModelCompatibleWithSeries()) {
+        ElMessage.error(t('devices.messages.deviceModelSeriesMismatch'))
+        return
+      }
       saving.value = true
       try {
         const payload = {
           device_id: form.device_id,
           device_model: form.device_model,
           device_key: form.device_key,
-          hospital_id: form.hospital_id || null
+          hospital_id: form.hospital_id || null,
+          series_id: isPositiveSeriesId(form.device_series_id) ? Number(form.device_series_id) : undefined
         }
         if (editing.value) {
           await api.devices.update(editing.value.id, payload)
@@ -1087,6 +1216,16 @@ export default {
       form.hospital_id = null
       hospitalOptions.value = []
       await loadDeviceFormRegionOptions(form.country_code)
+    }
+
+    const onDeviceSeriesChange = (value) => {
+      const next = syncDeviceSeriesSelection({
+        selectedSeriesId: value,
+        deviceModel: form.device_model,
+        models: deviceModelOptions.value
+      })
+      form.device_series_id = next.device_series_id
+      form.device_model = next.device_model
     }
 
     const onDeviceFormRegionChange = () => {
@@ -1142,7 +1281,8 @@ export default {
         })
         deviceModelOptions.value = (res.data.models || []).map(item => ({
           id: item.id,
-          device_model: item.device_model
+          device_model: item.device_model,
+          series_id: item.series_id
         }))
       } catch (e) {
         console.error('加载设备型号下拉失败:', e)
@@ -1156,6 +1296,7 @@ export default {
           page: modelPage.value, 
           limit: modelLimit.value, 
           search: modelSearch.value,
+          series_id: modelSeriesFilterId.value || undefined,
           includeInactive: 'true' // 设备管理页面显示所有（包括停用的）
         })
         deviceModels.value = res.data.models || []
@@ -1168,6 +1309,16 @@ export default {
       }
     }
 
+    const loadDeviceSeriesOptions = async () => {
+      try {
+        const res = await api.deviceSeries.getList()
+        deviceSeriesOptions.value = res.data.series || []
+      } catch (e) {
+        console.error('加载设备系列失败:', e)
+        ElMessage.error(e?.response?.data?.message || t('devices.messages.loadSeriesFailed'))
+      }
+    }
+
     const handleModelSearch = () => {
       if (modelSearchTimer) {
         clearTimeout(modelSearchTimer)
@@ -1176,6 +1327,11 @@ export default {
         modelPage.value = 1
         loadDeviceModels()
       }, 300)
+    }
+
+    const handleModelSeriesFilterChange = () => {
+      modelPage.value = 1
+      loadDeviceModels()
     }
 
     const handleModelSizeChange = (newSize) => {
@@ -1192,10 +1348,14 @@ export default {
     const openModelEdit = (row) => {
       if (row) {
         editingModel.value = row
-        Object.assign(modelForm, { device_model: row.device_model, is_active: row.is_active === 1 || row.is_active === true })
+        Object.assign(modelForm, {
+          device_model: row.device_model,
+          series_id: row.series_id ?? null,
+          is_active: row.is_active === 1 || row.is_active === true
+        })
       } else {
         editingModel.value = null
-        Object.assign(modelForm, { device_model: '', is_active: true })
+        Object.assign(modelForm, { device_model: '', series_id: null, is_active: true })
       }
       showModelEdit.value = true
     }
@@ -1217,7 +1377,7 @@ export default {
           loadDeviceModels()
           loadDeviceModelOptions()
         } catch (e) {
-          ElMessage.error(e.response?.data?.message || t('devices.messages.operationFailed'))
+          console.warn('保存设备型号失败:', e?.response?.data?.message || e?.message || e)
         } finally {
           savingModel.value = false
         }
@@ -1258,7 +1418,7 @@ export default {
         loadDeviceModels()
         loadDeviceModelOptions()
       } catch (e) {
-        ElMessage.error(e.response?.data?.message || t('devices.messages.operationFailed'))
+        console.warn('切换设备型号状态失败:', e?.response?.data?.message || e?.message || e)
       }
     }
 
@@ -1476,6 +1636,7 @@ export default {
     onMounted(() => {
       loadDevices({ force: true })
       loadDeviceModelOptions()
+      loadDeviceSeriesOptions()
       loadCountryOptions()
       // 如果默认Tab是设备型号，加载设备型号列表
       if (mainTab.value === 'models') {
@@ -1493,6 +1654,7 @@ export default {
       page,
       limit,
       search,
+      deviceSeriesFilterId,
       countryCode,
       regionCode,
       hospitalId,
@@ -1504,6 +1666,7 @@ export default {
       hospitalFilterNoDataText,
       hospitalOptions,
       deviceFormRegionOptions,
+      filteredDeviceModelOptions,
       loading,
       saving,
       showEdit,
@@ -1528,14 +1691,19 @@ export default {
       modelLimit,
       modelTotal,
       modelSearch,
+      modelSeriesFilterId,
       showModelEdit,
       editingModel,
       savingModel,
       modelFormRef,
+      deviceSeriesOptions,
+      getSeriesDisplayName,
       modelForm,
       formatDate,
       loadDeviceModels,
+      loadDeviceSeriesOptions,
       handleModelSearch,
+      handleModelSeriesFilterChange,
       handleModelSizeChange,
       handleModelCurrentChange,
       openModelEdit,
@@ -1569,6 +1737,7 @@ export default {
       save,
       onDelete,
       handleSearch,
+      handleDeviceSeriesFilterChange,
       handleDeviceSizeChange,
       handleDeviceCurrentChange,
       loadDeviceKeys,
@@ -1578,6 +1747,7 @@ export default {
       remoteSearchHospitalsForFilter,
       remoteSearchHospitals,
       onDeviceFormCountryChange,
+      onDeviceSeriesChange,
       onDeviceFormRegionChange,
       onDeviceHospitalChange,
       onCountryChange,

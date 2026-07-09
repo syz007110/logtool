@@ -33,6 +33,7 @@ function pickLocalizedI18n(i18nContents = [], targetLang = 'zh') {
  */
 async function searchErrorCodesUnified({
   // query params
+  series_id,
   code,
   subsystem,
   level,
@@ -146,6 +147,16 @@ async function searchErrorCodesUnified({
       } catch (_) {
         // ignore and fallback to DB where.code variants (below)
       }
+    }
+
+    if (series_id !== undefined && series_id !== null && series_id !== '') {
+      const seriesIdNum = Number(series_id);
+      if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+        const err = new Error('series_id 必须为正整数');
+        err.status = 400;
+        throw err;
+      }
+      where.series_id = seriesIdNum;
     }
 
     if (code) {
@@ -353,6 +364,7 @@ async function searchErrorCodesUnified({
       const previewResult = await buildExplanationPreview({
         rawCode: rawInput,
         subsystem: (subsystem ? String(subsystem).trim().toUpperCase() : null),
+        series_id,
         params: { param1, param2, param3, param4 },
         t: t || ((k) => k)
       });

@@ -461,6 +461,7 @@ export default {
     const languageOptions = ref([])
     const formRef = ref(null)
     const uploadRef = ref(null)
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
 
     const searchForm = reactive({
       subsystem: '',
@@ -735,6 +736,7 @@ export default {
         saving.value = true
         
         const data = {
+          series_id: currentSeriesId.value,
           subsystem: form.subsystem,
           code: form.code,
           lang: form.lang,
@@ -881,6 +883,7 @@ export default {
               const values = line.split(',').map(v => v.trim())
               if (values.length >= 6) {
                 const item = {
+                  series_id: currentSeriesId.value,
                   subsystem: values[0],
                   code: values[1],
                   lang: values[2],
@@ -1106,6 +1109,15 @@ export default {
         }
       }
     )
+
+    watch(currentSeriesId, (nextId, prevId) => {
+      if (!nextId || nextId === prevId) return
+      currentPage.value = 1
+      showDialog.value = false
+      showImportDialog.value = false
+      showExportDialog.value = false
+      loadI18nErrorCodes()
+    })
     
     onMounted(() => {
       // 确保在客户端环境下运行
@@ -1144,6 +1156,7 @@ export default {
       subsystemOptions,
       languageOptions,
       exportLanguageOptions,
+      currentSeriesId,
       searchForm,
       form,
       importForm,

@@ -4,8 +4,9 @@ const { sequelize } = require('./index');
 // 主表仅保留结构化字段；可多语言文本字段统一放在 i18n_error_codes（包含 zh）
 const ErrorCode = sequelize.define('error_codes', {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+  series_id: { type: DataTypes.INTEGER, allowNull: false },
   subsystem: { type: DataTypes.STRING(100) },
-  code: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+  code: { type: DataTypes.STRING(50), allowNull: false },
   is_axis_error: { type: DataTypes.BOOLEAN, defaultValue: false },
   is_arm_error: { type: DataTypes.BOOLEAN, defaultValue: false },
   solution: { type: DataTypes.TEXT },

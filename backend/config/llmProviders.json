@@ -9,7 +9,7 @@
     "model": "qwen-flash",
     "temperature": 0,
     "top_p": 0.1,
-    "timeoutMs": 12000,
+    "timeoutMs": 20000,
     "capabilities": {
       "toolCalls": true,
       "strictTools": { "default": false }
@@ -28,7 +28,7 @@
     "model": "deepseek-v4-flash",
     "temperature": 0,
     "top_p": 0.1,
-    "timeoutMs": 12000,
+    "timeoutMs": 30000,
     "orchestratorJsonOutput": {
       "mode": "openai_json_object"
     },
@@ -51,7 +51,7 @@
     "model": "glm-4.5-Air",
     "temperature": 0,
     "top_p": 0.1,
-    "timeoutMs": 12000,
+    "timeoutMs": 20000,
     "capabilities": {
       "toolCalls": true,
       "strictTools": { "default": false }

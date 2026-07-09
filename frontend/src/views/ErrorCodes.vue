@@ -1212,6 +1212,7 @@ export default {
     // 计算属性
     const errorCodes = computed(() => store.getters['errorCodes/errorCodesList'])
     const total = computed(() => store.getters['errorCodes/totalCount'])
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
     const canCreate = computed(() => store.getters['auth/hasPermission']('error_code:create'))
     const canUpdate = computed(() => store.getters['auth/hasPermission']('error_code:update'))
     const canDelete = computed(() => store.getters['auth/hasPermission']('error_code:delete'))
@@ -1399,6 +1400,16 @@ export default {
         loading.value = false
       }
     }
+
+    watch(currentSeriesId, (nextId, prevId) => {
+      if (!nextId || nextId === prevId) return
+      currentPage.value = 1
+      queryResult.value = null
+      foundRecord.value = null
+      queryPickList.value = []
+      queryKeywordPickActive.value = false
+      loadErrorCodes()
+    })
     
     const handleSearch = () => {
       currentPage.value = 1
@@ -2438,6 +2449,7 @@ export default {
        rules,
        errorCodes,
        total,
+       currentSeriesId,
        canCreate,
        canUpdate,
        canDelete,

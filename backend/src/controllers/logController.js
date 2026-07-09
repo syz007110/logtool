@@ -19,6 +19,10 @@ const errorCodeCache = require('../services/errorCodeCache');
 const { batchInsertHelper } = require('../utils/batchInsertHelper');
 const { getClickHouseClient } = require('../config/clickhouse');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+const {
+  parseAdvancedFilterPayload,
+  buildAdvancedFilterExpression
+} = require('../workers/batchAdvancedFilters');
 
 /**
  * 将时间转换为本地时间格式字符串（与 ClickHouse 存储格式一致）
@@ -1090,6 +1094,9 @@ const parseLog = async (req, res) => {
     // 转换为数据库格式并查询正确的释义（统一解析逻辑）
     const entries = [];
     console.log(`🚀 开始处理 ${decryptedEntries.length} 个解密后的日志条目`);
+    const deviceSeriesId = log.device_id
+      ? (await Device.findOne({ where: { device_id: log.device_id }, attributes: ['series_id'] }))?.series_id || null
+      : null;
 
     let rowIndex = 1;
     const currentVersion = log.version || 1;
@@ -1111,6 +1118,7 @@ const parseLog = async (req, res) => {
       // 统一解析
       const { explanation: parsedExplanation } = renderEntryExplanation({
         error_code: entry.error_code,
+        series_id: deviceSeriesId,
         param1: entry.param1,
         param2: entry.param2,
         param3: entry.param3,
@@ -3387,206 +3395,13 @@ const getLogStatistics = async (req, res) => {
     }
 
     // ---------- 高级搜索表达式 filters：下推到 ClickHouse ----------
-    const parseAdvancedFilters = (raw) => {
-      if (!raw) return null;
-      let parsed = raw;
-      if (typeof raw === 'string') {
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          return null;
-        }
-      }
-      return parsed;
-    };
-
-    const advancedFilters = parseAdvancedFilters(filters);
+    const advancedFilters = parseAdvancedFilterPayload(filters);
     if (advancedFilters) {
       console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
     }
 
     if (advancedFilters) {
-      const allowedFields = new Set([
-        'timestamp',
-        'error_code',
-        'param1',
-        'param2',
-        'param3',
-        'param4',
-        'explanation'
-      ]);
-
-      let advParamIndex = 0;
-      const makeParam = (base, chType, value) => {
-        const name = `${base}_${advParamIndex++}`;
-        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
-        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
-        if (chType === 'DateTime') {
-          params[name] = formatTimeForClickHouse(value);
-        } else {
-          params[name] = value;
-        }
-        return `{${name}:${chType}}`;
-      };
-
-      const buildAdvancedExpr = (node) => {
-        if (!node) return null;
-
-        // 数组：默认 AND 连接
-        if (Array.isArray(node)) {
-          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
-          if (parts.length === 0) return null;
-          return `(${parts.join(' AND ')})`;
-        }
-
-        // 叶子条件
-        if (node.field && node.operator) {
-          const field = String(node.field);
-          const op = String(node.operator || '').toLowerCase();
-          const value = node.value;
-
-          if (!allowedFields.has(field)) return null;
-          if (value === undefined || value === null || value === '') return null;
-
-          // timestamp 字段
-          if (field === 'timestamp') {
-            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
-            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
-            const formatTimestamp = (v) => {
-              if (!v) return null;
-              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
-              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
-                return v;
-              }
-              // 使用 formatTimeForClickHouse 统一格式化
-              return formatTimeForClickHouse(v);
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = formatTimestamp(value[0]);
-              const b = formatTimestamp(value[1]);
-              if (!a || !b) return null;
-              const p1 = makeParam('adv_ts_from', 'DateTime', a);
-              const p2 = makeParam('adv_ts_to', 'DateTime', b);
-              return `(timestamp BETWEEN ${p1} AND ${p2})`;
-            }
-
-            const formatted = formatTimestamp(value);
-            if (!formatted) return null;
-            const p = makeParam('adv_ts', 'DateTime', formatted);
-
-            switch (op) {
-              case '=':
-              case '==':
-                return `timestamp = ${p}`;
-              case '!=':
-              case '<>':
-                return `timestamp != ${p}`;
-              case '>':
-                return `timestamp > ${p}`;
-              case '>=':
-                return `timestamp >= ${p}`;
-              case '<':
-                return `timestamp < ${p}`;
-              case '<=':
-                return `timestamp <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          // error_code 字段
-          if (field === 'error_code') {
-            const p = makeParam('adv_ec', 'String', String(value));
-            const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
-            switch (op) {
-              case '=':
-                return wrap(`error_code = ${p}`);
-              case '!=':
-              case '<>':
-                return wrap(`error_code != ${p}`);
-              case 'contains':
-              case 'like':
-                return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
-              case 'regex':
-                return wrap(`match(error_code, ${p})`);
-              case 'startswith':
-                return wrap(`startsWith(error_code, ${p})`);
-              case 'endswith':
-                return wrap(`endsWith(error_code, ${p})`);
-              default:
-                return null;
-            }
-          }
-
-          // 数值参数 param1-4：底层为 String，这里转换为 Float64
-          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
-            const colExpr = `toFloat64OrNull(${field})`;
-            const toNum = (v) => {
-              const n = Number(v);
-              return Number.isFinite(n) ? n : null;
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toNum(value[0]);
-              const b = toNum(value[1]);
-              if (a === null || b === null) return null;
-              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
-              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
-              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
-            }
-
-            const n = toNum(value);
-            if (n === null) return null;
-            const p = makeParam(`adv_${field}`, 'Float64', n);
-
-            switch (op) {
-              case '=':
-                return `${colExpr} = ${p}`;
-              case '!=':
-              case '<>':
-                return `${colExpr} != ${p}`;
-              case '>':
-                return `${colExpr} > ${p}`;
-              case '>=':
-                return `${colExpr} >= ${p}`;
-              case '<':
-                return `${colExpr} < ${p}`;
-              case '<=':
-                return `${colExpr} <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          // explanation 字段：只支持 contains / like
-          if (field === 'explanation') {
-            const p = makeParam('adv_expl', 'String', String(value));
-            if (op === 'contains' || op === 'like') {
-              return `positionCaseInsensitive(explanation, ${p}) > 0`;
-            }
-            return null;
-          }
-
-          return null;
-        }
-
-        // 分组节点
-        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-          const childExprs = node.conditions
-            .map(child => buildAdvancedExpr(child))
-            .filter(Boolean);
-          if (childExprs.length === 0) return null;
-          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
-          return `(${childExprs.join(joiner)})`;
-        }
-
-        return null;
-      };
-
-      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      const advancedWhereSql = buildAdvancedFilterExpression(advancedFilters, params);
       if (advancedWhereSql) {
         console.log('[batch-advanced] where sql:', advancedWhereSql);
       }
@@ -3802,7 +3617,7 @@ const getVisualizationData = async (req, res) => {
     // 基于允许的日志ID获取当前版本（最新版本）
     const logs = await Log.findAll({
       where: { id: { [Op.in]: allowedLogIds } },
-      attributes: ['id', 'version']
+      attributes: ['id', 'version', 'device_id']
     });
 
     const logVersionPairs = logs.map(l => [
@@ -3812,6 +3627,28 @@ const getVisualizationData = async (req, res) => {
 
     if (!logVersionPairs || logVersionPairs.length === 0) {
       return res.status(404).json({ message: req.t('log.visualization.noDataFound') });
+    }
+
+    const deviceIds = Array.from(new Set(
+      logs
+        .map((log) => String(log?.device_id || '').trim())
+        .filter(Boolean)
+    ));
+
+    let inferredSeriesId = null;
+    if (deviceIds.length > 0) {
+      const deviceRows = await Device.findAll({
+        where: { device_id: { [Op.in]: deviceIds } },
+        attributes: ['device_id', 'series_id']
+      });
+      const seriesIds = Array.from(new Set(
+        (deviceRows || [])
+          .map((row) => Number(row?.series_id))
+          .filter((value) => Number.isInteger(value) && value > 0)
+      ));
+      if (seriesIds.length === 1) {
+        inferredSeriesId = seriesIds[0];
+      }
     }
 
     const client = getClickHouseClient();
@@ -3856,206 +3693,13 @@ const getVisualizationData = async (req, res) => {
     }
 
     // 高级搜索表达式 filters：下推到 ClickHouse（与批量查询保持一致的字段和语义）
-    const parseAdvancedFilters = (raw) => {
-      if (!raw) return null;
-      let parsed = raw;
-      if (typeof raw === 'string') {
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          return null;
-        }
-      }
-      return parsed;
-    };
-
-    const advancedFilters = parseAdvancedFilters(filters);
+    const advancedFilters = parseAdvancedFilterPayload(filters);
     if (advancedFilters) {
       console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
     }
 
     if (advancedFilters) {
-      const allowedFields = new Set([
-        'timestamp',
-        'error_code',
-        'param1',
-        'param2',
-        'param3',
-        'param4',
-        'explanation'
-      ]);
-
-      let advParamIndex = 0;
-      const makeParam = (base, chType, value) => {
-        const name = `${base}_${advParamIndex++}`;
-        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
-        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
-        if (chType === 'DateTime') {
-          params[name] = formatTimeForClickHouse(value);
-        } else {
-          params[name] = value;
-        }
-        return `{${name}:${chType}}`;
-      };
-
-      const buildAdvancedExpr = (node) => {
-        if (!node) return null;
-
-        // 数组：默认 AND 连接
-        if (Array.isArray(node)) {
-          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
-          if (parts.length === 0) return null;
-          return `(${parts.join(' AND ')})`;
-        }
-
-        // 叶子条件
-        if (node.field && node.operator) {
-          const field = String(node.field);
-          const op = String(node.operator || '').toLowerCase();
-          const value = node.value;
-
-          if (!allowedFields.has(field)) return null;
-          if (value === undefined || value === null || value === '') return null;
-
-          // timestamp 字段
-          if (field === 'timestamp') {
-            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
-            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
-            const formatTimestamp = (v) => {
-              if (!v) return null;
-              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
-              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
-                return v;
-              }
-              // 使用 formatTimeForClickHouse 统一格式化
-              return formatTimeForClickHouse(v);
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = formatTimestamp(value[0]);
-              const b = formatTimestamp(value[1]);
-              if (!a || !b) return null;
-              const p1 = makeParam('adv_ts_from', 'DateTime', a);
-              const p2 = makeParam('adv_ts_to', 'DateTime', b);
-              return `(timestamp BETWEEN ${p1} AND ${p2})`;
-            }
-
-            const formatted = formatTimestamp(value);
-            if (!formatted) return null;
-            const p = makeParam('adv_ts', 'DateTime', formatted);
-
-            switch (op) {
-              case '=':
-              case '==':
-                return `timestamp = ${p}`;
-              case '!=':
-              case '<>':
-                return `timestamp != ${p}`;
-              case '>':
-                return `timestamp > ${p}`;
-              case '>=':
-                return `timestamp >= ${p}`;
-              case '<':
-                return `timestamp < ${p}`;
-              case '<=':
-                return `timestamp <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          // error_code 字段
-          if (field === 'error_code') {
-            const p = makeParam('adv_ec', 'String', String(value));
-            const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
-            switch (op) {
-              case '=':
-                return wrap(`error_code = ${p}`);
-              case '!=':
-              case '<>':
-                return wrap(`error_code != ${p}`);
-              case 'contains':
-              case 'like':
-                return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
-              case 'regex':
-                return wrap(`match(error_code, ${p})`);
-              case 'startswith':
-                return wrap(`startsWith(error_code, ${p})`);
-              case 'endswith':
-                return wrap(`endsWith(error_code, ${p})`);
-              default:
-                return null;
-            }
-          }
-
-          // 数值参数 param1-4：底层为 String，这里转换为 Float64
-          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
-            const colExpr = `toFloat64OrNull(${field})`;
-            const toNum = (v) => {
-              const n = Number(v);
-              return Number.isFinite(n) ? n : null;
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toNum(value[0]);
-              const b = toNum(value[1]);
-              if (a === null || b === null) return null;
-              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
-              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
-              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
-            }
-
-            const n = toNum(value);
-            if (n === null) return null;
-            const p = makeParam(`adv_${field}`, 'Float64', n);
-
-            switch (op) {
-              case '=':
-                return `${colExpr} = ${p}`;
-              case '!=':
-              case '<>':
-                return `${colExpr} != ${p}`;
-              case '>':
-                return `${colExpr} > ${p}`;
-              case '>=':
-                return `${colExpr} >= ${p}`;
-              case '<':
-                return `${colExpr} < ${p}`;
-              case '<=':
-                return `${colExpr} <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          // explanation 字段：只支持 contains / like
-          if (field === 'explanation') {
-            const p = makeParam('adv_expl', 'String', String(value));
-            if (op === 'contains' || op === 'like') {
-              return `positionCaseInsensitive(explanation, ${p}) > 0`;
-            }
-            return null;
-          }
-
-          return null;
-        }
-
-        // 分组节点
-        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-          const childExprs = node.conditions
-            .map(child => buildAdvancedExpr(child))
-            .filter(Boolean);
-          if (childExprs.length === 0) return null;
-          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
-          return `(${childExprs.join(joiner)})`;
-        }
-
-        return null;
-      };
-
-      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      const advancedWhereSql = buildAdvancedFilterExpression(advancedFilters, params);
       if (advancedWhereSql) {
         console.log('[batch-advanced] where sql:', advancedWhereSql);
       }
@@ -4136,7 +3780,8 @@ const getVisualizationData = async (req, res) => {
         const errorCodeRecord = await ErrorCode.findOne({
           where: {
             code: codeToQuery,
-            subsystem: subsystem
+            subsystem: subsystem,
+            ...(inferredSeriesId ? { series_id: inferredSeriesId } : {})
           }
         });
 
@@ -4554,206 +4199,13 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     }
 
     // ---------- 高级搜索表达式 filters：下推到 ClickHouse ----------
-    const parseAdvancedFilters = (raw) => {
-      if (!raw) return null;
-      let parsed = raw;
-      if (typeof raw === 'string') {
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          return null;
-        }
-      }
-      return parsed;
-    };
-
-    const advancedFilters = parseAdvancedFilters(filters);
+    const advancedFilters = parseAdvancedFilterPayload(filters);
     if (advancedFilters) {
       console.log('[batch-advanced] filters payload:', JSON.stringify(advancedFilters));
     }
 
     if (advancedFilters) {
-      const allowedFields = new Set([
-        'timestamp',
-        'error_code',
-        'param1',
-        'param2',
-        'param3',
-        'param4',
-        'explanation'
-      ]);
-
-      let advParamIndex = 0;
-      const makeParam = (base, chType, value) => {
-        const name = `${base}_${advParamIndex++}`;
-        // 对于 DateTime 类型，使用 formatTimeForClickHouse 格式化，避免时区转换
-        // ClickHouse 存储的是无时区时间，需要直接使用时间字符串格式
-        if (chType === 'DateTime') {
-          params[name] = formatTimeForClickHouse(value);
-        } else {
-          params[name] = value;
-        }
-        return `{${name}:${chType}}`;
-      };
-
-      const buildAdvancedExpr = (node) => {
-        if (!node) return null;
-
-        // 数组：默认 AND 连接
-        if (Array.isArray(node)) {
-          const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
-          if (parts.length === 0) return null;
-          return `(${parts.join(' AND ')})`;
-        }
-
-        // 叶子条件
-        if (node.field && node.operator) {
-          const field = String(node.field);
-          const op = String(node.operator || '').toLowerCase();
-          const value = node.value;
-
-          if (!allowedFields.has(field)) return null;
-          if (value === undefined || value === null || value === '') return null;
-
-          // timestamp 字段
-          if (field === 'timestamp') {
-            // 对于 timestamp 字段，直接使用 formatTimeForClickHouse 处理
-            // 因为前端传递的可能是 Date 对象或时间字符串，需要统一格式化为无时区格式
-            const formatTimestamp = (v) => {
-              if (!v) return null;
-              // 如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接返回
-              if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
-                return v;
-              }
-              // 使用 formatTimeForClickHouse 统一格式化
-              return formatTimeForClickHouse(v);
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = formatTimestamp(value[0]);
-              const b = formatTimestamp(value[1]);
-              if (!a || !b) return null;
-              const p1 = makeParam('adv_ts_from', 'DateTime', a);
-              const p2 = makeParam('adv_ts_to', 'DateTime', b);
-              return `(timestamp BETWEEN ${p1} AND ${p2})`;
-            }
-
-            const formatted = formatTimestamp(value);
-            if (!formatted) return null;
-            const p = makeParam('adv_ts', 'DateTime', formatted);
-
-            switch (op) {
-              case '=':
-              case '==':
-                return `timestamp = ${p}`;
-              case '!=':
-              case '<>':
-                return `timestamp != ${p}`;
-              case '>':
-                return `timestamp > ${p}`;
-              case '>=':
-                return `timestamp >= ${p}`;
-              case '<':
-                return `timestamp < ${p}`;
-              case '<=':
-                return `timestamp <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          // error_code 字段
-          if (field === 'error_code') {
-            const p = makeParam('adv_ec', 'String', String(value));
-            const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
-            switch (op) {
-              case '=':
-                return wrap(`error_code = ${p}`);
-              case '!=':
-              case '<>':
-                return wrap(`error_code != ${p}`);
-              case 'contains':
-              case 'like':
-                return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
-              case 'regex':
-                return wrap(`match(error_code, ${p})`);
-              case 'startswith':
-                return wrap(`startsWith(error_code, ${p})`);
-              case 'endswith':
-                return wrap(`endsWith(error_code, ${p})`);
-              default:
-                return null;
-            }
-          }
-
-          // 数值参数 param1-4：底层为 String，这里转换为 Float64
-          if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
-            const colExpr = `toFloat64OrNull(${field})`;
-            const toNum = (v) => {
-              const n = Number(v);
-              return Number.isFinite(n) ? n : null;
-            };
-
-            if (op === 'between') {
-              if (!Array.isArray(value) || value.length !== 2) return null;
-              const a = toNum(value[0]);
-              const b = toNum(value[1]);
-              if (a === null || b === null) return null;
-              const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
-              const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
-              return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
-            }
-
-            const n = toNum(value);
-            if (n === null) return null;
-            const p = makeParam(`adv_${field}`, 'Float64', n);
-
-            switch (op) {
-              case '=':
-                return `${colExpr} = ${p}`;
-              case '!=':
-              case '<>':
-                return `${colExpr} != ${p}`;
-              case '>':
-                return `${colExpr} > ${p}`;
-              case '>=':
-                return `${colExpr} >= ${p}`;
-              case '<':
-                return `${colExpr} < ${p}`;
-              case '<=':
-                return `${colExpr} <= ${p}`;
-              default:
-                return null;
-            }
-          }
-
-          // explanation 字段：只支持 contains / like
-          if (field === 'explanation') {
-            const p = makeParam('adv_expl', 'String', String(value));
-            if (op === 'contains' || op === 'like') {
-              return `positionCaseInsensitive(explanation, ${p}) > 0`;
-            }
-            return null;
-          }
-
-          return null;
-        }
-
-        // 分组节点
-        if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-          const childExprs = node.conditions
-            .map(child => buildAdvancedExpr(child))
-            .filter(Boolean);
-          if (childExprs.length === 0) return null;
-          const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
-          return `(${childExprs.join(joiner)})`;
-        }
-
-        return null;
-      };
-
-      const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+      const advancedWhereSql = buildAdvancedFilterExpression(advancedFilters, params);
       if (advancedWhereSql) {
         console.log('[batch-advanced] where sql:', advancedWhereSql);
       }

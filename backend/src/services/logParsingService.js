@@ -37,16 +37,25 @@ function parseSubsystemAndCode(errorCodeStr) {
   return { subsystem, code, arm, joint };
 }
 
+function normalizeSeriesId(seriesId) {
+  if (seriesId === undefined || seriesId === null || seriesId === '') {
+    return null;
+  }
+  const value = Number.parseInt(seriesId, 10);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
 /**
  * 获取释义模板（优先缓存）
  * @param {string|null} subsystem
  * @param {string|null} code
+ * @param {number|null} seriesId
  * @param {string} fallbackTemplate
  * @returns {string}
  */
-function getExplanationTemplate(subsystem, code, fallbackTemplate = '') {
+function getExplanationTemplate(subsystem, code, seriesId = null, fallbackTemplate = '') {
   if (subsystem && code) {
-    const rec = errorCodeCache.findErrorCode(subsystem, code);
+    const rec = errorCodeCache.findErrorCode(subsystem, code, normalizeSeriesId(seriesId));
     if (rec && typeof rec.explanation === 'string' && rec.explanation.length > 0) {
       return rec.explanation;
     }
@@ -62,12 +71,14 @@ function getExplanationTemplate(subsystem, code, fallbackTemplate = '') {
 function renderEntryExplanation(decodedEntry) {
   const { error_code, param1, param2, param3, param4 } = decodedEntry || {};
   const { subsystem, code, arm, joint } = parseSubsystemAndCode(error_code || '');
+  const seriesId = normalizeSeriesId(decodedEntry?.series_id);
 
-  const template = getExplanationTemplate(subsystem, code, decodedEntry?.explanation || '');
+  const template = getExplanationTemplate(subsystem, code, seriesId, decodedEntry?.explanation || '');
 
   const context = {
     error_code,
     subsystem,
+    series_id: seriesId,
     arm: arm || null,
     joint: joint || null
   };
@@ -101,5 +112,4 @@ module.exports = {
   renderEntryExplanation,
   renderEntriesExplanations
 };
-
 

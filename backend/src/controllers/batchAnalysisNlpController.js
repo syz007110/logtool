@@ -74,9 +74,11 @@ async function nlToBatchFilters(req, res) {
     const context = ctx
       ? {
         firstMessage: ctx.firstMessage,
-        previousSpec: ctx.previousResult || ctx.previousSpec,
+        previousResult: ctx.previousResult,
         answers: Array.isArray(ctx.answers) ? ctx.answers : [],
-        logTimeRange: typeof ctx.logTimeRange === 'string' ? ctx.logTimeRange : (ctx.logTimeRange && ctx.logTimeRange.min != null && ctx.logTimeRange.max != null ? `${ctx.logTimeRange.min} ~ ${ctx.logTimeRange.max}` : '')
+        logTimeRange: typeof ctx.logTimeRange === 'string' ? ctx.logTimeRange : (ctx.logTimeRange && ctx.logTimeRange.min != null && ctx.logTimeRange.max != null ? `${ctx.logTimeRange.min} ~ ${ctx.logTimeRange.max}` : ''),
+        timedate: typeof ctx.timedate === 'string' ? ctx.timedate : '',
+        timezone: typeof ctx.timezone === 'string' ? ctx.timezone : ''
       }
       : undefined;
     const llm = await extractBatchFiltersWithProvider({ providerId: llmProviderId, text, presetNames, context });

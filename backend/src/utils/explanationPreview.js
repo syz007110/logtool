@@ -80,10 +80,17 @@ function deriveFromFullLogCode(input) {
   return { subsystem: null, arm: null, joint: null, normalizedCode: normalizeCode(raw) };
 }
 
-async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, template: payloadTemplate, params = {}, lang, t }) {
+function normalizeSeriesId(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
+async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, series_id, template: payloadTemplate, params = {}, lang, t }) {
   const { param1, param2, param3, param4 } = params || {};
   const { subsystem: parsedSubsystem, arm: parsedArm, joint: parsedJoint, normalizedCode } = deriveFromFullLogCode(rawCode);
   const code = normalizedCode;
+  const normalizedSeriesId = normalizeSeriesId(series_id);
 
   if (!code || typeof code !== 'string') {
     const err = new Error('缺少或不合法的故障码 code');
@@ -94,9 +101,20 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, temp
   let record = null;
   const subsystem = bodySubsystem || parsedSubsystem || null;
   if (subsystem) {
-    record = await ErrorCode.findOne({ where: { subsystem, code } });
+    record = await ErrorCode.findOne({
+      where: {
+        ...(normalizedSeriesId ? { series_id: normalizedSeriesId } : {}),
+        subsystem,
+        code
+      }
+    });
   } else {
-    record = await ErrorCode.findOne({ where: { code } });
+    record = await ErrorCode.findOne({
+      where: {
+        ...(normalizedSeriesId ? { series_id: normalizedSeriesId } : {}),
+        code
+      }
+    });
   }
 
   let template = payloadTemplate && String(payloadTemplate);

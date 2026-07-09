@@ -1,5 +1,6 @@
 const I18nErrorCode = require('../models/i18n_error_code');
 const ErrorCode = require('../models/error_code');
+const DeviceSeriesDict = require('../models/device_series_dict');
 const { Op } = require('sequelize');
 const { sequelize } = require('../models');
 const { logOperation } = require('../utils/operationLogger');
@@ -71,10 +72,39 @@ async function reloadAndBroadcastErrorCodeCache(reason, meta = {}) {
   }
 }
 
+function parseSeriesId(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const num = Number.parseInt(value, 10);
+  if (!Number.isInteger(num) || num <= 0) {
+    return null;
+  }
+  return num;
+}
+
+async function resolveSeriesIdOrThrow(rawSeriesId) {
+  const seriesId = parseSeriesId(rawSeriesId);
+  if (!seriesId) {
+    const err = new Error('series_id 必须为正整数');
+    err.status = 400;
+    throw err;
+  }
+
+  const series = await DeviceSeriesDict.findByPk(seriesId);
+  if (!series) {
+    const err = new Error('series_id 无效');
+    err.status = 400;
+    throw err;
+  }
+
+  return seriesId;
+}
+
 // 获取故障码的多语言内容
 const getI18nErrorCodes = async (req, res) => {
   try {
-    const { error_code_id, lang, code, subsystem } = req.query;
+    const { error_code_id, lang, code, subsystem, series_id } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
     
@@ -85,7 +115,7 @@ const getI18nErrorCodes = async (req, res) => {
     const includeCondition = {
       model: ErrorCode,
       as: 'errorCode',
-      attributes: ['id', 'code', 'subsystem']
+      attributes: ['id', 'series_id', 'code', 'subsystem']
     };
     
     // 如果搜索故障码，添加条件
@@ -104,6 +134,14 @@ const getI18nErrorCodes = async (req, res) => {
           subsystem: { [Op.like]: `%${subsystem}%` }
         };
       }
+    }
+
+    if (series_id !== undefined && series_id !== null && series_id !== '') {
+      const resolvedSeriesId = await resolveSeriesIdOrThrow(series_id);
+      includeCondition.where = {
+        ...(includeCondition.where || {}),
+        series_id: resolvedSeriesId
+      };
     }
     
     const offset = (page - 1) * limit;
@@ -124,14 +162,14 @@ const getI18nErrorCodes = async (req, res) => {
     });
   } catch (err) {
     console.error('查询多语言故障码失败:', err);
-    res.status(500).json({ message: req.t('i18nErrorCode.queryFailed'), error: err.message });
+    res.status(err.status || 500).json({ message: err.status ? err.message : req.t('i18nErrorCode.queryFailed'), error: err.message });
   }
 };
 
 // 创建或更新多语言故障码内容
 const upsertI18nErrorCode = async (req, res) => {
   try {
-    const { error_code_id, subsystem, code, lang, short_message, user_hint, operation } = req.body;
+    const { error_code_id, subsystem, code, lang, short_message, user_hint, operation, series_id } = req.body;
     
     // 验证必填字段
     if (!lang) {
@@ -158,12 +196,19 @@ const upsertI18nErrorCode = async (req, res) => {
       if (!errorCode) {
         return res.status(404).json({ message: req.t('i18nErrorCode.errorCodeNotFound') });
       }
+      if (series_id !== undefined && series_id !== null && series_id !== '') {
+        const resolvedSeriesId = await resolveSeriesIdOrThrow(series_id);
+        if (resolvedSeriesId !== errorCode.series_id) {
+          return res.status(400).json({ message: 'series_id 与 error_code_id 不匹配' });
+        }
+      }
       error_code_id_to_use = error_code_id;
     } 
     // 如果提供了subsystem和code，通过它们查找故障码
     else if (subsystem && code) {
+      const resolvedSeriesId = await resolveSeriesIdOrThrow(series_id);
       errorCode = await ErrorCode.findOne({
-        where: { subsystem, code }
+        where: { series_id: resolvedSeriesId, subsystem, code }
       });
       if (!errorCode) {
         return res.status(404).json({ message: req.t('i18nErrorCode.errorCodeNotFoundWithCode', { subsystem, code }) });
@@ -239,7 +284,7 @@ const upsertI18nErrorCode = async (req, res) => {
     });
   } catch (err) {
     console.error('操作多语言故障码失败:', err);
-    res.status(500).json({ message: req.t('i18nErrorCode.operationFailed'), error: err.message });
+    res.status(err.status || 500).json({ message: err.status ? err.message : req.t('i18nErrorCode.operationFailed'), error: err.message });
   }
 };
 
@@ -315,6 +360,7 @@ const deleteI18nErrorCode = async (req, res) => {
 const batchImportI18nErrorCodes = async (req, res) => {
   try {
     const { data } = req.body; // 期望格式: [{subsystem, code, lang, short_message, user_hint, operation, detail, method, param1, param2, param3, param4}, ...]
+    const defaultSeriesId = req.body?.series_id ? await resolveSeriesIdOrThrow(req.body.series_id) : null
     
     if (!Array.isArray(data) || data.length === 0) {
       return res.status(400).json({ message: '数据格式错误或为空' });
@@ -326,6 +372,7 @@ const batchImportI18nErrorCodes = async (req, res) => {
     for (const item of data) {
       try {
         const {
+          series_id,
           subsystem,
           code,
           lang,
@@ -341,8 +388,8 @@ const batchImportI18nErrorCodes = async (req, res) => {
         } = item;
         
         // 验证必填字段
-        if (!subsystem || !code || !lang) {
-          errors.push({ item, error: '子系统号、故障码和语言代码是必填字段' });
+        if (!(series_id || defaultSeriesId) || !subsystem || !code || !lang) {
+          errors.push({ item, error: '系列、子系统号、故障码和语言代码是必填字段' });
           continue;
         }
         
@@ -359,13 +406,15 @@ const batchImportI18nErrorCodes = async (req, res) => {
           continue;
         }
         
+        const resolvedSeriesId = series_id ? await resolveSeriesIdOrThrow(series_id) : defaultSeriesId;
+
         // 通过subsystem和code查找error_code_id
         const errorCode = await ErrorCode.findOne({
-          where: { subsystem, code }
+          where: { series_id: resolvedSeriesId, subsystem, code }
         });
-        
+
         if (!errorCode) {
-          errors.push({ item, error: `故障码不存在: ${subsystem}-${code}` });
+          errors.push({ item, error: `故障码不存在: series_id=${resolvedSeriesId}, ${subsystem}-${code}` });
           continue;
         }
         
@@ -409,6 +458,7 @@ const batchImportI18nErrorCodes = async (req, res) => {
         }
         
         results.push({
+          series_id: resolvedSeriesId,
           subsystem,
           code,
           error_code_id,
@@ -493,6 +543,11 @@ const getSupportedLanguages = async (req, res) => {
 // 获取子系统号列表
 const getSubsystems = async (req, res) => {
   try {
+    const parsedSeriesId = parseSeriesId(req.query?.series_id);
+    if (req.query?.series_id !== undefined && req.query?.series_id !== null && req.query?.series_id !== '' && !parsedSeriesId) {
+      return res.status(400).json({ message: 'series_id 必须为正整数' });
+    }
+
     // 预定义的子系统列表
     const predefinedSubsystems = subsystemCodes.map((code) => ({
       value: code,
@@ -502,6 +557,7 @@ const getSubsystems = async (req, res) => {
     // 获取数据库中已有的子系统号
     const existingSubsystems = await ErrorCode.findAll({
       attributes: [[sequelize.fn('DISTINCT', sequelize.col('subsystem')), 'subsystem']],
+      where: parsedSeriesId ? { series_id: parsedSeriesId } : undefined,
       raw: true,
       order: [['subsystem', 'ASC']]
     });
@@ -531,14 +587,16 @@ const uploadCSV = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: '请上传CSV文件' });
     }
+    const defaultSeriesId = req.body?.series_id ? await resolveSeriesIdOrThrow(req.body.series_id) : null
 
     const results = [];
     const errors = [];
     let lineNumber = 0;
     let isFirstRow = true;
-    const baseHeaders = ['subsystem', 'code', 'lang', 'short_message', 'user_hint', 'operation'];
+    const baseHeadersWithSeries = ['series_id', 'subsystem', 'code', 'lang', 'short_message', 'user_hint', 'operation'];
+    const baseHeadersWithoutSeries = ['subsystem', 'code', 'lang', 'short_message', 'user_hint', 'operation'];
     const extraHeaders = ['detail', 'method', 'param1', 'param2', 'param3', 'param4'];
-    let expectedHeaders = baseHeaders;
+    let csvHasSeriesId = false;
     
     // 读取CSV文件，确保UTF-8编码
     fs.createReadStream(req.file.path, { encoding: 'utf8' })
@@ -554,22 +612,33 @@ const uploadCSV = async (req, res) => {
           isFirstRow = false;
           // 检查列名是否正确
           const headers = Object.values(row);
-          const hasBaseHeaders = baseHeaders.every((header, index) =>
+          const hasBaseHeadersWithSeries = baseHeadersWithSeries.every((header, index) =>
             headers[index] && headers[index].toLowerCase().trim() === header.toLowerCase()
           );
-          const hasExtraHeaders = extraHeaders.every((header, index) =>
-            headers[baseHeaders.length + index] &&
-            headers[baseHeaders.length + index].toLowerCase().trim() === header.toLowerCase()
+          const hasBaseHeadersWithoutSeries = baseHeadersWithoutSeries.every((header, index) =>
+            headers[index] && headers[index].toLowerCase().trim() === header.toLowerCase()
+          );
+          const hasExtraHeadersWithSeries = extraHeaders.every((header, index) =>
+            headers[baseHeadersWithSeries.length + index] &&
+            headers[baseHeadersWithSeries.length + index].toLowerCase().trim() === header.toLowerCase()
+          );
+          const hasExtraHeadersWithoutSeries = extraHeaders.every((header, index) =>
+            headers[baseHeadersWithoutSeries.length + index] &&
+            headers[baseHeadersWithoutSeries.length + index].toLowerCase().trim() === header.toLowerCase()
           );
 
-          const isExactBase = headers.length === baseHeaders.length && hasBaseHeaders;
-          const isExactFull = headers.length === (baseHeaders.length + extraHeaders.length) && hasBaseHeaders && hasExtraHeaders;
+          const isExactBaseWithSeries = headers.length === baseHeadersWithSeries.length && hasBaseHeadersWithSeries;
+          const isExactFullWithSeries = headers.length === (baseHeadersWithSeries.length + extraHeaders.length) && hasBaseHeadersWithSeries && hasExtraHeadersWithSeries;
+          const isExactBaseWithoutSeries = headers.length === baseHeadersWithoutSeries.length && hasBaseHeadersWithoutSeries;
+          const isExactFullWithoutSeries = headers.length === (baseHeadersWithoutSeries.length + extraHeaders.length) && hasBaseHeadersWithoutSeries && hasExtraHeadersWithoutSeries;
 
-          if (!isExactBase && !isExactFull) {
+          csvHasSeriesId = isExactBaseWithSeries || isExactFullWithSeries;
+
+          if (!csvHasSeriesId && !isExactBaseWithoutSeries && !isExactFullWithoutSeries) {
             errors.push({ 
               line: lineNumber, 
               row, 
-              error: `第${lineNumber}行列名不正确，期望: ${baseHeaders.join(', ')} 或 ${[...baseHeaders, ...extraHeaders].join(', ')}，实际: ${headers.join(', ')}` 
+              error: `第${lineNumber}行列名不正确，期望: ${baseHeadersWithSeries.join(', ')} 或 ${[...baseHeadersWithSeries, ...extraHeaders].join(', ')} 或 ${baseHeadersWithoutSeries.join(', ')} 或 ${[...baseHeadersWithoutSeries, ...extraHeaders].join(', ')}，实际: ${headers.join(', ')}` 
             });
           }
           return; // 跳过第一行
@@ -578,23 +647,39 @@ const uploadCSV = async (req, res) => {
         // 处理数据行
         const values = Object.values(row);
         const [
-          subsystem,
-          code,
-          lang,
-          short_message,
-          user_hint,
-          operation,
-          detail,
-          method,
-          param1,
-          param2,
-          param3,
-          param4
+          maybeSeriesId,
+          maybeSubsystem,
+          maybeCode,
+          maybeLang,
+          maybeShortMessage,
+          maybeUserHint,
+          maybeOperation,
+          maybeDetail,
+          maybeMethod,
+          maybeParam1,
+          maybeParam2,
+          maybeParam3,
+          maybeParam4
         ] = values;
+
+        const series_id = csvHasSeriesId ? maybeSeriesId : defaultSeriesId;
+        const subsystem = csvHasSeriesId ? maybeSubsystem : maybeSeriesId;
+        const code = csvHasSeriesId ? maybeCode : maybeSubsystem;
+        const lang = csvHasSeriesId ? maybeLang : maybeCode;
+        const short_message = csvHasSeriesId ? maybeShortMessage : maybeLang;
+        const user_hint = csvHasSeriesId ? maybeUserHint : maybeShortMessage;
+        const operation = csvHasSeriesId ? maybeOperation : maybeUserHint;
+        const detail = csvHasSeriesId ? maybeDetail : maybeOperation;
+        const method = csvHasSeriesId ? maybeMethod : maybeDetail;
+        const param1 = csvHasSeriesId ? maybeParam1 : maybeMethod;
+        const param2 = csvHasSeriesId ? maybeParam2 : maybeParam1;
+        const param3 = csvHasSeriesId ? maybeParam3 : maybeParam2;
+        const param4 = csvHasSeriesId ? maybeParam4 : maybeParam3;
         
         // 检查必填字段
-        if (!subsystem || !code || !lang) {
+        if (!series_id || !subsystem || !code || !lang) {
           const missingFields = [];
+          if (!series_id || String(series_id).trim() === '') missingFields.push('series_id');
           if (!subsystem || subsystem.trim() === '') missingFields.push('subsystem');
           if (!code || code.trim() === '') missingFields.push('code');
           if (!lang || lang.trim() === '') missingFields.push('lang');
@@ -626,6 +711,7 @@ const uploadCSV = async (req, res) => {
         }
         
         results.push({
+          series_id: String(series_id).trim(),
           subsystem: subsystem.trim(),
           code: code.trim(),
           lang: lang.trim(),
@@ -659,6 +745,7 @@ const uploadCSV = async (req, res) => {
           for (const item of results) {
             try {
               const {
+                series_id,
                 subsystem,
                 code,
                 lang,
@@ -673,15 +760,17 @@ const uploadCSV = async (req, res) => {
                 param4
               } = item;
               
+              const resolvedSeriesId = await resolveSeriesIdOrThrow(series_id);
+
               // 通过subsystem和code查找error_code_id
               const errorCode = await ErrorCode.findOne({
-                where: { subsystem, code }
+                where: { series_id: resolvedSeriesId, subsystem, code }
               });
               
               if (!errorCode) {
                 importErrors.push({ 
                   item, 
-                  error: `故障码不存在: ${subsystem}-${code}，请先在故障码管理中添加此故障码` 
+                  error: `故障码不存在: series_id=${resolvedSeriesId}, ${subsystem}-${code}，请先在故障码管理中添加此故障码` 
                 });
                 continue;
               }
@@ -726,6 +815,7 @@ const uploadCSV = async (req, res) => {
               }
               
               importResults.push({
+                series_id: resolvedSeriesId,
                 subsystem,
                 code,
                 error_code_id,

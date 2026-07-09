@@ -9,6 +9,8 @@ const I18nText = require('./i18n_text');
 const OperationLog = require('./operation_log');
 const Device = require('./device');
 const DeviceKey = require('./deviceKey');
+const DeviceModelDict = require('./device_model_dict');
+const DeviceSeriesDict = require('./device_series_dict');
 const GeoCountry = require('./geo_country');
 const GeoRegion = require('./geo_region');
 const HospitalMaster = require('./hospital_master');
@@ -172,6 +174,15 @@ function defineAssociations() {
     targetKey: 'device_id',
     foreignKey: 'device_id',
     as: 'Device'
+  });
+
+  DeviceSeriesDict.hasMany(DeviceModelDict, {
+    foreignKey: 'series_id',
+    as: 'deviceModels'
+  });
+  DeviceModelDict.belongsTo(DeviceSeriesDict, {
+    foreignKey: 'series_id',
+    as: 'DeviceSeries'
   });
 
   // 地理与医院主数据关联

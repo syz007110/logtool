@@ -197,12 +197,29 @@
           <el-breadcrumb class="nav-breadcrumb" separator="/">
             <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index">
               <router-link v-if="item.path" :to="item.path">{{ item.title }}</router-link>
+              <span v-else-if="item.kind === 'series'" class="breadcrumb-series" :class="item.themeClass">{{ item.title }}</span>
               <span v-else>{{ item.title }}</span>
             </el-breadcrumb-item>
           </el-breadcrumb>
         </div>
         
         <div class="header-right">
+          <div
+            v-if="showSeriesSwitcher"
+            class="series-context-pill"
+            :title="currentSeriesDisplayName"
+          >
+            <template v-for="(item, index) in seriesOptions" :key="item.id">
+              <button
+                type="button"
+                class="series-context-button"
+                :class="getSeriesButtonClass(item)"
+                @click="handleSeriesChange(item.id)"
+              >
+                {{ item.label }}
+              </button>
+            </template>
+          </div>
           <div class="task-pill-btn task-status-capsule" aria-live="polite">
             <span class="capsule-dot" :class="{ 'capsule-dot--breathing': inProgressTaskCount > 0 }" />
             <span class="capsule-title">{{ $t('taskQueue.activeLabel', { count: inProgressTaskCount }) }}</span>
@@ -293,7 +310,7 @@ export default {
     const store = useStore()
     const router = useRouter()
     const route = useRoute()
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const hasPermission = (permission) => store.getters['auth/hasPermission']?.(permission)
 
     const canAccessSmartSearch = computed(() => hasPermission('smart_search:use'))
@@ -393,6 +410,15 @@ export default {
     const breadcrumbs = computed(() => {
       const breadcrumbList = []
       const currentRouteName = route.name
+      const affectedSeriesRoutes = new Set([
+        'ErrorCodes',
+        'I18nErrorCodes',
+        'Logs',
+        'DataReplay',
+        'Surgeries',
+        'BatchAnalysis',
+        'DataAnalysis'
+      ])
       
       // 获取当前路由的一级菜单信息
       const parentMenu = getParentMenuForRoute(currentRouteName)
@@ -402,6 +428,15 @@ export default {
         breadcrumbList.push({
           title: t(parentMenu.titleKey),
           path: null // 一级菜单不可点击
+        })
+      }
+
+      if (affectedSeriesRoutes.has(currentRouteName) && currentSeriesDisplayName.value) {
+        breadcrumbList.push({
+          title: currentSeriesDisplayName.value,
+          path: null,
+          kind: 'series',
+          themeClass: currentSeriesCode.value === 'SA' ? 'breadcrumb-series--sa' : currentSeriesCode.value === 'SR' ? 'breadcrumb-series--sr' : 'breadcrumb-series--default'
         })
       }
       
@@ -543,8 +578,43 @@ export default {
       return cur === 'en-US' ? 'English' : '中文'
     })
 
+    const seriesOptions = computed(() => {
+      const currentLang = locale.value || 'zh-CN'
+      const isEnglish = String(currentLang).startsWith('en')
+      return (store.getters['seriesContext/seriesList'] || []).map((item) => ({
+        ...item,
+        label: isEnglish ? (item.series_name_en || item.series_name_zh || item.series_code) : (item.series_name_zh || item.series_name_en || item.series_code)
+      }))
+    })
+
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    const currentSeries = computed(() => store.getters['seriesContext/currentSeries'])
+    const currentSeriesDisplayName = computed(() => {
+      const item = currentSeries.value
+      if (!item) return ''
+      const isEnglish = String(locale.value || 'zh-CN').startsWith('en')
+      return isEnglish ? (item.series_name_en || item.series_name_zh || item.series_code) : (item.series_name_zh || item.series_name_en || item.series_code)
+    })
+    const currentSeriesCode = computed(() => String(currentSeries.value?.series_code || '').trim().toUpperCase())
+    const showSeriesSwitcher = computed(() => seriesOptions.value.length > 0)
+
     const handleLanguageChange = async (locale) => {
       await loadLocaleMessages?.(locale)
+    }
+
+    const handleSeriesChange = async (seriesId) => {
+      await store.dispatch('seriesContext/setCurrentSeriesId', seriesId)
+    }
+
+    const getSeriesButtonClass = (item) => {
+      const code = String(item?.series_code || '').trim().toUpperCase()
+      const isActive = item?.id === currentSeriesId.value
+      return {
+        'series-context-button--sr': code === 'SR',
+        'series-context-button--sa': code === 'SA',
+        'series-context-button--default': code !== 'SR' && code !== 'SA',
+        'is-active': isActive
+      }
     }
 
     const taskRefreshTimer = ref(null)
@@ -728,6 +798,9 @@ export default {
     }
 
     onMounted(() => {
+      store.dispatch('seriesContext/loadSeriesList').catch((error) => {
+        console.error('Failed to load device series list:', error)
+      })
       try { websocketClient.connect() } catch (_) {}
       websocketClient.on('motionDataTaskStatusChange', handleMotionTaskStatusChange)
       websocketClient.on('logTaskStatusChange', handleLogTaskStatusChange)
@@ -806,6 +879,13 @@ export default {
       handleToolboxCommand,
       handleLanguageChange,
       currentLocaleLabel,
+      currentSeriesId,
+      currentSeriesCode,
+      currentSeriesDisplayName,
+      seriesOptions,
+      showSeriesSwitcher,
+      handleSeriesChange,
+      getSeriesButtonClass,
       activeMenuKey,
       handleMenuSelect,
       hideSidebar,
@@ -856,6 +936,10 @@ export default {
   padding: 0 var(--logo-area-padding); /* 使用 Design Token */
   flex-shrink: 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Logo 区域过渡动画 */
+}
+
+.logo--interactive {
+  cursor: pointer;
 }
 
 .logo-text {
@@ -1067,10 +1151,92 @@ export default {
   font-size: 14px;
 }
 
+.breadcrumb-series {
+  font-weight: 700;
+}
+
+.breadcrumb-series--sr {
+  color: var(--blue-700);
+}
+
+.breadcrumb-series--sa {
+  color: var(--red-700);
+}
+
+.breadcrumb-series--default {
+  color: var(--slate-700);
+}
+
 .header-right {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.series-context-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--capsule-btn-min-height);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  box-shadow: none;
+}
+
+.series-context-button {
+  min-width: 64px;
+  min-height: 24px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--slate-600);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.series-context-button:hover {
+  color: var(--slate-800);
+}
+
+.series-context-button--sr.is-active {
+  background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-500) 100%);
+  color: var(--black-white-white);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
+  transform: none;
+}
+
+.series-context-button--sa.is-active {
+  background: linear-gradient(135deg, var(--red-600) 0%, var(--red-500) 100%);
+  color: var(--black-white-white);
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.18);
+  transform: none;
+}
+
+.series-context-button--default.is-active {
+  background: linear-gradient(135deg, var(--slate-700) 0%, var(--slate-600) 100%);
+  color: var(--black-white-white);
+  transform: none;
+}
+
+.series-context-button--sr:not(.is-active) {
+  color: var(--blue-700);
+  background: transparent;
+}
+
+.series-context-button--sa:not(.is-active) {
+  color: var(--red-700);
+  background: transparent;
+}
+
+.series-context-button--default:not(.is-active) {
+  color: var(--slate-700);
+  background: transparent;
 }
 
 .lang-btn {

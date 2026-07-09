@@ -179,8 +179,8 @@
           <div class="filter-sidebar-content">
             <div class="filter-sidebar-header">
               <el-radio-group v-model="filterSidebarActiveTab" class="el-segmented-control" size="small">
-                <el-radio-button label="level">{{ $t('batchAnalysis.logLevelTab') }}</el-radio-button>
                 <el-radio-button label="search">{{ $t('batchAnalysis.searchTab') }}</el-radio-button>
+                <el-radio-button label="level">{{ $t('batchAnalysis.logLevelTab') }}</el-radio-button>
                 <el-radio-button label="settings">{{ $t('batchAnalysis.settingsTab') }}</el-radio-button>
               </el-radio-group>
             </div>
@@ -279,17 +279,6 @@
                         />
                         <el-button type="primary" size="small" class="nl-send-reply-btn" :loading="nlGenerating" :disabled="!nlInputLine.trim()" @click="submitNlReply">
                           {{ $t('batchAnalysis.nlSendReply') }}
-                        </el-button>
-                      </div>
-                      <div v-if="nlQuestionOptions.length" class="nl-options-row">
-                        <el-button
-                          v-for="(opt, oi) in nlQuestionOptions"
-                          :key="`${opt}-${oi}`"
-                          size="small"
-                          class="nl-option-btn"
-                          @click="nlInputLine = String(opt || '')"
-                        >
-                          {{ opt }}
                         </el-button>
                       </div>
                       <el-button size="small" class="nl-cancel-clarification" @click="cancelNlClarification">
@@ -439,7 +428,6 @@
               row-key="id"
               :row-class-name="getRowClassName"
               :row-style="getRowStyle"
-              :cell-class-name="getCellClassName"
               @current-change="forceRelayout"
               @selection-change="forceRelayout"
               @sort-change="forceRelayout"
@@ -902,6 +890,9 @@ import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { formatTime, formatTimeShort, loadServerTimezone } from '../utils/timeFormatter'
 import { useI18n } from 'vue-i18n'
+const { normalizeBatchAnalysisErrorCodeTree } = require('../utils/batchAnalysisErrorCode')
+const { syncBatchAnalysisDslRefresh } = require('../utils/batchAnalysisStateSync')
+const { parseBatchAnalysisImportedExpression } = require('../utils/batchAnalysisExpressionImport')
 
 export default {
   name: 'BatchAnalysis',
@@ -1103,7 +1094,7 @@ export default {
     
     const loading = ref(false)
     const filterDrawerVisible = ref(false)
-    const filterSidebarActiveTab = ref('level')
+    const filterSidebarActiveTab = ref('search')
     const selectedLogs = ref([])
     const batchLogEntries = ref([])
     const searchKeyword = ref('')
@@ -1688,58 +1679,8 @@ export default {
       return { logic: 'AND', conditions: [] }
     }
 
-    // 完整故障码：7 位十六进制，首位 [1-9A]，后 6 位 [0-9A-F]
-    const isCompleteErrorCode = (v) => {
-      const s = (v != null ? String(v).trim() : '').toUpperCase()
-      return s.length === 7 && /^[1-9A][0-9A-F]{6}$/.test(s)
-    }
-
-    const normalizeErrorCodeOperatorAlias = (operator) => {
-      const raw = String(operator ?? '').trim()
-      const lower = raw.toLowerCase()
-      if (lower === 'startwith' || lower === 'startswith') return 'startsWith'
-      if (lower === 'endwith' || lower === 'endswith') return 'endsWith'
-      if (lower === 'not contains' || lower === 'not_contains') return 'notcontains'
-      if (lower === 'regex') return 'regex'
-      if (lower === 'contains') return 'contains'
-      if (lower === 'notcontains') return 'notcontains'
-      if (lower === '!=' || lower === '<>' || lower === '=') return lower
-      return raw
-    }
-
-    // 递归规范化 error_code：
-    // 1) 操作符：仅对等于/不等于/包含做完整码优化；startsWith/endsWith/regex 保持原语义
-    // 2) 兼容历史别名：startwith/endwith
-    // 3) 值：按 log_entries 入库规则统一为小写
     const normalizeErrorCodeOperatorInFilters = (root) => {
-      if (!root) return
-      if (root.field === 'error_code' && root.operator !== undefined) {
-        if (typeof root.value === 'string') {
-          root.value = root.value.trim().toLowerCase()
-        } else if (Array.isArray(root.value)) {
-          root.value = root.value.map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : v))
-        }
-        const normalizedOp = normalizeErrorCodeOperatorAlias(root.operator)
-        const op = String(normalizedOp).toLowerCase()
-        const complete = isCompleteErrorCode(root.value)
-        if (op === 'startswith' || op === 'endswith' || op === 'regex') {
-          root.operator = normalizedOp
-          return
-        }
-        if (op === '!=' || op === '<>') {
-          root.operator = complete ? '!=' : 'notcontains'
-          return
-        }
-        if (op === 'notcontains') {
-          root.operator = 'notcontains'
-          return
-        }
-        root.operator = complete ? '=' : 'contains'
-        return
-      }
-      if (Array.isArray(root.conditions)) {
-        root.conditions.forEach(normalizeErrorCodeOperatorInFilters)
-      }
+      normalizeBatchAnalysisErrorCodeTree(root)
     }
     const pendingFiltersRoot = ref({ logic: 'AND', conditions: [] })
     const searchPreviewEditMode = ref(false)
@@ -1823,13 +1764,6 @@ export default {
     }
     // 统一使用 row.color_mark（手动 + NL mark 均写入此处）
     const getColorForRow = (row) => row.color_mark || null
-    const nlHighlightTerms = computed(() => {
-      const terms = []
-      ;(nlAppliedActions.value || []).filter((a) => a && a.type === 'highlight').forEach((a) => {
-        if (Array.isArray(a.terms)) terms.push(...a.terms)
-      })
-      return [...new Set(terms)]
-    })
     // stats 只支持故障码，使用现有故障码统计（getErrorCodeCount / 后端筛选统计）
     const nlStatsActions = computed(() => {
       return (nlAppliedActions.value || []).filter((a) => a && a.type === 'stats' && (String(a.field || 'error_code').toLowerCase() === 'error_code'))
@@ -1939,16 +1873,15 @@ export default {
 
     const applyNlResult = (result) => {
       normalizeNlResultFilters(result, templates.value)
-      const hasFilters = hasNlFilters(result.filters)
-      const hasActions = Array.isArray(result.actions) && result.actions.length > 0
 
       if (result.filters && typeof result.filters === 'object') {
-        pendingFiltersRoot.value = deepCloneFilters(result.filters)
+        const nextState = syncBatchAnalysisDslRefresh({
+          nextFilters: deepCloneFilters(result.filters),
+          nextActions: Array.isArray(result.actions) ? result.actions : []
+        })
+        pendingFiltersRoot.value = nextState.pendingFiltersRoot
+        pendingNlActions.value = nextState.pendingNlActions
         normalizeErrorCodeOperatorInFilters(pendingFiltersRoot.value)
-      }
-      // 仅当本次 NL 返回了 actions 时才覆盖；纯筛选（无 actions）时保留已有的 mark/highlight/stats
-      if (hasActions) {
-        pendingNlActions.value = [...result.actions]
       }
       nlPreviewCleared.value = false
       filterSidebarActiveTab.value = 'search'
@@ -1987,7 +1920,7 @@ export default {
         const resp = await api.logs.nlToBatchFilters({
           text,
           presetNames,
-          context: logTimeRange ? { logTimeRange } : undefined
+          context: buildNlPromptContext(logTimeRange ? { logTimeRange } : {})
         })
         const result = resp?.data?.result || {}
         const meta = result.meta || {}
@@ -2002,7 +1935,7 @@ export default {
             { role: 'user', content: text },
             { role: 'assistant', content: (meta.explain || '') + (meta.questions?.length ? '\n\n' + meta.questions.map((q) => q.question).join('\n') : '') }
           ]
-          nlInputLine.value = meta.questions?.[0]?.default || ''
+          nlInputLine.value = ''
           return
         }
 
@@ -2046,12 +1979,12 @@ export default {
         const resp = await api.logs.nlToBatchFilters({
           text: reply,
           presetNames,
-          context: {
+          context: buildNlPromptContext({
             firstMessage,
             previousResult: nlSpec.value,
             answers: newAnswers,
             ...(logTimeRange ? { logTimeRange } : {})
-          }
+          })
         })
         const result = resp?.data?.result || {}
         const meta = result.meta || {}
@@ -2062,7 +1995,7 @@ export default {
           { role: 'user', content: reply },
           { role: 'assistant', content: (meta.explain || '') + (meta.questions?.length ? '\n\n' + meta.questions.map((q) => q.question).join('\n') : '') }
         ]
-        nlInputLine.value = meta.questions?.[0]?.default || ''
+        nlInputLine.value = ''
         nlAnswers.value = newAnswers
         nlSpec.value = result
 
@@ -2124,9 +2057,6 @@ export default {
         const inner = [colorStr, scopeStr].filter(Boolean).join(' ')
         parts.push(`${t('batchAnalysis.nlActionMark')}(${inner || '—'})`)
       })
-      arr.filter((a) => a && a.type === 'highlight').forEach((a) => {
-        if (Array.isArray(a.terms) && a.terms.length) parts.push(`${t('batchAnalysis.nlActionHighlight')}(${a.terms.join(',')})`)
-      })
       arr.filter((a) => a && a.type === 'stats').forEach((a) => {
         if (a.field != null && a.value != null) parts.push(`${t('batchAnalysis.nlActionStats')}(${a.field}=${a.value})`)
       })
@@ -2134,10 +2064,6 @@ export default {
     }
     const nlAppliedActionsSummary = computed(() => formatNlActionsSummary(nlAppliedActions.value))
     const pendingNlActionsSummary = computed(() => formatNlActionsSummary(pendingNlActions.value))
-    const nlQuestionOptions = computed(() => {
-      const options = nlSpec.value?.meta?.questions?.[0]?.options
-      return Array.isArray(options) ? options.filter((o) => o != null && String(o).trim() !== '') : []
-    })
     const searchExpression = computed(() => {
       const segments = []
       if (timeRange.value && timeRange.value.length === 2) {
@@ -2192,13 +2118,13 @@ export default {
     const applySearchPreviewEdit = () => {
       const raw = String(searchPreviewExpressionDraft.value || '').trim()
       if (!raw) {
-        ElMessage.warning('请输入表达式 JSON')
+        ElMessage.warning(t('batchAnalysis.expressionJsonRequired'))
         return
       }
       try {
         const parsed = JSON.parse(raw)
         if (!parsed || (!Array.isArray(parsed.conditions) && !Array.isArray(parsed.filters?.conditions))) {
-          ElMessage.error('JSON格式不正确，缺少 conditions')
+          ElMessage.error(t('batchAnalysis.expressionJsonMissingConditions'))
           return
         }
         const logic = parsed.logic || parsed.filters?.logic || 'AND'
@@ -2207,9 +2133,9 @@ export default {
         normalizeErrorCodeOperatorInFilters(pendingFiltersRoot.value)
         searchPreviewEditMode.value = false
         nlPreviewCleared.value = false
-        ElMessage.success('表达式修改已更新，请点击“应用更改”生效')
+        ElMessage.success(t('batchAnalysis.expressionJsonUpdated'))
       } catch (e) {
-        ElMessage.error('解析失败：' + e.message)
+        ElMessage.error(t('batchAnalysis.expressionJsonParseFailed', { message: e.message }))
       }
     }
 
@@ -2830,6 +2756,26 @@ export default {
       return formatUtcMsToStorageTime(date.getTime())
     }
 
+    const getUserTimedateIso = () => new Date().toISOString()
+
+    const getUserTimezone = () => {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+      } catch (_) {
+        return ''
+      }
+    }
+
+    const buildNlPromptContext = (base = {}) => {
+      const timedate = getUserTimedateIso()
+      const timezone = getUserTimezone()
+      return {
+        ...base,
+        ...(timedate ? { timedate } : {}),
+        ...(timezone ? { timezone } : {})
+      }
+    }
+
     // 时间筛选器：内部存原时区(检索用)，界面显示用选中时区
     const timeRangeDisplay = computed({
       get () {
@@ -3081,14 +3027,19 @@ export default {
           conditions = Array.isArray(first?.filters?.conditions) ? first.filters.conditions : []
         }
         if (conditions.length > 0) {
-          pendingFiltersRoot.value = { logic, conditions: [...conditions] }
-          clearNlAppliedActions()
-          ElMessage.success('已从文件填充到高级条件')
+          const nextState = syncBatchAnalysisDslRefresh({
+            nextFilters: { logic, conditions: [...conditions] },
+            nextActions: []
+          })
+          pendingFiltersRoot.value = nextState.pendingFiltersRoot
+          pendingNlActions.value = nextState.pendingNlActions
+          nlAppliedActions.value = []
+          ElMessage.success(t('batchAnalysis.expressionJsonFilledAdvanced'))
         } else {
-          ElMessage.warning('未识别到可用的表达式内容')
+          ElMessage.warning(t('batchAnalysis.expressionJsonNoUsableContent'))
         }
       } catch (e) {
-        ElMessage.error('解析失败：' + e.message)
+        ElMessage.error(t('batchAnalysis.expressionJsonParseFailed', { message: e.message }))
       }
       return false
     }
@@ -3199,9 +3150,15 @@ export default {
         if (field !== 'explanation') return false
         return String(raw).toLowerCase().includes(String(value ?? '').toLowerCase())
       }
-      if (op === 'notcontains' || op === 'startswith' || op === 'endswith') {
-        // 前端禁用；兜底返回 false
-        return false
+      if (op === 'notcontains') {
+        if (field !== 'error_code') return false
+        return !String(raw).toLowerCase().includes(String(value ?? '').toLowerCase())
+      }
+      if (op === 'startswith' || op === 'endswith') {
+        if (field !== 'error_code') return false
+        const source = String(raw).toLowerCase()
+        const target = String(value ?? '').toLowerCase()
+        return op === 'startswith' ? source.startsWith(target) : source.endsWith(target)
       }
 
       if (isNumeric) {
@@ -3262,13 +3219,17 @@ export default {
     const applyExpressionJSON = async () => {
       if (!importExpressionText.value) return
       try {
-        const obj = JSON.parse(importExpressionText.value)
-        if (obj && (Array.isArray(obj.conditions) || Array.isArray(obj.filters?.conditions))) {
-          const logic = obj.logic || obj.filters?.logic || 'AND'
-          const conds = Array.isArray(obj.conditions) ? obj.conditions : obj.filters?.conditions
-          filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
+        const parsed = parseBatchAnalysisImportedExpression(importExpressionText.value)
+        if (parsed) {
+          const nextState = syncBatchAnalysisDslRefresh({
+            nextFilters: parsed,
+            nextActions: []
+          })
+          pendingFiltersRoot.value = nextState.pendingFiltersRoot
+          pendingNlActions.value = nextState.pendingNlActions
+          nlAppliedActions.value = []
           // 仅填充，不立即执行；等待点击"应用"
-          ElMessage.success('表达式已填充，请点击"应用"执行搜索')
+          ElMessage.success(t('batchAnalysis.expressionJsonFilled'))
           filterDrawerVisible.value = true
           filterSidebarActiveTab.value = 'advanced'
           await nextTick()
@@ -3276,10 +3237,10 @@ export default {
             exprPreviewRef.value.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
           }
         } else {
-          ElMessage.error('JSON格式不正确，缺少 conditions')
+          ElMessage.error(t('batchAnalysis.expressionJsonMissingConditions'))
         }
       } catch (e) {
-        ElMessage.error('解析失败：' + e.message)
+        ElMessage.error(t('batchAnalysis.expressionJsonParseFailed', { message: e.message }))
       }
     }
 
@@ -3287,17 +3248,23 @@ export default {
       if (!importExpressionText.value) return
       // 仅支持 JSON 导入
       try {
-        const obj = JSON.parse(importExpressionText.value)
-        if (obj && (Array.isArray(obj.conditions) || Array.isArray(obj.filters?.conditions))) {
-          const logic = obj.logic || obj.filters?.logic || 'AND'
-          const conds = Array.isArray(obj.conditions) ? obj.conditions : obj.filters?.conditions
-          filtersRoot.value = { logic, conditions: Array.isArray(conds) ? [...conds] : [] }
-          ElMessage.success('表达式已填充，请点击"应用"执行搜索')
+        const parsed = parseBatchAnalysisImportedExpression(importExpressionText.value)
+        if (parsed) {
+          const nextState = syncBatchAnalysisDslRefresh({
+            nextFilters: parsed,
+            nextActions: []
+          })
+          pendingFiltersRoot.value = nextState.pendingFiltersRoot
+          pendingNlActions.value = nextState.pendingNlActions
+          nlAppliedActions.value = []
+          ElMessage.success(t('batchAnalysis.expressionJsonFilled'))
+          filterDrawerVisible.value = true
+          filterSidebarActiveTab.value = 'advanced'
           return
         }
-        ElMessage.warning('未识别到可用的表达式内容')
-      } catch (_) {
-        ElMessage.error('仅支持 JSON 格式的表达式导入')
+        ElMessage.warning(t('batchAnalysis.expressionJsonNoUsableContent'))
+      } catch (e) {
+        ElMessage.error(t('batchAnalysis.expressionJsonParseFailed', { message: e.message }))
       }
     }
 
@@ -3629,18 +3596,6 @@ export default {
         return { backgroundColor: hexToRgba(color, 0.2) }
       }
       return {}
-    }
-
-    // 自然语言 highlight 动作：对指定列加高亮 class
-    const getCellClassName = ({ column }) => {
-      const terms = nlHighlightTerms.value || []
-      if (!terms.length) return ''
-      const prop = column?.property || ''
-      if (prop === 'error_code' && terms.includes('error_code')) return 'nl-highlight-cell'
-      if (prop === 'explanation' && terms.includes('explanation')) return 'nl-highlight-cell'
-      if (prop === 'parameters' && ['param1', 'param2', 'param3', 'param4'].some((p) => terms.includes(p))) return 'nl-highlight-cell'
-      if ((prop === 'file_info' || prop === 'timestamp') && terms.includes('timestamp')) return 'nl-highlight-cell'
-      return ''
     }
 
     // 操作按钮处理方法
@@ -4712,8 +4667,13 @@ export default {
       if (!selectedTemplateName.value) return
       const tpl = templates.value.find(t => t.name === selectedTemplateName.value)
       if (!tpl) return
-      pendingFiltersRoot.value = deepCloneFilters(tpl.filters || { logic: 'AND', conditions: [] })
-      clearNlAppliedActions()
+      const nextState = syncBatchAnalysisDslRefresh({
+        nextFilters: deepCloneFilters(tpl.filters || { logic: 'AND', conditions: [] }),
+        nextActions: []
+      })
+      pendingFiltersRoot.value = nextState.pendingFiltersRoot
+      pendingNlActions.value = nextState.pendingNlActions
+      nlAppliedActions.value = []
     }
 
     const onOperatorChange = (cond) => {
@@ -4940,7 +4900,6 @@ export default {
       nlSpec,
       nlConversationMessages,
       nlInputLine,
-      nlQuestionOptions,
       generateFilterExpression,
       submitNlReply,
       cancelNlClarification,
@@ -4962,7 +4921,6 @@ export default {
       selectColor,
       getRowClassName,
       getRowStyle,
-      getCellClassName,
       nlStatsCounts,
       saveColorMarksToStorage,
       loadColorMarksFromStorage,
@@ -5295,7 +5253,7 @@ export default {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 320px;
+  width: 380px;
   z-index: 20;
   min-height: 0;
   background-color: var(--black-white-white);
@@ -5313,7 +5271,7 @@ export default {
 }
 
 .filter-sidebar-content {
-  width: 320px; /* 保持固定宽度以防缩放时抖动 */
+  width: 380px; /* 保持固定宽度以防缩放时抖动 */
   padding: 10px 8px 16px 8px;
   display: flex;
   flex-direction: column;
@@ -5531,11 +5489,6 @@ export default {
 .search-tab-stats-unit {
   color: var(--el-text-color-secondary);
   font-size: 11px;
-}
-
-/* 自然语言 highlight 动作：列单元格高亮 */
-.compact-log-entries-table .nl-highlight-cell {
-  background-color: rgba(255, 235, 59, 0.35) !important;
 }
 
 /* 常用搜索表达式：标签使用 --filter-chip- 样式，仅显示名称 */

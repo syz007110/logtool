@@ -51,7 +51,10 @@ function isMirrorSubsystem(subsystem) {
 }
 
 function buildMirrorMainPayload(sourceErrorCode, targetSubsystem) {
-  const payload = { subsystem: targetSubsystem };
+  const payload = {
+    series_id: sourceErrorCode.series_id,
+    subsystem: targetSubsystem
+  };
   MAIN_SYNC_FIELDS.forEach((field) => {
     payload[field] = sourceErrorCode[field];
   });
@@ -83,7 +86,11 @@ async function syncMirrorErrorCodeBySourceId({ sourceErrorCodeId, transaction })
   const mirrorMainPayload = buildMirrorMainPayload(sourceErrorCode, targetSubsystem);
 
   let targetErrorCode = await ErrorCode.findOne({
-    where: { subsystem: targetSubsystem, code: sourceErrorCode.code },
+    where: {
+      series_id: sourceErrorCode.series_id,
+      subsystem: targetSubsystem,
+      code: sourceErrorCode.code
+    },
     transaction
   });
 

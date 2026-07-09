@@ -8,6 +8,7 @@ const I18nErrorCode = require('../models/i18n_error_code');
 class ErrorCodeCache {
   constructor() {
     this.cache = new Map();
+    this.legacyKeyMap = new Map();
     this.isLoaded = false;
     this.loadPromise = null;
   }
@@ -35,7 +36,7 @@ class ErrorCodeCache {
       const startTime = Date.now();
       
       const errorCodes = await ErrorCode.findAll({
-        attributes: ['id', 'subsystem', 'code'],
+        attributes: ['id', 'series_id', 'subsystem', 'code'],
         include: [{
           model: I18nErrorCode,
           as: 'i18nContents',
@@ -49,15 +50,23 @@ class ErrorCodeCache {
       
       // 构建缓存映射表
       this.cache.clear();
+      this.legacyKeyMap.clear();
       errorCodes.forEach(code => {
-        const key = `${code.subsystem}-${code.code}`;
-        this.cache.set(key, {
+        const key = `${code.series_id}-${code.subsystem}-${code.code}`;
+        const legacyKey = `${code.subsystem}-${code.code}`;
+        const payload = {
           id: code.id,
+          series_id: code.series_id,
           subsystem: code.subsystem,
           code: code.code,
           explanation: code.i18nContents?.[0]?.explanation || '',
           short_message: code.i18nContents?.[0]?.short_message || ''
-        });
+        };
+        this.cache.set(key, payload);
+        if (!this.legacyKeyMap.has(legacyKey)) {
+          this.legacyKeyMap.set(legacyKey, []);
+        }
+        this.legacyKeyMap.get(legacyKey).push(payload);
       });
 
       this.isLoaded = true;
@@ -78,7 +87,7 @@ class ErrorCodeCache {
    * @param {string} code - 故障码
    * @returns {Object|null} 故障码记录或null
    */
-  findErrorCode(subsystem, code) {
+  findErrorCode(subsystem, code, seriesId = null) {
     if (!this.isLoaded) {
       console.warn('⚠️ 故障码表未加载，请先调用 loadAllErrorCodes()');
       return null;
@@ -88,8 +97,13 @@ class ErrorCodeCache {
       return null;
     }
 
-    const key = `${subsystem}-${code}`;
-    return this.cache.get(key) || null;
+    if (seriesId !== null && seriesId !== undefined && seriesId !== '') {
+      const key = `${seriesId}-${subsystem}-${code}`;
+      return this.cache.get(key) || null;
+    }
+
+    const matches = this.legacyKeyMap.get(`${subsystem}-${code}`) || [];
+    return matches.length === 1 ? matches[0] : null;
   }
 
   /**
@@ -104,10 +118,9 @@ class ErrorCodeCache {
     }
 
     const results = [];
-    for (const { subsystem, code } of codes) {
+    for (const { subsystem, code, series_id } of codes) {
       if (subsystem && code) {
-        const key = `${subsystem}-${code}`;
-        const record = this.cache.get(key);
+        const record = this.findErrorCode(subsystem, code, series_id);
         if (record) {
           results.push(record);
         }
@@ -132,6 +145,7 @@ class ErrorCodeCache {
    */
   clearCache() {
     this.cache.clear();
+    this.legacyKeyMap.clear();
     this.isLoaded = false;
     this.loadPromise = null;
     console.log('🗑️ 故障码缓存已清空');

@@ -364,7 +364,7 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
  * @param {string} params.lang - 语言代码（默认'zh'）
  * @returns {Promise<{ok: boolean, item: Object|null}>}
  */
-async function searchByCode({ code, subsystem = null, lang = 'zh' }) {
+async function searchByCode({ code, subsystem = null, series_id = null, lang = 'zh' }) {
   const c = String(code || '').trim().toUpperCase();
   if (!c) {
     return { ok: true, item: null, debug: { skipped: true, reason: 'no_code' } };
@@ -387,6 +387,9 @@ async function searchByCode({ code, subsystem = null, lang = 'zh' }) {
   if (subsystem) {
     must.push({ term: { subsystem: String(subsystem).trim().toUpperCase() } });
   }
+  if (series_id !== null && series_id !== undefined && series_id !== '') {
+    must.push({ term: { series_id: Number(series_id) } });
+  }
 
   try {
     const resp = await client.search({
@@ -405,6 +408,7 @@ async function searchByCode({ code, subsystem = null, lang = 'zh' }) {
     const source = hits[0]._source || {};
     const item = {
       id: source.errorCodeId,
+      series_id: source.series_id || null,
       subsystem: source.subsystem || '',
       code: source.code || '',
       level: source.level || '',
@@ -425,13 +429,13 @@ async function searchByCode({ code, subsystem = null, lang = 'zh' }) {
       _score: hits[0]._score || null
     };
 
-    return { ok: true, item, debug: { code: c, subsystem, lang: targetLang, found: true } };
+    return { ok: true, item, debug: { code: c, subsystem, series_id, lang: targetLang, found: true } };
   } catch (e) {
     return {
       ok: false,
       item: null,
       error: { code: 'es_search_failed', message: String(e?.message || e) },
-      debug: { code: c, subsystem, lang: targetLang, error: String(e?.message || e) }
+      debug: { code: c, subsystem, series_id, lang: targetLang, error: String(e?.message || e) }
     };
   }
 }

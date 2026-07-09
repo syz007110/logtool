@@ -64,7 +64,7 @@ class StreamLogProcessor {
         
         try {
           // 解析单行日志
-          const entry = await this.processLogLine(line, key, logId, version, processedLines);
+          const entry = await this.processLogLine(line, key, logId, version, processedLines, options);
           if (entry) {
             currentBatch.push(entry);
             allProcessedEntries.push(entry); // 保存到总列表中
@@ -135,10 +135,11 @@ class StreamLogProcessor {
    * @param {number} rowIndex - 行号
    * @returns {Promise<Object|null>} 处理后的日志条目
    */
-  async processLogLine(line, key, logId, version, rowIndex) {
+  async processLogLine(line, key, logId, version, rowIndex, options = {}) {
     try {
       // 解析单行日志
       const entry = translatePerLine(line, key);
+      const seriesId = options?.seriesId ?? null;
       
       // 查询故障码释义
       const errorCodeStr = entry.error_code;
@@ -160,13 +161,17 @@ class StreamLogProcessor {
 
       let explanation = entry.explanation;
       if (subsystem && code) {
-        const errorCodeRecord = errorCodeCache.findErrorCode(subsystem, code);
+        const errorCodeRecord = errorCodeCache.findErrorCode(subsystem, code, seriesId);
         if (errorCodeRecord && errorCodeRecord.explanation) {
           explanation = errorCodeRecord.explanation;
         }
       }
       
-      const { explanation: parsedExplanation } = renderEntryExplanation(entry);
+      const { explanation: parsedExplanation } = renderEntryExplanation({
+        ...entry,
+        series_id: seriesId,
+        explanation
+      });
       
       // 格式化时间戳：如果已经是字符串格式 YYYY-MM-DD HH:mm:ss，直接使用；否则格式化为无时区格式
       let timestampStr;

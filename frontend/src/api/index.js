@@ -10,6 +10,28 @@ function getCookieValue (name) {
   return m ? decodeURIComponent(m[1]) : ''
 }
 
+function getCurrentSeriesId () {
+  const raw = store.getters['seriesContext/currentSeriesId']
+  const num = Number.parseInt(raw, 10)
+  return Number.isInteger(num) && num > 0 ? num : null
+}
+
+function withCurrentSeriesParams (params = {}) {
+  const seriesId = getCurrentSeriesId()
+  if (!seriesId || Object.prototype.hasOwnProperty.call(params, 'series_id')) {
+    return params
+  }
+  return { ...params, series_id: seriesId }
+}
+
+function withCurrentSeriesData (data = {}) {
+  const seriesId = getCurrentSeriesId()
+  if (!seriesId || Object.prototype.hasOwnProperty.call(data, 'series_id')) {
+    return data
+  }
+  return { ...data, series_id: seriesId }
+}
+
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api',
@@ -146,24 +168,24 @@ const auth = {
 }
 
 const errorCodes = {
-  getList: (params) => api.get('/error-codes', { params }),
-  create: (data) => api.post('/error-codes', data),
-  update: (id, data) => api.put(`/error-codes/${id}`, data),
+  getList: (params) => api.get('/error-codes', { params: withCurrentSeriesParams(params) }),
+  create: (data) => api.post('/error-codes', withCurrentSeriesData(data)),
+  update: (id, data) => api.put(`/error-codes/${id}`, withCurrentSeriesData(data)),
   delete: (id) => api.delete(`/error-codes/${id}`),
   getByCodeAndSubsystem: (code, subsystem) => api.get('/error-codes/by-code', {
-    params: { code, subsystem }
+    params: withCurrentSeriesParams({ code, subsystem })
   }),
   exportXML: (language = 'zh') => api.get('/error-codes/export/xml', {
-    params: { language },
+    params: withCurrentSeriesParams({ language }),
     responseType: 'blob'
   }),
   exportMultiXML: (languages = 'zh') => api.get('/error-codes/export/multi-xml', {
-    params: { languages },
+    params: withCurrentSeriesParams({ languages }),
     responseType: 'json'
   }),
   // CSV 导出：后端现在使用单个 language 参数，并根据该语言替换多语言字段内容
   exportCSV: (language = '', format = 'csv') => api.get('/error-codes/export/csv', {
-    params: { language, format },
+    params: withCurrentSeriesParams({ language, format }),
     responseType: 'blob'
   }),
   // 获取故障码的指定语言的多语言内容（技术说明字段）
@@ -190,15 +212,22 @@ const errorCodes = {
 }
 
 const i18nErrorCodes = {
-  getList: (params) => api.get('/i18n-error-codes', { params }),
-  upsert: (data) => api.post('/i18n-error-codes', data),
+  getList: (params) => api.get('/i18n-error-codes', { params: withCurrentSeriesParams(params) }),
+  upsert: (data) => api.post('/i18n-error-codes', withCurrentSeriesData(data)),
   delete: (id) => api.delete(`/i18n-error-codes/${id}`),
-  batchImport: (data) => api.post('/i18n-error-codes/batch-import', data),
-  uploadCSV: (formData) => api.post('/i18n-error-codes/upload-csv', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  batchImport: (data) => api.post('/i18n-error-codes/batch-import', withCurrentSeriesData(data)),
+  uploadCSV: (formData) => {
+    const payload = formData
+    const seriesId = getCurrentSeriesId()
+    if (seriesId && payload && !payload.has('series_id')) {
+      payload.append('series_id', String(seriesId))
+    }
+    return api.post('/i18n-error-codes/upload-csv', payload, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   getLanguages: () => api.get('/i18n-error-codes/languages'),
-  getSubsystems: () => api.get('/i18n-error-codes/subsystems')
+  getSubsystems: (params = {}) => api.get('/i18n-error-codes/subsystems', { params: withCurrentSeriesParams(params) })
 }
 
 const logs = {
@@ -375,6 +404,10 @@ const deviceModels = {
   delete: (id) => api.delete(`/device-models/${id}`)
 }
 
+const deviceSeries = {
+  getList: (params) => api.get('/device-series', { params })
+}
+
 // Motion data APIs
 const motionData = {
   getConfig: () => api.get('/motion-data/config'),
@@ -420,7 +453,7 @@ const dashboard = {
 }
 
 const explanations = {
-  preview: (payload) => api.post('/explanations/preview', payload)
+  preview: (payload) => api.post('/explanations/preview', withCurrentSeriesData(payload))
 }
 
 // 监控API
@@ -517,6 +550,7 @@ export default {
   hospitals,
   geo,
   deviceModels,
+  deviceSeries,
   motionData,
   feedback,
   dashboard,

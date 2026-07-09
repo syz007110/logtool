@@ -53,6 +53,7 @@ async function ensureErrorCodeIndex({ recreate = false } = {}) {
         properties: {
           // 标识字段（keyword）
           errorCodeId: { type: 'keyword' },
+          series_id: { type: 'integer' },
           lang: { type: 'keyword' },
           subsystem: { type: 'keyword' },
           code: { type: 'keyword' },
@@ -142,6 +143,7 @@ async function ensureErrorCodeIndex({ recreate = false } = {}) {
 function makeErrorCodeDoc({ errorCode, i18nData, lang }) {
   const doc = {
     errorCodeId: errorCode.id,
+    series_id: errorCode.series_id || null,
     lang: lang || 'zh',
     subsystem: errorCode.subsystem || '',
     code: errorCode.code || '',

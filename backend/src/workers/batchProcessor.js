@@ -5,8 +5,10 @@ const { Op } = require('sequelize');
 
 const { ensureCacheReady, renderEntryExplanation } = require('../services/logParsingService');
 const Log = require('../models/log');
+const Device = require('../models/device');
 const websocketService = require('../services/websocketService');
 const { getClickHouseClient } = require('../config/clickhouse');
+const { buildAdvancedFilterExpression } = require('./batchAdvancedFilters');
 
 // 格式化时间为 ClickHouse 格式（与 logController 保持一致）
 function formatTimeForClickHouse(timeValue) {
@@ -35,6 +37,22 @@ function formatTimeForClickHouse(timeValue) {
   }
 
   return null;
+}
+
+const deviceSeriesCache = new Map();
+
+async function getDeviceSeriesId(deviceId) {
+  if (!deviceId) return null;
+  if (deviceSeriesCache.has(deviceId)) {
+    return deviceSeriesCache.get(deviceId);
+  }
+  const device = await Device.findOne({
+    where: { device_id: deviceId },
+    attributes: ['series_id']
+  });
+  const seriesId = device?.series_id || null;
+  deviceSeriesCache.set(deviceId, seriesId);
+  return seriesId;
 }
 
 // ClickHouse 中存储为 naive DateTime（无时区），约定为 UTC+8
@@ -177,6 +195,7 @@ async function batchReparseLogs(job) {
       if (!log) {
         throw new Error(`日志不存在: ${logId}`);
       }
+      const deviceSeriesId = await getDeviceSeriesId(log.device_id);
 
       // 拉取条目分批处理，避免占用过多内存
       const currentVersion = log.version || 1;
@@ -222,6 +241,7 @@ async function batchReparseLogs(job) {
 
           const { explanation } = renderEntryExplanation({
             error_code: entry.error_code,
+            series_id: deviceSeriesId,
             param1: entry.param1,
             param2: entry.param2,
             param3: entry.param3,
@@ -682,174 +702,7 @@ async function processExportCsv(job) {
   }
 
   if (advancedFilters) {
-    const allowedFields = new Set([
-      'timestamp',
-      'error_code',
-      'param1',
-      'param2',
-      'param3',
-      'param4',
-      'explanation'
-    ]);
-
-    let advParamIndex = 0;
-    const makeParam = (base, chType, value) => {
-      const name = `${base}_${advParamIndex++}`;
-      if (chType === 'DateTime') {
-        queryParams[name] = formatTimeForClickHouse(value);
-      } else {
-        queryParams[name] = value;
-      }
-      return `{${name}:${chType}}`;
-    };
-
-    const buildAdvancedExpr = (node) => {
-      if (!node) return null;
-
-      if (Array.isArray(node)) {
-        const parts = node.map(child => buildAdvancedExpr(child)).filter(Boolean);
-        if (parts.length === 0) return null;
-        return `(${parts.join(' AND ')})`;
-      }
-
-      if (node.field && node.operator) {
-        const field = String(node.field);
-        const op = String(node.operator || '').toLowerCase();
-        const value = node.value;
-
-        if (!allowedFields.has(field)) return null;
-        if (value === undefined || value === null || value === '') return null;
-
-        if (field === 'timestamp') {
-          const formatTimestamp = (v) => {
-            if (!v) return null;
-            if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(v)) {
-              return v;
-            }
-            return formatTimeForClickHouse(v);
-          };
-
-          if (op === 'between') {
-            if (!Array.isArray(value) || value.length !== 2) return null;
-            const a = formatTimestamp(value[0]);
-            const b = formatTimestamp(value[1]);
-            if (!a || !b) return null;
-            const p1 = makeParam('adv_ts_from', 'DateTime', a);
-            const p2 = makeParam('adv_ts_to', 'DateTime', b);
-            return `(timestamp BETWEEN ${p1} AND ${p2})`;
-          }
-
-          const formatted = formatTimestamp(value);
-          if (!formatted) return null;
-          const p = makeParam('adv_ts', 'DateTime', formatted);
-
-          switch (op) {
-            case '=':
-            case '==':
-              return `timestamp = ${p}`;
-            case '!=':
-            case '<>':
-              return `timestamp != ${p}`;
-            case '>':
-              return `timestamp > ${p}`;
-            case '>=':
-              return `timestamp >= ${p}`;
-            case '<':
-              return `timestamp < ${p}`;
-            case '<=':
-              return `timestamp <= ${p}`;
-            default:
-              return null;
-          }
-        }
-
-        if (field === 'error_code') {
-          const p = makeParam('adv_ec', 'String', String(value));
-          const wrap = (expr) => (node.negate ? `NOT (${expr})` : expr);
-          switch (op) {
-            case '=':
-              return wrap(`error_code = ${p}`);
-            case '!=':
-            case '<>':
-              return wrap(`error_code != ${p}`);
-            case 'contains':
-            case 'like':
-              return wrap(`positionCaseInsensitive(error_code, ${p}) > 0`);
-            case 'regex':
-              return wrap(`match(error_code, ${p})`);
-            case 'startswith':
-              return wrap(`startsWith(error_code, ${p})`);
-            case 'endswith':
-              return wrap(`endsWith(error_code, ${p})`);
-            default:
-              return null;
-          }
-        }
-
-        if (field === 'param1' || field === 'param2' || field === 'param3' || field === 'param4') {
-          const colExpr = `toFloat64OrNull(${field})`;
-          const toNum = (v) => {
-            const n = Number(v);
-            return Number.isFinite(n) ? n : null;
-          };
-
-          if (op === 'between') {
-            if (!Array.isArray(value) || value.length !== 2) return null;
-            const a = toNum(value[0]);
-            const b = toNum(value[1]);
-            if (a === null || b === null) return null;
-            const p1 = makeParam(`adv_${field}_from`, 'Float64', a);
-            const p2 = makeParam(`adv_${field}_to`, 'Float64', b);
-            return `(${colExpr} >= ${p1} AND ${colExpr} <= ${p2})`;
-          }
-
-          const n = toNum(value);
-          if (n === null) return null;
-          const p = makeParam(`adv_${field}`, 'Float64', n);
-
-          switch (op) {
-            case '=':
-              return `${colExpr} = ${p}`;
-            case '!=':
-            case '<>':
-              return `${colExpr} != ${p}`;
-            case '>':
-              return `${colExpr} > ${p}`;
-            case '>=':
-              return `${colExpr} >= ${p}`;
-            case '<':
-              return `${colExpr} < ${p}`;
-            case '<=':
-              return `${colExpr} <= ${p}`;
-            default:
-              return null;
-          }
-        }
-
-        if (field === 'explanation') {
-          const p = makeParam('adv_expl', 'String', String(value));
-          if (op === 'contains' || op === 'like') {
-            return `positionCaseInsensitive(explanation, ${p}) > 0`;
-          }
-          return null;
-        }
-
-        return null;
-      }
-
-      if (node.conditions && (node.logic === 'AND' || node.logic === 'OR')) {
-        const childExprs = node.conditions
-          .map(child => buildAdvancedExpr(child))
-          .filter(Boolean);
-        if (childExprs.length === 0) return null;
-        const joiner = node.logic === 'OR' ? ' OR ' : ' AND ';
-        return `(${childExprs.join(joiner)})`;
-      }
-
-      return null;
-    };
-
-    const advancedWhereSql = buildAdvancedExpr(advancedFilters);
+    const advancedWhereSql = buildAdvancedFilterExpression(advancedFilters, queryParams);
     if (advancedWhereSql) {
       conditions.push(advancedWhereSql);
     }
@@ -1144,6 +997,7 @@ module.exports = {
       if (!log) {
         throw new Error(`日志不存在: ${logId}`);
       }
+      const deviceSeriesId = await getDeviceSeriesId(log.device_id);
 
       // 分批读取并更新 explanation
       const currentVersion = log.version || 1;
@@ -1185,6 +1039,7 @@ module.exports = {
 
           const { explanation } = renderEntryExplanation({
             error_code: entry.error_code,
+            series_id: deviceSeriesId,
             param1: entry.param1,
             param2: entry.param2,
             param3: entry.param3,

@@ -2,18 +2,59 @@ const Device = require('../models/device');
 const DeviceKey = require('../models/deviceKey');
 const Log = require('../models/log');
 const HospitalMaster = require('../models/hospital_master');
+const DeviceModelDict = require('../models/device_model_dict');
+const GeoRegion = require('../models/geo_region');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
 const { getDeviceKeys, addDeviceKey, updateDeviceKey, deleteDeviceKey } = require('../services/deviceKeyService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+const DeviceSeriesDict = require('../models/device_series_dict');
+
+async function validateDeviceModelSeriesPair({ device_model, series_id }) {
+  const normalizedModel = String(device_model || '').trim();
+  if (!normalizedModel) {
+    return { ok: true };
+  }
+  if (series_id === undefined || series_id === null || series_id === '') {
+    return { ok: true };
+  }
+
+  const seriesIdNum = Number(series_id);
+  if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+    return { ok: false, status: 400, message: 'series_id 必须为正整数' };
+  }
+
+  const matchedModel = await DeviceModelDict.findOne({
+    where: {
+      device_model: normalizedModel,
+      series_id: seriesIdNum
+    }
+  });
+  if (!matchedModel) {
+    return { ok: false, status: 400, message: '所选设备型号不属于当前设备系列' };
+  }
+
+  return { ok: true, seriesIdNum };
+}
+
+function buildDeviceModelSeriesMap(models = []) {
+  const map = new Map();
+  for (const item of models) {
+    const data = typeof item?.toJSON === 'function' ? item.toJSON() : item;
+    const key = `${data?.series_id || ''}::${data?.device_model || ''}`;
+    map.set(key, data);
+  }
+  return map;
+}
 
 // 列表
 const listDevices = async (req, res) => {
   try {
-    const { search = '', country_code, region_code, hospital_id } = req.query;
+    const { search = '', country_code, region_code, hospital_id, series_id } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.STANDARD);
     const where = {};
     const hospitalWhere = {};
+    let modelSeriesMap = new Map();
     if (country_code) hospitalWhere.country_code = String(country_code).trim();
     if (region_code) hospitalWhere.region_code = String(region_code).trim();
     if (hospital_id !== undefined && hospital_id !== null && hospital_id !== '') {
@@ -22,6 +63,13 @@ const listDevices = async (req, res) => {
         return res.status(400).json({ message: 'hospital_id 必须为正整数' });
       }
       where.hospital_id = hospitalIdNum;
+    }
+    if (series_id !== undefined && series_id !== null && series_id !== '') {
+      const seriesIdNum = Number(series_id);
+      if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+        return res.status(400).json({ message: 'series_id 必须为正整数' });
+      }
+      where.series_id = seriesIdNum;
     }
 
     if (search) {
@@ -47,7 +95,7 @@ const listDevices = async (req, res) => {
       model: HospitalMaster,
       as: 'HospitalMaster',
       attributes: ['id', 'hospital_code', 'hospital_name_std', 'country_code', 'region_code', 'status'],
-      include: [{ model: require('../models/geo_region'), as: 'Region', attributes: ['region_code', 'region_name'], required: false }],
+      include: [{ model: GeoRegion, as: 'Region', attributes: ['region_code', 'region_name'], required: false }],
       required: Object.keys(hospitalWhere).length > 0
     };
     if (Object.keys(hospitalWhere).length > 0) {
@@ -63,10 +111,29 @@ const listDevices = async (req, res) => {
       distinct: true
     });
 
+    if (modelSeriesMap.size === 0) {
+      const distinctModels = Array.from(new Set(devices.map(item => item.device_model).filter(Boolean)));
+      if (distinctModels.length > 0) {
+        const matchedModels = await DeviceModelDict.findAll({
+          attributes: ['device_model', 'series_id'],
+          where: { device_model: { [Op.in]: distinctModels } },
+          include: [{
+            model: DeviceSeriesDict,
+            as: 'DeviceSeries',
+            attributes: ['id', 'series_code', 'series_name_zh', 'series_name_en'],
+            required: false
+          }]
+        });
+        modelSeriesMap = buildDeviceModelSeriesMap(matchedModels);
+      }
+    }
+
     const result = devices.map(item => {
       const data = item.toJSON();
       const hospitalInfo = data.HospitalMaster || null;
       const regionInfo = hospitalInfo?.Region || null;
+      const modelInfo = modelSeriesMap.get(`${data.series_id || ''}::${data.device_model || ''}`) || null;
+      const seriesInfo = modelInfo?.DeviceSeries || null;
       return {
         ...data,
         hospital_id: data.hospital_id || hospitalInfo?.id || null,
@@ -74,7 +141,11 @@ const listDevices = async (req, res) => {
         hospital_name: hospitalInfo?.hospital_name_std || '',
         country_code: hospitalInfo?.country_code || null,
         region_code: hospitalInfo?.region_code || null,
-        region_name: regionInfo?.region_name || null
+        region_name: regionInfo?.region_name || null,
+        series_id: data.series_id || modelInfo?.series_id || null,
+        series_code: seriesInfo?.series_code || null,
+        series_name_zh: seriesInfo?.series_name_zh || null,
+        series_name_en: seriesInfo?.series_name_en || null
       };
     });
 
@@ -87,7 +158,7 @@ const listDevices = async (req, res) => {
 // 创建
 const createDevice = async (req, res) => {
   try {
-    const { device_id, device_model, device_key, hospital_id } = req.body;
+    const { device_id, device_model, device_key, hospital_id, series_id } = req.body;
     if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
     // 简单格式校验：与日志相同规则
     const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
@@ -100,6 +171,11 @@ const createDevice = async (req, res) => {
     }
     const existed = await Device.findOne({ where: { device_id } });
     if (existed) return res.status(409).json({ message: req.t('device.idExists') });
+
+    const seriesValidation = await validateDeviceModelSeriesPair({ device_model, series_id });
+    if (!seriesValidation.ok) {
+      return res.status(seriesValidation.status).json({ message: seriesValidation.message });
+    }
 
     let resolvedHospitalId = null;
     let resolvedHospitalCode = null;
@@ -119,6 +195,7 @@ const createDevice = async (req, res) => {
     const createPayload = {
       device_id,
       device_model,
+      series_id: seriesValidation.seriesIdNum ?? null,
       device_key,
       hospital_id: resolvedHospitalId,
       created_at: new Date(),
@@ -145,6 +222,7 @@ const createDevice = async (req, res) => {
         details: {
           device_id,
           device_model,
+          series_id: seriesValidation.seriesIdNum ?? null,
           device_key: device_key ? '***' : null,
           hospital_id: resolvedHospitalId,
           hospital_code: resolvedHospitalCode
@@ -164,7 +242,7 @@ const createDevice = async (req, res) => {
 const updateDevice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { device_id, device_model, device_key, hospital_id } = req.body;
+    const { device_id, device_model, device_key, hospital_id, series_id } = req.body;
     const device = await Device.findByPk(id);
     if (!device) return res.status(404).json({ message: req.t('device.notFound') });
     if (device_id && device_id !== device.device_id) {
@@ -179,6 +257,13 @@ const updateDevice = async (req, res) => {
     if (device_key && !macRegex.test(device_key)) {
       return res.status(400).json({ message: req.t('device.invalidKeyFormat') });
     }
+
+    const nextDeviceModel = device_model ?? device.device_model;
+    const seriesValidation = await validateDeviceModelSeriesPair({ device_model: nextDeviceModel, series_id });
+    if (!seriesValidation.ok) {
+      return res.status(seriesValidation.status).json({ message: seriesValidation.message });
+    }
+
     let nextHospitalId = device.hospital_id;
     let nextHospitalCode = Object.prototype.hasOwnProperty.call(device, 'hospital_code') ? device.hospital_code : null;
     const hasHospitalIdField = Object.prototype.hasOwnProperty.call(req.body, 'hospital_id');
@@ -202,6 +287,9 @@ const updateDevice = async (req, res) => {
 
     device.device_id = device_id ?? device.device_id;
     device.device_model = device_model ?? device.device_model;
+    if (series_id !== undefined) {
+      device.series_id = seriesValidation.seriesIdNum ?? null;
+    }
     device.device_key = device_key ?? device.device_key;
     device.hospital_id = nextHospitalId;
     if (Object.prototype.hasOwnProperty.call(device, 'hospital_code')) {
@@ -227,6 +315,7 @@ const updateDevice = async (req, res) => {
           id: device.id,
           device_id: device.device_id,
           device_model,
+          series_id: device.series_id ?? null,
           device_key: device_key ? '***' : undefined,
           hospital_id: device.hospital_id,
           hospital_code: Object.prototype.hasOwnProperty.call(device, 'hospital_code') ? device.hospital_code : null

@@ -37,6 +37,11 @@ async function processLogFile(job) {
   }
 
   try {
+    const deviceRecord = deviceId
+      ? await Device.findOne({ where: { device_id: deviceId }, attributes: ['series_id'] })
+      : null;
+    const deviceSeriesId = deviceRecord?.series_id || null;
+
     // 更新任务进度
     await job.progress(10);
 
@@ -141,7 +146,9 @@ async function processLogFile(job) {
       
       // 流式处理
       const t0 = Date.now();
-      const result = await streamLogProcessor.processLogFile(filePath, decryptKey, logId, currentVersion);
+      const result = await streamLogProcessor.processLogFile(filePath, decryptKey, logId, currentVersion, {
+        seriesId: deviceSeriesId
+      });
       console.log(`⏱️ 流式处理耗时: ${Date.now() - t0}ms`);
       
       if (!result.success) {
@@ -162,7 +169,10 @@ async function processLogFile(job) {
       let rowIndex = 1;
 
       for (const entry of decryptedEntries) {
-        const { explanation: parsedExplanation } = renderEntryExplanation(entry);
+        const { explanation: parsedExplanation } = renderEntryExplanation({
+          ...entry,
+          series_id: deviceSeriesId
+        });
         
         // 计算 subsystem_char 和 code4（统一转换为大写，确保与查询时匹配）
         const errorCodeStr = entry.error_code || '';

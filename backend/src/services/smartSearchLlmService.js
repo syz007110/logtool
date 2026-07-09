@@ -253,10 +253,58 @@ function getProvidersPublic() {
 
 function renderPromptTemplate(template, vars) {
   const s = String(template ?? '');
-  return s.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
-    const v = vars && Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : '';
-    return String(v);
-  });
+  return s
+    .replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
+      const v = vars && Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : '';
+      return String(v);
+    })
+    .replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
+      if (match.startsWith('{{') && match.endsWith('}}')) return match;
+      const v = vars && Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : '';
+      return String(v);
+    });
+}
+
+function formatCurrentDateTime(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function formatDateTimeInTimezone(input, timezone) {
+  const date = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const partMap = Object.create(null);
+    for (const part of formatter.formatToParts(date)) {
+      if (part.type !== 'literal') partMap[part.type] = part.value;
+    }
+    if (!partMap.year || !partMap.month || !partMap.day || !partMap.hour || !partMap.minute || !partMap.second) {
+      return '';
+    }
+    return `${partMap.year}-${partMap.month}-${partMap.day} ${partMap.hour}:${partMap.minute}:${partMap.second}`;
+  } catch (_) {
+    return '';
+  }
+}
+
+function resolvePromptTimedate(context) {
+  const rawTimedate = String(context?.timedate ?? '').trim();
+  const timezone = String(context?.timezone ?? '').trim();
+  if (rawTimedate && timezone) {
+    const converted = formatDateTimeInTimezone(rawTimedate, timezone);
+    if (converted) return converted;
+  }
+  return formatCurrentDateTime();
 }
 
 function buildKeywordExtractionMessages(query) {
@@ -867,13 +915,12 @@ function buildBatchIntentExtractionMessages(prompt, { timeFormat = 'YYYY-MM-DD H
       return templates.map((t) => (t && t.name ? String(t.name).trim() : '')).filter(Boolean).join(', ');
     })();
   const logTimeRangeStr = (context && context.logTimeRange && typeof context.logTimeRange === 'string') ? context.logTimeRange : (context && context.logTimeRange && context.logTimeRange.min != null && context.logTimeRange.max != null ? `${context.logTimeRange.min} ~ ${context.logTimeRange.max}` : '');
-  const now = new Date();
-  const referenceDate = (context && context.referenceDate) ? String(context.referenceDate).trim() : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const timedate = resolvePromptTimedate(context);
   const templateVars = {
     timeFormat,
     PRESET_REF_NAMES: presetRefNamesStr || '(none)',
     logTimeRange: logTimeRangeStr,
-    referenceDate
+    timedate
   };
   const systemContent = systemTemplate
     ? renderPromptTemplate(systemTemplate, templateVars)
@@ -881,11 +928,11 @@ function buildBatchIntentExtractionMessages(prompt, { timeFormat = 'YYYY-MM-DD H
 
   const userContent = String(prompt || '').trim();
 
-  if (context && context.firstMessage != null && context.previousSpec != null) {
+  if (context && context.firstMessage != null && context.previousResult != null) {
     const messages = [
       { role: 'system', content: systemContent || 'Output JSON only.' },
       { role: 'user', content: String(context.firstMessage).trim() },
-      { role: 'assistant', content: JSON.stringify(context.previousSpec) }
+      { role: 'assistant', content: JSON.stringify(context.previousResult) }
     ];
     const answers = Array.isArray(context.answers) ? context.answers : [];
     for (const a of answers) {
@@ -913,267 +960,36 @@ function buildBatchIntentExtractionRequest({ provider, messages }) {
   };
 }
 
-function normalizeBatchFiltersJson(obj) {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+const BATCH_ALLOWED_QUESTION_SLOTS = new Set(['scope', 'time_range', 'value_range', 'keyword']);
 
-  const out = {};
-  if (typeof obj.search === 'string' && obj.search.trim()) out.search = obj.search.trim();
-
-  const timeRe = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/;
-  if (typeof obj.start_time === 'string' && timeRe.test(obj.start_time.trim())) out.start_time = obj.start_time.trim();
-  if (typeof obj.end_time === 'string' && timeRe.test(obj.end_time.trim())) out.end_time = obj.end_time.trim();
-
-  const allowedFields = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
-  const allowedOps = new Set(['=', '!=', '>', '>=', '<', '<=', 'between', 'contains', 'notcontains', 'regex', 'startsWith', 'endsWith']);
-  const allowedLogic = new Set(['AND', 'OR']);
-
-  const normalizeNode = (node) => {
-    if (!node || typeof node !== 'object') return null;
-    if (node.field && node.operator) {
-      const field = String(node.field || '').trim();
-      const operator = String(node.operator || '').trim();
-      if (!allowedFields.has(field)) return null;
-      if (!allowedOps.has(operator)) return null;
-
-      let value = node.value;
-      if (operator === 'between') {
-        if (!Array.isArray(value) || value.length < 2) return null;
-        value = [value[0], value[1]];
-      } else {
-        // allow primitive or string; keep as-is for frontend normalization
-        if (value === undefined || value === null || value === '') return null;
-      }
-      return { field, operator, value };
-    }
-
-    if (Array.isArray(node.conditions)) {
-      const logic = String(node.logic || 'AND').trim().toUpperCase();
-      const logicNorm = allowedLogic.has(logic) ? logic : 'AND';
-      const children = node.conditions.map(normalizeNode).filter(Boolean);
-      if (children.length === 0) return null;
-      return { logic: logicNorm, conditions: children };
-    }
-
-    return null;
-  };
-
-  const filters = normalizeNode(obj.filters);
-  if (filters) out.filters = filters;
-  return out;
-}
-
-// --- QuerySpec (filters tree + actions + meta) ---
-function isQuerySpecShape(obj) {
-  if (!obj || typeof obj !== 'object') return false;
-  const hasMeta = obj.meta && typeof obj.meta === 'object';
-  const hasFilters = obj.filters && typeof obj.filters === 'object';
-  const filterType = hasFilters ? String(obj.filters.type || '').trim() : '';
-  const hasTreeOrCondition = filterType === 'group' || filterType === 'condition' || filterType === 'preset_ref';
-  return hasMeta && hasFilters && (hasTreeOrCondition || Array.isArray(obj.filters?.children));
-}
-
-function parseQuerySpecFromLlm(obj) {
-  const spec = { filters: null, actions: [], meta: { explain: '', status: 'ok' } };
-  if (!obj || typeof obj !== 'object') return spec;
-
-  if (obj.filters && typeof obj.filters === 'object') spec.filters = obj.filters;
-  if (Array.isArray(obj.actions)) spec.actions = obj.actions;
-  if (obj.meta && typeof obj.meta === 'object') {
-    spec.meta = {
-      explain: String(obj.meta.explain ?? '').trim(),
-      status: ['ok', 'need_clarification', 'fallback'].includes(obj.meta.status) ? obj.meta.status : 'ok',
-      round: Number(obj.meta.round) || 1,
-      max_rounds: Number(obj.meta.max_rounds) || 1,
-      missing_slots: Array.isArray(obj.meta.missing_slots) ? obj.meta.missing_slots : [],
-      questions: Array.isArray(obj.meta.questions) ? obj.meta.questions : []
-    };
-  }
-  return spec;
+function normalizeBatchMetaQuestions(rawQuestions) {
+  if (!Array.isArray(rawQuestions)) return [];
+  return rawQuestions
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      const slot = String(item.slot ?? '').trim();
+      const question = String(item.question ?? '').trim();
+      if (!BATCH_ALLOWED_QUESTION_SLOTS.has(slot)) return null;
+      if (!question) return null;
+      return { slot, question };
+    })
+    .filter(Boolean)
+    .slice(0, 1);
 }
 
 function parseBatchDslFromLlm(obj) {
-  const parsed = parseQuerySpecFromLlm(obj);
+  const parsed = obj && typeof obj === 'object' ? obj : {};
   return {
-    filters: parsed.filters,
+    filters: parsed.filters && typeof parsed.filters === 'object' ? parsed.filters : null,
     actions: Array.isArray(parsed.actions) ? parsed.actions : [],
     meta: {
       status: ['ok', 'need_clarification', 'fallback'].includes(parsed.meta?.status)
         ? parsed.meta.status
         : 'ok',
       explain: String(parsed.meta?.explain ?? '').trim(),
-      missing_slots: Array.isArray(parsed.meta?.missing_slots)
-        ? parsed.meta.missing_slots.slice(0, 3)
-        : [],
-      questions: Array.isArray(parsed.meta?.questions)
-        ? parsed.meta.questions.slice(0, 1)
-        : []
+      questions: normalizeBatchMetaQuestions(parsed.meta?.questions)
     }
   };
-}
-
-/** 不包含/不等于 的约定与后端处理：
- * - 推荐：LLM 用 op contains/eq + negate:true 表示不包含/不等于，后端仅根据 negate 翻转。
- * - 兼容：LLM 若输出 op "notcontains"/"not contains"/"neq"，后端直接映射为 operator，不依赖 negate。
- * - 最终 operator 统一为 notcontains/!=，检索时：DB 用 NOT LIKE '%value%' 或 !=，explanation 可下推 NOT LIKE 或内存 !includes。
- */
-const QUERY_SPEC_OP_TO_OPERATOR = {
-  eq: '=',
-  ne: '!=',
-  neq: '!=',
-  gte: '>=',
-  lte: '<=',
-  gt: '>',
-  lt: '<',
-  contains: 'contains',
-  notcontains: 'notcontains',
-  'not contains': 'notcontains',
-  in: 'in',
-  startsWith: 'startsWith',
-  endsWith: 'endsWith'
-};
-
-const BATCH_ALLOWED_FIELDS = new Set(['timestamp', 'error_code', 'param1', 'param2', 'param3', 'param4', 'explanation']);
-const BATCH_ALLOWED_OPS = new Set(['=', '!=', '>', '>=', '<', '<=', 'between', 'contains', 'notcontains', 'regex', 'startsWith', 'endsWith']);
-
-/** 将 LLM 返回的 filters 数组转为前端期望的 conditions 列表（op -> operator）；仅通过 negate 处理不等于/不包含 */
-function legacyConditionsFromFiltersArray(arr) {
-  if (!Array.isArray(arr) || arr.length === 0) return [];
-  const out = [];
-  for (const node of arr) {
-    if (!node || typeof node !== 'object') continue;
-    const field = String(node.field ?? '').trim();
-    const op = String(node.op ?? node.operator ?? 'eq').trim().toLowerCase().replace(/\s+/g, ' ').trim();
-    let operator = QUERY_SPEC_OP_TO_OPERATOR[op] || op;
-    let negate = !!node.negate;
-    if (operator === 'notcontains') {
-      operator = 'contains';
-      negate = true;
-    }
-    const value = node.value;
-    if (!BATCH_ALLOWED_FIELDS.has(field) || !BATCH_ALLOWED_OPS.has(operator)) continue;
-    if (operator !== 'between' && (value === undefined || value === null)) continue;
-    if (operator === 'between' && (!Array.isArray(value) || value.length < 2)) continue;
-    const item = { field, operator, value: operator === 'between' ? [value[0], value[1]] : value };
-    if (negate) item.negate = true;
-    out.push(item);
-  }
-  return out;
-}
-
-function resolvePresetRefInFilterTree(node, templatesByName) {
-  if (!node || typeof node !== 'object') return null;
-  if (node.type === 'preset_ref' && node.name) {
-    const name = String(node.name).trim();
-    const tpl = templatesByName[name];
-    if (tpl && tpl.filters) return resolvePresetRefInFilterTree(tpl.filters, templatesByName);
-    return null;
-  }
-  if (node.type === 'condition' || (node.field != null && (node.operator != null || node.op != null) && !node.type)) {
-    return { type: 'condition', field: node.field, op: node.op ?? node.operator, value: node.value, negate: node.negate };
-  }
-  if (node.type === 'group' && Array.isArray(node.children)) {
-    const children = node.children.map((c) => resolvePresetRefInFilterTree(c, templatesByName)).filter(Boolean);
-    if (children.length === 0) return null;
-    return { type: 'group', logic: node.logic || 'AND', children };
-  }
-  if (node.logic && Array.isArray(node.conditions)) {
-    const children = node.conditions.map((c) => resolvePresetRefInFilterTree(c, templatesByName)).filter(Boolean);
-    if (children.length === 0) return null;
-    return { type: 'group', logic: node.logic || 'AND', children };
-  }
-  return null;
-}
-
-/** 递归检查 filter 树中是否已有 error_code 条件（避免 detectedFaultCode 重复叠加） */
-function filterTreeHasErrorCode(node) {
-  if (!node || typeof node !== 'object') return false;
-  if (node.field === 'error_code') return true;
-  const list = node.children || node.conditions || [];
-  return list.some((c) => filterTreeHasErrorCode(c));
-}
-
-function filterTreeToFlat(node) {
-  if (!node || typeof node !== 'object') return null;
-  if (node.type === 'condition' && node.field) {
-    const op = String(node.op || 'eq').trim().toLowerCase().replace(/\s+/g, ' ').trim();
-    let operator = QUERY_SPEC_OP_TO_OPERATOR[op] || op;
-    let negate = !!node.negate;
-    if (operator === 'notcontains') {
-      operator = 'contains';
-      negate = true;
-    }
-    const value = node.value;
-    if (value === undefined && operator !== 'between') return null;
-    const out = { field: node.field, operator, value };
-    if (negate) out.negate = true;
-    return out;
-  }
-  if ((node.type === 'group' && Array.isArray(node.children)) || Array.isArray(node.conditions)) {
-    const list = node.children || node.conditions || [];
-    const logic = String(node.logic || 'AND').trim().toUpperCase();
-    const children = list.map(filterTreeToFlat).filter(Boolean);
-    if (children.length === 0) return null;
-    return { logic: logic === 'OR' ? 'OR' : 'AND', conditions: children };
-  }
-  return null;
-}
-
-function extractTimeFromFilterTree(node) {
-  const out = { start_time: null, end_time: null };
-  if (!node || typeof node !== 'object') return out;
-  if (node.type === 'condition' && node.field === 'timestamp') {
-    const op = String(node.op || '').toLowerCase();
-    const v = node.value;
-    if (op === 'gte' && v) out.start_time = String(v).trim();
-    if (op === 'lte' && v) out.end_time = String(v).trim();
-    if (op === 'between' && Array.isArray(v) && v.length >= 2) {
-      out.start_time = String(v[0]).trim();
-      out.end_time = String(v[1]).trim();
-    }
-    return out;
-  }
-  const list = node.children || node.conditions || [];
-  for (const c of list) {
-    const t = extractTimeFromFilterTree(c);
-    if (t.start_time) out.start_time = t.start_time;
-    if (t.end_time) out.end_time = t.end_time;
-  }
-  return out;
-}
-
-function querySpecToLegacyResult(spec, { templatesByName = {}, detectedFaultCode } = {}) {
-  const legacy = { search: null, start_time: null, end_time: null, filters: null };
-  const actions = Array.isArray(spec.actions) ? spec.actions : [];
-  const meta = spec.meta && typeof spec.meta === 'object'
-    ? { ...spec.meta }
-    : { explain: '', status: 'ok' };
-
-  if (!spec.filters) return { ...legacy, actions, meta };
-
-  const resolved = resolvePresetRefInFilterTree(spec.filters, templatesByName);
-  if (!resolved) return { ...legacy, actions, meta };
-
-  const timeRe = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/;
-  const timeRange = extractTimeFromFilterTree(resolved);
-  if (timeRange.start_time && timeRe.test(timeRange.start_time)) legacy.start_time = timeRange.start_time;
-  if (timeRange.end_time && timeRe.test(timeRange.end_time)) legacy.end_time = timeRange.end_time;
-
-  let flat = filterTreeToFlat(resolved);
-  if (flat && detectedFaultCode && !filterTreeHasErrorCode(resolved)) {
-    const conditions = flat.conditions || [];
-    flat = {
-      logic: 'AND',
-      conditions: [...conditions, { field: 'error_code', operator: 'contains', value: detectedFaultCode }]
-    };
-  }
-  if (flat) {
-    if (flat.field) {
-      legacy.filters = { logic: 'AND', conditions: [flat] };
-    } else {
-      legacy.filters = flat;
-    }
-  }
-  return { ...legacy, actions, meta };
 }
 
 async function extractBatchFiltersWithProvider({ providerId, text, presetNames, context }) {
@@ -1186,13 +1002,12 @@ async function extractBatchFiltersWithProvider({ providerId, text, presetNames, 
   }
 
   const prompt = String(text || '').trim();
-  const firstMessage = (context && context.firstMessage != null) ? String(context.firstMessage).trim() : prompt;
-  if (!prompt && !(context && context.previousSpec)) {
+  if (!prompt && !(context && context.previousResult)) {
     return {
       result: {
         filters: { type: 'group', logic: 'AND', children: [] },
         actions: [],
-        meta: { status: 'fallback', explain: '', missing_slots: [], questions: [] }
+        meta: { status: 'fallback', explain: '', questions: [] }
       },
       raw: { content: '', usage: null, model: provider.model },
       model: provider.model,
@@ -1293,6 +1108,7 @@ module.exports = {
   getSmartSearchLlmStatusForProvider,
   getAgentOrchestratorLlmStatusForProvider,
   buildKeywordExtractionMessages,
+  buildBatchIntentExtractionMessages,
   buildQueryPlanExtractionMessages,
   extractQueryPlanWithProvider,
   extractBatchFiltersWithProvider,

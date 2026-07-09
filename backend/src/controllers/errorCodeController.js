@@ -3,6 +3,7 @@ const I18nErrorCode = require('../models/i18n_error_code');
 const AnalysisCategory = require('../models/analysis_category');
 const ErrorCodeAnalysisCategory = require('../models/error_code_analysis_category');
 const TechSolutionImage = require('../models/tech_solution_image');
+const DeviceSeriesDict = require('../models/device_series_dict');
 const { sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
@@ -177,6 +178,27 @@ const pickI18nPayload = (data) => {
   });
   return payload;
 };
+
+const parseSeriesId = (value) => {
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+async function resolveSeriesIdOrThrow(rawSeriesId, transaction = null) {
+  const seriesId = parseSeriesId(rawSeriesId);
+  if (!seriesId) {
+    const err = new Error('series_id 必须为正整数');
+    err.statusCode = 400;
+    throw err;
+  }
+  const series = await DeviceSeriesDict.findByPk(seriesId, transaction ? { transaction } : undefined);
+  if (!series) {
+    const err = new Error('series_id 无效');
+    err.statusCode = 400;
+    throw err;
+  }
+  return seriesId;
+}
 
 async function upsertI18nPayloadForErrorCode({ errorCodeId, i18nPayload, transaction }) {
   if (!i18nPayload || !errorCodeId) return;
@@ -490,6 +512,7 @@ const createErrorCode = async (req, res) => {
     // 创建故障码数据，自动设置等级和处理措施，专家模式和初学者模式默认为True
     const errorCodeData = {
       ...mainData,
+      series_id: await resolveSeriesIdOrThrow(data.series_id),
       level,
       solution,
       for_expert: mainData.for_expert !== undefined ? mainData.for_expert : true,
@@ -503,6 +526,7 @@ const createErrorCode = async (req, res) => {
       // 检查子系统+故障码组合是否唯一
       const duplicateCheck = await ErrorCode.findOne({
         where: {
+          series_id: errorCodeData.series_id,
           subsystem: mainData.subsystem,
           code: mainData.code
         },
@@ -637,11 +661,17 @@ const updateErrorCode = async (req, res) => {
         throw notFoundError;
       }
 
+      const nextSeriesId = data.series_id !== undefined
+        ? await resolveSeriesIdOrThrow(data.series_id, transaction)
+        : errorCode.series_id;
+
       // 检查子系统+故障码组合唯一性（排除当前记录）
-      if ((mainData.subsystem && mainData.subsystem !== errorCode.subsystem) ||
+      if (nextSeriesId !== errorCode.series_id ||
+        (mainData.subsystem && mainData.subsystem !== errorCode.subsystem) ||
         (mainData.code && mainData.code !== errorCode.code)) {
         const duplicateCheck = await ErrorCode.findOne({
           where: {
+            series_id: nextSeriesId,
             subsystem: mainData.subsystem || errorCode.subsystem,
             code: mainData.code || errorCode.code,
             id: { [Op.ne]: id }
@@ -666,6 +696,7 @@ const updateErrorCode = async (req, res) => {
       const { level, solution } = analyzeErrorCode(codeToAnalyze);
       const updateData = {
         ...mainData,
+        series_id: nextSeriesId,
         level,
         solution
       };
@@ -878,7 +909,10 @@ const deleteErrorCode = async (req, res) => {
 // XML导出功能
 const exportErrorCodesToXML = async (req, res) => {
   try {
-    const { language = 'zh' } = req.query;
+    const { language = 'zh', series_id } = req.query;
+    const seriesIdNum = series_id === undefined || series_id === null || series_id === ''
+      ? null
+      : await resolveSeriesIdOrThrow(series_id);
 
     // 语言代码映射
     const langMap = {
@@ -901,6 +935,7 @@ const exportErrorCodesToXML = async (req, res) => {
 
     // 获取所有故障码及其多语言内容
     const errorCodes = await ErrorCode.findAll({
+      where: seriesIdNum ? { series_id: seriesIdNum } : undefined,
       include: [{
         model: I18nErrorCode,
         as: 'i18nContents',
@@ -1037,7 +1072,10 @@ const buildPrefixXml = (targetLang) => {
 // 多语言XML导出功能
 const exportMultiLanguageXML = async (req, res) => {
   try {
-    const { languages = 'zh' } = req.query;
+    const { languages = 'zh', series_id } = req.query;
+    const seriesIdNum = series_id === undefined || series_id === null || series_id === ''
+      ? null
+      : await resolveSeriesIdOrThrow(series_id);
     const langList = languages.split(',').map(lang => lang.trim());
     console.log(`[exportMultiLanguageXML] start languages=${languages}`);
 
@@ -1067,7 +1105,9 @@ const exportMultiLanguageXML = async (req, res) => {
     // 获取所有故障码
     const queryErrorCodesStart = Date.now();
     const errorCodes = await ErrorCode.findAll({
+      where: seriesIdNum ? { series_id: seriesIdNum } : undefined,
       attributes: [
+        'series_id',
         'id',
         'subsystem',
         'code',
@@ -1229,7 +1269,10 @@ const exportErrorCodesToCSV = async (req, res) => {
     stageDurations[name] = Date.now() - fromTs;
   };
   try {
-    const { language = '', format = 'csv' } = req.query;
+    const { language = '', format = 'csv', series_id } = req.query;
+    const seriesIdNum = series_id === undefined || series_id === null || series_id === ''
+      ? null
+      : await resolveSeriesIdOrThrow(series_id);
     const targetLang = String(language).trim().toLowerCase();
     const exportLang = targetLang || 'zh';
     const exportLangBase = exportLang.split('-')[0];
@@ -1288,9 +1331,10 @@ const exportErrorCodesToCSV = async (req, res) => {
     ];
 
     // 先只拉取主表字段，避免与多关联 JOIN 导致行数膨胀
-    const structuralFields = ['id', 'subsystem', 'code', 'is_axis_error', 'is_arm_error', 'solution', 'for_expert', 'for_novice', 'related_log', 'stop_report', 'level', 'category'];
+    const structuralFields = ['id', 'series_id', 'subsystem', 'code', 'is_axis_error', 'is_arm_error', 'solution', 'for_expert', 'for_novice', 'related_log', 'stop_report', 'level', 'category'];
     const queryMainStartedAt = Date.now();
     const errorCodes = await ErrorCode.findAll({
+      where: seriesIdNum ? { series_id: seriesIdNum } : undefined,
       attributes: structuralFields,
       order: [['subsystem', 'ASC'], ['code', 'ASC']],
       raw: true
@@ -1498,7 +1542,7 @@ const exportErrorCodesToCSV = async (req, res) => {
 // 根据故障码和子系统查找故障码
 const getErrorCodeByCodeAndSubsystem = async (req, res) => {
   try {
-    const { code, subsystem } = req.query;
+    const { code, subsystem, series_id } = req.query;
 
     if (!code || !subsystem) {
       return res.status(400).json({ message: '故障码和子系统参数都是必需的' });
@@ -1511,6 +1555,7 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
       const esResult = await searchErrorCodeByCodeEs({
         code,
         subsystem,
+        series_id: parseSeriesId(series_id) || undefined,
         lang: req.headers['accept-language'] || req.query.lang || 'zh'
       });
 
@@ -1535,7 +1580,11 @@ const getErrorCodeByCodeAndSubsystem = async (req, res) => {
     // 如果ES查询失败或没有结果，使用MySQL查询
     if (!errorCode) {
       errorCode = await ErrorCode.findOne({
-        where: { code, subsystem },
+        where: {
+          code,
+          subsystem,
+          ...(parseSeriesId(series_id) ? { series_id: parseSeriesId(series_id) } : {})
+        },
         include: [
           {
             model: I18nErrorCode,
