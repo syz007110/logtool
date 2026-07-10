@@ -328,6 +328,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Refresh, Document, Search, ArrowDown } from '@element-plus/icons-vue'
 import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import api from '../api'
+import { notifyApiError } from '@/utils/apiError'
 
 const { t, locale } = useI18n()
 const store = useStore()
@@ -479,7 +480,7 @@ const loadDocuments = async () => {
     docs.value = resp.data?.data || []
     total.value = resp.data?.total || 0
   } catch (e) {
-    ElMessage.error(e?.response?.data?.message || t('shared.requestFailed'))
+    notifyApiError(e, t('shared.requestFailed'))
   } finally {
     loading.value = false
   }
@@ -517,7 +518,7 @@ const handleRebuild = async (row) => {
     await loadDocuments()
   } catch (e) {
     if (e === 'cancel') return
-    ElMessage.error(e?.response?.data?.message || t('knowledgeBase.messages.rebuildFailed'))
+    notifyApiError(e, t('knowledgeBase.messages.rebuildFailed'))
   }
 }
 
@@ -535,7 +536,7 @@ const handleDelete = async (row) => {
     await loadDocuments()
   } catch (e) {
     if (e !== 'cancel') {
-      ElMessage.error(e?.response?.data?.message || t('shared.messages.deleteFailed'))
+      notifyApiError(e, t('shared.messages.deleteFailed'))
     }
   }
 }
@@ -665,8 +666,7 @@ const getUploadExtraData = (uploadFile) => {
 
 const onUploadError = (error, file, uploadFileList) => {
   uploading.value = false
-  const errorMessage = error?.response?.data?.message || error?.message || '上传失败'
-  ElMessage.error(errorMessage)
+  notifyApiError(error, t('shared.messages.uploadFailed'))
   
   // 刷新文档列表以更新状态
   loadDocuments()
@@ -741,7 +741,7 @@ const handleSearch = async () => {
     searchItems.value = resp.data?.items || []
     activeSearchCollapseNames.value = searchGroups.value.length ? String(searchGroups.value[0].docId) : ''
   } catch (e) {
-    ElMessage.error(e?.response?.data?.message || t('shared.requestFailed'))
+    notifyApiError(e, t('shared.requestFailed'))
     searchItems.value = []
   } finally {
     searchLoading.value = false
@@ -773,7 +773,7 @@ const loadKbFileTypes = async () => {
     }
   } catch (e) {
     kbFileTypes.value = []
-    ElMessage.error(t('knowledgeBase.uploadDialog.typeLoadFailed'))
+    notifyApiError(e, t('knowledgeBase.uploadDialog.typeLoadFailed'))
   }
 }
 
@@ -862,10 +862,10 @@ const toggleChunkContext = async (docId, chunkNo) => {
     if (resp.data?.ok && resp.data?.data) {
       chunkContents.value.set(key, resp.data.data)
     } else {
-      ElMessage.error(resp.data?.message || '加载上下文失败')
+      ElMessage.error(resp.data?.message || t('knowledgeBase.messages.loadContextFailed'))
     }
   } catch (e) {
-    ElMessage.error(e?.response?.data?.message || '加载上下文失败')
+    notifyApiError(e, t('knowledgeBase.messages.loadContextFailed'))
   } finally {
     loadingChunks.value.delete(key)
   }

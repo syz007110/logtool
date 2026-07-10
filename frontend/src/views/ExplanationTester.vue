@@ -2,15 +2,15 @@
   <div class="explanation-tester-container">
     <el-card class="main-card">
       <el-tabs v-model="activeTab" class="tabs-container">
-        <el-tab-pane label="释义测试" name="explanation">
+        <el-tab-pane :label="$t('explanationTester.tabExplanation')" name="explanation">
           <div class="tab-content">
             <el-form label-position="top" class="explanation-form">
               <!-- 故障码输入 -->
               <div class="form-section">
-                <el-form-item label="故障码 (code)" required>
+                <el-form-item :label="$t('explanationTester.codeLabel')" required>
                   <el-input 
                     v-model="form.code" 
-                    placeholder="可填日志中的完整故障码如 1010A，或 0X010A" 
+                    :placeholder="$t('explanationTester.codePlaceholder')" 
                     size="large"
                     class="code-input"
                   />
@@ -19,16 +19,16 @@
 
               <!-- 可选配置 -->
               <div class="form-section">
-                <div class="section-title">可选配置</div>
+                <div class="section-title">{{ $t('explanationTester.optionalConfig') }}</div>
                 <el-row :gutter="16">
                   <el-col :span="12">
-                    <el-form-item label="子系统">
-                      <el-input v-model="form.subsystem" placeholder="如 1-9 或 A" />
+                    <el-form-item :label="$t('explanationTester.subsystem')">
+                      <el-input v-model="form.subsystem" :placeholder="$t('explanationTester.subsystemPlaceholder')" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
-                    <el-form-item label="自定义模板 (优先使用)">
-                      <el-input v-model="form.template" placeholder="如: 轴{0:d} 错误码 {1:x}" />
+                    <el-form-item :label="$t('explanationTester.customTemplate')">
+                      <el-input v-model="form.template" :placeholder="$t('explanationTester.customTemplatePlaceholder')" />
                     </el-form-item>
                   </el-col>
                 </el-row>
@@ -36,28 +36,28 @@
 
               <!-- 参数输入 -->
               <div class="form-section">
-                <div class="section-title">模板参数</div>
+                <div class="section-title">{{ $t('explanationTester.templateParams') }}</div>
                 <el-row :gutter="16">
                   <el-col :span="12">
-                    <el-form-item label="参数1">
-                      <el-input v-model="form.param1" placeholder="参数1的值" />
+                    <el-form-item :label="$t('shared.param1')">
+                      <el-input v-model="form.param1" :placeholder="$t('explanationTester.paramValuePlaceholder', { index: 1 })" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
-                    <el-form-item label="参数2">
-                      <el-input v-model="form.param2" placeholder="参数2的值" />
+                    <el-form-item :label="$t('shared.param2')">
+                      <el-input v-model="form.param2" :placeholder="$t('explanationTester.paramValuePlaceholder', { index: 2 })" />
                     </el-form-item>
                   </el-col>
                 </el-row>
                 <el-row :gutter="16">
                   <el-col :span="12">
-                    <el-form-item label="参数3">
-                      <el-input v-model="form.param3" placeholder="参数3的值" />
+                    <el-form-item :label="$t('shared.param3')">
+                      <el-input v-model="form.param3" :placeholder="$t('explanationTester.paramValuePlaceholder', { index: 3 })" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
-                    <el-form-item label="参数4">
-                      <el-input v-model="form.param4" placeholder="参数4的值" />
+                    <el-form-item :label="$t('shared.param4')">
+                      <el-input v-model="form.param4" :placeholder="$t('explanationTester.paramValuePlaceholder', { index: 4 })" />
                     </el-form-item>
                   </el-col>
                 </el-row>
@@ -66,38 +66,38 @@
               <!-- 操作按钮 -->
               <div class="form-actions">
                 <el-space>
-                  <el-button type="primary" :loading="loading" @click="handleParse">解析</el-button>
-                  <el-button @click="handleReset">重置</el-button>
+                  <el-button type="primary" :loading="loading" @click="handleParse">{{ $t('explanationTester.parse') }}</el-button>
+                  <el-button @click="handleReset">{{ $t('shared.reset') }}</el-button>
                 </el-space>
               </div>
             </el-form>
             
             <!-- 解析结果 -->
             <div class="result-section" v-if="result">
-              <div class="result-title">解析结果</div>
+              <div class="result-title">{{ $t('explanationTester.parseResult') }}</div>
               <div class="result-content">
                 <div class="result-item">
-                  <span class="result-label">子系统：</span>
+                  <span class="result-label">{{ $t('explanationTester.subsystem') }}：</span>
                   <span class="result-value">{{ result.subsystem || '-' }}</span>
                 </div>
                 <div class="result-item">
-                  <span class="result-label">臂号：</span>
+                  <span class="result-label">{{ $t('explanationTester.armNumber') }}：</span>
                   <span class="result-value">{{ result.arm || '-' }}</span>
                 </div>
                 <div class="result-item">
-                  <span class="result-label">关节号：</span>
+                  <span class="result-label">{{ $t('explanationTester.jointNumber') }}：</span>
                   <span class="result-value">{{ result.joint || '-' }}</span>
                 </div>
                 <div class="result-item">
-                  <span class="result-label">模板：</span>
+                  <span class="result-label">{{ $t('explanationTester.template') }}：</span>
                   <span class="result-value">{{ result.template || '-' }}</span>
                 </div>
                 <div class="result-item">
-                  <span class="result-label">参数：</span>
+                  <span class="result-label">{{ $t('explanationTester.params') }}：</span>
                   <span class="result-value">{{ JSON.stringify(result.params) || '-' }}</span>
                 </div>
                 <div class="result-item result-item-main">
-                  <span class="result-label">释义：</span>
+                  <span class="result-label">{{ $t('explanationTester.explanation') }}：</span>
                   <span class="result-value explanation-text">{{ result.explanation || '-' }}</span>
                 </div>
               </div>
@@ -105,48 +105,48 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="可视化测试" name="viz">
+        <el-tab-pane :label="$t('explanationTester.tabVisualization')" name="viz">
           <div class="tab-content">
             <el-card class="viz-card">
               <template #header>
-                <div class="card-header">输入手术结构化数据 (JSON)</div>
+                <div class="card-header">{{ $t('explanationTester.vizJsonHeader') }}</div>
               </template>
               <el-input
                 v-model="vizJsonText"
                 type="textarea"
                 :autosize="{ minRows: 14 }"
-                placeholder="粘贴手术结构化数据，或点击填充示例"
+                :placeholder="$t('explanationTester.vizJsonPlaceholder')"
               />
               <el-space style="margin-top: 12px">
-                <el-button type="primary" @click="handleRenderViz">跳转可视化页面</el-button>
-                <el-button @click="fillVizExample">填充示例</el-button>
+                <el-button type="primary" @click="handleRenderViz">{{ $t('explanationTester.openVisualization') }}</el-button>
+                <el-button @click="fillVizExample">{{ $t('explanationTester.fillExample') }}</el-button>
               </el-space>
             </el-card>
             <el-card class="info-card" style="margin-top: 16px">
               <template #header>
-                <div class="card-header">说明</div>
+                <div class="card-header">{{ $t('explanationTester.notes') }}</div>
               </template>
               <div class="info-text">
-                <p>• 输入手术结构化数据JSON格式</p>
-                <p>• 点击"跳转可视化页面"将在新标签页打开手术可视化</p>
-                <p>• 点击"填充示例"可加载测试数据</p>
-                <p>• 可视化页面将显示甘特图、状态机变化、网络延时等图表</p>
+                <p>• {{ $t('explanationTester.noteJsonFormat') }}</p>
+                <p>• {{ $t('explanationTester.noteOpenViz') }}</p>
+                <p>• {{ $t('explanationTester.noteFillExample') }}</p>
+                <p>• {{ $t('explanationTester.noteCharts') }}</p>
               </div>
             </el-card>
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="Agent Chat" name="agent">
+        <el-tab-pane :label="$t('explanationTester.tabAgent')" name="agent">
           <div class="tab-content tab-content--agent">
             <el-card class="agent-chat-shell">
               <template #header>
                 <div class="card-header card-header--agent">
-                  <span>Agent Chat</span>
-                  <el-button size="small" @click="createNewAgentConversation">新建会话</el-button>
+                  <span>{{ $t('explanationTester.tabAgent') }}</span>
+                  <el-button size="small" @click="createNewAgentConversation">{{ $t('explanationTester.newSession') }}</el-button>
                 </div>
               </template>
 
-              <div v-if="!agentMessages.length" class="agent-empty">暂无消息，输入内容后发送。</div>
+              <div v-if="!agentMessages.length" class="agent-empty">{{ $t('explanationTester.agentEmpty') }}</div>
               <div v-else ref="agentChatListRef" class="agent-chat-list">
                 <div
                   v-for="(m, idx) in agentMessages"
@@ -157,7 +157,7 @@
                     <span>{{ formatAgentRoleLabel(m.role) }}</span>
                     <span>{{ formatChatTime(m.createdAt) }}</span>
                   </div>
-                  <pre class="agent-chat-text">{{ m.text || '（空文本）' }}</pre>
+                  <pre class="agent-chat-text">{{ m.text || $t('shared.emptyText') }}</pre>
                   <div v-if="m.attachments && m.attachments.length" class="agent-chat-attachments">
                     <div v-for="(a, aIdx) in m.attachments" :key="`${a.type}-${aIdx}`" class="agent-chat-attachment-item">
                       <img
@@ -185,8 +185,8 @@
                       class="agent-attachment-chip-image"
                       alt="upload-preview"
                     >
-                    <span>{{ formatAttachmentLabel(a) }}<span v-if="a.status === 'uploading'">（上传中）</span><span v-else-if="a.status === 'failed'">（上传失败）</span></span>
-                    <el-button link type="danger" @click="removeAgentAttachment(idx)">移除</el-button>
+                    <span>{{ formatAttachmentLabel(a) }}<span v-if="a.status === 'uploading'">{{ $t('explanationTester.attachmentUploading') }}</span><span v-else-if="a.status === 'failed'">{{ $t('explanationTester.attachmentFailed') }}</span></span>
+                    <el-button link type="danger" @click="removeAgentAttachment(idx)">{{ $t('explanationTester.remove') }}</el-button>
                   </div>
                 </div>
 
@@ -200,9 +200,9 @@
                         multiple
                         @change="handleAgentFileChange"
                       >
-                      <el-button :loading="agentUploading" @click="triggerAgentFileSelect">添加图片/文件</el-button>
-                      <el-button @click="resetAgentInput">清空输入</el-button>
-                      <el-button type="primary" :loading="agentSending || agentUploading" @click="sendAgentMessage">发送</el-button>
+                      <el-button :loading="agentUploading" @click="triggerAgentFileSelect">{{ $t('explanationTester.addAttachment') }}</el-button>
+                      <el-button @click="resetAgentInput">{{ $t('explanationTester.clearInput') }}</el-button>
+                      <el-button type="primary" :loading="agentSending || agentUploading" @click="sendAgentMessage">{{ $t('explanationTester.send') }}</el-button>
                     </el-space>
                   </div>
 
@@ -218,7 +218,7 @@
                       @dragover.prevent
                     ></div>
                     <div v-if="agentEditorEmpty" class="agent-editor-placeholder">
-                      输入消息（Enter 发送，Shift+Enter 换行；粘贴图片会自动生成图片卡片）
+                      {{ $t('explanationTester.agentInputHint') }}
                     </div>
                   </div>
                 </div>
@@ -241,10 +241,13 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { GANTT_STYLE, GANTT_COLORS, normalizeSurgeryData, toMs } from '../utils/visualizationConfig'
 import { visualizeSurgery as visualizeSurgeryData } from '../utils/visualizationHelper'
+import { useI18n } from 'vue-i18n'
+import { notifyApiError, resolveApiErrorMessage } from '@/utils/apiError'
 
 export default {
   name: 'ExplanationTester',
   setup() {
+    const { t } = useI18n()
     const activeTab = ref('explanation')
     const form = reactive({
       code: '',
@@ -305,7 +308,7 @@ export default {
 
     const handleParse = async () => {
       if (!form.code) {
-        ElMessage.warning('请填写故障码 code')
+        ElMessage.warning(t('explanationTester.codeRequired'))
         return
       }
       loading.value = true
@@ -358,7 +361,7 @@ export default {
       const t3 = toMs(data?.timeline?.powerOff)
 
       const arms = Array.isArray(data?.arms) ? data.arms : []
-      const categories = arms.map(a => a.name || '未命名')
+      const categories = arms.map(a => a.name || t('shared.unnamed'))
       const seriesData = []
       // 为不同工具臂分配基础颜色，同一臂内不同器械使用不同色调
       const armBaseColors = GANTT_COLORS.ARM_BASE_COLORS
@@ -440,17 +443,17 @@ export default {
               return `
                 <div style="padding: 8px;">
                   <div style="font-weight: bold; margin-bottom: 4px;">${armName}</div>
-                  <div>器械类型: ${tool}</div>
-                  <div>UDI码: ${udi}</div>
-                  <div>使用时长: ${dur}秒</div>
-                  <div>安装时刻: ${installTime}</div>
-                  <div>拔下时刻: ${removeTime}</div>
+                  <div>${t('explanationTester.tooltipInstrumentType', { tool })}</div>
+                  <div>${t('explanationTester.tooltipUdi', { udi })}</div>
+                  <div>${t('explanationTester.tooltipDuration', { dur })}</div>
+                  <div>${t('explanationTester.tooltipInstall', { time: installTime })}</div>
+                  <div>${t('explanationTester.tooltipRemove', { time: removeTime })}</div>
                 </div>
               `
             }
             // 时间线事件：data 为事件对象 { time, name, color }
             if (p.data && p.data.time && p.data.name) {
-              return `${p.data.name}<br/>时间: ${new Date(p.data.time).toLocaleString()}`
+              return `${p.data.name}<br/>${t('explanationTester.tooltipEventTime', { time: new Date(p.data.time).toLocaleString() })}`
             }
             return ''
           }
@@ -592,7 +595,7 @@ export default {
 
     const handleRenderViz = () => {
       if (!vizJsonText.value) {
-        ElMessage.warning('请粘贴手术结构化数据 JSON')
+        ElMessage.warning(t('explanationTester.pasteSurgeryJson'))
         return
       }
       try {
@@ -600,7 +603,7 @@ export default {
         // 使用统一的可视化函数，跳转到可视化页面
         visualizeSurgeryData(raw)
       } catch (e) {
-        ElMessage.error('JSON 解析失败，请检查格式')
+        ElMessage.error(t('explanationTester.jsonParseFailed'))
       }
     }
 
@@ -768,7 +771,7 @@ export default {
         placeholders.forEach((holder) => {
           holder.status = 'failed'
         })
-        ElMessage.error(`附件上传失败: ${String(error?.message || error)}`)
+        notifyApiError(error, t('explanationTester.attachmentUploadFailed'))
       } finally {
         agentUploading.value = false
       }
@@ -837,7 +840,7 @@ export default {
       agentConversationId.value = ''
       agentMessages.value = []
       resetAgentInput()
-      ElMessage.success('已新建会话')
+      ElMessage.success(t('explanationTester.newSessionCreated'))
     }
 
     const getCurrentUserId = () => String(store.state.auth?.user?.id || '').trim()
@@ -888,11 +891,7 @@ export default {
     })
 
     const getAgentRequestErrorMessage = (error) => {
-      const responseMessage = String(error?.response?.data?.message || '').trim()
-      if (responseMessage) return responseMessage
-      const directMessage = String(error?.message || '').trim()
-      if (directMessage) return directMessage
-      return String(error || '未知错误')
+      return resolveApiErrorMessage(error, '未知错误')
     }
 
     const sendAgentMessage = async () => {
@@ -904,7 +903,7 @@ export default {
       const messageId = generateUlid(sentAt)
 
       if (!text && attachments.length === 0) {
-        ElMessage.warning('请至少输入文本或添加附件')
+        ElMessage.warning(t('explanationTester.textOrAttachmentRequired'))
         return
       }
 
@@ -958,7 +957,7 @@ export default {
           agentMessages.value.push({
             role: 'system',
             createdAt: Date.now(),
-            text: String(res?.data?.message || '任务处理中，完成后将自动推送结果'),
+            text: String(res?.data?.message || t('shared.messages.taskProcessing')),
             attachments: []
           })
           scrollAgentChatToBottom()
@@ -966,7 +965,7 @@ export default {
           handledAgentTaskIds.add(taskId)
           const asyncStatus = String(payload?.status || '').trim().toLowerCase()
           if (asyncStatus === 'failed') {
-            throw new Error(String(payload?.error?.message || '任务失败'))
+            throw new Error(String(payload?.error?.message || t('shared.messages.taskFailed')))
           }
           appendAssistantFromAgentResult(payload?.result || {})
           resetAgentInput()

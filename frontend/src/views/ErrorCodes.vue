@@ -85,22 +85,22 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="param1" :label="$t('errorCodes.formLabels.param1')" width="120">
+        <el-table-column prop="param1" :label="$t('shared.param1')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis param-cell" :title="String(row.param1 ?? '')">{{ String(row.param1 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param2" :label="$t('errorCodes.formLabels.param2')" width="120">
+        <el-table-column prop="param2" :label="$t('shared.param2')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis param-cell" :title="String(row.param2 ?? '')">{{ String(row.param2 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param3" :label="$t('errorCodes.formLabels.param3')" width="120">
+        <el-table-column prop="param3" :label="$t('shared.param3')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis param-cell" :title="String(row.param3 ?? '')">{{ String(row.param3 ?? '') }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="param4" :label="$t('errorCodes.formLabels.param4')" width="120">
+        <el-table-column prop="param4" :label="$t('shared.param4')" width="120">
           <template #default="{ row }">
             <span class="one-line-ellipsis param-cell" :title="String(row.param4 ?? '')">{{ String(row.param4 ?? '') }}</span>
           </template>
@@ -361,25 +361,25 @@
             <div class="form-tab-content form-tab-i18n">
               <el-row :gutter="16">
                 <el-col :span="12">
-                  <el-form-item :label="$t('errorCodes.formLabels.param1')" prop="param1">
-                    <el-input v-model="currentForm.param1" clearable :placeholder="$t('errorCodes.formLabels.param1')" />
+                  <el-form-item :label="$t('shared.param1')" prop="param1">
+                    <el-input v-model="currentForm.param1" clearable :placeholder="$t('shared.param1')" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item :label="$t('errorCodes.formLabels.param2')" prop="param2">
-                    <el-input v-model="currentForm.param2" clearable :placeholder="$t('errorCodes.formLabels.param2')" />
+                  <el-form-item :label="$t('shared.param2')" prop="param2">
+                    <el-input v-model="currentForm.param2" clearable :placeholder="$t('shared.param2')" />
                   </el-form-item>
                 </el-col>
               </el-row>
               <el-row :gutter="16">
                 <el-col :span="12">
-                  <el-form-item :label="$t('errorCodes.formLabels.param3')" prop="param3">
-                    <el-input v-model="currentForm.param3" clearable :placeholder="$t('errorCodes.formLabels.param3')" />
+                  <el-form-item :label="$t('shared.param3')" prop="param3">
+                    <el-input v-model="currentForm.param3" clearable :placeholder="$t('shared.param3')" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item :label="$t('errorCodes.formLabels.param4')" prop="param4">
-                    <el-input v-model="currentForm.param4" clearable :placeholder="$t('errorCodes.formLabels.param4')" />
+                  <el-form-item :label="$t('shared.param4')" prop="param4">
+                    <el-input v-model="currentForm.param4" clearable :placeholder="$t('shared.param4')" />
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -520,19 +520,19 @@
                 <div class="basic-info-label">{{ $t('errorCodes.queryResult.paramMeanings') }}</div>
                 <div class="basic-info-params">
                   <div v-if="foundRecord?.param1" class="basic-info-param-item">
-                    <span class="param-label">{{ $t('errorCodes.formLabels.param1') }}：</span>
+                    <span class="param-label">{{ $t('shared.param1') }}：</span>
                     <span class="param-value">{{ foundRecord.param1 }}</span>
                   </div>
                   <div v-if="foundRecord?.param2" class="basic-info-param-item">
-                    <span class="param-label">{{ $t('errorCodes.formLabels.param2') }}：</span>
+                    <span class="param-label">{{ $t('shared.param2') }}：</span>
                     <span class="param-value">{{ foundRecord.param2 }}</span>
                   </div>
                   <div v-if="foundRecord?.param3" class="basic-info-param-item">
-                    <span class="param-label">{{ $t('errorCodes.formLabels.param3') }}：</span>
+                    <span class="param-label">{{ $t('shared.param3') }}：</span>
                     <span class="param-value">{{ foundRecord.param3 }}</span>
                   </div>
                   <div v-if="foundRecord?.param4" class="basic-info-param-item">
-                    <span class="param-label">{{ $t('errorCodes.formLabels.param4') }}：</span>
+                    <span class="param-label">{{ $t('shared.param4') }}：</span>
                     <span class="param-value">{{ foundRecord.param4 }}</span>
                   </div>
                   <div v-if="!foundRecord?.param1 && !foundRecord?.param2 && !foundRecord?.param3 && !foundRecord?.param4" class="basic-info-param-item">
@@ -681,7 +681,7 @@
               v-model="techForm.tech_solution"
               type="textarea"
               :rows="6"
-              placeholder="请输入技术排查方案"
+              :placeholder="$t('errorCodes.formLabels.techSolutionPlaceholder')"
             />
           </el-form-item>
           <div class="tech-section-title">
@@ -747,6 +747,8 @@ import subsystemCodes from '../../../shared/i18n/subsystemCodes.json'
 import { PageContainer } from '@/components/shared'
 import JsonEditor from '@/components/JsonEditor.vue'
 import { DEFAULT_EXPLANATION_TEMPLATE } from '@/utils/explanationEditor'
+import { notifyApiError } from '@/utils/apiError'
+import { safeT } from '@/i18n'
 
 export default {
   name: 'ErrorCodes',
@@ -1395,7 +1397,7 @@ export default {
           subsystem: selectedSubsystem.value
         })
       } catch (error) {
-        ElMessage.error(t('errorCodes.message.loadFailed'))
+        notifyApiError(error, t('errorCodes.message.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -1483,7 +1485,7 @@ export default {
 
     const beforeTechUpload = (file) => {
       if (techForm.images.length >= 5) {
-        ElMessage.warning('最多上传5个附件')
+        ElMessage.warning(t('errorCodes.message.maxAttachments'))
         return false
       }
       return true
@@ -1504,7 +1506,7 @@ export default {
       } catch (err) {
         console.error('上传技术方案附件失败', err)
         option?.onError && option.onError(err)
-        ElMessage.error(err?.response?.data?.message || t('shared.operationFailed'))
+        notifyApiError(err, t('shared.operationFailed'))
       }
     }
 
@@ -1562,7 +1564,7 @@ export default {
     }
 
     const handleTechExceed = () => {
-      ElMessage.warning('最多上传5个附件')
+      ElMessage.warning(t('errorCodes.message.maxAttachments'))
     }
 
     const saveTechSolution = async () => {
@@ -1582,7 +1584,7 @@ export default {
         await loadErrorCodes()
       } catch (err) {
         console.error('保存技术方案失败', err)
-        ElMessage.error(err?.response?.data?.message || t('shared.operationFailed'))
+        notifyApiError(err, t('shared.operationFailed'))
       } finally {
         techSaving.value = false
       }
@@ -1630,7 +1632,7 @@ export default {
         ElMessage.success(t('errorCodes.message.exportSuccess'))
         showExportDialog.value = false
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || t('errorCodes.message.exportFailed'))
+        notifyApiError(e, t('errorCodes.message.exportFailed'))
       } finally {
         exportLoading.value = false
       }
@@ -1849,7 +1851,7 @@ export default {
         }
       } catch (error) {
         console.error('Failed to load i18n content:', error)
-        ElMessage.error(t('errorCodes.i18nTechFields.loadFailed'))
+        notifyApiError(error, t('errorCodes.i18nTechFields.loadFailed'))
         resetI18nForm()
       }
     }
@@ -1864,7 +1866,7 @@ export default {
         return
       }
       if (!editingErrorCode.value) {
-        ElMessage.warning('请先保存故障码基本信息，再进行自动翻译')
+        ElMessage.warning(t('errorCodes.message.saveBasicBeforeAutoTranslate'))
         return
       }
       try {
@@ -1893,9 +1895,7 @@ export default {
         }
       } catch (error) {
         console.error('Auto translate failed:', error)
-        // 显示错误信息，优先使用后端返回的中文错误信息
-        const errorMessage = error.response?.data?.message || t('errorCodes.i18nTechFields.translateFailed')
-        ElMessage.error(errorMessage)
+        notifyApiError(error, t('errorCodes.i18nTechFields.translateFailed'))
       } finally {
         translating.value = false
       }
@@ -1909,7 +1909,7 @@ export default {
       
       // 新增模式下，需要有故障码ID才能保存
       if (!editingErrorCode.value) {
-        ElMessage.warning('请先保存故障码基本信息，再保存多语言内容')
+        ElMessage.warning(t('errorCodes.message.saveBasicBeforeI18n'))
         return
       }
       
@@ -2095,7 +2095,7 @@ export default {
       } catch (e) {
         // 404错误已经在API拦截器中处理，这里只处理其他错误
         if (e?.response?.status !== 404) {
-          ElMessage.error(e?.response?.data?.message || t('errorCodes.message.queryFailed'))
+          notifyApiError(e, t('errorCodes.message.queryFailed'))
         }
       } finally {
         queryLoading.value = false
@@ -2170,7 +2170,7 @@ export default {
         }
       } catch (e) {
         if (e?.response?.status !== 404) {
-          ElMessage.error(e?.response?.data?.message || t('errorCodes.message.queryFailed'))
+          notifyApiError(e, t('errorCodes.message.queryFailed'))
         }
         foundRecord.value = row
         queryResult.value = null
@@ -2277,17 +2277,17 @@ export default {
       // 先将中文值转换为英文 key（因为数据库可能存储中文值）
       const categoryKey = convertCategoryToKey(categoryValue)
       // 使用 i18n 翻译分类选项
-      return t(`errorCodes.categoryOptions.${categoryKey}`) || categoryKey || categoryValue
+      return safeT(`errorCodes.categoryOptions.${categoryKey}`, categoryKey || categoryValue)
     }
     
     // 获取远程子系统标签
     const getRemoteSubsystemLabel = () => {
-      return t(`errorCodes.remoteSubsystemLabels.${errorCodeForm.subsystem}`) || ''
+      return safeT(`errorCodes.remoteSubsystemLabels.${errorCodeForm.subsystem}`, '')
     }
     
     // 获取本地子系统标签
     const getLocalSubsystemLabel = () => {
-      return t(`errorCodes.localSubsystemLabels.${errorCodeForm.subsystem}`) || ''
+      return safeT(`errorCodes.localSubsystemLabels.${errorCodeForm.subsystem}`, '')
     }
     
     // 获取保存按钮文本
@@ -2367,9 +2367,9 @@ export default {
         loadErrorCodes()
       } catch (error) {
         if (error.response && error.response.data && error.response.data.errors) {
-          ElMessage.error(error.response.data.errors.join(', '))
+          notifyApiError(error, error.response.data.errors.join(', '))
         } else {
-          ElMessage.error(error?.response?.data?.message || t('shared.messages.saveFailed'))
+          notifyApiError(error, t('shared.messages.saveFailed'))
         }
       } finally {
         saving.value = false

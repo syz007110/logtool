@@ -20,16 +20,16 @@
 
     <div class="content">
       <div v-if="activeTab === 'logs'" class="toolbar">
-        <input v-model="logKeyword" class="toolbar-input" type="text" placeholder="搜索日志文件名" @input="applyFilters" />
+        <input v-model="logKeyword" class="toolbar-input" type="text" :placeholder="$t('mobile.devices.searchLogFilename')" @input="applyFilters" />
         <select v-model="logStatusFilter" class="toolbar-select" @change="reloadCurrentTab">
-          <option value="all">全部状态</option>
-          <option value="completed">已完成</option>
-          <option value="incomplete">未完成</option>
+          <option value="all">{{ $t('mobile.devices.statusAll') }}</option>
+          <option value="completed">{{ $t('mobile.devices.statusCompleted') }}</option>
+          <option value="incomplete">{{ $t('mobile.devices.statusIncomplete') }}</option>
         </select>
       </div>
 
       <div v-else-if="activeTab === 'surgeries'" class="toolbar">
-        <input v-model="surgeryKeyword" class="toolbar-input" type="text" placeholder="搜索手术编号/名称" @input="applyFilters" />
+        <input v-model="surgeryKeyword" class="toolbar-input" type="text" :placeholder="$t('mobile.devices.searchSurgery')" @input="applyFilters" />
       </div>
 
       <van-list :loading="loading" :finished="finished" :offset="100" @load="onLoad">
@@ -41,7 +41,7 @@
             class="item-card"
             @click="openLog(item)"
           >
-            <div class="item-title">{{ item.original_name || item.name || ('日志 #' + item.id) }}</div>
+            <div class="item-title">{{ item.original_name || item.name || $t('mobile.devices.logFallback', { id: item.id }) }}</div>
             <div class="item-sub">{{ formatDate(item.upload_time || item.updated_at || item.created_at) }}</div>
           </button>
         </template>
@@ -65,7 +65,7 @@
             :key="item.id"
             class="item-card"
           >
-            <div class="item-title">{{ item.original_name || item.file_name || ('运行数据 #' + item.id) }}</div>
+            <div class="item-title">{{ item.original_name || item.file_name || $t('mobile.devices.motionFallback', { id: item.id }) }}</div>
             <div class="item-sub">{{ formatDate(item.file_time || item.upload_time || item.created_at) }}</div>
           </div>
         </template>
@@ -82,6 +82,7 @@
 
 <script>
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { List as VanList, Empty as VanEmpty, Icon as VanIcon } from 'vant'
 import api from '@/api'
@@ -94,6 +95,7 @@ export default {
     'van-icon': VanIcon
   },
   setup() {
+    const { t } = useI18n()
     const route = useRoute()
     const router = useRouter()
     const deviceId = computed(() => String(route.params?.deviceId || ''))
@@ -113,9 +115,9 @@ export default {
     const surgeryKeyword = ref('')
 
     const tabs = computed(() => ([
-      { key: 'logs', label: '日志数据' },
-      { key: 'surgeries', label: '手术数据' },
-      { key: 'motions', label: '运行数据' }
+      { key: 'logs', label: t('mobile.devices.logData') },
+      { key: 'surgeries', label: t('mobile.devices.surgeryData') },
+      { key: 'motions', label: t('mobile.devices.runtimeData') }
     ]))
 
     const filteredLogs = computed(() => {

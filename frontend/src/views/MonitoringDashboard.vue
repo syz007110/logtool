@@ -319,6 +319,8 @@ import api from '@/api'
 import axios from 'axios'
 import store from '@/store'
 import { getTableHeight } from '@/utils/tableHeight'
+import { useI18n } from 'vue-i18n'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'MonitoringDashboard',
@@ -335,6 +337,7 @@ export default {
     Moon
   },
   setup() {
+    const { t } = useI18n()
     const loading = ref(false)
     const showSettings = ref(false)
     const refreshInterval = ref(null)
@@ -396,7 +399,7 @@ export default {
         }
       } catch (error) {
         console.error('获取监控数据失败:', error)
-        ElMessage.error('获取监控数据失败')
+        ElMessage.error(t('monitoring.messages.fetchFailed'))
       } finally {
         loading.value = false
       }
@@ -411,11 +414,11 @@ export default {
     const saveAlertSettings = async () => {
       try {
         await api.monitoring.setAlertThresholds(alertSettings)
-        ElMessage.success('告警设置已保存')
+        ElMessage.success(t('monitoring.messages.saveAlertSettingsSuccess'))
         showSettings.value = false
       } catch (error) {
         console.error('保存告警设置失败:', error)
-        ElMessage.error('保存告警设置失败')
+        ElMessage.error(t('monitoring.messages.saveAlertSettingsFailed'))
       }
     }
 
@@ -430,7 +433,7 @@ export default {
           // 如果没有消费者，添加一个默认的测试数据
           const displayConsumers = consumers.length > 0 ? consumers : ['worker#test123']
           rows.push({
-            type: getQueueTypeLabel(q.type) || '未知',
+            type: getQueueTypeLabel(q.type) || t('shared.unknown'),
             consumers: displayConsumers,
             active: q.active ?? 0,
             waiting: q.waiting ?? 0
@@ -461,7 +464,7 @@ export default {
           if (!groupByRole[role]) {
             groupByRole[role] = { consumers: [], active: 0, waiting: 0 }
           }
-          groupByRole[role].consumers.push(`${p.type || '进程'}#${p.pid || '-'}`)
+          groupByRole[role].consumers.push(`${p.type || t('shared.processLabel')}#${p.pid || '-'}`)
           groupByRole[role].active += Number(p.tasks?.active || 0)
           groupByRole[role].waiting += Number(p.tasks?.waiting || 0)
         })
@@ -609,13 +612,13 @@ export default {
     // 切换集群模式
     const switchMode = async (mode) => {
       if (modeSwitching.value) {
-        ElMessage.warning('正在切换模式中，请稍候...')
+        ElMessage.warning(t('monitoring.messages.modeSwitchingWait'))
         return
       }
       
       try {
         modeSwitching.value = true
-        ElMessage.info(`正在切换到${mode === 'peak' ? '高峰' : '非高峰'}模式，请等待任务完成...`)
+        ElMessage.info(mode === 'peak' ? t('monitoring.messages.switchingToPeakMode') : t('monitoring.messages.switchingToOffPeakMode'))
         
         // 直接使用axios调用API，携带认证token
         const token = store.state.auth.token
@@ -634,7 +637,7 @@ export default {
         }
       } catch (error) {
         console.error('切换模式失败:', error)
-        ElMessage.error('切换模式失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('monitoring.messages.switchModeFailed'))
       } finally {
         modeSwitching.value = false
       }

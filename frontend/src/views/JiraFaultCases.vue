@@ -55,7 +55,7 @@
       <div class="filters-row">
         <div class="filters-label">
           <el-icon><Filter /></el-icon>
-          <span>{{ $t('faultCases.filters.label') || '筛选:' }}</span>
+          <span>{{ $t('faultCases.filters.label') }}</span>
         </div>
         <div class="filters-group">
           <el-select
@@ -121,7 +121,7 @@
           />
         </div>
         <div class="filter-results">
-          <span>{{ $t('faultCases.filters.results') || '筛选结果' }}: {{ jiraPager.total || 0 }} {{ $t('shared.items') }}</span>
+          <span>{{ $t('faultCases.filters.results') }}: {{ jiraPager.total || 0 }} {{ $t('shared.items') }}</span>
         </div>
       </div>
     </div>
@@ -289,12 +289,12 @@
 
 
     <!-- Image preview dialog -->
-    <el-dialog v-model="imagePreview.visible" :title="imagePreview.filename || '图片预览'" width="90%" top="5vh" :close-on-click-modal="true">
+    <el-dialog v-model="imagePreview.visible" :title="imagePreview.filename || $t('shared.imagePreview')" width="90%" top="5vh" :close-on-click-modal="true">
       <div v-loading="imagePreview.loading" class="image-preview-container">
         <div v-if="imagePreview.error" class="image-error">
           <el-icon size="48" color="#f56c6c"><Warning /></el-icon>
-          <p>图片加载失败</p>
-          <p class="error-desc">可能的原因：图片不存在、跨域限制或网络问题</p>
+          <p>{{ $t('shared.imageLoadFailed') }}</p>
+          <p class="error-desc">{{ $t('shared.imageLoadFailedHint') }}</p>
         </div>
         <img
           v-else
@@ -302,13 +302,13 @@
           class="preview-image"
           @load="imagePreview.loading = false"
           @error="imagePreview.error = true; imagePreview.loading = false"
-          alt="图片预览"
+          :alt="$t('shared.imagePreview')"
         />
       </div>
       <template #footer>
         <div class="image-preview-footer">
-          <el-button @click="imagePreview.visible = false">关闭</el-button>
-          <el-button type="primary" @click="downloadImage">下载图片</el-button>
+          <el-button @click="imagePreview.visible = false">{{ $t('shared.close') }}</el-button>
+          <el-button type="primary" @click="downloadImage">{{ $t('shared.downloadImage') }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -480,6 +480,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { getTableHeight } from '@/utils/tableHeight'
 import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import api from '../api'
+import { notifyApiError, resolveApiErrorMessage } from '@/utils/apiError'
 export default {
   name: 'JiraFaultCases',
   components: {
@@ -681,7 +682,7 @@ export default {
       const rawUrl = getAttachmentUrl(file)
       if (!rawUrl) {
         console.warn('附件缺少 content URL:', file)
-        ElMessage.warning('附件链接无效')
+        ElMessage.warning(t('shared.messages.invalidAttachmentLink'))
         return
       }
       
@@ -702,7 +703,7 @@ export default {
           window.open(proxyUrl, '_blank')
         } catch (fallbackError) {
           console.error('降级下载也失败:', fallbackError)
-          ElMessage.error('文件下载失败，请检查网络连接')
+          ElMessage.error(t('shared.messages.downloadFailedCheckNetwork'))
         }
       }
     }
@@ -1168,8 +1169,8 @@ export default {
         jiraPager.limit = Number.isFinite(Number(d.limit)) ? Number(d.limit) : jiraPager.limit
       } catch (e) {
         jiraState.ok = false
-        jiraState.message = e.response?.data?.message || t('shared.requestFailed')
-        ElMessage.error(jiraState.message)
+        jiraState.message = resolveApiErrorMessage(e, t('shared.requestFailed'))
+        notifyApiError(e, t('shared.requestFailed'))
       } finally {
         jiraLoading.value = false
       }

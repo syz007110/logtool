@@ -215,6 +215,7 @@ import { MoreFilled, Search, Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
 import { validatePasswordStrength } from '@/utils/passwordStrength'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Users',
@@ -316,7 +317,7 @@ export default {
         })
       } catch (error) {
         if (!silent) {
-          ElMessage.error(t('users.loadFailed'))
+          notifyApiError(error, t('users.loadFailed'))
         } else {
           console.warn('加载用户失败(已静默):', error?.message || error)
         }
@@ -332,7 +333,7 @@ export default {
         // 直接赋值，避免反复计算
         roles.value = store.getters['users/rolesList']
       } catch (error) {
-        ElMessage.error(t('users.loadRolesFailed'))
+        notifyApiError(error, t('users.loadRolesFailed'))
       }
     }
     
@@ -383,7 +384,7 @@ export default {
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadUsers({ force: true })
       } catch (error) {
-        ElMessage.error(t('shared.messages.deleteFailed'))
+        notifyApiError(error, t('shared.messages.deleteFailed'))
       }
     }
     
@@ -417,7 +418,7 @@ export default {
         resetForm()
         loadUsers({ force: true })
       } catch (error) {
-        ElMessage.error(t('shared.messages.saveFailed'))
+        notifyApiError(error, t('shared.messages.saveFailed'))
       } finally {
         saving.value = false
       }
@@ -514,7 +515,7 @@ export default {
         showResetPasswordDialog.value = false
         loadUsers({ force: true })
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || t('users.resetPasswordFailed'))
+        notifyApiError(error, t('users.resetPasswordFailed'))
       } finally {
         resettingPassword.value = false
       }

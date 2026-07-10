@@ -173,6 +173,7 @@ import * as dd from 'dingtalk-jsapi'
 import { Earth } from '@icon-park/vue-next'
 import api from '@/api'
 import { validatePasswordStrength } from '@/utils/passwordStrength'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Login',
@@ -341,7 +342,7 @@ export default {
           confirmPassword: ''
         })
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || t('register.registerFailed'))
+        notifyApiError(error, t('register.registerFailed'))
       } finally {
         registerLoading.value = false
       }

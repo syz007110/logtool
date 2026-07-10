@@ -7,10 +7,10 @@
             <div class="header-row">
               <div class="header-title">{{ deviceId }}</div>
               <div v-if="deviceInfo" class="header-hospital">
-                <span class="info-text">{{ $t('mobile.deviceLogs.hospitalName') || '医院名称' }}：{{ deviceInfo.hospital || '-' }}</span>
+                <span class="info-text">{{ $t('mobile.deviceLogs.hospitalName') }}：{{ deviceInfo.hospital || '-' }}</span>
               </div>
               <div class="header-logs">
-                <span class="info-text">{{ $t('logs.totalSurgeries') || '手术总数' }}：<span class="info-value-primary">{{ totalSurgeries }}</span></span>
+                <span class="info-text">{{ $t('logs.totalSurgeries') }}：<span class="info-value-primary">{{ totalSurgeries }}</span></span>
               </div>
             </div>
             <div class="tab-bar">

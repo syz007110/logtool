@@ -597,6 +597,7 @@ import api from '../api'
 import { useStore } from 'vuex'
 import { maskHospitalName } from '../utils/maskSensitiveData'
 import { getTableHeight } from '@/utils/tableHeight'
+import { notifyApiError } from '@/utils/apiError'
 import {
   filterDeviceModelsBySeries,
   deriveSeriesIdForDeviceModel,
@@ -1152,7 +1153,7 @@ export default {
           await loadDeviceKeys(editing.value.device_id)
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || t('devices.messages.keySaveFailed'))
+        notifyApiError(error, t('devices.messages.keySaveFailed'))
       } finally {
         savingKey.value = false
       }
@@ -1171,7 +1172,7 @@ export default {
         await loadDeviceKeys(editing.value.device_id)
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error(error?.response?.data?.message || t('devices.messages.keyDeleteFailed'))
+          notifyApiError(error, t('devices.messages.keyDeleteFailed'))
         }
       }
     }
@@ -1205,7 +1206,7 @@ export default {
         showEdit.value = false
         await loadDevices({ force: true })
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || t('devices.messages.saveFailed'))
+        notifyApiError(e, t('devices.messages.saveFailed'))
       } finally {
         saving.value = false
       }
@@ -1258,7 +1259,7 @@ export default {
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadDevices({ force: true })
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || t('shared.messages.deleteFailed'))
+        notifyApiError(e, t('shared.messages.deleteFailed'))
       }
     }
 
@@ -1303,7 +1304,7 @@ export default {
         modelTotal.value = res.data.total || 0
       } catch (e) {
         console.error('加载设备型号失败:', e)
-        ElMessage.error(e.response?.data?.message || t('devices.messages.loadModelsFailed'))
+        notifyApiError(e, t('devices.messages.loadModelsFailed'))
       } finally {
         modelsLoading.value = false
       }
@@ -1315,7 +1316,7 @@ export default {
         deviceSeriesOptions.value = res.data.series || []
       } catch (e) {
         console.error('加载设备系列失败:', e)
-        ElMessage.error(e?.response?.data?.message || t('devices.messages.loadSeriesFailed'))
+        notifyApiError(e, t('devices.messages.loadSeriesFailed'))
       }
     }
 
@@ -1403,10 +1404,10 @@ export default {
         loadDeviceModelOptions()
       } catch (e) {
         if (e !== 'cancel') {
-          const msg = e.response?.status === 409
-            ? (e.response?.data?.message || t('devices.messages.modelInUseCannotDelete'))
-            : (e.response?.data?.message || t('shared.messages.deleteFailed'))
-          ElMessage.error(msg)
+          notifyApiError(
+            e,
+            e.response?.status === 409 ? t('devices.messages.modelInUseCannotDelete') : t('shared.messages.deleteFailed')
+          )
         }
       }
     }
@@ -1435,7 +1436,7 @@ export default {
         hospitals.value = res.data.hospitals || []
         hospitalTotal.value = res.data.total || 0
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || t('devices.messages.loadHospitalsFailed'))
+        notifyApiError(e, t('devices.messages.loadHospitalsFailed'))
       } finally {
         hospitalsLoading.value = false
       }
@@ -1610,7 +1611,7 @@ export default {
         await remoteSearchHospitals('')
       } catch (e) {
         if (e !== 'cancel') {
-          ElMessage.error(e?.response?.data?.message || t('shared.messages.deleteFailed'))
+          notifyApiError(e, t('shared.messages.deleteFailed'))
         }
       }
     }

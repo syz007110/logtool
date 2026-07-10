@@ -238,8 +238,8 @@
                 <div class="m-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCase') }}</div>
                 <div class="m-answer-section-content">
                   <div class="m-jira-error">
-                    <div class="m-error-title">{{ m.payload.meta.jiraError.timeout ? $t('mobile.smartSearch.jiraTimeout') : $t('mobile.smartSearch.jiraConnectionFailed') }}</div>
-                    <div class="m-error-desc">{{ m.payload.meta.jiraError.message || $t('mobile.smartSearch.jiraFallbackCaseSkipped') }}</div>
+                    <div class="m-error-title">{{ m.payload.meta.jiraError.timeout ? $t('shared.jira.timeout') : $t('shared.jira.connectionFailed') }}</div>
+                    <div class="m-error-desc">{{ m.payload.meta.jiraError.message || $t('shared.jira.fallbackCaseSkipped') }}</div>
                   </div>
                 </div>
               </div>
@@ -350,9 +350,9 @@
                               <img
                                 :src="getGenericAttachmentProxyUrl(img.url)"
                                 class="m-attachment-image"
-                                :alt="img.original_name || img.filename || $t('mobile.smartSearch.attachmentImage')"
+                                :alt="img.original_name || img.filename || $t('shared.attachmentImage')"
                               />
-                              <div class="m-attachment-image-name">{{ img.original_name || img.filename || $t('mobile.smartSearch.attachmentImage') }}</div>
+                              <div class="m-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
                             </div>
                             <!-- PDF/其他文件：显示文件名，可点击下载 -->
                             <a
@@ -364,7 +364,7 @@
                               rel="noopener noreferrer"
                               @click.stop
                             >
-                              <span>{{ img.original_name || img.filename || $t('mobile.smartSearch.attachmentFile') }}</span>
+                              <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
                             </a>
                           </div>
                         </div>
@@ -445,9 +445,9 @@
                               <img
                                 :src="getGenericAttachmentProxyUrl(img.url)"
                                 class="m-attachment-image"
-                                :alt="img.original_name || img.filename || $t('mobile.smartSearch.attachmentImage')"
+                                :alt="img.original_name || img.filename || $t('shared.attachmentImage')"
                               />
-                              <div class="m-attachment-image-name">{{ img.original_name || img.filename || $t('mobile.smartSearch.attachmentImage') }}</div>
+                              <div class="m-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
                             </div>
                             <!-- PDF/其他文件 -->
                             <a
@@ -459,7 +459,7 @@
                               rel="noopener noreferrer"
                               @click.stop
                             >
-                              <span>{{ img.original_name || img.filename || $t('mobile.smartSearch.attachmentFile') }}</span>
+                              <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
                             </a>
                           </div>
                         </div>
@@ -474,8 +474,8 @@
                 <div class="m-answer-section-title">{{ $t('mobile.smartSearch.sectionSimilarCases') }}</div>
                 <div class="m-answer-section-content">
                   <div class="m-jira-error">
-                    <div class="m-error-title">{{ m.payload.meta.jiraError.timeout ? $t('mobile.smartSearch.jiraTimeout') : $t('mobile.smartSearch.jiraConnectionFailed') }}</div>
-                    <div class="m-error-desc">{{ m.payload.meta.jiraError.message || $t('mobile.smartSearch.jiraFallbackSimilarSkipped') }}</div>
+                    <div class="m-error-title">{{ m.payload.meta.jiraError.timeout ? $t('shared.jira.timeout') : $t('shared.jira.connectionFailed') }}</div>
+                    <div class="m-error-desc">{{ m.payload.meta.jiraError.message || $t('shared.jira.fallbackSimilarSkipped') }}</div>
                   </div>
                 </div>
               </div>
@@ -690,19 +690,19 @@
                     <div class="source-detail-label">{{ $t('mobile.smartSearch.fieldParams') }}</div>
                     <div class="source-detail-params">
                       <div v-if="f.param1" class="source-detail-param">
-                        <span class="param-label">{{ $t('mobile.smartSearch.param1') }}:</span>
+                        <span class="param-label">{{ $t('shared.param1') }}:</span>
                         <span class="param-value">{{ f.param1 }}</span>
                       </div>
                       <div v-if="f.param2" class="source-detail-param">
-                        <span class="param-label">{{ $t('mobile.smartSearch.param2') }}:</span>
+                        <span class="param-label">{{ $t('shared.param2') }}:</span>
                         <span class="param-value">{{ f.param2 }}</span>
                       </div>
                       <div v-if="f.param3" class="source-detail-param">
-                        <span class="param-label">{{ $t('mobile.smartSearch.param3') }}:</span>
+                        <span class="param-label">{{ $t('shared.param3') }}:</span>
                         <span class="param-value">{{ f.param3 }}</span>
                       </div>
                       <div v-if="f.param4" class="source-detail-param">
-                        <span class="param-label">{{ $t('mobile.smartSearch.param4') }}:</span>
+                        <span class="param-label">{{ $t('shared.param4') }}:</span>
                         <span class="param-value">{{ f.param4 }}</span>
                       </div>
                     </div>
@@ -758,9 +758,9 @@
                           <img
                             :src="getGenericAttachmentProxyUrl(img.url)"
                             class="source-attachment-image"
-                            :alt="img.original_name || img.filename || $t('mobile.smartSearch.attachmentImage')"
+                            :alt="img.original_name || img.filename || $t('shared.attachmentImage')"
                           />
-                          <div class="source-attachment-image-name">{{ img.original_name || img.filename || $t('mobile.smartSearch.attachmentImage') }}</div>
+                          <div class="source-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
                         </div>
                         <!-- PDF/其他文件：显示文件名，可点击下载 -->
                         <a
@@ -772,7 +772,7 @@
                           rel="noopener noreferrer"
                           @click.stop
                         >
-                          <span>{{ img.original_name || img.filename || $t('mobile.smartSearch.attachmentFile') }}</span>
+                          <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
                         </a>
                       </div>
                     </div>
@@ -1014,6 +1014,7 @@
 <script>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { hasI18nKey } from '@/i18n'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import api from '@/api'
@@ -1481,15 +1482,8 @@ export default {
     }
 
     const getIntentLabel = (intent) => {
-      const intentLabelMap = {
-        troubleshoot: t('mobile.smartSearch.intent.troubleshoot'),
-        lookup_fault_code: t('mobile.smartSearch.intent.lookupFaultCode'),
-        find_case: t('mobile.smartSearch.intent.findCase'),
-        definition: t('mobile.smartSearch.intent.definition'),
-        how_to_use: t('mobile.smartSearch.intent.howToUse'),
-        other: t('mobile.smartSearch.intent.other')
-      }
-      return intentLabelMap[intent] || intent || t('shared.unknown')
+      const key = `smartSearch.intent.${intent}`
+      return hasI18nKey(key) ? t(key) : (intent || t('shared.unknown'))
     }
 
     const escapeHtml = (s) => String(s || '')

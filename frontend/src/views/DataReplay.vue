@@ -39,7 +39,7 @@
         </el-table-column>
         <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="left">
           <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="openDetailDrawer(row)">{{ $t('logs.detail') }}</el-button>
+            <el-button text type="primary" size="small" @click="openDetailDrawer(row)">{{ $t('shared.details') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -68,7 +68,7 @@
       <div class="drawer-content drawer-content--detail">
         <div class="drawer-header">
           <div class="device-info">
-            <h3 class="min-w-0 one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}（{{ $t('dataReplay.dataCount') }}：{{ detailTotal }}）</h3>
+            <h3 class="min-w-0 one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('shared.details') }}（{{ $t('dataReplay.dataCount') }}：{{ detailTotal }}）</h3>
             <p v-if="selectedDevice?.hospital_name" class="min-w-0 device-info-hospital"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
           </div>
           <div class="header-controls">
@@ -151,8 +151,8 @@
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="csv">CSV 格式</el-dropdown-item>
-                  <el-dropdown-item command="jsonl">JSONL 格式</el-dropdown-item>
+                  <el-dropdown-item command="csv">{{ $t('dataReplay.formatCsv') }}</el-dropdown-item>
+                  <el-dropdown-item command="jsonl">{{ $t('dataReplay.formatJsonl') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -186,17 +186,17 @@
                 return ['parse_failed', 'completed', 'file_error', 'processing_failed'].includes(status)
               }"
             />
-            <el-table-column prop="original_name" label="文件名" min-width="180" />
-            <el-table-column prop="device_id" label="设备编号" min-width="120" />
-            <el-table-column prop="file_time" label="运行时间" min-width="160">
+            <el-table-column prop="original_name" :label="$t('dataReplay.fileName')" min-width="180" />
+            <el-table-column prop="device_id" :label="$t('devices.deviceId')" min-width="120" />
+            <el-table-column prop="file_time" :label="$t('dataReplay.runtimeTime')" min-width="160">
               <template #default="{ row }">{{ formatDate(row.file_time || row.upload_time) }}</template>
             </el-table-column>
-            <el-table-column label="状态" min-width="100" align="center">
+            <el-table-column :label="$t('shared.status')" min-width="100" align="center">
               <template #default="{ row }">
                 <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="200" fixed="right" align="left">
+            <el-table-column :label="$t('shared.operation')" min-width="200" fixed="right" align="left">
               <template #default="{ row }">
                 <div class="operation-buttons">
                   <el-dropdown 
@@ -215,8 +215,8 @@
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item command="jsonl">JSONL 格式</el-dropdown-item>
-                        <el-dropdown-item command="csv">CSV 格式</el-dropdown-item>
+                        <el-dropdown-item command="jsonl">{{ $t('dataReplay.formatJsonl') }}</el-dropdown-item>
+                        <el-dropdown-item command="csv">{{ $t('dataReplay.formatCsv') }}</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -267,17 +267,17 @@
     </el-drawer>
 
     <!-- 上传运行数据弹窗（主页面/详情复用） -->
-    <el-dialog v-model="uploadDialogVisible" title="上传运行数据" width="700px" append-to-body :close-on-click-modal="false">
+    <el-dialog v-model="uploadDialogVisible" :title="$t('dataReplay.uploadMotionData')" width="700px" append-to-body :close-on-click-modal="false">
       <el-form label-width="100px">
-        <el-form-item label="设备编号" required>
+        <el-form-item :label="$t('devices.deviceId')" required>
           <el-input
             v-model="uploadDialogDeviceId"
-            placeholder="请输入设备编号"
+            :placeholder="$t('dataReplay.deviceIdPlaceholder')"
             :disabled="uploadDialogDeviceIdLocked || uploading"
             style="width: 300px;"
           />
         </el-form-item>
-        <el-form-item label="文件" required>
+        <el-form-item :label="$t('dataReplay.fileLabel')" required>
           <el-upload
             action=""
             :http-request="() => {}"
@@ -294,16 +294,16 @@
           >
             <el-button type="primary" :disabled="uploading">
               <i class="fas fa-upload"></i>
-              选择文件
+              {{ $t('dataReplay.selectFile') }}
             </el-button>
             <template #tip>
               <div class="el-upload__tip">
                 <div v-if="!uploading">
-                  支持 {{ $t('dataReplay.uploadDialogMaxFiles') }}；文件名需为 YYYYMMDDhhmm.bin
+                  {{ $t('dataReplay.uploadTipFilename', { max: $t('dataReplay.uploadDialogMaxFiles') }) }}
                 </div>
                 <div v-else class="parsing-tip">
                   <el-icon class="is-loading"><Refresh /></el-icon>
-                  正在上传/解析...
+                  {{ $t('dataReplay.uploadingParsing') }}
                 </div>
               </div>
             </template>
@@ -314,10 +314,10 @@
       <!-- 自定义文件列表 -->
       <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
         <div class="file-list-header">
-          <span>已选择文件 ({{ uploadFileList.length }})</span>
+          <span>{{ $t('dataReplay.selectedFilesCount', { count: uploadFileList.length }) }}</span>
           <el-button type="default" size="small" @click="clearUpload" :disabled="uploading">
             <i class="fas fa-times"></i>
-            清空
+            {{ $t('shared.clear') }}
           </el-button>
         </div>
         <div class="file-items">
@@ -335,8 +335,8 @@
               size="small"
               @click="removeFile(index)"
               :disabled="uploading"
-              :aria-label="'移除文件'"
-              :title="'移除文件'"
+              :aria-label="$t('dataReplay.removeFile')"
+              :title="$t('dataReplay.removeFile')"
             >
               <i class="fas fa-trash"></i>
             </el-button>
@@ -348,7 +348,7 @@
         <div class="upload-actions">
           <el-button type="default" @click="closeUploadDialog" :disabled="uploading">
             <i class="fas fa-times"></i>
-            取消
+            {{ $t('shared.cancel') }}
           </el-button>
           <el-button 
             type="primary" 
@@ -356,7 +356,7 @@
             :disabled="uploading || uploadFileList.length === 0 || !uploadDialogDeviceId.trim()"
           >
             <i class="fas fa-upload" v-if="!uploading"></i>
-            {{ uploading ? '上传中...' : '上传' }}
+            {{ uploading ? $t('dataReplay.uploading') : $t('dataReplay.upload') }}
           </el-button>
         </div>
       </template>
@@ -372,6 +372,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Upload, Close, Document } from '@element-plus/icons-vue'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 import api from '@/api'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'DataReplay',
@@ -419,7 +420,7 @@ export default {
     ]))
 
     const detailYearOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.yearSuffix') || ''
+      const suffix = t('logs.surgeriesFilters.yearSuffix')
       const yearsSource = detailAvailableYears.value || []
       const normalized = yearsSource
         .map((year) => {
@@ -435,7 +436,7 @@ export default {
     })
 
     const detailMonthOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.monthSuffix') || ''
+      const suffix = t('logs.surgeriesFilters.monthSuffix')
       const monthsSet = new Set()
       const monthsMap = detailAvailableMonths.value || {}
       if (detailSelectedYear.value !== 'all') {
@@ -462,7 +463,7 @@ export default {
     })
 
     const detailDayOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.daySuffix') || ''
+      const suffix = t('logs.surgeriesFilters.daySuffix')
       const daysSet = new Set()
       const daysMap = detailAvailableDays.value || {}
       const y = detailSelectedYear.value
@@ -524,7 +525,14 @@ export default {
     }
 
     const statusLabel = (s) => {
-      const map = { uploading: '上传中', parsing: '解析中', parse_failed: '解析失败', completed: '完成', file_error: '文件错误', processing_failed: '处理失败' }
+      const map = {
+        uploading: t('dataReplay.statusUploading'),
+        parsing: t('dataReplay.statusParsing'),
+        parse_failed: t('dataReplay.statusParseFailed'),
+        completed: t('dataReplay.statusCompleted'),
+        file_error: t('dataReplay.statusFileError'),
+        processing_failed: t('dataReplay.statusProcessingFailed')
+      }
       return map[s] || s || '-'
     }
     const statusTagType = (s) => {
@@ -553,7 +561,7 @@ export default {
           hasRetriedDeviceGroups.value = true
           setTimeout(() => loadDeviceGroups({ force: true }), 1500)
         } else {
-          ElMessage.error(e?.response?.data?.message || t('logs.errors.loadDeviceGroupsFailed'))
+          notifyApiError(e, t('logs.errors.loadDeviceGroupsFailed'))
         }
       } finally {
         loading.value = false
@@ -708,7 +716,7 @@ export default {
         detailFiles.value = data?.data || []
         detailTotal.value = data?.total || 0
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || '加载文件列表失败')
+        notifyApiError(e, t('dataReplay.loadFileListFailed'))
       } finally {
         detailLoading.value = false
       }
@@ -867,20 +875,20 @@ export default {
 
     const batchDownloadDetail = async (format = 'csv') => {
       if (!hasDataReplayManagePermission.value) {
-        ElMessage.error('无权限执行此操作')
+        ElMessage.error(t('dataReplay.noPermission'))
         return
       }
       try {
         const ids = selectedDetailFiles.value.map((r) => r.id).filter(Boolean)
         if (!ids.length) return
         if (ids.length > 10) {
-          ElMessage.warning('批量下载一次最多10条')
+          ElMessage.warning(t('dataReplay.batchDownloadLimit'))
           return
         }
         
         // 超过5个文件时提示用户预计处理时间较长
         if (ids.length > 5) {
-          ElMessage.info(`已选择 ${ids.length} 个文件，打包处理可能需要较长时间，请耐心等待...`)
+          ElMessage.info(t('dataReplay.largeBatchDownloadHint', { count: ids.length }))
         }
         
         // 使用新的批量下载接口（支持格式选择）
@@ -888,7 +896,7 @@ export default {
         const taskId = data?.taskId
         if (!taskId) throw new Error('未返回 taskId')
         
-        ElMessage.info('批量下载任务已创建，正在处理...')
+        ElMessage.info(t('dataReplay.batchDownloadQueued'))
         
         // 轮询任务状态
         const pollInterval = setInterval(async () => {
@@ -907,48 +915,48 @@ export default {
                 const formatName = format === 'csv' ? 'csv' : 'jsonl'
                 const zipName = st?.result?.zipFileName || `motion_data_${formatName}_${selectedDevice.value?.device_id || 'device'}_${ts}.zip`
                 downloadBlob(new Blob([downloadResp.data]), zipName)
-                ElMessage.success('批量下载完成')
+                ElMessage.success(t('dataReplay.batchDownloadCompleted'))
               } catch (downloadErr) {
-                ElMessage.error(downloadErr?.response?.data?.message || '下载结果文件失败')
+                notifyApiError(downloadErr, t('dataReplay.downloadResultFileFailed'))
               }
             } else if (state === 'failed') {
               clearInterval(pollInterval)
               if (timeoutId) clearTimeout(timeoutId)
-              ElMessage.error(st?.error || '批量下载任务失败')
+              ElMessage.error(st?.error || t('dataReplay.batchDownloadTaskFailed'))
             }
             // waiting/active 状态继续轮询
           } catch (pollErr) {
             clearInterval(pollInterval)
             if (timeoutId) clearTimeout(timeoutId)
-            ElMessage.error('查询任务状态失败')
+            notifyApiError(pollErr, t('dataReplay.queryTaskStatusFailed'))
           }
         }, 2000) // 每2秒轮询一次
         
         // CSV 打包大文件可能超过 30s，这里放宽超时，避免误报
         const timeoutId = setTimeout(() => {
           clearInterval(pollInterval)
-          ElMessage.warning('批量下载任务超时，请稍后在任务列表中下载')
+          ElMessage.warning(t('dataReplay.batchDownloadTimeout'))
         }, 180000)
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || '批量下载失败')
+        notifyApiError(e, t('dataReplay.batchDownloadFailed'))
       }
     }
 
     const batchDeleteDetail = async () => {
       if (!hasDataReplayManagePermission.value) {
-        ElMessage.error('无权限执行此操作')
+        ElMessage.error(t('dataReplay.noPermission'))
         return
       }
       try {
         const ids = selectedDetailFiles.value.map((r) => r.id).filter(Boolean)
         if (!ids.length) return
         if (ids.length > 10) {
-          ElMessage.warning('批量删除一次最多10条')
+          ElMessage.warning(t('dataReplay.batchDeleteLimit'))
           return
         }
         await ElMessageBox.confirm(
-          `确定删除选中的 ${ids.length} 条运行数据吗？`,
-          t('logs.messages.batchDeleteConfirm') || '批量删除确认',
+          t('dataReplay.confirmBatchDeleteMotionData', { count: ids.length }),
+          t('logs.messages.batchDeleteConfirm'),
           {
             confirmButtonText: t('shared.confirm'),
             cancelButtonText: t('shared.cancel'),
@@ -958,18 +966,18 @@ export default {
           }
         )
         await api.motionData.batchDeleteFiles(ids)
-        ElMessage.success('已提交批量删除')
+        ElMessage.success(t('dataReplay.batchDeleteSubmitted'))
         selectedDetailFiles.value = []
         clearDetailSelection()
         await fetchDetailFiles(true)
         await loadDeviceGroups({ force: true })
       } catch (e) {
         if (e === 'cancel') return
-        ElMessage.error(e?.response?.data?.message || e?.message || '批量删除失败')
+        notifyApiError(e, t('dataReplay.batchDeleteFailed'))
       }
     }
 
-    const handleExceed = () => { ElMessage.warning('最多只能选择5个文件') }
+    const handleExceed = () => { ElMessage.warning(t('dataReplay.uploadMaxFiles')) }
 
     const openUploadDialog = (deviceId) => {
       uploadDialogVisible.value = true
@@ -1043,12 +1051,12 @@ export default {
     const submitUploadDialog = async () => {
       const deviceId = String(uploadDialogDeviceId.value || '').trim()
       if (!deviceId) {
-        ElMessage.warning('请填写设备编号')
+        ElMessage.warning(t('dataReplay.deviceIdRequired'))
         return
       }
       const raws = (uploadFileList.value || []).map(f => f.raw).filter(Boolean)
       if (!raws.length) {
-        ElMessage.warning('请选择文件')
+        ElMessage.warning(t('dataReplay.selectFiles'))
         return
       }
       
@@ -1092,7 +1100,7 @@ export default {
         }, 1500)
       } catch (e) {
         uploading.value = false
-        ElMessage.error(e?.response?.data?.message || e?.message || '上传失败')
+        notifyApiError(e, t('dataReplay.uploadFailed'))
         await fetchDetailFiles(true)
       }
     }
@@ -1110,28 +1118,28 @@ export default {
 
     const downloadRaw = async (row) => {
       if (!hasDataReplayManagePermission.value) {
-        ElMessage.error('无权限执行此操作')
+        ElMessage.error(t('dataReplay.noPermission'))
         return
       }
       if (String(row.status) !== 'completed') {
-        ElMessage.warning('仅完成状态的文件可以下载原文件')
+        ElMessage.warning(t('dataReplay.onlyCompletedCanDownloadRaw'))
         return
       }
       try {
         const resp = await api.motionData.downloadRaw(row.id)
         downloadBlob(new Blob([resp.data]), row.original_name || `motion-${row.id}.bin`)
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || '下载失败')
+        notifyApiError(e, t('dataReplay.downloadFailed'))
       }
     }
 
     const downloadParsed = async (row, format = 'jsonl') => {
       if (!hasDataReplayManagePermission.value) {
-        ElMessage.error('无权限执行此操作')
+        ElMessage.error(t('dataReplay.noPermission'))
         return
       }
       if (String(row.status) !== 'completed') {
-        ElMessage.warning('仅完成状态的文件可以下载')
+        ElMessage.warning(t('dataReplay.onlyCompletedCanDownload'))
         return
       }
       try {
@@ -1139,27 +1147,27 @@ export default {
         const base = (row.original_name || `motion-${row.id}.bin`).replace(/\.bin$/i, '')
         const ext = format === 'csv' ? '.csv' : '.jsonl.gz'
         downloadBlob(new Blob([resp.data]), `${base}${ext}`)
-        ElMessage.success('下载完成')
+        ElMessage.success(t('dataReplay.downloadCompleted'))
       } catch (e) {
-        ElMessage.error(e?.response?.data?.message || '下载失败')
+        notifyApiError(e, t('dataReplay.downloadFailed'))
       }
     }
 
 
     const deleteFileInDetail = async (row) => {
       if (!hasDataReplayManagePermission.value) {
-        ElMessage.error('无权限执行此操作')
+        ElMessage.error(t('dataReplay.noPermission'))
         return
       }
       const allowedStatuses = ['parse_failed', 'completed', 'file_error', 'processing_failed']
       if (!allowedStatuses.includes(String(row.status))) {
-        ElMessage.warning('只有解析失败、完成、文件错误、处理失败状态的文件可以删除')
+        ElMessage.warning(t('dataReplay.onlyAllowedStatusesCanDelete'))
         return
       }
       try {
         await ElMessageBox.confirm(
-          '确定删除该运行数据吗？',
-          t('shared.messages.deleteConfirmTitle') || '删除确认',
+          t('dataReplay.confirmDeleteMotionData'),
+          t('shared.messages.deleteConfirmTitle'),
           {
             confirmButtonText: t('shared.confirm'),
             cancelButtonText: t('shared.cancel'),
@@ -1169,12 +1177,12 @@ export default {
           }
         )
         await api.motionData.deleteFile(row.id)
-        ElMessage.success('已删除')
+        ElMessage.success(t('shared.messages.deleteSuccess'))
         await fetchDetailFiles()
         await loadDeviceGroups({ force: true })
       } catch (e) {
         if (e === 'cancel') return
-        ElMessage.error(e?.response?.data?.message || '删除失败')
+        notifyApiError(e, t('shared.messages.deleteFailed'))
       }
     }
 

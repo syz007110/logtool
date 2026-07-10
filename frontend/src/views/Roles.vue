@@ -175,6 +175,7 @@ import { InfoFilled, Plus, Search } from '@element-plus/icons-vue'
 import api from '../api'
 import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Roles',
@@ -295,7 +296,7 @@ export default {
         })
       } catch (error) {
         if (!silent) {
-          ElMessage.error(t('roles.loadFailed'))
+          notifyApiError(error, t('roles.loadFailed'))
         } else {
           console.warn('加载角色失败(已静默):', error?.message || error)
         }
@@ -354,7 +355,7 @@ export default {
         console.log('Loaded permission groups:', permissionGroupsMeta.value)
       } catch (e) {
         console.error('Failed to load permissions:', e)
-        ElMessage.error(t('roles.loadPermsFailed'))
+        notifyApiError(e, t('roles.loadPermsFailed'))
       }
     }
     
@@ -415,8 +416,7 @@ export default {
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadRoles({ force: true })
       } catch (error) {
-        const errorMessage = error?.response?.data?.message || error?.message || t('shared.messages.deleteFailed')
-        ElMessage.error(errorMessage)
+        notifyApiError(error, t('shared.messages.deleteFailed'))
         console.error('删除角色失败:', error)
       }
     }
@@ -441,7 +441,7 @@ export default {
         resetForm()
         loadRoles({ force: true })
       } catch (error) {
-        ElMessage.error(t('shared.messages.saveFailed'))
+        notifyApiError(error, t('shared.messages.saveFailed'))
       } finally {
         saving.value = false
       }

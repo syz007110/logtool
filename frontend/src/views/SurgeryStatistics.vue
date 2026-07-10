@@ -419,6 +419,7 @@
 import { ref, reactive, onMounted, nextTick, computed, watch, h, resolveComponent } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { formatTime, formatTimeShort, formatSurgeryTime, loadServerTimezone } from '../utils/timeFormatter'
 import { 
@@ -443,6 +444,7 @@ import { debounce, safeNextTick } from '@/utils/resizeObserverFix'
 import * as echarts from 'echarts'
 
 import api from '@/api'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'SurgeryStatistics',
@@ -464,6 +466,7 @@ export default {
     Refresh
   },
   setup() {
+    const { t } = useI18n()
     // 不需要悬停效果：移除自定义 progressDot 渲染与状态区分
     const store = useStore()
     const router = useRouter()
@@ -624,13 +627,13 @@ export default {
             })
           }
           
-          ElMessage.success(response.data.message || `成功统计出 ${surgeries.value.length} 场手术`)
+          ElMessage.success(response.data.message || t('surgeryStatistics.statsSuccess', { count: surgeries.value.length }))
         } else {
-          ElMessage.error(response.data.message || '统计失败')
+          ElMessage.error(response.data.message || t('surgeryStatistics.statsFailed'))
         }
         
       } catch (error) {
-        ElMessage.error('分析批量日志数据失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('surgeryStatistics.analyzeBatchLogsFailed'))
       } finally {
         analyzing.value = false
       }
@@ -664,12 +667,12 @@ export default {
               postgresqlDataText[surgery.id] = ''
             })
           }
-          ElMessage.success(response.data.message || `成功统计出 ${surgeries.value.length} 场手术`)
+          ElMessage.success(response.data.message || t('surgeryStatistics.statsSuccess', { count: surgeries.value.length }))
         } else {
-          ElMessage.error(response.data.message || '统计失败')
+          ElMessage.error(response.data.message || t('surgeryStatistics.statsFailed'))
         }
       } catch (error) {
-        ElMessage.error('按设备范围分析失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('surgeryStatistics.analyzeDeviceRangeFailed'))
       } finally {
         analyzing.value = false
       }
@@ -702,11 +705,11 @@ export default {
                 })
               }
               
-              ElMessage.success(`成功分析出 ${surgeries.value.length} 场手术`)
+              ElMessage.success(t('surgeryStatistics.analysisSuccess', { count: surgeries.value.length }))
               return
             } else if (task.status === 'failed') {
               // 任务失败
-              ElMessage.error(task.error || '分析任务失败')
+              ElMessage.error(task.error || t('surgeryStatistics.analysisTaskFailed'))
               return
             } else if (task.status === 'processing') {
               // 任务进行中，继续轮询
@@ -716,14 +719,14 @@ export default {
                 await new Promise(resolve => setTimeout(resolve, 5000))
                 await poll()
               } else {
-                ElMessage.error('分析任务超时，请稍后查看结果')
+                ElMessage.error(t('surgeryStatistics.analysisTaskTimeout'))
               }
             }
           } else {
-            ElMessage.error('查询任务状态失败')
+            ElMessage.error(t('surgeryStatistics.queryTaskStatusFailed'))
           }
         } catch (error) {
-          ElMessage.error('查询任务状态失败: ' + error.message)
+          ElMessage.error(t('surgeryStatistics.queryTaskStatusFailedWithMessage', { message: error.message }))
         }
       }
       
@@ -733,27 +736,27 @@ export default {
     
     // 获取时间范围
     const getTimeRange = () => {
-      if (logEntries.value.length === 0) return '无数据'
+      if (logEntries.value.length === 0) return t('shared.noData')
       
       const timestamps = logEntries.value.map(entry => new Date(entry.timestamp))
       const minTime = new Date(Math.min(...timestamps))
       const maxTime = new Date(Math.max(...timestamps))
       
-      return `${formatTimeShort(minTime)} 至 ${formatTimeShort(maxTime)}`
+      return t('surgeryStatistics.timeRangeValue', { start: formatTimeShort(minTime), end: formatTimeShort(maxTime) })
     }
 
     // 获取分析按钮文本
     const getAnalysisButtonText = () => {
       if (logEntriesCount.value === 0) {
-        return '请先加载日志条目数据'
+        return t('surgeryStatistics.loadLogEntriesFirst')
       }
-              return `统计日志条目 (${logEntriesCount.value})`
+              return t('surgeryStatistics.analyzeLogEntriesCount', { count: logEntriesCount.value })
     }
 
           // 统计日志数据
     const analyzeLogs = async () => {
       if (logEntries.value.length === 0) {
-        ElMessage.warning('暂无日志数据，请先在批量查看或日志查看页面加载日志数据')
+        ElMessage.warning(t('surgeryStatistics.noLogsHint'))
         return
       }
       
@@ -767,7 +770,7 @@ export default {
         let analysisData = logEntries.value
         
         if (dataSize > maxSize) {
-          ElMessage.warning(`数据量较大(${(dataSize / 1024 / 1024).toFixed(1)}MB)，将进行数据采样以提高统计速度`)
+          ElMessage.warning(t('surgeryStatistics.largeDataSamplingHint', { size: (dataSize / 1024 / 1024).toFixed(1) }))
           
           // 数据采样：保留关键数据点
           const sampleSize = Math.floor(maxSize / (dataSize / logEntries.value.length))
@@ -805,12 +808,12 @@ export default {
             })
           }
           
-          ElMessage.success(`手术数据统计完成，共发现 ${surgeries.value.length} 场手术`)
+          ElMessage.success(t('surgeryStatistics.statsCompleted', { count: surgeries.value.length }))
         } else {
-          ElMessage.error(response.data.message || '统计失败')
+          ElMessage.error(response.data.message || t('surgeryStatistics.statsFailed'))
         }
       } catch (error) {
-        ElMessage.error('统计日志数据失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('surgeryStatistics.analyzeLogDataFailed'))
       } finally {
         analyzing.value = false
       }
@@ -821,14 +824,14 @@ export default {
       try {
         const response = await api.surgeryStatistics.exportSingleSurgeryData(surgeryId)
         if (response.data.success) {
-          ElMessage.success('手术结构化数据导出成功')
+          ElMessage.success(t('surgeryStatistics.exportStructuredSuccess'))
           // 可以在这里添加下载功能
           console.log('导出的结构化数据:', response.data.data)
         } else {
-          ElMessage.error(response.data.message || '导出失败')
+          ElMessage.error(response.data.message || t('shared.messages.exportFailed'))
         }
       } catch (error) {
-        ElMessage.error('导出手术数据失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('surgeryStatistics.exportSurgeryDataFailed'))
       }
     }
 
@@ -989,7 +992,7 @@ export default {
         arms.push({
           arm_id: i,
           instrument_usage: armUsage.map(usage => ({
-            tool_type: usage.instrumentName || usage.tool_type || '未知器械',
+            tool_type: usage.instrumentName || usage.tool_type || t('shared.unknownInstrument'),
             udi: usage.udi || '',
             start_time: formatUtcForDatabase(usage.startTime || usage.start_time),
             end_time: formatUtcForDatabase(usage.endTime || usage.end_time),
@@ -1038,13 +1041,13 @@ export default {
         const text = postgresqlDataText[surgeryId]
         if (text) {
           await navigator.clipboard.writeText(text)
-          ElMessage.success('PostgreSQL数据已复制到剪贴板')
+          ElMessage.success(t('surgeryStatistics.postgresCopied'))
         } else {
-          ElMessage.warning('没有可复制的数据')
+          ElMessage.warning(t('surgeryStatistics.noCopyData'))
         }
       } catch (error) {
         console.error('复制失败:', error)
-        ElMessage.error('复制失败: ' + error.message)
+        ElMessage.error(t('surgeryStatistics.copyFailedWithMessage', { message: error.message }))
       } finally {
         copyingData[surgeryId] = false
       }
@@ -1055,10 +1058,10 @@ export default {
       refreshingData[surgeryId] = true
       try {
         generatePostgreSQLData(surgeryId)
-        ElMessage.success('PostgreSQL数据已刷新')
+        ElMessage.success(t('surgeryStatistics.postgresRefreshed'))
       } catch (error) {
         console.error('刷新失败:', error)
-        ElMessage.error('刷新失败: ' + error.message)
+        ElMessage.error(t('surgeryStatistics.refreshFailedWithMessage', { message: error.message }))
       } finally {
         refreshingData[surgeryId] = false
       }
@@ -1152,11 +1155,11 @@ export default {
           (armUsage || []).forEach(u => {
             if (!u) return
             if (!u.startTime || !u.endTime) return
-            const udi = u.udi || '未知'
-            const key = `${udi}__${u.instrumentName || '未知器械'}`
+            const udi = u.udi || t('surgeryStatistics.unknown')
+            const key = `${udi}__${u.instrumentName || t('shared.unknownInstrument')}`
             if (!grouped.has(key)) {
               grouped.set(key, {
-                instrumentName: u.instrumentName || '未知器械',
+                instrumentName: u.instrumentName || t('shared.unknownInstrument'),
                 udi: udi,
                 segments: []
               })
@@ -1193,7 +1196,7 @@ export default {
 
     // 获取工具臂总时间
     const getArmTotalTime = (armUsage) => {
-      if (!armUsage || armUsage.length === 0) return '0分钟'
+      if (!armUsage || armUsage.length === 0) return t('surgeryStatistics.minutesValue', { minutes: 0 })
       
       // 计算所有完整使用时间段的总时长
       const totalMinutes = armUsage
@@ -1203,7 +1206,7 @@ export default {
           return total + duration
         }, 0)
       
-      return `${totalMinutes}分钟`
+      return t('surgeryStatistics.minutesValue', { minutes: totalMinutes })
     }
 
     // 获取报警类型标签类型
@@ -1723,15 +1726,15 @@ export default {
       
       powerOnTimes.forEach((time, index) => {
         // 检查是否为连台手术，如果是则显示"上一场手术结束时间"
-        let label = '开机'
+        let label = t('surgeryStatistics.powerOn')
         let displayTime = time
         
         if (surgery.is_consecutive_surgery && index === 0 && surgery.previous_surgery_end_time) {
           // 连台手术：使用上一场手术结束时间而不是开机时间
-          label = '上一场手术结束时间'
+          label = t('surgeryStatistics.previousSurgeryEndTime')
           displayTime = surgery.previous_surgery_end_time
         } else if (powerOnTimes.length > 1) {
-          label = `开机 ${index + 1}`
+          label = t('surgeryStatistics.powerOnIndexed', { index: index + 1 })
         }
         
         events.push({
@@ -1748,7 +1751,7 @@ export default {
         events.push({
           time: new Date(surgery.surgery_start_time),
           type: 'surgeryStart',
-          label: '手术开始',
+          label: t('surgeryStatistics.surgeryStart'),
           color: 'blue',
           icon: 'VideoPlay'
         })
@@ -1759,7 +1762,7 @@ export default {
         events.push({
           time: new Date(surgery.surgery_end_time),
           type: 'surgeryEnd',
-          label: '手术结束',
+          label: t('surgeryStatistics.surgeryEnd'),
           color: 'orange',
           icon: 'VideoPause'
         })
@@ -1771,7 +1774,7 @@ export default {
         events.push({
           time: new Date(time),
           type: 'powerOff',
-          label: powerOffTimes.length > 1 ? `关机 ${index + 1}` : '关机',
+          label: powerOffTimes.length > 1 ? t('surgeryStatistics.powerOffIndexed', { index: index + 1 }) : t('surgeryStatistics.powerOff'),
           color: 'red',
           icon: 'PowerOff'
         })
@@ -1955,7 +1958,7 @@ export default {
          const widthPercent = parseFloat(width);
          
          // 获取器械名称
-         const instrumentName = usage.instrumentName || '器械';
+         const instrumentName = usage.instrumentName || t('surgeryStatistics.instrument');
          
          // 计算所需的最小宽度（每个字符约1.5%宽度，加上一些边距）
          const minWidthPerChar = 1.5;
@@ -2008,10 +2011,10 @@ export default {
         return usageStart < endTime && usageEnd > startTime
       })
       
-      if (instrumentsInSegment.length === 0) return '无器械使用'
+      if (instrumentsInSegment.length === 0) return t('surgeryStatistics.noInstrumentUsage')
       
       // 返回第一个找到的器械名称
-      return instrumentsInSegment[0].instrumentName || '未知器械'
+      return instrumentsInSegment[0].instrumentName || t('shared.unknownInstrument')
     }
 
     

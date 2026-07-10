@@ -27,6 +27,27 @@ const i18n = createI18n({
   fallbackWarn: false // 禁用回退警告
 })
 
+const readMessageByPath = (messages, path) => {
+  if (!messages || !path) return undefined
+  return String(path).split('.').reduce((current, key) => {
+    if (!current || typeof current !== 'object') return undefined
+    return current[key]
+  }, messages)
+}
+
+export const hasI18nKey = (key, locale = getCurrentLocale()) => {
+  const messages = i18n.global.getLocaleMessage(locale)
+  if (readMessageByPath(messages, key) !== undefined) return true
+
+  const fallbackMessages = i18n.global.getLocaleMessage(i18n.global.fallbackLocale || 'zh-CN')
+  return readMessageByPath(fallbackMessages, key) !== undefined
+}
+
+export const safeT = (key, fallback = '', params) => {
+  if (!hasI18nKey(key)) return fallback || String(key)
+  return params ? i18n.global.t(key, params) : i18n.global.t(key)
+}
+
 export const loadLocaleMessages = async (locale) => {
   const target = locale === 'en' ? 'en-US' : locale
   if (!i18n.global.getLocaleMessage(target) || Object.keys(i18n.global.getLocaleMessage(target) || {}).length === 0) {

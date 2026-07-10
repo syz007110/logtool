@@ -1,8 +1,8 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
 import store from '../store'
 import router from '../router'
 import i18nInstance from '../i18n'
+import { normalizeApiError, notifyApiError } from '../utils/apiError'
 
 function getCookieValue (name) {
   const escaped = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -76,6 +76,7 @@ api.interceptors.response.use(
   response => response,
   async error => {
     const silent = error.config?._silentError === true
+    normalizeApiError(error)
     // 静默请求仍须对 401 走刷新重试（如 SmartSearch 知识库配图），否则 token 将过期时所有 _silentError 请求直接失败且无刷新
     if (silent && (!error.response || error.response.status !== 401)) {
       return Promise.reject(error)
@@ -84,23 +85,19 @@ api.interceptors.response.use(
       const { status, data } = error.response
       switch (status) {
         case 423:
-          if (!silent) {
-            if (error.config?.url?.includes('/auth/login')) {
-              const mins = Math.ceil((data?.retryAfter ?? 900) / 60)
-              ElMessage.error(data?.message || i18nInstance.global.t('auth.loginLocked', { minutes: mins }))
-            } else {
-              ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
-            }
+          if (!silent && error.config?.url?.includes('/auth/login')) {
+            const mins = Math.ceil((data?.retryAfter ?? 900) / 60)
+            notifyApiError(error, data?.message || i18nInstance.global.t('auth.loginLocked', { minutes: mins }))
           }
           break
         case 401:
           if (error.config?.url?.includes('/auth/login')) {
             if (!silent) {
-              ElMessage.error(data?.message || i18nInstance.global.t('auth.invalidCredentials'))
+              notifyApiError(error, data?.message || i18nInstance.global.t('auth.invalidCredentials'))
             }
           } else if (error.config?.url?.includes('/auth/refresh')) {
             if (!silent) {
-              ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+              notifyApiError(error, i18nInstance.global.t('auth.tokenExpired'))
             }
             store.dispatch('auth/logout')
             router.push('/login')
@@ -116,41 +113,22 @@ api.interceptors.response.use(
               return api.request(error.config)
             } catch (_) {
               if (!silent) {
-                ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+                notifyApiError(error, i18nInstance.global.t('auth.tokenExpired'))
               }
               store.dispatch('auth/logout')
               router.push('/login')
             }
           } else {
             if (!silent) {
-              ElMessage.error(i18nInstance.global.t('auth.tokenExpired'))
+              notifyApiError(error, i18nInstance.global.t('auth.tokenExpired'))
             }
             store.dispatch('auth/logout')
             router.push('/login')
           }
           break
-        case 403:
-          if (!silent) {
-            ElMessage.error(i18nInstance.global.t('auth.insufficientPermissions'))
-          }
-          break
-        case 404:
-          if (!silent) {
-            ElMessage.error(data?.message || i18nInstance.global.t('shared.resourceNotFound'))
-          }
-          break
-        case 500:
-          if (!silent) {
-            ElMessage.error(i18nInstance.global.t('shared.serverError'))
-          }
-          break
         default:
-          if (!silent) {
-            ElMessage.error(data?.message || i18nInstance.global.t('shared.requestFailed'))
-          }
+          break
       }
-    } else if (!silent) {
-      ElMessage.error(i18nInstance.global.t('shared.networkError'))
     }
     return Promise.reject(error)
   }

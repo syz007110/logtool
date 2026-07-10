@@ -17,17 +17,17 @@
             <div class="da-card-icon">
               <el-icon><VideoPlay /></el-icon>
             </div>
-            <div class="da-card-title">{{ $t('dataAnalysis.surgeryVideo') || 'Surgery Video' }}</div>
-            <div class="da-card-subtitle">{{ $t('dataAnalysis.clickToSelectDataSource') || 'Click to select data source' }}</div>
+            <div class="da-card-title">{{ $t('dataAnalysis.surgeryVideo') }}</div>
+            <div class="da-card-subtitle">{{ $t('dataAnalysis.clickToSelectDataSource') }}</div>
           </div>
 
           <div class="da-empty-card da-card-logs" @click="openSelectionDialog('logs')">
             <div class="da-card-icon">
               <el-icon><Document /></el-icon>
             </div>
-            <div class="da-card-title">{{ $t('dataAnalysis.surgeryLogs') || 'Surgery Logs' }}</div>
+            <div class="da-card-title">{{ $t('dataAnalysis.surgeryLogs') }}</div>
             <div class="da-card-subtitle">
-              {{ $t('dataAnalysis.selectLogToSync') || 'Select a log file to automatically load linked video and sensor data' }}
+              {{ $t('dataAnalysis.selectLogToSync') }}
             </div>
           </div>
 
@@ -35,8 +35,8 @@
             <div class="da-card-icon">
               <el-icon><TrendCharts /></el-icon>
             </div>
-            <div class="da-card-title">{{ $t('dataAnalysis.operationalData') || 'Operational Data' }}</div>
-            <div class="da-card-subtitle">{{ $t('dataAnalysis.visualizationOfDeviceParameters') || 'Visualization of device parameters' }}</div>
+            <div class="da-card-title">{{ $t('dataAnalysis.operationalData') }}</div>
+            <div class="da-card-subtitle">{{ $t('dataAnalysis.visualizationOfDeviceParameters') }}</div>
           </div>
         </div>
       </div>
@@ -47,32 +47,32 @@
           <!-- 视频区域：可折叠，折叠后运行数据占满左侧 -->
           <div class="video-section" :class="{ 'is-collapsed': videoCollapsed }">
             <div class="video-section-bar">
-              <span class="video-section-bar-title">{{ $t('dataAnalysis.surgeryVideo') || 'Surgery Video' }}</span>
+              <span class="video-section-bar-title">{{ $t('dataAnalysis.surgeryVideo') }}</span>
               <div class="video-section-bar-actions">
                 <template v-if="!videoCollapsed">
                   <el-button v-if="videoSource && (hasLogsData || hasMotionData)" size="small" @click="showVideoTimeConfigDialog = true">
                     <el-icon><Clock /></el-icon>
-                    {{ $t('dataAnalysis.configTimeline') || '配置时间轴' }}
+                    {{ $t('dataAnalysis.configTimeline') }}
                   </el-button>
                   <el-button v-if="videoSource" size="small" @click="clearVideo">
                     <el-icon><Delete /></el-icon>
-                    {{ $t('shared.clear') || '清空' }}
+                    {{ $t('shared.clear') }}
                   </el-button>
                   <el-button size="small" text @click="videoCollapsed = true">
                     <el-icon><Fold /></el-icon>
-                    {{ $t('shared.collapse') || '折叠' }}
+                    {{ $t('shared.collapse') }}
                   </el-button>
                 </template>
                 <el-button v-else size="small" text @click="videoCollapsed = false">
                   <el-icon><Expand /></el-icon>
-                  {{ $t('shared.expand') || '展开' }}
+                  {{ $t('shared.expand') }}
                 </el-button>
               </div>
             </div>
             <div v-show="!videoCollapsed" class="video-section-content">
               <div v-if="!videoSource" class="video-placeholder" @click="triggerLocalVideoPicker">
                 <el-icon><VideoPlay /></el-icon>
-                <span>{{ $t('dataAnalysis.addVideo') || '添加视频' }}</span>
+                <span>{{ $t('dataAnalysis.addVideo') }}</span>
               </div>
               <template v-else>
                 <video
@@ -102,9 +102,9 @@
               v-if="hasLogsData && !hasMotionData && motionMatchNotFound"
               class="motion-bar-not-found"
             >
-              <span class="motion-bar-not-found-title">{{ $t('dataAnalysis.operationalData') || '运行数据' }}</span>
+              <span class="motion-bar-not-found-title">{{ $t('dataAnalysis.operationalData') }}</span>
               <span class="motion-bar-not-found-hint">
-                {{ $t('dataAnalysis.motionNotFoundShortHint') || '未找到对应时间段，无法手动添加' }}
+                {{ $t('dataAnalysis.motionNotFoundShortHint') }}
               </span>
             </div>
             <!-- 未添加运行数据且非“未找到”态：大卡片，可点击添加 -->
@@ -117,14 +117,14 @@
               <div class="da-card-icon">
                 <el-icon><TrendCharts /></el-icon>
               </div>
-              <div class="da-card-title">{{ $t('dataAnalysis.operationalData') || 'Operational Data' }}</div>
-              <div class="da-card-subtitle">{{ $t('dataAnalysis.visualizationOfDeviceParameters') || 'Visualization of device parameters' }}</div>
+              <div class="da-card-title">{{ $t('dataAnalysis.operationalData') }}</div>
+              <div class="da-card-subtitle">{{ $t('dataAnalysis.visualizationOfDeviceParameters') }}</div>
             </div>
             <!-- 已添加运行数据时显示图表区域 -->
             <template v-else>
               <div class="motion-header">
                 <div class="motion-title">
-                  {{ $t('dataAnalysis.operationalData') || '运行数据' }}
+                  {{ $t('dataAnalysis.operationalData') }}
                   <span v-if="selectedMotionFile" class="motion-subtitle">
                     {{ motionSelectedLabel }}
                   </span>
@@ -133,16 +133,16 @@
                   <template v-if="!motionCollapsed">
                     <el-button size="small" @click="clearMotion">
                       <el-icon><Delete /></el-icon>
-                      {{ $t('shared.clear') || '清空' }}
+                      {{ $t('shared.clear') }}
                     </el-button>
                     <el-button size="small" text @click="motionCollapsed = true">
                       <el-icon><Fold /></el-icon>
-                      {{ $t('shared.collapse') || '折叠' }}
+                      {{ $t('shared.collapse') }}
                     </el-button>
                   </template>
                   <el-button v-else size="small" text @click="motionCollapsed = false">
                     <el-icon><Expand /></el-icon>
-                    {{ $t('shared.expand') || '展开' }}
+                    {{ $t('shared.expand') }}
                   </el-button>
                 </div>
               </div>
@@ -152,8 +152,8 @@
                 <div class="motion-grid">
                   <div v-for="(slot, idx) in motionSlots" :key="slot.id" class="motion-slot">
                     <div class="motion-slot-toolbar">
-                      <el-button size="small" @click.stop="openMotionSlotConfig(idx)">{{ $t('dataAnalysis.configure') || '配置' }}</el-button>
-                      <el-button size="small" type="danger" plain @click.stop="clearMotionSlot(idx)">{{ $t('shared.clear') || '清空' }}</el-button>
+                      <el-button size="small" @click.stop="openMotionSlotConfig(idx)">{{ $t('dataAnalysis.configure') }}</el-button>
+                      <el-button size="small" type="danger" plain @click.stop="clearMotionSlot(idx)">{{ $t('shared.clear') }}</el-button>
                     </div>
                     <div class="motion-slot-body">
                       <div
@@ -162,10 +162,10 @@
                         @click="openMotionSlotConfig(idx)"
                       >
                         <template v-if="!motionRawRows.length">
-                          + {{ $t('dataAnalysis.addMotionData') || '添加运行数据' }}
+                          + {{ $t('dataAnalysis.addMotionData') }}
                         </template>
                         <template v-else>
-                          + {{ $t('dataAnalysis.addChart') || '添加曲线图' }}
+                          + {{ $t('dataAnalysis.addChart') }}
                         </template>
                       </div>
                       <MotionTimeSeriesChart
@@ -198,7 +198,7 @@
             <div class="da-card-icon">
               <el-icon><Document /></el-icon>
             </div>
-            <div class="da-card-title">{{ $t('dataAnalysis.surgeryLogs') || 'Surgery Logs' }}</div>
+            <div class="da-card-title">{{ $t('dataAnalysis.surgeryLogs') }}</div>
             <div v-if="!(hasMotionData && logMatchNotFound)" class="da-card-subtitle">
               {{ $t('dataAnalysis.selectLogToSync') }}
             </div>
@@ -218,13 +218,13 @@
                 <h3>{{ $t('dataAnalysis.logs') }}</h3>
                 <el-button size="small" @click="clearLogs">
                   <el-icon><Delete /></el-icon>
-                  {{ $t('shared.clear') || '清空' }}
+                  {{ $t('shared.clear') }}
                 </el-button>
               </div>
               <div class="logs-header-actions">
                 <el-input
                   v-model="logFilter"
-                  :placeholder="$t('dataAnalysis.searchFaultCode') || '搜索故障码'"
+                  :placeholder="$t('dataAnalysis.searchFaultCode')"
                   clearable
                   class="log-filter-input"
                 >
@@ -248,7 +248,7 @@
                 @click="canAddLog ? openSelectionDialog('logs') : null"
               >
                 <el-icon><Document /></el-icon>
-                <span>+ {{ $t('dataAnalysis.addLogs') || '添加日志' }}</span>
+                <span>+ {{ $t('dataAnalysis.addLogs') }}</span>
               </div>
             <VirtualTable
               v-else
@@ -298,7 +298,7 @@
         <!-- 左侧：设备分组列表 -->
         <div class="selection-left-panel">
           <div class="panel-header">
-            <h4>{{ $t('dataAnalysis.deviceList') || '设备列表' }}</h4>
+            <h4>{{ $t('dataAnalysis.deviceList') }}</h4>
             <!-- 设备编号筛选器 -->
             <div class="filter-input-wrapper">
               <el-input
@@ -327,14 +327,14 @@
                 @current-change="onDeviceRowClick"
                 @row-click="onDeviceRowClick"
               >
-              <el-table-column prop="device_id" :label="$t('logs.deviceId') || '设备编号'" min-width="200">
+              <el-table-column prop="device_id" :label="$t('logs.deviceId')" min-width="200">
                 <template #default="{ row }">
                   <div class="min-w-0">
                     <span class="one-line-ellipsis" :title="row.device_id">{{ row.device_id }}</span>
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column prop="log_count" :label="$t('logs.logCount') || '日志数量'" width="120" align="center">
+              <el-table-column prop="log_count" :label="$t('logs.logCount')" width="120" align="center">
                 <template #default="{ row }">
                   <el-tag type="info" size="small">{{ row.log_count }}</el-tag>
                 </template>
@@ -360,7 +360,7 @@
         <!-- 右侧：日志文件列表 -->
         <div class="selection-right-panel">
           <div class="panel-header">
-            <h4>{{ $t('dataAnalysis.logFileList') || '日志文件列表' }}</h4>
+            <h4>{{ $t('dataAnalysis.logFileList') }}</h4>
             <!-- 时间筛选器 -->
             <div class="time-filter-bar" :class="{ 'filter-placeholder': !selectedDeviceForLogs }">
               <template v-if="selectedDeviceForLogs">
@@ -426,7 +426,7 @@
           </div>
           <div class="panel-content">
             <div v-if="!selectedDeviceForLogs" class="empty-hint">
-              <el-empty :description="$t('dataAnalysis.selectDeviceFirst') || '请先选择设备'" />
+              <el-empty :description="$t('dataAnalysis.selectDeviceFirst')" />
             </div>
             <div v-else class="log-file-table-container">
               <el-table
@@ -438,7 +438,7 @@
                 row-key="id"
               >
                 <el-table-column type="selection" width="55" :selectable="checkLogSelectable" />
-                <el-table-column prop="original_name" :label="$t('logs.logFilename') || '日志文件名'" min-width="240">
+                <el-table-column prop="original_name" :label="$t('logs.logFilename')" min-width="240">
                   <template #default="{ row }">
                     <span class="one-line-ellipsis" :title="row.original_name || row.filename">{{ row.original_name || row.filename }}</span>
                   </template>
@@ -496,7 +496,7 @@
           :loading="loading"
           :disabled="selectedLogFiles.length === 0"
         >
-          {{ $t('dataAnalysis.loadData') || '加载数据' }}
+          {{ $t('dataAnalysis.loadData') }}
         </el-button>
       </template>
     </el-dialog>
@@ -508,7 +508,7 @@
       class="da-auto-motion-pick-dialog"
     >
       <template #header>
-        <div class="dialog-title">{{ $t('dataAnalysis.motionPickTitle') || '发现多个运行数据文件，请选择（最多5个）' }}</div>
+        <div class="dialog-title">{{ $t('dataAnalysis.motionPickTitle') }}</div>
       </template>
       <div class="auto-pick-body">
         <el-table
@@ -519,7 +519,7 @@
           @selection-change="onAutoMotionSelectionChange"
         >
           <el-table-column type="selection" width="55" :selectable="checkMotionSelectable" :reserve-selection="true" />
-          <el-table-column prop="original_name" :label="$t('dataReplay.fileName') || '运行数据文件名'" min-width="240">
+          <el-table-column prop="original_name" :label="$t('dataReplay.fileName')" min-width="240">
             <template #default="{ row }">
               <span class="one-line-ellipsis" :title="row.original_name || row.filename">{{ row.original_name || row.filename }}</span>
             </template>
@@ -533,18 +533,18 @@
           </el-table-column>
         </el-table>
         <div v-if="autoMotionPickedIds.length > 0" class="auto-pick-count">
-          {{ $t('dataAnalysis.selectedCount') || '已选择' }}: {{ autoMotionPickedIds.length }} / 5
+          {{ $t('dataAnalysis.selectedCount') }}: {{ autoMotionPickedIds.length }} / 5
         </div>
       </div>
       <template #footer>
-        <el-button @click="showAutoMotionPickDialog = false" :disabled="loading">{{ $t('shared.cancel') || '取消' }}</el-button>
+        <el-button @click="showAutoMotionPickDialog = false" :disabled="loading">{{ $t('shared.cancel') }}</el-button>
         <el-button
           type="primary"
           :loading="loading"
           :disabled="autoMotionPickedIds.length === 0"
           @click="confirmAutoMotionPick"
         >
-          {{ $t('dataAnalysis.loadData') || '加载数据' }}
+          {{ $t('dataAnalysis.loadData') }}
         </el-button>
       </template>
     </el-dialog>
@@ -560,7 +560,7 @@
         <!-- 左侧：设备分组列表 -->
         <div class="selection-left-panel">
           <div class="panel-header">
-            <h4>{{ $t('dataAnalysis.deviceList') || '设备列表' }}</h4>
+            <h4>{{ $t('dataAnalysis.deviceList') }}</h4>
             <!-- 设备编号筛选器 -->
             <div class="filter-input-wrapper">
               <el-input
@@ -589,14 +589,14 @@
                 @current-change="onMotionDeviceRowClick"
                 @row-click="onMotionDeviceRowClick"
               >
-              <el-table-column prop="device_id" :label="$t('logs.deviceId') || '设备编号'" min-width="200">
+              <el-table-column prop="device_id" :label="$t('logs.deviceId')" min-width="200">
                 <template #default="{ row }">
                   <div class="min-w-0">
                     <span class="one-line-ellipsis" :title="row.device_id">{{ row.device_id }}</span>
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column prop="data_count" :label="$t('dataReplay.dataCount') || '数据数量'" width="120" align="center">
+              <el-table-column prop="data_count" :label="$t('dataReplay.dataCount')" width="120" align="center">
                 <template #default="{ row }">
                   <el-tag type="info" size="small">{{ row.data_count }}</el-tag>
                 </template>
@@ -622,7 +622,7 @@
         <!-- 右侧：运行数据文件列表 -->
         <div class="selection-right-panel">
           <div class="panel-header">
-            <h4>{{ $t('dataAnalysis.motionFileList') || '运行数据文件列表' }}</h4>
+            <h4>{{ $t('dataAnalysis.motionFileList') }}</h4>
             <!-- 时间筛选器（参考运行数据管理页的设备详细列表） -->
             <div class="time-filter-bar" :class="{ 'filter-placeholder': !selectedDeviceForMotion }">
               <template v-if="selectedDeviceForMotion">
@@ -688,7 +688,7 @@
           </div>
           <div class="panel-content">
             <div v-if="!selectedDeviceForMotion" class="empty-hint">
-              <el-empty :description="$t('dataAnalysis.selectDeviceFirst') || '请先选择设备'" />
+              <el-empty :description="$t('dataAnalysis.selectDeviceFirst')" />
             </div>
             <div v-else class="log-file-table-container">
               <el-table
@@ -700,7 +700,7 @@
                 row-key="id"
               >
                 <el-table-column type="selection" width="55" :selectable="checkMotionSelectable" :reserve-selection="true" />
-                <el-table-column prop="original_name" :label="$t('dataReplay.fileName') || '运行数据文件名'" min-width="240">
+                <el-table-column prop="original_name" :label="$t('dataReplay.fileName')" min-width="240">
                   <template #default="{ row }">
                     <span class="one-line-ellipsis" :title="row.original_name || row.filename">{{ row.original_name || row.filename }}</span>
                   </template>
@@ -758,7 +758,7 @@
           :loading="loading"
           :disabled="motionDialogSelectedFiles.length === 0"
         >
-          {{ $t('dataAnalysis.loadData') || '加载数据' }}
+          {{ $t('dataAnalysis.loadData') }}
         </el-button>
       </template>
     </el-dialog>
@@ -767,7 +767,7 @@
     <el-dialog
       v-model="showMotionConfigDrawer"
       width="49%"
-      :title="$t('dataAnalysis.configure') || '配置曲线图'"
+      :title="$t('dataAnalysis.configure')"
       class="da-motion-config-dialog"
       @close="onMotionConfigDialogClose"
     >
@@ -787,8 +787,8 @@
         <div class="motion-config-step-content">
           <!-- 步骤1：选择对象 -->
           <div v-if="motionConfigStep === 0" class="step-panel">
-            <div class="step-title">请选择对象</div>
-            <div class="step-hint">选择要配置的对象（如左手、右手、工具臂等）</div>
+            <div class="step-title">{{ $t('dataAnalysis.pleaseSelectSubject') }}</div>
+            <div class="step-hint">{{ $t('dataAnalysis.selectSubjectHint') }}</div>
             <div class="motion-subject-grid">
               <div
                 v-for="subject in motionClassifiedSubjects"
@@ -797,16 +797,16 @@
                 :class="{ active: motionPickSubject === subject }"
                 @click="motionPickSubject = subject"
               >
-                <div class="subject-name">{{ subject }}</div>
-                <div class="subject-count">{{ getSubjectCategoryCount(subject) }} 种数据类型</div>
+                <div class="subject-name">{{ translateClassifiedSubject(subject) }}</div>
+                <div class="subject-count">{{ $t('dataAnalysis.dataTypeCount', { count: getSubjectCategoryCount(subject) }) }}</div>
               </div>
             </div>
           </div>
 
           <!-- 步骤2：选择数据类型 -->
           <div v-if="motionConfigStep === 1" class="step-panel">
-            <div class="step-title">请选择数据类型</div>
-            <div class="step-hint">选择要显示的数据类型（如关节位置、速度、力矩等）</div>
+            <div class="step-title">{{ $t('dataAnalysis.pleaseSelectDataType') }}</div>
+            <div class="step-hint">{{ $t('dataAnalysis.selectDataTypeHint') }}</div>
             <div class="motion-category-grid">
               <div
                 v-for="category in motionClassifiedCategories"
@@ -815,19 +815,19 @@
                 :class="{ active: motionPickCategory === category }"
                 @click="motionPickCategory = category"
               >
-                <div class="category-name">{{ category }}</div>
-                <div class="category-count">{{ getCategoryVariableCount(motionPickSubject, category) }} 个变量</div>
+                <div class="category-name">{{ translateClassifiedCategory(category) }}</div>
+                <div class="category-count">{{ $t('dataAnalysis.variableCount', { count: getCategoryVariableCount(motionPickSubject, category) }) }}</div>
               </div>
             </div>
           </div>
 
           <!-- 步骤3：选择变量 -->
           <div v-if="motionConfigStep === 2" class="step-panel">
-            <div class="step-title">请选择变量（可多选）</div>
-            <div class="step-hint">选择要显示的变量，支持多选</div>
+            <div class="step-title">{{ $t('dataAnalysis.pleaseSelectVariables') }}</div>
+            <div class="step-hint">{{ $t('dataAnalysis.selectVariablesHint') }}</div>
             <div class="motion-variable-list">
               <div v-if="motionClassifiedVariables.length === 0" class="motion-field-empty">
-                {{ $t('shared.noData') || '暂无数据' }}
+                {{ $t('shared.noData') }}
               </div>
               <el-checkbox-group v-else v-model="motionPickFieldIndexes" class="motion-variable-checkbox-group">
                 <el-checkbox
@@ -846,15 +846,15 @@
 
       <template #footer>
         <div class="motion-config-footer">
-          <el-button @click="showMotionConfigDrawer = false">{{ $t('shared.cancel') || '取消' }}</el-button>
-          <el-button v-if="motionConfigStep > 0" @click="motionConfigStep--">{{ $t('shared.prev') || '上一步' }}</el-button>
+          <el-button @click="showMotionConfigDrawer = false">{{ $t('shared.cancel') }}</el-button>
+          <el-button v-if="motionConfigStep > 0" @click="motionConfigStep--">{{ $t('shared.prev') }}</el-button>
           <el-button
             v-if="motionConfigStep < 2"
             type="primary"
             :disabled="!canGoNextStep"
             @click="handleMotionConfigNext"
           >
-            {{ $t('shared.next') || '下一步' }}
+            {{ $t('shared.next') }}
           </el-button>
           <el-button
             v-if="motionConfigStep === 2"
@@ -873,22 +873,22 @@
     <el-dialog
       v-model="showVideoTimeConfigDialog"
       width="500px"
-      :title="$t('dataAnalysis.configTimeline') || '配置时间轴'"
+      :title="$t('dataAnalysis.configTimeline')"
       @close="onVideoTimeConfigDialogClose"
     >
       <div class="video-time-config-content">
         <el-form :model="videoTimeConfigForm" label-width="180px">
-          <el-form-item :label="$t('dataAnalysis.currentVideoProgress') || '当前视频进度'">
+          <el-form-item :label="$t('dataAnalysis.currentVideoProgress')">
             <div class="current-time-display">
               {{ formatConfigDialogVideoProgress(configDialogVideoCurrentTime) }}
             </div>
           </el-form-item>
-          <el-form-item :label="$t('dataAnalysis.currentFrameTime') || '当前画面对应的实际时间'">
+          <el-form-item :label="$t('dataAnalysis.currentFrameTime')">
             <template v-if="videoConfigTimeRange">
               <el-select
                 v-if="videoConfigIsCrossDay"
                 v-model="videoTimeConfigForm.selectedDate"
-                :placeholder="$t('dataAnalysis.selectDate') || '选择日期'"
+                :placeholder="$t('dataAnalysis.selectDate')"
                 style="width: 100%; margin-bottom: 8px"
               >
                 <el-option
@@ -906,7 +906,7 @@
               v-model="videoTimeConfigForm.startTime"
               format="HH:mm:ss"
               value-format="HH:mm:ss"
-              :placeholder="$t('dataAnalysis.selectStartTime') || '选择该时刻'"
+              :placeholder="$t('dataAnalysis.selectStartTime')"
               :disabled-hours="videoConfigDisabledHours"
               :disabled-minutes="videoConfigDisabledMinutes"
               :disabled-seconds="videoConfigDisabledSeconds"
@@ -916,9 +916,9 @@
         </el-form>
       </div>
       <template #footer>
-        <el-button @click="showVideoTimeConfigDialog = false">{{ $t('shared.cancel') || '取消' }}</el-button>
+        <el-button @click="showVideoTimeConfigDialog = false">{{ $t('shared.cancel') }}</el-button>
         <el-button type="primary" @click="applyVideoTimeConfig">
-          {{ $t('shared.confirm') || '确定' }}
+          {{ $t('shared.confirm') }}
         </el-button>
       </template>
     </el-dialog>
@@ -928,6 +928,7 @@
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { hasI18nKey } from '@/i18n'
 import dayjs from 'dayjs'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
@@ -936,6 +937,8 @@ import { VideoPlay, TrendCharts, Document, Search, Monitor, Filter, Clock, Delet
 import MotionTimeSeriesChart from '@/components/MotionTimeSeriesChart.vue'
 import VirtualTable from '@/components/VirtualTable.vue'
 import api from '@/api'
+import { notifyApiError } from '@/utils/apiError'
+import { safeT } from '@/i18n'
 
 export default {
   name: 'DataAnalysisPage',
@@ -1172,8 +1175,8 @@ export default {
 
     // 虚拟日志表格列定义
     const logVirtualColumns = computed(() => ([
-      { prop: 'timestamp', label: t('batchAnalysis.timestamp') || '时间戳', width: '180px' },
-      { prop: 'error_code', label: t('batchAnalysis.errorCode') || '故障码（参数1-4）', width: 'auto', minWidth: '260px' }
+      { prop: 'timestamp', label: t('batchAnalysis.timestamp'), width: '180px' },
+      { prop: 'error_code', label: t('batchAnalysis.errorCode'), width: 'auto', minWidth: '260px' }
     ]))
 
     // 日志窗口化加载：滑动窗口（避免一次性加载）
@@ -2058,12 +2061,15 @@ export default {
 
         try {
           await ElMessageBox.confirm(
-            t('dataAnalysis.autoAddLogsConfirm', { fileNames }) ||
+            safeT(
+              'dataAnalysis.autoAddLogsConfirm',
               `检测到该时间段有可用日志文件（最多自动添加2个）：\n${fileNames}\n是否自动加载？`,
-            t('dataAnalysis.confirmTitle') || '确认',
+              { fileNames }
+            ),
+            t('dataAnalysis.confirmTitle'),
             {
-              confirmButtonText: t('shared.confirm') || '确定',
-              cancelButtonText: t('shared.cancel') || '取消',
+              confirmButtonText: t('shared.confirm'),
+              cancelButtonText: t('shared.cancel'),
               type: 'info'
             }
           )
@@ -2156,7 +2162,7 @@ export default {
         await syncTimelineRangeByLoadedData()
       } catch (e) {
         console.warn('加载运行数据失败:', e)
-        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+        notifyApiError(e, t('dataAnalysis.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -2187,7 +2193,7 @@ export default {
     // 自动匹配运行数据选择变化（和运行数据列表一致；修正依赖 watcher 在 ref 可用时应用）
     const onAutoMotionSelectionChange = (selection) => {
       if (selection.length > 5) {
-        ElMessage.warning(t('dataAnalysis.maxSelect5Motion') || '最多只能选择5个运行数据文件')
+        ElMessage.warning(t('dataAnalysis.maxSelect5Motion'))
         const keep = selection.slice(0, 5)
         autoMotionPickedIds.value = keep.map(f => String(f?.id ?? '').trim()).filter(Boolean)
         autoMotionPendingKeep.value = keep
@@ -2279,11 +2285,11 @@ export default {
               gap: continuity.gap,
               prevFile: continuity.prevFile,
               currFile: continuity.currFile
-            }) || `检测到运行数据时间不连续，间隔约 ${continuity.gap} 分钟（${continuity.prevFile} 到 ${continuity.currFile}）。是否继续？`,
-            t('dataAnalysis.confirmTitle') || '确认',
+            }),
+            t('dataAnalysis.confirmTitle'),
             {
-              confirmButtonText: t('shared.confirm') || '确定',
-              cancelButtonText: t('shared.cancel') || '取消',
+              confirmButtonText: t('shared.confirm'),
+              cancelButtonText: t('shared.cancel'),
               type: 'warning'
             }
           )
@@ -2307,7 +2313,7 @@ export default {
         }
       } catch (e) {
         console.warn('自动匹配确认后加载运行数据失败:', e)
-        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+        notifyApiError(e, t('dataAnalysis.loadFailed'))
       }
     }
 
@@ -2326,7 +2332,7 @@ export default {
 
     const openSelectionDialog = async (type) => {
       if (hasMotionData.value && logMatchNotFound.value) {
-        ElMessage.warning(t('dataAnalysis.cannotAddLogWhenNotFound') || '未检索到对应时间段的日志数据，无法手动添加。')
+        ElMessage.warning(t('dataAnalysis.cannotAddLogWhenNotFound'))
         return
       }
       showSelectionDialog.value = true
@@ -2471,21 +2477,21 @@ export default {
     const applyVideoTimeConfig = () => {
       const timeStr = videoTimeConfigForm.value.startTime
       if (!timeStr || typeof timeStr !== 'string') {
-        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime') || '请选择该时刻对应时间')
+        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime'))
         return
       }
       const range = videoConfigTimeRange.value
       if (!range || range.first == null || range.last == null) {
-        ElMessage.warning(t('dataAnalysis.noDataForVideoConfig') || '没有日志或运行数据，无需配置时间轴')
+        ElMessage.warning(t('dataAnalysis.noDataForVideoConfig'))
         return
       }
       if (videoConfigIsCrossDay.value && !videoTimeConfigForm.value.selectedDate) {
-        ElMessage.warning(t('dataAnalysis.pleaseSelectDate') || '请先选择日期')
+        ElMessage.warning(t('dataAnalysis.pleaseSelectDate'))
         return
       }
       const parts = timeStr.split(':').map(Number)
       if (parts.length < 3 || !parts.every(Number.isFinite)) {
-        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime') || '请选择有效的时:分:秒')
+        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime'))
         return
       }
       const [hours, minutes, seconds] = parts
@@ -2498,22 +2504,22 @@ export default {
       baseDate.setHours(hours, minutes, seconds, 0)
       const tlogn = baseDate.getTime()
       if (!Number.isFinite(tlogn)) {
-        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime') || '请选择有效的时:分:秒')
+        ElMessage.warning(t('dataAnalysis.pleaseSelectStartTime'))
         return
       }
       if (!videoPlayer.value || !Number.isFinite(configDialogVideoCurrentTime.value)) {
-        ElMessage.warning(t('dataAnalysis.videoNotReady') || '请先加载视频')
+        ElMessage.warning(t('dataAnalysis.videoNotReady'))
         return
       }
       if (tlogn < range.first || tlogn > range.last) {
-        ElMessage.warning(t('dataAnalysis.selectTimeInLogRange') || '请选择日志时间范围内的时刻')
+        ElMessage.warning(t('dataAnalysis.selectTimeInLogRange'))
         return
       }
       const tvideon = Math.floor((configDialogVideoCurrentTime.value ?? 0) * 1000)
       const tb = timeBase.value
       const mt = maxTime.value
       if (tb == null || !Number.isFinite(mt) || mt <= 0) {
-        ElMessage.warning(t('dataAnalysis.noDataForVideoConfig') || '请先加载日志或运行数据以确定联动轴')
+        ElMessage.warning(t('dataAnalysis.noDataForVideoConfig'))
         return
       }
       const tlogstart = tb
@@ -2532,10 +2538,10 @@ export default {
 
       showVideoTimeConfigDialog.value = false
       ElMessage.success(
-        t('dataAnalysis.videoTimeConfigSuccess') || '视频起始时间配置成功'
+        t('dataAnalysis.videoTimeConfigSuccess')
       )
       ElMessage.info({
-        message: `${t('dataAnalysis.videoStartMapsToLog') || '视频0s →'} ${startLogStr}\n${t('dataAnalysis.videoEndMapsToLog') || '视频结束 →'} ${endLogStr}`,
+        message: `${t('dataAnalysis.videoStartMapsToLog')} ${startLogStr}\n${t('dataAnalysis.videoEndMapsToLog')} ${endLogStr}`,
         duration: 6000,
         showClose: true
       })
@@ -2703,7 +2709,7 @@ export default {
             }
           } catch (error) {
             console.error(`加载设备 ${data.deviceId} 的日志失败:`, error)
-            ElMessage.error(t('dataAnalysis.fetchLogsFailed') || '获取日志列表失败')
+            notifyApiError(error, t('dataAnalysis.fetchLogsFailed'))
           } finally {
             loading.value = false
           }
@@ -2737,7 +2743,7 @@ export default {
         availableLogs.value = response.data?.logs || []
       } catch (error) {
         console.error('获取日志列表失败:', error)
-        ElMessage.error(t('dataAnalysis.fetchLogsFailed') || '获取日志列表失败')
+        notifyApiError(error, t('dataAnalysis.fetchLogsFailed'))
       } finally {
         loading.value = false
       }
@@ -2792,7 +2798,7 @@ export default {
 
     const handleLoadData = async () => {
       if (!selectionForm.value.logId) {
-        ElMessage.warning(t('dataAnalysis.selectLogFirst') || '请先选择日志文件')
+        ElMessage.warning(t('dataAnalysis.selectLogFirst'))
         return
       }
 
@@ -2805,12 +2811,12 @@ export default {
         // 1) 计算时间范围：默认从日志开始取 5 分钟
         const startStr = selectionForm.value.startTime || (logTimeLimit.value.min ? formatYmdHms(logTimeLimit.value.min) : '')
         if (!startStr) {
-          ElMessage.warning(t('dataAnalysis.selectStartTime') || '请选择开始时间')
+          ElMessage.warning(t('dataAnalysis.selectStartTime'))
           return
         }
         const startDate = new Date(startStr)
         if (Number.isNaN(startDate.getTime())) {
-          ElMessage.warning(t('dataAnalysis.selectStartTime') || '请选择开始时间')
+          ElMessage.warning(t('dataAnalysis.selectStartTime'))
           return
         }
         const endStr = computedEndTime.value
@@ -2818,7 +2824,7 @@ export default {
         const startMs = startDate.getTime()
         const endMs = endDate.getTime()
         if (Number.isNaN(endMs) || endMs <= startMs) {
-          ElMessage.warning(t('dataAnalysis.invalidTimeRange') || '时间范围不合法')
+          ElMessage.warning(t('dataAnalysis.invalidTimeRange'))
           return
         }
 
@@ -2832,7 +2838,7 @@ export default {
         })
         const entries = logResponse.data?.entries || []
         if (!entries.length) {
-          ElMessage.warning(t('dataAnalysis.noLogEntries') || '该时间范围内没有日志条目')
+          ElMessage.warning(t('dataAnalysis.noLogEntries'))
           return
         }
         logEntries.value = entries
@@ -2853,10 +2859,10 @@ export default {
         window.open(routeData.href, '_blank')
 
         showSelectionDialog.value = false
-        ElMessage.success(t('dataAnalysis.loadSuccess') || '数据加载成功')
+        ElMessage.success(t('dataAnalysis.loadSuccess'))
       } catch (error) {
         console.error('加载数据失败:', error)
-        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+        notifyApiError(error, t('dataAnalysis.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -2895,7 +2901,7 @@ export default {
 
     const openMotionSelectionDialog = async () => {
       if (hasLogsData.value && motionMatchNotFound.value) {
-        ElMessage.warning(t('dataAnalysis.cannotAddMotionWhenNotFound') || '未检索到对应时间段的运行数据，无法手动添加。')
+        ElMessage.warning(t('dataAnalysis.cannotAddMotionWhenNotFound'))
         return
       }
       showMotionSelectionDialog.value = true
@@ -2962,22 +2968,22 @@ export default {
         motionDeviceTotal.value = resp.data?.pagination?.total || 0
       } catch (e) {
         console.error('加载运行数据设备分组失败:', e)
-        ElMessage.error(t('dataAnalysis.fetchDevicesFailed') || '加载设备列表失败')
+        notifyApiError(e, t('dataAnalysis.fetchDevicesFailed'))
       } finally {
         motionDeviceGroupsLoading.value = false
       }
     }
 
     const motionQuickRangeOptions = computed(() => ([
-      { value: 'all', label: t('logs.surgeriesFilters.quickAll') || '全部' },
-      { value: '1d', label: t('logs.surgeriesFilters.quick1d') || '最近1天' },
-      { value: '7d', label: t('logs.surgeriesFilters.quick7d') || '最近7天' },
-      { value: '30d', label: t('logs.surgeriesFilters.quick30d') || '最近30天' },
-      { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') || '自定义' }
+      { value: 'all', label: t('logs.surgeriesFilters.quickAll') },
+      { value: '1d', label: t('logs.surgeriesFilters.quick1d') },
+      { value: '7d', label: t('logs.surgeriesFilters.quick7d') },
+      { value: '30d', label: t('logs.surgeriesFilters.quick30d') },
+      { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') }
     ]))
 
     const motionYearOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.yearSuffix') || '年'
+      const suffix = t('logs.surgeriesFilters.yearSuffix')
       const yearsSource = Array.isArray(motionAvailableYears.value) ? motionAvailableYears.value : []
       const normalizedYears = yearsSource
         .map((year) => {
@@ -2988,15 +2994,15 @@ export default {
         .filter(Boolean)
       const years = normalizedYears.length ? normalizedYears.sort((a, b) => Number(b) - Number(a)) : [String(currentYear)]
       return [
-        { value: 'all', label: t('logs.surgeriesFilters.yearAll') || '全部' },
+        { value: 'all', label: t('logs.surgeriesFilters.yearAll') },
         ...years.map((year) => ({ value: year, label: `${year}${suffix}` }))
       ]
     })
 
     const motionMonthOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.monthSuffix') || '月'
+      const suffix = t('logs.surgeriesFilters.monthSuffix')
       if (motionSelectedYear.value === 'all') {
-        return [{ value: 'all', label: t('logs.surgeriesFilters.monthAll') || '全部' }]
+        return [{ value: 'all', label: t('logs.surgeriesFilters.monthAll') }]
       }
       const months = motionAvailableMonths.value[motionSelectedYear.value] || []
       const normalizedMonths = months
@@ -3008,15 +3014,15 @@ export default {
         .filter(Boolean)
         .sort((a, b) => Number(a) - Number(b))
       return [
-        { value: 'all', label: t('logs.surgeriesFilters.monthAll') || '全部' },
+        { value: 'all', label: t('logs.surgeriesFilters.monthAll') },
         ...normalizedMonths.map((month) => ({ value: month, label: `${month}${suffix}` }))
       ]
     })
 
     const motionDayOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.daySuffix') || '日'
+      const suffix = t('logs.surgeriesFilters.daySuffix')
       if (motionSelectedYear.value === 'all' || motionSelectedMonth.value === 'all') {
-        return [{ value: 'all', label: t('logs.surgeriesFilters.dayAll') || '全部' }]
+        return [{ value: 'all', label: t('logs.surgeriesFilters.dayAll') }]
       }
       const key = `${motionSelectedYear.value}-${motionSelectedMonth.value}`
       const days = motionAvailableDays.value[key] || []
@@ -3029,7 +3035,7 @@ export default {
         .filter(Boolean)
         .sort((a, b) => Number(a) - Number(b))
       return [
-        { value: 'all', label: t('logs.surgeriesFilters.dayAll') || '全部' },
+        { value: 'all', label: t('logs.surgeriesFilters.dayAll') },
         ...normalizedDays.map((day) => ({ value: day, label: `${day}${suffix}` }))
       ]
     })
@@ -3213,7 +3219,7 @@ export default {
         motionFileTotal.value = resp.data?.total ?? 0
       } catch (e) {
         console.error('加载运行数据文件列表失败:', e)
-        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+        notifyApiError(e, t('dataAnalysis.loadFailed'))
       } finally {
         motionFileLoading.value = false
       }
@@ -3225,7 +3231,7 @@ export default {
 
     const handleMotionSelectionChange = (selection) => {
       if (selection.length > 5) {
-        ElMessage.warning(t('dataAnalysis.maxSelect5Motion') || '最多只能选择5个运行数据文件')
+        ElMessage.warning(t('dataAnalysis.maxSelect5Motion'))
         const keep = selection.slice(0, 5)
         motionDialogSelectedFiles.value = keep
         // 使用 nextTick + setTimeout 确保在 Element Plus 完成全选操作后再修正选择状态
@@ -3265,7 +3271,7 @@ export default {
 
     const handleLoadMotionDataFromDialog = async () => {
       if (motionDialogSelectedFiles.value.length === 0) {
-        ElMessage.warning(t('dataAnalysis.selectMotionFirst') || '请先选择运行数据文件')
+        ElMessage.warning(t('dataAnalysis.selectMotionFirst'))
         return
       }
       try {
@@ -3300,10 +3306,10 @@ export default {
         }
 
         showMotionSelectionDialog.value = false
-        ElMessage.success(t('dataAnalysis.loadSuccess') || '数据加载成功')
+        ElMessage.success(t('dataAnalysis.loadSuccess'))
       } catch (e) {
         console.error('加载运行数据失败:', e)
-        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+        notifyApiError(e, t('dataAnalysis.loadFailed'))
       } finally {
         loading.value = false
       }
@@ -3349,7 +3355,7 @@ export default {
         deviceTotal.value = response.data?.pagination?.total || 0
       } catch (error) {
         console.error('加载设备分组失败:', error)
-        ElMessage.error(t('dataAnalysis.fetchDevicesFailed') || '加载设备列表失败')
+        notifyApiError(error, t('dataAnalysis.fetchDevicesFailed'))
       } finally {
         deviceGroupsLoading.value = false
       }
@@ -3372,7 +3378,7 @@ export default {
         logFileTotal.value = response?.data?.total ?? 0
       } catch (error) {
         console.error('加载日志文件列表失败:', error)
-        ElMessage.error(t('dataAnalysis.fetchLogsFailed') || '获取日志列表失败')
+        notifyApiError(error, t('dataAnalysis.fetchLogsFailed'))
       } finally {
         logFileLoading.value = false
       }
@@ -3382,7 +3388,7 @@ export default {
     const handleLogSelectionChange = (selection) => {
       // 限制最多选择2个
       if (selection.length > 2) {
-        ElMessage.warning(t('dataAnalysis.maxSelect2Logs') || '最多只能选择2个日志文件')
+        ElMessage.warning(t('dataAnalysis.maxSelect2Logs'))
         // 保留前2个选择，取消后面的选择
         const keepSelection = selection.slice(0, 2)
         selectedLogFiles.value = keepSelection
@@ -3434,15 +3440,15 @@ export default {
 
     // 时间筛选器相关方法
     const logQuickRangeOptions = computed(() => ([
-      { value: 'all', label: t('logs.surgeriesFilters.quickAll') || '全部' },
-      { value: '1d', label: t('logs.surgeriesFilters.quick1d') || '最近1天' },
-      { value: '7d', label: t('logs.surgeriesFilters.quick7d') || '最近7天' },
-      { value: '30d', label: t('logs.surgeriesFilters.quick30d') || '最近30天' },
-      { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') || '自定义' }
+      { value: 'all', label: t('logs.surgeriesFilters.quickAll') },
+      { value: '1d', label: t('logs.surgeriesFilters.quick1d') },
+      { value: '7d', label: t('logs.surgeriesFilters.quick7d') },
+      { value: '30d', label: t('logs.surgeriesFilters.quick30d') },
+      { value: 'custom', label: t('logs.surgeriesFilters.quickCustom') }
     ]))
 
     const logYearOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.yearSuffix') || '年'
+      const suffix = t('logs.surgeriesFilters.yearSuffix')
       const yearsSource = Array.isArray(logAvailableYears.value) ? logAvailableYears.value : []
       const normalizedYears = yearsSource
         .map(year => {
@@ -3453,7 +3459,7 @@ export default {
         .filter(Boolean)
       const years = normalizedYears.length ? normalizedYears.sort((a, b) => Number(b) - Number(a)) : [String(currentYear)]
       return [
-        { value: 'all', label: t('logs.surgeriesFilters.yearAll') || '全部' },
+        { value: 'all', label: t('logs.surgeriesFilters.yearAll') },
         ...years.map(year => ({
           value: year,
           label: `${year}${suffix}`
@@ -3462,9 +3468,9 @@ export default {
     })
 
     const logMonthOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.monthSuffix') || '月'
+      const suffix = t('logs.surgeriesFilters.monthSuffix')
       if (logSelectedYear.value === 'all') {
-        return [{ value: 'all', label: t('logs.surgeriesFilters.monthAll') || '全部' }]
+        return [{ value: 'all', label: t('logs.surgeriesFilters.monthAll') }]
       }
       const months = logAvailableMonths.value[logSelectedYear.value] || []
       const normalizedMonths = months
@@ -3476,7 +3482,7 @@ export default {
         .filter(Boolean)
         .sort((a, b) => Number(a) - Number(b))
       return [
-        { value: 'all', label: t('logs.surgeriesFilters.monthAll') || '全部' },
+        { value: 'all', label: t('logs.surgeriesFilters.monthAll') },
         ...normalizedMonths.map(month => ({
           value: month,
           label: `${month}${suffix}`
@@ -3485,9 +3491,9 @@ export default {
     })
 
     const logDayOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.daySuffix') || '日'
+      const suffix = t('logs.surgeriesFilters.daySuffix')
       if (logSelectedYear.value === 'all' || logSelectedMonth.value === 'all') {
-        return [{ value: 'all', label: t('logs.surgeriesFilters.dayAll') || '全部' }]
+        return [{ value: 'all', label: t('logs.surgeriesFilters.dayAll') }]
       }
       const key = `${logSelectedYear.value}-${logSelectedMonth.value}`
       const days = logAvailableDays.value[key] || []
@@ -3500,7 +3506,7 @@ export default {
         .filter(Boolean)
         .sort((a, b) => Number(a) - Number(b))
       return [
-        { value: 'all', label: t('logs.surgeriesFilters.dayAll') || '全部' },
+        { value: 'all', label: t('logs.surgeriesFilters.dayAll') },
         ...normalizedDays.map(day => ({
           value: day,
           label: `${day}${suffix}`
@@ -3698,7 +3704,7 @@ export default {
     // 加载日志数据
     const handleLoadLogData = async () => {
       if (selectedLogFiles.value.length === 0) {
-        ElMessage.warning(t('dataAnalysis.selectLogFirst') || '请先选择日志文件')
+        ElMessage.warning(t('dataAnalysis.selectLogFirst'))
         return
       }
 
@@ -3830,18 +3836,18 @@ export default {
 
         // 根据数据加载情况显示消息
         if (hasDisplayData) {
-          ElMessage.success(t('dataAnalysis.loadSuccess') || '数据加载成功')
+          ElMessage.success(t('dataAnalysis.loadSuccess'))
         } else {
-          ElMessage.warning(t('dataAnalysis.noLogEntries') || '该时间范围内没有日志条目')
+          ElMessage.warning(t('dataAnalysis.noLogEntries'))
         }
       } catch (error) {
         console.error('加载数据失败:', error)
         // 即使出错，如果已经有数据，也关闭弹窗
         if (logEntries.value && logEntries.value.length > 0) {
           showSelectionDialog.value = false
-          ElMessage.warning(t('dataAnalysis.loadPartialSuccess') || '数据已部分加载，但可能不完整')
+          ElMessage.warning(t('dataAnalysis.loadPartialSuccess'))
         } else {
-          ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+          notifyApiError(error, t('dataAnalysis.loadFailed'))
         }
       } finally {
         loading.value = false
@@ -4051,24 +4057,34 @@ export default {
       // 图表范围变化时的处理
     }
 
-    const motionThemeOptions = [
-      { value: 'left_hand', label: '左手' },
-      { value: 'right_hand', label: '右手' },
-      { value: 'left_tool_arm', label: '左手控制的工具臂' },
-      { value: 'right_tool_arm', label: '右手控制的工具臂' },
-      { value: 'camera_arm', label: '持镜臂' },
-      { value: 'left_adjust_arm', label: '左手控制的调整臂' },
-      { value: 'right_adjust_arm', label: '右手控制的调整臂' }
-    ]
+    const motionThemeOptions = computed(() => [
+      { value: 'left_hand', label: t('dataAnalysis.subjects.left_hand') },
+      { value: 'right_hand', label: t('dataAnalysis.subjects.right_hand') },
+      { value: 'left_tool_arm', label: t('dataAnalysis.subjects.left_tool_arm') },
+      { value: 'right_tool_arm', label: t('dataAnalysis.subjects.right_tool_arm') },
+      { value: 'camera_arm', label: t('dataAnalysis.subjects.camera_arm') },
+      { value: 'left_adjust_arm', label: t('dataAnalysis.subjects.left_adjust_arm') },
+      { value: 'right_adjust_arm', label: t('dataAnalysis.subjects.right_adjust_arm') }
+    ])
 
-    const motionCategoryOptions = [
-      { value: 'joint_position', label: '关节位置' },
-      { value: 'joint_velocity', label: '关节速度' },
-      { value: 'cart_position', label: '笛卡尔位置' },
-      { value: 'pose', label: '姿态/位姿' },
-      { value: 'cart_velocity', label: '笛卡尔速度' },
-      { value: 'force_torque', label: '力/力矩' }
-    ]
+    const motionCategoryOptions = computed(() => [
+      { value: 'joint_position', label: t('dataAnalysis.categories.joint_position') },
+      { value: 'joint_velocity', label: t('dataAnalysis.categories.joint_velocity') },
+      { value: 'cart_position', label: t('dataAnalysis.categories.cart_position') },
+      { value: 'pose', label: t('dataAnalysis.categories.pose') },
+      { value: 'cart_velocity', label: t('dataAnalysis.categories.cart_velocity') },
+      { value: 'force_torque', label: t('dataAnalysis.categories.force_torque') }
+    ])
+
+    const translateClassifiedSubject = (subject) => {
+      const key = `dataAnalysis.classifiedSubjects.${subject}`
+      return hasI18nKey(key) ? t(key) : subject
+    }
+
+    const translateClassifiedCategory = (category) => {
+      const key = `dataAnalysis.classifiedCategories.${category}`
+      return hasI18nKey(key) ? t(key) : category
+    }
 
     const toEpochMs = (tsStr) => {
       try {
@@ -4232,16 +4248,16 @@ export default {
     // 步骤标题：显示选择的内容
     const step1Title = computed(() => {
       if (motionPickSubject.value) {
-        return `选择对象：${motionPickSubject.value}`
+        return t('dataAnalysis.selectSubjectWithValue', { value: translateClassifiedSubject(motionPickSubject.value) })
       }
-      return '选择对象'
+      return t('dataAnalysis.selectSubject')
     })
 
     const step2Title = computed(() => {
       if (motionPickCategory.value) {
-        return `选择数据类型：${motionPickCategory.value}`
+        return t('dataAnalysis.selectDataTypeWithValue', { value: translateClassifiedCategory(motionPickCategory.value) })
       }
-      return '选择数据类型'
+      return t('dataAnalysis.selectDataType')
     })
 
     const step3Title = computed(() => {
@@ -4250,13 +4266,16 @@ export default {
           .filter(v => motionPickFieldIndexes.value.includes(v.index))
           .map(v => v.name)
         if (selectedVars.length > 0) {
-          const displayText = selectedVars.length > 2 
-            ? `${selectedVars.slice(0, 2).join('、')}等${selectedVars.length}个`
+          const displayText = selectedVars.length > 2
+            ? t('dataAnalysis.variablesSelectedSummary', {
+                names: selectedVars.slice(0, 2).join('、'),
+                count: selectedVars.length
+              })
             : selectedVars.join('、')
-          return `选择变量：${displayText}`
+          return t('dataAnalysis.selectVariablesWithValue', { value: displayText })
         }
       }
-      return '选择变量'
+      return t('dataAnalysis.selectVariables')
     })
 
     const getSubjectCategoryCount = (subject) => {
@@ -4293,7 +4312,7 @@ export default {
 
     const openMotionSlotConfig = (slotIdx) => {
       if (!motionRawRows.value.length) {
-        ElMessage.info(t('dataAnalysis.addMotionData') || '请先添加运行数据')
+        ElMessage.info(t('dataAnalysis.addMotionData'))
         openMotionSelectionDialog()
         return
       }
@@ -4419,14 +4438,18 @@ export default {
     const applyMotionSlotConfig = async () => {
       const slotIdx = activeMotionSlotIndex.value
       if (!motionPickSubject.value || !motionPickCategory.value || !motionPickFieldIndexes.value.length) {
-        ElMessage.warning(t('dataAnalysis.selectComplete') || '请完成所有步骤并选择至少一个变量')
+        ElMessage.warning(t('dataAnalysis.selectComplete'))
         return
       }
       try {
         motionConfigLoading.value = true
         await nextTick()
         const varCount = motionPickFieldIndexes.value.length
-        const title = `${motionPickSubject.value} / ${motionPickCategory.value}${varCount > 1 ? ` (${varCount}个变量)` : ''}`
+        const subjectLabel = translateClassifiedSubject(motionPickSubject.value)
+        const categoryLabel = translateClassifiedCategory(motionPickCategory.value)
+        const title = varCount > 1
+          ? t('dataAnalysis.chartTitleWithVars', { subject: subjectLabel, category: categoryLabel, count: varCount })
+          : t('dataAnalysis.chartTitle', { subject: subjectLabel, category: categoryLabel })
         const pickedIndexes = [...motionPickFieldIndexes.value]
 
         // 两段式：先预览出图，再后台替换成满量数据
@@ -4434,7 +4457,7 @@ export default {
         const previewSeries = buildSeriesForFieldIndexes(pickedIndexes)
         motionSlots.value[slotIdx] = { ...motionSlots.value[slotIdx], title, series: previewSeries }
         showMotionConfigDrawer.value = false
-        ElMessage.success(t('dataAnalysis.configSuccess') || '配置成功')
+        ElMessage.success(t('dataAnalysis.configSuccess'))
 
         // 后台拉满量：不阻塞弹窗关闭与 loading 结束
         res?.fullPromise?.then((fullRows) => {
@@ -4446,7 +4469,7 @@ export default {
         })
       } catch (e) {
         console.warn('配置曲线图失败:', e)
-        ElMessage.error(t('dataAnalysis.loadFailed') || '加载数据失败')
+        notifyApiError(e, t('dataAnalysis.loadFailed'))
       } finally {
         motionConfigLoading.value = false
       }
@@ -4641,18 +4664,18 @@ export default {
         motionClassifiedData.value = data
       } catch (e) {
         console.error('加载 motion format classified 失败:', e)
-        const errorMsg = e?.response?.data?.message || e?.message || '未知错误'
+        const errorMsg = e?.response?.data?.message || e?.message || t('logs.errors.unknownError')
         const status = e?.response?.status
         console.error('错误状态码:', status)
         console.error('错误详情:', e?.response?.data || errorMsg)
         
         // 如果是权限问题，给出更明确的提示
         if (status === 403) {
-          ElMessage.warning(t('dataAnalysis.noPermission') || '无权限访问分类配置')
+          ElMessage.warning(t('dataAnalysis.noPermission'))
         } else if (status === 404) {
-          ElMessage.warning(t('dataAnalysis.classifiedNotFound') || '分类配置文件不存在')
+          ElMessage.warning(t('dataAnalysis.classifiedNotFound'))
         } else {
-          ElMessage.warning(t('dataAnalysis.loadClassifiedFailed') || `加载分类配置失败: ${errorMsg}`)
+          ElMessage.warning(safeT('dataAnalysis.loadClassifiedFailedWithMessage', t('dataAnalysis.loadClassifiedFailed'), { message: errorMsg }))
         }
         motionClassifiedData.value = {}
       }
@@ -4753,6 +4776,8 @@ export default {
       motionClassifiedCategories,
       filteredMotionVariables,
       motionClassifiedVariables,
+      translateClassifiedSubject,
+      translateClassifiedCategory,
       getSubjectCategoryCount,
       getCategoryVariableCount,
       canGoNextStep,

@@ -371,6 +371,8 @@ import { getTableHeight } from '@/utils/tableHeight'
 import api from '../api'
 import JSZip from 'jszip'
 import subsystemCodes from '../../../shared/i18n/subsystemCodes.json'
+import { notifyApiError } from '@/utils/apiError'
+import { safeT } from '@/i18n'
 
 export default {
   name: 'I18nErrorCodes',
@@ -795,11 +797,11 @@ export default {
       const isLt10M = file.size / 1024 / 1024 < 10
 
       if (!isCSV) {
-        ElMessage.error('只能上传CSV文件!')
+        ElMessage.error(t('i18nErrorCodes.validation.csvOnly'))
         return false
       }
       if (!isLt10M) {
-        ElMessage.error('文件大小不能超过10MB!')
+        ElMessage.error(t('i18nErrorCodes.validation.csvMaxSize'))
         return false
       }
       return false // 阻止自动上传
@@ -963,11 +965,7 @@ export default {
         }
       } catch (error) {
         console.error('Import error:', error)
-        if (error.response && error.response.data && error.response.data.message) {
-          ElMessage.error(`导入失败：${error.response.data.message}`)
-        } else {
-          ElMessage.error(t('shared.messages.importFailed'))
-        }
+        notifyApiError(error, t('shared.messages.importFailed'))
       } finally {
         importing.value = false
       }
@@ -1048,7 +1046,7 @@ export default {
 
     // 语言显示名称
     const getLangDisplayName = (lang) => {
-      return t(`shared.languageNames.${lang}`) || lang
+      return safeT(`shared.languageNames.${lang}`, lang)
     }
 
      // 导出文件名称后缀

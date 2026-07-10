@@ -71,6 +71,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { validatePasswordStrength } from '@/utils/passwordStrength'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Account',
@@ -165,7 +166,7 @@ export default {
         })
         ElMessage.success(t('account.updateSuccess'))
       } catch (error) {
-        ElMessage.error(t('account.updateFailed'))
+        notifyApiError(error, t('account.updateFailed'))
       } finally {
         updatingProfile.value = false
       }
@@ -192,7 +193,7 @@ export default {
         await store.dispatch('auth/refreshMe')
         router.push('/smart-search')
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || t('account.changePasswordFailed'))
+        notifyApiError(error, t('account.changePasswordFailed'))
       } finally {
         changingPassword.value = false
       }

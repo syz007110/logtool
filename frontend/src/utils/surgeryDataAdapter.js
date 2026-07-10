@@ -3,6 +3,10 @@
  * 统一处理不同来源的手术数据，确保可视化组件能正确解析
  */
 
+import i18n from '@/i18n'
+
+const t = (key) => i18n.global.t(key)
+
 /**
  * 保持原始时间格式（不进行时区转换）
  * 将所有时间统一为 YYYY-MM-DD HH:mm:ss 格式的原始时间字符串
@@ -242,8 +246,8 @@ function convertAnalysisDataToStructured (analysisData) {
         }))
 
       return {
-        tool_type: usage.instrumentName || usage.tool_type || '未知器械',
-        udi: usage.udi || '无UDI',
+        tool_type: usage.instrumentName || usage.tool_type || t('shared.unknownInstrument'),
+        udi: usage.udi || t('shared.noUdi'),
         cumulative_usage: usage.cumulative_usage || null,
         start_time: normalizeTimeToRaw(usageStart),
         end_time: normalizeTimeToRaw(usageEnd),

@@ -129,6 +129,7 @@
 <script>
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { NavBar as VanNavBar, Popup as VanPopup, showToast } from 'vant'
 import api from '@/api'
 import { adaptSurgeryData, validateAdaptedData } from '@/utils/surgeryDataAdapter'
@@ -138,6 +139,7 @@ export default {
   name: 'MSurgeryTimeline',
   components: { 'van-nav-bar': VanNavBar, 'van-popup': VanPopup },
   setup() {
+    const { t } = useI18n()
     const route = useRoute()
     const router = useRouter()
     const surgeryId = route.params?.surgeryId
@@ -630,7 +632,7 @@ export default {
         const adapted = adaptSurgeryData(raw)
         surgeryData.value = validateAdaptedData(adapted) ? adapted : raw
       } catch (e) {
-        showToast('加载时间轴失败')
+        showToast(t('mobile.surgeryVisualization.loadTimelineFailed'))
       }
     }
 

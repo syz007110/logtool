@@ -1,15 +1,25 @@
 ---
-globs: frontend/src/views/**/*.vue,frontend/src/components/**/*.vue
+description: Vue, Element Plus, i18n, and frontend UI conventions
+globs: frontend/src/**/*.vue,frontend/src/**/*.js
 alwaysApply: false
 ---
 ## Vue SFC
 - 默认 `<script setup lang="ts">`
 - 页面负责组合，业务逻辑放到 composable/service
-- 文本走 i18n，不写死
+- 文本走 i18n，不写死；新增文案必须同步 `frontend/src/i18n/locales/zh-CN.json` 与 `en-US.json`
 
 ## Element Plus 组件
 - 表格：默认 el-table，列优先 formatter/slot，操作列按钮统一 `type="text"`
 - 查询：需 loading/空状态/错误提示，大数据走分页/后端筛选
+- Element Plus 内置文案由 `App.vue` 的 `el-config-provider` 统一接管，不在页面单独配置 locale
+
+## i18n 规则
+- 页面业务文案使用 `t('namespace.key')`，不要写 `t(...) || '中文兜底'`
+- 跨页面/跨模块复用的通用文案优先放 `shared`（如附件名、Jira 错误、未知器械/设备、详情按钮），避免在 `smartSearch`、`mobile.*`、`surgeryStatistics` 等命名空间重复定义同义 key
+- 需要兜底时使用 `safeT(key, fallback, params)` 或先用 `hasI18nKey(key)` 判断
+- 动态 key 只能来自白名单/枚举；后端或用户输入必须先规范化再拼 key
+- 接口错误提示统一使用 `notifyApiError(error, t('fallback.key'))`，不要在 `catch` 中拼 `response.data.message`
+- 表单校验、本地解析失败、异步任务状态错误可直接用 `ElMessage`，但文案仍应优先 i18n
 
 ## 样式规范
 - **语义优先**：用组件 props（type/status/variant），不用 CSS 解决

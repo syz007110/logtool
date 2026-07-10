@@ -7,6 +7,7 @@
 
 <script>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 
 export default {
@@ -65,6 +66,7 @@ export default {
     }
   },
   setup(props, { emit }) {
+    const { t } = useI18n()
     const chartContainer = ref(null)
     let chartInstance = null
     let globalMinMs = 0
@@ -100,7 +102,7 @@ export default {
       // 单曲线：[[x,y], ...]
       if (Array.isArray(first)) {
         return [{
-          name: props.seriesName || '数据',
+          name: props.seriesName || t('shared.dataLabel'),
           data: input
         }]
       }
@@ -109,7 +111,7 @@ export default {
         return input
           .filter(s => s && typeof s === 'object' && Array.isArray(s.data))
           .map((s) => ({
-            name: String(s.name || '数据'),
+            name: String(s.name || t('shared.dataLabel')),
             data: Array.isArray(s.data) ? s.data : [],
             color: s.color || null
           }))

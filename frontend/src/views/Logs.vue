@@ -109,7 +109,7 @@
            <template #default="{ row }">
              <div class="operation-buttons">
                <el-button text size="small" @click="showDeviceDetail(row)">
-                 {{ $t('logs.detail') }}
+                 {{ $t('shared.details') }}
                </el-button>
              </div>
            </template>
@@ -146,7 +146,7 @@
           <div class="detail-logs-card-header">
             <div class="device-header">
               <div class="device-info">
-                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}</span>（{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}）</h3>
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('shared.details') }}</span>（{{ $t('logs.logCount') }}：{{ selectedDevice?.log_count || 0 }}）</h3>
                 <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}：{{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
               </div>
               <div class="header-controls">
@@ -459,7 +459,7 @@
     <!-- 手术数据抽屉 -->
     <el-drawer
       v-model="showSurgeryDrawer"
-      title="手术数据"
+      :title="$t('logs.surgeryData')"
       direction="rtl"
       size="1200px"
     >
@@ -721,6 +721,7 @@ import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationH
 import { useI18n } from 'vue-i18n'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 import { getTableHeight } from '@/utils/tableHeight'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Logs',
@@ -877,9 +878,9 @@ export default {
     
     // 状态筛选标签页
     const detailStatusTabs = computed(() => ([
-      { value: 'all', label: t('logs.statusFilter.all') || '全部' },
-      { value: 'completed', label: t('logs.statusFilter.completed') || '完成' },
-      { value: 'incomplete', label: t('logs.statusFilter.incomplete') || '未完成' }
+      { value: 'all', label: t('logs.statusFilter.all') },
+      { value: 'completed', label: t('logs.statusFilter.completed') },
+      { value: 'incomplete', label: t('logs.statusFilter.incomplete') }
     ]))
     
     // detailLogs 和 detailTotal 改为 ref，由后端返回
@@ -887,7 +888,7 @@ export default {
     const detailTotal = ref(0)
 
     const detailYearOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.yearSuffix') || ''
+      const suffix = t('logs.surgeriesFilters.yearSuffix')
       const yearsSource = Array.isArray(detailAvailableYears.value) ? detailAvailableYears.value : []
       const normalizedYears = yearsSource
         .map(year => {
@@ -908,7 +909,7 @@ export default {
     })
 
     const detailMonthOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.monthSuffix') || ''
+      const suffix = t('logs.surgeriesFilters.monthSuffix')
       const monthsSet = new Set()
       const monthsMap = detailAvailableMonths.value || {}
 
@@ -948,7 +949,7 @@ export default {
     })
 
     const detailDayOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.daySuffix') || ''
+      const suffix = t('logs.surgeriesFilters.daySuffix')
       const daysSet = new Set()
       const daysMap = detailAvailableDays.value || {}
 
@@ -1186,7 +1187,7 @@ export default {
         deviceTotal.value = response.data.pagination?.total || 0
       } catch (error) {
         if (!silent && !uploading.value) {
-        ElMessage.error(t('logs.errors.loadDeviceGroupsFailed'))
+          notifyApiError(error, t('logs.errors.loadDeviceGroupsFailed'))
         } else {
           console.warn('加载设备分组失败(已静默):', error?.message || error)
         }
@@ -1206,7 +1207,7 @@ export default {
           ...timeParams
         })
       } catch (error) {
-        ElMessage.error(t('logs.errors.loadLogsFailed'))
+        notifyApiError(error, t('logs.errors.loadLogsFailed'))
       } finally {
         loading.value = false
       }
@@ -1283,7 +1284,7 @@ export default {
         detailLogs.value = response?.data?.logs || []
         detailTotal.value = response?.data?.total ?? 0
       } catch (error) {
-        if (!silent) ElMessage.error(t('logs.errors.loadDeviceDetailLogsFailed'))
+        if (!silent) notifyApiError(error, t('logs.errors.loadDeviceDetailLogsFailed'))
       } finally {
         detailLoading.value = false
         if (detailWsRefreshPending.value) {
@@ -1570,16 +1571,16 @@ export default {
     }
     
     const uploadDataForDevice = (device) => {
-      ElMessage.info('数据上传功能暂未实现')
+      ElMessage.info(t('logs.messages.uploadFeaturePending'))
     }
     
     const viewSurgeryData = (device) => {
-      ElMessage.info('查看手术数据功能暂未实现')
+      ElMessage.info(t('logs.messages.viewSurgeryDataFeaturePending'))
     }
     
     const toggleDeviceFocus = (device) => {
       device.focused = !device.focused
-      ElMessage.success(device.focused ? '已关注设备' : '已取消关注')
+      ElMessage.success(device.focused ? t('logs.messages.deviceFollowed') : t('logs.messages.deviceUnfollowed'))
     }
 
     // 手术数据抽屉与数据
@@ -1614,7 +1615,7 @@ export default {
         surgeryList.value = resp.data?.data || []
         surgeryTotal.value = resp.data?.total || 0
       } catch (e) {
-        ElMessage.error(t('logs.messages.loadSurgeryDataFailed'))
+        notifyApiError(e, t('logs.messages.loadSurgeryDataFailed'))
       } finally {
         surgeryLoading.value = false
       }
@@ -1637,7 +1638,7 @@ export default {
         const routeData = router.resolve(`/batch-analysis/${ids.join(',')}`)
         window.open(routeData.href, '_blank')
       } catch (e) {
-        ElMessage.error(t('logs.messages.getSurgeryLogsFailed'))
+        notifyApiError(e, t('logs.messages.getSurgeryLogsFailed'))
       }
     }
 
@@ -1652,7 +1653,7 @@ export default {
         ElMessage.success(t('shared.messages.deleteSuccess'))
         loadSurgeries()
       } catch (e) {
-        ElMessage.error(t('shared.messages.deleteFailed'))
+        notifyApiError(e, t('shared.messages.deleteFailed'))
       }
     }
     
@@ -1863,24 +1864,24 @@ export default {
     
     const submitUpload = () => {
       if (!uploadRef.value) {
-        ElMessage.error('上传组件未初始化')
+        ElMessage.error(t('logs.errors.uploadComponentNotInitialized'))
         return
       }
       
       // 使用手动跟踪的文件列表
       if (uploadFileList.value.length === 0) {
-        ElMessage.error('请选择要上传的文件')
+        ElMessage.error(t('logs.errors.pleaseSelectFiles'))
         return
       }
       
       if (uploadFileList.value.length > 50) {
-        ElMessage.error('最多只能上传50个文件')
+        ElMessage.error(t('logs.errors.maxFilesExceeded'))
         return
       }
       
       const totalSize = uploadFileList.value.reduce((sum, f) => sum + (f.size || f.raw?.size || 0), 0)
       if (totalSize / 1024 / 1024 > 200) {
-        ElMessage.error('总文件大小不能超过200MB')
+        ElMessage.error(t('logs.errors.totalSizeExceeded'))
         return
       }
       
@@ -1941,11 +1942,11 @@ export default {
       const isLt200M = file.size / 1024 / 1024 < 200
       
       if (!isMedbotFile) {
-        ElMessage.error('只能上传 .medbot 文件!')
+        ElMessage.error(t('logs.errors.onlyMedbotFiles'))
         return false
       }
       if (!isLt200M) {
-        ElMessage.error('单个文件大小不能超过200MB!')
+        ElMessage.error(t('logs.errors.singleFileSizeExceeded'))
         return false
       }
       
@@ -1958,15 +1959,15 @@ export default {
       const isLt1M = file.size / 1024 / 1024 < 1
       
       if (!isTxtFile) {
-        ElMessage.error('密钥文件必须是 .txt 格式!')
+        ElMessage.error(t('logs.errors.keyFileMustBeTxt'))
         return false
       }
       if (!isSystemInfoFile) {
-        ElMessage.error('密钥文件名必须是 systemInfo.txt!')
+        ElMessage.error(t('logs.errors.keyFileNameMustBeSystemInfo'))
         return false
       }
       if (!isLt1M) {
-        ElMessage.error('密钥文件大小不能超过1MB!')
+        ElMessage.error(t('logs.errors.keyFileSizeExceeded'))
         return false
       }
       return false // 阻止自动上传
@@ -1987,7 +1988,7 @@ export default {
           decryptKey.value = content
           keyFileName.value = file.name
           keyError.value = '' // 清除错误提示
-          ElMessage.success('密钥文件读取成功')
+          ElMessage.success(t('logs.messages.keyFileReadSuccess'))
         })
       }
       reader.readAsText(file.raw)
@@ -2281,11 +2282,11 @@ export default {
     const onUploadError = (error) => {
       uploading.value = false
       overallProgress.value = 0
-      ElMessage.error('上传失败: ' + (error.message || '未知错误'))
+      notifyApiError(error, t('logs.errors.uploadFailed'))
     }
     
     const onExceed = (files, fileList) => {
-      ElMessage.error('最多只能上传50个文件!')
+      ElMessage.error(t('logs.errors.maxFilesExceeded'))
     }
     
     const onFileChange = (file, fileList) => {
@@ -2321,13 +2322,13 @@ export default {
       try {
         row.parsing = true
         await store.dispatch('logs/parseLog', row.id)
-        ElMessage.success('解析成功')
+        ElMessage.success(t('logs.parseSuccess'))
         loadLogs()
         
         // 启动智能状态监控，跟踪解析进度
         startMonitoringIfDrawerOpen()
       } catch (error) {
-        ElMessage.error('解析失败')
+        notifyApiError(error, t('logs.errors.parseFailed'))
       } finally {
         row.parsing = false
       }
@@ -2338,20 +2339,19 @@ export default {
     const handleReparse = async (row) => {
       try {
         if (!canReparse.value) {
-          ElMessage.error('仅管理员可重新解析')
+          ElMessage.error(t('logs.errors.adminOnlyReparse'))
           return
         }
         row.parsing = true
         row.status = 'parsing'
         await store.dispatch('logs/reparseLog', row.id)
-        ElMessage.success('重新解析完成')
+        ElMessage.success(t('logs.messages.reparseSuccess'))
         await loadLogs()
         
         // 启动智能状态监控，跟踪重新解析进度
         startMonitoringIfDrawerOpen()
       } catch (error) {
-        const msg = error.response?.data?.message || error.message || '重新解析失败'
-        ElMessage.error(msg)
+        notifyApiError(error, t('logs.messages.reparseFailed'))
       } finally {
         row.parsing = false
       }
@@ -2370,9 +2370,9 @@ export default {
         link.click()
         window.URL.revokeObjectURL(url)
         
-        ElMessage.success('下载成功')
+        ElMessage.success(t('logs.downloadSuccess'))
       } catch (error) {
-        ElMessage.error('下载失败')
+        notifyApiError(error, t('logs.errors.downloadFailed'))
       }
     }
     
@@ -2404,7 +2404,7 @@ export default {
           await store.dispatch('logs/deleteLog', row.id)
           
           // 显示队列状态
-          ElMessage.success('删除任务已加入队列，正在处理中...')
+          ElMessage.success(t('logs.messages.deleteTaskQueued'))
           
           // 重新加载日志列表以显示"删除中"状态
           await loadDetailLogs()
@@ -2414,8 +2414,7 @@ export default {
           
         } catch (apiError) {
           console.error('删除API调用失败:', apiError)
-          const errorMessage = apiError.response?.data?.message || apiError.message || $t('shared.messages.deleteFailed')
-          ElMessage.error(errorMessage)
+          notifyApiError(apiError, t('shared.messages.deleteFailed'))
           // API调用失败时，清除删除中状态
           deletingIds.value.delete(row.id)
         }
@@ -2509,7 +2508,7 @@ export default {
         const taskId = data?.taskId
         if (!taskId) throw new Error('未返回 taskId')
         
-        ElMessage.info('批量下载任务已创建，正在处理...')
+        ElMessage.info(t('logs.messages.batchDownloadQueued'))
         
         // 轮询任务状态：低频 + 429 退避，避免触发全局限流
         const pollIntervalMs = 5000
@@ -2535,14 +2534,14 @@ export default {
                 link.click()
                 document.body.removeChild(link)
                 window.URL.revokeObjectURL(url)
-                ElMessage.success('批量下载完成')
+                ElMessage.success(t('logs.messages.batchDownloadCompleted'))
               } catch (downloadErr) {
-                ElMessage.error(downloadErr?.response?.data?.message || '下载结果文件失败')
+                notifyApiError(downloadErr, t('logs.messages.downloadResultFileFailed'))
               }
               return
             }
             if (state === 'failed') {
-              ElMessage.error(st?.error || '批量下载任务失败')
+              ElMessage.error(st?.error || t('logs.messages.batchDownloadTaskFailed'))
               return
             }
           } catch (pollErr) {
@@ -2554,16 +2553,15 @@ export default {
               await new Promise((resolve) => setTimeout(resolve, retryAfterMs))
               continue
             }
-            ElMessage.error('查询任务状态失败')
+            ElMessage.error(t('logs.messages.queryTaskStatusFailed'))
             return
           }
           await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
         }
-        ElMessage.warning('批量下载任务超时，请稍后重试')
+        ElMessage.warning(t('logs.messages.batchDownloadTimeout'))
       } catch (error) {
         console.error('批量下载失败:', error)
-        const errorMessage = error.response?.data?.message || error.message || '批量下载失败'
-        ElMessage.error(errorMessage)
+        notifyApiError(error, t('logs.messages.batchDownloadFailed'))
       }
     }
     
@@ -2593,7 +2591,7 @@ export default {
         const logIds = selectedLogsData.map(log => parseInt(log.id)).filter(id => !isNaN(id))
         
         if (logIds.length === 0) {
-          ElMessage.error('选中的日志ID格式不正确')
+          ElMessage.error(t('logs.errors.invalidLogIdFormat'))
           return
         }
         
@@ -2606,7 +2604,7 @@ export default {
           await store.dispatch('logs/batchDeleteLogs', logIds)
           
           // 显示队列状态
-          ElMessage.success('批量删除任务已加入队列，正在处理中...')
+          ElMessage.success(t('logs.messages.batchDeleteTaskQueued'))
           
           // 清除删除中状态，因为任务已加入队列
           logIds.forEach(id => deletingIds.value.delete(id))
@@ -2620,8 +2618,7 @@ export default {
           clearDetailSelection() // 清空选择
         } catch (apiError) {
           console.error('批量删除失败:', apiError)
-          const errorMessage = apiError.response?.data?.message || apiError.message || $t('logs.messages.batchDeleteFailed')
-          ElMessage.error(errorMessage)
+          notifyApiError(apiError, t('logs.messages.batchDeleteFailed'))
           // 删除失败时，清除删除中状态
           logIds.forEach(id => deletingIds.value.delete(id))
         }
@@ -2642,14 +2639,7 @@ export default {
             }
           })
           
-          let errorMessage = $t('logs.messages.batchDeleteFailed')
-          if (error.response?.data?.message) {
-            errorMessage = error.response.data.message
-          } else if (error.message) {
-            errorMessage = error.message
-          }
-          
-          ElMessage.error(errorMessage)
+          notifyApiError(error, t('logs.messages.batchDeleteFailed'))
         }
       }
     }
@@ -2658,22 +2648,22 @@ export default {
     const handleBatchReparse = async () => {
       try {
         if (!canReparse.value) {
-          ElMessage.error('仅管理员可批量重新解析')
+          ElMessage.error(t('logs.errors.adminOnlyBatchReparse'))
           return
         }
         if (!selectedDetailLogs.value.length) {
-          ElMessage.warning('请先选择要重新解析的日志')
+          ElMessage.warning(t('logs.messages.selectLogsToReparse'))
           return
         }
         // 检查是否有未完成的日志
         if (hasIncompleteLogs.value) {
-          ElMessage.warning('请等待所有选中的日志解析完成后再进行重新解析操作')
+          ElMessage.warning(t('logs.messages.waitForBatchReparseComplete'))
           return
         }
         await ElMessageBox.confirm(
-          `确定对选中的 ${selectedDetailLogs.value.length} 个日志重新解析释义吗？`,
-          '批量重新解析确认',
-          { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+          t('logs.messages.confirmBatchReparseContent', { count: selectedDetailLogs.value.length }),
+          t('logs.messages.batchReparseConfirmTitle'),
+          { confirmButtonText: t('shared.confirm'), cancelButtonText: t('shared.cancel'), type: 'warning' }
         )
         const ids = selectedDetailLogs.value.map(l => l.id)
         // 订阅所有涉及设备，确保能收到各设备的状态更新
@@ -2690,8 +2680,7 @@ export default {
         startMonitoringIfDrawerOpen()
       } catch (error) {
         if (error !== 'cancel') {
-          const msg = error.response?.data?.message || error.message || '批量重新解析失败'
-          ElMessage.error(msg)
+          notifyApiError(error, t('logs.messages.batchReparseFailed'))
         }
       }
     }
@@ -2764,8 +2753,7 @@ export default {
         }
       } catch (error) {
         console.error('自动填充密钥错误:', error)
-        const errorMessage = error.response?.data?.message || error.message || t('logs.messages.keyAutoFillFailed')
-        ElMessage.error(errorMessage)
+        notifyApiError(error, t('logs.messages.keyAutoFillFailed'))
       }
     }
 
@@ -2791,8 +2779,7 @@ export default {
         }
       } catch (error) {
         console.error('自动填充设备编号错误:', error)
-        const errorMessage = error.response?.data?.message || error.message || t('logs.messages.deviceIdAutoFillFailed')
-        ElMessage.error(errorMessage)
+        notifyApiError(error, t('logs.messages.deviceIdAutoFillFailed'))
       }
     }
 

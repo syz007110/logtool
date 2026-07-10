@@ -18,7 +18,7 @@
           <div class="header-left">
             <button class="btn-secondary btn-sm" @click="goBack">
               <i class="fas fa-arrow-left"></i>
-              {{ $t('shared.back') || 'Back' }}
+              {{ $t('shared.back') }}
             </button>
             <span class="title">{{ $t('logDetail.title') }}</span>
           </div>
@@ -33,13 +33,13 @@
       <!-- 日志基本信息 -->
       <div class="log-info">
         <el-descriptions :column="3" border>
-          <el-descriptions-item :label="$t('logs.filename') || 'Filename'">
+          <el-descriptions-item :label="$t('logs.filename')">
             <span class="one-line-ellipsis" :title="logInfo.original_name" style="display:inline-block; max-width:100%">{{ logInfo.original_name }}</span>
           </el-descriptions-item>
           <el-descriptions-item :label="$t('logs.deviceId')">
             <span class="one-line-ellipsis" :title="logInfo.device_id" style="display:inline-block; max-width:100%">{{ logInfo.device_id }}</span>
           </el-descriptions-item>
-          <el-descriptions-item :label="$t('logs.size') || 'Size'">{{ formatFileSize(logInfo.size) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('logs.size')">{{ formatFileSize(logInfo.size) }}</el-descriptions-item>
           <el-descriptions-item :label="$t('logs.uploadTime')">{{ formatDate(logInfo.upload_time) }}</el-descriptions-item>
           <el-descriptions-item :label="$t('logs.parseTime')">{{ formatDate(logInfo.parse_time) }}</el-descriptions-item>
           <el-descriptions-item :label="$t('logs.uploaderId')">
@@ -117,6 +117,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'LogDetail',
@@ -175,7 +176,7 @@ export default {
           goBack()
         }
       } catch (error) {
-        ElMessage.error(t('logs.messages.loadLogInfoFailed'))
+        notifyApiError(error, t('logs.messages.loadLogInfoFailed'))
       } finally {
         loading.value = false
       }
@@ -208,7 +209,7 @@ export default {
         }, 500)
         
       } catch (error) {
-        ElMessage.error(t('logs.messages.loadLogEntriesFailed'))
+        notifyApiError(error, t('logs.messages.loadLogEntriesFailed'))
         loading.value = false
         loadingProgress.value = 0
       }
@@ -224,10 +225,10 @@ export default {
       const headers = [
         t('logs.csvHeaders.timestamp'),
         t('logs.csvHeaders.errorCode'),
-        t('logs.csvHeaders.param1'),
-        t('logs.csvHeaders.param2'),
-        t('logs.csvHeaders.param3'),
-        t('logs.csvHeaders.param4'),
+        t('shared.param1'),
+        t('shared.param2'),
+        t('shared.param3'),
+        t('shared.param4'),
         t('logs.csvHeaders.explanation')
       ]
       const csvContent = [

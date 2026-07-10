@@ -282,6 +282,8 @@ import { replaceErrorCodes, upsertErrorCodes, getErrorCodeLocal, searchErrorCode
 import { derivePrefixFromRecord, derivePrefixLabel } from '@/utils/offline/prefixUtils'
 import categoryKeyMap from '../../../../shared/i18n/categoryKeyMap.json'
 import prefixKeyMap from '../../../../shared/i18n/prefixKeyMap.json'
+import { safeT } from '@/i18n'
+import { resolveApiErrorMessage } from '@/utils/apiError'
 import subsystemCodes from '../../../../shared/i18n/subsystemCodes.json'
 
 export default {
@@ -659,10 +661,10 @@ export default {
       const text = [
         `${resultCodeDisplay.value}`,
         `${t('errorCodes.queryResult.explanation')}: ${explanationText.value}`,
-        ...(record.value.param1 ? [`${t('errorCodes.formLabels.param1')}: ${record.value.param1}`] : []),
-        ...(record.value.param2 ? [`${t('errorCodes.formLabels.param2')}: ${record.value.param2}`] : []),
-        ...(record.value.param3 ? [`${t('errorCodes.formLabels.param3')}: ${record.value.param3}`] : []),
-        ...(record.value.param4 ? [`${t('errorCodes.formLabels.param4')}: ${record.value.param4}`] : []),
+        ...(record.value.param1 ? [`${t('shared.param1')}: ${record.value.param1}`] : []),
+        ...(record.value.param2 ? [`${t('shared.param2')}: ${record.value.param2}`] : []),
+        ...(record.value.param3 ? [`${t('shared.param3')}: ${record.value.param3}`] : []),
+        ...(record.value.param4 ? [`${t('shared.param4')}: ${record.value.param4}`] : []),
         ...(record.value.detail ? [`${t('errorCodes.queryResult.detail')}: ${record.value.detail}`] : []),
         ...(record.value.method ? [`${t('errorCodes.queryResult.method')}: ${record.value.method}`] : []),
       ].join('\n')
@@ -848,7 +850,7 @@ export default {
         if (isOfflineError(e)) {
           await handleOfflineKeywordSearch(target)
         } else {
-          errorText.value = e?.response?.data?.message || t('mobile.errorQuery.queryFailed')
+          errorText.value = resolveApiErrorMessage(e, t('mobile.errorQuery.queryFailed'))
         }
       } finally {
         loading.value = false
@@ -974,7 +976,7 @@ export default {
             offlineNotice.value = true
             offlinePrefix.value = derivePrefixLabel(codeForPreview, targetSubsystem)
           } else if (previewError?.response?.status && previewError.response.status >= 500) {
-            errorText.value = previewError.response?.data?.message || t('mobile.errorQuery.queryFailed')
+            errorText.value = resolveApiErrorMessage(previewError, t('mobile.errorQuery.queryFailed'))
           }
         }
         try {
@@ -990,7 +992,7 @@ export default {
             return
           }
           if (fetchError?.response?.status !== 404) {
-            errorText.value = fetchError?.response?.data?.message || t('errorCodes.message.queryFailed')
+            errorText.value = resolveApiErrorMessage(fetchError, t('errorCodes.message.queryFailed'))
           }
           return
         }
@@ -1018,7 +1020,7 @@ export default {
         if (isOfflineError(e)) {
           await runOffline()
         } else if (!errorText.value) {
-          errorText.value = e?.response?.data?.message || t('mobile.errorQuery.queryFailed')
+          errorText.value = resolveApiErrorMessage(e, t('mobile.errorQuery.queryFailed'))
         }
       } finally {
         loading.value = false
@@ -1105,7 +1107,7 @@ export default {
           if (isOfflineError(error)) {
             await handleOfflineTypeSearch(normalizedType)
           } else {
-            errorText.value = error?.response?.data?.message || t('mobile.errorQuery.queryFailed')
+            errorText.value = resolveApiErrorMessage(error, t('mobile.errorQuery.queryFailed'))
           }
         } finally {
           loading.value = false
@@ -1172,7 +1174,7 @@ export default {
         }
         
       } catch (e) {
-        errorText.value = e?.response?.data?.message || t('mobile.errorQuery.queryFailed')
+        errorText.value = resolveApiErrorMessage(e, t('mobile.errorQuery.queryFailed'))
       } finally {
         loading.value = false
       }
@@ -1208,13 +1210,13 @@ export default {
       // 先将中文值转换为英文 key（因为数据库可能存储中文值）
       const categoryKey = convertCategoryToKey(categoryValue)
       // 使用 i18n 翻译分类选项
-      return t(`errorCodes.categoryOptions.${categoryKey}`) || categoryKey || categoryValue
+      return safeT(`errorCodes.categoryOptions.${categoryKey}`, categoryKey || categoryValue)
     }
     
     // 获取子系统标签文字
     const getSubsystemLabel = (subsystem) => {
       if (!subsystem) return ''
-      return t(`shared.subsystemOptions.${subsystem}`) || subsystem
+      return safeT(`shared.subsystemOptions.${subsystem}`, subsystem)
     }
     
     // 将相对URL转换为绝对URL，并处理localhost问题

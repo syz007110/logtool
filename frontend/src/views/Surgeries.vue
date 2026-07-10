@@ -85,10 +85,10 @@
                 text
                 size="small"
                 @click="showDeviceDetail(row)"
-                :aria-label="$t('logs.detail')"
-                :title="$t('logs.detail')"
+                :aria-label="$t('shared.details')"
+                :title="$t('shared.details')"
               >
-                {{ $t('logs.detail') }}
+                {{ $t('shared.details') }}
               </el-button>
             </div>
           </template>
@@ -269,7 +269,7 @@
           <div class="detail-surgeries-card-header">
             <div class="device-header">
               <div class="device-info">
-                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('dataReplay.detailDrawerTitle') }}</span> ({{ $t('logs.totalSurgeries') }}: {{ detailTotal }})</h3>
+                <h3 class="min-w-0"><span class="one-line-ellipsis" :title="selectedDevice?.device_id">{{ selectedDevice?.device_id }} {{ $t('shared.details') }}</span> ({{ $t('logs.totalSurgeries') }}: {{ detailTotal }})</h3>
                 <p v-if="selectedDevice?.hospital_name" class="min-w-0"><span class="one-line-ellipsis" :title="maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission)">{{ $t('logs.hospitalName') }}: {{ maskHospitalName(selectedDevice.hospital_name, hasDeviceReadPermission) }}</span></p>
               </div>
               <div class="header-controls">
@@ -527,6 +527,7 @@ import { maskHospitalName } from '@/utils/maskSensitiveData'
 import { formatTime, loadServerTimezone } from '@/utils/timeFormatter'
 import { getTableHeight } from '@/utils/tableHeight'
 import websocketClient from '@/services/websocketClient'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Surgeries',
@@ -698,7 +699,7 @@ export default {
         deviceTotal.value = resp.data?.pagination?.total || 0
       } catch (error) {
         if (!silent) {
-          ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
+          notifyApiError(error, t('logs.errors.loadSurgeryDataFailed'))
         }
       } finally {
         deviceGroupsLoading.value = false
@@ -761,7 +762,7 @@ export default {
           }
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
+        notifyApiError(error, t('logs.errors.loadSurgeryDataFailed'))
       } finally {
         analysisDeviceLoading.value = false
         analysisDeviceInitialLoading.value = false
@@ -969,7 +970,7 @@ export default {
           ElMessage.warning(t('logs.messages.tasksStillRunning', { count: timedOutTaskIds.length }))
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error.message || t('logs.messages.backgroundAnalyzeImportFailed'))
+        notifyApiError(error, t('logs.messages.backgroundAnalyzeImportFailed'))
       }
     }
 
@@ -1023,7 +1024,7 @@ export default {
           throw new Error(resp.data?.message || t('logs.messages.createAnalysisTaskFailed'))
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error.message || t('logs.messages.analysisStatisticsFailed'))
+        notifyApiError(error, t('logs.messages.analysisStatisticsFailed'))
       } finally {
         analysisSubmitting.value = false
       }
@@ -1058,7 +1059,7 @@ export default {
           ElMessage.warning(response.data.message || t('logs.messages.exportPostgresMaybeNotSaved'))
         }
       } catch (e) {
-        ElMessage.error(`${t('logs.messages.exportPostgresFailed')}: ${e?.response?.data?.message || e?.message || ''}`)
+        notifyApiError(e, t('logs.messages.exportPostgresFailed'))
       } finally {
         analysisExportingRow.value[row.id] = false
       }
@@ -1087,7 +1088,7 @@ export default {
           fullDataIncluded: detail.fullDataIncluded === true
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error?.message || t('logs.messages.loadPendingConfirmFailed'))
+        notifyApiError(error, t('logs.messages.loadPendingConfirmFailed'))
       } finally {
         compareLoadingRowId.value = null
       }
@@ -1109,7 +1110,7 @@ export default {
           fullDataIncluded: true
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error?.message || t('logs.messages.loadPendingConfirmFailed'))
+        notifyApiError(error, t('logs.messages.loadPendingConfirmFailed'))
       } finally {
         compareLoading.value = false
       }
@@ -1122,7 +1123,7 @@ export default {
           await loadDetailSurgeries({ silent: true })
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error?.message || t('logs.messages.updateTodoStatusFailed'))
+        notifyApiError(error, t('logs.messages.updateTodoStatusFailed'))
       } finally {
         showCompareDialog.value = false
         compareData.value = {}
@@ -1185,7 +1186,7 @@ export default {
     })
 
     const detailMonthOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.monthSuffix') || ''
+      const suffix = t('logs.surgeriesFilters.monthSuffix')
       const monthsSet = new Set()
       const monthsMap = detailAvailableMonths.value || {}
 
@@ -1227,7 +1228,7 @@ export default {
     })
 
     const detailDayOptions = computed(() => {
-      const suffix = t('logs.surgeriesFilters.daySuffix') || ''
+      const suffix = t('logs.surgeriesFilters.daySuffix')
       const daysSet = new Set()
       const daysMap = detailAvailableDays.value || {}
 
@@ -1364,7 +1365,7 @@ export default {
       } catch (error) {
         detailTaskMetaRows.value = []
         if (!options?.silent) {
-          ElMessage.error(t('logs.messages.analysisTaskMetaLoadFailed'))
+          notifyApiError(error, t('logs.messages.analysisTaskMetaLoadFailed'))
         }
       }
     }
@@ -1409,7 +1410,7 @@ export default {
           throw new Error(resp.data?.message || t('logs.messages.createRetryTaskFailed'))
         }
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || error.message || t('logs.messages.createRetryTaskFailed'))
+        notifyApiError(error, t('logs.messages.createRetryTaskFailed'))
       } finally {
         retryingFailedGroupId.value = null
       }
@@ -1433,7 +1434,7 @@ export default {
         await loadDetailTaskMeta({ silent: true })
         await loadDetailSurgeries({ silent: true })
       } catch (error) {
-        ElMessage.error(error?.response?.data?.message || t('shared.messages.deleteFailed'))
+        notifyApiError(error, t('shared.messages.deleteFailed'))
       } finally {
         deletingFailedGroupId.value = null
       }
@@ -1741,7 +1742,7 @@ export default {
         syncDetailSelections()
       } catch (e) {
         if (!options?.silent) {
-          ElMessage.error(e?.response?.data?.message || t('logs.errors.loadSurgeryDataFailed'))
+          notifyApiError(e, t('logs.errors.loadSurgeryDataFailed'))
         }
       } finally {
         detailLoading.value = false
@@ -1762,7 +1763,7 @@ export default {
         analysisSurgeryJsonText.value = data != null ? JSON.stringify(data, null, 2) : '{}'
         analysisSurgeryJsonVisible.value = true
       } catch (e) {
-        ElMessage.error(t('shared.messages.operationFailed'))
+        notifyApiError(e, t('shared.messages.operationFailed'))
       }
     }
 
@@ -1795,7 +1796,7 @@ export default {
         const routeData = router.resolve(`/batch-analysis/${ids.join(',')}`)
         window.open(routeData.href, '_blank')
       } catch (e) {
-        ElMessage.error(t('logs.messages.getSurgeryLogsFailed'))
+        notifyApiError(e, t('logs.messages.getSurgeryLogsFailed'))
       }
     }
 
@@ -1810,7 +1811,7 @@ export default {
         }
         visualizeSurgeryData(surgeryRow, { queryId: row.id })
       } catch (e) {
-        ElMessage.error(t('shared.messages.operationFailed'))
+        notifyApiError(e, t('shared.messages.operationFailed'))
       }
     }
 
@@ -1838,7 +1839,7 @@ export default {
           loadDeviceGroups()
         }
       } catch (e) {
-        ElMessage.error(t('shared.messages.deleteFailed'))
+        notifyApiError(e, t('shared.messages.deleteFailed'))
       }
     }
 
@@ -1887,8 +1888,7 @@ export default {
         }, 4000)
       } catch (error) {
         if (error !== 'cancel') {
-          const msg = error?.response?.data?.message || error?.message || t('logs.messages.batchDeleteFailed')
-          ElMessage.error(msg)
+          notifyApiError(error, t('logs.messages.batchDeleteFailed'))
         }
       } finally {
         batchDeletingSurgeries.value = false

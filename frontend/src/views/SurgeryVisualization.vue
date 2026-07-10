@@ -330,7 +330,7 @@
           <div class="drawer-sheet-title-row">
             <span class="drawer-sheet-accent" />
             <span class="drawer-sheet-title">{{ eventSequenceDrawerTitle }}</span>
-            <span class="drawer-sheet-subtitle">| {{ eventSequenceList.length }} 条</span>
+            <span class="drawer-sheet-subtitle">{{ $t('surgeryVisualization.itemsCount', { count: eventSequenceList.length }) }}</span>
           </div>
         </div>
       </template>
@@ -346,13 +346,13 @@
               :default-sort="{ prop: 'sequence', order: 'ascending' }"
               max-height="620"
             >
-              <el-table-column prop="sequence" label="序号" width="80" align="center" sortable />
-              <el-table-column prop="event_name" label="事件名称" min-width="200" show-overflow-tooltip>
+              <el-table-column prop="sequence" :label="$t('surgeryVisualization.sequence')" width="80" align="center" sortable />
+              <el-table-column prop="event_name" :label="$t('surgeryVisualization.eventName')" min-width="200" show-overflow-tooltip>
                 <template #default="{ row }">
                   <span :title="row.event_name">{{ row.event_name }}</span>
                 </template>
               </el-table-column>
-              <el-table-column prop="event_time" label="事件时间" width="220" align="center">
+              <el-table-column prop="event_time" :label="$t('surgeryVisualization.eventTime')" width="220" align="center">
                 <template #default="{ row }">
                   <span :title="formatEventTime(row.event) || '-'">{{ formatEventTime(row.event) || '-' }}</span>
                 </template>
@@ -568,24 +568,24 @@
                 <div class="network-latency-stats">
                   <div class="stats-row">
                     <div class="stat-item">
-                      <span class="stat-label">RTT平均延时:</span>
+                      <span class="stat-label">{{ $t('surgeryVisualization.rttAvg') }}</span>
                       <span class="stat-value">{{ networkLatencyStats.avgLatency }} ms</span>
                     </div>
                     <div class="stat-item">
-                      <span class="stat-label">RTT最大延时:</span>
+                      <span class="stat-label">{{ $t('surgeryVisualization.rttMax') }}</span>
                       <span class="stat-value">{{ networkLatencyStats.maxLatency }} ms</span>
                     </div>
                     <div class="stat-item">
-                      <span class="stat-label">RTT最小延时:</span>
+                      <span class="stat-label">{{ $t('surgeryVisualization.rttMin') }}</span>
                       <span class="stat-value">{{ networkLatencyStats.minLatency }} ms</span>
                     </div>
                     <div class="stat-item">
-                      <span class="stat-label">断网次数:</span>
+                      <span class="stat-label">{{ $t('surgeryVisualization.disconnectionCount') }}</span>
                       <span class="stat-value">{{ networkLatencyStats.disconnectionCount }}</span>
                     </div>
                   </div>
                   <div class="stats-time-range" v-if="networkLatencyStats.startTime && networkLatencyStats.endTime">
-                    <span class="time-label">统计时间范围:</span>
+                    <span class="time-label">{{ $t('surgeryVisualization.statsTimeRange') }}</span>
                     <span class="time-value">{{ formatStatsTime(networkLatencyStats.startTime) }} - {{ formatStatsTime(networkLatencyStats.endTime) }}</span>
                   </div>
                 </div>
@@ -697,7 +697,7 @@
     >
       <div class="tooltip-title">{{ getSegmentTooltipTitle(hoveredSegment) }}</div>
       <div class="tooltip-content">
-        <div>{{$t('surgeryVisualization.tooltipUdi')}}: {{ hoveredSegment.udi || $t('surgeryVisualization.tooltipNoUdi') }}</div>
+        <div>{{$t('surgeryVisualization.tooltipUdi')}}: {{ hoveredSegment.udi || $t('shared.noUdi') }}</div>
         <div>{{ $t('surgeryVisualization.tooltipToolLife') }}: {{ getSegmentToolLife(hoveredSegment) }}</div>
         <div>{{$t('surgeryVisualization.tooltipDuration')}}: {{ getSegmentDuration(hoveredSegment) }}{{$t('shared.minutes')}}</div>
         <div>{{$t('surgeryVisualization.tooltipInstall')}}: {{ formatSegmentTime(hoveredSegment.install_time || hoveredSegment.start_time) }}</div>
@@ -787,11 +787,11 @@ export default {
     }
     
     const getSegmentInstrumentLabel = (segment) => {
-      if (!segment) return t('surgeryVisualization.unknownInstrument')
+      if (!segment) return t('shared.unknownInstrument')
       if (segment._instrumentLabel) return segment._instrumentLabel
       const rawValue = segment.tool_type ?? segment.instrument_type ?? segment.toolType ?? segment.instrumentName
       const label = getInstrumentLabel(rawValue) || segment.instrument_name || segment.tool_name
-      const resolved = label || t('surgeryVisualization.unknownInstrument')
+      const resolved = label || t('shared.unknownInstrument')
       segment._instrumentLabel = resolved
       return resolved
     }
@@ -1057,7 +1057,7 @@ export default {
       const duration = calculateDuration(segment.start || segment.install_time || segment.start_time, 
                                        segment.end || segment.remove_time || segment.end_time)
       const toolType = formatInstrumentType(segment)
-      const udi = segment.udi || t('surgeryVisualization.tooltipNoUdi')
+      const udi = segment.udi || t('shared.noUdi')
       const toolLife = getSegmentToolLife(segment)
       
       const installTime = segment.install_time || segment.start_time
@@ -1496,7 +1496,7 @@ export default {
             if (eventTime) {
               // 获取器械类型显示名称
               const instrumentLabel = getSegmentInstrumentLabel(segment)
-              const eventName = instrumentLabel && instrumentLabel !== t('surgeryVisualization.unknownInstrument')
+              const eventName = instrumentLabel && instrumentLabel !== t('shared.unknownInstrument')
                 ? `${arm.arm_id}号臂器械安装-${instrumentLabel}`
                 : `${arm.arm_id}号臂器械安装`
               
@@ -1520,7 +1520,7 @@ export default {
             if (eventTime) {
               // 获取器械类型显示名称
               const instrumentLabel = getSegmentInstrumentLabel(segment)
-              const eventName = instrumentLabel && instrumentLabel !== t('surgeryVisualization.unknownInstrument')
+              const eventName = instrumentLabel && instrumentLabel !== t('shared.unknownInstrument')
                 ? `${arm.arm_id}号臂器械拔下-${instrumentLabel}`
                 : `${arm.arm_id}号臂器械拔下`
               
@@ -2191,7 +2191,7 @@ export default {
     // 获取器械显示名称（使用 i18n）
     const getInstrumentDisplayName = (segment) => {
       const toolType = formatInstrumentType(segment)
-      if (!toolType || toolType === '-') return t('surgeryVisualization.unknownInstrument')
+      if (!toolType || toolType === '-') return t('shared.unknownInstrument')
       return toolType
     }
     
@@ -2489,7 +2489,7 @@ export default {
           if (Number.isFinite(timeMs)) {
             events.push({
               time: timestamp,
-              name: fault.error_code ? `安全报警 - ${fault.error_code}` : (t('surgeryVisualization.stateError') || '安全报警'),
+              name: fault.error_code ? `安全报警 - ${fault.error_code}` : (t('surgeryVisualization.stateError')),
               type: 'state_error',
               symbol: 'line', // 使用竖线标识
               details: fault

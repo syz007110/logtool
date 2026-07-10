@@ -1,5 +1,6 @@
 // 统一的手术数据可视化辅助函数
 import router from '../router'
+import i18nInstance from '../i18n'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from './surgeryDataAdapter'
 
 /**
@@ -65,7 +66,7 @@ export function visualizeSurgery (surgeryData, options = {}) {
     console.error('❌ 可视化手术数据失败:', error)
     // 这里可以添加用户友好的错误提示
     if (window.ElMessage) {
-      window.ElMessage.error('可视化手术数据失败: ' + error.message)
+      window.ElMessage.error(i18nInstance.global.t('surgeryVisualization.visualizeFailed', { message: error.message }))
     }
   }
 }

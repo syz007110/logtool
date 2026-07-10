@@ -7,10 +7,10 @@
           <div class="header-row">
             <div class="header-title">{{ deviceId }}</div>
             <div v-if="deviceInfo" class="header-hospital">
-              <span class="info-text">{{ $t('mobile.deviceLogs.hospitalName') || '医院名称' }}：{{ deviceInfo.hospital || '-' }}</span>
+              <span class="info-text">{{ $t('mobile.deviceLogs.hospitalName') }}：{{ deviceInfo.hospital || '-' }}</span>
             </div>
             <div class="header-logs">
-              <span class="info-text">{{ $t('mobile.devices.runtimeData') || '运行数据' }}：<span class="info-value-primary">{{ totalMotion }}</span></span>
+              <span class="info-text">{{ $t('mobile.devices.runtimeData') }}：<span class="info-value-primary">{{ totalMotion }}</span></span>
             </div>
           </div>
           <div class="tab-bar">
@@ -28,7 +28,7 @@
           v-model="keyword"
           type="text"
           class="search-input"
-          :placeholder="$t('mobile.devices.runtimeData') || '运行数据'"
+          :placeholder="$t('mobile.devices.runtimeData')"
           @input="onSearch"
         />
       </div>

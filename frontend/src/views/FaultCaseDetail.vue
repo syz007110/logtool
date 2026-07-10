@@ -10,7 +10,7 @@
             </span>
           </div>
           <div class="actions">
-            <el-button @click="goBack">{{ $t('shared.back') || 'Back' }}</el-button>
+            <el-button @click="goBack">{{ $t('shared.back') }}</el-button>
             <el-button v-if="canUpdate" type="primary" @click="goEdit">{{ $t('shared.edit') }}</el-button>
             <el-button v-if="canDelete" type="danger" @click="handleDelete">{{ $t('shared.delete') }}</el-button>
           </div>
@@ -125,6 +125,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useStore } from 'vuex'
 import api from '../api'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'FaultCaseDetail',
@@ -152,7 +153,7 @@ export default {
     
     // 获取状态显示名称（仅标准字典项）
     const getStatusDisplayName = (statusKey) => {
-      if (!statusKey) return t('faultCases.statusDraft') || '草稿'
+      if (!statusKey) return t('faultCases.statusDraft')
       const status = statusList.value.find(s => s.is_active && s.status_key === statusKey)
       if (status) {
         return isZhCN.value ? status.name_zh : status.name_en
@@ -373,7 +374,7 @@ export default {
           jiraOriginalData.value = null
         }
       } catch (e) {
-        ElMessage.error(e.response?.data?.message || 'Load failed')
+        notifyApiError(e, t('shared.messages.loadFailed'))
       } finally {
         loading.value = false
       }

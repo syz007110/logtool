@@ -131,7 +131,7 @@
         
         <!-- 标签页内容 -->
         <div class="search-menu-body">
-          <!-- 关键字搜索 -->
+          <!-- {{ $t('mobile.logView.keywordSearchTitle') }} -->
           <div v-if="selectedSearchTab === 0" class="search-tab-panel">
             <van-field
               v-model="tempSearchQuery"
@@ -172,7 +172,7 @@
             </van-button>
           </div>
           
-          <!-- 时间筛选 -->
+          <!-- {{ $t('mobile.logView.timeFilter') }} -->
           <div v-if="selectedSearchTab === 2" class="search-tab-panel">
             <van-cell-group>
               <van-cell :title="$t('mobile.logView.startTime')">
@@ -212,7 +212,7 @@
       </div>
     </van-popup>
     
-    <!-- 关键字搜索抽屉 -->
+    <!-- {{ $t('mobile.logView.keywordSearchTitle') }}抽屉 -->
     <van-popup
       :show="showSearchDrawer"
       @update:show="showSearchDrawer = $event"
@@ -222,24 +222,24 @@
     >
       <div class="drawer-content">
         <div class="drawer-header">
-          <h3>关键字搜索</h3>
+          <h3>{{ $t('mobile.logView.keywordSearchTitle') }}</h3>
           <van-icon name="cross" @click="closeDrawer" />
         </div>
         <div class="drawer-body">
           <van-field
             v-model="searchQuery"
-            placeholder="搜索关键词或故障码"
+            :placeholder="$t('mobile.logView.searchPlaceholder')"
             clearable
             autofocus
           />
         </div>
         <div class="drawer-footer">
-          <van-button type="primary" block @click="applySearch">确定</van-button>
+          <van-button type="primary" block @click="applySearch">{{ $t('mobile.logView.confirm') }}</van-button>
         </div>
       </div>
     </van-popup>
     
-    <!-- 时间筛选抽屉 -->
+    <!-- {{ $t('mobile.logView.timeFilter') }}抽屉 -->
     <van-popup
       :show="showTimeDrawer"
       @update:show="showTimeDrawer = $event"
@@ -249,12 +249,12 @@
     >
       <div class="drawer-content">
         <div class="drawer-header">
-          <h3>时间筛选</h3>
+          <h3>{{ $t('mobile.logView.timeFilter') }}</h3>
           <van-icon name="cross" @click="closeDrawer" />
         </div>
         <div class="drawer-body">
           <van-cell-group>
-            <van-cell title="开始时间">
+            <van-cell :title="$t('mobile.logView.startTime')">
               <template #value>
                 <input
                   v-model="startTimeFormatted"
@@ -264,7 +264,7 @@
                 />
               </template>
             </van-cell>
-            <van-cell title="结束时间">
+            <van-cell :title="$t('mobile.logView.endTime')">
               <template #value>
                 <input
                   v-model="endTimeFormatted"
@@ -281,11 +281,11 @@
             style="margin-top: 12px;"
             @click="startTime = null; endTime = null"
           >
-            清除时间
+            {{ $t('mobile.logView.clearTime') }}
           </van-button>
         </div>
         <div class="drawer-footer">
-          <van-button type="primary" block @click="applySearch">确定</van-button>
+          <van-button type="primary" block @click="applySearch">{{ $t('mobile.logView.confirm') }}</van-button>
         </div>
       </div>
     </van-popup>
@@ -300,7 +300,7 @@
     >
       <div class="drawer-content">
         <div class="drawer-header">
-          <h3>常用标签</h3>
+          <h3>{{ $t('mobile.logView.commonTags') }}</h3>
           <van-icon name="cross" @click="closeDrawer" />
         </div>
         <div class="drawer-body">
@@ -322,12 +322,12 @@
               style="margin: 4px;"
               disabled
             >
-              暂无常用标签
+              {{ $t('mobile.logView.noCommonTags') }}
             </van-button>
           </div>
         </div>
         <div class="drawer-footer">
-          <van-button type="primary" block @click="applySearch">确定</van-button>
+          <van-button type="primary" block @click="applySearch">{{ $t('mobile.logView.confirm') }}</van-button>
         </div>
       </div>
     </van-popup>
@@ -508,8 +508,8 @@ export default {
           return
         }
         
-        // 保存日志的时间范围（用于时间筛选器的初始值）
-        // 仅在首次加载（没有设置时间筛选）时保存，避免后续查询覆盖
+        // 保存日志的时间范围（用于{{ $t('mobile.logView.timeFilter') }}器的初始值）
+        // 仅在首次加载（没有设置{{ $t('mobile.logView.timeFilter') }}）时保存，避免后续查询覆盖
         // 注意：使用实际日志条目的时间范围，而不是后端可能扩展后的时间范围
         if (!startTime.value && !endTime.value) {
           if (entries.length > 0 && !logMinTimestamp.value) {
@@ -793,14 +793,14 @@ export default {
     
     const analysisLevelLabel = computed(() => {
       const ids = selectedAnalysisCategoryIds.value
-      if (!ids || ids.length === 0) return '未选择分析等级'
+      if (!ids || ids.length === 0) return t('mobile.logView.levelNone')
       const allEq = sameSet(ids, analysisPresets.value.ALL)
       const fineEq = sameSet(ids, analysisPresets.value.FINE)
       const keyEq = sameSet(ids, analysisPresets.value.KEY)
-      if (allEq) return '全量日志'
-      if (fineEq) return '精细日志'
-      if (keyEq) return '关键日志'
-      return '自定义'
+      if (allEq) return t('mobile.logView.levelAll')
+      if (fineEq) return t('mobile.logView.levelFine')
+      if (keyEq) return t('mobile.logView.levelKey')
+      return t('mobile.logView.levelCustom')
     })
     
     // 加载搜索模板（参考桌面端）
@@ -836,19 +836,22 @@ export default {
     const searchExpression = computed(() => {
       const segments = []
       if (startTime.value && endTime.value) {
-        segments.push(`时间: ${formatTimestamp(startTime.value)} ~ ${formatTimestamp(endTime.value)}`)
+        segments.push(t('mobile.logView.searchTimeRange', {
+          start: formatTimestamp(startTime.value),
+          end: formatTimestamp(endTime.value)
+        }))
       } else if (startTime.value) {
-        segments.push(`时间: 自 ${formatTimestamp(startTime.value)}`)
+        segments.push(t('mobile.logView.searchTimeFrom', { start: formatTimestamp(startTime.value) }))
       } else if (endTime.value) {
-        segments.push(`时间: 至 ${formatTimestamp(endTime.value)}`)
+        segments.push(t('mobile.logView.searchTimeTo', { end: formatTimestamp(endTime.value) }))
       }
       if (searchQuery.value) {
-        segments.push(`关键词: ${searchQuery.value}`)
+        segments.push(t('mobile.logView.searchKeyword', { keyword: searchQuery.value }))
       }
       if (tagFilter.value) {
-        const template = templates.value.find(t => t.name === tagFilter.value)
+        const template = templates.value.find(item => item.name === tagFilter.value)
         if (template) {
-          segments.push(`标签: ${template.name}`)
+          segments.push(t('mobile.logView.searchTag', { tag: template.name }))
         }
       }
       return segments.join('，')

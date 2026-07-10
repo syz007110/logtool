@@ -617,7 +617,7 @@
                             :label="idx"
                             :disabled="paramNamesLoading || !isParameterAvailable(idx)"
                           >
-                            {{ paramNames[idx - 1] || $t('batchAnalysis.parameterDefault', { index: idx }) }}
+                            {{ paramNames[idx - 1] || $t('shared.paramDefault', { index: idx }) }}
                           </el-radio>
                         </el-radio-group>
                         <div class="popover-actions" style="margin-top:8px;text-align:right;">
@@ -890,6 +890,7 @@ import api from '@/api'
 import { visualizeSurgery as visualizeSurgeryData } from '@/utils/visualizationHelper'
 import { formatTime, formatTimeShort, loadServerTimezone } from '../utils/timeFormatter'
 import { useI18n } from 'vue-i18n'
+import { notifyApiError } from '@/utils/apiError'
 const { normalizeBatchAnalysisErrorCodeTree } = require('../utils/batchAnalysisErrorCode')
 const { syncBatchAnalysisDslRefresh } = require('../utils/batchAnalysisStateSync')
 const { parseBatchAnalysisImportedExpression } = require('../utils/batchAnalysisExpressionImport')
@@ -964,10 +965,10 @@ export default {
               default: () => [
                 h(ElOption, { label: t('batchAnalysis.timestamp'), value: 'timestamp' }),
                 h(ElOption, { label: t('batchAnalysis.errorCode'), value: 'error_code' }),
-                h(ElOption, { label: t('batchAnalysis.param1'), value: 'param1' }),
-                h(ElOption, { label: t('batchAnalysis.param2'), value: 'param2' }),
-                h(ElOption, { label: t('batchAnalysis.param3'), value: 'param3' }),
-                h(ElOption, { label: t('batchAnalysis.param4'), value: 'param4' }),
+                h(ElOption, { label: t('shared.param1'), value: 'param1' }),
+                h(ElOption, { label: t('shared.param2'), value: 'param2' }),
+                h(ElOption, { label: t('shared.param3'), value: 'param3' }),
+                h(ElOption, { label: t('shared.param4'), value: 'param4' }),
                 h(ElOption, { label: t('batchAnalysis.explanation'), value: 'explanation' })
               ]
             }),
@@ -2221,7 +2222,7 @@ export default {
         }
       } catch (error) {
         console.error('获取日志信息失败:', error)
-        ElMessage.error('获取日志信息失败')
+        ElMessage.error(t('batchAnalysis.fetchLogInfoFailed'))
         selectedLogs.value = []
       }
     }
@@ -2367,7 +2368,7 @@ export default {
         // 翻页/加载完成时不显示全量数量提示，避免频繁打扰
         
       } catch (error) {
-        ElMessage.error('批量分析失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('batchAnalysis.batchAnalysisFailed'))
       } finally {
         loading.value = false
         // 获取统计信息（优先使用后端，失败时使用前端计算）
@@ -2547,7 +2548,7 @@ export default {
         const taskId = data?.taskId
         if (!taskId) throw new Error('未返回 taskId')
         
-        ElMessage.info('CSV导出任务已创建，正在处理...')
+        ElMessage.info(t('batchAnalysis.csvExportQueued'))
         let lastHintState = null
         
         // 轮询任务状态
@@ -2560,9 +2561,9 @@ export default {
             // 仅在状态变化时提示，避免重复弹窗
             if (state && state !== lastHintState) {
               if (state === 'waiting') {
-                ElMessage.info('CSV导出任务排队中，请稍候...')
+                ElMessage.info(t('batchAnalysis.csvExportWaiting'))
               } else if (state === 'active') {
-                ElMessage.info('CSV导出任务处理中，请稍候...')
+                ElMessage.info(t('batchAnalysis.csvExportActive'))
               }
               lastHintState = state
             }
@@ -2583,31 +2584,31 @@ export default {
                 link.click()
                 document.body.removeChild(link)
                 setTimeout(() => URL.revokeObjectURL(url), 100)
-                ElMessage.success('CSV导出成功')
+                ElMessage.success(t('batchAnalysis.csvExportSuccess'))
               } catch (downloadErr) {
-                ElMessage.error(downloadErr?.response?.data?.message || '下载结果文件失败')
+                notifyApiError(downloadErr, t('batchAnalysis.downloadResultFileFailed'))
               }
             } else if (state === 'failed') {
               clearInterval(pollInterval)
               if (timeoutId) clearTimeout(timeoutId)
-              ElMessage.error(st?.error || 'CSV导出任务失败')
+              ElMessage.error(st?.error || t('batchAnalysis.csvExportTaskFailed'))
             }
             // waiting/active 状态继续轮询
           } catch (pollErr) {
             clearInterval(pollInterval)
             if (timeoutId) clearTimeout(timeoutId)
-            ElMessage.error('查询任务状态失败')
+            notifyApiError(pollErr, t('batchAnalysis.queryTaskStatusFailed'))
           }
         }, 2000) // 每2秒轮询一次
         
         // 超时保护（10分钟）
         const timeoutId = setTimeout(() => {
           clearInterval(pollInterval)
-          ElMessage.warning('CSV导出任务超时，请稍后重试')
+          ElMessage.warning(t('batchAnalysis.csvExportTimeout'))
         }, 600000)
       } catch (error) {
         console.error('导出CSV失败:', error)
-        ElMessage.error('导出CSV失败: ' + (error?.response?.data?.message || error?.message || '未知错误'))
+        notifyApiError(error, t('batchAnalysis.csvExportFailed'))
       }
     }
 
@@ -2905,13 +2906,13 @@ export default {
             attempts++
           }
           if (!surgeryStatsPollingCancelled.value && (!Array.isArray(surgeryStats.value) || surgeryStats.value.length === 0)) {
-            ElMessage.warning('未获取到手术统计结果，请稍后重试')
+            ElMessage.warning(t('batchAnalysis.surgeryStatsEmptyRetry'))
           }
         } else {
           surgeryStats.value = resp.data?.data || []
         }
       } catch (e) {
-        if (!surgeryStatsPollingCancelled.value) ElMessage.error('手术统计失败')
+        if (!surgeryStatsPollingCancelled.value) ElMessage.error(t('batchAnalysis.surgeryStatisticsFailed'))
       } finally {
         surgeryStatsLoading.value = false
       }
@@ -2967,14 +2968,14 @@ export default {
         const response = await api.surgeryStatistics.exportSingleSurgeryData(row)
         
         if (response.data.success) {
-          ElMessage.success('手术数据已成功导出到PostgreSQL数据库')
+          ElMessage.success(t('batchAnalysis.exportPostgresSuccess'))
         } else if (response.data.needsConfirmation) {
           // 检查是否有差异
           const hasDifferences = response.data.differences && response.data.differences.length > 0
           
           if (!hasDifferences) {
             // 没有差异，只显示提示信息
-            ElMessage.info(`已存在手术ID为 ${response.data.surgery_id} 的手术数据`)
+            ElMessage.info(t('batchAnalysis.surgeryAlreadyExists', { id: response.data.surgery_id }))
           } else {
             // 有差异，需要用户确认覆盖
             showCompareDialog.value = true
@@ -2990,11 +2991,11 @@ export default {
             }
           }
         } else {
-          ElMessage.warning(response.data.message || '导出完成，但可能未存储到数据库')
+          ElMessage.warning(response.data.message || t('batchAnalysis.exportPostgresMaybeNotSaved'))
         }
       } catch (e) {
         console.error('导出到PostgreSQL失败:', e)
-        ElMessage.error('导出到PostgreSQL数据库失败: ' + (e.response?.data?.message || e.message))
+        notifyApiError(e, t('batchAnalysis.exportPostgresFailed'))
       } finally {
         exportingRow.value[row.id] = false
       }
@@ -3284,12 +3285,12 @@ export default {
         )
         
         if (response.data.success) {
-          ElMessage.success(response.data.message || `成功分析出 ${response.data.data?.length || 0} 场手术`)
+          ElMessage.success(response.data.message || t('batchAnalysis.analyzeSurgerySuccess', { count: response.data.data?.length || 0 }))
         } else {
-          ElMessage.error(response.data.message || '批量分析手术数据失败')
+          ElMessage.error(response.data.message || t('batchAnalysis.batchAnalyzeSurgeryFailed'))
         }
       } catch (error) {
-        ElMessage.error('批量分析手术数据失败: ' + (error.response?.data?.message || error.message))
+        notifyApiError(error, t('batchAnalysis.batchAnalyzeSurgeryFailed'))
       } finally {
         analyzing.value = false
       }
@@ -3717,7 +3718,7 @@ export default {
       
       // 先以默认名称和当前值即时展示
       availableParameters.value = params.map(p => (p && String(p).trim()) ? String(p).trim() : '')
-      paramNames.value = [t('batchAnalysis.param1'), t('batchAnalysis.param2'), t('batchAnalysis.param3'), t('batchAnalysis.param4')]
+      paramNames.value = [t('shared.param1'), t('shared.param2'), t('shared.param3'), t('shared.param4')]
       currentVisualizationRow.value = row
       selectedParameter.value = null
       selectKey.value++
@@ -3761,10 +3762,10 @@ export default {
         const info = resp?.data?.errorCode
         if (info) {
           paramNames.value = [
-            info.param1 || '参数1',
-            info.param2 || '参数2',
-            info.param3 || '参数3',
-            info.param4 || '参数4'
+            info.param1 || t('shared.param1'),
+            info.param2 || t('shared.param2'),
+            info.param3 || t('shared.param3'),
+            info.param4 || t('shared.param4')
           ]
         }
       } catch (e) {
@@ -3861,7 +3862,7 @@ export default {
           addChartToSidebar()
         ElMessage.success(t('batchAnalysis.visualizationDataRetrieved', { count: chartData.length }))
         } catch (error) {
-        ElMessage.error(t('batchAnalysis.visualizationDataFailed', { message: error?.response?.data?.message || error.message }))
+        notifyApiError(error, t('batchAnalysis.visualizationDataFailed', { message: error?.message || '' }))
       }
     }
 
@@ -4038,7 +4039,7 @@ export default {
           
           // 验证图表数据
           if (!chartData.data || !Array.isArray(chartData.data) || chartData.data.length === 0) {
-            ElMessage.error('图表数据无效')
+            ElMessage.error(t('batchAnalysis.invalidChartData'))
             return
           }
           
@@ -4055,7 +4056,7 @@ export default {
           )
           
           if (validData.length === 0) {
-            ElMessage.error('没有有效的图表数据')
+            ElMessage.error(t('batchAnalysis.noValidChartData'))
             return
           }
           
@@ -4071,7 +4072,7 @@ export default {
             .filter(d => Array.isArray(d) && d.length >= 2 && Number.isFinite(d[0]) && Number.isFinite(d[1]))
 
           if (validDataMs.length === 0) {
-            ElMessage.error('没有有效的图表数据')
+            ElMessage.error(t('batchAnalysis.noValidChartData'))
             return
           }
           // 图表时间格式化：统一按当前显示时区输出（不复用 formatTimestampWithTimezone 的 “offset=480 返回空串” 规则）
@@ -4187,7 +4188,7 @@ export default {
             ],
             series: [
               {
-                name: chartData.parameterValue || '数据',
+                name: chartData.parameterValue || t('shared.dataLabel'),
                 type: 'line',
                 symbol: 'circle',
                 symbolSize: 2,
@@ -4292,7 +4293,7 @@ export default {
                   chartInstance.value.setOption(simpleOption, true)
                 } catch (simpleError) {
                   console.error('图表详情初始化失败:', simpleError)
-                  ElMessage.error('图表详情初始化失败，请重试')
+                  ElMessage.error(t('batchAnalysis.chartDetailInitFailed'))
                 }
               }
             })
@@ -4409,7 +4410,7 @@ export default {
 
     const exportChartAsImage = () => {
       if (!chartInstance.value) {
-        ElMessage.error('图表实例未找到')
+        ElMessage.error(t('batchAnalysis.chartInstanceNotFound'))
         return
       }
       
@@ -4427,10 +4428,10 @@ export default {
         link.href = dataURL
         link.click()
         
-        ElMessage.success('图表已导出为图片')
+        ElMessage.success(t('batchAnalysis.chartExportedAsImage'))
       } catch (error) {
         console.error('导出图表失败:', error)
-        ElMessage.error('导出图表失败')
+        ElMessage.error(t('batchAnalysis.chartExportFailed'))
       }
     }
 
@@ -4558,7 +4559,7 @@ export default {
         }
       } catch (e) {
         loadingMsg.close()
-        ElMessage.error(t('batchAnalysis.markAllFilteredFailed') || (e?.message || 'Mark all failed'))
+        ElMessage.error(t('batchAnalysis.markAllFilteredFailed'))
       }
       if (colorValue == null) clearNlMarkActions()
       headerColorPopoverVisible.value = false
@@ -4616,7 +4617,7 @@ export default {
         const beforeMs = (beforeMinutes.value * 60 + beforeSeconds.value) * 1000
         const afterMs = (afterMinutes.value * 60 + afterSeconds.value) * 1000
         if (beforeMs === 0 && afterMs === 0) {
-          ElMessage.warning('时间范围不能为 0，请输入分钟或秒')
+          ElMessage.warning(t('batchAnalysis.contextRangeRequired'))
           return
         }
         const beforeTime = new Date(baseTimestamp.getTime() - beforeMs)
@@ -4652,13 +4653,13 @@ export default {
         // 关闭对话框
         contextAnalysisVisible.value = false
         
-        const beforeText = `${beforeMinutes.value}分${beforeSeconds.value}秒`
-        const afterText = `${afterMinutes.value}分${afterSeconds.value}秒`
-        ElMessage.success(`已筛选出 ${beforeText}前到${afterText}后的日志`)
+        const beforeText = t('batchAnalysis.minutesSeconds', { minutes: beforeMinutes.value, seconds: beforeSeconds.value })
+        const afterText = t('batchAnalysis.minutesSeconds', { minutes: afterMinutes.value, seconds: afterSeconds.value })
+        ElMessage.success(t('batchAnalysis.contextFilterApplied', { before: beforeText, after: afterText }))
         
       } catch (error) {
         console.error('上下文分析失败:', error)
-        ElMessage.error('上下文分析失败，请重试')
+        ElMessage.error(t('batchAnalysis.contextAnalysisFailed'))
       }
     }
 

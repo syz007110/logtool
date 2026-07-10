@@ -96,6 +96,7 @@ import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { validatePasswordStrength } from '@/utils/passwordStrength'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Register',
@@ -162,7 +163,7 @@ export default {
         ElMessage.success(t('register.registerSuccess'))
         router.push('/login')
       } catch (error) {
-        ElMessage.error(error.response?.data?.message || t('register.registerFailed'))
+        notifyApiError(error, t('register.registerFailed'))
       } finally {
         loading.value = false
       }

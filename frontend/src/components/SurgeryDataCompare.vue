@@ -83,6 +83,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import UnifiedDiffDualLineNums from './UnifiedDiffDualLineNums.vue'
+import { notifyApiError } from '@/utils/apiError'
 
 const { t } = useI18n()
 
@@ -264,7 +265,7 @@ const handleOverride = async () => {
     closeAndNotify()
   } catch (error) {
     if (error === 'cancel') return
-    ElMessage.error(error?.response?.data?.message || error?.message || t('surgeryCompare.overrideFailed'))
+    notifyApiError(error, t('surgeryCompare.overrideFailed'))
   } finally {
     submittingOverride.value = false
   }
@@ -288,7 +289,7 @@ const handleKeepExisting = async () => {
     closeAndNotify()
   } catch (error) {
     if (error === 'cancel') return
-    ElMessage.error(error?.response?.data?.message || error?.message || t('surgeryCompare.operationFailed'))
+    notifyApiError(error, t('surgeryCompare.operationFailed'))
   } finally {
     submittingKeep.value = false
   }

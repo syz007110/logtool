@@ -247,8 +247,8 @@
 
           <div v-if="showLlmUnavailableHint" class="ss-llm-unavailable-hint">
             <el-alert
-              title="当前智能搜索不可用"
-              description="当前未接入大模型或额度已用完，请使用经典面板功能。"
+              :title="$t('smartSearch.llmUnavailableTitle')"
+              :description="$t('smartSearch.llmUnavailableDescription')"
               type="warning"
               :closable="false"
               show-icon
@@ -318,8 +318,8 @@
               <div class="ss-recommendation-wrapper">
                 <div class="ss-llm-unavailable-hint">
                   <el-alert
-                    title="当前智能搜索不可用"
-                    :description="(m.payload && m.payload.answerText) ? m.payload.answerText : (m.content || '当前未接入大模型或额度已用完，请使用经典面板功能。')"
+                    :title="$t('smartSearch.llmUnavailableTitle')"
+                    :description="(m.payload && m.payload.answerText) ? m.payload.answerText : (m.content || $t('smartSearch.llmUnavailableDescription'))"
                     type="warning"
                     :closable="false"
                     show-icon
@@ -371,42 +371,42 @@
                 <div class="ss-answer-area">
                   <!-- 综合回答（含 MKnowledge 生成或片段拼接；与下方 Knowledge 来源区分） -->
                   <div v-if="(m.payload.answerText || '').trim()" class="ss-answer-section ss-answer-summary">
-                    <div v-if="showAnswerSectionTitle(m.payload)" class="ss-answer-section-title">回答</div>
+                    <div v-if="showAnswerSectionTitle(m.payload)" class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionAnswer') }}</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-answer-text">{{ m.payload.answerText }}</div>
                     </div>
                   </div>
                   <!-- 识别到的查询要点 -->
                   <div v-if="m.payload.recognized && (m.payload.recognized.fullCodes?.length || m.payload.recognized.typeCodes?.length || m.payload.recognized.keywords?.length || m.payload.recognized.symptom?.length || m.payload.recognized.trigger?.length || m.payload.recognized.component?.length || m.payload.recognized.neg?.length || m.payload.recognized.intent || m.payload.recognized.days)" class="ss-answer-section">
-                    <div class="ss-answer-section-title">识别到的查询要点</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.recognized.title') }}</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-query-points">
                         <template v-if="m.payload.recognized.intent">
-                          <div>意图：{{ getIntentLabel(m.payload.recognized.intent) }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.intent') }}：{{ getIntentLabel(m.payload.recognized.intent) }}</div>
                         </template>
                         <template v-if="m.payload.recognized.fullCodes?.length">
-                          <div>故障码：{{ m.payload.recognized.fullCodes.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.faultCode') }}：{{ m.payload.recognized.fullCodes.join(' / ') }}</div>
                         </template>
                         <template v-else-if="m.payload.recognized.typeCodes?.length">
-                          <div>故障类型：{{ m.payload.recognized.typeCodes.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.faultType') }}：{{ m.payload.recognized.typeCodes.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.keywords?.length">
-                          <div>关键词：{{ m.payload.recognized.keywords.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.keywords') }}：{{ m.payload.recognized.keywords.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.symptom?.length">
-                          <div>现象：{{ m.payload.recognized.symptom.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.symptom') }}：{{ m.payload.recognized.symptom.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.trigger?.length">
-                          <div>触发条件：{{ m.payload.recognized.trigger.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.trigger') }}：{{ m.payload.recognized.trigger.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.component?.length">
-                          <div>组件：{{ m.payload.recognized.component.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.component') }}：{{ m.payload.recognized.component.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.neg?.length">
-                          <div>否定项：{{ m.payload.recognized.neg.join(' / ') }}</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.negative') }}：{{ m.payload.recognized.neg.join(' / ') }}</div>
                         </template>
                         <template v-if="m.payload.recognized.days">
-                          <div>回溯天数：{{ m.payload.recognized.days }} 天</div>
+                          <div>{{ $t('mobile.smartSearch.recognized.lookbackDays') }}：{{ m.payload.recognized.days }} {{ $t('mobile.smartSearch.dayUnit') }}</div>
                         </template>
                       </div>
                     </div>
@@ -414,12 +414,12 @@
 
                   <!-- find_case: 统一“故障案例”标签（Jira + MongoDB 合并，Jira 优先，按 jira_key 去重） -->
                   <div v-if="m.payload.recognized?.intent === 'find_case' && m.payload.meta?.jiraError" class="ss-answer-section">
-                    <div class="ss-answer-section-title">故障案例</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCase') }}</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-jira-error">
                         <el-alert
-                          :title="m.payload.meta.jiraError.timeout ? 'Jira 连接超时' : 'Jira 连接失败'"
-                          :description="m.payload.meta.jiraError.message || '无法连接到 Jira，历史案例检索已跳过'"
+                          :title="m.payload.meta.jiraError.timeout ? $t('shared.jira.timeout') : $t('shared.jira.connectionFailed')"
+                          :description="m.payload.meta.jiraError.message || $t('shared.jira.fallbackCaseSkipped')"
                           type="warning"
                           :closable="false"
                           show-icon
@@ -428,7 +428,7 @@
                     </div>
                   </div>
                   <div v-else-if="m.payload.recognized?.intent === 'find_case' && m.payload.sources && (m.payload.sources.cases || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">故障案例</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCase') }}</div>
                     <div class="ss-answer-section-content">
                       <div
                         v-for="c in (m.payload.sources?.cases || [])"
@@ -465,7 +465,7 @@
 
                   <!-- 故障码解析 -->
                   <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">故障码解析</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCode') }}</div>
                     <div class="ss-answer-section-content">
                       <div
                         v-for="f in (m.payload.sources?.faultCodes || [])"
@@ -480,25 +480,25 @@
                           
                           <!-- 解释 -->
                           <div v-if="f.explanation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">解释：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldExplanation') }}：</span>
                             <span class="ss-fault-field-value">{{ f.explanation }}</span>
                           </div>
                           
                           <!-- 用户提示 -->
                           <div v-if="f.user_hint || f.operation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">用户提示：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldUserHint') }}：</span>
                             <span class="ss-fault-field-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</span>
                           </div>
                           
                           <!-- 分类 -->
                           <div v-if="f.category" class="ss-fault-field">
-                            <span class="ss-fault-field-label">分类：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldCategory') }}：</span>
                             <span class="ss-fault-field-value">{{ f.category }}</span>
                             </div>
                           
                           <!-- 技术排查方案 -->
                           <div class="ss-fault-field">
-                            <span class="ss-fault-field-label">技术排查方案：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldTechSolution') }}：</span>
                             <div class="ss-fault-tech-solution">
                               <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-fault-tech-solution-text">
                                 {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
@@ -512,17 +512,17 @@
                                   :loading="faultTechSolutions.get(f.id)?.loading"
                                   @click="loadTechSolution(f.id)"
                                 >
-                                  加载技术排查方案
+                                  {{ $t('mobile.smartSearch.loadTechSolution') }}
                                 </el-button>
                           </div>
                           
                               <!-- 附件（图片可预览，PDF可点击） -->
                               <div v-if="faultTechSolutions.get(f.id)?.loading" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">附件：</div>
-                                <div class="ss-fault-field-value">加载中...</div>
+                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
+                                <div class="ss-fault-field-value">{{ $t('shared.loading') }}</div>
                               </div>
                               <div v-else-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">附件：</div>
+                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
                                 <div class="ss-fault-attachments-list">
                                   <!-- 图片：可预览 -->
                                   <div
@@ -537,7 +537,7 @@
                                       class="ss-attachment-image"
                                       :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
                                     />
-                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || '图片' }}</div>
+                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
                                   </div>
                                   <!-- PDF/其他文件：显示文件名，可点击下载 -->
                                   <a
@@ -549,7 +549,7 @@
                                     rel="noopener noreferrer"
                                     @click.stop
                                   >
-                                    <span>{{ img.original_name || img.filename || '文件' }}</span>
+                                    <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
                                   </a>
                                 </div>
                               </div>
@@ -561,7 +561,7 @@
 
                   <!-- find_case: 故障码解析放到 Jira/Mongo 之后 -->
                   <div v-if="m.payload.recognized?.intent === 'find_case' && m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">故障码解析</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCode') }}</div>
                     <div class="ss-answer-section-content">
                       <div
                         v-for="f in (m.payload.sources?.faultCodes || [])"
@@ -576,25 +576,25 @@
                           
                           <!-- 解释 -->
                           <div v-if="f.explanation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">解释：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldExplanation') }}：</span>
                             <span class="ss-fault-field-value">{{ f.explanation }}</span>
                           </div>
                           
                           <!-- 用户提示 -->
                           <div v-if="f.user_hint || f.operation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">用户提示：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldUserHint') }}：</span>
                             <span class="ss-fault-field-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</span>
                           </div>
                           
                           <!-- 分类 -->
                           <div v-if="f.category" class="ss-fault-field">
-                            <span class="ss-fault-field-label">分类：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldCategory') }}：</span>
                             <span class="ss-fault-field-value">{{ f.category }}</span>
                           </div>
                           
                           <!-- 技术排查方案 -->
                           <div class="ss-fault-field">
-                            <span class="ss-fault-field-label">技术排查方案：</span>
+                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldTechSolution') }}：</span>
                             <div class="ss-fault-tech-solution">
                               <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-fault-tech-solution-text">
                                 {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
@@ -608,17 +608,17 @@
                                   :loading="faultTechSolutions.get(f.id)?.loading"
                                   @click="loadTechSolution(f.id)"
                                 >
-                                  加载技术排查方案
+                                  {{ $t('mobile.smartSearch.loadTechSolution') }}
                                 </el-button>
                               </div>
                               
                               <!-- 附件（图片可预览，PDF可点击） -->
                               <div v-if="faultTechSolutions.get(f.id)?.loading" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">附件：</div>
-                                <div class="ss-fault-field-value">加载中...</div>
+                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
+                                <div class="ss-fault-field-value">{{ $t('shared.loading') }}</div>
                               </div>
                               <div v-else-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">附件：</div>
+                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
                                 <div class="ss-fault-attachments-list">
                                   <!-- 图片：可预览 -->
                                   <div
@@ -633,7 +633,7 @@
                                       class="ss-attachment-image"
                                       :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
                                     />
-                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || '图片' }}</div>
+                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
                                   </div>
                                   <!-- PDF/其他文件：显示文件名，可点击下载 -->
                                   <a
@@ -645,7 +645,7 @@
                                     rel="noopener noreferrer"
                                     @click.stop
                                   >
-                                    <span>{{ img.original_name || img.filename || '文件' }}</span>
+                                    <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
                                   </a>
                                 </div>
                               </div>
@@ -657,12 +657,12 @@
 
                   <!-- 相似案例（非 find_case：统一使用 sources.cases / K 序号） -->
                   <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.meta?.jiraError" class="ss-answer-section">
-                    <div class="ss-answer-section-title">相似案例</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionSimilarCases') }}</div>
                     <div class="ss-answer-section-content">
                       <div class="ss-jira-error">
                         <el-alert
-                          :title="m.payload.meta.jiraError.timeout ? 'Jira 连接超时' : 'Jira 连接失败'"
-                          :description="m.payload.meta.jiraError.message || '无法连接到 Jira，Jira 侧案例检索已跳过'"
+                          :title="m.payload.meta.jiraError.timeout ? $t('shared.jira.timeout') : $t('shared.jira.connectionFailed')"
+                          :description="m.payload.meta.jiraError.message || $t('shared.jira.fallbackSimilarSkipped')"
                           type="warning"
                           :closable="false"
                           show-icon
@@ -671,7 +671,7 @@
                     </div>
                   </div>
                   <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.cases || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">相似案例</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionSimilarCases') }}</div>
                     <div class="ss-answer-section-content">
                       <div
                         v-for="c in (m.payload.sources?.cases || [])"
@@ -700,7 +700,7 @@
 
                   <!-- Knowledge 知识库文档（生成成功且有 answer 时隐藏；失败或空 answer 仍展示，见 showKbSnippetListInAnswer） -->
                   <div v-if="m.payload.sources && (m.payload.sources.kbDocs || []).length > 0 && showKbSnippetListInAnswer(m.payload)" class="ss-answer-section">
-                    <div class="ss-answer-section-title">Knowledge（{{ m.payload.sources.kbDocs.length }}）</div>
+                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.kbSourcesCount', { count: m.payload.sources.kbDocs.length }) }}</div>
                     <div class="ss-answer-section-content">
                       <div
                         v-for="(kb, idx) in (m.payload.sources.kbDocs || []).slice(0, 5)"
@@ -729,7 +729,7 @@
                           href="#"
                           @click.prevent="openSourcesDrawerAndExpand(m, kb.ref)"
                         >
-                          查看详情
+                          {{ $t('mobile.smartSearch.viewDetail') }}
                         </a>
                       </div>
                       <div v-if="(m.payload.sources.kbDocs || []).length > 5" class="ss-kb-more">
@@ -738,7 +738,7 @@
                           text 
                           @click="openSourcesDrawer(m)"
                         >
-                          查看全部 {{ m.payload.sources.kbDocs.length }} 条 Knowledge 来源
+                          {{ $t('smartSearch.viewAllKbSources', { count: m.payload.sources.kbDocs.length }) }}
                         </el-button>
                       </div>
                     </div>
@@ -758,7 +758,7 @@
                           v-if="(m.payload.sources?.faultCodes || []).length > 0" 
                           class="ss-source-icon ss-source-icon-error-code" 
                           :style="{ zIndex: 10 }"
-                          title="故障码"
+                          :title="$t('mobile.smartSearch.recognized.faultCode')"
                         >
                           <span class="ss-source-icon-text">ErrCode</span>
                         </div>
@@ -779,12 +779,12 @@
                           <span class="ss-source-icon-text">Knowledge</span>
                         </div>
                       </div>
-                      <span class="ss-sources-button-text">来源</span>
+                      <span class="ss-sources-button-text">{{ $t('mobile.smartSearch.sources') }}</span>
                     </div>
                     <button 
                       class="ss-copy-button" 
                       @click.stop="copyAnswerText(m)"
-                      title="复制答案"
+                      :title="$t('smartSearch.copyAnswer')"
                     >
                       <el-icon><DocumentCopy /></el-icon>
                     </button>
@@ -793,16 +793,16 @@
 
                 <!-- 2) 查看检索详情 -->
                 <details v-if="m.payload.meta?.llmAvailable !== false && m.payload.debug" class="ss-result-debug">
-                  <summary class="ss-result-debug-summary">查看检索详情</summary>
+                  <summary class="ss-result-debug-summary">{{ $t('smartSearch.viewRetrievalDetails') }}</summary>
                   <div class="ss-result-debug-body">
                     <div v-if="m.payload.debug.kbRetrieval" class="ss-debug-block">
-                      <div class="ss-debug-title">知识库检索（MKnowledge）</div>
+                      <div class="ss-debug-title">{{ $t('smartSearch.debugKbRetrieval') }}</div>
                       <div class="ss-debug-row">
                         <span class="ss-debug-k">query：</span>
                         <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.query || '—' }}</span>
                       </div>
                       <div class="ss-debug-row">
-                        <span class="ss-debug-k">关键字：</span>
+                        <span class="ss-debug-k">{{ $t('smartSearch.debugKeywords') }}：</span>
                         <span class="ss-debug-v">{{ (m.payload.debug.kbRetrieval.keywords || []).length ? (m.payload.debug.kbRetrieval.keywords || []).join('、') : '—' }}</span>
                       </div>
                       <div v-if="m.payload.debug.kbRetrieval.mknowledgeLexicalQuery" class="ss-debug-row">
@@ -814,16 +814,16 @@
                         <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.limit }}</span>
                       </div>
                       <div class="ss-debug-row">
-                        <span class="ss-debug-k">生成：</span>
-                        <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.generate ? '是' : '否' }}</span>
+                        <span class="ss-debug-k">{{ $t('smartSearch.debugGenerate') }}：</span>
+                        <span class="ss-debug-v">{{ m.payload.debug.kbRetrieval.generate ? $t('smartSearch.yes') : $t('smartSearch.no') }}</span>
                       </div>
                       <div v-if="m.payload.debug.kbRetrieval.tokenUsage" class="ss-debug-row">
-                        <span class="ss-debug-k">Token 消耗：</span>
+                        <span class="ss-debug-k">{{ $t('smartSearch.debugTokenUsage') }}：</span>
                         <span class="ss-debug-v">{{ formatKbTokenUsage(m.payload.debug.kbRetrieval.tokenUsage) }}</span>
                       </div>
                       <div v-else-if="m.payload.debug.kbRetrieval.generate" class="ss-debug-row">
-                        <span class="ss-debug-k">Token 消耗：</span>
-                        <span class="ss-debug-v">—（未生成或未返回 usage）</span>
+                        <span class="ss-debug-k">{{ $t('smartSearch.debugTokenUsage') }}：</span>
+                        <span class="ss-debug-v">{{ $t('smartSearch.debugTokenUsageEmpty') }}</span>
                       </div>
                       <template v-if="m.payload.debug.kbRetrieval.mknowledgeTimingMs != null">
                         <div class="ss-debug-title" style="margin-top: 8px">MKnowledge timingMs</div>
@@ -839,19 +839,19 @@
                       <pre class="ss-debug-pre">{{ formatLlmRaw(m.payload.debug.llmRaw) }}</pre>
                     </div>
                     <div v-if="m.payload.debug.queryPlan" class="ss-debug-block">
-                      <div class="ss-debug-title">解析结果（QueryPlan + Planner）</div>
+                      <div class="ss-debug-title">{{ $t('smartSearch.debugParseResult') }}</div>
                       <pre class="ss-debug-pre">{{ JSON.stringify(m.payload.debug.queryPlan, null, 2) }}</pre>
                     </div>
                     <div class="ss-debug-block">
-                      <div class="ss-debug-title">故障码检索参数</div>
+                      <div class="ss-debug-title">{{ $t('smartSearch.debugFaultCodeParams') }}</div>
                       <pre class="ss-debug-pre">{{ JSON.stringify(m.payload.debug.errorCodes, null, 2) }}</pre>
                     </div>
                     <div class="ss-debug-block">
-                      <div class="ss-debug-title">Jira 检索式</div>
+                      <div class="ss-debug-title">{{ $t('smartSearch.debugJiraQuery') }}</div>
                       <div class="ss-debug-row"><span class="ss-debug-k">jql：</span>{{ m.payload.debug.jira?.jql || '--' }}</div>
                     </div>
                     <div v-if="m.payload.debug.mongo" class="ss-debug-block">
-                      <div class="ss-debug-title">MongoDB 检索式</div>
+                      <div class="ss-debug-title">{{ $t('smartSearch.debugMongoQuery') }}</div>
                       <pre class="ss-debug-pre">{{ JSON.stringify(m.payload.debug.mongo, null, 2) }}</pre>
                     </div>
                   </div>
@@ -963,7 +963,7 @@
 
       <el-drawer
         v-model="sourceDrawerVisible"
-        title="搜索结果"
+        :title="$t('smartSearch.searchResults')"
         size="520px"
         direction="rtl"
         :with-header="true"
@@ -973,7 +973,7 @@
         <div class="ss-sources-drawer">
           <!-- 故障码来源 -->
           <div v-if="sourceDrawerMessage?.payload?.sources?.faultCodes?.length" class="ss-sources-group">
-            <div class="ss-sources-group-title">故障码来源（{{ sourceDrawerMessage?.payload?.sources?.faultCodes?.length }}）</div>
+            <div class="ss-sources-group-title">{{ $t('mobile.smartSearch.faultCodeSourcesCount', { count: sourceDrawerMessage?.payload?.sources?.faultCodes?.length }) }}</div>
             <div class="ss-sources-list">
               <div
                 v-for="f in sourceDrawerMessage.payload.sources.faultCodes"
@@ -992,34 +992,34 @@
                   <div class="ss-source-detail">
                     <!-- 解释 -->
                     <div v-if="f.explanation" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">解释</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldExplanation') }}</div>
                       <div class="ss-source-detail-value">{{ f.explanation }}</div>
                     </div>
                     
                     <!-- 用户提示 -->
                     <div v-if="f.user_hint || f.operation" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">用户提示</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldUserHint') }}</div>
                       <div class="ss-source-detail-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</div>
                     </div>
                     
                     <!-- 参数含义 -->
                     <div v-if="f.param1 || f.param2 || f.param3 || f.param4" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">参数含义</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldParams') }}</div>
                       <div class="ss-source-detail-params">
                         <div v-if="f.param1" class="ss-source-detail-param">
-                          <span class="ss-param-label">参数1：</span>
+                          <span class="ss-param-label">{{ $t('shared.param1') }}：</span>
                           <span class="ss-param-value">{{ f.param1 }}</span>
                         </div>
                         <div v-if="f.param2" class="ss-source-detail-param">
-                          <span class="ss-param-label">参数2：</span>
+                          <span class="ss-param-label">{{ $t('shared.param2') }}：</span>
                           <span class="ss-param-value">{{ f.param2 }}</span>
                         </div>
                         <div v-if="f.param3" class="ss-source-detail-param">
-                          <span class="ss-param-label">参数3：</span>
+                          <span class="ss-param-label">{{ $t('shared.param3') }}：</span>
                           <span class="ss-param-value">{{ f.param3 }}</span>
                         </div>
                         <div v-if="f.param4" class="ss-source-detail-param">
-                          <span class="ss-param-label">参数4：</span>
+                          <span class="ss-param-label">{{ $t('shared.param4') }}：</span>
                           <span class="ss-param-value">{{ f.param4 }}</span>
                         </div>
                       </div>
@@ -1027,25 +1027,25 @@
                     
                     <!-- 详细信息 -->
                     <div v-if="f.detail" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">详细信息</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldDetail') }}</div>
                       <div class="ss-source-detail-value">{{ f.detail }}</div>
                     </div>
                     
                     <!-- 检查方法 -->
                     <div v-if="f.method" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">检查方法</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldMethod') }}</div>
                       <div class="ss-source-detail-value">{{ f.method }}</div>
                     </div>
                     
                     <!-- 分类 -->
                     <div v-if="f.category" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">分类</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldCategory') }}</div>
                       <div class="ss-source-detail-value">{{ f.category }}</div>
                     </div>
                     
                     <!-- 技术排查方案 -->
                     <div class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">技术排查方案</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldTechSolution') }}</div>
                       <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-source-detail-value ss-source-tech-text">
                         {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
                       </div>
@@ -1056,14 +1056,14 @@
                           :loading="faultTechSolutions.get(f.id)?.loading"
                           @click="loadTechSolution(f.id)"
                         >
-                          加载技术排查方案
+                          {{ $t('mobile.smartSearch.loadTechSolution') }}
                         </el-button>
                       </div>
                       <div v-else class="ss-source-detail-value">-</div>
                       
                       <!-- 附件 -->
                       <div v-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
-                        <div class="ss-fault-attachments-title">附件：</div>
+                        <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
                         <div class="ss-fault-attachments-list">
                           <!-- 图片：可预览 -->
                           <div
@@ -1078,7 +1078,7 @@
                               class="ss-attachment-image"
                               :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
                             />
-                            <div class="ss-attachment-image-name">{{ img.original_name || img.filename || '图片' }}</div>
+                            <div class="ss-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
                           </div>
                           <!-- PDF/其他文件：显示文件名，可点击下载 -->
                           <a
@@ -1090,7 +1090,7 @@
                             rel="noopener noreferrer"
                             @click.stop
                           >
-                            <span>{{ img.original_name || img.filename || '文件' }}</span>
+                            <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
                           </a>
                         </div>
                       </div>
@@ -1103,7 +1103,7 @@
 
           <!-- 故障案例来源：统一使用 sources.cases（K 序号） -->
           <div v-if="(sourceDrawerMessage?.payload?.sources?.cases?.length || 0) > 0" class="ss-sources-group">
-            <div class="ss-sources-group-title">故障案例（{{ sourceDrawerMessage?.payload?.sources?.cases?.length || 0 }}）</div>
+            <div class="ss-sources-group-title">{{ $t('mobile.smartSearch.faultCaseSourcesCount', { count: sourceDrawerMessage?.payload?.sources?.cases?.length || 0 }) }}</div>
             <div class="ss-sources-list">
               <!-- 合并后的 cases（find_case/troubleshoot 意图） -->
               <template v-if="sourceDrawerMessage?.payload?.sources?.cases?.length">
@@ -1132,7 +1132,7 @@
                     <div class="ss-source-detail">
                       <!-- Jira (复用 JiraFaultCases 概览弹窗字段；展开时会 getIssue 补齐) -->
                       <template v-if="c.type === 'jira'">
-                        <div v-if="jiraIssueLoading[c.key]" class="ss-case-loading">正在加载 Jira 详情…</div>
+                        <div v-if="jiraIssueLoading[c.key]" class="ss-case-loading">{{ $t('mobile.smartSearch.loadingJiraDetail') }}</div>
 
                         <!-- Header: Key / Project Name + Title -->
                         <div class="ss-case-preview-header">
@@ -1146,14 +1146,14 @@
                         <div class="ss-case-key-info">
                           <div class="ss-case-key-info-left">
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">STATUS</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.status') }}</div>
                               <el-tag v-if="getJiraCase(c).status" type="primary" size="small" class="ss-case-status-tag">
                                 {{ getJiraCase(c).status }}
                               </el-tag>
                               <span v-else class="ss-case-info-empty">-</span>
                             </div>
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">COMPONENTS</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.components') }}</div>
                               <div class="ss-case-components">
                                 <el-tag
                                   v-for="(comp, idx) in (getJiraCase(c).components || [])"
@@ -1169,13 +1169,13 @@
                           </div>
                           <div class="ss-case-key-info-right">
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">RESOLUTION</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.resolution') }}</div>
                               <div class="ss-case-info-value">
                                 {{ getJiraCase(c).resolution?.name || 'Unresolved' }}
                               </div>
                             </div>
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">UPDATED</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.updated') }}</div>
                               <div class="ss-case-info-value">
                                 <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
                                 {{ formatTime(getJiraCase(c).updated) || '-' }}
@@ -1186,46 +1186,46 @@
 
                         <!-- 模块信息（如果components为空，显示module） -->
                         <div v-if="(!getJiraCase(c).components || getJiraCase(c).components.length === 0) && getJiraCase(c).module" class="ss-source-detail-section">
-                          <div class="ss-source-detail-label">模块</div>
+                          <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.module') }}</div>
                           <div class="ss-source-detail-value">{{ getJiraCase(c).module }}</div>
                         </div>
 
                         <!-- Content Section: 客诉/普通 两套字段（与 JiraFaultCases 一致） -->
                         <template v-if="isComplaintProjectByCase(c)">
                           <div v-if="getJiraCase(c).customfield_12213" class="ss-case-content-section">
-                            <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
+                            <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.detailedDescription') }}</div>
                             <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12213 }}</div>
                           </div>
                           <div v-if="getJiraCase(c).customfield_12284" class="ss-case-content-section">
-                            <div class="ss-case-content-label">PRELIMINARY INVESTIGATION</div>
+                            <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.preliminaryInvestigation') }}</div>
                             <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12284 }}</div>
                           </div>
                           <div class="ss-case-content-two-columns">
                             <div v-if="getJiraCase(c).customfield_12233" class="ss-case-content-section">
-                              <div class="ss-case-content-label">CONTAINMENT MEASURES</div>
+                              <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.containmentMeasures') }}</div>
                               <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12233 }}</div>
                             </div>
                             <div v-if="getJiraCase(c).customfield_12239" class="ss-case-content-section">
-                              <div class="ss-case-content-label">LONG-TERM MEASURES</div>
+                              <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.longTermMeasures') }}</div>
                               <div class="ss-case-content-box">{{ getJiraCase(c).customfield_12239 }}</div>
                             </div>
                           </div>
                           <div v-if="!getJiraCase(c).customfield_12213 && !getJiraCase(c).customfield_12284 && !getJiraCase(c).customfield_12233 && !getJiraCase(c).customfield_12239" class="ss-case-content-section">
-                            <div class="ss-case-content-label">DETAILED DESCRIPTION</div>
+                            <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.detailedDescription') }}</div>
                             <div class="ss-case-content-box">{{ getJiraCase(c).description || getJiraCase(c).summary || '-' }}</div>
                           </div>
                         </template>
                         <template v-else>
                           <div v-if="getJiraCase(c).description || getJiraCase(c).summary" class="ss-case-content-section">
-                            <div class="ss-case-content-label">DESCRIPTION</div>
+                            <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.description') }}</div>
                             <div class="ss-case-content-box">{{ getJiraCase(c).description || getJiraCase(c).summary }}</div>
                           </div>
                           <div v-if="getJiraCase(c).customfield_10705" class="ss-case-content-section">
-                            <div class="ss-case-content-label">INVESTIGATION & CAUSE ANALYSIS</div>
+                            <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.investigationAndCause') }}</div>
                             <div class="ss-case-content-box">{{ getJiraCase(c).customfield_10705 }}</div>
                           </div>
                           <div v-if="getJiraCase(c).customfield_10600" class="ss-case-content-section">
-                            <div class="ss-case-content-label">SOLUTION DETAILS</div>
+                            <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseSection.solutionDetails') }}</div>
                             <div class="ss-case-content-box">{{ getJiraCase(c).customfield_10600 }}</div>
                           </div>
                         </template>
@@ -1233,7 +1233,7 @@
                         <!-- Attachments Section -->
                         <div v-if="(getJiraCase(c).attachments || []).length > 0" class="ss-case-attachments-section">
                           <div v-if="getJiraImageAttachments(c).length > 0" class="ss-case-image-attachments">
-                            <div class="ss-case-attachment-label">IMAGE ATTACHMENTS</div>
+                            <div class="ss-case-attachment-label">{{ $t('mobile.smartSearch.caseSection.imageAttachments') }}</div>
                             <div class="ss-case-attachment-images">
                               <div v-for="img in getJiraImageAttachments(c)" :key="img.id || img.filename" class="ss-case-image-thumbnail" :title="img.filename">
                                 <el-image
@@ -1249,7 +1249,7 @@
                             </div>
                           </div>
                           <div v-if="getJiraFileAttachments(c).length > 0" class="ss-case-file-attachments">
-                            <div class="ss-case-attachment-label">FILE ATTACHMENTS</div>
+                            <div class="ss-case-attachment-label">{{ $t('mobile.smartSearch.caseSection.fileAttachments') }}</div>
                             <div v-for="file in getJiraFileAttachments(c)" :key="file.id || file.filename" class="ss-case-attachment-item">
                               <el-link type="primary" :underline="false" @click="downloadJiraFile(file)">
                                 <i class="fas fa-paperclip"></i>
@@ -1262,7 +1262,7 @@
 
                       <!-- MongoDB 故障案例（概览方式显示） -->
                       <template v-else>
-                        <div v-if="mongoCaseLoading[c.id]" class="ss-case-loading">正在加载故障案例详情…</div>
+                        <div v-if="mongoCaseLoading[c.id]" class="ss-case-loading">{{ $t('mobile.smartSearch.loadingFaultCaseDetail') }}</div>
                         <!-- Header: Key / ID + Title -->
                         <div class="ss-case-preview-header">
                           <div class="ss-case-preview-key-project">
@@ -1275,14 +1275,14 @@
                         <div class="ss-case-key-info">
                           <div class="ss-case-key-info-left">
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">STATUS</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.status') }}</div>
                               <el-tag v-if="getMongoCase(c).status" type="primary" size="small" class="ss-case-status-tag">
                                 {{ getMongoCase(c).status }}
                               </el-tag>
                               <span v-else class="ss-case-info-empty">-</span>
                             </div>
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">MODULE</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.module') }}</div>
                               <div class="ss-case-info-value">
                                 {{ getMongoCase(c).module || '-' }}
                               </div>
@@ -1290,7 +1290,7 @@
                           </div>
                           <div class="ss-case-key-info-right">
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">EQUIPMENT MODEL</div>
+                              <div class="ss-case-info-label">{{ $t('faultCases.fields.equipment_model') }}</div>
                               <div class="ss-case-info-value">
                                 {{
                                   Array.isArray(getMongoCase(c).equipment_model)
@@ -1300,7 +1300,7 @@
                               </div>
                             </div>
                             <div class="ss-case-info-item">
-                              <div class="ss-case-info-label">UPDATED</div>
+                              <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.updated') }}</div>
                               <div class="ss-case-info-value">
                                 <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
                                 {{ formatDateTime(getMongoCase(c).updated_at_user || getMongoCase(c).updatedAt || getMongoCase(c).updated || getMongoCase(c).createdAt) || '-' }}
@@ -1317,28 +1317,28 @@
 
                         <!-- Content Section -->
                         <div class="ss-case-content-section">
-                          <div class="ss-case-content-label">SYMPTOM</div>
+                          <div class="ss-case-content-label">{{ $t('faultCases.fields.symptom') }}</div>
                           <div class="ss-case-content-box">{{ getMongoCase(c).symptom || '-' }}</div>
                         </div>
 
                         <div class="ss-case-content-section">
-                          <div class="ss-case-content-label">POSSIBLE CAUSES</div>
+                          <div class="ss-case-content-label">{{ $t('faultCases.fields.possible_causes') }}</div>
                           <div class="ss-case-content-box">{{ getMongoCase(c).possible_causes || '-' }}</div>
                         </div>
 
                         <div class="ss-case-content-section">
-                          <div class="ss-case-content-label">RESOLUTION</div>
+                          <div class="ss-case-content-label">{{ $t('mobile.smartSearch.caseInfo.resolution') }}</div>
                           <div class="ss-case-content-box">{{ getMongoCase(c).resolution || getMongoCase(c).solution || '-' }}</div>
                         </div>
 
                         <div class="ss-case-content-section">
-                          <div class="ss-case-content-label">REMARK</div>
+                          <div class="ss-case-content-label">{{ $t('faultCases.fields.remark') }}</div>
                           <div class="ss-case-content-box">{{ getMongoCase(c).remark || '-' }}</div>
                         </div>
 
                         <!-- Related Error Codes -->
                         <div class="ss-source-detail-section">
-                          <div class="ss-source-detail-label">关联故障码</div>
+                          <div class="ss-source-detail-label">{{ $t('faultCases.fields.related_error_code_ids') }}</div>
                           <div class="ss-source-detail-value">
                             <span v-if="Array.isArray(getMongoCase(c).related_error_code_ids) && getMongoCase(c).related_error_code_ids.length > 0">
                               {{ getMongoCase(c).related_error_code_ids.join(', ') }}
@@ -1350,7 +1350,7 @@
                         <!-- Attachments Section -->
                         <div class="ss-case-attachments-section">
                           <div v-if="getMongoImageAttachments(getMongoCase(c)).length > 0" class="ss-case-image-attachments">
-                            <div class="ss-case-attachment-label">IMAGE ATTACHMENTS</div>
+                            <div class="ss-case-attachment-label">{{ $t('mobile.smartSearch.caseSection.imageAttachments') }}</div>
                             <div class="ss-case-attachment-images">
                               <div v-for="img in getMongoImageAttachments(getMongoCase(c))" :key="img.uid || img.url || img.id" class="ss-case-image-thumbnail" :title="img.original_name || img.filename || img.name">
                                 <el-image
@@ -1361,21 +1361,21 @@
                                   :initial-index="getMongoImageIndex(getMongoCase(c), img)"
                                   :preview-teleported="true"
                                 />
-                                <div class="ss-case-image-name">{{ img.original_name || img.filename || img.name || '图片' }}</div>
+                                <div class="ss-case-image-name">{{ img.original_name || img.filename || img.name || $t('shared.attachmentImage') }}</div>
                               </div>
                             </div>
                           </div>
                           <div v-if="getMongoFileAttachments(getMongoCase(c)).length > 0" class="ss-case-file-attachments">
-                            <div class="ss-case-attachment-label">FILE ATTACHMENTS</div>
+                            <div class="ss-case-attachment-label">{{ $t('mobile.smartSearch.caseSection.fileAttachments') }}</div>
                             <div v-for="file in getMongoFileAttachments(getMongoCase(c))" :key="file.uid || file.url || file.id" class="ss-case-attachment-item">
                               <el-link type="primary" :underline="false" @click="downloadMongoFile(file)">
                                 <i class="fas fa-paperclip"></i>
-                                {{ file.original_name || file.filename || file.name || '文件' }}
+                                {{ file.original_name || file.filename || file.name || $t('shared.attachmentFile') }}
                               </el-link>
                             </div>
                           </div>
                           <div v-if="getMongoImageAttachments(getMongoCase(c)).length === 0 && getMongoFileAttachments(getMongoCase(c)).length === 0" class="ss-source-detail-section">
-                            <div class="ss-source-detail-label">附件</div>
+                            <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.fieldAttachments') }}</div>
                             <div class="ss-source-detail-value">-</div>
                           </div>
                         </div>
@@ -1404,7 +1404,7 @@
                             class="btn-text btn-sm" 
                             @click.stop="goFaultCaseDetail(c.id)"
                           >
-                            查看详情
+                            {{ $t('mobile.smartSearch.viewDetail') }}
                           </button>
                         </template>
                       </div>
@@ -1417,7 +1417,7 @@
 
           <!-- 知识库来源：使用 sources.kbDocs（D 序号） -->
           <div v-if="(sourceDrawerMessage?.payload?.sources?.kbDocs?.length || 0) > 0" class="ss-sources-group">
-            <div class="ss-sources-group-title">Knowledge（{{ sourceDrawerMessage?.payload?.sources?.kbDocs?.length || 0 }}）</div>
+            <div class="ss-sources-group-title">{{ $t('mobile.smartSearch.kbSourcesCount', { count: sourceDrawerMessage?.payload?.sources?.kbDocs?.length || 0 }) }}</div>
             <div class="ss-sources-list">
               <div
                 v-for="k in (sourceDrawerMessage?.payload?.sources?.kbDocs || [])"
@@ -1435,11 +1435,11 @@
                 <div v-if="expandedSources.has(k.ref)" class="ss-source-expanded">
                   <div class="ss-source-detail">
                     <div class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">片段</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.kbSnippet') }}</div>
                       <div class="ss-source-detail-value ss-kb-snippet" v-html="sanitizeSnippet(k.snippet)"></div>
                     </div>
                     <div v-if="kbImageAssets(k).length" class="ss-source-detail-section">
-                      <div class="ss-source-detail-label">插图</div>
+                      <div class="ss-source-detail-label">{{ $t('mobile.smartSearch.kbImages') }}</div>
                       <div class="ss-source-detail-value ss-kb-assets">
                         <SmartSearchKbAssetImg
                           v-for="a in kbImageAssets(k)"
@@ -1464,76 +1464,76 @@
       <!-- 故障码详情弹窗 -->
       <el-dialog
         v-model="faultDetailDialogVisible"
-        title="故障码详情"
+        :title="$t('shared.faultCodeDetail')"
         width="800px"
         :close-on-click-modal="false"
       >
         <div v-if="faultDetailItem" class="ss-fault-detail-dialog">
           <el-tabs v-model="faultDetailActiveTab">
-            <el-tab-pane label="基础信息" name="basic">
+            <el-tab-pane :label="$t('errorCodes.queryResult.basicInfo')" name="basic">
               <div class="ss-fault-detail-dialog-content">
                 <div class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">故障码</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.recognized.faultCode') }}</div>
                   <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.subsystem ? `${faultDetailItem.subsystem} - ` : '' }}{{ faultDetailItem.code }}</div>
                 </div>
                 <div v-if="faultDetailItem.short_message" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">摘要</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('shared.summary') }}</div>
                   <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.short_message }}</div>
                 </div>
                 <div v-if="faultDetailItem.user_hint || faultDetailItem.operation || faultDetailItem.explanation" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">解释</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldExplanation') }}</div>
                   <div class="ss-fault-detail-dialog-value">{{ [faultDetailItem.explanation, faultDetailItem.user_hint, faultDetailItem.operation].filter(Boolean).join(' ') }}</div>
                 </div>
                 <div v-if="faultDetailItem.param1 || faultDetailItem.param2 || faultDetailItem.param3 || faultDetailItem.param4" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">参数含义</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldParams') }}</div>
                   <div class="ss-fault-detail-dialog-params">
                     <div v-if="faultDetailItem.param1" class="ss-fault-detail-dialog-param">
-                      <span class="ss-param-label">参数1：</span>
+                      <span class="ss-param-label">{{ $t('shared.param1') }}：</span>
                       <span class="ss-param-value">{{ faultDetailItem.param1 }}</span>
                     </div>
                     <div v-if="faultDetailItem.param2" class="ss-fault-detail-dialog-param">
-                      <span class="ss-param-label">参数2：</span>
+                      <span class="ss-param-label">{{ $t('shared.param2') }}：</span>
                       <span class="ss-param-value">{{ faultDetailItem.param2 }}</span>
                     </div>
                     <div v-if="faultDetailItem.param3" class="ss-fault-detail-dialog-param">
-                      <span class="ss-param-label">参数3：</span>
+                      <span class="ss-param-label">{{ $t('shared.param3') }}：</span>
                       <span class="ss-param-value">{{ faultDetailItem.param3 }}</span>
                     </div>
                     <div v-if="faultDetailItem.param4" class="ss-fault-detail-dialog-param">
-                      <span class="ss-param-label">参数4：</span>
+                      <span class="ss-param-label">{{ $t('shared.param4') }}：</span>
                       <span class="ss-param-value">{{ faultDetailItem.param4 }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </el-tab-pane>
-            <el-tab-pane label="更多信息" name="more">
+            <el-tab-pane :label="$t('errorCodes.queryResult.moreInfo')" name="more">
               <div class="ss-fault-detail-dialog-content">
                 <div v-if="faultDetailItem.detail" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">详细信息</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldDetail') }}</div>
                   <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.detail }}</div>
                 </div>
                 <div v-if="faultDetailItem.method" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">检查方法</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldMethod') }}</div>
                   <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.method }}</div>
                 </div>
                 <div v-if="faultDetailItem.category" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">分类</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldCategory') }}</div>
                   <div class="ss-fault-detail-dialog-value">{{ faultDetailItem.category }}</div>
                 </div>
               </div>
             </el-tab-pane>
-            <el-tab-pane label="技术排查方案" name="tech" v-loading="faultDetailTechLoading">
+            <el-tab-pane :label="$t('errorCodes.queryResult.techSolution')" name="tech" v-loading="faultDetailTechLoading">
               <div class="ss-fault-detail-dialog-content">
                 <div v-if="faultDetailTech?.tech_solution" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">技术排查方案</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldTechSolution') }}</div>
                   <pre class="ss-fault-detail-dialog-tech-text">{{ faultDetailTech.tech_solution }}</pre>
                 </div>
                 <div v-else class="ss-fault-detail-dialog-section">
                   <div class="ss-fault-detail-dialog-value">-</div>
                 </div>
                 <div v-if="(faultDetailTech?.images || []).length > 0" class="ss-fault-detail-dialog-section">
-                  <div class="ss-fault-detail-dialog-label">附件</div>
+                  <div class="ss-fault-detail-dialog-label">{{ $t('mobile.smartSearch.fieldAttachments') }}</div>
                   <div class="ss-fault-detail-dialog-attach-list">
                     <a
                       v-for="img in faultDetailTech.images"
@@ -1553,7 +1553,7 @@
         </div>
         <template #footer>
           <span class="dialog-footer">
-            <el-button @click="faultDetailDialogVisible = false">关闭</el-button>
+            <el-button @click="faultDetailDialogVisible = false">{{ $t('shared.close') }}</el-button>
           </span>
         </template>
       </el-dialog>
@@ -1568,6 +1568,7 @@ import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { hasI18nKey } from '@/i18n'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
 import { Earth } from '@icon-park/vue-next'
@@ -1586,10 +1587,10 @@ function shortId () {
   return `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`
 }
 
-function normalizeTitle (text) {
-  const t = String(text || '').trim().replace(/\s+/g, ' ')
+function normalizeTitle (text, fallback = '') {
+  const normalized = String(text || '').trim().replace(/\s+/g, ' ')
   // 只取前10个字
-  return t.length > 10 ? `${t.slice(0, 10)}` : (t || '新对话')
+  return normalized.length > 10 ? `${normalized.slice(0, 10)}` : (normalized || fallback)
 }
 
 export default {
@@ -1599,6 +1600,10 @@ export default {
     const store = useStore()
     const router = useRouter()
     const { t } = useI18n()
+    const defaultConversationTitle = computed(() => t('smartSearch.newConversation'))
+    const isDefaultConversationTitle = (title) => {
+      return !title || title === '新对话' || title === defaultConversationTitle.value
+    }
     const hasPermission = (permission) => store.getters['auth/hasPermission']?.(permission)
     const canAccessLogs = computed(() => hasPermission('log:read_all') || hasPermission('log:read_own'))
 
@@ -1658,12 +1663,12 @@ export default {
     const sourceDrawerTitle = computed(() => {
       const it = sourceDrawerItem.value || {}
       if (sourceDrawerType.value === 'fault') {
-        return `${it.ref || ''} ${it.subsystem ? `${it.subsystem} - ` : ''}${it.code || ''}`.trim() || '故障码详情'
+        return `${it.ref || ''} ${it.subsystem ? `${it.subsystem} - ` : ''}${it.code || ''}`.trim() || t('shared.faultCodeDetail')
       }
       if (sourceDrawerType.value === 'jira') {
-        return `${it.ref || ''} ${it.key || ''}`.trim() || 'Jira 详情'
+        return `${it.ref || ''} ${it.key || ''}`.trim() || t('shared.jiraDetail')
       }
-      return '详情'
+      return t('shared.details')
     })
 
     // Drawer case list always uses merged `sources.cases` (K1/K2...)
@@ -1681,10 +1686,10 @@ export default {
             }))
             // 确保每个对话都有标题
             conversations.value.forEach(conv => {
-              if (!conv.title || conv.title === '新对话') {
+              if (isDefaultConversationTitle(conv.title)) {
                 const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
                 if (firstUserMsg && firstUserMsg.content) {
-                  conv.title = normalizeTitle(firstUserMsg.content)
+                  conv.title = normalizeTitle(firstUserMsg.content, defaultConversationTitle.value)
                 }
               }
             })
@@ -1695,10 +1700,10 @@ export default {
         conversations.value = Array.isArray(parsed) ? parsed : []
             // 确保每个对话都有标题
         conversations.value.forEach(conv => {
-          if (!conv.title || conv.title === '新对话') {
+          if (isDefaultConversationTitle(conv.title)) {
             const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
             if (firstUserMsg && firstUserMsg.content) {
-              conv.title = normalizeTitle(firstUserMsg.content)
+              conv.title = normalizeTitle(firstUserMsg.content, defaultConversationTitle.value)
             }
           }
         })
@@ -1707,19 +1712,19 @@ export default {
           // 网络错误时 fallback 到 localStorage
           console.warn('[load] API error, fallback to localStorage:', apiErr)
           if (apiErr.response?.status === 503) {
-            ElMessage.warning('MongoDB 未连接，显示本地历史对话')
+            ElMessage.warning(t('smartSearch.messages.mongodbOfflineShowLocalHistory'))
           } else if (apiErr.response?.status >= 500) {
-            ElMessage.warning('服务器错误，显示本地历史对话')
+            ElMessage.warning(t('smartSearch.messages.serverErrorShowLocalHistory'))
           }
           const raw = localStorage.getItem(storageKey.value)
           const parsed = raw ? JSON.parse(raw) : []
           conversations.value = Array.isArray(parsed) ? parsed : []
           // 确保每个对话都有标题
           conversations.value.forEach(conv => {
-            if (!conv.title || conv.title === '新对话') {
+            if (isDefaultConversationTitle(conv.title)) {
               const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
               if (firstUserMsg && firstUserMsg.content) {
-                conv.title = normalizeTitle(firstUserMsg.content)
+                conv.title = normalizeTitle(firstUserMsg.content, defaultConversationTitle.value)
               }
             }
           })
@@ -1797,7 +1802,7 @@ export default {
         }
 
         const convData = {
-          title: conv.title || '新对话',
+          title: conv.title || defaultConversationTitle.value,
           messages: conv.messages || [],
           metadata
         }
@@ -1824,9 +1829,9 @@ export default {
       } catch (err) {
         console.error('[persistConversation] Failed to save conversation to MongoDB:', err)
         if (err.response?.status === 503) {
-          ElMessage.warning('MongoDB 未连接，对话未保存到服务器')
+          ElMessage.warning(t('smartSearch.messages.mongodbOfflineNotSaved'))
         } else if (err.response?.status >= 500) {
-          ElMessage.warning('服务器错误，对话未保存到服务器')
+          ElMessage.warning(t('smartSearch.messages.serverErrorNotSaved'))
         }
       }
     }
@@ -1896,7 +1901,7 @@ export default {
       if (activeConversation.value) return activeConversation.value
       const conv = {
         id: shortId(),
-        title: '新对话',
+        title: defaultConversationTitle.value,
         createdAt: nowIso(),
         updatedAt: nowIso(),
         messages: []
@@ -1924,7 +1929,7 @@ export default {
       const userMsg = { id: shortId(), role: 'user', content: text, createdAt: nowIso() }
       conv.messages = [...(conv.messages || []), userMsg]
       // 首问生成标题
-      if (!conv.title || conv.title === '新对话') conv.title = normalizeTitle(text)
+      if (isDefaultConversationTitle(conv.title)) conv.title = normalizeTitle(text, defaultConversationTitle.value)
       conv.updatedAt = nowIso()
       // 这里不要触发持久化，避免中途 id 变化导致后续找不到会话
       upsertConversation(conv)
@@ -1937,7 +1942,7 @@ export default {
           id: shortId(),
           role: 'assistant',
           type: 'llm_unavailable',
-          content: '当前未接入大模型或额度已用完，请使用经典面板功能。',
+          content: t('smartSearch.llmUnavailableDescription'),
           createdAt: nowIso()
         }]
         conv.updatedAt = nowIso()
@@ -2399,7 +2404,7 @@ export default {
       const rawUrl = getAttachmentUrl(file)
       if (!rawUrl) {
         console.warn('附件缺少 content URL:', file)
-        ElMessage.warning('附件链接无效')
+        ElMessage.warning(t('shared.messages.invalidAttachmentLink'))
         return
       }
       
@@ -2420,7 +2425,7 @@ export default {
           window.open(proxyUrl, '_blank')
         } catch (fallbackError) {
           console.error('降级下载也失败:', fallbackError)
-          ElMessage.error('文件下载失败，请检查网络连接')
+          ElMessage.error(t('shared.messages.downloadFailedCheckNetwork'))
         }
       }
     }
@@ -2517,7 +2522,7 @@ export default {
       const rawUrl = getMongoAttachmentUrl(file)
       if (!rawUrl) {
         console.warn('附件缺少 URL:', file)
-        ElMessage.warning('附件链接无效')
+        ElMessage.warning(t('shared.messages.invalidAttachmentLink'))
         return
       }
       
@@ -2538,7 +2543,7 @@ export default {
           window.open(proxyUrl, '_blank')
         } catch (fallbackError) {
           console.error('降级下载也失败:', fallbackError)
-          ElMessage.error('文件下载失败，请检查网络连接')
+          ElMessage.error(t('shared.messages.downloadFailedCheckNetwork'))
         }
       }
     }
@@ -2595,33 +2600,33 @@ export default {
         const rec = payload.recognized
         const queryPoints = []
         if (rec.intent) {
-          queryPoints.push(`意图：${getIntentLabel(rec.intent)}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.intent')}：${getIntentLabel(rec.intent)}`)
         }
         if (rec.fullCodes?.length) {
-          queryPoints.push(`故障码：${rec.fullCodes.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.faultCode')}：${rec.fullCodes.join(' / ')}`)
         } else if (rec.typeCodes?.length) {
-          queryPoints.push(`故障类型：${rec.typeCodes.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.faultType')}：${rec.typeCodes.join(' / ')}`)
         }
         if (rec.keywords?.length) {
-          queryPoints.push(`关键词：${rec.keywords.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.keywords')}：${rec.keywords.join(' / ')}`)
         }
         if (rec.symptom?.length) {
-          queryPoints.push(`现象：${rec.symptom.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.symptom')}：${rec.symptom.join(' / ')}`)
         }
         if (rec.trigger?.length) {
-          queryPoints.push(`触发条件：${rec.trigger.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.trigger')}：${rec.trigger.join(' / ')}`)
         }
         if (rec.component?.length) {
-          queryPoints.push(`组件：${rec.component.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.component')}：${rec.component.join(' / ')}`)
         }
         if (rec.neg?.length) {
-          queryPoints.push(`否定项：${rec.neg.join(' / ')}`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.negative')}：${rec.neg.join(' / ')}`)
         }
         if (rec.days) {
-          queryPoints.push(`回溯天数：${rec.days} 天`)
+          queryPoints.push(`${t('mobile.smartSearch.recognized.lookbackDays')}：${rec.days} ${t('mobile.smartSearch.dayUnit')}`)
         }
         if (queryPoints.length > 0) {
-          parts.push('识别到的查询要点')
+          parts.push(t('mobile.smartSearch.recognized.title'))
           parts.push(queryPoints.join('\n'))
           parts.push('')
         }
@@ -2629,38 +2634,38 @@ export default {
       
       // 故障码解析
       if (payload.sources?.faultCodes?.length > 0) {
-        parts.push('故障码解析')
+        parts.push(t('mobile.smartSearch.sectionFaultCode'))
         payload.sources.faultCodes.forEach(f => {
           const faultParts = []
           faultParts.push(`${f.subsystem ? `${f.subsystem} - ` : ''}${f.code}${f.short_message ? `：${f.short_message}` : ''} [${f.ref}]`)
           
           if (f.user_hint || f.operation) {
-            faultParts.push(`解释：${[f.user_hint, f.operation].filter(Boolean).join(' ') || '-'}`)
+            faultParts.push(`${t('mobile.smartSearch.fieldExplanation')}：${[f.user_hint, f.operation].filter(Boolean).join(' ') || '-'}`)
           }
           
           if (f.param1 || f.param2 || f.param3 || f.param4) {
             const params = []
-            if (f.param1) params.push(`参数1：${f.param1}`)
-            if (f.param2) params.push(`参数2：${f.param2}`)
-            if (f.param3) params.push(`参数3：${f.param3}`)
-            if (f.param4) params.push(`参数4：${f.param4}`)
-            faultParts.push(`参数含义：${params.join(' ')}`)
+            if (f.param1) params.push(`${t('shared.param1')}：${f.param1}`)
+            if (f.param2) params.push(`${t('shared.param2')}：${f.param2}`)
+            if (f.param3) params.push(`${t('shared.param3')}：${f.param3}`)
+            if (f.param4) params.push(`${t('shared.param4')}：${f.param4}`)
+            faultParts.push(`${t('mobile.smartSearch.fieldParams')}：${params.join(' ')}`)
           }
           
           if (f.detail) {
-            faultParts.push(`详细信息：${f.detail}`)
+            faultParts.push(`${t('mobile.smartSearch.fieldDetail')}：${f.detail}`)
           }
           
           if (f.method) {
-            faultParts.push(`检查方法：${f.method}`)
+            faultParts.push(`${t('mobile.smartSearch.fieldMethod')}：${f.method}`)
           }
           
           if (f.category) {
-            faultParts.push(`分类：${f.category}`)
+            faultParts.push(`${t('mobile.smartSearch.fieldCategory')}：${f.category}`)
           }
           
           if (f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution) {
-            faultParts.push(`技术排查方案：${f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution}`)
+            faultParts.push(`${t('mobile.smartSearch.fieldTechSolution')}：${f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution}`)
           }
           
           parts.push(faultParts.join('\n'))
@@ -2670,7 +2675,7 @@ export default {
       
       // 相似案例（统一 sources.cases / K 序号）
       if (payload.sources?.cases?.length > 0) {
-        parts.push('相似案例')
+        parts.push(t('mobile.smartSearch.sectionSimilarCases'))
         payload.sources.cases.forEach(c => {
           if (c?.type === 'jira') {
             parts.push(`${c.key}${c.summary ? `：${c.summary}` : ''} [${c.ref}]`)
@@ -2682,7 +2687,7 @@ export default {
         parts.push('')
       } else if (payload.sources?.jira?.length > 0) {
         // 兼容旧数据：没有 cases 时回退到 jira
-        parts.push('相似历史案例（来自 Jira）')
+        parts.push(t('mobile.smartSearch.sectionSimilarCases'))
         payload.sources.jira.forEach(j => {
           parts.push(`${j.key}${j.summary ? `：${j.summary}` : ''} [${j.ref}]`)
         })
@@ -2693,7 +2698,7 @@ export default {
       
       try {
         await navigator.clipboard.writeText(text)
-        ElMessage.success('答案已复制到剪贴板')
+        ElMessage.success(t('smartSearch.messages.copyAnswerSuccess'))
       } catch (err) {
         // 降级方案
         const textarea = document.createElement('textarea')
@@ -2704,9 +2709,9 @@ export default {
         textarea.select()
         try {
           document.execCommand('copy')
-          ElMessage.success('答案已复制到剪贴板')
+          ElMessage.success(t('smartSearch.messages.copyAnswerSuccess'))
         } catch (e) {
-          ElMessage.error('复制失败，请手动复制')
+          ElMessage.error(t('smartSearch.messages.copyFailedManual'))
         }
         document.body.removeChild(textarea)
       }
@@ -2774,7 +2779,7 @@ export default {
           await api.smartSearch.deleteConversation(mongoId)
         } catch (err) {
           console.error('[deleteConversation] Failed to delete from MongoDB:', err)
-          ElMessage.error('删除对话失败')
+          ElMessage.error(t('smartSearch.messages.deleteConversationFailed'))
           return
         }
       }
@@ -2909,15 +2914,8 @@ export default {
     }
 
     const getIntentLabel = (intent) => {
-      const intentLabelMap = {
-        troubleshoot: '排查/修复',
-        lookup_fault_code: '查故障码',
-        find_case: '找历史案例',
-        definition: '概念解释',
-        how_to_use: '使用方法',
-        other: '不确定'
-      }
-      return intentLabelMap[intent] || intent || '未知'
+      const key = `smartSearch.intent.${intent}`
+      return hasI18nKey(key) ? t(key) : (intent || t('shared.unknown'))
     }
 
     /**

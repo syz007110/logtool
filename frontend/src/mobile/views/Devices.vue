@@ -37,7 +37,7 @@
             <div class="card-row-tags">
               <span class="data-tag data-tag--log">{{ $t('mobile.devices.logData') }} {{ item.logCount ?? 0 }}</span>
               <span class="data-tag data-tag--surgery">{{ $t('mobile.devices.surgeryData') }} {{ item.surgeryCount ?? 0 }}</span>
-              <span class="data-tag data-tag--runtime">{{ $t('mobile.devices.runtimeData') || '运行数据' }} {{ item.motionCount ?? 0 }}</span>
+              <span class="data-tag data-tag--runtime">{{ $t('mobile.devices.runtimeData') }} {{ item.motionCount ?? 0 }}</span>
             </div>
           </button>
         </div>
@@ -57,6 +57,7 @@ import { computed, ref } from 'vue'
 import { List as VanList, Empty as VanEmpty, Icon as VanIcon } from 'vant'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 
@@ -68,6 +69,7 @@ export default {
     'van-icon': VanIcon
   },
   setup() {
+    const { t } = useI18n()
     const router = useRouter()
     const store = useStore()
 
@@ -121,7 +123,7 @@ export default {
       const mergedMap = new Map()
 
       const upsertDevice = (deviceId, updater) => {
-        const key = String(deviceId || '').trim() || '未知设备'
+        const key = String(deviceId || '').trim() || t('shared.unknownDevice')
         if (!mergedMap.has(key)) {
           mergedMap.set(key, {
             deviceId: key,

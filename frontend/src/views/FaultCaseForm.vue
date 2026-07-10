@@ -330,6 +330,7 @@ import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
 import { Search, Document, FolderOpened, Paperclip, Upload, Plus } from '@element-plus/icons-vue'
 import api from '../api'
+import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'FaultCaseForm',
@@ -484,17 +485,17 @@ export default {
           console.log('模块列表加载成功，共', moduleList.value.length, '条记录')
         } else {
           console.error('获取故障案例模块列表失败: 响应数据格式不正确', resp.data)
-          ElMessage.error('获取模块列表失败: 响应数据格式不正确')
+          ElMessage.error(t('faultCases.invalidModuleResponse'))
         }
       } catch (e) {
         console.error('获取故障案例模块列表失败:', e)
         // 如果是权限错误，显示更明确的提示
         if (e.response?.status === 403) {
-          ElMessage.warning(t('faultCases.noPermissionToLoadModules') || '没有权限加载模块列表，请联系管理员授予 fault_case_config:manage 权限')
+          ElMessage.warning(t('faultCases.noPermissionToLoadModules'))
         } else if (e.response?.status === 401) {
-          ElMessage.warning('未登录或登录已过期，请重新登录')
+          ElMessage.warning(t('shared.messages.sessionExpired'))
         } else {
-          ElMessage.error(t('faultCases.failedToLoadModules') || '加载模块列表失败: ' + (e.response?.data?.message || e.message))
+          notifyApiError(e, t('faultCases.failedToLoadModules'))
         }
       } finally {
         moduleLoading.value = false
@@ -525,17 +526,17 @@ export default {
           console.log('状态列表加载成功，共', statusList.value.length, '条记录')
         } else {
           console.error('获取故障案例状态列表失败: 响应数据格式不正确', resp.data)
-          ElMessage.error('获取状态列表失败: 响应数据格式不正确')
+          ElMessage.error(t('faultCases.invalidStatusResponse'))
         }
       } catch (e) {
         console.error('获取故障案例状态列表失败:', e)
         // 如果是权限错误，显示更明确的提示
         if (e.response?.status === 403) {
-          ElMessage.warning(t('faultCases.noPermissionToLoadStatuses') || '没有权限加载状态列表，请联系管理员授予 fault_case_config:manage 权限')
+          ElMessage.warning(t('faultCases.noPermissionToLoadStatuses'))
         } else if (e.response?.status === 401) {
-          ElMessage.warning('未登录或登录已过期，请重新登录')
+          ElMessage.warning(t('shared.messages.sessionExpired'))
         } else {
-          ElMessage.error(t('faultCases.failedToLoadStatuses') || '加载状态列表失败: ' + (e.response?.data?.message || e.message))
+          notifyApiError(e, t('faultCases.failedToLoadStatuses'))
         }
       } finally {
         statusLoading.value = false
@@ -716,7 +717,7 @@ export default {
           })
         }
       } catch (e) {
-        ElMessage.error(e.response?.data?.message || t('shared.requestFailed'))
+        notifyApiError(e, t('shared.requestFailed'))
         throw e
       }
     }
@@ -893,8 +894,7 @@ export default {
           router.back()
         }
       } catch (e) {
-        const errorMessage = e.response?.data?.message || t('shared.messages.saveFailed')
-        ElMessage.error(errorMessage)
+        notifyApiError(e, t('shared.messages.saveFailed'))
         console.error('Save fault case failed:', e)
       } finally {
         saving.value = false
@@ -1071,7 +1071,7 @@ export default {
               } catch (e) {
                 // 导入失败不阻塞创建；用户仍可手动上传
                 console.error('Failed to import Jira attachments:', e)
-                ElMessage.warning('JIRA附件导入失败，可稍后手动上传')
+                ElMessage.warning(t('faultCases.jiraAttachmentImportFailed'))
               }
             }
           } catch (e) {
@@ -1115,7 +1115,7 @@ export default {
           }
         }
       } catch (e) {
-        ElMessage.error(e.response?.data?.message || t('shared.requestFailed'))
+        notifyApiError(e, t('shared.requestFailed'))
         router.back()
       }
     }
