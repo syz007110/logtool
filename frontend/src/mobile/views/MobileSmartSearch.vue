@@ -2507,7 +2507,7 @@ export default {
 }
 
 .m-fault-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
   color: var(--m-color-text);
@@ -2981,7 +2981,7 @@ export default {
   border: 1px solid var(--m-color-border-strong);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-weight: bold;
   font-size: 14px;
 }
@@ -3023,7 +3023,7 @@ export default {
 }
 
 .debug-card {
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .debug-label {

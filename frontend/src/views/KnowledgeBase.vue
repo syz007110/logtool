@@ -127,7 +127,7 @@
                 @command="(command) => handleOperationCommand(row, command)"
               >
                 <el-button text size="small">
-                  <i class="fas fa-ellipsis-h"></i>
+                  <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>

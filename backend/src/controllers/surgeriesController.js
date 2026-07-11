@@ -407,11 +407,42 @@ exports.getLogEntriesByRange = async (req, res) => {
 // 这里改为数据库层按 device_id 分组 + 分页，只返回当前页设备汇总信息
 exports.listSurgeriesByDevice = async (req, res) => {
   try {
-    const { keyword } = req.query;
+    const { keyword, series_id } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.DEVICE_GROUP);
 
     const { postgresqlSequelize } = require('../config/postgresql');
     const offset = (page - 1) * limit;
+
+    let seriesIdNum = null;
+    if (series_id !== undefined && series_id !== null && series_id !== '') {
+      seriesIdNum = Number(series_id);
+      if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+        return res.status(400).json({ success: false, message: 'series_id 必须为正整数' });
+      }
+    }
+
+    let seriesDeviceIds = null;
+    if (seriesIdNum) {
+      const seriesDevices = await Device.findAll({
+        where: { series_id: seriesIdNum },
+        attributes: ['device_id']
+      });
+      seriesDeviceIds = seriesDevices.map((d) => d.device_id).filter(Boolean);
+      if (seriesDeviceIds.length === 0) {
+        return res.json({
+          success: true,
+          device_groups: [],
+          pagination: {
+            current_page: page,
+            page_size: limit,
+            total: 0,
+            total_pages: 0,
+            has_next: false,
+            has_prev: false
+          }
+        });
+      }
+    }
 
     // 关键点：surgeries 在 PostgreSQL，但 devices 在 MySQL（默认 sequelize）。
     // 所以这里不能在 PostgreSQL SQL 里直接 JOIN devices；改为：
@@ -429,6 +460,7 @@ exports.listSurgeriesByDevice = async (req, res) => {
         const like = `%${keywordLower}%`;
         const matched = await Device.findAll({
           where: {
+            ...(seriesIdNum ? { series_id: seriesIdNum } : {}),
             [Op.or]: [
               { device_id: { [Op.like]: like } },
               { '$HospitalMaster.hospital_name_std$': { [Op.like]: like } }
@@ -452,11 +484,18 @@ exports.listSurgeriesByDevice = async (req, res) => {
     }
 
     // PostgreSQL where（针对 device_id）
+    // - series_id：仅保留 MySQL 中属于当前系列的 device_id
     // - keyword：device_id 模糊匹配（覆盖“设备不在 MySQL 表”的情况）
     // - keyword：如果 MySQL 匹配到了医院/设备号，再把这些 device_id 也 OR 进来
     let pgParamIndex = 1;
     const pgWhereParts = [];
     const pgBinds = [];
+
+    if (seriesDeviceIds) {
+      pgWhereParts.push(`device_id = ANY($${pgParamIndex}::text[])`);
+      pgBinds.push(seriesDeviceIds);
+      pgParamIndex += 1;
+    }
 
     if (keywordLower) {
       const like = `%${keywordLower}%`;
@@ -566,7 +605,7 @@ exports.listSurgeriesByDevice = async (req, res) => {
       try {
         const devices = await Device.findAll({
           where: { device_id: { [Op.in]: pageDeviceIds } },
-          attributes: ['device_id', 'device_model', 'hospital_id'],
+          attributes: ['device_id', 'device_model', 'hospital_id', 'series_id'],
           include: [{
             model: HospitalMaster,
             as: 'HospitalMaster',
@@ -577,7 +616,8 @@ exports.listSurgeriesByDevice = async (req, res) => {
         devices.forEach(d => {
           deviceIdToInfo.set(d.device_id, {
             hospital_name: d.HospitalMaster?.hospital_name_std || null,
-            device_model: d.device_model || null
+            device_model: d.device_model || null,
+            series_id: d.series_id || null
           });
         });
       } catch (_) {
@@ -591,6 +631,7 @@ exports.listSurgeriesByDevice = async (req, res) => {
         device_id: r.device_id || '未知设备',
         hospital_name: info.hospital_name || null,
         device_name: info.device_model || null,
+        series_id: info.series_id || null,
         surgery_count: Number(r.surgery_count || 0),
         latest_surgery_time: r.latest_surgery_time || null,
         pending_confirm_count: Number(r.pending_confirm_count || 0)

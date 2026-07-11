@@ -365,7 +365,7 @@
             <div class="jira-info-item">
               <div class="jira-info-label">UPDATED</div>
               <div class="jira-info-value">
-                <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                <el-icon :size="12" style="margin-right: 4px;"><Clock /></el-icon>
                 {{ formatDate(jiraPreview.updated) || '-' }}
               </div>
             </div>
@@ -435,7 +435,7 @@
                   :preview-teleported="true"
                 />
                 <div class="jira-image-overlay">
-                  <i class="fas fa-search-plus"></i>
+                  <el-icon><ZoomIn /></el-icon>
                 </div>
                 <div class="jira-image-name">{{ img.filename }}</div>
               </div>
@@ -447,7 +447,7 @@
             <div class="jira-attachment-label">{{ $t('faultCases.jira.columns.fileAttachments') }}</div>
             <div v-for="file in fileAttachments" :key="file.id" class="jira-attachment-item">
               <el-link type="primary" :underline="false" @click="downloadFile(file)">
-                <i class="fas fa-paperclip"></i>
+                <el-icon><Paperclip /></el-icon>
                 {{ file.filename }}
               </el-link>
               <span class="jira-attachment-size">({{ formatFileSize(file.size) }})</span>
@@ -459,7 +459,7 @@
         <div class="jira-dialog-footer">
           <div class="jira-footer-right">
             <el-button v-if="jiraPreview.url" @click="openUrl(jiraPreview.url)">
-              <i class="fas fa-external-link-alt"></i>
+              <el-icon><TopRight /></el-icon>
               {{ $t('faultCases.jira.openInJira') }}
             </el-button>
           </div>

@@ -17,7 +17,7 @@
         <div class="card-header">
           <div class="header-left">
             <button class="btn-secondary btn-sm" @click="goBack">
-              <i class="fas fa-arrow-left"></i>
+              <el-icon><ArrowLeft /></el-icon>
               {{ $t('shared.back') }}
             </button>
             <span class="title">{{ $t('logDetail.title') }}</span>
@@ -66,7 +66,7 @@
             </el-input>
             <div class="btn-group">
               <button class="btn-secondary btn-sm" @click="exportToCSV">
-                <i class="fas fa-download"></i>
+                <el-icon><Download /></el-icon>
                 {{ $t('errorCodes.exportCSV') }}
               </button>
             </div>

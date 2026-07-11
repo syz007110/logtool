@@ -71,7 +71,7 @@ export default {
   min-height: 0;
   border-radius: inherit;
   font-size: 13px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* 校验错误行高亮 */

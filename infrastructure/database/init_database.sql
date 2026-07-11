@@ -879,14 +879,14 @@ ON DUPLICATE KEY UPDATE
   sort_order = VALUES(sort_order),
   is_active = VALUES(is_active);
 
--- 11.1 设备密钥表（支持多密钥按时间范围）
+-- 11.1 设备密钥表（支持多密钥按时间范围，精确到小时）
 CREATE TABLE IF NOT EXISTS device_keys (
   id INT AUTO_INCREMENT PRIMARY KEY,
   device_id VARCHAR(100) NOT NULL COMMENT '设备编号',
   key_value VARCHAR(100) NOT NULL COMMENT '密钥值（MAC地址）',
-  valid_from_date DATE NOT NULL COMMENT '密钥生效起始日期（包含）',
-  valid_to_date DATE NULL COMMENT '密钥生效结束日期（不包含，NULL表示永久有效）',
-  is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认密钥（向后兼容）',
+  valid_from_date DATETIME NOT NULL COMMENT '密钥生效起始时间（包含，精确到小时）',
+  valid_to_date DATETIME NULL COMMENT '密钥生效结束时间（不包含，NULL表示永久有效）',
+  is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认密钥（向后兼容，可不用）',
   priority INT DEFAULT 0 COMMENT '优先级（数字越大优先级越高，用于时间重叠时选择）',
   description VARCHAR(255) COMMENT '密钥描述（如：更换硬件前/后）',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -899,6 +899,11 @@ CREATE TABLE IF NOT EXISTS device_keys (
   INDEX idx_is_default (is_default),
   INDEX idx_priority (priority)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='设备密钥表（支持多密钥按时间范围）';
+
+-- 历史库升级（若列已是 DATETIME 可跳过）：
+-- ALTER TABLE device_keys
+--   MODIFY COLUMN valid_from_date DATETIME NOT NULL COMMENT '密钥生效起始时间（包含，精确到小时）',
+--   MODIFY COLUMN valid_to_date DATETIME NULL COMMENT '密钥生效结束时间（不包含，NULL=永久）';
 
 # 故障反馈
 CREATE TABLE feedbacks (

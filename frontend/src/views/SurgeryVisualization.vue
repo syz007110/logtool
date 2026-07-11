@@ -445,7 +445,7 @@
                 <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" :width="drawerReportColWidthInstrumentType" show-overflow-tooltip />
                 <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" :min-width="drawerReportColWidthUdi" show-overflow-tooltip>
                   <template #default="{ row }">
-                    <span style="font-family: 'Courier New', monospace;">{{ row.udi || '-' }}</span>
+                    <span style="font-family: var(--font-mono);">{{ row.udi || '-' }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
@@ -466,7 +466,7 @@
                         <el-table-column prop="instrumentType" :label="$t('surgeryVisualization.report.instrumentType')" :width="drawerReportColWidthInstrumentType" show-overflow-tooltip />
                         <el-table-column prop="udi" :label="$t('surgeryVisualization.report.instrumentUDI')" :min-width="drawerReportColWidthUdi" show-overflow-tooltip>
                           <template #default="{ row: detailRow }">
-                            <span style="font-family: 'Courier New', monospace;">{{ detailRow.udi || '-' }}</span>
+                            <span style="font-family: var(--font-mono);">{{ detailRow.udi || '-' }}</span>
                           </template>
                         </el-table-column>
                         <el-table-column prop="energyType" :label="$t('surgeryVisualization.report.energyType')" width="110" align="center" />
@@ -6520,7 +6520,7 @@ export default {
 .event-time {
   font-size: 11px;
   color: #666;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* 图表行容器样式 */
@@ -6654,7 +6654,7 @@ export default {
 .time-value {
   font-size: 11px;
   color: #495057;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* 远程手术数据卡片样式 */
@@ -6805,7 +6805,7 @@ export default {
   line-height: 20px;
 }
 .drawer-info-section-value--udi {
-  font-family: 'Consolas', 'Courier New', monospace;
+  font-family: var(--font-mono);
   color: var(--sheet-info-value-udi-color);
 }
 
@@ -6967,7 +6967,7 @@ export default {
 }
 
 .fault-time {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: #606266;
 }

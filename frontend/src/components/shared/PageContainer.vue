@@ -5,7 +5,7 @@
       <slot name="header">
         <div class="header-left">
           <button v-if="showBack" class="back-button" @click="handleBack" aria-label="返回">
-            <i class="fas fa-arrow-left"></i>
+            <el-icon><ArrowLeft /></el-icon>
           </button>
           <h1 v-if="title" class="page-title">{{ title }}</h1>
           <p v-if="subtitle" class="page-subtitle">{{ subtitle }}</p>
@@ -26,9 +26,11 @@
 <script>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 export default {
   name: 'PageContainer',
+  components: { ArrowLeft },
   props: {
     title: {
       type: String,

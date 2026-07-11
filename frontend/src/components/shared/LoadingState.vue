@@ -1,7 +1,9 @@
 <template>
   <div class="loading-state" :class="{ 'loading-state-center': center, 'loading-state-full': full }">
     <div class="loading-spinner" :class="`loading-spinner-${size}`">
-      <i class="fas fa-spinner fa-spin" :class="spinnerIconClass"></i>
+      <el-icon :size="spinnerSize" class="spinner-icon">
+        <Loading />
+      </el-icon>
     </div>
     <p v-if="text" class="loading-text">{{ text }}</p>
   </div>
@@ -9,9 +11,11 @@
 
 <script>
 import { computed } from 'vue'
+import { Loading } from '@element-plus/icons-vue'
 
 export default {
   name: 'LoadingState',
+  components: { Loading },
   props: {
     text: {
       type: String,
@@ -31,19 +35,12 @@ export default {
       default: false
     }
   },
-  setup(props) {
-    const spinnerIconClass = computed(() => {
-      const sizeMap = {
-        small: 'fa-2x',
-        medium: 'fa-3x',
-        large: 'fa-4x'
-      }
-      return sizeMap[props.size] || 'fa-3x'
+  setup (props) {
+    const spinnerSize = computed(() => {
+      const sizeMap = { small: 24, medium: 36, large: 48 }
+      return sizeMap[props.size] || 36
     })
-
-    return {
-      spinnerIconClass
-    }
+    return { spinnerSize }
   }
 }
 </script>
@@ -92,15 +89,20 @@ export default {
   height: 64px;
 }
 
-.loading-spinner i {
+.spinner-icon {
   color: var(--text-brand-primary, #6366f1);
+  animation: loading-rotate 1.2s linear infinite;
 }
 
 .loading-text {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   color: var(--text-secondary, #64748b);
   margin: 0;
   line-height: 1.5;
 }
-</style>
 
+@keyframes loading-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>

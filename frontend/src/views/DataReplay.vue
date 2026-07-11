@@ -146,7 +146,7 @@
           <div class="batch-actions">
             <el-dropdown trigger="click" placement="bottom-start" @command="(format) => batchDownloadDetail(format)">
               <el-button type="primary" size="small" :disabled="!canBatchDownloadDetail">
-                <i class="fas fa-download"></i>
+                <el-icon><Download /></el-icon>
                 {{ $t('logs.batchDownload') }} ({{ selectedDetailFiles.length }})
               </el-button>
               <template #dropdown>
@@ -157,11 +157,11 @@
               </template>
             </el-dropdown>
             <el-button type="default" size="small" @click="batchDeleteDetail" :disabled="!canBatchDeleteDetail">
-              <i class="fas fa-trash"></i>
+              <el-icon><Delete /></el-icon>
               {{ $t('logs.batchDelete') }} ({{ selectedDetailFiles.length }})
             </el-button>
             <el-button type="default" size="small" @click="clearDetailSelection">
-              <i class="fas fa-times"></i>
+              <el-icon><Close /></el-icon>
               {{ $t('logs.clearSelection') }}
             </el-button>
           </div>
@@ -226,7 +226,7 @@
                     placement="bottom-end" 
                     @command="(cmd) => handleDetailMoreAction(cmd)"
                   >
-                    <el-button text size="small"><i class="fas fa-ellipsis-h"></i></el-button>
+                    <el-button text size="small"><el-icon><MoreFilled /></el-icon></el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item 
@@ -277,6 +277,27 @@
             style="width: 300px;"
           />
         </el-form-item>
+        <el-form-item :label="$t('devices.deviceModel')" required>
+          <el-select
+            v-model="uploadDialogDeviceModel"
+            filterable
+            clearable
+            :placeholder="$t('dataReplay.selectDeviceModel')"
+            style="width: 300px;"
+            :loading="uploadDeviceModelsLoading"
+            :disabled="uploading || !currentSeriesId"
+          >
+            <el-option
+              v-for="item in uploadDeviceModelOptions"
+              :key="item.id || item.device_model"
+              :label="item.device_model"
+              :value="item.device_model"
+            />
+          </el-select>
+          <div v-if="!currentSeriesId" class="el-upload__tip" style="color: var(--el-color-warning);">
+            {{ $t('dataReplay.selectSeriesFirst') }}
+          </div>
+        </el-form-item>
         <el-form-item :label="$t('dataReplay.fileLabel')" required>
           <el-upload
             action=""
@@ -293,7 +314,7 @@
             :disabled="uploading"
           >
             <el-button type="primary" :disabled="uploading">
-              <i class="fas fa-upload"></i>
+              <el-icon><Upload /></el-icon>
               {{ $t('dataReplay.selectFile') }}
             </el-button>
             <template #tip>
@@ -316,7 +337,7 @@
         <div class="file-list-header">
           <span>{{ $t('dataReplay.selectedFilesCount', { count: uploadFileList.length }) }}</span>
           <el-button type="default" size="small" @click="clearUpload" :disabled="uploading">
-            <i class="fas fa-times"></i>
+            <el-icon><Close /></el-icon>
             {{ $t('shared.clear') }}
           </el-button>
         </div>
@@ -338,7 +359,7 @@
               :aria-label="$t('dataReplay.removeFile')"
               :title="$t('dataReplay.removeFile')"
             >
-              <i class="fas fa-trash"></i>
+              <el-icon><Delete /></el-icon>
             </el-button>
           </div>
         </div>
@@ -347,15 +368,15 @@
       <template #footer>
         <div class="upload-actions">
           <el-button type="default" @click="closeUploadDialog" :disabled="uploading">
-            <i class="fas fa-times"></i>
+            <el-icon><Close /></el-icon>
             {{ $t('shared.cancel') }}
           </el-button>
           <el-button 
             type="primary" 
             @click="submitUploadDialog" 
-            :disabled="uploading || uploadFileList.length === 0 || !uploadDialogDeviceId.trim()"
+            :disabled="uploading || uploadFileList.length === 0 || !uploadDialogDeviceId.trim() || !uploadDialogDeviceModel.trim() || !currentSeriesId"
           >
-            <i class="fas fa-upload" v-if="!uploading"></i>
+            <el-icon v-if="!uploading"><Upload /></el-icon>
             {{ uploading ? $t('dataReplay.uploading') : $t('dataReplay.upload') }}
           </el-button>
         </div>
@@ -373,6 +394,7 @@ import { Refresh, Upload, Close, Document } from '@element-plus/icons-vue'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 import api from '@/api'
 import { notifyApiError } from '@/utils/apiError'
+import { filterDeviceModelsBySeries } from '@/utils/deviceModelSeries'
 
 export default {
   name: 'DataReplay',
@@ -507,6 +529,13 @@ export default {
     const uploadDialogDeviceIdLocked = ref(false)
     const uploadFileList = ref([])
     const uploadDialogUploadRef = ref(null)
+    const uploadDialogDeviceModel = ref('')
+    const uploadDeviceModelsLoading = ref(false)
+    const uploadDeviceModelOptionsAll = ref([])
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    const uploadDeviceModelOptions = computed(() =>
+      filterDeviceModelsBySeries(uploadDeviceModelOptionsAll.value, currentSeriesId.value)
+    )
 
     const uploading = ref(false)
     const uploadProgress = ref(0)
@@ -552,7 +581,11 @@ export default {
       loading.value = true
       lastDeviceGroupsLoadAt.value = now
       try {
-        const { data } = await api.motionData.listFilesByDevice({ page: currentPage.value, limit: pageSize.value })
+        const { data } = await api.motionData.listFilesByDevice({
+          page: currentPage.value,
+          limit: pageSize.value,
+          series_id: currentSeriesId.value || undefined
+        })
         deviceGroups.value = data?.device_groups || []
         deviceTotal.value = data?.pagination?.total || 0
       } catch (e) {
@@ -979,18 +1012,67 @@ export default {
 
     const handleExceed = () => { ElMessage.warning(t('dataReplay.uploadMaxFiles')) }
 
-    const openUploadDialog = (deviceId) => {
+    const loadUploadDeviceModels = async () => {
+      uploadDeviceModelsLoading.value = true
+      try {
+        const res = await api.deviceModels.getList({
+          page: 1,
+          limit: 1000,
+          series_id: currentSeriesId.value || undefined,
+          includeInactive: 'false'
+        })
+        uploadDeviceModelOptionsAll.value = (res.data?.models || []).map(item => ({
+          id: item.id,
+          device_model: item.device_model,
+          series_id: item.series_id
+        }))
+        if (
+          uploadDialogDeviceModel.value &&
+          !uploadDeviceModelOptions.value.some(item => item.device_model === uploadDialogDeviceModel.value)
+        ) {
+          uploadDialogDeviceModel.value = ''
+        }
+      } catch (e) {
+        console.warn('加载运行数据上传设备型号失败:', e?.message || e)
+        uploadDeviceModelOptionsAll.value = []
+      } finally {
+        uploadDeviceModelsLoading.value = false
+      }
+    }
+
+    const prefillsUploadDeviceModel = async (targetDeviceId) => {
+      const did = String(targetDeviceId || '').trim()
+      if (!did || !currentSeriesId.value) return
+      try {
+        const res = await api.devices.getList({
+          page: 1,
+          limit: 20,
+          search: did,
+          series_id: currentSeriesId.value
+        })
+        const matched = (res.data?.devices || []).find(item => String(item.device_id || '') === did)
+        const model = String(matched?.device_model || '').trim()
+        if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
+          uploadDialogDeviceModel.value = model
+        }
+      } catch (_) { }
+    }
+
+    const openUploadDialog = async (deviceId) => {
       uploadDialogVisible.value = true
       uploadFileList.value = []
+      uploadDialogDeviceModel.value = ''
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
       uploadProgress.value = 0
       uploadProgressText.value = ''
       uploading.value = false
+      await loadUploadDeviceModels()
 
       const did = String(deviceId || '').trim()
       if (did) {
         uploadDialogDeviceId.value = did
         uploadDialogDeviceIdLocked.value = true
+        await prefillsUploadDeviceModel(did)
       } else {
         uploadDialogDeviceId.value = ''
         uploadDialogDeviceIdLocked.value = false
@@ -1003,6 +1085,7 @@ export default {
       uploadFileList.value = []
       uploadDialogDeviceId.value = ''
       uploadDialogDeviceIdLocked.value = false
+      uploadDialogDeviceModel.value = ''
       if (uploadDialogUploadRef.value) uploadDialogUploadRef.value.clearFiles()
     }
 
@@ -1054,6 +1137,15 @@ export default {
         ElMessage.warning(t('dataReplay.deviceIdRequired'))
         return
       }
+      if (!currentSeriesId.value) {
+        ElMessage.warning(t('dataReplay.selectSeriesFirst'))
+        return
+      }
+      const deviceModel = String(uploadDialogDeviceModel.value || '').trim()
+      if (!deviceModel) {
+        ElMessage.warning(t('dataReplay.deviceModelRequired'))
+        return
+      }
       const raws = (uploadFileList.value || []).map(f => f.raw).filter(Boolean)
       if (!raws.length) {
         ElMessage.warning(t('dataReplay.selectFiles'))
@@ -1065,15 +1157,19 @@ export default {
       uploadFileList.value = []
       if (uploadDialogUploadRef.value) uploadDialogUploadRef.value.clearFiles()
       
-      await processUpload(deviceId, raws)
+      await processUpload(deviceId, raws, deviceModel)
     }
 
-    const processUpload = async (deviceId, filesToUpload) => {
+    const processUpload = async (deviceId, filesToUpload, deviceModel) => {
       if (!filesToUpload?.length || !deviceId) return
       uploading.value = true
       try {
         const form = new FormData()
         form.append('device_id', deviceId)
+        form.append('device_model', deviceModel || '')
+        if (currentSeriesId.value) {
+          form.append('series_id', String(currentSeriesId.value))
+        }
         filesToUpload.forEach(f => form.append('files', f))
         const { data } = await api.motionData.batchUpload(form)
         const taskId = data?.taskId
@@ -1192,6 +1288,16 @@ export default {
       else if (action === 'delete') deleteFileInDetail(row)
     }
 
+    watch(currentSeriesId, async (nextId, prevId) => {
+      if (!nextId || nextId === prevId) return
+      uploadDialogDeviceModel.value = ''
+      currentPage.value = 1
+      if (uploadDialogVisible.value) {
+        await loadUploadDeviceModels()
+      }
+      await loadDeviceGroups({ force: true })
+    })
+
     onMounted(() => {
       hasRetriedDeviceGroups.value = false
       loadDeviceGroups({ initial: true })
@@ -1260,6 +1366,10 @@ export default {
       uploadDialogVisible,
       uploadDialogDeviceId,
       uploadDialogDeviceIdLocked,
+      uploadDialogDeviceModel,
+      uploadDeviceModelsLoading,
+      uploadDeviceModelOptions,
+      currentSeriesId,
       uploadFileList,
       uploadDialogUploadRef,
       openUploadDialog,

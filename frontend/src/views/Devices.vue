@@ -279,12 +279,6 @@
                 </el-form-item>
               </el-col>
             </el-row>
-            <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
-              <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
-              <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-                {{ $t('devices.deviceKeyHint') }}
-              </div>
-            </el-form-item>
             <el-form-item :label="$t('devices.country')">
               <el-select
                 v-model="form.country_code"
@@ -343,51 +337,42 @@
                   <div v-if="row.errors?.key_value" class="error-message">{{ row.errors.key_value }}</div>
                 </template>
               </el-table-column>
-              <el-table-column prop="valid_from_date" :label="$t('devices.validFrom')" width="130">
+              <el-table-column prop="valid_from_date" :label="$t('devices.validFrom')" width="180">
                 <template #default="{ row }">
                   <el-date-picker
                     v-if="row.editing"
                     v-model="row.valid_from_date"
-                    type="date"
-                    :placeholder="$t('devices.selectDate')"
-                    format="YYYY-MM-DD"
-                    value-format="YYYY-MM-DD"
+                    type="datetime"
+                    :placeholder="$t('devices.selectDateTime')"
+                    format="YYYY-MM-DD HH:00"
+                    value-format="YYYY-MM-DD HH:00:00"
+                    :default-time="new Date(2000, 0, 1, 0, 0, 0)"
                     size="small"
                     style="width: 100%"
                   />
-                  <span v-else>{{ row.valid_from_date }}</span>
+                  <span v-else>{{ formatKeyDateTime(row.valid_from_date) }}</span>
+                  <div v-if="row.errors?.valid_from_date" class="error-message">{{ row.errors.valid_from_date }}</div>
                 </template>
               </el-table-column>
-              <el-table-column prop="valid_to_date" :label="$t('devices.validTo')" width="130">
+              <el-table-column prop="valid_to_date" :label="$t('devices.validTo')" width="180">
                 <template #default="{ row }">
                   <el-date-picker
                     v-if="row.editing"
                     v-model="row.valid_to_date"
-                    type="date"
+                    type="datetime"
                     :placeholder="$t('devices.validToPlaceholder')"
-                    format="YYYY-MM-DD"
-                    value-format="YYYY-MM-DD"
+                    format="YYYY-MM-DD HH:00"
+                    value-format="YYYY-MM-DD HH:00:00"
+                    :default-time="new Date(2000, 0, 1, 0, 0, 0)"
                     size="small"
                     style="width: 100%"
                     clearable
                   />
                   <template v-else>
-                    <span v-if="row.valid_to_date">{{ row.valid_to_date }}</span>
+                    <span v-if="row.valid_to_date">{{ formatKeyDateTime(row.valid_to_date) }}</span>
                     <el-tag v-else type="success" size="small">{{ $t('devices.permanentValid') }}</el-tag>
                   </template>
-                </template>
-              </el-table-column>
-              <el-table-column prop="priority" :label="$t('devices.priority')" width="120">
-                <template #default="{ row }">
-                  <el-input-number
-                    v-if="row.editing"
-                    v-model="row.priority"
-                    :min="0"
-                    :max="100"
-                    size="small"
-                    style="width: 100%"
-                  />
-                  <span v-else>{{ row.priority }}</span>
+                  <div v-if="row.errors?.valid_to_date" class="error-message">{{ row.errors.valid_to_date }}</div>
                 </template>
               </el-table-column>
               <el-table-column prop="description" :label="$t('devices.description')" min-width="150">
@@ -399,11 +384,6 @@
                     size="small"
                   />
                   <span v-else>{{ row.description || '-' }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="is_default" :label="$t('devices.defaultTag')" width="80">
-                <template #default="{ row }">
-                  <el-tag v-if="row.is_default" type="info" size="small">{{ $t('devices.yes') }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column :label="$t('shared.operation')" width="150" fixed="right">
@@ -461,9 +441,6 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item :label="$t('devices.deviceKey')" prop="device_key">
-          <el-input v-model="form.device_key" placeholder="00-01-05-77-6a-09" />
-        </el-form-item>
         <el-form-item :label="$t('devices.country')">
           <el-select
             v-model="form.country_code"
@@ -681,7 +658,6 @@ export default {
       device_id: '',
       device_series_id: null,
       device_model: '',
-      device_key: '',
       hospital_id: null,
       country_code: '',
       region_code: ''
@@ -753,9 +729,6 @@ export default {
       ],
       device_model: [
         { required: true, message: t('devices.rules.modelRequired'), trigger: 'change' }
-      ],
-      device_key: [
-        { pattern: /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/, message: t('devices.rules.deviceKeyMac'), trigger: 'blur' }
       ]
     }))
     const hospitalCodeRules = computed(() => [
@@ -796,6 +769,28 @@ export default {
       return isDisabled ? name + t('devices.hospitalNameDisabledSuffix') : name
     }
 
+    const parseKeyDateTime = (value) => {
+      if (!value) return null
+      const d = new Date(String(value).replace('T', ' '))
+      return Number.isNaN(d.getTime()) ? null : d
+    }
+
+    const formatKeyDateTime = (value) => {
+      const d = parseKeyDateTime(value)
+      if (!d) return value || ''
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`
+    }
+
+    const rangesOverlap = (fromA, toA, fromB, toB) => {
+      const a0 = parseKeyDateTime(fromA)?.getTime()
+      const b0 = parseKeyDateTime(fromB)?.getTime()
+      if (a0 == null || b0 == null) return false
+      const a1 = toA ? (parseKeyDateTime(toA)?.getTime() ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY
+      const b1 = toB ? (parseKeyDateTime(toB)?.getTime() ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY
+      return a0 < b1 && b0 < a1
+    }
+
     // 验证密钥行数据
     const validateKeyRow = (row) => {
       const errors = {}
@@ -809,6 +804,24 @@ export default {
       }
       if (!row.valid_from_date) {
         errors.valid_from_date = t('devices.rules.validFromRequired')
+      }
+      const from = parseKeyDateTime(row.valid_from_date)
+      const to = row.valid_to_date ? parseKeyDateTime(row.valid_to_date) : null
+      if (row.valid_to_date && !to) {
+        errors.valid_to_date = t('devices.rules.validToInvalid')
+      }
+      if (from && to && from.getTime() >= to.getTime()) {
+        errors.valid_to_date = t('devices.rules.validRangeOrder')
+      }
+      if (from) {
+        const overlapped = editableKeys.value.some((other) => {
+          if (other === row) return false
+          if (!other.valid_from_date) return false
+          return rangesOverlap(row.valid_from_date, row.valid_to_date || null, other.valid_from_date, other.valid_to_date || null)
+        })
+        if (overlapped) {
+          errors.valid_from_date = t('devices.rules.validRangeOverlap')
+        }
       }
       return errors
     }
@@ -1000,7 +1013,6 @@ export default {
           device_id: row.device_id,
           device_series_id: isPositiveSeriesId(row.series_id) ? Number(row.series_id) : null,
           device_model: row.device_model,
-          device_key: row.device_key,
           hospital_id: row.hospital_id || null,
           country_code: row.country_code || '',
           region_code: row.region_code || ''
@@ -1026,7 +1038,6 @@ export default {
           device_id: '',
           device_series_id: null,
           device_model: '',
-          device_key: '',
           hospital_id: null,
           country_code: '',
           region_code: ''
@@ -1083,7 +1094,7 @@ export default {
       const newRow = {
         id: null,
         key_value: '',
-        valid_from_date: '',
+        valid_from_date: editableKeys.value.length === 0 ? '1970-01-01 00:00:00' : '',
         valid_to_date: null,
         priority: 0,
         description: '',
@@ -1192,7 +1203,6 @@ export default {
         const payload = {
           device_id: form.device_id,
           device_model: form.device_model,
-          device_key: form.device_key,
           hospital_id: form.hospital_id || null,
           series_id: isPositiveSeriesId(form.device_series_id) ? Number(form.device_series_id) : undefined
         }
@@ -1701,6 +1711,7 @@ export default {
       getSeriesDisplayName,
       modelForm,
       formatDate,
+      formatKeyDateTime,
       loadDeviceModels,
       loadDeviceSeriesOptions,
       handleModelSearch,
@@ -1899,7 +1910,7 @@ code {
   background-color: rgb(var(--bg-secondary));
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: rgb(var(--text-primary));
 }

@@ -675,6 +675,68 @@ function analyzeError(line, key, error) {
   }
 }
 
+/**
+ * 用前几行预解密参数检测密钥是否可用
+ * @returns {boolean} true=看起来正常
+ */
+function testKeyOnSample(content, key, testLineCount = 10) {
+  if (!key || !content) return false;
+  const lines = String(content).split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length === 0) return false;
+  const limit = Math.min(testLineCount, lines.length);
+  for (let i = 0; i < limit; i++) {
+    try {
+      const entry = translatePerLine(lines[i], key);
+      const p1 = parseInt(entry.param1, 10) || 0;
+      const p2 = parseInt(entry.param2, 10) || 0;
+      const p3 = parseInt(entry.param3, 10) || 0;
+      const p4 = parseInt(entry.param4, 10) || 0;
+      if (hasLargeParameterValue(p1, p2, p3, p4)) {
+        return false;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 按产品瀑布选择解密密钥：
+ * - 有库钥：库钥 → 默认钥 → 用户钥
+ * - 无库钥：用户钥 → 默认钥
+ * @returns {{ key: string|null, source: 'db'|'default'|'user'|'failed' }}
+ */
+function selectDecryptKeyByCascade({ content, dbKey = null, userKey = null } = {}) {
+  const normalize = (k) => {
+    const v = k == null ? '' : String(k).trim();
+    return v || null;
+  };
+  const resolvedDb = normalize(dbKey);
+  const resolvedUser = normalize(userKey);
+
+  if (resolvedDb) {
+    if (testKeyOnSample(content, resolvedDb)) {
+      return { key: resolvedDb, source: 'db' };
+    }
+    if (testKeyOnSample(content, DEFAULT_KEY)) {
+      return { key: DEFAULT_KEY, source: 'default' };
+    }
+    if (resolvedUser && testKeyOnSample(content, resolvedUser)) {
+      return { key: resolvedUser, source: 'user' };
+    }
+    return { key: null, source: 'failed' };
+  }
+
+  if (resolvedUser && testKeyOnSample(content, resolvedUser)) {
+    return { key: resolvedUser, source: 'user' };
+  }
+  if (testKeyOnSample(content, DEFAULT_KEY)) {
+    return { key: DEFAULT_KEY, source: 'default' };
+  }
+  return { key: null, source: 'failed' };
+}
+
 module.exports = {
   parseDateTime,
   operateKey,
@@ -687,5 +749,7 @@ module.exports = {
   isPowerOffEvent,
   hasLargeParameterValue,
   analyzeError, // 新增详细错误分析函数
+  testKeyOnSample,
+  selectDecryptKeyByCascade,
   DEFAULT_KEY
 }; 

@@ -8,7 +8,6 @@ import 'element-plus/dist/index.css'
 import Antd from 'ant-design-vue'
 import 'ant-design-vue/dist/reset.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
-import '@fortawesome/fontawesome-free/css/all.css'
 import './assets/styles/i18n-utilities.css'
 // 样式导入顺序（必须遵守）：
 import 'element-plus/dist/index.css' // 1. Element Plus 基础样式

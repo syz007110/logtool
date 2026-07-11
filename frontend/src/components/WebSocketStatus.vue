@@ -285,7 +285,7 @@ export default {
   padding: 2px 0;
   font-size: 11px;
   color: #606266;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .actions {

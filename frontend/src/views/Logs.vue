@@ -273,7 +273,7 @@
                     :disabled="!canBatchView || !isSameDevice || selectedDetailLogs.length > 20"
                     :title="getBatchViewTitle()"
                   >
-                    <i class="fas fa-eye"></i>
+                    <el-icon><View /></el-icon>
                       {{ $t('logs.batchView') }} ({{ selectedDetailLogs.length }})
                   </el-button>
                   <el-button 
@@ -283,7 +283,7 @@
                     :disabled="!canBatchDownload"
                     :title="incompleteLogsMessage"
                   >
-                    <i class="fas fa-download"></i>
+                    <el-icon><Download /></el-icon>
                       {{ $t('logs.batchDownload') }} ({{ selectedDetailLogs.length }})
                   </el-button>
                   <el-button 
@@ -293,7 +293,7 @@
                     :disabled="!canBatchDelete"
                     :title="incompleteLogsMessage"
                   >
-                    <i class="fas fa-trash"></i>
+                    <el-icon><Delete /></el-icon>
                       {{ $t('logs.batchDelete') }} ({{ selectedDetailLogs.length }})
                   </el-button>
                   <el-button 
@@ -304,7 +304,7 @@
                     :title="getBatchReparseTitle()"
                     v-if="$store.getters['auth/hasPermission']('log:reparse')"
                   >
-                    <i class="fas fa-sync-alt"></i>
+                    <el-icon><Refresh /></el-icon>
                       {{ $t('logs.batchReparse') }} ({{ selectedDetailLogs.length }})
                   </el-button>
                   <el-tooltip 
@@ -319,7 +319,7 @@
                     size="small" 
                       @click="clearDetailSelection"
                   >
-                    <i class="fas fa-times"></i>
+                    <el-icon><Close /></el-icon>
                     {{ $t('logs.clearSelection') }}
                   </el-button>
                 </div>
@@ -406,7 +406,7 @@
                       @command="handleMoreAction"
                     >
                       <el-button text size="small">
-                        <i class="fas fa-ellipsis-h"></i>
+                        <el-icon><MoreFilled /></el-icon>
                       </el-button>
                       <template #dropdown>
                         <el-dropdown-menu>
@@ -536,7 +536,7 @@
         :disabled="uploading"
       >
         <el-button type="primary" :disabled="uploading">
-          <i class="fas fa-upload"></i>
+          <el-icon><Upload /></el-icon>
           {{ $t('logs.chooseFiles') }}
         </el-button>
         <template #tip>
@@ -557,7 +557,7 @@
         <div class="file-list-header">
           <span>{{ $t('logs.selectedFiles') }} ({{ uploadFileList.length }})</span>
             <el-button type="default" size="small" @click="clearUpload" :disabled="uploading">
-              <i class="fas fa-times"></i>
+              <el-icon><Close /></el-icon>
             {{ $t('logs.clear') }}
             </el-button>
         </div>
@@ -579,7 +579,7 @@
               :aria-label="$t('logs.removeFile')"
               :title="$t('logs.removeFile')"
             >
-              <i class="fas fa-trash"></i>
+              <el-icon><Delete /></el-icon>
             </el-button>
           </div>
         </div>
@@ -606,7 +606,7 @@
             @click="autoFillDeviceId"
             :disabled="!decryptKey.trim()"
           >
-            <i class="fas fa-magic"></i>
+            <el-icon><MagicStick /></el-icon>
             {{ $t('logs.autoFillDeviceId') }}
           </el-button>
           
@@ -621,7 +621,7 @@
             :on-change="onKeyFileChange"
           >
             <el-button type="default" size="small">
-              <i class="fas fa-upload"></i>
+              <el-icon><Upload /></el-icon>
               {{ $t('logs.uploadKeyFile') }}
             </el-button>
           </el-upload>
@@ -662,7 +662,7 @@
             @click="autoFillKey"
             :disabled="!deviceId.trim()"
           >
-            <i class="fas fa-magic"></i>
+            <el-icon><MagicStick /></el-icon>
             {{ $t('logs.autoFillKey') }}
           </el-button>
         </div>
@@ -674,10 +674,38 @@
         </div>
       </div>
 
+      <!-- 设备型号（当前系列下必填） -->
+      <div class="device-input-section">
+        <div class="device-input-row">
+          <el-select
+            v-model="uploadDeviceModel"
+            filterable
+            clearable
+            :placeholder="$t('logs.selectDeviceModel')"
+            style="width: 300px;"
+            :loading="uploadDeviceModelsLoading"
+            :disabled="uploading || !currentSeriesId"
+          >
+            <el-option
+              v-for="item in uploadDeviceModelOptions"
+              :key="item.id || item.device_model"
+              :label="item.device_model"
+              :value="item.device_model"
+            />
+          </el-select>
+        </div>
+        <div v-if="!currentSeriesId" class="device-error">
+          <el-tag type="warning" size="small">{{ $t('logs.messages.selectSeriesFirst') }}</el-tag>
+        </div>
+        <div v-else-if="uploadDeviceModelError" class="device-error">
+          <el-tag type="danger" size="small">{{ uploadDeviceModelError }}</el-tag>
+        </div>
+      </div>
+
       <template #footer>
         <div class="upload-actions">
           <el-button type="default" @click="handleUploadCancel" :disabled="uploading">
-            <i class="fas fa-times"></i>
+            <el-icon><Close /></el-icon>
             {{ $t('shared.cancel') }}
           </el-button>
           <el-button 
@@ -686,7 +714,7 @@
             :loading="uploading"
             :disabled="uploading || !canSubmitUpload || uploadFileList.length === 0"
           >
-            <i class="fas fa-upload" v-if="!uploading"></i>
+            <el-icon v-if="!uploading"><Upload /></el-icon>
             {{ uploading ? $t('logs.uploading') : $t('logs.uploadAndParse') }}
           </el-button>
         </div>
@@ -722,6 +750,7 @@ import { useI18n } from 'vue-i18n'
 import { maskHospitalName } from '@/utils/maskSensitiveData'
 import { getTableHeight } from '@/utils/tableHeight'
 import { notifyApiError } from '@/utils/apiError'
+import { filterDeviceModelsBySeries } from '@/utils/deviceModelSeries'
 
 export default {
   name: 'Logs',
@@ -859,6 +888,14 @@ export default {
     const uploadDeviceId = ref('') // 上传时的设备编号
     const isDeviceUpload = ref(false) // 标记是否为设备操作上传模式
     const currentUploadDeviceId = ref('') // 当前上传的设备编号，用于自动展开
+    const uploadDeviceModel = ref('')
+    const uploadDeviceModelError = ref('')
+    const uploadDeviceModelsLoading = ref(false)
+    const uploadDeviceModelOptionsAll = ref([])
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    const uploadDeviceModelOptions = computed(() =>
+      filterDeviceModelsBySeries(uploadDeviceModelOptionsAll.value, currentSeriesId.value)
+    )
     
 
     
@@ -1042,11 +1079,16 @@ export default {
     const uploadHeaders = computed(() => ({
       Authorization: `Bearer ${store.state.auth.token}`,
       'X-Decrypt-Key': decryptKey.value, // 添加密钥到请求头
-      'X-Device-ID': uploadDeviceId.value || deviceId.value // 添加设备编号到请求头
+      'X-Device-ID': uploadDeviceId.value || deviceId.value, // 添加设备编号到请求头
+      'X-Device-Model': uploadDeviceModel.value || '',
+      'X-Series-ID': currentSeriesId.value ? String(currentSeriesId.value) : ''
     }))
     
     // 判断是否可以提交上传
     const canSubmitUpload = computed(() => {
+      if (!currentSeriesId.value || !String(uploadDeviceModel.value || '').trim()) {
+        return false
+      }
       // 如果是设备操作上传模式，则只需要有设备编号
       if (isDeviceUpload.value && uploadDeviceId.value) {
         return true
@@ -1180,7 +1222,8 @@ export default {
           ...timeParams,
           page: currentPage.value,
           limit: pageSize.value,
-          device_filter: deviceFilterValue.value.trim()
+          device_filter: deviceFilterValue.value.trim(),
+          series_id: currentSeriesId.value || undefined
         })
         
         deviceGroups.value = response.data.device_groups || []
@@ -1537,6 +1580,10 @@ export default {
       
       // 自动填充设备编号到输入框（用于显示）
       deviceId.value = device.device_id
+      uploadDeviceModel.value = ''
+      uploadDeviceModelError.value = ''
+      await loadUploadDeviceModels()
+      await prefillsUploadDeviceModel(device.device_id)
       
       // 尝试自动获取该设备的密钥
       try {
@@ -1555,7 +1602,7 @@ export default {
     }
     
     // 普通上传模式（日志解析上侧的日志上传）
-    const showNormalUpload = () => {
+    const showNormalUpload = async () => {
       // 设置为普通上传模式
       isDeviceUpload.value = false
       // 清空所有输入，确保是空白状态
@@ -1565,7 +1612,10 @@ export default {
       keyFileName.value = ''
       keyError.value = ''
       deviceIdError.value = ''
+      uploadDeviceModel.value = ''
+      uploadDeviceModelError.value = ''
       uploadFileList.value = []
+      await loadUploadDeviceModels()
       
       showUploadDialog.value = true
     }
@@ -1853,6 +1903,63 @@ export default {
       loadDeviceGroups({ force: true }) // 强制加载，跳过节流
     }
 
+    const loadUploadDeviceModels = async () => {
+      uploadDeviceModelsLoading.value = true
+      try {
+        const res = await api.deviceModels.getList({
+          page: 1,
+          limit: 1000,
+          series_id: currentSeriesId.value || undefined,
+          includeInactive: 'false'
+        })
+        uploadDeviceModelOptionsAll.value = (res.data?.models || []).map(item => ({
+          id: item.id,
+          device_model: item.device_model,
+          series_id: item.series_id
+        }))
+        if (
+          uploadDeviceModel.value &&
+          !uploadDeviceModelOptions.value.some(item => item.device_model === uploadDeviceModel.value)
+        ) {
+          uploadDeviceModel.value = ''
+        }
+      } catch (e) {
+        console.warn('加载上传设备型号失败:', e?.message || e)
+        uploadDeviceModelOptionsAll.value = []
+      } finally {
+        uploadDeviceModelsLoading.value = false
+      }
+    }
+
+    const prefillsUploadDeviceModel = async (targetDeviceId) => {
+      const did = String(targetDeviceId || '').trim()
+      if (!did || !currentSeriesId.value) return
+      try {
+        const res = await api.devices.getList({
+          page: 1,
+          limit: 20,
+          search: did,
+          series_id: currentSeriesId.value
+        })
+        const matched = (res.data?.devices || []).find(item => String(item.device_id || '') === did)
+        const model = String(matched?.device_model || '').trim()
+        if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
+          uploadDeviceModel.value = model
+        }
+      } catch (_) { }
+    }
+
+    watch(currentSeriesId, async (nextId, prevId) => {
+      if (!nextId || nextId === prevId) return
+      uploadDeviceModel.value = ''
+      uploadDeviceModelError.value = ''
+      currentPage.value = 1
+      if (showUploadDialog.value) {
+        await loadUploadDeviceModels()
+      }
+      await loadDeviceGroups({ force: true })
+    })
+
     const resetAllFilters = () => {
       nameTimePrefix.value = ''
       deviceFilterValue.value = ''
@@ -1878,6 +1985,18 @@ export default {
         ElMessage.error(t('logs.errors.maxFilesExceeded'))
         return
       }
+
+      if (!currentSeriesId.value) {
+        uploadDeviceModelError.value = t('logs.messages.selectSeriesFirst')
+        ElMessage.warning(t('logs.messages.selectSeriesFirst'))
+        return
+      }
+      if (!String(uploadDeviceModel.value || '').trim()) {
+        uploadDeviceModelError.value = t('logs.messages.deviceModelRequired')
+        ElMessage.warning(t('logs.messages.deviceModelRequired'))
+        return
+      }
+      uploadDeviceModelError.value = ''
       
       const totalSize = uploadFileList.value.reduce((sum, f) => sum + (f.size || f.raw?.size || 0), 0)
       if (totalSize / 1024 / 1024 > 200) {
@@ -2012,11 +2131,14 @@ export default {
         uploadDeviceId.value = ''
         keyError.value = ''
         deviceIdError.value = ''
+        uploadDeviceModel.value = ''
+        uploadDeviceModelError.value = ''
         currentUploadDeviceId.value = '' // 清空当前上传的设备编号
       } else {
         // 设备上传模式：只清空文件，保留设备信息
         keyError.value = ''
         deviceIdError.value = ''
+        uploadDeviceModelError.value = ''
       }
       
       // 重置上传状态和进度
@@ -2888,6 +3010,11 @@ export default {
       uploadFileList,
       uploadDeviceId,
       currentUploadDeviceId,
+      uploadDeviceModel,
+      uploadDeviceModelError,
+      uploadDeviceModelsLoading,
+      uploadDeviceModelOptions,
+      currentSeriesId,
       beforeKeyUpload,
       onKeyFileChange,
       canDeleteLog,

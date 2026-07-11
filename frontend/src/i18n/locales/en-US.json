@@ -7,6 +7,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "add": "Add",
+    "details": "Details",
     "search": "Search",
     "reset": "Reset",
     "export": "Export",
@@ -86,7 +87,9 @@
       "downloadFailedCheckNetwork": "Download failed. Please check your network connection",
       "sessionExpired": "Not logged in or session expired. Please log in again",
       "taskProcessing": "Task in progress. Results will be pushed automatically when complete.",
-      "taskFailed": "Task failed"
+      "taskFailed": "Task failed",
+      "deleteConfirm": "Are you sure you want to delete?",
+      "operationFailed": "Operation failed"
     },
     "languageNames": {
       "zh": "Chinese",
@@ -154,7 +157,9 @@
     "startTime": "Start Time",
     "endTime": "End Time",
     "deviceId": "Device ID",
-    "name": "Name"
+    "name": "Name",
+    "deleteFailed": "Delete failed",
+    "operationFailed": "Operation failed"
   },
   "faultCases": {
     "title": "Fault Cases",
@@ -423,7 +428,8 @@
       "typeRequired": "Please select at least one type for each file",
       "typeLoadFailed": "Failed to load file types",
       "uploaderNotReady": "Upload component is not ready",
-      "chooseFilesRequired": "Please choose files to upload"
+      "chooseFilesRequired": "Please choose files to upload",
+      "uploadingTip": "Uploading... Please wait until upload completes before starting another."
     },
     "statusText": {
       "uploading": "Uploading",
@@ -602,7 +608,9 @@
       "updateSuccess": "Updated successfully",
       "maxAttachments": "You can upload up to 5 attachments",
       "saveBasicBeforeAutoTranslate": "Save basic error code info before auto translation",
-      "saveBasicBeforeI18n": "Save basic error code info before saving multilingual content"
+      "saveBasicBeforeI18n": "Save basic error code info before saving multilingual content",
+      "exportFailed": "Export failed",
+      "loadFailed": "Failed to load error codes"
     },
     "i18nTechFields": {
       "title": "Technical Fields Multi-language Editing",
@@ -980,6 +988,7 @@
     "addKey": "Add Key",
     "emptyKeys": "No keys. Click below to add.",
     "selectDate": "Select date",
+    "selectDateTime": "Select hour",
     "modelDialogEdit": "Edit Device Model",
     "modelDialogAdd": "Add Device Model",
     "modelSearchPlaceholder": "Search device models",
@@ -1014,7 +1023,10 @@
       "deviceIdPattern": "Format e.g. 4371-01 / ABC-12",
       "deviceKeyMac": "Enter MAC address format",
       "keyValueRequired": "Key value is required",
-      "validFromRequired": "Valid from date is required",
+      "validFromRequired": "Valid-from time is required",
+      "validToInvalid": "Valid-to time is invalid",
+      "validRangeOrder": "Valid-from must be earlier than valid-to",
+      "validRangeOverlap": "Validity range overlaps another key",
       "hospitalRequired": "Select hospital",
       "codeSuffixRequired": "Enter 4-digit suffix",
       "codeSuffixPattern": "Hospital code suffix must be 4 digits",
@@ -1090,6 +1102,9 @@
     "batchDeleteFailed": "Batch delete failed",
     "uploadMaxFiles": "You can select up to 5 files",
     "deviceIdRequired": "Please enter device ID",
+    "deviceModelRequired": "Please select a device model",
+    "selectDeviceModel": "Select device model",
+    "selectSeriesFirst": "Please switch to the target device series first",
     "selectFiles": "Please select files",
     "onlyCompletedCanDownloadRaw": "Only completed files can download raw files",
     "onlyCompletedCanDownload": "Only completed files can be downloaded",
@@ -1527,6 +1542,7 @@
     "uploadDialog": {
       "title": "Upload Logs"
     },
+    "selectDeviceModel": "Select device model",
     "timestamp": "Timestamp",
     "explanation": "Explanation",
     "statusText": {
@@ -1553,6 +1569,8 @@
       "enterDeviceIdOrUseDefault": "Please enter device ID, or use default value 0000-00",
       "invalidDeviceIdFormat": "Please enter valid device ID format (e.g. 4371-01, ABC-12, 123-XY)",
       "deviceIdRequired": "Device ID is required",
+      "deviceModelRequired": "Please select a device model",
+      "selectSeriesFirst": "Please switch to the target device series first",
       "deviceKeyNotFound": "No key found for this device ID",
       "deviceIdAutoFilled": "Device ID auto-filled successfully",
       "keyDeviceNotFound": "No device ID found for this key",
@@ -1700,7 +1718,10 @@
       "invalidLogIdFormat": "Invalid log ID format selected",
       "adminOnlyBatchReparse": "Only administrators can batch reparse",
       "unknownError": "Unknown error"
-    }
+    },
+    "visualize": "Visualize",
+    "deviceIdPlaceholder": "e.g. 4371-01 / ABC-12",
+    "search": "Search"
   },
   "account": {
     "title": "Account Information",
@@ -1945,7 +1966,16 @@
     "noCopyData": "No data to copy",
     "copyFailedWithMessage": "Copy failed: {message}",
     "postgresRefreshed": "PostgreSQL data refreshed",
-    "refreshFailedWithMessage": "Refresh failed: {message}"
+    "refreshFailedWithMessage": "Refresh failed: {message}",
+    "unknown": "Unknown",
+    "minutesValue": "{minutes} min",
+    "powerOn": "Power On",
+    "previousSurgeryEndTime": "Previous surgery end time",
+    "powerOnIndexed": "Power On {index}",
+    "surgeryStart": "Surgery Start",
+    "surgeryEnd": "Surgery End",
+    "powerOff": "Power Off",
+    "powerOffIndexed": "Power Off {index}"
   },
   "surgeryVisualization": {
     "remoteSurgery": "Remote Surgery",
@@ -2164,7 +2194,8 @@
     "rttMin": "RTT Min Latency:",
     "disconnectionCount": "Disconnections:",
     "statsTimeRange": "Stats time range:",
-    "itemsCount": "| {count} items"
+    "itemsCount": "| {count} items",
+    "stateError": "Safety Alert"
   },
   "mobile": {
     "tabs": {
@@ -2573,7 +2604,8 @@
       "surgeryIdRequired": "Surgery ID is required",
       "rotateTitle": "Rotate to landscape for timeline",
       "rotateDesc": "Landscape will auto-open the fullscreen overview",
-      "overviewUnavailable": "No overview data available"
+      "overviewUnavailable": "No overview data available",
+      "gripsActiveDuration": "Grips-Active Duration"
     },
     "smartSearch": {
       "emptyHelpTitle": "How can I help you?",
@@ -2829,7 +2861,23 @@
       "笛卡尔位姿(悬吊系)": "Cartesian Pose (Suspension)"
     },
     "chartTitleWithVars": "{subject} / {category} ({count} variables)",
-    "chartTitle": "{subject} / {category}"
+    "chartTitle": "{subject} / {category}",
+    "addChart": "Add Chart",
+    "configure": "Configure Chart",
+    "motionFileList": "Motion Data File List",
+    "selectedMotion": "Selected Motion Data",
+    "maxSelect5Motion": "You can select at most 5 motion data files",
+    "selectMotionFirst": "Please select motion data files first",
+    "selectComplete": "Please complete all steps and select at least one variable",
+    "configSuccess": "Configured successfully",
+    "noPermission": "No permission to access classified config",
+    "classifiedNotFound": "Classified config file not found",
+    "cannotAddLogWhenNotFound": "No logs found for this time range; cannot add",
+    "cannotAddMotionWhenNotFound": "No motion data found for this time range; cannot add",
+    "loadPartialSuccess": "Partially loaded successfully",
+    "pleaseSelectDate": "Please select a date",
+    "selectDate": "Select date",
+    "selectTimeInLogRange": "Please select a time within the log time range"
   },
   "smartSearch": {
     "title": "Smart Search",

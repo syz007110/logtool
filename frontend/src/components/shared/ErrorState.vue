@@ -2,7 +2,9 @@
   <div class="error-state" :class="{ 'error-state-center': center }">
     <div class="error-icon-wrapper">
       <slot name="icon">
-        <i :class="icon || 'fas fa-exclamation-triangle'" class="error-icon"></i>
+        <el-icon :size="64" class="error-icon">
+          <component :is="resolvedIcon" />
+        </el-icon>
       </slot>
     </div>
     <h3 v-if="title" class="error-title">{{ title }}</h3>
@@ -18,6 +20,8 @@
 </template>
 
 <script>
+import { computed } from 'vue'
+import { WarningFilled } from '@element-plus/icons-vue'
 import BaseButton from '../base/Button.vue'
 
 export default {
@@ -34,9 +38,10 @@ export default {
       type: String,
       default: ''
     },
+    /** Element Plus 图标组件；未传时用 WarningFilled */
     icon: {
-      type: String,
-      default: 'fas fa-exclamation-triangle'
+      type: [Object, Function],
+      default: null
     },
     center: {
       type: Boolean,
@@ -52,12 +57,14 @@ export default {
     }
   },
   emits: ['retry'],
-  setup(props, { emit }) {
+  setup (props, { emit }) {
+    const resolvedIcon = computed(() => props.icon || WarningFilled)
     const handleRetry = () => {
       emit('retry')
     }
 
     return {
+      resolvedIcon,
       handleRetry
     }
   }
@@ -84,12 +91,11 @@ export default {
 }
 
 .error-icon {
-  font-size: 64px;
   color: var(--text-error-primary, #ff4d4f);
 }
 
 .error-title {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 500;
   color: var(--text-primary, #030213);
   margin: 0 0 8px 0;
@@ -97,7 +103,7 @@ export default {
 }
 
 .error-message {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   color: var(--text-secondary, #64748b);
   margin: 0 0 24px 0;
   line-height: 1.5;
@@ -113,4 +119,3 @@ export default {
   justify-content: center;
 }
 </style>
-

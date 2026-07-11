@@ -12,6 +12,7 @@ const websocketService = require('../services/websocketService');
 const { logOperation } = require('../utils/operationLogger');
 const MotionDataFile = require('../models/motion_data_file');
 const motionStorage = require('../config/motionDataStorage');
+const { ensureDeviceModelAndSeries } = require('../utils/deviceSeriesBinding');
 
 // Binary layout constants (must match example/dataDecode.py MotionData)
 const ENTRY_SIZE_BYTES = 924; // 8 + (207*4) + 4 + 4 + 8 + 8 + (16*4)
@@ -259,6 +260,20 @@ async function uploadBinary(req, res) {
       return res.status(400).json({ message: '缺少文件' });
     }
 
+    try {
+      await ensureDeviceModelAndSeries({
+        deviceId,
+        deviceModel: req.body?.device_model || req.body?.deviceModel,
+        seriesId: req.body?.series_id || req.body?.seriesId,
+        required: true
+      });
+    } catch (bindErr) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (_) { }
+      }
+      return res.status(bindErr.statusCode || 400).json({ message: bindErr.message || '设备型号绑定失败' });
+    }
+
     const originalName = String(req.file.originalname || '');
     const sizeBytes = Number(req.file.size || 0);
     const fileTimeToken = parseFileTimeToken(originalName);
@@ -355,13 +370,15 @@ async function uploadBinary(req, res) {
 async function batchUploadBinary(req, res) {
   try {
     const deviceId = String(req.body?.device_id || req.body?.deviceId || '').trim();
-    if (!deviceId) {
-      // 清理已上传的临时文件
+    const cleanupUploadedTemps = () => {
       if (req.files && req.files.length > 0) {
         req.files.forEach((f) => {
           try { if (f?.path && fs.existsSync(f.path)) fs.unlinkSync(f.path); } catch (_) { }
         });
       }
+    };
+    if (!deviceId) {
+      cleanupUploadedTemps();
       return res.status(400).json({ message: 'device_id 为必填' });
     }
     if (!req.files || req.files.length === 0) {
@@ -369,7 +386,20 @@ async function batchUploadBinary(req, res) {
     }
 
     if (req.files.length > 5) {
+      cleanupUploadedTemps();
       return res.status(400).json({ message: '最多只能上传5个文件' });
+    }
+
+    try {
+      await ensureDeviceModelAndSeries({
+        deviceId,
+        deviceModel: req.body?.device_model || req.body?.deviceModel,
+        seriesId: req.body?.series_id || req.body?.seriesId,
+        required: true
+      });
+    } catch (bindErr) {
+      cleanupUploadedTemps();
+      return res.status(bindErr.statusCode || 400).json({ message: bindErr.message || '设备型号绑定失败' });
     }
 
     const userId = req.user ? req.user.id : null;
@@ -1196,16 +1226,34 @@ async function listMotionDataFilesByDevice(req, res) {
 
     const sqlConds = [];
     const replacements = { limit, offset };
+    let seriesIdNum = null;
+    if (req.query.series_id !== undefined && req.query.series_id !== null && req.query.series_id !== '') {
+      seriesIdNum = Number(req.query.series_id);
+      if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+        return res.status(400).json({ message: 'series_id 必须为正整数' });
+      }
+    }
     if (deviceFilter) {
       sqlConds.push('LOWER(m.device_id) LIKE :deviceLike');
       replacements.deviceLike = `%${deviceFilter.toLowerCase()}%`;
     }
+    if (seriesIdNum) {
+      sqlConds.push('d.series_id = :seriesId');
+      replacements.seriesId = seriesIdNum;
+    }
     const whereSql = sqlConds.length ? 'WHERE ' + sqlConds.join(' AND ') : '';
+    const countJoinSql = seriesIdNum
+      ? 'INNER JOIN devices d ON d.device_id = m.device_id'
+      : '';
+    const dataJoinSql = seriesIdNum
+      ? 'INNER JOIN devices d ON d.device_id = m.device_id'
+      : 'LEFT JOIN devices d ON d.device_id = m.device_id';
 
     const countSql = `
       SELECT COUNT(*) AS total FROM (
         SELECT m.device_id
         FROM motion_data_files m
+        ${countJoinSql}
         ${whereSql}
         GROUP BY m.device_id
       ) t
@@ -1221,13 +1269,14 @@ async function listMotionDataFilesByDevice(req, res) {
       SELECT
         m.device_id AS device_id,
         hm.hospital_name_std AS hospital_name,
+        d.series_id AS series_id,
         COUNT(*) AS data_count,
         MAX(COALESCE(m.file_time, m.upload_time)) AS latest_upload_time
       FROM motion_data_files m
-      LEFT JOIN devices d ON d.device_id = m.device_id
+      ${dataJoinSql}
       LEFT JOIN hospital_master hm ON hm.id = d.hospital_id
       ${whereSql}
-      GROUP BY m.device_id, hm.hospital_name_std
+      GROUP BY m.device_id, hm.hospital_name_std, d.series_id
       ORDER BY latest_upload_time DESC
       LIMIT :limit OFFSET :offset
     `;
@@ -1239,6 +1288,7 @@ async function listMotionDataFilesByDevice(req, res) {
     const device_groups = (rows || []).map((r) => ({
       device_id: r.device_id,
       hospital_name: r.hospital_name || null,
+      series_id: r.series_id || null,
       data_count: Number(r.data_count || 0),
       latest_upload_time: r.latest_upload_time || null
     }));

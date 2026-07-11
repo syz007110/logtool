@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/auth');
-const { checkPermission } = require('../middlewares/permission');
+const { checkPermission, checkPermissionAny } = require('../middlewares/permission');
 
 const {
   listDeviceModels,
@@ -10,9 +10,13 @@ const {
   deleteDeviceModel
 } = require('../controllers/deviceModelController');
 
-// 列表查询：设备管理页面需要 device:read，故障案例下拉需要 fault_case:read
-// 允许两个权限之一即可（设备管理页面通常有 device:read）
-router.get('/', auth, checkPermission('device:read'), listDeviceModels);
+// 列表查询：设备管理 / 故障案例 / 日志与运行数据上传下拉
+router.get(
+  '/',
+  auth,
+  checkPermissionAny(['device:read', 'fault_case:read', 'log:upload', 'data_replay:manage', 'data_replay:upload']),
+  listDeviceModels
+);
 
 // 字典维护：走设备管理权限（管理员/专家）
 router.post('/', auth, checkPermission('device:update'), createDeviceModel);

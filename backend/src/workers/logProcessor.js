@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const dayjs = require('dayjs');
-const { decryptLogContent } = require('../utils/decryptUtils');
+const { decryptLogContent, selectDecryptKeyByCascade } = require('../utils/decryptUtils');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
 const Log = require('../models/log');
 const ErrorCode = require('../models/error_code');
@@ -10,6 +10,8 @@ const errorCodeCache = require('../services/errorCodeCache');
 const { streamLogProcessor } = require('../utils/streamLogProcessor');
 const { getClickHouseClient } = require('../config/clickhouse');
 const { evictOldVersionsFromClickHouse } = require('./batchProcessor');
+const { writebackUserKeyFromUpload } = require('../services/deviceKeyService');
+const { extractTimeFromFileName } = require('../utils/logTimeExtractor');
 
 // 上传目录
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
@@ -22,7 +24,11 @@ async function processLogFile(job) {
   const { 
     filePath, 
     originalName, 
-    decryptKey, 
+    decryptKey,
+    dbKey = null,
+    userKey = null,
+    useKeyCascade = false,
+    logTimeIso = null,
     deviceId, 
     uploaderId, 
     logId 
@@ -86,9 +92,38 @@ async function processLogFile(job) {
       console.warn('WebSocket 状态推送失败:', wsError.message);
     }
 
+    // 按瀑布选择最终解密密钥（库钥 → 默认 / 用户 → 默认）
+    let selectedKey = decryptKey;
+    let selectedSource = 'legacy';
+    if (useKeyCascade) {
+      const selected = selectDecryptKeyByCascade({
+        content,
+        dbKey: dbKey || null,
+        userKey: userKey || null
+      });
+      selectedKey = selected.key;
+      selectedSource = selected.source;
+      console.log(`[日志处理] 密钥瀑布结果: source=${selectedSource}, key=${selectedKey ? selectedKey.substring(0, 8) + '...' : 'null'}`);
+    }
+
+    if (!selectedKey) {
+      console.log(`[日志处理] 密钥瀑布失败，更新状态为解密失败: ${originalName}`);
+      await Log.update(
+        { status: 'decrypt_failed' },
+        { where: { id: logId } }
+      );
+      try {
+        const websocketService = require('../services/websocketService');
+        websocketService.pushLogStatusChange(deviceId, logId, 'decrypt_failed', 'decrypting');
+      } catch (wsError) {
+        console.warn('WebSocket 状态推送失败:', wsError.message);
+      }
+      return;
+    }
+
     // 解密日志内容 - 只记录关键信息
-    console.log(`[日志处理] 更换密钥，开始解密: ${originalName}`);
-    const decryptedEntries = decryptLogContent(content, decryptKey);
+    console.log(`[日志处理] 开始解密: ${originalName}`);
+    const decryptedEntries = decryptLogContent(content, selectedKey);
     console.log(`[日志处理] 解密结果: ${decryptedEntries.length} 个日志条目`);
 
     await job.progress(50);
@@ -146,7 +181,7 @@ async function processLogFile(job) {
       
       // 流式处理
       const t0 = Date.now();
-      const result = await streamLogProcessor.processLogFile(filePath, decryptKey, logId, currentVersion, {
+      const result = await streamLogProcessor.processLogFile(filePath, selectedKey, logId, currentVersion, {
         seriesId: deviceSeriesId
       });
       console.log(`⏱️ 流式处理耗时: ${Date.now() - t0}ms`);
@@ -248,36 +283,27 @@ async function processLogFile(job) {
 
     await job.progress(85);
 
-    // 解密成功后，同步设备信息到设备表（若存在）
-    // 注意：只有在解密成功后才保存密钥，避免错误密钥污染设备表
+    // 回写实际使用的密钥到 logs.key_id
     try {
-      if (deviceId && deviceId !== '0000-00' && decryptKey) {
-        const [device, created] = await Device.findOrCreate({
-          where: { device_id: deviceId },
-          defaults: {
-            device_model: null,
-            device_key: decryptKey,
-            created_at: new Date(),
-            updated_at: new Date()
-          }
+      await Log.update({ key_id: selectedKey }, { where: { id: logId } });
+    } catch (e) {
+      console.warn('更新日志 key_id 失败（忽略）:', e.message);
+    }
+
+    // 仅当用户输入密钥在瀑布中胜出时，写回 device_keys（不再写 devices.device_key）
+    try {
+      if (useKeyCascade && selectedSource === 'user' && deviceId && deviceId !== '0000-00') {
+        const logTime = logTimeIso
+          ? new Date(logTimeIso)
+          : (extractTimeFromFileName(originalName) || new Date());
+        await writebackUserKeyFromUpload({
+          deviceId,
+          keyValue: selectedKey,
+          logTime
         });
-        
-        if (!created) {
-          // 更新现有设备信息：如果设备没有密钥，或者当前密钥与设备密钥不同，则更新
-          // 这样可以更新到正确的密钥，但不会覆盖已有的正确密钥
-          if (!device.device_key || device.device_key !== decryptKey) {
-          await device.update({
-            device_key: decryptKey,
-            updated_at: new Date()
-          });
-            console.log(`✅ 已更新设备 ${deviceId} 的密钥（解密验证成功）`);
-          }
-        } else {
-          console.log(`✅ 已创建设备 ${deviceId} 并保存密钥（解密验证成功）`);
-        }
       }
     } catch (e) {
-      console.warn('设备信息同步失败（忽略，不影响日志处理）:', e.message);
+      console.warn('设备密钥自动写回失败（忽略，不影响日志处理）:', e.message);
     }
 
     // 根据需求，解密后的文件应该保存到服务器磁盘

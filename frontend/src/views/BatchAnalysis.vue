@@ -5100,7 +5100,7 @@ export default {
 
 .summary-block-expr-value {
   color: var(--summary-block-value-color);
-  font-family: monospace;
+  font-family: var(--font-mono);
   white-space: normal;
   word-break: break-all;
   overflow-wrap: anywhere;
@@ -5206,7 +5206,7 @@ export default {
 
 .summary-item .expr {
   color: var(--el-color-info);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   white-space: normal;
   word-break: break-all;
@@ -7110,7 +7110,7 @@ export default {
 }
 
 .clipboard-textarea {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -7159,7 +7159,7 @@ export default {
 .entry-timestamp {
   font-size: 12px;
   color: var(--slate-500);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 .entry-error-code {
@@ -7905,7 +7905,7 @@ export default {
 }
 
 .clipboard-textarea {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -7954,7 +7954,7 @@ export default {
 .entry-timestamp {
   font-size: 12px;
   color: var(--slate-500);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 .entry-error-code {

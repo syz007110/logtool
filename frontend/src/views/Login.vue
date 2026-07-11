@@ -21,7 +21,7 @@
       <div class="lang-switch">
         <el-dropdown @command="changeLanguage" trigger="click">
           <el-button text class="lang-btn">
-            <Earth theme="outline" size="20" fill="#333" class="lang-icon" />
+            <el-icon :size="20" class="lang-icon"><GlobeIcon /></el-icon>
             {{ currentLocaleLabel }}
           </el-button>
           <template #dropdown>
@@ -170,14 +170,14 @@ import { ElMessage } from 'element-plus'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { useI18n } from 'vue-i18n'
 import * as dd from 'dingtalk-jsapi'
-import { Earth } from '@icon-park/vue-next'
+import GlobeIcon from '@/components/icons/GlobeIcon.vue'
 import api from '@/api'
 import { validatePasswordStrength } from '@/utils/passwordStrength'
 import { notifyApiError } from '@/utils/apiError'
 
 export default {
   name: 'Login',
-  components: { Earth },
+  components: { GlobeIcon },
   setup() {
     const store = useStore()
     const router = useRouter()

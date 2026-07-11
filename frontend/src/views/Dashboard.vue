@@ -230,7 +230,7 @@
           <!-- 语言切换 -->
           <el-dropdown trigger="click" @command="handleLanguageChange">
             <el-button text class="lang-btn">
-              <Earth theme="outline" size="20" fill="#333" class="lang-icon" />
+              <el-icon :size="20" class="lang-icon"><GlobeIcon /></el-icon>
               {{ currentLocaleLabel }}
             </el-button>
             <template #dropdown>
@@ -282,7 +282,7 @@ import {
   TrendCharts,
   Operation
 } from '@element-plus/icons-vue'
-import { Earth } from '@icon-park/vue-next'
+import GlobeIcon from '@/components/icons/GlobeIcon.vue'
 
 export default {
   name: 'Dashboard',
@@ -302,7 +302,7 @@ export default {
     Expand,
     SwitchButton,
     ArrowDown,
-    Earth,
+    GlobeIcon,
     TrendCharts,
     Operation
   },

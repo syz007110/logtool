@@ -373,11 +373,11 @@
                     :disabled="!canDeleteSurgery || batchDeletingSurgeries"
                     @click="handleBatchDeleteSurgeries"
                   >
-                    <i class="fas fa-trash"></i>
+                    <el-icon><Delete /></el-icon>
                     {{ $t('logs.batchDelete') }} ({{ selectedDetailSurgeries.length }})
                   </el-button>
                   <el-button type="default" size="small" @click="clearDetailSelection">
-                    <i class="fas fa-times"></i>
+                    <el-icon><Close /></el-icon>
                     {{ $t('logs.clearSelection') }}
                   </el-button>
                 </div>
@@ -468,7 +468,7 @@
                       @command="(cmd) => handleDetailSurgeryMoreAction(cmd, row)"
                     >
                       <el-button text size="small">
-                        <i class="fas fa-ellipsis-h"></i>
+                        <el-icon><MoreFilled /></el-icon>
                       </el-button>
                       <template #dropdown>
                         <el-dropdown-menu>
@@ -538,6 +538,7 @@ export default {
     const store = useStore()
     const router = useRouter()
     const { t, locale } = useI18n()
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
 
 
     // 璁惧鍒嗙粍鐩稿叧鏁版嵁
@@ -813,16 +814,14 @@ export default {
     const openSurgeryAnalysisDialog = async () => {
       showAnalyzeDialog.value = true
       await loadAnalysisDeviceOptions('', { page: 1, append: false })
-      if (selectedDevice.value?.device_id) {
-        analysisForm.value.deviceId = selectedDevice.value.device_id
-        const selectedId = String(selectedDevice.value.device_id || '').trim()
-        if (selectedId && !analysisDeviceOptions.value.some((item) => item.value === selectedId)) {
-          const label = selectedDevice.value?.hospital_name
-            ? `${selectedId} (${selectedDevice.value.hospital_name})`
-            : selectedId
-          analysisDeviceOptions.value.unshift({ value: selectedId, label })
-        }
+      const selectedId = String(selectedDevice.value?.device_id || '').trim()
+      if (selectedId && analysisDeviceOptions.value.some((item) => item.value === selectedId)) {
+        analysisForm.value.deviceId = selectedId
+      } else {
+        analysisForm.value.deviceId = ''
       }
+      analysisForm.value.startTime = ''
+      analysisForm.value.endTime = ''
     }
 
     const handleAnalysisDeviceChange = () => {
@@ -1945,6 +1944,23 @@ export default {
         currentPage.value = 1
         loadDeviceGroups({ force: true })
       }, 300) // 300ms 闃叉姈
+    })
+
+    watch(currentSeriesId, async (nextId, prevId) => {
+      if (!nextId || nextId === prevId) return
+      currentPage.value = 1
+      analysisDeviceOptions.value = []
+      analysisDeviceQuery.value = ''
+      analysisForm.value.deviceId = ''
+      analysisForm.value.startTime = ''
+      analysisForm.value.endTime = ''
+      if (showDeviceDetailDrawer.value) {
+        handleDrawerClose()
+      }
+      await loadDeviceGroups({ force: true })
+      if (showAnalyzeDialog.value) {
+        await loadAnalysisDeviceOptions('', { page: 1, append: false })
+      }
     })
 
     // Handle keyword clear.

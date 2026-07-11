@@ -23,6 +23,7 @@ const {
   parseAdvancedFilterPayload,
   buildAdvancedFilterExpression
 } = require('../workers/batchAdvancedFilters');
+const { ensureDeviceModelAndSeries } = require('../utils/deviceSeriesBinding');
 
 /**
  * 将时间转换为本地时间格式字符串（与 ClickHouse 存储格式一致）
@@ -703,7 +704,7 @@ const getLogTimeFilters = async (req, res) => {
 // 获取按设备分组的日志列表
 const getLogsByDevice = async (req, res) => {
   try {
-    const { only_own, time_prefix, device_filter } = req.query;
+    const { only_own, time_prefix, device_filter, series_id } = req.query;
     const { page, limit } = normalizePagination(req.query.page, req.query.limit, MAX_PAGE_SIZE.DEVICE_GROUP);
 
     // 构建查询条件
@@ -732,6 +733,13 @@ const getLogsByDevice = async (req, res) => {
 
     const sqlConds = [];
     const replacements = {};
+    let seriesIdNum = null;
+    if (series_id !== undefined && series_id !== null && series_id !== '') {
+      seriesIdNum = Number(series_id);
+      if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+        return res.status(400).json({ message: 'series_id 必须为正整数' });
+      }
+    }
 
     if (where.uploader_id) {
       sqlConds.push('l.uploader_id = :uploaderId');
@@ -746,18 +754,24 @@ const getLogsByDevice = async (req, res) => {
       sqlConds.push('LOWER(COALESCE(l.device_id, \'\')) LIKE :deviceLike');
       replacements.deviceLike = `%${String(device_filter).toLowerCase().trim()}%`;
     }
+    if (seriesIdNum) {
+      sqlConds.push('d.series_id = :seriesId');
+      replacements.seriesId = seriesIdNum;
+    }
 
     const whereSql = sqlConds.length ? ('WHERE ' + sqlConds.join(' AND ')) : '';
+    // count/聚合子查询仅在按系列过滤时才 JOIN devices
+    const countJoinSql = seriesIdNum
+      ? 'INNER JOIN devices d ON d.device_id = l.device_id'
+      : '';
 
     // 1) 总数：设备分组后的数量（用于分页）
+    // 使用 COUNT(DISTINCT ...)，避免 ONLY_FULL_GROUP_BY 对子查询 GROUP BY 别名/表达式的限制
     const countSql = `
-      SELECT COUNT(*) AS total
-      FROM (
-        SELECT COALESCE(l.device_id, '未知设备') AS device_key
-        FROM logs l
-        ${whereSql}
-        GROUP BY device_key
-      ) t
+      SELECT COUNT(DISTINCT COALESCE(l.device_id, '未知设备')) AS total
+      FROM logs l
+      ${countJoinSql}
+      ${whereSql}
     `;
     const countRows = await sequelize.query(countSql, {
       replacements,
@@ -766,21 +780,30 @@ const getLogsByDevice = async (req, res) => {
     const total = Number(countRows?.[0]?.total || 0);
     const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
 
-    // 2) 当前页数据：设备汇总（count + max(upload_time)）+ 设备信息
+    // 2) 当前页数据：先按 device_id 聚合，再关联设备信息，兼容 ONLY_FULL_GROUP_BY
     const dataSql = `
       SELECT
-        COALESCE(l.device_id, '未知设备') AS device_id,
+        g.device_id AS device_id,
         hm.hospital_name_std AS hospital_name,
         d.device_model AS device_model,
-        COUNT(*) AS log_count,
-        MAX(l.upload_time) AS latest_update_time
-      FROM logs l
-      LEFT JOIN devices d ON d.device_id = l.device_id
+        d.series_id AS series_id,
+        g.log_count AS log_count,
+        g.latest_update_time AS latest_update_time
+      FROM (
+        SELECT
+          COALESCE(l.device_id, '未知设备') AS device_id,
+          COUNT(*) AS log_count,
+          MAX(l.upload_time) AS latest_update_time
+        FROM logs l
+        ${countJoinSql}
+        ${whereSql}
+        GROUP BY COALESCE(l.device_id, '未知设备')
+        ORDER BY latest_update_time DESC
+        LIMIT :limit OFFSET :offset
+      ) g
+      LEFT JOIN devices d ON d.device_id = g.device_id
       LEFT JOIN hospital_master hm ON hm.id = d.hospital_id
-      ${whereSql}
-      GROUP BY COALESCE(l.device_id, '未知设备'), hm.hospital_name_std, d.device_model
-      ORDER BY latest_update_time DESC
-      LIMIT :limit OFFSET :offset
+      ORDER BY g.latest_update_time DESC
     `;
     const rows = await sequelize.query(dataSql, {
       replacements: { ...replacements, limit, offset },
@@ -791,6 +814,7 @@ const getLogsByDevice = async (req, res) => {
       device_id: r.device_id,
       hospital_name: r.hospital_name || null,
       device_name: r.device_model || '未知设备',
+      series_id: r.series_id || null,
       log_count: Number(r.log_count || 0),
       latest_update_time: r.latest_update_time || null,
       // 为兼容旧前端结构，保留 logs 字段（当前列表页并不使用该字段）
@@ -809,6 +833,7 @@ const getLogsByDevice = async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('getLogsByDevice failed:', err);
     res.status(500).json({ message: req.t('log.deviceGroups.getFailed'), error: err.message });
   }
 };
@@ -862,35 +887,43 @@ const uploadLog = async (req, res) => {
       return res.status(400).json({ message: req.t('log.upload.invalidDeviceIdFormat') });
     }
 
+    const deviceModel = String(req.headers['x-device-model'] || req.body?.device_model || '').trim();
+    const seriesIdRaw = req.headers['x-series-id'] || req.body?.series_id;
+    try {
+      await ensureDeviceModelAndSeries({
+        deviceId,
+        deviceModel,
+        seriesId: seriesIdRaw,
+        // 用户上传必须绑定型号/系列；自动上传若未传则保持兼容
+        required: source !== 'auto-upload'
+      });
+    } catch (bindErr) {
+      try {
+        for (const f of files) {
+          if (f && f.path && fs.existsSync(f.path)) fs.unlinkSync(f.path);
+        }
+      } catch (_) { }
+      return res.status(bindErr.statusCode || 400).json({ message: bindErr.message || '设备型号绑定失败' });
+    }
+
     const uploadedLogs = [];
 
     for (const file of files) {
-      // 根据设备编号和日志时间自动获取解密密钥
-      let decryptKey = null;
+      // 选钥：device_keys（按小时）→ 用户上传密钥；默认密钥在解密瀑布中兜底
+      let dbKey = null;
+      let userKey = req.headers['x-decrypt-key'] || null;
+      let logTime = null;
 
       if (deviceId !== '0000-00') {
         try {
-          // 从文件名提取日志时间
-          const logDate = extractTimeFromFileName(file.originalname);
-
-          if (logDate) {
-            console.log(`从文件名提取到日志时间: ${logDate.toISOString().split('T')[0]}`);
-            // 使用多密钥管理服务获取密钥
-            decryptKey = await getKeyForDeviceAndDate(deviceId, logDate);
+          logTime = extractTimeFromFileName(file.originalname);
+          if (logTime) {
+            console.log(`从文件名提取到日志时间: ${logTime.toISOString()}`);
+            dbKey = await getKeyForDeviceAndDate(deviceId, logTime);
           } else {
-            console.log(`无法从文件名提取时间，使用当前日期查找密钥`);
-            // 如果无法提取时间，使用当前日期
-            decryptKey = await getKeyForDeviceAndDate(deviceId, new Date());
-          }
-
-          // 如果多密钥管理未找到，回退到 devices.device_key（向后兼容）
-          if (!decryptKey) {
-            console.log(`多密钥管理未找到密钥，尝试使用设备默认密钥...`);
-            const device = await Device.findOne({ where: { device_id: deviceId } });
-            if (device && device.device_key) {
-              decryptKey = device.device_key;
-              console.log(`✅ 使用设备 ${deviceId} 的默认密钥: ${decryptKey.substring(0, 8)}...`);
-            }
+            console.log(`无法从文件名提取时间，使用当前时间查找密钥`);
+            logTime = new Date();
+            dbKey = await getKeyForDeviceAndDate(deviceId, logTime);
           }
         } catch (error) {
           console.warn('获取设备密钥失败:', error.message);
@@ -899,19 +932,20 @@ const uploadLog = async (req, res) => {
         console.log('使用默认设备编号，跳过密钥查找');
       }
 
-      // 如果无法自动获取密钥，尝试从请求头获取（向后兼容）
-      if (!decryptKey) {
-        decryptKey = req.headers['x-decrypt-key'];
-      }
-
-      if (!decryptKey) {
+      if (!dbKey && !userKey) {
         return res.status(400).json({ message: req.t('log.upload.keyNotFound') });
       }
 
-      // 验证密钥格式
-      if (!validateKey(decryptKey)) {
+      if (userKey && !validateKey(userKey)) {
         return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
       }
+      if (dbKey && !validateKey(dbKey)) {
+        return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
+      }
+
+      // 预填 key_id（最终以解密瀑布结果为准，worker 会回写）
+      const decryptKey = dbKey || userKey;
+      console.log(`解密密钥候选: db=${dbKey ? dbKey.substring(0, 8) + '...' : '无'}, user=${userKey ? userKey.substring(0, 8) + '...' : '无'}`);
       let log;
       try {
         console.log(`\n--- 处理文件: ${file.originalname} ---`);
@@ -976,6 +1010,10 @@ const uploadLog = async (req, res) => {
           filePath: file.path,
           originalName: file.originalname,
           decryptKey: decryptKey,
+          dbKey: dbKey || null,
+          userKey: userKey || null,
+          useKeyCascade: true,
+          logTimeIso: (logTime || new Date()).toISOString(),
           deviceId: deviceId || null,
           uploaderId: req.user ? req.user.id : null,
           logId: log.id,
@@ -2601,7 +2639,7 @@ const deleteLog = async (req, res) => {
   }
 };
 
-// 根据密钥自动填充设备编号（优先从设备表查询，其次从日志表推断）
+// 根据密钥自动填充设备编号（优先 device_keys，其次 logs.key_id）
 const autoFillDeviceId = async (req, res) => {
   try {
     const { key } = req.query;
@@ -2610,18 +2648,17 @@ const autoFillDeviceId = async (req, res) => {
       return res.status(400).json({ message: req.t('device.provideKey') });
     }
 
-    // 1) 设备表
     try {
-      const device = await Device.findOne({ where: { device_key: key } });
-      if (device && device.device_id) {
-        return res.json({ device_id: device.device_id });
+      const { findDeviceIdByKeyValue } = require('../services/deviceKeyService');
+      const deviceIdFromKeys = await findDeviceIdByKeyValue(key);
+      if (deviceIdFromKeys) {
+        return res.json({ device_id: deviceIdFromKeys });
       }
     } catch (_) { }
 
-    // 2) 在logs表中查找使用过该密钥的设备编号
     const log = await Log.findOne({
       where: { key_id: key },
-      order: [['original_name', 'DESC']], // 获取最新的记录
+      order: [['original_name', 'DESC']],
       attributes: ['device_id']
     });
 
@@ -2635,7 +2672,7 @@ const autoFillDeviceId = async (req, res) => {
   }
 };
 
-// 根据设备编号自动填充密钥（优先从设备表查询，其次从日志表推断）
+// 根据设备编号自动填充密钥（优先当前时刻 device_keys，其次 logs.key_id）
 const autoFillKey = async (req, res) => {
   try {
     const { device_id } = req.query;
@@ -2644,18 +2681,16 @@ const autoFillKey = async (req, res) => {
       return res.status(400).json({ message: req.t('device.requiredId') });
     }
 
-    // 1) 设备表
     try {
-      const device = await Device.findOne({ where: { device_id } });
-      if (device && device.device_key) {
-        return res.json({ key: device.device_key });
+      const keyFromTable = await getKeyForDeviceAndDate(device_id, new Date());
+      if (keyFromTable) {
+        return res.json({ key: keyFromTable });
       }
     } catch (_) { }
 
-    // 2) 在logs表中查找该设备编号使用过的密钥
     const log = await Log.findOne({
       where: { device_id: device_id },
-      order: [['original_name', 'DESC']], // 获取最新的记录
+      order: [['original_name', 'DESC']],
       attributes: ['key_id']
     });
 

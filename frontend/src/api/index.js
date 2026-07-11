@@ -210,7 +210,7 @@ const i18nErrorCodes = {
 
 const logs = {
   getList: (params, config = {}) => api.get('/logs', { params, ...config }),
-  getByDevice: (params, config = {}) => api.get('/logs/by-device', { params, ...config }),
+  getByDevice: (params, config = {}) => api.get('/logs/by-device', { params: withCurrentSeriesParams(params), ...config }),
   getTimeFilters: (params, config = {}) => api.get('/logs/time-filters', { params, ...config }),
   upload: (formData) => api.post('/logs/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -338,7 +338,7 @@ const surgeryStatistics = {
 // Surgeries CRUD (PostgreSQL persisted)
 const surgeries = {
   list: (params, config = {}) => api.get('/surgeries', { params, ...config }),
-  getByDevice: (params, config = {}) => api.get('/surgeries/by-device', { params, ...config }),
+  getByDevice: (params, config = {}) => api.get('/surgeries/by-device', { params: withCurrentSeriesParams(params), ...config }),
   getAnalysisTaskMeta: (params, config = {}) => api.get('/surgeries/analysis-task-meta', { params, ...config }),
   removeAnalysisTaskMeta: (id) => api.delete(`/surgeries/analysis-task-meta/${id}`),
   get: (id, params) => api.get(`/surgeries/${id}`, { params }),
@@ -399,7 +399,7 @@ const motionData = {
   }),
   // Metadata list & manage
   listFiles: (params) => api.get('/motion-data/files', { params }),
-  listFilesByDevice: (params) => api.get('/motion-data/files/by-device', { params }),
+  listFilesByDevice: (params) => api.get('/motion-data/files/by-device', { params: withCurrentSeriesParams(params) }),
   getTimeFilters: (params) => api.get('/motion-data/files/time-filters', { params }),
   deleteFile: (id) => api.delete(`/motion-data/files/${id}`),
   batchDeleteFiles: (ids) => api.post('/motion-data/files/batch-delete', { ids }),

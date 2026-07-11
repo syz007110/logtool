@@ -2435,7 +2435,7 @@ export default {
 .timeline-event-time {
   font-size: 12px;
   color: #6a7282;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-family: var(--font-mono);
   line-height: 1.4;
 }
 
@@ -3062,7 +3062,7 @@ export default {
 .instrument-info-value.time {
   font-size: 11px;
   color: #6a7282;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-family: var(--font-mono);
   white-space: normal;
   overflow: visible;
   text-overflow: clip;

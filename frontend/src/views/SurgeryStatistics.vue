@@ -4674,7 +4674,7 @@ export default {
 }
 
 .postgresql-textarea {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.4;
   background-color: #FFFFFF;
@@ -4683,7 +4683,7 @@ export default {
 }
 
 .postgresql-textarea :deep(.el-textarea__inner) {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.4;
   background-color: #FFFFFF;

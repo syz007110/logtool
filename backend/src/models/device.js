@@ -6,7 +6,7 @@ const { sequelize } = require('./index');
 // - device_id: 设备编号（唯一）
 // - device_model: 设备型号
 // - series_id: 设备系列ID
-// - device_key: 设备密钥（systeminfo中的MAC地址）
+// - device_key: 历史兼容字段，业务密钥已迁移至 device_keys，基础信息不再维护
 // - hospital_id: 标准医院ID（可选，主数据绑定）
 // - hospital_code: 医院编码（稳定唯一键，冗余存储）
 // - hospital: 历史兼容字段，不再作为真实归属字段维护

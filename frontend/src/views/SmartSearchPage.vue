@@ -216,7 +216,7 @@
           <!-- 语言切换 -->
           <el-dropdown trigger="click" @command="handleLanguageChange">
             <el-button text class="lang-btn">
-              <Earth theme="outline" size="20" fill="#333" class="lang-icon" />
+              <el-icon :size="20" class="lang-icon"><GlobeIcon /></el-icon>
               <span class="lang-text">{{ currentLocaleLabel }}</span>
             </el-button>
             <template #dropdown>
@@ -1177,7 +1177,7 @@
                             <div class="ss-case-info-item">
                               <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.updated') }}</div>
                               <div class="ss-case-info-value">
-                                <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                                <el-icon :size="12" style="margin-right: 4px;"><Clock /></el-icon>
                                 {{ formatTime(getJiraCase(c).updated) || '-' }}
                               </div>
                             </div>
@@ -1252,7 +1252,7 @@
                             <div class="ss-case-attachment-label">{{ $t('mobile.smartSearch.caseSection.fileAttachments') }}</div>
                             <div v-for="file in getJiraFileAttachments(c)" :key="file.id || file.filename" class="ss-case-attachment-item">
                               <el-link type="primary" :underline="false" @click="downloadJiraFile(file)">
-                                <i class="fas fa-paperclip"></i>
+                                <el-icon><Paperclip /></el-icon>
                                 {{ file.filename }}
                               </el-link>
                             </div>
@@ -1302,7 +1302,7 @@
                             <div class="ss-case-info-item">
                               <div class="ss-case-info-label">{{ $t('mobile.smartSearch.caseInfo.updated') }}</div>
                               <div class="ss-case-info-value">
-                                <i class="fas fa-clock" style="margin-right: 4px; font-size: 12px;"></i>
+                                <el-icon :size="12" style="margin-right: 4px;"><Clock /></el-icon>
                                 {{ formatDateTime(getMongoCase(c).updated_at_user || getMongoCase(c).updatedAt || getMongoCase(c).updated || getMongoCase(c).createdAt) || '-' }}
                               </div>
                             </div>
@@ -1369,7 +1369,7 @@
                             <div class="ss-case-attachment-label">{{ $t('mobile.smartSearch.caseSection.fileAttachments') }}</div>
                             <div v-for="file in getMongoFileAttachments(getMongoCase(c))" :key="file.uid || file.url || file.id" class="ss-case-attachment-item">
                               <el-link type="primary" :underline="false" @click="downloadMongoFile(file)">
-                                <i class="fas fa-paperclip"></i>
+                                <el-icon><Paperclip /></el-icon>
                                 {{ file.original_name || file.filename || file.name || $t('shared.attachmentFile') }}
                               </el-link>
                             </div>
@@ -1571,7 +1571,7 @@ import { useI18n } from 'vue-i18n'
 import { hasI18nKey } from '@/i18n'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
 import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
-import { Earth } from '@icon-park/vue-next'
+import GlobeIcon from '@/components/icons/GlobeIcon.vue'
 import api from '@/api'
 import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
 
@@ -1595,7 +1595,7 @@ function normalizeTitle (text, fallback = '') {
 
 export default {
   name: 'SmartSearchPage',
-  components: { Earth, SmartSearchKbAssetImg },
+  components: { GlobeIcon, SmartSearchKbAssetImg },
   setup () {
     const store = useStore()
     const router = useRouter()
@@ -4186,7 +4186,7 @@ export default {
 }
 
 .ss-source-ref {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: #2563eb;
@@ -4540,7 +4540,7 @@ export default {
 }
 
 .ss-fault-detail-dialog-tech-text {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   background: #f9fafb;
   border-radius: 6px;
@@ -4596,7 +4596,7 @@ export default {
 }
 
 .ss-drawer-pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   background: #f9fafb;
   border-radius: 10px;
@@ -4952,7 +4952,7 @@ export default {
 }
 
 .ss-fault-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
   color: #111827;
@@ -4964,7 +4964,7 @@ export default {
 }
 
 .ss-fault-ref {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   color: #6b7280;
   margin-left: 8px;
@@ -5098,7 +5098,7 @@ export default {
 }
 
 .ss-troubleshoot-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
   color: #111827;
@@ -5110,7 +5110,7 @@ export default {
 }
 
 .ss-troubleshoot-ref {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   color: #6b7280;
   margin-left: 8px;
@@ -5154,7 +5154,7 @@ export default {
 }
 
 .ss-case-key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
   color: #111827;
@@ -5170,7 +5170,7 @@ export default {
 }
 
 .ss-case-ref {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   color: #6b7280;
   margin-left: 8px;
@@ -5208,7 +5208,7 @@ export default {
 }
 
 .ss-kb-ref {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   color: #2563eb;

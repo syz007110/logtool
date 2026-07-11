@@ -6,6 +6,7 @@
     "delete": "删除",
     "edit": "编辑",
     "add": "添加",
+    "details": "详情",
     "search": "搜索",
     "reset": "重置",
     "export": "导出",
@@ -86,7 +87,9 @@
       "downloadFailedCheckNetwork": "文件下载失败，请检查网络连接",
       "sessionExpired": "未登录或登录已过期，请重新登录",
       "taskProcessing": "任务处理中，完成后将自动推送结果",
-      "taskFailed": "任务失败"
+      "taskFailed": "任务失败",
+      "deleteConfirm": "确定要删除吗？",
+      "operationFailed": "操作失败"
     },
     "languageNames": {
       "zh": "中文",
@@ -154,7 +157,9 @@
     "startTime": "开始时间",
     "endTime": "结束时间",
     "deviceId": "设备编号",
-    "name": "名称"
+    "name": "名称",
+    "deleteFailed": "删除失败",
+    "operationFailed": "操作失败"
   },
   "faultCases": {
     "title": "故障案例",
@@ -423,7 +428,8 @@
       "typeRequired": "请为每个文件选择至少一个类型",
       "typeLoadFailed": "加载文件类型失败",
       "uploaderNotReady": "上传组件未初始化",
-      "chooseFilesRequired": "请选择要上传的文件"
+      "chooseFilesRequired": "请选择要上传的文件",
+      "uploadingTip": "文件上传中，上传完成后才能进行下一次上传操作"
     },
     "statusText": {
       "uploading": "上传中",
@@ -603,7 +609,8 @@
       "updateSuccess": "更新成功",
       "maxAttachments": "最多上传5个附件",
       "saveBasicBeforeAutoTranslate": "请先保存故障码基本信息，再进行自动翻译",
-      "saveBasicBeforeI18n": "请先保存故障码基本信息，再保存多语言内容"
+      "saveBasicBeforeI18n": "请先保存故障码基本信息，再保存多语言内容",
+      "exportFailed": "导出失败"
     },
     "i18nTechFields": {
       "title": "技术说明字段多语言编辑",
@@ -965,8 +972,8 @@
     "deviceKeyHint": "注意：此字段为默认密钥（向后兼容），建议使用密钥管理功能配置多密钥",
     "keysTitle": "设备密钥列表（支持按时间范围配置多个密钥）",
     "keyValue": "密钥值",
-    "validFrom": "生效起始日期",
-    "validTo": "生效结束日期",
+    "validFrom": "生效起始时间",
+    "validTo": "生效结束时间",
     "validToPlaceholder": "留空表示永久有效",
     "permanentValid": "永久有效",
     "priority": "优先级",
@@ -977,6 +984,7 @@
     "addKey": "添加密钥",
     "emptyKeys": "暂无密钥，点击下方按钮添加密钥",
     "selectDate": "选择日期",
+    "selectDateTime": "选择到小时",
     "modelDialogEdit": "编辑设备型号",
     "modelDialogAdd": "添加设备型号",
     "modelSearchPlaceholder": "搜索设备型号",
@@ -1011,7 +1019,10 @@
       "deviceIdPattern": "格式如 4371-01 / ABC-12",
       "deviceKeyMac": "请输入MAC地址格式",
       "keyValueRequired": "密钥值不能为空",
-      "validFromRequired": "生效起始日期不能为空",
+      "validFromRequired": "生效起始时间不能为空",
+      "validToInvalid": "生效结束时间格式不正确",
+      "validRangeOrder": "生效起始时间必须早于结束时间",
+      "validRangeOverlap": "与其他密钥的生效时间段交叉",
       "hospitalRequired": "请选择医院",
       "codeSuffixRequired": "请输入四位编号",
       "codeSuffixPattern": "医院编号后缀必须为4位数字",
@@ -1087,6 +1098,9 @@
     "batchDeleteFailed": "批量删除失败",
     "uploadMaxFiles": "最多只能选择5个文件",
     "deviceIdRequired": "请填写设备编号",
+    "deviceModelRequired": "请选择设备型号",
+    "selectDeviceModel": "请选择设备型号",
+    "selectSeriesFirst": "请先切换到目标设备系列",
     "selectFiles": "请选择文件",
     "onlyCompletedCanDownloadRaw": "仅完成状态的文件可以下载原文件",
     "onlyCompletedCanDownload": "仅完成状态的文件可以下载",
@@ -1421,7 +1435,10 @@
     "minutesSeconds": "{minutes}分{seconds}秒",
     "contextFilterApplied": "已筛选出 {before}前到{after}后的日志",
     "contextAnalysisFailed": "上下文分析失败，请重试",
-    "initializationFailed": "页面初始化失败，请刷新重试"
+    "initializationFailed": "页面初始化失败，请刷新重试",
+    "nlActionsPreview": "动作",
+    "nlActionMark": "标记",
+    "nlActionStats": "统计"
   },
   "surgeryCompare": {
     "title": "待确认 - 数据比较",
@@ -1522,6 +1539,7 @@
     "uploadDialog": {
       "title": "上传日志"
     },
+    "selectDeviceModel": "请选择设备型号",
     "timestamp": "时间戳",
     "explanation": "日志解释",
     "statusText": {
@@ -1547,6 +1565,8 @@
       "enterDeviceIdOrUseDefault": "请输入设备编号，或使用默认值0000-00",
       "invalidDeviceIdFormat": "请输入有效的设备编号格式 (如: 4371-01、ABC-12、123-XY)",
       "deviceIdRequired": "设备编号不能为空",
+      "deviceModelRequired": "请选择设备型号",
+      "selectSeriesFirst": "请先切换到目标设备系列",
       "deviceKeyNotFound": "未找到该设备编号对应的密钥",
       "deviceIdAutoFilled": "已自动填充设备编号",
       "keyDeviceNotFound": "未找到该密钥对应的设备编号",
@@ -1618,7 +1638,8 @@
       "createRetryTaskFailed": "创建分组重试任务失败",
       "invalidTaskIdentifier": "任务标识无效",
       "confirmDeleteFailedAnalysisTask": "确定要删除该失败分析任务吗？",
-      "pleaseSelectSurgeryToDelete": "请先选择要删除的手术数据"
+      "pleaseSelectSurgeryToDelete": "请先选择要删除的手术数据",
+      "unknown": "未知"
     },
     "csvHeaders": {
       "timestamp": "时间戳",
@@ -1700,7 +1721,10 @@
       "completed": "已完成",
       "failed": "分析失败",
       "unknown": "未知"
-    }
+    },
+    "visualize": "可视化",
+    "deviceIdPlaceholder": "如 4371-01 / ABC-12",
+    "search": "搜索"
   },
   "account": {
     "title": "账户信息",
@@ -1940,7 +1964,16 @@
     "noCopyData": "没有可复制的数据",
     "copyFailedWithMessage": "复制失败: {message}",
     "postgresRefreshed": "PostgreSQL数据已刷新",
-    "refreshFailedWithMessage": "刷新失败: {message}"
+    "refreshFailedWithMessage": "刷新失败: {message}",
+    "unknown": "未知",
+    "minutesValue": "{minutes}分钟",
+    "powerOn": "开机",
+    "previousSurgeryEndTime": "上一场手术结束时间",
+    "powerOnIndexed": "开机 {index}",
+    "surgeryStart": "手术开始",
+    "surgeryEnd": "手术结束",
+    "powerOff": "关机",
+    "powerOffIndexed": "关机 {index}"
   },
   "surgeryVisualization": {
     "remoteSurgery": "远程手术",
@@ -2159,7 +2192,8 @@
     "rttMin": "RTT最小延时:",
     "disconnectionCount": "断网次数:",
     "statsTimeRange": "统计时间范围:",
-    "itemsCount": "| {count} 条"
+    "itemsCount": "| {count} 条",
+    "stateError": "安全报警"
   },
   "mobile": {
     "tabs": {
@@ -2561,7 +2595,8 @@
       "surgeryIdRequired": "手术ID不能为空",
       "rotateTitle": "请横屏查看时间轴",
       "rotateDesc": "横屏后将自动进入全屏总览页面",
-      "overviewUnavailable": "暂无可用总览数据"
+      "overviewUnavailable": "暂无可用总览数据",
+      "gripsActiveDuration": "闭合状态激发持续时间"
     },
     "smartSearch": {
       "emptyHelpTitle": "有什么可以帮您？",
@@ -2827,7 +2862,13 @@
       "笛卡尔位姿(悬吊系)": "笛卡尔位姿(悬吊系)"
     },
     "chartTitleWithVars": "{subject} / {category} ({count}个变量)",
-    "chartTitle": "{subject} / {category}"
+    "chartTitle": "{subject} / {category}",
+    "cannotAddLogWhenNotFound": "未找到对应时间段的日志，无法添加",
+    "cannotAddMotionWhenNotFound": "未找到对应时间段的运行数据，无法添加",
+    "loadPartialSuccess": "部分数据加载成功",
+    "pleaseSelectDate": "请选择日期",
+    "selectDate": "选择日期",
+    "selectTimeInLogRange": "请选择日志时间范围内的时间"
   },
   "smartSearch": {
     "title": "智能搜索",

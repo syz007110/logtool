@@ -2061,7 +2061,7 @@ export default {
 }
 
 .keyword-result-suffix {
-  font-family: monospace;
+  font-family: var(--font-mono);
   color: var(--gray-400);
 }
 

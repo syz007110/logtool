@@ -6,7 +6,7 @@ const DeviceModelDict = require('../models/device_model_dict');
 const GeoRegion = require('../models/geo_region');
 const { Op } = require('sequelize');
 const { logOperation } = require('../utils/operationLogger');
-const { getDeviceKeys, addDeviceKey, updateDeviceKey, deleteDeviceKey } = require('../services/deviceKeyService');
+const { getDeviceKeys, addDeviceKey, updateDeviceKey, deleteDeviceKey, getKeyForDeviceAndDate, findDeviceIdByKeyValue } = require('../services/deviceKeyService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const DeviceSeriesDict = require('../models/device_series_dict');
 
@@ -158,16 +158,12 @@ const listDevices = async (req, res) => {
 // 创建
 const createDevice = async (req, res) => {
   try {
-    const { device_id, device_model, device_key, hospital_id, series_id } = req.body;
+    const { device_id, device_model, hospital_id, series_id } = req.body;
     if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
     // 简单格式校验：与日志相同规则
     const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
     if (!deviceIdRegex.test(device_id)) {
       return res.status(400).json({ message: req.t('device.invalidIdFormat') });
-    }
-    const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-    if (device_key && !macRegex.test(device_key)) {
-      return res.status(400).json({ message: req.t('device.invalidKeyFormat') });
     }
     const existed = await Device.findOne({ where: { device_id } });
     if (existed) return res.status(409).json({ message: req.t('device.idExists') });
@@ -196,7 +192,8 @@ const createDevice = async (req, res) => {
       device_id,
       device_model,
       series_id: seriesValidation.seriesIdNum ?? null,
-      device_key,
+      // 密钥改由 device_keys 管理，基础信息不再写入 devices.device_key
+      device_key: null,
       hospital_id: resolvedHospitalId,
       created_at: new Date(),
       updated_at: new Date()
@@ -223,7 +220,6 @@ const createDevice = async (req, res) => {
           device_id,
           device_model,
           series_id: seriesValidation.seriesIdNum ?? null,
-          device_key: device_key ? '***' : null,
           hospital_id: resolvedHospitalId,
           hospital_code: resolvedHospitalCode
         }
@@ -242,7 +238,7 @@ const createDevice = async (req, res) => {
 const updateDevice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { device_id, device_model, device_key, hospital_id, series_id } = req.body;
+    const { device_id, device_model, hospital_id, series_id } = req.body;
     const device = await Device.findByPk(id);
     if (!device) return res.status(404).json({ message: req.t('device.notFound') });
     if (device_id && device_id !== device.device_id) {
@@ -252,10 +248,6 @@ const updateDevice = async (req, res) => {
       }
       const existed = await Device.findOne({ where: { device_id } });
       if (existed) return res.status(409).json({ message: req.t('device.idExists') });
-    }
-    const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-    if (device_key && !macRegex.test(device_key)) {
-      return res.status(400).json({ message: req.t('device.invalidKeyFormat') });
     }
 
     const nextDeviceModel = device_model ?? device.device_model;
@@ -290,7 +282,7 @@ const updateDevice = async (req, res) => {
     if (series_id !== undefined) {
       device.series_id = seriesValidation.seriesIdNum ?? null;
     }
-    device.device_key = device_key ?? device.device_key;
+    // 密钥改由 device_keys 管理，更新基础信息时不再改 devices.device_key
     device.hospital_id = nextHospitalId;
     if (Object.prototype.hasOwnProperty.call(device, 'hospital_code')) {
       device.hospital_code = nextHospitalCode;
@@ -316,7 +308,6 @@ const updateDevice = async (req, res) => {
           device_id: device.device_id,
           device_model,
           series_id: device.series_id ?? null,
-          device_key: device_key ? '***' : undefined,
           hospital_id: device.hospital_id,
           hospital_code: Object.prototype.hasOwnProperty.call(device, 'hospital_code') ? device.hospital_code : null
         }
@@ -361,13 +352,13 @@ const deleteDevice = async (req, res) => {
   }
 };
 
-// 通过 device_key 或 device_id 查找（用于自动填充）
+// 通过 device_keys.key_value 或 device_id 查找（用于自动填充）
 const findByKey = async (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ message: req.t('device.provideKey') });
-    const device = await Device.findOne({ where: { device_key: key } });
-    res.json({ device_id: device ? device.device_id : null });
+    const deviceId = await findDeviceIdByKeyValue(key);
+    res.json({ device_id: deviceId || null });
   } catch (e) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: e.message });
   }
@@ -377,8 +368,8 @@ const findKeyByDeviceId = async (req, res) => {
   try {
     const { device_id } = req.query;
     if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
-    const device = await Device.findOne({ where: { device_id } });
-    res.json({ key: device ? device.device_key : null });
+    const key = await getKeyForDeviceAndDate(device_id, new Date());
+    res.json({ key: key || null });
   } catch (e) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: e.message });
   }
@@ -458,7 +449,9 @@ const createDeviceKey = async (req, res) => {
     
     res.json({ key, message: '密钥添加成功' });
   } catch (error) {
-    res.status(500).json({ message: '添加密钥失败', error: error.message });
+    const msg = error.message || '添加密钥失败';
+    const isClientError = /交叉|起始时间|不能为空|无效时间/.test(msg);
+    res.status(isClientError ? 400 : 500).json({ message: msg, error: msg });
   }
 };
 
@@ -508,7 +501,9 @@ const updateDeviceKeyInfo = async (req, res) => {
     if (error.message === '密钥不存在') {
       return res.status(404).json({ message: error.message });
     }
-    res.status(500).json({ message: '更新密钥失败', error: error.message });
+    const msg = error.message || '更新密钥失败';
+    const isClientError = /交叉|起始时间|不能为空|无效时间/.test(msg);
+    res.status(isClientError ? 400 : 500).json({ message: msg, error: msg });
   }
 };
 

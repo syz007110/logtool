@@ -41,12 +41,17 @@
   --m-shadow-lg: 0 10px 26px rgba(23, 48, 104, 0.08);
 
   /* ===== Typography (mobile) ===== */
+  --m-font-sans: var(--font-sans);
+  --m-font-mono: var(--font-mono);
   --m-font-size-xs: 11px;
   --m-font-size-sm: 12px;
   --m-font-size-md: 14px;
   --m-font-size-lg: 16px;
   --m-font-size-xl: 18px;
   --m-font-size-2xl: 24px;
+
+  --van-base-font: var(--m-font-sans);
+  --van-font-size-md: var(--m-font-size-md);
 
   --m-font-weight-medium: 500;
   --m-font-weight-semibold: 600;

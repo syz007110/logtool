@@ -2,7 +2,9 @@
   <div class="empty-state" :class="{ 'empty-state-center': center }">
     <div class="empty-icon-wrapper">
       <slot name="icon">
-        <i :class="icon || 'fas fa-inbox'" class="empty-icon"></i>
+        <el-icon :size="64" class="empty-icon">
+          <component :is="resolvedIcon" />
+        </el-icon>
       </slot>
     </div>
     <h3 v-if="title" class="empty-title">{{ title }}</h3>
@@ -14,6 +16,9 @@
 </template>
 
 <script>
+import { computed } from 'vue'
+import { Box } from '@element-plus/icons-vue'
+
 export default {
   name: 'EmptyState',
   props: {
@@ -25,14 +30,19 @@ export default {
       type: String,
       default: ''
     },
+    /** Element Plus 图标组件；未传时用 Box */
     icon: {
-      type: String,
-      default: 'fas fa-inbox'
+      type: [Object, Function],
+      default: null
     },
     center: {
       type: Boolean,
       default: true
     }
+  },
+  setup (props) {
+    const resolvedIcon = computed(() => props.icon || Box)
+    return { resolvedIcon }
   }
 }
 </script>
@@ -57,12 +67,11 @@ export default {
 }
 
 .empty-icon {
-  font-size: 64px;
   color: var(--text-placeholder, #cbd5e1);
 }
 
 .empty-title {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 500;
   color: var(--text-primary, #030213);
   margin: 0 0 8px 0;
@@ -70,7 +79,7 @@ export default {
 }
 
 .empty-description {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   color: var(--text-secondary, #64748b);
   margin: 0 0 24px 0;
   line-height: 1.5;
@@ -86,4 +95,3 @@ export default {
   justify-content: center;
 }
 </style>
-

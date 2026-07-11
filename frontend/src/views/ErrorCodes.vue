@@ -124,7 +124,7 @@
                 @command="(command) => handleOperationCommand(row, command)"
               >
                 <el-button text size="small">
-                  <i class="fas fa-ellipsis-h"></i>
+                  <el-icon><MoreFilled /></el-icon>
               </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -595,7 +595,7 @@
                     >
                       <img :src="img.url" :alt="img.original_name || img.filename" />
                       <div class="image-overlay">
-                        <i class="fas fa-search-plus"></i>
+                        <el-icon><ZoomIn /></el-icon>
                       </div>
                     </div>
                   </div>
@@ -610,7 +610,7 @@
                       :key="file.uid"
                       class="query-file-item"
                     >
-                      <i class="fas fa-paperclip query-file-icon"></i>
+                      <el-icon class="query-file-icon"><Paperclip /></el-icon>
                       <div class="query-file-meta">
                         <span class="query-file-name" :title="file.original_name || file.filename">
                           {{ file.original_name || file.filename }}
@@ -622,7 +622,7 @@
                         size="small"
                         @click.stop="handleQueryFileDownload(file)"
                       >
-                        <i class="fas fa-download"></i>
+                        <el-icon><Download /></el-icon>
                         下载
                       </el-button>
                     </div>
@@ -702,12 +702,12 @@
               :before-upload="beforeTechUpload"
               action="#"
             >
-              <i class="fas fa-plus"></i>
+              <el-icon><Plus /></el-icon>
             </el-upload>
             <div class="tech-file-list" v-if="techOtherFileList.length">
               <div class="tech-file-item" v-for="file in techOtherFileList" :key="file.uid" @click="handleOpenFile(file)">
                 <div class="tech-file-left">
-                  <i class="fas fa-paperclip tech-file-icon"></i>
+                  <el-icon class="tech-file-icon"><Paperclip /></el-icon>
                   <div class="tech-file-meta">
                     <div class="tech-file-name" :title="file.name">{{ file.name }}</div>
                     <div class="tech-file-size">{{ formatSize(file.size_bytes) }}</div>

@@ -1096,7 +1096,7 @@ export default {
 }
 
 .code-input {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 .form-actions {

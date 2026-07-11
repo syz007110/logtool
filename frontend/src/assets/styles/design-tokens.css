@@ -312,6 +312,24 @@
   --overlay-medium: rgba(0, 0, 0, 0.5);
 
   /* =========================================
+     Typography (Base Tokens)
+     正文字体 / 等宽字体 / 字号阶梯
+       ========================================= */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+
+  /* Element Plus / 全局字体映射 */
+  --el-font-family: var(--font-sans);
+  --el-font-size-base: var(--font-size-md);
+
+  /* =========================================
      Element Plus Button Variables Mapping
      按钮组件 CSS 变量映射
        ========================================= */

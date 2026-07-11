@@ -3342,7 +3342,7 @@ export default {
       loadLogFiles()
     }
 
-    // 加载设备分组（带筛选和分页）
+    // 加载设备分组（带筛选和分页；series_id 由 api.logs.getByDevice 自动附带当前系列）
     const loadDeviceGroups = async () => {
       try {
         deviceGroupsLoading.value = true
@@ -3360,6 +3360,17 @@ export default {
         deviceGroupsLoading.value = false
       }
     }
+
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    watch(currentSeriesId, (nextId, prevId) => {
+      if (!nextId || nextId === prevId) return
+      deviceCurrentPage.value = 1
+      motionDeviceCurrentPage.value = 1
+      selectedDeviceForLogs.value = null
+      selectedDeviceForMotion.value = null
+      loadDeviceGroups()
+      loadMotionDeviceGroups()
+    })
 
     // 加载日志文件列表
     const loadLogFiles = async () => {
@@ -5724,7 +5735,7 @@ export default {
 .variable-index {
   font-size: 12px;
   color: var(--gray-500);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .motion-config-footer {
