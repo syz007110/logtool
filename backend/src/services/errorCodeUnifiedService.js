@@ -67,6 +67,19 @@ async function searchErrorCodesUnified({
 
   const targetLang = normalizeLangFromAccept(acceptLanguage);
 
+  // 系列过滤：ES 与 MySQL 共用同一规范化值（与 searchByCode 一致）
+  let seriesIdFilter = null;
+  if (series_id !== undefined && series_id !== null && series_id !== '') {
+    const seriesIdNum = Number(series_id);
+    if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
+      const err = new Error('series_id 必须为正整数');
+      err.status = 400;
+      throw err;
+    }
+    seriesIdFilter = seriesIdNum;
+    where.series_id = seriesIdNum;
+  }
+
   // 识别 q/keyword 是否为“纯故障码输入”（完整故障码 / 类型码）
   let recognized = null;
   const rawInput = String(keywordQuery ?? '').trim();
@@ -122,7 +135,8 @@ async function searchErrorCodesUnified({
         const esResult = await searchByKeywords({
           keywords: [rawInput],
           lang: targetLang,
-          limit: esRecallLimit
+          limit: esRecallLimit,
+          series_id: seriesIdFilter
         });
         if (esResult.ok && Array.isArray(esResult.items) && esResult.items.length > 0) {
           const esMatchedIds = esResult.items.map((item) => item.id).filter((id) => Number.isFinite(id));
@@ -140,23 +154,14 @@ async function searchErrorCodesUnified({
               input: rawInput,
               esMatchedCount: esResult.items.length,
               esTotal: esResult.debug?.total || esResult.items.length,
-              lang: targetLang
+              lang: targetLang,
+              series_id: seriesIdFilter
             };
           }
         }
       } catch (_) {
         // ignore and fallback to DB where.code variants (below)
       }
-    }
-
-    if (series_id !== undefined && series_id !== null && series_id !== '') {
-      const seriesIdNum = Number(series_id);
-      if (!Number.isInteger(seriesIdNum) || seriesIdNum <= 0) {
-        const err = new Error('series_id 必须为正整数');
-        err.status = 400;
-        throw err;
-      }
-      where.series_id = seriesIdNum;
     }
 
     if (code) {
@@ -183,7 +188,8 @@ async function searchErrorCodesUnified({
           const esResult = await searchByKeywords({
             keywords: [kw],
             lang: targetLang,
-            limit: keywordEsRecallLimit
+            limit: keywordEsRecallLimit,
+            series_id: seriesIdFilter
           });
 
           if (esResult.ok && esResult.items && esResult.items.length > 0) {
@@ -203,7 +209,8 @@ async function searchErrorCodesUnified({
                 keywords: [kw],
                 esMatchedCount: esResult.items.length,
                 esTotal: esResult.debug?.total || esResult.items.length,
-                lang: targetLang
+                lang: targetLang,
+                series_id: seriesIdFilter
               };
             } else {
               esMatchedIds = null;
@@ -364,8 +371,9 @@ async function searchErrorCodesUnified({
       const previewResult = await buildExplanationPreview({
         rawCode: rawInput,
         subsystem: (subsystem ? String(subsystem).trim().toUpperCase() : null),
-        series_id,
+        series_id: seriesIdFilter,
         params: { param1, param2, param3, param4 },
+        lang: targetLang,
         t: t || ((k) => k)
       });
       response.preview = previewResult;

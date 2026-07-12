@@ -235,7 +235,14 @@
       </div>
     </el-drawer>
 
-    <el-dialog v-model="showUploadDialog" :title="$t('knowledgeBase.uploadDialog.title')" width="680px" append-to-body>
+    <el-dialog
+      v-model="showUploadDialog"
+      :title="$t('knowledgeBase.uploadDialog.title')"
+      width="680px"
+      class="app-dialog"
+      align-center
+      append-to-body
+    >
       <el-upload
         ref="uploadRef"
         :action="uploadUrl"
@@ -273,7 +280,7 @@
         </template>
       </el-upload>
 
-      <div v-if="fileList.length" class="custom-file-list">
+      <div v-if="fileList.length" class="custom-file-list app-dialog-file-list">
         <div class="file-list-header">
           <span>{{ $t('knowledgeBase.uploadDialog.selectedFiles', { count: fileList.length }) }}</span>
           <el-button type="default" size="small" @click="clearFiles" :disabled="uploading">
@@ -282,7 +289,7 @@
         </div>
         <div class="file-items">
           <div v-for="(f, idx) in fileList" :key="idx" class="file-item">
-            <el-icon><Document /></el-icon>
+            <el-icon class="file-item-icon"><Document /></el-icon>
             <span class="file-name">{{ f.name }}</span>
             <span class="file-size">{{ formatFileSize(f.size) }}</span>
             <el-select

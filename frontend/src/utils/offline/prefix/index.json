@@ -1,0 +1,10 @@
+{
+  "seriesBindings": {
+    "SR": "sr",
+    "SA": "sa"
+  },
+  "profileFiles": {
+    "sr": "sr.json",
+    "sa": "sa.json"
+  }
+}

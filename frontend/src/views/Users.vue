@@ -118,7 +118,8 @@
       v-model="showAddDialog"
       :title="editingUser ? $t('users.editUser') : $t('users.addUser')"
       width="500px"
-      class="management-dialog"
+      class="app-dialog management-dialog"
+      align-center
     >
       <el-form
         ref="userFormRef"
@@ -162,7 +163,7 @@
     
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="showEditDialog" :title="$t('users.editUser')" width="400px" class="management-dialog">
+    <el-dialog v-model="showEditDialog" :title="$t('users.editUser')" width="400px" class="app-dialog management-dialog" align-center>
       <el-form :model="editForm" label-width="100px">
         <el-form-item :label="$t('users.email')">
           <el-input v-model="editForm.email" />
@@ -187,7 +188,8 @@
       v-model="showResetPasswordDialog"
       :title="$t('users.resetPasswordTitle')"
       width="400px"
-      class="management-dialog"
+      class="app-dialog management-dialog"
+      align-center
     >
       <el-form :model="resetPasswordForm" :rules="resetPasswordRules" ref="resetPasswordFormRef" label-width="130px">
         <el-form-item :label="$t('users.newPassword')" prop="newPassword">
@@ -646,15 +648,5 @@ export default {
   background: rgb(var(--background));
 }
 
-:deep(.management-dialog) {
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-:deep(.management-dialog .el-dialog__body) {
-  overflow-y: auto;
-  max-height: calc(80vh - 140px);
-}
-
+/* Dialog 视口布局由 design-tokens 全局 --dialog-* 提供 */
 </style> 

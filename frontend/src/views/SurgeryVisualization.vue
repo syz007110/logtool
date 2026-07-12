@@ -157,30 +157,6 @@
           </g>
           
         </svg>
-
-        <!-- 能量激发密度图单独一层，置于手术阶段背景之上、时间线事件之下（z-index: 22） -->
-        <svg
-          class="timeline-overlay timeline-overlay--density"
-          :width="getTimelineContainerWidth()"
-          :height="getTimelineOverlayHeight()"
-          :style="getDensityOverlayStyle()"
-          preserveAspectRatio="none"
-        >
-          <g
-            v-for="arm in armsData.filter(a => a.arm_id >= 1 && a.arm_id <= 4)"
-            :key="`density-${arm.arm_id}`"
-            class="energy-density-strip"
-          >
-            <path
-              :d="getDensityPathD(arm)"
-              :fill="getArmColor(arm.arm_id)"
-              fill-opacity="0.65"
-              stroke="rgba(0,0,0,0.2)"
-              stroke-width="0.5"
-              vector-effect="non-scaling-stroke"
-            />
-          </g>
-        </svg>
         
         <!-- 表格主体 -->
         <div class="timeline-body">
@@ -742,6 +718,7 @@ import EnergyDensityChart from '../components/EnergyDensityChart.vue'
 import DurationHistogramChart from '../components/DurationHistogramChart.vue'
 import { Tabs, TabPane } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
+import { loadFaultExplanationsBatch } from '../utils/faultExplanationLoader'
 
 export default {
   name: 'SurgeryVisualization',
@@ -1106,20 +1083,6 @@ export default {
       }
     }
 
-    // 能量密度图专用 overlay 样式（z-index 22：在手术阶段/主 overlay 之上，在时间线事件 25 之下）
-    const getDensityOverlayStyle = () => {
-      const base = getOverlayStyle()
-      return { ...base, zIndex: '22', pointerEvents: 'none' }
-    }
-
-    // 时间轴 overlay 总高度（像素），与 getSegmentY 坐标系一致，用于密度图 SVG viewport
-    const getTimelineOverlayHeight = () => {
-      const headerHeight = 50
-      const rowHeight = 50
-      const n = (armsData.value && armsData.value.length) || 0
-      return headerHeight + n * rowHeight
-    }
-    
     // 获取所有器械使用段（用于SVG显示）
     const getAllSegmentsForArm = (arm) => {
       if (arm.arm_id === 0) return [] // 手术时间线不显示器械
@@ -1299,31 +1262,6 @@ export default {
     const getSegmentHeight = () => {
       return 25// 固定高度
     }
-
-    // 时间轴可见范围（毫秒），用于能量密度分桶
-    const getTimelineRangeMs = () => {
-      let base = null
-      if (timelineBaseTime.value) {
-        base = getLocalTime(timelineBaseTime.value)
-      }
-      if (!base && currentData.value?.start_time) {
-        base = getLocalTime(currentData.value.start_time)
-      }
-      if (!base) return null
-      const startHour = getTableStartHour()
-      const totalHours = getTotalHours()
-      const startMs = base.getTime() + startHour * 3600000
-      const endMs = base.getTime() + (startHour + totalHours) * 3600000
-      return { startMs, endMs }
-    }
-
-    // 能量密度条 Y 坐标（器械使用条下侧）
-    const getDensityStripY = (arm) => {
-      return getSegmentY(arm, {}) + getSegmentHeight()
-    }
-
-    // 能量密度条高度
-    const getDensityStripHeight = () => 12
 
     // 能量激发条高度（紧贴器械条下侧）
     const getEnergyBarHeight = () => 10
@@ -3028,85 +2966,38 @@ export default {
     // 故障码释义缓存
     const faultExplanations = ref(new Map())
     const faultExplanationLoading = ref(new Set())
-    
-    // 根据故障码获取释义（参考日志上传的解析逻辑）
-    const getFaultExplanation = async (errorCode, param1, param2, param3, param4, subsystem) => {
-      if (!errorCode || errorCode === '-') return null
-      
-      try {
-        // 如果提供了子系统，直接使用；否则从故障码中解析
-        let targetSubsystem = subsystem
-        
-        if (!targetSubsystem) {
-          const parsed = parseErrorCode(errorCode)
-          targetSubsystem = parsed.subsystem
-        }
-        
-        // 构建预览请求载荷（lang 用于从 i18n_error_codes 获取对应语言的 explanation）
-        const previewPayload = {
-          code: errorCode,
-          subsystem: targetSubsystem || undefined,
-          param1: param1 || undefined,
-          param2: param2 || undefined,
-          param3: param3 || undefined,
-          param4: param4 || undefined,
-          lang: locale?.value || undefined
-        }
-        
-        // 调用释义预览接口（返回 explanation、prefix 已翻译、prefix_raw 原文）
-        const resp = await api.explanations.preview(previewPayload)
-        const explanation = resp?.data?.explanation
-        const prefix = resp?.data?.prefix
-        const prefixRaw = resp?.data?.prefix_raw
-        
-        if (explanation) {
-          // 若有翻译后的 prefix，用其替换 explanation 中的原文前缀后组合显示
-          if (prefix && prefixRaw && String(explanation).startsWith(prefixRaw)) {
-            const body = String(explanation).slice(prefixRaw.length).replace(/^\s+/, '')
-            return body ? `${prefix} ${body}` : prefix
-          }
-          return explanation
-        }
-        
-        return null
-      } catch (error) {
-        console.warn(`⚠️ 获取故障码 ${errorCode} 的释义失败:`, error)
-        return null
-      }
-    }
-    
-    // 为故障行加载释义
+
+    // 为故障行批量加载释义（去重 + 分块 + 429 退避）
     const loadFaultExplanations = async () => {
-      const rows = faultRecords.value
-      
-      for (const row of rows) {
-        const rowKey = row.rowKey
-        
-        // 如果正在加载或已有释义，跳过
-        if (faultExplanationLoading.value.has(rowKey) || faultExplanations.value.has(rowKey)) {
-          continue
-        }
-        
-        faultExplanationLoading.value.add(rowKey)
-        try {
-          const explanation = await getFaultExplanation(
-            row.error_code,
-            row.param1,
-            row.param2,
-            row.param3,
-            row.param4,
-            row.subsystem
-          )
-          
-          if (explanation) {
-            faultExplanations.value.set(rowKey, explanation)
+      await loadFaultExplanationsBatch({
+        rows: faultRecords.value,
+        lang: locale?.value,
+        previewBatch: (payload) => api.explanations.previewBatch(payload),
+        loadingSet: faultExplanationLoading.value,
+        existingKeys: faultExplanations.value,
+        mapRow: (row) => {
+          if (!row?.rowKey || !row.error_code || row.error_code === '-') return null
+          let subsystem = row.subsystem
+          if (!subsystem) {
+            const parsed = parseErrorCode(row.error_code)
+            subsystem = parsed.subsystem
           }
-        } catch (error) {
-          console.warn(`⚠️ 加载故障码 ${row.error_code} 释义失败:`, error)
-        } finally {
-          faultExplanationLoading.value.delete(rowKey)
+          return {
+            rowKey: row.rowKey,
+            errorCode: row.error_code,
+            param1: row.param1,
+            param2: row.param2,
+            param3: row.param3,
+            param4: row.param4,
+            subsystem
+          }
+        },
+        onExplanation: (rowKey, text) => {
+          faultExplanations.value.set(rowKey, text)
         }
-      }
+      })
+      // 触发 Map 更新后的视图刷新
+      faultExplanations.value = new Map(faultExplanations.value)
     }
     
     // 处理故障数据
@@ -3601,7 +3492,6 @@ export default {
       // 检查是否点击在可拖拽区域（避免与器械段/能量条点击冲突）
       if (event.target.closest('.instrument-segment-svg') || 
           event.target.closest('.energy-activation-svg') ||
-          event.target.closest('.energy-density-strip') ||
           event.target.closest('.timeline-event') ||
           event.target.closest('.arm-column') ||
           event.target.closest('.arm-cell')) {
@@ -4790,82 +4680,6 @@ export default {
       return rawToSeconds(evt.active ?? evt.Active ?? evt.GripsActive ?? evt.gripsActive ?? 0)
     }
 
-    // 某臂下所有能量激发事件，归一为 [startMs, endMs) 区间（用于密度分桶）；支持仅有 start + duration 的数据
-    const getEnergyEventsForArm = (arm) => {
-      const segments = getAllSegmentsForArm(arm)
-      const events = []
-      segments.forEach((seg) => {
-        ;(seg.energy_activation || []).forEach((evt) => {
-          const startRaw = evt.start ?? evt.start_time
-          if (!evt || (!startRaw && !evt.end)) return
-          const startMs = toMs(startRaw)
-          if (!Number.isFinite(startMs)) return
-          let endMs = evt.end != null && evt.end !== '' ? toMs(evt.end) : NaN
-          if (!Number.isFinite(endMs)) {
-            const sec = getEnergyEventDurationSec(evt)
-            endMs = startMs + sec * 1000
-          }
-          if (endMs <= startMs) endMs = startMs + 1
-          events.push({ startMs, endMs })
-        })
-      })
-      return events
-    }
-
-    // 按 2000ms 分桶计算能量密度：强度 = 桶内累计激发时长 / 桶时长，事件 [start, end) 与桶求交集累加；使用激发开始时间 + 持续激发时间得到 [start, end)
-    const ENERGY_DENSITY_BUCKET_MS = 2000
-    const computeEnergyDensityForArm = (arm) => {
-      const range = getTimelineRangeMs()
-      if (!range) return { intensities: [], startMs: 0, endMs: 0, numBuckets: 0 }
-      const { startMs, endMs } = range
-      const spanMs = endMs - startMs
-      const numBuckets = Math.ceil(spanMs / ENERGY_DENSITY_BUCKET_MS)
-      const buckets = new Array(numBuckets).fill(0)
-      const events = getEnergyEventsForArm(arm)
-      events.forEach(({ startMs: s, endMs: e }) => {
-        const b0 = Math.floor((s - startMs) / ENERGY_DENSITY_BUCKET_MS)
-        const b1 = Math.ceil((e - startMs) / ENERGY_DENSITY_BUCKET_MS)
-        for (let i = Math.max(0, b0); i < Math.min(numBuckets, b1); i++) {
-          const bucketStart = startMs + i * ENERGY_DENSITY_BUCKET_MS
-          const bucketEnd = bucketStart + ENERGY_DENSITY_BUCKET_MS
-          const overlap = Math.max(0, Math.min(e, bucketEnd) - Math.max(s, bucketStart))
-          buckets[i] += overlap
-        }
-      })
-      const intensities = buckets.map((sum) => Math.min(1, sum / ENERGY_DENSITY_BUCKET_MS))
-      return { intensities, startMs, endMs, numBuckets }
-    }
-
-    // 能量密度条 SVG path d：按像素列采样，每列取该时间范围内 2000ms 桶的最大强度，绘制面积图
-    const getDensityPathD = (arm) => {
-      const stripY = getDensityStripY(arm)
-      const stripHeight = getDensityStripHeight()
-      const width = Math.max(1, getTimelineContainerWidth())
-      const density = computeEnergyDensityForArm(arm)
-      // 无时间范围或无桶数据时仍绘制一条扁平 strip，避免完全不显示
-      if (!density.intensities.length) {
-        const bottom = stripY + stripHeight
-        return `M 0 ${stripY} L ${width} ${stripY} L ${width} ${bottom} L 0 ${bottom} Z`
-      }
-      const { intensities, numBuckets } = density
-      const bottom = stripY + stripHeight
-      let d = `M 0 ${bottom}`
-      for (let x = 0; x <= width; x++) {
-        const bucketLo = (x / width) * numBuckets
-        const bucketHi = ((x + 1) / width) * numBuckets
-        let maxI = 0
-        const iLo = Math.floor(bucketLo)
-        const iHi = Math.min(numBuckets, Math.ceil(bucketHi))
-        for (let i = iLo; i < iHi; i++) {
-          if (intensities[i] > maxI) maxI = intensities[i]
-        }
-        const y = bottom - maxI * stripHeight
-        d += ` L ${x} ${y}`
-      }
-      d += ` L ${width} ${bottom} Z`
-      return d
-    }
-
     const formatSecOneDecimalNoRound = (sec) => {
       const s = Number(sec)
       if (!Number.isFinite(s)) return '0.0 s'
@@ -5332,16 +5146,13 @@ export default {
       getSurgeryPhaseStyle,
       // SVG覆盖层相关函数
       getOverlayStyle,
-      getDensityOverlayStyle,
       getTimelineContainerWidth,
-      getTimelineOverlayHeight,
       getAllSegmentsForArm,
       getSegmentX,
       getSegmentY,
       getSegmentWidth,
       getSegmentHeight,
       getSegmentEndX,
-      getDensityPathD,
       getEnergyBarX,
       getEnergyBarY,
       getEnergyBarWidth,
@@ -6262,14 +6073,6 @@ export default {
   cursor: pointer;
   pointer-events: auto;
   opacity: 0.92;
-}
-
-.timeline-overlay--density {
-  pointer-events: none;
-}
-
-.energy-density-strip {
-  pointer-events: none;
 }
 
 .drawer-section {

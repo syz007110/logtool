@@ -315,6 +315,7 @@ import NetworkLatencyChart from '@/components/NetworkLatencyChart.vue'
 import { normalizeSurgeryData } from '@/utils/visualizationConfig'
 import { adaptSurgeryData, validateAdaptedData, getDataSourceType } from '@/utils/surgeryDataAdapter'
 import { resolveInstrumentTypeLabel } from '@/utils/analysisMappings'
+import { loadFaultExplanationsBatch } from '@/utils/faultExplanationLoader'
 
 const SEGMENT_COLOR_ORDER = ['incision', 'test', 'scope', 'general']
 const DRAWER_DENSITY_BUCKET_MS = 10000
@@ -742,90 +743,45 @@ export default {
     // 故障码释义缓存
     const faultExplanations = ref(new Map())
     const faultExplanationLoading = ref(new Set())
-    
-    // 根据故障码获取释义（参考日志上传的解析逻辑）
-    const getFaultExplanation = async (errorCode, param1, param2, param3, param4, subsystem) => {
-      if (!errorCode || errorCode === '-') return null
-      
-      try {
-        // 如果提供了子系统，直接使用；否则从故障码中解析
-        let targetSubsystem = subsystem
-        
-        if (!targetSubsystem) {
-          const parsed = parseErrorCode(errorCode)
-          targetSubsystem = parsed.subsystem
-        }
-        
-        // 构建预览请求载荷（lang 用于从 i18n_error_codes 获取对应语言的 explanation）
-        const previewPayload = {
-          code: errorCode,
-          subsystem: targetSubsystem || undefined,
-          param1: param1 || undefined,
-          param2: param2 || undefined,
-          param3: param3 || undefined,
-          param4: param4 || undefined,
-          lang: locale?.value || undefined
-        }
-        
-        // 调用释义预览接口（返回 explanation、prefix 已翻译、prefix_raw 原文）
-        const resp = await api.explanations.preview(previewPayload)
-        const explanation = resp?.data?.explanation
-        const prefix = resp?.data?.prefix
-        const prefixRaw = resp?.data?.prefix_raw
-        
-        if (explanation) {
-          // 若有翻译后的 prefix，用其替换 explanation 中的原文前缀后组合显示
-          if (prefix && prefixRaw && String(explanation).startsWith(prefixRaw)) {
-            const body = String(explanation).slice(prefixRaw.length).replace(/^\s+/, '')
-            return body ? `${prefix} ${body}` : prefix
-          }
-          return explanation
-        }
-        
-        return null
-      } catch (error) {
-        console.warn(`⚠️ 获取故障码 ${errorCode} 的释义失败:`, error)
-        return null
-      }
-    }
-    
-    // 为故障行加载释义
+
+    // 为故障行批量加载释义（去重 + 分块 + 429 退避）
     const loadFaultExplanations = async () => {
-      const rows = faultRows.value
-      
-      for (const row of rows) {
-        const rowKey = row.rowKey
-        
-        // 如果正在加载或已有释义，跳过
-        if (faultExplanationLoading.value.has(rowKey) || faultExplanations.value.has(rowKey)) {
-          continue
-        }
-        
-        // 如果已经有message且不是默认值，跳过
-        if (row.message && row.message !== '-' && row.message !== t('mobile.surgeryVisualization.noExplanation')) {
-          continue
-        }
-        
-        faultExplanationLoading.value.add(rowKey)
-        try {
-          const explanation = await getFaultExplanation(
-            row.errorCode,
-            row.param1,
-            row.param2,
-            row.param3,
-            row.param4,
-            row.subsystem
+      await loadFaultExplanationsBatch({
+        rows: faultRows.value,
+        lang: locale?.value,
+        previewBatch: (payload) => api.explanations.previewBatch(payload),
+        loadingSet: faultExplanationLoading.value,
+        existingKeys: faultExplanations.value,
+        shouldSkipRow: (row) => {
+          return Boolean(
+            row.message &&
+            row.message !== '-' &&
+            row.message !== t('mobile.surgeryVisualization.noExplanation')
           )
-          
-          if (explanation) {
-            faultExplanations.value.set(rowKey, explanation)
+        },
+        mapRow: (row) => {
+          if (!row?.rowKey || !row.errorCode || row.errorCode === '-') return null
+          let subsystem = row.subsystem
+          if (!subsystem) {
+            const parsed = parseErrorCode(row.errorCode)
+            subsystem = parsed.subsystem
           }
-        } catch (error) {
-          console.warn(`⚠️ 加载故障码 ${row.errorCode} 释义失败:`, error)
-        } finally {
-          faultExplanationLoading.value.delete(rowKey)
+          return {
+            rowKey: row.rowKey,
+            errorCode: row.errorCode,
+            param1: row.param1,
+            param2: row.param2,
+            param3: row.param3,
+            param4: row.param4,
+            subsystem
+          }
+        },
+        onExplanation: (rowKey, text) => {
+          faultExplanations.value.set(rowKey, text)
         }
-      }
+      })
+      // 触发 Map 更新后的视图刷新
+      faultExplanations.value = new Map(faultExplanations.value)
     }
 
     const faultRows = computed(() => {

@@ -108,7 +108,8 @@
       v-model="showAddDialog"
       :title="editingRole ? $t('roles.editRole') : $t('roles.addRole')"
       width="600px"
-      class="management-dialog"
+      class="app-dialog management-dialog"
+      align-center
     >
       <el-form
         ref="roleFormRef"
@@ -636,15 +637,8 @@ export default {
   margin-left: 0 !important;
 }
 
-:deep(.management-dialog) {
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Dialog 视口布局由 design-tokens 全局 --dialog-* 提供；此处仅保留权限列表滚动条细节 */
 :deep(.management-dialog .el-dialog__body) {
-  overflow-y: auto;
-  max-height: calc(80vh - 140px);
   padding-right: 14px;
   scrollbar-gutter: stable;
 }

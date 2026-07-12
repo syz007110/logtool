@@ -13,6 +13,13 @@ const { logOperation } = require('../utils/operationLogger');
 const MotionDataFile = require('../models/motion_data_file');
 const motionStorage = require('../config/motionDataStorage');
 const { ensureDeviceModelAndSeries } = require('../utils/deviceSeriesBinding');
+const { CAPABILITIES } = require('../seriesStrategies/capabilities');
+const { assertSeriesCapability } = require('../seriesStrategies/registry');
+const { resolveSeriesCodeForRequest } = require('../seriesStrategies/resolveSeriesCode');
+const {
+  sendSeriesFeatureUnsupported,
+  isSeriesFeatureUnsupportedError
+} = require('../seriesStrategies/errors');
 
 // Binary layout constants (must match example/dataDecode.py MotionData)
 const ENTRY_SIZE_BYTES = 924; // 8 + (207*4) + 4 + 4 + 8 + 8 + (16*4)
@@ -274,6 +281,22 @@ async function uploadBinary(req, res) {
       return res.status(bindErr.statusCode || 400).json({ message: bindErr.message || '设备型号绑定失败' });
     }
 
+    try {
+      const seriesCode = await resolveSeriesCodeForRequest({
+        seriesId: req.body?.series_id || req.body?.seriesId,
+        deviceId
+      });
+      assertSeriesCapability(seriesCode, CAPABILITIES.MOTION_PARSE);
+    } catch (capErr) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (_) { }
+      }
+      if (isSeriesFeatureUnsupportedError(capErr)) {
+        return sendSeriesFeatureUnsupported(res, capErr);
+      }
+      return res.status(capErr.statusCode || 400).json({ message: capErr.message });
+    }
+
     const originalName = String(req.file.originalname || '');
     const sizeBytes = Number(req.file.size || 0);
     const fileTimeToken = parseFileTimeToken(originalName);
@@ -400,6 +423,20 @@ async function batchUploadBinary(req, res) {
     } catch (bindErr) {
       cleanupUploadedTemps();
       return res.status(bindErr.statusCode || 400).json({ message: bindErr.message || '设备型号绑定失败' });
+    }
+
+    try {
+      const seriesCode = await resolveSeriesCodeForRequest({
+        seriesId: req.body?.series_id || req.body?.seriesId,
+        deviceId
+      });
+      assertSeriesCapability(seriesCode, CAPABILITIES.MOTION_PARSE);
+    } catch (capErr) {
+      cleanupUploadedTemps();
+      if (isSeriesFeatureUnsupportedError(capErr)) {
+        return sendSeriesFeatureUnsupported(res, capErr);
+      }
+      return res.status(capErr.statusCode || 400).json({ message: capErr.message });
     }
 
     const userId = req.user ? req.user.id : null;

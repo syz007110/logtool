@@ -10,8 +10,9 @@ let faultMappings = null;
 const unitMappingsPath = path.join(__dirname, '../config/unitMappings.json');
 let unitMappings = null;
 
-// 加载前缀规则
-const prefixMappingsPath = path.join(__dirname, '../config/prefixMappings.json');
+// 加载前缀规则：index + 系列 profile 文件（token 表）
+const prefixDir = path.join(__dirname, '../config/prefix');
+const prefixIndexPath = path.join(prefixDir, 'index.json');
 let prefixMappings = null;
 
 function loadFaultMappings() {
@@ -57,18 +58,123 @@ function loadUnitMappings() {
 function loadPrefixMappings() {
   if (!prefixMappings) {
     try {
-      const content = fs.readFileSync(prefixMappingsPath, 'utf-8');
-      prefixMappings = JSON.parse(content);
-    } catch (error) {
-      // 默认配置（与先前硬编码一致）
+      const index = JSON.parse(fs.readFileSync(prefixIndexPath, 'utf-8'));
+      const profiles = {};
+      const profileFiles = index.profileFiles || {};
+      for (const [key, fileName] of Object.entries(profileFiles)) {
+        const fp = path.join(prefixDir, String(fileName));
+        profiles[key] = JSON.parse(fs.readFileSync(fp, 'utf-8'));
+      }
       prefixMappings = {
-        enabledSubsystems: ['1','3','5','8','9','A'],
-        subsystems: {},
-        default: { joinWithSpace: true }
+        seriesBindings: index.seriesBindings || {},
+        profiles
+      };
+    } catch (error) {
+      console.error('加载前缀 profile 失败:', error);
+      prefixMappings = {
+        seriesBindings: { SR: 'sr', SA: 'sa' },
+        profiles: {
+          sr: {
+            enabledSubsystems: ['1', '3', '5', '8', '9', 'A'],
+            subsystems: {},
+            default: { joinWithSpace: true }
+          },
+          sa: {
+            enabledSubsystems: ['1', '3', '5', '8', '9', 'A'],
+            subsystems: {},
+            default: { joinWithSpace: true }
+          }
+        }
       };
     }
   }
   return prefixMappings;
+}
+
+function normalizePrefixSeriesCode(seriesCode) {
+  return String(seriesCode || '').trim().toUpperCase();
+}
+
+/**
+ * 按系列解析前缀 profile（token 表）。
+ * SR/SA 各对应独立文件；内容可相同。
+ */
+function resolvePrefixProfile(seriesCode) {
+  const root = loadPrefixMappings();
+  const bindings = (root && root.seriesBindings) || {};
+  const profiles = (root && root.profiles) || {};
+  const code = normalizePrefixSeriesCode(seriesCode);
+  let profileKey = null;
+  if (code && Object.prototype.hasOwnProperty.call(bindings, code)) {
+    profileKey = bindings[code];
+  } else if (!code) {
+    profileKey = bindings.SR || bindings.SA || Object.values(bindings)[0] || 'sr';
+  } else {
+    profileKey = bindings.SR || 'sr';
+  }
+  if (profileKey && profiles[profileKey]) return profiles[profileKey];
+  return profiles.sr || Object.values(profiles)[0] || null;
+}
+
+/**
+ * 位码 → 语义 token 列表（如 toolArm2, joint:1），再由 i18n 翻译。
+ */
+function buildPrefixTokensFromContext(context) {
+  if (!context || !context.subsystem) return [];
+  const s = String(context.subsystem).toUpperCase();
+  let arm = context.arm ? String(context.arm).toUpperCase() : null;
+  let joint = context.joint ? String(context.joint).toUpperCase() : null;
+  if (arm === '0') arm = null;
+  if (joint === '0') joint = null;
+
+  const seriesCode = context.seriesCode || context.series_code || null;
+  const cfg = resolvePrefixProfile(seriesCode);
+  if (!cfg) return [];
+  const enabled = cfg.enabledSubsystems || [];
+  if (!enabled.includes(s)) return [];
+
+  const subCfg = (cfg.subsystems && cfg.subsystems[s]) || {};
+  if (subCfg.staticPrefix) {
+    try {
+      // eslint-disable-next-line no-new-func
+      const render = new Function('subsystem', `return \
+        (function(){ return \
+          \
+          ` + JSON.stringify(subCfg.staticPrefix) + `
+            .replace(/\\$\{subsystem\}/g, String(subsystem)); })();`);
+      const text = render(s);
+      return text ? [String(text)] : [];
+    } catch { /* ignore */ }
+    return [String(subCfg.staticPrefix)];
+  }
+
+  const parts = [];
+  if (subCfg.prefixLabel) {
+    parts.push(String(subCfg.prefixLabel));
+  }
+  if (arm && subCfg.armMap && subCfg.armMap[arm]) {
+    parts.push(String(subCfg.armMap[arm]));
+  }
+  if (joint) {
+    if (subCfg.jointMap && subCfg.jointMap[joint]) {
+      parts.push(String(subCfg.jointMap[joint]));
+    } else if (subCfg.jointPattern) {
+      parts.push(String(subCfg.jointPattern).replace('{value}', joint));
+    }
+  }
+  return parts.filter(Boolean);
+}
+
+function buildPrefixFromContext(context) {
+  const tokens = buildPrefixTokensFromContext(context);
+  if (!tokens.length) return '';
+  const seriesCode = context?.seriesCode || context?.series_code || null;
+  const cfg = resolvePrefixProfile(seriesCode);
+  const subCfg = (cfg?.subsystems && context?.subsystem)
+    ? (cfg.subsystems[String(context.subsystem).toUpperCase()] || {})
+    : {};
+  const sep = subCfg.joinSeparator !== undefined ? String(subCfg.joinSeparator) : ' ';
+  return tokens.join(sep);
 }
 
 function toNumber(value) {
@@ -298,69 +404,6 @@ function tryRenderRules(explanation, params, context) {
   return typeof fallback === 'string' ? fallback : null;
 }
 
-function buildPrefixFromContext(context) {
-  if (!context || !context.subsystem) return '';
-  const s = String(context.subsystem).toUpperCase();
-  let arm = context.arm ? String(context.arm).toUpperCase() : null;
-  let joint = context.joint ? String(context.joint).toUpperCase() : null;
-  // 当臂号/关节号为 '0' 时，不显示对应前缀
-  if (arm === '0') arm = null;
-  if (joint === '0') joint = null;
-
-  const cfg = loadPrefixMappings();
-  const enabled = cfg.enabledSubsystems || [];
-  if (!enabled.includes(s)) return '';
-
-  const subCfg = (cfg.subsystems && cfg.subsystems[s]) || {};
-  // 静态前缀
-  if (subCfg.staticPrefix) {
-    try {
-      // 允许使用 ${subsystem}
-      // eslint-disable-next-line no-new-func
-      const render = new Function('subsystem', `return \
-        (function(){ return \
-          \
-          ` + JSON.stringify(subCfg.staticPrefix) + `
-            .replace(/\\$\{subsystem\}/g, String(subsystem)); })();`);
-      return render(s);
-    } catch { /* ignore */ }
-    return String(subCfg.staticPrefix);
-  }
-
-  const parts = [];
-  const sep = subCfg.joinSeparator !== undefined ? String(subCfg.joinSeparator) : '';
-
-  // 额外的前缀标签，如“远程”
-  if (subCfg.prefixLabel) {
-    const labelSep = subCfg.labelJoinSeparator !== undefined ? String(subCfg.labelJoinSeparator) : '';
-    parts.push(String(subCfg.prefixLabel));
-    if (labelSep && !sep) {
-      // 若仅配置了 labelJoinSeparator 而未配置 joinSeparator，让标签与后续片段按 labelSep 连接
-      // 这里通过在后续 push 时附带分隔控制来实现，简单方案：把 label 作为单独部分，最终 join 时使用 sep；
-      // 若希望 label 与 arm/joint 之间强制贴合，可把 labelJoinSeparator 也写入 joinSeparator。
-    }
-  }
-
-  // arm 名称
-  if (arm && subCfg.armMap && subCfg.armMap[arm]) {
-    parts.push(subCfg.armMap[arm]);
-  }
-
-  // joint 名称
-  if (joint) {
-    if (subCfg.jointMap && subCfg.jointMap[joint]) {
-      parts.push(subCfg.jointMap[joint]);
-    } else if (subCfg.jointPattern) {
-      parts.push(String(subCfg.jointPattern).replace('{value}', joint));
-    }
-  }
-
-  const prefixCore = parts.join(sep);
-  if (!prefixCore) return '';
-  const joinWithSpace = cfg.default && cfg.default.joinWithSpace;
-  return joinWithSpace ? prefixCore : prefixCore; // 目前前缀内部已按 sep 连接，这里仅决定是否与正文加空格，已在下方处理
-}
-
 /**
  * 解析释义语句中的占位符
  * @param {string} explanation - 原始释义语句
@@ -429,8 +472,8 @@ function parseExplanation(explanation, param0, param1, param2, param3, context =
   // 根据需求为特定子系统增加前缀
   const prefix = buildPrefixFromContext(context);
   if (prefix) {
-    const cfg = loadPrefixMappings();
-    const joinWithSpace = cfg.default && cfg.default.joinWithSpace;
+    const profile = resolvePrefixProfile(context?.seriesCode || context?.series_code);
+    const joinWithSpace = profile?.default?.joinWithSpace !== false;
     if (!result) return prefix;
     return joinWithSpace ? `${prefix} ${result}` : `${prefix}${result}`;
   }
@@ -466,5 +509,8 @@ module.exports = {
   parseExplanations,
   loadFaultMappings,
   loadUnitMappings,
+  loadPrefixMappings,
+  resolvePrefixProfile,
+  buildPrefixTokensFromContext,
   buildPrefixFromContext
 }; 

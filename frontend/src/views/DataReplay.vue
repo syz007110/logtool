@@ -3,7 +3,7 @@
     <el-card class="main-card">
       <div class="action-bar">
         <div class="action-section">
-          <el-button type="primary" :icon="Upload" @click="openUploadDialog()">
+          <el-button type="primary" :icon="Upload" :disabled="!canMotionParse" @click="openUploadDialog()">
             {{ $t('dataReplay.uploadMotionData') }}
           </el-button>
           <el-button type="default" :icon="Refresh" @click="loadDeviceGroups({ force: true })">
@@ -12,37 +12,49 @@
         </div>
       </div>
 
-      <el-table
-        :data="deviceGroups"
-        v-loading="loading"
-        style="width: 100%"
-      >
-        <el-table-column prop="device_id" :label="$t('logs.deviceId')" min-width="160">
-          <template #default="{ row }">
-            <el-button text type="primary" @click="openDetailDrawer(row)">
-              <span class="one-line-ellipsis" style="display:inline-block; max-width:100%;" :title="row.device_id">{{ row.device_id }}</span>
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" min-width="200">
-          <template #default="{ row }">
-            <span v-if="row.hospital_name" class="one-line-ellipsis" :title="maskHospitalName(row.hospital_name, hasDeviceReadPermission)" style="display:inline-block; max-width:100%">{{ maskHospitalName(row.hospital_name, hasDeviceReadPermission) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="data_count" :label="$t('dataReplay.dataCount')" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag type="info" size="small">{{ row.data_count }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="latest_upload_time" :label="$t('logs.updateTime')" width="180">
-          <template #default="{ row }">{{ formatDate(row.latest_upload_time) }}</template>
-        </el-table-column>
-        <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="left">
-          <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="openDetailDrawer(row)">{{ $t('shared.details') }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <el-alert
+        v-if="currentSeriesId && !canMotionParse"
+        class="unsupported-alert"
+        type="warning"
+        show-icon
+        :closable="false"
+        :title="$t('shared.seriesFeatureUnsupported')"
+      />
+
+      <div class="table-container">
+        <el-table
+          :data="deviceGroups"
+          v-loading="loading"
+          :height="tableHeight"
+          style="width: 100%"
+        >
+          <el-table-column prop="device_id" :label="$t('logs.deviceId')" min-width="160">
+            <template #default="{ row }">
+              <el-button text type="primary" @click="openDetailDrawer(row)">
+                <span class="one-line-ellipsis" style="display:inline-block; max-width:100%;" :title="row.device_id">{{ row.device_id }}</span>
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column prop="hospital_name" :label="$t('logs.hospitalName')" min-width="200">
+            <template #default="{ row }">
+              <span v-if="row.hospital_name" class="one-line-ellipsis" :title="maskHospitalName(row.hospital_name, hasDeviceReadPermission)" style="display:inline-block; max-width:100%">{{ maskHospitalName(row.hospital_name, hasDeviceReadPermission) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="data_count" :label="$t('dataReplay.dataCount')" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag type="info" size="small">{{ row.data_count }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="latest_upload_time" :label="$t('logs.updateTime')" width="180">
+            <template #default="{ row }">{{ formatDate(row.latest_upload_time) }}</template>
+          </el-table-column>
+          <el-table-column :label="$t('shared.operation')" width="120" fixed="right" align="left">
+            <template #default="{ row }">
+              <el-button text type="primary" size="small" @click="openDetailDrawer(row)">{{ $t('shared.details') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <div class="pagination-wrapper">
         <el-pagination
@@ -76,7 +88,7 @@
               <el-button type="default" size="small" :icon="Refresh" :disabled="detailLoading" @click="loadDetailFiles">
                 {{ $t('shared.refresh') }}
               </el-button>
-              <el-button type="primary" size="small" :icon="Upload" :disabled="uploading" @click="openUploadDialog(selectedDevice?.device_id)">
+              <el-button type="primary" size="small" :icon="Upload" :disabled="uploading || !canMotionParse" @click="openUploadDialog(selectedDevice?.device_id)">
                 {{ $t('dataReplay.uploadMotionData') }}
               </el-button>
             </div>
@@ -267,7 +279,15 @@
     </el-drawer>
 
     <!-- 上传运行数据弹窗（主页面/详情复用） -->
-    <el-dialog v-model="uploadDialogVisible" :title="$t('dataReplay.uploadMotionData')" width="700px" append-to-body :close-on-click-modal="false">
+    <el-dialog
+      v-model="uploadDialogVisible"
+      :title="$t('dataReplay.uploadMotionData')"
+      width="700px"
+      class="app-dialog"
+      align-center
+      append-to-body
+      :close-on-click-modal="false"
+    >
       <el-form label-width="100px">
         <el-form-item :label="$t('devices.deviceId')" required>
           <el-input
@@ -333,7 +353,7 @@
       </el-form>
 
       <!-- 自定义文件列表 -->
-      <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
+      <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list app-dialog-file-list">
         <div class="file-list-header">
           <span>{{ $t('dataReplay.selectedFilesCount', { count: uploadFileList.length }) }}</span>
           <el-button type="default" size="small" @click="clearUpload" :disabled="uploading">
@@ -347,10 +367,11 @@
             :key="index" 
             class="file-item"
           >
-            <el-icon><Document /></el-icon>
+            <el-icon class="file-item-icon"><Document /></el-icon>
             <span class="file-name">{{ file.name || file.originalname }}</span>
             <span class="file-size">{{ file.sizeText }}</span>
             <el-button 
+              class="file-item-remove"
               type="danger"
               plain
               size="small"
@@ -374,7 +395,7 @@
           <el-button 
             type="primary" 
             @click="submitUploadDialog" 
-            :disabled="uploading || uploadFileList.length === 0 || !uploadDialogDeviceId.trim() || !uploadDialogDeviceModel.trim() || !currentSeriesId"
+            :disabled="uploading || !canMotionParse || uploadFileList.length === 0 || !uploadDialogDeviceId.trim() || !uploadDialogDeviceModel.trim() || !currentSeriesId"
           >
             <el-icon v-if="!uploading"><Upload /></el-icon>
             {{ uploading ? $t('dataReplay.uploading') : $t('dataReplay.upload') }}
@@ -395,6 +416,7 @@ import { maskHospitalName } from '@/utils/maskSensitiveData'
 import api from '@/api'
 import { notifyApiError } from '@/utils/apiError'
 import { filterDeviceModelsBySeries } from '@/utils/deviceModelSeries'
+import { getTableHeight } from '@/utils/tableHeight'
 
 export default {
   name: 'DataReplay',
@@ -533,6 +555,8 @@ export default {
     const uploadDeviceModelsLoading = ref(false)
     const uploadDeviceModelOptionsAll = ref([])
     const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    const canMotionParse = computed(() => store.getters['seriesContext/canMotionParse'])
+    const tableHeight = computed(() => getTableHeight('basic'))
     const uploadDeviceModelOptions = computed(() =>
       filterDeviceModelsBySeries(uploadDeviceModelOptionsAll.value, currentSeriesId.value)
     )
@@ -1059,6 +1083,10 @@ export default {
     }
 
     const openUploadDialog = async (deviceId) => {
+      if (!canMotionParse.value) {
+        ElMessage.warning(t('shared.seriesFeatureUnsupported'))
+        return
+      }
       uploadDialogVisible.value = true
       uploadFileList.value = []
       uploadDialogDeviceModel.value = ''
@@ -1139,6 +1167,10 @@ export default {
       }
       if (!currentSeriesId.value) {
         ElMessage.warning(t('dataReplay.selectSeriesFirst'))
+        return
+      }
+      if (!canMotionParse.value) {
+        ElMessage.warning(t('shared.seriesFeatureUnsupported'))
         return
       }
       const deviceModel = String(uploadDialogDeviceModel.value || '').trim()
@@ -1370,6 +1402,8 @@ export default {
       uploadDeviceModelsLoading,
       uploadDeviceModelOptions,
       currentSeriesId,
+      canMotionParse,
+      tableHeight,
       uploadFileList,
       uploadDialogUploadRef,
       openUploadDialog,
@@ -1431,10 +1465,31 @@ export default {
   flex-wrap: wrap;
 }
 
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container :deep(.el-table) {
+  flex: 1;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-y: auto !important;
+}
+
 .pagination-wrapper {
   padding: 8px 0 12px 0;
   display: flex;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.unsupported-alert {
+  margin-bottom: var(--space-3, 12px);
 }
 
 .progress-section {
@@ -1631,11 +1686,6 @@ export default {
   font-weight: 500;
 }
 
-.file-items {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
 .file-item {
   display: flex;
   align-items: center;
@@ -1650,11 +1700,6 @@ export default {
 
 .file-item:hover {
   background-color: rgb(var(--bg-secondary));
-}
-
-.file-item .el-icon {
-  margin-right: 8px;
-  color: rgb(var(--text-secondary));
 }
 
 .file-name {

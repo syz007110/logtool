@@ -25,6 +25,11 @@ function persistSeriesId (seriesId) {
   } catch (_) {}
 }
 
+function readCapability (series, key) {
+  if (!series || !series.capabilities) return false
+  return Boolean(series.capabilities[key])
+}
+
 const state = {
   seriesList: [],
   currentSeriesId: getStoredSeriesId(),
@@ -70,7 +75,13 @@ const getters = {
   seriesList: state => state.seriesList,
   currentSeriesId: state => state.currentSeriesId,
   currentSeries: state => state.seriesList.find(item => item.id === state.currentSeriesId) || null,
-  isLoading: state => state.loading
+  isLoading: state => state.loading,
+  currentSeriesCapabilities: (state, getters) => getters.currentSeries?.capabilities || {
+    motion_parse: false,
+    surgery_analyze: false
+  },
+  canMotionParse: (state, getters) => readCapability(getters.currentSeries, 'motion_parse'),
+  canSurgeryAnalyze: (state, getters) => readCapability(getters.currentSeries, 'surgery_analyze')
 }
 
 export default {

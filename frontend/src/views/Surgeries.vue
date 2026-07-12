@@ -8,6 +8,7 @@
           <el-button
             type="primary"
             :icon="DataAnalysis"
+            :disabled="!canSurgeryAnalyze"
             @click="openSurgeryAnalysisDialog"
           >
             {{ $t('batchAnalysis.surgeryStatistics') }}
@@ -33,6 +34,14 @@
           </el-button>
         </div>
       </div>
+      <el-alert
+        v-if="currentSeriesId && !canSurgeryAnalyze"
+        class="unsupported-alert"
+        type="warning"
+        show-icon
+        :closable="false"
+        :title="$t('shared.seriesFeatureUnsupported')"
+      />
 
       <!-- 璁惧鍒楄〃 - 鍙粴鍔ㄥ鍣?-->
       <div class="table-container">
@@ -115,6 +124,8 @@
       v-model="showAnalyzeDialog"
       :title="$t('batchAnalysis.surgeryStatistics')"
       width="680px"
+      class="app-dialog"
+      align-center
       append-to-body
     >
       <el-form label-width="120px">
@@ -128,7 +139,9 @@
             :placeholder="$t('logs.deviceId')"
             :remote-method="handleAnalysisDeviceSearch"
             :loading="analysisDeviceInitialLoading"
-            :teleported="false"
+            teleported
+            placement="bottom-start"
+            :fallback-placements="['top-start', 'bottom', 'top']"
             class="analysis-select"
             popper-class="analysis-device-select-popper"
             @visible-change="handleAnalysisDeviceVisibleChange"
@@ -170,7 +183,12 @@
       </div>
       <template #footer>
         <el-button @click="showAnalyzeDialog = false">{{ $t('shared.cancel') }}</el-button>
-        <el-button type="primary" :loading="analysisSubmitting" @click="submitAnalyzeByLogRange">
+        <el-button
+          type="primary"
+          :loading="analysisSubmitting"
+          :disabled="!canSurgeryAnalyze"
+          @click="submitAnalyzeByLogRange"
+        >
           {{ $t('batchAnalysis.startAnalyze') }}
         </el-button>
       </template>
@@ -181,6 +199,8 @@
       v-model="showAnalyzeResultDialog"
       :title="$t('batchAnalysis.surgeryStatistics')"
       width="980px"
+      class="app-dialog"
+      align-center
       append-to-body
     >
       <div v-if="analysisResultLoading" class="analysis-result-loading">
@@ -226,6 +246,8 @@
       v-model="analysisSurgeryJsonVisible"
       :title="$t('batchAnalysis.surgeryDataPostgresFormat')"
       width="760px"
+      class="app-dialog"
+      align-center
       append-to-body
     >
       <div class="analysis-hint" style="margin-bottom: 8px;">
@@ -435,6 +457,7 @@
                       size="small"
                       type="danger"
                       :loading="retryingFailedGroupId === row._metaTaskId"
+                      :disabled="!canSurgeryAnalyze || retryingFailedGroupId === row._metaTaskId"
                       @click="retryFailedGroup(row)"
                     >
                       {{ $t('logs.reparse') }}
@@ -539,6 +562,7 @@ export default {
     const router = useRouter()
     const { t, locale } = useI18n()
     const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    const canSurgeryAnalyze = computed(() => store.getters['seriesContext/canSurgeryAnalyze'])
 
 
     // 璁惧鍒嗙粍鐩稿叧鏁版嵁
@@ -812,6 +836,10 @@ export default {
     }
 
     const openSurgeryAnalysisDialog = async () => {
+      if (!canSurgeryAnalyze.value) {
+        ElMessage.warning(t('shared.seriesFeatureUnsupported'))
+        return
+      }
       showAnalyzeDialog.value = true
       await loadAnalysisDeviceOptions('', { page: 1, append: false })
       const selectedId = String(selectedDevice.value?.device_id || '').trim()
@@ -974,6 +1002,10 @@ export default {
     }
 
     const submitAnalyzeByLogRange = async () => {
+      if (!canSurgeryAnalyze.value) {
+        ElMessage.warning(t('shared.seriesFeatureUnsupported'))
+        return
+      }
       const { deviceId, startTime, endTime } = analysisForm.value
       if (!deviceId) {
         ElMessage.warning(t('logs.messages.pleaseSelectDeviceId'))
@@ -1370,6 +1402,10 @@ export default {
     }
 
     const retryFailedGroup = async (group) => {
+      if (!canSurgeryAnalyze.value) {
+        ElMessage.warning(t('shared.seriesFeatureUnsupported'))
+        return
+      }
       const deviceId = String(selectedDevice.value?.device_id || '').trim()
       if (!deviceId) {
         ElMessage.warning(t('logs.messages.invalidDeviceId'))
@@ -2065,6 +2101,8 @@ export default {
       currentPage,
       pageSize,
       keywordFilter,
+      currentSeriesId,
+      canSurgeryAnalyze,
       showAnalyzeDialog,
       showAnalyzeResultDialog,
       analysisSubmitting,
@@ -2203,6 +2241,10 @@ export default {
   margin-bottom: 20px;
 }
 
+.unsupported-alert {
+  margin-bottom: 16px;
+}
+
 .search-section {
   display: flex;
   align-items: center;
@@ -2235,11 +2277,6 @@ export default {
 
 .analysis-result-loading {
   padding: 20px 0;
-}
-
-.analysis-device-select-popper .el-select-dropdown__wrap,
-.analysis-device-select-popper .el-scrollbar__wrap {
-  max-height: 280px;
 }
 
 /* 琛ㄦ牸瀹瑰櫒 - 鍥哄畾琛ㄥご */
@@ -2491,4 +2528,12 @@ export default {
   color: var(--el-color-danger-dark-2) !important;
 }
 
+</style>
+
+<!-- popper 挂到 body，需非 scoped 才能限制下拉高度 -->
+<style>
+.analysis-device-select-popper .el-select-dropdown__wrap,
+.analysis-device-select-popper .el-scrollbar__wrap {
+  max-height: min(220px, 40vh) !important;
+}
 </style>

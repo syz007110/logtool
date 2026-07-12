@@ -31,10 +31,16 @@ function loadExplanationPreview(stubs) {
   const previewPath = path.resolve(__dirname, '../src/utils/explanationPreview.js');
   const errorCodePath = path.resolve(__dirname, '../src/models/error_code.js');
   const i18nPath = path.resolve(__dirname, '../src/models/i18n_error_code.js');
+  const resolveSeriesPath = path.resolve(__dirname, '../src/seriesStrategies/resolveSeriesCode.js');
 
   delete require.cache[previewPath];
   require.cache[errorCodePath] = { exports: stubs.ErrorCode };
   require.cache[i18nPath] = { exports: stubs.I18nErrorCode || { findAll: async () => [] } };
+  require.cache[resolveSeriesPath] = {
+    exports: stubs.resolveSeriesCode || {
+      resolveSeriesCodeFromId: async (id) => (Number(id) === 2 ? 'SA' : Number(id) === 1 ? 'SR' : null)
+    }
+  };
 
   return require(previewPath);
 }

@@ -1,0 +1,115 @@
+{
+  "enabledSubsystems": [
+    "1",
+    "3",
+    "5",
+    "8",
+    "9",
+    "A"
+  ],
+  "subsystems": {
+    "1": {
+      "armMap": {
+        "1": "leftMainControlArm",
+        "2": "rightMainControlArm",
+        "3": "toolArm1",
+        "4": "toolArm2",
+        "5": "toolArm3",
+        "6": "toolArm4",
+        "7": "adjustmentArm1",
+        "8": "adjustmentArm2",
+        "9": "adjustmentArm3",
+        "A": "adjustmentArm4",
+        "B": "masterIO",
+        "C": "slaveIO"
+      },
+      "jointMap": {},
+      "jointPattern": "joint:{value}",
+      "joinSeparator": " "
+    },
+    "3": {
+      "jointMap": {
+        "1": "masterHandLiftJoint",
+        "2": "armrestLiftJoint",
+        "3": "monitorLift",
+        "4": "monitorRotation"
+      },
+      "joinSeparator": " "
+    },
+    "5": {
+      "armMap": {
+        "1": "leftMainControlArm",
+        "2": "rightMainControlArm",
+        "3": "toolArm1",
+        "4": "toolArm2",
+        "5": "toolArm3",
+        "6": "toolArm4",
+        "7": "adjustmentArm1",
+        "8": "adjustmentArm2",
+        "9": "adjustmentArm3",
+        "A": "adjustmentArm4",
+        "B": "masterIO",
+        "C": "slaveIO"
+      },
+      "jointMap": {},
+      "jointPattern": "joint:{value}",
+      "joinSeparator": " "
+    },
+    "8": {
+      "armMap": {
+        "1": "leftMainControlArm",
+        "2": "rightMainControlArm",
+        "3": "toolArm1",
+        "4": "toolArm2",
+        "5": "toolArm3",
+        "6": "toolArm4",
+        "7": "adjustmentArm1",
+        "8": "adjustmentArm2",
+        "9": "adjustmentArm3",
+        "A": "adjustmentArm4",
+        "B": "masterIO",
+        "C": "slaveIO"
+      },
+      "jointMap": {},
+      "jointPattern": "joint:{value}",
+      "joinSeparator": " ",
+      "prefixLabel": "remoteEnd",
+      "labelJoinSeparator": " "
+    },
+    "9": {
+      "jointMap": {
+        "1": "masterHandLiftJoint",
+        "2": "armrestLiftJoint",
+        "3": "monitorLift",
+        "4": "monitorRotation"
+      },
+      "joinSeparator": " ",
+      "prefixLabel": "remote",
+      "labelJoinSeparator": " "
+    },
+    "A": {
+      "armMap": {
+        "1": "leftMainControlArm",
+        "2": "rightMainControlArm",
+        "3": "toolArm1",
+        "4": "toolArm2",
+        "5": "toolArm3",
+        "6": "toolArm4",
+        "7": "adjustmentArm1",
+        "8": "adjustmentArm2",
+        "9": "adjustmentArm3",
+        "A": "adjustmentArm4",
+        "B": "masterIO",
+        "C": "slaveIO"
+      },
+      "jointMap": {},
+      "jointPattern": "joint:{value}",
+      "joinSeparator": " ",
+      "prefixLabel": "remoteEnd",
+      "labelJoinSeparator": " "
+    }
+  },
+  "default": {
+    "joinWithSpace": true
+  }
+}

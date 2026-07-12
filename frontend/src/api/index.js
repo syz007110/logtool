@@ -310,7 +310,12 @@ const i18n = {
 
 const surgeryStatistics = {
   getList: (params) => api.get('/surgery-statistics', { params }),
-  analyzeSortedEntries: (logEntries) => api.post('/surgery-statistics/analyze-sorted-entries', { logEntries }),
+  analyzeSortedEntries: (payload) => {
+    const body = Array.isArray(payload)
+      ? { logEntries: payload }
+      : { ...(payload || {}) }
+    return api.post('/surgery-statistics/analyze-sorted-entries', body)
+  },
   analyzeByLogIds: (logIds, includePostgreSQLStructure = false, timezoneOffsetMinutes = null, options = {}) =>
     api.post('/surgery-statistics/analyze-by-log-ids', { logIds, includePostgreSQLStructure, timezoneOffsetMinutes, ...options }),
   analyzeByDeviceRange: (deviceId, startTime, endTime, includePostgreSQLStructure = false, timezoneOffsetMinutes = null, options = {}) =>
@@ -431,7 +436,8 @@ const dashboard = {
 }
 
 const explanations = {
-  preview: (payload) => api.post('/explanations/preview', withCurrentSeriesData(payload))
+  preview: (payload) => api.post('/explanations/preview', withCurrentSeriesData(payload)),
+  previewBatch: (payload) => api.post('/explanations/preview-batch', withCurrentSeriesData(payload), { _silentError: true })
 }
 
 // 监控API

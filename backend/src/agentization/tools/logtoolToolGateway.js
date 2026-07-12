@@ -320,14 +320,18 @@ function createLogtoolToolGateway() {
       const rawArgs = toolCall?.arguments && typeof toolCall.arguments === 'object'
         ? toolCall.arguments
         : {};
-      const { tool, arguments: args } = this.validateToolArguments(toolName, rawArgs);
       let out = null;
       let toolResult = null;
+      let validatedArgs = rawArgs;
       try {
+        // 参数校验失败也收成 failed ToolResult，写入 tool message，供模型追问/改参
+        const validated = this.validateToolArguments(toolName, rawArgs);
+        const { tool } = validated;
+        validatedArgs = validated.arguments;
         this.enforceToolPermission(tool, request);
         out = await this.executeWithPolicy({
           toolName,
-          args,
+          args: validatedArgs,
           request,
           orchestratorResult: turnResult,
           tool
@@ -343,13 +347,22 @@ function createLogtoolToolGateway() {
             message: String(error?.message || error || 'tool execution failed')
           }
         });
+        const isArgError = [
+          'MISSING_REQUIRED_SLOT',
+          'MISSING_ANYOF_SLOT',
+          'INVALID_ENUM',
+          'INVALID_PATTERN',
+          'TOOL_NOT_FOUND'
+        ].includes(String(error?.code || ''));
         out = {
-          text: `工具执行失败：${toolResult.error.message}`,
+          text: isArgError
+            ? `工具参数不合格：${toolResult.error.message}`
+            : `工具执行失败：${toolResult.error.message}`,
           debugMeta: {
             source: 'logtool',
             traceId: request?.traceId,
             executionRoute: toolName,
-            toolCall: { toolName, input: args, id: toolCall?.id || null }
+            toolCall: { toolName, input: validatedArgs, id: toolCall?.id || null }
           }
         };
       }

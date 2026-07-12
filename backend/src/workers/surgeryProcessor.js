@@ -3,6 +3,9 @@ const { Op } = require('sequelize');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { buildPostgresRowPreview } = require('../utils/surgeryTransform');
 const { getClickHouseClient } = require('../config/clickhouse');
+const { CAPABILITIES } = require('../seriesStrategies/capabilities');
+const { assertSeriesCapability } = require('../seriesStrategies/registry');
+const { resolveSeriesCodeFromDeviceId } = require('../seriesStrategies/resolveSeriesCode');
 
 // 与控制器保持一致：格式化时间为YYYYMMDDHHMM
 function formatTimeForId(dateStr) {
@@ -103,6 +106,15 @@ async function processSurgeryAnalysisJob(job) {
     where: { id: { [Op.in]: uniqueLogIds } }
   });
   const logMetaMap = new Map(logsMeta.map(l => [l.id, l]));
+
+  const deviceIdFromJob = String((job.data && job.data.deviceId) || '').trim();
+  const deviceIdFromLogs = logsMeta.map((l) => l.device_id).find((id) => id) || null;
+  const deviceIdForCap = deviceIdFromJob || deviceIdFromLogs;
+  const seriesCode = await resolveSeriesCodeFromDeviceId(deviceIdForCap);
+  if (!seriesCode) {
+    throw new Error('无法解析设备系列，拒绝手术分析');
+  }
+  assertSeriesCapability(seriesCode, CAPABILITIES.SURGERY_ANALYZE);
 
   for (const logId of logIds) {
     try {

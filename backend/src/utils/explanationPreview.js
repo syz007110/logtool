@@ -1,18 +1,11 @@
 const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
 const { parseExplanation, buildPrefixFromContext } = require('./explanationParser');
-const prefixKeyMap = require('../../../shared/i18n/prefixKeyMap.json');
+const { resolveSeriesCodeFromId } = require('../seriesStrategies/resolveSeriesCode');
 
-// 将中文前缀翻译为目标语言（依据 i18n 语言）
-function translatePrefixText(prefix, t) {
-  if (!prefix) return '';
-
-  const getKey = (value) => {
-    const raw = String(value || '').trim();
-    if (!raw) return raw;
-    const compact = raw.replace(/\s+/g, '');
-    return prefixKeyMap[raw] || prefixKeyMap[compact] || raw;
-  };
+/** Translate semantic prefix tokens (e.g. "toolArm3 joint:3") via shared.prefixLabels. */
+function translatePrefixText(prefixTokens, t) {
+  if (!prefixTokens) return '';
 
   const translateKey = (key) => {
     const translated = t(`shared.prefixLabels.${key}`);
@@ -21,32 +14,27 @@ function translatePrefixText(prefix, t) {
   };
 
   const translatePart = (part) => {
-    // 数字 + 关节，例如 1关节
-    const jointMatch = String(part).match(/^(\d+)(\u5173\u8282)$/);
-    if (jointMatch) {
-      const num = jointMatch[1];
-      const jointTranslated = translateKey('joint') || jointMatch[2];
-      return `${jointTranslated} ${num}`.trim();
+    // token + value，例如 joint:1 → 中文「1关节」，英文「Joint 1」
+    const tokenValueMatch = String(part).match(/^([A-Za-z][A-Za-z0-9]*):(.+)$/);
+    if (tokenValueMatch) {
+      const token = tokenValueMatch[1];
+      const value = tokenValueMatch[2];
+      const translated = translateKey(token) || token;
+      if (token === 'joint') {
+        const isZh = /[\u4e00-\u9fa5]/.test(String(translated));
+        return isZh ? `${value}${translated}` : `${translated} ${value}`.trim();
+      }
+      return `${translated} ${value}`.trim();
     }
 
-    const key = getKey(part);
-    const translated = translateKey(key);
-    return translated || part; // 回退原文
+    return translateKey(part) || part;
   };
 
-  // 先尝试整体翻译
-  const wholeKey = getKey(prefix);
-  const wholeTranslated = translateKey(wholeKey);
-  if (wholeTranslated) return wholeTranslated;
-
-  // 拆分：优先按空格，其次按中文+数字分词
-  const parts = String(prefix).trim().split(/\s+/);
-  const segments =
-    parts.length === 1
-      ? String(prefix).match(/\d+\u53f7[\u4e00-\u9fa5A-Za-z]+|\d+[\u4e00-\u9fa5A-Za-z]+|[\u4e00-\u9fa5A-Za-z]+|\d+/g) || parts
-      : parts;
-
-  return segments.map(translatePart).join(' ');
+  const parts = String(prefixTokens).trim().split(/\s+/).filter(Boolean);
+  const rendered = parts.map(translatePart);
+  const joinedZh = rendered.join('');
+  if (/[\u4e00-\u9fa5]/.test(joinedZh)) return joinedZh;
+  return rendered.join(' ');
 }
 
 function normalizeCode(input) {
@@ -86,11 +74,23 @@ function normalizeSeriesId(value) {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
-async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, series_id, template: payloadTemplate, params = {}, lang, t }) {
+async function buildExplanationPreview({
+  rawCode,
+  subsystem: bodySubsystem,
+  series_id,
+  seriesCode: seriesCodeInput,
+  template: payloadTemplate,
+  params = {},
+  lang,
+  t
+}) {
   const { param1, param2, param3, param4 } = params || {};
   const { subsystem: parsedSubsystem, arm: parsedArm, joint: parsedJoint, normalizedCode } = deriveFromFullLogCode(rawCode);
   const code = normalizedCode;
   const normalizedSeriesId = normalizeSeriesId(series_id);
+  const seriesCode = String(seriesCodeInput || '').trim().toUpperCase()
+    || (await resolveSeriesCodeFromId(normalizedSeriesId))
+    || null;
 
   if (!code || typeof code !== 'string') {
     const err = new Error('缺少或不合法的故障码 code');
@@ -160,7 +160,8 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, seri
     subsystem: subsystem || null,
     arm: parsedArm || null,
     joint: parsedJoint || null,
-    normalized_code: code
+    normalized_code: code,
+    seriesCode
   };
 
   const explanation = parseExplanation(
@@ -180,6 +181,7 @@ async function buildExplanationPreview({ rawCode, subsystem: bodySubsystem, seri
     subsystem: record ? record.subsystem : (subsystem || null),
     arm: parsedArm || null,
     joint: parsedJoint || null,
+    seriesCode,
     template,
     params: { param1, param2, param3, param4 },
     explanation,
@@ -198,6 +200,7 @@ function composeExplanationPreviewFromI18n({
   prefixSourceRaw,
   subsystemFromDb,
   typeCodeFromDb,
+  seriesCode,
   template: templateStr,
   param1,
   param2,
@@ -241,7 +244,8 @@ function composeExplanationPreviewFromI18n({
     subsystem: subsystemForContext || null,
     arm: armForContext || null,
     joint: jointForContext || null,
-    normalized_code: normalizedCode
+    normalized_code: normalizedCode,
+    seriesCode: String(seriesCode || '').trim().toUpperCase() || null
   };
 
   const prefixRaw = buildPrefixFromContext(context) || '';

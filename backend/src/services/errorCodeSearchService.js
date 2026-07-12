@@ -176,9 +176,10 @@ async function isElasticsearchAvailable() {
  * @param {string[]} params.keywords - 关键词数组
  * @param {string} params.lang - 语言代码（默认'zh'）
  * @param {number} params.limit - 返回数量限制（默认10）
+ * @param {number|string|null} [params.series_id] - 系列 ID（可选，与精确码检索一致在 ES 侧过滤）
  * @returns {Promise<{ok: boolean, items: Array, debug: Object}>}
  */
-async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
+async function searchByKeywords({ keywords, lang = 'zh', limit = 10, series_id = null }) {
   const kwList = Array.isArray(keywords) ? keywords.map((k) => String(k || '').trim()).filter(Boolean) : [];
   if (kwList.length === 0) {
     return { ok: true, items: [], debug: { skipped: true, reason: 'no_keywords' } };
@@ -186,6 +187,10 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
 
   const safeLimit = clampInt(limit, 1, 50, 10);
   const targetLang = normalizeLang(lang);
+  const seriesIdNum = (series_id !== null && series_id !== undefined && series_id !== '')
+    ? Number(series_id)
+    : null;
+  const hasSeriesFilter = Number.isInteger(seriesIdNum) && seriesIdNum > 0;
 
   // 检查ES是否可用
   if (!(await isElasticsearchAvailable())) {
@@ -288,7 +293,7 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
       size: safeLimit * 2, // 多取一些，后续去重
       track_total_hits: true,
       _source: [
-        'errorCodeId', 'lang', 'subsystem', 'code', 'level', 'category',
+        'errorCodeId', 'series_id', 'lang', 'subsystem', 'code', 'level', 'category',
         'short_message', 'user_hint', 'operation', 'detail', 'tech_solution', 'explanation',
         'is_axis_error', 'is_arm_error', 'param1', 'param2', 'param3', 'param4'
       ],
@@ -296,7 +301,10 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
         bool: {
           should: shouldQueries,
           minimum_should_match: 1, // 至少匹配一个关键词
-          filter: [{ term: { lang: targetLang } }]
+          filter: [
+            { term: { lang: targetLang } },
+            ...(hasSeriesFilter ? [{ term: { series_id: seriesIdNum } }] : [])
+          ]
         }
       }
     });
@@ -313,6 +321,7 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
 
       items.push({
         id: source.errorCodeId,
+        series_id: source.series_id || null,
         subsystem: source.subsystem || '',
         code: source.code || '',
         level: source.level || '',
@@ -342,6 +351,7 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
       debug: {
         keywords: kwList,
         lang: targetLang,
+        series_id: hasSeriesFilter ? seriesIdNum : null,
         total: resp?.hits?.total?.value ?? items.length,
         returned: items.length
       }
@@ -351,7 +361,12 @@ async function searchByKeywords({ keywords, lang = 'zh', limit = 10 }) {
       ok: false,
       items: [],
       error: { code: 'es_search_failed', message: String(e?.message || e) },
-      debug: { keywords: kwList, lang: targetLang, error: String(e?.message || e) }
+      debug: {
+        keywords: kwList,
+        lang: targetLang,
+        series_id: hasSeriesFilter ? seriesIdNum : null,
+        error: String(e?.message || e)
+      }
     };
   }
 }

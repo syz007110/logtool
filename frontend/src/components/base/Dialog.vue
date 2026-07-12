@@ -3,10 +3,14 @@
     :model-value="modelValue"
     :title="title"
     :width="width"
+    :align-center="alignCenter"
+    :append-to-body="appendToBody"
     :close-on-click-modal="closeOnClickModal"
     :close-on-press-escape="closeOnPressEscape"
     :show-close="showClose"
     :destroy-on-close="destroyOnClose"
+    class="app-dialog"
+    :class="{ 'app-dialog--unconstrained': unconstrained }"
     @update:model-value="handleUpdate"
     @close="$emit('close')"
     @closed="$emit('closed')"
@@ -38,6 +42,15 @@ export default {
       type: [String, Number],
       default: '50%'
     },
+    /** 垂直居中；配合 design-tokens 视口 max-height 使用 */
+    alignCenter: {
+      type: Boolean,
+      default: true
+    },
+    appendToBody: {
+      type: Boolean,
+      default: true
+    },
     closeOnClickModal: {
       type: Boolean,
       default: true
@@ -51,6 +64,11 @@ export default {
       default: true
     },
     destroyOnClose: {
+      type: Boolean,
+      default: false
+    },
+    /** 为 true 时退出全局视口高度封顶（见 design-tokens --dialog-*） */
+    unconstrained: {
       type: Boolean,
       default: false
     }
@@ -69,5 +87,5 @@ export default {
 </script>
 
 <style scoped>
-/* Base组件不包含样式，样式通过Element Plus Theme Mapping自动应用 */
+/* Base 组件保持轻样式；视口布局由 design-tokens.css 全局 Dialog 规范提供 */
 </style>

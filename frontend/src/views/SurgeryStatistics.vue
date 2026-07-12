@@ -789,7 +789,8 @@ export default {
         // 调用新的API端点，传递已排序的日志条目数据
         const response = await api.surgeryStatistics.analyzeSortedEntries({
           logEntries: analysisData,
-          includePostgreSQLStructure: true
+          includePostgreSQLStructure: true,
+          series_id: store.getters['seriesContext/currentSeriesId'] || undefined
         })
         
         if (response.data.success) {

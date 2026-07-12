@@ -16,13 +16,19 @@
                   :value="item.id"
                 />
               </el-select>
-              <el-select v-model="countryCode" :placeholder="$t('devices.country')" clearable style="width: 140px; margin-left: 8px;" @change="onCountryChange">
-                <el-option v-for="item in countryOptions" :key="item.country_code" :label="item.country_name" :value="item.country_code" />
+              <el-select v-model="countryCode" :placeholder="$t('devices.country')" clearable filterable style="width: 140px; margin-left: 8px;" @change="onCountryChange">
+                <el-option
+                  v-for="item in countryOptions"
+                  :key="item.country_code"
+                  :label="getCountryOptionLabel(item)"
+                  :value="item.country_code"
+                />
               </el-select>
               <el-select
                 v-model="regionCode"
                 :placeholder="countryCode ? $t('devices.regionPlaceholder') : $t('devices.regionPlaceholderFirstCountry')"
                 clearable
+                filterable
                 style="width: 180px; margin-left: 8px;"
                 :disabled="!countryCode"
                 @change="onRegionChange"
@@ -188,13 +194,19 @@
           <div class="action-bar">
             <div class="search-section">
               <el-input v-model="hospitalSearch" :placeholder="$t('devices.searchHospitalPlaceholder')" style="width: 300px" clearable @input="handleHospitalSearch" />
-              <el-select v-model="hospitalCountryCode" :placeholder="$t('devices.country')" clearable style="width: 140px; margin-left: 8px;" @change="handleHospitalSearch">
-                <el-option v-for="item in countryOptions" :key="item.country_code" :label="item.country_name" :value="item.country_code" />
+              <el-select v-model="hospitalCountryCode" :placeholder="$t('devices.country')" clearable filterable style="width: 140px; margin-left: 8px;" @change="handleHospitalSearch">
+                <el-option
+                  v-for="item in countryOptions"
+                  :key="item.country_code"
+                  :label="getCountryOptionLabel(item)"
+                  :value="item.country_code"
+                />
               </el-select>
               <el-select
                 v-model="hospitalRegionCode"
                 :placeholder="hospitalCountryCode ? $t('devices.regionPlaceholder') : $t('devices.regionPlaceholderFirstCountry')"
                 clearable
+                filterable
                 style="width: 180px; margin-left: 8px;"
                 :disabled="!hospitalCountryCode"
                 @change="handleHospitalSearch"
@@ -246,7 +258,7 @@
       </el-tabs>
     </el-card>
 
-    <el-dialog v-model="showEdit" :title="editing ? $t('devices.editDevice') : $t('devices.addDevice')" width="800px" class="management-dialog">
+    <el-dialog v-model="showEdit" :title="editing ? $t('devices.editDevice') : $t('devices.addDevice')" width="800px" class="app-dialog management-dialog" align-center>
       <el-tabs v-model="activeTab" v-if="editing">
         <el-tab-pane :label="$t('devices.tabBasicInfo')" name="basic">
           <el-form :model="form" label-width="110px" :rules="rules" ref="formRef">
@@ -279,28 +291,6 @@
                 </el-form-item>
               </el-col>
             </el-row>
-            <el-form-item :label="$t('devices.country')">
-              <el-select
-                v-model="form.country_code"
-                :placeholder="$t('devices.countryFilterPlaceholder')"
-                clearable
-                style="width: 100%"
-                @change="onDeviceFormCountryChange"
-              >
-                <el-option v-for="item in countryOptions" :key="item.country_code" :label="item.country_name" :value="item.country_code" />
-              </el-select>
-            </el-form-item>
-<el-form-item :label="$t('devices.region')">
-            <el-select
-              v-model="form.region_code"
-              :placeholder="$t('devices.regionFilterPlaceholder')"
-                clearable
-                style="width: 100%"
-                @change="onDeviceFormRegionChange"
-              >
-                <el-option v-for="item in deviceFormRegionOptions" :key="item.region_code" :label="item.region_name || item.region_name_en || item.region_code" :value="item.region_code" />
-              </el-select>
-            </el-form-item>
             <el-form-item :label="$t('devices.hospital')" prop="hospital_id">
               <el-select
                 v-model="form.hospital_id"
@@ -309,12 +299,18 @@
                 clearable
                 reserve-keyword
                 :remote-method="remoteSearchHospitals"
-                :placeholder="$t('devices.selectHospital')"
+                :placeholder="$t('devices.selectHospitalOptional')"
                 style="width: 100%"
                 @change="onDeviceHospitalChange"
               >
                 <el-option v-for="item in hospitalOptions" :key="item.id" :label="formatHospitalDisplayName(item)" :value="item.id" />
               </el-select>
+            </el-form-item>
+            <el-form-item :label="$t('devices.country')">
+              <el-input :model-value="selectedHospitalCountryLabel" disabled :placeholder="$t('devices.countryFromHospitalHint')" />
+            </el-form-item>
+            <el-form-item :label="$t('devices.region')">
+              <el-input :model-value="selectedHospitalRegionLabel" disabled :placeholder="$t('devices.regionFromHospitalHint')" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -441,28 +437,6 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item :label="$t('devices.country')">
-          <el-select
-            v-model="form.country_code"
-            :placeholder="$t('devices.countryFilterPlaceholder')"
-            clearable
-            style="width: 100%"
-            @change="onDeviceFormCountryChange"
-          >
-            <el-option v-for="item in countryOptions" :key="item.country_code" :label="item.country_name" :value="item.country_code" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('devices.region')">
-            <el-select
-              v-model="form.region_code"
-              :placeholder="$t('devices.regionFilterPlaceholder')"
-            clearable
-            style="width: 100%"
-            @change="onDeviceFormRegionChange"
-          >
-            <el-option v-for="item in deviceFormRegionOptions" :key="item.region_code" :label="item.region_name || item.region_name_en || item.region_code" :value="item.region_code" />
-          </el-select>
-        </el-form-item>
         <el-form-item :label="$t('devices.hospital')" prop="hospital_id">
           <el-select
             v-model="form.hospital_id"
@@ -471,12 +445,18 @@
             clearable
             reserve-keyword
             :remote-method="remoteSearchHospitals"
-            :placeholder="$t('devices.selectHospital')"
+            :placeholder="$t('devices.selectHospitalOptional')"
             style="width: 100%"
             @change="onDeviceHospitalChange"
           >
             <el-option v-for="item in hospitalOptions" :key="item.id" :label="formatHospitalDisplayName(item)" :value="item.id" />
           </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('devices.country')">
+          <el-input :model-value="selectedHospitalCountryLabel" disabled :placeholder="$t('devices.countryFromHospitalHint')" />
+        </el-form-item>
+        <el-form-item :label="$t('devices.region')">
+          <el-input :model-value="selectedHospitalRegionLabel" disabled :placeholder="$t('devices.regionFromHospitalHint')" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -486,7 +466,7 @@
     </el-dialog>
 
     <!-- 设备型号编辑对话框 -->
-    <el-dialog v-model="showModelEdit" :title="editingModel ? $t('devices.modelDialogEdit') : $t('devices.modelDialogAdd')" width="500px" class="management-dialog">
+    <el-dialog v-model="showModelEdit" :title="editingModel ? $t('devices.modelDialogEdit') : $t('devices.modelDialogAdd')" width="500px" class="app-dialog management-dialog" align-center>
       <el-form :model="modelForm" label-width="100px" ref="modelFormRef">
         <el-form-item :label="$t('devices.deviceSeries')" prop="series_id" :rules="[{ required: true, message: t('devices.rules.seriesRequired'), trigger: 'change' }]">
           <el-select v-model="modelForm.series_id" style="width: 100%" clearable :placeholder="$t('devices.selectDeviceSeries')">
@@ -511,7 +491,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showHospitalEdit" :title="editingHospital ? $t('devices.hospitalDialogEdit') : $t('devices.hospitalDialogAdd')" width="560px" class="management-dialog">
+    <el-dialog v-model="showHospitalEdit" :title="editingHospital ? $t('devices.hospitalDialogEdit') : $t('devices.hospitalDialogAdd')" width="560px" class="app-dialog management-dialog" align-center>
       <el-form :model="hospitalForm" label-width="100px" ref="hospitalFormRef">
         <el-form-item :label="$t('devices.hospitalCode')" prop="code_suffix" :rules="hospitalCodeRules">
           <el-input
@@ -532,14 +512,26 @@
           <el-input v-model="hospitalForm.hospital_name_std" />
         </el-form-item>
         <el-form-item :label="$t('devices.country')" prop="country_code" :rules="[{ required: true, message: t('devices.rules.countryRequired'), trigger: 'change' }]">
-          <el-select v-model="hospitalForm.country_code" :placeholder="$t('devices.selectCountry')" style="width: 100%" @change="onHospitalFormCountryChange">
-            <el-option v-for="item in countryOptions" :key="item.country_code" :label="item.country_name" :value="item.country_code" />
+          <el-select
+            v-model="hospitalForm.country_code"
+            :placeholder="$t('devices.selectCountry')"
+            filterable
+            style="width: 100%"
+            @change="onHospitalFormCountryChange"
+          >
+            <el-option
+              v-for="item in countryOptions"
+              :key="item.country_code"
+              :label="getCountryOptionLabel(item)"
+              :value="item.country_code"
+            />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('devices.region')" prop="region_code" :rules="hospitalRegionRules">
           <el-select
             v-model="hospitalForm.region_code"
             clearable
+            filterable
             :placeholder="$t('devices.selectRegion')"
             style="width: 100%"
             :disabled="!hospitalForm.country_code || !isChinaCountry"
@@ -618,7 +610,6 @@ export default {
     const hospitalFilterOptions = ref([])
     const hospitalFilterLoading = ref(false)
     const hospitalOptions = ref([])
-    const deviceFormRegionOptions = ref([])
     const hospitalSearchMinLength = 2
     let searchTimer = null
     
@@ -863,6 +854,16 @@ export default {
       }
     }
 
+    const getCountryOptionLabel = (item) => {
+      if (!item) return ''
+      const name = String(item.country_name || item.country_name_en || '').trim()
+      const code = String(item.country_code || '').trim()
+      if (name && code && name.toUpperCase() !== code.toUpperCase()) {
+        return `${name} (${code})`
+      }
+      return name || code
+    }
+
     const loadCountryOptions = async () => {
       try {
         const res = await api.geo.getCountries()
@@ -934,9 +935,7 @@ export default {
           page: 1,
           limit: 50,
           search: keyword,
-          status: 1,
-          country_code: form.country_code || undefined,
-          region_code: form.region_code || undefined
+          status: 1
         })
         hospitalOptions.value = res.data.hospitals || []
       } catch (error) {
@@ -944,19 +943,30 @@ export default {
       }
     }
 
-    const loadDeviceFormRegionOptions = async (country) => {
-      if (!country) {
-        deviceFormRegionOptions.value = []
-        return
-      }
-      try {
-        const res = await api.geo.getRegions({ country_code: country })
-        deviceFormRegionOptions.value = res.data.regions || []
-      } catch (error) {
-        console.warn('加载设备表单区域失败:', error?.message || error)
-        deviceFormRegionOptions.value = []
-      }
-    }
+    const selectedHospital = computed(() => {
+      if (!form.hospital_id) return null
+      return hospitalOptions.value.find(item => item.id === form.hospital_id) || null
+    })
+
+    const selectedHospitalCountryLabel = computed(() => {
+      const hospital = selectedHospital.value
+      if (!hospital?.country_code) return ''
+      const matched = countryOptions.value.find(item => item.country_code === hospital.country_code)
+      return getCountryOptionLabel(matched || {
+        country_code: hospital.country_code,
+        country_name: hospital.country_code
+      })
+    })
+
+    const selectedHospitalRegionLabel = computed(() => {
+      const hospital = selectedHospital.value
+      if (!hospital) return ''
+      return hospital.Region?.region_name
+        || hospital.region_name
+        || hospital.region_name_en
+        || hospital.region_code
+        || ''
+    })
 
     const onCountryChange = async (value) => {
       if (!value) {
@@ -1017,14 +1027,14 @@ export default {
           country_code: row.country_code || '',
           region_code: row.region_code || ''
         })
-        loadDeviceFormRegionOptions(form.country_code)
         if (form.hospital_id && row.hospital_name && !hospitalOptions.value.some(item => item.id === form.hospital_id)) {
           hospitalOptions.value = [
             {
               id: form.hospital_id,
               hospital_name_std: row.hospital_name,
               country_code: row.country_code || '',
-              region_code: row.region_code || ''
+              region_code: row.region_code || '',
+              region_name: row.region_name || ''
             },
             ...hospitalOptions.value
           ]
@@ -1042,7 +1052,6 @@ export default {
           country_code: '',
           region_code: ''
         })
-        deviceFormRegionOptions.value = []
         deviceKeys.value = []
         activeTab.value = 'basic'
       }
@@ -1222,13 +1231,6 @@ export default {
       }
     }
 
-    const onDeviceFormCountryChange = async () => {
-      form.region_code = ''
-      form.hospital_id = null
-      hospitalOptions.value = []
-      await loadDeviceFormRegionOptions(form.country_code)
-    }
-
     const onDeviceSeriesChange = (value) => {
       const next = syncDeviceSeriesSelection({
         selectedSeriesId: value,
@@ -1239,18 +1241,16 @@ export default {
       form.device_model = next.device_model
     }
 
-    const onDeviceFormRegionChange = () => {
-      form.hospital_id = null
-      hospitalOptions.value = []
-    }
-
     const onDeviceHospitalChange = (hospitalId) => {
-      if (!hospitalId) return
+      if (!hospitalId) {
+        form.country_code = ''
+        form.region_code = ''
+        return
+      }
       const selected = hospitalOptions.value.find(item => item.id === hospitalId)
       if (!selected) return
       form.country_code = selected.country_code || ''
       form.region_code = selected.region_code || ''
-      loadDeviceFormRegionOptions(form.country_code)
     }
 
     // 使用删除确认 composable pattern
@@ -1671,12 +1671,14 @@ export default {
       hospitalId,
       countryOptions,
       regionOptions,
+      getCountryOptionLabel,
       hospitalFilterOptions,
       hospitalFilterLoading,
       hospitalFilterPlaceholder,
       hospitalFilterNoDataText,
       hospitalOptions,
-      deviceFormRegionOptions,
+      selectedHospitalCountryLabel,
+      selectedHospitalRegionLabel,
       filteredDeviceModelOptions,
       loading,
       saving,
@@ -1758,9 +1760,7 @@ export default {
       loadRegionOptions,
       remoteSearchHospitalsForFilter,
       remoteSearchHospitals,
-      onDeviceFormCountryChange,
       onDeviceSeriesChange,
-      onDeviceFormRegionChange,
       onDeviceHospitalChange,
       onCountryChange,
       onRegionChange,
@@ -1925,14 +1925,5 @@ code {
   margin-top: 4px;
 }
 
-:deep(.management-dialog) {
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-:deep(.management-dialog .el-dialog__body) {
-  overflow-y: auto;
-  max-height: calc(80vh - 140px);
-}
+/* Dialog 视口布局由 design-tokens 全局 --dialog-* 提供 */
 </style>

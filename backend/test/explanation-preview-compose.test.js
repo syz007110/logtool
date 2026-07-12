@@ -36,8 +36,8 @@ test('composeExplanationPreviewFromI18n uses prefixSourceRaw for full-code arm/j
     t
   });
   assert.match(out.explanation, /模板/);
-  assert.ok(out.prefixRaw && out.prefixRaw.includes('2\u53f7\u5de5\u5177\u81c2'));
-  assert.ok(out.prefixRaw.includes('1\u5173\u8282'));
+  assert.ok(out.prefixRaw && out.prefixRaw.includes('toolArm2'));
+  assert.ok(out.prefixRaw.includes('joint:1'));
 });
 
 test('composeExplanationPreviewFromI18n returns prefix without template when code resolves', () => {
@@ -55,4 +55,21 @@ test('composeExplanationPreviewFromI18n returns prefix without template when cod
   assert.equal(out.explanation, null);
   assert.ok(out.prefixRaw && String(out.prefixRaw).length > 0);
   assert.ok(typeof out.prefix === 'string' && out.prefix.length > 0);
+});
+
+test('composeExplanationPreviewFromI18n uses seriesCode with shared prefix profile', () => {
+  const t = (k) => k;
+  const out = composeExplanationPreviewFromI18n({
+    rawCode: '141010A',
+    seriesCode: 'SA',
+    subsystemFromDb: '1',
+    typeCodeFromDb: '0X010A',
+    template: '模板',
+    param1: '',
+    param2: '',
+    param3: '',
+    param4: '',
+    t
+  });
+  assert.ok(out.prefixRaw && out.prefixRaw.includes('toolArm2'));
 });

@@ -15,6 +15,16 @@ const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const SurgeryAnalyzer = require('../services/surgeryAnalyzer');
 const { Op, Sequelize } = require('sequelize');
 const { userHasDbPermission } = require('../middlewares/permission');
+const { CAPABILITIES } = require('../seriesStrategies/capabilities');
+const { assertSeriesCapability } = require('../seriesStrategies/registry');
+const {
+  resolveSeriesCodeFromDeviceId,
+  resolveSeriesCodeFromId
+} = require('../seriesStrategies/resolveSeriesCode');
+const {
+  sendSeriesFeatureUnsupported,
+  isSeriesFeatureUnsupportedError
+} = require('../seriesStrategies/errors');
 
 // Normalize various inputs to raw local time string (YYYY-MM-DD HH:mm:ss).
 function formatRawDateTime(dateLike) {
@@ -926,6 +936,42 @@ const getAllSurgeryStatistics = async (req, res) => {
 };
 
 // Analyze already-sorted log entries from frontend.
+async function assertSurgeryAnalyzeForRequest(req, { deviceId, logIds } = {}) {
+  let seriesId = req.body?.series_id || req.body?.seriesId || req.query?.series_id;
+  let resolvedDeviceId = deviceId || req.body?.deviceId || req.body?.device_id || null;
+
+  if (!resolvedDeviceId && Array.isArray(logIds) && logIds.length) {
+    const firstLog = await Log.findByPk(logIds[0], { attributes: ['device_id'] });
+    resolvedDeviceId = firstLog?.device_id || null;
+  }
+
+  let seriesCode = null;
+  if (resolvedDeviceId) {
+    seriesCode = await resolveSeriesCodeFromDeviceId(resolvedDeviceId);
+  }
+  if (!seriesCode) {
+    seriesCode = await resolveSeriesCodeFromId(seriesId);
+  }
+  if (!seriesCode) {
+    const err = new Error('无法解析设备系列，请选择系列或绑定设备系列');
+    err.statusCode = 400;
+    err.code = 'SERIES_CONTEXT_REQUIRED';
+    throw err;
+  }
+  assertSeriesCapability(seriesCode, CAPABILITIES.SURGERY_ANALYZE);
+  return seriesCode;
+}
+
+function handleSeriesCapabilityError(res, err) {
+  if (isSeriesFeatureUnsupportedError(err)) {
+    return sendSeriesFeatureUnsupported(res, err);
+  }
+  return res.status(err.statusCode || 400).json({
+    success: false,
+    message: err.message || '系列能力校验失败'
+  });
+}
+
 const analyzeSortedLogEntries = async (req, res) => {
   try {
     const { logEntries } = req.body;
@@ -950,6 +996,18 @@ const analyzeSortedLogEntries = async (req, res) => {
         success: false,
         message: 'Invalid log entry payload, required fields are missing'
       });
+    }
+
+    try {
+      const logIdsFromEntries = Array.from(
+        new Set((logEntries || []).map((e) => e.log_id).filter(Boolean))
+      );
+      await assertSurgeryAnalyzeForRequest(req, {
+        deviceId: req.body?.deviceId || req.body?.device_id || null,
+        logIds: logIdsFromEntries.length ? logIdsFromEntries : null
+      });
+    } catch (capErr) {
+      return handleSeriesCapabilityError(res, capErr);
     }
 
     // Run analysis using the unified analyzer.
@@ -1116,6 +1174,16 @@ const analyzeByLogIds = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No logs found' });
     }
 
+    try {
+      const deviceFromLogs = selectedLogs.find((l) => l.device_id)?.device_id || null;
+      await assertSurgeryAnalyzeForRequest(req, {
+        deviceId: deviceFromLogs,
+        logIds: numericLogIds
+      });
+    } catch (capErr) {
+      return handleSeriesCapabilityError(res, capErr);
+    }
+
     const groups = groupLogsByDeviceContinuity(selectedLogs);
     const jobs = [];
     const requestId = `surgery-req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1224,6 +1292,12 @@ const analyzeByDeviceRange = async (req, res) => {
     }
     if (start.getTime() > end.getTime()) {
       return res.status(400).json({ success: false, message: 'Invalid time range' });
+    }
+
+    try {
+      await assertSurgeryAnalyzeForRequest(req, { deviceId: String(deviceId) });
+    } catch (capErr) {
+      return handleSeriesCapabilityError(res, capErr);
     }
 
     const logs = await Log.findAll({

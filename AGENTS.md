@@ -42,6 +42,7 @@ This repository uses role-based agents to constrain implementation quality, chan
   - `frontend/src/assets/styles/element-plus-theme.css`
 - 设计系统参考：
   - `frontend/src/assets/styles/DESIGN-SYSTEM.md`
+- 弹窗布局：由 `design-tokens.css` 中 `.el-dialog` / `--dialog-*` Token 统一约束（高度随内容，仅封顶；新弹窗优先 `BaseDialog` 或 `align-center`）
 
 ### 样式边界约束
 

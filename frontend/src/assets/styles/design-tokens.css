@@ -297,6 +297,12 @@
   --radius-full: 9999px;
   /* 完全圆角 - 用于圆形按钮、头像等 */
 
+  /* Dialog 视口布局 Token：高度随内容；封顶须扣掉默认顶边距，避免 15vh+90vh 撑出视口 */
+  --dialog-viewport-gap: 5vh;
+  --dialog-max-height: calc(100vh - 2 * var(--dialog-viewport-gap));
+  --dialog-max-height-dvh: calc(100dvh - 2 * var(--dialog-viewport-gap));
+  --dialog-file-list-max-height: min(240px, 30vh);
+
   /* shadow (Base Tokens) */
   --shadow-xs: rgba(0, 0, 0, 0.05000000074505806);
   --shadow-lg-1: rgba(0, 0, 0, 0.05000000074505806);
@@ -843,19 +849,93 @@
   border-radius: var(--radius-md) !important;
 }
 
-/* Element Plus 对话框圆角 */
-.el-dialog {
+/* Element Plus 对话框：高度随内容；overlay 居中 + max-height 扣边距，避免顶边距+高度超出视口 */
+.el-overlay-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.el-dialog:not(.is-fullscreen) {
   border-radius: var(--radius-md) !important;
+  display: flex !important;
+  flex-direction: column;
+  height: auto;
+  max-height: var(--dialog-max-height);
+  max-height: var(--dialog-max-height-dvh);
+  /* 取消 EP 默认 margin-top: 15vh；由 overlay flex 居中，避免顶边距+高度超出页面 */
+  margin: 0 auto !important;
+  overflow: hidden;
+}
+
+.el-dialog.is-fullscreen {
+  border-radius: 0 !important;
+  margin: 0 !important;
+  overflow: auto;
 }
 
 .el-dialog__header {
+  flex-shrink: 0;
   border-top-left-radius: var(--radius-md) !important;
   border-top-right-radius: var(--radius-md) !important;
 }
 
 .el-dialog__body {
+  /* 不 grow：短内容不撑高；可 shrink：触顶后由 body 滚动 */
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* 有 footer 时圆角落在 footer；无 footer 时仍给 body 底圆角 */
+.el-dialog:has(.el-dialog__footer) .el-dialog__body {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.el-dialog:not(:has(.el-dialog__footer)) .el-dialog__body {
   border-bottom-left-radius: var(--radius-md) !important;
   border-bottom-right-radius: var(--radius-md) !important;
+}
+
+.el-dialog__footer {
+  flex-shrink: 0;
+  border-bottom-left-radius: var(--radius-md) !important;
+  border-bottom-right-radius: var(--radius-md) !important;
+}
+
+/* 退出视口封顶（预览类超大内容等少数场景） */
+.el-dialog.app-dialog--unconstrained {
+  max-height: none;
+  overflow: visible;
+}
+
+.el-dialog.app-dialog--unconstrained .el-dialog__body {
+  overflow: visible;
+}
+
+/* 弹窗内文件列表滚动区（上传类弹窗复用） */
+.app-dialog-file-list .file-items {
+  max-height: var(--dialog-file-list-max-height);
+  overflow-y: auto;
+}
+
+.app-dialog-file-list .file-item-icon {
+  flex-shrink: 0;
+  margin-right: 8px;
+  color: rgb(var(--text-secondary));
+}
+
+.app-dialog-file-list .file-item-remove.el-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+
+.app-dialog-file-list .file-item-remove .el-icon {
+  margin: 0;
 }
 
 /* =========================================

@@ -512,6 +512,8 @@
       v-model="showUploadDialog"
       :title="$t('logs.uploadDialog.title')"
       width="700px"
+      class="app-dialog log-upload-dialog"
+      align-center
       append-to-body
       @closed="handleUploadDialogClosed"
     >
@@ -553,7 +555,7 @@
       </el-upload>
 
       <!-- 自定义文件列表 -->
-      <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list">
+      <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list app-dialog-file-list">
         <div class="file-list-header">
           <span>{{ $t('logs.selectedFiles') }} ({{ uploadFileList.length }})</span>
             <el-button type="default" size="small" @click="clearUpload" :disabled="uploading">
@@ -567,10 +569,11 @@
             :key="index" 
             class="file-item"
           >
-            <el-icon><Document /></el-icon>
+            <el-icon class="file-item-icon"><Document /></el-icon>
             <span class="file-name">{{ file.name || file.originalname }}</span>
             <span class="file-size">{{ file.sizeText }}</span>
             <el-button 
+              class="file-item-remove"
               type="danger"
               plain
               size="small"
@@ -599,19 +602,9 @@
               <el-icon><Key /></el-icon>
             </template>
           </el-input>
-          
-          <el-button 
-            type="default"
-            size="small" 
-            @click="autoFillDeviceId"
-            :disabled="!decryptKey.trim()"
-          >
-            <el-icon><MagicStick /></el-icon>
-            {{ $t('logs.autoFillDeviceId') }}
-          </el-button>
-          
+
           <span class="key-separator">{{ $t('logs.or') }}</span>
-          
+
           <el-upload
             ref="keyUploadRef"
             :auto-upload="false"
@@ -655,22 +648,10 @@
               <el-icon><Monitor /></el-icon>
             </template>
           </el-input>
-          
-          <el-button 
-            type="default"
-            size="small" 
-            @click="autoFillKey"
-            :disabled="!deviceId.trim()"
-          >
-            <el-icon><MagicStick /></el-icon>
-            {{ $t('logs.autoFillKey') }}
-          </el-button>
         </div>
-        
+
         <div v-if="deviceIdError" class="device-error">
-          <el-tag type="danger" size="small">
-            {{ deviceIdError }}
-          </el-tag>
+          <el-tag type="danger" size="small">{{ deviceIdError }}</el-tag>
         </div>
       </div>
 
@@ -722,7 +703,14 @@
     </el-dialog>
 
     <!-- 日志查看弹窗 -->
-    <el-dialog v-model="showEntriesDialog" :title="$t('logs.viewLogs')" width="900px">
+    <el-dialog
+      v-model="showEntriesDialog"
+      :title="$t('logs.viewLogs')"
+      width="900px"
+      class="app-dialog"
+      align-center
+      append-to-body
+    >
       <el-table :data="logEntries" style="width: 100%">
         <el-table-column prop="timestamp" :label="$t('logs.timestamp')" width="180" />
         <el-table-column prop="error_code" :label="$t('errorCodes.code')" width="100" />
@@ -1931,9 +1919,20 @@ export default {
       }
     }
 
+    const DEVICE_ID_FORMAT = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
+    const KEY_FORMAT = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+    let prefillModelSeq = 0
+    let autoFillKeySeq = 0
+    let autoFillDeviceIdSeq = 0
+    let deviceIdAutoFillTimer = null
+    let keyAutoFillTimer = null
+    // 程序写入密钥/编号时置位，避免双向 watch 互触发覆盖用户刚输入的一侧
+    let autoFillApplying = false
+
     const prefillsUploadDeviceModel = async (targetDeviceId) => {
       const did = String(targetDeviceId || '').trim()
       if (!did || !currentSeriesId.value) return
+      const seq = ++prefillModelSeq
       try {
         const res = await api.devices.getList({
           page: 1,
@@ -1941,13 +1940,95 @@ export default {
           search: did,
           series_id: currentSeriesId.value
         })
+        if (seq !== prefillModelSeq) return
         const matched = (res.data?.devices || []).find(item => String(item.device_id || '') === did)
         const model = String(matched?.device_model || '').trim()
         if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
           uploadDeviceModel.value = model
+          uploadDeviceModelError.value = ''
         }
       } catch (_) { }
     }
+
+    // 按设备编号同步密钥（匹配到则覆盖，未匹配则保持现状）
+    const syncKeyFromDeviceId = async (targetDeviceId) => {
+      if (!showUploadDialog.value) return
+      const did = String(targetDeviceId || '').trim()
+      if (!did || !DEVICE_ID_FORMAT.test(did)) return
+      const seq = ++autoFillKeySeq
+      try {
+        const response = await store.dispatch('logs/autoFillKey', did)
+        if (seq !== autoFillKeySeq) return
+        const key = String(response?.data?.key || '').trim()
+        if (!key) return
+        autoFillApplying = true
+        decryptKey.value = key
+        keyError.value = ''
+        await nextTick()
+        autoFillApplying = false
+      } catch (_) {
+        autoFillApplying = false
+      }
+    }
+
+    // 按密钥同步设备编号（匹配到则覆盖，并补型号）
+    const syncDeviceIdFromKey = async (targetKey) => {
+      if (!showUploadDialog.value) return
+      const key = String(targetKey || '').trim()
+      if (!key || !KEY_FORMAT.test(key)) return
+      const seq = ++autoFillDeviceIdSeq
+      try {
+        const response = await store.dispatch('logs/autoFillDeviceId', key)
+        if (seq !== autoFillDeviceIdSeq) return
+        const did = String(response?.data?.device_id || '').trim()
+        if (!did) return
+        autoFillApplying = true
+        deviceId.value = did
+        deviceIdError.value = ''
+        await nextTick()
+        autoFillApplying = false
+        if (currentSeriesId.value) {
+          await prefillsUploadDeviceModel(did)
+        }
+      } catch (_) {
+        autoFillApplying = false
+      }
+    }
+
+    // 用户修改设备编号 → 同步密钥 + 型号
+    watch(deviceId, (next) => {
+      if (autoFillApplying) return
+      if (deviceIdAutoFillTimer) {
+        clearTimeout(deviceIdAutoFillTimer)
+        deviceIdAutoFillTimer = null
+      }
+      if (!showUploadDialog.value) return
+      const did = String(next || '').trim()
+      if (!did || !DEVICE_ID_FORMAT.test(did)) return
+      deviceIdAutoFillTimer = setTimeout(() => {
+        deviceIdAutoFillTimer = null
+        if (currentSeriesId.value) {
+          prefillsUploadDeviceModel(did)
+        }
+        syncKeyFromDeviceId(did)
+      }, 400)
+    })
+
+    // 用户修改密钥 → 同步设备编号（再带型号）
+    watch(decryptKey, (next) => {
+      if (autoFillApplying) return
+      if (keyAutoFillTimer) {
+        clearTimeout(keyAutoFillTimer)
+        keyAutoFillTimer = null
+      }
+      if (!showUploadDialog.value) return
+      const key = String(next || '').trim()
+      if (!key || !KEY_FORMAT.test(key)) return
+      keyAutoFillTimer = setTimeout(() => {
+        keyAutoFillTimer = null
+        syncDeviceIdFromKey(key)
+      }, 400)
+    })
 
     watch(currentSeriesId, async (nextId, prevId) => {
       if (!nextId || nextId === prevId) return
@@ -1956,6 +2037,10 @@ export default {
       currentPage.value = 1
       if (showUploadDialog.value) {
         await loadUploadDeviceModels()
+        const did = String(deviceId.value || '').trim()
+        if (did && DEVICE_ID_FORMAT.test(did)) {
+          await prefillsUploadDeviceModel(did)
+        }
       }
       await loadDeviceGroups({ force: true })
     })
@@ -2019,8 +2104,7 @@ export default {
       }
       
       // 验证密钥格式
-      const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
-      if (!macRegex.test(decryptKey.value)) {
+      if (!KEY_FORMAT.test(decryptKey.value)) {
         ElMessage.error(t('logs.messages.invalidKeyFormat'))
         return
       }
@@ -2032,8 +2116,7 @@ export default {
       
         // 验证设备编号格式
       if (deviceId.value && deviceId.value !== '0000-00') {
-        const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
-        if (!deviceIdRegex.test(deviceId.value)) {
+        if (!DEVICE_ID_FORMAT.test(deviceId.value)) {
           ElMessage.error(t('logs.messages.invalidDeviceIdFormat'))
           return
         }
@@ -2099,8 +2182,7 @@ export default {
         scheduleUpdate(() => {
           const content = (e.target.result || '').trim()
           // 验证文件内容是否为MAC地址格式
-          const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
-          if (!macRegex.test(content)) {
+          if (!KEY_FORMAT.test(content)) {
             ElMessage.error(t('logs.messages.invalidKeyFileFormat'))
             return
           }
@@ -2108,6 +2190,7 @@ export default {
           keyFileName.value = file.name
           keyError.value = '' // 清除错误提示
           ElMessage.success(t('logs.messages.keyFileReadSuccess'))
+          // decryptKey watch 会在编号为空时自动补设备编号
         })
       }
       reader.readAsText(file.raw)
@@ -2268,6 +2351,14 @@ export default {
         if (detailWsRefreshTimer) {
           clearTimeout(detailWsRefreshTimer)
           detailWsRefreshTimer = null
+        }
+        if (deviceIdAutoFillTimer) {
+          clearTimeout(deviceIdAutoFillTimer)
+          deviceIdAutoFillTimer = null
+        }
+        if (keyAutoFillTimer) {
+          clearTimeout(keyAutoFillTimer)
+          keyAutoFillTimer = null
         }
         if (statusUpdateTimer) {
           clearInterval(statusUpdateTimer)
@@ -2863,52 +2954,18 @@ export default {
     
 
     
-    // 自动填充密钥
-    const autoFillKey = async () => {
-      try {
-        const response = await store.dispatch('logs/autoFillKey', deviceId.value)
-        if (response.data.key) {
-          decryptKey.value = response.data.key
-          ElMessage.success(t('logs.messages.keyAutoFilled'))
-        } else {
-          ElMessage.warning(t('logs.messages.deviceKeyNotFound'))
-        }
-      } catch (error) {
-        console.error('自动填充密钥错误:', error)
-        notifyApiError(error, t('logs.messages.keyAutoFillFailed'))
-      }
-    }
-
     // 验证密钥格式
     const validateKeyFormat = () => {
-      const macRegex = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
-      if (decryptKey.value && !macRegex.test(decryptKey.value)) {
+      if (decryptKey.value && !KEY_FORMAT.test(decryptKey.value)) {
         keyError.value = t('logs.messages.invalidKeyFormat')
       } else {
         keyError.value = ''
       }
     }
 
-    // 自动填充设备编号
-    const autoFillDeviceId = async () => {
-      try {
-        const response = await store.dispatch('logs/autoFillDeviceId', decryptKey.value)
-        if (response.data.device_id) {
-          deviceId.value = response.data.device_id
-          ElMessage.success(t('logs.messages.deviceIdAutoFilled'))
-        } else {
-          ElMessage.warning(t('logs.messages.keyDeviceNotFound'))
-        }
-      } catch (error) {
-        console.error('自动填充设备编号错误:', error)
-        notifyApiError(error, t('logs.messages.deviceIdAutoFillFailed'))
-      }
-    }
-
     // 验证设备编号格式
     const validateDeviceIdFormat = () => {
-      const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
-      if (deviceId.value && !deviceIdRegex.test(deviceId.value)) {
+      if (deviceId.value && !DEVICE_ID_FORMAT.test(deviceId.value)) {
         deviceIdError.value = t('logs.messages.invalidDeviceIdFormat')
       } else {
         deviceIdError.value = ''
@@ -3024,9 +3081,7 @@ export default {
       canReparseLog,
       keyError,
       deviceIdError,
-      autoFillKey,
       validateKeyFormat,
-      autoFillDeviceId,
       validateDeviceIdFormat,
       
       // 设备分组相关
@@ -3387,43 +3442,6 @@ export default {
   gap: 15px;
 }
 
-.key-input-section {
-  margin-top: 15px;
-}
-
-.key-input-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.key-separator {
-  color: #666;
-  font-size: 14px;
-}
-
-.key-file-info {
-  margin-top: 10px;
-}
-
-.key-error {
-  margin-top: 10px;
-}
-
-.device-input-section {
-  margin-top: 15px;
-}
-
-.device-input-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.device-error {
-  margin-top: 10px;
-}
-
 /* .list-card 样式已移除，使用 .main-card 替代 */
 
 .parsing-tip {
@@ -3511,11 +3529,6 @@ export default {
   font-weight: 500;
 }
 
-.file-items {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
 .file-item {
   display: flex;
   align-items: center;
@@ -3530,11 +3543,6 @@ export default {
 
 .file-item:hover {
   background-color: rgb(var(--bg-secondary));
-}
-
-.file-item .el-icon {
-  margin-right: 8px;
-  color: rgb(var(--text-secondary));
 }
 
 .file-name {

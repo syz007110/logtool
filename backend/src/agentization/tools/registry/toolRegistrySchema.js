@@ -118,13 +118,20 @@ function validateArgumentsAgainstParameters(parameters, args = {}, runtime = {})
     }
   }
 
-  for (const group of legacyAnyOfGroupsFromParameters(schema)) {
-    if (!Array.isArray(group) || group.length === 0) continue;
-    const ok = group.some((key) => !(out[key] == null || String(out[key]).trim() === ''));
-    if (!ok) {
-      const err = new Error(`missing anyOfRequired slots: ${group.join('|')}`);
+  // JSON Schema anyOf: at least one branch must be fully satisfied (all required keys present).
+  const anyOfBranches = asArray(schema.anyOf)
+    .map((entry) => asArray(entry?.required).map((x) => String(x || '').trim()).filter(Boolean))
+    .filter((group) => group.length > 0);
+  if (anyOfBranches.length > 0) {
+    const matched = anyOfBranches.some((group) => group.every((key) => !(
+      out[key] == null || String(out[key]).trim() === ''
+    )));
+    if (!matched) {
+      const err = new Error(
+        `missing anyOfRequired slots: ${anyOfBranches.map((g) => g.join('+')).join('|')}`
+      );
       err.code = 'MISSING_ANYOF_SLOT';
-      err.group = group;
+      err.group = anyOfBranches;
       throw err;
     }
   }

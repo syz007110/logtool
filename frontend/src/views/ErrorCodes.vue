@@ -170,6 +170,8 @@
       v-model="showExportDialog"
       :title="$t('errorCodes.exportCSVDialogTitle')"
       width="680px"
+      class="app-dialog"
+      align-center
       :close-on-click-modal="false"
     >
       <el-form label-width="140px">
@@ -213,7 +215,8 @@
       width="760px"
       :close-on-click-modal="false"
       :destroy-on-close="true"
-      class="error-code-dialog"
+      class="app-dialog error-code-dialog"
+      align-center
       @closed="handleAddDialogClosed"
     >
       <template #header>
@@ -440,6 +443,8 @@
       v-model="showQueryDialog"
       :title="$t('errorCodes.queryCode')"
       width="720px"
+      class="app-dialog"
+      align-center
       :close-on-click-modal="false"
     >
       <el-form :model="queryForm" label-width="140px">
@@ -724,7 +729,7 @@
       </div>
     </el-drawer>
 
-    <el-dialog v-model="techPreviewVisible" width="60%" :close-on-click-modal="true">
+    <el-dialog v-model="techPreviewVisible" width="60%" class="app-dialog" align-center :close-on-click-modal="true">
       <img :src="techPreviewUrl" alt="preview" class="preview-image" />
     </el-dialog>
   </div>
@@ -739,8 +744,8 @@ import { useI18n } from 'vue-i18n'
 import { getTableHeight } from '@/utils/tableHeight'
 import { useDeleteConfirm } from '@/composables/useDeleteConfirm'
 import api from '../api'
-import prefixKeyMap from '../../../shared/i18n/prefixKeyMap.json'
 import categoryKeyMap from '../../../shared/i18n/categoryKeyMap.json'
+import { translatePrefixTokens } from '@/utils/translatePrefixTokens'
 import subsystemCodes from '../../../shared/i18n/subsystemCodes.json'
 // Base 组件已移除，直接使用 Element Plus 组件
 // Shared 组件
@@ -2230,43 +2235,20 @@ export default {
       }
     }
 
-    // 将中文前缀转换为英文键名（使用配置文件中的映射）
-    const getPrefixKey = (chinesePrefix) => {
-      const raw = String(chinesePrefix || '').trim()
-      if (!raw) return raw
-      const compact = raw.replace(/\s+/g, '')
-      return prefixKeyMap[raw] || prefixKeyMap[compact] || raw
-    }
-    
-    // 翻译前缀文本（根据系统语言）
-    const translatePrefix = (prefix) => {
-      if (!prefix) return ''
-      // 尝试直接翻译整个前缀（先转换为英文键名）
-      const prefixKey = getPrefixKey(prefix)
-      const directTranslation = t(`shared.prefixLabels.${prefixKey}`)
-      if (directTranslation && directTranslation !== `shared.prefixLabels.${prefixKey}`) {
-        return directTranslation
-      }
-      // 如果直接翻译失败，尝试分段翻译（处理复合前缀，如 "远程端 左主控制臂"）
-      const parts = prefix.split(/\s+/)
-      const translatedParts = parts.map(part => {
-        const partKey = getPrefixKey(part)
-        const translated = t(`shared.prefixLabels.${partKey}`)
-        return (translated && translated !== `shared.prefixLabels.${partKey}`) ? translated : part
-      })
-      return translatedParts.join(' ')
-    }
-    
+    // 仅翻译 prefix_raw 语义 token；已译好的 preview.prefix 直接使用
+    const translatePrefix = (prefixTokens) => translatePrefixTokens(prefixTokens, t)
+
     // 构造与释义相同前缀的"解释"文本：前缀 + 用户提示/操作信息
     const buildPrefixedExplanation = (preview, record) => {
       if (!preview) return '-'
-      const backendPrefix = preview?.prefix || ''
       const main = [record?.user_hint, record?.operation].filter(Boolean).join(' ')
       const text = main || '-'
-      if (backendPrefix) {
-        // 翻译前缀
-        const translatedPrefix = translatePrefix(backendPrefix)
-        return `${translatedPrefix} ${text}`
+      const tokens = preview?.prefix_raw || ''
+      if (tokens) {
+        return `${translatePrefix(tokens)} ${text}`
+      }
+      if (preview?.prefix) {
+        return `${preview.prefix} ${text}`
       }
       return text
     }

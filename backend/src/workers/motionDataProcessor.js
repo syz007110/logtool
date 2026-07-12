@@ -7,6 +7,10 @@ const zlib = require('zlib');
 const crypto = require('crypto');
 const MotionDataFile = require('../models/motion_data_file');
 const motionStorage = require('../config/motionDataStorage');
+const { CAPABILITIES } = require('../seriesStrategies/capabilities');
+const { assertSeriesCapability } = require('../seriesStrategies/registry');
+const { resolveSeriesCodeFromDeviceId } = require('../seriesStrategies/resolveSeriesCode');
+const { isSeriesFeatureUnsupportedError } = require('../seriesStrategies/errors');
 
 const UPLOAD_TEMP_DIR = path.resolve(__dirname, '../../uploads/temp');
 const MOTION_DATA_RESULT_DIR = path.resolve(__dirname, '../../uploads/temp/motion-data');
@@ -401,6 +405,25 @@ async function processBatchUpload(job) {
             error: 'skipped: overwritten by newer upload'
           });
           continue;
+        }
+
+        const deviceIdForCap = String(row.device_id || file.deviceId || '');
+        try {
+          const seriesCode = await resolveSeriesCodeFromDeviceId(deviceIdForCap);
+          if (!seriesCode) {
+            const err = new Error('无法解析设备系列');
+            err.statusCode = 400;
+            err.code = 'SERIES_CONTEXT_REQUIRED';
+            throw err;
+          }
+          assertSeriesCapability(seriesCode, CAPABILITIES.MOTION_PARSE);
+        } catch (capErr) {
+          const msg = isSeriesFeatureUnsupportedError(capErr)
+            ? '该系列目前无此功能'
+            : (capErr.message || '系列能力校验失败');
+          await row.update({ status: 'processing_failed', error_message: msg });
+          safeUnlink(filePath);
+          throw capErr;
         }
 
         // 标记解析中

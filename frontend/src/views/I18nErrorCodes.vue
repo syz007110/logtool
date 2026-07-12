@@ -163,6 +163,9 @@
       v-model="showDialog"
       :title="editingItem ? $t('i18nErrorCodes.editDialogTitle') : $t('i18nErrorCodes.addDialogTitle')"
       width="600px"
+      class="app-dialog"
+      align-center
+      append-to-body
       :close-on-click-modal="false"
     >
       <el-form
@@ -237,26 +240,17 @@
       v-model="showImportDialog"
       :title="$t('i18nErrorCodes.batchImportTitle')"
       width="600px"
+      class="app-dialog"
+      align-center
+      append-to-body
       :close-on-click-modal="false"
       @close="clearImportForm"
     >
       <el-tabs v-model="importForm.activeTab">
         <el-tab-pane :label="$t('i18nErrorCodes.import.csvTab')" name="csv">
-          <div class="csv-format-tip">
-            <p><strong>{{ $t('i18nErrorCodes.import.formatDescription') }}</strong></p>
-            <p>{{ $t('i18nErrorCodes.import.formatColumns') }}</p>
-            <p><strong>{{ $t('i18nErrorCodes.import.formatColumnsList') }}</strong></p>
-            <p><strong>{{ $t('i18nErrorCodes.import.formatExample') }}</strong></p>
-            <pre>subsystem,code,lang,short_message,user_hint,operation,detail,method,param1,param2,param3,param4
-1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态,,detail sample,method sample,p1,p2,p3,p4
-1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status,,detail sample,method sample,p1,p2,p3,p4</pre>
-            <p><strong>{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</strong></p>
-            <p><strong>{{ $t('i18nErrorCodes.import.validationRules') }}</strong></p>
-            <p>• {{ $t('i18nErrorCodes.import.rule1') }}</p>
-            <p>• {{ $t('i18nErrorCodes.import.rule2') }}</p>
-            <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2a') }}</p>
-            <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2b') }}</p>
-            <p>• {{ $t('i18nErrorCodes.import.rule3') }}</p>
+          <div class="import-brief">
+            <p>{{ $t('i18nErrorCodes.import.summaryCsv') }}</p>
+            <code class="import-brief__columns">{{ $t('i18nErrorCodes.import.formatColumnsList') }}</code>
           </div>
           <el-upload
             ref="uploadRef"
@@ -274,30 +268,58 @@
               </div>
             </template>
           </el-upload>
+          <el-collapse class="import-help-collapse">
+            <el-collapse-item :title="$t('i18nErrorCodes.import.helpCollapse')" name="csv-help">
+              <div class="import-help-body">
+                <p class="import-help-label">{{ $t('i18nErrorCodes.import.formatExample') }}</p>
+                <pre>{{ importCsvExample }}</pre>
+                <p class="import-help-label">{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</p>
+                <p class="import-help-label">{{ $t('i18nErrorCodes.import.validationRules') }}</p>
+                <ul class="import-help-rules">
+                  <li>{{ $t('i18nErrorCodes.import.rule1') }}</li>
+                  <li>{{ $t('i18nErrorCodes.import.rule2') }}
+                    <ul>
+                      <li>{{ $t('i18nErrorCodes.import.rule2a') }}</li>
+                      <li>{{ $t('i18nErrorCodes.import.rule2b') }}</li>
+                    </ul>
+                  </li>
+                  <li>{{ $t('i18nErrorCodes.import.rule3') }}</li>
+                </ul>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
         </el-tab-pane>
         <el-tab-pane :label="$t('i18nErrorCodes.import.manualTab')" name="manual">
-          <el-form :model="importForm" label-width="120px">
-              <div class="csv-format-tip">
-                <p><strong>{{ $t('i18nErrorCodes.import.manualFormatDescription') }}</strong></p>
-                <p>{{ $t('i18nErrorCodes.import.manualFormatExample') }}</p>
-                <p><strong>{{ $t('i18nErrorCodes.import.manualFormatSample') }}</strong></p>
-                <pre>1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态,,detail sample,method sample,p1,p2,p3,p4
-1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status,,detail sample,method sample,p1,p2,p3,p4</pre>
-                <p><strong>{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</strong></p>
-                <p><strong>{{ $t('i18nErrorCodes.import.validationRules') }}</strong></p>
-                <p>• {{ $t('i18nErrorCodes.import.rule1') }}</p>
-                <p>• {{ $t('i18nErrorCodes.import.rule2') }}</p>
-                <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2a') }}</p>
-                <p style="margin-left: 20px;">{{ $t('i18nErrorCodes.import.rule2b') }}</p>
-                <p>• {{ $t('i18nErrorCodes.import.rule3') }}</p>
+          <div class="import-brief">
+            <p>{{ $t('i18nErrorCodes.import.summaryManual') }}</p>
+            <code class="import-brief__columns">{{ $t('i18nErrorCodes.import.formatColumnsList') }}</code>
+          </div>
+          <el-input
+            v-model="importForm.data"
+            type="textarea"
+            :rows="8"
+            :placeholder="$t('i18nErrorCodes.formPlaceholders.csvDataInput')"
+          />
+          <el-collapse class="import-help-collapse">
+            <el-collapse-item :title="$t('i18nErrorCodes.import.helpCollapse')" name="manual-help">
+              <div class="import-help-body">
+                <p class="import-help-label">{{ $t('i18nErrorCodes.import.manualFormatSample') }}</p>
+                <pre>{{ importManualExample }}</pre>
+                <p class="import-help-label">{{ $t('i18nErrorCodes.import.supportedLanguages') }}{{ $t('i18nErrorCodes.import.supportedLanguagesList') }}</p>
+                <p class="import-help-label">{{ $t('i18nErrorCodes.import.validationRules') }}</p>
+                <ul class="import-help-rules">
+                  <li>{{ $t('i18nErrorCodes.import.rule1') }}</li>
+                  <li>{{ $t('i18nErrorCodes.import.rule2') }}
+                    <ul>
+                      <li>{{ $t('i18nErrorCodes.import.rule2a') }}</li>
+                      <li>{{ $t('i18nErrorCodes.import.rule2b') }}</li>
+                    </ul>
+                  </li>
+                  <li>{{ $t('i18nErrorCodes.import.rule3') }}</li>
+                </ul>
               </div>
-              <el-input
-                v-model="importForm.data"
-                type="textarea"
-                :rows="4"
-                :placeholder="$t('i18nErrorCodes.formPlaceholders.csvDataInput')"
-              />
-          </el-form>
+            </el-collapse-item>
+          </el-collapse>
         </el-tab-pane>
       </el-tabs>
       <template #footer>
@@ -314,6 +336,9 @@
       v-model="showExportDialog"
       :title="$t('i18nErrorCodes.exportDialogTitle')"
       width="500px"
+      class="app-dialog"
+      align-center
+      append-to-body
       :close-on-click-modal="false"
     >
       <el-form :model="exportForm" label-width="120px">
@@ -485,6 +510,13 @@ export default {
       activeTab: 'csv',
       csvFiles: []
     })
+
+    const importCsvExample = `subsystem,code,lang,short_message,user_hint,operation,detail,method,param1,param2,param3,param4
+1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态,,detail sample,method sample,p1,p2,p3,p4
+1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status,,detail sample,method sample,p1,p2,p3,p4`
+
+    const importManualExample = `1,0X010A,zh,系统初始化失败,请检查系统配置并重启设备,重启设备并检查系统状态,,detail sample,method sample,p1,p2,p3,p4
+1,0X010A,en,System initialization failed,Please check system configuration and restart device,Restart device and check system status,,detail sample,method sample,p1,p2,p3,p4`
 
     const exportForm = reactive({
       languages: ['zh']
@@ -1158,6 +1190,8 @@ export default {
       searchForm,
       form,
       importForm,
+      importCsvExample,
+      importManualExample,
       exportForm,
       formRef,
       rules,
@@ -1305,35 +1339,73 @@ export default {
 }
 
 
-.csv-format-tip {
-  background-color: var(--gray-50);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
-  padding: 12px;
+.import-brief {
   margin-bottom: 12px;
-  font-size: 14px;
+}
+
+.import-brief p {
+  margin: 0 0 8px;
+  font-size: var(--font-size-sm);
+  color: rgb(var(--text-secondary));
   line-height: 1.5;
 }
 
-.csv-format-tip p {
-  margin: 0 0 8px 0;
-}
-
-.csv-format-tip p:last-child {
-  margin-bottom: 0;
-}
-
-.csv-format-tip pre {
-  background-color: var(--black-white-white);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius-xs);
-  padding: 8px;
-  margin: 8px 0;
-  font-size: 12px;
+.import-brief__columns {
+  display: block;
+  padding: 8px 10px;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   line-height: 1.4;
+  color: rgb(var(--text-primary));
+  background: rgb(var(--bg-secondary));
+  border: 1px solid rgb(var(--border-secondary));
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.import-help-collapse {
+  margin-top: 12px;
+}
+
+.import-help-body {
+  font-size: var(--font-size-sm);
+  color: rgb(var(--text-secondary));
+  line-height: 1.5;
+}
+
+.import-help-label {
+  margin: 0 0 6px;
+  color: rgb(var(--text-primary));
+  font-weight: 500;
+}
+
+.import-help-body pre {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  background: rgb(var(--bg-secondary));
+  border: 1px solid rgb(var(--border-secondary));
+  border-radius: var(--radius-sm);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.import-help-rules {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.import-help-rules ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.import-help-rules li {
+  margin-bottom: 4px;
 }
 
 /* 响应式设计 */
@@ -1375,11 +1447,10 @@ export default {
     max-height: calc(100vh - 320px); /* 小屏幕上留出更多空间 */
   }
 
-  /* 对话框响应式 */
+  /* 对话框窄屏宽度；高度/边距由全局 --dialog-* Token 约束 */
   :deep(.el-dialog) {
     width: 95% !important;
     max-width: 95% !important;
-    margin: 5vh auto;
   }
 
 }

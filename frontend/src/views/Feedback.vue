@@ -21,7 +21,8 @@
       v-model="showSubmitDialog" 
       :title="$t('feedback.submitTitle')" 
       width="600px"
-      class="feedback-submit-dialog"
+      class="app-dialog feedback-submit-dialog"
+      align-center
       @close="resetForm"
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
@@ -74,12 +75,12 @@
     </el-dialog>
 
     <!-- 图片预览对话框 -->
-    <el-dialog v-model="dialogImageVisible">
+    <el-dialog v-model="dialogImageVisible" class="app-dialog" align-center>
       <img :src="dialogImageUrl" :alt="$t('feedback.preview')" style="width: 100%" />
     </el-dialog>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" :title="$t('feedback.detailTitle')" width="60%">
+    <el-dialog v-model="detailDialogVisible" :title="$t('feedback.detailTitle')" width="60%" class="app-dialog" align-center>
       <FeedbackDetail v-if="selectedId" :id="selectedId" />
     </el-dialog>
   </div>

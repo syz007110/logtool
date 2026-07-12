@@ -4,6 +4,7 @@ const Backend = require('i18next-fs-backend');
 const { composeExplanationPreviewFromI18n } = require('../../../utils/explanationPreview');
 const { searchErrorCodesUnified } = require('../../../services/errorCodeUnifiedService');
 const { resolveSubsystemPrefixLabel } = require('../../../services/faultCodeExtractionService');
+const DeviceSeriesDict = require('../../../models/device_series_dict');
 
 const I18NEXT_BACKEND_PATH = path.resolve(__dirname, '../../../locales/{{lng}}/translation.json');
 
@@ -43,7 +44,26 @@ function pickInputSlot(args = {}) {
   return String(args.errorCode || args.keywords || '').trim();
 }
 
-function mapUnifiedRowToData(row, inputSlot, idx, t, recognized) {
+async function resolveSeriesIdFromCode(seriesCode) {
+  const code = String(seriesCode || '').trim().toUpperCase();
+  if (!code) {
+    const err = new Error('seriesCode is required');
+    err.code = 'MISSING_SERIES_CODE';
+    throw err;
+  }
+  const row = await DeviceSeriesDict.findOne({
+    where: { series_code: code },
+    attributes: ['id', 'series_code']
+  });
+  if (!row) {
+    const err = new Error(`invalid seriesCode: ${code}`);
+    err.code = 'INVALID_SERIES_CODE';
+    throw err;
+  }
+  return Number(row.id);
+}
+
+function mapUnifiedRowToData(row, inputSlot, idx, t, recognized, seriesCode) {
   const code = String(row?.code || '').trim();
   const subsystem = String(row?.subsystem || '').trim();
   const displayCode = idx === 0 && inputSlot
@@ -77,6 +97,7 @@ function mapUnifiedRowToData(row, inputSlot, idx, t, recognized) {
     prefixSourceRaw: recognized?.kind === 'full_code' ? inputSlot : undefined,
     subsystemFromDb: subsystem,
     typeCodeFromDb: code,
+    seriesCode,
     template: row?.explanation,
     param1: row?.param1,
     param2: row?.param2,
@@ -162,9 +183,12 @@ async function execute({ args }) {
   const language = String(args?.language || 'zh-CN');
   const t = i18next.getFixedT(resolveLookupLng(language));
   const inputSlot = pickInputSlot(args);
+  const seriesCode = String(args?.seriesCode || '').trim().toUpperCase();
+  const seriesId = await resolveSeriesIdFromCode(seriesCode);
 
   const unifiedResult = await searchErrorCodesUnified({
     q: inputSlot,
+    series_id: seriesId,
     subsystem: String(args?.subsystem || '').trim().toUpperCase() || undefined,
     page: 1,
     limit: 5,
@@ -175,7 +199,7 @@ async function execute({ args }) {
   const rows = Array.isArray(unifiedResult?.errorCodes) ? unifiedResult.errorCodes : [];
   const recognized = unifiedResult?._meta?.recognized || null;
   const fullCodeLookup = recognized?.kind === 'full_code';
-  const items = rows.map((row, idx) => mapUnifiedRowToData(row, inputSlot, idx, t, recognized));
+  const items = rows.map((row, idx) => mapUnifiedRowToData(row, inputSlot, idx, t, recognized, seriesCode));
 
   const data = items.length > 0 ? { items, ambiguous: items.length > 1 } : null;
   const text = items.length === 0
@@ -211,6 +235,8 @@ async function execute({ args }) {
       source: 'registered_tool',
       toolName: 'error_code_lookup',
       lookupSource,
+      seriesCode,
+      series_id: seriesId,
       recognized,
       evidence,
       records: items.map((x) => ({
@@ -224,5 +250,6 @@ async function execute({ args }) {
 }
 
 module.exports = {
-  execute
+  execute,
+  resolveSeriesIdFromCode
 };

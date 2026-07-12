@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const DeviceSeriesDict = require('../models/device_series_dict');
+const { attachCapabilitiesToSeriesRows } = require('../seriesStrategies/attachCapabilities');
 
 const listDeviceSeries = async (req, res) => {
   try {
@@ -23,7 +24,7 @@ const listDeviceSeries = async (req, res) => {
       order: [['sort_order', 'ASC'], ['id', 'ASC']]
     });
 
-    return res.json({ series: rows });
+    return res.json({ series: attachCapabilitiesToSeriesRows(rows) });
   } catch (e) {
     return res.status(500).json({ message: '获取设备系列列表失败', error: e.message });
   }

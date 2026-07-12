@@ -280,8 +280,8 @@ import api from '@/api'
 import { fetchRecentSearches, storeRecentSearch } from '@/utils/offline/recentSearchStore'
 import { replaceErrorCodes, upsertErrorCodes, getErrorCodeLocal, searchErrorCodesLocal, getErrorCodeSyncMeta, getErrorCodeCount } from '@/utils/offline/errorCodeTableStore'
 import { derivePrefixFromRecord, derivePrefixLabel } from '@/utils/offline/prefixUtils'
+import { translatePrefixTokens } from '@/utils/translatePrefixTokens'
 import categoryKeyMap from '../../../../shared/i18n/categoryKeyMap.json'
-import prefixKeyMap from '../../../../shared/i18n/prefixKeyMap.json'
 import { safeT } from '@/i18n'
 import { resolveApiErrorMessage } from '@/utils/apiError'
 import subsystemCodes from '../../../../shared/i18n/subsystemCodes.json'
@@ -387,45 +387,26 @@ export default {
     const record = computed(() => {
       return foundRecord.value || {}
     })
-    // 将中文前缀转换为英文键名
-    const getPrefixKey = (chinesePrefix) => {
-      const raw = String(chinesePrefix || '').trim()
-      if (!raw) return raw
-      const compact = raw.replace(/\s+/g, '')
-      return prefixKeyMap[raw] || prefixKeyMap[compact] || raw
-    }
-    
-    // 翻译前缀文本（根据系统语言）
-    const translatePrefix = (prefix) => {
-      if (!prefix) return ''
-      // 尝试直接翻译整个前缀（先转换为英文键名）
-      const prefixKey = getPrefixKey(prefix)
-      const directTranslation = t(`shared.prefixLabels.${prefixKey}`)
-      if (directTranslation && directTranslation !== `shared.prefixLabels.${prefixKey}`) {
-        return directTranslation
-      }
-      // 如果直接翻译失败，尝试分段翻译（处理复合前缀，如 "远程端 左主控制臂"）
-      const parts = prefix.split(/\s+/)
-      const translatedParts = parts.map(part => {
-        const partKey = getPrefixKey(part)
-        const translated = t(`shared.prefixLabels.${partKey}`)
-        return (translated && translated !== `shared.prefixLabels.${partKey}`) ? translated : part
-      })
-      return translatedParts.join(' ')
-    }
-    
+    // 仅翻译语义 token（online: prefix_raw；offline: derivePrefix*）
+    const translatePrefix = (prefixTokens) => translatePrefixTokens(prefixTokens, t)
+
     const explanationText = computed(() => {
       // 检查当前输入是否为故障类型格式（如0X010A），如果是则不显示前缀
       const currentCode = (code.value || '').trim().toUpperCase()
       const isTypeFormat = /^(?:0X)?[0-9A-F]{3}[A-E]$/.test(currentCode)
-      
-      // 如果是故障类型格式，不显示前缀
-      const rawPrefix = isTypeFormat ? '' : (preview.value?.prefix || offlinePrefix.value || '')
-      const prefix = rawPrefix ? translatePrefix(rawPrefix) : ''
+
       const main = [record.value?.user_hint, record.value?.operation].filter(Boolean).join(' ')
       const text = main || record.value?.explanation || '-'
-      // 如果有前缀，添加前缀；否则直接返回文本
-      return prefix ? `${prefix} ${text}` : text
+      if (isTypeFormat) return text
+
+      const tokens = preview.value?.prefix_raw || offlinePrefix.value || ''
+      if (tokens) {
+        return `${translatePrefix(tokens)} ${text}`
+      }
+      if (preview.value?.prefix) {
+        return `${preview.value.prefix} ${text}`
+      }
+      return text
     })
     // 检测是否为故障类型格式（如010A, 0x010A, 0X010a等）
     const isErrorTypeFormat = computed(() => {
