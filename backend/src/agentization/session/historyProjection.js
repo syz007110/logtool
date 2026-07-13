@@ -59,11 +59,16 @@ function projectOrchestratorHistoryRow(row) {
     content = String(payload.content);
   }
 
-  return {
+  const out = {
     role: 'assistant',
     content,
     tool_calls: toolCalls
   };
+  if (Object.prototype.hasOwnProperty.call(rawMessage, 'reasoning_content')
+    && rawMessage.reasoning_content != null) {
+    out.reasoning_content = String(rawMessage.reasoning_content);
+  }
+  return out;
 }
 
 function projectToolHistoryRow(row) {
@@ -131,15 +136,23 @@ function normalizeHistoryContextMessage(message) {
   }
 
   if (hasToolCalls) {
-    return {
+    const out = {
       role: 'assistant',
       content,
       tool_calls: toolCalls
     };
+    if (message.reasoning_content != null) {
+      out.reasoning_content = String(message.reasoning_content);
+    }
+    return out;
   }
 
   if (!content) return null;
-  return { role, content };
+  const out = { role, content };
+  if (message.reasoning_content != null) {
+    out.reasoning_content = String(message.reasoning_content);
+  }
+  return out;
 }
 
 function groupHistoryRounds(history) {

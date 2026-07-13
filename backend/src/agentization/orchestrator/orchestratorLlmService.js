@@ -132,7 +132,7 @@ async function runOrchestratorChatCompletion({
     throw error;
   }
 
-  const chatResponse = normalizeChatCompletionResponse(resp?.json || {});
+  const chatResponse = normalizeChatCompletionResponse(resp?.json || {}, provider?.capabilities);
   try {
     await appendLlmApiDebugMarkdown({
       jobId,

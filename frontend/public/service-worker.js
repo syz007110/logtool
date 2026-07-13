@@ -1,9 +1,80 @@
-const STATIC_CACHE_NAME = 'logtool-static-v1'
-const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/favicon.ico']
+/* eslint-disable no-restricted-globals */
+// __APP_VERSION__ is replaced at build time from repo VERSION via vue.config.js
+const APP_VERSION = '__APP_VERSION__'
+const STATIC_CACHE_NAME = `logtool-static-${APP_VERSION}`
+
+function scopedUrl (relativePath) {
+  return new URL(relativePath, self.registration.scope).href
+}
+
+function precacheUrls () {
+  return [
+    scopedUrl('./'),
+    scopedUrl('./index.html'),
+    scopedUrl('./manifest.json'),
+    scopedUrl('./favicon.ico')
+  ]
+}
+
+function isHtmlShellRequest (request, url) {
+  if (request.mode === 'navigate') return true
+  const path = url.pathname
+  return path.endsWith('/') || path.endsWith('/index.html')
+}
+
+function isAppShellAsset (url) {
+  if (url.origin !== self.location.origin) return false
+  const path = url.pathname
+  return (
+    /\/(js|css|img|fonts)\//.test(path) ||
+    /\.(?:js|css|png|jpg|jpeg|gif|svg|webp|woff2?|ttf)$/i.test(path)
+  )
+}
+
+async function networkFirst (request, fallbackUrls = []) {
+  const cache = await caches.open(STATIC_CACHE_NAME)
+  try {
+    const networkResponse = await fetch(request)
+    if (networkResponse && networkResponse.ok) {
+      cache.put(request, networkResponse.clone())
+      return networkResponse
+    }
+  } catch (_) {
+    // fall through to cache
+  }
+
+  const cached = await cache.match(request)
+  if (cached) return cached
+
+  for (const fallback of fallbackUrls) {
+    const hit = await cache.match(fallback)
+    if (hit) return hit
+  }
+
+  return Response.error()
+}
+
+async function networkFirstAsset (request) {
+  const cache = await caches.open(STATIC_CACHE_NAME)
+  try {
+    const networkResponse = await fetch(request)
+    if (networkResponse && networkResponse.ok) {
+      cache.put(request, networkResponse.clone())
+      return networkResponse
+    }
+  } catch (_) {
+    // fall through to cache
+  }
+  const cached = await cache.match(request)
+  if (cached) return cached
+  throw new Error('asset unavailable')
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => null)
+    caches.open(STATIC_CACHE_NAME)
+      .then((cache) => cache.addAll(precacheUrls()))
+      .catch(() => null)
   )
   self.skipWaiting()
 })
@@ -21,52 +92,17 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event
-  const url = new URL(request.url)
+  if (request.method !== 'GET') return
 
-  if (request.method === 'GET' && request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        const cache = await caches.open(STATIC_CACHE_NAME)
-        return cache.match('/index.html')
-      })
-    )
-  } else if (request.method === 'GET' && url.origin === self.location.origin) {
-    if (STATIC_ASSETS.includes(url.pathname)) {
-      event.respondWith(cacheFirst(request))
-    } else if (isAppShellAsset(url)) {
-      event.respondWith(cacheFirstAndUpdate(request))
-    }
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
+
+  if (isHtmlShellRequest(request, url)) {
+    event.respondWith(networkFirst(request, precacheUrls()))
+    return
+  }
+
+  if (isAppShellAsset(url)) {
+    event.respondWith(networkFirstAsset(request))
   }
 })
-
-async function cacheFirst (request) {
-  const cached = await caches.match(request)
-  if (cached) return cached
-  const response = await fetch(request)
-  const cache = await caches.open(STATIC_CACHE_NAME)
-  cache.put(request, response.clone())
-  return response
-}
-
-async function cacheFirstAndUpdate (request) {
-  const cache = await caches.open(STATIC_CACHE_NAME)
-  const cached = await cache.match(request)
-  try {
-    const networkResponse = await fetch(request)
-    cache.put(request, networkResponse.clone())
-    return networkResponse
-  } catch (error) {
-    if (cached) return cached
-    throw error
-  }
-}
-function isAppShellAsset (url) {
-  if (url.origin !== self.location.origin) return false
-  return (
-    url.pathname.startsWith('/js/') ||
-    url.pathname.startsWith('/css/') ||
-    url.pathname.startsWith('/img/') ||
-    url.pathname.startsWith('/fonts/') ||
-    /\.((js|css|png|jpg|jpeg|gif|svg|webp|woff2?|ttf))$/i.test(url.pathname)
-  )
-}

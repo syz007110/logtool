@@ -1,0 +1,26 @@
+<h2>Kimi 兼容：第一版做到哪一层？</h2>
+<p class="subtitle">这决定适配面要不要动 smart-search、多模态等旁路。请点选一项。</p>
+
+<div class="options">
+  <div class="option" data-choice="orchestrator-only" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>仅 Agent Orchestrator</h3>
+      <p>只打通编排器 Chat Completions + tool 循环（thinking / reasoning_content / temperature）。smart-search 暂不动。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="orchestrator-and-smart-search" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Orchestrator + Smart Search</h3>
+      <p>编排器与 smart-search 共用同一套 provider 能力适配（含 json_object 等）。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="full-including-multimodal" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>全量（含多模态预留）</h3>
+      <p>在 B 基础上再设计 image/video content、Partial Mode 等扩展点（实现可后置）。</p>
+    </div>
+  </div>
+</div>

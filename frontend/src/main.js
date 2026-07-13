@@ -97,7 +97,17 @@ loadLocaleMessages(getCurrentLocale()).then(async () => {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${process.env.BASE_URL}service-worker.js`).catch((err) => {
+    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+    const swUrl = `${process.env.BASE_URL}service-worker.js?v=${encodeURIComponent(appVersion)}`
+    let refreshing = false
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return
+      refreshing = true
+      window.location.reload()
+    })
+
+    navigator.serviceWorker.register(swUrl).catch((err) => {
       console.error('Service worker registration failed:', err)
     })
   })

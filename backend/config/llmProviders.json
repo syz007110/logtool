@@ -1,24 +1,5 @@
 [
   {
-    "id": "qwen-flash",
-    "label": "Qwen Flash",
-    "kind": "openai_compatible",
-    "requiresApiKey": true,
-    "apiKeyEnv": "QWEN_API_KEY",
-    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "model": "qwen-flash",
-    "temperature": 0,
-    "top_p": 0.1,
-    "timeoutMs": 20000,
-    "capabilities": {
-      "toolCalls": true,
-      "strictTools": { "default": false }
-    },
-    "orchestrator": {
-      "toolChoice": "auto"
-    }
-  },
-  {
     "id": "deepseek-chat",
     "label": "DeepSeek Chat",
     "kind": "openai_compatible",
@@ -35,26 +16,35 @@
     "orchestratorMaxTokens": 4096,
     "capabilities": {
       "toolCalls": true,
-      "strictTools": { "default": false }
+      "strictTools": { "default": false },
+      "toolNamePattern": "^[a-zA-Z0-9_-]{1,64}$",
+      "maxTokensField": "max_tokens",
+      "sampling": "send",
+      "thinking": null,
+      "preserveReasoningContent": false
     },
     "orchestrator": {
       "toolChoice": "auto"
     }
   },
   {
-    "id": "glm-4.5-Air",
-    "label": "GLM-4.5-Air",
+    "id": "kimi-k2.6",
+    "label": "Kimi K2.6",
     "kind": "openai_compatible",
     "requiresApiKey": true,
-    "apiKeyEnv": "GLM_API_KEY",
-    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
-    "model": "glm-4.5-Air",
-    "temperature": 0,
-    "top_p": 0.1,
-    "timeoutMs": 20000,
+    "apiKeyEnv": "MOONSHOT_API_KEY",
+    "baseUrl": "https://api.moonshot.cn/v1",
+    "model": "kimi-k2.6",
+    "timeoutMs": 60000,
+    "orchestratorMaxTokens": 16000,
     "capabilities": {
       "toolCalls": true,
-      "strictTools": { "default": false }
+      "strictTools": { "default": true },
+      "toolNamePattern": "^[a-zA-Z_][a-zA-Z0-9-_]{2,63}$",
+      "maxTokensField": "max_completion_tokens",
+      "sampling": "omit",
+      "thinking": { "type": "enabled" },
+      "preserveReasoningContent": true
     },
     "orchestrator": {
       "toolChoice": "auto"

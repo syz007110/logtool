@@ -15,7 +15,7 @@
     "create-surgery-table": "node scripts/run_surgery_statistics_migration.js",
     "show-indexes": "node src/scripts/showIndexInfo.js",
     "print-tool-prompt": "node src/scripts/printAgentToolPrompt.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test src/agentization/orchestrator/providerCapabilities.test.js src/agentization/orchestrator/chatProviderAdapter.test.js src/agentization/orchestrator/chatResponseParser.test.js src/agentization/tools/toolProviderAdapter.test.js src/agentization/session/historyProjection.test.js"
   },
   "keywords": [],
   "author": "",

@@ -1,19 +1,20 @@
-const DEEPSEEK_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
-const KIMI_TOOL_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9-_]{2,63}$/;
+const { normalizeProviderCapabilities } = require('../orchestrator/providerCapabilities');
+
+const DEFAULT_TOOL_NAME_PATTERN = '^[a-zA-Z0-9_-]{1,64}$';
+/** Reference pattern for Kimi/Moonshot-style tool names (configure via capabilities.toolNamePattern). */
+const KIMI_STYLE_TOOL_NAME_PATTERN = '^[a-zA-Z_][a-zA-Z0-9-_]{2,63}$';
 
 function asObject(v) {
   return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
 }
 
+function resolveCaps(provider) {
+  return normalizeProviderCapabilities(provider && provider.capabilities);
+}
+
 function resolveStrictToolsDefault(provider) {
-  const caps = asObject(provider?.capabilities);
-  const strictCfg = asObject(caps.strictTools);
-  if (Object.prototype.hasOwnProperty.call(strictCfg, 'default')) {
-    return !!strictCfg.default;
-  }
-  const id = String(provider?.id || '').toLowerCase();
-  if (id.includes('kimi') || id.includes('moonshot')) return true;
-  return false;
+  const caps = resolveCaps(provider);
+  return !!caps.strictTools.default;
 }
 
 function resolveToolChoice(provider, toolCount) {
@@ -31,27 +32,11 @@ function assertToolNameForProvider(name, provider) {
     throw err;
   }
 
-  const caps = asObject(provider?.capabilities);
+  const caps = resolveCaps(provider);
   const patternRaw = String(caps.toolNamePattern || '').trim();
-  if (patternRaw) {
-    const reg = new RegExp(patternRaw);
-    if (!reg.test(toolName)) {
-      const err = new Error(`tool name does not match provider pattern: ${toolName}`);
-      err.code = 'INVALID_TOOL_NAME';
-      err.toolName = toolName;
-      throw err;
-    }
-    return toolName;
-  }
-
-  const id = String(provider?.id || '').toLowerCase();
-  const baseUrl = String(provider?.baseUrl || '').toLowerCase();
-  const pattern = (id.includes('kimi') || id.includes('moonshot') || baseUrl.includes('moonshot'))
-    ? KIMI_TOOL_NAME_PATTERN
-    : DEEPSEEK_TOOL_NAME_PATTERN;
-
-  if (!pattern.test(toolName)) {
-    const err = new Error(`tool name does not match provider naming rules: ${toolName}`);
+  const reg = new RegExp(patternRaw);
+  if (!reg.test(toolName)) {
+    const err = new Error(`tool name does not match provider pattern: ${toolName}`);
     err.code = 'INVALID_TOOL_NAME';
     err.toolName = toolName;
     throw err;
@@ -85,7 +70,7 @@ function mapSingleFunctionToolForProvider(tool, provider) {
  */
 function mapFunctionToolsForProvider(functionTools, provider) {
   const list = Array.isArray(functionTools) ? functionTools : [];
-  const caps = asObject(provider?.capabilities);
+  const caps = resolveCaps(provider);
   if (caps.toolCalls === false) {
     return { tools: null, tool_choice: undefined, strictDefault: resolveStrictToolsDefault(provider) };
   }
@@ -104,6 +89,10 @@ module.exports = {
   resolveStrictToolsDefault,
   resolveToolChoice,
   assertToolNameForProvider,
-  DEEPSEEK_TOOL_NAME_PATTERN,
-  KIMI_TOOL_NAME_PATTERN
+  DEFAULT_TOOL_NAME_PATTERN,
+  KIMI_STYLE_TOOL_NAME_PATTERN,
+  /** @deprecated use DEFAULT_TOOL_NAME_PATTERN */
+  DEEPSEEK_TOOL_NAME_PATTERN: new RegExp(DEFAULT_TOOL_NAME_PATTERN),
+  /** @deprecated use KIMI_STYLE_TOOL_NAME_PATTERN */
+  KIMI_TOOL_NAME_PATTERN: new RegExp(KIMI_STYLE_TOOL_NAME_PATTERN)
 };

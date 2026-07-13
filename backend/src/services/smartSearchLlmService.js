@@ -4,6 +4,7 @@ const url = require('url');
 const path = require('path');
 const fs = require('fs');
 const smartSearchPrompts = require('../config/smartSearchPrompts.json');
+const { normalizeProviderCapabilities } = require('../agentization/orchestrator/providerCapabilities');
 
 function normalizeBaseUrl(baseUrl) {
   const s = String(baseUrl || '').trim();
@@ -126,9 +127,7 @@ function hydrateProvider(spec) {
     orchestratorJsonOutput?.mode || spec.jsonOutputMode || spec.orchestratorJsonOutputMode || ''
   ).trim() || null;
   const orchestratorMaxTokens = spec.orchestratorMaxTokens ?? spec.maxTokens ?? null;
-  const capabilities = spec.capabilities && typeof spec.capabilities === 'object'
-    ? { ...spec.capabilities }
-    : { toolCalls: true, strictTools: { default: false } };
+  const capabilities = normalizeProviderCapabilities(spec.capabilities);
   const orchestrator = spec.orchestrator && typeof spec.orchestrator === 'object'
     ? { ...spec.orchestrator }
     : { toolChoice: 'auto' };

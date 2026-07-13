@@ -1,3 +1,5 @@
+const { normalizeProviderCapabilities } = require('./providerCapabilities');
+
 function asObject(v) {
   return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
 }
@@ -22,11 +24,29 @@ function parseToolArguments(raw) {
 
 /**
  * Normalize provider HTTP JSON to canonical ChatCompletionResponse.
+ * @param {object} httpJson
+ * @param {object} [capabilities]
  */
-function normalizeChatCompletionResponse(httpJson = {}) {
+function normalizeChatCompletionResponse(httpJson = {}, capabilities = {}) {
+  const caps = normalizeProviderCapabilities(capabilities);
   const body = asObject(httpJson);
   const choice = asArray(body.choices)[0] || {};
   const message = asObject(choice.message);
+  const normalizedMessage = {
+    role: String(message.role || 'assistant'),
+    content: message.content == null ? null : String(message.content),
+    tool_calls: asArray(message.tool_calls).map((tc) => ({
+      id: String(tc?.id || ''),
+      type: String(tc?.type || 'function'),
+      function: {
+        name: String(tc?.function?.name || ''),
+        arguments: String(tc?.function?.arguments ?? '')
+      }
+    }))
+  };
+  if (caps.preserveReasoningContent && message.reasoning_content != null) {
+    normalizedMessage.reasoning_content = String(message.reasoning_content);
+  }
   return {
     id: String(body.id || ''),
     object: String(body.object || 'chat.completion'),
@@ -34,18 +54,7 @@ function normalizeChatCompletionResponse(httpJson = {}) {
     model: String(body.model || ''),
     choices: [{
       index: Number(choice.index || 0),
-      message: {
-        role: String(message.role || 'assistant'),
-        content: message.content == null ? null : String(message.content),
-        tool_calls: asArray(message.tool_calls).map((tc) => ({
-          id: String(tc?.id || ''),
-          type: String(tc?.type || 'function'),
-          function: {
-            name: String(tc?.function?.name || ''),
-            arguments: String(tc?.function?.arguments ?? '')
-          }
-        }))
-      },
+      message: normalizedMessage,
       finish_reason: String(choice.finish_reason || '')
     }],
     usage: asObject(body.usage)

@@ -1,0 +1,26 @@
+<h2>Kimi 模型策略：第一版怎么开 thinking？</h2>
+<p class="subtitle">智能搜索将并入 Agent，统一走 Orchestrator 管线。接下来确认 K2 thinking 策略。</p>
+
+<div class="options">
+  <div class="option" data-choice="thinking-enabled-preserved" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>默认开启 thinking + 回写 reasoning</h3>
+      <p>面向 kimi-k2.6：thinking enabled，多轮 tool 必须保留 reasoning_content。能力最完整，适配也最重。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="thinking-disabled-first" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>先关闭 thinking，尽快可用</h3>
+      <p>thinking: disabled，避开 temperature/reasoning 坑，先把 tools 跑通；后续再开 thinking。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="config-switchable" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>配置可切换（推荐架构位）</h3>
+      <p>capabilities 声明 thinking 模式；默认可用 disabled 保底，配置切到 enabled 时走完整回写路径。</p>
+    </div>
+  </div>
+</div>

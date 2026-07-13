@@ -32,6 +32,26 @@ module.exports = defineConfig({
       definitions[0].__APP_TARGET__ = JSON.stringify(APP_TARGET)
       return definitions
     })
+    // Inject VERSION into public/service-worker.js so each release busts SW caches.
+    config.plugin('copy').tap((args) => {
+      const patterns = args[0]?.patterns
+      if (!Array.isArray(patterns) || !patterns[0]) return args
+      const pattern = patterns[0]
+      const previousTransform = pattern.transform
+      pattern.transform = async (content, absoluteFrom) => {
+        let next = content
+        if (typeof previousTransform === 'function') {
+          next = await previousTransform(content, absoluteFrom)
+        }
+        const from = String(absoluteFrom || '').replace(/\\/g, '/')
+        if (from.endsWith('/service-worker.js') || from.endsWith('service-worker.js')) {
+          const text = Buffer.isBuffer(next) ? next.toString('utf8') : String(next)
+          return Buffer.from(text.replace(/__APP_VERSION__/g, APP_VERSION))
+        }
+        return next
+      }
+      return args
+    })
     config.module
       .rule('f2-jsx')
       .test(/\.jsx$/)
