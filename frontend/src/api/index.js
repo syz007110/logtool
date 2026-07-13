@@ -241,6 +241,9 @@ const logs = {
   getActiveTasks: (config = {}) => api.get('/logs/tasks/active', config),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
+  autoFillDeviceModel: (deviceId, params = {}) => api.get('/logs/auto-fill/device-model', {
+    params: { device_id: deviceId, ...params }
+  }),
   getSearchTemplates: () => api.get('/logs/search-templates'),
   importSearchTemplates: (templates) => api.post('/logs/search-templates/import', { templates }),
   nlToBatchFilters: (payload) => api.post('/logs/entries/batch/nl-to-filters', payload)

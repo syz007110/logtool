@@ -1934,15 +1934,11 @@ export default {
       if (!did || !currentSeriesId.value) return
       const seq = ++prefillModelSeq
       try {
-        const res = await api.devices.getList({
-          page: 1,
-          limit: 20,
-          search: did,
+        const res = await api.logs.autoFillDeviceModel(did, {
           series_id: currentSeriesId.value
         })
         if (seq !== prefillModelSeq) return
-        const matched = (res.data?.devices || []).find(item => String(item.device_id || '') === did)
-        const model = String(matched?.device_model || '').trim()
+        const model = String(res.data?.device_model || '').trim()
         if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
           uploadDeviceModel.value = model
           uploadDeviceModelError.value = ''

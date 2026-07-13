@@ -1068,14 +1068,10 @@ export default {
       const did = String(targetDeviceId || '').trim()
       if (!did || !currentSeriesId.value) return
       try {
-        const res = await api.devices.getList({
-          page: 1,
-          limit: 20,
-          search: did,
+        const res = await api.logs.autoFillDeviceModel(did, {
           series_id: currentSeriesId.value
         })
-        const matched = (res.data?.devices || []).find(item => String(item.device_id || '') === did)
-        const model = String(matched?.device_model || '').trim()
+        const model = String(res.data?.device_model || '').trim()
         if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
           uploadDialogDeviceModel.value = model
         }

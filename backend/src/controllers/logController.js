@@ -2704,6 +2704,38 @@ const autoFillKey = async (req, res) => {
   }
 };
 
+// 上传场景：按设备编号（可选系列）回填型号，不走设备管理列表权限
+const autoFillDeviceModel = async (req, res) => {
+  try {
+    const deviceId = String(req.query.device_id || '').trim();
+    if (!deviceId) {
+      return res.status(400).json({ message: req.t('device.requiredId') });
+    }
+
+    const where = { device_id: deviceId };
+    const seriesRaw = req.query.series_id;
+    if (seriesRaw !== undefined && seriesRaw !== null && String(seriesRaw).trim() !== '') {
+      const seriesId = Number(seriesRaw);
+      if (!Number.isInteger(seriesId) || seriesId <= 0) {
+        return res.status(400).json({ message: 'series_id 必须为正整数' });
+      }
+      where.series_id = seriesId;
+    }
+
+    const device = await Device.findOne({
+      where,
+      attributes: ['device_model', 'series_id']
+    });
+
+    return res.json({
+      device_model: device?.device_model ? String(device.device_model).trim() : null,
+      series_id: device?.series_id || null
+    });
+  } catch (err) {
+    return res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });
+  }
+};
+
 // 验证密钥格式
 const validateKey = (key) => {
   // 密钥格式：mac地址，例如 00-01-05-77-6a-09
@@ -4424,6 +4456,7 @@ module.exports = {
   deleteLog,
   autoFillDeviceId,
   autoFillKey,
+  autoFillDeviceModel,
   batchDeleteLogs,
   batchDownloadLogs,
   getBatchDownloadTaskStatus,

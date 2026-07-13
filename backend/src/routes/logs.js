@@ -19,6 +19,7 @@ const {
   getLogStatistics,
   autoFillDeviceId,
   autoFillKey,
+  autoFillDeviceModel,
   getSearchTemplates,
   importSearchTemplates,
   exportBatchLogEntriesCSV,
@@ -76,8 +77,10 @@ router.get('/queue/status', auth, getQueueStatus);
 router.get('/tasks/active', auth, getGlobalActiveLogTasks);
 
 // 自动填充API - 必须放在带参数的路由之前
+// 例外：仅返回上传所需的编号/密钥/型号映射，不开放设备管理完整列表；与 device:read 解耦
 router.get('/auto-fill/device-id', auth, autoFillDeviceId);
 router.get('/auto-fill/key', auth, autoFillKey);
+router.get('/auto-fill/device-model', auth, autoFillDeviceModel);
 
 // 上传日志 - 所有用户都可以上传
 router.post('/upload', auth, checkPermission('log:upload'), upload.array('file', 50), uploadLog); // 最多50个文件
