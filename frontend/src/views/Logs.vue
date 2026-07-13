@@ -1571,7 +1571,13 @@ export default {
       uploadDeviceModel.value = ''
       uploadDeviceModelError.value = ''
       await loadUploadDeviceModels()
-      await prefillsUploadDeviceModel(device.device_id)
+      const knownModel = String(device.device_model || device.device_name || '').trim()
+      if (knownModel && knownModel !== '未知设备') {
+        applyUploadDeviceModel(knownModel, currentSeriesId.value)
+      }
+      if (!uploadDeviceModel.value) {
+        await prefillsUploadDeviceModel(device.device_id)
+      }
       
       // 尝试自动获取该设备的密钥
       try {
@@ -1929,6 +1935,29 @@ export default {
     // 程序写入密钥/编号时置位，避免双向 watch 互触发覆盖用户刚输入的一侧
     let autoFillApplying = false
 
+    const applyUploadDeviceModel = (model, seriesId = currentSeriesId.value) => {
+      const normalized = String(model || '').trim()
+      if (!normalized) return false
+      const sid = Number(seriesId)
+      const hasSeries = Number.isInteger(sid) && sid > 0
+      const exists = uploadDeviceModelOptionsAll.value.some(
+        (item) => String(item.device_model || '').trim() === normalized
+      )
+      if (!exists && hasSeries) {
+        // 下拉最多 100 条时，回填型号可能不在当前页；临时并入选项以便展示
+        uploadDeviceModelOptionsAll.value = [
+          ...uploadDeviceModelOptionsAll.value,
+          { id: `autofill-${normalized}`, device_model: normalized, series_id: sid }
+        ]
+      }
+      if (!uploadDeviceModelOptions.value.some((item) => String(item.device_model || '').trim() === normalized)) {
+        return false
+      }
+      uploadDeviceModel.value = normalized
+      uploadDeviceModelError.value = ''
+      return true
+    }
+
     const prefillsUploadDeviceModel = async (targetDeviceId) => {
       const did = String(targetDeviceId || '').trim()
       if (!did || !currentSeriesId.value) return
@@ -1938,12 +1967,10 @@ export default {
           series_id: currentSeriesId.value
         })
         if (seq !== prefillModelSeq) return
-        const model = String(res.data?.device_model || '').trim()
-        if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
-          uploadDeviceModel.value = model
-          uploadDeviceModelError.value = ''
-        }
-      } catch (_) { }
+        applyUploadDeviceModel(res.data?.device_model, currentSeriesId.value)
+      } catch (error) {
+        console.warn('自动填充设备型号失败:', error?.message || error)
+      }
     }
 
     // 按设备编号同步密钥（匹配到则覆盖，未匹配则保持现状）

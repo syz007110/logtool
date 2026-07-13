@@ -813,6 +813,7 @@ const getLogsByDevice = async (req, res) => {
     const device_groups = (rows || []).map(r => ({
       device_id: r.device_id,
       hospital_name: r.hospital_name || null,
+      device_model: r.device_model || null,
       device_name: r.device_model || '未知设备',
       series_id: r.series_id || null,
       log_count: Number(r.log_count || 0),
@@ -2704,7 +2705,8 @@ const autoFillKey = async (req, res) => {
   }
 };
 
-// 上传场景：按设备编号（可选系列）回填型号，不走设备管理列表权限
+// 上传场景：按设备编号回填型号（不走设备管理列表权限）
+// 系列约束：若指定 series_id，设备已绑其它系列则不回填；series_id 为空时按型号字典校验是否属于当前系列
 const autoFillDeviceModel = async (req, res) => {
   try {
     const deviceId = String(req.query.device_id || '').trim();
@@ -2712,24 +2714,54 @@ const autoFillDeviceModel = async (req, res) => {
       return res.status(400).json({ message: req.t('device.requiredId') });
     }
 
-    const where = { device_id: deviceId };
-    const seriesRaw = req.query.series_id;
-    if (seriesRaw !== undefined && seriesRaw !== null && String(seriesRaw).trim() !== '') {
+    const DeviceModelDict = require('../models/device_model_dict');
+    const requestedSeriesId = (() => {
+      const seriesRaw = req.query.series_id;
+      if (seriesRaw === undefined || seriesRaw === null || String(seriesRaw).trim() === '') return null;
       const seriesId = Number(seriesRaw);
-      if (!Number.isInteger(seriesId) || seriesId <= 0) {
-        return res.status(400).json({ message: 'series_id 必须为正整数' });
-      }
-      where.series_id = seriesId;
+      if (!Number.isInteger(seriesId) || seriesId <= 0) return NaN;
+      return seriesId;
+    })();
+    if (Number.isNaN(requestedSeriesId)) {
+      return res.status(400).json({ message: 'series_id 必须为正整数' });
     }
 
     const device = await Device.findOne({
-      where,
+      where: { device_id: deviceId },
       attributes: ['device_model', 'series_id']
     });
 
+    const rawModel = device?.device_model ? String(device.device_model).trim() : '';
+    if (!rawModel) {
+      return res.json({ device_model: null, series_id: device?.series_id || null });
+    }
+
+    const deviceSeriesId = (() => {
+      const num = Number(device?.series_id);
+      return Number.isInteger(num) && num > 0 ? num : null;
+    })();
+
+    if (requestedSeriesId && deviceSeriesId && deviceSeriesId !== requestedSeriesId) {
+      return res.json({ device_model: null, series_id: deviceSeriesId });
+    }
+
+    if (requestedSeriesId) {
+      const matchedModel = await DeviceModelDict.findOne({
+        where: {
+          device_model: rawModel,
+          series_id: requestedSeriesId,
+          is_active: true
+        },
+        attributes: ['id', 'device_model', 'series_id']
+      });
+      if (!matchedModel) {
+        return res.json({ device_model: null, series_id: deviceSeriesId });
+      }
+    }
+
     return res.json({
-      device_model: device?.device_model ? String(device.device_model).trim() : null,
-      series_id: device?.series_id || null
+      device_model: rawModel,
+      series_id: deviceSeriesId || requestedSeriesId || null
     });
   } catch (err) {
     return res.status(500).json({ message: req.t('log.analysis.failed'), error: err.message });

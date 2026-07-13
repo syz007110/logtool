@@ -1064,6 +1064,27 @@ export default {
       }
     }
 
+    const applyUploadDeviceModel = (model, seriesId = currentSeriesId.value) => {
+      const normalized = String(model || '').trim()
+      if (!normalized) return false
+      const sid = Number(seriesId)
+      const hasSeries = Number.isInteger(sid) && sid > 0
+      const exists = uploadDeviceModelOptionsAll.value.some(
+        (item) => String(item.device_model || '').trim() === normalized
+      )
+      if (!exists && hasSeries) {
+        uploadDeviceModelOptionsAll.value = [
+          ...uploadDeviceModelOptionsAll.value,
+          { id: `autofill-${normalized}`, device_model: normalized, series_id: sid }
+        ]
+      }
+      if (!uploadDeviceModelOptions.value.some((item) => String(item.device_model || '').trim() === normalized)) {
+        return false
+      }
+      uploadDialogDeviceModel.value = normalized
+      return true
+    }
+
     const prefillsUploadDeviceModel = async (targetDeviceId) => {
       const did = String(targetDeviceId || '').trim()
       if (!did || !currentSeriesId.value) return
@@ -1071,11 +1092,10 @@ export default {
         const res = await api.logs.autoFillDeviceModel(did, {
           series_id: currentSeriesId.value
         })
-        const model = String(res.data?.device_model || '').trim()
-        if (model && uploadDeviceModelOptions.value.some(item => item.device_model === model)) {
-          uploadDialogDeviceModel.value = model
-        }
-      } catch (_) { }
+        applyUploadDeviceModel(res.data?.device_model, currentSeriesId.value)
+      } catch (error) {
+        console.warn('自动填充运行数据设备型号失败:', error?.message || error)
+      }
     }
 
     const openUploadDialog = async (deviceId) => {
