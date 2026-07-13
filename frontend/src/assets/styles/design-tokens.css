@@ -336,6 +336,13 @@
   --el-font-size-base: var(--font-size-md);
 
   /* =========================================
+     Series Skin Tokens（按 data-series 切换）
+     壳层氛围色；内容区勿直接大面积使用
+       ========================================= */
+  --series-chrome-line: var(--slate-300);
+  --series-chrome-line-width: 2px;
+
+  /* =========================================
      Element Plus Button Variables Mapping
      按钮组件 CSS 变量映射
        ========================================= */
@@ -710,6 +717,19 @@
   /* UDI 值 #314158 */
   --sheet-info-value-weight: 600;
   --sheet-info-field-gap: 6px;
+}
+
+/* Series skin overrides（由布局根节点 data-series 驱动） */
+[data-series="sr"] {
+  --series-chrome-line: var(--blue-500);
+}
+
+[data-series="sa"] {
+  --series-chrome-line: var(--red-500);
+}
+
+[data-series="default"] {
+  --series-chrome-line: var(--slate-300);
 }
 
 /* =========================================

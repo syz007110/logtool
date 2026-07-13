@@ -1,5 +1,5 @@
 <template>
-  <el-container class="dashboard-layout">
+  <el-container class="dashboard-layout" :data-series="seriesDataAttr">
     <!-- 侧边栏 -->
     <el-aside
       v-if="!hideSidebar"
@@ -596,6 +596,11 @@ export default {
       return isEnglish ? (item.series_name_en || item.series_name_zh || item.series_code) : (item.series_name_zh || item.series_name_en || item.series_code)
     })
     const currentSeriesCode = computed(() => String(currentSeries.value?.series_code || '').trim().toUpperCase())
+    const seriesDataAttr = computed(() => {
+      if (currentSeriesCode.value === 'SR') return 'sr'
+      if (currentSeriesCode.value === 'SA') return 'sa'
+      return 'default'
+    })
     const showSeriesSwitcher = computed(() => seriesOptions.value.length > 0)
 
     const handleLanguageChange = async (locale) => {
@@ -881,6 +886,7 @@ export default {
       currentLocaleLabel,
       currentSeriesId,
       currentSeriesCode,
+      seriesDataAttr,
       currentSeriesDisplayName,
       seriesOptions,
       showSeriesSwitcher,
@@ -1129,6 +1135,8 @@ export default {
   justify-content: space-between;
   height: 64px;
   line-height: 64px;
+  border-bottom: var(--series-chrome-line-width) solid var(--series-chrome-line);
+  transition: border-bottom-color 0.25s ease;
 }
 
 .header-left {
