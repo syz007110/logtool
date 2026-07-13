@@ -13,6 +13,7 @@ const {
 } = require('./conversationTurnKeys');
 const { getLoopPolicy } = require('../runtime/turnPolicy');
 const { createMessageService } = require('./messageService');
+const { projectToolTracesFromLoopTrace } = require('../types/toolTracesProjection');
 
 const messageService = createMessageService();
 
@@ -704,6 +705,9 @@ async function persistAssistantStructuredEvent(instanceId, request, loopTrace, a
     ? loopTrace.filter((entry) => entry?.kind === 'orchestrator')
     : [];
   const lastOrchestrator = orchestratorEntries[orchestratorEntries.length - 1] || null;
+  const toolTraces = Array.isArray(assistantResponse?.toolTraces)
+    ? assistantResponse.toolTraces
+    : projectToolTracesFromLoopTrace(loopTrace);
 
   const messageInput = buildConversationMessageInput({
     instanceId,
@@ -719,7 +723,8 @@ async function persistAssistantStructuredEvent(instanceId, request, loopTrace, a
       loopSteps: orchestratorEntries.length,
       finishReason: lastOrchestrator?.turnResult?.finishReason || null,
       turnResult: asPlainObject(lastOrchestrator?.turnResult),
-      response: asPlainObject(assistantResponse)
+      response: asPlainObject(assistantResponse),
+      toolTraces
     },
     attachments,
     idempotencyKey: key
@@ -896,6 +901,9 @@ async function processConversationRequest({
       current_input: userMsg,
       text: String(assistantResponse?.text || '').trim(),
       attachments: Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [],
+      toolTraces: Array.isArray(assistantResponse?.toolTraces)
+        ? assistantResponse.toolTraces
+        : projectToolTracesFromLoopTrace(loopTrace),
       history,
       context_envelope: contextEnvelope ? {
         currentQuery: String(contextEnvelope?.currentQuery || ''),

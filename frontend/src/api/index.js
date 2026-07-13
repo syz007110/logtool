@@ -498,7 +498,10 @@ const agent = {
   uploadAssets: (formData) => api.post('/agent/assets/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  getTask: (taskId) => api.get(`/agent/tasks/${taskId}`)
+  getTask: (taskId) => api.get(`/agent/tasks/${taskId}`),
+  listConversations: (params) => api.get('/agent/conversations', { params }),
+  getConversationMessages: (conversationId) =>
+    api.get(`/agent/conversations/${encodeURIComponent(conversationId)}/messages`)
 }
 
 // Knowledge base (KB)

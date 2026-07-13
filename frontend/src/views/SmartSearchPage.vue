@@ -1574,6 +1574,7 @@ import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, C
 import GlobeIcon from '@/components/icons/GlobeIcon.vue'
 import api from '@/api'
 import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
+import { useAgentSmartChat } from '@/composables/useAgentSmartChat'
 
 const MAX_CONVERSATIONS = 5
 const MAX_QUESTIONS_PER_CONVERSATION = 5
@@ -1611,6 +1612,17 @@ export default {
     const userKey = computed(() => {
       const u = currentUser.value || {}
       return u.id || u.user_id || u.username || 'anonymous'
+    })
+    const {
+      conversationId: agentConversationId,
+      llmProviderId: agentLlmProviderId,
+      sending: agentSending,
+      newConversation: agentNewConversation,
+      sendText: agentSendText,
+      listConversations: agentListConversations,
+      loadConversation: agentLoadConversation
+    } = useAgentSmartChat({
+      getCurrentUserId: () => String(userKey.value || '')
     })
     const storageKey = computed(() => `smartSearchHistory:${userKey.value}`)
     const llmProviderStorageKey = computed(() => `smartSearchLlmProvider:${userKey.value}`)
@@ -1675,30 +1687,18 @@ export default {
 
     const load = async () => {
       try {
-        // 优先从 MongoDB 加载
-        try {
-          const resp = await api.smartSearch.getConversations({ limit: 50 })
-          if (resp?.data?.conversations?.length > 0) {
-            // MongoDB 对话：添加 mongo_ 前缀标识
-            conversations.value = resp.data.conversations.map(conv => ({
-              ...conv,
-              id: `mongo_${conv.id}`
-            }))
-            // 确保每个对话都有标题
-            conversations.value.forEach(conv => {
-              if (isDefaultConversationTitle(conv.title)) {
-                const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
-                if (firstUserMsg && firstUserMsg.content) {
-                  conv.title = normalizeTitle(firstUserMsg.content, defaultConversationTitle.value)
-                }
-              }
-            })
-          } else {
-            // MongoDB 为空，fallback 到 localStorage（仅读取，不迁移）
-        const raw = localStorage.getItem(storageKey.value)
-        const parsed = raw ? JSON.parse(raw) : []
-        conversations.value = Array.isArray(parsed) ? parsed : []
-            // 确保每个对话都有标题
+        const list = await agentListConversations({ limit: 50 })
+        conversations.value = (Array.isArray(list) ? list : []).map(conv => {
+          const id = String(conv.conversationId || conv.id || '').trim()
+          const updatedAt = conv.updatedAt || conv.createdAt || nowIso()
+          return {
+            id,
+            title: conv.title || defaultConversationTitle.value,
+            updatedAt,
+            createdAt: conv.createdAt || updatedAt,
+            messages: []
+          }
+        }).filter(c => c.id)
         conversations.value.forEach(conv => {
           if (isDefaultConversationTitle(conv.title)) {
             const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
@@ -1707,28 +1707,6 @@ export default {
             }
           }
         })
-          }
-        } catch (apiErr) {
-          // 网络错误时 fallback 到 localStorage
-          console.warn('[load] API error, fallback to localStorage:', apiErr)
-          if (apiErr.response?.status === 503) {
-            ElMessage.warning(t('smartSearch.messages.mongodbOfflineShowLocalHistory'))
-          } else if (apiErr.response?.status >= 500) {
-            ElMessage.warning(t('smartSearch.messages.serverErrorShowLocalHistory'))
-          }
-          const raw = localStorage.getItem(storageKey.value)
-          const parsed = raw ? JSON.parse(raw) : []
-          conversations.value = Array.isArray(parsed) ? parsed : []
-          // 确保每个对话都有标题
-          conversations.value.forEach(conv => {
-            if (isDefaultConversationTitle(conv.title)) {
-              const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
-              if (firstUserMsg && firstUserMsg.content) {
-                conv.title = normalizeTitle(firstUserMsg.content, defaultConversationTitle.value)
-              }
-            }
-          })
-        }
       } catch (err) {
         console.error('[load] error:', err)
         conversations.value = []
@@ -1752,12 +1730,14 @@ export default {
         const fallback = stored || qwenFlash || data.defaultProviderId || firstAvailable || (list[0]?.id || '')
 
         llmProviderId.value = fallback || ''
+        agentLlmProviderId.value = llmProviderId.value
         if (llmProviderId.value) {
           localStorage.setItem(llmProviderStorageKey.value, llmProviderId.value)
         }
       } catch (_) {
         const stored = localStorage.getItem(llmProviderStorageKey.value) || ''
         if (stored) llmProviderId.value = stored
+        agentLlmProviderId.value = llmProviderId.value
       } finally {
         llmProvidersLoading.value = false
       }
@@ -1765,6 +1745,7 @@ export default {
 
     const onLlmProviderChange = (id) => {
       llmProviderId.value = id
+      agentLlmProviderId.value = llmProviderId.value
       const v = String(id || '').trim()
       if (v) localStorage.setItem(llmProviderStorageKey.value, v)
       else localStorage.removeItem(llmProviderStorageKey.value)
@@ -1788,8 +1769,9 @@ export default {
     }
 
     const persistConversation = async (conv) => {
-      // 只保存到 MongoDB，不再保存到 localStorage
+      // Agent 会话由后端持久化；仅保留 mongo_ 旧路径兼容，非 mongo_（含 Agent ULID）直接跳过
       if (!conv) return
+      if (!conv.id || !String(conv.id).startsWith('mongo_')) return
 
       try {
         // 提取 metadata（从最后一次 assistant 消息的 payload 中）
@@ -1807,25 +1789,8 @@ export default {
           metadata
         }
 
-        if (conv.id && conv.id.startsWith('mongo_')) {
-          const mongoId = conv.id.replace('mongo_', '')
-          await api.smartSearch.updateConversation(mongoId, convData)
-          return
-        }
-
-        // 新对话：创建（创建成功后再切换成 mongo_ id，避免中途 id 变化导致找不到会话）
-        const resp = await api.smartSearch.createConversation(convData)
-        const created = resp?.data?.conversation
-        if (created?.id) {
-          const newId = `mongo_${created.id}`
-          const oldId = conv.id
-          // 更新当前会话 id（conv 通常是 conversations 里的引用对象）
-          conv.id = newId
-          // 如果当前激活的是“旧 id”，需要同步切换到新 mongo_ id
-          if (activeConversationId.value === null || activeConversationId.value === oldId) {
-            activeConversationId.value = newId
-          }
-        }
+        const mongoId = conv.id.replace('mongo_', '')
+        await api.smartSearch.updateConversation(mongoId, convData)
       } catch (err) {
         console.error('[persistConversation] Failed to save conversation to MongoDB:', err)
         if (err.response?.status === 503) {
@@ -1873,7 +1838,7 @@ export default {
       return groups
     })
 
-    const canSend = computed(() => !sending.value && draft.value.trim().length > 0)
+    const canSend = computed(() => !sending.value && !agentSending.value && draft.value.trim().length > 0)
 
     const scrollToBottom = async () => {
       await nextTick()
@@ -1965,19 +1930,8 @@ export default {
 
       sending.value = true
       try {
-        const resp = await api.smartSearch.search({
-          query: text,
-          limits: {
-            errorCodes: 10,
-            jira: 10,
-            faultCases: 10,
-            kbDocs: 5,
-            kbGenerate: true
-          },
-          debug: true,
-          llmProviderId: llmProviderId.value || undefined
-        })
-        const payload = resp?.data || null
+        const result = await agentSendText(text)
+        const payload = result.payload // already has ok, answerText, sources
         const assistantMsg = {
           id: loadingMsgId, // 使用相同的 ID 替换 loading 消息
           role: 'assistant',
@@ -1989,6 +1943,16 @@ export default {
         
       const conv2 = activeConversation.value
       if (conv2) {
+        // 首轮回复后：临时 shortId 同步为 Agent conversationId
+        const agentCid = String(agentConversationId.value || '').trim()
+        if (agentCid && conv2.id !== agentCid) {
+          const oldId = conv2.id
+          conv2.id = agentCid
+          if (activeConversationId.value === oldId) {
+            activeConversationId.value = agentCid
+          }
+        }
+
         // 找到 loading 消息的索引并替换
         const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
         if (loadingIndex >= 0) {
@@ -2738,6 +2702,7 @@ export default {
     }
 
     const startNewConversation = () => {
+      agentNewConversation()
       activeConversationId.value = null
       draft.value = ''
     }
@@ -2745,51 +2710,39 @@ export default {
     const selectConversation = async (id) => {
       activeConversationId.value = id
       draft.value = ''
-      
-      // 如果是 MongoDB 对话，确保加载完整数据
-      if (id && id.startsWith('mongo_')) {
-        const mongoId = id.replace('mongo_', '')
-        const localConv = conversations.value.find(c => c.id === id)
-        // 如果本地对话消息不完整，从 API 加载
-        if (!localConv || !localConv.messages || localConv.messages.length === 0) {
-          try {
-            const resp = await api.smartSearch.getConversation(mongoId)
-            if (resp?.data?.conversation) {
-              const conv = resp.data.conversation
-              const idx = conversations.value.findIndex(c => c.id === id)
-              if (idx >= 0) {
-                conversations.value[idx] = {
-                  ...conv,
-                  id: `mongo_${conv.id}`
-                }
-              }
-            }
-          } catch (err) {
-            console.error('[selectConversation] Failed to load conversation:', err)
+
+      if (!id) return
+      try {
+        const messages = await agentLoadConversation(id)
+        const idx = conversations.value.findIndex(c => c.id === id)
+        if (idx >= 0) {
+          conversations.value[idx] = {
+            ...conversations.value[idx],
+            messages: (Array.isArray(messages) ? messages : []).map((m, i) => ({
+              id: m.id || `${id}_${i}`,
+              role: m.role,
+              content: m.content || '',
+              type: m.role === 'assistant' ? 'search_result' : undefined,
+              payload: m.payload,
+              createdAt: m.createdAt || nowIso()
+            }))
           }
         }
+      } catch (err) {
+        console.error('[selectConversation] Failed to load conversation:', err)
       }
     }
 
     const deleteConversation = async (id) => {
-      // 如果是 MongoDB 对话，调用 API 删除
-      if (id && id.startsWith('mongo_')) {
-        const mongoId = id.replace('mongo_', '')
-        try {
-          await api.smartSearch.deleteConversation(mongoId)
-        } catch (err) {
-          console.error('[deleteConversation] Failed to delete from MongoDB:', err)
-          ElMessage.error(t('smartSearch.messages.deleteConversationFailed'))
-          return
-        }
-      }
-      
-      // 从本地列表移除
+      // 暂无后端删除 API：仅从本地列表移除
       const nextList = conversations.value.filter(c => c.id !== id)
       conversations.value = nextList
       
       if (activeConversationId.value === id) {
         activeConversationId.value = nextList[0]?.id || null
+        if (!activeConversationId.value) {
+          agentNewConversation()
+        }
       }
     }
 

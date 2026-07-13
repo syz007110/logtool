@@ -82,6 +82,14 @@ function parseInbound(req) {
     context: body.context && typeof body.context === 'object' ? body.context : {},
     rawPayload: body.rawPayload
   });
+  if (
+    request.context
+    && typeof request.context === 'object'
+    && request.context.llmProviderId == null
+    && body.llmProviderId != null
+  ) {
+    request.context.llmProviderId = body.llmProviderId;
+  }
   request.__conversationIdProvided = conversationIdProvided;
   return request;
 }
@@ -117,6 +125,9 @@ function renderOutbound({ req, res, request, response }) {
   }
   if (result.policy && typeof result.policy === 'object') {
     out.policy = result.policy;
+  }
+  if (Array.isArray(result.toolTraces)) {
+    out.toolTraces = result.toolTraces;
   }
   if (!request.__conversationIdProvided) {
     out.session = { conversationId: String(request?.channel?.conversationId || '') };

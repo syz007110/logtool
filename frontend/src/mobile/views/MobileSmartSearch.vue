@@ -626,6 +626,11 @@
 
     <!-- Input Area -->
     <div ref="inputWrapRef" class="m-ss-input-wrap">
+      <div class="m-ss-model-bar" @click="showLlmProviderSheet = true">
+        <van-icon name="cluster-o" size="14" />
+        <span class="m-ss-model-label">{{ currentLlmProviderLabel }}</span>
+        <van-icon name="arrow-down" size="12" />
+      </div>
       <div class="input-container">
         <van-field
           v-model="draft"
@@ -645,6 +650,14 @@
         </van-button>
       </div>
     </div>
+
+    <van-action-sheet
+      v-model:show="showLlmProviderSheet"
+      :actions="llmProviderActions"
+      :cancel-text="$t('shared.cancel')"
+      close-on-click-action
+      @select="onLlmProviderSelect"
+    />
 
     <!-- Sources Drawer -->
     <van-popup
@@ -1019,6 +1032,7 @@ import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import api from '@/api'
 import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
+import { useAgentSmartChat } from '@/composables/useAgentSmartChat'
 import { 
   NavBar as VanNavBar, 
   Icon as VanIcon, 
@@ -1029,12 +1043,21 @@ import {
   Loading as VanLoading,
   Field as VanField,
   Tag as VanTag,
+  ActionSheet as VanActionSheet,
   Dialog,
   Toast,
   showToast,
   showSuccessToast,
   showImagePreview
 } from 'vant'
+
+function nowIso () {
+  return new Date().toISOString()
+}
+
+function shortId () {
+  return `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`
+}
 
 export default {
   name: 'MobileSmartSearch',
@@ -1048,6 +1071,7 @@ export default {
     VanLoading,
     VanField,
     VanTag,
+    VanActionSheet,
     SmartSearchKbAssetImg
   },
   setup() {
@@ -1063,6 +1087,7 @@ export default {
     const messagesEl = ref(null)
     const inputWrapRef = ref(null)
     const composerOffset = ref(220)
+    const showLlmProviderSheet = ref(false)
     
     // 长按相关
     const longPressTimer = ref(null)
@@ -1095,8 +1120,20 @@ export default {
       const u = currentUser.value || {}
       return u.id || u.user_id || u.username || 'anonymous'
     })
+    const llmProviderStorageKey = computed(() => `smartSearchLlmProvider:${userKey.value}`)
+    const {
+      conversationId: agentConversationId,
+      llmProviderId: agentLlmProviderId,
+      sending: agentSending,
+      newConversation: agentNewConversation,
+      sendText: agentSendText,
+      listConversations: agentListConversations,
+      loadConversation: agentLoadConversation
+    } = useAgentSmartChat({
+      getCurrentUserId: () => String(userKey.value || '')
+    })
 
-    const canSend = computed(() => draft.value.trim().length > 0 && !sending.value)
+    const canSend = computed(() => draft.value.trim().length > 0 && !sending.value && !agentSending.value)
 
     const defaultConversationTitle = computed(() => t('smartSearch.newConversation'))
     const isDefaultConversationTitle = (title) =>
@@ -1111,65 +1148,37 @@ export default {
 
     const loadConversations = async () => {
       try {
-        // 优先从 MongoDB 加载
-      try {
-        const resp = await api.smartSearch.getConversations({ limit: HISTORY_LIMIT })
-          if (resp?.data?.conversations?.length > 0) {
-            // MongoDB 对话：添加 mongo_ 前缀标识
-            conversations.value = resp.data.conversations
-              .slice(0, HISTORY_LIMIT)
-              .map(conv => ({
-                ...conv,
-                id: `mongo_${conv.id}`
-              }))
-            // 确保每个对话都有标题
-            conversations.value.forEach(conv => {
-              if (isDefaultConversationTitle(conv.title)) {
-                const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
-                if (firstUserMsg && firstUserMsg.content) {
-                  conv.title = normalizeTitle(firstUserMsg.content)
-                }
-              }
-            })
-          } else {
-            // MongoDB 为空，fallback 到 localStorage（仅读取，不迁移）
-            const raw = localStorage.getItem(`smartSearchHistory:${userKey.value}`)
-            const parsed = raw ? JSON.parse(raw) : []
-            conversations.value = Array.isArray(parsed) ? parsed.slice(0, HISTORY_LIMIT) : []
-            // 确保每个对话都有标题
-            conversations.value.forEach(conv => {
-              if (isDefaultConversationTitle(conv.title)) {
-                const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
-                if (firstUserMsg && firstUserMsg.content) {
-                  conv.title = normalizeTitle(firstUserMsg.content)
-                }
-              }
-            })
+        const list = await agentListConversations({ limit: HISTORY_LIMIT })
+        conversations.value = (Array.isArray(list) ? list : []).map(conv => {
+          const id = String(conv.conversationId || conv.id || '').trim()
+          const updatedAt = conv.updatedAt || conv.createdAt || nowIso()
+          return {
+            id,
+            title: conv.title || defaultConversationTitle.value,
+            updatedAt,
+            createdAt: conv.createdAt || updatedAt,
+            messages: []
           }
-        } catch (apiErr) {
-          // 网络错误时 fallback 到 localStorage
-          console.warn('[loadConversations] API error, fallback to localStorage:', apiErr)
-          const raw = localStorage.getItem(`smartSearchHistory:${userKey.value}`)
-          const parsed = raw ? JSON.parse(raw) : []
-          conversations.value = Array.isArray(parsed) ? parsed.slice(0, HISTORY_LIMIT) : []
-          // 确保每个对话都有标题
-          conversations.value.forEach(conv => {
-            if (isDefaultConversationTitle(conv.title)) {
-              const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
-              if (firstUserMsg && firstUserMsg.content) {
-                conv.title = normalizeTitle(firstUserMsg.content)
-              }
+        }).filter(c => c.id)
+        conversations.value.forEach(conv => {
+          if (isDefaultConversationTitle(conv.title)) {
+            const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
+            if (firstUserMsg && firstUserMsg.content) {
+              conv.title = normalizeTitle(firstUserMsg.content)
             }
-          })
-        }
+          }
+        })
       } catch (err) {
         console.error('[loadConversations] error:', err)
         conversations.value = []
       }
+      activeConversationId.value = null
     }
 
     const startNewConversation = () => {
+      agentNewConversation()
       activeConversationId.value = null
+      draft.value = ''
       showSidebar.value = false
     }
 
@@ -1177,47 +1186,42 @@ export default {
       activeConversationId.value = id
       showSidebar.value = false
       draft.value = ''
-      
-      // 如果是 MongoDB 对话，确保加载完整数据
-      if (id && id.startsWith('mongo_')) {
-        const mongoId = id.replace('mongo_', '')
-        const localConv = conversations.value.find(c => c.id === id)
-        // 如果本地对话消息不完整，从 API 加载
-        if (!localConv || !localConv.messages || localConv.messages.length === 0) {
-          try {
-            const resp = await api.smartSearch.getConversation(mongoId)
-            if (resp?.data?.conversation) {
-              const conv = resp.data.conversation
-              const idx = conversations.value.findIndex(c => c.id === id)
-              if (idx >= 0) {
-                conversations.value[idx] = {
-                  ...conv,
-                  id: `mongo_${conv.id}`
-                }
-              }
-            }
-          } catch (err) {
-            console.error('[selectConversation] Failed to load conversation:', err)
+
+      if (!id) return
+      try {
+        const messages = await agentLoadConversation(id)
+        const idx = conversations.value.findIndex(c => c.id === id)
+        if (idx >= 0) {
+          conversations.value[idx] = {
+            ...conversations.value[idx],
+            messages: (Array.isArray(messages) ? messages : []).map((m, i) => ({
+              id: m.id || `${id}_${i}`,
+              role: m.role,
+              content: m.content || '',
+              type: m.role === 'assistant' ? 'search_result' : undefined,
+              payload: m.payload,
+              createdAt: m.createdAt || nowIso()
+            }))
           }
         }
+      } catch (err) {
+        console.error('[selectConversation] Failed to load conversation:', err)
       }
-      
+
       scrollToBottom(true)
     }
 
     const deleteConversation = async (id) => {
-      try {
-        // 如果是 MongoDB 对话，需要去掉 mongo_ 前缀
-        const mongoId = id && id.startsWith('mongo_') ? id.replace('mongo_', '') : id
-        await api.smartSearch.deleteConversation(mongoId)
-        conversations.value = conversations.value.filter(c => c.id !== id)
-        if (activeConversationId.value === id) {
-          activeConversationId.value = null
+      // 暂无后端删除 API：仅从本地列表移除
+      const nextList = conversations.value.filter(c => c.id !== id)
+      conversations.value = nextList
+      longPressTargetId.value = null
+
+      if (activeConversationId.value === id) {
+        activeConversationId.value = nextList[0]?.id || null
+        if (!activeConversationId.value) {
+          agentNewConversation()
         }
-        // 清除长按状态
-        longPressTargetId.value = null
-      } catch (e) {
-        Toast.fail(t('shared.deleteFailed'))
       }
     }
 
@@ -1276,77 +1280,66 @@ export default {
       return { today, yesterday, older }
     })
 
+    const ensureActiveConversation = () => {
+      if (activeConversation.value) return activeConversation.value
+      const conv = {
+        id: shortId(),
+        title: defaultConversationTitle.value,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        messages: []
+      }
+      conversations.value.unshift(conv)
+      activeConversationId.value = conv.id
+      return conv
+    }
+
     const send = async () => {
       if (!canSend.value) return
       const text = draft.value.trim()
       draft.value = ''
-      sending.value = true
 
-      let conv = activeConversation.value
-      if (!conv) {
-        try {
-          const resp = await api.smartSearch.createConversation({ title: normalizeTitle(text) })
-          const created = resp?.data?.conversation
-          if (created?.id) {
-            conv = {
-              ...created,
-              id: `mongo_${created.id}`,
-              messages: []
-            }
-          conversations.value.unshift(conv)
-          activeConversationId.value = conv.id
-          } else {
-            throw new Error('Failed to create conversation')
-          }
-        } catch (e) {
-          Toast.fail(t('shared.requestFailed'))
-          sending.value = false
-          return
-        }
-      }
-
+      const conv = ensureActiveConversation()
       const userMsg = {
-        id: Date.now().toString(),
+        id: shortId(),
         role: 'user',
         content: text,
-        createdAt: new Date().toISOString()
+        createdAt: nowIso()
       }
       conv.messages.push(userMsg)
-      
-      const loadingMsgId = 'loading-' + Date.now()
+
+      if (isDefaultConversationTitle(conv.title)) {
+        conv.title = normalizeTitle(text)
+      }
+      conv.updatedAt = nowIso()
+
+      const loadingMsgId = shortId()
       conv.messages.push({
         id: loadingMsgId,
         role: 'assistant',
         type: 'loading',
-        createdAt: new Date().toISOString()
+        createdAt: nowIso()
       })
 
       scrollToBottom(true)
+      sending.value = true
 
       try {
-        const resp = await api.smartSearch.search({
-          conversationId: conv.id,
-          query: text,
-          limits: { kbDocs: 5, kbGenerate: true },
-          llmProviderId: llmProviderId.value || undefined
-        })
-
-        const result = resp.data
-        const loadingIndex = conv.messages.findIndex(m => m.id === loadingMsgId)
-        
+        const result = await agentSendText(text)
+        const payload = result.payload // already has ok, answerText, sources
         const assistantMsg = {
-          id: result.id || Date.now().toString(),
+          id: loadingMsgId,
           role: 'assistant',
           type: 'search_result',
-          content: result.answerText || result.answer || '',
-          payload: result,
-          createdAt: new Date().toISOString()
+          content: '',
+          payload,
+          createdAt: nowIso()
         }
 
         // Apply recommendation logic
-        const intent = result.recognized?.intent
-        const hasFaultCodes = (result.sources?.faultCodes || []).length > 0
-        const hasCases = (result.sources?.cases || []).length > 0 || (result.sources?.jira || []).length > 0
+        const intent = payload?.recognized?.intent
+        const hasFaultCodes = (payload?.sources?.faultCodes || []).length > 0
+        const hasCases = (payload?.sources?.cases || []).length > 0 || (payload?.sources?.jira || []).length > 0
         const hasAnyResults = hasFaultCodes || hasCases
 
         if ((intent === 'find_case' || intent === 'troubleshoot') && !hasCases) {
@@ -1369,46 +1362,32 @@ export default {
           }
         }
 
+        // 首轮回复后：临时 shortId 同步为 Agent conversationId
+        const agentCid = String(agentConversationId.value || '').trim()
+        if (agentCid && conv.id !== agentCid) {
+          const oldId = conv.id
+          conv.id = agentCid
+          if (activeConversationId.value === oldId) {
+            activeConversationId.value = agentCid
+          }
+        }
+
+        const loadingIndex = conv.messages.findIndex(m => m.id === loadingMsgId)
         if (loadingIndex >= 0) {
           conv.messages.splice(loadingIndex, 1, assistantMsg)
         } else {
           conv.messages.push(assistantMsg)
         }
-
-        // 更新标题（首问时）
-        if (isDefaultConversationTitle(conv.title)) {
-          conv.title = normalizeTitle(text)
-        }
-        conv.updatedAt = new Date().toISOString()
-
-        // 持久化到 MongoDB
-        try {
-          const mongoId = conv.id && conv.id.startsWith('mongo_') ? conv.id.replace('mongo_', '') : null
-          if (mongoId) {
-            const metadata = {
-              intent: result.recognized?.intent || null,
-              llmProvider: result.meta?.llmProvider || llmProviderId.value || null,
-              llmModel: result.meta?.llmModel || null
-            }
-            await api.smartSearch.updateConversation(mongoId, {
-              title: conv.title,
-              messages: conv.messages,
-              metadata
-            })
-          }
-        } catch (persistErr) {
-          console.error('[send] Failed to persist conversation:', persistErr)
-          // 不阻止用户继续使用，只记录错误
-        }
+        conv.updatedAt = nowIso()
 
         scrollToBottom(true)
       } catch (e) {
         const loadingIndex = conv.messages.findIndex(m => m.id === loadingMsgId)
         const errorMsg = {
-          id: 'error-' + Date.now(),
+          id: shortId(),
           role: 'assistant',
           content: t('shared.requestFailed'),
-          createdAt: new Date().toISOString()
+          createdAt: nowIso()
         }
         if (loadingIndex >= 0) {
           conv.messages.splice(loadingIndex, 1, errorMsg)
@@ -1918,7 +1897,7 @@ export default {
       }
     }
 
-    // LLM Provider：默认使用第一个，不提供前端切换
+    // LLM Provider
     const loadLlmProviders = async () => {
       llmProvidersLoading.value = true
       try {
@@ -1926,12 +1905,49 @@ export default {
         const data = resp?.data || {}
         const list = Array.isArray(data.providers) ? data.providers : []
         llmProviders.value = list
-        llmProviderId.value = list[0]?.id || ''
+
+        const stored = localStorage.getItem(llmProviderStorageKey.value) || ''
+        const qwenFlash = list.find(p => p && (p.id === 'qwen-flash' || p.id?.includes('qwen-flash')) && p.available)?.id || ''
+        const firstAvailable = list.find(p => p && p.available)?.id || ''
+        const fallback = stored || qwenFlash || data.defaultProviderId || firstAvailable || (list[0]?.id || '')
+
+        llmProviderId.value = fallback || ''
+        agentLlmProviderId.value = llmProviderId.value
+        if (llmProviderId.value) {
+          localStorage.setItem(llmProviderStorageKey.value, llmProviderId.value)
+        }
       } catch (_) {
-        llmProviderId.value = ''
+        const stored = localStorage.getItem(llmProviderStorageKey.value) || ''
+        if (stored) llmProviderId.value = stored
+        agentLlmProviderId.value = llmProviderId.value
       } finally {
         llmProvidersLoading.value = false
       }
+    }
+
+    const currentLlmProviderLabel = computed(() => {
+      const p = llmProviders.value.find(p => p.id === llmProviderId.value)
+      return p ? (p.label || p.id) : (llmProvidersLoading.value ? t('smartSearch.llmProviderLoading') : t('smartSearch.llmProvider'))
+    })
+
+    const llmProviderActions = computed(() => {
+      return (llmProviders.value || []).map(p => ({
+        name: p.label || p.id,
+        subname: p.available === false ? t('smartSearch.llmProviderUnavailable') : undefined,
+        disabled: p.available === false,
+        color: p.id === llmProviderId.value ? 'var(--m-color-brand)' : undefined,
+        providerId: p.id
+      }))
+    })
+
+    const onLlmProviderSelect = (action) => {
+      const id = action?.providerId
+      if (!id || action?.disabled) return
+      llmProviderId.value = id
+      agentLlmProviderId.value = llmProviderId.value
+      const v = String(id || '').trim()
+      if (v) localStorage.setItem(llmProviderStorageKey.value, v)
+      else localStorage.removeItem(llmProviderStorageKey.value)
     }
 
     // 监听侧边栏关闭，清除长按状态
@@ -2008,6 +2024,10 @@ export default {
       llmProviders,
       llmProvidersLoading,
       llmProviderId,
+      showLlmProviderSheet,
+      currentLlmProviderLabel,
+      llmProviderActions,
+      onLlmProviderSelect,
       faultTechSolutions,
       loadTechSolution,
       isImageFile,
@@ -2843,6 +2863,25 @@ export default {
   padding: var(--m-space-2) var(--m-space-3);
   border-top: 1px solid var(--m-color-border);
   z-index: 100;
+}
+
+.m-ss-model-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--m-space-1);
+  margin-bottom: var(--m-space-2);
+  padding: var(--m-space-0) var(--m-space-1);
+  color: var(--m-color-text-secondary);
+  font-size: var(--m-font-size-sm);
+  line-height: var(--m-line-height-tight);
+  max-width: 100%;
+}
+
+.m-ss-model-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60vw;
 }
 
 /* iOS standalone 模式下，tabbar 会进一步收紧 safe-area 偏移，这里同步对齐 */

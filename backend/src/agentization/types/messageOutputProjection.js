@@ -35,6 +35,9 @@ function projectQueueResultToMessageOutput(queueResult) {
   if (queueResult.policy && typeof queueResult.policy === 'object' && !Array.isArray(queueResult.policy)) {
     out.policy = { ...queueResult.policy };
   }
+  if (Array.isArray(queueResult.toolTraces)) {
+    out.toolTraces = queueResult.toolTraces;
+  }
 
   return out;
 }

@@ -3,6 +3,7 @@ const {
   buildToolResultSuffix
 } = require('../session/conversationTurnKeys');
 const { withTimeout } = require('./runtimeStepUtils');
+const { projectToolTracesFromLoopTrace } = require('../types/toolTracesProjection');
 
 const DEGRADED_FINISH_REASONS = new Set([
   'length',
@@ -240,6 +241,7 @@ async function runTurnLoop({
   const assistantResponse = {
     text: finalText,
     attachments: [],
+    toolTraces: projectToolTracesFromLoopTrace(loopTrace),
     debugMeta: {
       loopTrace,
       turnResult: lastTurnResult,
