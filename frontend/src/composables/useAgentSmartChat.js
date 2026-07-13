@@ -33,6 +33,10 @@ export function generateAgentMessageUlid (timestampMs = Date.now()) {
   return `${timePart}${encodeBase32(rand, 16)}`
 }
 
+function sleep (ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function waitForAgentTaskViaWebSocket (taskId, { getCurrentUserId, timeoutMs = 300000 } = {}) {
   return new Promise((resolve, reject) => {
     const normalizedTaskId = String(taskId || '').trim()
@@ -59,14 +63,41 @@ function waitForAgentTaskViaWebSocket (taskId, { getCurrentUserId, timeoutMs = 3
   })
 }
 
+async function pollAgentTaskUntilDone (taskId, { timeoutMs = 300000, intervalMs = 1500, shouldStop } = {}) {
+  const normalizedTaskId = String(taskId || '').trim()
+  if (!normalizedTaskId) throw new Error('taskId missing')
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    if (typeof shouldStop === 'function' && shouldStop()) return null
+    const taskRes = await api.agent.getTask(normalizedTaskId)
+    const task = taskRes?.data?.task || taskRes?.data || {}
+    const status = String(task.status || taskRes?.data?.status || '').trim().toLowerCase()
+    if (status === 'completed' || status === 'failed') {
+      return {
+        taskId: normalizedTaskId,
+        status,
+        result: task.result || task.response || {},
+        error: task.error || null,
+        conversationId: task.conversationId || task.result?.session?.conversationId
+      }
+    }
+    await sleep(intervalMs)
+  }
+  throw new Error('等待 Agent 任务结果超时')
+}
+
 function normalizeAgentResult (raw) {
   const result = raw && typeof raw === 'object' ? raw : {}
+  const text = String(result.text || '').trim()
+  const instance = result.instance && typeof result.instance === 'object' ? result.instance : null
+  const noticeText = String(instance?.notice || '').trim()
+  const mergedText = noticeText ? (text ? `${text}\n\n${noticeText}` : noticeText) : text
   return {
-    text: String(result.text || '').trim(),
+    text: mergedText,
     toolTraces: Array.isArray(result.toolTraces) ? result.toolTraces : [],
     attachments: Array.isArray(result.attachments) ? result.attachments : [],
     session: result.session && typeof result.session === 'object' ? result.session : null,
-    instance: result.instance && typeof result.instance === 'object' ? result.instance : null,
+    instance,
     raw: result
   }
 }
@@ -148,20 +179,58 @@ export function useAgentSmartChat (options = {}) {
       if (mode === 'accepted') {
         if (!taskId) throw new Error('agent taskId missing')
         rememberConversationId(res?.data?.session)
-        const wsPayload = await waitForAgentTaskViaWebSocket(taskId, {
-          getCurrentUserId: options.getCurrentUserId
-        })
-        const asyncStatus = String(wsPayload?.status || '').trim().toLowerCase()
-        if (asyncStatus === 'failed') {
-          throw new Error(String(wsPayload?.error?.message || '任务失败'))
+        let done = false
+        const markDone = () => { done = true }
+        let settled
+        try {
+          const wsWait = waitForAgentTaskViaWebSocket(taskId, {
+            getCurrentUserId: options.getCurrentUserId
+          }).then((wsPayload) => {
+            markDone()
+            return { source: 'ws', wsPayload }
+          })
+          const pollWait = pollAgentTaskUntilDone(taskId, {
+            shouldStop: () => done
+          }).then((pollPayload) => {
+            if (!pollPayload) return wsWait
+            markDone()
+            return { source: 'poll', pollPayload }
+          })
+          settled = await Promise.race([wsWait, pollWait])
+        } catch (err) {
+          // Last chance: short poll if WS listener raced / both paths failed transiently.
+          const pollPayload = await pollAgentTaskUntilDone(taskId, { timeoutMs: 8000, intervalMs: 500 })
+          if (!pollPayload) throw err
+          settled = { source: 'poll', pollPayload }
         }
-        let result = normalizeAgentResult(wsPayload?.result || {})
-        if (!result.text && !result.toolTraces.length) {
-          const taskRes = await api.agent.getTask(taskId)
-          const task = taskRes?.data?.task || taskRes?.data || {}
-          result = normalizeAgentResult(task.result || task.response || {})
+
+        if (settled.source === 'ws') {
+          const wsPayload = settled.wsPayload
+          const asyncStatus = String(wsPayload?.status || '').trim().toLowerCase()
+          if (asyncStatus === 'failed') {
+            throw new Error(String(wsPayload?.error?.message || '任务失败'))
+          }
+          let result = normalizeAgentResult(wsPayload?.result || {})
+          if (!result.text && !result.toolTraces.length) {
+            const taskRes = await api.agent.getTask(taskId)
+            const task = taskRes?.data?.task || taskRes?.data || {}
+            result = normalizeAgentResult(task.result || task.response || {})
+          }
+          rememberConversationId(result.session || wsPayload?.conversationId)
+          return {
+            ...result,
+            mode: 'completed',
+            taskId,
+            payload: buildAssistantPayloadFromAgentResult(result)
+          }
         }
-        rememberConversationId(result.session || wsPayload?.conversationId)
+
+        const pollPayload = settled.pollPayload
+        if (String(pollPayload.status || '').toLowerCase() === 'failed') {
+          throw new Error(String(pollPayload?.error?.message || '任务失败'))
+        }
+        const result = normalizeAgentResult(pollPayload.result || {})
+        rememberConversationId(result.session || pollPayload.conversationId)
         return {
           ...result,
           mode: 'completed',
@@ -199,9 +268,9 @@ export function useAgentSmartChat (options = {}) {
       err.code = 'INVALID_ARGUMENT'
       throw err
     }
-    conversationId.value = cid
     const res = await api.agent.getConversationMessages(cid)
     const rows = Array.isArray(res?.data?.messages) ? res.data.messages : []
+    conversationId.value = cid
     return rows.map((row) => {
       const role = String(row.role || '').trim()
       if (role === 'user') {

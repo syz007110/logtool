@@ -1,9 +1,22 @@
 const { postgresqlSequelize } = require('../../config/postgresql');
+const {
+  isPipelineMessageType,
+  normalizeStoredMessageType,
+  DIALOGUE_MESSAGE_TYPES
+} = require('./conversationMessageTypes');
 
 function truncateTitle(text, max = 40) {
   const s = String(text || '').trim().replace(/\s+/g, ' ');
   if (!s) return '新对话';
   return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function isDialogueHistoryRow(row) {
+  const role = String(row?.role || '').trim().toLowerCase();
+  if (role !== 'user' && role !== 'assistant') return false;
+  const messageType = normalizeStoredMessageType(row?.messageType || row?.message_type);
+  if (isPipelineMessageType(messageType)) return false;
+  return DIALOGUE_MESSAGE_TYPES.includes(messageType);
 }
 
 function parsePayload(raw) {
@@ -79,22 +92,25 @@ async function listMessagesForConversation(userId, conversationId) {
       ORDER BY m.created_at ASC`,
     { replacements: { containerId } }
   );
-  return (rows || []).map((r) => {
-    const payload = parsePayload(r.payload);
-    const toolTraces = Array.isArray(payload.toolTraces) ? payload.toolTraces : undefined;
-    return {
-      role: String(r.role || ''),
-      content: String(r.content || ''),
-      messageType: String(r.messageType || ''),
-      createdAt: r.createdAt,
-      toolTraces,
-      text: String(r.content || '')
-    };
-  });
+  return (rows || [])
+    .filter((r) => isDialogueHistoryRow(r))
+    .map((r) => {
+      const payload = parsePayload(r.payload);
+      const toolTraces = Array.isArray(payload.toolTraces) ? payload.toolTraces : undefined;
+      return {
+        role: String(r.role || ''),
+        content: String(r.content || ''),
+        messageType: String(r.messageType || ''),
+        createdAt: r.createdAt,
+        toolTraces,
+        text: String(r.content || '')
+      };
+    });
 }
 
 module.exports = {
   truncateTitle,
+  isDialogueHistoryRow,
   listConversationsForUser,
   listMessagesForConversation
 };

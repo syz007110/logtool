@@ -463,198 +463,6 @@
                     </div>
                   </div>
 
-                  <!-- 故障码解析 -->
-                  <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCode') }}</div>
-                    <div class="ss-answer-section-content">
-                      <div
-                        v-for="f in (m.payload.sources?.faultCodes || [])"
-                        :key="f.ref"
-                        class="ss-fault-item"
-                      >
-                          <div class="ss-fault-code-line">
-                            <span class="ss-fault-code">{{ f.subsystem ? `${f.subsystem} - ` : '' }}{{ f.code }}</span>
-                            <span v-if="f.short_message" class="ss-fault-message">：{{ f.short_message }}</span>
-                            <span class="ss-fault-ref">[{{ f.ref }}]</span>
-                          </div>
-                          
-                          <!-- 解释 -->
-                          <div v-if="f.explanation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldExplanation') }}：</span>
-                            <span class="ss-fault-field-value">{{ f.explanation }}</span>
-                          </div>
-                          
-                          <!-- 用户提示 -->
-                          <div v-if="f.user_hint || f.operation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldUserHint') }}：</span>
-                            <span class="ss-fault-field-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</span>
-                          </div>
-                          
-                          <!-- 分类 -->
-                          <div v-if="f.category" class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldCategory') }}：</span>
-                            <span class="ss-fault-field-value">{{ f.category }}</span>
-                            </div>
-                          
-                          <!-- 技术排查方案 -->
-                          <div class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldTechSolution') }}：</span>
-                            <div class="ss-fault-tech-solution">
-                              <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-fault-tech-solution-text">
-                                {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
-                          </div>
-                          
-                              <!-- 加载按钮 -->
-                              <div v-if="f.id && !f.tech_solution && !faultTechSolutions.get(f.id)" class="ss-fault-tech-load">
-                                <el-button
-                                  size="small"
-                                  text
-                                  :loading="faultTechSolutions.get(f.id)?.loading"
-                                  @click="loadTechSolution(f.id)"
-                                >
-                                  {{ $t('mobile.smartSearch.loadTechSolution') }}
-                                </el-button>
-                          </div>
-                          
-                              <!-- 附件（图片可预览，PDF可点击） -->
-                              <div v-if="faultTechSolutions.get(f.id)?.loading" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
-                                <div class="ss-fault-field-value">{{ $t('shared.loading') }}</div>
-                              </div>
-                              <div v-else-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
-                                <div class="ss-fault-attachments-list">
-                                  <!-- 图片：可预览 -->
-                                  <div
-                                    v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => isImageFile(img))"
-                                    :key="img.uid || img.url"
-                                    class="ss-fault-attachment-image"
-                                  >
-                                    <el-image
-                                      :src="getGenericAttachmentProxyUrl(img.url)"
-                                      :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
-                                      fit="cover"
-                                      class="ss-attachment-image"
-                                      :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
-                                    />
-                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
-                                  </div>
-                                  <!-- PDF/其他文件：显示文件名，可点击下载 -->
-                                  <a
-                                    v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
-                                    :key="img.uid || img.url"
-                                    class="ss-fault-attachment-file"
-                                    :href="getGenericAttachmentProxyUrl(img.url)"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    @click.stop
-                                  >
-                                    <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                    </div>
-                  </div>
-
-                  <!-- find_case: 故障码解析放到 Jira/Mongo 之后 -->
-                  <div v-if="m.payload.recognized?.intent === 'find_case' && m.payload.sources && (m.payload.sources.faultCodes || []).length > 0" class="ss-answer-section">
-                    <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionFaultCode') }}</div>
-                    <div class="ss-answer-section-content">
-                      <div
-                        v-for="f in (m.payload.sources?.faultCodes || [])"
-                        :key="f.ref"
-                        class="ss-fault-item"
-                      >
-                          <div class="ss-fault-code-line">
-                            <span class="ss-fault-code">{{ f.subsystem ? `${f.subsystem} - ` : '' }}{{ f.code }}</span>
-                            <span v-if="f.short_message" class="ss-fault-message">：{{ f.short_message }}</span>
-                            <span class="ss-fault-ref">[{{ f.ref }}]</span>
-                          </div>
-                          
-                          <!-- 解释 -->
-                          <div v-if="f.explanation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldExplanation') }}：</span>
-                            <span class="ss-fault-field-value">{{ f.explanation }}</span>
-                          </div>
-                          
-                          <!-- 用户提示 -->
-                          <div v-if="f.user_hint || f.operation" class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldUserHint') }}：</span>
-                            <span class="ss-fault-field-value">{{ [f.user_hint, f.operation].filter(Boolean).join(' ') || '-' }}</span>
-                          </div>
-                          
-                          <!-- 分类 -->
-                          <div v-if="f.category" class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldCategory') }}：</span>
-                            <span class="ss-fault-field-value">{{ f.category }}</span>
-                          </div>
-                          
-                          <!-- 技术排查方案 -->
-                          <div class="ss-fault-field">
-                            <span class="ss-fault-field-label">{{ $t('mobile.smartSearch.fieldTechSolution') }}：</span>
-                            <div class="ss-fault-tech-solution">
-                              <div v-if="f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution" class="ss-fault-tech-solution-text">
-                                {{ f.tech_solution || faultTechSolutions.get(f.id)?.tech_solution }}
-                              </div>
-                              
-                              <!-- 加载按钮 -->
-                              <div v-if="f.id && !f.tech_solution && !faultTechSolutions.get(f.id)" class="ss-fault-tech-load">
-                                <el-button
-                                  size="small"
-                                  text
-                                  :loading="faultTechSolutions.get(f.id)?.loading"
-                                  @click="loadTechSolution(f.id)"
-                                >
-                                  {{ $t('mobile.smartSearch.loadTechSolution') }}
-                                </el-button>
-                              </div>
-                              
-                              <!-- 附件（图片可预览，PDF可点击） -->
-                              <div v-if="faultTechSolutions.get(f.id)?.loading" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
-                                <div class="ss-fault-field-value">{{ $t('shared.loading') }}</div>
-                              </div>
-                              <div v-else-if="(faultTechSolutions.get(f.id)?.images || []).length > 0" class="ss-fault-attachments">
-                                <div class="ss-fault-attachments-title">{{ $t('mobile.smartSearch.fieldAttachments') }}：</div>
-                                <div class="ss-fault-attachments-list">
-                                  <!-- 图片：可预览 -->
-                                  <div
-                                    v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => isImageFile(img))"
-                                    :key="img.uid || img.url"
-                                    class="ss-fault-attachment-image"
-                                  >
-                                    <el-image
-                                      :src="getGenericAttachmentProxyUrl(img.url)"
-                                      :preview-src-list="getImagePreviewList(faultTechSolutions.get(f.id).images)"
-                                      fit="cover"
-                                      class="ss-attachment-image"
-                                      :initial-index="getImageIndex(faultTechSolutions.get(f.id).images, img)"
-                                    />
-                                    <div class="ss-attachment-image-name">{{ img.original_name || img.filename || $t('shared.attachmentImage') }}</div>
-                                  </div>
-                                  <!-- PDF/其他文件：显示文件名，可点击下载 -->
-                                  <a
-                                    v-for="img in (faultTechSolutions.get(f.id)?.images || []).filter(img => !isImageFile(img))"
-                                    :key="img.uid || img.url"
-                                    class="ss-fault-attachment-file"
-                                    :href="getGenericAttachmentProxyUrl(img.url)"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    @click.stop
-                                  >
-                                    <span>{{ img.original_name || img.filename || $t('shared.attachmentFile') }}</span>
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                    </div>
-                  </div>
-
                   <!-- 相似案例（非 find_case：统一使用 sources.cases / K 序号） -->
                   <div v-if="m.payload.recognized?.intent !== 'find_case' && m.payload.meta?.jiraError" class="ss-answer-section">
                     <div class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionSimilarCases') }}</div>
@@ -1577,7 +1385,6 @@ import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
 import { useAgentSmartChat } from '@/composables/useAgentSmartChat'
 
 const MAX_CONVERSATIONS = 5
-const MAX_QUESTIONS_PER_CONVERSATION = 5
 const MAX_INPUT_CHARS = 150
 
 function nowIso () {
@@ -1622,7 +1429,8 @@ export default {
       listConversations: agentListConversations,
       loadConversation: agentLoadConversation
     } = useAgentSmartChat({
-      getCurrentUserId: () => String(userKey.value || '')
+      // Must match WS agentTaskStatusChange.userId (= auth user id), same as ExplanationTester
+      getCurrentUserId: () => String(store.state.auth?.user?.id || '')
     })
     const storageKey = computed(() => `smartSearchHistory:${userKey.value}`)
     const llmProviderStorageKey = computed(() => `smartSearchLlmProvider:${userKey.value}`)
@@ -1884,12 +1692,7 @@ export default {
         return
       }
 
-      // 每个对话最多 5 个问题（只计 user 消息）
-      if (activeConversation.value && questionCount.value >= MAX_QUESTIONS_PER_CONVERSATION) {
-        ElMessage.warning(t('smartSearch.maxQuestionsReached', { max: MAX_QUESTIONS_PER_CONVERSATION }))
-        return
-      }
-
+      // 轮次上限由后端 SESSION_MAX_TURNS 控制实例滚动；达到上限时 instance.notice 会并入回复文案
       const conv = ensureActiveConversation()
       const userMsg = { id: shortId(), role: 'user', content: text, createdAt: nowIso() }
       conv.messages = [...(conv.messages || []), userMsg]
@@ -2596,47 +2399,8 @@ export default {
         }
       }
       
-      // 故障码解析
-      if (payload.sources?.faultCodes?.length > 0) {
-        parts.push(t('mobile.smartSearch.sectionFaultCode'))
-        payload.sources.faultCodes.forEach(f => {
-          const faultParts = []
-          faultParts.push(`${f.subsystem ? `${f.subsystem} - ` : ''}${f.code}${f.short_message ? `：${f.short_message}` : ''} [${f.ref}]`)
-          
-          if (f.user_hint || f.operation) {
-            faultParts.push(`${t('mobile.smartSearch.fieldExplanation')}：${[f.user_hint, f.operation].filter(Boolean).join(' ') || '-'}`)
-          }
-          
-          if (f.param1 || f.param2 || f.param3 || f.param4) {
-            const params = []
-            if (f.param1) params.push(`${t('shared.param1')}：${f.param1}`)
-            if (f.param2) params.push(`${t('shared.param2')}：${f.param2}`)
-            if (f.param3) params.push(`${t('shared.param3')}：${f.param3}`)
-            if (f.param4) params.push(`${t('shared.param4')}：${f.param4}`)
-            faultParts.push(`${t('mobile.smartSearch.fieldParams')}：${params.join(' ')}`)
-          }
-          
-          if (f.detail) {
-            faultParts.push(`${t('mobile.smartSearch.fieldDetail')}：${f.detail}`)
-          }
-          
-          if (f.method) {
-            faultParts.push(`${t('mobile.smartSearch.fieldMethod')}：${f.method}`)
-          }
-          
-          if (f.category) {
-            faultParts.push(`${t('mobile.smartSearch.fieldCategory')}：${f.category}`)
-          }
-          
-          if (f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution) {
-            faultParts.push(`${t('mobile.smartSearch.fieldTechSolution')}：${f.tech_solution || faultTechSolutions.value.get(f.id)?.tech_solution}`)
-          }
-          
-          parts.push(faultParts.join('\n'))
-          parts.push('')
-        })
-      }
-      
+      // 故障码详情仅在「来源」抽屉中展示，复制时不附带解析区块
+
       // 相似案例（统一 sources.cases / K 序号）
       if (payload.sources?.cases?.length > 0) {
         parts.push(t('mobile.smartSearch.sectionSimilarCases'))

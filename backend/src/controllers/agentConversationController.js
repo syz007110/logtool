@@ -26,6 +26,9 @@ async function listAgentConversationMessages(req, res) {
     if (err.code === 'NOT_FOUND') {
       return res.status(404).json({ ok: false, message: 'conversation not found' });
     }
+    if (err.code === 'INVALID_ARGUMENT') {
+      return res.status(400).json({ ok: false, message: err.message || 'invalid argument' });
+    }
     console.error('[agent-conversations] messages failed', err);
     return res.status(500).json({ ok: false, message: err.message || 'messages failed' });
   }
