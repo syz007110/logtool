@@ -67,7 +67,7 @@ export default {
 }
 
 .empty-icon {
-  color: var(--text-placeholder, #cbd5e1);
+  color: var(--series-accent);
 }
 
 .empty-title {

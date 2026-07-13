@@ -52,14 +52,14 @@ export default {
 }
 
 .series-badge--sr {
-  background: linear-gradient(135deg, var(--blue-700) 0%, var(--blue-600) 100%);
+  background: linear-gradient(135deg, var(--series-sr-text) 0%, var(--series-sr-accent) 100%);
 }
 
 .series-badge--sa {
-  background: linear-gradient(135deg, var(--red-700) 0%, var(--red-600) 100%);
+  background: linear-gradient(135deg, var(--series-sa-text) 0%, var(--series-sa-accent) 100%);
 }
 
 .series-badge--default {
-  background: linear-gradient(135deg, var(--slate-700) 0%, var(--slate-600) 100%);
+  background: linear-gradient(135deg, var(--series-neutral-accent) 0%, var(--series-neutral-accent-strong) 100%);
 }
 </style>

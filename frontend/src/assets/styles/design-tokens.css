@@ -339,8 +339,34 @@
      Series Skin Tokens（按 data-series 切换）
      壳层氛围色；内容区勿直接大面积使用
        ========================================= */
+  /* 各系列固定色板（切换钮 / Badge 按选项自身取色） */
+  --series-sr-accent: var(--blue-600);
+  --series-sr-accent-strong: var(--blue-500);
+  --series-sr-text: var(--blue-700);
+  --series-sr-soft: var(--blue-50);
+  --series-sr-glow: rgba(37, 99, 235, 0.18);
+
+  --series-sa-accent: var(--red-600);
+  --series-sa-accent-strong: var(--red-500);
+  --series-sa-text: var(--red-700);
+  --series-sa-soft: var(--red-50);
+  --series-sa-glow: rgba(220, 38, 38, 0.18);
+
+  --series-neutral-accent: var(--slate-700);
+  --series-neutral-accent-strong: var(--slate-600);
+  --series-neutral-text: var(--slate-700);
+  --series-neutral-soft: var(--slate-100);
+  --series-neutral-glow: rgba(71, 85, 105, 0.16);
+
+  /* 当前系列语义槽（由 data-series 覆盖） */
+  --series-accent: var(--series-neutral-accent);
+  --series-accent-strong: var(--series-neutral-accent-strong);
+  --series-accent-text: var(--series-neutral-text);
+  --series-accent-soft: var(--series-neutral-soft);
+  --series-accent-glow: var(--series-neutral-glow);
   --series-chrome-line: var(--slate-300);
   --series-chrome-line-width: 2px;
+  --series-menu-indicator-width: 3px;
 
   /* =========================================
      Element Plus Button Variables Mapping
@@ -721,14 +747,29 @@
 
 /* Series skin overrides（由布局根节点 data-series 驱动） */
 [data-series="sr"] {
-  --series-chrome-line: var(--blue-500);
+  --series-accent: var(--series-sr-accent);
+  --series-accent-strong: var(--series-sr-accent-strong);
+  --series-accent-text: var(--series-sr-text);
+  --series-accent-soft: var(--series-sr-soft);
+  --series-accent-glow: var(--series-sr-glow);
+  --series-chrome-line: var(--series-sr-accent-strong);
 }
 
 [data-series="sa"] {
-  --series-chrome-line: var(--red-500);
+  --series-accent: var(--series-sa-accent);
+  --series-accent-strong: var(--series-sa-accent-strong);
+  --series-accent-text: var(--series-sa-text);
+  --series-accent-soft: var(--series-sa-soft);
+  --series-accent-glow: var(--series-sa-glow);
+  --series-chrome-line: var(--series-sa-accent-strong);
 }
 
 [data-series="default"] {
+  --series-accent: var(--series-neutral-accent);
+  --series-accent-strong: var(--series-neutral-accent-strong);
+  --series-accent-text: var(--series-neutral-text);
+  --series-accent-soft: var(--series-neutral-soft);
+  --series-accent-glow: var(--series-neutral-glow);
   --series-chrome-line: var(--slate-300);
 }
 
@@ -746,6 +787,32 @@
   width: 100% !important;
   border-right: none;
   /* 移除 Element Plus 默认的右边框 */
+}
+
+/* 侧栏选中项：左侧指示条 + soft 底，不改整栏背景 */
+.dashboard-sider .el-menu-item,
+.dashboard-sider .el-sub-menu__title {
+  border-left: var(--series-menu-indicator-width) solid transparent;
+  transition: background-color 0.2s ease, border-left-color 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-sider .el-menu-item.is-active {
+  background-color: var(--series-accent-soft) !important;
+  color: var(--series-accent-text) !important;
+  border-left-color: var(--series-accent);
+}
+
+.dashboard-sider .el-menu-item.is-active .el-icon {
+  color: var(--series-accent-text);
+}
+
+.dashboard-sider .el-sub-menu.is-active > .el-sub-menu__title {
+  color: var(--series-accent-text) !important;
+  border-left-color: var(--series-accent);
+}
+
+.dashboard-sider .el-sub-menu.is-active > .el-sub-menu__title .el-icon {
+  color: var(--series-accent-text);
 }
 
 /* =========================================

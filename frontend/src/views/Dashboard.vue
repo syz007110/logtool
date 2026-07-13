@@ -197,7 +197,7 @@
           <el-breadcrumb class="nav-breadcrumb" separator="/">
             <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index">
               <router-link v-if="item.path" :to="item.path">{{ item.title }}</router-link>
-              <span v-else-if="item.kind === 'series'" class="breadcrumb-series" :class="item.themeClass">{{ item.title }}</span>
+              <span v-else-if="item.kind === 'series'" class="breadcrumb-series">{{ item.title }}</span>
               <span v-else>{{ item.title }}</span>
             </el-breadcrumb-item>
           </el-breadcrumb>
@@ -435,8 +435,7 @@ export default {
         breadcrumbList.push({
           title: currentSeriesDisplayName.value,
           path: null,
-          kind: 'series',
-          themeClass: currentSeriesCode.value === 'SA' ? 'breadcrumb-series--sa' : currentSeriesCode.value === 'SR' ? 'breadcrumb-series--sr' : 'breadcrumb-series--default'
+          kind: 'series'
         })
       }
       
@@ -1161,18 +1160,7 @@ export default {
 
 .breadcrumb-series {
   font-weight: 700;
-}
-
-.breadcrumb-series--sr {
-  color: var(--blue-700);
-}
-
-.breadcrumb-series--sa {
-  color: var(--red-700);
-}
-
-.breadcrumb-series--default {
-  color: var(--slate-700);
+  color: var(--series-accent-text);
 }
 
 .header-right {
@@ -1213,37 +1201,37 @@ export default {
 }
 
 .series-context-button--sr.is-active {
-  background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-500) 100%);
+  background: linear-gradient(135deg, var(--series-sr-accent) 0%, var(--series-sr-accent-strong) 100%);
   color: var(--black-white-white);
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 4px 10px var(--series-sr-glow);
   transform: none;
 }
 
 .series-context-button--sa.is-active {
-  background: linear-gradient(135deg, var(--red-600) 0%, var(--red-500) 100%);
+  background: linear-gradient(135deg, var(--series-sa-accent) 0%, var(--series-sa-accent-strong) 100%);
   color: var(--black-white-white);
-  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.18);
+  box-shadow: 0 4px 10px var(--series-sa-glow);
   transform: none;
 }
 
 .series-context-button--default.is-active {
-  background: linear-gradient(135deg, var(--slate-700) 0%, var(--slate-600) 100%);
+  background: linear-gradient(135deg, var(--series-neutral-accent) 0%, var(--series-neutral-accent-strong) 100%);
   color: var(--black-white-white);
   transform: none;
 }
 
 .series-context-button--sr:not(.is-active) {
-  color: var(--blue-700);
+  color: var(--series-sr-text);
   background: transparent;
 }
 
 .series-context-button--sa:not(.is-active) {
-  color: var(--red-700);
+  color: var(--series-sa-text);
   background: transparent;
 }
 
 .series-context-button--default:not(.is-active) {
-  color: var(--slate-700);
+  color: var(--series-neutral-text);
   background: transparent;
 }
 

@@ -90,7 +90,7 @@ export default {
 }
 
 .spinner-icon {
-  color: var(--text-brand-primary, #6366f1);
+  color: var(--series-accent);
   animation: loading-rotate 1.2s linear infinite;
 }
 
