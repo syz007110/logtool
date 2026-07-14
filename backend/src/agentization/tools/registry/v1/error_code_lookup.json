@@ -40,19 +40,8 @@
             "pattern": "^[1-9A]$"
           }
         },
-        "anyOf": [
-          {
-            "required": [
-              "errorCode",
-              "seriesCode"
-            ]
-          },
-          {
-            "required": [
-              "keywords",
-              "seriesCode"
-            ]
-          }
+        "required": [
+          "seriesCode"
         ]
       },
       "runtime": {
@@ -64,7 +53,17 @@
           "handler": "errorCodeLookupHandler.execute",
           "timeoutMs": 5000,
           "retryable": false
-        }
+        },
+        "requireAnyOf": [
+          [
+            "errorCode",
+            "seriesCode"
+          ],
+          [
+            "keywords",
+            "seriesCode"
+          ]
+        ]
       },
       "security": {
         "riskLevel": "low",
