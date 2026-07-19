@@ -177,8 +177,46 @@
         >
           <!-- User message -->
           <template v-if="m.role === 'user'">
-            <div class="m-msg-bubble user-bubble">
-              <div class="m-msg-text">{{ m.content }}</div>
+            <div class="m-msg-stack m-msg-stack-user">
+              <div v-if="hasUserMessageText(m)" class="m-msg-bubble user-bubble">
+                <div class="m-msg-text">{{ m.content }}</div>
+              </div>
+              <div v-if="getUserMessageImageAttachments(m).length > 0" class="m-msg-attachments m-msg-image-attachments">
+                <div
+                  v-for="attachment in getUserMessageImageAttachments(m)"
+                  :key="attachment.assetId || attachment.objectKey || attachment.url"
+                  class="m-msg-image-card"
+                  @click="previewUserMessageAttachmentImages(m, attachment)"
+                >
+                  <img
+                    :src="getUserMessageAttachmentImageSrc(attachment)"
+                    :alt="attachment.originalName || attachment.storedName || 'attachment'"
+                    class="m-msg-image-card-media"
+                  >
+                  <div class="m-msg-image-card-body">
+                    <div class="m-msg-image-card-name">{{ attachment.originalName || attachment.storedName || attachment.assetId }}</div>
+                    <div class="m-msg-image-card-meta">
+                      <span>{{ formatAttachmentSize(attachment.sizeBytes) }}</span>
+                      <span>点击预览</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="getUserMessageFileAttachments(m).length > 0" class="m-msg-attachments m-msg-file-attachments">
+                <div
+                  v-for="attachment in getUserMessageFileAttachments(m)"
+                  :key="attachment.assetId || attachment.objectKey || attachment.url"
+                  class="m-msg-attachment-card"
+                >
+                  <div class="m-msg-attachment-file-icon">
+                    <van-icon name="description" />
+                  </div>
+                  <div class="m-msg-attachment-info">
+                    <div class="m-msg-attachment-name">{{ attachment.originalName || attachment.storedName || attachment.assetId }}</div>
+                    <div class="m-msg-attachment-sub">{{ formatAttachmentSize(attachment.sizeBytes) }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -435,7 +473,16 @@
     </div>
 
     <!-- Input Area -->
-    <div ref="inputWrapRef" class="m-ss-input-wrap">
+    <div v-if="activeConversationLockedNotice" class="m-instance-locked-notice">
+      <van-notice-bar
+        left-icon="warning-o"
+        wrapable
+        :scrollable="false"
+        :text="activeConversationLockedNotice"
+      />
+    </div>
+
+    <div v-if="!activeConversationLockedNotice" ref="inputWrapRef" class="m-ss-input-wrap">
       <div class="m-ss-model-bar" @click="showLlmProviderSheet = true">
         <van-icon name="cluster-o" size="14" />
         <span class="m-ss-model-label">{{ currentLlmProviderLabel }}</span>
@@ -919,6 +966,11 @@ export default {
       conversations.value.find(c => c.id === activeConversationId.value)
     )
     const activeMessages = computed(() => activeConversation.value?.messages || [])
+    const activeConversationLockedNotice = computed(() => {
+      const instance = activeConversation.value?.instance || null
+      if (!instance || instance.continuable !== false) return ''
+      return String(instance.inactiveNotice || t('shared.agent.inactiveInstanceFallback')).trim()
+    })
 
     // LLM Provider
     const llmProviders = ref([])
@@ -944,7 +996,7 @@ export default {
       getCurrentUserId: () => String(store.state.auth?.user?.id || '')
     })
 
-    const canSend = computed(() => draft.value.trim().length > 0 && !sending.value && !agentSending.value)
+    const canSend = computed(() => draft.value.trim().length > 0 && !sending.value && !agentSending.value && !activeConversationLockedNotice.value)
 
     const defaultConversationTitle = computed(() => t('smartSearch.newConversation'))
     const isDefaultConversationTitle = (title) =>
@@ -1000,15 +1052,17 @@ export default {
 
       if (!id) return
       try {
-        const messages = await agentLoadConversation(id)
+        const session = await agentLoadConversation(id)
         const idx = conversations.value.findIndex(c => c.id === id)
         if (idx >= 0) {
           conversations.value[idx] = {
             ...conversations.value[idx],
-            messages: (Array.isArray(messages) ? messages : []).map((m, i) => ({
+            instance: session?.instance || null,
+            messages: (Array.isArray(session?.messages) ? session.messages : []).map((m, i) => ({
               id: m.id || `${id}_${i}`,
               role: m.role,
               content: m.content || '',
+              attachments: Array.isArray(m.attachments) ? m.attachments : [],
               type: m.role === 'assistant' ? 'search_result' : undefined,
               payload: m.payload,
               createdAt: m.createdAt || nowIso()
@@ -1502,6 +1556,75 @@ export default {
       }
     }
 
+    const getUserMessageAttachments = (message) => {
+      return Array.isArray(message?.attachments) ? message.attachments.filter(Boolean) : []
+    }
+
+    const getUserMessageAttachmentImageSrc = (attachment) => {
+      if (!attachment || attachment.type !== 'image') return ''
+      const rawUrl = String(attachment.previewUrl || attachment.url || '').trim()
+      if (!rawUrl) return ''
+      return getGenericAttachmentProxyUrl(rawUrl)
+    }
+
+    const getUserMessageImageAttachments = (message) => {
+      return getUserMessageAttachments(message).filter(attachment => !!getUserMessageAttachmentImageSrc(attachment))
+    }
+
+    const getUserMessageFileAttachments = (message) => {
+      return getUserMessageAttachments(message).filter(attachment => !getUserMessageAttachmentImageSrc(attachment))
+    }
+
+    const getUserMessageAttachmentPreviewUrls = (message) => {
+      return getUserMessageImageAttachments(message)
+        .map(attachment => getUserMessageAttachmentImageSrc(attachment))
+        .filter(Boolean)
+    }
+
+    const getUserMessageAttachmentPreviewIndex = (message, currentAttachment) => {
+      const images = getUserMessageImageAttachments(message)
+      return images.findIndex((attachment) => {
+        const currentKey = currentAttachment?.assetId || currentAttachment?.objectKey || currentAttachment?.url
+        const itemKey = attachment?.assetId || attachment?.objectKey || attachment?.url
+        return itemKey === currentKey
+      })
+    }
+
+    const previewUserMessageAttachmentImages = (message, currentAttachment) => {
+      const imageList = getUserMessageAttachmentPreviewUrls(message)
+      if (!imageList.length) {
+        showToast(t('shared.noData'))
+        return
+      }
+      const start = Math.max(0, getUserMessageAttachmentPreviewIndex(message, currentAttachment))
+      try {
+        showImagePreview({
+          images: imageList,
+          startPosition: start,
+          closeable: true,
+          showIndex: true,
+          swipeDuration: 300,
+          minZoom: 1,
+          maxZoom: 3
+        })
+      } catch (error) {
+        console.error('[用户图片预览] 预览失败:', error)
+        window.open(imageList[start], '_blank')
+      }
+    }
+
+    const hasUserMessageText = (message) => {
+      return String(message?.content || '').trim().length > 0
+    }
+
+    const formatAttachmentSize = (size) => {
+      const bytes = Number(size || 0)
+      if (!Number.isFinite(bytes) || bytes <= 0) return '-'
+      if (bytes < 1024) return `${bytes} B`
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    }
+
     const getMongoCase = (item) => {
       const id = String(item?.id || item?._id || item?.fault_case_id || '').trim()
       if (id && mongoCaseCache.value[id]) {
@@ -1797,6 +1920,7 @@ export default {
       activeConversationId,
       activeConversation,
       activeMessages,
+      activeConversationLockedNotice,
       canSend,
       groupedConversations,
       startNewConversation,
@@ -1833,6 +1957,12 @@ export default {
       getImagePreviewList,
       getImageIndex,
       handleImagePreview,
+      getUserMessageAttachmentImageSrc,
+      getUserMessageImageAttachments,
+      getUserMessageFileAttachments,
+      previewUserMessageAttachmentImages,
+      hasUserMessageText,
+      formatAttachmentSize,
       getMongoCase,
       mongoCaseCache,
       expandedSources,
@@ -2185,6 +2315,16 @@ export default {
   justify-content: flex-start;
 }
 
+.m-msg-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.m-msg-stack-user {
+  align-items: flex-end;
+}
+
 .m-msg-bubble {
   padding: var(--m-space-3) var(--m-space-4);
   border-radius: var(--m-radius-lg);
@@ -2197,6 +2337,109 @@ export default {
   color: var(--m-color-text);
   border: 1px solid var(--blue-200);
   border-bottom-right-radius: var(--m-radius-sm);
+}
+
+.m-msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.m-msg-image-attachments {
+  justify-content: flex-end;
+}
+
+.m-msg-image-card {
+  width: min(220px, 72vw);
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--blue-200);
+  background: var(--m-color-surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.m-msg-image-card-media {
+  display: block;
+  width: 100%;
+  height: 164px;
+  object-fit: cover;
+  background: var(--m-color-surface-secondary, #f3f4f6);
+}
+
+.m-msg-image-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.m-msg-image-card-name {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--m-color-text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.m-msg-image-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--m-color-text-secondary);
+}
+
+.m-msg-file-attachments {
+  justify-content: flex-end;
+}
+
+.m-msg-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 168px;
+  max-width: min(260px, 78vw);
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--blue-200);
+  background: var(--m-color-surface);
+}
+
+.m-msg-attachment-file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--blue-50);
+  color: var(--m-color-brand);
+  font-size: 20px;
+}
+
+.m-msg-attachment-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.m-msg-attachment-name {
+  font-size: 13px;
+  color: var(--m-color-text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.m-msg-attachment-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--m-color-text-secondary);
 }
 
 .ai-bubble {
@@ -2649,6 +2892,16 @@ export default {
   background: var(--m-color-surface);
   border: 1px solid var(--m-color-border);
   color: var(--m-color-text);
+}
+
+.m-instance-locked-notice {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(50px + max(0px, env(safe-area-inset-bottom) - 8px));
+  z-index: 100;
+  background: var(--m-color-surface);
+  border-top: 1px solid var(--m-color-border);
 }
 
 .m-ss-input-wrap {

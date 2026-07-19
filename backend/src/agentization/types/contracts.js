@@ -4,6 +4,10 @@ function assertObject(value, fieldName) {
   }
 }
 
+function optionalObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
 function assertNonEmptyString(value, fieldName) {
   const text = String(value || '').trim();
   if (!text) {
@@ -15,6 +19,21 @@ function assertNonEmptyString(value, fieldName) {
 function optionalString(value) {
   const text = String(value || '').trim();
   return text || undefined;
+}
+
+function optionalNullableNumber(value) {
+  if (value == null || value === '') return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+function optionalBoolean(value) {
+  if (value == null || value === '') return undefined;
+  if (typeof value === 'boolean') return value;
+  const text = String(value).trim().toLowerCase();
+  if (text === 'true' || text === '1' || text === 'yes' || text === 'on') return true;
+  if (text === 'false' || text === '0' || text === 'no' || text === 'off') return false;
+  return undefined;
 }
 
 function normalizeTimestamp(value, fallback) {
@@ -53,19 +72,51 @@ function normalizeMessageType(value, attachments) {
   return 'text';
 }
 
+function normalizeAttachmentType(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'image' || text === 'file' || text === 'audio') return text;
+  return 'file';
+}
+
+function normalizeAttachmentStatus(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'available' || text === 'deleted' || text === 'expired' || text === 'failed') {
+    return text;
+  }
+  return 'available';
+}
+
 function normalizeAttachments(list) {
   if (!Array.isArray(list)) return [];
   return list
     .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
-    .map((item) => ({
-      fileId: optionalString(item.fileId || item.id),
-      type: ['image', 'file', 'audio'].includes(String(item.type || '').trim().toLowerCase())
-        ? String(item.type || '').trim().toLowerCase()
-        : 'file',
-      name: optionalString(item.name),
-      url: optionalString(item.url),
-      mimeType: optionalString(item.mimeType)
-    }));
+    .map((item) => {
+      const assetId = optionalString(item.assetId);
+      const originalName = optionalString(item.originalName);
+      const storedName = optionalString(item.storedName);
+      const previewUrl = optionalString(item.previewUrl);
+      const url = optionalString(item.url);
+
+      return {
+        assetId,
+        type: normalizeAttachmentType(item.type),
+        storage: optionalString(item.storage),
+        objectKey: optionalString(item.objectKey),
+        bucket: optionalString(item.bucket),
+        originalName,
+        storedName,
+        mimeType: optionalString(item.mimeType),
+        sizeBytes: optionalNullableNumber(item.sizeBytes),
+        sha256: optionalString(item.sha256),
+        uploaderId: optionalString(item.uploaderId),
+        source: optionalString(item.source),
+        previewUrl,
+        url,
+        width: item.width == null ? null : (optionalNullableNumber(item.width) ?? null),
+        height: item.height == null ? null : (optionalNullableNumber(item.height) ?? null),
+        status: normalizeAttachmentStatus(item.status)
+      };
+    });
 }
 
 function buildMessageInput(input) {
@@ -77,6 +128,8 @@ function buildMessageInput(input) {
   assertObject(input.channel, 'channel');
   assertObject(input.message, 'message');
 
+  const rawContext = optionalObject(input.context);
+  const rawSession = optionalObject(input.session);
   const user = {
     id: assertNonEmptyString(input.user.id, 'user.id'),
     name: optionalString(input.user.name),
@@ -119,13 +172,32 @@ function buildMessageInput(input) {
   };
   assertMessageHasContent(messageText, attachments);
 
+  const normalizedContext = { ...rawContext };
+  const contextInstanceId = optionalNullableNumber(rawContext.instanceId);
+  const sessionInstanceId = optionalNullableNumber(rawSession.instanceId);
+  if (contextInstanceId != null) {
+    normalizedContext.instanceId = contextInstanceId;
+  } else if (sessionInstanceId != null) {
+    normalizedContext.instanceId = sessionInstanceId;
+  }
+
+  const session = {};
+  if (sessionInstanceId != null) {
+    session.instanceId = sessionInstanceId;
+  }
+  const sessionForceNewInstance = optionalBoolean(rawSession.forceNewInstance);
+  if (sessionForceNewInstance != null) {
+    session.forceNewInstance = sessionForceNewInstance;
+  }
+
   return {
     traceId,
     requestId,
     user,
     channel,
     message,
-    context: {},
+    context: normalizedContext,
+    session,
     rawPayload: input.rawPayload
   };
 }
@@ -142,10 +214,19 @@ function buildMessageOutput(input, options = {}) {
   const out = { attachments };
   if (text) out.text = text;
 
-  if (options.session?.conversationId) {
-    out.session = {
-      conversationId: assertNonEmptyString(options.session.conversationId, 'session.conversationId')
-    };
+  const sessionOptions = options.session && typeof options.session === 'object'
+    ? options.session
+    : null;
+  const conversationId = optionalString(sessionOptions?.conversationId);
+  const instanceId = optionalNullableNumber(sessionOptions?.instanceId);
+  if (conversationId || instanceId != null) {
+    out.session = {};
+    if (conversationId) {
+      out.session.conversationId = assertNonEmptyString(conversationId, 'session.conversationId');
+    }
+    if (instanceId != null) {
+      out.session.instanceId = instanceId;
+    }
   }
 
   return out;

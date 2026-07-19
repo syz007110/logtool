@@ -5,12 +5,15 @@ const ErrorCode = require('../models/error_code');
 const AnalysisCategory = require('../models/analysis_category');
 const { sequelize } = require('../models');
 const Device = require('../models/device');
+const DeviceSeriesDict = require('../models/device_series_dict');
 const HospitalMaster = require('../models/hospital_master');
 const dayjs = require('dayjs');
 const { decryptLogContent } = require('../utils/decryptUtils');
 const { getKeyForDeviceAndDate } = require('../services/deviceKeyService');
 const { extractTimeFromFileName } = require('../utils/logTimeExtractor');
 const { renderEntryExplanation, ensureCacheReady } = require('../services/logParsingService');
+const { deriveFromFullLogCode, translatePrefixText } = require('../utils/explanationPreview');
+const { buildPrefixFromContext } = require('../utils/explanationParser');
 const { logProcessingQueue, csvExportQueue, realtimeProcessingQueue } = require('../config/queue');
 const queueManager = require('../services/queueManager');
 const { cacheManager } = require('../config/cache');
@@ -114,6 +117,104 @@ const LogEntry = {
   destroy: async () => { return 0; },
   bulkCreate: async () => { return []; }
 };
+
+async function resolveSeriesCodeMapByDeviceIds(deviceIds) {
+  const normalizedDeviceIds = Array.from(new Set(
+    (deviceIds || [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  ));
+  if (normalizedDeviceIds.length === 0) return new Map();
+
+  const deviceRows = await Device.findAll({
+    where: { device_id: { [Op.in]: normalizedDeviceIds } },
+    attributes: ['device_id', 'series_id']
+  });
+  const seriesIds = Array.from(new Set(
+    (deviceRows || [])
+      .map((row) => Number(row?.series_id))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  ));
+
+  const seriesCodeById = new Map();
+  if (seriesIds.length > 0) {
+    const seriesRows = await DeviceSeriesDict.findAll({
+      where: { id: { [Op.in]: seriesIds } },
+      attributes: ['id', 'series_code']
+    });
+    (seriesRows || []).forEach((row) => {
+      const id = Number(row?.id);
+      const code = String(row?.series_code || '').trim().toUpperCase();
+      if (Number.isInteger(id) && code) {
+        seriesCodeById.set(id, code);
+      }
+    });
+  }
+
+  const deviceSeriesMap = new Map();
+  (deviceRows || []).forEach((row) => {
+    const deviceId = String(row?.device_id || '').trim();
+    const seriesId = Number(row?.series_id);
+    const seriesCode = seriesCodeById.get(seriesId) || null;
+    if (deviceId) {
+      deviceSeriesMap.set(deviceId, seriesCode);
+    }
+  });
+  return deviceSeriesMap;
+}
+
+function localizeExplanationPrefix(row, seriesCode, t) {
+  const explanation = String(row?.explanation || '').trim();
+  const errorCode = String(row?.error_code || '').trim();
+  if (!explanation || !errorCode || typeof t !== 'function') return row;
+
+  const parsed = deriveFromFullLogCode(errorCode);
+  if (!parsed?.subsystem || !parsed?.normalizedCode) return row;
+
+  const context = {
+    error_code: errorCode,
+    subsystem: parsed.subsystem,
+    arm: parsed.arm || null,
+    joint: parsed.joint || null,
+    normalized_code: parsed.normalizedCode,
+    seriesCode: String(seriesCode || '').trim().toUpperCase() || null
+  };
+  const prefixRaw = String(buildPrefixFromContext(context) || '').trim();
+  if (!prefixRaw || !explanation.startsWith(prefixRaw)) return row;
+
+  const prefix = String(translatePrefixText(prefixRaw, t) || '').trim();
+  if (!prefix || prefix === prefixRaw) return row;
+
+  const body = explanation.slice(prefixRaw.length).replace(/^\s+/, '');
+  return {
+    ...row,
+    explanation: body ? `${prefix} ${body}` : prefix
+  };
+}
+
+async function localizeEntriesExplanationPrefixes(entries, { deviceIdByLogId = null, defaultDeviceId = null, t } = {}) {
+  if (!Array.isArray(entries) || entries.length === 0 || typeof t !== 'function') {
+    return entries;
+  }
+
+  const deviceIds = [];
+  if (defaultDeviceId) deviceIds.push(defaultDeviceId);
+  if (deviceIdByLogId instanceof Map) {
+    deviceIdByLogId.forEach((deviceId) => {
+      if (deviceId) deviceIds.push(deviceId);
+    });
+  }
+  const seriesCodeByDeviceId = await resolveSeriesCodeMapByDeviceIds(deviceIds);
+
+  return entries.map((entry) => {
+    const logId = Number(entry?.log_id);
+    const deviceId = defaultDeviceId
+      || (deviceIdByLogId instanceof Map && Number.isInteger(logId) ? deviceIdByLogId.get(logId) : null)
+      || null;
+    const seriesCode = deviceId ? seriesCodeByDeviceId.get(String(deviceId).trim()) : null;
+    return localizeExplanationPrefix(entry, seriesCode, t);
+  });
+}
 
 // 从 ClickHouse log_entries 生成解密后的纯文本内容（按给定日志ID与版本）
 async function buildDecryptedContentFromClickHouse(logId, version) {
@@ -1360,7 +1461,11 @@ const getLogEntries = async (req, res) => {
     console.log(`[getLogEntries] ClickHouse 查询完成，耗时: ${queryTime}ms`);
 
     const parseStartTime = Date.now();
-    const entries = await result.json();
+    const rawEntries = await result.json();
+    const entries = await localizeEntriesExplanationPrefixes(rawEntries, {
+      defaultDeviceId: log.device_id,
+      t: req.t
+    });
     const parseTime = Date.now() - parseStartTime;
     const totalTime = Date.now() - startTime;
 
@@ -4156,10 +4261,11 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
 
     // 当有日志ID时，只查询每个日志当前版本（最新版本），且仅允许已解析的日志（与前端 selectable 一致）
     let logVersionPairs = null;
+    const logDeviceIdByLogId = new Map();
     if (requestedLogIds && requestedLogIds.length > 0) {
       const logs = await Log.findAll({
         where: { id: requestedLogIds },
-        attributes: ['id', 'version', 'status']
+        attributes: ['id', 'version', 'status', 'device_id']
       });
       const parsedLogs = logs.filter(l => String(l.status || '').trim() === 'parsed');
       if (parsedLogs.length !== logs.length) {
@@ -4170,6 +4276,13 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
         Number(l.id),
         Number(Number.isInteger(l.version) ? l.version : 1)
       ]);
+      parsedLogs.forEach((log) => {
+        const logId = Number(log?.id);
+        const deviceId = String(log?.device_id || '').trim();
+        if (Number.isInteger(logId) && deviceId) {
+          logDeviceIdByLogId.set(logId, deviceId);
+        }
+      });
 
       // 如果没有找到任何日志记录，则直接返回空结果
       if (!logVersionPairs || logVersionPairs.length === 0) {
@@ -4435,7 +4548,10 @@ const getBatchLogEntriesClickhouse = async (req, res) => {
     console.log('[ClickHouse] 查询返回行数:', rows.length, '期望:', limitNum, 'offset:', queryOffset);
 
     // ClickHouse 已完成所有过滤，直接使用查询结果作为当前页
-    const pageEntries = rows;
+    const pageEntries = await localizeEntriesExplanationPrefixes(rows, {
+      deviceIdByLogId: logDeviceIdByLogId,
+      t: req.t
+    });
 
     const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
 

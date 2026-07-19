@@ -4,21 +4,36 @@ const { STORAGE } = require('./storageMode');
 
 const LOCAL_DIR = process.env.AGENT_ASSET_LOCAL_DIR || path.resolve(__dirname, '../../uploads/agent-assets');
 const TMP_DIR = path.resolve(LOCAL_DIR, 'tmp');
-const LOCAL_PUBLIC_BASE = (process.env.AGENT_ASSET_PUBLIC_BASE || '/static/agent-assets').replace(/\/$/, '');
 
-const MAX_FILES = Number.parseInt(process.env.AGENT_ASSET_MAX_FILES || '10', 10);
+function normalizePublicBase(value, fallback) {
+  const raw = String(value || fallback || '').trim();
+  if (!raw) return '/static/agent-assets';
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`;
+  return withLeadingSlash.replace(/\/$/, '');
+}
+
+const LOCAL_PUBLIC_BASE = normalizePublicBase(
+  process.env.AGENT_ASSET_PUBLIC_BASE,
+  '/static/agent-assets'
+);
+
+const MAX_FILES = Number.parseInt(process.env.AGENT_ASSET_MAX_FILES || '5', 10);
 const MAX_FILE_SIZE = Number.parseInt(process.env.AGENT_ASSET_MAX_SIZE || `${20 * 1024 * 1024}`, 10);
+const MAX_TOTAL_SIZE = Number.parseInt(process.env.AGENT_ASSET_MAX_TOTAL_SIZE || `${100 * 1024 * 1024}`, 10);
 const TMP_TTL_HOURS = Number.parseInt(process.env.TMP_CLEANUP_TTL_HOURS || process.env.AGENT_ASSET_TMP_TTL_HOURS || '24', 10);
 
 const ALLOWED_MIMES = (process.env.AGENT_ASSET_ALLOWED_MIMES ||
-  'image/jpeg,image/png,image/gif,image/webp,image/bmp,' +
-  'application/pdf,application/zip,application/x-zip-compressed,' +
-  'application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
-  'application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,' +
-  'application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,' +
-  'text/plain,application/octet-stream')
+  'image/jpeg,image/png,image/webp,' +
+  'text/plain,application/octet-stream,' +
+  'application/zip,application/x-zip-compressed,application/x-7z-compressed')
   .split(',')
   .map((s) => s.trim())
+  .filter(Boolean);
+
+const ALLOWED_EXTENSIONS = (process.env.AGENT_ASSET_ALLOWED_EXTENSIONS ||
+  '.medbot,.txt,.7z,.zip,.jpeg,.jpg,.png,.webp')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
 const OSS_PREFIX = process.env.AGENT_ASSET_OSS_PREFIX || 'agent-assets/';
@@ -136,8 +151,10 @@ module.exports = {
   LOCAL_PUBLIC_BASE,
   MAX_FILES,
   MAX_FILE_SIZE,
+  MAX_TOTAL_SIZE,
   TMP_TTL_HOURS,
   ALLOWED_MIMES,
+  ALLOWED_EXTENSIONS,
   OSS_PREFIX,
   TMP_PREFIX,
   OSS_PUBLIC_BASE,

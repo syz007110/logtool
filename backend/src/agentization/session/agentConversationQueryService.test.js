@@ -30,3 +30,21 @@ describe('isDialogueHistoryRow', () => {
     assert.equal(isDialogueHistoryRow({ role: 'system', messageType: 'text' }), false);
   });
 });
+
+describe('attachments parsing', () => {
+  it('keeps array attachments as-is', () => {
+    const { parseAttachments } = require('./agentConversationQueryService');
+    assert.deepEqual(parseAttachments([{ assetId: 'a1' }]), [{ assetId: 'a1' }]);
+  });
+
+  it('parses json string attachments', () => {
+    const { parseAttachments } = require('./agentConversationQueryService');
+    assert.deepEqual(parseAttachments('[{"assetId":"a1"}]'), [{ assetId: 'a1' }]);
+  });
+
+  it('returns empty array for invalid attachments', () => {
+    const { parseAttachments } = require('./agentConversationQueryService');
+    assert.deepEqual(parseAttachments('{bad json}'), []);
+    assert.deepEqual(parseAttachments(null), []);
+  });
+});

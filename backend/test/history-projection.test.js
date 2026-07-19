@@ -17,28 +17,22 @@ test('buildHistoryMessages replays orchestrator tool_calls and tool results for 
       role: 'assistant',
       message_type: 'orchestrator',
       content: null,
-      payload: {
-        kind: 'tool_call',
-        toolCalls: [{
-          id: 'call_abc',
-          toolName: 'error_code_lookup',
-          rawArguments: '{"errorCode":"141010A"}',
-          arguments: { errorCode: '141010A' }
-        }]
-      }
+      payload_raw_message: null,
+      payload_tool_calls: [{
+        id: 'call_abc',
+        toolName: 'error_code_lookup',
+        rawArguments: '{"errorCode":"141010A"}',
+        arguments: { errorCode: '141010A' }
+      }],
+      payload_content: null
     },
     {
       message_id: 'msg-prev:tool_result_1_1',
       role: 'tool',
       message_type: 'tool',
       content: '{"status":"success","data":{"code":"141010A"},"evidence":[{"type":"fault_code","id":"1"}]}',
-      payload: {
-        status: 'success',
-        data: { code: '141010A' },
-        evidence: [{ type: 'fault_code', id: '1' }],
-        toolCallId: 'call_abc',
-        toolName: 'error_code_lookup'
-      }
+      payload_tool_call_id: 'call_abc',
+      payload_status: 'success'
     },
     {
       message_id: 'msg-prev:assistant_structured',
@@ -77,7 +71,9 @@ test('buildHistoryMessages skips orchestrator rows without tool_calls', () => {
     {
       role: 'assistant',
       message_type: 'orchestrator',
-      payload: { kind: 'message', content: '你好，有什么可以帮你？' }
+      payload_raw_message: null,
+      payload_tool_calls: [],
+      payload_content: '你好，有什么可以帮你？'
     },
     { role: 'assistant', message_type: 'text', content: '你好，有什么可以帮你？' }
   ];
@@ -85,6 +81,48 @@ test('buildHistoryMessages skips orchestrator rows without tool_calls', () => {
   assert.deepEqual(buildHistoryMessages(history, 5), [
     { role: 'user', content: '你好' },
     { role: 'assistant', content: '你好，有什么可以帮你？' }
+  ]);
+});
+
+test('buildHistoryMessages skips unclosed orchestrator tool_calls rows', () => {
+  const history = [
+    {
+      message_id: 'msg-prev',
+      role: 'user',
+      message_type: 'text',
+      content: '查多个故障码'
+    },
+    {
+      message_id: 'msg-prev:orchestrator_1',
+      role: 'assistant',
+      message_type: 'orchestrator',
+      content: null,
+      payload_raw_message: null,
+      payload_tool_calls: [
+        { id: 'call_1', toolName: 'error_code_lookup', rawArguments: '{"errorCode":"A"}' },
+        { id: 'call_2', toolName: 'error_code_lookup', rawArguments: '{"errorCode":"B"}' }
+      ],
+      payload_content: null
+    },
+    {
+      message_id: 'msg-prev:tool_result_1_1',
+      role: 'tool',
+      message_type: 'tool',
+      content: '{"status":"success"}',
+      payload_tool_call_id: 'call_1',
+      payload_status: 'success'
+    },
+    {
+      message_id: 'msg-prev:assistant_structured',
+      role: 'assistant',
+      message_type: 'text',
+      content: '只查到部分结果。'
+    }
+  ];
+
+  assert.deepEqual(buildHistoryMessages(history, 5), [
+    { role: 'user', content: '查多个故障码' },
+    { role: 'assistant', content: '只查到部分结果。' }
   ]);
 });
 

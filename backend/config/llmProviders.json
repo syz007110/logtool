@@ -21,7 +21,8 @@
       "maxTokensField": "max_tokens",
       "sampling": "send",
       "thinking": null,
-      "preserveReasoningContent": false
+      "preserveReasoningContent": false,
+      "imageInput": false
     },
     "orchestrator": {
       "toolChoice": "auto"
@@ -35,16 +36,17 @@
     "apiKeyEnv": "MOONSHOT_API_KEY",
     "baseUrl": "https://api.moonshot.cn/v1",
     "model": "kimi-k2.6",
-    "timeoutMs": 60000,
-    "orchestratorMaxTokens": 16000,
+    "timeoutMs": 35000,
+    "orchestratorMaxTokens": 4096,
     "capabilities": {
       "toolCalls": true,
       "strictTools": { "default": true },
       "toolNamePattern": "^[a-zA-Z_][a-zA-Z0-9-_]{2,63}$",
       "maxTokensField": "max_completion_tokens",
       "sampling": "omit",
-      "thinking": { "type": "enabled" },
-      "preserveReasoningContent": true
+      "thinking": { "type": "disabled" },
+      "preserveReasoningContent": true,
+      "imageInput": true
     },
     "orchestrator": {
       "toolChoice": "auto"

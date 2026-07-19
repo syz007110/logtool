@@ -199,6 +199,7 @@ test('stream bridge prints payload sample when debug enabled', async () => {
   assert.equal(payload.raw.sessionWebhook, 'https://example.com/hook');
   assert.match(payload.raw.senderStaffId, /\*\*\*/);
   assert.match(payload.raw.conversationId, /\*\*\*/);
+  assert.equal(Object.hasOwn(payload, 'normalized'), false);
 });
 
 test('stream bridge emits unified agent-request log when AGENT_REQUEST_LOG is enabled', async () => {

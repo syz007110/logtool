@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const {
   runTurnLoop,
   mergeDeliveryText,
-  buildAssistantMessageFromTurnResult
+  buildAssistantMessageFromTurnResult,
+  LIMIT_FALLBACK_TEXT
 } = require('../src/agentization/runtime/turnLoop');
 const {
   buildOrchestratorSuffix,
@@ -164,8 +165,10 @@ test('runTurnLoop stops when maxToolCalls reached', async () => {
     onLastStep: () => {}
   });
 
-  assert.match(out.assistantResponse.text, /调用工具次数已达上限/);
+  assert.equal(out.assistantResponse.text, LIMIT_FALLBACK_TEXT.toolCalls);
   assert.equal(out.toolCallsUsed, 3);
+  assert.equal(out.loopTrace.at(-1).kind, 'orchestrator');
+  assert.equal(out.loopTrace.at(-1).step, 4);
 });
 
 test('runTurnLoop merges degraded finish_reason prefix into delivery text', async () => {

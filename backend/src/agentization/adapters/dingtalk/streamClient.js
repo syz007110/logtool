@@ -219,12 +219,11 @@ function createDingtalkStreamBridge(options = {}) {
       outbound,
       execute: executeRequest,
       agentRequestLogger,
-      onParsed: (request) => {
+      onParsed: () => {
         if (!debugPayload || random() >= payloadSampleRate) return;
         logger.info('[dingtalk-stream] payload_sample', {
           traceId,
-          raw: sanitizePayloadForLog(normalizedPayload),
-          normalized: request
+          raw: sanitizePayloadForLog(payload)
         });
       }
     });

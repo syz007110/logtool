@@ -3,8 +3,10 @@ const { createAgentTaskPersistenceStore } = require('../taskGateway/stores/agent
 const { projectQueueResultToMessageOutput } = require('../types/messageOutputProjection');
 const {
   resolveConversationTarget,
-  persistUserMessageAtTurn
+  persistUserMessageAtTurn,
+  processConversationRequest
 } = require('./conversationSessionService');
+const { evaluatePreOrchestratorShortCircuit } = require('../runtime/preOrchestratorShortCircuitPolicy');
 
 const taskStore = createAgentTaskPersistenceStore();
 
@@ -170,6 +172,26 @@ async function enqueueConversationRequest(request, options = {}) {
     instanceId: routing.instance.id,
     taskId: publicTaskId
   });
+
+  const shortCircuit = evaluatePreOrchestratorShortCircuit(request);
+  if (shortCircuit) {
+    const queueResult = await processConversationRequest({
+      request,
+      loopTrace: [],
+      contextEnvelope: null,
+      activeResolutionHint: routing.activeResolution,
+      assistantResponse: shortCircuit.assistantResponse,
+      taskId: publicTaskId,
+      errorRuntime: null
+    });
+    await taskStore.markCompleted({
+      taskId: publicTaskId,
+      request,
+      response: queueResult,
+      reason: shortCircuit.reason || 'pre_orchestrator_short_circuit'
+    });
+    return buildCompletedResponse(queueResult, publicTaskId);
+  }
 
   const job = await getOrCreateJob({
     queueJobId,

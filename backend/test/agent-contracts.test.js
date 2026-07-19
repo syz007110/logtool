@@ -135,7 +135,7 @@ test('buildMessageInput throws when conversationType is invalid', () => {
   }, /conversationType/i);
 });
 
-test('buildMessageInput keeps attachment references including fileId/url/mimeType', () => {
+test('buildMessageInput normalizes attachment references to canonical schema', () => {
   const request = buildMessageInput({
     traceId: 'trace-attach',
     requestId: 'req-attach',
@@ -145,18 +145,34 @@ test('buildMessageInput keeps attachment references including fileId/url/mimeTyp
       externalMessageId: 'msg-attach',
       text: 'with files',
       attachments: [
-        { id: 'f-1', type: 'file', url: 'https://a/b/c.txt', mimeType: 'text/plain' },
-        { fileId: 'img-2', type: 'image', url: 'https://a/b/d.png', mimeType: 'image/png' }
+        {
+          assetId: 'f-1',
+          type: 'file',
+          storage: 'oss',
+          objectKey: 'agent-assets/a.txt',
+          originalName: 'a.txt',
+          storedName: 'stored-a.txt',
+          url: 'https://a/b/c.txt',
+          previewUrl: 'https://a/b/c.txt',
+          mimeType: 'text/plain',
+          sizeBytes: 12,
+          status: 'available'
+        },
+        { assetId: 'img-2', type: 'image', url: 'https://a/b/d.png', mimeType: 'image/png', width: 120, height: 80 }
       ]
     }
   });
 
   assert.equal(request.message.attachments.length, 2);
-  assert.equal(request.message.attachments[0].fileId, 'f-1');
+  assert.equal(request.message.attachments[0].assetId, 'f-1');
+  assert.equal(request.message.attachments[0].objectKey, 'agent-assets/a.txt');
+  assert.equal(request.message.attachments[0].originalName, 'a.txt');
   assert.equal(request.message.attachments[0].url, 'https://a/b/c.txt');
   assert.equal(request.message.attachments[0].mimeType, 'text/plain');
-  assert.equal(request.message.attachments[1].fileId, 'img-2');
+  assert.equal(request.message.attachments[1].assetId, 'img-2');
   assert.equal(request.message.attachments[1].mimeType, 'image/png');
+  assert.equal(request.message.attachments[1].width, 120);
+  assert.equal(request.message.attachments[1].height, 80);
 });
 
 test('buildMessageInput allows attachment-only messages', () => {
@@ -167,7 +183,7 @@ test('buildMessageInput allows attachment-only messages', () => {
     channel: { type: 'web', conversationType: 'single', conversationId: 'conv-att-only' },
     message: {
       externalMessageId: 'm-att-only',
-      attachments: [{ type: 'file', fileId: 'f-1' }],
+      attachments: [{ type: 'file', assetId: 'f-1' }],
       sentAt: Date.now()
     }
   });
@@ -187,12 +203,29 @@ test('buildMessageInput classifies text with attachments as text+attachment', ()
       externalMessageId: 'm-ta',
       type: 'text',
       text: 'hello',
-      attachments: [{ type: 'file', fileId: 'file-1' }],
+      attachments: [{ type: 'file', assetId: 'file-1' }],
       sentAt: Date.now()
     }
   });
 
   assert.equal(request.message.type, 'text+attachment');
+});
+
+test('buildMessageInput preserves session.forceNewInstance flag', () => {
+  const request = buildMessageInput({
+    traceId: 'trace-force-new',
+    requestId: 'req-force-new',
+    user: { id: 'u-force-new' },
+    channel: { type: 'web', conversationType: 'single', conversationId: 'conv-force-new' },
+    session: { forceNewInstance: true },
+    message: {
+      externalMessageId: 'm-force-new',
+      text: 'hello',
+      sentAt: Date.now()
+    }
+  });
+
+  assert.equal(request.session.forceNewInstance, true);
 });
 
 test('buildMessageInput requires threadId for group conversation', () => {
@@ -217,11 +250,12 @@ test('buildMessageOutput builds text-only response', () => {
 
 test('buildMessageOutput builds attachment-only response', () => {
   const output = buildMessageOutput({
-    attachments: [{ type: 'file', fileId: 'f-1', url: 'https://example.com/a.txt' }]
+    attachments: [{ type: 'file', assetId: 'f-1', url: 'https://example.com/a.txt', originalName: 'a.txt' }]
   });
   assert.equal(output.text, undefined);
   assert.equal(output.attachments.length, 1);
-  assert.equal(output.attachments[0].fileId, 'f-1');
+  assert.equal(output.attachments[0].assetId, 'f-1');
+  assert.equal(output.attachments[0].originalName, 'a.txt');
 });
 
 test('buildMessageOutput includes optional session', () => {

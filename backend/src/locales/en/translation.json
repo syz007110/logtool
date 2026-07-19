@@ -90,6 +90,39 @@
       "armrestLiftJoint": "Armrest Lift Joint",
       "monitorLift": "Monitor Lift",
       "monitorRotation": "Monitor Rotation"
+    },
+    "agent": {
+      "videoUnsupported": "Video analysis is not supported yet. Please send an image, file, or text instead.",
+      "attachmentPolicy": {
+        "countExceeded": "You can upload at most {{maxFiles}} attachments in one message.",
+        "totalSizeExceeded": "The total attachment size in one message must be less than {{maxTotalSizeMb}}MB.",
+        "unsupportedExtension": "This attachment type is not supported. Please upload a log file, archive, or image.",
+        "unsupportedMimeType": "This attachment MIME type is not supported. Please upload a log file, archive, or image.",
+        "fileTooLarge": "Each attachment must be smaller than {{maxFileSizeMb}}MB."
+      },
+      "session": {
+        "systemMessages": {
+          "directResponseTitle": "System Notice",
+          "instanceRolloverTitle": "Conversation Status Changed"
+        },
+        "inactive": {
+          "archived": "This conversation instance is no longer active and cannot continue. Please start a new conversation.",
+          "maxTokens": "This conversation has reached the token limit ({{maxTokens}}) and cannot continue. Please start a new conversation.",
+          "maxTurns": "This conversation has reached the turn limit ({{maxTurns}} turns) and cannot continue. Please start a new conversation.",
+          "idleTimeout": "This conversation has been idle for more than {{idleTimeoutMinutes}} minutes and cannot continue. Please start a new conversation."
+        },
+        "rollover": {
+          "maxTokens": "This conversation reached the token limit ({{maxTokens}}). A new conversation has been created.",
+          "maxTurns": "This conversation reached the turn limit ({{maxTurns}} turns). A new conversation has been created.",
+          "idleTimeout": "This conversation was idle for more than {{idleTimeoutMinutes}} minutes. A new conversation has been created.",
+          "forceNewCommand": "A new conversation command was received. A new conversation has been created.",
+          "default": "A new conversation has been created."
+        }
+      },
+      "limitFallback": {
+        "toolCalls": "This request involves a lot of information and has reached the single-turn lookup limit. Please retry with a more specific fault code, series, or keyword.",
+        "steps": "This request needs more analysis steps and has reached the single-turn processing limit. Please narrow the scope or split it into multiple follow-up questions."
+      }
     }
   },
   "errorCode": {

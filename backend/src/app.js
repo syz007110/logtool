@@ -67,6 +67,7 @@ const errorCodeCacheSyncService = require('./services/errorCodeCacheSyncService'
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
 const { startTempCleanupJob } = require('./services/tempCleanupService');
 const { startRefreshTokenCleanupJob } = require('./services/refreshTokenCleanupService');
+const agentAssetStorage = require('./config/agentAssetStorage');
 const { taskGateway } = require('./agentization');
 const { createDingtalkStreamBridge } = require('./agentization/adapters/dingtalk/streamClient');
 
@@ -176,7 +177,10 @@ app.use('/static/fault-cases', express.static(path.resolve(__dirname, '../upload
 // 静态资源：知识库文件（本地存储）
 app.use('/static/kb', express.static(path.resolve(__dirname, '../uploads/kb')));
 // 静态资源：agent 测试临时附件（本地存储）
-app.use('/static/agent-assets', express.static(path.resolve(__dirname, '../uploads/agent-assets')));
+app.use(
+  agentAssetStorage.LOCAL_PUBLIC_BASE || '/static/agent-assets',
+  express.static(agentAssetStorage.LOCAL_DIR)
+);
 
 // 路由占位
 app.get('/', (req, res) => {

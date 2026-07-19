@@ -6,7 +6,7 @@ const { projectQueueResultToMessageOutput } = require('../src/agentization/types
 test('projectQueueResultToMessageOutput preserves session conversationId and existing text payload', () => {
   const projected = projectQueueResultToMessageOutput({
     text: '分析完成',
-    attachments: [{ type: 'file', fileId: 'file-1', name: 'report.txt' }],
+    attachments: [{ type: 'file', assetId: 'file-1', originalName: 'report.txt' }],
     container: {
       conversation_id: 'conv-123'
     },

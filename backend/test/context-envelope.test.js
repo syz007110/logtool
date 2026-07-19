@@ -8,7 +8,7 @@ test('context envelope follows target structure', () => {
     message: {
       externalMessageId: 'msg-current',
       text: '这个故障码怎么处理 0X010A',
-      attachments: [{ fileId: 'file-current-1' }]
+      attachments: [{ assetId: 'file-current-1' }]
     }
   };
   const history = [
@@ -20,14 +20,14 @@ test('context envelope follows target structure', () => {
     },
     { role: 'assistant', message_type: 'text', content: '查询到 3 个子系统下的同类故障码，建议先检查连接。' }
   ];
-  history[0].attachments = [{ fileId: 'file-history-1' }];
+  history[0].attachments = [{ assetId: 'file-history-1' }];
 
   const envelope = buildContextEnvelope({ request, history });
 
   assert.equal(envelope.currentQuery.includes('这个故障码怎么处理'), true);
-  assert.equal(envelope.currentInput.messageId, null);
+  assert.equal(envelope.currentInput.messageId, 'msg-current');
   assert.ok(Array.isArray(envelope.currentInput.attachments));
-  assert.deepEqual(envelope.currentInput.fileIds, ['file-current-1']);
+  assert.deepEqual(envelope.currentInput.assetIds, ['file-current-1']);
   assert.equal(Object.prototype.hasOwnProperty.call(envelope, 'confirmedSlots'), false);
   assert.equal(Object.prototype.hasOwnProperty.call(envelope, 'sessionState'), false);
 
@@ -50,7 +50,7 @@ test('context envelope keeps current query as the only current text source', () 
   };
   const envelope = buildContextEnvelope({ request, history: [] });
   assert.equal(envelope.currentQuery, '141010A 什么意思');
-  assert.deepEqual(envelope.currentInput.fileIds, []);
+  assert.deepEqual(envelope.currentInput.assetIds, []);
   assert.equal(Object.prototype.hasOwnProperty.call(envelope, 'confirmedSlots'), false);
 });
 

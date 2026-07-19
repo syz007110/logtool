@@ -1,14 +1,24 @@
 const websocketService = require('../../services/websocketService');
-const { deliverDingtalkTextMessage } = require('./dingtalkOutboundService');
+const { buildSystemMarkdownText, deliverDingtalkTextMessage } = require('./dingtalkOutboundService');
 const { isDeferredChannelDelivery } = require('../taskGateway/agentTaskSnapshot');
 
 function buildAssistantText(result, error) {
   if (error) {
     return `处理失败: ${String(error?.message || error)}`;
   }
-  const text = String(result?.text || '').trim();
-  if (text) return text;
-  return '已收到消息';
+  return String(result?.text || '').trim() || '已收到消息';
+}
+
+function normalizeSystemMessages(result) {
+  if (!Array.isArray(result?.systemMessages)) return [];
+  return result.systemMessages
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      title: String(item.title || '').trim() || '系统提示',
+      text: String(item.text || '').trim(),
+      presentation: String(item.presentation || '').trim().toLowerCase() || 'action_card'
+    }))
+    .filter((item) => item.text);
 }
 
 async function deliverWebAgentTaskStatus({ request, taskId, status, result, error }) {
@@ -25,9 +35,26 @@ async function deliverWebAgentTaskStatus({ request, taskId, status, result, erro
 
 async function deliverDingtalkDeferredResult({ request, taskRow, result, error }) {
   if (!isDeferredChannelDelivery(taskRow)) return null;
+  const systemMessages = normalizeSystemMessages(result);
   const text = buildAssistantText(result, error);
   try {
-    const delivery = await deliverDingtalkTextMessage(request, text);
+    let delivery = null;
+    for (const message of systemMessages) {
+      delivery = await deliverDingtalkTextMessage(request, buildSystemMarkdownText(message.text, message.title), {
+        messageType: 'markdown',
+        title: message.title
+      });
+    }
+
+    if (String(error?.code || '').trim().toUpperCase() === 'INSTANCE_INACTIVE') {
+      delivery = await deliverDingtalkTextMessage(request, buildSystemMarkdownText(String(error?.message || error), '会话状态变更'), {
+        messageType: 'markdown',
+        title: '会话状态变更'
+      });
+    } else if (!(systemMessages.length > 0 && String(result?.assistantMode || '').trim().toLowerCase() === 'direct_response')) {
+      delivery = await deliverDingtalkTextMessage(request, text, {});
+    }
+
     console.log('[agent-delivery] dingtalk deferred reply sent', {
       taskId: String(taskRow?.task_id || ''),
       channel: delivery?.channel || 'unknown',

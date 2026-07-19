@@ -1,5 +1,6 @@
 const qwenService = require('../../services/qwenService');
 const { buildInitialLoopMessages } = require('./chatRequestAssembler');
+const { sanitizeMultimodalPayload } = require('../utils/multimodalPayloadSanitizer');
 
 function parseBool(value, fallback = true) {
   const s = String(value == null ? '' : value).trim().toLowerCase();
@@ -16,7 +17,7 @@ function isOrchestratorLlmEnabled() {
 function sanitizeOrchestratorLlmRaw(turnResult) {
   if (!turnResult || typeof turnResult !== 'object') return null;
   return {
-    request: turnResult.llmRaw?.request || turnResult.chatRequest || null,
+    request: sanitizeMultimodalPayload(turnResult.llmRaw?.request || turnResult.chatRequest || null),
     response: turnResult.llmRaw?.response || turnResult.chatResponse || null,
     usage: turnResult.usage || turnResult.llmRaw?.usage || null
   };

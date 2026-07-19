@@ -14,6 +14,14 @@ const {
 const { getLoopPolicy } = require('../runtime/turnPolicy');
 const { createMessageService } = require('./messageService');
 const { projectToolTracesFromLoopTrace } = require('../types/toolTracesProjection');
+const { sanitizeMultimodalPayload } = require('../utils/multimodalPayloadSanitizer');
+const { shouldPersistClosedOrchestratorEntry } = require('./toolCallClosure');
+const { getAgentFixedT, resolveAgentLng } = require('../utils/agentI18n');
+const {
+  buildInactiveInstanceNotice,
+  buildInstanceNotice,
+  getRolloverReason
+} = require('./sessionRolloverPolicy');
 
 const messageService = createMessageService();
 
@@ -21,12 +29,6 @@ function nowTs() {
   return new Date();
 }
 
-
-function estimateTokens(input) {
-  const text = String(input || '');
-  // lightweight estimate: ~4 chars per token
-  return Math.max(1, Math.ceil(text.length / 4));
-}
 
 function isSessionContextDebugEnabled() {
   return String(process.env.SESSION_CONTEXT_DEBUG || '').trim().toLowerCase() === 'true';
@@ -108,46 +110,6 @@ function getPolicy() {
   };
 }
 
-function shouldForceNew(request) {
-  const txt = String(request?.message?.text || '').trim().toLowerCase();
-  return txt === '/new';
-}
-
-function getRolloverReason(instance, request, policy) {
-  if (!instance) return 'no_active_instance';
-  if (shouldForceNew(request)) return 'force_new_command';
-  if (Number(instance.turn_count || 0) >= policy.maxTurns) return 'max_turns';
-
-  const sentAt = Number(request?.message?.sentAt || Date.now());
-  const lastAt = instance.last_message_at ? new Date(instance.last_message_at).getTime() : null;
-  if (lastAt && sentAt - lastAt > policy.idleTimeoutMinutes * 60 * 1000) return 'idle_timeout';
-
-  const est = estimateTokens(request?.message?.text || '');
-  if (Number(instance.token_count || 0) >= policy.maxTokens) return 'max_tokens';
-  if (Number(instance.token_count || 0) + est > policy.maxTokens) return 'max_tokens';
-  return null;
-}
-
-function buildInstanceNotice(effectiveResolution, policy = {}) {
-  if (!effectiveResolution?.createdNewInstance) return null;
-  const reason = String(effectiveResolution?.rolloverReason || '').trim().toLowerCase();
-  if (!reason || reason === 'no_active_instance') return null;
-
-  if (reason === 'max_tokens') {
-    return `达到此对话的token上限（${Number(policy.maxTokens || 6000)}），已新建对话`;
-  }
-  if (reason === 'max_turns') {
-    return `达到此对话的轮次上限（${Number(policy.maxTurns || 20)}轮），已新建对话`;
-  }
-  if (reason === 'idle_timeout') {
-    return `此对话空闲超过${Number(policy.idleTimeoutMinutes || 30)}分钟，已新建对话`;
-  }
-  if (reason === 'force_new_command') {
-    return '收到新建对话指令，已新建对话';
-  }
-  return '已新建对话';
-}
-
 function normalizeMessagePayload(request) {
   return {
     externalMessageId: request?.message?.externalMessageId,
@@ -161,6 +123,10 @@ function normalizeMessagePayload(request) {
 
 function asPlainObject(input) {
   return input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+}
+
+function sanitizePersistedPayload(input) {
+  return sanitizeMultimodalPayload(asPlainObject(input));
 }
 
 function cloneJsonObject(input) {
@@ -189,15 +155,15 @@ function excludeCurrentMessageFromHistory(history, request) {
 
 function buildCurrentInput(request) {
   const attachments = Array.isArray(request?.message?.attachments) ? request.message.attachments : [];
-  const fileIds = Array.from(new Set(
+  const assetIds = Array.from(new Set(
     attachments
-      .map((a) => String(a?.fileId || a?.id || '').trim())
+      .map((a) => String(a?.assetId || '').trim())
       .filter(Boolean)
   ));
   return {
     messageId: String(request?.message?.externalMessageId || '').trim() || null,
     attachments,
-    fileIds
+    assetIds
   };
 }
 
@@ -417,7 +383,33 @@ async function loadHistory(instanceId, turns, transaction, options = {}) {
   const excludeMessageId = String(options?.excludeMessageId || '').trim();
   const [rows] = await postgresqlSequelize.query(
     `WITH eligible AS (
-       SELECT id, message_id, role, message_type, content, payload, attachments, created_at
+       SELECT id,
+              message_id,
+              role,
+              message_type,
+              content,
+              attachments,
+              created_at,
+              CASE
+                WHEN role = 'assistant' AND message_type = 'orchestrator' THEN payload->'rawMessage'
+                ELSE NULL
+              END AS payload_raw_message,
+              CASE
+                WHEN role = 'assistant' AND message_type = 'orchestrator' THEN payload->'toolCalls'
+                ELSE NULL
+              END AS payload_tool_calls,
+              CASE
+                WHEN role = 'assistant' AND message_type = 'orchestrator' THEN payload->>'content'
+                ELSE NULL
+              END AS payload_content,
+              CASE
+                WHEN role = 'tool' OR message_type = 'tool' THEN COALESCE(payload->>'toolCallId', payload->>'tool_call_id')
+                ELSE NULL
+              END AS payload_tool_call_id,
+              CASE
+                WHEN role = 'tool' OR message_type = 'tool' THEN payload->>'status'
+                ELSE NULL
+              END AS payload_status
          FROM conversation_messages
         WHERE instance_id = :instanceId
           AND (:excludeMessageId = '' OR message_id <> :excludeMessageId)
@@ -432,7 +424,17 @@ async function loadHistory(instanceId, turns, transaction, options = {}) {
      cutoff AS (
        SELECT MIN(id) AS min_id FROM selected_turns
      )
-     SELECT message_id, role, message_type, content, payload, attachments, created_at
+     SELECT message_id,
+            role,
+            message_type,
+            content,
+            attachments,
+            created_at,
+            payload_raw_message,
+            payload_tool_calls,
+            payload_content,
+            payload_tool_call_id,
+            payload_status
        FROM eligible
       WHERE (SELECT min_id FROM cutoff) IS NULL
          OR id >= (SELECT min_id FROM cutoff)
@@ -542,12 +544,48 @@ async function prepareConversationContext(request, options = {}) {
 
 async function resolveConversationTarget(request) {
   const policy = getPolicy();
+  const language = resolveAgentLng(request?.context?.lang);
+  const hintedInstanceId = Number(
+    request?.session?.instanceId
+    || request?.context?.instanceId
+    || 0
+  );
   return postgresqlSequelize.transaction(async (transaction) => {
     const container = await ensureContainer(request, transaction);
-    const activeResolution = await resolveActiveInstance(container, request, policy, transaction);
+    let activeResolution = null;
+    let instance = null;
+    if (Number.isFinite(hintedInstanceId) && hintedInstanceId > 0) {
+      instance = await getInstanceByIdForUpdate(hintedInstanceId, transaction);
+      if (!instance) {
+        throw new Error(`conversation instance not found: ${hintedInstanceId}`);
+      }
+      if (Number(instance.container_id) !== Number(container.id)) {
+        throw new Error(`conversation instance container mismatch: ${hintedInstanceId}`);
+      }
+      const hintedStatus = String(instance.status || '').trim().toLowerCase();
+      const hintedRolloverReason = hintedStatus !== 'active'
+        ? 'archived'
+        : getRolloverReason(instance, request, policy);
+      if (hintedRolloverReason) {
+        const err = new Error(buildInactiveInstanceNotice(hintedRolloverReason, policy, language));
+        err.code = 'INSTANCE_INACTIVE';
+        err.instanceStatus = hintedStatus || 'archived';
+        err.rolloverReason = hintedRolloverReason;
+        throw err;
+      }
+      activeResolution = {
+        instance,
+        createdNewInstance: false,
+        rolloverReason: null,
+        previousInstanceNo: Number(instance.instance_no || 0)
+      };
+    } else {
+      activeResolution = await resolveActiveInstance(container, request, policy, transaction);
+      instance = activeResolution.instance;
+    }
     return {
       container,
-      instance: activeResolution.instance,
+      instance,
       activeResolution,
       idempotencyKey: buildIdempotencyKey(request),
       policy
@@ -642,9 +680,9 @@ async function persistOrchestratorTraceEntry(instanceId, request, traceEntry, co
   const orchestratorResult = asPlainObject(traceEntry.turnResult);
   const key = buildEventIdempotencyKey(request, suffix);
   const payload = {
-    ...orchestratorResult,
+    ...sanitizePersistedPayload(orchestratorResult),
     context: {
-      currentInput: asPlainObject(contextEnvelope?.currentInput)
+      currentInput: sanitizePersistedPayload(contextEnvelope?.currentInput)
     }
   };
   const messageInput = buildConversationMessageInput({
@@ -681,11 +719,11 @@ async function persistToolTraceEntry(instanceId, request, traceEntry, transactio
     role: 'tool',
     explicitMessageType: MESSAGE_TYPES.TOOL,
     content: String(traceEntry.content || '').trim() || null,
-    payload: {
+    payload: sanitizePersistedPayload({
       ...toolResult,
       toolCallId: traceEntry.toolCallId || null,
       toolName: traceEntry.toolName || null
-    },
+    }),
     attachments: [],
     idempotencyKey: key
   });
@@ -718,14 +756,14 @@ async function persistAssistantStructuredEvent(instanceId, request, loopTrace, a
     role: 'assistant',
     explicitMessageType,
     content: text,
-    payload: {
-      mode: 'llm_response',
+    payload: sanitizePersistedPayload({
+      mode: String(assistantResponse?.mode || '').trim() || 'llm_response',
       loopSteps: orchestratorEntries.length,
       finishReason: lastOrchestrator?.turnResult?.finishReason || null,
       turnResult: asPlainObject(lastOrchestrator?.turnResult),
       response: asPlainObject(assistantResponse),
       toolTraces
-    },
+    }),
     attachments,
     idempotencyKey: key
   });
@@ -735,10 +773,18 @@ async function persistAssistantStructuredEvent(instanceId, request, loopTrace, a
   });
 }
 
+function shouldPersistAssistantStructuredEvent(assistantResponse) {
+  const mode = String(assistantResponse?.mode || '').trim().toLowerCase();
+  const deliveryHint = String(asPlainObject(assistantResponse?.debugMeta).deliveryHint || '').trim().toLowerCase();
+  if (deliveryHint === 'system_action_card') return false;
+  if (mode === 'direct_response') return false;
+  return true;
+}
+
 async function persistErrorRuntimeEvent(instanceId, request, errorRuntime, transaction, taskId) {
   const suffix = EVENT_SUFFIX.ERROR_RUNTIME;
   const key = buildEventIdempotencyKey(request, suffix);
-  const payload = asPlainObject(errorRuntime);
+  const payload = sanitizePersistedPayload(errorRuntime);
   const text = String(payload.message || 'Agent 内部异常').trim();
   const messageInput = buildConversationMessageInput({
     instanceId,
@@ -772,6 +818,9 @@ async function persistLoopTrace({
   const trace = Array.isArray(loopTrace) ? loopTrace : [];
   for (const entry of trace) {
     if (entry?.kind === 'orchestrator') {
+      if (!shouldPersistClosedOrchestratorEntry(entry, trace)) {
+        continue;
+      }
       await persistOrchestratorTraceEntry(instanceId, request, entry, contextEnvelope, transaction, taskId);
       continue;
     }
@@ -779,7 +828,9 @@ async function persistLoopTrace({
       await persistToolTraceEntry(instanceId, request, entry, transaction, taskId);
     }
   }
-  await persistAssistantStructuredEvent(instanceId, request, trace, assistantResponse, transaction, taskId);
+  if (shouldPersistAssistantStructuredEvent(assistantResponse)) {
+    await persistAssistantStructuredEvent(instanceId, request, trace, assistantResponse, transaction, taskId);
+  }
   if (errorRuntime && typeof errorRuntime === 'object') {
     await persistErrorRuntimeEvent(instanceId, request, errorRuntime, transaction, taskId);
   }
@@ -802,6 +853,37 @@ function mergeActiveResolution(primary, fallback) {
   };
 }
 
+function buildSystemMessages({ assistantResponse, instanceNotice, language = 'zh' }) {
+  const t = getAgentFixedT(language);
+  const messages = [];
+  const text = String(assistantResponse?.text || '').trim();
+  const assistantMode = String(assistantResponse?.mode || '').trim().toLowerCase();
+  const deliveryHint = String(asPlainObject(assistantResponse?.debugMeta).deliveryHint || '').trim().toLowerCase();
+  const notice = String(instanceNotice || '').trim();
+
+  if (notice) {
+    messages.push({
+      kind: 'instance_rollover',
+      title: t('shared.agent.session.systemMessages.instanceRolloverTitle'),
+      text: notice,
+      presentation: 'action_card'
+    });
+  }
+
+  if (deliveryHint === 'system_action_card' || assistantMode === 'direct_response') {
+    if (text) {
+      messages.push({
+        kind: 'direct_response',
+        title: t('shared.agent.session.systemMessages.directResponseTitle'),
+        text,
+        presentation: 'action_card'
+      });
+    }
+  }
+
+  return messages;
+}
+
 async function processConversationRequest({
   request,
   loopTrace,
@@ -812,6 +894,7 @@ async function processConversationRequest({
   errorRuntime = null
 }) {
   const policy = getPolicy();
+  const language = resolveAgentLng(request?.context?.lang);
   const idempotencyKey = buildIdempotencyKey(request);
   const persistTaskId = normalizePersistTaskId(taskId);
   const orchestratorEntries = Array.isArray(loopTrace)
@@ -866,7 +949,8 @@ async function processConversationRequest({
     await applyTurnTokenUsage(instance.id, loopTrace, transaction);
 
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
-    const instanceNotice = buildInstanceNotice(effectiveResolution, policy);
+    const instanceNotice = buildInstanceNotice(effectiveResolution, policy, language);
+    const systemMessages = buildSystemMessages({ assistantResponse, instanceNotice, language });
     const promptBlocks = toPromptBlocks({
       policy,
       history,
@@ -898,6 +982,13 @@ async function processConversationRequest({
         token_count: Number(instance.token_count || 0),
         version: Number(instance.version || 0) + 1
       },
+      session: {
+        conversationId: String(container.conversation_id || ''),
+        instanceId: Number(instance.id)
+      },
+      assistant_mode: String(assistantResponse?.mode || '').trim() || 'llm_response',
+      delivery_hint: String(asPlainObject(assistantResponse?.debugMeta).deliveryHint || '').trim() || null,
+      system_messages: systemMessages,
       current_input: userMsg,
       text: String(assistantResponse?.text || '').trim(),
       attachments: Array.isArray(assistantResponse?.attachments) ? assistantResponse.attachments : [],
@@ -910,7 +1001,7 @@ async function processConversationRequest({
         currentInput: {
           messageId: String(contextEnvelope?.currentInput?.messageId || '').trim() || null,
           attachments: Array.isArray(contextEnvelope?.currentInput?.attachments) ? contextEnvelope.currentInput.attachments : [],
-          fileIds: Array.isArray(contextEnvelope?.currentInput?.fileIds) ? contextEnvelope.currentInput.fileIds : []
+          assetIds: Array.isArray(contextEnvelope?.currentInput?.assetIds) ? contextEnvelope.currentInput.assetIds : []
         },
         historySummary: asPlainObject(contextEnvelope.historySummary),
         historyContext: {
@@ -925,9 +1016,11 @@ async function processConversationRequest({
       } : null,
       orchestrator: lastOrchestratorResult,
       llm_raw: {
-        orchestrator_extraction: asPlainObject(lastOrchestratorResult).llmRaw || null,
-        tool_execution: asPlainObject(assistantResponse?.debugMeta).toolExecution?.llmRaw
-          || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
+        orchestrator_extraction: sanitizePersistedPayload(asPlainObject(lastOrchestratorResult).llmRaw) || null,
+        tool_execution: sanitizePersistedPayload(
+          asPlainObject(assistantResponse?.debugMeta).toolExecution?.llmRaw
+            || asPlainObject(assistantResponse?.debugMeta).smartSearch?.llmRaw
+        )
           || null
       },
       prompt_blocks: promptBlocks,

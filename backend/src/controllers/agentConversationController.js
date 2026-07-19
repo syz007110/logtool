@@ -1,12 +1,14 @@
 const {
   listConversationsForUser,
-  listMessagesForConversation
+  listMessagesForConversation,
+  deleteConversationInstanceForUser
 } = require('../agentization/session/agentConversationQueryService');
 
 async function listAgentConversations(req, res) {
   try {
     const list = await listConversationsForUser(req.user?.id, {
-      limit: req.query?.limit
+      limit: req.query?.limit,
+      language: req.language || req.headers?.['accept-language']
     });
     return res.json({ ok: true, conversations: list });
   } catch (err) {
@@ -17,11 +19,18 @@ async function listAgentConversations(req, res) {
 
 async function listAgentConversationMessages(req, res) {
   try {
-    const messages = await listMessagesForConversation(
+    const session = await listMessagesForConversation(
       req.user?.id,
-      req.params.conversationId
+      req.params.instanceId,
+      { language: req.language || req.headers?.['accept-language'] }
     );
-    return res.json({ ok: true, conversationId: req.params.conversationId, messages });
+    return res.json({
+      ok: true,
+      conversationId: session.conversationId,
+      instanceId: session.instanceId,
+      instance: session.instance,
+      messages: session.messages
+    });
   } catch (err) {
     if (err.code === 'NOT_FOUND') {
       return res.status(404).json({ ok: false, message: 'conversation not found' });
@@ -34,4 +43,27 @@ async function listAgentConversationMessages(req, res) {
   }
 }
 
-module.exports = { listAgentConversations, listAgentConversationMessages };
+async function deleteAgentConversation(req, res) {
+  try {
+    const result = await deleteConversationInstanceForUser(
+      req.user?.id,
+      req.params.instanceId
+    );
+    return res.json(result);
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') {
+      return res.status(404).json({ ok: false, message: 'conversation not found' });
+    }
+    if (err.code === 'INVALID_ARGUMENT') {
+      return res.status(400).json({ ok: false, message: err.message || 'invalid argument' });
+    }
+    console.error('[agent-conversations] delete failed', err);
+    return res.status(500).json({ ok: false, message: err.message || 'delete failed' });
+  }
+}
+
+module.exports = {
+  listAgentConversations,
+  listAgentConversationMessages,
+  deleteAgentConversation
+};

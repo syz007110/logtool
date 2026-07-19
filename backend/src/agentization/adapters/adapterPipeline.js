@@ -20,7 +20,7 @@ async function executeAdapterPipeline({
   }
 
   try {
-    const request = adapter.parseInbound(req);
+    const request = await adapter.parseInbound(req);
     if (typeof onParsed === 'function') {
       onParsed(request);
     }

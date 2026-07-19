@@ -14,11 +14,31 @@ function postJson(url, body, headers = {}) {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
-        if (!data) return resolve({});
+        if (!data) {
+          return resolve({
+            _httpStatus: Number(res.statusCode) || 0,
+            _httpHeaders: res.headers || {}
+          });
+        }
         try {
-          return resolve(JSON.parse(data));
+          const parsed = JSON.parse(data);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            parsed._httpStatus = Number(res.statusCode) || 0;
+            parsed._httpHeaders = res.headers || {};
+            return resolve(parsed);
+          }
+          return resolve({
+            value: parsed,
+            _httpStatus: Number(res.statusCode) || 0,
+            _httpHeaders: res.headers || {}
+          });
         } catch (error) {
-          return resolve({ raw: data, parseError: String(error?.message || error) });
+          return resolve({
+            raw: data,
+            parseError: String(error?.message || error),
+            _httpStatus: Number(res.statusCode) || 0,
+            _httpHeaders: res.headers || {}
+          });
         }
       });
     });
@@ -31,6 +51,59 @@ function postJson(url, body, headers = {}) {
 function buildTextMessageBody(text) {
   const content = String(text || '').trim() || '已收到消息';
   return { msgtype: 'text', text: { content } };
+}
+
+function buildMarkdownTitle(text) {
+  const content = String(text || '').trim() || '已收到消息';
+  const firstLine = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  return String(firstLine || '智能助手回复').slice(0, 64);
+}
+
+function buildMarkdownMessageBody(text, title) {
+  const content = String(text || '').trim() || '已收到消息';
+  const resolvedTitle = String(title || '').trim() || buildMarkdownTitle(content);
+  return {
+    msgtype: 'markdown',
+    markdown: {
+      title: resolvedTitle,
+      text: content
+    }
+  };
+}
+
+function buildSystemMarkdownText(text, title = '系统提示') {
+  const resolvedTitle = String(title || '').trim() || '系统提示';
+  const content = String(text || '').trim() || '已收到消息';
+  return `**${resolvedTitle}**\n\n${content}`;
+}
+
+function buildActionCardMessageBody(text, options = {}) {
+  const content = String(text || '').trim() || '已收到消息';
+  const title = String(options.title || '').trim() || '系统提示';
+  const singleTitle = String(options.singleTitle || '').trim() || '我知道了';
+  const singleURL = String(options.singleURL || process.env.DINGTALK_ACTION_CARD_URL || 'https://www.dingtalk.com/').trim();
+  return {
+    msgtype: 'actionCard',
+    actionCard: {
+      title,
+      text: `### ${title}\n\n> ${content.replace(/\r?\n/g, '\n> ')}`,
+      singleTitle,
+      singleURL,
+      hideAvatar: '0',
+      btnOrientation: '0'
+    }
+  };
+}
+
+function buildDingtalkMessageBody(text, options = {}) {
+  const messageType = String(options.messageType || 'markdown').trim().toLowerCase();
+  if (messageType === 'actioncard' || messageType === 'action_card') {
+    return buildActionCardMessageBody(text, options);
+  }
+  return buildMarkdownMessageBody(text, options.title);
 }
 
 function resolveRobotCredentials() {
@@ -94,8 +167,25 @@ async function sendViaOpenApi(request, body) {
   }
   const accessToken = await getRobotAccessToken();
   const headers = { 'x-acs-dingtalk-access-token': accessToken };
-  const msgKey = 'sampleText';
-  const msgParam = JSON.stringify({ content: String(body?.text?.content || '').trim() || '已收到消息' });
+  const msgtype = String(body?.msgtype || '').trim().toLowerCase();
+  const isMarkdown = msgtype === 'markdown';
+  const isActionCard = msgtype === 'actioncard';
+  const msgKey = isActionCard ? 'sampleActionCard' : (isMarkdown ? 'sampleMarkdown' : 'sampleText');
+  const msgParam = isActionCard
+    ? JSON.stringify({
+      title: String(body?.actionCard?.title || '').trim() || '系统提示',
+      text: String(body?.actionCard?.text || '').trim() || '已收到消息',
+      singleTitle: String(body?.actionCard?.singleTitle || '').trim() || '我知道了',
+      singleURL: String(body?.actionCard?.singleURL || '').trim() || 'https://www.dingtalk.com/',
+      btnOrientation: String(body?.actionCard?.btnOrientation || '0'),
+      hideAvatar: String(body?.actionCard?.hideAvatar || '0')
+    })
+    : isMarkdown
+    ? JSON.stringify({
+      title: String(body?.markdown?.title || '').trim() || '智能助手回复',
+      text: String(body?.markdown?.text || '').trim() || '已收到消息'
+    })
+    : JSON.stringify({ content: String(body?.text?.content || '').trim() || '已收到消息' });
   const conversationType = String(channel.conversationType || 'single').trim().toLowerCase();
 
   if (conversationType === 'group') {
@@ -127,9 +217,9 @@ async function sendViaOpenApi(request, body) {
   }, headers);
 }
 
-async function deliverDingtalkTextMessage(request, text) {
+async function deliverDingtalkTextMessage(request, text, deliveryOptions = {}) {
   const channel = request?.channel && typeof request.channel === 'object' ? request.channel : {};
-  const body = buildTextMessageBody(text);
+  const body = buildDingtalkMessageBody(text, deliveryOptions);
   if (isReplyWebhookValid(channel)) {
     try {
       return { channel: 'session_webhook', response: await sendViaSessionWebhook(channel, body) };
@@ -147,6 +237,10 @@ async function deliverDingtalkTextMessage(request, text) {
 }
 
 module.exports = {
+  buildActionCardMessageBody,
+  buildDingtalkMessageBody,
+  buildMarkdownMessageBody,
+  buildSystemMarkdownText,
   buildTextMessageBody,
   deliverDingtalkTextMessage,
   getRobotAccessToken,

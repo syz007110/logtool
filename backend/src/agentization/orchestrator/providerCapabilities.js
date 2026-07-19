@@ -7,7 +7,8 @@ const DEFAULT_PROVIDER_CAPABILITIES = Object.freeze({
   maxTokensField: 'max_tokens',
   sampling: 'send',
   thinking: null,
-  preserveReasoningContent: false
+  preserveReasoningContent: false,
+  imageInput: false
 });
 
 function asObject(v) {
@@ -91,6 +92,10 @@ function normalizeProviderCapabilities(raw) {
     ? !!input.preserveReasoningContent
     : DEFAULT_PROVIDER_CAPABILITIES.preserveReasoningContent;
 
+  const imageInput = Object.prototype.hasOwnProperty.call(input, 'imageInput')
+    ? !!input.imageInput
+    : DEFAULT_PROVIDER_CAPABILITIES.imageInput;
+
   return {
     toolCalls,
     strictTools: { default: strictDefault },
@@ -98,7 +103,8 @@ function normalizeProviderCapabilities(raw) {
     maxTokensField,
     sampling,
     thinking,
-    preserveReasoningContent
+    preserveReasoningContent,
+    imageInput
   };
 }
 

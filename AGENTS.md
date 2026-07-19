@@ -50,11 +50,6 @@ This repository uses role-based agents to constrain implementation quality, chan
 - 新页面样式应复用现有语义化 Token 组合，不新增页面私有 Token 命名。
 - 移动端视觉覆盖必须遵循 `mobile-design-tokens.css` 既有平台作用域规则。
 
-### 前端验证基线
-
-- 必须执行：
-  - `npm --prefix frontend run lint`
-
 ## 3) 后端实现约束
 
 - 分层规则：默认依赖方向 `route -> controller -> service/tool -> model`，禁止跨层耦合和在 controller 堆叠复杂业务。
@@ -71,7 +66,6 @@ This repository uses role-based agents to constrain implementation quality, chan
 
 
 ## 5) 工作原则
-- 任何任务的开发都必须按照`docs/trytoHarness/task.md`要求执行；
 - 实现前复核方案是否足够简单、边界是否清晰（控制面 vs 文档计算面）。
 - 尽量避免「吞掉异常」的兜底；错误应可观测、可定位，再用明确分支处理。
 - 能用系统自带或项目已有能力解决，就不要额外引入新工具，开发环境是windows系统，可以根据实际情况优先 PowerShell 或 Python。

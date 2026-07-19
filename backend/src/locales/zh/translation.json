@@ -90,6 +90,39 @@
       "armrestLiftJoint": "扶手升降关节",
       "monitorLift": "监视器升降",
       "monitorRotation": "监视器旋转"
+    },
+    "agent": {
+      "videoUnsupported": "当前不支持分析视频，请发送图片、文件或文本。",
+      "attachmentPolicy": {
+        "countExceeded": "单条消息最多上传 {{maxFiles}} 个附件。",
+        "totalSizeExceeded": "单条消息附件总大小必须小于 {{maxTotalSizeMb}}MB。",
+        "unsupportedExtension": "附件类型不支持，请上传日志文件、压缩包或图片。",
+        "unsupportedMimeType": "附件 MIME 类型不支持，请上传日志文件、压缩包或图片。",
+        "fileTooLarge": "单个附件大小必须小于 {{maxFileSizeMb}}MB。"
+      },
+      "session": {
+        "systemMessages": {
+          "directResponseTitle": "系统提示",
+          "instanceRolloverTitle": "会话状态变更"
+        },
+        "inactive": {
+          "archived": "该会话实例已失效，不能继续对话，请新建会话。",
+          "maxTokens": "该会话已达到 token 上限（{{maxTokens}}），不能继续对话，请新建会话。",
+          "maxTurns": "该会话已达到轮次上限（{{maxTurns}}轮），不能继续对话，请新建会话。",
+          "idleTimeout": "该会话已空闲超过{{idleTimeoutMinutes}}分钟，不能继续对话，请新建会话。"
+        },
+        "rollover": {
+          "maxTokens": "达到此对话的token上限（{{maxTokens}}），已新建对话",
+          "maxTurns": "达到此对话的轮次上限（{{maxTurns}}轮），已新建对话",
+          "idleTimeout": "此对话空闲超过{{idleTimeoutMinutes}}分钟，已新建对话",
+          "forceNewCommand": "收到新建对话指令，已新建对话",
+          "default": "已新建对话"
+        }
+      },
+      "limitFallback": {
+        "toolCalls": "本次问题涉及的信息较多，当前单轮查询已达上限。请补充更具体的故障码、系列或关键词后重试。",
+        "steps": "本次问题需要更多分析步骤，当前单轮处理已达上限。请缩小问题范围，或拆分成多个问题继续提问。"
+      }
     }
   },
   "errorCode": {
@@ -248,5 +281,3 @@
     }
   }
 }
-
-

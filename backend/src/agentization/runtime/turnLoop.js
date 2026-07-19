@@ -2,6 +2,7 @@ const {
   buildOrchestratorSuffix,
   buildToolResultSuffix
 } = require('../session/conversationTurnKeys');
+const i18next = require('i18next');
 const { withTimeout } = require('./runtimeStepUtils');
 const { projectToolTracesFromLoopTrace } = require('../types/toolTracesProjection');
 
@@ -16,6 +17,38 @@ const DEGRADED_PREFIX = Object.freeze({
   content_filter: '[内容过滤] 部分内容未通过安全策略，以下为可用内容：',
   insufficient_system_resource: '[推理资源不足] 系统推理资源不足，生成为部分内容：'
 });
+
+const LIMIT_FALLBACK_TEXT = Object.freeze({
+  toolCalls: '本次问题涉及的信息较多，当前单轮查询已达上限。请补充更具体的故障码、系列或关键词后重试。',
+  steps: '本次问题需要更多分析步骤，当前单轮处理已达上限。请缩小问题范围，或拆分成多个问题继续提问。'
+});
+
+const LIMIT_FALLBACK_I18N_KEY = Object.freeze({
+  toolCalls: 'shared.agent.limitFallback.toolCalls',
+  steps: 'shared.agent.limitFallback.steps'
+});
+
+function resolveLang(request, contextEnvelope = {}) {
+  return String(
+    contextEnvelope?.lang
+    || request?.context?.lang
+    || request?.lang
+    || 'zh-CN'
+  ).trim();
+}
+
+function resolveLimitFallbackText(kind, lang) {
+  const fallback = LIMIT_FALLBACK_TEXT[kind] || '';
+  const lng = String(lang || 'zh-CN').toLowerCase().startsWith('en') ? 'en' : 'zh';
+  const key = LIMIT_FALLBACK_I18N_KEY[kind];
+  if (!key) return fallback;
+  try {
+    const t = i18next.getFixedT(lng);
+    const translated = t(key);
+    if (translated && translated !== key) return translated;
+  } catch (_) {}
+  return fallback;
+}
 
 function mergeDeliveryText(prefix, content) {
   const body = String(content || '').trim();
@@ -90,6 +123,7 @@ async function runTurnLoop({
   const maxSteps = Number(policy?.maxSteps) || 4;
   const maxToolCalls = Number(policy?.maxToolCalls) || 3;
   const contextEnvelope = prepared?.contextEnvelope || {};
+  const lang = resolveLang(request, contextEnvelope);
 
   const loopMessages = conversationOrchestrator.buildInitialLoopMessages(request, {
     contextEnvelope
@@ -166,17 +200,17 @@ async function runTurnLoop({
       const pendingToolCalls = turnResult.toolCalls;
 
       if (toolCallsUsed >= maxToolCalls) {
-        finalText = appendOptionalContent('调用工具次数已达上限。', turnResult.content);
+        finalText = resolveLimitFallbackText('toolCalls', lang);
         break;
       }
 
       if (step >= maxSteps) {
-        finalText = appendOptionalContent('已达最大推理步数。', turnResult.content);
+        finalText = resolveLimitFallbackText('steps', lang);
         break;
       }
 
       if (toolCallsUsed + pendingToolCalls.length > maxToolCalls) {
-        finalText = appendOptionalContent('调用工具次数已达上限。', turnResult.content);
+        finalText = resolveLimitFallbackText('toolCalls', lang);
         break;
       }
 
@@ -235,7 +269,7 @@ async function runTurnLoop({
   }
 
   if (!finalText) {
-    finalText = '已达最大推理步数。';
+    finalText = resolveLimitFallbackText('steps', lang);
   }
 
   const assistantResponse = {
@@ -267,5 +301,6 @@ module.exports = {
   buildAssistantMessageFromTurnResult,
   serializeToolResultContent,
   DEGRADED_PREFIX,
-  mergeDeliveryText
+  mergeDeliveryText,
+  LIMIT_FALLBACK_TEXT
 };

@@ -15,14 +15,11 @@ test('registry loader reads enabled tools and normalized parameters', () => {
   const target = tools.find((x) => x.toolName === 'error_code_lookup');
   assert.ok(target);
   assert.ok(target.parameters);
-  assert.deepEqual(target.inputContract.requiredSlots, []);
-  assert.deepEqual(target.inputContract.optionalSlots, ['language', 'subsystem']);
+  assert.deepEqual(target.inputContract.requiredSlots, ['seriesCode', 'queryType']);
+  assert.deepEqual(target.inputContract.optionalSlots, ['errorCode', 'errorCodes', 'keywords', 'language', 'subsystem']);
   assert.deepEqual(target.runtime.defaults, { language: 'zh-CN' });
   assert.deepEqual(target.parameters?.properties?.seriesCode?.enum, ['SR', 'SA']);
-  assert.equal(
-    String(target.parameters?.properties?.errorCode?.pattern || ''),
-    '^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$'
-  );
+  assert.deepEqual(target.parameters?.properties?.queryType?.enum, ['single_code', 'multiple_codes', 'keyword']);
   assert.equal(target.execution.handler, 'errorCodeLookupHandler.execute');
 });
 
@@ -38,15 +35,12 @@ test('tool schema builder maps registry to OpenAI function tools', () => {
   assert.doesNotMatch(tool.function.description, /适用场景/);
   assert.equal(tool.function.parameters.type, 'object');
   assert.equal(tool.function.parameters.additionalProperties, false);
-  assert.deepEqual(tool.function.parameters.anyOf, [
-    { required: ['errorCode', 'seriesCode'] },
-    { required: ['keywords', 'seriesCode'] }
-  ]);
+  assert.deepEqual(tool.function.parameters.required, ['seriesCode', 'queryType']);
   assert.deepEqual(tool.function.parameters.properties.seriesCode.enum, ['SR', 'SA']);
-  assert.equal(
-    String(tool.function.parameters.properties.errorCode.pattern),
-    '^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$'
-  );
+  assert.deepEqual(tool.function.parameters.properties.queryType.enum, ['single_code', 'multiple_codes', 'keyword']);
+  assert.equal(String(tool.function.parameters.properties.errorCode.pattern), '^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$');
+  assert.equal(tool.function.parameters.properties.errorCodes.maxItems, 20);
+  assert.equal(tool.function.parameters.properties.keywords.maxLength, 100);
 });
 
 test('contractToJsonSchemaParameters converts anyOfRequired groups', () => {

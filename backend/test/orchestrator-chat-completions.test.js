@@ -14,7 +14,7 @@ test('assembleChatCompletionRequest builds system + history + current user messa
     contextEnvelope: {
       lang: 'zh-CN',
       currentQuery: '查 141010A',
-      currentInput: { fileIds: ['f-1'] },
+      currentInput: { assetIds: ['f-1'] },
       historySummary: { summary: '用户此前查询过故障码' },
       historyContext: {
         messages: [

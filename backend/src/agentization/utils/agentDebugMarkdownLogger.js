@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
+const { sanitizeMultimodalPayload } = require('./multimodalPayloadSanitizer');
 
 function isEnabled() {
   const v = String(process.env.AGENT_DEBUG_MD_ENABLED || '').trim().toLowerCase();
@@ -14,7 +15,7 @@ function resolveOutputPath() {
 
 function safeJson(v) {
   try {
-    return JSON.stringify(v, null, 2);
+    return JSON.stringify(sanitizeMultimodalPayload(v), null, 2);
   } catch (_) {
     return '"[unserializable]"';
   }

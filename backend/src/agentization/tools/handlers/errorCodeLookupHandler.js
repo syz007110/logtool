@@ -3,7 +3,7 @@ const i18next = require('i18next');
 const Backend = require('i18next-fs-backend');
 const { composeExplanationPreviewFromI18n } = require('../../../utils/explanationPreview');
 const { searchErrorCodesUnified } = require('../../../services/errorCodeUnifiedService');
-const { resolveSubsystemPrefixLabel } = require('../../../services/faultCodeExtractionService');
+const { resolveSubsystemLabel } = require('../../../services/faultCodeExtractionService');
 const DeviceSeriesDict = require('../../../models/device_series_dict');
 
 const I18NEXT_BACKEND_PATH = path.resolve(__dirname, '../../../locales/{{lng}}/translation.json');
@@ -40,8 +40,70 @@ async function ensureI18nForLookup() {
   }
 }
 
-function pickInputSlot(args = {}) {
-  return String(args.errorCode || args.keywords || '').trim();
+const ERROR_CODE_PATTERN = /^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$/i;
+
+function normalizeQueryType(args = {}) {
+  const raw = String(args.queryType || '').trim().toLowerCase();
+  if (raw === 'single_code' || raw === 'multiple_codes' || raw === 'keyword') return raw;
+  return '';
+}
+
+function resolveQueries(args = {}) {
+  const explicitType = normalizeQueryType(args);
+  const singleCode = String(args.errorCode || '').trim();
+  const multiCodes = Array.isArray(args.errorCodes)
+    ? Array.from(new Set(args.errorCodes.map((item) => String(item || '').trim()).filter(Boolean)))
+    : [];
+  const keywords = String(args.keywords || '').trim();
+
+  if (!explicitType) {
+    const err = new Error('queryType is required');
+    err.code = 'MISSING_QUERY_TYPE';
+    throw err;
+  }
+
+  if (explicitType === 'single_code') {
+    if (!singleCode) {
+      const err = new Error('errorCode is required when queryType=single_code');
+      err.code = 'MISSING_QUERY_SLOT';
+      throw err;
+    }
+    return {
+      queryType: explicitType,
+      queries: [singleCode],
+      inputSlot: singleCode
+    };
+  }
+
+  if (explicitType === 'multiple_codes') {
+    if (multiCodes.length === 0) {
+      const err = new Error('errorCodes is required when queryType=multiple_codes');
+      err.code = 'MISSING_QUERY_SLOT';
+      throw err;
+    }
+    return {
+      queryType: explicitType,
+      queries: multiCodes,
+      inputSlot: multiCodes[0]
+    };
+  }
+
+  if (explicitType === 'keyword') {
+    if (!keywords) {
+      const err = new Error('keywords is required when queryType=keyword');
+      err.code = 'MISSING_QUERY_SLOT';
+      throw err;
+    }
+    return {
+      queryType: explicitType,
+      queries: [keywords],
+      inputSlot: keywords
+    };
+  }
+
+  const err = new Error('queryType is required');
+  err.code = 'MISSING_QUERY_TYPE';
+  throw err;
 }
 
 async function resolveSeriesIdFromCode(seriesCode) {
@@ -147,7 +209,7 @@ function buildLookupTextMulti(items, language, t, fullCodeLookup) {
   for (let i = 0; i < items.length; i += 1) {
     const row = items[i];
     const subsystemCode = String(row.subsystem || '').trim().toUpperCase();
-    const mappedPrefix = resolveSubsystemPrefixLabel(subsystemCode, language);
+    const mappedPrefix = String(row.prefix || '').trim() || resolveSubsystemLabel(subsystemCode, language);
     const safePrefix = mappedPrefix || subsystemCode || '—';
     const safeCode = row.code || '—';
     const safeHint = String(row.userHint || '').trim() || '—';
@@ -182,50 +244,98 @@ async function execute({ args }) {
   await ensureI18nForLookup();
   const language = String(args?.language || 'zh-CN');
   const t = i18next.getFixedT(resolveLookupLng(language));
-  const inputSlot = pickInputSlot(args);
+  const resolvedQuery = resolveQueries(args);
+  const inputSlot = resolvedQuery.inputSlot;
+  const inputCodes = resolvedQuery.queryType === 'single_code' || resolvedQuery.queryType === 'multiple_codes'
+    ? resolvedQuery.queries
+    : [];
   const seriesCode = String(args?.seriesCode || '').trim().toUpperCase();
   const seriesId = await resolveSeriesIdFromCode(seriesCode);
 
-  const unifiedResult = await searchErrorCodesUnified({
-    q: inputSlot,
-    series_id: seriesId,
-    subsystem: String(args?.subsystem || '').trim().toUpperCase() || undefined,
-    page: 1,
-    limit: 5,
-    acceptLanguage: language,
-    t
-  });
+  const queries = resolvedQuery.queries;
+  const batchItems = [];
+  const evidence = [];
+  const lookupSources = new Set();
+  const batchResults = [];
 
-  const rows = Array.isArray(unifiedResult?.errorCodes) ? unifiedResult.errorCodes : [];
-  const recognized = unifiedResult?._meta?.recognized || null;
-  const fullCodeLookup = recognized?.kind === 'full_code';
-  const items = rows.map((row, idx) => mapUnifiedRowToData(row, inputSlot, idx, t, recognized, seriesCode));
-
-  const data = items.length > 0 ? { items, ambiguous: items.length > 1 } : null;
-  const text = items.length === 0
-    ? t('errorCodeLookup.notFound')
-    : (items.length > 1 ? buildLookupTextMulti(items, language, t, fullCodeLookup) : toLookupText(items[0], t, fullCodeLookup));
-  const lookupSource = String(unifiedResult?._meta?.searchMethod || 'none');
-  const evidence = rows.slice(0, 5).map((row) => {
-    const rowId = Number(row?.id);
-    if (lookupSource === 'es') {
-      return {
-        type: 'search_hit',
-        engine: 'elasticsearch',
-        index: 'error_codes',
-        documentId: Number.isFinite(rowId) ? String(rowId) : `${row?.subsystem || ''}:${row?.code || ''}`
-      };
-    }
-    return {
-      type: 'sql_row',
-      engine: 'mysql',
-      table: 'error_codes',
-      pk: {
-        column: 'id',
-        value: Number.isFinite(rowId) ? rowId : `${row?.subsystem || ''}:${row?.code || ''}`
+  for (const query of queries) {
+    const unifiedResult = await searchErrorCodesUnified({
+      q: query,
+      series_id: seriesId,
+      subsystem: String(args?.subsystem || '').trim().toUpperCase() || undefined,
+      page: 1,
+      limit: 5,
+      acceptLanguage: language,
+      t
+    });
+    batchResults.push({ query, unifiedResult });
+    const rows = Array.isArray(unifiedResult?.errorCodes) ? unifiedResult.errorCodes : [];
+    const recognized = unifiedResult?._meta?.recognized || null;
+    const mappedItems = rows.map((row, idx) => mapUnifiedRowToData(row, query, idx, t, recognized, seriesCode));
+    batchItems.push({
+      query,
+      ambiguous: mappedItems.length > 1,
+      items: mappedItems
+    });
+    const lookupSource = String(unifiedResult?._meta?.searchMethod || 'none');
+    lookupSources.add(lookupSource);
+    for (const row of rows.slice(0, 5)) {
+      const rowId = Number(row?.id);
+      if (lookupSource === 'es') {
+        evidence.push({
+          type: 'search_hit',
+          engine: 'elasticsearch',
+          index: 'error_codes',
+          documentId: Number.isFinite(rowId) ? String(rowId) : `${row?.subsystem || ''}:${row?.code || ''}`
+        });
+      } else {
+        evidence.push({
+          type: 'sql_row',
+          engine: 'mysql',
+          table: 'error_codes',
+          pk: {
+            column: 'id',
+            value: Number.isFinite(rowId) ? rowId : `${row?.subsystem || ''}:${row?.code || ''}`
+          }
+        });
       }
-    };
-  });
+    }
+  }
+
+  const items = batchItems.flatMap((entry) => entry.items);
+  const data = items.length > 0
+    ? {
+        items,
+        ambiguous: batchItems.some((entry) => entry.ambiguous) || items.length > 1,
+        queries: batchItems
+      }
+    : null;
+
+  let text = t('errorCodeLookup.notFound');
+  if (batchItems.length > 1) {
+    const sections = batchItems.map((entry) => {
+      const first = entry.items[0] || null;
+      if (!first) return `${entry.query}：${t('errorCodeLookup.notFound')}`;
+      const fullCodeLookup = String(first?.displayCode || '').trim() === entry.query || /^[1-9A][0-9A-F]{5}[A-E]$/i.test(entry.query);
+      const body = entry.items.length > 1
+        ? buildLookupTextMulti(entry.items, language, t, fullCodeLookup)
+        : toLookupText(first, t, fullCodeLookup);
+      return `${entry.query}：\n${body}`;
+    });
+    text = sections.join('\n\n');
+  } else if (batchItems.length === 1) {
+    const singleBatch = batchItems[0];
+    const first = singleBatch.items[0] || null;
+    const recognized = batchResults[0]?.unifiedResult?._meta?.recognized || null;
+    const fullCodeLookup = recognized?.kind === 'full_code';
+    text = singleBatch.items.length === 0
+      ? t('errorCodeLookup.notFound')
+      : (singleBatch.items.length > 1
+        ? buildLookupTextMulti(singleBatch.items, language, t, fullCodeLookup)
+        : toLookupText(first, t, fullCodeLookup));
+  }
+
+  const lookupSource = Array.from(lookupSources).join(',') || 'none';
 
   return {
     text,
@@ -237,7 +347,8 @@ async function execute({ args }) {
       lookupSource,
       seriesCode,
       series_id: seriesId,
-      recognized,
+      recognized: batchResults.length === 1 ? (batchResults[0]?.unifiedResult?._meta?.recognized || null) : null,
+      queryCount: queries.length,
       evidence,
       records: items.map((x) => ({
         code: x.code,

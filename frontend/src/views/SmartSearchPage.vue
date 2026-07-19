@@ -297,9 +297,48 @@
           >
             <!-- User message: keep in bubble -->
             <template v-if="m.role === 'user'">
-              <div class="ss-msg-bubble">
-                <div class="ss-msg-text">{{ m.content }}</div>
-                <div class="ss-msg-time">{{ formatTime(m.createdAt) }}</div>
+              <div class="ss-msg-stack ss-msg-stack-user">
+                <div v-if="hasUserMessageText(m)" class="ss-msg-bubble">
+                  <div class="ss-msg-text">{{ m.content }}</div>
+                </div>
+                <div v-if="getUserMessageImageAttachments(m).length > 0" class="ss-msg-attachments ss-msg-image-attachments">
+                  <div
+                    v-for="attachment in getUserMessageImageAttachments(m)"
+                    :key="attachment.assetId || attachment.objectKey || attachment.url"
+                    class="ss-msg-image-card"
+                  >
+                    <el-image
+                      :src="getUserMessageAttachmentImageSrc(attachment)"
+                      :preview-src-list="getUserMessageAttachmentPreviewUrls(m)"
+                      :initial-index="getUserMessageAttachmentPreviewIndex(m, attachment)"
+                      fit="cover"
+                      preview-teleported
+                      class="ss-msg-image-card-media"
+                    />
+                    <div class="ss-msg-image-card-body">
+                      <div class="ss-msg-image-card-name">{{ attachment.originalName || attachment.storedName || attachment.assetId }}</div>
+                      <div class="ss-msg-image-card-meta">
+                        <span>{{ formatAttachmentSize(attachment.sizeBytes) }}</span>
+                        <span>点击预览</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="getUserMessageFileAttachments(m).length > 0" class="ss-msg-attachments ss-msg-file-attachments">
+                  <div
+                    v-for="attachment in getUserMessageFileAttachments(m)"
+                    :key="attachment.assetId || attachment.objectKey || attachment.url"
+                    class="ss-msg-attachment-card"
+                  >
+                    <div class="ss-msg-attachment-file-icon">
+                      <el-icon><Files /></el-icon>
+                    </div>
+                    <div class="ss-msg-attachment-info">
+                      <div class="ss-msg-attachment-name">{{ attachment.originalName || attachment.storedName || attachment.assetId }}</div>
+                      <div class="ss-msg-attachment-sub">{{ formatAttachmentSize(attachment.sizeBytes) }}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </template>
 
@@ -316,6 +355,17 @@
             <!-- Assistant message: LLM unavailable - show hint + quick cards -->
             <template v-else-if="m.type === 'llm_unavailable' || (m.type === 'search_result' && m.payload && m.payload.meta && m.payload.meta.llmAvailable === false)">
               <div class="ss-recommendation-wrapper">
+                <div v-if="getMessageSystemMessages(m).length > 0" class="ss-system-messages">
+                  <div
+                    v-for="(systemMessage, index) in getMessageSystemMessages(m)"
+                    :key="`${m.id}_system_${index}`"
+                    class="ss-system-message"
+                    :class="systemMessageClass(systemMessage)"
+                  >
+                    <div class="ss-system-message-title">{{ systemMessage.title }}</div>
+                    <MarkdownRenderer class="ss-system-message-text" :content="systemMessage.text" compact />
+                  </div>
+                </div>
                 <div class="ss-llm-unavailable-hint">
                   <el-alert
                     :title="$t('smartSearch.llmUnavailableTitle')"
@@ -360,20 +410,30 @@
                   </div>
                 </div>
 
-                <div class="ss-msg-time">{{ formatTime(m.createdAt) }}</div>
               </div>
             </template>
 
             <!-- Assistant message: search result - display directly on background (ChatGPT style) -->
             <template v-else-if="m.type === 'search_result' && m.payload && m.payload.ok">
               <div class="ss-answer-container">
+                <div v-if="getMessageSystemMessages(m).length > 0" class="ss-system-messages">
+                  <div
+                    v-for="(systemMessage, index) in getMessageSystemMessages(m)"
+                    :key="`${m.id}_system_${index}`"
+                    class="ss-system-message"
+                    :class="systemMessageClass(systemMessage)"
+                  >
+                    <div class="ss-system-message-title">{{ systemMessage.title }}</div>
+                    <MarkdownRenderer class="ss-system-message-text" :content="systemMessage.text" compact />
+                  </div>
+                </div>
                 <!-- 1) 答案区 -->
                 <div class="ss-answer-area">
                   <!-- 综合回答（含 MKnowledge 生成或片段拼接；与下方 Knowledge 来源区分） -->
                   <div v-if="(m.payload.answerText || '').trim()" class="ss-answer-section ss-answer-summary">
                     <div v-if="showAnswerSectionTitle(m.payload)" class="ss-answer-section-title">{{ $t('mobile.smartSearch.sectionAnswer') }}</div>
                     <div class="ss-answer-section-content">
-                      <div class="ss-answer-text">{{ m.payload.answerText }}</div>
+                      <MarkdownRenderer class="ss-answer-text" :content="m.payload.answerText || ''" compact />
                     </div>
                   </div>
                   <!-- 识别到的查询要点 -->
@@ -723,34 +783,145 @@
                   </div>
                 </div>
 
-                <div class="ss-msg-time">{{ formatTime(m.createdAt) }}</div>
               </div>
             </template>
 
             <!-- Assistant message: other content - keep in bubble -->
             <template v-else>
-              <div class="ss-msg-bubble">
-                <div class="ss-msg-text">{{ m.content }}</div>
-                <div class="ss-msg-time">{{ formatTime(m.createdAt) }}</div>
+              <div class="ss-msg-stack">
+                <div v-if="getMessageSystemMessages(m).length > 0" class="ss-system-messages">
+                  <div
+                    v-for="(systemMessage, index) in getMessageSystemMessages(m)"
+                    :key="`${m.id}_system_${index}`"
+                    class="ss-system-message"
+                    :class="systemMessageClass(systemMessage)"
+                  >
+                    <div class="ss-system-message-title">{{ systemMessage.title }}</div>
+                    <MarkdownRenderer class="ss-system-message-text" :content="systemMessage.text" compact />
+                  </div>
+                </div>
+                <div v-if="m.content" class="ss-msg-bubble">
+                  <MarkdownRenderer class="ss-msg-text" :content="m.content || ''" compact />
+                </div>
               </div>
             </template>
           </div>
         </div>
       </div>
 
-      <div class="ss-composer-wrap" :class="{ centered: activeMessages.length === 0 }">
-        <div class="ss-composer">
-          <el-input
-            v-model="draft"
-            type="textarea"
-            :autosize="{ minRows: 3, maxRows: 8 }"
-            :placeholder="$t('smartSearch.placeholder')"
-            class="ss-input"
-            :maxlength="MAX_INPUT_CHARS"
-            show-word-limit
-            @keydown.enter.exact.prevent="send"
-            @keydown.shift.enter.exact="noop"
-          />
+      <div v-if="activeConversationLockedNotice" class="ss-instance-locked-notice">
+        <el-alert
+          :title="activeConversationLockedNotice"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+      </div>
+
+      <div v-if="!activeConversationLockedNotice" class="ss-composer-wrap" :class="{ centered: activeMessages.length === 0 }">
+        <div class="ss-composer" @paste="handleComposerPaste">
+          <div
+            v-if="showImageCapabilityHint"
+            class="ss-composer-capability-hint"
+          >
+            <div class="ss-composer-capability-copy">
+              当前模型不会解析图片，图片附件仍会保存，但不会进入模型理解。
+            </div>
+            <button
+              v-if="nextImageCapableProvider"
+              type="button"
+              class="ss-composer-capability-switch"
+              @click="switchToImageCapableProvider"
+            >
+              切换到 {{ nextImageCapableProvider.label || nextImageCapableProvider.id }}
+            </button>
+          </div>
+
+          <div
+            v-if="draftAttachments.length > 0"
+            class="ss-composer-attachments-section"
+          >
+            <div class="ss-draft-attachments">
+            <div
+              v-for="attachment in draftAttachments"
+              :key="attachment.localId"
+              class="ss-draft-attachment-card"
+              :class="{
+                'is-draft': attachment.status === 'draft',
+                'is-uploading': attachment.status === 'uploading',
+                'is-available': attachment.status === 'available',
+                'is-failed': attachment.status === 'failed'
+              }"
+              :style="draftAttachmentCardStyle(attachment)"
+            >
+              <div
+                v-if="attachment.type === 'image'"
+                class="ss-draft-attachment-thumb"
+              >
+                <img
+                  v-if="attachment.localPreviewUrl"
+                  :src="attachment.localPreviewUrl"
+                  :alt="attachment.originalName"
+                  class="ss-draft-attachment-image"
+                >
+                <div v-else class="ss-draft-attachment-thumb-fallback">
+                  <el-icon><Files /></el-icon>
+                </div>
+              </div>
+              <div v-else class="ss-draft-attachment-file-card">
+                <div class="ss-draft-attachment-thumb ss-draft-attachment-thumb-file">
+                  <el-icon><Files /></el-icon>
+                </div>
+                <div class="ss-draft-attachment-file-name" :title="attachment.originalName">
+                  {{ attachment.originalName }}
+                </div>
+              </div>
+
+              <div class="ss-draft-attachment-overlay">
+                <button
+                  v-if="attachment.status === 'failed'"
+                  type="button"
+                  class="ss-draft-attachment-failed-indicator"
+                  :title="$t('shared.retry')"
+                  @click="retryDraftAttachment(attachment.localId)"
+                >
+                  !
+                </button>
+                <div
+                  v-else-if="attachment.status === 'uploading'"
+                  class="ss-draft-attachment-progress-badge"
+                >
+                  {{ attachment.progress }}%
+                </div>
+              </div>
+
+              <div class="ss-draft-attachment-actions">
+                <button
+                  type="button"
+                  class="ss-draft-attachment-remove"
+                  :title="$t('shared.delete')"
+                  @click="removeDraftAttachment(attachment.localId)"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <div class="ss-composer-text-section" :class="{ 'has-attachments': draftAttachments.length > 0 }">
+            <el-input
+              v-model="draft"
+              type="textarea"
+              :autosize="{ minRows: 3, maxRows: 8 }"
+              :placeholder="$t('smartSearch.placeholder')"
+              class="ss-input"
+              :maxlength="MAX_INPUT_CHARS"
+              show-word-limit
+              @keydown.enter.exact.prevent="send"
+              @keydown.shift.enter.exact="noop"
+            />
+          </div>
 
           <button
             type="button"
@@ -760,7 +931,7 @@
             @click="send"
             :title="$t('smartSearch.send')"
           >
-            {{ $t('smartSearch.send') }}
+            <el-icon><ArrowUp /></el-icon>
           </button>
         </div>
 
@@ -1371,21 +1542,54 @@
 </template>
 
 <script>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { hasI18nKey } from '@/i18n'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
-import { ArrowLeft, ArrowRight, ArrowDown, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, ArrowDown, ArrowUp, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
 import GlobeIcon from '@/components/icons/GlobeIcon.vue'
 import api from '@/api'
 import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
+import MarkdownRenderer from '@/components/shared/MarkdownRenderer.vue'
 import { useAgentSmartChat } from '@/composables/useAgentSmartChat'
 
 const MAX_CONVERSATIONS = 5
 const MAX_INPUT_CHARS = 150
+const MAX_DRAFT_ATTACHMENTS = 5
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
+const MAX_ATTACHMENT_TOTAL_SIZE = 100 * 1024 * 1024
+const SUPPORTED_ATTACHMENT_MIMES = new Set([
+  'text/plain',
+  'application/octet-stream',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-7z-compressed',
+  'image/jpeg',
+  'image/png',
+  'image/webp'
+])
+const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set([
+  '.medbot',
+  '.txt',
+  '.7z',
+  '.zip',
+  '.jpeg',
+  '.jpg',
+  '.png',
+  '.webp'
+])
+const RELAXED_TEXT_ATTACHMENT_EXTENSIONS = new Set([
+  '.medbot',
+  '.txt'
+])
+const RELAXED_TEXT_ATTACHMENT_MIMES = new Set([
+  '',
+  'text/plain',
+  'application/octet-stream'
+])
 
 function nowIso () {
   return new Date().toISOString()
@@ -1393,6 +1597,56 @@ function nowIso () {
 
 function shortId () {
   return `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`
+}
+
+function getExtension (filename = '') {
+  const name = String(filename || '')
+  const idx = name.lastIndexOf('.')
+  if (idx < 0) return ''
+  return name.slice(idx).toLowerCase()
+}
+
+function getMimeFallbackExtension (mimeType = '') {
+  const mime = String(mimeType || '').toLowerCase()
+  if (mime === 'image/jpeg') return '.jpg'
+  if (mime === 'image/png') return '.png'
+  if (mime === 'image/webp') return '.webp'
+  if (mime === 'application/x-7z-compressed') return '.7z'
+  if (mime === 'application/zip' || mime === 'application/x-zip-compressed') return '.zip'
+  if (mime === 'text/plain') return '.txt'
+  return ''
+}
+
+function ensureFileName (file) {
+  const original = String(file?.name || '').trim()
+  if (original) return original
+  const ext = getMimeFallbackExtension(file?.type)
+  return `attachment-${Date.now()}${ext}`
+}
+
+function isSupportedAttachmentFile (file) {
+  const mime = String(file?.type || '').trim().toLowerCase()
+  const ext = getExtension(ensureFileName(file))
+  if (!SUPPORTED_ATTACHMENT_EXTENSIONS.has(ext)) return false
+  if (RELAXED_TEXT_ATTACHMENT_EXTENSIONS.has(ext)) {
+    return RELAXED_TEXT_ATTACHMENT_MIMES.has(mime)
+  }
+  return SUPPORTED_ATTACHMENT_MIMES.has(mime)
+}
+
+function detectDraftAttachmentType (file) {
+  const mime = String(file?.type || '').trim().toLowerCase()
+  if (mime.startsWith('image/')) return 'image'
+  if (mime.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
+function formatAttachmentSizeText (size) {
+  const bytes = Number(size || 0)
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function normalizeTitle (text, fallback = '') {
@@ -1403,7 +1657,7 @@ function normalizeTitle (text, fallback = '') {
 
 export default {
   name: 'SmartSearchPage',
-  components: { GlobeIcon, SmartSearchKbAssetImg },
+  components: { GlobeIcon, SmartSearchKbAssetImg, MarkdownRenderer },
   setup () {
     const store = useStore()
     const router = useRouter()
@@ -1422,12 +1676,14 @@ export default {
     })
     const {
       conversationId: agentConversationId,
+      instanceId: agentInstanceId,
       llmProviderId: agentLlmProviderId,
       sending: agentSending,
       newConversation: agentNewConversation,
       sendText: agentSendText,
       listConversations: agentListConversations,
-      loadConversation: agentLoadConversation
+      loadConversation: agentLoadConversation,
+      deleteConversation: agentDeleteConversation
     } = useAgentSmartChat({
       // Must match WS agentTaskStatusChange.userId (= auth user id), same as ExplanationTester
       getCurrentUserId: () => String(store.state.auth?.user?.id || '')
@@ -1443,6 +1699,20 @@ export default {
       const list = Array.isArray(llmProviders.value) ? llmProviders.value : []
       return list.some(p => p && p.available)
     })
+    const currentLlmProvider = computed(() => {
+      return llmProviders.value.find(p => p && p.id === llmProviderId.value) || null
+    })
+    const currentProviderSupportsImageInput = computed(() => {
+      return !!currentLlmProvider.value?.capabilities?.imageInput
+    })
+    const nextImageCapableProvider = computed(() => {
+      const currentId = String(llmProviderId.value || '').trim()
+      return llmProviders.value.find((provider) => {
+        if (!provider || !provider.available) return false
+        if (!provider?.capabilities?.imageInput) return false
+        return String(provider.id || '').trim() !== currentId
+      }) || null
+    })
 
     // Used only for UI hint (avoid flashing before providers are loaded)
     const showLlmUnavailableHint = computed(() => {
@@ -1455,6 +1725,7 @@ export default {
     const conversations = ref([])
     const activeConversationId = ref(null)
     const draft = ref('')
+    const draftAttachments = ref([])
     const messagesEl = ref(null)
     const sidebarCollapsed = ref(false)
     const historyCollapsed = ref(false)
@@ -1497,10 +1768,14 @@ export default {
       try {
         const list = await agentListConversations({ limit: 50 })
         conversations.value = (Array.isArray(list) ? list : []).map(conv => {
-          const id = String(conv.conversationId || conv.id || '').trim()
+          const id = String(conv.instanceId || conv.id || '').trim()
           const updatedAt = conv.updatedAt || conv.createdAt || nowIso()
           return {
             id,
+            instanceId: Number(conv.instanceId || conv.id || 0) || null,
+            conversationId: String(conv.conversationId || '').trim(),
+            instanceNo: Number(conv.instanceNo || 0) || null,
+            status: String(conv.status || '').trim(),
             title: conv.title || defaultConversationTitle.value,
             updatedAt,
             createdAt: conv.createdAt || updatedAt,
@@ -1618,6 +1893,12 @@ export default {
       return Array.isArray(activeConversation.value?.messages) ? activeConversation.value.messages : []
     })
 
+    const activeConversationLockedNotice = computed(() => {
+      const instance = activeConversation.value?.instance || null
+      if (!instance || instance.continuable !== false) return ''
+      return String(instance.inactiveNotice || t('shared.agent.inactiveInstanceFallback')).trim()
+    })
+
     const questionCount = computed(() => {
       return activeMessages.value.filter(m => m && m.role === 'user').length
     })
@@ -1646,7 +1927,184 @@ export default {
       return groups
     })
 
-    const canSend = computed(() => !sending.value && !agentSending.value && draft.value.trim().length > 0)
+    const draftUploadingCount = computed(() => draftAttachments.value.filter(item => item.status === 'uploading').length)
+    const readyDraftAttachments = computed(() => draftAttachments.value.filter(item => item.status === 'available'))
+    const draftImageAttachments = computed(() => draftAttachments.value.filter(item => item.type === 'image'))
+    const showImageCapabilityHint = computed(() => {
+      return draftImageAttachments.value.length > 0 && !currentProviderSupportsImageInput.value
+    })
+    const canSend = computed(() => {
+      if (sending.value || agentSending.value) return false
+      if (draftUploadingCount.value > 0) return false
+      if (activeConversationLockedNotice.value) return false
+      return draft.value.trim().length > 0 || readyDraftAttachments.value.length > 0
+    })
+
+    const revokeDraftPreviewUrl = (attachment) => {
+      const url = String(attachment?.localPreviewUrl || '').trim()
+      if (url && url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(url)
+        } catch (_) {}
+      }
+    }
+
+    const clearDraftAttachments = () => {
+      draftAttachments.value.forEach(revokeDraftPreviewUrl)
+      draftAttachments.value = []
+    }
+
+    const updateDraftAttachment = (localId, patch) => {
+      const idx = draftAttachments.value.findIndex(item => item.localId === localId)
+      if (idx < 0) return
+      draftAttachments.value.splice(idx, 1, {
+        ...draftAttachments.value[idx],
+        ...(patch || {})
+      })
+    }
+
+    const createDraftAttachment = (file) => {
+      const safeName = ensureFileName(file)
+      const type = detectDraftAttachmentType(file)
+      return {
+        localId: shortId(),
+        file,
+        originalName: safeName,
+        sizeBytes: Number(file?.size || 0),
+        mimeType: String(file?.type || '').trim().toLowerCase(),
+        type,
+        progress: 0,
+        status: 'draft',
+        errorMessage: '',
+        localPreviewUrl: type === 'image' ? URL.createObjectURL(file) : ''
+      }
+    }
+
+    const uploadDraftAttachment = async (localId) => {
+      const attachment = draftAttachments.value.find(item => item.localId === localId)
+      if (!attachment || !attachment.file) return
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+      updateDraftAttachment(localId, {
+        status: 'uploading',
+        progress: 0,
+        errorMessage: '',
+        abortController: controller
+      })
+
+      const formData = new FormData()
+      formData.append('files', attachment.file, attachment.originalName)
+
+      try {
+        const resp = await api.agent.uploadAssets(formData, {
+          signal: controller?.signal,
+          onUploadProgress: (event) => {
+            const total = Number(event?.total || 0)
+            const loaded = Number(event?.loaded || 0)
+            if (total > 0) {
+              updateDraftAttachment(localId, {
+                progress: Math.min(99, Math.max(1, Math.round((loaded / total) * 100)))
+              })
+            }
+          }
+        })
+        const uploaded = Array.isArray(resp?.data?.attachments) ? resp.data.attachments[0] : null
+        if (!uploaded) {
+          throw new Error(t('shared.requestFailed'))
+        }
+        updateDraftAttachment(localId, {
+          ...uploaded,
+          progress: 100,
+          status: 'available',
+          abortController: null,
+          errorMessage: ''
+        })
+      } catch (error) {
+        const message = error?.name === 'CanceledError'
+          ? t('shared.cancel')
+          : (error?.response?.data?.message || error?.message || t('shared.requestFailed'))
+        updateDraftAttachment(localId, {
+          status: 'failed',
+          progress: 0,
+          abortController: null,
+          errorMessage: message
+        })
+      }
+    }
+
+    const enqueueDraftFiles = async (files) => {
+      const list = Array.from(files || []).filter(Boolean)
+      if (list.length === 0) return
+
+      if (draftAttachments.value.length + list.length > MAX_DRAFT_ATTACHMENTS) {
+        ElMessage.warning(`最多上传 ${MAX_DRAFT_ATTACHMENTS} 个附件`)
+        return
+      }
+
+      const currentTotal = draftAttachments.value
+        .filter(item => item.status !== 'removed')
+        .reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0)
+      const nextTotal = list.reduce((sum, file) => sum + Number(file?.size || 0), currentTotal)
+      if (nextTotal > MAX_ATTACHMENT_TOTAL_SIZE) {
+        ElMessage.warning(`单条消息附件总大小不能超过 ${Math.round(MAX_ATTACHMENT_TOTAL_SIZE / (1024 * 1024))}MB`)
+        return
+      }
+
+      const accepted = []
+      for (const file of list) {
+        if (!isSupportedAttachmentFile(file)) {
+          ElMessage.warning(`文件类型不支持：${ensureFileName(file)}`)
+          continue
+        }
+        if (Number(file?.size || 0) > MAX_ATTACHMENT_SIZE) {
+          ElMessage.warning(`单个附件不能超过 ${Math.round(MAX_ATTACHMENT_SIZE / (1024 * 1024))}MB`)
+          continue
+        }
+        const draftAttachment = createDraftAttachment(file)
+        if (draftAttachment.type === 'image' && !currentProviderSupportsImageInput.value) {
+          ElMessage.warning('当前模型不会解析图片，可上传后切换到支持图片的模型')
+        }
+        draftAttachments.value.push(draftAttachment)
+        accepted.push(draftAttachment.localId)
+      }
+
+      for (const localId of accepted) {
+        // 顺序上传，进度更稳定，也更容易匹配单卡片状态
+        // eslint-disable-next-line no-await-in-loop
+        await uploadDraftAttachment(localId)
+      }
+    }
+
+    const handleComposerPaste = async (event) => {
+      const items = Array.from(event?.clipboardData?.items || [])
+      const files = items
+        .filter(item => item && item.kind === 'file')
+        .map(item => item.getAsFile())
+        .filter(Boolean)
+      if (files.length === 0) return
+      event.preventDefault()
+      await enqueueDraftFiles(files)
+    }
+
+    const removeDraftAttachment = (localId) => {
+      const idx = draftAttachments.value.findIndex(item => item.localId === localId)
+      if (idx < 0) return
+      const current = draftAttachments.value[idx]
+      try {
+        current?.abortController?.abort?.()
+      } catch (_) {}
+      revokeDraftPreviewUrl(current)
+      draftAttachments.value.splice(idx, 1)
+    }
+
+    const retryDraftAttachment = async (localId) => {
+      await uploadDraftAttachment(localId)
+    }
+
+    const switchToImageCapableProvider = () => {
+      if (!nextImageCapableProvider.value) return
+      onLlmProviderChange(nextImageCapableProvider.value.id)
+      ElMessage.success(`已切换到 ${nextImageCapableProvider.value.label || nextImageCapableProvider.value.id}`)
+    }
 
     const scrollToBottom = async () => {
       await nextTick()
@@ -1674,6 +2132,8 @@ export default {
       if (activeConversation.value) return activeConversation.value
       const conv = {
         id: shortId(),
+        instanceId: null,
+        conversationId: String(agentConversationId.value || '').trim(),
         title: defaultConversationTitle.value,
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -1686,7 +2146,26 @@ export default {
 
     const send = async () => {
       const text = draft.value.trim()
-      if (!text) return
+      const outboundAttachments = readyDraftAttachments.value.map(item => ({
+        assetId: item.assetId,
+        type: item.type,
+        storage: item.storage,
+        objectKey: item.objectKey,
+        bucket: item.bucket,
+        originalName: item.originalName,
+        storedName: item.storedName,
+        mimeType: item.mimeType,
+        sizeBytes: item.sizeBytes,
+        sha256: item.sha256,
+        uploaderId: item.uploaderId,
+        source: item.source,
+        previewUrl: item.previewUrl,
+        url: item.url,
+        width: item.width ?? null,
+        height: item.height ?? null,
+        status: item.status
+      }))
+      if (!text && outboundAttachments.length === 0) return
       if (text.length > MAX_INPUT_CHARS) {
         ElMessage.warning(t('smartSearch.maxInputChars', { max: MAX_INPUT_CHARS }))
         return
@@ -1694,15 +2173,21 @@ export default {
 
       // 轮次上限由后端 SESSION_MAX_TURNS 控制实例滚动；达到上限时 instance.notice 会并入回复文案
       const conv = ensureActiveConversation()
-      const userMsg = { id: shortId(), role: 'user', content: text, createdAt: nowIso() }
+      const userMsg = {
+        id: shortId(),
+        role: 'user',
+        content: text,
+        attachments: outboundAttachments,
+        createdAt: nowIso()
+      }
       conv.messages = [...(conv.messages || []), userMsg]
       // 首问生成标题
       if (isDefaultConversationTitle(conv.title)) conv.title = normalizeTitle(text, defaultConversationTitle.value)
       conv.updatedAt = nowIso()
       // 这里不要触发持久化，避免中途 id 变化导致后续找不到会话
       upsertConversation(conv)
-
       draft.value = ''
+      clearDraftAttachments()
 
       // LLM 不可用：不发请求，直接提示 + 给三个入口卡片
       if (showLlmUnavailableHint.value) {
@@ -1733,26 +2218,36 @@ export default {
 
       sending.value = true
       try {
-        const result = await agentSendText(text)
-        const payload = result.payload // already has ok, answerText, sources
+        const result = await agentSendText(text, { attachments: outboundAttachments })
+        const payload = {
+          ...(result.payload || {}),
+          answerText: result.assistantMode === 'direct_response'
+            ? ''
+            : String(result?.payload?.answerText || '')
+        }
         const assistantMsg = {
           id: loadingMsgId, // 使用相同的 ID 替换 loading 消息
           role: 'assistant',
           type: 'search_result',
           content: '',
           payload,
+          systemMessages: Array.isArray(result.systemMessages) ? result.systemMessages : [],
           createdAt: nowIso()
         }
         
       const conv2 = activeConversation.value
       if (conv2) {
-        // 首轮回复后：临时 shortId 同步为 Agent conversationId
+        const resultInstanceId = Number(result?.session?.instanceId || agentInstanceId.value || 0)
         const agentCid = String(agentConversationId.value || '').trim()
-        if (agentCid && conv2.id !== agentCid) {
+        if (agentCid) {
+          conv2.conversationId = agentCid
+        }
+        if (Number.isFinite(resultInstanceId) && resultInstanceId > 0 && String(conv2.id) !== String(resultInstanceId)) {
           const oldId = conv2.id
-          conv2.id = agentCid
+          conv2.id = String(resultInstanceId)
+          conv2.instanceId = resultInstanceId
           if (activeConversationId.value === oldId) {
-            activeConversationId.value = agentCid
+            activeConversationId.value = String(resultInstanceId)
           }
         }
 
@@ -1880,18 +2375,26 @@ export default {
       return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.gif') || name.endsWith('.webp') || name.endsWith('.bmp')
     }
 
+    const normalizeAttachmentUrl = (url) => {
+      const raw = String(url || '').trim()
+      if (!raw) return ''
+      if (raw.startsWith('static/')) return `/${raw}`
+      return raw
+    }
+
     // 通用附件代理 URL 函数（适用于所有类型的附件）
-    // OSS 公网 URL 和本地代理 URL 直接使用，Jira 附件使用代理
+    // OSS 公网 URL 和本地静态资源 / 后端代理 URL 直接使用，Jira 附件使用代理
     const getGenericAttachmentProxyUrl = (url) => {
-      if (!url) return ''
+      const normalizedUrl = normalizeAttachmentUrl(url)
+      if (!normalizedUrl) return ''
       // OSS 公网 URL 或后端代理 URL 直接使用，不需要代理
-      if (!needsProxy(url)) {
-        return url
+      if (!needsProxy(normalizedUrl)) {
+        return normalizedUrl
       }
       // Jira 附件或其他需要代理的 URL 使用代理
       const token = store?.state?.auth?.token || ''
       const qs = new URLSearchParams()
-      qs.set('url', url)
+      qs.set('url', normalizedUrl)
       // 后端 auth 中间件支持 GET query token，用于处理跨域和认证
       if (token) qs.set('token', token)
       return `/api/jira/attachment/proxy?${qs.toString()}`
@@ -1906,6 +2409,55 @@ export default {
       if (!Array.isArray(images)) return 0
       const imageList = images.filter(img => isImageFile(img))
       return imageList.findIndex(img => (img.uid || img.url) === (currentImg.uid || currentImg.url))
+    }
+
+    const getUserMessageAttachmentImageSrc = (attachment) => {
+      if (!attachment || attachment.type !== 'image') return ''
+      const rawUrl = String(attachment.previewUrl || attachment.url || '').trim()
+      if (!rawUrl) return ''
+      return getGenericAttachmentProxyUrl(rawUrl)
+    }
+
+    const getUserMessageAttachments = (message) => {
+      return Array.isArray(message?.attachments) ? message.attachments.filter(Boolean) : []
+    }
+
+    const getUserMessageImageAttachments = (message) => {
+      return getUserMessageAttachments(message).filter(attachment => !!getUserMessageAttachmentImageSrc(attachment))
+    }
+
+    const getUserMessageFileAttachments = (message) => {
+      return getUserMessageAttachments(message).filter(attachment => !getUserMessageAttachmentImageSrc(attachment))
+    }
+
+    const getMessageSystemMessages = (message) => {
+      return Array.isArray(message?.systemMessages) ? message.systemMessages.filter(Boolean) : []
+    }
+
+    const systemMessageClass = (message) => {
+      const kind = String(message?.kind || '').trim().toLowerCase()
+      if (kind === 'instance_rollover') return 'is-rollover'
+      if (kind === 'direct_response') return 'is-direct'
+      return 'is-generic'
+    }
+
+    const getUserMessageAttachmentPreviewUrls = (message) => {
+      return getUserMessageImageAttachments(message)
+        .map(attachment => getUserMessageAttachmentImageSrc(attachment))
+        .filter(Boolean)
+    }
+
+    const getUserMessageAttachmentPreviewIndex = (message, currentAttachment) => {
+      const images = getUserMessageImageAttachments(message)
+      return images.findIndex((attachment) => {
+        const currentKey = currentAttachment?.assetId || currentAttachment?.objectKey || currentAttachment?.url
+        const itemKey = attachment?.assetId || attachment?.objectKey || attachment?.url
+        return itemKey === currentKey
+      })
+    }
+
+    const hasUserMessageText = (message) => {
+      return String(message?.content || '').trim().length > 0
     }
 
     const openSource = async (type, item) => {
@@ -2207,9 +2759,13 @@ export default {
     // 判断 URL 是否需要代理（Jira 附件需要代理，OSS 公网 URL 和本地代理 URL 不需要）
     const needsProxy = (url) => {
       if (!url) return false
-      const urlStr = String(url)
+      const urlStr = normalizeAttachmentUrl(url)
       // OSS 公网 URL（https:// 或 http://）不需要代理
       if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+        return false
+      }
+      // 本地静态资源不需要代理
+      if (urlStr.startsWith('/static/')) {
         return false
       }
       // 后端代理 URL（/api/oss/）不需要代理
@@ -2469,23 +3025,29 @@ export default {
       agentNewConversation()
       activeConversationId.value = null
       draft.value = ''
+      clearDraftAttachments()
     }
 
     const selectConversation = async (id) => {
       activeConversationId.value = id
       draft.value = ''
+      clearDraftAttachments()
 
       if (!id) return
       try {
-        const messages = await agentLoadConversation(id)
+        const session = await agentLoadConversation(id)
         const idx = conversations.value.findIndex(c => c.id === id)
         if (idx >= 0) {
           conversations.value[idx] = {
             ...conversations.value[idx],
-            messages: (Array.isArray(messages) ? messages : []).map((m, i) => ({
+            instanceId: Number(id || 0) || conversations.value[idx].instanceId || null,
+            conversationId: String(agentConversationId.value || conversations.value[idx].conversationId || '').trim(),
+            instance: session?.instance || null,
+            messages: (Array.isArray(session?.messages) ? session.messages : []).map((m, i) => ({
               id: m.id || `${id}_${i}`,
               role: m.role,
               content: m.content || '',
+              attachments: Array.isArray(m.attachments) ? m.attachments : [],
               type: m.role === 'assistant' ? 'search_result' : undefined,
               payload: m.payload,
               createdAt: m.createdAt || nowIso()
@@ -2498,7 +3060,13 @@ export default {
     }
 
     const deleteConversation = async (id) => {
-      // 暂无后端删除 API：仅从本地列表移除
+      try {
+        await agentDeleteConversation(id)
+      } catch (err) {
+        console.error('[deleteConversation] Failed to delete conversation:', err)
+        ElMessage.error(err?.response?.data?.message || err?.message || t('shared.requestFailed'))
+        return
+      }
       const nextList = conversations.value.filter(c => c.id !== id)
       conversations.value = nextList
       
@@ -2506,6 +3074,8 @@ export default {
         activeConversationId.value = nextList[0]?.id || null
         if (!activeConversationId.value) {
           agentNewConversation()
+        } else {
+          await selectConversation(activeConversationId.value)
         }
       }
     }
@@ -2630,6 +3200,23 @@ export default {
       }
     }
 
+    const formatAttachmentSize = (size) => formatAttachmentSizeText(size)
+
+    const draftAttachmentCardStyle = (attachment) => {
+      const status = String(attachment?.status || '').trim().toLowerCase()
+      if (status === 'draft') {
+        return { opacity: 0.5 }
+      }
+      if (status === 'failed') {
+        return { opacity: 0.5 }
+      }
+      if (status === 'uploading') {
+        const progress = Math.min(100, Math.max(0, Number(attachment?.progress || 0)))
+        return { opacity: `${0.5 + (progress / 100) * 0.5}` }
+      }
+      return { opacity: 1 }
+    }
+
     const getIntentLabel = (intent) => {
       const key = `smartSearch.intent.${intent}`
       return hasI18nKey(key) ? t(key) : (intent || t('shared.unknown'))
@@ -2732,15 +3319,23 @@ export default {
       scrollToBottom()
     })
 
+    onUnmounted(() => {
+      clearDraftAttachments()
+    })
+
     return {
       conversations,
       activeConversationId,
+      activeConversation,
       activeMessages,
+      activeConversationLockedNotice,
       questionCount,
       groupedConversations,
       draft,
+      draftAttachments,
       canSend,
       sending,
+      draftUploadingCount,
       messagesEl,
       MAX_INPUT_CHARS,
       currentUser,
@@ -2749,6 +3344,8 @@ export default {
       llmProviderId,
       onLlmProviderChange,
       currentLlmProviderLabel,
+      nextImageCapableProvider,
+      showImageCapabilityHint,
       showLlmUnavailableHint,
       currentModelIcon,
       getModelIcon,
@@ -2793,9 +3390,24 @@ export default {
       isImageFile,
       getImagePreviewList,
       getImageIndex,
+      getUserMessageAttachmentImageSrc,
+      getUserMessageImageAttachments,
+      getUserMessageFileAttachments,
+      getMessageSystemMessages,
+      systemMessageClass,
+      getUserMessageAttachmentPreviewUrls,
+      getUserMessageAttachmentPreviewIndex,
+      hasUserMessageText,
+      formatAttachmentSize,
+      draftAttachmentCardStyle,
+      handleComposerPaste,
+      removeDraftAttachment,
+      retryDraftAttachment,
+      switchToImageCapableProvider,
       ArrowLeft,
       ArrowRight,
       ArrowDown,
+      ArrowUp,
       Warning,
       Link,
       Files,
@@ -2844,6 +3456,11 @@ export default {
 
 <style scoped>
 .ss-page {
+  --agent-msg-user-bg: #f2f4f7;
+  --agent-msg-user-border: #e4e7ec;
+  --agent-msg-user-text: #101828;
+  --agent-msg-user-attachment-bg: #ffffff;
+  --agent-msg-user-attachment-border: #e4e7ec;
   height: 100vh;
   display: flex;
   background: var(--black-white-white);
@@ -3553,6 +4170,43 @@ export default {
   gap: 8px;
 }
 
+.ss-system-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ss-system-message {
+  border-radius: 14px;
+  border: 1px solid #f59e0b;
+  background: linear-gradient(135deg, #fff8eb 0%, #fffdf7 100%);
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.08);
+  padding: 12px 14px;
+}
+
+.ss-system-message.is-rollover {
+  border-color: #f59e0b;
+}
+
+.ss-system-message.is-direct {
+  border-color: #f97316;
+  background: linear-gradient(135deg, #fff4eb 0%, #fffaf5 100%);
+}
+
+.ss-system-message-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #9a3412;
+  margin-bottom: 6px;
+}
+
+.ss-system-message-text {
+  color: #7c2d12;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 /* 内联快速卡片容器 - 用于在对话中显示单个/多个卡片 */
 .ss-quick-cards-inline {
   display: flex;
@@ -3625,6 +4279,16 @@ export default {
   max-width: 80%;
 }
 
+.ss-msg-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ss-msg-stack-user {
+  align-items: flex-end;
+}
+
 .ss-msg-bubble {
   max-width: 80%;
   padding: 12px 14px;
@@ -3633,9 +4297,9 @@ export default {
   background: #fff;
 }
 .ss-msg.user .ss-msg-bubble {
-  background: #111827;
-  border-color: #111827;
-  color: #fff;
+  background: var(--agent-msg-user-bg);
+  border-color: var(--agent-msg-user-border);
+  color: var(--agent-msg-user-text);
 }
 .ss-msg-loading {
   background: #f9fafb;
@@ -3665,7 +4329,6 @@ export default {
 }
 
 .ss-msg-text {
-  white-space: pre-wrap;
   line-height: 1.7;
   font-size: 14px;
 }
@@ -4504,18 +5167,155 @@ export default {
   .ss-empty-cards {
     grid-template-columns: 1fr;
   }
+
+  .ss-draft-attachments {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .ss-draft-attachment-card {
+    width: 88px;
+    height: 88px;
+  }
+
+  .ss-msg-image-card {
+    width: min(220px, 100%);
+  }
 }
 
-.ss-msg-time {
-  margin-top: 6px;
+.ss-msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ss-msg-image-attachments {
+  gap: 12px;
+}
+
+.ss-msg-image-card {
+  width: min(240px, 72vw);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(229, 231, 235, 0.92);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.ss-msg.user .ss-msg-image-card {
+  background: var(--agent-msg-user-attachment-bg);
+  border-color: var(--agent-msg-user-attachment-border);
+}
+
+.ss-msg-image-card-media {
+  display: block;
+  width: 100%;
+  height: 176px;
+  background: #f3f4f6;
+  cursor: zoom-in;
+}
+
+.ss-msg-image-card-media :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ss-msg-image-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.ss-msg-image-card-name {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #111827;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-msg-image-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 12px;
-  opacity: 0.6;
+  color: #6b7280;
+}
+
+.ss-msg-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(229, 231, 235, 0.9);
+}
+
+.ss-msg.user .ss-msg-attachment-card {
+  background: var(--agent-msg-user-attachment-bg);
+  border-color: var(--agent-msg-user-attachment-border);
+}
+
+.ss-msg-attachment-image,
+.ss-msg-attachment-file-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.ss-msg-attachment-image {
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+
+.ss-msg-attachment-file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.ss-msg-attachment-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ss-msg-attachment-name {
+  font-size: 13px;
+  color: #111827;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-msg-attachment-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .ss-composer-wrap {
   padding: 14px 16px 18px;
   border-top: none;
   background: var(--black-white-white);
+}
+
+.ss-instance-locked-notice {
+  max-width: 900px;
+  margin: 14px auto 0;
+  padding: 0 16px;
 }
 
 .ss-composer-wrap.centered {
@@ -4534,6 +5334,208 @@ export default {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.ss-draft-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 14px 8px;
+}
+
+.ss-composer-capability-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 0;
+}
+
+.ss-composer-capability-copy {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #9a3412;
+}
+
+.ss-composer-capability-switch {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.ss-composer-capability-switch:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.ss-composer-attachments-section {
+  padding-bottom: 2px;
+}
+
+.ss-composer-text-section {
+  position: relative;
+}
+
+.ss-draft-attachment-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f9fafb;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
+}
+
+.ss-draft-attachment-card:hover {
+  transform: translateY(-1px);
+}
+
+.ss-draft-attachment-card.is-uploading {
+  border-color: #cbd5e1;
+}
+
+.ss-draft-attachment-card.is-available {
+  border-color: #d1d5db;
+}
+
+.ss-draft-attachment-card.is-available:hover {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+.ss-draft-attachment-card.is-failed {
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
+.ss-draft-attachment-thumb {
+  width: 100%;
+  height: 100%;
+  background: #e5e7eb;
+}
+
+.ss-draft-attachment-file-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.ss-draft-attachment-thumb-file,
+.ss-draft-attachment-thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border-radius: 12px;
+  background: rgba(229, 231, 235, 0.9);
+  font-size: 24px;
+}
+
+.ss-draft-attachment-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ss-draft-attachment-file-name {
+  margin-top: 8px;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #374151;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.ss-draft-attachment-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ss-draft-attachment-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ss-draft-attachment-card.is-available:hover .ss-draft-attachment-actions,
+.ss-draft-attachment-card.is-failed:hover .ss-draft-attachment-actions,
+.ss-draft-attachment-card.is-draft:hover .ss-draft-attachment-actions {
+  opacity: 1;
+}
+
+.ss-draft-attachment-remove,
+.ss-draft-attachment-failed-indicator,
+.ss-draft-attachment-progress-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.ss-draft-attachment-remove {
+  border: none;
+  background: rgba(17, 24, 39, 0.72);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.ss-draft-attachment-remove:hover {
+  background: rgba(17, 24, 39, 0.92);
+}
+
+.ss-draft-attachment-failed-indicator {
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.16);
+}
+
+.ss-draft-attachment-failed-indicator:hover {
+  background: #fecaca;
+}
+
+.ss-draft-attachment-progress-badge {
+  background: rgba(17, 24, 39, 0.72);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .ss-composer:focus-within {
   border-color: #c7d2fe;
   box-shadow: 0 10px 28px rgba(0,0,0,0.08);
@@ -4546,6 +5548,8 @@ export default {
   resize: none;
   font-size: 16px;
   line-height: 1.7;
+  background: transparent;
+  box-shadow: none;
 }
 
 .ss-input :deep(.el-input__count) {
@@ -4622,7 +5626,7 @@ export default {
 }
 
 .ss-answer-summary .ss-answer-text {
-  white-space: pre-wrap;
+  white-space: normal;
   font-size: 15px;
   line-height: 1.6;
   color: #101828;

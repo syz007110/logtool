@@ -81,3 +81,40 @@ test('conversation orchestrator runWithMessages returns message turn result with
   assert.equal(out.kind, 'message');
   assert.match(out.content, /故障码/);
 });
+
+test('conversation orchestrator sanitizes multimodal base64 from llmRaw request', async (t) => {
+  const original = qwenService.runOrchestratorLlmWithMessages;
+  qwenService.runOrchestratorLlmWithMessages = async () => ({
+    turnVersion: 'v1',
+    kind: 'message',
+    content: '已收到图片',
+    toolCalls: [],
+    finishReason: 'stop',
+    usage: { total_tokens: 12 },
+    llmRaw: {
+      request: {
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: '描述图片' },
+            { type: 'image_url', image_url: 'data:image/png;base64,AAAAFFFF' }
+          ]
+        }]
+      },
+      response: { choices: [] }
+    }
+  });
+
+  t.after(() => { qwenService.runOrchestratorLlmWithMessages = original; });
+
+  const orchestrator = createConversationOrchestrator();
+  const out = await orchestrator.runWithMessages(baseRequest(), {
+    messages: [{ role: 'user', content: '描述图片' }],
+    contextEnvelope: { currentQuery: '描述图片', historyContext: { messages: [] } }
+  });
+
+  assert.equal(
+    out.llmRaw.request.messages[0].content[1].image_url,
+    '[omitted image/png base64 length=8]'
+  );
+});

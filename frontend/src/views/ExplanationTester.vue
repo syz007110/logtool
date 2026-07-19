@@ -853,7 +853,7 @@ export default {
       const instance = finalResponse?.instance
       const noticeText = String(instance?.notice || '').trim()
       const baseText = String(finalResponse?.text || '')
-      const mergedText = noticeText ? `${baseText}\n\n${noticeText}` : baseText
+      const mergedText = noticeText ? (baseText ? `${noticeText}\n\n${baseText}` : noticeText) : baseText
       agentMessages.value.push({
         role: 'assistant',
         createdAt: Date.now(),

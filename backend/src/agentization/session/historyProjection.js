@@ -1,15 +1,27 @@
 const { isOrchestratorMessageType, MESSAGE_TYPES } = require('./conversationMessageTypes');
+const { isClosedProjectedOrchestratorRow } = require('./toolCallClosure');
 
 function asPlainObject(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value;
   return {};
 }
 
+function parseProjectedJson(value) {
+  if (value == null) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+  return {};
+}
+
 function normalizeHistoryText(row) {
-  const direct = String(row?.content || '').trim();
-  if (direct) return direct;
-  const payload = asPlainObject(row?.payload);
-  return String(payload?.text || '').trim();
+  return String(row?.content || '').trim();
 }
 
 function mapRecentTurnRole(row) {
@@ -21,9 +33,26 @@ function mapRecentTurnRole(row) {
   return '';
 }
 
-function extractToolCallsFromOrchestratorPayload(payload) {
-  const p = asPlainObject(payload);
-  const rawMessage = asPlainObject(p.rawMessage);
+function getProjectedRawMessage(row) {
+  return parseProjectedJson(row?.payload_raw_message);
+}
+
+function getProjectedToolCalls(row) {
+  const projected = row?.payload_tool_calls;
+  if (Array.isArray(projected)) return projected;
+  if (typeof projected === 'string') {
+    try {
+      const parsed = JSON.parse(projected);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function extractToolCallsFromOrchestratorRow(row) {
+  const rawMessage = getProjectedRawMessage(row);
   if (Array.isArray(rawMessage.tool_calls) && rawMessage.tool_calls.length > 0) {
     return rawMessage.tool_calls.map((tc) => ({
       id: String(tc?.id || ''),
@@ -35,7 +64,7 @@ function extractToolCallsFromOrchestratorPayload(payload) {
     })).filter((tc) => tc.id && tc.function.name);
   }
 
-  const toolCalls = Array.isArray(p.toolCalls) ? p.toolCalls : [];
+  const toolCalls = getProjectedToolCalls(row);
   return toolCalls.map((tc) => ({
     id: String(tc?.id || ''),
     type: 'function',
@@ -47,16 +76,16 @@ function extractToolCallsFromOrchestratorPayload(payload) {
 }
 
 function projectOrchestratorHistoryRow(row) {
-  const payload = asPlainObject(row?.payload);
-  const toolCalls = extractToolCallsFromOrchestratorPayload(payload);
+  const toolCalls = extractToolCallsFromOrchestratorRow(row);
   if (!toolCalls.length) return null;
 
-  const rawMessage = asPlainObject(payload.rawMessage);
+  const rawMessage = getProjectedRawMessage(row);
+  const projectedContent = row?.payload_content;
   let content = null;
   if (rawMessage.role === 'assistant' && Object.prototype.hasOwnProperty.call(rawMessage, 'content')) {
     content = rawMessage.content == null ? null : String(rawMessage.content);
-  } else if (payload.content != null) {
-    content = String(payload.content);
+  } else if (projectedContent != null && projectedContent !== '') {
+    content = String(projectedContent);
   }
 
   const out = {
@@ -72,15 +101,14 @@ function projectOrchestratorHistoryRow(row) {
 }
 
 function projectToolHistoryRow(row) {
-  const payload = asPlainObject(row?.payload);
-  const toolCallId = String(payload.toolCallId || payload.tool_call_id || '').trim();
+  const toolCallId = String(
+    row?.payload_tool_call_id
+    || ''
+  ).trim();
+  const status = String(row?.payload_status || '').trim();
   let content = String(row?.content || '').trim();
-  if (!content && payload.status) {
-    try {
-      content = JSON.stringify(payload);
-    } catch (_) {
-      content = '';
-    }
+  if (!content && status) {
+    content = JSON.stringify({ status });
   }
   if (!toolCallId || !content) return null;
   return {
@@ -178,7 +206,34 @@ function buildHistoryMessages(history, maxTurns = 2) {
   const picked = rounds.slice(-Math.max(1, maxTurns));
   const out = [];
   for (const roundRows of picked) {
-    for (const row of roundRows) {
+    const allowedToolCallIds = new Set();
+    for (let i = 0; i < roundRows.length; i += 1) {
+      const row = roundRows[i];
+      const messageType = String(row?.message_type || '').trim().toLowerCase();
+      if (isOrchestratorMessageType(messageType)) {
+        const followingRows = roundRows.slice(i + 1);
+        if (!isClosedProjectedOrchestratorRow(row, followingRows)) {
+          continue;
+        }
+        const projectedOrchestrator = projectHistoryRow(row);
+        const normalizedOrchestrator = projectedOrchestrator
+          ? normalizeHistoryContextMessage(projectedOrchestrator)
+          : null;
+        if (!normalizedOrchestrator) continue;
+        const toolCalls = Array.isArray(normalizedOrchestrator.tool_calls) ? normalizedOrchestrator.tool_calls : [];
+        for (const toolCall of toolCalls) {
+          const id = String(toolCall?.id || '').trim();
+          if (id) allowedToolCallIds.add(id);
+        }
+        out.push(normalizedOrchestrator);
+        continue;
+      }
+      if (messageType === MESSAGE_TYPES.TOOL || String(row?.role || '').trim().toLowerCase() === 'tool') {
+        const toolCallId = String(row?.payload_tool_call_id || row?.tool_call_id || '').trim();
+        if (!toolCallId || !allowedToolCallIds.has(toolCallId)) {
+          continue;
+        }
+      }
       const projected = projectHistoryRow(row);
       if (!projected) continue;
       const normalized = normalizeHistoryContextMessage(projected);

@@ -33,7 +33,7 @@ test('promptRenderer builds messages without context template', () => {
   const snapshot = buildOrchestratorPromptInjectionSnapshot({
     lang: 'zh',
     currentQuery: '141010A 是什么故障',
-    currentInput: { fileIds: [] },
+    currentInput: { assetIds: [] },
     historySummary: { summary: null },
     historyContext: { messages: [] }
   });
@@ -53,7 +53,7 @@ test('buildOrchestratorMessages returns message array only', () => {
   const messages = buildOrchestratorMessages({
     lang: 'zh',
     currentQuery: 'test',
-    currentInput: { fileIds: [] },
+    currentInput: { assetIds: [] },
     historySummary: { summary: null },
     historyContext: { messages: [] }
   });

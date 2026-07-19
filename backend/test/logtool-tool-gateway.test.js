@@ -24,20 +24,36 @@ function turnResult(overrides = {}) {
   };
 }
 
-test('gateway validates required anyOf slots for error_code_lookup', () => {
+test('gateway validates required slots for error_code_lookup', () => {
   const gateway = createLogtoolToolGateway();
   assert.throws(() => {
     gateway.validateToolArguments('error_code_lookup', { language: 'zh-CN' });
-  }, /missing anyOfRequired/i);
+  }, /missing required slot: seriesCode/i);
   assert.throws(() => {
-    gateway.validateToolArguments('error_code_lookup', { errorCode: '141010A', language: 'zh-CN' });
-  }, /missing anyOfRequired/i);
+    gateway.validateToolArguments('error_code_lookup', { queryType: 'single_code', errorCode: '141010A', language: 'zh-CN' });
+  }, /missing required slot: seriesCode/i);
+  assert.throws(() => {
+    gateway.validateToolArguments('error_code_lookup', { seriesCode: 'SR', language: 'zh-CN' });
+  }, /missing required slot: queryType/i);
+});
+
+test('gateway defers queryType slot-specific validation to handler execution', async () => {
+  const gateway = createLogtoolToolGateway();
+  const out = await gateway.invokeFromToolCall({
+    toolCall: toolCall('error_code_lookup', { seriesCode: 'SR', queryType: 'single_code', language: 'zh-CN' }),
+    request: { traceId: 't-1', message: { text: 'x' } },
+    turnResult: turnResult()
+  });
+  assert.equal(out.debugMeta.toolResult.status, 'failed');
+  assert.equal(out.debugMeta.toolResult.error.code, 'MISSING_QUERY_SLOT');
+  assert.match(String(out.debugMeta.toolResult.error.message || ''), /errorCode is required/i);
 });
 
 test('gateway accepts full log fault code in error_code_lookup args pattern', () => {
   const gateway = createLogtoolToolGateway();
   const out = gateway.validateToolArguments('error_code_lookup', {
     errorCode: '141010A',
+    queryType: 'single_code',
     seriesCode: 'SR',
     language: 'zh-CN'
   });
@@ -50,6 +66,7 @@ test('gateway rejects invalid seriesCode enum for error_code_lookup', () => {
   assert.throws(() => {
     gateway.validateToolArguments('error_code_lookup', {
       errorCode: '141010A',
+      queryType: 'single_code',
       seriesCode: 'XX',
       language: 'zh-CN'
     });
@@ -60,12 +77,24 @@ test('gateway accepts subsystem in error_code_lookup args pattern', () => {
   const gateway = createLogtoolToolGateway();
   const out = gateway.validateToolArguments('error_code_lookup', {
     errorCode: '0X010A',
+    queryType: 'single_code',
     seriesCode: 'SA',
     subsystem: '2',
     language: 'zh-CN'
   });
   assert.equal(out.arguments.subsystem, '2');
   assert.equal(out.arguments.seriesCode, 'SA');
+});
+
+test('gateway accepts multiple error codes in error_code_lookup args pattern', () => {
+  const gateway = createLogtoolToolGateway();
+  const out = gateway.validateToolArguments('error_code_lookup', {
+    errorCodes: ['141010A', '241010A'],
+    queryType: 'multiple_codes',
+    seriesCode: 'SR',
+    language: 'zh-CN'
+  });
+  assert.deepEqual(out.arguments.errorCodes, ['141010A', '241010A']);
 });
 
 test('gateway resolves registered tool through independent handler registry', async (t) => {
@@ -102,7 +131,7 @@ test('gateway resolves registered tool through independent handler registry', as
 
   const out = await gateway.executeToolCall({
     toolName: 'error_code_lookup',
-    args: { errorCode: '0X010A', seriesCode: 'SR', language: 'zh-CN' },
+    args: { errorCode: '0X010A', queryType: 'single_code', seriesCode: 'SR', language: 'zh-CN' },
     request: { traceId: 't-1' },
     orchestratorResult: turnResult()
   });
@@ -126,15 +155,15 @@ test('gateway enforces ToolResult matrix for failed status', () => {
 test('gateway invokeFromToolCall returns failed ToolResult on argument validation error', async () => {
   const gateway = createLogtoolToolGateway();
   const out = await gateway.invokeFromToolCall({
-    toolCall: toolCall('error_code_lookup', { errorCode: '141010A', language: 'zh-CN' }),
+    toolCall: toolCall('error_code_lookup', { queryType: 'single_code', errorCode: '141010A', language: 'zh-CN' }),
     request: { traceId: 't-1', message: { text: 'x' } },
     turnResult: turnResult()
   });
 
   assert.equal(out.debugMeta.toolResult.status, 'failed');
   assert.equal(out.debugMeta.toolResult.data, null);
-  assert.equal(out.debugMeta.toolResult.error.code, 'MISSING_ANYOF_SLOT');
-  assert.match(String(out.debugMeta.toolResult.error.message || ''), /seriesCode|anyOfRequired/i);
+  assert.equal(out.debugMeta.toolResult.error.code, 'MISSING_REQUIRED_SLOT');
+  assert.match(String(out.debugMeta.toolResult.error.message || ''), /seriesCode/i);
   assert.match(String(out.text || ''), /工具执行失败|参数/);
 });
 
@@ -143,6 +172,7 @@ test('gateway invokeFromToolCall returns failed ToolResult on invalid enum', asy
   const out = await gateway.invokeFromToolCall({
     toolCall: toolCall('error_code_lookup', {
       errorCode: '141010A',
+      queryType: 'single_code',
       seriesCode: 'XX',
       language: 'zh-CN'
     }),
@@ -165,7 +195,7 @@ test('gateway invokeFromToolCall returns failed ToolResult on execution error', 
   t.after(() => { gateway.executeToolCall = originalExecuteToolCall; });
 
   const out = await gateway.invokeFromToolCall({
-    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', seriesCode: 'SR', language: 'zh-CN' }),
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', queryType: 'single_code', seriesCode: 'SR', language: 'zh-CN' }),
     request: { traceId: 't-1', message: { text: 'x' } },
     turnResult: turnResult()
   });
@@ -210,7 +240,7 @@ test('gateway invokeFromToolCall maps error_code_lookup output to contracted dat
   t.after(() => { gateway.executeToolCall = originalExecuteToolCall; });
 
   const out = await gateway.invokeFromToolCall({
-    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', seriesCode: 'SR', language: 'zh-CN' }),
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', queryType: 'single_code', seriesCode: 'SR', language: 'zh-CN' }),
     request: { traceId: 't-1', message: { text: '141010A是什么故障码' } },
     turnResult: turnResult()
   });
@@ -253,7 +283,7 @@ test('buildFunctionToolsFromRegistry omits tools when permission missing', () =>
 test('gateway invokeFromToolCall denies tool call when explicit permissions miss required scope', async () => {
   const gateway = createLogtoolToolGateway();
   const out = await gateway.invokeFromToolCall({
-    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', seriesCode: 'SR', language: 'zh-CN' }),
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', queryType: 'single_code', seriesCode: 'SR', language: 'zh-CN' }),
     request: { traceId: 't-1', context: { userPermissions: [] }, message: { text: 'x' } },
     turnResult: turnResult()
   });
@@ -293,7 +323,7 @@ test('gateway invokeFromToolCall validates output evidence contract', async (t) 
 
   const gateway = createLogtoolToolGateway();
   const out = await gateway.invokeFromToolCall({
-    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', seriesCode: 'SR', language: 'zh-CN' }),
+    toolCall: toolCall('error_code_lookup', { errorCode: '0X010A', queryType: 'single_code', seriesCode: 'SR', language: 'zh-CN' }),
     request: { traceId: 't-1', context: { userPermissions: ['error_code:read'] }, message: { text: 'x' } },
     turnResult: turnResult()
   });

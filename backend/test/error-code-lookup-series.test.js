@@ -46,6 +46,7 @@ test('errorCodeLookupHandler passes resolved series_id into unified search', asy
   await handler.execute({
     args: {
       errorCode: '141010A',
+      queryType: 'single_code',
       seriesCode: 'SA',
       language: 'zh-CN'
     }
@@ -68,8 +69,55 @@ test('errorCodeLookupHandler rejects unknown seriesCode', async () => {
 
   await assert.rejects(
     () => handler.execute({
-      args: { errorCode: '141010A', seriesCode: 'XX', language: 'zh-CN' }
+      args: { errorCode: '141010A', queryType: 'single_code', seriesCode: 'XX', language: 'zh-CN' }
     }),
     /invalid seriesCode/i
   );
+});
+
+test('errorCodeLookupHandler batches multiple error codes into one tool execution', async () => {
+  const calls = [];
+  const handler = loadHandler({
+    DeviceSeriesDict: {
+      findOne: async () => ({ id: 1, series_code: 'SR' })
+    },
+    searchErrorCodesUnified: async (args) => {
+      calls.push(args.q);
+      return {
+        errorCodes: [{
+          id: calls.length,
+          subsystem: '1',
+          code: '0X010A',
+          short_message: 'msg',
+          user_hint: '',
+          operation: '',
+          param1: '',
+          param2: '',
+          param3: '',
+          param4: '',
+          detail: '',
+          method: '',
+          tech_solution: '',
+          category: ''
+        }],
+        total: 1,
+        _meta: { searchMethod: 'db', recognized: { kind: 'full_code' } }
+      };
+    }
+  });
+
+  const result = await handler.execute({
+    args: {
+      errorCodes: ['141010A', '241010A'],
+      queryType: 'multiple_codes',
+      seriesCode: 'SR',
+      language: 'zh-CN'
+    }
+  });
+
+  assert.deepEqual(calls, ['141010A', '241010A']);
+  assert.equal(result.debugMeta.queryCount, 2);
+  assert.equal(result.data.queries.length, 2);
+  assert.match(result.text, /141010A/);
+  assert.match(result.text, /241010A/);
 });

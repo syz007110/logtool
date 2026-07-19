@@ -1,5 +1,18 @@
 const { buildMessageInput } = require('../../types/contracts');
 const { generateUuidV4 } = require('../../../utils/idGenerators');
+const {
+  extractAttachmentCandidates,
+  extractAudioRecognitionText,
+  ingestDingtalkAttachments
+} = require('./dingtalkAttachmentIngestService');
+const {
+  buildAttachmentShortCircuit,
+  isAttachmentPolicyError,
+} = require('../../../services/agentAttachmentPolicy');
+const { getAgentFixedT } = require('../../utils/agentI18n');
+const {
+  validatePreOrchestratorAttachmentCandidates
+} = require('../../runtime/attachmentValidationPolicy');
 
 function buildTraceIdFromRequest(req) {
   const headerTraceId = String(req?.headers?.['x-dingtalk-request-id'] || '').trim();
@@ -26,6 +39,10 @@ function pickSender(payload) {
 
 function pickText(payload) {
   if (typeof payload?.text?.content === 'string') return payload.text.content.trim();
+  const audioText = extractAudioRecognitionText(payload);
+  if (audioText) return audioText;
+  const msgtype = String(payload?.msgtype || '').trim().toLowerCase();
+  if (msgtype === 'video') return '视频消息';
   if (typeof payload?.content === 'string') {
     const contentText = payload.content.trim();
     if (!contentText) return '';
@@ -83,66 +100,31 @@ function extractTextFromRichContent(content) {
   return Array.from(new Set(texts)).join('\n').trim();
 }
 
-function inferAttachmentType(node) {
-  const rawType = String(node.type || node.msgtype || node.mediaType || '').trim().toLowerCase();
-  if (rawType.includes('image') || rawType.includes('picture') || rawType.includes('pic') || rawType.includes('photo')) {
-    return 'image';
-  }
-  if (rawType.includes('audio') || rawType.includes('voice')) return 'audio';
-  if (rawType.includes('file') || rawType.includes('doc')) return 'file';
-
-  const url = String(node.url || node.picUrl || node.imageUrl || node.downloadUrl || node.fileUrl || '').trim().toLowerCase();
-  if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/.test(url)) return 'image';
-  if (/\.(mp3|wav|aac|m4a|ogg)($|\?)/.test(url)) return 'audio';
-  if (url) return 'file';
-  if (node.downloadCode) return 'file';
-  return null;
+function buildShortCircuitContext(reason, message, details = {}) {
+  return {
+    shortCircuit: {
+      reason: String(reason || '').trim() || 'direct_response',
+      message: String(message || '').trim() || '当前请求不支持直接处理。',
+      details: details && typeof details === 'object' ? { ...details } : {}
+    }
+  };
 }
 
-function extractAttachmentsFromRichContent(content) {
-  if (!content || typeof content !== 'object') return [];
-  const out = [];
-  visitNodes(content, (node) => {
-    const type = inferAttachmentType(node);
-    if (!type) return;
-    const url = String(node.url || node.picUrl || node.imageUrl || node.downloadUrl || node.fileUrl || '').trim()
-      || String(node.downloadCode || '').trim()
-      || undefined;
-    out.push({
-      type,
-      name: String(node.fileName || node.name || node.title || '').trim() || undefined,
-      url,
-      mimeType: String(node.mimeType || '').trim() || undefined
-    });
-  });
-  return out;
+function shouldSkipAttachmentResolution(payload) {
+  return String(payload?.msgtype || '').trim().toLowerCase() === 'video';
 }
 
-function buildMessageInputFromDingtalkPayload(payload, options = {}) {
-  const traceId = String(options.traceId || '').trim() || generateUuidV4();
-  const requestId = String(options.requestId || '').trim() || generateUuidV4();
-  const text = pickText(payload);
-  const messageId = pickMessageId(payload);
-  const conversationId = String(payload?.conversationId || '').trim();
-  if (!conversationId) {
-    throw new Error('dingtalk payload conversationId is required');
-  }
-  const contentRaw = payload?.content;
-  const richContent = contentRaw && typeof contentRaw === 'object'
-    ? contentRaw
-    : (() => {
-        if (typeof contentRaw !== 'string') return null;
-        try {
-          const parsed = JSON.parse(contentRaw);
-          return parsed && typeof parsed === 'object' ? parsed : null;
-        } catch (_) {
-          return null;
-        }
-      })();
-  const richAttachments = extractAttachmentsFromRichContent(richContent);
-  const rawAttachments = Array.isArray(payload?.attachments) ? payload.attachments : [];
-  const attachments = rawAttachments.length > 0 ? rawAttachments : richAttachments;
-
+function finalizeMessageInput({
+  traceId,
+  requestId,
+  payload,
+  conversationId,
+  messageId,
+  text,
+  contentRaw,
+  attachments,
+  context
+}) {
   return buildMessageInput({
     traceId,
     requestId,
@@ -165,8 +147,92 @@ function buildMessageInputFromDingtalkPayload(payload, options = {}) {
       sentAt: Number(payload?.createAt || payload?.createTime || payload?.timestamp) || Date.now(),
       senderPlatform: String(payload?.senderPlatform || '').trim() || undefined
     },
-    context: {},
+    context,
     rawPayload: payload
+  });
+}
+
+async function buildMessageInputFromDingtalkPayload(payload, options = {}) {
+  const t = getAgentFixedT('zh');
+  const traceId = String(options.traceId || '').trim() || generateUuidV4();
+  const requestId = String(options.requestId || '').trim() || generateUuidV4();
+  const text = pickText(payload);
+  const messageId = pickMessageId(payload);
+  const conversationId = String(payload?.conversationId || '').trim();
+  if (!conversationId) {
+    throw new Error('dingtalk payload conversationId is required');
+  }
+  let context = {};
+  if (shouldSkipAttachmentResolution(payload)) {
+    context = buildShortCircuitContext(
+      'dingtalk_video_unsupported',
+      t('shared.agent.videoUnsupported')
+    );
+  }
+  const contentRaw = payload?.content;
+  const extractedCandidates = context.shortCircuit ? [] : extractAttachmentCandidates(payload);
+  if (!context.shortCircuit) {
+    try {
+      validatePreOrchestratorAttachmentCandidates(extractedCandidates, { language: 'zh' });
+    } catch (error) {
+      const shortCircuit = buildAttachmentShortCircuit(error);
+      if (shortCircuit) context = { shortCircuit };
+    }
+  }
+  const fallbackAttachments = extractedCandidates.map((candidate) => ({
+    type: candidate.type,
+    url: candidate.url || candidate.downloadCode || undefined,
+    name: candidate.name,
+    mimeType: candidate.mimeType
+  }));
+  const shouldResolveAttachments = fallbackAttachments.length > 0;
+  const attachmentResolver = typeof options.resolveAttachments === 'function'
+    ? options.resolveAttachments
+    : ingestDingtalkAttachments;
+  let attachments = fallbackAttachments;
+  if (shouldResolveAttachments && !context.shortCircuit) {
+    try {
+      attachments = await attachmentResolver(payload, {
+        candidates: extractedCandidates,
+        uploaderId: String(payload?.senderId || payload?.senderStaffId || '').trim() || undefined
+        ,robotCode: String(payload?.robotCode || '').trim() || undefined
+      });
+      if (!Array.isArray(attachments) || attachments.length === 0) {
+        attachments = fallbackAttachments;
+      }
+    } catch (error) {
+      if (isAttachmentPolicyError(error)) {
+        const shortCircuit = buildAttachmentShortCircuit(error);
+        if (shortCircuit) {
+          context = { shortCircuit };
+          attachments = [];
+        }
+        return finalizeMessageInput({
+          traceId,
+          requestId,
+          payload,
+          conversationId,
+          messageId,
+          text,
+          contentRaw,
+          attachments,
+          context,
+        });
+      }
+      attachments = fallbackAttachments;
+    }
+  }
+
+  return finalizeMessageInput({
+    traceId,
+    requestId,
+    payload,
+    conversationId,
+    messageId,
+    text,
+    contentRaw,
+    attachments,
+    context,
   });
 }
 

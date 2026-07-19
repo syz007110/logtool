@@ -21,12 +21,12 @@ function resolveLang(contextEnvelope = {}) {
 
 function buildCurrentUserMessage(contextEnvelope = {}) {
   const query = String(contextEnvelope.currentQuery || '').trim();
-  const fileIds = Array.isArray(contextEnvelope?.currentInput?.fileIds)
-    ? contextEnvelope.currentInput.fileIds.filter(Boolean)
+  const assetIds = Array.isArray(contextEnvelope?.currentInput?.assetIds)
+    ? contextEnvelope.currentInput.assetIds.filter(Boolean)
     : [];
   const parts = [];
   if (query) parts.push(query);
-  if (fileIds.length > 0) parts.push(`附件 fileIds: ${fileIds.join(', ')}`);
+  if (assetIds.length > 0) parts.push(`附件 assetIds: ${assetIds.join(', ')}`);
   const content = parts.join('\n\n').trim();
   return content ? { role: 'user', content } : null;
 }

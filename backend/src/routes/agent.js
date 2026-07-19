@@ -2,7 +2,8 @@ const express = require('express');
 const { executeAgentTask, getAgentTask } = require('../controllers/agentController');
 const {
   listAgentConversations,
-  listAgentConversationMessages
+  listAgentConversationMessages,
+  deleteAgentConversation
 } = require('../controllers/agentConversationController');
 const { uploadAgentAssets, MAX_FILES, MAX_FILE_SIZE, ALLOWED_MIMES } = require('../controllers/agentAssetController');
 const auth = require('../middlewares/auth');
@@ -76,11 +77,18 @@ router.post('/execute', auth, enrichAgentUser, checkPermission('smart_search:use
 router.get('/tasks/:taskId', auth, enrichAgentUser, checkPermission('smart_search:use'), getAgentTask);
 router.get('/conversations', auth, enrichAgentUser, checkPermission('smart_search:use'), listAgentConversations);
 router.get(
-  '/conversations/:conversationId/messages',
+  '/conversations/:instanceId/messages',
   auth,
   enrichAgentUser,
   checkPermission('smart_search:use'),
   listAgentConversationMessages
+);
+router.delete(
+  '/conversations/:instanceId',
+  auth,
+  enrichAgentUser,
+  checkPermission('smart_search:use'),
+  deleteAgentConversation
 );
 
 module.exports = router;

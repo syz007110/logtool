@@ -495,13 +495,16 @@ const smartSearch = {
 
 const agent = {
   execute: (payload) => api.post('/agent/execute', payload),
-  uploadAssets: (formData) => api.post('/agent/assets/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+  uploadAssets: (formData, config = {}) => api.post('/agent/assets/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...(config || {})
   }),
   getTask: (taskId) => api.get(`/agent/tasks/${taskId}`),
   listConversations: (params) => api.get('/agent/conversations', { params }),
-  getConversationMessages: (conversationId) =>
-    api.get(`/agent/conversations/${encodeURIComponent(conversationId)}/messages`)
+  getConversationMessages: (instanceId) =>
+    api.get(`/agent/conversations/${encodeURIComponent(String(instanceId || '').trim())}/messages`),
+  deleteConversation: (instanceId) =>
+    api.delete(`/agent/conversations/${encodeURIComponent(String(instanceId || '').trim())}`)
 }
 
 // Knowledge base (KB)

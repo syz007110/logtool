@@ -1,5 +1,6 @@
 const { buildMessageInput } = require('../../types/contracts');
 const { generateUlid, generateUuidV4 } = require('../../../utils/idGenerators');
+const { resolveWebConversationIdForUser } = require('../../session/agentConversationQueryService');
 
 const ULID_REGEX = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -26,7 +27,7 @@ function buildRequestId() {
   return generateUuidV4();
 }
 
-function parseInbound(req) {
+async function parseInbound(req) {
   const body = req?.body && typeof req.body === 'object' ? req.body : {};
   const authUser = req?.user && typeof req.user === 'object' ? req.user : null;
   if (!authUser?.id) {
@@ -61,9 +62,13 @@ function parseInbound(req) {
   if (channelType !== 'web') {
     throw new Error('channel.type must be web');
   }
-  const conversationId = String(rawChannel.conversationId || '').trim() || generateUlid();
+  const providedConversationId = String(rawChannel.conversationId || '').trim();
+  const conversationId = providedConversationId || await resolveWebConversationIdForUser(authUser.id);
   const conversationIdProvided = Boolean(String(rawChannel.conversationId || '').trim());
 
+  const rawContext = body.context && typeof body.context === 'object' ? body.context : {};
+  const rawSession = body.session && typeof body.session === 'object' ? body.session : {};
+  const acceptLanguage = String(req?.language || req?.headers?.['accept-language'] || '').trim();
   const request = buildMessageInput({
     traceId,
     requestId,
@@ -79,7 +84,11 @@ function parseInbound(req) {
       conversationId
     },
     message: normalizedMessage,
-    context: body.context && typeof body.context === 'object' ? body.context : {},
+    context: {
+      ...rawContext,
+      ...(acceptLanguage ? { lang: acceptLanguage } : {})
+    },
+    session: rawSession,
     rawPayload: body.rawPayload
   });
   if (
@@ -109,8 +118,15 @@ function renderOutbound({ req, res, request, response }) {
       ...base,
       message: String(response?.message || '任务已受理，处理完成后可通过 taskId 查询结果').trim()
     };
-    if (!request.__conversationIdProvided) {
-      payload.session = { conversationId: String(request?.channel?.conversationId || '') };
+    const acceptedInstanceId = Number(response?.result?.session?.instanceId || response?.session?.instanceId);
+    if (!request.__conversationIdProvided || (Number.isFinite(acceptedInstanceId) && acceptedInstanceId > 0)) {
+      payload.session = {};
+      if (!request.__conversationIdProvided) {
+        payload.session.conversationId = String(request?.channel?.conversationId || '');
+      }
+      if (Number.isFinite(acceptedInstanceId) && acceptedInstanceId > 0) {
+        payload.session.instanceId = acceptedInstanceId;
+      }
     }
     return res.json(payload);
   }
@@ -120,6 +136,20 @@ function renderOutbound({ req, res, request, response }) {
     text: String(result.text || '').trim(),
     attachments: Array.isArray(result.attachments) ? result.attachments : []
   };
+  if (Array.isArray(result.systemMessages)) {
+    out.systemMessages = result.systemMessages
+      .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+      .map((item) => ({
+        kind: String(item.kind || '').trim() || 'system',
+        title: String(item.title || '').trim() || '系统提示',
+        text: String(item.text || '').trim(),
+        presentation: String(item.presentation || '').trim() || 'banner'
+      }))
+      .filter((item) => item.text);
+  }
+  if (typeof result.assistantMode === 'string' && result.assistantMode.trim()) {
+    out.assistantMode = result.assistantMode.trim();
+  }
   if (result.instance && typeof result.instance === 'object') {
     out.instance = result.instance;
   }
@@ -129,8 +159,16 @@ function renderOutbound({ req, res, request, response }) {
   if (Array.isArray(result.toolTraces)) {
     out.toolTraces = result.toolTraces;
   }
-  if (!request.__conversationIdProvided) {
-    out.session = { conversationId: String(request?.channel?.conversationId || '') };
+  const resultSession = result?.session && typeof result.session === 'object' ? result.session : {};
+  const resultInstanceId = Number(resultSession.instanceId);
+  if (!request.__conversationIdProvided || (Number.isFinite(resultInstanceId) && resultInstanceId > 0)) {
+    out.session = {};
+    if (!request.__conversationIdProvided) {
+      out.session.conversationId = String(request?.channel?.conversationId || '');
+    }
+    if (Number.isFinite(resultInstanceId) && resultInstanceId > 0) {
+      out.session.instanceId = resultInstanceId;
+    }
   }
 
   return res.json({

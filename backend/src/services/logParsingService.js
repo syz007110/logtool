@@ -1,5 +1,6 @@
 const errorCodeCache = require('./errorCodeCache');
 const { optimizedExplanationParser } = require('../utils/optimizedExplanationParser');
+const { deriveFromFullLogCode } = require('../utils/explanationPreview');
 
 /**
  * 确保故障码缓存已就绪
@@ -23,18 +24,13 @@ async function ensureCacheReady() {
  * @returns {{ subsystem: string|null, code: string|null, arm: string|null, joint: string|null }}
  */
 function parseSubsystemAndCode(errorCodeStr) {
-  if (!errorCodeStr || typeof errorCodeStr !== 'string') {
-    return { subsystem: null, code: null, arm: null, joint: null };
-  }
-  const s = String(errorCodeStr).trim().toUpperCase();
-  const subsystem = s.length >= 1 ? s.charAt(0) : null;
-  const arm = s.length >= 2 ? s.charAt(1) : null;
-  const joint = s.length >= 3 ? s.charAt(2) : null;
-  let code = null;
-  if (s.length >= 5) {
-    code = '0X' + s.slice(-4).toUpperCase();
-  }
-  return { subsystem, code, arm, joint };
+  const parsed = deriveFromFullLogCode(errorCodeStr);
+  return {
+    subsystem: parsed.subsystem || null,
+    code: parsed.normalizedCode || null,
+    arm: parsed.arm || null,
+    joint: parsed.joint || null
+  };
 }
 
 function normalizeSeriesId(seriesId) {
@@ -112,4 +108,3 @@ module.exports = {
   renderEntryExplanation,
   renderEntriesExplanations
 };
-

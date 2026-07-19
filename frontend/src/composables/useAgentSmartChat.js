@@ -90,12 +90,23 @@ function normalizeAgentResult (raw) {
   const result = raw && typeof raw === 'object' ? raw : {}
   const text = String(result.text || '').trim()
   const instance = result.instance && typeof result.instance === 'object' ? result.instance : null
-  const noticeText = String(instance?.notice || '').trim()
-  const mergedText = noticeText ? (text ? `${text}\n\n${noticeText}` : noticeText) : text
+  const systemMessages = Array.isArray(result.systemMessages)
+    ? result.systemMessages
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        kind: String(item.kind || '').trim() || 'system',
+        title: String(item.title || '').trim() || '系统提示',
+        text: String(item.text || '').trim(),
+        presentation: String(item.presentation || '').trim() || 'banner'
+      }))
+      .filter((item) => item.text)
+    : []
   return {
-    text: mergedText,
+    text,
     toolTraces: Array.isArray(result.toolTraces) ? result.toolTraces : [],
     attachments: Array.isArray(result.attachments) ? result.attachments : [],
+    systemMessages,
+    assistantMode: String(result.assistantMode || '').trim() || 'llm_response',
     session: result.session && typeof result.session === 'object' ? result.session : null,
     instance,
     raw: result
@@ -108,24 +119,36 @@ function normalizeAgentResult (raw) {
  */
 export function useAgentSmartChat (options = {}) {
   const conversationId = ref('')
+  const instanceId = ref(null)
+  const forceNewInstance = ref(false)
   const llmProviderId = ref(String(options.initialProviderId || '').trim())
   const sending = ref(false)
 
-  function rememberConversationId (sessionOrId) {
-    const id = typeof sessionOrId === 'string'
+  function rememberSession (sessionOrId) {
+    const cid = typeof sessionOrId === 'string'
       ? String(sessionOrId || '').trim()
       : String(sessionOrId?.conversationId || '').trim()
-    if (id) conversationId.value = id
+    const iid = Number(
+      typeof sessionOrId === 'object' && sessionOrId
+        ? sessionOrId.instanceId
+        : 0
+    )
+    if (cid) conversationId.value = cid
+    if (Number.isFinite(iid) && iid > 0) {
+      instanceId.value = iid
+      forceNewInstance.value = false
+    }
   }
 
   function newConversation () {
-    conversationId.value = ''
+    instanceId.value = null
+    forceNewInstance.value = true
   }
 
   async function sendText (text, { attachments = [] } = {}) {
     const trimmed = String(text || '').trim()
     const readyAttachments = Array.isArray(attachments)
-      ? attachments.filter((item) => item && item.status === 'ready')
+      ? attachments.filter((item) => item && item.status === 'available')
       : []
     if (!trimmed && readyAttachments.length === 0) {
       const err = new Error('text or attachment required')
@@ -139,14 +162,23 @@ export function useAgentSmartChat (options = {}) {
       const sentAt = Date.now()
       const messageId = generateAgentMessageUlid(sentAt)
       const payloadAttachments = readyAttachments.map((item) => ({
+        assetId: item.assetId,
         type: item.type || 'file',
-        fileId: item.id,
-        url: item.url,
-        name: item.name,
-        size: item.size,
-        mimeType: item.mimeType,
+        storage: item.storage,
         objectKey: item.objectKey,
-        storage: item.storage
+        bucket: item.bucket ?? null,
+        originalName: item.originalName,
+        storedName: item.storedName,
+        mimeType: item.mimeType,
+        sizeBytes: item.sizeBytes,
+        sha256: item.sha256,
+        uploaderId: item.uploaderId,
+        source: item.source,
+        previewUrl: item.previewUrl,
+        url: item.url,
+        width: item.width ?? null,
+        height: item.height ?? null,
+        status: item.status
       }))
       const channel = {
         type: 'web',
@@ -162,12 +194,17 @@ export function useAgentSmartChat (options = {}) {
       const payload = {
         message: {
           externalMessageId: messageId,
-          type: readyAttachments.length > 0 ? (readyAttachments[0]?.type || 'file') : 'text',
+          type: readyAttachments.length > 0 ? 'text+attachment' : 'text',
           text: trimmed,
           attachments: payloadAttachments,
           sentAt
         },
         channel,
+        session: (() => {
+          const session = {}
+          if (forceNewInstance.value === true) session.forceNewInstance = true
+          return Object.keys(session).length > 0 ? session : undefined
+        })(),
         context,
         llmProviderId: providerId || undefined
       }
@@ -176,9 +213,9 @@ export function useAgentSmartChat (options = {}) {
       const mode = String(res?.data?.mode || '').trim().toLowerCase()
       const taskId = String(res?.data?.taskId || '').trim()
 
-      if (mode === 'accepted') {
+        if (mode === 'accepted') {
         if (!taskId) throw new Error('agent taskId missing')
-        rememberConversationId(res?.data?.session)
+        rememberSession(res?.data?.session)
         let done = false
         const markDone = () => { done = true }
         let settled
@@ -216,7 +253,8 @@ export function useAgentSmartChat (options = {}) {
             const task = taskRes?.data?.task || taskRes?.data || {}
             result = normalizeAgentResult(task.result || task.response || {})
           }
-          rememberConversationId(result.session || wsPayload?.conversationId)
+          rememberSession(result.session || wsPayload?.conversationId)
+          forceNewInstance.value = false
           return {
             ...result,
             mode: 'completed',
@@ -230,7 +268,8 @@ export function useAgentSmartChat (options = {}) {
           throw new Error(String(pollPayload?.error?.message || '任务失败'))
         }
         const result = normalizeAgentResult(pollPayload.result || {})
-        rememberConversationId(result.session || pollPayload.conversationId)
+        rememberSession(result.session || pollPayload.conversationId)
+        forceNewInstance.value = false
         return {
           ...result,
           mode: 'completed',
@@ -244,7 +283,8 @@ export function useAgentSmartChat (options = {}) {
         throw new Error('agent response missing')
       }
       const result = normalizeAgentResult(finalResponse)
-      rememberConversationId(result.session || res?.data?.session)
+      rememberSession(result.session || res?.data?.session)
+      forceNewInstance.value = false
       return {
         ...result,
         mode: 'completed',
@@ -262,47 +302,76 @@ export function useAgentSmartChat (options = {}) {
   }
 
   async function loadConversation (id) {
-    const cid = String(id || '').trim()
-    if (!cid) {
-      const err = new Error('conversationId required')
+    const iid = Number(id || 0)
+    if (!Number.isFinite(iid) || iid <= 0) {
+      const err = new Error('instanceId required')
       err.code = 'INVALID_ARGUMENT'
       throw err
     }
-    const res = await api.agent.getConversationMessages(cid)
+    const res = await api.agent.getConversationMessages(iid)
     const rows = Array.isArray(res?.data?.messages) ? res.data.messages : []
-    conversationId.value = cid
-    return rows.map((row) => {
+    const instance = res?.data?.instance && typeof res.data.instance === 'object'
+      ? res.data.instance
+      : null
+    rememberSession({
+      conversationId: res?.data?.conversationId,
+      instanceId: res?.data?.instanceId || iid
+    })
+    return {
+      instance,
+      messages: rows.map((row) => {
       const role = String(row.role || '').trim()
       if (role === 'user') {
         return {
           role: 'user',
           content: String(row.content || row.text || ''),
           createdAt: row.createdAt,
-          payload: null
+          payload: null,
+          attachments: Array.isArray(row.attachments) ? row.attachments : []
         }
       }
       const agentLike = {
         text: String(row.content || row.text || ''),
-        toolTraces: Array.isArray(row.toolTraces) ? row.toolTraces : []
+        toolTraces: Array.isArray(row.toolTraces) ? row.toolTraces : [],
+        attachments: Array.isArray(row.attachments) ? row.attachments : []
       }
       return {
         role: 'assistant',
         content: agentLike.text,
         createdAt: row.createdAt,
-        payload: buildAssistantPayloadFromAgentResult(agentLike)
+        payload: buildAssistantPayloadFromAgentResult(agentLike),
+        attachments: agentLike.attachments
       }
-    })
+      })
+    }
+  }
+
+  async function deleteConversation (id) {
+    const iid = Number(id || 0)
+    if (!Number.isFinite(iid) || iid <= 0) {
+      const err = new Error('instanceId required')
+      err.code = 'INVALID_ARGUMENT'
+      throw err
+    }
+    await api.agent.deleteConversation(iid)
+    if (instanceId.value === iid) {
+      instanceId.value = null
+      forceNewInstance.value = false
+    }
   }
 
   return {
     conversationId,
+    instanceId,
+    forceNewInstance,
     llmProviderId,
     sending,
     newConversation,
-    rememberConversationId,
+    rememberSession,
     sendText,
     listConversations,
     loadConversation,
+    deleteConversation,
     generateAgentMessageUlid
   }
 }

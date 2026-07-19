@@ -1,5 +1,6 @@
 const zhBundle = require('../locales/zh/translation.json');
 const enBundle = require('../locales/en/translation.json');
+const { deriveFromFullLogCode } = require('../utils/explanationPreview');
 
 function normalizeTypeCode(input) {
   const raw = String(input ?? '').trim().toUpperCase();
@@ -73,8 +74,8 @@ function extractFaultCodesFromText(query) {
   return { fullCodes, typeCodes };
 }
 
-/** 完整故障码首位子系统号 → 与 shared.subsystemOptions 一致的前缀文案（如 01：运动控制软件） */
-function resolveSubsystemPrefixLabel(subsystemChar, language) {
+/** 子系统标签：仅根据子系统号映射名称，不包含 arm/joint，不替代完整前缀渲染。 */
+function resolveSubsystemLabel(subsystemChar, language) {
   const key = String(subsystemChar || '').trim().toUpperCase();
   if (!/^[1-9A]$/.test(key)) return '';
   const lng = String(language || 'zh-CN').toLowerCase().startsWith('en') ? 'en' : 'zh';
@@ -83,19 +84,25 @@ function resolveSubsystemPrefixLabel(subsystemChar, language) {
   return String(map[key] || '').trim();
 }
 
-/** 用户句中若含完整故障码，取首条完整码的子系统前缀映射；否则返回空串 */
-function extractSubsystemPrefixFromUserText(text, language) {
+/** 用户句中若含完整故障码，取首条完整码的子系统标签；否则返回空串。 */
+function extractSubsystemLabelFromUserText(text, language) {
   const { fullCodes } = extractFaultCodesFromText(text);
   if (!Array.isArray(fullCodes) || fullCodes.length === 0) return '';
-  const sub = String(fullCodes[0] || '').charAt(0);
-  return resolveSubsystemPrefixLabel(sub, language);
+  const parsed = deriveFromFullLogCode(fullCodes[0]);
+  return resolveSubsystemLabel(parsed.subsystem, language);
 }
+
+// 兼容旧命名：这里返回的是“子系统标签”，不是完整前缀。
+const resolveSubsystemPrefixLabel = resolveSubsystemLabel;
+const extractSubsystemPrefixFromUserText = extractSubsystemLabelFromUserText;
 
 module.exports = {
   normalizeTypeCode,
   normalizeErrorCodeInput,
   resolveAgentFaultCodeToken,
   extractFaultCodesFromText,
+  resolveSubsystemLabel,
+  extractSubsystemLabelFromUserText,
   resolveSubsystemPrefixLabel,
   extractSubsystemPrefixFromUserText
 };

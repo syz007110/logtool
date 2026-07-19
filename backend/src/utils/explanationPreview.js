@@ -275,6 +275,7 @@ module.exports = {
   buildExplanationPreview,
   composeExplanationPreviewFromI18n,
   deriveFromFullLogCode,
-  normalizeCode
+  normalizeCode,
+  translatePrefixText
 };
 

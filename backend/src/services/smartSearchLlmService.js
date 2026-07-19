@@ -245,7 +245,10 @@ function getProvidersPublic() {
       kind: p.kind,
       model: p.model,
       available: status.available,
-      reason: status.reason
+      reason: status.reason,
+      capabilities: {
+        imageInput: !!p?.capabilities?.imageInput
+      }
     };
   });
 }

@@ -8,7 +8,7 @@ function zhEnvelope(overrides = {}) {
     lang: 'zh',
     currentQuery: '这个故障码怎么处理',
     currentInput: {
-      fileIds: ['file-1'],
+      assetIds: ['file-1'],
       attachments: []
     },
     historySummary: {

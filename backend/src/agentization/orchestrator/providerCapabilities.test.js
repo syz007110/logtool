@@ -12,6 +12,7 @@ describe('normalizeProviderCapabilities', () => {
     assert.equal(caps.sampling, 'send');
     assert.equal(caps.thinking, null);
     assert.equal(caps.preserveReasoningContent, false);
+    assert.equal(caps.imageInput, false);
     assert.equal(caps.toolCalls, true);
     assert.equal(caps.strictTools.default, false);
     assert.equal(caps.toolNamePattern, DEFAULT_PROVIDER_CAPABILITIES.toolNamePattern);
@@ -23,6 +24,7 @@ describe('normalizeProviderCapabilities', () => {
       sampling: 'omit',
       thinking: { type: 'enabled', keep: 'all' },
       preserveReasoningContent: true,
+      imageInput: true,
       strictTools: { default: true },
       toolNamePattern: '^[a-zA-Z_][a-zA-Z0-9-_]{2,63}$'
     });
@@ -30,6 +32,7 @@ describe('normalizeProviderCapabilities', () => {
     assert.equal(caps.sampling, 'omit');
     assert.deepEqual(caps.thinking, { type: 'enabled', keep: 'all' });
     assert.equal(caps.preserveReasoningContent, true);
+    assert.equal(caps.imageInput, true);
     assert.equal(caps.strictTools.default, true);
   });
 
