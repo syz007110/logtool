@@ -1,6 +1,7 @@
 const MESSAGE_TYPES = Object.freeze({
   TEXT: 'text',
   ATTACHMENT: 'attachment',
+  SYSTEM: 'system',
   ORCHESTRATOR: 'orchestrator',
   PLAN: 'plan',
   TOOL: 'tool',
@@ -18,7 +19,8 @@ const PIPELINE_MESSAGE_TYPES = Object.freeze([
 
 const DIALOGUE_MESSAGE_TYPES = Object.freeze([
   MESSAGE_TYPES.TEXT,
-  MESSAGE_TYPES.ATTACHMENT
+  MESSAGE_TYPES.ATTACHMENT,
+  MESSAGE_TYPES.SYSTEM
 ]);
 
 const LEGACY_MESSAGE_TYPE_ALIASES = Object.freeze({

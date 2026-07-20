@@ -5,11 +5,22 @@ const { getAgentFixedT, resolveAgentLng } = require('../utils/agentI18n');
 
 const WEB_CHANNEL_TYPE = 'web';
 const DEFAULT_TITLE = '新对话';
+const DEFAULT_HISTORY_VISIBLE_DAYS = 15;
 
 function asPositiveInt(value, fallback) {
   const num = Number.parseInt(value, 10);
   if (Number.isInteger(num) && num > 0) return num;
   return fallback;
+}
+
+function getHistoryVisibleDays() {
+  return asPositiveInt(process.env.AGENT_HISTORY_VISIBLE_DAYS, DEFAULT_HISTORY_VISIBLE_DAYS);
+}
+
+function buildHistoryVisibleSince(days = getHistoryVisibleDays(), now = new Date()) {
+  const safeDays = asPositiveInt(days, DEFAULT_HISTORY_VISIBLE_DAYS);
+  const baseMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  return new Date(baseMs - safeDays * 24 * 60 * 60 * 1000);
 }
 
 function truncateTitle(text, maxLength = 40) {
@@ -157,6 +168,7 @@ async function listConversationsForUser(userId, options = {}) {
   if (!normalizedUserId) return [];
 
   const limit = Math.min(asPositiveInt(options.limit, 50), 200);
+  const visibleSince = buildHistoryVisibleSince();
   const [rows] = await postgresqlSequelize.query(
     `WITH container AS (
        SELECT id, conversation_id
@@ -176,7 +188,7 @@ async function listConversationsForUser(userId, options = {}) {
          JOIN conversation_instances ci ON ci.id = cm.instance_id
          JOIN container c ON c.id = ci.container_id
         WHERE cm.role IN ('user', 'assistant')
-          AND cm.message_type IN ('text', 'attachment')
+          AND cm.message_type IN ('text', 'attachment', 'system')
         ORDER BY cm.instance_id, cm.created_at DESC, cm.id DESC
      ),
      first_user AS (
@@ -202,18 +214,21 @@ async function listConversationsForUser(userId, options = {}) {
             fu.content AS first_user_content,
             ld.content AS latest_content,
             ld.role AS latest_role,
-            ld.created_at AS latest_message_at
+            ld.created_at AS latest_message_at,
+            COALESCE(ci.last_message_at, ld.created_at, ci.created_at) AS activity_at
        FROM conversation_instances ci
        JOIN container c ON c.id = ci.container_id
        LEFT JOIN first_user fu ON fu.instance_id = ci.id
        LEFT JOIN latest_dialogue ld ON ld.instance_id = ci.id
+      WHERE COALESCE(ci.last_message_at, ld.created_at, ci.created_at) >= :visibleSince
       ORDER BY COALESCE(ci.last_message_at, ld.created_at, ci.created_at) DESC, ci.id DESC
       LIMIT :limit`,
     {
       replacements: {
         channelType: WEB_CHANNEL_TYPE,
         userId: normalizedUserId,
-        limit
+        limit,
+        visibleSince
       }
     }
   );
@@ -241,6 +256,7 @@ async function listMessagesForConversation(userId, instanceId, options = {}) {
   const language = resolveAgentLng(options.language);
   const normalizedUserId = String(userId || '').trim();
   const normalizedInstanceId = Number(instanceId || 0);
+  const visibleSince = buildHistoryVisibleSince();
   if (!normalizedUserId || !Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
     const err = new Error('instanceId is required');
     err.code = 'INVALID_ARGUMENT';
@@ -270,12 +286,14 @@ async function listMessagesForConversation(userId, instanceId, options = {}) {
       WHERE cm.instance_id = :instanceId
         AND cc.channel_type = :channelType
         AND cc.user_id = :userId
+        AND COALESCE(ci.last_message_at, ci.created_at) >= :visibleSince
       ORDER BY cm.created_at ASC, cm.id ASC`,
     {
       replacements: {
         instanceId: normalizedInstanceId,
         channelType: WEB_CHANNEL_TYPE,
-        userId: normalizedUserId
+        userId: normalizedUserId,
+        visibleSince
       }
     }
   );
@@ -329,6 +347,7 @@ async function listMessagesForConversation(userId, instanceId, options = {}) {
 }
 
 async function deleteConversationInstanceForUser(userId, instanceId) {
+  const { purgeConversationInstances } = require('../../services/agentConversationPurgeService');
   const normalizedUserId = String(userId || '').trim();
   const normalizedInstanceId = Number(instanceId || 0);
   if (!normalizedUserId || !Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
@@ -362,15 +381,11 @@ async function deleteConversationInstanceForUser(userId, instanceId) {
       throw err;
     }
 
-    await postgresqlSequelize.query(
-      `DELETE FROM conversation_instances
-        WHERE id = :instanceId`,
-      {
-        replacements: { instanceId: normalizedInstanceId },
-        transaction
-      }
-    );
-    return { ok: true, instanceId: normalizedInstanceId };
+    return purgeConversationInstances({
+      instanceIds: [normalizedInstanceId],
+      reason: 'manual_delete',
+      transaction
+    });
   });
 }
 
@@ -383,5 +398,7 @@ module.exports = {
   listConversationsForUser,
   listMessagesForConversation,
   deleteConversationInstanceForUser,
-  getInstanceContinuationState
+  getInstanceContinuationState,
+  getHistoryVisibleDays,
+  buildHistoryVisibleSince
 };

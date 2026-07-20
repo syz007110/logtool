@@ -1,83 +1,31 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  projectOrchestratorHistoryRow,
-  projectToolHistoryRow,
-  normalizeHistoryContextMessage
-} = require('./historyProjection');
 
-describe('historyProjection reasoning_content', () => {
-  it('projects reasoning_content from orchestrator rawMessage', () => {
-    const projected = projectOrchestratorHistoryRow({
-      role: 'assistant',
-      message_type: 'orchestrator',
-      payload_raw_message: {
-        role: 'assistant',
-        content: null,
-        reasoning_content: 'think',
-        tool_calls: [{
-          id: 'c1',
-          type: 'function',
-          function: { name: 'reply_direct', arguments: '{}' }
-        }]
+const { buildHistoryMessages } = require('./historyProjection');
+
+describe('buildHistoryMessages', () => {
+  it('excludes system message rows from history context', () => {
+    const messages = buildHistoryMessages([
+      {
+        role: 'user',
+        message_type: 'text',
+        content: '你好'
       },
-      payload_tool_calls: [{ id: 'c1', toolName: 'reply_direct', rawArguments: '{}' }]
-    });
-    assert.equal(projected.reasoning_content, 'think');
-    const normalized = normalizeHistoryContextMessage(projected);
-    assert.equal(normalized.reasoning_content, 'think');
-  });
-
-  it('omits reasoning_content when absent', () => {
-    const projected = projectOrchestratorHistoryRow({
-      role: 'assistant',
-      message_type: 'orchestrator',
-      payload_raw_message: {
+      {
         role: 'assistant',
-        content: null,
-        tool_calls: [{
-          id: 'c1',
-          type: 'function',
-          function: { name: 'reply_direct', arguments: '{}' }
-        }]
+        message_type: 'system',
+        content: '当前请求不支持直接处理。'
+      },
+      {
+        role: 'assistant',
+        message_type: 'text',
+        content: '这里是正常回复'
       }
-    });
-    assert.equal(projected.reasoning_content, undefined);
-  });
+    ], 5);
 
-  it('projects orchestrator row from lightweight payload columns', () => {
-    const projected = projectOrchestratorHistoryRow({
-      role: 'assistant',
-      message_type: 'orchestrator',
-      payload_raw_message: {
-        role: 'assistant',
-        content: null,
-        reasoning_content: 'think-lite',
-        tool_calls: [{
-          id: 'c2',
-          type: 'function',
-          function: { name: 'reply_direct', arguments: '{}' }
-        }]
-      },
-      payload_tool_calls: [{ id: 'c2', toolName: 'reply_direct', rawArguments: '{}' }],
-      payload_content: null
-    });
-    assert.equal(projected.reasoning_content, 'think-lite');
-    assert.equal(projected.tool_calls[0].id, 'c2');
-  });
-
-  it('projects tool row from lightweight payload columns', () => {
-    const projected = projectToolHistoryRow({
-      role: 'tool',
-      message_type: 'tool',
-      content: '',
-      payload_tool_call_id: 'call-1',
-      payload_status: 'success'
-    });
-    assert.deepEqual(projected, {
-      role: 'tool',
-      tool_call_id: 'call-1',
-      content: JSON.stringify({ status: 'success' })
-    });
+    assert.deepEqual(messages, [
+      { role: 'user', content: '你好' },
+      { role: 'assistant', content: '这里是正常回复' }
+    ]);
   });
 });

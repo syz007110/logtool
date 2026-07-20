@@ -17,11 +17,26 @@ function readJson(filePath) {
   return JSON.parse(text);
 }
 
+function readText(filePath) {
+  return fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+}
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function normalizeTool(raw) {
+function resolveToolDescription(raw, sourceFilePath) {
+  const inline = String(raw?.description || '').trim();
+  const descriptionFile = String(raw?.descriptionFile || '').trim();
+  if (!descriptionFile) return inline;
+  const mdPath = path.resolve(path.dirname(sourceFilePath), descriptionFile);
+  const external = readText(mdPath).trim();
+  if (!inline) return external;
+  if (!external) return inline;
+  return `${inline}\n\n${external}`.trim();
+}
+
+function normalizeTool(raw, sourceFilePath) {
   const runtime = getToolRuntime(raw);
   const parameters = getToolParameters(raw);
   const security = asObject(raw.security);
@@ -35,7 +50,7 @@ function normalizeTool(raw) {
     toolName: String(raw?.toolName || '').trim(),
     displayName: String(raw?.displayName || raw?.toolName || '').trim(),
     enabled: raw.enabled !== false,
-    description: String(raw?.description || '').trim(),
+    description: resolveToolDescription(raw, sourceFilePath),
     parameters,
     runtime,
     security,
@@ -57,7 +72,7 @@ function loadToolRegistry({ forceReload = false } = {}) {
     const doc = readJson(filePath);
     const rows = asArray(doc?.tools);
     for (const row of rows) {
-      const tool = normalizeTool(row);
+      const tool = normalizeTool(row, filePath);
       if (!tool.toolName) continue;
       tools.push(tool);
     }

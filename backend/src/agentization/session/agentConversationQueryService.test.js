@@ -2,7 +2,9 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   truncateTitle,
-  isDialogueHistoryRow
+  isDialogueHistoryRow,
+  getHistoryVisibleDays,
+  buildHistoryVisibleSince
 } = require('./agentConversationQueryService');
 
 describe('truncateTitle', () => {
@@ -15,6 +17,7 @@ describe('isDialogueHistoryRow', () => {
     assert.equal(isDialogueHistoryRow({ role: 'user', messageType: 'text' }), true);
     assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'text' }), true);
     assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'attachment' }), true);
+    assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'system' }), true);
   });
 
   it('drops orchestrator and other pipeline assistant rows', () => {
@@ -46,5 +49,21 @@ describe('attachments parsing', () => {
     const { parseAttachments } = require('./agentConversationQueryService');
     assert.deepEqual(parseAttachments('{bad json}'), []);
     assert.deepEqual(parseAttachments(null), []);
+  });
+});
+
+describe('history visibility config', () => {
+  it('uses 15 days by default', () => {
+    const oldValue = process.env.AGENT_HISTORY_VISIBLE_DAYS;
+    delete process.env.AGENT_HISTORY_VISIBLE_DAYS;
+    assert.equal(getHistoryVisibleDays(), 15);
+    if (oldValue === undefined) delete process.env.AGENT_HISTORY_VISIBLE_DAYS;
+    else process.env.AGENT_HISTORY_VISIBLE_DAYS = oldValue;
+  });
+
+  it('builds visible since timestamp from configured days', () => {
+    const now = new Date('2026-07-20T12:00:00.000Z');
+    const visibleSince = buildHistoryVisibleSince(15, now);
+    assert.equal(visibleSince.toISOString(), '2026-07-05T12:00:00.000Z');
   });
 });

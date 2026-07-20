@@ -109,6 +109,10 @@ function normalizeAgentResult (raw) {
     assistantMode: String(result.assistantMode || '').trim() || 'llm_response',
     session: result.session && typeof result.session === 'object' ? result.session : null,
     instance,
+    didRollover: Boolean(
+      instance?.created_new &&
+      String(instance?.rollover_reason || '').trim().toLowerCase() !== 'no_active_instance'
+    ),
     raw: result
   }
 }
@@ -213,7 +217,7 @@ export function useAgentSmartChat (options = {}) {
       const mode = String(res?.data?.mode || '').trim().toLowerCase()
       const taskId = String(res?.data?.taskId || '').trim()
 
-        if (mode === 'accepted') {
+      if (mode === 'accepted') {
         if (!taskId) throw new Error('agent taskId missing')
         rememberSession(res?.data?.session)
         let done = false
@@ -320,28 +324,28 @@ export function useAgentSmartChat (options = {}) {
     return {
       instance,
       messages: rows.map((row) => {
-      const role = String(row.role || '').trim()
-      if (role === 'user') {
-        return {
-          role: 'user',
-          content: String(row.content || row.text || ''),
-          createdAt: row.createdAt,
-          payload: null,
+        const role = String(row.role || '').trim()
+        if (role === 'user') {
+          return {
+            role: 'user',
+            content: String(row.content || row.text || ''),
+            createdAt: row.createdAt,
+            payload: null,
+            attachments: Array.isArray(row.attachments) ? row.attachments : []
+          }
+        }
+        const agentLike = {
+          text: String(row.content || row.text || ''),
+          toolTraces: Array.isArray(row.toolTraces) ? row.toolTraces : [],
           attachments: Array.isArray(row.attachments) ? row.attachments : []
         }
-      }
-      const agentLike = {
-        text: String(row.content || row.text || ''),
-        toolTraces: Array.isArray(row.toolTraces) ? row.toolTraces : [],
-        attachments: Array.isArray(row.attachments) ? row.attachments : []
-      }
-      return {
-        role: 'assistant',
-        content: agentLike.text,
-        createdAt: row.createdAt,
-        payload: buildAssistantPayloadFromAgentResult(agentLike),
-        attachments: agentLike.attachments
-      }
+        return {
+          role: 'assistant',
+          content: agentLike.text,
+          createdAt: row.createdAt,
+          payload: buildAssistantPayloadFromAgentResult(agentLike),
+          attachments: agentLike.attachments
+        }
       })
     }
   }

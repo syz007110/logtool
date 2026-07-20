@@ -2,6 +2,7 @@ const https = require('https');
 const { getAdapter } = require('../adapterRegistry');
 const { executeAdapterPipeline } = require('../adapterPipeline');
 const { createAgentRequestLogger } = require('../../utils/agentRequestLogger');
+const { assertDingtalkDeliveryResponseSuccess } = require('../../delivery/dingtalkOutboundService');
 
 const ROBOT_TOPIC = '/v1.0/im/bot/messages/get';
 
@@ -70,11 +71,31 @@ function postJson(url, body, headers = {}) {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
-        if (!data) return resolve({});
+        if (!data) {
+          return resolve({
+            _httpStatus: Number(res.statusCode) || 0,
+            _httpHeaders: res.headers || {}
+          });
+        }
         try {
-          return resolve(JSON.parse(data));
+          const parsed = JSON.parse(data);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            parsed._httpStatus = Number(res.statusCode) || 0;
+            parsed._httpHeaders = res.headers || {};
+            return resolve(parsed);
+          }
+          return resolve({
+            value: parsed,
+            _httpStatus: Number(res.statusCode) || 0,
+            _httpHeaders: res.headers || {}
+          });
         } catch (error) {
-          return resolve({ raw: data, parseError: String(error?.message || error) });
+          return resolve({
+            raw: data,
+            parseError: String(error?.message || error),
+            _httpStatus: Number(res.statusCode) || 0,
+            _httpHeaders: res.headers || {}
+          });
         }
       });
     });
@@ -204,6 +225,7 @@ function createDingtalkStreamBridge(options = {}) {
         const result = await post(sessionWebhook, body, accessToken ? {
           'x-acs-dingtalk-access-token': accessToken
         } : {});
+        assertDingtalkDeliveryResponseSuccess(result, { stage: 'dingtalk_stream_session_webhook' });
         if (!acked && typeof client.socketCallBackResponse === 'function' && headers.messageId) {
           client.socketCallBackResponse(headers.messageId, result);
           acked = true;

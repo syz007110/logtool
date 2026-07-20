@@ -4,7 +4,8 @@ const { projectQueueResultToMessageOutput } = require('../types/messageOutputPro
 const {
   resolveConversationTarget,
   persistUserMessageAtTurn,
-  processConversationRequest
+  processConversationRequest,
+  persistSystemMessage
 } = require('./conversationSessionService');
 const { evaluatePreOrchestratorShortCircuit } = require('../runtime/preOrchestratorShortCircuitPolicy');
 
@@ -156,7 +157,43 @@ async function awaitJobResult(job, waitMs) {
 
 async function enqueueConversationRequest(request, options = {}) {
   const waitMs = normalizeWaitMs(options.waitMs, Number(process.env.SESSION_SYNC_WAIT_MS || 4500));
-  const routing = await resolveConversationTarget(request);
+  let routing = null;
+  try {
+    routing = await resolveConversationTarget(request);
+  } catch (error) {
+    if (String(error?.code || '').trim().toUpperCase() === 'INSTANCE_INACTIVE') {
+      const hintedInstanceId = Number(
+        request?.session?.instanceId
+        || request?.context?.instanceId
+        || 0
+      );
+      if (Number.isFinite(hintedInstanceId) && hintedInstanceId > 0) {
+        try {
+          await persistSystemMessage({
+            instanceId: hintedInstanceId,
+            request,
+            taskId: null,
+            systemMessage: {
+              kind: 'instance_inactive',
+              title: '会话状态变更',
+              text: String(error?.message || error).trim(),
+              presentation: 'action_card'
+            },
+            assistantResponse: {
+              mode: 'direct_response',
+              debugMeta: {
+                deterministicRule: String(error?.rolloverReason || error?.code || 'instance_inactive').trim().toLowerCase(),
+                deliveryHint: 'system_action_card'
+              }
+            }
+          });
+        } catch (persistError) {
+          console.warn('[conversation-queue] persist instance inactive system message failed:', persistError?.message || persistError);
+        }
+      }
+    }
+    throw error;
+  }
   const { task } = await taskStore.createTask({
     request,
     instanceId: routing.instance.id

@@ -344,7 +344,7 @@
 
             <!-- Assistant message: loading - show loading animation -->
             <template v-else-if="m.type === 'loading'">
-              <div class="ss-msg-bubble ss-msg-loading">
+              <div class="ss-msg-loading">
                 <div class="ss-loading-content">
                   <el-icon class="ss-loading-icon"><Loading /></el-icon>
                   <span class="ss-loading-text">{{ $t('smartSearch.thinking') }}</span>
@@ -1765,6 +1765,7 @@ export default {
     // Drawer case list always uses merged `sources.cases` (K1/K2...)
 
     const load = async () => {
+      clearConversationSwitchNotice()
       try {
         const list = await agentListConversations({ limit: 50 })
         conversations.value = (Array.isArray(list) ? list : []).map(conv => {
@@ -2145,6 +2146,7 @@ export default {
     }
 
     const send = async () => {
+      clearConversationSwitchNotice()
       const text = draft.value.trim()
       const outboundAttachments = readyDraftAttachments.value.map(item => ({
         assetId: item.assetId,
@@ -2173,6 +2175,7 @@ export default {
 
       // 轮次上限由后端 SESSION_MAX_TURNS 控制实例滚动；达到上限时 instance.notice 会并入回复文案
       const conv = ensureActiveConversation()
+      const previousInstanceId = Number(conv.instanceId || 0)
       const userMsg = {
         id: shortId(),
         role: 'user',
@@ -2219,6 +2222,7 @@ export default {
       sending.value = true
       try {
         const result = await agentSendText(text, { attachments: outboundAttachments })
+        const { rolloverMessage, inlineMessages } = splitAgentSystemMessages(result.systemMessages)
         const payload = {
           ...(result.payload || {}),
           answerText: result.assistantMode === 'direct_response'
@@ -2231,36 +2235,79 @@ export default {
           type: 'search_result',
           content: '',
           payload,
-          systemMessages: Array.isArray(result.systemMessages) ? result.systemMessages : [],
+          systemMessages: inlineMessages,
           createdAt: nowIso()
         }
-        
-      const conv2 = activeConversation.value
-      if (conv2) {
-        const resultInstanceId = Number(result?.session?.instanceId || agentInstanceId.value || 0)
-        const agentCid = String(agentConversationId.value || '').trim()
-        if (agentCid) {
-          conv2.conversationId = agentCid
-        }
-        if (Number.isFinite(resultInstanceId) && resultInstanceId > 0 && String(conv2.id) !== String(resultInstanceId)) {
-          const oldId = conv2.id
-          conv2.id = String(resultInstanceId)
-          conv2.instanceId = resultInstanceId
-          if (activeConversationId.value === oldId) {
-            activeConversationId.value = String(resultInstanceId)
-          }
-        }
+        const conv2 = activeConversation.value
+        if (conv2) {
+          const resultInstanceId = Number(result?.session?.instanceId || agentInstanceId.value || 0)
+          const agentCid = String(agentConversationId.value || '').trim()
+          const didRollover = Boolean(
+            result.didRollover
+            && Number.isFinite(previousInstanceId)
+            && previousInstanceId > 0
+            && Number.isFinite(resultInstanceId)
+            && resultInstanceId > 0
+            && resultInstanceId !== previousInstanceId
+          )
+          let targetConversation = conv2
 
-        // 找到 loading 消息的索引并替换
-        const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
-        if (loadingIndex >= 0) {
-          // 使用 splice 确保 Vue 响应式正常工作
-          conv2.messages.splice(loadingIndex, 1, assistantMsg)
-        } else {
-          // 如果找不到，直接添加
-          conv2.messages = [...(conv2.messages || []), assistantMsg]
-        }
-          
+          if (didRollover) {
+            const rolloverNotice = String(
+              rolloverMessage?.text
+              || result?.instance?.notice
+              || t('shared.agent.inactiveInstanceFallback')
+            ).trim()
+            conv2.messages = (conv2.messages || []).filter(m => m.id !== userMsg.id && m.id !== loadingMsgId)
+            conv2.updatedAt = nowIso()
+            markConversationInactive(conv2, {
+              notice: rolloverNotice,
+              reason: result?.instance?.rollover_reason || 'archived'
+            })
+            upsertConversation(conv2)
+
+            targetConversation = {
+              id: String(resultInstanceId),
+              instanceId: resultInstanceId,
+              conversationId: agentCid || String(conv2.conversationId || '').trim(),
+              instanceNo: Number(result?.instance?.instance_no || result?.instance?.instanceNo || 0) || null,
+              status: String(result?.instance?.status || '').trim() || 'active',
+              title: normalizeTitle(text, defaultConversationTitle.value),
+              createdAt: nowIso(),
+              updatedAt: nowIso(),
+              instance: buildConversationInstanceMeta(result?.instance, {
+                id: resultInstanceId
+              }),
+              messages: [userMsg, assistantMsg]
+            }
+            activeConversationId.value = String(resultInstanceId)
+            setConversationSwitchNotice(targetConversation.id, rolloverNotice)
+          } else {
+            if (agentCid) {
+              conv2.conversationId = agentCid
+            }
+            if (Number.isFinite(resultInstanceId) && resultInstanceId > 0 && String(conv2.id) !== String(resultInstanceId)) {
+              const oldId = conv2.id
+              conv2.id = String(resultInstanceId)
+              conv2.instanceId = resultInstanceId
+              if (activeConversationId.value === oldId) {
+                activeConversationId.value = String(resultInstanceId)
+              }
+            }
+            conv2.instance = buildConversationInstanceMeta(result?.instance, {
+              id: resultInstanceId || conv2.instanceId,
+              instanceNo: conv2.instanceNo,
+              status: conv2.status
+            })
+
+            const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
+            if (loadingIndex >= 0) {
+              conv2.messages.splice(loadingIndex, 1, assistantMsg)
+            } else {
+              conv2.messages = [...(conv2.messages || []), assistantMsg]
+            }
+          }
+
           // 如果没有查询到结果且意图匹配，则添加推荐卡片消息
           const intent = payload?.recognized?.intent
           const hasFaultCodes = (payload?.sources?.faultCodes || []).length > 0
@@ -2270,7 +2317,7 @@ export default {
           const hasNoQueryPointHint = String(payload?.answerText || '').includes('未识别到可用检索要点')
           
           if ((intent === 'find_case' || intent === 'troubleshoot') && !hasCases) {
-            conv2.messages.push({
+            targetConversation.messages.push({
               id: shortId(),
               role: 'assistant',
               content: '',
@@ -2283,7 +2330,7 @@ export default {
               }
             })
           } else if (intent === 'lookup_fault_code' && !hasFaultCodes) {
-            conv2.messages.push({
+            targetConversation.messages.push({
               id: shortId(),
               role: 'assistant',
               content: '',
@@ -2296,7 +2343,7 @@ export default {
               }
             })
           } else if ((intent === 'how_to_use' || intent === 'definition' || intent === 'other' || hasNoQueryPointHint) && !hasAnyResults) {
-            conv2.messages.push({
+            targetConversation.messages.push({
               id: shortId(),
               role: 'assistant',
               content: '',
@@ -2306,10 +2353,10 @@ export default {
               }
             })
           }
-          
-        conv2.updatedAt = nowIso()
-        upsertConversation(conv2)
-        await persistConversation(conv2)
+
+          targetConversation.updatedAt = nowIso()
+          upsertConversation(targetConversation)
+          await persistConversation(targetConversation)
         }
       } catch (e) {
         const assistantMsg = { 
@@ -3022,6 +3069,7 @@ export default {
     }
 
     const startNewConversation = () => {
+      clearConversationSwitchNotice()
       agentNewConversation()
       activeConversationId.value = null
       draft.value = ''
@@ -3029,6 +3077,7 @@ export default {
     }
 
     const selectConversation = async (id) => {
+      clearConversationSwitchNotice()
       activeConversationId.value = id
       draft.value = ''
       clearDraftAttachments()
@@ -3071,6 +3120,7 @@ export default {
       conversations.value = nextList
       
       if (activeConversationId.value === id) {
+        clearConversationSwitchNotice()
         activeConversationId.value = nextList[0]?.id || null
         if (!activeConversationId.value) {
           agentNewConversation()
@@ -3078,6 +3128,63 @@ export default {
           await selectConversation(activeConversationId.value)
         }
       }
+    }
+
+    const clearConversationSwitchNotice = () => {}
+
+    const setConversationSwitchNotice = (_conversationId, text) => {
+      const normalizedText = String(text || '').trim()
+      if (!normalizedText) return
+      ElMessage({
+        type: 'warning',
+        message: normalizedText,
+        duration: 3500,
+        showClose: true
+      })
+    }
+
+    const splitAgentSystemMessages = (messages) => {
+      const list = Array.isArray(messages) ? messages.filter(Boolean) : []
+      const rolloverMessage = list.find(item => String(item?.kind || '').trim().toLowerCase() === 'instance_rollover') || null
+      return {
+        rolloverMessage,
+        inlineMessages: list.filter(item => String(item?.kind || '').trim().toLowerCase() !== 'instance_rollover')
+      }
+    }
+
+    const buildConversationInstanceMeta = (instance, fallback = {}) => {
+      const source = instance && typeof instance === 'object' ? instance : {}
+      const fallbackSource = fallback && typeof fallback === 'object' ? fallback : {}
+      return {
+        id: Number(source.id || fallbackSource.id || 0) || null,
+        instanceNo: Number(source.instanceNo || source.instance_no || fallbackSource.instanceNo || fallbackSource.instance_no || 0) || null,
+        status: String(source.status || fallbackSource.status || '').trim() || 'active',
+        turnCount: Number(source.turnCount || source.turn_count || fallbackSource.turnCount || fallbackSource.turn_count || 0) || 0,
+        tokenCount: Number(source.tokenCount || source.token_count || fallbackSource.tokenCount || fallbackSource.token_count || 0) || 0,
+        lastMessageAt: source.lastMessageAt || source.last_message_at || fallbackSource.lastMessageAt || fallbackSource.last_message_at || null,
+        archivedAt: source.archivedAt || source.archived_at || fallbackSource.archivedAt || fallbackSource.archived_at || null,
+        continuable: source.continuable !== false,
+        inactiveReason: source.inactiveReason || source.inactive_reason || fallbackSource.inactiveReason || fallbackSource.inactive_reason || null,
+        inactiveNotice: source.inactiveNotice || source.inactive_notice || fallbackSource.inactiveNotice || fallbackSource.inactive_notice || ''
+      }
+    }
+
+    const markConversationInactive = (conv, { notice = '', reason = 'archived' } = {}) => {
+      if (!conv) return conv
+      const currentInstance = buildConversationInstanceMeta(conv.instance, {
+        id: conv.instanceId,
+        instanceNo: conv.instanceNo,
+        status: conv.status
+      })
+      conv.instance = {
+        ...currentInstance,
+        status: 'archived',
+        continuable: false,
+        inactiveReason: String(reason || currentInstance.inactiveReason || 'archived').trim(),
+        inactiveNotice: String(notice || currentInstance.inactiveNotice || t('shared.agent.inactiveInstanceFallback')).trim()
+      }
+      conv.status = 'archived'
+      return conv
     }
 
     const goClassicPanel = () => {
@@ -4287,6 +4394,7 @@ export default {
 
 .ss-msg-stack-user {
   align-items: flex-end;
+  max-width: 100%;
 }
 
 .ss-msg-bubble {
@@ -4297,13 +4405,18 @@ export default {
   background: #fff;
 }
 .ss-msg.user .ss-msg-bubble {
+  display: inline-block;
+  width: auto;
+  min-width: 3.5em;
+  max-width: min(85%, 960px);
   background: var(--agent-msg-user-bg);
   border-color: var(--agent-msg-user-border);
   color: var(--agent-msg-user-text);
 }
 .ss-msg-loading {
-  background: #f9fafb;
-  border-color: #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 0;
 }
 .ss-loading-content {
   display: flex;
@@ -4331,6 +4444,14 @@ export default {
 .ss-msg-text {
   line-height: 1.7;
   font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.ss-msg.user .ss-msg-text {
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .ss-result {
@@ -5317,6 +5438,7 @@ export default {
   margin: 14px auto 0;
   padding: 0 16px;
 }
+
 
 .ss-composer-wrap.centered {
   position: sticky;

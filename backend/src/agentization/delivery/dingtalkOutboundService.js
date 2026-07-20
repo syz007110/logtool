@@ -1,5 +1,29 @@
 const https = require('https');
 
+function isSuccessfulHttpStatus(status) {
+  const code = Number(status || 0);
+  return Number.isInteger(code) && code >= 200 && code < 300;
+}
+
+function buildDingtalkDeliveryError(response, options = {}) {
+  const stage = String(options.stage || 'dingtalk_delivery').trim() || 'dingtalk_delivery';
+  const httpStatus = Number(response?._httpStatus || 0) || 0;
+  const message = `${stage} failed: HTTP ${httpStatus || 'unknown'}`;
+  const error = new Error(message);
+  error.code = 'DINGTALK_HTTP_ERROR';
+  error.httpStatus = httpStatus;
+  error.response = response;
+  return error;
+}
+
+function assertDingtalkDeliveryResponseSuccess(response, options = {}) {
+  const httpStatus = Number(response?._httpStatus || 0) || 0;
+  if (!isSuccessfulHttpStatus(httpStatus)) {
+    throw buildDingtalkDeliveryError(response, options);
+  }
+  return response;
+}
+
 function postJson(url, body, headers = {}) {
   const payload = JSON.stringify(body || {});
   return new Promise((resolve, reject) => {
@@ -155,7 +179,8 @@ async function sendViaSessionWebhook(channel, body) {
     throw new Error('dingtalk sessionWebhook is required');
   }
   const accessToken = await getRobotAccessToken();
-  return postJson(url, body, accessToken ? { 'x-acs-dingtalk-access-token': accessToken } : {});
+  const response = await postJson(url, body, accessToken ? { 'x-acs-dingtalk-access-token': accessToken } : {});
+  return assertDingtalkDeliveryResponseSuccess(response, { stage: 'dingtalk_session_webhook' });
 }
 
 async function sendViaOpenApi(request, body) {
@@ -193,12 +218,13 @@ async function sendViaOpenApi(request, body) {
     if (!openConversationId) {
       throw new Error('dingtalk openConversationId is required for group delivery');
     }
-    return postJson('https://api.dingtalk.com/v1.0/robot/groupMessages/send', {
+    const response = await postJson('https://api.dingtalk.com/v1.0/robot/groupMessages/send', {
       robotCode,
       openConversationId,
       msgKey,
       msgParam
     }, headers);
+    return assertDingtalkDeliveryResponseSuccess(response, { stage: 'dingtalk_openapi_group_send' });
   }
 
   const userIds = [
@@ -209,12 +235,13 @@ async function sendViaOpenApi(request, body) {
   if (uniqueUserIds.length === 0) {
     throw new Error('dingtalk userIds are required for single chat delivery');
   }
-  return postJson('https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend', {
+  const response = await postJson('https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend', {
     robotCode,
     userIds: uniqueUserIds,
     msgKey,
     msgParam
   }, headers);
+  return assertDingtalkDeliveryResponseSuccess(response, { stage: 'dingtalk_openapi_single_send' });
 }
 
 async function deliverDingtalkTextMessage(request, text, deliveryOptions = {}) {
@@ -238,13 +265,16 @@ async function deliverDingtalkTextMessage(request, text, deliveryOptions = {}) {
 
 module.exports = {
   buildActionCardMessageBody,
+  assertDingtalkDeliveryResponseSuccess,
   buildDingtalkMessageBody,
+  buildDingtalkDeliveryError,
   buildMarkdownMessageBody,
   buildSystemMarkdownText,
   buildTextMessageBody,
   deliverDingtalkTextMessage,
   getRobotAccessToken,
   isReplyWebhookValid,
+  isSuccessfulHttpStatus,
   postJson,
   sendViaOpenApi,
   sendViaSessionWebhook

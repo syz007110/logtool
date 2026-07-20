@@ -67,12 +67,14 @@ const errorCodeCacheSyncService = require('./services/errorCodeCacheSyncService'
 const { connectMongo, disconnectMongo } = require('./config/mongodb');
 const { startTempCleanupJob } = require('./services/tempCleanupService');
 const { startRefreshTokenCleanupJob } = require('./services/refreshTokenCleanupService');
+const { startAgentConversationCleanupJob } = require('./services/agentConversationCleanupService');
 const agentAssetStorage = require('./config/agentAssetStorage');
 const { taskGateway } = require('./agentization');
 const { createDingtalkStreamBridge } = require('./agentization/adapters/dingtalk/streamClient');
 
 let tempCleanupJob = null;
 let refreshTokenCleanupJob = null;
+let agentConversationCleanupJob = null;
 let dingtalkStreamBridge = null;
 
 // 初始化队列系统
@@ -365,6 +367,7 @@ if (isMainProcess) {
           // 仅在主进程运行一次定时任务
           tempCleanupJob = startTempCleanupJob();
           refreshTokenCleanupJob = startRefreshTokenCleanupJob();
+          agentConversationCleanupJob = startAgentConversationCleanupJob();
           
           // 初始化队列管理器
           (async () => {
@@ -408,6 +411,7 @@ process.on('SIGTERM', async () => {
   console.log('收到SIGTERM信号，正在优雅关闭...');
   try { tempCleanupJob?.stop?.(); } catch (_) {}
   try { refreshTokenCleanupJob?.stop?.(); } catch (_) {}
+  try { agentConversationCleanupJob?.stop?.(); } catch (_) {}
   try { await dingtalkStreamBridge?.stop?.(); } catch (_) {}
   await cacheManager.disconnect();
   await sequelize.close();
@@ -419,6 +423,7 @@ process.on('SIGINT', async () => {
   console.log('收到SIGINT信号，正在优雅关闭...');
   try { tempCleanupJob?.stop?.(); } catch (_) {}
   try { refreshTokenCleanupJob?.stop?.(); } catch (_) {}
+  try { agentConversationCleanupJob?.stop?.(); } catch (_) {}
   try { await dingtalkStreamBridge?.stop?.(); } catch (_) {}
   await cacheManager.disconnect();
   await sequelize.close();

@@ -9,7 +9,8 @@ const {
   buildEventIdempotencyKey,
   extractTokenUsageFromTurn,
   extractTokenUsageFromLoopTrace,
-  EVENT_SUFFIX
+  EVENT_SUFFIX,
+  buildSystemMessageSuffix
 } = require('./conversationTurnKeys');
 const { getLoopPolicy } = require('../runtime/turnPolicy');
 const { createMessageService } = require('./messageService');
@@ -884,6 +885,75 @@ function buildSystemMessages({ assistantResponse, instanceNotice, language = 'zh
   return messages;
 }
 
+function buildSystemMessageEventPayload(message, assistantResponse = null) {
+  const item = asPlainObject(message);
+  const response = asPlainObject(assistantResponse);
+  const debugMeta = asPlainObject(response.debugMeta);
+  return sanitizePersistedPayload({
+    kind: String(item.kind || 'system').trim() || 'system',
+    title: String(item.title || '系统提示').trim() || '系统提示',
+    text: String(item.text || '').trim(),
+    presentation: String(item.presentation || 'action_card').trim().toLowerCase() || 'action_card',
+    assistantMode: String(response.mode || '').trim() || null,
+    deterministicRule: String(debugMeta.deterministicRule || '').trim() || null,
+    deliveryHint: String(debugMeta.deliveryHint || '').trim() || null,
+    details: asPlainObject(debugMeta.details)
+  });
+}
+
+async function persistSystemMessageEvents(instanceId, request, systemMessages, transaction, taskId, assistantResponse = null) {
+  const list = Array.isArray(systemMessages) ? systemMessages : [];
+  for (let i = 0; i < list.length; i += 1) {
+    const message = list[i];
+    const text = String(message?.text || '').trim();
+    if (!text) continue;
+    const suffix = buildSystemMessageSuffix(i + 1);
+    const messageInput = buildConversationMessageInput({
+      instanceId,
+      messageId: buildMessageId(request, suffix),
+      requestId: String(request?.requestId || '').trim() || undefined,
+      traceId: String(request?.traceId || '').trim() || undefined,
+      taskId: normalizePersistTaskId(taskId),
+      role: 'assistant',
+      explicitMessageType: MESSAGE_TYPES.SYSTEM,
+      content: text,
+      payload: buildSystemMessageEventPayload(message, assistantResponse),
+      attachments: [],
+      idempotencyKey: buildEventIdempotencyKey(request, suffix)
+    });
+    await messageService.saveRaw({
+      conversationMessageInput: messageInput,
+      transaction
+    });
+  }
+}
+
+async function persistSystemMessage({
+  instanceId,
+  request,
+  systemMessage,
+  taskId,
+  transaction = null,
+  assistantResponse = null
+}) {
+  const normalizedInstanceId = Number(instanceId || 0);
+  if (!Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
+    throw new Error('instance id is required to persist system message');
+  }
+
+  const run = async (tx) => persistSystemMessageEvents(
+    normalizedInstanceId,
+    request,
+    [systemMessage],
+    tx,
+    taskId,
+    assistantResponse
+  );
+
+  if (transaction) return run(transaction);
+  return postgresqlSequelize.transaction(run);
+}
+
 async function processConversationRequest({
   request,
   loopTrace,
@@ -951,6 +1021,14 @@ async function processConversationRequest({
     const history = await loadHistory(instance.id, policy.historyTurns, transaction);
     const instanceNotice = buildInstanceNotice(effectiveResolution, policy, language);
     const systemMessages = buildSystemMessages({ assistantResponse, instanceNotice, language });
+    await persistSystemMessageEvents(
+      instance.id,
+      request,
+      systemMessages,
+      transaction,
+      persistTaskId,
+      assistantResponse
+    );
     const promptBlocks = toPromptBlocks({
       policy,
       history,
@@ -1037,5 +1115,6 @@ module.exports = {
   resolveConversationTarget,
   persistUserMessageAtTurn,
   prepareConversationContext,
-  processConversationRequest
+  processConversationRequest,
+  persistSystemMessage
 };

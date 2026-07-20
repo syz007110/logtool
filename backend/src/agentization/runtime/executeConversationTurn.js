@@ -2,7 +2,8 @@ const { createConversationOrchestrator } = require('../orchestrator/conversation
 const { createLogtoolToolGateway } = require('../tools/logtoolToolGateway');
 const {
   prepareConversationContext,
-  processConversationRequest
+  processConversationRequest,
+  persistSystemMessage
 } = require('../session/conversationSessionService');
 const { resolveUserPermissions } = require('../security/userPermissionResolver');
 const { appendAgentDebugMarkdown } = require('../utils/agentDebugMarkdownLogger');
@@ -16,6 +17,7 @@ function createDefaultRuntimeDeps() {
     toolGateway: createLogtoolToolGateway(),
     prepareConversationContext,
     processConversationRequest,
+    persistSystemMessage,
     resolveUserPermissions,
     appendAgentDebugMarkdown
   };
@@ -168,6 +170,31 @@ function createConversationRuntime(options = {}) {
       }
       if (lastStep === 'prepare_context') {
         logError('prepare:failed', err, { costMs: Date.now() - prepareStartedAt, traceId, requestId });
+      }
+      try {
+        await deps.persistSystemMessage({
+          instanceId: routedInstanceId,
+          request,
+          taskId: routedTaskId,
+          systemMessage: {
+            kind: 'runtime_error',
+            title: '处理失败',
+            text: String(err?.message || err || 'Agent 内部异常').trim(),
+            presentation: 'action_card'
+          },
+          assistantResponse: {
+            mode: 'direct_response',
+            debugMeta: {
+              deterministicRule: String(err?.code || lastStep || 'runtime_error').trim().toLowerCase(),
+              deliveryHint: 'system_action_card',
+              details: {
+                stage: lastStep
+              }
+            }
+          }
+        });
+      } catch (persistError) {
+        console.warn('[runtime] persist system message failed:', persistError?.message || persistError);
       }
       logError('runtime:failed', err, { traceId, requestId, lastStep });
       throw err;

@@ -2,6 +2,7 @@ const MESSAGE_ID_MAX_LENGTH = 128;
 
 const EVENT_SUFFIX = Object.freeze({
   ASSISTANT_FINAL: 'assistant_structured',
+  SYSTEM_MESSAGE_BASE: 'system_message',
   ERROR_RUNTIME: 'error_runtime',
   ORCHESTRATOR_BASE: 'orchestrator',
   TOOL_RESULT_BASE: 'tool_result'
@@ -56,6 +57,14 @@ function buildToolResultSuffix(step, subStep) {
   return `${EVENT_SUFFIX.TOOL_RESULT_BASE}_${n}_${k}`;
 }
 
+function buildSystemMessageSuffix(index) {
+  const n = Number(index);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error('invalid system_message index');
+  }
+  return `${EVENT_SUFFIX.SYSTEM_MESSAGE_BASE}_${n}`;
+}
+
 function extractLlmTokenUsage(usage) {
   if (!usage || typeof usage !== 'object') return 0;
   const total = Number(usage.total_tokens ?? usage.totalTokens);
@@ -101,6 +110,7 @@ module.exports = {
   buildEventIdempotencyKey,
   buildOrchestratorSuffix,
   buildToolResultSuffix,
+  buildSystemMessageSuffix,
   extractLlmTokenUsage,
   extractTokenUsageFromTurnResult,
   extractTokenUsageFromLoopTrace,

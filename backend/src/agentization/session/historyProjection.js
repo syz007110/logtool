@@ -123,6 +123,9 @@ function projectHistoryRow(row) {
   if (!role) return null;
 
   const messageType = String(row?.message_type || '').trim().toLowerCase();
+  if (messageType === MESSAGE_TYPES.SYSTEM) {
+    return null;
+  }
   if (role === 'user') {
     const content = normalizeHistoryText(row);
     return content ? { role: 'user', content } : null;
