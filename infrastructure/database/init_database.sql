@@ -749,13 +749,42 @@ CREATE TABLE IF NOT EXISTS hospital_role_template_bindings (
   CONSTRAINT fk_hrtb_applied_by FOREIGN KEY (applied_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='医院角色模板绑定';
 
+-- 11.1 设备系列字典表
+CREATE TABLE IF NOT EXISTS device_series_dict (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  series_code VARCHAR(50) NOT NULL COMMENT '系列编码，如 SR/SA',
+  series_name_zh VARCHAR(100) NOT NULL COMMENT '系列中文名称',
+  series_name_en VARCHAR(100) NOT NULL COMMENT '系列英文名称',
+  sort_order INT NOT NULL DEFAULT 100 COMMENT '排序顺序，数值越小越靠前',
+  is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用（1启用/0停用）',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_device_series_code (series_code),
+  KEY idx_device_series_sort_order (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='设备系列字典表';
+
+-- 11.2 设备型号字典表（系列内唯一）
+CREATE TABLE IF NOT EXISTS device_model_dict (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  series_id INT NOT NULL COMMENT '设备系列ID，关联 device_series_dict.id',
+  device_model VARCHAR(100) NOT NULL COMMENT '设备型号',
+  is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用（1启用/0停用）',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_device_model_dict_series_model (series_id, device_model),
+  KEY idx_device_model_dict_series_id (series_id),
+  CONSTRAINT fk_device_model_dict_series_id
+    FOREIGN KEY (series_id) REFERENCES device_series_dict(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='设备型号字典表';
+
 -- 11.3 设备管理表
 CREATE TABLE IF NOT EXISTS devices (
   id INT AUTO_INCREMENT PRIMARY KEY,
   device_id VARCHAR(100) NOT NULL UNIQUE,   -- 设备编号（唯一，例如 4371-01 / ABC-12）
   alias VARCHAR(100) NULL,                  -- 设备别称（昵称）
   location VARCHAR(255) NULL,               -- 设备位置
-  device_model VARCHAR(100),                -- 设备型号
+  series_id INT NULL,                       -- 设备系列ID（冗余，原则上与 device_model_id 对齐）
+  device_model_id INT NULL,                 -- 设备型号ID，关联 device_model_dict.id
   device_key VARCHAR(100),                  -- 设备密钥（MAC，如 00-01-05-77-6a-09）
   hospital_id INT NULL,                     -- 标准医院ID（推荐）
   hospital_code VARCHAR(100) NULL,          -- 医院编码（冗余）
@@ -768,18 +797,14 @@ CREATE TABLE IF NOT EXISTS devices (
 
 -- 兼容升级：补齐外键与索引（若已存在则可能报错，可忽略）
 CREATE INDEX idx_devices_hospital_id ON devices(hospital_id);
+CREATE INDEX idx_devices_series_id ON devices(series_id);
+CREATE INDEX idx_devices_device_model_id ON devices(device_model_id);
 ALTER TABLE devices
   ADD CONSTRAINT fk_devices_hospital_id FOREIGN KEY (hospital_id) REFERENCES hospital_master(id);
-
-
--- 11.1 设备型号字典表（用于故障案例 equipment_model 下拉，独立维护）
-CREATE TABLE IF NOT EXISTS device_model_dict (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  device_model VARCHAR(100) NOT NULL UNIQUE, -- 设备型号（唯一）
-  is_active TINYINT(1) NOT NULL DEFAULT 1,   -- 是否启用（1启用/0停用）
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE devices
+  ADD CONSTRAINT fk_devices_series_id FOREIGN KEY (series_id) REFERENCES device_series_dict(id);
+ALTER TABLE devices
+  ADD CONSTRAINT fk_devices_device_model_id FOREIGN KEY (device_model_id) REFERENCES device_model_dict(id);
 
 -- 11.2 故障案例状态字典表（可配置/可扩展）
 CREATE TABLE IF NOT EXISTS fault_case_statuses (

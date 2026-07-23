@@ -72,6 +72,19 @@ async function reloadAndBroadcastErrorCodeCache(reason, meta = {}) {
   }
 }
 
+function scheduleSyncErrorCodeIdsToEs(errorCodeIds = []) {
+  if (!Array.isArray(errorCodeIds) || errorCodeIds.length === 0) return;
+  const uniqueIds = Array.from(new Set(
+    errorCodeIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+  ));
+  if (uniqueIds.length === 0) return;
+  for (const errorCodeId of uniqueIds) {
+    syncErrorCodeAllLangsToEs(errorCodeId).catch(() => {});
+  }
+}
+
 function parseSeriesId(value) {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -498,6 +511,8 @@ const batchImportI18nErrorCodes = async (req, res) => {
     } catch (cacheError) {
       console.warn('⚠️ 重新加载故障码缓存失败，但不影响批量导入:', cacheError.message);
     }
+
+    scheduleSyncErrorCodeIdsToEs(results.map((item) => item.error_code_id));
     
     res.json({
       message: `批量导入完成，成功 ${results.length} 条，失败 ${errors.length} 条`,
@@ -855,6 +870,8 @@ const uploadCSV = async (req, res) => {
           } catch (cacheError) {
             console.warn('⚠️ 重新加载故障码缓存失败，但不影响CSV批量导入:', cacheError.message);
           }
+
+          scheduleSyncErrorCodeIdsToEs(importResults.map((item) => item.error_code_id));
           
           // 如果有错误，返回部分成功的结果
           if (importErrors.length > 0) {

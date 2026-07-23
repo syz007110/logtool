@@ -693,13 +693,21 @@ const getLogs = async (req, res) => {
       try {
         const devices = await Device.findAll({
           where: { device_id: deviceIds },
-          attributes: ['device_id', 'device_model', 'hospital_id'],
-          include: [{
-            model: HospitalMaster,
-            as: 'HospitalMaster',
-            attributes: ['hospital_name_std'],
-            required: false
-          }]
+          attributes: ['device_id', 'device_model_id', 'hospital_id'],
+          include: [
+            {
+              model: HospitalMaster,
+              as: 'HospitalMaster',
+              attributes: ['hospital_name_std'],
+              required: false
+            },
+            {
+              model: DeviceModelDict,
+              as: 'DeviceModel',
+              attributes: ['id', 'device_model', 'series_id'],
+              required: false
+            }
+          ]
         });
 
         // 创建设备ID到设备信息的映射
@@ -720,7 +728,7 @@ const getLogs = async (req, res) => {
       return {
         ...logData,
         hospital_name: deviceInfo?.HospitalMaster?.hospital_name_std || null,
-        device_name: deviceInfo?.device_model || req.t('log.unknownDevice')
+        device_name: deviceInfo?.DeviceModel?.device_model || req.t('log.unknownDevice')
       };
     });
 
@@ -886,7 +894,8 @@ const getLogsByDevice = async (req, res) => {
       SELECT
         g.device_id AS device_id,
         hm.hospital_name_std AS hospital_name,
-        d.device_model AS device_model,
+        dm.device_model AS device_model,
+        d.device_model_id AS device_model_id,
         d.series_id AS series_id,
         g.log_count AS log_count,
         g.latest_update_time AS latest_update_time
@@ -903,6 +912,7 @@ const getLogsByDevice = async (req, res) => {
         LIMIT :limit OFFSET :offset
       ) g
       LEFT JOIN devices d ON d.device_id = g.device_id
+      LEFT JOIN device_model_dict dm ON dm.id = d.device_model_id
       LEFT JOIN hospital_master hm ON hm.id = d.hospital_id
       ORDER BY g.latest_update_time DESC
     `;
@@ -915,6 +925,7 @@ const getLogsByDevice = async (req, res) => {
       device_id: r.device_id,
       hospital_name: r.hospital_name || null,
       device_model: r.device_model || null,
+      device_model_id: r.device_model_id || null,
       device_name: r.device_model || '未知设备',
       series_id: r.series_id || null,
       log_count: Number(r.log_count || 0),
@@ -989,12 +1000,12 @@ const uploadLog = async (req, res) => {
       return res.status(400).json({ message: req.t('log.upload.invalidDeviceIdFormat') });
     }
 
-    const deviceModel = String(req.headers['x-device-model'] || req.body?.device_model || '').trim();
+    const deviceModelId = req.headers['x-device-model-id'] || req.body?.device_model_id;
     const seriesIdRaw = req.headers['x-series-id'] || req.body?.series_id;
     try {
       await ensureDeviceModelAndSeries({
         deviceId,
-        deviceModel,
+        deviceModelId,
         seriesId: seriesIdRaw,
         // 用户上传必须绑定型号/系列；自动上传若未传则保持兼容
         required: source !== 'auto-upload'
@@ -2833,16 +2844,23 @@ const autoFillDeviceModel = async (req, res) => {
 
     const device = await Device.findOne({
       where: { device_id: deviceId },
-      attributes: ['device_model', 'series_id']
+      attributes: ['device_model_id', 'series_id'],
+      include: [{
+        model: DeviceModelDict,
+        as: 'DeviceModel',
+        attributes: ['id', 'device_model', 'series_id'],
+        required: false
+      }]
     });
 
-    const rawModel = device?.device_model ? String(device.device_model).trim() : '';
+    const modelName = device?.DeviceModel?.device_model || '';
+    const rawModel = modelName ? String(modelName).trim() : '';
     if (!rawModel) {
       return res.json({ device_model: null, series_id: device?.series_id || null });
     }
 
     const deviceSeriesId = (() => {
-      const num = Number(device?.series_id);
+      const num = Number(device?.DeviceModel?.series_id || device?.series_id);
       return Number.isInteger(num) && num > 0 ? num : null;
     })();
 
@@ -2850,22 +2868,9 @@ const autoFillDeviceModel = async (req, res) => {
       return res.json({ device_model: null, series_id: deviceSeriesId });
     }
 
-    if (requestedSeriesId) {
-      const matchedModel = await DeviceModelDict.findOne({
-        where: {
-          device_model: rawModel,
-          series_id: requestedSeriesId,
-          is_active: true
-        },
-        attributes: ['id', 'device_model', 'series_id']
-      });
-      if (!matchedModel) {
-        return res.json({ device_model: null, series_id: deviceSeriesId });
-      }
-    }
-
     return res.json({
       device_model: rawModel,
+      device_model_id: device?.DeviceModel?.id || device?.device_model_id || null,
       series_id: deviceSeriesId || requestedSeriesId || null
     });
   } catch (err) {

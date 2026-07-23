@@ -222,17 +222,20 @@ async function upsertDevice(plan, { dryRun }) {
   if (dryRun) {
     return { created: !existing, device: existing };
   }
+  const modelRow = await ensureModel(plan.device_model, plan.series_id, { dryRun: false, ensureModels: true });
   if (existing) {
-    existing.device_model = plan.device_model || existing.device_model;
-    existing.series_id = plan.series_id ?? existing.series_id;
+    existing.series_id = modelRow?.series_id ?? plan.series_id ?? existing.series_id;
+    if (Object.prototype.hasOwnProperty.call(existing, 'device_model_id')) {
+      existing.device_model_id = modelRow?.id ?? existing.device_model_id ?? null;
+    }
     existing.updated_at = new Date();
     await existing.save();
     return { created: false, device: existing };
   }
   const device = await Device.create({
     device_id: plan.device_id,
-    device_model: plan.device_model,
-    series_id: plan.series_id,
+    series_id: modelRow?.series_id ?? plan.series_id,
+    device_model_id: modelRow?.id ?? null,
     device_key: null,
     created_at: new Date(),
     updated_at: new Date()
@@ -282,7 +285,6 @@ async function main() {
 
   for (const plan of plans) {
     try {
-      await ensureModel(plan.device_model, plan.series_id, args);
       const { created } = await upsertDevice(plan, args);
       if (created) deviceCreated += 1;
       else deviceUpdated += 1;

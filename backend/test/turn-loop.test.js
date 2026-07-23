@@ -118,6 +118,10 @@ test('runTurnLoop executes tool then second LLM step', async () => {
   assert.equal(out.loopTrace[1].suffix, 'tool_result_1_1');
   assert.equal(out.loopMessages.at(-2).role, 'tool');
   assert.equal(out.loopMessages.at(-2).tool_call_id, 'c1');
+  assert.equal(
+    out.loopMessages.at(-2).content,
+    JSON.stringify({ status: 'success', text: 'tool done', error: null })
+  );
 });
 
 test('runTurnLoop stops when maxToolCalls reached', async () => {
@@ -235,4 +239,15 @@ test('buildAssistantMessageFromTurnResult preserves tool_calls', () => {
 
 test('mergeDeliveryText keeps prefix when content empty', () => {
   assert.equal(mergeDeliveryText('[降级]', ''), '[降级]');
+});
+
+test('serializeToolResultContent keeps only status text error for model', async () => {
+  const { serializeToolResultContent } = require('../src/agentization/runtime/turnLoop');
+  assert.equal(
+    serializeToolResultContent(
+      { status: 'success', data: { code: '141010A' }, evidence: [{ type: 'x' }], error: null },
+      { text: '查询完成' }
+    ),
+    JSON.stringify({ status: 'success', text: '查询完成', error: null })
+  );
 });

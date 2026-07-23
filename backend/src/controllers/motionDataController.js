@@ -11,6 +11,8 @@ const { motionDataQueue } = require('../config/queue');
 const websocketService = require('../services/websocketService');
 const { logOperation } = require('../utils/operationLogger');
 const MotionDataFile = require('../models/motion_data_file');
+const Device = require('../models/device');
+const DeviceModelDict = require('../models/device_model_dict');
 const motionStorage = require('../config/motionDataStorage');
 const { ensureDeviceModelAndSeries } = require('../utils/deviceSeriesBinding');
 const { CAPABILITIES } = require('../seriesStrategies/capabilities');
@@ -78,6 +80,33 @@ function loadDhModel() {
   } catch (err) {
     throw new Error(`Failed to read DH model config: ${err.message}`);
   }
+}
+
+async function loadDeviceBindingMap(deviceIds = []) {
+  const normalizedIds = Array.from(new Set(
+    (Array.isArray(deviceIds) ? deviceIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  ));
+  if (!normalizedIds.length) return new Map();
+
+  const rows = await Device.findAll({
+    where: { device_id: { [Op.in]: normalizedIds } },
+    attributes: ['device_id', 'device_model_id', 'series_id', 'hospital_id'],
+    include: [{
+      model: DeviceModelDict,
+      as: 'DeviceModel',
+      required: false,
+      attributes: ['id', 'device_model', 'series_id']
+    }]
+  });
+
+  return new Map(
+    (rows || []).map((row) => {
+      const data = row.toJSON ? row.toJSON() : row;
+      return [String(data.device_id || '').trim(), data];
+    })
+  );
 }
 
 function getUploadedFilePathById(id) {
@@ -270,7 +299,7 @@ async function uploadBinary(req, res) {
     try {
       await ensureDeviceModelAndSeries({
         deviceId,
-        deviceModel: req.body?.device_model || req.body?.deviceModel,
+        deviceModelId: req.body?.device_model_id || req.body?.deviceModelId,
         seriesId: req.body?.series_id || req.body?.seriesId,
         required: true
       });
@@ -416,7 +445,7 @@ async function batchUploadBinary(req, res) {
     try {
       await ensureDeviceModelAndSeries({
         deviceId,
-        deviceModel: req.body?.device_model || req.body?.deviceModel,
+        deviceModelId: req.body?.device_model_id || req.body?.deviceModelId,
         seriesId: req.body?.series_id || req.body?.seriesId,
         required: true
       });
@@ -1166,11 +1195,20 @@ async function listMotionDataFiles(req, res) {
       offset
     });
 
+    const deviceBindingMap = await loadDeviceBindingMap((rows || []).map((r) => r?.device_id));
+
     const items = (rows || []).map((r) => {
       const d = r.toJSON ? r.toJSON() : r;
+      const deviceInfo = deviceBindingMap.get(String(d.device_id || '').trim()) || null;
+      const resolvedDeviceModel = deviceInfo?.DeviceModel?.device_model || null;
+      const resolvedDeviceModelId = deviceInfo?.DeviceModel?.id || deviceInfo?.device_model_id || null;
       return {
         id: d.id,
         device_id: d.device_id,
+        device_model_id: resolvedDeviceModelId,
+        device_model: resolvedDeviceModel,
+        series_id: deviceInfo?.series_id || null,
+        hospital_id: deviceInfo?.hospital_id || null,
         original_name: d.original_name,
         file_time_token: d.file_time_token,
         file_time: d.file_time,
@@ -1307,13 +1345,16 @@ async function listMotionDataFilesByDevice(req, res) {
         m.device_id AS device_id,
         hm.hospital_name_std AS hospital_name,
         d.series_id AS series_id,
+        d.device_model_id AS device_model_id,
+        dm.device_model AS device_model,
         COUNT(*) AS data_count,
         MAX(COALESCE(m.file_time, m.upload_time)) AS latest_upload_time
       FROM motion_data_files m
       ${dataJoinSql}
+      LEFT JOIN device_model_dict dm ON dm.id = d.device_model_id
       LEFT JOIN hospital_master hm ON hm.id = d.hospital_id
       ${whereSql}
-      GROUP BY m.device_id, hm.hospital_name_std, d.series_id
+      GROUP BY m.device_id, hm.hospital_name_std, d.series_id, d.device_model_id, dm.device_model
       ORDER BY latest_upload_time DESC
       LIMIT :limit OFFSET :offset
     `;
@@ -1326,6 +1367,8 @@ async function listMotionDataFilesByDevice(req, res) {
       device_id: r.device_id,
       hospital_name: r.hospital_name || null,
       series_id: r.series_id || null,
+      device_model_id: r.device_model_id || null,
+      device_model: r.device_model || null,
       data_count: Number(r.data_count || 0),
       latest_upload_time: r.latest_upload_time || null
     }));

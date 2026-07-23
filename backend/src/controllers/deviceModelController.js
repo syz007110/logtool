@@ -149,11 +149,10 @@ const deleteDeviceModel = async (req, res) => {
     const record = await DeviceModelDict.findByPk(id);
     if (!record) return res.status(404).json({ message: req.t('shared.notFound') });
 
-    const inUseWhere = { device_model: record.device_model };
-    if (Object.prototype.hasOwnProperty.call(Device.rawAttributes || {}, 'series_id')) {
-      inUseWhere.series_id = record.series_id;
+    let inUseCount = 0;
+    if (Object.prototype.hasOwnProperty.call(Device.rawAttributes || {}, 'device_model_id')) {
+      inUseCount = await Device.count({ where: { device_model_id: record.id } });
     }
-    const inUseCount = await Device.count({ where: inUseWhere });
     if (inUseCount > 0) {
       return res.status(409).json({ message: '该型号已有关联设备，无法删除，可改为停用' });
     }

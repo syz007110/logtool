@@ -17,7 +17,10 @@ describe('isDialogueHistoryRow', () => {
     assert.equal(isDialogueHistoryRow({ role: 'user', messageType: 'text' }), true);
     assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'text' }), true);
     assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'attachment' }), true);
-    assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'system' }), true);
+  });
+
+  it('drops assistant system messages from dialogue history', () => {
+    assert.equal(isDialogueHistoryRow({ role: 'assistant', messageType: 'system' }), false);
   });
 
   it('drops orchestrator and other pipeline assistant rows', () => {

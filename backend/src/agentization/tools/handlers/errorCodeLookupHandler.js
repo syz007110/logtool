@@ -3,7 +3,10 @@ const i18next = require('i18next');
 const Backend = require('i18next-fs-backend');
 const { composeExplanationPreviewFromI18n } = require('../../../utils/explanationPreview');
 const { searchErrorCodesUnified } = require('../../../services/errorCodeUnifiedService');
-const { resolveSubsystemLabel } = require('../../../services/faultCodeExtractionService');
+const {
+  resolveSubsystemLabel,
+  resolveAgentFaultCodeToken
+} = require('../../../services/faultCodeExtractionService');
 const DeviceSeriesDict = require('../../../models/device_series_dict');
 
 const I18NEXT_BACKEND_PATH = path.resolve(__dirname, '../../../locales/{{lng}}/translation.json');
@@ -40,20 +43,40 @@ async function ensureI18nForLookup() {
   }
 }
 
-const ERROR_CODE_PATTERN = /^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$/i;
-
 function normalizeQueryType(args = {}) {
   const raw = String(args.queryType || '').trim().toLowerCase();
   if (raw === 'single_code' || raw === 'multiple_codes' || raw === 'keyword') return raw;
   return '';
 }
 
+function normalizeSeriesCode(seriesCode) {
+  return String(seriesCode || '').trim().toUpperCase();
+}
+
+function normalizeSubsystem(subsystem) {
+  const normalized = String(subsystem || '').trim().toUpperCase();
+  return /^[1-9A]$/.test(normalized) ? normalized : '';
+}
+
+function normalizeSingleErrorCode(input) {
+  return resolveAgentFaultCodeToken(input);
+}
+
+function normalizeMultipleErrorCodes(list) {
+  if (!Array.isArray(list)) return [];
+  return Array.from(new Set(
+    list
+      .map((item) => normalizeSingleErrorCode(item))
+      .filter(Boolean)
+  ));
+}
+
 function resolveQueries(args = {}) {
   const explicitType = normalizeQueryType(args);
-  const singleCode = String(args.errorCode || '').trim();
-  const multiCodes = Array.isArray(args.errorCodes)
-    ? Array.from(new Set(args.errorCodes.map((item) => String(item || '').trim()).filter(Boolean)))
-    : [];
+  const rawSingleCode = String(args.errorCode || '').trim();
+  const singleCode = normalizeSingleErrorCode(rawSingleCode);
+  const rawMultiCodes = Array.isArray(args.errorCodes) ? args.errorCodes : [];
+  const multiCodes = normalizeMultipleErrorCodes(rawMultiCodes);
   const keywords = String(args.keywords || '').trim();
 
   if (!explicitType) {
@@ -63,28 +86,44 @@ function resolveQueries(args = {}) {
   }
 
   if (explicitType === 'single_code') {
-    if (!singleCode) {
+    if (!rawSingleCode) {
       const err = new Error('errorCode is required when queryType=single_code');
       err.code = 'MISSING_QUERY_SLOT';
+      throw err;
+    }
+    if (!singleCode) {
+      const err = new Error('errorCode format is invalid when queryType=single_code');
+      err.code = 'INVALID_ERROR_CODE';
       throw err;
     }
     return {
       queryType: explicitType,
       queries: [singleCode],
-      inputSlot: singleCode
+      inputSlot: singleCode,
+      normalizedArgs: {
+        errorCode: singleCode
+      }
     };
   }
 
   if (explicitType === 'multiple_codes') {
-    if (multiCodes.length === 0) {
+    if (rawMultiCodes.length === 0) {
       const err = new Error('errorCodes is required when queryType=multiple_codes');
       err.code = 'MISSING_QUERY_SLOT';
+      throw err;
+    }
+    if (multiCodes.length === 0) {
+      const err = new Error('errorCodes format is invalid when queryType=multiple_codes');
+      err.code = 'INVALID_ERROR_CODE';
       throw err;
     }
     return {
       queryType: explicitType,
       queries: multiCodes,
-      inputSlot: multiCodes[0]
+      inputSlot: multiCodes[0],
+      normalizedArgs: {
+        errorCodes: multiCodes
+      }
     };
   }
 
@@ -97,7 +136,10 @@ function resolveQueries(args = {}) {
     return {
       queryType: explicitType,
       queries: [keywords],
-      inputSlot: keywords
+      inputSlot: keywords,
+      normalizedArgs: {
+        keywords
+      }
     };
   }
 
@@ -107,7 +149,7 @@ function resolveQueries(args = {}) {
 }
 
 async function resolveSeriesIdFromCode(seriesCode) {
-  const code = String(seriesCode || '').trim().toUpperCase();
+  const code = normalizeSeriesCode(seriesCode);
   if (!code) {
     const err = new Error('seriesCode is required');
     err.code = 'MISSING_SERIES_CODE';
@@ -245,12 +287,9 @@ async function execute({ args }) {
   const language = String(args?.language || 'zh-CN');
   const t = i18next.getFixedT(resolveLookupLng(language));
   const resolvedQuery = resolveQueries(args);
-  const inputSlot = resolvedQuery.inputSlot;
-  const inputCodes = resolvedQuery.queryType === 'single_code' || resolvedQuery.queryType === 'multiple_codes'
-    ? resolvedQuery.queries
-    : [];
-  const seriesCode = String(args?.seriesCode || '').trim().toUpperCase();
+  const seriesCode = normalizeSeriesCode(args?.seriesCode);
   const seriesId = await resolveSeriesIdFromCode(seriesCode);
+  const normalizedSubsystem = normalizeSubsystem(args?.subsystem);
 
   const queries = resolvedQuery.queries;
   const batchItems = [];
@@ -262,7 +301,7 @@ async function execute({ args }) {
     const unifiedResult = await searchErrorCodesUnified({
       q: query,
       series_id: seriesId,
-      subsystem: String(args?.subsystem || '').trim().toUpperCase() || undefined,
+      subsystem: normalizedSubsystem || undefined,
       page: 1,
       limit: 5,
       acceptLanguage: language,
@@ -347,6 +386,12 @@ async function execute({ args }) {
       lookupSource,
       seriesCode,
       series_id: seriesId,
+      normalizedArgs: {
+        ...resolvedQuery.normalizedArgs,
+        queryType: resolvedQuery.queryType,
+        seriesCode,
+        ...(normalizedSubsystem ? { subsystem: normalizedSubsystem } : {})
+      },
       recognized: batchResults.length === 1 ? (batchResults[0]?.unifiedResult?._meta?.recognized || null) : null,
       queryCount: queries.length,
       evidence,

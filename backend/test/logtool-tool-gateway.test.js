@@ -97,6 +97,17 @@ test('gateway accepts multiple error codes in error_code_lookup args pattern', (
   assert.deepEqual(out.arguments.errorCodes, ['141010A', '241010A']);
 });
 
+test('gateway accepts non-normalized error code input for handler normalization', () => {
+  const gateway = createLogtoolToolGateway();
+  const out = gateway.validateToolArguments('error_code_lookup', {
+    errorCode: '010a',
+    queryType: 'single_code',
+    seriesCode: 'SR',
+    language: 'zh-CN'
+  });
+  assert.equal(out.arguments.errorCode, '010a');
+});
+
 test('gateway resolves registered tool through independent handler registry', async (t) => {
   const handler = getToolHandler('error_code_lookup');
   assert.equal(typeof handler.execute, 'function');

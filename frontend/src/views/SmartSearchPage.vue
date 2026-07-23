@@ -4408,7 +4408,7 @@ export default {
   display: inline-block;
   width: auto;
   min-width: 3.5em;
-  max-width: min(85%, 960px);
+  max-width: min(100%, 960px);
   background: var(--agent-msg-user-bg);
   border-color: var(--agent-msg-user-border);
   color: var(--agent-msg-user-text);
@@ -4450,8 +4450,8 @@ export default {
 }
 
 .ss-msg.user .ss-msg-text {
-  word-break: keep-all;
-  overflow-wrap: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .ss-result {

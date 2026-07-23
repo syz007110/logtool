@@ -914,7 +914,7 @@ async function persistSystemMessageEvents(instanceId, request, systemMessages, t
       requestId: String(request?.requestId || '').trim() || undefined,
       traceId: String(request?.traceId || '').trim() || undefined,
       taskId: normalizePersistTaskId(taskId),
-      role: 'assistant',
+      role: 'system',
       explicitMessageType: MESSAGE_TYPES.SYSTEM,
       content: text,
       payload: buildSystemMessageEventPayload(message, assistantResponse),

@@ -5,7 +5,7 @@
       "toolName": "error_code_lookup",
       "displayName": "故障码查询",
       "enabled": true,
-      "description": "查询故障码对应的含义、参数说明、检测逻辑与处理建议。支持单个故障码、多个故障码和关键词查询；调用时必须正确提供设备系列，并在信息不足时返回候选结果或继续追问。",
+      "description": "查询故障码对应的含义、参数说明、检测逻辑与处理建议。支持单个故障码、多个故障码和关键词查询。",
       "descriptionFile": "./descriptions/error_code_lookup.md",
       "parameters": {
         "type": "object",
@@ -30,17 +30,19 @@
           },
           "errorCode": {
             "type": "string",
-            "description": "queryType=single_code 时填写。故障码：完整日志码（如 141010A）或类型码（如 0X010A）",
-            "pattern": "^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$"
+            "description": "单个故障码原始输入。",
+            "minLength": 1,
+            "maxLength": 64
           },
           "errorCodes": {
             "type": "array",
-            "description": "queryType=multiple_codes 时填写，最多 20 个故障码。",
+            "description": "queryType=multiple_codes 时填写，最多 10 个故障码原始输入，执行层会逐项归一化。",
             "minItems": 1,
             "maxItems": 20,
             "items": {
               "type": "string",
-              "pattern": "^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$"
+              "minLength": 1,
+              "maxLength": 64
             }
           },
           "keywords": {
@@ -57,7 +59,7 @@
           },
           "subsystem": {
             "type": "string",
-            "description": "子系统号（单字符），用于在多结果时缩小范围",
+            "description": "子系统号（单字符），用于在多结果时缩小范围；执行层会自动转为大写。",
             "pattern": "^[1-9A]$"
           }
         },

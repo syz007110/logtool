@@ -30,7 +30,7 @@ test('buildHistoryMessages replays orchestrator tool_calls and tool results for 
       message_id: 'msg-prev:tool_result_1_1',
       role: 'tool',
       message_type: 'tool',
-      content: '{"status":"success","data":{"code":"141010A"},"evidence":[{"type":"fault_code","id":"1"}]}',
+      content: '{"status":"success","text":"141010A 查询完成","error":null}',
       payload_tool_call_id: 'call_abc',
       payload_status: 'success'
     },
@@ -59,7 +59,7 @@ test('buildHistoryMessages replays orchestrator tool_calls and tool results for 
     {
       role: 'tool',
       tool_call_id: 'call_abc',
-      content: '{"status":"success","data":{"code":"141010A"},"evidence":[{"type":"fault_code","id":"1"}]}'
+      content: '{"status":"success","text":"141010A 查询完成","error":null}'
     },
     { role: 'assistant', content: '141010A 表示某故障。' }
   ]);
@@ -143,7 +143,7 @@ test('chatRequestAssembler passes tool_calls and tool_call_id from historyContex
         {
           role: 'tool',
           tool_call_id: 'call_abc',
-          content: '{"status":"success","data":{"code":"141010A"}}'
+          content: '{"status":"success","text":"141010A 查询完成","error":null}'
         },
         { role: 'assistant', content: '141010A 表示某故障。' }
       ]

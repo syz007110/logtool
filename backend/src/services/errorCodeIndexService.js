@@ -1,6 +1,8 @@
 const { getElasticsearchClient } = require('../config/elasticsearch');
 const ErrorCode = require('../models/error_code');
 const I18nErrorCode = require('../models/i18n_error_code');
+const { Op } = require('sequelize');
+const { mapLanguageCode } = require('../config/i18nLanguages');
 
 function getErrorCodeIndexName() {
   return String(process.env.ERROR_CODE_ES_INDEX || 'error_codes_index').trim();
@@ -12,6 +14,36 @@ function getAnalyzerIndex() {
 
 function getAnalyzerSearch() {
   return String(process.env.ERROR_CODE_ES_ANALYZER_SEARCH || process.env.KB_ES_ANALYZER_SEARCH || 'ik_smart').trim();
+}
+
+function normalizeLang(lang) {
+  const raw = String(lang || '').trim().toLowerCase();
+  if (!raw) return 'zh';
+  const base = raw.split('-')[0] || raw;
+  return mapLanguageCode(base, { fallback: 'zh', keepUnknown: true });
+}
+
+function dedupeLangs(langs = []) {
+  const seen = new Set();
+  const result = [];
+  for (const lang of langs) {
+    const normalized = normalizeLang(lang);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+async function getDocumentLangsForErrorCodes(errorCodeIds = []) {
+  const rows = await I18nErrorCode.findAll({
+    where: errorCodeIds.length > 0
+      ? { error_code_id: { [Op.in]: errorCodeIds } }
+      : undefined,
+    attributes: ['lang'],
+    raw: true
+  });
+  return dedupeLangs(['zh', ...rows.map((row) => row.lang)]);
 }
 
 /**
@@ -191,6 +223,7 @@ function makeErrorCodeDoc({ errorCode, i18nData, lang }) {
 async function indexErrorCodeToEs({ errorCodeId, lang = 'zh', refresh = 'false' }) {
   const client = getElasticsearchClient();
   const index = getErrorCodeIndexName();
+  const targetLang = normalizeLang(lang);
   await ensureErrorCodeIndex({ recreate: false });
 
   // 查询MySQL数据
@@ -201,9 +234,9 @@ async function indexErrorCodeToEs({ errorCodeId, lang = 'zh', refresh = 'false' 
 
   // 查询多语言数据
   const i18nList = await I18nErrorCode.findAll({
-    where: { error_code_id: errorCodeId, lang: { [require('sequelize').Op.in]: [lang, 'zh'] } }
+    where: { error_code_id: errorCodeId, lang: { [Op.in]: dedupeLangs([targetLang, 'zh']) } }
   });
-  const targetI18n = i18nList.find((item) => item.lang === lang);
+  const targetI18n = i18nList.find((item) => normalizeLang(item.lang) === targetLang);
   const zhI18n = i18nList.find((item) => item.lang === 'zh');
   const i18nData = (targetI18n || zhI18n || null)?.toJSON?.() || (targetI18n || zhI18n || null);
 
@@ -211,11 +244,11 @@ async function indexErrorCodeToEs({ errorCodeId, lang = 'zh', refresh = 'false' 
   const doc = makeErrorCodeDoc({
     errorCode: errorCode.toJSON ? errorCode.toJSON() : errorCode,
     i18nData,
-    lang
+    lang: targetLang
   });
 
   // 文档ID格式：errorCodeId:lang
-  const docId = `${errorCodeId}:${lang}`;
+  const docId = `${errorCodeId}:${targetLang}`;
 
   // 索引到ES
   await client.index({
@@ -225,18 +258,20 @@ async function indexErrorCodeToEs({ errorCodeId, lang = 'zh', refresh = 'false' 
     refresh: refresh === 'wait_for' ? 'wait_for' : (refresh === 'true')
   });
 
-  return { ok: true, errorCodeId, lang, docId };
+  return { ok: true, errorCodeId, lang: targetLang, docId };
 }
 
 /**
  * 批量索引故障码到ES
  * @param {Object} params
  * @param {number[]} params.errorCodeIds - 故障码ID数组（可选，不传则索引所有）
- * @param {string} params.lang - 语言代码（默认'zh'）
+ * @param {string} params.lang - 语言代码（可选）
+ * @param {string[]} params.langs - 语言代码数组（可选）
+ * @param {boolean} params.allLangs - 是否同步全部语言版本（默认false）
  * @param {number} params.batchSize - 批量大小（默认100）
  * @returns {Promise<{ok: boolean, indexed: number, failed: number, errors: Array}>}
  */
-async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize = 100 }) {
+async function bulkIndexErrorCodes({ errorCodeIds = null, lang = null, langs = null, allLangs = false, batchSize = 100 }) {
   const client = getElasticsearchClient();
   const index = getErrorCodeIndexName();
   await ensureErrorCodeIndex({ recreate: false });
@@ -249,6 +284,20 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
       order: [['id', 'ASC']]
     });
     ids = allCodes.map(c => c.id);
+  }
+
+  let targetLangs = [];
+  if (allLangs) {
+    targetLangs = await getDocumentLangsForErrorCodes(ids);
+  } else if (Array.isArray(langs) && langs.length > 0) {
+    targetLangs = dedupeLangs(langs);
+  } else if (lang) {
+    targetLangs = dedupeLangs([lang]);
+  } else {
+    targetLangs = await getDocumentLangsForErrorCodes(ids);
+  }
+  if (targetLangs.length === 0) {
+    targetLangs = ['zh'];
   }
 
   const summary = {
@@ -264,7 +313,7 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
 
     // 批量查询MySQL
     const errorCodes = await ErrorCode.findAll({
-      where: { id: { [require('sequelize').Op.in]: batch } }
+      where: { id: { [Op.in]: batch } }
     });
 
     // 批量查询多语言数据
@@ -272,14 +321,14 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
     {
       const i18nList = await I18nErrorCode.findAll({
         where: {
-          error_code_id: { [require('sequelize').Op.in]: batch },
-          lang: { [require('sequelize').Op.in]: [lang, 'zh'] }
+          error_code_id: { [Op.in]: batch },
+          lang: { [Op.in]: targetLangs.includes('zh') ? targetLangs : ['zh', ...targetLangs] }
         }
       });
       for (const i18n of i18nList) {
         const key = i18n.error_code_id;
         if (!i18nMap.has(key)) i18nMap.set(key, {});
-        i18nMap.get(key)[i18n.lang] = i18n.toJSON ? i18n.toJSON() : i18n;
+        i18nMap.get(key)[normalizeLang(i18n.lang)] = i18n.toJSON ? i18n.toJSON() : i18n;
       }
     }
 
@@ -288,12 +337,14 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
     for (const errorCode of errorCodes) {
       const ecData = errorCode.toJSON ? errorCode.toJSON() : errorCode;
       const i18nByLang = i18nMap.get(ecData.id) || {};
-      const i18nData = i18nByLang[lang] || i18nByLang.zh || null;
-      const doc = makeErrorCodeDoc({ errorCode: ecData, i18nData, lang });
-      const docId = `${ecData.id}:${lang}`;
+      for (const targetLang of targetLangs) {
+        const i18nData = i18nByLang[targetLang] || i18nByLang.zh || null;
+        const doc = makeErrorCodeDoc({ errorCode: ecData, i18nData, lang: targetLang });
+        const docId = `${ecData.id}:${targetLang}`;
 
-      ops.push({ index: { _index: index, _id: docId } });
-      ops.push(doc);
+        ops.push({ index: { _index: index, _id: docId } });
+        ops.push(doc);
+      }
     }
 
     // 批量索引
@@ -308,9 +359,9 @@ async function bulkIndexErrorCodes({ errorCodeIds = null, lang = 'zh', batchSize
           summary.failed += errors.length;
           summary.errors.push(...errors.slice(0, 10)); // 只保留前10个错误
         }
-        summary.indexed += errorCodes.length;
+        summary.indexed += ops.length / 2;
       } catch (e) {
-        summary.failed += errorCodes.length;
+        summary.failed += errorCodes.length * targetLangs.length;
         summary.errors.push({ message: String(e?.message || e), batch: batch.slice(0, 5) });
       }
     }
@@ -379,6 +430,7 @@ async function deleteErrorCodeFromEs({ errorCodeId = null, lang = null, refresh 
 
 module.exports = {
   getErrorCodeIndexName,
+  normalizeLang,
   ensureErrorCodeIndex,
   makeErrorCodeDoc,
   indexErrorCodeToEs,

@@ -8,12 +8,13 @@ function parseSeriesId(value) {
 }
 
 /**
- * Validate device_model against series and upsert devices.series_id / device_model.
+ * Validate device_model_id against series and upsert
+ * devices.series_id / device_model_id.
  * Used by log upload and motion-data upload so parsing can rely on devices.series_id.
  */
 async function ensureDeviceModelAndSeries({
   deviceId,
-  deviceModel,
+  deviceModelId,
   seriesId,
   required = true
 } = {}) {
@@ -22,12 +23,20 @@ async function ensureDeviceModelAndSeries({
     return { ok: true, skipped: true };
   }
 
-  const normalizedModel = String(deviceModel || '').trim();
+  const normalizedModelId = deviceModelId === undefined || deviceModelId === null || deviceModelId === ''
+    ? null
+    : Number(deviceModelId);
   const resolvedSeriesId = parseSeriesId(seriesId);
 
-  if (!normalizedModel) {
+  if (normalizedModelId !== null && (!Number.isInteger(normalizedModelId) || normalizedModelId <= 0)) {
+    const err = new Error('device_model_id 必须为正整数');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (normalizedModelId === null) {
     if (!required) return { ok: true, skipped: true };
-    const err = new Error('device_model 为必填');
+    const err = new Error('device_model_id 必填');
     err.statusCode = 400;
     throw err;
   }
@@ -45,18 +54,35 @@ async function ensureDeviceModelAndSeries({
     throw err;
   }
 
-  const matchedModel = await DeviceModelDict.findOne({
-    where: {
-      device_model: normalizedModel,
-      series_id: resolvedSeriesId,
-      is_active: true
+  let matchedModel = null;
+  if (normalizedModelId !== null) {
+    matchedModel = typeof DeviceModelDict.findByPk === 'function'
+      ? await DeviceModelDict.findByPk(normalizedModelId)
+      : await DeviceModelDict.findOne({ where: { id: normalizedModelId } });
+    if (!matchedModel) {
+      const err = new Error('device_model_id 无效');
+      err.statusCode = 400;
+      throw err;
     }
-  });
+    if (!matchedModel.is_active) {
+      const err = new Error('所选设备型号已停用');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (parseSeriesId(matchedModel.series_id) !== resolvedSeriesId) {
+      const err = new Error('所选设备型号不属于当前设备系列');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
   if (!matchedModel) {
     const err = new Error('所选设备型号不属于当前设备系列');
     err.statusCode = 400;
     throw err;
   }
+
+  const resolvedModelName = String(matchedModel.device_model || '').trim();
+  const resolvedModelId = Number(matchedModel.id);
 
   const existing = await Device.findOne({ where: { device_id: normalizedDeviceId } });
   if (existing) {
@@ -71,8 +97,8 @@ async function ensureDeviceModelAndSeries({
 
     const updates = { updated_at: new Date() };
     if (!existingSeriesId) updates.series_id = resolvedSeriesId;
-    if (!existing.device_model || existing.device_model !== normalizedModel) {
-      updates.device_model = normalizedModel;
+    if (Object.prototype.hasOwnProperty.call(existing, 'device_model_id') && Number(existing.device_model_id) !== resolvedModelId) {
+      updates.device_model_id = resolvedModelId;
     }
     if (Object.keys(updates).length > 1) {
       await existing.update(updates);
@@ -82,14 +108,15 @@ async function ensureDeviceModelAndSeries({
       created: false,
       device: existing,
       series_id: parseSeriesId(existing.series_id) || resolvedSeriesId,
-      device_model: normalizedModel
+      device_model_id: resolvedModelId,
+      device_model: resolvedModelName
     };
   }
 
   const created = await Device.create({
     device_id: normalizedDeviceId,
-    device_model: normalizedModel,
     series_id: resolvedSeriesId,
+    device_model_id: resolvedModelId,
     device_key: null,
     created_at: new Date(),
     updated_at: new Date()
@@ -100,7 +127,8 @@ async function ensureDeviceModelAndSeries({
     created: true,
     device: created,
     series_id: resolvedSeriesId,
-    device_model: normalizedModel
+    device_model_id: resolvedModelId,
+    device_model: resolvedModelName
   };
 }
 

@@ -4,6 +4,7 @@
  * Columns:
  * - device_id
  * - series_id / series_code / series_name_zh
+ * - device_model_id
  * - device_model
  * - key_value
  * - key_source (device_keys)
@@ -36,6 +37,7 @@ const { sequelize } = require('../models');
 const { defineAssociations } = require('../models/associations');
 const Device = require('../models/device');
 const DeviceKey = require('../models/deviceKey');
+const DeviceModelDict = require('../models/device_model_dict');
 const DeviceSeriesDict = require('../models/device_series_dict');
 
 function csvEscape(value) {
@@ -68,7 +70,13 @@ async function main() {
   const seriesMap = new Map(seriesRows.map((row) => [row.id, row.toJSON()]));
 
   const devices = await Device.findAll({
-    attributes: ['id', 'device_id', 'device_model', 'series_id'],
+    attributes: ['id', 'device_id', 'device_model_id', 'series_id'],
+    include: [{
+      model: DeviceModelDict,
+      as: 'DeviceModel',
+      attributes: ['id', 'device_model', 'series_id'],
+      required: false
+    }],
     order: [['id', 'ASC']]
   });
 
@@ -98,6 +106,7 @@ async function main() {
     'series_id',
     'series_code',
     'series_name_zh',
+    'device_model_id',
     'device_model',
     'key_value',
     'key_source',
@@ -113,7 +122,10 @@ async function main() {
 
   for (const item of devices) {
     const d = item.toJSON();
-    const series = seriesMap.get(d.series_id) || {};
+    const resolvedSeriesId = d.DeviceModel?.series_id || d.series_id || null;
+    const resolvedDeviceModelId = d.DeviceModel?.id || d.device_model_id || null;
+    const resolvedDeviceModel = d.DeviceModel?.device_model || '';
+    const series = seriesMap.get(resolvedSeriesId) || {};
     const boundKeys = keysByDevice.get(d.device_id) || [];
 
     const rowsForDevice = boundKeys.map((k) => ({
@@ -142,10 +154,11 @@ async function main() {
       keyCount += 1;
       lines.push([
         d.device_id,
-        d.series_id,
+        resolvedSeriesId,
         series.series_code,
         series.series_name_zh,
-        d.device_model,
+        resolvedDeviceModelId,
+        resolvedDeviceModel,
         keyRow.key_value,
         keyRow.key_source,
         keyRow.valid_from_date,

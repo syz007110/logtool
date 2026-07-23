@@ -13,6 +13,7 @@ const LogEntry = {
 };
 const Log = require('../models/log');
 const Device = require('../models/device');
+const DeviceModelDict = require('../models/device_model_dict');
 const HospitalMaster = require('../models/hospital_master');
 const SurgeryExportPending = require('../models/surgeryExportPending');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
@@ -605,19 +606,28 @@ exports.listSurgeriesByDevice = async (req, res) => {
       try {
         const devices = await Device.findAll({
           where: { device_id: { [Op.in]: pageDeviceIds } },
-          attributes: ['device_id', 'device_model', 'hospital_id', 'series_id'],
-          include: [{
-            model: HospitalMaster,
-            as: 'HospitalMaster',
-            attributes: ['hospital_name_std'],
-            required: false
-          }]
+          attributes: ['device_id', 'device_model_id', 'hospital_id', 'series_id'],
+          include: [
+            {
+              model: HospitalMaster,
+              as: 'HospitalMaster',
+              attributes: ['hospital_name_std'],
+              required: false
+            },
+            {
+              model: DeviceModelDict,
+              as: 'DeviceModel',
+              attributes: ['id', 'device_model', 'series_id'],
+              required: false
+            }
+          ]
         });
         devices.forEach(d => {
           deviceIdToInfo.set(d.device_id, {
             hospital_name: d.HospitalMaster?.hospital_name_std || null,
-            device_model: d.device_model || null,
-            series_id: d.series_id || null
+            device_model: d.DeviceModel?.device_model || null,
+            device_model_id: d.DeviceModel?.id || d.device_model_id || null,
+            series_id: d.DeviceModel?.series_id || d.series_id || null
           });
         });
       } catch (_) {
@@ -631,6 +641,7 @@ exports.listSurgeriesByDevice = async (req, res) => {
         device_id: r.device_id || '未知设备',
         hospital_name: info.hospital_name || null,
         device_name: info.device_model || null,
+        device_model_id: info.device_model_id || null,
         series_id: info.series_id || null,
         surgery_count: Number(r.surgery_count || 0),
         latest_surgery_time: r.latest_surgery_time || null,

@@ -279,13 +279,13 @@
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
-                  <el-select v-model="form.device_model" filterable clearable style="width: 100%">
+                <el-form-item :label="$t('devices.deviceModel')" prop="device_model_id">
+                  <el-select v-model="form.device_model_id" filterable clearable style="width: 100%" @change="onDeviceModelChange">
                     <el-option
                       v-for="item in filteredDeviceModelOptions"
                       :key="item.id || item.device_model"
                       :label="item.device_model"
-                      :value="item.device_model"
+                      :value="item.id"
                     />
                   </el-select>
                 </el-form-item>
@@ -425,13 +425,13 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item :label="$t('devices.deviceModel')" prop="device_model">
-              <el-select v-model="form.device_model" filterable clearable style="width: 100%">
+            <el-form-item :label="$t('devices.deviceModel')" prop="device_model_id">
+              <el-select v-model="form.device_model_id" filterable clearable style="width: 100%" @change="onDeviceModelChange">
                 <el-option
                   v-for="item in filteredDeviceModelOptions"
                   :key="item.id || item.device_model"
                   :label="item.device_model"
-                  :value="item.device_model"
+                  :value="item.id"
                 />
               </el-select>
             </el-form-item>
@@ -569,8 +569,7 @@ import { getTableHeight } from '@/utils/tableHeight'
 import { notifyApiError } from '@/utils/apiError'
 import {
   filterDeviceModelsBySeries,
-  deriveSeriesIdForDeviceModel,
-  syncDeviceSeriesSelection
+  deriveSeriesIdForDeviceModel
 } from '../utils/deviceModelSeries'
 
 export default {
@@ -648,6 +647,7 @@ export default {
     const form = reactive({
       device_id: '',
       device_series_id: null,
+      device_model_id: null,
       device_model: '',
       hospital_id: null,
       country_code: '',
@@ -657,6 +657,9 @@ export default {
     const filteredDeviceModelOptions = computed(() => {
       return filterDeviceModelsBySeries(deviceModelOptions.value, form.device_series_id)
     })
+    const selectedFormDeviceModel = computed(() => (
+      deviceModelOptions.value.find(item => Number(item.id) === Number(form.device_model_id)) || null
+    ))
 
     const isPositiveSeriesId = (value) => {
       const num = Number(value)
@@ -671,9 +674,9 @@ export default {
     }
 
     const isSelectedModelCompatibleWithSeries = () => {
-      if (!form.device_model) return false
+      if (!form.device_model_id) return false
       if (!isPositiveSeriesId(form.device_series_id)) return true
-      return filteredDeviceModelOptions.value.some(item => item.device_model === form.device_model)
+      return filteredDeviceModelOptions.value.some(item => Number(item.id) === Number(form.device_model_id))
     }
 
     // 医院管理
@@ -718,7 +721,7 @@ export default {
       device_series_id: [
         { required: true, message: t('devices.rules.seriesRequired'), trigger: 'change' }
       ],
-      device_model: [
+      device_model_id: [
         { required: true, message: t('devices.rules.modelRequired'), trigger: 'change' }
       ]
     }))
@@ -1022,6 +1025,7 @@ export default {
         Object.assign(form, {
           device_id: row.device_id,
           device_series_id: isPositiveSeriesId(row.series_id) ? Number(row.series_id) : null,
+          device_model_id: row.device_model_id || null,
           device_model: row.device_model,
           hospital_id: row.hospital_id || null,
           country_code: row.country_code || '',
@@ -1047,6 +1051,7 @@ export default {
         Object.assign(form, {
           device_id: '',
           device_series_id: null,
+          device_model_id: null,
           device_model: '',
           hospital_id: null,
           country_code: '',
@@ -1060,8 +1065,8 @@ export default {
       } else {
         applySeriesSelection()
       }
-      if (form.device_model && !deviceModelOptions.value.some(item => item.device_model === form.device_model)) {
-        deviceModelOptions.value = [{ id: null, device_model: form.device_model, series_id: form.device_series_id }, ...deviceModelOptions.value]
+      if (form.device_model && !deviceModelOptions.value.some(item => Number(item.id) === Number(form.device_model_id))) {
+        deviceModelOptions.value = [{ id: form.device_model_id || null, device_model: form.device_model, series_id: form.device_series_id }, ...deviceModelOptions.value]
       }
       showEdit.value = true
     }
@@ -1199,7 +1204,7 @@ export default {
 
     const save = async () => {
       await formRef.value?.validate()
-      if (!form.device_model) {
+      if (!form.device_model_id) {
         ElMessage.error(t('devices.rules.modelRequired'))
         return
       }
@@ -1211,7 +1216,7 @@ export default {
       try {
         const payload = {
           device_id: form.device_id,
-          device_model: form.device_model,
+          device_model_id: form.device_model_id,
           hospital_id: form.hospital_id || null,
           series_id: isPositiveSeriesId(form.device_series_id) ? Number(form.device_series_id) : undefined
         }
@@ -1232,13 +1237,22 @@ export default {
     }
 
     const onDeviceSeriesChange = (value) => {
-      const next = syncDeviceSeriesSelection({
-        selectedSeriesId: value,
-        deviceModel: form.device_model,
-        models: deviceModelOptions.value
-      })
-      form.device_series_id = next.device_series_id
-      form.device_model = next.device_model
+      form.device_series_id = value
+      const selected = selectedFormDeviceModel.value
+      if (!selected || Number(selected.series_id) !== Number(value)) {
+        form.device_model_id = null
+        form.device_model = ''
+        return
+      }
+      form.device_model = selected.device_model || ''
+    }
+
+    const onDeviceModelChange = (value) => {
+      const selected = deviceModelOptions.value.find(item => Number(item.id) === Number(value)) || null
+      form.device_model = selected?.device_model || ''
+      if (selected && isPositiveSeriesId(selected.series_id)) {
+        form.device_series_id = Number(selected.series_id)
+      }
     }
 
     const onDeviceHospitalChange = (hospitalId) => {

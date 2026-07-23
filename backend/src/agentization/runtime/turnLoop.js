@@ -97,11 +97,19 @@ function buildAssistantMessageFromTurnResult(turnResult) {
   };
 }
 
-function serializeToolResultContent(toolResult) {
+function serializeToolResultContent(toolResult, invokeResult) {
   if (!toolResult || typeof toolResult !== 'object') {
-    return JSON.stringify({ status: 'failed', error: { code: 'INVALID_TOOL_RESULT', message: 'empty tool result' } });
+    return JSON.stringify({
+      status: 'failed',
+      text: '',
+      error: { code: 'INVALID_TOOL_RESULT', message: 'empty tool result' }
+    });
   }
-  return JSON.stringify(toolResult);
+  return JSON.stringify({
+    status: String(toolResult.status || '').trim() || 'failed',
+    text: String(invokeResult?.text || '').trim(),
+    error: toolResult.error ?? null
+  });
 }
 
 function hasToolCalls(turnResult) {
@@ -232,7 +240,7 @@ async function runTurnLoop({
           status: 'failed',
           error: { code: 'TOOL_RESULT_MISSING', message: 'tool gateway returned no result matrix' }
         };
-        const toolContent = serializeToolResultContent(toolResult);
+        const toolContent = serializeToolResultContent(toolResult, invokeResult);
         const toolMessage = {
           role: 'tool',
           tool_call_id: String(toolCall.id || ''),

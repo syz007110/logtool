@@ -15,6 +15,7 @@ const prefixTranslations = require('../config/prefixTranslations.json');
 const fs = require('fs');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const path = require('path');
+const { mapLanguageCode } = require('../config/i18nLanguages');
 const { objectKeyFromUrl } = require('../utils/oss');
 const {
   STORAGE,
@@ -91,6 +92,23 @@ async function syncErrorCodeAllLangsToEs(errorCodeId) {
   } catch (e) {
     console.warn(`[ES同步] 故障码 ${errorCodeId} 全语言同步失败:`, e?.message || e);
   }
+}
+
+function normalizeEsSyncLangs(input) {
+  if (input == null || input === '') return [];
+  const rawList = Array.isArray(input) ? input : [input];
+  const seen = new Set();
+  const result = [];
+  for (const item of rawList) {
+    const raw = String(item || '').trim().toLowerCase();
+    if (!raw) continue;
+    const base = raw.split('-')[0] || raw;
+    const normalized = mapLanguageCode(base, { fallback: 'zh', keepUnknown: true });
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }
 
 const I18N_TEXT_FIELDS = [
@@ -1961,7 +1979,7 @@ const cleanupTempTechFiles = async (req, res) => {
 // 批量同步故障码到ES
 const syncErrorCodesToEs = async (req, res) => {
   try {
-    const { errorCodeIds, lang, recreateIndex } = req.body;
+    const { errorCodeIds, lang, langs, recreateIndex, allLangs } = req.body;
 
     // 检查ES是否启用
     if (!isErrorCodeEsEnabled()) {
@@ -1972,7 +1990,8 @@ const syncErrorCodesToEs = async (req, res) => {
     }
 
     const { bulkIndexErrorCodes, ensureErrorCodeIndex } = require('../services/errorCodeIndexService');
-    const targetLang = lang || 'zh';
+    const targetLangs = normalizeEsSyncLangs(langs && Array.isArray(langs) ? langs : (lang ? [lang] : []));
+    const syncAllLangs = allLangs !== undefined ? Boolean(allLangs) : targetLangs.length === 0;
 
     // 如果需要重建索引
     if (recreateIndex) {
@@ -1991,7 +2010,8 @@ const syncErrorCodesToEs = async (req, res) => {
     // 批量同步
     const summary = await bulkIndexErrorCodes({
       errorCodeIds: errorCodeIds && Array.isArray(errorCodeIds) ? errorCodeIds : null,
-      lang: targetLang,
+      langs: targetLangs,
+      allLangs: syncAllLangs,
       batchSize: 100
     });
 
@@ -2001,6 +2021,7 @@ const syncErrorCodesToEs = async (req, res) => {
         indexed: summary.indexed,
         failed: summary.failed,
         total: summary.indexed + summary.failed,
+        langs: syncAllLangs ? 'all' : targetLangs,
         errors: summary.errors.slice(0, 10) // 只返回前10个错误
       }
     });

@@ -671,7 +671,7 @@
               v-for="item in uploadDeviceModelOptions"
               :key="item.id || item.device_model"
               :label="item.device_model"
-              :value="item.device_model"
+              :value="item.id"
             />
           </el-select>
         </div>
@@ -876,13 +876,16 @@ export default {
     const uploadDeviceId = ref('') // 上传时的设备编号
     const isDeviceUpload = ref(false) // 标记是否为设备操作上传模式
     const currentUploadDeviceId = ref('') // 当前上传的设备编号，用于自动展开
-    const uploadDeviceModel = ref('')
+    const uploadDeviceModel = ref(null)
     const uploadDeviceModelError = ref('')
     const uploadDeviceModelsLoading = ref(false)
     const uploadDeviceModelOptionsAll = ref([])
     const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
     const uploadDeviceModelOptions = computed(() =>
       filterDeviceModelsBySeries(uploadDeviceModelOptionsAll.value, currentSeriesId.value)
+    )
+    const selectedUploadDeviceModelOption = computed(() =>
+      uploadDeviceModelOptionsAll.value.find(item => Number(item.id) === Number(uploadDeviceModel.value)) || null
     )
     
 
@@ -1068,13 +1071,13 @@ export default {
       Authorization: `Bearer ${store.state.auth.token}`,
       'X-Decrypt-Key': decryptKey.value, // 添加密钥到请求头
       'X-Device-ID': uploadDeviceId.value || deviceId.value, // 添加设备编号到请求头
-      'X-Device-Model': uploadDeviceModel.value || '',
+      'X-Device-Model-ID': uploadDeviceModel.value ? String(uploadDeviceModel.value) : '',
       'X-Series-ID': currentSeriesId.value ? String(currentSeriesId.value) : ''
     }))
     
     // 判断是否可以提交上传
     const canSubmitUpload = computed(() => {
-      if (!currentSeriesId.value || !String(uploadDeviceModel.value || '').trim()) {
+      if (!currentSeriesId.value || !uploadDeviceModel.value) {
         return false
       }
       // 如果是设备操作上传模式，则只需要有设备编号
@@ -1568,12 +1571,13 @@ export default {
       
       // 自动填充设备编号到输入框（用于显示）
       deviceId.value = device.device_id
-      uploadDeviceModel.value = ''
+      uploadDeviceModel.value = null
       uploadDeviceModelError.value = ''
       await loadUploadDeviceModels()
-      const knownModel = String(device.device_model || device.device_name || '').trim()
-      if (knownModel && knownModel !== '未知设备') {
-        applyUploadDeviceModel(knownModel, currentSeriesId.value)
+      const knownModelId = device.device_model_id || null
+      const knownModel = String(device.device_name || '').trim()
+      if ((knownModelId || knownModel) && knownModel !== '未知设备') {
+        applyUploadDeviceModel(knownModelId, knownModel, currentSeriesId.value)
       }
       if (!uploadDeviceModel.value) {
         await prefillsUploadDeviceModel(device.device_id)
@@ -1606,7 +1610,7 @@ export default {
       keyFileName.value = ''
       keyError.value = ''
       deviceIdError.value = ''
-      uploadDeviceModel.value = ''
+      uploadDeviceModel.value = null
       uploadDeviceModelError.value = ''
       uploadFileList.value = []
       await loadUploadDeviceModels()
@@ -1913,9 +1917,9 @@ export default {
         }))
         if (
           uploadDeviceModel.value &&
-          !uploadDeviceModelOptions.value.some(item => item.device_model === uploadDeviceModel.value)
+          !uploadDeviceModelOptions.value.some(item => Number(item.id) === Number(uploadDeviceModel.value))
         ) {
-          uploadDeviceModel.value = ''
+          uploadDeviceModel.value = null
         }
       } catch (e) {
         console.warn('加载上传设备型号失败:', e?.message || e)
@@ -1935,25 +1939,26 @@ export default {
     // 程序写入密钥/编号时置位，避免双向 watch 互触发覆盖用户刚输入的一侧
     let autoFillApplying = false
 
-    const applyUploadDeviceModel = (model, seriesId = currentSeriesId.value) => {
-      const normalized = String(model || '').trim()
-      if (!normalized) return false
+    const applyUploadDeviceModel = (modelId, modelName = '', seriesId = currentSeriesId.value) => {
+      const normalizedId = Number(modelId)
+      const normalizedName = String(modelName || '').trim()
       const sid = Number(seriesId)
       const hasSeries = Number.isInteger(sid) && sid > 0
-      const exists = uploadDeviceModelOptionsAll.value.some(
-        (item) => String(item.device_model || '').trim() === normalized
-      )
-      if (!exists && hasSeries) {
+      const exists = Number.isInteger(normalizedId) && normalizedId > 0
+        ? uploadDeviceModelOptionsAll.value.some((item) => Number(item.id) === normalizedId)
+        : false
+      if (!exists && hasSeries && Number.isInteger(normalizedId) && normalizedId > 0) {
         // 下拉最多 100 条时，回填型号可能不在当前页；临时并入选项以便展示
         uploadDeviceModelOptionsAll.value = [
           ...uploadDeviceModelOptionsAll.value,
-          { id: `autofill-${normalized}`, device_model: normalized, series_id: sid }
+          { id: normalizedId, device_model: normalizedName, series_id: sid }
         ]
       }
-      if (!uploadDeviceModelOptions.value.some((item) => String(item.device_model || '').trim() === normalized)) {
+      if (!Number.isInteger(normalizedId) || normalizedId <= 0) return false
+      if (!uploadDeviceModelOptions.value.some((item) => Number(item.id) === normalizedId)) {
         return false
       }
-      uploadDeviceModel.value = normalized
+      uploadDeviceModel.value = normalizedId
       uploadDeviceModelError.value = ''
       return true
     }
@@ -1967,7 +1972,7 @@ export default {
           series_id: currentSeriesId.value
         })
         if (seq !== prefillModelSeq) return
-        applyUploadDeviceModel(res.data?.device_model, currentSeriesId.value)
+        applyUploadDeviceModel(res.data?.device_model_id, res.data?.device_model, currentSeriesId.value)
       } catch (error) {
         console.warn('自动填充设备型号失败:', error?.message || error)
       }
@@ -2055,7 +2060,7 @@ export default {
 
     watch(currentSeriesId, async (nextId, prevId) => {
       if (!nextId || nextId === prevId) return
-      uploadDeviceModel.value = ''
+      uploadDeviceModel.value = null
       uploadDeviceModelError.value = ''
       currentPage.value = 1
       if (showUploadDialog.value) {
@@ -2099,7 +2104,7 @@ export default {
         ElMessage.warning(t('logs.messages.selectSeriesFirst'))
         return
       }
-      if (!String(uploadDeviceModel.value || '').trim()) {
+      if (!uploadDeviceModel.value) {
         uploadDeviceModelError.value = t('logs.messages.deviceModelRequired')
         ElMessage.warning(t('logs.messages.deviceModelRequired'))
         return
@@ -2237,7 +2242,7 @@ export default {
         uploadDeviceId.value = ''
         keyError.value = ''
         deviceIdError.value = ''
-        uploadDeviceModel.value = ''
+        uploadDeviceModel.value = null
         uploadDeviceModelError.value = ''
         currentUploadDeviceId.value = '' // 清空当前上传的设备编号
       } else {
@@ -3419,13 +3424,14 @@ export default {
 
 
 .key-input-section {
-  margin-top: 15px;
+  margin-top: 12px;
 }
 
 .key-input-row {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-wrap: wrap;
 }
 
 .key-separator {
@@ -3434,15 +3440,15 @@ export default {
 }
 
 .key-file-info {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .key-error {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .device-input-section {
-  margin-top: 15px;
+  margin-top: 12px;
 }
 
 .device-input-row {
@@ -3452,7 +3458,7 @@ export default {
 }
 
 .device-error {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .device-info-section {
@@ -3535,10 +3541,18 @@ export default {
 }
 
 .custom-file-list {
-  margin-top: 15px;
+  margin-top: 12px;
   border: 1px solid rgb(var(--border-secondary));
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.log-upload-dialog :deep(.el-dialog__body) {
+  overflow-y: hidden;
+}
+
+.log-upload-dialog .app-dialog-file-list .file-items {
+  max-height: min(180px, 24vh);
 }
 
 .file-list-header {
@@ -3883,7 +3897,7 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 16px;
-  padding: 16px 0;
+  padding: 12px 0;
 }
 
 .detail-actions .batch-actions {

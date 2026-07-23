@@ -311,7 +311,7 @@
               v-for="item in uploadDeviceModelOptions"
               :key="item.id || item.device_model"
               :label="item.device_model"
-              :value="item.device_model"
+              :value="item.id"
             />
           </el-select>
           <div v-if="!currentSeriesId" class="el-upload__tip" style="color: var(--el-color-warning);">
@@ -395,7 +395,7 @@
           <el-button 
             type="primary" 
             @click="submitUploadDialog" 
-            :disabled="uploading || !canMotionParse || uploadFileList.length === 0 || !uploadDialogDeviceId.trim() || !uploadDialogDeviceModel.trim() || !currentSeriesId"
+            :disabled="uploading || !canMotionParse || uploadFileList.length === 0 || !uploadDialogDeviceId.trim() || !uploadDialogDeviceModel || !currentSeriesId"
           >
             <el-icon v-if="!uploading"><Upload /></el-icon>
             {{ uploading ? $t('dataReplay.uploading') : $t('dataReplay.upload') }}
@@ -551,7 +551,7 @@ export default {
     const uploadDialogDeviceIdLocked = ref(false)
     const uploadFileList = ref([])
     const uploadDialogUploadRef = ref(null)
-    const uploadDialogDeviceModel = ref('')
+    const uploadDialogDeviceModel = ref(null)
     const uploadDeviceModelsLoading = ref(false)
     const uploadDeviceModelOptionsAll = ref([])
     const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
@@ -559,6 +559,9 @@ export default {
     const tableHeight = computed(() => getTableHeight('basic'))
     const uploadDeviceModelOptions = computed(() =>
       filterDeviceModelsBySeries(uploadDeviceModelOptionsAll.value, currentSeriesId.value)
+    )
+    const selectedUploadDeviceModelOption = computed(() =>
+      uploadDeviceModelOptionsAll.value.find(item => Number(item.id) === Number(uploadDialogDeviceModel.value)) || null
     )
 
     const uploading = ref(false)
@@ -1052,9 +1055,9 @@ export default {
         }))
         if (
           uploadDialogDeviceModel.value &&
-          !uploadDeviceModelOptions.value.some(item => item.device_model === uploadDialogDeviceModel.value)
+          !uploadDeviceModelOptions.value.some(item => Number(item.id) === Number(uploadDialogDeviceModel.value))
         ) {
-          uploadDialogDeviceModel.value = ''
+          uploadDialogDeviceModel.value = null
         }
       } catch (e) {
         console.warn('加载运行数据上传设备型号失败:', e?.message || e)
@@ -1064,24 +1067,25 @@ export default {
       }
     }
 
-    const applyUploadDeviceModel = (model, seriesId = currentSeriesId.value) => {
-      const normalized = String(model || '').trim()
-      if (!normalized) return false
+    const applyUploadDeviceModel = (modelId, modelName = '', seriesId = currentSeriesId.value) => {
+      const normalizedId = Number(modelId)
+      const normalizedName = String(modelName || '').trim()
       const sid = Number(seriesId)
       const hasSeries = Number.isInteger(sid) && sid > 0
-      const exists = uploadDeviceModelOptionsAll.value.some(
-        (item) => String(item.device_model || '').trim() === normalized
-      )
-      if (!exists && hasSeries) {
+      const exists = Number.isInteger(normalizedId) && normalizedId > 0
+        ? uploadDeviceModelOptionsAll.value.some((item) => Number(item.id) === normalizedId)
+        : false
+      if (!exists && hasSeries && Number.isInteger(normalizedId) && normalizedId > 0) {
         uploadDeviceModelOptionsAll.value = [
           ...uploadDeviceModelOptionsAll.value,
-          { id: `autofill-${normalized}`, device_model: normalized, series_id: sid }
+          { id: normalizedId, device_model: normalizedName, series_id: sid }
         ]
       }
-      if (!uploadDeviceModelOptions.value.some((item) => String(item.device_model || '').trim() === normalized)) {
+      if (!Number.isInteger(normalizedId) || normalizedId <= 0) return false
+      if (!uploadDeviceModelOptions.value.some((item) => Number(item.id) === normalizedId)) {
         return false
       }
-      uploadDialogDeviceModel.value = normalized
+      uploadDialogDeviceModel.value = normalizedId
       return true
     }
 
@@ -1092,7 +1096,7 @@ export default {
         const res = await api.logs.autoFillDeviceModel(did, {
           series_id: currentSeriesId.value
         })
-        applyUploadDeviceModel(res.data?.device_model, currentSeriesId.value)
+        applyUploadDeviceModel(res.data?.device_model_id, res.data?.device_model, currentSeriesId.value)
       } catch (error) {
         console.warn('自动填充运行数据设备型号失败:', error?.message || error)
       }
@@ -1105,7 +1109,7 @@ export default {
       }
       uploadDialogVisible.value = true
       uploadFileList.value = []
-      uploadDialogDeviceModel.value = ''
+      uploadDialogDeviceModel.value = null
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
       uploadProgress.value = 0
       uploadProgressText.value = ''
@@ -1129,7 +1133,7 @@ export default {
       uploadFileList.value = []
       uploadDialogDeviceId.value = ''
       uploadDialogDeviceIdLocked.value = false
-      uploadDialogDeviceModel.value = ''
+      uploadDialogDeviceModel.value = null
       if (uploadDialogUploadRef.value) uploadDialogUploadRef.value.clearFiles()
     }
 
@@ -1189,8 +1193,8 @@ export default {
         ElMessage.warning(t('shared.seriesFeatureUnsupported'))
         return
       }
-      const deviceModel = String(uploadDialogDeviceModel.value || '').trim()
-      if (!deviceModel) {
+      const deviceModelId = Number(uploadDialogDeviceModel.value)
+      if (!Number.isInteger(deviceModelId) || deviceModelId <= 0) {
         ElMessage.warning(t('dataReplay.deviceModelRequired'))
         return
       }
@@ -1205,16 +1209,16 @@ export default {
       uploadFileList.value = []
       if (uploadDialogUploadRef.value) uploadDialogUploadRef.value.clearFiles()
       
-      await processUpload(deviceId, raws, deviceModel)
+      await processUpload(deviceId, raws, deviceModelId)
     }
 
-    const processUpload = async (deviceId, filesToUpload, deviceModel) => {
+    const processUpload = async (deviceId, filesToUpload, deviceModelId) => {
       if (!filesToUpload?.length || !deviceId) return
       uploading.value = true
       try {
         const form = new FormData()
         form.append('device_id', deviceId)
-        form.append('device_model', deviceModel || '')
+        form.append('device_model_id', String(deviceModelId))
         if (currentSeriesId.value) {
           form.append('series_id', String(currentSeriesId.value))
         }
@@ -1338,7 +1342,7 @@ export default {
 
     watch(currentSeriesId, async (nextId, prevId) => {
       if (!nextId || nextId === prevId) return
-      uploadDialogDeviceModel.value = ''
+      uploadDialogDeviceModel.value = null
       currentPage.value = 1
       if (uploadDialogVisible.value) {
         await loadUploadDeviceModels()

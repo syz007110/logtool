@@ -38,6 +38,7 @@ function loadDeviceController(stubs) {
   const logPath = path.resolve(__dirname, '../src/models/log.js');
   const hospitalPath = path.resolve(__dirname, '../src/models/hospital_master.js');
   const modelDictPath = path.resolve(__dirname, '../src/models/device_model_dict.js');
+  const seriesPath = path.resolve(__dirname, '../src/models/device_series_dict.js');
   const geoRegionPath = path.resolve(__dirname, '../src/models/geo_region.js');
   const loggerPath = path.resolve(__dirname, '../src/utils/operationLogger.js');
   const keyServicePath = path.resolve(__dirname, '../src/services/deviceKeyService.js');
@@ -48,6 +49,7 @@ function loadDeviceController(stubs) {
   require.cache[logPath] = { exports: stubs.Log || {} };
   require.cache[hospitalPath] = { exports: stubs.HospitalMaster };
   require.cache[modelDictPath] = { exports: stubs.DeviceModelDict };
+  require.cache[seriesPath] = { exports: stubs.DeviceSeriesDict || {} };
   require.cache[geoRegionPath] = { exports: stubs.GeoRegion || {} };
   require.cache[loggerPath] = { exports: { logOperation: async () => {} } };
   require.cache[keyServicePath] = {
@@ -100,7 +102,7 @@ test('listDevices rejects invalid series_id', async () => {
   assert.match(String(res.body?.message || ''), /series_id/i);
 });
 
-test('createDevice rejects mismatched series_id and device_model', async () => {
+test('createDevice rejects mismatched series_id and device_model_id', async () => {
   const controller = loadDeviceController({
     Device: {
       findOne: async ({ where }) => {
@@ -112,16 +114,12 @@ test('createDevice rejects mismatched series_id and device_model', async () => {
     },
     HospitalMaster: {},
     DeviceModelDict: {
-      findOne: async ({ where }) => (
-        where?.device_model === '4371' && where?.series_id === 2
-          ? null
-          : { id: 11, device_model: '4371', series_id: 1 }
-      )
+      findByPk: async (id) => (id === 11 ? { id: 11, device_model: '4371', series_id: 1 } : null)
     }
   });
 
   const req = {
-    body: { device_id: 'AA-01', device_model: '4371', series_id: 2 },
+    body: { device_id: 'AA-01', device_model_id: 11, series_id: 2 },
     t: (key) => key,
     user: null,
     ip: '',
@@ -135,13 +133,12 @@ test('createDevice rejects mismatched series_id and device_model', async () => {
   assert.match(String(res.body?.message || ''), /设备系列|series_id/i);
 });
 
-test('updateDevice rejects mismatched series_id and effective device_model', async () => {
+test('updateDevice rejects missing device_model_id', async () => {
   const controller = loadDeviceController({
     Device: {
       findByPk: async () => ({
         id: 1,
         device_id: 'AA-01',
-        device_model: '4371',
         device_key: '',
         hospital_id: null,
         save: async () => {}
@@ -152,13 +149,7 @@ test('updateDevice rejects mismatched series_id and effective device_model', asy
       }
     },
     HospitalMaster: {},
-    DeviceModelDict: {
-      findOne: async ({ where }) => (
-        where?.device_model === '4371' && where?.series_id === 2
-          ? null
-          : { id: 11, device_model: '4371', series_id: 1 }
-      )
-    }
+    DeviceModelDict: {}
   });
 
   const req = {
@@ -174,7 +165,7 @@ test('updateDevice rejects mismatched series_id and effective device_model', asy
   await controller.updateDevice(req, res);
 
   assert.equal(res.statusCode, 400);
-  assert.match(String(res.body?.message || ''), /设备系列|series_id/i);
+  assert.match(String(res.body?.message || ''), /device_model_id/i);
 });
 
 test('createDevice persists series_id when provided', async () => {
@@ -190,12 +181,12 @@ test('createDevice persists series_id when provided', async () => {
     },
     HospitalMaster: {},
     DeviceModelDict: {
-      findOne: async () => ({ id: 11, device_model: '4371', series_id: 2 })
+      findByPk: async () => ({ id: 11, device_model: '4371', series_id: 2 })
     }
   });
 
   const req = {
-    body: { device_id: 'AA-01', device_model: '4371', series_id: 2 },
+    body: { device_id: 'AA-01', device_model_id: 11, series_id: 2 },
     t: (key) => key,
     user: null,
     ip: '',
@@ -209,11 +200,44 @@ test('createDevice persists series_id when provided', async () => {
   assert.equal(createdPayload.series_id, 2);
 });
 
+test('createDevice persists device_model_id without writing device_model', async () => {
+  let createdPayload = null;
+  const controller = loadDeviceController({
+    Device: {
+      findOne: async () => null,
+      rawAttributes: { hospital_code: {} },
+      create: async (payload) => {
+        createdPayload = payload;
+        return { id: 1, ...payload };
+      }
+    },
+    HospitalMaster: {},
+    DeviceModelDict: {
+      findByPk: async () => ({ id: 11, device_model: '4371', series_id: 2 })
+    }
+  });
+
+  const req = {
+    body: { device_id: 'AA-01', device_model_id: 11, series_id: 2 },
+    t: (key) => key,
+    user: null,
+    ip: '',
+    headers: {}
+  };
+  const res = createRes();
+
+  await controller.createDevice(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(createdPayload.device_model_id, 11);
+  assert.equal(Object.prototype.hasOwnProperty.call(createdPayload, 'device_model'), false);
+});
+
 test('updateDevice persists series_id when provided', async () => {
   const deviceRecord = {
     id: 1,
     device_id: 'AA-01',
-    device_model: '4371',
+    device_model_id: null,
     device_key: '',
     hospital_id: null,
     series_id: null,
@@ -228,13 +252,13 @@ test('updateDevice persists series_id when provided', async () => {
     },
     HospitalMaster: {},
     DeviceModelDict: {
-      findOne: async () => ({ id: 11, device_model: '4371', series_id: 2 })
+      findByPk: async () => ({ id: 11, device_model: '4371', series_id: 2 })
     }
   });
 
   const req = {
     params: { id: '1' },
-    body: { series_id: 2 },
+    body: { device_model_id: 11, series_id: 2 },
     t: (key) => key,
     user: null,
     ip: '',
@@ -245,5 +269,47 @@ test('updateDevice persists series_id when provided', async () => {
   await controller.updateDevice(req, res);
 
   assert.equal(res.statusCode, 200);
+  assert.equal(deviceRecord.series_id, 2);
+});
+
+test('updateDevice resolves device_model_id from request without writing device_model', async () => {
+  const deviceRecord = {
+    id: 1,
+    device_id: 'AA-01',
+    device_model: 'legacy',
+    device_model_id: null,
+    device_key: '',
+    hospital_id: null,
+    series_id: null,
+    save: async function save() {
+      return this;
+    }
+  };
+  const controller = loadDeviceController({
+    Device: {
+      findByPk: async () => deviceRecord,
+      findOne: async () => null
+    },
+    HospitalMaster: {},
+    DeviceModelDict: {
+      findByPk: async () => ({ id: 21, device_model: '4371', series_id: 2 })
+    }
+  });
+
+  const req = {
+    params: { id: '1' },
+    body: { device_model_id: 21 },
+    t: (key) => key,
+    user: null,
+    ip: '',
+    headers: {}
+  };
+  const res = createRes();
+
+  await controller.updateDevice(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(deviceRecord.device_model_id, 21);
+  assert.equal(deviceRecord.device_model, 'legacy');
   assert.equal(deviceRecord.series_id, 2);
 });

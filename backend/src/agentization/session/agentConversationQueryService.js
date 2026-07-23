@@ -45,6 +45,7 @@ function isDialogueHistoryRow(row) {
   const role = String(row?.role || '').trim().toLowerCase();
   if (role !== 'user' && role !== 'assistant') return false;
   const messageType = normalizeStoredMessageType(row?.messageType || row?.message_type);
+  if (messageType === 'system') return false;
   return !isPipelineMessageType(messageType);
 }
 
@@ -188,7 +189,7 @@ async function listConversationsForUser(userId, options = {}) {
          JOIN conversation_instances ci ON ci.id = cm.instance_id
          JOIN container c ON c.id = ci.container_id
         WHERE cm.role IN ('user', 'assistant')
-          AND cm.message_type IN ('text', 'attachment', 'system')
+          AND cm.message_type IN ('text', 'attachment')
         ORDER BY cm.instance_id, cm.created_at DESC, cm.id DESC
      ),
      first_user AS (

@@ -2330,6 +2330,9 @@ export default {
   border-radius: var(--m-radius-lg);
   font-size: var(--m-font-size-md);
   line-height: var(--m-line-height-md);
+  max-width: min(92vw, 100%);
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .user-bubble {

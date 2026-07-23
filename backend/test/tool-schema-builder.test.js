@@ -20,6 +20,7 @@ test('registry loader reads enabled tools and normalized parameters', () => {
   assert.deepEqual(target.runtime.defaults, { language: 'zh-CN' });
   assert.deepEqual(target.parameters?.properties?.seriesCode?.enum, ['SR', 'SA']);
   assert.deepEqual(target.parameters?.properties?.queryType?.enum, ['single_code', 'multiple_codes', 'keyword']);
+  assert.equal(target.parameters?.properties?.errorCode?.maxLength, 64);
   assert.equal(target.execution.handler, 'errorCodeLookupHandler.execute');
 });
 
@@ -38,7 +39,7 @@ test('tool schema builder maps registry to OpenAI function tools', () => {
   assert.deepEqual(tool.function.parameters.required, ['seriesCode', 'queryType']);
   assert.deepEqual(tool.function.parameters.properties.seriesCode.enum, ['SR', 'SA']);
   assert.deepEqual(tool.function.parameters.properties.queryType.enum, ['single_code', 'multiple_codes', 'keyword']);
-  assert.equal(String(tool.function.parameters.properties.errorCode.pattern), '^(?:0X[0-9A-F]{4}|[1-9A][0-9A-F]{5}[A-E])$');
+  assert.equal(tool.function.parameters.properties.errorCode.maxLength, 64);
   assert.equal(tool.function.parameters.properties.errorCodes.maxItems, 20);
   assert.equal(tool.function.parameters.properties.keywords.maxLength, 100);
 });

@@ -1,5 +1,6 @@
 const { getElasticsearchClient } = require('../config/elasticsearch');
 const { ensureErrorCodeIndex } = require('./errorCodeIndexService');
+const { mapLanguageCode } = require('../config/i18nLanguages');
 const fs = require('fs');
 const path = require('path');
 
@@ -8,8 +9,10 @@ function getErrorCodeIndexName() {
 }
 
 function normalizeLang(lang) {
-  const s = String(lang || '').trim().toLowerCase();
-  return s.startsWith('en') ? 'en' : 'zh';
+  const raw = String(lang || '').trim().toLowerCase();
+  if (!raw) return 'zh';
+  const base = raw.split('-')[0] || raw;
+  return mapLanguageCode(base, { fallback: 'zh', keepUnknown: true });
 }
 
 function clampInt(n, min, max, fallback) {

@@ -184,6 +184,14 @@ function defineAssociations() {
     foreignKey: 'series_id',
     as: 'DeviceSeries'
   });
+  DeviceModelDict.hasMany(Device, {
+    foreignKey: 'device_model_id',
+    as: 'devices'
+  });
+  Device.belongsTo(DeviceModelDict, {
+    foreignKey: 'device_model_id',
+    as: 'DeviceModel'
+  });
 
   // 地理与医院主数据关联
   GeoCountry.hasMany(GeoRegion, {
