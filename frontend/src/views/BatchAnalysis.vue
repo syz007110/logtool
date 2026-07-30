@@ -2526,6 +2526,15 @@ export default {
       return [timeRangeLimit.value[0], timeRangeLimit.value[1]]
     })
 
+    const getCsvExportDownloadUrl = (taskId) => {
+      if (!taskId) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      if (token) qs.set('token', token)
+      const suffix = qs.toString() ? `?${qs.toString()}` : ''
+      return `/api/logs/entries/export/${taskId}/result${suffix}`
+    }
+
     // 导出CSV（异步队列模式）
     const exportToCSV = async () => {
       try {
@@ -2573,17 +2582,16 @@ export default {
               if (timeoutId) clearTimeout(timeoutId)
               // 下载结果文件
               try {
-                const downloadResp = await api.logs.downloadExportCsvResult(taskId)
+                const url = getCsvExportDownloadUrl(taskId)
+                if (!url) throw new Error('未能生成下载地址')
                 const csvName = st?.result?.csvFileName || `batch_log_entries_${Date.now()}.csv`
-                const blob = new Blob([downloadResp.data], { type: 'text/csv;charset=utf-8;' })
-                const url = URL.createObjectURL(blob)
                 const link = document.createElement('a')
                 link.href = url
                 link.download = csvName
+                link.rel = 'noopener'
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
-                setTimeout(() => URL.revokeObjectURL(url), 100)
                 ElMessage.success(t('batchAnalysis.csvExportSuccess'))
               } catch (downloadErr) {
                 notifyApiError(downloadErr, t('batchAnalysis.downloadResultFileFailed'))

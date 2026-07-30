@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const smartSearchPrompts = require('../config/smartSearchPrompts.json');
 const { normalizeProviderCapabilities } = require('../agentization/orchestrator/providerCapabilities');
+const { adaptChatCompletionRequest } = require('../agentization/orchestrator/chatProviderAdapter');
 
 function normalizeBaseUrl(baseUrl) {
   const s = String(baseUrl || '').trim();
@@ -953,13 +954,25 @@ function buildBatchIntentExtractionMessages(prompt, { timeFormat = 'YYYY-MM-DD H
 }
 
 function buildBatchIntentExtractionRequest({ provider, messages }) {
-  return {
+  const chatRequest = {
     model: provider.model,
-    temperature: provider.temperature ?? 0,
-    top_p: provider.topP ?? 0.1,
     messages: Array.isArray(messages) ? messages : [],
-    response_format: { type: 'json_object' }
+    temperature: 0,
+    top_p: 0.1,
+    max_tokens: provider?.orchestratorMaxTokens ?? 4096,
+    stream: false,
+    response_format: null,
+    stop: null,
+    tools: null,
+    tool_choice: 'none'
   };
+  const { body } = adaptChatCompletionRequest(chatRequest, provider);
+
+  if (provider?.orchestratorJsonOutput?.mode === 'openai_json_object') {
+    body.response_format = { type: 'json_object' };
+  }
+
+  return body;
 }
 
 const BATCH_ALLOWED_QUESTION_SLOTS = new Set(['scope', 'time_range', 'value_range', 'keyword']);

@@ -17,7 +17,16 @@ function canUseQueryToken(req) {
   const allowPatterns = [
     /^\/api\/oss\/(tech-solution|fault-cases|kb|motion-data|agent-assets)$/,
     /^\/api\/smart-search\/mknowledge-assets\/[^/]+\/[^/]+$/,
-    /^\/api\/jira\/attachment\/proxy$/
+    /^\/api\/jira\/attachment\/proxy$/,
+    /^\/api\/error-codes\/export\/xml$/,
+    /^\/api\/error-codes\/export\/csv$/,
+    /^\/api\/logs\/[^/]+\/download$/,
+    /^\/api\/logs\/batch\/download\/[^/]+\/result$/,
+    /^\/api\/logs\/entries\/export\/[^/]+\/result$/,
+    /^\/api\/motion-data\/files\/[^/]+\/download\/raw$/,
+    /^\/api\/motion-data\/files\/[^/]+\/download\/parsed$/,
+    /^\/api\/motion-data\/task\/[^/]+\/download$/,
+    /^\/api\/motion-data\/[^/]+\/download-csv$/
   ];
 
   return allowPatterns.some((pattern) => pattern.test(fullPath));

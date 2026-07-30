@@ -285,6 +285,7 @@ async function getSeriesByTimeRange(req, res) {
 // POST /upload (multer handles file)
 async function uploadBinary(req, res) {
   try {
+    const configuredStorage = String(motionStorage.STORAGE || 'oss').toLowerCase();
     const deviceId = String(req.body?.device_id || req.body?.deviceId || '').trim();
     if (!deviceId) {
       if (req.file?.path && fs.existsSync(req.file.path)) {
@@ -341,19 +342,28 @@ async function uploadBinary(req, res) {
         uploader_id: req.user ? req.user.id : null,
         status: 'uploading',
         error_message: null,
+        jsonl_status: 'pending',
+        csv_status: 'pending',
+        jsonl_error_message: null,
+        csv_error_message: null,
         upload_time: new Date(),
         parse_time: null,
+        jsonl_generated_at: null,
+        csv_generated_at: null,
         size_bytes: sizeBytes,
         file_time_token: fileTimeToken,
         file_time: fileTime,
-        storage: 'oss',
+        storage: configuredStorage,
         raw_object_key: motionStorage.buildRawObjectKey(deviceId, originalName),
         parsed_object_key: motionStorage.buildParsedObjectKey(deviceId, originalName),
+        csv_object_key: motionStorage.buildCsvObjectKey(deviceId, originalName),
         total_frames: null,
         ts_first: null,
         ts_last: null,
         sha256: null,
-        etag: null
+        etag: null,
+        jsonl_size_bytes: null,
+        csv_size_bytes: null
       });
       row = existed;
     } else {
@@ -366,15 +376,22 @@ async function uploadBinary(req, res) {
         file_time: fileTime,
         size_bytes: sizeBytes,
         revision: 1,
-        storage: 'oss',
+        storage: configuredStorage,
         raw_object_key: motionStorage.buildRawObjectKey(deviceId, originalName),
         parsed_object_key: motionStorage.buildParsedObjectKey(deviceId, originalName),
+        csv_object_key: motionStorage.buildCsvObjectKey(deviceId, originalName),
         entry_size_bytes: ENTRY_SIZE_BYTES,
         sample_rate_hz: 100,
         status: 'uploading',
+        jsonl_status: 'pending',
+        csv_status: 'pending',
         error_message: null,
+        jsonl_error_message: null,
+        csv_error_message: null,
         upload_time: new Date(),
-        parse_time: null
+        parse_time: null,
+        jsonl_generated_at: null,
+        csv_generated_at: null
       });
     }
 
@@ -421,6 +438,7 @@ async function uploadBinary(req, res) {
 // POST /batch-upload (multer handles multiple files, max 20)
 async function batchUploadBinary(req, res) {
   try {
+    const configuredStorage = String(motionStorage.STORAGE || 'oss').toLowerCase();
     const deviceId = String(req.body?.device_id || req.body?.deviceId || '').trim();
     const cleanupUploadedTemps = () => {
       if (req.files && req.files.length > 0) {
@@ -487,19 +505,28 @@ async function batchUploadBinary(req, res) {
           uploader_id: userId,
           status: 'uploading',
           error_message: null,
+          jsonl_status: 'pending',
+          csv_status: 'pending',
+          jsonl_error_message: null,
+          csv_error_message: null,
           upload_time: new Date(),
           parse_time: null,
+          jsonl_generated_at: null,
+          csv_generated_at: null,
           size_bytes: sizeBytes,
           file_time_token: fileTimeToken,
           file_time: fileTime,
-          storage: 'oss',
+          storage: configuredStorage,
           raw_object_key: motionStorage.buildRawObjectKey(deviceId, originalName),
           parsed_object_key: motionStorage.buildParsedObjectKey(deviceId, originalName),
+          csv_object_key: motionStorage.buildCsvObjectKey(deviceId, originalName),
           total_frames: null,
           ts_first: null,
           ts_last: null,
           sha256: null,
-          etag: null
+          etag: null,
+          jsonl_size_bytes: null,
+          csv_size_bytes: null
         });
         row = existed;
       } else {
@@ -512,15 +539,22 @@ async function batchUploadBinary(req, res) {
           file_time: fileTime,
           size_bytes: sizeBytes,
           revision: 1,
-          storage: 'oss',
+          storage: configuredStorage,
           raw_object_key: motionStorage.buildRawObjectKey(deviceId, originalName),
           parsed_object_key: motionStorage.buildParsedObjectKey(deviceId, originalName),
+          csv_object_key: motionStorage.buildCsvObjectKey(deviceId, originalName),
           entry_size_bytes: ENTRY_SIZE_BYTES,
           sample_rate_hz: 100,
           status: 'uploading',
+          jsonl_status: 'pending',
+          csv_status: 'pending',
           error_message: null,
+          jsonl_error_message: null,
+          csv_error_message: null,
           upload_time: new Date(),
-          parse_time: null
+          parse_time: null,
+          jsonl_generated_at: null,
+          csv_generated_at: null
         });
       }
       records.push({ row, file });
@@ -835,9 +869,9 @@ function generateCsvStream(filePath, originalFilename) {
   return stream;
 }
 
-// POST /batch-download - 批量下载（支持 CSV 和 JSONL 格式）
+// POST /batch-download - 批量下载（仅支持 CSV）
 async function batchDownload(req, res) {
-  const { fileIds, format = 'csv' } = req.body; // format: 'csv' | 'jsonl'
+  const { fileIds, format = 'csv' } = req.body;
 
   if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
     return res.status(400).json({ message: '缺少文件ID列表' });
@@ -847,8 +881,8 @@ async function batchDownload(req, res) {
     return res.status(400).json({ message: '最多只能处理20个文件' });
   }
 
-  if (format !== 'csv' && format !== 'jsonl') {
-    return res.status(400).json({ message: '格式参数无效，必须是 csv 或 jsonl' });
+  if (format !== 'csv') {
+    return res.status(400).json({ message: '当前仅支持 csv 格式打包下载' });
   }
 
   try {
@@ -877,7 +911,7 @@ async function batchDownload(req, res) {
 
     // 记录操作日志
     try {
-      const formatName = format === 'csv' ? 'CSV' : 'JSONL';
+      const formatName = 'CSV';
       await logOperation({
         operation: '数据回放-批量打包下载',
         description: `打包下载 ${fileIds.length} 个运动数据文件为${formatName}`,
@@ -1215,9 +1249,15 @@ async function listMotionDataFiles(req, res) {
         upload_time: d.upload_time,
         parse_time: d.parse_time,
         status: d.status,
+        jsonl_status: d.jsonl_status,
+        csv_status: d.csv_status,
         error_message: d.error_message || null,
+        jsonl_error_message: d.jsonl_error_message || null,
+        csv_error_message: d.csv_error_message || null,
         revision: d.revision,
         size_bytes: d.size_bytes,
+        jsonl_size_bytes: d.jsonl_size_bytes,
+        csv_size_bytes: d.csv_size_bytes,
         total_frames: d.total_frames,
         ts_first: d.ts_first,
         ts_last: d.ts_last
@@ -1503,9 +1543,9 @@ async function downloadMotionDataParsed(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ message: 'id 无效' });
 
-  const format = req.query.format || 'jsonl'; // 默认 JSONL，支持 csv
-  if (format !== 'csv' && format !== 'jsonl') {
-    return res.status(400).json({ message: '格式参数无效，必须是 csv 或 jsonl' });
+  const format = req.query.format || 'csv';
+  if (format !== 'csv') {
+    return res.status(400).json({ message: '当前仅支持 csv 下载' });
   }
 
   const row = await MotionDataFile.findByPk(id);
@@ -1519,87 +1559,79 @@ async function downloadMotionDataParsed(req, res) {
   const base = String(row.original_name || `motion-data-${id}.bin`).replace(/\.bin$/i, '');
 
   try {
-    if (format === 'csv') {
-      // CSV 格式：优先从 JSONL.gz 转换，如果不存在则从 bin 解析
-      const { generateCsvStream, generateCsvStreamFromJsonl } = require('../workers/motionDataProcessor');
-
-      let filePath;
-      let csvStream;
-      let tmpFile = null;
-
-      try {
-        // 尝试从 JSONL.gz 转换（更快）
-        if (storage === 'local') {
-          if (!row.parsed_object_key) throw new Error('JSONL文件不存在');
-          filePath = path.join(motionStorage.LOCAL_DIR, row.parsed_object_key);
-          if (!fs.existsSync(filePath)) throw new Error('JSONL文件不存在');
-        } else {
-          const client = await motionStorage.getOssClient();
-          if (!client) throw new Error('OSS client not available');
-          if (!row.parsed_object_key) throw new Error('JSONL文件不存在');
-          const tmpDir = path.resolve(__dirname, '../../uploads/temp/motion-data-download');
-          fs.mkdirSync(tmpDir, { recursive: true });
-          filePath = path.join(tmpDir, `parsed_${id}_${row.revision}.jsonl.gz`);
-          tmpFile = filePath;
-          await client.get(String(row.parsed_object_key).replace(/^\//, ''), filePath);
-        }
-        csvStream = generateCsvStreamFromJsonl(filePath, row.original_name);
-      } catch (jsonlErr) {
-        // 如果 JSONL 不存在，从 bin 文件解析
-        console.log(`JSONL 文件不存在，从 bin 文件解析: ${id}`);
-        if (storage === 'local') {
-          if (!row.raw_object_key) throw new Error('原始文件不存在');
-          filePath = path.join(motionStorage.LOCAL_DIR, row.raw_object_key);
-          if (!fs.existsSync(filePath)) throw new Error('原始文件不存在');
-        } else {
-          const client = await motionStorage.getOssClient();
-          if (!client) throw new Error('OSS client not available');
-          if (!row.raw_object_key) throw new Error('原始文件不存在');
-          const tmpDir = path.resolve(__dirname, '../../uploads/temp/motion-data-download');
-          fs.mkdirSync(tmpDir, { recursive: true });
-          filePath = path.join(tmpDir, `raw_${id}_${row.revision}.bin`);
-          tmpFile = filePath;
-          await client.get(String(row.raw_object_key).replace(/^\//, ''), filePath);
-        }
-        csvStream = generateCsvStream(filePath, row.original_name);
-      }
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      const csvName = safeFilename(`${base}.csv`, `motion-data-${id}.csv`);
-      res.setHeader('Content-Disposition', `attachment; filename="${csvName}"`);
-      csvStream.pipe(res);
-
-      // 清理临时文件
-      if (tmpFile) {
-        res.on('finish', () => {
-          try {
-            if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-          } catch (_) { }
-        });
-        res.on('error', () => {
-          try {
-            if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-          } catch (_) { }
-        });
-      }
-    } else {
-      // JSONL 格式：直接下载解析后的文件
-      if (!row.parsed_object_key) return res.status(404).json({ message: '解析文件不存在（parsed_object_key为空）' });
-
+    if (row.csv_object_key && String(row.csv_status || '') === 'ready') {
       if (storage === 'local') {
-        // 本地存储：从 parsed_object_key 解析出本地路径
-        const localPath = path.join(motionStorage.LOCAL_DIR, row.parsed_object_key);
+        const localPath = path.join(motionStorage.LOCAL_DIR, row.csv_object_key);
         await streamLocalFile(req, res, {
           filePath: localPath,
-          downloadName: `${base}.jsonl.gz`
+          downloadName: `${base}.csv`
         });
       } else {
-        // OSS 存储
         await streamOssObject(req, res, {
-          objectKey: row.parsed_object_key,
-          downloadName: `${base}.jsonl.gz`
+          objectKey: row.csv_object_key,
+          downloadName: `${base}.csv`
         });
       }
+      return;
+    }
+
+    // 历史数据兼容：csv 尚未物化时回退为动态转换
+    const { generateCsvStream, generateCsvStreamFromJsonl } = require('../workers/motionDataProcessor');
+    let filePath;
+    let csvStream;
+    let tmpFile = null;
+
+    try {
+      if (storage === 'local') {
+        if (!row.parsed_object_key) throw new Error('JSONL文件不存在');
+        filePath = path.join(motionStorage.LOCAL_DIR, row.parsed_object_key);
+        if (!fs.existsSync(filePath)) throw new Error('JSONL文件不存在');
+      } else {
+        const client = await motionStorage.getOssClient();
+        if (!client) throw new Error('OSS client not available');
+        if (!row.parsed_object_key) throw new Error('JSONL文件不存在');
+        const tmpDir = path.resolve(__dirname, '../../uploads/temp/motion-data-download');
+        fs.mkdirSync(tmpDir, { recursive: true });
+        filePath = path.join(tmpDir, `parsed_${id}_${row.revision}.jsonl.gz`);
+        tmpFile = filePath;
+        await client.get(String(row.parsed_object_key).replace(/^\//, ''), filePath);
+      }
+      csvStream = generateCsvStreamFromJsonl(filePath, row.original_name);
+    } catch (jsonlErr) {
+      console.log(`CSV 文件不存在，回退为从 bin 文件解析: ${id}`);
+      if (storage === 'local') {
+        if (!row.raw_object_key) throw new Error('原始文件不存在');
+        filePath = path.join(motionStorage.LOCAL_DIR, row.raw_object_key);
+        if (!fs.existsSync(filePath)) throw new Error('原始文件不存在');
+      } else {
+        const client = await motionStorage.getOssClient();
+        if (!client) throw new Error('OSS client not available');
+        if (!row.raw_object_key) throw new Error('原始文件不存在');
+        const tmpDir = path.resolve(__dirname, '../../uploads/temp/motion-data-download');
+        fs.mkdirSync(tmpDir, { recursive: true });
+        filePath = path.join(tmpDir, `raw_${id}_${row.revision}.bin`);
+        tmpFile = filePath;
+        await client.get(String(row.raw_object_key).replace(/^\//, ''), filePath);
+      }
+      csvStream = generateCsvStream(filePath, row.original_name);
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    const csvName = safeFilename(`${base}.csv`, `motion-data-${id}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename="${csvName}"`);
+    csvStream.pipe(res);
+
+    if (tmpFile) {
+      res.on('finish', () => {
+        try {
+          if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+        } catch (_) { }
+      });
+      res.on('error', () => {
+        try {
+          if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+        } catch (_) { }
+      });
     }
   } catch (e) {
     return res.status(500).json({ message: '下载失败', error: String(e?.message || e) });
@@ -1615,80 +1647,50 @@ async function batchDownloadMotionDataRawZip(req, res) {
   if (norm.length > 20) return res.status(400).json({ message: '批量下载一次最多20条' });
 
   try {
-    const rows = await MotionDataFile.findAll({ where: { id: { [Op.in]: norm } } });
-    const rowMap = new Map(rows.map((r) => [String(r.id), r]));
+    const userId = req.user ? req.user.id : null;
 
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const zipName = `motion_raw_${ts}.zip`;
-
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
-
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    archive.on('error', (err) => {
-      console.error('[motion-data] batch raw zip error:', err);
-      try { res.destroy(err); } catch (_) { }
+    const job = await motionDataQueue.add('batch-download-raw', {
+      type: 'batch-download-raw',
+      fileIds: norm.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0),
+      userId,
+      format: 'raw'
+    }, {
+      priority: 10,
+      attempts: 1
     });
 
-    res.on('close', () => {
-      try {
-        if (!res.writableEnded) archive.abort();
-      } catch (_) { }
-    });
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'waiting', 0, userId);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
 
-    archive.pipe(res);
-
-    const errors = [];
-    const storageMode = motionStorage.STORAGE.toLowerCase();
-
-    for (const id of norm) {
-      const row = rowMap.get(id);
-      if (!row) {
-        errors.push({ id, error: 'not_found' });
-        continue;
-      }
-      if (!row.raw_object_key) {
-        errors.push({ id, filename: row.original_name, error: 'raw_object_key_empty' });
-        continue;
-      }
-      if (String(row.status || '') !== 'completed') {
-        errors.push({ id, filename: row.original_name, error: `status_not_completed:${row.status}` });
-        continue;
-      }
-
-      const storage = String(row.storage || storageMode).toLowerCase();
-      const name = safeFilename(row.original_name || `motion-${id}.bin`, `motion-${id}.bin`);
-
-      try {
-        if (storage === 'local') {
-          // 本地存储：从 raw_object_key 解析出本地路径
-          const localPath = path.join(motionStorage.LOCAL_DIR, row.raw_object_key);
-          if (fs.existsSync(localPath)) {
-            archive.file(localPath, { name });
-          } else {
-            errors.push({ id, filename: row.original_name, error: 'local_file_not_found' });
-          }
-        } else {
-          // OSS 存储
-          const client = await motionStorage.getOssClient();
-          if (!client) {
-            errors.push({ id, filename: row.original_name, error: 'OSS client not available' });
-            continue;
-          }
-          const key = String(row.raw_object_key).replace(/^\//, '');
-          const result = await client.getStream(key);
-          archive.append(result.stream, { name });
+    try {
+      await logOperation({
+        operation: '数据回放-批量下载原始文件',
+        description: `打包下载 ${norm.length} 个运行数据原始文件`,
+        user_id: userId,
+        username: req.user?.username || '',
+        status: 'pending',
+        ip: req.ip || req.connection?.remoteAddress || '',
+        user_agent: req.headers['user-agent'] || '',
+        details: {
+          taskId: job.id,
+          fileCount: norm.length,
+          fileIds: norm.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0),
+          format: 'raw'
         }
-      } catch (e) {
-        errors.push({ id, filename: row.original_name, error: String(e?.message || e) });
-      }
+      });
+    } catch (logError) {
+      console.warn('操作日志记录失败（已忽略）:', logError.message);
     }
 
-    if (errors.length > 0) {
-      archive.append(JSON.stringify({ message: '部分文件未能打包', errors }, null, 2), { name: 'errors.json' });
-    }
-
-    archive.finalize();
+    return res.json({
+      taskId: job.id,
+      status: 'waiting',
+      fileCount: norm.length,
+      format: 'raw'
+    });
   } catch (e) {
     return res.status(500).json({ message: '批量下载失败', error: String(e?.message || e) });
   }
@@ -1701,7 +1703,7 @@ async function deleteMotionDataFile(req, res) {
   const row = await MotionDataFile.findByPk(id);
   if (!row) return res.status(404).json({ message: '文件不存在' });
 
-  const allowedStatuses = ['parse_failed', 'completed', 'file_error', 'processing_failed'];
+  const allowedStatuses = ['completed', 'file_error', 'processing_failed'];
   const currentStatus = String(row.status || '');
   if (!allowedStatuses.includes(currentStatus)) {
     return res.status(400).json({ message: `只有解析失败、完成、文件错误、处理失败状态的文件可以删除，当前状态: ${currentStatus}` });
@@ -1709,10 +1711,11 @@ async function deleteMotionDataFile(req, res) {
 
   try {
     const storage = String(row.storage || motionStorage.STORAGE || 'oss').toLowerCase();
+    const isFileError = currentStatus === 'file_error';
 
     if (storage === 'local') {
       // 本地存储：删除本地文件
-      const paths = [row.raw_object_key, row.parsed_object_key]
+      const paths = [row.raw_object_key, row.parsed_object_key, row.csv_object_key]
         .map((k) => k ? path.join(motionStorage.LOCAL_DIR, String(k)) : null)
         .filter(Boolean);
       for (const p of paths) {
@@ -1721,13 +1724,19 @@ async function deleteMotionDataFile(req, res) {
     } else {
       // OSS 存储
       const client = await motionStorage.getOssClient();
-      if (!client) return res.status(500).json({ message: 'OSS client not available' });
-
-      const keys = [row.raw_object_key, row.parsed_object_key]
-        .map((k) => String(k || '').replace(/^\//, '').trim())
-        .filter(Boolean);
-      for (const k of keys) {
-        await client.delete(k);
+      if (!client) {
+        if (!isFileError) return res.status(500).json({ message: 'OSS client not available' });
+      } else {
+        const keys = [row.raw_object_key, row.parsed_object_key, row.csv_object_key]
+          .map((k) => String(k || '').replace(/^\//, '').trim())
+          .filter(Boolean);
+        for (const k of keys) {
+          try {
+            await client.delete(k);
+          } catch (deleteErr) {
+            if (!isFileError) throw deleteErr;
+          }
+        }
       }
     }
 
@@ -1758,7 +1767,7 @@ async function batchDeleteMotionDataFiles(req, res) {
       failed.push({ id, error: 'not_found' });
       continue;
     }
-    const allowedStatuses = ['parse_failed', 'completed', 'file_error', 'processing_failed'];
+    const allowedStatuses = ['completed', 'file_error', 'processing_failed'];
     const currentStatus = String(row.status || '');
     if (!allowedStatuses.includes(currentStatus)) {
       failed.push({ id, error: `status_not_allowed:${currentStatus}` });
@@ -1766,10 +1775,11 @@ async function batchDeleteMotionDataFiles(req, res) {
     }
     try {
       const storage = String(row.storage || storageMode).toLowerCase();
+      const isFileError = currentStatus === 'file_error';
 
       if (storage === 'local') {
         // 本地存储：删除本地文件
-        const paths = [row.raw_object_key, row.parsed_object_key]
+        const paths = [row.raw_object_key, row.parsed_object_key, row.csv_object_key]
           .map((k) => k ? path.join(motionStorage.LOCAL_DIR, String(k)) : null)
           .filter(Boolean);
         for (const p of paths) {
@@ -1778,11 +1788,20 @@ async function batchDeleteMotionDataFiles(req, res) {
       } else {
         // OSS 存储
         const client = await motionStorage.getOssClient();
-        if (!client) throw new Error('OSS client not available');
-        const keys = [row.raw_object_key, row.parsed_object_key]
-          .map((k) => String(k || '').replace(/^\//, '').trim())
-          .filter(Boolean);
-        for (const k of keys) await client.delete(k);
+        if (!client) {
+          if (!isFileError) throw new Error('OSS client not available');
+        } else {
+          const keys = [row.raw_object_key, row.parsed_object_key, row.csv_object_key]
+            .map((k) => String(k || '').replace(/^\//, '').trim())
+            .filter(Boolean);
+          for (const k of keys) {
+            try {
+              await client.delete(k);
+            } catch (deleteErr) {
+              if (!isFileError) throw deleteErr;
+            }
+          }
+        }
       }
 
       await row.destroy();

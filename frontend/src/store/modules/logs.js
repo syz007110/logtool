@@ -72,15 +72,6 @@ const actions = {
     }
   },
 
-  async downloadLog ({ commit }, logId) {
-    try {
-      const response = await api.logs.download(logId)
-      return response
-    } catch (error) {
-      throw error
-    }
-  },
-
   async deleteLog ({ commit }, logId) {
     try {
       const response = await api.logs.delete(logId)

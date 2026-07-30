@@ -768,6 +768,27 @@ export default {
     // 设备分组相关数据
     const deviceGroups = ref([])
     const deviceTotal = ref(0)
+
+    const getLogDownloadUrl = (downloadPath) => {
+      const normalizedPath = String(downloadPath || '').trim()
+      if (!normalizedPath) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      if (token) qs.set('token', token)
+      const suffix = qs.toString() ? `?${qs.toString()}` : ''
+      return `/api${normalizedPath}${suffix}`
+    }
+
+    const triggerNativeDownload = (url, filename = '') => {
+      if (!url) throw new Error('未能生成下载地址')
+      const link = document.createElement('a')
+      link.href = url
+      if (filename) link.download = filename
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
     const showDeviceDetailDrawer = ref(false)
     const selectedDevice = ref(null)
     const detailLoading = ref(false)
@@ -2600,17 +2621,8 @@ export default {
     
     const handleDownload = async (row) => {
       try {
-        const response = await store.dispatch('logs/downloadLog', row.id)
-        
-        // 创建下载链接
-        const blob = new Blob([response.data])
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = row.filename
-        link.click()
-        window.URL.revokeObjectURL(url)
-        
+        const url = getLogDownloadUrl(`/logs/${row.id}/download`)
+        triggerNativeDownload(url, row.filename)
         ElMessage.success(t('logs.downloadSuccess'))
       } catch (error) {
         notifyApiError(error, t('logs.errors.downloadFailed'))
@@ -2764,17 +2776,10 @@ export default {
             if (state === 'completed') {
               // 下载结果文件
               try {
-                const downloadResp = await api.logs.downloadBatchDownloadResult(taskId)
+                const url = getLogDownloadUrl(`/logs/batch/download/${taskId}/result`)
+                if (!url) throw new Error('未能生成下载地址')
                 const zipName = st?.result?.zipFileName || `logs_batch_${Date.now()}.zip`
-                const blob = new Blob([downloadResp.data])
-                const url = window.URL.createObjectURL(blob)
-                const link = document.createElement('a')
-                link.href = url
-                link.download = zipName
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-                window.URL.revokeObjectURL(url)
+                triggerNativeDownload(url, zipName)
                 ElMessage.success(t('logs.messages.batchDownloadCompleted'))
               } catch (downloadErr) {
                 notifyApiError(downloadErr, t('logs.messages.downloadResultFileFailed'))

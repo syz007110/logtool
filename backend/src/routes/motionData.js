@@ -72,7 +72,7 @@ router.delete('/files/:id', auth, checkPermission('data_replay:manage'), deleteM
 router.post('/upload', auth, checkPermission('data_replay:manage'), upload.single('file'), uploadBinary);
 router.post('/batch-upload', auth, checkPermission('data_replay:manage'), upload.array('files', 5), batchUploadBinary);
 
-// Batch download as ZIP - admin only (支持 CSV 和 JSONL 格式)
+// Batch download as ZIP - admin only (当前仅支持 CSV)
 router.post('/batch-download', auth, checkPermission('data_replay:manage'), batchDownload);
 router.post('/batch-download-csv', auth, checkPermission('data_replay:manage'), batchDownloadCsv);
 

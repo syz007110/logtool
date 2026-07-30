@@ -153,18 +153,9 @@ const errorCodes = {
   getByCodeAndSubsystem: (code, subsystem) => api.get('/error-codes/by-code', {
     params: withCurrentSeriesParams({ code, subsystem })
   }),
-  exportXML: (language = 'zh') => api.get('/error-codes/export/xml', {
-    params: withCurrentSeriesParams({ language }),
-    responseType: 'blob'
-  }),
   exportMultiXML: (languages = 'zh') => api.get('/error-codes/export/multi-xml', {
     params: withCurrentSeriesParams({ languages }),
     responseType: 'json'
-  }),
-  // CSV 导出：后端现在使用单个 language 参数，并根据该语言替换多语言字段内容
-  exportCSV: (language = '', format = 'csv') => api.get('/error-codes/export/csv', {
-    params: withCurrentSeriesParams({ language, format }),
-    responseType: 'blob'
   }),
   // 获取故障码的指定语言的多语言内容（技术说明字段）
   getI18nByLang: (id, lang) => api.get(`/error-codes/${id}/i18n`, {
@@ -217,12 +208,10 @@ const logs = {
   }),
   parse: (id) => api.post(`/logs/${id}/parse`),
   reparse: (id) => api.post(`/logs/${id}/reparse`),
-  download: (id) => api.get(`/logs/${id}/download`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/logs/${id}`),
   batchDelete: (logIds) => api.delete('/logs/batch', { data: { logIds } }),
   batchDownload: (logIds) => api.post('/logs/batch/download', { logIds }),
   getBatchDownloadTaskStatus: (taskId) => api.get(`/logs/batch/download/${taskId}/status`),
-  downloadBatchDownloadResult: (taskId) => api.get(`/logs/batch/download/${taskId}/result`, { responseType: 'blob' }),
   batchReparse: (logIds) => api.post('/logs/batch/reparse', { logIds }),
   getEntries: (id) => api.get(`/logs/${id}/entries`),
   getBatchEntries: (params, signal = null) => api.get('/logs/entries/batch', {
@@ -237,7 +226,6 @@ const logs = {
   getVisualizationData: (params) => api.get('/logs/entries/visualization', { params }),
   exportBatchEntries: (params) => api.get('/logs/entries/export', { params }),
   getExportCsvTaskStatus: (taskId) => api.get(`/logs/entries/export/${taskId}/status`),
-  downloadExportCsvResult: (taskId) => api.get(`/logs/entries/export/${taskId}/result`, { responseType: 'blob' }),
   getActiveTasks: (config = {}) => api.get('/logs/tasks/active', config),
   autoFillDeviceId: (key) => api.get('/logs/auto-fill/device-id', { params: { key } }),
   autoFillKey: (deviceId) => api.get('/logs/auto-fill/key', { params: { device_id: deviceId } }),
@@ -411,18 +399,14 @@ const motionData = {
   getTimeFilters: (params) => api.get('/motion-data/files/time-filters', { params }),
   deleteFile: (id) => api.delete(`/motion-data/files/${id}`),
   batchDeleteFiles: (ids) => api.post('/motion-data/files/batch-delete', { ids }),
-  downloadRaw: (id) => api.get(`/motion-data/files/${id}/download/raw`, { responseType: 'blob' }),
-  downloadParsed: (id, format = 'jsonl') => api.get(`/motion-data/files/${id}/download/parsed`, { params: { format }, responseType: 'blob' }),
-  batchDownloadRawZip: (ids) => api.post('/motion-data/files/batch-download/raw', { ids }, { responseType: 'blob' }),
+  batchDownloadRawZip: (ids) => api.post('/motion-data/files/batch-download/raw', { ids }),
   preview: (id, params) => api.get(`/motion-data/${id}/preview`, { params }),
   getSeries: (id, params, signal = null) => api.get(`/motion-data/files/${id}/series`, { params, signal }),
-  downloadCsv: (id) => api.get(`/motion-data/${id}/download-csv`, { responseType: 'blob' }),
   batchDownloadCsv: (fileIds) => api.post('/motion-data/batch-download-csv', { fileIds }),
-  batchDownload: (fileIds, format = 'csv') => api.post('/motion-data/batch-download', { fileIds, format }),
+  batchDownload: (fileIds) => api.post('/motion-data/batch-download', { fileIds, format: 'csv' }),
   getUserTasks: () => api.get('/motion-data/tasks'), // 获取用户所有任务（用于恢复）
   getActiveTasks: (config = {}) => api.get('/motion-data/tasks/active', config),
   getTaskStatus: (taskId) => api.get(`/motion-data/task/${taskId}`),
-  downloadTaskResult: (taskId) => api.get(`/motion-data/task/${taskId}/download`, { responseType: 'blob' })
 }
 
 const feedback = {

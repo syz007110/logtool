@@ -217,7 +217,7 @@ async function localizeEntriesExplanationPrefixes(entries, { deviceIdByLogId = n
 }
 
 // 从 ClickHouse log_entries 生成解密后的纯文本内容（按给定日志ID与版本）
-async function buildDecryptedContentFromClickHouse(logId, version) {
+async function buildDecryptedContentFromClickHouse(logId, version, { language = 'zh', deviceId = null } = {}) {
   const client = getClickHouseClient();
   const result = await client.query({
     query: `
@@ -243,13 +243,38 @@ async function buildDecryptedContentFromClickHouse(logId, version) {
 
   if (!rows || rows.length === 0) return '';
 
+  let seriesCode = null;
+  const normalizedDeviceId = String(deviceId || '').trim();
+  if (normalizedDeviceId) {
+    const device = await Device.findOne({
+      where: { device_id: normalizedDeviceId },
+      attributes: ['series_id']
+    });
+    const seriesId = Number(device?.series_id);
+    if (Number.isInteger(seriesId) && seriesId > 0) {
+      const series = await DeviceSeriesDict.findByPk(seriesId, {
+        attributes: ['series_code']
+      });
+      seriesCode = String(series?.series_code || '').trim().toUpperCase() || null;
+    }
+  }
+  const fixedT = (() => {
+    try {
+      const i18next = require('i18next');
+      const lng = String(language || '').toLowerCase().startsWith('en') ? 'en' : 'zh';
+      if (i18next.isInitialized) return i18next.getFixedT(lng);
+    } catch (_) {}
+    return null;
+  })();
+
   const lines = rows.map(entry => {
     const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
     const p1 = entry.param1 || '';
     const p2 = entry.param2 || '';
     const p3 = entry.param3 || '';
     const p4 = entry.param4 || '';
-    const expl = entry.explanation || '';
+    const localizedEntry = fixedT ? localizeExplanationPrefix(entry, seriesCode, fixedT) : entry;
+    const expl = localizedEntry?.explanation || entry.explanation || '';
     const err = entry.error_code || '';
     return `${localTs} ${err} ${p1} ${p2} ${p3} ${p4} ${expl}`.trimEnd();
   });
@@ -2341,7 +2366,8 @@ const exportBatchLogEntriesCSV = async (req, res) => {
         start_time,
         end_time,
         filters,
-        display_timezone_offset_minutes
+        display_timezone_offset_minutes,
+        language: req.language || req.headers['accept-language'] || 'zh'
       },
       userId
     }, {
@@ -2573,22 +2599,13 @@ const downloadLog = async (req, res) => {
       return res.status(403).json({ message: req.t('log.parse.permissionDenied') });
     }
 
-    // 优先从保存的解密文件中读取
-    if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
-      const fileContent = fs.readFileSync(log.decrypted_path, 'utf-8');
-
-      // 设置响应头
-      res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(log.decrypted_path)}"`);
-
-      // 发送文件内容
-      res.send(fileContent);
-      return;
-    }
-
-    // 如果解密文件不存在，从 ClickHouse log_entries 生成
+    // 单个下载始终按当前语言从 ClickHouse 动态生成，
+    // 避免复用历史解密文件导致前缀语言与当前界面不一致。
     const version = Number.isInteger(log.version) ? log.version : 1;
-    const fileContent = await buildDecryptedContentFromClickHouse(log.id, version);
+    const fileContent = await buildDecryptedContentFromClickHouse(log.id, version, {
+      language: req.language || req.headers['accept-language'] || 'zh',
+      deviceId: log.device_id || null
+    });
 
     if (!fileContent) {
       return res.status(404).json({ message: req.t('log.parse.notFound') });
@@ -3041,7 +3058,8 @@ const batchDownloadLogs = async (req, res) => {
       type: 'batch-download',
       logIds: numericLogIds,
       userId,
-      userRole
+      userRole,
+      language: req.language || req.headers['accept-language'] || 'zh'
     }, {
       priority: 10,
       attempts: 1,

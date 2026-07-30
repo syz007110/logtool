@@ -6,9 +6,13 @@ const { Op } = require('sequelize');
 const { ensureCacheReady, renderEntryExplanation } = require('../services/logParsingService');
 const Log = require('../models/log');
 const Device = require('../models/device');
+const DeviceSeriesDict = require('../models/device_series_dict');
 const websocketService = require('../services/websocketService');
 const { getClickHouseClient } = require('../config/clickhouse');
 const { buildAdvancedFilterExpression } = require('./batchAdvancedFilters');
+const { getAgentFixedT, resolveAgentLng } = require('../agentization/utils/agentI18n');
+const { deriveFromFullLogCode, translatePrefixText } = require('../utils/explanationPreview');
+const { buildPrefixFromContext } = require('../utils/explanationParser');
 
 // 格式化时间为 ClickHouse 格式（与 logController 保持一致）
 function formatTimeForClickHouse(timeValue) {
@@ -40,6 +44,7 @@ function formatTimeForClickHouse(timeValue) {
 }
 
 const deviceSeriesCache = new Map();
+const deviceSeriesCodeCache = new Map();
 
 async function getDeviceSeriesId(deviceId) {
   if (!deviceId) return null;
@@ -53,6 +58,50 @@ async function getDeviceSeriesId(deviceId) {
   const seriesId = device?.series_id || null;
   deviceSeriesCache.set(deviceId, seriesId);
   return seriesId;
+}
+
+async function getDeviceSeriesCode(deviceId) {
+  if (!deviceId) return null;
+  if (deviceSeriesCodeCache.has(deviceId)) {
+    return deviceSeriesCodeCache.get(deviceId);
+  }
+  const seriesId = await getDeviceSeriesId(deviceId);
+  if (!seriesId) {
+    deviceSeriesCodeCache.set(deviceId, null);
+    return null;
+  }
+  const series = await DeviceSeriesDict.findByPk(seriesId, {
+    attributes: ['series_code']
+  });
+  const seriesCode = String(series?.series_code || '').trim().toUpperCase() || null;
+  deviceSeriesCodeCache.set(deviceId, seriesCode);
+  return seriesCode;
+}
+
+function localizeExplanationPrefix(row, seriesCode, t) {
+  const explanation = String(row?.explanation || '').trim();
+  const errorCode = String(row?.error_code || '').trim();
+  if (!explanation || !errorCode || typeof t !== 'function') return explanation;
+
+  const parsed = deriveFromFullLogCode(errorCode);
+  if (!parsed?.subsystem || !parsed?.normalizedCode) return explanation;
+
+  const context = {
+    error_code: errorCode,
+    subsystem: parsed.subsystem,
+    arm: parsed.arm || null,
+    joint: parsed.joint || null,
+    normalized_code: parsed.normalizedCode,
+    seriesCode: String(seriesCode || '').trim().toUpperCase() || null
+  };
+  const prefixRaw = String(buildPrefixFromContext(context) || '').trim();
+  if (!prefixRaw || !explanation.startsWith(prefixRaw)) return explanation;
+
+  const prefix = String(translatePrefixText(prefixRaw, t) || '').trim();
+  if (!prefix || prefix === prefixRaw) return explanation;
+
+  const body = explanation.slice(prefixRaw.length).replace(/^\s+/, '');
+  return body ? `${prefix} ${body}` : prefix;
 }
 
 // ClickHouse 中存储为 naive DateTime（无时区），约定为 UTC+8
@@ -394,7 +443,7 @@ async function batchReparseLogs(job) {
 }
 
 // 从 ClickHouse 构建解密内容（用于批量下载）
-async function buildDecryptedContentFromClickHouse(logId, version) {
+async function buildDecryptedContentFromClickHouse(logId, version, { language = 'zh', deviceId = '' } = {}) {
   const client = getClickHouseClient();
   const result = await client.query({
     query: `
@@ -420,13 +469,16 @@ async function buildDecryptedContentFromClickHouse(logId, version) {
 
   if (!rows || rows.length === 0) return '';
 
+  const t = getAgentFixedT(resolveAgentLng(language));
+  const seriesCode = await getDeviceSeriesCode(deviceId);
+
   const lines = rows.map(entry => {
     const localTs = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss');
     const p1 = entry.param1 || '';
     const p2 = entry.param2 || '';
     const p3 = entry.param3 || '';
     const p4 = entry.param4 || '';
-    const expl = entry.explanation || '';
+    const expl = localizeExplanationPrefix(entry, seriesCode, t);
     const err = entry.error_code || '';
     return `${localTs} ${err} ${p1} ${p2} ${p3} ${p4} ${expl}`.trimEnd();
   });
@@ -436,7 +488,7 @@ async function buildDecryptedContentFromClickHouse(logId, version) {
 
 // 处理批量下载任务
 async function processBatchDownload(job) {
-  const { logIds, userId, userRole } = job.data || {};
+  const { logIds, userId, userRole, language = 'zh' } = job.data || {};
 
   if (!Array.isArray(logIds) || logIds.length === 0) {
     throw new Error('processBatchDownload: 缺少 logIds');
@@ -516,17 +568,15 @@ async function processBatchDownload(job) {
       let fileContent = '';
       let fileName = '';
 
-      // 优先从保存的解密文件中读取
-      if (log.decrypted_path && fs.existsSync(log.decrypted_path)) {
-        fileContent = fs.readFileSync(log.decrypted_path, 'utf-8');
-        fileName = path.basename(log.decrypted_path);
-      } else {
-        // 如果解密文件不存在，从 ClickHouse log_entries 生成
-        const version = Number.isInteger(log.version) ? log.version : 1;
-        fileContent = await buildDecryptedContentFromClickHouse(log.id, version);
-        if (fileContent) {
-          fileName = log.original_name.replace('.medbot', '_decrypted.txt');
-        }
+      // 批量下载始终按当前语言从 ClickHouse 重新组装内容，
+      // 避免复用历史解密文件导致前缀语言与当前界面不一致。
+      const version = Number.isInteger(log.version) ? log.version : 1;
+      fileContent = await buildDecryptedContentFromClickHouse(log.id, version, {
+        language,
+        deviceId: log.device_id || ''
+      });
+      if (fileContent) {
+        fileName = log.original_name.replace('.medbot', '_decrypted.txt');
       }
 
       if (fileContent) {
@@ -604,7 +654,8 @@ async function processExportCsv(job) {
     start_time,
     end_time,
     filters,
-    display_timezone_offset_minutes
+    display_timezone_offset_minutes,
+    language
   } = params;
 
   console.log(`[CSV导出] 开始处理任务 ${job.id}`);
@@ -733,6 +784,7 @@ async function processExportCsv(job) {
 
   // 查询并写入CSV
   const idToNameCache = new Map();
+  const idToDeviceIdCache = new Map();
   const cacheLogNames = async (logIds) => {
     const uniqueIds = Array.from(new Set(
       (Array.isArray(logIds) ? logIds : [])
@@ -743,16 +795,20 @@ async function processExportCsv(job) {
 
     const logs = await Log.findAll({
       where: { id: { [Op.in]: uniqueIds } },
-      attributes: ['id', 'original_name']
+      attributes: ['id', 'original_name', 'device_id']
     });
 
     for (const lg of logs) {
       idToNameCache.set(Number(lg.id), lg?.original_name || '');
+      idToDeviceIdCache.set(Number(lg.id), lg?.device_id || '');
     }
     // 确保未查到的 id 不会重复触发数据库查询
     for (const id of uniqueIds) {
       if (!idToNameCache.has(id)) {
         idToNameCache.set(id, '');
+      }
+      if (!idToDeviceIdCache.has(id)) {
+        idToDeviceIdCache.set(id, '');
       }
     }
   };
@@ -769,6 +825,7 @@ async function processExportCsv(job) {
   const displayOffsetMinutes = Number.isFinite(Number(display_timezone_offset_minutes))
     ? parseInt(display_timezone_offset_minutes, 10)
     : STORAGE_OFFSET_MINUTES;
+  const t = getAgentFixedT(resolveAgentLng(language));
 
   while (true) {
     const pageConditions = [...conditions];
@@ -822,8 +879,11 @@ async function processExportCsv(job) {
 
     for (const row of rows) {
       const logName = idToNameCache.get(Number(row.log_id)) || '';
+      const deviceId = idToDeviceIdCache.get(Number(row.log_id)) || '';
       const utcMs = parseNaiveDateTimeToUtcMs(row.timestamp);
       const localTs = formatEpochMsInOffset(utcMs, displayOffsetMinutes) || String(row.timestamp || '');
+      const seriesCode = await getDeviceSeriesCode(deviceId);
+      const localizedExplanation = localizeExplanationPrefix(row, seriesCode, t);
       const line = [
         csvEscape(logName),
         csvEscape(localTs),
@@ -832,7 +892,7 @@ async function processExportCsv(job) {
         csvEscape(row.param2),
         csvEscape(row.param3),
         csvEscape(row.param4),
-        csvEscape(row.explanation)
+        csvEscape(localizedExplanation)
       ].join(',');
       output.write(line + '\n');
       totalRows++;

@@ -19,7 +19,7 @@ const { processSurgeryAnalysisJob } = require('./surgeryProcessor');
 const { batchDeleteSurgeries } = require('./surgeryBatchProcessor');
 const { processLogFile } = require('./logProcessor');
 const { batchReparseLogs, batchDeleteLogs, processSingleDelete, reparseSingleLog, processBatchDownload: processLogsBatchDownload, processExportCsv } = require('./batchProcessor');
-const { processBatchUpload, processBatchDownload } = require('./motionDataProcessor');
+const { processBatchUpload, processBatchDownload, processBatchRawDownload } = require('./motionDataProcessor');
 const { processKbIngestJob } = require('./kbIngestProcessor');
 const { createAgentTaskPersistenceStore } = require('../agentization/taskGateway/stores/agentTaskPersistenceStore');
 const { deliverAgentTaskOutcome } = require('../agentization/delivery/agentTaskDeliveryService');
@@ -744,6 +744,82 @@ motionDataQueue.process('batch-download', MOTION_DATA_CONCURRENCY, async (job) =
       console.warn('操作日志更新失败（已忽略）:', logError.message);
     }
     
+    throw error;
+  }
+});
+
+motionDataQueue.process('batch-download-raw', MOTION_DATA_CONCURRENCY, async (job) => {
+  try {
+    console.log(`[MotionData队列处理器] 开始处理批量原始文件下载任务: ${job.id}`);
+
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'active', 0, job.data.userId);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+
+    const result = await processBatchRawDownload(job);
+
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'completed', 100, job.data.userId, result);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+
+    try {
+      await logOperation({
+        operation: '数据回放-批量下载原始文件',
+        description: `原始文件打包完成: ${result.successFiles?.length || 0} 个文件${result.errors?.length ? `, ${result.errors.length} 个失败` : ''}, ZIP大小: ${formatFileSize(result.size || 0)}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'success',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          zipFileName: result.zipFileName,
+          zipFilePath: result.zipFilePath,
+          successCount: result.successFiles?.length || 0,
+          errorCount: result.errors?.length || 0,
+          size: result.size,
+          successFiles: result.successFiles || [],
+          errors: result.errors || []
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+
+    console.log(`[MotionData队列处理器] 批量原始文件下载任务 ${job.id} 完成`);
+    return result;
+  } catch (error) {
+    console.error(`[MotionData队列处理器] 批量原始文件下载任务 ${job.id} 失败:`, error);
+
+    try {
+      websocketService.pushMotionDataTaskStatus(job.id, 'failed', 0, job.data.userId, null, error.message);
+    } catch (wsError) {
+      console.warn('WebSocket 状态推送失败:', wsError.message);
+    }
+
+    try {
+      await logOperation({
+        operation: '数据回放-批量下载原始文件',
+        description: `原始文件打包失败: ${error.message}`,
+        user_id: job.data.userId,
+        username: null,
+        status: 'failed',
+        ip: '',
+        user_agent: '',
+        details: {
+          taskId: job.id,
+          error: error.message,
+          fileCount: job.data.fileIds?.length || 0
+        }
+      });
+    } catch (logError) {
+      console.warn('操作日志更新失败（已忽略）:', logError.message);
+    }
+
     throw error;
   }
 });

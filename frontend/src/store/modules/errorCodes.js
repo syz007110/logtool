@@ -86,15 +86,6 @@ const actions = {
       throw error
     }
   },
-
-  async exportXML (_, language = 'chinese') {
-    try {
-      const response = await api.errorCodes.exportXML(language)
-      return response
-    } catch (error) {
-      throw error
-    }
-  }
 }
 
 const getters = {

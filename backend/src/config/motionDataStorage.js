@@ -138,6 +138,13 @@ function buildParsedObjectKey(deviceId, originalName) {
   return `${OSS_PREFIX.replace(/\/?$/, '/')}${dev}/parsed/${base}.jsonl.gz`;
 }
 
+function buildCsvObjectKey(deviceId, originalName) {
+  const dev = safePathSegment(deviceId);
+  const file = safeFilename(originalName, 'motion.bin');
+  const base = file.replace(/\.bin$/i, '');
+  return `${OSS_PREFIX.replace(/\/?$/, '/')}${dev}/csv/${base}.csv`;
+}
+
 // 本地存储：构建文件路径（raw）
 function buildRawLocalPath(deviceId, originalName) {
   ensureLocalDir();
@@ -157,6 +164,16 @@ function buildParsedLocalPath(deviceId, originalName) {
   const devDir = path.join(LOCAL_DIR, dev, 'parsed');
   fs.mkdirSync(devDir, { recursive: true });
   return path.join(devDir, `${base}.jsonl.gz`);
+}
+
+function buildCsvLocalPath(deviceId, originalName) {
+  ensureLocalDir();
+  const dev = safePathSegment(deviceId);
+  const file = safeFilename(originalName, 'motion.bin');
+  const base = file.replace(/\.bin$/i, '');
+  const devDir = path.join(LOCAL_DIR, dev, 'csv');
+  fs.mkdirSync(devDir, { recursive: true });
+  return path.join(devDir, `${base}.csv`);
 }
 
 // 本地存储：构建 URL（raw）
@@ -220,9 +237,11 @@ module.exports = {
   buildOssUrl,
   buildRawObjectKey,
   buildParsedObjectKey,
+  buildCsvObjectKey,
   // 本地存储相关
   buildRawLocalPath,
   buildParsedLocalPath,
+  buildCsvLocalPath,
   buildRawLocalUrl,
   buildParsedLocalUrl,
   saveLocalFile,

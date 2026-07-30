@@ -15,6 +15,7 @@ const { isSeriesFeatureUnsupportedError } = require('../seriesStrategies/errors'
 const UPLOAD_TEMP_DIR = path.resolve(__dirname, '../../uploads/temp');
 const MOTION_DATA_RESULT_DIR = path.resolve(__dirname, '../../uploads/temp/motion-data');
 const MOTION_DATA_PARSED_DIR = path.resolve(__dirname, '../../uploads/temp/motion-data-parsed');
+const MOTION_DATA_CSV_DIR = path.resolve(__dirname, '../../uploads/temp/motion-data-csv');
 
 // 延迟加载 websocketService（避免循环依赖）
 let websocketService = null;
@@ -32,6 +33,9 @@ if (!fs.existsSync(MOTION_DATA_RESULT_DIR)) {
 if (!fs.existsSync(MOTION_DATA_PARSED_DIR)) {
   fs.mkdirSync(MOTION_DATA_PARSED_DIR, { recursive: true });
 }
+if (!fs.existsSync(MOTION_DATA_CSV_DIR)) {
+  fs.mkdirSync(MOTION_DATA_CSV_DIR, { recursive: true });
+}
 
 // 从 motionDataController 复制的解析函数
 const ENTRY_SIZE_BYTES = 924;
@@ -42,6 +46,11 @@ function ensureFileExists(filePath) {
     error.status = 404;
     throw error;
   }
+}
+
+function sanitizeFilename(name, fallback = 'file') {
+  const base = path.basename(String(name || '').trim() || fallback);
+  return base.replace(/[\r\n"]/g, '_');
 }
 
 function writeOrDrain(dest, chunk) {
@@ -114,6 +123,12 @@ function safeUnlink(fp) {
   } catch (_) {}
 }
 
+function safeDestroy(stream) {
+  try {
+    if (stream && typeof stream.destroy === 'function') stream.destroy();
+  } catch (_) {}
+}
+
 function validateFilename(originalName) {
   return /^\d{12}\.bin$/i.test(String(originalName || '').trim());
 }
@@ -167,6 +182,31 @@ function sha256File(fp) {
     s.on('error', reject);
     s.on('data', (buf) => h.update(buf));
     s.on('end', () => resolve(h.digest('hex')));
+  });
+}
+
+async function materializeStreamToFile(stream, outPath) {
+  return new Promise((resolve, reject) => {
+    const ws = fs.createWriteStream(outPath);
+    const cleanup = () => {
+      ws.off('error', onError);
+      ws.off('finish', onFinish);
+      stream.off('error', onError);
+    };
+    const onError = (err) => {
+      cleanup();
+      safeDestroy(stream);
+      safeUnlink(outPath);
+      reject(err);
+    };
+    const onFinish = () => {
+      cleanup();
+      resolve();
+    };
+    ws.on('error', onError);
+    ws.on('finish', onFinish);
+    stream.on('error', onError);
+    stream.pipe(ws);
   });
 }
 
@@ -421,20 +461,42 @@ async function processBatchUpload(job) {
           const msg = isSeriesFeatureUnsupportedError(capErr)
             ? '该系列目前无此功能'
             : (capErr.message || '系列能力校验失败');
-          await row.update({ status: 'processing_failed', error_message: msg });
+          await row.update({
+            status: 'processing_failed',
+            error_message: msg,
+            csv_status: 'failed',
+            jsonl_status: 'failed',
+            csv_error_message: msg,
+            jsonl_error_message: msg
+          });
           safeUnlink(filePath);
           throw capErr;
         }
 
         // 标记解析中
-        await row.update({ status: 'parsing', error_message: null, task_id: String(job.id) });
+        await row.update({
+          status: 'parsing',
+          error_message: null,
+          task_id: String(job.id),
+          jsonl_status: 'pending',
+          csv_status: 'pending',
+          jsonl_error_message: null,
+          csv_error_message: null,
+          jsonl_generated_at: null,
+          csv_generated_at: null,
+          jsonl_size_bytes: null,
+          csv_size_bytes: null
+        });
 
         const originalName = String(row.original_name || file.originalName || '');
         const deviceId = String(row.device_id || file.deviceId || '');
 
         // 文件名校验（YYYYMMDDhhmm.bin）
         if (!validateFilename(originalName)) {
-          await row.update({ status: 'file_error', error_message: '文件名格式错误：必须为 YYYYMMDDhhmm.bin' });
+          await row.update({
+            status: 'file_error',
+            error_message: '文件名格式错误：必须为 YYYYMMDDhhmm.bin'
+          });
           safeUnlink(filePath);
           throw new Error('文件名格式错误');
         }
@@ -447,7 +509,10 @@ async function processBatchUpload(job) {
         
         const stats = fs.statSync(filePath);
         if (stats.size < ENTRY_SIZE_BYTES || stats.size % ENTRY_SIZE_BYTES !== 0) {
-          await row.update({ status: 'file_error', error_message: '文件大小不合法（必须为帧大小 924 的整数倍）' });
+          await row.update({
+            status: 'file_error',
+            error_message: '文件大小不合法（必须为帧大小 924 的整数倍）'
+          });
           safeUnlink(filePath);
           throw new Error(`文件大小不合法: ${originalName}`);
         }
@@ -457,12 +522,18 @@ async function processBatchUpload(job) {
         const tsLast = readTimestampAtEntry(filePath, Math.max(0, totalFrames - 1));
 
         if (!validateTimestamp17(tsFirst)) {
-          await row.update({ status: 'file_error', error_message: '首帧时间戳格式错误（必须为 YYYYMMDDhhmmssxxx 17位数字）' });
+          await row.update({
+            status: 'file_error',
+            error_message: '首帧时间戳格式错误（必须为 YYYYMMDDhhmmssxxx 17位数字）'
+          });
           safeUnlink(filePath);
           throw new Error(`首帧时间戳格式错误: ${originalName}`);
         }
         if (!validateTimestamp17(tsLast)) {
-          await row.update({ status: 'file_error', error_message: '末帧时间戳格式错误（必须为 YYYYMMDDhhmmssxxx 17位数字）' });
+          await row.update({
+            status: 'file_error',
+            error_message: '末帧时间戳格式错误（必须为 YYYYMMDDhhmmssxxx 17位数字）'
+          });
           safeUnlink(filePath);
           throw new Error(`末帧时间戳格式错误: ${originalName}`);
         }
@@ -474,65 +545,126 @@ async function processBatchUpload(job) {
         const storageMode = String(motionStorage.STORAGE || 'oss').toLowerCase();
         let rawKey = '';
         let parsedKey = '';
+        let csvKey = '';
         let rawEtag = null;
+        let parsedLocal = null;
+        let csvLocal = null;
+        let jsonlSizeBytes = null;
+        let csvSizeBytes = null;
+        let jsonlGeneratedAt = null;
+        let csvGeneratedAt = null;
 
-        if (storageMode === 'local') {
-          // 本地存储：保存到本地文件系统
-          const rawLocalPath = motionStorage.buildRawLocalPath(deviceId, originalName);
-          motionStorage.saveLocalFile(filePath, rawLocalPath);
-          // 存储相对路径（用于后续读取）
-          rawKey = path.relative(motionStorage.LOCAL_DIR, rawLocalPath).replace(/\\/g, '/');
-
-          // 生成 parsed jsonl.gz
-          const parsedLocal = path.join(MOTION_DATA_PARSED_DIR, `parsed_${recordId}_${jobRevision}.jsonl.gz`);
-          safeUnlink(parsedLocal);
-
-          await streamParseToJsonlGz({
-            filePath,
-            outPath: parsedLocal,
-            onFrame: (frameIdx) => {
-              // no-op; reserved
+        try {
+          if (storageMode === 'local') {
+            const rawLocalPath = motionStorage.buildRawLocalPath(deviceId, originalName);
+            motionStorage.saveLocalFile(filePath, rawLocalPath);
+            rawKey = path.relative(motionStorage.LOCAL_DIR, rawLocalPath).replace(/\\/g, '/');
+          } else {
+            const client = await motionStorage.getOssClient();
+            if (!client) {
+              await row.update({ status: 'processing_failed', error_message: 'OSS client not available' });
+              throw new Error('OSS client not available');
             }
-          });
-
-          const parsedLocalPath = motionStorage.buildParsedLocalPath(deviceId, originalName);
-          motionStorage.saveLocalFile(parsedLocal, parsedLocalPath);
-          parsedKey = path.relative(motionStorage.LOCAL_DIR, parsedLocalPath).replace(/\\/g, '/');
-
-          safeUnlink(parsedLocal);
-        } else {
-          // OSS 存储
-          const client = await motionStorage.getOssClient();
-          if (!client) {
-            await row.update({ status: 'processing_failed', error_message: 'OSS client not available' });
-            throw new Error('OSS client not available');
+            rawKey = String(row.raw_object_key || file.rawObjectKey || motionStorage.buildRawObjectKey(deviceId, originalName)).replace(/^\//, '');
+            const rawPut = await client.put(rawKey, filePath);
+            rawEtag = String(rawPut?.res?.headers?.etag || rawPut?.etag || '').replace(/"/g, '') || null;
           }
-          rawKey = String(row.raw_object_key || file.rawObjectKey || motionStorage.buildRawObjectKey(deviceId, originalName)).replace(/^\//, '');
-          parsedKey = String(row.parsed_object_key || file.parsedObjectKey || motionStorage.buildParsedObjectKey(deviceId, originalName)).replace(/^\//, '');
 
-          const rawPut = await client.put(rawKey, filePath);
-          rawEtag = String(rawPut?.res?.headers?.etag || rawPut?.etag || '').replace(/"/g, '') || null;
+          parsedKey = String(
+            row.parsed_object_key || file.parsedObjectKey || motionStorage.buildParsedObjectKey(deviceId, originalName)
+          ).replace(/^\//, '');
+          csvKey = String(
+            row.csv_object_key || motionStorage.buildCsvObjectKey(deviceId, originalName)
+          ).replace(/^\//, '');
 
-          // 生成并上传 parsed jsonl.gz
-          const parsedLocal = path.join(MOTION_DATA_PARSED_DIR, `parsed_${recordId}_${jobRevision}.jsonl.gz`);
+          await row.update({
+            storage: storageMode,
+            raw_object_key: rawKey,
+            parsed_object_key: parsedKey,
+            csv_object_key: csvKey,
+            sha256,
+            etag: rawEtag,
+            size_bytes: stats.size,
+            total_frames: totalFrames,
+            ts_first: tsFirst,
+            ts_last: tsLast,
+            jsonl_status: 'generating',
+            csv_status: 'pending'
+          });
+
+          parsedLocal = path.join(MOTION_DATA_PARSED_DIR, `parsed_${recordId}_${jobRevision}.jsonl.gz`);
           safeUnlink(parsedLocal);
 
           await streamParseToJsonlGz({
             filePath,
             outPath: parsedLocal,
-            onFrame: (frameIdx) => {
-              // no-op; reserved
-            }
+            onFrame: () => {}
           });
+          jsonlSizeBytes = fs.statSync(parsedLocal).size;
 
-          await client.put(parsedKey, parsedLocal);
+          if (storageMode === 'local') {
+            const parsedLocalPath = motionStorage.buildParsedLocalPath(deviceId, originalName);
+            motionStorage.saveLocalFile(parsedLocal, parsedLocalPath);
+            parsedKey = path.relative(motionStorage.LOCAL_DIR, parsedLocalPath).replace(/\\/g, '/');
+          } else {
+            const client = await motionStorage.getOssClient();
+            if (!client) throw new Error('OSS client not available');
+            await client.put(parsedKey, parsedLocal);
+          }
+
+          jsonlGeneratedAt = new Date();
+          await row.update({
+            parsed_object_key: parsedKey,
+            jsonl_status: 'ready',
+            jsonl_error_message: null,
+            jsonl_generated_at: jsonlGeneratedAt,
+            jsonl_size_bytes: jsonlSizeBytes,
+            csv_status: 'generating'
+          });
+          csvLocal = path.join(MOTION_DATA_CSV_DIR, `csv_${recordId}_${jobRevision}.csv`);
+          safeUnlink(csvLocal);
+          const csvStream = generateCsvStreamFromJsonl(parsedLocal, originalName);
+          await materializeStreamToFile(csvStream, csvLocal);
+          csvSizeBytes = fs.statSync(csvLocal).size;
+
+          if (storageMode === 'local') {
+            const csvLocalPath = motionStorage.buildCsvLocalPath(deviceId, originalName);
+            motionStorage.saveLocalFile(csvLocal, csvLocalPath);
+            csvKey = path.relative(motionStorage.LOCAL_DIR, csvLocalPath).replace(/\\/g, '/');
+          } else {
+            const client = await motionStorage.getOssClient();
+            if (!client) throw new Error('OSS client not available');
+            await client.put(csvKey, csvLocal);
+          }
+          csvGeneratedAt = new Date();
+        } catch (derivativeError) {
+          const errMsg = derivativeError?.message || '派生产物生成失败';
+          const patch = {
+            status: 'processing_failed',
+            error_message: errMsg
+          };
+          if (jsonlSizeBytes != null) {
+            patch.jsonl_status = 'ready';
+            patch.jsonl_generated_at = jsonlGeneratedAt || new Date();
+            patch.jsonl_size_bytes = jsonlSizeBytes;
+          } else {
+            patch.jsonl_status = 'failed';
+            patch.jsonl_error_message = errMsg;
+          }
+          patch.csv_status = 'failed';
+          patch.csv_error_message = errMsg;
+          await row.update(patch);
+          throw derivativeError;
+        } finally {
           safeUnlink(parsedLocal);
+          safeUnlink(csvLocal);
         }
         
         await row.update({
           storage: storageMode,
           raw_object_key: rawKey,
           parsed_object_key: parsedKey,
+          csv_object_key: csvKey,
           sha256,
           etag: rawEtag,
           size_bytes: stats.size,
@@ -540,8 +672,16 @@ async function processBatchUpload(job) {
           ts_first: tsFirst,
           ts_last: tsLast,
           status: 'completed',
+          jsonl_status: 'ready',
+          csv_status: 'ready',
           error_message: null,
-          parse_time: new Date()
+          jsonl_error_message: null,
+          csv_error_message: null,
+          parse_time: new Date(),
+          jsonl_generated_at: jsonlGeneratedAt || new Date(),
+          csv_generated_at: csvGeneratedAt || new Date(),
+          jsonl_size_bytes: jsonlSizeBytes,
+          csv_size_bytes: csvSizeBytes
         });
 
         // 清理本地临时文件
@@ -810,79 +950,47 @@ async function processBatchDownload(job) {
               const originalName = String(row.original_name || `motion-${fileId}.bin`);
               const baseName = originalName.replace(/\.bin$/i, '');
               const storage = String(row.storage || motionStorage.STORAGE || 'oss').toLowerCase();
-              
-              if (format === 'csv') {
-                // CSV 格式：优先从 JSONL.gz 转换，如果不存在则从 bin 解析
-                let csvStream;
-                let filePath;
-                
-                if (storage === 'oss' && row.parsed_object_key) {
-                  // OSS 场景：流式处理，不落 tmp
-                  try {
-                    const jsonlStream = await getOssStream(row.parsed_object_key);
-                    csvStream = generateCsvStreamFromJsonlStream(jsonlStream, originalName);
-                    console.log(`[流式处理] OSS JSONL -> CSV: ${fileId}`);
-                  } catch (ossErr) {
-                    // OSS 流式失败，fallback 到本地处理
-                    console.log(`OSS 流式处理失败，fallback 到本地: ${fileId}`, ossErr.message);
-                    filePath = await getFilePathFromRecord(fileId, 'parsed');
-                    csvStream = generateCsvStreamFromJsonl(filePath, originalName);
-                    if (filePath.includes('motion-data-download')) {
-                      tmpFiles.push(filePath);
-                    }
+              let csvStream;
+              let filePath;
+
+              if (row.csv_object_key && String(row.csv_status || '') === 'ready') {
+                if (storage === 'local') {
+                  const localPath = path.join(motionStorage.LOCAL_DIR, row.csv_object_key);
+                  if (!fs.existsSync(localPath)) {
+                    throw new Error(`CSV 文件不存在: ${localPath}`);
                   }
-                } else if (storage === 'oss' && row.raw_object_key) {
-                  // OSS 场景但无 parsed，从 raw 解析（需要 fallback 到本地，因为 bin 解析需要随机访问）
-                  console.log(`JSONL 文件不存在，从 bin 文件解析: ${fileId}`);
+                  archive.file(localPath, { name: `${baseName}.csv` });
+                } else {
+                  const csvObjectStream = await getOssStream(row.csv_object_key);
+                  archive.append(csvObjectStream, { name: `${baseName}.csv` });
+                }
+              } else if (storage === 'oss' && row.parsed_object_key) {
+                try {
+                  const jsonlStream = await getOssStream(row.parsed_object_key);
+                  csvStream = generateCsvStreamFromJsonlStream(jsonlStream, originalName);
+                } catch (ossErr) {
+                  filePath = await getFilePathFromRecord(fileId, 'parsed');
+                  csvStream = generateCsvStreamFromJsonl(filePath, originalName);
+                  if (filePath.includes('motion-data-download')) tmpFiles.push(filePath);
+                }
+                archive.append(csvStream, { name: `${baseName}.csv` });
+              } else if (storage === 'oss' && row.raw_object_key) {
+                filePath = await getFilePathFromRecord(fileId, 'raw');
+                csvStream = generateCsvStream(filePath, originalName);
+                if (filePath.includes('motion-data-download')) tmpFiles.push(filePath);
+                archive.append(csvStream, { name: `${baseName}.csv` });
+              } else {
+                try {
+                  filePath = await getFilePathFromRecord(fileId, 'parsed');
+                  csvStream = generateCsvStreamFromJsonl(filePath, originalName);
+                } catch (jsonlErr) {
                   filePath = await getFilePathFromRecord(fileId, 'raw');
                   csvStream = generateCsvStream(filePath, originalName);
-                  if (filePath.includes('motion-data-download')) {
-                    tmpFiles.push(filePath);
-                  }
-                } else {
-                  // Local 场景：使用文件路径
-                  try {
-                    filePath = await getFilePathFromRecord(fileId, 'parsed');
-                    csvStream = generateCsvStreamFromJsonl(filePath, originalName);
-                  } catch (jsonlErr) {
-                    console.log(`JSONL 文件不存在，从 bin 文件解析: ${fileId}`);
-                    filePath = await getFilePathFromRecord(fileId, 'raw');
-                    csvStream = generateCsvStream(filePath, originalName);
-                  }
                 }
-                
-                const csvFileName = `${baseName}.csv`;
-                archive.append(csvStream, { name: csvFileName });
-                successFiles.push({ id: fileId, filename: csvFileName });
-              } else {
-                // JSONL 格式：直接打包解析后的文件
-                if (storage === 'oss' && row.parsed_object_key) {
-                  // OSS 场景：流式处理，使用 store 模式避免二次压缩
-                  try {
-                    const jsonlStream = await getOssStream(row.parsed_object_key);
-                    const jsonlFileName = `${baseName}.jsonl.gz`;
-                    archive.append(jsonlStream, { name: jsonlFileName, store: true });
-                    console.log(`[流式处理] OSS JSONL (store模式): ${fileId}`);
-                    successFiles.push({ id: fileId, filename: jsonlFileName });
-                  } catch (ossErr) {
-                    // OSS 流式失败，fallback 到本地处理
-                    console.log(`OSS 流式处理失败，fallback 到本地: ${fileId}`, ossErr.message);
-                    filePath = await getFilePathFromRecord(fileId, 'parsed');
-                    const jsonlFileName = `${baseName}.jsonl.gz`;
-                    archive.file(filePath, { name: jsonlFileName, store: true });
-                    if (filePath.includes('motion-data-download')) {
-                      tmpFiles.push(filePath);
-                    }
-                    successFiles.push({ id: fileId, filename: jsonlFileName });
-                  }
-                } else {
-                  // Local 场景：使用文件路径
-                  const filePath = await getFilePathFromRecord(fileId, 'parsed');
-                  const jsonlFileName = `${baseName}.jsonl.gz`;
-                  archive.file(filePath, { name: jsonlFileName, store: true });
-                  successFiles.push({ id: fileId, filename: jsonlFileName });
-                }
+                archive.append(csvStream, { name: `${baseName}.csv` });
               }
+
+              successFiles.push({ id: fileId, filename: `${baseName}.csv` });
               
             } catch (err) {
               console.error(`处理文件 ${fileId} 失败:`, err);
@@ -935,9 +1043,121 @@ async function processBatchDownload(job) {
   }
 }
 
+async function processBatchRawDownload(job) {
+  const { fileIds, userId } = job.data;
+
+  console.log(`[MotionData处理器] 开始处理批量原始文件下载任务 ${job.id}, 文件数: ${fileIds.length}`);
+
+  await job.progress(5);
+
+  const errors = [];
+  const successFiles = [];
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const zipFileName = `motion_raw_${job.id}_${timestamp}.zip`;
+  const zipFilePath = path.join(MOTION_DATA_RESULT_DIR, zipFileName);
+
+  await job.progress(10);
+
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipFilePath);
+    const archive = archiver('zip', { zlib: { level: 6 } });
+
+    output.on('close', async () => {
+      try {
+        await job.progress(100);
+        console.log(`[MotionData处理器] 批量原始文件下载任务 ${job.id} 完成, ZIP大小: ${archive.pointer()} bytes`);
+        resolve({
+          zipFilePath,
+          zipFileName,
+          successFiles,
+          errors: errors.length > 0 ? errors : undefined,
+          size: archive.pointer()
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    archive.on('error', (err) => {
+      console.error('[MotionData处理器] 原始文件 ZIP 归档错误:', err);
+      reject(err);
+    });
+
+    archive.pipe(output);
+
+    (async () => {
+      try {
+        const storageMode = motionStorage.STORAGE.toLowerCase();
+
+        for (let i = 0; i < fileIds.length; i++) {
+          const fileId = fileIds[i];
+
+          try {
+            const row = await MotionDataFile.findByPk(Number(fileId));
+            if (!row) {
+              throw new Error(`文件记录不存在: ${fileId}`);
+            }
+            if (!row.raw_object_key) {
+              throw new Error('原始文件不存在（raw_object_key为空）');
+            }
+            if (String(row.status || '') !== 'completed') {
+              throw new Error(`文件状态不允许下载: ${row.status}`);
+            }
+
+            const storage = String(row.storage || storageMode).toLowerCase();
+            const name = sanitizeFilename(row.original_name || `motion-${fileId}.bin`, `motion-${fileId}.bin`);
+
+            if (storage === 'local') {
+              const localPath = path.join(motionStorage.LOCAL_DIR, row.raw_object_key);
+              if (!fs.existsSync(localPath)) {
+                throw new Error('本地原始文件不存在');
+              }
+              archive.file(localPath, { name });
+            } else {
+              const key = String(row.raw_object_key).replace(/^\//, '');
+              const result = await getOssStream(key);
+              archive.append(result, { name });
+            }
+
+            successFiles.push({ id: fileId, filename: name });
+          } catch (err) {
+            console.error(`处理原始文件 ${fileId} 失败:`, err);
+            errors.push({
+              id: fileId,
+              error: err.message
+            });
+          }
+
+          const progress = 10 + Math.floor(((i + 1) / fileIds.length) * 85);
+          await job.progress(progress);
+
+          try {
+            getWebsocketService().pushMotionDataTaskStatus(job.id, 'active', progress, userId);
+          } catch (_) {}
+        }
+
+        if (errors.length > 0) {
+          archive.append(JSON.stringify({
+            message: '部分原始文件未能打包',
+            errors,
+            successCount: successFiles.length,
+            totalCount: fileIds.length
+          }, null, 2), { name: 'errors.json' });
+        }
+
+        await archive.finalize();
+      } catch (error) {
+        archive.abort();
+        reject(error);
+      }
+    })();
+  });
+}
+
 module.exports = {
   processBatchUpload,
   processBatchDownload,
+  processBatchRawDownload,
   generateCsvStream,
   generateCsvStreamFromJsonl,
   generateCsvStreamFromJsonlStream,

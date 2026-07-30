@@ -156,18 +156,10 @@
         <!-- 批量操作（参考设备详细日志列表样式） -->
         <div class="batch-section" v-if="selectedDetailFiles.length > 0 && hasDataReplayManagePermission">
           <div class="batch-actions">
-            <el-dropdown trigger="click" placement="bottom-start" @command="(format) => batchDownloadDetail(format)">
-              <el-button type="primary" size="small" :disabled="!canBatchDownloadDetail">
-                <el-icon><Download /></el-icon>
-                {{ $t('logs.batchDownload') }} ({{ selectedDetailFiles.length }})
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="csv">{{ $t('dataReplay.formatCsv') }}</el-dropdown-item>
-                  <el-dropdown-item command="jsonl">{{ $t('dataReplay.formatJsonl') }}</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <el-button type="primary" size="small" :disabled="!canBatchDownloadDetail" @click="batchDownloadDetail()">
+              <el-icon><Download /></el-icon>
+              {{ $t('logs.batchDownload') }} ({{ selectedDetailFiles.length }})
+            </el-button>
             <el-button type="default" size="small" @click="batchDeleteDetail" :disabled="!canBatchDeleteDetail">
               <el-icon><Delete /></el-icon>
               {{ $t('logs.batchDelete') }} ({{ selectedDetailFiles.length }})
@@ -195,7 +187,7 @@
               width="55"
               :selectable="(row) => {
                 const status = String(row.status)
-                return ['parse_failed', 'completed', 'file_error', 'processing_failed'].includes(status)
+                return ['completed', 'file_error', 'processing_failed'].includes(status)
               }"
             />
             <el-table-column prop="original_name" :label="$t('dataReplay.fileName')" min-width="180" />
@@ -211,27 +203,16 @@
             <el-table-column :label="$t('shared.operation')" min-width="200" fixed="right" align="left">
               <template #default="{ row }">
                 <div class="operation-buttons">
-                  <el-dropdown 
+                  <el-button 
                     v-if="hasDataReplayManagePermission"
-                    trigger="click" 
-                    placement="bottom-end" 
-                    @command="(format) => downloadParsed(row, format)"
+                    text 
+                    size="small" 
+                    type="primary"
+                    :disabled="String(row.status) !== 'completed'"
+                    @click="downloadParsed(row)"
                   >
-                    <el-button 
-                      text 
-                      size="small" 
-                      type="primary"
-                      :disabled="String(row.status) !== 'completed'"
-                    >
-                      {{ $t('dataReplay.download') }}
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="jsonl">{{ $t('dataReplay.formatJsonl') }}</el-dropdown-item>
-                        <el-dropdown-item command="csv">{{ $t('dataReplay.formatCsv') }}</el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
+                    {{ $t('dataReplay.download') }}
+                  </el-button>
                   <el-dropdown 
                     v-if="hasDataReplayManagePermission"
                     trigger="click" 
@@ -250,7 +231,7 @@
                         <el-dropdown-item 
                           :command="{ action: 'delete', row }" 
                           class="dropdown-item-danger"
-                          :disabled="!['parse_failed', 'completed', 'file_error', 'processing_failed'].includes(String(row.status))"
+                          :disabled="!['completed', 'file_error', 'processing_failed'].includes(String(row.status))"
                         >
                           {{ $t('shared.delete') }}
                         </el-dropdown-item>
@@ -584,7 +565,6 @@ export default {
       const map = {
         uploading: t('dataReplay.statusUploading'),
         parsing: t('dataReplay.statusParsing'),
-        parse_failed: t('dataReplay.statusParseFailed'),
         completed: t('dataReplay.statusCompleted'),
         file_error: t('dataReplay.statusFileError'),
         processing_failed: t('dataReplay.statusProcessingFailed')
@@ -594,7 +574,7 @@ export default {
     const statusTagType = (s) => {
       if (s === 'completed') return 'success'
       if (s === 'parsing' || s === 'uploading') return 'warning'
-      if (['file_error', 'parse_failed', 'processing_failed'].includes(s)) return 'danger'
+      if (['file_error', 'processing_failed'].includes(s)) return 'danger'
       return ''
     }
 
@@ -929,11 +909,11 @@ export default {
     const canBatchDeleteDetail = computed(() => {
       if (!selectedDetailFiles.value.length) return false
       if (selectedDetailFiles.value.length > 10) return false
-      const allowedStatuses = ['parse_failed', 'completed', 'file_error', 'processing_failed']
+      const allowedStatuses = ['completed', 'file_error', 'processing_failed']
       return selectedDetailFiles.value.every((r) => allowedStatuses.includes(String(r.status)))
     })
 
-    const batchDownloadDetail = async (format = 'csv') => {
+    const batchDownloadDetail = async () => {
       if (!hasDataReplayManagePermission.value) {
         ElMessage.error(t('dataReplay.noPermission'))
         return
@@ -951,8 +931,7 @@ export default {
           ElMessage.info(t('dataReplay.largeBatchDownloadHint', { count: ids.length }))
         }
         
-        // 使用新的批量下载接口（支持格式选择）
-        const { data } = await api.motionData.batchDownload(ids, format)
+        const { data } = await api.motionData.batchDownload(ids, 'csv')
         const taskId = data?.taskId
         if (!taskId) throw new Error('未返回 taskId')
         
@@ -970,11 +949,12 @@ export default {
               if (timeoutId) clearTimeout(timeoutId)
               // 下载结果文件
               try {
-                const downloadResp = await api.motionData.downloadTaskResult(taskId)
+                const url = getMotionDownloadUrl(`/motion-data/task/${taskId}/download`)
+                if (!url) throw new Error('未能生成下载地址')
                 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-                const formatName = format === 'csv' ? 'csv' : 'jsonl'
+                const formatName = 'csv'
                 const zipName = st?.result?.zipFileName || `motion_data_${formatName}_${selectedDevice.value?.device_id || 'device'}_${ts}.zip`
-                downloadBlob(new Blob([downloadResp.data]), zipName)
+                triggerNativeDownload(url, zipName)
                 ElMessage.success(t('dataReplay.batchDownloadCompleted'))
               } catch (downloadErr) {
                 notifyApiError(downloadErr, t('dataReplay.downloadResultFileFailed'))
@@ -1253,15 +1233,29 @@ export default {
       }
     }
 
-    const downloadBlob = (blob, filename) => {
-      const url = URL.createObjectURL(blob)
+    const getMotionDownloadUrl = (downloadPath, params = {}) => {
+      const normalizedPath = String(downloadPath || '').trim()
+      if (!normalizedPath) return ''
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return
+        qs.set(key, String(value))
+      })
+      if (token) qs.set('token', token)
+      const suffix = qs.toString() ? `?${qs.toString()}` : ''
+      return `/api${normalizedPath}${suffix}`
+    }
+
+    const triggerNativeDownload = (url, filename = '') => {
+      if (!url) throw new Error('未能生成下载地址')
       const a = document.createElement('a')
       a.href = url
-      a.download = filename
+      if (filename) a.download = filename
+      a.rel = 'noopener'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      URL.revokeObjectURL(url)
     }
 
     const downloadRaw = async (row) => {
@@ -1274,14 +1268,14 @@ export default {
         return
       }
       try {
-        const resp = await api.motionData.downloadRaw(row.id)
-        downloadBlob(new Blob([resp.data]), row.original_name || `motion-${row.id}.bin`)
+        const url = getMotionDownloadUrl(`/motion-data/files/${row.id}/download/raw`)
+        triggerNativeDownload(url, row.original_name || `motion-${row.id}.bin`)
       } catch (e) {
         notifyApiError(e, t('dataReplay.downloadFailed'))
       }
     }
 
-    const downloadParsed = async (row, format = 'jsonl') => {
+    const downloadParsed = async (row) => {
       if (!hasDataReplayManagePermission.value) {
         ElMessage.error(t('dataReplay.noPermission'))
         return
@@ -1291,10 +1285,9 @@ export default {
         return
       }
       try {
-        const resp = await api.motionData.downloadParsed(row.id, format)
+        const url = getMotionDownloadUrl(`/motion-data/files/${row.id}/download/parsed`, { format: 'csv' })
         const base = (row.original_name || `motion-${row.id}.bin`).replace(/\.bin$/i, '')
-        const ext = format === 'csv' ? '.csv' : '.jsonl.gz'
-        downloadBlob(new Blob([resp.data]), `${base}${ext}`)
+        triggerNativeDownload(url, `${base}.csv`)
         ElMessage.success(t('dataReplay.downloadCompleted'))
       } catch (e) {
         notifyApiError(e, t('dataReplay.downloadFailed'))
@@ -1307,7 +1300,7 @@ export default {
         ElMessage.error(t('dataReplay.noPermission'))
         return
       }
-      const allowedStatuses = ['parse_failed', 'completed', 'file_error', 'processing_failed']
+      const allowedStatuses = ['completed', 'file_error', 'processing_failed']
       if (!allowedStatuses.includes(String(row.status))) {
         ElMessage.warning(t('dataReplay.onlyAllowedStatusesCanDelete'))
         return

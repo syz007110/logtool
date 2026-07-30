@@ -1595,13 +1595,24 @@ export default {
       }
     }
 
-    const parseFilename = (contentDisposition) => {
-      try {
-        if (!contentDisposition) return ''
-        const match = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/)
-        const raw = decodeURIComponent(match?.[1] || match?.[2] || '')
-        return raw || ''
-      } catch { return '' }
+    const getErrorCodeExportUrl = ({ language = '', format = 'csv' } = {}) => {
+      const token = store?.state?.auth?.token || ''
+      const qs = new URLSearchParams()
+      if (language) qs.set('language', language)
+      if (format) qs.set('format', format)
+      if (currentSeriesId.value) qs.set('series_id', String(currentSeriesId.value))
+      if (token) qs.set('token', token)
+      return `/api/error-codes/export/csv?${qs.toString()}`
+    }
+
+    const triggerNativeDownload = (url) => {
+      if (!url) throw new Error('未能生成下载地址')
+      const a = document.createElement('a')
+      a.href = url
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     }
 
     const loadExportLanguages = async () => {
@@ -1623,17 +1634,8 @@ export default {
       try {
         exportLoading.value = true
         const language = selectedExportLang.value || ''
-        const resp = await api.errorCodes.exportCSV(language, exportFormat.value)
-        const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8;' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        const serverName = parseFilename(resp.headers?.['content-disposition'])
-        a.download = serverName || 'error_codes.csv'
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.URL.revokeObjectURL(url)
+        const url = getErrorCodeExportUrl({ language, format: exportFormat.value })
+        triggerNativeDownload(url)
         ElMessage.success(t('errorCodes.message.exportSuccess'))
         showExportDialog.value = false
       } catch (e) {

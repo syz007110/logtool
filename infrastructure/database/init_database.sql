@@ -449,7 +449,8 @@ CREATE TABLE IF NOT EXISTS logs (
 -- 7.1 运行数据（motion-data）文件元数据表
 -- 说明：
 -- - 同一设备允许同名文件上传，但语义为“覆盖原数据”：通过 (device_id, original_name) 唯一约束 + revision 版本号实现
--- - raw_object_key / parsed_object_key 用于 OSS 存储定位（原始 .bin 与解析后的 .jsonl.gz）
+-- - raw_object_key / parsed_object_key / csv_object_key 用于定位原始文件及两类派生产物
+-- - status 表示主流程状态；jsonl_status / csv_status 表示派生产物独立状态
 CREATE TABLE IF NOT EXISTS motion_data_files (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   device_id VARCHAR(100) NOT NULL COMMENT '设备编号（上传必填）',
@@ -469,8 +470,11 @@ CREATE TABLE IF NOT EXISTS motion_data_files (
   storage ENUM('oss','local') NOT NULL DEFAULT 'oss' COMMENT '存储介质',
   raw_object_key TEXT NULL COMMENT '原始bin的对象Key（OSS object key）',
   parsed_object_key TEXT NULL COMMENT '解析后jsonl.gz的对象Key（OSS object key）',
+  csv_object_key TEXT NULL COMMENT '导出csv的对象Key（OSS object key 或本地相对路径）',
   sha256 CHAR(64) NULL COMMENT '文件 sha256（可选）',
   etag TEXT NULL COMMENT 'OSS etag（可选）',
+  jsonl_size_bytes BIGINT UNSIGNED NULL COMMENT '解析后jsonl.gz文件大小（字节）',
+  csv_size_bytes BIGINT UNSIGNED NULL COMMENT '导出csv文件大小（字节）',
 
   -- 解析元数据（用于时间轴/快速展示）
   entry_size_bytes INT NOT NULL DEFAULT 924 COMMENT '单帧字节数（固定 924）',
@@ -480,18 +484,28 @@ CREATE TABLE IF NOT EXISTS motion_data_files (
   ts_last BIGINT UNSIGNED NULL COMMENT '末帧时间戳 YYYYMMDDhhmmssxxx（17位数字）',
 
   -- 状态：上传中/解析中/解析失败/完成/文件错误/处理失败
-  status ENUM('uploading','parsing','parse_failed','completed','file_error','processing_failed')
+  status ENUM('uploading','parsing','completed','file_error','processing_failed')
     NOT NULL DEFAULT 'uploading' COMMENT '处理状态',
+  jsonl_status ENUM('pending','generating','ready','failed')
+    NOT NULL DEFAULT 'pending' COMMENT 'jsonl.gz 派生状态',
+  csv_status ENUM('pending','generating','ready','failed')
+    NOT NULL DEFAULT 'pending' COMMENT 'csv 派生状态',
   error_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '失败原因（可选）',
+  jsonl_error_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT 'jsonl.gz 生成失败原因',
+  csv_error_message TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT 'csv 生成失败原因',
 
   upload_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
   parse_time DATETIME NULL COMMENT '解析完成时间',
+  jsonl_generated_at DATETIME NULL COMMENT 'jsonl.gz 生成完成时间',
+  csv_generated_at DATETIME NULL COMMENT 'csv 生成完成时间',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   UNIQUE KEY uniq_motion_device_filename (device_id, original_name),
   KEY idx_motion_device_time (device_id, upload_time),
   KEY idx_motion_status_time (status, upload_time),
+  KEY idx_motion_jsonl_status_time (jsonl_status, upload_time),
+  KEY idx_motion_csv_status_time (csv_status, upload_time),
   KEY idx_motion_device_file_time (device_id, file_time),
   KEY idx_motion_status_file_time (status, file_time),
   KEY idx_motion_file_time_token (file_time_token)

@@ -648,7 +648,6 @@ export default {
       device_id: '',
       device_series_id: null,
       device_model_id: null,
-      device_model: '',
       hospital_id: null,
       country_code: '',
       region_code: ''
@@ -1026,7 +1025,6 @@ export default {
           device_id: row.device_id,
           device_series_id: isPositiveSeriesId(row.series_id) ? Number(row.series_id) : null,
           device_model_id: row.device_model_id || null,
-          device_model: row.device_model,
           hospital_id: row.hospital_id || null,
           country_code: row.country_code || '',
           region_code: row.region_code || ''
@@ -1052,7 +1050,6 @@ export default {
           device_id: '',
           device_series_id: null,
           device_model_id: null,
-          device_model: '',
           hospital_id: null,
           country_code: '',
           region_code: ''
@@ -1065,8 +1062,12 @@ export default {
       } else {
         applySeriesSelection()
       }
-      if (form.device_model && !deviceModelOptions.value.some(item => Number(item.id) === Number(form.device_model_id))) {
-        deviceModelOptions.value = [{ id: form.device_model_id || null, device_model: form.device_model, series_id: form.device_series_id }, ...deviceModelOptions.value]
+      if (row?.device_model && !deviceModelOptions.value.some(item => Number(item.id) === Number(form.device_model_id))) {
+        deviceModelOptions.value = [{
+          id: form.device_model_id || null,
+          device_model: row.device_model,
+          series_id: form.device_series_id
+        }, ...deviceModelOptions.value]
       }
       showEdit.value = true
     }
@@ -1241,15 +1242,11 @@ export default {
       const selected = selectedFormDeviceModel.value
       if (!selected || Number(selected.series_id) !== Number(value)) {
         form.device_model_id = null
-        form.device_model = ''
-        return
       }
-      form.device_model = selected.device_model || ''
     }
 
     const onDeviceModelChange = (value) => {
       const selected = deviceModelOptions.value.find(item => Number(item.id) === Number(value)) || null
-      form.device_model = selected?.device_model || ''
       if (selected && isPositiveSeriesId(selected.series_id)) {
         form.device_series_id = Number(selected.series_id)
       }

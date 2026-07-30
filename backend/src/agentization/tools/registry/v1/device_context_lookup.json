@@ -1,0 +1,91 @@
+{
+  "registryVersion": "v1",
+  "tools": [
+    {
+      "toolName": "device_context_lookup",
+      "displayName": "设备解析",
+      "enabled": false,
+      "description": "解析用户输入的设备编号、设备型号或系列口语表达，返回标准化的设备上下文，包括系列、型号、医院与地区信息。",
+      "descriptionFile": "./descriptions/device_context_lookup.md",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "description": "设备编号，例如 4371-28。优先按设备表绑定结果解析，未命中时可按编号规则兜底推断。",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "deviceModel": {
+            "type": "string",
+            "description": "设备型号名称，例如 4336。用于识别所属设备系列。",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "seriesInput": {
+            "type": "string",
+            "description": "用户输入的系列名称、系列码或口语表达，例如 多臂、单孔、SR、SA。",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "strict": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ],
+            "description": "是否启用严格模式。true 表示存在歧义时直接返回候选，不做规则兜底；false 表示允许有限规则推断。"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "zh-CN",
+              "en-US"
+            ],
+            "description": "返回文案语言。"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "deviceId"
+            ]
+          },
+          {
+            "required": [
+              "deviceModel"
+            ]
+          },
+          {
+            "required": [
+              "seriesInput"
+            ]
+          }
+        ]
+      },
+      "runtime": {
+        "defaults": {
+          "strict": "false",
+          "language": "zh-CN"
+        },
+        "execution": {
+          "mode": "sync",
+          "handler": "deviceContextLookupHandler.execute",
+          "timeoutMs": 5000,
+          "retryable": false
+        }
+      },
+      "security": {
+        "riskLevel": "low",
+        "requiredPermissions": [
+          "device:read"
+        ],
+        "permissionBypassChannels": [
+          "dingtalk"
+        ],
+        "audit": true
+      }
+    }
+  ]
+}

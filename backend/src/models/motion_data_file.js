@@ -24,8 +24,11 @@ const MotionDataFile = sequelize.define('motion_data_files', {
   storage: { type: DataTypes.ENUM('oss', 'local'), allowNull: false, defaultValue: 'oss' },
   raw_object_key: { type: DataTypes.TEXT, allowNull: true },
   parsed_object_key: { type: DataTypes.TEXT, allowNull: true },
+  csv_object_key: { type: DataTypes.TEXT, allowNull: true },
   sha256: { type: DataTypes.CHAR(64), allowNull: true },
   etag: { type: DataTypes.TEXT, allowNull: true },
+  jsonl_size_bytes: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
+  csv_size_bytes: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
 
   entry_size_bytes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 924 },
   sample_rate_hz: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 100 },
@@ -34,14 +37,28 @@ const MotionDataFile = sequelize.define('motion_data_files', {
   ts_last: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
 
   status: {
-    type: DataTypes.ENUM('uploading', 'parsing', 'parse_failed', 'completed', 'file_error', 'processing_failed'),
+    type: DataTypes.ENUM('uploading', 'parsing', 'completed', 'file_error', 'processing_failed'),
     allowNull: false,
     defaultValue: 'uploading'
   },
+  jsonl_status: {
+    type: DataTypes.ENUM('pending', 'generating', 'ready', 'failed'),
+    allowNull: false,
+    defaultValue: 'pending'
+  },
+  csv_status: {
+    type: DataTypes.ENUM('pending', 'generating', 'ready', 'failed'),
+    allowNull: false,
+    defaultValue: 'pending'
+  },
   error_message: { type: DataTypes.TEXT, allowNull: true },
+  jsonl_error_message: { type: DataTypes.TEXT, allowNull: true },
+  csv_error_message: { type: DataTypes.TEXT, allowNull: true },
 
   upload_time: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   parse_time: { type: DataTypes.DATE, allowNull: true },
+  jsonl_generated_at: { type: DataTypes.DATE, allowNull: true },
+  csv_generated_at: { type: DataTypes.DATE, allowNull: true },
   created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
 }, {
@@ -49,4 +66,3 @@ const MotionDataFile = sequelize.define('motion_data_files', {
 });
 
 module.exports = MotionDataFile;
-

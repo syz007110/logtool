@@ -6,7 +6,7 @@
  *   key_value, valid_from_date, valid_to_date
  *
  * 规则：
- * - 设备：按 device_id upsert（写 device_model / series_id，不写 devices.device_key）
+ * - 设备：按 device_id upsert（写 device_model_id / series_id，不写 devices.device_key）
  * - 密钥：写入 device_keys；日期自动补到小时（YYYY-MM-DD → YYYY-MM-DD 00:00:00）
  * - 同一设备多行密钥按 valid_from 排序；若前一条结束为空且后一条起始更晚，自动收窄前一条终止到后一条起始
  * - 仍交叉则报错跳过该设备密钥（设备行仍可创建）
