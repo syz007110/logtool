@@ -17,9 +17,11 @@ const LOCAL_PUBLIC_BASE = normalizePublicBase(
   '/static/agent-assets'
 );
 
-const MAX_FILES = Number.parseInt(process.env.AGENT_ASSET_MAX_FILES || '5', 10);
+const MAX_FILES = Number.parseInt(process.env.AGENT_ASSET_MAX_FILES || '10', 10);
 const MAX_FILE_SIZE = Number.parseInt(process.env.AGENT_ASSET_MAX_SIZE || `${20 * 1024 * 1024}`, 10);
-const MAX_TOTAL_SIZE = Number.parseInt(process.env.AGENT_ASSET_MAX_TOTAL_SIZE || `${100 * 1024 * 1024}`, 10);
+const MAX_TOTAL_SIZE = Number.parseInt(process.env.AGENT_ASSET_MAX_TOTAL_SIZE || `${200 * 1024 * 1024}`, 10);
+const MAX_FOLDER_DEPTH = Number.parseInt(process.env.AGENT_ASSET_MAX_FOLDER_DEPTH || '3', 10);
+const MAX_INPUT_CHARS = Number.parseInt(process.env.AGENT_MAX_INPUT_CHARS || '500', 10);
 const TMP_TTL_HOURS = Number.parseInt(process.env.TMP_CLEANUP_TTL_HOURS || process.env.AGENT_ASSET_TMP_TTL_HOURS || '24', 10);
 
 const ALLOWED_MIMES = (process.env.AGENT_ASSET_ALLOWED_MIMES ||
@@ -152,6 +154,8 @@ module.exports = {
   MAX_FILES,
   MAX_FILE_SIZE,
   MAX_TOTAL_SIZE,
+  MAX_FOLDER_DEPTH,
+  MAX_INPUT_CHARS,
   TMP_TTL_HOURS,
   ALLOWED_MIMES,
   ALLOWED_EXTENSIONS,

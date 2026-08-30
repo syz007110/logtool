@@ -4,7 +4,8 @@ const {
   asObject,
   buildLegacyInputContractView,
   getToolRuntime,
-  getToolParameters
+  getToolParameters,
+  validateRuntimeExecutionSpec
 } = require('./toolRegistrySchema');
 
 const REGISTRY_DIR = path.resolve(__dirname, 'v1');
@@ -38,6 +39,7 @@ function resolveToolDescription(raw, sourceFilePath) {
 
 function normalizeTool(raw, sourceFilePath) {
   const runtime = getToolRuntime(raw);
+  validateRuntimeExecutionSpec(runtime.execution, String(raw?.toolName || '').trim());
   const parameters = getToolParameters(raw);
   const security = asObject(raw.security);
   const inputContract = buildLegacyInputContractView({

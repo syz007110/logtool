@@ -18,6 +18,7 @@ const { projectToolTracesFromLoopTrace } = require('../types/toolTracesProjectio
 const { sanitizeMultimodalPayload } = require('../utils/multimodalPayloadSanitizer');
 const { shouldPersistClosedOrchestratorEntry } = require('./toolCallClosure');
 const { getAgentFixedT, resolveAgentLng } = require('../utils/agentI18n');
+const { resolveActiveAttachmentStatusFromHistoryMessages } = require('../../services/attachmentStatusStateService');
 const {
   buildInactiveInstanceNotice,
   buildInstanceNotice,
@@ -522,6 +523,12 @@ async function prepareConversationContext(request, options = {}) {
     stepStartedAt = Date.now();
     prepareLog('buildContextEnvelope:start', { traceId, requestId, instanceId: Number(instance?.id || 0) });
     const contextEnvelope = buildContextEnvelope({ request, history, policy });
+    const activeAttachmentStatus = resolveActiveAttachmentStatusFromHistoryMessages(
+      contextEnvelope?.historyContext?.messages
+    );
+    if (activeAttachmentStatus) {
+      contextEnvelope.activeAttachmentStatus = activeAttachmentStatus;
+    }
     prepareLog('buildContextEnvelope:done', { traceId, requestId, instanceId: Number(instance?.id || 0), costMs: Date.now() - stepStartedAt });
     logContextEnvelopeDebug(request, contextEnvelope);
     prepareLog('tx:commit_ready', { traceId, requestId, totalCostMs: Date.now() - txStartedAt });
@@ -532,6 +539,7 @@ async function prepareConversationContext(request, options = {}) {
       history,
       policy,
       contextEnvelope,
+      activeAttachmentStatus,
       idempotencyKey
     };
   }).then((result) => {
@@ -778,7 +786,8 @@ function shouldPersistAssistantStructuredEvent(assistantResponse) {
   const mode = String(assistantResponse?.mode || '').trim().toLowerCase();
   const deliveryHint = String(asPlainObject(assistantResponse?.debugMeta).deliveryHint || '').trim().toLowerCase();
   if (deliveryHint === 'system_action_card') return false;
-  if (mode === 'direct_response') return false;
+  if (mode === 'deferred') return false;
+  if (deliveryHint === 'async_tool_event_only') return false;
   return true;
 }
 
@@ -871,7 +880,7 @@ function buildSystemMessages({ assistantResponse, instanceNotice, language = 'zh
     });
   }
 
-  if (deliveryHint === 'system_action_card' || assistantMode === 'direct_response') {
+  if (deliveryHint === 'system_action_card') {
     if (text) {
       messages.push({
         kind: 'direct_response',
@@ -880,6 +889,10 @@ function buildSystemMessages({ assistantResponse, instanceNotice, language = 'zh
         presentation: 'action_card'
       });
     }
+  }
+
+  if (assistantMode === 'deferred' || deliveryHint === 'async_tool_event_only') {
+    return messages;
   }
 
   return messages;
@@ -1066,6 +1079,7 @@ async function processConversationRequest({
       },
       assistant_mode: String(assistantResponse?.mode || '').trim() || 'llm_response',
       delivery_hint: String(asPlainObject(assistantResponse?.debugMeta).deliveryHint || '').trim() || null,
+      deferred_event: asPlainObject(asPlainObject(assistantResponse?.debugMeta).deferredEvent),
       system_messages: systemMessages,
       current_input: userMsg,
       text: String(assistantResponse?.text || '').trim(),

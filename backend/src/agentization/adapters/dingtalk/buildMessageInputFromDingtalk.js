@@ -13,6 +13,7 @@ const { getAgentFixedT } = require('../../utils/agentI18n');
 const {
   validatePreOrchestratorAttachmentCandidates
 } = require('../../runtime/attachmentValidationPolicy');
+const { resolveOrBindDingtalkUser } = require('../../../services/dingtalkUserBindingService');
 
 function buildTraceIdFromRequest(req) {
   const headerTraceId = String(req?.headers?.['x-dingtalk-request-id'] || '').trim();
@@ -110,6 +111,14 @@ function buildShortCircuitContext(reason, message, details = {}) {
   };
 }
 
+function pickBindingIdentity(payload) {
+  return {
+    userId: String(payload?.senderStaffId || payload?.senderId || '').trim() || null,
+    nick: String(payload?.senderNick || '').trim() || null,
+    corpId: String(payload?.senderCorpId || '').trim() || null
+  };
+}
+
 function shouldSkipAttachmentResolution(payload) {
   return String(payload?.msgtype || '').trim().toLowerCase() === 'video';
 }
@@ -123,12 +132,23 @@ function finalizeMessageInput({
   text,
   contentRaw,
   attachments,
-  context
+  context,
+  resolvedUser
 }) {
+  const rawSender = pickSender(payload);
+  const requestUser = resolvedUser?.user
+    ? {
+      id: String(resolvedUser.user.id),
+      name: String(resolvedUser.user.dingtalk_nick || resolvedUser.user.username || rawSender.name || '').trim() || undefined,
+      platformUserId: rawSender.platformUserId,
+      corpId: rawSender.corpId,
+      isAdmin: rawSender.isAdmin
+    }
+    : rawSender;
   return buildMessageInput({
     traceId,
     requestId,
-    user: pickSender(payload),
+    user: requestUser,
     channel: {
       type: 'dingtalk',
       conversationType: pickConversationType(payload),
@@ -162,6 +182,17 @@ async function buildMessageInputFromDingtalkPayload(payload, options = {}) {
   if (!conversationId) {
     throw new Error('dingtalk payload conversationId is required');
   }
+  const dingtalkUserResolver = typeof options.resolveDingtalkUser === 'function'
+    ? options.resolveDingtalkUser
+    : resolveOrBindDingtalkUser;
+  let resolvedUser = null;
+  try {
+    resolvedUser = await dingtalkUserResolver(pickBindingIdentity(payload), {
+      allowCreate: true
+    });
+  } catch (_) {
+    resolvedUser = null;
+  }
   let context = {};
   if (shouldSkipAttachmentResolution(payload)) {
     context = buildShortCircuitContext(
@@ -194,8 +225,8 @@ async function buildMessageInputFromDingtalkPayload(payload, options = {}) {
     try {
       attachments = await attachmentResolver(payload, {
         candidates: extractedCandidates,
-        uploaderId: String(payload?.senderId || payload?.senderStaffId || '').trim() || undefined
-        ,robotCode: String(payload?.robotCode || '').trim() || undefined
+        uploaderId: resolvedUser?.user?.id != null ? String(resolvedUser.user.id) : undefined,
+        robotCode: String(payload?.robotCode || '').trim() || undefined
       });
       if (!Array.isArray(attachments) || attachments.length === 0) {
         attachments = fallbackAttachments;
@@ -217,6 +248,7 @@ async function buildMessageInputFromDingtalkPayload(payload, options = {}) {
           contentRaw,
           attachments,
           context,
+          resolvedUser
         });
       }
       attachments = fallbackAttachments;
@@ -233,6 +265,7 @@ async function buildMessageInputFromDingtalkPayload(payload, options = {}) {
     contentRaw,
     attachments,
     context,
+    resolvedUser
   });
 }
 

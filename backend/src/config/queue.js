@@ -123,6 +123,40 @@ const conversationMessageQueue = new Queue('conversation-message', {
   }
 });
 
+// Attachment scan queue（附件识别预处理）
+const attachmentScanQueue = new Queue('attachment-scan', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 9,
+    attempts: parseInt(process.env.ATTACHMENT_SCAN_MAX_RETRIES, 10) || 2,
+    backoff: {
+      type: 'exponential',
+      delay: parseInt(process.env.ATTACHMENT_SCAN_BACKOFF_MS, 10) || 500
+    },
+    timeout: parseInt(process.env.ATTACHMENT_SCAN_TIMEOUT_MS, 10) || 30000,
+    removeOnComplete: parseInt(process.env.ATTACHMENT_SCAN_REMOVE_ON_COMPLETE, 10) || 100,
+    removeOnFail: parseInt(process.env.ATTACHMENT_SCAN_REMOVE_ON_FAIL, 10) || 50
+  }
+});
+
+// Async tool governance queue（异步工具超时治理）
+const asyncToolGovernanceQueue = new Queue('async-tool-governance', {
+  ...queueOptions,
+  defaultJobOptions: {
+    ...queueOptions.defaultJobOptions,
+    priority: 6,
+    attempts: parseInt(process.env.AGENT_ASYNC_TOOL_GOVERNANCE_MAX_RETRIES, 10) || 2,
+    backoff: {
+      type: 'exponential',
+      delay: parseInt(process.env.AGENT_ASYNC_TOOL_GOVERNANCE_BACKOFF_MS, 10) || 1000
+    },
+    timeout: parseInt(process.env.AGENT_ASYNC_TOOL_GOVERNANCE_TIMEOUT_MS, 10) || 30000,
+    removeOnComplete: parseInt(process.env.AGENT_ASYNC_TOOL_GOVERNANCE_REMOVE_ON_COMPLETE, 10) || 100,
+    removeOnFail: parseInt(process.env.AGENT_ASYNC_TOOL_GOVERNANCE_REMOVE_ON_FAIL, 10) || 50
+  }
+});
+
 // 队列事件监听
 logProcessingQueue.on('error', (error) => {
   console.error('[队列] 队列错误:', error);
@@ -195,6 +229,22 @@ conversationMessageQueue.on('error', (error) => {
   console.error('[会话队列] 队列错误:', error);
 });
 
+attachmentScanQueue.on('error', (error) => {
+  console.error('[附件识别队列] 队列错误:', error);
+});
+
+attachmentScanQueue.on('failed', (job, err) => {
+  console.error('[附件识别队列] 任务失败:', job.id, err.message);
+});
+
+asyncToolGovernanceQueue.on('error', (error) => {
+  console.error('[异步工具治理队列] 队列错误:', error);
+});
+
+asyncToolGovernanceQueue.on('failed', (job, err) => {
+  console.error('[异步工具治理队列] 任务失败:', job.id, err.message);
+});
+
 conversationMessageQueue.on('failed', (job, err) => {
   console.error('[会话队列] 任务失败:', job.id, err.message);
 });
@@ -232,6 +282,14 @@ conversationMessageQueue.on('completed', (job) => {
   console.log(`[会话队列] 任务 ${job.id} 完成`);
 });
 
+attachmentScanQueue.on('completed', (job) => {
+  console.log(`[附件识别队列] 任务 ${job.id} 完成`);
+});
+
+asyncToolGovernanceQueue.on('completed', (job) => {
+  console.log(`[异步工具治理队列] 任务 ${job.id} 完成`);
+});
+
 logProcessingQueue.on('stalled', (job) => {
   console.warn(`[队列] 任务 ${job.id} 停滞`);
 });
@@ -253,6 +311,8 @@ module.exports = {
   motionDataQueue,
   kbIngestQueue,
   conversationMessageQueue,
+  attachmentScanQueue,
+  asyncToolGovernanceQueue,
   redisConfig,
   queueOptions
 };

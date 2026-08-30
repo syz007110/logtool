@@ -8,6 +8,8 @@ const {
   motionDataQueue,
   kbIngestQueue,
   conversationMessageQueue,
+  attachmentScanQueue,
+  asyncToolGovernanceQueue,
   redisConfig
 } = require('../config/queue');
 
@@ -25,12 +27,14 @@ const { createAgentTaskPersistenceStore } = require('../agentization/taskGateway
 const { deliverAgentTaskOutcome } = require('../agentization/delivery/agentTaskDeliveryService');
 const { executeConversationTurn } = require('../agentization/runtime');
 const { projectQueueResultToMessageOutput } = require('../agentization/types/messageOutputProjection');
+const { scanAttachmentsForMessage } = require('../services/attachmentScanService');
 const Log = require('../models/log');
 const SurgeryAnalysisTaskMeta = require('../models/surgeryAnalysisTaskMeta');
 const websocketService = require('../services/websocketService');
 const errorCodeCacheSyncService = require('../services/errorCodeCacheSyncService');
 const { logOperation } = require('../utils/operationLogger');
 const { autoImportSurgeries } = require('../controllers/surgeryStatisticsController');
+const { recordAgentAsyncToolTaskResult, handleAsyncToolTaskTimeout } = require('../services/agentAsyncToolTaskService');
 
 // 队列消费进程不一定经过 app.js，这里补上故障码缓存跨进程同步订阅。
 errorCodeCacheSyncService.initializeSubscriber().catch((e) => {
@@ -46,6 +50,8 @@ const MOTION_DATA_CONCURRENCY = parseInt(process.env.MOTION_DATA_QUEUE_CONCURREN
 const KB_INGEST_CONCURRENCY = parseInt(process.env.KB_QUEUE_CONCURRENCY) || 2;
 const CSV_EXPORT_CONCURRENCY = parseInt(process.env.CSV_EXPORT_QUEUE_CONCURRENCY) || 2;
 const SESSION_QUEUE_CONCURRENCY = parseInt(process.env.SESSION_QUEUE_CONCURRENCY, 10) || 8;
+const ATTACHMENT_SCAN_CONCURRENCY = parseInt(process.env.ATTACHMENT_SCAN_QUEUE_CONCURRENCY, 10) || 2;
+const ASYNC_TOOL_GOVERNANCE_CONCURRENCY = parseInt(process.env.AGENT_ASYNC_TOOL_GOVERNANCE_QUEUE_CONCURRENCY, 10) || 2;
 const SESSION_INSTANCE_LOCK_TTL_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_TTL_MS, 10) || 120000;
 const SESSION_INSTANCE_LOCK_WAIT_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_WAIT_MS, 10) || 60000;
 const SESSION_INSTANCE_LOCK_RETRY_MS = parseInt(process.env.SESSION_INSTANCE_LOCK_RETRY_MS, 10) || 80;
@@ -97,6 +103,27 @@ function stepError(jobId, step, error, extra = {}) {
 
 function buildInstanceLockKey(instanceId) {
   return `conversation:instance:${String(instanceId)}:lock`;
+}
+
+async function syncAgentLogUploadTask(job) {
+  const taskId = String(job?.data?.agentLogUploadTaskId || '').trim();
+  const jobId = String(job?.id || '').trim();
+  if (!taskId || !jobId) return;
+  try {
+    await recordAgentAsyncToolTaskResult({
+      taskId,
+      resultKey: jobId,
+      resultRef: {
+        logId: job?.data?.logId || null,
+        originalName: job?.data?.originalName || ''
+      }
+    });
+  } catch (error) {
+    console.warn('[agent-log-upload-task] sync failed:', error?.message || error, {
+      taskId,
+      jobId
+    });
+  }
 }
 
 async function acquireInstanceLock(instanceId, token) {
@@ -194,6 +221,8 @@ console.log(`[队列系统] 启动MotionData处理队列，并发数: ${MOTION_D
 console.log(`[队列系统] 启动知识库入库队列，并发数: ${KB_INGEST_CONCURRENCY}`);
 console.log(`[队列系统] 启动CSV导出队列，并发数: ${CSV_EXPORT_CONCURRENCY}`);
 console.log(`[队列系统] 启动会话队列，并发数: ${SESSION_QUEUE_CONCURRENCY}`);
+console.log(`[队列系统] 启动附件识别队列，并发数: ${ATTACHMENT_SCAN_CONCURRENCY}`);
+console.log(`[队列系统] 启动异步工具治理队列，并发数: ${ASYNC_TOOL_GOVERNANCE_CONCURRENCY}`);
 
 // 检查和处理卡住的任务
 const checkStuckJobs = async () => {
@@ -278,6 +307,8 @@ logProcessingQueue.process('process-log', CONCURRENCY, async (job) => {
     }
     
     throw error;
+  } finally {
+    await syncAgentLogUploadTask(job);
   }
 });
 
@@ -309,6 +340,8 @@ realtimeProcessingQueue.process('process-log', REALTIME_CONCURRENCY, async (job)
     }
     
     throw error;
+  } finally {
+    await syncAgentLogUploadTask(job);
   }
 });
 
@@ -504,6 +537,8 @@ logProcessingQueue.process('batch-download', 1, async (job) => {
     }
     
     throw error;
+  } finally {
+    await syncAgentLogUploadTask(job);
   }
 });
 
@@ -947,6 +982,18 @@ conversationMessageQueue.process('process-conversation', SESSION_QUEUE_CONCURREN
   }
 });
 
+attachmentScanQueue.process('attachment-scan', ATTACHMENT_SCAN_CONCURRENCY, async (job) => {
+  return scanAttachmentsForMessage(job?.data?.request || {});
+});
+
+asyncToolGovernanceQueue.process('timeout-check', ASYNC_TOOL_GOVERNANCE_CONCURRENCY, async (job) => {
+  const taskId = String(job?.data?.taskId || '').trim();
+  if (!taskId) {
+    throw new Error('async tool timeout-check requires taskId');
+  }
+  return handleAsyncToolTaskTimeout(taskId);
+});
+
 // 辅助函数：格式化文件大小
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -1108,6 +1155,8 @@ process.on('SIGTERM', async () => {
   await motionDataQueue.close();
   await kbIngestQueue.close();
   await conversationMessageQueue.close();
+  await attachmentScanQueue.close();
+  await asyncToolGovernanceQueue.close();
   try { await sessionInstanceLockRedis.quit(); } catch (_) {}
   process.exit(0);
 });
@@ -1118,6 +1167,8 @@ process.on('SIGINT', async () => {
   await motionDataQueue.close();
   await kbIngestQueue.close();
   await conversationMessageQueue.close();
+  await attachmentScanQueue.close();
+  await asyncToolGovernanceQueue.close();
   try { await sessionInstanceLockRedis.quit(); } catch (_) {}
   process.exit(0);
 });

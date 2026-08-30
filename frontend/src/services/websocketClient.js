@@ -20,12 +20,10 @@ class WebSocketClient {
   // 连接到 WebSocket 服务器
   connect () {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      console.log('WebSocket 已连接')
       return
     }
 
     if (this.isConnecting) {
-      console.log('WebSocket 正在连接中...')
       return
     }
 
@@ -35,23 +33,21 @@ class WebSocketClient {
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 
-      // 判断是否本地开发环境
-      const isLocalDev = window.location.hostname === 'localhost' ||
-                         window.location.hostname === '127.0.0.1'
+      // 判断是否开发环境。不要依赖 hostname，
+      // 因为局域网 IP 访问 vue-cli devServer 时本质仍是开发态。
+      const isDevBuild = process.env.NODE_ENV !== 'production'
 
       // WebSocket 路径
       const wsPath = (process.env.VUE_APP_WS_PATH ?? '/ws')
 
       let wsUrl
 
-      // 优先使用环境变量配置的完整 URL（仅在本地开发环境使用，生产环境忽略）
+      // 开发环境优先使用环境变量配置的完整 URL，便于局域网联调时直接连后端。
       const wsOverride = process.env.VUE_APP_WS_URL
-      if (wsOverride && isLocalDev) {
-        // 仅在本地开发环境使用环境变量覆盖
+      if (wsOverride && isDevBuild) {
         wsUrl = wsOverride
-        console.log(`🔌 使用环境变量配置的 WebSocket URL: ${wsUrl}`)
-      } else if (isLocalDev) {
-        // 本地开发环境：直接连接后端端口
+      } else if (isDevBuild) {
+        // 开发环境：直接连接后端端口
         const backendPort = process.env.VUE_APP_BACKEND_PORT || '3000'
         wsUrl = `${protocol}//localhost:${backendPort}${wsPath}`
       } else {
@@ -61,18 +57,9 @@ class WebSocketClient {
         wsUrl = `${protocol}//${currentHost}${wsPath}`
       }
 
-      console.log(`🔌 正在连接 WebSocket: ${wsUrl}`)
-      console.log(`📍 当前页面地址: ${window.location.href}`)
-      console.log(`🌐 协议: ${protocol}`)
-      console.log(`🏠 前端主机: ${window.location.host}`)
-      console.log(`🔍 环境: ${isLocalDev ? '本地开发' : '生产环境'}`)
-      console.log(`🔍 连接地址: ${wsUrl}`)
-
       this.ws = new WebSocket(wsUrl)
 
-      // 添加更多事件监听器用于调试
       const connectionTimeout = setTimeout(() => {
-        console.log('⏰ WebSocket 连接超时检查，当前状态:', this.ws.readyState)
         if (this.ws.readyState === WebSocket.CONNECTING) {
           console.error('WebSocket 连接超时，当前状态:', this.ws.readyState)
           this.ws.close()
@@ -81,16 +68,7 @@ class WebSocketClient {
       }, 10000) // 10秒超时
 
       this.ws.addEventListener('open', (event) => {
-        console.log('🔌 WebSocket 连接事件触发: open', event)
         clearTimeout(connectionTimeout)
-      })
-
-      this.ws.addEventListener('error', (event) => {
-        console.log('🔌 WebSocket 错误事件触发: error', event)
-      })
-
-      this.ws.addEventListener('close', (event) => {
-        console.log('🔌 WebSocket 关闭事件触发: close', event)
       })
 
       this.ws.onopen = this.handleOpen
@@ -107,7 +85,6 @@ class WebSocketClient {
 
   // 处理连接打开
   handleOpen (event) {
-    console.log('🔌 WebSocket 连接成功')
     this.isConnecting = false
     this.connectionStatus = 'connected'
     this.reconnectAttempts = 0
@@ -130,15 +107,12 @@ class WebSocketClient {
   handleMessage (event) {
     try {
       const message = JSON.parse(event.data)
-      console.log('📨 收到 WebSocket 消息:', message)
 
       switch (message.type) {
         case 'connection':
-          console.log('✅ WebSocket 连接确认:', message.message)
           break
 
         case 'subscription_confirmed':
-          console.log('✅ 设备订阅确认:', message.deviceId, message.message)
           break
 
         case 'log_status_change':
@@ -165,12 +139,14 @@ class WebSocketClient {
           this.handleAgentTaskStatus(message)
           break
 
+        case 'conversation_message_delta':
+          this.handleConversationMessageDelta(message)
+          break
+
         case 'pong':
           // 心跳响应，无需处理
           break
 
-        default:
-          console.log('未知消息类型:', message.type)
       }
     } catch (error) {
       console.error('解析 WebSocket 消息失败:', error)
@@ -247,6 +223,7 @@ class WebSocketClient {
       traceId,
       requestId,
       conversationId,
+      instanceId,
       result,
       error,
       timestamp
@@ -258,15 +235,40 @@ class WebSocketClient {
       traceId,
       requestId,
       conversationId,
+      instanceId,
       result,
       error,
       timestamp
     })
   }
 
+  handleConversationMessageDelta (message) {
+    const {
+      taskId,
+      userId,
+      traceId,
+      requestId,
+      conversationId,
+      instanceId,
+      delta,
+      messages,
+      timestamp
+    } = message
+    this.triggerEvent('conversationMessageDelta', {
+      taskId,
+      userId,
+      traceId,
+      requestId,
+      conversationId,
+      instanceId,
+      delta,
+      messages,
+      timestamp
+    })
+  }
+
   // 处理连接关闭
   handleClose (event) {
-    console.log('🔌 WebSocket 连接关闭:', event.code, event.reason)
     this.connectionStatus = 'disconnected'
     this.isConnecting = false
     this.stopHeartbeat()
@@ -325,7 +327,6 @@ class WebSocketClient {
       const message = { type: 'unsubscribe_device', deviceId }
       this.ws.send(JSON.stringify(message))
       this.subscriptions.delete(deviceId)
-      console.log(`📡 取消订阅设备 ${deviceId} 状态更新`)
       return true
     } catch (error) {
       console.error(`取消订阅设备 ${deviceId} 失败:`, error)
@@ -369,7 +370,6 @@ class WebSocketClient {
     }
     this.reconnectAttempts++
     const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxReconnectDelay)
-    console.log(`🔄 ${delay}ms 后尝试重连 WebSocket (第 ${this.reconnectAttempts} 次)`)
     setTimeout(() => { this.connect() }, delay)
   }
 

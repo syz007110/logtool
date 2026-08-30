@@ -347,6 +347,57 @@ async function listMessagesForConversation(userId, instanceId, options = {}) {
   };
 }
 
+async function ensureConversationInstanceForUser(userId, instanceId) {
+  const normalizedUserId = String(userId || '').trim();
+  const normalizedInstanceId = Number(instanceId || 0);
+  if (!normalizedUserId || !Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
+    const err = new Error('instanceId is required');
+    err.code = 'INVALID_ARGUMENT';
+    throw err;
+  }
+
+  const [rows] = await postgresqlSequelize.query(
+    `SELECT ci.id,
+            ci.instance_no,
+            ci.status,
+            ci.turn_count,
+            ci.token_count,
+            ci.last_message_at,
+            ci.archived_at,
+            cc.conversation_id
+       FROM conversation_instances ci
+       JOIN conversation_containers cc ON cc.id = ci.container_id
+      WHERE ci.id = :instanceId
+        AND cc.channel_type = :channelType
+        AND cc.user_id = :userId
+      LIMIT 1`,
+    {
+      replacements: {
+        instanceId: normalizedInstanceId,
+        channelType: WEB_CHANNEL_TYPE,
+        userId: normalizedUserId
+      }
+    }
+  );
+
+  if (!rows[0]) {
+    const err = new Error('conversation not found');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  return {
+    id: normalizedInstanceId,
+    instanceNo: Number(rows[0].instance_no || 0),
+    status: String(rows[0].status || ''),
+    turnCount: Number(rows[0].turn_count || 0),
+    tokenCount: Number(rows[0].token_count || 0),
+    lastMessageAt: rows[0].last_message_at || null,
+    archivedAt: rows[0].archived_at || null,
+    conversationId: String(rows[0].conversation_id || '')
+  };
+}
+
 async function deleteConversationInstanceForUser(userId, instanceId) {
   const { purgeConversationInstances } = require('../../services/agentConversationPurgeService');
   const normalizedUserId = String(userId || '').trim();
@@ -398,6 +449,7 @@ module.exports = {
   resolveWebConversationIdForUser,
   listConversationsForUser,
   listMessagesForConversation,
+  ensureConversationInstanceForUser,
   deleteConversationInstanceForUser,
   getInstanceContinuationState,
   getHistoryVisibleDays,

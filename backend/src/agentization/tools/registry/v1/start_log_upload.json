@@ -1,0 +1,76 @@
+{
+  "registryVersion": "v1",
+  "tools": [
+    {
+      "toolName": "start_log_upload",
+      "displayName": "日志上传",
+      "enabled": true,
+      "description": "用于实际执行日志上传的工具。该工具会基于当前会话已恢复的附件扫描结果匹配日志文件，创建异步日志上传任务，并在后台任务完成后回写最终结果。",
+      "descriptionFile": "./descriptions/start_log_upload.md",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "queryType": {
+            "type": "string",
+            "enum": [
+              "device_id",
+              "decrypt_key",
+              "device_id_and_key"
+            ],
+            "description": "上传上下文的提供方式。device_id 表示本次提供 deviceId；decrypt_key 表示本次提供 decryptKey；device_id_and_key 表示两者都提供。"
+          },
+          "originalNames": {
+            "type": "array",
+            "description": "必填。本次要上传的日志原始文件名列表。后端会在当前会话已恢复的附件扫描结果中按 originalName 匹配日志文件；如果同名文件有多个，会全部纳入上传。",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          },
+          "deviceId": {
+            "type": "string",
+            "description": "当 queryType 为 device_id 或 device_id_and_key 时填写。设备编号。",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "decryptKey": {
+            "type": "string",
+            "description": "当 queryType 为 decrypt_key 或 device_id_and_key 时填写。日志解密密钥。",
+            "pattern": "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+          }
+        },
+        "required": [
+          "queryType",
+          "originalNames"
+        ]
+      },
+      "runtime": {
+        "execution": {
+          "mode": "sync",
+          "completionMode": "deferred",
+          "asyncTaskType": "log_upload",
+          "handler": "logUploadFromAttachmentHandler.execute",
+          "dispatchTimeoutMs": 15000,
+          "batchTimeoutMs": 1800000,
+          "deferredPrompt": {
+            "text": "已创建日志上传任务，正在处理 {{fileCount}} 个日志文件。"
+          },
+          "retryable": false
+        }
+      },
+      "security": {
+        "riskLevel": "medium",
+        "requiredPermissions": [
+          "log:upload"
+        ],
+        "permissionBypassChannels": [
+          "dingtalk"
+        ],
+        "audit": true
+      }
+    }
+  ]
+}

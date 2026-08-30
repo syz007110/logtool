@@ -14,8 +14,9 @@
     "reset-db": "npm run clear-data && npm run init-roles",
     "create-surgery-table": "node scripts/run_surgery_statistics_migration.js",
     "show-indexes": "node src/scripts/showIndexInfo.js",
+    "device-context-lookup": "node src/scripts/runDeviceContextLookup.js",
     "print-tool-prompt": "node src/scripts/printAgentToolPrompt.js",
-    "test": "node --test src/agentization/orchestrator/providerCapabilities.test.js src/agentization/orchestrator/chatProviderAdapter.test.js src/agentization/orchestrator/chatResponseParser.test.js src/agentization/tools/toolProviderAdapter.test.js src/agentization/session/historyProjection.test.js src/agentization/types/toolTracesProjection.test.js src/agentization/session/agentConversationQueryService.test.js src/services/agentConversationCleanupService.test.js"
+    "test": "node --test src/agentization/orchestrator/providerCapabilities.test.js src/agentization/orchestrator/chatProviderAdapter.test.js src/agentization/orchestrator/chatResponseParser.test.js src/agentization/tools/toolProviderAdapter.test.js src/agentization/tools/handlers/logUploadFromAttachmentHandler.test.js src/agentization/session/historyProjection.test.js src/agentization/types/toolTracesProjection.test.js src/agentization/session/agentConversationQueryService.test.js src/services/agentConversationCleanupService.test.js src/services/attachmentScanHelper.test.js src/services/agentAttachmentPolicy.test.js"
   },
   "keywords": [],
   "author": "",

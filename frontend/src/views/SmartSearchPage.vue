@@ -1,6 +1,5 @@
 <template>
   <div class="ss-page">
-    <!-- Left history -->
     <el-aside
       :width="sidebarCollapsed ? '80px' : '280px'"
       class="ss-history"
@@ -76,17 +75,17 @@
                   <div class="ss-history-group-items">
                     <div
                       v-for="c in groupedConversations.today"
-                :key="c.id"
+                :key="c.uiKey"
                 class="ss-history-item"
-                :class="{ active: c.id === activeConversationId }"
-                @click="selectConversation(c.id)"
+                :class="{ active: c.uiKey === activeConversationId }"
+                @click="selectConversation(c.uiKey)"
               >
                 <span class="ss-history-item-text" :title="c.title">{{ c.title }}</span>
                 <button
                   class="ss-history-item-delete"
                   type="button"
                   :title="$t('shared.delete')"
-                  @click.stop="deleteConversation(c.id)"
+                  @click.stop="deleteConversation(c.uiKey)"
                 >
                   ×
                 </button>
@@ -103,17 +102,17 @@
                   <div class="ss-history-group-items">
                     <div
                       v-for="c in groupedConversations.yesterday"
-                      :key="c.id"
+                      :key="c.uiKey"
                       class="ss-history-item"
-                      :class="{ active: c.id === activeConversationId }"
-                      @click="selectConversation(c.id)"
+                      :class="{ active: c.uiKey === activeConversationId }"
+                      @click="selectConversation(c.uiKey)"
                     >
                       <span class="ss-history-item-text" :title="c.title">{{ c.title }}</span>
                       <button
                         class="ss-history-item-delete"
                         type="button"
                         :title="$t('shared.delete')"
-                        @click.stop="deleteConversation(c.id)"
+                        @click.stop="deleteConversation(c.uiKey)"
                       >
                         ×
                       </button>
@@ -167,7 +166,7 @@
     </el-aside>
 
     <!-- Main -->
-    <main class="ss-main" :class="{ 'ss-main-compressed': sourceDrawerVisible }">
+    <main class="ss-main" :class="{ 'ss-main-compressed': sourceDrawerVisible || logUploadDrawerVisible }">
       <!-- Top Navigation Bar -->
       <header class="ss-header">
         <div class="ss-header-left">
@@ -289,12 +288,13 @@
         </div>
 
         <div v-else class="ss-thread">
-          <div
-            v-for="m in activeMessages"
-            :key="m.id"
-            class="ss-msg"
-            :class="{ user: m.role === 'user', assistant: m.role === 'assistant' }"
-          >
+        <div
+          v-for="m in activeMessages"
+          :key="m.id"
+          :data-message-id="m.id"
+          class="ss-msg"
+          :class="{ user: m.role === 'user', assistant: m.role === 'assistant' }"
+        >
             <!-- User message: keep in bubble -->
             <template v-if="m.role === 'user'">
               <div class="ss-msg-stack ss-msg-stack-user">
@@ -348,6 +348,15 @@
                 <div class="ss-loading-content">
                   <el-icon class="ss-loading-icon"><Loading /></el-icon>
                   <span class="ss-loading-text">{{ $t('smartSearch.thinking') }}</span>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="m.type === 'async_pending'">
+              <div class="ss-msg-loading">
+                <div class="ss-loading-content">
+                  <el-icon class="ss-loading-icon"><Loading /></el-icon>
+                  <span class="ss-loading-text">{{ m.content }}</span>
                 </div>
               </div>
             </template>
@@ -841,98 +850,159 @@
             v-if="draftAttachments.length > 0"
             class="ss-composer-attachments-section"
           >
-            <div class="ss-draft-attachments">
-            <div
-              v-for="attachment in draftAttachments"
-              :key="attachment.localId"
-              class="ss-draft-attachment-card"
-              :class="{
-                'is-draft': attachment.status === 'draft',
-                'is-uploading': attachment.status === 'uploading',
-                'is-available': attachment.status === 'available',
-                'is-failed': attachment.status === 'failed'
-              }"
-              :style="draftAttachmentCardStyle(attachment)"
-            >
-              <div
-                v-if="attachment.type === 'image'"
-                class="ss-draft-attachment-thumb"
+            <div class="ss-draft-attachments-shell">
+              <button
+                v-if="showDraftAttachmentNav"
+                type="button"
+                class="ss-draft-attachments-nav is-left"
+                :disabled="!canScrollDraftAttachmentsLeft"
+                @click="scrollDraftAttachments('left')"
               >
-                <img
-                  v-if="attachment.localPreviewUrl"
-                  :src="attachment.localPreviewUrl"
-                  :alt="attachment.originalName"
-                  class="ss-draft-attachment-image"
-                >
-                <div v-else class="ss-draft-attachment-thumb-fallback">
-                  <el-icon><Files /></el-icon>
-                </div>
-              </div>
-              <div v-else class="ss-draft-attachment-file-card">
-                <div class="ss-draft-attachment-thumb ss-draft-attachment-thumb-file">
-                  <el-icon><Files /></el-icon>
-                </div>
-                <div class="ss-draft-attachment-file-name" :title="attachment.originalName">
-                  {{ attachment.originalName }}
-                </div>
-              </div>
+                <el-icon><ArrowLeft /></el-icon>
+              </button>
 
-              <div class="ss-draft-attachment-overlay">
-                <button
-                  v-if="attachment.status === 'failed'"
-                  type="button"
-                  class="ss-draft-attachment-failed-indicator"
-                  :title="$t('shared.retry')"
-                  @click="retryDraftAttachment(attachment.localId)"
-                >
-                  !
-                </button>
+              <div
+                ref="draftAttachmentsScroller"
+                class="ss-draft-attachments"
+                @scroll="updateDraftAttachmentScrollState"
+              >
                 <div
-                  v-else-if="attachment.status === 'uploading'"
-                  class="ss-draft-attachment-progress-badge"
+                  v-for="attachment in draftAttachments"
+                  :key="attachment.localId"
+                  class="ss-draft-attachment-card"
+                  :class="{
+                    'is-queued': attachment.status === DRAFT_ATTACHMENT_STATUS.QUEUED,
+                    'is-uploading': attachment.status === DRAFT_ATTACHMENT_STATUS.UPLOADING,
+                    'is-available': attachment.status === DRAFT_ATTACHMENT_STATUS.AVAILABLE,
+                    'is-failed': attachment.status === DRAFT_ATTACHMENT_STATUS.FAILED
+                  }"
+                  :style="draftAttachmentCardStyle(attachment)"
                 >
-                  {{ attachment.progress }}%
+                  <div class="ss-draft-attachment-file-card">
+                    <div
+                      v-if="attachment.type === 'image'"
+                      class="ss-draft-attachment-thumb ss-draft-attachment-thumb-image"
+                    >
+                      <img
+                        v-if="attachment.localPreviewUrl"
+                        :src="attachment.localPreviewUrl"
+                        :alt="attachment.originalName"
+                        class="ss-draft-attachment-image"
+                      >
+                      <div v-else class="ss-draft-attachment-thumb-fallback">
+                        <el-icon><Files /></el-icon>
+                      </div>
+                    </div>
+                    <div
+                      v-else
+                      class="ss-draft-attachment-thumb ss-draft-attachment-thumb-file"
+                      :class="`is-${draftAttachmentVisualKind(attachment)}`"
+                    >
+                      <el-icon>
+                        <component :is="draftAttachmentIconComponent(attachment)" />
+                      </el-icon>
+                    </div>
+                    <div class="ss-draft-attachment-file-content">
+                      <div class="ss-draft-attachment-file-name" :title="attachment.originalName">
+                        {{ attachment.originalName }}
+                      </div>
+                      <div class="ss-draft-attachment-file-type">
+                        <span>{{ draftAttachmentTypeLabel(attachment) }}</span>
+                        <span>{{ formatAttachmentSize(attachment.sizeBytes) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="ss-draft-attachment-overlay">
+                    <button
+                      v-if="attachment.status === DRAFT_ATTACHMENT_STATUS.FAILED"
+                      type="button"
+                      class="ss-draft-attachment-failed-indicator"
+                      :title="$t('shared.retry')"
+                      @click="retryDraftAttachment(attachment.localId)"
+                    >
+                      !
+                    </button>
+                    <div
+                      v-else-if="attachment.status === DRAFT_ATTACHMENT_STATUS.UPLOADING"
+                      class="ss-draft-attachment-progress-badge"
+                    >
+                      {{ attachment.progress }}%
+                    </div>
+                  </div>
+
+                  <div class="ss-draft-attachment-actions">
+                    <button
+                      type="button"
+                      class="ss-draft-attachment-remove"
+                      :title="$t('shared.delete')"
+                      @click="removeDraftAttachment(attachment.localId)"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div class="ss-draft-attachment-actions">
-                <button
-                  type="button"
-                  class="ss-draft-attachment-remove"
-                  :title="$t('shared.delete')"
-                  @click="removeDraftAttachment(attachment.localId)"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+              <button
+                v-if="showDraftAttachmentNav"
+                type="button"
+                class="ss-draft-attachments-nav is-right"
+                :disabled="!canScrollDraftAttachmentsRight"
+                @click="scrollDraftAttachments('right')"
+              >
+                <el-icon><ArrowRight /></el-icon>
+              </button>
             </div>
           </div>
 
           <div class="ss-composer-text-section" :class="{ 'has-attachments': draftAttachments.length > 0 }">
-            <el-input
-              v-model="draft"
-              type="textarea"
-              :autosize="{ minRows: 3, maxRows: 8 }"
-              :placeholder="$t('smartSearch.placeholder')"
-              class="ss-input"
-              :maxlength="MAX_INPUT_CHARS"
-              show-word-limit
-              @keydown.enter.exact.prevent="send"
-              @keydown.shift.enter.exact="noop"
-            />
-          </div>
+            <div class="ss-composer-main-row">
+              <div class="ss-composer-actions">
+                <el-tooltip
+                  effect="dark"
+                  :content="attachmentTooltipText"
+                  placement="top"
+                >
+                  <button
+                    type="button"
+                    class="ss-composer-icon-btn ss-composer-icon-btn-strong"
+                    aria-label="上传文件"
+                    v-on:click="openAttachmentFiles"
+                  >
+                    <el-icon><Plus /></el-icon>
+                  </button>
+                </el-tooltip>
+              </div>
 
-          <button
-            type="button"
-            class="ss-send-btn"
-            :class="{ disabled: !canSend }"
-            :disabled="!canSend"
-            @click="send"
-            :title="$t('smartSearch.send')"
-          >
-            <el-icon><ArrowUp /></el-icon>
-          </button>
+              <el-input
+                v-model="draft"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 4 }"
+                :placeholder="$t('smartSearch.placeholder')"
+                class="ss-input"
+                :maxlength="attachmentPolicy.maxInputChars"
+                @keydown.enter.exact.prevent="send"
+                @keydown.shift.enter.exact="noop"
+              />
+
+              <div class="ss-composer-submit">
+                <button
+                  type="button"
+                  class="ss-send-btn"
+                  :class="{ disabled: !canSend }"
+                  :disabled="!canSend"
+                  @click="send"
+                  :title="$t('smartSearch.send')"
+                >
+                  <el-icon><ArrowUp /></el-icon>
+                </button>
+                <div v-if="showComposerCount" class="ss-composer-count">
+                  {{ draft.length }}/{{ attachmentPolicy.maxInputChars }}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="ss-disclaimer">
@@ -1440,6 +1510,174 @@
         </div>
       </el-drawer>
 
+      <el-drawer
+        v-model="logUploadDrawerVisible"
+        :title="$t('logs.upload')"
+        size="520px"
+        direction="rtl"
+        :append-to-body="true"
+      >
+        <div class="ss-log-upload-drawer">
+          <div v-if="logUploadSummary" class="ss-log-upload-summary">
+            {{ logUploadSummary }}
+          </div>
+
+          <div class="ss-log-upload-section">
+            <el-button type="primary" @click="selectAgentLogUploadFiles">
+              <el-icon><Upload /></el-icon>
+              {{ $t('logs.chooseFiles') }}
+            </el-button>
+
+            <div v-if="logUploadFiles.length > 0" class="custom-file-list ss-log-upload-list">
+              <div class="file-list-header">
+                <span>{{ $t('logs.selectedFiles') }} ({{ logUploadFiles.length }})</span>
+                <el-button type="default" size="small" @click="clearLogUploadFiles" :disabled="logUploadSubmitting">
+                  <el-icon><Close /></el-icon>
+                  {{ $t('logs.clear') }}
+                </el-button>
+              </div>
+              <div class="file-items ss-log-upload-file-items">
+                <div
+                  v-for="file in logUploadFiles"
+                  :key="file.id"
+                  class="file-item"
+                >
+                  <el-icon class="file-item-icon"><Document /></el-icon>
+                  <span class="file-name" :title="file.originalName">{{ file.originalName }}</span>
+                  <span class="file-size">{{ file.sizeText }}</span>
+                  <el-button
+                    class="file-item-remove"
+                    type="danger"
+                    plain
+                    size="small"
+                    @click="removeLogUploadFile(file.id)"
+                    :disabled="logUploadSubmitting"
+                    :aria-label="$t('logs.removeFile')"
+                    :title="$t('logs.removeFile')"
+                  >
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else :description="$t('logs.errors.pleaseSelectFiles')" :image-size="72" />
+          </div>
+
+          <div class="ss-log-upload-section">
+            <div class="ss-log-upload-section-title">{{ $t('logs.decryptKeyPlaceholder') }}</div>
+            <div class="ss-log-upload-inline">
+              <el-input
+                v-model="logUploadDecryptKey"
+                :placeholder="$t('logs.decryptKeyPlaceholder')"
+                clearable
+                @blur="validateLogUploadKeyFormat"
+              >
+                <template #prefix>
+                  <el-icon><Key /></el-icon>
+                </template>
+              </el-input>
+              <el-upload
+                :auto-upload="false"
+                :show-file-list="false"
+                accept=".txt"
+                :before-upload="beforeAgentKeyUpload"
+                :on-change="onAgentKeyFileChange"
+              >
+                <el-button type="default">
+                  <el-icon><Upload /></el-icon>
+                  {{ $t('logs.uploadKeyFile') }}
+                </el-button>
+              </el-upload>
+            </div>
+            <div v-if="logUploadKeyFileName" class="ss-log-upload-tag-row">
+              <el-tag type="success" size="small">{{ logUploadKeyFileName }}</el-tag>
+            </div>
+            <div v-if="logUploadKeyError" class="ss-log-upload-tag-row">
+              <el-tag type="danger" size="small">{{ logUploadKeyError }}</el-tag>
+            </div>
+          </div>
+
+          <div class="ss-log-upload-section">
+            <div class="ss-log-upload-section-title">{{ $t('logs.deviceId') }}</div>
+            <el-input
+              v-model="logUploadDeviceId"
+              :placeholder="$t('logs.deviceIdPlaceholder')"
+              clearable
+              @blur="validateLogUploadDeviceIdFormat"
+            >
+              <template #prefix>
+                <el-icon><Monitor /></el-icon>
+              </template>
+            </el-input>
+            <div v-if="logUploadDeviceIdError" class="ss-log-upload-tag-row">
+              <el-tag type="danger" size="small">{{ logUploadDeviceIdError }}</el-tag>
+            </div>
+          </div>
+
+          <div class="ss-log-upload-section">
+            <div class="ss-log-upload-section-title">{{ $t('logs.selectDeviceModel') }}</div>
+            <el-select
+              v-model="logUploadDeviceModelId"
+              filterable
+              clearable
+              :placeholder="$t('logs.selectDeviceModel')"
+              :loading="logUploadDeviceModelsLoading"
+              :disabled="logUploadSubmitting || !currentSeriesId"
+              style="width: 100%;"
+            >
+              <el-option
+                v-for="item in logUploadDeviceModelOptions"
+                :key="item.id || item.device_model"
+                :label="item.device_model"
+                :value="item.id"
+              />
+            </el-select>
+            <div v-if="!currentSeriesId" class="ss-log-upload-tag-row">
+              <el-tag type="warning" size="small">{{ $t('logs.messages.selectSeriesFirst') }}</el-tag>
+            </div>
+            <div v-else-if="logUploadDeviceModelError" class="ss-log-upload-tag-row">
+              <el-tag type="danger" size="small">{{ logUploadDeviceModelError }}</el-tag>
+            </div>
+          </div>
+
+          <div class="ss-log-upload-actions">
+            <el-button @click="hideLogUploadDrawer" :disabled="logUploadSubmitting">
+              {{ $t('shared.cancel') }}
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="logUploadSubmitting"
+              :disabled="!canSubmitAgentLogUpload"
+              @click="submitAgentLogUpload"
+            >
+              {{ $t('logs.uploadAndParse') }}
+            </el-button>
+          </div>
+        </div>
+      </el-drawer>
+
+      <transition name="ss-log-upload-flow-card">
+        <div
+          v-if="logUploadFlowVisible && !logUploadDrawerVisible"
+          class="ss-log-upload-flow-card"
+        >
+          <button
+            type="button"
+            class="ss-log-upload-flow-card-main"
+            @click="reopenLogUploadDrawer"
+          >
+            <div class="ss-log-upload-flow-card-title">{{ $t('logs.upload') }}</div>
+            <div class="ss-log-upload-flow-card-text">
+              {{ logUploadSummary || $t('logs.uploadTip') }}
+            </div>
+            <div class="ss-log-upload-flow-card-meta">
+              <span>{{ $t('logs.selectedFiles') }} {{ logUploadFiles.length }}</span>
+              <span v-if="logUploadDeviceId">{{ logUploadDeviceId }}</span>
+            </div>
+          </button>
+        </div>
+      </transition>
+
       <!-- 故障码详情弹窗 -->
       <el-dialog
         v-model="faultDetailDialogVisible"
@@ -1536,7 +1774,12 @@
           </span>
         </template>
       </el-dialog>
-
+      <div
+        v-if="showDragOverlay"
+        class="ss-drag-overlay"
+        data-title="文件拖拽此处上传"
+        data-subtitle="支持文件或文件夹，当前支持图片、txt、.medbot、zip、7z"
+      ></div>
     </main>
   </div>
 </template>
@@ -1549,37 +1792,56 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { hasI18nKey } from '@/i18n'
 import { getCurrentLocale, loadLocaleMessages } from '../i18n'
-import { ArrowLeft, ArrowRight, ArrowDown, ArrowUp, Warning, Link, Files, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, ArrowDown, ArrowUp, Warning, Link, Files, Document, Tickets, Box, DocumentCopy, ChatLineRound, Grid, Paperclip, Upload, Notebook, Cpu, Check, Plus, History, User, SwitchButton, Loading, Key, Monitor, Delete, Close, Refresh } from '@element-plus/icons-vue'
 import GlobeIcon from '@/components/icons/GlobeIcon.vue'
 import api from '@/api'
 import SmartSearchKbAssetImg from '@/components/SmartSearchKbAssetImg.vue'
 import MarkdownRenderer from '@/components/shared/MarkdownRenderer.vue'
 import { useAgentSmartChat } from '@/composables/useAgentSmartChat'
+import { filterDeviceModelsBySeries } from '@/utils/deviceModelSeries'
+import websocketClient from '@/services/websocketClient'
+import { buildAssistantPayloadFromAgentResult } from '@/utils/mapErrorCodeToolToSourceCards'
 
 const MAX_CONVERSATIONS = 5
-const MAX_INPUT_CHARS = 150
-const MAX_DRAFT_ATTACHMENTS = 5
-const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
-const MAX_ATTACHMENT_TOTAL_SIZE = 100 * 1024 * 1024
-const SUPPORTED_ATTACHMENT_MIMES = new Set([
-  'text/plain',
-  'application/octet-stream',
-  'application/zip',
-  'application/x-zip-compressed',
-  'application/x-7z-compressed',
-  'image/jpeg',
-  'image/png',
-  'image/webp'
-])
-const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set([
-  '.medbot',
-  '.txt',
-  '.7z',
-  '.zip',
-  '.jpeg',
-  '.jpg',
-  '.png',
-  '.webp'
+const DEVICE_ID_FORMAT = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/
+const KEY_FORMAT = /^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/
+const DRAFT_ATTACHMENT_STATUS = Object.freeze({
+  QUEUED: 'queued',
+  UPLOADING: 'uploading',
+  AVAILABLE: 'available',
+  FAILED: 'failed'
+})
+const DEFAULT_ATTACHMENT_POLICY = Object.freeze({
+  maxInputChars: 500,
+  maxFiles: 10,
+  maxFileSize: 20 * 1024 * 1024,
+  maxTotalSize: 200 * 1024 * 1024,
+  maxFolderDepth: 3,
+  allowedMimes: [
+    'text/plain',
+    'application/octet-stream',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-7z-compressed',
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+  ],
+  allowedExtensions: [
+    '.medbot',
+    '.txt',
+    '.7z',
+    '.zip',
+    '.jpeg',
+    '.jpg',
+    '.png',
+    '.webp'
+  ]
+})
+const HIDDEN_SYSTEM_FILE_NAMES = new Set([
+  '.ds_store',
+  'thumbs.db',
+  'desktop.ini'
 ])
 const RELAXED_TEXT_ATTACHMENT_EXTENSIONS = new Set([
   '.medbot',
@@ -1624,14 +1886,63 @@ function ensureFileName (file) {
   return `attachment-${Date.now()}${ext}`
 }
 
-function isSupportedAttachmentFile (file) {
+function normalizeRelativePath (value = '') {
+  return String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .split('/')
+    .map(segment => String(segment || '').trim())
+    .filter(Boolean)
+    .join('/')
+}
+
+function getFileRelativePath (file) {
+  return normalizeRelativePath(file?.webkitRelativePath || file?.relativePath || '')
+}
+
+function getRelativePathSegments (file) {
+  const relativePath = getFileRelativePath(file)
+  return relativePath ? relativePath.split('/').filter(Boolean) : []
+}
+
+function isHiddenSystemFile (file) {
+  const name = ensureFileName(file).trim().toLowerCase()
+  if (name.startsWith('.')) return true
+  if (HIDDEN_SYSTEM_FILE_NAMES.has(name)) return true
+  const segments = getRelativePathSegments(file)
+  return segments.some(segment => {
+    const normalized = String(segment || '').trim().toLowerCase()
+    if (!normalized) return false
+    if (normalized.startsWith('.')) return true
+    return HIDDEN_SYSTEM_FILE_NAMES.has(normalized)
+  })
+}
+
+function getFolderDepth (file) {
+  const segments = getRelativePathSegments(file)
+  if (segments.length <= 1) return 0
+  return segments.length - 1
+}
+
+function isSupportedAttachmentFile (file, policy = DEFAULT_ATTACHMENT_POLICY) {
+  const allowedExtensions = new Set(
+    Array.isArray(policy?.allowedExtensions) && policy.allowedExtensions.length > 0
+      ? policy.allowedExtensions
+      : DEFAULT_ATTACHMENT_POLICY.allowedExtensions
+  )
+  const allowedMimes = new Set(
+    Array.isArray(policy?.allowedMimes) && policy.allowedMimes.length > 0
+      ? policy.allowedMimes
+      : DEFAULT_ATTACHMENT_POLICY.allowedMimes
+  )
   const mime = String(file?.type || '').trim().toLowerCase()
   const ext = getExtension(ensureFileName(file))
-  if (!SUPPORTED_ATTACHMENT_EXTENSIONS.has(ext)) return false
+  if (!allowedExtensions.has(ext)) return false
   if (RELAXED_TEXT_ATTACHMENT_EXTENSIONS.has(ext)) {
     return RELAXED_TEXT_ATTACHMENT_MIMES.has(mime)
   }
-  return SUPPORTED_ATTACHMENT_MIMES.has(mime)
+  return allowedMimes.has(mime)
 }
 
 function detectDraftAttachmentType (file) {
@@ -1641,12 +1952,87 @@ function detectDraftAttachmentType (file) {
   return 'file'
 }
 
+function getDraftAttachmentVisualKind (attachment) {
+  const ext = getExtension(attachment?.originalName || attachment?.storedName || '')
+  if (ext === '.txt') return 'text'
+  if (ext === '.medbot') return 'medbot'
+  if (ext === '.zip' || ext === '.7z') return 'archive'
+  return 'generic'
+}
+
 function formatAttachmentSizeText (size) {
   const bytes = Number(size || 0)
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+async function readDirectoryEntry (entry) {
+  return new Promise((resolve, reject) => {
+    const reader = entry.createReader()
+    const entries = []
+    const readBatch = () => {
+      reader.readEntries((batch) => {
+        if (!Array.isArray(batch) || batch.length === 0) {
+          resolve(entries)
+          return
+        }
+        entries.push(...batch)
+        readBatch()
+      }, reject)
+    }
+    readBatch()
+  })
+}
+
+async function fileFromEntry (entry) {
+  return new Promise((resolve, reject) => {
+    entry.file(resolve, reject)
+  })
+}
+
+async function collectFilesFromEntry (entry, prefix = '') {
+  if (!entry) return []
+  const safePrefix = normalizeRelativePath(prefix)
+  if (entry.isFile) {
+    const file = await fileFromEntry(entry)
+    const relativePath = normalizeRelativePath(safePrefix ? `${safePrefix}/${entry.name}` : entry.name)
+    if (relativePath) {
+      try {
+        Object.defineProperty(file, 'relativePath', {
+          value: relativePath,
+          configurable: true
+        })
+      } catch (_) {}
+    }
+    return [file]
+  }
+  if (!entry.isDirectory) return []
+  const children = await readDirectoryEntry(entry)
+  const nextPrefix = normalizeRelativePath(safePrefix ? `${safePrefix}/${entry.name}` : entry.name)
+  const out = []
+  for (const child of children) {
+    // eslint-disable-next-line no-await-in-loop
+    out.push(...(await collectFilesFromEntry(child, nextPrefix)))
+  }
+  return out
+}
+
+async function collectFilesFromDataTransfer (dataTransfer) {
+  const items = Array.from(dataTransfer?.items || []).filter(Boolean)
+  const entryItems = items
+    .map(item => (typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null))
+    .filter(Boolean)
+  if (entryItems.length > 0) {
+    const out = []
+    for (const entry of entryItems) {
+      // eslint-disable-next-line no-await-in-loop
+      out.push(...(await collectFilesFromEntry(entry)))
+    }
+    return out
+  }
+  return Array.from(dataTransfer?.files || []).filter(Boolean)
 }
 
 function normalizeTitle (text, fallback = '') {
@@ -1726,10 +2112,19 @@ export default {
     const activeConversationId = ref(null)
     const draft = ref('')
     const draftAttachments = ref([])
+    const attachmentPolicy = ref({ ...DEFAULT_ATTACHMENT_POLICY })
+    const draftAttachmentsScroller = ref(null)
+    const canScrollDraftAttachmentsLeft = ref(false)
+    const canScrollDraftAttachmentsRight = ref(false)
+    const dragDepth = ref(0)
+    const showDragOverlay = ref(false)
     const messagesEl = ref(null)
     const sidebarCollapsed = ref(false)
     const historyCollapsed = ref(false)
     const sending = ref(false)
+    const currentSeriesId = computed(() => store.getters['seriesContext/currentSeriesId'])
+    const pendingDraftUploadIds = []
+    let draftUploadPumpRunning = false
 
     const sourceDrawerVisible = ref(false)
     const sourceDrawerType = ref('') // 'fault' | 'jira'
@@ -1751,6 +2146,31 @@ export default {
     const faultDetailTechLoading = ref(false)
     const faultDetailActiveTab = ref('basic')
 
+    const logUploadDrawerVisible = ref(false)
+    const logUploadSummary = ref('')
+    const logUploadFiles = ref([])
+    const logUploadFlowVisible = ref(false)
+    const logUploadDeviceId = ref('')
+    const logUploadDecryptKey = ref('')
+    const logUploadKeyFileName = ref('')
+    const logUploadKeyError = ref('')
+    const logUploadDeviceIdError = ref('')
+    const logUploadDeviceModelId = ref(null)
+    const logUploadDeviceModelError = ref('')
+    const logUploadDeviceModelsLoading = ref(false)
+    const logUploadDeviceModelOptionsAll = ref([])
+    const logUploadSubmitting = ref(false)
+    let logUploadPrefillModelSeq = 0
+    let logUploadAutoFillKeySeq = 0
+    let logUploadAutoFillDeviceIdSeq = 0
+    let logUploadDeviceIdTimer = null
+    let logUploadKeyTimer = null
+    let logUploadAutoFillApplying = false
+
+    const logUploadDeviceModelOptions = computed(() =>
+      filterDeviceModelsBySeries(logUploadDeviceModelOptionsAll.value, currentSeriesId.value)
+    )
+
     const sourceDrawerTitle = computed(() => {
       const it = sourceDrawerItem.value || {}
       if (sourceDrawerType.value === 'fault') {
@@ -1769,11 +2189,12 @@ export default {
       try {
         const list = await agentListConversations({ limit: 50 })
         conversations.value = (Array.isArray(list) ? list : []).map(conv => {
-          const id = String(conv.instanceId || conv.id || '').trim()
+          const instanceId = Number(conv.instanceId || conv.id || 0) || null
+          const uiKey = String(instanceId || shortId()).trim()
           const updatedAt = conv.updatedAt || conv.createdAt || nowIso()
           return {
-            id,
-            instanceId: Number(conv.instanceId || conv.id || 0) || null,
+            uiKey,
+            instanceId,
             conversationId: String(conv.conversationId || '').trim(),
             instanceNo: Number(conv.instanceNo || 0) || null,
             status: String(conv.status || '').trim(),
@@ -1782,7 +2203,7 @@ export default {
             createdAt: conv.createdAt || updatedAt,
             messages: []
           }
-        }).filter(c => c.id)
+        }).filter(c => c.instanceId)
         conversations.value.forEach(conv => {
           if (isDefaultConversationTitle(conv.title)) {
             const firstUserMsg = (conv.messages || []).find(m => m && m.role === 'user')
@@ -1827,6 +2248,29 @@ export default {
       }
     }
 
+    const loadAttachmentPolicy = async () => {
+      try {
+        const resp = await api.agent.getAssetPolicy()
+        const policy = resp?.data?.policy || {}
+        attachmentPolicy.value = {
+          maxInputChars: Number(policy.maxInputChars) > 0 ? Number(policy.maxInputChars) : DEFAULT_ATTACHMENT_POLICY.maxInputChars,
+          maxFiles: Number(policy.maxFiles) > 0 ? Number(policy.maxFiles) : DEFAULT_ATTACHMENT_POLICY.maxFiles,
+          maxFileSize: Number(policy.maxFileSize) > 0 ? Number(policy.maxFileSize) : DEFAULT_ATTACHMENT_POLICY.maxFileSize,
+          maxTotalSize: Number(policy.maxTotalSize) > 0 ? Number(policy.maxTotalSize) : DEFAULT_ATTACHMENT_POLICY.maxTotalSize,
+          maxFolderDepth: Number(policy.maxFolderDepth) >= 0 ? Number(policy.maxFolderDepth) : DEFAULT_ATTACHMENT_POLICY.maxFolderDepth,
+          allowedMimes: Array.isArray(policy.allowedMimes) && policy.allowedMimes.length > 0
+            ? policy.allowedMimes.map(item => String(item || '').trim().toLowerCase()).filter(Boolean)
+            : [...DEFAULT_ATTACHMENT_POLICY.allowedMimes],
+          allowedExtensions: Array.isArray(policy.allowedExtensions) && policy.allowedExtensions.length > 0
+            ? policy.allowedExtensions.map(item => String(item || '').trim().toLowerCase()).filter(Boolean)
+            : [...DEFAULT_ATTACHMENT_POLICY.allowedExtensions]
+        }
+      } catch (err) {
+        console.error('[loadAttachmentPolicy] error:', err)
+        attachmentPolicy.value = { ...DEFAULT_ATTACHMENT_POLICY }
+      }
+    }
+
     const onLlmProviderChange = (id) => {
       llmProviderId.value = id
       agentLlmProviderId.value = llmProviderId.value
@@ -1855,7 +2299,7 @@ export default {
     const persistConversation = async (conv) => {
       // Agent 会话由后端持久化；仅保留 mongo_ 旧路径兼容，非 mongo_（含 Agent ULID）直接跳过
       if (!conv) return
-      if (!conv.id || !String(conv.id).startsWith('mongo_')) return
+      if (!conv.uiKey || !String(conv.uiKey).startsWith('mongo_')) return
 
       try {
         // 提取 metadata（从最后一次 assistant 消息的 payload 中）
@@ -1873,7 +2317,7 @@ export default {
           metadata
         }
 
-        const mongoId = conv.id.replace('mongo_', '')
+        const mongoId = conv.uiKey.replace('mongo_', '')
         await api.smartSearch.updateConversation(mongoId, convData)
       } catch (err) {
         console.error('[persistConversation] Failed to save conversation to MongoDB:', err)
@@ -1887,7 +2331,7 @@ export default {
 
     const activeConversation = computed(() => {
       if (!activeConversationId.value) return null
-      return conversations.value.find(c => c.id === activeConversationId.value) || null
+      return conversations.value.find(c => c.uiKey === activeConversationId.value) || null
     })
 
     const activeMessages = computed(() => {
@@ -1928,9 +2372,28 @@ export default {
       return groups
     })
 
-    const draftUploadingCount = computed(() => draftAttachments.value.filter(item => item.status === 'uploading').length)
-    const readyDraftAttachments = computed(() => draftAttachments.value.filter(item => item.status === 'available'))
+    const draftUploadingCount = computed(() => draftAttachments.value.filter(item => item.status === DRAFT_ATTACHMENT_STATUS.UPLOADING).length)
+    const readyDraftAttachments = computed(() => draftAttachments.value.filter(item => item.status === DRAFT_ATTACHMENT_STATUS.AVAILABLE))
     const draftImageAttachments = computed(() => draftAttachments.value.filter(item => item.type === 'image'))
+    const showDraftAttachmentNav = computed(() => draftAttachments.value.length > 1)
+    const attachmentAccept = computed(() => (attachmentPolicy.value.allowedExtensions || []).join(','))
+    const attachmentSupportedSummary = computed(() => {
+      const extensions = new Set(attachmentPolicy.value.allowedExtensions || [])
+      const labels = []
+      if (['.jpg', '.jpeg', '.png', '.webp'].some(ext => extensions.has(ext))) labels.push('图片')
+      if (extensions.has('.txt')) labels.push('txt')
+      if (extensions.has('.medbot')) labels.push('.medbot')
+      if (extensions.has('.zip')) labels.push('zip')
+      if (extensions.has('.7z')) labels.push('7z')
+      const extras = [...extensions]
+        .filter(ext => !['.jpg', '.jpeg', '.png', '.webp', '.txt', '.medbot', '.zip', '.7z'].includes(ext))
+      labels.push(...extras)
+      return labels.join('、') || '图片、txt、.medbot'
+    })
+    const attachmentTooltipText = computed(() => {
+      const fileSizeMb = Math.round(Number(attachmentPolicy.value.maxFileSize || 0) / (1024 * 1024))
+      return `支持的文件类型：${attachmentSupportedSummary.value}；最多 ${attachmentPolicy.value.maxFiles} 个附件；单个文件不超过 ${fileSizeMb}MB`
+    })
     const showImageCapabilityHint = computed(() => {
       return draftImageAttachments.value.length > 0 && !currentProviderSupportsImageInput.value
     })
@@ -1940,6 +2403,255 @@ export default {
       if (activeConversationLockedNotice.value) return false
       return draft.value.trim().length > 0 || readyDraftAttachments.value.length > 0
     })
+    const showComposerCount = computed(() => {
+      const maxChars = Number(attachmentPolicy.value?.maxInputChars || 0)
+      if (!Number.isFinite(maxChars) || maxChars <= 0) return false
+      return draft.value.length >= Math.ceil(maxChars * 0.8)
+    })
+
+    const canSubmitAgentLogUpload = computed(() => {
+      if (logUploadSubmitting.value) return false
+      if (logUploadFiles.value.length < 1) return false
+      if (!currentSeriesId.value) return false
+      if (!logUploadDeviceModelId.value) return false
+      const deviceId = String(logUploadDeviceId.value || '').trim()
+      const decryptKey = String(logUploadDecryptKey.value || '').trim()
+      if (!deviceId || !DEVICE_ID_FORMAT.test(deviceId)) return false
+      if (!decryptKey || !KEY_FORMAT.test(decryptKey)) return false
+      return true
+    })
+
+    const getConversationAttachmentMap = () => {
+      const map = new Map()
+      const messages = Array.isArray(activeConversation.value?.messages) ? activeConversation.value.messages : []
+      messages.forEach((message) => {
+        const attachments = Array.isArray(message?.attachments) ? message.attachments : []
+        attachments.forEach((attachment) => {
+          const assetId = String(attachment?.assetId || '').trim()
+          if (assetId) map.set(assetId, attachment)
+        })
+      })
+      return map
+    }
+
+    const resetLogUploadDrawerState = () => {
+      logUploadSummary.value = ''
+      logUploadFiles.value = []
+      logUploadFlowVisible.value = false
+      logUploadDeviceId.value = ''
+      logUploadDecryptKey.value = ''
+      logUploadKeyFileName.value = ''
+      logUploadKeyError.value = ''
+      logUploadDeviceIdError.value = ''
+      logUploadDeviceModelId.value = null
+      logUploadDeviceModelError.value = ''
+      logUploadSubmitting.value = false
+    }
+
+    const hideLogUploadDrawer = () => {
+      logUploadDrawerVisible.value = false
+    }
+
+    const completeLogUploadFlow = () => {
+      logUploadDrawerVisible.value = false
+      resetLogUploadDrawerState()
+    }
+
+    const reopenLogUploadDrawer = () => {
+      if (!logUploadFlowVisible.value) return
+      logUploadDrawerVisible.value = true
+    }
+
+    const normalizeLogUploadFileItem = (input = {}) => {
+      const assetId = String(input?.attachmentAssetId || input?.assetId || '').trim()
+      const originalName = String(input?.originalName || input?.name || '').trim()
+      return {
+        id: assetId || `local_${shortId()}`,
+        source: input?.file ? 'local' : 'asset',
+        attachmentAssetId: assetId || null,
+        originalName: originalName || 'log.medbot',
+        sizeBytes: Number(input?.sizeBytes || input?.size || input?.file?.size || 0),
+        sizeText: formatAttachmentSizeText(Number(input?.sizeBytes || input?.size || input?.file?.size || 0)),
+        url: String(input?.url || input?.previewUrl || '').trim() || null,
+        file: input?.file || null
+      }
+    }
+
+    const addLogUploadLocalFiles = (files = []) => {
+      const nextItems = Array.from(files || [])
+        .filter(file => file && getExtension(file.name) === '.medbot')
+        .map(file => normalizeLogUploadFileItem({ file, originalName: file.name }))
+      if (nextItems.length < 1) return
+      const existing = new Set(logUploadFiles.value.map(item => item.id))
+      nextItems.forEach((item) => {
+        if (!existing.has(item.id)) {
+          logUploadFiles.value.push(item)
+          existing.add(item.id)
+        }
+      })
+    }
+
+    const pickAgentLogUploadFiles = () => {
+      return new Promise((resolve) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.multiple = true
+        input.accept = '.medbot'
+        input.addEventListener('change', () => resolve(Array.from(input.files || [])), { once: true })
+        input.addEventListener('cancel', () => resolve([]), { once: true })
+        input.click()
+      })
+    }
+
+    const selectAgentLogUploadFiles = async () => {
+      const files = await pickAgentLogUploadFiles()
+      addLogUploadLocalFiles(files)
+    }
+
+    const removeLogUploadFile = (id) => {
+      logUploadFiles.value = logUploadFiles.value.filter(item => item.id !== id)
+    }
+
+    const clearLogUploadFiles = () => {
+      logUploadFiles.value = []
+    }
+
+    const validateLogUploadKeyFormat = () => {
+      const value = String(logUploadDecryptKey.value || '').trim()
+      if (value && !KEY_FORMAT.test(value)) {
+        logUploadKeyError.value = t('logs.messages.invalidKeyFormat')
+        return false
+      }
+      logUploadKeyError.value = ''
+      return true
+    }
+
+    const validateLogUploadDeviceIdFormat = () => {
+      const value = String(logUploadDeviceId.value || '').trim()
+      if (value && !DEVICE_ID_FORMAT.test(value)) {
+        logUploadDeviceIdError.value = t('logs.messages.invalidDeviceIdFormat')
+        return false
+      }
+      logUploadDeviceIdError.value = ''
+      return true
+    }
+
+    const beforeAgentKeyUpload = () => false
+
+    const onAgentKeyFileChange = async (file) => {
+      const raw = file?.raw || file
+      if (!raw) return
+      try {
+        const text = await raw.text()
+        const normalized = String(text || '').trim()
+        logUploadDecryptKey.value = normalized
+        logUploadKeyFileName.value = String(raw.name || '').trim()
+        validateLogUploadKeyFormat()
+      } catch (error) {
+        ElMessage.error(error?.message || t('shared.requestFailed'))
+      }
+    }
+
+    const loadLogUploadDeviceModels = async () => {
+      logUploadDeviceModelsLoading.value = true
+      try {
+        const res = await api.deviceModels.getList({
+          page: 1,
+          limit: 1000,
+          series_id: currentSeriesId.value || undefined,
+          includeInactive: 'false'
+        })
+        logUploadDeviceModelOptionsAll.value = (res.data?.models || []).map(item => ({
+          id: item.id,
+          device_model: item.device_model,
+          series_id: item.series_id
+        }))
+      } catch (error) {
+        console.warn('加载 Agent 日志上传设备型号失败:', error?.message || error)
+        logUploadDeviceModelOptionsAll.value = []
+      } finally {
+        logUploadDeviceModelsLoading.value = false
+      }
+    }
+
+    const applyLogUploadDeviceModel = (modelId, modelName = '', seriesId = currentSeriesId.value) => {
+      const normalizedId = Number(modelId)
+      const normalizedName = String(modelName || '').trim()
+      const sid = Number(seriesId)
+      const hasSeries = Number.isInteger(sid) && sid > 0
+      const exists = Number.isInteger(normalizedId) && normalizedId > 0
+        ? logUploadDeviceModelOptionsAll.value.some((item) => Number(item.id) === normalizedId)
+        : false
+      if (!exists && hasSeries && Number.isInteger(normalizedId) && normalizedId > 0) {
+        logUploadDeviceModelOptionsAll.value = [
+          ...logUploadDeviceModelOptionsAll.value,
+          { id: normalizedId, device_model: normalizedName, series_id: sid }
+        ]
+      }
+      if (!Number.isInteger(normalizedId) || normalizedId <= 0) return false
+      if (!logUploadDeviceModelOptions.value.some((item) => Number(item.id) === normalizedId)) return false
+      logUploadDeviceModelId.value = normalizedId
+      logUploadDeviceModelError.value = ''
+      return true
+    }
+
+    const prefillsLogUploadDeviceModel = async (targetDeviceId) => {
+      const did = String(targetDeviceId || '').trim()
+      if (!did || !currentSeriesId.value) return
+      const seq = ++logUploadPrefillModelSeq
+      try {
+        const res = await api.logs.autoFillDeviceModel(did, {
+          series_id: currentSeriesId.value
+        })
+        if (seq !== logUploadPrefillModelSeq) return
+        applyLogUploadDeviceModel(res.data?.device_model_id, res.data?.device_model, currentSeriesId.value)
+      } catch (error) {
+        console.warn('自动填充 Agent 日志上传设备型号失败:', error?.message || error)
+      }
+    }
+
+    const syncLogUploadKeyFromDeviceId = async (targetDeviceId) => {
+      if (!logUploadDrawerVisible.value) return
+      const did = String(targetDeviceId || '').trim()
+      if (!did || !DEVICE_ID_FORMAT.test(did)) return
+      const seq = ++logUploadAutoFillKeySeq
+      try {
+        const response = await store.dispatch('logs/autoFillKey', did)
+        if (seq !== logUploadAutoFillKeySeq) return
+        const key = String(response?.data?.key || '').trim()
+        if (!key) return
+        logUploadAutoFillApplying = true
+        logUploadDecryptKey.value = key
+        logUploadKeyError.value = ''
+        await nextTick()
+        logUploadAutoFillApplying = false
+      } catch (_) {
+        logUploadAutoFillApplying = false
+      }
+    }
+
+    const syncLogUploadDeviceIdFromKey = async (targetKey) => {
+      if (!logUploadDrawerVisible.value) return
+      const key = String(targetKey || '').trim()
+      if (!key || !KEY_FORMAT.test(key)) return
+      const seq = ++logUploadAutoFillDeviceIdSeq
+      try {
+        const response = await store.dispatch('logs/autoFillDeviceId', key)
+        if (seq !== logUploadAutoFillDeviceIdSeq) return
+        const did = String(response?.data?.device_id || '').trim()
+        if (!did) return
+        logUploadAutoFillApplying = true
+        logUploadDeviceId.value = did
+        logUploadDeviceIdError.value = ''
+        await nextTick()
+        logUploadAutoFillApplying = false
+        if (currentSeriesId.value) {
+          await prefillsLogUploadDeviceModel(did)
+        }
+      } catch (_) {
+        logUploadAutoFillApplying = false
+      }
+    }
 
     const revokeDraftPreviewUrl = (attachment) => {
       const url = String(attachment?.localPreviewUrl || '').trim()
@@ -1953,6 +2665,29 @@ export default {
     const clearDraftAttachments = () => {
       draftAttachments.value.forEach(revokeDraftPreviewUrl)
       draftAttachments.value = []
+      canScrollDraftAttachmentsLeft.value = false
+      canScrollDraftAttachmentsRight.value = false
+    }
+
+    const updateDraftAttachmentScrollState = () => {
+      const el = draftAttachmentsScroller.value
+      if (!el) {
+        canScrollDraftAttachmentsLeft.value = false
+        canScrollDraftAttachmentsRight.value = false
+        return
+      }
+      const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth)
+      canScrollDraftAttachmentsLeft.value = el.scrollLeft > 4
+      canScrollDraftAttachmentsRight.value = el.scrollLeft < maxScrollLeft - 4
+    }
+
+    const scrollDraftAttachments = (direction = 'right') => {
+      const el = draftAttachmentsScroller.value
+      if (!el) return
+      const step = Math.max(140, Math.floor(el.clientWidth * 0.7))
+      const left = direction === 'left' ? el.scrollLeft - step : el.scrollLeft + step
+      el.scrollTo({ left, behavior: 'smooth' })
+      window.setTimeout(updateDraftAttachmentScrollState, 180)
     }
 
     const updateDraftAttachment = (localId, patch) => {
@@ -1967,15 +2702,17 @@ export default {
     const createDraftAttachment = (file) => {
       const safeName = ensureFileName(file)
       const type = detectDraftAttachmentType(file)
+      const relativePath = getFileRelativePath(file)
       return {
         localId: shortId(),
         file,
         originalName: safeName,
+        relativePath: relativePath || undefined,
         sizeBytes: Number(file?.size || 0),
         mimeType: String(file?.type || '').trim().toLowerCase(),
         type,
         progress: 0,
-        status: 'draft',
+        status: DRAFT_ATTACHMENT_STATUS.QUEUED,
         errorMessage: '',
         localPreviewUrl: type === 'image' ? URL.createObjectURL(file) : ''
       }
@@ -1986,7 +2723,7 @@ export default {
       if (!attachment || !attachment.file) return
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
       updateDraftAttachment(localId, {
-        status: 'uploading',
+        status: DRAFT_ATTACHMENT_STATUS.UPLOADING,
         progress: 0,
         errorMessage: '',
         abortController: controller
@@ -1994,6 +2731,9 @@ export default {
 
       const formData = new FormData()
       formData.append('files', attachment.file, attachment.originalName)
+      if (attachment.relativePath) {
+        formData.append('relativePaths', attachment.relativePath)
+      }
 
       try {
         const resp = await api.agent.uploadAssets(formData, {
@@ -2015,7 +2755,7 @@ export default {
         updateDraftAttachment(localId, {
           ...uploaded,
           progress: 100,
-          status: 'available',
+          status: DRAFT_ATTACHMENT_STATUS.AVAILABLE,
           abortController: null,
           errorMessage: ''
         })
@@ -2024,7 +2764,7 @@ export default {
           ? t('shared.cancel')
           : (error?.response?.data?.message || error?.message || t('shared.requestFailed'))
         updateDraftAttachment(localId, {
-          status: 'failed',
+          status: DRAFT_ATTACHMENT_STATUS.FAILED,
           progress: 0,
           abortController: null,
           errorMessage: message
@@ -2032,32 +2772,63 @@ export default {
       }
     }
 
+    const scheduleDraftUploadPump = () => {
+      if (draftUploadPumpRunning) return
+      draftUploadPumpRunning = true
+      window.setTimeout(async () => {
+        try {
+          while (pendingDraftUploadIds.length > 0) {
+            const localId = pendingDraftUploadIds.shift()
+            const attachment = draftAttachments.value.find(item => item.localId === localId)
+            if (!attachment || attachment.status !== DRAFT_ATTACHMENT_STATUS.QUEUED) continue
+            // eslint-disable-next-line no-await-in-loop
+            await uploadDraftAttachment(localId)
+          }
+        } finally {
+          draftUploadPumpRunning = false
+          if (pendingDraftUploadIds.length > 0) {
+            scheduleDraftUploadPump()
+          }
+        }
+      }, 0)
+    }
+
     const enqueueDraftFiles = async (files) => {
       const list = Array.from(files || []).filter(Boolean)
       if (list.length === 0) return
 
-      if (draftAttachments.value.length + list.length > MAX_DRAFT_ATTACHMENTS) {
-        ElMessage.warning(`最多上传 ${MAX_DRAFT_ATTACHMENTS} 个附件`)
-        return
-      }
-
-      const currentTotal = draftAttachments.value
-        .filter(item => item.status !== 'removed')
-        .reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0)
-      const nextTotal = list.reduce((sum, file) => sum + Number(file?.size || 0), currentTotal)
-      if (nextTotal > MAX_ATTACHMENT_TOTAL_SIZE) {
-        ElMessage.warning(`单条消息附件总大小不能超过 ${Math.round(MAX_ATTACHMENT_TOTAL_SIZE / (1024 * 1024))}MB`)
-        return
-      }
+      const currentTotal = draftAttachments.value.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0)
 
       const accepted = []
+      let currentCount = draftAttachments.value.length
+      let nextTotal = currentTotal
+      let ignoredHidden = 0
+      let ignoredDepth = 0
+      let ignoredCount = 0
+      let ignoredTotal = 0
       for (const file of list) {
-        if (!isSupportedAttachmentFile(file)) {
+        if (isHiddenSystemFile(file)) {
+          ignoredHidden += 1
+          continue
+        }
+        if (getFolderDepth(file) > attachmentPolicy.value.maxFolderDepth) {
+          ignoredDepth += 1
+          continue
+        }
+        if (!isSupportedAttachmentFile(file, attachmentPolicy.value)) {
           ElMessage.warning(`文件类型不支持：${ensureFileName(file)}`)
           continue
         }
-        if (Number(file?.size || 0) > MAX_ATTACHMENT_SIZE) {
-          ElMessage.warning(`单个附件不能超过 ${Math.round(MAX_ATTACHMENT_SIZE / (1024 * 1024))}MB`)
+        if (Number(file?.size || 0) > attachmentPolicy.value.maxFileSize) {
+          ElMessage.warning(`单个附件不能超过 ${Math.round(attachmentPolicy.value.maxFileSize / (1024 * 1024))}MB`)
+          continue
+        }
+        if (currentCount >= attachmentPolicy.value.maxFiles) {
+          ignoredCount += 1
+          continue
+        }
+        if (nextTotal + Number(file?.size || 0) > attachmentPolicy.value.maxTotalSize) {
+          ignoredTotal += 1
           continue
         }
         const draftAttachment = createDraftAttachment(file)
@@ -2066,12 +2837,28 @@ export default {
         }
         draftAttachments.value.push(draftAttachment)
         accepted.push(draftAttachment.localId)
+        currentCount += 1
+        nextTotal += Number(file?.size || 0)
       }
 
-      for (const localId of accepted) {
-        // 顺序上传，进度更稳定，也更容易匹配单卡片状态
-        // eslint-disable-next-line no-await-in-loop
-        await uploadDraftAttachment(localId)
+      if (ignoredHidden > 0) {
+        ElMessage.info(`已忽略 ${ignoredHidden} 个隐藏文件或系统文件`)
+      }
+      if (ignoredDepth > 0) {
+        ElMessage.warning(`已忽略 ${ignoredDepth} 个超过 ${attachmentPolicy.value.maxFolderDepth} 层目录的文件`)
+      }
+      if (ignoredCount > 0) {
+        ElMessage.warning(`最多上传 ${attachmentPolicy.value.maxFiles} 个附件，已忽略 ${ignoredCount} 个超出数量限制的文件`)
+      }
+      if (ignoredTotal > 0) {
+        ElMessage.warning(`单条消息附件总大小不能超过 ${Math.round(attachmentPolicy.value.maxTotalSize / (1024 * 1024))}MB，已忽略 ${ignoredTotal} 个超限文件`)
+      }
+
+      if (accepted.length > 0) {
+        await nextTick()
+        updateDraftAttachmentScrollState()
+        accepted.forEach(localId => pendingDraftUploadIds.push(localId))
+        scheduleDraftUploadPump()
       }
     }
 
@@ -2083,6 +2870,77 @@ export default {
         .filter(Boolean)
       if (files.length === 0) return
       event.preventDefault()
+      await enqueueDraftFiles(files)
+    }
+
+    const pickDraftFiles = ({ directory = false } = {}) => {
+      return new Promise((resolve) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.multiple = true
+        input.accept = attachmentAccept.value
+        if (directory) {
+          input.setAttribute('webkitdirectory', '')
+          input.setAttribute('directory', '')
+        }
+        input.addEventListener('change', () => {
+          resolve(Array.from(input.files || []).filter(Boolean))
+        }, { once: true })
+        input.addEventListener('cancel', () => resolve([]), { once: true })
+        input.click()
+      })
+    }
+
+    const openAttachmentFiles = async () => {
+      const files = await pickDraftFiles()
+      await enqueueDraftFiles(files)
+    }
+
+    const transferHasFiles = (event) => {
+      const types = Array.from(event?.dataTransfer?.types || [])
+      return types.includes('Files')
+    }
+
+    const handleWindowDragEnter = (event) => {
+      if (!transferHasFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      dragDepth.value += 1
+      showDragOverlay.value = true
+    }
+
+    const handleWindowDragOver = (event) => {
+      if (!transferHasFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (event?.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy'
+      }
+      showDragOverlay.value = true
+    }
+
+    const handleWindowDragLeave = (event) => {
+      if (!transferHasFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      dragDepth.value = Math.max(0, dragDepth.value - 1)
+      const related = event?.relatedTarget
+      if (dragDepth.value === 0 || related === null) {
+        showDragOverlay.value = false
+      }
+    }
+
+    const resetDragOverlay = () => {
+      dragDepth.value = 0
+      showDragOverlay.value = false
+    }
+
+    const handleWindowDrop = async (event) => {
+      if (!transferHasFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      resetDragOverlay()
+      const files = await collectFilesFromDataTransfer(event?.dataTransfer)
       await enqueueDraftFiles(files)
     }
 
@@ -2114,12 +2972,76 @@ export default {
       }
     }
 
+    const scrollToMessageStart = async (messageId) => {
+      const normalizedId = String(messageId || '').trim()
+      if (!normalizedId) return
+      await nextTick()
+      const container = messagesEl.value
+      if (!container) return
+      const messageEl = container.querySelector(`[data-message-id="${normalizedId}"]`)
+      if (!messageEl) return
+      container.scrollTo({
+        top: Math.max(0, messageEl.offsetTop - 16),
+        behavior: 'smooth'
+      })
+    }
+
     watch(() => activeMessages.value.length, () => {
       scrollToBottom()
     })
 
+    watch(() => draftAttachments.value.length, async () => {
+      await nextTick()
+      updateDraftAttachmentScrollState()
+    })
+
+    watch(logUploadDeviceId, (next) => {
+      if (logUploadAutoFillApplying) return
+      if (logUploadDeviceIdTimer) {
+        clearTimeout(logUploadDeviceIdTimer)
+        logUploadDeviceIdTimer = null
+      }
+      if (!logUploadDrawerVisible.value) return
+      const did = String(next || '').trim()
+      if (!did || !DEVICE_ID_FORMAT.test(did)) return
+      logUploadDeviceIdTimer = setTimeout(() => {
+        logUploadDeviceIdTimer = null
+        if (currentSeriesId.value) {
+          prefillsLogUploadDeviceModel(did)
+        }
+        syncLogUploadKeyFromDeviceId(did)
+      }, 400)
+    })
+
+    watch(logUploadDecryptKey, (next) => {
+      if (logUploadAutoFillApplying) return
+      if (logUploadKeyTimer) {
+        clearTimeout(logUploadKeyTimer)
+        logUploadKeyTimer = null
+      }
+      if (!logUploadDrawerVisible.value) return
+      const key = String(next || '').trim()
+      if (!key || !KEY_FORMAT.test(key)) return
+      logUploadKeyTimer = setTimeout(() => {
+        logUploadKeyTimer = null
+        syncLogUploadDeviceIdFromKey(key)
+      }, 400)
+    })
+
+    watch(currentSeriesId, async (nextId, prevId) => {
+      if (!logUploadDrawerVisible.value) return
+      if (!nextId || nextId === prevId) return
+      logUploadDeviceModelId.value = null
+      logUploadDeviceModelError.value = ''
+      await loadLogUploadDeviceModels()
+      const did = String(logUploadDeviceId.value || '').trim()
+      if (did && DEVICE_ID_FORMAT.test(did)) {
+        await prefillsLogUploadDeviceModel(did)
+      }
+    })
+
     const upsertConversation = (conv) => {
-      const idx = conversations.value.findIndex(c => c.id === conv.id)
+      const idx = conversations.value.findIndex(c => c.uiKey === conv.uiKey)
       if (idx >= 0) conversations.value.splice(idx, 1)
       // 最新放顶部
       conversations.value.unshift(conv)
@@ -2129,20 +3051,66 @@ export default {
       }
     }
 
+    const mergeConversationIdentity = (targetConversation, { instanceId = null, conversationId = '' } = {}) => {
+      if (!targetConversation) return null
+
+      const normalizedInstanceId = Number(instanceId || 0) || null
+      const normalizedConversationId = String(conversationId || '').trim()
+      const previousUiKey = String(targetConversation.uiKey || '').trim()
+      const nextUiKey = normalizedInstanceId ? String(normalizedInstanceId) : previousUiKey
+
+      if (normalizedInstanceId) {
+        targetConversation.instanceId = normalizedInstanceId
+        targetConversation.uiKey = nextUiKey
+      }
+      if (normalizedConversationId) {
+        targetConversation.conversationId = normalizedConversationId
+      }
+
+      conversations.value = conversations.value.filter((conv) => {
+        if (!conv || conv === targetConversation) return false
+        if (normalizedInstanceId && Number(conv.instanceId || 0) === normalizedInstanceId) return false
+        if (normalizedConversationId && String(conv.conversationId || '').trim() === normalizedConversationId) return false
+        return true
+      })
+
+      if (
+        activeConversationId.value === previousUiKey
+        || (normalizedInstanceId && activeConversationId.value === String(normalizedInstanceId))
+      ) {
+        activeConversationId.value = nextUiKey
+      }
+
+      upsertConversation(targetConversation)
+      return targetConversation
+    }
+
     const ensureActiveConversation = () => {
       if (activeConversation.value) return activeConversation.value
       const conv = {
-        id: shortId(),
+        uiKey: shortId(),
         instanceId: null,
-        conversationId: String(agentConversationId.value || '').trim(),
+        conversationId: '',
         title: defaultConversationTitle.value,
         createdAt: nowIso(),
         updatedAt: nowIso(),
         messages: []
       }
-      activeConversationId.value = conv.id
+      activeConversationId.value = conv.uiKey
       upsertConversation(conv)
       return conv
+    }
+
+    const resolveConversationForRequest = (originConversation, originUiKey = '') => {
+      if (originConversation && conversations.value.includes(originConversation)) {
+        return originConversation
+      }
+      const normalizedOriginUiKey = String(originUiKey || '').trim()
+      if (normalizedOriginUiKey) {
+        const matched = conversations.value.find(item => String(item?.uiKey || '').trim() === normalizedOriginUiKey)
+        if (matched) return matched
+      }
+      return originConversation || null
     }
 
     const send = async () => {
@@ -2156,6 +3124,7 @@ export default {
         bucket: item.bucket,
         originalName: item.originalName,
         storedName: item.storedName,
+        relativePath: item.relativePath,
         mimeType: item.mimeType,
         sizeBytes: item.sizeBytes,
         sha256: item.sha256,
@@ -2168,13 +3137,14 @@ export default {
         status: item.status
       }))
       if (!text && outboundAttachments.length === 0) return
-      if (text.length > MAX_INPUT_CHARS) {
-        ElMessage.warning(t('smartSearch.maxInputChars', { max: MAX_INPUT_CHARS }))
+      if (text.length > attachmentPolicy.value.maxInputChars) {
+        ElMessage.warning(t('smartSearch.maxInputChars', { max: attachmentPolicy.value.maxInputChars }))
         return
       }
 
       // 轮次上限由后端 SESSION_MAX_TURNS 控制实例滚动；达到上限时 instance.notice 会并入回复文案
       const conv = ensureActiveConversation()
+      const requestOriginUiKey = String(conv.uiKey || '').trim()
       const previousInstanceId = Number(conv.instanceId || 0)
       const userMsg = {
         id: shortId(),
@@ -2222,7 +3192,68 @@ export default {
       sending.value = true
       try {
         const result = await agentSendText(text, { attachments: outboundAttachments })
+        if (result?.mode === 'deferred') {
+          const pendingText = String(
+            result?.deferredEvent?.text
+            || t('smartSearch.thinking')
+          ).trim()
+          const pendingTaskId = String(
+            result?.deferredEvent?.taskId
+            || result?.taskId
+            || ''
+          ).trim() || null
+          const resultInstanceId = Number(result?.session?.instanceId || agentInstanceId.value || conv.instanceId || 0) || null
+          const resultConversationId = String(result?.session?.conversationId || agentConversationId.value || conv.conversationId || '').trim()
+          const pendingMsg = {
+            id: loadingMsgId,
+            role: 'assistant',
+            type: 'async_pending',
+            content: pendingText,
+            createdAt: nowIso(),
+            taskId: pendingTaskId,
+            deferredEvent: result?.deferredEvent || null,
+            instanceId: resultInstanceId,
+            conversationId: resultConversationId || null
+          }
+          const conv2 = resolveConversationForRequest(conv, requestOriginUiKey)
+          if (conv2) {
+            mergeConversationIdentity(conv2, {
+              instanceId: resultInstanceId,
+              conversationId: resultConversationId
+            })
+            const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
+            if (loadingIndex >= 0) {
+              conv2.messages.splice(loadingIndex, 1, pendingMsg)
+            } else {
+              conv2.messages = [...(conv2.messages || []), pendingMsg]
+            }
+            conv2.updatedAt = nowIso()
+            upsertConversation(conv2)
+            await persistConversation(conv2)
+          }
+          return
+        }
         const { rolloverMessage, inlineMessages } = splitAgentSystemMessages(result.systemMessages)
+        const directMessageDelta = Array.isArray(result?.messageDelta?.messages) ? result.messageDelta.messages : []
+        if (directMessageDelta.length > 0) {
+          const conv2 = resolveConversationForRequest(conv, requestOriginUiKey)
+          if (conv2) {
+            mergeConversationIdentity(conv2, {
+              instanceId: result?.session?.instanceId || agentInstanceId.value || conv2.instanceId || null,
+              conversationId: result?.session?.conversationId || agentConversationId.value || conv2.conversationId || ''
+            })
+            conv2.messages = (conv2.messages || []).filter(message => message?.id !== loadingMsgId)
+            await applyConversationMessageDelta({
+              taskId: result?.deferredEvent?.taskId || result?.taskId || null,
+              instanceId: result?.session?.instanceId || agentInstanceId.value || conv2.instanceId || null,
+              conversationId: result?.session?.conversationId || agentConversationId.value || conv2.conversationId || '',
+              messages: directMessageDelta
+            })
+            await scrollToMessageStart(getLastAssistantMessageId(directMessageDelta))
+            await maybeLaunchWebLogUploadEntry(result?.toolTraces)
+            return
+          }
+        }
         const payload = {
           ...(result.payload || {}),
           answerText: result.assistantMode === 'direct_response'
@@ -2238,10 +3269,14 @@ export default {
           systemMessages: inlineMessages,
           createdAt: nowIso()
         }
-        const conv2 = activeConversation.value
+        const conv2 = resolveConversationForRequest(conv, requestOriginUiKey)
         if (conv2) {
           const resultInstanceId = Number(result?.session?.instanceId || agentInstanceId.value || 0)
           const agentCid = String(agentConversationId.value || '').trim()
+          mergeConversationIdentity(conv2, {
+            instanceId: resultInstanceId,
+            conversationId: agentCid || String(conv2.conversationId || '').trim()
+          })
           const didRollover = Boolean(
             result.didRollover
             && Number.isFinite(previousInstanceId)
@@ -2267,7 +3302,7 @@ export default {
             upsertConversation(conv2)
 
             targetConversation = {
-              id: String(resultInstanceId),
+              uiKey: String(resultInstanceId),
               instanceId: resultInstanceId,
               conversationId: agentCid || String(conv2.conversationId || '').trim(),
               instanceNo: Number(result?.instance?.instance_no || result?.instance?.instanceNo || 0) || null,
@@ -2280,20 +3315,11 @@ export default {
               }),
               messages: [userMsg, assistantMsg]
             }
-            activeConversationId.value = String(resultInstanceId)
-            setConversationSwitchNotice(targetConversation.id, rolloverNotice)
+            if (activeConversationId.value === requestOriginUiKey || activeConversationId.value === String(conv2.uiKey || '').trim()) {
+              activeConversationId.value = String(resultInstanceId)
+            }
+            setConversationSwitchNotice(targetConversation.uiKey, rolloverNotice)
           } else {
-            if (agentCid) {
-              conv2.conversationId = agentCid
-            }
-            if (Number.isFinite(resultInstanceId) && resultInstanceId > 0 && String(conv2.id) !== String(resultInstanceId)) {
-              const oldId = conv2.id
-              conv2.id = String(resultInstanceId)
-              conv2.instanceId = resultInstanceId
-              if (activeConversationId.value === oldId) {
-                activeConversationId.value = String(resultInstanceId)
-              }
-            }
             conv2.instance = buildConversationInstanceMeta(result?.instance, {
               id: resultInstanceId || conv2.instanceId,
               instanceNo: conv2.instanceNo,
@@ -2357,6 +3383,8 @@ export default {
           targetConversation.updatedAt = nowIso()
           upsertConversation(targetConversation)
           await persistConversation(targetConversation)
+          await scrollToMessageStart(assistantMsg.id)
+          await maybeLaunchWebLogUploadEntry(payload?.toolTraces)
         }
       } catch (e) {
         const assistantMsg = { 
@@ -2365,7 +3393,7 @@ export default {
           content: t('shared.requestFailed'), 
           createdAt: nowIso() 
         }
-        const conv2 = activeConversation.value
+        const conv2 = resolveConversationForRequest(conv, requestOriginUiKey)
         if (conv2) {
           // 找到 loading 消息的索引并替换
           const loadingIndex = conv2.messages.findIndex(m => m.id === loadingMsgId)
@@ -3076,52 +4104,42 @@ export default {
       clearDraftAttachments()
     }
 
-    const selectConversation = async (id) => {
+    const selectConversation = async (uiKey) => {
       clearConversationSwitchNotice()
-      activeConversationId.value = id
+      activeConversationId.value = uiKey
       draft.value = ''
       clearDraftAttachments()
 
-      if (!id) return
+      if (!uiKey) return
       try {
-        const session = await agentLoadConversation(id)
-        const idx = conversations.value.findIndex(c => c.id === id)
-        if (idx >= 0) {
-          conversations.value[idx] = {
-            ...conversations.value[idx],
-            instanceId: Number(id || 0) || conversations.value[idx].instanceId || null,
-            conversationId: String(agentConversationId.value || conversations.value[idx].conversationId || '').trim(),
-            instance: session?.instance || null,
-            messages: (Array.isArray(session?.messages) ? session.messages : []).map((m, i) => ({
-              id: m.id || `${id}_${i}`,
-              role: m.role,
-              content: m.content || '',
-              attachments: Array.isArray(m.attachments) ? m.attachments : [],
-              type: m.role === 'assistant' ? 'search_result' : undefined,
-              payload: m.payload,
-              createdAt: m.createdAt || nowIso()
-            }))
-          }
+        const target = conversations.value.find(c => c.uiKey === uiKey) || null
+        const targetInstanceId = Number(target?.instanceId || 0)
+        if (Number.isFinite(targetInstanceId) && targetInstanceId > 0) {
+          await reloadConversationById(targetInstanceId, uiKey)
         }
       } catch (err) {
         console.error('[selectConversation] Failed to load conversation:', err)
       }
     }
 
-    const deleteConversation = async (id) => {
+    const deleteConversation = async (uiKey) => {
+      const target = conversations.value.find(c => c.uiKey === uiKey) || null
+      const targetInstanceId = Number(target?.instanceId || 0)
       try {
-        await agentDeleteConversation(id)
+        if (Number.isFinite(targetInstanceId) && targetInstanceId > 0) {
+          await agentDeleteConversation(targetInstanceId)
+        }
       } catch (err) {
         console.error('[deleteConversation] Failed to delete conversation:', err)
         ElMessage.error(err?.response?.data?.message || err?.message || t('shared.requestFailed'))
         return
       }
-      const nextList = conversations.value.filter(c => c.id !== id)
+      const nextList = conversations.value.filter(c => c.uiKey !== uiKey)
       conversations.value = nextList
       
-      if (activeConversationId.value === id) {
+      if (activeConversationId.value === uiKey) {
         clearConversationSwitchNotice()
-        activeConversationId.value = nextList[0]?.id || null
+        activeConversationId.value = nextList[0]?.uiKey || null
         if (!activeConversationId.value) {
           agentNewConversation()
         } else {
@@ -3149,6 +4167,540 @@ export default {
       return {
         rolloverMessage,
         inlineMessages: list.filter(item => String(item?.kind || '').trim().toLowerCase() !== 'instance_rollover')
+      }
+    }
+
+    const buildAsyncToolAssistantMessage = (text, taskId = null, status = 'completed') => {
+      const answerText = String(text || '').trim()
+      return {
+        id: shortId(),
+        role: 'assistant',
+        type: 'search_result',
+        content: '',
+        payload: buildAssistantPayloadFromAgentResult({
+          text: answerText,
+          toolTraces: []
+        }),
+        createdAt: nowIso(),
+        taskId: taskId || null,
+        asyncStatus: status
+      }
+    }
+
+    const mapMessageDeltaItemToUiMessage = (message, fallbackTaskId = null) => {
+      const role = String(message?.role || '').trim().toLowerCase()
+      const content = String(message?.content || '').trim()
+      const attachments = Array.isArray(message?.attachments) ? message.attachments : []
+      const toolTraces = Array.isArray(message?.toolTraces) ? message.toolTraces : []
+      const systemMessages = Array.isArray(message?.systemMessages) ? message.systemMessages : []
+      const createdAt = message?.createdAt || nowIso()
+      const id = String(message?.id || message?.messageId || shortId()).trim()
+
+      if (role === 'user') {
+        return {
+          id,
+          role: 'user',
+          content,
+          attachments,
+          createdAt
+        }
+      }
+
+      return {
+        id,
+        role: 'assistant',
+        type: 'search_result',
+        content: '',
+        payload: buildAssistantPayloadFromAgentResult({
+          text: content,
+          toolTraces
+        }),
+        systemMessages,
+        attachments,
+        createdAt,
+        taskId: fallbackTaskId || null
+      }
+    }
+
+    const mapConversationSessionMessages = (instanceId, session) => {
+      return (Array.isArray(session?.messages) ? session.messages : []).map((m, i) => ({
+        id: m.id || `${instanceId}_${i}`,
+        role: m.role,
+        content: m.content || '',
+        attachments: Array.isArray(m.attachments) ? m.attachments : [],
+        type: m.role === 'assistant' ? 'search_result' : undefined,
+        payload: m.payload,
+        createdAt: m.createdAt || nowIso()
+      }))
+    }
+
+    const getLastAssistantMessageId = (messages) => {
+      const list = Array.isArray(messages) ? messages : []
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        const item = list[i]
+        if (String(item?.role || '').trim().toLowerCase() !== 'assistant') continue
+        const messageId = String(item?.id || item?.messageId || '').trim()
+        if (messageId) return messageId
+      }
+      return ''
+    }
+
+    const applyLoadedConversationSession = (instanceId, session, uiKey = null) => {
+      const normalizedInstanceId = Number(instanceId || 0) || null
+      const targetUiKey = String(uiKey || normalizedInstanceId || '').trim()
+      const idx = conversations.value.findIndex(c => c.uiKey === targetUiKey)
+      if (idx < 0) return null
+      const current = conversations.value[idx]
+      conversations.value[idx] = {
+        ...current,
+        uiKey: current.uiKey || targetUiKey,
+        instanceId: normalizedInstanceId || current.instanceId || null,
+        conversationId: String(session?.conversationId || current.conversationId || '').trim(),
+        instance: session?.instance || null,
+        messages: mapConversationSessionMessages(normalizedInstanceId || targetUiKey, session)
+      }
+      return conversations.value[idx]
+    }
+
+    const reloadConversationById = async (instanceId, uiKey = null) => {
+      const normalizedInstanceId = Number(instanceId || 0)
+      if (!Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) return null
+      const session = await agentLoadConversation(normalizedInstanceId)
+      return applyLoadedConversationSession(normalizedInstanceId, session, uiKey)
+    }
+
+    const hydrateConversationFromSession = async ({ targetConversation, instanceId, session }) => {
+      const normalizedInstanceId = Number(instanceId || 0)
+      if (!targetConversation || !Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0 || !session) return null
+
+      const previousUiKey = String(targetConversation.uiKey || '').trim()
+      const nextUiKey = String(normalizedInstanceId).trim()
+
+      targetConversation.uiKey = nextUiKey
+      targetConversation.instanceId = normalizedInstanceId
+      targetConversation.conversationId = String(
+        session?.conversationId || targetConversation.conversationId || ''
+      ).trim()
+      targetConversation.instance = session?.instance || targetConversation.instance || null
+      targetConversation.messages = mapConversationSessionMessages(normalizedInstanceId, session)
+      targetConversation.updatedAt = nowIso()
+
+      conversations.value = conversations.value.filter((conv) => {
+        if (!conv) return false
+        if (conv === targetConversation) return false
+        return String(conv.uiKey || '').trim() !== nextUiKey
+      })
+      upsertConversation(targetConversation)
+
+      if (!activeConversationId.value || activeConversationId.value === previousUiKey || activeConversationId.value === nextUiKey) {
+        activeConversationId.value = nextUiKey
+      }
+
+      await persistConversation(targetConversation)
+      return targetConversation
+    }
+
+    const applyConversationMessageDelta = async ({ taskId = null, instanceId = null, conversationId = '', messages = [] }) => {
+      const normalizedTaskId = String(taskId || '').trim()
+      const normalizedInstanceId = Number(instanceId || 0) || null
+      const normalizedConversationId = String(conversationId || '').trim()
+      const targetConversation = conversations.value.find(conv => (
+        (normalizedInstanceId && Number(conv?.instanceId || 0) === normalizedInstanceId)
+        || (normalizedConversationId && String(conv?.conversationId || '').trim() === normalizedConversationId)
+        || (normalizedTaskId && Array.isArray(conv?.messages) && conv.messages.some(message => (
+          message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+        )))
+      )) || null
+      if (!targetConversation) return null
+
+      mergeConversationIdentity(targetConversation, {
+        instanceId: normalizedInstanceId,
+        conversationId: normalizedConversationId
+      })
+
+      const nextMessages = []
+      for (const existing of Array.isArray(targetConversation.messages) ? targetConversation.messages : []) {
+        if (
+          normalizedTaskId
+          && existing?.type === 'async_pending'
+          && String(existing?.taskId || '').trim() === normalizedTaskId
+        ) {
+          continue
+        }
+        nextMessages.push(existing)
+      }
+
+      for (const item of Array.isArray(messages) ? messages : []) {
+        nextMessages.push(mapMessageDeltaItemToUiMessage(item, taskId))
+      }
+
+      targetConversation.messages = nextMessages
+      targetConversation.updatedAt = nowIso()
+      upsertConversation(targetConversation)
+      await persistConversation(targetConversation)
+      return targetConversation
+    }
+
+    const adoptReloadedConversation = async ({ refreshedConversation, targetConversation }) => {
+      if (!refreshedConversation || !targetConversation) return null
+
+      const previousUiKey = String(targetConversation.uiKey || '').trim()
+      const nextInstanceId = Number(refreshedConversation.instanceId || targetConversation.instanceId || 0) || null
+      const nextUiKey = String(nextInstanceId || refreshedConversation.uiKey || previousUiKey).trim()
+
+      targetConversation.uiKey = nextUiKey || previousUiKey
+      targetConversation.instanceId = nextInstanceId
+      targetConversation.conversationId = String(
+        refreshedConversation.conversationId || targetConversation.conversationId || ''
+      ).trim()
+      targetConversation.instanceNo = refreshedConversation.instanceNo || targetConversation.instanceNo || null
+      targetConversation.status = refreshedConversation.status || targetConversation.status || ''
+      targetConversation.instance = refreshedConversation.instance || targetConversation.instance || null
+      targetConversation.messages = Array.isArray(refreshedConversation.messages) ? refreshedConversation.messages : []
+      targetConversation.updatedAt = nowIso()
+
+      const deduped = []
+      const seen = new Set()
+      for (const conv of conversations.value) {
+        if (!conv) continue
+        if (conv === targetConversation) continue
+        const key = String(conv.uiKey || '').trim()
+        if (key && key === nextUiKey) continue
+        const iid = Number(conv.instanceId || 0) || null
+        const dedupeKey = String(key || iid || '')
+        if (dedupeKey && seen.has(dedupeKey)) continue
+        if (dedupeKey) seen.add(dedupeKey)
+        deduped.push(conv)
+      }
+      conversations.value = deduped
+      upsertConversation(targetConversation)
+
+      if (!activeConversationId.value || activeConversationId.value === previousUiKey || activeConversationId.value === nextUiKey) {
+        activeConversationId.value = targetConversation.uiKey
+      }
+
+      await persistConversation(targetConversation)
+      await scrollToMessageStart(getLastAssistantMessageId(targetConversation.messages))
+      return targetConversation
+    }
+
+    const replacePendingTaskMessage = async ({ taskId, text, status }) => {
+      const normalizedTaskId = String(taskId || '').trim()
+      if (!normalizedTaskId) return false
+      const targetConversation = conversations.value.find(conv => Array.isArray(conv?.messages) && conv.messages.some(message => (
+        message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+      )))
+      if (!targetConversation) return false
+
+      const pendingIndex = targetConversation.messages.findIndex(message => (
+        message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+      ))
+      if (pendingIndex < 0) return false
+
+      const finalText = String(text || '').trim() || (status === 'failed' ? t('shared.requestFailed') : '')
+      if (!finalText) {
+        targetConversation.messages.splice(pendingIndex, 1)
+      } else {
+        targetConversation.messages.splice(
+          pendingIndex,
+          1,
+          buildAsyncToolAssistantMessage(finalText, normalizedTaskId, status)
+        )
+      }
+      targetConversation.updatedAt = nowIso()
+      upsertConversation(targetConversation)
+      await persistConversation(targetConversation)
+      return true
+    }
+
+    const hasPendingTaskMessage = (taskId) => {
+      const normalizedTaskId = String(taskId || '').trim()
+      if (!normalizedTaskId) return false
+      return conversations.value.some(conv => Array.isArray(conv?.messages) && conv.messages.some(message => (
+        message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+      )))
+    }
+
+    const refreshConversationForPendingTask = async ({ taskId, instanceId = null, conversationId = '' }) => {
+      const normalizedTaskId = String(taskId || '').trim()
+      if (!normalizedTaskId || !hasPendingTaskMessage(normalizedTaskId)) return false
+
+      const targetConversation = conversations.value.find(conv => (
+        (instanceId && Number(conv?.instanceId || 0) === Number(instanceId || 0))
+        || (conversationId && String(conv?.conversationId || '').trim() === String(conversationId || '').trim())
+        || (Array.isArray(conv?.messages) && conv.messages.some(message => (
+          message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+        )))
+      )) || null
+      if (!targetConversation) return false
+
+      const normalizedInstanceId = Number(instanceId || targetConversation.instanceId || 0)
+      if (!Number.isFinite(normalizedInstanceId) || normalizedInstanceId <= 0) {
+        return replacePendingTaskMessage({
+          taskId: normalizedTaskId,
+          text: '',
+          status: 'completed'
+        })
+      }
+
+      const refreshedConversation = await reloadConversationById(normalizedInstanceId, targetConversation.uiKey)
+      if (!refreshedConversation) {
+        return replacePendingTaskMessage({
+          taskId: normalizedTaskId,
+          text: '',
+          status: 'completed'
+        })
+      }
+
+      await adoptReloadedConversation({
+        refreshedConversation,
+        targetConversation
+      })
+      return true
+    }
+
+    const updatePendingTaskMessage = async ({ taskId, text, deferredEvent = null }) => {
+      const normalizedTaskId = String(taskId || '').trim()
+      if (!normalizedTaskId) return false
+      const targetConversation = conversations.value.find(conv => Array.isArray(conv?.messages) && conv.messages.some(message => (
+        message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+      )))
+      if (!targetConversation) return false
+
+      const pendingIndex = targetConversation.messages.findIndex(message => (
+        message?.type === 'async_pending' && String(message?.taskId || '').trim() === normalizedTaskId
+      ))
+      if (pendingIndex < 0) return false
+
+      const pendingMessage = targetConversation.messages[pendingIndex]
+      const nextText = String(text || '').trim()
+      if (!nextText || nextText === String(pendingMessage?.content || '').trim()) return false
+
+      targetConversation.messages.splice(pendingIndex, 1, {
+        ...pendingMessage,
+        content: nextText,
+        deferredEvent: deferredEvent && typeof deferredEvent === 'object'
+          ? deferredEvent
+          : pendingMessage?.deferredEvent || null,
+        createdAt: pendingMessage?.createdAt || nowIso()
+      })
+      targetConversation.updatedAt = nowIso()
+      upsertConversation(targetConversation)
+      await persistConversation(targetConversation)
+      return true
+    }
+
+    const handleAgentTaskStatusChange = async (payload) => {
+      const taskId = String(payload?.taskId || '').trim()
+      if (!taskId) return
+      const normalizedStatus = String(payload?.status || '').trim().toLowerCase()
+      const result = payload?.result && typeof payload.result === 'object' ? payload.result : null
+      const isAsyncToolEvent = String(result?.kind || '').trim() === 'async_tool'
+      const hasPendingTask = conversations.value.some(conv => Array.isArray(conv?.messages) && conv.messages.some(message => (
+        message?.type === 'async_pending' && String(message?.taskId || '').trim() === taskId
+      )))
+      if (!hasPendingTask) return
+
+      if (normalizedStatus === 'completed' && isAsyncToolEvent) {
+        // Final async tool output is delivered through conversation_message_delta.
+        // Do not consume the completion status as a terminal chat message here,
+        // otherwise the pending placeholder may be cleared before the real
+        // persisted assistant/tool messages arrive.
+        window.setTimeout(() => {
+          refreshConversationForPendingTask({
+            taskId,
+            instanceId: payload?.instanceId || null,
+            conversationId: payload?.conversationId || ''
+          }).catch((error) => {
+            console.error('[async-pending-refresh] Failed to refresh conversation:', error)
+          })
+        }, 1200)
+        return
+      }
+
+      if ((normalizedStatus === 'submitted' || normalizedStatus === 'running') && isAsyncToolEvent) {
+        const nextText = String(result?.text || '').trim()
+        if (nextText) {
+          await updatePendingTaskMessage({
+            taskId,
+            text: nextText,
+            deferredEvent: result
+          })
+        }
+        return
+      }
+
+      if (normalizedStatus === 'failed') {
+        await replacePendingTaskMessage({
+          taskId,
+          text: payload?.error?.message || t('shared.requestFailed'),
+          status: 'failed'
+        })
+      }
+    }
+
+    const handleConversationMessageDelta = async (payload) => {
+      const messages = Array.isArray(payload?.messages) ? payload.messages : []
+      if (messages.length < 1) return
+      try {
+        await applyConversationMessageDelta({
+          taskId: payload?.taskId || null,
+          instanceId: payload?.instanceId || null,
+          conversationId: payload?.conversationId || '',
+          messages
+        })
+        await scrollToMessageStart(getLastAssistantMessageId(messages))
+      } catch (error) {
+        console.error('[conversation-message-delta] Failed to apply delta:', error)
+      }
+    }
+
+    const extractWebLogUploadLaunch = (toolTraces) => {
+      const traces = Array.isArray(toolTraces) ? toolTraces : []
+      return traces.find(trace => (
+        String(trace?.toolName || '').trim() === 'start_log_upload' &&
+        String(trace?.data?.action || '').trim() === 'open_log_upload_entry' &&
+        String(trace?.data?.entryType || '').trim() === 'log_upload' &&
+        trace?.data?.uploadEntry &&
+        typeof trace.data.uploadEntry === 'object'
+      )) || null
+    }
+
+    const maybeLaunchWebLogUploadEntry = async (toolTraces) => {
+      const launchTrace = extractWebLogUploadLaunch(toolTraces)
+      if (!launchTrace) return false
+
+      resetLogUploadDrawerState()
+
+      const prefill = launchTrace?.data?.prefill && typeof launchTrace.data.prefill === 'object'
+        ? launchTrace.data.prefill
+        : {}
+      const seriesId = Number(prefill.seriesId || 0)
+      if (Number.isInteger(seriesId) && seriesId > 0 && Number(currentSeriesId.value) !== seriesId) {
+        await store.dispatch('seriesContext/setCurrentSeriesId', seriesId)
+      }
+
+      const attachmentMap = getConversationAttachmentMap()
+      logUploadSummary.value = String(launchTrace?.text || prefill?.summary || '').trim()
+      logUploadDeviceId.value = String(prefill.deviceId || '').trim()
+      logUploadDecryptKey.value = String(prefill.decryptKey || '').trim()
+
+      const prefillFiles = Array.isArray(prefill.files) ? prefill.files : []
+      logUploadFiles.value = prefillFiles.map((item) => {
+        const assetId = String(item?.attachmentAssetId || '').trim()
+        const attachment = assetId ? attachmentMap.get(assetId) : null
+        return normalizeLogUploadFileItem({
+          attachmentAssetId: assetId,
+          originalName: item?.originalName || attachment?.originalName || attachment?.storedName,
+          sizeBytes: attachment?.sizeBytes || 0,
+          url: attachment?.url || attachment?.previewUrl || ''
+        })
+      }).filter(item => item.originalName)
+
+      await loadLogUploadDeviceModels()
+      const modelId = Number(prefill.deviceModelId || 0)
+      if (Number.isInteger(modelId) && modelId > 0) {
+        applyLogUploadDeviceModel(modelId, '', currentSeriesId.value || seriesId || null)
+      } else if (logUploadDeviceId.value && currentSeriesId.value) {
+        await prefillsLogUploadDeviceModel(logUploadDeviceId.value)
+      }
+
+      validateLogUploadKeyFormat()
+      validateLogUploadDeviceIdFormat()
+      logUploadFlowVisible.value = true
+      logUploadDrawerVisible.value = true
+      if (logUploadFiles.value.length < 1) {
+        ElMessage.warning('当前对话中的日志附件未映射到上传面板，请手动补充日志文件。')
+      }
+      return true
+    }
+
+    const fetchLogUploadSourceFile = async (item) => {
+      if (item?.file) return item.file
+      const url = String(item?.url || '').trim()
+      if (!url) {
+        throw new Error(`附件 ${item?.originalName || ''} 缺少下载地址`)
+      }
+      const headers = {}
+      const token = String(store.state.auth?.token || '').trim()
+      if (token) headers.Authorization = `Bearer ${token}`
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        throw new Error(`下载附件失败: ${item?.originalName || url}`)
+      }
+      const blob = await response.blob()
+      return new File([blob], item.originalName || 'log.medbot', {
+        type: blob.type || 'application/octet-stream'
+      })
+    }
+
+    const submitAgentLogUpload = async () => {
+      if (!validateLogUploadKeyFormat() || !validateLogUploadDeviceIdFormat()) return
+      if (!currentSeriesId.value) {
+        logUploadDeviceModelError.value = t('logs.messages.selectSeriesFirst')
+        return
+      }
+      if (!logUploadDeviceModelId.value) {
+        logUploadDeviceModelError.value = t('logs.messages.deviceModelRequired')
+        return
+      }
+      if (logUploadFiles.value.length < 1) {
+        ElMessage.error(t('logs.errors.pleaseSelectFiles'))
+        return
+      }
+
+      logUploadSubmitting.value = true
+      try {
+        const uploadCount = logUploadFiles.value.length
+        const uploadedFileSummaries = logUploadFiles.value.map((item) => ({
+          attachmentAssetId: String(item?.attachmentAssetId || '').trim() || null,
+          originalName: String(item?.originalName || '').trim() || null
+        }))
+        for (const item of logUploadFiles.value) {
+          // eslint-disable-next-line no-await-in-loop
+          const file = await fetchLogUploadSourceFile(item)
+          const formData = new FormData()
+          formData.append('file', file, item.originalName || file.name)
+          // eslint-disable-next-line no-await-in-loop
+          await api.logs.upload(formData, {
+            headers: {
+              'X-Decrypt-Key': String(logUploadDecryptKey.value || '').trim(),
+              'X-Device-ID': String(logUploadDeviceId.value || '').trim(),
+              'X-Device-Model-ID': String(logUploadDeviceModelId.value || ''),
+              'X-Series-ID': String(currentSeriesId.value || '')
+            }
+          })
+        }
+
+        const targetDeviceId = String(logUploadDeviceId.value || '').trim()
+        const currentInstanceId = Number(agentInstanceId.value || 0)
+        if (Number.isFinite(currentInstanceId) && currentInstanceId > 0) {
+          try {
+            await api.agent.markLogUploadCompleted(currentInstanceId, {
+              uploadedCount: uploadCount,
+              deviceId: targetDeviceId || null,
+              files: uploadedFileSummaries
+            })
+          } catch (stateError) {
+            console.warn('[agent-log-upload] failed to clear attachment scan state:', stateError)
+            ElMessage.warning('日志已提交，但会话中的附件状态清理失败，后续对话可能仍引用旧附件。')
+          }
+        }
+        completeLogUploadFlow()
+        ElMessage.success(`已提交 ${uploadCount} 个日志文件，正在解析。`)
+        const targetRoute = router.resolve({
+          path: '/dashboard/logs',
+          query: targetDeviceId ? { openDeviceId: targetDeviceId } : {}
+        })
+        window.open(targetRoute.href, '_blank', 'noopener')
+      } catch (error) {
+        ElMessage.error(error?.response?.data?.message || error?.message || t('shared.requestFailed'))
+      } finally {
+        logUploadSubmitting.value = false
       }
     }
 
@@ -3311,17 +4863,26 @@ export default {
 
     const draftAttachmentCardStyle = (attachment) => {
       const status = String(attachment?.status || '').trim().toLowerCase()
-      if (status === 'draft') {
-        return { opacity: 0.5 }
-      }
-      if (status === 'failed') {
-        return { opacity: 0.5 }
-      }
-      if (status === 'uploading') {
-        const progress = Math.min(100, Math.max(0, Number(attachment?.progress || 0)))
-        return { opacity: `${0.5 + (progress / 100) * 0.5}` }
-      }
+      if (status === DRAFT_ATTACHMENT_STATUS.FAILED) return { opacity: 0.72 }
       return { opacity: 1 }
+    }
+
+    const draftAttachmentVisualKind = (attachment) => getDraftAttachmentVisualKind(attachment)
+
+    const draftAttachmentIconComponent = (attachment) => {
+      const kind = getDraftAttachmentVisualKind(attachment)
+      if (kind === 'text') return Document
+      if (kind === 'medbot') return Tickets
+      if (kind === 'archive') return Box
+      return Files
+    }
+
+    const draftAttachmentTypeLabel = (attachment) => {
+      const kind = getDraftAttachmentVisualKind(attachment)
+      if (kind === 'text') return 'TXT'
+      if (kind === 'medbot') return 'MEDBOT'
+      if (kind === 'archive') return 'ARCHIVE'
+      return 'FILE'
     }
 
     const getIntentLabel = (intent) => {
@@ -3422,12 +4983,30 @@ export default {
 
     onMounted(() => {
       load()
+      loadAttachmentPolicy()
       loadLlmProviders()
       scrollToBottom()
+      try { websocketClient.connect() } catch (_) {}
+      websocketClient.on('agentTaskStatusChange', handleAgentTaskStatusChange)
+      websocketClient.on('conversationMessageDelta', handleConversationMessageDelta)
+      window.addEventListener('resize', updateDraftAttachmentScrollState)
+      window.addEventListener('dragenter', handleWindowDragEnter)
+      window.addEventListener('dragover', handleWindowDragOver)
+      window.addEventListener('dragleave', handleWindowDragLeave)
+      window.addEventListener('drop', handleWindowDrop)
     })
 
     onUnmounted(() => {
       clearDraftAttachments()
+      if (logUploadDeviceIdTimer) clearTimeout(logUploadDeviceIdTimer)
+      if (logUploadKeyTimer) clearTimeout(logUploadKeyTimer)
+      websocketClient.off('agentTaskStatusChange', handleAgentTaskStatusChange)
+      websocketClient.off('conversationMessageDelta', handleConversationMessageDelta)
+      window.removeEventListener('resize', updateDraftAttachmentScrollState)
+      window.removeEventListener('dragenter', handleWindowDragEnter)
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('dragleave', handleWindowDragLeave)
+      window.removeEventListener('drop', handleWindowDrop)
     })
 
     return {
@@ -3440,11 +5019,21 @@ export default {
       groupedConversations,
       draft,
       draftAttachments,
+      draftAttachmentsScroller,
+      DRAFT_ATTACHMENT_STATUS,
+      attachmentPolicy,
+      showDraftAttachmentNav,
+      canScrollDraftAttachmentsLeft,
+      canScrollDraftAttachmentsRight,
+      showDragOverlay,
+      attachmentSupportedSummary,
+      attachmentTooltipText,
       canSend,
+      showComposerCount,
       sending,
       draftUploadingCount,
       messagesEl,
-      MAX_INPUT_CHARS,
+      currentSeriesId,
       currentUser,
       llmProviders,
       llmProvidersLoading,
@@ -3468,6 +5057,20 @@ export default {
       sourceDrawerLoading,
       sourceDrawerTech,
       sourceDrawerTitle,
+      logUploadDrawerVisible,
+      logUploadFlowVisible,
+      logUploadSummary,
+      logUploadFiles,
+      logUploadDeviceId,
+      logUploadDecryptKey,
+      logUploadKeyFileName,
+      logUploadKeyError,
+      logUploadDeviceIdError,
+      logUploadDeviceModelId,
+      logUploadDeviceModelOptions,
+      logUploadDeviceModelsLoading,
+      logUploadDeviceModelError,
+      canSubmitAgentLogUpload,
       faultTechSolutions,
       expandedSources,
       jiraIssueCache,
@@ -3507,9 +5110,29 @@ export default {
       hasUserMessageText,
       formatAttachmentSize,
       draftAttachmentCardStyle,
+      draftAttachmentVisualKind,
+      draftAttachmentIconComponent,
+      draftAttachmentTypeLabel,
+      updateDraftAttachmentScrollState,
+      scrollDraftAttachments,
       handleComposerPaste,
+      openAttachmentFiles,
+      handleWindowDragEnter,
+      handleWindowDragOver,
+      handleWindowDragLeave,
+      handleWindowDrop,
       removeDraftAttachment,
       retryDraftAttachment,
+      selectAgentLogUploadFiles,
+      removeLogUploadFile,
+      beforeAgentKeyUpload,
+      onAgentKeyFileChange,
+      validateLogUploadKeyFormat,
+      validateLogUploadDeviceIdFormat,
+      submitAgentLogUpload,
+      clearLogUploadFiles,
+      hideLogUploadDrawer,
+      reopenLogUploadDrawer,
       switchToImageCapableProvider,
       ArrowLeft,
       ArrowRight,
@@ -4641,6 +6264,182 @@ export default {
   padding: 0;
 }
 
+.ss-log-upload-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ss-log-upload-summary {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ss-log-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ss-log-upload-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.ss-log-upload-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ss-log-upload-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.ss-log-upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.custom-file-list {
+  margin-top: 12px;
+  border: 1px solid rgb(var(--border-secondary));
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: rgb(var(--bg-secondary));
+  border-bottom: 1px solid rgb(var(--border-secondary));
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.file-items {
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 15px;
+  border-bottom: 1px solid rgb(var(--border-secondary));
+  transition: background-color 0.2s;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item:hover {
+  background-color: rgb(var(--bg-secondary));
+}
+
+.file-item-icon {
+  margin-right: 8px;
+  color: rgb(var(--text-secondary));
+  flex: 0 0 auto;
+}
+
+.file-name {
+  flex: 1;
+  margin-right: 10px;
+  font-size: 14px;
+  color: rgb(var(--text-primary));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  margin-right: 10px;
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+  flex: 0 0 auto;
+}
+
+.file-item-remove {
+  flex: 0 0 auto;
+}
+
+.ss-log-upload-list .file-items,
+.ss-log-upload-file-items {
+  max-height: 246px;
+  overflow-y: auto;
+}
+
+.ss-log-upload-flow-card {
+  position: fixed;
+  right: 20px;
+  top: 96px;
+  z-index: 2100;
+  width: 320px;
+}
+
+.ss-log-upload-flow-card-main {
+  width: 100%;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ss-log-upload-flow-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.ss-log-upload-flow-card-text {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #475467;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.ss-log-upload-flow-card-meta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.ss-log-upload-flow-card-enter-active,
+.ss-log-upload-flow-card-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.ss-log-upload-flow-card-enter-from,
+.ss-log-upload-flow-card-leave-to {
+  opacity: 0;
+  transform: translateX(14px);
+}
+
 .ss-sources-group {
   margin-bottom: 24px;
 }
@@ -5456,11 +7255,98 @@ export default {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.ss-draft-attachments {
+.ss-drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.16), transparent 42%),
+    rgba(15, 23, 42, 0.26);
+  backdrop-filter: blur(10px) saturate(1.1);
+}
+
+.ss-drag-overlay::before,
+.ss-drag-overlay::after {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 32px));
+  text-align: center;
+  pointer-events: none;
+}
+
+.ss-drag-overlay::before {
+  content: attr(data-title);
+  top: calc(50% - 18px);
+  padding: 28px 24px 52px;
+  border: none;
+  border-radius: 24px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ss-drag-overlay::after {
+  content: attr(data-subtitle);
+  top: calc(50% + 34px);
+  padding: 0 40px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.ss-draft-attachments-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 14px 14px 8px;
+}
+
+.ss-draft-attachments {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.ss-draft-attachments::-webkit-scrollbar {
+  display: none;
+}
+
+.ss-draft-attachments-nav {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475467;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.ss-draft-attachments-nav:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #111827;
+  border-color: #cbd5e1;
+}
+
+.ss-draft-attachments-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .ss-composer-capability-hint {
@@ -5499,7 +7385,77 @@ export default {
 }
 
 .ss-composer-text-section {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.ss-composer-main-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.ss-composer-submit {
+  width: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ss-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+.ss-composer-icon-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #475467;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.ss-composer-icon-btn-strong {
+  background: #eef2ff;
+  color: #111827;
+  font-weight: 700;
+}
+
+.ss-composer-icon-btn-strong :deep(svg) {
+  stroke-width: 2.5;
+}
+
+.ss-composer-icon-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+  transform: translateY(-1px);
+}
+
+.ss-composer-icon-btn:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 2px;
+}
+
+.ss-attachment-dropdown :deep(.el-dropdown-menu__item) {
+  min-width: 112px;
+}
+
+.ss-attachment-dropdown-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ss-draft-attachment-card {
@@ -5507,10 +7463,11 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 104px;
-  height: 104px;
+  width: 168px;
+  min-height: 56px;
+  flex: 0 0 auto;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #f9fafb;
   overflow: hidden;
   transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
@@ -5520,8 +7477,14 @@ export default {
   transform: translateY(-1px);
 }
 
+.ss-draft-attachment-card.is-queued {
+  border-color: #c7d2fe;
+  background: #f8fafc;
+}
+
 .ss-draft-attachment-card.is-uploading {
   border-color: #cbd5e1;
+  background: #ffffff;
 }
 
 .ss-draft-attachment-card.is-available {
@@ -5545,27 +7508,70 @@ export default {
 
 .ss-draft-attachment-file-card {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   width: 100%;
-  height: 100%;
-  padding: 12px 10px;
-  text-align: center;
+  min-height: 56px;
+  padding: 8px 34px 8px 8px;
+  text-align: left;
+}
+
+.ss-draft-attachment-file-content {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ss-draft-attachment-file-type {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.ss-draft-attachment-thumb-file.is-text {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.ss-draft-attachment-thumb-file.is-medbot {
+  background: #ecfccb;
+  color: #3f6212;
+}
+
+.ss-draft-attachment-thumb-file.is-archive {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.ss-draft-attachment-thumb-file.is-generic {
+  background: rgba(229, 231, 235, 0.9);
+  color: #4b5563;
 }
 
 .ss-draft-attachment-thumb-file,
+.ss-draft-attachment-thumb-image,
 .ss-draft-attachment-thumb-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4b5563;
-  width: 48px;
-  height: 48px;
-  margin: 0 auto;
-  border-radius: 12px;
-  background: rgba(229, 231, 235, 0.9);
-  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+.ss-draft-attachment-thumb-image {
+  overflow: hidden;
+  background: #e5e7eb;
 }
 
 .ss-draft-attachment-image {
@@ -5575,15 +7581,13 @@ export default {
 }
 
 .ss-draft-attachment-file-name {
-  margin-top: 8px;
   max-width: 100%;
   font-size: 12px;
-  line-height: 1.35;
-  color: #374151;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  line-height: 1.25;
+  color: #111827;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   overflow: hidden;
 }
 
@@ -5609,20 +7613,20 @@ export default {
 
 .ss-draft-attachment-card.is-available:hover .ss-draft-attachment-actions,
 .ss-draft-attachment-card.is-failed:hover .ss-draft-attachment-actions,
-.ss-draft-attachment-card.is-draft:hover .ss-draft-attachment-actions {
+.ss-draft-attachment-card.is-queued:hover .ss-draft-attachment-actions {
   opacity: 1;
 }
 
 .ss-draft-attachment-remove,
 .ss-draft-attachment-failed-indicator,
 .ss-draft-attachment-progress-badge {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .ss-draft-attachment-remove {
@@ -5654,7 +7658,7 @@ export default {
 .ss-draft-attachment-progress-badge {
   background: rgba(17, 24, 39, 0.72);
   color: #ffffff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -5663,33 +7667,50 @@ export default {
   box-shadow: 0 10px 28px rgba(0,0,0,0.08);
 }
 
+.ss-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ss-input :deep(.el-textarea) {
+  display: block;
+  width: 100%;
+}
+
 .ss-input :deep(.el-textarea__inner) {
-  padding: 16px 92px 16px 16px; /* 给发送按钮留空间 */
-  border-radius: 18px;
+  padding: 8px 12px;
+  min-height: 24px;
+  border-radius: 14px;
   border: none;
   resize: none;
   font-size: 16px;
-  line-height: 1.7;
+  line-height: 1.5;
   background: transparent;
   box-shadow: none;
+  scrollbar-gutter: stable;
 }
 
-.ss-input :deep(.el-input__count) {
-  padding-right: 92px;
+.ss-composer-count {
+  font-size: 12px;
+  line-height: 1;
+  color: #98a2b3;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .ss-send-btn {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
+  width: 40px;
   height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
+  padding: 0;
+  border-radius: 999px;
   border: none;
   background: #111827;
   color: #ffffff;
   cursor: pointer;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   transition: transform 0.12s ease, opacity 0.12s ease, background 0.12s ease;
 }
 

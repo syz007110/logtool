@@ -172,6 +172,7 @@ async function ingestAgentAssetFromFile(options = {}) {
   const storedName = String(options.storedName || '').trim() || buildStoredName(originalName);
   const source = String(options.source || 'web').trim() || 'web';
   const uploaderId = options.uploaderId == null ? undefined : String(options.uploaderId);
+  const relativePath = String(options.relativePath || '').trim() || undefined;
 
   if (STORAGE === 'oss') {
     const client = await getOssClient();
@@ -191,6 +192,7 @@ async function ingestAgentAssetFromFile(options = {}) {
       sizeBytes,
       sha256,
       uploaderId,
+      relativePath,
       source,
       previewUrl: attachmentType === 'image' ? url : null,
       url: url || null,
@@ -219,6 +221,7 @@ async function ingestAgentAssetFromFile(options = {}) {
     sizeBytes,
     sha256,
     uploaderId,
+    relativePath,
     source,
     previewUrl: attachmentType === 'image' ? url : null,
     url: url || null,

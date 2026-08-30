@@ -4,30 +4,47 @@
     {
       "toolName": "device_context_lookup",
       "displayName": "设备解析",
-      "enabled": false,
-      "description": "解析用户输入的设备编号、设备型号或系列口语表达，返回标准化的设备上下文，包括系列、型号、医院与地区信息。",
+      "enabled": true,
+      "description": "将用户输入的设备编号、设备型号或系列线索解析成标准化设备名片，供故障码、日志、手术数据等后续工具复用，能够查询设备编号、设备密钥、设备型号、设备系列等信息。",
       "descriptionFile": "./descriptions/device_context_lookup.md",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "queryType": {
+            "type": "string",
+            "enum": [
+              "device_id",
+              "device_model",
+              "series",
+              "decrypt_key"
+            ],
+            "description": "查询方式。device_id 表示按设备编号解析，device_model 表示按设备型号解析，series 表示按标准系列码解析，decrypt_key 表示按密钥反查设备名片。"
+          },
           "deviceId": {
             "type": "string",
-            "description": "设备编号，例如 4371-28。优先按设备表绑定结果解析，未命中时可按编号规则兜底推断。",
+            "description": "queryType=device_id 时填写。设备编号原始输入，例如 4371-28、4339-XXX、SR4339-2509009。后端会先做规则归一化。",
             "minLength": 1,
             "maxLength": 100
           },
           "deviceModel": {
             "type": "string",
-            "description": "设备型号名称，例如 4336。用于识别所属设备系列。",
+            "description": "queryType=device_model 时填写。设备型号名称，例如 4336。用于识别所属设备系列。",
             "minLength": 1,
             "maxLength": 100
           },
-          "seriesInput": {
+          "seriesCode": {
             "type": "string",
-            "description": "用户输入的系列名称、系列码或口语表达，例如 多臂、单孔、SR、SA。",
-            "minLength": 1,
-            "maxLength": 100
+            "enum": [
+              "SR",
+              "SA"
+            ],
+            "description": "queryType=series 时填写。标准系列码。SR 表示 Tumai / 多臂 / 四臂腹腔镜手术机器人；SA 表示 Tumai SP / 单孔 / 单孔腹腔镜手术机器人。"
+          },
+          "decryptKey": {
+            "type": "string",
+            "description": "queryType=decrypt_key 时填写。日志解密密钥，格式为 MAC 地址，例如 00-01-05-a9-40-dc。",
+            "pattern": "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
           },
           "strict": {
             "type": "string",
@@ -46,22 +63,8 @@
             "description": "返回文案语言。"
           }
         },
-        "anyOf": [
-          {
-            "required": [
-              "deviceId"
-            ]
-          },
-          {
-            "required": [
-              "deviceModel"
-            ]
-          },
-          {
-            "required": [
-              "seriesInput"
-            ]
-          }
+        "required": [
+          "queryType"
         ]
       },
       "runtime": {

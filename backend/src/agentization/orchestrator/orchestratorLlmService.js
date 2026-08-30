@@ -271,8 +271,7 @@ async function runOrchestratorChatCompletion({
     provider: { id: provider.id, label: provider.label },
     llmRaw: {
       request: sanitizeMultimodalPayload(httpBody),
-      response: chatResponse,
-      usage: chatResponse.usage || null
+      response: chatResponse
     }
   };
 }

@@ -4,13 +4,24 @@ const {
   MAX_FILES,
   MAX_FILE_SIZE,
   MAX_TOTAL_SIZE,
+  MAX_FOLDER_DEPTH,
+  MAX_INPUT_CHARS,
   ALLOWED_MIMES,
   ALLOWED_EXTENSIONS,
   validateAttachmentCount,
   validateAttachmentTotalSize,
   validateAttachmentDescriptor,
+  validateRelativePath,
+  normalizeRelativePath,
+  isHiddenSystemPath,
   isAttachmentPolicyError
 } = require('../services/agentAttachmentPolicy');
+
+function normalizeMultipartFieldList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || ''));
+  if (value == null) return [];
+  return [String(value)];
+}
 
 async function uploadAgentAssets(req, res) {
   try {
@@ -18,43 +29,62 @@ async function uploadAgentAssets(req, res) {
     if (files.length === 0) {
       return res.status(400).json({ message: 'No file uploaded', error: 'NO_FILE' });
     }
+    const relativePaths = normalizeMultipartFieldList(req.body?.relativePaths);
+    const normalizedFiles = [];
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const normalizedRelativePath = normalizeRelativePath(relativePaths[index] || '');
+      if (normalizedRelativePath && isHiddenSystemPath(normalizedRelativePath)) {
+        safeUnlink(file.path);
+        continue;
+      }
+      normalizedFiles.push({
+        ...file,
+        relativePath: normalizedRelativePath || undefined
+      });
+    }
+    if (normalizedFiles.length === 0) {
+      return res.status(400).json({ message: '没有可上传的有效附件', error: 'NO_VALID_FILE' });
+    }
     try {
-      validateAttachmentCount(files.length);
+      validateAttachmentCount(normalizedFiles.length);
     } catch (error) {
-      files.forEach((f) => safeUnlink(f.path));
+      normalizedFiles.forEach((f) => safeUnlink(f.path));
       return res.status(400).json({ message: error.userMessage, error: error.code });
     }
 
-    const totalSize = files.reduce((sum, file) => sum + Number(file?.size || 0), 0);
+    const totalSize = normalizedFiles.reduce((sum, file) => sum + Number(file?.size || 0), 0);
     try {
       validateAttachmentTotalSize(totalSize);
     } catch (error) {
-      files.forEach((f) => safeUnlink(f.path));
+      normalizedFiles.forEach((f) => safeUnlink(f.path));
       return res.status(413).json({ message: error.userMessage, error: error.code });
     }
 
-    for (const file of files) {
+    for (const file of normalizedFiles) {
       try {
         validateAttachmentDescriptor({
           filename: file.originalname || file.filename || '',
           mimeType: file.mimetype,
           sizeBytes: Number(file.size || 0)
         });
+        validateRelativePath(file.relativePath);
       } catch (error) {
-        files.forEach((f) => safeUnlink(f.path));
+        normalizedFiles.forEach((f) => safeUnlink(f.path));
         const statusCode = error.code === 'FILE_TOO_LARGE' ? 413 : 400;
         return res.status(statusCode).json({ message: error.userMessage, error: error.code });
       }
     }
 
     const uploaded = [];
-    for (const file of files) {
+    for (const file of normalizedFiles) {
       uploaded.push(await ingestAgentAssetFromFile({
         filePath: file.path,
         originalName: file.originalname || path.basename(file.filename || 'file'),
         storedName: path.basename(file.filename || file.path || 'file'),
         mimeType: file.mimetype,
         sizeBytes: Number(file.size || 0),
+        relativePath: file.relativePath,
         uploaderId: req.user?.id != null ? String(req.user.id) : undefined,
         source: 'web'
       }));
@@ -73,11 +103,28 @@ async function uploadAgentAssets(req, res) {
   }
 }
 
+function getAgentAssetPolicy(req, res) {
+  return res.json({
+    success: true,
+    policy: {
+      maxFiles: MAX_FILES,
+      maxFileSize: MAX_FILE_SIZE,
+      maxTotalSize: MAX_TOTAL_SIZE,
+      maxFolderDepth: MAX_FOLDER_DEPTH,
+      maxInputChars: MAX_INPUT_CHARS,
+      allowedMimes: ALLOWED_MIMES,
+      allowedExtensions: ALLOWED_EXTENSIONS
+    }
+  });
+}
+
 module.exports = {
+  getAgentAssetPolicy,
   uploadAgentAssets,
   MAX_FILES,
   MAX_FILE_SIZE,
   MAX_TOTAL_SIZE,
+  MAX_FOLDER_DEPTH,
   ALLOWED_MIMES,
   ALLOWED_EXTENSIONS
 };

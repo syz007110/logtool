@@ -3,6 +3,7 @@ const { getAdapter } = require('../adapterRegistry');
 const { executeAdapterPipeline } = require('../adapterPipeline');
 const { createAgentRequestLogger } = require('../../utils/agentRequestLogger');
 const { assertDingtalkDeliveryResponseSuccess } = require('../../delivery/dingtalkOutboundService');
+const { createDingtalkInboundMessageAggregator } = require('./dingtalkInboundMessageAggregator');
 
 const ROBOT_TOPIC = '/v1.0/im/bot/messages/get';
 
@@ -55,6 +56,10 @@ function sanitizePayloadForLog(payload) {
   if (out.robotCode) out.robotCode = maskIdentifier(out.robotCode);
   if (out.chatbotCorpId) out.chatbotCorpId = maskIdentifier(out.chatbotCorpId);
   return out;
+}
+
+function buildAckResponse() {
+  return { code: 0, message: 'ok' };
 }
 
 function postJson(url, body, headers = {}) {
@@ -163,6 +168,17 @@ function buildStreamConversationId(payload, headers) {
   return `stream:${sender}`;
 }
 
+function acknowledgeStreamEvent(client, headers, logger) {
+  if (!client || typeof client.socketCallBackResponse !== 'function') return;
+  const messageId = String(headers?.messageId || headers?.['message-id'] || '').trim();
+  if (!messageId) return;
+  try {
+    client.socketCallBackResponse(messageId, buildAckResponse());
+  } catch (error) {
+    logger.warn('[dingtalk-stream] ack failed:', error?.message || error);
+  }
+}
+
 function createDingtalkStreamBridge(options = {}) {
   const env = options.env || process.env;
   const logger = options.logger || defaultLogger();
@@ -191,29 +207,22 @@ function createDingtalkStreamBridge(options = {}) {
   const adapter = options.adapter || getAdapter('dingtalk_stream');
   let client = null;
 
-  async function handleRobotMessage(streamEvent) {
-    const headers = streamEvent?.headers || {};
-    const payload = parseStreamPayload(streamEvent?.data);
+  async function executeInbound({ headers = {}, payload = {} }) {
     const headerMessageId = String(headers.messageId || headers['message-id'] || '').trim();
-    const normalizedPayload = {
-      ...payload,
-      messageId: String(payload?.messageId || payload?.msgId || '').trim() || headerMessageId || undefined,
-      conversationId: buildStreamConversationId(payload, headers)
-    };
-    const traceId = headerMessageId
+    const normalizedMessageId = String(payload?.messageId || payload?.msgId || '').trim();
+    const traceId = normalizedMessageId
+      || headerMessageId
       || `stream_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-    const requestId = headerMessageId || undefined;
-
-    const sessionWebhook = String(normalizedPayload?.sessionWebhook || '').trim();
+    const requestId = normalizedMessageId || headerMessageId || undefined;
+    const sessionWebhook = String(payload?.sessionWebhook || '').trim();
     const inboundReq = {
       headers: {
         ...headers,
         'x-dingtalk-request-id': traceId,
         'x-request-id': requestId
       },
-      body: normalizedPayload
+      body: payload
     };
-    let acked = false;
     const outbound = {
       send: async (body) => {
         if (!sessionWebhook) {
@@ -226,10 +235,6 @@ function createDingtalkStreamBridge(options = {}) {
           'x-acs-dingtalk-access-token': accessToken
         } : {});
         assertDingtalkDeliveryResponseSuccess(result, { stage: 'dingtalk_stream_session_webhook' });
-        if (!acked && typeof client.socketCallBackResponse === 'function' && headers.messageId) {
-          client.socketCallBackResponse(headers.messageId, result);
-          acked = true;
-        }
         return result;
       }
     };
@@ -248,6 +253,30 @@ function createDingtalkStreamBridge(options = {}) {
           raw: sanitizePayloadForLog(payload)
         });
       }
+    });
+  }
+
+  const inboundAggregator = createDingtalkInboundMessageAggregator({
+    env,
+    logger,
+    onFlush: async ({ payload, headers }) => {
+      await executeInbound({ headers, payload });
+    }
+  });
+
+  async function handleRobotMessage(streamEvent) {
+    const headers = streamEvent?.headers || {};
+    const payload = parseStreamPayload(streamEvent?.data);
+    const headerMessageId = String(headers.messageId || headers['message-id'] || '').trim();
+    const normalizedPayload = {
+      ...payload,
+      messageId: String(payload?.messageId || payload?.msgId || '').trim() || headerMessageId || undefined,
+      conversationId: buildStreamConversationId(payload, headers)
+    };
+    acknowledgeStreamEvent(client, headers, logger);
+    await inboundAggregator.accept({
+      headers,
+      payload: normalizedPayload
     });
   }
 

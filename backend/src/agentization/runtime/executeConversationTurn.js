@@ -5,11 +5,15 @@ const {
   processConversationRequest,
   persistSystemMessage
 } = require('../session/conversationSessionService');
+const { persistPreOrchestratorToolEvent } = require('../session/preOrchestratorToolEventService');
 const { resolveUserPermissions } = require('../security/userPermissionResolver');
+const { runAttachmentScan } = require('../../services/attachmentScanQueueService');
 const { appendAgentDebugMarkdown } = require('../utils/agentDebugMarkdownLogger');
 const { getRuntimeTimeouts } = require('./turnPolicy');
 const { withTimeout, createRuntimeStepLogger } = require('./runtimeStepUtils');
 const { runTurnLoop } = require('./turnLoop');
+const { fireAndForgetAgentAuditLog } = require('../audit/agentAuditLogger');
+const { mergeAttachmentStatus } = require('../../services/attachmentStatusStateService');
 
 function createDefaultRuntimeDeps() {
   return {
@@ -20,6 +24,27 @@ function createDefaultRuntimeDeps() {
     persistSystemMessage,
     resolveUserPermissions,
     appendAgentDebugMarkdown
+  };
+}
+
+function buildAttachmentScanToolResult(attachmentStatus) {
+  const summary = String(attachmentStatus?.summary || '').trim();
+  const nextAction = String(attachmentStatus?.nextAction || '').trim();
+  const uploadPreparation = attachmentStatus?.uploadPreparation
+    && typeof attachmentStatus.uploadPreparation === 'object'
+    ? attachmentStatus.uploadPreparation
+    : null;
+  if (!summary || !nextAction || !uploadPreparation) {
+    throw new Error('attachment scan result is incomplete');
+  }
+  return {
+    status: 'success',
+    text: summary,
+    data: {
+      nextAction,
+      uploadPreparation
+    },
+    error: null
   };
 }
 
@@ -95,12 +120,70 @@ function createConversationRuntime(options = {}) {
         ? request.context.agentDebug
         : {};
       request.context.agentDebug.jobId = String(jobId || '');
+      request.context.instanceId = instanceId;
+      request.context.agentTaskId = routedTaskId || null;
+      request.context.attachmentStatus = prepared?.activeAttachmentStatus || null;
+      request.session = request.session && typeof request.session === 'object' ? request.session : {};
+      request.session.instanceId = instanceId;
       prepared.contextEnvelope = prepared.contextEnvelope && typeof prepared.contextEnvelope === 'object'
         ? prepared.contextEnvelope
         : {};
       prepared.contextEnvelope.lang = prepared.contextEnvelope.lang
         || request.context.lang
         || 'zh-CN';
+
+      const hasAttachments = Array.isArray(request?.message?.attachments) && request.message.attachments.length > 0;
+      if (hasAttachments) {
+        lastStep = 'attachment_scan';
+        log('attachment_scan:start', { attachmentCount: request.message.attachments.length });
+        const scanStartedAt = Date.now();
+        const attachmentStatus = await withTimeout(
+          runAttachmentScan({
+            request,
+            instanceId: instanceId,
+            timeoutMs: parseInt(process.env.ATTACHMENT_SCAN_TIMEOUT_MS, 10) || 30000
+          }),
+          (parseInt(process.env.ATTACHMENT_SCAN_TIMEOUT_MS, 10) || 30000) + 1000,
+          'runAttachmentScan'
+        );
+        const mergedAttachmentStatus = await mergeAttachmentStatus(
+          request.context.attachmentStatus,
+          attachmentStatus
+        );
+        log('attachment_scan:done', {
+          costMs: Date.now() - scanStartedAt,
+          logsFound: mergedAttachmentStatus?.scanSummary?.logsFound || attachmentStatus?.scanSummary?.logsFound || 0
+        });
+
+        if (mergedAttachmentStatus) {
+          const persistedScanMessage = await persistPreOrchestratorToolEvent({
+            instanceId,
+            request,
+            taskId: routedTaskId,
+            toolName: 'attachment_scan',
+            argumentsPayload: {
+              attachmentCount: request.message.attachments.length
+            },
+            toolResult: buildAttachmentScanToolResult(mergedAttachmentStatus),
+            assistantContent: mergedAttachmentStatus?.summary || null
+          });
+
+          request.context.attachmentStatus = mergedAttachmentStatus;
+          prepared.contextEnvelope.historyContext = prepared.contextEnvelope.historyContext
+            && typeof prepared.contextEnvelope.historyContext === 'object'
+            ? prepared.contextEnvelope.historyContext
+            : {};
+          prepared.contextEnvelope.activeAttachmentStatus = mergedAttachmentStatus;
+          const historyMessages = Array.isArray(prepared.contextEnvelope.historyContext.messages)
+            ? prepared.contextEnvelope.historyContext.messages
+            : [];
+          prepared.contextEnvelope.historyContext.messages = [
+            ...historyMessages,
+            persistedScanMessage.assistantMessage,
+            persistedScanMessage.toolMessage
+          ];
+        }
+      }
 
       lastStep = 'turn_loop';
       log('turn_loop:start', {
@@ -147,6 +230,12 @@ function createConversationRuntime(options = {}) {
         'processConversationRequest'
       );
       log('persist:done', { costMs: Date.now() - persistStartedAt });
+      fireAndForgetAgentAuditLog({
+        request,
+        loopTrace: loopResult.loopTrace,
+        result,
+        status: 'success'
+      });
 
       return result;
     } catch (err) {
@@ -196,6 +285,13 @@ function createConversationRuntime(options = {}) {
       } catch (persistError) {
         console.warn('[runtime] persist system message failed:', persistError?.message || persistError);
       }
+      fireAndForgetAgentAuditLog({
+        request,
+        loopTrace: debugAssistantResponse?.debugMeta?.loopTrace || [],
+        result: null,
+        status: 'failed',
+        error: err
+      });
       logError('runtime:failed', err, { traceId, requestId, lastStep });
       throw err;
     }

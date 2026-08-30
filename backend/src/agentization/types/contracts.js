@@ -94,6 +94,7 @@ function normalizeAttachments(list) {
       const assetId = optionalString(item.assetId);
       const originalName = optionalString(item.originalName);
       const storedName = optionalString(item.storedName);
+      const relativePath = optionalString(item.relativePath);
       const previewUrl = optionalString(item.previewUrl);
       const url = optionalString(item.url);
 
@@ -105,6 +106,7 @@ function normalizeAttachments(list) {
         bucket: optionalString(item.bucket),
         originalName,
         storedName,
+        relativePath,
         mimeType: optionalString(item.mimeType),
         sizeBytes: optionalNullableNumber(item.sizeBytes),
         sha256: optionalString(item.sha256),

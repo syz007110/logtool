@@ -98,7 +98,9 @@
         "totalSizeExceeded": "The total attachment size in one message must be less than {{maxTotalSizeMb}}MB.",
         "unsupportedExtension": "This attachment type is not supported. Please upload a log file, archive, or image.",
         "unsupportedMimeType": "This attachment MIME type is not supported. Please upload a log file, archive, or image.",
-        "fileTooLarge": "Each attachment must be smaller than {{maxFileSizeMb}}MB."
+        "fileTooLarge": "Each attachment must be smaller than {{maxFileSizeMb}}MB.",
+        "invalidRelativePath": "Attachment path is invalid.",
+        "folderDepthExceeded": "Expanded folder depth must not exceed {{maxDepth}} levels."
       },
       "session": {
         "systemMessages": {

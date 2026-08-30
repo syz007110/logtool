@@ -159,6 +159,12 @@ function renderOutbound({ req, res, request, response }) {
   if (Array.isArray(result.toolTraces)) {
     out.toolTraces = result.toolTraces;
   }
+  if (result.deferredEvent && typeof result.deferredEvent === 'object' && !Array.isArray(result.deferredEvent)) {
+    out.deferredEvent = result.deferredEvent;
+  }
+  if (result.messageDelta && typeof result.messageDelta === 'object' && !Array.isArray(result.messageDelta)) {
+    out.messageDelta = result.messageDelta;
+  }
   const resultSession = result?.session && typeof result.session === 'object' ? result.session : {};
   const resultInstanceId = Number(resultSession.instanceId);
   if (!request.__conversationIdProvided || (Number.isFinite(resultInstanceId) && resultInstanceId > 0)) {

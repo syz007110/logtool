@@ -32,8 +32,6 @@ function parseInbound(req) {
   return buildMessageInputFromDingtalk(req);
 }
 
-const DINGTALK_ASYNC_ACK_TEXT = '正在处理您的消息，请稍候…';
-
 function normalizeSystemMessages(result) {
   if (!Array.isArray(result?.systemMessages)) return [];
   return result.systemMessages
@@ -56,19 +54,25 @@ async function renderOutbound({ request, response, outbound }) {
     throw new Error('dingtalk stream outbound sink is required');
   }
   const mode = String(response?.mode || 'completed').trim().toLowerCase();
+  const result = response?.result && typeof response.result === 'object'
+    ? response.result
+    : {};
+  const deferredText = String(result?.deferredEvent?.text || '').trim();
   if (mode === 'accepted') {
     await outbound.send({
       msgtype: 'text',
       text: {
-        content: DINGTALK_ASYNC_ACK_TEXT
+        content: deferredText || '正在处理您的消息，请稍候…'
       }
     });
     return;
   }
-
-  const result = response?.result && typeof response.result === 'object'
-    ? response.result
-    : {};
+  if (mode === 'deferred') {
+    if (deferredText) {
+      await outbound.send(buildMarkdownMessageBody(deferredText));
+    }
+    return;
+  }
   const systemMessages = normalizeSystemMessages(result);
   const text = buildDingtalkUserVisibleText(result);
   const suppressPrimaryReply = shouldSuppressPrimaryReply(result, systemMessages);

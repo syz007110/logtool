@@ -30,7 +30,7 @@
     "resourceNotFound": "请求的资源不存在",
     "serverError": "服务器内部错误",
     "agent": {
-      "inactiveInstanceFallback": "该会话实例已失效，不能继续对话，请新建会话。",
+      "inactiveInstanceFallback": "原实例已失效，不能继续对话，已新建会话。",
       "systemMessages": {
         "directResponseTitle": "系统提示",
         "instanceRolloverTitle": "会话状态变更"
@@ -1585,6 +1585,7 @@
       "keyAutoFilled": "已自动填充密钥",
       "keyAutoFillFailed": "自动填充密钥失败",
       "deviceIdAutoFillFailed": "自动填充设备编号失败",
+      "agentUploadPrefilled": "已打开日志上传入口，并自动填充当前会话中已识别的设备信息",
       "loadSurgeryDataFailed": "加载手术数据失败",
       "getSurgeryLogsFailed": "获取手术相关日志失败",
       "noRelatedLogEntries": "未找到相关日志条目",

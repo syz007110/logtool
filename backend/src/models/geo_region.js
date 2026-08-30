@@ -6,6 +6,7 @@ const GeoRegion = sequelize.define('geo_region', {
   country_code: { type: DataTypes.STRING(16), allowNull: false },
   region_code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
   region_name: { type: DataTypes.STRING(100), allowNull: false },
+  region_name_en: { type: DataTypes.STRING(100) },
   parent_region_code: { type: DataTypes.STRING(64) },
   level: { type: DataTypes.STRING(32) },
   status: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },

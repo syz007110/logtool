@@ -73,11 +73,13 @@ function extractLlmTokenUsage(usage) {
 
 function extractTokenUsageFromTurnResult(turnResult) {
   if (!turnResult || typeof turnResult !== 'object') return 0;
-  let total = 0;
-  total += extractLlmTokenUsage(turnResult.usage);
-  total += extractLlmTokenUsage(turnResult.llmRaw?.usage);
-  total += extractLlmTokenUsage(turnResult.llmRaw?.response?.usage);
-  return total;
+  const candidates = [
+    extractLlmTokenUsage(turnResult.usage),
+    extractLlmTokenUsage(turnResult.llmRaw?.usage),
+    extractLlmTokenUsage(turnResult.llmRaw?.response?.usage)
+  ].filter((value) => Number.isFinite(value) && value > 0);
+  if (candidates.length < 1) return 0;
+  return Math.max(...candidates);
 }
 
 function extractTokenUsageFromLoopTrace(loopTrace) {

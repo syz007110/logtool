@@ -1589,6 +1589,7 @@
       "keyAutoFilled": "Key auto-filled successfully",
       "keyAutoFillFailed": "Failed to auto-fill key",
       "deviceIdAutoFillFailed": "Failed to auto-fill device ID",
+      "agentUploadPrefilled": "Log upload has been opened and known device information from the current conversation has been prefilled",
       "loadSurgeryDataFailed": "Failed to load surgery data",
       "getSurgeryLogsFailed": "Failed to get surgery related logs",
       "noRelatedLogEntries": "No related log entries found",

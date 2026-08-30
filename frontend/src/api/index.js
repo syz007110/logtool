@@ -203,8 +203,12 @@ const logs = {
   getList: (params, config = {}) => api.get('/logs', { params, ...config }),
   getByDevice: (params, config = {}) => api.get('/logs/by-device', { params: withCurrentSeriesParams(params), ...config }),
   getTimeFilters: (params, config = {}) => api.get('/logs/time-filters', { params, ...config }),
-  upload: (formData) => api.post('/logs/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+  upload: (formData, config = {}) => api.post('/logs/upload', formData, {
+    ...(config || {}),
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...((config && config.headers) || {})
+    }
   }),
   parse: (id) => api.post(`/logs/${id}/parse`),
   reparse: (id) => api.post(`/logs/${id}/reparse`),
@@ -479,6 +483,7 @@ const smartSearch = {
 
 const agent = {
   execute: (payload) => api.post('/agent/execute', payload),
+  getAssetPolicy: () => api.get('/agent/assets/policy'),
   uploadAssets: (formData, config = {}) => api.post('/agent/assets/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     ...(config || {})
@@ -487,6 +492,8 @@ const agent = {
   listConversations: (params) => api.get('/agent/conversations', { params }),
   getConversationMessages: (instanceId) =>
     api.get(`/agent/conversations/${encodeURIComponent(String(instanceId || '').trim())}/messages`),
+  markLogUploadCompleted: (instanceId, payload = {}) =>
+    api.post(`/agent/conversations/${encodeURIComponent(String(instanceId || '').trim())}/log-upload-completed`, payload),
   deleteConversation: (instanceId) =>
     api.delete(`/agent/conversations/${encodeURIComponent(String(instanceId || '').trim())}`)
 }

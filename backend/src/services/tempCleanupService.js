@@ -4,6 +4,7 @@ const path = require('path');
 const faultCaseStorage = require('../config/faultCaseStorage');
 const techSolutionStorage = require('../config/techSolutionStorage');
 const agentAssetStorage = require('../config/agentAssetStorage');
+const { SCAN_WORKSPACE_ROOT } = require('../config/agentScanWorkspace');
 
 function parseIntOr(val, fallback) {
   const n = Number.parseInt(String(val ?? ''), 10);
@@ -18,14 +19,14 @@ function nowMs() {
   return Date.now();
 }
 
-async function cleanupLocalDir({ label, dirPath, cutoffMs, log }) {
+async function cleanupLocalDir({ label, dirPath, cutoffMs, log, removeDirectories = false }) {
   try {
     fs.mkdirSync(dirPath, { recursive: true });
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     let deleted = 0;
     let skipped = 0;
     for (const ent of entries) {
-      if (!ent || !ent.isFile()) {
+      if (!ent || (!ent.isFile() && !(removeDirectories && ent.isDirectory()))) {
         skipped += 1;
         continue;
       }
@@ -34,7 +35,11 @@ async function cleanupLocalDir({ label, dirPath, cutoffMs, log }) {
         const st = fs.statSync(fp);
         const t = Number(st.mtimeMs || 0);
         if (t && t < cutoffMs) {
-          fs.unlinkSync(fp);
+          if (ent.isDirectory()) {
+            fs.rmSync(fp, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(fp);
+          }
           deleted += 1;
         } else {
           skipped += 1;
@@ -179,6 +184,19 @@ async function runOnce({ log }) {
         log
       });
     }
+  }
+
+  // ---- agent scan workspaces (local only) ----
+  if (!boolEnvTrue('AGENT_SCAN_WORKSPACE_CLEANUP_DISABLED')) {
+    const ttlHours = parseIntOr(process.env.AGENT_SCAN_WORKSPACE_TTL_HOURS, defaultTtlHours);
+    const cutoffMs = nowMs() - Math.max(1, ttlHours) * 60 * 60 * 1000;
+    await cleanupLocalDir({
+      label: 'agent-scan-workspaces',
+      dirPath: SCAN_WORKSPACE_ROOT,
+      cutoffMs,
+      log,
+      removeDirectories: true
+    });
   }
 
   // Optional: a super-simple safety sweep for any tmp cleanup when TTL is used elsewhere

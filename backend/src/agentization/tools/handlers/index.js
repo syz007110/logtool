@@ -1,10 +1,16 @@
 const errorCodeLookupHandler = require('./errorCodeLookupHandler');
+const deviceContextLookupHandler = require('./deviceContextLookupHandler');
+const logUploadFromAttachmentHandler = require('./logUploadFromAttachmentHandler');
 
 const handlers = new Map([
-  ['error_code_lookup', errorCodeLookupHandler]
+  ['error_code_lookup', errorCodeLookupHandler],
+  ['device_context_lookup', deviceContextLookupHandler],
+  ['start_log_upload', logUploadFromAttachmentHandler]
 ]);
 const executionHandlers = new Map([
-  ['errorCodeLookupHandler.execute', errorCodeLookupHandler]
+  ['errorCodeLookupHandler.execute', errorCodeLookupHandler],
+  ['deviceContextLookupHandler.execute', deviceContextLookupHandler],
+  ['logUploadFromAttachmentHandler.execute', logUploadFromAttachmentHandler]
 ]);
 
 function getToolHandler(toolName) {

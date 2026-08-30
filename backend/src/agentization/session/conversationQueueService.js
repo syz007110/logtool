@@ -124,6 +124,14 @@ function buildCompletedResponse(result, taskId) {
   };
 }
 
+function buildDeferredResponse(result, taskId) {
+  return {
+    mode: 'deferred',
+    taskId,
+    result: projectQueueResultToMessageOutput(result)
+  };
+}
+
 function buildAcceptedResponse(taskId, options = {}) {
   const reason = String(options.reason || 'task_accepted').trim() || 'task_accepted';
   return {
@@ -137,6 +145,11 @@ function buildAcceptedResponse(taskId, options = {}) {
 function isPreferAsyncRequest(request) {
   const ctx = request?.context && typeof request.context === 'object' ? request.context : {};
   return Boolean(ctx.preferAsync);
+}
+
+function isDeferredToolResponse(result) {
+  return String(result?.assistant_mode || '').trim().toLowerCase() === 'deferred'
+    || String(result?.delivery_hint || '').trim().toLowerCase() === 'async_tool_event_only';
 }
 
 async function awaitJobResult(job, waitMs) {
@@ -248,7 +261,17 @@ async function enqueueConversationRequest(request, options = {}) {
   }
 
   const result = await awaitJobResult(job, waitMs);
-  if (result) return buildCompletedResponse(result, publicTaskId);
+  if (result) {
+    if (isDeferredToolResponse(result)) {
+      await taskStore.markDeferredChannelDelivery({
+        taskId: publicTaskId,
+        reason: 'deferred_tool',
+        request
+      });
+      return buildDeferredResponse(result, publicTaskId);
+    }
+    return buildCompletedResponse(result, publicTaskId);
+  }
 
   await taskStore.recordSyncTimeout({ taskId: publicTaskId, request, waitMs });
   await taskStore.markDeferredChannelDelivery({

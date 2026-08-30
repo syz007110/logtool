@@ -5,7 +5,7 @@
       "toolName": "error_code_lookup",
       "displayName": "故障码查询",
       "enabled": true,
-      "description": "查询故障码对应的含义、参数说明、检测逻辑与处理建议。支持单个故障码、多个故障码和关键词查询。",
+      "description": "查询故障码对应的含义、参数说明、检测逻辑与处理建议。支持单个故障码、多个故障码、故障类型、关键词查询。",
       "descriptionFile": "./descriptions/error_code_lookup.md",
       "parameters": {
         "type": "object",
@@ -17,7 +17,7 @@
               "SR",
               "SA"
             ],
-            "description": "设备系列码。同一故障码在不同系列下释义可能不同，必须指定；用户未说明时先追问，不要默认猜测。"
+            "description": "设备系列码。同一故障码在不同系列下释义可能不同，默认为SR，除非用户指定。"
           },
           "queryType": {
             "type": "string",
@@ -26,11 +26,11 @@
               "multiple_codes",
               "keyword"
             ],
-            "description": "查询方式。single_code 表示单个故障码，multiple_codes 表示多个故障码，keyword 表示关键词查询。"
+            "description": "查询方式。single_code 表示单个故障码或类型码，multiple_codes 表示多个故障码或多个类型类型码，keyword 表示关键词查询。"
           },
           "errorCode": {
             "type": "string",
-            "description": "单个故障码原始输入。",
+            "description": "单个故障码或类型码原始输入。",
             "minLength": 1,
             "maxLength": 64
           },

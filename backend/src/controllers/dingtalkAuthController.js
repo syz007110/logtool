@@ -1,11 +1,10 @@
 const crypto = require('crypto')
-const bcrypt = require('bcryptjs')
-const User = require('../models/user')
 const UserRole = require('../models/user_role')
 const Role = require('../models/role')
 const Permission = require('../models/permission')
 const { Op } = require('sequelize')
 const { exchangeUser } = require('../services/dingtalkService')
+const { resolveOrBindDingtalkUser } = require('../services/dingtalkUserBindingService')
 const { parseRememberMe, issueTokenPair } = require('../services/authSessionService')
 
 const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'rt'
@@ -60,17 +59,6 @@ async function getUserPermissions (userId) {
   return perms.map(p => p.name)
 }
 
-async function ensureDefaultRole (userId) {
-  const exists = await UserRole.findOne({ where: { user_id: userId } })
-  if (exists) return
-  await UserRole.create({
-    user_id: userId,
-    role_id: 3,
-    assigned_by: userId,
-    notes: 'DingTalk login auto-assign'
-  })
-}
-
 const loginWithDingTalk = async (req, res) => {
   try {
     const { authCode, rememberMe } = req.body
@@ -81,27 +69,10 @@ const loginWithDingTalk = async (req, res) => {
     if (!info.unionId) {
       return res.status(400).json({ message: 'unionId missing in DingTalk response' })
     }
-    let user = await User.findOne({ where: { dingtalk_unionid: info.unionId } })
+    const resolved = await resolveOrBindDingtalkUser(info)
+    const user = resolved?.user
     if (!user) {
-      const username = `dd_${info.userId || info.unionId}`
-      const password_hash = await bcrypt.hash(`dd_${info.unionId}_${Date.now()}`, 10)
-      user = await User.create({
-        username,
-        password_hash,
-        email: null,
-        dingtalk_unionid: info.unionId,
-        dingtalk_userid: info.userId,
-        dingtalk_mobile: info.mobile,
-        dingtalk_nick: info.nick
-      })
-      await ensureDefaultRole(user.id)
-    } else {
-      // 更新缓存信息
-      user.dingtalk_userid = info.userId
-      user.dingtalk_mobile = info.mobile
-      user.dingtalk_nick = info.nick
-      await user.save()
-      await ensureDefaultRole(user.id)
+      return res.status(400).json({ message: 'failed to resolve DingTalk user' })
     }
 
     const { roleName, roleId } = await getUserPrimaryRole(user.id)

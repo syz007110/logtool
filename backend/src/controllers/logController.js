@@ -27,6 +27,7 @@ const {
   buildAdvancedFilterExpression
 } = require('../workers/batchAdvancedFilters');
 const { ensureDeviceModelAndSeries } = require('../utils/deviceSeriesBinding');
+const { createLogUploadJob, resolveDeviceBindingByDeviceId } = require('../services/logUploadService');
 
 /**
  * 将时间转换为本地时间格式字符串（与 ClickHouse 存储格式一致）
@@ -1025,8 +1026,13 @@ const uploadLog = async (req, res) => {
       return res.status(400).json({ message: req.t('log.upload.invalidDeviceIdFormat') });
     }
 
-    const deviceModelId = req.headers['x-device-model-id'] || req.body?.device_model_id;
-    const seriesIdRaw = req.headers['x-series-id'] || req.body?.series_id;
+    let deviceModelId = req.headers['x-device-model-id'] || req.body?.device_model_id;
+    let seriesIdRaw = req.headers['x-series-id'] || req.body?.series_id;
+    if ((!deviceModelId || !seriesIdRaw) && source === 'auto-upload' && deviceId && deviceId !== '0000-00') {
+      const binding = await resolveDeviceBindingByDeviceId(deviceId);
+      if (!deviceModelId && binding.deviceModelId) deviceModelId = binding.deviceModelId;
+      if (!seriesIdRaw && binding.seriesId) seriesIdRaw = binding.seriesId;
+    }
     try {
       await ensureDeviceModelAndSeries({
         deviceId,
@@ -1047,149 +1053,42 @@ const uploadLog = async (req, res) => {
     const uploadedLogs = [];
 
     for (const file of files) {
-      // 选钥：device_keys（按小时）→ 用户上传密钥；默认密钥在解密瀑布中兜底
-      let dbKey = null;
-      let userKey = req.headers['x-decrypt-key'] || null;
-      let logTime = null;
-
-      if (deviceId !== '0000-00') {
-        try {
-          logTime = extractTimeFromFileName(file.originalname);
-          if (logTime) {
-            console.log(`从文件名提取到日志时间: ${logTime.toISOString()}`);
-            dbKey = await getKeyForDeviceAndDate(deviceId, logTime);
-          } else {
-            console.log(`无法从文件名提取时间，使用当前时间查找密钥`);
-            logTime = new Date();
-            dbKey = await getKeyForDeviceAndDate(deviceId, logTime);
-          }
-        } catch (error) {
-          console.warn('获取设备密钥失败:', error.message);
-        }
-      } else {
-        console.log('使用默认设备编号，跳过密钥查找');
-      }
-
-      if (!dbKey && !userKey) {
-        return res.status(400).json({ message: req.t('log.upload.keyNotFound') });
-      }
-
-      if (userKey && !validateKey(userKey)) {
-        return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
-      }
-      if (dbKey && !validateKey(dbKey)) {
-        return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
-      }
-
-      // 预填 key_id（最终以解密瀑布结果为准，worker 会回写）
-      const decryptKey = dbKey || userKey;
-      console.log(`解密密钥候选: db=${dbKey ? dbKey.substring(0, 8) + '...' : '无'}, user=${userKey ? userKey.substring(0, 8) + '...' : '无'}`);
-      let log;
       try {
         console.log(`\n--- 处理文件: ${file.originalname} ---`);
         console.log(`文件大小: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
         console.log(`设备编号: ${deviceId}`);
-        console.log(`解密密钥: ${decryptKey ? decryptKey.substring(0, 8) + '...' : '未提供'}`);
-
-        // 如果已存在相同 device_id + original_name 的日志，则视为重复上传
-        // 逻辑：
-        //  - 复用同一条 logs 记录（不新增行）
-        //  - version 自增：表示新的上传版本
-        //  - ClickHouse 在解析完成后按新版本号写入，并淘汰旧版本
-        log = await Log.findOne({
-          where: {
-            device_id: deviceId || null,
-            original_name: file.originalname
-          }
-        });
-
-        if (log) {
-          const currentVersion = Number.isInteger(log.version) ? log.version : 1;
-          const newVersion = currentVersion + 1;
-
-          // 覆盖：更新现有日志为上传中状态，并刷新关键元数据与版本号
-          await log.update({
-            filename: file.filename,
-            size: file.size,
-            status: 'uploading',
-            upload_time: new Date(),
-            uploader_id: req.user ? req.user.id : null,
-            device_id: deviceId || null,
-            key_id: decryptKey || null,
-            version: newVersion
-          });
-        } else {
-          // 新增：使用默认版本号 1
-          log = await Log.create({
-            filename: file.filename,
-            original_name: file.originalname,
-            size: file.size,
-            status: 'uploading', // 初始状态为上传中
-            upload_time: new Date(),
-            uploader_id: req.user ? req.user.id : null,
-            device_id: deviceId || null,
-            key_id: decryptKey || null
-          });
-        }
-
-        // 注意：密钥不再在上传时立即保存到设备表
-        // 改为在解密成功后再保存，避免错误密钥污染设备表
-        // logs表的key_id仍然保存，用于记录使用的密钥
-
-        // 根据来源选择队列（user-upload -> realtime，auto-upload -> historical）
-        const queue = queueManager.getQueueBySource(source);
-        const priority = source === 'auto-upload' ? 1 : 10;
-
-        console.log(`📤 将文件 ${file.originalname} 添加到${source === 'auto-upload' ? '历史' : '实时'}处理队列`);
-        console.log(`队列优先级: ${priority}`);
-        console.log(`客户端ID: ${clientId || '未提供'}`);
-
-        const job = await queue.add('process-log', {
-          filePath: file.path,
+        const result = await createLogUploadJob({
+          sourceFilePath: file.path,
           originalName: file.originalname,
-          decryptKey: decryptKey,
-          dbKey: dbKey || null,
-          userKey: userKey || null,
-          useKeyCascade: true,
-          logTimeIso: (logTime || new Date()).toISOString(),
-          deviceId: deviceId || null,
-          uploaderId: req.user ? req.user.id : null,
-          logId: log.id,
+          deviceId,
+          deviceModelId,
+          seriesId: seriesIdRaw,
           source,
-          clientId
-        }, {
-          priority,
-          delay: 0,
-          attempts: 1,
-          backoff: {
-            type: 'exponential',
-            delay: 1000
-          },
-          removeOnComplete: true,
-          removeOnFail: true
+          uploaderId: req.user ? req.user.id : null,
+          decryptKey: req.headers['x-decrypt-key'] || null,
+          clientId,
+          channel: source === 'auto-upload' ? 'desktop' : 'web',
+          traceId: req.traceId || req.requestId || null,
+          requestId: req.requestId || null
         });
 
-        console.log(`✅ 文件 ${file.originalname} 已添加到队列，任务ID: ${job.id}`);
-
-        uploadedLogs.push(log);
+        console.log(`✅ 文件 ${file.originalname} 已添加到队列，任务ID: ${result.jobId}`);
+        uploadedLogs.push(result.logRecord);
       } catch (error) {
         console.error(`处理文件 ${file.originalname} 失败:`, error);
         console.error('错误堆栈:', error.stack);
-
-        // 如果日志记录已创建，更新状态为失败
-        if (log && log.id) {
-          try {
-            await log.update({ status: 'failed' });
-          } catch (updateError) {
-            console.error('更新日志状态失败:', updateError);
-          }
-        }
 
         // 删除临时文件
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
-        throw new Error(`文件 ${file.originalname} 解密失败: ${error.message}`);
+        if (String(error?.code || '') === 'KEY_NOT_FOUND') {
+          return res.status(400).json({ message: req.t('log.upload.keyNotFound') });
+        }
+        if (String(error?.code || '') === 'INVALID_DECRYPT_KEY') {
+          return res.status(400).json({ message: req.t('log.upload.invalidKeyFormat') });
+        }
+        throw new Error(`文件 ${file.originalname} 上传失败: ${error.message}`);
       }
     }
 

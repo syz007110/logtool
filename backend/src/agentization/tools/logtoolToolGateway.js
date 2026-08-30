@@ -65,8 +65,22 @@ function normalizeExecution(tool = {}) {
     : (runtime.execution && typeof runtime.execution === 'object' ? runtime.execution : {});
   const rawMode = String(execution.mode || 'sync').trim().toLowerCase();
   const mode = rawMode === 'http' ? 'http' : 'sync';
+  const completionMode = String(execution.completionMode || 'immediate').trim().toLowerCase() === 'deferred'
+    ? 'deferred'
+    : 'immediate';
   return {
     mode,
+    completionMode,
+    asyncTaskType: String(execution.asyncTaskType || '').trim().toLowerCase() || null,
+    dispatchTimeoutMs: Number.isFinite(Number(execution.dispatchTimeoutMs))
+      ? Number(execution.dispatchTimeoutMs)
+      : (Number.isFinite(Number(execution.timeoutMs)) ? Number(execution.timeoutMs) : 8000),
+    batchTimeoutMs: Number.isFinite(Number(execution.batchTimeoutMs))
+      ? Number(execution.batchTimeoutMs)
+      : null,
+    deferredPrompt: execution.deferredPrompt && typeof execution.deferredPrompt === 'object'
+      ? execution.deferredPrompt
+      : null,
     handler: String(execution.handler || '').trim(),
     timeoutMs: Number.isFinite(Number(execution.timeoutMs)) ? Number(execution.timeoutMs) : 8000,
     retryable: Boolean(execution.retryable),
@@ -82,43 +96,6 @@ function normalizeExecution(tool = {}) {
       ? execution.headers
       : (execution.http?.headers && typeof execution.http.headers === 'object' ? execution.http.headers : {})
   };
-}
-
-function validateToolResultEvidence(evidence) {
-  if (!Array.isArray(evidence)) {
-    const err = new Error('ToolResult evidence must be an array');
-    err.code = 'INVALID_TOOL_OUTPUT';
-    throw err;
-  }
-
-  for (const item of evidence) {
-    if (!item || typeof item !== 'object') {
-      const err = new Error('ToolResult evidence item must be object');
-      err.code = 'INVALID_TOOL_OUTPUT';
-      throw err;
-    }
-    const type = String(item.type || '').trim();
-    if (!type) continue;
-    if (type === 'sql_row') {
-      const hasPk = item.pk && typeof item.pk === 'object';
-      const hasPks = Array.isArray(item.pks) && item.pks.length > 0;
-      if (String(item.engine || '').trim() !== 'mysql'
-        || !String(item.table || '').trim()
-        || (!hasPk && !hasPks)) {
-        const err = new Error('invalid sql_row evidence');
-        err.code = 'INVALID_TOOL_OUTPUT';
-        throw err;
-      }
-    } else if (type === 'search_hit') {
-      if (String(item.engine || '').trim() !== 'elasticsearch'
-        || (!String(item.index || '').trim() && !String(item.alias || '').trim())
-        || !String(item.documentId || '').trim()) {
-        const err = new Error('invalid search_hit evidence');
-        err.code = 'INVALID_TOOL_OUTPUT';
-        throw err;
-      }
-    }
-  }
 }
 
 function doJsonRequest({ endpoint, method, headers, body, timeoutMs }) {
@@ -186,6 +163,34 @@ function doJsonRequest({ endpoint, method, headers, body, timeoutMs }) {
   });
 }
 
+function ensureDeferredToolEnvelope(toolName, gatewayOutput) {
+  const taskId = String(gatewayOutput?.taskId || '').trim();
+  const event = gatewayOutput?.event && typeof gatewayOutput.event === 'object' && !Array.isArray(gatewayOutput.event)
+    ? gatewayOutput.event
+    : null;
+  const phase = String(event?.phase || '').trim().toLowerCase();
+  const text = String(event?.text || '').trim();
+  const eventToolName = String(event?.toolName || toolName || '').trim();
+  if (!taskId) throw new Error('deferred tool result requires taskId');
+  if (!event) throw new Error('deferred tool result requires event');
+  if (!eventToolName) throw new Error('deferred tool result requires event.toolName');
+  if (!phase) throw new Error('deferred tool result requires event.phase');
+  if (!text) throw new Error('deferred tool result requires event.text');
+  return {
+    mode: 'deferred',
+    taskId,
+    event: {
+      kind: String(event?.kind || 'async_tool').trim() || 'async_tool',
+      toolName: eventToolName,
+      phase,
+      text,
+      data: event?.data && typeof event.data === 'object' && !Array.isArray(event.data)
+        ? event.data
+        : null
+    }
+  };
+}
+
 function createLogtoolToolGateway() {
   return {
     async executeToolCall({ toolName, args, request, orchestratorResult, execution }) {
@@ -220,53 +225,71 @@ function createLogtoolToolGateway() {
       const handler = execution?.handler
         ? getToolHandlerByExecution(execution.handler)
         : getToolHandler(toolName);
-      return handler.execute({ toolName, args, request, orchestratorResult });
+      return handler.execute({ toolName, args, request, orchestratorResult, execution });
     },
 
     ensureToolResultMatrix(result) {
       const status = String(result?.status || '').trim();
+      const text = String(result?.text || '').trim();
       const data = result?.data;
-      const evidence = Array.isArray(result?.evidence) ? result.evidence : [];
       const error = result?.error == null ? null : result.error;
       if (!['success', 'empty', 'failed'].includes(status)) throw new Error(`invalid ToolResult.status: ${status}`);
       if (status === 'success') {
         if (!(data && typeof data === 'object')) throw new Error('ToolResult success requires object/array data');
-        if (evidence.length < 1) throw new Error('ToolResult success requires evidence');
+        if (!text) throw new Error('ToolResult success requires text');
         if (error !== null) throw new Error('ToolResult success requires error=null');
       }
-      if (status === 'empty' && error !== null) throw new Error('ToolResult empty requires error=null');
+      if (status === 'empty') {
+        if (data !== null) throw new Error('ToolResult empty requires data=null');
+        if (error !== null) throw new Error('ToolResult empty requires error=null');
+        if (!text) throw new Error('ToolResult empty requires text');
+      }
       if (status === 'failed') {
         if (data !== null) throw new Error('ToolResult failed requires data=null');
         if (!String(error?.code || '').trim() || !String(error?.message || '').trim()) {
           throw new Error('ToolResult failed requires error.code and error.message');
         }
       }
-      return { status, data: data == null ? null : data, evidence, error };
+      return { status, text, data: data == null ? null : data, error };
     },
 
     toToolResult(toolName, gatewayOutput) {
       const text = String(gatewayOutput?.text || '').trim();
       const data = gatewayOutput?.data && typeof gatewayOutput.data === 'object' ? gatewayOutput.data : null;
-      const evidence = Array.isArray(gatewayOutput?.evidence)
-        ? gatewayOutput.evidence
-        : (Array.isArray(gatewayOutput?.debugMeta?.evidence) ? gatewayOutput.debugMeta.evidence : []);
       const payload = gatewayOutput?.debugMeta?.toolExecution || {};
       const hasPayloadData = payload && typeof payload === 'object' && Object.keys(payload).length > 0;
-      if (!text && !data && !hasPayloadData) return { status: 'empty', data: null, evidence: [], error: null };
+      if (!text && !data && !hasPayloadData) {
+        return {
+          status: 'empty',
+          text: '工具未返回可用结果。',
+          data: null,
+          error: null
+        };
+      }
       return {
+        text,
         status: data ? 'success' : 'empty',
         data,
-        evidence: evidence.length > 0 ? evidence : [{ type: 'sql_row', engine: 'mysql', table: 'unknown', pk: { column: 'id', value: String(toolName || 'unknown') } }],
         error: null
       };
     },
 
     normalizeToolResult(toolName, gatewayOutput) {
-      const result = this.ensureToolResultMatrix(this.toToolResult(toolName, gatewayOutput));
-      if (result.status === 'success') {
-        validateToolResultEvidence(result.evidence);
+      return this.ensureToolResultMatrix(this.toToolResult(toolName, gatewayOutput));
+    },
+
+    normalizeGatewayOutcome(toolName, gatewayOutput) {
+      const mode = String(gatewayOutput?.mode || 'immediate').trim().toLowerCase();
+      if (mode === 'deferred') {
+        return {
+          delivery: 'deferred',
+          deferred: ensureDeferredToolEnvelope(toolName, gatewayOutput)
+        };
       }
-      return result;
+      return {
+        delivery: 'immediate',
+        toolResult: this.normalizeToolResult(toolName, gatewayOutput)
+      };
     },
 
     validateToolArguments(toolName, args = {}) {
@@ -304,7 +327,7 @@ function createLogtoolToolGateway() {
       for (let attempt = 1; attempt <= execution.retryAttempts; attempt += 1) {
         try {
           const run = this.executeToolCall({ toolName, args, request, orchestratorResult, execution });
-          return await withTimeout(run, execution.timeoutMs);
+          return await withTimeout(run, execution.dispatchTimeoutMs || execution.timeoutMs, 'TOOL_EXECUTION_TIMEOUT');
         } catch (error) {
           lastError = error;
           if (attempt >= execution.retryAttempts) break;
@@ -322,12 +345,19 @@ function createLogtoolToolGateway() {
         : {};
       let out = null;
       let toolResult = null;
+      let gatewayOutcome = null;
       let validatedArgs = rawArgs;
       try {
         // 参数校验失败也收成 failed ToolResult，写入 tool message，供模型追问/改参
         const validated = this.validateToolArguments(toolName, rawArgs);
         const { tool } = validated;
         validatedArgs = validated.arguments;
+        const execution = normalizeExecution(tool);
+        if (execution.completionMode === 'deferred' && request?.context?.disallowDeferredTools === true) {
+          const err = new Error(`tool ${toolName} is not allowed in async continuation`);
+          err.code = 'TOOL_DEFERRED_NOT_ALLOWED';
+          throw err;
+        }
         this.enforceToolPermission(tool, request);
         out = await this.executeWithPolicy({
           toolName,
@@ -336,12 +366,21 @@ function createLogtoolToolGateway() {
           orchestratorResult: turnResult,
           tool
         });
-        toolResult = this.normalizeToolResult(toolName, out);
+        gatewayOutcome = this.normalizeGatewayOutcome(toolName, out);
+        if (gatewayOutcome.delivery === 'deferred' && execution.completionMode !== 'deferred') {
+          const err = new Error(`tool ${toolName} returned deferred result without deferred registry declaration`);
+          err.code = 'TOOL_DEFERRED_NOT_DECLARED';
+          throw err;
+        }
+        toolResult = gatewayOutcome.delivery === 'immediate' ? gatewayOutcome.toolResult : null;
       } catch (error) {
+        gatewayOutcome = {
+          delivery: 'immediate'
+        };
         toolResult = this.ensureToolResultMatrix({
           status: 'failed',
+          text: '',
           data: null,
-          evidence: [],
           error: {
             code: String(error?.code || 'TOOL_EXECUTION_FAILED'),
             message: String(error?.message || error || 'tool execution failed')
@@ -368,6 +407,9 @@ function createLogtoolToolGateway() {
       }
       return {
         ...out,
+        delivery: gatewayOutcome?.delivery || 'immediate',
+        taskId: gatewayOutcome?.deferred?.taskId || null,
+        deferredEvent: gatewayOutcome?.deferred?.event || null,
         debugMeta: {
           ...(out?.debugMeta || {}),
           toolResult,

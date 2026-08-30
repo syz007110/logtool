@@ -3,9 +3,16 @@ const { executeAgentTask, getAgentTask } = require('../controllers/agentControll
 const {
   listAgentConversations,
   listAgentConversationMessages,
-  deleteAgentConversation
+  deleteAgentConversation,
+  markAgentLogUploadCompleted
 } = require('../controllers/agentConversationController');
-const { uploadAgentAssets, MAX_FILES, MAX_FILE_SIZE, ALLOWED_MIMES } = require('../controllers/agentAssetController');
+const {
+  getAgentAssetPolicy,
+  uploadAgentAssets,
+  MAX_FILES,
+  MAX_FILE_SIZE,
+  ALLOWED_MIMES
+} = require('../controllers/agentAssetController');
 const auth = require('../middlewares/auth');
 const enrichAgentUser = require('../middlewares/enrichAgentUser');
 const { checkPermission } = require('../middlewares/permission');
@@ -72,6 +79,7 @@ router.post(
     });
   }
 );
+router.get('/assets/policy', auth, checkPermission('smart_search:use'), getAgentAssetPolicy);
 
 router.post('/execute', auth, enrichAgentUser, checkPermission('smart_search:use'), executeAgentTask);
 router.get('/tasks/:taskId', auth, enrichAgentUser, checkPermission('smart_search:use'), getAgentTask);
@@ -82,6 +90,13 @@ router.get(
   enrichAgentUser,
   checkPermission('smart_search:use'),
   listAgentConversationMessages
+);
+router.post(
+  '/conversations/:instanceId/log-upload-completed',
+  auth,
+  enrichAgentUser,
+  checkPermission('smart_search:use'),
+  markAgentLogUploadCompleted
 );
 router.delete(
   '/conversations/:instanceId',

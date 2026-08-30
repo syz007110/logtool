@@ -1,6 +1,8 @@
 {
   "registryVersion": "v1",
   "tools": [
-    "./error_code_lookup.json"
+    "./error_code_lookup.json",
+    "./device_context_lookup.json",
+    "./start_log_upload.json"
   ]
 }

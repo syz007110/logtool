@@ -728,7 +728,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Monitor, Key, Document, Warning, InfoFilled, Filter, Upload, Refresh, RefreshLeft, Close } from '@element-plus/icons-vue'
 import websocketClient from '@/services/websocketClient'
@@ -746,6 +746,7 @@ export default {
   },
   setup() {
     const store = useStore()
+    const route = useRoute()
     const router = useRouter()
     const { t } = useI18n()
     
@@ -1638,6 +1639,28 @@ export default {
       
       showUploadDialog.value = true
     }
+
+    const consumeOpenDeviceIdIfNeeded = async () => {
+      const openDeviceId = String(route.query?.openDeviceId || '').trim()
+      if (!openDeviceId) return
+      try {
+        await loadDeviceGroups({ silent: true, force: true })
+        const targetDevice = deviceGroups.value.find(device => device.device_id === openDeviceId)
+        if (targetDevice) {
+          showDeviceDetail(targetDevice)
+        }
+      } finally {
+        try {
+          await router.replace({
+            path: route.path,
+            query: {
+              ...route.query,
+              openDeviceId: undefined
+            }
+          })
+        } catch (_) {}
+      }
+    }
     
     const uploadDataForDevice = (device) => {
       ElMessage.info(t('logs.messages.uploadFeaturePending'))
@@ -2321,7 +2344,11 @@ export default {
       window.addEventListener('beforeunload', preventRefresh)
       
       // 初始化加载设备分组数据
-      loadDeviceGroups()
+      loadDeviceGroups().finally(() => {
+        consumeOpenDeviceIdIfNeeded().catch((error) => {
+          console.warn('自动展开日志设备抽屉失败:', error?.message || error)
+        })
+      })
       
       // 监听 WebSocket 状态变化事件
       websocketClient.on('logStatusChange', (data) => {
@@ -2414,6 +2441,16 @@ export default {
         }
       })
     })
+
+    watch(
+      () => route.query?.openDeviceId,
+      (next, prev) => {
+        if (!next || next === prev) return
+        consumeOpenDeviceIdIfNeeded().catch((error) => {
+          console.warn('自动展开日志设备抽屉失败:', error?.message || error)
+        })
+      }
+    )
     
     const onUploadProgress = (event, file, fileList) => {
       // 进入文件上传阶段

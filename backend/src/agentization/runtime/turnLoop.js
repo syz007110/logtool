@@ -5,6 +5,7 @@ const {
 const i18next = require('i18next');
 const { withTimeout } = require('./runtimeStepUtils');
 const { projectToolTracesFromLoopTrace } = require('../types/toolTracesProjection');
+const { pushAsyncToolTaskEvent } = require('../../services/agentAsyncToolTaskService');
 
 const DEGRADED_FINISH_REASONS = new Set([
   'length',
@@ -97,17 +98,19 @@ function buildAssistantMessageFromTurnResult(turnResult) {
   };
 }
 
-function serializeToolResultContent(toolResult, invokeResult) {
+function serializeToolResultContent(toolResult) {
   if (!toolResult || typeof toolResult !== 'object') {
     return JSON.stringify({
       status: 'failed',
       text: '',
+      data: null,
       error: { code: 'INVALID_TOOL_RESULT', message: 'empty tool result' }
     });
   }
   return JSON.stringify({
     status: String(toolResult.status || '').trim() || 'failed',
-    text: String(invokeResult?.text || '').trim(),
+    text: String(toolResult.text || '').trim(),
+    data: toolResult.data ?? null,
     error: toolResult.error ?? null
   });
 }
@@ -141,6 +144,7 @@ async function runTurnLoop({
   let finalText = null;
   let lastTurnResult = null;
   let errorRuntime = null;
+  let deferredState = null;
 
   for (let step = 1; step <= maxSteps; step += 1) {
     onLastStep('orchestrator');
@@ -236,11 +240,54 @@ async function runTurnLoop({
         );
         toolCallsUsed += 1;
 
+        if (String(invokeResult?.delivery || '').trim().toLowerCase() === 'deferred') {
+          const taskId = String(invokeResult?.taskId || '').trim();
+          const deferredEvent = invokeResult?.deferredEvent && typeof invokeResult.deferredEvent === 'object'
+            ? invokeResult.deferredEvent
+            : null;
+          if (!taskId || !deferredEvent) {
+            throw new Error('deferred tool invocation requires taskId and deferredEvent');
+          }
+
+          await pushAsyncToolTaskEvent({
+            taskId,
+            userId: request?.user?.id || null,
+            traceId: request?.traceId || null,
+            requestId: request?.requestId || null,
+            conversationId: request?.channel?.conversationId || null
+          }, 'submitted', deferredEvent, null);
+
+          deferredState = {
+            taskId,
+            event: deferredEvent,
+            toolName: toolCall.toolName || null
+          };
+          loopTrace.push({
+            kind: 'deferred_tool',
+            step,
+            subStep,
+            suffix: buildToolResultSuffix(step, subStep),
+            toolCallId: toolCall.id || null,
+            toolName: toolCall.toolName || null,
+            taskId,
+            event: deferredEvent,
+            invokeResult
+          });
+
+          log('invoke:tool:deferred', {
+            step,
+            subStep,
+            toolName: toolCall.toolName,
+            taskId
+          });
+          break;
+        }
+
         const toolResult = invokeResult?.debugMeta?.toolResult || {
           status: 'failed',
           error: { code: 'TOOL_RESULT_MISSING', message: 'tool gateway returned no result matrix' }
         };
-        const toolContent = serializeToolResultContent(toolResult, invokeResult);
+        const toolContent = serializeToolResultContent(toolResult);
         const toolMessage = {
           role: 'tool',
           tool_call_id: String(toolCall.id || ''),
@@ -267,6 +314,20 @@ async function runTurnLoop({
           status: toolResult.status,
           costMs: Date.now() - invokeStartedAt
         });
+
+        if (toolCall.toolName === 'start_log_upload'
+          && String(toolResult.status || '').trim() === 'success'
+          && toolResult?.data?.uploaded === true) {
+          request.context = request.context && typeof request.context === 'object' ? request.context : {};
+          request.context.attachmentStatus = null;
+          if (contextEnvelope && typeof contextEnvelope === 'object') {
+            contextEnvelope.activeAttachmentStatus = null;
+          }
+        }
+      }
+
+      if (deferredState) {
+        break;
       }
 
       continue;
@@ -276,22 +337,41 @@ async function runTurnLoop({
     break;
   }
 
-  if (!finalText) {
+  if (!finalText && !deferredState) {
     finalText = resolveLimitFallbackText('steps', lang);
   }
 
-  const assistantResponse = {
-    text: finalText,
-    attachments: [],
-    toolTraces: projectToolTracesFromLoopTrace(loopTrace),
-    debugMeta: {
-      loopTrace,
-      turnResult: lastTurnResult,
-      toolCallsUsed,
-      source: 'turn_loop',
-      errorRuntime
-    }
-  };
+  const assistantResponse = deferredState
+    ? {
+        mode: 'deferred',
+        text: '',
+        attachments: [],
+        toolTraces: [],
+        debugMeta: {
+          loopTrace,
+          turnResult: lastTurnResult,
+          toolCallsUsed,
+          source: 'turn_loop',
+          errorRuntime,
+          deliveryHint: 'async_tool_event_only',
+          deferredEvent: {
+            taskId: deferredState.taskId,
+            ...(deferredState.event || {})
+          }
+        }
+      }
+    : {
+        text: finalText,
+        attachments: [],
+        toolTraces: projectToolTracesFromLoopTrace(loopTrace),
+        debugMeta: {
+          loopTrace,
+          turnResult: lastTurnResult,
+          toolCallsUsed,
+          source: 'turn_loop',
+          errorRuntime
+        }
+      };
 
   return {
     assistantResponse,

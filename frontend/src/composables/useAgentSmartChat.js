@@ -78,12 +78,50 @@ async function pollAgentTaskUntilDone (taskId, { timeoutMs = 300000, intervalMs 
         status,
         result: task.result || task.response || {},
         error: task.error || null,
-        conversationId: task.conversationId || task.result?.session?.conversationId
+        conversationId: task.conversationId || task.result?.session?.conversationId,
+        instanceId: Number(task.instanceId || task.result?.session?.instanceId || 0) || null
       }
     }
     await sleep(intervalMs)
   }
   throw new Error('等待 Agent 任务结果超时')
+}
+
+async function awaitAgentTaskCompletion (taskId, { getCurrentUserId, timeoutMs = 300000 } = {}) {
+  const normalizedTaskId = String(taskId || '').trim()
+  if (!normalizedTaskId) throw new Error('taskId missing')
+
+  let done = false
+  const markDone = () => { done = true }
+  let settled
+
+  try {
+    const wsWait = waitForAgentTaskViaWebSocket(normalizedTaskId, {
+      getCurrentUserId,
+      timeoutMs
+    }).then((wsPayload) => {
+      markDone()
+      return { source: 'ws', wsPayload }
+    })
+    const pollWait = pollAgentTaskUntilDone(normalizedTaskId, {
+      timeoutMs,
+      shouldStop: () => done
+    }).then((pollPayload) => {
+      if (!pollPayload) return wsWait
+      markDone()
+      return { source: 'poll', pollPayload }
+    })
+    settled = await Promise.race([wsWait, pollWait])
+  } catch (err) {
+    const pollPayload = await pollAgentTaskUntilDone(normalizedTaskId, { timeoutMs: 8000, intervalMs: 500 })
+    if (!pollPayload) throw err
+    settled = { source: 'poll', pollPayload }
+  }
+
+  if (settled.source === 'ws') {
+    return { source: 'ws', payload: settled.wsPayload }
+  }
+  return { source: 'poll', payload: settled.pollPayload }
 }
 
 function normalizeAgentResult (raw) {
@@ -105,6 +143,12 @@ function normalizeAgentResult (raw) {
     text,
     toolTraces: Array.isArray(result.toolTraces) ? result.toolTraces : [],
     attachments: Array.isArray(result.attachments) ? result.attachments : [],
+    messageDelta: result.messageDelta && typeof result.messageDelta === 'object'
+      ? result.messageDelta
+      : null,
+    deferredEvent: result.deferredEvent && typeof result.deferredEvent === 'object'
+      ? result.deferredEvent
+      : null,
     systemMessages,
     assistantMode: String(result.assistantMode || '').trim() || 'llm_response',
     session: result.session && typeof result.session === 'object' ? result.session : null,
@@ -145,6 +189,7 @@ export function useAgentSmartChat (options = {}) {
   }
 
   function newConversation () {
+    conversationId.value = ''
     instanceId.value = null
     forceNewInstance.value = true
   }
@@ -188,7 +233,7 @@ export function useAgentSmartChat (options = {}) {
         type: 'web',
         conversationType: 'single'
       }
-      if (conversationId.value) {
+      if (conversationId.value && forceNewInstance.value !== true) {
         channel.conversationId = conversationId.value
       }
       const context = {}
@@ -220,33 +265,12 @@ export function useAgentSmartChat (options = {}) {
       if (mode === 'accepted') {
         if (!taskId) throw new Error('agent taskId missing')
         rememberSession(res?.data?.session)
-        let done = false
-        const markDone = () => { done = true }
-        let settled
-        try {
-          const wsWait = waitForAgentTaskViaWebSocket(taskId, {
-            getCurrentUserId: options.getCurrentUserId
-          }).then((wsPayload) => {
-            markDone()
-            return { source: 'ws', wsPayload }
-          })
-          const pollWait = pollAgentTaskUntilDone(taskId, {
-            shouldStop: () => done
-          }).then((pollPayload) => {
-            if (!pollPayload) return wsWait
-            markDone()
-            return { source: 'poll', pollPayload }
-          })
-          settled = await Promise.race([wsWait, pollWait])
-        } catch (err) {
-          // Last chance: short poll if WS listener raced / both paths failed transiently.
-          const pollPayload = await pollAgentTaskUntilDone(taskId, { timeoutMs: 8000, intervalMs: 500 })
-          if (!pollPayload) throw err
-          settled = { source: 'poll', pollPayload }
-        }
+        const settled = await awaitAgentTaskCompletion(taskId, {
+          getCurrentUserId: options.getCurrentUserId
+        })
 
         if (settled.source === 'ws') {
-          const wsPayload = settled.wsPayload
+          const wsPayload = settled.payload
           const asyncStatus = String(wsPayload?.status || '').trim().toLowerCase()
           if (asyncStatus === 'failed') {
             throw new Error(String(wsPayload?.error?.message || '任务失败'))
@@ -259,6 +283,17 @@ export function useAgentSmartChat (options = {}) {
           }
           rememberSession(result.session || wsPayload?.conversationId)
           forceNewInstance.value = false
+          if (result.assistantMode === 'deferred' && result.deferredEvent) {
+            return {
+              ...result,
+              mode: 'deferred',
+              taskId,
+              payload: buildAssistantPayloadFromAgentResult({
+                text: '',
+                toolTraces: []
+              })
+            }
+          }
           return {
             ...result,
             mode: 'completed',
@@ -267,13 +302,24 @@ export function useAgentSmartChat (options = {}) {
           }
         }
 
-        const pollPayload = settled.pollPayload
+        const pollPayload = settled.payload
         if (String(pollPayload.status || '').toLowerCase() === 'failed') {
           throw new Error(String(pollPayload?.error?.message || '任务失败'))
         }
         const result = normalizeAgentResult(pollPayload.result || {})
         rememberSession(result.session || pollPayload.conversationId)
         forceNewInstance.value = false
+        if (result.assistantMode === 'deferred' && result.deferredEvent) {
+          return {
+            ...result,
+            mode: 'deferred',
+            taskId,
+            payload: buildAssistantPayloadFromAgentResult({
+              text: '',
+              toolTraces: []
+            })
+          }
+        }
         return {
           ...result,
           mode: 'completed',
@@ -283,6 +329,29 @@ export function useAgentSmartChat (options = {}) {
       }
 
       const finalResponse = res?.data?.response
+      if (mode === 'deferred' && finalResponse) {
+        rememberSession(finalResponse.session || res?.data?.session)
+        forceNewInstance.value = false
+        return {
+          text: '',
+          toolTraces: [],
+          attachments: [],
+          systemMessages: [],
+          assistantMode: 'deferred',
+          instance: finalResponse.instance || null,
+          session: finalResponse.session || res?.data?.session || null,
+          didRollover: false,
+          mode: 'deferred',
+          taskId: taskId || undefined,
+          deferredEvent: finalResponse.deferredEvent && typeof finalResponse.deferredEvent === 'object'
+            ? finalResponse.deferredEvent
+            : null,
+          payload: buildAssistantPayloadFromAgentResult({
+            text: '',
+            toolTraces: []
+          })
+        }
+      }
       if (mode !== 'completed' || !finalResponse) {
         throw new Error('agent response missing')
       }
@@ -322,6 +391,8 @@ export function useAgentSmartChat (options = {}) {
       instanceId: res?.data?.instanceId || iid
     })
     return {
+      conversationId: String(res?.data?.conversationId || '').trim(),
+      instanceId: Number(res?.data?.instanceId || iid) || iid,
       instance,
       messages: rows.map((row) => {
         const role = String(row.role || '').trim()
@@ -373,6 +444,10 @@ export function useAgentSmartChat (options = {}) {
     newConversation,
     rememberSession,
     sendText,
+    awaitAgentTaskCompletion: (taskId, waitOptions = {}) => awaitAgentTaskCompletion(taskId, {
+      getCurrentUserId: options.getCurrentUserId,
+      ...(waitOptions || {})
+    }),
     listConversations,
     loadConversation,
     deleteConversation,

@@ -4,9 +4,16 @@ const {
   MAX_FILES,
   MAX_FILE_SIZE,
   MAX_TOTAL_SIZE,
+  MAX_FOLDER_DEPTH,
   ALLOWED_MIMES,
   ALLOWED_EXTENSIONS
 } = require('../config/agentAssetStorage');
+
+const HIDDEN_SYSTEM_FILE_NAMES = new Set([
+  '.ds_store',
+  'thumbs.db',
+  'desktop.ini'
+]);
 
 function matchMimeRule(mime, rule) {
   const m = String(mime || '').trim().toLowerCase();
@@ -29,6 +36,42 @@ function isAllowedExtension(filename) {
   if (!ext) return false;
   if (ALLOWED_EXTENSIONS.length === 0) return true;
   return ALLOWED_EXTENSIONS.includes(ext);
+}
+
+function normalizeRelativePath(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw
+    .replace(/^[a-zA-Z]:/, '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .split('/')
+    .map((segment) => String(segment || '').trim())
+    .filter(Boolean)
+    .join('/');
+}
+
+function getRelativePathSegments(value) {
+  const normalized = normalizeRelativePath(value);
+  return normalized ? normalized.split('/').filter(Boolean) : [];
+}
+
+function isHiddenSystemPath(value) {
+  const segments = getRelativePathSegments(value);
+  if (segments.length === 0) return false;
+  return segments.some((segment) => {
+    const normalized = String(segment || '').trim().toLowerCase();
+    if (!normalized) return false;
+    if (normalized === '.' || normalized === '..') return true;
+    if (normalized.startsWith('.')) return true;
+    return HIDDEN_SYSTEM_FILE_NAMES.has(normalized);
+  });
+}
+
+function resolveRelativePathDepth(value) {
+  const segments = getRelativePathSegments(value);
+  if (segments.length <= 1) return 0;
+  return segments.length - 1;
 }
 
 function createAttachmentPolicyError(code, message, details = {}) {
@@ -111,11 +154,36 @@ function validateAttachmentCandidateDescriptor({ filename }, options = {}) {
   }
 }
 
+function validateRelativePath(relativePath, options = {}) {
+  const normalized = normalizeRelativePath(relativePath);
+  if (!normalized) return;
+  const t = getAgentFixedT(options.language);
+  const segments = getRelativePathSegments(normalized);
+  if (segments.some((segment) => segment === '.' || segment === '..')) {
+    throw createAttachmentPolicyError(
+      'ATTACHMENT_RELATIVE_PATH_INVALID',
+      t('shared.agent.attachmentPolicy.invalidRelativePath'),
+      { relativePath: normalized }
+    );
+  }
+  const depth = resolveRelativePathDepth(normalized);
+  if (depth > MAX_FOLDER_DEPTH) {
+    throw createAttachmentPolicyError(
+      'ATTACHMENT_RELATIVE_PATH_DEPTH_EXCEEDED',
+      t('shared.agent.attachmentPolicy.folderDepthExceeded', { maxDepth: MAX_FOLDER_DEPTH }),
+      { maxDepth: MAX_FOLDER_DEPTH, relativePath: normalized, depth }
+    );
+  }
+}
+
 function validateResolvedAttachments(attachments, options = {}) {
   const list = Array.isArray(attachments) ? attachments : [];
   validateAttachmentCount(list.length, options);
   const totalSizeBytes = list.reduce((sum, item) => sum + Number(item?.sizeBytes || 0), 0);
   validateAttachmentTotalSize(totalSizeBytes, options);
+  for (const item of list) {
+    validateRelativePath(item?.relativePath, options);
+  }
 }
 
 function buildAttachmentShortCircuit(error) {
@@ -131,16 +199,23 @@ module.exports = {
   MAX_FILES,
   MAX_FILE_SIZE,
   MAX_TOTAL_SIZE,
+  MAX_FOLDER_DEPTH,
   ALLOWED_MIMES,
   ALLOWED_EXTENSIONS,
+  HIDDEN_SYSTEM_FILE_NAMES,
   isAllowedMime,
   isAllowedExtension,
+  normalizeRelativePath,
+  getRelativePathSegments,
+  isHiddenSystemPath,
+  resolveRelativePathDepth,
   createAttachmentPolicyError,
   isAttachmentPolicyError,
   validateAttachmentCount,
   validateAttachmentTotalSize,
   validateAttachmentCandidateDescriptor,
   validateAttachmentDescriptor,
+  validateRelativePath,
   validateResolvedAttachments,
   buildAttachmentShortCircuit
 };

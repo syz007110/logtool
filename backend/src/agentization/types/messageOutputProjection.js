@@ -1,4 +1,5 @@
 const { buildMessageOutput } = require('./contracts');
+const { projectQueueResultToMessageDelta } = require('./messageDeltaProjection');
 
 function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -71,6 +72,13 @@ function projectQueueResultToMessageOutput(queueResult) {
   }
   if (Array.isArray(queueResult.toolTraces)) {
     out.toolTraces = queueResult.toolTraces;
+  }
+  if (queueResult.deferred_event && typeof queueResult.deferred_event === 'object' && !Array.isArray(queueResult.deferred_event)) {
+    out.deferredEvent = { ...queueResult.deferred_event };
+  }
+  const messageDelta = projectQueueResultToMessageDelta(queueResult);
+  if (messageDelta) {
+    out.messageDelta = messageDelta;
   }
 
   return out;

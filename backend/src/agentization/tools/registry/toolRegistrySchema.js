@@ -202,6 +202,67 @@ function getToolRuntime(tool = {}) {
   };
 }
 
+/**
+ * runtime.execution registry contract
+ *
+ * Common fields:
+ * - mode: 'sync' | 'http'
+ * - handler: local handler id when mode=sync
+ * - endpoint/method/headers: remote invocation config when mode=http
+ * - retryable/retryAttempts/retryBackoffMs: retry policy
+ *
+ * Deferred-tool fields:
+ * - completionMode: 'immediate' | 'deferred'
+ * - asyncTaskType: required when completionMode=deferred
+ * - dispatchTimeoutMs: required when completionMode=deferred; timeout for task creation/dispatch
+ * - batchTimeoutMs: required when completionMode=deferred; timeout for whole async batch finalization
+ * - deferredPrompt.text: optional; user-visible deferred status text template
+ */
+function validateRuntimeExecutionSpec(execution = {}, toolName = '') {
+  const mode = String(execution.mode || 'sync').trim().toLowerCase();
+  if (mode && mode !== 'sync' && mode !== 'http') {
+    const err = new Error(`invalid runtime.execution.mode for ${toolName || 'tool'}`);
+    err.code = 'INVALID_TOOL_RUNTIME_EXECUTION_MODE';
+    throw err;
+  }
+
+  const completionMode = String(execution.completionMode || 'immediate').trim().toLowerCase();
+  if (completionMode !== 'immediate' && completionMode !== 'deferred') {
+    const err = new Error(`invalid runtime.execution.completionMode for ${toolName || 'tool'}`);
+    err.code = 'INVALID_TOOL_RUNTIME_COMPLETION_MODE';
+    throw err;
+  }
+
+  if (completionMode === 'deferred') {
+    const asyncTaskType = String(execution.asyncTaskType || '').trim().toLowerCase();
+    const dispatchTimeoutMs = Number(execution.dispatchTimeoutMs);
+    const batchTimeoutMs = Number(execution.batchTimeoutMs);
+    const deferredPrompt = asObject(execution.deferredPrompt);
+    if (!asyncTaskType) {
+      const err = new Error(`deferred tool requires runtime.execution.asyncTaskType: ${toolName || 'tool'}`);
+      err.code = 'INVALID_TOOL_RUNTIME_ASYNC_TASK_TYPE';
+      throw err;
+    }
+    if (!Number.isFinite(dispatchTimeoutMs) || dispatchTimeoutMs <= 0) {
+      const err = new Error(`deferred tool requires positive runtime.execution.dispatchTimeoutMs: ${toolName || 'tool'}`);
+      err.code = 'INVALID_TOOL_RUNTIME_DISPATCH_TIMEOUT';
+      throw err;
+    }
+    if (!Number.isFinite(batchTimeoutMs) || batchTimeoutMs <= 0) {
+      const err = new Error(`deferred tool requires positive runtime.execution.batchTimeoutMs: ${toolName || 'tool'}`);
+      err.code = 'INVALID_TOOL_RUNTIME_BATCH_TIMEOUT';
+      throw err;
+    }
+    if (Object.keys(deferredPrompt).length > 0 && !String(deferredPrompt.text || '').trim()) {
+      const err = new Error(`deferred tool runtime.execution.deferredPrompt.text must be non-empty when provided: ${toolName || 'tool'}`);
+      err.code = 'INVALID_TOOL_RUNTIME_DEFERRED_PROMPT';
+      throw err;
+    }
+  }
+
+  return execution;
+}
+
 function validateArgumentsAgainstParameters(parameters, args = {}, runtime = {}) {
   const schema = asObject(parameters);
   const properties = asObject(schema.properties);
@@ -256,5 +317,6 @@ module.exports = {
   buildParametersFromLegacyInputContract,
   getToolParameters,
   getToolRuntime,
+  validateRuntimeExecutionSpec,
   validateArgumentsAgainstParameters
 };

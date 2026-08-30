@@ -86,6 +86,7 @@ class WebSocketService extends EventEmitter {
       const LOG_TASK_CH = 'ws:log_task_status';
       const SURGERY_TASK_CH = 'ws:surgery_task_status';
       const AGENT_TASK_CH = 'ws:agent_task_status';
+      const CONVERSATION_DELTA_CH = 'ws:conversation_message_delta';
 
       await this.subClient.subscribe(LOG_CH, (message) => {
         try {
@@ -146,6 +147,16 @@ class WebSocketService extends EventEmitter {
           this.broadcastAgentTaskStatus(data);
         } catch (e) {
           console.error('订阅处理失败(AGENT_TASK_CH):', e.message);
+        }
+      });
+
+      await this.subClient.subscribe(CONVERSATION_DELTA_CH, (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (!data || !data.instanceId || !Array.isArray(data.messages)) return;
+          this.broadcastConversationMessageDelta(data);
+        } catch (e) {
+          console.error('订阅处理失败(CONVERSATION_DELTA_CH):', e.message);
         }
       });
 
@@ -489,6 +500,7 @@ class WebSocketService extends EventEmitter {
       traceId: String(meta?.traceId || ''),
       requestId: String(meta?.requestId || ''),
       conversationId: String(meta?.conversationId || ''),
+      instanceId: Number(meta?.instanceId || 0) || null,
       result: meta?.result || null,
       error: meta?.error || null,
       timestamp: Date.now(),
@@ -508,8 +520,35 @@ class WebSocketService extends EventEmitter {
     }
   }
 
+  async pushConversationMessageDelta(meta = {}) {
+    const payload = JSON.stringify({
+      taskId: String(meta?.taskId || ''),
+      userId: String(meta?.userId || ''),
+      traceId: String(meta?.traceId || ''),
+      requestId: String(meta?.requestId || ''),
+      conversationId: String(meta?.conversationId || ''),
+      instanceId: Number(meta?.instanceId || 0) || null,
+      delta: meta?.delta && typeof meta.delta === 'object' ? meta.delta : null,
+      messages: Array.isArray(meta?.messages) ? meta.messages : [],
+      timestamp: Date.now(),
+      source: this.processId
+    });
+    const channel = 'ws:conversation_message_delta';
+    try {
+      await this.ensurePublisher();
+      if (this.pubClient && this.pubClient.isOpen) {
+        await this.pubClient.publish(channel, payload);
+      } else {
+        this.broadcastConversationMessageDelta(JSON.parse(payload));
+      }
+    } catch (e) {
+      console.error('发布会话消息增量失败:', e.message);
+      this.broadcastConversationMessageDelta(JSON.parse(payload));
+    }
+  }
+
   broadcastAgentTaskStatus(data) {
-    const { taskId, status, userId, traceId, requestId, conversationId, result, error, timestamp } = data || {};
+    const { taskId, status, userId, traceId, requestId, conversationId, instanceId, result, error, timestamp } = data || {};
     if (!taskId) return;
     this.broadcast({
       type: 'agent_task_status',
@@ -519,11 +558,40 @@ class WebSocketService extends EventEmitter {
       traceId,
       requestId,
       conversationId,
+      instanceId: Number(instanceId || 0) || null,
       result,
       error,
       timestamp
     });
     console.log(`📡 推送 Agent 任务状态: 任务 ${taskId}, 状态 ${status}, 用户 ${userId || '-'}`);
+  }
+
+  broadcastConversationMessageDelta(data) {
+    const {
+      taskId,
+      userId,
+      traceId,
+      requestId,
+      conversationId,
+      instanceId,
+      delta,
+      messages,
+      timestamp
+    } = data || {};
+    const normalizedInstanceId = Number(instanceId || 0) || null;
+    if (!normalizedInstanceId || !Array.isArray(messages) || messages.length < 1) return;
+    this.broadcast({
+      type: 'conversation_message_delta',
+      taskId: String(taskId || ''),
+      userId: String(userId || ''),
+      traceId: String(traceId || ''),
+      requestId: String(requestId || ''),
+      conversationId: String(conversationId || ''),
+      instanceId: normalizedInstanceId,
+      delta: delta && typeof delta === 'object' ? delta : null,
+      messages,
+      timestamp
+    });
   }
 
   // 推送给特定客户端

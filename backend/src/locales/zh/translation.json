@@ -98,7 +98,9 @@
         "totalSizeExceeded": "单条消息附件总大小必须小于 {{maxTotalSizeMb}}MB。",
         "unsupportedExtension": "附件类型不支持，请上传日志文件、压缩包或图片。",
         "unsupportedMimeType": "附件 MIME 类型不支持，请上传日志文件、压缩包或图片。",
-        "fileTooLarge": "单个附件大小必须小于 {{maxFileSizeMb}}MB。"
+        "fileTooLarge": "单个附件大小必须小于 {{maxFileSizeMb}}MB。",
+        "invalidRelativePath": "附件路径不合法。",
+        "folderDepthExceeded": "文件夹展开层级不能超过 {{maxDepth}} 层。"
       },
       "session": {
         "systemMessages": {
@@ -106,10 +108,10 @@
           "instanceRolloverTitle": "会话状态变更"
         },
         "inactive": {
-          "archived": "该会话实例已失效，不能继续对话，请新建会话。",
-          "maxTokens": "该会话已达到 token 上限（{{maxTokens}}），不能继续对话，请新建会话。",
-          "maxTurns": "该会话已达到轮次上限（{{maxTurns}}轮），不能继续对话，请新建会话。",
-          "idleTimeout": "该会话已空闲超过{{idleTimeoutMinutes}}分钟，不能继续对话，请新建会话。"
+          "archived": "原实例已失效，不能继续对话，已新建会话。",
+          "maxTokens": "原会话已达到 token 上限（{{maxTokens}}），不能继续对话，已新建会话。",
+          "maxTurns": "原会话已达到轮次上限（{{maxTurns}}轮），不能继续对话，已新建会话。",
+          "idleTimeout": "原会话已空闲超过{{idleTimeoutMinutes}}分钟，不能继续对话，已新建会话。"
         },
         "rollover": {
           "maxTokens": "达到此对话的token上限（{{maxTokens}}），已新建对话",
