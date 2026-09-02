@@ -596,7 +596,7 @@
       "recoverable": "可恢复故障",
       "unrecoverable": "不可恢复故障",
       "ignorable": "可忽略故障",
-      "tips": "提示信息",
+      "tip": "提示信息",
       "log": "日志记录"
     },
     "levelTypes": {

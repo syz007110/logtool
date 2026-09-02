@@ -596,7 +596,7 @@
       "recoverable": "Recoverable Error",
       "unrecoverable": "Unrecoverable Error",
       "ignorable": "Ignorable Error",
-      "tips": "Tips",
+      "tip": "Tip",
       "log": "Log Record"
     },
     "levelTypes": {
@@ -2343,7 +2343,7 @@
       "method2": "Enter full error code:",
       "method3": "Enter keyword:",
       "keywordExample": "motor fault",
-      "levelLegend": "Levels: A (High level) B (Medium level) C (Low level) D (Tips) E (Log record)",
+      "levelLegend": "Levels: A (High level) B (Medium level) C (Low level) D (Tip) E (Log record)",
       "foundResults": "Found {count} results",
       "selectErrorCode": "Please select the error code to view:",
       "errorCodeLabel": "Error Code",
@@ -2364,7 +2364,7 @@
         "A": "Level A - High level alarm",
         "B": "Level B - Medium level alarm",
         "C": "Level C - Low level alarm",
-        "D": "Level D - Tips",
+        "D": "Level D - Tip",
         "E": "Level E - Log record"
       },
       "notFound": "No records found containing this error type",

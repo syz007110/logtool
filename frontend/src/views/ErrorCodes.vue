@@ -327,7 +327,9 @@
                 </el-col>
                 <el-col :span="12">
                   <el-form-item :label="$t('errorCodes.formLabels.solution')" prop="solution">
-                    <el-input :model-value="getSolutionDisplay(currentForm.solution)" readonly :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" class="form-field-full" />
+                    <el-select v-model="currentForm.solution" :placeholder="$t('errorCodes.formLabels.solutionPlaceholder')" class="form-field-full">
+                      <el-option v-for="option in solutionOptions" :key="option.value" :label="option.label" :value="option.value" />
+                    </el-select>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -1081,9 +1083,17 @@ export default {
       return convertValueToKey(
         solutionValue,
         'errorCodes.solutionTypes',
-        ['recoverable', 'unrecoverable', 'ignorable', 'tips', 'log']
+        ['recoverable', 'unrecoverable', 'ignorable', 'tip', 'log']
       )
     }
+
+    const solutionOptions = computed(() => [
+      { value: 'recoverable', label: t('errorCodes.solutionTypes.recoverable') },
+      { value: 'unrecoverable', label: t('errorCodes.solutionTypes.unrecoverable') },
+      { value: 'ignorable', label: t('errorCodes.solutionTypes.ignorable') },
+      { value: 'tip', label: t('errorCodes.solutionTypes.tip') },
+      { value: 'log', label: t('errorCodes.solutionTypes.log') }
+    ])
     
     // 同步相关变量
     const syncToRemote = ref(false)
@@ -1136,11 +1146,11 @@ export default {
     // 根据故障码自动判断故障等级和处理措施
     // 返回英文键值，存储到数据库，显示时通过 getLevelDisplay 和 getSolutionDisplay 函数翻译
     const analyzeErrorCode = (code) => {
-      if (!code) return { level: 'none', solution: 'tips' };
+      if (!code) return { level: 'none', solution: 'tip' };
       
       // 解析故障码：0X + 3位16进制数字 + A/B/C/D/E
       const match = code.match(/^0X([0-9A-F]{3})([ABCDE])$/);
-      if (!match) return { level: 'none', solution: 'tips' };
+      if (!match) return { level: 'none', solution: 'tip' };
       
       const [, hexPart, severity] = match;
       
@@ -1162,7 +1172,7 @@ export default {
       }
       
       // 根据故障码末尾字母判断处理措施（返回英文键值）
-      let solution = 'tips';
+      let solution = 'tip';
       switch (severity) {
         case 'A': // A类故障：recoverable 可恢复故障
           solution = 'recoverable';
@@ -1173,8 +1183,8 @@ export default {
         case 'C': // C类故障：ignorable 可忽略故障
           solution = 'ignorable';
           break;
-        case 'D': // D类故障：tips 提示信息
-          solution = 'tips';
+        case 'D': // D类故障：tip 提示信息
+          solution = 'tip';
           break;
         case 'E': // E类故障：log 日志记录
           solution = 'log';
@@ -1199,7 +1209,7 @@ export default {
         'recoverable': t('errorCodes.solutionTypes.recoverable'),
         'unrecoverable': t('errorCodes.solutionTypes.unrecoverable'),
         'ignorable': t('errorCodes.solutionTypes.ignorable'),
-        'tips': t('errorCodes.solutionTypes.tips'),
+        'tip': t('errorCodes.solutionTypes.tip'),
         'log': t('errorCodes.solutionTypes.log')
       };
       return solutionMap[solution] || solution;
@@ -2485,6 +2495,7 @@ export default {
        closeTechDrawer,
        handleSave,
        handleCodeChange,
+       solutionOptions,
        getSolutionDisplay,
        getLevelDisplay,
        buildPrefixedExplanation,

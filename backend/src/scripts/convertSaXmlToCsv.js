@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { parseStringPromise } = require('xml2js');
+const {
+  DEFAULT_ERROR_CODE_SOLUTION,
+  normalizeErrorCodeSolution
+} = require('../constants/errorCodeSolution');
 
 const ERROR_CODE_HEADERS = [
   'series_id',
@@ -65,13 +69,13 @@ function deriveLevelFromCode(code) {
 
 function deriveSolutionFromCode(code) {
   const match = String(code || '').toUpperCase().match(/^0X[0-9A-F]{3}([ABCDE])$/);
-  if (!match) return 'tips';
+  if (!match) return DEFAULT_ERROR_CODE_SOLUTION;
   const severity = match[1];
   if (severity === 'A' || severity === 'B') return 'recoverable';
   if (severity === 'C') return 'ignorable';
-  if (severity === 'D') return 'tips';
+  if (severity === 'D') return DEFAULT_ERROR_CODE_SOLUTION;
   if (severity === 'E') return 'log';
-  return 'tips';
+  return DEFAULT_ERROR_CODE_SOLUTION;
 }
 
 async function parseFaultAnalysisXml(xmlContent) {
@@ -119,7 +123,7 @@ function buildMainRecord(seriesId, zhRow) {
     code: zhRow.code,
     is_axis_error: parseBoolNumber(zhRow.axis),
     is_arm_error: parseBoolNumber(zhRow.isArm),
-    solution: zhRow.action || deriveSolutionFromCode(zhRow.code),
+    solution: normalizeErrorCodeSolution(zhRow.action, deriveSolutionFromCode(zhRow.code)),
     for_expert: parseBoolNumber(zhRow.expert, 1),
     for_novice: parseBoolNumber(zhRow.learner, 1),
     related_log: parseBoolNumber(zhRow.log, 0),

@@ -14,6 +14,11 @@ const { searchByKeywords } = require('../services/errorCodeSearchService');
 const prefixTranslations = require('../config/prefixTranslations.json');
 const fs = require('fs');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
+const {
+  DEFAULT_ERROR_CODE_SOLUTION,
+  isErrorCodeSolution,
+  normalizeErrorCodeSolution
+} = require('../constants/errorCodeSolution');
 const path = require('path');
 const { mapLanguageCode } = require('../config/i18nLanguages');
 const { objectKeyFromUrl } = require('../utils/oss');
@@ -130,6 +135,7 @@ const MAIN_STRUCT_FIELDS = [
   'code',
   'is_axis_error',
   'is_arm_error',
+  'solution',
   'for_expert',
   'for_novice',
   'related_log',
@@ -246,11 +252,11 @@ async function upsertI18nPayloadForErrorCode({ errorCodeId, i18nPayload, transac
 
 // 根据故障码自动判断故障等级和处理措施
 const analyzeErrorCode = (code) => {
-  if (!code) return { level: 'none', solution: 'tips' };
+  if (!code) return { level: 'none', solution: DEFAULT_ERROR_CODE_SOLUTION };
 
   // 解析故障码：0X + 3位16进制数字 + A/B/C/D/E
   const match = code.match(/^0X([0-9A-F]{3})([ABCDE])$/);
-  if (!match) return { level: 'none', solution: 'tips' };
+  if (!match) return { level: 'none', solution: DEFAULT_ERROR_CODE_SOLUTION };
 
   const [, hexPart, severity] = match;
 
@@ -272,7 +278,7 @@ const analyzeErrorCode = (code) => {
   }
 
   // 根据故障码末尾字母判断处理措施
-  let solution = 'tips';
+  let solution = DEFAULT_ERROR_CODE_SOLUTION;
   switch (severity) {
     case 'A': // A类故障：recoverable 可恢复故障
       solution = 'recoverable';
@@ -283,8 +289,8 @@ const analyzeErrorCode = (code) => {
     case 'C': // C类故障：ignorable 可忽略故障
       solution = 'ignorable';
       break;
-    case 'D': // D类故障：tips 提示信息
-      solution = 'tips';
+    case 'D': // D类故障：tip 提示信息
+      solution = 'tip';
       break;
     case 'E': // E类故障：log 日志记录
       solution = 'log';
@@ -502,6 +508,10 @@ const validateErrorCodeData = (data) => {
     errors.push('故障分类必须是：软件、硬件、日志记录、操作提示、安全保护 中的一个');
   }
 
+  if (data.solution !== undefined && !isErrorCodeSolution(data.solution)) {
+    errors.push('处理措施枚举值无效');
+  }
+
   return errors;
 };
 
@@ -525,7 +535,8 @@ const createErrorCode = async (req, res) => {
     }
 
     // 根据故障码自动判断故障等级和处理措施
-    const { level, solution } = analyzeErrorCode(mainData.code);
+    const { level, solution: defaultSolution } = analyzeErrorCode(mainData.code);
+    const solution = normalizeErrorCodeSolution(mainData.solution, defaultSolution);
 
     // 创建故障码数据，自动设置等级和处理措施，专家模式和初学者模式默认为True
     const errorCodeData = {
@@ -709,9 +720,10 @@ const updateErrorCode = async (req, res) => {
         category: errorCode.category
       };
 
-      // 始终根据故障码重新计算等级和处理措施
+      // 等级始终由故障码计算；处理措施以合法的人工选择为准，否则使用自动默认值。
       const codeToAnalyze = mainData.code || errorCode.code;
-      const { level, solution } = analyzeErrorCode(codeToAnalyze);
+      const { level, solution: defaultSolution } = analyzeErrorCode(codeToAnalyze);
+      const solution = normalizeErrorCodeSolution(mainData.solution, defaultSolution);
       const updateData = {
         ...mainData,
         series_id: nextSeriesId,

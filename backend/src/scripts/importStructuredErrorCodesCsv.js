@@ -4,6 +4,10 @@ const csv = require('csv-parser');
 const { sequelize } = require('../models');
 const ErrorCode = require('../models/error_code');
 const DeviceSeriesDict = require('../models/device_series_dict');
+const {
+  DEFAULT_ERROR_CODE_SOLUTION,
+  normalizeErrorCodeSolution
+} = require('../constants/errorCodeSolution');
 
 const REQUIRED_HEADERS = [
   'series_id',
@@ -63,7 +67,7 @@ function normalizeErrorCodeCsvRow(row) {
     code,
     is_axis_error: parseBool(row.is_axis_error),
     is_arm_error: parseBool(row.is_arm_error),
-    solution: normalizeNullableText(row.solution) || 'tips',
+    solution: normalizeErrorCodeSolution(row.solution, DEFAULT_ERROR_CODE_SOLUTION),
     for_expert: parseBool(row.for_expert),
     for_novice: parseBool(row.for_novice),
     related_log: parseBool(row.related_log),

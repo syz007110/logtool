@@ -675,7 +675,7 @@ export default {
         'recoverable': 'solution-recoverable',
         'unrecoverable': 'solution-unrecoverable',
         'ignorable': 'solution-ignorable',
-        'tips': 'solution-tips',
+        'tip': 'solution-tip',
         'log': 'solution-log'
       }
       return classMap[solution] || ''
@@ -1168,7 +1168,7 @@ export default {
         'recoverable': t('errorCodes.solutionTypes.recoverable'),
         'unrecoverable': t('errorCodes.solutionTypes.unrecoverable'),
         'ignorable': t('errorCodes.solutionTypes.ignorable'),
-        'tips': t('errorCodes.solutionTypes.tips'),
+        'tip': t('errorCodes.solutionTypes.tip'),
         'log': t('errorCodes.solutionTypes.log')
       }
       return solutionMap[solution] || solution
