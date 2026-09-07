@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  isArchiveName,
+  isSupportedScanAttachmentName,
   isValidLogFileName,
   isSystemInfoName,
   extractDeviceIdFromText,
@@ -9,6 +11,20 @@ const {
   resolveNextAction,
   buildSummaryMessage
 } = require('./attachmentScanHelper');
+
+test('isArchiveName recognizes zip, 7z and rar', () => {
+  assert.equal(isArchiveName('bundle.zip'), true);
+  assert.equal(isArchiveName('bundle.7z'), true);
+  assert.equal(isArchiveName('bundle.rar'), true);
+  assert.equal(isArchiveName('bundle.tar.gz'), false);
+});
+
+test('isSupportedScanAttachmentName includes logs and archives', () => {
+  assert.equal(isSupportedScanAttachmentName('2026080412_log.medbot'), true);
+  assert.equal(isSupportedScanAttachmentName('systeminfo.txt'), true);
+  assert.equal(isSupportedScanAttachmentName('bundle.rar'), true);
+  assert.equal(isSupportedScanAttachmentName('report.docx'), false);
+});
 
 test('isValidLogFileName validates strict medbot names', () => {
   assert.equal(isValidLogFileName('2026080412_log.medbot'), true);
@@ -23,6 +39,7 @@ test('isSystemInfoName matches systeminfo file name', () => {
 test('extractors read device id and key from text', () => {
   assert.equal(extractDeviceIdFromText('设备编号 4371-01'), '4371-01');
   assert.equal(extractDeviceIdFromText('设备编号 4371-115'), '4371-115');
+  assert.equal(extractDeviceIdFromText('设备编号 4372-8MMS'), '4372-8MMS');
   assert.equal(extractMacAddressFromText('密钥 00-01-05-77-6a-09'), '00-01-05-77-6a-09');
 });
 

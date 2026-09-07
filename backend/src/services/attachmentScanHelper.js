@@ -2,7 +2,7 @@ const path = require('path');
 
 const LOG_FILE_REGEX = /^\d{10}_log\.medbot$/i;
 const SYSTEM_INFO_REGEX = /^systeminfo\.txt$/i;
-const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-\d{2,3})/i;
+const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-[0-9A-Za-z]{2,})/i;
 const MAC_ADDRESS_REGEX = /([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/;
 
 function normalizeName(value) {
@@ -11,7 +11,12 @@ function normalizeName(value) {
 
 function isArchiveName(filename) {
   const lower = normalizeName(filename).toLowerCase();
-  return lower.endsWith('.zip') || lower.endsWith('.7z');
+  return lower.endsWith('.zip') || lower.endsWith('.7z') || lower.endsWith('.rar');
+}
+
+function isSupportedScanAttachmentName(filename) {
+  const lower = normalizeName(filename).toLowerCase();
+  return lower.endsWith('.medbot') || lower.endsWith('.txt') || isArchiveName(lower);
 }
 
 function isSystemInfoName(filename) {
@@ -75,6 +80,7 @@ module.exports = {
   MAC_ADDRESS_REGEX,
   normalizeName,
   isArchiveName,
+  isSupportedScanAttachmentName,
   isSystemInfoName,
   isValidLogFileName,
   extractDeviceIdFromText,

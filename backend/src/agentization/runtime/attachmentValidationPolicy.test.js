@@ -11,6 +11,7 @@ describe('validatePreOrchestratorAttachmentCandidates', () => {
       validatePreOrchestratorAttachmentCandidates([
         { name: 'log.medbot' },
         { name: 'bundle.7z' },
+        { name: 'bundle.rar' },
         { name: 'capture.png' }
       ], { language: 'zh' });
     });

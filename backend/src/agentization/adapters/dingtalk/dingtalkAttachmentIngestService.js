@@ -290,7 +290,11 @@ function guessExtension({ filename, url, mimeType }) {
   if (mime === 'image/png') return '.png';
   if (mime === 'image/webp') return '.webp';
   if (mime === 'text/plain') return '.txt';
-  if (mime === 'application/zip') return '.zip';
+  if (mime === 'application/zip' || mime === 'application/x-zip-compressed') return '.zip';
+  if (mime === 'application/x-7z-compressed') return '.7z';
+  if (mime === 'application/vnd.rar' || mime === 'application/x-rar' || mime === 'application/x-rar-compressed') {
+    return '.rar';
+  }
   return '';
 }
 

@@ -27,13 +27,14 @@ const TMP_TTL_HOURS = Number.parseInt(process.env.TMP_CLEANUP_TTL_HOURS || proce
 const ALLOWED_MIMES = (process.env.AGENT_ASSET_ALLOWED_MIMES ||
   'image/jpeg,image/png,image/webp,' +
   'text/plain,application/octet-stream,' +
-  'application/zip,application/x-zip-compressed,application/x-7z-compressed')
+  'application/zip,application/x-zip-compressed,application/x-7z-compressed,' +
+  'application/vnd.rar,application/x-rar,application/x-rar-compressed')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
 
 const ALLOWED_EXTENSIONS = (process.env.AGENT_ASSET_ALLOWED_EXTENSIONS ||
-  '.medbot,.txt,.7z,.zip,.jpeg,.jpg,.png,.webp')
+  '.medbot,.txt,.7z,.zip,.rar,.jpeg,.jpg,.png,.webp')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);

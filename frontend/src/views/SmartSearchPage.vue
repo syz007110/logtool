@@ -1778,7 +1778,7 @@
         v-if="showDragOverlay"
         class="ss-drag-overlay"
         data-title="文件拖拽此处上传"
-        data-subtitle="支持文件或文件夹，当前支持图片、txt、.medbot、zip、7z"
+        data-subtitle="支持文件或文件夹，当前支持图片、txt、.medbot、zip、7z、rar"
       ></div>
     </main>
   </div>
@@ -1823,6 +1823,9 @@ const DEFAULT_ATTACHMENT_POLICY = Object.freeze({
     'application/zip',
     'application/x-zip-compressed',
     'application/x-7z-compressed',
+    'application/vnd.rar',
+    'application/x-rar',
+    'application/x-rar-compressed',
     'image/jpeg',
     'image/png',
     'image/webp'
@@ -1832,6 +1835,7 @@ const DEFAULT_ATTACHMENT_POLICY = Object.freeze({
     '.txt',
     '.7z',
     '.zip',
+    '.rar',
     '.jpeg',
     '.jpg',
     '.png',
@@ -1875,6 +1879,7 @@ function getMimeFallbackExtension (mimeType = '') {
   if (mime === 'image/webp') return '.webp'
   if (mime === 'application/x-7z-compressed') return '.7z'
   if (mime === 'application/zip' || mime === 'application/x-zip-compressed') return '.zip'
+  if (mime === 'application/vnd.rar' || mime === 'application/x-rar' || mime === 'application/x-rar-compressed') return '.rar'
   if (mime === 'text/plain') return '.txt'
   return ''
 }
@@ -1956,7 +1961,7 @@ function getDraftAttachmentVisualKind (attachment) {
   const ext = getExtension(attachment?.originalName || attachment?.storedName || '')
   if (ext === '.txt') return 'text'
   if (ext === '.medbot') return 'medbot'
-  if (ext === '.zip' || ext === '.7z') return 'archive'
+  if (ext === '.zip' || ext === '.7z' || ext === '.rar') return 'archive'
   return 'generic'
 }
 
@@ -2385,8 +2390,9 @@ export default {
       if (extensions.has('.medbot')) labels.push('.medbot')
       if (extensions.has('.zip')) labels.push('zip')
       if (extensions.has('.7z')) labels.push('7z')
+      if (extensions.has('.rar')) labels.push('rar')
       const extras = [...extensions]
-        .filter(ext => !['.jpg', '.jpeg', '.png', '.webp', '.txt', '.medbot', '.zip', '.7z'].includes(ext))
+        .filter(ext => !['.jpg', '.jpeg', '.png', '.webp', '.txt', '.medbot', '.zip', '.7z', '.rar'].includes(ext))
       labels.push(...extras)
       return labels.join('、') || '图片、txt、.medbot'
     })

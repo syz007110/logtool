@@ -10,6 +10,7 @@ const { getOssClient } = require('../config/agentAssetStorage');
 const {
   normalizeName,
   isArchiveName,
+  isSupportedScanAttachmentName,
   isSystemInfoName,
   isValidLogFileName,
   extractDeviceIdFromText,
@@ -148,8 +149,8 @@ async function scanRoot(root, scanState, attachmentMeta = {}) {
 async function scanAttachmentsForMessage(request = {}) {
   const attachments = Array.isArray(request?.message?.attachments) ? request.message.attachments : [];
   const supportedAttachments = attachments.filter((attachment) => {
-    const name = normalizeName(attachment?.originalName || attachment?.storedName).toLowerCase();
-    return name.endsWith('.medbot') || name.endsWith('.txt') || name.endsWith('.zip') || name.endsWith('.7z');
+    const name = normalizeName(attachment?.originalName || attachment?.storedName);
+    return isSupportedScanAttachmentName(name);
   });
   if (supportedAttachments.length < 1) return null;
 
