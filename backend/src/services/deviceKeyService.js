@@ -195,6 +195,10 @@ async function writebackUserKeyFromUpload({ deviceId, keyValue, logTime }) {
   const hourStr = formatDateTimeHour(hour);
   const matched = await getKeyRecordForDeviceAndDate(deviceId, hour);
 
+  if (matched && matched.key_value === keyValue) {
+    return matched;
+  }
+
   return sequelize.transaction(async (transaction) => {
     if (matched) {
       const matchedFrom = floorToHour(matched.valid_from_date);

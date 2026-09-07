@@ -116,6 +116,47 @@ function extractTimeFromLogContent(content, key = null) {
  * @param {string} key - 解密密钥（可选，用于解密内容）
  * @returns {Date|null} 提取的时间，失败返回null
  */
+function parseEntryTimestamp(raw) {
+  if (raw == null || raw === '') return null;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return raw;
+  }
+
+  const text = String(raw).trim().replace('T', ' ');
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(text)) {
+    const [datePart, timePart] = text.split(/\s+/);
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute, second] = timePart.split(':').map(Number);
+    const date = new Date(year, month - 1, day, hour, minute, second || 0);
+    if (
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    ) {
+      return date;
+    }
+  }
+
+  const loose = new Date(raw);
+  return Number.isNaN(loose.getTime()) ? null : loose;
+}
+
+/**
+ * 写回 device_keys 用的日志时间：优先解密后第一条日志时间
+ */
+function resolveWritebackLogTime({ entries, fallbackIso, fileName } = {}) {
+  const first = Array.isArray(entries) && entries.length > 0 ? entries[0] : null;
+  const fromEntry = first ? parseEntryTimestamp(first.timestamp) : null;
+  if (fromEntry) return fromEntry;
+
+  if (fallbackIso) {
+    const fromIso = new Date(fallbackIso);
+    if (!Number.isNaN(fromIso.getTime())) return fromIso;
+  }
+
+  return extractTimeFromFileName(fileName) || new Date();
+}
+
 function extractLogTime(fileName, content = null, key = null) {
   // 优先从文件名提取
   const timeFromFileName = extractTimeFromFileName(fileName);
@@ -134,6 +175,8 @@ function extractLogTime(fileName, content = null, key = null) {
 module.exports = {
   extractTimeFromFileName,
   extractTimeFromLogContent,
-  extractLogTime
+  extractLogTime,
+  parseEntryTimestamp,
+  resolveWritebackLogTime
 };
 

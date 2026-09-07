@@ -344,84 +344,18 @@ function decryptLogContent(content, key) {
   
   const entries = [];
   let errorCount = 0;
-  let currentKey = key; // 当前使用的密钥
-  let useDefaultKey = false; // 是否使用默认密钥
-  let powerOnWithLargeParams = false; // 是否检测到参数值大于100000的开机事件
-  let isFirstLogEntry = true; // 标记是否为第一条日志
-  
-  // 新增：解密失败检测（在测试阶段进行）
+  // 主钥由瀑布选定后传入，这里不再用前几行在传入钥/默认钥之间重选
+  let currentKey = key;
+  let useDefaultKey = key === DEFAULT_KEY;
+  let powerOnWithLargeParams = false;
   
   // 性能优化：批量错误收集，减少日志输出频率
   const errorBatch = [];
   const maxErrorBatchSize = isLargeFile ? 50 : 10; // 大文件批量输出错误
   
-  // 每个新的日志文件都从原始密钥开始，重置所有状态
-  console.log(`新日志文件开始，使用原始密钥: ${key}`);
+  console.log(`新日志文件开始，使用主密钥: ${key}`);
   if (isLargeFile) {
     console.log(`📊 检测到大文件 (${lines.length} 行)，启用性能优化模式`);
-  }
-  
-  // 新增：先尝试解密前几行来检测密钥是否正确
-  const testLines = Math.min(10, lines.length); // 测试前10行
-  let userKeyTestFailed = false;
-  let defaultKeyTestFailed = false;
-  
-  console.log(`🔍 开始密钥有效性检测，测试前 ${testLines} 行`);
-  
-  for (let i = 0; i < testLines; i++) {
-    const line = lines[i];
-    
-    try {
-      // 尝试用户密钥
-      const userEntry = translatePerLine(line, key);
-      const userP1 = parseInt(userEntry.param1) || 0;
-      const userP2 = parseInt(userEntry.param2) || 0;
-      const userP3 = parseInt(userEntry.param3) || 0;
-      const userP4 = parseInt(userEntry.param4) || 0;
-      
-      if (hasLargeParameterValue(userP1, userP2, userP3, userP4)) {
-        userKeyTestFailed = true;
-        console.log(`用户密钥测试失败，第${i+1}行参数异常: p1=${userP1}, p2=${userP2}, p3=${userP3}, p4=${userP4}`);
-      }
-      
-      // 尝试默认密钥
-      const defaultEntry = translatePerLine(line, DEFAULT_KEY);
-      const defaultP1 = parseInt(defaultEntry.param1) || 0;
-      const defaultP2 = parseInt(defaultEntry.param2) || 0;
-      const defaultP3 = parseInt(defaultEntry.param3) || 0;
-      const defaultP4 = parseInt(defaultEntry.param4) || 0;
-      
-      if (hasLargeParameterValue(defaultP1, defaultP2, defaultP3, defaultP4)) {
-        defaultKeyTestFailed = true;
-        console.log(`默认密钥测试失败，第${i+1}行参数异常: p1=${defaultP1}, p2=${defaultP2}, p3=${defaultP3}, p4=${defaultP4}`);
-      }
-      
-    } catch (error) {
-      // 如果解密失败，记录错误但不中断测试
-      console.log(`密钥测试第${i+1}行解密失败: ${error.message}`);
-    }
-  }
-  
-  // 如果两个密钥都失败了，记录错误但不中断处理
-  if (userKeyTestFailed && defaultKeyTestFailed) {
-    console.log(`❌ 解密失败：用户密钥和默认密钥都出现参数大于200000的情况，跳过此文件处理`);
-    // 返回空的日志条目数组，而不是抛出错误
-    return [];
-  }
-  
-  // 根据测试结果选择初始密钥
-  if (userKeyTestFailed && !defaultKeyTestFailed) {
-    console.log(`用户密钥测试失败，使用默认密钥进行解密`);
-    currentKey = DEFAULT_KEY;
-    useDefaultKey = true;
-  } else if (!userKeyTestFailed && defaultKeyTestFailed) {
-    console.log(`默认密钥测试失败，使用用户密钥进行解密`);
-    currentKey = key;
-    useDefaultKey = false;
-  } else {
-    console.log(`密钥测试通过，使用用户密钥进行解密`);
-    currentKey = key;
-    useDefaultKey = false;
   }
   
   for (let i = 0; i < lines.length; i++) {
@@ -474,21 +408,6 @@ function decryptLogContent(content, key) {
       
       let needReDecrypt = false; // 标记是否需要重新解密
       
-      // 平行检测：第一条日志检测和开机事件检测
-      // 1. 检查新日志文件第一条日志的参数值
-      if (isFirstLogEntry) {
-        console.log(`检查新日志文件第一条日志参数值: p1=${p1}, p2=${p2}, p3=${p3}, p4=${p4}`);
-        if (hasLargeParameterValue(p1, p2, p3, p4)) {
-          // 第一条日志参数异常，切换到默认密钥
-          console.log(`新日志文件第一条日志参数值异常，切换到默认密钥`);
-          useDefaultKey = true;
-          currentKey = DEFAULT_KEY;
-          needReDecrypt = true;
-        }
-        isFirstLogEntry = false;
-      }
-      
-      // 2. 检查开机事件（与第一条日志检测平行）
       if (isPowerOnEvent(entry.error_code, p1, p2)) {
         console.log(`检测到开机事件: ${entry.error_code}, 时间: ${entry.timestamp}`);
         
@@ -604,14 +523,6 @@ function decryptLogContent(content, key) {
   console.log(`   🔑 最终使用密钥: ${currentKey}`);
   console.log(`   🔄 是否切换密钥: ${useDefaultKey ? '是' : '否'}`);
   
-  // 新增：解密失败检测结果
-  if (userKeyTestFailed) {
-    console.log(`   ⚠️ 用户密钥测试失败: 出现参数大于100000的情况`);
-  }
-  if (defaultKeyTestFailed) {
-    console.log(`   ⚠️ 默认密钥测试失败: 出现参数大于100000的情况`);
-  }
-  
   // 性能优化：大文件时显示处理时间估算
   if (isLargeFile) {
     console.log(`   ⏱️ 大文件处理完成`);
@@ -701,38 +612,43 @@ function testKeyOnSample(content, key, testLineCount = 10) {
   return true;
 }
 
+function normalizeDecryptKey(key) {
+  const v = key == null ? '' : String(key).trim();
+  return v || null;
+}
+
+/**
+ * 按产品瀑布排列候选密钥：
+ * - 有库钥：库钥 → 用户钥 → 默认钥
+ * - 无库钥：用户钥 → 默认钥
+ */
+function buildDecryptKeyCascade({ dbKey = null, userKey = null } = {}) {
+  const resolvedDb = normalizeDecryptKey(dbKey);
+  const resolvedUser = normalizeDecryptKey(userKey);
+  const candidates = [];
+
+  if (resolvedDb) {
+    candidates.push({ key: resolvedDb, source: 'db' });
+  }
+  if (resolvedUser) {
+    candidates.push({ key: resolvedUser, source: 'user' });
+  }
+  candidates.push({ key: DEFAULT_KEY, source: 'default' });
+  return candidates;
+}
+
 /**
  * 按产品瀑布选择解密密钥：
- * - 有库钥：库钥 → 默认钥 → 用户钥
+ * - 有库钥：库钥 → 用户钥 → 默认钥
  * - 无库钥：用户钥 → 默认钥
  * @returns {{ key: string|null, source: 'db'|'default'|'user'|'failed' }}
  */
 function selectDecryptKeyByCascade({ content, dbKey = null, userKey = null } = {}) {
-  const normalize = (k) => {
-    const v = k == null ? '' : String(k).trim();
-    return v || null;
-  };
-  const resolvedDb = normalize(dbKey);
-  const resolvedUser = normalize(userKey);
-
-  if (resolvedDb) {
-    if (testKeyOnSample(content, resolvedDb)) {
-      return { key: resolvedDb, source: 'db' };
+  const candidates = buildDecryptKeyCascade({ dbKey, userKey });
+  for (const candidate of candidates) {
+    if (testKeyOnSample(content, candidate.key)) {
+      return candidate;
     }
-    if (testKeyOnSample(content, DEFAULT_KEY)) {
-      return { key: DEFAULT_KEY, source: 'default' };
-    }
-    if (resolvedUser && testKeyOnSample(content, resolvedUser)) {
-      return { key: resolvedUser, source: 'user' };
-    }
-    return { key: null, source: 'failed' };
-  }
-
-  if (resolvedUser && testKeyOnSample(content, resolvedUser)) {
-    return { key: resolvedUser, source: 'user' };
-  }
-  if (testKeyOnSample(content, DEFAULT_KEY)) {
-    return { key: DEFAULT_KEY, source: 'default' };
   }
   return { key: null, source: 'failed' };
 }
@@ -750,6 +666,7 @@ module.exports = {
   hasLargeParameterValue,
   analyzeError, // 新增详细错误分析函数
   testKeyOnSample,
+  buildDecryptKeyCascade,
   selectDecryptKeyByCascade,
   DEFAULT_KEY
 }; 

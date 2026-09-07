@@ -301,7 +301,8 @@
   --dialog-viewport-gap: 5vh;
   --dialog-max-height: calc(100vh - 2 * var(--dialog-viewport-gap));
   --dialog-max-height-dvh: calc(100dvh - 2 * var(--dialog-viewport-gap));
-  --dialog-file-list-max-height: min(240px, 30vh);
+  --dialog-file-list-row-height: 40px;
+  --dialog-file-list-max-height: calc(5 * var(--dialog-file-list-row-height));
 
   /* shadow (Base Tokens) */
   --shadow-xs: rgba(0, 0, 0, 0.05000000074505806);
@@ -1005,7 +1006,13 @@
 /* 弹窗内文件列表滚动区（上传类弹窗复用） */
 .app-dialog-file-list .file-items {
   max-height: var(--dialog-file-list-max-height);
+  overflow-x: hidden;
   overflow-y: auto;
+}
+
+.app-dialog-file-list .file-item {
+  box-sizing: border-box;
+  height: var(--dialog-file-list-row-height);
 }
 
 .app-dialog-file-list .file-item-icon {

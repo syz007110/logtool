@@ -22,6 +22,7 @@ test('isSystemInfoName matches systeminfo file name', () => {
 
 test('extractors read device id and key from text', () => {
   assert.equal(extractDeviceIdFromText('设备编号 4371-01'), '4371-01');
+  assert.equal(extractDeviceIdFromText('设备编号 4371-115'), '4371-115');
   assert.equal(extractMacAddressFromText('密钥 00-01-05-77-6a-09'), '00-01-05-77-6a-09');
 });
 

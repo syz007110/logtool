@@ -11,7 +11,7 @@ const { streamLogProcessor } = require('../utils/streamLogProcessor');
 const { getClickHouseClient } = require('../config/clickhouse');
 const { evictOldVersionsFromClickHouse } = require('./batchProcessor');
 const { writebackUserKeyFromUpload } = require('../services/deviceKeyService');
-const { extractTimeFromFileName } = require('../utils/logTimeExtractor');
+const { resolveWritebackLogTime } = require('../utils/logTimeExtractor');
 
 // 上传目录
 const UPLOAD_DIR = path.join(__dirname, '../../uploads/logs');
@@ -92,7 +92,7 @@ async function processLogFile(job) {
       console.warn('WebSocket 状态推送失败:', wsError.message);
     }
 
-    // 按瀑布选择最终解密密钥（库钥 → 默认 / 用户 → 默认）
+    // 按瀑布选择最终解密密钥（库钥 → 用户钥 → 默认钥）
     let selectedKey = decryptKey;
     let selectedSource = 'legacy';
     if (useKeyCascade) {
@@ -293,9 +293,11 @@ async function processLogFile(job) {
     // 仅当用户输入密钥在瀑布中胜出时，写回 device_keys（不再写 devices.device_key）
     try {
       if (useKeyCascade && selectedSource === 'user' && deviceId && deviceId !== '0000-00') {
-        const logTime = logTimeIso
-          ? new Date(logTimeIso)
-          : (extractTimeFromFileName(originalName) || new Date());
+        const logTime = resolveWritebackLogTime({
+          entries: decryptedEntries,
+          fallbackIso: logTimeIso,
+          fileName: originalName
+        });
         await writebackUserKeyFromUpload({
           deviceId,
           keyValue: selectedKey,

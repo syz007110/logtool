@@ -518,6 +518,7 @@
       @closed="handleUploadDialogClosed"
     >
 
+      <div class="log-upload-static">
       <el-upload
         ref="uploadRef"
         :action="uploadUrl"
@@ -553,6 +554,7 @@
           </div>
         </template>
       </el-upload>
+      </div>
 
       <!-- 自定义文件列表 -->
       <div v-if="uploadFileList && uploadFileList.length > 0" class="custom-file-list app-dialog-file-list">
@@ -588,6 +590,7 @@
         </div>
       </div>
 
+      <div class="log-upload-fields">
       <!-- 密钥输入区域 -->
       <div class="key-input-section">
         <div class="key-input-row">
@@ -681,6 +684,7 @@
         <div v-else-if="uploadDeviceModelError" class="device-error">
           <el-tag type="danger" size="small">{{ uploadDeviceModelError }}</el-tag>
         </div>
+      </div>
       </div>
 
       <template #footer>
@@ -3589,13 +3593,6 @@ export default {
   overflow: hidden;
 }
 
-.log-upload-dialog :deep(.el-dialog__body) {
-  overflow-y: hidden;
-}
-
-.log-upload-dialog .app-dialog-file-list .file-items {
-  max-height: min(180px, 24vh);
-}
 
 .file-list-header {
   display: flex;
@@ -4042,4 +4039,38 @@ export default {
   }
 }
 
+</style>
+
+<style>
+/* 弹窗触顶后只压缩文件列表；密钥/设备编号/型号不参与收缩，避免被裁出窗外 */
+.el-overlay:has(.log-upload-dialog) {
+  overflow: hidden;
+}
+
+.log-upload-dialog.el-dialog .el-dialog__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.log-upload-dialog .log-upload-static,
+.log-upload-dialog .log-upload-fields {
+  flex: 0 0 auto;
+}
+
+.log-upload-dialog .app-dialog-file-list {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log-upload-dialog .app-dialog-file-list .file-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--dialog-file-list-max-height);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 </style> 

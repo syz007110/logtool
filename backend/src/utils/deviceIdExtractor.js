@@ -6,11 +6,11 @@
 // 设备编号验证正则表达式
 // 支持两种格式：
 // 1. 5G-数字 格式（如：5G-07）
-// 2. 4xxx-xx 纯数字格式（如：4371-01），首位数字必须是4
-const DEVICE_ID_REGEX = /^(5G-\d+|4\d{3}-\d{2})$/;
+// 2. 4xxx-xx/xxx 纯数字格式（如：4371-01、4371-115），首位数字必须是4，横杠后 2～3 位
+const DEVICE_ID_REGEX = /^(5G-\d+|4\d{3}-\d{2,3})$/;
 
 // 用于从字符串中提取设备编号的正则表达式（允许在字符串中匹配）
-const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-\d{2})/;
+const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-\d{2,3})/;
 
 /**
  * 从文件夹路径中提取设备编号
@@ -80,21 +80,6 @@ function extractDeviceIdFromFileName(fileName) {
 }
 
 /**
- * 获取支持的设备编号格式示例
- * @returns {Array} - 支持的格式示例
- */
-function getSupportedDeviceIdFormats() {
-  return [
-    '5G-07',      // 5G-数字格式
-    '5G-01',      // 5G-数字格式
-    '5G-99',      // 5G-数字格式
-    '4371-01',    // 4xxx-xx格式（首位必须是4）
-    '4234-56',    // 4xxx-xx格式（首位必须是4）
-    '4999-99'     // 4xxx-xx格式（首位必须是4）
-  ];
-}
-
-/**
  * 检查设备编号是否在数据库中存在
  * @param {string} deviceId - 设备编号
  * @returns {Promise<boolean>} - 是否存在
@@ -130,7 +115,6 @@ module.exports = {
   extractDeviceIdFromPath,
   validateDeviceId,
   extractDeviceIdFromFileName,
-  getSupportedDeviceIdFormats,
   checkDeviceExists,
   getDeviceInfo,
   DEVICE_ID_REGEX
