@@ -8,10 +8,16 @@ const path = require('path');
 const os = require('os');
 const yauzl = require('yauzl');
 const tar = require('tar');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
+const {
+  buildRarExtractArgs,
+  formatRarExtractFailure,
+  listRarExtractorCandidates
+} = require('./rarExtractor');
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 class ArchiveProcessor {
   constructor(config = {}) {
@@ -236,22 +242,7 @@ class ArchiveProcessor {
       console.log(`执行7z命令: ${command}`);
       await execAsync(command);
       
-      // 获取解压后的文件列表
-      const extractedFiles = [];
-      const scanDir = (dir) => {
-        const files = fs.readdirSync(dir);
-        for (const file of files) {
-          const filePath = path.join(dir, file);
-          const stat = fs.statSync(filePath);
-          if (stat.isFile()) {
-            extractedFiles.push(filePath);
-          } else if (stat.isDirectory()) {
-            scanDir(filePath);
-          }
-        }
-      };
-      
-      scanDir(extractDir);
+      const extractedFiles = this.listExtractedFiles(extractDir);
       console.log(`7Z解压完成，共解压 ${extractedFiles.length} 个文件`);
       return extractedFiles;
     } catch (error) {
@@ -259,71 +250,53 @@ class ArchiveProcessor {
     }
   }
 
+  listExtractedFiles(extractDir) {
+    const extractedFiles = [];
+    const scanDir = (dir) => {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isFile()) {
+          extractedFiles.push(filePath);
+        } else if (stat.isDirectory()) {
+          scanDir(filePath);
+        }
+      }
+    };
+    scanDir(extractDir);
+    return extractedFiles;
+  }
+
   /**
-   * 解压RAR文件
+   * 解压RAR文件。优先 unrar（RAR5），再回退 7zz / 7z。
    * @param {string} archivePath - 压缩文件路径
    * @param {string} extractDir - 解压目录
    * @returns {Promise<Array>} - 解压后的文件列表
    */
   async extractRar(archivePath, extractDir) {
-    try {
-      // 尝试多个可能的7z路径
-      const possible7zPaths = [
-        '7z', // 如果PATH中有7z
-        'C:\\Program Files\\7-Zip\\7z.exe',
-        'C:\\Program Files (x86)\\7-Zip\\7z.exe',
-        process.env.PROGRAMFILES + '\\7-Zip\\7z.exe',
-        process.env['PROGRAMFILES(X86)'] + '\\7-Zip\\7z.exe'
-      ];
-      
-      let sevenZipPath = null;
-      for (const possiblePath of possible7zPaths) {
-        try {
-          if (possiblePath === '7z') {
-            // 测试PATH中的7z
-            await execAsync('7z --help', { timeout: 5000 });
-            sevenZipPath = '7z';
-            break;
-          } else if (fs.existsSync(possiblePath)) {
-            sevenZipPath = possiblePath;
-            break;
-          }
-        } catch (error) {
-          // 继续尝试下一个路径
-          continue;
-        }
+    const candidates = listRarExtractorCandidates();
+    const attemptErrors = [];
+
+    for (const candidate of candidates) {
+      const args = buildRarExtractArgs(candidate.kind, archivePath, extractDir);
+      try {
+        console.log(`执行RAR解压: ${candidate.bin} ${args.join(' ')}`);
+        await execFileAsync(candidate.bin, args, {
+          windowsHide: true,
+          maxBuffer: 20 * 1024 * 1024
+        });
+        const extractedFiles = this.listExtractedFiles(extractDir);
+        console.log(`RAR解压完成，工具=${candidate.bin}，共解压 ${extractedFiles.length} 个文件`);
+        return extractedFiles;
+      } catch (error) {
+        const detail = `${candidate.bin}: ${error.message}`;
+        console.warn(`RAR解压尝试失败: ${detail}`);
+        attemptErrors.push(detail);
       }
-      
-      if (!sevenZipPath) {
-        throw new Error('找不到7z命令，请确保7-Zip已安装并在PATH中');
-      }
-      
-      // 使用7zip命令行工具解压RAR文件
-      const command = `"${sevenZipPath}" x "${archivePath}" -o"${extractDir}" -y`;
-      console.log(`执行7z命令解压RAR: ${command}`);
-      await execAsync(command);
-      
-      // 获取解压后的文件列表
-      const extractedFiles = [];
-      const scanDir = (dir) => {
-        const files = fs.readdirSync(dir);
-        for (const file of files) {
-          const filePath = path.join(dir, file);
-          const stat = fs.statSync(filePath);
-          if (stat.isFile()) {
-            extractedFiles.push(filePath);
-          } else if (stat.isDirectory()) {
-            scanDir(filePath);
-          }
-        }
-      };
-      
-      scanDir(extractDir);
-      console.log(`RAR解压完成，共解压 ${extractedFiles.length} 个文件`);
-      return extractedFiles;
-    } catch (error) {
-      throw new Error(`RAR解压失败: ${error.message}`);
     }
+
+    throw new Error(formatRarExtractFailure(attemptErrors));
   }
 
   /**
