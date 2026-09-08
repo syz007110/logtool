@@ -5,6 +5,8 @@ node_modules
 /frontend/node_modules
 *.md
 !AGENTS.md
+!README.md
+!docs/product-positioning.md
 !.github/pull_request_template.md
 .env
 /infrastructure

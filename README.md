@@ -1,5 +1,10 @@
 # LogTool
 
+面向腹腔镜手术机器人的设备工程分析能力平台：日志分析、手术分析，后续扩展故障诊断与寿命预测。  
+能力通过 MCP 对外暴露，由单一 Agent 运行，企业钉钉作为便捷对话入口。Web 分析工作台用于深度分析，而不是做成大而全的后台管理系统。
+
+定位说明：`docs/product-positioning.md`
+
 ## Frontend targets
 Frontend now supports explicit web/mobile boundaries with a shared code core.
 
