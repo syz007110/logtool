@@ -11,9 +11,9 @@ const tar = require('tar');
 const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
 const {
-  buildRarExtractArgs,
+  buildUnrarExtractArgs,
   formatRarExtractFailure,
-  listRarExtractorCandidates
+  listUnrarBinaries
 } = require('./rarExtractor');
 
 const execAsync = promisify(exec);
@@ -269,28 +269,28 @@ class ArchiveProcessor {
   }
 
   /**
-   * 解压RAR文件。优先 unrar（RAR5），再回退 7zz / 7z。
+   * 解压 RAR：按文件类型固定使用 unrar，不回退 7z。
    * @param {string} archivePath - 压缩文件路径
    * @param {string} extractDir - 解压目录
    * @returns {Promise<Array>} - 解压后的文件列表
    */
   async extractRar(archivePath, extractDir) {
-    const candidates = listRarExtractorCandidates();
+    const binaries = listUnrarBinaries();
     const attemptErrors = [];
 
-    for (const candidate of candidates) {
-      const args = buildRarExtractArgs(candidate.kind, archivePath, extractDir);
+    for (const bin of binaries) {
+      const args = buildUnrarExtractArgs(archivePath, extractDir);
       try {
-        console.log(`执行RAR解压: ${candidate.bin} ${args.join(' ')}`);
-        await execFileAsync(candidate.bin, args, {
+        console.log(`执行RAR解压: ${bin} ${args.join(' ')}`);
+        await execFileAsync(bin, args, {
           windowsHide: true,
           maxBuffer: 20 * 1024 * 1024
         });
         const extractedFiles = this.listExtractedFiles(extractDir);
-        console.log(`RAR解压完成，工具=${candidate.bin}，共解压 ${extractedFiles.length} 个文件`);
+        console.log(`RAR解压完成，工具=${bin}，共解压 ${extractedFiles.length} 个文件`);
         return extractedFiles;
       } catch (error) {
-        const detail = `${candidate.bin}: ${error.message}`;
+        const detail = `${bin}: ${error.message}`;
         console.warn(`RAR解压尝试失败: ${detail}`);
         attemptErrors.push(detail);
       }
