@@ -40,6 +40,8 @@ test('extractors read device id and key from text', () => {
   assert.equal(extractDeviceIdFromText('设备编号 4371-01'), '4371-01');
   assert.equal(extractDeviceIdFromText('设备编号 4371-115'), '4371-115');
   assert.equal(extractDeviceIdFromText('设备编号 4372-8MMS'), '4372-8MMS');
+  assert.equal(extractDeviceIdFromText('设备编号 block4-4'), 'BLOCK4-4');
+  assert.equal(extractDeviceIdFromText('00-01-05-77-6a-09'), '');
   assert.equal(extractMacAddressFromText('密钥 00-01-05-77-6a-09'), '00-01-05-77-6a-09');
 });
 

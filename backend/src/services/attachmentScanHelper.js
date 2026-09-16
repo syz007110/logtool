@@ -1,8 +1,8 @@
 const path = require('path');
+const { DEVICE_ID_EXTRACT_REGEX } = require('../utils/deviceIdExtractor');
 
 const LOG_FILE_REGEX = /^\d{10}_log\.medbot$/i;
 const SYSTEM_INFO_REGEX = /^systeminfo\.txt$/i;
-const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-[0-9A-Za-z]{2,})/i;
 const MAC_ADDRESS_REGEX = /([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})/;
 
 function normalizeName(value) {

@@ -1,16 +1,23 @@
 /**
  * 设备编号提取器
- * 支持多种设备编号格式，与现有系统完全一致
+ * 统一规则：字母或数字 + 单个连字符 + 字母或数字（如 4371-01、ABC-12、block4-4、5G-07）
  */
 
-// 设备编号验证正则表达式
-// 支持两种格式：
-// 1. 5G-数字 格式（如：5G-07）
-// 2. 4xxx-后缀：首位必须是 4，横杠后至少 2 位字母或数字（如：4371-01、4371-115、4372-8MMS）
-const DEVICE_ID_REGEX = /^(5G-\d+|4\d{3}-[0-9A-Za-z]{2,})$/;
+const DEVICE_ID_REGEX = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
+const DEVICE_ID_EXTRACT_REGEX = /(?<![0-9A-Za-z-])[0-9A-Za-z]+-[0-9A-Za-z]+(?![0-9A-Za-z-])/;
 
-// 用于从字符串中提取设备编号的正则表达式（允许在字符串中匹配）
-const DEVICE_ID_EXTRACT_REGEX = /(5G-\d+|4\d{3}-[0-9A-Za-z]{2,})/;
+function splitPathParts(folderPath) {
+  return String(folderPath).split(/[/\\]/).filter(Boolean);
+}
+
+function matchDeviceIdInSegment(part) {
+  if (!part) return null;
+  if (DEVICE_ID_REGEX.test(part)) return part;
+  const nameWithoutExt = part.replace(/\.[^/.]+$/, '');
+  if (nameWithoutExt && DEVICE_ID_REGEX.test(nameWithoutExt)) return nameWithoutExt;
+  const match = part.match(DEVICE_ID_EXTRACT_REGEX);
+  return match ? match[0] : null;
+}
 
 /**
  * 从文件夹路径中提取设备编号
@@ -22,26 +29,18 @@ function extractDeviceIdFromPath(folderPath) {
     return null;
   }
 
-  const pathParts = folderPath.split(/[/\\]/);
-  
-  // 从路径的各个部分中查找匹配的设备编号
-  for (const part of pathParts) {
-    if (part && DEVICE_ID_REGEX.test(part)) {
-      return part;
-    }
-    
-    // 如果完整部分不匹配，尝试从部分中提取设备编号
-    const match = part.match(DEVICE_ID_EXTRACT_REGEX);
-    if (match) {
-      return match[0];
-    }
+  const pathParts = splitPathParts(folderPath);
+
+  for (let i = pathParts.length - 1; i >= 0; i -= 1) {
+    const found = matchDeviceIdInSegment(pathParts[i]);
+    if (found) return found;
   }
-  
+
   return null;
 }
 
 /**
- * 验证设备编号格式（与现有系统完全一致）
+ * 验证设备编号格式
  * @param {string} deviceId - 设备编号
  * @returns {boolean} - 是否有效
  */
@@ -62,21 +61,7 @@ function extractDeviceIdFromFileName(fileName) {
     return null;
   }
 
-  // 移除文件扩展名
-  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
-  
-  // 尝试从文件名中提取设备编号
-  if (DEVICE_ID_REGEX.test(nameWithoutExt)) {
-    return nameWithoutExt;
-  }
-
-  // 尝试从文件名中查找匹配的模式
-  const match = nameWithoutExt.match(DEVICE_ID_REGEX);
-  if (match) {
-    return match[0];
-  }
-
-  return null;
+  return matchDeviceIdInSegment(fileName);
 }
 
 /**
@@ -117,5 +102,6 @@ module.exports = {
   extractDeviceIdFromFileName,
   checkDeviceExists,
   getDeviceInfo,
-  DEVICE_ID_REGEX
+  DEVICE_ID_REGEX,
+  DEVICE_ID_EXTRACT_REGEX
 };

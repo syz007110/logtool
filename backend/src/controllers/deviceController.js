@@ -9,6 +9,7 @@ const { logOperation } = require('../utils/operationLogger');
 const { getDeviceKeys, addDeviceKey, updateDeviceKey, deleteDeviceKey, getKeyForDeviceAndDate, findDeviceIdByKeyValue } = require('../services/deviceKeyService');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const DeviceSeriesDict = require('../models/device_series_dict');
+const { validateDeviceId } = require('../utils/deviceIdExtractor');
 
 function normalizeSeriesId(series_id) {
   if (series_id === undefined || series_id === null || series_id === '') {
@@ -197,9 +198,7 @@ const createDevice = async (req, res) => {
   try {
     const { device_id, device_model_id, hospital_id, series_id } = req.body;
     if (!device_id) return res.status(400).json({ message: req.t('device.requiredId') });
-    // 简单格式校验：与日志相同规则
-    const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
-    if (!deviceIdRegex.test(device_id)) {
+    if (!validateDeviceId(device_id)) {
       return res.status(400).json({ message: req.t('device.invalidIdFormat') });
     }
     const existed = await Device.findOne({ where: { device_id } });
@@ -279,8 +278,7 @@ const updateDevice = async (req, res) => {
     const device = await Device.findByPk(id);
     if (!device) return res.status(404).json({ message: req.t('device.notFound') });
     if (device_id && device_id !== device.device_id) {
-      const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
-      if (!deviceIdRegex.test(device_id)) {
+      if (!validateDeviceId(device_id)) {
         return res.status(400).json({ message: req.t('device.invalidIdFormat') });
       }
       const existed = await Device.findOne({ where: { device_id } });

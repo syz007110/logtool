@@ -43,8 +43,8 @@ const {
   floorToHour,
   rangesOverlap
 } = require('../services/deviceKeyService');
+const { validateDeviceId } = require('../utils/deviceIdExtractor');
 
-const DEVICE_ID_RE = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
 const MAC_RE = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
 
 function parseArgs(argv) {
@@ -259,7 +259,7 @@ async function main() {
 
   const errors = [];
   for (const row of rows) {
-    if (!DEVICE_ID_RE.test(row.device_id || '')) {
+    if (!validateDeviceId(row.device_id || '')) {
       errors.push(`行 ${row.__line}: 非法 device_id=${row.device_id}`);
     }
     if ((row.key_value || '').trim() && !MAC_RE.test(row.key_value.trim())) {

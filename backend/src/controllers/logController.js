@@ -28,6 +28,7 @@ const {
 } = require('../workers/batchAdvancedFilters');
 const { ensureDeviceModelAndSeries } = require('../utils/deviceSeriesBinding');
 const { createLogUploadJob, resolveDeviceBindingByDeviceId } = require('../services/logUploadService');
+const { validateDeviceId } = require('../utils/deviceIdExtractor');
 
 /**
  * 将时间转换为本地时间格式字符串（与 ClickHouse 存储格式一致）
@@ -2799,13 +2800,6 @@ const validateKey = (key) => {
   // 密钥格式：mac地址，例如 00-01-05-77-6a-09
   const macAddressRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
   return macAddressRegex.test(key);
-};
-
-// 验证设备编号格式
-const validateDeviceId = (deviceId) => {
-  // 设备编号格式：允许数字+字母组合，例如 4371-01、ABC-12、123-XY
-  const deviceIdRegex = /^[0-9A-Za-z]+-[0-9A-Za-z]+$/;
-  return deviceIdRegex.test(deviceId);
 };
 
 // 批量删除日志
