@@ -499,7 +499,50 @@ CREATE TABLE IF NOT EXISTS log_entries (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- 9. 操作日志表
+-- 9. 审计日志表
+-- 审计记录为追加式数据；不设置业务外键，避免用户或目标对象删除时修改历史记录。
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+  -- 审计事件标识与格式版本
+  event_id CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  schema_version TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  occurred_at DATETIME(3) NOT NULL COMMENT 'AuditService 以 UTC 写入',
+
+  -- 事件定义
+  event_code VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  category VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  outcome VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  reason_code VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NULL,
+
+  -- 操作者快照：不设 users 外键，保留历史事实
+  actor_type VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  actor_user_id INT NULL COMMENT '事件发生时的内部用户 ID',
+  actor_username VARCHAR(100) NULL COMMENT '事件发生时的用户名快照',
+
+  -- 目标对象：不设业务表外键，保证目标删除后仍可追溯
+  target_type VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  target_id VARCHAR(128) NULL,
+
+  -- 请求信息：系统任务或异步任务可为空
+  request_id VARCHAR(64) NULL,
+  ip VARCHAR(45) NULL,
+  user_agent TEXT NULL,
+
+  -- 每个 eventCode 对应的白名单字段
+  details JSON NOT NULL,
+
+  CONSTRAINT uq_audit_logs_event_id UNIQUE (event_id),
+
+  INDEX idx_audit_occurred_at (occurred_at),
+  INDEX idx_audit_event_time (event_code, occurred_at),
+  INDEX idx_audit_actor_time (actor_user_id, occurred_at),
+  INDEX idx_audit_target_time (target_type, target_id, occurred_at),
+  INDEX idx_audit_request_id (request_id),
+  INDEX idx_audit_category_outcome_time (category, outcome, occurred_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 10. 旧操作日志表（暂时保留；后续业务事件逐步迁移至 audit_logs）
 CREATE TABLE IF NOT EXISTS operation_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   operation VARCHAR(100) NOT NULL,
@@ -517,7 +560,7 @@ CREATE TABLE IF NOT EXISTS operation_logs (
   INDEX idx_time (time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. 故障码多语言表
+-- 11. 故障码多语言表
 -- 业务侧多语言文本统一读取本表：
 -- short_message/user_hint/operation/detail/method/param1~4/tech_solution/explanation
 -- 主表 error_codes 中同名字段仅兼容保留，不再作为业务读取来源。
