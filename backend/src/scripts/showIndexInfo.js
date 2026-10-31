@@ -17,7 +17,7 @@ async function showIndexInfo() {
   console.log('数据库索引信息显示');
   console.log('========================================');
   console.log('注意：所有索引现在都在SQL初始化脚本中创建');
-  console.log('如需创建索引，请运行 init_database.sql');
+  console.log('如需创建索引，请运行 infrastructure/database/mysql/init.sql');
   console.log('========================================\n');
   
   try {

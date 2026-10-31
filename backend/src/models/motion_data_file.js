@@ -5,7 +5,7 @@ const { sequelize } = require('./index');
  * 运行数据（motion-data）文件元数据表 - MySQL
  * 表：motion_data_files
  *
- * 注意：init_database.sql 负责建表；这里仅定义 Sequelize Model。
+ * 注意：infrastructure/database/mysql/init.sql 负责建表；这里仅定义 Sequelize Model。
  */
 const MotionDataFile = sequelize.define('motion_data_files', {
   id: { type: DataTypes.BIGINT.UNSIGNED, autoIncrement: true, primaryKey: true },

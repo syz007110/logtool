@@ -1,7 +1,7 @@
 /**
  * Initialize / sync RBAC permissions into MySQL.
  *
- * - Ensures built-in roles exist (admin/expert/user/auditor from config/roles.js)
+ * - Ensures built-in roles exist (admin/expert/user from config/roles.js)
  * - Ensures permissions exist
  * - Ensures role_permissions reflect config/roles.js
  *

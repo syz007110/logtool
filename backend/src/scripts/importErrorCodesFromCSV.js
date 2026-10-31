@@ -18,7 +18,7 @@ async function importErrorCodesFromCSV(csvFilePath) {
     );
     
     if (tableExists[0].count === 0) {
-      throw new Error('error_codes 表不存在，请先运行 init_database.sql 创建数据库结构');
+      throw new Error('error_codes 表不存在，请先运行 infrastructure/database/mysql/init.sql 创建数据库结构');
     }
     
     console.log('✅ error_codes 表存在，可以开始导入数据');

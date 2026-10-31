@@ -76,11 +76,11 @@ module.exports = defineConfig({
     allowedHosts: 'all',
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3010',
         changeOrigin: true
       },
       '/static': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3010',
         changeOrigin: true
       }
     },

@@ -1,40 +1,39 @@
-node_modules
-/backend/uploads
-/backend/test
-/backend/node_modules
-/frontend/node_modules
-*.md
-!AGENTS.md
-!.github/pull_request_template.md
-.env
-/infrastructure
-/exports
-/docx
-/.cursor
-/.vscode
-docker-compose.yml
-/example
-/deploy
-# 依赖与构建
-backend/node_modules/
-frontend/node_modules/
+# 依赖与构建产物
+node_modules/
 frontend/dist/
 frontend/dist-web/
 frontend/dist-mobile/
+clients/log-monitor/dist/
+clients/log-monitor/release/
 *.log
+npm-debug.log*
 
-# 运行时数据
+# Python 缓存（translation-kernel）
+__pycache__/
+*.py[cod]
+backend/translation-kernel/.cache/
+
+# 环境变量与本地密钥
+.env
+*.env
+!.env.example
+
+# 运行时数据与本地导出
 data/
 backend/uploads/
 backend/logs/
 backend/tmp/
-npm-debug.log*
+/exports
+/docx
+/example
 
-# 环境变量
-*.env
+# 本地编排覆盖（主 docker-compose.yml 可以提交）
+docker-compose.override.yml
 
-# 系统文件
+# 系统与编辑器个人文件
 .DS_Store
 Thumbs.db
+.idea/
 
+# 隔离工作树
 .worktrees/

@@ -1,0 +1,41 @@
+<clickhouse>
+
+  <!-- 1 日志级别：这是控制 text_log 的“总闸” -->
+  <logger>
+    <level>warning</level>
+  </logger>
+
+  <!-- 2️ 彻底禁用 trace_log（非常重） -->
+  <trace_log remove="1"/>
+
+  <!-- 3️ text_log：保留但克制 -->
+  <text_log>
+    <enabled>true</enabled>
+    <database>system</database>
+    <table>text_log</table>
+    <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+  </text_log>
+
+  <!-- 4️ query_log：有用，保留 -->
+  <query_log>
+    <enabled>true</enabled>
+    <database>system</database>
+    <table>query_log</table>
+    <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+  </query_log>
+
+  <!-- 5 error_log：保留 -->
+  <error_log>
+    <enabled>true</enabled>
+    <database>system</database>
+    <table>error_log</table>
+    <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+  </error_log>
+
+  <!-- 6️ metric_log：直接关闭（你之前 CPU 的最大元凶） -->
+  <metric_log remove="1"/>
+  
+  <!-- 7️ asynchronous_metric_log：禁用以减少线程和资源占用 -->
+  <asynchronous_metric_log remove="1"/>
+
+</clickhouse>

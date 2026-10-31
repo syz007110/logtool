@@ -1,0 +1,21 @@
+<clickhouse>
+
+  <!-- Profiler（查询级，防误开） -->
+  <profiles>
+    <default>
+      <memory_profiler_step>0</memory_profiler_step>
+      <memory_profiler_sample_probability>0</memory_profiler_sample_probability>
+      <query_profiler_real_time_period_ns>0</query_profiler_real_time_period_ns>
+      <query_profiler_cpu_time_period_ns>0</query_profiler_cpu_time_period_ns>
+      <trace_profile_events>0</trace_profile_events>
+    </default>
+  </profiles>
+
+  <!-- 强制 default 用户使用 default profile -->
+  <users>
+    <default>
+      <profile>default</profile>
+    </default>
+  </users>
+
+</clickhouse>

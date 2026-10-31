@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <!-- 确保 HTTP 接口监听所有网络接口 -->
+    <http_port>8123</http_port>
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

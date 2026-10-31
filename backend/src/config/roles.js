@@ -181,31 +181,6 @@ const ROLES = {
       'smart_search:use',
       'kb:read'
     ]
-  },
-  
-  // 新增角色示例
-  AUDITOR: {
-    id: 4,
-    name: 'auditor',
-    description: '审计员，只能查看历史记录和日志，不能进行修改操作',
-    permissions: [
-      // 只读权限
-      'error_code:read',
-      'fault_case:read',
-      'log:read_all',
-      'log:read_own',
-      'i18n:read',
-      'history:read_all',
-      'history:export',
-      'queue:read',
-
-      // 故障案例审核权限
-      'fault_case:review',
-
-      // 知识库（KB）：只读
-      'smart_search:use',
-      'kb:read'
-    ]
   }
 };
 
