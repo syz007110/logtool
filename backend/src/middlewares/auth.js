@@ -1,5 +1,16 @@
 const jwt = require('jsonwebtoken');
 
+function unauthorized(req, res, message) {
+  if (req?.apiContractErrors) {
+    return res.status(401).json({
+      code: 'UNAUTHORIZED',
+      message,
+      requestId: req.requestId || ''
+    });
+  }
+  return res.status(401).json({ message });
+}
+
 function extractBearerToken(req) {
   const authHeader = String(req?.headers?.authorization || '').trim();
   if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
@@ -39,7 +50,7 @@ module.exports = function (req, res, next) {
   }
 
   if (!token) {
-    return res.status(401).json({ message: '未登录或token缺失' });
+    return unauthorized(req, res, '未登录或token缺失');
   }
 
   try {
@@ -47,6 +58,6 @@ module.exports = function (req, res, next) {
     req.user = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ message: 'token无效或已过期' });
+    return unauthorized(req, res, 'token无效或已过期');
   }
 };

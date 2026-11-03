@@ -1,6 +1,6 @@
 const { ulid } = require('ulid');
 const AuditLog = require('../models/audit_log');
-const { ACTOR_TYPES, OUTCOMES, TARGET_TYPES, getEventDefinition } = require('../audit/eventDefinitions');
+const { ACTOR_TYPES, OUTCOMES, TARGET_POLICIES, TARGET_TYPES, getEventDefinition } = require('../audit/eventDefinitions');
 const { AuditValidationError, assertNonEmptyString, isPlainObject } = require('../audit/validation');
 
 const SCHEMA_VERSION = 1;
@@ -81,6 +81,17 @@ function buildRequest(req, generateEventId) {
 }
 
 function buildTarget(target, definition) {
+  if (definition.targetPolicy === TARGET_POLICIES.NONE) {
+    if (target != null) {
+      throw new AuditValidationError('target must be null for this event');
+    }
+    return { target_type: null, target_id: null };
+  }
+
+  if (target == null && definition.targetPolicy === TARGET_POLICIES.OPTIONAL) {
+    return { target_type: null, target_id: null };
+  }
+
   if (!isPlainObject(target)) {
     throw new AuditValidationError('target must be an object');
   }
@@ -104,15 +115,13 @@ function validateEventInput(input) {
   const definition = getEventDefinition(eventCode);
   const outcome = assertNonEmptyString(input.outcome, 'outcome', 16).toUpperCase();
 
-  if (!OUTCOMES.has(outcome) || !definition.allowedOutcomes.has(outcome)) {
+  const outcomeDefinition = definition.outcomes[outcome];
+  if (!OUTCOMES.has(outcome) || !outcomeDefinition) {
     throw new AuditValidationError(`outcome is not allowed for ${eventCode}: ${outcome}`);
   }
 
   const reasonCode = input.reasonCode == null ? null : assertNonEmptyString(input.reasonCode, 'reasonCode', 100).toUpperCase();
-  if (outcome === 'SUCCESS' && reasonCode !== null) {
-    throw new AuditValidationError('reasonCode must be null for SUCCESS events');
-  }
-  if (outcome !== 'SUCCESS' && (!reasonCode || !definition.allowedReasonCodes.has(reasonCode))) {
+  if (!outcomeDefinition.reasonCodes.has(reasonCode)) {
     throw new AuditValidationError(`reasonCode is not allowed for ${eventCode}: ${reasonCode}`);
   }
 
@@ -124,7 +133,7 @@ function createAuditService({ auditLog = AuditLog, generateEventId = ulid, now =
     const { eventCode, definition, outcome, reasonCode } = validateEventInput(input);
     const removedSensitiveValues = [];
     const sanitizedInputDetails = sanitizeSensitiveValues(input.details, 'details', removedSensitiveValues);
-    const sanitizedDetails = definition.validateDetails(sanitizedInputDetails);
+    const sanitizedDetails = definition.validateDetails(sanitizedInputDetails, outcome);
     const target = buildTarget(input.target, definition);
     const actor = buildActor(req);
     const request = buildRequest(req, generateEventId);

@@ -96,17 +96,6 @@ function defineAssociations() {
     as: 'user'
   });
 
-  // UserRole 和 assigned_by 用户的关联
-  UserRole.belongsTo(User, {
-    foreignKey: 'assigned_by',
-    as: 'assignedBy'
-  });
-
-  User.hasMany(UserRole, {
-    foreignKey: 'assigned_by',
-    as: 'assignedUserRoles'
-  });
-
   // Role 与 Permission 的多对多关联
   Role.belongsToMany(Permission, {
     through: RolePermission,

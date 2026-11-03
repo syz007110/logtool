@@ -1,0 +1,114 @@
+/audit-logs:
+  get:
+    tags: [Audit]
+    summary: 查询审计记录
+    description: |
+      返回审计事实记录，默认按 occurredAt 降序排列。
+      from 和 to 均为 UTC ISO 8601 时间；同时传入时必须满足 from < to。
+      eventCode 为业务事件码精确匹配；actorUsername 为不区分大小写的包含匹配。
+    operationId: listAuditLogs
+    security:
+      - bearerAuth: []
+    x-required-permission: audit:read
+    parameters:
+      - $ref: ../schemas/common.yaml#/RequestIdHeader
+      - $ref: ../schemas/audit.yaml#/FromParameter
+      - $ref: ../schemas/audit.yaml#/ToParameter
+      - $ref: ../schemas/audit.yaml#/EventCodeParameter
+      - $ref: ../schemas/audit.yaml#/ActorUserIdParameter
+      - $ref: ../schemas/audit.yaml#/ActorUsernameParameter
+      - $ref: ../schemas/audit.yaml#/PageParameter
+      - $ref: ../schemas/audit.yaml#/LimitParameter
+    responses:
+      '200':
+        description: 查询成功。
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/audit.yaml#/AuditLogPage
+      '400':
+        $ref: ../schemas/common.yaml#/BadRequestResponse
+      '401':
+        $ref: ../schemas/common.yaml#/UnauthorizedResponse
+      '403':
+        $ref: ../schemas/common.yaml#/ForbiddenResponse
+      '500':
+        $ref: ../schemas/common.yaml#/InternalErrorResponse
+
+/audit-logs/export:
+  post:
+    tags: [Audit]
+    summary: 导出审计记录
+    description: |
+      按筛选条件导出 UTF-8 CSV 文件。首期为同步导出，单次导出不得超过服务端配置的最大记录数。
+      成功导出后，服务端必须记录 AUDIT.LOGS_EXPORTED 审计事件；超过导出上限时不得静默截断。
+    operationId: exportAuditLogs
+    security:
+      - bearerAuth: []
+    x-required-permission: audit:export
+    parameters:
+      - $ref: ../schemas/common.yaml#/RequestIdHeader
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/audit.yaml#/ExportAuditLogsRequest
+    responses:
+      '200':
+        description: 导出成功，响应为 CSV 文件流。
+        headers:
+          Content-Disposition:
+            description: 包含建议下载文件名的附件响应头。
+            schema:
+              type: string
+        content:
+          text/csv:
+            schema:
+              type: string
+              format: binary
+      '400':
+        $ref: ../schemas/common.yaml#/BadRequestResponse
+      '401':
+        $ref: ../schemas/common.yaml#/UnauthorizedResponse
+      '403':
+        $ref: ../schemas/common.yaml#/ForbiddenResponse
+      '422':
+        description: 筛选条件符合格式但不满足导出业务规则，例如超过最大导出量。
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/common.yaml#/ErrorResponse
+            example:
+              code: AUDIT_EXPORT_LIMIT_EXCEEDED
+              message: 导出记录数超过允许上限
+              requestId: req_01K...
+      '500':
+        $ref: ../schemas/common.yaml#/InternalErrorResponse
+
+/audit-event-definitions:
+  get:
+    tags: [Audit]
+    summary: 查询审计事件定义
+    description: |
+      返回审计查询页面可展示和筛选的业务事件码目录。
+      事件定义仍由后端代码维护；本接口不提供任何修改能力，也不暴露 details 白名单等内部校验规则。
+    operationId: listAuditEventDefinitions
+    security:
+      - bearerAuth: []
+    x-required-permission: audit:read
+    parameters:
+      - $ref: ../schemas/common.yaml#/RequestIdHeader
+    responses:
+      '200':
+        description: 查询成功。
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/audit.yaml#/AuditEventDefinitionList
+      '401':
+        $ref: ../schemas/common.yaml#/UnauthorizedResponse
+      '403':
+        $ref: ../schemas/common.yaml#/ForbiddenResponse
+      '500':
+        $ref: ../schemas/common.yaml#/InternalErrorResponse

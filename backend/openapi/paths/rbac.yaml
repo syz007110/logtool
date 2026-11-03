@@ -1,0 +1,56 @@
+/me/authorization:
+  get:
+    tags: [RBAC]
+    operationId: getMyAuthorization
+    security: [{ bearerAuth: [] }]
+    responses:
+      '200': { description: 当前有效授权, content: { application/json: { schema: { $ref: ../schemas/rbac.yaml#/Authorization } } } }
+/roles:
+  get:
+    tags: [RBAC]
+    operationId: listRoles
+    security: [{ bearerAuth: [] }]
+    x-required-permission: role:read
+    responses: { '200': { description: 角色列表 } }
+  post:
+    tags: [RBAC]
+    operationId: createRole
+    security: [{ bearerAuth: [] }]
+    x-required-permission: role:manage
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../schemas/rbac.yaml#/CreateRoleRequest } } } }
+    responses: { '201': { description: 已创建 }, '409': { description: ROLE_CODE_EXISTS }, '422': { description: 无效权限 } }
+/roles/{roleId}:
+  get:
+    tags: [RBAC]
+    operationId: getRole
+    security: [{ bearerAuth: [] }]
+    x-required-permission: role:read
+    responses: { '200': { description: 角色详情 } }
+  patch:
+    tags: [RBAC]
+    operationId: updateRole
+    security: [{ bearerAuth: [] }]
+    x-required-permission: role:manage
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../schemas/rbac.yaml#/UpdateRoleRequest } } } }
+    responses: { '200': { description: 已更新 }, '422': { description: 系统角色或超管角色保护 } }
+  delete:
+    tags: [RBAC]
+    operationId: deleteRole
+    security: [{ bearerAuth: [] }]
+    x-required-permission: role:manage
+    responses: { '204': { description: 已删除 }, '409': { description: ROLE_ASSIGNED_TO_USERS } }
+/users/{userId}/roles:
+  put:
+    tags: [RBAC]
+    operationId: replaceUserRoles
+    security: [{ bearerAuth: [] }]
+    x-required-permission: user:role:assign
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../schemas/rbac.yaml#/ReplaceUserRolesRequest } } } }
+    responses: { '200': { description: 已替换 }, '422': { description: USER_REQUIRES_ROLE, INVALID_ROLE_ASSIGNMENT 或 LAST_SUPER_ADMIN_REQUIRED } }
+/permissions:
+  get:
+    tags: [RBAC]
+    operationId: listPermissions
+    security: [{ bearerAuth: [] }]
+    x-required-permission: role:read
+    responses: { '200': { description: 权限目录 } }

@@ -1,0 +1,27 @@
+/* table-fit.css */
+
+/* 1. 表格容器不超过页面宽度 */
+.markdown-preview-view table,
+.markdown-source-view.mod-cm6 .cm-table-widget table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+/* 2. 单元格内容自动换行，避免撑破页面 */
+.markdown-preview-view table th,
+.markdown-preview-view table td,
+.markdown-source-view.mod-cm6 .cm-table-widget th,
+.markdown-source-view.mod-cm6 .cm-table-widget td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+/* 3. 表格外层不横向溢出 */
+.markdown-preview-view div:has(> table),
+.markdown-source-view.mod-cm6 div:has(> table) {
+  max-width: 100%;
+  overflow-x: auto;
+}

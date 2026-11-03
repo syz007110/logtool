@@ -10,8 +10,8 @@ const listPermissions = async (req, res) => {
         order: [['sort_order', 'ASC'], ['id', 'ASC']]
       }),
       Permission.findAll({
-        attributes: ['id', 'name', 'description', 'group_key'],
-        order: [['name', 'ASC']]
+        attributes: ['id', 'code', 'name_zh', 'name_en', 'description', 'group_key', 'sort_order'],
+        order: [['sort_order', 'ASC'], ['code', 'ASC']]
       })
     ]);
 
@@ -51,13 +51,15 @@ const listPermissions = async (req, res) => {
 
     const normalizedPermissions = permissions.map((p) => ({
       id: p.id,
-      name: p.name,
+      code: p.code,
+      nameZh: p.name_zh,
+      nameEn: p.name_en,
       description: p.description,
-      group_key: p.group_key || 'other'
+      groupKey: p.group_key || 'other'
     }));
 
     for (const p of normalizedPermissions) {
-      ensureFallbackGroup(p.group_key).permissions.push(p);
+      ensureFallbackGroup(p.groupKey).permissions.push(p);
     }
 
     grouped.sort((a, b) => {

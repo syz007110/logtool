@@ -1,0 +1,250 @@
+FromParameter:
+  name: from
+  in: query
+  required: false
+  description: 查询开始时间（含），UTC ISO 8601。
+  schema:
+    type: string
+    format: date-time
+
+ToParameter:
+  name: to
+  in: query
+  required: false
+  description: 查询结束时间（不含），UTC ISO 8601。
+  schema:
+    type: string
+    format: date-time
+
+EventCodeParameter:
+  name: eventCode
+  in: query
+  required: false
+  description: 业务事件码精确匹配，例如 RBAC.USER_ROLE_REASSIGNED。
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 100
+
+ActorUserIdParameter:
+  name: actorUserId
+  in: query
+  required: false
+  description: 操作人内部用户 ID 精确匹配。
+  schema:
+    type: string
+    pattern: '^[1-9][0-9]*$'
+
+ActorUsernameParameter:
+  name: actorUsername
+  in: query
+  required: false
+  description: 操作人用户名的不区分大小写包含匹配。
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 100
+
+PageParameter:
+  name: page
+  in: query
+  required: false
+  description: 页码，从 1 开始。
+  schema:
+    type: integer
+    minimum: 1
+    default: 1
+
+LimitParameter:
+  name: limit
+  in: query
+  required: false
+  description: 每页记录数。
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+
+AuditLog:
+  type: object
+  additionalProperties: false
+  required:
+    - eventId
+    - schemaVersion
+    - occurredAt
+    - eventCode
+    - summary
+    - category
+    - outcome
+    - reasonCode
+    - actor
+    - target
+    - request
+    - details
+  properties:
+    eventId:
+      type: string
+      description: 审计事件唯一标识（ULID）。
+      minLength: 26
+      maxLength: 26
+    schemaVersion:
+      type: integer
+      minimum: 1
+      description: 审计记录格式版本。
+    occurredAt:
+      type: string
+      format: date-time
+      description: 服务端产生的 UTC 时间。
+    eventCode:
+      type: string
+      description: 后端预定义的业务事件码。
+      maxLength: 100
+    summary:
+      type: string
+      description: 服务端依据事件定义生成的操作概述，仅用于展示，客户端不得据此作业务判断。
+    category:
+      type: string
+      description: 后端预定义的事件分类。
+      maxLength: 32
+    outcome:
+      type: string
+      enum: [SUCCESS, DENIED, FAILURE]
+    reasonCode:
+      type: [string, 'null']
+      maxLength: 100
+      description: SUCCESS 时为 null；DENIED 或 FAILURE 时为该事件允许的原因码。
+    actor:
+      $ref: '#/AuditActor'
+    target:
+      oneOf:
+        - $ref: '#/AuditTarget'
+        - type: 'null'
+    request:
+      oneOf:
+        - $ref: '#/AuditRequest'
+        - type: 'null'
+    details:
+      type: object
+      description: 经事件白名单校验和敏感字段处理后的事件专属内容。
+      additionalProperties: true
+
+AuditActor:
+  type: object
+  additionalProperties: false
+  required: [type, userId, username]
+  properties:
+    type:
+      type: string
+      enum: [USER, ANONYMOUS, SYSTEM]
+    userId:
+      type: [string, 'null']
+      description: 内部用户 ID；不向客户端暴露数值类型以避免精度问题。
+    username:
+      type: [string, 'null']
+      maxLength: 100
+
+AuditTarget:
+  type: object
+  additionalProperties: false
+  required: [type, id]
+  properties:
+    type:
+      type: string
+      description: 后端维护的目标对象类型。
+      maxLength: 32
+    id:
+      type: string
+      maxLength: 128
+
+AuditRequest:
+  type: object
+  additionalProperties: false
+  required: [requestId, ip, userAgent]
+  properties:
+    requestId:
+      type: [string, 'null']
+      maxLength: 64
+    ip:
+      type: [string, 'null']
+      maxLength: 45
+    userAgent:
+      type: [string, 'null']
+      maxLength: 4096
+
+AuditLogPage:
+  type: object
+  additionalProperties: false
+  required: [items, total, page, limit]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/AuditLog'
+    total:
+      type: integer
+      minimum: 0
+    page:
+      type: integer
+      minimum: 1
+    limit:
+      type: integer
+      minimum: 1
+
+AuditLogFilters:
+  type: object
+  additionalProperties: false
+  properties:
+    from:
+      type: string
+      format: date-time
+    to:
+      type: string
+      format: date-time
+    eventCode:
+      type: string
+      minLength: 1
+      maxLength: 100
+    actorUserId:
+      type: string
+      pattern: '^[1-9][0-9]*$'
+    actorUsername:
+      type: string
+      minLength: 1
+      maxLength: 100
+
+ExportAuditLogsRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    filters:
+      $ref: '#/AuditLogFilters'
+    format:
+      type: string
+      enum: [csv]
+      default: csv
+
+AuditEventDefinition:
+  type: object
+  additionalProperties: false
+  required: [eventCode, category, summary]
+  properties:
+    eventCode:
+      type: string
+      maxLength: 100
+    category:
+      type: string
+      maxLength: 32
+    summary:
+      type: string
+      description: 面向审计查询页面的事件概述。
+
+AuditEventDefinitionList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/AuditEventDefinition'

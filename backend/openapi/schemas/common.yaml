@@ -1,0 +1,53 @@
+RequestIdHeader:
+  name: X-Request-Id
+  in: header
+  required: false
+  description: 调用方提供的请求关联标识；服务端会生成或透传并在错误响应中返回。
+  schema:
+    type: string
+    maxLength: 64
+
+ErrorResponse:
+  type: object
+  additionalProperties: false
+  required: [code, message, requestId]
+  properties:
+    code:
+      type: string
+      description: 稳定的机器可读错误码。
+      maxLength: 100
+    message:
+      type: string
+      description: 面向调用方的错误说明，不得包含内部敏感信息。
+    requestId:
+      type: string
+      description: 服务端请求关联标识，用于问题排查。
+      maxLength: 64
+
+BadRequestResponse:
+  description: 请求参数格式错误或筛选条件不合法。
+  content:
+    application/json:
+      schema:
+        $ref: '#/ErrorResponse'
+
+UnauthorizedResponse:
+  description: 未认证或访问令牌无效。
+  content:
+    application/json:
+      schema:
+        $ref: '#/ErrorResponse'
+
+ForbiddenResponse:
+  description: 已认证，但缺少接口所需权限。
+  content:
+    application/json:
+      schema:
+        $ref: '#/ErrorResponse'
+
+InternalErrorResponse:
+  description: 服务端内部错误。
+  content:
+    application/json:
+      schema:
+        $ref: '#/ErrorResponse'

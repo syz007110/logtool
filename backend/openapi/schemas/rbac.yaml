@@ -1,0 +1,26 @@
+Authorization:
+  type: object
+  required: [roles, isSuperAdmin, permissions]
+  properties:
+    roles: { type: array, items: { type: string } }
+    isSuperAdmin: { type: boolean }
+    permissions: { type: array, items: { type: string } }
+CreateRoleRequest:
+  type: object
+  required: [code, nameZh, nameEn, permissionCodes]
+  properties:
+    code: { type: string, pattern: '^[a-z][a-z0-9_:-]{1,63}$' }
+    nameZh: { type: string, minLength: 1, maxLength: 100 }
+    nameEn: { type: string, minLength: 1, maxLength: 100 }
+    permissionCodes: { type: array, items: { type: string } }
+UpdateRoleRequest:
+  type: object
+  properties:
+    nameZh: { type: string, minLength: 1, maxLength: 100 }
+    nameEn: { type: string, minLength: 1, maxLength: 100 }
+    permissionCodes: { type: array, items: { type: string } }
+ReplaceUserRolesRequest:
+  type: object
+  required: [roleIds]
+  properties:
+    roleIds: { type: array, minItems: 1, items: { type: integer, minimum: 1 } }

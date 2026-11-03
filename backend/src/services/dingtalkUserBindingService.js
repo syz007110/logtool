@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 
 const User = require('../models/user');
 const UserRole = require('../models/user_role');
+const { assignDefaultRole } = require('./userRoleService');
 
 function normalizeValue(value) {
   const text = String(value || '').trim();
@@ -22,12 +23,8 @@ async function ensureDefaultRole(userId, options = {}) {
   const UserRoleModel = options.UserRoleModel || UserRole;
   const exists = await UserRoleModel.findOne({ where: { user_id: userId } });
   if (exists) return;
-  await UserRoleModel.create({
-    user_id: userId,
-    role_id: 3,
-    assigned_by: userId,
-    notes: 'DingTalk auto-bind'
-  });
+  if (options.UserRoleModel) throw new Error('Custom UserRoleModel is not supported by RBAC v2');
+  await assignDefaultRole(userId);
 }
 
 async function findExistingUser(identity, options = {}) {

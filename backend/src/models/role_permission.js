@@ -13,7 +13,8 @@ const RolePermission = sequelize.define('role_permissions', {
     primaryKey: true,
     allowNull: false,
     references: { model: 'permissions', key: 'id' }
-  }
+  },
+  created_at: { type: DataTypes.DATE(3), allowNull: false }
 }, {
   timestamps: false,
   tableName: 'role_permissions',

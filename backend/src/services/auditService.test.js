@@ -138,3 +138,107 @@ test('requires the protected-super-admin reason code for a denied event', async 
 
   assert.equal(rows.length, 0);
 });
+
+test('records an audit export with an exact success details schema and no target', async () => {
+  const { service, rows } = createServiceHarness();
+
+  await service.record({
+    user: { id: 7, username: 'admin' },
+    headers: { 'x-request-id': 'req_export' }
+  }, {
+    eventCode: 'AUDIT.LOGS_EXPORTED',
+    outcome: 'SUCCESS',
+    reasonCode: null,
+    target: null,
+    details: {
+      filters: {
+        from: '2026-10-31T00:00:00.000Z',
+        to: '2026-11-01T00:00:00.000Z',
+        eventCode: null,
+        actorUserId: null,
+        actorUsername: null
+      },
+      format: 'csv',
+      exportedRowCount: 42
+    }
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].row.event_code, 'AUDIT.LOGS_EXPORTED');
+  assert.equal(rows[0].row.category, 'audit');
+  assert.equal(rows[0].row.target_type, null);
+  assert.equal(rows[0].row.target_id, null);
+  assert.equal(rows[0].row.details.exportedRowCount, 42);
+});
+
+test('rejects audit export details outside the event schema and non-null targets', async () => {
+  const { service, rows } = createServiceHarness();
+  const details = {
+    filters: {
+      from: null,
+      to: null,
+      eventCode: null,
+      actorUserId: null,
+      actorUsername: null
+    },
+    format: 'csv',
+    exportedRowCount: 1
+  };
+
+  await assert.rejects(
+    service.record(null, {
+      eventCode: 'AUDIT.LOGS_EXPORTED',
+      outcome: 'SUCCESS',
+      reasonCode: null,
+      target: { type: 'AUDIT_LOG', id: 'fake' },
+      details
+    }),
+    AuditValidationError
+  );
+
+  await assert.rejects(
+    service.record(null, {
+      eventCode: 'AUDIT.LOGS_EXPORTED',
+      outcome: 'SUCCESS',
+      reasonCode: null,
+      target: null,
+      details: { ...details, unexpected: true }
+    }),
+    AuditValidationError
+  );
+
+  assert.equal(rows.length, 0);
+});
+
+test('requires null exportedRowCount for failed audit exports', async () => {
+  const { service, rows } = createServiceHarness();
+  const filters = {
+    from: null,
+    to: null,
+    eventCode: null,
+    actorUserId: null,
+    actorUsername: null
+  };
+
+  await assert.rejects(
+    service.record(null, {
+      eventCode: 'AUDIT.LOGS_EXPORTED',
+      outcome: 'FAILURE',
+      reasonCode: 'AUDIT.EXPORT_LIMIT_EXCEEDED',
+      target: null,
+      details: { filters, format: 'csv', exportedRowCount: 0 }
+    }),
+    AuditValidationError
+  );
+
+  await service.record(null, {
+    eventCode: 'AUDIT.LOGS_EXPORTED',
+    outcome: 'FAILURE',
+    reasonCode: 'AUDIT.EXPORT_LIMIT_EXCEEDED',
+    target: null,
+    details: { filters, format: 'csv', exportedRowCount: null }
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].row.reason_code, 'AUDIT.EXPORT_LIMIT_EXCEEDED');
+});

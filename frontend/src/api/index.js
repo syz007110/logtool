@@ -256,7 +256,7 @@ const users = {
 const roles = {
   getList: () => api.get('/roles'),
   create: (data) => api.post('/roles', data),
-  update: (id, data) => api.put(`/roles/${id}`, data),
+  update: (id, data) => api.patch(`/roles/${id}`, data),
   delete: (id) => api.delete(`/roles/${id}`)
 }
 

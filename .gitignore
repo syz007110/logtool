@@ -16,6 +16,7 @@ backend/translation-kernel/.cache/
 # 环境变量与本地密钥
 .env
 *.env
+backend/.env.test
 !.env.example
 
 # 运行时数据与本地导出

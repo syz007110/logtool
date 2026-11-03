@@ -1,10 +1,9 @@
 const crypto = require('crypto');
 const User = require('../models/user');
-const UserRole = require('../models/user_role');
-const Role = require('../models/role');
-const Permission = require('../models/permission');
-const { Op } = require('sequelize');
+const { sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
+const { getAuthorization } = require('../services/authorizationService');
+const { assignDefaultRole } = require('../services/userRoleService');
 const svgCaptcha = require('svg-captcha');
 const { validatePasswordStrength } = require('../utils/passwordStrength');
 const loginFail = require('../utils/loginFailManager');
@@ -119,7 +118,7 @@ function getDeviceInfo(req) {
 
 const register = async (req, res) => {
   try {
-    const { username, password, email, roles } = req.body;
+    const { username, password, email } = req.body;
     if (!username || !password) {
       return res.status(400).json({ message: req.t('user.requiredUsernamePassword') });
     }
@@ -132,25 +131,11 @@ const register = async (req, res) => {
       return res.status(409).json({ message: req.t('user.usernameExists') });
     }
     const password_hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, password_hash, email });
-
-    if (roles && Array.isArray(roles) && roles.length > 0) {
-      for (const roleId of roles) {
-        await UserRole.create({
-          user_id: user.id,
-          role_id: roleId,
-          assigned_by: user.id,
-          notes: '注册时分配'
-        });
-      }
-    } else {
-      await UserRole.create({
-        user_id: user.id,
-        role_id: 3,
-        assigned_by: user.id,
-        notes: '注册时默认分配普通用户权限'
-      });
-    }
+    const user = await sequelize.transaction(async (transaction) => {
+      const created = await User.create({ username, password_hash, email }, { transaction });
+      await assignDefaultRole(created.id, { transaction });
+      return created;
+    });
 
     res.status(201).json({ message: req.t('shared.created'), user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
@@ -158,23 +143,6 @@ const register = async (req, res) => {
   }
 };
 
-async function getUserPrimaryRole(userId) {
-  const userRole = await UserRole.findOne({ where: { user_id: userId } });
-  if (!userRole) return { roleName: null, roleId: null };
-  const role = await Role.findByPk(userRole.role_id);
-  return { roleName: role ? role.name : null, roleId: role ? role.id : null };
-}
-
-async function getUserPermissions(userId) {
-  const userRoles = await UserRole.findAll({ where: { user_id: userId } });
-  const roleIds = userRoles.map(ur => ur.role_id).filter(Boolean);
-  if (roleIds.length === 0) return [];
-  const perms = await Permission.findAll({
-    include: [{ model: Role, as: 'roles', where: { id: { [Op.in]: roleIds } }, attributes: [] }],
-    attributes: ['name']
-  });
-  return perms.map(p => p.name);
-}
 
 const getCaptcha = async (req, res) => {
   try {
@@ -258,8 +226,7 @@ const login = async (req, res) => {
       user.must_change_password = true;
       await user.save();
     }
-    const { roleName, roleId } = await getUserPrimaryRole(user.id);
-    const permissions = await getUserPermissions(user.id);
+    const authorization = await getAuthorization(user.id);
     const remember = parseRememberMe(rememberMe);
     const pair = await issueTokenPair({
       userId: user.id,
@@ -275,7 +242,7 @@ const login = async (req, res) => {
       message: req.t('auth.loginSuccess') || 'OK',
       token: pair.accessToken,
       mustChangePassword,
-      user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions, mustChangePassword }
+      user: { id: user.id, username: user.username, email: user.email, authorization, mustChangePassword }
     });
   } catch (err) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
@@ -346,10 +313,9 @@ const me = async (req, res) => {
     if (!userId) return res.status(401).json({ message: req.t('auth.unauthenticated') });
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
-    const { roleName, roleId } = await getUserPrimaryRole(userId);
-    const permissions = await getUserPermissions(userId);
+    const authorization = await getAuthorization(userId);
     const mustChangePassword = !!user.must_change_password;
-    res.json({ user: { id: user.id, username: user.username, email: user.email, role: roleName, role_id: roleId, permissions, mustChangePassword } });
+    res.json({ user: { id: user.id, username: user.username, email: user.email, authorization, mustChangePassword } });
   } catch (err) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }

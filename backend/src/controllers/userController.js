@@ -6,6 +6,8 @@ const { validatePasswordStrength } = require('../utils/passwordStrength');
 const { logOperation } = require('../utils/operationLogger');
 const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination');
 const { Op } = require('sequelize');
+const { sequelize } = require('../models');
+const { assignDefaultRole, assertCanDeactivateOrDelete } = require('../services/userRoleService');
 
 // 查询用户列表（支持分页和搜索）
 const getUsers = async (req, res) => {
@@ -37,7 +39,7 @@ const getUsers = async (req, res) => {
             {
               model: Role,
               as: 'Role',
-              attributes: ['name']
+              attributes: ['code', 'name_zh', 'name_en']
             }
           ]
         }
@@ -55,7 +57,7 @@ const getUsers = async (req, res) => {
       email: u.email,
       is_active: u.is_active,
       created_at: u.created_at,
-      role: u.UserRoles && u.UserRoles.length > 0 && u.UserRoles[0].Role ? u.UserRoles[0].Role.name : null
+      roles: (u.UserRoles || []).map((membership) => membership.Role?.code).filter(Boolean)
     }));
     
     res.json({ 
@@ -72,18 +74,18 @@ const getUsers = async (req, res) => {
 // 新建用户
 const createUser = async (req, res) => {
   try {
-    const { username, password, email, roles = [] } = req.body;
+    const { username, password, email } = req.body;
     if (!username || !password) return res.status(400).json({ message: req.t('user.requiredUsernamePassword') });
     const pw = validatePasswordStrength(password, username);
     if (!pw.valid) return res.status(400).json({ message: req.t('user.' + pw.message) });
     const exist = await User.findOne({ where: { username } });
     if (exist) return res.status(409).json({ message: req.t('user.usernameExists') });
     const password_hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, password_hash, email });
-    // 分配角色
-    for (const roleId of roles) {
-      await UserRole.create({ user_id: user.id, role_id: roleId });
-    }
+    const user = await sequelize.transaction(async (transaction) => {
+      const created = await User.create({ username, password_hash, email }, { transaction });
+      await assignDefaultRole(created.id, { transaction });
+      return created;
+    });
     // 记录操作日志
     try {
       await logOperation({
@@ -93,7 +95,7 @@ const createUser = async (req, res) => {
         username: req.user?.username,
         ip: req.ip,
         user_agent: req.headers['user-agent'],
-        details: { username, email, roles }
+        details: { username, email }
       });
     } catch (logErr) {
       console.error(req.t('user.operations.logFailed'), logErr);
@@ -108,7 +110,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, is_active, roles, password, oldPassword } = req.body;
+    const { email, is_active, password, oldPassword } = req.body;
     const user = await User.findByPk(id);
     if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
     
@@ -121,15 +123,10 @@ const updateUser = async (req, res) => {
     }
     
     // 状态和角色修改：只有管理员可以修改（权限已在中间件中检查）
-    if (!isUpdatingSelf || (is_active !== undefined || roles !== undefined)) {
+    if (!isUpdatingSelf || is_active !== undefined) {
       if (is_active !== undefined) {
+        if (is_active === false) await sequelize.transaction((transaction) => assertCanDeactivateOrDelete(user.id, 'deactivate_user', req, transaction));
         updateData.is_active = is_active;
-      }
-      if (Array.isArray(roles)) {
-        await UserRole.destroy({ where: { user_id: id } });
-        for (const roleId of roles) {
-          await UserRole.create({ user_id: id, role_id: roleId });
-        }
       }
     }
     
@@ -163,7 +160,7 @@ const updateUser = async (req, res) => {
         username: req.user?.username,
         ip: req.ip,
         user_agent: req.headers['user-agent'],
-        details: { id, email, is_active, roles }
+        details: { id, email, is_active }
       });
     } catch (logErr) {
       console.error(req.t('user.operations.logFailed'), logErr);
@@ -180,7 +177,7 @@ const deleteUser = async (req, res) => {
     const { id } = req.params;
     const user = await User.findByPk(id);
     if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
-    await user.destroy();
+    await sequelize.transaction(async (transaction) => { await assertCanDeactivateOrDelete(user.id, 'delete_user', req, transaction); await user.destroy({ transaction }); });
     // 记录操作日志
     try {
       await logOperation({
@@ -205,8 +202,8 @@ const deleteUser = async (req, res) => {
 const getUserRoles = async (req, res) => {
   try {
     const { id } = req.params;
-    const roles = await UserRole.findAll({ where: { user_id: id } });
-    res.json({ roles });
+    const roles = await UserRole.findAll({ where: { user_id: id }, include: [{ model: Role, as: 'Role', attributes: ['id', 'code', 'name_zh', 'name_en'] }] });
+    res.json({ roles: roles.map((row) => row.Role).filter(Boolean) });
   } catch (err) {
     res.status(500).json({ message: req.t('shared.operationFailed'), error: err.message });
   }

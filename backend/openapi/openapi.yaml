@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: Logtool API
+  version: 1.0.0-draft
+  description: |
+    Logtool HTTP API 契约。新增或修改接口必须先在本规范中定义，
+    再同步实现、测试与前端调用。
+servers:
+  - url: /api
+    description: 当前部署环境的 API 基础路径
+tags:
+  - name: Audit
+    description: 审计记录查询、导出与事件字典查询。
+  - name: RBAC
+    description: 角色、权限目录与用户授权。
+paths:
+  /me/authorization:
+    $ref: ./paths/rbac.yaml#/~1me~1authorization
+  /roles:
+    $ref: ./paths/rbac.yaml#/~1roles
+  /roles/{roleId}:
+    $ref: ./paths/rbac.yaml#/~1roles~1{roleId}
+  /users/{userId}/roles:
+    $ref: ./paths/rbac.yaml#/~1users~1{userId}~1roles
+  /permissions:
+    $ref: ./paths/rbac.yaml#/~1permissions
+  /audit-logs:
+    $ref: ./paths/audit.yaml#/~1audit-logs
+  /audit-logs/export:
+    $ref: ./paths/audit.yaml#/~1audit-logs~1export
+  /audit-event-definitions:
+    $ref: ./paths/audit.yaml#/~1audit-event-definitions
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

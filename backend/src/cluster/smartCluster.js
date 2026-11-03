@@ -53,9 +53,13 @@ if (cluster.isMaster) {
   // 启动主进程
   clusterManager.startMaster();
   
-  // 主进程加载 app.js 启动完整服务（HTTP + DB + WebSocket）
-  require('../app');
-  console.log('[主进程] 已加载应用服务（HTTP/DB/WebSocket）');
+  // 主进程显式启动完整服务（HTTP + DB + WebSocket）。
+  const app = require('../app');
+  app.startServer().catch((error) => {
+    console.error('[主进程] 应用服务启动失败:', error);
+    process.exit(1);
+  });
+  console.log('[主进程] 已请求启动应用服务（HTTP/DB/WebSocket）');
 
   // 最新需求：主进程仅监控与投递，不参与任何队列消费
   try {

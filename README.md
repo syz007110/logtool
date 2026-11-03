@@ -141,6 +141,23 @@ If your server path or PM2 process name differs, pass the corresponding options.
 | `backend/src/utils/explanationParser.js` | 解析逻辑 |
 | `frontend/src/utils/explanationEditor.js` | 编辑器补全与校验 |
 
+## 审计 HTTP 集成测试
+
+集成测试使用独立且一次性的 `logtool_test` MySQL 容器，不会使用开发或生产数据库。
+
+```bash
+cp backend/.env.test.example backend/.env.test
+npm --prefix backend run test:integration:local
+```
+
+该命令会启动 `docker-compose.test.yml` 中的 MySQL、初始化基础表结构、执行 Migration 与权限初始化、运行审计 HTTP 测试，并在结束后销毁测试容器和数据。测试环境会拒绝非 `NODE_ENV=test` 或数据库名不是 `logtool_test` 的连接。
+
+在 CI 中由平台提供临时 MySQL 后，只执行：
+
+```bash
+npm --prefix backend run test:integration
+```
+
 ## 维护（Docker）
 
 进入 MySQL 容器进行数据库维护：

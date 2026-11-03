@@ -3,9 +3,8 @@
 -- 在目标库执行一次即可得到当前表结构。
 -- 角色与权限点不在此写入，建表后执行 npm run init-permissions。
 
--- 1. 创建数据库（如果不存在）
-CREATE DATABASE IF NOT EXISTS logtool CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE logtool;
+-- 1. 由调用方选择目标数据库。
+-- 生产 Docker 初始化使用 MYSQL_DATABASE；测试环境连接 logtool_test 后执行本脚本。
 
 -- 2. 用户表
 CREATE TABLE IF NOT EXISTS users (
@@ -22,38 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
   scope_type VARCHAR(32) NOT NULL DEFAULT 'platform' COMMENT '用户归属作用域类型：platform/hospital',
   scope_id INT NOT NULL DEFAULT 0 COMMENT '用户归属作用域ID（scope_type=platform时为0）',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 3. 权限/角色表
-CREATE TABLE IF NOT EXISTS roles (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL,
-  description VARCHAR(255),
-  scope_type VARCHAR(32) NOT NULL DEFAULT 'platform' COMMENT '角色作用域类型：platform/hospital',
-  scope_id INT NOT NULL DEFAULT 0 COMMENT '角色作用域ID（当 scope_type != platform 时使用）',
-  INDEX idx_roles_scope (scope_type, scope_id),
-  UNIQUE KEY uk_roles_name_scope (name, scope_type, scope_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 4. 用户-角色关联表
-CREATE TABLE IF NOT EXISTS user_roles (
-  user_id INT NOT NULL,
-  role_id INT NOT NULL,
-  scope_type VARCHAR(32) NOT NULL DEFAULT 'platform' COMMENT '角色分配作用域类型：platform/hospital',
-  scope_id INT NOT NULL DEFAULT 0 COMMENT '角色分配作用域ID（当 scope_type != platform 时使用）',
-  assigned_by INT,                    -- 分配角色的用户ID（可选）
-  assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- 分配时间
-  expires_at TIMESTAMP NULL,          -- 角色过期时间（可选）
-  is_active BOOLEAN DEFAULT TRUE,     -- 角色是否激活
-  notes TEXT,                         -- 分配备注（可选）
-  PRIMARY KEY (user_id, role_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-  FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_user_id (user_id),
-  INDEX idx_role_id (role_id),
-  INDEX idx_user_roles_scope (scope_type, scope_id),
-  INDEX idx_assigned_by (assigned_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_users_scope ON users(scope_type, scope_id);
@@ -94,139 +61,19 @@ CREATE TABLE IF NOT EXISTS permission_groups (
   INDEX idx_permission_groups_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4.1.1 预置权限分组（若不存在则创建）
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'user' AS group_key, '用户管理' AS name_zh, 'User Management' AS name_en, 'roles.permissionGroups.user' AS i18n_key, 10 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'user');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'role' AS group_key, '角色管理' AS name_zh, 'Role Management' AS name_en, 'roles.permissionGroups.role' AS i18n_key, 20 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'role');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'smart_search' AS group_key, '智能搜索' AS name_zh, 'Smart Search' AS name_en, 'roles.permissionGroups.smart_search' AS i18n_key, 25 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'smart_search');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'error_code' AS group_key, '故障码管理' AS name_zh, 'Error Code Management' AS name_en, 'roles.permissionGroups.error_code' AS i18n_key, 30 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'error_code');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'fault_case' AS group_key, '故障案例管理' AS name_zh, 'Fault Case Management' AS name_en, 'roles.permissionGroups.fault_case' AS i18n_key, 40 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'fault_case');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'fault_case_config' AS group_key, '故障案例配置' AS name_zh, 'Fault Case Configuration' AS name_en, 'roles.permissionGroups.fault_case_config' AS i18n_key, 45 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'fault_case_config');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'log' AS group_key, '日志管理' AS name_zh, 'Log Management' AS name_en, 'roles.permissionGroups.log' AS i18n_key, 50 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'log');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'i18n' AS group_key, '多语言管理' AS name_zh, 'Localization Management' AS name_en, 'roles.permissionGroups.i18n' AS i18n_key, 60 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'i18n');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'device' AS group_key, '设备管理' AS name_zh, 'Device Management' AS name_en, 'roles.permissionGroups.device' AS i18n_key, 70 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'device');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'history' AS group_key, '历史记录' AS name_zh, 'History' AS name_en, 'roles.permissionGroups.history' AS i18n_key, 80 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'history');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'surgery' AS group_key, '手术数据' AS name_zh, 'Surgery Data' AS name_en, 'roles.permissionGroups.surgery' AS i18n_key, 90 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'surgery');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'data_replay' AS group_key, '数据回放' AS name_zh, 'Data Replay' AS name_en, 'roles.permissionGroups.data_replay' AS i18n_key, 100 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'data_replay');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'kb' AS group_key, '知识库' AS name_zh, 'Knowledge Base' AS name_en, 'roles.permissionGroups.kb' AS i18n_key, 110 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'kb');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'dashboard' AS group_key, '系统看板' AS name_zh, 'Dashboard' AS name_en, 'roles.permissionGroups.dashboard' AS i18n_key, 120 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'dashboard');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'test' AS group_key, '测试' AS name_zh, 'Test' AS name_en, 'roles.permissionGroups.test' AS i18n_key, 130 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'test');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'system' AS group_key, '系统监控' AS name_zh, 'System Monitoring' AS name_en, 'roles.permissionGroups.system' AS i18n_key, 140 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'system');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'loglevel' AS group_key, '日志分析等级' AS name_zh, 'Analysis Levels' AS name_en, 'roles.permissionGroups.loglevel' AS i18n_key, 150 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'loglevel');
-
-INSERT INTO permission_groups (group_key, name_zh, name_en, i18n_key, sort_order, is_active)
-SELECT * FROM (
-  SELECT 'other' AS group_key, '其他权限' AS name_zh, 'Other Permissions' AS name_en, 'roles.permissionGroups.other' AS i18n_key, 999 AS sort_order, 1 AS is_active
-) AS tmp
-WHERE NOT EXISTS (SELECT 1 FROM permission_groups WHERE group_key = 'other');
-
--- 4.2 权限点表
+-- RBAC tables and catalogue data are created exclusively by Sequelize migrations.
+-- The minimal permissions table remains here because legacy non-RBAC tables below
+-- have foreign keys to it; the RBAC migration evolves it and owns all catalogue rows.
 CREATE TABLE IF NOT EXISTS permissions (
   id INT NOT NULL AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
   description VARCHAR(255) NULL,
-  group_key VARCHAR(64) NOT NULL DEFAULT 'other' COMMENT '权限分组键',
+  group_key VARCHAR(64) NOT NULL DEFAULT 'other',
   PRIMARY KEY (id),
   UNIQUE KEY uk_permissions_name (name),
   KEY idx_permissions_group_key (group_key),
   CONSTRAINT fk_permissions_group_key FOREIGN KEY (group_key) REFERENCES permission_groups(group_key) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 4.3 角色-权限关联表
-CREATE TABLE IF NOT EXISTS role_permissions (
-  role_id INT NOT NULL,
-  permission_id INT NOT NULL,
-  PRIMARY KEY (role_id, permission_id),
-  CONSTRAINT fk_rp_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-  CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 角色、权限点和角色授权不在此脚本中写入。
--- 表结构就绪后执行：npm run init-permissions
--- 数据来源：backend/src/config/roles.js
 
 -- 5. 故障码表
 -- 注意：short_message/user_hint/operation/detail/method/param1~4/tech_solution/explanation
@@ -469,7 +316,7 @@ CREATE TABLE IF NOT EXISTS motion_data_files (
   KEY idx_motion_status_file_time (status, file_time),
   KEY idx_motion_file_time_token (file_time_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='运行数据（motion-data）文件元数据表';
-  
+
 -- 8. 日志解密后内容表，移植前mysql
 
 CREATE TABLE IF NOT EXISTS log_entries (
@@ -1072,15 +919,9 @@ CREATE INDEX idx_log_entries_ts_norm ON log_entries(timestamp, subsystem_char, c
 SELECT '数据库初始化完成！' AS message;
 SELECT 'users' AS table_name, COUNT(*) AS count FROM users
 UNION ALL
-SELECT 'roles' AS table_name, COUNT(*) AS count FROM roles
-UNION ALL
-SELECT 'user_roles' AS table_name, COUNT(*) AS count FROM user_roles
-UNION ALL
 SELECT 'permissions' AS table_name, COUNT(*) AS count FROM permissions
 UNION ALL
 SELECT 'permission_groups' AS table_name, COUNT(*) AS count FROM permission_groups
-UNION ALL
-SELECT 'role_permissions' AS table_name, COUNT(*) AS count FROM role_permissions
 UNION ALL
 SELECT 'error_codes' AS table_name, COUNT(*) AS count FROM error_codes
 UNION ALL

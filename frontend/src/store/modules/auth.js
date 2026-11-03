@@ -61,7 +61,8 @@ const mutations = {
     applyPersistence(state)
   },
   SET_USER (state, user) {
-    state.user = user
+    const authorization = user?.authorization || { roles: [], isSuperAdmin: false, permissions: [] }
+    state.user = user ? { ...user, authorization, permissions: authorization.permissions || [], isSuperAdmin: !!authorization.isSuperAdmin } : null
     applyPersistence(state)
   },
   SET_LANGUAGE (state, language) {
@@ -134,31 +135,17 @@ const actions = {
   }
 }
 
-// 规范化角色名，兼容中英文与ID
-function normalizeRoleName (roleName, roleId) {
-  if (roleId === 1) return 'admin'
-  if (roleId === 2) return 'expert'
-  if (roleId === 3) return 'user'
-  const name = (roleName || '').toString().trim().toLowerCase()
-  if (name === 'admin' || name === '管理员') return 'admin'
-  if (name === 'expert' || name === '专家' || name === '专家级' || name === '专家用户' || name === '专家级用户' || name === '工程师') return 'expert'
-  if (name === 'user' || name === '普通用户' || name === '用户' || name === '成员') return 'user'
-  return roleName || null
-}
-
 const getters = {
   isAuthenticated: (state) => !!state.token,
   mustChangePassword: (state) => !!state.user?.mustChangePassword,
-  userRole: (state) => (state.user ? normalizeRoleName(state.user.role, state.user.role_id) : null),
+  userRole: (state) => state.user?.authorization?.roles?.[0] || null,
   currentUser: state => state.user,
   currentLanguage: state => state.language,
   hasPermission: (state) => (permission) => {
     try {
       if (!state.user) return false
 
-      // 管理员拥有所有权限
-      const normalized = normalizeRoleName(state.user.role, state.user.role_id)
-      if (normalized === 'admin') return true
+      if (state.user.isSuperAdmin) return true
 
       // 优先使用服务端返回的权限列表
       const perms = Array.isArray(state.user.permissions) ? state.user.permissions : []
