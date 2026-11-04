@@ -1,5 +1,6 @@
 const roleService = require('../services/roleService');
 const { RbacError } = require('../services/rbacErrors');
+const { fromHttpRequest } = require('../audit/httpAuditContext');
 
 function sendError(res, error) {
   if (error instanceof RbacError) return res.status(error.status).json({ code: error.code, message: error.message });
@@ -7,7 +8,7 @@ function sendError(res, error) {
 }
 async function getRoles(req, res) { try { const page = Math.max(1, Number(req.query.page) || 1); const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20)); res.json({ ...(await roleService.list({ page, limit })), page, limit }); } catch (error) { sendError(res, error); } }
 async function getRole(req, res) { try { res.json({ role: await roleService.get(req.params.id) }); } catch (error) { sendError(res, error); } }
-async function createRole(req, res) { try { res.status(201).json({ role: await roleService.create(req.body || {}, req) }); } catch (error) { sendError(res, error); } }
-async function updateRole(req, res) { try { res.json({ role: await roleService.update(req.params.id, req.body || {}, req) }); } catch (error) { sendError(res, error); } }
-async function deleteRole(req, res) { try { await roleService.remove(req.params.id, req); res.status(204).end(); } catch (error) { sendError(res, error); } }
+async function createRole(req, res) { try { res.status(201).json({ role: await roleService.create(req.body || {}, fromHttpRequest(req)) }); } catch (error) { sendError(res, error); } }
+async function updateRole(req, res) { try { res.json({ role: await roleService.update(req.params.id, req.body || {}, fromHttpRequest(req)) }); } catch (error) { sendError(res, error); } }
+async function deleteRole(req, res) { try { await roleService.remove(req.params.id, fromHttpRequest(req)); res.status(204).end(); } catch (error) { sendError(res, error); } }
 module.exports = { getRoles, getRole, createRole, updateRole, deleteRole };

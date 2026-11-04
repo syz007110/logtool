@@ -46,37 +46,28 @@ function sanitizeSensitiveValues(value, path = 'details', removed = []) {
   );
 }
 
-function buildActor(req) {
-  const user = req?.user;
-  const userId = Number(user?.id);
-
-  if (Number.isInteger(userId) && userId > 0) {
-    return {
-      actor_type: 'USER',
-      actor_user_id: userId,
-      actor_username: compactString(user?.username, 100)
-    };
+function buildActor(auditContext) {
+  const source = auditContext?.actor || { type: 'SYSTEM', userId: null, username: null };
+  const actorType = String(source.type || '').trim().toUpperCase();
+  if (!ACTOR_TYPES.has(actorType)) throw new AuditValidationError('actor.type is invalid');
+  const userId = Number(source.userId);
+  if (actorType === 'USER' && (!Number.isInteger(userId) || userId <= 0)) {
+    throw new AuditValidationError('actor.userId is required for USER actor');
   }
-
   return {
-    actor_type: req ? 'ANONYMOUS' : 'SYSTEM',
-    actor_user_id: null,
-    actor_username: null
+    actor_type: actorType,
+    actor_user_id: actorType === 'USER' ? userId : null,
+    actor_username: compactString(source.username, 100)
   };
 }
 
-function buildRequest(req, generateEventId) {
-  if (!req) {
-    return { request_id: null, ip: null, user_agent: null };
-  }
-
-  const headerRequestId = req.headers?.['x-request-id'];
-  const requestId = compactString(req.requestId || req.id || headerRequestId, 64) || generateEventId();
-
+function buildRequest(auditContext, generateEventId) {
+  const source = auditContext?.request;
+  if (!source) return { request_id: null, ip: null, user_agent: null };
   return {
-    request_id: requestId,
-    ip: compactString(req.ip, 45),
-    user_agent: compactString(req.get?.('user-agent') || req.headers?.['user-agent'], 4096)
+    request_id: compactString(source.requestId, 64) || generateEventId(),
+    ip: compactString(source.ip, 45),
+    user_agent: compactString(source.userAgent, 4096)
   };
 }
 
@@ -129,14 +120,14 @@ function validateEventInput(input) {
 }
 
 function createAuditService({ auditLog = AuditLog, generateEventId = ulid, now = () => new Date(), logger = console } = {}) {
-  async function record(req, input, { transaction } = {}) {
+  async function record(auditContext, input, { transaction } = {}) {
     const { eventCode, definition, outcome, reasonCode } = validateEventInput(input);
     const removedSensitiveValues = [];
     const sanitizedInputDetails = sanitizeSensitiveValues(input.details, 'details', removedSensitiveValues);
     const sanitizedDetails = definition.validateDetails(sanitizedInputDetails, outcome);
     const target = buildTarget(input.target, definition);
-    const actor = buildActor(req);
-    const request = buildRequest(req, generateEventId);
+    const actor = buildActor(auditContext);
+    const request = buildRequest(auditContext, generateEventId);
 
     if (removedSensitiveValues.length > 0) {
       logger.warn?.('[audit] sensitive fields removed before persistence', { eventCode, paths: removedSensitiveValues });

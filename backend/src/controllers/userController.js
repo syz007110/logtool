@@ -8,6 +8,7 @@ const { normalizePagination, MAX_PAGE_SIZE } = require('../constants/pagination'
 const { Op } = require('sequelize');
 const { sequelize } = require('../models');
 const { assignDefaultRole, assertCanDeactivateOrDelete } = require('../services/userRoleService');
+const { fromHttpRequest } = require('../audit/httpAuditContext');
 
 // 查询用户列表（支持分页和搜索）
 const getUsers = async (req, res) => {
@@ -125,7 +126,7 @@ const updateUser = async (req, res) => {
     // 状态和角色修改：只有管理员可以修改（权限已在中间件中检查）
     if (!isUpdatingSelf || is_active !== undefined) {
       if (is_active !== undefined) {
-        if (is_active === false) await sequelize.transaction((transaction) => assertCanDeactivateOrDelete(user.id, 'deactivate_user', req, transaction));
+        if (is_active === false) await sequelize.transaction((transaction) => assertCanDeactivateOrDelete(user.id, 'deactivate_user', fromHttpRequest(req), transaction));
         updateData.is_active = is_active;
       }
     }
@@ -177,7 +178,7 @@ const deleteUser = async (req, res) => {
     const { id } = req.params;
     const user = await User.findByPk(id);
     if (!user) return res.status(404).json({ message: req.t('shared.notFound') });
-    await sequelize.transaction(async (transaction) => { await assertCanDeactivateOrDelete(user.id, 'delete_user', req, transaction); await user.destroy({ transaction }); });
+    await sequelize.transaction(async (transaction) => { await assertCanDeactivateOrDelete(user.id, 'delete_user', fromHttpRequest(req), transaction); await user.destroy({ transaction }); });
     // 记录操作日志
     try {
       await logOperation({

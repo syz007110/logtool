@@ -15,7 +15,7 @@
     "create-surgery-table": "node scripts/run_surgery_statistics_migration.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:status": "sequelize-cli db:migrate:status",
-    "test:unit": "node --test src/services/auditService.test.js src/services/auditQueryService.test.js",
+    "test:unit": "node --test src/services/auditService.test.js src/services/auditQueryService.test.js src/services/auditExportService.test.js",
     "test:integration": "node src/scripts/bootstrapIntegrationDatabase.js && node src/scripts/runIntegrationTests.js",
     "test:integration:local": "node src/scripts/runLocalIntegrationTests.js",
     "test:all": "npm run test:unit && npm run test:integration",

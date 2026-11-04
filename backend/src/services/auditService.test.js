@@ -25,12 +25,8 @@ test('records a role reassignment with request and actor context', async () => {
   const { service, rows } = createServiceHarness();
 
   await service.record({
-    user: { id: 7, username: 'admin' },
-    ip: '203.0.113.10',
-    headers: {
-      'x-request-id': 'req_01K8',
-      'user-agent': 'LogtoolTest/1.0'
-    }
+    actor: { type: 'USER', userId: 7, username: 'admin' },
+    request: { requestId: 'req_01K8', ip: '203.0.113.10', userAgent: 'LogtoolTest/1.0' }
   }, {
     eventCode: 'RBAC.USER_ROLE_REASSIGNED',
     outcome: 'SUCCESS',
@@ -143,8 +139,8 @@ test('records an audit export with an exact success details schema and no target
   const { service, rows } = createServiceHarness();
 
   await service.record({
-    user: { id: 7, username: 'admin' },
-    headers: { 'x-request-id': 'req_export' }
+    actor: { type: 'USER', userId: 7, username: 'admin' },
+    request: { requestId: 'req_export', ip: null, userAgent: null }
   }, {
     eventCode: 'AUDIT.LOGS_EXPORTED',
     outcome: 'SUCCESS',
