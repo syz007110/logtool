@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const { authenticationService } = require('../services/authenticationService');
+const { getAuthConfig } = require('../config/auth');
 
 function unauthorized(req, res, message) {
   if (req?.apiContractErrors) {
@@ -43,7 +45,7 @@ function canUseQueryToken(req) {
   return allowPatterns.some((pattern) => pattern.test(fullPath));
 }
 
-module.exports = function (req, res, next) {
+module.exports = async function (req, res, next) {
   let token = extractBearerToken(req);
   if (!token && canUseQueryToken(req)) {
     token = String(req.query.token || '').trim();
@@ -54,10 +56,22 @@ module.exports = function (req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = getAuthConfig().jwtSecret;
+    if (!jwtSecret) throw new Error('JWT_SECRET is required');
+    const decoded = jwt.verify(token, jwtSecret);
+    const user = await authenticationService.getAuthenticatedUser(decoded.id);
+    const allowedWhilePasswordChangeRequired = [
+      '/api/auth/complete-initial-password',
+      '/api/auth/me'
+    ].includes(`${String(req.baseUrl || '')}${String(req.path || '')}`);
+    if (user.mustChangePassword && !allowedWhilePasswordChangeRequired) {
+      return res.status(403).json({ code: 'PASSWORD_CHANGE_REQUIRED', message: '请先修改初始密码' });
+    }
     req.user = decoded;
+    req.user.username = user.username;
     next();
   } catch (err) {
+    if (err?.code === 'FORBIDDEN') return res.status(403).json({ code: 'FORBIDDEN', message: '账户不可用' });
     return unauthorized(req, res, 'token无效或已过期');
   }
 };

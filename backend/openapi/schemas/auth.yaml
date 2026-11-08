@@ -1,0 +1,44 @@
+LoginOptions:
+  type: object
+  required: [dingtalkEnabled, localLoginEnabled, emergencyLoginEnabled]
+  properties:
+    dingtalkEnabled: { type: boolean }
+    localLoginEnabled: { type: boolean }
+    emergencyLoginEnabled: { type: boolean }
+LocalLoginRequest:
+  type: object
+  required: [username, password]
+  properties:
+    username: { type: string, minLength: 1, maxLength: 100 }
+    password: { type: string, minLength: 1, maxLength: 256, writeOnly: true }
+    captchaId: { type: string, maxLength: 128 }
+    captchaCode: { type: string, maxLength: 32, writeOnly: true }
+    rememberMe: { type: boolean, default: false }
+DingtalkLoginRequest:
+  type: object
+  required: [authCode]
+  properties:
+    authCode: { type: string, minLength: 1, maxLength: 4096, writeOnly: true }
+    rememberMe: { type: boolean, default: false }
+AuthenticatedUser:
+  type: object
+  required: [id, username, authorization, mustChangePassword]
+  properties:
+    id: { type: integer }
+    username: { type: string }
+    email: { type: [string, 'null'] }
+    mustChangePassword: { type: boolean }
+    authorization: { $ref: ./rbac.yaml#/Authorization }
+LoginResult:
+  type: object
+  required: [token, user, mustChangePassword]
+  properties:
+    token: { type: string, writeOnly: true }
+    user: { $ref: '#/AuthenticatedUser' }
+    mustChangePassword: { type: boolean }
+Captcha:
+  type: object
+  required: [captchaId, svg]
+  properties:
+    captchaId: { type: string }
+    svg: { type: string }

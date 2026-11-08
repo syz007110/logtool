@@ -89,6 +89,42 @@ function createEventDefinition({ category, summary, targetPolicy, allowedTargetT
 }
 
 const AUDIT_EVENT_DEFINITIONS = Object.freeze({
+  'AUTH.LOCAL_LOGIN': createEventDefinition({
+    category: 'auth', summary: '本地登录', targetPolicy: TARGET_POLICIES.OPTIONAL, allowedTargetTypes: ['USER'],
+    outcomes: {
+      SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['loginChannel', 'captchaRequired'], properties: { loginChannel: { const: 'local' }, captchaRequired: { type: 'boolean' } } } },
+      DENIED: { reasonCodes: ['INVALID_CREDENTIALS', 'CAPTCHA_INVALID', 'LOGIN_LOCKED', 'LOCAL_LOGIN_DISABLED', 'LOCAL_LOGIN_NOT_ALLOWED', 'ACCOUNT_INACTIVE'], detailsSchema: { type: 'object', additionalProperties: false, required: ['loginChannel', 'captchaRequired'], properties: { loginChannel: { const: 'local' }, captchaRequired: { type: 'boolean' } } } }
+    }
+  }),
+  'AUTH.EMERGENCY_LOGIN': createEventDefinition({
+    category: 'auth', summary: '应急管理员登录', targetPolicy: TARGET_POLICIES.OPTIONAL, allowedTargetTypes: ['USER'],
+    outcomes: {
+      SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['loginChannel', 'captchaRequired'], properties: { loginChannel: { const: 'emergency' }, captchaRequired: { type: 'boolean' } } } },
+      DENIED: { reasonCodes: ['INVALID_CREDENTIALS', 'CAPTCHA_INVALID', 'LOGIN_LOCKED', 'EMERGENCY_LOGIN_FORBIDDEN', 'ACCOUNT_INACTIVE'], detailsSchema: { type: 'object', additionalProperties: false, required: ['loginChannel', 'captchaRequired'], properties: { loginChannel: { const: 'emergency' }, captchaRequired: { type: 'boolean' } } } }
+    }
+  }),
+  'AUTH.DINGTALK_LOGIN': createEventDefinition({
+    category: 'auth', summary: '钉钉登录', targetPolicy: TARGET_POLICIES.OPTIONAL, allowedTargetTypes: ['USER'],
+    outcomes: {
+      SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['loginChannel', 'accountCreated'], properties: { loginChannel: { const: 'dingtalk' }, accountCreated: { type: 'boolean' } } } },
+      DENIED: { reasonCodes: ['DINGTALK_AUTH_FAILED', 'DINGTALK_CORP_FORBIDDEN', 'ACCOUNT_INACTIVE'], detailsSchema: { type: 'object', additionalProperties: false, required: ['loginChannel', 'accountCreated'], properties: { loginChannel: { const: 'dingtalk' }, accountCreated: { type: 'boolean' } } } }
+    }
+  }),
+  'AUTH.LOGOUT': createEventDefinition({
+    category: 'auth', summary: '退出登录', targetPolicy: TARGET_POLICIES.REQUIRED, allowedTargetTypes: ['USER'],
+    outcomes: { SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['sessionRevoked'], properties: { sessionRevoked: { type: 'boolean' } } } } }
+  }),
+  'AUTH.INITIAL_PASSWORD_CHANGED': createEventDefinition({
+    category: 'auth', summary: '完成初始密码设置', targetPolicy: TARGET_POLICIES.REQUIRED, allowedTargetTypes: ['USER'],
+    outcomes: {
+      SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false } },
+      DENIED: { reasonCodes: ['PASSWORD_POLICY_VIOLATION'], detailsSchema: { type: 'object', additionalProperties: false } }
+    }
+  }),
+  'AUTH.REFRESH_TOKEN_REUSE_DETECTED': createEventDefinition({
+    category: 'auth', summary: '检测到刷新令牌重放', targetPolicy: TARGET_POLICIES.REQUIRED, allowedTargetTypes: ['USER'],
+    outcomes: { SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['revokedSessionCount'], properties: { revokedSessionCount: { type: 'integer', minimum: 0 } } } } }
+  }),
   'RBAC.ROLE_CREATED': createEventDefinition({ category: 'rbac', summary: '创建自定义角色', targetPolicy: TARGET_POLICIES.REQUIRED, allowedTargetTypes: ['ROLE'], outcomes: { SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['roleCode'], properties: { roleCode: NON_EMPTY_STRING } } } } }),
   'RBAC.ROLE_UPDATED': createEventDefinition({ category: 'rbac', summary: '更新角色', targetPolicy: TARGET_POLICIES.REQUIRED, allowedTargetTypes: ['ROLE'], outcomes: { SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['roleCode'], properties: { roleCode: NON_EMPTY_STRING } } } } }),
   'RBAC.ROLE_DELETED': createEventDefinition({ category: 'rbac', summary: '删除角色', targetPolicy: TARGET_POLICIES.REQUIRED, allowedTargetTypes: ['ROLE'], outcomes: { SUCCESS: { reasonCodes: [null], detailsSchema: { type: 'object', additionalProperties: false, required: ['roleCode'], properties: { roleCode: NON_EMPTY_STRING } } } } }),

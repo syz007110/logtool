@@ -1,0 +1,51 @@
+/auth/login-options:
+  get:
+    tags: [Authentication]
+    operationId: getLoginOptions
+    responses: { '200': { description: 登录方式配置, content: { application/json: { schema: { $ref: ../schemas/auth.yaml#/LoginOptions } } } } }
+/auth/local-login:
+  post:
+    tags: [Authentication]
+    operationId: localLogin
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../schemas/auth.yaml#/LocalLoginRequest } } } }
+    responses: { '200': { description: 登录成功, content: { application/json: { schema: { $ref: ../schemas/auth.yaml#/LoginResult } } } }, '401': { description: INVALID_CREDENTIALS }, '423': { description: LOGIN_LOCKED }, '429': { description: LOCAL_LOGIN_RATE_LIMITED } }
+/auth/emergency-login:
+  post:
+    tags: [Authentication]
+    operationId: emergencyLogin
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../schemas/auth.yaml#/LocalLoginRequest } } } }
+    responses: { '200': { description: 登录成功 }, '401': { description: INVALID_CREDENTIALS } }
+/auth/dingtalk-login:
+  post:
+    tags: [Authentication]
+    operationId: dingtalkLogin
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../schemas/auth.yaml#/DingtalkLoginRequest } } } }
+    responses: { '200': { description: 登录成功 }, '400': { description: DINGTALK_AUTH_FAILED }, '403': { description: DINGTALK_CORP_FORBIDDEN } }
+/auth/captcha:
+  get:
+    tags: [Authentication]
+    operationId: getLoginCaptcha
+    responses: { '200': { description: 验证码, content: { application/json: { schema: { $ref: ../schemas/auth.yaml#/Captcha } } } } }
+/auth/refresh:
+  post:
+    tags: [Authentication]
+    operationId: refreshAuthentication
+    responses: { '200': { description: 已刷新访问令牌 }, '401': { description: UNAUTHORIZED } }
+/auth/logout:
+  post:
+    tags: [Authentication]
+    operationId: logout
+    responses: { '204': { description: 已退出 } }
+/auth/me:
+  get:
+    tags: [Authentication]
+    operationId: getAuthenticatedUser
+    security: [{ bearerAuth: [] }]
+    responses: { '200': { description: 当前用户, content: { application/json: { schema: { type: object, properties: { user: { $ref: ../schemas/auth.yaml#/AuthenticatedUser } } } } } } }
+/auth/complete-initial-password:
+  post:
+    tags: [Authentication]
+    operationId: completeInitialPassword
+    security: [{ bearerAuth: [] }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, required: [password], properties: { password: { type: string, writeOnly: true } } } } } }
+    responses: { '200': { description: 密码已更新 }, '400': { description: PASSWORD_POLICY_VIOLATION } }

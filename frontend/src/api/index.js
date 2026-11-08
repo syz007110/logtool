@@ -1,5 +1,6 @@
 import axios from 'axios'
 import store from '../store'
+import { useAuthStore } from '../stores/auth'
 import router from '../router'
 import i18nInstance from '../i18n'
 import { normalizeApiError, notifyApiError } from '../utils/apiError'
@@ -43,7 +44,7 @@ let refreshPromise = null
 
 async function refreshAccessTokenOnce () {
   if (!refreshPromise) {
-    refreshPromise = store.dispatch('auth/refreshToken')
+    refreshPromise = useAuthStore().refreshToken()
       .finally(() => {
         refreshPromise = null
       })
@@ -54,7 +55,7 @@ async function refreshAccessTokenOnce () {
 // 请求拦截器
 api.interceptors.request.use(
   config => {
-    const token = store.state.auth?.token
+    const token = useAuthStore().token
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -85,13 +86,13 @@ api.interceptors.response.use(
       const { status, data } = error.response
       switch (status) {
         case 423:
-          if (!silent && error.config?.url?.includes('/auth/login')) {
+          if (!silent && (error.config?.url?.includes('/auth/local-login') || error.config?.url?.includes('/auth/emergency-login'))) {
             const mins = Math.ceil((data?.retryAfter ?? 900) / 60)
             notifyApiError(error, data?.message || i18nInstance.global.t('auth.loginLocked', { minutes: mins }))
           }
           break
         case 401:
-          if (error.config?.url?.includes('/auth/login')) {
+          if (error.config?.url?.includes('/auth/local-login') || error.config?.url?.includes('/auth/emergency-login')) {
             if (!silent) {
               notifyApiError(error, data?.message || i18nInstance.global.t('auth.invalidCredentials'))
             }
@@ -99,13 +100,13 @@ api.interceptors.response.use(
             if (!silent) {
               notifyApiError(error, i18nInstance.global.t('auth.tokenExpired'))
             }
-            store.dispatch('auth/logout')
+            useAuthStore().logout()
             router.push('/login')
           } else if (!error.config?._retry) {
             error.config._retry = true
             try {
               await refreshAccessTokenOnce()
-              const token = store.state.auth?.token
+              const token = useAuthStore().token
               if (token) {
                 error.config.headers = error.config.headers || {}
                 error.config.headers.Authorization = `Bearer ${token}`
@@ -115,14 +116,14 @@ api.interceptors.response.use(
               if (!silent) {
                 notifyApiError(error, i18nInstance.global.t('auth.tokenExpired'))
               }
-              store.dispatch('auth/logout')
+              useAuthStore().logout()
               router.push('/login')
             }
           } else {
             if (!silent) {
               notifyApiError(error, i18nInstance.global.t('auth.tokenExpired'))
             }
-            store.dispatch('auth/logout')
+            useAuthStore().logout()
             router.push('/login')
           }
           break
@@ -136,11 +137,13 @@ api.interceptors.response.use(
 
 // API模块
 const auth = {
+  loginOptions: () => api.get('/auth/login-options'),
   getCaptcha: () => api.get('/auth/captcha'),
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
+  login: (credentials) => api.post('/auth/local-login', credentials),
+  emergencyLogin: (credentials) => api.post('/auth/emergency-login', credentials),
   me: () => api.get('/auth/me'),
-  dingtalkLogin: (authCode, rememberMe = true) => api.post('/auth/dingtalk/login', { authCode, rememberMe }),
+  dingtalkLogin: (authCode, rememberMe = true) => api.post('/auth/dingtalk-login', { authCode, rememberMe }),
+  completeInitialPassword: (password) => api.post('/auth/complete-initial-password', { password }),
   refresh: () => api.post('/auth/refresh', {}, { _silentError: true }),
   logout: () => api.post('/auth/logout', {}, { _silentError: true })
 }

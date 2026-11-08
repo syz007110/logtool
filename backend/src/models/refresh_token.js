@@ -18,7 +18,7 @@ const RefreshToken = sequelize.define('refresh_tokens', {
   replaced_by: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
   device_info: { type: DataTypes.STRING(255), allowNull: true },
   ip_address: { type: DataTypes.STRING(64), allowNull: true },
-  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
 }, {
   timestamps: false
 });

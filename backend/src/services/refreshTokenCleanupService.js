@@ -1,21 +1,11 @@
 const { Op } = require('sequelize');
 const RefreshToken = require('../models/refresh_token');
-const { ensureRefreshTokenTable } = require('./authSessionService');
-
-function parseIntOr(val, fallback) {
-  const n = Number.parseInt(String(val ?? ''), 10);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function boolEnvTrue(name) {
-  return String(process.env[name] || '').toLowerCase() === 'true';
-}
+const { getAuthConfig } = require('../config/auth');
 
 async function cleanupRefreshTokens({ log }) {
-  await ensureRefreshTokenTable();
-
+  const authConfig = getAuthConfig();
   const now = new Date();
-  const revokedRetentionDays = Math.max(1, parseIntOr(process.env.REFRESH_TOKEN_REVOKED_RETENTION_DAYS, 30));
+  const revokedRetentionDays = authConfig.refreshTokenRevokedRetentionDays;
   const revokedCutoff = new Date(Date.now() - revokedRetentionDays * 24 * 60 * 60 * 1000);
 
   const expiredDeleted = await RefreshToken.destroy({
@@ -39,12 +29,13 @@ async function cleanupRefreshTokens({ log }) {
 }
 
 function startRefreshTokenCleanupJob() {
-  if (boolEnvTrue('REFRESH_TOKEN_CLEANUP_DISABLED')) {
+  const authConfig = getAuthConfig();
+  if (authConfig.refreshTokenCleanupDisabled) {
     return { stop: () => {}, runOnce: () => Promise.resolve() };
   }
 
-  const intervalMin = Math.max(1, parseIntOr(process.env.REFRESH_TOKEN_CLEANUP_INTERVAL_MIN, 60));
-  const startupDelaySec = Math.max(1, parseIntOr(process.env.REFRESH_TOKEN_CLEANUP_STARTUP_DELAY_SEC, 45));
+  const intervalMin = authConfig.refreshTokenCleanupIntervalMinutes;
+  const startupDelaySec = authConfig.refreshTokenCleanupStartupDelaySeconds;
   const intervalMs = intervalMin * 60 * 1000;
   const startupDelayMs = startupDelaySec * 1000;
 
@@ -72,7 +63,7 @@ function startRefreshTokenCleanupJob() {
   }, intervalMs);
   timer.unref?.();
 
-  log(`[refresh-token-cleaner] started: intervalMin=${intervalMin}, revokedRetentionDays=${Math.max(1, parseIntOr(process.env.REFRESH_TOKEN_REVOKED_RETENTION_DAYS, 30))}`);
+  log(`[refresh-token-cleaner] started: intervalMin=${intervalMin}, revokedRetentionDays=${authConfig.refreshTokenRevokedRetentionDays}`);
 
   return {
     stop: () => {

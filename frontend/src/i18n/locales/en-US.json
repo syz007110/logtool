@@ -308,7 +308,7 @@
     }
   },
   "login": {
-    "title": "LogTool System",
+    "title": "Sign in to LogTool",
     "welcomeBack": "Welcome Back",
     "welcomeSubtitle": "Please sign in to your account",
     "username": "Username",
@@ -316,6 +316,13 @@
     "rememberMe": "Keep me signed in",
     "forgotPassword": "Forgot Password?",
     "login": "Login",
+    "loggingIn": "Signing in…",
+    "emergencyTitle": "Administrator Login",
+    "backToNormalLogin": "Back to Standard Login",
+    "dingtalkLogin": "DingTalk Login",
+    "dingtalkIdentityLoading": "Getting your organization identity from DingTalk.",
+    "qrLoginPending": "Use DingTalk to scan the login QR code. It will appear here when QR authorization is available.",
+    "refreshCaptcha": "Refresh CAPTCHA",
     "dingtalkScan": "Login with DingTalk",
     "tabPassword": "Password Login",
     "tabScan": "Scan Login",
@@ -338,6 +345,9 @@
     "loginLocked": "Too many failed login attempts. Account locked for {{minutes}} minutes",
     "captchaRequired": "Please enter the captcha",
     "captchaInvalid": "Invalid captcha",
+    "captchaLabel": "CAPTCHA",
+    "dingtalkLoginFailed": "DingTalk login failed. Please try again.",
+    "configurationUnavailable": "Unable to load login configuration",
     "mustChangePasswordTitle": "Please change your password",
     "mustChangePasswordDesc": "Your password does not meet the current security policy. Please change it before continuing."
   },

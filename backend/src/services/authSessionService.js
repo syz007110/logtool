@@ -2,12 +2,13 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const RefreshToken = require('../models/refresh_token');
+const { getAuthConfig } = require('../config/auth');
 
-const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || process.env.JWT_EXPIRES_IN || '12h';
-const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
-const REFRESH_TOKEN_REMEMBER_TTL = process.env.REFRESH_TOKEN_REMEMBER_TTL || '30d';
+const authConfig = getAuthConfig();
+const ACCESS_TOKEN_TTL = authConfig.accessTokenTtl;
+const REFRESH_TOKEN_TTL = authConfig.refreshTokenTtl;
+const REFRESH_TOKEN_REMEMBER_TTL = authConfig.refreshTokenRememberTtl;
 
-let ensureTablePromise = null;
 
 function parseDurationToMs(raw, fallbackMs) {
   if (!raw) return fallbackMs;
@@ -45,18 +46,7 @@ function getRefreshTtlMs(rememberMe) {
   return parseDurationToMs(ttl, rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000);
 }
 
-async function ensureRefreshTokenTable() {
-  if (!ensureTablePromise) {
-    ensureTablePromise = RefreshToken.sync({ alter: false }).catch((error) => {
-      ensureTablePromise = null;
-      throw error;
-    });
-  }
-  return ensureTablePromise;
-}
-
-async function saveRefreshTokenRecord({ userId, rawToken, rememberMe, deviceInfo, ipAddress }) {
-  await ensureRefreshTokenTable();
+async function saveRefreshTokenRecord({ userId, rawToken, rememberMe, deviceInfo, ipAddress, transaction }) {
   const now = Date.now();
   const ttlMs = getRefreshTtlMs(rememberMe);
   const expiresAt = new Date(now + ttlMs);
@@ -67,23 +57,25 @@ async function saveRefreshTokenRecord({ userId, rawToken, rememberMe, deviceInfo
     expires_at: expiresAt,
     device_info: deviceInfo || null,
     ip_address: ipAddress || null
-  });
+  }, transaction ? { transaction } : undefined);
   return { record: rec, expiresAt, ttlMs };
 }
 
 function signAccessToken(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+  if (!authConfig.jwtSecret) throw new Error('JWT_SECRET is required');
+  return jwt.sign(payload, authConfig.jwtSecret, { expiresIn: ACCESS_TOKEN_TTL });
 }
 
-async function issueTokenPair({ userId, username, rememberMe, deviceInfo, ipAddress }) {
-  const accessToken = signAccessToken({ id: userId, username });
+async function issueTokenPair({ userId, username, rememberMe, deviceInfo, ipAddress, transaction, mustChangePassword = false }) {
+  const accessToken = signAccessToken({ id: userId, username, mustChangePassword: !!mustChangePassword });
   const rawRefreshToken = createRawRefreshToken();
   const { record, expiresAt, ttlMs } = await saveRefreshTokenRecord({
     userId,
     rawToken: rawRefreshToken,
     rememberMe,
     deviceInfo,
-    ipAddress
+    ipAddress,
+    transaction
   });
   return {
     accessToken,
@@ -95,7 +87,6 @@ async function issueTokenPair({ userId, username, rememberMe, deviceInfo, ipAddr
 }
 
 async function findValidRefreshToken(rawToken) {
-  await ensureRefreshTokenTable();
   if (!rawToken) return null;
   const now = new Date();
   const tokenHash = hashToken(rawToken);
@@ -110,7 +101,6 @@ async function findValidRefreshToken(rawToken) {
 
 async function revokeRefreshTokenByRaw(rawToken) {
   if (!rawToken) return 0;
-  await ensureRefreshTokenTable();
   const tokenHash = hashToken(rawToken);
   const [count] = await RefreshToken.update(
     { revoked_at: new Date() },
@@ -119,23 +109,35 @@ async function revokeRefreshTokenByRaw(rawToken) {
   return count || 0;
 }
 
-async function rotateRefreshToken({ rawToken, userId, username, rememberMe, deviceInfo, ipAddress }) {
+async function findRefreshToken(rawToken, { transaction } = {}) {
+  if (!rawToken) return null;
+  return RefreshToken.findOne({ where: { token_hash: hashToken(rawToken) }, transaction });
+}
+
+async function revokeUserSessions(userId, { transaction } = {}) {
+  const [count] = await RefreshToken.update({ revoked_at: new Date() }, { where: { user_id: userId, revoked_at: { [Op.is]: null } }, transaction });
+  return count || 0;
+}
+
+async function rotateRefreshToken({ rawToken, userId, username, rememberMe, deviceInfo, ipAddress, mustChangePassword = false, transaction }) {
   const old = await findValidRefreshToken(rawToken);
   if (!old) return null;
-  const pair = await issueTokenPair({ userId, username, rememberMe, deviceInfo, ipAddress });
+  const pair = await issueTokenPair({ userId, username, rememberMe, deviceInfo, ipAddress, mustChangePassword, transaction });
   await old.update({
     revoked_at: new Date(),
     replaced_by: pair.refreshTokenId
-  });
+  }, transaction ? { transaction } : undefined);
   return pair;
 }
 
 module.exports = {
   ACCESS_TOKEN_TTL,
   parseRememberMe,
-  ensureRefreshTokenTable,
   issueTokenPair,
   findValidRefreshToken,
+  findRefreshToken,
   revokeRefreshTokenByRaw,
-  rotateRefreshToken
+  revokeUserSessions,
+  rotateRefreshToken,
+  hashToken
 };

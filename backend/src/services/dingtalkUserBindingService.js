@@ -1,110 +1,58 @@
-const bcrypt = require('bcryptjs');
-
+const { ulid } = require('ulid');
 const User = require('../models/user');
-const UserRole = require('../models/user_role');
 const { assignDefaultRole } = require('./userRoleService');
+const { AuthError } = require('./authErrors');
+const { getAuthConfiguration } = require('./authConfiguration');
 
-function normalizeValue(value) {
+function normalize(value) {
   const text = String(value || '').trim();
   return text || null;
 }
 
-function buildNormalizedIdentity(identity = {}) {
-  return {
-    unionId: normalizeValue(identity.unionId),
-    userId: normalizeValue(identity.userId || identity.staffId || identity.senderStaffId || identity.senderId),
-    mobile: normalizeValue(identity.mobile),
-    nick: normalizeValue(identity.nick || identity.name || identity.senderNick),
-    corpId: normalizeValue(identity.corpId || identity.senderCorpId)
-  };
+function normalizeIdentity(identity = {}) {
+  return { corpId: normalize(identity.corpId), userId: normalize(identity.userId), unionId: normalize(identity.unionId), nick: normalize(identity.nick) || '' };
 }
 
-async function ensureDefaultRole(userId, options = {}) {
-  const UserRoleModel = options.UserRoleModel || UserRole;
-  const exists = await UserRoleModel.findOne({ where: { user_id: userId } });
-  if (exists) return;
-  if (options.UserRoleModel) throw new Error('Custom UserRoleModel is not supported by RBAC v2');
-  await assignDefaultRole(userId);
+async function resolveOrCreateDingtalkUser(input, { transaction, expectedCorpId, UserModel = User } = {}) {
+  const identity = normalizeIdentity(input);
+  if (!identity.corpId || !identity.userId || !identity.unionId) throw new AuthError('DINGTALK_AUTH_FAILED', 400, '钉钉登录失败');
+  if (!expectedCorpId || identity.corpId !== expectedCorpId) throw new AuthError('DINGTALK_CORP_FORBIDDEN', 403, '钉钉登录失败');
+
+  const byCorpUser = await UserModel.findOne({ where: { dingtalk_corp_id: identity.corpId, dingtalk_userid: identity.userId }, transaction, lock: transaction?.LOCK.UPDATE });
+  const byUnion = await UserModel.findOne({ where: { dingtalk_unionid: identity.unionId }, transaction, lock: transaction?.LOCK.UPDATE });
+  if (byCorpUser && byUnion && byCorpUser.id !== byUnion.id) throw new AuthError('DINGTALK_AUTH_FAILED', 400, '钉钉登录失败');
+
+  let user = byCorpUser || byUnion;
+  let created = false;
+  if (!user) {
+    user = await UserModel.create({
+      username: `dd_${ulid()}`,
+      password_hash: null,
+      is_active: true,
+      local_login_enabled: false,
+      dingtalk_corp_id: identity.corpId,
+      dingtalk_userid: identity.userId,
+      dingtalk_unionid: identity.unionId,
+      dingtalk_nick: identity.nick || null,
+      dingtalk_bound_at: new Date()
+    }, { transaction });
+    await assignDefaultRole(user.id, { transaction });
+    created = true;
+  } else {
+    if (user.dingtalk_corp_id !== identity.corpId || user.dingtalk_userid !== identity.userId || user.dingtalk_unionid !== identity.unionId) throw new AuthError('DINGTALK_AUTH_FAILED', 400, '钉钉登录失败');
+    if (identity.nick && user.dingtalk_nick !== identity.nick) await user.update({ dingtalk_nick: identity.nick }, { transaction });
+  }
+  return { user, created, identity };
 }
 
-async function findExistingUser(identity, options = {}) {
-  const UserModel = options.UserModel || User;
-  if (identity.unionId) {
-    const byUnionId = await UserModel.findOne({ where: { dingtalk_unionid: identity.unionId } });
-    if (byUnionId) return byUnionId;
-  }
-  if (identity.userId) {
-    const byUserId = await UserModel.findOne({ where: { dingtalk_userid: identity.userId } });
-    if (byUserId) return byUserId;
-  }
-  if (identity.mobile) {
-    const byMobile = await UserModel.findOne({ where: { dingtalk_mobile: identity.mobile } });
-    if (byMobile) return byMobile;
-  }
-  return null;
-}
-
-function applyIdentityToUser(user, identity) {
-  if (identity.unionId && user.dingtalk_unionid !== identity.unionId) {
-    user.dingtalk_unionid = identity.unionId;
-  }
-  if (identity.userId && user.dingtalk_userid !== identity.userId) {
-    user.dingtalk_userid = identity.userId;
-  }
-  if (identity.mobile && user.dingtalk_mobile !== identity.mobile) {
-    user.dingtalk_mobile = identity.mobile;
-  }
-  if (identity.nick && user.dingtalk_nick !== identity.nick) {
-    user.dingtalk_nick = identity.nick;
-  }
-}
-
-async function createDingtalkUser(identity, options = {}) {
-  const UserModel = options.UserModel || User;
-  const seed = identity.userId || identity.unionId || identity.mobile || `guest_${Date.now()}`;
-  const username = `dd_${seed}`;
-  const passwordHash = await bcrypt.hash(`dd_${seed}_${Date.now()}`, 10);
-  return UserModel.create({
-    username,
-    password_hash: passwordHash,
-    email: null,
-    dingtalk_unionid: identity.unionId,
-    dingtalk_userid: identity.userId,
-    dingtalk_mobile: identity.mobile,
-    dingtalk_nick: identity.nick
+// Compatibility entry point for non-login DingTalk adapters. It intentionally
+// uses the same strict enterprise identity rules; payloads without a verified
+// unionId are not silently matched by mobile number or bare userId.
+async function resolveOrBindDingtalkUser(input, options = {}) {
+  return resolveOrCreateDingtalkUser(input, {
+    ...options,
+    expectedCorpId: options.expectedCorpId || getAuthConfiguration().dingtalkCorpId
   });
 }
 
-async function resolveOrBindDingtalkUser(identityInput = {}, options = {}) {
-  const allowCreate = options.allowCreate !== false;
-  const identity = buildNormalizedIdentity(identityInput);
-  if (!identity.unionId && !identity.userId && !identity.mobile) {
-    return null;
-  }
-
-  let user = await findExistingUser(identity, options);
-  let created = false;
-  if (!user && !allowCreate) {
-    return null;
-  }
-  if (!user) {
-    user = await createDingtalkUser(identity, options);
-    created = true;
-  } else {
-    applyIdentityToUser(user, identity);
-    await user.save();
-  }
-
-  await ensureDefaultRole(user.id, options);
-  return {
-    user,
-    created,
-    identity
-  };
-}
-
-module.exports = {
-  buildNormalizedIdentity,
-  ensureDefaultRole,
-  resolveOrBindDingtalkUser
-};
+module.exports = { normalizeIdentity, resolveOrCreateDingtalkUser, resolveOrBindDingtalkUser };

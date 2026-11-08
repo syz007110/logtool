@@ -114,6 +114,7 @@ function buildShortCircuitContext(reason, message, details = {}) {
 function pickBindingIdentity(payload) {
   return {
     userId: String(payload?.senderStaffId || payload?.senderId || '').trim() || null,
+    unionId: String(payload?.senderUnionId || payload?.unionId || '').trim() || null,
     nick: String(payload?.senderNick || '').trim() || null,
     corpId: String(payload?.senderCorpId || '').trim() || null
   };

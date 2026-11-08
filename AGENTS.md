@@ -10,3 +10,8 @@
 # 审计功能要求
 - 所有 审计通过 `AuditService` 写入，不得由业务模块直接操作 `audit_logs`；审计字段和脱敏规则遵循 `audit.md`。
 - `backend/src/audit/eventDefinitions.js` 是事件定义的唯一实现来源，负责维护事件的分类、摘要、目标类型与策略、允许的结果和原因码，以及 `details` 的 JSON Schema 白名单；
+
+# 前端 i18n 要求
+- 所有用户可见文案使用 `$t(...)` 或 `t(...)`，不得硬编码中文或英文。
+- 语言资源仅维护在 `frontend/src/i18n/locales/zh-CN.json` 和 `en-US.json`，两者键结构必须一致。
+- 新增键前先搜索既有同义键；通用文案复用 `shared.*`，领域文案放在对应命名空间（如 `auth.*`、`audit.*`、`roles.*`）。语义不同的文案不强行共用键。

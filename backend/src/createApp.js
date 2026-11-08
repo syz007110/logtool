@@ -184,6 +184,7 @@ function createApp({ testMode = process.env.NODE_ENV === 'test' } = {}) {
   configureCommonMiddleware(app);
 
   if (testMode) {
+    app.use('/api/auth', require('./routes/auth'));
     mountAuditRoutes(app);
     app.use('/api/roles', require('./routes/roles'));
     app.use('/api/permissions', require('./routes/permissions'));

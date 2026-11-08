@@ -20,7 +20,9 @@ async function main() {
     if (!user) {
       const password = process.argv.includes('--password-stdin') ? await readPassword() : '';
       if (!password) throw new Error('Creating a user requires --password-stdin.');
-      user = await User.create({ username, email, password_hash: await bcrypt.hash(password, 12), is_active: true, must_change_password: true }, { transaction });
+      user = await User.create({ username, email, password_hash: await bcrypt.hash(password, 12), is_active: true, local_login_enabled: true, must_change_password: true }, { transaction });
+    } else {
+      await user.update({ is_active: true, local_login_enabled: true }, { transaction });
     }
     await UserRole.findOrCreate({ where: { user_id: user.id, role_id: superRole.id }, defaults: { created_at: new Date() }, transaction });
     process.stdout.write(`Bootstrap super administrator is ${user.username} (id=${user.id}).\n`);

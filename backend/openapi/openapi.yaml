@@ -9,11 +9,31 @@ servers:
   - url: /api
     description: 当前部署环境的 API 基础路径
 tags:
+  - name: Authentication
+    description: 账户认证、会话与钉钉身份登录。
   - name: Audit
     description: 审计记录查询、导出与事件字典查询。
   - name: RBAC
     description: 角色、权限目录与用户授权。
 paths:
+  /auth/login-options:
+    $ref: ./paths/auth.yaml#/~1auth~1login-options
+  /auth/local-login:
+    $ref: ./paths/auth.yaml#/~1auth~1local-login
+  /auth/emergency-login:
+    $ref: ./paths/auth.yaml#/~1auth~1emergency-login
+  /auth/dingtalk-login:
+    $ref: ./paths/auth.yaml#/~1auth~1dingtalk-login
+  /auth/captcha:
+    $ref: ./paths/auth.yaml#/~1auth~1captcha
+  /auth/refresh:
+    $ref: ./paths/auth.yaml#/~1auth~1refresh
+  /auth/logout:
+    $ref: ./paths/auth.yaml#/~1auth~1logout
+  /auth/me:
+    $ref: ./paths/auth.yaml#/~1auth~1me
+  /auth/complete-initial-password:
+    $ref: ./paths/auth.yaml#/~1auth~1complete-initial-password
   /me/authorization:
     $ref: ./paths/rbac.yaml#/~1me~1authorization
   /roles:

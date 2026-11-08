@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
+import { pinia } from './pinia'
 import i18n, { loadLocaleMessages, getCurrentLocale } from './i18n'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -41,7 +42,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   }
 }
 
-// 按顺序使用插件
+// Pinia is installed before the legacy Vuex compatibility adapter.
+app.use(pinia)
 app.use(store)
 app.use(router)
 app.use(i18n)

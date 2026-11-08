@@ -192,12 +192,15 @@
   "active": "80498ff23872b298",
   "lastOpenFiles": [
     "Engineering/motion-data.md",
+    "Engineering/login.md",
+    "Engineering/operations-monitoring.md",
+    "Templates/feature-design.md",
+    "Engineering/role.md",
+    "Engineering/log-management.md",
+    "Engineering/未命名.md",
     "初版详细设计.md",
     "Engineering/api-conventions.md",
     "2026-11-04.md",
-    "Engineering/未命名.md",
-    "Engineering/audit.md",
-    "Engineering/role.md",
-    "Templates/feature-design.md"
+    "Engineering/audit.md"
   ]
 }
